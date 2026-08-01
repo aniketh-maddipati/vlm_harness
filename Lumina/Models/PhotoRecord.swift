@@ -358,6 +358,12 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
 
     var displayThumbPath: String? { gridThumbPath ?? thumbPath }
 
+    /// Larger tier for carousels and filmstrip (1600px class).
+    var previewPath: String? { thumbPath ?? gridThumbPath }
+
+    /// Best available path for sharp display at ~2048px.
+    var sharpPath: String? { proxyPath ?? thumbPath ?? gridThumbPath }
+
     var isUncertain: Bool {
         isFlagged || uncertaintyKind != .none
     }
@@ -410,7 +416,51 @@ struct LuminaProject: Codable {
 
 // MARK: - Import events
 
+enum ImportPhase: String, Sendable, CaseIterable {
+    case metadata
+    case taste
+    case previews
+    case quality
+    case grouping
+    case faces
+    case edits
+    case ready
+
+    var title: String {
+        switch self {
+        case .metadata: "Reading your roll"
+        case .taste: "Learning your look"
+        case .previews: "Waking up previews"
+        case .quality: "Scoring sharpness & light"
+        case .grouping: "Finding similar sets"
+        case .faces: "Checking faces"
+        case .edits: "Applying your taste"
+        case .ready: "Ready"
+        }
+    }
+}
+
+struct ImportProgress: Sendable, Equatable {
+    var phase: ImportPhase
+    var detail: String
+    var completed: Int
+    var total: Int
+    /// 0…1 across the whole import pipeline.
+    var overallFraction: Double
+    var recentThumbPaths: [String]
+
+    static let zero = ImportProgress(
+        phase: .metadata,
+        detail: "Starting…",
+        completed: 0,
+        total: 0,
+        overallFraction: 0,
+        recentThumbPaths: []
+    )
+}
+
 enum ImportEvent: Sendable {
+    case progress(ImportProgress)
     case status(String)
     case photosReady([PhotoRecord], profile: DevelopRecipe)
     case photosUpdated([PhotoRecord])

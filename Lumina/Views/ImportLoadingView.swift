@@ -1,0 +1,130 @@
+import AppKit
+import SwiftUI
+
+/// Full-screen import — photos float center stage; progress stays quiet at the edges.
+struct ImportLoadingView: View {
+    let progress: ImportProgress
+    let photos: [PhotoRecord]
+    var isFinishing: Bool
+
+    @State private var pulse = false
+    @State private var focusedPath: String?
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(nsColor: .windowBackgroundColor),
+                    Color(nsColor: .windowBackgroundColor).opacity(0.92),
+                    Color.accentColor.opacity(0.04)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                header
+                    .padding(.top, 28)
+                    .padding(.horizontal, 40)
+
+                Spacer(minLength: 16)
+
+                if slides.isEmpty {
+                    ProgressView()
+                        .controlSize(.large)
+                        .scaleEffect(pulse ? 1.06 : 0.94)
+                        .animation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true), value: pulse)
+                        .frame(maxHeight: 360)
+                } else {
+                    FloatingPhotoCarousel(
+                        items: slides,
+                        selection: $focusedPath,
+                        itemID: \.id,
+                        spacing: 32,
+                        peek: 5
+                    ) { slide, centered in
+                        FloatingPathCard(path: slide.path, centered: centered)
+                            .aspectRatio(4 / 3, contentMode: .fit)
+                            .frame(maxHeight: 380)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 400)
+                }
+
+                Spacer(minLength: 20)
+
+                footer
+                    .padding(.horizontal, 48)
+                    .padding(.bottom, 32)
+            }
+        }
+        .onAppear {
+            pulse = true
+            focusedPath = slides.last?.id
+        }
+        .onChange(of: slides.count) { _, _ in
+            focusedPath = slides.last?.id
+        }
+    }
+
+    private var header: some View {
+        VStack(spacing: 8) {
+            Text(progress.phase.title)
+                .font(.largeTitle.weight(.semibold))
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.45), value: progress.phase)
+
+            Text(progress.detail)
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .animation(.easeInOut(duration: 0.35), value: progress.detail)
+        }
+    }
+
+    private var footer: some View {
+        VStack(spacing: 10) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.secondary.opacity(0.12))
+                    Capsule()
+                        .fill(Color.accentColor.opacity(0.9))
+                        .frame(width: max(6, geo.size.width * progress.overallFraction))
+                }
+            }
+            .frame(height: 6)
+            .animation(.spring(duration: 0.85, bounce: 0.08), value: progress.overallFraction)
+
+            HStack {
+                Text(phaseSteps)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                Spacer()
+                if progress.total > 0 {
+                    Text("\(progress.completed)/\(progress.total)")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(isFinishing ? "Opening your sets…" : "Scroll sideways · previews arrive as we go")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: 520)
+    }
+
+    private var slides: [FloatingPathSlide] {
+        let fromPhotos = photos.compactMap(\.displayThumbPath)
+        let paths = fromPhotos.isEmpty ? progress.recentThumbPaths : fromPhotos
+        return paths.map { FloatingPathSlide(path: $0) }
+    }
+
+    private var phaseSteps: String {
+        let all = ImportPhase.allCases.filter { $0 != .ready }
+        guard let idx = all.firstIndex(of: progress.phase) else { return "" }
+        return "Step \(idx + 1) of \(all.count)"
+    }
+}

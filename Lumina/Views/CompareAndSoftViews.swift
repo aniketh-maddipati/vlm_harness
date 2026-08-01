@@ -181,6 +181,8 @@ struct SoftPreviewView: View {
         if let image {
             Image(nsImage: image)
                 .resizable()
+                .interpolation(.high)
+                .antialiased(true)
                 .aspectRatio(contentMode: .fit)
         } else {
             ProgressView()
@@ -193,6 +195,11 @@ struct SoftPreviewView: View {
         let recipe = photo.effectiveRecipe
         let offsets = offsets
 
+        if let fast = photo.previewPath,
+           let preview = await PhotoImageCache.shared.load(path: fast) {
+            beforeImage = preview
+        }
+
         let loaded = await Task.detached(priority: .userInitiated) { () -> (NSImage?, NSImage?) in
             guard let proxy = DevelopEngine.ensureProxy(for: photo, projectName: name) else {
                 return (nil, nil)
@@ -202,7 +209,9 @@ struct SoftPreviewView: View {
             return (before, after)
         }.value
 
-        beforeImage = loaded.0
-        afterImage = loaded.1
+        withAnimation(.easeOut(duration: 0.2)) {
+            beforeImage = loaded.0 ?? beforeImage
+            afterImage = loaded.1
+        }
     }
 }

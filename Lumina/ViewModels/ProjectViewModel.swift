@@ -11,6 +11,10 @@ final class ProjectViewModel {
     var filter: GridFilter = .all
     var statusMessage = "Import photos to begin."
     var isBusy = false
+    var isImporting = false
+    var importFinishing = false
+    var importProgress = ImportProgress.zero
+    var importPreviewPhotos: [PhotoRecord] = []
     var showBefore = false
     var compareMix: Double = 1
     var globalAdjustments = DevelopAdjustments.zero
@@ -91,7 +95,13 @@ final class ProjectViewModel {
 
     func importPhotos(sourceFolder: URL, photoURLs: [URL]?, jpgURL: URL?) async {
         isBusy = true
-        defer { isBusy = false }
+        isImporting = true
+        importFinishing = false
+        importProgress = ImportProgress.zero
+        importPreviewPhotos = []
+        defer {
+            isBusy = false
+        }
 
         let stream = ImportPipeline.importProject(
             sourceFolder: sourceFolder,
@@ -102,6 +112,11 @@ final class ProjectViewModel {
 
         for await event in stream {
             switch event {
+            case .progress(let progress):
+                withAnimation(.easeInOut(duration: 0.55)) {
+                    importProgress = progress
+                }
+                statusMessage = progress.detail
             case .status(let msg):
                 statusMessage = msg
             case .photosReady(let photos, let profile):
@@ -112,32 +127,57 @@ final class ProjectViewModel {
                     profile: profile,
                     photos: photos
                 )
-                project = p
+                withAnimation(.easeInOut(duration: 0.4)) {
+                    project = p
+                    importPreviewPhotos = photos
+                }
                 selectedPhotoID = photos.first?.id
-                viewMode = .overview
-                sortMode = .all
-                statusMessage = "Previews ready · grouping in background…"
             case .photosUpdated(let photos):
-                project?.photos = photos
-            case .finished(let finished):
-                project = finished
-                globalAdjustments = .zero
                 withAnimation(.easeInOut(duration: 0.35)) {
+                    project?.photos = photos
+                    importPreviewPhotos = photos
+                }
+            case .finished(let finished):
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    importFinishing = true
+                    importProgress = ImportProgress(
+                        phase: .ready,
+                        detail: "Opening your sets…",
+                        completed: finished.photos.count,
+                        total: finished.photos.count,
+                        overallFraction: 1,
+                        recentThumbPaths: importProgress.recentThumbPaths
+                    )
+                }
+                try? await Task.sleep(nanoseconds: 650_000_000)
+                project = finished
+                importPreviewPhotos = finished.photos
+                globalAdjustments = .zero
+                withAnimation(.easeInOut(duration: 0.65)) {
                     sortMode = .similar
                     viewMode = .session
                     activeClusterIndex = 0
                     groupPhase = .intro
                     manualPickIDs = []
                 }
-                if let hero = reviewClusters.first?.heroID {
+                if let hero = CullEngine.clusters(from: finished.photos).first?.heroID {
                     selectedPhotoID = hero
                 } else {
                     selectedPhotoID = finished.photos.first?.id
                 }
                 let sets = reviewClusters.count
-                statusMessage = "Meet your sets · \(sets) groups · swipe through with direction"
+                statusMessage = "Meet your sets · \(sets) groups"
+                try? await Task.sleep(nanoseconds: 350_000_000)
+                withAnimation(.easeInOut(duration: 0.55)) {
+                    isImporting = false
+                    importFinishing = false
+                }
             case .failed(let msg):
                 statusMessage = msg
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    isImporting = false
+                    importFinishing = false
+                }
             }
         }
     }
@@ -192,6 +232,27 @@ final class ProjectViewModel {
             playSoftRender(for: id)
         } else {
             softRender.mix = 1
+        }
+        if let photo = project?.photos.first(where: { $0.id == id }) {
+            prefetchPhotoDisplay(photo)
+        }
+    }
+
+    func prefetchPhotoDisplay(_ photo: PhotoRecord) {
+        var paths = [photo.previewPath, photo.sharpPath].compactMap { $0 }
+        if let cluster = currentCluster, let photos = project?.photos {
+            let map = Dictionary(uniqueKeysWithValues: photos.map { ($0.id, $0) })
+            let neighbors = cluster.photoIDs.compactMap { map[$0] }
+            if let idx = neighbors.firstIndex(where: { $0.id == photo.id }) {
+                let lo = max(0, idx - 2)
+                let hi = min(neighbors.count - 1, idx + 2)
+                for n in neighbors[lo...hi] {
+                    paths.append(contentsOf: [n.previewPath, n.sharpPath].compactMap { $0 })
+                }
+            }
+        }
+        Task {
+            await PhotoImageCache.shared.prefetch(Array(Set(paths)))
         }
     }
 
@@ -265,6 +326,14 @@ final class ProjectViewModel {
         guard let current = selectedPhotoID,
               let index = list.firstIndex(where: { $0.id == current }) else { return }
         selectPhoto(list[max(index - 1, 0)].id)
+    }
+
+    func nextUncertainInCluster() {
+        guard let cluster = currentCluster else { return }
+        let list = uncertainInCluster(cluster)
+        guard let current = selectedPhotoID,
+              let index = list.firstIndex(where: { $0.id == current }) else { return }
+        selectPhoto(list[min(index + 1, list.count - 1)].id)
     }
 
     func advanceCluster() {

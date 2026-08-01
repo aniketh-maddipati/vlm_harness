@@ -4,8 +4,11 @@ import CoreGraphics
 
 /// Progressive import — emits photos after thumbs, then refines scores live.
 enum ImportPipeline {
-    private static let previewConcurrency = 8
-    private static let scoreConcurrency = 8
+    private static let previewConcurrency = 6
+    private static let scoreConcurrency = 6
+
+    /// Gentle pause so phase labels are readable (does not block heavy work).
+    private static let phasePauseNs: UInt64 = 380_000_000
 
     static func importProject(
         sourceFolder: URL,
@@ -32,7 +35,6 @@ enum ImportPipeline {
         }
     }
 
-    /// Back-compat alias.
     static func importProject(
         rawFolder: URL,
         jpgFolder: URL?,
@@ -63,7 +65,30 @@ enum ImportPipeline {
 
         guard !mediaFiles.isEmpty else { throw ImportError.noPhotos }
 
-        continuation.yield(.status("Reading metadata…"))
+        let totalPhotos = mediaFiles.count
+        var recentThumbs: [String] = []
+
+        func emit(
+            _ phase: ImportPhase,
+            detail: String,
+            completed: Int,
+            total: Int,
+            fraction: Double
+        ) {
+            let progress = ImportProgress(
+                phase: phase,
+                detail: detail,
+                completed: completed,
+                total: total,
+                overallFraction: min(max(fraction, 0), 1),
+                recentThumbPaths: recentThumbs
+            )
+            continuation.yield(.progress(progress))
+            continuation.yield(.status(detail))
+        }
+
+        emit(.metadata, detail: "Reading capture dates…", completed: 0, total: totalPhotos, fraction: 0.02)
+
         async let datesTask = Task.detached(priority: .userInitiated) {
             ExifToolService.batchCaptureDates(
                 in: sourceFolder,
@@ -75,59 +100,71 @@ enum ImportPipeline {
         var profile = DevelopRecipe.neutral
         var tasteEntries: [TasteEntry] = []
         if let jpgFolder {
-            continuation.yield(.status("Building taste index from Lightroom XMP…"))
+            emit(.taste, detail: "Scanning Lightroom edits…", completed: 0, total: totalPhotos, fraction: 0.06)
             let built = await Task.detached(priority: .userInitiated) {
                 XMPDevelopParser.buildTasteLibrary(from: jpgFolder)
             }.value
             profile = built.mean
             tasteEntries = built.entries
             try? TasteIndex.save(entries: tasteEntries, project: projectName)
+            emit(.taste, detail: "Learned from \(tasteEntries.count) edits", completed: tasteEntries.count, total: tasteEntries.count, fraction: 0.10)
+            try? await Task.sleep(nanoseconds: phasePauseNs)
         }
 
         let dates = await datesTask
 
-        // Phase 1 — extract previews + grid thumbs; show UI ASAP
-        continuation.yield(.status("Extracting previews 0/\(mediaFiles.count)…"))
+        emit(.previews, detail: "Extracting previews…", completed: 0, total: totalPhotos, fraction: 0.12)
+
         var records = try await extractAllTiers(
             rawFiles: mediaFiles,
             dates: dates,
             thumbDir: thumbDir,
             gridDir: gridDir,
             proxyDir: proxyDir
-        ) { done, total in
-            continuation.yield(.status("Extracting previews \(done)/\(total)…"))
+        ) { done, total, thumbPath, partial in
+            if let thumbPath { recentThumbs.append(thumbPath) }
+            if recentThumbs.count > 32 { recentThumbs.removeFirst(recentThumbs.count - 32) }
+            let frac = 0.12 + 0.33 * (Double(done) / Double(max(total, 1)))
+            emit(.previews, detail: "Preview \(done) of \(total)", completed: done, total: total, fraction: frac)
+            if done % 3 == 0 || done == total {
+                continuation.yield(.photosUpdated(partial))
+            }
         }
 
         CullEngine.assignBursts(&records)
         continuation.yield(.photosReady(records, profile: profile))
+        try? await Task.sleep(nanoseconds: phasePauseNs)
 
-        // Phase 2 — sharpness + exposure (faces deferred)
-        continuation.yield(.status("Scoring quality 0/\(mediaFiles.count)…"))
+        emit(.quality, detail: "Scoring sharpness…", completed: 0, total: totalPhotos, fraction: 0.48)
         records = await scoreQuality(records) { done, total in
-            continuation.yield(.status("Scoring quality \(done)/\(total)…"))
+            let frac = 0.48 + 0.14 * (Double(done) / Double(max(total, 1)))
+            emit(.quality, detail: "Quality \(done)/\(total)", completed: done, total: total, fraction: frac)
         }
         CullEngine.scoreAndTier(&records, keepRate: keepRate)
         continuation.yield(.photosUpdated(records))
+        try? await Task.sleep(nanoseconds: phasePauseNs)
 
-        // Phase 3 — embeddings + clusters
-        continuation.yield(.status("Grouping with on-device Vision…"))
+        emit(.grouping, detail: "Grouping similar shots…", completed: 0, total: totalPhotos, fraction: 0.64)
         records = await EmbeddingService.embedAndCluster(records)
         CullEngine.scoreAndTier(&records, keepRate: keepRate)
+        let setCount = Set(records.compactMap(\.clusterID)).count
+        emit(.grouping, detail: "Found \(setCount) sets", completed: setCount, total: setCount, fraction: 0.76)
         continuation.yield(.photosUpdated(records))
+        try? await Task.sleep(nanoseconds: phasePauseNs)
 
-        // Phase 4 — deferred faces on survivors only
         let faceCandidates = records.indices.filter {
             records[$0].sharpness >= 0.15 && records[$0].tier != .reject
         }
-        continuation.yield(.status("Detecting faces 0/\(faceCandidates.count)…"))
+        emit(.faces, detail: "Checking faces…", completed: 0, total: faceCandidates.count, fraction: 0.78)
         await detectFaces(records: &records, candidates: faceCandidates) { done, total in
-            continuation.yield(.status("Detecting faces \(done)/\(total)…"))
+            let frac = 0.78 + 0.10 * (Double(done) / Double(max(total, 1)))
+            emit(.faces, detail: "Faces \(done)/\(total)", completed: done, total: total, fraction: frac)
         }
         CullEngine.scoreAndTier(&records, keepRate: keepRate)
         continuation.yield(.photosUpdated(records))
+        try? await Task.sleep(nanoseconds: phasePauseNs)
 
-        // Phase 5 — per-photo taste recipes
-        continuation.yield(.status("Applying per-photo taste edits…"))
+        emit(.edits, detail: "Matching your edit style…", completed: 0, total: totalPhotos, fraction: 0.90)
         let entries = tasteEntries.isEmpty
             ? (try? TasteIndex.load(project: projectName)) ?? []
             : tasteEntries
@@ -146,7 +183,9 @@ enum ImportPipeline {
         project.collections = ExportService.draftCollections(from: records)
         try ProjectStore.save(project)
 
-        continuation.yield(.status("Ready · \(records.filter(\.isUncertain).count) need you"))
+        let uncertain = records.filter(\.isUncertain).count
+        emit(.ready, detail: "\(records.count) photos · \(uncertain) may need you", completed: records.count, total: records.count, fraction: 1.0)
+        try? await Task.sleep(nanoseconds: 450_000_000)
         continuation.yield(.finished(project))
         continuation.finish()
     }
@@ -159,7 +198,7 @@ enum ImportPipeline {
         thumbDir: URL,
         gridDir: URL,
         proxyDir: URL,
-        progress: @Sendable (Int, Int) async -> Void
+        progress: @Sendable (Int, Int, String?, [PhotoRecord]) async -> Void
     ) async throws -> [PhotoRecord] {
         var records: [PhotoRecord?] = Array(repeating: nil, count: rawFiles.count)
         var done = 0
@@ -179,13 +218,19 @@ enum ImportPipeline {
                             try PreviewExtractor.extract(to: thumbURL, from: rawURL, maxPixelSize: 1600)
                         }
                         if !FileManager.default.fileExists(atPath: gridURL.path) {
-                            if !PreviewExtractor.downscaleJPEG(from: thumbURL, to: gridURL, maxPixelSize: 512) {
-                                try PreviewExtractor.extract(to: gridURL, from: rawURL, maxPixelSize: 512)
+                            if !PreviewExtractor.downscaleJPEG(from: thumbURL, to: gridURL, maxPixelSize: 1024) {
+                                try PreviewExtractor.extract(to: gridURL, from: rawURL, maxPixelSize: 1024)
                             }
                         }
-                        // Proxy generated lazily on first develop; create light stub path pointer
-                        let proxyPath: String? = FileManager.default.fileExists(atPath: proxyURL.path)
-                            ? proxyURL.path : nil
+                        var proxyPath: String?
+                        if !FileManager.default.fileExists(atPath: proxyURL.path) {
+                            if PreviewExtractor.downscaleJPEG(from: thumbURL, to: proxyURL, maxPixelSize: 2048)
+                                || ((try? PreviewExtractor.extract(to: proxyURL, from: rawURL, maxPixelSize: 2048)) != nil) {
+                                proxyPath = proxyURL.path
+                            }
+                        } else {
+                            proxyPath = proxyURL.path
+                        }
 
                         let filename = rawURL.lastPathComponent
                         let capturedAt = dates[rawURL.path] ?? dates[filename]
@@ -203,9 +248,14 @@ enum ImportPipeline {
                 for try await (index, record) in group {
                     records[index] = record
                     done += 1
+                    let partial = records.compactMap { $0 }
+                    await progress(done, total, record.thumbPath ?? record.gridThumbPath, partial)
+                    // Tiny breath between UI updates so strip animates smoothly
+                    if done % 2 == 0 {
+                        try? await Task.sleep(nanoseconds: 40_000_000)
+                    }
                 }
             }
-            await progress(done, total)
         }
         return records.compactMap { $0 }
     }
@@ -238,6 +288,7 @@ enum ImportPipeline {
                 }
             }
             await progress(done, total)
+            try? await Task.sleep(nanoseconds: 30_000_000)
         }
         return records
     }
@@ -271,6 +322,7 @@ enum ImportPipeline {
                 }
             }
             await progress(done, total)
+            try? await Task.sleep(nanoseconds: 30_000_000)
         }
     }
 }

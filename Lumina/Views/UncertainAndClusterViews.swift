@@ -14,6 +14,7 @@ struct ClusterCullView: View {
                 SessionDoneView(model: model)
             } else if clusters.isEmpty {
                 ContentUnavailableView("No sets yet", systemImage: "rectangle.stack")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 let idx = min(model.activeClusterIndex, clusters.count - 1)
                 let cluster = clusters[idx]
@@ -48,41 +49,44 @@ struct ClusterCullView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func sessionChrome(clusterCount: Int) -> some View {
         VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                phasePill("Meet", active: model.groupPhase == .intro)
-                chevron
-                phasePill("Pick", active: model.groupPhase == .pick)
-                chevron
-                phasePill("Decide", active: model.groupPhase == .decide)
-                chevron
-                phasePill("Done", active: model.groupPhase == .done)
-                Spacer()
-                if model.groupPhase != .done, clusterCount > 0 {
-                    Text("Set \(min(model.activeClusterIndex + 1, clusterCount)) / \(clusterCount)")
-                        .font(.title3.monospacedDigit().weight(.semibold))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    phasePill("Meet", active: model.groupPhase == .intro)
+                    chevron
+                    phasePill("Pick", active: model.groupPhase == .pick)
+                    chevron
+                    phasePill("Decide", active: model.groupPhase == .decide)
+                    chevron
+                    phasePill("Done", active: model.groupPhase == .done)
+                    if model.groupPhase != .done, clusterCount > 0 {
+                        Text("Set \(min(model.activeClusterIndex + 1, clusterCount)) / \(clusterCount)")
+                            .font(.headline.monospacedDigit())
+                            .padding(.leading, 8)
+                    }
                 }
+                .padding(.vertical, 2)
             }
 
-            // Progress through sets
             if clusterCount > 0, model.groupPhase != .done {
                 GeometryReader { geo in
-                    let t = CGFloat(model.activeClusterIndex) / CGFloat(max(clusterCount, 1))
+                    let progress = CGFloat(model.activeClusterIndex + 1) / CGFloat(max(clusterCount, 1))
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.secondary.opacity(0.15))
                         Capsule()
                             .fill(Color.accentColor.opacity(0.85))
-                            .frame(width: max(8, geo.size.width * t))
+                            .frame(width: max(8, geo.size.width * progress))
                     }
                 }
                 .frame(height: 4)
             }
         }
         .padding(.horizontal, 20)
-        .padding(.top, 14)
+        .padding(.top, 12)
         .padding(.bottom, 8)
     }
 
@@ -95,8 +99,8 @@ struct ClusterCullView: View {
     private func phasePill(_ title: String, active: Bool) -> some View {
         Text(title)
             .font(.subheadline.weight(active ? .bold : .regular))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
             .background(active ? Color.accentColor.opacity(0.22) : Color.secondary.opacity(0.08), in: Capsule())
     }
 
@@ -115,57 +119,65 @@ private struct GroupIntroPhase: View {
     let onContinue: () -> Void
 
     @State private var appear = false
+    @State private var focusedID: UUID?
 
     var body: some View {
         VStack(spacing: 20) {
-            Spacer(minLength: 8)
+            VStack(spacing: 8) {
+                Text(cluster.label)
+                    .font(.largeTitle.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .opacity(appear ? 1 : 0)
 
-            Text(cluster.label)
-                .font(.largeTitle.weight(.semibold))
-                .opacity(appear ? 1 : 0)
-
-            Text(cluster.whyGrouped)
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 48)
-                .opacity(appear ? 1 : 0)
-
-            // Large hero + fan of peers
-            ZStack {
-                ForEach(Array(members.prefix(6).enumerated()), id: \.element.id) { index, photo in
-                    LargeThumb(path: photo.displayThumbPath, size: CGSize(width: 280, height: 210))
-                        .rotationEffect(.degrees(Double(index) * 3.5 - 8))
-                        .offset(
-                            x: appear ? CGFloat(index - 2) * 42 : 0,
-                            y: appear ? CGFloat(abs(index - 2)) * 8 : 28
-                        )
-                        .opacity(appear ? 1 : 0)
-                        .zIndex(Double(6 - index))
-                        .shadow(color: .black.opacity(0.18), radius: 12, y: 6)
-                }
+                Text(cluster.whyGrouped)
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                    .opacity(appear ? 1 : 0)
             }
-            .frame(height: 260)
-            .padding(.vertical, 12)
+            .padding(.top, 8)
 
-            Text("\(members.count) photos in this set · pick the ones you want next")
+            FloatingPhotoCarousel(
+                items: members,
+                selection: $focusedID,
+                itemID: \.id,
+                spacing: 30,
+                peek: 5,
+                onSelectionChange: { photo in
+                    Task {
+                        await PhotoImageCache.shared.prefetch([
+                            photo.previewPath,
+                            photo.sharpPath
+                        ].compactMap { $0 })
+                    }
+                }
+            ) { photo, centered in
+                FloatingPhotoCard(photo: photo, centered: centered)
+                    .aspectRatio(4 / 3, contentMode: .fit)
+                    .frame(maxHeight: 340)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 360)
+            .opacity(appear ? 1 : 0)
+            .offset(y: appear ? 0 : 24)
+
+            Text("\(members.count) photos · scroll sideways, then review")
                 .font(.body)
                 .foregroundStyle(.tertiary)
 
             Button(action: onContinue) {
                 Text("Review this set")
-                    .font(.title3.weight(.semibold))
-                    .frame(minWidth: 220)
+                    .frame(minWidth: 200)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(LuminaPrimaryButtonStyle())
             .keyboardShortcut(.defaultAction)
-
-            Spacer()
+            .padding(.bottom, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
-            withAnimation(.spring(duration: 0.55, bounce: 0.16)) { appear = true }
+            focusedID = members.first?.id
+            withAnimation(.spring(duration: 0.65, bounce: 0.14)) { appear = true }
         }
     }
 }
@@ -181,82 +193,88 @@ private struct GroupPickPhase: View {
     let onSkip: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Pick your set")
                     .font(.title2.weight(.semibold))
                 Text(cluster.whyGrouped)
                     .font(.body)
                     .foregroundStyle(.secondary)
-                Text("Tap to keep. Large cards so you can actually see faces and sharpness.")
+                Text("Tap to keep")
                     .font(.subheadline)
                     .foregroundStyle(.tertiary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
+            .padding(.top, 4)
+            .padding(.bottom, 10)
 
             ScrollView {
                 LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 14)],
-                    spacing: 14
+                    columns: [GridItem(.adaptive(minimum: 200, maximum: 280), spacing: 12)],
+                    spacing: 12
                 ) {
                     ForEach(members) { photo in
-                        Button {
-                            onToggle(photo.id)
-                        } label: {
-                            VStack(spacing: 8) {
-                                ZStack(alignment: .topTrailing) {
-                                    LargeThumb(
-                                        path: photo.displayThumbPath,
-                                        size: CGSize(width: 300, height: 225)
-                                    )
-                                    .frame(maxWidth: .infinity)
-                                    .aspectRatio(4 / 3, contentMode: .fit)
-
-                                    Image(systemName: selected.contains(photo.id) ? "checkmark.circle.fill" : "circle")
-                                        .font(.title2)
-                                        .symbolRenderingMode(.palette)
-                                        .foregroundStyle(.white, selected.contains(photo.id) ? Color.accentColor : .white.opacity(0.5))
-                                        .padding(10)
-                                }
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(selected.contains(photo.id) ? Color.accentColor : .clear, lineWidth: 3)
-                                )
-
-                                HStack {
-                                    Text(photo.filename)
-                                        .font(.caption)
-                                        .lineLimit(1)
-                                    Spacer()
-                                    Text(String(format: "%.2f", photo.cullScore))
-                                        .font(.caption.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
+                        PickCard(
+                            photo: photo,
+                            selected: selected.contains(photo.id),
+                            onToggle: { onToggle(photo.id) }
+                        )
                     }
                 }
                 .padding(.horizontal, 20)
+                .padding(.bottom, 12)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            HStack {
+            LuminaFooterBar {
                 Button("Use model picks") { onSkip() }
-                    .controlSize(.large)
+                    .buttonStyle(LuminaPressStyle())
                 Spacer()
                 Text("\(selected.count) selected")
-                    .font(.title3.monospacedDigit())
+                    .font(.headline.monospacedDigit())
                     .foregroundStyle(.secondary)
                 Button("Keep these →") { onConfirm() }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .buttonStyle(LuminaPrimaryButtonStyle())
                     .disabled(selected.isEmpty)
                     .keyboardShortcut(.defaultAction)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 12)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct PickCard: View {
+    let photo: PhotoRecord
+    let selected: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        Button(action: onToggle) {
+            VStack(alignment: .leading, spacing: 6) {
+                ZStack(alignment: .topTrailing) {
+                    PhotoImageView(photo: photo, tier: .preview, contentMode: .fit)
+                        .aspectRatio(4 / 3, contentMode: .fit)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                    Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                        .font(.title2)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, selected ? Color.accentColor : .white.opacity(0.45))
+                        .padding(8)
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(selected ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: selected ? 3 : 1)
+                )
+
+                Text(photo.filename)
+                    .font(.caption)
+                    .lineLimit(1)
+            }
+        }
+        .buttonStyle(LuminaPressStyle(pressedScale: 0.97))
     }
 }
 
@@ -269,97 +287,94 @@ private struct GroupDecidePhase: View {
 
     var body: some View {
         let leftovers = model.uncertainInCluster(cluster)
-        VStack(spacing: 12) {
+
+        VStack(spacing: 0) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(leftovers.isEmpty ? "Set clear" : "Close calls")
                         .font(.title2.weight(.semibold))
-                    Text(cluster.whyGrouped)
-                        .font(.body)
+                    Text(leftovers.isEmpty ? cluster.whyGrouped : "← → to browse · P keep · X reject")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
                 Spacer()
                 if leftovers.isEmpty {
                     Button("Next set →") { model.advanceCluster() }
                         .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
                 } else {
                     Text("\(leftovers.count) left")
-                        .font(.title3)
+                        .font(.headline)
                         .foregroundStyle(.orange)
                 }
             }
             .padding(.horizontal, 20)
+            .padding(.vertical, 10)
 
             if leftovers.isEmpty {
+                Spacer()
                 ContentUnavailableView(
-                    "Nice — nothing uncertain here",
+                    "Nothing uncertain here",
                     systemImage: "checkmark.circle",
                     description: Text("Continue to the next set.")
                 )
-            } else if let photo = model.selectedPhoto,
-                      let project = model.project {
-                SoftPreviewView(
-                    photo: photo,
-                    projectName: project.name,
-                    baseline: project.profile,
-                    offsets: model.globalAdjustments,
-                    mix: model.showBefore ? 0 : model.softRender.mix,
-                    showBefore: model.showBefore
-                )
-                .frame(maxHeight: 480)
-                .padding(.horizontal, 20)
-
-                Text(photo.whySummary)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 20)
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(leftovers) { p in
-                            Button { model.selectPhoto(p.id) } label: {
-                                LargeThumb(
-                                    path: p.displayThumbPath,
-                                    size: CGSize(width: 160, height: 120),
-                                    selected: model.selectedPhotoID == p.id
+                Spacer()
+            } else if let project = model.project {
+                VStack(spacing: 14) {
+                    FloatingPhotoCarousel(
+                        items: leftovers,
+                        selection: $model.selectedPhotoID,
+                        itemID: \.id,
+                        spacing: 28,
+                        peek: 5,
+                        onSelectionChange: { photo in
+                            model.prefetchPhotoDisplay(photo)
+                        }
+                    ) { photo, centered in
+                        Group {
+                            if centered, model.selectedPhotoID == photo.id {
+                                SoftPreviewView(
+                                    photo: photo,
+                                    projectName: project.name,
+                                    baseline: project.profile,
+                                    offsets: model.globalAdjustments,
+                                    mix: model.showBefore ? 0 : model.softRender.mix,
+                                    showBefore: model.showBefore
+                                )
+                            } else {
+                                FloatingPhotoCard(
+                                    photo: photo,
+                                    projectName: project.name,
+                                    centered: centered
                                 )
                             }
-                            .buttonStyle(.plain)
                         }
+                        .aspectRatio(4 / 3, contentMode: .fit)
+                        .frame(maxHeight: 420)
                     }
-                    .padding(.horizontal, 20)
-                }
+                    .frame(maxWidth: .infinity)
+                    .frame(maxHeight: .infinity)
 
-                HStack(spacing: 20) {
-                    Button("Reject (X)") { model.markReject() }
-                        .controlSize(.large)
-                    Button("Hero") { model.markHero() }
-                        .controlSize(.large)
-                    Button("Keep (P)") { model.markKeep() }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
+                    if let photo = model.selectedPhoto {
+                        Text(photo.whySummary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .padding(.horizontal, 24)
+                    }
+
+                    LuminaDecisionBar(
+                        onReject: { model.markReject() },
+                        onHero: { model.markHero() },
+                        onKeep: { model.markKeep() }
+                    )
+                    .padding(.bottom, 12)
                 }
-                .padding(.bottom, 10)
             }
 
-            // Full set context strip
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(members) { photo in
-                        LargeThumb(
-                            path: photo.displayThumbPath,
-                            size: CGSize(width: 96, height: 72),
-                            selected: model.selectedPhotoID == photo.id
-                        )
-                        .opacity(photo.tier == .reject ? 0.35 : 1)
-                    }
-                }
-                .padding(.horizontal, 20)
-            }
-            .padding(.bottom, 8)
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             if let first = leftovers.first {
                 model.selectPhoto(first.id)
@@ -377,38 +392,37 @@ private struct SessionDoneView: View {
         let keeps = model.project?.photos.filter { $0.tier == .keep }
             .sorted { $0.cullScore > $1.cullScore } ?? []
 
-        VStack(spacing: 20) {
-            Spacer(minLength: 20)
+        VStack(spacing: 16) {
+            Spacer(minLength: 12)
             Text("Session clear")
                 .font(.largeTitle.weight(.semibold))
             Text("\(keeps.count) keeps · ready to export")
-                .font(.title2)
+                .font(.title3)
                 .foregroundStyle(.secondary)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
-                    ForEach(keeps.prefix(16)) { photo in
-                        LargeThumb(
-                            path: photo.displayThumbPath,
-                            size: CGSize(width: 200, height: 150)
-                        )
-                    }
+            if !keeps.isEmpty {
+                FloatingPhotoCarousel(
+                    items: Array(keeps.prefix(16)),
+                    selection: .constant(keeps.first?.id),
+                    itemID: \.id,
+                    spacing: 24,
+                    peek: 5
+                ) { photo, centered in
+                    FloatingPhotoCard(photo: photo, centered: centered)
+                        .aspectRatio(4 / 3, contentMode: .fit)
+                        .frame(maxHeight: 160)
                 }
-                .padding(.horizontal, 24)
+                .frame(height: 180)
+                .padding(.horizontal, 8)
             }
-            .frame(height: 170)
 
-            Button("Export collections") {
-                model.exportCarousel()
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .keyboardShortcut(.defaultAction)
+            Button("Export collections") { model.exportCarousel() }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
 
-            Button("Browse all keeps") {
-                model.viewMode = .overview
-            }
-            .controlSize(.large)
+            Button("Browse all keeps") { model.viewMode = .overview }
+                .controlSize(.large)
 
             Spacer()
         }
@@ -416,45 +430,52 @@ private struct SessionDoneView: View {
     }
 }
 
-// MARK: - Legacy uncertain (used only if overview needs it)
-
 struct UncertainQueueView: View {
     @Bindable var model: ProjectViewModel
 
     var body: some View {
         ClusterCullView(model: model)
-            .onAppear {
-                model.viewMode = .session
-                model.groupPhase = .decide
-            }
     }
 }
 
 // MARK: - Thumbs
 
 struct LargeThumb: View {
+    let photo: PhotoRecord?
     let path: String?
-    var size: CGSize = CGSize(width: 200, height: 150)
+    var width: CGFloat?
+    var height: CGFloat?
     var selected: Bool = false
+    var tier: PhotoImageTier = .preview
+
+    init(path: String?, width: CGFloat? = nil, height: CGFloat? = nil, selected: Bool = false) {
+        self.photo = nil
+        self.path = path
+        self.width = width
+        self.height = height
+        self.selected = selected
+    }
+
+    init(photo: PhotoRecord, tier: PhotoImageTier = .preview, width: CGFloat? = nil, height: CGFloat? = nil, selected: Bool = false) {
+        self.photo = photo
+        self.path = nil
+        self.tier = tier
+        self.width = width
+        self.height = height
+        self.selected = selected
+    }
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(.quaternary)
-            if let path, let img = NSImage(contentsOf: URL(fileURLWithPath: path)) {
-                Image(nsImage: img)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            }
-        }
-        .frame(width: size.width, height: size.height)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(selected ? Color.accentColor : .clear, lineWidth: 3)
-        )
+        PhotoImageView(photo: photo, path: path, tier: tier, contentMode: .fit)
+            .frame(width: width, height: height)
+            .frame(maxWidth: width == nil ? .infinity : nil)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(selected ? Color.accentColor : .clear, lineWidth: 3)
+            )
     }
 }
 
-/// Back-compat alias
 typealias RelatedThumb = LargeThumb

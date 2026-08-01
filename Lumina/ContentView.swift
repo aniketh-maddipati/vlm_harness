@@ -3,14 +3,15 @@ import AppKit
 
 struct ContentView: View {
     @State private var model = ProjectViewModel()
-    @FocusState private var focused: Bool
     @State private var keyMonitor: Any?
 
     var body: some View {
         NavigationSplitView {
             sidebar
+                .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
         } detail: {
             main
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear {
             guard keyMonitor == nil else { return }
@@ -40,8 +41,7 @@ struct ContentView: View {
             Button("Import Photos…") {
                 model.pickImportSources()
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(LuminaPrimaryButtonStyle())
             .disabled(model.isBusy)
 
             if let project = model.project {
@@ -82,6 +82,7 @@ struct ContentView: View {
             Button("Export Collections") {
                 model.exportCarousel()
             }
+            .buttonStyle(LuminaPressStyle())
             .controlSize(.large)
             .disabled(model.project == nil || model.isBusy)
             .keyboardShortcut(.return, modifiers: .command)
@@ -115,22 +116,33 @@ struct ContentView: View {
     }
 
     private var main: some View {
-        VStack(spacing: 0) {
-            Group {
-                switch model.viewMode {
-                case .session:
-                    ClusterCullView(model: model)
-                case .overview:
-                    overview
+        ZStack {
+            VStack(spacing: 0) {
+                Group {
+                    switch model.viewMode {
+                    case .session:
+                        ClusterCullView(model: model)
+                    case .overview:
+                        overview
+                    }
                 }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .opacity(model.isImporting ? 0.3 : 1)
+                .allowsHitTesting(!model.isImporting)
 
-            statusBar
+                statusBar
+            }
+
+            if model.isImporting {
+                ImportLoadingView(
+                    progress: model.importProgress,
+                    photos: model.importPreviewPhotos,
+                    isFinishing: model.importFinishing
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            }
         }
-        .focusable()
-        .focused($focused)
-        .onAppear { focused = true }
+        .animation(.easeInOut(duration: 0.45), value: model.isImporting)
     }
 
     private var overview: some View {
@@ -150,13 +162,16 @@ struct ContentView: View {
                     model.viewMode = .session
                 }
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
 
             PhotoGridView(
                 photos: model.displayedPhotos,
                 selectedID: model.selectedPhotoID,
                 onSelect: { model.selectPhoto($0) }
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .layoutPriority(1)
 
             if let photo = model.selectedPhoto, let project = model.project {
                 SoftPreviewView(
@@ -167,22 +182,35 @@ struct ContentView: View {
                     mix: model.showBefore ? 0 : model.softRender.mix,
                     showBefore: model.showBefore
                 )
-                .frame(height: 280)
-                .padding()
+                .frame(height: 240)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { model.filter = .keeps }
     }
 
     private var statusBar: some View {
         HStack {
-            if model.isBusy { ProgressView().controlSize(.small) }
+            if model.isBusy {
+                ProgressView()
+                    .controlSize(.small)
+            }
+            if model.isImporting {
+                Text(model.importProgress.phase.title)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
             Text(model.statusMessage)
                 .lineLimit(1)
             Spacer()
-            Text(keymapHint)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if !model.isImporting {
+                Text(keymapHint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -191,9 +219,9 @@ struct ContentView: View {
 
     private var keymapHint: String {
         switch model.groupPhase {
-        case .intro: "Return: review set · ] next set"
+        case .intro: "Return: review set · scroll sideways · ] next set"
         case .pick: "Tap cards · Return: keep these"
-        case .decide: "P keep · X reject · Space before · ] next set"
+        case .decide: "← → browse · P keep · X reject · ] next set"
         case .done: "Return: export · O overview"
         }
     }
@@ -235,6 +263,14 @@ struct ContentView: View {
             }
             return nil
         default:
+            if event.keyCode == 123, event.type == .keyDown { // ←
+                if model.groupPhase == .decide { model.previousUncertain() }
+                return nil
+            }
+            if event.keyCode == 124, event.type == .keyDown { // →
+                if model.groupPhase == .decide { model.nextUncertainInCluster() }
+                return nil
+            }
             if event.keyCode == 49 {
                 model.showBefore = event.type == .keyDown
                 if event.type == .keyDown { model.softRender.snapBefore() }

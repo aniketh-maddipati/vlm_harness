@@ -84,7 +84,7 @@ enum PreviewExtractor {
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
             return false
         }
-        return writeJPEG(cgImage: image, to: destURL, quality: 0.85)
+        return writeJPEG(cgImage: image, to: destURL, quality: 0.92)
     }
 
     /// Full demosaic path via ImageIO (macOS RAW decoder — LibRaw-quality substitute for Sony ARW).
@@ -109,7 +109,7 @@ enum PreviewExtractor {
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
             return false
         }
-        return writeJPEG(cgImage: image, to: dest, quality: 0.85)
+        return writeJPEG(cgImage: image, to: dest, quality: 0.92)
     }
 
     static func writeJPEG(cgImage: CGImage, to url: URL, quality: CGFloat) -> Bool {

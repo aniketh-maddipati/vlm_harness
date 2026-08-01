@@ -14,13 +14,16 @@ struct PhotoGridView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = false
+        scroll.autohidesScrollers = true
         scroll.drawsBackground = false
+        scroll.translatesAutoresizingMaskIntoConstraints = false
 
         let layout = NSCollectionViewFlowLayout()
-        layout.itemSize = NSSize(width: 220, height: 180)
-        layout.minimumInteritemSpacing = 12
-        layout.minimumLineSpacing = 12
-        layout.sectionInset = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
+        layout.itemSize = NSSize(width: 200, height: 168)
+        layout.minimumInteritemSpacing = 10
+        layout.minimumLineSpacing = 10
+        layout.sectionInset = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
 
         let collection = NSCollectionView()
         collection.collectionViewLayout = layout
@@ -32,6 +35,7 @@ struct PhotoGridView: NSViewRepresentable {
         collection.delegate = context.coordinator
         scroll.documentView = collection
         context.coordinator.collectionView = collection
+        context.coordinator.layout = layout
         return scroll
     }
 
@@ -39,6 +43,21 @@ struct PhotoGridView: NSViewRepresentable {
         context.coordinator.photos = photos
         context.coordinator.selectedID = selectedID
         context.coordinator.onSelect = onSelect
+
+        // Resize cells to fit column width (avoids clipped / tiny grid on wide windows)
+        if let collection = context.coordinator.collectionView,
+           let layout = context.coordinator.layout,
+           nsView.contentSize.width > 100 {
+            let inset: CGFloat = 20
+            let spacing: CGFloat = 10
+            let minCell: CGFloat = 180
+            let available = nsView.contentSize.width - inset
+            let cols = max(1, Int(floor((available + spacing) / (minCell + spacing))))
+            let cellW = floor((available - spacing * CGFloat(cols - 1)) / CGFloat(cols))
+            layout.itemSize = NSSize(width: cellW, height: cellW * 0.78 + 28)
+            layout.invalidateLayout()
+        }
+
         context.coordinator.collectionView?.reloadData()
         if let id = selectedID,
            let index = photos.firstIndex(where: { $0.id == id }) {
@@ -52,6 +71,7 @@ struct PhotoGridView: NSViewRepresentable {
         var selectedID: UUID?
         var onSelect: (UUID) -> Void
         weak var collectionView: NSCollectionView?
+        weak var layout: NSCollectionViewFlowLayout?
 
         init(onSelect: @escaping (UUID) -> Void) {
             self.onSelect = onSelect
@@ -83,8 +103,10 @@ struct PhotoGridView: NSViewRepresentable {
         }
 
         private func prefetchAround(_ index: Int) {
-            let range = max(0, index - 12)...min(photos.count - 1, index + 24)
-            for i in range {
+            guard !photos.isEmpty else { return }
+            let lo = max(0, index - 12)
+            let hi = min(photos.count - 1, index + 24)
+            for i in lo...hi {
                 guard let path = photos[i].displayThumbPath else { continue }
                 ThumbCache.shared.prefetch(path)
             }
@@ -105,9 +127,7 @@ final class ThumbCache {
         let fresh = warm.insert(path).inserted
         lock.unlock()
         guard fresh else { return }
-        queue.async {
-            _ = NSImage(contentsOf: URL(fileURLWithPath: path))
-        }
+        Task { await PhotoImageCache.shared.prefetch([path]) }
     }
 }
 
@@ -117,10 +137,12 @@ final class PhotoItemView: NSCollectionViewItem {
     private let imageView_ = NSImageView()
     private let badge = NSTextField(labelWithString: "")
     private let nameLabel = NSTextField(labelWithString: "")
+    private var imageHeight: NSLayoutConstraint?
 
     override func loadView() {
         view = NSView()
         imageView_.imageScaling = .scaleProportionallyUpOrDown
+        imageView_.imageAlignment = .alignCenter
         imageView_.wantsLayer = true
         imageView_.layer?.cornerRadius = 6
         imageView_.layer?.masksToBounds = true
@@ -143,16 +165,19 @@ final class PhotoItemView: NSCollectionViewItem {
         view.addSubview(badge)
         view.addSubview(nameLabel)
 
+        let h = imageView_.heightAnchor.constraint(equalToConstant: 120)
+        imageHeight = h
         NSLayoutConstraint.activate([
             imageView_.topAnchor.constraint(equalTo: view.topAnchor),
             imageView_.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             imageView_.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            imageView_.heightAnchor.constraint(equalToConstant: 140),
+            h,
             badge.topAnchor.constraint(equalTo: imageView_.topAnchor, constant: 4),
             badge.leadingAnchor.constraint(equalTo: imageView_.leadingAnchor, constant: 4),
             nameLabel.topAnchor.constraint(equalTo: imageView_.bottomAnchor, constant: 2),
             nameLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             nameLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nameLabel.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor),
         ])
     }
 
@@ -169,10 +194,17 @@ final class PhotoItemView: NSCollectionViewItem {
         view.layer?.borderColor = NSColor.controlAccentColor.cgColor
         view.wantsLayer = true
 
-        if let path = photo.displayThumbPath {
-            DispatchQueue.global(qos: .userInitiated).async {
-                let image = NSImage(contentsOf: URL(fileURLWithPath: path))
-                DispatchQueue.main.async { self.imageView_.image = image }
+        // Scale image area with cell width
+        let cellW = view.bounds.width
+        if cellW > 40 {
+            imageHeight?.constant = max(80, cellW * 0.72)
+        }
+
+        if let path = photo.previewPath ?? photo.displayThumbPath {
+            let path = path
+            Task {
+                let image = await PhotoImageCache.shared.load(path: path)
+                await MainActor.run { self.imageView_.image = image }
             }
         } else {
             imageView_.image = nil
