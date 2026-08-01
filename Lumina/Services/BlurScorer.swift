@@ -1,9 +1,20 @@
 import AppKit
 import Accelerate
+import ImageIO
 
 enum BlurScorer {
     /// Returns normalised sharpness in 0...1 (higher = sharper).
     static func score(imageURL: URL) -> Double {
+        if let source = CGImageSourceCreateWithURL(imageURL as CFURL, nil) {
+            let opts: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: 320,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+            ]
+            if let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) {
+                return score(cgImage: cg)
+            }
+        }
         guard let image = NSImage(contentsOf: imageURL),
               let cg = rasterisedCGImage(from: image) else {
             return 0
