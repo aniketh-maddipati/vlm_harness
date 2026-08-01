@@ -381,8 +381,12 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
 struct PhotoCluster: Identifiable, Hashable {
     let id: String
     var label: String
+    /// Human reason this set was grouped (shown in group intro).
+    var whyGrouped: String
     var photoIDs: [UUID]
     var heroID: UUID?
+    var faceCount: Int
+    var timeSpanSeconds: TimeInterval?
 }
 
 struct ExportCollection: Identifiable, Codable, Hashable {

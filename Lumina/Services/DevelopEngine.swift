@@ -36,27 +36,55 @@ enum DevelopEngine {
         offsets: DevelopAdjustments = .zero,
         mix: Double = 1.0
     ) -> NSImage? {
-        guard let image = CIImage(contentsOf: url) else { return nil }
-        let bounds = image.extent
-        let graded = apply(recipe: recipe.applying(offsets), to: image).cropped(to: bounds)
+        guard var image = CIImage(contentsOf: url) else { return nil }
+        // Normalize origin so filters never expand into negative extents (aspect stretch).
+        image = image.transformed(by: CGAffineTransform(
+            translationX: -image.extent.origin.x,
+            y: -image.extent.origin.y
+        ))
+        let bounds = image.extent.integral
+        let safe = clampRecipe(recipe.applying(offsets))
+        let graded = apply(recipe: safe, to: image).cropped(to: bounds)
         let mixed: CIImage
         if mix >= 0.999 {
             mixed = graded
         } else if mix <= 0.001 {
             mixed = image
         } else {
-            mixed = graded.applyingFilter("CIDissolveTransition", parameters: [
-                kCIInputTargetImageKey: image,
-                kCIInputTimeKey: 1.0 - mix,
+            // Blend in RGB space — dissolve transition can shift extent oddly.
+            mixed = graded.applyingFilter("CIBlendWithMask", parameters: [
+                kCIInputBackgroundImageKey: image,
+                kCIInputMaskImageKey: CIImage(color: CIColor(red: mix, green: mix, blue: mix, alpha: 1))
+                    .cropped(to: bounds),
             ]).cropped(to: bounds)
         }
         guard let cg = context.createCGImage(mixed, from: bounds) else { return nil }
-        return NSImage(cgImage: cg, size: NSSize(width: bounds.width, height: bounds.height))
+        return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+    }
+
+    /// Keep develop params in ranges Core Image handles without wild casts.
+    static func clampRecipe(_ recipe: DevelopRecipe) -> DevelopRecipe {
+        var r = recipe
+        r.exposure = min(max(r.exposure, -3), 3)
+        r.temperature = min(max(r.temperature == 0 ? 6500 : r.temperature, 2500), 10000)
+        r.tint = min(max(r.tint, -50), 50)
+        r.contrast = min(max(r.contrast, -100), 100)
+        r.highlights = min(max(r.highlights, -100), 100)
+        r.shadows = min(max(r.shadows, -100), 100)
+        r.whites = min(max(r.whites, -100), 100)
+        r.blacks = min(max(r.blacks, -100), 100)
+        r.texture = min(max(r.texture, -100), 100)
+        r.clarity = min(max(r.clarity, -100), 100)
+        r.dehaze = min(max(r.dehaze, -100), 100)
+        r.vibrance = min(max(r.vibrance, -100), 100)
+        r.saturation = min(max(r.saturation, -100), 100)
+        return r
     }
 
     static func apply(recipe: DevelopRecipe, to image: CIImage) -> CIImage {
-        let bounds = image.extent
+        let bounds = image.extent.integral
         var result = image
+        let recipe = clampRecipe(recipe)
 
         if recipe.exposure != 0, let f = CIFilter(name: "CIExposureAdjust") {
             f.setValue(result, forKey: kCIInputImageKey)
@@ -83,16 +111,17 @@ enum DevelopEngine {
 
         if recipe.highlights != 0 || recipe.shadows != 0, let f = CIFilter(name: "CIHighlightShadowAdjust") {
             f.setValue(result, forKey: kCIInputImageKey)
-            f.setValue(1 - recipe.highlights / 100.0, forKey: "inputHighlightAmount")
-            f.setValue(1 + recipe.shadows / 100.0, forKey: "inputShadowAmount")
+            f.setValue(min(max(1 - recipe.highlights / 100.0, 0), 1), forKey: "inputHighlightAmount")
+            f.setValue(min(max(1 + recipe.shadows / 100.0, 0), 2), forKey: "inputShadowAmount")
             result = f.outputImage ?? result
         }
 
         // Clarity / texture approximation via unsharp + local contrast
-        if recipe.clarity != 0 || recipe.texture != 0, let f = CIFilter(name: "CIUnsharpMask") {
+        let unsharp = (recipe.clarity + recipe.texture) / 200.0
+        if abs(unsharp) > 0.01, let f = CIFilter(name: "CIUnsharpMask") {
             f.setValue(result, forKey: kCIInputImageKey)
             f.setValue(2.5, forKey: kCIInputRadiusKey)
-            f.setValue((recipe.clarity + recipe.texture) / 200.0, forKey: kCIInputIntensityKey)
+            f.setValue(min(max(unsharp, -1), 1), forKey: kCIInputIntensityKey)
             result = f.outputImage ?? result
         }
 
@@ -103,7 +132,7 @@ enum DevelopEngine {
             result = f.outputImage ?? result
         }
 
-        if recipe.temperature != 6500 || recipe.tint != 0, let f = CIFilter(name: "CITemperatureAndTint") {
+        if abs(recipe.temperature - 6500) > 1 || recipe.tint != 0, let f = CIFilter(name: "CITemperatureAndTint") {
             f.setValue(result, forKey: kCIInputImageKey)
             f.setValue(CIVector(x: 6500, y: 0), forKey: "inputNeutral")
             f.setValue(CIVector(x: recipe.temperature, y: recipe.tint), forKey: "inputTargetNeutral")

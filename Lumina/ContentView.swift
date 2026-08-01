@@ -4,6 +4,7 @@ import AppKit
 struct ContentView: View {
     @State private var model = ProjectViewModel()
     @FocusState private var focused: Bool
+    @State private var keyMonitor: Any?
 
     var body: some View {
         NavigationSplitView {
@@ -12,8 +13,15 @@ struct ContentView: View {
             main
         }
         .onAppear {
-            NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { event in
+            guard keyMonitor == nil else { return }
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { event in
                 handleKey(event)
+            }
+        }
+        .onDisappear {
+            if let keyMonitor {
+                NSEvent.removeMonitor(keyMonitor)
+                self.keyMonitor = nil
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .luminaImportRAW)) { _ in
@@ -22,91 +30,74 @@ struct ContentView: View {
     }
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Lumina")
-                .font(.title2.bold())
-            Text("Beyond Lightroom")
-                .font(.caption)
+                .font(.title.bold())
+            Text("Pick sets · ship keeps")
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Button("Import Photos…") {
                 model.pickImportSources()
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
             .disabled(model.isBusy)
 
             if let project = model.project {
-                Group {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(project.name).font(.headline)
-                    Text("\(model.keepCount)/\(model.totalCount) kept")
+                    Text("\(model.keepCount) keeps · \(model.sessionProgressText)")
                         .foregroundStyle(.secondary)
                     if project.profile.hasSettings {
-                        Text("Taste library loaded")
+                        Text("Taste on")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.tertiary)
                     }
                 }
 
-                Picker("View", selection: $model.viewMode) {
-                    ForEach(ProjectViewModel.ViewMode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
+                Picker("Mode", selection: $model.viewMode) {
+                    Text("Session").tag(ProjectViewModel.ViewMode.session)
+                    Text("Overview").tag(ProjectViewModel.ViewMode.overview)
                 }
-                .pickerStyle(.radioGroup)
+                .pickerStyle(.segmented)
 
-                Divider()
-                Text("Filter").font(.caption.bold()).foregroundStyle(.secondary)
-                Picker("Filter", selection: $model.filter) {
-                    ForEach(GridFilter.allCases) { f in
-                        Text(f.rawValue).tag(f)
-                    }
+                if model.viewMode == .session {
+                    Text("Follow Meet → Pick → Decide for each set.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
                 }
-                .pickerStyle(.radioGroup)
             }
 
             Spacer()
 
-            if let photo = model.selectedPhoto {
-                developPanel(photo: photo)
+            if model.viewMode == .overview || model.groupPhase == .done {
+                DisclosureGroup("Tweak keeps") {
+                    if model.selectedPhoto != nil {
+                        developSliders
+                    }
+                }
             }
 
             Button("Export Collections") {
                 model.exportCarousel()
             }
+            .controlSize(.large)
             .disabled(model.project == nil || model.isBusy)
             .keyboardShortcut(.return, modifiers: .command)
         }
-        .padding()
-        .frame(minWidth: 240)
+        .padding(16)
+        .frame(minWidth: 220)
     }
 
-    private func developPanel(photo: PhotoRecord) -> some View {
+    private var developSliders: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Edit").font(.headline)
-            if let neighbors = photo.recipe?.sourceNeighbors, !neighbors.isEmpty {
-                Text("Matched \(neighbors.prefix(2).joined(separator: ", "))")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
             slider("Exposure", value: $model.globalAdjustments.exposure, range: -2...2)
             slider("Temp Δ", value: $model.globalAdjustments.temperature, range: -800...800)
-            slider("Contrast", value: $model.globalAdjustments.contrast, range: -50...50)
             slider("Highlights", value: $model.globalAdjustments.highlights, range: -100...100)
             slider("Shadows", value: $model.globalAdjustments.shadows, range: -100...100)
-            slider("Vibrance", value: $model.globalAdjustments.vibrance, range: -50...50)
-
-            DisclosureGroup("Pro") {
-                slider("Clarity", value: $model.globalAdjustments.clarity, range: -50...50)
-                slider("Dehaze", value: $model.globalAdjustments.dehaze, range: -50...50)
-                slider("Saturation", value: $model.globalAdjustments.saturation, range: -50...50)
-                slider("Tint Δ", value: $model.globalAdjustments.tint, range: -50...50)
-            }
-
-            Button("Apply offsets to keeps") {
-                model.applyAdjustmentsToAllKeeps()
-            }
-            .font(.caption)
+            Button("Apply to keeps") { model.applyAdjustmentsToAllKeeps() }
+                .font(.caption)
         }
     }
 
@@ -125,50 +116,15 @@ struct ContentView: View {
 
     private var main: some View {
         VStack(spacing: 0) {
-            DynamicSortBar(sortMode: $model.sortMode, uncertainCount: model.uncertainCount)
-                .onChange(of: model.sortMode) { _, newValue in
-                    withAnimation(.spring(duration: 0.28)) {
-                        switch newValue {
-                        case .uncertain: model.viewMode = .uncertain
-                        case .similar: model.viewMode = .cluster
-                        default: model.viewMode = .grid
-                        }
-                        model.selectedPhotoID = model.displayedPhotos.first?.id
-                        if let id = model.selectedPhotoID {
-                            model.playSoftRender(for: id)
-                        }
-                    }
-                }
-
             Group {
                 switch model.viewMode {
-                case .uncertain:
-                    UncertainQueueView(model: model)
-                case .cluster:
+                case .session:
                     ClusterCullView(model: model)
-                case .grid:
-                    PhotoGridView(
-                        photos: model.displayedPhotos,
-                        selectedID: model.selectedPhotoID,
-                        onSelect: { model.selectPhoto($0) }
-                    )
+                case .overview:
+                    overview
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            if model.viewMode == .grid, let photo = model.selectedPhoto, let project = model.project {
-                SoftPreviewView(
-                    photo: photo,
-                    projectName: project.name,
-                    baseline: project.profile,
-                    offsets: model.globalAdjustments.merged(with: photo.perPhotoAdjustments ?? .zero),
-                    mix: model.showBefore ? 0 : model.softRender.mix,
-                    showBefore: model.showBefore
-                )
-                .frame(height: 220)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-            }
 
             statusBar
         }
@@ -177,19 +133,69 @@ struct ContentView: View {
         .onAppear { focused = true }
     }
 
+    private var overview: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Overview")
+                    .font(.headline)
+                Spacer()
+                Picker("Sort", selection: $model.sortMode) {
+                    Text("Similar").tag(SortMode.similar)
+                    Text("Quality").tag(SortMode.quality)
+                    Text("Sharpest").tag(SortMode.sharpest)
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 360)
+                Button("Back to session") {
+                    model.viewMode = .session
+                }
+            }
+            .padding()
+
+            PhotoGridView(
+                photos: model.displayedPhotos,
+                selectedID: model.selectedPhotoID,
+                onSelect: { model.selectPhoto($0) }
+            )
+
+            if let photo = model.selectedPhoto, let project = model.project {
+                SoftPreviewView(
+                    photo: photo,
+                    projectName: project.name,
+                    baseline: project.profile,
+                    offsets: model.globalAdjustments.merged(with: photo.perPhotoAdjustments ?? .zero),
+                    mix: model.showBefore ? 0 : model.softRender.mix,
+                    showBefore: model.showBefore
+                )
+                .frame(height: 280)
+                .padding()
+            }
+        }
+        .onAppear { model.filter = .keeps }
+    }
+
     private var statusBar: some View {
         HStack {
             if model.isBusy { ProgressView().controlSize(.small) }
             Text(model.statusMessage)
                 .lineLimit(1)
             Spacer()
-            Text("P keep · X reject · H hero · ] next · Space compare · G grid")
+            Text(keymapHint)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(.bar)
+    }
+
+    private var keymapHint: String {
+        switch model.groupPhase {
+        case .intro: "Return: review set · ] next set"
+        case .pick: "Tap cards · Return: keep these"
+        case .decide: "P keep · X reject · Space before · ] next set"
+        case .done: "Return: export · O overview"
+        }
     }
 
     private func handleKey(_ event: NSEvent) -> NSEvent? {
@@ -197,33 +203,42 @@ struct ContentView: View {
         let chars = event.charactersIgnoringModifiers?.lowercased()
         switch chars {
         case "p":
-            if event.type == .keyDown { model.markKeep() }
+            if event.type == .keyDown, model.groupPhase == .decide { model.markKeep() }
             return nil
         case "x":
-            if event.type == .keyDown { model.markReject() }
+            if event.type == .keyDown, model.groupPhase == .decide { model.markReject() }
             return nil
         case "h":
-            if event.type == .keyDown { model.markHero() }
+            if event.type == .keyDown, model.groupPhase == .decide { model.markHero() }
             return nil
-        case "g":
+        case "o":
             if event.type == .keyDown {
-                model.viewMode = model.viewMode == .grid ? .uncertain : .grid
+                model.viewMode = model.viewMode == .overview ? .session : .overview
             }
             return nil
         case "]":
-            if event.type == .keyDown { model.advanceUncertain() }
+            if event.type == .keyDown { model.advanceCluster() }
             return nil
         case "[":
-            if event.type == .keyDown { model.previousUncertain() }
+            if event.type == .keyDown { model.previousCluster() }
+            return nil
+        case "\r", "\n":
+            if event.type == .keyDown {
+                if model.groupPhase == .intro, let c = model.currentCluster {
+                    model.groupPhase = .pick
+                    model.seedPickFromHero(cluster: c)
+                } else if model.groupPhase == .pick, let c = model.currentCluster {
+                    model.confirmPicksAndAdvance(cluster: c)
+                } else if model.groupPhase == .done {
+                    model.exportCarousel()
+                }
+            }
             return nil
         default:
             if event.keyCode == 49 {
                 model.showBefore = event.type == .keyDown
-                if event.type == .keyDown {
-                    model.softRender.snapBefore()
-                } else {
-                    model.softRender.snapAfter()
-                }
+                if event.type == .keyDown { model.softRender.snapBefore() }
+                else { model.softRender.snapAfter() }
                 return nil
             }
             return event

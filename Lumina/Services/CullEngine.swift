@@ -182,14 +182,52 @@ enum CullEngine {
     static func clusters(from photos: [PhotoRecord]) -> [PhotoCluster] {
         let groups = Dictionary(grouping: photos.filter { $0.clusterID != nil }, by: { $0.clusterID! })
         return groups.keys.sorted().compactMap { key in
-            guard let group = groups[key] else { return nil }
+            guard let group = groups[key], group.count >= 1 else { return nil }
             let hero = group.first(where: \.isClusterHero)?.id ?? group.max(by: { $0.cullScore < $1.cullScore })?.id
+            let faces = group.filter(\.faceDetected).count
+            let dates = group.compactMap(\.capturedAt).sorted()
+            var span: TimeInterval?
+            if let first = dates.first, let last = dates.last {
+                span = last.timeIntervalSince(first)
+            }
+            let why = whyGrouped(group: group, faces: faces, span: span)
             return PhotoCluster(
                 id: key,
                 label: group.first?.clusterLabel ?? key,
+                whyGrouped: why,
                 photoIDs: group.sorted { $0.cullScore > $1.cullScore }.map(\.id),
-                heroID: hero
+                heroID: hero,
+                faceCount: faces,
+                timeSpanSeconds: span
             )
         }
+        .sorted { $0.photoIDs.count > $1.photoIDs.count }
+    }
+
+    private static func whyGrouped(group: [PhotoRecord], faces: Int, span: TimeInterval?) -> String {
+        var parts: [String] = []
+        let n = group.count
+        if n == 1 {
+            parts.append("Single frame — no near duplicates")
+        } else if group.allSatisfy({ $0.burstID != nil && $0.burstID == group[0].burstID }) {
+            parts.append("Same burst (\(n) frames within ~2s)")
+        } else {
+            parts.append("Similar composition / color (\(n) frames)")
+        }
+        if faces > 0 {
+            parts.append(faces == n ? "faces in all" : "faces in \(faces)/\(n)")
+        }
+        if let span {
+            if span < 3 {
+                parts.append("shot within \(Int(span * 1000))ms")
+            } else if span < 60 {
+                parts.append("spans \(Int(span))s")
+            } else {
+                parts.append("spans \(Int(span / 60))m")
+            }
+        }
+        let avgSharp = group.map(\.sharpness).reduce(0, +) / Double(max(n, 1))
+        parts.append(String(format: "avg sharpness %.2f", avgSharp))
+        return parts.joined(separator: " · ")
     }
 }

@@ -7,7 +7,7 @@ import SwiftUI
 final class ProjectViewModel {
     var project: LuminaProject?
     var selectedPhotoID: UUID?
-    var sortMode: SortMode = .uncertain
+    var sortMode: SortMode = .similar
     var filter: GridFilter = .all
     var statusMessage = "Import photos to begin."
     var isBusy = false
@@ -16,12 +16,20 @@ final class ProjectViewModel {
     var globalAdjustments = DevelopAdjustments.zero
     var softRender = SoftRenderController()
     var activeClusterIndex: Int = 0
-    var viewMode: ViewMode = .uncertain
+    var viewMode: ViewMode = .session
+    var groupPhase: GroupPhase = .intro
+    var manualPickIDs: Set<UUID> = []
 
     enum ViewMode: String, CaseIterable {
-        case uncertain = "Uncertain"
-        case cluster = "Clusters"
-        case grid = "Grid"
+        case session = "Session"
+        case overview = "Overview"
+    }
+
+    enum GroupPhase: String, Hashable {
+        case intro
+        case pick
+        case decide
+        case done
     }
 
     var selectedPhoto: PhotoRecord? {
@@ -41,9 +49,23 @@ final class ProjectViewModel {
         return list
     }
 
+    /// Sets worth reviewing: multi-photo first, then meaningful singles.
+    var reviewClusters: [PhotoCluster] {
+        let all = clusters
+        let multi = all.filter { $0.photoIDs.count >= 2 }
+        if !multi.isEmpty { return multi }
+        return all
+    }
+
     var clusters: [PhotoCluster] {
         guard let photos = project?.photos else { return [] }
         return CullEngine.clusters(from: photos)
+    }
+
+    var currentCluster: PhotoCluster? {
+        let list = reviewClusters
+        guard !list.isEmpty else { return nil }
+        return list[min(activeClusterIndex, list.count - 1)]
     }
 
     var uncertainPhotos: [PhotoRecord] {
@@ -56,6 +78,13 @@ final class ProjectViewModel {
 
     var decisionBudgetText: String {
         "\(uncertainCount) decisions left"
+    }
+
+    var sessionProgressText: String {
+        let n = reviewClusters.count
+        guard n > 0 else { return "No sets" }
+        if groupPhase == .done { return "Complete" }
+        return "Set \(activeClusterIndex + 1) of \(n)"
     }
 
     // MARK: - Import
@@ -85,29 +114,35 @@ final class ProjectViewModel {
                 )
                 project = p
                 selectedPhotoID = photos.first?.id
-                viewMode = .grid
+                viewMode = .overview
                 sortMode = .all
+                statusMessage = "Previews ready · grouping in background…"
             case .photosUpdated(let photos):
                 project?.photos = photos
             case .finished(let finished):
                 project = finished
                 globalAdjustments = .zero
-                sortMode = finished.photos.contains(where: \.isUncertain) ? .uncertain : .quality
-                viewMode = sortMode == .uncertain ? .uncertain : .cluster
-                selectedPhotoID = displayedPhotos.first?.id ?? finished.photos.first?.id
-                if let id = selectedPhotoID {
-                    playSoftRender(for: id)
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    sortMode = .similar
+                    viewMode = .session
+                    activeClusterIndex = 0
+                    groupPhase = .intro
+                    manualPickIDs = []
                 }
-                statusMessage = "Imported \(finished.photos.count) · \(keepCount) keeps · \(uncertainCount) uncertain"
+                if let hero = reviewClusters.first?.heroID {
+                    selectedPhotoID = hero
+                } else {
+                    selectedPhotoID = finished.photos.first?.id
+                }
+                let sets = reviewClusters.count
+                statusMessage = "Meet your sets · \(sets) groups · swipe through with direction"
             case .failed(let msg):
                 statusMessage = msg
             }
         }
     }
 
-    func pickRAWFolder() {
-        pickImportSources()
-    }
+    func pickRAWFolder() { pickImportSources() }
 
     func pickImportSources() {
         let panel = NSOpenPanel()
@@ -115,10 +150,9 @@ final class ProjectViewModel {
         panel.canChooseFiles = true
         panel.allowsMultipleSelection = true
         panel.canCreateDirectories = false
-        panel.message = "Select a folder and/or photo files (RAW, JPG, HEIC, PNG, TIFF…)"
+        panel.message = "Select a folder and/or photo files"
         panel.prompt = "Import"
         panel.allowedContentTypes = MediaFormats.utTypes
-        // Still allow any file — ImageIO will decide if it's readable
         panel.allowsOtherFileTypes = true
         guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
 
@@ -136,9 +170,9 @@ final class ProjectViewModel {
         }
 
         let alert = NSAlert()
-        alert.messageText = "Import edited JPG folder for taste profile?"
-        alert.informativeText = "Optional — builds per-photo taste retrieval from Lightroom XMP."
-        alert.addButton(withTitle: "Choose JPG Folder")
+        alert.messageText = "Use a Lightroom JPG folder for taste?"
+        alert.informativeText = "Optional — learns your look from edited JPGs."
+        alert.addButton(withTitle: "Choose Folder")
         alert.addButton(withTitle: "Skip")
 
         var jpgURL: URL?
@@ -150,11 +184,15 @@ final class ProjectViewModel {
         Task { await importPhotos(sourceFolder: sourceFolder, photoURLs: explicitFiles, jpgURL: jpgURL) }
     }
 
-    // MARK: - Selection & soft render
+    // MARK: - Selection
 
     func selectPhoto(_ id: UUID) {
         selectedPhotoID = id
-        playSoftRender(for: id)
+        if groupPhase == .decide || viewMode == .overview {
+            playSoftRender(for: id)
+        } else {
+            softRender.mix = 1
+        }
     }
 
     func playSoftRender(for id: UUID) {
@@ -183,13 +221,13 @@ final class ProjectViewModel {
     func markKeep() {
         guard let id = selectedPhotoID else { return }
         setTier(.keep, for: id)
-        advanceUncertain()
+        advanceAfterDecision()
     }
 
     func markReject() {
         guard let id = selectedPhotoID else { return }
         setTier(.reject, for: id)
-        advanceUncertain()
+        advanceAfterDecision()
     }
 
     func markHero() {
@@ -202,48 +240,133 @@ final class ProjectViewModel {
         project.photos[index].uncertaintyKind = .none
         self.project = project
         persistDebounced()
-        advanceUncertain()
+        advanceAfterDecision()
     }
 
-    func advanceUncertain() {
-        let list = uncertainPhotos
-        guard let current = selectedPhotoID,
-              let index = list.firstIndex(where: { $0.id == current }) else {
-            selectedPhotoID = list.first?.id
+    private func advanceAfterDecision() {
+        guard groupPhase == .decide, let cluster = currentCluster else {
+            statusMessage = "\(keepCount)/\(totalCount) kept"
             return
         }
-        let next = index + 1
-        if next < list.count {
-            selectPhoto(list[next].id)
-        } else if let first = list.first {
-            selectPhoto(first.id)
+        let left = uncertainInCluster(cluster).filter { $0.id != selectedPhotoID }
+        if let next = left.first {
+            selectPhoto(next.id)
+            statusMessage = "\(left.count) close calls left in this set"
+        } else {
+            statusMessage = "Set clear · next when ready"
         }
-        statusMessage = decisionBudgetText + " · \(keepCount)/\(totalCount) kept"
     }
 
+    func advanceUncertain() { advanceAfterDecision() }
+
     func previousUncertain() {
-        let list = sortMode == .uncertain ? uncertainPhotos : displayedPhotos
+        guard let cluster = currentCluster else { return }
+        let list = uncertainInCluster(cluster)
         guard let current = selectedPhotoID,
               let index = list.firstIndex(where: { $0.id == current }) else { return }
         selectPhoto(list[max(index - 1, 0)].id)
     }
 
     func advanceCluster() {
-        let all = clusters
+        let all = reviewClusters
+        guard !all.isEmpty else {
+            groupPhase = .done
+            return
+        }
+        if activeClusterIndex >= all.count - 1 {
+            withAnimation { groupPhase = .done }
+            statusMessage = "Session clear · \(keepCount) keeps"
+            return
+        }
+        activeClusterIndex += 1
+        groupPhase = .intro
+        manualPickIDs = []
+        if let hero = all[activeClusterIndex].heroID {
+            selectPhoto(hero)
+        }
+        statusMessage = "Set \(activeClusterIndex + 1)/\(all.count) · \(all[activeClusterIndex].whyGrouped)"
+    }
+
+    func previousCluster() {
+        let all = reviewClusters
         guard !all.isEmpty else { return }
-        activeClusterIndex = min(activeClusterIndex + 1, all.count - 1)
+        activeClusterIndex = max(activeClusterIndex - 1, 0)
+        groupPhase = .intro
+        manualPickIDs = []
         if let hero = all[activeClusterIndex].heroID {
             selectPhoto(hero)
         }
     }
 
-    func previousCluster() {
-        let all = clusters
-        guard !all.isEmpty else { return }
-        activeClusterIndex = max(activeClusterIndex - 1, 0)
-        if let hero = all[activeClusterIndex].heroID {
-            selectPhoto(hero)
+    // MARK: - Group pick flow
+
+    func seedPickFromHero(cluster: PhotoCluster) {
+        manualPickIDs = Set(cluster.heroID.map { [$0] } ?? [])
+        if let photos = project?.photos {
+            for p in photos where p.clusterID == cluster.id && p.tier == .keep {
+                manualPickIDs.insert(p.id)
+            }
         }
+    }
+
+    func toggleManualPick(_ id: UUID) {
+        if manualPickIDs.contains(id) { manualPickIDs.remove(id) }
+        else { manualPickIDs.insert(id) }
+    }
+
+    func applyManualPicks(in cluster: PhotoCluster) {
+        guard var project else { return }
+        for index in project.photos.indices where project.photos[index].clusterID == cluster.id {
+            let id = project.photos[index].id
+            if manualPickIDs.contains(id) {
+                project.photos[index].tier = .keep
+                project.photos[index].isClusterHero = (id == cluster.heroID) || manualPickIDs.count == 1
+                project.photos[index].isFlagged = false
+                project.photos[index].uncertaintyKind = .none
+                project.photos[index].whyUncertain = nil
+            } else {
+                project.photos[index].tier = .reject
+                project.photos[index].isFlagged = false
+                project.photos[index].uncertaintyKind = .none
+                project.photos[index].whyUncertain = nil
+            }
+        }
+        self.project = project
+        persistDebounced()
+    }
+
+    func confirmPicksAndAdvance(cluster: PhotoCluster) {
+        applyManualPicks(in: cluster)
+        let left = uncertainInCluster(cluster)
+        withAnimation(.easeInOut(duration: 0.32)) {
+            if left.isEmpty {
+                advanceCluster()
+            } else {
+                groupPhase = .decide
+                if let first = left.first { selectPhoto(first.id) }
+                statusMessage = "\(left.count) close calls in this set"
+            }
+        }
+    }
+
+    func skipPicksUseModel(cluster: PhotoCluster) {
+        // Keep model tiers; only surface uncertain for decide
+        withAnimation(.easeInOut(duration: 0.32)) {
+            let left = uncertainInCluster(cluster)
+            if left.isEmpty {
+                advanceCluster()
+            } else {
+                groupPhase = .decide
+                if let first = left.first { selectPhoto(first.id) }
+                statusMessage = "Model picks · \(left.count) need you"
+            }
+        }
+    }
+
+    func uncertainInCluster(_ cluster: PhotoCluster) -> [PhotoRecord] {
+        guard let photos = project?.photos else { return [] }
+        let ids = Set(cluster.photoIDs)
+        return photos.filter { ids.contains($0.id) && $0.isUncertain }
     }
 
     // MARK: - Export

@@ -46,18 +46,20 @@ struct CompareOverlayView: View {
 
     var body: some View {
         GeometryReader { geo in
+            // Letterbox both images in the same frame so wipe never stretches mismatched aspects.
             ZStack {
+                Color.black.opacity(0.12)
                 if let before {
                     Image(nsImage: before)
                         .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: geo.size.width, height: geo.size.height)
                 }
                 if let after {
                     Image(nsImage: after)
                         .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: geo.size.width, height: geo.size.height)
                         .mask(
                             HStack(spacing: 0) {
                                 Rectangle().frame(width: geo.size.width * mix)
@@ -65,19 +67,10 @@ struct CompareOverlayView: View {
                             }
                         )
                 }
-                // Wipe handle
                 Rectangle()
                     .fill(Color.white.opacity(0.9))
                     .frame(width: 2)
                     .offset(x: geo.size.width * (mix - 0.5))
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                let t = min(max(value.location.x / max(geo.size.width, 1), 0), 1)
-                                mix = t
-                                onDragMix?(t)
-                            }
-                    )
             }
             .contentShape(Rectangle())
             .gesture(
@@ -168,13 +161,14 @@ struct SoftPreviewView: View {
                 imageView(beforeImage)
             } else if let before = beforeImage, let after = afterImage, mix < 0.999 {
                 ZStack {
-                    Image(nsImage: before).resizable().scaledToFit()
-                    Image(nsImage: after).resizable().scaledToFit().opacity(mix)
+                    Image(nsImage: before).resizable().aspectRatio(contentMode: .fit)
+                    Image(nsImage: after).resizable().aspectRatio(contentMode: .fit).opacity(mix)
                 }
             } else {
                 imageView(afterImage ?? beforeImage)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: taskID) { await load() }
     }
 
@@ -187,7 +181,7 @@ struct SoftPreviewView: View {
         if let image {
             Image(nsImage: image)
                 .resizable()
-                .scaledToFit()
+                .aspectRatio(contentMode: .fit)
         } else {
             ProgressView()
         }

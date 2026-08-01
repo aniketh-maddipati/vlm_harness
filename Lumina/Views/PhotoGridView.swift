@@ -17,10 +17,10 @@ struct PhotoGridView: NSViewRepresentable {
         scroll.drawsBackground = false
 
         let layout = NSCollectionViewFlowLayout()
-        layout.itemSize = NSSize(width: 160, height: 130)
-        layout.minimumInteritemSpacing = 8
-        layout.minimumLineSpacing = 8
-        layout.sectionInset = NSEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+        layout.itemSize = NSSize(width: 220, height: 180)
+        layout.minimumInteritemSpacing = 12
+        layout.minimumLineSpacing = 12
+        layout.sectionInset = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
 
         let collection = NSCollectionView()
         collection.collectionViewLayout = layout
@@ -147,7 +147,7 @@ final class PhotoItemView: NSCollectionViewItem {
             imageView_.topAnchor.constraint(equalTo: view.topAnchor),
             imageView_.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             imageView_.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            imageView_.heightAnchor.constraint(equalToConstant: 100),
+            imageView_.heightAnchor.constraint(equalToConstant: 140),
             badge.topAnchor.constraint(equalTo: imageView_.topAnchor, constant: 4),
             badge.leadingAnchor.constraint(equalTo: imageView_.leadingAnchor, constant: 4),
             nameLabel.topAnchor.constraint(equalTo: imageView_.bottomAnchor, constant: 2),

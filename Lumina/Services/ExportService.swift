@@ -25,15 +25,18 @@ enum ExportService {
     }
 
     static func draftCollections(from photos: [PhotoRecord]) -> [ExportCollection] {
+        // Export all keeps (including multi-pick sets), not only model heroes.
         let keeps = photos
-            .filter { $0.tier == .keep && ($0.isBurstHero || $0.isClusterHero) }
+            .filter { $0.tier == .keep }
             .sorted { $0.cullScore > $1.cullScore }
-        let ids = Array(keeps.prefix(12).map(\.id))
-        let heroes = Array(keeps.prefix(6).map(\.id))
+        let heroes = keeps.filter { $0.isBurstHero || $0.isClusterHero }
+        let heroIDs = Array((heroes.isEmpty ? keeps : heroes).prefix(6).map(\.id))
+        let carouselIDs = Array(keeps.prefix(12).map(\.id))
+        let reelIDs = Array(keeps.prefix(8).map(\.id))
         return [
-            ExportCollection(name: "heroes", aspect: .fourByFive, photoIDs: heroes),
-            ExportCollection(name: "grid_carousel", aspect: .fourByFive, photoIDs: ids),
-            ExportCollection(name: "reel_sequence", aspect: .nineBySixteen, photoIDs: Array(keeps.prefix(8).map(\.id))),
+            ExportCollection(name: "heroes", aspect: .fourByFive, photoIDs: heroIDs),
+            ExportCollection(name: "grid_carousel", aspect: .fourByFive, photoIDs: carouselIDs),
+            ExportCollection(name: "reel_sequence", aspect: .nineBySixteen, photoIDs: reelIDs),
         ]
     }
 

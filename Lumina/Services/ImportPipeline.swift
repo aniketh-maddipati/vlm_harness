@@ -110,7 +110,7 @@ enum ImportPipeline {
         continuation.yield(.photosUpdated(records))
 
         // Phase 3 — embeddings + clusters
-        continuation.yield(.status("Clustering by similarity…"))
+        continuation.yield(.status("Grouping with on-device Vision…"))
         records = await EmbeddingService.embedAndCluster(records)
         CullEngine.scoreAndTier(&records, keepRate: keepRate)
         continuation.yield(.photosUpdated(records))

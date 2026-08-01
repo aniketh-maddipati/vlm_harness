@@ -67,7 +67,7 @@ enum TasteRetriever {
         }
 
         let scored: [(TasteEntry, Float)] = library.compactMap { entry in
-            guard let e = entry.embedding else { return nil }
+            guard let e = entry.embedding, e.count == embedding.count else { return nil }
             return (entry, EmbeddingService.l2Distance(embedding, e))
         }.sorted { $0.1 < $1.1 }
 
@@ -102,7 +102,14 @@ enum TasteRetriever {
     private static func weightedAverage(_ recipes: [DevelopRecipe], weights: [Double]) -> DevelopRecipe {
         let sum = weights.reduce(0, +)
         guard sum > 0 else { return recipes.first ?? .neutral }
-        var r = DevelopRecipe.neutral
+        // Absolute fields must average from 0 — starting from `.neutral` (6500K) double-counted Kelvin
+        // and pushed white balance into extreme territory (looked like "distorted" grades).
+        var r = DevelopRecipe(
+            exposure: 0, temperature: 0, tint: 0, contrast: 0,
+            highlights: 0, shadows: 0, whites: 0, blacks: 0,
+            texture: 0, clarity: 0, dehaze: 0, vibrance: 0, saturation: 0,
+            sharpness: 0, luminanceNR: 0
+        )
         for (i, recipe) in recipes.enumerated() {
             let w = weights[i] / sum
             r.exposure += recipe.exposure * w
@@ -121,19 +128,9 @@ enum TasteRetriever {
             r.sharpness += recipe.sharpness * w
             r.luminanceNR += recipe.luminanceNR * w
         }
+        r.temperature = min(max(r.temperature, 2500), 10000)
+        r.tint = min(max(r.tint, -50), 50)
         return r
     }
 }
 
-extension EmbeddingService {
-    static func l2Distance(_ a: [Float], _ b: [Float]) -> Float {
-        let n = min(a.count, b.count)
-        guard n > 0 else { return 1 }
-        var sum: Float = 0
-        for i in 0..<n {
-            let d = a[i] - b[i]
-            sum += d * d
-        }
-        return sqrt(sum / Float(n))
-    }
-}
