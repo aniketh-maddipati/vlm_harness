@@ -1,0 +1,4 @@
+.exiftool/
+DerivedData/
+*.xcuserstate
+xcuserdata/
