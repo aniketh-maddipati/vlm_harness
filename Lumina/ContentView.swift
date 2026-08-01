@@ -104,9 +104,7 @@ struct ContentView: View {
                 ForEach(model.filteredPhotos) { photo in
                     PhotoCell(
                         photo: photo,
-                        isSelected: photo.id == model.selectedPhotoID,
-                        showEdited: !model.showBefore,
-                        adjustments: effectiveAdjustments(for: photo)
+                        isSelected: photo.id == model.selectedPhotoID
                     )
                     .onTapGesture {
                         model.selectedPhotoID = photo.id
@@ -168,13 +166,17 @@ struct ContentView: View {
         if let path = photo.thumbPath {
             let url = URL(fileURLWithPath: path)
             if model.showBefore {
-                AsyncThumb(url: url, adjustments: .zero)
-                    .frame(maxHeight: 220)
+                AsyncThumb(url: url)
+                    .frame(maxHeight: 280)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
-            } else {
-                AsyncThumb(url: url, adjustments: effectiveAdjustments(for: photo))
-                    .frame(maxHeight: 220)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            } else if let project = model.project {
+                AsyncThumb(
+                    url: url,
+                    profile: project.profile,
+                    offsets: developOffsets(for: photo)
+                )
+                .frame(maxHeight: 280)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
         }
     }
@@ -219,11 +221,9 @@ struct ContentView: View {
         .background(.bar)
     }
 
-    private func effectiveAdjustments(for photo: PhotoRecord) -> DevelopAdjustments {
-        guard let project = model.project else { return model.globalAdjustments }
-        let base = project.profile.asAdjustments
-        let per = photo.perPhotoAdjustments ?? model.globalAdjustments
-        return base.merged(with: per)
+    private func developOffsets(for photo: PhotoRecord) -> DevelopAdjustments {
+        let per = photo.perPhotoAdjustments ?? .zero
+        return model.globalAdjustments.merged(with: per)
     }
 
     private func tierColor(_ tier: PhotoTier) -> Color {
@@ -266,22 +266,18 @@ struct ContentView: View {
 struct PhotoCell: View {
     let photo: PhotoRecord
     let isSelected: Bool
-    let showEdited: Bool
-    let adjustments: DevelopAdjustments
 
     var body: some View {
         VStack(spacing: 4) {
             ZStack(alignment: .topLeading) {
                 if let path = photo.thumbPath {
-                    AsyncThumb(
-                        url: URL(fileURLWithPath: path),
-                        adjustments: showEdited ? adjustments : .zero
-                    )
-                    .aspectRatio(4/5, contentMode: .fill)
-                    .frame(height: 160)
-                    .clipped()
+                    AsyncThumb(url: URL(fileURLWithPath: path))
+                        .aspectRatio(3 / 2, contentMode: .fit)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 120)
+                        .background(Color.black.opacity(0.04))
                 } else {
-                    Rectangle().fill(.quaternary).frame(height: 160)
+                    Rectangle().fill(.quaternary).frame(height: 120)
                 }
 
                 Text(photo.tier.label)
@@ -324,15 +320,20 @@ struct PhotoCell: View {
 
 struct AsyncThumb: View {
     let url: URL
-    let adjustments: DevelopAdjustments
+    var profile: DevelopProfile = DevelopProfile()
+    var offsets: DevelopAdjustments = .zero
     @State private var image: NSImage?
+
+    private var needsDevelop: Bool {
+        profile.hasDevelopSettings || !offsets.isZero
+    }
 
     var body: some View {
         Group {
             if let image {
                 Image(nsImage: image)
                     .resizable()
-                    .scaledToFill()
+                    .scaledToFit()
             } else {
                 Rectangle().fill(.quaternary)
                     .task(id: taskID) { await load() }
@@ -341,17 +342,24 @@ struct AsyncThumb: View {
     }
 
     private var taskID: String {
-        "\(url.path)-\(adjustments.exposure)-\(adjustments.temperature)-\(adjustments.contrast)"
+        "\(url.path)-\(profile.temperature)-\(offsets.exposure)-\(offsets.contrast)-\(offsets.temperature)"
     }
 
     @MainActor
     private func load() async {
         let url = url
-        let adjustments = adjustments
-        let rendered = await Task.detached(priority: .userInitiated) {
-            PreviewRenderer.render(url: url, adjustments: adjustments)
-        }.value
-        image = rendered
+        let profile = profile
+        let offsets = offsets
+        let needsDevelop = needsDevelop
+
+        let loaded: NSImage? = if needsDevelop {
+            await Task.detached(priority: .userInitiated) {
+                PreviewRenderer.render(url: url, profile: profile, offsets: offsets)
+            }.value
+        } else {
+            NSImage(contentsOf: url)
+        }
+        image = loaded
     }
 }
 
