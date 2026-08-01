@@ -83,14 +83,19 @@ struct DevelopAdjustments: Codable, Hashable {
 
     static let zero = DevelopAdjustments()
 
-    func merged(with global: DevelopAdjustments) -> DevelopAdjustments {
+    var isZero: Bool {
+        exposure == 0 && temperature == 0 && contrast == 0
+            && highlights == 0 && shadows == 0 && vibrance == 0
+    }
+
+    func merged(with other: DevelopAdjustments) -> DevelopAdjustments {
         DevelopAdjustments(
-            exposure: global.exposure + exposure,
-            temperature: global.temperature + temperature,
-            contrast: global.contrast + contrast,
-            highlights: global.highlights + highlights,
-            shadows: global.shadows + shadows,
-            vibrance: global.vibrance + vibrance
+            exposure: exposure + other.exposure,
+            temperature: temperature + other.temperature,
+            contrast: contrast + other.contrast,
+            highlights: highlights + other.highlights,
+            shadows: shadows + other.shadows,
+            vibrance: vibrance + other.vibrance
         )
     }
 }
@@ -104,10 +109,18 @@ struct DevelopProfile: Codable {
     var vibrance: Double = 0
     var sourceCount: Int = 0
 
+    var hasDevelopSettings: Bool {
+        sourceCount > 0 || exposure != 0 || temperature != 6500 || contrast != 0
+            || highlights != 0 || shadows != 0 || vibrance != 0
+    }
+}
+
+// Legacy helper — offsets only; use with PreviewRenderer.apply(profile:offsets:).
+extension DevelopProfile {
     var asAdjustments: DevelopAdjustments {
         DevelopAdjustments(
             exposure: exposure,
-            temperature: temperature,
+            temperature: 0,
             contrast: contrast,
             highlights: highlights,
             shadows: shadows,

@@ -38,10 +38,10 @@ enum ExportService {
             guard let thumbPath = photo.thumbPath else { continue }
             let thumbURL = URL(fileURLWithPath: thumbPath)
             let perPhoto = photo.perPhotoAdjustments ?? .zero
-            let merged = profile.asAdjustments.merged(with: globalAdjustments).merged(with: perPhoto)
+            let offsets = globalAdjustments.merged(with: perPhoto)
 
             guard var ciImage = CIImage(contentsOf: thumbURL) else { continue }
-            ciImage = PreviewRenderer.apply(merged, to: ciImage)
+            ciImage = PreviewRenderer.apply(profile: profile, offsets: offsets, to: ciImage)
 
             let cropRect = cropRect45(for: ciImage)
             ciImage = ciImage.cropped(to: cropRect)

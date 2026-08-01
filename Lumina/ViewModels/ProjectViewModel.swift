@@ -59,7 +59,7 @@ final class ProjectViewModel {
             }
 
             project = imported
-            globalAdjustments = imported.profile.asAdjustments
+            globalAdjustments = .zero
             filter = imported.photos.contains(where: \.isFlagged) ? .flagged : .keeps
             selectedPhotoID = filteredPhotos.first?.id ?? imported.photos.first?.id
             statusMessage = "Imported \(imported.photos.count) photos · \(keepCount) keeps · \(flaggedCount) need you"
