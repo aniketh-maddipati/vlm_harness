@@ -9,7 +9,7 @@ struct LuminaApp: App {
         }
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("Import RAW Folder…") {
+                Button("Import Photos…") {
                     NotificationCenter.default.post(name: .luminaImportRAW, object: nil)
                 }
                 .keyboardShortcut("i", modifiers: .command)

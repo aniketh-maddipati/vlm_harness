@@ -28,20 +28,26 @@ enum CullEngine {
 
     static func scoreAndTier(_ photos: inout [PhotoRecord], keepRate: Double) {
         for index in photos.indices {
-            let faceBonus = photos[index].faceDetected ? 0.35 : 0.0
-            let sharpComponent = photos[index].sharpness * 0.65
-            photos[index].cullScore = min(max(sharpComponent + faceBonus, 0), 1)
+            let face = photos[index].faceDetected ? photos[index].faceQuality : 0
+            let sharp = photos[index].sharpness
+            let exposure = photos[index].exposureHealth
+            let aesthetic = photos[index].aesthetic
+            let composite = sharp * 0.40 + face * 0.25 + exposure * 0.20 + aesthetic * 0.15
+            photos[index].compositeQuality = min(max(composite, 0), 1)
+            photos[index].cullScore = photos[index].compositeQuality
         }
 
         assignBurstHeroes(&photos)
+        assignClusterHeroes(&photos)
 
         let sortedIDs = photos.sorted { $0.cullScore > $1.cullScore }.map(\.id)
         let keepCount = max(1, Int((Double(photos.count) * keepRate).rounded()))
-
         var keepSet = Set(sortedIDs.prefix(keepCount))
 
-        // Always keep burst heroes if they're reasonable.
         for photo in photos where photo.isBurstHero && photo.sharpness >= 0.15 {
+            keepSet.insert(photo.id)
+        }
+        for photo in photos where photo.isClusterHero && photo.sharpness >= 0.20 {
             keepSet.insert(photo.id)
         }
 
@@ -58,7 +64,75 @@ enum CullEngine {
             }
         }
 
-        flagForReview(&photos)
+        assignConfidence(&photos)
+    }
+
+    static func assignConfidence(_ photos: inout [PhotoRecord]) {
+        let burstGroups = Dictionary(grouping: photos, by: { $0.burstID ?? "single-\($0.id.uuidString)" })
+
+        for index in photos.indices {
+            var flagged = false
+            var kind: UncertaintyKind = .none
+            var why: String?
+            let photo = photos[index]
+
+            // High-confidence reject
+            if photo.sharpness < 0.12 {
+                photos[index].cullConfidence = 0.95
+                photos[index].isFlagged = false
+                photos[index].uncertaintyKind = .none
+                photos[index].whyUncertain = nil
+                continue
+            }
+
+            if photo.tier == .maybe {
+                flagged = true
+                kind = .cullBorderline
+                why = "Borderline quality \(String(format: "%.2f", photo.cullScore))"
+            }
+            if photo.tier == .keep && photo.sharpness < 0.45 {
+                flagged = true
+                kind = .cullBorderline
+                why = "Keep with soft sharpness \(String(format: "%.2f", photo.sharpness))"
+            }
+
+            if let burstID = photo.burstID, let group = burstGroups[burstID], group.count > 1 {
+                let sorted = group.sorted { $0.cullScore > $1.cullScore }
+                if sorted.count >= 2 {
+                    let delta = sorted[0].cullScore - sorted[1].cullScore
+                    if delta < 0.08 {
+                        flagged = true
+                        kind = .cullTie
+                        why = "Burst tie (\(String(format: "%.2f", sorted[0].cullScore)) vs \(String(format: "%.2f", sorted[1].cullScore)))"
+                    }
+                }
+                if !photo.isBurstHero && photo.tier == .keep {
+                    flagged = true
+                    kind = .cullTie
+                    why = why ?? "Non-hero keep in burst"
+                }
+            }
+
+            if photo.tier == .keep, let recipe = photo.recipe, recipe.confidence < 0.55 {
+                flagged = true
+                kind = .editLowConfidence
+                why = "Low edit confidence \(String(format: "%.2f", recipe.confidence))"
+            }
+
+            // Confidence: high when not flagged
+            if flagged {
+                photos[index].cullConfidence = kind == .cullTie ? 0.45 : 0.55
+            } else if photo.tier == .keep {
+                photos[index].cullConfidence = 0.85 + min(photo.cullScore * 0.1, 0.1)
+            } else {
+                photos[index].cullConfidence = 0.80
+            }
+
+            photos[index].editConfidence = photo.recipe?.confidence ?? 1.0
+            photos[index].isFlagged = flagged
+            photos[index].uncertaintyKind = kind
+            photos[index].whyUncertain = why
+        }
     }
 
     private static func assignBurstHeroes(_ photos: inout [PhotoRecord]) {
@@ -71,26 +145,51 @@ enum CullEngine {
         }
     }
 
-    private static func flagForReview(_ photos: inout [PhotoRecord]) {
-        let groups = Dictionary(grouping: photos, by: { $0.burstID ?? "single-\($0.id.uuidString)" })
-
-        for index in photos.indices {
-            var flagged = false
-            let photo = photos[index]
-
-            if photo.tier == .maybe { flagged = true }
-            if photo.tier == .keep && photo.sharpness < 0.45 { flagged = true }
-
-            if let burstID = photo.burstID, let group = groups[burstID], group.count > 1 {
-                let sorted = group.sorted { $0.cullScore > $1.cullScore }
-                if sorted.count >= 2 {
-                    let delta = sorted[0].cullScore - sorted[1].cullScore
-                    if delta < 0.08 { flagged = true }
-                }
-                if !photo.isBurstHero && photo.tier == .keep { flagged = true }
+    private static func assignClusterHeroes(_ photos: inout [PhotoRecord]) {
+        let groups = Dictionary(grouping: photos, by: { $0.clusterID ?? "none" })
+        for (clusterID, group) in groups {
+            guard clusterID != "none",
+                  let heroID = group.max(by: { $0.cullScore < $1.cullScore })?.id else { continue }
+            for index in photos.indices where photos[index].clusterID == clusterID {
+                photos[index].isClusterHero = photos[index].id == heroID
             }
+        }
+    }
 
-            photos[index].isFlagged = flagged
+    static func sorted(_ photos: [PhotoRecord], by mode: SortMode) -> [PhotoRecord] {
+        switch mode {
+        case .uncertain:
+            return photos.filter(\.isUncertain)
+                .sorted { ($0.whyUncertain ?? "") < ($1.whyUncertain ?? "") }
+        case .similar:
+            return photos.sorted { a, b in
+                let ca = a.clusterID ?? "~"
+                let cb = b.clusterID ?? "~"
+                if ca != cb { return ca < cb }
+                return a.cullScore > b.cullScore
+            }
+        case .sharpest:
+            return photos.sorted { $0.sharpness > $1.sharpness }
+        case .quality:
+            return photos.sorted { $0.compositeQuality > $1.compositeQuality }
+        case .taste:
+            return photos.sorted { $0.tasteMatch > $1.tasteMatch }
+        case .all:
+            return photos.sorted { ($0.capturedAt ?? .distantPast) < ($1.capturedAt ?? .distantPast) }
+        }
+    }
+
+    static func clusters(from photos: [PhotoRecord]) -> [PhotoCluster] {
+        let groups = Dictionary(grouping: photos.filter { $0.clusterID != nil }, by: { $0.clusterID! })
+        return groups.keys.sorted().compactMap { key in
+            guard let group = groups[key] else { return nil }
+            let hero = group.first(where: \.isClusterHero)?.id ?? group.max(by: { $0.cullScore < $1.cullScore })?.id
+            return PhotoCluster(
+                id: key,
+                label: group.first?.clusterLabel ?? key,
+                photoIDs: group.sorted { $0.cullScore > $1.cullScore }.map(\.id),
+                heroID: hero
+            )
         }
     }
 }

@@ -22,197 +22,168 @@ struct ContentView: View {
     }
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             Text("Lumina")
                 .font(.title2.bold())
+            Text("Beyond Lightroom")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
-            Button("Import RAW Folder…") {
-                model.pickRAWFolder()
+            Button("Import Photos…") {
+                model.pickImportSources()
             }
             .buttonStyle(.borderedProminent)
             .disabled(model.isBusy)
 
             if let project = model.project {
                 Group {
-                    Text(project.name)
-                        .font(.headline)
+                    Text(project.name).font(.headline)
                     Text("\(model.keepCount)/\(model.totalCount) kept")
                         .foregroundStyle(.secondary)
-                    if project.profile.sourceCount > 0 {
-                        Text("Taste from \(project.profile.sourceCount) JPGs")
+                    if project.profile.hasSettings {
+                        Text("Taste library loaded")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
-            }
 
-            Divider()
-
-            Text("Filter")
-                .font(.caption.bold())
-                .foregroundStyle(.secondary)
-            Picker("Filter", selection: $model.filter) {
-                ForEach(GridFilter.allCases) { filter in
-                    Text(filter.rawValue).tag(filter)
+                Picker("View", selection: $model.viewMode) {
+                    ForEach(ProjectViewModel.ViewMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
                 }
+                .pickerStyle(.radioGroup)
+
+                Divider()
+                Text("Filter").font(.caption.bold()).foregroundStyle(.secondary)
+                Picker("Filter", selection: $model.filter) {
+                    ForEach(GridFilter.allCases) { f in
+                        Text(f.rawValue).tag(f)
+                    }
+                }
+                .pickerStyle(.radioGroup)
             }
-            .pickerStyle(.radioGroup)
 
             Spacer()
 
-            Button("Export Carousel") {
+            if let photo = model.selectedPhoto {
+                developPanel(photo: photo)
+            }
+
+            Button("Export Collections") {
                 model.exportCarousel()
             }
-            .buttonStyle(.bordered)
             .disabled(model.project == nil || model.isBusy)
             .keyboardShortcut(.return, modifiers: .command)
         }
         .padding()
-        .frame(minWidth: 220)
+        .frame(minWidth: 240)
     }
 
-    private var main: some View {
-        HSplitView {
-            VStack(spacing: 0) {
-                gridHeader
-                photoGrid
-                statusBar
-            }
-            inspector
-                .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
-        }
-    }
-
-    private var gridHeader: some View {
-        HStack {
-            Text(model.filter.rawValue)
-                .font(.headline)
-            Spacer()
-            if model.isBusy {
-                ProgressView().controlSize(.small)
-            }
-            Text("\(model.filteredPhotos.count) shown")
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-    }
-
-    private var photoGrid: some View {
-        ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 140, maximum: 180), spacing: 10)], spacing: 10) {
-                ForEach(model.filteredPhotos) { photo in
-                    PhotoCell(
-                        photo: photo,
-                        isSelected: photo.id == model.selectedPhotoID
-                    )
-                    .onTapGesture {
-                        model.selectedPhotoID = photo.id
-                    }
-                }
-            }
-            .padding()
-        }
-        .focusable()
-        .focused($focused)
-        .onAppear { focused = true }
-    }
-
-    private var inspector: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if let photo = model.selectedPhoto {
-                previewPane(photo: photo)
-
-                Text("Why")
-                    .font(.headline)
-                Text(photo.whySummary)
-                    .font(.caption)
+    private func developPanel(photo: PhotoRecord) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Edit").font(.headline)
+            if let neighbors = photo.recipe?.sourceNeighbors, !neighbors.isEmpty {
+                Text("Matched \(neighbors.prefix(2).joined(separator: ", "))")
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                tierPicker(for: photo)
-
-                Divider()
-
-                Text("Edit")
-                    .font(.headline)
-
-                sliderRow("Exposure", value: $model.globalAdjustments.exposure, range: -2...2)
-                sliderRow("Temp offset", value: $model.globalAdjustments.temperature, range: -800...800)
-                sliderRow("Contrast", value: $model.globalAdjustments.contrast, range: -50...50)
-                sliderRow("Highlights", value: $model.globalAdjustments.highlights, range: -100...100)
-                sliderRow("Shadows", value: $model.globalAdjustments.shadows, range: -100...100)
-                sliderRow("Vibrance", value: $model.globalAdjustments.vibrance, range: -50...50)
-
-                Button("Apply to all keeps") {
-                    model.applyAdjustmentsToAllKeeps()
-                }
-                .buttonStyle(.bordered)
-            } else {
-                ContentUnavailableView(
-                    "No photo selected",
-                    systemImage: "photo.on.rectangle.angled",
-                    description: Text("Import a folder or select a thumbnail.")
-                )
+                    .lineLimit(2)
             }
-            Spacer()
-        }
-        .padding()
-        .background(.regularMaterial)
-    }
+            slider("Exposure", value: $model.globalAdjustments.exposure, range: -2...2)
+            slider("Temp Δ", value: $model.globalAdjustments.temperature, range: -800...800)
+            slider("Contrast", value: $model.globalAdjustments.contrast, range: -50...50)
+            slider("Highlights", value: $model.globalAdjustments.highlights, range: -100...100)
+            slider("Shadows", value: $model.globalAdjustments.shadows, range: -100...100)
+            slider("Vibrance", value: $model.globalAdjustments.vibrance, range: -50...50)
 
-    @ViewBuilder
-    private func previewPane(photo: PhotoRecord) -> some View {
-        if let path = photo.thumbPath {
-            let url = URL(fileURLWithPath: path)
-            if model.showBefore {
-                AsyncThumb(url: url)
-                    .frame(maxHeight: 280)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-            } else if let project = model.project {
-                AsyncThumb(
-                    url: url,
-                    profile: project.profile,
-                    offsets: developOffsets(for: photo)
-                )
-                .frame(maxHeight: 280)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+            DisclosureGroup("Pro") {
+                slider("Clarity", value: $model.globalAdjustments.clarity, range: -50...50)
+                slider("Dehaze", value: $model.globalAdjustments.dehaze, range: -50...50)
+                slider("Saturation", value: $model.globalAdjustments.saturation, range: -50...50)
+                slider("Tint Δ", value: $model.globalAdjustments.tint, range: -50...50)
             }
+
+            Button("Apply offsets to keeps") {
+                model.applyAdjustmentsToAllKeeps()
+            }
+            .font(.caption)
         }
     }
 
-    private func tierPicker(for photo: PhotoRecord) -> some View {
-        HStack {
-            ForEach([PhotoTier.keep, .maybe, .reject], id: \.rawValue) { tier in
-                Button(tier.label) {
-                    model.setTier(tier, for: photo.id)
-                }
-                .buttonStyle(.bordered)
-                .tint(tierColor(tier))
-                .disabled(photo.tier == tier)
-            }
-        }
-    }
-
-    private func sliderRow(_ title: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private func slider(_ title: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text(title).font(.caption)
                 Spacer()
                 Text(String(format: "%.1f", value.wrappedValue))
-                    .font(.caption.monospacedDigit())
+                    .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
             Slider(value: value, in: range)
         }
     }
 
+    private var main: some View {
+        VStack(spacing: 0) {
+            DynamicSortBar(sortMode: $model.sortMode, uncertainCount: model.uncertainCount)
+                .onChange(of: model.sortMode) { _, newValue in
+                    withAnimation(.spring(duration: 0.28)) {
+                        switch newValue {
+                        case .uncertain: model.viewMode = .uncertain
+                        case .similar: model.viewMode = .cluster
+                        default: model.viewMode = .grid
+                        }
+                        model.selectedPhotoID = model.displayedPhotos.first?.id
+                        if let id = model.selectedPhotoID {
+                            model.playSoftRender(for: id)
+                        }
+                    }
+                }
+
+            Group {
+                switch model.viewMode {
+                case .uncertain:
+                    UncertainQueueView(model: model)
+                case .cluster:
+                    ClusterCullView(model: model)
+                case .grid:
+                    PhotoGridView(
+                        photos: model.displayedPhotos,
+                        selectedID: model.selectedPhotoID,
+                        onSelect: { model.selectPhoto($0) }
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if model.viewMode == .grid, let photo = model.selectedPhoto, let project = model.project {
+                SoftPreviewView(
+                    photo: photo,
+                    projectName: project.name,
+                    baseline: project.profile,
+                    offsets: model.globalAdjustments.merged(with: photo.perPhotoAdjustments ?? .zero),
+                    mix: model.showBefore ? 0 : model.softRender.mix,
+                    showBefore: model.showBefore
+                )
+                .frame(height: 220)
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            }
+
+            statusBar
+        }
+        .focusable()
+        .focused($focused)
+        .onAppear { focused = true }
+    }
+
     private var statusBar: some View {
-        HStack(spacing: 16) {
+        HStack {
+            if model.isBusy { ProgressView().controlSize(.small) }
             Text(model.statusMessage)
                 .lineLimit(1)
             Spacer()
-            Text("P keep · X reject · ] next · Space compare")
+            Text("P keep · X reject · H hero · ] next · Space compare · G grid")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -221,145 +192,42 @@ struct ContentView: View {
         .background(.bar)
     }
 
-    private func developOffsets(for photo: PhotoRecord) -> DevelopAdjustments {
-        let per = photo.perPhotoAdjustments ?? .zero
-        return model.globalAdjustments.merged(with: per)
-    }
-
-    private func tierColor(_ tier: PhotoTier) -> Color {
-        switch tier {
-        case .keep: .green
-        case .maybe: .orange
-        case .reject: .gray
-        case .unranked: .secondary
-        }
-    }
-
     private func handleKey(_ event: NSEvent) -> NSEvent? {
-        guard !event.modifierFlags.contains(.command) else { return event }
-        switch event.charactersIgnoringModifiers?.lowercased() {
+        if event.modifierFlags.contains(.command) { return event }
+        let chars = event.charactersIgnoringModifiers?.lowercased()
+        switch chars {
         case "p":
-            model.markKeep()
+            if event.type == .keyDown { model.markKeep() }
             return nil
         case "x":
-            model.markReject()
+            if event.type == .keyDown { model.markReject() }
             return nil
-        case "m":
-            model.markMaybe()
+        case "h":
+            if event.type == .keyDown { model.markHero() }
+            return nil
+        case "g":
+            if event.type == .keyDown {
+                model.viewMode = model.viewMode == .grid ? .uncertain : .grid
+            }
             return nil
         case "]":
-            model.advanceFlag()
+            if event.type == .keyDown { model.advanceUncertain() }
             return nil
         case "[":
-            model.previousFlag()
+            if event.type == .keyDown { model.previousUncertain() }
             return nil
         default:
             if event.keyCode == 49 {
                 model.showBefore = event.type == .keyDown
+                if event.type == .keyDown {
+                    model.softRender.snapBefore()
+                } else {
+                    model.softRender.snapAfter()
+                }
                 return nil
             }
             return event
         }
-    }
-}
-
-struct PhotoCell: View {
-    let photo: PhotoRecord
-    let isSelected: Bool
-
-    var body: some View {
-        VStack(spacing: 4) {
-            ZStack(alignment: .topLeading) {
-                if let path = photo.thumbPath {
-                    AsyncThumb(url: URL(fileURLWithPath: path))
-                        .aspectRatio(3 / 2, contentMode: .fit)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 120)
-                        .background(Color.black.opacity(0.04))
-                } else {
-                    Rectangle().fill(.quaternary).frame(height: 120)
-                }
-
-                Text(photo.tier.label)
-                    .font(.caption2.bold())
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(tierColor.opacity(0.85))
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
-                    .padding(6)
-
-                if photo.isFlagged {
-                    Image(systemName: "exclamationmark.circle.fill")
-                        .foregroundStyle(.orange)
-                        .padding(6)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.accentColor : .clear, lineWidth: 3)
-            )
-
-            Text(photo.filename)
-                .font(.caption2)
-                .lineLimit(1)
-        }
-    }
-
-    private var tierColor: Color {
-        switch photo.tier {
-        case .keep: .green
-        case .maybe: .orange
-        case .reject: .gray
-        case .unranked: .secondary
-        }
-    }
-}
-
-struct AsyncThumb: View {
-    let url: URL
-    var profile: DevelopProfile = DevelopProfile()
-    var offsets: DevelopAdjustments = .zero
-    @State private var image: NSImage?
-
-    private var needsDevelop: Bool {
-        profile.hasDevelopSettings || !offsets.isZero
-    }
-
-    var body: some View {
-        Group {
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFit()
-            } else {
-                Rectangle().fill(.quaternary)
-                    .task(id: taskID) { await load() }
-            }
-        }
-    }
-
-    private var taskID: String {
-        "\(url.path)-\(profile.temperature)-\(offsets.exposure)-\(offsets.contrast)-\(offsets.temperature)"
-    }
-
-    @MainActor
-    private func load() async {
-        let url = url
-        let profile = profile
-        let offsets = offsets
-        let needsDevelop = needsDevelop
-
-        let loaded: NSImage? = if needsDevelop {
-            await Task.detached(priority: .userInitiated) {
-                PreviewRenderer.render(url: url, profile: profile, offsets: offsets)
-            }.value
-        } else {
-            NSImage(contentsOf: url)
-        }
-        image = loaded
     }
 }
 

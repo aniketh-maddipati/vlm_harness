@@ -3,22 +3,32 @@ import AppKit
 import ImageIO
 
 enum FaceDetector {
-    static func hasFace(in imageURL: URL) -> Bool {
-        if let source = CGImageSourceCreateWithURL(imageURL as CFURL, nil) {
-            let opts: [CFString: Any] = [
-                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceThumbnailMaxPixelSize: 640,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-            ]
-            if let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) {
-                return hasFace(in: cg)
+    struct Result {
+        var hasFace: Bool
+        var quality: Double
+    }
+
+    static func analyze(_ imageURL: URL) -> Result {
+        guard let cg = loadCG(imageURL) else { return Result(hasFace: false, quality: 0) }
+        let request = VNDetectFaceRectanglesRequest()
+        let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+        do {
+            try handler.perform([request])
+            guard let faces = request.results, let best = faces.max(by: {
+                $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height
+            }) else {
+                return Result(hasFace: false, quality: 0)
             }
+            let area = best.boundingBox.width * best.boundingBox.height
+            let quality = min(max(area * 4.0, 0.2), 1.0)
+            return Result(hasFace: true, quality: quality)
+        } catch {
+            return Result(hasFace: false, quality: 0)
         }
-        guard let image = NSImage(contentsOf: imageURL),
-              let cg = rasterisedCGImage(from: image) else {
-            return false
-        }
-        return hasFace(in: cg)
+    }
+
+    static func hasFace(in imageURL: URL) -> Bool {
+        analyze(imageURL).hasFace
     }
 
     static func hasFace(in cgImage: CGImage) -> Bool {
@@ -43,8 +53,13 @@ enum FaceDetector {
         }
     }
 
-    private static func rasterisedCGImage(from image: NSImage) -> CGImage? {
-        var rect = CGRect(origin: .zero, size: image.size)
-        return image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+    private static func loadCG(_ url: URL) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: 640,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary)
     }
 }
