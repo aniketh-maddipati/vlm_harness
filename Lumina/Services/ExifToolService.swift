@@ -7,38 +7,66 @@ enum ExifToolService {
         FileManager.default.isExecutableFile(atPath: exifToolPath)
     }
 
+    // MARK: - Single file (fallback)
+
     static func extractPreview(from rawURL: URL, to destURL: URL) throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: exifToolPath)
-        process.arguments = ["-b", "-PreviewImage", rawURL.path]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-
-        try process.run()
-        process.waitUntilExit()
-
-        guard process.terminationStatus == 0 else {
-            throw ExifToolError.previewExtractionFailed(rawURL.lastPathComponent)
-        }
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let data = try runData(arguments: ["-b", "-PreviewImage", rawURL.path])
         guard !data.isEmpty else {
             throw ExifToolError.previewExtractionFailed(rawURL.lastPathComponent)
         }
         try data.write(to: destURL, options: .atomic)
     }
 
-    static func captureDate(for url: URL) -> Date? {
-        let output = run(arguments: ["-s", "-s", "-s", "-DateTimeOriginal", url.path])
-        guard let output, !output.isEmpty else { return nil }
-        return parseExifDate(output)
+    // MARK: - Batch operations (one process for whole folder)
+
+    /// One exiftool call for all capture dates in a folder.
+    static func batchCaptureDates(in folder: URL, extensions: [String] = ["ARW"]) -> [String: Date] {
+        guard isAvailable else { return [:] }
+        var args = ["-DateTimeOriginal", "-json", "-q", "-q"]
+        for ext in extensions {
+            args.append("-ext")
+            args.append(ext)
+        }
+        args.append(folder.path)
+
+        guard let data = try? runData(arguments: args),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return [:]
+        }
+
+        var result: [String: Date] = [:]
+        for item in json {
+            guard let source = item["SourceFile"] as? String,
+                  let raw = item["DateTimeOriginal"] as? String,
+                  let date = parseExifDate(raw) else { continue }
+            result[source] = date
+            result[URL(fileURLWithPath: source).lastPathComponent] = date
+        }
+        return result
     }
 
+    /// One exiftool call for taste profile from all JPGs.
     static func buildProfile(from jpgFolder: URL) -> DevelopProfile {
-        let jpgs = (try? FileManager.default.contentsOfDirectory(at: jpgFolder, includingPropertiesForKeys: nil))?
-            .filter { ["jpg", "jpeg"].contains($0.pathExtension.lowercased()) } ?? []
+        guard isAvailable else { return DevelopProfile() }
+
+        var args = [
+            "-json", "-q", "-q",
+            "-XMP-crs:Exposure2012",
+            "-XMP-crs:ColorTemperature",
+            "-XMP-crs:Contrast2012",
+            "-XMP-crs:Highlights2012",
+            "-XMP-crs:Shadows2012",
+            "-XMP-crs:Vibrance",
+            "-ext", "jpg",
+            "-ext", "jpeg",
+            jpgFolder.path,
+        ]
+
+        guard let data = try? runData(arguments: args),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              !json.isEmpty else {
+            return DevelopProfile()
+        }
 
         var exposures: [Double] = []
         var temps: [Double] = []
@@ -47,13 +75,13 @@ enum ExifToolService {
         var shadows: [Double] = []
         var vibrances: [Double] = []
 
-        for jpg in jpgs {
-            if let v = doubleTag("XMP-crs:Exposure2012", file: jpg) { exposures.append(v) }
-            if let v = doubleTag("XMP-crs:ColorTemperature", file: jpg) { temps.append(v) }
-            if let v = doubleTag("XMP-crs:Contrast2012", file: jpg) { contrasts.append(v) }
-            if let v = doubleTag("XMP-crs:Highlights2012", file: jpg) { highlights.append(v) }
-            if let v = doubleTag("XMP-crs:Shadows2012", file: jpg) { shadows.append(v) }
-            if let v = doubleTag("XMP-crs:Vibrance", file: jpg) { vibrances.append(v) }
+        for item in json {
+            if let v = parseDouble(item["Exposure2012"]) { exposures.append(v) }
+            if let v = parseDouble(item["ColorTemperature"]) { temps.append(v) }
+            if let v = parseDouble(item["Contrast2012"]) { contrasts.append(v) }
+            if let v = parseDouble(item["Highlights2012"]) { highlights.append(v) }
+            if let v = parseDouble(item["Shadows2012"]) { shadows.append(v) }
+            if let v = parseDouble(item["Vibrance"]) { vibrances.append(v) }
         }
 
         return DevelopProfile(
@@ -63,34 +91,38 @@ enum ExifToolService {
             highlights: mean(highlights),
             shadows: mean(shadows),
             vibrance: mean(vibrances),
-            sourceCount: jpgs.count
+            sourceCount: json.count
         )
     }
 
-    private static func doubleTag(_ tag: String, file: URL) -> Double? {
-        guard let raw = run(arguments: ["-s", "-s", "-s", "-\(tag)", file.path]) else { return nil }
-        let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "+", with: "")
-        return Double(cleaned)
-    }
+    // MARK: - Process runner
 
-    private static func run(arguments: [String]) -> String? {
-        guard isAvailable else { return nil }
+    private static func runData(arguments: [String]) throws -> Data {
+        guard isAvailable else { throw ExifToolError.notInstalled }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: exifToolPath)
         process.arguments = arguments
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = Pipe()
-        do {
-            try process.run()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
-            return String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-        } catch {
-            return nil
+        try process.run()
+        process.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard process.terminationStatus == 0 else {
+            throw ExifToolError.commandFailed(arguments.joined(separator: " "))
         }
+        return data
+    }
+
+    private static func parseDouble(_ value: Any?) -> Double? {
+        guard let value else { return nil }
+        if let number = value as? NSNumber { return number.doubleValue }
+        if let string = value as? String {
+            let cleaned = string.trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: "+", with: "")
+            return Double(cleaned)
+        }
+        return nil
     }
 
     private static func mean(_ values: [Double], default defaultValue: Double = 0) -> Double {
@@ -111,6 +143,7 @@ enum ExifToolService {
 enum ExifToolError: LocalizedError {
     case previewExtractionFailed(String)
     case notInstalled
+    case commandFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -118,6 +151,8 @@ enum ExifToolError: LocalizedError {
             "Could not extract preview from \(name)"
         case .notInstalled:
             "exiftool not found at /usr/local/bin/exiftool"
+        case .commandFailed(let cmd):
+            "exiftool failed: \(cmd)"
         }
     }
 }

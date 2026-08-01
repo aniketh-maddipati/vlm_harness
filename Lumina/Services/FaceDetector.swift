@@ -1,8 +1,19 @@
 import Vision
 import AppKit
+import ImageIO
 
 enum FaceDetector {
     static func hasFace(in imageURL: URL) -> Bool {
+        if let source = CGImageSourceCreateWithURL(imageURL as CFURL, nil) {
+            let opts: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: 640,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+            ]
+            if let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) {
+                return hasFace(in: cg)
+            }
+        }
         guard let image = NSImage(contentsOf: imageURL),
               let cg = rasterisedCGImage(from: image) else {
             return false
