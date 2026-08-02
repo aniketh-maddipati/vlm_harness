@@ -30,6 +30,9 @@ final class ProjectViewModel {
     var exportPayoff: ExportPayoffState?
     var showExportPayoff = false
     var canResumeLastProject = false
+    var catalogQueue = CatalogQueueState()
+    var isCatalogMode = false
+    private var catalogBackgroundTask: Task<Void, Never>?
     private var undoSnapshots: [StackUndoSnapshot] = []
 
     /// Linear session spine — no parallel mode matrix.
@@ -248,6 +251,185 @@ final class ProjectViewModel {
 
     func refreshResumeAvailability() {
         canResumeLastProject = (try? ProjectStore.loadLastProject()) != nil
+    }
+
+    func restoreCatalogQueueIfNeeded() {
+        guard !isCatalogMode else { return }
+        Task {
+            guard let saved = await CatalogAgent.loadSavedQueue() else { return }
+            catalogQueue = saved
+            isCatalogMode = true
+            jobBrief = saved.brief
+            agentPlanText = CatalogAgent.planText(for: saved)
+            statusMessage = saved.headline
+            resumeBackgroundIndexing()
+        }
+    }
+
+    func pickCatalogRoot() {
+        guard let root = pickFolder(
+            message: "Select the parent folder containing your shoot folders (100+ subfolders OK)"
+        ) else { return }
+        Task { await startCatalogScan(at: root) }
+    }
+
+    func startCatalogScan(at root: URL) async {
+        isBusy = true
+        isCatalogMode = true
+        catalogQueue.isScanning = true
+        statusMessage = "Scanning shoot folders…"
+        defer {
+            isBusy = false
+            catalogQueue.isScanning = false
+        }
+
+        do {
+            let state = try await CatalogAgent.scan(root: root, brief: jobBrief)
+            catalogQueue = state
+            agentPlanText = CatalogAgent.planText(for: state)
+            statusMessage = "Found \(state.totalFolders) folders · starting queue"
+            await openNextCatalogFolder(autoStart: true)
+            resumeBackgroundIndexing()
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func resumeBackgroundIndexing() {
+        catalogBackgroundTask?.cancel()
+        let pending = catalogQueue.folders.filter { $0.status == .pending }
+        guard !pending.isEmpty else { return }
+
+        catalogQueue.isIndexing = true
+        let keepRate = jobBrief.resolvedKeepRate(totalPhotos: 1000)
+        catalogBackgroundTask = Task {
+            await CatalogAgent.runBackgroundIndexing(
+                folders: catalogQueue.folders,
+                keepRate: keepRate
+            ) { [weak self] id, status, error in
+                await MainActor.run {
+                    guard let self else { return }
+                    if let idx = self.catalogQueue.folders.firstIndex(where: { $0.id == id }) {
+                        self.catalogQueue.folders[idx].status = status
+                        self.catalogQueue.folders[idx].errorMessage = error
+                        if status == .indexed {
+                            self.catalogQueue.folders[idx].indexedAt = Date()
+                        }
+                    }
+                    self.catalogQueue.isIndexing = self.catalogQueue.folders.contains {
+                        $0.status == .pending || $0.status == .indexing
+                    }
+                    self.agentPlanText = CatalogAgent.planText(for: self.catalogQueue)
+                }
+            }
+            await MainActor.run {
+                self.catalogQueue.isIndexing = false
+                self.reloadCatalogFoldersFromStore()
+            }
+        }
+    }
+
+    private func reloadCatalogFoldersFromStore() {
+        Task {
+            let folders = (try? await CatalogStore.shared.allFolders()) ?? catalogQueue.folders
+            catalogQueue.folders = folders
+            agentPlanText = CatalogAgent.planText(for: catalogQueue)
+        }
+    }
+
+    func openNextCatalogFolder(autoStart: Bool = false) async {
+        let folders = (try? await CatalogStore.shared.allFolders()) ?? catalogQueue.folders
+        catalogQueue.folders = folders
+
+        guard let next = CatalogAgent.nextWorkItem(in: catalogQueue.folders) else {
+            statusMessage = "Backlog complete · \(catalogQueue.clearedCount)/\(catalogQueue.totalFolders) cleared"
+            return
+        }
+
+        if next.status == .pending || next.status == .indexing {
+            statusMessage = "Indexing \(next.name)…"
+            isBusy = true
+            defer { isBusy = false }
+        }
+
+        do {
+            let keepRate = jobBrief.resolvedKeepRate(totalPhotos: max(next.photoCount, 100))
+            let loaded = try await CatalogAgent.indexFolder(next, keepRate: keepRate)
+            try? await CatalogStore.shared.updateStatus(id: next.id, status: .active)
+            await activateCatalogProject(loaded, folder: next, autoStart: autoStart)
+        } catch {
+            statusMessage = "Could not open \(next.name): \(error.localizedDescription)"
+        }
+    }
+
+    private func activateCatalogProject(
+        _ loaded: LuminaProject,
+        folder: CatalogFolder,
+        autoStart: Bool
+    ) async {
+        catalogQueue.activeFolderID = folder.id
+        if let idx = catalogQueue.folders.firstIndex(where: { $0.id == folder.id }) {
+            catalogQueue.folders[idx].status = .active
+            let stats = CatalogAgent.folderStats(from: loaded)
+            catalogQueue.folders[idx].photoCount = stats.photoCount
+            catalogQueue.folders[idx].needsYouCount = stats.needsYou
+            catalogQueue.folders[idx].keepCount = stats.keepCount
+            catalogQueue.folders[idx].setCount = stats.setCount
+        }
+
+        var loadedProject = loaded
+        PhotoAgentOrchestrator.applyBrief(jobBrief, to: &loadedProject)
+        project = loadedProject
+        agentLog = []
+        sortMode = .similar
+        sessionPhase = .meet
+        activeClusterIndex = 0
+        manualPickIDs = []
+        showGridOverview = false
+        ProjectStore.saveLastProjectName(loaded.name)
+
+        if let hero = reviewClusters.first?.heroID {
+            selectedPhotoID = hero
+        } else {
+            selectedPhotoID = loaded.photos.first?.id
+        }
+
+        agentPlanText = CatalogAgent.planText(for: catalogQueue)
+        let pos = (catalogQueue.activeFolderIndex ?? 0) + 1
+        statusMessage = "Folder \(pos)/\(catalogQueue.totalFolders) · \(folder.name) · \(reviewClusters.count) sets"
+
+        if autoStart, reviewClusters.isEmpty {
+            completeSession()
+        }
+    }
+
+    func advanceCatalogQueueAfterExport() {
+        guard isCatalogMode, let activeID = catalogQueue.activeFolderID else { return }
+        Task {
+            try? await CatalogStore.shared.markCleared(id: activeID)
+            if let idx = catalogQueue.folders.firstIndex(where: { $0.id == activeID }) {
+                catalogQueue.folders[idx].status = .cleared
+                catalogQueue.folders[idx].clearedAt = Date()
+            }
+            catalogQueue.activeFolderID = nil
+            agentPlanText = CatalogAgent.planText(for: catalogQueue)
+            await openNextCatalogFolder(autoStart: true)
+        }
+    }
+
+    private func syncActiveCatalogStats() {
+        guard isCatalogMode, let activeID = catalogQueue.activeFolderID, let project else { return }
+        let stats = CatalogAgent.folderStats(from: project)
+        if let idx = catalogQueue.folders.firstIndex(where: { $0.id == activeID }) {
+            catalogQueue.folders[idx].photoCount = stats.photoCount
+            catalogQueue.folders[idx].needsYouCount = stats.needsYou
+            catalogQueue.folders[idx].keepCount = stats.keepCount
+            catalogQueue.folders[idx].setCount = stats.setCount
+        }
+        Task {
+            await CatalogAgent.syncStats(for: activeID, project: project)
+        }
+        agentPlanText = CatalogAgent.planText(for: catalogQueue)
     }
 
     func resumeLastProject() {
@@ -471,6 +653,7 @@ final class ProjectViewModel {
         }
         self.project = project
         persistDebounced()
+        syncActiveCatalogStats()
     }
 
     func toggleFlag() {
@@ -681,6 +864,7 @@ final class ProjectViewModel {
 
     func completeSession() {
         guard project != nil else { return }
+        syncActiveCatalogStats()
         let feedbackCount = (try? FeedbackStore.load(project: project!.name).count) ?? 0
         sessionSummary = PhotoAgentOrchestrator.buildSessionSummary(
             photos: project!.photos,
@@ -690,7 +874,12 @@ final class ProjectViewModel {
         withAnimation {
             sessionPhase = .export
         }
-        statusMessage = "Session clear · \(keepCount) keeps · export?"
+        if isCatalogMode, let active = catalogQueue.activeFolder {
+            let pos = (catalogQueue.activeFolderIndex ?? 0) + 1
+            statusMessage = "Folder \(pos)/\(catalogQueue.totalFolders) clear · \(keepCount) keeps · export?"
+        } else {
+            statusMessage = "Session clear · \(keepCount) keeps · export?"
+        }
     }
 
     func undoLastStack() {
