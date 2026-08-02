@@ -385,6 +385,46 @@ if FileManager.default.fileExists(atPath: latencyPath) {
     note("bug", "perf", "Latency harness missing", "No LatencyMetrics.swift")
 }
 
+let spinePath = repoRoot.appendingPathComponent("Lumina/Services/PreviewSpine.swift").path
+let speedBrowsePath = repoRoot.appendingPathComponent("Lumina/Views/SpeedBrowseViewer.swift").path
+let hudPath = repoRoot.appendingPathComponent("Lumina/Views/SpeedContractHUD.swift").path
+if FileManager.default.fileExists(atPath: spinePath)
+    && sourceContains(spinePath, "input_to_photon")
+    && sourceContains(spinePath, "reaim")
+    && FileManager.default.fileExists(atPath: speedBrowsePath)
+    && FileManager.default.fileExists(atPath: hudPath)
+    && sourceContains(contentView, "toggleSpeedHUD")
+    && sourceContains(vmPath, "advanceBrowse") {
+    note("pass", "perf", "Speed Contract spine", "PreviewSpine + browse viewer + HUD · paint <50ms contract")
+} else {
+    note("bug", "perf", "Speed Contract incomplete", "Missing PreviewSpine, SpeedBrowseViewer, or HUD wiring")
+}
+
+if sourceContains(latencyPath, "percentile") && sourceContains(latencyPath, "p99") {
+    note("pass", "perf", "Contract percentiles", "p50/p95/p99 for spine.input_to_photon")
+} else {
+    note("friction", "perf", "Percentiles missing", "LatencyMetrics needs percentile helpers")
+}
+
+let metalPoolPath = repoRoot.appendingPathComponent("Lumina/Services/MetalPreviewPool.swift").path
+let metalCanvasPath = repoRoot.appendingPathComponent("Lumina/Views/MetalBrowseCanvas.swift").path
+let projectStorePath = repoRoot.appendingPathComponent("Lumina/Services/ProjectStore.swift").path
+let photoRecordPath = repoRoot.appendingPathComponent("Lumina/Models/PhotoRecord.swift").path
+if FileManager.default.fileExists(atPath: metalPoolPath)
+    && FileManager.default.fileExists(atPath: metalCanvasPath)
+    && sourceContains(metalPoolPath, "IOSurface")
+    && sourceContains(metalPoolPath, "CVMetalTextureCache")
+    && sourceContains(metalPoolPath, "mappedIfSafe")
+    && sourceContains(metalCanvasPath, "CAMetalLayer")
+    && sourceContains(projectStorePath, "extractBrowsePreview")
+    && sourceContains(photoRecordPath, "PreviewOrigin")
+    && sourceContains(spinePath, "ripVelocity")
+    && sourceContains(speedBrowsePath, "MetalBrowseCanvas") {
+    note("pass", "perf", "Narrative+ browse path", "embedded/synth ingest · mmap · IOSurface Metal pool · CAMetalLayer · rip prefetch")
+} else {
+    note("bug", "perf", "Narrative+ browse path incomplete", "Missing embedded preview extract, Metal pool, or canvas wiring")
+}
+
 if sourceContains(vmPath, "prefetchStackFeed") {
     note("pass", "perf", "Stack feed scroll-ahead prefetch", "prefetchStackFeed on card appear")
 } else {

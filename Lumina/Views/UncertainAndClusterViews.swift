@@ -241,6 +241,12 @@ private struct GroupPickPhase: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            // Warm pick grid paths so LazyVGrid cells paint immediately.
+            let paths = members.compactMap { $0.gridThumbPath ?? $0.thumbPath ?? $0.rawPath }
+            Task { await PhotoImageCache.shared.prefetch(paths, maxPixelSize: 512) }
+            PreviewSpine.shared.warm(photos: members, focus: members.first?.id)
+        }
     }
 }
 
@@ -253,9 +259,10 @@ private struct PickCard: View {
         Button(action: onToggle) {
             VStack(alignment: .leading, spacing: 6) {
                 ZStack(alignment: .topTrailing) {
-                    PhotoImageView(photo: photo, tier: .preview, contentMode: .fit)
-                        .aspectRatio(4 / 3, contentMode: .fit)
+                    PhotoImageView(photo: photo, tier: .grid, contentMode: .fill)
                         .frame(maxWidth: .infinity)
+                        .aspectRatio(4 / 3, contentMode: .fill)
+                        .clipped()
                         .clipShape(RoundedRectangle(cornerRadius: 10))
 
                     Image(systemName: selected ? "checkmark.circle.fill" : "circle")
@@ -286,7 +293,6 @@ private struct GroupDecidePhase: View {
 
     var body: some View {
         let leftovers = model.decideLeftovers(in: cluster)
-        let projectName = model.project?.name ?? ""
 
         Group {
             if leftovers.isEmpty {
@@ -302,10 +308,9 @@ private struct GroupDecidePhase: View {
                     Spacer()
                 }
             } else {
-                SilhouetteDwellViewer(
+                SpeedBrowseViewer(
                     model: model,
                     photos: leftovers,
-                    projectName: projectName,
                     selection: $model.selectedPhotoID
                 )
             }
@@ -313,7 +318,7 @@ private struct GroupDecidePhase: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             if let first = leftovers.first {
-                model.selectPhoto(first.id)
+                model.selectBrowsePhoto(first.id, in: leftovers, inputTime: CFAbsoluteTimeGetCurrent())
             }
         }
     }

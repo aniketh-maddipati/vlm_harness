@@ -122,12 +122,13 @@ final class ThumbCache {
 
     private init() {}
 
-    func prefetch(_ path: String) {
+    func prefetch(_ path: String, maxPixelSize: Int? = 512) {
         lock.lock()
-        let fresh = warm.insert(path).inserted
+        let key = maxPixelSize.map { "\(path)@\($0)" } ?? path
+        let fresh = warm.insert(key).inserted
         lock.unlock()
         guard fresh else { return }
-        Task { await PhotoImageCache.shared.prefetch([path]) }
+        Task { await PhotoImageCache.shared.prefetch([path], maxPixelSize: maxPixelSize) }
     }
 }
 
@@ -138,6 +139,7 @@ final class PhotoItemView: NSCollectionViewItem {
     private let badge = NSTextField(labelWithString: "")
     private let nameLabel = NSTextField(labelWithString: "")
     private var imageHeight: NSLayoutConstraint?
+    private var loadToken = UUID()
 
     override func loadView() {
         view = NSView()
@@ -203,12 +205,21 @@ final class PhotoItemView: NSCollectionViewItem {
         }
 
         if let path = photo.previewPath ?? photo.displayThumbPath {
-            let path = path
+            let token = UUID()
+            loadToken = token
+            let pixelSize = Int(max(view.bounds.width, 180) * (NSScreen.main?.backingScaleFactor ?? 2))
             Task {
-                let image = await PhotoImageCache.shared.load(path: path)
-                await MainActor.run { self.imageView_.image = image }
+                let image = await PhotoImageCache.shared.load(
+                    path: path,
+                    maxPixelSize: max(pixelSize, 256)
+                )
+                await MainActor.run {
+                    guard token == self.loadToken else { return }
+                    self.imageView_.image = image
+                }
             }
         } else {
+            loadToken = UUID()
             imageView_.image = nil
         }
     }

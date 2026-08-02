@@ -1,7 +1,8 @@
 import SwiftUI
 import AppKit
+import ImageIO
 
-/// Full-bleed cull viewer: instant silhouette while scrolling, graded render + controls after dwell.
+/// Full-bleed magazine cull: large page flip, big filmstrip, graded render after dwell.
 struct SilhouetteDwellViewer: View {
     @Bindable var model: ProjectViewModel
     let photos: [PhotoRecord]
@@ -32,6 +33,11 @@ struct SilhouetteDwellViewer: View {
         return photos.first { $0.id == selection }
     }
 
+    /// Tall filmstrip — magazine page feel, not a postage stamp.
+    private let filmstripHeight: CGFloat = 168
+    private let filmCellWidth: CGFloat = 118
+    private let filmCellHeight: CGFloat = 148
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
@@ -47,7 +53,7 @@ struct SilhouetteDwellViewer: View {
                         .opacity(dwellStage >= .manual ? 1 : 0.55)
                         .animation(.easeOut(duration: 0.25), value: dwellStage)
 
-                    Spacer()
+                    Spacer(minLength: 0)
 
                     if dwellStage >= .manual, selectedPhoto != nil {
                         VStack(spacing: 10) {
@@ -65,14 +71,26 @@ struct SilhouetteDwellViewer: View {
                             )
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
-                        .padding(.bottom, 8)
+                        .padding(.bottom, 10)
                     }
 
                     bottomFilmstrip
-                        .frame(height: 92)
-                        .background(.black.opacity(0.55))
+                        .frame(height: filmstripHeight)
+                        .background(.ultraThinMaterial.opacity(0.55))
                 }
             }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 40)
+                    .onEnded { value in
+                        guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                        if value.translation.width < -40 {
+                            advanceSelection()
+                        } else if value.translation.width > 40 {
+                            retreatSelection()
+                        }
+                    }
+            )
         }
         .onAppear {
             if selection == nil { selection = photos.first?.id }
@@ -116,17 +134,17 @@ struct SilhouetteDwellViewer: View {
     private var stageHint: some View {
         switch dwellStage {
         case .silhouette:
-            Text("Scrolling…")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.45))
-        case .rendering:
-            ProgressView()
-                .controlSize(.small)
-                .tint(.white)
-        case .graded:
-            Text("Preview ready")
+            Text("Flip…")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.55))
+        case .rendering:
+            Text("Rendering…")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.65))
+        case .graded:
+            Text("Hold for controls")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.65))
         case .manual:
             Text("P keep · X reject · M flag")
                 .font(.caption)
@@ -140,28 +158,32 @@ struct SilhouetteDwellViewer: View {
 
     @ViewBuilder
     private func silhouetteLayer(photo: PhotoRecord, size: CGSize) -> some View {
+        let pageHeight = max(size.height - filmstripHeight - 8, size.height * 0.72)
         Group {
             if let silhouetteImage {
                 Image(nsImage: silhouetteImage)
                     .resizable()
-                    .interpolation(.medium)
+                    .interpolation(.high)
                     .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: size.width, maxHeight: size.height - 120)
-                    .saturation(dwellStage >= .graded ? 0 : 0.12)
-                    .contrast(dwellStage >= .graded ? 1 : 1.45)
-                    .brightness(dwellStage >= .graded ? 0 : -0.12)
-                    .blur(radius: dwellStage >= .graded ? 0 : 0.6)
+                    .frame(maxWidth: size.width, maxHeight: pageHeight)
+                    .frame(width: size.width, height: pageHeight, alignment: .center)
+                    .saturation(dwellStage >= .graded ? 0 : 0.18)
+                    .contrast(dwellStage >= .graded ? 1 : 1.35)
+                    .brightness(dwellStage >= .graded ? 0 : -0.08)
                     .opacity(dwellStage >= .graded ? 0 : 1)
             } else {
                 ProgressView()
                     .tint(.white.opacity(0.5))
+                    .frame(width: size.width, height: pageHeight)
             }
         }
-        .animation(.easeOut(duration: 0.22), value: dwellStage >= .graded)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .animation(.easeOut(duration: 0.18), value: dwellStage >= .graded)
     }
 
     @ViewBuilder
     private func gradedLayer(size: CGSize) -> some View {
+        let pageHeight = max(size.height - filmstripHeight - 8, size.height * 0.72)
         Group {
             if dwellStage >= .graded, let before = beforeImage, let after = afterImage {
                 if model.showBefore {
@@ -183,30 +205,38 @@ struct SilhouetteDwellViewer: View {
                 }
             }
         }
-        .frame(maxWidth: size.width, maxHeight: size.height - 120)
+        .frame(maxWidth: size.width, maxHeight: pageHeight)
+        .frame(width: size.width, height: pageHeight, alignment: .center)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .opacity(dwellStage >= .graded ? 1 : 0)
-        .animation(.easeIn(duration: 0.28), value: dwellStage >= .graded)
+        .animation(.easeIn(duration: 0.22), value: dwellStage >= .graded)
     }
 
     private var bottomFilmstrip: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     ForEach(photos) { photo in
                         FilmstripCell(
                             photo: photo,
                             isSelected: selection == photo.id,
-                            onSelect: { selection = photo.id }
+                            width: filmCellWidth,
+                            height: filmCellHeight,
+                            onSelect: {
+                                withAnimation(.easeOut(duration: 0.18)) {
+                                    selection = photo.id
+                                }
+                            }
                         )
                         .id(photo.id)
                     }
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 10)
             }
             .onChange(of: selection) { _, id in
                 guard let id else { return }
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(.easeOut(duration: 0.22)) {
                     proxy.scrollTo(id, anchor: .center)
                 }
             }
@@ -215,6 +245,24 @@ struct SilhouetteDwellViewer: View {
                     proxy.scrollTo(id, anchor: .center)
                 }
             }
+        }
+    }
+
+    private func advanceSelection() {
+        guard let current = selection,
+              let idx = photos.firstIndex(where: { $0.id == current }),
+              idx + 1 < photos.count else { return }
+        withAnimation(.easeOut(duration: 0.18)) {
+            selection = photos[idx + 1].id
+        }
+    }
+
+    private func retreatSelection() {
+        guard let current = selection,
+              let idx = photos.firstIndex(where: { $0.id == current }),
+              idx > 0 else { return }
+        withAnimation(.easeOut(duration: 0.18)) {
+            selection = photos[idx - 1].id
         }
     }
 
@@ -227,12 +275,12 @@ struct SilhouetteDwellViewer: View {
         model.showBefore = false
 
         if let photo = photos.first(where: { $0.id == photoID }) {
-            model.prefetchPhotoDisplay(photo)
             loadSilhouette(for: photo)
+            model.prefetchPhotoDisplay(photo)
         }
 
         dwellTask = Task {
-            try? await Task.sleep(nanoseconds: 260_000_000)
+            try? await Task.sleep(nanoseconds: 180_000_000)
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 dwellStage = .rendering
@@ -243,11 +291,9 @@ struct SilhouetteDwellViewer: View {
 
     private func loadSilhouette(for photo: PhotoRecord) {
         Task {
-            let path = photo.gridThumbPath ?? photo.previewPath ?? photo.thumbPath
-            var image: NSImage?
-            if let path {
-                image = await PhotoImageCache.shared.load(path: path)
-            }
+            // Prefer cached grid; else decode embedded preview straight from RAW (Narrative path).
+            let path = photo.gridThumbPath ?? photo.previewPath ?? photo.thumbPath ?? photo.rawPath
+            let image = await PhotoImageCache.shared.load(path: path, maxPixelSize: 2200)
             await MainActor.run {
                 silhouetteImage = image
             }
@@ -262,11 +308,12 @@ struct SilhouetteDwellViewer: View {
             let name = projectName
 
             let loaded = await Task.detached(priority: .userInitiated) { () -> (NSImage?, NSImage?) in
-                guard let proxy = DevelopEngine.ensureProxy(for: photo, projectName: name) else {
-                    return (nil, nil)
-                }
-                let before = NSImage(contentsOf: proxy)
-                let after = DevelopEngine.render(url: proxy, recipe: recipe, offsets: .zero, mix: 1)
+                let source = DevelopEngine.ensureProxy(for: photo, projectName: name)
+                    ?? photo.displayThumbPath.map { URL(fileURLWithPath: $0) }
+                    ?? URL(fileURLWithPath: photo.rawPath)
+                let before = Self.decodeDisplay(url: source, maxPixel: 2200)
+                let after = DevelopEngine.render(url: source, recipe: recipe, offsets: .zero, mix: 1)
+                    ?? before
                 return (before, after)
             }.value
 
@@ -275,49 +322,72 @@ struct SilhouetteDwellViewer: View {
             await MainActor.run {
                 beforeImage = loaded.0
                 afterImage = loaded.1
-                withAnimation(.easeIn(duration: 0.28)) {
+                withAnimation(.easeIn(duration: 0.22)) {
                     dwellStage = .graded
                 }
             }
 
-            try? await Task.sleep(nanoseconds: 140_000_000)
+            try? await Task.sleep(nanoseconds: 100_000_000)
             if Task.isCancelled { return }
-
             await MainActor.run {
-                withAnimation(.spring(duration: 0.38, bounce: 0.08)) {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
                     dwellStage = .manual
                 }
             }
 
             try? await Task.sleep(nanoseconds: 220_000_000)
             if Task.isCancelled { return }
-
             await MainActor.run {
                 dwellStage = .auto
                 model.playSoftRender(for: photoID)
             }
         }
     }
+
+    nonisolated private static func decodeDisplay(url: URL, maxPixel: Int) -> NSImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+            return NSImage(contentsOf: url)
+        }
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+        ]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) else {
+            return NSImage(contentsOf: url)
+        }
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        return NSImage(
+            cgImage: cg,
+            size: NSSize(width: CGFloat(cg.width) / scale, height: CGFloat(cg.height) / scale)
+        )
+    }
 }
 
 private struct FilmstripCell: View {
     let photo: PhotoRecord
     let isSelected: Bool
+    var width: CGFloat = 118
+    var height: CGFloat = 148
     let onSelect: () -> Void
 
     var body: some View {
         Button(action: onSelect) {
             PhotoImageView(photo: photo, tier: .grid, contentMode: .fill)
-                .frame(width: 58, height: 72)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .frame(width: width, height: height)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .strokeBorder(
-                            isSelected ? Color.accentColor : Color.white.opacity(0.15),
-                            lineWidth: isSelected ? 2.5 : 1
+                            isSelected ? Color.accentColor : Color.white.opacity(0.18),
+                            lineWidth: isSelected ? 3 : 1
                         )
                 }
+                .scaleEffect(isSelected ? 1.04 : 1)
+                .shadow(color: isSelected ? Color.accentColor.opacity(0.35) : .clear, radius: 8, y: 2)
         }
         .buttonStyle(.plain)
+        .animation(.easeOut(duration: 0.15), value: isSelected)
     }
 }

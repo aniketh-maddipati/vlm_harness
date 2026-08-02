@@ -5,11 +5,14 @@ import CoreGraphics
 /// Progressive import — emits photos after thumbs, then refines scores live.
 enum ImportPipeline {
     private static let previewConcurrency = 6
+    private static var instantPreviewConcurrency: Int {
+        min(max(ProcessInfo.processInfo.activeProcessorCount * 3, 16), 32)
+    }
     private static var scoreConcurrency: Int {
         min(max(ProcessInfo.processInfo.activeProcessorCount, 8), 16)
     }
 
-    /// Gentle pause so phase labels are readable (does not block heavy work).
+    /// UI pacing between major phases (skipped during instant preview burst).
     private static let phasePauseNs: UInt64 = 380_000_000
 
     static func importProject(
@@ -89,9 +92,10 @@ enum ImportPipeline {
             continuation.yield(.status(detail))
         }
 
-        emit(.metadata, detail: "Reading capture dates…", completed: 0, total: totalPhotos, fraction: 0.02)
+        emit(.metadata, detail: "Opening photos…", completed: 0, total: totalPhotos, fraction: 0.02)
 
-        async let datesTask = Task.detached(priority: .userInitiated) {
+        // Narrative path: don't block first paint on exiftool — merge dates later.
+        async let datesTask = Task.detached(priority: .utility) {
             ExifToolService.batchCaptureDates(
                 in: sourceFolder,
                 extensions: MediaFormats.exiftoolExtensions,
@@ -101,78 +105,51 @@ enum ImportPipeline {
 
         var profile = DevelopRecipe.neutral
         var tasteEntries: [TasteEntry] = []
-        if let jpgFolder {
-            emit(.taste, detail: "Scanning Lightroom edits…", completed: 0, total: totalPhotos, fraction: 0.06)
-            let built = await Task.detached(priority: .userInitiated) {
-                XMPDevelopParser.buildTasteLibrary(from: jpgFolder)
-            }.value
-            profile = built.mean
-            tasteEntries = built.entries
-            try? TasteIndex.save(entries: tasteEntries, project: projectName)
-            emit(.taste, detail: "Learned from \(tasteEntries.count) edits", completed: tasteEntries.count, total: tasteEntries.count, fraction: 0.10)
-            try? await Task.sleep(nanoseconds: phasePauseNs)
-        }
+        // Taste scan runs AFTER cull opens — never blocks first scroll.
+        let deferredTasteFolder = jpgFolder
 
-        let dates = await datesTask
+        emit(.previews, detail: "Loading previews…", completed: 0, total: totalPhotos, fraction: 0.08)
 
-        emit(.previews, detail: "Extracting previews…", completed: 0, total: totalPhotos, fraction: 0.12)
-
-        var records = try await extractAllTiers(
+        // Tier 0: embedded JPEG only → scrollable in seconds
+        var records = try await extractInstantPreviews(
             rawFiles: mediaFiles,
-            dates: dates,
-            thumbDir: thumbDir,
-            gridDir: gridDir,
-            proxyDir: proxyDir
+            dates: [:],
+            gridDir: gridDir
         ) { done, total, thumbPath, partial in
             if let thumbPath { recentThumbs.append(thumbPath) }
             if recentThumbs.count > 32 { recentThumbs.removeFirst(recentThumbs.count - 32) }
-            let frac = 0.12 + 0.33 * (Double(done) / Double(max(total, 1)))
+            let frac = 0.08 + 0.40 * (Double(done) / Double(max(total, 1)))
             emit(.previews, detail: "Preview \(done) of \(total)", completed: done, total: total, fraction: frac)
-            if done % 3 == 0 || done == total {
+            if done % 4 == 0 || done == total {
                 continuation.yield(.photosUpdated(partial))
             }
         }
 
         CullEngine.assignBursts(&records)
-        continuation.yield(.photosReady(records, profile: profile))
-        try? await Task.sleep(nanoseconds: phasePauseNs)
+        CullEngine.assignBurstClusters(&records)
 
-        emit(.quality, detail: "Scoring sharpness…", completed: 0, total: totalPhotos, fraction: 0.48)
+        emit(.quality, detail: "Scoring…", completed: 0, total: totalPhotos, fraction: 0.52)
         records = await scoreQuality(records) { done, total in
-            let frac = 0.48 + 0.14 * (Double(done) / Double(max(total, 1)))
+            let frac = 0.52 + 0.18 * (Double(done) / Double(max(total, 1)))
             emit(.quality, detail: "Quality \(done)/\(total)", completed: done, total: total, fraction: frac)
         }
         CullEngine.scoreAndTier(&records, keepRate: keepRate)
-        continuation.yield(.photosUpdated(records))
-        try? await Task.sleep(nanoseconds: phasePauseNs)
-
-        emit(.grouping, detail: "Grouping similar shots…", completed: 0, total: totalPhotos, fraction: 0.64)
-        records = await EmbeddingService.embedAndCluster(records)
-        CullEngine.scoreAndTier(&records, keepRate: keepRate)
-        let setCount = Set(records.compactMap(\.clusterID)).count
-        emit(.grouping, detail: "Found \(setCount) sets", completed: setCount, total: setCount, fraction: 0.76)
-        continuation.yield(.photosUpdated(records))
-        try? await Task.sleep(nanoseconds: phasePauseNs)
-
-        let faceCandidates = records.indices.filter {
-            records[$0].sharpness >= 0.15 && records[$0].tier != .reject
-        }
-        emit(.faces, detail: "Checking faces…", completed: 0, total: faceCandidates.count, fraction: 0.78)
-        await detectFaces(records: &records, candidates: faceCandidates) { done, total in
-            let frac = 0.78 + 0.10 * (Double(done) / Double(max(total, 1)))
-            emit(.faces, detail: "Faces \(done)/\(total)", completed: done, total: total, fraction: frac)
-        }
-        CullEngine.scoreAndTier(&records, keepRate: keepRate)
-        continuation.yield(.photosUpdated(records))
-        try? await Task.sleep(nanoseconds: phasePauseNs)
-
-        emit(.edits, detail: "Matching your edit style…", completed: 0, total: totalPhotos, fraction: 0.90)
-        let entries = tasteEntries.isEmpty
-            ? (try? TasteIndex.load(project: projectName)) ?? []
-            : tasteEntries
-        TasteRetriever.applyRecipes(to: &records, library: entries, baseline: profile)
         CullEngine.assignConfidence(&records)
-        continuation.yield(.photosUpdated(records))
+        _ = PhotoAgentOrchestrator.autoResolveHighConfidence(in: &records, threshold: 0.88)
+
+        // Merge capture dates if ready (non-blocking timeout feel — await briefly).
+        let dates = await datesTask
+        if !dates.isEmpty {
+            for i in records.indices {
+                let raw = records[i].rawPath
+                let name = records[i].filename
+                records[i].capturedAt = dates[raw] ?? dates[name] ?? records[i].capturedAt
+            }
+            CullEngine.assignBursts(&records)
+            CullEngine.assignBurstClusters(&records)
+        }
+
+        continuation.yield(.photosReady(records, profile: profile))
 
         var project = LuminaProject(
             name: projectName,
@@ -180,20 +157,181 @@ enum ImportPipeline {
             jpgFolder: jpgFolder?.path,
             keepRateTarget: keepRate,
             profile: profile,
-            tasteSourceCount: tasteEntries.count,
+            tasteSourceCount: 0,
             photos: records
         )
         project.collections = ExportService.draftCollections(from: records)
         try ProjectStore.save(project)
 
         let uncertain = records.filter(\.isUncertain).count
-        emit(.ready, detail: "\(records.count) photos · \(uncertain) may need you", completed: records.count, total: records.count, fraction: 1.0)
-        try? await Task.sleep(nanoseconds: 450_000_000)
+        emit(.ready, detail: "\(records.count) photos · \(uncertain) need you", completed: records.count, total: records.count, fraction: 0.72)
+        // OPEN UI NOW — Narrative-style. Everything below refines in background.
         continuation.yield(.finished(project))
+
+        // —— Background refinement (UI already interactive) ——
+        emit(.previews, detail: "Building high-res…", completed: 0, total: totalPhotos, fraction: 0.74)
+        records = await refineTiersInBackground(
+            records: records,
+            thumbDir: thumbDir,
+            proxyDir: proxyDir
+        ) { partial in
+            continuation.yield(.photosUpdated(partial))
+        }
+
+        if let deferredTasteFolder {
+            emit(.taste, detail: "Learning your look…", completed: 0, total: totalPhotos, fraction: 0.82)
+            let built = await Task.detached(priority: .utility) {
+                XMPDevelopParser.buildTasteLibrary(from: deferredTasteFolder)
+            }.value
+            profile = built.mean
+            tasteEntries = built.entries
+            try? TasteIndex.save(entries: tasteEntries, project: projectName)
+        }
+
+        emit(.grouping, detail: "Grouping similar…", completed: 0, total: totalPhotos, fraction: 0.86)
+        records = await EmbeddingService.embedAndCluster(records)
+        CullEngine.scoreAndTier(&records, keepRate: keepRate)
+
+        let faceCandidates = records.indices.filter {
+            records[$0].sharpness >= 0.15 && records[$0].tier != .reject
+        }
+        emit(.faces, detail: "Faces…", completed: 0, total: faceCandidates.count, fraction: 0.92)
+        await detectFaces(records: &records, candidates: faceCandidates) { done, total in
+            let frac = 0.92 + 0.04 * (Double(done) / Double(max(total, 1)))
+            emit(.faces, detail: "Faces \(done)/\(total)", completed: done, total: total, fraction: frac)
+        }
+
+        emit(.edits, detail: "Matching look…", completed: 0, total: totalPhotos, fraction: 0.96)
+        let entries = tasteEntries.isEmpty
+            ? (try? TasteIndex.load(project: projectName)) ?? []
+            : tasteEntries
+        TasteRetriever.applyRecipes(to: &records, library: entries, baseline: profile)
+        CullEngine.assignConfidence(&records)
+
+        project.photos = records
+        project.profile = profile
+        project.tasteSourceCount = tasteEntries.count
+        project.collections = ExportService.draftCollections(from: records)
+        try ProjectStore.save(project)
+        continuation.yield(.photosUpdated(records))
+        emit(.ready, detail: "Refined · \(records.count) photos", completed: records.count, total: records.count, fraction: 1.0)
         continuation.finish()
     }
 
     // MARK: - Extract
+
+    /// Tier 0 — camera embedded JPEG (or one-time synth) so browse never demosaics.
+    private static func extractInstantPreviews(
+        rawFiles: [URL],
+        dates: [String: Date],
+        gridDir: URL,
+        progress: @Sendable (Int, Int, String?, [PhotoRecord]) async -> Void
+    ) async throws -> [PhotoRecord] {
+        var records: [PhotoRecord?] = Array(repeating: nil, count: rawFiles.count)
+        var done = 0
+        let total = rawFiles.count
+        let indexed = Array(rawFiles.enumerated())
+        // Full browse previews live next to grid thumbs.
+        let previewDir = gridDir.deletingLastPathComponent().appendingPathComponent("preview", isDirectory: true)
+        try? FileManager.default.createDirectory(at: previewDir, withIntermediateDirectories: true)
+
+        for chunk in indexed.chunked(into: instantPreviewConcurrency) {
+            try await withThrowingTaskGroup(of: (Int, PhotoRecord).self) { group in
+                for (index, rawURL) in chunk {
+                    group.addTask {
+                        let stem = rawURL.deletingPathExtension().lastPathComponent
+                        let previewURL = previewDir.appendingPathComponent(stem + ".jpg")
+                        let gridURL = gridDir.appendingPathComponent(stem + ".jpg")
+
+                        let extracted = PreviewExtractor.extractBrowsePreview(
+                            to: previewURL,
+                            from: rawURL,
+                            maxPixelSize: 2400,
+                            minLongEdge: 2000
+                        )
+                        if extracted.success, !FileManager.default.fileExists(atPath: gridURL.path) {
+                            _ = PreviewExtractor.downscaleJPEG(from: previewURL, to: gridURL, maxPixelSize: 768)
+                        }
+
+                        let filename = rawURL.lastPathComponent
+                        let capturedAt = dates[rawURL.path] ?? dates[filename]
+                        let hasPreview = FileManager.default.fileExists(atPath: previewURL.path)
+                        let hasGrid = FileManager.default.fileExists(atPath: gridURL.path)
+                        let record = PhotoRecord(
+                            rawPath: rawURL.path,
+                            filename: filename,
+                            thumbPath: hasPreview ? previewURL.path : (hasGrid ? gridURL.path : nil),
+                            gridThumbPath: hasGrid ? gridURL.path : (hasPreview ? previewURL.path : nil),
+                            proxyPath: nil,
+                            previewOrigin: extracted.origin,
+                            previewLongEdge: extracted.longEdge,
+                            capturedAt: capturedAt
+                        )
+                        return (index, record)
+                    }
+                }
+                for try await (index, record) in group {
+                    records[index] = record
+                    done += 1
+                    let partial = records.compactMap { $0 }
+                    await progress(done, total, record.gridThumbPath ?? record.thumbPath, partial)
+                }
+            }
+        }
+        return records.compactMap { $0 }
+    }
+
+    /// Tier 2 — high-res thumb + proxy in background while user starts culling.
+    private static func refineTiersInBackground(
+        records input: [PhotoRecord],
+        thumbDir: URL,
+        proxyDir: URL,
+        onUpdate: @Sendable ([PhotoRecord]) async -> Void
+    ) async -> [PhotoRecord] {
+        var records = input
+        let indices = Array(records.indices)
+
+        for chunk in indices.chunked(into: previewConcurrency) {
+            await withTaskGroup(of: (Int, String?, String?).self) { group in
+                for index in chunk {
+                    let rawPath = records[index].rawPath
+                    group.addTask {
+                        let rawURL = URL(fileURLWithPath: rawPath)
+                        let stem = rawURL.deletingPathExtension().lastPathComponent
+                        let thumbURL = thumbDir.appendingPathComponent(stem + ".jpg")
+                        let proxyURL = proxyDir.appendingPathComponent(stem + ".jpg")
+
+                        if !FileManager.default.fileExists(atPath: thumbURL.path) {
+                            try? PreviewExtractor.extractBest(to: thumbURL, from: rawURL, maxPixelSize: 2048)
+                        }
+                        if !FileManager.default.fileExists(atPath: proxyURL.path) {
+                            let ext = rawURL.pathExtension.uppercased()
+                            let isProcessed = ["JPG", "JPEG", "JPE", "HEIC", "HEIF"].contains(ext)
+                            let proxyMax = isProcessed ? 6000 : 4096
+                            if !PreviewExtractor.downscaleJPEG(from: thumbURL, to: proxyURL, maxPixelSize: proxyMax) {
+                                _ = try? PreviewExtractor.extractBest(to: proxyURL, from: rawURL, maxPixelSize: proxyMax)
+                            }
+                        }
+
+                        if FileManager.default.fileExists(atPath: proxyURL.path) {
+                            return (index, thumbURL.path, proxyURL.path)
+                        }
+                        let ext = rawURL.pathExtension.uppercased()
+                        if ["JPG", "JPEG", "JPE", "HEIC", "HEIF"].contains(ext) {
+                            return (index, thumbURL.path, rawURL.path)
+                        }
+                        return (index, thumbURL.path, nil)
+                    }
+                }
+                for await (index, thumbPath, proxyPath) in group {
+                    if let thumbPath { records[index].thumbPath = thumbPath }
+                    if let proxyPath { records[index].proxyPath = proxyPath }
+                }
+            }
+            await onUpdate(records)
+        }
+        return records
+    }
 
     private static func extractAllTiers(
         rawFiles: [URL],
@@ -332,7 +470,7 @@ enum ImportPipeline {
                 }
             }
             await progress(done, total)
-            try? await Task.sleep(nanoseconds: 30_000_000)
+            // No artificial sleep — Narrative never pauses for UX chrome during AI.
         }
     }
 
@@ -358,12 +496,10 @@ enum ImportPipeline {
             )
         }.value
 
-        var records = try await extractAllTiers(
+        var records = try await extractInstantPreviews(
             rawFiles: mediaFiles,
             dates: dates,
-            thumbDir: thumbDir,
-            gridDir: gridDir,
-            proxyDir: gridDir
+            gridDir: gridDir
         ) { _, _, _, _ in }
 
         CullEngine.assignBursts(&records)
