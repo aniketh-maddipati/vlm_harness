@@ -139,6 +139,7 @@ private struct GroupIntroPhase: View {
 
             ProgressivePhotoWall(
                 paths: members.compactMap { $0.gridThumbPath ?? $0.thumbPath },
+                maxSlots: members.count,
                 revealIntervalMs: 360,
                 prefetchAhead: 4
             )
@@ -160,9 +161,24 @@ private struct GroupIntroPhase: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
+            logMeetGridMissingThumbPaths(members)
             ThumbCache.shared.prefetchPhotos(members, maxPixelSize: 512)
             withAnimation(.spring(duration: 0.65, bounce: 0.14)) { appear = true }
         }
+    }
+}
+
+private func logMeetGridMissingThumbPaths(_ members: [PhotoRecord]) {
+    for member in members where member.gridThumbPath == nil && member.thumbPath == nil {
+        let reason: String
+        if member.previewLongEdge == 0, member.previewOrigin == .unknown {
+            reason = "preview not yet generated (previewLongEdge=0, previewOrigin=unknown)"
+        } else if member.previewLongEdge > 0 {
+            reason = "preview metadata present but thumb paths missing (previewLongEdge=\(member.previewLongEdge), previewOrigin=\(member.previewOrigin.rawValue))"
+        } else {
+            reason = "thumb paths unset (previewOrigin=\(member.previewOrigin.rawValue))"
+        }
+        print("[MeetGrid] Missing thumb path for photo id=\(member.id) filename=\"\(member.filename)\" gridThumbPath=nil thumbPath=nil — \(reason)")
     }
 }
 
