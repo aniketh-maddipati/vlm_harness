@@ -12,23 +12,28 @@ enum IngestOrchestrator {
 
     // MARK: - Discovery
 
-    static func discover(at root: URL, kind: IngestSourceKind) -> IngestDiscovery? {
+    static func discover(at root: URL, kind: IngestSourceKind? = nil) async -> IngestDiscovery? {
         let result = MediaFormats.discoverPhotos(at: root)
         guard !result.importable.isEmpty else { return nil }
 
-        let taste = detectTasteFolder(near: root, photoSample: result.importable)
-        let bytes = result.importable.reduce(Int64(0)) { partial, url in
+        let materialized = await CloudFileMaterializer.prepareForImport(result.importable)
+        guard !materialized.ready.isEmpty else { return nil }
+
+        var skipped = result.skipped + materialized.skipped
+        let resolvedKind = kind ?? SourceCatalog.classifyPath(root)
+        let taste = detectTasteFolder(near: root, photoSample: materialized.ready)
+        let bytes = materialized.ready.reduce(Int64(0)) { partial, url in
             let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
             return partial + Int64(size)
         }
 
         let manifest = IngestManifest(
             sourceRoot: root.path,
-            sourceKind: kind,
+            sourceKind: resolvedKind,
             discoveredAt: Date(),
             filesDiscovered: result.discoveredCount,
-            filesImported: result.importable.count,
-            filesSkipped: result.skipped,
+            filesImported: materialized.ready.count,
+            filesSkipped: skipped,
             filesFailed: [],
             exifDateMin: nil,
             exifDateMax: nil,
@@ -37,8 +42,8 @@ enum IngestOrchestrator {
 
         return IngestDiscovery(
             sourceRoot: root,
-            sourceKind: kind,
-            photoURLs: result.importable,
+            sourceKind: resolvedKind,
+            photoURLs: materialized.ready,
             tasteFolder: taste,
             manifest: manifest
         )
@@ -97,21 +102,14 @@ enum IngestOrchestrator {
         guard volume.path.hasPrefix("/Volumes/") else { return false }
         guard volume.lastPathComponent != "Macintosh HD" else { return false }
         guard let root = bestIngestRoot(on: volume) else { return false }
-        return scoreVolume(volume) >= 3 || MediaFormats.discoverPhotos(at: root).importable.count >= 3
+        let count = MediaFormats.discoverPhotos(at: root, maxDepth: 6).importable.count
+        if SourceCatalog.isIPhoneVolume(volume) { return count >= 1 }
+        if IngestOrchestrator.isRemovableVolume(volume) { return count >= 1 }
+        return count >= 3
     }
 
     static func mountedCandidateVolumes() -> [URL] {
-        let keys: [URLResourceKey] = [
-            .volumeIsRemovableKey, .volumeIsEjectableKey, .volumeIsLocalKey,
-        ]
-        guard let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: []) else {
-            return []
-        }
-        return urls.filter { url in
-            guard url.path.hasPrefix("/Volumes/") else { return false }
-            guard url.lastPathComponent != "Macintosh HD" else { return false }
-            return shouldAutoIngest(volume: url)
-        }
+        SourceCatalog.mountedPhotoVolumes()
     }
 
     // MARK: - Taste

@@ -55,10 +55,8 @@ final class IngestWatcher {
             try? await Task.sleep(nanoseconds: 600_000_000)
             guard !Task.isCancelled else { return }
             guard let root = IngestOrchestrator.bestIngestRoot(on: volume) else { return }
-            guard let discovery = IngestOrchestrator.discover(
-                at: root,
-                kind: IngestOrchestrator.isRemovableVolume(volume) ? .sdCard : .externalDrive
-            ) else { return }
+            let kind = SourceCatalog.classifyVolume(volume)
+            guard let discovery = await IngestOrchestrator.discover(at: root, kind: kind) else { return }
 
             lastIngestedVolumePath = path
             onDiscover?(discovery)

@@ -409,6 +409,19 @@ if FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Lumin
     note("friction", "ingest", "No volume watcher", "Card insert requires manual import")
 }
 
+if FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Lumina/Services/SourceCatalog.swift").path)
+    && sourceContains(repoRoot.appendingPathComponent("Lumina/Services/SourceCatalog.swift").path, "iCloud") {
+    note("pass", "ingest", "Multi-source catalog present", "SD · external HDD · iCloud · iPhone detection")
+} else {
+    note("friction", "ingest", "Source catalog missing", "No iCloud/iPhone/external drive routing")
+}
+
+if sourceContains(repoRoot.appendingPathComponent("Lumina/Services/ProjectStore.swift").path, "extractFullImage") {
+    note("pass", "ingest", "Full-res JPG/HEIC decode", "Not embedded thumbnail for processed formats")
+} else {
+    note("friction", "ingest", "Thumbnail-only decode", "JPG/HEIC may use low-res embedded preview")
+}
+
 // Nested folder discovery smoke test (inline — e2e script is outside app module)
 func countPhotosRecursive(_ dir: URL, depth: Int = 0) -> Int {
     guard depth < 10 else { return 0 }

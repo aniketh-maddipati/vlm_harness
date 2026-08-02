@@ -47,6 +47,21 @@ enum ProjectStore {
 }
 
 enum PreviewExtractor {
+    private static let processedExtensions: Set<String> = [
+        "JPG", "JPEG", "JPE", "HEIC", "HEIF", "HIF", "PNG", "TIF", "TIFF", "WEBP",
+    ]
+
+    /// Best available pixels — full decode for JPG/HEIC, embedded preview for RAW.
+    static func extractBest(to destURL: URL, from sourceURL: URL, maxPixelSize: Int) throws {
+        let ext = sourceURL.pathExtension.uppercased()
+        if processedExtensions.contains(ext) {
+            if extractFullImage(to: destURL, from: sourceURL, maxPixelSize: maxPixelSize) {
+                return
+            }
+        }
+        try extract(to: destURL, from: sourceURL, maxPixelSize: maxPixelSize)
+    }
+
     static func extract(to destURL: URL, from rawURL: URL, maxPixelSize: Int) throws {
         if extractWithImageIO(to: destURL, from: rawURL, maxPixelSize: maxPixelSize) {
             return
@@ -85,6 +100,26 @@ enum PreviewExtractor {
             return false
         }
         return writeJPEG(cgImage: image, to: destURL, quality: 0.92)
+    }
+
+    /// Decode full image (not embedded thumbnail) for JPG/HEIC/PNG from iCloud, phone exports, etc.
+    @discardableResult
+    static func extractFullImage(to destURL: URL, from url: URL, maxPixelSize: Int) -> Bool {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return false }
+        guard let full = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return false }
+        let maxDim = max(full.width, full.height)
+        if maxDim <= maxPixelSize {
+            return writeJPEG(cgImage: full, to: destURL, quality: 0.94)
+        }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+        ]
+        guard let scaled = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return writeJPEG(cgImage: full, to: destURL, quality: 0.92)
+        }
+        return writeJPEG(cgImage: scaled, to: destURL, quality: 0.94)
     }
 
     /// Full demosaic path via ImageIO (macOS RAW decoder — LibRaw-quality substitute for Sony ARW).

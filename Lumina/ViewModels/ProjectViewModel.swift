@@ -226,6 +226,22 @@ final class ProjectViewModel {
     /// Zero-click ingest from volume mount, drag-drop, or orchestrator.
     func beginIngest(discovery: IngestDiscovery) {
         guard !isImporting else { return }
+        startIngest(discovery: discovery)
+    }
+
+    func beginIngestFromRoot(_ root: URL, kind: IngestSourceKind? = nil) {
+        guard !isImporting else { return }
+        statusMessage = kind == .iCloud ? "Downloading from iCloud…" : "Scanning \(root.lastPathComponent)…"
+        Task {
+            guard let discovery = await IngestOrchestrator.discover(at: root, kind: kind) else {
+                statusMessage = "No importable photos found."
+                return
+            }
+            startIngest(discovery: discovery)
+        }
+    }
+
+    private func startIngest(discovery: IngestDiscovery) {
         lastIngestManifest = discovery.manifest
         jobBrief = IngestOrchestrator.defaultJobBrief(photoCount: discovery.photoURLs.count)
         IngestOrchestrator.saveJobBriefDefaults(jobBrief, photoCount: discovery.photoURLs.count)
@@ -233,7 +249,8 @@ final class ProjectViewModel {
             IngestPreferences.lastTasteFolderPath = taste.path
         }
         let label = discovery.sourceRoot.lastPathComponent
-        statusMessage = "Ingesting \(discovery.photoURLs.count) from \(label)…"
+        let kind = discovery.sourceKind.displayLabel
+        statusMessage = "Ingesting \(discovery.photoURLs.count) from \(kind) · \(label)…"
         Task {
             await importPhotos(
                 sourceFolder: discovery.sourceRoot,
@@ -241,6 +258,33 @@ final class ProjectViewModel {
                 jpgURL: discovery.tasteFolder
             )
         }
+    }
+
+    func importFromiCloudFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Select an iCloud Drive folder with photos"
+        panel.prompt = "Import"
+        if let cloud = SourceCatalog.watchableRoots().first(where: {
+            $0.path.contains("CloudDocs") || $0.lastPathComponent == "iCloud Drive"
+        }) {
+            panel.directoryURL = cloud
+        }
+        guard panel.runModal() == .OK, let url = panel.urls.first else { return }
+        beginIngestFromRoot(url, kind: .iCloud)
+    }
+
+    func rescanMountedSources() {
+        IngestWatcher.shared.resetLastVolume()
+        statusMessage = "Scanning SD cards, drives, and iPhone…"
+        let volumes = SourceCatalog.mountedPhotoVolumes()
+        guard let volume = volumes.first, let root = IngestOrchestrator.bestIngestRoot(on: volume) else {
+            statusMessage = "No photo volumes found — insert SD card or drive."
+            return
+        }
+        beginIngestFromRoot(root, kind: SourceCatalog.classifyVolume(volume))
     }
 
     func ingestFromDroppedURLs(_ urls: [URL]) {
@@ -257,12 +301,12 @@ final class ProjectViewModel {
                 break
             }
         }
-        guard let root = scanRoot,
-              let discovery = IngestOrchestrator.discover(at: root, kind: .dragDrop) else {
+        guard let root = scanRoot else {
             statusMessage = "No importable photos in drop."
             return
         }
-        beginIngest(discovery: discovery)
+        let kind = SourceCatalog.classifyPath(root)
+        beginIngestFromRoot(root, kind: kind == .localFolder ? .dragDrop : kind)
     }
 
     func pickImportSources() {
@@ -289,24 +333,26 @@ final class ProjectViewModel {
             sourceFolder = photos[0].deletingLastPathComponent()
         }
 
-        guard let discovery = IngestOrchestrator.discover(at: sourceFolder, kind: .manualPicker) else {
+        Task {
+            await pickImportSourcesAsync(panel: panel, sourceFolder: sourceFolder, explicitFromFiles: panel.urls.contains(where: { !$0.hasDirectoryPath }))
+        }
+    }
+
+    private func pickImportSourcesAsync(panel: NSOpenPanel, sourceFolder: URL, explicitFromFiles: Bool) async {
+        guard let discovery = await IngestOrchestrator.discover(at: sourceFolder, kind: .manualPicker) else {
             statusMessage = "No importable photos in that selection."
             return
         }
 
-        let explicitFiles = panel.urls.contains(where: { !$0.hasDirectoryPath })
-            ? discovery.photoURLs
-            : nil
         lastIngestManifest = discovery.manifest
         jobBrief = IngestOrchestrator.defaultJobBrief(photoCount: discovery.photoURLs.count)
+        let explicitFiles = explicitFromFiles ? discovery.photoURLs : nil
 
-        Task {
-            await importPhotos(
-                sourceFolder: sourceFolder,
-                photoURLs: explicitFiles,
-                jpgURL: discovery.tasteFolder
-            )
-        }
+        await importPhotos(
+            sourceFolder: sourceFolder,
+            photoURLs: explicitFiles,
+            jpgURL: discovery.tasteFolder
+        )
     }
 
     private func finalizeIngestManifest(importedCount: Int) {

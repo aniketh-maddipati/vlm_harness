@@ -77,6 +77,16 @@ struct ContentView: View {
             ))
             .font(.caption)
 
+            HStack(spacing: 6) {
+                Button("iCloud…") { model.importFromiCloudFolder() }
+                    .buttonStyle(LuminaPressStyle())
+                    .disabled(model.isBusy)
+                Button("Scan drives") { model.rescanMountedSources() }
+                    .buttonStyle(LuminaPressStyle())
+                    .disabled(model.isBusy)
+            }
+            .font(.caption)
+
             if let manifest = model.lastIngestManifest {
                 Text(manifest.summaryLine)
                     .font(.caption2)

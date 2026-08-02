@@ -215,18 +215,24 @@ enum ImportPipeline {
                         let proxyURL = proxyDir.appendingPathComponent(stem + ".jpg")
 
                         if !FileManager.default.fileExists(atPath: thumbURL.path) {
-                            try PreviewExtractor.extract(to: thumbURL, from: rawURL, maxPixelSize: 1600)
+                            try PreviewExtractor.extractBest(to: thumbURL, from: rawURL, maxPixelSize: 2048)
                         }
                         if !FileManager.default.fileExists(atPath: gridURL.path) {
                             if !PreviewExtractor.downscaleJPEG(from: thumbURL, to: gridURL, maxPixelSize: 1024) {
-                                try PreviewExtractor.extract(to: gridURL, from: rawURL, maxPixelSize: 1024)
+                                try PreviewExtractor.extractBest(to: gridURL, from: rawURL, maxPixelSize: 1024)
                             }
                         }
                         var proxyPath: String?
+                        let ext = rawURL.pathExtension.uppercased()
+                        let isProcessed = ["JPG", "JPEG", "JPE", "HEIC", "HEIF"].contains(ext)
+                        let proxyMax = isProcessed ? 6000 : 4096
                         if !FileManager.default.fileExists(atPath: proxyURL.path) {
-                            if PreviewExtractor.downscaleJPEG(from: thumbURL, to: proxyURL, maxPixelSize: 2048)
-                                || ((try? PreviewExtractor.extract(to: proxyURL, from: rawURL, maxPixelSize: 2048)) != nil) {
+                            if PreviewExtractor.downscaleJPEG(from: thumbURL, to: proxyURL, maxPixelSize: proxyMax)
+                                || ((try? PreviewExtractor.extractBest(to: proxyURL, from: rawURL, maxPixelSize: proxyMax)) != nil) {
                                 proxyPath = proxyURL.path
+                            } else if isProcessed, FileManager.default.fileExists(atPath: rawURL.path) {
+                                // Keep full-res processed originals as proxy when decode matches source quality
+                                proxyPath = rawURL.path
                             }
                         } else {
                             proxyPath = proxyURL.path

@@ -85,7 +85,7 @@ struct StackCard: View {
     private var stackFan: some View {
         ZStack {
             ForEach(Array(members.prefix(4).enumerated()), id: \.element.id) { i, photo in
-                PhotoImageView(photo: photo, tier: .preview, contentMode: .fill)
+                PhotoImageView(photo: photo, tier: i == 0 ? .proxy : .preview, projectName: model.project?.name, contentMode: .fill)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .rotationEffect(.degrees(Double(i) * 2.5 - 3.5))

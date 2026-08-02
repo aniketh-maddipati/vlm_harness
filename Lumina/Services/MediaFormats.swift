@@ -115,6 +115,7 @@ enum MediaFormats {
 
                 discoveredCount += 1
                 let ext = entry.pathExtension.uppercased()
+                if ext.lowercased() == "icloud" { continue }
 
                 if videoExtensions.contains(ext) {
                     skipped.append(IngestSkippedFile(path: entry.path, reason: .video))
