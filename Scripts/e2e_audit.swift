@@ -385,6 +385,43 @@ if FileManager.default.fileExists(atPath: latencyPath) {
     note("bug", "perf", "Latency harness missing", "No LatencyMetrics.swift")
 }
 
+let spinePath = repoRoot.appendingPathComponent("Lumina/Services/PreviewSpine.swift").path
+let speedBrowsePath = repoRoot.appendingPathComponent("Lumina/Views/SpeedBrowseViewer.swift").path
+let hudPath = repoRoot.appendingPathComponent("Lumina/Views/SpeedContractHUD.swift").path
+if FileManager.default.fileExists(atPath: spinePath)
+    && sourceContains(spinePath, "input_to_photon")
+    && sourceContains(spinePath, "reaim")
+    && FileManager.default.fileExists(atPath: speedBrowsePath)
+    && FileManager.default.fileExists(atPath: hudPath)
+    && sourceContains(contentView, "toggleSpeedHUD")
+    && sourceContains(vmPath, "advanceBrowse") {
+    note("pass", "perf", "Speed Contract spine", "PreviewSpine + browse viewer + HUD · paint <50ms contract")
+} else {
+    note("bug", "perf", "Speed Contract incomplete", "Missing PreviewSpine, SpeedBrowseViewer, or HUD wiring")
+}
+
+if sourceContains(latencyPath, "percentile") && sourceContains(latencyPath, "p99") {
+    note("pass", "perf", "Contract percentiles", "p50/p95/p99 for spine.input_to_photon")
+} else {
+    note("friction", "perf", "Percentiles missing", "LatencyMetrics needs percentile helpers")
+}
+
+let metalPoolPath = repoRoot.appendingPathComponent("Lumina/Services/MetalPreviewPool.swift").path
+let metalCanvasPath = repoRoot.appendingPathComponent("Lumina/Views/MetalBrowseCanvas.swift").path
+let projectStorePath = repoRoot.appendingPathComponent("Lumina/Services/ProjectStore.swift").path
+let photoRecordPath = repoRoot.appendingPathComponent("Lumina/Models/PhotoRecord.swift").path
+if sourceContains(spinePath, "paint_commit")
+    && sourceContains(spinePath, "gpuPrefetchHitRate")
+    && sourceContains(metalPoolPath, "decodeMs")
+    && sourceContains(metalPoolPath, "blitMs")
+    && sourceContains(metalPoolPath, "wrapMs")
+    && sourceContains(metalPoolPath, "assertBrowseJPEGPath")
+    && !sourceContains(metalPoolPath, "ctx.draw") {
+    note("pass", "perf", "Defeater-killed browse path", "honest HUD · vImage blit · one GPU decode · no main upload · no RAW fallback")
+} else {
+    note("friction", "perf", "Defeater fixes incomplete", "Expected decode/blit/wrap spans, paint_commit, RAW guard")
+}
+
 if sourceContains(vmPath, "prefetchStackFeed") {
     note("pass", "perf", "Stack feed scroll-ahead prefetch", "prefetchStackFeed on card appear")
 } else {

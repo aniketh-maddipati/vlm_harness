@@ -157,6 +157,18 @@ struct ContentView: View {
                 )
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
+
+            if model.showSpeedHUD {
+                VStack {
+                    HStack {
+                        Spacer()
+                        SpeedContractHUD(model: model)
+                            .padding(16)
+                    }
+                    Spacer()
+                }
+                .allowsHitTesting(false)
+            }
         }
         .animation(.easeInOut(duration: 0.45), value: model.isImporting)
     }
@@ -202,12 +214,18 @@ struct ContentView: View {
     private func handleKey(_ event: NSEvent) -> NSEvent? {
         if event.modifierFlags.contains(.command) { return event }
         let chars = event.charactersIgnoringModifiers?.lowercased()
+        let held = event.isARepeat
+        // ⌥` — Speed Contract HUD
+        if event.type == .keyDown, event.keyCode == 50, event.modifierFlags.contains(.option) {
+            model.toggleSpeedHUD()
+            return nil
+        }
         switch chars {
         case "f":
-            if event.type == .keyDown { model.advanceFrame() }
+            if event.type == .keyDown { model.advanceFrame(held: held) }
             return nil
         case "d":
-            if event.type == .keyDown { model.retreatFrame() }
+            if event.type == .keyDown { model.retreatFrame(held: held) }
             return nil
         case "s":
             if event.type == .keyDown { model.toggleKeep() }
@@ -269,17 +287,15 @@ struct ContentView: View {
                 }
             }
             if event.keyCode == 123, event.type == .keyDown {
-                model.retreatFrame()
+                model.retreatFrame(held: held)
                 return nil
             }
             if event.keyCode == 124, event.type == .keyDown {
-                model.advanceFrame()
+                model.advanceFrame(held: held)
                 return nil
             }
             if event.keyCode == 49, model.sessionPhase == .decide {
-                model.showBefore = event.type == .keyDown
-                if event.type == .keyDown { model.softRender.snapBefore() }
-                else { model.softRender.snapAfter() }
+                // Space — reserved; no before/after taste on browse spine.
                 return nil
             }
             return event

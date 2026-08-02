@@ -271,6 +271,13 @@ extension DevelopRecipe {
 
 // MARK: - Photo
 
+enum PreviewOrigin: String, Codable, Hashable {
+    case embedded
+    case synthesized
+    case processed
+    case unknown
+}
+
 struct PhotoRecord: Identifiable, Codable, Hashable {
     let id: UUID
     var rawPath: String
@@ -278,6 +285,9 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
     var thumbPath: String?
     var gridThumbPath: String?
     var proxyPath: String?
+    /// How the browse preview was produced — never demosaic on the interactive path.
+    var previewOrigin: PreviewOrigin
+    var previewLongEdge: Int
     var capturedAt: Date?
     var burstID: String?
     var clusterID: String?
@@ -315,6 +325,8 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         thumbPath: String? = nil,
         gridThumbPath: String? = nil,
         proxyPath: String? = nil,
+        previewOrigin: PreviewOrigin = .unknown,
+        previewLongEdge: Int = 0,
         capturedAt: Date? = nil,
         burstID: String? = nil,
         clusterID: String? = nil,
@@ -345,6 +357,8 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         self.thumbPath = thumbPath
         self.gridThumbPath = gridThumbPath
         self.proxyPath = proxyPath
+        self.previewOrigin = previewOrigin
+        self.previewLongEdge = previewLongEdge
         self.capturedAt = capturedAt
         self.burstID = burstID
         self.clusterID = clusterID
@@ -370,13 +384,13 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         self.embedding = embedding
     }
 
-    var displayThumbPath: String? { gridThumbPath ?? thumbPath }
+    var displayThumbPath: String? { gridThumbPath ?? thumbPath ?? rawPath }
 
     /// Larger tier for carousels and filmstrip (1600px class).
-    var previewPath: String? { thumbPath ?? gridThumbPath }
+    var previewPath: String? { thumbPath ?? gridThumbPath ?? rawPath }
 
     /// Best available path for sharp display at ~2048px.
-    var sharpPath: String? { proxyPath ?? thumbPath ?? gridThumbPath }
+    var sharpPath: String? { proxyPath ?? thumbPath ?? gridThumbPath ?? rawPath }
 
     var isUncertain: Bool {
         isFlagged || uncertaintyKind != .none
@@ -396,6 +410,51 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
 
     var effectiveRecipe: DevelopRecipe {
         recipe ?? .neutral
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, rawPath, filename, thumbPath, gridThumbPath, proxyPath
+        case previewOrigin, previewLongEdge
+        case capturedAt, burstID, clusterID, clusterLabel
+        case sharpness, exposureHealth, faceQuality, aesthetic, compositeQuality, faceDetected
+        case cullScore, cullConfidence, editConfidence, tasteMatch
+        case tier, isFlagged, isBurstHero, isClusterHero
+        case uncertaintyKind, whyUncertain, whyAction, recipe, embedding
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        rawPath = try c.decode(String.self, forKey: .rawPath)
+        filename = try c.decode(String.self, forKey: .filename)
+        thumbPath = try c.decodeIfPresent(String.self, forKey: .thumbPath)
+        gridThumbPath = try c.decodeIfPresent(String.self, forKey: .gridThumbPath)
+        proxyPath = try c.decodeIfPresent(String.self, forKey: .proxyPath)
+        previewOrigin = try c.decodeIfPresent(PreviewOrigin.self, forKey: .previewOrigin) ?? .unknown
+        previewLongEdge = try c.decodeIfPresent(Int.self, forKey: .previewLongEdge) ?? 0
+        capturedAt = try c.decodeIfPresent(Date.self, forKey: .capturedAt)
+        burstID = try c.decodeIfPresent(String.self, forKey: .burstID)
+        clusterID = try c.decodeIfPresent(String.self, forKey: .clusterID)
+        clusterLabel = try c.decodeIfPresent(String.self, forKey: .clusterLabel)
+        sharpness = try c.decodeIfPresent(Double.self, forKey: .sharpness) ?? 0
+        exposureHealth = try c.decodeIfPresent(Double.self, forKey: .exposureHealth) ?? 0.5
+        faceQuality = try c.decodeIfPresent(Double.self, forKey: .faceQuality) ?? 0
+        aesthetic = try c.decodeIfPresent(Double.self, forKey: .aesthetic) ?? 0.5
+        compositeQuality = try c.decodeIfPresent(Double.self, forKey: .compositeQuality) ?? 0
+        faceDetected = try c.decodeIfPresent(Bool.self, forKey: .faceDetected) ?? false
+        cullScore = try c.decodeIfPresent(Double.self, forKey: .cullScore) ?? 0
+        cullConfidence = try c.decodeIfPresent(Double.self, forKey: .cullConfidence) ?? 0
+        editConfidence = try c.decodeIfPresent(Double.self, forKey: .editConfidence) ?? 1
+        tasteMatch = try c.decodeIfPresent(Double.self, forKey: .tasteMatch) ?? 0.5
+        tier = try c.decodeIfPresent(PhotoTier.self, forKey: .tier) ?? .unranked
+        isFlagged = try c.decodeIfPresent(Bool.self, forKey: .isFlagged) ?? false
+        isBurstHero = try c.decodeIfPresent(Bool.self, forKey: .isBurstHero) ?? true
+        isClusterHero = try c.decodeIfPresent(Bool.self, forKey: .isClusterHero) ?? true
+        uncertaintyKind = try c.decodeIfPresent(UncertaintyKind.self, forKey: .uncertaintyKind) ?? .none
+        whyUncertain = try c.decodeIfPresent(String.self, forKey: .whyUncertain)
+        whyAction = try c.decodeIfPresent(String.self, forKey: .whyAction)
+        recipe = try c.decodeIfPresent(DevelopRecipe.self, forKey: .recipe)
+        embedding = try c.decodeIfPresent([Float].self, forKey: .embedding)
     }
 }
 

@@ -79,10 +79,94 @@ enum ProjectStore {
     }
 }
 
-enum PreviewExtractor {
+nonisolated enum PreviewExtractor {
     private static let processedExtensions: Set<String> = [
         "JPG", "JPEG", "JPE", "HEIC", "HEIF", "HIF", "PNG", "TIF", "TIFF", "WEBP",
     ]
+
+    /// Fastest path — embedded/thumbnail JPEG only; no full demosaic or exiftool unless ImageIO fails.
+    @discardableResult
+    static func extractEmbeddedFast(to destURL: URL, from sourceURL: URL, maxPixelSize: Int = 1024) -> Bool {
+        if FileManager.default.fileExists(atPath: destURL.path) { return true }
+        let result = extractBrowsePreview(to: destURL, from: sourceURL, maxPixelSize: maxPixelSize)
+        return result.success
+    }
+
+    /// Narrative-style browse currency: camera embedded JPEG preferred; synthesize once if too small.
+    /// - Important: interactive path never demosaics again — this runs only at ingest.
+    static func extractBrowsePreview(
+        to destURL: URL,
+        from sourceURL: URL,
+        maxPixelSize: Int = 2400,
+        minLongEdge: Int = 2000
+    ) -> (success: Bool, origin: PreviewOrigin, longEdge: Int) {
+        if FileManager.default.fileExists(atPath: destURL.path) {
+            let edge = jpegLongEdge(at: destURL)
+            return (true, .unknown, edge)
+        }
+
+        let ext = sourceURL.pathExtension.uppercased()
+        if processedExtensions.contains(ext) {
+            if extractFullImage(to: destURL, from: sourceURL, maxPixelSize: maxPixelSize) {
+                return (true, .processed, jpegLongEdge(at: destURL))
+            }
+            return (false, .unknown, 0)
+        }
+
+        // 1) Camera-embedded only — do NOT synthesize here.
+        if let embedded = readEmbeddedThumbnail(from: sourceURL, maxPixelSize: maxPixelSize) {
+            let edge = max(embedded.width, embedded.height)
+            if edge >= minLongEdge, writeJPEG(cgImage: embedded, to: destURL, quality: 0.92) {
+                return (true, .embedded, edge)
+            }
+        }
+
+        // 2) Synthesize once at ingest (half/quarter-size ImageIO decode) — cached forever.
+        if let synth = synthesizeBrowsePreview(from: sourceURL, maxPixelSize: maxPixelSize),
+           writeJPEG(cgImage: synth, to: destURL, quality: 0.9) {
+            return (true, .synthesized, max(synth.width, synth.height))
+        }
+
+        // 3) Last resort: older ImageIO always path.
+        if extractWithImageIO(to: destURL, from: sourceURL, maxPixelSize: maxPixelSize) {
+            return (true, .synthesized, jpegLongEdge(at: destURL))
+        }
+        return (false, .unknown, 0)
+    }
+
+    /// Embedded JPEG only — `IfAbsent`/`Always` false so ImageIO won't demosaic.
+    private static func readEmbeddedThumbnail(from url: URL, maxPixelSize: Int) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
+            kCGImageSourceCreateThumbnailFromImageAlways: false,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+    }
+
+    /// One-time ingest synthesize when embedded preview is missing/too small (e.g. older Sony ARW).
+    private static func synthesizeBrowsePreview(from url: URL, maxPixelSize: Int) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+    }
+
+    static func jpegLongEdge(at url: URL) -> Int {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else {
+            return 0
+        }
+        let w = props[kCGImagePropertyPixelWidth] as? Int ?? 0
+        let h = props[kCGImagePropertyPixelHeight] as? Int ?? 0
+        return max(w, h)
+    }
 
     /// Best available pixels — full decode for JPG/HEIC, embedded preview for RAW.
     static func extractBest(to destURL: URL, from sourceURL: URL, maxPixelSize: Int) throws {

@@ -114,23 +114,6 @@ struct PhotoGridView: NSViewRepresentable {
     }
 }
 
-final class ThumbCache {
-    static let shared = ThumbCache()
-    private let queue = DispatchQueue(label: "lumina.thumb-prefetch", qos: .utility, attributes: .concurrent)
-    private var warm = Set<String>()
-    private let lock = NSLock()
-
-    private init() {}
-
-    func prefetch(_ path: String) {
-        lock.lock()
-        let fresh = warm.insert(path).inserted
-        lock.unlock()
-        guard fresh else { return }
-        Task { await PhotoImageCache.shared.prefetch([path]) }
-    }
-}
-
 final class PhotoItemView: NSCollectionViewItem {
     static let identifier = NSUserInterfaceItemIdentifier("PhotoItemView")
 
@@ -138,6 +121,7 @@ final class PhotoItemView: NSCollectionViewItem {
     private let badge = NSTextField(labelWithString: "")
     private let nameLabel = NSTextField(labelWithString: "")
     private var imageHeight: NSLayoutConstraint?
+    private var loadToken = UUID()
 
     override func loadView() {
         view = NSView()
@@ -203,12 +187,24 @@ final class PhotoItemView: NSCollectionViewItem {
         }
 
         if let path = photo.previewPath ?? photo.displayThumbPath {
-            let path = path
+            let token = UUID()
+            loadToken = token
+            let pixelSize = Int(max(view.bounds.width, 180) * (NSScreen.main?.backingScaleFactor ?? 2))
             Task {
-                let image = await PhotoImageCache.shared.load(path: path)
-                await MainActor.run { self.imageView_.image = image }
+                let outcome = await PhotoImageCache.shared.load(
+                    path: path,
+                    maxPixelSize: max(pixelSize, 256),
+                    allowRAW: false
+                )
+                await MainActor.run {
+                    guard token == self.loadToken else { return }
+                    if case .image(let img) = outcome {
+                        self.imageView_.image = img
+                    }
+                }
             }
         } else {
+            loadToken = UUID()
             imageView_.image = nil
         }
     }

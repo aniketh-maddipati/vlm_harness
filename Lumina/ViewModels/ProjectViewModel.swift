@@ -32,6 +32,9 @@ final class ProjectViewModel {
     var canResumeLastProject = false
     var catalogQueue = CatalogQueueState()
     var isCatalogMode = false
+    /// Speed Contract debug HUD (⌥`).
+    var showSpeedHUD = false
+    var speedHUDPulse: Int = 0
     private var catalogBackgroundTask: Task<Void, Never>?
     private var undoSnapshots: [StackUndoSnapshot] = []
 
@@ -142,6 +145,7 @@ final class ProjectViewModel {
     // MARK: - Import
 
     func importPhotos(sourceFolder: URL, photoURLs: [URL]?, jpgURL: URL?) async {
+        SessionCache.endEditingSession(clearBrowseSpine: true)
         isBusy = true
         isImporting = true
         importFinishing = false
@@ -182,34 +186,32 @@ final class ProjectViewModel {
                 }
                 selectedPhotoID = photos.first?.id
             case .photosUpdated(let photos):
-                withAnimation(.easeInOut(duration: 0.35)) {
+                // Live refine after cull opens — preserve selection & phase.
+                if project != nil {
                     project?.photos = photos
                     importPreviewPhotos = photos
+                } else {
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        project?.photos = photos
+                        importPreviewPhotos = photos
+                    }
                 }
             case .finished(let finished):
-                withAnimation(.easeInOut(duration: 0.5)) {
-                    importFinishing = true
-                    importProgress = ImportProgress(
-                        phase: .ready,
-                        detail: "Opening your sets…",
-                        completed: finished.photos.count,
-                        total: finished.photos.count,
-                        overallFraction: 1,
-                        recentThumbPaths: importProgress.recentThumbPaths
-                    )
-                }
-                try? await Task.sleep(nanoseconds: 650_000_000)
                 var finished = finished
                 finished.collections = ExportService.draftCollections(from: finished.photos)
                 project = finished
                 importPreviewPhotos = finished.photos
                 ProjectStore.saveLastProjectName(finished.name)
-                withAnimation(.easeInOut(duration: 0.65)) {
+                SessionCache.beginEditingSession(projectName: finished.name)
+                withAnimation(.easeInOut(duration: 0.35)) {
                     sortMode = .similar
                     sessionPhase = .meet
                     activeClusterIndex = 0
                     manualPickIDs = []
                     showGridOverview = false
+                    isImporting = false
+                    importFinishing = false
+                    isBusy = false
                 }
                 if let hero = CullEngine.clusters(from: finished.photos).first?.heroID {
                     selectedPhotoID = hero
@@ -217,12 +219,8 @@ final class ProjectViewModel {
                     selectedPhotoID = finished.photos.first?.id
                 }
                 let sets = reviewClusters.count
-                statusMessage = "Meet set 1 · \(sets) groups"
-                try? await Task.sleep(nanoseconds: 350_000_000)
-                withAnimation(.easeInOut(duration: 0.55)) {
-                    isImporting = false
-                    importFinishing = false
-                }
+                statusMessage = "Meet set 1 · \(sets) groups · refining in background"
+                warmBrowseSpine(photos: finished.photos)
             case .failed(let msg):
                 statusMessage = msg
                 withAnimation(.easeInOut(duration: 0.35)) {
@@ -444,6 +442,7 @@ final class ProjectViewModel {
         activeClusterIndex = 0
         showGridOverview = false
         selectedPhotoID = saved.photos.first?.id
+        SessionCache.beginEditingSession(projectName: saved.name)
         statusMessage = "Resumed \(saved.name) · \(keepCount) keeps"
     }
 
@@ -506,7 +505,8 @@ final class ProjectViewModel {
     func selectPhoto(_ id: UUID) {
         let start = CFAbsoluteTimeGetCurrent()
         selectedPhotoID = id
-        if showsDevelopControls || showGridOverview {
+        // Speed Contract: never run CI soft-render on browse advance.
+        if showGridOverview {
             playSoftRender(for: id)
         } else {
             softRender.mix = 1
@@ -517,19 +517,56 @@ final class ProjectViewModel {
         LatencyMetrics.record("navigation.select", milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000)
     }
 
-    func advanceFrame() {
-        if showGridOverview {
-            nextInDisplayedPhotos()
-        } else if sessionPhase == .decide {
-            nextDecideLeftover()
+    /// Browse advance — paint from PreviewSpine sync, commit selection immediately.
+    func advanceBrowse(delta: Int, in photos: [PhotoRecord], inputTime: CFAbsoluteTime, held: Bool = false) {
+        guard !photos.isEmpty else { return }
+        let id = PreviewSpine.shared.advance(
+            in: photos,
+            from: selectedPhotoID,
+            delta: delta,
+            inputTime: inputTime,
+            held: held
+        )
+        if let id {
+            selectedPhotoID = id
+            softRender.mix = 1
         }
     }
 
-    func retreatFrame() {
+    func selectBrowsePhoto(_ id: UUID, in photos: [PhotoRecord], inputTime: CFAbsoluteTime) {
+        PreviewSpine.shared.warm(photos: photos, focus: id)
+        PreviewSpine.shared.paint(id: id, inputTime: inputTime, held: false)
+        selectedPhotoID = id
+        softRender.mix = 1
+    }
+
+    func toggleSpeedHUD() {
+        showSpeedHUD.toggle()
+    }
+
+    func warmBrowseSpine(photos: [PhotoRecord]? = nil) {
+        let list = photos ?? project?.photos ?? []
+        guard !list.isEmpty else { return }
+        PreviewSpine.shared.warm(photos: list, focus: selectedPhotoID ?? list.first?.id)
+    }
+
+    func advanceFrame(held: Bool = false) {
+        let t = CFAbsoluteTimeGetCurrent()
+        if showGridOverview {
+            nextInDisplayedPhotos()
+        } else if sessionPhase == .decide, let cluster = currentCluster {
+            let leftovers = decideLeftovers(in: cluster)
+            advanceBrowse(delta: 1, in: leftovers, inputTime: t, held: held)
+        }
+    }
+
+    func retreatFrame(held: Bool = false) {
+        let t = CFAbsoluteTimeGetCurrent()
         if showGridOverview {
             previousInDisplayedPhotos()
-        } else if sessionPhase == .decide {
-            previousDecideLeftover()
+        } else if sessionPhase == .decide, let cluster = currentCluster {
+            let leftovers = decideLeftovers(in: cluster)
+            advanceBrowse(delta: -1, in: leftovers, inputTime: t, held: held)
         }
     }
 
@@ -579,12 +616,15 @@ final class ProjectViewModel {
             }
         }
         Task {
-            await PhotoImageCache.shared.prefetch(Array(Set(paths)))
+            await PhotoImageCache.shared.prefetch(Array(Set(paths)), maxPixelSize: 1600, allowRAW: false)
         }
     }
 
     func prefetchPhotoDisplay(_ photo: PhotoRecord) {
-        var paths = [photo.previewPath, photo.sharpPath, photo.proxyPath].compactMap { $0 }
+        if let grid = photo.gridThumbPath {
+            ThumbCache.shared.prefetch(grid, maxPixelSize: 512, allowRAW: false)
+        }
+        var paths = [photo.previewPath, photo.sharpPath].compactMap { $0 }
 
         if showGridOverview {
             let list = displayedPhotos
@@ -613,7 +653,10 @@ final class ProjectViewModel {
             }
         }
         Task {
-            await PhotoImageCache.shared.prefetch(Array(Set(paths)))
+            await PhotoImageCache.shared.prefetch(Array(Set(paths)), maxPixelSize: 1600, allowRAW: false)
+            if let proxy = photo.proxyPath {
+                await PhotoImageCache.shared.prefetch([proxy], maxPixelSize: nil, allowRAW: true)
+            }
         }
     }
 
@@ -730,7 +773,7 @@ final class ProjectViewModel {
         }
         let left = decideLeftovers(in: cluster).filter { $0.id != selectedPhotoID }
         if let next = left.first {
-            selectPhoto(next.id)
+            selectBrowsePhoto(next.id, in: left, inputTime: CFAbsoluteTimeGetCurrent())
             statusMessage = "\(left.count) close calls left in this set"
         } else {
             statusMessage = "Set clear · Return for next set"
@@ -784,10 +827,12 @@ final class ProjectViewModel {
     }
 
     func advanceFromMeet() {
-        guard currentCluster != nil else { return }
+        guard let cluster = currentCluster else { return }
+        let members = cluster.photoIDs.compactMap { id in project?.photos.first { $0.id == id } }
+        ThumbCache.shared.prefetchPhotos(members, maxPixelSize: 512)
         withAnimation(.easeInOut(duration: 0.32)) {
             sessionPhase = .pick
-            if let c = currentCluster { seedPickFromHero(cluster: c) }
+            seedPickFromHero(cluster: cluster)
         }
     }
 
@@ -819,10 +864,21 @@ final class ProjectViewModel {
                 project.photos[index].uncertaintyKind = .none
                 project.photos[index].whyUncertain = nil
             } else {
-                project.photos[index].tier = .reject
-                project.photos[index].isFlagged = false
-                project.photos[index].uncertaintyKind = .none
-                project.photos[index].whyUncertain = nil
+                // Borderline / uncertain unselected → Decide leftovers (not hard reject).
+                let borderline = project.photos[index].isUncertain
+                    || project.photos[index].isFlagged
+                    || project.photos[index].cullScore >= 0.35
+                if borderline {
+                    project.photos[index].tier = .unranked
+                    project.photos[index].isFlagged = true
+                    project.photos[index].uncertaintyKind = .cullBorderline
+                    project.photos[index].whyUncertain = "Needs another look"
+                } else {
+                    project.photos[index].tier = .reject
+                    project.photos[index].isFlagged = false
+                    project.photos[index].uncertaintyKind = .none
+                    project.photos[index].whyUncertain = nil
+                }
             }
         }
         self.project = project
@@ -839,12 +895,12 @@ final class ProjectViewModel {
         applyManualPicks(in: cluster)
         let left = decideLeftovers(in: cluster)
         withAnimation(.easeInOut(duration: 0.32)) {
-            if left.isEmpty {
-                advanceCluster()
-            } else {
+            if let first = left.first {
                 sessionPhase = .decide
-                if let first = left.first { selectPhoto(first.id) }
+                selectBrowsePhoto(first.id, in: left, inputTime: CFAbsoluteTimeGetCurrent())
                 statusMessage = "\(left.count) close calls in this set"
+            } else {
+                advanceCluster()
             }
         }
     }
@@ -852,12 +908,12 @@ final class ProjectViewModel {
     func skipPicksUseModel(cluster: PhotoCluster) {
         withAnimation(.easeInOut(duration: 0.32)) {
             let left = decideLeftovers(in: cluster)
-            if left.isEmpty {
-                advanceCluster()
-            } else {
+            if let first = left.first {
                 sessionPhase = .decide
-                if let first = left.first { selectPhoto(first.id) }
+                selectBrowsePhoto(first.id, in: left, inputTime: CFAbsoluteTimeGetCurrent())
                 statusMessage = "Model picks · \(left.count) need you"
+            } else {
+                advanceCluster()
             }
         }
     }
@@ -865,6 +921,7 @@ final class ProjectViewModel {
     func completeSession() {
         guard project != nil else { return }
         syncActiveCatalogStats()
+        SessionCache.endEditingSession(clearBrowseSpine: true)
         let feedbackCount = (try? FeedbackStore.load(project: project!.name).count) ?? 0
         sessionSummary = PhotoAgentOrchestrator.buildSessionSummary(
             photos: project!.photos,

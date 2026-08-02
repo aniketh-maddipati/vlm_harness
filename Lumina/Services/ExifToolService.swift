@@ -1,6 +1,6 @@
 import Foundation
 
-enum ExifToolService {
+nonisolated enum ExifToolService {
     private static let exifToolPath = "/usr/local/bin/exiftool"
 
     static var isAvailable: Bool {
