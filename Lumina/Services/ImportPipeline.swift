@@ -5,7 +5,9 @@ import CoreGraphics
 /// Progressive import — emits photos after thumbs, then refines scores live.
 enum ImportPipeline {
     private static let previewConcurrency = 6
-    private static let scoreConcurrency = 6
+    private static var scoreConcurrency: Int {
+        min(max(ProcessInfo.processInfo.activeProcessorCount, 8), 16)
+    }
 
     /// Gentle pause so phase labels are readable (does not block heavy work).
     private static let phasePauseNs: UInt64 = 380_000_000
@@ -272,30 +274,31 @@ enum ImportPipeline {
         progress: @Sendable (Int, Int) async -> Void
     ) async -> [PhotoRecord] {
         var records = input
-        var done = 0
         let total = records.count
-        let indexed = Array(records.indices)
+        guard total > 0 else { return records }
 
-        for chunk in indexed.chunked(into: scoreConcurrency) {
-            await withTaskGroup(of: (Int, Double, Double, Double).self) { group in
-                for index in chunk {
+        let paths: [(Int, URL)] = records.indices.compactMap { index in
+            guard let path = records[index].displayThumbPath else { return nil }
+            return (index, URL(fileURLWithPath: path))
+        }
+        let concurrency = scoreConcurrency
+        var done = 0
+
+        for chunk in paths.chunked(into: concurrency) {
+            await withTaskGroup(of: (Int, PhotoScorer.Result).self) { group in
+                for (index, url) in chunk {
                     group.addTask {
-                        let path = records[index].displayThumbPath.flatMap { URL(fileURLWithPath: $0) }
-                        let sharpness = path.map { BlurScorer.score(imageURL: $0) } ?? 0
-                        let exposure = path.map { QualityScorer.exposureHealth(imageURL: $0) } ?? 0.5
-                        let aesthetic = 0.45 + sharpness * 0.3 + exposure * 0.25
-                        return (index, sharpness, exposure, min(max(aesthetic, 0), 1))
+                        (index, PhotoScorer.score(imageURL: url))
                     }
                 }
-                for await (index, sharpness, exposure, aesthetic) in group {
-                    records[index].sharpness = sharpness
-                    records[index].exposureHealth = exposure
-                    records[index].aesthetic = aesthetic
+                for await (index, scored) in group {
+                    records[index].sharpness = scored.sharpness
+                    records[index].exposureHealth = scored.exposure
+                    records[index].aesthetic = scored.aesthetic
                     done += 1
                 }
             }
             await progress(done, total)
-            try? await Task.sleep(nanoseconds: 30_000_000)
         }
         return records
     }
