@@ -356,8 +356,7 @@ private struct GroupDecidePhase: View {
                                 SoftPreviewView(
                                     photo: photo,
                                     projectName: project.name,
-                                    baseline: project.profile,
-                                    offsets: model.globalAdjustments,
+                                    displayRecipe: model.appliedRecipe(for: photo),
                                     mix: model.showBefore ? 0 : model.softRender.mix,
                                     showBefore: model.showBefore
                                 )

@@ -94,8 +94,7 @@ struct KeepsBrowserView: View {
                 SoftPreviewView(
                     photo: photo,
                     projectName: project.name,
-                    baseline: project.profile,
-                    offsets: model.globalAdjustments.merged(with: photo.perPhotoAdjustments ?? .zero),
+                    displayRecipe: model.appliedRecipe(for: photo),
                     mix: model.showBefore ? 0 : model.softRender.mix,
                     showBefore: model.showBefore
                 )

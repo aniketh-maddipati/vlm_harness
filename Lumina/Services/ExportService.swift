@@ -24,14 +24,20 @@ enum ExportService {
         var recipeNeighbors: [String]
     }
 
+    struct ExportOutcome {
+        var root: URL
+        var carouselFolder: URL?
+        var carouselImageURLs: [URL]
+    }
+
     static func draftCollections(from photos: [PhotoRecord]) -> [ExportCollection] {
-        // Export all keeps (including multi-pick sets), not only model heroes.
         let keeps = photos
             .filter { $0.tier == .keep }
             .sorted { $0.cullScore > $1.cullScore }
         let heroes = keeps.filter { $0.isBurstHero || $0.isClusterHero }
         let heroIDs = Array((heroes.isEmpty ? keeps : heroes).prefix(6).map(\.id))
-        let carouselIDs = Array(keeps.prefix(12).map(\.id))
+        let burstHeroKeeps = keeps.filter(\.isBurstHero)
+        let carouselIDs = Array((burstHeroKeeps.isEmpty ? keeps : burstHeroKeeps).prefix(12).map(\.id))
         let reelIDs = Array(keeps.prefix(8).map(\.id))
         return [
             ExportCollection(name: "heroes", aspect: .fourByFive, photoIDs: heroIDs),
@@ -42,12 +48,13 @@ enum ExportService {
 
     static func exportCollections(
         project: LuminaProject,
-        globalAdjustments: DevelopAdjustments,
+        tasteStrength: Double? = nil,
         aspects: [ExportAspect] = [.fourByFive],
         writeXMP: Bool = true,
         to folder: URL,
         progress: (@Sendable (String) -> Void)? = nil
-    ) async throws -> URL {
+    ) async throws -> ExportOutcome {
+        let strength = tasteStrength ?? project.tasteStrength
         let exportRoot = folder.appendingPathComponent(project.name, isDirectory: true)
         try FileManager.default.createDirectory(at: exportRoot, withIntermediateDirectories: true)
 
@@ -56,9 +63,10 @@ enum ExportService {
             collections = draftCollections(from: project.photos)
         }
 
-        // Filter to requested aspects
         let toExport = collections.filter { aspects.contains($0.aspect) || aspects.isEmpty }
         var manifestCollections: [CollectionManifest] = []
+        var carouselFolder: URL?
+        var carouselURLs: [URL] = []
 
         let photoByID = Dictionary(uniqueKeysWithValues: project.photos.map { ($0.id, $0) })
 
@@ -71,7 +79,7 @@ enum ExportService {
             let entries = try await exportPhotosParallel(
                 photos: photos,
                 project: project,
-                globalAdjustments: globalAdjustments,
+                tasteStrength: strength,
                 aspect: collection.aspect,
                 to: dir,
                 writeXMP: writeXMP
@@ -81,6 +89,11 @@ enum ExportService {
                 aspect: collection.aspect.rawValue,
                 files: entries
             ))
+
+            if collection.name == "grid_carousel" {
+                carouselFolder = dir
+                carouselURLs = entries.sorted { $0.order < $1.order }.map { dir.appendingPathComponent($0.export) }
+            }
         }
 
         let manifest = ExportManifest(
@@ -92,7 +105,8 @@ enum ExportService {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         try encoder.encode(manifest).write(to: exportRoot.appendingPathComponent("export.json"), options: .atomic)
-        return exportRoot
+
+        return ExportOutcome(root: exportRoot, carouselFolder: carouselFolder, carouselImageURLs: carouselURLs)
     }
 
     /// Back-compat single carousel export.
@@ -100,22 +114,22 @@ enum ExportService {
         photos: [PhotoRecord],
         projectName: String,
         profile: DevelopRecipe,
-        globalAdjustments: DevelopAdjustments,
+        tasteStrength: Double = 1.0,
         to folder: URL
-    ) throws -> URL {
-        var project = LuminaProject(name: projectName, profile: profile, photos: photos)
+    ) throws -> ExportOutcome {
+        var project = LuminaProject(name: projectName, profile: profile, tasteStrength: tasteStrength, photos: photos)
         project.collections = draftCollections(from: photos)
         let sem = DispatchSemaphore(value: 0)
-        var result: Result<URL, Error>!
+        var result: Result<ExportOutcome, Error>!
         Task {
             do {
-                let url = try await exportCollections(
+                let outcome = try await exportCollections(
                     project: project,
-                    globalAdjustments: globalAdjustments,
+                    tasteStrength: tasteStrength,
                     aspects: [.fourByFive],
                     to: folder
                 )
-                result = .success(url)
+                result = .success(outcome)
             } catch {
                 result = .failure(error)
             }
@@ -128,7 +142,7 @@ enum ExportService {
     private static func exportPhotosParallel(
         photos: [PhotoRecord],
         project: LuminaProject,
-        globalAdjustments: DevelopAdjustments,
+        tasteStrength: Double,
         aspect: ExportAspect,
         to dir: URL,
         writeXMP: Bool
@@ -141,7 +155,7 @@ enum ExportService {
                         photo: photo,
                         order: index + 1,
                         project: project,
-                        globalAdjustments: globalAdjustments,
+                        tasteStrength: tasteStrength,
                         aspect: aspect,
                         to: dir,
                         writeXMP: writeXMP
@@ -156,32 +170,33 @@ enum ExportService {
         }
     }
 
+    private static func scaledRecipe(for photo: PhotoRecord, project: LuminaProject, tasteStrength: Double) -> DevelopRecipe {
+        photo.effectiveRecipe.withTasteStrength(tasteStrength)
+    }
+
     private static func exportOne(
         photo: PhotoRecord,
         order: Int,
         project: LuminaProject,
-        globalAdjustments: DevelopAdjustments,
+        tasteStrength: Double,
         aspect: ExportAspect,
         to dir: URL,
         writeXMP: Bool
     ) throws -> ExportEntry? {
-        let offsets = globalAdjustments.merged(with: photo.perPhotoAdjustments ?? .zero)
-        let recipe = photo.effectiveRecipe
+        let recipe = scaledRecipe(for: photo, project: project, tasteStrength: tasteStrength)
 
-        // Prefer full RAW demosaic path
         var cgImage = DevelopEngine.renderFullRAW(
             rawURL: URL(fileURLWithPath: photo.rawPath),
             recipe: recipe,
-            offsets: offsets
+            offsets: .zero
         )
 
         if cgImage == nil {
-            // Fallback: proxy / thumb
             let src = photo.proxyPath ?? photo.thumbPath
             guard let src,
                   let url = Optional(URL(fileURLWithPath: src)),
                   let ci = CIImage(contentsOf: url) else { return nil }
-            let graded = DevelopEngine.apply(recipe: recipe.applying(offsets), to: ci)
+            let graded = DevelopEngine.apply(recipe: recipe, to: ci)
             let ctx = CIContext()
             cgImage = ctx.createCGImage(graded, from: graded.extent)
         }
@@ -203,7 +218,7 @@ enum ExportService {
 
         if writeXMP {
             try? XMPDevelopParser.writeSidecar(
-                recipe: recipe.applying(offsets),
+                recipe: recipe,
                 nextTo: URL(fileURLWithPath: photo.rawPath)
             )
         }

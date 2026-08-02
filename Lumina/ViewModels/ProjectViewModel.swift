@@ -17,7 +17,6 @@ final class ProjectViewModel {
     var importPreviewPhotos: [PhotoRecord] = []
     var showBefore = false
     var compareMix: Double = 1
-    var globalAdjustments = DevelopAdjustments.zero
     var softRender = SoftRenderController()
     var activeClusterIndex: Int = 0
     var appSpine: AppSpine = .stackFeed
@@ -28,7 +27,9 @@ final class ProjectViewModel {
     var agentPlanText = ""
     var sessionSummary: SessionSummary?
     var showSessionSummary = false
-    var lastIngestManifest: IngestManifest?
+    var exportPayoff: ExportPayoffState?
+    var showExportPayoff = false
+    var canResumeLastProject = false
     private var undoSnapshots: [StackUndoSnapshot] = []
 
     enum AppSpine: String, Equatable {
@@ -107,7 +108,33 @@ final class ProjectViewModel {
     var uncertainCount: Int { uncertainPhotos.count }
 
     var decisionBudgetText: String {
-        "\(uncertainCount) decisions left"
+        "\(uncertainCount) need\(uncertainCount == 1 ? "s" : "") you"
+    }
+
+    var extractedProfile: DevelopRecipe {
+        project?.profile ?? .neutral
+    }
+
+    var tasteSourceCount: Int {
+        project?.tasteSourceCount ?? 0
+    }
+
+    var tasteStrength: Double {
+        get { project?.tasteStrength ?? 1.0 }
+        set {
+            guard var project else { return }
+            project.tasteStrength = min(max(newValue, 0), 1.5)
+            self.project = project
+            persistDebounced()
+        }
+    }
+
+    var tasteSummaryText: String {
+        TasteProfileDescription.summary(profile: extractedProfile, sourceCount: tasteSourceCount)
+    }
+
+    func appliedRecipe(for photo: PhotoRecord) -> DevelopRecipe {
+        photo.effectiveRecipe.withTasteStrength(tasteStrength)
     }
 
     var sessionProgressText: String {
@@ -151,6 +178,7 @@ final class ProjectViewModel {
                     rawFolder: sourceFolder.path,
                     jpgFolder: jpgURL?.path,
                     profile: profile,
+                    tasteSourceCount: 0,
                     photos: photos
                 )
                 withAnimation(.easeInOut(duration: 0.4)) {
@@ -177,20 +205,10 @@ final class ProjectViewModel {
                 }
                 try? await Task.sleep(nanoseconds: 650_000_000)
                 var finished = finished
-                PhotoAgentOrchestrator.applyBrief(jobBrief, to: &finished)
-                var photos = finished.photos
-                let autoActions = PhotoAgentOrchestrator.autoResolveHighConfidence(
-                    in: &photos,
-                    threshold: jobBrief.confidenceThreshold * 0.12
-                )
-                finished.photos = photos
-                finished.collections = PhotoAgentOrchestrator.draftCollections(for: photos, brief: jobBrief)
-                PhotoAgentOrchestrator.recordAutoActions(autoActions, log: &agentLog)
+                finished.collections = ExportService.draftCollections(from: finished.photos)
                 project = finished
-                jobBrief = finished.jobBrief
                 importPreviewPhotos = finished.photos
-                globalAdjustments = .zero
-                agentPlanText = PhotoAgentOrchestrator.planAfterImport(photos: photos, brief: jobBrief)
+                ProjectStore.saveLastProjectName(finished.name)
                 withAnimation(.easeInOut(duration: 0.65)) {
                     sortMode = .similar
                     appSpine = .stackFeed
@@ -204,13 +222,12 @@ final class ProjectViewModel {
                     selectedPhotoID = finished.photos.first?.id
                 }
                 let sets = reviewClusters.count
-                statusMessage = agentPlanText.isEmpty ? "Meet your sets · \(sets) groups" : agentPlanText
+                statusMessage = "Meet your sets · \(sets) groups"
                 try? await Task.sleep(nanoseconds: 350_000_000)
                 withAnimation(.easeInOut(duration: 0.55)) {
                     isImporting = false
                     importFinishing = false
                 }
-                finalizeIngestManifest(importedCount: finished.photos.count)
             case .failed(let msg):
                 statusMessage = msg
                 withAnimation(.easeInOut(duration: 0.35)) {
@@ -221,70 +238,39 @@ final class ProjectViewModel {
         }
     }
 
-    func pickRAWFolder() { pickImportSources() }
-
-    /// Zero-click ingest from volume mount, drag-drop, or orchestrator.
-    func beginIngest(discovery: IngestDiscovery) {
-        guard !isImporting else { return }
-        startIngest(discovery: discovery)
-    }
-
-    func beginIngestFromRoot(_ root: URL, kind: IngestSourceKind? = nil) {
-        guard !isImporting else { return }
-        statusMessage = kind == .iCloud ? "Downloading from iCloud…" : "Scanning \(root.lastPathComponent)…"
+    func pickRAWFolder() {
+        guard let raw = pickFolder(message: "Select the folder of RAW photos from this shoot") else { return }
+        let jpgPanel = NSOpenPanel()
+        jpgPanel.canChooseDirectories = true
+        jpgPanel.canChooseFiles = false
+        jpgPanel.allowsMultipleSelection = false
+        jpgPanel.message = "Select a folder of past edited JPGs to learn your look (Cancel to skip)"
+        jpgPanel.prompt = "Use for taste"
+        let jpgURL = jpgPanel.runModal() == .OK ? jpgPanel.url : nil
         Task {
-            guard let discovery = await IngestOrchestrator.discover(at: root, kind: kind) else {
-                statusMessage = "No importable photos found."
-                return
-            }
-            startIngest(discovery: discovery)
+            await importPhotos(sourceFolder: raw, photoURLs: nil, jpgURL: jpgURL)
         }
     }
 
-    private func startIngest(discovery: IngestDiscovery) {
-        lastIngestManifest = discovery.manifest
-        jobBrief = IngestOrchestrator.defaultJobBrief(photoCount: discovery.photoURLs.count)
-        IngestOrchestrator.saveJobBriefDefaults(jobBrief, photoCount: discovery.photoURLs.count)
-        if let taste = discovery.tasteFolder {
-            IngestPreferences.lastTasteFolderPath = taste.path
-        }
-        let label = discovery.sourceRoot.lastPathComponent
-        let kind = discovery.sourceKind.displayLabel
-        statusMessage = "Ingesting \(discovery.photoURLs.count) from \(kind) · \(label)…"
-        Task {
-            await importPhotos(
-                sourceFolder: discovery.sourceRoot,
-                photoURLs: discovery.photoURLs,
-                jpgURL: discovery.tasteFolder
-            )
-        }
+    func pickImportSources() { pickRAWFolder() }
+
+    func refreshResumeAvailability() {
+        canResumeLastProject = (try? ProjectStore.loadLastProject()) != nil
     }
 
-    func importFromiCloudFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.message = "Select an iCloud Drive folder with photos"
-        panel.prompt = "Import"
-        if let cloud = SourceCatalog.watchableRoots().first(where: {
-            $0.path.contains("CloudDocs") || $0.lastPathComponent == "iCloud Drive"
-        }) {
-            panel.directoryURL = cloud
-        }
-        guard panel.runModal() == .OK, let url = panel.urls.first else { return }
-        beginIngestFromRoot(url, kind: .iCloud)
-    }
-
-    func rescanMountedSources() {
-        IngestWatcher.shared.resetLastVolume()
-        statusMessage = "Scanning SD cards, drives, and iPhone…"
-        let volumes = SourceCatalog.mountedPhotoVolumes()
-        guard let volume = volumes.first, let root = IngestOrchestrator.bestIngestRoot(on: volume) else {
-            statusMessage = "No photo volumes found — insert SD card or drive."
+    func resumeLastProject() {
+        guard let saved = try? ProjectStore.loadLastProject() else {
+            statusMessage = "No saved project found."
+            canResumeLastProject = false
             return
         }
-        beginIngestFromRoot(root, kind: SourceCatalog.classifyVolume(volume))
+        project = saved
+        sortMode = .similar
+        appSpine = .stackFeed
+        activeClusterIndex = 0
+        groupPhase = .intro
+        selectedPhotoID = saved.photos.first?.id
+        statusMessage = "Resumed \(saved.name) · \(keepCount) keeps"
     }
 
     func ingestFromDroppedURLs(_ urls: [URL]) {
@@ -305,63 +291,9 @@ final class ProjectViewModel {
             statusMessage = "No importable photos in drop."
             return
         }
-        let kind = SourceCatalog.classifyPath(root)
-        beginIngestFromRoot(root, kind: kind == .localFolder ? .dragDrop : kind)
-    }
-
-    func pickImportSources() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = true
-        panel.allowsMultipleSelection = true
-        panel.canCreateDirectories = false
-        panel.message = "Select a folder and/or photo files"
-        panel.prompt = "Import"
-        panel.allowedContentTypes = MediaFormats.utTypes
-        panel.allowsOtherFileTypes = true
-        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
-
-        let sourceFolder: URL
-        if panel.urls.count == 1, panel.urls[0].hasDirectoryPath {
-            sourceFolder = panel.urls[0]
-        } else {
-            let photos = MediaFormats.collectPhotos(from: panel.urls)
-            guard !photos.isEmpty else {
-                statusMessage = "No importable photos in that selection."
-                return
-            }
-            sourceFolder = photos[0].deletingLastPathComponent()
-        }
-
         Task {
-            await pickImportSourcesAsync(panel: panel, sourceFolder: sourceFolder, explicitFromFiles: panel.urls.contains(where: { !$0.hasDirectoryPath }))
+            await importPhotos(sourceFolder: root, photoURLs: nil, jpgURL: nil)
         }
-    }
-
-    private func pickImportSourcesAsync(panel: NSOpenPanel, sourceFolder: URL, explicitFromFiles: Bool) async {
-        guard let discovery = await IngestOrchestrator.discover(at: sourceFolder, kind: .manualPicker) else {
-            statusMessage = "No importable photos in that selection."
-            return
-        }
-
-        lastIngestManifest = discovery.manifest
-        jobBrief = IngestOrchestrator.defaultJobBrief(photoCount: discovery.photoURLs.count)
-        let explicitFiles = explicitFromFiles ? discovery.photoURLs : nil
-
-        await importPhotos(
-            sourceFolder: sourceFolder,
-            photoURLs: explicitFiles,
-            jpgURL: discovery.tasteFolder
-        )
-    }
-
-    private func finalizeIngestManifest(importedCount: Int) {
-        guard var manifest = lastIngestManifest, let project else { return }
-        manifest.filesImported = importedCount
-        lastIngestManifest = manifest
-        IngestOrchestrator.saveManifest(manifest, projectName: project.name)
-        let tasteNote = project.jpgFolder != nil ? " · taste on" : ""
-        statusMessage = "\(manifest.summaryLine)\(tasteNote) · \(URL(fileURLWithPath: manifest.sourceRoot).lastPathComponent)"
     }
 
     // MARK: - Stack feed navigation
@@ -387,7 +319,7 @@ final class ProjectViewModel {
             appSpine = .stackFeed
             groupPhase = .intro
         }
-        statusMessage = agentPlanText.isEmpty ? "\(uncertainCount) decisions left" : agentPlanText
+        statusMessage = "\(uncertainCount) need\(uncertainCount == 1 ? "s" : "") you"
     }
 
     // MARK: - Selection
@@ -430,26 +362,12 @@ final class ProjectViewModel {
 
     func toggleKeep() {
         guard selectedPhotoID != nil else { return }
-        switch appSpine {
-        case .reviewingSet where groupPhase == .decide:
-            markKeep()
-        case .browsingKeeps:
-            markKeep()
-        default:
-            break
-        }
+        markKeep()
     }
 
     func toggleReject() {
         guard selectedPhotoID != nil else { return }
-        switch appSpine {
-        case .reviewingSet where groupPhase == .decide:
-            markReject()
-        case .browsingKeeps:
-            markReject()
-        default:
-            break
-        }
+        markReject()
     }
 
     func prefetchStackFeed(around index: Int) {
@@ -600,6 +518,22 @@ final class ProjectViewModel {
             let feedback: FeedbackKind = tier == .keep ? .keep : .reject
             TasteLearning.learnFromUserDecision(photo: project.photos[index], kind: feedback, projectName: project.name)
             reapplyTasteAndUncertainty()
+        }
+        self.project = project
+        persistDebounced()
+    }
+
+    func toggleFlag() {
+        guard var project, let id = selectedPhotoID,
+              let index = project.photos.firstIndex(where: { $0.id == id }) else { return }
+        project.photos[index].isFlagged.toggle()
+        if project.photos[index].isFlagged {
+            project.photos[index].uncertaintyKind = .cullBorderline
+            project.photos[index].whyUncertain = "Flagged for another look"
+        } else {
+            project.photos[index].uncertaintyKind = .none
+            project.photos[index].whyUncertain = nil
+            CullEngine.assignConfidence(&project.photos)
         }
         self.project = project
         persistDebounced()
@@ -790,9 +724,6 @@ final class ProjectViewModel {
             showSessionSummary = true
         }
         statusMessage = sessionSummary?.narrative ?? "Session clear · \(keepCount) keeps"
-        if jobBrief.autoDeliver {
-            exportCarouselSilently()
-        }
     }
 
     func undoLastStack() {
@@ -829,50 +760,6 @@ final class ProjectViewModel {
         self.project = project
     }
 
-    private func exportCarouselSilently() {
-        guard let project else { return }
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.canCreateDirectories = true
-        panel.prompt = "Auto-deliver"
-        panel.message = "Choose export folder for auto-deliver"
-        guard panel.runModal() == .OK, let folder = panel.url else { return }
-        isBusy = true
-        let snapshot = project
-        let adjustments = globalAdjustments
-        Task {
-            do {
-                let dir = try await ExportService.exportCollections(
-                    project: snapshot,
-                    globalAdjustments: adjustments,
-                    aspects: jobBrief.deliveryAspects,
-                    writeXMP: true,
-                    to: folder
-                ) { [weak self] msg in
-                    Task { @MainActor in self?.statusMessage = msg }
-                }
-                await MainActor.run {
-                    self.isBusy = false
-                    self.statusMessage = "Auto-delivered to \(dir.path)"
-                }
-            } catch {
-                await MainActor.run {
-                    self.isBusy = false
-                    self.statusMessage = error.localizedDescription
-                }
-            }
-        }
-    }
-
-    func uncertainInCluster(_ cluster: PhotoCluster) -> [PhotoRecord] {
-        guard let photos = project?.photos else { return [] }
-        let ids = Set(cluster.photoIDs)
-        return photos.filter { ids.contains($0.id) && $0.isUncertain }
-    }
-
-    // MARK: - Export
-
     func exportCarousel() {
         guard let project else { return }
         let panel = NSOpenPanel()
@@ -884,16 +771,16 @@ final class ProjectViewModel {
         guard panel.runModal() == .OK, let folder = panel.url else { return }
 
         isBusy = true
-        statusMessage = "Exporting collections…"
+        statusMessage = "Exporting carousel…"
         let snapshot = project
-        let adjustments = globalAdjustments
+        let strength = tasteStrength
 
         Task {
             do {
-                let dir = try await ExportService.exportCollections(
+                let outcome = try await ExportService.exportCollections(
                     project: snapshot,
-                    globalAdjustments: adjustments,
-                    aspects: [.fourByFive, .nineBySixteen],
+                    tasteStrength: strength,
+                    aspects: [.fourByFive],
                     writeXMP: true,
                     to: folder
                 ) { [weak self] msg in
@@ -901,8 +788,18 @@ final class ProjectViewModel {
                 }
                 await MainActor.run {
                     self.isBusy = false
-                    self.statusMessage = "Exported to \(dir.path)"
-                    NSWorkspace.shared.activateFileViewerSelecting([dir])
+                    self.statusMessage = "Exported to \(outcome.root.path)"
+                    let reveal = outcome.carouselFolder ?? outcome.root
+                    NSWorkspace.shared.activateFileViewerSelecting([reveal])
+                    self.exportPayoff = ExportPayoffState(
+                        exportRoot: outcome.root,
+                        carouselFolder: outcome.carouselFolder,
+                        imageURLs: outcome.carouselImageURLs,
+                        tasteSummary: self.tasteSummaryText,
+                        keepCount: self.keepCount
+                    )
+                    self.showExportPayoff = true
+                    self.persistDebounced()
                 }
             } catch {
                 await MainActor.run {
@@ -910,25 +807,6 @@ final class ProjectViewModel {
                     self.statusMessage = error.localizedDescription
                 }
             }
-        }
-    }
-
-    func applyAdjustmentsToAllKeeps() {
-        guard var project else { return }
-        for index in project.photos.indices where project.photos[index].tier == .keep {
-            if var recipe = project.photos[index].recipe {
-                recipe = recipe.applying(globalAdjustments)
-                project.photos[index].recipe = recipe
-            }
-            project.photos[index].perPhotoAdjustments = .zero
-        }
-        project.globalAdjustments = globalAdjustments
-        project.jobBrief = jobBrief
-        self.project = project
-        persistDebounced()
-        statusMessage = "Applied slider offsets to all keeps"
-        for photo in project.photos where photo.tier == .keep {
-            TasteLearning.learnFromUserDecision(photo: photo, kind: .developAdjust, projectName: project.name)
         }
     }
 
@@ -946,5 +824,11 @@ final class ProjectViewModel {
     private func persistDebounced() {
         guard let project else { return }
         ProjectStore.saveDebounced(project)
+    }
+
+    func uncertainInCluster(_ cluster: PhotoCluster) -> [PhotoRecord] {
+        guard let photos = project?.photos else { return [] }
+        let ids = Set(cluster.photoIDs)
+        return photos.filter { ids.contains($0.id) && $0.isUncertain }
     }
 }

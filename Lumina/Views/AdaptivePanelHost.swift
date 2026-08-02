@@ -52,13 +52,17 @@ struct AdaptivePanelHost: View {
                     }
                 }
             case .browsingKeeps:
-                if model.keepsBrowseLayout == .focus, model.selectedPhoto != nil {
-                    DevelopSlidersStrip(
-                        adjustments: $model.globalAdjustments,
-                        compact: true,
-                        showApplyButton: true,
-                        onApplyToKeeps: { model.applyAdjustmentsToAllKeeps() }
-                    )
+                if model.keepsBrowseLayout == .focus {
+                    HStack {
+                        Text("\(model.keepCount) keeps")
+                            .font(.subheadline)
+                        Spacer()
+                        Button("← Sets") {
+                            model.unfocusKeep()
+                            model.appSpine = .stackFeed
+                        }
+                        .buttonStyle(LuminaPressStyle())
+                    }
                 } else {
                     HStack {
                         Text("\(model.keepCount) keeps")
@@ -85,7 +89,7 @@ struct SessionSummarySheet: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Agent session complete")
+            Text("Session complete")
                 .font(.title2.weight(.semibold))
             Text(summary.narrative)
                 .multilineTextAlignment(.center)

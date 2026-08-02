@@ -31,7 +31,7 @@ struct UnifiedCanvasView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Your sets")
                             .font(.title2.weight(.semibold))
-                        Text(model.agentPlanText.isEmpty ? "Review each stack · S keep · A reject" : model.agentPlanText)
+                        Text("Review each stack · P keep · X reject · M flag")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }

@@ -3,14 +3,25 @@ import Foundation
 // MARK: - Tiers & sort
 
 enum PhotoTier: String, Codable, CaseIterable {
-    case keep, maybe, reject, unranked
+    case keep, reject, unranked
 
     var label: String {
         switch self {
         case .keep: "Keep"
-        case .maybe: "Maybe"
         case .reject: "Reject"
         case .unranked: "—"
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        if raw == "maybe" {
+            self = .unranked
+        } else if let tier = PhotoTier(rawValue: raw) {
+            self = tier
+        } else {
+            self = .unranked
         }
     }
 }
@@ -293,7 +304,6 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
     var whyAction: String?
 
     var recipe: DevelopRecipe?
-    var perPhotoAdjustments: DevelopAdjustments?
     var embedding: [Float]?
 
     init(
@@ -325,7 +335,6 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         whyUncertain: String? = nil,
         whyAction: String? = nil,
         recipe: DevelopRecipe? = nil,
-        perPhotoAdjustments: DevelopAdjustments? = nil,
         embedding: [Float]? = nil
     ) {
         self.id = id
@@ -356,7 +365,6 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         self.whyUncertain = whyUncertain
         self.whyAction = whyAction
         self.recipe = recipe
-        self.perPhotoAdjustments = perPhotoAdjustments
         self.embedding = embedding
     }
 
@@ -414,10 +422,75 @@ struct LuminaProject: Codable {
     var keepRateTarget: Double = 0.10
     var jobBrief: JobBrief = JobBrief()
     var profile: DevelopRecipe = .neutral
-    var globalAdjustments: DevelopAdjustments = .zero
+    /// JPGs scanned for XMP taste extraction at import.
+    var tasteSourceCount: Int = 0
+    /// 0…1.5 — scales extracted profile offsets (1.0 = 100%).
+    var tasteStrength: Double = 1.0
     var photos: [PhotoRecord] = []
     var collections: [ExportCollection] = []
     var createdAt: Date = Date()
+
+    enum CodingKeys: String, CodingKey {
+        case name, rawFolder, jpgFolder, keepRateTarget, jobBrief, profile
+        case tasteSourceCount, tasteStrength, photos, collections, createdAt
+        case globalAdjustments
+    }
+
+    init(
+        name: String,
+        rawFolder: String? = nil,
+        jpgFolder: String? = nil,
+        keepRateTarget: Double = 0.10,
+        jobBrief: JobBrief = JobBrief(),
+        profile: DevelopRecipe = .neutral,
+        tasteSourceCount: Int = 0,
+        tasteStrength: Double = 1.0,
+        photos: [PhotoRecord] = [],
+        collections: [ExportCollection] = [],
+        createdAt: Date = Date()
+    ) {
+        self.name = name
+        self.rawFolder = rawFolder
+        self.jpgFolder = jpgFolder
+        self.keepRateTarget = keepRateTarget
+        self.jobBrief = jobBrief
+        self.profile = profile
+        self.tasteSourceCount = tasteSourceCount
+        self.tasteStrength = tasteStrength
+        self.photos = photos
+        self.collections = collections
+        self.createdAt = createdAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        rawFolder = try c.decodeIfPresent(String.self, forKey: .rawFolder)
+        jpgFolder = try c.decodeIfPresent(String.self, forKey: .jpgFolder)
+        keepRateTarget = try c.decodeIfPresent(Double.self, forKey: .keepRateTarget) ?? 0.10
+        jobBrief = try c.decodeIfPresent(JobBrief.self, forKey: .jobBrief) ?? JobBrief()
+        profile = try c.decodeIfPresent(DevelopRecipe.self, forKey: .profile) ?? .neutral
+        tasteSourceCount = try c.decodeIfPresent(Int.self, forKey: .tasteSourceCount) ?? profile.sourceCount
+        tasteStrength = try c.decodeIfPresent(Double.self, forKey: .tasteStrength) ?? 1.0
+        photos = try c.decodeIfPresent([PhotoRecord].self, forKey: .photos) ?? []
+        collections = try c.decodeIfPresent([ExportCollection].self, forKey: .collections) ?? []
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encodeIfPresent(rawFolder, forKey: .rawFolder)
+        try c.encodeIfPresent(jpgFolder, forKey: .jpgFolder)
+        try c.encode(keepRateTarget, forKey: .keepRateTarget)
+        try c.encode(jobBrief, forKey: .jobBrief)
+        try c.encode(profile, forKey: .profile)
+        try c.encode(tasteSourceCount, forKey: .tasteSourceCount)
+        try c.encode(tasteStrength, forKey: .tasteStrength)
+        try c.encode(photos, forKey: .photos)
+        try c.encode(collections, forKey: .collections)
+        try c.encode(createdAt, forKey: .createdAt)
+    }
 }
 
 // MARK: - Import events

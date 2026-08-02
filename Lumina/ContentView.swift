@@ -33,17 +33,13 @@ struct ContentView: View {
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { event in
                 handleKey(event)
             }
-            IngestWatcher.shared.onDiscover = { discovery in
-                model.beginIngest(discovery: discovery)
-            }
-            IngestWatcher.shared.start()
+            model.refreshResumeAvailability()
         }
         .onDisappear {
             if let keyMonitor {
                 NSEvent.removeMonitor(keyMonitor)
                 self.keyMonitor = nil
             }
-            IngestWatcher.shared.stop()
         }
         .onReceive(NotificationCenter.default.publisher(for: .luminaImportRAW)) { _ in
             model.pickRAWFolder()
@@ -55,71 +51,56 @@ struct ContentView: View {
                 }
             }
         }
+        .sheet(isPresented: $model.showExportPayoff) {
+            if let payoff = model.exportPayoff {
+                ExportPayoffSheet(payoff: payoff) {
+                    model.showExportPayoff = false
+                }
+            }
+        }
     }
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Lumina")
                 .font(.title.bold())
-            Text("Agentic cull · ship keeps")
+            Text("Turn a shoot into something posted")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-            Button("Import Photos…") {
-                model.pickImportSources()
+            if model.canResumeLastProject {
+                Button("Resume last project") {
+                    model.resumeLastProject()
+                }
+                .buttonStyle(LuminaPressStyle())
+            }
+
+            Button("Import RAW Folder…") {
+                model.pickRAWFolder()
             }
             .buttonStyle(LuminaPrimaryButtonStyle())
             .disabled(model.isBusy)
 
-            Toggle("Auto-ingest on card insert", isOn: Binding(
-                get: { IngestPreferences.autoIngestOnMount },
-                set: { IngestPreferences.autoIngestOnMount = $0 }
-            ))
-            .font(.caption)
-
-            HStack(spacing: 6) {
-                Button("iCloud…") { model.importFromiCloudFolder() }
-                    .buttonStyle(LuminaPressStyle())
-                    .disabled(model.isBusy)
-                Button("Scan drives") { model.rescanMountedSources() }
-                    .buttonStyle(LuminaPressStyle())
-                    .disabled(model.isBusy)
-            }
-            .font(.caption)
-
-            if let manifest = model.lastIngestManifest {
-                Text(manifest.summaryLine)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-
             if let project = model.project {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(project.name).font(.headline)
-                    Text(model.agentPlanText.isEmpty ? model.decisionBudgetText : model.agentPlanText)
+                    Text(model.decisionBudgetText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(3)
                     Text("\(model.keepCount) keeps · \(model.sessionProgressText)")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
 
-                Toggle("Auto-deliver on complete", isOn: $model.jobBrief.autoDeliver)
-                    .font(.caption)
-
-                if model.appSpine == .sessionComplete || model.appSpine == .browsingKeeps {
-                    DisclosureGroup("Tweak keeps") {
-                        if model.selectedPhoto != nil {
-                            DevelopSlidersStrip(
-                                adjustments: $model.globalAdjustments,
-                                compact: false,
-                                showApplyButton: true,
-                                onApplyToKeeps: { model.applyAdjustmentsToAllKeeps() }
-                            )
-                        }
-                    }
-                }
+                TasteStrengthPanel(
+                    strength: Binding(
+                        get: { model.tasteStrength },
+                        set: { model.tasteStrength = $0 }
+                    ),
+                    profile: model.extractedProfile,
+                    sourceCount: model.tasteSourceCount
+                )
             }
 
             Spacer()
@@ -127,7 +108,7 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 Button("Export") { model.exportCarousel() }
                     .buttonStyle(LuminaPressStyle())
-                    .disabled(model.project == nil || model.isBusy)
+                    .disabled(model.project == nil || model.isBusy || model.keepCount == 0)
                 if model.appSpine == .reviewingSet {
                     Button("Undo set") { model.undoLastStack() }
                         .buttonStyle(LuminaPressStyle())
@@ -199,19 +180,19 @@ struct ContentView: View {
     private var keymapHint: String {
         switch model.appSpine {
         case .stackFeed:
-            return "Open a stack · O keeps when done"
+            return "Open a stack · P keep · X reject · M flag"
         case .browsingKeeps:
             switch model.keepsBrowseLayout {
-            case .carousel: return "F/D browse · Return: enlarge · S keep · A reject"
-            case .focus: return "F/D · S keep · A reject · Space before/after · Esc carousel"
+            case .carousel: return "F/D browse · Return enlarge · P keep · X reject · M flag"
+            case .focus: return "F/D · P keep · X reject · M flag · Space before/after · Esc carousel"
             }
         case .sessionComplete:
-            return "Return: export · O keeps · B all sets"
+            return "Return: export · O keeps"
         case .reviewingSet:
             switch model.groupPhase {
             case .intro: return "Return: review · Esc: all sets"
             case .pick: return "Tap · Return: keep these"
-            case .decide: return "F/D · S keep · A reject · H hero · C compare tie"
+            case .decide: return "F/D · P/X keep/reject · M flag · H hero · ]/[ sets"
             case .done: return "Return: export"
             }
         }
@@ -230,14 +211,17 @@ struct ContentView: View {
         case "s":
             if event.type == .keyDown { model.toggleKeep() }
             return nil
+        case "p":
+            if event.type == .keyDown { model.toggleKeep() }
+            return nil
         case "a":
             if event.type == .keyDown { model.toggleReject() }
             return nil
-        case "p":
-            if event.type == .keyDown, model.groupPhase == .decide { model.markKeep() }
-            return nil
         case "x":
-            if event.type == .keyDown, model.groupPhase == .decide { model.markReject() }
+            if event.type == .keyDown { model.toggleReject() }
+            return nil
+        case "m":
+            if event.type == .keyDown { model.toggleFlag() }
             return nil
         case "h":
             if event.type == .keyDown, model.groupPhase == .decide { model.markHero() }

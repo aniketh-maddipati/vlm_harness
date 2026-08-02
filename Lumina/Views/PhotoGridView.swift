@@ -186,9 +186,11 @@ final class PhotoItemView: NSCollectionViewItem {
         badge.stringValue = " \(photo.tier.label) "
         switch photo.tier {
         case .keep: badge.backgroundColor = NSColor.systemGreen.withAlphaComponent(0.85)
-        case .maybe: badge.backgroundColor = NSColor.systemOrange.withAlphaComponent(0.85)
         case .reject: badge.backgroundColor = NSColor.systemGray.withAlphaComponent(0.85)
-        case .unranked: badge.backgroundColor = NSColor.systemBlue.withAlphaComponent(0.7)
+        case .unranked:
+            badge.backgroundColor = photo.isFlagged
+                ? NSColor.systemOrange.withAlphaComponent(0.85)
+                : NSColor.systemBlue.withAlphaComponent(0.7)
         }
         view.layer?.borderWidth = selected ? 2 : 0
         view.layer?.borderColor = NSColor.controlAccentColor.cgColor

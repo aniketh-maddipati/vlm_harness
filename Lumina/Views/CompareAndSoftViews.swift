@@ -147,8 +147,7 @@ struct ComparePairView: View {
 struct SoftPreviewView: View {
     let photo: PhotoRecord
     let projectName: String
-    let baseline: DevelopRecipe
-    let offsets: DevelopAdjustments
+    let displayRecipe: DevelopRecipe
     let mix: Double
     let showBefore: Bool
 
@@ -185,7 +184,7 @@ struct SoftPreviewView: View {
     }
 
     private var developFingerprint: String {
-        "\(offsets.exposure)-\(offsets.temperature)-\(offsets.highlights)-\(offsets.shadows)-\(photo.recipe?.exposure ?? 0)"
+        "\(displayRecipe.exposure)-\(displayRecipe.temperature)-\(displayRecipe.highlights)-\(displayRecipe.shadows)"
     }
 
     @ViewBuilder
@@ -216,15 +215,14 @@ struct SoftPreviewView: View {
 
         let name = projectName
         let photo = photo
-        let recipe = photo.effectiveRecipe
-        let offsets = offsets
+        let recipe = displayRecipe
 
         let loaded = await Task.detached(priority: .userInitiated) { () -> (NSImage?, NSImage?) in
             guard let proxy = DevelopEngine.ensureProxy(for: photo, projectName: name) else {
                 return (nil, nil)
             }
             let before = NSImage(contentsOf: proxy)
-            let after = DevelopEngine.render(url: proxy, recipe: recipe, offsets: offsets, mix: 1)
+            let after = DevelopEngine.render(url: proxy, recipe: recipe, offsets: .zero, mix: 1)
             return (before, after)
         }.value
 
