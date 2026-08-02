@@ -289,6 +289,8 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
     var isClusterHero: Bool
     var uncertaintyKind: UncertaintyKind
     var whyUncertain: String?
+    /// Agent explanation for auto or user-confirmed action.
+    var whyAction: String?
 
     var recipe: DevelopRecipe?
     var perPhotoAdjustments: DevelopAdjustments?
@@ -321,6 +323,7 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         isClusterHero: Bool = true,
         uncertaintyKind: UncertaintyKind = .none,
         whyUncertain: String? = nil,
+        whyAction: String? = nil,
         recipe: DevelopRecipe? = nil,
         perPhotoAdjustments: DevelopAdjustments? = nil,
         embedding: [Float]? = nil
@@ -351,6 +354,7 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         self.isClusterHero = isClusterHero
         self.uncertaintyKind = uncertaintyKind
         self.whyUncertain = whyUncertain
+        self.whyAction = whyAction
         self.recipe = recipe
         self.perPhotoAdjustments = perPhotoAdjustments
         self.embedding = embedding
@@ -369,6 +373,7 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
     }
 
     var whySummary: String {
+        if let whyAction, !whyAction.isEmpty { return whyAction }
         if let whyUncertain, !whyUncertain.isEmpty { return whyUncertain }
         var parts: [String] = []
         parts.append("Sharp \(String(format: "%.2f", sharpness))")
@@ -407,6 +412,7 @@ struct LuminaProject: Codable {
     var rawFolder: String?
     var jpgFolder: String?
     var keepRateTarget: Double = 0.10
+    var jobBrief: JobBrief = JobBrief()
     var profile: DevelopRecipe = .neutral
     var globalAdjustments: DevelopAdjustments = .zero
     var photos: [PhotoRecord] = []

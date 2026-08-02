@@ -9,7 +9,7 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $splitVisibility) {
             sidebar
-                .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
+                .navigationSplitViewColumnWidth(min: 52, ideal: 220, max: 260)
         } detail: {
             main
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -19,10 +19,11 @@ struct ContentView: View {
                 splitVisibility = layout == .focus ? .detailOnly : .all
             }
         }
-        .onChange(of: model.viewMode) { _, mode in
-            if mode != .overview {
+        .onChange(of: model.appSpine) { _, spine in
+            if spine == .browsingKeeps && model.keepsBrowseLayout == .focus {
+                splitVisibility = .detailOnly
+            } else if spine != .browsingKeeps {
                 model.keepsBrowseLayout = .carousel
-                splitVisibility = .all
             }
         }
         .onAppear {
@@ -40,13 +41,20 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .luminaImportRAW)) { _ in
             model.pickRAWFolder()
         }
+        .sheet(isPresented: $model.showSessionSummary) {
+            if let summary = model.sessionSummary {
+                SessionSummarySheet(summary: summary) {
+                    model.showSessionSummary = false
+                }
+            }
+        }
     }
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             Text("Lumina")
                 .font(.title.bold())
-            Text("Pick sets · ship keeps")
+            Text("Agentic cull · ship keeps")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -59,48 +67,41 @@ struct ContentView: View {
             if let project = model.project {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(project.name).font(.headline)
-                    Text("\(model.keepCount) keeps · \(model.sessionProgressText)")
+                    Text(model.agentPlanText.isEmpty ? model.decisionBudgetText : model.agentPlanText)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                    if project.profile.hasSettings {
-                        Text("Taste on")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-
-                Picker("Mode", selection: $model.viewMode) {
-                    Text("Session").tag(ProjectViewModel.ViewMode.session)
-                    Text("Overview").tag(ProjectViewModel.ViewMode.overview)
-                }
-                .pickerStyle(.segmented)
-
-                if model.viewMode == .session {
-                    Text("Follow Meet → Pick → Decide for each set.")
+                        .lineLimit(3)
+                    Text("\(model.keepCount) keeps · \(model.sessionProgressText)")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
+                }
+
+                Toggle("Auto-deliver on complete", isOn: $model.jobBrief.autoDeliver)
+                    .font(.caption)
+
+                if model.appSpine == .sessionComplete || model.appSpine == .browsingKeeps {
+                    DisclosureGroup("Tweak keeps") {
+                        if model.selectedPhoto != nil {
+                            developSliders
+                        }
+                    }
                 }
             }
 
             Spacer()
 
-            if model.viewMode == .overview || model.groupPhase == .done {
-                DisclosureGroup("Tweak keeps") {
-                    if model.selectedPhoto != nil {
-                        developSliders
-                    }
+            HStack(spacing: 8) {
+                Button("Export") { model.exportCarousel() }
+                    .buttonStyle(LuminaPressStyle())
+                    .disabled(model.project == nil || model.isBusy)
+                if model.appSpine == .reviewingSet {
+                    Button("Undo set") { model.undoLastStack() }
+                        .buttonStyle(LuminaPressStyle())
                 }
             }
-
-            Button("Export Collections") {
-                model.exportCarousel()
-            }
-            .buttonStyle(LuminaPressStyle())
-            .controlSize(.large)
-            .disabled(model.project == nil || model.isBusy)
-            .keyboardShortcut(.return, modifiers: .command)
         }
         .padding(16)
-        .frame(minWidth: 220)
+        .frame(minWidth: 200)
     }
 
     private var developSliders: some View {
@@ -130,18 +131,12 @@ struct ContentView: View {
     private var main: some View {
         ZStack {
             VStack(spacing: 0) {
-                Group {
-                    switch model.viewMode {
-                    case .session:
-                        ClusterCullView(model: model)
-                    case .overview:
-                        KeepsBrowserView(model: model)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .opacity(model.isImporting ? 0.3 : 1)
-                .allowsHitTesting(!model.isImporting)
+                UnifiedCanvasView(model: model)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .opacity(model.isImporting ? 0.3 : 1)
+                    .allowsHitTesting(!model.isImporting)
 
+                AdaptivePanelHost(model: model)
                 statusBar
             }
 
@@ -159,10 +154,7 @@ struct ContentView: View {
 
     private var statusBar: some View {
         HStack {
-            if model.isBusy {
-                ProgressView()
-                    .controlSize(.small)
-            }
+            if model.isBusy { ProgressView().controlSize(.small) }
             if model.isImporting {
                 Text(model.importProgress.phase.title)
                     .font(.caption.weight(.medium))
@@ -183,19 +175,23 @@ struct ContentView: View {
     }
 
     private var keymapHint: String {
-        if model.viewMode == .overview {
+        switch model.appSpine {
+        case .stackFeed:
+            return "Open a stack · O keeps when done"
+        case .browsingKeeps:
             switch model.keepsBrowseLayout {
-            case .carousel:
-                return "Return/dbl-click: enlarge · ← → browse · O session · Esc carousel"
-            case .focus:
-                return "Esc: carousel · ← → · Space before/after · O session"
+            case .carousel: return "Return: enlarge · ← → · Esc"
+            case .focus: return "Esc: carousel · Space before/after"
             }
-        }
-        switch model.groupPhase {
-        case .intro: return "Return: review set · scroll sideways · ] next set"
-        case .pick: return "Tap cards · Return: keep these"
-        case .decide: return "← → browse · P keep · X reject · ] next set"
-        case .done: return "Return: export · O keeps"
+        case .sessionComplete:
+            return "Return: export · O keeps · B all sets"
+        case .reviewingSet:
+            switch model.groupPhase {
+            case .intro: return "Return: review · Esc: all sets"
+            case .pick: return "Tap · Return: keep these"
+            case .decide: return "← → · P/X/H · C compare tie"
+            case .done: return "Return: export"
+            }
         }
     }
 
@@ -212,16 +208,25 @@ struct ContentView: View {
         case "h":
             if event.type == .keyDown, model.groupPhase == .decide { model.markHero() }
             return nil
+        case "b":
+            if event.type == .keyDown { model.backToStackFeed() }
+            return nil
         case "o":
             if event.type == .keyDown {
-                if model.viewMode == .overview {
+                if model.appSpine == .browsingKeeps {
                     model.unfocusKeep()
-                    model.viewMode = .session
-                } else {
+                    model.appSpine = .stackFeed
+                } else if model.appSpine == .sessionComplete {
                     model.enterKeepsBrowser()
                 }
             }
             return nil
+        case "z":
+            if event.modifierFlags.contains(.command), event.type == .keyDown {
+                model.undoLastStack()
+                return nil
+            }
+            return event
         case "]":
             if event.type == .keyDown { model.advanceCluster() }
             return nil
@@ -230,34 +235,36 @@ struct ContentView: View {
             return nil
         case "\r", "\n":
             if event.type == .keyDown {
-                if model.viewMode == .overview {
-                    if model.keepsBrowseLayout == .carousel {
-                        model.focusKeep()
-                    }
-                } else if model.groupPhase == .intro, let c = model.currentCluster {
+                if model.appSpine == .browsingKeeps, model.keepsBrowseLayout == .carousel {
+                    model.focusKeep()
+                } else if model.appSpine == .sessionComplete {
+                    model.exportCarousel()
+                } else if model.groupPhase == .intro, model.currentCluster != nil {
                     model.groupPhase = .pick
-                    model.seedPickFromHero(cluster: c)
+                    if let c = model.currentCluster { model.seedPickFromHero(cluster: c) }
                 } else if model.groupPhase == .pick, let c = model.currentCluster {
                     model.confirmPicksAndAdvance(cluster: c)
-                } else if model.groupPhase == .done {
-                    model.exportCarousel()
                 }
             }
             return nil
         default:
-            if event.keyCode == 53, event.type == .keyDown { // Esc
-                if model.viewMode == .overview, model.keepsBrowseLayout == .focus {
+            if event.keyCode == 53, event.type == .keyDown {
+                if model.appSpine == .browsingKeeps, model.keepsBrowseLayout == .focus {
                     model.unfocusKeep()
                     return nil
                 }
+                if model.appSpine == .reviewingSet {
+                    model.backToStackFeed()
+                    return nil
+                }
             }
-            if event.keyCode == 123, event.type == .keyDown { // ←
-                if model.viewMode == .overview { model.previousKeep() }
+            if event.keyCode == 123, event.type == .keyDown {
+                if model.appSpine == .browsingKeeps { model.previousKeep() }
                 else if model.groupPhase == .decide { model.previousUncertain() }
                 return nil
             }
-            if event.keyCode == 124, event.type == .keyDown { // →
-                if model.viewMode == .overview { model.nextKeep() }
+            if event.keyCode == 124, event.type == .keyDown {
+                if model.appSpine == .browsingKeeps { model.nextKeep() }
                 else if model.groupPhase == .decide { model.nextUncertainInCluster() }
                 return nil
             }

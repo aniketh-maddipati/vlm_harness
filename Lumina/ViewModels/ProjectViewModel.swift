@@ -20,9 +20,27 @@ final class ProjectViewModel {
     var globalAdjustments = DevelopAdjustments.zero
     var softRender = SoftRenderController()
     var activeClusterIndex: Int = 0
-    var viewMode: ViewMode = .session
+    var appSpine: AppSpine = .stackFeed
     var groupPhase: GroupPhase = .intro
     var manualPickIDs: Set<UUID> = []
+    var jobBrief: JobBrief = JobBrief()
+    var agentLog: [AgentAction] = []
+    var agentPlanText = ""
+    var sessionSummary: SessionSummary?
+    var showSessionSummary = false
+    private var undoSnapshots: [StackUndoSnapshot] = []
+
+    enum AppSpine: String, Equatable {
+        case stackFeed
+        case reviewingSet
+        case sessionComplete
+        case browsingKeeps
+    }
+
+    /// Back-compat for keeps browser layout checks.
+    var viewMode: ViewMode {
+        appSpine == .browsingKeeps ? .overview : .session
+    }
 
     enum ViewMode: String, CaseIterable {
         case session = "Session"
@@ -114,7 +132,7 @@ final class ProjectViewModel {
             sourceFolder: sourceFolder,
             photoURLs: photoURLs,
             jpgFolder: jpgURL,
-            keepRate: project?.keepRateTarget ?? 0.10
+            keepRate: jobBrief.resolvedKeepRate(totalPhotos: project?.photos.count ?? 1000)
         )
 
         for await event in stream {
@@ -157,12 +175,24 @@ final class ProjectViewModel {
                     )
                 }
                 try? await Task.sleep(nanoseconds: 650_000_000)
+                var finished = finished
+                PhotoAgentOrchestrator.applyBrief(jobBrief, to: &finished)
+                var photos = finished.photos
+                let autoActions = PhotoAgentOrchestrator.autoResolveHighConfidence(
+                    in: &photos,
+                    threshold: jobBrief.confidenceThreshold * 0.12
+                )
+                finished.photos = photos
+                finished.collections = PhotoAgentOrchestrator.draftCollections(for: photos, brief: jobBrief)
+                PhotoAgentOrchestrator.recordAutoActions(autoActions, log: &agentLog)
                 project = finished
+                jobBrief = finished.jobBrief
                 importPreviewPhotos = finished.photos
                 globalAdjustments = .zero
+                agentPlanText = PhotoAgentOrchestrator.planAfterImport(photos: photos, brief: jobBrief)
                 withAnimation(.easeInOut(duration: 0.65)) {
                     sortMode = .similar
-                    viewMode = .session
+                    appSpine = .stackFeed
                     activeClusterIndex = 0
                     groupPhase = .intro
                     manualPickIDs = []
@@ -173,7 +203,7 @@ final class ProjectViewModel {
                     selectedPhotoID = finished.photos.first?.id
                 }
                 let sets = reviewClusters.count
-                statusMessage = "Meet your sets · \(sets) groups"
+                statusMessage = agentPlanText.isEmpty ? "Meet your sets · \(sets) groups" : agentPlanText
                 try? await Task.sleep(nanoseconds: 350_000_000)
                 withAnimation(.easeInOut(duration: 0.55)) {
                     isImporting = false
@@ -227,15 +257,72 @@ final class ProjectViewModel {
             jpgURL = pickFolder(message: "Select edited JPG folder")
         }
 
+        jobBrief = promptJobBrief(photoCount: photos.count)
+
         let explicitFiles = panel.urls.contains(where: { !$0.hasDirectoryPath }) ? photos : nil
         Task { await importPhotos(sourceFolder: sourceFolder, photoURLs: explicitFiles, jpgURL: jpgURL) }
+    }
+
+    private func promptJobBrief(photoCount: Int) -> JobBrief {
+        let alert = NSAlert()
+        alert.messageText = "Job brief"
+        alert.informativeText = "How many keeps do you want from ~\(photoCount) photos?"
+        alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Use defaults")
+
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        let defaultKeeps = max(1, Int((Double(photoCount) * 0.10).rounded()))
+        field.stringValue = "\(defaultKeeps)"
+        field.placeholderString = "Target keeps"
+        alert.accessoryView = field
+
+        let autoDeliver = NSButton(checkboxWithTitle: "Auto-export when session completes", target: nil, action: nil)
+        autoDeliver.frame = NSRect(x: 0, y: 0, width: 280, height: 20)
+        autoDeliver.state = .off
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            let target = Int(field.stringValue) ?? defaultKeeps
+            var brief = JobBrief(
+                targetKeepCount: target,
+                keepRate: Double(target) / Double(max(photoCount, 1)),
+                autoDeliver: autoDeliver.state == .on
+            )
+            return brief
+        }
+        return JobBrief(targetKeepCount: defaultKeeps, keepRate: 0.10)
+    }
+
+    // MARK: - Stack feed navigation
+
+    func openStack(at index: Int) {
+        activeClusterIndex = index
+        groupPhase = .intro
+        manualPickIDs = []
+        snapshotStackForUndo()
+        withAnimation(.easeInOut(duration: 0.35)) {
+            appSpine = .reviewingSet
+        }
+        let clusters = reviewClusters
+        guard index >= 0, index < clusters.count else { return }
+        if let hero = clusters[index].heroID {
+            selectPhoto(hero)
+        }
+        statusMessage = clusters[index].whyGrouped
+    }
+
+    func backToStackFeed() {
+        withAnimation(.easeInOut(duration: 0.35)) {
+            appSpine = .stackFeed
+            groupPhase = .intro
+        }
+        statusMessage = agentPlanText.isEmpty ? "\(uncertainCount) decisions left" : agentPlanText
     }
 
     // MARK: - Selection
 
     func selectPhoto(_ id: UUID) {
         selectedPhotoID = id
-        if groupPhase == .decide || viewMode == .overview {
+        if groupPhase == .decide || appSpine == .browsingKeeps {
             playSoftRender(for: id)
         } else {
             softRender.mix = 1
@@ -277,7 +364,7 @@ final class ProjectViewModel {
 
     func enterKeepsBrowser() {
         keepsBrowseLayout = .carousel
-        viewMode = .overview
+        appSpine = .browsingKeeps
         prepareKeepsBrowser()
         statusMessage = "\(keepCount) keeps · browse and enlarge"
     }
@@ -332,14 +419,29 @@ final class ProjectViewModel {
 
     // MARK: - Tiers
 
-    func setTier(_ tier: PhotoTier, for photoID: UUID) {
+    func setTier(_ tier: PhotoTier, for photoID: UUID, userInitiated: Bool = true) {
         guard var project else { return }
         guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        let photo = project.photos[index]
         project.photos[index].tier = tier
         project.photos[index].isFlagged = false
         project.photos[index].uncertaintyKind = .none
         project.photos[index].whyUncertain = nil
         project.photos[index].cullConfidence = 1
+        if userInitiated {
+            let kind: AgentActionKind = tier == .keep ? .userKeep : .userReject
+            let why = tier == .keep ? "You kept this photo" : "You rejected this photo"
+            project.photos[index].whyAction = why
+            agentLog.append(AgentAction(
+                photoID: photoID,
+                clusterID: photo.clusterID,
+                kind: kind,
+                whyAction: why
+            ))
+            let feedback: FeedbackKind = tier == .keep ? .keep : .reject
+            TasteLearning.learnFromUserDecision(photo: project.photos[index], kind: feedback, projectName: project.name)
+            reapplyTasteAndUncertainty()
+        }
         self.project = project
         persistDebounced()
     }
@@ -359,13 +461,23 @@ final class ProjectViewModel {
     func markHero() {
         guard let id = selectedPhotoID, var project else { return }
         guard let index = project.photos.firstIndex(where: { $0.id == id }) else { return }
+        let photo = project.photos[index]
         project.photos[index].isBurstHero = true
         project.photos[index].isClusterHero = true
         project.photos[index].tier = .keep
         project.photos[index].isFlagged = false
         project.photos[index].uncertaintyKind = .none
+        project.photos[index].whyAction = "Marked as hero"
+        agentLog.append(AgentAction(
+            photoID: id,
+            clusterID: photo.clusterID,
+            kind: .userHero,
+            whyAction: "You marked hero"
+        ))
+        TasteLearning.learnFromUserDecision(photo: project.photos[index], kind: .hero, projectName: project.name)
         self.project = project
         persistDebounced()
+        reapplyTasteAndUncertainty()
         advanceAfterDecision()
     }
 
@@ -404,15 +516,15 @@ final class ProjectViewModel {
     func advanceCluster() {
         let all = reviewClusters
         guard !all.isEmpty else {
-            groupPhase = .done
+            completeSession()
             return
         }
         if activeClusterIndex >= all.count - 1 {
-            withAnimation { groupPhase = .done }
-            statusMessage = "Session clear · \(keepCount) keeps"
+            completeSession()
             return
         }
         activeClusterIndex += 1
+        appSpine = .reviewingSet
         groupPhase = .intro
         manualPickIDs = []
         if let hero = all[activeClusterIndex].heroID {
@@ -425,6 +537,7 @@ final class ProjectViewModel {
         let all = reviewClusters
         guard !all.isEmpty else { return }
         activeClusterIndex = max(activeClusterIndex - 1, 0)
+        appSpine = .reviewingSet
         groupPhase = .intro
         manualPickIDs = []
         if let hero = all[activeClusterIndex].heroID {
@@ -449,6 +562,7 @@ final class ProjectViewModel {
     }
 
     func applyManualPicks(in cluster: PhotoCluster) {
+        snapshotStackForUndo()
         guard var project else { return }
         for index in project.photos.indices where project.photos[index].clusterID == cluster.id {
             let id = project.photos[index].id
@@ -467,6 +581,12 @@ final class ProjectViewModel {
         }
         self.project = project
         persistDebounced()
+        agentLog.append(AgentAction(
+            photoID: cluster.heroID ?? cluster.photoIDs[0],
+            clusterID: cluster.id,
+            kind: .stackResolve,
+            whyAction: "Resolved stack · \(manualPickIDs.count) keeps"
+        ))
     }
 
     func confirmPicksAndAdvance(cluster: PhotoCluster) {
@@ -493,6 +613,95 @@ final class ProjectViewModel {
                 groupPhase = .decide
                 if let first = left.first { selectPhoto(first.id) }
                 statusMessage = "Model picks · \(left.count) need you"
+            }
+        }
+    }
+
+    func completeSession() {
+        guard let project else { return }
+        let feedbackCount = (try? FeedbackStore.load(project: project.name).count) ?? 0
+        sessionSummary = PhotoAgentOrchestrator.buildSessionSummary(
+            photos: project.photos,
+            agentLog: agentLog,
+            feedbackCount: feedbackCount
+        )
+        withAnimation {
+            groupPhase = .done
+            appSpine = .sessionComplete
+            showSessionSummary = true
+        }
+        statusMessage = sessionSummary?.narrative ?? "Session clear · \(keepCount) keeps"
+        if jobBrief.autoDeliver {
+            exportCarouselSilently()
+        }
+    }
+
+    func undoLastStack() {
+        guard var project, let snapshot = undoSnapshots.popLast() else { return }
+        for index in project.photos.indices {
+            let id = project.photos[index].id
+            if let tier = snapshot.photoTiers[id] {
+                project.photos[index].tier = tier
+            }
+        }
+        CullEngine.assignConfidence(&project.photos)
+        self.project = project
+        persistDebounced()
+        statusMessage = "Undid changes to set"
+    }
+
+    private func snapshotStackForUndo() {
+        guard let cluster = currentCluster, var photos = project?.photos else { return }
+        var tiers: [UUID: PhotoTier] = [:]
+        for id in cluster.photoIDs {
+            if let p = photos.first(where: { $0.id == id }) {
+                tiers[id] = p.tier
+            }
+        }
+        undoSnapshots.append(StackUndoSnapshot(clusterID: cluster.id, photoTiers: tiers))
+        if undoSnapshots.count > 20 { undoSnapshots.removeFirst() }
+    }
+
+    private func reapplyTasteAndUncertainty() {
+        guard var project else { return }
+        let library = (try? TasteIndex.load(project: project.name)) ?? []
+        TasteRetriever.applyRecipes(to: &project.photos, library: library, baseline: project.profile)
+        CullEngine.assignConfidence(&project.photos)
+        self.project = project
+    }
+
+    private func exportCarouselSilently() {
+        guard let project else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Auto-deliver"
+        panel.message = "Choose export folder for auto-deliver"
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        isBusy = true
+        let snapshot = project
+        let adjustments = globalAdjustments
+        Task {
+            do {
+                let dir = try await ExportService.exportCollections(
+                    project: snapshot,
+                    globalAdjustments: adjustments,
+                    aspects: jobBrief.deliveryAspects,
+                    writeXMP: true,
+                    to: folder
+                ) { [weak self] msg in
+                    Task { @MainActor in self?.statusMessage = msg }
+                }
+                await MainActor.run {
+                    self.isBusy = false
+                    self.statusMessage = "Auto-delivered to \(dir.path)"
+                }
+            } catch {
+                await MainActor.run {
+                    self.isBusy = false
+                    self.statusMessage = error.localizedDescription
+                }
             }
         }
     }
@@ -555,9 +764,13 @@ final class ProjectViewModel {
             project.photos[index].perPhotoAdjustments = .zero
         }
         project.globalAdjustments = globalAdjustments
+        project.jobBrief = jobBrief
         self.project = project
         persistDebounced()
         statusMessage = "Applied slider offsets to all keeps"
+        for photo in project.photos where photo.tier == .keep {
+            TasteLearning.learnFromUserDecision(photo: photo, kind: .developAdjust, projectName: project.name)
+        }
     }
 
     // MARK: - Helpers

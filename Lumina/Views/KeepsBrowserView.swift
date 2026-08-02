@@ -183,7 +183,7 @@ struct KeepsBrowserView: View {
 
             Button("Back to session") {
                 model.unfocusKeep()
-                model.viewMode = .session
+                model.appSpine = .stackFeed
             }
             .buttonStyle(LuminaPressStyle())
         }

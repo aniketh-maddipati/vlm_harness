@@ -319,6 +319,26 @@ private struct GroupDecidePhase: View {
                     description: Text("Continue to the next set.")
                 )
                 Spacer()
+            } else if leftovers.count == 2,
+                      leftovers.allSatisfy({ $0.uncertaintyKind == .cullTie }),
+                      let project = model.project {
+                ComparePairView(
+                    left: leftovers[0],
+                    right: leftovers[1],
+                    projectName: project.name,
+                    mix: $model.compareMix,
+                    selectedID: model.selectedPhotoID,
+                    onSelect: { model.selectPhoto($0) }
+                )
+                .padding(.horizontal, 20)
+                .frame(maxHeight: .infinity)
+
+                LuminaDecisionBar(
+                    onReject: { model.markReject() },
+                    onHero: { model.markHero() },
+                    onKeep: { model.markKeep() }
+                )
+                .padding(.bottom, 12)
             } else if let project = model.project {
                 VStack(spacing: 14) {
                     FloatingPhotoCarousel(
@@ -385,7 +405,7 @@ private struct GroupDecidePhase: View {
 
 // MARK: - Done
 
-private struct SessionDoneView: View {
+struct SessionDoneView: View {
     @Bindable var model: ProjectViewModel
 
     var body: some View {
@@ -423,6 +443,17 @@ private struct SessionDoneView: View {
 
             Button("Browse all keeps") { model.enterKeepsBrowser() }
                 .buttonStyle(LuminaPrimaryButtonStyle())
+
+            if let summary = model.sessionSummary {
+                Text(summary.narrative)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+
+            Button("Back to all sets") { model.backToStackFeed() }
+                .buttonStyle(LuminaPressStyle())
 
             Spacer()
         }

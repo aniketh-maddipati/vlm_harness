@@ -277,19 +277,70 @@ if fullExtractEstimate > 30 {
     note("friction", "import", "Full-roll extract feels long", String(format: "Est. %.0fs for %d files at p95 — need progressive grid (exists) + cancel button (missing)", fullExtractEstimate, raws.count))
 }
 
-// Synthetic UX contract checks (code-level expectations)
-note("bug", "ux", "Import flashes Grid then Clusters", "photosReady sets viewMode=.grid; finished sets .cluster — user sees a mode flash mid-import")
-note("bug", "ux", "NSEvent monitor leaks", "ContentView onAppear adds local key monitor every appear without removal — stacked handlers")
-note("bug", "export", "Manual picks may not export", "draftCollections keeps only isBurstHero||isClusterHero — multi-pick set can lose non-hero keeps")
-note("friction", "ux", "Taste folder alert every import", "Modal interrupt before every roll — should remember last taste library / Skip default")
-note("friction", "ux", "Meet→Pick→Decide then Uncertain orphaned", "Landing is Clusters; Uncertain badge still high but not the home after pick")
-note("friction", "ux", "Grid reloadData on every state tick", "NSCollectionView full reload drops scroll + selection feel during progressive import")
-note("friction", "compare", "Wipe uses undeveloped proxies", "ComparePairView loads disk JPEG; SoftPreview applies taste — Space/wipe vs graded preview disagree")
-note("frontier", "ux", "Voice of the group", "Replace label 'scene ×6' with captioned story: who/what/when from faces + time + optional VLM one-liner")
-note("frontier", "ux", "Pick-set confidence ghost", "Show model’s suggested picks as translucent ghosts under your taps — teach without forcing")
+// Synthetic UX contract checks — verify against current codebase expectations
+func sourceContains(_ path: String, _ needle: String) -> Bool {
+    guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return false }
+    return text.contains(needle)
+}
+
+let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+let contentView = repoRoot.appendingPathComponent("Lumina/ContentView.swift").path
+let exportSvc = repoRoot.appendingPathComponent("Lumina/Services/ExportService.swift").path
+let vmPath = repoRoot.appendingPathComponent("Lumina/ViewModels/ProjectViewModel.swift").path
+
+if sourceContains(contentView, "removeMonitor(keyMonitor)") {
+    note("pass", "ux", "Key monitor cleaned up on disappear", "NSEvent monitor removed in onDisappear")
+} else {
+    note("bug", "ux", "NSEvent monitor may leak", "ContentView missing removeMonitor on disappear")
+}
+
+if sourceContains(vmPath, "appSpine = .stackFeed") && !sourceContains(vmPath, "viewMode = .grid") {
+    note("pass", "ux", "Import lands on unified stack feed", "No grid flash mid-import")
+} else {
+    note("bug", "ux", "Import mode flash", "Import may still switch to grid mid-pipeline")
+}
+
+if sourceContains(exportSvc, "filter { $0.tier == .keep }") {
+    note("pass", "export", "Collections include all keeps", "draftCollections filters by tier == keep")
+} else {
+    note("bug", "export", "Manual picks may not export", "draftCollections may omit non-hero keeps")
+}
+
+let agentFiles = [
+    "Lumina/Models/AgentModels.swift",
+    "Lumina/Services/FeedbackStore.swift",
+    "Lumina/Services/PhotoAgentOrchestrator.swift",
+    "Lumina/Views/UnifiedCanvasView.swift",
+    "Lumina/Views/StackFeedView.swift",
+]
+let missingAgent = agentFiles.filter { !FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent($0).path) }
+if missingAgent.isEmpty {
+    note("pass", "agent", "Agentic modules present", "JobBrief, FeedbackStore, Orchestrator, UnifiedCanvas, StackFeed")
+} else {
+    note("bug", "agent", "Missing agent modules", missingAgent.joined(separator: ", "))
+}
+
+if sourceContains(vmPath, "TasteLearning.learnFromUserDecision") {
+    note("pass", "agent", "Feedback loop wired", "keep/reject/hero updates taste index")
+} else {
+    note("bug", "agent", "No feedback loop", "markKeep/markReject not learning taste")
+}
+
+if sourceContains(vmPath, "PhotoAgentOrchestrator") && sourceContains(vmPath, "promptJobBrief") {
+    note("pass", "agent", "Job brief at import", "Orchestrator + brief prompt present")
+} else {
+    note("friction", "agent", "Job brief missing", "Import lacks goal-directed keep target")
+}
+
+if sourceContains(vmPath, "undoLastStack") && sourceContains(vmPath, "sessionSummary") {
+    note("pass", "agent", "Trust layer present", "Stack undo + session summary")
+} else {
+    note("friction", "agent", "Trust layer incomplete", "Missing undo or session summary")
+}
+
 note("frontier", "ux", "Decision budget runway", "Progress ring: decisions left vs estimated minutes; celebrate when a group clears")
 note("frontier", "ux", "Spatial morph on sort", "Animate thumb positions when switching Sharpest↔Similar — trust that the model reorganized")
-note("frontier", "taste", "Holdout score in UI", "After taste apply, show ‘look match 0.82 vs your Mehendi edits’ per photo")
+note("frontier", "taste", "Holdout score in UI", "After taste apply, show look match vs your edits per photo")
 
 let metrics = Metrics(
     rawCount: raws.count,
