@@ -27,7 +27,6 @@ enum PhotoTier: String, Codable, CaseIterable {
 }
 
 enum SortMode: String, CaseIterable, Identifiable {
-    case uncertain = "Uncertain"
     case similar = "Similar"
     case sharpest = "Sharpest"
     case quality = "Quality"
@@ -35,6 +34,9 @@ enum SortMode: String, CaseIterable, Identifiable {
     case all = "All"
 
     var id: String { rawValue }
+
+    /// Grid overview lens only — uncertain queue lives in Decide leftovers.
+    static var gridLensModes: [SortMode] { allCases }
 }
 
 enum GridFilter: String, CaseIterable, Identifiable {

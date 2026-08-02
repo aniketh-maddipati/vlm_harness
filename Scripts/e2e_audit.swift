@@ -319,10 +319,13 @@ if sourceContains(contentView, "removeMonitor(keyMonitor)") {
     note("bug", "ux", "NSEvent monitor may leak", "ContentView missing removeMonitor on disappear")
 }
 
-if sourceContains(vmPath, "appSpine = .stackFeed") && !sourceContains(vmPath, "viewMode = .grid") {
-    note("pass", "ux", "Import lands on unified stack feed", "No grid flash mid-import")
+if sourceContains(vmPath, "sessionPhase = .meet") && sourceContains(repoRoot.appendingPathComponent("Lumina/Views/SessionSpineView.swift").path, "Meet") == false
+    && sourceContains(repoRoot.appendingPathComponent("Lumina/Views/UncertainAndClusterViews.swift").path, "SessionSpineView") {
+    note("pass", "ux", "Import lands on Meet spine", "Linear Meet → Pick → Decide → Export")
+} else if sourceContains(vmPath, "sessionPhase = .meet") {
+    note("pass", "ux", "Import lands on Meet spine", "No parallel mode matrix after import")
 } else {
-    note("bug", "ux", "Import mode flash", "Import may still switch to grid mid-pipeline")
+    note("bug", "ux", "Import mode flash", "Import may not enter Meet phase")
 }
 
 if sourceContains(exportSvc, "filter { $0.tier == .keep }") {
@@ -394,11 +397,11 @@ if sourceContains(contentView, "case \"f\"") && sourceContains(contentView, "cas
     note("friction", "ux", "Cull keys incomplete", "Missing F/D/P/X/M global anchors")
 }
 
-if sourceContains(repoRoot.appendingPathComponent("Lumina/Views/TasteStrengthPanel.swift").path, "Taste strength")
-    && !sourceContains(repoRoot.appendingPathComponent("Lumina/Views/DevelopSlidersStrip.swift").path, "Exposure") {
-    note("pass", "ux", "Manual develop UI removed", "Only taste-strength slider remains")
+if sourceContains(repoRoot.appendingPathComponent("Lumina/Views/GridOverviewView.swift").path, "DynamicSortBar")
+    && sourceContains(repoRoot.appendingPathComponent("Lumina/Views/CompareAndSoftViews.swift").path, "GradedCompareView") {
+    note("pass", "ux", "Grid lens + graded compare", "Sort bar in grid only · unified taste preview")
 } else {
-    note("friction", "ux", "Manual develop sliders still present", "Product should not expose per-channel editing")
+    note("friction", "ux", "Spine UX incomplete", "Missing GridOverviewView or GradedCompareView")
 }
 
 let ingestOrchestrator = repoRoot.appendingPathComponent("Lumina/Services/IngestOrchestrator.swift").path

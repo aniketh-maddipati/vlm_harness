@@ -1,68 +1,38 @@
 import SwiftUI
 
-/// Single agent canvas — morphs between stack feed, set review, keeps browse, and session summary.
+/// Single canvas — linear session spine with optional grid overview lens.
 struct UnifiedCanvasView: View {
     @Bindable var model: ProjectViewModel
 
     var body: some View {
-        Group {
-            switch model.appSpine {
-            case .stackFeed:
-                stackFeedContent
-            case .reviewingSet:
-                ClusterCullView(model: model)
-            case .sessionComplete:
-                SessionDoneView(model: model)
-            case .browsingKeeps:
-                KeepsBrowserView(model: model)
+        ZStack {
+            if model.project == nil || model.totalCount == 0, !model.isImporting {
+                emptyPrompt
+            } else if model.showGridOverview {
+                GridOverviewView(model: model)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else {
+                SessionSpineView(model: model)
+                    .transition(.opacity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.easeInOut(duration: 0.38), value: model.appSpine)
+        .animation(.easeInOut(duration: 0.35), value: model.sessionPhase)
+        .animation(.easeInOut(duration: 0.35), value: model.showGridOverview)
     }
 
-    @ViewBuilder
-    private var stackFeedContent: some View {
-        if model.project == nil || model.totalCount == 0, !model.isImporting {
-            emptyIngestPrompt
-        } else {
-            VStack(spacing: 0) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Your sets")
-                            .font(.title2.weight(.semibold))
-                        Text("Review each stack · P keep · X reject · M flag")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Text(model.decisionBudgetText)
-                        .font(.headline.monospacedDigit())
-                        .foregroundStyle(model.uncertainCount > 0 ? .orange : .secondary)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-
-                StackFeedView(model: model, clusters: model.reviewClusters)
-            }
-        }
-    }
-
-    private var emptyIngestPrompt: some View {
+    private var emptyPrompt: some View {
         VStack(spacing: 16) {
-            Image(systemName: "sdcard")
+            Image(systemName: "folder")
                 .font(.system(size: 48))
                 .foregroundStyle(.tertiary)
-            Text("Insert SD card, iPhone, or external drive")
+            Text("Import a shoot to begin")
                 .font(.title2.weight(.semibold))
-            Text("Drop iCloud folders or local shoots here. Lumina downloads cloud files and uses full-resolution JPG/HEIC — not tiny placeholders.")
+            Text("RAW folder + optional edited JPGs for taste. You'll move through Meet → Pick → Decide → Export.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 440)
-            Text("Sidebar: iCloud… · Scan drives · ⌘I manual")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

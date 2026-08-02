@@ -1,78 +1,57 @@
 import SwiftUI
 
-/// Context-aware bottom panel — tools appear only for the current agent phase.
+/// Context-aware bottom panel for the linear session spine.
 struct AdaptivePanelHost: View {
     @Bindable var model: ProjectViewModel
 
     var body: some View {
         Group {
-            switch model.appSpine {
-            case .stackFeed:
+            if model.showGridOverview {
                 HStack {
-                    Text(model.decisionBudgetText)
-                        .font(.subheadline.weight(.medium))
+                    Text("Grid lens · sort and filter keeps")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Spacer()
-                    Text("Tap a stack to review")
+                    Text("Esc to return")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
-            case .reviewingSet:
-                switch model.groupPhase {
-                case .decide:
-                    EmptyView()
+            } else {
+                switch model.sessionPhase {
+                case .meet:
+                    HStack {
+                        Text(model.decisionBudgetText)
+                            .font(.subheadline.weight(.medium))
+                        Spacer()
+                        Text("Return to pick · ]/[ jump sets")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
                 case .pick:
                     HStack {
                         Text("\(model.manualPickIDs.count) selected")
                             .font(.subheadline.monospacedDigit())
                         Spacer()
-                        Text("Tap cards to keep")
+                        Text("Tap cards · Return to confirm")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
-                default:
+                case .decide:
                     HStack {
-                        Button("← All sets") { model.backToStackFeed() }
-                            .buttonStyle(LuminaPressStyle())
+                        Text("Taste-applied preview")
+                            .font(.subheadline.weight(.medium))
                         Spacer()
-                        if model.groupPhase == .intro {
-                            Text("Return to open set")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                }
-            case .sessionComplete:
-                if let summary = model.sessionSummary {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Session summary")
-                            .font(.subheadline.weight(.semibold))
-                        Text(summary.narrative)
+                        Text("P/X · M flag · Space before/after")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.tertiary)
                     }
-                }
-            case .browsingKeeps:
-                if model.keepsBrowseLayout == .focus {
+                case .export:
                     HStack {
-                        Text("\(model.keepCount) keeps")
-                            .font(.subheadline)
+                        Text("Session clear · \(model.keepCount) keeps · export?")
+                            .font(.subheadline.weight(.medium))
                         Spacer()
-                        Button("← Sets") {
-                            model.unfocusKeep()
-                            model.appSpine = .stackFeed
-                        }
-                        .buttonStyle(LuminaPressStyle())
-                    }
-                } else {
-                    HStack {
-                        Text("\(model.keepCount) keeps")
-                            .font(.subheadline)
-                        Spacer()
-                        Button("← Sets") {
-                            model.unfocusKeep()
-                            model.appSpine = .stackFeed
-                        }
-                        .buttonStyle(LuminaPressStyle())
+                        Button("Grid") { model.openGridOverview() }
+                            .buttonStyle(LuminaPressStyle())
                     }
                 }
             }

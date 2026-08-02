@@ -158,9 +158,6 @@ enum CullEngine {
 
     static func sorted(_ photos: [PhotoRecord], by mode: SortMode) -> [PhotoRecord] {
         switch mode {
-        case .uncertain:
-            return photos.filter(\.isUncertain)
-                .sorted { ($0.whyUncertain ?? "") < ($1.whyUncertain ?? "") }
         case .similar:
             return photos.sorted { a, b in
                 let ca = a.clusterID ?? "~"

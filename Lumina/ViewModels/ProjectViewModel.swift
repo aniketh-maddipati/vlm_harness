@@ -19,8 +19,8 @@ final class ProjectViewModel {
     var compareMix: Double = 1
     var softRender = SoftRenderController()
     var activeClusterIndex: Int = 0
-    var appSpine: AppSpine = .stackFeed
-    var groupPhase: GroupPhase = .intro
+    var sessionPhase: SessionPhase = .meet
+    var showGridOverview = false
     var manualPickIDs: Set<UUID> = []
     var jobBrief: JobBrief = JobBrief()
     var agentLog: [AgentAction] = []
@@ -32,36 +32,17 @@ final class ProjectViewModel {
     var canResumeLastProject = false
     private var undoSnapshots: [StackUndoSnapshot] = []
 
-    enum AppSpine: String, Equatable {
-        case stackFeed
-        case reviewingSet
-        case sessionComplete
-        case browsingKeeps
-    }
-
-    /// Back-compat for keeps browser layout checks.
-    var viewMode: ViewMode {
-        appSpine == .browsingKeeps ? .overview : .session
-    }
-
-    enum ViewMode: String, CaseIterable {
-        case session = "Session"
-        case overview = "Overview"
-    }
-
-    enum GroupPhase: String, Hashable {
-        case intro
+    /// Linear session spine — no parallel mode matrix.
+    enum SessionPhase: String, Equatable {
+        case meet
         case pick
         case decide
-        case done
+        case export
     }
 
-    enum KeepsBrowseLayout: Equatable {
-        case carousel
-        case focus
+    var showsDevelopControls: Bool {
+        sessionPhase == .decide || sessionPhase == .export
     }
-
-    var keepsBrowseLayout: KeepsBrowseLayout = .carousel
 
     var selectedPhoto: PhotoRecord? {
         guard let id = selectedPhotoID else { return nil }
@@ -138,10 +119,21 @@ final class ProjectViewModel {
     }
 
     var sessionProgressText: String {
+        if sessionPhase == .export {
+            return "Session clear · \(keepCount) keeps · export?"
+        }
         let n = reviewClusters.count
         guard n > 0 else { return "No sets" }
-        if groupPhase == .done { return "Complete" }
-        return "Set \(activeClusterIndex + 1) of \(n)"
+        return "Set \(activeClusterIndex + 1) of \(n) · \(sessionPhase.rawValue.capitalized)"
+    }
+
+    var sessionPhaseLabel: String {
+        switch sessionPhase {
+        case .meet: "Meet"
+        case .pick: "Pick"
+        case .decide: "Decide"
+        case .export: "Export"
+        }
     }
 
     // MARK: - Import
@@ -211,10 +203,10 @@ final class ProjectViewModel {
                 ProjectStore.saveLastProjectName(finished.name)
                 withAnimation(.easeInOut(duration: 0.65)) {
                     sortMode = .similar
-                    appSpine = .stackFeed
+                    sessionPhase = .meet
                     activeClusterIndex = 0
-                    groupPhase = .intro
                     manualPickIDs = []
+                    showGridOverview = false
                 }
                 if let hero = CullEngine.clusters(from: finished.photos).first?.heroID {
                     selectedPhotoID = hero
@@ -222,7 +214,7 @@ final class ProjectViewModel {
                     selectedPhotoID = finished.photos.first?.id
                 }
                 let sets = reviewClusters.count
-                statusMessage = "Meet your sets · \(sets) groups"
+                statusMessage = "Meet set 1 · \(sets) groups"
                 try? await Task.sleep(nanoseconds: 350_000_000)
                 withAnimation(.easeInOut(duration: 0.55)) {
                     isImporting = false
@@ -266,9 +258,9 @@ final class ProjectViewModel {
         }
         project = saved
         sortMode = .similar
-        appSpine = .stackFeed
+        sessionPhase = .meet
         activeClusterIndex = 0
-        groupPhase = .intro
+        showGridOverview = false
         selectedPhotoID = saved.photos.first?.id
         statusMessage = "Resumed \(saved.name) · \(keepCount) keeps"
     }
@@ -296,30 +288,35 @@ final class ProjectViewModel {
         }
     }
 
-    // MARK: - Stack feed navigation
+    // MARK: - Set navigation
 
-    func openStack(at index: Int) {
-        activeClusterIndex = index
-        groupPhase = .intro
-        manualPickIDs = []
-        snapshotStackForUndo()
-        withAnimation(.easeInOut(duration: 0.35)) {
-            appSpine = .reviewingSet
-        }
+    func jumpToSet(at index: Int) {
         let clusters = reviewClusters
         guard index >= 0, index < clusters.count else { return }
+        activeClusterIndex = index
+        sessionPhase = .meet
+        manualPickIDs = []
+        snapshotStackForUndo()
         if let hero = clusters[index].heroID {
             selectPhoto(hero)
         }
         statusMessage = clusters[index].whyGrouped
     }
 
-    func backToStackFeed() {
-        withAnimation(.easeInOut(duration: 0.35)) {
-            appSpine = .stackFeed
-            groupPhase = .intro
+    func openGridOverview() {
+        filter = .keeps
+        showGridOverview = true
+        if selectedPhotoID == nil || !displayedPhotos.contains(where: { $0.id == selectedPhotoID }) {
+            selectedPhotoID = displayedPhotos.first?.id
         }
-        statusMessage = "\(uncertainCount) need\(uncertainCount == 1 ? "s" : "") you"
+        statusMessage = "Grid overview · \(keepCount) keeps"
+    }
+
+    func closeGridOverview() {
+        showGridOverview = false
+        if sessionPhase == .export {
+            statusMessage = "Session clear · \(keepCount) keeps · export?"
+        }
     }
 
     // MARK: - Selection
@@ -327,7 +324,7 @@ final class ProjectViewModel {
     func selectPhoto(_ id: UUID) {
         let start = CFAbsoluteTimeGetCurrent()
         selectedPhotoID = id
-        if groupPhase == .decide || appSpine == .browsingKeeps {
+        if showsDevelopControls || showGridOverview {
             playSoftRender(for: id)
         } else {
             softRender.mix = 1
@@ -339,25 +336,36 @@ final class ProjectViewModel {
     }
 
     func advanceFrame() {
-        switch appSpine {
-        case .browsingKeeps:
-            nextKeep()
-        case .reviewingSet where groupPhase == .decide:
-            nextUncertainInCluster()
-        default:
-            break
+        if showGridOverview {
+            nextInDisplayedPhotos()
+        } else if sessionPhase == .decide {
+            nextDecideLeftover()
         }
     }
 
     func retreatFrame() {
-        switch appSpine {
-        case .browsingKeeps:
-            previousKeep()
-        case .reviewingSet where groupPhase == .decide:
-            previousUncertain()
-        default:
-            break
+        if showGridOverview {
+            previousInDisplayedPhotos()
+        } else if sessionPhase == .decide {
+            previousDecideLeftover()
         }
+    }
+
+    private func nextInDisplayedPhotos() {
+        let list = displayedPhotos
+        guard !list.isEmpty, let current = selectedPhotoID,
+              let index = list.firstIndex(where: { $0.id == current }) else {
+            if let first = list.first { selectPhoto(first.id) }
+            return
+        }
+        selectPhoto(list[min(index + 1, list.count - 1)].id)
+    }
+
+    private func previousInDisplayedPhotos() {
+        let list = displayedPhotos
+        guard !list.isEmpty, let current = selectedPhotoID,
+              let index = list.firstIndex(where: { $0.id == current }) else { return }
+        selectPhoto(list[max(index - 1, 0)].id)
     }
 
     func toggleKeep() {
@@ -396,7 +404,7 @@ final class ProjectViewModel {
     func prefetchPhotoDisplay(_ photo: PhotoRecord) {
         var paths = [photo.previewPath, photo.sharpPath, photo.proxyPath].compactMap { $0 }
 
-        if appSpine == .browsingKeeps {
+        if showGridOverview {
             let list = displayedPhotos
             if let idx = list.firstIndex(where: { $0.id == photo.id }) {
                 let lo = max(0, idx - 5)
@@ -411,7 +419,7 @@ final class ProjectViewModel {
             }
         }
 
-        if let cluster = currentCluster, let photos = project?.photos {
+        if sessionPhase == .decide, let cluster = currentCluster, let photos = project?.photos {
             let map = Dictionary(uniqueKeysWithValues: photos.map { ($0.id, $0) })
             let neighbors = cluster.photoIDs.compactMap { map[$0] }
             if let idx = neighbors.firstIndex(where: { $0.id == photo.id }) {
@@ -425,64 +433,6 @@ final class ProjectViewModel {
         Task {
             await PhotoImageCache.shared.prefetch(Array(Set(paths)))
         }
-    }
-
-    // MARK: - Keeps browser
-
-    func prepareKeepsBrowser() {
-        filter = .keeps
-        if selectedPhotoID == nil || !displayedPhotos.contains(where: { $0.id == selectedPhotoID }) {
-            selectedPhotoID = displayedPhotos.first?.id
-        }
-        if let id = selectedPhotoID {
-            selectPhoto(id)
-        }
-    }
-
-    func enterKeepsBrowser() {
-        keepsBrowseLayout = .carousel
-        appSpine = .browsingKeeps
-        prepareKeepsBrowser()
-        statusMessage = "\(keepCount) keeps · browse and enlarge"
-    }
-
-    func focusKeep() {
-        guard selectedPhoto != nil else { return }
-        withAnimation(.spring(duration: 0.52, bounce: 0.12)) {
-            keepsBrowseLayout = .focus
-        }
-        if let photo = selectedPhoto {
-            prefetchPhotoDisplay(photo)
-            playSoftRender(for: photo.id)
-        }
-        statusMessage = "Loupe · Esc for carousel"
-    }
-
-    func unfocusKeep() {
-        withAnimation(.spring(duration: 0.48, bounce: 0.1)) {
-            keepsBrowseLayout = .carousel
-        }
-        statusMessage = "\(keepCount) keeps"
-    }
-
-    func nextKeep() {
-        navigateKeep(by: 1)
-    }
-
-    func previousKeep() {
-        navigateKeep(by: -1)
-    }
-
-    private func navigateKeep(by delta: Int) {
-        let list = displayedPhotos
-        guard !list.isEmpty else { return }
-        guard let current = selectedPhotoID,
-              let index = list.firstIndex(where: { $0.id == current }) else {
-            selectPhoto(list[0].id)
-            return
-        }
-        let next = list[max(0, min(list.count - 1, index + delta))]
-        selectPhoto(next.id)
     }
 
     func playSoftRender(for id: UUID) {
@@ -574,33 +524,47 @@ final class ProjectViewModel {
         advanceAfterDecision()
     }
 
+    // MARK: - Decide leftovers (uncertain + flagged bridged into Decide)
+
+    func decideLeftovers(in cluster: PhotoCluster) -> [PhotoRecord] {
+        guard let photos = project?.photos else { return [] }
+        let ids = Set(cluster.photoIDs)
+        return photos
+            .filter { photo in
+                ids.contains(photo.id) && (
+                    photo.isUncertain ||
+                    photo.isFlagged ||
+                    (photo.tier == .unranked && photo.cullScore >= 0.35)
+                )
+            }
+            .sorted { $0.cullScore > $1.cullScore }
+    }
+
     private func advanceAfterDecision() {
-        guard groupPhase == .decide, let cluster = currentCluster else {
+        guard sessionPhase == .decide, let cluster = currentCluster else {
             statusMessage = "\(keepCount)/\(totalCount) kept"
             return
         }
-        let left = uncertainInCluster(cluster).filter { $0.id != selectedPhotoID }
+        let left = decideLeftovers(in: cluster).filter { $0.id != selectedPhotoID }
         if let next = left.first {
             selectPhoto(next.id)
             statusMessage = "\(left.count) close calls left in this set"
         } else {
-            statusMessage = "Set clear · next when ready"
+            statusMessage = "Set clear · Return for next set"
         }
     }
 
-    func advanceUncertain() { advanceAfterDecision() }
-
-    func previousUncertain() {
+    func previousDecideLeftover() {
         guard let cluster = currentCluster else { return }
-        let list = uncertainInCluster(cluster)
+        let list = decideLeftovers(in: cluster)
         guard let current = selectedPhotoID,
               let index = list.firstIndex(where: { $0.id == current }) else { return }
         selectPhoto(list[max(index - 1, 0)].id)
     }
 
-    func nextUncertainInCluster() {
+    func nextDecideLeftover() {
         guard let cluster = currentCluster else { return }
-        let list = uncertainInCluster(cluster)
+        let list = decideLeftovers(in: cluster)
         guard let current = selectedPhotoID,
               let index = list.firstIndex(where: { $0.id == current }) else { return }
         selectPhoto(list[min(index + 1, list.count - 1)].id)
@@ -617,8 +581,7 @@ final class ProjectViewModel {
             return
         }
         activeClusterIndex += 1
-        appSpine = .reviewingSet
-        groupPhase = .intro
+        sessionPhase = .meet
         manualPickIDs = []
         if let hero = all[activeClusterIndex].heroID {
             selectPhoto(hero)
@@ -630,11 +593,18 @@ final class ProjectViewModel {
         let all = reviewClusters
         guard !all.isEmpty else { return }
         activeClusterIndex = max(activeClusterIndex - 1, 0)
-        appSpine = .reviewingSet
-        groupPhase = .intro
+        sessionPhase = .meet
         manualPickIDs = []
         if let hero = all[activeClusterIndex].heroID {
             selectPhoto(hero)
+        }
+    }
+
+    func advanceFromMeet() {
+        guard currentCluster != nil else { return }
+        withAnimation(.easeInOut(duration: 0.32)) {
+            sessionPhase = .pick
+            if let c = currentCluster { seedPickFromHero(cluster: c) }
         }
     }
 
@@ -684,12 +654,12 @@ final class ProjectViewModel {
 
     func confirmPicksAndAdvance(cluster: PhotoCluster) {
         applyManualPicks(in: cluster)
-        let left = uncertainInCluster(cluster)
+        let left = decideLeftovers(in: cluster)
         withAnimation(.easeInOut(duration: 0.32)) {
             if left.isEmpty {
                 advanceCluster()
             } else {
-                groupPhase = .decide
+                sessionPhase = .decide
                 if let first = left.first { selectPhoto(first.id) }
                 statusMessage = "\(left.count) close calls in this set"
             }
@@ -697,13 +667,12 @@ final class ProjectViewModel {
     }
 
     func skipPicksUseModel(cluster: PhotoCluster) {
-        // Keep model tiers; only surface uncertain for decide
         withAnimation(.easeInOut(duration: 0.32)) {
-            let left = uncertainInCluster(cluster)
+            let left = decideLeftovers(in: cluster)
             if left.isEmpty {
                 advanceCluster()
             } else {
-                groupPhase = .decide
+                sessionPhase = .decide
                 if let first = left.first { selectPhoto(first.id) }
                 statusMessage = "Model picks · \(left.count) need you"
             }
@@ -711,19 +680,17 @@ final class ProjectViewModel {
     }
 
     func completeSession() {
-        guard let project else { return }
-        let feedbackCount = (try? FeedbackStore.load(project: project.name).count) ?? 0
+        guard project != nil else { return }
+        let feedbackCount = (try? FeedbackStore.load(project: project!.name).count) ?? 0
         sessionSummary = PhotoAgentOrchestrator.buildSessionSummary(
-            photos: project.photos,
+            photos: project!.photos,
             agentLog: agentLog,
             feedbackCount: feedbackCount
         )
         withAnimation {
-            groupPhase = .done
-            appSpine = .sessionComplete
-            showSessionSummary = true
+            sessionPhase = .export
         }
-        statusMessage = sessionSummary?.narrative ?? "Session clear · \(keepCount) keeps"
+        statusMessage = "Session clear · \(keepCount) keeps · export?"
     }
 
     func undoLastStack() {
@@ -827,8 +794,6 @@ final class ProjectViewModel {
     }
 
     func uncertainInCluster(_ cluster: PhotoCluster) -> [PhotoRecord] {
-        guard let photos = project?.photos else { return [] }
-        let ids = Set(cluster.photoIDs)
-        return photos.filter { ids.contains($0.id) && $0.isUncertain }
+        decideLeftovers(in: cluster)
     }
 }

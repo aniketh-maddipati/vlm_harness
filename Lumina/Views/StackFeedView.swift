@@ -10,7 +10,7 @@ struct StackFeedView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 16)], spacing: 16) {
                 ForEach(Array(clusters.enumerated()), id: \.element.id) { index, cluster in
                     StackCard(cluster: cluster, members: members(of: cluster), model: model) {
-                        model.openStack(at: index)
+                        model.jumpToSet(at: index)
                     }
                     .onAppear { model.prefetchStackFeed(around: index) }
                 }
