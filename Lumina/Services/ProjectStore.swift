@@ -26,11 +26,44 @@ enum ProjectStore {
 
     private static var persistWorkItem: DispatchWorkItem?
 
+    static func projectJSONURL(for name: String) throws -> URL {
+        try projectDirectory(for: name).appendingPathComponent("project.json")
+    }
+
+    static func load(name: String) throws -> LuminaProject {
+        let url = try projectJSONURL(for: name)
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(LuminaProject.self, from: data)
+    }
+
+    static func loadLastProject() throws -> LuminaProject? {
+        guard let name = lastProjectName() else { return nil }
+        return try load(name: name)
+    }
+
+    static func lastProjectName() -> String? {
+        let url = try? supportDirectory().appendingPathComponent("last_project.txt")
+        guard let url,
+              let name = try? String(contentsOf: url, encoding: .utf8),
+              !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func saveLastProjectName(_ name: String) {
+        guard let url = try? supportDirectory().appendingPathComponent("last_project.txt") else { return }
+        try? name.write(to: url, atomically: true, encoding: .utf8)
+    }
+
     static func save(_ project: LuminaProject) throws {
         let url = try projectDirectory(for: project.name).appendingPathComponent("project.json")
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         try encoder.encode(project).write(to: url, options: .atomic)
+        saveLastProjectName(project.name)
     }
 
     /// Debounced persist — coalesces rapid tier/keyboard changes.

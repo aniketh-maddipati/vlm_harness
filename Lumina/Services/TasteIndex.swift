@@ -40,7 +40,7 @@ enum TasteRetriever {
         }
 
         for index in photos.indices {
-            guard photos[index].tier == .keep || photos[index].tier == .maybe else { continue }
+            guard photos[index].tier == .keep || photos[index].isFlagged else { continue }
             let result = retrieve(for: photos[index], library: library, baseline: baseline)
             photos[index].recipe = result.recipe
             photos[index].editConfidence = result.recipe.confidence

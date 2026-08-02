@@ -178,6 +178,7 @@ enum ImportPipeline {
             jpgFolder: jpgFolder?.path,
             keepRateTarget: keepRate,
             profile: profile,
+            tasteSourceCount: tasteEntries.count,
             photos: records
         )
         project.collections = ExportService.draftCollections(from: records)

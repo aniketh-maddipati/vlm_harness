@@ -1,40 +1,49 @@
 import SwiftUI
 
+/// Sort/filter lens — only shown inside grid overview.
 struct DynamicSortBar: View {
     @Binding var sortMode: SortMode
-    var uncertainCount: Int
+    @Binding var filter: GridFilter
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(SortMode.allCases) { mode in
-                    Button {
-                        withAnimation(.spring(duration: 0.28, bounce: 0.12)) {
-                            sortMode = mode
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text(mode.rawValue)
-                            if mode == .uncertain, uncertainCount > 0 {
-                                Text("\(uncertainCount)")
-                                    .font(.caption2.monospacedDigit())
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 1)
-                                    .background(.orange.opacity(0.85), in: Capsule())
-                                    .foregroundStyle(.white)
+        VStack(spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(SortMode.gridLensModes) { mode in
+                        lensButton(mode.rawValue, active: sortMode == mode) {
+                            withAnimation(.spring(duration: 0.28, bounce: 0.12)) {
+                                sortMode = mode
                             }
                         }
-                        .font(.subheadline.weight(sortMode == mode ? .semibold : .regular))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(sortMode == mode ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08), in: Capsule())
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(.horizontal, 12)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(GridFilter.allCases) { f in
+                        lensButton(f.rawValue, active: filter == f) {
+                            withAnimation(.spring(duration: 0.28, bounce: 0.12)) {
+                                filter = f
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+            }
         }
+        .padding(.vertical, 6)
+    }
+
+    private func lensButton(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(active ? .semibold : .regular))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(active ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08), in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -46,7 +55,6 @@ struct CompareOverlayView: View {
 
     var body: some View {
         GeometryReader { geo in
-            // Letterbox both images in the same frame so wipe never stretches mismatched aspects.
             ZStack {
                 Color.black.opacity(0.12)
                 if let before {
@@ -85,78 +93,76 @@ struct CompareOverlayView: View {
     }
 }
 
-/// Side-by-side wipe compare for uncertain burst/cluster pairs.
-struct ComparePairView: View {
-    let left: PhotoRecord
-    let right: PhotoRecord
-    let projectName: String
-    @Binding var mix: Double
-    var selectedID: UUID?
-    var onSelect: (UUID) -> Void
-
-    @State private var leftImage: NSImage?
-    @State private var rightImage: NSImage?
-
-    var body: some View {
-        VStack(spacing: 8) {
-            CompareOverlayView(before: leftImage, after: rightImage, mix: $mix) { _ in }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.black.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            HStack {
-                Button {
-                    onSelect(left.id)
-                } label: {
-                    Text("← \(left.filename)")
-                        .font(.caption.weight(selectedID == left.id ? .bold : .regular))
-                }
-                .buttonStyle(.plain)
-                Spacer()
-                Text("Drag wipe · Space holds before")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button {
-                    onSelect(right.id)
-                } label: {
-                    Text("\(right.filename) →")
-                        .font(.caption.weight(selectedID == right.id ? .bold : .regular))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .task(id: "\(left.id)-\(right.id)") {
-            let name = projectName
-            let leftPath = left.proxyPath ?? left.displayThumbPath
-            let rightPath = right.proxyPath ?? right.displayThumbPath
-            let loaded = await Task.detached(priority: .userInitiated) {
-                (
-                    leftPath.flatMap { NSImage(contentsOf: URL(fileURLWithPath: $0)) },
-                    rightPath.flatMap { NSImage(contentsOf: URL(fileURLWithPath: $0)) }
-                )
-            }.value
-            leftImage = loaded.0
-            rightImage = loaded.1
-            if mix == 0 || mix == 1 { mix = 0.5 }
-            _ = name
-        }
+/// Unified graded compare — single before/after or pair wipe, always taste-applied.
+struct GradedCompareView: View {
+    enum Mode: Equatable {
+        case single(PhotoRecord)
+        case pair(left: PhotoRecord, right: PhotoRecord)
     }
-}
 
-struct SoftPreviewView: View {
-    let photo: PhotoRecord
+    let mode: Mode
     let projectName: String
-    let baseline: DevelopRecipe
-    let offsets: DevelopAdjustments
-    let mix: Double
-    let showBefore: Bool
+    let recipeFor: (PhotoRecord) -> DevelopRecipe
+    @Binding var mix: Double
+    var showBefore: Bool = false
+    var selectedID: UUID?
+    var onSelect: ((UUID) -> Void)?
 
     @State private var beforeImage: NSImage?
     @State private var afterImage: NSImage?
+    @State private var pairLeftAfter: NSImage?
+    @State private var pairRightAfter: NSImage?
     @State private var developTask: Task<Void, Never>?
 
     var body: some View {
+        VStack(spacing: 8) {
+            Group {
+                switch mode {
+                case .single(let photo):
+                    singleBody
+                case .pair(let left, let right):
+                    VStack(spacing: 8) {
+                        CompareOverlayView(
+                            before: pairLeftAfter,
+                            after: pairRightAfter,
+                            mix: $mix
+                        )
+                        pairChrome(left: left, right: right)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .task(id: taskID) {
+            developTask?.cancel()
+            await loadGraded()
+        }
+        .onChange(of: recipeFingerprint) { _, _ in
+            developTask?.cancel()
+            developTask = Task { await loadGraded(debounce: true) }
+        }
+        .onDisappear { developTask?.cancel() }
+    }
+
+    private var taskID: String {
+        switch mode {
+        case .single(let p): return "s-\(p.id)-\(recipeFingerprint)"
+        case .pair(let l, let r): return "p-\(l.id)-\(r.id)-\(recipeFingerprint)"
+        }
+    }
+
+    private var recipeFingerprint: String {
+        switch mode {
+        case .single(let p):
+            let r = recipeFor(p)
+            return "\(r.exposure)-\(r.temperature)-\(r.shadows)"
+        case .pair(let l, let r):
+            return "\(recipeFor(l).exposure)-\(recipeFor(r).exposure)"
+        }
+    }
+
+    @ViewBuilder
+    private var singleBody: some View {
         Group {
             if showBefore {
                 imageView(beforeImage)
@@ -169,23 +175,27 @@ struct SoftPreviewView: View {
                 imageView(afterImage ?? beforeImage)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .task(id: photo.id) {
-            developTask?.cancel()
-            await loadPreview()
-            await renderDevelop(debounce: false)
-        }
-        .onChange(of: developFingerprint) { _, _ in
-            developTask?.cancel()
-            developTask = Task {
-                await renderDevelop(debounce: true)
-            }
-        }
-        .onDisappear { developTask?.cancel() }
     }
 
-    private var developFingerprint: String {
-        "\(offsets.exposure)-\(offsets.temperature)-\(offsets.highlights)-\(offsets.shadows)-\(photo.recipe?.exposure ?? 0)"
+    @ViewBuilder
+    private func pairChrome(left: PhotoRecord, right: PhotoRecord) -> some View {
+        HStack {
+            Button { onSelect?(left.id) } label: {
+                Text("← \(left.filename)")
+                    .font(.caption.weight(selectedID == left.id ? .bold : .regular))
+            }
+            .buttonStyle(.plain)
+            Spacer()
+            Text("Graded wipe · Space holds before")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button { onSelect?(right.id) } label: {
+                Text("\(right.filename) →")
+                    .font(.caption.weight(selectedID == right.id ? .bold : .regular))
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     @ViewBuilder
@@ -201,37 +211,41 @@ struct SoftPreviewView: View {
         }
     }
 
-    private func loadPreview() async {
-        if let fast = photo.previewPath,
-           let preview = await PhotoImageCache.shared.load(path: fast) {
-            beforeImage = preview
-        }
-    }
-
-    private func renderDevelop(debounce: Bool) async {
-        if debounce {
-            try? await Task.sleep(nanoseconds: 90_000_000)
-        }
+    private func loadGraded(debounce: Bool = false) async {
+        if debounce { try? await Task.sleep(nanoseconds: 90_000_000) }
         if Task.isCancelled { return }
 
         let name = projectName
-        let photo = photo
-        let recipe = photo.effectiveRecipe
-        let offsets = offsets
-
-        let loaded = await Task.detached(priority: .userInitiated) { () -> (NSImage?, NSImage?) in
-            guard let proxy = DevelopEngine.ensureProxy(for: photo, projectName: name) else {
-                return (nil, nil)
+        switch mode {
+        case .single(let photo):
+            let recipe = recipeFor(photo)
+            let loaded = await Task.detached(priority: .userInitiated) { () -> (NSImage?, NSImage?) in
+                guard let proxy = DevelopEngine.ensureProxy(for: photo, projectName: name) else {
+                    return (nil, nil)
+                }
+                let before = NSImage(contentsOf: proxy)
+                let after = DevelopEngine.render(url: proxy, recipe: recipe, offsets: .zero, mix: 1)
+                return (before, after)
+            }.value
+            if Task.isCancelled { return }
+            withAnimation(.easeOut(duration: 0.2)) {
+                beforeImage = loaded.0
+                afterImage = loaded.1
             }
-            let before = NSImage(contentsOf: proxy)
-            let after = DevelopEngine.render(url: proxy, recipe: recipe, offsets: offsets, mix: 1)
-            return (before, after)
-        }.value
-
-        if Task.isCancelled { return }
-        withAnimation(.easeOut(duration: 0.2)) {
-            beforeImage = loaded.0 ?? beforeImage
-            afterImage = loaded.1
+        case .pair(let left, let right):
+            let leftRecipe = recipeFor(left)
+            let rightRecipe = recipeFor(right)
+            let loaded = await Task.detached(priority: .userInitiated) { () -> (NSImage?, NSImage?) in
+                func graded(_ photo: PhotoRecord, recipe: DevelopRecipe) -> NSImage? {
+                    guard let proxy = DevelopEngine.ensureProxy(for: photo, projectName: name) else { return nil }
+                    return DevelopEngine.render(url: proxy, recipe: recipe, offsets: .zero, mix: 1)
+                }
+                return (graded(left, recipe: leftRecipe), graded(right, recipe: rightRecipe))
+            }.value
+            if Task.isCancelled { return }
+            pairLeftAfter = loaded.0
+            pairRightAfter = loaded.1
+            if mix == 0 || mix == 1 { mix = 0.5 }
         }
     }
 }

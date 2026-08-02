@@ -319,10 +319,13 @@ if sourceContains(contentView, "removeMonitor(keyMonitor)") {
     note("bug", "ux", "NSEvent monitor may leak", "ContentView missing removeMonitor on disappear")
 }
 
-if sourceContains(vmPath, "appSpine = .stackFeed") && !sourceContains(vmPath, "viewMode = .grid") {
-    note("pass", "ux", "Import lands on unified stack feed", "No grid flash mid-import")
+if sourceContains(vmPath, "sessionPhase = .meet") && sourceContains(repoRoot.appendingPathComponent("Lumina/Views/SessionSpineView.swift").path, "Meet") == false
+    && sourceContains(repoRoot.appendingPathComponent("Lumina/Views/UncertainAndClusterViews.swift").path, "SessionSpineView") {
+    note("pass", "ux", "Import lands on Meet spine", "Linear Meet → Pick → Decide → Export")
+} else if sourceContains(vmPath, "sessionPhase = .meet") {
+    note("pass", "ux", "Import lands on Meet spine", "No parallel mode matrix after import")
 } else {
-    note("bug", "ux", "Import mode flash", "Import may still switch to grid mid-pipeline")
+    note("bug", "ux", "Import mode flash", "Import may not enter Meet phase")
 }
 
 if sourceContains(exportSvc, "filter { $0.tier == .keep }") {
@@ -351,10 +354,22 @@ if sourceContains(vmPath, "TasteLearning.learnFromUserDecision") {
     note("bug", "agent", "No feedback loop", "markKeep/markReject not learning taste")
 }
 
-if sourceContains(vmPath, "PhotoAgentOrchestrator") && sourceContains(vmPath, "beginIngest") {
-    note("pass", "agent", "Job brief at import", "Default brief via IngestOrchestrator + orchestrator plan")
+if sourceContains(vmPath, "pickRAWFolder") && sourceContains(vmPath, "tasteStrength") {
+    note("pass", "product", "RAW+JPG import with taste strength", "Manual folder import · extracted profile scaled by slider")
 } else {
-    note("friction", "agent", "Job brief missing", "Import lacks goal-directed keep target")
+    note("friction", "product", "Taste-first import missing", "Need RAW folder picker and tasteStrength on project")
+}
+
+if sourceContains(contentView, "TasteStrengthPanel") && sourceContains(contentView, "Resume last project") {
+    note("pass", "product", "Taste panel + resume", "Sidebar shows extracted look and last project")
+} else {
+    note("friction", "product", "Taste sidebar incomplete", "Missing TasteStrengthPanel or resume UX")
+}
+
+if sourceContains(repoRoot.appendingPathComponent("Lumina/Views/ExportPayoffSheet.swift").path, "Ready to post") {
+    note("pass", "product", "Export payoff sheet", "Post-export thumbnail strip + taste readout")
+} else {
+    note("friction", "product", "Export payoff missing", "No in-app export summary")
 }
 
 if sourceContains(vmPath, "undoLastStack") && sourceContains(vmPath, "sessionSummary") {
@@ -376,25 +391,26 @@ if sourceContains(vmPath, "prefetchStackFeed") {
     note("friction", "perf", "Stack prefetch missing", "StackFeedView lacks scroll-ahead")
 }
 
-if sourceContains(contentView, "case \"f\"") && sourceContains(contentView, "case \"s\"") && sourceContains(contentView, "advanceFrame") {
-    note("pass", "ux", "Home row keys mapped", "F/D navigate · S keep · A reject")
+if sourceContains(contentView, "case \"f\"") && sourceContains(contentView, "case \"p\"") && sourceContains(contentView, "advanceFrame") {
+    note("pass", "ux", "Cull keys mapped", "F/D navigate · P/X keep/reject · M flag")
 } else {
-    note("friction", "ux", "Home row keys incomplete", "Missing F/D/S/A global anchors")
+    note("friction", "ux", "Cull keys incomplete", "Missing F/D/P/X/M global anchors")
 }
 
-if sourceContains(repoRoot.appendingPathComponent("Lumina/Views/AdaptivePanelHost.swift").path, "DevelopSlidersStrip") {
-    note("pass", "ux", "Live develop strip in focus", "Sliders in AdaptivePanelHost during loupe")
+if sourceContains(repoRoot.appendingPathComponent("Lumina/Views/GridOverviewView.swift").path, "DynamicSortBar")
+    && sourceContains(repoRoot.appendingPathComponent("Lumina/Views/CompareAndSoftViews.swift").path, "GradedCompareView") {
+    note("pass", "ux", "Grid lens + graded compare", "Sort bar in grid only · unified taste preview")
 } else {
-    note("friction", "ux", "Develop-on-focus missing", "Sliders not wired to loupe panel")
+    note("friction", "ux", "Spine UX incomplete", "Missing GridOverviewView or GradedCompareView")
 }
 
 let ingestOrchestrator = repoRoot.appendingPathComponent("Lumina/Services/IngestOrchestrator.swift").path
 let mediaFormats = repoRoot.appendingPathComponent("Lumina/Services/MediaFormats.swift").path
 if FileManager.default.fileExists(atPath: ingestOrchestrator)
     && sourceContains(mediaFormats, "discoverPhotos") {
-    note("pass", "ingest", "Auto-ingest orchestrator present", "Deep discovery + manifest + taste detect")
+    note("pass", "ingest", "Discovery helpers present", "Deep folder scan available (manual import path)")
 } else {
-    note("bug", "ingest", "Auto-ingest missing", "IngestOrchestrator or discoverPhotos not found")
+    note("friction", "ingest", "Discovery helpers missing", "MediaFormats.discoverPhotos not found")
 }
 
 if sourceContains(mediaFormats, "maxDepth") && sourceContains(mediaFormats, "duplicate") {
@@ -404,9 +420,9 @@ if sourceContains(mediaFormats, "maxDepth") && sourceContains(mediaFormats, "dup
 }
 
 if FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Lumina/Services/IngestWatcher.swift").path) {
-    note("pass", "ingest", "Volume mount watcher present", "NSWorkspace.didMount auto-ingest")
+    note("pass", "ingest", "Volume watcher (deferred)", "Infrastructure present · UI not wired in v1")
 } else {
-    note("friction", "ingest", "No volume watcher", "Card insert requires manual import")
+    note("friction", "ingest", "No volume watcher", "SD auto-import deferred")
 }
 
 if FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Lumina/Services/SourceCatalog.swift").path)

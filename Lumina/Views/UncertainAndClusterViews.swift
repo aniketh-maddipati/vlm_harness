@@ -1,8 +1,8 @@
 import SwiftUI
 import AppKit
 
-/// Directed iPad-style session: Meet set → Pick → Decide leftovers → next set → Done.
-struct ClusterCullView: View {
+/// Single session spine: Meet → Pick → Decide → Export.
+struct SessionSpineView: View {
     @Bindable var model: ProjectViewModel
 
     var body: some View {
@@ -10,8 +10,8 @@ struct ClusterCullView: View {
         VStack(spacing: 0) {
             sessionChrome(clusterCount: clusters.count)
 
-            if model.groupPhase == .done {
-                SessionDoneView(model: model)
+            if model.sessionPhase == .export {
+                ExportPhaseView(model: model)
             } else if clusters.isEmpty {
                 ContentUnavailableView("No sets yet", systemImage: "rectangle.stack")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -21,13 +21,10 @@ struct ClusterCullView: View {
                 let members = clusterMembers(cluster)
 
                 Group {
-                    switch model.groupPhase {
-                    case .intro:
+                    switch model.sessionPhase {
+                    case .meet:
                         GroupIntroPhase(cluster: cluster, members: members) {
-                            withAnimation(.easeInOut(duration: 0.32)) {
-                                model.groupPhase = .pick
-                                model.seedPickFromHero(cluster: cluster)
-                            }
+                            model.advanceFromMeet()
                         }
                     case .pick:
                         GroupPickPhase(
@@ -39,13 +36,13 @@ struct ClusterCullView: View {
                             onSkip: { model.skipPicksUseModel(cluster: cluster) }
                         )
                     case .decide:
-                        GroupDecidePhase(model: model, cluster: cluster, members: members)
-                    case .done:
+                        GroupDecidePhase(model: model, cluster: cluster)
+                    case .export:
                         EmptyView()
                     }
                 }
-                .animation(.easeInOut(duration: 0.32), value: model.groupPhase)
-                .id("\(cluster.id)-\(model.groupPhase)")
+                .animation(.easeInOut(duration: 0.32), value: model.sessionPhase)
+                .id("\(cluster.id)-\(model.sessionPhase.rawValue)")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
@@ -56,14 +53,14 @@ struct ClusterCullView: View {
         VStack(spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    phasePill("Meet", active: model.groupPhase == .intro)
+                    phasePill("Meet", active: model.sessionPhase == .meet)
                     chevron
-                    phasePill("Pick", active: model.groupPhase == .pick)
+                    phasePill("Pick", active: model.sessionPhase == .pick)
                     chevron
-                    phasePill("Decide", active: model.groupPhase == .decide)
+                    phasePill("Decide", active: model.sessionPhase == .decide)
                     chevron
-                    phasePill("Done", active: model.groupPhase == .done)
-                    if model.groupPhase != .done, clusterCount > 0 {
+                    phasePill("Export", active: model.sessionPhase == .export)
+                    if model.sessionPhase != .export, clusterCount > 0 {
                         Text("Set \(min(model.activeClusterIndex + 1, clusterCount)) / \(clusterCount)")
                             .font(.headline.monospacedDigit())
                             .padding(.leading, 8)
@@ -72,7 +69,7 @@ struct ClusterCullView: View {
                 .padding(.vertical, 2)
             }
 
-            if clusterCount > 0, model.groupPhase != .done {
+            if clusterCount > 0, model.sessionPhase != .export {
                 GeometryReader { geo in
                     let progress = CGFloat(model.activeClusterIndex + 1) / CGFloat(max(clusterCount, 1))
                     ZStack(alignment: .leading) {
@@ -111,6 +108,9 @@ struct ClusterCullView: View {
     }
 }
 
+// Back-compat name used by older references.
+typealias ClusterCullView = SessionSpineView
+
 // MARK: - Meet
 
 private struct GroupIntroPhase: View {
@@ -148,7 +148,7 @@ private struct GroupIntroPhase: View {
                     Task {
                         await PhotoImageCache.shared.prefetch([
                             photo.previewPath,
-                            photo.sharpPath
+                            photo.sharpPath,
                         ].compactMap { $0 })
                     }
                 }
@@ -162,12 +162,12 @@ private struct GroupIntroPhase: View {
             .opacity(appear ? 1 : 0)
             .offset(y: appear ? 0 : 24)
 
-            Text("\(members.count) photos · scroll sideways, then review")
+            Text("\(members.count) photos · scroll sideways, then pick")
                 .font(.body)
                 .foregroundStyle(.tertiary)
 
             Button(action: onContinue) {
-                Text("Review this set")
+                Text("Pick from this set")
                     .frame(minWidth: 200)
             }
             .buttonStyle(LuminaPrimaryButtonStyle())
@@ -200,7 +200,7 @@ private struct GroupPickPhase: View {
                 Text(cluster.whyGrouped)
                     .font(.body)
                     .foregroundStyle(.secondary)
-                Text("Tap to keep")
+                Text("Tap to keep — unselected go to Decide if borderline")
                     .font(.subheadline)
                     .foregroundStyle(.tertiary)
             }
@@ -278,121 +278,37 @@ private struct PickCard: View {
     }
 }
 
-// MARK: - Decide
+// MARK: - Decide (uncertain + flagged bridged as leftovers)
 
 private struct GroupDecidePhase: View {
     @Bindable var model: ProjectViewModel
     let cluster: PhotoCluster
-    let members: [PhotoRecord]
 
     var body: some View {
-        let leftovers = model.uncertainInCluster(cluster)
+        let leftovers = model.decideLeftovers(in: cluster)
+        let projectName = model.project?.name ?? ""
 
-        VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(leftovers.isEmpty ? "Set clear" : "Close calls")
-                        .font(.title2.weight(.semibold))
-                    Text(leftovers.isEmpty ? cluster.whyGrouped : "← → to browse · P keep · X reject")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-                Spacer()
-                if leftovers.isEmpty {
+        Group {
+            if leftovers.isEmpty {
+                VStack(spacing: 16) {
+                    Spacer()
+                    ContentUnavailableView(
+                        "Nothing left to decide",
+                        systemImage: "checkmark.circle",
+                        description: Text("Continue to the next set.")
+                    )
                     Button("Next set →") { model.advanceCluster() }
                         .buttonStyle(.borderedProminent)
-                } else {
-                    Text("\(leftovers.count) left")
-                        .font(.headline)
-                        .foregroundStyle(.orange)
+                    Spacer()
                 }
+            } else {
+                SilhouetteDwellViewer(
+                    model: model,
+                    photos: leftovers,
+                    projectName: projectName,
+                    selection: $model.selectedPhotoID
+                )
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-
-            if leftovers.isEmpty {
-                Spacer()
-                ContentUnavailableView(
-                    "Nothing uncertain here",
-                    systemImage: "checkmark.circle",
-                    description: Text("Continue to the next set.")
-                )
-                Spacer()
-            } else if leftovers.count == 2,
-                      leftovers.allSatisfy({ $0.uncertaintyKind == .cullTie }),
-                      let project = model.project {
-                ComparePairView(
-                    left: leftovers[0],
-                    right: leftovers[1],
-                    projectName: project.name,
-                    mix: $model.compareMix,
-                    selectedID: model.selectedPhotoID,
-                    onSelect: { model.selectPhoto($0) }
-                )
-                .padding(.horizontal, 20)
-                .frame(maxHeight: .infinity)
-
-                LuminaDecisionBar(
-                    onReject: { model.markReject() },
-                    onHero: { model.markHero() },
-                    onKeep: { model.markKeep() }
-                )
-                .padding(.bottom, 12)
-            } else if let project = model.project {
-                VStack(spacing: 14) {
-                    FloatingPhotoCarousel(
-                        items: leftovers,
-                        selection: $model.selectedPhotoID,
-                        itemID: \.id,
-                        spacing: 28,
-                        peek: 5,
-                        onSelectionChange: { photo in
-                            model.prefetchPhotoDisplay(photo)
-                        }
-                    ) { photo, centered in
-                        Group {
-                            if centered, model.selectedPhotoID == photo.id {
-                                SoftPreviewView(
-                                    photo: photo,
-                                    projectName: project.name,
-                                    baseline: project.profile,
-                                    offsets: model.globalAdjustments,
-                                    mix: model.showBefore ? 0 : model.softRender.mix,
-                                    showBefore: model.showBefore
-                                )
-                            } else {
-                                FloatingPhotoCard(
-                                    photo: photo,
-                                    projectName: project.name,
-                                    centered: centered
-                                )
-                            }
-                        }
-                        .aspectRatio(4 / 3, contentMode: .fit)
-                        .frame(maxHeight: 420)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(maxHeight: .infinity)
-
-                    if let photo = model.selectedPhoto {
-                        Text(photo.whySummary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                            .padding(.horizontal, 24)
-                    }
-
-                    LuminaDecisionBar(
-                        onReject: { model.markReject() },
-                        onHero: { model.markHero() },
-                        onKeep: { model.markKeep() }
-                    )
-                    .padding(.bottom, 12)
-                }
-            }
-
-            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
@@ -403,9 +319,9 @@ private struct GroupDecidePhase: View {
     }
 }
 
-// MARK: - Done
+// MARK: - Export
 
-struct SessionDoneView: View {
+struct ExportPhaseView: View {
     @Bindable var model: ProjectViewModel
 
     var body: some View {
@@ -416,43 +332,41 @@ struct SessionDoneView: View {
             Spacer(minLength: 12)
             Text("Session clear")
                 .font(.largeTitle.weight(.semibold))
-            Text("\(keeps.count) keeps · ready to export")
+            Text("\(keeps.count) keeps · export?")
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
+            Text(model.tasteSummaryText)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+
             if !keeps.isEmpty {
-                FloatingPhotoCarousel(
-                    items: Array(keeps.prefix(16)),
-                    selection: .constant(keeps.first?.id),
-                    itemID: \.id,
-                    spacing: 24,
-                    peek: 5
-                ) { photo, centered in
-                    FloatingPhotoCard(photo: photo, centered: centered)
-                        .aspectRatio(4 / 3, contentMode: .fit)
-                        .frame(maxHeight: 160)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(Array(keeps.prefix(12))) { photo in
+                            GradedCompareView(
+                                mode: .single(photo),
+                                projectName: model.project?.name ?? "",
+                                recipeFor: { model.appliedRecipe(for: $0) },
+                                mix: .constant(1),
+                                showBefore: false
+                            )
+                            .frame(width: 120, height: 150)
+                        }
+                    }
+                    .padding(.horizontal, 16)
                 }
-                .frame(height: 180)
-                .padding(.horizontal, 8)
+                .frame(height: 160)
             }
 
-            Button("Export collections") { model.exportCarousel() }
+            Button("Export") { model.exportCarousel() }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
 
-            Button("Browse all keeps") { model.enterKeepsBrowser() }
-                .buttonStyle(LuminaPrimaryButtonStyle())
-
-            if let summary = model.sessionSummary {
-                Text(summary.narrative)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-            }
-
-            Button("Back to all sets") { model.backToStackFeed() }
+            Button("Grid overview") { model.openGridOverview() }
                 .buttonStyle(LuminaPressStyle())
 
             Spacer()
@@ -461,12 +375,11 @@ struct SessionDoneView: View {
     }
 }
 
+typealias SessionDoneView = ExportPhaseView
+
 struct UncertainQueueView: View {
     @Bindable var model: ProjectViewModel
-
-    var body: some View {
-        ClusterCullView(model: model)
-    }
+    var body: some View { SessionSpineView(model: model) }
 }
 
 // MARK: - Thumbs

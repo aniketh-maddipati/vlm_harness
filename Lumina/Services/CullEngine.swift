@@ -58,7 +58,7 @@ enum CullEngine {
             } else if keepSet.contains(photo.id) {
                 photos[index].tier = .keep
             } else if photo.cullScore >= 0.35 {
-                photos[index].tier = .maybe
+                photos[index].tier = .unranked
             } else {
                 photos[index].tier = .reject
             }
@@ -85,7 +85,7 @@ enum CullEngine {
                 continue
             }
 
-            if photo.tier == .maybe {
+            if photo.tier == .unranked && photo.cullScore >= 0.35 {
                 flagged = true
                 kind = .cullBorderline
                 why = "Borderline quality \(String(format: "%.2f", photo.cullScore))"
@@ -158,9 +158,6 @@ enum CullEngine {
 
     static func sorted(_ photos: [PhotoRecord], by mode: SortMode) -> [PhotoRecord] {
         switch mode {
-        case .uncertain:
-            return photos.filter(\.isUncertain)
-                .sorted { ($0.whyUncertain ?? "") < ($1.whyUncertain ?? "") }
         case .similar:
             return photos.sorted { a, b in
                 let ca = a.clusterID ?? "~"
