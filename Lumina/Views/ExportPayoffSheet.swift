@@ -7,6 +7,8 @@ struct ExportPayoffState: Equatable {
     var imageURLs: [URL]
     var tasteSummary: String
     var keepCount: Int
+    /// Burst-hero carousel subset (`grid_carousel`), not total keeps.
+    var highlightCount: Int
 }
 
 struct ExportPayoffSheet: View {
@@ -18,7 +20,7 @@ struct ExportPayoffSheet: View {
             Text("Ready to post")
                 .font(.title2.weight(.semibold))
 
-            Text("\(payoff.keepCount) keeps exported with your look applied")
+            Text("\(payoff.keepCount) keeps · \(payoff.highlightCount) highlights exported with your look applied")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

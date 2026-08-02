@@ -190,6 +190,7 @@ final class ProjectViewModel {
                 if project != nil {
                     project?.photos = photos
                     importPreviewPhotos = photos
+                    refreshExportCollections()
                 } else {
                     withAnimation(.easeInOut(duration: 0.35)) {
                         project?.photos = photos
@@ -695,6 +696,7 @@ final class ProjectViewModel {
             reapplyTasteAndUncertainty()
         }
         self.project = project
+        refreshExportCollections()
         persistDebounced()
         syncActiveCatalogStats()
     }
@@ -745,6 +747,7 @@ final class ProjectViewModel {
         ))
         TasteLearning.learnFromUserDecision(photo: project.photos[index], kind: .hero, projectName: project.name)
         self.project = project
+        refreshExportCollections()
         persistDebounced()
         reapplyTasteAndUncertainty()
         advanceAfterDecision()
@@ -882,6 +885,7 @@ final class ProjectViewModel {
             }
         }
         self.project = project
+        refreshExportCollections()
         persistDebounced()
         agentLog.append(AgentAction(
             photoID: cluster.heroID ?? cluster.photoIDs[0],
@@ -949,6 +953,7 @@ final class ProjectViewModel {
         }
         CullEngine.assignConfidence(&project.photos)
         self.project = project
+        refreshExportCollections()
         persistDebounced()
         statusMessage = "Undid changes to set"
     }
@@ -1009,7 +1014,8 @@ final class ProjectViewModel {
                         carouselFolder: outcome.carouselFolder,
                         imageURLs: outcome.carouselImageURLs,
                         tasteSummary: self.tasteSummaryText,
-                        keepCount: self.keepCount
+                        keepCount: self.keepCount,
+                        highlightCount: outcome.carouselImageURLs.count
                     )
                     self.showExportPayoff = true
                     self.persistDebounced()
@@ -1037,6 +1043,13 @@ final class ProjectViewModel {
     private func persistDebounced() {
         guard let project else { return }
         ProjectStore.saveDebounced(project)
+    }
+
+    /// Recompute export collections (carousel burst heroes, etc.) from current tiers.
+    private func refreshExportCollections() {
+        guard var project else { return }
+        project.collections = ExportService.draftCollections(from: project.photos)
+        self.project = project
     }
 
     func uncertainInCluster(_ cluster: PhotoCluster) -> [PhotoRecord] {
