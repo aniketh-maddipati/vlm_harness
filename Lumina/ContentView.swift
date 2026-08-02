@@ -82,7 +82,12 @@ struct ContentView: View {
                 if model.appSpine == .sessionComplete || model.appSpine == .browsingKeeps {
                     DisclosureGroup("Tweak keeps") {
                         if model.selectedPhoto != nil {
-                            developSliders
+                            DevelopSlidersStrip(
+                                adjustments: $model.globalAdjustments,
+                                compact: false,
+                                showApplyButton: true,
+                                onApplyToKeeps: { model.applyAdjustmentsToAllKeeps() }
+                            )
                         }
                     }
                 }
@@ -102,30 +107,6 @@ struct ContentView: View {
         }
         .padding(16)
         .frame(minWidth: 200)
-    }
-
-    private var developSliders: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            slider("Exposure", value: $model.globalAdjustments.exposure, range: -2...2)
-            slider("Temp Δ", value: $model.globalAdjustments.temperature, range: -800...800)
-            slider("Highlights", value: $model.globalAdjustments.highlights, range: -100...100)
-            slider("Shadows", value: $model.globalAdjustments.shadows, range: -100...100)
-            Button("Apply to keeps") { model.applyAdjustmentsToAllKeeps() }
-                .font(.caption)
-        }
-    }
-
-    private func slider(_ title: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(title).font(.caption)
-                Spacer()
-                Text(String(format: "%.1f", value.wrappedValue))
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-            Slider(value: value, in: range)
-        }
     }
 
     private var main: some View {
@@ -180,8 +161,8 @@ struct ContentView: View {
             return "Open a stack · O keeps when done"
         case .browsingKeeps:
             switch model.keepsBrowseLayout {
-            case .carousel: return "Return: enlarge · ← → · Esc"
-            case .focus: return "Esc: carousel · Space before/after"
+            case .carousel: return "F/D browse · Return: enlarge · S keep · A reject"
+            case .focus: return "F/D · S keep · A reject · Space before/after · Esc carousel"
             }
         case .sessionComplete:
             return "Return: export · O keeps · B all sets"
@@ -189,7 +170,7 @@ struct ContentView: View {
             switch model.groupPhase {
             case .intro: return "Return: review · Esc: all sets"
             case .pick: return "Tap · Return: keep these"
-            case .decide: return "← → · P/X/H · C compare tie"
+            case .decide: return "F/D · S keep · A reject · H hero · C compare tie"
             case .done: return "Return: export"
             }
         }
@@ -199,6 +180,18 @@ struct ContentView: View {
         if event.modifierFlags.contains(.command) { return event }
         let chars = event.charactersIgnoringModifiers?.lowercased()
         switch chars {
+        case "f":
+            if event.type == .keyDown { model.advanceFrame() }
+            return nil
+        case "d":
+            if event.type == .keyDown { model.retreatFrame() }
+            return nil
+        case "s":
+            if event.type == .keyDown { model.toggleKeep() }
+            return nil
+        case "a":
+            if event.type == .keyDown { model.toggleReject() }
+            return nil
         case "p":
             if event.type == .keyDown, model.groupPhase == .decide { model.markKeep() }
             return nil
@@ -259,13 +252,11 @@ struct ContentView: View {
                 }
             }
             if event.keyCode == 123, event.type == .keyDown {
-                if model.appSpine == .browsingKeeps { model.previousKeep() }
-                else if model.groupPhase == .decide { model.previousUncertain() }
+                model.retreatFrame()
                 return nil
             }
             if event.keyCode == 124, event.type == .keyDown {
-                if model.appSpine == .browsingKeeps { model.nextKeep() }
-                else if model.groupPhase == .decide { model.nextUncertainInCluster() }
+                model.advanceFrame()
                 return nil
             }
             if event.keyCode == 49 {

@@ -31,9 +31,16 @@ if [[ -f "$REPORT" ]]; then
   BUGS=$(python3 -c "import json; d=json.load(open('$REPORT')); print(sum(1 for f in d['findings'] if f['severity']=='bug'))")
   FRICTION=$(python3 -c "import json; d=json.load(open('$REPORT')); print(sum(1 for f in d['findings'] if f['severity']=='friction'))")
   PASS=$(python3 -c "import json; d=json.load(open('$REPORT')); print(sum(1 for f in d['findings'] if f['severity']=='pass'))")
-  echo "Pass: $PASS · Friction: $FRICTION · Bugs: $BUGS"
+  CACHE_P95=$(python3 -c "import json; d=json.load(open('$REPORT')); print(d.get('metrics',{}).get('cacheDecodeP95ms') or 0)")
+  echo "Pass: $PASS · Friction: $FRICTION · Bugs: $BUGS · Cache p95: ${CACHE_P95}ms"
   if [[ "$BUGS" -gt 0 ]]; then
     echo "FAILED — $BUGS bug(s) reported"
+    exit 1
+  fi
+  if python3 -c "import json; d=json.load(open('$REPORT')); p=d.get('metrics',{}).get('cacheDecodeP95ms'); exit(0 if p is None or p <= 50 else 1)"; then
+    :
+  else
+    echo "FAILED — cache decode p95 exceeds 50ms SLA"
     exit 1
   fi
   echo "PASSED"

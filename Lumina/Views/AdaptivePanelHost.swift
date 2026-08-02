@@ -52,15 +52,24 @@ struct AdaptivePanelHost: View {
                     }
                 }
             case .browsingKeeps:
-                HStack {
-                    Text("\(model.keepCount) keeps")
-                        .font(.subheadline)
-                    Spacer()
-                    Button("← Sets") {
-                        model.unfocusKeep()
-                        model.appSpine = .stackFeed
+                if model.keepsBrowseLayout == .focus, model.selectedPhoto != nil {
+                    DevelopSlidersStrip(
+                        adjustments: $model.globalAdjustments,
+                        compact: true,
+                        showApplyButton: true,
+                        onApplyToKeeps: { model.applyAdjustmentsToAllKeeps() }
+                    )
+                } else {
+                    HStack {
+                        Text("\(model.keepCount) keeps")
+                            .font(.subheadline)
+                        Spacer()
+                        Button("← Sets") {
+                            model.unfocusKeep()
+                            model.appSpine = .stackFeed
+                        }
+                        .buttonStyle(LuminaPressStyle())
                     }
-                    .buttonStyle(LuminaPressStyle())
                 }
             }
         }

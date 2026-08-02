@@ -36,6 +36,10 @@ enum DevelopEngine {
         offsets: DevelopAdjustments = .zero,
         mix: Double = 1.0
     ) -> NSImage? {
+        let start = CFAbsoluteTimeGetCurrent()
+        defer {
+            LatencyMetrics.record("develop.render", milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000)
+        }
         guard var image = CIImage(contentsOf: url) else { return nil }
         // Normalize origin so filters never expand into negative extents (aspect stretch).
         image = image.transformed(by: CGAffineTransform(

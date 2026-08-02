@@ -154,6 +154,7 @@ struct SoftPreviewView: View {
 
     @State private var beforeImage: NSImage?
     @State private var afterImage: NSImage?
+    @State private var developTask: Task<Void, Never>?
 
     var body: some View {
         Group {
@@ -169,11 +170,22 @@ struct SoftPreviewView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .task(id: taskID) { await load() }
+        .task(id: photo.id) {
+            developTask?.cancel()
+            await loadPreview()
+            await renderDevelop(debounce: false)
+        }
+        .onChange(of: developFingerprint) { _, _ in
+            developTask?.cancel()
+            developTask = Task {
+                await renderDevelop(debounce: true)
+            }
+        }
+        .onDisappear { developTask?.cancel() }
     }
 
-    private var taskID: String {
-        "\(photo.id)-\(photo.recipe?.exposure ?? 0)-\(photo.recipe?.temperature ?? 0)-\(offsets.exposure)-\(offsets.temperature)-\(offsets.highlights)"
+    private var developFingerprint: String {
+        "\(offsets.exposure)-\(offsets.temperature)-\(offsets.highlights)-\(offsets.shadows)-\(photo.recipe?.exposure ?? 0)"
     }
 
     @ViewBuilder
@@ -189,16 +201,23 @@ struct SoftPreviewView: View {
         }
     }
 
-    private func load() async {
-        let name = projectName
-        let photo = photo
-        let recipe = photo.effectiveRecipe
-        let offsets = offsets
-
+    private func loadPreview() async {
         if let fast = photo.previewPath,
            let preview = await PhotoImageCache.shared.load(path: fast) {
             beforeImage = preview
         }
+    }
+
+    private func renderDevelop(debounce: Bool) async {
+        if debounce {
+            try? await Task.sleep(nanoseconds: 90_000_000)
+        }
+        if Task.isCancelled { return }
+
+        let name = projectName
+        let photo = photo
+        let recipe = photo.effectiveRecipe
+        let offsets = offsets
 
         let loaded = await Task.detached(priority: .userInitiated) { () -> (NSImage?, NSImage?) in
             guard let proxy = DevelopEngine.ensureProxy(for: photo, projectName: name) else {
@@ -209,6 +228,7 @@ struct SoftPreviewView: View {
             return (before, after)
         }.value
 
+        if Task.isCancelled { return }
         withAnimation(.easeOut(duration: 0.2)) {
             beforeImage = loaded.0 ?? beforeImage
             afterImage = loaded.1

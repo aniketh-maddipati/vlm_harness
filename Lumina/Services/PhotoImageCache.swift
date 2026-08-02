@@ -31,9 +31,11 @@ actor PhotoImageCache {
         if let task = inflight[path] { return await task.value }
 
         let task = Task<NSImage?, Never> {
-            await Task.detached(priority: .userInitiated) {
-                Self.decode(path: path)
-            }.value
+            await LatencyMetrics.measureAsync("cache.load") {
+                await Task.detached(priority: .userInitiated) {
+                    Self.decode(path: path)
+                }.value
+            }
         }
         inflight[path] = task
         let image = await task.value

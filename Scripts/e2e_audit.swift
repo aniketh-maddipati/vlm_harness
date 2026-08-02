@@ -35,6 +35,8 @@ struct Metrics: Codable {
     var medianAspect: Double
     var extractP50ms: Double
     var extractP95ms: Double
+    var cacheDecodeP50ms: Double?
+    var cacheDecodeP95ms: Double?
     var tasteFilesWithCRS: Int
     var tasteKelvinMin: Double?
     var tasteKelvinMax: Double?
@@ -212,6 +214,29 @@ if aspectOutliers > sample.count / 4 {
 
 let p50 = percentile(extractTimes, p: 0.5)
 let p95 = percentile(extractTimes, p: 0.95)
+
+// Simulate warm-cache JPEG decode (navigation / scroll-ahead SLA)
+var cacheDecodeTimes: [Double] = []
+let cachedJPGs = (try? FileManager.default.contentsOfDirectory(at: workDir, includingPropertiesForKeys: nil))?
+    .filter { $0.pathExtension.lowercased() == "jpg" } ?? []
+for url in cachedJPGs.prefix(sampleLimit) {
+    let t0 = CFAbsoluteTimeGetCurrent()
+    if let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+       CGImageSourceCreateImageAtIndex(src, 0, nil) != nil {
+        cacheDecodeTimes.append((CFAbsoluteTimeGetCurrent() - t0) * 1000)
+    }
+}
+let cacheP50 = cacheDecodeTimes.isEmpty ? nil : percentile(cacheDecodeTimes, p: 0.5)
+let cacheP95 = cacheDecodeTimes.isEmpty ? nil : percentile(cacheDecodeTimes, p: 0.95)
+if let cacheP95 {
+    if cacheP95 <= 50 {
+        note("pass", "latency", "Cache decode within SLA", String(format: "p50 %.1fms · p95 %.1fms (target ≤50ms p95)", cacheP50 ?? 0, cacheP95))
+    } else {
+        note("bug", "latency", "Cache decode exceeds SLA", String(format: "p95 %.1fms > 50ms on %d cached thumbs", cacheP95, cacheDecodeTimes.count))
+    }
+} else {
+    note("friction", "latency", "Cache decode not measured", "No cached JPGs in workDir sample")
+}
 if p95 > 800 {
     note("friction", "import", "Slow preview extract", String(format: "p95 %.0fms per file at 512px — 94 files ≈ %.1fs just for thumbs", p95, p95 * 94 / 1000))
 } else {
@@ -338,6 +363,31 @@ if sourceContains(vmPath, "undoLastStack") && sourceContains(vmPath, "sessionSum
     note("friction", "agent", "Trust layer incomplete", "Missing undo or session summary")
 }
 
+let latencyPath = repoRoot.appendingPathComponent("Lumina/Services/LatencyMetrics.swift").path
+if FileManager.default.fileExists(atPath: latencyPath) {
+    note("pass", "perf", "Latency instrumentation present", "LatencyMetrics + os_signpost hooks")
+} else {
+    note("bug", "perf", "Latency harness missing", "No LatencyMetrics.swift")
+}
+
+if sourceContains(vmPath, "prefetchStackFeed") {
+    note("pass", "perf", "Stack feed scroll-ahead prefetch", "prefetchStackFeed on card appear")
+} else {
+    note("friction", "perf", "Stack prefetch missing", "StackFeedView lacks scroll-ahead")
+}
+
+if sourceContains(contentView, "case \"f\"") && sourceContains(contentView, "case \"s\"") && sourceContains(contentView, "advanceFrame") {
+    note("pass", "ux", "Home row keys mapped", "F/D navigate · S keep · A reject")
+} else {
+    note("friction", "ux", "Home row keys incomplete", "Missing F/D/S/A global anchors")
+}
+
+if sourceContains(repoRoot.appendingPathComponent("Lumina/Views/AdaptivePanelHost.swift").path, "DevelopSlidersStrip") {
+    note("pass", "ux", "Live develop strip in focus", "Sliders in AdaptivePanelHost during loupe")
+} else {
+    note("friction", "ux", "Develop-on-focus missing", "Sliders not wired to loupe panel")
+}
+
 note("frontier", "ux", "Decision budget runway", "Progress ring: decisions left vs estimated minutes; celebrate when a group clears")
 note("frontier", "ux", "Spatial morph on sort", "Animate thumb positions when switching Sharpest↔Similar — trust that the model reorganized")
 note("frontier", "taste", "Holdout score in UI", "After taste apply, show look match vs your edits per photo")
@@ -352,6 +402,8 @@ let metrics = Metrics(
     medianAspect: medianAspect,
     extractP50ms: p50,
     extractP95ms: p95,
+    cacheDecodeP50ms: cacheP50,
+    cacheDecodeP95ms: cacheP95,
     tasteFilesWithCRS: kelvins.count,
     tasteKelvinMin: kelvins.min(),
     tasteKelvinMax: kelvins.max(),

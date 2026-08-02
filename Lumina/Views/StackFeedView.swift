@@ -12,9 +12,15 @@ struct StackFeedView: View {
                     StackCard(cluster: cluster, members: members(of: cluster), model: model) {
                         model.openStack(at: index)
                     }
+                    .onAppear { model.prefetchStackFeed(around: index) }
                 }
             }
             .padding(20)
+        }
+        .onAppear {
+            if !clusters.isEmpty {
+                model.prefetchStackFeed(around: 0)
+            }
         }
     }
 

@@ -321,6 +321,7 @@ final class ProjectViewModel {
     // MARK: - Selection
 
     func selectPhoto(_ id: UUID) {
+        let start = CFAbsoluteTimeGetCurrent()
         selectedPhotoID = id
         if groupPhase == .decide || appSpine == .browsingKeeps {
             playSoftRender(for: id)
@@ -330,10 +331,96 @@ final class ProjectViewModel {
         if let photo = project?.photos.first(where: { $0.id == id }) {
             prefetchPhotoDisplay(photo)
         }
+        LatencyMetrics.record("navigation.select", milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000)
+    }
+
+    func advanceFrame() {
+        switch appSpine {
+        case .browsingKeeps:
+            nextKeep()
+        case .reviewingSet where groupPhase == .decide:
+            nextUncertainInCluster()
+        default:
+            break
+        }
+    }
+
+    func retreatFrame() {
+        switch appSpine {
+        case .browsingKeeps:
+            previousKeep()
+        case .reviewingSet where groupPhase == .decide:
+            previousUncertain()
+        default:
+            break
+        }
+    }
+
+    func toggleKeep() {
+        guard selectedPhotoID != nil else { return }
+        switch appSpine {
+        case .reviewingSet where groupPhase == .decide:
+            markKeep()
+        case .browsingKeeps:
+            markKeep()
+        default:
+            break
+        }
+    }
+
+    func toggleReject() {
+        guard selectedPhotoID != nil else { return }
+        switch appSpine {
+        case .reviewingSet where groupPhase == .decide:
+            markReject()
+        case .browsingKeeps:
+            markReject()
+        default:
+            break
+        }
+    }
+
+    func prefetchStackFeed(around index: Int) {
+        let clusters = reviewClusters
+        guard !clusters.isEmpty, let photos = project?.photos else { return }
+        let map = Dictionary(uniqueKeysWithValues: photos.map { ($0.id, $0) })
+        var paths: [String] = []
+        let lo = max(0, index - 2)
+        let hi = min(clusters.count - 1, index + 4)
+        for i in lo...hi {
+            for id in clusters[i].photoIDs.prefix(4) {
+                guard let photo = map[id] else { continue }
+                paths.append(contentsOf: [
+                    photo.previewPath,
+                    photo.gridThumbPath,
+                    photo.thumbPath,
+                    photo.sharpPath,
+                ].compactMap { $0 })
+            }
+        }
+        Task {
+            await PhotoImageCache.shared.prefetch(Array(Set(paths)))
+        }
     }
 
     func prefetchPhotoDisplay(_ photo: PhotoRecord) {
-        var paths = [photo.previewPath, photo.sharpPath].compactMap { $0 }
+        var paths = [photo.previewPath, photo.sharpPath, photo.proxyPath].compactMap { $0 }
+
+        if appSpine == .browsingKeeps {
+            let list = displayedPhotos
+            if let idx = list.firstIndex(where: { $0.id == photo.id }) {
+                let lo = max(0, idx - 5)
+                let hi = min(list.count - 1, idx + 5)
+                for neighbor in list[lo...hi] {
+                    paths.append(contentsOf: [
+                        neighbor.previewPath,
+                        neighbor.sharpPath,
+                        neighbor.proxyPath,
+                    ].compactMap { $0 })
+                }
+            }
+        }
+
         if let cluster = currentCluster, let photos = project?.photos {
             let map = Dictionary(uniqueKeysWithValues: photos.map { ($0.id, $0) })
             let neighbors = cluster.photoIDs.compactMap { map[$0] }

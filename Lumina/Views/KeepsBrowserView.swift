@@ -139,6 +139,9 @@ struct KeepsBrowserView: View {
             }
             .onChange(of: model.selectedPhotoID) { _, id in
                 guard let id else { return }
+                if let photo = keeps.first(where: { $0.id == id }) {
+                    model.prefetchPhotoDisplay(photo)
+                }
                 withAnimation(.easeOut(duration: 0.3)) {
                     proxy.scrollTo(id, anchor: .center)
                 }
