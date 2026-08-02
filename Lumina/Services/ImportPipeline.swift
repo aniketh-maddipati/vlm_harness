@@ -332,6 +332,60 @@ enum ImportPipeline {
             try? await Task.sleep(nanoseconds: 30_000_000)
         }
     }
+
+    // MARK: - L1 catalog index (fast backlog pass)
+
+    /// Thumbs + quality + burst sets — skips embeddings, faces, and taste for speed.
+    static func indexLightweight(
+        sourceFolder: URL,
+        projectName: String,
+        keepRate: Double
+    ) async throws -> LuminaProject {
+        let thumbDir = try ProjectStore.cacheDirectory(for: projectName, tier: "thumbs")
+        let gridDir = try ProjectStore.cacheDirectory(for: projectName, tier: "grid512")
+
+        let mediaFiles = MediaFormats.collectPhotos(from: [sourceFolder])
+        guard !mediaFiles.isEmpty else { throw ImportError.noPhotos }
+
+        let dates = await Task.detached(priority: .utility) {
+            ExifToolService.batchCaptureDates(
+                in: sourceFolder,
+                extensions: MediaFormats.exiftoolExtensions,
+                files: nil
+            )
+        }.value
+
+        var records = try await extractAllTiers(
+            rawFiles: mediaFiles,
+            dates: dates,
+            thumbDir: thumbDir,
+            gridDir: gridDir,
+            proxyDir: gridDir
+        ) { _, _, _, _ in }
+
+        CullEngine.assignBursts(&records)
+        records = await scoreQuality(records) { _, _ in }
+        CullEngine.scoreAndTier(&records, keepRate: keepRate)
+        CullEngine.assignBurstClusters(&records)
+        CullEngine.assignConfidence(&records)
+
+        var actions = PhotoAgentOrchestrator.autoResolveHighConfidence(
+            in: &records,
+            threshold: 0.85
+        )
+        _ = actions
+
+        var project = LuminaProject(
+            name: projectName,
+            rawFolder: sourceFolder.path,
+            keepRateTarget: keepRate,
+            profile: .neutral,
+            photos: records
+        )
+        project.collections = ExportService.draftCollections(from: records)
+        try ProjectStore.save(project)
+        return project
+    }
 }
 
 enum ImportError: LocalizedError {

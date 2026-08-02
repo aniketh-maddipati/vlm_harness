@@ -26,6 +26,15 @@ enum CullEngine {
         }
     }
 
+    /// L1 catalog index — group bursts as sets without Vision embeddings.
+    static func assignBurstClusters(_ photos: inout [PhotoRecord]) {
+        for index in photos.indices {
+            guard let burst = photos[index].burstID else { continue }
+            photos[index].clusterID = burst
+            photos[index].clusterLabel = "Burst"
+        }
+    }
+
     static func scoreAndTier(_ photos: inout [PhotoRecord], keepRate: Double) {
         for index in photos.indices {
             let face = photos[index].faceDetected ? photos[index].faceQuality : 0

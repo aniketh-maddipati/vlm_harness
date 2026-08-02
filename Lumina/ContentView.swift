@@ -22,6 +22,7 @@ struct ContentView: View {
                 handleKey(event)
             }
             model.refreshResumeAvailability()
+            model.restoreCatalogQueueIfNeeded()
         }
         .onChange(of: model.sessionPhase) { _, phase in
             withAnimation(.easeInOut(duration: 0.35)) {
@@ -41,6 +42,9 @@ struct ContentView: View {
             if let payoff = model.exportPayoff {
                 ExportPayoffSheet(payoff: payoff) {
                     model.showExportPayoff = false
+                    if model.isCatalogMode {
+                        model.advanceCatalogQueueAfterExport()
+                    }
                 }
             }
         }
@@ -67,6 +71,16 @@ struct ContentView: View {
             }
             .buttonStyle(LuminaPrimaryButtonStyle())
             .disabled(model.isBusy)
+
+            Button("Scan backlog…") {
+                model.pickCatalogRoot()
+            }
+            .buttonStyle(LuminaPressStyle())
+            .disabled(model.isBusy)
+
+            if model.isCatalogMode {
+                CatalogQueueView(model: model)
+            }
 
             if let project = model.project {
                 VStack(alignment: .leading, spacing: 6) {
@@ -97,6 +111,10 @@ struct ContentView: View {
                 Button("Export") { model.exportCarousel() }
                     .buttonStyle(LuminaPressStyle())
                     .disabled(model.project == nil || model.isBusy || model.keepCount == 0)
+                if model.isCatalogMode, model.sessionPhase == .export {
+                    Button("Next folder") { model.advanceCatalogQueueAfterExport() }
+                        .buttonStyle(LuminaPressStyle())
+                }
                 if model.sessionPhase == .pick || model.sessionPhase == .decide {
                     Button("Undo set") { model.undoLastStack() }
                         .buttonStyle(LuminaPressStyle())
