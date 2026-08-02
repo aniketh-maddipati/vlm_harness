@@ -1,10 +1,12 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @State private var model = ProjectViewModel()
     @State private var keyMonitor: Any?
     @State private var splitVisibility: NavigationSplitViewVisibility = .all
+    @State private var isDropTargeted = false
 
     var body: some View {
         NavigationSplitView(columnVisibility: $splitVisibility) {
@@ -31,12 +33,17 @@ struct ContentView: View {
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { event in
                 handleKey(event)
             }
+            IngestWatcher.shared.onDiscover = { discovery in
+                model.beginIngest(discovery: discovery)
+            }
+            IngestWatcher.shared.start()
         }
         .onDisappear {
             if let keyMonitor {
                 NSEvent.removeMonitor(keyMonitor)
                 self.keyMonitor = nil
             }
+            IngestWatcher.shared.stop()
         }
         .onReceive(NotificationCenter.default.publisher(for: .luminaImportRAW)) { _ in
             model.pickRAWFolder()
@@ -63,6 +70,18 @@ struct ContentView: View {
             }
             .buttonStyle(LuminaPrimaryButtonStyle())
             .disabled(model.isBusy)
+
+            Toggle("Auto-ingest on card insert", isOn: Binding(
+                get: { IngestPreferences.autoIngestOnMount },
+                set: { IngestPreferences.autoIngestOnMount = $0 }
+            ))
+            .font(.caption)
+
+            if let manifest = model.lastIngestManifest {
+                Text(manifest.summaryLine)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
 
             if let project = model.project {
                 VStack(alignment: .leading, spacing: 6) {
@@ -119,6 +138,18 @@ struct ContentView: View {
 
                 AdaptivePanelHost(model: model)
                 statusBar
+            }
+            .overlay {
+                if isDropTargeted {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.accentColor, lineWidth: 3)
+                        .background(Color.accentColor.opacity(0.06))
+                        .padding(12)
+                        .allowsHitTesting(false)
+                }
+            }
+            .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+                handleDrop(providers)
             }
 
             if model.isImporting {
@@ -267,6 +298,27 @@ struct ContentView: View {
             }
             return event
         }
+    }
+
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        var collected: [URL] = []
+        let group = DispatchGroup()
+        for provider in providers where provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+            group.enter()
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                defer { group.leave() }
+                if let url = item as? URL {
+                    collected.append(url)
+                } else if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
+                    collected.append(url)
+                }
+            }
+        }
+        group.notify(queue: .main) {
+            guard !collected.isEmpty else { return }
+            model.ingestFromDroppedURLs(collected)
+        }
+        return true
     }
 }
 

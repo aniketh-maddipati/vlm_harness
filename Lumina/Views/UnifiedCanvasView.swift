@@ -23,24 +23,47 @@ struct UnifiedCanvasView: View {
 
     @ViewBuilder
     private var stackFeedContent: some View {
-        VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Your sets")
-                        .font(.title2.weight(.semibold))
-                    Text(model.agentPlanText)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+        if model.project == nil || model.totalCount == 0, !model.isImporting {
+            emptyIngestPrompt
+        } else {
+            VStack(spacing: 0) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Your sets")
+                            .font(.title2.weight(.semibold))
+                        Text(model.agentPlanText.isEmpty ? "Review each stack · S keep · A reject" : model.agentPlanText)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text(model.decisionBudgetText)
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(model.uncertainCount > 0 ? .orange : .secondary)
                 }
-                Spacer()
-                Text(model.decisionBudgetText)
-                    .font(.headline.monospacedDigit())
-                    .foregroundStyle(model.uncertainCount > 0 ? .orange : .secondary)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
 
-            StackFeedView(model: model, clusters: model.reviewClusters)
+                StackFeedView(model: model, clusters: model.reviewClusters)
+            }
         }
+    }
+
+    private var emptyIngestPrompt: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "sdcard")
+                .font(.system(size: 48))
+                .foregroundStyle(.tertiary)
+            Text("Insert a card or drop a folder")
+                .font(.title2.weight(.semibold))
+            Text("Lumina auto-detects DCIM and nested shoot folders — no picking required.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
+            Text("⌘I to browse manually")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

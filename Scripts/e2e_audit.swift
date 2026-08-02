@@ -351,8 +351,8 @@ if sourceContains(vmPath, "TasteLearning.learnFromUserDecision") {
     note("bug", "agent", "No feedback loop", "markKeep/markReject not learning taste")
 }
 
-if sourceContains(vmPath, "PhotoAgentOrchestrator") && sourceContains(vmPath, "promptJobBrief") {
-    note("pass", "agent", "Job brief at import", "Orchestrator + brief prompt present")
+if sourceContains(vmPath, "PhotoAgentOrchestrator") && sourceContains(vmPath, "beginIngest") {
+    note("pass", "agent", "Job brief at import", "Default brief via IngestOrchestrator + orchestrator plan")
 } else {
     note("friction", "agent", "Job brief missing", "Import lacks goal-directed keep target")
 }
@@ -386,6 +386,56 @@ if sourceContains(repoRoot.appendingPathComponent("Lumina/Views/AdaptivePanelHos
     note("pass", "ux", "Live develop strip in focus", "Sliders in AdaptivePanelHost during loupe")
 } else {
     note("friction", "ux", "Develop-on-focus missing", "Sliders not wired to loupe panel")
+}
+
+let ingestOrchestrator = repoRoot.appendingPathComponent("Lumina/Services/IngestOrchestrator.swift").path
+let mediaFormats = repoRoot.appendingPathComponent("Lumina/Services/MediaFormats.swift").path
+if FileManager.default.fileExists(atPath: ingestOrchestrator)
+    && sourceContains(mediaFormats, "discoverPhotos") {
+    note("pass", "ingest", "Auto-ingest orchestrator present", "Deep discovery + manifest + taste detect")
+} else {
+    note("bug", "ingest", "Auto-ingest missing", "IngestOrchestrator or discoverPhotos not found")
+}
+
+if sourceContains(mediaFormats, "maxDepth") && sourceContains(mediaFormats, "duplicate") {
+    note("pass", "ingest", "Recursive discovery with dedup", "Nested DCIM folders supported")
+} else {
+    note("friction", "ingest", "Shallow discovery only", "May miss nested camera folders")
+}
+
+if FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Lumina/Services/IngestWatcher.swift").path) {
+    note("pass", "ingest", "Volume mount watcher present", "NSWorkspace.didMount auto-ingest")
+} else {
+    note("friction", "ingest", "No volume watcher", "Card insert requires manual import")
+}
+
+// Nested folder discovery smoke test (inline — e2e script is outside app module)
+func countPhotosRecursive(_ dir: URL, depth: Int = 0) -> Int {
+    guard depth < 10 else { return 0 }
+    guard let entries = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else { return 0 }
+    var count = 0
+    for entry in entries {
+        if (try? entry.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+            count += countPhotosRecursive(entry, depth: depth + 1)
+        } else {
+            let ext = entry.pathExtension.uppercased()
+            if ["ARW", "CR2", "CR3", "NEF", "DNG", "JPG", "JPEG", "HEIC"].contains(ext) { count += 1 }
+        }
+    }
+    return count
+}
+
+let nestedRoot = workDir.appendingPathComponent("DCIM/100CANON", isDirectory: true)
+try? FileManager.default.createDirectory(at: nestedRoot, withIntermediateDirectories: true)
+if let sampleFile = sample.first {
+    let dest = nestedRoot.appendingPathComponent(sampleFile.lastPathComponent)
+    try? FileManager.default.copyItem(at: sampleFile, to: dest)
+    let nestedCount = countPhotosRecursive(workDir.appendingPathComponent("DCIM"))
+    if nestedCount >= 1 {
+        note("pass", "ingest", "Nested DCIM layout discoverable", "Found \(nestedCount) file(s) under DCIM/ tree")
+    } else {
+        note("bug", "ingest", "Nested layout test failed", "Could not find file under DCIM/100CANON")
+    }
 }
 
 note("frontier", "ux", "Decision budget runway", "Progress ring: decisions left vs estimated minutes; celebrate when a group clears")

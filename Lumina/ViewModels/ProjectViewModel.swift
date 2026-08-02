@@ -28,6 +28,7 @@ final class ProjectViewModel {
     var agentPlanText = ""
     var sessionSummary: SessionSummary?
     var showSessionSummary = false
+    var lastIngestManifest: IngestManifest?
     private var undoSnapshots: [StackUndoSnapshot] = []
 
     enum AppSpine: String, Equatable {
@@ -209,6 +210,7 @@ final class ProjectViewModel {
                     isImporting = false
                     importFinishing = false
                 }
+                finalizeIngestManifest(importedCount: finished.photos.count)
             case .failed(let msg):
                 statusMessage = msg
                 withAnimation(.easeInOut(duration: 0.35)) {
@@ -220,6 +222,48 @@ final class ProjectViewModel {
     }
 
     func pickRAWFolder() { pickImportSources() }
+
+    /// Zero-click ingest from volume mount, drag-drop, or orchestrator.
+    func beginIngest(discovery: IngestDiscovery) {
+        guard !isImporting else { return }
+        lastIngestManifest = discovery.manifest
+        jobBrief = IngestOrchestrator.defaultJobBrief(photoCount: discovery.photoURLs.count)
+        IngestOrchestrator.saveJobBriefDefaults(jobBrief, photoCount: discovery.photoURLs.count)
+        if let taste = discovery.tasteFolder {
+            IngestPreferences.lastTasteFolderPath = taste.path
+        }
+        let label = discovery.sourceRoot.lastPathComponent
+        statusMessage = "Ingesting \(discovery.photoURLs.count) from \(label)…"
+        Task {
+            await importPhotos(
+                sourceFolder: discovery.sourceRoot,
+                photoURLs: discovery.photoURLs,
+                jpgURL: discovery.tasteFolder
+            )
+        }
+    }
+
+    func ingestFromDroppedURLs(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        var scanRoot: URL?
+        for url in urls {
+            var isDir: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else { continue }
+            if isDir.boolValue {
+                scanRoot = url
+                break
+            } else if MediaFormats.isImportable(url) {
+                scanRoot = url.deletingLastPathComponent()
+                break
+            }
+        }
+        guard let root = scanRoot,
+              let discovery = IngestOrchestrator.discover(at: root, kind: .dragDrop) else {
+            statusMessage = "No importable photos in drop."
+            return
+        }
+        beginIngest(discovery: discovery)
+    }
 
     func pickImportSources() {
         let panel = NSOpenPanel()
@@ -233,63 +277,45 @@ final class ProjectViewModel {
         panel.allowsOtherFileTypes = true
         guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
 
-        let photos = MediaFormats.collectPhotos(from: panel.urls)
-        guard !photos.isEmpty else {
-            statusMessage = "No importable photos in that selection."
-            return
-        }
-
         let sourceFolder: URL
         if panel.urls.count == 1, panel.urls[0].hasDirectoryPath {
             sourceFolder = panel.urls[0]
         } else {
+            let photos = MediaFormats.collectPhotos(from: panel.urls)
+            guard !photos.isEmpty else {
+                statusMessage = "No importable photos in that selection."
+                return
+            }
             sourceFolder = photos[0].deletingLastPathComponent()
         }
 
-        let alert = NSAlert()
-        alert.messageText = "Use a Lightroom JPG folder for taste?"
-        alert.informativeText = "Optional — learns your look from edited JPGs."
-        alert.addButton(withTitle: "Choose Folder")
-        alert.addButton(withTitle: "Skip")
-
-        var jpgURL: URL?
-        if alert.runModal() == .alertFirstButtonReturn {
-            jpgURL = pickFolder(message: "Select edited JPG folder")
+        guard let discovery = IngestOrchestrator.discover(at: sourceFolder, kind: .manualPicker) else {
+            statusMessage = "No importable photos in that selection."
+            return
         }
 
-        jobBrief = promptJobBrief(photoCount: photos.count)
+        let explicitFiles = panel.urls.contains(where: { !$0.hasDirectoryPath })
+            ? discovery.photoURLs
+            : nil
+        lastIngestManifest = discovery.manifest
+        jobBrief = IngestOrchestrator.defaultJobBrief(photoCount: discovery.photoURLs.count)
 
-        let explicitFiles = panel.urls.contains(where: { !$0.hasDirectoryPath }) ? photos : nil
-        Task { await importPhotos(sourceFolder: sourceFolder, photoURLs: explicitFiles, jpgURL: jpgURL) }
+        Task {
+            await importPhotos(
+                sourceFolder: sourceFolder,
+                photoURLs: explicitFiles,
+                jpgURL: discovery.tasteFolder
+            )
+        }
     }
 
-    private func promptJobBrief(photoCount: Int) -> JobBrief {
-        let alert = NSAlert()
-        alert.messageText = "Job brief"
-        alert.informativeText = "How many keeps do you want from ~\(photoCount) photos?"
-        alert.addButton(withTitle: "Continue")
-        alert.addButton(withTitle: "Use defaults")
-
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        let defaultKeeps = max(1, Int((Double(photoCount) * 0.10).rounded()))
-        field.stringValue = "\(defaultKeeps)"
-        field.placeholderString = "Target keeps"
-        alert.accessoryView = field
-
-        let autoDeliver = NSButton(checkboxWithTitle: "Auto-export when session completes", target: nil, action: nil)
-        autoDeliver.frame = NSRect(x: 0, y: 0, width: 280, height: 20)
-        autoDeliver.state = .off
-
-        if alert.runModal() == .alertFirstButtonReturn {
-            let target = Int(field.stringValue) ?? defaultKeeps
-            var brief = JobBrief(
-                targetKeepCount: target,
-                keepRate: Double(target) / Double(max(photoCount, 1)),
-                autoDeliver: autoDeliver.state == .on
-            )
-            return brief
-        }
-        return JobBrief(targetKeepCount: defaultKeeps, keepRate: 0.10)
+    private func finalizeIngestManifest(importedCount: Int) {
+        guard var manifest = lastIngestManifest, let project else { return }
+        manifest.filesImported = importedCount
+        lastIngestManifest = manifest
+        IngestOrchestrator.saveManifest(manifest, projectName: project.name)
+        let tasteNote = project.jpgFolder != nil ? " · taste on" : ""
+        statusMessage = "\(manifest.summaryLine)\(tasteNote) · \(URL(fileURLWithPath: manifest.sourceRoot).lastPathComponent)"
     }
 
     // MARK: - Stack feed navigation
