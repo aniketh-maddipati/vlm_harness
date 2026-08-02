@@ -114,24 +114,6 @@ struct PhotoGridView: NSViewRepresentable {
     }
 }
 
-final class ThumbCache {
-    static let shared = ThumbCache()
-    private let queue = DispatchQueue(label: "lumina.thumb-prefetch", qos: .utility, attributes: .concurrent)
-    private var warm = Set<String>()
-    private let lock = NSLock()
-
-    private init() {}
-
-    func prefetch(_ path: String, maxPixelSize: Int? = 512) {
-        lock.lock()
-        let key = maxPixelSize.map { "\(path)@\($0)" } ?? path
-        let fresh = warm.insert(key).inserted
-        lock.unlock()
-        guard fresh else { return }
-        Task { await PhotoImageCache.shared.prefetch([path], maxPixelSize: maxPixelSize) }
-    }
-}
-
 final class PhotoItemView: NSCollectionViewItem {
     static let identifier = NSUserInterfaceItemIdentifier("PhotoItemView")
 
@@ -209,13 +191,16 @@ final class PhotoItemView: NSCollectionViewItem {
             loadToken = token
             let pixelSize = Int(max(view.bounds.width, 180) * (NSScreen.main?.backingScaleFactor ?? 2))
             Task {
-                let image = await PhotoImageCache.shared.load(
+                let outcome = await PhotoImageCache.shared.load(
                     path: path,
-                    maxPixelSize: max(pixelSize, 256)
+                    maxPixelSize: max(pixelSize, 256),
+                    allowRAW: false
                 )
                 await MainActor.run {
                     guard token == self.loadToken else { return }
-                    self.imageView_.image = image
+                    if case .image(let img) = outcome {
+                        self.imageView_.image = img
+                    }
                 }
             }
         } else {

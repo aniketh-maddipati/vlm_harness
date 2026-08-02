@@ -3,17 +3,20 @@ import Metal
 import QuartzCore
 import SwiftUI
 
-/// CAMetalLayer-backed browse canvas — image pixels bypass SwiftUI view-diffing.
+/// CAMetalLayer-backed browse canvas — no decode/upload on main; photon measured at present.
 final class MetalBrowseNSView: NSView {
     private let metalLayer = CAMetalLayer()
     private let device: MTLDevice?
     private let queue: MTLCommandQueue?
     private var pipeline: MTLRenderPipelineState?
     private var sampler: MTLSamplerState?
-    private var displayLink: CVDisplayLink?
+    private var displayTimer: Timer?
     private var currentTexture: MTLTexture?
+    private var boundPhotoID: UUID?
+    private var pendingPhotonTime: CFAbsoluteTime?
     private var needsRedraw = true
     private let metalAvailable: Bool
+    var onPhotonPresent: ((CFAbsoluteTime) -> Void)?
 
     override init(frame frameRect: NSRect) {
         let device = MetalPreviewPool.shared.device ?? MTLCreateSystemDefaultDevice()
@@ -33,13 +36,22 @@ final class MetalBrowseNSView: NSView {
         metalLayer.framebufferOnly = true
         metalLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
         buildPipeline()
-        startDisplayLink()
+        startDisplayTimer()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(textureReady(_:)),
+            name: .luminaTextureReady,
+            object: nil
+        )
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    deinit { stopDisplayLink() }
+    deinit {
+        displayTimer?.invalidate()
+        NotificationCenter.default.removeObserver(self)
+    }
 
     override func layout() {
         super.layout()
@@ -52,8 +64,31 @@ final class MetalBrowseNSView: NSView {
         needsRedraw = true
     }
 
-    func setTexture(_ texture: MTLTexture?) {
-        currentTexture = texture
+    func bind(photoID: UUID?, jpegPath: String?, photonInputTime: CFAbsoluteTime?) {
+        boundPhotoID = photoID
+        pendingPhotonTime = photonInputTime
+        guard let photoID else {
+            currentTexture = nil
+            needsRedraw = true
+            return
+        }
+        if let tex = MetalPreviewPool.shared.texture(for: photoID) {
+            currentTexture = tex
+            needsRedraw = true
+            return
+        }
+        currentTexture = nil
+        needsRedraw = true
+        if let jpegPath {
+            MetalPreviewPool.shared.scheduleUpload(id: photoID, jpegPath: jpegPath, distanceBias: 0)
+        }
+    }
+
+    @objc private func textureReady(_ note: Notification) {
+        guard let id = note.userInfo?["photoID"] as? UUID,
+              id == boundPhotoID,
+              let tex = MetalPreviewPool.shared.texture(for: id) else { return }
+        currentTexture = tex
         needsRedraw = true
     }
 
@@ -90,25 +125,13 @@ final class MetalBrowseNSView: NSView {
         }
     }
 
-    private func startDisplayLink() {
-        var link: CVDisplayLink?
-        CVDisplayLinkCreateWithActiveCGDisplays(&link)
-        guard let link else { return }
-        displayLink = link
-        let callback: CVDisplayLinkOutputCallback = { _, _, _, _, _, context -> CVReturn in
-            let view = Unmanaged<MetalBrowseNSView>.fromOpaque(context!).takeUnretainedValue()
-            DispatchQueue.main.async { view.drawFrame() }
-            return kCVReturnSuccess
+    /// Main-runloop timer — CAMetalLayer ownership requires main; no CVDisplayLink→async hop.
+    private func startDisplayTimer() {
+        let timer = Timer(timeInterval: 1.0 / 120.0, repeats: true) { [weak self] _ in
+            self?.drawFrame()
         }
-        CVDisplayLinkSetOutputCallback(link, callback, Unmanaged.passUnretained(self).toOpaque())
-        CVDisplayLinkStart(link)
-    }
-
-    private func stopDisplayLink() {
-        if let displayLink {
-            CVDisplayLinkStop(displayLink)
-        }
-        displayLink = nil
+        RunLoop.main.add(timer, forMode: .common)
+        displayTimer = timer
     }
 
     private func drawFrame() {
@@ -116,7 +139,6 @@ final class MetalBrowseNSView: NSView {
         guard needsRedraw || currentTexture != nil else { return }
         guard let pipeline, let sampler, let queue,
               let drawable = metalLayer.nextDrawable() else { return }
-        needsRedraw = false
 
         let pass = MTLRenderPassDescriptor()
         pass.colorAttachments[0].texture = drawable.texture
@@ -135,28 +157,30 @@ final class MetalBrowseNSView: NSView {
         enc.endEncoding()
         cmd.present(drawable)
         cmd.commit()
+        needsRedraw = false
+
+        if currentTexture != nil, let t = pendingPhotonTime {
+            onPhotonPresent?(t)
+            pendingPhotonTime = nil
+        }
     }
 }
 
 struct MetalBrowseCanvas: NSViewRepresentable {
     var photoID: UUID?
     var jpegPath: String?
+    var photonInputTime: CFAbsoluteTime?
+    var onPhotonPresent: ((CFAbsoluteTime) -> Void)?
 
     func makeNSView(context: Context) -> MetalBrowseNSView {
-        MetalBrowseNSView(frame: .zero)
+        let view = MetalBrowseNSView(frame: .zero)
+        view.onPhotonPresent = onPhotonPresent
+        return view
     }
 
     func updateNSView(_ nsView: MetalBrowseNSView, context: Context) {
-        guard let photoID, let jpegPath else {
-            nsView.setTexture(nil)
-            return
-        }
-        if let tex = MetalPreviewPool.shared.texture(for: photoID) {
-            nsView.setTexture(tex)
-            return
-        }
-        // Sync upload for current frame if missing — still JPEG path, not RAW demosaic.
-        _ = MetalPreviewPool.shared.upload(id: photoID, jpegPath: jpegPath, distanceBias: 0)
-        nsView.setTexture(MetalPreviewPool.shared.texture(for: photoID))
+        nsView.onPhotonPresent = onPhotonPresent
+        // Never decode or upload here — bind texture if warm, else schedule background upload.
+        nsView.bind(photoID: photoID, jpegPath: jpegPath, photonInputTime: photonInputTime)
     }
 }

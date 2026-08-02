@@ -65,6 +65,7 @@ nonisolated enum LatencyMetrics {
         if key.hasPrefix("spine.input_to_photon") || key.hasPrefix("navigation") {
             return navigationSLAms
         }
+        if key.hasPrefix("spine.paint_commit") { return navigationSLAms }
         if key.hasPrefix("spine.fidelity") { return fidelitySLAms }
         if key.hasPrefix("develop") { return developScrubSLAms }
         return key.hasPrefix("cache") ? cacheHitSLAms : navigationSLAms

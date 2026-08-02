@@ -1,14 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// Full-screen import — photos float center stage; progress stays quiet at the edges.
+/// Full-screen import — screen-fit wall; previews arrive slowly as ingest continues.
 struct ImportLoadingView: View {
     let progress: ImportProgress
     let photos: [PhotoRecord]
     var isFinishing: Bool
 
     @State private var pulse = false
-    @State private var focusedPath: String?
 
     var body: some View {
         ZStack {
@@ -30,42 +29,29 @@ struct ImportLoadingView: View {
 
                 Spacer(minLength: 16)
 
-                if slides.isEmpty {
+                if previewPaths.isEmpty {
                     ProgressView()
                         .controlSize(.large)
                         .scaleEffect(pulse ? 1.06 : 0.94)
                         .animation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true), value: pulse)
                         .frame(maxHeight: 360)
                 } else {
-                    FloatingPhotoCarousel(
-                        items: slides,
-                        selection: $focusedPath,
-                        itemID: \.id,
-                        spacing: 32,
-                        peek: 5
-                    ) { slide, centered in
-                        FloatingPathCard(path: slide.path, centered: centered)
-                            .aspectRatio(4 / 3, contentMode: .fit)
-                            .frame(maxHeight: 380)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 400)
+                    ProgressivePhotoWall(
+                        paths: previewPaths,
+                        revealIntervalMs: 420,
+                        prefetchAhead: 6
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
 
-                Spacer(minLength: 20)
+                Spacer(minLength: 12)
 
                 footer
                     .padding(.horizontal, 48)
                     .padding(.bottom, 32)
             }
         }
-        .onAppear {
-            pulse = true
-            focusedPath = slides.last?.id
-        }
-        .onChange(of: slides.count) { _, _ in
-            focusedPath = slides.last?.id
-        }
+        .onAppear { pulse = true }
     }
 
     private var header: some View {
@@ -109,17 +95,16 @@ struct ImportLoadingView: View {
                 }
             }
 
-            Text(isFinishing ? "Opening your sets…" : "Scroll sideways · previews arrive as we go")
+            Text(isFinishing ? "Opening your sets…" : "Previews fill in as we ingest · no rush")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: 520)
     }
 
-    private var slides: [FloatingPathSlide] {
+    private var previewPaths: [String] {
         let fromPhotos = photos.compactMap(\.displayThumbPath)
-        let paths = fromPhotos.isEmpty ? progress.recentThumbPaths : fromPhotos
-        return paths.map { FloatingPathSlide(path: $0) }
+        return fromPhotos.isEmpty ? progress.recentThumbPaths : fromPhotos
     }
 
     private var phaseSteps: String {

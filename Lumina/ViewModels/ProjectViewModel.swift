@@ -145,6 +145,7 @@ final class ProjectViewModel {
     // MARK: - Import
 
     func importPhotos(sourceFolder: URL, photoURLs: [URL]?, jpgURL: URL?) async {
+        SessionCache.endEditingSession(clearBrowseSpine: true)
         isBusy = true
         isImporting = true
         importFinishing = false
@@ -201,6 +202,7 @@ final class ProjectViewModel {
                 project = finished
                 importPreviewPhotos = finished.photos
                 ProjectStore.saveLastProjectName(finished.name)
+                SessionCache.beginEditingSession(projectName: finished.name)
                 withAnimation(.easeInOut(duration: 0.35)) {
                     sortMode = .similar
                     sessionPhase = .meet
@@ -440,6 +442,7 @@ final class ProjectViewModel {
         activeClusterIndex = 0
         showGridOverview = false
         selectedPhotoID = saved.photos.first?.id
+        SessionCache.beginEditingSession(projectName: saved.name)
         statusMessage = "Resumed \(saved.name) · \(keepCount) keeps"
     }
 
@@ -613,12 +616,15 @@ final class ProjectViewModel {
             }
         }
         Task {
-            await PhotoImageCache.shared.prefetch(Array(Set(paths)))
+            await PhotoImageCache.shared.prefetch(Array(Set(paths)), maxPixelSize: 1600, allowRAW: false)
         }
     }
 
     func prefetchPhotoDisplay(_ photo: PhotoRecord) {
-        var paths = [photo.previewPath, photo.sharpPath, photo.proxyPath].compactMap { $0 }
+        if let grid = photo.gridThumbPath {
+            ThumbCache.shared.prefetch(grid, maxPixelSize: 512, allowRAW: false)
+        }
+        var paths = [photo.previewPath, photo.sharpPath].compactMap { $0 }
 
         if showGridOverview {
             let list = displayedPhotos
@@ -647,7 +653,10 @@ final class ProjectViewModel {
             }
         }
         Task {
-            await PhotoImageCache.shared.prefetch(Array(Set(paths)))
+            await PhotoImageCache.shared.prefetch(Array(Set(paths)), maxPixelSize: 1600, allowRAW: false)
+            if let proxy = photo.proxyPath {
+                await PhotoImageCache.shared.prefetch([proxy], maxPixelSize: nil, allowRAW: true)
+            }
         }
     }
 
@@ -818,10 +827,12 @@ final class ProjectViewModel {
     }
 
     func advanceFromMeet() {
-        guard currentCluster != nil else { return }
+        guard let cluster = currentCluster else { return }
+        let members = cluster.photoIDs.compactMap { id in project?.photos.first { $0.id == id } }
+        ThumbCache.shared.prefetchPhotos(members, maxPixelSize: 512)
         withAnimation(.easeInOut(duration: 0.32)) {
             sessionPhase = .pick
-            if let c = currentCluster { seedPickFromHero(cluster: c) }
+            seedPickFromHero(cluster: cluster)
         }
     }
 
@@ -910,6 +921,7 @@ final class ProjectViewModel {
     func completeSession() {
         guard project != nil else { return }
         syncActiveCatalogStats()
+        SessionCache.endEditingSession(clearBrowseSpine: true)
         let feedbackCount = (try? FeedbackStore.load(project: project!.name).count) ?? 0
         sessionSummary = PhotoAgentOrchestrator.buildSessionSummary(
             photos: project!.photos,

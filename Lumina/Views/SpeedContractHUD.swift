@@ -9,20 +9,20 @@ struct SpeedContractHUD: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text("SPEED CONTRACT · NARRATIVE+")
+                Text("SPEED CONTRACT · DEFEATER KILLED")
                     .font(.caption2.weight(.bold).monospaced())
                     .foregroundStyle(.green)
                 Spacer()
                 Text(slaBadge)
                     .font(.caption2.weight(.bold).monospaced())
-                    .foregroundStyle(p95Ok ? .green : .red)
+                    .foregroundStyle(photonP95Ok ? .green : .red)
             }
             ForEach(spine.hudLines(), id: \.self) { line in
                 Text(line)
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.9))
             }
-            Text("samples: \(LatencyMetrics.sampleCount(for: "spine.input_to_photon")) · ⌥` hide")
+            Text("photon samples: \(LatencyMetrics.sampleCount(for: "spine.input_to_photon")) · ⌥` hide")
                 .font(.system(size: 9, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.45))
         }
@@ -32,8 +32,7 @@ struct SpeedContractHUD: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(Color.green.opacity(0.35), lineWidth: 1)
         }
-        .frame(maxWidth: 420, alignment: .leading)
-        // Refresh while visible.
+        .frame(maxWidth: 440, alignment: .leading)
         .onReceive(Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()) { _ in
             model.speedHUDPulse &+= 1
         }
@@ -41,15 +40,15 @@ struct SpeedContractHUD: View {
         .allowsHitTesting(false)
     }
 
-    private var p95Ok: Bool {
+    private var photonP95Ok: Bool {
         guard let p95 = LatencyMetrics.p95(for: "spine.input_to_photon") else { return true }
         return p95 <= LatencyMetrics.navigationSLAms
     }
 
     private var slaBadge: String {
         if let p95 = LatencyMetrics.p95(for: "spine.input_to_photon") {
-            return p95 <= 50 ? "p95 PASS" : "p95 FAIL"
+            return p95 <= 50 ? "photon p95 PASS" : "photon p95 FAIL"
         }
-        return "p95 —"
+        return "photon p95 —"
     }
 }

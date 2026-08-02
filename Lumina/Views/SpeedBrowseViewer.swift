@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// Magazine-speed cull canvas. Paints only from PreviewSpine — no CI/taste on advance.
+/// Magazine-speed cull canvas. Canvas updates every advance; chrome/filmstrip are decoupled.
 struct SpeedBrowseViewer: View {
     @Bindable var model: ProjectViewModel
     let photos: [PhotoRecord]
@@ -9,11 +9,11 @@ struct SpeedBrowseViewer: View {
 
     @State private var spine = PreviewSpine.shared
     @State private var showControls = true
-    @State private var restTask: Task<Void, Never>?
+    @State private var filmstripFocusID: UUID?
+    @State private var filmstripTask: Task<Void, Never>?
+    @State private var controlsTask: Task<Void, Never>?
 
     private let filmstripHeight: CGFloat = 168
-    private let filmCellWidth: CGFloat = 118
-    private let filmCellHeight: CGFloat = 148
 
     var body: some View {
         GeometryReader { geo in
@@ -21,55 +21,36 @@ struct SpeedBrowseViewer: View {
             ZStack {
                 Color.black.ignoresSafeArea()
 
-                // Metal canvas for preview fidelity; silhouette NSImage underneath while warming.
-                Group {
-                    if spine.paintedTier == .silhouette, let image = spine.paintedImage {
-                        Image(nsImage: image)
-                            .resizable()
-                            .interpolation(.medium)
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxWidth: geo.size.width, maxHeight: pageHeight)
-                            .frame(width: geo.size.width, height: pageHeight, alignment: .center)
-                            .saturation(0.2)
-                            .contrast(1.25)
-                    } else if let id = spine.paintedPhotoID, let path = spine.paintedJPEGPath {
-                        MetalBrowseCanvas(photoID: id, jpegPath: path)
-                            .frame(width: geo.size.width, height: pageHeight)
-                    } else if let image = spine.paintedImage {
-                        Image(nsImage: image)
-                            .resizable()
-                            .interpolation(.high)
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxWidth: geo.size.width, maxHeight: pageHeight)
-                            .frame(width: geo.size.width, height: pageHeight, alignment: .center)
-                    } else {
-                        Color.black
-                            .overlay {
-                                Text(selectedFilename)
-                                    .font(.caption)
-                                    .foregroundStyle(.white.opacity(0.35))
-                            }
-                            .frame(width: geo.size.width, height: pageHeight)
+                BrowseCanvasStage(
+                    spine: spine,
+                    pageWidth: geo.size.width,
+                    pageHeight: pageHeight,
+                    filename: canvasFilename,
+                    onPhotonPresent: { inputTime in
+                        spine.recordPhotonPresent(inputTime: inputTime)
                     }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                )
 
-                VStack(spacing: 0) {
-                    topChrome
-                    Spacer(minLength: 0)
-                    if showControls {
-                        LuminaDecisionBar(
-                            onReject: { model.markReject() },
-                            onHero: { model.markHero() },
-                            onKeep: { model.markKeep() }
-                        )
-                        .padding(.bottom, 10)
-                        .transition(.opacity)
+                BrowseChromeOverlay(
+                    filename: chromeFilename,
+                    tierLabel: tierLabel,
+                    showControls: showControls,
+                    onReject: { model.markReject() },
+                    onHero: { model.markHero() },
+                    onKeep: { model.markKeep() }
+                )
+
+                BrowseFilmstripOverlay(
+                    photos: photos,
+                    focusID: filmstripFocusID,
+                    filmstripHeight: filmstripHeight,
+                    onSelect: { photo in
+                        let t = CFAbsoluteTimeGetCurrent()
+                        model.selectBrowsePhoto(photo.id, in: photos, inputTime: t)
+                        selection = photo.id
+                        filmstripFocusID = photo.id
                     }
-                    filmstrip
-                        .frame(height: filmstripHeight)
-                        .background(.ultraThinMaterial.opacity(0.5))
-                }
+                )
             }
             .contentShape(Rectangle())
             .gesture(
@@ -89,6 +70,7 @@ struct SpeedBrowseViewer: View {
         .onAppear {
             spine.warm(photos: photos, focus: selection ?? photos.first?.id)
             if selection == nil { selection = photos.first?.id }
+            filmstripFocusID = selection ?? photos.first?.id
             showControls = true
         }
         .onChange(of: photos.map(\.id)) { _, _ in
@@ -97,96 +79,213 @@ struct SpeedBrowseViewer: View {
         .onChange(of: selection) { _, new in
             guard let new, new != spine.paintedPhotoID else { return }
             spine.paint(id: new, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
-            scheduleControlsReveal()
+            scheduleFilmstripUpdate(to: new, immediate: true)
+            scheduleControlsReveal(immediate: true)
         }
         .onChange(of: model.selectedPhotoID) { _, new in
-            if let new { selection = new }
-            scheduleControlsReveal()
+            if let new {
+                selection = new
+                scheduleFilmstripUpdate(to: new, immediate: spine.ripVelocity < 4)
+            }
+            if spine.ripVelocity < 4 {
+                scheduleControlsReveal(immediate: false)
+            }
+        }
+        .onChange(of: spine.paintedPhotoID) { _, new in
+            guard let new else { return }
+            scheduleFilmstripUpdate(to: new, immediate: spine.ripVelocity < 4)
         }
     }
 
-    private var selectedFilename: String {
-        guard let id = selection ?? spine.paintedPhotoID,
+    private var canvasFilename: String {
+        guard let id = spine.paintedPhotoID,
               let photo = photos.first(where: { $0.id == id }) else { return "" }
         return photo.filename
     }
 
-    private var topChrome: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(selectedFilename)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.9))
-                Text(tierLabel)
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.white.opacity(0.45))
-            }
-            Spacer()
-            Text("F/D flip · P/X · M · ⌥` HUD")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.5))
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
+    private var chromeFilename: String {
+        guard let id = filmstripFocusID ?? spine.paintedPhotoID,
+              let photo = photos.first(where: { $0.id == id }) else { return "" }
+        return photo.filename
     }
 
     private var tierLabel: String {
         switch spine.paintedTier {
-        case .preview: "preview · \(String(format: "%.0f", spine.lastInputToPhotonMs))ms"
-        case .silhouette: "silhouette · resolving…"
+        case .preview: "preview · commit \(String(format: "%.0f", spine.lastPaintCommitMs))ms"
+        case .silhouette: "silhouette · GPU warming…"
         case .empty: "warming…"
         }
     }
 
-    private var filmstrip: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(photos) { photo in
-                        Button {
-                            let t = CFAbsoluteTimeGetCurrent()
-                            model.selectBrowsePhoto(photo.id, in: photos, inputTime: t)
-                            selection = photo.id
-                        } label: {
-                            PhotoImageView(photo: photo, tier: .grid, contentMode: .fill)
-                                .frame(width: filmCellWidth, height: filmCellHeight)
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .strokeBorder(
-                                            (selection ?? spine.paintedPhotoID) == photo.id
-                                                ? Color.accentColor
-                                                : Color.white.opacity(0.18),
-                                            lineWidth: (selection ?? spine.paintedPhotoID) == photo.id ? 3 : 1
-                                        )
-                                }
-                                .scaleEffect((selection ?? spine.paintedPhotoID) == photo.id ? 1.04 : 1)
-                        }
-                        .buttonStyle(.plain)
-                        .id(photo.id)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-            }
-            .onChange(of: spine.paintedPhotoID) { _, id in
-                guard let id else { return }
-                proxy.scrollTo(id, anchor: .center)
-            }
+    /// Debounce filmstrip during rips; snap on settle.
+    private func scheduleFilmstripUpdate(to id: UUID, immediate: Bool) {
+        filmstripTask?.cancel()
+        if immediate {
+            filmstripFocusID = id
+            return
+        }
+        filmstripTask = Task {
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { filmstripFocusID = id }
         }
     }
 
-    private func scheduleControlsReveal() {
+    /// Skip chrome animation churn during fast rips.
+    private func scheduleControlsReveal(immediate: Bool) {
+        guard spine.ripVelocity < 8 else { return }
+        controlsTask?.cancel()
+        if immediate {
+            showControls = true
+            return
+        }
         showControls = false
-        restTask?.cancel()
-        restTask = Task {
-            try? await Task.sleep(nanoseconds: 140_000_000)
+        controlsTask = Task {
+            try? await Task.sleep(nanoseconds: 180_000_000)
             guard !Task.isCancelled else { return }
-            await MainActor.run {
-                withAnimation(.easeOut(duration: 0.12)) {
-                    showControls = true
+            await MainActor.run { showControls = true }
+        }
+    }
+}
+
+// MARK: - Isolated canvas (only these spine fields invalidate Metal stage)
+
+private struct BrowseCanvasStage: View {
+    let spine: PreviewSpine
+    let pageWidth: CGFloat
+    let pageHeight: CGFloat
+    let filename: String
+    var onPhotonPresent: (CFAbsoluteTime) -> Void
+
+    var body: some View {
+        ZStack {
+            if spine.paintedTier == .silhouette, let image = spine.paintedSilhouette {
+                SilhouetteFallback(image: image, width: pageWidth, height: pageHeight)
+            } else if let id = spine.paintedPhotoID, let path = spine.paintedJPEGPath {
+                MetalBrowseCanvas(
+                    photoID: id,
+                    jpegPath: path,
+                    photonInputTime: spine.pendingPhotonTime(for: id),
+                    onPhotonPresent: onPhotonPresent
+                )
+                .frame(width: pageWidth, height: pageHeight)
+            } else {
+                Color.black
+                    .overlay {
+                        Text(filename)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.35))
+                    }
+                    .frame(width: pageWidth, height: pageHeight)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+private struct SilhouetteFallback: View {
+    let image: NSImage
+    let width: CGFloat
+    let height: CGFloat
+
+    var body: some View {
+        Image(nsImage: image)
+            .resizable()
+            .interpolation(.medium)
+            .aspectRatio(contentMode: .fit)
+            .frame(maxWidth: width, maxHeight: height)
+            .frame(width: width, height: height, alignment: .center)
+            .saturation(0.2)
+            .contrast(1.25)
+    }
+}
+
+// MARK: - Chrome (filename bar + decision bar — not tied to every paint)
+
+private struct BrowseChromeOverlay: View {
+    let filename: String
+    let tierLabel: String
+    let showControls: Bool
+    var onReject: () -> Void
+    var onHero: () -> Void
+    var onKeep: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(filename)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.9))
+                    Text(tierLabel)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.white.opacity(0.45))
+                }
+                Spacer()
+                Text("F/D flip · P/X · M · ⌥` HUD")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            Spacer(minLength: 0)
+            if showControls {
+                LuminaDecisionBar(onReject: onReject, onHero: onHero, onKeep: onKeep)
+                    .padding(.bottom, 10)
+            }
+        }
+    }
+}
+
+// MARK: - Filmstrip (debounced focus, no scroll on every intermediate frame)
+
+private struct BrowseFilmstripOverlay: View {
+    let photos: [PhotoRecord]
+    let focusID: UUID?
+    let filmstripHeight: CGFloat
+    var onSelect: (PhotoRecord) -> Void
+
+    private let filmCellWidth: CGFloat = 118
+    private let filmCellHeight: CGFloat = 148
+
+    var body: some View {
+        VStack {
+            Spacer(minLength: 0)
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(photos) { photo in
+                            Button {
+                                onSelect(photo)
+                            } label: {
+                                PhotoImageView(photo: photo, tier: .grid, contentMode: .fill)
+                                    .frame(width: filmCellWidth, height: filmCellHeight)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .strokeBorder(
+                                                focusID == photo.id ? Color.accentColor : Color.white.opacity(0.18),
+                                                lineWidth: focusID == photo.id ? 3 : 1
+                                            )
+                                    }
+                                    .scaleEffect(focusID == photo.id ? 1.04 : 1)
+                            }
+                            .buttonStyle(.plain)
+                            .id(photo.id)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                }
+                .onChange(of: focusID) { _, id in
+                    guard let id else { return }
+                    withAnimation(.easeOut(duration: 0.12)) {
+                        proxy.scrollTo(id, anchor: .center)
+                    }
                 }
             }
+            .frame(height: filmstripHeight)
+            .background(.ultraThinMaterial.opacity(0.5))
         }
     }
 }

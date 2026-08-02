@@ -119,7 +119,6 @@ private struct GroupIntroPhase: View {
     let onContinue: () -> Void
 
     @State private var appear = false
-    @State private var focusedID: UUID?
 
     var body: some View {
         VStack(spacing: 20) {
@@ -138,31 +137,16 @@ private struct GroupIntroPhase: View {
             }
             .padding(.top, 8)
 
-            FloatingPhotoCarousel(
-                items: members,
-                selection: $focusedID,
-                itemID: \.id,
-                spacing: 30,
-                peek: 5,
-                onSelectionChange: { photo in
-                    Task {
-                        await PhotoImageCache.shared.prefetch([
-                            photo.previewPath,
-                            photo.sharpPath,
-                        ].compactMap { $0 })
-                    }
-                }
-            ) { photo, centered in
-                FloatingPhotoCard(photo: photo, centered: centered)
-                    .aspectRatio(4 / 3, contentMode: .fit)
-                    .frame(maxHeight: 340)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 360)
+            ProgressivePhotoWall(
+                paths: members.compactMap { $0.gridThumbPath ?? $0.thumbPath },
+                revealIntervalMs: 360,
+                prefetchAhead: 4
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .opacity(appear ? 1 : 0)
-            .offset(y: appear ? 0 : 24)
+            .offset(y: appear ? 0 : 16)
 
-            Text("\(members.count) photos · scroll sideways, then pick")
+            Text("\(members.count) photos · filling in as previews land")
                 .font(.body)
                 .foregroundStyle(.tertiary)
 
@@ -176,7 +160,7 @@ private struct GroupIntroPhase: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
-            focusedID = members.first?.id
+            ThumbCache.shared.prefetchPhotos(members, maxPixelSize: 512)
             withAnimation(.spring(duration: 0.65, bounce: 0.14)) { appear = true }
         }
     }
@@ -209,22 +193,13 @@ private struct GroupPickPhase: View {
             .padding(.top, 4)
             .padding(.bottom, 10)
 
-            ScrollView {
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 200, maximum: 280), spacing: 12)],
-                    spacing: 12
-                ) {
-                    ForEach(members) { photo in
-                        PickCard(
-                            photo: photo,
-                            selected: selected.contains(photo.id),
-                            onToggle: { onToggle(photo.id) }
-                        )
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 12)
-            }
+            ProgressivePickWall(
+                photos: members,
+                selected: selected,
+                onToggle: onToggle,
+                revealIntervalMs: 280,
+                batchSize: 2
+            )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             LuminaFooterBar {
@@ -241,47 +216,6 @@ private struct GroupPickPhase: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
-            // Warm pick grid paths so LazyVGrid cells paint immediately.
-            let paths = members.compactMap { $0.gridThumbPath ?? $0.thumbPath ?? $0.rawPath }
-            Task { await PhotoImageCache.shared.prefetch(paths, maxPixelSize: 512) }
-            PreviewSpine.shared.warm(photos: members, focus: members.first?.id)
-        }
-    }
-}
-
-private struct PickCard: View {
-    let photo: PhotoRecord
-    let selected: Bool
-    let onToggle: () -> Void
-
-    var body: some View {
-        Button(action: onToggle) {
-            VStack(alignment: .leading, spacing: 6) {
-                ZStack(alignment: .topTrailing) {
-                    PhotoImageView(photo: photo, tier: .grid, contentMode: .fill)
-                        .frame(maxWidth: .infinity)
-                        .aspectRatio(4 / 3, contentMode: .fill)
-                        .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                    Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                        .font(.title2)
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, selected ? Color.accentColor : .white.opacity(0.45))
-                        .padding(8)
-                }
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(selected ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: selected ? 3 : 1)
-                )
-
-                Text(photo.filename)
-                    .font(.caption)
-                    .lineLimit(1)
-            }
-        }
-        .buttonStyle(LuminaPressStyle(pressedScale: 0.97))
     }
 }
 

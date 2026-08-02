@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// Progressive photo display — fast tier first, upgrades to proxy when centered.
+/// Progressive photo display — session cache first, no eternal spinners.
 struct PhotoImageView: View {
     var photo: PhotoRecord?
     var path: String?
@@ -10,20 +10,47 @@ struct PhotoImageView: View {
     var contentMode: ContentMode = .fit
 
     @State private var image: NSImage?
+    @State private var loadState: LoadState = .loading
     @State private var activeKey = ""
+
+    private enum LoadState {
+        case loading
+        case ready
+        case missing
+        case failed
+    }
 
     var body: some View {
         Group {
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .interpolation(.high)
-                    .antialiased(true)
-                    .aspectRatio(contentMode: contentMode)
-            } else {
+            switch loadState {
+            case .ready:
+                if let image {
+                    Image(nsImage: image)
+                        .resizable()
+                        .interpolation(.high)
+                        .antialiased(true)
+                        .aspectRatio(contentMode: contentMode)
+                }
+            case .loading:
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(.quaternary)
                     .overlay { ProgressView().controlSize(.small) }
+            case .missing, .failed:
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.quaternary)
+                    .overlay {
+                        VStack(spacing: 4) {
+                            Image(systemName: "photo")
+                                .foregroundStyle(.tertiary)
+                            if let photo {
+                                Text(photo.filename)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .padding(6)
+                    }
             }
         }
         .task(id: resolveKey) {
@@ -31,7 +58,6 @@ struct PhotoImageView: View {
         }
     }
 
-    /// Stable key from the best available on-disk / RAW path.
     private var resolveKey: String {
         let base = path ?? resolvedPath(for: tier) ?? ""
         return "\(base)|\(tier)|\(projectName ?? "")"
@@ -40,13 +66,19 @@ struct PhotoImageView: View {
     private func resolvedPath(for tier: PhotoImageTier) -> String? {
         guard let photo else { return path }
         if let direct = tier.path(for: photo), !direct.isEmpty { return direct }
-        // Fallbacks when a tier file hasn't been written yet (early ingest).
-        return photo.gridThumbPath ?? photo.thumbPath ?? photo.rawPath
+        if tier.allowsRAWFallback {
+            return photo.gridThumbPath ?? photo.thumbPath ?? photo.rawPath
+        }
+        return photo.gridThumbPath ?? photo.thumbPath
     }
 
     private func load(for key: String) async {
-        guard !key.hasPrefix("|") else { return }
+        guard !key.hasPrefix("|") else {
+            loadState = .missing
+            return
+        }
         let displaySize = tier.displayMaxPixelSize
+        let allowRAW = tier.allowsRAWFallback
         let candidates: [String] = {
             if let path, !path.isEmpty { return [path] }
             guard let photo else { return [] }
@@ -54,29 +86,46 @@ struct PhotoImageView: View {
             if let p = tier.path(for: photo) { list.append(p) }
             if let p = photo.gridThumbPath { list.append(p) }
             if let p = photo.thumbPath { list.append(p) }
-            list.append(photo.rawPath)
-            // Unique preserve order
+            if allowRAW { list.append(photo.rawPath) }
             var seen = Set<String>()
             return list.filter { seen.insert($0).inserted }
         }()
 
-        // Keep prior frame while swapping keys to avoid blank flash.
         if activeKey != key {
             activeKey = key
+            loadState = .loading
         }
 
         for candidate in candidates {
-            if let img = await PhotoImageCache.shared.load(path: candidate, maxPixelSize: displaySize) {
+            let outcome = await PhotoImageCache.shared.load(
+                path: candidate,
+                maxPixelSize: displaySize,
+                allowRAW: allowRAW
+            )
+            switch outcome {
+            case .image(let img):
                 image = img
+                loadState = .ready
                 break
+            case .missing:
+                continue
+            case .failed:
+                continue
             }
+            if loadState == .ready { break }
         }
 
-        guard tier == .proxy, let photo, let projectName else { return }
-        if let proxy = await PhotoImageLoader.ensureProxyPath(photo: photo, projectName: projectName),
-           let sharp = await PhotoImageCache.shared.load(path: proxy, maxPixelSize: nil) {
-            withAnimation(.easeOut(duration: 0.22)) {
-                image = sharp
+        if loadState != .ready {
+            loadState = candidates.isEmpty ? .missing : .failed
+        }
+
+        guard tier == .proxy, loadState == .ready, let photo, let projectName else { return }
+        if let proxy = await PhotoImageLoader.ensureProxyPath(photo: photo, projectName: projectName) {
+            let outcome = await PhotoImageCache.shared.load(path: proxy, maxPixelSize: nil, allowRAW: true)
+            if case .image(let img) = outcome {
+                withAnimation(.easeOut(duration: 0.22)) {
+                    image = img
+                }
             }
         }
     }
@@ -88,6 +137,7 @@ struct PhotoPathImageView: View {
     var contentMode: ContentMode = .fill
 
     @State private var image: NSImage?
+    @State private var failed = false
 
     var body: some View {
         Group {
@@ -97,13 +147,20 @@ struct PhotoPathImageView: View {
                     .interpolation(.high)
                     .antialiased(true)
                     .aspectRatio(contentMode: contentMode)
+            } else if failed {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.quaternary)
             } else {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(.quaternary)
             }
         }
         .task(id: path) {
-            image = await PhotoImageCache.shared.load(path: path, maxPixelSize: 512)
+            let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: 512, allowRAW: false)
+            switch outcome {
+            case .image(let img): image = img
+            case .missing, .failed: failed = true
+            }
         }
     }
 }

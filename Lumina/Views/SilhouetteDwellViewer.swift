@@ -291,11 +291,13 @@ struct SilhouetteDwellViewer: View {
 
     private func loadSilhouette(for photo: PhotoRecord) {
         Task {
-            // Prefer cached grid; else decode embedded preview straight from RAW (Narrative path).
-            let path = photo.gridThumbPath ?? photo.previewPath ?? photo.thumbPath ?? photo.rawPath
-            let image = await PhotoImageCache.shared.load(path: path, maxPixelSize: 2200)
+            let path = photo.gridThumbPath ?? photo.thumbPath ?? photo.previewPath
+            guard let path else { return }
+            let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: 2200, allowRAW: false)
             await MainActor.run {
-                silhouetteImage = image
+                if case .image(let img) = outcome {
+                    silhouetteImage = img
+                }
             }
         }
     }

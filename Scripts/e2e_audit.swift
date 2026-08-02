@@ -410,19 +410,16 @@ let metalPoolPath = repoRoot.appendingPathComponent("Lumina/Services/MetalPrevie
 let metalCanvasPath = repoRoot.appendingPathComponent("Lumina/Views/MetalBrowseCanvas.swift").path
 let projectStorePath = repoRoot.appendingPathComponent("Lumina/Services/ProjectStore.swift").path
 let photoRecordPath = repoRoot.appendingPathComponent("Lumina/Models/PhotoRecord.swift").path
-if FileManager.default.fileExists(atPath: metalPoolPath)
-    && FileManager.default.fileExists(atPath: metalCanvasPath)
-    && sourceContains(metalPoolPath, "IOSurface")
-    && sourceContains(metalPoolPath, "CVMetalTextureCache")
-    && sourceContains(metalPoolPath, "mappedIfSafe")
-    && sourceContains(metalCanvasPath, "CAMetalLayer")
-    && sourceContains(projectStorePath, "extractBrowsePreview")
-    && sourceContains(photoRecordPath, "PreviewOrigin")
-    && sourceContains(spinePath, "ripVelocity")
-    && sourceContains(speedBrowsePath, "MetalBrowseCanvas") {
-    note("pass", "perf", "Narrative+ browse path", "embedded/synth ingest · mmap · IOSurface Metal pool · CAMetalLayer · rip prefetch")
+if sourceContains(spinePath, "paint_commit")
+    && sourceContains(spinePath, "gpuPrefetchHitRate")
+    && sourceContains(metalPoolPath, "decodeMs")
+    && sourceContains(metalPoolPath, "blitMs")
+    && sourceContains(metalPoolPath, "wrapMs")
+    && sourceContains(metalPoolPath, "assertBrowseJPEGPath")
+    && !sourceContains(metalPoolPath, "ctx.draw") {
+    note("pass", "perf", "Defeater-killed browse path", "honest HUD · vImage blit · one GPU decode · no main upload · no RAW fallback")
 } else {
-    note("bug", "perf", "Narrative+ browse path incomplete", "Missing embedded preview extract, Metal pool, or canvas wiring")
+    note("friction", "perf", "Defeater fixes incomplete", "Expected decode/blit/wrap spans, paint_commit, RAW guard")
 }
 
 if sourceContains(vmPath, "prefetchStackFeed") {

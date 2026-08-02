@@ -4,8 +4,7 @@ import ImageIO
 import Observation
 import os
 
-/// Speed Contract browsing spine — embedded JPEG only, never RAW demosaic on the interactive path.
-/// Paint is sync from warm memory; decode/IO live off the main thread.
+/// Speed Contract browsing spine — cached JPEG → GPU texture only on the interactive path.
 @MainActor
 @Observable
 final class PreviewSpine {
@@ -17,57 +16,54 @@ final class PreviewSpine {
         case preview
     }
 
-    // MARK: - Painted frame
+    // MARK: - Painted frame (canvas reads these only)
 
     private(set) var paintedPhotoID: UUID?
-    private(set) var paintedImage: NSImage?
     private(set) var paintedTier: Tier = .empty
+    private(set) var paintedJPEGPath: String?
 
-    // MARK: - Contract instrumentation
+    /// Ingest grid thumb for silhouette fallback — never a full preview decode.
+    private(set) var paintedSilhouette: NSImage?
 
+    // MARK: - Honest instrumentation
+
+    /// Dictionary lookup + tier commit — NOT photon time.
+    private(set) var lastPaintCommitMs: Double = 0
     private(set) var lastInputToPhotonMs: Double = 0
-    private(set) var lastGPUUploadMs: Double = 0
-    private(set) var prefetchHits: Int = 0
-    private(set) var prefetchMisses: Int = 0
+    private(set) var gpuPrefetchHits: Int = 0
+    private(set) var gpuPrefetchMisses: Int = 0
     private(set) var droppedFrames: Int = 0
     private(set) var decodeQueueDepth: Int = 0
+    private(set) var gpuTextureCount: Int = 0
     private(set) var silhouetteCount: Int = 0
-    private(set) var previewCount: Int = 0
     private(set) var direction: Int = 1
     private(set) var ripVelocity: Double = 0
     private(set) var embeddedCount: Int = 0
     private(set) var synthesizedCount: Int = 0
     private(set) var processedCount: Int = 0
 
-    /// JPEG path currently painted (for Metal canvas).
-    private(set) var paintedJPEGPath: String?
-
-    var prefetchHitRate: Double {
-        let total = prefetchHits + prefetchMisses
+    var gpuPrefetchHitRate: Double {
+        let total = gpuPrefetchHits + gpuPrefetchMisses
         guard total > 0 else { return 1 }
-        return Double(prefetchHits) / Double(total)
+        return Double(gpuPrefetchHits) / Double(total)
     }
-
-    var silhouetteMB: Double { Double(silhouetteApproxBytes) / 1_048_576 }
-    var previewMB: Double { Double(previewApproxBytes) / 1_048_576 }
 
     // MARK: - Caches
 
     private var silhouettes: [UUID: NSImage] = [:]
-    private var previews: [UUID: NSImage] = [:]
     private var photoOrder: [UUID] = []
     private var indexByID: [UUID: Int] = [:]
-    private var sourcePathByID: [UUID: String] = [:]
-    private var originByID: [UUID: PreviewOrigin] = [:]
+    /// Browse preview JPEG — never rawPath.
+    private var previewPathByID: [UUID: String] = [:]
+    /// Ingest grid thumb for silhouette tier.
+    private var silhouettePathByID: [UUID: String] = [:]
     private var inflightSilhouette = Set<UUID>()
-    private var inflightPreview = Set<UUID>()
-    private var silhouetteApproxBytes = 0
-    private var previewApproxBytes = 0
+    private var inflightGPU = Set<UUID>()
     private var generation = 0
     private var recentAdvanceTimes: [CFAbsoluteTime] = []
+    private var pendingPhotonInputTime: CFAbsoluteTime?
 
     private let silhouetteMaxPx = 160
-    private let previewMaxPx = 2400
     private let aheadDefault = 12
     private let behindDefault = 4
     private let aheadHeld = 20
@@ -79,6 +75,24 @@ final class PreviewSpine {
         attributes: .concurrent
     )
     private let log = Logger(subsystem: "com.lumina.app", category: "PreviewSpine")
+
+    private static let rawExtensions: Set<String> = [
+        "ARW", "CR2", "CR3", "NEF", "RAF", "DNG", "ORF", "RW2", "PEF", "SRW", "3FR", "IIQ",
+    ]
+
+    init() {
+        NotificationCenter.default.addObserver(
+            forName: .luminaTextureReady,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self,
+                  let id = note.userInfo?["photoID"] as? UUID else { return }
+            Task { @MainActor in
+                self.textureBecameReady(id: id)
+            }
+        }
+    }
 
     // MARK: - Warm
 
@@ -94,22 +108,29 @@ final class PreviewSpine {
         let gen = generation
         photoOrder = newOrder
         indexByID = Dictionary(uniqueKeysWithValues: photoOrder.enumerated().map { ($0.element, $0.offset) })
-        sourcePathByID = Dictionary(uniqueKeysWithValues: photos.map { photo in
-            (photo.id, photo.thumbPath ?? photo.gridThumbPath ?? photo.rawPath)
+
+        previewPathByID = Dictionary(uniqueKeysWithValues: photos.compactMap { photo in
+            guard let path = photo.thumbPath ?? photo.gridThumbPath,
+                  Self.isBrowseSafePath(path) else { return nil }
+            return (photo.id, path)
         })
-        originByID = Dictionary(uniqueKeysWithValues: photos.map { ($0.id, $0.previewOrigin) })
+        silhouettePathByID = Dictionary(uniqueKeysWithValues: photos.compactMap { photo in
+            guard let path = photo.gridThumbPath ?? photo.thumbPath,
+                  Self.isBrowseSafePath(path) else { return nil }
+            return (photo.id, path)
+        })
+
         embeddedCount = photos.filter { $0.previewOrigin == .embedded }.count
         synthesizedCount = photos.filter { $0.previewOrigin == .synthesized }.count
         processedCount = photos.filter { $0.previewOrigin == .processed }.count
 
         let alive = Set(photoOrder)
         silhouettes = silhouettes.filter { alive.contains($0.key) }
-        previews = previews.filter { alive.contains($0.key) }
         silhouetteCount = silhouettes.count
-        previewCount = previews.count
+        gpuTextureCount = photoOrder.filter { MetalPreviewPool.shared.texture(for: $0) != nil }.count
 
         for id in photoOrder where silhouettes[id] == nil {
-            enqueueDecode(id: id, tier: .silhouette, generation: gen)
+            enqueueSilhouette(id: id, generation: gen)
         }
 
         let focusID = focus ?? photoOrder.first
@@ -121,29 +142,46 @@ final class PreviewSpine {
     func clear() {
         generation &+= 1
         silhouettes.removeAll()
-        previews.removeAll()
         photoOrder.removeAll()
         indexByID.removeAll()
-        sourcePathByID.removeAll()
+        previewPathByID.removeAll()
+        silhouettePathByID.removeAll()
         inflightSilhouette.removeAll()
-        inflightPreview.removeAll()
+        inflightGPU.removeAll()
         paintedPhotoID = nil
-        paintedImage = nil
+        paintedSilhouette = nil
         paintedJPEGPath = nil
         paintedTier = .empty
-        silhouetteApproxBytes = 0
-        previewApproxBytes = 0
         silhouetteCount = 0
-        previewCount = 0
+        gpuTextureCount = 0
         decodeQueueDepth = 0
         embeddedCount = 0
         synthesizedCount = 0
         processedCount = 0
         ripVelocity = 0
-        lastGPUUploadMs = 0
+        lastPaintCommitMs = 0
+        lastInputToPhotonMs = 0
+        gpuPrefetchHits = 0
+        gpuPrefetchMisses = 0
     }
 
-    // MARK: - Paint (sync — 50ms contract)
+    /// Called by Metal canvas when a drawable is presented — true input→photon.
+    func recordPhotonPresent(inputTime: CFAbsoluteTime) {
+        let ms = (CFAbsoluteTimeGetCurrent() - inputTime) * 1000
+        lastInputToPhotonMs = ms
+        LatencyMetrics.record("spine.input_to_photon", milliseconds: ms)
+        pendingPhotonInputTime = nil
+        if ms > LatencyMetrics.navigationSLAms {
+            droppedFrames &+= 1
+        }
+    }
+
+    func pendingPhotonTime(for photoID: UUID) -> CFAbsoluteTime? {
+        guard paintedPhotoID == photoID else { return nil }
+        return pendingPhotonInputTime
+    }
+
+    // MARK: - Paint (sync commit — GPU texture or silhouette fallback)
 
     @discardableResult
     func paint(id: UUID, inputTime: CFAbsoluteTime, held: Bool = false) -> Tier {
@@ -152,41 +190,35 @@ final class PreviewSpine {
         }
 
         paintedPhotoID = id
-        paintedJPEGPath = sourcePathByID[id]
+        paintedJPEGPath = previewPathByID[id]
+        pendingPhotonInputTime = inputTime
 
-        if let preview = previews[id] {
-            paintedImage = preview
+        if MetalPreviewPool.shared.texture(for: id) != nil {
             paintedTier = .preview
-            prefetchHits &+= 1
-            if MetalPreviewPool.shared.texture(for: id) != nil {
-                lastGPUUploadMs = 0
-            } else {
-                // Never block paint on GPU fill — prefetch/canvas will catch up.
-                lastGPUUploadMs = -1
-                enqueueDecode(id: id, tier: .preview, generation: generation)
-            }
+            paintedSilhouette = nil
+            gpuPrefetchHits &+= 1
         } else if let sil = silhouettes[id] {
-            paintedImage = sil
             paintedTier = .silhouette
-            prefetchMisses &+= 1
-            enqueueDecode(id: id, tier: .preview, generation: generation)
+            paintedSilhouette = sil
+            gpuPrefetchMisses &+= 1
+            if let path = previewPathByID[id] {
+                enqueueGPU(id: id, path: path, generation: generation, distanceBias: 0)
+            }
         } else {
-            paintedImage = nil
             paintedTier = .empty
-            prefetchMisses &+= 1
-            enqueueDecode(id: id, tier: .silhouette, generation: generation)
-            enqueueDecode(id: id, tier: .preview, generation: generation)
+            paintedSilhouette = nil
+            gpuPrefetchMisses &+= 1
+            enqueueSilhouette(id: id, generation: generation)
+            if let path = previewPathByID[id] {
+                enqueueGPU(id: id, path: path, generation: generation, distanceBias: 0)
+            }
         }
 
         trackVelocity(at: inputTime)
 
         let ms = (CFAbsoluteTimeGetCurrent() - inputTime) * 1000
-        lastInputToPhotonMs = ms
-        LatencyMetrics.record("spine.input_to_photon", milliseconds: ms)
-        if ms > LatencyMetrics.navigationSLAms {
-            droppedFrames &+= 1
-            log.warning("input-to-photon \(ms, format: .fixed(precision: 1))ms SLA breach")
-        }
+        lastPaintCommitMs = ms
+        LatencyMetrics.record("spine.paint_commit", milliseconds: ms)
 
         reaim(around: id, held: held, generation: generation)
         return paintedTier
@@ -218,6 +250,13 @@ final class PreviewSpine {
         return id
     }
 
+    private func textureBecameReady(id: UUID) {
+        gpuTextureCount = photoOrder.filter { MetalPreviewPool.shared.texture(for: $0) != nil }.count
+        guard paintedPhotoID == id else { return }
+        paintedTier = .preview
+        paintedSilhouette = nil
+    }
+
     private func trackVelocity(at time: CFAbsoluteTime) {
         recentAdvanceTimes.append(time)
         recentAdvanceTimes.removeAll { time - $0 > 0.45 }
@@ -229,7 +268,7 @@ final class PreviewSpine {
         }
     }
 
-    // MARK: - Prefetch
+    // MARK: - Prefetch (GPU textures only)
 
     private func reaim(around id: UUID, held: Bool, generation gen: Int) {
         guard let center = indexByID[id] else { return }
@@ -255,94 +294,70 @@ final class PreviewSpine {
             if center + 1 <= hi { order.append(contentsOf: photoOrder[(center + 1)...hi]) }
         }
 
-        for (offset, pid) in order.enumerated() where previews[pid] == nil || MetalPreviewPool.shared.texture(for: pid) == nil {
-            enqueueDecode(id: pid, tier: .preview, generation: gen, distanceBias: offset)
+        for (offset, pid) in order.enumerated() where MetalPreviewPool.shared.texture(for: pid) == nil {
+            guard let path = previewPathByID[pid] else { continue }
+            enqueueGPU(id: pid, path: path, generation: gen, distanceBias: offset)
         }
         MetalPreviewPool.shared.evictFar(from: center, order: photoOrder, keepRadius: ahead + behind + 2)
     }
 
-    private func enqueueDecode(id: UUID, tier: Tier, generation gen: Int, distanceBias: Int = 0) {
-        guard let path = sourcePathByID[id] else { return }
-        let maxPx: Int
-        switch tier {
-        case .silhouette:
-            guard silhouettes[id] == nil, !inflightSilhouette.contains(id) else { return }
-            inflightSilhouette.insert(id)
-            maxPx = silhouetteMaxPx
-        case .preview:
-            let needsCPU = previews[id] == nil
-            let needsGPU = MetalPreviewPool.shared.texture(for: id) == nil
-            guard (needsCPU || needsGPU), !inflightPreview.contains(id) else { return }
-            inflightPreview.insert(id)
-            maxPx = previewMaxPx
-        case .empty:
-            return
-        }
-        decodeQueueDepth = inflightSilhouette.count + inflightPreview.count
-        let bias = distanceBias
+    private func enqueueSilhouette(id: UUID, generation gen: Int) {
+        guard let path = silhouettePathByID[id],
+              silhouettes[id] == nil,
+              !inflightSilhouette.contains(id) else { return }
+        inflightSilhouette.insert(id)
+        decodeQueueDepth = inflightSilhouette.count + inflightGPU.count
 
         decodeQueue.async { [weak self] in
-            let image = Self.decodeEmbedded(path: path, maxPixelSize: maxPx)
-            let uploadMs: Double = {
-                guard tier == .preview else { return 0 }
-                return MetalPreviewPool.shared.upload(id: id, jpegPath: path, distanceBias: bias)
-            }()
+            let image = Self.decodeSilhouette(path: path, maxPixelSize: self?.silhouetteMaxPx ?? 160)
             DispatchQueue.main.async {
                 guard let self, self.generation == gen else { return }
-                switch tier {
-                case .silhouette: self.inflightSilhouette.remove(id)
-                case .preview: self.inflightPreview.remove(id)
-                case .empty: break
-                }
-                self.decodeQueueDepth = self.inflightSilhouette.count + self.inflightPreview.count
-                if tier == .preview {
-                    self.lastGPUUploadMs = max(0, uploadMs)
-                }
+                self.inflightSilhouette.remove(id)
+                self.decodeQueueDepth = self.inflightSilhouette.count + self.inflightGPU.count
                 guard let image else { return }
-
-                let bytes = Int(image.size.width * image.size.height * 4)
-                if tier == .silhouette {
-                    if self.silhouettes[id] == nil { self.silhouetteApproxBytes += bytes }
-                    self.silhouettes[id] = image
-                    self.silhouetteCount = self.silhouettes.count
-                    if self.paintedPhotoID == id, self.paintedTier != .preview {
-                        self.paintedImage = image
-                        self.paintedTier = .silhouette
-                    }
-                } else {
-                    if self.previews[id] == nil { self.previewApproxBytes += bytes }
-                    self.previews[id] = image
-                    self.previewCount = self.previews.count
-                    if self.paintedPhotoID == id {
-                        self.paintedImage = image
-                        self.paintedTier = .preview
-                        self.paintedJPEGPath = path
-                    }
+                self.silhouettes[id] = image
+                self.silhouetteCount = self.silhouettes.count
+                if self.paintedPhotoID == id, self.paintedTier != .preview {
+                    self.paintedSilhouette = image
+                    self.paintedTier = .silhouette
                 }
             }
         }
     }
 
-    nonisolated private static func decodeEmbedded(path: String, maxPixelSize: Int) -> NSImage? {
-        let url = URL(fileURLWithPath: path)
-        // Tier 3: prefer mmap so a miss is map-and-decode, not a full file copy.
-        let source: CGImageSource? = {
-            if let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) {
-                return CGImageSourceCreateWithData(data as CFData, nil)
+    private func enqueueGPU(id: UUID, path: String, generation gen: Int, distanceBias: Int) {
+        guard MetalPreviewPool.shared.texture(for: id) == nil,
+              !inflightGPU.contains(id),
+              Self.isBrowseSafePath(path) else { return }
+        inflightGPU.insert(id)
+        decodeQueueDepth = inflightSilhouette.count + inflightGPU.count
+        let bias = distanceBias
+
+        decodeQueue.async { [weak self] in
+            _ = MetalPreviewPool.shared.upload(id: id, jpegPath: path, distanceBias: bias)
+            DispatchQueue.main.async {
+                guard let self, self.generation == gen else { return }
+                self.inflightGPU.remove(id)
+                self.decodeQueueDepth = self.inflightSilhouette.count + self.inflightGPU.count
+                self.gpuTextureCount = self.photoOrder.filter { MetalPreviewPool.shared.texture(for: $0) != nil }.count
             }
-            return CGImageSourceCreateWithURL(url as CFURL, nil)
-        }()
-        guard let source else { return nil }
+        }
+    }
+
+    /// Grid/small JPEG only — never preview JPEG, never RAW.
+    nonisolated private static func decodeSilhouette(path: String, maxPixelSize: Int) -> NSImage? {
+        assertBrowseSafe(path)
+        let url = URL(fileURLWithPath: path)
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         let opts: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
+            kCGImageSourceCreateThumbnailFromImageAlways: false,
             kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceShouldCacheImmediately: false,
         ]
-        guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) else {
-            return nil
-        }
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary)
+            ?? CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
         let scale: CGFloat = 2
         return NSImage(
             cgImage: cg,
@@ -350,20 +365,36 @@ final class PreviewSpine {
         )
     }
 
+    nonisolated private static func isBrowseSafePath(_ path: String) -> Bool {
+        let ext = URL(fileURLWithPath: path).pathExtension.uppercased()
+        return !rawExtensions.contains(ext)
+    }
+
+    nonisolated private static func assertBrowseSafe(_ path: String) {
+        #if DEBUG
+        precondition(isBrowseSafePath(path), "Interactive decode must never use RAW path: \(path)")
+        #endif
+    }
+
     func hudLines() -> [String] {
-        let p50 = LatencyMetrics.percentile("spine.input_to_photon", 0.50).map { String(format: "%.1f", $0) } ?? "—"
-        let p95 = LatencyMetrics.percentile("spine.input_to_photon", 0.95).map { String(format: "%.1f", $0) } ?? "—"
-        let p99 = LatencyMetrics.percentile("spine.input_to_photon", 0.99).map { String(format: "%.1f", $0) } ?? "—"
-        let gpu = String(format: "%.2f", lastGPUUploadMs)
-        let wrapP50 = MetalPreviewPool.shared.wrapP50.map { String(format: "%.2f", $0) } ?? "—"
+        let commitP50 = LatencyMetrics.percentile("spine.paint_commit", 0.50).map { String(format: "%.1f", $0) } ?? "—"
+        let commitP95 = LatencyMetrics.percentile("spine.paint_commit", 0.95).map { String(format: "%.1f", $0) } ?? "—"
+        let photonP50 = LatencyMetrics.percentile("spine.input_to_photon", 0.50).map { String(format: "%.1f", $0) } ?? "—"
+        let photonP95 = LatencyMetrics.percentile("spine.input_to_photon", 0.95).map { String(format: "%.1f", $0) } ?? "—"
+        let t = MetalPreviewPool.shared.lastTimings
+        let decP50 = MetalPreviewPool.shared.p50Decode().map { String(format: "%.1f", $0) } ?? "—"
+        let blitP50 = MetalPreviewPool.shared.p50Blit().map { String(format: "%.2f", $0) } ?? "—"
+        let wrapP50 = MetalPreviewPool.shared.p50Wrap().map { String(format: "%.2f", $0) } ?? "—"
         let totalOrigin = max(embeddedCount + synthesizedCount + processedCount, 1)
         return [
-            String(format: "in→photon: %.1fms  (p50 %@ · p95 %@ · p99 %@)", lastInputToPhotonMs, p50, p95, p99),
-            String(format: "prefetch hit: %.0f%%  queue: %d  rip: %.0f/s", prefetchHitRate * 100, decodeQueueDepth, ripVelocity),
+            String(format: "paint_commit: %.1fms (p50 %@ · p95 %@)", lastPaintCommitMs, commitP50, commitP95),
+            String(format: "in→photon: %.1fms (p50 %@ · p95 %@ · at present)", lastInputToPhotonMs, photonP50, photonP95),
+            String(format: "GPU prefetch: %.0f%%  queue: %d  rip: %.0f/s", gpuPrefetchHitRate * 100, decodeQueueDepth, ripVelocity),
             "drops: \(droppedFrames)  tier: \(paintedTier.rawValue)  dir: \(direction > 0 ? "→" : "←")",
-            "GPU wrap: \(gpu)ms (p50 \(wrapP50) · target ~0 · IOSurface→MTL)",
+            String(format: "decode %.1fms · blit %.2fms · wrap %.2fms (p50 %@ · %@ · %@)",
+                   t.decodeMs, t.blitMs, t.wrapMs, decP50, blitP50, wrapP50),
             "preview: emb \(embeddedCount) · synth \(synthesizedCount) · jpg \(processedCount)  (\(Int(100 * embeddedCount / totalOrigin))% emb)",
-            String(format: "mem sil %.1fMB (%d) · prev %.1fMB (%d)", silhouetteMB, silhouetteCount, previewMB, previewCount),
+            "GPU tex \(gpuTextureCount) · sil \(silhouetteCount)",
         ]
     }
 }
