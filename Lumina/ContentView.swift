@@ -4,14 +4,26 @@ import AppKit
 struct ContentView: View {
     @State private var model = ProjectViewModel()
     @State private var keyMonitor: Any?
+    @State private var splitVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $splitVisibility) {
             sidebar
                 .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
         } detail: {
             main
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .onChange(of: model.keepsBrowseLayout) { _, layout in
+            withAnimation(.easeInOut(duration: 0.4)) {
+                splitVisibility = layout == .focus ? .detailOnly : .all
+            }
+        }
+        .onChange(of: model.viewMode) { _, mode in
+            if mode != .overview {
+                model.keepsBrowseLayout = .carousel
+                splitVisibility = .all
+            }
         }
         .onAppear {
             guard keyMonitor == nil else { return }
@@ -123,7 +135,7 @@ struct ContentView: View {
                     case .session:
                         ClusterCullView(model: model)
                     case .overview:
-                        overview
+                        KeepsBrowserView(model: model)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -143,53 +155,6 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.45), value: model.isImporting)
-    }
-
-    private var overview: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Overview")
-                    .font(.headline)
-                Spacer()
-                Picker("Sort", selection: $model.sortMode) {
-                    Text("Similar").tag(SortMode.similar)
-                    Text("Quality").tag(SortMode.quality)
-                    Text("Sharpest").tag(SortMode.sharpest)
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 360)
-                Button("Back to session") {
-                    model.viewMode = .session
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-
-            PhotoGridView(
-                photos: model.displayedPhotos,
-                selectedID: model.selectedPhotoID,
-                onSelect: { model.selectPhoto($0) }
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .layoutPriority(1)
-
-            if let photo = model.selectedPhoto, let project = model.project {
-                SoftPreviewView(
-                    photo: photo,
-                    projectName: project.name,
-                    baseline: project.profile,
-                    offsets: model.globalAdjustments.merged(with: photo.perPhotoAdjustments ?? .zero),
-                    mix: model.showBefore ? 0 : model.softRender.mix,
-                    showBefore: model.showBefore
-                )
-                .frame(height: 240)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { model.filter = .keeps }
     }
 
     private var statusBar: some View {
@@ -218,11 +183,19 @@ struct ContentView: View {
     }
 
     private var keymapHint: String {
+        if model.viewMode == .overview {
+            switch model.keepsBrowseLayout {
+            case .carousel:
+                return "Return/dbl-click: enlarge · ← → browse · O session · Esc carousel"
+            case .focus:
+                return "Esc: carousel · ← → · Space before/after · O session"
+            }
+        }
         switch model.groupPhase {
-        case .intro: "Return: review set · scroll sideways · ] next set"
-        case .pick: "Tap cards · Return: keep these"
-        case .decide: "← → browse · P keep · X reject · ] next set"
-        case .done: "Return: export · O overview"
+        case .intro: return "Return: review set · scroll sideways · ] next set"
+        case .pick: return "Tap cards · Return: keep these"
+        case .decide: return "← → browse · P keep · X reject · ] next set"
+        case .done: return "Return: export · O keeps"
         }
     }
 
@@ -241,7 +214,12 @@ struct ContentView: View {
             return nil
         case "o":
             if event.type == .keyDown {
-                model.viewMode = model.viewMode == .overview ? .session : .overview
+                if model.viewMode == .overview {
+                    model.unfocusKeep()
+                    model.viewMode = .session
+                } else {
+                    model.enterKeepsBrowser()
+                }
             }
             return nil
         case "]":
@@ -252,7 +230,11 @@ struct ContentView: View {
             return nil
         case "\r", "\n":
             if event.type == .keyDown {
-                if model.groupPhase == .intro, let c = model.currentCluster {
+                if model.viewMode == .overview {
+                    if model.keepsBrowseLayout == .carousel {
+                        model.focusKeep()
+                    }
+                } else if model.groupPhase == .intro, let c = model.currentCluster {
                     model.groupPhase = .pick
                     model.seedPickFromHero(cluster: c)
                 } else if model.groupPhase == .pick, let c = model.currentCluster {
@@ -263,12 +245,20 @@ struct ContentView: View {
             }
             return nil
         default:
+            if event.keyCode == 53, event.type == .keyDown { // Esc
+                if model.viewMode == .overview, model.keepsBrowseLayout == .focus {
+                    model.unfocusKeep()
+                    return nil
+                }
+            }
             if event.keyCode == 123, event.type == .keyDown { // ←
-                if model.groupPhase == .decide { model.previousUncertain() }
+                if model.viewMode == .overview { model.previousKeep() }
+                else if model.groupPhase == .decide { model.previousUncertain() }
                 return nil
             }
             if event.keyCode == 124, event.type == .keyDown { // →
-                if model.groupPhase == .decide { model.nextUncertainInCluster() }
+                if model.viewMode == .overview { model.nextKeep() }
+                else if model.groupPhase == .decide { model.nextUncertainInCluster() }
                 return nil
             }
             if event.keyCode == 49 {

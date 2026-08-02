@@ -421,8 +421,8 @@ private struct SessionDoneView: View {
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
 
-            Button("Browse all keeps") { model.viewMode = .overview }
-                .controlSize(.large)
+            Button("Browse all keeps") { model.enterKeepsBrowser() }
+                .buttonStyle(LuminaPrimaryButtonStyle())
 
             Spacer()
         }

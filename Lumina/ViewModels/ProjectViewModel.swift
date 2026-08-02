@@ -36,6 +36,13 @@ final class ProjectViewModel {
         case done
     }
 
+    enum KeepsBrowseLayout: Equatable {
+        case carousel
+        case focus
+    }
+
+    var keepsBrowseLayout: KeepsBrowseLayout = .carousel
+
     var selectedPhoto: PhotoRecord? {
         guard let id = selectedPhotoID else { return nil }
         return project?.photos.first { $0.id == id }
@@ -254,6 +261,64 @@ final class ProjectViewModel {
         Task {
             await PhotoImageCache.shared.prefetch(Array(Set(paths)))
         }
+    }
+
+    // MARK: - Keeps browser
+
+    func prepareKeepsBrowser() {
+        filter = .keeps
+        if selectedPhotoID == nil || !displayedPhotos.contains(where: { $0.id == selectedPhotoID }) {
+            selectedPhotoID = displayedPhotos.first?.id
+        }
+        if let id = selectedPhotoID {
+            selectPhoto(id)
+        }
+    }
+
+    func enterKeepsBrowser() {
+        keepsBrowseLayout = .carousel
+        viewMode = .overview
+        prepareKeepsBrowser()
+        statusMessage = "\(keepCount) keeps · browse and enlarge"
+    }
+
+    func focusKeep() {
+        guard selectedPhoto != nil else { return }
+        withAnimation(.spring(duration: 0.52, bounce: 0.12)) {
+            keepsBrowseLayout = .focus
+        }
+        if let photo = selectedPhoto {
+            prefetchPhotoDisplay(photo)
+            playSoftRender(for: photo.id)
+        }
+        statusMessage = "Loupe · Esc for carousel"
+    }
+
+    func unfocusKeep() {
+        withAnimation(.spring(duration: 0.48, bounce: 0.1)) {
+            keepsBrowseLayout = .carousel
+        }
+        statusMessage = "\(keepCount) keeps"
+    }
+
+    func nextKeep() {
+        navigateKeep(by: 1)
+    }
+
+    func previousKeep() {
+        navigateKeep(by: -1)
+    }
+
+    private func navigateKeep(by delta: Int) {
+        let list = displayedPhotos
+        guard !list.isEmpty else { return }
+        guard let current = selectedPhotoID,
+              let index = list.firstIndex(where: { $0.id == current }) else {
+            selectPhoto(list[0].id)
+            return
+        }
+        let next = list[max(0, min(list.count - 1, index + delta))]
+        selectPhoto(next.id)
     }
 
     func playSoftRender(for id: UUID) {
