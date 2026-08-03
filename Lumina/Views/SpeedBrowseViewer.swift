@@ -13,11 +13,11 @@ struct SpeedBrowseViewer: View {
     @State private var filmstripTask: Task<Void, Never>?
     @State private var controlsTask: Task<Void, Never>?
 
-    private let filmstripHeight: CGFloat = 168
+    private var filmstripHeight: CGFloat { photos.count > 1 ? 120 : 0 }
 
     var body: some View {
         GeometryReader { geo in
-            let pageHeight = max(geo.size.height - filmstripHeight - 8, geo.size.height * 0.72)
+            let pageHeight = max(geo.size.height - filmstripHeight - 8, geo.size.height * 0.78)
             ZStack {
                 Color.black.ignoresSafeArea()
 
@@ -40,17 +40,19 @@ struct SpeedBrowseViewer: View {
                     onKeep: { model.markKeep() }
                 )
 
-                BrowseFilmstripOverlay(
-                    photos: photos,
-                    focusID: filmstripFocusID,
-                    filmstripHeight: filmstripHeight,
-                    onSelect: { photo in
-                        let t = CFAbsoluteTimeGetCurrent()
-                        model.selectBrowsePhoto(photo.id, in: photos, inputTime: t)
-                        selection = photo.id
-                        filmstripFocusID = photo.id
-                    }
-                )
+                if photos.count > 1 {
+                    BrowseFilmstripOverlay(
+                        photos: photos,
+                        focusID: filmstripFocusID,
+                        filmstripHeight: filmstripHeight,
+                        onSelect: { photo in
+                            let t = CFAbsoluteTimeGetCurrent()
+                            model.selectBrowsePhoto(photo.id, in: photos, inputTime: t)
+                            selection = photo.id
+                            filmstripFocusID = photo.id
+                        }
+                    )
+                }
             }
             .contentShape(Rectangle())
             .gesture(
@@ -245,20 +247,20 @@ private struct BrowseFilmstripOverlay: View {
     let filmstripHeight: CGFloat
     var onSelect: (PhotoRecord) -> Void
 
-    private let filmCellWidth: CGFloat = 118
-    private let filmCellHeight: CGFloat = 148
+    private let filmCellWidth: CGFloat = 88
+    private let filmCellHeight: CGFloat = 96
 
     var body: some View {
         VStack {
             Spacer(minLength: 0)
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 8) {
                         ForEach(photos) { photo in
                             Button {
                                 onSelect(photo)
                             } label: {
-                                PhotoImageView(photo: photo, tier: .grid, contentMode: .fill)
+                                SpineAwarePhotoTile(photo: photo)
                                     .frame(width: filmCellWidth, height: filmCellHeight)
                                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                                     .overlay {
@@ -274,8 +276,12 @@ private struct BrowseFilmstripOverlay: View {
                             .id(photo.id)
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                }
+                .onAppear {
+                    PreviewSpine.shared.warm(photos: photos, focus: focusID ?? photos.first?.id)
+                    ThumbCache.shared.prefetchPhotos(photos, maxPixelSize: 512)
                 }
                 .onChange(of: focusID) { _, id in
                     guard let id else { return }
@@ -285,7 +291,7 @@ private struct BrowseFilmstripOverlay: View {
                 }
             }
             .frame(height: filmstripHeight)
-            .background(.ultraThinMaterial.opacity(0.5))
+            .background(.ultraThinMaterial.opacity(0.45))
         }
     }
 }

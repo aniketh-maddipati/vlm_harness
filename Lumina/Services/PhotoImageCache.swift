@@ -173,11 +173,11 @@ actor PhotoImageCache {
     private func scheduleDiskWrite(key: String, image: NSImage) {
         guard sessionDiskRoot != nil, let url = sessionDiskURL(for: key) else { return }
         pendingDiskWrites[key]?.cancel()
-        guard let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.88]) else { return }
-
+        // Encode on diskWriteQueue — keep TIFF/JPEG work off the actor.
         let work = DispatchWorkItem {
+            guard let tiff = image.tiffRepresentation,
+                  let rep = NSBitmapImageRep(data: tiff),
+                  let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.88]) else { return }
             try? jpeg.write(to: url, options: .atomic)
         }
         pendingDiskWrites[key] = work

@@ -38,10 +38,10 @@ struct AdaptivePanelHost: View {
                     }
                 case .decide:
                     HStack {
-                        Text("Taste-applied preview")
+                        Text("Close calls · keep or reject")
                             .font(.subheadline.weight(.medium))
                         Spacer()
-                        Text("P/X · M flag · Space before/after")
+                        Text("P keep · X reject · H hero · F/D flip")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }

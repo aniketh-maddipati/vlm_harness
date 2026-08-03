@@ -5,6 +5,8 @@ import CoreGraphics
 /// Progressive import — emits photos after thumbs, then refines scores live.
 enum ImportPipeline {
     private static let previewConcurrency = 6
+    /// Background thumb refine must stay out of the way of Meet/Pick/Decide.
+    private static let refineConcurrency = 2
     private static var instantPreviewConcurrency: Int {
         min(max(ProcessInfo.processInfo.activeProcessorCount * 3, 16), 32)
     }
@@ -188,15 +190,17 @@ enum ImportPipeline {
             try? TasteIndex.save(entries: tasteEntries, project: projectName)
         }
 
+        // Stage cluster-changing work — do not push into the live session mid-Meet/Pick/Decide.
+        var staged = records
         emit(.grouping, detail: "Grouping similar…", completed: 0, total: totalPhotos, fraction: 0.86)
-        records = await EmbeddingService.embedAndCluster(records)
-        CullEngine.scoreAndTier(&records, keepRate: keepRate)
+        staged = await EmbeddingService.embedAndCluster(staged)
+        CullEngine.scoreAndTier(&staged, keepRate: keepRate)
 
-        let faceCandidates = records.indices.filter {
-            records[$0].sharpness >= 0.15 && records[$0].tier != .reject
+        let faceCandidates = staged.indices.filter {
+            staged[$0].sharpness >= 0.15 && staged[$0].tier != .reject
         }
         emit(.faces, detail: "Faces…", completed: 0, total: faceCandidates.count, fraction: 0.92)
-        await detectFaces(records: &records, candidates: faceCandidates) { done, total in
+        await detectFaces(records: &staged, candidates: faceCandidates) { done, total in
             let frac = 0.92 + 0.04 * (Double(done) / Double(max(total, 1)))
             emit(.faces, detail: "Faces \(done)/\(total)", completed: done, total: total, fraction: frac)
         }
@@ -205,16 +209,18 @@ enum ImportPipeline {
         let entries = tasteEntries.isEmpty
             ? (try? TasteIndex.load(project: projectName)) ?? []
             : tasteEntries
-        TasteRetriever.applyRecipes(to: &records, library: entries, baseline: profile)
-        CullEngine.assignConfidence(&records)
+        TasteRetriever.applyRecipes(to: &staged, library: entries, baseline: profile)
+        CullEngine.assignConfidence(&staged)
 
-        project.photos = records
         project.profile = profile
         project.tasteSourceCount = tasteEntries.count
-        project.collections = ExportService.draftCollections(from: records)
-        try ProjectStore.save(project)
-        continuation.yield(.photosUpdated(records))
-        emit(.ready, detail: "Refined · \(records.count) photos", completed: records.count, total: records.count, fraction: 1.0)
+        // Persist staged refinement to disk; UI applies at a session boundary.
+        var stagedProject = project
+        stagedProject.photos = staged
+        stagedProject.collections = ExportService.draftCollections(from: staged)
+        try ProjectStore.save(stagedProject)
+        continuation.yield(.refinementReady(staged))
+        emit(.ready, detail: "Refined · \(staged.count) photos", completed: staged.count, total: staged.count, fraction: 1.0)
         continuation.finish()
     }
 
@@ -281,7 +287,7 @@ enum ImportPipeline {
         return records.compactMap { $0 }
     }
 
-    /// Tier 2 — high-res thumb + proxy in background while user starts culling.
+    /// Tier 2 — high-res thumbs only (utility priority). Proxies deferred until Decide/export needs them.
     private static func refineTiersInBackground(
         records input: [PhotoRecord],
         thumbDir: URL,
@@ -290,42 +296,34 @@ enum ImportPipeline {
     ) async -> [PhotoRecord] {
         var records = input
         let indices = Array(records.indices)
+        // proxyDir kept in signature for call sites; 4096px proxy is lazy via DevelopEngine.ensureProxy.
+        _ = proxyDir
 
-        for chunk in indices.chunked(into: previewConcurrency) {
-            await withTaskGroup(of: (Int, String?, String?).self) { group in
+        for chunk in indices.chunked(into: refineConcurrency) {
+            await withTaskGroup(of: (Int, String?).self) { group in
                 for index in chunk {
                     let rawPath = records[index].rawPath
                     group.addTask {
-                        let rawURL = URL(fileURLWithPath: rawPath)
-                        let stem = rawURL.deletingPathExtension().lastPathComponent
-                        let thumbURL = thumbDir.appendingPathComponent(stem + ".jpg")
-                        let proxyURL = proxyDir.appendingPathComponent(stem + ".jpg")
+                        await Task.detached(priority: .utility) {
+                            let rawURL = URL(fileURLWithPath: rawPath)
+                            let stem = rawURL.deletingPathExtension().lastPathComponent
+                            let thumbURL = thumbDir.appendingPathComponent(stem + ".jpg")
 
-                        if !FileManager.default.fileExists(atPath: thumbURL.path) {
-                            try? PreviewExtractor.extractBest(to: thumbURL, from: rawURL, maxPixelSize: 2048)
-                        }
-                        if !FileManager.default.fileExists(atPath: proxyURL.path) {
-                            let ext = rawURL.pathExtension.uppercased()
-                            let isProcessed = ["JPG", "JPEG", "JPE", "HEIC", "HEIF"].contains(ext)
-                            let proxyMax = isProcessed ? 6000 : 4096
-                            if !PreviewExtractor.downscaleJPEG(from: thumbURL, to: proxyURL, maxPixelSize: proxyMax) {
-                                _ = try? PreviewExtractor.extractBest(to: proxyURL, from: rawURL, maxPixelSize: proxyMax)
+                            if !FileManager.default.fileExists(atPath: thumbURL.path) {
+                                try? PreviewExtractor.extractBest(to: thumbURL, from: rawURL, maxPixelSize: 2048)
                             }
-                        }
-
-                        if FileManager.default.fileExists(atPath: proxyURL.path) {
-                            return (index, thumbURL.path, proxyURL.path)
-                        }
-                        let ext = rawURL.pathExtension.uppercased()
-                        if ["JPG", "JPEG", "JPE", "HEIC", "HEIF"].contains(ext) {
-                            return (index, thumbURL.path, rawURL.path)
-                        }
-                        return (index, thumbURL.path, nil)
+                            // Never point a record at a failed extraction.
+                            guard FileManager.default.fileExists(atPath: thumbURL.path) else {
+                                return (index, nil as String?)
+                            }
+                            return (index, thumbURL.path)
+                        }.value
                     }
                 }
-                for await (index, thumbPath, proxyPath) in group {
-                    if let thumbPath { records[index].thumbPath = thumbPath }
-                    if let proxyPath { records[index].proxyPath = proxyPath }
+                for await (index, thumbPath) in group {
+                    if let thumbPath {
+                        records[index].thumbPath = thumbPath
+                    }
                 }
             }
             await onUpdate(records)

@@ -15,11 +15,12 @@ struct LuminaPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.title3.weight(.semibold))
-            .padding(.horizontal, 22)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 14)
+            .frame(minHeight: 48)
             .background(Color.accentColor.opacity(configuration.isPressed ? 0.75 : 1), in: Capsule())
             .foregroundStyle(.white)
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.24, dampingFraction: 0.68), value: configuration.isPressed)
     }
 }
@@ -111,11 +112,11 @@ struct LuminaFooterBar<Content: View>: View {
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 14) {
             content()
         }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(.ultraThinMaterial)
         .overlay(alignment: .top) {
             Divider()
