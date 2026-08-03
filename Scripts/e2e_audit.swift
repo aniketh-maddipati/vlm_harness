@@ -319,13 +319,30 @@ if sourceContains(contentView, "removeMonitor(keyMonitor)") {
     note("bug", "ux", "NSEvent monitor may leak", "ContentView missing removeMonitor on disappear")
 }
 
-if sourceContains(vmPath, "sessionPhase = .meet") && sourceContains(repoRoot.appendingPathComponent("Lumina/Views/SessionSpineView.swift").path, "Meet") == false
-    && sourceContains(repoRoot.appendingPathComponent("Lumina/Views/UncertainAndClusterViews.swift").path, "SessionSpineView") {
-    note("pass", "ux", "Import lands on Meet spine", "Linear Meet → Pick → Decide → Export")
-} else if sourceContains(vmPath, "sessionPhase = .meet") {
-    note("pass", "ux", "Import lands on Meet spine", "No parallel mode matrix after import")
+let projectModel = repoRoot.appendingPathComponent("Lumina/Models/PhotoRecord.swift").path
+let sessionView = repoRoot.appendingPathComponent("Lumina/Views/UncertainAndClusterViews.swift").path
+if !sourceContains(vmPath, "sessionPhase")
+    && sourceContains(projectModel, "cursorPhotoID")
+    && sourceContains(sessionView, "DerivedSessionView") {
+    note("pass", "ux", "Derived session has no stored phase", "Persistent PhotoID cursor + ephemeral lens")
 } else {
-    note("bug", "ux", "Import mode flash", "Import may not enter Meet phase")
+    note("bug", "ux", "Stored wizard state remains", "Expected cursor-derived session without sessionPhase")
+}
+
+if sourceContains(vmPath, "applyRefinementAheadOfCursor")
+    && sourceContains(vmPath, "let protectedIDs")
+    && sourceContains(projectModel, "settledAt") {
+    note("pass", "frontier", "Refinement respects identity frontier", "Cursor prefix and materialized settled records stay immutable")
+} else {
+    note("bug", "frontier", "Refinement can cross cursor", "Expected protected identity prefix and ahead-only merge")
+}
+
+if sourceContains(vmPath, "func acceptPile")
+    && sourceContains(projectModel, "decisionLedger")
+    && sourceContains(sessionView, "rescuedIDs") {
+    note("pass", "audit", "Rescue-only piles use durable ledger", "Reason grouped, confidence sorted, accepted events persist")
+} else {
+    note("bug", "audit", "Audit ledger incomplete", "Expected acceptPile, rescuedIDs, and decisionLedger")
 }
 
 if sourceContains(exportSvc, "filter { $0.tier == .keep }") {
@@ -360,10 +377,10 @@ if sourceContains(vmPath, "pickRAWFolder") && sourceContains(vmPath, "tasteStren
     note("friction", "product", "Taste-first import missing", "Need RAW folder picker and tasteStrength on project")
 }
 
-if sourceContains(contentView, "TasteStrengthPanel") && sourceContains(contentView, "Resume last project") {
-    note("pass", "product", "Taste panel + resume", "Sidebar shows extracted look and last project")
+if sourceContains(sessionView, "tastePortrait") && sourceContains(contentView, "Resume") {
+    note("pass", "product", "Taste portrait + resume", "Title overlay reflects learned rescue feedback")
 } else {
-    note("friction", "product", "Taste sidebar incomplete", "Missing TasteStrengthPanel or resume UX")
+    note("friction", "product", "Taste portrait incomplete", "Missing learned portrait or resume UX")
 }
 
 if sourceContains(repoRoot.appendingPathComponent("Lumina/Views/ExportPayoffSheet.swift").path, "Ready to post") {
@@ -372,10 +389,10 @@ if sourceContains(repoRoot.appendingPathComponent("Lumina/Views/ExportPayoffShee
     note("friction", "product", "Export payoff missing", "No in-app export summary")
 }
 
-if sourceContains(vmPath, "undoLastStack") && sourceContains(vmPath, "sessionSummary") {
-    note("pass", "agent", "Trust layer present", "Stack undo + session summary")
+if sourceContains(projectModel, "decisionLedger") && sourceContains(vmPath, "sessionSummary") {
+    note("pass", "agent", "Trust layer present", "Durable decision ledger + session summary")
 } else {
-    note("friction", "agent", "Trust layer incomplete", "Missing undo or session summary")
+    note("friction", "agent", "Trust layer incomplete", "Missing decision ledger or session summary")
 }
 
 let latencyPath = repoRoot.appendingPathComponent("Lumina/Services/LatencyMetrics.swift").path
@@ -428,8 +445,9 @@ if sourceContains(vmPath, "prefetchStackFeed") {
     note("friction", "perf", "Stack prefetch missing", "StackFeedView lacks scroll-ahead")
 }
 
-if sourceContains(contentView, "case \"f\"") && sourceContains(contentView, "case \"p\"") && sourceContains(contentView, "advanceFrame") {
-    note("pass", "ux", "Cull keys mapped", "F/D navigate · P/X keep/reject · M flag")
+if sourceContains(contentView, "case \"f\"") && sourceContains(contentView, "case \"p\"")
+    && sourceContains(contentView, "case \"m\"") && sourceContains(contentView, "advanceFrame") {
+    note("pass", "ux", "Cull keys mapped", "F/D navigate · P/X keep/reject · M audit")
 } else {
     note("friction", "ux", "Cull keys incomplete", "Missing F/D/P/X/M global anchors")
 }

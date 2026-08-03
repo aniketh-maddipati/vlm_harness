@@ -1,24 +1,18 @@
 import SwiftUI
 
-/// Single canvas — linear session spine with optional grid overview lens.
+/// One stable session stage. Posture and lenses rearrange content without replacing the host.
 struct UnifiedCanvasView: View {
     @Bindable var model: ProjectViewModel
 
     var body: some View {
-        ZStack {
+        Group {
             if model.project == nil || model.totalCount == 0, !model.isImporting {
                 emptyPrompt
-            } else if model.showGridOverview {
-                GridOverviewView(model: model)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
             } else {
-                SessionSpineView(model: model)
-                    .transition(.opacity)
+                DerivedSessionView(model: model)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.easeInOut(duration: 0.35), value: model.sessionPhase)
-        .animation(.easeInOut(duration: 0.35), value: model.showGridOverview)
     }
 
     private var emptyPrompt: some View {
@@ -28,7 +22,7 @@ struct UnifiedCanvasView: View {
                 .foregroundStyle(.tertiary)
             Text("Import a shoot to begin")
                 .font(.title2.weight(.semibold))
-            Text("RAW folder + optional edited JPGs for taste. You'll move through Meet → Pick → Decide → Export.")
+            Text("RAW folder + optional edited JPGs for taste. Review one canvas, then audit the model's shakiest calls.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

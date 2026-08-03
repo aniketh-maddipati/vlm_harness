@@ -76,9 +76,3 @@ struct FeedbackEvent: Codable, Identifiable, Equatable {
     var timestamp: Date = Date()
     var weight: Double = 1.0
 }
-
-struct StackUndoSnapshot: Equatable {
-    var clusterID: String
-    var photoTiers: [UUID: PhotoTier]
-    var timestamp: Date = Date()
-}

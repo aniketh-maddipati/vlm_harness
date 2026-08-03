@@ -281,6 +281,7 @@ enum SessionCache {
     static func beginEditingSession(projectName: String) {
         Task { await PhotoImageCache.shared.beginSession(projectName: projectName) }
         LatencyMetrics.resetSession()
+        MetalCanvasLifecycle.beginSession()
     }
 
     @MainActor

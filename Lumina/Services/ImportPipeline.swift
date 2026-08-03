@@ -137,7 +137,6 @@ enum ImportPipeline {
         }
         CullEngine.scoreAndTier(&records, keepRate: keepRate)
         CullEngine.assignConfidence(&records)
-        _ = PhotoAgentOrchestrator.autoResolveHighConfidence(in: &records, threshold: 0.88)
 
         // Merge capture dates if ready (non-blocking timeout feel — await briefly).
         let dates = await datesTask
@@ -505,12 +504,6 @@ enum ImportPipeline {
         CullEngine.scoreAndTier(&records, keepRate: keepRate)
         CullEngine.assignBurstClusters(&records)
         CullEngine.assignConfidence(&records)
-
-        var actions = PhotoAgentOrchestrator.autoResolveHighConfidence(
-            in: &records,
-            threshold: 0.85
-        )
-        _ = actions
 
         var project = LuminaProject(
             name: projectName,

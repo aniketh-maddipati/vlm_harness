@@ -1,5 +1,7 @@
 import Foundation
 
+typealias PhotoID = UUID
+
 // MARK: - Tiers & sort
 
 enum PhotoTier: String, Codable, CaseIterable {
@@ -53,6 +55,68 @@ enum UncertaintyKind: String, Codable, Hashable {
     case cullBorderline
     case editLowConfidence
     case none
+}
+
+enum SessionLens: Equatable {
+    case grid
+    case audit(AuditReason)
+}
+
+enum AuditReason: String, Codable, CaseIterable, Hashable, Identifiable {
+    case cullTie
+    case cullBorderline
+    case editLowConfidence
+    case hardReject
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .cullTie: "Near duplicates"
+        case .cullBorderline: "Borderline calls"
+        case .editLowConfidence: "Low-confidence edits"
+        case .hardReject: "Sharpness rejects"
+        }
+    }
+}
+
+struct AuditPile: Identifiable, Equatable {
+    var reason: AuditReason
+    var photos: [PhotoRecord]
+
+    var id: AuditReason { reason }
+}
+
+enum DecisionEventKind: String, Codable {
+    case rescued
+    case pileAccepted
+}
+
+struct DecisionEvent: Codable, Identifiable, Equatable {
+    var id: UUID = UUID()
+    var kind: DecisionEventKind
+    var reason: AuditReason
+    var photoIDs: [PhotoID]
+    var proposedTiers: [PhotoID: PhotoTier]
+    var confidenceByPhoto: [PhotoID: Double]
+    var timestamp: Date = Date()
+}
+
+struct AuditReasonMetrics: Equatable {
+    var proposed: Int
+    var rescued: Int
+    var seeded: Int
+    var seedsCaught: Int
+
+    var rescueRate: Double {
+        guard proposed > 0 else { return 0 }
+        return Double(rescued) / Double(proposed)
+    }
+
+    var seedCatchRate: Double {
+        guard seeded > 0 else { return 1 }
+        return Double(seedsCaught) / Double(seeded)
+    }
 }
 
 enum ExportAspect: String, CaseIterable, Identifiable, Codable {
@@ -307,6 +371,11 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
     var tasteMatch: Double
 
     var tier: PhotoTier
+    /// Agent recommendation. It is materialized into `tier` only when the user accepts its pile.
+    var proposedTier: PhotoTier?
+    var userDecidedAt: Date?
+    /// Materialized frontier membership; once set, background refinement may never reshape this record.
+    var settledAt: Date?
     var isFlagged: Bool
     var isBurstHero: Bool
     var isClusterHero: Bool
@@ -342,6 +411,9 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         editConfidence: Double = 1,
         tasteMatch: Double = 0.5,
         tier: PhotoTier = .unranked,
+        proposedTier: PhotoTier? = nil,
+        userDecidedAt: Date? = nil,
+        settledAt: Date? = nil,
         isFlagged: Bool = false,
         isBurstHero: Bool = true,
         isClusterHero: Bool = true,
@@ -374,6 +446,9 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         self.editConfidence = editConfidence
         self.tasteMatch = tasteMatch
         self.tier = tier
+        self.proposedTier = proposedTier
+        self.userDecidedAt = userDecidedAt
+        self.settledAt = settledAt
         self.isFlagged = isFlagged
         self.isBurstHero = isBurstHero
         self.isClusterHero = isClusterHero
@@ -394,6 +469,18 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
 
     var isUncertain: Bool {
         isFlagged || uncertaintyKind != .none
+    }
+
+    var auditReason: AuditReason? {
+        if sharpness < 0.12, proposedTier == .reject {
+            return .hardReject
+        }
+        switch uncertaintyKind {
+        case .cullTie: return .cullTie
+        case .cullBorderline: return .cullBorderline
+        case .editLowConfidence: return .editLowConfidence
+        case .none: return nil
+        }
     }
 
     var whySummary: String {
@@ -418,7 +505,7 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         case capturedAt, burstID, clusterID, clusterLabel
         case sharpness, exposureHealth, faceQuality, aesthetic, compositeQuality, faceDetected
         case cullScore, cullConfidence, editConfidence, tasteMatch
-        case tier, isFlagged, isBurstHero, isClusterHero
+        case tier, proposedTier, userDecidedAt, settledAt, isFlagged, isBurstHero, isClusterHero
         case uncertaintyKind, whyUncertain, whyAction, recipe, embedding
     }
 
@@ -447,6 +534,9 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         editConfidence = try c.decodeIfPresent(Double.self, forKey: .editConfidence) ?? 1
         tasteMatch = try c.decodeIfPresent(Double.self, forKey: .tasteMatch) ?? 0.5
         tier = try c.decodeIfPresent(PhotoTier.self, forKey: .tier) ?? .unranked
+        proposedTier = try c.decodeIfPresent(PhotoTier.self, forKey: .proposedTier)
+        userDecidedAt = try c.decodeIfPresent(Date.self, forKey: .userDecidedAt)
+        settledAt = try c.decodeIfPresent(Date.self, forKey: .settledAt)
         isFlagged = try c.decodeIfPresent(Bool.self, forKey: .isFlagged) ?? false
         isBurstHero = try c.decodeIfPresent(Bool.self, forKey: .isBurstHero) ?? true
         isClusterHero = try c.decodeIfPresent(Bool.self, forKey: .isClusterHero) ?? true
@@ -489,11 +579,18 @@ struct LuminaProject: Codable {
     var tasteStrength: Double = 1.0
     var photos: [PhotoRecord] = []
     var collections: [ExportCollection] = []
+    /// Durable identity cursor. Lens is deliberately view-only and is never encoded.
+    var cursorPhotoID: PhotoID?
+    /// Materialized user acceptance/rescue history; append-only.
+    var decisionLedger: [DecisionEvent] = []
+    /// Known-good QA fixtures intentionally placed in proposal piles.
+    var auditSeedPhotoIDs: Set<PhotoID> = []
     var createdAt: Date = Date()
 
     enum CodingKeys: String, CodingKey {
         case name, rawFolder, jpgFolder, keepRateTarget, jobBrief, profile
-        case tasteSourceCount, tasteStrength, photos, collections, createdAt
+        case tasteSourceCount, tasteStrength, photos, collections, cursorPhotoID, decisionLedger
+        case auditSeedPhotoIDs, createdAt
         case globalAdjustments
     }
 
@@ -508,6 +605,9 @@ struct LuminaProject: Codable {
         tasteStrength: Double = 1.0,
         photos: [PhotoRecord] = [],
         collections: [ExportCollection] = [],
+        cursorPhotoID: PhotoID? = nil,
+        decisionLedger: [DecisionEvent] = [],
+        auditSeedPhotoIDs: Set<PhotoID> = [],
         createdAt: Date = Date()
     ) {
         self.name = name
@@ -520,6 +620,9 @@ struct LuminaProject: Codable {
         self.tasteStrength = tasteStrength
         self.photos = photos
         self.collections = collections
+        self.cursorPhotoID = cursorPhotoID
+        self.decisionLedger = decisionLedger
+        self.auditSeedPhotoIDs = auditSeedPhotoIDs
         self.createdAt = createdAt
     }
 
@@ -535,6 +638,9 @@ struct LuminaProject: Codable {
         tasteStrength = try c.decodeIfPresent(Double.self, forKey: .tasteStrength) ?? 1.0
         photos = try c.decodeIfPresent([PhotoRecord].self, forKey: .photos) ?? []
         collections = try c.decodeIfPresent([ExportCollection].self, forKey: .collections) ?? []
+        cursorPhotoID = try c.decodeIfPresent(PhotoID.self, forKey: .cursorPhotoID)
+        decisionLedger = try c.decodeIfPresent([DecisionEvent].self, forKey: .decisionLedger) ?? []
+        auditSeedPhotoIDs = try c.decodeIfPresent(Set<PhotoID>.self, forKey: .auditSeedPhotoIDs) ?? []
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
 
@@ -550,6 +656,9 @@ struct LuminaProject: Codable {
         try c.encode(tasteStrength, forKey: .tasteStrength)
         try c.encode(photos, forKey: .photos)
         try c.encode(collections, forKey: .collections)
+        try c.encodeIfPresent(cursorPhotoID, forKey: .cursorPhotoID)
+        try c.encode(decisionLedger, forKey: .decisionLedger)
+        try c.encode(auditSeedPhotoIDs, forKey: .auditSeedPhotoIDs)
         try c.encode(createdAt, forKey: .createdAt)
     }
 }

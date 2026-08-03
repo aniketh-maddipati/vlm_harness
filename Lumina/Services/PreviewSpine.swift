@@ -191,6 +191,26 @@ final class PreviewSpine {
         previewPathByID[id]
     }
 
+    /// Single fidelity gateway for session photo pixels. PhotoImageCache stays internal.
+    func fidelityImage(for photo: PhotoRecord, maxPixelSize: Int = 512) async -> NSImage? {
+        let candidates = [
+            previewPathByID[photo.id],
+            photo.gridThumbPath,
+            photo.thumbPath,
+            photo.proxyPath,
+        ].compactMap { $0 }.filter { !$0.isEmpty }
+        for path in candidates {
+            if Task.isCancelled { return nil }
+            let outcome = await PhotoImageCache.shared.load(
+                path: path,
+                maxPixelSize: maxPixelSize,
+                allowRAW: false
+            )
+            if case .image(let image) = outcome { return image }
+        }
+        return nil
+    }
+
     /// Called by Metal canvas when a drawable is presented — true input→photon.
     func recordPhotonPresent(inputTime: CFAbsoluteTime) {
         let ms = (CFAbsoluteTimeGetCurrent() - inputTime) * 1000

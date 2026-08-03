@@ -270,7 +270,7 @@ struct SilhouetteDwellViewer: View {
         dwellTask?.cancel()
         renderTask?.cancel()
         dwellStage = .silhouette
-        model.selectPhoto(photoID)
+        model.setCursor(photoID)
         model.softRender.snapBefore()
         model.showBefore = false
 
