@@ -37,6 +37,8 @@ final class ProjectViewModel {
     var speedHUDPulse: Int = 0
     private var catalogBackgroundTask: Task<Void, Never>?
     private var undoSnapshots: [StackUndoSnapshot] = []
+    /// Cluster/tier reshape waiting for a session boundary (advance set / export / idle).
+    private var stagedRefinementPhotos: [PhotoRecord]?
 
     /// Linear session spine — no parallel mode matrix.
     enum SessionPhase: String, Equatable {
@@ -168,9 +170,12 @@ final class ProjectViewModel {
                 withAnimation(.easeInOut(duration: 0.55)) {
                     importProgress = progress
                 }
-                statusMessage = progress.detail
+                // Stop once Meet opens (isImporting → false) so "Grouping similar…" can't stick forever.
+                if isImporting {
+                    statusMessage = progress.detail
+                }
             case .status(let msg):
-                statusMessage = msg
+                if isImporting { statusMessage = msg }
             case .photosReady(let photos, let profile):
                 let p = LuminaProject(
                     name: sourceFolder.lastPathComponent,
@@ -186,15 +191,13 @@ final class ProjectViewModel {
                 }
                 selectedPhotoID = photos.first?.id
             case .photosUpdated(let photos):
-                // Live refine after cull opens — preserve selection & phase.
-                if project != nil {
-                    project?.photos = photos
-                    importPreviewPhotos = photos
-                } else {
-                    withAnimation(.easeInOut(duration: 0.35)) {
-                        project?.photos = photos
-                        importPreviewPhotos = photos
-                    }
+                // Path/proxy refine only — merge into live session without reshaping clusters.
+                mergePathUpdates(from: photos)
+            case .refinementReady(let photos):
+                stagedRefinementPhotos = photos
+                // Apply immediately only when no interactive session can be disrupted.
+                if sessionPhase == .export || project == nil {
+                    applyStagedRefinementIfNeeded()
                 }
             case .finished(let finished):
                 var finished = finished
@@ -221,6 +224,10 @@ final class ProjectViewModel {
                 let sets = reviewClusters.count
                 statusMessage = "Meet set 1 · \(sets) groups · refining in background"
                 warmBrowseSpine(photos: finished.photos)
+                // Prefetch first two Meet sets so cards paint instantly.
+                let clusters = CullEngine.clusters(from: finished.photos)
+                if let first = clusters.first { warmClusterMembers(first) }
+                if clusters.count > 1 { warmClusterMembers(clusters[1], paintFocus: false) }
             case .failed(let msg):
                 statusMessage = msg
                 withAnimation(.easeInOut(duration: 0.35)) {
@@ -695,6 +702,7 @@ final class ProjectViewModel {
             reapplyTasteAndUncertainty()
         }
         self.project = project
+        refreshExportCollections()
         persistDebounced()
         syncActiveCatalogStats()
     }
@@ -745,6 +753,7 @@ final class ProjectViewModel {
         ))
         TasteLearning.learnFromUserDecision(photo: project.photos[index], kind: .hero, projectName: project.name)
         self.project = project
+        refreshExportCollections()
         persistDebounced()
         reapplyTasteAndUncertainty()
         advanceAfterDecision()
@@ -797,6 +806,7 @@ final class ProjectViewModel {
     }
 
     func advanceCluster() {
+        applyStagedRefinementIfNeeded()
         let all = reviewClusters
         guard !all.isEmpty else {
             completeSession()
@@ -809,18 +819,25 @@ final class ProjectViewModel {
         activeClusterIndex += 1
         sessionPhase = .meet
         manualPickIDs = []
+        warmClusterMembers(all[activeClusterIndex])
         if let hero = all[activeClusterIndex].heroID {
             selectPhoto(hero)
+        }
+        // Prefetch the set after this one so next advance is warm.
+        if activeClusterIndex + 1 < all.count {
+            warmClusterMembers(all[activeClusterIndex + 1], paintFocus: false)
         }
         statusMessage = "Set \(activeClusterIndex + 1)/\(all.count) · \(all[activeClusterIndex].whyGrouped)"
     }
 
     func previousCluster() {
+        applyStagedRefinementIfNeeded()
         let all = reviewClusters
         guard !all.isEmpty else { return }
         activeClusterIndex = max(activeClusterIndex - 1, 0)
         sessionPhase = .meet
         manualPickIDs = []
+        warmClusterMembers(all[activeClusterIndex])
         if let hero = all[activeClusterIndex].heroID {
             selectPhoto(hero)
         }
@@ -829,11 +846,23 @@ final class ProjectViewModel {
     func advanceFromMeet() {
         guard let cluster = currentCluster else { return }
         let members = cluster.photoIDs.compactMap { id in project?.photos.first { $0.id == id } }
+        PreviewSpine.shared.warm(photos: members, focus: members.first?.id)
         ThumbCache.shared.prefetchPhotos(members, maxPixelSize: 512)
-        withAnimation(.easeInOut(duration: 0.32)) {
+        withAnimation(.easeInOut(duration: 0.22)) {
             sessionPhase = .pick
             seedPickFromHero(cluster: cluster)
         }
+    }
+
+    /// Warm PreviewSpine + session thumb cache for a set so Meet/Pick never open cold.
+    private func warmClusterMembers(_ cluster: PhotoCluster, paintFocus: Bool = true) {
+        let members = cluster.photoIDs.compactMap { id in project?.photos.first { $0.id == id } }
+        guard !members.isEmpty else { return }
+        PreviewSpine.shared.warm(
+            photos: members,
+            focus: paintFocus ? (cluster.heroID ?? members.first?.id) : members.first?.id
+        )
+        ThumbCache.shared.prefetchPhotos(members, maxPixelSize: 512)
     }
 
     // MARK: - Group pick flow
@@ -882,6 +911,7 @@ final class ProjectViewModel {
             }
         }
         self.project = project
+        refreshExportCollections()
         persistDebounced()
         agentLog.append(AgentAction(
             photoID: cluster.heroID ?? cluster.photoIDs[0],
@@ -920,6 +950,7 @@ final class ProjectViewModel {
 
     func completeSession() {
         guard project != nil else { return }
+        applyStagedRefinementIfNeeded()
         syncActiveCatalogStats()
         SessionCache.endEditingSession(clearBrowseSpine: true)
         let feedbackCount = (try? FeedbackStore.load(project: project!.name).count) ?? 0
@@ -949,6 +980,7 @@ final class ProjectViewModel {
         }
         CullEngine.assignConfidence(&project.photos)
         self.project = project
+        refreshExportCollections()
         persistDebounced()
         statusMessage = "Undid changes to set"
     }
@@ -1009,7 +1041,8 @@ final class ProjectViewModel {
                         carouselFolder: outcome.carouselFolder,
                         imageURLs: outcome.carouselImageURLs,
                         tasteSummary: self.tasteSummaryText,
-                        keepCount: self.keepCount
+                        keepCount: self.keepCount,
+                        highlightCount: outcome.carouselImageURLs.count
                     )
                     self.showExportPayoff = true
                     self.persistDebounced()
@@ -1037,6 +1070,69 @@ final class ProjectViewModel {
     private func persistDebounced() {
         guard let project else { return }
         ProjectStore.saveDebounced(project)
+    }
+
+    /// Recompute export collections (carousel burst heroes, etc.) from current tiers.
+    private func refreshExportCollections() {
+        guard var project else { return }
+        project.collections = ExportService.draftCollections(from: project.photos)
+        self.project = project
+    }
+
+    /// Merge thumb/proxy path updates into the live session without changing cluster identity.
+    private func mergePathUpdates(from updates: [PhotoRecord]) {
+        guard var live = project else {
+            importPreviewPhotos = updates
+            return
+        }
+        let byID = Dictionary(uniqueKeysWithValues: updates.map { ($0.id, $0) })
+        for i in live.photos.indices {
+            guard let u = byID[live.photos[i].id] else { continue }
+            if let p = u.thumbPath { live.photos[i].thumbPath = p }
+            if let p = u.gridThumbPath { live.photos[i].gridThumbPath = p }
+            if let p = u.proxyPath { live.photos[i].proxyPath = p }
+            live.photos[i].previewOrigin = u.previewOrigin
+            live.photos[i].previewLongEdge = u.previewLongEdge
+        }
+        project = live
+        importPreviewPhotos = live.photos
+        warmBrowseSpine(photos: live.photos)
+        if let cluster = currentCluster {
+            warmClusterMembers(cluster)
+        }
+    }
+
+    /// Apply staged embed/cluster/score at a session boundary; preserve user cull decisions.
+    private func applyStagedRefinementIfNeeded() {
+        guard var live = project, let staged = stagedRefinementPhotos else { return }
+        let liveByID = Dictionary(uniqueKeysWithValues: live.photos.map { ($0.id, $0) })
+        var merged = staged
+        for i in merged.indices {
+            guard let current = liveByID[merged[i].id] else { continue }
+            merged[i].tier = current.tier
+            merged[i].isFlagged = current.isFlagged
+            merged[i].isBurstHero = current.isBurstHero
+            merged[i].isClusterHero = current.isClusterHero
+            merged[i].whyAction = current.whyAction
+            merged[i].uncertaintyKind = current.uncertaintyKind
+            merged[i].whyUncertain = current.whyUncertain
+            merged[i].cullConfidence = current.cullConfidence
+            if merged[i].thumbPath == nil { merged[i].thumbPath = current.thumbPath }
+            if merged[i].gridThumbPath == nil { merged[i].gridThumbPath = current.gridThumbPath }
+            if merged[i].proxyPath == nil { merged[i].proxyPath = current.proxyPath }
+        }
+        live.photos = merged
+        live.collections = ExportService.draftCollections(from: merged)
+        project = live
+        importPreviewPhotos = merged
+        stagedRefinementPhotos = nil
+        refreshExportCollections()
+        warmBrowseSpine(photos: merged)
+        // Keep active set index in range after cluster reshape.
+        let clusters = reviewClusters
+        if !clusters.isEmpty {
+            activeClusterIndex = min(activeClusterIndex, clusters.count - 1)
+        }
     }
 
     func uncertainInCluster(_ cluster: PhotoCluster) -> [PhotoRecord] {

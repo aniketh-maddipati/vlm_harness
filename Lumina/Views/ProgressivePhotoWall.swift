@@ -1,185 +1,227 @@
 import AppKit
 import SwiftUI
 
-/// Screen-fit photo grid that reveals loaded previews slowly — no horizontal scroll, no thundering herd.
+/// Screen-fit photo grid — all paths render immediately; tiles self-load async.
+/// Used by ImportLoadingView (streaming ingest) and Meet when paths are available.
 struct ProgressivePhotoWall: View {
     var paths: [String]
     var maxSlots: Int?
     var revealIntervalMs: UInt64 = 380
     var prefetchAhead: Int = 4
 
-    @State private var displayed: [String] = []
-    @State private var pending: [String] = []
-    @State private var revealTask: Task<Void, Never>?
-    @State private var slotCount = 6
-
     var body: some View {
         GeometryReader { geo in
             let layout = FitGridLayout.compute(in: geo.size, spacing: 10, aspect: 4 / 3)
-            let slots = maxSlots ?? layout.slots
             let columns = layout.columns
+            let visible = Array(paths.filter { !$0.isEmpty }.prefix(maxSlots ?? paths.count))
 
-            LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: columns),
-                spacing: 10
-            ) {
-                ForEach(displayed, id: \.self) { path in
-                    ProgressiveWallTile(path: path)
-                        .aspectRatio(4 / 3, contentMode: .fill)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                }
-
-                ForEach(0..<max(0, slots - displayed.count), id: \.self) { _ in
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.secondary.opacity(0.08))
-                        .aspectRatio(4 / 3, contentMode: .fill)
-                        .overlay {
-                            ProgressView()
-                                .controlSize(.small)
-                                .opacity(0.35)
-                        }
-                }
-            }
-            .padding(.horizontal, 20)
-            .animation(.easeOut(duration: 0.42), value: displayed)
-            .onAppear {
-                slotCount = slots
-                syncPaths(paths, slotLimit: slots)
-            }
-            .onChange(of: paths) { _, new in
-                syncPaths(new, slotLimit: slots)
-            }
-            .onChange(of: geo.size) { _, new in
-                let updated = FitGridLayout.compute(in: new, spacing: 10, aspect: 4 / 3).slots
-                slotCount = maxSlots ?? updated
-            }
-        }
-    }
-
-    private func syncPaths(_ incoming: [String], slotLimit: Int) {
-        let unique = incoming.filter { !$0.isEmpty }
-        let known = Set(displayed + pending)
-        let fresh = unique.filter { !known.contains($0) }
-        guard !fresh.isEmpty else { return }
-
-        pending.append(contentsOf: fresh)
-        prefetchWindow(from: unique, slotLimit: slotLimit)
-        startReveal(slotLimit: slotLimit)
-    }
-
-    private func prefetchWindow(from all: [String], slotLimit: Int) {
-        let tail = Array(all.suffix(slotLimit + prefetchAhead))
-        ThumbCache.shared.prefetchPaths(tail, maxPixelSize: 512, allowRAW: false)
-    }
-
-    private func startReveal(slotLimit: Int) {
-        revealTask?.cancel()
-        revealTask = Task {
-            while !Task.isCancelled {
-                let next: String? = await MainActor.run {
-                    guard !pending.isEmpty else { return nil }
-                    return pending.removeFirst()
-                }
-                guard let next else { break }
-
-                _ = await PhotoImageCache.shared.load(path: next, maxPixelSize: 512, allowRAW: false)
-                guard !Task.isCancelled else { break }
-
-                await MainActor.run {
-                    withAnimation(.easeOut(duration: 0.45)) {
-                        if displayed.count >= slotLimit {
-                            displayed.removeFirst()
-                        }
-                        displayed.append(next)
+            ScrollView {
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: max(columns, 1)),
+                    spacing: 10
+                ) {
+                    ForEach(visible, id: \.self) { path in
+                        ProgressiveWallTile(path: path)
+                            .aspectRatio(4 / 3, contentMode: .fill)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                 }
-                try? await Task.sleep(nanoseconds: revealIntervalMs * 1_000_000)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            }
+            .scrollIndicators(.hidden)
+            .onAppear {
+                ThumbCache.shared.prefetchPaths(visible, maxPixelSize: 512, allowRAW: false)
+            }
+            .onChange(of: paths) { _, new in
+                let next = Array(new.filter { !$0.isEmpty }.prefix(maxSlots ?? new.count))
+                ThumbCache.shared.prefetchPaths(next, maxPixelSize: 512, allowRAW: false)
             }
         }
     }
 }
 
-/// Pick / Meet wall — same progressive reveal for `PhotoRecord` sets.
+// MARK: - Session grid (Meet + Pick) — one cell per photo immediately
+
+/// Even photo wall for a finite known set. Shows every member in one frame.
+struct SessionPhotoGrid: View {
+    let photos: [PhotoRecord]
+    var selected: Set<UUID> = []
+    var onToggle: ((UUID) -> Void)? = nil
+    var columnsHint: Int? = nil
+
+    var body: some View {
+        GeometryReader { geo in
+            let layout = FitGridLayout.compute(in: geo.size, spacing: 8, aspect: 4 / 3)
+            let columns = columnsHint ?? min(max(layout.columns, 2), photos.count > 1 ? 5 : 1)
+
+            ScrollView {
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: max(columns, 1)),
+                    spacing: 8
+                ) {
+                    ForEach(photos) { photo in
+                        if let onToggle {
+                            PickWallCard(
+                                photo: photo,
+                                selected: selected.contains(photo.id),
+                                onToggle: { onToggle(photo.id) }
+                            )
+                        } else {
+                            SessionWallTile(photo: photo)
+                        }
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
+            }
+            .scrollIndicators(.hidden)
+            .onAppear { warmSessionCache() }
+            .onChange(of: photos.map(\.id)) { _, _ in warmSessionCache() }
+        }
+    }
+
+    private func warmSessionCache() {
+        guard !photos.isEmpty else { return }
+        PreviewSpine.shared.warm(photos: photos, focus: photos.first?.id)
+        ThumbCache.shared.prefetchPhotos(photos, maxPixelSize: 512)
+    }
+}
+
+/// Pick wall — bind directly to `photos`; no gated reveal.
 struct ProgressivePickWall: View {
     let photos: [PhotoRecord]
     let selected: Set<UUID>
     var onToggle: (UUID) -> Void
-    var revealIntervalMs: UInt64 = 320
+    var revealIntervalMs: UInt64 = 0
     var batchSize: Int = 2
-
-    @State private var visibleIDs: [UUID] = []
-    @State private var revealTask: Task<Void, Never>?
-
-    private var visiblePhotos: [PhotoRecord] {
-        let order = Dictionary(uniqueKeysWithValues: visibleIDs.enumerated().map { ($0.element, $0.offset) })
-        return photos
-            .filter { order[$0.id] != nil }
-            .sorted { (order[$0.id] ?? 0) < (order[$1.id] ?? 0) }
-    }
 
     var body: some View {
         GeometryReader { geo in
-            let layout = FitGridLayout.compute(in: geo.size, spacing: 12, aspect: 4 / 3)
-            let columns = layout.columns
+            let layout = FitGridLayout.compute(in: geo.size, spacing: 8, aspect: 4 / 3)
+            let columns = min(max(layout.columns, 2), photos.count > 1 ? 5 : 1)
 
             ScrollView {
                 LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: columns),
-                    spacing: 12
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: max(columns, 1)),
+                    spacing: 8
                 ) {
-                    ForEach(visiblePhotos) { photo in
+                    ForEach(photos) { photo in
                         PickWallCard(
                             photo: photo,
                             selected: selected.contains(photo.id),
                             onToggle: { onToggle(photo.id) }
                         )
-                        .transition(.opacity.combined(with: .scale(scale: 0.97)))
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 12)
-                .animation(.easeOut(duration: 0.35), value: visibleIDs)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
             }
+            .scrollIndicators(.hidden)
             .onAppear {
-                startReveal(total: photos.count)
-                prefetchNext(from: 0)
-            }
-            .onChange(of: photos.map(\.id)) { _, _ in
-                visibleIDs.removeAll()
-                startReveal(total: photos.count)
+                ThumbCache.shared.prefetchPhotos(photos, maxPixelSize: 512)
+                PreviewSpine.shared.warm(photos: photos, focus: photos.first?.id)
             }
         }
     }
+}
 
-    private func startReveal(total: Int) {
-        revealTask?.cancel()
-        guard total > 0 else { return }
-        revealTask = Task {
-            var index = 0
-            while index < total, !Task.isCancelled {
-                let batch = photos[index..<min(index + batchSize, total)]
-                for photo in batch {
-                    if let path = photo.gridThumbPath ?? photo.thumbPath {
-                        _ = await PhotoImageCache.shared.load(path: path, maxPixelSize: 512, allowRAW: false)
+private struct SessionWallTile: View {
+    let photo: PhotoRecord
+
+    var body: some View {
+        PhotoImageView(photo: photo, tier: .grid, contentMode: .fill)
+            .aspectRatio(4 / 3, contentMode: .fill)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+            )
+    }
+}
+
+/// Silhouette from PreviewSpine instantly, then session-cache fidelity — never an empty cell.
+struct SpineAwarePhotoTile: View {
+    let photo: PhotoRecord
+    var contentMode: ContentMode = .fill
+
+    @State private var image: NSImage?
+    @State private var failed = false
+    @State private var showingSilhouette = false
+
+    private var resolveKey: String {
+        [
+            photo.id.uuidString,
+            photo.gridThumbPath ?? "",
+            photo.thumbPath ?? "",
+            photo.proxyPath ?? "",
+        ].joined(separator: "|")
+    }
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(showingSilhouette ? .low : .high)
+                    .aspectRatio(contentMode: contentMode)
+            } else if failed {
+                Color.secondary.opacity(0.1)
+                    .overlay {
+                        Image(systemName: "photo")
+                            .foregroundStyle(.tertiary)
                     }
+            } else {
+                Color.secondary.opacity(0.08)
+            }
+        }
+        .task(id: resolveKey) {
+            await resolveFidelity()
+        }
+    }
+
+    private func resolveFidelity() async {
+        await MainActor.run { failed = false }
+
+        if let sil = PreviewSpine.shared.silhouetteImage(for: photo.id) {
+            await MainActor.run {
+                if image == nil || showingSilhouette {
+                    image = sil
+                    showingSilhouette = true
                 }
-                let ids = batch.map(\.id)
+            }
+        }
+
+        let candidates = [
+            photo.gridThumbPath,
+            photo.thumbPath,
+            photo.proxyPath,
+            PreviewSpine.shared.previewJPEGPath(for: photo.id),
+        ].compactMap { $0 }.filter { !$0.isEmpty }
+
+        guard !candidates.isEmpty else {
+            if image == nil { await MainActor.run { failed = true } }
+            return
+        }
+
+        for path in candidates {
+            if Task.isCancelled { return }
+            let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: 512, allowRAW: false)
+            if case .image(let img) = outcome {
                 await MainActor.run {
-                    withAnimation(.easeOut(duration: 0.4)) {
-                        visibleIDs.append(contentsOf: ids)
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        image = img
+                        showingSilhouette = false
+                        failed = false
                     }
                 }
-                prefetchNext(from: index + batchSize)
-                index += batchSize
-                try? await Task.sleep(nanoseconds: revealIntervalMs * 1_000_000)
+                return
             }
         }
-    }
 
-    private func prefetchNext(from index: Int) {
-        let slice = photos[index..<min(index + 8, photos.count)]
-        ThumbCache.shared.prefetchPhotos(Array(slice), maxPixelSize: 512)
+        if image == nil {
+            await MainActor.run { failed = true }
+        }
     }
 }
 
@@ -199,14 +241,13 @@ private struct ProgressiveWallTile: View {
                 Color.secondary.opacity(0.08)
             } else {
                 Color.secondary.opacity(0.06)
-                    .overlay { ProgressView().controlSize(.small).opacity(0.4) }
             }
         }
         .task(id: path) {
             let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: 512, allowRAW: false)
             switch outcome {
             case .image(let img):
-                withAnimation(.easeOut(duration: 0.35)) { image = img }
+                withAnimation(.easeOut(duration: 0.25)) { image = img }
             case .missing, .failed:
                 failed = true
             }
@@ -221,31 +262,27 @@ struct PickWallCard: View {
 
     var body: some View {
         Button(action: onToggle) {
-            VStack(alignment: .leading, spacing: 6) {
-                ZStack(alignment: .topTrailing) {
-                    PhotoImageView(photo: photo, tier: .grid, contentMode: .fill)
-                        .frame(maxWidth: .infinity)
-                        .aspectRatio(4 / 3, contentMode: .fill)
-                        .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+            ZStack(alignment: .topTrailing) {
+                PhotoImageView(photo: photo, tier: .grid, contentMode: .fill)
+                    .aspectRatio(4 / 3, contentMode: .fill)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-                    Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                        .font(.title2)
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, selected ? Color.accentColor : .white.opacity(0.45))
-                        .padding(8)
-                }
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(selected ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: selected ? 3 : 1)
-                )
-
-                Text(photo.filename)
-                    .font(.caption)
-                    .lineLimit(1)
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.title)
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, selected ? Color.accentColor : .white.opacity(0.5))
+                    .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                    .padding(8)
             }
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(selected ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: selected ? 3 : 1)
+            )
         }
-        .buttonStyle(LuminaPressStyle(pressedScale: 0.97))
+        .buttonStyle(LuminaPressStyle(pressedScale: 0.96))
+        .accessibilityLabel(photo.filename)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -258,16 +295,16 @@ enum FitGridLayout {
     }
 
     static func compute(in size: CGSize, spacing: CGFloat, aspect: CGFloat) -> Result {
-        let pad: CGFloat = 40
+        let pad: CGFloat = 28
         let availW = max(size.width - pad, 200)
         let availH = max(size.height - pad, 160)
-        let minCellW: CGFloat = 120
-        let maxCellW: CGFloat = 240
+        let minCellW: CGFloat = 110
+        let maxCellW: CGFloat = 220
 
         var best = Result(columns: 2, rows: 2, slots: 4, cellSize: CGSize(width: 160, height: 120))
         var bestScore = -1.0
 
-        for cols in 2...5 {
+        for cols in 2...6 {
             let cellW = (availW - spacing * CGFloat(cols - 1)) / CGFloat(cols)
             guard cellW >= minCellW else { continue }
             let w = min(cellW, maxCellW)

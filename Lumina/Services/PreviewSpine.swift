@@ -98,27 +98,43 @@ final class PreviewSpine {
 
     func warm(photos: [PhotoRecord], focus: UUID? = nil) {
         let newOrder = photos.map(\.id)
+        let newPreviewPaths: [UUID: String] = Dictionary(uniqueKeysWithValues: photos.compactMap { photo -> (UUID, String)? in
+            guard let path = photo.thumbPath ?? photo.gridThumbPath,
+                  Self.isBrowseSafePath(path) else { return nil }
+            return (photo.id, path)
+        })
+        let newSilhouettePaths: [UUID: String] = Dictionary(uniqueKeysWithValues: photos.compactMap { photo -> (UUID, String)? in
+            guard let path = photo.gridThumbPath ?? photo.thumbPath,
+                  Self.isBrowseSafePath(path) else { return nil }
+            return (photo.id, path)
+        })
+
+        // Same order but paths arrived late (common while "Grouping similar…" still runs).
         if newOrder == photoOrder, !photoOrder.isEmpty {
+            let pathsChanged = newPreviewPaths != previewPathByID || newSilhouettePaths != silhouettePathByID
+            if pathsChanged {
+                previewPathByID = newPreviewPaths
+                silhouettePathByID = newSilhouettePaths
+                let gen = generation
+                for id in photoOrder where silhouettes[id] == nil {
+                    enqueueSilhouette(id: id, generation: gen)
+                }
+                if let focus, let path = previewPathByID[focus], MetalPreviewPool.shared.texture(for: focus) == nil {
+                    enqueueGPU(id: focus, path: path, generation: gen, distanceBias: 0)
+                }
+            }
             if let focus {
                 paint(id: focus, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
             }
             return
         }
+
         generation &+= 1
         let gen = generation
         photoOrder = newOrder
         indexByID = Dictionary(uniqueKeysWithValues: photoOrder.enumerated().map { ($0.element, $0.offset) })
-
-        previewPathByID = Dictionary(uniqueKeysWithValues: photos.compactMap { photo in
-            guard let path = photo.thumbPath ?? photo.gridThumbPath,
-                  Self.isBrowseSafePath(path) else { return nil }
-            return (photo.id, path)
-        })
-        silhouettePathByID = Dictionary(uniqueKeysWithValues: photos.compactMap { photo in
-            guard let path = photo.gridThumbPath ?? photo.thumbPath,
-                  Self.isBrowseSafePath(path) else { return nil }
-            return (photo.id, path)
-        })
+        previewPathByID = newPreviewPaths
+        silhouettePathByID = newSilhouettePaths
 
         embeddedCount = photos.filter { $0.previewOrigin == .embedded }.count
         synthesizedCount = photos.filter { $0.previewOrigin == .synthesized }.count
@@ -163,6 +179,16 @@ final class PreviewSpine {
         lastInputToPhotonMs = 0
         gpuPrefetchHits = 0
         gpuPrefetchMisses = 0
+    }
+
+    /// Instant silhouette for Meet/Pick grids — never blocks; returns nil until decode lands.
+    func silhouetteImage(for id: UUID) -> NSImage? {
+        silhouettes[id]
+    }
+
+    /// Browse-safe JPEG path already registered in the warm spine.
+    func previewJPEGPath(for id: UUID) -> String? {
+        previewPathByID[id]
     }
 
     /// Called by Metal canvas when a drawable is presented — true input→photon.

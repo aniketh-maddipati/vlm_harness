@@ -7,21 +7,38 @@ import AppKit
 /// On-device Vision feature prints (+ histogram fallback) for composition similarity.
 /// No cloud model required — `VNGenerateImageFeaturePrintRequest` is Apple’s local embedding.
 enum EmbeddingService {
-    static func embedAndCluster(_ input: [PhotoRecord]) async -> [PhotoRecord] {
-        var photos = input
-        let indexed = Array(photos.indices)
+    private static var embedConcurrency: Int {
+        max(1, min(4, ProcessInfo.processInfo.activeProcessorCount / 2))
+    }
 
-        await withTaskGroup(of: (Int, [Float]?).self) { group in
-            for index in indexed {
-                group.addTask {
-                    let path = photos[index].displayThumbPath ?? photos[index].thumbPath
-                    let embedding = path.flatMap { embed(url: URL(fileURLWithPath: $0)) }
-                    return (index, embedding)
+    static func embedAndCluster(_ input: [PhotoRecord]) async -> [PhotoRecord] {
+        // Immutable snapshot — concurrent tasks never mutate a captured var mid-flight.
+        let snapshot = input
+        var results: [Int: [Float]?] = [:]
+        results.reserveCapacity(snapshot.count)
+
+        let indexed = Array(snapshot.indices)
+        for chunk in indexed.chunked(into: embedConcurrency) {
+            await withTaskGroup(of: (Int, [Float]?).self) { group in
+                for index in chunk {
+                    let path = snapshot[index].displayThumbPath ?? snapshot[index].thumbPath
+                    group.addTask {
+                        let embedding: [Float]? = await Task.detached(priority: .utility) {
+                            guard let path else { return nil }
+                            return embed(url: URL(fileURLWithPath: path))
+                        }.value
+                        return (index, embedding)
+                    }
+                }
+                for await (index, embedding) in group {
+                    results[index] = embedding
                 }
             }
-            for await (index, embedding) in group {
-                photos[index].embedding = embedding
-            }
+        }
+
+        var photos = snapshot
+        for (index, embedding) in results {
+            photos[index].embedding = embedding
         }
 
         let clusters = cluster(photos)
@@ -35,7 +52,7 @@ enum EmbeddingService {
         return photos
     }
 
-    static func embed(url: URL) -> [Float]? {
+    nonisolated static func embed(url: URL) -> [Float]? {
         if let vision = visionFeaturePrint(url: url) {
             return vision
         }
@@ -44,7 +61,7 @@ enum EmbeddingService {
 
     // MARK: - Vision feature print (local model)
 
-    private static func visionFeaturePrint(url: URL) -> [Float]? {
+    nonisolated private static func visionFeaturePrint(url: URL) -> [Float]? {
         let request = VNGenerateImageFeaturePrintRequest()
         let handler = VNImageRequestHandler(url: url, options: [:])
         do {
@@ -58,7 +75,7 @@ enum EmbeddingService {
         }
     }
 
-    private static func floats(from observation: VNFeaturePrintObservation) -> [Float]? {
+    nonisolated private static func floats(from observation: VNFeaturePrintObservation) -> [Float]? {
         let count = Int(observation.elementCount)
         guard count > 0 else { return nil }
         var values = [Float](repeating: 0, count: count)
@@ -72,7 +89,7 @@ enum EmbeddingService {
         return l2normalize(values)
     }
 
-    private static func histogramEmbedding(url: URL) -> [Float]? {
+    nonisolated private static func histogramEmbedding(url: URL) -> [Float]? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         let opts: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -224,7 +241,7 @@ enum EmbeddingService {
         return max(0, 1 - dot)
     }
 
-    private static func l2normalize(_ v: [Float]) -> [Float] {
+    nonisolated private static func l2normalize(_ v: [Float]) -> [Float] {
         let norm = sqrt(v.reduce(0) { $0 + $1 * $1 })
         guard norm > 1e-6 else { return v }
         return v.map { $0 / norm }

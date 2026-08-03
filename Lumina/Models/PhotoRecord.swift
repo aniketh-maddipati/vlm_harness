@@ -603,7 +603,10 @@ enum ImportEvent: Sendable {
     case progress(ImportProgress)
     case status(String)
     case photosReady([PhotoRecord], profile: DevelopRecipe)
+    /// Path/proxy refine only — safe to merge into a live session.
     case photosUpdated([PhotoRecord])
+    /// Cluster/tier reshape from embed+score — apply only at a session boundary.
+    case refinementReady([PhotoRecord])
     case finished(LuminaProject)
     case failed(String)
 }
