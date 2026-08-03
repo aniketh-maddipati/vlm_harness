@@ -10,7 +10,7 @@ struct GridOverviewView: View {
                 Button {
                     model.closeGridOverview()
                 } label: {
-                    Label("Back to session", systemImage: "chevron.left")
+                    Label("Back to canvas", systemImage: "chevron.left")
                 }
                 .buttonStyle(LuminaPressStyle())
                 Spacer()
@@ -26,16 +26,16 @@ struct GridOverviewView: View {
 
             DynamicSortBar(sortMode: $model.sortMode, filter: $model.filter)
 
-            PhotoGridView(
+            SessionPhotoGrid(
                 photos: model.displayedPhotos,
-                selectedID: model.selectedPhotoID,
-                onSelect: { model.selectPhoto($0) }
+                selected: Set(model.cursor.map { [$0] } ?? []),
+                onToggle: {
+                    model.setCursor($0)
+                    model.lens = nil
+                }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
-            if model.filter != .keeps { model.filter = .keeps }
-        }
     }
 }

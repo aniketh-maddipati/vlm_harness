@@ -4,7 +4,10 @@ import AppKit
 /// Magazine-speed cull canvas. Canvas updates every advance; chrome/filmstrip are decoupled.
 struct SpeedBrowseViewer: View {
     @Bindable var model: ProjectViewModel
+    /// Full session order; this is the stable PreviewSpine currency.
     let photos: [PhotoRecord]
+    /// Posture-specific peek strip without shrinking/rebuilding the spine.
+    let filmstripPhotos: [PhotoRecord]
     @Binding var selection: UUID?
 
     @State private var spine = PreviewSpine.shared
@@ -13,7 +16,7 @@ struct SpeedBrowseViewer: View {
     @State private var filmstripTask: Task<Void, Never>?
     @State private var controlsTask: Task<Void, Never>?
 
-    private var filmstripHeight: CGFloat { photos.count > 1 ? 120 : 0 }
+    private var filmstripHeight: CGFloat { filmstripPhotos.count > 1 ? 120 : 0 }
 
     var body: some View {
         GeometryReader { geo in
@@ -40,9 +43,9 @@ struct SpeedBrowseViewer: View {
                     onKeep: { model.markKeep() }
                 )
 
-                if photos.count > 1 {
+                if filmstripPhotos.count > 1 {
                     BrowseFilmstripOverlay(
-                        photos: photos,
+                        photos: filmstripPhotos,
                         focusID: filmstripFocusID,
                         filmstripHeight: filmstripHeight,
                         onSelect: { photo in
@@ -65,7 +68,7 @@ struct SpeedBrowseViewer: View {
                         } else if value.translation.width > 36 {
                             model.advanceBrowse(delta: -1, in: photos, inputTime: t)
                         }
-                        selection = model.selectedPhotoID
+                        selection = model.cursor
                     }
             )
         }
@@ -84,7 +87,7 @@ struct SpeedBrowseViewer: View {
             scheduleFilmstripUpdate(to: new, immediate: true)
             scheduleControlsReveal(immediate: true)
         }
-        .onChange(of: model.selectedPhotoID) { _, new in
+        .onChange(of: model.cursor) { _, new in
             if let new {
                 selection = new
                 scheduleFilmstripUpdate(to: new, immediate: spine.ripVelocity < 4)
@@ -161,24 +164,21 @@ private struct BrowseCanvasStage: View {
 
     var body: some View {
         ZStack {
+            Color.black
+            MetalBrowseCanvas(
+                photoID: spine.paintedPhotoID,
+                jpegPath: spine.paintedJPEGPath,
+                photonInputTime: spine.paintedPhotoID.flatMap { spine.pendingPhotonTime(for: $0) },
+                onPhotonPresent: onPhotonPresent
+            )
+            .frame(width: pageWidth, height: pageHeight)
+
             if spine.paintedTier == .silhouette, let image = spine.paintedSilhouette {
                 SilhouetteFallback(image: image, width: pageWidth, height: pageHeight)
-            } else if let id = spine.paintedPhotoID, let path = spine.paintedJPEGPath {
-                MetalBrowseCanvas(
-                    photoID: id,
-                    jpegPath: path,
-                    photonInputTime: spine.pendingPhotonTime(for: id),
-                    onPhotonPresent: onPhotonPresent
-                )
-                .frame(width: pageWidth, height: pageHeight)
-            } else {
-                Color.black
-                    .overlay {
-                        Text(filename)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.35))
-                    }
-                    .frame(width: pageWidth, height: pageHeight)
+            } else if spine.paintedTier == .empty {
+                Text(filename)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.35))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

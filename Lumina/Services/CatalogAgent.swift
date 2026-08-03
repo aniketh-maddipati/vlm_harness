@@ -129,9 +129,18 @@ enum CatalogAgent {
 
     static func folderStats(from project: LuminaProject) -> (photoCount: Int, needsYou: Int, keepCount: Int, setCount: Int) {
         let photos = project.photos
+        let accepted = project.decisionLedger.reduce(into: [AuditReason: Set<PhotoID>]()) { result, event in
+            guard event.kind == .pileAccepted else { return }
+            result[event.reason, default: []].formUnion(event.photoIDs)
+        }
+        let unresolvedAuditCount = photos.reduce(into: 0) { count, photo in
+            guard let reason = photo.auditReason,
+                  accepted[reason]?.contains(photo.id) != true else { return }
+            count += 1
+        }
         return (
             photoCount: photos.count,
-            needsYou: photos.filter(\.isUncertain).count,
+            needsYou: unresolvedAuditCount,
             keepCount: photos.filter { $0.tier == .keep }.count,
             setCount: Set(photos.compactMap(\.clusterID)).count
         )

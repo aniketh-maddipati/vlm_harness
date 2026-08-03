@@ -61,6 +61,9 @@ enum CullEngine {
         }
 
         for index in photos.indices {
+            if photos[index].userDecidedAt == nil {
+                photos[index].proposedTier = nil
+            }
             let photo = photos[index]
             if photo.sharpness < 0.12 {
                 photos[index].tier = .reject
@@ -84,6 +87,15 @@ enum CullEngine {
             var kind: UncertaintyKind = .none
             var why: String?
             let photo = photos[index]
+            let decisionTier = photo.proposedTier ?? photo.tier
+
+            if photo.userDecidedAt != nil {
+                photos[index].cullConfidence = 1
+                photos[index].isFlagged = false
+                photos[index].uncertaintyKind = .none
+                photos[index].whyUncertain = nil
+                continue
+            }
 
             // High-confidence reject
             if photo.sharpness < 0.12 {
@@ -91,15 +103,19 @@ enum CullEngine {
                 photos[index].isFlagged = false
                 photos[index].uncertaintyKind = .none
                 photos[index].whyUncertain = nil
+                if photo.userDecidedAt == nil {
+                    photos[index].proposedTier = decisionTier
+                    photos[index].tier = .unranked
+                }
                 continue
             }
 
-            if photo.tier == .unranked && photo.cullScore >= 0.35 {
+            if decisionTier == .unranked && photo.cullScore >= 0.35 {
                 flagged = true
                 kind = .cullBorderline
                 why = "Borderline quality \(String(format: "%.2f", photo.cullScore))"
             }
-            if photo.tier == .keep && photo.sharpness < 0.45 {
+            if decisionTier == .keep && photo.sharpness < 0.45 {
                 flagged = true
                 kind = .cullBorderline
                 why = "Keep with soft sharpness \(String(format: "%.2f", photo.sharpness))"
@@ -115,14 +131,14 @@ enum CullEngine {
                         why = "Burst tie (\(String(format: "%.2f", sorted[0].cullScore)) vs \(String(format: "%.2f", sorted[1].cullScore)))"
                     }
                 }
-                if !photo.isBurstHero && photo.tier == .keep {
+                if !photo.isBurstHero && decisionTier == .keep {
                     flagged = true
                     kind = .cullTie
                     why = why ?? "Non-hero keep in burst"
                 }
             }
 
-            if photo.tier == .keep, let recipe = photo.recipe, recipe.confidence < 0.55 {
+            if decisionTier == .keep, let recipe = photo.recipe, recipe.confidence < 0.55 {
                 flagged = true
                 kind = .editLowConfidence
                 why = "Low edit confidence \(String(format: "%.2f", recipe.confidence))"
@@ -131,7 +147,7 @@ enum CullEngine {
             // Confidence: high when not flagged
             if flagged {
                 photos[index].cullConfidence = kind == .cullTie ? 0.45 : 0.55
-            } else if photo.tier == .keep {
+            } else if decisionTier == .keep {
                 photos[index].cullConfidence = 0.85 + min(photo.cullScore * 0.1, 0.1)
             } else {
                 photos[index].cullConfidence = 0.80
@@ -141,6 +157,12 @@ enum CullEngine {
             photos[index].isFlagged = flagged
             photos[index].uncertaintyKind = kind
             photos[index].whyUncertain = why
+
+            // Auditable calls stay proposals until a pile acceptance materializes them.
+            if photo.userDecidedAt == nil, flagged || photo.sharpness < 0.12 {
+                photos[index].proposedTier = decisionTier
+                photos[index].tier = .unranked
+            }
         }
     }
 

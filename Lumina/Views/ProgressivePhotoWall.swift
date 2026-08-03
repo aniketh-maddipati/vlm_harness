@@ -88,49 +88,11 @@ struct SessionPhotoGrid: View {
     }
 }
 
-/// Pick wall — bind directly to `photos`; no gated reveal.
-struct ProgressivePickWall: View {
-    let photos: [PhotoRecord]
-    let selected: Set<UUID>
-    var onToggle: (UUID) -> Void
-    var revealIntervalMs: UInt64 = 0
-    var batchSize: Int = 2
-
-    var body: some View {
-        GeometryReader { geo in
-            let layout = FitGridLayout.compute(in: geo.size, spacing: 8, aspect: 4 / 3)
-            let columns = min(max(layout.columns, 2), photos.count > 1 ? 5 : 1)
-
-            ScrollView {
-                LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: max(columns, 1)),
-                    spacing: 8
-                ) {
-                    ForEach(photos) { photo in
-                        PickWallCard(
-                            photo: photo,
-                            selected: selected.contains(photo.id),
-                            onToggle: { onToggle(photo.id) }
-                        )
-                    }
-                }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 8)
-            }
-            .scrollIndicators(.hidden)
-            .onAppear {
-                ThumbCache.shared.prefetchPhotos(photos, maxPixelSize: 512)
-                PreviewSpine.shared.warm(photos: photos, focus: photos.first?.id)
-            }
-        }
-    }
-}
-
 private struct SessionWallTile: View {
     let photo: PhotoRecord
 
     var body: some View {
-        PhotoImageView(photo: photo, tier: .grid, contentMode: .fill)
+        SpineAwarePhotoTile(photo: photo)
             .aspectRatio(4 / 3, contentMode: .fill)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
@@ -192,31 +154,23 @@ struct SpineAwarePhotoTile: View {
             }
         }
 
-        let candidates = [
-            photo.gridThumbPath,
-            photo.thumbPath,
-            photo.proxyPath,
-            PreviewSpine.shared.previewJPEGPath(for: photo.id),
-        ].compactMap { $0 }.filter { !$0.isEmpty }
-
-        guard !candidates.isEmpty else {
+        guard photo.gridThumbPath != nil
+                || photo.thumbPath != nil
+                || photo.proxyPath != nil
+                || PreviewSpine.shared.previewJPEGPath(for: photo.id) != nil else {
             if image == nil { await MainActor.run { failed = true } }
             return
         }
 
-        for path in candidates {
-            if Task.isCancelled { return }
-            let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: 512, allowRAW: false)
-            if case .image(let img) = outcome {
-                await MainActor.run {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        image = img
-                        showingSilhouette = false
-                        failed = false
-                    }
+        if let img = await PreviewSpine.shared.fidelityImage(for: photo) {
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    image = img
+                    showingSilhouette = false
+                    failed = false
                 }
-                return
             }
+            return
         }
 
         if image == nil {
@@ -263,7 +217,7 @@ struct PickWallCard: View {
     var body: some View {
         Button(action: onToggle) {
             ZStack(alignment: .topTrailing) {
-                PhotoImageView(photo: photo, tier: .grid, contentMode: .fill)
+                SpineAwarePhotoTile(photo: photo)
                     .aspectRatio(4 / 3, contentMode: .fill)
                     .clipped()
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))

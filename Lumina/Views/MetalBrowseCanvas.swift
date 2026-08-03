@@ -173,6 +173,7 @@ struct MetalBrowseCanvas: NSViewRepresentable {
     var onPhotonPresent: ((CFAbsoluteTime) -> Void)?
 
     func makeNSView(context: Context) -> MetalBrowseNSView {
+        MetalCanvasLifecycle.recordMake()
         let view = MetalBrowseNSView(frame: .zero)
         view.onPhotonPresent = onPhotonPresent
         return view
@@ -182,5 +183,19 @@ struct MetalBrowseCanvas: NSViewRepresentable {
         nsView.onPhotonPresent = onPhotonPresent
         // Never decode or upload here — bind texture if warm, else schedule background upload.
         nsView.bind(photoID: photoID, jpegPath: jpegPath, photonInputTime: photonInputTime)
+    }
+}
+
+@MainActor
+enum MetalCanvasLifecycle {
+    private static var makeCount = 0
+
+    static func beginSession() {
+        makeCount = 0
+    }
+
+    static func recordMake() {
+        makeCount += 1
+        assert(makeCount == 1, "MetalBrowseCanvas.makeNSView ran more than once in one session")
     }
 }

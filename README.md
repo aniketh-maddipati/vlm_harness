@@ -26,9 +26,9 @@ open ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Debug/Lumina.app
 
 1. **Import RAW Folder** → `/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS`
 2. Choose JPG folder → `/Users/aniketh/jeevana_mehendi_2026`
-3. Filter **Needs you** → keyboard: `P` keep, `X` reject, `]` next
-4. Hold **Space** for before/after preview
-5. **Export Carousel** → pick folder → get `grid_4x5/` + `export.json`
+3. Move through the canvas with `F`/`D`; use `P` to keep, `X` to cut, and `M` to open the relevant audit pile
+4. Rescue exceptions in each reason-grouped audit pile, then accept its remaining proposals
+5. **Export** → pick folder → get `grid_4x5/` + `export.json`
 
 ## Keyboard
 
@@ -37,10 +37,11 @@ open ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Debug/Lumina.app
 | `⌘I` | Import |
 | `P` | Keep |
 | `X` | Reject |
-| `M` | Maybe |
-| `]` | Next flag |
-| `[` | Previous |
-| Space | Before (hold) |
+| `M` | Open audit pile |
+| `F` | Next photo |
+| `D` | Previous photo |
+| `G` | Grid lens |
+| `Esc` | Close lens |
 | `⌘↵` | Export |
 
 ## What this MVP does

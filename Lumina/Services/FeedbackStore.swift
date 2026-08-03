@@ -94,6 +94,22 @@ enum TasteLearning {
         }
     }
 
+    /// Rebuild the visible taste portrait from accepted keeps/heroes, including audit rescues.
+    static func learnedProfile(projectName: String, fallback: DevelopRecipe) -> (DevelopRecipe, Int) {
+        let events = (try? FeedbackStore.load(project: projectName)) ?? []
+        let sources = events.compactMap { event -> (DevelopRecipe, String)? in
+            guard event.kind == .keep || event.kind == .hero, let recipe = event.recipe else { return nil }
+            return (recipe, event.filename)
+        }
+        guard var profile = sources.first?.0 else { return (fallback, 0) }
+        for (offset, source) in sources.dropFirst().enumerated() {
+            profile = .lerp(profile, source.0, t: 1 / Double(offset + 2))
+        }
+        profile.sourceNeighbors = sources.map(\.1)
+        profile.confidence = min(0.95, 0.45 + Double(sources.count) * 0.05)
+        return (profile, sources.count)
+    }
+
     private static func dedupe(_ entries: [TasteEntry], max: Int) -> [TasteEntry] {
         Array(entries.suffix(max))
     }

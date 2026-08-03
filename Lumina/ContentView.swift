@@ -1,33 +1,75 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 import UniformTypeIdentifiers
+
+extension Notification.Name {
+    static let focusLuminaSearch = Notification.Name("lumina.focusSearch")
+    static let dismissLuminaTitle = Notification.Name("lumina.dismissTitle")
+    static let toggleLuminaAuditRescue = Notification.Name("lumina.toggleAuditRescue")
+    static let acceptLuminaAuditPile = Notification.Name("lumina.acceptAuditPile")
+}
 
 struct ContentView: View {
     @State private var model = ProjectViewModel()
     @State private var keyMonitor: Any?
     @State private var isDropTargeted = false
-    @State private var splitVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $splitVisibility) {
-            sidebar
-                .navigationSplitViewColumnWidth(min: 52, ideal: 220, max: 260)
-        } detail: {
-            main
+        ZStack {
+            UnifiedCanvasView(model: model)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .opacity(model.isImporting ? 0.25 : 1)
+                .allowsHitTesting(!model.isImporting)
+
+            if model.project == nil, !model.isImporting {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 10) {
+                        if model.canResumeLastProject {
+                            Button("Resume") { model.resumeLastProject() }
+                                .buttonStyle(LuminaPressStyle())
+                        }
+                        Button("Import RAW Folder…") { model.pickRAWFolder() }
+                            .buttonStyle(LuminaPrimaryButtonStyle())
+                        Button("Scan backlog…") { model.pickCatalogRoot() }
+                            .buttonStyle(LuminaPressStyle())
+                    }
+                    .padding(.bottom, 80)
+                }
+            }
+
+            if model.isImporting {
+                ImportLoadingView(
+                    progress: model.importProgress,
+                    photos: model.importPreviewPhotos,
+                    isFinishing: model.importFinishing
+                )
+            }
+
+            if model.showSpeedHUD {
+                SpeedContractHUD(model: model)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(16)
+                    .allowsHitTesting(false)
+            }
         }
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.accentColor, lineWidth: 3)
+                    .background(Color.accentColor.opacity(0.06))
+                    .padding(12)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: handleDrop)
         .onAppear {
             guard keyMonitor == nil else { return }
-            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { event in
-                handleKey(event)
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) {
+                handleKey($0)
             }
             model.refreshResumeAvailability()
             model.restoreCatalogQueueIfNeeded()
-        }
-        .onChange(of: model.sessionPhase) { _, phase in
-            withAnimation(.easeInOut(duration: 0.35)) {
-                splitVisibility = phase == .decide ? .detailOnly : .all
-            }
         }
         .onDisappear {
             if let keyMonitor {
@@ -38,188 +80,45 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .luminaImportRAW)) { _ in
             model.pickRAWFolder()
         }
-        .sheet(isPresented: $model.showExportPayoff) {
-            if let payoff = model.exportPayoff {
-                ExportPayoffSheet(payoff: payoff) {
-                    model.showExportPayoff = false
-                    if model.isCatalogMode {
-                        model.advanceCatalogQueueAfterExport()
-                    }
-                }
-            }
-        }
-    }
-
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Lumina")
-                .font(.title.bold())
-            Text("Turn a shoot into something posted")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if model.canResumeLastProject {
-                Button("Resume last project") {
-                    model.resumeLastProject()
-                }
-                .buttonStyle(LuminaPressStyle())
-            }
-
-            Button("Import RAW Folder…") {
-                model.pickRAWFolder()
-            }
-            .buttonStyle(LuminaPrimaryButtonStyle())
-            .disabled(model.isBusy)
-
-            Button("Scan backlog…") {
-                model.pickCatalogRoot()
-            }
-            .buttonStyle(LuminaPressStyle())
-            .disabled(model.isBusy)
-
-            if model.isCatalogMode {
-                CatalogQueueView(model: model)
-            }
-
-            if let project = model.project {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(project.name).font(.headline)
-                    Text(model.sessionPhaseLabel)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    Text(model.sessionProgressText)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-
-                if model.showsDevelopControls {
-                    TasteStrengthPanel(
-                        strength: Binding(
-                            get: { model.tasteStrength },
-                            set: { model.tasteStrength = $0 }
-                        ),
-                        profile: model.extractedProfile,
-                        sourceCount: model.tasteSourceCount
-                    )
-                }
-            }
-
-            Spacer()
-
-            HStack(spacing: 8) {
-                Button("Export") { model.exportCarousel() }
-                    .buttonStyle(LuminaPressStyle())
-                    .disabled(model.project == nil || model.isBusy || model.keepCount == 0)
-                if model.isCatalogMode, model.sessionPhase == .export {
-                    Button("Next folder") { model.advanceCatalogQueueAfterExport() }
-                        .buttonStyle(LuminaPressStyle())
-                }
-                if model.sessionPhase == .pick || model.sessionPhase == .decide {
-                    Button("Undo set") { model.undoLastStack() }
-                        .buttonStyle(LuminaPressStyle())
-                }
-            }
-        }
-        .padding(16)
-        .frame(minWidth: 200)
-    }
-
-    private var main: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                UnifiedCanvasView(model: model)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .opacity(model.isImporting ? 0.3 : 1)
-                    .allowsHitTesting(!model.isImporting)
-
-                AdaptivePanelHost(model: model)
-                statusBar
-            }
-            .overlay {
-                if isDropTargeted {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.accentColor, lineWidth: 3)
-                        .background(Color.accentColor.opacity(0.06))
-                        .padding(12)
-                        .allowsHitTesting(false)
-                }
-            }
-            .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
-                handleDrop(providers)
-            }
-
-            if model.isImporting {
-                ImportLoadingView(
-                    progress: model.importProgress,
-                    photos: model.importPreviewPhotos,
-                    isFinishing: model.importFinishing
-                )
-                .transition(.opacity.combined(with: .scale(scale: 0.98)))
-            }
-
-            if model.showSpeedHUD {
-                VStack {
-                    HStack {
-                        Spacer()
-                        SpeedContractHUD(model: model)
-                            .padding(16)
-                    }
-                    Spacer()
-                }
-                .allowsHitTesting(false)
-            }
-        }
-        .animation(.easeInOut(duration: 0.45), value: model.isImporting)
-    }
-
-    private var statusBar: some View {
-        HStack {
-            if model.isBusy { ProgressView().controlSize(.small) }
-            if model.isImporting {
-                Text(model.importProgress.phase.title)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-            }
-            Text(model.statusMessage)
-                .lineLimit(1)
-            Spacer()
-            if !model.isImporting {
-                Text(keymapHint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(.bar)
-    }
-
-    private var keymapHint: String {
-        if model.showGridOverview {
-            return "F/D browse grid · Esc back"
-        }
-        switch model.sessionPhase {
-        case .meet:
-            return "Return: pick · ]/[ sets"
-        case .pick:
-            return "Tap · Return: keep these · ]/[ sets"
-        case .decide:
-            return "F/D · P/X · M flag · H hero · Space before/after · ]/[ sets"
-        case .export:
-            return "Return: export · G grid overview"
+        .alert(
+            "Lumina",
+            isPresented: Binding(
+                get: { model.project == nil && model.userFacingError != nil },
+                set: { if !$0 { model.userFacingError = nil } }
+            )
+        ) {
+            Button("Dismiss") { model.userFacingError = nil }
+        } message: {
+            Text(model.userFacingError ?? "Something went wrong.")
         }
     }
 
     private func handleKey(_ event: NSEvent) -> NSEvent? {
-        if event.modifierFlags.contains(.command) { return event }
+        if NSApp.keyWindow?.firstResponder is NSTextView { return event }
+        if event.type == .keyDown {
+            NotificationCenter.default.post(name: .dismissLuminaTitle, object: nil)
+        }
+
+        if event.modifierFlags.contains(.command) {
+            if event.type == .keyDown,
+               event.charactersIgnoringModifiers?.lowercased() == "k" {
+                NotificationCenter.default.post(name: .focusLuminaSearch, object: nil)
+                return nil
+            }
+            if event.type == .keyDown, event.keyCode == 36 {
+                model.exportCarousel()
+                return nil
+            }
+            return event
+        }
+
         let chars = event.charactersIgnoringModifiers?.lowercased()
         let held = event.isARepeat
-        // ⌥` — Speed Contract HUD
         if event.type == .keyDown, event.keyCode == 50, event.modifierFlags.contains(.option) {
             model.toggleSpeedHUD()
             return nil
         }
+
         switch chars {
         case "f":
             if event.type == .keyDown { model.advanceFrame(held: held) }
@@ -227,64 +126,34 @@ struct ContentView: View {
         case "d":
             if event.type == .keyDown { model.retreatFrame(held: held) }
             return nil
-        case "s":
-            if event.type == .keyDown { model.toggleKeep() }
-            return nil
         case "p":
-            if event.type == .keyDown { model.toggleKeep() }
-            return nil
-        case "a":
-            if event.type == .keyDown { model.toggleReject() }
+            if event.type == .keyDown {
+                if case .audit(_) = model.lens {
+                    NotificationCenter.default.post(name: .toggleLuminaAuditRescue, object: nil)
+                } else {
+                    model.markKeep()
+                }
+            }
             return nil
         case "x":
-            if event.type == .keyDown { model.toggleReject() }
+            if event.type == .keyDown, model.lens == nil { model.markReject() }
             return nil
         case "m":
-            if event.type == .keyDown { model.toggleFlag() }
-            return nil
-        case "h":
-            if event.type == .keyDown, model.sessionPhase == .decide { model.markHero() }
+            if event.type == .keyDown { model.openAuditForCursor() }
             return nil
         case "g":
             if event.type == .keyDown { model.openGridOverview() }
             return nil
-        case "z":
-            if event.modifierFlags.contains(.command), event.type == .keyDown {
-                model.undoLastStack()
+        case "\r", "\n":
+            if event.type == .keyDown, case .audit(_) = model.lens {
+                NotificationCenter.default.post(name: .acceptLuminaAuditPile, object: nil)
                 return nil
             }
             return event
-        case "]":
-            if event.type == .keyDown { model.advanceCluster() }
-            return nil
-        case "[":
-            if event.type == .keyDown { model.previousCluster() }
-            return nil
-        case "\r", "\n":
-            if event.type == .keyDown {
-                if model.showGridOverview {
-                    return event
-                }
-                switch model.sessionPhase {
-                case .meet:
-                    model.advanceFromMeet()
-                case .pick:
-                    if let c = model.currentCluster {
-                        model.confirmPicksAndAdvance(cluster: c)
-                    }
-                case .export:
-                    model.exportCarousel()
-                default:
-                    break
-                }
-            }
-            return nil
         default:
-            if event.keyCode == 53, event.type == .keyDown {
-                if model.showGridOverview {
-                    model.closeGridOverview()
-                    return nil
-                }
+            if event.keyCode == 53, event.type == .keyDown, model.lens != nil {
+                model.lens = nil
+                return nil
             }
             if event.keyCode == 123, event.type == .keyDown {
                 model.retreatFrame(held: held)
@@ -294,30 +163,34 @@ struct ContentView: View {
                 model.advanceFrame(held: held)
                 return nil
             }
-            if event.keyCode == 49, model.sessionPhase == .decide {
-                // Space — reserved; no before/after taste on browse spine.
-                return nil
-            }
             return event
         }
     }
 
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        let lock = NSLock()
         var collected: [URL] = []
         let group = DispatchGroup()
         for provider in providers where provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
             group.enter()
             provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
                 defer { group.leave() }
-                if let url = item as? URL {
+                let url: URL?
+                if let value = item as? URL {
+                    url = value
+                } else if let data = item as? Data {
+                    url = URL(dataRepresentation: data, relativeTo: nil)
+                } else {
+                    url = nil
+                }
+                if let url {
+                    lock.lock()
                     collected.append(url)
-                } else if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    collected.append(url)
+                    lock.unlock()
                 }
             }
         }
         group.notify(queue: .main) {
-            guard !collected.isEmpty else { return }
             model.ingestFromDroppedURLs(collected)
         }
         return true
