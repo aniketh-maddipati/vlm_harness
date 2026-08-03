@@ -16,18 +16,22 @@ struct UnifiedCanvasView: View {
     }
 
     private var emptyPrompt: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "folder")
-                .font(.system(size: 48))
-                .foregroundStyle(.tertiary)
-            Text("Import a shoot to begin")
-                .font(.title2.weight(.semibold))
-            Text("RAW folder + optional edited JPGs for taste. Review one canvas, then audit the model's shakiest calls.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 440)
+        ZStack {
+            LuminaAtmosphereBackdrop()
+
+            VStack(spacing: 18) {
+                Spacer()
+                Text("Lumina")
+                    .font(LuminaAtmosphere.Typeface.brand(52))
+                    .foregroundStyle(Color.white.opacity(0.92))
+                Text("Drop a shoot. Keep only what needs you.")
+                    .font(LuminaAtmosphere.Typeface.body(16))
+                    .foregroundStyle(LuminaAtmosphere.whisper)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+                Spacer()
+            }
+            .padding(.bottom, 120)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
