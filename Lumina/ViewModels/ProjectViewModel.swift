@@ -152,6 +152,15 @@ final class ProjectViewModel {
         persistDebounced()
     }
 
+    /// Kept photographs in draft chronological order for the emerging set / canvas.
+    func emergingSetPresentations() -> [AssetPresentation] {
+        guard let photos = project?.photos else { return [] }
+        return photos
+            .filter { $0.tier == .keep }
+            .sorted { ($0.capturedAt ?? .distantPast) < ($1.capturedAt ?? .distantPast) }
+            .map { PresentationAdapter.asset(from: $0) }
+    }
+
     var cursorPosition: Int {
         guard let cursor, let photos = project?.photos,
               let index = photos.firstIndex(where: { $0.id == cursor }) else { return 0 }

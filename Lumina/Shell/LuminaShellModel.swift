@@ -16,6 +16,14 @@ enum LuminaRoute: Equatable, Hashable {
 final class LuminaShellModel {
     var route: LuminaRoute = .home
     var lens: WorkspaceLens = .attempts
+    var workspaceStage: WorkspaceStage = .workbench
+    var isRowExpanded = false
+    var treatmentPreviewMode: TreatmentPreviewMode = .current
+    var showDetailedEdits = false
+    var rowPreviewActive = false
+    var workbenchScrollAnchor: String?
+    var canvasScrollAnchor: String?
+    var proofScrollAnchor: String?
     var selectedAssetID: AssetID?
     var selectedGroupID: String?
     var scrollTargetGroupID: String?
@@ -57,9 +65,63 @@ final class LuminaShellModel {
     func openWorkspace(lens: WorkspaceLens = .attempts) {
         self.lens = lens
         route = .workspace
+        workspaceStage = .workbench
         isFocusMode = false
         showInspector = false
         workspaceRevealToken &+= 1
+    }
+
+    func setWorkspaceStage(_ stage: WorkspaceStage) {
+        guard stage != workspaceStage else { return }
+        if workspaceStage == .workbench {
+            workbenchScrollAnchor = selectedGroupID
+        } else if workspaceStage == .canvas {
+            canvasScrollAnchor = selectedAssetID?.uuidString
+        } else if workspaceStage == .proof {
+            proofScrollAnchor = canvasScrollAnchor
+        }
+        workspaceStage = stage
+    }
+
+    func toggleRowExpanded() {
+        isRowExpanded.toggle()
+    }
+
+    func previewAutoTreatment(model: ProjectViewModel) {
+        treatmentPreviewMode = .auto
+        rowPreviewActive = true
+        replayStackPreview()
+    }
+
+    func toggleDetailedEdits() {
+        showDetailedEdits.toggle()
+    }
+
+    func toggleRowPreview() {
+        rowPreviewActive.toggle()
+        if rowPreviewActive { replayStackPreview() }
+        else { stackPreviewMix = 1 }
+    }
+
+    /// Effective develop offsets for rendering given preview mode.
+    func effectiveDevelopOffsets(model: ProjectViewModel, for photoID: AssetID?) -> DevelopAdjustments {
+        switch treatmentPreviewMode {
+        case .original:
+            return .zero
+        case .auto, .current:
+            return developOffsets
+        }
+    }
+
+    /// Base recipe for rendering given preview mode.
+    func effectiveBaseRecipe(model: ProjectViewModel, for photoID: AssetID?) -> DevelopRecipe {
+        guard let photoID, let photo = model.photo(with: photoID) else { return .neutral }
+        switch treatmentPreviewMode {
+        case .original:
+            return .neutral
+        case .auto, .current:
+            return model.appliedRecipe(for: photo)
+        }
     }
 
     func openFinish() {
@@ -94,6 +156,19 @@ final class LuminaShellModel {
     func handleEscape() -> Bool {
         if isFocusMode {
             isFocusMode = false
+            return true
+        }
+        if workspaceStage == .proof {
+            setWorkspaceStage(.canvas)
+            return true
+        }
+        if showDetailedEdits {
+            showDetailedEdits = false
+            return true
+        }
+        if rowPreviewActive {
+            rowPreviewActive = false
+            stackPreviewMix = 1
             return true
         }
         if showInspector {
@@ -308,11 +383,9 @@ final class LuminaShellModel {
         guard let group = presentation.groups.first(where: { $0.id == groupID }) else { return }
         selectedGroupID = groupID
         scrollTargetGroupID = groupID
-        let leadID = group.assets
-            .filter { $0.decision == .undecided }
-            .max(by: { $0.qualityScore < $1.qualityScore })?.id
-            ?? group.leadAsset?.id
-            ?? group.assets.first?.id
+        let leadID = group.captureOrderedAssets
+            .first(where: { $0.decision == .undecided })?.id
+            ?? group.captureOrderedAssets.first?.id
         guard let leadID else { return }
         selectedAssetID = leadID
         if model.project != nil { model.setCursor(leadID) }
@@ -401,28 +474,30 @@ final class LuminaShellModel {
     }
 
     func moveAlternative(delta: Int, presentation: WorkspacePresentation, model: ProjectViewModel) {
-        guard let group = presentation.selectedGroup, !group.assets.isEmpty else { return }
+        guard let group = presentation.selectedGroup, !group.captureOrderedAssets.isEmpty else { return }
         selectedGroupID = group.id
-        let current = presentation.selectedAssetID ?? group.assets.first?.id
-        guard let current,
-              let index = group.assets.firstIndex(where: { $0.id == current }) else { return }
-        let next = min(max(index + delta, 0), group.assets.count - 1)
-        let id = group.assets[next].id
+        let ordered = group.captureOrderedAssets
+        let current = presentation.selectedAssetID ?? ordered.first?.id
+        guard let current, let index = ordered.firstIndex(where: { $0.id == current }) else { return }
+        let next = min(max(index + delta, 0), ordered.count - 1)
+        let id = ordered[next].id
         guard id != current else { return }
         selectedAssetID = id
         if model.project != nil { model.setCursor(id) }
+        loadDevelop(for: id, model: model)
         _ = PreviewSpine.shared.paint(id: id, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
-        prefetchNeighbors(in: group, around: index + delta)
+        prefetchNeighbors(in: group, around: next)
     }
 
     private func prefetchNeighbors(in group: GroupPresentation, around index: Int) {
+        let ordered = group.captureOrderedAssets
         var ids: [AssetID] = []
-        if index > 0, index < group.assets.count {
-            ids.append(group.assets[index].id)
+        if index > 0, index < ordered.count {
+            ids.append(ordered[index].id)
         }
         let next = index + 1
-        if next >= 0, next < group.assets.count {
-            ids.append(group.assets[next].id)
+        if next >= 0, next < ordered.count {
+            ids.append(ordered[next].id)
         }
         for id in ids {
             _ = PreviewSpine.shared.silhouetteImage(for: id)

@@ -123,6 +123,10 @@ struct GroupPresentation: Identifiable, Hashable, Sendable {
     let rowCategory: StackRowCategory
     let timeStart: Date?
     let timeEnd: Date?
+    /// When one cluster splits into adjacent time buckets, shares this id.
+    let siblingGroupID: String?
+    let siblingPartIndex: Int?
+    let siblingPartCount: Int?
 
     var representative: AssetPresentation? {
         if let representativeID {
@@ -137,16 +141,32 @@ struct GroupPresentation: Identifiable, Hashable, Sendable {
         return assets.max(by: { $0.qualityScore < $1.qualityScore }) ?? assets.first
     }
 
-    /// Cards behind the lead, sorted worst → best (left to right under lead).
+    /// Stable capture-time order for comparison rows.
+    var captureOrderedAssets: [AssetPresentation] {
+        assets.sorted {
+            ($0.capturedAt ?? .distantPast) < ($1.capturedAt ?? .distantPast)
+        }
+    }
+
+    /// Legacy alias — capture order, not quality-ranked stacks.
     func stackOrdered(leadID: AssetID?) -> [AssetPresentation] {
-        let lead = leadID.flatMap { id in assets.first { $0.id == id } } ?? leadAsset
-        guard let lead else { return assets.sorted { $0.qualityScore < $1.qualityScore } }
-        let behind = assets.filter { $0.id != lead.id }.sorted { $0.qualityScore < $1.qualityScore }
-        return behind + [lead]
+        captureOrderedAssets
     }
 
     var undecidedCount: Int {
         assets.filter { $0.decision == .undecided }.count
+    }
+
+    var keepCount: Int {
+        assets.filter { $0.decision == .keep }.count
+    }
+
+    var foldCount: Int {
+        assets.filter { $0.decision == .cut }.count
+    }
+
+    var isSiblingContinuation: Bool {
+        siblingPartIndex.map { $0 > 1 } ?? false
     }
 
     init(
@@ -158,7 +178,10 @@ struct GroupPresentation: Identifiable, Hashable, Sendable {
         relationshipNote: String? = nil,
         rowCategory: StackRowCategory = .subject,
         timeStart: Date? = nil,
-        timeEnd: Date? = nil
+        timeEnd: Date? = nil,
+        siblingGroupID: String? = nil,
+        siblingPartIndex: Int? = nil,
+        siblingPartCount: Int? = nil
     ) {
         self.id = id
         self.title = title
@@ -169,7 +192,28 @@ struct GroupPresentation: Identifiable, Hashable, Sendable {
         self.rowCategory = rowCategory
         self.timeStart = timeStart
         self.timeEnd = timeEnd
+        self.siblingGroupID = siblingGroupID
+        self.siblingPartIndex = siblingPartIndex
+        self.siblingPartCount = siblingPartCount
     }
+}
+
+/// Spatial display within the continuous photographic workspace.
+enum WorkspaceStage: String, CaseIterable, Hashable, Sendable {
+    case workbench, canvas, proof
+
+    var title: String {
+        switch self {
+        case .workbench: "Workbench"
+        case .canvas: "Canvas"
+        case .proof: "Proof"
+        }
+    }
+}
+
+/// Which develop baseline the contextual strip previews.
+enum TreatmentPreviewMode: String, Hashable, Sendable {
+    case original, auto, current
 }
 
 struct ShootCardPresentation: Identifiable, Hashable, Sendable {

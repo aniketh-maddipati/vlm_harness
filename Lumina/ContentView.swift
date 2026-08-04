@@ -117,21 +117,7 @@ struct ContentView: View {
     }
 
     private func handleSwipe(_ event: NSEvent) -> NSEvent? {
-        guard shell.route == .workspace else { return event }
-        guard event.modifierFlags.contains(.command) else { return event }
-        let id = shell.selectedAssetID ?? model.cursor
-        switch event.deltaX {
-        case 1:
-            LuminaHaptics.decision()
-            shell.applyDecision(.keep, for: id, model: model)
-            return nil
-        case -1:
-            LuminaHaptics.decision()
-            shell.applyDecision(.cut, for: id, model: model)
-            return nil
-        default:
-            return event
-        }
+        event
     }
 
     private func handleKey(_ event: NSEvent) -> NSEvent? {
@@ -141,45 +127,18 @@ struct ContentView: View {
             let chars = event.charactersIgnoringModifiers?.lowercased()
 
             if shell.route == .workspace {
-                let id = shell.selectedAssetID ?? model.cursor
                 switch chars {
-                case "k":
-                    LuminaHaptics.decision()
-                    shell.applyDecision(.keep, for: id, model: model)
-                    return nil
-                case "x":
-                    LuminaHaptics.decision()
-                    shell.applyDecision(.cut, for: id, model: model)
-                    return nil
-                case "m":
-                    LuminaHaptics.decision()
-                    shell.applyDecision(.needsMe, for: id, model: model)
-                    return nil
-                case "e":
-                    shell.replayStackPreview()
-                    return nil
-                case "-":
-                    shell.adjustStackExposure(delta: -0.25, model: model)
-                    return nil
-                case "=", "+":
-                    shell.adjustStackExposure(delta: 0.25, model: model)
-                    return nil
                 case "1":
-                    shell.setLens(.attempts)
+                    shell.setWorkspaceStage(.workbench)
                     return nil
                 case "2":
-                    shell.setLens(.light)
+                    shell.setWorkspaceStage(.canvas)
+                    return nil
+                case "3":
+                    shell.setWorkspaceStage(.proof)
                     return nil
                 default:
                     break
-                }
-                if event.keyCode == 36 {
-                    LuminaHaptics.alignment()
-                    if let groupID = shell.selectedGroupID ?? shell.workspacePresentation(model: model).selectedGroupID {
-                        let fresh = shell.workspacePresentation(model: model)
-                        shell.applyDecisionToRest(in: groupID, model: model, presentation: fresh)
-                    }
-                    return nil
                 }
             } else if chars == "k" {
                 NotificationCenter.default.post(name: .focusLuminaSearch, object: nil)
@@ -190,13 +149,8 @@ struct ContentView: View {
                 model.exportCarousel()
                 return nil
             }
-            if chars == "z" {
-                return nil
-            }
             return event
         }
-
-        let held = event.isARepeat
 
         if event.type == .keyDown, event.keyCode == 50, event.modifierFlags.contains(.option) {
             model.toggleSpeedHUD()
@@ -209,22 +163,62 @@ struct ContentView: View {
                 return event
             }
 
-            if shell.route == .workspace {
-                if event.keyCode == 123 {
-                    shell.moveAttempt(delta: -1, presentation: shell.workspacePresentation(model: model), model: model)
-                    return nil
-                }
-                if event.keyCode == 124 {
-                    shell.moveAttempt(delta: 1, presentation: shell.workspacePresentation(model: model), model: model)
+            if shell.route == .workspace, !event.modifierFlags.contains(.command) {
+                let presentation = shell.workspacePresentation(model: model)
+                let photoID = shell.selectedAssetID ?? model.cursor
+
+                if event.keyCode == 126 {
+                    shell.moveAttempt(delta: -1, presentation: presentation, model: model)
                     return nil
                 }
                 if event.keyCode == 125 {
-                    shell.moveAlternative(delta: 1, presentation: shell.workspacePresentation(model: model), model: model)
+                    shell.moveAttempt(delta: 1, presentation: presentation, model: model)
                     return nil
                 }
-                if event.keyCode == 126 {
-                    shell.moveAlternative(delta: -1, presentation: shell.workspacePresentation(model: model), model: model)
+                if event.keyCode == 123 {
+                    shell.moveAlternative(delta: -1, presentation: presentation, model: model)
                     return nil
+                }
+                if event.keyCode == 124 {
+                    shell.moveAlternative(delta: 1, presentation: presentation, model: model)
+                    return nil
+                }
+                if event.keyCode == 36 {
+                    shell.toggleRowExpanded()
+                    return nil
+                }
+                if event.keyCode == 49 {
+                    shell.isFocusMode.toggle()
+                    return nil
+                }
+
+                switch event.charactersIgnoringModifiers?.lowercased() {
+                case "a":
+                    shell.previewAutoTreatment(model: model)
+                    return nil
+                case "e":
+                    shell.toggleDetailedEdits()
+                    return nil
+                case "s":
+                    LuminaHaptics.decision()
+                    if let photoID {
+                        shell.applyDecision(.keep, for: photoID, model: model)
+                    }
+                    return nil
+                case "m":
+                    LuminaHaptics.decision()
+                    if let photoID {
+                        shell.applyDecision(.needsMe, for: photoID, model: model)
+                    }
+                    return nil
+                case "x":
+                    LuminaHaptics.decision()
+                    if let photoID {
+                        shell.applyDecision(.cut, for: photoID, model: model)
+                    }
+                    return nil
+                default:
+                    break
                 }
             }
 
@@ -234,7 +228,6 @@ struct ContentView: View {
             }
         }
 
-        _ = held
         return event
     }
 

@@ -324,9 +324,9 @@ enum PresentationAdapter {
         return timeBucketGroups(
             from: photos,
             idPrefix: "light",
-            titlePrefix: "Roll",
+            titlePrefix: "Sequence",
             category: .time,
-            relationshipNote: "Captured in the same session window",
+            relationshipNote: "Photographs captured close together in time",
             representativeID: nil
         )
     }
@@ -339,34 +339,38 @@ enum PresentationAdapter {
         category: StackRowCategory,
         relationshipNote: String?,
         representativeID: AssetID?,
-        maxPhotosPerBucket: Int = 28
+        maxPhotosPerBucket: Int = 8
     ) -> [GroupPresentation] {
         let buckets = adaptiveTimeBuckets(from: photos, maxPhotosPerBucket: maxPhotosPerBucket)
         guard !buckets.isEmpty else { return [] }
+        let siblingID = buckets.count > 1 ? idPrefix : nil
 
         return buckets.enumerated().map { index, slice in
-            let assets = slice.map(asset(from:))
-            let repPhoto = representativeID.flatMap { id in slice.first(where: { $0.id == id }) }
-                ?? slice.max(by: { $0.cullScore < $1.cullScore })
-            let repAssetID = repPhoto.flatMap { photo in assets.first(where: { $0.id == photo.id })?.id }
-                ?? assets.first?.id
-            let dates = slice.compactMap(\.capturedAt).sorted()
+            let ordered = slice.sorted {
+                ($0.capturedAt ?? .distantPast) < ($1.capturedAt ?? .distantPast)
+            }
+            let assets = ordered.map(asset(from:))
+            let repAssetID = assets.first(where: { $0.decision == .undecided })?.id ?? assets.first?.id
+            let dates = ordered.compactMap(\.capturedAt).sorted()
             let title = bucketTitle(
                 prefix: titlePrefix,
                 index: index + 1,
                 totalBuckets: buckets.count,
-                photos: slice
+                photos: ordered
             )
             return GroupPresentation(
                 id: "\(idPrefix)-\(index + 1)",
                 title: title,
-                subtitle: bucketSubtitle(for: slice),
+                subtitle: bucketSubtitle(for: ordered),
                 assets: assets,
                 representativeID: repAssetID,
                 relationshipNote: relationshipNote,
                 rowCategory: category,
                 timeStart: dates.first,
-                timeEnd: dates.last
+                timeEnd: dates.last,
+                siblingGroupID: siblingID,
+                siblingPartIndex: siblingID == nil ? nil : index + 1,
+                siblingPartCount: siblingID == nil ? nil : buckets.count
             )
         }
     }
@@ -376,7 +380,7 @@ enum PresentationAdapter {
     /// Groups photos by calendar day, then splits on natural capture gaps and size caps.
     private static func adaptiveTimeBuckets(
         from photos: [PhotoRecord],
-        maxPhotosPerBucket: Int = 28
+        maxPhotosPerBucket: Int = 8
     ) -> [[PhotoRecord]] {
         let dated = photos.filter { $0.capturedAt != nil }.sorted {
             ($0.capturedAt ?? .distantPast) < ($1.capturedAt ?? .distantPast)

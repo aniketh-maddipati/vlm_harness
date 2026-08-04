@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// Secondary focused culling surface — compact controls, aspect-correct stage.
+/// High-resolution focus surface — returns to the same row and selection.
 struct FocusOverlayView: View {
     let presentation: WorkspacePresentation
     let onSelectAsset: (AssetID) -> Void
-    let onDecision: (AssetDecision) -> Void
     let onClose: () -> Void
     let onPrevious: () -> Void
     let onNext: () -> Void
@@ -38,17 +37,11 @@ struct FocusOverlayView: View {
                     .accessibilityLabel("\(asset.filename), focus")
                 }
 
-                if let group, group.assets.count > 1 {
-                    nearbyAlternatives(group: group)
-                }
-
                 HStack(spacing: LuminaTokens.Spacing.md) {
                     LuminaGhostActionButton(title: "Previous") { onPrevious() }
-                    DecisionDock(
-                        current: asset?.decision ?? .undecided,
-                        isCompact: true,
-                        onDecision: onDecision
-                    )
+                    Text("Space or Esc to return")
+                        .font(LuminaTokens.Typeface.meta(12))
+                        .foregroundStyle(LuminaTokens.Ink.tertiary)
                     LuminaGhostActionButton(title: "Next") { onNext() }
                 }
                 .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
@@ -82,36 +75,16 @@ struct FocusOverlayView: View {
                         .font(LuminaTokens.Typeface.meta(13))
                         .foregroundStyle(LuminaTokens.Ink.secondary)
                 }
+                if let captured = asset?.capturedAt {
+                    Text(captured, format: .dateTime.hour().minute().second())
+                        .font(LuminaTokens.Typeface.meta(12))
+                        .foregroundStyle(LuminaTokens.Ink.tertiary)
+                }
             }
             Spacer(minLength: 12)
             LuminaGhostActionButton(title: "Close") { onClose() }
                 .help("Escape")
         }
-    }
-
-    private func nearbyAlternatives(group: GroupPresentation) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: LuminaTokens.Spacing.sm) {
-                ForEach(group.assets) { item in
-                    Button {
-                        onSelectAsset(item.id)
-                    } label: {
-                        StablePhotoView(
-                            asset: item,
-                            contentMode: .fit,
-                            cornerRadius: LuminaTokens.Radius.photographThumb,
-                            isSelected: item.id == asset?.id,
-                            maxPixelSize: 640
-                        )
-                        .frame(width: 88, height: 66)
-                    }
-                    .buttonStyle(LuminaQuietButtonStyle())
-                }
-            }
-            .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
-        }
-        .frame(height: 78)
-        .accessibilityLabel("Nearby alternatives")
     }
 }
 
@@ -119,19 +92,6 @@ struct FocusOverlayView: View {
     FocusOverlayView(
         presentation: PresentationFixtures.attemptWorkspace(),
         onSelectAsset: { _ in },
-        onDecision: { _ in },
-        onClose: {},
-        onPrevious: {},
-        onNext: {}
-    )
-    .frame(width: 1200, height: 820)
-}
-
-#Preview("Focus portrait") {
-    FocusOverlayView(
-        presentation: PresentationFixtures.focusPortrait(),
-        onSelectAsset: { _ in },
-        onDecision: { _ in },
         onClose: {},
         onPrevious: {},
         onNext: {}

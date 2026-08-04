@@ -80,59 +80,112 @@ struct LuminaShellView: View {
     @ViewBuilder
     private var workspaceBody: some View {
         let presentation = shell.workspacePresentation(model: model)
-        let leadID = shell.selectedAssetID ?? presentation.selectedAssetID
+        let photoID = shell.selectedAssetID ?? presentation.selectedAssetID
         let baseRecipe: DevelopRecipe = {
-            guard let leadID, let photo = model.photo(with: leadID) else { return .neutral }
-            return model.appliedRecipe(for: photo)
+            guard let photoID, let photo = model.photo(with: photoID) else { return .neutral }
+            switch shell.treatmentPreviewMode {
+            case .original: return .neutral
+            case .auto, .current: return model.appliedRecipe(for: photo)
+            }
         }()
-        CullWorkspaceView(
-            presentation: presentation,
-            projectName: model.project?.name,
-            baseRecipe: baseRecipe,
-            developOffsets: Binding(
-                get: { shell.developOffsets },
-                set: { shell.developOffsets = $0 }
-            ),
-            stackPreviewMix: shell.stackPreviewMix,
-            revealToken: shell.workspaceRevealToken,
-            onDevelopChange: { offsets in
-                guard let leadID else { return }
-                shell.setDevelopOffsets(offsets, for: leadID, model: model)
-            },
-            onSelectGroup: { groupID in
-                shell.resetStackPreview()
-                shell.selectLead(in: groupID, model: model, presentation: presentation)
-            },
-            onSelectLead: { groupID, assetID in
-                shell.selectGroup(groupID)
-                shell.selectAsset(assetID)
-                shell.scrollTargetGroupID = groupID
-                if model.project != nil { model.setCursor(assetID) }
-                shell.loadDevelop(for: assetID, model: model)
-                _ = PreviewSpine.shared.paint(id: assetID, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
-            },
-            onLensChange: { newLens in
-                shell.setLens(newLens)
-                shell.resetStackPreview()
-                shell.refreshSnapshotsIfNeeded(model: model)
-                let updated = shell.workspacePresentation(model: model)
-                if let first = updated.groups.first {
-                    shell.selectLead(in: first.id, model: model, presentation: updated)
-                }
-            },
-            onDecision: { decision, assetID, groupID in
-                shell.selectGroup(groupID)
-                shell.selectAsset(assetID)
-                shell.applyDecision(decision, for: assetID, model: model)
-            },
-            onApplyToRest: { groupID in
-                let fresh = shell.workspacePresentation(model: model)
-                shell.applyDecisionToRest(in: groupID, model: model, presentation: fresh)
-            },
-            onPreviewEdits: { shell.replayStackPreview() },
-            onHome: { shell.openHome() },
-            onFinish: { shell.openFinish() }
-        )
+
+        ZStack {
+            ContinuousWorkspaceView(
+                presentation: presentation,
+                emergingSet: model.emergingSetPresentations(),
+                projectName: model.project?.name,
+                baseRecipe: baseRecipe,
+                workspaceStage: Binding(
+                    get: { shell.workspaceStage },
+                    set: { shell.setWorkspaceStage($0) }
+                ),
+                isRowExpanded: Binding(
+                    get: { shell.isRowExpanded },
+                    set: { shell.isRowExpanded = $0 }
+                ),
+                treatmentPreviewMode: Binding(
+                    get: { shell.treatmentPreviewMode },
+                    set: { shell.treatmentPreviewMode = $0 }
+                ),
+                developOffsets: Binding(
+                    get: { shell.developOffsets },
+                    set: { shell.developOffsets = $0 }
+                ),
+                showDetailedEdits: Binding(
+                    get: { shell.showDetailedEdits },
+                    set: { shell.showDetailedEdits = $0 }
+                ),
+                rowPreviewActive: Binding(
+                    get: { shell.rowPreviewActive },
+                    set: { shell.rowPreviewActive = $0 }
+                ),
+                stackPreviewMix: shell.stackPreviewMix,
+                workbenchScrollAnchor: shell.workbenchScrollAnchor,
+                canvasScrollAnchor: shell.canvasScrollAnchor,
+                proofScrollAnchor: shell.proofScrollAnchor,
+                onDevelopChange: { offsets in
+                    guard let photoID else { return }
+                    shell.treatmentPreviewMode = .current
+                    shell.setDevelopOffsets(offsets, for: photoID, model: model)
+                },
+                onSelectGroup: { groupID in
+                    shell.selectLead(in: groupID, model: model, presentation: presentation)
+                },
+                onSelectPhoto: { groupID, assetID in
+                    shell.selectGroup(groupID)
+                    shell.selectAsset(assetID)
+                    shell.scrollTargetGroupID = groupID
+                    if model.project != nil { model.setCursor(assetID) }
+                    shell.loadDevelop(for: assetID, model: model)
+                    _ = PreviewSpine.shared.paint(id: assetID, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
+                },
+                onLensChange: { newLens in
+                    shell.setLens(newLens)
+                    shell.resetStackPreview()
+                    shell.refreshSnapshotsIfNeeded(model: model)
+                },
+                onSendToSet: { assetID, groupID in
+                    shell.selectGroup(groupID)
+                    shell.selectAsset(assetID)
+                    shell.applyDecision(.keep, for: assetID, model: model)
+                },
+                onFold: { assetID, groupID in
+                    shell.selectGroup(groupID)
+                    shell.selectAsset(assetID)
+                    shell.applyDecision(.cut, for: assetID, model: model)
+                },
+                onHold: { assetID, groupID in
+                    shell.selectGroup(groupID)
+                    shell.selectAsset(assetID)
+                    shell.applyDecision(.needsMe, for: assetID, model: model)
+                },
+                onFocusPhoto: { assetID in
+                    shell.selectAsset(assetID)
+                    shell.isFocusMode = true
+                },
+                onPreviewEdits: { shell.toggleRowPreview() },
+                onHome: { shell.openHome() },
+                onFinish: { shell.openFinish() }
+            )
+
+            if shell.isFocusMode {
+                FocusOverlayView(
+                    presentation: presentation,
+                    onSelectAsset: { id in
+                        shell.selectAsset(id)
+                        if model.project != nil { model.setCursor(id) }
+                        shell.loadDevelop(for: id, model: model)
+                    },
+                    onClose: { shell.isFocusMode = false },
+                    onPrevious: {
+                        shell.moveAlternative(delta: -1, presentation: presentation, model: model)
+                    },
+                    onNext: {
+                        shell.moveAlternative(delta: 1, presentation: presentation, model: model)
+                    }
+                )
+            }
+        }
     }
 
     private func enterWorkspaceFromHome() {
@@ -150,17 +203,17 @@ struct KeyboardShortcutsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private let rows: [(String, String)] = [
-        ("← / →", "Previous / next row"),
-        ("↑ / ↓", "Frame within row"),
-        ("⌘K", "Keep lead frame"),
-        ("⌘X", "Cut lead frame"),
-        ("⌘M", "Maybe — decide later"),
-        ("⌘↩", "Cut duplicates behind lead"),
-        ("⌘− / ⌘+", "Exposure down / up (develop pane)"),
-        ("⌘E", "Replay edit preview"),
-        ("⌘1 / ⌘2", "Subject / Time rows"),
-        ("⌘Z", "Undo"),
-        ("Esc", "Dismiss overlay"),
+        ("↑ / ↓", "Previous / next row"),
+        ("← / →", "Photograph within row"),
+        ("Return", "Expand / collapse active row"),
+        ("Space", "High-resolution focus"),
+        ("S", "Send to emerging set (Keep)"),
+        ("X", "Fold as Out (Reject)"),
+        ("M", "Hold / Maybe"),
+        ("A", "Preview Auto treatment"),
+        ("E", "Detailed edit controls"),
+        ("⌘1 / ⌘2 / ⌘3", "Workbench / Canvas / Proof"),
+        ("Esc", "Return one level"),
     ]
 
     var body: some View {

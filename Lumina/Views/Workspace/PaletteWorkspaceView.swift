@@ -51,7 +51,6 @@ struct PaletteWorkspaceView: View {
                 FocusOverlayView(
                     presentation: presentation,
                     onSelectAsset: onSelectAsset,
-                    onDecision: onDecision,
                     onClose: onToggleFocus,
                     onPrevious: onPrevious,
                     onNext: onNext
