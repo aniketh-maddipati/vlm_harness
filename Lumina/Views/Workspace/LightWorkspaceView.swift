@@ -153,7 +153,7 @@ struct LightWorkspaceView: View {
         title: String,
         isActive: Bool,
         accessibility: String,
-        action: () -> Void
+        action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             Text(title)
