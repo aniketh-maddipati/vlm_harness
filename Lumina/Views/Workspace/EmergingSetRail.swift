@@ -1,12 +1,17 @@
 import SwiftUI
 
-/// Quiet receipt of kept photographs — expands into Canvas.
+/// Living editorial preview of the emerging set — large aspect-correct photographs.
 struct EmergingSetRail: View {
     let assets: [AssetPresentation]
     let selectedID: AssetID?
     var isCompact: Bool = false
-    let onSelect: (AssetID) -> Void
-    let onOpenCanvas: () -> Void
+    var routingNamespace: Namespace.ID?
+    var routingFlightID: AssetID?
+    var onSelect: (AssetID) -> Void
+    var onOpenCanvas: () -> Void
+    var onDropAddToSet: ((AssetID) -> Void)?
+
+    @State private var isDropTargeted = false
 
     var body: some View {
         if isCompact {
@@ -23,54 +28,44 @@ struct EmergingSetRail: View {
                 emptyState
             } else {
                 ScrollView {
-                    LazyVStack(spacing: LuminaTokens.Spacing.sm) {
-                        ForEach(assets) { asset in
-                            Button { onSelect(asset.id) } label: {
-                                StablePhotoView(
-                                    asset: asset,
-                                    contentMode: .fit,
-                                    cornerRadius: LuminaTokens.Radius.photographThumb,
-                                    isSelected: asset.id == selectedID,
-                                    maxPixelSize: 800
-                                )
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 72)
-                            }
-                            .buttonStyle(LuminaQuietButtonStyle())
-                        }
-                    }
+                    editorialPreview
+                        .padding(.trailing, 2)
                 }
             }
             openCanvasButton
         }
         .padding(LuminaTokens.Spacing.md)
-        .frame(minWidth: 280, idealWidth: 320, maxWidth: 330)
-        .frame(maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(LuminaTokens.Surface.rail)
-        .overlay(alignment: .leading) {
-            Rectangle().fill(LuminaTokens.Line.hairline).frame(width: LuminaTokens.Line.hairlineWidth)
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 0)
+                    .strokeBorder(LuminaTokens.Ink.primary.opacity(0.28), lineWidth: 1.5)
+                    .padding(4)
+                    .allowsHitTesting(false)
+            }
+        }
+        .dropDestination(for: String.self) { items, _ in
+            guard let raw = items.first, let id = UUID(uuidString: raw) else { return false }
+            onDropAddToSet?(id)
+            return true
+        } isTargeted: { targeted in
+            isDropTargeted = targeted
         }
     }
 
     private var compactTab: some View {
         Button(action: onOpenCanvas) {
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Text("Set")
                     .font(LuminaTokens.Typeface.navigation(13, weight: .medium))
                     .foregroundStyle(LuminaTokens.Ink.primary)
-                Text("·")
-                    .foregroundStyle(LuminaTokens.Ink.tertiary)
                 Text("\(assets.count)")
-                    .font(LuminaTokens.Typeface.count(14))
+                    .font(LuminaTokens.Typeface.count(16))
                     .foregroundStyle(LuminaTokens.Ink.secondary)
-                Text("photos")
-                    .font(LuminaTokens.Typeface.meta(10))
-                    .foregroundStyle(LuminaTokens.Ink.tertiary)
-                    .rotationEffect(.degrees(-90))
-                    .fixedSize()
             }
             .padding(.vertical, LuminaTokens.Spacing.lg)
-            .frame(width: 44)
+            .frame(width: 48)
             .frame(maxHeight: .infinity)
             .background(LuminaTokens.Surface.rail)
             .overlay(alignment: .leading) {
@@ -84,7 +79,7 @@ struct EmergingSetRail: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("The set so far")
-                .font(LuminaTokens.Typeface.navigation(15))
+                .font(LuminaTokens.Typeface.navigation(16))
                 .foregroundStyle(LuminaTokens.Ink.primary)
             Text("\(assets.count) photograph\(assets.count == 1 ? "" : "s")")
                 .font(LuminaTokens.Typeface.meta(12))
@@ -93,16 +88,67 @@ struct EmergingSetRail: View {
     }
 
     private var emptyState: some View {
-        Text("Worthwhile photographs will appear here as you send them to the emerging set.")
-            .font(LuminaTokens.Typeface.meta(12))
-            .foregroundStyle(LuminaTokens.Ink.tertiary)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .leading, spacing: 8) {
+            Spacer(minLength: 24)
+            Text("Photographs you add will gather here.")
+                .font(LuminaTokens.Typeface.meta(13))
+                .foregroundStyle(LuminaTokens.Ink.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var editorialPreview: some View {
+        let count = assets.count
+        if count == 1, let asset = assets.first {
+            largePhoto(asset, maxHeight: 420)
+        } else if count == 2 {
+            VStack(spacing: LuminaTokens.Spacing.lg) {
+                ForEach(assets) { asset in
+                    largePhoto(asset, maxHeight: 280)
+                }
+            }
+        } else {
+            LazyVStack(spacing: LuminaTokens.Spacing.lg) {
+                ForEach(Array(assets.enumerated()), id: \.element.id) { index, asset in
+                    largePhoto(asset, maxHeight: index == 0 ? 320 : 220)
+                }
+            }
+        }
+    }
+
+    private func largePhoto(_ asset: AssetPresentation, maxHeight: CGFloat) -> some View {
+        Button { onSelect(asset.id) } label: {
+            photoView(asset, maxHeight: maxHeight)
+        }
+        .buttonStyle(LuminaQuietButtonStyle())
+    }
+
+    @ViewBuilder
+    private func photoView(_ asset: AssetPresentation, maxHeight: CGFloat) -> some View {
+        let view = StablePhotoView(
+            asset: asset,
+            contentMode: .fit,
+            cornerRadius: LuminaTokens.Radius.photographLarge,
+            isSelected: asset.id == selectedID,
+            maxPixelSize: 1400
+        )
+        .frame(maxWidth: .infinity)
+        .frame(maxHeight: maxHeight)
+        .aspectRatio(asset.aspectRatio, contentMode: .fit)
+
+        if let ns = routingNamespace, routingFlightID == asset.id {
+            view.matchedGeometryEffect(id: asset.id, in: ns, isSource: false)
+        } else {
+            view
+        }
     }
 
     private var openCanvasButton: some View {
         Button(action: onOpenCanvas) {
-            Text("Open canvas")
+            Text("Open Canvas")
                 .font(LuminaTokens.Typeface.navigation(14))
                 .foregroundStyle(LuminaTokens.Ink.primary)
                 .frame(maxWidth: .infinity)

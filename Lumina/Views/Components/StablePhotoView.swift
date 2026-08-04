@@ -84,7 +84,7 @@ struct StablePhotoView: View {
     @ViewBuilder
     private var badge: some View {
         if asset.decision != .undecided {
-            Text(asset.decision.title)
+            Text(asset.decision.quietMarker)
                 .font(LuminaTokens.Typeface.meta(10))
                 .foregroundStyle(badgeForeground)
                 .padding(.horizontal, 7)
@@ -130,7 +130,7 @@ struct StablePhotoView: View {
 
     private var accessibilityLabel: String {
         var parts = [asset.filename]
-        if asset.decision != .undecided { parts.append(asset.decision.title) }
+        if asset.decision != .undecided { parts.append(asset.decision.routingTitle) }
         if isSelected { parts.append("selected") }
         return parts.joined(separator: ", ")
     }

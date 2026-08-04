@@ -17,7 +17,7 @@ final class LuminaShellModel {
     var route: LuminaRoute = .home
     var lens: WorkspaceLens = .attempts
     var workspaceStage: WorkspaceStage = .workbench
-    var isRowExpanded = false
+    var isRowExpanded = true
     var treatmentPreviewMode: TreatmentPreviewMode = .current
     var showDetailedEdits = false
     var rowPreviewActive = false
@@ -34,8 +34,31 @@ final class LuminaShellModel {
     var developOffsets: DevelopAdjustments = .zero
     var stackPreviewMix: Double = 1
     var workspaceRevealToken: Int = 0
+    /// One-step Undo for Workbench routing decisions.
+    var decisionUndo: DecisionUndoRecord?
+    /// Transient non-modal receipt — does not resize the workspace.
+    var decisionReceipt: DecisionReceipt?
+    /// Asset currently flying toward the emerging set (matched-geometry bridge).
+    var routingFlightID: AssetID?
     private var previewAnimationTask: Task<Void, Never>?
     private var developPersistTask: Task<Void, Never>?
+    private var receiptDismissTask: Task<Void, Never>?
+    private var flightClearTask: Task<Void, Never>?
+
+    struct DecisionUndoRecord: Equatable {
+        let photoID: AssetID
+        let priorTier: PhotoTier
+        let priorFlagged: Bool
+        let priorUncertaintyKind: UncertaintyKind
+        let priorWhyUncertain: String?
+        let applied: AssetDecision
+        let receiptLabel: String
+    }
+
+    struct DecisionReceipt: Equatable {
+        let id: UUID
+        let message: String
+    }
 
     var fixtureHome: HomePresentation?
     var fixtureShoots: ShootSelectionPresentation?
@@ -160,6 +183,10 @@ final class LuminaShellModel {
         }
         if workspaceStage == .proof {
             setWorkspaceStage(.canvas)
+            return true
+        }
+        if workspaceStage == .canvas {
+            setWorkspaceStage(.workbench)
             return true
         }
         if showDetailedEdits {
@@ -323,25 +350,120 @@ final class LuminaShellModel {
         guard model.project != nil else { return }
         let targetID = assetID ?? selectedAssetID ?? model.cursor
         guard let targetID else { return }
+        guard let snapshot = model.photoRoutingSnapshot(for: targetID) else { return }
         model.setCursor(targetID)
 
         pendingPeerSuggestion = nil
 
+        let receiptLabel: String
         switch decision {
         case .cut:
             model.setTier(.reject, for: targetID)
+            receiptLabel = "Set aside"
+            routingFlightID = nil
         case .keep:
             model.setTier(.keep, for: targetID)
+            receiptLabel = "Added to set"
+            beginRoutingFlight(targetID)
         case .needsMe:
-            model.toggleFlag()
+            if snapshot.isFlagged && snapshot.tier == .unranked {
+                // Second Hold clears the marker.
+                model.clearRoutingDecision(for: targetID)
+                decisionUndo = nil
+                showReceipt("Hold cleared")
+                invalidateCache()
+                refreshSnapshotsIfNeeded(model: model)
+                return
+            }
+            model.setHold(for: targetID)
+            receiptLabel = "Hold"
+            routingFlightID = nil
         case .undecided, .anchor:
-            break
+            return
         }
 
-        invalidateCache()
-        refreshSnapshotsIfNeeded(model: model)
+        decisionUndo = DecisionUndoRecord(
+            photoID: targetID,
+            priorTier: snapshot.tier,
+            priorFlagged: snapshot.isFlagged,
+            priorUncertaintyKind: snapshot.uncertaintyKind,
+            priorWhyUncertain: snapshot.whyUncertain,
+            applied: decision,
+            receiptLabel: receiptLabel
+        )
+        showReceipt(receiptLabel)
+
+        withAnimation(LuminaTokens.Motion.photo) {
+            invalidateCache()
+            refreshSnapshotsIfNeeded(model: model)
+        }
         let presentation = workspacePresentation(model: model)
         advanceWithinGroup(afterDeciding: targetID, presentation: presentation, model: model)
+    }
+
+    func undoLastDecision(model: ProjectViewModel) {
+        guard let record = decisionUndo else { return }
+        model.restorePhotoState(
+            photoID: record.photoID,
+            tier: record.priorTier,
+            isFlagged: record.priorFlagged,
+            uncertaintyKind: record.priorUncertaintyKind,
+            whyUncertain: record.priorWhyUncertain
+        )
+        decisionUndo = nil
+        routingFlightID = nil
+        selectedAssetID = record.photoID
+        model.setCursor(record.photoID)
+        showReceipt("Undone")
+        invalidateCache()
+        refreshSnapshotsIfNeeded(model: model)
+        loadDevelop(for: record.photoID, model: model)
+        _ = PreviewSpine.shared.paint(id: record.photoID, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
+    }
+
+    func restoreFromFold(assetID: AssetID, model: ProjectViewModel) {
+        guard let snapshot = model.photoRoutingSnapshot(for: assetID) else { return }
+        decisionUndo = DecisionUndoRecord(
+            photoID: assetID,
+            priorTier: snapshot.tier,
+            priorFlagged: snapshot.isFlagged,
+            priorUncertaintyKind: snapshot.uncertaintyKind,
+            priorWhyUncertain: snapshot.whyUncertain,
+            applied: .undecided,
+            receiptLabel: "Restored"
+        )
+        model.clearRoutingDecision(for: assetID)
+        selectedAssetID = assetID
+        model.setCursor(assetID)
+        showReceipt("Restored")
+        invalidateCache()
+        refreshSnapshotsIfNeeded(model: model)
+        loadDevelop(for: assetID, model: model)
+    }
+
+    private func showReceipt(_ message: String) {
+        let receipt = DecisionReceipt(id: UUID(), message: message)
+        decisionReceipt = receipt
+        receiptDismissTask?.cancel()
+        receiptDismissTask = Task {
+            try? await Task.sleep(nanoseconds: 3_200_000_000)
+            guard !Task.isCancelled else { return }
+            if decisionReceipt?.id == receipt.id {
+                decisionReceipt = nil
+            }
+        }
+    }
+
+    private func beginRoutingFlight(_ id: AssetID) {
+        routingFlightID = id
+        flightClearTask?.cancel()
+        flightClearTask = Task {
+            try? await Task.sleep(nanoseconds: 420_000_000)
+            guard !Task.isCancelled else { return }
+            if routingFlightID == id {
+                routingFlightID = nil
+            }
+        }
     }
 
     func applyPeerSuggestion(model: ProjectViewModel) {

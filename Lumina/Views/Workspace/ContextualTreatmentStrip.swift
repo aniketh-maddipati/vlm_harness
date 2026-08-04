@@ -36,11 +36,6 @@ struct ContextualTreatmentStrip: View {
                 .foregroundStyle(LuminaTokens.Ink.primary)
                 .buttonStyle(LuminaQuietButtonStyle())
 
-                Text("Shared treatment preview — same look applied to each frame")
-                    .font(LuminaTokens.Typeface.meta(11))
-                    .foregroundStyle(LuminaTokens.Ink.tertiary)
-                    .lineLimit(2)
-
                 Spacer(minLength: 0)
 
                 Button("Reset") { onReset() }

@@ -826,6 +826,57 @@ final class ProjectViewModel {
         persistDebounced()
     }
 
+    /// Hold — unresolved marker. Leaves keep/reject so the photograph stays in the family.
+    func setHold(for photoID: UUID) {
+        guard var project else { return }
+        guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        project.photos[index].tier = .unranked
+        project.photos[index].proposedTier = nil
+        project.photos[index].isFlagged = true
+        project.photos[index].uncertaintyKind = .cullBorderline
+        project.photos[index].whyUncertain = "Held for another look"
+        project.photos[index].userDecidedAt = Date()
+        self.project = project
+        refreshExportCollections()
+        persistDebounced()
+        syncActiveCatalogStats()
+    }
+
+    /// Clear Hold / restore a set-aside photograph to undecided without taste side-effects.
+    func clearRoutingDecision(for photoID: UUID) {
+        restorePhotoState(photoID: photoID, tier: .unranked, isFlagged: false)
+    }
+
+    /// One-step Undo restore — no taste relearning.
+    func restorePhotoState(
+        photoID: UUID,
+        tier: PhotoTier,
+        isFlagged: Bool,
+        uncertaintyKind: UncertaintyKind = .none,
+        whyUncertain: String? = nil
+    ) {
+        guard var project else { return }
+        guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        project.photos[index].tier = tier
+        project.photos[index].proposedTier = nil
+        project.photos[index].isFlagged = isFlagged
+        project.photos[index].uncertaintyKind = isFlagged ? (uncertaintyKind == .none ? .cullBorderline : uncertaintyKind) : .none
+        project.photos[index].whyUncertain = isFlagged ? (whyUncertain ?? "Held for another look") : nil
+        if tier == .unranked && !isFlagged {
+            project.photos[index].userDecidedAt = nil
+            project.photos[index].whyAction = nil
+        }
+        self.project = project
+        refreshExportCollections()
+        persistDebounced()
+        syncActiveCatalogStats()
+    }
+
+    func photoRoutingSnapshot(for photoID: UUID) -> (tier: PhotoTier, isFlagged: Bool, uncertaintyKind: UncertaintyKind, whyUncertain: String?)? {
+        guard let photo = project?.photos.first(where: { $0.id == photoID }) else { return nil }
+        return (photo.tier, photo.isFlagged, photo.uncertaintyKind, photo.whyUncertain)
+    }
+
     func markKeep() {
         guard let id = cursor else { return }
         setTier(.keep, for: id)

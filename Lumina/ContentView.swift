@@ -137,6 +137,11 @@ struct ContentView: View {
                 case "3":
                     shell.setWorkspaceStage(.proof)
                     return nil
+                case "z":
+                    if shell.decisionUndo != nil {
+                        shell.undoLastDecision(model: model)
+                        return nil
+                    }
                 default:
                     break
                 }

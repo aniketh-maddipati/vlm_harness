@@ -18,12 +18,33 @@ enum AssetDecision: String, Codable, Hashable, CaseIterable, Identifiable {
         }
     }
 
+    /// Workbench routing copy — where the photograph goes, not a quality judgment.
+    var routingTitle: String {
+        switch self {
+        case .undecided: "—"
+        case .cut: "Set aside"
+        case .needsMe: "Hold"
+        case .keep: "Add to set"
+        case .anchor: "Add to set"
+        }
+    }
+
+    /// Quiet marker on photographs that remain visible after a decision.
+    var quietMarker: String {
+        switch self {
+        case .undecided: ""
+        case .cut: "Set aside"
+        case .needsMe: "Hold"
+        case .keep, .anchor: "In set"
+        }
+    }
+
     var shortcut: String {
         switch self {
         case .undecided: ""
         case .cut: "X"
         case .needsMe: "M"
-        case .keep: "K"
+        case .keep: "S"
         case .anchor: "A"
         }
     }

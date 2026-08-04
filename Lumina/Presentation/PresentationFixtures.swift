@@ -184,6 +184,98 @@ enum PresentationFixtures {
         )
     }
 
+    /// Two-up comparison fixture for verification captures.
+    static func twoUpComparison() -> WorkspacePresentation {
+        let photos = [
+            asset(name: "DSC02001.ARW", aspect: 3.0 / 2.0),
+            asset(name: "DSC02002.ARW", aspect: 3.0 / 2.0),
+        ]
+        return WorkspacePresentation(
+            shootTitle: "Death Valley",
+            lens: .attempts,
+            groups: [
+                GroupPresentation(
+                    id: "two-up",
+                    title: "Ridge pair · 2 photographs",
+                    subtitle: "2:14 PM",
+                    assets: photos,
+                    representativeID: photos[0].id
+                ),
+                GroupPresentation(
+                    id: "idle-row",
+                    title: "Later light · 3 photographs",
+                    subtitle: "2:40 PM",
+                    assets: Array(brooklynAssets.prefix(3)),
+                    representativeID: brooklynAssets[0].id
+                ),
+            ],
+            selectedAssetID: photos[0].id,
+            selectedGroupID: "two-up",
+            progressCurrent: 2,
+            progressTotal: 5,
+            inspectorAvailable: true
+        )
+    }
+
+    /// Four-photo 2×2 comparison fixture.
+    static func fourUpComparison() -> WorkspacePresentation {
+        let photos = [
+            asset(name: "DSC03001.ARW", aspect: 3.0 / 2.0),
+            asset(name: "DSC03002.ARW", aspect: 2.0 / 3.0),
+            asset(name: "DSC03003.ARW", aspect: 3.0 / 2.0),
+            asset(name: "DSC03004.ARW", aspect: 3.0 / 2.0),
+        ]
+        return WorkspacePresentation(
+            shootTitle: "Death Valley",
+            lens: .attempts,
+            groups: [
+                GroupPresentation(
+                    id: "four-up",
+                    title: "Basin study · 4 photographs",
+                    subtitle: "2:18 PM – 2:21 PM",
+                    assets: photos,
+                    representativeID: photos[1].id
+                )
+            ],
+            selectedAssetID: photos[1].id,
+            selectedGroupID: "four-up",
+            progressCurrent: 1,
+            progressTotal: 4,
+            inspectorAvailable: true
+        )
+    }
+
+    /// Six-photo family across two comparison pages.
+    static func sixUpPaged() -> WorkspacePresentation {
+        let photos = (1...6).map { asset(name: String(format: "DSC04%03d.ARW", $0), aspect: $0 % 3 == 0 ? 2.0 / 3.0 : 3.0 / 2.0) }
+        return WorkspacePresentation(
+            shootTitle: "Death Valley",
+            lens: .attempts,
+            groups: [
+                GroupPresentation(
+                    id: "six-up",
+                    title: "Long take · 6 photographs",
+                    subtitle: "2:30 PM – 2:36 PM",
+                    assets: photos,
+                    representativeID: photos[0].id
+                )
+            ],
+            selectedAssetID: photos[0].id,
+            selectedGroupID: "six-up",
+            progressCurrent: 0,
+            progressTotal: 6,
+            inspectorAvailable: true
+        )
+    }
+
+    static func emergingSetPreview() -> [AssetPresentation] {
+        [
+            asset(name: "DSC01201.ARW", aspect: 3.0 / 2.0, decision: .keep),
+            asset(name: "DSC01206.ARW", aspect: 4.0 / 5.0, decision: .keep, protected: true),
+            asset(name: "DSC01208.ARW", aspect: 16.0 / 9.0, decision: .keep),
+        ]
+    }
+
     static func lightWorkspace() -> WorkspacePresentation {
         let groups = lightGroups()
         return WorkspacePresentation(

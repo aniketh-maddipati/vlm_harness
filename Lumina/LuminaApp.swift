@@ -2,6 +2,10 @@ import SwiftUI
 
 @main
 struct LuminaApp: App {
+    init() {
+        WorkbenchCapture.runIfRequested()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

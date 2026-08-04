@@ -123,6 +123,8 @@ struct LuminaShellView: View {
                 workbenchScrollAnchor: shell.workbenchScrollAnchor,
                 canvasScrollAnchor: shell.canvasScrollAnchor,
                 proofScrollAnchor: shell.proofScrollAnchor,
+                routingFlightID: shell.routingFlightID,
+                decisionReceiptMessage: shell.decisionReceipt?.message,
                 onDevelopChange: { offsets in
                     guard let photoID else { return }
                     shell.treatmentPreviewMode = .current
@@ -158,6 +160,12 @@ struct LuminaShellView: View {
                     shell.selectGroup(groupID)
                     shell.selectAsset(assetID)
                     shell.applyDecision(.needsMe, for: assetID, model: model)
+                },
+                onRestore: { assetID in
+                    shell.restoreFromFold(assetID: assetID, model: model)
+                },
+                onUndo: {
+                    shell.undoLastDecision(model: model)
                 },
                 onFocusPhoto: { assetID in
                     shell.selectAsset(assetID)
@@ -207,11 +215,12 @@ struct KeyboardShortcutsSheet: View {
         ("← / →", "Photograph within row"),
         ("Return", "Expand / collapse active row"),
         ("Space", "High-resolution focus"),
-        ("S", "Send to emerging set (Keep)"),
-        ("X", "Fold as Out (Reject)"),
-        ("M", "Hold / Maybe"),
+        ("S", "Add to set"),
+        ("X", "Set aside"),
+        ("M", "Hold"),
         ("A", "Preview Auto treatment"),
         ("E", "Detailed edit controls"),
+        ("⌘Z", "Undo last decision"),
         ("⌘1 / ⌘2 / ⌘3", "Workbench / Canvas / Proof"),
         ("Esc", "Return one level"),
     ]
@@ -242,7 +251,7 @@ struct KeyboardShortcutsSheet: View {
             Spacer()
         }
         .padding(LuminaTokens.Spacing.xl)
-        .frame(width: 420, height: 460)
+        .frame(width: 420, height: 500)
         .background(LuminaTokens.Surface.porcelain)
     }
 }
