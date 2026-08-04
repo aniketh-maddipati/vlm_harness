@@ -7,35 +7,35 @@ struct LuminaPressStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? pressedScale : 1)
             .opacity(configuration.isPressed ? 0.78 : 1)
-            .animation(LuminaAtmosphere.Motion.dissolve, value: configuration.isPressed)
+            .animation(LuminaTokens.Motion.control, value: configuration.isPressed)
     }
 }
 
 struct LuminaPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(LuminaAtmosphere.Typeface.body(16).weight(.medium))
+            .font(LuminaTokens.Typeface.control(16, weight: .medium))
             .padding(.horizontal, 28)
             .padding(.vertical, 14)
             .frame(minHeight: 48)
             .background(
-                LuminaAtmosphere.affirm.opacity(configuration.isPressed ? 0.72 : 0.92),
-                in: Capsule()
+                LuminaTokens.Ink.primary.opacity(configuration.isPressed ? 0.72 : 0.92),
+                in: RoundedRectangle(cornerRadius: LuminaTokens.Radius.button, style: .continuous)
             )
-            .foregroundStyle(Color.black.opacity(0.85))
+            .foregroundStyle(LuminaTokens.Surface.porcelain)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(LuminaAtmosphere.Motion.dissolve, value: configuration.isPressed)
+            .animation(LuminaTokens.Motion.control, value: configuration.isPressed)
     }
 }
 
 struct LuminaGhostButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(LuminaAtmosphere.Typeface.body(15))
-            .foregroundStyle(LuminaAtmosphere.whisper.opacity(configuration.isPressed ? 0.55 : 0.85))
+            .font(LuminaTokens.Typeface.control(15))
+            .foregroundStyle(LuminaTokens.Ink.secondary.opacity(configuration.isPressed ? 0.55 : 0.95))
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
-            .animation(LuminaAtmosphere.Motion.dissolve, value: configuration.isPressed)
+            .animation(LuminaTokens.Motion.control, value: configuration.isPressed)
     }
 }
 
@@ -45,7 +45,7 @@ enum LuminaDecisionRole {
     var title: String {
         switch self {
         case .reject: "Cut"
-        case .hero: "Hero"
+        case .hero: "Anchor"
         case .keep: "Keep"
         }
     }
@@ -53,13 +53,12 @@ enum LuminaDecisionRole {
     var shortcut: String {
         switch self {
         case .reject: "X"
-        case .hero: "H"
-        case .keep: "P"
+        case .hero: "A"
+        case .keep: "K"
         }
     }
 }
 
-/// Whisper decisions — keys + soft labels, no traffic-light cards.
 struct LuminaDecisionButton: View {
     let role: LuminaDecisionRole
     let action: () -> Void
@@ -69,16 +68,15 @@ struct LuminaDecisionButton: View {
             VStack(spacing: 4) {
                 Text(role.shortcut)
                     .font(.system(size: 15, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color.white.opacity(0.78))
+                    .foregroundStyle(LuminaTokens.Ink.primary)
                 Text(role.title)
-                    .font(LuminaAtmosphere.Typeface.caption(11))
-                    .foregroundStyle(Color.white.opacity(0.42))
+                    .font(LuminaTokens.Typeface.meta(11))
+                    .foregroundStyle(LuminaTokens.Ink.secondary)
             }
             .frame(minWidth: 64, minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(LuminaPressStyle())
-        .keyboardShortcut(KeyEquivalent(Character(role.shortcut.lowercased())), modifiers: [])
     }
 }
 
@@ -96,9 +94,12 @@ struct LuminaDecisionBar: View {
         .padding(.horizontal, 22)
         .padding(.vertical, 10)
         .background(
-            Capsule()
-                .fill(Color.black.opacity(0.28))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+            RoundedRectangle(cornerRadius: LuminaTokens.Radius.dock, style: .continuous)
+                .fill(LuminaTokens.Surface.elevated.opacity(0.92))
+                .overlay(
+                    RoundedRectangle(cornerRadius: LuminaTokens.Radius.dock, style: .continuous)
+                        .strokeBorder(LuminaTokens.Line.hairline, lineWidth: LuminaTokens.Line.hairlineWidth)
+                )
         )
     }
 }
@@ -112,11 +113,11 @@ struct LuminaFooterBar<Content: View>: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color.black.opacity(0.35))
+        .background(LuminaTokens.Surface.elevated)
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(Color.white.opacity(0.06))
-                .frame(height: 1)
+                .fill(LuminaTokens.Line.hairline)
+                .frame(height: LuminaTokens.Line.hairlineWidth)
         }
     }
 }

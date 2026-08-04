@@ -60,25 +60,32 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
-                Text(presentation.greeting)
-                    .font(LuminaTokens.Typeface.brand(32))
+        VStack(alignment: .leading, spacing: LuminaTokens.Spacing.lg) {
+            HStack {
+                Text("Lumina")
+                    .font(LuminaTokens.Typeface.brand(28))
                     .foregroundStyle(LuminaTokens.Ink.primary)
                     .accessibilityAddTraits(.isHeader)
-
-                if let summary = presentation.readinessSummary {
-                    Text(summary)
-                        .font(LuminaTokens.Typeface.meta(13))
-                        .foregroundStyle(LuminaTokens.Ink.secondary)
-                }
+                Spacer()
+                LuminaGhostActionButton(title: "Settings", action: onOpenSettings)
             }
 
-            Spacer(minLength: LuminaTokens.Spacing.lg)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
+                    Text(presentation.greeting)
+                        .font(LuminaTokens.Typeface.title(36))
+                        .foregroundStyle(LuminaTokens.Ink.primary)
 
-            HStack(spacing: LuminaTokens.Spacing.sm) {
+                    if let summary = presentation.readinessSummary {
+                        Text(summary)
+                            .font(LuminaTokens.Typeface.meta(13))
+                            .foregroundStyle(LuminaTokens.Ink.secondary)
+                    }
+                }
+
+                Spacer(minLength: LuminaTokens.Spacing.lg)
+
                 LuminaGhostActionButton(title: "Scan backlog", action: onScanBacklog)
-                LuminaGhostActionButton(title: "Settings", action: onOpenSettings)
             }
         }
     }

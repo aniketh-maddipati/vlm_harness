@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// One stable session stage. Posture and lenses rearrange content without replacing the host.
+/// Legacy session host retained for Phase 2 backend continuity.
+/// The Phase 1 product shell (`LuminaShellView`) is the primary presentation path.
 struct UnifiedCanvasView: View {
     @Bindable var model: ProjectViewModel
 
@@ -17,16 +18,15 @@ struct UnifiedCanvasView: View {
 
     private var emptyPrompt: some View {
         ZStack {
-            LuminaAtmosphereBackdrop()
-
+            LuminaTokens.Surface.porcelain.ignoresSafeArea()
             VStack(spacing: 18) {
                 Spacer()
                 Text("Lumina")
-                    .font(LuminaAtmosphere.Typeface.brand(52))
-                    .foregroundStyle(Color.white.opacity(0.92))
-                Text("Drop a shoot. Keep only what needs you.")
-                    .font(LuminaAtmosphere.Typeface.body(16))
-                    .foregroundStyle(LuminaAtmosphere.whisper)
+                    .font(LuminaTokens.Typeface.brand(52))
+                    .foregroundStyle(LuminaTokens.Ink.primary)
+                Text("Every time you shoot, Lumina helps you finish something.")
+                    .font(LuminaTokens.Typeface.control(16))
+                    .foregroundStyle(LuminaTokens.Ink.secondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 420)
                 Spacer()

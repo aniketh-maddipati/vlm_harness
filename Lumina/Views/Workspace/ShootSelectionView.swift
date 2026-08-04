@@ -5,7 +5,7 @@ struct ShootSelectionView: View {
     var onOpen: (String) -> Void
     var onBack: () -> Void
 
-  private let gridColumns = [
+    private let gridColumns = [
         GridItem(.adaptive(minimum: 320, maximum: 420), spacing: LuminaTokens.Spacing.lg, alignment: .top)
     ]
 

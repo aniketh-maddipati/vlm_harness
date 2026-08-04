@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 /// NSCollectionView-backed photo grid with cell reuse and prefetch.
+/// Selection updates do not reload the complete grid.
 struct PhotoGridView: NSViewRepresentable {
     let photos: [PhotoRecord]
     let selectedID: UUID?
@@ -40,36 +41,57 @@ struct PhotoGridView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
-        context.coordinator.photos = photos
-        context.coordinator.selectedID = selectedID
-        context.coordinator.onSelect = onSelect
+        let coordinator = context.coordinator
+        coordinator.onSelect = onSelect
 
-        // Resize cells to fit column width (avoids clipped / tiny grid on wide windows)
-        if let collection = context.coordinator.collectionView,
-           let layout = context.coordinator.layout,
+        let photoIDs = photos.map(\.id)
+        let dataChanged = coordinator.photoIDs != photoIDs
+        let selectionChanged = coordinator.selectedID != selectedID
+
+        if let collection = coordinator.collectionView,
+           let layout = coordinator.layout,
            nsView.contentSize.width > 100 {
-            let inset: CGFloat = 20
-            let spacing: CGFloat = 10
-            let minCell: CGFloat = 180
-            let available = nsView.contentSize.width - inset
-            let cols = max(1, Int(floor((available + spacing) / (minCell + spacing))))
-            let cellW = floor((available - spacing * CGFloat(cols - 1)) / CGFloat(cols))
-            layout.itemSize = NSSize(width: cellW, height: cellW * 0.78 + 28)
-            layout.invalidateLayout()
+            let width = nsView.contentSize.width
+            if abs(width - coordinator.lastContainerWidth) > 0.5 {
+                coordinator.lastContainerWidth = width
+                let inset: CGFloat = 20
+                let spacing: CGFloat = 10
+                let minCell: CGFloat = 180
+                let available = width - inset
+                let cols = max(1, Int(floor((available + spacing) / (minCell + spacing))))
+                let cellW = floor((available - spacing * CGFloat(cols - 1)) / CGFloat(cols))
+                let newSize = NSSize(width: cellW, height: cellW * 0.78 + 28)
+                if layout.itemSize != newSize {
+                    layout.itemSize = newSize
+                    layout.invalidateLayout()
+                }
+            }
         }
 
-        context.coordinator.collectionView?.reloadData()
-        if let id = selectedID,
-           let index = photos.firstIndex(where: { $0.id == id }) {
-            let path = IndexPath(item: index, section: 0)
-            context.coordinator.collectionView?.selectionIndexPaths = [path]
+        coordinator.photos = photos
+        coordinator.photoIDs = photoIDs
+        coordinator.selectedID = selectedID
+
+        if dataChanged {
+            let savedOffset = nsView.contentView.bounds.origin
+            coordinator.collectionView?.reloadData()
+            DispatchQueue.main.async {
+                nsView.contentView.scroll(to: savedOffset)
+                nsView.reflectScrolledClipView(nsView.contentView)
+            }
+        } else if selectionChanged {
+            // Selection / badge only — never reloadData.
+            coordinator.applySelectionOnly()
+            coordinator.refreshVisibleBadges()
         }
     }
 
     final class Coordinator: NSObject, NSCollectionViewDataSource, NSCollectionViewDelegate {
         var photos: [PhotoRecord] = []
+        var photoIDs: [UUID] = []
         var selectedID: UUID?
         var onSelect: (UUID) -> Void
+        var lastContainerWidth: CGFloat = 0
         weak var collectionView: NSCollectionView?
         weak var layout: NSCollectionViewFlowLayout?
 
@@ -102,6 +124,26 @@ struct PhotoGridView: NSViewRepresentable {
             prefetchAround(indexPath.item)
         }
 
+        func applySelectionOnly() {
+            guard let collectionView else { return }
+            if let id = selectedID,
+               let index = photos.firstIndex(where: { $0.id == id }) {
+                collectionView.selectionIndexPaths = [IndexPath(item: index, section: 0)]
+            } else {
+                collectionView.selectionIndexPaths = []
+            }
+        }
+
+        func refreshVisibleBadges() {
+            guard let collectionView else { return }
+            for indexPath in collectionView.indexPathsForVisibleItems() {
+                guard indexPath.item < photos.count,
+                      let item = collectionView.item(at: indexPath) as? PhotoItemView else { continue }
+                let photo = photos[indexPath.item]
+                item.applyState(photo: photo, selected: photo.id == selectedID)
+            }
+        }
+
         private func prefetchAround(_ index: Int) {
             guard !photos.isEmpty else { return }
             let lo = max(0, index - 12)
@@ -122,23 +164,24 @@ final class PhotoItemView: NSCollectionViewItem {
     private let nameLabel = NSTextField(labelWithString: "")
     private var imageHeight: NSLayoutConstraint?
     private var loadToken = UUID()
+    private var boundPhotoID: UUID?
 
     override func loadView() {
         view = NSView()
         imageView_.imageScaling = .scaleProportionallyUpOrDown
         imageView_.imageAlignment = .alignCenter
         imageView_.wantsLayer = true
-        imageView_.layer?.cornerRadius = 6
+        imageView_.layer?.cornerRadius = 12
         imageView_.layer?.masksToBounds = true
 
-        badge.font = .systemFont(ofSize: 9, weight: .bold)
+        badge.font = .systemFont(ofSize: 10, weight: .medium)
         badge.textColor = .white
         badge.drawsBackground = true
         badge.backgroundColor = NSColor.systemGreen.withAlphaComponent(0.85)
         badge.wantsLayer = true
         badge.layer?.cornerRadius = 4
 
-        nameLabel.font = .systemFont(ofSize: 9)
+        nameLabel.font = .systemFont(ofSize: 10)
         nameLabel.lineBreakMode = .byTruncatingTail
         nameLabel.textColor = .secondaryLabelColor
 
@@ -166,26 +209,42 @@ final class PhotoItemView: NSCollectionViewItem {
     }
 
     func configure(photo: PhotoRecord, selected: Bool) {
+        let identityChanged = boundPhotoID != photo.id
+        boundPhotoID = photo.id
         nameLabel.stringValue = photo.filename
-        badge.stringValue = " \(photo.tier.label) "
-        switch photo.tier {
-        case .keep: badge.backgroundColor = NSColor.systemGreen.withAlphaComponent(0.85)
-        case .reject: badge.backgroundColor = NSColor.systemGray.withAlphaComponent(0.85)
-        case .unranked:
-            badge.backgroundColor = photo.isFlagged
-                ? NSColor.systemOrange.withAlphaComponent(0.85)
-                : NSColor.systemBlue.withAlphaComponent(0.7)
-        }
-        view.layer?.borderWidth = selected ? 2 : 0
-        view.layer?.borderColor = NSColor.controlAccentColor.cgColor
-        view.wantsLayer = true
+        applyState(photo: photo, selected: selected)
 
-        // Scale image area with cell width
         let cellW = view.bounds.width
         if cellW > 40 {
             imageHeight?.constant = max(80, cellW * 0.72)
         }
 
+        if identityChanged {
+            imageView_.image = nil
+            loadToken = UUID()
+            loadImage(for: photo)
+        } else if imageView_.image == nil {
+            loadImage(for: photo)
+        }
+    }
+
+    func applyState(photo: PhotoRecord, selected: Bool) {
+        badge.stringValue = " \(photo.tier.label) "
+        switch photo.tier {
+        case .keep: badge.backgroundColor = NSColor(red: 0.61, green: 0.76, blue: 0.33, alpha: 0.92)
+        case .reject: badge.backgroundColor = NSColor(red: 0.68, green: 0.13, blue: 0.07, alpha: 0.92)
+        case .unranked:
+            badge.backgroundColor = photo.isFlagged
+                ? NSColor(red: 0.71, green: 0.46, blue: 0.08, alpha: 0.92)
+                : NSColor(red: 0.05, green: 0.62, blue: 0.89, alpha: 0.75)
+        }
+        view.wantsLayer = true
+        view.layer?.borderWidth = selected ? 1.5 : 0
+        view.layer?.borderColor = NSColor(red: 0.05, green: 0.62, blue: 0.89, alpha: 0.85).cgColor
+        view.layer?.cornerRadius = 4
+    }
+
+    private func loadImage(for photo: PhotoRecord) {
         if let path = photo.previewPath ?? photo.displayThumbPath {
             let token = UUID()
             loadToken = token
@@ -197,7 +256,7 @@ final class PhotoItemView: NSCollectionViewItem {
                     allowRAW: false
                 )
                 await MainActor.run {
-                    guard token == self.loadToken else { return }
+                    guard token == self.loadToken, self.boundPhotoID == photo.id else { return }
                     if case .image(let img) = outcome {
                         self.imageView_.image = img
                     }
@@ -207,5 +266,12 @@ final class PhotoItemView: NSCollectionViewItem {
             loadToken = UUID()
             imageView_.image = nil
         }
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        loadToken = UUID()
+        boundPhotoID = nil
+        imageView_.image = nil
     }
 }

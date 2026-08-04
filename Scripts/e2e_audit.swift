@@ -445,11 +445,38 @@ if sourceContains(vmPath, "prefetchStackFeed") {
     note("friction", "perf", "Stack prefetch missing", "StackFeedView lacks scroll-ahead")
 }
 
-if sourceContains(contentView, "case \"f\"") && sourceContains(contentView, "case \"p\"")
+let shellView = repoRoot.appendingPathComponent("Lumina/Shell/LuminaShellView.swift").path
+let tokensPath = repoRoot.appendingPathComponent("Lumina/Design/LuminaTokens.swift").path
+let presentationPath = repoRoot.appendingPathComponent("Lumina/Presentation/PresentationModels.swift").path
+let stablePhotoPath = repoRoot.appendingPathComponent("Lumina/Views/Components/StablePhotoView.swift").path
+let shellModelPath = repoRoot.appendingPathComponent("Lumina/Shell/LuminaShellModel.swift").path
+let photoGridPath = repoRoot.appendingPathComponent("Lumina/Views/PhotoGridView.swift").path
+
+if sourceContains(contentView, "case \"k\"") && sourceContains(contentView, "case \"x\"")
+    && sourceContains(contentView, "case \"m\"") && sourceContains(contentView, "case \"a\"")
+    && sourceContains(contentView, "moveAttempt") && sourceContains(contentView, "handleEscape") {
+    note("pass", "ux", "Shell keys mapped", "←→ attempts · ↑↓ alternatives · K/X/M/A · Esc focus-only · 1/2 lenses")
+} else if sourceContains(contentView, "case \"f\"") && sourceContains(contentView, "case \"p\"")
     && sourceContains(contentView, "case \"m\"") && sourceContains(contentView, "advanceFrame") {
     note("pass", "ux", "Cull keys mapped", "F/D navigate · P/X keep/reject · M audit")
 } else {
-    note("friction", "ux", "Cull keys incomplete", "Missing F/D/P/X/M global anchors")
+    note("friction", "ux", "Cull keys incomplete", "Missing shell or legacy global key anchors")
+}
+
+if FileManager.default.fileExists(atPath: shellView)
+    && FileManager.default.fileExists(atPath: tokensPath)
+    && FileManager.default.fileExists(atPath: presentationPath)
+    && sourceContains(presentationPath, "struct HomePresentation")
+    && sourceContains(presentationPath, "struct WorkspacePresentation")
+    && sourceContains(stablePhotoPath, "PreviewSpine")
+    && sourceContains(stablePhotoPath, "SpineActiveStage")
+    && sourceContains(shellModelPath, "projectFingerprint")
+    && sourceContains(shellModelPath, "handleEscape")
+    && sourceContains(photoGridPath, "refreshVisibleBadges")
+    && !sourceContains(photoGridPath, "reloadData()\n        if let id = selectedID") {
+    note("pass", "ux", "Phase 1 shell + spine bridge", "Tokens · snapshots · SpineActiveStage · cached adapter · selection without reloadData")
+} else {
+    note("friction", "ux", "Phase 1 shell incomplete", "Missing shell bridge contracts (spine / cache / selection)")
 }
 
 if sourceContains(repoRoot.appendingPathComponent("Lumina/Views/GridOverviewView.swift").path, "DynamicSortBar")

@@ -7,36 +7,23 @@ extension Notification.Name {
     static let dismissLuminaTitle = Notification.Name("lumina.dismissTitle")
     static let toggleLuminaAuditRescue = Notification.Name("lumina.toggleAuditRescue")
     static let acceptLuminaAuditPile = Notification.Name("lumina.acceptAuditPile")
+    static let luminaOpenPreferences = Notification.Name("lumina.openPreferences")
+    static let luminaShowShortcuts = Notification.Name("lumina.showShortcuts")
+    static let luminaGoHome = Notification.Name("lumina.goHome")
 }
 
 struct ContentView: View {
     @State private var model = ProjectViewModel()
+    @State private var shell = LuminaShellModel()
     @State private var keyMonitor: Any?
     @State private var isDropTargeted = false
 
     var body: some View {
         ZStack {
-            UnifiedCanvasView(model: model)
+            LuminaShellView(model: model, shell: shell)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(model.isImporting ? 0.25 : 1)
                 .allowsHitTesting(!model.isImporting)
-
-            if model.project == nil, !model.isImporting {
-                VStack {
-                    Spacer()
-                    HStack(spacing: 18) {
-                        if model.canResumeLastProject {
-                            Button("Resume") { model.resumeLastProject() }
-                                .buttonStyle(LuminaGhostButtonStyle())
-                        }
-                        Button("Open shoot") { model.pickRAWFolder() }
-                            .buttonStyle(LuminaPrimaryButtonStyle())
-                        Button("Scan backlog") { model.pickCatalogRoot() }
-                            .buttonStyle(LuminaGhostButtonStyle())
-                    }
-                    .padding(.bottom, 72)
-                }
-            }
 
             if model.isImporting {
                 ImportLoadingView(
@@ -56,16 +43,16 @@ struct ContentView: View {
         .overlay {
             if isDropTargeted {
                 ZStack {
-                    LuminaAtmosphere.affirm.opacity(0.06)
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .strokeBorder(LuminaAtmosphere.affirm.opacity(0.55), lineWidth: 1.5)
+                    LuminaTokens.Status.selection.opacity(0.06)
+                    RoundedRectangle(cornerRadius: LuminaTokens.Radius.panel, style: .continuous)
+                        .strokeBorder(LuminaTokens.Status.selection.opacity(0.55), lineWidth: 1.5)
                         .padding(18)
                     Text("Release to open")
-                        .font(LuminaAtmosphere.Typeface.display(28))
-                        .foregroundStyle(LuminaAtmosphere.affirm)
+                        .font(LuminaTokens.Typeface.title(28))
+                        .foregroundStyle(LuminaTokens.Ink.primary)
                 }
                 .allowsHitTesting(false)
-                .transition(AnyTransition.opacity.animation(LuminaAtmosphere.Motion.condense))
+                .transition(.opacity)
             }
         }
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: handleDrop)
@@ -76,6 +63,8 @@ struct ContentView: View {
             }
             model.refreshResumeAvailability()
             model.restoreCatalogQueueIfNeeded()
+            shell.syncSelectionFromModel(model)
+            shell.refreshSnapshotsIfNeeded(model: model)
         }
         .onDisappear {
             if let keyMonitor {
@@ -85,6 +74,31 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .luminaImportRAW)) { _ in
             model.pickRAWFolder()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .luminaShowShortcuts)) { _ in
+            shell.showShortcuts = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .luminaGoHome)) { _ in
+            shell.openHome()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .luminaSetLensAttempts)) { _ in
+            shell.setLens(.attempts)
+            if shell.route != .workspace { shell.openWorkspace(lens: .attempts) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .luminaSetLensLight)) { _ in
+            shell.setLens(.light)
+            if shell.route != .workspace { shell.openWorkspace(lens: .light) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .luminaScanBacklog)) { _ in
+            model.pickCatalogRoot()
+        }
+        .onChange(of: model.isImporting) { _, importing in
+            if !importing, model.project != nil {
+                shell.invalidateCache()
+                shell.openWorkspace(lens: .attempts)
+                shell.syncSelectionFromModel(model)
+                shell.refreshSnapshotsIfNeeded(model: model)
+            }
         }
         .alert(
             "Lumina",
@@ -101,9 +115,6 @@ struct ContentView: View {
 
     private func handleKey(_ event: NSEvent) -> NSEvent? {
         if NSApp.keyWindow?.firstResponder is NSTextView { return event }
-        if event.type == .keyDown {
-            NotificationCenter.default.post(name: .dismissLuminaTitle, object: nil)
-        }
 
         if event.modifierFlags.contains(.command) {
             if event.type == .keyDown,
@@ -115,62 +126,107 @@ struct ContentView: View {
                 model.exportCarousel()
                 return nil
             }
+            if event.type == .keyDown,
+               event.charactersIgnoringModifiers?.lowercased() == "z" {
+                return nil
+            }
             return event
         }
 
         let chars = event.charactersIgnoringModifiers?.lowercased()
         let held = event.isARepeat
+
         if event.type == .keyDown, event.keyCode == 50, event.modifierFlags.contains(.option) {
             model.toggleSpeedHUD()
             return nil
         }
 
-        switch chars {
-        case "f":
-            if event.type == .keyDown { model.advanceFrame(held: held) }
-            return nil
-        case "d":
-            if event.type == .keyDown { model.retreatFrame(held: held) }
-            return nil
-        case "p":
-            if event.type == .keyDown {
-                if case .audit(_) = model.lens {
-                    NotificationCenter.default.post(name: .toggleLuminaAuditRescue, object: nil)
-                } else {
-                    model.markKeep()
+        if event.type == .keyDown {
+            switch chars {
+            case "1":
+                shell.setLens(.attempts)
+                if shell.route != .workspace { shell.openWorkspace(lens: .attempts) }
+                return nil
+            case "2":
+                shell.setLens(.light)
+                if shell.route != .workspace { shell.openWorkspace(lens: .light) }
+                return nil
+            case "k", "p":
+                if shell.route == .workspace {
+                    shell.applyDecision(.keep, model: model)
+                    return nil
                 }
+            case "x":
+                if shell.route == .workspace {
+                    shell.applyDecision(.cut, model: model)
+                    return nil
+                }
+            case "m":
+                if shell.route == .workspace {
+                    shell.applyDecision(.needsMe, model: model)
+                    return nil
+                }
+            case "a":
+                if shell.route == .workspace {
+                    shell.applyDecision(.anchor, model: model)
+                    return nil
+                }
+            case " ":
+                if shell.route == .workspace {
+                    shell.toggleFocus()
+                    return nil
+                }
+            case "g":
+                shell.openFinish()
+                return nil
+            case "f":
+                if shell.route == .workspace {
+                    shell.moveAttempt(
+                        delta: 1,
+                        presentation: shell.workspacePresentation(model: model),
+                        model: model
+                    )
+                    return nil
+                }
+            case "d":
+                if shell.route == .workspace {
+                    shell.moveAttempt(
+                        delta: -1,
+                        presentation: shell.workspacePresentation(model: model),
+                        model: model
+                    )
+                    return nil
+                }
+            default:
+                break
             }
-            return nil
-        case "x":
-            if event.type == .keyDown, model.lens == nil { model.markReject() }
-            return nil
-        case "m":
-            if event.type == .keyDown { model.openAuditForCursor() }
-            return nil
-        case "g":
-            if event.type == .keyDown { model.openGridOverview() }
-            return nil
-        case "\r", "\n":
-            if event.type == .keyDown, case .audit(_) = model.lens {
-                NotificationCenter.default.post(name: .acceptLuminaAuditPile, object: nil)
+
+            // Escape — Focus / inspector / shortcuts only. Never jump workspace → Home.
+            if event.keyCode == 53 {
+                if shell.handleEscape() { return nil }
+                return event
+            }
+
+            if event.keyCode == 123, shell.route == .workspace {
+                shell.moveAttempt(delta: -1, presentation: shell.workspacePresentation(model: model), model: model)
                 return nil
             }
-            return event
-        default:
-            if event.keyCode == 53, event.type == .keyDown, model.lens != nil {
-                model.lens = nil
+            if event.keyCode == 124, shell.route == .workspace {
+                shell.moveAttempt(delta: 1, presentation: shell.workspacePresentation(model: model), model: model)
                 return nil
             }
-            if event.keyCode == 123, event.type == .keyDown {
-                model.retreatFrame(held: held)
+            if event.keyCode == 125, shell.route == .workspace {
+                shell.moveAlternative(delta: 1, presentation: shell.workspacePresentation(model: model), model: model)
                 return nil
             }
-            if event.keyCode == 124, event.type == .keyDown {
-                model.advanceFrame(held: held)
+            if event.keyCode == 126, shell.route == .workspace {
+                shell.moveAlternative(delta: -1, presentation: shell.workspacePresentation(model: model), model: model)
                 return nil
             }
-            return event
         }
+
+        _ = held
+        return event
     }
 
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {

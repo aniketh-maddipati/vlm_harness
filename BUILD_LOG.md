@@ -4,6 +4,26 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-04 — Phase 1 shell + spine bridge (cloud follow-up)
+
+**Claim:** Re-land Phase 1 shell on `cursor/ethereal-ui`, connect Attempts active stage to PreviewSpine/Metal, cache presentation adapters, fix Escape, bring `AGENTS.md` from main.
+
+**Repo verification:**
+- `AGENTS.md` exists on `origin/main` and is now on this branch.
+- Prior Mac-desktop Phase 1 edits were never committed; this Linux cloud checkout rebuilt them.
+- Platform: Linux cloud agent — **cannot** `xcodebuild` or run Mehendi live session (see AGENTS.md).
+
+**Bridge requirements implemented in code:**
+- `StablePhotoView` → PreviewSpine silhouette + fidelity + PhotoImageCache with AssetID request validation; lower fidelity remains during upgrades.
+- `SpineActiveStage` → MetalBrowseCanvas + spine paint for Attempts active image.
+- `LuminaShellModel` caches snapshots via `PresentationAdapter.projectFingerprint`; selection overlays without rebuilding groups.
+- `PhotoGridView` selection path uses `applySelectionOnly` / `refreshVisibleBadges` — no `reloadData()` for selection.
+- Escape closes Focus / inspector / shortcuts only — never workspace → Home.
+
+**Live gate remaining (macOS only):** `bash Scripts/live_bridge_session.sh` with Mehendi ARWs — rapid nav, 20× lens switch, decisions, resize, Focus, quit/resume, screen capture.
+
+---
+
 ## 2026-08-02 — Build Loop closure (this session)
 
 **Claim:** Progressive wall complete; Kill-the-Defeater fixes 1–5 code-audited; build + regression green.
