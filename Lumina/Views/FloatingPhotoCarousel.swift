@@ -12,7 +12,6 @@ struct FloatingPhotoCarousel<Item: Identifiable, ID: Hashable, Content: View>: V
     var content: (Item, Bool) -> Content
 
     @State private var scrollID: ID?
-    @State private var float = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -33,14 +32,12 @@ struct FloatingPhotoCarousel<Item: Identifiable, ID: Hashable, Content: View>: V
         .scrollPosition(id: $scrollID)
         .scrollClipDisabled()
         .onAppear {
+            // Quarantined: repeating float / bounce carousels impair control.
             scrollID = selection ?? items.first.map { $0[keyPath: itemID] }
-            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
-                float = true
-            }
         }
         .onChange(of: selection) { _, new in
             guard let new, scrollID != new else { return }
-            withAnimation(.spring(duration: 0.55, bounce: 0.12)) {
+            withAnimation(.easeOut(duration: 0.18)) {
                 scrollID = new
             }
             notifySelection(new)
@@ -53,7 +50,7 @@ struct FloatingPhotoCarousel<Item: Identifiable, ID: Hashable, Content: View>: V
         .onChange(of: items.count) { _, _ in
             guard let last = items.last else { return }
             let id = last[keyPath: itemID]
-            withAnimation(.spring(duration: 0.65, bounce: 0.1)) {
+            withAnimation(.easeOut(duration: 0.18)) {
                 scrollID = id
             }
         }
@@ -68,17 +65,12 @@ struct FloatingPhotoCarousel<Item: Identifiable, ID: Hashable, Content: View>: V
     private func carouselItem(_ item: Item, id: ID, centered: Bool) -> some View {
         content(item, centered)
             .scrollTransition(.interactive) { view, phase in
+                // Soft scale/opacity only — no 3D rotation or floating bounce.
                 view
-                    .scaleEffect(1 - abs(phase.value) * 0.16)
-                    .opacity(1 - abs(phase.value) * 0.42)
-                    .rotation3DEffect(
-                        .degrees(phase.value * -22),
-                        axis: (x: 0, y: 1, z: 0),
-                        perspective: 0.55
-                    )
-                    .offset(y: abs(phase.value) * 16 + (centered && float ? -5 : 0))
+                    .scaleEffect(1 - abs(phase.value) * 0.06)
+                    .opacity(1 - abs(phase.value) * 0.22)
             }
-            .shadow(color: .black.opacity(centered ? 0.2 : 0.08), radius: centered ? 16 : 8, y: 8)
+            .shadow(color: .black.opacity(centered ? 0.08 : 0.04), radius: centered ? 10 : 4, y: 4)
     }
 }
 
