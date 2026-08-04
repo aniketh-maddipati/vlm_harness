@@ -47,18 +47,22 @@ struct DerivedSessionView: View {
     }
 
     private var topStrip: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Text(model.project?.name ?? "Lumina")
-                .font(.subheadline.weight(.semibold))
+                .font(LuminaAtmosphere.Typeface.body(13).weight(.medium))
+                .foregroundStyle(Color.primary.opacity(0.78))
                 .lineLimit(1)
-            Text("\(model.cursorPosition)/\(max(model.totalCount, 1))")
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+            Text("\(model.cursorPosition) / \(max(model.totalCount, 1))")
+                .font(LuminaAtmosphere.Typeface.caption(11).monospacedDigit())
+                .foregroundStyle(.secondary.opacity(0.7))
             Spacer()
-            TextField("⌘K Search filenames", text: $searchText)
-                .textFieldStyle(.roundedBorder)
+            TextField("Search", text: $searchText)
+                .textFieldStyle(.plain)
                 .focused($searchFocused)
-                .frame(width: 240)
+                .frame(width: 180)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.primary.opacity(0.05), in: Capsule())
                 .onSubmit {
                     guard let match = model.project?.photos.first(where: {
                         $0.filename.localizedCaseInsensitiveContains(searchText)
@@ -67,9 +71,9 @@ struct DerivedSessionView: View {
                     model.lens = nil
                 }
         }
-        .padding(.horizontal, 12)
-        .frame(height: 38)
-        .background(.bar)
+        .padding(.horizontal, 16)
+        .frame(height: 36)
+        .background(Color.black.opacity(0.02))
     }
 
     @ViewBuilder
@@ -87,10 +91,8 @@ struct DerivedSessionView: View {
                 model.showExportPayoff = false
                 if model.isCatalogMode { model.advanceCatalogQueueAfterExport() }
             }
-            .frame(maxWidth: 680, maxHeight: 520)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
-            .shadow(radius: 24)
-            .padding(32)
+            .transition(.opacity.combined(with: .scale(scale: 0.985)))
+            .animation(LuminaAtmosphere.Motion.bloom, value: model.showExportPayoff)
         }
     }
 }
@@ -100,19 +102,21 @@ private struct ErrorCard: View {
     var dismiss: () -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-                .font(.title)
+        VStack(spacing: 16) {
             Text(message)
+                .font(LuminaAtmosphere.Typeface.body(15))
+                .foregroundStyle(Color.white.opacity(0.88))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 420)
             Button("Dismiss", action: dismiss)
-                .buttonStyle(LuminaPrimaryButtonStyle())
+                .buttonStyle(LuminaGhostButtonStyle())
         }
-        .padding(24)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .shadow(radius: 20)
+        .padding(28)
+        .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+        }
     }
 }
 
@@ -161,14 +165,17 @@ private struct SessionCanvasHost: View {
             switch model.lens {
             case .grid:
                 GridOverviewView(model: model)
-                    .background(.black.opacity(0.96))
+                    .background(LuminaAtmosphere.void.opacity(0.97))
+                    .transition(.opacity)
             case .audit(let reason):
                 AuditPileView(model: model, reason: reason)
-                    .background(.black.opacity(0.96))
+                    .background(LuminaAtmosphere.void.opacity(0.97))
+                    .transition(.opacity)
             case nil:
                 EmptyView()
             }
         }
+        .animation(LuminaAtmosphere.Motion.settle, value: model.lens != nil)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -201,7 +208,7 @@ private struct SetRail: View {
             }
             .padding(.vertical, 10)
         }
-        .background(.ultraThinMaterial)
+        .background(Color.primary.opacity(0.03))
         .onAppear { model.warmBrowseSpine() }
     }
 
@@ -223,10 +230,10 @@ private struct SetRail: View {
 
     private func color(for state: RailState) -> Color {
         switch state {
-        case .ahead: .orange
-        case .settled: .secondary
-        case .active: .accentColor
-        case .done: .green
+        case .ahead: LuminaAtmosphere.breath
+        case .settled: Color.secondary.opacity(0.45)
+        case .active: LuminaAtmosphere.affirm
+        case .done: Color.white.opacity(0.22)
         }
     }
 }
@@ -248,36 +255,37 @@ private struct ReceiptLine: View {
     @Bindable var model: ProjectViewModel
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             if model.isCatalogMode {
                 Text("Folder \((model.catalogQueue.activeFolderIndex ?? 0) + 1)/\(model.catalogQueue.totalFolders)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .font(LuminaAtmosphere.Typeface.caption(11).monospacedDigit())
+                    .foregroundStyle(.secondary.opacity(0.7))
             }
             Text(model.receiptText)
-                .font(.caption.monospacedDigit())
+                .font(LuminaAtmosphere.Typeface.caption(11).monospacedDigit())
+                .foregroundStyle(.secondary)
             Spacer()
             ForEach(model.auditPiles) { pile in
-                Button("\(pile.reason.title) \(pile.photos.count)") {
+                Button("\(pile.reason.title) · \(pile.photos.count)") {
                     model.lens = .audit(pile.reason)
                 }
                 .buttonStyle(.plain)
-                .font(.caption)
+                .font(LuminaAtmosphere.Typeface.caption(11))
+                .foregroundStyle(LuminaAtmosphere.affirm.opacity(0.9))
             }
             Button("Grid") { model.lens = .grid }
                 .buttonStyle(.plain)
-                .font(.caption)
-            Button("Export") { model.exportCarousel() }
+                .font(LuminaAtmosphere.Typeface.caption(11))
+                .foregroundStyle(.secondary)
+            Button("Publish") { model.exportCarousel() }
                 .buttonStyle(.plain)
-                .font(.caption.weight(.semibold))
+                .font(LuminaAtmosphere.Typeface.caption(11).weight(.medium))
+                .foregroundStyle(Color.primary.opacity(model.keepCount == 0 ? 0.28 : 0.85))
                 .disabled(model.keepCount == 0)
-            Text(model.keymapHint)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
         }
-        .padding(.horizontal, 12)
-        .frame(height: 34)
-        .background(.bar)
+        .padding(.horizontal, 16)
+        .frame(height: 32)
+        .background(Color.black.opacity(0.02))
     }
 }
 
@@ -310,38 +318,38 @@ private struct AuditPileView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button("Close") { model.lens = nil }
-                    .buttonStyle(LuminaPressStyle())
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(reason.title).font(.headline)
+            HStack(spacing: 16) {
+                Button("Back") { model.lens = nil }
+                    .buttonStyle(LuminaGhostButtonStyle())
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(reason.title)
+                        .font(LuminaAtmosphere.Typeface.display(22))
+                        .foregroundStyle(Color.white.opacity(0.92))
                     Text(requiresIndividualReview
-                        ? "High prior rescue rate · inspect every frame before accepting."
-                        : "P rescues the focused exception · Return accepts every other proposal.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        ? "These needed you before — glance each one."
+                        : "Rescue exceptions. Accept the rest.")
+                        .font(LuminaAtmosphere.Typeface.caption(12))
+                        .foregroundStyle(LuminaAtmosphere.whisper)
                 }
                 Spacer()
-                Text("\(rescuedIDs.count) rescued")
-                    .font(.caption.monospacedDigit())
-                if let metrics = model.auditMetrics[reason], metrics.proposed > 0 {
-                    Text("\(metrics.rescueRate.formatted(.percent.precision(.fractionLength(1)))) prior rescue")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(
-                            metrics.rescueRate > 0.10 || metrics.rescueRate < 0.01 ? .orange : .secondary
-                        )
+                if rescuedIDs.count > 0 {
+                    Text("\(rescuedIDs.count) kept close")
+                        .font(LuminaAtmosphere.Typeface.caption(11).monospacedDigit())
+                        .foregroundStyle(LuminaAtmosphere.breath)
                 }
-                Button("Accept pile") {
+                Button("Accept remaining") {
                     model.acceptPile(reason, rescuedIDs: rescuedIDs)
                     rescuedIDs.removeAll()
                 }
                 .buttonStyle(LuminaPrimaryButtonStyle())
                 .disabled(!canAccept)
+                .opacity(canAccept ? 1 : 0.45)
             }
-            .padding(12)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
 
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 8) {
+                LazyVGrid(columns: columns, spacing: 10) {
                     ForEach(pile?.photos ?? []) { photo in
                         Button {
                             model.setCursor(photo.id)
@@ -354,17 +362,24 @@ private struct AuditPileView: View {
                             SpineAwarePhotoTile(photo: photo)
                                 .aspectRatio(reason == .cullTie ? 1 : 4 / 3, contentMode: .fill)
                                 .clipped()
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                                 .overlay {
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(rescuedIDs.contains(photo.id) ? Color.green : (
-                                            model.cursor == photo.id ? Color.accentColor : .clear
-                                        ), lineWidth: rescuedIDs.contains(photo.id) ? 4 : 2)
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .strokeBorder(
+                                            rescuedIDs.contains(photo.id)
+                                                ? LuminaAtmosphere.affirm
+                                                : (model.cursor == photo.id
+                                                    ? Color.white.opacity(0.55)
+                                                    : Color.clear),
+                                            lineWidth: rescuedIDs.contains(photo.id) ? 1.5 : 1
+                                        )
                                 }
+                                .opacity(rescuedIDs.contains(photo.id) ? 1 : 0.82)
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(12)
+                .padding(16)
             }
         }
         .onAppear {
@@ -403,20 +418,28 @@ private struct TitleCard: View {
     var dismiss: () -> Void
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             Text(projectName)
-                .font(.largeTitle.weight(.semibold))
-            Text(tastePortrait)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Text("P keep · X cut · M audit · F/D move")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(LuminaAtmosphere.Typeface.display(28))
+                .foregroundStyle(Color.white.opacity(0.94))
+            if !tastePortrait.isEmpty {
+                Text(tastePortrait)
+                    .font(LuminaAtmosphere.Typeface.body(14))
+                    .foregroundStyle(LuminaAtmosphere.whisper)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 360)
+            }
+            Text("P keep · X cut · M when unsure · F/D move")
+                .font(LuminaAtmosphere.Typeface.caption(12))
+                .foregroundStyle(LuminaAtmosphere.breath)
         }
-        .padding(.horizontal, 34)
-        .padding(.vertical, 24)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .shadow(radius: 20)
+        .padding(.horizontal, 40)
+        .padding(.vertical, 28)
+        .background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+        }
         .onTapGesture(perform: dismiss)
         .transition(.opacity)
     }

@@ -1,27 +1,41 @@
 import SwiftUI
 
 struct LuminaPressStyle: ButtonStyle {
-    var pressedScale: CGFloat = 0.94
+    var pressedScale: CGFloat = 0.97
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? pressedScale : 1)
-            .brightness(configuration.isPressed ? -0.05 : 0)
-            .animation(.spring(response: 0.26, dampingFraction: 0.62), value: configuration.isPressed)
+            .opacity(configuration.isPressed ? 0.78 : 1)
+            .animation(LuminaAtmosphere.Motion.dissolve, value: configuration.isPressed)
     }
 }
 
 struct LuminaPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.title3.weight(.semibold))
-            .padding(.horizontal, 24)
+            .font(LuminaAtmosphere.Typeface.body(16).weight(.medium))
+            .padding(.horizontal, 28)
             .padding(.vertical, 14)
             .frame(minHeight: 48)
-            .background(Color.accentColor.opacity(configuration.isPressed ? 0.75 : 1), in: Capsule())
-            .foregroundStyle(.white)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(response: 0.24, dampingFraction: 0.68), value: configuration.isPressed)
+            .background(
+                LuminaAtmosphere.affirm.opacity(configuration.isPressed ? 0.72 : 0.92),
+                in: Capsule()
+            )
+            .foregroundStyle(Color.black.opacity(0.85))
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(LuminaAtmosphere.Motion.dissolve, value: configuration.isPressed)
+    }
+}
+
+struct LuminaGhostButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(LuminaAtmosphere.Typeface.body(15))
+            .foregroundStyle(LuminaAtmosphere.whisper.opacity(configuration.isPressed ? 0.55 : 0.85))
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .animation(LuminaAtmosphere.Motion.dissolve, value: configuration.isPressed)
     }
 }
 
@@ -30,7 +44,7 @@ enum LuminaDecisionRole {
 
     var title: String {
         switch self {
-        case .reject: "Reject"
+        case .reject: "Cut"
         case .hero: "Hero"
         case .keep: "Keep"
         }
@@ -43,47 +57,25 @@ enum LuminaDecisionRole {
         case .keep: "P"
         }
     }
-
-    var icon: String {
-        switch self {
-        case .reject: "xmark"
-        case .hero: "star.fill"
-        case .keep: "checkmark"
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .reject: .red
-        case .hero: .yellow
-        case .keep: .green
-        }
-    }
 }
 
+/// Whisper decisions — keys + soft labels, no traffic-light cards.
 struct LuminaDecisionButton: View {
     let role: LuminaDecisionRole
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 6) {
-                Image(systemName: role.icon)
-                    .font(.title2.weight(.semibold))
-                Text(role.title)
-                    .font(.subheadline.weight(.semibold))
+            VStack(spacing: 4) {
                 Text(role.shortcut)
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 15, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Color.white.opacity(0.78))
+                Text(role.title)
+                    .font(LuminaAtmosphere.Typeface.caption(11))
+                    .foregroundStyle(Color.white.opacity(0.42))
             }
-            .frame(minWidth: 96, minHeight: 72)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(role.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(role.tint.opacity(0.35), lineWidth: 1)
-            }
+            .frame(minWidth: 64, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(LuminaPressStyle())
         .keyboardShortcut(KeyEquivalent(Character(role.shortcut.lowercased())), modifiers: [])
@@ -96,15 +88,18 @@ struct LuminaDecisionBar: View {
     let onKeep: () -> Void
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 28) {
             LuminaDecisionButton(role: .reject, action: onReject)
             LuminaDecisionButton(role: .hero, action: onHero)
             LuminaDecisionButton(role: .keep, action: onKeep)
         }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 14)
-        .background(.ultraThinMaterial, in: Capsule())
-        .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 10)
+        .background(
+            Capsule()
+                .fill(Color.black.opacity(0.28))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        )
     }
 }
 
@@ -116,10 +111,12 @@ struct LuminaFooterBar<Content: View>: View {
             content()
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
+        .padding(.vertical, 10)
+        .background(Color.black.opacity(0.35))
         .overlay(alignment: .top) {
-            Divider()
+            Rectangle()
+                .fill(Color.white.opacity(0.06))
+                .frame(height: 1)
         }
     }
 }

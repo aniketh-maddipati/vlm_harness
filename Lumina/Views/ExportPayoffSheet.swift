@@ -11,51 +11,64 @@ struct ExportPayoffState: Equatable {
     var highlightCount: Int
 }
 
+/// Finished work as atmosphere — not a dialog.
 struct ExportPayoffSheet: View {
     let payoff: ExportPayoffState
     var onDismiss: () -> Void
 
     var body: some View {
-        VStack(spacing: 18) {
-            Text("Ready to post")
-                .font(.title2.weight(.semibold))
+        ZStack {
+            Color.black.opacity(0.72)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onDismiss)
 
-            Text("\(payoff.keepCount) keeps · \(payoff.highlightCount) highlights exported with your look applied")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            VStack(spacing: 28) {
+                Spacer(minLength: 40)
 
-            Text(payoff.tasteSummary)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 8)
+                Text("Finished")
+                    .font(LuminaAtmosphere.Typeface.brand(40))
+                    .foregroundStyle(Color.white.opacity(0.94))
 
-            if !payoff.imageURLs.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(payoff.imageURLs.prefix(12).enumerated()), id: \.offset) { _, url in
-                            ExportThumb(url: url)
+                Text("\(payoff.highlightCount) highlights · \(payoff.keepCount) keeps")
+                    .font(LuminaAtmosphere.Typeface.body(15))
+                    .foregroundStyle(LuminaAtmosphere.whisper)
+
+                if !payoff.tasteSummary.isEmpty {
+                    Text(payoff.tasteSummary)
+                        .font(LuminaAtmosphere.Typeface.caption(12))
+                        .foregroundStyle(LuminaAtmosphere.breath)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 420)
+                }
+
+                if !payoff.imageURLs.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(Array(payoff.imageURLs.prefix(12).enumerated()), id: \.offset) { _, url in
+                                ExportThumb(url: url)
+                            }
                         }
+                        .padding(.horizontal, 40)
                     }
-                    .padding(.horizontal, 4)
+                    .frame(height: 220)
                 }
-                .frame(height: 120)
-            }
 
-            HStack(spacing: 12) {
-                if let folder = payoff.carouselFolder ?? payoff.imageURLs.first?.deletingLastPathComponent() {
-                    Button("Show in Finder") {
-                        NSWorkspace.shared.activateFileViewerSelecting([folder])
+                Spacer(minLength: 20)
+
+                HStack(spacing: 20) {
+                    if let folder = payoff.carouselFolder ?? payoff.imageURLs.first?.deletingLastPathComponent() {
+                        Button("Show in Finder") {
+                            NSWorkspace.shared.activateFileViewerSelecting([folder])
+                        }
+                        .buttonStyle(LuminaGhostButtonStyle())
                     }
-                    .buttonStyle(LuminaPressStyle())
+                    Button("Done") { onDismiss() }
+                        .buttonStyle(LuminaPrimaryButtonStyle())
                 }
-                Button("Done") { onDismiss() }
-                    .buttonStyle(LuminaPrimaryButtonStyle())
+                .padding(.bottom, 48)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(28)
-        .frame(width: 520)
     }
 }
 
@@ -70,12 +83,13 @@ private struct ExportThumb: View {
                     .resizable()
                     .aspectRatio(4 / 5, contentMode: .fill)
             } else {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.secondary.opacity(0.15))
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.white.opacity(0.06))
             }
         }
-        .frame(width: 72, height: 90)
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .frame(width: 140, height: 175)
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
         .task {
             image = NSImage(contentsOf: url)
         }

@@ -24,17 +24,17 @@ struct ContentView: View {
             if model.project == nil, !model.isImporting {
                 VStack {
                     Spacer()
-                    HStack(spacing: 10) {
+                    HStack(spacing: 18) {
                         if model.canResumeLastProject {
                             Button("Resume") { model.resumeLastProject() }
-                                .buttonStyle(LuminaPressStyle())
+                                .buttonStyle(LuminaGhostButtonStyle())
                         }
-                        Button("Import RAW Folder…") { model.pickRAWFolder() }
+                        Button("Open shoot") { model.pickRAWFolder() }
                             .buttonStyle(LuminaPrimaryButtonStyle())
-                        Button("Scan backlog…") { model.pickCatalogRoot() }
-                            .buttonStyle(LuminaPressStyle())
+                        Button("Scan backlog") { model.pickCatalogRoot() }
+                            .buttonStyle(LuminaGhostButtonStyle())
                     }
-                    .padding(.bottom, 80)
+                    .padding(.bottom, 72)
                 }
             }
 
@@ -55,11 +55,17 @@ struct ContentView: View {
         }
         .overlay {
             if isDropTargeted {
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(Color.accentColor, lineWidth: 3)
-                    .background(Color.accentColor.opacity(0.06))
-                    .padding(12)
-                    .allowsHitTesting(false)
+                ZStack {
+                    LuminaAtmosphere.affirm.opacity(0.06)
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .strokeBorder(LuminaAtmosphere.affirm.opacity(0.55), lineWidth: 1.5)
+                        .padding(18)
+                    Text("Release to open")
+                        .font(LuminaAtmosphere.Typeface.display(28))
+                        .foregroundStyle(LuminaAtmosphere.affirm)
+                }
+                .allowsHitTesting(false)
+                .transition(AnyTransition.opacity.animation(LuminaAtmosphere.Motion.condense))
             }
         }
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: handleDrop)

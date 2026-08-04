@@ -1,105 +1,89 @@
 import AppKit
 import SwiftUI
 
-/// Full-screen import — screen-fit wall; previews arrive slowly as ingest continues.
+/// Full-screen import — the shoot arrives; machinery stays quiet.
 struct ImportLoadingView: View {
     let progress: ImportProgress
     let photos: [PhotoRecord]
     var isFinishing: Bool
 
-    @State private var pulse = false
-
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(nsColor: .windowBackgroundColor),
-                    Color(nsColor: .windowBackgroundColor).opacity(0.92),
-                    Color.accentColor.opacity(0.04)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            LuminaAtmosphereBackdrop()
 
             VStack(spacing: 0) {
                 header
-                    .padding(.top, 28)
-                    .padding(.horizontal, 40)
+                    .padding(.top, 36)
+                    .padding(.horizontal, 48)
 
-                Spacer(minLength: 16)
+                Spacer(minLength: 20)
 
                 if previewPaths.isEmpty {
-                    ProgressView()
-                        .controlSize(.large)
-                        .scaleEffect(pulse ? 1.06 : 0.94)
-                        .animation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true), value: pulse)
+                    Text("Gathering light…")
+                        .font(LuminaAtmosphere.Typeface.body(15))
+                        .foregroundStyle(LuminaAtmosphere.breath)
                         .frame(maxHeight: 360)
                 } else {
                     ProgressivePhotoWall(
                         paths: previewPaths,
-                        revealIntervalMs: 420,
+                        revealIntervalMs: 480,
                         prefetchAhead: 6
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
 
-                Spacer(minLength: 12)
+                Spacer(minLength: 16)
 
                 footer
                     .padding(.horizontal, 48)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 36)
             }
         }
-        .onAppear { pulse = true }
     }
 
     private var header: some View {
-        VStack(spacing: 8) {
-            Text(progress.phase.title)
-                .font(.largeTitle.weight(.semibold))
-                .contentTransition(.numericText())
-                .animation(.easeInOut(duration: 0.45), value: progress.phase)
+        VStack(spacing: 10) {
+            Text(isFinishing ? "Settling" : arrivalTitle)
+                .font(LuminaAtmosphere.Typeface.display(32))
+                .foregroundStyle(Color.white.opacity(0.92))
+                .contentTransition(.opacity)
+                .animation(LuminaAtmosphere.Motion.reveal, value: progress.phase)
 
             Text(progress.detail)
-                .font(.title3)
-                .foregroundStyle(.secondary)
+                .font(LuminaAtmosphere.Typeface.body(15))
+                .foregroundStyle(LuminaAtmosphere.whisper)
                 .multilineTextAlignment(.center)
-                .animation(.easeInOut(duration: 0.35), value: progress.detail)
+                .animation(LuminaAtmosphere.Motion.condense, value: progress.detail)
         }
     }
 
     private var footer: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.secondary.opacity(0.12))
+                        .fill(Color.white.opacity(0.08))
                     Capsule()
-                        .fill(Color.accentColor.opacity(0.9))
-                        .frame(width: max(6, geo.size.width * progress.overallFraction))
+                        .fill(LuminaAtmosphere.affirm.opacity(0.85))
+                        .frame(width: max(4, geo.size.width * progress.overallFraction))
                 }
             }
-            .frame(height: 6)
-            .animation(.spring(duration: 0.85, bounce: 0.08), value: progress.overallFraction)
+            .frame(height: 2)
+            .animation(LuminaAtmosphere.Motion.settle, value: progress.overallFraction)
 
             HStack {
-                Text(phaseSteps)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                Text(isFinishing ? "Opening the shoot" : "Previews arrive as we read")
+                    .font(LuminaAtmosphere.Typeface.caption(11))
+                    .foregroundStyle(LuminaAtmosphere.breath)
                 Spacer()
                 if progress.total > 0 {
-                    Text("\(progress.completed)/\(progress.total)")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                    Text("\(progress.completed) · \(progress.total)")
+                        .font(LuminaAtmosphere.Typeface.caption(11).monospacedDigit())
+                        .foregroundStyle(LuminaAtmosphere.breath)
                 }
             }
-
-            Text(isFinishing ? "Opening your sets…" : "Previews fill in as we ingest · no rush")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
         }
-        .frame(maxWidth: 520)
+        .frame(maxWidth: 480)
     }
 
     private var previewPaths: [String] {
@@ -107,9 +91,12 @@ struct ImportLoadingView: View {
         return fromPhotos.isEmpty ? progress.recentThumbPaths : fromPhotos
     }
 
-    private var phaseSteps: String {
-        let all = ImportPhase.allCases.filter { $0 != .ready }
-        guard let idx = all.firstIndex(of: progress.phase) else { return "" }
-        return "Step \(idx + 1) of \(all.count)"
+    private var arrivalTitle: String {
+        switch progress.phase {
+        case .metadata, .previews: "Arriving"
+        case .quality: "Seeing"
+        case .taste, .grouping, .faces, .edits: "Learning the look"
+        case .ready: "Settling"
+        }
     }
 }

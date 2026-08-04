@@ -11,18 +11,20 @@ struct SpeedBrowseViewer: View {
     @Binding var selection: UUID?
 
     @State private var spine = PreviewSpine.shared
-    @State private var showControls = true
+    /// Chrome weather — hidden by default; condenses after stillness.
+    @State private var showControls = false
     @State private var filmstripFocusID: UUID?
     @State private var filmstripTask: Task<Void, Never>?
     @State private var controlsTask: Task<Void, Never>?
 
-    private var filmstripHeight: CGFloat { filmstripPhotos.count > 1 ? 120 : 0 }
+    private var filmstripHeight: CGFloat { filmstripPhotos.count > 1 ? 104 : 0 }
 
     var body: some View {
         GeometryReader { geo in
-            let pageHeight = max(geo.size.height - filmstripHeight - 8, geo.size.height * 0.78)
+            let chromeInset: CGFloat = showControls && filmstripPhotos.count > 1 ? filmstripHeight : 0
+            let pageHeight = max(geo.size.height - chromeInset, geo.size.height * 0.92)
             ZStack {
-                Color.black.ignoresSafeArea()
+                LuminaAtmosphere.void.ignoresSafeArea()
 
                 BrowseCanvasStage(
                     spine: spine,
@@ -36,12 +38,17 @@ struct SpeedBrowseViewer: View {
 
                 BrowseChromeOverlay(
                     filename: chromeFilename,
-                    tierLabel: tierLabel,
                     showControls: showControls,
                     onReject: { model.markReject() },
                     onHero: { model.markHero() },
                     onKeep: { model.markKeep() }
                 )
+                .opacity(showControls ? 1 : 0)
+                .animation(
+                    showControls ? LuminaAtmosphere.Motion.condense : LuminaAtmosphere.Motion.dissolve,
+                    value: showControls
+                )
+                .allowsHitTesting(showControls)
 
                 if filmstripPhotos.count > 1 {
                     BrowseFilmstripOverlay(
@@ -55,6 +62,12 @@ struct SpeedBrowseViewer: View {
                             filmstripFocusID = photo.id
                         }
                     )
+                    .opacity(showControls ? 1 : 0)
+                    .animation(
+                        showControls ? LuminaAtmosphere.Motion.condense : LuminaAtmosphere.Motion.dissolve,
+                        value: showControls
+                    )
+                    .allowsHitTesting(showControls)
                 }
             }
             .contentShape(Rectangle())
@@ -76,7 +89,7 @@ struct SpeedBrowseViewer: View {
             spine.warm(photos: photos, focus: selection ?? photos.first?.id)
             if selection == nil { selection = photos.first?.id }
             filmstripFocusID = selection ?? photos.first?.id
-            showControls = true
+            scheduleControlsReveal(immediate: false)
         }
         .onChange(of: photos.map(\.id)) { _, _ in
             spine.warm(photos: photos, focus: selection)
@@ -114,14 +127,6 @@ struct SpeedBrowseViewer: View {
         return photo.filename
     }
 
-    private var tierLabel: String {
-        switch spine.paintedTier {
-        case .preview: "preview · commit \(String(format: "%.0f", spine.lastPaintCommitMs))ms"
-        case .silhouette: "silhouette · GPU warming…"
-        case .empty: "warming…"
-        }
-    }
-
     /// Debounce filmstrip during rips; snap on settle.
     private func scheduleFilmstripUpdate(to id: UUID, immediate: Bool) {
         filmstripTask?.cancel()
@@ -130,25 +135,31 @@ struct SpeedBrowseViewer: View {
             return
         }
         filmstripTask = Task {
-            try? await Task.sleep(nanoseconds: 120_000_000)
+            try? await Task.sleep(nanoseconds: 160_000_000)
             guard !Task.isCancelled else { return }
             await MainActor.run { filmstripFocusID = id }
         }
     }
 
-    /// Skip chrome animation churn during fast rips.
+    /// Chrome dissolves while ripping; condenses after stillness.
     private func scheduleControlsReveal(immediate: Bool) {
-        guard spine.ripVelocity < 8 else { return }
         controlsTask?.cancel()
+        if spine.ripVelocity >= 4 {
+            showControls = false
+            return
+        }
         if immediate {
             showControls = true
             return
         }
         showControls = false
         controlsTask = Task {
-            try? await Task.sleep(nanoseconds: 180_000_000)
+            try? await Task.sleep(nanoseconds: 520_000_000)
             guard !Task.isCancelled else { return }
-            await MainActor.run { showControls = true }
+            await MainActor.run {
+                guard spine.ripVelocity < 4 else { return }
+                showControls = true
+            }
         }
     }
 }
@@ -175,13 +186,15 @@ private struct BrowseCanvasStage: View {
 
             if spine.paintedTier == .silhouette, let image = spine.paintedSilhouette {
                 SilhouetteFallback(image: image, width: pageWidth, height: pageHeight)
+                    .transition(.opacity)
             } else if spine.paintedTier == .empty {
                 Text(filename)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.35))
+                    .font(LuminaAtmosphere.Typeface.caption(12))
+                    .foregroundStyle(LuminaAtmosphere.breath)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .animation(LuminaAtmosphere.Motion.reveal, value: spine.paintedTier)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }
 
@@ -197,16 +210,17 @@ private struct SilhouetteFallback: View {
             .aspectRatio(contentMode: .fit)
             .frame(maxWidth: width, maxHeight: height)
             .frame(width: width, height: height, alignment: .center)
-            .saturation(0.2)
-            .contrast(1.25)
+            .saturation(0.15)
+            .contrast(1.15)
+            .opacity(0.88)
+            .blur(radius: 0.6)
     }
 }
 
-// MARK: - Chrome (filename bar + decision bar — not tied to every paint)
+// MARK: - Chrome weather (filename whisper + decision bar)
 
 private struct BrowseChromeOverlay: View {
     let filename: String
-    let tierLabel: String
     let showControls: Bool
     var onReject: () -> Void
     var onHero: () -> Void
@@ -215,25 +229,17 @@ private struct BrowseChromeOverlay: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(filename)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.9))
-                    Text(tierLabel)
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(.white.opacity(0.45))
-                }
+                Text(filename)
+                    .font(LuminaAtmosphere.Typeface.caption(12))
+                    .foregroundStyle(Color.white.opacity(0.42))
                 Spacer()
-                Text("F/D flip · P/X · M · ⌥` HUD")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.5))
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
+            .padding(.horizontal, 22)
+            .padding(.top, 14)
             Spacer(minLength: 0)
             if showControls {
                 LuminaDecisionBar(onReject: onReject, onHero: onHero, onKeep: onKeep)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 18)
             }
         }
     }
@@ -262,22 +268,25 @@ private struct BrowseFilmstripOverlay: View {
                             } label: {
                                 SpineAwarePhotoTile(photo: photo)
                                     .frame(width: filmCellWidth, height: filmCellHeight)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                                     .overlay {
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        RoundedRectangle(cornerRadius: 4, style: .continuous)
                                             .strokeBorder(
-                                                focusID == photo.id ? Color.accentColor : Color.white.opacity(0.18),
-                                                lineWidth: focusID == photo.id ? 3 : 1
+                                                focusID == photo.id
+                                                    ? LuminaAtmosphere.affirm.opacity(0.85)
+                                                    : Color.white.opacity(0.10),
+                                                lineWidth: focusID == photo.id ? 1.5 : 0.5
                                             )
                                     }
-                                    .scaleEffect(focusID == photo.id ? 1.04 : 1)
+                                    .opacity(focusID == photo.id ? 1 : 0.62)
+                                    .scaleEffect(focusID == photo.id ? 1.02 : 1)
                             }
                             .buttonStyle(.plain)
                             .id(photo.id)
                         }
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
                 }
                 .onAppear {
                     PreviewSpine.shared.warm(photos: photos, focus: focusID ?? photos.first?.id)
@@ -285,13 +294,19 @@ private struct BrowseFilmstripOverlay: View {
                 }
                 .onChange(of: focusID) { _, id in
                     guard let id else { return }
-                    withAnimation(.easeOut(duration: 0.12)) {
+                    withAnimation(LuminaAtmosphere.Motion.dissolve) {
                         proxy.scrollTo(id, anchor: .center)
                     }
                 }
             }
             .frame(height: filmstripHeight)
-            .background(.ultraThinMaterial.opacity(0.45))
+            .background(
+                LinearGradient(
+                    colors: [.clear, Color.black.opacity(0.55)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
         }
     }
 }
