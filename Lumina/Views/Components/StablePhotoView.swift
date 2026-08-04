@@ -214,7 +214,7 @@ struct StableThumbView: View {
         VStack(spacing: 6) {
             StablePhotoView(
                 asset: asset,
-                contentMode: .fill,
+                contentMode: .fit,
                 cornerRadius: LuminaTokens.Radius.photographThumb,
                 showDecisionBadge: false,
                 isSelected: isSelected,
@@ -239,11 +239,17 @@ struct StableThumbView: View {
 struct SpineActiveStage: View {
     let assetID: AssetID?
     let filename: String
+    let imageAspect: CGFloat
     var isFocusMode: Bool = false
     var onDoubleTap: (() -> Void)? = nil
 
     @State private var spine = PreviewSpine.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var imagePixelSize: CGSize {
+        let height = max(imageAspect, 0.05)
+        return CGSize(width: height * 1000, height: 1000)
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -253,7 +259,10 @@ struct SpineActiveStage: View {
                 MetalBrowseCanvas(
                     photoID: spine.paintedPhotoID,
                     jpegPath: spine.paintedJPEGPath,
+                    imageSize: imagePixelSize,
+                    generation: UInt64(spine.generation),
                     photonInputTime: spine.paintedPhotoID.flatMap { spine.pendingPhotonTime(for: $0) },
+                    matteIsDark: isFocusMode,
                     onPhotonPresent: { input in
                         spine.recordPhotonPresent(inputTime: input)
                     }

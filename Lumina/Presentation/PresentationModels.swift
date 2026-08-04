@@ -12,7 +12,7 @@ enum AssetDecision: String, Codable, Hashable, CaseIterable, Identifiable {
         switch self {
         case .undecided: "—"
         case .cut: "Cut"
-        case .needsMe: "Needs me"
+        case .needsMe: "Review"
         case .keep: "Keep"
         case .anchor: "Anchor"
         }

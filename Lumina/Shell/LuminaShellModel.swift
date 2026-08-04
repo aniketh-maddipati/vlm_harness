@@ -18,6 +18,7 @@ final class LuminaShellModel {
     var lens: WorkspaceLens = .attempts
     var selectedAssetID: AssetID?
     var selectedGroupID: String?
+    var scrollTargetGroupID: String?
     var isFocusMode = false
     var showInspector = false
     var showShortcuts = false
@@ -69,7 +70,7 @@ final class LuminaShellModel {
     }
 
     func setLens(_ newLens: WorkspaceLens) {
-        // Retain selected asset when switching organization.
+        guard newLens != lens else { return }
         lens = newLens
     }
 

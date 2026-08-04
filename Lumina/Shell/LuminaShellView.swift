@@ -80,57 +80,38 @@ struct LuminaShellView: View {
     @ViewBuilder
     private var workspaceBody: some View {
         let presentation = shell.workspacePresentation(model: model)
-        switch shell.lens {
-        case .attempts:
-            AttemptWorkspaceView(
-                presentation: presentation,
-                isFocusMode: shell.isFocusMode,
-                showInspector: shell.showInspector,
-                onSelectAsset: { id in
-                    shell.selectAsset(id)
-                    if model.project != nil { model.setCursor(id) }
-                    _ = PreviewSpine.shared.paint(id: id, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
-                },
-                onLensChange: { shell.setLens($0) },
-                onDecision: { shell.applyDecision($0, model: model) },
-                onToggleFocus: { shell.toggleFocus() },
-                onToggleInspector: { shell.toggleInspector() },
-                onHome: { shell.openHome() },
-                onFinish: { shell.openFinish() }
-            )
-        case .light:
-            LightWorkspaceView(
-                presentation: presentation,
-                onSelectAsset: { id in
-                    shell.selectAsset(id)
-                    if model.project != nil { model.setCursor(id) }
-                },
-                onSelectGroup: { shell.selectGroup($0) },
-                onLensChange: { shell.setLens($0) },
-                onToggleInclusion: { id in
-                    shell.selectAsset(id)
-                    if model.project != nil {
-                        model.setCursor(id)
-                        if model.selectedPhoto?.tier == .reject {
-                            model.markKeep()
-                        } else {
-                            model.markReject()
-                        }
-                        shell.invalidateCache()
-                    }
-                },
-                onSetReference: { id in
-                    shell.selectAsset(id)
-                    if model.project != nil {
-                        model.setCursor(id)
-                        model.markHero()
-                        shell.invalidateCache()
-                    }
-                },
-                onHome: { shell.openHome() },
-                onFinish: { shell.openFinish() }
-            )
-        }
+        PaletteWorkspaceView(
+            presentation: presentation,
+            isFocusMode: shell.isFocusMode,
+            scrollTargetGroupID: shell.scrollTargetGroupID,
+            onSelectAsset: { id in
+                shell.selectAsset(id)
+                shell.scrollTargetGroupID = presentation.groups
+                    .first(where: { $0.assets.contains(where: { $0.id == id }) })?.id
+                if model.project != nil { model.setCursor(id) }
+                _ = PreviewSpine.shared.paint(id: id, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
+                shell.isFocusMode = true
+            },
+            onLensChange: { newLens in
+                let selected = presentation.selectedAssetID
+                shell.setLens(newLens)
+                let updated = shell.workspacePresentation(model: model)
+                if let selected {
+                    shell.scrollTargetGroupID = updated.groups
+                        .first(where: { $0.assets.contains(where: { $0.id == selected }) })?.id
+                }
+            },
+            onDecision: { shell.applyDecision($0, model: model) },
+            onToggleFocus: { shell.toggleFocus() },
+            onHome: { shell.openHome() },
+            onFinish: { shell.openFinish() },
+            onPrevious: {
+                shell.moveAlternative(delta: -1, presentation: presentation, model: model)
+            },
+            onNext: {
+                shell.moveAlternative(delta: 1, presentation: presentation, model: model)
+            }
+        )
     }
 
     private func enterWorkspaceFromHome() {
@@ -150,10 +131,10 @@ struct KeyboardShortcutsSheet: View {
     private let rows: [(String, String)] = [
         ("← / →", "Previous / next attempt"),
         ("↑ / ↓", "Alternative within attempt"),
-        ("Space", "Inspect at high fidelity"),
+        ("Space", "Focus photograph"),
         ("K", "Keep"),
         ("X", "Cut"),
-        ("M", "Needs me"),
+        ("M", "Review"),
         ("A", "Anchor"),
         ("1", "Attempts lens"),
         ("2", "Light lens"),

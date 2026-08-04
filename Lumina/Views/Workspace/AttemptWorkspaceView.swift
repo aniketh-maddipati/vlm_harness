@@ -91,6 +91,7 @@ struct AttemptWorkspaceView: View {
             SpineActiveStage(
                 assetID: asset.id,
                 filename: asset.filename,
+                imageAspect: asset.aspectRatio,
                 isFocusMode: isFocusMode,
                 onDoubleTap: onToggleFocus
             )

@@ -20,13 +20,16 @@ enum PresentationFixtures {
         )
     }
 
-    private static let brooklynAssets: [AssetPresentation] = [
+    private static let deathValleyAssets: [AssetPresentation] = [
         asset(name: "DSC01201.ARW", aspect: 3.0 / 2.0, decision: .keep),
         asset(name: "DSC01202.ARW", aspect: 3.0 / 2.0),
         asset(name: "DSC01203.ARW", aspect: 2.0 / 3.0),
         asset(name: "DSC01204.ARW", aspect: 3.0 / 2.0, decision: .needsMe),
         asset(name: "DSC01205.ARW", aspect: 3.0 / 2.0, decision: .cut),
         asset(name: "DSC01206.ARW", aspect: 4.0 / 5.0, decision: .anchor, protected: true),
+    ]
+
+    private static let brooklynAssets: [AssetPresentation] = deathValleyAssets + [
         asset(name: "DSC01207.ARW", aspect: 3.0 / 2.0),
         asset(name: "DSC01208.ARW", aspect: 16.0 / 9.0),
     ]
@@ -170,7 +173,7 @@ enum PresentationFixtures {
     static func attemptWorkspace() -> WorkspacePresentation {
         let groups = attemptGroups()
         return WorkspacePresentation(
-            shootTitle: "Brooklyn Waterfront",
+            shootTitle: "Death Valley",
             lens: .attempts,
             groups: groups,
             selectedAssetID: groups[0].assets[1].id,
@@ -184,7 +187,7 @@ enum PresentationFixtures {
     static func lightWorkspace() -> WorkspacePresentation {
         let groups = lightGroups()
         return WorkspacePresentation(
-            shootTitle: "Brooklyn Waterfront",
+            shootTitle: "Death Valley",
             lens: .light,
             groups: groups,
             selectedAssetID: groups[0].representativeID,
@@ -192,6 +195,56 @@ enum PresentationFixtures {
             progressCurrent: 8,
             progressTotal: 31,
             inspectorAvailable: true
+        )
+    }
+
+    static func mixedAspectBoard() -> WorkspacePresentation {
+        WorkspacePresentation(
+            shootTitle: "Mixed aspects",
+            lens: .attempts,
+            groups: [
+                GroupPresentation(
+                    id: "mixed",
+                    title: "Group 1 · 5 photographs",
+                    subtitle: "2:14 PM – 2:19 PM",
+                    assets: Array(brooklynAssets.prefix(5)),
+                    representativeID: brooklynAssets[0].id,
+                    relationshipNote: nil
+                )
+            ],
+            selectedAssetID: brooklynAssets[2].id,
+            selectedGroupID: "mixed",
+            progressCurrent: 3,
+            progressTotal: 5,
+            inspectorAvailable: true
+        )
+    }
+
+    static func focusPortrait() -> WorkspacePresentation {
+        var workspace = attemptWorkspace()
+        let portrait = brooklynAssets[2]
+        return WorkspacePresentation(
+            shootTitle: workspace.shootTitle,
+            lens: workspace.lens,
+            groups: workspace.groups,
+            selectedAssetID: portrait.id,
+            selectedGroupID: workspace.selectedGroupID,
+            progressCurrent: workspace.progressCurrent,
+            progressTotal: workspace.progressTotal,
+            inspectorAvailable: workspace.inspectorAvailable
+        )
+    }
+
+    static func ungroupedWorkspace() -> WorkspacePresentation {
+        WorkspacePresentation(
+            shootTitle: "Empty roll",
+            lens: .attempts,
+            groups: [],
+            selectedAssetID: nil,
+            selectedGroupID: nil,
+            progressCurrent: 0,
+            progressTotal: 0,
+            inspectorAvailable: false
         )
     }
 
@@ -242,46 +295,46 @@ enum PresentationFixtures {
     }
 
     private static func attemptGroups() -> [GroupPresentation] {
-        let a = Array(brooklynAssets.prefix(5))
-        let b = Array(brooklynAssets.suffix(3))
+        let ridge = Array(brooklynAssets.prefix(5))
+        let panorama = Array(brooklynAssets.suffix(3))
         return [
             GroupPresentation(
-                id: "attempt-01",
-                title: "Attempt 01",
-                subtitle: "Same subject · similar composition",
-                assets: a,
-                representativeID: a.first?.id,
-                relationshipNote: "14 seconds"
+                id: "attempt-ridge",
+                title: "Ridge study · 6 photographs",
+                subtitle: "2:14 PM – 2:16 PM",
+                assets: ridge,
+                representativeID: ridge.first?.id,
+                relationshipNote: nil
             ),
             GroupPresentation(
-                id: "attempt-02",
-                title: "Attempt 02",
-                subtitle: "Wider frame",
-                assets: b,
-                representativeID: b.first?.id,
-                relationshipNote: "41 seconds later"
+                id: "attempt-panorama",
+                title: "Valley panorama · 4 photographs",
+                subtitle: "2:22 PM – 2:28 PM",
+                assets: panorama,
+                representativeID: panorama.first?.id,
+                relationshipNote: nil
             ),
         ]
     }
 
     private static func lightGroups() -> [GroupPresentation] {
-        let cool = Array(brooklynAssets.prefix(4))
-        let warm = Array(brooklynAssets.suffix(4))
+        let openShade = Array(brooklynAssets.prefix(4))
+        let blueHour = Array(brooklynAssets.suffix(4))
         return [
             GroupPresentation(
-                id: "palette-cool",
-                title: "Cool open shade",
-                subtitle: "Related tonal family",
-                assets: cool,
-                representativeID: cool.first?.id,
-                relationshipNote: "Photographs are the palette"
+                id: "light-open",
+                title: "Open shade · 4 photographs",
+                subtitle: "2:10 PM – 2:18 PM",
+                assets: openShade,
+                representativeID: openShade.first?.id,
+                relationshipNote: nil
             ),
             GroupPresentation(
-                id: "palette-warm",
-                title: "Warm sidelight",
-                subtitle: "Related tonal family",
-                assets: warm,
-                representativeID: warm.first?.id,
+                id: "light-blue",
+                title: "Blue hour · 4 photographs",
+                subtitle: "7:41 PM – 7:53 PM",
+                assets: blueHour,
+                representativeID: blueHour.first?.id,
                 relationshipNote: nil
             ),
         ]
