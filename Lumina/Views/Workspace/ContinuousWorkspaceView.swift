@@ -66,9 +66,10 @@ struct ContinuousWorkspaceView: View {
                 }
 
                 if let message = decisionReceiptMessage, workspaceStage == .workbench {
+                    let canUndo = message != "Undone" && message != "Hold cleared"
                     DecisionReceiptBanner(
                         message: message,
-                        onUndo: decisionReceiptMessage == "Undone" ? nil : onUndo
+                        onUndo: canUndo ? onUndo : nil
                     )
                         .padding(.bottom, 20)
                         .transition(.opacity)
