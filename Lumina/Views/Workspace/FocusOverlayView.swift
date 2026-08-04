@@ -16,13 +16,13 @@ struct FocusOverlayView: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.28)
+            LuminaTokens.Surface.focusScrim
                 .ignoresSafeArea()
                 .onTapGesture { onClose() }
 
             VStack(spacing: LuminaTokens.Spacing.md) {
                 focusHeader
-                    .padding(.horizontal, LuminaTokens.Spacing.lg)
+                    .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
                     .padding(.top, LuminaTokens.Spacing.lg)
 
                 if let asset {
@@ -51,12 +51,17 @@ struct FocusOverlayView: View {
                     )
                     LuminaGhostActionButton(title: "Next") { onNext() }
                 }
-                .padding(.horizontal, LuminaTokens.Spacing.lg)
+                .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
                 .padding(.bottom, LuminaTokens.Spacing.lg)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
-                LuminaTokens.Surface.porcelain.opacity(0.98)
+                LuminaTokens.Surface.porcelain
+                    .shadow(
+                        color: LuminaTokens.Depth.focusShadow,
+                        radius: LuminaTokens.Depth.focusShadowRadius,
+                        y: LuminaTokens.Depth.focusShadowY
+                    )
                     .ignoresSafeArea()
             )
         }
@@ -69,12 +74,12 @@ struct FocusOverlayView: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(asset?.filename ?? "Photograph")
-                    .font(LuminaTokens.Typeface.control(14, weight: .medium))
+                    .font(LuminaTokens.Typeface.navigation(14))
                     .foregroundStyle(LuminaTokens.Ink.primary)
                     .lineLimit(1)
                 if let group {
                     Text(group.title)
-                        .font(LuminaTokens.Typeface.meta(12))
+                        .font(LuminaTokens.Typeface.meta(13))
                         .foregroundStyle(LuminaTokens.Ink.secondary)
                 }
             }
@@ -103,7 +108,7 @@ struct FocusOverlayView: View {
                     .buttonStyle(LuminaQuietButtonStyle())
                 }
             }
-            .padding(.horizontal, LuminaTokens.Spacing.lg)
+            .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
         }
         .frame(height: 78)
         .accessibilityLabel("Nearby alternatives")

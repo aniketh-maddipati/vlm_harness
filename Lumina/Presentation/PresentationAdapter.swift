@@ -27,6 +27,8 @@ enum PresentationAdapter {
             hasher.combine(photo.proxyPath)
             hasher.combine(photo.clusterID)
             hasher.combine(photo.burstID)
+            hasher.combine(photo.capturedAt)
+            hasher.combine(photo.recipe)
         }
         hasher.combine(model.catalogQueue.folders.count)
         hasher.combine(model.catalogQueue.isIndexing)
@@ -34,9 +36,6 @@ enum PresentationAdapter {
     }
 
     static func decision(for photo: PhotoRecord) -> AssetDecision {
-        if photo.isBurstHero || photo.isClusterHero, photo.tier == .keep {
-            return .anchor
-        }
         if photo.isFlagged || photo.isUncertain {
             return .needsMe
         }
@@ -56,7 +55,9 @@ enum PresentationAdapter {
             thumbPath: photo.displayThumbPath,
             decision: decision(for: photo),
             isProtected: photo.isBurstHero || photo.isClusterHero,
-            caption: photo.clusterLabel
+            caption: photo.clusterLabel,
+            qualityScore: photo.cullScore,
+            capturedAt: photo.capturedAt
         )
     }
 
@@ -79,11 +80,23 @@ enum PresentationAdapter {
     static func readableShootTitle(_ raw: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         let base = (trimmed as NSString).lastPathComponent
-        let spaced = base
-            .replacingOccurrences(of: "_", with: " ")
-            .replacingOccurrences(of: "-", with: " ")
-            .replacingOccurrences(of: "  ", with: " ")
-        return spaced.isEmpty ? "Untitled shoot" : spaced
+        var words = base
+            .replacingOccurrences(of: "-", with: "_")
+            .split(separator: "_")
+            .map(String.init)
+
+        let genericSuffixes: Set<String> = [
+            "exposure", "raw", "jpg", "jpeg", "cr2", "nef", "arw", "dng",
+            "shoot", "photos", "pics", "images", "export", "edit", "edited", "final",
+        ]
+        if words.count > 1, let last = words.last?.lowercased(), genericSuffixes.contains(last) {
+            words.removeLast()
+        }
+
+        let titled = words.map { word -> String in
+            word.prefix(1).uppercased() + word.dropFirst().lowercased()
+        }
+        return titled.isEmpty ? "Untitled shoot" : titled.joined(separator: " ")
     }
 
     static func home(from model: ProjectViewModel) -> HomePresentation {
@@ -280,118 +293,215 @@ enum PresentationAdapter {
         let byID = Dictionary(uniqueKeysWithValues: photos.map { ($0.id, $0) })
 
         if !model.reviewClusters.isEmpty {
-            return model.reviewClusters.enumerated().compactMap { index, cluster in
+            return model.reviewClusters.enumerated().flatMap { index, cluster in
                 let members = cluster.photoIDs.compactMap { byID[$0] }
-                guard !members.isEmpty else { return nil }
-                return neutralGroup(
-                    id: cluster.id,
-                    index: index + 1,
-                    assets: members.map(asset(from:)),
-                    representativeID: cluster.heroID ?? members.first?.id,
-                    sourcePhotos: members
+                guard !members.isEmpty else { return [GroupPresentation]() }
+                let repID = cluster.heroID ?? members.max(by: { $0.cullScore < $1.cullScore })?.id
+                return timeBucketGroups(
+                    from: members,
+                    idPrefix: cluster.id,
+                    titlePrefix: cluster.label.isEmpty ? "Subject \(index + 1)" : cluster.label,
+                    category: .subject,
+                    relationshipNote: cluster.whyGrouped,
+                    representativeID: repID
                 )
             }
         }
 
-        return editorialChunks(from: photos, prefix: "Group", idPrefix: "attempt")
-    }
-
-    /// Light lens reorganizes the same shoot into illumination-time rows — no composition claims.
-    private static func lightGroups(from model: ProjectViewModel) -> [GroupPresentation] {
-        guard let photos = model.project?.photos, !photos.isEmpty else { return [] }
-        let sorted = photos.sorted {
-            ($0.capturedAt ?? .distantPast) < ($1.capturedAt ?? .distantPast)
-        }
-        return illuminationChunks(from: sorted)
-    }
-
-    private static func neutralGroup(
-        id: String,
-        index: Int,
-        assets: [AssetPresentation],
-        representativeID: AssetID?,
-        sourcePhotos: [PhotoRecord]
-    ) -> GroupPresentation {
-        GroupPresentation(
-            id: id,
-            title: "Group \(index) · \(assets.count) photograph\(assets.count == 1 ? "" : "s")",
-            subtitle: timeRangeLabel(for: sourcePhotos),
-            assets: assets,
-            representativeID: representativeID,
-            relationshipNote: nil
+        return timeBucketGroups(
+            from: photos,
+            idPrefix: "subject",
+            titlePrefix: "Subject",
+            category: .subject,
+            relationshipNote: nil,
+            representativeID: nil
         )
     }
 
-    /// Editorial rows for shoots without trustworthy semantic clusters.
-    private static func editorialChunks(
-        from photos: [PhotoRecord],
-        prefix: String,
-        idPrefix: String,
-        chunkSize: Int = 6
-    ) -> [GroupPresentation] {
-        let sorted = photos.sorted {
-            ($0.capturedAt ?? .distantPast) < ($1.capturedAt ?? .distantPast)
-        }
-        guard !sorted.isEmpty else { return [] }
-        var groups: [GroupPresentation] = []
-        var index = 0
-        var groupNumber = 1
-        while index < sorted.count {
-            let end = min(index + chunkSize, sorted.count)
-            let slice = Array(sorted[index..<end])
-            let assets = slice.map(asset(from:))
-            groups.append(
-                GroupPresentation(
-                    id: "\(idPrefix)-\(groupNumber)",
-                    title: "\(prefix) \(groupNumber) · \(assets.count) photograph\(assets.count == 1 ? "" : "s")",
-                    subtitle: timeRangeLabel(for: slice),
-                    assets: assets,
-                    representativeID: assets.first?.id,
-                    relationshipNote: nil
-                )
-            )
-            index = end
-            groupNumber += 1
-        }
-        return groups
+    /// Light lens reorganizes the same shoot into day + gap-based time rows.
+    private static func lightGroups(from model: ProjectViewModel) -> [GroupPresentation] {
+        guard let photos = model.project?.photos, !photos.isEmpty else { return [] }
+        return timeBucketGroups(
+            from: photos,
+            idPrefix: "light",
+            titlePrefix: "Roll",
+            category: .time,
+            relationshipNote: "Captured in the same session window",
+            representativeID: nil
+        )
     }
 
-    /// Light lens: merge photographs captured within ~20 minutes into one row.
-    private static func illuminationChunks(from photos: [PhotoRecord], windowSeconds: TimeInterval = 20 * 60) -> [GroupPresentation] {
-        guard !photos.isEmpty else { return [] }
-        var groups: [[PhotoRecord]] = []
-        var current: [PhotoRecord] = []
-        var windowStart: Date?
+    /// Split large photo lists into manageable time rows — by day, then adaptive gaps.
+    private static func timeBucketGroups(
+        from photos: [PhotoRecord],
+        idPrefix: String,
+        titlePrefix: String,
+        category: StackRowCategory,
+        relationshipNote: String?,
+        representativeID: AssetID?,
+        maxPhotosPerBucket: Int = 28
+    ) -> [GroupPresentation] {
+        let buckets = adaptiveTimeBuckets(from: photos, maxPhotosPerBucket: maxPhotosPerBucket)
+        guard !buckets.isEmpty else { return [] }
 
-        for photo in photos {
-            let stamp = photo.capturedAt
-            if current.isEmpty {
-                current = [photo]
-                windowStart = stamp
-                continue
-            }
-            if let start = windowStart, let stamp,
-               stamp.timeIntervalSince(start) <= windowSeconds {
-                current.append(photo)
-            } else {
-                groups.append(current)
-                current = [photo]
-                windowStart = stamp
-            }
-        }
-        if !current.isEmpty { groups.append(current) }
-
-        return groups.enumerated().map { index, slice in
+        return buckets.enumerated().map { index, slice in
             let assets = slice.map(asset(from:))
+            let repPhoto = representativeID.flatMap { id in slice.first(where: { $0.id == id }) }
+                ?? slice.max(by: { $0.cullScore < $1.cullScore })
+            let repAssetID = repPhoto.flatMap { photo in assets.first(where: { $0.id == photo.id })?.id }
+                ?? assets.first?.id
+            let dates = slice.compactMap(\.capturedAt).sorted()
+            let title = bucketTitle(
+                prefix: titlePrefix,
+                index: index + 1,
+                totalBuckets: buckets.count,
+                photos: slice
+            )
             return GroupPresentation(
-                id: "light-\(index + 1)",
-                title: "Light row \(index + 1) · \(assets.count) photograph\(assets.count == 1 ? "" : "s")",
-                subtitle: timeRangeLabel(for: slice),
+                id: "\(idPrefix)-\(index + 1)",
+                title: title,
+                subtitle: bucketSubtitle(for: slice),
                 assets: assets,
-                representativeID: assets.first?.id,
-                relationshipNote: nil
+                representativeID: repAssetID,
+                relationshipNote: relationshipNote,
+                rowCategory: category,
+                timeStart: dates.first,
+                timeEnd: dates.last
             )
         }
+    }
+
+    // MARK: - Adaptive time bucketing
+
+    /// Groups photos by calendar day, then splits on natural capture gaps and size caps.
+    private static func adaptiveTimeBuckets(
+        from photos: [PhotoRecord],
+        maxPhotosPerBucket: Int = 28
+    ) -> [[PhotoRecord]] {
+        let dated = photos.filter { $0.capturedAt != nil }.sorted {
+            ($0.capturedAt ?? .distantPast) < ($1.capturedAt ?? .distantPast)
+        }
+        let undated = photos.filter { $0.capturedAt == nil }
+
+        var buckets: [[PhotoRecord]] = []
+        let calendar = Calendar.current
+        let dayGroups = Dictionary(grouping: dated) { photo in
+            calendar.startOfDay(for: photo.capturedAt!)
+        }.sorted { $0.key < $1.key }
+
+        for (_, dayPhotos) in dayGroups {
+            buckets.append(contentsOf: gapBuckets(from: dayPhotos, maxSize: maxPhotosPerBucket))
+        }
+        if !undated.isEmpty {
+            buckets.append(contentsOf: splitOversized(undated, maxSize: maxPhotosPerBucket))
+        }
+        return buckets
+    }
+
+    private static func gapBuckets(from sorted: [PhotoRecord], maxSize: Int) -> [[PhotoRecord]] {
+        guard !sorted.isEmpty else { return [] }
+        guard sorted.count > 1 else { return [sorted] }
+
+        let splitThreshold = adaptiveGapThreshold(for: sorted)
+        var buckets: [[PhotoRecord]] = []
+        var current: [PhotoRecord] = [sorted[0]]
+
+        for i in 1..<sorted.count {
+            let prev = sorted[i - 1]
+            let photo = sorted[i]
+            let gap: TimeInterval
+            if let a = prev.capturedAt, let b = photo.capturedAt {
+                gap = b.timeIntervalSince(a)
+            } else {
+                gap = 0
+            }
+            let shouldSplit = gap > splitThreshold || current.count >= maxSize
+            if shouldSplit {
+                buckets.append(current)
+                current = [photo]
+            } else {
+                current.append(photo)
+            }
+        }
+        if !current.isEmpty { buckets.append(current) }
+        return buckets.flatMap { splitOversized($0, maxSize: maxSize) }
+    }
+
+    private static func adaptiveGapThreshold(for sorted: [PhotoRecord]) -> TimeInterval {
+        var gaps: [TimeInterval] = []
+        for i in 1..<sorted.count {
+            if let a = sorted[i - 1].capturedAt, let b = sorted[i].capturedAt {
+                let gap = b.timeIntervalSince(a)
+                if gap > 0 { gaps.append(gap) }
+            }
+        }
+        guard !gaps.isEmpty else { return 12 * 60 }
+        gaps.sort()
+        let median = gaps[gaps.count / 2]
+        // Pause longer than ~5× typical spacing, clamped between 3 and 45 minutes.
+        return min(max(median * 5, 3 * 60), 45 * 60)
+    }
+
+    /// Hard-split buckets that still exceed the row cap at the largest internal gap.
+    private static func splitOversized(_ photos: [PhotoRecord], maxSize: Int) -> [[PhotoRecord]] {
+        guard photos.count > maxSize else { return photos.isEmpty ? [] : [photos] }
+        var bestIndex = maxSize
+        var bestGap: TimeInterval = -1
+        for i in 1..<photos.count {
+            let gap: TimeInterval
+            if let a = photos[i - 1].capturedAt, let b = photos[i].capturedAt {
+                gap = b.timeIntervalSince(a)
+            } else {
+                gap = 0
+            }
+            if gap > bestGap {
+                bestGap = gap
+                bestIndex = i
+            }
+        }
+        let pivot = max(1, min(bestIndex, photos.count - 1))
+        let left = Array(photos[..<pivot])
+        let right = Array(photos[pivot...])
+        return splitOversized(left, maxSize: maxSize) + splitOversized(right, maxSize: maxSize)
+    }
+
+    private static func bucketTitle(
+        prefix: String,
+        index: Int,
+        totalBuckets: Int,
+        photos: [PhotoRecord]
+    ) -> String {
+        let dates = photos.compactMap(\.capturedAt).sorted()
+        guard let first = dates.first else {
+            return "Unknown time · \(photos.count) photos"
+        }
+
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "EEE MMM d"
+        let dayLabel = dayFormatter.string(from: first)
+
+        if dates.count <= 1 || dates.last == first {
+            return "\(dayLabel) · \(shortTime(first))"
+        }
+        let range = "\(shortTime(first)) – \(shortTime(dates.last!))"
+        if totalBuckets > 1, prefix != "Roll" {
+            return "\(prefix) · \(dayLabel) · \(range)"
+        }
+        return "\(dayLabel) · \(range)"
+    }
+
+    private static func bucketSubtitle(for photos: [PhotoRecord]) -> String {
+        let dated = photos.compactMap(\.capturedAt)
+        let span: String
+        if dated.count >= 2, let first = dated.min(), let last = dated.max(), last > first {
+            let minutes = Int(last.timeIntervalSince(first) / 60)
+            span = minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m span" : "\(max(minutes, 1)) min span"
+        } else if dated.count == 1 {
+            span = "single moment"
+        } else {
+            span = "time unknown"
+        }
+        return "\(photos.count) photo\(photos.count == 1 ? "" : "s") · \(span)"
     }
 
     private static func timeRangeLabel(for photos: [PhotoRecord]) -> String? {

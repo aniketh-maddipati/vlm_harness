@@ -12,9 +12,9 @@ enum AssetDecision: String, Codable, Hashable, CaseIterable, Identifiable {
         switch self {
         case .undecided: "—"
         case .cut: "Cut"
-        case .needsMe: "Review"
+        case .needsMe: "Maybe"
         case .keep: "Keep"
-        case .anchor: "Anchor"
+        case .anchor: "Keep" // legacy — no longer surfaced in UI
         }
     }
 
@@ -29,6 +29,18 @@ enum AssetDecision: String, Codable, Hashable, CaseIterable, Identifiable {
     }
 }
 
+/// How rows are grouped on the stack table.
+enum StackRowCategory: String, Hashable, Sendable {
+    case subject, time
+
+    var label: String {
+        switch self {
+        case .subject: "Subject"
+        case .time: "Time"
+        }
+    }
+}
+
 enum WorkspaceLens: String, Hashable, CaseIterable, Identifiable {
     case attempts, light
 
@@ -36,8 +48,15 @@ enum WorkspaceLens: String, Hashable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .attempts: "Attempts"
-        case .light: "Light"
+        case .attempts: "Subject"
+        case .light: "Time"
+        }
+    }
+
+    var rowCategory: StackRowCategory {
+        switch self {
+        case .attempts: .subject
+        case .light: .time
         }
     }
 
@@ -64,6 +83,10 @@ struct AssetPresentation: Identifiable, Hashable, Sendable {
     let decision: AssetDecision
     let isProtected: Bool
     let caption: String?
+    /// Composite cull score for ranking alternatives within a set.
+    let qualityScore: Double
+    /// EXIF capture time when known.
+    let capturedAt: Date?
 
     init(
         id: AssetID = AssetID(),
@@ -73,7 +96,9 @@ struct AssetPresentation: Identifiable, Hashable, Sendable {
         thumbPath: String? = nil,
         decision: AssetDecision = .undecided,
         isProtected: Bool = false,
-        caption: String? = nil
+        caption: String? = nil,
+        qualityScore: Double = 0,
+        capturedAt: Date? = nil
     ) {
         self.id = id
         self.filename = filename
@@ -83,6 +108,8 @@ struct AssetPresentation: Identifiable, Hashable, Sendable {
         self.decision = decision
         self.isProtected = isProtected
         self.caption = caption
+        self.qualityScore = qualityScore
+        self.capturedAt = capturedAt
     }
 }
 
@@ -93,12 +120,55 @@ struct GroupPresentation: Identifiable, Hashable, Sendable {
     let assets: [AssetPresentation]
     let representativeID: AssetID?
     let relationshipNote: String?
+    let rowCategory: StackRowCategory
+    let timeStart: Date?
+    let timeEnd: Date?
 
     var representative: AssetPresentation? {
         if let representativeID {
             return assets.first { $0.id == representativeID } ?? assets.first
         }
         return assets.first
+    }
+
+    /// Best-quality frame — lead card on the right of the stack.
+    var leadAsset: AssetPresentation? {
+        if let rep = representative { return rep }
+        return assets.max(by: { $0.qualityScore < $1.qualityScore }) ?? assets.first
+    }
+
+    /// Cards behind the lead, sorted worst → best (left to right under lead).
+    func stackOrdered(leadID: AssetID?) -> [AssetPresentation] {
+        let lead = leadID.flatMap { id in assets.first { $0.id == id } } ?? leadAsset
+        guard let lead else { return assets.sorted { $0.qualityScore < $1.qualityScore } }
+        let behind = assets.filter { $0.id != lead.id }.sorted { $0.qualityScore < $1.qualityScore }
+        return behind + [lead]
+    }
+
+    var undecidedCount: Int {
+        assets.filter { $0.decision == .undecided }.count
+    }
+
+    init(
+        id: String,
+        title: String,
+        subtitle: String? = nil,
+        assets: [AssetPresentation],
+        representativeID: AssetID? = nil,
+        relationshipNote: String? = nil,
+        rowCategory: StackRowCategory = .subject,
+        timeStart: Date? = nil,
+        timeEnd: Date? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.assets = assets
+        self.representativeID = representativeID
+        self.relationshipNote = relationshipNote
+        self.rowCategory = rowCategory
+        self.timeStart = timeStart
+        self.timeEnd = timeEnd
     }
 }
 
@@ -230,4 +300,14 @@ struct FinishPresentation: Hashable, Sendable {
 struct ShootSelectionPresentation: Hashable, Sendable {
     let readinessSummary: String
     let shoots: [ShootCardPresentation]
+}
+
+/// Prompt to batch-apply a cull decision to lower-quality peers in the same subject set.
+struct PeerCullSuggestion: Hashable, Sendable {
+    let anchorAssetID: AssetID
+    let peerAssets: [AssetPresentation]
+    let suggestedDecision: AssetDecision
+    let reason: String
+
+    var peerCount: Int { peerAssets.count }
 }

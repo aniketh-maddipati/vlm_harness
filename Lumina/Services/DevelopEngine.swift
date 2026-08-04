@@ -168,7 +168,7 @@ final class SoftRenderController {
     var mix: Double = 0
     private var task: Task<Void, Never>?
 
-    func play(duration: Double = 0.22) {
+    func play(duration: Double = 0.55) {
         task?.cancel()
         mix = 0
         task = Task {

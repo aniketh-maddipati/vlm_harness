@@ -32,7 +32,7 @@ struct FinishView: View {
         HStack(spacing: LuminaTokens.Spacing.md) {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(LuminaTokens.Typeface.navigation(13, weight: .medium))
                     .foregroundStyle(LuminaTokens.Ink.secondary)
                     .frame(width: LuminaTokens.HitTarget.minimum, height: LuminaTokens.HitTarget.minimum)
                     .contentShape(Rectangle())
@@ -42,7 +42,7 @@ struct FinishView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Finished set")
-                    .font(LuminaTokens.Typeface.title(22))
+                    .font(LuminaTokens.Typeface.editorial(28))
                     .foregroundStyle(LuminaTokens.Ink.primary)
                     .accessibilityAddTraits(.isHeader)
                 Text(presentation.shootTitle)
@@ -54,12 +54,12 @@ struct FinishView: View {
 
             LuminaGhostActionButton(title: "Undo", action: onUndo)
         }
-        .padding(.horizontal, LuminaTokens.Spacing.xl)
-        .padding(.vertical, LuminaTokens.Spacing.md)
+        .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
+        .frame(height: LuminaTokens.HitTarget.header)
         .background(LuminaTokens.Surface.porcelain)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(LuminaTokens.Line.hairline)
+                .fill(LuminaTokens.Line.hairline.opacity(0.65))
                 .frame(height: LuminaTokens.Line.hairlineWidth)
         }
     }

@@ -35,7 +35,7 @@ struct ShootSelectionView: View {
         HStack(spacing: LuminaTokens.Spacing.md) {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(LuminaTokens.Typeface.navigation(13, weight: .medium))
                     .foregroundStyle(LuminaTokens.Ink.secondary)
                     .frame(width: LuminaTokens.HitTarget.minimum, height: LuminaTokens.HitTarget.minimum)
                     .contentShape(Rectangle())
@@ -45,7 +45,7 @@ struct ShootSelectionView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Shoots")
-                    .font(LuminaTokens.Typeface.title(22))
+                    .font(LuminaTokens.Typeface.editorial(28))
                     .foregroundStyle(LuminaTokens.Ink.primary)
                     .accessibilityAddTraits(.isHeader)
                 Text(presentation.readinessSummary)
@@ -55,12 +55,12 @@ struct ShootSelectionView: View {
 
             Spacer(minLength: 12)
         }
-        .padding(.horizontal, LuminaTokens.Spacing.xl)
-        .padding(.vertical, LuminaTokens.Spacing.md)
+        .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
+        .frame(height: LuminaTokens.HitTarget.header)
         .background(LuminaTokens.Surface.porcelain)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(LuminaTokens.Line.hairline)
+                .fill(LuminaTokens.Line.hairline.opacity(0.65))
                 .frame(height: LuminaTokens.Line.hairlineWidth)
         }
     }
@@ -72,22 +72,26 @@ private struct ShootSelectionCard: View {
 
     var body: some View {
         Button(action: onOpen) {
-            LuminaCard {
-                VStack(alignment: .leading, spacing: LuminaTokens.Spacing.md) {
-                    ShootCardHeader(card: shoot)
+            VStack(alignment: .leading, spacing: LuminaTokens.Spacing.md) {
+                ShootCardHeader(card: shoot)
 
-                    PhotoStripPreview(assets: shoot.previewAssets, maxCount: 5, height: 140)
+                PhotoStripPreview(assets: shoot.previewAssets, maxCount: 5, height: 140)
 
-                    HStack {
-                        Spacer(minLength: 0)
-                        Text(shoot.primaryActionTitle)
-                            .font(LuminaTokens.Typeface.control(14, weight: .medium))
-                            .foregroundStyle(LuminaTokens.Ink.primary)
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(LuminaTokens.Ink.tertiary)
-                    }
+                HStack {
+                    Spacer(minLength: 0)
+                    Text(shoot.primaryActionTitle)
+                        .font(LuminaTokens.Typeface.navigation(15))
+                        .foregroundStyle(LuminaTokens.Ink.primary)
+                    Image(systemName: "arrow.right")
+                        .font(LuminaTokens.Typeface.navigation(12, weight: .medium))
+                        .foregroundStyle(LuminaTokens.Ink.tertiary)
                 }
+            }
+            .padding(.vertical, LuminaTokens.Spacing.md)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(LuminaTokens.Line.hairline)
+                    .frame(height: LuminaTokens.Line.hairlineWidth)
             }
             .contentShape(Rectangle())
         }

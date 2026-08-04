@@ -58,8 +58,11 @@ struct ContentView: View {
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: handleDrop)
         .onAppear {
             guard keyMonitor == nil else { return }
-            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) {
-                handleKey($0)
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .swipe]) { event in
+                if event.type == .swipe, shell.route == .workspace {
+                    return handleSwipe(event) ?? event
+                }
+                return handleKey(event)
             }
             model.refreshResumeAvailability()
             model.restoreCatalogQueueIfNeeded()
@@ -113,27 +116,86 @@ struct ContentView: View {
         }
     }
 
+    private func handleSwipe(_ event: NSEvent) -> NSEvent? {
+        guard shell.route == .workspace else { return event }
+        guard event.modifierFlags.contains(.command) else { return event }
+        let id = shell.selectedAssetID ?? model.cursor
+        switch event.deltaX {
+        case 1:
+            LuminaHaptics.decision()
+            shell.applyDecision(.keep, for: id, model: model)
+            return nil
+        case -1:
+            LuminaHaptics.decision()
+            shell.applyDecision(.cut, for: id, model: model)
+            return nil
+        default:
+            return event
+        }
+    }
+
     private func handleKey(_ event: NSEvent) -> NSEvent? {
         if NSApp.keyWindow?.firstResponder is NSTextView { return event }
 
-        if event.modifierFlags.contains(.command) {
-            if event.type == .keyDown,
-               event.charactersIgnoringModifiers?.lowercased() == "k" {
+        if event.modifierFlags.contains(.command), event.type == .keyDown {
+            let chars = event.charactersIgnoringModifiers?.lowercased()
+
+            if shell.route == .workspace {
+                let id = shell.selectedAssetID ?? model.cursor
+                switch chars {
+                case "k":
+                    LuminaHaptics.decision()
+                    shell.applyDecision(.keep, for: id, model: model)
+                    return nil
+                case "x":
+                    LuminaHaptics.decision()
+                    shell.applyDecision(.cut, for: id, model: model)
+                    return nil
+                case "m":
+                    LuminaHaptics.decision()
+                    shell.applyDecision(.needsMe, for: id, model: model)
+                    return nil
+                case "e":
+                    shell.replayStackPreview()
+                    return nil
+                case "-":
+                    shell.adjustStackExposure(delta: -0.25, model: model)
+                    return nil
+                case "=", "+":
+                    shell.adjustStackExposure(delta: 0.25, model: model)
+                    return nil
+                case "1":
+                    shell.setLens(.attempts)
+                    return nil
+                case "2":
+                    shell.setLens(.light)
+                    return nil
+                default:
+                    break
+                }
+                if event.keyCode == 36 {
+                    LuminaHaptics.alignment()
+                    if let groupID = shell.selectedGroupID ?? shell.workspacePresentation(model: model).selectedGroupID {
+                        let fresh = shell.workspacePresentation(model: model)
+                        shell.applyDecisionToRest(in: groupID, model: model, presentation: fresh)
+                    }
+                    return nil
+                }
+            } else if chars == "k" {
                 NotificationCenter.default.post(name: .focusLuminaSearch, object: nil)
                 return nil
             }
-            if event.type == .keyDown, event.keyCode == 36 {
+
+            if event.keyCode == 36, shell.route != .workspace {
                 model.exportCarousel()
                 return nil
             }
-            if event.type == .keyDown,
-               event.charactersIgnoringModifiers?.lowercased() == "z" {
+            if chars == "z" {
                 return nil
             }
             return event
         }
 
-        let chars = event.charactersIgnoringModifiers?.lowercased()
         let held = event.isARepeat
 
         if event.type == .keyDown, event.keyCode == 50, event.modifierFlags.contains(.option) {
@@ -142,85 +204,32 @@ struct ContentView: View {
         }
 
         if event.type == .keyDown {
-            switch chars {
-            case "1":
-                shell.setLens(.attempts)
-                if shell.route != .workspace { shell.openWorkspace(lens: .attempts) }
-                return nil
-            case "2":
-                shell.setLens(.light)
-                if shell.route != .workspace { shell.openWorkspace(lens: .light) }
-                return nil
-            case "k", "p":
-                if shell.route == .workspace {
-                    shell.applyDecision(.keep, model: model)
-                    return nil
-                }
-            case "x":
-                if shell.route == .workspace {
-                    shell.applyDecision(.cut, model: model)
-                    return nil
-                }
-            case "m":
-                if shell.route == .workspace {
-                    shell.applyDecision(.needsMe, model: model)
-                    return nil
-                }
-            case "a":
-                if shell.route == .workspace {
-                    shell.applyDecision(.anchor, model: model)
-                    return nil
-                }
-            case " ":
-                if shell.route == .workspace {
-                    shell.toggleFocus()
-                    return nil
-                }
-            case "g":
-                shell.openFinish()
-                return nil
-            case "f":
-                if shell.route == .workspace {
-                    shell.moveAttempt(
-                        delta: 1,
-                        presentation: shell.workspacePresentation(model: model),
-                        model: model
-                    )
-                    return nil
-                }
-            case "d":
-                if shell.route == .workspace {
-                    shell.moveAttempt(
-                        delta: -1,
-                        presentation: shell.workspacePresentation(model: model),
-                        model: model
-                    )
-                    return nil
-                }
-            default:
-                break
-            }
-
-            // Escape — Focus / inspector / shortcuts only. Never jump workspace → Home.
             if event.keyCode == 53 {
                 if shell.handleEscape() { return nil }
                 return event
             }
 
-            if event.keyCode == 123, shell.route == .workspace {
-                shell.moveAttempt(delta: -1, presentation: shell.workspacePresentation(model: model), model: model)
-                return nil
+            if shell.route == .workspace {
+                if event.keyCode == 123 {
+                    shell.moveAttempt(delta: -1, presentation: shell.workspacePresentation(model: model), model: model)
+                    return nil
+                }
+                if event.keyCode == 124 {
+                    shell.moveAttempt(delta: 1, presentation: shell.workspacePresentation(model: model), model: model)
+                    return nil
+                }
+                if event.keyCode == 125 {
+                    shell.moveAlternative(delta: 1, presentation: shell.workspacePresentation(model: model), model: model)
+                    return nil
+                }
+                if event.keyCode == 126 {
+                    shell.moveAlternative(delta: -1, presentation: shell.workspacePresentation(model: model), model: model)
+                    return nil
+                }
             }
-            if event.keyCode == 124, shell.route == .workspace {
-                shell.moveAttempt(delta: 1, presentation: shell.workspacePresentation(model: model), model: model)
-                return nil
-            }
-            if event.keyCode == 125, shell.route == .workspace {
-                shell.moveAlternative(delta: 1, presentation: shell.workspacePresentation(model: model), model: model)
-                return nil
-            }
-            if event.keyCode == 126, shell.route == .workspace {
-                shell.moveAlternative(delta: -1, presentation: shell.workspacePresentation(model: model), model: model)
+
+            if event.charactersIgnoringModifiers?.lowercased() == "g" {
+                shell.openFinish()
                 return nil
             }
         }

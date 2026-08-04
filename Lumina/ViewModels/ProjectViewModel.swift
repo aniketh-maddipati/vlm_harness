@@ -133,6 +133,25 @@ final class ProjectViewModel {
         photo.effectiveRecipe.withTasteStrength(tasteStrength)
     }
 
+    func photo(with id: UUID) -> PhotoRecord? {
+        project?.photos.first { $0.id == id }
+    }
+
+    func developOffsets(for photoID: UUID) -> DevelopAdjustments {
+        guard let photo = photo(with: photoID) else { return .zero }
+        let baseline = extractedProfile.withTasteStrength(tasteStrength)
+        return photo.effectiveRecipe.offsets(from: baseline)
+    }
+
+    func persistDevelopOffsets(_ offsets: DevelopAdjustments, for photoID: UUID) {
+        guard var project else { return }
+        guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        let baseline = extractedProfile.withTasteStrength(tasteStrength)
+        project.photos[index].recipe = baseline.applying(offsets)
+        self.project = project
+        persistDebounced()
+    }
+
     var cursorPosition: Int {
         guard let cursor, let photos = project?.photos,
               let index = photos.firstIndex(where: { $0.id == cursor }) else { return 0 }
@@ -810,7 +829,29 @@ final class ProjectViewModel {
         advanceAfterDecision()
     }
 
-    func markHero() {
+    func applyTier(_ tier: PhotoTier, to photoIDs: [UUID]) {
+        guard !photoIDs.isEmpty else { return }
+        for id in photoIDs {
+            setTier(tier, for: id, userInitiated: true)
+        }
+        if let last = photoIDs.last {
+            setCursor(last)
+        }
+        advanceAfterDecision()
+    }
+
+    /// Peers in the same subject set that are lower quality than the kept frame.
+    func peerCutSuggestion(afterKeeping photoID: UUID) -> [PhotoRecord] {
+        guard let photos = project?.photos else { return [] }
+        return PeerCullEngine.cutSuggestion(afterKeeping: photoID, in: photos) ?? []
+    }
+
+    func peerCutSuggestion(afterCutting photoID: UUID) -> [PhotoRecord] {
+        guard let photos = project?.photos else { return [] }
+        return PeerCullEngine.cutSuggestion(afterCutting: photoID, in: photos) ?? []
+    }
+
+    func markHero(advance: Bool = true) {
         guard let id = cursor, var project else { return }
         guard let index = project.photos.firstIndex(where: { $0.id == id }) else { return }
         let photo = project.photos[index]
@@ -833,6 +874,10 @@ final class ProjectViewModel {
         refreshExportCollections()
         persistDebounced()
         reapplyTasteAndUncertainty()
+        if advance { advanceAfterDecision() }
+    }
+
+    func advanceAfterDecisionPublic() {
         advanceAfterDecision()
     }
 

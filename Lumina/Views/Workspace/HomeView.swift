@@ -73,8 +73,9 @@ struct HomeView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
                     Text(presentation.greeting)
-                        .font(LuminaTokens.Typeface.title(36))
+                        .font(LuminaTokens.Typeface.editorial(32))
                         .foregroundStyle(LuminaTokens.Ink.primary)
+                        .lineSpacing(LuminaTokens.Typeface.bodyLineSpacing)
 
                     if let summary = presentation.readinessSummary {
                         Text(summary)
@@ -93,12 +94,13 @@ struct HomeView: View {
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: LuminaTokens.Spacing.lg) {
             Text("No shoots open")
-                .font(LuminaTokens.Typeface.title(22))
+                .font(LuminaTokens.Typeface.editorial(28))
                 .foregroundStyle(LuminaTokens.Ink.primary)
 
             Text("Open a shoot folder to begin reviewing photographs.")
-                .font(LuminaTokens.Typeface.control(15))
+                .font(LuminaTokens.Typeface.body(17))
                 .foregroundStyle(LuminaTokens.Ink.secondary)
+                .lineSpacing(LuminaTokens.Typeface.bodyLineSpacing)
                 .fixedSize(horizontal: false, vertical: true)
 
             LuminaTextActionButton(title: "Open shoot", prominent: true, action: onOpenShoot)
@@ -124,24 +126,28 @@ private struct HomeShootCard: View {
     let onAction: () -> Void
 
     var body: some View {
-        LuminaCard {
-            VStack(alignment: .leading, spacing: LuminaTokens.Spacing.md) {
-                ShootCardHeader(card: card)
+        VStack(alignment: .leading, spacing: LuminaTokens.Spacing.md) {
+            ShootCardHeader(card: card)
 
-                if !card.previewAssets.isEmpty {
-                    PhotoStripPreview(assets: card.previewAssets, maxCount: 4, height: 108)
-                }
-
-                HStack {
-                    if let progress = card.progressLabel {
-                        Text(progress)
-                            .font(LuminaTokens.Typeface.meta(12))
-                            .foregroundStyle(LuminaTokens.Ink.tertiary)
-                    }
-                    Spacer(minLength: 12)
-                    LuminaTextActionButton(title: actionTitle, prominent: true, action: onAction)
-                }
+            if !card.previewAssets.isEmpty {
+                PhotoStripPreview(assets: card.previewAssets, maxCount: 4, height: 108)
             }
+
+            HStack {
+                if let progress = card.progressLabel {
+                    Text(progress)
+                        .font(LuminaTokens.Typeface.meta(13))
+                        .foregroundStyle(LuminaTokens.Ink.tertiary)
+                }
+                Spacer(minLength: 12)
+                LuminaTextActionButton(title: actionTitle, prominent: true, action: onAction)
+            }
+        }
+        .padding(.vertical, LuminaTokens.Spacing.md)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(LuminaTokens.Line.hairline)
+                .frame(height: LuminaTokens.Line.hairlineWidth)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(card.title), \(card.photographCount) photographs")
@@ -160,32 +166,29 @@ private struct FinishedStripRow: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.title)
-                        .font(LuminaTokens.Typeface.title(17))
+                        .font(LuminaTokens.Typeface.editorial(20))
                         .foregroundStyle(LuminaTokens.Ink.primary)
                         .lineLimit(1)
                     Text("\(item.photographCount) photographs")
-                        .font(LuminaTokens.Typeface.meta(12))
-                        .foregroundStyle(LuminaTokens.Ink.secondary)
+                        .font(LuminaTokens.Typeface.meta(13))
+                        .foregroundStyle(LuminaTokens.Ink.tertiary)
                 }
 
                 Spacer(minLength: 0)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(LuminaTokens.Typeface.navigation(12, weight: .medium))
                     .foregroundStyle(LuminaTokens.Ink.tertiary)
             }
-            .padding(LuminaTokens.Spacing.md)
-            .background(
-                RoundedRectangle(cornerRadius: LuminaTokens.Radius.card, style: .continuous)
-                    .fill(LuminaTokens.Surface.elevated)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: LuminaTokens.Radius.card, style: .continuous)
-                    .strokeBorder(LuminaTokens.Line.hairline, lineWidth: LuminaTokens.Line.hairlineWidth)
-            }
+            .padding(.vertical, LuminaTokens.Spacing.md)
             .contentShape(Rectangle())
         }
         .buttonStyle(LuminaQuietButtonStyle())
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(LuminaTokens.Line.hairline)
+                .frame(height: LuminaTokens.Line.hairlineWidth)
+        }
         .accessibilityLabel("\(item.title), \(item.photographCount) photographs, finished")
     }
 }
@@ -199,7 +202,7 @@ struct ShootCardHeader: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(card.title)
-                    .font(LuminaTokens.Typeface.title(20))
+                    .font(LuminaTokens.Typeface.editorial(22))
                     .foregroundStyle(LuminaTokens.Ink.primary)
                     .lineLimit(2)
 

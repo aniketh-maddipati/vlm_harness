@@ -80,37 +80,58 @@ struct LuminaShellView: View {
     @ViewBuilder
     private var workspaceBody: some View {
         let presentation = shell.workspacePresentation(model: model)
-        PaletteWorkspaceView(
+        let leadID = shell.selectedAssetID ?? presentation.selectedAssetID
+        let baseRecipe: DevelopRecipe = {
+            guard let leadID, let photo = model.photo(with: leadID) else { return .neutral }
+            return model.appliedRecipe(for: photo)
+        }()
+        CullWorkspaceView(
             presentation: presentation,
-            isFocusMode: shell.isFocusMode,
-            scrollTargetGroupID: shell.scrollTargetGroupID,
-            onSelectAsset: { id in
-                shell.selectAsset(id)
-                shell.scrollTargetGroupID = presentation.groups
-                    .first(where: { $0.assets.contains(where: { $0.id == id }) })?.id
-                if model.project != nil { model.setCursor(id) }
-                _ = PreviewSpine.shared.paint(id: id, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
-                shell.isFocusMode = true
+            projectName: model.project?.name,
+            baseRecipe: baseRecipe,
+            developOffsets: Binding(
+                get: { shell.developOffsets },
+                set: { shell.developOffsets = $0 }
+            ),
+            stackPreviewMix: shell.stackPreviewMix,
+            revealToken: shell.workspaceRevealToken,
+            onDevelopChange: { offsets in
+                guard let leadID else { return }
+                shell.setDevelopOffsets(offsets, for: leadID, model: model)
+            },
+            onSelectGroup: { groupID in
+                shell.resetStackPreview()
+                shell.selectLead(in: groupID, model: model, presentation: presentation)
+            },
+            onSelectLead: { groupID, assetID in
+                shell.selectGroup(groupID)
+                shell.selectAsset(assetID)
+                shell.scrollTargetGroupID = groupID
+                if model.project != nil { model.setCursor(assetID) }
+                shell.loadDevelop(for: assetID, model: model)
+                _ = PreviewSpine.shared.paint(id: assetID, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
             },
             onLensChange: { newLens in
-                let selected = presentation.selectedAssetID
                 shell.setLens(newLens)
+                shell.resetStackPreview()
+                shell.refreshSnapshotsIfNeeded(model: model)
                 let updated = shell.workspacePresentation(model: model)
-                if let selected {
-                    shell.scrollTargetGroupID = updated.groups
-                        .first(where: { $0.assets.contains(where: { $0.id == selected }) })?.id
+                if let first = updated.groups.first {
+                    shell.selectLead(in: first.id, model: model, presentation: updated)
                 }
             },
-            onDecision: { shell.applyDecision($0, model: model) },
-            onToggleFocus: { shell.toggleFocus() },
-            onHome: { shell.openHome() },
-            onFinish: { shell.openFinish() },
-            onPrevious: {
-                shell.moveAlternative(delta: -1, presentation: presentation, model: model)
+            onDecision: { decision, assetID, groupID in
+                shell.selectGroup(groupID)
+                shell.selectAsset(assetID)
+                shell.applyDecision(decision, for: assetID, model: model)
             },
-            onNext: {
-                shell.moveAlternative(delta: 1, presentation: presentation, model: model)
-            }
+            onApplyToRest: { groupID in
+                let fresh = shell.workspacePresentation(model: model)
+                shell.applyDecisionToRest(in: groupID, model: model, presentation: fresh)
+            },
+            onPreviewEdits: { shell.replayStackPreview() },
+            onHome: { shell.openHome() },
+            onFinish: { shell.openFinish() }
         )
     }
 
@@ -129,17 +150,17 @@ struct KeyboardShortcutsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private let rows: [(String, String)] = [
-        ("← / →", "Previous / next attempt"),
-        ("↑ / ↓", "Alternative within attempt"),
-        ("Space", "Focus photograph"),
-        ("K", "Keep"),
-        ("X", "Cut"),
-        ("M", "Review"),
-        ("A", "Anchor"),
-        ("1", "Attempts lens"),
-        ("2", "Light lens"),
+        ("← / →", "Previous / next row"),
+        ("↑ / ↓", "Frame within row"),
+        ("⌘K", "Keep lead frame"),
+        ("⌘X", "Cut lead frame"),
+        ("⌘M", "Maybe — decide later"),
+        ("⌘↩", "Cut duplicates behind lead"),
+        ("⌘− / ⌘+", "Exposure down / up (develop pane)"),
+        ("⌘E", "Replay edit preview"),
+        ("⌘1 / ⌘2", "Subject / Time rows"),
         ("⌘Z", "Undo"),
-        ("Esc", "Leave Focus / inspector"),
+        ("Esc", "Dismiss overlay"),
     ]
 
     var body: some View {

@@ -6,6 +6,7 @@ struct LuminaApp: App {
         WindowGroup {
             ContentView()
                 .frame(minWidth: 1100, minHeight: 700)
+                .luminaWorkspaceAppearance()
         }
         .commands {
             CommandGroup(replacing: .newItem) {

@@ -71,7 +71,7 @@ struct StablePhotoView: View {
                 .resizable()
                 .interpolation(fidelity <= .silhouette ? .medium : .high)
                 .aspectRatio(contentMode: contentMode)
-                .transition(reduceMotion ? .identity : .opacity)
+                .transition(reduceMotion ? .identity : .opacity.animation(LuminaTokens.Motion.fidelity))
         } else if loadFailed {
             Image(systemName: "photo")
                 .font(.system(size: 22, weight: .regular))
@@ -85,11 +85,18 @@ struct StablePhotoView: View {
     private var badge: some View {
         if asset.decision != .undecided {
             Text(asset.decision.title)
-                .font(LuminaTokens.Typeface.meta(10, weight: .medium))
+                .font(LuminaTokens.Typeface.meta(10))
                 .foregroundStyle(badgeForeground)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(badgeBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(LuminaTokens.Surface.porcelain.opacity(0.92))
+                )
+                .overlay {
+                    Capsule(style: .continuous)
+                        .strokeBorder(badgeBorder, lineWidth: 1)
+                }
         }
     }
 
@@ -102,20 +109,22 @@ struct StablePhotoView: View {
         isSelected ? 1.5 : LuminaTokens.Line.hairlineWidth
     }
 
-    private var badgeBackground: Color {
+    private var badgeBorder: Color {
         switch asset.decision {
-        case .keep: LuminaTokens.Status.keep.opacity(0.92)
-        case .cut: LuminaTokens.Status.reject.opacity(0.92)
-        case .needsMe: LuminaTokens.Status.needsAttention.opacity(0.92)
-        case .anchor: LuminaTokens.Status.anchor.opacity(0.88)
+        case .cut: LuminaTokens.Status.reject.opacity(0.75)
+        case .needsMe: LuminaTokens.Status.needsAttention.opacity(0.55)
+        case .keep: LuminaTokens.Ink.primary.opacity(0.25)
+        case .anchor: LuminaTokens.Ink.primary.opacity(0.35)
         case .undecided: .clear
         }
     }
 
     private var badgeForeground: Color {
         switch asset.decision {
-        case .anchor: LuminaTokens.Surface.porcelain
-        default: Color.white
+        case .cut: LuminaTokens.Status.reject
+        case .needsMe: LuminaTokens.Status.needsAttention
+        case .keep, .anchor: LuminaTokens.Ink.primary
+        case .undecided: LuminaTokens.Ink.secondary
         }
     }
 
@@ -133,11 +142,15 @@ struct StablePhotoView: View {
         let generation = requestGeneration
 
         if boundAssetID != requestID {
-            // Identity changed — clear only when binding a different asset.
             boundAssetID = requestID
             if !upgradeOnly {
-                image = nil
-                fidelity = .empty
+                if let sil = PreviewSpine.shared.silhouetteImage(for: requestID) {
+                    image = sil
+                    fidelity = .silhouette
+                } else {
+                    image = nil
+                    fidelity = .empty
+                }
                 loadFailed = false
             }
         }

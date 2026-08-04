@@ -10,12 +10,12 @@ struct PaletteBoardView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let rowHeight: CGFloat = 148
+    private let rowHeight: CGFloat = 196
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: LuminaTokens.Spacing.section) {
+                LazyVStack(alignment: .leading, spacing: LuminaTokens.Spacing.xxl) {
                     ForEach(groups) { group in
                         PaletteGroupRow(
                             group: group,
@@ -26,7 +26,7 @@ struct PaletteBoardView: View {
                         .id(group.id)
                     }
                 }
-                .padding(.horizontal, LuminaTokens.Spacing.lg)
+                .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
                 .padding(.vertical, LuminaTokens.Spacing.lg)
             }
             .onAppear {
@@ -70,8 +70,9 @@ private struct PaletteGroupRow: View {
         VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(group.title)
-                    .font(LuminaTokens.Typeface.title(18))
-                    .foregroundStyle(LuminaTokens.Ink.primary)
+                    .font(LuminaTokens.Typeface.groupHeading(21))
+                    .tracking(LuminaTokens.Typeface.groupHeadingTracking)
+                    .foregroundStyle(LuminaTokens.Ink.strongSecondary)
                     .accessibilityAddTraits(.isHeader)
 
                 if let subtitle = group.subtitle {
@@ -92,13 +93,6 @@ private struct PaletteGroupRow: View {
                 onSelect: onSelectAsset
             )
             .frame(height: rowHeight)
-
-            if group.assets.count > 4 {
-                Rectangle()
-                    .fill(LuminaTokens.Line.hairline)
-                    .frame(height: LuminaTokens.Line.hairlineWidth)
-                    .padding(.top, LuminaTokens.Spacing.xs)
-            }
         }
     }
 }
