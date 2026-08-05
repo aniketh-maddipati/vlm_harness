@@ -161,20 +161,19 @@ struct DevelopLabView: View {
 
     @ViewBuilder
     private func labImage(for frame: DevelopLabFrame, oneToOne: Bool) -> some View {
-        if let image = model.nsImage(for: frame) {
-            Image(nsImage: image)
-                .resizable()
-                .interpolation(.high)
-                .aspectRatio(contentMode: .fit)
-                .scaleEffect(oneToOne && frame.id == model.leader?.id ? 2.2 : 1)
-                .offset(oneToOne && frame.id == model.leader?.id ? model.panOffset : .zero)
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            guard oneToOne else { return }
-                            model.panOffset = value.translation
-                        }
-                )
+        if let image = model.displayImage(for: frame) {
+            DevelopMetalView(
+                image: image,
+                zoom: oneToOne && frame.id == model.leader?.id ? 2.2 : 1,
+                panOffset: oneToOne && frame.id == model.leader?.id ? model.panOffset : .zero
+            )
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        guard oneToOne else { return }
+                        model.panOffset = value.translation
+                    }
+            )
         } else if model.liveRAWBlocked {
             Text("RAW unavailable")
                 .font(LuminaTokens.Typeface.meta(12))
@@ -237,23 +236,40 @@ struct DevelopLabView: View {
                 labSlider("Shadows", value: model.recipe.shadows, range: -100...100, step: 1) { v in
                     model.scrubRecipe { $0.shadows = v }
                 }
-                labSlider("Whites", value: model.recipe.whites, range: -100...100, step: 1) { v in
-                    model.scrubRecipe { $0.whites = v }
-                }
-                labSlider("Blacks", value: model.recipe.blacks, range: -100...100, step: 1) { v in
-                    model.scrubRecipe { $0.blacks = v }
-                }
+                Text("Whites / Blacks / Texture / Clarity / Dehaze are disabled — no honest algorithm in this stage. Stored values migrate without effect.")
+                    .font(LuminaTokens.Typeface.meta(10))
+                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
                 labSlider("Contrast", value: model.recipe.contrast, range: -100...100, step: 1) { v in
                     model.scrubRecipe { $0.contrast = v }
                 }
                 labSlider("Straighten°", value: model.recipe.straightenDegrees, range: -45...45, step: 0.1) { v in
                     model.scrubRecipe { $0.straightenDegrees = v }
                 }
-                labSlider("Noise Reduction", value: model.recipe.luminanceNR, range: 0...100, step: 1) { v in
+                let nrSupported = model.leaderCapabilities?.luminanceNoiseReduction != .unsupported
+                let sharpenSupported = model.leaderCapabilities?.sharpness != .unsupported
+                labSlider(
+                    nrSupported ? "Noise Reduction (RAW)" : "Noise Reduction — unsupported for this file",
+                    value: model.recipe.luminanceNR, range: 0...100, step: 1
+                ) { v in
                     model.scrubRecipe { $0.luminanceNR = v }
                 }
-                labSlider("Sharpening", value: model.recipe.sharpness, range: 0...150, step: 1) { v in
+                .disabled(!nrSupported)
+                .opacity(nrSupported ? 1 : 0.4)
+                labSlider(
+                    sharpenSupported ? "Sharpening (RAW)" : "Sharpening — unsupported for this file",
+                    value: model.recipe.sharpness, range: 0...150, step: 1
+                ) { v in
                     model.scrubRecipe { $0.sharpness = v }
+                }
+                .disabled(!sharpenSupported)
+                .opacity(sharpenSupported ? 1 : 0.4)
+
+                if !model.capabilityLine.isEmpty {
+                    Text(model.capabilityLine)
+                        .font(LuminaTokens.Typeface.meta(9))
+                        .foregroundStyle(LuminaTokens.Ink.tertiary)
+                        .lineLimit(2)
                 }
 
                 Text("Crop uses normalized EditCrop when set; default is full frame.")
@@ -291,6 +307,15 @@ struct DevelopLabView: View {
                 }
                 Button("Local override on leader") { model.applyLocalOverride() }
                     .buttonStyle(LuminaQuietButtonStyle())
+
+                Divider()
+
+                Button("Hand off to Lightroom") { model.handOffLeaderToLightroom() }
+                    .buttonStyle(LuminaQuietButtonStyle())
+                Text("Writes 16-bit ProPhoto TIFF to ~/Pictures/LuminaHandoff, merges the XMP sidecar next to the RAW, and drops a verification receipt.")
+                    .font(LuminaTokens.Typeface.meta(9))
+                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if model.commandHeld {
                     commandShelf

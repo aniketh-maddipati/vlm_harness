@@ -41,6 +41,10 @@ struct ContinuousWorkspaceView: View {
     var onStageTreat: () -> Void = {}
     var onConfirmRound: () -> Void = {}
     var onCancelStage: () -> Void = {}
+    var onApplyToSet: () -> Void = {}
+    var onAddRetouch: (AssetID, RetouchSpot) -> Void = { _, _ in }
+    var onUndoRetouch: (AssetID) -> Void = { _ in }
+    var onClearRetouch: (AssetID) -> Void = { _ in }
     var onStageAdvance: () -> Void = {}
     var onStageSetAside: () -> Void = {}
     var onStageHold: () -> Void = {}
@@ -172,6 +176,8 @@ struct ContinuousWorkspaceView: View {
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .help("⌘1")
+            .accessibilityLabel("Sources")
+            .accessibilityHint("Open shoot selection. Command 1.")
 
             ForEach(WorkspaceStage.switcherCases, id: \.self) { stage in
                 Button {
@@ -192,6 +198,9 @@ struct ContinuousWorkspaceView: View {
                 }
                 .buttonStyle(LuminaQuietButtonStyle())
                 .help(stageShortcutHelp(stage))
+                .accessibilityLabel("\(stage.title) stage")
+                .accessibilityHint("Shortcut \(stageShortcutHelp(stage))")
+                .accessibilityAddTraits(workspaceStage == stage ? .isSelected : [])
             }
             Spacer(minLength: 0)
         }
@@ -210,19 +219,28 @@ struct ContinuousWorkspaceView: View {
 
     @ViewBuilder
     private var treatmentBody: some View {
-        if let leaderID = selection?.leader ?? presentation.selectedAssetID,
+        // Focus follows the selected photograph so scrolling/tapping the
+        // carousel grows that frame and hosts live develop.
+        if let leaderID = presentation.selectedAssetID ?? selection?.leader,
            let leader = asset(for: leaderID) {
-            let refs = (selection?.ids ?? [leaderID])
+            let refs = (selection?.ids ?? [])
                 .filter { $0 != leaderID }
                 .compactMap { asset(for: $0) }
             let stagedRecipe: DevelopRecipe? = {
                 if case .treat(let r) = selection?.staged { return r }
                 return nil
             }()
+            let setAssets = presentation.groups
+                .first { group in group.assets.contains(where: { $0.id == leaderID }) }?
+                .captureOrderedAssets.filter { $0.decision != .cut }
+                ?? [leader]
+            let setSize = setAssets.count
             TreatmentStageView(
                 leader: leader,
                 references: refs,
+                setPhotos: setAssets,
                 selectionCount: max(selection?.count ?? 1, 1),
+                setCount: setSize,
                 projectName: projectName,
                 baseRecipe: baseRecipe,
                 offsets: $developOffsets,
@@ -242,7 +260,11 @@ struct ContinuousWorkspaceView: View {
                     if let gid = presentation.selectedGroupID {
                         onSelectPhoto(gid, id)
                     }
-                }
+                },
+                onApplyToSet: onApplyToSet,
+                onAddRetouch: { spot in onAddRetouch(leaderID, spot) },
+                onUndoRetouch: { onUndoRetouch(leaderID) },
+                onClearRetouch: { onClearRetouch(leaderID) }
             )
         }
     }
@@ -273,6 +295,12 @@ struct ContinuousWorkspaceView: View {
         let isHandling = selection?.isHandling == true
         let stagedAdvance = selection?.staged == .advance
         let receivingCount = stagedAdvance ? (selection?.count ?? 0) : 0
+        // Width actually available to the ledger tray — rows size themselves
+        // from this so the bench always justifies to the screen.
+        let railWidth: CGFloat = compactRail
+            ? 84
+            : clampedRightWidth(availableWidth: availableWidth, fraction: storyFraction) + 6
+        let trayWidth = max(availableWidth - 74 - railWidth, 400)
 
         ZStack(alignment: .bottom) {
             HStack(spacing: 0) {
@@ -280,8 +308,13 @@ struct ContinuousWorkspaceView: View {
                 edgePreviewStrip
                     .frame(width: 74)
 
-                mainTrayColumn(isHandling: isHandling, stagedAdvance: stagedAdvance, twoUp: twoUp)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                mainTrayColumn(
+                    isHandling: isHandling,
+                    stagedAdvance: stagedAdvance,
+                    twoUp: twoUp,
+                    trayWidth: trayWidth
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 if !compactRail {
                     WorkbenchSplitDivider(
@@ -414,7 +447,7 @@ struct ContinuousWorkspaceView: View {
     }
 
     @ViewBuilder
-    private func mainTrayColumn(isHandling: Bool, stagedAdvance: Bool, twoUp: Bool) -> some View {
+    private func mainTrayColumn(isHandling: Bool, stagedAdvance: Bool, twoUp: Bool, trayWidth: CGFloat) -> some View {
         ZStack {
             LuminaTokens.Surface.table
             if isHandling {
@@ -453,16 +486,17 @@ struct ContinuousWorkspaceView: View {
                     .padding(.top, 8)
                 }
 
-                workbenchLedger(twoUp: twoUp, isHandling: isHandling, stagedAdvance: stagedAdvance)
+                workbenchLedger(twoUp: twoUp, isHandling: isHandling, stagedAdvance: stagedAdvance, trayWidth: trayWidth)
             }
         }
         .accessibilitySortPriority(1)
     }
 
-    private func workbenchLedger(twoUp: Bool, isHandling: Bool, stagedAdvance: Bool) -> some View {
+    private func workbenchLedger(twoUp: Bool, isHandling: Bool, stagedAdvance: Bool, trayWidth: CGFloat) -> some View {
         WorkbenchLedgerView(
             presentation: presentation,
             isRowExpanded: isRowExpanded,
+            availableWidth: trayWidth,
             projectName: projectName,
             baseRecipe: baseRecipe,
             developOffsets: $developOffsets,
@@ -655,6 +689,8 @@ private struct WorkbenchSplitDivider: View {
 struct WorkbenchLedgerView: View {
     let presentation: WorkspacePresentation
     let isRowExpanded: Bool
+    /// Tray width — rows scale tiles and page count from this.
+    var availableWidth: CGFloat = 0
     var projectName: String?
     var baseRecipe: DevelopRecipe
     @Binding var developOffsets: DevelopAdjustments
@@ -690,6 +726,15 @@ struct WorkbenchLedgerView: View {
         treatmentPreviewMode == .current ? developOffsets : .zero
     }
 
+    /// Two across when the story pane is wide; otherwise as many 300 pt+
+    /// tiles as the tray genuinely fits (3–5).
+    private var responsivePageSize: Int {
+        if twoUp { return 2 }
+        guard availableWidth > 0 else { return 3 }
+        let fits = Int((availableWidth - 60 + 16) / (300 + 16))
+        return min(max(fits, 3), 5)
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -720,7 +765,8 @@ struct WorkbenchLedgerView: View {
                                 leaderID: isActive ? leaderID : nil,
                                 isHandling: isHandling && isActive,
                                 stagedAdvance: stagedAdvance && isActive,
-                                pageSize: twoUp ? 2 : 3,
+                                pageSize: responsivePageSize,
+                                availableWidth: max(availableWidth - 60, 0),
                                 twoUp: twoUp,
                                 reduceMotion: reduceMotion,
                                 travelAnimation: travelAnimation,
@@ -734,7 +780,7 @@ struct WorkbenchLedgerView: View {
                                 onHold: { onHold($0, group.id) },
                                 onRestore: onRestore
                             )
-                            .frame(minHeight: expanded ? 360 : nil)
+                            .frame(minHeight: expanded ? 480 : nil)
                             .frame(maxHeight: expanded ? .infinity : nil)
 
                             if expanded {

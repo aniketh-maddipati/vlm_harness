@@ -71,6 +71,10 @@ final class DevelopLabModel {
     var liveRAWBlocked: Bool = false
     var commandHeld = false
     var histogram = DevelopHistogram.Bins.empty
+    /// Capability probe for the current leader's file — explicit unsupported
+    /// states, never silent fakes.
+    var leaderCapabilities: PreparedRawSession.Capabilities?
+    var capabilityLine: String = ""
 
     let scheduler = DevelopRenderScheduler()
 
@@ -174,6 +178,7 @@ final class DevelopLabModel {
 
     func warmLeader() {
         guard let leader, !liveRAWBlocked else { return }
+        refreshCapabilities(for: leader)
         scheduler.scrub(
             photoID: leader.id,
             rawURL: leader.url,
@@ -269,6 +274,47 @@ final class DevelopLabModel {
         warmLeader()
     }
 
+    /// Full Lightroom handoff for the leader: 16-bit ProPhoto TIFF + merged XMP
+    /// sidecar next to the RAW + verification receipt.
+    func handOffLeaderToLightroom() {
+        guard let leader, !liveRAWBlocked else { return }
+        let recipe = recipe
+        fixtureStatusMessage = "Handing off \(leader.filename)…"
+        Task { [weak self] in
+            do {
+                let handoffDir = FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent("Pictures/LuminaHandoff", isDirectory: true)
+                try FileManager.default.createDirectory(at: handoffDir, withIntermediateDirectories: true)
+                let stem = leader.url.deletingPathExtension().lastPathComponent
+                let tiff = handoffDir.appendingPathComponent(stem + ".tif")
+                let result = try await LightroomHandoffService.performHandoff(
+                    photoID: leader.id,
+                    rawURL: leader.url,
+                    recipe: recipe,
+                    tiffDestination: tiff
+                )
+                self?.fixtureStatusMessage =
+                    "Handoff \(result.mergeOutcome.rawValue) · \(result.colorSpaceName) · \(tiff.lastPathComponent)"
+            } catch {
+                self?.fixtureStatusMessage = "Handoff failed: \(error)"
+            }
+        }
+    }
+
+    private func refreshCapabilities(for frame: DevelopLabFrame) {
+        Task { [weak self] in
+            let session = await PreparedRawSessionRegistry.shared.session(for: frame.id, rawURL: frame.url)
+            let (caps, meta) = await session.capabilityReport()
+            guard let self else { return }
+            self.leaderCapabilities = caps
+            var line = caps.summary
+            if let meta {
+                line += String(format: " · %d×%d", meta.pixelWidth, meta.pixelHeight)
+            }
+            self.capabilityLine = line
+        }
+    }
+
     private var histogramTask: Task<Void, Never>?
 
     private func refreshHistogramSoon() {
@@ -281,22 +327,21 @@ final class DevelopLabModel {
     }
 
     private func refreshHistogram() {
+        // Histogram is analysis, not the live preview path — it reads the small
+        // settled bitmap; interactive frames don't materialize CPU bitmaps.
         guard let leader,
               let cg = showBefore
-                ? scheduler.beforeImage(for: leader.id)
+                ? scheduler.beforeBitmap(for: leader.id)
                 : scheduler.presentedImage(for: leader.id)
         else { return }
         histogram = DevelopHistogram.compute(from: cg)
     }
 
-    func nsImage(for frame: DevelopLabFrame) -> NSImage? {
-        let cg: CGImage?
+    /// Live display surface — CIImage straight to the Metal destination.
+    func displayImage(for frame: DevelopLabFrame) -> CIImage? {
         if showBefore, frame.id == leader?.id {
-            cg = scheduler.beforeImage(for: frame.id)
-        } else {
-            cg = scheduler.presentedImage(for: frame.id)
+            return scheduler.beforeImage(for: frame.id)
         }
-        guard let cg else { return nil }
-        return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+        return scheduler.presentedCIImage(for: frame.id)
     }
 }

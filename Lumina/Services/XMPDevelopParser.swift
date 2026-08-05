@@ -88,6 +88,9 @@ enum XMPDevelopParser {
         )
     }
 
+    /// Destructive whole-file overwrite — superseded by
+    /// `LightroomHandoffService.mergeSidecar`, which preserves external edits.
+    @available(*, deprecated, message: "Use LightroomHandoffService.writeSidecarAndReceipt — this overwrites external sidecar edits.")
     static func writeSidecar(recipe: DevelopRecipe, nextTo rawURL: URL) throws {
         let xmpURL = rawURL.deletingPathExtension().appendingPathExtension("xmp")
         let xml = """

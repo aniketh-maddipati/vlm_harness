@@ -464,6 +464,31 @@ final class LuminaShellModel {
         _ = PreviewSpine.shared.paint(id: record.photoID, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
     }
 
+    /// Apply the leader's current treatment (base recipe + live offsets) to every
+    /// photo in the leader's set. Heal spots stay on the leader only — they are
+    /// pixel positions and do not transfer. Returns the number of photos treated.
+    @discardableResult
+    func applyTreatmentToSet(model: ProjectViewModel, presentation: WorkspacePresentation) -> Int {
+        guard let leaderID = workbenchSelection.leader ?? selectedAssetID,
+              let leaderPhoto = model.photo(with: leaderID) else { return 0 }
+        let recipe = model.appliedRecipe(for: leaderPhoto).applying(developOffsets)
+        guard let group = presentation.groups.first(where: { g in
+            g.assets.contains { $0.id == leaderID }
+        }), group.assets.count > 1 else { return 0 }
+
+        var applied = 0
+        for asset in group.assets {
+            var target = recipe
+            if asset.id != leaderID {
+                target.retouch = model.photo(with: asset.id)?.recipe?.retouch ?? []
+            }
+            model.persistRecipe(target, for: asset.id)
+            applied += 1
+        }
+        showReceipt("Treatment applied to \(applied) in set")
+        return applied
+    }
+
     // MARK: - Round commit (one receipt = one undo)
 
     /// Commits the staged action across the gathered selection as one ledger transaction.
@@ -880,16 +905,22 @@ final class LuminaShellModel {
 
     private func prefetchNeighbors(in group: GroupPresentation, around index: Int) {
         let ordered = group.captureOrderedAssets
-        var ids: [AssetID] = []
+        var neighbors: [AssetPresentation] = []
         if index > 0, index < ordered.count {
-            ids.append(ordered[index].id)
+            neighbors.append(ordered[index])
         }
         let next = index + 1
         if next >= 0, next < ordered.count {
-            ids.append(ordered[next].id)
+            neighbors.append(ordered[next])
         }
-        for id in ids {
-            _ = PreviewSpine.shared.silhouetteImage(for: id)
+        for asset in neighbors {
+            _ = PreviewSpine.shared.silhouetteImage(for: asset.id)
         }
+        // Warm decoded previews at the sizes the row and the treatment stage
+        // actually display, so stepping to a neighbor is instant.
+        let neighborPaths = neighbors.compactMap { $0.previewPath ?? $0.thumbPath }
+        ThumbCache.shared.prefetchPaths(neighborPaths, maxPixelSize: 2048)
+        let rowPaths = ordered.prefix(8).compactMap { $0.previewPath ?? $0.thumbPath }
+        ThumbCache.shared.prefetchPaths(rowPaths, maxPixelSize: 768)
     }
 }

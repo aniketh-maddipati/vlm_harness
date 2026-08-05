@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreImage
 import Foundation
 
 /// Preview / export quality tier. Resolution may differ; operation order must not.
@@ -39,7 +40,7 @@ enum DevelopRenderQuality: String, Codable, Hashable, Sendable, CaseIterable {
 enum DevelopFidelityState: String, Codable, Hashable, Sendable {
     case interactive
     case settling
-    case fullPreview
+    case rawSettled
     case oneToOneRAW
     case exportQuality
     case proxyFallback
@@ -49,7 +50,7 @@ enum DevelopFidelityState: String, Codable, Hashable, Sendable {
         switch self {
         case .interactive: return "Interactive"
         case .settling: return "Settling"
-        case .fullPreview: return "Full Preview"
+        case .rawSettled: return "RAW settled"
         case .oneToOneRAW: return "1:1 RAW"
         case .exportQuality: return "Export"
         case .proxyFallback: return "Proxy"
@@ -155,10 +156,17 @@ struct RawRenderRequest: Hashable, Sendable, Identifiable {
         }
     }
 
+    /// Stage-aware cache key: asset identity, decoder/mapping version, intent
+    /// fingerprints per invalidation domain, scale/ROI, working-space version
+    /// and output destination.
     var cacheKey: String {
         [
             photoID.uuidString,
-            recipe.valueFingerprint,
+            PreparedRawSession.decoderMappingVersion,
+            DevelopColorPolicy.workingSpaceVersion,
+            recipe.rawIntent.fingerprint,
+            recipe.lookIntent.fingerprint,
+            recipe.geometryIntent.fingerprint,
             quality.rawValue,
             source.rawValue,
             region.normalized().x.description,
@@ -166,21 +174,29 @@ struct RawRenderRequest: Hashable, Sendable, Identifiable {
             region.normalized().width.description,
             region.normalized().height.description,
             String(longEdgeCap ?? 0),
+            forDisplay ? OutputIntent.display.fingerprint : OutputIntent.exportProPhotoTIFF.fingerprint,
         ].joined(separator: "#")
     }
 }
 
 /// Result delivered to the UI — always includes generation for stale rejection.
-struct DevelopRenderResult {
+///
+/// The live display path is `ciImage` → Metal (`DevelopMetalView`); `cgImage`
+/// is materialized only for export encode and settled histogram/harness use.
+/// `CIImage`/`CGImage` are immutable after creation — safe to move across
+/// concurrency domains.
+struct DevelopRenderResult: @unchecked Sendable {
     let requestID: UUID
     let generation: UInt64
     let photoID: UUID
     let quality: DevelopRenderQuality
     let fidelity: DevelopFidelityState
+    let ciImage: CIImage?
     let cgImage: CGImage?
     let extent: CGRect
     let durationMs: Double
     let cacheHit: Bool
+    let rawStageCacheHit: Bool
     let cancelled: Bool
     let usedProxyFallback: Bool
     let colorSpaceName: String

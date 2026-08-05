@@ -21,6 +21,8 @@ struct TreatmentFamilyRow: View {
     var isHandling: Bool = false
     var stagedAdvance: Bool = false
     var pageSize: Int = 3
+    /// Row width actually available — tiles justify to it. 0 = legacy fixed sizes.
+    var availableWidth: CGFloat = 0
     var twoUp: Bool = false
     var reduceMotion: Bool = false
     var travelAnimation: Animation = LuminaTokens.Motion.travel
@@ -102,6 +104,12 @@ struct TreatmentFamilyRow: View {
             }
             syncPage(to: selectedID)
         }
+        .onChange(of: pageSize) { _, newSize in
+            // Window resized / fullscreen toggled — re-lay pages to the new width.
+            frozenPages = paginate(activePhotos, size: newSize).map { $0.map(\.id) }
+            comparisonPage = 0
+            syncPage(to: selectedID)
+        }
         .accessibilityElement(children: .contain)
     }
 
@@ -152,6 +160,7 @@ struct TreatmentFamilyRow: View {
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .disabled(comparisonPage == 0)
+            .accessibilityLabel("Previous page of set")
 
             Text("\(comparisonPage + 1) / \(pageCount)")
                 .font(LuminaTokens.Typeface.meta(11))
@@ -167,40 +176,69 @@ struct TreatmentFamilyRow: View {
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .disabled(comparisonPage >= pageCount - 1)
+            .accessibilityLabel("Next page of set")
         }
     }
 
+    /// How many compact tiles genuinely fit across the row.
+    private var compactVisibleCount: Int {
+        guard availableWidth > 0 else { return 6 }
+        let tile = 104 + LuminaTokens.Spacing.xs
+        return min(max(Int((availableWidth - 60) / tile), 4), 12)
+    }
+
     private var compactStrip: some View {
-        HStack(spacing: LuminaTokens.Spacing.xs) {
-            ForEach(activePhotos.prefix(6)) { asset in
-                photoTile(asset: asset, width: 72, height: isActive ? 56 : 44)
-                    .frame(maxWidth: 72)
+        let visible = compactVisibleCount
+        return HStack(spacing: LuminaTokens.Spacing.xs) {
+            ForEach(activePhotos.prefix(visible)) { asset in
+                photoTile(asset: asset, width: 104, height: isActive ? 80 : 64)
+                    .frame(maxWidth: 104)
             }
-            if activePhotos.count > 6 {
-                Text("+\(activePhotos.count - 6)")
+            if activePhotos.count > visible {
+                Text("+\(activePhotos.count - visible)")
                     .font(LuminaTokens.Typeface.meta(11))
                     .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
             }
             Spacer(minLength: 0)
         }
-        .frame(height: isActive ? 60 : 48)
+        .frame(height: isActive ? 88 : 72)
     }
 
     private var comparisonSpread: some View {
         let photos = pagePhotos
         let gap: CGFloat = 16
         let mat: CGFloat = 12
-        let tileW: CGFloat = twoUp ? 420 : 274
-        let tileH: CGFloat = twoUp ? 280 : 183
+        let n = CGFloat(max(pageSize, 1))
+        // Justify the page to the available width: tiles share it equally,
+        // clamped so small windows never crush and huge displays never blow
+        // decode budgets. Falls back to the fixed sizes when width is unknown.
+        let baseW: CGFloat = {
+            guard availableWidth > 0 else { return twoUp ? 480 : 336 }
+            let per = (availableWidth - gap * (n - 1)) / n - mat * 2
+            return min(max(per, 280), 720)
+        }()
+        // Focused tile grows ~22% larger; neighbors shrink slightly so the
+        // row still fits. The selected photograph is the visual focus.
+        let focusBoost: CGFloat = 1.22
+        let neighborScale: CGFloat = photos.contains(where: { $0.id == selectedID })
+            ? (n > 1 ? (n - focusBoost) / (n - 1) : 1) : 1
+        let focusH = (baseW * focusBoost * 2 / 3).rounded()
 
         return HStack(alignment: .center, spacing: gap) {
             ForEach(photos) { asset in
-                photoTile(asset: asset, width: tileW, height: tileH, mat: mat)
+                let focused = asset.id == selectedID
+                let tileW = (focused ? baseW * focusBoost : baseW * neighborScale).rounded()
+                let tileH = (tileW * 2 / 3).rounded()
+                photoTile(asset: asset, width: tileW, height: tileH, mat: focused ? mat + 2 : mat)
+                    .scaleEffect(focused ? 1.02 : 0.96)
+                    .opacity(focused || selectedID == nil ? 1.0 : 0.72)
+                    .animation(effectiveReduceMotion ? nil : LuminaTokens.Motion.selection, value: selectedID)
+                    .zIndex(focused ? 1 : 0)
             }
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: tileH + mat * 2)
+        .frame(minHeight: focusH + mat * 2)
     }
 
     @ViewBuilder
@@ -252,7 +290,7 @@ struct TreatmentFamilyRow: View {
                         contentMode: .fit,
                         showDecisionBadge: false,
                         isSelected: false,
-                        maxPixelSize: isExpanded ? 1600 : 480
+                        maxPixelSize: isExpanded ? 2048 : 768
                     )
                     .frame(width: width, height: height)
                     .aspectRatio(asset.aspectRatio, contentMode: .fit)

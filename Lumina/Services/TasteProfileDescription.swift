@@ -50,6 +50,9 @@ enum TasteProfileDescription {
 extension DevelopRecipe {
     /// Scales extracted offsets from a baseline (typically neutral) by taste strength (0…1.5).
     func withTasteStrength(_ strength: Double, baseline: DevelopRecipe = .neutral) -> DevelopRecipe {
-        DevelopRecipe.lerp(baseline, self, t: min(max(strength, 0), 1.5))
+        var r = DevelopRecipe.lerp(baseline, self, t: min(max(strength, 0), 1.5))
+        // Heal spots are binary user intent — never scaled by taste strength.
+        r.retouch = retouch
+        return r
     }
 }

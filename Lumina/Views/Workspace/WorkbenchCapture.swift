@@ -74,6 +74,25 @@ enum WorkbenchCapture {
             showReceipt: false,
             to: outDir
         )
+        capture(
+            name: "wide-2560",
+            presentation: PresentationFixtures.fourUpComparison(),
+            emerging: PresentationFixtures.emergingSetPreview(),
+            size: CGSize(width: 2560, height: 1400),
+            setFraction: 0.30,
+            showReceipt: false,
+            to: outDir
+        )
+        capture(
+            name: "treatment-stage",
+            presentation: PresentationFixtures.fourUpComparison(),
+            emerging: PresentationFixtures.emergingSetPreview(),
+            size: CGSize(width: 1440, height: 900),
+            setFraction: 0.38,
+            showReceipt: false,
+            treatmentOpen: true,
+            to: outDir
+        )
 
         fputs("Workbench captures written to \(outDir.path)\n", stderr)
         exit(0)
@@ -86,6 +105,7 @@ enum WorkbenchCapture {
         size: CGSize,
         setFraction: Double,
         showReceipt: Bool,
+        treatmentOpen: Bool = false,
         to directory: URL
     ) {
         IngestPreferences.workbenchSetFraction = setFraction
@@ -99,6 +119,7 @@ enum WorkbenchCapture {
             showDetailedEdits: .constant(false),
             rowPreviewActive: .constant(false),
             decisionReceiptMessage: showReceipt ? "Added to set" : nil,
+            isTreatmentStageOpen: treatmentOpen,
             onSelectGroup: { _ in },
             onSelectPhoto: { _, _ in },
             onLensChange: { _ in },

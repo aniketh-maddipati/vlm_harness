@@ -4,6 +4,8 @@ import SwiftUI
 struct LuminaApp: App {
     init() {
         WorkbenchCapture.runIfRequested()
+        // Headless harness exits inside the runner.
+        _ = RawHarnessRunner.runIfRequested()
         // Capture-only lab exits inside the launcher; interactive lab continues into the scene.
         _ = DevelopLabLauncher.runIfRequested()
     }

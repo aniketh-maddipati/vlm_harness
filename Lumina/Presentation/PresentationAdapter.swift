@@ -53,6 +53,7 @@ enum PresentationAdapter {
             aspectRatio: inferredAspect(for: photo),
             previewPath: photo.sharpPath ?? photo.previewPath,
             thumbPath: photo.displayThumbPath,
+            rawPath: photo.rawPath,
             decision: decision(for: photo),
             isProtected: photo.isBurstHero || photo.isClusterHero,
             caption: photo.clusterLabel,
@@ -293,7 +294,7 @@ enum PresentationAdapter {
         let byID = Dictionary(uniqueKeysWithValues: photos.map { ($0.id, $0) })
 
         if !model.reviewClusters.isEmpty {
-            return model.reviewClusters.enumerated().flatMap { index, cluster in
+            let groups = model.reviewClusters.enumerated().flatMap { index, cluster in
                 let members = cluster.photoIDs.compactMap { byID[$0] }
                 guard !members.isEmpty else { return [GroupPresentation]() }
                 let repID = cluster.heroID ?? members.max(by: { $0.cullScore < $1.cullScore })?.id
@@ -306,16 +307,75 @@ enum PresentationAdapter {
                     representativeID: repID
                 )
             }
+            return consolidateSmallGroups(groups)
         }
 
-        return timeBucketGroups(
+        return consolidateSmallGroups(timeBucketGroups(
             from: photos,
             idPrefix: "subject",
             titlePrefix: "Subject",
             category: .subject,
             relationshipNote: nil,
             representativeID: nil
-        )
+        ))
+    }
+
+    /// Merge runs of tiny sets (singles and pairs) into shared "Miscellaneous"
+    /// rows so the bench does not fill up with one-photo rows. Larger sets stay
+    /// untouched and in order.
+    private static func consolidateSmallGroups(
+        _ groups: [GroupPresentation],
+        smallThreshold: Int = 2,
+        maxPerRow: Int = 12
+    ) -> [GroupPresentation] {
+        var result: [GroupPresentation] = []
+        var pendingSmall: [GroupPresentation] = []
+
+        func flushSmall() {
+            defer { pendingSmall = [] }
+            guard !pendingSmall.isEmpty else { return }
+            // A lone small set keeps its own identity and label.
+            if pendingSmall.count == 1 {
+                result.append(pendingSmall[0])
+                return
+            }
+            let allAssets = pendingSmall.flatMap(\.assets)
+            let anchorID = pendingSmall[0].id
+            let totalRows = Int((Double(allAssets.count) / Double(maxPerRow)).rounded(.up))
+            var start = 0
+            var part = 1
+            while start < allAssets.count {
+                let slice = Array(allAssets[start..<min(start + maxPerRow, allAssets.count)])
+                let dates = slice.compactMap(\.capturedAt).sorted()
+                result.append(GroupPresentation(
+                    id: "misc-\(anchorID)-\(part)",
+                    title: totalRows > 1 ? "Miscellaneous · \(part)" : "Miscellaneous",
+                    subtitle: "\(slice.count) photographs from small sets, gathered onto one row",
+                    assets: slice,
+                    representativeID: slice.max(by: { $0.qualityScore < $1.qualityScore })?.id,
+                    relationshipNote: "Small sets merged to keep the bench short — not near-duplicates of each other",
+                    rowCategory: pendingSmall[0].rowCategory,
+                    timeStart: dates.first,
+                    timeEnd: dates.last,
+                    siblingGroupID: nil,
+                    siblingPartIndex: nil,
+                    siblingPartCount: nil
+                ))
+                start += maxPerRow
+                part += 1
+            }
+        }
+
+        for group in groups {
+            if group.assets.count <= smallThreshold {
+                pendingSmall.append(group)
+            } else {
+                flushSmall()
+                result.append(group)
+            }
+        }
+        flushSmall()
+        return result
     }
 
     /// Light lens reorganizes the same shoot into day + gap-based time rows.
@@ -339,7 +399,7 @@ enum PresentationAdapter {
         category: StackRowCategory,
         relationshipNote: String?,
         representativeID: AssetID?,
-        maxPhotosPerBucket: Int = 8
+        maxPhotosPerBucket: Int = 12
     ) -> [GroupPresentation] {
         let buckets = adaptiveTimeBuckets(from: photos, maxPhotosPerBucket: maxPhotosPerBucket)
         guard !buckets.isEmpty else { return [] }
@@ -380,7 +440,7 @@ enum PresentationAdapter {
     /// Groups photos by calendar day, then splits on natural capture gaps and size caps.
     private static func adaptiveTimeBuckets(
         from photos: [PhotoRecord],
-        maxPhotosPerBucket: Int = 8
+        maxPhotosPerBucket: Int = 12
     ) -> [[PhotoRecord]] {
         let dated = photos.filter { $0.capturedAt != nil }.sorted {
             ($0.capturedAt ?? .distantPast) < ($1.capturedAt ?? .distantPast)

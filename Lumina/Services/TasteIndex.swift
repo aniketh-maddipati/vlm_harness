@@ -29,7 +29,7 @@ enum TasteRetriever {
     ) {
         guard !library.isEmpty else {
             for index in photos.indices where photos[index].tier == .keep {
-                var recipe = baseline
+                var recipe = baseline.lrCalibrated()
                 recipe.confidence = 0.4
                 recipe.sourceNeighbors = ["baseline"]
                 photos[index].recipe = recipe
@@ -42,8 +42,12 @@ enum TasteRetriever {
         for index in photos.indices {
             guard photos[index].tier == .keep || photos[index].isFlagged else { continue }
             let result = retrieve(for: photos[index], library: library, baseline: baseline)
-            photos[index].recipe = result.recipe
-            photos[index].editConfidence = result.recipe.confidence
+            // Calibrate the LR-derived (crs) recipe onto Lumina's honest control
+            // set so auto edits track the Lightroom rendering intent.
+            var calibrated = result.recipe.lrCalibrated()
+            calibrated.retouch = photos[index].recipe?.retouch ?? []
+            photos[index].recipe = calibrated
+            photos[index].editConfidence = calibrated.confidence
             photos[index].tasteMatch = result.tasteMatch
         }
     }

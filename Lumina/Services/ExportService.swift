@@ -151,7 +151,7 @@ enum ExportService {
         return try await withThrowingTaskGroup(of: ExportEntry?.self) { group in
             for (index, photo) in indexed {
                 group.addTask {
-                    try exportOne(
+                    try await exportOne(
                         photo: photo,
                         order: index + 1,
                         project: project,
@@ -182,10 +182,10 @@ enum ExportService {
         aspect: ExportAspect,
         to dir: URL,
         writeXMP: Bool
-    ) throws -> ExportEntry? {
+    ) async throws -> ExportEntry? {
         let recipe = scaledRecipe(for: photo, project: project, tasteStrength: tasteStrength)
 
-        var cgImage = DevelopEngine.renderFullRAW(
+        var cgImage = await DevelopEngine.renderFullRAW(
             rawURL: URL(fileURLWithPath: photo.rawPath),
             recipe: recipe,
             offsets: .zero
@@ -228,9 +228,11 @@ enum ExportService {
         }
 
         if writeXMP {
-            try? XMPDevelopParser.writeSidecar(
-                recipe: recipe,
-                nextTo: URL(fileURLWithPath: photo.rawPath)
+            // Round-trip-safe merge + verification receipt (never blind-overwrite).
+            _ = try? LightroomHandoffService.writeSidecarAndReceipt(
+                recipe: EditRecipe(from: recipe),
+                rawURL: URL(fileURLWithPath: photo.rawPath),
+                tiffURL: tiffDest
             )
         }
 
