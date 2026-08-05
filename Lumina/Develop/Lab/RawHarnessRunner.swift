@@ -197,6 +197,18 @@ enum RawHarnessRunner {
             expect(merged.contains("lumina:LastMergeConflict"), "xmp: conflict recorded in sidecar")
             expect(!merged.contains("crs:Whites2012") && !merged.contains("crs:Clarity2012"),
                    "xmp: disabled controls never emitted")
+
+            // 4. Failure injection: unparseable sidecar → original preserved as
+            // backup, fresh sidecar written, flagged as conflict. Never data loss.
+            let corrupt = dir.appendingPathComponent("corrupt.xmp")
+            try "<xmp broken & unparseable".write(to: corrupt, atomically: true, encoding: .utf8)
+            let corruptOutcome = try LightroomHandoffService.mergeSidecar(recipe: recipe, at: corrupt)
+            expect(corruptOutcome == .conflictExternalEdits, "xmp: corrupt sidecar surfaces as conflict")
+            let backup = corrupt.appendingPathExtension("lumina-backup")
+            let backupContents = (try? String(contentsOf: backup, encoding: .utf8)) ?? ""
+            expect(backupContents.contains("unparseable"), "xmp: corrupt original preserved as backup")
+            let rewritten = try String(contentsOf: corrupt, encoding: .utf8)
+            expect(rewritten.contains("lumina:RecipeFingerprint"), "xmp: fresh sidecar written after corruption")
         } catch {
             expect(false, "xmp: merge flow threw \(error)")
         }
@@ -271,6 +283,38 @@ enum RawHarnessRunner {
         let settled = await DevelopRenderGraph.render(request(recipe, .settled))
         live["settledMs"] = round1(settled.durationMs)
         live["settledFidelity"] = settled.fidelity.rawValue
+
+        // Interactive ↔ settled discontinuity — the visible "settle jump".
+        // If the draft-scale decode drifts from the authoritative decode,
+        // draft mode must be disabled; this gate keeps that honest.
+        // Bitmaps are materialized via forDisplay:false so both frames land
+        // in the same (working) color space.
+        let iBitmap = await DevelopRenderGraph.render(RawRenderRequest(
+            generation: 0, photoID: photoID, rawURL: rawURL, recipe: recipe,
+            quality: .interactive, forDisplay: false
+        ))
+        let sBitmap = await DevelopRenderGraph.render(RawRenderRequest(
+            generation: 0, photoID: photoID, rawURL: rawURL, recipe: recipe,
+            quality: .settled, forDisplay: false
+        ))
+        if let iCG = iBitmap.cgImage, let sCG = sBitmap.cgImage,
+           let ia = resampleSRGB(iCG, longEdge: 512),
+           let sa = resampleSRGB(sCG, longEdge: 512),
+           ia.count == sa.count, !ia.isEmpty {
+            var sum = 0.0
+            for i in stride(from: 0, to: ia.count, by: 4) {
+                let dl = 0.2126 * (Double(ia[i]) - Double(sa[i]))
+                    + 0.7152 * (Double(ia[i + 1]) - Double(sa[i + 1]))
+                    + 0.0722 * (Double(ia[i + 2]) - Double(sa[i + 2]))
+                sum += abs(dl)
+            }
+            let maeLuma = sum / Double(ia.count / 4)
+            live["interactiveSettledDiscontinuity"] = [
+                "maeLuma_8bit": round2(maeLuma),
+                "gate": "fail if > 12",
+            ]
+            if maeLuma > 12 { failures += 1; live["draftDiscontinuityProblem"] = true }
+        }
         let oneToOne = await DevelopRenderGraph.render(
             request(recipe, .oneToOne, region: DevelopRenderRegion(x: 0.4, y: 0.4, width: 0.2, height: 0.2))
         )
@@ -309,6 +353,7 @@ enum RawHarnessRunner {
             return ["status": "failed", "reason": "resample mismatch"]
         }
         var sumR = 0.0, sumG = 0.0, sumB = 0.0, maxDelta = 0.0
+        var clippedA = 0, clippedB = 0
         let pixels = a.count / 4
         for i in stride(from: 0, to: a.count, by: 4) {
             let dr = abs(Double(a[i]) - Double(b[i]))
@@ -316,18 +361,164 @@ enum RawHarnessRunner {
             let db = abs(Double(a[i + 2]) - Double(b[i + 2]))
             sumR += dr; sumG += dg; sumB += db
             maxDelta = max(maxDelta, max(dr, max(dg, db)))
+            if a[i] >= 254 || a[i + 1] >= 254 || a[i + 2] >= 254 || a[i] <= 1 || a[i + 1] <= 1 || a[i + 2] <= 1 { clippedA += 1 }
+            if b[i] >= 254 || b[i + 1] >= 254 || b[i + 2] >= 254 || b[i] <= 1 || b[i + 1] <= 1 || b[i + 2] <= 1 { clippedB += 1 }
         }
+
+        // ΔE2000 in Lab (subsampled ×2 for speed — statistically stable at 1024px).
+        var deltaEs: [Double] = []
+        deltaEs.reserveCapacity(pixels / 2 + 1)
+        for i in stride(from: 0, to: a.count, by: 8) {
+            let lab1 = srgbToLab(a[i], a[i + 1], a[i + 2])
+            let lab2 = srgbToLab(b[i], b[i + 1], b[i + 2])
+            deltaEs.append(deltaE2000(lab1, lab2))
+        }
+        deltaEs.sort()
+        let deMean = deltaEs.reduce(0, +) / Double(max(deltaEs.count, 1))
+        let deP95 = deltaEs[min(Int(Double(deltaEs.count) * 0.95), deltaEs.count - 1)]
+
+        // Dims derive deterministically from the export image for SSIM + diff PNG.
+        let scale = Double(target) / Double(max(export.width, export.height))
+        let nw = Int(Double(export.width) * scale), nh = Int(Double(export.height) * scale)
+        var ssim: Double?
+        if nw * nh * 4 == a.count {
+            var lumaA = [Double](repeating: 0, count: nw * nh)
+            var lumaB = [Double](repeating: 0, count: nw * nh)
+            for p in 0..<(nw * nh) {
+                let i = p * 4
+                lumaA[p] = 0.2126 * Double(a[i]) + 0.7152 * Double(a[i + 1]) + 0.0722 * Double(a[i + 2])
+                lumaB[p] = 0.2126 * Double(b[i]) + 0.7152 * Double(b[i + 1]) + 0.0722 * Double(b[i + 2])
+            }
+            ssim = ssimLuma(lumaA, lumaB, width: nw, height: nh)
+            writeDifferencePNG(a, b, width: nw, height: nh,
+                               to: outDir.appendingPathComponent("fidelity_difference.png"))
+        }
+
         writePNG(preview, to: outDir.appendingPathComponent("fidelity_preview.png"), longEdge: target)
         writePNG(export, to: outDir.appendingPathComponent("fidelity_export.png"), longEdge: target)
-        return [
+        var out: [String: Any] = [
             "status": "measured",
             "size": target,
             "maeR_8bit": round2(sumR / Double(pixels)),
             "maeG_8bit": round2(sumG / Double(pixels)),
             "maeB_8bit": round2(sumB / Double(pixels)),
             "maxChannelDelta_8bit": round2(maxDelta),
-            "note": "settled preview (display space) vs full export (ProPhoto) resampled to sRGB \(target)px",
+            "deltaE2000Mean": round2(deMean),
+            "deltaE2000P95": round2(deP95),
+            "clippedFractionPreview": round2(Double(clippedA) / Double(pixels)),
+            "clippedFractionExport": round2(Double(clippedB) / Double(pixels)),
+            "note": "settled preview (display space) vs full export (ProPhoto) resampled to sRGB \(target)px; difference PNG amplified ×8",
         ]
+        if let ssim { out["ssimLuma"] = round2(ssim) }
+        return out
+    }
+
+    /// sRGB 8-bit → CIE Lab (D65).
+    private static func srgbToLab(_ r8: UInt8, _ g8: UInt8, _ b8: UInt8) -> (Double, Double, Double) {
+        func lin(_ c: Double) -> Double { c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4) }
+        let r = lin(Double(r8) / 255), g = lin(Double(g8) / 255), b = lin(Double(b8) / 255)
+        let x = 0.4124564 * r + 0.3575761 * g + 0.1804375 * b
+        let y = 0.2126729 * r + 0.7151522 * g + 0.0721750 * b
+        let z = 0.0193339 * r + 0.1191920 * g + 0.9503041 * b
+        func f(_ t: Double) -> Double { t > 0.008856 ? cbrt(t) : (7.787 * t + 16.0 / 116.0) }
+        let fx = f(x / 0.95047), fy = f(y), fz = f(z / 1.08883)
+        return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz))
+    }
+
+    /// CIEDE2000 color difference.
+    private static func deltaE2000(_ lab1: (Double, Double, Double), _ lab2: (Double, Double, Double)) -> Double {
+        let (l1, a1, b1) = lab1, (l2, a2, b2) = lab2
+        let c1 = sqrt(a1 * a1 + b1 * b1), c2 = sqrt(a2 * a2 + b2 * b2)
+        let cBar = (c1 + c2) / 2
+        let g = 0.5 * (1 - sqrt(pow(cBar, 7) / (pow(cBar, 7) + pow(25.0, 7))))
+        let a1p = a1 * (1 + g), a2p = a2 * (1 + g)
+        let c1p = sqrt(a1p * a1p + b1 * b1), c2p = sqrt(a2p * a2p + b2 * b2)
+        func hue(_ a: Double, _ b: Double) -> Double {
+            if a == 0 && b == 0 { return 0 }
+            var h = atan2(b, a) * 180 / .pi
+            if h < 0 { h += 360 }
+            return h
+        }
+        let h1p = hue(a1p, b1), h2p = hue(a2p, b2)
+        let dLp = l2 - l1
+        let dCp = c2p - c1p
+        var dhp = h2p - h1p
+        if c1p * c2p == 0 { dhp = 0 } else if dhp > 180 { dhp -= 360 } else if dhp < -180 { dhp += 360 }
+        let dHp = 2 * sqrt(c1p * c2p) * sin(dhp * .pi / 360)
+        let lBp = (l1 + l2) / 2
+        let cBp = (c1p + c2p) / 2
+        var hBp = (h1p + h2p) / 2
+        if c1p * c2p != 0, abs(h1p - h2p) > 180 { hBp += (h1p + h2p < 360) ? 180 : -180 }
+        let t = 1 - 0.17 * cos((hBp - 30) * .pi / 180) + 0.24 * cos(2 * hBp * .pi / 180)
+            + 0.32 * cos((3 * hBp + 6) * .pi / 180) - 0.20 * cos((4 * hBp - 63) * .pi / 180)
+        let dTheta = 30 * exp(-pow((hBp - 275) / 25, 2))
+        let rc = 2 * sqrt(pow(cBp, 7) / (pow(cBp, 7) + pow(25.0, 7)))
+        let sl = 1 + 0.015 * pow(lBp - 50, 2) / sqrt(20 + pow(lBp - 50, 2))
+        let sc = 1 + 0.045 * cBp
+        let sh = 1 + 0.015 * cBp * t
+        let rt = -sin(2 * dTheta * .pi / 180) * rc
+        return sqrt(pow(dLp / sl, 2) + pow(dCp / sc, 2) + pow(dHp / sh, 2)
+            + rt * (dCp / sc) * (dHp / sh))
+    }
+
+    /// Mean SSIM over 8×8 luma windows (C1/C2 per Wang et al., L = 255).
+    private static func ssimLuma(_ a: [Double], _ b: [Double], width: Int, height: Int) -> Double {
+        let win = 8
+        let c1 = pow(0.01 * 255.0, 2.0), c2 = pow(0.03 * 255.0, 2.0)
+        var total = 0.0
+        var count = 0
+        var by = 0
+        while by + win <= height {
+            var bx = 0
+            while bx + win <= width {
+                var sumA = 0.0, sumB = 0.0
+                for y in by..<(by + win) {
+                    for x in bx..<(bx + win) {
+                        sumA += a[y * width + x]; sumB += b[y * width + x]
+                    }
+                }
+                let n = Double(win * win)
+                let muA = sumA / n, muB = sumB / n
+                var varA = 0.0, varB = 0.0, cov = 0.0
+                for y in by..<(by + win) {
+                    for x in bx..<(bx + win) {
+                        let da = a[y * width + x] - muA, db = b[y * width + x] - muB
+                        varA += da * da; varB += db * db; cov += da * db
+                    }
+                }
+                varA /= n - 1; varB /= n - 1; cov /= n - 1
+                total += ((2 * muA * muB + c1) * (2 * cov + c2))
+                    / ((muA * muA + muB * muB + c1) * (varA + varB + c2))
+                count += 1
+                bx += win
+            }
+            by += win
+        }
+        return count > 0 ? total / Double(count) : 1
+    }
+
+    /// Grayscale |a−b| max-channel difference, amplified ×8 for visibility.
+    private static func writeDifferencePNG(_ a: [UInt8], _ b: [UInt8], width: Int, height: Int, to url: URL) {
+        var out = [UInt8](repeating: 255, count: a.count)
+        for i in stride(from: 0, to: a.count, by: 4) {
+            let d = max(abs(Int(a[i]) - Int(b[i])),
+                        max(abs(Int(a[i + 1]) - Int(b[i + 1])), abs(Int(a[i + 2]) - Int(b[i + 2]))))
+            let v = UInt8(min(d * 8, 255))
+            out[i] = v; out[i + 1] = v; out[i + 2] = v; out[i + 3] = 255
+        }
+        out.withUnsafeMutableBytes { ptr in
+            guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+                  let ctx = CGContext(
+                    data: ptr.baseAddress, width: width, height: height,
+                    bitsPerComponent: 8, bytesPerRow: width * 4,
+                    space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                  ),
+                  let img = ctx.makeImage(),
+                  let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil)
+            else { return }
+            CGImageDestinationAddImage(dest, img, nil)
+            CGImageDestinationFinalize(dest)
+        }
     }
 
     private static func handoffCheck(photoID: UUID, rawURL: URL, recipe: EditRecipe, outDir: URL, failures: inout Int) async -> [String: Any] {
