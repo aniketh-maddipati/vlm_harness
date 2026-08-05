@@ -228,9 +228,11 @@ enum ExportService {
         }
 
         if writeXMP {
-            try? XMPDevelopParser.writeSidecar(
-                recipe: recipe,
-                nextTo: URL(fileURLWithPath: photo.rawPath)
+            // Round-trip-safe merge + verification receipt (never blind-overwrite).
+            _ = try? LightroomHandoffService.writeSidecarAndReceipt(
+                recipe: EditRecipe(from: recipe),
+                rawURL: URL(fileURLWithPath: photo.rawPath),
+                tiffURL: tiffDest
             )
         }
 

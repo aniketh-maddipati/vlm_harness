@@ -71,6 +71,10 @@ final class DevelopLabModel {
     var liveRAWBlocked: Bool = false
     var commandHeld = false
     var histogram = DevelopHistogram.Bins.empty
+    /// Capability probe for the current leader's file — explicit unsupported
+    /// states, never silent fakes.
+    var leaderCapabilities: PreparedRawSession.Capabilities?
+    var capabilityLine: String = ""
 
     let scheduler = DevelopRenderScheduler()
 
@@ -174,6 +178,7 @@ final class DevelopLabModel {
 
     func warmLeader() {
         guard let leader, !liveRAWBlocked else { return }
+        refreshCapabilities(for: leader)
         scheduler.scrub(
             photoID: leader.id,
             rawURL: leader.url,
@@ -267,6 +272,47 @@ final class DevelopLabModel {
         recipe = store.binding(for: leader.id).effectiveCommittedRecipe(shared: store.recipes)
         fixtureStatusMessage = "Local override on \(leader.filename) — shared recipe will not overwrite."
         warmLeader()
+    }
+
+    /// Full Lightroom handoff for the leader: 16-bit ProPhoto TIFF + merged XMP
+    /// sidecar next to the RAW + verification receipt.
+    func handOffLeaderToLightroom() {
+        guard let leader, !liveRAWBlocked else { return }
+        let recipe = recipe
+        fixtureStatusMessage = "Handing off \(leader.filename)…"
+        Task { [weak self] in
+            do {
+                let handoffDir = FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent("Pictures/LuminaHandoff", isDirectory: true)
+                try FileManager.default.createDirectory(at: handoffDir, withIntermediateDirectories: true)
+                let stem = leader.url.deletingPathExtension().lastPathComponent
+                let tiff = handoffDir.appendingPathComponent(stem + ".tif")
+                let result = try await LightroomHandoffService.performHandoff(
+                    photoID: leader.id,
+                    rawURL: leader.url,
+                    recipe: recipe,
+                    tiffDestination: tiff
+                )
+                self?.fixtureStatusMessage =
+                    "Handoff \(result.mergeOutcome.rawValue) · \(result.colorSpaceName) · \(tiff.lastPathComponent)"
+            } catch {
+                self?.fixtureStatusMessage = "Handoff failed: \(error)"
+            }
+        }
+    }
+
+    private func refreshCapabilities(for frame: DevelopLabFrame) {
+        Task { [weak self] in
+            let session = await PreparedRawSessionRegistry.shared.session(for: frame.id, rawURL: frame.url)
+            let (caps, meta) = await session.capabilityReport()
+            guard let self else { return }
+            self.leaderCapabilities = caps
+            var line = caps.summary
+            if let meta {
+                line += String(format: " · %d×%d", meta.pixelWidth, meta.pixelHeight)
+            }
+            self.capabilityLine = line
+        }
     }
 
     private var histogramTask: Task<Void, Never>?

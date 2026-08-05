@@ -246,11 +246,30 @@ struct DevelopLabView: View {
                 labSlider("Straighten°", value: model.recipe.straightenDegrees, range: -45...45, step: 0.1) { v in
                     model.scrubRecipe { $0.straightenDegrees = v }
                 }
-                labSlider("Noise Reduction", value: model.recipe.luminanceNR, range: 0...100, step: 1) { v in
+                let nrSupported = model.leaderCapabilities?.luminanceNoiseReduction != .unsupported
+                let sharpenSupported = model.leaderCapabilities?.sharpness != .unsupported
+                labSlider(
+                    nrSupported ? "Noise Reduction (RAW)" : "Noise Reduction — unsupported for this file",
+                    value: model.recipe.luminanceNR, range: 0...100, step: 1
+                ) { v in
                     model.scrubRecipe { $0.luminanceNR = v }
                 }
-                labSlider("Sharpening", value: model.recipe.sharpness, range: 0...150, step: 1) { v in
+                .disabled(!nrSupported)
+                .opacity(nrSupported ? 1 : 0.4)
+                labSlider(
+                    sharpenSupported ? "Sharpening (RAW)" : "Sharpening — unsupported for this file",
+                    value: model.recipe.sharpness, range: 0...150, step: 1
+                ) { v in
                     model.scrubRecipe { $0.sharpness = v }
+                }
+                .disabled(!sharpenSupported)
+                .opacity(sharpenSupported ? 1 : 0.4)
+
+                if !model.capabilityLine.isEmpty {
+                    Text(model.capabilityLine)
+                        .font(LuminaTokens.Typeface.meta(9))
+                        .foregroundStyle(LuminaTokens.Ink.tertiary)
+                        .lineLimit(2)
                 }
 
                 Text("Crop uses normalized EditCrop when set; default is full frame.")
@@ -288,6 +307,15 @@ struct DevelopLabView: View {
                 }
                 Button("Local override on leader") { model.applyLocalOverride() }
                     .buttonStyle(LuminaQuietButtonStyle())
+
+                Divider()
+
+                Button("Hand off to Lightroom") { model.handOffLeaderToLightroom() }
+                    .buttonStyle(LuminaQuietButtonStyle())
+                Text("Writes 16-bit ProPhoto TIFF to ~/Pictures/LuminaHandoff, merges the XMP sidecar next to the RAW, and drops a verification receipt.")
+                    .font(LuminaTokens.Typeface.meta(9))
+                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if model.commandHeld {
                     commandShelf
