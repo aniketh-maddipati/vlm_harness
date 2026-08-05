@@ -1,13 +1,11 @@
 import CoreImage
 import AppKit
 
-/// Dual-path develop: GPU Core Image on 2048px proxies for interactive scrub
-/// (Metal toolchain not required — CIContext uses Metal under the hood on macOS).
+/// Dual-path develop facade.
+/// Interactive scrub and export both route through `DevelopRenderGraph` so operation
+/// ordering, recipe interpretation, geometry, and color transforms do not drift.
 enum DevelopEngine {
-    private static let context = CIContext(options: [
-        .useSoftwareRenderer: false,
-        .cacheIntermediates: true,
-    ])
+    private static let context = DevelopRenderGraph.sharedContext
 
     static func ensureProxy(for photo: PhotoRecord, projectName: String) -> URL? {
         if let proxy = photo.proxyPath, FileManager.default.fileExists(atPath: proxy) {
@@ -40,30 +38,39 @@ enum DevelopEngine {
         defer {
             LatencyMetrics.record("develop.render", milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000)
         }
-        guard var image = CIImage(contentsOf: url) else { return nil }
-        // Normalize origin so filters never expand into negative extents (aspect stretch).
-        image = image.transformed(by: CGAffineTransform(
-            translationX: -image.extent.origin.x,
-            y: -image.extent.origin.y
-        ))
-        let bounds = image.extent.integral
-        let safe = clampRecipe(recipe.applying(offsets))
-        let graded = apply(recipe: safe, to: image).cropped(to: bounds)
-        let mixed: CIImage
-        if mix >= 0.999 {
-            mixed = graded
-        } else if mix <= 0.001 {
-            mixed = image
-        } else {
-            // Blend in RGB space — dissolve transition can shift extent oddly.
-            mixed = graded.applyingFilter("CIBlendWithMask", parameters: [
-                kCIInputBackgroundImageKey: image,
+        let edit = EditRecipe(from: recipe.applying(offsets))
+        // Legacy interactive entry still accepts a JPEG/proxy URL; mark source honestly.
+        let request = RawRenderRequest(
+            generation: 0,
+            photoID: UUID(),
+            rawURL: url,
+            proxyURL: url,
+            recipe: edit,
+            quality: .interactive,
+            source: .jpegProxy
+        )
+        let result = DevelopRenderGraph.render(request)
+        guard var graded = result.cgImage else { return nil }
+
+        if mix < 0.999, mix > 0.001, let original = CIImage(contentsOf: url) {
+            let gCI = CIImage(cgImage: graded)
+            let bounds = gCI.extent.integral
+            let mixed = gCI.applyingFilter("CIBlendWithMask", parameters: [
+                kCIInputBackgroundImageKey: DevelopRenderGraph.normalizeOrigin(original),
                 kCIInputMaskImageKey: CIImage(color: CIColor(red: mix, green: mix, blue: mix, alpha: 1))
                     .cropped(to: bounds),
             ]).cropped(to: bounds)
+            if let cg = context.createCGImage(mixed, from: bounds) {
+                graded = cg
+            }
+        } else if mix <= 0.001, let original = CIImage(contentsOf: url) {
+            let o = DevelopRenderGraph.normalizeOrigin(original)
+            if let cg = context.createCGImage(o, from: o.extent.integral) {
+                graded = cg
+            }
         }
-        guard let cg = context.createCGImage(mixed, from: bounds) else { return nil }
-        return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+
+        return NSImage(cgImage: graded, size: NSSize(width: graded.width, height: graded.height))
     }
 
     /// Keep develop params in ranges Core Image handles without wild casts.
@@ -82,82 +89,49 @@ enum DevelopEngine {
         r.dehaze = min(max(r.dehaze, -100), 100)
         r.vibrance = min(max(r.vibrance, -100), 100)
         r.saturation = min(max(r.saturation, -100), 100)
+        r.sharpness = min(max(r.sharpness, 0), 150)
+        r.luminanceNR = min(max(r.luminanceNR, 0), 100)
         return r
     }
 
     static func apply(recipe: DevelopRecipe, to image: CIImage) -> CIImage {
-        let bounds = image.extent.integral
-        var result = image
-        let recipe = clampRecipe(recipe)
-
-        if recipe.exposure != 0, let f = CIFilter(name: "CIExposureAdjust") {
-            f.setValue(result, forKey: kCIInputImageKey)
-            f.setValue(recipe.exposure, forKey: kCIInputEVKey)
-            result = f.outputImage ?? result
-        }
-
-        if recipe.contrast != 0 || recipe.saturation != 0, let f = CIFilter(name: "CIColorControls") {
-            f.setValue(result, forKey: kCIInputImageKey)
-            if recipe.contrast != 0 {
-                f.setValue(1 + recipe.contrast / 100.0, forKey: kCIInputContrastKey)
-            }
-            if recipe.saturation != 0 {
-                f.setValue(1 + recipe.saturation / 100.0, forKey: kCIInputSaturationKey)
-            }
-            result = f.outputImage ?? result
-        }
-
-        if recipe.vibrance != 0, let f = CIFilter(name: "CIVibrance") {
-            f.setValue(result, forKey: kCIInputImageKey)
-            f.setValue(recipe.vibrance / 100.0, forKey: "inputAmount")
-            result = f.outputImage ?? result
-        }
-
-        if recipe.highlights != 0 || recipe.shadows != 0, let f = CIFilter(name: "CIHighlightShadowAdjust") {
-            f.setValue(result, forKey: kCIInputImageKey)
-            f.setValue(min(max(1 - recipe.highlights / 100.0, 0), 1), forKey: "inputHighlightAmount")
-            f.setValue(min(max(1 + recipe.shadows / 100.0, 0), 2), forKey: "inputShadowAmount")
-            result = f.outputImage ?? result
-        }
-
-        // Clarity / texture approximation via unsharp + local contrast
-        let unsharp = (recipe.clarity + recipe.texture) / 200.0
-        if abs(unsharp) > 0.01, let f = CIFilter(name: "CIUnsharpMask") {
-            f.setValue(result, forKey: kCIInputImageKey)
-            f.setValue(2.5, forKey: kCIInputRadiusKey)
-            f.setValue(min(max(unsharp, -1), 1), forKey: kCIInputIntensityKey)
-            result = f.outputImage ?? result
-        }
-
-        if recipe.dehaze != 0, let f = CIFilter(name: "CIColorControls") {
-            f.setValue(result, forKey: kCIInputImageKey)
-            f.setValue(1 + recipe.dehaze / 200.0, forKey: kCIInputContrastKey)
-            f.setValue(1 + recipe.dehaze / 300.0, forKey: kCIInputSaturationKey)
-            result = f.outputImage ?? result
-        }
-
-        if abs(recipe.temperature - 6500) > 1 || recipe.tint != 0, let f = CIFilter(name: "CITemperatureAndTint") {
-            f.setValue(result, forKey: kCIInputImageKey)
-            f.setValue(CIVector(x: 6500, y: 0), forKey: "inputNeutral")
-            f.setValue(CIVector(x: recipe.temperature, y: recipe.tint), forKey: "inputTargetNeutral")
-            result = f.outputImage ?? result
-        }
-
-        return result.cropped(to: bounds)
+        let edit = EditRecipe(from: clampRecipe(recipe))
+        return DevelopRenderGraph.applyRecipe(edit, to: DevelopRenderGraph.normalizeOrigin(image), skipRAWIntegratedWB: false)
     }
 
-    /// Full-resolution demosaic + develop for export (ImageIO RAW path).
+    /// Full-resolution demosaic + develop for export (shared graph with settled preview).
     static func renderFullRAW(
         rawURL: URL,
         recipe: DevelopRecipe,
         offsets: DevelopAdjustments = .zero
     ) -> CGImage? {
-        guard let demosaiced = PreviewExtractor.demosaicFull(from: rawURL, maxPixelSize: 6000) else {
-            return nil
-        }
-        let ci = CIImage(cgImage: demosaiced)
-        let graded = apply(recipe: recipe.applying(offsets), to: ci)
-        return context.createCGImage(graded, from: graded.extent)
+        let edit = EditRecipe(from: clampRecipe(recipe.applying(offsets)))
+        let request = RawRenderRequest(
+            generation: 0,
+            photoID: UUID(),
+            rawURL: rawURL,
+            recipe: edit,
+            quality: .export,
+            source: .originalRAW,
+            longEdgeCap: 0,
+            forDisplay: false
+        )
+        return DevelopRenderGraph.render(request).cgImage
+    }
+
+    /// Export-quality render using an `EditRecipe` (crop/straighten included).
+    static func renderExport(rawURL: URL, recipe: EditRecipe) -> CGImage? {
+        let request = RawRenderRequest(
+            generation: 0,
+            photoID: UUID(),
+            rawURL: rawURL,
+            recipe: recipe,
+            quality: .export,
+            source: .originalRAW,
+            longEdgeCap: 0,
+            forDisplay: false
+        )
+        return DevelopRenderGraph.render(request).cgImage
     }
 }
 

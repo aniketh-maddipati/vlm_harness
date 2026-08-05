@@ -162,3 +162,15 @@ Diagnostic session only — **no re-architect**. Profile main thread during rip;
 2. Confirm Pick grid after "Pick from this set" — no spinners on cached thumbs
 3. If p95 still fails, diagnostic session only — profile main thread during rip
 4. Optional hardening (only if rip profile confirms): inflight dedup in `MetalPreviewPool.upload`; throttle `tierLabel` like filmstrip
+
+---
+
+## 2026-08-05 — RAW develop engine foundation + Develop Lab
+
+**Claim:** Replace unreliable JPEG-proxy editing with a unified RAW develop graph, immutable recipes, batch treatment, and an isolated `--develop-lab` before Workbench integration.
+
+**Implemented:** `EditRecipe` / `PhotoEditBinding` / `BatchTreatmentSession` / `DevelopRenderGraph` (CIRAWFilter→CI) / `DevelopRenderScheduler` / `--develop-lab` UI / TIFF export hook / docs + deterministic tests.
+
+**Linux verification:** `python3 Scripts/develop_engine_test.py` PASS. `xcodebuild` / live ARW **blocked** on Ubuntu cloud VM.
+
+**Not done:** Workbench Edit integration (gated on live-RAW), measured perf/fidelity on Mac, GUI screenshots from real ARW.
