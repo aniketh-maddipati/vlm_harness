@@ -63,9 +63,15 @@ enum WhiteBalancePreset: String, CaseIterable, Identifiable {
 }
 
 /// Editing surface — opens on ⌘-double-click or T. PDF frames A · 4 / A · 5.
+///
+/// Premium Vision focus: scroll the set and the active photograph grows to
+/// dominate the stage; live Metal develop renders on that large surface.
 struct TreatmentStageView: View {
     let leader: AssetPresentation
     let references: [AssetPresentation]
+    /// Full set for the focus carousel (leader + siblings). Falls back to
+    /// leader + references when the caller doesn't pass the set.
+    var setPhotos: [AssetPresentation] = []
     let selectionCount: Int
     /// Photos in the leader's set (family row) — target of Apply to set.
     var setCount: Int = 1
@@ -98,6 +104,7 @@ struct TreatmentStageView: View {
     @State private var scheduler = WorkbenchDevelop.scheduler
     @State private var receipt: String?
     @State private var autoBusy = false
+    @State private var visionHint: String?
 
     private var effectiveRecipe: DevelopRecipe {
         if showingOriginalHold || previewMode == .original { return .neutral }
@@ -136,12 +143,23 @@ struct TreatmentStageView: View {
         baseRecipe.retouch.count
     }
 
+    /// Carousel contents — set when available, otherwise leader + refs.
+    private var focusStrip: [AssetPresentation] {
+        if !setPhotos.isEmpty { return setPhotos }
+        var seen = Set<AssetID>()
+        var ordered: [AssetPresentation] = []
+        for asset in [leader] + references {
+            if seen.insert(asset.id).inserted { ordered.append(asset) }
+        }
+        return ordered
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             storyCollapsedStrip
-                .frame(width: 96)
+                .frame(width: 80)
 
-            mainColumn
+            focusCarousel
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             controlsColumn
@@ -189,37 +207,104 @@ struct TreatmentStageView: View {
         }
     }
 
-    // MARK: - Main
+    // MARK: - Focus carousel
 
-    private var mainColumn: some View {
+    /// Scroll the set; the focused photograph grows to dominate and hosts
+    /// the live Metal develop surface. Neighbors stay poised smaller.
+    private var focusCarousel: some View {
         GeometryReader { geo in
-            let pad: CGFloat = 28
-            // Scale with the window — cap only to protect decode budgets.
-            let leaderMaxW = min(max(geo.size.width * 0.90, 700), 1800)
-            let showReferences = geo.size.height >= 680 && !references.isEmpty
-            VStack(spacing: 12) {
-                Spacer(minLength: 4)
-
-                // The photograph at hand — the dominant element in the stage.
-                leaderSurface
-                    .frame(maxWidth: leaderMaxW)
-                    .aspectRatio(leader.aspectRatio, contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-                    .layoutPriority(1)
-
-                metadataStrip
-                    .frame(maxWidth: leaderMaxW)
-
-                if showReferences {
-                    referencesRow
-                        .frame(maxWidth: leaderMaxW)
+            let pad: CGFloat = 16
+            let focusH = max(geo.size.height * 0.88, 480)
+            let neighborH = max(focusH * 0.22, 96)
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(spacing: 14) {
+                        ForEach(focusStrip) { asset in
+                            let focused = asset.id == leader.id
+                            focusCard(
+                                asset: asset,
+                                focused: focused,
+                                focusHeight: focusH,
+                                neighborHeight: neighborH,
+                                maxWidth: geo.size.width - pad * 2
+                            )
+                            .id(asset.id)
+                        }
+                    }
+                    .padding(.horizontal, pad)
+                    .padding(.vertical, max((geo.size.height - focusH) * 0.5, 24))
+                    .scrollTargetLayout()
                 }
-
-                Spacer(minLength: 4)
+                .scrollTargetBehavior(.viewAligned)
+                .onAppear {
+                    proxy.scrollTo(leader.id, anchor: .center)
+                }
+                .onChange(of: leader.id) { _, newID in
+                    withAnimation(reduceMotion ? nil : LuminaTokens.Motion.selection) {
+                        proxy.scrollTo(newID, anchor: .center)
+                    }
+                }
             }
-            .padding(pad)
             .frame(width: geo.size.width, height: geo.size.height)
         }
+    }
+
+    @ViewBuilder
+    private func focusCard(
+        asset: AssetPresentation,
+        focused: Bool,
+        focusHeight: CGFloat,
+        neighborHeight: CGFloat,
+        maxWidth: CGFloat
+    ) -> some View {
+        let targetH = focused ? focusHeight : neighborHeight
+        let targetW = focused ? maxWidth : min(maxWidth * 0.38, 320)
+        VStack(spacing: 8) {
+            Group {
+                if focused {
+                    leaderSurface(for: asset)
+                } else {
+                    Button {
+                        onSelectReference(asset.id)
+                    } label: {
+                        GradedPhotoView(
+                            asset: asset,
+                            projectName: projectName,
+                            baseRecipe: stagedRecipe ?? .neutral,
+                            developOffsets: .zero,
+                            previewMix: 1,
+                            contentMode: .fit,
+                            showDecisionBadge: false,
+                            isSelected: false,
+                            maxPixelSize: 900
+                        )
+                    }
+                    .buttonStyle(LuminaQuietButtonStyle())
+                    .accessibilityLabel("Focus \(asset.filename)")
+                    .accessibilityHint("Makes this photograph the largest in view and the live editing surface.")
+                }
+            }
+            .aspectRatio(asset.aspectRatio, contentMode: .fit)
+            .frame(maxWidth: targetW, maxHeight: targetH)
+            .frame(height: targetH)
+            .clipShape(RoundedRectangle(cornerRadius: focused ? 4 : 3, style: .continuous))
+            .shadow(color: focused ? Color.black.opacity(0.45) : .clear, radius: focused ? 28 : 0, y: focused ? 12 : 0)
+            .scaleEffect(focused ? 1.0 : 0.92)
+            .opacity(focused ? 1.0 : 0.55)
+            .animation(reduceMotion ? nil : LuminaTokens.Motion.stage, value: focused)
+
+            if focused {
+                metadataStrip
+                    .frame(maxWidth: targetW)
+            } else {
+                Text(asset.filename)
+                    .font(LuminaTokens.Typeface.meta(11))
+                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityAddTraits(focused ? .isSelected : [])
     }
 
     /// EXIF plus the effective develop values — evolves live as sliders move.
@@ -231,6 +316,12 @@ struct TreatmentStageView: View {
                     .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
+                if let visionHint {
+                    Text(visionHint)
+                        .font(LuminaTokens.Typeface.meta(11))
+                        .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
+                        .transition(.opacity)
+                }
                 if let receipt {
                     Text(receipt)
                         .font(LuminaTokens.Typeface.meta(11))
@@ -273,10 +364,10 @@ struct TreatmentStageView: View {
 
     /// Live RAW preview with heal-tap overlay. Falls back to proxy grading
     /// when the original RAW is not on disk.
-    private var leaderSurface: some View {
+    private func leaderSurface(for asset: AssetPresentation) -> some View {
         LiveDevelopView(
-            photoID: leader.id,
-            asset: leader,
+            photoID: asset.id,
+            asset: asset,
             projectName: projectName,
             recipe: liveRecipe,
             oneToOne: oneToOne
@@ -286,7 +377,7 @@ struct TreatmentStageView: View {
                 healOverlay
             }
         }
-        .accessibilityLabel("Photograph being treated: \(leader.filename)")
+        .accessibilityLabel("Photograph being treated: \(asset.filename)")
     }
 
     private var healOverlay: some View {
@@ -326,17 +417,20 @@ struct TreatmentStageView: View {
         guard size.width > 1, size.height > 1 else { return }
         let nx = min(max(Double(location.x / size.width), 0), 1)
         let ny = min(max(Double(location.y / size.height), 0), 1)
-        // Donor: horizontally to the side with room, 2.2 radii away.
-        let direction: Double = nx < 0.5 ? 1 : -1
-        var dx = direction * healRadius * 2.2
-        var dy = 0.0
-        if nx + dx < 0.02 || nx + dx > 0.98 {
-            dx = 0
-            dy = (ny < 0.5 ? 1 : -1) * healRadius * 2.2
+        let path = leader.previewPath ?? leader.thumbPath
+        let radius = healRadius
+        Task {
+            let donor = await VisionAssist.healDonor(
+                for: (x: nx, y: ny, radius: radius),
+                imagePath: path
+            )
+            let spot = RetouchSpot(
+                x: nx, y: ny, radius: radius,
+                sourceDX: donor.dx, sourceDY: donor.dy
+            )
+            onAddRetouch(spot)
+            LuminaHaptics.decision()
         }
-        let spot = RetouchSpot(x: nx, y: ny, radius: healRadius, sourceDX: dx, sourceDY: dy)
-        onAddRetouch(spot)
-        LuminaHaptics.decision()
     }
 
     private var fidelityChip: some View {
@@ -349,46 +443,6 @@ struct TreatmentStageView: View {
             .accessibilityLabel(effectiveFidelity.label)
             .accessibilityHint(effectiveFidelity.voiceOverHint)
             .animation(reduceMotion ? nil : LuminaTokens.Motion.fidelityCrossfade, value: effectiveFidelity)
-    }
-
-    private var referencesRow: some View {
-        HStack(spacing: 14) {
-            ForEach(references.prefix(2)) { asset in
-                VStack(spacing: 6) {
-                    Button { onSelectReference(asset.id) } label: {
-                        GradedPhotoView(
-                            asset: asset,
-                            projectName: projectName,
-                            baseRecipe: stagedRecipe ?? (asset.id == leader.id ? baseRecipe : .neutral),
-                            developOffsets: stagedRecipe != nil ? .zero : (asset.id == leader.id ? offsets : .zero),
-                            previewMix: 1,
-                            contentMode: .fit,
-                            showDecisionBadge: false,
-                            isSelected: false,
-                            maxPixelSize: 900
-                        )
-                        .frame(width: 190, height: 127)
-                        .aspectRatio(asset.aspectRatio, contentMode: .fit)
-                    }
-                    .buttonStyle(LuminaQuietButtonStyle())
-                    .accessibilityLabel("Compare with \(asset.filename)")
-
-                    if let note = localOverrideNotes[asset.id] {
-                        Text(note)
-                            .font(LuminaTokens.Typeface.meta(11))
-                            .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
-                            .multilineTextAlignment(.center)
-                    } else if stagedRecipe != nil {
-                        Text("same recipe, re-evaluated on its own RAW")
-                            .font(LuminaTokens.Typeface.meta(11))
-                            .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
-                            .multilineTextAlignment(.center)
-                    }
-                }
-                .frame(width: 190)
-            }
-        }
-        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Controls
@@ -479,7 +533,7 @@ struct TreatmentStageView: View {
         .buttonStyle(LuminaQuietButtonStyle())
         .disabled(autoBusy)
         .accessibilityLabel("Auto edit")
-        .accessibilityHint("Analyzes the photograph and sets white balance and tone automatically. Sliders update to match.")
+        .accessibilityHint("Vision-assisted auto: face-weighted exposure when faces are present, otherwise whole-frame histogram. Sliders update to match.")
     }
 
     private func applyAutoEdit() {
@@ -488,7 +542,9 @@ struct TreatmentStageView: View {
         autoBusy = true
         Task {
             defer { autoBusy = false }
-            guard let s = await AutoDevelop.suggest(imagePath: path) else { return }
+            // Vision-weighted when faces are present; whole-frame otherwise.
+            guard let s = await VisionAssist.suggest(imagePath: path) else { return }
+            let map = await VisionAssist.subjectMap(imagePath: path)
             var next = offsets
             // Suggestion values are absolute targets — convert to offsets so
             // taste/base edits compose, and so the sliders land on the result.
@@ -502,7 +558,20 @@ struct TreatmentStageView: View {
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
                 commit(next)
             }
+            if map?.hasFace == true {
+                visionHint = "Vision · face-weighted"
+            } else if map?.attentionPeak != nil {
+                visionHint = "Vision · subject-aware"
+            } else {
+                visionHint = nil
+            }
             showReceipt("Auto edit applied — sliders updated")
+            if visionHint != nil {
+                Task {
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                    withAnimation { visionHint = nil }
+                }
+            }
         }
     }
 

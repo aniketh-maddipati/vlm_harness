@@ -212,21 +212,33 @@ struct TreatmentFamilyRow: View {
         // Justify the page to the available width: tiles share it equally,
         // clamped so small windows never crush and huge displays never blow
         // decode budgets. Falls back to the fixed sizes when width is unknown.
-        let tileW: CGFloat = {
+        let baseW: CGFloat = {
             guard availableWidth > 0 else { return twoUp ? 480 : 336 }
             let per = (availableWidth - gap * (n - 1)) / n - mat * 2
             return min(max(per, 280), 720)
         }()
-        let tileH: CGFloat = (tileW * 2 / 3).rounded()
+        // Focused tile grows ~22% larger; neighbors shrink slightly so the
+        // row still fits. The selected photograph is the visual focus.
+        let focusBoost: CGFloat = 1.22
+        let neighborScale: CGFloat = photos.contains(where: { $0.id == selectedID })
+            ? (n > 1 ? (n - focusBoost) / (n - 1) : 1) : 1
+        let focusH = (baseW * focusBoost * 2 / 3).rounded()
 
         return HStack(alignment: .center, spacing: gap) {
             ForEach(photos) { asset in
-                photoTile(asset: asset, width: tileW, height: tileH, mat: mat)
+                let focused = asset.id == selectedID
+                let tileW = (focused ? baseW * focusBoost : baseW * neighborScale).rounded()
+                let tileH = (tileW * 2 / 3).rounded()
+                photoTile(asset: asset, width: tileW, height: tileH, mat: focused ? mat + 2 : mat)
+                    .scaleEffect(focused ? 1.02 : 0.96)
+                    .opacity(focused || selectedID == nil ? 1.0 : 0.72)
+                    .animation(effectiveReduceMotion ? nil : LuminaTokens.Motion.selection, value: selectedID)
+                    .zIndex(focused ? 1 : 0)
             }
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: tileH + mat * 2)
+        .frame(minHeight: focusH + mat * 2)
     }
 
     @ViewBuilder

@@ -219,21 +219,26 @@ struct ContinuousWorkspaceView: View {
 
     @ViewBuilder
     private var treatmentBody: some View {
-        if let leaderID = selection?.leader ?? presentation.selectedAssetID,
+        // Focus follows the selected photograph so scrolling/tapping the
+        // carousel grows that frame and hosts live develop.
+        if let leaderID = presentation.selectedAssetID ?? selection?.leader,
            let leader = asset(for: leaderID) {
-            let refs = (selection?.ids ?? [leaderID])
+            let refs = (selection?.ids ?? [])
                 .filter { $0 != leaderID }
                 .compactMap { asset(for: $0) }
             let stagedRecipe: DevelopRecipe? = {
                 if case .treat(let r) = selection?.staged { return r }
                 return nil
             }()
-            let setSize = presentation.groups
+            let setAssets = presentation.groups
                 .first { group in group.assets.contains(where: { $0.id == leaderID }) }?
-                .assets.count ?? 1
+                .captureOrderedAssets.filter { $0.decision != .cut }
+                ?? [leader]
+            let setSize = setAssets.count
             TreatmentStageView(
                 leader: leader,
                 references: refs,
+                setPhotos: setAssets,
                 selectionCount: max(selection?.count ?? 1, 1),
                 setCount: setSize,
                 projectName: projectName,
@@ -775,7 +780,7 @@ struct WorkbenchLedgerView: View {
                                 onHold: { onHold($0, group.id) },
                                 onRestore: onRestore
                             )
-                            .frame(minHeight: expanded ? 420 : nil)
+                            .frame(minHeight: expanded ? 480 : nil)
                             .frame(maxHeight: expanded ? .infinity : nil)
 
                             if expanded {
