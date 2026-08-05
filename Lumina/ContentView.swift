@@ -19,6 +19,13 @@ struct ContentView: View {
     @State private var isDropTargeted = false
 
     var body: some View {
+        rootStack
+            .modifier(dropAndLifecycle)
+            .modifier(notificationHandlers)
+            .modifier(importAndAlert)
+    }
+
+    private var rootStack: some View {
         ZStack {
             LuminaShellView(model: model, shell: shell)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -55,85 +62,40 @@ struct ContentView: View {
                 .transition(.opacity)
             }
         }
-        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: handleDrop)
-        .onAppear {
-            guard keyMonitor == nil else { return }
-            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .swipe]) { event in
-                if event.type == .swipe, shell.route == .workspace {
-                    return handleSwipe(event) ?? event
+    }
+
+    private var dropAndLifecycle: some ViewModifier {
+        DropAndLifecycleModifier(
+            isDropTargeted: $isDropTargeted,
+            handleDrop: handleDrop,
+            onAppear: {
+                guard keyMonitor == nil else { return }
+                keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .swipe]) { event in
+                    if event.type == .swipe, shell.route == .workspace {
+                        return handleSwipe(event) ?? event
+                    }
+                    return handleKey(event)
                 }
-                return handleKey(event)
-            }
-            model.refreshResumeAvailability()
-            model.restoreCatalogQueueIfNeeded()
-            shell.syncSelectionFromModel(model)
-            shell.refreshSnapshotsIfNeeded(model: model)
-        }
-        .onDisappear {
-            if let keyMonitor {
-                NSEvent.removeMonitor(keyMonitor)
-                self.keyMonitor = nil
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .luminaImportRAW)) { _ in
-            model.pickRAWFolder()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .luminaShowShortcuts)) { _ in
-            shell.showShortcuts = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .luminaGoHome)) { _ in
-            shell.openHome()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .luminaSetLensAttempts)) { _ in
-            shell.setLens(.attempts)
-            if shell.route != .workspace { shell.openWorkspace(lens: .attempts) }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .luminaSetLensLight)) { _ in
-            shell.setLens(.light)
-            if shell.route != .workspace { shell.openWorkspace(lens: .light) }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .luminaScanBacklog)) { _ in
-            model.pickCatalogRoot()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .luminaOpenSources)) { _ in
-            shell.openShootSelection()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .luminaOpenWorkbench)) { _ in
-            if shell.route != .workspace { shell.openWorkspace(lens: shell.lens) }
-            shell.setWorkspaceStage(.workbench)
-            shell.isReadMode = false
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .luminaOpenStory)) { _ in
-            if shell.route != .workspace { shell.openWorkspace(lens: shell.lens) }
-            shell.setWorkspaceStage(.canvas)
-            shell.isReadMode = false
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .luminaEnterRead)) { _ in
-            if shell.route != .workspace { shell.openWorkspace(lens: shell.lens) }
-            shell.enterReadMode()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .luminaMoreTreatment)) { _ in
-            shell.showDetailedEdits = true
-        }
-        .onChange(of: model.isImporting) { _, importing in
-            if !importing, model.project != nil {
-                shell.invalidateCache()
-                shell.openWorkspace(lens: .attempts)
+                model.refreshResumeAvailability()
+                model.restoreCatalogQueueIfNeeded()
                 shell.syncSelectionFromModel(model)
                 shell.refreshSnapshotsIfNeeded(model: model)
+            },
+            onDisappear: {
+                if let keyMonitor {
+                    NSEvent.removeMonitor(keyMonitor)
+                    self.keyMonitor = nil
+                }
             }
-        }
-        .alert(
-            "Lumina",
-            isPresented: Binding(
-                get: { model.project == nil && model.userFacingError != nil },
-                set: { if !$0 { model.userFacingError = nil } }
-            )
-        ) {
-            Button("Dismiss") { model.userFacingError = nil }
-        } message: {
-            Text(model.userFacingError ?? "Something went wrong.")
-        }
+        )
+    }
+
+    private var notificationHandlers: some ViewModifier {
+        NotificationHandlersModifier(model: model, shell: shell)
+    }
+
+    private var importAndAlert: some ViewModifier {
+        ImportAndAlertModifier(model: model, shell: shell)
     }
 
     private func handleSwipe(_ event: NSEvent) -> NSEvent? {
@@ -316,6 +278,99 @@ struct ContentView: View {
             model.ingestFromDroppedURLs(collected)
         }
         return true
+    }
+}
+
+// MARK: - Body decomposition (keeps the type-checker fast)
+
+private struct DropAndLifecycleModifier: ViewModifier {
+    @Binding var isDropTargeted: Bool
+    let handleDrop: ([NSItemProvider]) -> Bool
+    let onAppear: () -> Void
+    let onDisappear: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: handleDrop)
+            .onAppear(perform: onAppear)
+            .onDisappear(perform: onDisappear)
+    }
+}
+
+private struct NotificationHandlersModifier: ViewModifier {
+    @Bindable var model: ProjectViewModel
+    @Bindable var shell: LuminaShellModel
+
+    func body(content: Content) -> some View {
+        content
+            .onReceive(NotificationCenter.default.publisher(for: .luminaImportRAW)) { _ in
+                model.pickRAWFolder()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .luminaShowShortcuts)) { _ in
+                shell.showShortcuts = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .luminaGoHome)) { _ in
+                shell.openHome()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .luminaSetLensAttempts)) { _ in
+                shell.setLens(.attempts)
+                if shell.route != .workspace { shell.openWorkspace(lens: .attempts) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .luminaSetLensLight)) { _ in
+                shell.setLens(.light)
+                if shell.route != .workspace { shell.openWorkspace(lens: .light) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .luminaScanBacklog)) { _ in
+                model.pickCatalogRoot()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .luminaOpenSources)) { _ in
+                shell.openShootSelection()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .luminaOpenWorkbench)) { _ in
+                if shell.route != .workspace { shell.openWorkspace(lens: shell.lens) }
+                shell.setWorkspaceStage(.workbench)
+                shell.isReadMode = false
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .luminaOpenStory)) { _ in
+                if shell.route != .workspace { shell.openWorkspace(lens: shell.lens) }
+                shell.setWorkspaceStage(.canvas)
+                shell.isReadMode = false
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .luminaEnterRead)) { _ in
+                if shell.route != .workspace { shell.openWorkspace(lens: shell.lens) }
+                shell.enterReadMode()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .luminaMoreTreatment)) { _ in
+                shell.showDetailedEdits = true
+            }
+    }
+}
+
+private struct ImportAndAlertModifier: ViewModifier {
+    @Bindable var model: ProjectViewModel
+    @Bindable var shell: LuminaShellModel
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: model.isImporting) { _, importing in
+                if !importing, model.project != nil {
+                    shell.invalidateCache()
+                    shell.openWorkspace(lens: .attempts)
+                    shell.syncSelectionFromModel(model)
+                    shell.refreshSnapshotsIfNeeded(model: model)
+                }
+            }
+            .alert(
+                "Lumina",
+                isPresented: Binding(
+                    get: { model.project == nil && model.userFacingError != nil },
+                    set: { if !$0 { model.userFacingError = nil } }
+                )
+            ) {
+                Button("Dismiss") { model.userFacingError = nil }
+            } message: {
+                Text(model.userFacingError ?? "Something went wrong.")
+            }
     }
 }
 

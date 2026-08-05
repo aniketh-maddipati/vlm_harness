@@ -260,7 +260,7 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
 }
 
 final class CommandHandlingView: NSView {
-    weak var coordinator: CommandHandlingModifier.Coordinator?
+    fileprivate weak var coordinator: CommandHandlingRepresentable.Coordinator?
 
     override var acceptsFirstResponder: Bool { true }
 
