@@ -21,6 +21,8 @@ struct TreatmentFamilyRow: View {
     var isHandling: Bool = false
     var stagedAdvance: Bool = false
     var pageSize: Int = 3
+    /// Row width actually available — tiles justify to it. 0 = legacy fixed sizes.
+    var availableWidth: CGFloat = 0
     var twoUp: Bool = false
     var reduceMotion: Bool = false
     var travelAnimation: Animation = LuminaTokens.Motion.travel
@@ -102,6 +104,12 @@ struct TreatmentFamilyRow: View {
             }
             syncPage(to: selectedID)
         }
+        .onChange(of: pageSize) { _, newSize in
+            // Window resized / fullscreen toggled — re-lay pages to the new width.
+            frozenPages = paginate(activePhotos, size: newSize).map { $0.map(\.id) }
+            comparisonPage = 0
+            syncPage(to: selectedID)
+        }
         .accessibilityElement(children: .contain)
     }
 
@@ -172,14 +180,22 @@ struct TreatmentFamilyRow: View {
         }
     }
 
+    /// How many compact tiles genuinely fit across the row.
+    private var compactVisibleCount: Int {
+        guard availableWidth > 0 else { return 6 }
+        let tile = 104 + LuminaTokens.Spacing.xs
+        return min(max(Int((availableWidth - 60) / tile), 4), 12)
+    }
+
     private var compactStrip: some View {
-        HStack(spacing: LuminaTokens.Spacing.xs) {
-            ForEach(activePhotos.prefix(6)) { asset in
+        let visible = compactVisibleCount
+        return HStack(spacing: LuminaTokens.Spacing.xs) {
+            ForEach(activePhotos.prefix(visible)) { asset in
                 photoTile(asset: asset, width: 104, height: isActive ? 80 : 64)
                     .frame(maxWidth: 104)
             }
-            if activePhotos.count > 6 {
-                Text("+\(activePhotos.count - 6)")
+            if activePhotos.count > visible {
+                Text("+\(activePhotos.count - visible)")
                     .font(LuminaTokens.Typeface.meta(11))
                     .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
             }
@@ -192,8 +208,16 @@ struct TreatmentFamilyRow: View {
         let photos = pagePhotos
         let gap: CGFloat = 16
         let mat: CGFloat = 12
-        let tileW: CGFloat = twoUp ? 480 : 336
-        let tileH: CGFloat = twoUp ? 320 : 224
+        let n = CGFloat(max(pageSize, 1))
+        // Justify the page to the available width: tiles share it equally,
+        // clamped so small windows never crush and huge displays never blow
+        // decode budgets. Falls back to the fixed sizes when width is unknown.
+        let tileW: CGFloat = {
+            guard availableWidth > 0 else { return twoUp ? 480 : 336 }
+            let per = (availableWidth - gap * (n - 1)) / n - mat * 2
+            return min(max(per, 280), 720)
+        }()
+        let tileH: CGFloat = (tileW * 2 / 3).rounded()
 
         return HStack(alignment: .center, spacing: gap) {
             ForEach(photos) { asset in

@@ -290,6 +290,12 @@ struct ContinuousWorkspaceView: View {
         let isHandling = selection?.isHandling == true
         let stagedAdvance = selection?.staged == .advance
         let receivingCount = stagedAdvance ? (selection?.count ?? 0) : 0
+        // Width actually available to the ledger tray — rows size themselves
+        // from this so the bench always justifies to the screen.
+        let railWidth: CGFloat = compactRail
+            ? 84
+            : clampedRightWidth(availableWidth: availableWidth, fraction: storyFraction) + 6
+        let trayWidth = max(availableWidth - 74 - railWidth, 400)
 
         ZStack(alignment: .bottom) {
             HStack(spacing: 0) {
@@ -297,8 +303,13 @@ struct ContinuousWorkspaceView: View {
                 edgePreviewStrip
                     .frame(width: 74)
 
-                mainTrayColumn(isHandling: isHandling, stagedAdvance: stagedAdvance, twoUp: twoUp)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                mainTrayColumn(
+                    isHandling: isHandling,
+                    stagedAdvance: stagedAdvance,
+                    twoUp: twoUp,
+                    trayWidth: trayWidth
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 if !compactRail {
                     WorkbenchSplitDivider(
@@ -431,7 +442,7 @@ struct ContinuousWorkspaceView: View {
     }
 
     @ViewBuilder
-    private func mainTrayColumn(isHandling: Bool, stagedAdvance: Bool, twoUp: Bool) -> some View {
+    private func mainTrayColumn(isHandling: Bool, stagedAdvance: Bool, twoUp: Bool, trayWidth: CGFloat) -> some View {
         ZStack {
             LuminaTokens.Surface.table
             if isHandling {
@@ -470,16 +481,17 @@ struct ContinuousWorkspaceView: View {
                     .padding(.top, 8)
                 }
 
-                workbenchLedger(twoUp: twoUp, isHandling: isHandling, stagedAdvance: stagedAdvance)
+                workbenchLedger(twoUp: twoUp, isHandling: isHandling, stagedAdvance: stagedAdvance, trayWidth: trayWidth)
             }
         }
         .accessibilitySortPriority(1)
     }
 
-    private func workbenchLedger(twoUp: Bool, isHandling: Bool, stagedAdvance: Bool) -> some View {
+    private func workbenchLedger(twoUp: Bool, isHandling: Bool, stagedAdvance: Bool, trayWidth: CGFloat) -> some View {
         WorkbenchLedgerView(
             presentation: presentation,
             isRowExpanded: isRowExpanded,
+            availableWidth: trayWidth,
             projectName: projectName,
             baseRecipe: baseRecipe,
             developOffsets: $developOffsets,
@@ -672,6 +684,8 @@ private struct WorkbenchSplitDivider: View {
 struct WorkbenchLedgerView: View {
     let presentation: WorkspacePresentation
     let isRowExpanded: Bool
+    /// Tray width — rows scale tiles and page count from this.
+    var availableWidth: CGFloat = 0
     var projectName: String?
     var baseRecipe: DevelopRecipe
     @Binding var developOffsets: DevelopAdjustments
@@ -707,6 +721,15 @@ struct WorkbenchLedgerView: View {
         treatmentPreviewMode == .current ? developOffsets : .zero
     }
 
+    /// Two across when the story pane is wide; otherwise as many 300 pt+
+    /// tiles as the tray genuinely fits (3–5).
+    private var responsivePageSize: Int {
+        if twoUp { return 2 }
+        guard availableWidth > 0 else { return 3 }
+        let fits = Int((availableWidth - 60 + 16) / (300 + 16))
+        return min(max(fits, 3), 5)
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -737,7 +760,8 @@ struct WorkbenchLedgerView: View {
                                 leaderID: isActive ? leaderID : nil,
                                 isHandling: isHandling && isActive,
                                 stagedAdvance: stagedAdvance && isActive,
-                                pageSize: twoUp ? 2 : 3,
+                                pageSize: responsivePageSize,
+                                availableWidth: max(availableWidth - 60, 0),
                                 twoUp: twoUp,
                                 reduceMotion: reduceMotion,
                                 travelAnimation: travelAnimation,

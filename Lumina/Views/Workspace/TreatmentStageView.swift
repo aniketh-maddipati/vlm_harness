@@ -193,7 +193,8 @@ struct TreatmentStageView: View {
     private var mainColumn: some View {
         GeometryReader { geo in
             let pad: CGFloat = 30
-            let leaderMaxW = min(1100, geo.size.width - pad * 2)
+            // Scale with the window — cap only to protect decode budgets.
+            let leaderMaxW = min(max(geo.size.width * 0.86, 700), 1680) 
             VStack(spacing: 14) {
                 Spacer(minLength: 8)
 

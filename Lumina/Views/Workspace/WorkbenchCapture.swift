@@ -75,6 +75,15 @@ enum WorkbenchCapture {
             to: outDir
         )
         capture(
+            name: "wide-2560",
+            presentation: PresentationFixtures.fourUpComparison(),
+            emerging: PresentationFixtures.emergingSetPreview(),
+            size: CGSize(width: 2560, height: 1400),
+            setFraction: 0.30,
+            showReceipt: false,
+            to: outDir
+        )
+        capture(
             name: "treatment-stage",
             presentation: PresentationFixtures.fourUpComparison(),
             emerging: PresentationFixtures.emergingSetPreview(),

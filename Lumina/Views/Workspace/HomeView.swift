@@ -18,8 +18,10 @@ struct HomeView: View {
             .padding(.horizontal, LuminaTokens.Spacing.xl)
             .padding(.vertical, LuminaTokens.Spacing.lg)
             .frame(maxWidth: 960, alignment: .leading)
+            // Center the reading column — never pinned to the left corner on wide displays.
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(LuminaTokens.Surface.porcelain)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Home")
