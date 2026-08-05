@@ -3,6 +3,13 @@
 .exiftool/
 DerivedData/
 
+# Harness / develop evidence — keep JSON/PNG/XMP reports;
+# never commit full-res ProPhoto TIFFs or private RAW fixtures.
+artifacts/**/handoff/*.tif
+artifacts/**/handoff/*.tiff
+artifacts/**/handoff/*.ARW
+artifacts/**/handoff/*.arw
+
 # Xcode
 xcuserdata/
 *.xcuserstate
