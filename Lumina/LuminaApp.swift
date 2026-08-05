@@ -4,13 +4,21 @@ import SwiftUI
 struct LuminaApp: App {
     init() {
         WorkbenchCapture.runIfRequested()
+        // Capture-only lab exits inside the launcher; interactive lab continues into the scene.
+        _ = DevelopLabLauncher.runIfRequested()
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .frame(minWidth: 1100, minHeight: 700)
-                .luminaWorkspaceAppearance()
+            Group {
+                if DevelopLabLauncher.shouldPresentLab {
+                    DevelopLabView()
+                } else {
+                    ContentView()
+                }
+            }
+            .frame(minWidth: 1100, minHeight: 700)
+            .luminaWorkspaceAppearance()
         }
         .commands {
             CommandGroup(replacing: .newItem) {
