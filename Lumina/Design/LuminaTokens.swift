@@ -21,6 +21,16 @@ enum LuminaTokens {
         static let focusMatte = Color(hex: "565654")
         static let inspectionMatte = Color(hex: "1B1B1A")
         static let focusScrim = Color(hex: "282828").opacity(0.10)
+        /// Darkroom table (Direction A).
+        static let table = Color(hex: "141312")
+        static let tableMat = Color(hex: "232120")
+        static let tableMatLifted = Color(hex: "33302E")
+        static let tableHead = Color(hex: "0F0E0D")
+        static let shelf = Color(hex: "0C0B0A").opacity(0.92)
+        static let shelfOpaque = Color(hex: "0C0B0A")
+        static let advanceFill = Color(hex: "F2EFE9")
+        /// Treatment controls column.
+        static let side = Color(hex: "F3F3F2")
     }
 
     enum Ink {
@@ -29,6 +39,9 @@ enum LuminaTokens {
         static let secondary = Color(hex: "676767")
         static let tertiary = Color(hex: "969696")
         static let inspection = Color(hex: "E8E8E5")
+        static let onTable = Color(hex: "EFECE6")
+        static let onTableSecondary = Color(hex: "98938B")
+        static let onAdvance = Color(hex: "141312")
     }
 
     enum Status {
@@ -143,6 +156,47 @@ enum LuminaTokens {
         static let route = Animation.easeOut(duration: 0.24)
         static let fidelity = Animation.easeOut(duration: 0.22)
         static let reveal = Animation.easeOut(duration: 0.34)
+
+        /// Darkroom command-layer timings.
+        static let handlingFeedback: Animation? = nil // 1 frame — no animation
+        static let lift = Animation.easeOut(duration: 0.100)
+        static let travel = Animation.easeOut(duration: 0.180)
+        static let travelFast = Animation.easeOut(duration: 0.090)
+        static let stage = Animation.easeInOut(duration: 0.140)
+        static let shelfIn = Animation.easeOut(duration: 0.120)
+        static let fidelityCrossfade = Animation.easeOut(duration: 0.120)
+        static let reduceMotionKeyline = Animation.easeOut(duration: 0.090)
+    }
+
+    /// Rolling confirm cadence — 3 confirms inside 8 s shortens travel to 90 ms until 10 s idle.
+    @MainActor
+    @Observable
+    final class FastRunTracker {
+        private var confirmTimes: [Date] = []
+        private var fastUntil: Date?
+
+        var travelAnimation: Animation {
+            if let fastUntil, Date() < fastUntil {
+                return Motion.travelFast
+            }
+            return Motion.travel
+        }
+
+        func noteConfirm() {
+            let now = Date()
+            confirmTimes.append(now)
+            confirmTimes = confirmTimes.filter { now.timeIntervalSince($0) <= 8 }
+            if confirmTimes.count >= 3 {
+                fastUntil = now.addingTimeInterval(10)
+            }
+        }
+
+        func noteIdle(seconds: TimeInterval = 10) {
+            guard let last = confirmTimes.last else { return }
+            if Date().timeIntervalSince(last) >= seconds {
+                fastUntil = nil
+            }
+        }
     }
 }
 

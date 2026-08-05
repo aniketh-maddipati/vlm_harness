@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// One comparison family — spacious 2×2 / side-by-side spread when expanded; compact when idle.
+/// One comparison family — tray pages of 3 (or 2 when story pane is wide); darkroom mats when handling.
 struct TreatmentFamilyRow: View {
     let group: GroupPresentation
     let isActive: Bool
@@ -14,20 +14,34 @@ struct TreatmentFamilyRow: View {
     var rowPreviewActive: Bool = false
     var routingNamespace: Namespace.ID?
     var routingFlightID: AssetID?
-    var showDecisionShelf: Bool = true
+    var routingFlightIDs: [AssetID] = []
+    var showDecisionShelf: Bool = false
+    var gatheredIDs: Set<AssetID> = []
+    var leaderID: AssetID?
+    var isHandling: Bool = false
+    var stagedAdvance: Bool = false
+    var pageSize: Int = 3
+    var twoUp: Bool = false
+    var reduceMotion: Bool = false
+    var travelAnimation: Animation = LuminaTokens.Motion.travel
     let onSelect: () -> Void
     let onSelectPhoto: (AssetID) -> Void
+    var onGatherPhoto: (AssetID) -> Void = { _ in }
     let onDoubleTapPhoto: (AssetID) -> Void
+    var onCommandDoubleTap: (AssetID) -> Void = { _ in }
     var onAddToSet: ((AssetID) -> Void)?
     var onSetAside: ((AssetID) -> Void)?
     var onHold: ((AssetID) -> Void)?
     var onRestore: ((AssetID) -> Void)?
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var envReduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var comparisonPage = 0
     @State private var foldExpanded = false
+    /// Frozen page assignment — computed once when the family is first shown.
+    @State private var frozenPages: [[AssetID]]?
 
-    private let pageSize = 4
+    private var effectiveReduceMotion: Bool { reduceMotion || envReduceMotion }
 
     /// Photographs still in the comparison spread (not set aside).
     private var activePhotos: [AssetPresentation] {
@@ -38,14 +52,20 @@ struct TreatmentFamilyRow: View {
         group.captureOrderedAssets.filter { $0.decision == .cut }
     }
 
-    private var pageCount: Int {
-        max(1, Int(ceil(Double(activePhotos.count) / Double(pageSize))))
+    private var pages: [[AssetPresentation]] {
+        if let frozen = frozenPages {
+            return frozen.compactMap { ids in
+                ids.compactMap { id in activePhotos.first(where: { $0.id == id }) }
+            }.filter { !$0.isEmpty }
+        }
+        return paginate(activePhotos, size: pageSize)
     }
 
+    private var pageCount: Int { max(1, pages.count) }
+
     private var pagePhotos: [AssetPresentation] {
-        let start = comparisonPage * pageSize
-        guard start < activePhotos.count else { return Array(activePhotos.prefix(pageSize)) }
-        return Array(activePhotos[start..<min(start + pageSize, activePhotos.count)])
+        guard comparisonPage < pages.count else { return Array(activePhotos.prefix(pageSize)) }
+        return pages[comparisonPage]
     }
 
     var body: some View {
@@ -54,9 +74,6 @@ struct TreatmentFamilyRow: View {
 
             if isExpanded && isActive {
                 comparisonSpread
-                if !foldedPhotos.isEmpty {
-                    setAsideFold
-                }
             } else {
                 compactStrip
             }
@@ -65,7 +82,7 @@ struct TreatmentFamilyRow: View {
         .overlay(alignment: .leading) {
             if group.isSiblingContinuation {
                 Rectangle()
-                    .fill(LuminaTokens.Line.emphasis)
+                    .fill(Color.white.opacity(0.18))
                     .frame(width: 2)
                     .padding(.vertical, LuminaTokens.Spacing.xs)
             }
@@ -79,13 +96,12 @@ struct TreatmentFamilyRow: View {
                 foldExpanded = true
             }
         }
-        .onChange(of: activePhotos.map(\.id)) { _, _ in
-            if comparisonPage >= pageCount {
-                comparisonPage = max(0, pageCount - 1)
+        .onAppear {
+            if frozenPages == nil {
+                frozenPages = paginate(activePhotos, size: pageSize).map { $0.map(\.id) }
             }
             syncPage(to: selectedID)
         }
-        .onAppear { syncPage(to: selectedID) }
         .accessibilityElement(children: .contain)
     }
 
@@ -94,20 +110,20 @@ struct TreatmentFamilyRow: View {
             if group.isSiblingContinuation, let part = group.siblingPartIndex, let total = group.siblingPartCount {
                 Text("continued · \(part) of \(total)")
                     .font(LuminaTokens.Typeface.meta(11))
-                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
             }
 
             Text(group.title)
                 .font(LuminaTokens.Typeface.groupHeading(isActive && isExpanded ? 20 : (isActive ? 17 : 15)))
-                .foregroundStyle(isActive ? LuminaTokens.Ink.primary : LuminaTokens.Ink.secondary)
+                .foregroundStyle(isActive ? LuminaTokens.Ink.onTable : LuminaTokens.Ink.onTableSecondary)
                 .lineLimit(1)
 
             if isActive, let subtitle = group.subtitle, isExpanded {
                 Text("·")
-                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
                 Text(subtitle)
                     .font(LuminaTokens.Typeface.meta(12))
-                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
                     .lineLimit(1)
             }
 
@@ -120,7 +136,7 @@ struct TreatmentFamilyRow: View {
             if group.keepCount > 0 {
                 Text("\(group.keepCount) in set")
                     .font(LuminaTokens.Typeface.meta(11))
-                    .foregroundStyle(LuminaTokens.Ink.secondary)
+                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
             }
         }
     }
@@ -132,14 +148,14 @@ struct TreatmentFamilyRow: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(comparisonPage > 0 ? LuminaTokens.Ink.secondary : LuminaTokens.Ink.tertiary.opacity(0.4))
+                    .foregroundStyle(comparisonPage > 0 ? LuminaTokens.Ink.onTableSecondary : LuminaTokens.Ink.onTableSecondary.opacity(0.35))
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .disabled(comparisonPage == 0)
 
             Text("\(comparisonPage + 1) / \(pageCount)")
                 .font(LuminaTokens.Typeface.meta(11))
-                .foregroundStyle(LuminaTokens.Ink.tertiary)
+                .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
                 .monospacedDigit()
 
             Button {
@@ -147,7 +163,7 @@ struct TreatmentFamilyRow: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(comparisonPage < pageCount - 1 ? LuminaTokens.Ink.secondary : LuminaTokens.Ink.tertiary.opacity(0.4))
+                    .foregroundStyle(comparisonPage < pageCount - 1 ? LuminaTokens.Ink.onTableSecondary : LuminaTokens.Ink.onTableSecondary.opacity(0.35))
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .disabled(comparisonPage >= pageCount - 1)
@@ -157,13 +173,13 @@ struct TreatmentFamilyRow: View {
     private var compactStrip: some View {
         HStack(spacing: LuminaTokens.Spacing.xs) {
             ForEach(activePhotos.prefix(6)) { asset in
-                photoTile(asset: asset, maxHeight: isActive ? 56 : 44, showShelf: false)
+                photoTile(asset: asset, width: 72, height: isActive ? 56 : 44)
                     .frame(maxWidth: 72)
             }
             if activePhotos.count > 6 {
                 Text("+\(activePhotos.count - 6)")
                     .font(LuminaTokens.Typeface.meta(11))
-                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -171,184 +187,107 @@ struct TreatmentFamilyRow: View {
     }
 
     private var comparisonSpread: some View {
-        GeometryReader { geo in
-            let photos = pagePhotos
-            let count = photos.count
-            let spacing = LuminaTokens.Spacing.md
-            let availableHeight = max(geo.size.height, 220)
+        let photos = pagePhotos
+        let gap: CGFloat = 16
+        let mat: CGFloat = 12
+        let tileW: CGFloat = twoUp ? 420 : 274
+        let tileH: CGFloat = twoUp ? 280 : 183
 
-            Group {
-                if count <= 1 {
-                    singleSpread(photos: photos, height: availableHeight)
-                } else if count == 2 {
-                    twoUpSpread(photos: photos, width: geo.size.width, height: availableHeight, spacing: spacing)
-                } else {
-                    gridSpread(photos: photos, width: geo.size.width, height: availableHeight, spacing: spacing)
-                }
-            }
-            .frame(width: geo.size.width, height: availableHeight, alignment: .top)
-        }
-        .frame(minHeight: 280)
-        .frame(maxHeight: .infinity)
-    }
-
-    private func singleSpread(photos: [AssetPresentation], height: CGFloat) -> some View {
-        HStack {
-            Spacer(minLength: 0)
-            if let asset = photos.first {
-                photoTile(asset: asset, maxHeight: height - 36, showShelf: showDecisionShelf)
-                    .frame(maxWidth: min(height * asset.aspectRatio, 720))
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    private func twoUpSpread(photos: [AssetPresentation], width: CGFloat, height: CGFloat, spacing: CGFloat) -> some View {
-        HStack(alignment: .center, spacing: spacing) {
+        return HStack(alignment: .center, spacing: gap) {
             ForEach(photos) { asset in
-                photoTile(asset: asset, maxHeight: height - 36, showShelf: showDecisionShelf && asset.id == selectedID)
-                    .frame(maxWidth: (width - spacing) / 2)
+                photoTile(asset: asset, width: tileW, height: tileH, mat: mat)
             }
+            Spacer(minLength: 0)
         }
-    }
-
-    private func gridSpread(photos: [AssetPresentation], width: CGFloat, height: CGFloat, spacing: CGFloat) -> some View {
-        let rows: [[AssetPresentation]] = {
-            if photos.count <= 2 { return [photos] }
-            let mid = (photos.count + 1) / 2
-            return [Array(photos.prefix(mid)), Array(photos.suffix(photos.count - mid))]
-        }()
-        let rowHeight = (height - spacing) / CGFloat(max(rows.count, 1))
-
-        return VStack(spacing: spacing) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                HStack(alignment: .center, spacing: spacing) {
-                    ForEach(row) { asset in
-                        photoTile(
-                            asset: asset,
-                            maxHeight: rowHeight - 28,
-                            showShelf: showDecisionShelf && asset.id == selectedID
-                        )
-                        .frame(maxWidth: (width - spacing) / CGFloat(max(row.count, 1)))
-                    }
-                }
-                .frame(height: rowHeight)
-            }
-        }
-    }
-
-    private var setAsideFold: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button {
-                withAnimation(LuminaTokens.Motion.control) { foldExpanded.toggle() }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: foldExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(LuminaTokens.Ink.tertiary)
-                    Text("Set aside · \(foldedPhotos.count)")
-                        .font(LuminaTokens.Typeface.meta(12))
-                        .foregroundStyle(LuminaTokens.Ink.secondary)
-                    Spacer(minLength: 0)
-                    // Tiny stacked peeks
-                    HStack(spacing: -8) {
-                        ForEach(foldedPhotos.prefix(3)) { asset in
-                            StablePhotoView(
-                                asset: asset,
-                                contentMode: .fit,
-                                cornerRadius: 2,
-                                maxPixelSize: 200
-                            )
-                            .frame(width: 28, height: 22)
-                            .opacity(0.75)
-                        }
-                    }
-                }
-                .padding(.vertical, 6)
-                .padding(.horizontal, 8)
-                .background(LuminaTokens.Surface.well.opacity(0.6))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .strokeBorder(LuminaTokens.Line.hairline, lineWidth: 1)
-                }
-            }
-            .buttonStyle(LuminaQuietButtonStyle())
-
-            if foldExpanded {
-                HStack(spacing: LuminaTokens.Spacing.sm) {
-                    ForEach(foldedPhotos) { asset in
-                        VStack(spacing: 4) {
-                            Button {
-                                onSelect()
-                                onSelectPhoto(asset.id)
-                            } label: {
-                                StablePhotoView(
-                                    asset: asset,
-                                    contentMode: .fit,
-                                    cornerRadius: LuminaTokens.Radius.photographThumb,
-                                    isSelected: asset.id == selectedID,
-                                    maxPixelSize: 480
-                                )
-                                .frame(width: 96, height: 72)
-                                .opacity(0.88)
-                            }
-                            .buttonStyle(LuminaQuietButtonStyle())
-
-                            Button("Restore") {
-                                onRestore?(asset.id)
-                            }
-                            .font(LuminaTokens.Typeface.meta(11))
-                            .foregroundStyle(LuminaTokens.Ink.secondary)
-                            .buttonStyle(LuminaQuietButtonStyle())
-                        }
-                    }
-                }
-                .padding(.leading, 4)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: tileH + mat * 2)
     }
 
     @ViewBuilder
-    private func photoTile(asset: AssetPresentation, maxHeight: CGFloat, showShelf: Bool) -> some View {
+    private func photoTile(asset: AssetPresentation, width: CGFloat, height: CGFloat, mat: CGFloat = 8) -> some View {
+        let gathered = gatheredIDs.contains(asset.id)
+        let isLeader = leaderID == asset.id
         let isSelected = asset.id == selectedID
         let isSuggested = asset.id == suggestedStartID && asset.decision == .undecided
         let usePreview = isActive && rowPreviewActive
         let inSet = asset.decision == .keep || asset.decision == .anchor
         let onHoldMark = asset.decision == .needsMe
+        let matColor: Color = {
+            if reduceTransparency {
+                return gathered && isHandling ? LuminaTokens.Surface.tableMatLifted : LuminaTokens.Surface.tableMat
+            }
+            return isHandling ? LuminaTokens.Surface.tableMatLifted : LuminaTokens.Surface.tableMat
+        }()
+
+        let lift: CGFloat = {
+            guard gathered && isHandling else { return 0 }
+            return effectiveReduceMotion ? 0 : -14
+        }()
+        let stageOffset: CGSize = {
+            guard gathered && stagedAdvance else { return .zero }
+            if effectiveReduceMotion { return .zero }
+            return CGSize(width: 26, height: -16)
+        }()
+        let stageRotation: Double = (gathered && stagedAdvance && !effectiveReduceMotion) ? 1.6 : 0
 
         VStack(spacing: 0) {
             Button {
                 onSelect()
-                onSelectPhoto(asset.id)
+                if isHandling {
+                    onGatherPhoto(asset.id)
+                } else {
+                    onSelectPhoto(asset.id)
+                }
             } label: {
                 ZStack(alignment: .topLeading) {
-                    photoImage(
+                    matColor
+                        .frame(width: width + mat * 2, height: height + mat * 2)
+
+                    GradedPhotoView(
                         asset: asset,
-                        usePreview: usePreview,
-                        isSelected: isSelected,
-                        isSuggested: isSuggested,
-                        inSet: inSet,
-                        maxHeight: maxHeight
+                        projectName: usePreview ? projectName : nil,
+                        baseRecipe: usePreview ? baseRecipe : .neutral,
+                        developOffsets: usePreview ? developOffsets : .zero,
+                        previewMix: usePreview ? previewMix : 1,
+                        contentMode: .fit,
+                        showDecisionBadge: false,
+                        isSelected: false,
+                        maxPixelSize: isExpanded ? 1600 : 480
                     )
+                    .frame(width: width, height: height)
+                    .aspectRatio(asset.aspectRatio, contentMode: .fit)
+                    .padding(mat)
 
                     if inSet || onHoldMark {
                         Text(asset.decision.quietMarker)
                             .font(LuminaTokens.Typeface.meta(10))
-                            .foregroundStyle(LuminaTokens.Ink.secondary)
+                            .foregroundStyle(LuminaTokens.Ink.onTable)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(LuminaTokens.Surface.porcelain.opacity(0.9))
-                            )
-                            .padding(8)
+                            .background(Capsule().fill(Color.black.opacity(0.45)))
+                            .padding(mat + 6)
                             .allowsHitTesting(false)
                     }
                 }
+                .overlay {
+                    // Focus / gather keyline on the mat — never over the image.
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .strokeBorder(keylineColor(gathered: gathered, isLeader: isLeader, isSelected: isSelected, isSuggested: isSuggested), lineWidth: gathered ? 1 : (isSelected ? 2 : 1))
+                }
+                .offset(x: stageOffset.width, y: lift + stageOffset.height)
+                .rotationEffect(.degrees(stageRotation))
+                .animation(effectiveReduceMotion ? nil : LuminaTokens.Motion.lift, value: gathered && isHandling)
+                .animation(effectiveReduceMotion ? LuminaTokens.Motion.reduceMotionKeyline : LuminaTokens.Motion.stage, value: stagedAdvance)
             }
             .buttonStyle(LuminaQuietButtonStyle())
-            .simultaneousGesture(TapGesture(count: 2).onEnded { onDoubleTapPhoto(asset.id) })
+            .simultaneousGesture(TapGesture(count: 2).onEnded {
+                // Editing opens on ⌘-double-click; plain double-tap remains focus.
+                if isHandling {
+                    onCommandDoubleTap(asset.id)
+                } else {
+                    onDoubleTapPhoto(asset.id)
+                }
+            })
             .draggable(asset.id.uuidString) {
                 StablePhotoView(
                     asset: asset,
@@ -359,67 +298,90 @@ struct TreatmentFamilyRow: View {
                 .frame(width: 120, height: 90)
                 .opacity(0.9)
             }
-
-            if showShelf, isSelected, isExpanded, isActive {
-                FloatingDecisionShelf(
-                    current: asset.decision,
-                    onSetAside: { onSetAside?(asset.id) },
-                    onHold: { onHold?(asset.id) },
-                    onAddToSet: { onAddToSet?(asset.id) }
-                )
-                .padding(.top, 8)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
+            .modifier(RoutingFlightModifier(
+                assetID: asset.id,
+                namespace: routingNamespace,
+                flightID: routingFlightID,
+                flightIDs: routingFlightIDs,
+                reduceMotion: effectiveReduceMotion
+            ))
+            .accessibilityLabel(gathered ? "Gathered photograph \(asset.filename)" : asset.filename)
+            .accessibilityAddTraits(gathered ? .isSelected : [])
         }
-        .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: isSelected)
+        // Gathered group is one focus stop when announced at selection level.
+        .opacity(inSet && !gathered ? 0.92 : 1)
     }
 
-    @ViewBuilder
-    private func photoImage(
-        asset: AssetPresentation,
-        usePreview: Bool,
-        isSelected: Bool,
-        isSuggested: Bool,
-        inSet: Bool,
-        maxHeight: CGFloat
-    ) -> some View {
-        let image = GradedPhotoView(
-            asset: asset,
-            projectName: usePreview ? projectName : nil,
-            baseRecipe: usePreview ? baseRecipe : .neutral,
-            developOffsets: usePreview ? developOffsets : .zero,
-            previewMix: usePreview ? previewMix : 1,
-            contentMode: .fit,
-            showDecisionBadge: false,
-            isSelected: false,
-            maxPixelSize: isExpanded ? 1600 : 480
-        )
-        .frame(maxHeight: maxHeight)
-        .aspectRatio(asset.aspectRatio, contentMode: .fit)
-        .opacity(inSet ? 0.92 : 1)
-        .overlay {
-            RoundedRectangle(cornerRadius: LuminaTokens.Radius.photographThumb, style: .continuous)
-                .strokeBorder(
-                    isSelected
-                        ? LuminaTokens.Ink.primary.opacity(0.50)
-                        : (isSuggested ? LuminaTokens.Ink.primary.opacity(0.28) : Color.clear),
-                    lineWidth: isSelected ? 1.5 : 1
-                )
+    private func keylineColor(gathered: Bool, isLeader: Bool, isSelected: Bool, isSuggested: Bool) -> Color {
+        if gathered {
+            return Color.white.opacity(0.5)
         }
-
-        if let ns = routingNamespace, routingFlightID == asset.id {
-            image.matchedGeometryEffect(id: asset.id, in: ns, isSource: true)
-        } else {
-            image
+        if isSelected || isLeader {
+            return Color.white.opacity(0.55)
         }
+        if isSuggested {
+            return Color.white.opacity(0.28)
+        }
+        return Color.clear
     }
 
     private func syncPage(to selected: AssetID?) {
-        guard let selected,
-              let index = activePhotos.firstIndex(where: { $0.id == selected }) else { return }
-        let page = index / pageSize
-        if page != comparisonPage {
-            comparisonPage = page
+        guard let selected else { return }
+        if let pageIndex = pages.firstIndex(where: { $0.contains(where: { $0.id == selected }) }) {
+            comparisonPage = pageIndex
+        }
+    }
+
+    /// Sort by embedding-distance proxy (quality as stand-in) inside each page, then freeze.
+    private func paginate(_ photos: [AssetPresentation], size: Int) -> [[AssetPresentation]] {
+        guard !photos.isEmpty else { return [] }
+        // Near-twins share a page: sort by quality within capture-order windows.
+        var remaining = photos
+        var result: [[AssetPresentation]] = []
+        while !remaining.isEmpty {
+            let chunk = Array(remaining.prefix(size))
+            let sortedChunk = chunk.sorted { $0.qualityScore > $1.qualityScore }
+            // Preserve capture order overall but cluster near scores — keep original order for stability,
+            // only nudge near-twins (close quality) adjacent within the page.
+            let nudged = nearTwinSort(chunk)
+            result.append(nudged.isEmpty ? sortedChunk : nudged)
+            remaining = Array(remaining.dropFirst(size))
+        }
+        return result
+    }
+
+    private func nearTwinSort(_ chunk: [AssetPresentation]) -> [AssetPresentation] {
+        guard chunk.count > 1 else { return chunk }
+        return chunk.sorted { a, b in
+            let da = abs(a.qualityScore - (chunk.first?.qualityScore ?? 0))
+            let db = abs(b.qualityScore - (chunk.first?.qualityScore ?? 0))
+            if abs(da - db) < 0.02 {
+                return (a.capturedAt ?? .distantPast) < (b.capturedAt ?? .distantPast)
+            }
+            return da < db
+        }
+    }
+}
+
+private struct RoutingFlightModifier: ViewModifier {
+    let assetID: AssetID
+    let namespace: Namespace.ID?
+    let flightID: AssetID?
+    let flightIDs: [AssetID]
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        if reduceMotion {
+            content.opacity(flightIDs.contains(assetID) || flightID == assetID ? 0.55 : 1)
+        } else if let ns = namespace, flightID == assetID || flightIDs.contains(assetID) {
+            // Grouped stack uses the last id as the matched-geometry proxy source.
+            if assetID == (flightIDs.last ?? flightID) {
+                content.matchedGeometryEffect(id: "routing-stack", in: ns, isSource: true)
+            } else {
+                content.opacity(0.01)
+            }
+        } else {
+            content
         }
     }
 }

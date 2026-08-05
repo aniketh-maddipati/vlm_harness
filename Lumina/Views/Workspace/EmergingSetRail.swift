@@ -7,6 +7,8 @@ struct EmergingSetRail: View {
     var isCompact: Bool = false
     var routingNamespace: Namespace.ID?
     var routingFlightID: AssetID?
+    var receivingCount: Int = 0
+    var highlightFirstSlot: Bool = false
     var onSelect: (AssetID) -> Void
     var onOpenCanvas: () -> Void
     var onDropAddToSet: ((AssetID) -> Void)?
@@ -73,27 +75,44 @@ struct EmergingSetRail: View {
             }
         }
         .buttonStyle(LuminaQuietButtonStyle())
-        .accessibilityLabel("Set, \(assets.count) photographs. Open canvas.")
+        .accessibilityLabel("Set, \(assets.count) photographs. Open story.")
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("The set so far")
-                .font(LuminaTokens.Typeface.navigation(16))
-                .foregroundStyle(LuminaTokens.Ink.primary)
-            Text("\(assets.count) photograph\(assets.count == 1 ? "" : "s")")
-                .font(LuminaTokens.Typeface.meta(12))
-                .foregroundStyle(LuminaTokens.Ink.tertiary)
+            if receivingCount > 0 {
+                Text("The story so far — \(assets.count) · receiving \(receivingCount)")
+                    .font(LuminaTokens.Typeface.navigation(15))
+                    .foregroundStyle(LuminaTokens.Ink.primary)
+            } else {
+                Text("The story so far")
+                    .font(LuminaTokens.Typeface.navigation(16))
+                    .foregroundStyle(LuminaTokens.Ink.primary)
+                Text("\(assets.count) photograph\(assets.count == 1 ? "" : "s")")
+                    .font(LuminaTokens.Typeface.meta(12))
+                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+            }
         }
     }
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 8) {
             Spacer(minLength: 24)
-            Text("Photographs you add will gather here.")
-                .font(LuminaTokens.Typeface.meta(13))
-                .foregroundStyle(LuminaTokens.Ink.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
+            if receivingCount > 0 {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.75), lineWidth: 2)
+                    .frame(height: 120)
+                    .overlay {
+                        Text("Receiving \(receivingCount)")
+                            .font(LuminaTokens.Typeface.meta(12))
+                            .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    }
+            } else {
+                Text("Photographs you advance will gather here.")
+                    .font(LuminaTokens.Typeface.meta(13))
+                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Spacer(minLength: 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -103,31 +122,31 @@ struct EmergingSetRail: View {
     private var editorialPreview: some View {
         let count = assets.count
         if count == 1, let asset = assets.first {
-            largePhoto(asset, maxHeight: 420)
+            largePhoto(asset, maxHeight: 420, isFirst: true)
         } else if count == 2 {
             VStack(spacing: LuminaTokens.Spacing.lg) {
-                ForEach(assets) { asset in
-                    largePhoto(asset, maxHeight: 280)
+                ForEach(Array(assets.enumerated()), id: \.element.id) { index, asset in
+                    largePhoto(asset, maxHeight: 280, isFirst: index == 0)
                 }
             }
         } else {
             LazyVStack(spacing: LuminaTokens.Spacing.lg) {
                 ForEach(Array(assets.enumerated()), id: \.element.id) { index, asset in
-                    largePhoto(asset, maxHeight: index == 0 ? 320 : 220)
+                    largePhoto(asset, maxHeight: index == 0 ? 320 : 220, isFirst: index == 0)
                 }
             }
         }
     }
 
-    private func largePhoto(_ asset: AssetPresentation, maxHeight: CGFloat) -> some View {
+    private func largePhoto(_ asset: AssetPresentation, maxHeight: CGFloat, isFirst: Bool) -> some View {
         Button { onSelect(asset.id) } label: {
-            photoView(asset, maxHeight: maxHeight)
+            photoView(asset, maxHeight: maxHeight, isFirst: isFirst)
         }
         .buttonStyle(LuminaQuietButtonStyle())
     }
 
     @ViewBuilder
-    private func photoView(_ asset: AssetPresentation, maxHeight: CGFloat) -> some View {
+    private func photoView(_ asset: AssetPresentation, maxHeight: CGFloat, isFirst: Bool) -> some View {
         let view = StablePhotoView(
             asset: asset,
             contentMode: .fit,
@@ -138,9 +157,15 @@ struct EmergingSetRail: View {
         .frame(maxWidth: .infinity)
         .frame(maxHeight: maxHeight)
         .aspectRatio(asset.aspectRatio, contentMode: .fit)
+        .overlay {
+            if highlightFirstSlot && isFirst {
+                RoundedRectangle(cornerRadius: LuminaTokens.Radius.photographLarge, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.75), lineWidth: 2)
+            }
+        }
 
         if let ns = routingNamespace, routingFlightID == asset.id {
-            view.matchedGeometryEffect(id: asset.id, in: ns, isSource: false)
+            view.matchedGeometryEffect(id: "routing-stack", in: ns, isSource: false)
         } else {
             view
         }
@@ -148,7 +173,7 @@ struct EmergingSetRail: View {
 
     private var openCanvasButton: some View {
         Button(action: onOpenCanvas) {
-            Text("Open Canvas")
+            Text("Open Story")
                 .font(LuminaTokens.Typeface.navigation(14))
                 .foregroundStyle(LuminaTokens.Ink.primary)
                 .frame(maxWidth: .infinity)

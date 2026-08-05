@@ -10,6 +10,11 @@ enum LuminaHaptics {
         NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .default)
     }
 
+    /// Confirm / level-change equivalent — distinct from the stage haptic.
+    static func levelChange() {
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+    }
+
     static func alignment() {
         NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
     }

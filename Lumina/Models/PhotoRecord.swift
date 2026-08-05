@@ -90,6 +90,8 @@ struct AuditPile: Identifiable, Equatable {
 enum DecisionEventKind: String, Codable {
     case rescued
     case pileAccepted
+    /// One workbench round — every per-photo change in a single ledger transaction.
+    case round
 }
 
 struct DecisionEvent: Codable, Identifiable, Equatable {

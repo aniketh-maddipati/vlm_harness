@@ -152,6 +152,29 @@ final class ProjectViewModel {
         persistDebounced()
     }
 
+    /// Persist an absolute develop recipe (batch treatment across a gathered selection).
+    func persistRecipe(_ recipe: DevelopRecipe, for photoID: UUID) {
+        guard var project else { return }
+        guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        project.photos[index].recipe = recipe
+        self.project = project
+        persistDebounced()
+    }
+
+    func clearRecipe(for photoID: UUID) {
+        guard var project else { return }
+        guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        project.photos[index].recipe = nil
+        self.project = project
+        persistDebounced()
+    }
+
+    /// Replace the in-memory project after a ledger append (no full reload).
+    func replaceProject(_ project: LuminaProject) {
+        self.project = project
+        persistDebounced()
+    }
+
     /// Kept photographs in draft chronological order for the emerging set / canvas.
     func emergingSetPresentations() -> [AssetPresentation] {
         guard let photos = project?.photos else { return [] }

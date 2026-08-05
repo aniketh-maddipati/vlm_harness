@@ -220,14 +220,18 @@ struct GroupPresentation: Identifiable, Hashable, Sendable {
 }
 
 /// Spatial display within the continuous photographic workspace.
+/// Proof is no longer a destination — Read is a mode inside Story (⌘R).
 enum WorkspaceStage: String, CaseIterable, Hashable, Sendable {
     case workbench, canvas, proof
+
+    /// Stages shown in the header switch — Sources is routed separately.
+    static var switcherCases: [WorkspaceStage] { [.workbench, .canvas] }
 
     var title: String {
         switch self {
         case .workbench: "Workbench"
-        case .canvas: "Canvas"
-        case .proof: "Proof"
+        case .canvas: "Story"
+        case .proof: "Read"
         }
     }
 }

@@ -52,11 +52,12 @@ struct StoryCanvasView: View {
                     .foregroundStyle(LuminaTokens.Ink.tertiary)
             }
             Spacer(minLength: 12)
-            Button("Proof") { onEnterProof() }
+            Button("Read") { onEnterProof() }
                 .font(LuminaTokens.Typeface.navigation(14))
                 .foregroundStyle(LuminaTokens.Ink.secondary)
                 .buttonStyle(LuminaQuietButtonStyle())
                 .disabled(assets.isEmpty)
+                .help("⌘R")
         }
         .padding(.bottom, LuminaTokens.Spacing.sm)
     }
