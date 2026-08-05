@@ -80,57 +80,188 @@ struct LuminaShellView: View {
     @ViewBuilder
     private var workspaceBody: some View {
         let presentation = shell.workspacePresentation(model: model)
-        switch shell.lens {
-        case .attempts:
-            AttemptWorkspaceView(
+        let photoID = shell.selectedAssetID ?? presentation.selectedAssetID
+        let baseRecipe: DevelopRecipe = {
+            guard let photoID, let photo = model.photo(with: photoID) else { return .neutral }
+            switch shell.treatmentPreviewMode {
+            case .original: return .neutral
+            case .auto, .current: return model.appliedRecipe(for: photo)
+            }
+        }()
+
+        ZStack {
+            ContinuousWorkspaceView(
                 presentation: presentation,
-                isFocusMode: shell.isFocusMode,
-                showInspector: shell.showInspector,
-                onSelectAsset: { id in
-                    shell.selectAsset(id)
-                    if model.project != nil { model.setCursor(id) }
-                    _ = PreviewSpine.shared.paint(id: id, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
+                emergingSet: model.emergingSetPresentations(),
+                projectName: model.project?.name,
+                baseRecipe: baseRecipe,
+                workspaceStage: Binding(
+                    get: { shell.workspaceStage },
+                    set: { shell.setWorkspaceStage($0) }
+                ),
+                isRowExpanded: Binding(
+                    get: { shell.isRowExpanded },
+                    set: { shell.isRowExpanded = $0 }
+                ),
+                treatmentPreviewMode: Binding(
+                    get: { shell.treatmentPreviewMode },
+                    set: { shell.treatmentPreviewMode = $0 }
+                ),
+                developOffsets: Binding(
+                    get: { shell.developOffsets },
+                    set: { shell.developOffsets = $0 }
+                ),
+                showDetailedEdits: Binding(
+                    get: { shell.showDetailedEdits },
+                    set: { shell.showDetailedEdits = $0 }
+                ),
+                rowPreviewActive: Binding(
+                    get: { shell.rowPreviewActive },
+                    set: { shell.rowPreviewActive = $0 }
+                ),
+                stackPreviewMix: shell.stackPreviewMix,
+                workbenchScrollAnchor: shell.workbenchScrollAnchor,
+                canvasScrollAnchor: shell.canvasScrollAnchor,
+                proofScrollAnchor: shell.proofScrollAnchor,
+                routingFlightID: shell.routingFlightID,
+                routingFlightIDs: shell.routingFlightIDs,
+                decisionReceiptMessage: shell.decisionReceipt?.message,
+                selection: shell.workbenchSelection,
+                isTreatmentStageOpen: shell.isTreatmentStageOpen,
+                isReadMode: shell.isReadMode,
+                travelAnimation: shell.fastRunTracker.travelAnimation,
+                onDevelopChange: { offsets in
+                    guard let photoID else { return }
+                    shell.treatmentPreviewMode = .current
+                    shell.setDevelopOffsets(offsets, for: photoID, model: model)
                 },
-                onLensChange: { shell.setLens($0) },
-                onDecision: { shell.applyDecision($0, model: model) },
-                onToggleFocus: { shell.toggleFocus() },
-                onToggleInspector: { shell.toggleInspector() },
-                onHome: { shell.openHome() },
-                onFinish: { shell.openFinish() }
-            )
-        case .light:
-            LightWorkspaceView(
-                presentation: presentation,
-                onSelectAsset: { id in
-                    shell.selectAsset(id)
-                    if model.project != nil { model.setCursor(id) }
+                onSelectGroup: { groupID in
+                    shell.selectLead(in: groupID, model: model, presentation: presentation)
                 },
-                onSelectGroup: { shell.selectGroup($0) },
-                onLensChange: { shell.setLens($0) },
-                onToggleInclusion: { id in
-                    shell.selectAsset(id)
-                    if model.project != nil {
-                        model.setCursor(id)
-                        if model.selectedPhoto?.tier == .reject {
-                            model.markKeep()
-                        } else {
-                            model.markReject()
-                        }
-                        shell.invalidateCache()
+                onSelectPhoto: { groupID, assetID in
+                    shell.selectGroup(groupID)
+                    shell.selectAsset(assetID)
+                    shell.scrollTargetGroupID = groupID
+                    if model.project != nil { model.setCursor(assetID) }
+                    shell.loadDevelop(for: assetID, model: model)
+                    _ = PreviewSpine.shared.paint(id: assetID, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
+                },
+                onGatherPhoto: { assetID in
+                    shell.workbenchSelection.gather(assetID)
+                    shell.selectAsset(assetID)
+                    if model.project != nil { model.setCursor(assetID) }
+                    shell.loadDevelop(for: assetID, model: model)
+                },
+                onLensChange: { newLens in
+                    shell.setLens(newLens)
+                    shell.resetStackPreview()
+                    shell.refreshSnapshotsIfNeeded(model: model)
+                },
+                onSendToSet: { assetID, groupID in
+                    shell.selectGroup(groupID)
+                    shell.selectAsset(assetID)
+                    shell.applyDecision(.keep, for: assetID, model: model)
+                },
+                onFold: { assetID, groupID in
+                    shell.selectGroup(groupID)
+                    shell.selectAsset(assetID)
+                    shell.applyDecision(.cut, for: assetID, model: model)
+                },
+                onHold: { assetID, groupID in
+                    shell.selectGroup(groupID)
+                    shell.selectAsset(assetID)
+                    shell.applyDecision(.needsMe, for: assetID, model: model)
+                },
+                onRestore: { assetID in
+                    shell.restoreFromFold(assetID: assetID, model: model)
+                },
+                onUndo: {
+                    shell.undoLastDecision(model: model)
+                },
+                onFocusPhoto: { assetID in
+                    shell.selectAsset(assetID)
+                    shell.isFocusMode = true
+                },
+                onOpenTreatment: { assetID in
+                    shell.selectAsset(assetID)
+                    shell.loadDevelop(for: assetID, model: model)
+                    shell.openTreatmentStage()
+                },
+                onCloseTreatment: {
+                    shell.closeTreatmentStage()
+                },
+                onStageTreat: {
+                    guard let photoID,
+                          let photo = model.photo(with: photoID) else { return }
+                    let recipe = model.appliedRecipe(for: photo).applying(shell.developOffsets)
+                    _ = shell.workbenchSelection.stage(.treat(recipe))
+                    LuminaHaptics.decision()
+                },
+                onConfirmRound: {
+                    _ = shell.commitRound(shell.workbenchSelection, model: model)
+                },
+                onCancelStage: {
+                    shell.workbenchSelection.cancel()
+                    LuminaHaptics.alignment()
+                },
+                onStageAdvance: {
+                    if shell.workbenchSelection.stage(.advance) {
+                        LuminaHaptics.decision()
+                    } else {
+                        LuminaHaptics.light()
                     }
                 },
-                onSetReference: { id in
-                    shell.selectAsset(id)
-                    if model.project != nil {
-                        model.setCursor(id)
-                        model.markHero()
-                        shell.invalidateCache()
+                onStageSetAside: {
+                    if shell.workbenchSelection.stage(.setAside) {
+                        LuminaHaptics.decision()
+                    } else {
+                        LuminaHaptics.light()
                     }
                 },
+                onStageHold: {
+                    if shell.workbenchSelection.stage(.hold) {
+                        LuminaHaptics.decision()
+                    } else {
+                        LuminaHaptics.light()
+                    }
+                },
+                onPreviewEdits: { shell.toggleRowPreview() },
                 onHome: { shell.openHome() },
-                onFinish: { shell.openFinish() }
+                onFinish: { shell.openFinish() },
+                onOpenSources: { shell.openShootSelection() },
+                fidelity: {
+                    switch PreviewSpine.shared.paintedTier {
+                    case .empty, .silhouette: return .interactivePreview
+                    case .preview: return .fullPreview
+                    }
+                }(),
+                exifLine: photoID.flatMap { model.photo(with: $0)?.filename } ?? "",
+                sourceDisconnected: {
+                    guard let path = model.project?.rawFolder else { return false }
+                    return !FileManager.default.fileExists(atPath: path)
+                }()
             )
+            .commandHandling(shell: shell, model: model, presentation: presentation)
+
+            if shell.isFocusMode {
+                FocusOverlayView(
+                    presentation: presentation,
+                    onSelectAsset: { id in
+                        shell.selectAsset(id)
+                        if model.project != nil { model.setCursor(id) }
+                        shell.loadDevelop(for: id, model: model)
+                    },
+                    onClose: { shell.isFocusMode = false },
+                    onPrevious: {
+                        shell.moveAlternative(delta: -1, presentation: presentation, model: model)
+                    },
+                    onNext: {
+                        shell.moveAlternative(delta: 1, presentation: presentation, model: model)
+                    }
+                )
+            }
         }
+        .accessibilityHint(shell.workbenchSelection.accessibilityAnnouncement)
     }
 
     private func enterWorkspaceFromHome() {
@@ -148,17 +279,19 @@ struct KeyboardShortcutsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private let rows: [(String, String)] = [
-        ("← / →", "Previous / next attempt"),
-        ("↑ / ↓", "Alternative within attempt"),
-        ("Space", "Inspect at high fidelity"),
-        ("K", "Keep"),
-        ("X", "Cut"),
-        ("M", "Needs me"),
-        ("A", "Anchor"),
-        ("1", "Attempts lens"),
-        ("2", "Light lens"),
-        ("⌘Z", "Undo"),
-        ("Esc", "Leave Focus / inspector"),
+        ("↑ / ↓", "Previous / next family"),
+        ("← / →", "Move leader / tray focus"),
+        ("⌘-click", "Gather up to 3 photographs"),
+        ("⌘↩", "Stage Advance — ↩ confirms"),
+        ("⌘⌫", "Stage Set aside"),
+        ("⌘⇧↩", "Stage Hold"),
+        ("Esc", "Cancel staged action"),
+        ("T", "Open treatment (Edit)"),
+        ("Space", "Original hold (Edit) / 1:1 focus"),
+        ("⌘⌥C", "More treatment controls"),
+        ("⌘Z", "Undo whole round"),
+        ("⌘1 / ⌘2 / ⌘3", "Sources / Workbench / Story"),
+        ("⌘R", "Read inside Story"),
     ]
 
     var body: some View {
@@ -187,7 +320,7 @@ struct KeyboardShortcutsSheet: View {
             Spacer()
         }
         .padding(LuminaTokens.Spacing.xl)
-        .frame(width: 420, height: 460)
+        .frame(width: 420, height: 500)
         .background(LuminaTokens.Surface.porcelain)
     }
 }

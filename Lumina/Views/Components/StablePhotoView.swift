@@ -71,7 +71,7 @@ struct StablePhotoView: View {
                 .resizable()
                 .interpolation(fidelity <= .silhouette ? .medium : .high)
                 .aspectRatio(contentMode: contentMode)
-                .transition(reduceMotion ? .identity : .opacity)
+                .transition(reduceMotion ? .identity : .opacity.animation(LuminaTokens.Motion.fidelity))
         } else if loadFailed {
             Image(systemName: "photo")
                 .font(.system(size: 22, weight: .regular))
@@ -84,12 +84,19 @@ struct StablePhotoView: View {
     @ViewBuilder
     private var badge: some View {
         if asset.decision != .undecided {
-            Text(asset.decision.title)
-                .font(LuminaTokens.Typeface.meta(10, weight: .medium))
+            Text(asset.decision.quietMarker)
+                .font(LuminaTokens.Typeface.meta(10))
                 .foregroundStyle(badgeForeground)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(badgeBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(LuminaTokens.Surface.porcelain.opacity(0.92))
+                )
+                .overlay {
+                    Capsule(style: .continuous)
+                        .strokeBorder(badgeBorder, lineWidth: 1)
+                }
         }
     }
 
@@ -102,26 +109,28 @@ struct StablePhotoView: View {
         isSelected ? 1.5 : LuminaTokens.Line.hairlineWidth
     }
 
-    private var badgeBackground: Color {
+    private var badgeBorder: Color {
         switch asset.decision {
-        case .keep: LuminaTokens.Status.keep.opacity(0.92)
-        case .cut: LuminaTokens.Status.reject.opacity(0.92)
-        case .needsMe: LuminaTokens.Status.needsAttention.opacity(0.92)
-        case .anchor: LuminaTokens.Status.anchor.opacity(0.88)
+        case .cut: LuminaTokens.Status.reject.opacity(0.75)
+        case .needsMe: LuminaTokens.Status.needsAttention.opacity(0.55)
+        case .keep: LuminaTokens.Ink.primary.opacity(0.25)
+        case .anchor: LuminaTokens.Ink.primary.opacity(0.35)
         case .undecided: .clear
         }
     }
 
     private var badgeForeground: Color {
         switch asset.decision {
-        case .anchor: LuminaTokens.Surface.porcelain
-        default: Color.white
+        case .cut: LuminaTokens.Status.reject
+        case .needsMe: LuminaTokens.Status.needsAttention
+        case .keep, .anchor: LuminaTokens.Ink.primary
+        case .undecided: LuminaTokens.Ink.secondary
         }
     }
 
     private var accessibilityLabel: String {
         var parts = [asset.filename]
-        if asset.decision != .undecided { parts.append(asset.decision.title) }
+        if asset.decision != .undecided { parts.append(asset.decision.routingTitle) }
         if isSelected { parts.append("selected") }
         return parts.joined(separator: ", ")
     }
@@ -133,11 +142,15 @@ struct StablePhotoView: View {
         let generation = requestGeneration
 
         if boundAssetID != requestID {
-            // Identity changed — clear only when binding a different asset.
             boundAssetID = requestID
             if !upgradeOnly {
-                image = nil
-                fidelity = .empty
+                if let sil = PreviewSpine.shared.silhouetteImage(for: requestID) {
+                    image = sil
+                    fidelity = .silhouette
+                } else {
+                    image = nil
+                    fidelity = .empty
+                }
                 loadFailed = false
             }
         }
@@ -214,7 +227,7 @@ struct StableThumbView: View {
         VStack(spacing: 6) {
             StablePhotoView(
                 asset: asset,
-                contentMode: .fill,
+                contentMode: .fit,
                 cornerRadius: LuminaTokens.Radius.photographThumb,
                 showDecisionBadge: false,
                 isSelected: isSelected,
@@ -239,11 +252,17 @@ struct StableThumbView: View {
 struct SpineActiveStage: View {
     let assetID: AssetID?
     let filename: String
+    let imageAspect: CGFloat
     var isFocusMode: Bool = false
     var onDoubleTap: (() -> Void)? = nil
 
     @State private var spine = PreviewSpine.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var imagePixelSize: CGSize {
+        let height = max(imageAspect, 0.05)
+        return CGSize(width: height * 1000, height: 1000)
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -253,7 +272,10 @@ struct SpineActiveStage: View {
                 MetalBrowseCanvas(
                     photoID: spine.paintedPhotoID,
                     jpegPath: spine.paintedJPEGPath,
+                    imageSize: imagePixelSize,
+                    generation: UInt64(spine.generation),
                     photonInputTime: spine.paintedPhotoID.flatMap { spine.pendingPhotonTime(for: $0) },
+                    matteIsDark: isFocusMode,
                     onPhotonPresent: { input in
                         spine.recordPhotonPresent(inputTime: input)
                     }

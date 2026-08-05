@@ -1,0 +1,15 @@
+{
+  "method": {
+    "downsample": "CGContext high-quality / Lanczos-equivalent on export \u2192 preview long edge",
+    "align": "identical oriented extent after shared crop; pixel-grid alignment",
+    "metrics": [
+      "per_channel_mae",
+      "luminance_mae",
+      "ssim_luminance",
+      "clip_fraction"
+    ],
+    "tolerance_policy": "Set from measured evidence on representative ARW; do not invent perfect-match thresholds"
+  },
+  "status": "blocked",
+  "reason": "No preview/export PNG pair provided or Pillow unavailable"
+}

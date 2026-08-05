@@ -3,7 +3,6 @@ import Metal
 import CoreVideo
 import ImageIO
 import CoreGraphics
-import Accelerate
 
 extension Notification.Name {
     static let luminaTextureReady = Notification.Name("lumina.textureReady")
@@ -18,6 +17,13 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         var blitMs: Double = 0
         var wrapMs: Double = 0
         var cacheHit: Bool = false
+    }
+
+    struct TextureInfo: Sendable {
+        let texture: MTLTexture
+        let pixelWidth: Int
+        let pixelHeight: Int
+        let generation: UInt64
     }
 
     let device: MTLDevice?
@@ -37,6 +43,9 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         var photoID: UUID?
         var texture: MTLTexture?
         var pixelBuffer: CVPixelBuffer?
+        var pixelWidth: Int = 0
+        var pixelHeight: Int = 0
+        var uploadGeneration: UInt64 = 0
         var distanceBias: Int = .max
     }
 
@@ -59,13 +68,29 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         return slots.first(where: { $0.photoID == id })?.texture
     }
 
+    func textureInfo(for id: UUID) -> TextureInfo? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let slot = slots.first(where: { $0.photoID == id }),
+              let texture = slot.texture,
+              slot.pixelWidth > 0, slot.pixelHeight > 0 else { return nil }
+        return TextureInfo(
+            texture: texture,
+            pixelWidth: slot.pixelWidth,
+            pixelHeight: slot.pixelHeight,
+            generation: slot.uploadGeneration
+        )
+    }
+
     /// Background-only upload. Never call from the main thread.
     @discardableResult
-    func upload(id: UUID, jpegPath: String, distanceBias: Int = 0) -> UploadTimings {
+    func upload(id: UUID, jpegPath: String, distanceBias: Int = 0, generation: UInt64 = 0) -> UploadTimings {
         assert(!Thread.isMainThread, "MetalPreviewPool.upload must not run on the main thread")
 
         lock.lock()
-        if let existing = slots.firstIndex(where: { $0.photoID == id }), slots[existing].texture != nil {
+        if let existing = slots.firstIndex(where: { $0.photoID == id }),
+           slots[existing].texture != nil,
+           slots[existing].uploadGeneration == generation || generation == 0 {
             slots[existing].distanceBias = distanceBias
             lock.unlock()
             let hit = UploadTimings(cacheHit: true)
@@ -81,8 +106,11 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         guard let cg = Self.decodeBrowseJPEG(path: jpegPath, maxPixel: 2400) else { return timings }
         timings.decodeMs = (CFAbsoluteTimeGetCurrent() - decodeStart) * 1000
 
+        let pixelWidth = cg.width
+        let pixelHeight = cg.height
+
         let blitStart = CFAbsoluteTimeGetCurrent()
-        guard let pb = Self.makeIOSurfacePixelBuffer(width: cg.width, height: cg.height),
+        guard let pb = Self.makeIOSurfacePixelBuffer(width: pixelWidth, height: pixelHeight),
               Self.copyIntoPixelBuffer(cg, pb) else { return timings }
         timings.blitMs = (CFAbsoluteTimeGetCurrent() - blitStart) * 1000
 
@@ -93,30 +121,56 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         let w = CVPixelBufferGetWidth(pb)
         let h = CVPixelBufferGetHeight(pb)
         let status = CVMetalTextureCacheCreateTextureFromImage(
-            nil, cache, pb, nil, .bgra8Unorm, w, h, 0, &cvTexture
+            nil, cache, pb, nil, ImagePixelFormat.metalPixelFormat, w, h, 0, &cvTexture
         )
         timings.wrapMs = (CFAbsoluteTimeGetCurrent() - wrapStart) * 1000
         guard status == kCVReturnSuccess, let cvTexture,
               let texture = CVMetalTextureGetTexture(cvTexture) else { return timings }
 
         lock.lock()
+        // Discard stale uploads whose generation no longer matches a rebind.
+        if generation > 0,
+           let existing = slots.firstIndex(where: { $0.photoID == id }),
+           slots[existing].uploadGeneration > generation {
+            lock.unlock()
+            return timings
+        }
         let idx = pickSlotLocked()
-        slots[idx] = Slot(photoID: id, texture: texture, pixelBuffer: pb, distanceBias: distanceBias)
+        slots[idx] = Slot(
+            photoID: id,
+            texture: texture,
+            pixelBuffer: pb,
+            pixelWidth: pixelWidth,
+            pixelHeight: pixelHeight,
+            uploadGeneration: generation,
+            distanceBias: distanceBias
+        )
         ringIndex = (idx + 1) % slotCount
         lock.unlock()
 
         recordTimings(timings)
         DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .luminaTextureReady, object: nil, userInfo: ["photoID": id])
+            NotificationCenter.default.post(
+                name: .luminaTextureReady,
+                object: nil,
+                userInfo: [
+                    "photoID": id,
+                    "generation": generation,
+                    "pixelWidth": pixelWidth,
+                    "pixelHeight": pixelHeight,
+                ]
+            )
         }
         return timings
     }
 
     /// Schedule upload off the main thread; no-op if texture already resident.
-    func scheduleUpload(id: UUID, jpegPath: String, distanceBias: Int = 0) {
-        guard texture(for: id) == nil else { return }
+    func scheduleUpload(id: UUID, jpegPath: String, distanceBias: Int = 0, generation: UInt64 = 0) {
+        if let info = textureInfo(for: id), generation == 0 || info.generation == generation {
+            return
+        }
         uploadQueue.async {
-            _ = self.upload(id: id, jpegPath: jpegPath, distanceBias: distanceBias)
+            _ = self.upload(id: id, jpegPath: jpegPath, distanceBias: distanceBias, generation: generation)
         }
     }
 
@@ -198,7 +252,7 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         _ = ext
     }
 
-    /// Cached preview JPEG only — IfAbsent/Always false so ImageIO never demosaics.
+    /// Cached preview JPEG only — EXIF orientation applied once via ImageIO transform.
     private static func decodeBrowseJPEG(path: String, maxPixel: Int) -> CGImage? {
         assertBrowseJPEGPath(path)
         let url = URL(fileURLWithPath: path)
@@ -210,12 +264,6 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         }()
         guard let source else { return nil }
 
-        // JPEG cache file: decode stored image, do not synthesize from absent thumbnail.
-        if let full = CGImageSourceCreateImageAtIndex(source, 0, nil) {
-            let edge = max(full.width, full.height)
-            if edge <= maxPixel { return full }
-        }
-
         let opts: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
             kCGImageSourceCreateThumbnailFromImageAlways: false,
@@ -223,21 +271,29 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceShouldCacheImmediately: false,
         ]
-        return CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary)
-            ?? CGImageSourceCreateImageAtIndex(source, 0, nil)
+
+        if let thumb = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) {
+            return thumb
+        }
+        if let full = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+            let edge = max(full.width, full.height)
+            if edge <= maxPixel { return full }
+        }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 
     private static func makeIOSurfacePixelBuffer(width: Int, height: Int) -> CVPixelBuffer? {
         let attrs: [String: Any] = [
             kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any],
             kCVPixelBufferMetalCompatibilityKey as String: true,
+            kCVPixelBufferCGImageCompatibilityKey as String: true,
         ]
         var pb: CVPixelBuffer?
         let status = CVPixelBufferCreate(
             kCFAllocatorDefault,
             width,
             height,
-            kCVPixelFormatType_32BGRA,
+            ImagePixelFormat.pixelBufferType,
             attrs as CFDictionary,
             &pb
         )
@@ -245,40 +301,27 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         return pb
     }
 
-    /// vImage copy/convert — not CGContext.draw (no full software raster pass).
+    /// Convert decoded CGImage into canonical BGRA8 using explicit working color space.
     private static func copyIntoPixelBuffer(_ image: CGImage, _ pb: CVPixelBuffer) -> Bool {
         CVPixelBufferLockBaseAddress(pb, [])
         defer { CVPixelBufferUnlockBaseAddress(pb, []) }
 
-        var srcFormat = vImage_CGImageFormat(
-            bitsPerComponent: UInt32(image.bitsPerComponent),
-            bitsPerPixel: UInt32(image.bitsPerPixel),
-            colorSpace: Unmanaged.passUnretained(image.colorSpace ?? CGColorSpaceCreateDeviceRGB()),
-            bitmapInfo: image.bitmapInfo,
-            version: 0,
-            decode: nil,
-            renderingIntent: .defaultIntent
-        )
+        let width = CVPixelBufferGetWidth(pb)
+        let height = CVPixelBufferGetHeight(pb)
+        guard let base = CVPixelBufferGetBaseAddress(pb) else { return false }
 
-        var src = vImage_Buffer()
-        guard vImageBuffer_InitWithCGImage(&src, &srcFormat, nil, image, vImage_Flags(kvImageNoFlags)) == kvImageNoError else {
-            return false
-        }
-        defer { free(src.data) }
+        guard let context = CGContext(
+            data: base,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(pb),
+            space: ImagePixelFormat.workingColorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else { return false }
 
-        var dst = vImage_Buffer(
-            data: CVPixelBufferGetBaseAddress(pb),
-            height: vImagePixelCount(CVPixelBufferGetHeight(pb)),
-            width: vImagePixelCount(CVPixelBufferGetWidth(pb)),
-            rowBytes: CVPixelBufferGetBytesPerRow(pb)
-        )
-
-        if image.bitsPerPixel == 24 {
-            return vImageConvert_RGB888toBGRA8888(&src, nil, 255, &dst, false, vImage_Flags(kvImageNoFlags)) == kvImageNoError
-        }
-        if image.bitsPerPixel == 32 {
-            return vImageCopyBuffer(&src, &dst, 4, vImage_Flags(kvImageNoFlags)) == kvImageNoError
-        }
-        return false
+        context.interpolationQuality = .medium
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return true
     }
 }

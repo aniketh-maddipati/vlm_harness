@@ -1,12 +1,12 @@
 import SwiftUI
 
 struct LuminaPressStyle: ButtonStyle {
-    var pressedScale: CGFloat = 0.97
+    var pressedScale: CGFloat = 0.98
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? pressedScale : 1)
-            .opacity(configuration.isPressed ? 0.78 : 1)
+            .opacity(configuration.isPressed ? 0.72 : 1)
             .animation(LuminaTokens.Motion.control, value: configuration.isPressed)
     }
 }
@@ -14,16 +14,22 @@ struct LuminaPressStyle: ButtonStyle {
 struct LuminaPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(LuminaTokens.Typeface.control(16, weight: .medium))
-            .padding(.horizontal, 28)
-            .padding(.vertical, 14)
-            .frame(minHeight: 48)
+            .font(LuminaTokens.Typeface.navigation(15))
+            .foregroundStyle(LuminaTokens.Ink.primary)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 10)
+            .frame(minHeight: 40)
             .background(
-                LuminaTokens.Ink.primary.opacity(configuration.isPressed ? 0.72 : 0.92),
-                in: RoundedRectangle(cornerRadius: LuminaTokens.Radius.button, style: .continuous)
+                Capsule(style: .continuous)
+                    .fill(configuration.isPressed ? LuminaTokens.Surface.hover : Color.clear)
             )
-            .foregroundStyle(LuminaTokens.Surface.porcelain)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .overlay {
+                Capsule(style: .continuous)
+                    .strokeBorder(
+                        LuminaTokens.Ink.primary.opacity(configuration.isPressed ? 0.45 : 0.85),
+                        lineWidth: 1
+                    )
+            }
             .animation(LuminaTokens.Motion.control, value: configuration.isPressed)
     }
 }
@@ -31,10 +37,10 @@ struct LuminaPrimaryButtonStyle: ButtonStyle {
 struct LuminaGhostButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(LuminaTokens.Typeface.control(15))
+            .font(LuminaTokens.Typeface.navigation(15))
             .foregroundStyle(LuminaTokens.Ink.secondary.opacity(configuration.isPressed ? 0.55 : 0.95))
             .padding(.horizontal, 18)
-            .padding(.vertical, 12)
+            .padding(.vertical, 10)
             .animation(LuminaTokens.Motion.control, value: configuration.isPressed)
     }
 }
@@ -67,16 +73,20 @@ struct LuminaDecisionButton: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Text(role.shortcut)
-                    .font(.system(size: 15, weight: .medium, design: .monospaced))
-                    .foregroundStyle(LuminaTokens.Ink.primary)
+                    .font(LuminaTokens.Typeface.navigation(14, weight: .medium))
+                    .foregroundStyle(foreground)
                 Text(role.title)
                     .font(LuminaTokens.Typeface.meta(11))
                     .foregroundStyle(LuminaTokens.Ink.secondary)
             }
-            .frame(minWidth: 64, minHeight: 44)
+            .frame(minWidth: 56, minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(LuminaPressStyle())
+    }
+
+    private var foreground: Color {
+        role == .reject ? LuminaTokens.Status.reject : LuminaTokens.Ink.primary
     }
 }
 
@@ -86,21 +96,13 @@ struct LuminaDecisionBar: View {
     let onKeep: () -> Void
 
     var body: some View {
-        HStack(spacing: 28) {
+        HStack(spacing: 24) {
             LuminaDecisionButton(role: .reject, action: onReject)
             LuminaDecisionButton(role: .hero, action: onHero)
             LuminaDecisionButton(role: .keep, action: onKeep)
         }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: LuminaTokens.Radius.dock, style: .continuous)
-                .fill(LuminaTokens.Surface.elevated.opacity(0.92))
-                .overlay(
-                    RoundedRectangle(cornerRadius: LuminaTokens.Radius.dock, style: .continuous)
-                        .strokeBorder(LuminaTokens.Line.hairline, lineWidth: LuminaTokens.Line.hairlineWidth)
-                )
-        )
+        .padding(.horizontal, 18)
+        .padding(.vertical, 8)
     }
 }
 
@@ -111,9 +113,9 @@ struct LuminaFooterBar<Content: View>: View {
         HStack(spacing: 14) {
             content()
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
         .padding(.vertical, 10)
-        .background(LuminaTokens.Surface.elevated)
+        .background(LuminaTokens.Surface.porcelain)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(LuminaTokens.Line.hairline)

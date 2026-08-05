@@ -15,6 +15,23 @@ open Lumina.xcodeproj
 # ⌘R to build and run
 ```
 
+## Workspace (continuous cull)
+
+Inside an open shoot, the workspace has three stages (**Workbench · Canvas · Proof**) — same photos and selection throughout.
+
+| Key | Action |
+|-----|--------|
+| ↑ / ↓ | Previous / next comparison row |
+| ← / → | Previous / next photo in row |
+| Return | Expand / collapse row |
+| Space | High-resolution focus |
+| S | Send to emerging set (Keep) |
+| X | Fold (Reject) |
+| M | Hold / Maybe |
+| ⌘1 / ⌘2 / ⌘3 | Workbench / Canvas / Proof |
+
+Lens switching (Subject vs Time grouping) is in the toolbar.
+
 Or:
 
 ```bash

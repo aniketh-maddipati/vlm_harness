@@ -4,6 +4,27 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-04 — Continuous workspace (Workbench / Canvas / Proof)
+
+**Claim:** Replace stack-table + fixed develop sidebar with one continuous photographic workspace — three spatial stages sharing selection and scroll identity.
+
+**Implemented:**
+- `WorkspaceStage` (workbench / canvas / proof) on `LuminaShellModel` — no new top-level routes.
+- `ContinuousWorkspaceView` + `TreatmentFamilyRow` (≤8 photos, capture order, equal-size expanded grid).
+- `ContextualTreatmentStrip` under expanded row (Original / Auto / Current + develop sliders).
+- `EmergingSetRail` (kept photos, collapses to tab @ <1100 pt width).
+- `StoryCanvasView` / `StoryProofView` — vertical draft sequence, Esc returns to Canvas.
+- Keyboard: S/X/M routing, Return expand, Space focus, ⌘1/2/3 stages; destructive swipes removed.
+- Presentation buckets capped at **8**; sibling continuation cues for split clusters.
+
+**Build:** `xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug build` → **BUILD SUCCEEDED** (macOS).
+
+**Not verified this session:** Live Mehendi/Death Valley GUI, regression.sh E2E, quit/resume, screenshots.
+
+**Debt:** Undo, persisted story order, per-frame adaptive develop, treatment-compatible grouping — see `docs/WORKSPACE_LAYOUT_REPORT.md`.
+
+---
+
 ## 2026-08-04 — Phase 1 shell + spine bridge (cloud follow-up)
 
 **Claim:** Re-land Phase 1 shell on `cursor/ethereal-ui`, connect Attempts active stage to PreviewSpine/Metal, cache presentation adapters, fix Escape, bring `AGENTS.md` from main.
@@ -141,3 +162,15 @@ Diagnostic session only — **no re-architect**. Profile main thread during rip;
 2. Confirm Pick grid after "Pick from this set" — no spinners on cached thumbs
 3. If p95 still fails, diagnostic session only — profile main thread during rip
 4. Optional hardening (only if rip profile confirms): inflight dedup in `MetalPreviewPool.upload`; throttle `tierLabel` like filmstrip
+
+---
+
+## 2026-08-05 — RAW develop engine foundation + Develop Lab
+
+**Claim:** Replace unreliable JPEG-proxy editing with a unified RAW develop graph, immutable recipes, batch treatment, and an isolated `--develop-lab` before Workbench integration.
+
+**Implemented:** `EditRecipe` / `PhotoEditBinding` / `BatchTreatmentSession` / `DevelopRenderGraph` (CIRAWFilter→CI) / `DevelopRenderScheduler` / `--develop-lab` UI / TIFF export hook / docs + deterministic tests.
+
+**Linux verification:** `python3 Scripts/develop_engine_test.py` PASS. `xcodebuild` / live ARW **blocked** on Ubuntu cloud VM.
+
+**Not done:** Workbench Edit integration (gated on live-RAW), measured perf/fidelity on Mac, GUI screenshots from real ARW.

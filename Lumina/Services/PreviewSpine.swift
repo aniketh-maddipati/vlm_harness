@@ -59,7 +59,7 @@ final class PreviewSpine {
     private var silhouettePathByID: [UUID: String] = [:]
     private var inflightSilhouette = Set<UUID>()
     private var inflightGPU = Set<UUID>()
-    private var generation = 0
+    private(set) var generation = 0
     private var recentAdvanceTimes: [CFAbsoluteTime] = []
     private var pendingPhotonInputTime: CFAbsoluteTime?
 
@@ -380,7 +380,7 @@ final class PreviewSpine {
         let bias = distanceBias
 
         decodeQueue.async { [weak self] in
-            _ = MetalPreviewPool.shared.upload(id: id, jpegPath: path, distanceBias: bias)
+            _ = MetalPreviewPool.shared.upload(id: id, jpegPath: path, distanceBias: bias, generation: UInt64(gen))
             DispatchQueue.main.async {
                 guard let self, self.generation == gen else { return }
                 self.inflightGPU.remove(id)

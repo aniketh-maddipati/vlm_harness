@@ -14,7 +14,7 @@ struct WorkspaceToolbar: View {
             if let onHome {
                 Button(action: onHome) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(LuminaTokens.Typeface.navigation(13, weight: .medium))
                         .foregroundStyle(LuminaTokens.Ink.secondary)
                         .frame(width: LuminaTokens.HitTarget.minimum, height: LuminaTokens.HitTarget.minimum)
                         .contentShape(Rectangle())
@@ -24,7 +24,7 @@ struct WorkspaceToolbar: View {
             }
 
             Text(title)
-                .font(LuminaTokens.Typeface.title(20))
+                .font(LuminaTokens.Typeface.editorial(30))
                 .foregroundStyle(LuminaTokens.Ink.primary)
                 .lineLimit(1)
 
@@ -34,8 +34,8 @@ struct WorkspaceToolbar: View {
 
             Text(progressLabel)
                 .font(LuminaTokens.Typeface.count(13))
-                .foregroundStyle(LuminaTokens.Ink.secondary)
-                .frame(minWidth: 72, alignment: .trailing)
+                .foregroundStyle(LuminaTokens.Ink.tertiary)
+                .frame(minWidth: 64, alignment: .trailing)
                 .accessibilityLabel("Progress \(progressLabel)")
 
             Menu {
@@ -49,7 +49,7 @@ struct WorkspaceToolbar: View {
                 Button("Home") { onHome?() }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(LuminaTokens.Typeface.navigation(14, weight: .medium))
                     .foregroundStyle(LuminaTokens.Ink.secondary)
                     .frame(width: LuminaTokens.HitTarget.minimum, height: LuminaTokens.HitTarget.minimum)
                     .contentShape(Rectangle())
@@ -58,12 +58,12 @@ struct WorkspaceToolbar: View {
             .frame(width: LuminaTokens.HitTarget.minimum, height: LuminaTokens.HitTarget.minimum)
             .accessibilityLabel("More")
         }
-        .padding(.horizontal, LuminaTokens.Spacing.lg)
-        .frame(height: 56)
+        .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
+        .frame(height: LuminaTokens.HitTarget.header)
         .background(LuminaTokens.Surface.porcelain)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(LuminaTokens.Line.hairline)
+                .fill(LuminaTokens.Line.hairline.opacity(0.65))
                 .frame(height: LuminaTokens.Line.hairlineWidth)
         }
     }
@@ -74,20 +74,32 @@ struct LensSwitcher: View {
     let onChange: (WorkspaceLens) -> Void
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: LuminaTokens.Spacing.lg) {
             ForEach(WorkspaceLens.allCases) { item in
                 Button {
                     onChange(item)
                 } label: {
                     Text(item.title)
-                        .font(LuminaTokens.Typeface.control(13, weight: lens == item ? .medium : .regular))
+                        .font(LuminaTokens.Typeface.navigation(15))
                         .foregroundStyle(lens == item ? LuminaTokens.Ink.primary : LuminaTokens.Ink.tertiary)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 32)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(lens == item ? LuminaTokens.Surface.secondary : Color.clear)
-                        )
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(alignment: .bottom) {
+                            if lens == item {
+                                Capsule(style: .continuous)
+                                    .fill(LuminaTokens.Surface.mist)
+                                    .padding(.horizontal, -4)
+                                    .padding(.vertical, -2)
+                            }
+                        }
+                        .overlay(alignment: .bottom) {
+                            if lens == item {
+                                Rectangle()
+                                    .fill(LuminaTokens.Ink.primary.opacity(0.35))
+                                    .frame(height: 1)
+                                    .offset(y: 8)
+                            }
+                        }
                 }
                 .buttonStyle(LuminaQuietButtonStyle())
                 .accessibilityLabel("\(item.title) lens")
@@ -95,11 +107,6 @@ struct LensSwitcher: View {
                 .help("\(item.title) (\(item.shortcut))")
             }
         }
-        .padding(3)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(LuminaTokens.Surface.mist)
-        )
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Workspace lens")
     }
@@ -130,7 +137,7 @@ struct AttemptFilmstrip: View {
                         .id(asset.id)
                     }
                 }
-                .padding(.horizontal, LuminaTokens.Spacing.lg)
+                .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
                 .padding(.vertical, LuminaTokens.Spacing.sm)
             }
             .onChange(of: selectedID) { _, new in
@@ -152,22 +159,23 @@ struct GroupRelationshipCaption: View {
         HStack(spacing: 8) {
             if let subtitle = group.subtitle {
                 Text(subtitle)
-                    .font(LuminaTokens.Typeface.meta(12))
+                    .font(LuminaTokens.Typeface.meta(13))
                     .foregroundStyle(LuminaTokens.Ink.secondary)
             }
             if let note = group.relationshipNote {
                 Text("·").foregroundStyle(LuminaTokens.Ink.tertiary)
                 Text(note)
-                    .font(LuminaTokens.Typeface.meta(12))
+                    .font(LuminaTokens.Typeface.meta(13))
                     .foregroundStyle(LuminaTokens.Ink.tertiary)
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, LuminaTokens.Spacing.lg)
+        .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
         .accessibilityElement(children: .combine)
     }
 }
 
+/// Flat content container — whitespace grouping, no dashboard card chrome.
 struct LuminaCard<Content: View>: View {
     var bodyContent: () -> Content
 
@@ -177,16 +185,7 @@ struct LuminaCard<Content: View>: View {
 
     var body: some View {
         bodyContent()
-            .padding(LuminaTokens.Spacing.lg)
-            .background(
-                RoundedRectangle(cornerRadius: LuminaTokens.Radius.card, style: .continuous)
-                    .fill(LuminaTokens.Surface.elevated)
-                    .shadow(color: LuminaTokens.Depth.softShadow, radius: 14, y: 4)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: LuminaTokens.Radius.card, style: .continuous)
-                    .strokeBorder(LuminaTokens.Line.hairline, lineWidth: LuminaTokens.Line.hairlineWidth)
-            }
+            .padding(.vertical, LuminaTokens.Spacing.md)
     }
 }
 
@@ -194,9 +193,8 @@ struct SectionHeader: View {
     let title: String
 
     var body: some View {
-        Text(title.uppercased())
-            .font(LuminaTokens.Typeface.meta(11, weight: .medium))
-            .tracking(1.1)
+        Text(title)
+            .font(LuminaTokens.Typeface.navigation(13))
             .foregroundStyle(LuminaTokens.Ink.tertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.isHeader)

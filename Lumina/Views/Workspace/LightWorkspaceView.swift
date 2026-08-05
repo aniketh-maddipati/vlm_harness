@@ -190,7 +190,7 @@ struct LightWorkspaceView: View {
                 } label: {
                     StablePhotoView(
                         asset: asset,
-                        contentMode: .fill,
+                        contentMode: .fit,
                         cornerRadius: LuminaTokens.Radius.photographThumb,
                         showDecisionBadge: true,
                         isSelected: asset.id == presentation.selectedAssetID,
@@ -222,7 +222,7 @@ private struct PaletteRailItem: View {
                 if let rep = group.representative {
                     StablePhotoView(
                         asset: rep,
-                        contentMode: .fill,
+                        contentMode: .fit,
                         cornerRadius: LuminaTokens.Radius.photographThumb,
                         maxPixelSize: 256
                     )

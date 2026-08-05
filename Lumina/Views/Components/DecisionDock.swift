@@ -5,10 +5,10 @@ struct DecisionDock: View {
     var isCompact: Bool = false
     let onDecision: (AssetDecision) -> Void
 
-    private let roles: [AssetDecision] = [.cut, .needsMe, .keep, .anchor]
+    private let roles: [AssetDecision] = [.cut, .needsMe, .keep]
 
     var body: some View {
-        HStack(spacing: isCompact ? 8 : 12) {
+        HStack(spacing: isCompact ? 6 : 10) {
             ForEach(roles) { role in
                 DecisionDockButton(
                     role: role,
@@ -19,22 +19,8 @@ struct DecisionDock: View {
                 }
             }
         }
-        .padding(.horizontal, isCompact ? 14 : 20)
-        .padding(.vertical, isCompact ? 10 : 12)
-        .frame(height: LuminaTokens.HitTarget.dockHeight)
-        .background(
-            RoundedRectangle(cornerRadius: LuminaTokens.Radius.dock, style: .continuous)
-                .fill(LuminaTokens.Surface.elevated)
-                .shadow(
-                    color: LuminaTokens.Depth.softShadow,
-                    radius: LuminaTokens.Depth.softShadowRadius,
-                    y: LuminaTokens.Depth.softShadowY
-                )
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: LuminaTokens.Radius.dock, style: .continuous)
-                .strokeBorder(LuminaTokens.Line.hairline, lineWidth: LuminaTokens.Line.hairlineWidth)
-        }
+        .padding(.horizontal, isCompact ? 10 : 14)
+        .padding(.vertical, isCompact ? 6 : 8)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Decision dock")
     }
@@ -48,25 +34,28 @@ private struct DecisionDockButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 3) {
+            VStack(spacing: 2) {
                 Text(role.shortcut)
-                    .font(LuminaTokens.Typeface.control(isCompact ? 13 : 15, weight: .medium))
-                    .foregroundStyle(ink)
-                    .frame(width: 18, height: 18)
+                    .font(LuminaTokens.Typeface.navigation(isCompact ? 13 : 14, weight: .medium))
+                    .foregroundStyle(labelInk)
                 Text(role.title)
-                    .font(LuminaTokens.Typeface.meta(isCompact ? 10 : 11, weight: .medium))
-                    .foregroundStyle(ink.opacity(0.78))
+                    .font(LuminaTokens.Typeface.meta(isCompact ? 10 : 11))
+                    .foregroundStyle(LuminaTokens.Ink.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
             }
-            .frame(minWidth: isCompact ? 64 : 84)
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: LuminaTokens.HitTarget.decision)
-            .contentShape(Rectangle())
+            .frame(minWidth: isCompact ? 52 : 68)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: LuminaTokens.Radius.button, style: .continuous)
+                Capsule(style: .continuous)
+                    .strokeBorder(borderInk, lineWidth: isActive ? 1 : 0)
+            )
+            .background(
+                Capsule(style: .continuous)
                     .fill(isActive ? activeFill : Color.clear)
             )
+            .contentShape(Capsule(style: .continuous))
         }
         .buttonStyle(LuminaQuietButtonStyle())
         .help("\(role.title) (\(role.shortcut))")
@@ -74,27 +63,22 @@ private struct DecisionDockButton: View {
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
-    private var ink: Color {
-        isActive ? activeInk : LuminaTokens.Ink.primary
+    private var labelInk: Color {
+        if isActive, role == .cut { return LuminaTokens.Status.reject }
+        return isActive ? LuminaTokens.Ink.primary : LuminaTokens.Ink.secondary
+    }
+
+    private var borderInk: Color {
+        if isActive, role == .cut { return LuminaTokens.Status.reject.opacity(0.65) }
+        return isActive ? LuminaTokens.Ink.primary.opacity(0.35) : .clear
     }
 
     private var activeFill: Color {
         switch role {
-        case .cut: LuminaTokens.Status.reject.opacity(0.12)
-        case .needsMe: LuminaTokens.Status.needsAttention.opacity(0.14)
-        case .keep: LuminaTokens.Status.keep.opacity(0.16)
-        case .anchor: LuminaTokens.Ink.primary.opacity(0.08)
-        case .undecided: .clear
-        }
-    }
-
-    private var activeInk: Color {
-        switch role {
-        case .cut: LuminaTokens.Status.reject
-        case .needsMe: LuminaTokens.Status.needsAttention
-        case .keep: LuminaTokens.Ink.primary
-        case .anchor: LuminaTokens.Ink.primary
-        case .undecided: LuminaTokens.Ink.primary
+        case .cut: LuminaTokens.Status.reject.opacity(0.06)
+        case .needsMe: LuminaTokens.Status.needsAttention.opacity(0.08)
+        case .keep: LuminaTokens.Surface.mist
+        case .undecided, .anchor: .clear
         }
     }
 }
@@ -116,14 +100,17 @@ struct LuminaTextActionButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(LuminaTokens.Typeface.control(15, weight: .medium))
-                .foregroundStyle(prominent ? LuminaTokens.Surface.porcelain : LuminaTokens.Ink.primary)
-                .padding(.horizontal, prominent ? 22 : 16)
-                .padding(.vertical, 12)
+                .font(LuminaTokens.Typeface.navigation(15))
+                .foregroundStyle(LuminaTokens.Ink.primary)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
                 .frame(minHeight: LuminaTokens.HitTarget.minimum)
                 .background(
-                    RoundedRectangle(cornerRadius: LuminaTokens.Radius.button, style: .continuous)
-                        .fill(prominent ? LuminaTokens.Ink.primary : LuminaTokens.Surface.secondary)
+                    Capsule(style: .continuous)
+                        .strokeBorder(
+                            LuminaTokens.Ink.primary.opacity(prominent ? 0.85 : 0.55),
+                            lineWidth: 1
+                        )
                 )
         }
         .buttonStyle(LuminaQuietButtonStyle())
@@ -138,7 +125,7 @@ struct LuminaGhostActionButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(LuminaTokens.Typeface.control(14))
+                .font(LuminaTokens.Typeface.navigation(15))
                 .foregroundStyle(LuminaTokens.Ink.secondary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)

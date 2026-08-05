@@ -58,8 +58,11 @@ struct ContentView: View {
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: handleDrop)
         .onAppear {
             guard keyMonitor == nil else { return }
-            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) {
-                handleKey($0)
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .swipe]) { event in
+                if event.type == .swipe, shell.route == .workspace {
+                    return handleSwipe(event) ?? event
+                }
+                return handleKey(event)
             }
             model.refreshResumeAvailability()
             model.restoreCatalogQueueIfNeeded()
@@ -92,6 +95,26 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .luminaScanBacklog)) { _ in
             model.pickCatalogRoot()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .luminaOpenSources)) { _ in
+            shell.openShootSelection()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .luminaOpenWorkbench)) { _ in
+            if shell.route != .workspace { shell.openWorkspace(lens: shell.lens) }
+            shell.setWorkspaceStage(.workbench)
+            shell.isReadMode = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .luminaOpenStory)) { _ in
+            if shell.route != .workspace { shell.openWorkspace(lens: shell.lens) }
+            shell.setWorkspaceStage(.canvas)
+            shell.isReadMode = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .luminaEnterRead)) { _ in
+            if shell.route != .workspace { shell.openWorkspace(lens: shell.lens) }
+            shell.enterReadMode()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .luminaMoreTreatment)) { _ in
+            shell.showDetailedEdits = true
+        }
         .onChange(of: model.isImporting) { _, importing in
             if !importing, model.project != nil {
                 shell.invalidateCache()
@@ -113,28 +136,71 @@ struct ContentView: View {
         }
     }
 
+    private func handleSwipe(_ event: NSEvent) -> NSEvent? {
+        event
+    }
+
     private func handleKey(_ event: NSEvent) -> NSEvent? {
         if NSApp.keyWindow?.firstResponder is NSTextView { return event }
 
-        if event.modifierFlags.contains(.command) {
-            if event.type == .keyDown,
-               event.charactersIgnoringModifiers?.lowercased() == "k" {
+        // Command-layer owns workspace ⌘ chords when the workbench selection is active.
+        // ContentView keeps legacy single-key routing for an empty selection.
+        let selection = shell.workbenchSelection
+        let commandLayerActive = shell.route == .workspace
+            && (selection.isHandling || selection.staged != nil || !selection.isEmpty || shell.isTreatmentStageOpen)
+
+        if event.modifierFlags.contains(.command), event.type == .keyDown {
+            let chars = event.charactersIgnoringModifiers?.lowercased()
+            let option = event.modifierFlags.contains(.option)
+            let shift = event.modifierFlags.contains(.shift)
+
+            if shell.route == .workspace {
+                switch chars {
+                case "1" where !option && !shift:
+                    shell.openShootSelection()
+                    return nil
+                case "2" where !option && !shift:
+                    shell.setWorkspaceStage(.workbench)
+                    shell.isReadMode = false
+                    return nil
+                case "3" where !option && !shift:
+                    shell.setWorkspaceStage(.canvas)
+                    shell.isReadMode = false
+                    return nil
+                case "r" where !option && !shift:
+                    shell.enterReadMode()
+                    return nil
+                case "z" where !option && !shift:
+                    if shell.lastRoundReceipt != nil || shell.decisionUndo != nil {
+                        shell.undoLastDecision(model: model)
+                        return nil
+                    }
+                case "c" where option && !shift:
+                    shell.showDetailedEdits = true
+                    return nil
+                default:
+                    break
+                }
+
+                // Let CommandHandlingModifier own Return / Delete staging when gathering.
+                if commandLayerActive {
+                    let isReturn = event.keyCode == 36 || event.keyCode == 76
+                    let isDelete = event.keyCode == 51 || event.keyCode == 117
+                    if isReturn || isDelete {
+                        return event
+                    }
+                }
+            } else if chars == "k" {
                 NotificationCenter.default.post(name: .focusLuminaSearch, object: nil)
                 return nil
             }
-            if event.type == .keyDown, event.keyCode == 36 {
+
+            if event.keyCode == 36, shell.route != .workspace {
                 model.exportCarousel()
-                return nil
-            }
-            if event.type == .keyDown,
-               event.charactersIgnoringModifiers?.lowercased() == "z" {
                 return nil
             }
             return event
         }
-
-        let chars = event.charactersIgnoringModifiers?.lowercased()
-        let held = event.isARepeat
 
         if event.type == .keyDown, event.keyCode == 50, event.modifierFlags.contains(.option) {
             model.toggleSpeedHUD()
@@ -142,90 +208,84 @@ struct ContentView: View {
         }
 
         if event.type == .keyDown {
-            switch chars {
-            case "1":
-                shell.setLens(.attempts)
-                if shell.route != .workspace { shell.openWorkspace(lens: .attempts) }
-                return nil
-            case "2":
-                shell.setLens(.light)
-                if shell.route != .workspace { shell.openWorkspace(lens: .light) }
-                return nil
-            case "k", "p":
-                if shell.route == .workspace {
-                    shell.applyDecision(.keep, model: model)
-                    return nil
-                }
-            case "x":
-                if shell.route == .workspace {
-                    shell.applyDecision(.cut, model: model)
-                    return nil
-                }
-            case "m":
-                if shell.route == .workspace {
-                    shell.applyDecision(.needsMe, model: model)
-                    return nil
-                }
-            case "a":
-                if shell.route == .workspace {
-                    shell.applyDecision(.anchor, model: model)
-                    return nil
-                }
-            case " ":
-                if shell.route == .workspace {
-                    shell.toggleFocus()
-                    return nil
-                }
-            case "g":
-                shell.openFinish()
-                return nil
-            case "f":
-                if shell.route == .workspace {
-                    shell.moveAttempt(
-                        delta: 1,
-                        presentation: shell.workspacePresentation(model: model),
-                        model: model
-                    )
-                    return nil
-                }
-            case "d":
-                if shell.route == .workspace {
-                    shell.moveAttempt(
-                        delta: -1,
-                        presentation: shell.workspacePresentation(model: model),
-                        model: model
-                    )
-                    return nil
-                }
-            default:
-                break
-            }
-
-            // Escape — Focus / inspector / shortcuts only. Never jump workspace → Home.
             if event.keyCode == 53 {
                 if shell.handleEscape() { return nil }
                 return event
             }
 
-            if event.keyCode == 123, shell.route == .workspace {
-                shell.moveAttempt(delta: -1, presentation: shell.workspacePresentation(model: model), model: model)
-                return nil
+            if shell.route == .workspace, !event.modifierFlags.contains(.command) {
+                // When the command layer is gathering / staged / editing, defer arrows & Return.
+                if commandLayerActive {
+                    return event
+                }
+
+                let presentation = shell.workspacePresentation(model: model)
+                let photoID = shell.selectedAssetID ?? model.cursor
+
+                if event.keyCode == 126 {
+                    shell.moveAttempt(delta: -1, presentation: presentation, model: model)
+                    return nil
+                }
+                if event.keyCode == 125 {
+                    shell.moveAttempt(delta: 1, presentation: presentation, model: model)
+                    return nil
+                }
+                if event.keyCode == 123 {
+                    shell.moveAlternative(delta: -1, presentation: presentation, model: model)
+                    return nil
+                }
+                if event.keyCode == 124 {
+                    shell.moveAlternative(delta: 1, presentation: presentation, model: model)
+                    return nil
+                }
+                if event.keyCode == 36 {
+                    shell.toggleRowExpanded()
+                    return nil
+                }
+                if event.keyCode == 49 {
+                    shell.isFocusMode.toggle()
+                    return nil
+                }
+
+                switch event.charactersIgnoringModifiers?.lowercased() {
+                case "a":
+                    shell.previewAutoTreatment(model: model)
+                    return nil
+                case "e":
+                    shell.toggleDetailedEdits()
+                    return nil
+                case "t":
+                    shell.openTreatmentStage()
+                    return nil
+                case "s":
+                    LuminaHaptics.decision()
+                    if let photoID {
+                        shell.applyDecision(.keep, for: photoID, model: model)
+                    }
+                    return nil
+                case "m":
+                    LuminaHaptics.decision()
+                    if let photoID {
+                        shell.applyDecision(.needsMe, for: photoID, model: model)
+                    }
+                    return nil
+                case "x":
+                    LuminaHaptics.decision()
+                    if let photoID {
+                        shell.applyDecision(.cut, for: photoID, model: model)
+                    }
+                    return nil
+                default:
+                    break
+                }
             }
-            if event.keyCode == 124, shell.route == .workspace {
-                shell.moveAttempt(delta: 1, presentation: shell.workspacePresentation(model: model), model: model)
-                return nil
-            }
-            if event.keyCode == 125, shell.route == .workspace {
-                shell.moveAlternative(delta: 1, presentation: shell.workspacePresentation(model: model), model: model)
-                return nil
-            }
-            if event.keyCode == 126, shell.route == .workspace {
-                shell.moveAlternative(delta: -1, presentation: shell.workspacePresentation(model: model), model: model)
+
+            if event.charactersIgnoringModifiers?.lowercased() == "g", !commandLayerActive {
+                shell.openFinish()
                 return nil
             }
         }
 
-        _ = held
         return event
     }
 

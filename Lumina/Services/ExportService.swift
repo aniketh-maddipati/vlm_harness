@@ -202,6 +202,18 @@ enum ExportService {
         }
 
         guard var cg = cgImage else { return nil }
+
+        let stem = URL(fileURLWithPath: photo.filename).deletingPathExtension().lastPathComponent
+
+        // 16-bit TIFF handoff from the full develop graph *before* 8-bit JPEG downscale.
+        let tiffName = String(format: "%02d_%@.tif", order, stem)
+        let tiffDest = dir.appendingPathComponent(tiffName)
+        _ = DevelopRenderGraph.exportTIFF(
+            cgImage: cg,
+            to: tiffDest,
+            preserveMetadataFrom: URL(fileURLWithPath: photo.rawPath)
+        )
+
         if let cropped = crop(cgImage: cg, aspect: aspect) {
             cg = cropped
         }
@@ -209,7 +221,6 @@ enum ExportService {
             cg = scaled
         }
 
-        let stem = URL(fileURLWithPath: photo.filename).deletingPathExtension().lastPathComponent
         let filename = String(format: "%02d_%@.jpg", order, stem)
         let dest = dir.appendingPathComponent(filename)
         guard PreviewExtractor.writeJPEG(cgImage: cg, to: dest, quality: 0.92) else {

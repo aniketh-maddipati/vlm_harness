@@ -133,6 +133,57 @@ final class ProjectViewModel {
         photo.effectiveRecipe.withTasteStrength(tasteStrength)
     }
 
+    func photo(with id: UUID) -> PhotoRecord? {
+        project?.photos.first { $0.id == id }
+    }
+
+    func developOffsets(for photoID: UUID) -> DevelopAdjustments {
+        guard let photo = photo(with: photoID) else { return .zero }
+        let baseline = extractedProfile.withTasteStrength(tasteStrength)
+        return photo.effectiveRecipe.offsets(from: baseline)
+    }
+
+    func persistDevelopOffsets(_ offsets: DevelopAdjustments, for photoID: UUID) {
+        guard var project else { return }
+        guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        let baseline = extractedProfile.withTasteStrength(tasteStrength)
+        project.photos[index].recipe = baseline.applying(offsets)
+        self.project = project
+        persistDebounced()
+    }
+
+    /// Persist an absolute develop recipe (batch treatment across a gathered selection).
+    func persistRecipe(_ recipe: DevelopRecipe, for photoID: UUID) {
+        guard var project else { return }
+        guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        project.photos[index].recipe = recipe
+        self.project = project
+        persistDebounced()
+    }
+
+    func clearRecipe(for photoID: UUID) {
+        guard var project else { return }
+        guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        project.photos[index].recipe = nil
+        self.project = project
+        persistDebounced()
+    }
+
+    /// Replace the in-memory project after a ledger append (no full reload).
+    func replaceProject(_ project: LuminaProject) {
+        self.project = project
+        persistDebounced()
+    }
+
+    /// Kept photographs in draft chronological order for the emerging set / canvas.
+    func emergingSetPresentations() -> [AssetPresentation] {
+        guard let photos = project?.photos else { return [] }
+        return photos
+            .filter { $0.tier == .keep }
+            .sorted { ($0.capturedAt ?? .distantPast) < ($1.capturedAt ?? .distantPast) }
+            .map { PresentationAdapter.asset(from: $0) }
+    }
+
     var cursorPosition: Int {
         guard let cursor, let photos = project?.photos,
               let index = photos.firstIndex(where: { $0.id == cursor }) else { return 0 }
@@ -798,6 +849,57 @@ final class ProjectViewModel {
         persistDebounced()
     }
 
+    /// Hold — unresolved marker. Leaves keep/reject so the photograph stays in the family.
+    func setHold(for photoID: UUID) {
+        guard var project else { return }
+        guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        project.photos[index].tier = .unranked
+        project.photos[index].proposedTier = nil
+        project.photos[index].isFlagged = true
+        project.photos[index].uncertaintyKind = .cullBorderline
+        project.photos[index].whyUncertain = "Held for another look"
+        project.photos[index].userDecidedAt = Date()
+        self.project = project
+        refreshExportCollections()
+        persistDebounced()
+        syncActiveCatalogStats()
+    }
+
+    /// Clear Hold / restore a set-aside photograph to undecided without taste side-effects.
+    func clearRoutingDecision(for photoID: UUID) {
+        restorePhotoState(photoID: photoID, tier: .unranked, isFlagged: false)
+    }
+
+    /// One-step Undo restore — no taste relearning.
+    func restorePhotoState(
+        photoID: UUID,
+        tier: PhotoTier,
+        isFlagged: Bool,
+        uncertaintyKind: UncertaintyKind = .none,
+        whyUncertain: String? = nil
+    ) {
+        guard var project else { return }
+        guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        project.photos[index].tier = tier
+        project.photos[index].proposedTier = nil
+        project.photos[index].isFlagged = isFlagged
+        project.photos[index].uncertaintyKind = isFlagged ? (uncertaintyKind == .none ? .cullBorderline : uncertaintyKind) : .none
+        project.photos[index].whyUncertain = isFlagged ? (whyUncertain ?? "Held for another look") : nil
+        if tier == .unranked && !isFlagged {
+            project.photos[index].userDecidedAt = nil
+            project.photos[index].whyAction = nil
+        }
+        self.project = project
+        refreshExportCollections()
+        persistDebounced()
+        syncActiveCatalogStats()
+    }
+
+    func photoRoutingSnapshot(for photoID: UUID) -> (tier: PhotoTier, isFlagged: Bool, uncertaintyKind: UncertaintyKind, whyUncertain: String?)? {
+        guard let photo = project?.photos.first(where: { $0.id == photoID }) else { return nil }
+        return (photo.tier, photo.isFlagged, photo.uncertaintyKind, photo.whyUncertain)
+    }
+
     func markKeep() {
         guard let id = cursor else { return }
         setTier(.keep, for: id)
@@ -810,7 +912,29 @@ final class ProjectViewModel {
         advanceAfterDecision()
     }
 
-    func markHero() {
+    func applyTier(_ tier: PhotoTier, to photoIDs: [UUID]) {
+        guard !photoIDs.isEmpty else { return }
+        for id in photoIDs {
+            setTier(tier, for: id, userInitiated: true)
+        }
+        if let last = photoIDs.last {
+            setCursor(last)
+        }
+        advanceAfterDecision()
+    }
+
+    /// Peers in the same subject set that are lower quality than the kept frame.
+    func peerCutSuggestion(afterKeeping photoID: UUID) -> [PhotoRecord] {
+        guard let photos = project?.photos else { return [] }
+        return PeerCullEngine.cutSuggestion(afterKeeping: photoID, in: photos) ?? []
+    }
+
+    func peerCutSuggestion(afterCutting photoID: UUID) -> [PhotoRecord] {
+        guard let photos = project?.photos else { return [] }
+        return PeerCullEngine.cutSuggestion(afterCutting: photoID, in: photos) ?? []
+    }
+
+    func markHero(advance: Bool = true) {
         guard let id = cursor, var project else { return }
         guard let index = project.photos.firstIndex(where: { $0.id == id }) else { return }
         let photo = project.photos[index]
@@ -833,6 +957,10 @@ final class ProjectViewModel {
         refreshExportCollections()
         persistDebounced()
         reapplyTasteAndUncertainty()
+        if advance { advanceAfterDecision() }
+    }
+
+    func advanceAfterDecisionPublic() {
         advanceAfterDecision()
     }
 
