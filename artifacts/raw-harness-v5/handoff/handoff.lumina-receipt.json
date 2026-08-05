@@ -1,0 +1,21 @@
+{
+  "generator" : "Lumina",
+  "mappingVersion" : "lumina-ciraw-1",
+  "mergeOutcome" : "created",
+  "raw" : "DSC08242.ARW",
+  "recipeFingerprint" : "v1|0.30000|5600.00000|0.00000|15.00000|-25.00000|20.00000|0.00000|0.00000|0.00000|0.00000|0.00000|0.00000|0.00000|40.00000|15.00000|0.00000|nocrop|noheal",
+  "tiff" : "handoff.tif",
+  "tiffColorSpace" : "kCGColorSpaceROMMRGB",
+  "tiffSHA256" : "4c226111acbd11319b02bc40a0c4b0bb52bd6d6bcab08b8065362176325ed84d",
+  "unmappedControls" : [
+    "whites",
+    "blacks",
+    "texture",
+    "clarity",
+    "dehaze"
+  ],
+  "workingSpaceVersion" : "ws-linear-extended-srgb-1",
+  "writtenAt" : "2026-08-05T17:32:12Z",
+  "xmp" : "DSC08242.xmp",
+  "xmpSHA256" : "35b7475a5b042998b3c452dba4772ac59a1fddeb1434da9a3016f2e55e833a82"
+}

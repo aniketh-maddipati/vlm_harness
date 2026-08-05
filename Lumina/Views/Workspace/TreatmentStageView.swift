@@ -96,7 +96,8 @@ struct TreatmentStageView: View {
     @State private var healMode = false
     @State private var healRadius: Double = 0.02
     @State private var scheduler = WorkbenchDevelop.scheduler
-    @State private var appliedToSetReceipt: String?
+    @State private var receipt: String?
+    @State private var autoBusy = false
 
     private var effectiveRecipe: DevelopRecipe {
         if showingOriginalHold || previewMode == .original { return .neutral }
@@ -144,7 +145,7 @@ struct TreatmentStageView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             controlsColumn
-                .frame(width: 300)
+                .frame(width: 324)
                 .frame(maxHeight: .infinity)
         }
         .background(LuminaTokens.Surface.table)
@@ -192,41 +193,82 @@ struct TreatmentStageView: View {
 
     private var mainColumn: some View {
         GeometryReader { geo in
-            let pad: CGFloat = 30
+            let pad: CGFloat = 28
             // Scale with the window — cap only to protect decode budgets.
-            let leaderMaxW = min(max(geo.size.width * 0.86, 700), 1680) 
-            VStack(spacing: 14) {
-                Spacer(minLength: 8)
+            let leaderMaxW = min(max(geo.size.width * 0.90, 700), 1800)
+            let showReferences = geo.size.height >= 680 && !references.isEmpty
+            VStack(spacing: 12) {
+                Spacer(minLength: 4)
 
+                // The photograph at hand — the dominant element in the stage.
                 leaderSurface
                     .frame(maxWidth: leaderMaxW)
                     .aspectRatio(leader.aspectRatio, contentMode: .fit)
                     .frame(maxWidth: .infinity)
+                    .layoutPriority(1)
 
-                HStack(alignment: .firstTextBaseline) {
-                    Text(exifLine)
-                        .font(.system(size: 11.5, weight: .regular, design: .monospaced))
-                        .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
-                    if let receipt = appliedToSetReceipt {
-                        Text(receipt)
-                            .font(LuminaTokens.Typeface.meta(11))
-                            .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
-                            .transition(.opacity)
-                    }
-                    fidelityChip
-                }
-                .frame(maxWidth: leaderMaxW)
-
-                referencesRow
+                metadataStrip
                     .frame(maxWidth: leaderMaxW)
 
-                Spacer(minLength: 8)
+                if showReferences {
+                    referencesRow
+                        .frame(maxWidth: leaderMaxW)
+                }
+
+                Spacer(minLength: 4)
             }
             .padding(pad)
             .frame(width: geo.size.width, height: geo.size.height)
         }
+    }
+
+    /// EXIF plus the effective develop values — evolves live as sliders move.
+    private var metadataStrip: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(exifLine)
+                    .font(.system(size: 11.5, weight: .regular, design: .monospaced))
+                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                if let receipt {
+                    Text(receipt)
+                        .font(LuminaTokens.Typeface.meta(11))
+                        .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
+                        .transition(.opacity)
+                }
+                fidelityChip
+            }
+            Text(liveDevelopLine)
+                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .foregroundStyle(LuminaTokens.Ink.onTable)
+                .lineLimit(1)
+                .accessibilityLabel("Current develop values: \(liveDevelopLine)")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+
+    /// The rendered recipe as a readable line — updates on every adjustment.
+    private var liveDevelopLine: String {
+        let r = liveRecipe
+        var parts: [String] = []
+        parts.append(String(format: "WB %.0fK %+.0f", r.temperature, r.tint))
+        parts.append(String(format: "EV %+.2f", r.exposure))
+        parts.append(String(format: "HL %+.0f", r.highlights))
+        parts.append(String(format: "SH %+.0f", r.shadows))
+        parts.append(String(format: "C %+.0f", r.contrast))
+        if r.vibrance != 0 || r.saturation != 0 {
+            parts.append(String(format: "Vib %+.0f · Sat %+.0f", r.vibrance, r.saturation))
+        }
+        if r.luminanceNR > 0 { parts.append(String(format: "NR %.0f", r.luminanceNR)) }
+        if r.sharpness > 0 { parts.append(String(format: "Shp %.0f", r.sharpness)) }
+        if retouchCount > 0 { parts.append("\(retouchCount) heal\(retouchCount == 1 ? "" : "s")") }
+        return parts.joined(separator: "   ")
     }
 
     /// Live RAW preview with heal-tap overlay. Falls back to proxy grading
@@ -325,7 +367,7 @@ struct TreatmentStageView: View {
                             isSelected: false,
                             maxPixelSize: 900
                         )
-                        .frame(width: 250, height: 167)
+                        .frame(width: 190, height: 127)
                         .aspectRatio(asset.aspectRatio, contentMode: .fit)
                     }
                     .buttonStyle(LuminaQuietButtonStyle())
@@ -343,7 +385,7 @@ struct TreatmentStageView: View {
                             .multilineTextAlignment(.center)
                     }
                 }
-                .frame(width: 250)
+                .frame(width: 190)
             }
         }
         .frame(maxWidth: .infinity)
@@ -361,29 +403,35 @@ struct TreatmentStageView: View {
                     .padding(.bottom, 10)
             }
 
+            // Preview modes and Auto edit each get their own space at the top.
             chipRow
-                .padding(.bottom, 10)
+                .padding(.bottom, 8)
+            autoEditButton
+                .padding(.bottom, 12)
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 12) {
-                    whiteBalanceSection
-
-                    slider("Exposure", value: binding(\.exposure), range: -2...2)
-                    slider("Temperature", value: binding(\.temperature), range: -2000...2000)
-                    slider("Tint", value: binding(\.tint), range: -50...50)
-                    slider("Highlights", value: binding(\.highlights), range: -100...100)
-                    slider("Shadows", value: binding(\.shadows), range: -100...100)
-                    slider("Contrast", value: binding(\.contrast), range: -100...100)
-                    slider("Vibrance", value: binding(\.vibrance), range: -100...100)
-                    slider("Saturation", value: binding(\.saturation), range: -100...100)
-
-                    detailSection
-                    healSection
+                VStack(alignment: .leading, spacing: 10) {
+                    panel("White balance") { whiteBalanceSection }
+                    panel("Tone") {
+                        slider("Exposure", value: binding(\.exposure), range: -2...2)
+                        slider("Highlights", value: binding(\.highlights), range: -100...100)
+                        slider("Shadows", value: binding(\.shadows), range: -100...100)
+                        slider("Contrast", value: binding(\.contrast), range: -100...100)
+                    }
+                    panel("Color") {
+                        slider("Vibrance", value: binding(\.vibrance), range: -100...100)
+                        slider("Saturation", value: binding(\.saturation), range: -100...100)
+                    }
+                    panel("Detail") { detailSection }
+                    panel("Erase / heal") { healSection }
                 }
                 .padding(.bottom, 12)
             }
 
             Spacer(minLength: 0)
+
+            Divider()
+                .padding(.vertical, 10)
 
             actionButtons
         }
@@ -394,11 +442,80 @@ struct TreatmentStageView: View {
         }
     }
 
+    /// Card container so each control family has its own visual space.
+    private func panel<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased())
+                .font(LuminaTokens.Typeface.meta(10, weight: .medium))
+                .kerning(0.8)
+                .foregroundStyle(LuminaTokens.Ink.tertiary)
+            content()
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(LuminaTokens.Surface.mist.opacity(0.55))
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
+    }
+
+    private var autoEditButton: some View {
+        Button { applyAutoEdit() } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "wand.and.stars")
+                    .font(.system(size: 12))
+                Text(autoBusy ? "Analyzing…" : "Auto edit")
+                    .font(LuminaTokens.Typeface.navigation(12, weight: .medium))
+            }
+            .foregroundStyle(LuminaTokens.Ink.primary)
+            .frame(maxWidth: .infinity, minHeight: 34)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(LuminaTokens.Surface.mist)
+            )
+        }
+        .buttonStyle(LuminaQuietButtonStyle())
+        .disabled(autoBusy)
+        .accessibilityLabel("Auto edit")
+        .accessibilityHint("Analyzes the photograph and sets white balance and tone automatically. Sliders update to match.")
+    }
+
+    private func applyAutoEdit() {
+        let path = leader.previewPath ?? leader.thumbPath
+        guard let path, !autoBusy else { return }
+        autoBusy = true
+        Task {
+            defer { autoBusy = false }
+            guard let s = await AutoDevelop.suggest(imagePath: path) else { return }
+            var next = offsets
+            // Suggestion values are absolute targets — convert to offsets so
+            // taste/base edits compose, and so the sliders land on the result.
+            next.exposure = min(max(s.exposure - baseRecipe.exposure, -2), 2)
+            next.contrast = min(max(s.contrast - baseRecipe.contrast, -100), 100)
+            next.highlights = min(max(s.highlights - baseRecipe.highlights, -100), 100)
+            next.shadows = min(max(s.shadows - baseRecipe.shadows, -100), 100)
+            next.vibrance = min(max(s.vibrance - baseRecipe.vibrance, -100), 100)
+            next.temperature = min(max(s.kelvin - baseRecipe.temperature, -2000), 2000)
+            next.tint = min(max(s.tint - baseRecipe.tint, -50), 50)
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
+                commit(next)
+            }
+            showReceipt("Auto edit applied — sliders updated")
+        }
+    }
+
+    private func showReceipt(_ text: String) {
+        withAnimation { receipt = text }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_200_000_000)
+            withAnimation { receipt = nil }
+        }
+    }
+
     private var whiteBalanceSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("White balance")
-                .font(LuminaTokens.Typeface.meta(11))
-                .foregroundStyle(LuminaTokens.Ink.secondary)
+        VStack(alignment: .leading, spacing: 8) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 5)], spacing: 5) {
                 ForEach(WhiteBalancePreset.allCases) { preset in
                     Button {
@@ -418,6 +535,8 @@ struct TreatmentStageView: View {
                     .accessibilityLabel("White balance: \(preset.rawValue)")
                 }
             }
+            slider("Temperature", value: binding(\.temperature), range: -2000...2000)
+            slider("Tint", value: binding(\.tint), range: -50...50)
         }
     }
 
@@ -449,13 +568,10 @@ struct TreatmentStageView: View {
 
     private var detailSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Detail — RAW-domain when supported")
-                .font(LuminaTokens.Typeface.meta(11))
-                .foregroundStyle(LuminaTokens.Ink.tertiary)
             slider("Noise reduction", value: binding(\.luminanceNR), range: 0...100)
             slider("Sharpening", value: binding(\.sharpness), range: 0...150)
-            Text("Crop · Straighten — ⌘⌥C opens the rest")
-                .font(LuminaTokens.Typeface.meta(11))
+            Text("RAW-domain when supported · Crop — ⌘⌥C opens the rest")
+                .font(LuminaTokens.Typeface.meta(10))
                 .foregroundStyle(LuminaTokens.Ink.tertiary)
                 .onTapGesture(perform: onOpenMore)
         }
@@ -464,9 +580,9 @@ struct TreatmentStageView: View {
     private var healSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Erase / heal")
+                Text(retouchCount > 0 ? "\(retouchCount) spot\(retouchCount == 1 ? "" : "s")" : "Clone-based")
                     .font(LuminaTokens.Typeface.meta(11))
-                    .foregroundStyle(LuminaTokens.Ink.secondary)
+                    .foregroundStyle(LuminaTokens.Ink.tertiary)
                 Spacer()
                 Button {
                     healMode.toggle()
@@ -503,13 +619,8 @@ struct TreatmentStageView: View {
                     .font(LuminaTokens.Typeface.meta(10))
                     .foregroundStyle(LuminaTokens.Ink.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
-            } else if retouchCount > 0 {
-                Text("\(retouchCount) heal spot\(retouchCount == 1 ? "" : "s")")
-                    .font(LuminaTokens.Typeface.meta(11))
-                    .foregroundStyle(LuminaTokens.Ink.tertiary)
             }
         }
-        .padding(.top, 4)
     }
 
     private var actionButtons: some View {
@@ -517,11 +628,7 @@ struct TreatmentStageView: View {
             if setCount > 1 {
                 Button {
                     onApplyToSet()
-                    withAnimation { appliedToSetReceipt = "Applied to \(setCount) in set" }
-                    Task {
-                        try? await Task.sleep(nanoseconds: 2_200_000_000)
-                        withAnimation { appliedToSetReceipt = nil }
-                    }
+                    showReceipt("Applied to \(setCount) in set")
                 } label: {
                     Text("Apply to set (\(setCount))  ⌘⇧A")
                         .font(LuminaTokens.Typeface.navigation(13, weight: .medium))
@@ -615,15 +722,19 @@ struct TreatmentStageView: View {
                     .foregroundStyle(LuminaTokens.Ink.secondary)
                 Spacer()
                 Text(valueLabel(value.wrappedValue, range: range))
-                    .font(.system(size: 10, weight: .regular, design: .monospaced))
-                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    .font(.system(size: 10, weight: value.wrappedValue == 0 ? .regular : .medium, design: .monospaced))
+                    .foregroundStyle(value.wrappedValue == 0 ? LuminaTokens.Ink.tertiary : LuminaTokens.Ink.primary)
             }
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) { value.wrappedValue = max(0, range.lowerBound) }
+            .help("Double-click to reset \(title)")
             Slider(value: value, in: range)
                 .controlSize(.small)
                 .frame(minHeight: 36)
                 .contentShape(Rectangle())
                 .accessibilityLabel(title)
                 .accessibilityValue(valueLabel(value.wrappedValue, range: range))
+                .accessibilityHint("Changes render live. Double-click the label to reset.")
         }
     }
 
