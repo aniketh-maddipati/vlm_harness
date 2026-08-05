@@ -151,7 +151,7 @@ enum ExportService {
         return try await withThrowingTaskGroup(of: ExportEntry?.self) { group in
             for (index, photo) in indexed {
                 group.addTask {
-                    try exportOne(
+                    try await exportOne(
                         photo: photo,
                         order: index + 1,
                         project: project,
@@ -182,10 +182,10 @@ enum ExportService {
         aspect: ExportAspect,
         to dir: URL,
         writeXMP: Bool
-    ) throws -> ExportEntry? {
+    ) async throws -> ExportEntry? {
         let recipe = scaledRecipe(for: photo, project: project, tasteStrength: tasteStrength)
 
-        var cgImage = DevelopEngine.renderFullRAW(
+        var cgImage = await DevelopEngine.renderFullRAW(
             rawURL: URL(fileURLWithPath: photo.rawPath),
             recipe: recipe,
             offsets: .zero

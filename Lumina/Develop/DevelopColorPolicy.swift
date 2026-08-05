@@ -49,16 +49,21 @@ enum DevelopColorPolicy {
         CGColorSpace(name: CGColorSpace.sRGB)!
     }
 
+    /// Lightroom handoff TIFF: 16-bit ProPhoto RGB (ROMM). Display P3 only if
+    /// ROMM is somehow unavailable — the actual space used is always recorded
+    /// in the handoff receipt.
     static var exportTIFFColorSpace: CGColorSpace {
-        // Prefer Display P3 for wide-gamut handoff when Adobe RGB is unavailable as a named space.
-        if let adobe = CGColorSpace(name: "kCGColorSpaceAdobeRGB1998" as CFString) {
-            return adobe
+        if let romm = CGColorSpace(name: CGColorSpace.rommrgb) {
+            return romm
         }
         if let p3 = CGColorSpace(name: CGColorSpace.displayP3) {
             return p3
         }
         return CGColorSpace(name: CGColorSpace.sRGB)!
     }
+
+    /// Bumped whenever the working-space contract changes — part of cache keys.
+    static let workingSpaceVersion = "ws-linear-extended-srgb-1"
 
     /// CIContext options shared by preview and export — one working-space policy.
     static var ciContextOptions: [CIContextOption: Any] {
@@ -98,30 +103,34 @@ enum DevelopControlSupport: String, CaseIterable, Sendable {
     case saturation
 
     /// Whether Lumina applies this control with a documented, trustworthy mapping.
+    /// Untrusted controls are disabled in the UI and not rendered; their stored
+    /// recipe values migrate forward untouched.
     var isTrusted: Bool {
         switch self {
         case .exposure, .temperature, .tint, .highlights, .shadows,
              .contrast, .vibrance, .saturation, .crop, .straighten,
-             .sharpening, .noiseReduction, .whites, .blacks:
+             .sharpening, .noiseReduction:
             return true
-        case .texture, .clarity, .dehaze:
-            // Approximations via unsharp / contrast — labeled as approximate in the lab.
-            return true
+        case .whites, .blacks, .texture, .clarity, .dehaze:
+            // No honest algorithm — disabled rather than faked.
+            return false
         }
     }
 
     var approximationNote: String? {
         switch self {
         case .texture, .clarity:
-            return "Approximated via CIUnsharpMask local contrast — not Lightroom Texture/Clarity."
+            return "Disabled — no honest local-contrast algorithm in this stage."
         case .dehaze:
-            return "Approximated via contrast/saturation lift — not a true dehaze model."
+            return "Disabled — no true dehaze model in this stage."
         case .whites, .blacks:
-            return "Mapped through CIColorControls + tone curve endpoints — not crs White/Black sliders."
+            return "Disabled — tone-endpoint mapping was not defensible as crs Whites/Blacks."
         case .noiseReduction:
-            return "CINoiseReduction luminance path — not Lightroom Detail NR."
+            return "RAW-domain luminance NR via CIRAWFilter when the file supports it; unsupported otherwise."
         case .sharpening:
-            return "CISharpenLuminance / Unsharp — not Lightroom Detail sharpening."
+            return "RAW-domain capture sharpening via CIRAWFilter when supported; unsupported otherwise."
+        case .highlights, .shadows:
+            return "CIHighlightShadowAdjust scene-linear approximation — not Lightroom Highlights/Shadows."
         default:
             return nil
         }

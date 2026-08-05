@@ -239,8 +239,13 @@ nonisolated enum PreviewExtractor {
         return writeJPEG(cgImage: scaled, to: destURL, quality: 0.94)
     }
 
-    /// Full demosaic path via ImageIO (macOS RAW decoder — LibRaw-quality substitute for Sony ARW).
-    static func demosaicFull(from rawURL: URL, maxPixelSize: Int = 6000) -> CGImage? {
+    /// Rendered compatibility fallback via ImageIO.
+    ///
+    /// This is **not** RAW developing: ImageIO returns a display-rendered image
+    /// with Apple's default look already applied, and Lumina's RAW-domain
+    /// parameters (WB, RAW exposure, RAW NR/sharpening) cannot be applied to it.
+    /// Anything decoded here must surface under a Proxy fidelity label.
+    static func renderedFallback(from rawURL: URL, maxPixelSize: Int = 6000) -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(rawURL as CFURL, nil) else { return nil }
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -249,6 +254,11 @@ nonisolated enum PreviewExtractor {
             kCGImageSourceShouldCacheImmediately: true,
         ]
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+    }
+
+    @available(*, deprecated, renamed: "renderedFallback(from:maxPixelSize:)")
+    static func demosaicFull(from rawURL: URL, maxPixelSize: Int = 6000) -> CGImage? {
+        renderedFallback(from: rawURL, maxPixelSize: maxPixelSize)
     }
 
     static func downscaleJPEG(from src: URL, to dest: URL, maxPixelSize: Int) -> Bool {

@@ -28,6 +28,9 @@ enum DevelopEngine {
         return URL(fileURLWithPath: thumb)
     }
 
+    /// Legacy synchronous proxy grading — JPEG/proxy input only, browse-grade,
+    /// never labeled RAW. Authoritative RAW rendering goes through the async
+    /// `DevelopRenderGraph.render` / `PreparedRawSession` path.
     static func render(
         url: URL,
         recipe: DevelopRecipe,
@@ -38,39 +41,28 @@ enum DevelopEngine {
         defer {
             LatencyMetrics.record("develop.render", milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000)
         }
-        let edit = EditRecipe(from: recipe.applying(offsets))
-        // Legacy interactive entry still accepts a JPEG/proxy URL; mark source honestly.
-        let request = RawRenderRequest(
-            generation: 0,
-            photoID: UUID(),
-            rawURL: url,
-            proxyURL: url,
-            recipe: edit,
-            quality: .interactive,
-            source: .jpegProxy
-        )
-        let result = DevelopRenderGraph.render(request)
-        guard var graded = result.cgImage else { return nil }
+        guard let source = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else {
+            return nil
+        }
+        let edit = EditRecipe(from: clampRecipe(recipe.applying(offsets)))
+        let original = DevelopRenderGraph.normalizeOrigin(source)
+        var image = original
 
-        if mix < 0.999, mix > 0.001, let original = CIImage(contentsOf: url) {
-            let gCI = CIImage(cgImage: graded)
-            let bounds = gCI.extent.integral
-            let mixed = gCI.applyingFilter("CIBlendWithMask", parameters: [
-                kCIInputBackgroundImageKey: DevelopRenderGraph.normalizeOrigin(original),
+        if mix > 0.001 {
+            image = DevelopRenderGraph.applyProxyApproximation(edit, to: original)
+        }
+        if mix < 0.999, mix > 0.001 {
+            let bounds = image.extent.integral
+            image = image.applyingFilter("CIBlendWithMask", parameters: [
+                kCIInputBackgroundImageKey: original,
                 kCIInputMaskImageKey: CIImage(color: CIColor(red: mix, green: mix, blue: mix, alpha: 1))
                     .cropped(to: bounds),
             ]).cropped(to: bounds)
-            if let cg = context.createCGImage(mixed, from: bounds) {
-                graded = cg
-            }
-        } else if mix <= 0.001, let original = CIImage(contentsOf: url) {
-            let o = DevelopRenderGraph.normalizeOrigin(original)
-            if let cg = context.createCGImage(o, from: o.extent.integral) {
-                graded = cg
-            }
         }
 
-        return NSImage(cgImage: graded, size: NSSize(width: graded.width, height: graded.height))
+        let bounds = image.extent.integral
+        guard let cg = context.createCGImage(image, from: bounds) else { return nil }
+        return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
     }
 
     /// Keep develop params in ranges Core Image handles without wild casts.
@@ -99,39 +91,19 @@ enum DevelopEngine {
         return DevelopRenderGraph.applyRecipe(edit, to: DevelopRenderGraph.normalizeOrigin(image), skipRAWIntegratedWB: false)
     }
 
-    /// Full-resolution demosaic + develop for export (shared graph with settled preview).
+    /// Full-resolution RAW develop for export (shared graph with settled preview).
     static func renderFullRAW(
         rawURL: URL,
         recipe: DevelopRecipe,
         offsets: DevelopAdjustments = .zero
-    ) -> CGImage? {
+    ) async -> CGImage? {
         let edit = EditRecipe(from: clampRecipe(recipe.applying(offsets)))
-        let request = RawRenderRequest(
-            generation: 0,
-            photoID: UUID(),
-            rawURL: rawURL,
-            recipe: edit,
-            quality: .export,
-            source: .originalRAW,
-            longEdgeCap: 0,
-            forDisplay: false
-        )
-        return DevelopRenderGraph.render(request).cgImage
+        return await DevelopRenderGraph.renderExportBitmap(rawURL: rawURL, photoID: UUID(), recipe: edit)
     }
 
     /// Export-quality render using an `EditRecipe` (crop/straighten included).
-    static func renderExport(rawURL: URL, recipe: EditRecipe) -> CGImage? {
-        let request = RawRenderRequest(
-            generation: 0,
-            photoID: UUID(),
-            rawURL: rawURL,
-            recipe: recipe,
-            quality: .export,
-            source: .originalRAW,
-            longEdgeCap: 0,
-            forDisplay: false
-        )
-        return DevelopRenderGraph.render(request).cgImage
+    static func renderExport(rawURL: URL, recipe: EditRecipe) async -> CGImage? {
+        await DevelopRenderGraph.renderExportBitmap(rawURL: rawURL, photoID: UUID(), recipe: recipe)
     }
 }
 

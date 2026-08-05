@@ -281,22 +281,21 @@ final class DevelopLabModel {
     }
 
     private func refreshHistogram() {
+        // Histogram is analysis, not the live preview path — it reads the small
+        // settled bitmap; interactive frames don't materialize CPU bitmaps.
         guard let leader,
               let cg = showBefore
-                ? scheduler.beforeImage(for: leader.id)
+                ? scheduler.beforeBitmap(for: leader.id)
                 : scheduler.presentedImage(for: leader.id)
         else { return }
         histogram = DevelopHistogram.compute(from: cg)
     }
 
-    func nsImage(for frame: DevelopLabFrame) -> NSImage? {
-        let cg: CGImage?
+    /// Live display surface — CIImage straight to the Metal destination.
+    func displayImage(for frame: DevelopLabFrame) -> CIImage? {
         if showBefore, frame.id == leader?.id {
-            cg = scheduler.beforeImage(for: frame.id)
-        } else {
-            cg = scheduler.presentedImage(for: frame.id)
+            return scheduler.beforeImage(for: frame.id)
         }
-        guard let cg else { return nil }
-        return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+        return scheduler.presentedCIImage(for: frame.id)
     }
 }
