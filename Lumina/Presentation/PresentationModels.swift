@@ -101,6 +101,8 @@ struct AssetPresentation: Identifiable, Hashable, Sendable {
     let aspectRatio: CGFloat
     let previewPath: String?
     let thumbPath: String?
+    /// Original RAW file on disk — enables the live RAW treatment pipeline.
+    let rawPath: String?
     let decision: AssetDecision
     let isProtected: Bool
     let caption: String?
@@ -115,6 +117,7 @@ struct AssetPresentation: Identifiable, Hashable, Sendable {
         aspectRatio: CGFloat = 3.0 / 2.0,
         previewPath: String? = nil,
         thumbPath: String? = nil,
+        rawPath: String? = nil,
         decision: AssetDecision = .undecided,
         isProtected: Bool = false,
         caption: String? = nil,
@@ -126,6 +129,7 @@ struct AssetPresentation: Identifiable, Hashable, Sendable {
         self.aspectRatio = max(aspectRatio, 0.05)
         self.previewPath = previewPath
         self.thumbPath = thumbPath
+        self.rawPath = rawPath
         self.decision = decision
         self.isProtected = isProtected
         self.caption = caption

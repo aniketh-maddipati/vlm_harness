@@ -41,9 +41,18 @@ struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
     var crop: EditCrop?
     /// Clockwise rotation in degrees (−45…45 straighten + 90° multiples via orientation).
     var straightenDegrees: Double
+    /// Clone-heal spots. Runtime-only on this type (persisted via DevelopRecipe);
+    /// excluded from the v1 serialized schema, included in the render fingerprint.
+    var retouch: [RetouchSpot] = []
 
     var sourceNeighbors: [String]
     var confidence: Double
+
+    private enum CodingKeys: String, CodingKey {
+        case id, schemaVersion, exposure, temperature, tint, contrast, highlights,
+             shadows, whites, blacks, texture, clarity, dehaze, vibrance, saturation,
+             sharpness, luminanceNR, crop, straightenDegrees, sourceNeighbors, confidence
+    }
 
     static let neutral = EditRecipe()
 
@@ -113,6 +122,12 @@ struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
 
     /// New identity — used when forking a shared recipe into a private copy.
     func forked(id: UUID = UUID()) -> EditRecipe {
+        var copy = forkedBase(id: id)
+        copy.retouch = retouch
+        return copy
+    }
+
+    private func forkedBase(id: UUID) -> EditRecipe {
         EditRecipe(
             id: id,
             schemaVersion: schemaVersion,
@@ -161,9 +176,16 @@ struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
             sourceNeighbors: legacy.sourceNeighbors,
             confidence: legacy.confidence
         )
+        self.retouch = legacy.retouch
     }
 
     var asDevelopRecipe: DevelopRecipe {
+        var legacy = asDevelopRecipeBase
+        legacy.retouch = retouch
+        return legacy
+    }
+
+    private var asDevelopRecipeBase: DevelopRecipe {
         DevelopRecipe(
             exposure: exposure,
             temperature: temperature,
@@ -200,6 +222,8 @@ struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
             r.dehaze += offsets.dehaze
             r.vibrance += offsets.vibrance
             r.saturation += offsets.saturation
+            r.sharpness = max(0, r.sharpness + offsets.sharpness)
+            r.luminanceNR = max(0, r.luminanceNR + offsets.luminanceNR)
         }
     }
 
@@ -237,6 +261,7 @@ struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
             fmt(texture), fmt(clarity), fmt(dehaze), fmt(vibrance), fmt(saturation),
             fmt(sharpness), fmt(luminanceNR), fmt(straightenDegrees),
             crop?.fingerprint ?? "nocrop",
+            retouch.isEmpty ? "noheal" : retouch.map(\.fingerprint).joined(separator: ";"),
         ]
         return parts.joined(separator: "|")
     }

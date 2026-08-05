@@ -85,10 +85,28 @@ private struct DecisionDockButton: View {
 
 struct LuminaQuietButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .opacity(configuration.isPressed ? 0.72 : 1)
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .animation(LuminaTokens.Motion.control, value: configuration.isPressed)
+        QuietBody(configuration: configuration)
+    }
+
+    /// Hover halo + press dip — quiet, but every press reads as a press.
+    private struct QuietBody: View {
+        let configuration: Configuration
+        @State private var hovering = false
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .opacity(configuration.isPressed ? 0.7 : 1)
+                .scaleEffect(configuration.isPressed && !reduceMotion ? 0.975 : 1)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.primary.opacity(configuration.isPressed ? 0.10 : (hovering ? 0.05 : 0)))
+                        .padding(-2)
+                )
+                .onHover { hovering = $0 }
+                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: configuration.isPressed)
+                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: hovering)
+        }
     }
 }
 

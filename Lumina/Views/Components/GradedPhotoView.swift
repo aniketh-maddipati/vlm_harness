@@ -61,8 +61,10 @@ struct GradedPhotoView: View {
     }
 
     private var renderKey: String {
-        let r = appliedRecipe
-        return "\(asset.id)-\(r.exposure)-\(r.contrast)-\(r.highlights)-\(previewMix)-\(projectName ?? "")"
+        // Full recipe fingerprint — a partial key silently drops slider changes
+        // (temperature/tint/shadows used to never re-render).
+        let edit = EditRecipe(from: appliedRecipe, id: UUID(uuidString: "00000000-0000-0000-0000-000000000000") ?? UUID())
+        return "\(asset.id)|\(edit.valueFingerprint)|\(previewMix)|\(projectName ?? "")|\(maxPixelSize)"
     }
 
     private func loadGraded() async {
@@ -70,6 +72,10 @@ struct GradedPhotoView: View {
             gradedImage = nil
             return
         }
+        // Coalesce slider bursts — `.task(id:)` cancels this on the next change.
+        try? await Task.sleep(nanoseconds: 30_000_000)
+        if Task.isCancelled { return }
+
         let token = UUID()
         loadToken = token
         let path = asset.previewPath ?? asset.thumbPath
@@ -88,7 +94,7 @@ struct GradedPhotoView: View {
             DevelopEngine.render(url: url, recipe: appliedRecipe, mix: 1)
         }.value
 
-        guard loadToken == token else { return }
+        guard loadToken == token, !Task.isCancelled else { return }
         withAnimation(reduceMotion ? nil : LuminaTokens.Motion.develop) {
             gradedImage = image
         }

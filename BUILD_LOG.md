@@ -174,3 +174,22 @@ Diagnostic session only — **no re-architect**. Profile main thread during rip;
 **Linux verification:** `python3 Scripts/develop_engine_test.py` PASS. `xcodebuild` / live ARW **blocked** on Ubuntu cloud VM.
 
 **Not done:** Workbench Edit integration (gated on live-RAW), measured perf/fidelity on Mac, GUI screenshots from real ARW.
+
+---
+
+## 2026-08-05 — Workbench live RAW editing, WB/denoise/heal, set consolidation
+
+**Claim:** The workbench treatment stage now edits in real time through the RAW pipeline (scheduler + Metal, no CPU bitmap round trip), fixes the stale-preview bug (incomplete `renderKey` dropped temperature/tint/shadows changes), and adds the missing controls.
+
+**Implemented:**
+- `LiveDevelopView` — treatment leader routes through `DevelopRenderScheduler.scrub` → `DevelopMetalView` with honest fidelity chip (Interactive → Settling → Full preview / 1:1 RAW); proxy-graded fallback when RAW is offline. RAW session prewarms on stage open.
+- `GradedPhotoView.renderKey` now uses the full recipe fingerprint + 30 ms coalescing — every slider re-renders rows too.
+- White balance: preset grid (As Shot / Auto gray-world / Daylight / Cloudy / Shade / Tungsten / Fluorescent / Flash), temperature range widened to ±2000 K (was ±50, visually inert).
+- Detail: RAW-domain Noise reduction + Sharpening sliders (offsets added to `DevelopAdjustments` with tolerant decoding).
+- Erase/heal: clone-based `RetouchSpot` (persisted on `DevelopRecipe`, tolerantly decoded; runtime-carried on `EditRecipe`, in render fingerprints). Applies in RAW, proxy, and export paths — labeled clone heal, not generative fill. Heal-mode overlay with spot size, undo, clear.
+- Apply-to-set: ⌘⇧A / button applies the leader's treatment to the whole family row (heal spots stay per-photo); receipt shown.
+- Auto/taste calibration: `DevelopRecipe.lrCalibrated()` folds LR whites/blacks/clarity/dehaze into the trusted controls with documented factors and clamps to crs ranges; applied in `TasteRetriever`.
+- Rows: singles/pairs merge into "Miscellaneous" rows (≤12), bucket cap 8→12; tiles 274→336 pt (480 pt two-up), compact strip 72→104 pt, decode sizes 480→768 / 1600→2048; neighbor prefetch warms displayed sizes.
+- Buttons: `LuminaQuietButtonStyle` gains hover halo + press dip (reduce-motion aware); accessibility labels/hints/values on sliders, WB presets, stage switcher, pager, heal and set actions.
+
+**Verification (this Mac):** `xcodebuild` Debug PASS. `--raw-harness` PASS — 0 failures; 16/16 unit checks (incl. 3 new clone-heal render checks), 6/6 XMP merge; scrub p50 14.5 ms / p95 16.6 ms, settled 191 ms, prepare 204 ms on DSC08242.ARW. `--capture-workbench artifacts/workbench-v3` — 7 captures incl. new treatment stage.

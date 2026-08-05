@@ -142,6 +142,13 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                 return nil
             }
 
+            // ⌘⇧A — apply the current treatment to every photo in the leader's set.
+            if command && shift && !option && (chars.lowercased() == "a"), shell.isTreatmentStageOpen {
+                let applied = shell.applyTreatmentToSet(model: model, presentation: presentation)
+                if applied > 0 { LuminaHaptics.decision() } else { LuminaHaptics.light() }
+                return nil
+            }
+
             // T opens treatment when workbench
             if !command && chars.lowercased() == "t", shell.workspaceStage == .workbench {
                 shell.openTreatmentStage()

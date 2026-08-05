@@ -41,6 +41,10 @@ struct ContinuousWorkspaceView: View {
     var onStageTreat: () -> Void = {}
     var onConfirmRound: () -> Void = {}
     var onCancelStage: () -> Void = {}
+    var onApplyToSet: () -> Void = {}
+    var onAddRetouch: (AssetID, RetouchSpot) -> Void = { _, _ in }
+    var onUndoRetouch: (AssetID) -> Void = { _ in }
+    var onClearRetouch: (AssetID) -> Void = { _ in }
     var onStageAdvance: () -> Void = {}
     var onStageSetAside: () -> Void = {}
     var onStageHold: () -> Void = {}
@@ -172,6 +176,8 @@ struct ContinuousWorkspaceView: View {
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .help("⌘1")
+            .accessibilityLabel("Sources")
+            .accessibilityHint("Open shoot selection. Command 1.")
 
             ForEach(WorkspaceStage.switcherCases, id: \.self) { stage in
                 Button {
@@ -192,6 +198,9 @@ struct ContinuousWorkspaceView: View {
                 }
                 .buttonStyle(LuminaQuietButtonStyle())
                 .help(stageShortcutHelp(stage))
+                .accessibilityLabel("\(stage.title) stage")
+                .accessibilityHint("Shortcut \(stageShortcutHelp(stage))")
+                .accessibilityAddTraits(workspaceStage == stage ? .isSelected : [])
             }
             Spacer(minLength: 0)
         }
@@ -219,10 +228,14 @@ struct ContinuousWorkspaceView: View {
                 if case .treat(let r) = selection?.staged { return r }
                 return nil
             }()
+            let setSize = presentation.groups
+                .first { group in group.assets.contains(where: { $0.id == leaderID }) }?
+                .assets.count ?? 1
             TreatmentStageView(
                 leader: leader,
                 references: refs,
                 selectionCount: max(selection?.count ?? 1, 1),
+                setCount: setSize,
                 projectName: projectName,
                 baseRecipe: baseRecipe,
                 offsets: $developOffsets,
@@ -242,7 +255,11 @@ struct ContinuousWorkspaceView: View {
                     if let gid = presentation.selectedGroupID {
                         onSelectPhoto(gid, id)
                     }
-                }
+                },
+                onApplyToSet: onApplyToSet,
+                onAddRetouch: { spot in onAddRetouch(leaderID, spot) },
+                onUndoRetouch: { onUndoRetouch(leaderID) },
+                onClearRetouch: { onClearRetouch(leaderID) }
             )
         }
     }
@@ -734,7 +751,7 @@ struct WorkbenchLedgerView: View {
                                 onHold: { onHold($0, group.id) },
                                 onRestore: onRestore
                             )
-                            .frame(minHeight: expanded ? 360 : nil)
+                            .frame(minHeight: expanded ? 420 : nil)
                             .frame(maxHeight: expanded ? .infinity : nil)
 
                             if expanded {

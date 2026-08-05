@@ -147,7 +147,22 @@ final class ProjectViewModel {
         guard var project else { return }
         guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
         let baseline = extractedProfile.withTasteStrength(tasteStrength)
-        project.photos[index].recipe = baseline.applying(offsets)
+        var next = baseline.applying(offsets)
+        // Slider changes must never wipe heal spots.
+        next.retouch = project.photos[index].recipe?.retouch ?? []
+        project.photos[index].recipe = next
+        self.project = project
+        persistDebounced()
+    }
+
+    /// Mutate only the retouch (heal) spots of a photo, keeping tone/color as-is.
+    func updateRetouch(for photoID: UUID, _ mutate: (inout [RetouchSpot]) -> Void) {
+        guard var project else { return }
+        guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
+        var recipe = project.photos[index].recipe
+            ?? appliedRecipe(for: project.photos[index])
+        mutate(&recipe.retouch)
+        project.photos[index].recipe = recipe
         self.project = project
         persistDebounced()
     }

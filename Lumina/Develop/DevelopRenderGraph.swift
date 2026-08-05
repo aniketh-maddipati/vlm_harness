@@ -74,11 +74,13 @@ enum DevelopRenderGraph {
 
         if usedProxy {
             // Rendered compatibility fallback: approximate the whole recipe with
-            // generic CI filters. Never labeled RAW-settled or export-equivalent.
+            // generic CI filters (includes retouch). Never labeled RAW-settled
+            // or export-equivalent.
             image = applyProxyApproximation(request.recipe, to: image)
         } else {
-            // RAW stage already carries RawIntent — apply only the look stage.
+            // RAW stage already carries RawIntent — apply look, then heal spots.
             image = applyLook(request.recipe.lookIntent, to: image)
+            image = applyRetouch(request.recipe.retouch, to: image)
         }
         image = applyGeometry(request.recipe, to: image)
 
@@ -232,6 +234,7 @@ enum DevelopRenderGraph {
             result = f.outputImage ?? result
         }
         result = applyLook(recipe.lookIntent, to: result)
+        result = applyRetouch(recipe.retouch, to: result)
         return result.cropped(to: bounds)
     }
 
@@ -248,6 +251,49 @@ enum DevelopRenderGraph {
             return applyLook(edit.lookIntent, to: image)
         }
         return applyProxyApproximation(edit, to: image)
+    }
+
+    // MARK: - Retouch (clone heal)
+
+    /// Clone-based heal: for each spot, pixels from a nearby donor region are
+    /// composited over the target through a feathered radial mask. Classic
+    /// clone-stamp healing — not generative fill — so preview, 1:1 and export
+    /// all produce identical results at any resolution.
+    static func applyRetouch(_ spots: [RetouchSpot], to image: CIImage) -> CIImage {
+        guard !spots.isEmpty else { return image }
+        var result = image
+        let bounds = image.extent.integral
+        guard bounds.width > 1, bounds.height > 1 else { return image }
+
+        for spot in spots {
+            let radius = CGFloat(spot.radius) * bounds.width
+            guard radius > 0.5 else { continue }
+            // Normalized coords are top-left origin; CIImage is bottom-up.
+            let cx = bounds.minX + CGFloat(spot.x) * bounds.width
+            let cy = bounds.maxY - CGFloat(spot.y) * bounds.height
+            let dxPixels = CGFloat(spot.sourceDX) * bounds.width
+            let dyPixels = -CGFloat(spot.sourceDY) * bounds.height
+
+            // Donor pixels shifted so the source region lands on the spot center.
+            let donor = result
+                .transformed(by: CGAffineTransform(translationX: -dxPixels, y: -dyPixels))
+                .clampedToExtent()
+
+            guard let gradient = CIFilter(name: "CIRadialGradient") else { continue }
+            gradient.setValue(CIVector(x: cx, y: cy), forKey: "inputCenter")
+            gradient.setValue(radius * 0.55, forKey: "inputRadius0")
+            gradient.setValue(radius, forKey: "inputRadius1")
+            gradient.setValue(CIColor(red: 1, green: 1, blue: 1, alpha: 1), forKey: "inputColor0")
+            gradient.setValue(CIColor(red: 0, green: 0, blue: 0, alpha: 0), forKey: "inputColor1")
+            guard let mask = gradient.outputImage?.cropped(to: bounds) else { continue }
+
+            guard let blend = CIFilter(name: "CIBlendWithMask") else { continue }
+            blend.setValue(donor, forKey: kCIInputImageKey)
+            blend.setValue(result, forKey: kCIInputBackgroundImageKey)
+            blend.setValue(mask, forKey: kCIInputMaskImageKey)
+            result = blend.outputImage?.cropped(to: bounds) ?? result
+        }
+        return result
     }
 
     // MARK: - Geometry

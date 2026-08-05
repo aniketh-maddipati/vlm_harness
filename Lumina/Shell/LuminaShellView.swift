@@ -186,6 +186,18 @@ struct LuminaShellView: View {
                     shell.selectAsset(assetID)
                     shell.loadDevelop(for: assetID, model: model)
                     shell.openTreatmentStage()
+                    // Prewarm the RAW session so the live pipeline's first frame is fast.
+                    if let photo = model.photo(with: assetID),
+                       FileManager.default.fileExists(atPath: photo.rawPath) {
+                        let recipe = EditRecipe(
+                            from: DevelopEngine.clampRecipe(model.appliedRecipe(for: photo)),
+                            id: assetID
+                        )
+                        WorkbenchDevelop.scheduler.prewarm(
+                            photos: [(id: assetID, rawURL: URL(fileURLWithPath: photo.rawPath))],
+                            recipe: recipe
+                        )
+                    }
                 },
                 onCloseTreatment: {
                     shell.closeTreatmentStage()
@@ -203,6 +215,19 @@ struct LuminaShellView: View {
                 onCancelStage: {
                     shell.workbenchSelection.cancel()
                     LuminaHaptics.alignment()
+                },
+                onApplyToSet: {
+                    let applied = shell.applyTreatmentToSet(model: model, presentation: presentation)
+                    if applied > 0 { LuminaHaptics.decision() } else { LuminaHaptics.light() }
+                },
+                onAddRetouch: { assetID, spot in
+                    model.updateRetouch(for: assetID) { $0.append(spot) }
+                },
+                onUndoRetouch: { assetID in
+                    model.updateRetouch(for: assetID) { if !$0.isEmpty { $0.removeLast() } }
+                },
+                onClearRetouch: { assetID in
+                    model.updateRetouch(for: assetID) { $0.removeAll() }
                 },
                 onStageAdvance: {
                     if shell.workbenchSelection.stage(.advance) {
@@ -288,6 +313,7 @@ struct KeyboardShortcutsSheet: View {
         ("Esc", "Cancel staged action"),
         ("T", "Open treatment (Edit)"),
         ("Space", "Original hold (Edit) / 1:1 focus"),
+        ("⌘⇧A", "Apply treatment to whole set (Edit)"),
         ("⌘⌥C", "More treatment controls"),
         ("⌘Z", "Undo whole round"),
         ("⌘1 / ⌘2 / ⌘3", "Sources / Workbench / Story"),

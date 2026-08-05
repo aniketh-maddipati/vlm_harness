@@ -155,13 +155,60 @@ struct DevelopAdjustments: Codable, Hashable {
     var dehaze: Double = 0
     var vibrance: Double = 0
     var saturation: Double = 0
+    var sharpness: Double = 0
+    var luminanceNR: Double = 0
 
     static let zero = DevelopAdjustments()
+
+    init(
+        exposure: Double = 0, temperature: Double = 0, tint: Double = 0,
+        contrast: Double = 0, highlights: Double = 0, shadows: Double = 0,
+        whites: Double = 0, blacks: Double = 0, texture: Double = 0,
+        clarity: Double = 0, dehaze: Double = 0, vibrance: Double = 0,
+        saturation: Double = 0, sharpness: Double = 0, luminanceNR: Double = 0
+    ) {
+        self.exposure = exposure
+        self.temperature = temperature
+        self.tint = tint
+        self.contrast = contrast
+        self.highlights = highlights
+        self.shadows = shadows
+        self.whites = whites
+        self.blacks = blacks
+        self.texture = texture
+        self.clarity = clarity
+        self.dehaze = dehaze
+        self.vibrance = vibrance
+        self.saturation = saturation
+        self.sharpness = sharpness
+        self.luminanceNR = luminanceNR
+    }
+
+    // Tolerant decoding — older saved state lacks the newer detail fields.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        exposure = try c.decodeIfPresent(Double.self, forKey: .exposure) ?? 0
+        temperature = try c.decodeIfPresent(Double.self, forKey: .temperature) ?? 0
+        tint = try c.decodeIfPresent(Double.self, forKey: .tint) ?? 0
+        contrast = try c.decodeIfPresent(Double.self, forKey: .contrast) ?? 0
+        highlights = try c.decodeIfPresent(Double.self, forKey: .highlights) ?? 0
+        shadows = try c.decodeIfPresent(Double.self, forKey: .shadows) ?? 0
+        whites = try c.decodeIfPresent(Double.self, forKey: .whites) ?? 0
+        blacks = try c.decodeIfPresent(Double.self, forKey: .blacks) ?? 0
+        texture = try c.decodeIfPresent(Double.self, forKey: .texture) ?? 0
+        clarity = try c.decodeIfPresent(Double.self, forKey: .clarity) ?? 0
+        dehaze = try c.decodeIfPresent(Double.self, forKey: .dehaze) ?? 0
+        vibrance = try c.decodeIfPresent(Double.self, forKey: .vibrance) ?? 0
+        saturation = try c.decodeIfPresent(Double.self, forKey: .saturation) ?? 0
+        sharpness = try c.decodeIfPresent(Double.self, forKey: .sharpness) ?? 0
+        luminanceNR = try c.decodeIfPresent(Double.self, forKey: .luminanceNR) ?? 0
+    }
 
     var isZero: Bool {
         exposure == 0 && temperature == 0 && tint == 0 && contrast == 0
             && highlights == 0 && shadows == 0 && whites == 0 && blacks == 0
             && texture == 0 && clarity == 0 && dehaze == 0 && vibrance == 0 && saturation == 0
+            && sharpness == 0 && luminanceNR == 0
     }
 
     func merged(with other: DevelopAdjustments) -> DevelopAdjustments {
@@ -178,7 +225,9 @@ struct DevelopAdjustments: Codable, Hashable {
             clarity: clarity + other.clarity,
             dehaze: dehaze + other.dehaze,
             vibrance: vibrance + other.vibrance,
-            saturation: saturation + other.saturation
+            saturation: saturation + other.saturation,
+            sharpness: sharpness + other.sharpness,
+            luminanceNR: luminanceNR + other.luminanceNR
         )
     }
 
@@ -196,7 +245,9 @@ struct DevelopAdjustments: Codable, Hashable {
             clarity: clarity * factor,
             dehaze: dehaze * factor,
             vibrance: vibrance * factor,
-            saturation: saturation * factor
+            saturation: saturation * factor,
+            sharpness: sharpness * factor,
+            luminanceNR: luminanceNR * factor
         )
     }
 
@@ -215,8 +266,30 @@ struct DevelopAdjustments: Codable, Hashable {
             clarity: a.clarity * u + b.clarity * t,
             dehaze: a.dehaze * u + b.dehaze * t,
             vibrance: a.vibrance * u + b.vibrance * t,
-            saturation: a.saturation * u + b.saturation * t
+            saturation: a.saturation * u + b.saturation * t,
+            sharpness: a.sharpness * u + b.sharpness * t,
+            luminanceNR: a.luminanceNR * u + b.luminanceNR * t
         )
+    }
+}
+
+/// One clone-based heal spot, in normalized oriented image coordinates
+/// (origin top-left). `sourceDX/DY` point at the donor region relative to the
+/// spot center. This is classic clone healing — not generative fill — and it
+/// renders identically in preview and export.
+struct RetouchSpot: Codable, Hashable, Sendable, Identifiable {
+    var id: UUID = UUID()
+    /// Spot center 0…1.
+    var x: Double
+    var y: Double
+    /// Radius normalized to image width.
+    var radius: Double
+    /// Donor offset, normalized to image width/height.
+    var sourceDX: Double
+    var sourceDY: Double
+
+    var fingerprint: String {
+        String(format: "%.4f,%.4f,%.4f,%.4f,%.4f", x, y, radius, sourceDX, sourceDY)
     }
 }
 
@@ -237,15 +310,69 @@ struct DevelopRecipe: Codable, Hashable {
     var saturation: Double = 0
     var sharpness: Double = 0
     var luminanceNR: Double = 0
+    /// Clone-heal spots (erase tool). Applied in preview and export.
+    var retouch: [RetouchSpot] = []
     var sourceNeighbors: [String] = []
     var confidence: Double = 1
 
     static let neutral = DevelopRecipe()
 
+    init(
+        exposure: Double = 0, temperature: Double = 6500, tint: Double = 0,
+        contrast: Double = 0, highlights: Double = 0, shadows: Double = 0,
+        whites: Double = 0, blacks: Double = 0, texture: Double = 0,
+        clarity: Double = 0, dehaze: Double = 0, vibrance: Double = 0,
+        saturation: Double = 0, sharpness: Double = 0, luminanceNR: Double = 0,
+        retouch: [RetouchSpot] = [], sourceNeighbors: [String] = [], confidence: Double = 1
+    ) {
+        self.exposure = exposure
+        self.temperature = temperature
+        self.tint = tint
+        self.contrast = contrast
+        self.highlights = highlights
+        self.shadows = shadows
+        self.whites = whites
+        self.blacks = blacks
+        self.texture = texture
+        self.clarity = clarity
+        self.dehaze = dehaze
+        self.vibrance = vibrance
+        self.saturation = saturation
+        self.sharpness = sharpness
+        self.luminanceNR = luminanceNR
+        self.retouch = retouch
+        self.sourceNeighbors = sourceNeighbors
+        self.confidence = confidence
+    }
+
+    // Tolerant decoding — projects saved before retouch/detail fields existed.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        exposure = try c.decodeIfPresent(Double.self, forKey: .exposure) ?? 0
+        temperature = try c.decodeIfPresent(Double.self, forKey: .temperature) ?? 6500
+        tint = try c.decodeIfPresent(Double.self, forKey: .tint) ?? 0
+        contrast = try c.decodeIfPresent(Double.self, forKey: .contrast) ?? 0
+        highlights = try c.decodeIfPresent(Double.self, forKey: .highlights) ?? 0
+        shadows = try c.decodeIfPresent(Double.self, forKey: .shadows) ?? 0
+        whites = try c.decodeIfPresent(Double.self, forKey: .whites) ?? 0
+        blacks = try c.decodeIfPresent(Double.self, forKey: .blacks) ?? 0
+        texture = try c.decodeIfPresent(Double.self, forKey: .texture) ?? 0
+        clarity = try c.decodeIfPresent(Double.self, forKey: .clarity) ?? 0
+        dehaze = try c.decodeIfPresent(Double.self, forKey: .dehaze) ?? 0
+        vibrance = try c.decodeIfPresent(Double.self, forKey: .vibrance) ?? 0
+        saturation = try c.decodeIfPresent(Double.self, forKey: .saturation) ?? 0
+        sharpness = try c.decodeIfPresent(Double.self, forKey: .sharpness) ?? 0
+        luminanceNR = try c.decodeIfPresent(Double.self, forKey: .luminanceNR) ?? 0
+        retouch = try c.decodeIfPresent([RetouchSpot].self, forKey: .retouch) ?? []
+        sourceNeighbors = try c.decodeIfPresent([String].self, forKey: .sourceNeighbors) ?? []
+        confidence = try c.decodeIfPresent(Double.self, forKey: .confidence) ?? 1
+    }
+
     var hasSettings: Bool {
         exposure != 0 || temperature != 6500 || tint != 0 || contrast != 0
             || highlights != 0 || shadows != 0 || whites != 0 || blacks != 0
             || texture != 0 || clarity != 0 || dehaze != 0 || vibrance != 0 || saturation != 0
+            || sharpness != 0 || luminanceNR != 0 || !retouch.isEmpty
     }
 
     /// Offsets relative to a project baseline profile (for UI sliders).
@@ -282,7 +409,37 @@ struct DevelopRecipe: Codable, Hashable {
         r.dehaze += offsets.dehaze
         r.vibrance += offsets.vibrance
         r.saturation += offsets.saturation
+        r.sharpness = max(0, r.sharpness + offsets.sharpness)
+        r.luminanceNR = max(0, r.luminanceNR + offsets.luminanceNR)
         return r
+    }
+
+    /// Calibrates an auto/taste recipe (Lightroom crs values) onto Lumina's
+    /// honestly-implemented control set. Whites/Blacks/Clarity/Dehaze/Texture
+    /// have no defensible algorithm here, so their tonal intent is folded into
+    /// the trusted controls with conservative, documented factors — this keeps
+    /// LR-derived auto edits visually closer to the Lightroom rendering intent
+    /// instead of silently dropping half the recipe.
+    func lrCalibrated() -> DevelopRecipe {
+        var r = self
+        r.highlights = clampCRS(r.highlights + r.whites * 0.5)
+        r.shadows = clampCRS(r.shadows + r.blacks * 0.5)
+        r.contrast = clampCRS(r.contrast + r.clarity * 0.3 + r.dehaze * 0.2)
+        r.whites = 0
+        r.blacks = 0
+        r.clarity = 0
+        r.dehaze = 0
+        r.texture = 0
+        if r.temperature <= 0 { r.temperature = 6500 }
+        r.temperature = min(max(r.temperature, 2500), 10000)
+        r.exposure = min(max(r.exposure, -3), 3)
+        r.sharpness = min(max(r.sharpness, 0), 150)
+        r.luminanceNR = min(max(r.luminanceNR, 0), 100)
+        return r
+    }
+
+    private func clampCRS(_ v: Double) -> Double {
+        min(max(v, -100), 100)
     }
 
     static func lerp(_ a: DevelopRecipe, _ b: DevelopRecipe, t: Double) -> DevelopRecipe {
@@ -303,6 +460,7 @@ struct DevelopRecipe: Codable, Hashable {
             saturation: a.saturation * u + b.saturation * t,
             sharpness: a.sharpness * u + b.sharpness * t,
             luminanceNR: a.luminanceNR * u + b.luminanceNR * t,
+            retouch: t < 0.5 ? a.retouch : b.retouch,
             sourceNeighbors: t < 0.5 ? a.sourceNeighbors : b.sourceNeighbors,
             confidence: a.confidence * u + b.confidence * t
         )

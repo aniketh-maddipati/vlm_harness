@@ -122,6 +122,32 @@ enum RawHarnessRunner {
         expect(key(base, .settled) == key(base.updating { $0.whites = 80 }, .settled),
                "cache: disabled control does not thrash keys")
 
+        // Retouch (clone heal): fingerprint participates, and the render
+        // changes pixels at the spot while leaving distant pixels untouched.
+        let spot = RetouchSpot(x: 0.25, y: 0.5, radius: 0.05, sourceDX: 0.3, sourceDY: 0)
+        let healed = base.updating { $0.retouch = [spot] }
+        expect(base.valueFingerprint != healed.valueFingerprint, "heal: fingerprint includes spots")
+
+        // Left half black, right half white → healing at x=0.25 clones white over black.
+        let width = 200, height = 100
+        let black = CIImage(color: .black).cropped(to: CGRect(x: 0, y: 0, width: width / 2, height: height))
+        let white = CIImage(color: .white).cropped(to: CGRect(x: width / 2, y: 0, width: width / 2, height: height))
+        let composite = white.composited(over: black.composited(over: CIImage(color: .gray).cropped(
+            to: CGRect(x: 0, y: 0, width: width, height: height)
+        )))
+        let healedImage = DevelopRenderGraph.applyRetouch([spot], to: composite)
+        let ctx = CIContext(options: [.workingColorSpace: NSNull()])
+        func luma(_ image: CIImage, x: Int, y: Int) -> Double {
+            var px = [UInt8](repeating: 0, count: 4)
+            ctx.render(image, toBitmap: &px, rowBytes: 4,
+                       bounds: CGRect(x: x, y: y, width: 1, height: 1), format: .RGBA8, colorSpace: nil)
+            return Double(px[0]) / 255
+        }
+        let atSpot = luma(healedImage, x: 50, y: 50)      // was black, donor is white
+        let farAway = luma(healedImage, x: 10, y: 90)     // untouched black corner
+        expect(atSpot > 0.6, "heal: donor pixels cloned onto spot center")
+        expect(farAway < 0.1, "heal: distant pixels untouched")
+
         return results
     }
 

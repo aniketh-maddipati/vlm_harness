@@ -152,6 +152,7 @@ struct TreatmentFamilyRow: View {
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .disabled(comparisonPage == 0)
+            .accessibilityLabel("Previous page of set")
 
             Text("\(comparisonPage + 1) / \(pageCount)")
                 .font(LuminaTokens.Typeface.meta(11))
@@ -167,14 +168,15 @@ struct TreatmentFamilyRow: View {
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .disabled(comparisonPage >= pageCount - 1)
+            .accessibilityLabel("Next page of set")
         }
     }
 
     private var compactStrip: some View {
         HStack(spacing: LuminaTokens.Spacing.xs) {
             ForEach(activePhotos.prefix(6)) { asset in
-                photoTile(asset: asset, width: 72, height: isActive ? 56 : 44)
-                    .frame(maxWidth: 72)
+                photoTile(asset: asset, width: 104, height: isActive ? 80 : 64)
+                    .frame(maxWidth: 104)
             }
             if activePhotos.count > 6 {
                 Text("+\(activePhotos.count - 6)")
@@ -183,15 +185,15 @@ struct TreatmentFamilyRow: View {
             }
             Spacer(minLength: 0)
         }
-        .frame(height: isActive ? 60 : 48)
+        .frame(height: isActive ? 88 : 72)
     }
 
     private var comparisonSpread: some View {
         let photos = pagePhotos
         let gap: CGFloat = 16
         let mat: CGFloat = 12
-        let tileW: CGFloat = twoUp ? 420 : 274
-        let tileH: CGFloat = twoUp ? 280 : 183
+        let tileW: CGFloat = twoUp ? 480 : 336
+        let tileH: CGFloat = twoUp ? 320 : 224
 
         return HStack(alignment: .center, spacing: gap) {
             ForEach(photos) { asset in
@@ -252,7 +254,7 @@ struct TreatmentFamilyRow: View {
                         contentMode: .fit,
                         showDecisionBadge: false,
                         isSelected: false,
-                        maxPixelSize: isExpanded ? 1600 : 480
+                        maxPixelSize: isExpanded ? 2048 : 768
                     )
                     .frame(width: width, height: height)
                     .aspectRatio(asset.aspectRatio, contentMode: .fit)
