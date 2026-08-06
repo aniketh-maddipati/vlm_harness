@@ -180,7 +180,7 @@ nonisolated enum ContactSheetPreparation {
             continuation: continuation
         )
 
-        try ShootStore.saveShoot(shoot)
+        try savePreservingLiveMutations(shoot)
         continuation.finish()
     }
 
@@ -230,7 +230,7 @@ nonisolated enum ContactSheetPreparation {
                 status: &status,
                 continuation: continuation
             )
-            try ShootStore.saveShoot(shoot)
+            try savePreservingLiveMutations(shoot)
             continuation.finish()
             return
         }
@@ -312,7 +312,7 @@ nonisolated enum ContactSheetPreparation {
             continuation: continuation
         )
 
-        try ShootStore.saveShoot(shoot)
+        try savePreservingLiveMutations(shoot)
         continuation.finish()
     }
 
@@ -421,7 +421,7 @@ nonisolated enum ContactSheetPreparation {
         status.isPreparingPreviews = false
         status.phaseDetail = "\(status.assetCount) photos"
         continuation.yield(.status(status))
-        try? ShootStore.saveShoot(shoot)
+        try? savePreservingLiveMutations(shoot)
     }
 
     // MARK: - Metadata
@@ -465,6 +465,28 @@ nonisolated enum ContactSheetPreparation {
     }
 
     // MARK: - Helpers
+
+    /// Persist preview/metadata progress without clobbering cull/recipe writes from the live session.
+    private static func savePreservingLiveMutations(_ prepared: ShootRecord) throws {
+        guard let disk = try? ShootStore.loadShoot(id: prepared.name) else {
+            try ShootStore.saveShoot(prepared)
+            return
+        }
+        var merged = prepared
+        let liveByID = Dictionary(uniqueKeysWithValues: disk.assets.map { ($0.id, $0) })
+        for i in merged.assets.indices {
+            guard let live = liveByID[merged.assets[i].id] else { continue }
+            merged.assets[i].cull = live.cull
+            merged.assets[i].recipe = live.recipe
+            merged.assets[i].userDecidedAt = live.userDecidedAt
+            merged.assets[i].isFlagged = live.isFlagged
+        }
+        merged.finalSetOrder = disk.finalSetOrder
+        merged.workspace = disk.workspace
+        merged.exportHistory = disk.exportHistory
+        merged.batchHistory = disk.batchHistory
+        try ShootStore.saveShoot(merged)
+    }
 
     static func chronologicalLess(_ lhs: AssetRecord, _ rhs: AssetRecord) -> Bool {
         switch (lhs.capturedAt, rhs.capturedAt) {

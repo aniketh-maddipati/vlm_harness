@@ -97,6 +97,33 @@ Report: `artifacts/p0-edit/p0_edit_harness_report.json`. Frames under `artifacts
 
 Fixture folder available on this Mac: 94 ARWs under `jeevana_mehendi_2026_MATCHED_RAWS` (not 200+).
 
+### Mac live session (`--p0-edit-live`, 2026-08-06)
+
+Command:
+
+```bash
+open -W -n DerivedData/Build/Products/Debug/Lumina.app --args \
+  --p0-edit-live artifacts/p0-edit-live \
+  --p0-open /Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS
+```
+
+| Checklist item | Result |
+|---|---|
+| Open 94-photo shoot | Pass |
+| Open photograph + RAW preview | Pass |
+| Adjust every exposed control | Pass |
+| Rapid Exposure scrub ≥10 s | Pass — blankSeen=false, scrub p95 **18.7 ms** |
+| Before non-mutating | Pass |
+| Navigate 20 neighbors | Pass — nav p95 ~133 ms (cold-ish; target 35 ms missed) |
+| Crop landscape + portrait/rotate | Pass |
+| Grid return + reopen retains crop | Pass |
+| Edited mark independent of Keep | Pass |
+| Undo edit leaves cull unchanged | Pass |
+| Quit/reopen retains recipe + cull | Pass (preparation saves now merge live cull/recipe) |
+| 1280×800 captures | Pass — `artifacts/p0-edit-live/*.png` |
+
+Report: `artifacts/p0-edit-live/p0_edit_live_report.json`.
+
 ## Mac live-test instructions
 
 Shoot: `/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS` (Sony ARW).

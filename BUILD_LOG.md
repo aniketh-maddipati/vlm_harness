@@ -24,7 +24,7 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 **Fix:** `EditMutationCommand` on shared `P0UndoCoordinator`; session scrub/commit/flush/Before; `P0SinglePhotoEditor` + adjustment rail + crop overlay wired to `DevelopRenderScheduler`/`DevelopMetalView`; Whites/Blacks deferred; docs `docs/P0_EDITING.md`; tests `Scripts/p0_edit_test.swift`; harness `--p0-edit-harness`.
 
-**Build / gates:** Debug **SUCCEEDED**. Deterministic P0 edit/cull/state/contact tests green. Live ARW harness **PASSED** (exposed controls move pixels; Whites/Blacks inert). Perf misses recorded: scrub p95 ~27 ms (target 16), settled baseline ~279 ms (target 150), nav p95 ~38 ms (target 35).
+**Build / gates:** Debug **SUCCEEDED**. Deterministic P0 edit/cull/state/contact tests green. Live ARW harness **PASSED**. Full `--p0-edit-live` session on 94 Mehendi ARWs **PASSED** (10s scrub, Before, 20-nav, crop, undo, quit/reopen). Fixed preparation saves clobbering live cull/recipe. Perf: scrub p95 ~19 ms during live scrub; nav p95 still misses 35 ms target on cold neighbors.
 
 ---
 
