@@ -75,9 +75,13 @@ Obsolete architecture notes in `docs/DEVELOP_ENGINE.md` and `BUILD_LOG.md` that 
 
 ## Next checkpoint (contact sheet)
 
-Start from this branch after merge:
+Completed on branch `cursor/p0-contact-sheet` — see `docs/P0_CONTACT_SHEET.md`.
 
-1. Read this doc + `docs/DEVELOP_ENGINE.md`
-2. Keep `ShootRecord` / `AssetIdentity` / `ShootStore` as given — do not reintroduce dual recipes
-3. Build the continuous contact-sheet + single-photo workspace on top of `WorkspaceRestoreState` and `FinalSetOrder`
-4. Do not redesign export, taste learning, or the RAW render graph in that checkpoint
+## Next checkpoint (culling)
+
+Start from the contact-sheet branch after merge:
+
+1. Read `docs/P0_CONTACT_SHEET.md` + this doc
+2. Mutate `CullDecision` only from the contact sheet (P / X / hold)
+3. Keep focus, selection, density, and scroll restore intact
+4. Do not open Workbench, AI scoring, or the editing rail yet

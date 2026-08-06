@@ -4,6 +4,18 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-06 — P0 contact sheet (open + incremental browse)
+
+**Claim:** Open folder/T7 → usable contact sheet before all previews/metadata finish; identity-keyed caches; no import overlay / AI / tiering on the P0 route.
+
+**Finding:** Legacy import blocked the UI behind `ImportLoadingView`, ran scoring/taste/faces, and the old grid forced uniform cell crops.
+
+**Fix:** `ContactSheetPreparation` + `P0SessionModel` + `NSCollectionView` contact sheet; Open surface with drop/recent/reopen; marks from orthogonal state; docs `docs/P0_CONTACT_SHEET.md`; tests `Scripts/p0_contact_sheet_test.swift`; bench `Scripts/p0_contact_sheet_bench.swift`.
+
+**Build:** See delivery report / PR for measured timings.
+
+---
+
 ## 2026-08-06 — P0 canonical state foundation
 
 **Claim:** Stable asset identity, EditRecipe as sole persisted recipe (incl. crop/straighten), actor-backed recoverable shoot store — without redesigning contact-sheet UI or the RAW render engine.
