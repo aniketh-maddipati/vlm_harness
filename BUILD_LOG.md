@@ -4,6 +4,18 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-06 — P0 cull grammar + single-photo placeholder
+
+**Claim:** P/X toggle cull with immediate persistence and undo; exact grid↔photo restore; no AI/recipe side effects.
+
+**Finding:** Contact sheet showed mark slots only — no cull mutations, no shared undo coordinator, inspect overlay lacked grid restore/filmstrip.
+
+**Fix:** `CullMutationCommand` + `P0UndoCoordinator`; session P/X/⌘Z; visual grammar (✓/dim+✕/accent/edit bar); single-photo placeholder + filmstrip; docs `docs/P0_CULLING.md`; tests `Scripts/p0_cull_test.swift`.
+
+**Build:** See delivery report / PR.
+
+---
+
 ## 2026-08-06 — P0 contact sheet (open + incremental browse)
 
 **Claim:** Open folder/T7 → usable contact sheet before all previews/metadata finish; identity-keyed caches; no import overlay / AI / tiering on the P0 route.

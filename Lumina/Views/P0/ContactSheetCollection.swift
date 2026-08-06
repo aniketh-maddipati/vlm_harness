@@ -122,33 +122,60 @@ final class ContactSheetItemView: NSCollectionViewItem {
     }
 
     func applyChrome(marks: ContactSheetMarks, focused: Bool, selected: Bool) {
-        // Warm-charcoal keyboard focus outline — distinct from selection fill.
-        focusRing.layer?.borderWidth = focused ? 2.0 : 0
-        focusRing.layer?.borderColor = NSColor(srgbRed: 0.22, green: 0.21, blue: 0.20, alpha: 0.95).cgColor
+        // Focus: warm-charcoal outline. Selection: warm accent outline — distinct rings.
+        let charcoal = NSColor(srgbRed: 0.22, green: 0.21, blue: 0.20, alpha: 0.95)
+        let warmAccent = NSColor(srgbRed: 0.72, green: 0.48, blue: 0.22, alpha: 0.95)
 
-        view.layer?.backgroundColor = selected
-            ? NSColor(srgbRed: 0.05, green: 0.62, blue: 0.89, alpha: 0.12).cgColor
-            : NSColor.clear.cgColor
+        if focused {
+            focusRing.layer?.borderWidth = 2.5
+            focusRing.layer?.borderColor = charcoal.cgColor
+        } else if selected {
+            focusRing.layer?.borderWidth = 2.0
+            focusRing.layer?.borderColor = warmAccent.cgColor
+        } else {
+            focusRing.layer?.borderWidth = 0
+        }
+
+        // Rejected: ~50% dimming; readable marks stay on top.
+        imageView_.alphaValue = marks.rejected ? 0.50 : 1.0
 
         markStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        func addMark(_ title: String, color: NSColor) {
-            let label = NSTextField(labelWithString: title)
-            label.font = .systemFont(ofSize: 9, weight: .medium)
-            label.textColor = .white
-            label.drawsBackground = true
-            label.backgroundColor = color
-            label.wantsLayer = true
-            label.layer?.cornerRadius = 3
-            markStack.addArrangedSubview(label)
+
+        if marks.kept {
+            addMarkChip(symbol: "✓", fill: NSColor(srgbRed: 0.20, green: 0.20, blue: 0.19, alpha: 0.82))
         }
-        // Represent slots from orthogonal state — not AI badges.
-        if marks.kept { addMark(" Kept ", color: NSColor(srgbRed: 0.61, green: 0.76, blue: 0.33, alpha: 0.92)) }
-        if marks.rejected { addMark(" Out ", color: NSColor(srgbRed: 0.68, green: 0.13, blue: 0.07, alpha: 0.92)) }
-        if marks.edited { addMark(" Edit ", color: NSColor(srgbRed: 0.22, green: 0.21, blue: 0.20, alpha: 0.75)) }
-        if marks.ordered { addMark(" Ord ", color: NSColor(srgbRed: 0.40, green: 0.38, blue: 0.35, alpha: 0.8)) }
-        if marks.unreviewed && !marks.kept && !marks.rejected {
-            // Unreviewed is the default empty slot — no badge noise.
+        if marks.rejected {
+            addMarkChip(symbol: "✕", fill: NSColor(srgbRed: 0.20, green: 0.20, blue: 0.19, alpha: 0.82))
         }
+        if marks.edited {
+            // Small adjustment bar — distinct from Keep checkmark.
+            let bar = NSView()
+            bar.wantsLayer = true
+            bar.layer?.backgroundColor = NSColor(srgbRed: 0.95, green: 0.93, blue: 0.88, alpha: 0.95).cgColor
+            bar.layer?.cornerRadius = 1.5
+            bar.translatesAutoresizingMaskIntoConstraints = false
+            bar.widthAnchor.constraint(equalToConstant: 18).isActive = true
+            bar.heightAnchor.constraint(equalToConstant: 3).isActive = true
+            markStack.addArrangedSubview(bar)
+        }
+        if let order = marks.orderIndex {
+            addMarkChip(symbol: "\(order)", fill: NSColor(srgbRed: 0.20, green: 0.20, blue: 0.19, alpha: 0.82))
+        }
+        // Unreviewed: no mark.
+    }
+
+    private func addMarkChip(symbol: String, fill: NSColor) {
+        let label = NSTextField(labelWithString: " \(symbol) ")
+        label.font = .systemFont(ofSize: 11, weight: .semibold)
+        label.textColor = NSColor(srgbRed: 0.96, green: 0.95, blue: 0.92, alpha: 1)
+        label.drawsBackground = true
+        label.backgroundColor = fill
+        label.wantsLayer = true
+        label.layer?.cornerRadius = 3
+        // High-contrast chip remains readable on bright and dark photographs.
+        label.layer?.borderWidth = 0.5
+        label.layer?.borderColor = NSColor.white.withAlphaComponent(0.35).cgColor
+        markStack.addArrangedSubview(label)
     }
 
     private func loadImage(for asset: AssetRecord) {
@@ -245,7 +272,8 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
         focusedID: UUID?,
         selectedIDs: Set<UUID>,
         densityColumns: Int,
-        restoreScrollAnchor: Double?
+        restoreScrollAnchor: Double?,
+        forceScrollRestore: Bool = false
     ) {
         let newIDs = items.map(\.id)
         let oldIDs = itemIDs
@@ -262,7 +290,6 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
         if idsChanged {
             let prefixOK = isPrefixCompatible(old: oldIDs, new: newIDs)
             if oldCount == 0 || abs(newIDs.count - oldCount) > 40 || !prefixOK {
-                // Full identity reshuffle (e.g. metadata re-sort) — reload once, restore scroll.
                 let anchor = restoreScrollAnchor ?? currentScrollAnchor()
                 collectionView.reloadData()
                 DispatchQueue.main.async { [weak self] in
@@ -286,9 +313,12 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
                 }
             }
         } else {
-            layout.invalidateLayout()
+            // Cull / focus / selection — chrome only; never reloadData for one-cell decisions.
             applyFocusSelectionChrome()
             refreshVisibleCells()
+            if forceScrollRestore, let anchor = restoreScrollAnchor {
+                restoreScroll(anchor: anchor)
+            }
         }
     }
 

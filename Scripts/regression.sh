@@ -11,33 +11,38 @@ echo "=== Lumina regression ==="
 echo "Repo: $ROOT"
 echo ""
 
-echo "--- 0/6 Command chord tests ---"
+echo "--- 0/7 Command chord tests ---"
 swift "$ROOT/Scripts/CommandChordTests.swift"
 echo "Command chord tests: OK"
 echo ""
 
-echo "--- 1/6 Develop engine unit tests ---"
+echo "--- 1/7 Develop engine unit tests ---"
 python3 "$ROOT/Scripts/develop_engine_test.py"
 echo "Develop unit tests: OK"
 echo ""
 
-echo "--- 2/6 P0 state / migration tests ---"
+echo "--- 2/7 P0 state / migration tests ---"
 swift "$ROOT/Scripts/p0_state_test.swift"
 echo "P0 state tests: OK"
 echo ""
 
-echo "--- 3/6 P0 contact-sheet tests ---"
+echo "--- 3/7 P0 contact-sheet tests ---"
 swift "$ROOT/Scripts/p0_contact_sheet_test.swift"
 echo "P0 contact-sheet tests: OK"
 echo ""
 
-echo "--- 4/6 Build ---"
+echo "--- 4/7 P0 cull grammar tests ---"
+swift "$ROOT/Scripts/p0_cull_test.swift"
+echo "P0 cull tests: OK"
+echo ""
+
+echo "--- 5/7 Build ---"
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
   -derivedDataPath ./DerivedData build 2>&1 | tail -5
 echo "Build: OK"
 echo ""
 
-echo "--- 5/6 Headless E2E audit ---"
+echo "--- 6/7 Headless E2E audit ---"
 if [[ ! -d "$RAW" ]]; then
   echo "WARN: RAW folder missing ($RAW) — skipping media audit"
   exit 0
