@@ -16,6 +16,18 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-06 — P0 trustworthy single-photo RAW editing
+
+**Claim:** Open a photograph from the contact sheet and adjust it with immediate, trustworthy RAW feedback bound only to `EditRecipe`, shared undo, and no cull/selection regression.
+
+**Finding:** Single-photo surface was a JPEG-thumb placeholder; Whites/Blacks/Texture/Clarity/Dehaze remain render-inert; undo coordinator was cull-only; no gesture-coalesced edit command.
+
+**Fix:** `EditMutationCommand` on shared `P0UndoCoordinator`; session scrub/commit/flush/Before; `P0SinglePhotoEditor` + adjustment rail + crop overlay wired to `DevelopRenderScheduler`/`DevelopMetalView`; Whites/Blacks deferred; docs `docs/P0_EDITING.md`; tests `Scripts/p0_edit_test.swift`; harness `--p0-edit-harness`.
+
+**Build / gates:** Debug **SUCCEEDED**. Deterministic P0 edit/cull/state/contact tests green. Live ARW harness **PASSED** (exposed controls move pixels; Whites/Blacks inert). Perf misses recorded: scrub p95 ~27 ms (target 16), settled baseline ~279 ms (target 150), nav p95 ~38 ms (target 35).
+
+---
+
 ## 2026-08-06 — P0 cull grammar + single-photo placeholder
 
 **Claim:** P/X toggle cull with immediate persistence and undo; exact grid↔photo restore; no AI/recipe side effects.

@@ -44,8 +44,12 @@ Escape / Grid → contact sheet with same focus + approximate scroll restore. Se
 
 ## Next checkpoint (trustworthy single-photo editing)
 
-1. Keep this cull grammar and scale transition
-2. Add adjustment controls on the single-photo surface bound to `EditRecipe` only
+Completed on branch `cursor/p0-single-photo-editing` — see `docs/P0_EDITING.md`.
+
+## Next checkpoint (deeper Metal)
+
+1. Keep this cull grammar, scale transition, and EditRecipe command boundary
+2. Implement honest Whites/Blacks (and optionally clarity/texture) in the render graph
 3. Never let edits mutate `CullDecision`
-4. Push edit commands onto the same `P0UndoCoordinator`
+4. Tighten present-time slider-to-photon metrics
 5. Still no compare, batch, AI, or export sheet

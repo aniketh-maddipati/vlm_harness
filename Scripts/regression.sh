@@ -11,32 +11,37 @@ echo "=== Lumina regression ==="
 echo "Repo: $ROOT"
 echo ""
 
-echo "--- 0/7 Command chord tests ---"
+echo "--- 0/8 Command chord tests ---"
 swift "$ROOT/Scripts/CommandChordTests.swift"
 echo "Command chord tests: OK"
 echo ""
 
-echo "--- 1/7 Develop engine unit tests ---"
+echo "--- 1/8 Develop engine unit tests ---"
 python3 "$ROOT/Scripts/develop_engine_test.py"
 echo "Develop unit tests: OK"
 echo ""
 
-echo "--- 2/7 P0 state / migration tests ---"
+echo "--- 2/8 P0 state / migration tests ---"
 swift "$ROOT/Scripts/p0_state_test.swift"
 echo "P0 state tests: OK"
 echo ""
 
-echo "--- 3/7 P0 contact-sheet tests ---"
+echo "--- 3/8 P0 contact-sheet tests ---"
 swift "$ROOT/Scripts/p0_contact_sheet_test.swift"
 echo "P0 contact-sheet tests: OK"
 echo ""
 
-echo "--- 4/7 P0 cull grammar tests ---"
+echo "--- 4/8 P0 cull grammar tests ---"
 swift "$ROOT/Scripts/p0_cull_test.swift"
 echo "P0 cull tests: OK"
 echo ""
 
-echo "--- 4b/7 UI-automation manifest checks (portable; runs on Linux too) ---"
+echo "--- 5/8 P0 single-photo editing tests ---"
+swift "$ROOT/Scripts/p0_edit_test.swift"
+echo "P0 edit tests: OK"
+echo ""
+
+echo "--- 5b/8 UI-automation manifest checks (portable; runs on Linux too) ---"
 # Static validation of the XCUITest harness plumbing. These do NOT run any macOS UI tests — they
 # only confirm the runner script, test plans, and shared scheme are well-formed, so a Linux cloud
 # agent can catch harness breakage without ever claiming it executed macOS automation.
@@ -60,7 +65,7 @@ if [[ "$(uname -s)" != "Darwin" ]] || ! command -v xcodebuild >/dev/null 2>&1; t
   exit 0
 fi
 
-echo "--- 5/7 Build (app + test targets) ---"
+echo "--- 6/8 Build (app + test targets) ---"
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
   -derivedDataPath ./DerivedData build 2>&1 | tail -5
 # Compile the UI + logic test targets so harness breakage fails the gate (does not run UI tests).
@@ -69,14 +74,14 @@ xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
 echo "Build: OK"
 echo ""
 
-echo "--- 5b/7 Native logic tests (XCTest, deterministic, no UI) ---"
+echo "--- 6b/8 Native logic tests (XCTest, deterministic, no UI) ---"
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
   -derivedDataPath ./DerivedData -destination 'platform=macOS' \
   -only-testing:LuminaLogicTests test-without-building 2>&1 | grep -E "Executed .* test|failed" | tail -3
 echo "Logic tests: OK  (full macOS UI suites: bash Scripts/run_p0_ui_tests.sh fast|stress|visual)"
 echo ""
 
-echo "--- 6/7 Headless E2E audit ---"
+echo "--- 7/8 Headless E2E audit ---"
 if [[ ! -d "$RAW" ]]; then
   echo "WARN: RAW folder missing ($RAW) — skipping media audit"
   exit 0

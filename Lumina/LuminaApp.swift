@@ -9,8 +9,9 @@ struct LuminaApp: App {
         UITestLaunch.runIfRequested()
         #endif
         WorkbenchCapture.runIfRequested()
-        // Headless harness exits inside the runner.
+        // Headless harnesses exit inside the runner.
         _ = RawHarnessRunner.runIfRequested()
+        _ = P0EditHarnessRunner.runIfRequested()
         // Capture-only lab exits inside the launcher; interactive lab continues into the scene.
         _ = DevelopLabLauncher.runIfRequested()
     }

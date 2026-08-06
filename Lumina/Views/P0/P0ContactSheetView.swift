@@ -22,7 +22,7 @@ struct P0ContactSheetView: View {
 
             if let id = session.inspectingAssetID,
                let asset = session.assets.first(where: { $0.id == id }) {
-                P0SinglePhotoPlaceholder(session: session, asset: asset)
+                P0SinglePhotoEditor(session: session, asset: asset)
                     .transition(effectiveReduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.985)))
             }
         }
@@ -69,7 +69,7 @@ struct P0ContactSheetView: View {
         }
         .onKeyPress(keys: [.init("z"), .init("Z")]) { press in
             if press.modifiers.contains(.command) {
-                session.undoLastCull()
+                session.undoLast()
                 return .handled
             }
             return .ignored
@@ -135,7 +135,7 @@ struct P0ContactSheetView: View {
             }
 
             if session.canUndo {
-                Button("Undo") { session.undoLastCull() }
+                Button(session.undoLabel ?? "Undo") { session.undoLast() }
                     .buttonStyle(LuminaQuietButtonStyle())
                     .keyboardShortcut("z", modifiers: .command)
                     .accessibilityIdentifier(P0AccessibilityID.undoButton)
@@ -179,147 +179,28 @@ struct P0ContactSheetView: View {
     }
 }
 
-/// Basic single-photo surface — no editing rail yet.
-struct P0SinglePhotoPlaceholder: View {
-    @Bindable var session: P0SessionModel
-    let asset: AssetRecord
+/// Lightweight inspect/filmstrip image loader — not used for the live RAW canvas.
+struct ContactSheetInspectImage: View {
+    let path: String
+    @State private var image: NSImage?
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: LuminaTokens.Spacing.md) {
-                Button {
-                    session.closeInspection()
-                } label: {
-                    Label("Grid", systemImage: "square.grid.2x2")
-                        .font(LuminaTokens.Typeface.navigation(14))
-                        .foregroundStyle(LuminaTokens.Ink.inspection)
-                }
-                .buttonStyle(LuminaQuietButtonStyle())
-                .accessibilityLabel("Return to contact sheet")
-                .accessibilityIdentifier(P0AccessibilityID.gridReturn)
-
-                Text(asset.filename)
-                    .font(LuminaTokens.Typeface.meta(13))
-                    .foregroundStyle(LuminaTokens.Ink.inspection)
-                    .accessibilityIdentifier(P0AccessibilityID.singlePhotoFilename)
-
-                Spacer()
-
-                if asset.source.availability == .missing {
-                    // Factual, in-place affordance: the cached preview is shown but the original
-                    // file is unavailable. Previously only a global toolbar status hinted at this.
-                    Text("Original offline")
-                        .font(LuminaTokens.Typeface.meta(12))
-                        .foregroundStyle(LuminaTokens.Ink.inspection)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(LuminaTokens.Surface.well.opacity(0.6))
-                        .clipShape(Capsule())
-                        .help("Cached preview shown — the original file is currently unavailable")
-                        .accessibilityIdentifier(P0AccessibilityID.singlePhotoOriginalOffline)
-                }
-
-                cullStatusChip
-                    .accessibilityIdentifier(P0AccessibilityID.singlePhotoCullChip)
-                    .accessibilityValue(asset.cull.rawValue)
-
-                Text("P keep · X reject · Esc grid")
-                    .font(LuminaTokens.Typeface.meta(11))
-                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                Rectangle()
+                    .fill(LuminaTokens.Surface.well)
             }
-            .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
-            .frame(height: LuminaTokens.HitTarget.header)
-
-            ZStack {
-                LuminaTokens.Surface.inspectionMatte.ignoresSafeArea()
-                if let path = asset.thumbPath ?? asset.gridThumbPath {
-                    ContactSheetInspectImage(path: path)
-                        .padding(24)
-                        .accessibilityIdentifier(P0AccessibilityID.singlePhotoImage)
-                        .accessibilityValue(asset.source.availability.rawValue)
-                } else {
-                    Text("Preview unavailable — cached preview missing")
-                        .font(LuminaTokens.Typeface.body(17))
-                        .foregroundStyle(LuminaTokens.Ink.inspection)
-                        .accessibilityIdentifier(P0AccessibilityID.singlePhotoUnavailable)
-                }
+        }
+        .task(id: path) {
+            let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: 2400, allowRAW: false)
+            if case .image(let img) = outcome {
+                image = img
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            // Minimal filmstrip navigation — not an editing rail.
-            filmstrip
         }
-        .background(LuminaTokens.Surface.inspectionMatte)
-    }
-
-    @ViewBuilder
-    private var cullStatusChip: some View {
-        switch asset.cull {
-        case .keep:
-            Text("Kept")
-                .font(LuminaTokens.Typeface.meta(12))
-                .foregroundStyle(LuminaTokens.Ink.inspection)
-        case .reject:
-            Text("Rejected")
-                .font(LuminaTokens.Typeface.meta(12))
-                .foregroundStyle(LuminaTokens.Ink.inspection)
-        case .undecided, .hold:
-            Text("Unreviewed")
-                .font(LuminaTokens.Typeface.meta(12))
-                .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
-        }
-    }
-
-    private var filmstrip: some View {
-        let neighbors = filmstripNeighbors()
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(neighbors, id: \.id) { item in
-                    Button {
-                        session.setFocus(item.id)
-                    } label: {
-                        ZStack {
-                            if let path = item.asset.gridThumbPath ?? item.asset.thumbPath {
-                                ContactSheetInspectImage(path: path)
-                                    .frame(width: 72, height: 54)
-                                    .clipped()
-                            } else {
-                                Rectangle()
-                                    .fill(LuminaTokens.Surface.well)
-                                    .frame(width: 72, height: 54)
-                            }
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 3)
-                                .strokeBorder(
-                                    item.id == session.focusedAssetID
-                                        ? LuminaTokens.Ink.inspection
-                                        : Color.clear,
-                                    lineWidth: 2
-                                )
-                        }
-                        .opacity(item.marks.rejected ? 0.5 : 1)
-                    }
-                    .buttonStyle(LuminaQuietButtonStyle())
-                    .accessibilityIdentifier(P0AccessibilityID.filmstripItem(item.id))
-                }
-            }
-            .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
-            .padding(.vertical, 10)
-        }
-        .frame(height: 74)
-        .background(LuminaTokens.Surface.tableHead.opacity(0.92))
-    }
-
-    private func filmstripNeighbors() -> [ContactSheetItem] {
-        let items = session.visibleItems
-        guard let focus = session.focusedAssetID,
-              let idx = items.firstIndex(where: { $0.id == focus }) else {
-            return Array(items.prefix(12))
-        }
-        let lo = max(0, idx - 8)
-        let hi = min(items.count, idx + 9)
-        return Array(items[lo..<hi])
     }
 }
 
@@ -359,31 +240,6 @@ struct ContactSheetRepresentable: NSViewControllerRepresentable {
         )
         if force {
             session.pendingScrollRestore = false
-        }
-    }
-}
-
-/// Lightweight inspect image — editing rail is a later checkpoint.
-struct ContactSheetInspectImage: View {
-    let path: String
-    @State private var image: NSImage?
-
-    var body: some View {
-        Group {
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            } else {
-                Rectangle()
-                    .fill(LuminaTokens.Surface.well)
-            }
-        }
-        .task(id: path) {
-            let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: 2400, allowRAW: false)
-            if case .image(let img) = outcome {
-                image = img
-            }
         }
     }
 }

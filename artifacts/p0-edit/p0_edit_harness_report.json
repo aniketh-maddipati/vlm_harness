@@ -1,0 +1,120 @@
+{
+  "baselineDurationMs" : 165.84599018096924,
+  "baselineExtent" : "3200.0x2134.0",
+  "beforeAfter" : {
+    "afterCached" : true,
+    "beforeCached" : true,
+    "warmMs" : 56.306004524230957
+  },
+  "capabilities" : "exposure:supported wb:supported nr:supported sharpen:supported lens:supported draft:supported",
+  "checkpoint" : "p0-single-photo-editing",
+  "deferredControls" : [
+    {
+      "control" : "whites",
+      "inert" : true,
+      "meanAbsDelta" : 0.25604248046875
+    },
+    {
+      "control" : "blacks",
+      "inert" : true,
+      "meanAbsDelta" : 0.25604248046875
+    }
+  ],
+  "exposedControls" : [
+    {
+      "changedPixels" : true,
+      "control" : "exposure",
+      "durationMs" : 107.4368953704834,
+      "meanAbsDelta" : 19.933837890625
+    },
+    {
+      "changedPixels" : true,
+      "control" : "contrast",
+      "durationMs" : 11.240005493164062,
+      "meanAbsDelta" : 39.369140625
+    },
+    {
+      "changedPixels" : true,
+      "control" : "highlights",
+      "durationMs" : 14.986038208007812,
+      "meanAbsDelta" : 36.14947509765625
+    },
+    {
+      "changedPixels" : true,
+      "control" : "shadows",
+      "durationMs" : 14.06395435333252,
+      "meanAbsDelta" : 36.14947509765625
+    },
+    {
+      "changedPixels" : true,
+      "control" : "temperature",
+      "durationMs" : 14.330029487609863,
+      "meanAbsDelta" : 2.50750732421875
+    },
+    {
+      "changedPixels" : true,
+      "control" : "tint",
+      "durationMs" : 14.642953872680664,
+      "meanAbsDelta" : 10.00994873046875
+    },
+    {
+      "changedPixels" : true,
+      "control" : "vibrance",
+      "durationMs" : 14.449000358581543,
+      "meanAbsDelta" : 1.7745361328125
+    },
+    {
+      "changedPixels" : true,
+      "control" : "saturation",
+      "durationMs" : 13.957023620605469,
+      "meanAbsDelta" : 2.83984375
+    },
+    {
+      "changedPixels" : true,
+      "control" : "crop",
+      "durationMs" : 100.94499588012695,
+      "meanAbsDelta" : 29.67498779296875
+    },
+    {
+      "changedPixels" : true,
+      "control" : "straighten",
+      "durationMs" : 15.583038330078125,
+      "meanAbsDelta" : 18.99298095703125
+    },
+    {
+      "changedPixels" : true,
+      "control" : "rotate90",
+      "durationMs" : 14.130949974060059,
+      "meanAbsDelta" : 35.1351318359375
+    }
+  ],
+  "failures" : 0,
+  "fixtureCount" : 8,
+  "fixtureDir" : "\/Users\/aniketh\/Pictures\/jeevana_mehendi_2026_MATCHED_RAWS",
+  "generatedAt" : "2026-08-06T23:22:06Z",
+  "missingOriginalRecovery" : {
+    "factualNotice" : true,
+    "recipeRetained" : true
+  },
+  "nativeTemperature" : 4558.4072265625,
+  "navigation" : {
+    "neighbors" : 8,
+    "p50Ms" : 38.371920585632324,
+    "p95Ms" : 38.424015045166016
+  },
+  "primary" : "DSC08241.ARW",
+  "scrub" : {
+    "cacheHits" : 10,
+    "cacheMisses" : 10,
+    "firstVisibleMs" : 26.969075202941895,
+    "metrics" : "dev cache hit=10 miss=10 rawHit=11 cancel=0 stale=0 last=0.0ms interactive\/interactive",
+    "p50Ms" : 26.893019676208496,
+    "p95Ms" : 27.149081230163574,
+    "samples" : 20,
+    "settledLastMs" : 0,
+    "staleRejected" : 0
+  },
+  "sessionPrepareMs" : 216.93706512451172,
+  "staleGenerationRejected" : true,
+  "status" : "passed"
+}
