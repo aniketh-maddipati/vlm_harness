@@ -356,11 +356,12 @@ let agentFiles = [
     "Lumina/Services/FeedbackStore.swift",
     "Lumina/Services/PhotoAgentOrchestrator.swift",
     "Lumina/Views/UnifiedCanvasView.swift",
-    "Lumina/Views/StackFeedView.swift",
+    "Lumina/Models/P0State.swift",
+    "Lumina/Services/ShootStore.swift",
 ]
 let missingAgent = agentFiles.filter { !FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent($0).path) }
 if missingAgent.isEmpty {
-    note("pass", "agent", "Agentic modules present", "JobBrief, FeedbackStore, Orchestrator, UnifiedCanvas, StackFeed")
+    note("pass", "agent", "Agentic + P0 modules present", "JobBrief, FeedbackStore, Orchestrator, UnifiedCanvas, ShootStore")
 } else {
     note("bug", "agent", "Missing agent modules", missingAgent.joined(separator: ", "))
 }
@@ -439,10 +440,11 @@ if sourceContains(spinePath, "paint_commit")
     note("friction", "perf", "Defeater fixes incomplete", "Expected decode/blit/wrap spans, paint_commit, RAW guard")
 }
 
-if sourceContains(vmPath, "prefetchStackFeed") {
-    note("pass", "perf", "Stack feed scroll-ahead prefetch", "prefetchStackFeed on card appear")
+if sourceContains(repoRoot.appendingPathComponent("Lumina/Services/ShootStore.swift").path, "saveShootDebounced")
+    && sourceContains(repoRoot.appendingPathComponent("Lumina/Models/AssetIdentity.swift").path, "sourceKey") {
+    note("pass", "persist", "P0 shoot store + stable identity", "ShootStore debounced saves · AssetIdentity source keys")
 } else {
-    note("friction", "perf", "Stack prefetch missing", "StackFeedView lacks scroll-ahead")
+    note("friction", "persist", "P0 persistence incomplete", "Missing ShootStore or AssetIdentity")
 }
 
 let shellView = repoRoot.appendingPathComponent("Lumina/Shell/LuminaShellView.swift").path
@@ -501,10 +503,11 @@ if sourceContains(mediaFormats, "maxDepth") && sourceContains(mediaFormats, "dup
     note("friction", "ingest", "Shallow discovery only", "May miss nested camera folders")
 }
 
-if FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Lumina/Services/IngestWatcher.swift").path) {
-    note("pass", "ingest", "Volume watcher (deferred)", "Infrastructure present · UI not wired in v1")
+if sourceContains(repoRoot.appendingPathComponent("Lumina/Models/P0State.swift").path, "SourceReference")
+    && sourceContains(repoRoot.appendingPathComponent("Lumina/Models/P0State.swift").path, "bookmarkData") {
+    note("pass", "ingest", "Source bookmarks in P0 state", "Missing volumes keep catalog via SourceReference")
 } else {
-    note("friction", "ingest", "No volume watcher", "SD auto-import deferred")
+    note("friction", "ingest", "No source bookmark model", "External drive remount recovery incomplete")
 }
 
 if FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Lumina/Services/SourceCatalog.swift").path)

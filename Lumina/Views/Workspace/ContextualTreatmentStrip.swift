@@ -101,3 +101,37 @@ struct ContextualTreatmentStrip: View {
         .frame(maxWidth: .infinity)
     }
 }
+
+struct DevelopSliderRow: View {
+    let title: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    var step: Double = 1
+    var unit: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                    .font(LuminaTokens.Typeface.meta(12))
+                    .foregroundStyle(LuminaTokens.Ink.secondary)
+                Spacer(minLength: 8)
+                Text(formattedValue)
+                    .font(LuminaTokens.Typeface.count(11))
+                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+            }
+            Slider(value: $value, in: range, step: step)
+                .controlSize(.small)
+        }
+    }
+
+    private var formattedValue: String {
+        if unit == " EV" {
+            return String(format: "%+.2f%@", value, unit)
+        }
+        if unit == " K" {
+            return String(format: "%+.0f%@", value, unit)
+        }
+        return String(format: "%+.0f", value)
+    }
+}

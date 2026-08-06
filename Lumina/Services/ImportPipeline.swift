@@ -4,8 +4,6 @@ import CoreGraphics
 
 /// Progressive import — emits photos after thumbs, then refines scores live.
 enum ImportPipeline {
-    private static let previewConcurrency = 6
-    /// Background thumb refine must stay out of the way of Meet/Pick/Decide.
     private static let refineConcurrency = 2
     private static var instantPreviewConcurrency: Int {
         min(max(ProcessInfo.processInfo.activeProcessorCount * 3, 16), 32)
@@ -112,11 +110,37 @@ enum ImportPipeline {
 
         emit(.previews, detail: "Loading previews…", completed: 0, total: totalPhotos, fraction: 0.08)
 
+        // Preserve IDs from an existing shoot when rediscovering the same files.
+        let existingByKey: [String: UUID] = {
+            guard let existing = try? ProjectStore.load(name: projectName) else { return [:] }
+            var map: [String: UUID] = [:]
+            for photo in existing.photos {
+                if let key = photo.sourceKey {
+                    map[key] = photo.id
+                } else {
+                    let rel = AssetIdentity.relativePath(
+                        file: URL(fileURLWithPath: photo.rawPath),
+                        root: sourceFolder
+                    )
+                    let key = AssetIdentity.sourceKey(
+                        volumeID: photo.sourceVolumeID ?? AssetIdentity.volumeIdentifier(for: URL(fileURLWithPath: photo.rawPath)),
+                        relativePath: rel,
+                        fileSize: photo.fileSize,
+                        capturedAt: photo.capturedAt
+                    )
+                    map[key] = photo.id
+                }
+            }
+            return map
+        }()
+
         // Tier 0: embedded JPEG only → scrollable in seconds
         var records = try await extractInstantPreviews(
             rawFiles: mediaFiles,
             dates: [:],
-            gridDir: gridDir
+            gridDir: gridDir,
+            sourceFolder: sourceFolder,
+            existingByKey: existingByKey
         ) { done, total, thumbPath, partial in
             if let thumbPath { recentThumbs.append(thumbPath) }
             if recentThumbs.count > 32 { recentThumbs.removeFirst(recentThumbs.count - 32) }
@@ -212,6 +236,7 @@ enum ImportPipeline {
         CullEngine.assignConfidence(&staged)
 
         project.profile = profile
+        project.editProfile = EditRecipe(from: profile)
         project.tasteSourceCount = tasteEntries.count
         // Persist staged refinement to disk; UI applies at a session boundary.
         var stagedProject = project
@@ -230,6 +255,8 @@ enum ImportPipeline {
         rawFiles: [URL],
         dates: [String: Date],
         gridDir: URL,
+        sourceFolder: URL,
+        existingByKey: [String: UUID] = [:],
         progress: @Sendable (Int, Int, String?, [PhotoRecord]) async -> Void
     ) async throws -> [PhotoRecord] {
         var records: [PhotoRecord?] = Array(repeating: nil, count: rawFiles.count)
@@ -244,9 +271,35 @@ enum ImportPipeline {
             try await withThrowingTaskGroup(of: (Int, PhotoRecord).self) { group in
                 for (index, rawURL) in chunk {
                     group.addTask {
-                        let stem = rawURL.deletingPathExtension().lastPathComponent
-                        let previewURL = previewDir.appendingPathComponent(stem + ".jpg")
-                        let gridURL = gridDir.appendingPathComponent(stem + ".jpg")
+                        let filename = rawURL.lastPathComponent
+                        let capturedAt = dates[rawURL.path] ?? dates[filename]
+                        let relative = AssetIdentity.relativePath(file: rawURL, root: sourceFolder)
+                        let volume = AssetIdentity.volumeIdentifier(for: rawURL)
+                        let size = AssetIdentity.fileSize(of: rawURL)
+                        let sourceKey = AssetIdentity.sourceKey(
+                            volumeID: volume,
+                            relativePath: relative,
+                            fileSize: size,
+                            capturedAt: capturedAt
+                        )
+                        let preservedID = existingByKey[sourceKey]
+                        let assetID = AssetIdentity.resolveID(sourceKey: sourceKey, preserved: preservedID)
+
+                        let previewURL = previewDir.appendingPathComponent(AssetIdentity.cacheStem(for: assetID) + ".jpg")
+                        let gridURL = gridDir.appendingPathComponent(AssetIdentity.cacheStem(for: assetID) + ".jpg")
+
+                        // Fall back to legacy stem-keyed caches once, then prefer identity keys.
+                        let legacyStem = rawURL.deletingPathExtension().lastPathComponent
+                        let legacyPreview = previewDir.appendingPathComponent(legacyStem + ".jpg")
+                        let legacyGrid = gridDir.appendingPathComponent(legacyStem + ".jpg")
+                        if !FileManager.default.fileExists(atPath: previewURL.path),
+                           FileManager.default.fileExists(atPath: legacyPreview.path) {
+                            try? FileManager.default.copyItem(at: legacyPreview, to: previewURL)
+                        }
+                        if !FileManager.default.fileExists(atPath: gridURL.path),
+                           FileManager.default.fileExists(atPath: legacyGrid.path) {
+                            try? FileManager.default.copyItem(at: legacyGrid, to: gridURL)
+                        }
 
                         let extracted = PreviewExtractor.extractBrowsePreview(
                             to: previewURL,
@@ -258,11 +311,11 @@ enum ImportPipeline {
                             _ = PreviewExtractor.downscaleJPEG(from: previewURL, to: gridURL, maxPixelSize: 768)
                         }
 
-                        let filename = rawURL.lastPathComponent
-                        let capturedAt = dates[rawURL.path] ?? dates[filename]
                         let hasPreview = FileManager.default.fileExists(atPath: previewURL.path)
                         let hasGrid = FileManager.default.fileExists(atPath: gridURL.path)
+                        let exists = FileManager.default.fileExists(atPath: rawURL.path)
                         let record = PhotoRecord(
+                            id: assetID,
                             rawPath: rawURL.path,
                             filename: filename,
                             thumbPath: hasPreview ? previewURL.path : (hasGrid ? gridURL.path : nil),
@@ -270,7 +323,12 @@ enum ImportPipeline {
                             proxyPath: nil,
                             previewOrigin: extracted.origin,
                             previewLongEdge: extracted.longEdge,
-                            capturedAt: capturedAt
+                            capturedAt: capturedAt,
+                            sourceKey: sourceKey,
+                            sourceRelativePath: relative,
+                            sourceVolumeID: volume,
+                            sourceAvailability: exists ? .available : .missing,
+                            fileSize: size
                         )
                         return (index, record)
                     }
@@ -302,16 +360,20 @@ enum ImportPipeline {
             await withTaskGroup(of: (Int, String?).self) { group in
                 for index in chunk {
                     let rawPath = records[index].rawPath
+                    let assetID = records[index].id
                     group.addTask {
                         await Task.detached(priority: .utility) {
                             let rawURL = URL(fileURLWithPath: rawPath)
-                            let stem = rawURL.deletingPathExtension().lastPathComponent
-                            let thumbURL = thumbDir.appendingPathComponent(stem + ".jpg")
-
+                            let thumbURL = thumbDir.appendingPathComponent(AssetIdentity.cacheStem(for: assetID) + ".jpg")
+                            let legacyStem = rawURL.deletingPathExtension().lastPathComponent
+                            let legacyThumb = thumbDir.appendingPathComponent(legacyStem + ".jpg")
+                            if !FileManager.default.fileExists(atPath: thumbURL.path),
+                               FileManager.default.fileExists(atPath: legacyThumb.path) {
+                                try? FileManager.default.copyItem(at: legacyThumb, to: thumbURL)
+                            }
                             if !FileManager.default.fileExists(atPath: thumbURL.path) {
                                 try? PreviewExtractor.extractBest(to: thumbURL, from: rawURL, maxPixelSize: 2048)
                             }
-                            // Never point a record at a failed extraction.
                             guard FileManager.default.fileExists(atPath: thumbURL.path) else {
                                 return (index, nil as String?)
                             }
@@ -328,80 +390,6 @@ enum ImportPipeline {
             await onUpdate(records)
         }
         return records
-    }
-
-    private static func extractAllTiers(
-        rawFiles: [URL],
-        dates: [String: Date],
-        thumbDir: URL,
-        gridDir: URL,
-        proxyDir: URL,
-        progress: @Sendable (Int, Int, String?, [PhotoRecord]) async -> Void
-    ) async throws -> [PhotoRecord] {
-        var records: [PhotoRecord?] = Array(repeating: nil, count: rawFiles.count)
-        var done = 0
-        let total = rawFiles.count
-        let indexed = Array(rawFiles.enumerated())
-
-        for chunk in indexed.chunked(into: previewConcurrency) {
-            try await withThrowingTaskGroup(of: (Int, PhotoRecord).self) { group in
-                for (index, rawURL) in chunk {
-                    group.addTask {
-                        let stem = rawURL.deletingPathExtension().lastPathComponent
-                        let thumbURL = thumbDir.appendingPathComponent(stem + ".jpg")
-                        let gridURL = gridDir.appendingPathComponent(stem + ".jpg")
-                        let proxyURL = proxyDir.appendingPathComponent(stem + ".jpg")
-
-                        if !FileManager.default.fileExists(atPath: thumbURL.path) {
-                            try PreviewExtractor.extractBest(to: thumbURL, from: rawURL, maxPixelSize: 2048)
-                        }
-                        if !FileManager.default.fileExists(atPath: gridURL.path) {
-                            if !PreviewExtractor.downscaleJPEG(from: thumbURL, to: gridURL, maxPixelSize: 1024) {
-                                try PreviewExtractor.extractBest(to: gridURL, from: rawURL, maxPixelSize: 1024)
-                            }
-                        }
-                        var proxyPath: String?
-                        let ext = rawURL.pathExtension.uppercased()
-                        let isProcessed = ["JPG", "JPEG", "JPE", "HEIC", "HEIF"].contains(ext)
-                        let proxyMax = isProcessed ? 6000 : 4096
-                        if !FileManager.default.fileExists(atPath: proxyURL.path) {
-                            if PreviewExtractor.downscaleJPEG(from: thumbURL, to: proxyURL, maxPixelSize: proxyMax)
-                                || ((try? PreviewExtractor.extractBest(to: proxyURL, from: rawURL, maxPixelSize: proxyMax)) != nil) {
-                                proxyPath = proxyURL.path
-                            } else if isProcessed, FileManager.default.fileExists(atPath: rawURL.path) {
-                                // Keep full-res processed originals as proxy when decode matches source quality
-                                proxyPath = rawURL.path
-                            }
-                        } else {
-                            proxyPath = proxyURL.path
-                        }
-
-                        let filename = rawURL.lastPathComponent
-                        let capturedAt = dates[rawURL.path] ?? dates[filename]
-                        let record = PhotoRecord(
-                            rawPath: rawURL.path,
-                            filename: filename,
-                            thumbPath: thumbURL.path,
-                            gridThumbPath: gridURL.path,
-                            proxyPath: proxyPath,
-                            capturedAt: capturedAt
-                        )
-                        return (index, record)
-                    }
-                }
-                for try await (index, record) in group {
-                    records[index] = record
-                    done += 1
-                    let partial = records.compactMap { $0 }
-                    await progress(done, total, record.thumbPath ?? record.gridThumbPath, partial)
-                    // Tiny breath between UI updates so strip animates smoothly
-                    if done % 2 == 0 {
-                        try? await Task.sleep(nanoseconds: 40_000_000)
-                    }
-                }
-            }
-        }
-        return records.compactMap { $0 }
     }
 
     private static func scoreQuality(
@@ -496,7 +484,9 @@ enum ImportPipeline {
         var records = try await extractInstantPreviews(
             rawFiles: mediaFiles,
             dates: dates,
-            gridDir: gridDir
+            gridDir: gridDir,
+            sourceFolder: sourceFolder,
+            existingByKey: [:]
         ) { _, _, _, _ in }
 
         CullEngine.assignBursts(&records)
