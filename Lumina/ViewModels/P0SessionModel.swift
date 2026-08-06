@@ -8,23 +8,35 @@ enum P0Route: Equatable {
     case contactSheet
 }
 
-/// Orthogonal visual marks derived from canonical state — slots only; no P/X mutations here.
+/// Orthogonal visual marks derived from canonical state.
 struct ContactSheetMarks: Equatable {
     var unreviewed: Bool
     var kept: Bool
     var rejected: Bool
     var selected: Bool
     var edited: Bool
-    var ordered: Bool
+    /// 1-based order index when kept-order mode is on; nil otherwise.
+    var orderIndex: Int?
 
-    static func derive(asset: AssetRecord, selectedIDs: Set<UUID>, orderedIDs: Set<UUID>) -> ContactSheetMarks {
-        ContactSheetMarks(
+    static func derive(
+        asset: AssetRecord,
+        selectedIDs: Set<UUID>,
+        orderedIDs: [UUID],
+        keptOrderMode: Bool
+    ) -> ContactSheetMarks {
+        let orderIndex: Int?
+        if keptOrderMode, let idx = orderedIDs.firstIndex(of: asset.id) {
+            orderIndex = idx + 1
+        } else {
+            orderIndex = nil
+        }
+        return ContactSheetMarks(
             unreviewed: asset.cull == .undecided || asset.cull == .hold,
             kept: asset.cull == .keep,
             rejected: asset.cull == .reject,
             selected: selectedIDs.contains(asset.id),
             edited: asset.recipe != nil,
-            ordered: orderedIDs.contains(asset.id)
+            orderIndex: orderIndex
         )
     }
 }
@@ -55,6 +67,9 @@ final class P0SessionModel {
     /// Single-photo placeholder — opens on Return / double-click; editing rail is a later checkpoint.
     var inspectingAssetID: UUID?
     var showLegacyShell = false
+    /// One-shot flag so returning from single-photo restores scroll without fighting live browsing.
+    var pendingScrollRestore = false
+    let undoCoordinator = P0UndoCoordinator()
 
     private var preparationTask: Task<Void, Never>?
     private var persistTask: Task<Void, Never>?
@@ -62,18 +77,37 @@ final class P0SessionModel {
 
     var selectionCount: Int { selectedAssetIDs.count }
 
-    var orderedIDSet: Set<UUID> {
-        Set(shoot?.finalSetOrder.assetIDs ?? [])
+    var keptCount: Int { assets.filter { $0.cull == .keep }.count }
+
+    /// Export count is always derived from the complete kept set.
+    var exportCount: Int { keptCount }
+
+    var keptOrderMode: Bool { shoot?.workspace.keptOrderMode ?? false }
+
+    var orderedIDList: [UUID] {
+        shoot?.finalSetOrder.assetIDs ?? []
     }
 
+    var orderedIDSet: Set<UUID> {
+        Set(orderedIDList)
+    }
+
+    var canUndo: Bool { undoCoordinator.canUndo }
+
     var visibleItems: [ContactSheetItem] {
-        let ordered = orderedIDSet
+        let ordered = orderedIDList
         let selected = selectedAssetIDs
+        let orderMode = keptOrderMode
         return filteredAssets.map { asset in
             ContactSheetItem(
                 asset: asset,
                 aspectRatio: ContactSheetPreparation.aspectRatio(for: asset),
-                marks: .derive(asset: asset, selectedIDs: selected, orderedIDs: ordered)
+                marks: .derive(
+                    asset: asset,
+                    selectedIDs: selected,
+                    orderedIDs: ordered,
+                    keptOrderMode: orderMode
+                )
             )
         }
     }
@@ -91,7 +125,13 @@ final class P0SessionModel {
         }
     }
 
-    var preparationLine: String { status.toolbarLine }
+    var preparationLine: String {
+        var line = status.toolbarLine
+        if keptCount > 0 {
+            line += " · \(keptCount) kept"
+        }
+        return line
+    }
 
     init() {
         refreshRecent()
@@ -121,6 +161,7 @@ final class P0SessionModel {
         inspectingAssetID = nil
         selectedAssetIDs = []
         focusedAssetID = nil
+        undoCoordinator.clear()
 
         let started = url.startAccessingSecurityScopedResource()
         folderAccess = (url, started)
@@ -139,6 +180,7 @@ final class P0SessionModel {
         inspectingAssetID = nil
         selectedAssetIDs = []
         focusedAssetID = nil
+        undoCoordinator.clear()
 
         preparationTask = Task { [weak self] in
             guard let self else { return }
@@ -177,11 +219,83 @@ final class P0SessionModel {
         openFolder(root)
     }
 
+    // MARK: - Cull (P / X)
+
+    /// Keep focused photograph. Repeat clears to unreviewed. Never touches recipe/selection/AI.
+    func pressKeep() {
+        applyCullToggle(pressed: .keep)
+    }
+
+    /// Reject focused photograph. Repeat clears to unreviewed. Rejected stay visible.
+    func pressReject() {
+        applyCullToggle(pressed: .reject)
+    }
+
+    func undoLastCull() {
+        guard let command = undoCoordinator.popCull() else { return }
+        let selectionSnapshot = selectedAssetIDs
+        guard let index = assets.firstIndex(where: { $0.id == command.assetID }) else { return }
+
+        assets[index].cull = command.before
+        assets[index].userDecidedAt = command.before == .undecided ? nil : Date()
+        if var shoot {
+            shoot.finalSetOrder.assetIDs = command.finalOrderBefore
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+        selectedAssetIDs = selectionSnapshot
+        persistShootImmediately()
+    }
+
+    private func applyCullToggle(pressed: CullDecision) {
+        guard let focusID = focusedAssetID ?? inspectingAssetID,
+              let index = assets.firstIndex(where: { $0.id == focusID }) else { return }
+
+        let selectionSnapshot = selectedAssetIDs
+        let recipeBefore = assets[index].recipe
+        let before = assets[index].cull
+        let after = CullMutationCommand.resolveToggle(current: before, pressed: pressed)
+        guard before != after else { return }
+
+        let orderBefore = shoot?.finalSetOrder.assetIDs ?? []
+
+        assets[index].cull = after
+        assets[index].userDecidedAt = after == .undecided ? nil : Date()
+        // Hard invariant: cull never mutates edit state.
+        assets[index].recipe = recipeBefore
+
+        var orderAfter = orderBefore
+        if var shoot {
+            var order = shoot.finalSetOrder
+            let keptIDs = assets.filter { $0.cull == .keep }.map(\.id)
+            order.reconcileKeptMembership(keptIDsInChronologicalOrder: keptIDs)
+            orderAfter = order.assetIDs
+            shoot.finalSetOrder = order
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+
+        selectedAssetIDs = selectionSnapshot
+
+        let command = CullMutationCommand(
+            assetID: focusID,
+            before: before,
+            after: after,
+            finalOrderBefore: orderBefore,
+            finalOrderAfter: orderAfter
+        )
+        undoCoordinator.push(command)
+        persistShootImmediately()
+    }
+
     // MARK: - Focus / selection
 
     func setFocus(_ id: UUID?) {
         let start = CFAbsoluteTimeGetCurrent()
         focusedAssetID = id
+        if inspectingAssetID != nil, let id {
+            inspectingAssetID = id
+        }
         if let id, let asset = assets.first(where: { $0.id == id }),
            let path = asset.gridThumbPath ?? asset.thumbPath {
             ThumbCache.shared.prefetch(path)
@@ -196,6 +310,12 @@ final class P0SessionModel {
     func moveFocus(dx: Int, dy: Int, columns: Int) {
         let items = visibleItems
         guard !items.isEmpty else { return }
+        if inspectingAssetID != nil {
+            let current = focusedAssetID.flatMap { id in items.firstIndex(where: { $0.id == id }) } ?? 0
+            let next = min(max(current + dx + dy * max(columns, 1), 0), items.count - 1)
+            setFocus(items[next].id)
+            return
+        }
         let cols = max(columns, 1)
         let current = focusedAssetID.flatMap { id in items.firstIndex(where: { $0.id == id }) } ?? 0
         let row = current / cols
@@ -227,12 +347,16 @@ final class P0SessionModel {
 
     func openFocusedPhotograph() {
         guard let id = focusedAssetID ?? selectedAssetIDs.first else { return }
+        schedulePersistRestore()
         inspectingAssetID = id
-        // Single-photo editing rail is the next checkpoint — placeholder only.
+        focusedAssetID = id
+        persistRestoreNow()
     }
 
     func closeInspection() {
+        pendingScrollRestore = true
         inspectingAssetID = nil
+        persistRestoreNow()
     }
 
     func adjustDensity(_ delta: Int) {
@@ -260,6 +384,7 @@ final class P0SessionModel {
         focusedAssetID = nil
         selectedAssetIDs = []
         inspectingAssetID = nil
+        undoCoordinator.clear()
         route = .open
         refreshRecent()
     }
@@ -298,14 +423,20 @@ final class P0SessionModel {
         case .metadataMerged(let assets, let status):
             let focus = focusedAssetID
             let selection = selectedAssetIDs
-            self.assets = assets
-            self.shoot?.assets = assets
+            let cullByID = Dictionary(uniqueKeysWithValues: self.assets.map { ($0.id, $0.cull) })
+            var merged = assets
+            for i in merged.indices {
+                if let cull = cullByID[merged[i].id] {
+                    merged[i].cull = cull
+                }
+            }
+            self.assets = merged
+            self.shoot?.assets = merged
             self.status = status
-            // Identity / selection / focus survive reorder.
-            if let focus, assets.contains(where: { $0.id == focus }) {
+            if let focus, merged.contains(where: { $0.id == focus }) {
                 focusedAssetID = focus
             }
-            selectedAssetIDs = selection.intersection(Set(assets.map(\.id)))
+            selectedAssetIDs = selection.intersection(Set(merged.map(\.id)))
         case .status(let status):
             self.status = status
         case .failed(let message):
@@ -317,7 +448,14 @@ final class P0SessionModel {
     private func mergeAssets(_ incoming: [AssetRecord]) {
         var map = Dictionary(uniqueKeysWithValues: assets.map { ($0.id, $0) })
         for asset in incoming {
-            map[asset.id] = asset
+            if let existing = map[asset.id] {
+                var merged = asset
+                merged.cull = existing.cull
+                merged.recipe = existing.recipe
+                map[asset.id] = merged
+            } else {
+                map[asset.id] = asset
+            }
         }
         assets = map.values.sorted(by: ContactSheetPreparation.chronologicalLess)
         shoot?.assets = assets
@@ -342,11 +480,15 @@ final class P0SessionModel {
             densityColumns = min(12, max(2, density))
         }
         scrollAnchor = workspace.scrollAnchor ?? 0
+        pendingScrollRestore = workspace.scrollAnchor != nil
         if let focused = workspace.focusedAssetID,
            assets.contains(where: { $0.id == focused }) {
             focusedAssetID = focused
         } else {
             focusedAssetID = assets.first?.id
+        }
+        if workspace.scale == .singlePhoto, let focusedAssetID {
+            inspectingAssetID = focusedAssetID
         }
     }
 
@@ -373,6 +515,25 @@ final class P0SessionModel {
         self.shoot = shoot
         Task {
             await ShootStore.shared.saveShootDebounced(shoot)
+        }
+    }
+
+    /// Cull mutations persist immediately — not wait for restore debounce.
+    private func persistShootImmediately() {
+        guard var shoot else { return }
+        shoot.workspace = WorkspaceRestoreState(
+            focusedAssetID: focusedAssetID,
+            filter: filter,
+            contactSheetDensity: densityColumns,
+            scrollAnchor: scrollAnchor,
+            scale: inspectingAssetID == nil ? .contactSheet : .singlePhoto,
+            keptOrderMode: shoot.workspace.keptOrderMode
+        )
+        shoot.assets = assets
+        self.shoot = shoot
+        let snapshot = shoot
+        Task {
+            try? await ShootStore.shared.saveShoot(snapshot)
         }
     }
 
