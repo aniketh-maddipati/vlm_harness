@@ -21,9 +21,11 @@ Root cause of inaccurate / unresponsive editing: interactive path graded **camer
 
 | Concern | Type |
 |---|---|
-| Immutable edit recipes | `EditRecipe` |
-| Per-frame overrides / shared links | `PhotoEditBinding`, `EditRecipeStore` |
+| Canonical persisted recipes | `EditRecipe` (see `docs/P0_CANONICAL_STATE.md`) |
+| Taste / XMP adapter (no geometry) | `DevelopRecipe` — superseded for photo persistence |
+| Per-frame overrides / shared links | `PhotoEditBinding`, `EditRecipeStore` (lab / batch) |
 | Batch staging / commit / undo | `BatchTreatmentSession` |
+| Shoot persistence | `ShootStore` → `ShootRecord` |
 | RAW render requests | `RawRenderRequest` |
 | Preview quality / fidelity labels | `DevelopRenderQuality`, `DevelopFidelityState` |
 | Cancellation / stale rejection | `RenderGenerationGate`, `DevelopRenderScheduler` |

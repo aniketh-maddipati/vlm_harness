@@ -41,7 +41,7 @@ enum SortMode: String, CaseIterable, Identifiable {
     static var gridLensModes: [SortMode] { allCases }
 }
 
-enum GridFilter: String, CaseIterable, Identifiable {
+enum GridFilter: String, CaseIterable, Identifiable, Codable, Sendable {
     case all = "All"
     case keeps = "Keeps"
     case rejects = "Rejects"
@@ -294,6 +294,9 @@ struct RetouchSpot: Codable, Hashable, Sendable, Identifiable {
 }
 
 /// Absolute Lightroom-style develop recipe (crs:* compatible).
+///
+/// **Superseded for P0 photo persistence** by `EditRecipe`, which also carries
+/// crop / straighten. `DevelopRecipe` remains as the taste / XMP / older-UI adapter.
 struct DevelopRecipe: Codable, Hashable {
     var exposure: Double = 0
     var temperature: Double = 6500
@@ -544,8 +547,35 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
     /// Agent explanation for auto or user-confirmed action.
     var whyAction: String?
 
-    var recipe: DevelopRecipe?
+    /// Canonical P0 edit recipe (tone + geometry + retouch). Prefer this over `recipe`.
+    var editRecipe: EditRecipe?
     var embedding: [Float]?
+
+    // MARK: Stable identity / source (P0)
+
+    /// Opaque rediscovery key — volume + relative path + size + capture.
+    var sourceKey: String?
+    var sourceRelativePath: String?
+    var sourceVolumeID: String?
+    var sourceBookmark: Data?
+    var sourceAvailability: SourceAvailability
+    var fileSize: Int64?
+
+    /// Legacy DevelopRecipe bridge — tone/retouch only. Geometry lives on `editRecipe`.
+    var recipe: DevelopRecipe? {
+        get { editRecipe?.asDevelopRecipe }
+        set {
+            if let newValue {
+                if let existing = editRecipe {
+                    editRecipe = existing.replacingTone(from: newValue)
+                } else {
+                    editRecipe = EditRecipe(from: newValue)
+                }
+            } else {
+                editRecipe = nil
+            }
+        }
+    }
 
     init(
         id: UUID = UUID(),
@@ -581,7 +611,14 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         whyUncertain: String? = nil,
         whyAction: String? = nil,
         recipe: DevelopRecipe? = nil,
-        embedding: [Float]? = nil
+        editRecipe: EditRecipe? = nil,
+        embedding: [Float]? = nil,
+        sourceKey: String? = nil,
+        sourceRelativePath: String? = nil,
+        sourceVolumeID: String? = nil,
+        sourceBookmark: Data? = nil,
+        sourceAvailability: SourceAvailability = .unknown,
+        fileSize: Int64? = nil
     ) {
         self.id = id
         self.rawPath = rawPath
@@ -615,8 +652,20 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         self.uncertaintyKind = uncertaintyKind
         self.whyUncertain = whyUncertain
         self.whyAction = whyAction
-        self.recipe = recipe
+        if let editRecipe {
+            self.editRecipe = editRecipe
+        } else if let recipe {
+            self.editRecipe = EditRecipe(from: recipe)
+        } else {
+            self.editRecipe = nil
+        }
         self.embedding = embedding
+        self.sourceKey = sourceKey
+        self.sourceRelativePath = sourceRelativePath
+        self.sourceVolumeID = sourceVolumeID
+        self.sourceBookmark = sourceBookmark
+        self.sourceAvailability = sourceAvailability
+        self.fileSize = fileSize
     }
 
     var displayThumbPath: String? { gridThumbPath ?? thumbPath ?? rawPath }
@@ -659,6 +708,10 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         recipe ?? .neutral
     }
 
+    var effectiveEditRecipe: EditRecipe {
+        editRecipe ?? .neutral
+    }
+
     enum CodingKeys: String, CodingKey {
         case id, rawPath, filename, thumbPath, gridThumbPath, proxyPath
         case previewOrigin, previewLongEdge
@@ -666,7 +719,8 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         case sharpness, exposureHealth, faceQuality, aesthetic, compositeQuality, faceDetected
         case cullScore, cullConfidence, editConfidence, tasteMatch
         case tier, proposedTier, userDecidedAt, settledAt, isFlagged, isBurstHero, isClusterHero
-        case uncertaintyKind, whyUncertain, whyAction, recipe, embedding
+        case uncertaintyKind, whyUncertain, whyAction, recipe, editRecipe, embedding
+        case sourceKey, sourceRelativePath, sourceVolumeID, sourceBookmark, sourceAvailability, fileSize
     }
 
     init(from decoder: Decoder) throws {
@@ -703,8 +757,69 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         uncertaintyKind = try c.decodeIfPresent(UncertaintyKind.self, forKey: .uncertaintyKind) ?? .none
         whyUncertain = try c.decodeIfPresent(String.self, forKey: .whyUncertain)
         whyAction = try c.decodeIfPresent(String.self, forKey: .whyAction)
-        recipe = try c.decodeIfPresent(DevelopRecipe.self, forKey: .recipe)
         embedding = try c.decodeIfPresent([Float].self, forKey: .embedding)
+        sourceKey = try c.decodeIfPresent(String.self, forKey: .sourceKey)
+        sourceRelativePath = try c.decodeIfPresent(String.self, forKey: .sourceRelativePath)
+        sourceVolumeID = try c.decodeIfPresent(String.self, forKey: .sourceVolumeID)
+        sourceBookmark = try c.decodeIfPresent(Data.self, forKey: .sourceBookmark)
+        sourceAvailability = try c.decodeIfPresent(SourceAvailability.self, forKey: .sourceAvailability) ?? .unknown
+        fileSize = try c.decodeIfPresent(Int64.self, forKey: .fileSize)
+
+        // Prefer explicit editRecipe; else migrate legacy DevelopRecipe under `recipe`.
+        if let modern = try c.decodeIfPresent(EditRecipe.self, forKey: .editRecipe) {
+            editRecipe = EditRecipe.migrate(modern)
+        } else if let legacy = try c.decodeIfPresent(DevelopRecipe.self, forKey: .recipe) {
+            editRecipe = EditRecipe(from: legacy)
+        } else if let modernUnderRecipe = try? c.decodeIfPresent(EditRecipe.self, forKey: .recipe) {
+            editRecipe = EditRecipe.migrate(modernUnderRecipe)
+        } else {
+            editRecipe = nil
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(rawPath, forKey: .rawPath)
+        try c.encode(filename, forKey: .filename)
+        try c.encodeIfPresent(thumbPath, forKey: .thumbPath)
+        try c.encodeIfPresent(gridThumbPath, forKey: .gridThumbPath)
+        try c.encodeIfPresent(proxyPath, forKey: .proxyPath)
+        try c.encode(previewOrigin, forKey: .previewOrigin)
+        try c.encode(previewLongEdge, forKey: .previewLongEdge)
+        try c.encodeIfPresent(capturedAt, forKey: .capturedAt)
+        try c.encodeIfPresent(burstID, forKey: .burstID)
+        try c.encodeIfPresent(clusterID, forKey: .clusterID)
+        try c.encodeIfPresent(clusterLabel, forKey: .clusterLabel)
+        try c.encode(sharpness, forKey: .sharpness)
+        try c.encode(exposureHealth, forKey: .exposureHealth)
+        try c.encode(faceQuality, forKey: .faceQuality)
+        try c.encode(aesthetic, forKey: .aesthetic)
+        try c.encode(compositeQuality, forKey: .compositeQuality)
+        try c.encode(faceDetected, forKey: .faceDetected)
+        try c.encode(cullScore, forKey: .cullScore)
+        try c.encode(cullConfidence, forKey: .cullConfidence)
+        try c.encode(editConfidence, forKey: .editConfidence)
+        try c.encode(tasteMatch, forKey: .tasteMatch)
+        try c.encode(tier, forKey: .tier)
+        try c.encodeIfPresent(proposedTier, forKey: .proposedTier)
+        try c.encodeIfPresent(userDecidedAt, forKey: .userDecidedAt)
+        try c.encodeIfPresent(settledAt, forKey: .settledAt)
+        try c.encode(isFlagged, forKey: .isFlagged)
+        try c.encode(isBurstHero, forKey: .isBurstHero)
+        try c.encode(isClusterHero, forKey: .isClusterHero)
+        try c.encode(uncertaintyKind, forKey: .uncertaintyKind)
+        try c.encodeIfPresent(whyUncertain, forKey: .whyUncertain)
+        try c.encodeIfPresent(whyAction, forKey: .whyAction)
+        // Canonical key — do not also write legacy `recipe` (avoids dual representations).
+        try c.encodeIfPresent(editRecipe, forKey: .editRecipe)
+        try c.encodeIfPresent(embedding, forKey: .embedding)
+        try c.encodeIfPresent(sourceKey, forKey: .sourceKey)
+        try c.encodeIfPresent(sourceRelativePath, forKey: .sourceRelativePath)
+        try c.encodeIfPresent(sourceVolumeID, forKey: .sourceVolumeID)
+        try c.encodeIfPresent(sourceBookmark, forKey: .sourceBookmark)
+        try c.encode(sourceAvailability, forKey: .sourceAvailability)
+        try c.encodeIfPresent(fileSize, forKey: .fileSize)
     }
 }
 
@@ -732,6 +847,7 @@ struct LuminaProject: Codable {
     var jpgFolder: String?
     var keepRateTarget: Double = 0.10
     var jobBrief: JobBrief = JobBrief()
+    /// Legacy taste baseline (DevelopRecipe). Prefer `editProfile` for P0.
     var profile: DevelopRecipe = .neutral
     /// JPGs scanned for XMP taste extraction at import.
     var tasteSourceCount: Int = 0
@@ -747,11 +863,22 @@ struct LuminaProject: Codable {
     var auditSeedPhotoIDs: Set<PhotoID> = []
     var createdAt: Date = Date()
 
+    // MARK: P0 runtime fields (persisted via ShootRecord, not dual recipe blobs)
+
+    var shootID: UUID?
+    var editProfile: EditRecipe = .neutral
+    var finalSetOrder: FinalSetOrder?
+    var exportHistory: [ExportRecord]?
+    var batchHistory: [BatchEditCommand]?
+    var workspaceRestore: WorkspaceRestoreState?
+
     enum CodingKeys: String, CodingKey {
         case name, rawFolder, jpgFolder, keepRateTarget, jobBrief, profile
         case tasteSourceCount, tasteStrength, photos, collections, cursorPhotoID, decisionLedger
         case auditSeedPhotoIDs, createdAt
         case globalAdjustments
+        case shootID, editProfile, finalSetOrder, exportHistory, batchHistory, workspaceRestore
+        case schemaVersion
     }
 
     init(
@@ -776,6 +903,7 @@ struct LuminaProject: Codable {
         self.keepRateTarget = keepRateTarget
         self.jobBrief = jobBrief
         self.profile = profile
+        self.editProfile = EditRecipe(from: profile)
         self.tasteSourceCount = tasteSourceCount
         self.tasteStrength = tasteStrength
         self.photos = photos
@@ -794,6 +922,12 @@ struct LuminaProject: Codable {
         keepRateTarget = try c.decodeIfPresent(Double.self, forKey: .keepRateTarget) ?? 0.10
         jobBrief = try c.decodeIfPresent(JobBrief.self, forKey: .jobBrief) ?? JobBrief()
         profile = try c.decodeIfPresent(DevelopRecipe.self, forKey: .profile) ?? .neutral
+        if let edit = try c.decodeIfPresent(EditRecipe.self, forKey: .editProfile) {
+            editProfile = EditRecipe.migrate(edit)
+            profile = editProfile.asDevelopRecipe
+        } else {
+            editProfile = EditRecipe(from: profile)
+        }
         tasteSourceCount = try c.decodeIfPresent(Int.self, forKey: .tasteSourceCount) ?? profile.sourceCount
         tasteStrength = try c.decodeIfPresent(Double.self, forKey: .tasteStrength) ?? 1.0
         photos = try c.decodeIfPresent([PhotoRecord].self, forKey: .photos) ?? []
@@ -802,16 +936,22 @@ struct LuminaProject: Codable {
         decisionLedger = try c.decodeIfPresent([DecisionEvent].self, forKey: .decisionLedger) ?? []
         auditSeedPhotoIDs = try c.decodeIfPresent(Set<PhotoID>.self, forKey: .auditSeedPhotoIDs) ?? []
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        shootID = try c.decodeIfPresent(UUID.self, forKey: .shootID)
+        finalSetOrder = try c.decodeIfPresent(FinalSetOrder.self, forKey: .finalSetOrder)
+        exportHistory = try c.decodeIfPresent([ExportRecord].self, forKey: .exportHistory)
+        batchHistory = try c.decodeIfPresent([BatchEditCommand].self, forKey: .batchHistory)
+        workspaceRestore = try c.decodeIfPresent(WorkspaceRestoreState.self, forKey: .workspaceRestore)
     }
 
     func encode(to encoder: Encoder) throws {
+        // Legacy encode path retained for tests; production persistence uses ShootRecord.
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(name, forKey: .name)
         try c.encodeIfPresent(rawFolder, forKey: .rawFolder)
         try c.encodeIfPresent(jpgFolder, forKey: .jpgFolder)
         try c.encode(keepRateTarget, forKey: .keepRateTarget)
         try c.encode(jobBrief, forKey: .jobBrief)
-        try c.encode(profile, forKey: .profile)
+        try c.encode(editProfile, forKey: .editProfile)
         try c.encode(tasteSourceCount, forKey: .tasteSourceCount)
         try c.encode(tasteStrength, forKey: .tasteStrength)
         try c.encode(photos, forKey: .photos)
@@ -820,6 +960,11 @@ struct LuminaProject: Codable {
         try c.encode(decisionLedger, forKey: .decisionLedger)
         try c.encode(auditSeedPhotoIDs, forKey: .auditSeedPhotoIDs)
         try c.encode(createdAt, forKey: .createdAt)
+        try c.encodeIfPresent(shootID, forKey: .shootID)
+        try c.encodeIfPresent(finalSetOrder, forKey: .finalSetOrder)
+        try c.encodeIfPresent(exportHistory, forKey: .exportHistory)
+        try c.encodeIfPresent(batchHistory, forKey: .batchHistory)
+        try c.encodeIfPresent(workspaceRestore, forKey: .workspaceRestore)
     }
 }
 

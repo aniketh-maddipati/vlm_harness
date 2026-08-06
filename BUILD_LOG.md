@@ -4,6 +4,18 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-06 — P0 canonical state foundation
+
+**Claim:** Stable asset identity, EditRecipe as sole persisted recipe (incl. crop/straighten), actor-backed recoverable shoot store — without redesigning contact-sheet UI or the RAW render engine.
+
+**Finding:** `PhotoRecord` persisted `DevelopRecipe` (no geometry); caches keyed by filename stem; one global `saveDebounced` work item; ephemeral UUIDs at import.
+
+**Fix:** `ShootRecord`/`AssetRecord`/`ShootStore`; `AssetIdentity` rediscovery keys; EditRecipe schema v2 + migration; identity-keyed caches; pruned unwired shells. Docs: `docs/P0_CANONICAL_STATE.md`. Tests: `Scripts/p0_state_test.swift`.
+
+**Build:** Debug **SUCCEEDED** (macOS). Deterministic scripts green. RAW harness not re-run this session (no fixture gate claimed).
+
+---
+
 ## 2026-08-04 — Continuous workspace (Workbench / Canvas / Proof)
 
 **Claim:** Replace stack-table + fixed develop sidebar with one continuous photographic workspace — three spatial stages sharing selection and scroll identity.

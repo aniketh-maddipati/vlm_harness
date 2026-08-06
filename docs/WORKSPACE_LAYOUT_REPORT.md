@@ -139,4 +139,4 @@ Presentation snapshots still cached by fingerprint; selection overlays without g
 | `LuminaShellModel.swift` | `WorkspaceStage`, anchors, develop |
 | `PresentationAdapter.swift` | 8-photo adaptive time buckets |
 
-Legacy (unwired): `CullWorkspaceView`, `DevelopSidePane`, `PaletteWorkspaceView`
+Legacy (pruned in P0 foundation): former `CullWorkspaceView`, `DevelopSidePane`, `PaletteWorkspaceView`, and related unwired shells were removed. Runtime shell remains `ContinuousWorkspaceView` until the contact-sheet checkpoint.

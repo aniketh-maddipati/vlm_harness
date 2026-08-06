@@ -169,9 +169,14 @@ final class ProjectViewModel {
 
     /// Persist an absolute develop recipe (batch treatment across a gathered selection).
     func persistRecipe(_ recipe: DevelopRecipe, for photoID: UUID) {
+        persistEditRecipe(EditRecipe(from: recipe), for: photoID)
+    }
+
+    /// Persist canonical EditRecipe (tone + geometry + retouch).
+    func persistEditRecipe(_ recipe: EditRecipe, for photoID: UUID) {
         guard var project else { return }
         guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
-        project.photos[index].recipe = recipe
+        project.photos[index].editRecipe = recipe
         self.project = project
         persistDebounced()
     }
@@ -1041,6 +1046,7 @@ final class ProjectViewModel {
                 fallback: project.profile
             )
             project.profile = learned.0
+            project.editProfile = EditRecipe(from: learned.0)
             project.tasteSourceCount = learned.1
         }
         project.decisionLedger.append(DecisionEvent(

@@ -3,39 +3,32 @@ import ImageIO
 import CoreGraphics
 import UniformTypeIdentifiers
 
+/// Compatibility facade over `ShootStore`. Prefer ShootStore for new P0 code.
 enum ProjectStore {
     static func supportDirectory() throws -> URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Lumina", isDirectory: true)
-        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
-        return base
+        try ShootStore.supportDirectory()
     }
 
     static func projectDirectory(for name: String) throws -> URL {
-        let dir = try supportDirectory().appendingPathComponent("projects/\(name)", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+        try ShootStore.shootDirectory(for: name)
     }
 
     static func cacheDirectory(for projectName: String, tier: String) throws -> URL {
-        let dir = try projectDirectory(for: projectName)
-            .appendingPathComponent("cache/\(tier)", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+        try ShootStore.cacheDirectory(for: projectName, tier: tier)
     }
 
-    private static var persistWorkItem: DispatchWorkItem?
+    /// Cache file keyed by stable asset identity (not filename stem).
+    static func cacheFileURL(projectName: String, tier: String, assetID: UUID) throws -> URL {
+        try ShootStore.cacheFileURL(shootName: projectName, tier: tier, assetID: assetID)
+    }
 
     static func projectJSONURL(for name: String) throws -> URL {
-        try projectDirectory(for: name).appendingPathComponent("project.json")
+        try ShootStore.shootJSONURL(for: name)
     }
 
     static func load(name: String) throws -> LuminaProject {
-        let url = try projectJSONURL(for: name)
-        let data = try Data(contentsOf: url)
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(LuminaProject.self, from: data)
+        let shoot = try ShootStore.loadShoot(id: name)
+        return ShootMigration.project(from: shoot)
     }
 
     static func loadLastProject() throws -> LuminaProject? {
@@ -44,38 +37,38 @@ enum ProjectStore {
     }
 
     static func lastProjectName() -> String? {
-        let url = try? supportDirectory().appendingPathComponent("last_project.txt")
-        guard let url,
-              let name = try? String(contentsOf: url, encoding: .utf8),
-              !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return nil
-        }
-        return name.trimmingCharacters(in: .whitespacesAndNewlines)
+        ShootStore.lastOpenedShootName()
     }
 
     static func saveLastProjectName(_ name: String) {
         guard let url = try? supportDirectory().appendingPathComponent("last_project.txt") else { return }
-        try? name.write(to: url, atomically: true, encoding: .utf8)
+        do {
+            try name.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            NSLog("Lumina: failed to write last_project.txt: \(error.localizedDescription)")
+        }
     }
 
     static func save(_ project: LuminaProject) throws {
-        let url = try projectDirectory(for: project.name).appendingPathComponent("project.json")
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        try encoder.encode(project).write(to: url, options: .atomic)
-        saveLastProjectName(project.name)
+        var shoot = ShootMigration.shoot(from: project)
+        if let existing = try? ShootStore.loadShoot(id: project.name) {
+            shoot.id = project.shootID ?? existing.id
+        }
+        try ShootStore.saveShoot(shoot)
     }
 
-    /// Debounced persist — coalesces rapid tier/keyboard changes.
+    /// Debounced persist — per-shoot, not one global work item.
     @MainActor
     static func saveDebounced(_ project: LuminaProject, delay: TimeInterval = 0.5) {
-        persistWorkItem?.cancel()
-        let snapshot = project
-        let work = DispatchWorkItem {
-            try? save(snapshot)
+        let shoot = ShootMigration.shoot(from: project)
+        let nanos = UInt64(max(delay, 0) * 1_000_000_000)
+        Task {
+            await ShootStore.shared.saveShootDebounced(shoot, delayNanoseconds: nanos)
         }
-        persistWorkItem = work
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    static func lastPersistenceError(for name: String) async -> String? {
+        await ShootStore.shared.lastPersistenceError(for: name)
     }
 }
 
@@ -113,7 +106,6 @@ nonisolated enum PreviewExtractor {
             return (false, .unknown, 0)
         }
 
-        // 1) Camera-embedded only — do NOT synthesize here.
         if let embedded = readEmbeddedThumbnail(from: sourceURL, maxPixelSize: maxPixelSize) {
             let edge = max(embedded.width, embedded.height)
             if edge >= minLongEdge, writeJPEG(cgImage: embedded, to: destURL, quality: 0.92) {
@@ -121,20 +113,17 @@ nonisolated enum PreviewExtractor {
             }
         }
 
-        // 2) Synthesize once at ingest (half/quarter-size ImageIO decode) — cached forever.
         if let synth = synthesizeBrowsePreview(from: sourceURL, maxPixelSize: maxPixelSize),
            writeJPEG(cgImage: synth, to: destURL, quality: 0.9) {
             return (true, .synthesized, max(synth.width, synth.height))
         }
 
-        // 3) Last resort: older ImageIO always path.
         if extractWithImageIO(to: destURL, from: sourceURL, maxPixelSize: maxPixelSize) {
             return (true, .synthesized, jpegLongEdge(at: destURL))
         }
         return (false, .unknown, 0)
     }
 
-    /// Embedded JPEG only — `IfAbsent`/`Always` false so ImageIO won't demosaic.
     private static func readEmbeddedThumbnail(from url: URL, maxPixelSize: Int) -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         let options: [CFString: Any] = [
@@ -146,7 +135,6 @@ nonisolated enum PreviewExtractor {
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
-    /// One-time ingest synthesize when embedded preview is missing/too small (e.g. older Sony ARW).
     private static func synthesizeBrowsePreview(from url: URL, maxPixelSize: Int) -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         let options: [CFString: Any] = [
@@ -168,7 +156,6 @@ nonisolated enum PreviewExtractor {
         return max(w, h)
     }
 
-    /// Best available pixels — full decode for JPG/HEIC, embedded preview for RAW.
     static func extractBest(to destURL: URL, from sourceURL: URL, maxPixelSize: Int) throws {
         let ext = sourceURL.pathExtension.uppercased()
         if processedExtensions.contains(ext) {
@@ -183,13 +170,11 @@ nonisolated enum PreviewExtractor {
         if extractWithImageIO(to: destURL, from: rawURL, maxPixelSize: maxPixelSize) {
             return
         }
-        // Already a JPEG and ImageIO failed oddly — copy/downscale as last resort for bitmaps
         let ext = rawURL.pathExtension.uppercased()
         if ["JPG", "JPEG", "JPE"].contains(ext),
            downscaleJPEG(from: rawURL, to: destURL, maxPixelSize: maxPixelSize) {
             return
         }
-        // RAW fallback: embedded preview via exiftool
         guard ExifToolService.isAvailable else {
             throw ExifToolError.previewExtractionFailed(rawURL.lastPathComponent)
         }
@@ -219,7 +204,6 @@ nonisolated enum PreviewExtractor {
         return writeJPEG(cgImage: image, to: destURL, quality: 0.92)
     }
 
-    /// Decode full image (not embedded thumbnail) for JPG/HEIC/PNG from iCloud, phone exports, etc.
     @discardableResult
     static func extractFullImage(to destURL: URL, from url: URL, maxPixelSize: Int) -> Bool {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return false }
@@ -239,12 +223,6 @@ nonisolated enum PreviewExtractor {
         return writeJPEG(cgImage: scaled, to: destURL, quality: 0.94)
     }
 
-    /// Rendered compatibility fallback via ImageIO.
-    ///
-    /// This is **not** RAW developing: ImageIO returns a display-rendered image
-    /// with Apple's default look already applied, and Lumina's RAW-domain
-    /// parameters (WB, RAW exposure, RAW NR/sharpening) cannot be applied to it.
-    /// Anything decoded here must surface under a Proxy fidelity label.
     static func renderedFallback(from rawURL: URL, maxPixelSize: Int = 6000) -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(rawURL as CFURL, nil) else { return nil }
         let options: [CFString: Any] = [

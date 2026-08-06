@@ -12,16 +12,18 @@ enum DevelopEngine {
             return URL(fileURLWithPath: proxy)
         }
         guard let thumb = photo.thumbPath else { return nil }
-        guard let proxyDir = try? ProjectStore.cacheDirectory(for: projectName, tier: "proxy2048") else {
+        let dest: URL
+        if let keyed = try? ProjectStore.cacheFileURL(projectName: projectName, tier: "proxy2048", assetID: photo.id) {
+            dest = keyed
+        } else if let proxyDir = try? ProjectStore.cacheDirectory(for: projectName, tier: "proxy2048") {
+            dest = proxyDir.appendingPathComponent(AssetIdentity.cacheStem(for: photo.id) + ".jpg")
+        } else {
             return URL(fileURLWithPath: thumb)
         }
-        let stem = URL(fileURLWithPath: photo.rawPath).deletingPathExtension().lastPathComponent
-        let dest = proxyDir.appendingPathComponent(stem + ".jpg")
         if FileManager.default.fileExists(atPath: dest.path) { return dest }
         if PreviewExtractor.downscaleJPEG(from: URL(fileURLWithPath: thumb), to: dest, maxPixelSize: 2048) {
             return dest
         }
-        // Try extract from RAW at 2048
         if (try? PreviewExtractor.extract(to: dest, from: URL(fileURLWithPath: photo.rawPath), maxPixelSize: 2048)) != nil {
             return dest
         }
