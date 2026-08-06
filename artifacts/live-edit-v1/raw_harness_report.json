@@ -1,0 +1,287 @@
+{
+  "build" : "Debug",
+  "failures" : 0,
+  "fixture" : "\/Users\/aniketh\/Pictures\/jeevana_mehendi_2026_MATCHED_RAWS\/DSC08242.ARW",
+  "generatedAt" : "2026-08-05T19:07:23Z",
+  "live" : {
+    "capabilities" : "exposure:supported wb:supported nr:supported sharpen:supported lens:supported draft:supported",
+    "controlPixelDiffs" : {
+      "contrast" : {
+        "mae_8bit" : 106.64,
+        "minMAE" : 0.5,
+        "pass" : true
+      },
+      "exposure" : {
+        "mae_8bit" : 65.109999999999999,
+        "minMAE" : 2,
+        "pass" : true
+      },
+      "highlights" : {
+        "mae_8bit" : 2.1600000000000001,
+        "minMAE" : 0.5,
+        "pass" : true
+      },
+      "saturation" : {
+        "mae_8bit" : 10.15,
+        "minMAE" : 0.5,
+        "pass" : true
+      },
+      "shadows" : {
+        "mae_8bit" : 30.960000000000001,
+        "minMAE" : 0.5,
+        "pass" : true
+      },
+      "temperature" : {
+        "mae_8bit" : 15.68,
+        "minMAE" : 1,
+        "pass" : true
+      },
+      "tint" : {
+        "mae_8bit" : 6.3600000000000003,
+        "minMAE" : 0.5,
+        "pass" : true
+      }
+    },
+    "exportColorSpace" : "kCGColorSpaceROMMRGB",
+    "exportGraphMs" : 0.29999999999999999,
+    "fidelity" : {
+      "clippedFractionExport" : 0.34000000000000002,
+      "clippedFractionPreview" : 0.34999999999999998,
+      "deltaE2000Mean" : 0.95999999999999996,
+      "deltaE2000P95" : 3.9199999999999999,
+      "maeB_8bit" : 0.71999999999999997,
+      "maeG_8bit" : 0.78000000000000003,
+      "maeR_8bit" : 2.1600000000000001,
+      "maxChannelDelta_8bit" : 186,
+      "note" : "settled preview (display space) vs full export (ProPhoto) resampled to sRGB 1024px; difference PNG amplified ×8",
+      "size" : 1024,
+      "ssimLuma" : 0.97999999999999998,
+      "status" : "measured"
+    },
+    "handoff" : {
+      "colorSpace" : "kCGColorSpaceROMMRGB",
+      "exiftool" : {
+        "bitsPerSample" : "16 16 16 16",
+        "compression" : "Adobe Deflate",
+        "profile" : "ROMM RGB: ISO 22028-2:2013",
+        "size" : "6000x4000"
+      },
+      "mergeOutcome" : "updated",
+      "tiffSHA256" : "4c226111acbd11319b02bc40a0c4b0bb52bd6d6bcab08b8065362176325ed84d",
+      "totalMs" : 6172.3000000000002
+    },
+    "interactiveColdMs" : 119.8,
+    "interactiveFidelity" : "interactive",
+    "interactiveScrub" : {
+      "count" : 20,
+      "maxMs" : 16.600000000000001,
+      "p50Ms" : 14.1,
+      "p95Ms" : 16.600000000000001,
+      "rawStageCacheHits" : 20
+    },
+    "interactiveSettledDiscontinuity" : {
+      "gate" : "fail if > 12",
+      "maeLuma_8bit" : 0.92000000000000004
+    },
+    "megapixels" : 24,
+    "oneToOneMs" : 20,
+    "pixels" : "6000x4000",
+    "prepareMs" : 191.09999999999999,
+    "rawIntentInvalidates" : true,
+    "scrubDrain" : {
+      "atLeast20Frames" : true,
+      "completedPublishes" : 40,
+      "convergedOnLatest" : true,
+      "finalDisplayedRevision" : 40,
+      "inputToVisibleP50Ms" : 1.2,
+      "inputToVisibleP95Ms" : 2.8999999999999999,
+      "lifecycleSessionPrepares" : 1,
+      "note" : "Interactive lane drains latest-wins; cancel no longer discards finished frames.",
+      "staleRejected" : 0,
+      "steps" : 40
+    },
+    "settledFidelity" : "rawSettled",
+    "settledMs" : 159.30000000000001
+  },
+  "liveFrames" : {
+    "beforeAfter" : {
+      "after" : "after.png",
+      "before" : "before.png"
+    },
+    "directory" : "\/Users\/aniketh\/vlm_harness\/artifacts\/live-edit-v1\/live-frames",
+    "exposure" : {
+      "distinctFromPrev" : 11,
+      "files" : [
+        "exposure_00.png",
+        "exposure_01.png",
+        "exposure_02.png",
+        "exposure_03.png",
+        "exposure_04.png",
+        "exposure_05.png",
+        "exposure_06.png",
+        "exposure_07.png",
+        "exposure_08.png",
+        "exposure_09.png",
+        "exposure_10.png"
+      ],
+      "frames" : 11
+    },
+    "highlights" : {
+      "distinctFromPrev" : 7,
+      "files" : [
+        "highlights_00.png",
+        "highlights_01.png",
+        "highlights_02.png",
+        "highlights_03.png",
+        "highlights_04.png",
+        "highlights_05.png",
+        "highlights_06.png",
+        "highlights_07.png",
+        "highlights_08.png",
+        "highlights_09.png",
+        "highlights_10.png"
+      ],
+      "frames" : 11
+    },
+    "shadows" : {
+      "distinctFromPrev" : 7,
+      "files" : [
+        "shadows_00.png",
+        "shadows_01.png",
+        "shadows_02.png",
+        "shadows_03.png",
+        "shadows_04.png",
+        "shadows_05.png",
+        "shadows_06.png",
+        "shadows_07.png",
+        "shadows_08.png",
+        "shadows_09.png",
+        "shadows_10.png"
+      ],
+      "frames" : 11
+    },
+    "warmth" : {
+      "distinctFromPrev" : 11,
+      "files" : [
+        "warmth_00.png",
+        "warmth_01.png",
+        "warmth_02.png",
+        "warmth_03.png",
+        "warmth_04.png",
+        "warmth_05.png",
+        "warmth_06.png",
+        "warmth_07.png",
+        "warmth_08.png",
+        "warmth_09.png",
+        "warmth_10.png"
+      ],
+      "frames" : 11
+    }
+  },
+  "mappingVersion" : "lumina-ciraw-1",
+  "unitChecks" : [
+    {
+      "name" : "gen: first result presents",
+      "pass" : true
+    },
+    {
+      "name" : "gen: newer presents",
+      "pass" : true
+    },
+    {
+      "name" : "gen: stale rejected",
+      "pass" : true
+    },
+    {
+      "name" : "intents: look change preserves RawIntent",
+      "pass" : true
+    },
+    {
+      "name" : "intents: look change alters LookIntent",
+      "pass" : true
+    },
+    {
+      "name" : "intents: exposure invalidates RawIntent",
+      "pass" : true
+    },
+    {
+      "name" : "intents: exposure preserves GeometryIntent",
+      "pass" : true
+    },
+    {
+      "name" : "honesty: disabled controls render-inert",
+      "pass" : true
+    },
+    {
+      "name" : "wb: default is as-shot",
+      "pass" : true
+    },
+    {
+      "name" : "wb: override detected",
+      "pass" : true
+    },
+    {
+      "name" : "cache: look change changes final key",
+      "pass" : true
+    },
+    {
+      "name" : "cache: tier separates keys",
+      "pass" : true
+    },
+    {
+      "name" : "cache: disabled control does not thrash keys",
+      "pass" : true
+    },
+    {
+      "name" : "heal: fingerprint includes spots",
+      "pass" : true
+    },
+    {
+      "name" : "heal: donor pixels cloned onto spot center",
+      "pass" : true
+    },
+    {
+      "name" : "heal: distant pixels untouched",
+      "pass" : true
+    }
+  ],
+  "workingSpaceVersion" : "ws-linear-extended-srgb-1",
+  "xmpMerge" : [
+    {
+      "name" : "xmp: fresh sidecar created",
+      "pass" : true
+    },
+    {
+      "name" : "xmp: lumina re-merge is clean update",
+      "pass" : true
+    },
+    {
+      "name" : "xmp: external edit detected as conflict",
+      "pass" : true
+    },
+    {
+      "name" : "xmp: foreign property preserved through merge",
+      "pass" : true
+    },
+    {
+      "name" : "xmp: conflict recorded in sidecar",
+      "pass" : true
+    },
+    {
+      "name" : "xmp: disabled controls never emitted",
+      "pass" : true
+    },
+    {
+      "name" : "xmp: corrupt sidecar surfaces as conflict",
+      "pass" : true
+    },
+    {
+      "name" : "xmp: corrupt original preserved as backup",
+      "pass" : true
+    },
+    {
+      "name" : "xmp: fresh sidecar written after corruption",
+      "pass" : true
+    }
+  ]
+}

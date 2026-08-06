@@ -62,14 +62,15 @@ enum WhiteBalancePreset: String, CaseIterable, Identifiable {
     }
 }
 
-/// Editing surface — opens on ⌘-double-click or T. PDF frames A · 4 / A · 5.
+/// Editing surface — opens on ⌘-double-click or T.
 ///
-/// Premium Vision focus: scroll the set and the active photograph grows to
-/// dominate the stage; live Metal develop renders on that large surface.
+/// One persistent Metal editor + one control stack. Filmstrip sends selection
+/// intents only; it does not own sessions or controls. Scroll-aligned focus
+/// carousel removed for this phase so scrubbing never recreates the editor.
 struct TreatmentStageView: View {
     let leader: AssetPresentation
     let references: [AssetPresentation]
-    /// Full set for the focus carousel (leader + siblings). Falls back to
+    /// Full set for the filmstrip (leader + siblings). Falls back to
     /// leader + references when the caller doesn't pass the set.
     var setPhotos: [AssetPresentation] = []
     let selectionCount: Int
@@ -101,7 +102,7 @@ struct TreatmentStageView: View {
     @State private var oneToOne = false
     @State private var healMode = false
     @State private var healRadius: Double = 0.02
-    @State private var scheduler = WorkbenchDevelop.scheduler
+    @State private var editor = WorkbenchDevelop.editor
     @State private var receipt: String?
     @State private var autoBusy = false
     @State private var visionHint: String?
@@ -129,7 +130,7 @@ struct TreatmentStageView: View {
     /// Honest fidelity — live scheduler state when the RAW pipeline is active.
     private var effectiveFidelity: TreatmentFidelity {
         guard hasLiveRAW, fidelity != .previewsOnly,
-              let live = scheduler.fidelityByPhoto[leader.id] else { return fidelity }
+              let live = editor.scheduler.fidelityByPhoto[leader.id] else { return fidelity }
         switch live {
         case .interactive: return .interactivePreview
         case .settling: return .settling
@@ -143,7 +144,7 @@ struct TreatmentStageView: View {
         baseRecipe.retouch.count
     }
 
-    /// Carousel contents — set when available, otherwise leader + refs.
+    /// Filmstrip contents — set when available, otherwise leader + refs.
     private var focusStrip: [AssetPresentation] {
         if !setPhotos.isEmpty { return setPhotos }
         var seen = Set<AssetID>()
@@ -156,10 +157,10 @@ struct TreatmentStageView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            storyCollapsedStrip
-                .frame(width: 80)
+            filmstripColumn
+                .frame(width: 96)
 
-            focusCarousel
+            focusedEditorColumn
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             controlsColumn
@@ -168,27 +169,55 @@ struct TreatmentStageView: View {
         }
         .background(LuminaTokens.Surface.table)
         .onExitCommand(perform: onClose)
+        .onAppear { syncEditor() }
+        .onChange(of: leader.id) { _, _ in syncEditor() }
+        .onChange(of: showingOriginalHold) { _, _ in syncEditor() }
+        .onChange(of: previewMode) { _, _ in syncEditor() }
     }
 
-    // MARK: - Story collapse (96 pt)
+    private func syncEditor() {
+        let rawURL: URL? = {
+            guard let path = leader.rawPath, FileManager.default.fileExists(atPath: path) else { return nil }
+            return URL(fileURLWithPath: path)
+        }()
+        let proxy = (leader.previewPath ?? leader.thumbPath).map { URL(fileURLWithPath: $0) }
+        let edit = EditRecipe(from: DevelopEngine.clampRecipe(liveRecipe), id: leader.id)
+        editor.selectPhoto(photoID: leader.id, rawURL: rawURL, proxyURL: proxy, recipe: edit)
+        editor.showBefore = showingOriginalHold || previewMode == .original
+    }
 
-    private var storyCollapsedStrip: some View {
+    // MARK: - Filmstrip (selection intents only)
+
+    private var filmstripColumn: some View {
         VStack(spacing: 8) {
-            Text("Story")
+            Text("Set")
                 .font(LuminaTokens.Typeface.meta(10))
                 .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
             ScrollView {
                 LazyVStack(spacing: 8) {
-                    ForEach(storyStrip.prefix(12)) { asset in
-                        StablePhotoView(
-                            asset: asset,
-                            contentMode: .fit,
-                            cornerRadius: 2,
-                            maxPixelSize: 240
-                        )
-                        .frame(width: 48, height: 48 * (1 / max(asset.aspectRatio, 0.1)))
-                        .frame(maxHeight: 48)
-                        .opacity(0.60)
+                    ForEach(focusStrip) { asset in
+                        Button {
+                            onSelectReference(asset.id)
+                        } label: {
+                            StablePhotoView(
+                                asset: asset,
+                                contentMode: .fit,
+                                cornerRadius: 2,
+                                maxPixelSize: 240
+                            )
+                            .frame(width: 64, height: 64 * (1 / max(asset.aspectRatio, 0.1)))
+                            .frame(maxHeight: 64)
+                            .opacity(asset.id == leader.id ? 1.0 : 0.55)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .strokeBorder(
+                                        asset.id == leader.id ? Color.white.opacity(0.85) : .clear,
+                                        lineWidth: 1.5
+                                    )
+                            }
+                        }
+                        .buttonStyle(LuminaQuietButtonStyle())
+                        .accessibilityLabel("Select \(asset.filename)")
                     }
                 }
             }
@@ -207,104 +236,51 @@ struct TreatmentStageView: View {
         }
     }
 
-    // MARK: - Focus carousel
+    // MARK: - Persistent focused photograph
 
-    /// Scroll the set; the focused photograph grows to dominate and hosts
-    /// the live Metal develop surface. Neighbors stay poised smaller.
-    private var focusCarousel: some View {
-        GeometryReader { geo in
-            let pad: CGFloat = 16
-            let focusH = max(geo.size.height * 0.88, 480)
-            let neighborH = max(focusH * 0.22, 96)
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 14) {
-                        ForEach(focusStrip) { asset in
-                            let focused = asset.id == leader.id
-                            focusCard(
-                                asset: asset,
-                                focused: focused,
-                                focusHeight: focusH,
-                                neighborHeight: neighborH,
-                                maxWidth: geo.size.width - pad * 2
-                            )
-                            .id(asset.id)
-                        }
+    private var focusedEditorColumn: some View {
+        VStack(spacing: 10) {
+            ZStack {
+                if hasLiveRAW {
+                    // Persistent Metal surface — not inside LazyVStack / carousel.
+                    // Retains lastValidImage across photo switches until the next frame.
+                    DevelopMetalView(
+                        image: editor.presentedImage,
+                        displayedRevision: editor.displayedRevision
+                    )
+                    .allowsHitTesting(false)
+                    .onChange(of: editor.displayedRevision) { _, _ in
+                        editor.absorbPresentedTexture()
                     }
-                    .padding(.horizontal, pad)
-                    .padding(.vertical, max((geo.size.height - focusH) * 0.5, 24))
-                    .scrollTargetLayout()
-                }
-                .scrollTargetBehavior(.viewAligned)
-                .onAppear {
-                    proxy.scrollTo(leader.id, anchor: .center)
-                }
-                .onChange(of: leader.id) { _, newID in
-                    withAnimation(reduceMotion ? nil : LuminaTokens.Motion.selection) {
-                        proxy.scrollTo(newID, anchor: .center)
+                    .onChange(of: editor.scheduler.metrics.completed) { _, _ in
+                        editor.absorbPresentedTexture()
                     }
-                }
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
-        }
-    }
-
-    @ViewBuilder
-    private func focusCard(
-        asset: AssetPresentation,
-        focused: Bool,
-        focusHeight: CGFloat,
-        neighborHeight: CGFloat,
-        maxWidth: CGFloat
-    ) -> some View {
-        let targetH = focused ? focusHeight : neighborHeight
-        let targetW = focused ? maxWidth : min(maxWidth * 0.38, 320)
-        VStack(spacing: 8) {
-            Group {
-                if focused {
-                    leaderSurface(for: asset)
                 } else {
-                    Button {
-                        onSelectReference(asset.id)
-                    } label: {
-                        GradedPhotoView(
-                            asset: asset,
-                            projectName: projectName,
-                            baseRecipe: stagedRecipe ?? .neutral,
-                            developOffsets: .zero,
-                            previewMix: 1,
-                            contentMode: .fit,
-                            showDecisionBadge: false,
-                            isSelected: false,
-                            maxPixelSize: 900
-                        )
-                    }
-                    .buttonStyle(LuminaQuietButtonStyle())
-                    .accessibilityLabel("Focus \(asset.filename)")
-                    .accessibilityHint("Makes this photograph the largest in view and the live editing surface.")
+                    GradedPhotoView(
+                        asset: leader,
+                        projectName: projectName,
+                        baseRecipe: liveRecipe,
+                        developOffsets: .zero,
+                        previewMix: 1,
+                        contentMode: .fit,
+                        showDecisionBadge: false,
+                        isSelected: false,
+                        maxPixelSize: oneToOne ? 4096 : 2400
+                    )
+                }
+                if healMode {
+                    healOverlay
                 }
             }
-            .aspectRatio(asset.aspectRatio, contentMode: .fit)
-            .frame(maxWidth: targetW, maxHeight: targetH)
-            .frame(height: targetH)
-            .clipShape(RoundedRectangle(cornerRadius: focused ? 4 : 3, style: .continuous))
-            .shadow(color: focused ? Color.black.opacity(0.45) : .clear, radius: focused ? 28 : 0, y: focused ? 12 : 0)
-            .scaleEffect(focused ? 1.0 : 0.92)
-            .opacity(focused ? 1.0 : 0.55)
-            .animation(reduceMotion ? nil : LuminaTokens.Motion.stage, value: focused)
+            .aspectRatio(leader.aspectRatio, contentMode: .fit)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(16)
+            .accessibilityLabel("Photograph being treated: \(leader.filename)")
 
-            if focused {
-                metadataStrip
-                    .frame(maxWidth: targetW)
-            } else {
-                Text(asset.filename)
-                    .font(LuminaTokens.Typeface.meta(11))
-                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
-                    .lineLimit(1)
-            }
+            metadataStrip
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
         }
-        .frame(maxWidth: .infinity)
-        .accessibilityAddTraits(focused ? .isSelected : [])
     }
 
     /// EXIF plus the effective develop values — evolves live as sliders move.
@@ -335,6 +311,10 @@ struct TreatmentStageView: View {
                 .foregroundStyle(LuminaTokens.Ink.onTable)
                 .lineLimit(1)
                 .accessibilityLabel("Current develop values: \(liveDevelopLine)")
+            Text(editor.statusLine)
+                .font(.system(size: 10, weight: .regular, design: .monospaced))
+                .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
+                .lineLimit(2)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -360,24 +340,6 @@ struct TreatmentStageView: View {
         if r.sharpness > 0 { parts.append(String(format: "Shp %.0f", r.sharpness)) }
         if retouchCount > 0 { parts.append("\(retouchCount) heal\(retouchCount == 1 ? "" : "s")") }
         return parts.joined(separator: "   ")
-    }
-
-    /// Live RAW preview with heal-tap overlay. Falls back to proxy grading
-    /// when the original RAW is not on disk.
-    private func leaderSurface(for asset: AssetPresentation) -> some View {
-        LiveDevelopView(
-            photoID: asset.id,
-            asset: asset,
-            projectName: projectName,
-            recipe: liveRecipe,
-            oneToOne: oneToOne
-        )
-        .overlay {
-            if healMode {
-                healOverlay
-            }
-        }
-        .accessibilityLabel("Photograph being treated: \(asset.filename)")
     }
 
     private var healOverlay: some View {
@@ -465,7 +427,11 @@ struct TreatmentStageView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 10) {
-                    panel("White balance") { whiteBalanceSection }
+                    panel("White balance") {
+                        whiteBalanceSection
+                        slider("Warmth", value: binding(\.temperature), range: -2000...2000)
+                        slider("Tint", value: binding(\.tint), range: -50...50)
+                    }
                     panel("Tone") {
                         slider("Exposure", value: binding(\.exposure), range: -2...2)
                         slider("Highlights", value: binding(\.highlights), range: -100...100)
@@ -770,6 +736,13 @@ struct TreatmentStageView: View {
         offsets = next
         previewMode = .current
         onOffsetsChange(next)
+        // Synchronous draft update on the persistent editor — do not wait for
+        // slider release or a SwiftUI `.task(id:)` boundary.
+        let absolute = EditRecipe(
+            from: DevelopEngine.clampRecipe(effectiveRecipe.applying(next)),
+            id: leader.id
+        )
+        editor.setDraftRecipe(absolute, controlName: "offsets")
     }
 
     private func binding(_ keyPath: WritableKeyPath<DevelopAdjustments, Double>) -> Binding<Double> {

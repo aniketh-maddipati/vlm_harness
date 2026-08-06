@@ -108,6 +108,12 @@ struct RawRenderRequest: Hashable, Sendable, Identifiable {
     /// Monotonic generation — reject stale results at presentation time.
     let generation: UInt64
     let photoID: UUID
+    /// Prepared session this request was issued against.
+    let preparedSessionID: UUID
+    /// Monotonic recipe revision from the editor model.
+    let recipeRevision: UInt64
+    /// Active display profile fingerprint at request time.
+    let displayProfileID: String
     let rawURL: URL
     /// Optional JPEG proxy for interactive fallback only.
     let proxyURL: URL?
@@ -118,11 +124,16 @@ struct RawRenderRequest: Hashable, Sendable, Identifiable {
     let longEdgeCap: Int?
     /// When true, output tagged for display; export path uses output profile instead.
     let forDisplay: Bool
+    /// Slider-event timestamp for input-to-visible latency (CFAbsoluteTime).
+    let inputEventAt: CFAbsoluteTime?
 
     init(
         id: UUID = UUID(),
         generation: UInt64,
         photoID: UUID,
+        preparedSessionID: UUID = UUID(),
+        recipeRevision: UInt64 = 0,
+        displayProfileID: String = "default",
         rawURL: URL,
         proxyURL: URL? = nil,
         recipe: EditRecipe,
@@ -130,11 +141,15 @@ struct RawRenderRequest: Hashable, Sendable, Identifiable {
         source: DevelopDecodeSource? = nil,
         region: DevelopRenderRegion = .full,
         longEdgeCap: Int? = nil,
-        forDisplay: Bool = true
+        forDisplay: Bool = true,
+        inputEventAt: CFAbsoluteTime? = nil
     ) {
         self.id = id
         self.generation = generation
         self.photoID = photoID
+        self.preparedSessionID = preparedSessionID
+        self.recipeRevision = recipeRevision
+        self.displayProfileID = displayProfileID
         self.rawURL = rawURL
         self.proxyURL = proxyURL
         self.recipe = recipe
@@ -143,6 +158,18 @@ struct RawRenderRequest: Hashable, Sendable, Identifiable {
         self.region = region
         self.longEdgeCap = longEdgeCap ?? quality.defaultLongEdge
         self.forDisplay = forDisplay
+        self.inputEventAt = inputEventAt
+    }
+
+    var renderIdentity: DevelopRenderIdentity {
+        DevelopRenderIdentity(
+            photoID: photoID,
+            preparedSessionID: preparedSessionID,
+            recipeRevision: recipeRevision,
+            requestID: id,
+            quality: quality,
+            displayProfileID: displayProfileID
+        )
     }
 
     static func defaultSource(for quality: DevelopRenderQuality) -> DevelopDecodeSource {
@@ -189,6 +216,9 @@ struct DevelopRenderResult: @unchecked Sendable {
     let requestID: UUID
     let generation: UInt64
     let photoID: UUID
+    let preparedSessionID: UUID
+    let recipeRevision: UInt64
+    let displayProfileID: String
     let quality: DevelopRenderQuality
     let fidelity: DevelopFidelityState
     let ciImage: CIImage?
@@ -200,6 +230,58 @@ struct DevelopRenderResult: @unchecked Sendable {
     let cancelled: Bool
     let usedProxyFallback: Bool
     let colorSpaceName: String
+    let inputEventAt: CFAbsoluteTime?
+
+    var renderIdentity: DevelopRenderIdentity {
+        DevelopRenderIdentity(
+            photoID: photoID,
+            preparedSessionID: preparedSessionID,
+            recipeRevision: recipeRevision,
+            requestID: requestID,
+            quality: quality,
+            displayProfileID: displayProfileID
+        )
+    }
+
+    init(
+        requestID: UUID,
+        generation: UInt64,
+        photoID: UUID,
+        preparedSessionID: UUID = UUID(),
+        recipeRevision: UInt64 = 0,
+        displayProfileID: String = "default",
+        quality: DevelopRenderQuality,
+        fidelity: DevelopFidelityState,
+        ciImage: CIImage?,
+        cgImage: CGImage?,
+        extent: CGRect,
+        durationMs: Double,
+        cacheHit: Bool,
+        rawStageCacheHit: Bool,
+        cancelled: Bool,
+        usedProxyFallback: Bool,
+        colorSpaceName: String,
+        inputEventAt: CFAbsoluteTime? = nil
+    ) {
+        self.requestID = requestID
+        self.generation = generation
+        self.photoID = photoID
+        self.preparedSessionID = preparedSessionID
+        self.recipeRevision = recipeRevision
+        self.displayProfileID = displayProfileID
+        self.quality = quality
+        self.fidelity = fidelity
+        self.ciImage = ciImage
+        self.cgImage = cgImage
+        self.extent = extent
+        self.durationMs = durationMs
+        self.cacheHit = cacheHit
+        self.rawStageCacheHit = rawStageCacheHit
+        self.cancelled = cancelled
+        self.usedProxyFallback = usedProxyFallback
+        self.colorSpaceName = colorSpaceName
+        self.inputEventAt = inputEventAt
+    }
 }
 
 /// Tracks in-flight generations per photo and rejects stale presentations.

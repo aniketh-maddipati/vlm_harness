@@ -4,7 +4,7 @@ import Metal
 import MetalKit
 import SwiftUI
 
-/// Metal-backed live preview for the Develop Lab.
+/// Metal-backed live preview for develop.
 ///
 /// The preview never crosses a `CGImage`/`NSImage` CPU boundary: the scheduler
 /// publishes a `CIImage` and this view renders it straight into the drawable
@@ -13,10 +13,21 @@ struct DevelopMetalView: NSViewRepresentable {
     var image: CIImage?
     var zoom: CGFloat = 1
     var panOffset: CGSize = .zero
+    /// Optional recipe revision stamped into draw logs.
+    var displayedRevision: UInt64 = 0
 
-    func makeCoordinator() -> Renderer { Renderer() }
+    func makeCoordinator() -> Renderer {
+        DevelopMetalLifecycle.coordinatorInits += 1
+        DevelopLiveLog.event("DevelopMetalView.Coordinator init count=\(DevelopMetalLifecycle.coordinatorInits)")
+        return Renderer()
+    }
 
     func makeNSView(context: Context) -> MTKView {
+        DevelopMetalLifecycle.mtkViewMakes += 1
+        DevelopMetalLifecycle.metalViewMakes += 1
+        DevelopLiveLog.event(
+            "DevelopMetalView.makeNSView count=\(DevelopMetalLifecycle.mtkViewMakes)"
+        )
         let view = MTKView(frame: .zero, device: context.coordinator.device)
         view.framebufferOnly = false
         view.colorPixelFormat = .rgba16Float
@@ -36,6 +47,8 @@ struct DevelopMetalView: NSViewRepresentable {
         context.coordinator.image = image
         context.coordinator.zoom = zoom
         context.coordinator.panOffset = panOffset
+        context.coordinator.displayedRevision = displayedRevision
+        // Event-driven draw — never continuous 120 Hz.
         view.needsDisplay = true
     }
 
@@ -47,6 +60,7 @@ struct DevelopMetalView: NSViewRepresentable {
         var image: CIImage?
         var zoom: CGFloat = 1
         var panOffset: CGSize = .zero
+        var displayedRevision: UInt64 = 0
 
         override init() {
             let device = MTLCreateSystemDefaultDevice()
@@ -70,6 +84,12 @@ struct DevelopMetalView: NSViewRepresentable {
 
             let extent = image.extent
             guard extent.width > 0, extent.height > 0 else { return }
+
+            DevelopLiveLog.event(
+                "MTKView draw revision=\(displayedRevision) "
+                    + "textureID=\(ObjectIdentifier(image as AnyObject)) "
+                    + "drawable=\(Int(drawableSize.width))x\(Int(drawableSize.height))"
+            )
 
             // Aspect-fit into the drawable, then optional 1:1 zoom + pan.
             let fit = min(drawableSize.width / extent.width, drawableSize.height / extent.height)
@@ -108,5 +128,16 @@ struct DevelopMetalView: NSViewRepresentable {
             commandBuffer.present(drawable)
             commandBuffer.commit()
         }
+    }
+}
+
+/// Process-wide Metal view lifecycle counters for persistence proofs.
+enum DevelopMetalLifecycle {
+    static var metalViewMakes = 0
+    static var coordinatorInits = 0
+    static var mtkViewMakes = 0
+
+    static var summaryLine: String {
+        "metalView=\(metalViewMakes) coord=\(coordinatorInits) mtk=\(mtkViewMakes)"
     }
 }

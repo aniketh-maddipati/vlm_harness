@@ -2,28 +2,28 @@ import CoreImage
 import SwiftUI
 
 /// Shared render coordination for the workbench treatment stage.
-/// One scheduler for the whole workbench so caches, memory pressure handling
-/// and the global concurrency limit are unified.
+/// One scheduler + one editor model for the whole workbench so caches,
+/// memory pressure handling, and editor identity stay unified.
 @MainActor
 enum WorkbenchDevelop {
     static let scheduler = DevelopRenderScheduler()
+    static let editor = DevelopEditorModel(scheduler: scheduler)
 }
 
 /// Live RAW-backed editing surface for the workbench treatment stage.
 ///
-/// Slider changes route through `DevelopRenderScheduler.scrub` (latest-wins,
-/// coalesced) and the result is presented via `DevelopMetalView` — no CPU
-/// bitmap round trip. When the original RAW is unavailable the view falls
-/// back to the proxy-graded path and says so through `fidelity`.
+/// Presentation only — recipe mutations happen on `DevelopEditorModel` so
+/// slider ticks never wait on `.task(id:)` or release-to-apply. The Metal
+/// view is stable for the lifetime of this surface.
 struct LiveDevelopView: View {
     let photoID: UUID
     let asset: AssetPresentation
     var projectName: String?
-    /// Full absolute recipe (base + offsets already applied).
+    /// Absolute recipe — kept for callers that still push values; preferred
+    /// path is `WorkbenchDevelop.editor` mutations.
     var recipe: DevelopRecipe
     var oneToOne: Bool = false
-
-    @State private var scheduler = WorkbenchDevelop.scheduler
+    var editor: DevelopEditorModel = WorkbenchDevelop.editor
 
     private var rawURL: URL? {
         guard let rawPath = asset.rawPath,
@@ -35,23 +35,18 @@ struct LiveDevelopView: View {
         (asset.previewPath ?? asset.thumbPath).map { URL(fileURLWithPath: $0) }
     }
 
-    private var editRecipe: EditRecipe {
-        // Stable id — the scheduler keys caches off the value fingerprint.
-        EditRecipe(from: DevelopEngine.clampRecipe(recipe), id: photoID)
-    }
-
     /// Honest fidelity for the chip in the stage header.
     var liveFidelity: DevelopFidelityState? {
         guard rawURL != nil else { return nil }
-        return scheduler.fidelityByPhoto[photoID]
+        return editor.scheduler.fidelityByPhoto[photoID]
     }
 
     var body: some View {
         Group {
             if rawURL != nil {
                 ZStack {
-                    // Underlay until the first live frame lands.
-                    if scheduler.presentedCIImage(for: photoID) == nil {
+                    // Underlay until the first live frame lands — never flash blank.
+                    if editor.presentedImage == nil {
                         StablePhotoView(
                             asset: asset,
                             contentMode: .fit,
@@ -59,10 +54,18 @@ struct LiveDevelopView: View {
                             maxPixelSize: 2048
                         )
                     }
-                    DevelopMetalView(image: scheduler.presentedCIImage(for: photoID))
-                        .allowsHitTesting(false)
+                    DevelopMetalView(
+                        image: editor.presentedImage,
+                        displayedRevision: editor.displayedRevision
+                    )
+                    .allowsHitTesting(false)
                 }
-                .task(id: scrubKey) { scrub() }
+                .onAppear {
+                    syncSelection()
+                }
+                .onChange(of: photoID) { _, _ in
+                    syncSelection()
+                }
             } else {
                 // No RAW on disk — proxy-graded fallback, honestly labeled.
                 GradedPhotoView(
@@ -80,30 +83,16 @@ struct LiveDevelopView: View {
         }
     }
 
-    private var scrubKey: String {
-        "\(photoID)|\(editRecipe.valueFingerprint)|\(oneToOne)"
-    }
-
-    private func scrub() {
-        guard let rawURL else { return }
-        if oneToOne {
-            let recipe = editRecipe
-            Task {
-                await scheduler.renderOneToOne(
-                    photoID: photoID,
-                    rawURL: rawURL,
-                    proxyURL: proxyURL,
-                    recipe: recipe,
-                    region: .full
-                )
-            }
-        } else {
-            scheduler.scrub(
-                photoID: photoID,
-                rawURL: rawURL,
-                proxyURL: proxyURL,
-                recipe: editRecipe
-            )
+    private func syncSelection() {
+        let edit = EditRecipe(from: DevelopEngine.clampRecipe(recipe), id: photoID)
+        editor.selectPhoto(
+            photoID: photoID,
+            rawURL: rawURL,
+            proxyURL: proxyURL,
+            recipe: edit
+        )
+        if oneToOne != editor.oneToOne {
+            editor.toggleOneToOne()
         }
     }
 }

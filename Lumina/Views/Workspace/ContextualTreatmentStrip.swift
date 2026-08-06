@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Lightweight develop controls under the expanded active row.
+/// Lightweight preview-mode chips under the expanded active row.
+/// Live develop sliders live only in TreatmentStageView — not repeated here.
 struct ContextualTreatmentStrip: View {
     @Binding var previewMode: TreatmentPreviewMode
     @Binding var offsets: DevelopAdjustments
@@ -8,6 +9,7 @@ struct ContextualTreatmentStrip: View {
     var rowPreviewActive: Bool
     let onPreviewRow: () -> Void
     let onReset: () -> Void
+    var onOpenTreatment: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
@@ -16,16 +18,17 @@ struct ContextualTreatmentStrip: View {
                 previewChip("Auto", mode: .auto)
                 previewChip("Current", mode: .current)
                 Spacer(minLength: 0)
-                Button("More…") { showDetailed.toggle() }
-                    .font(LuminaTokens.Typeface.meta(13))
-                    .foregroundStyle(LuminaTokens.Ink.secondary)
-                    .buttonStyle(LuminaQuietButtonStyle())
-            }
-
-            HStack(spacing: LuminaTokens.Spacing.md) {
-                compactSlider(title: "Exposure", value: $offsets.exposure, range: -3...3, step: 0.05)
-                compactSlider(title: "Warmth", value: $offsets.temperature, range: -400...400, step: 10)
-                compactSlider(title: "Shadows", value: $offsets.shadows, range: -100...100, step: 1)
+                Button("Treat…") {
+                    if let onOpenTreatment {
+                        onOpenTreatment()
+                    } else {
+                        showDetailed = true
+                    }
+                }
+                .font(LuminaTokens.Typeface.meta(13))
+                .foregroundStyle(LuminaTokens.Ink.secondary)
+                .buttonStyle(LuminaQuietButtonStyle())
+                .accessibilityHint("Opens the persistent live RAW editor. Sliders are not embedded in rows.")
             }
 
             HStack(spacing: LuminaTokens.Spacing.md) {
@@ -44,15 +47,15 @@ struct ContextualTreatmentStrip: View {
                     .buttonStyle(LuminaQuietButtonStyle())
             }
 
-            if showDetailed {
-                detailedControls
-            }
+            Text("Live develop controls open in Treatment (T) — one editor for the focused photograph.")
+                .font(LuminaTokens.Typeface.meta(11))
+                .foregroundStyle(LuminaTokens.Ink.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(LuminaTokens.Spacing.md)
-        .background(LuminaTokens.Surface.well)
-        .overlay(alignment: .top) {
-            Rectangle().fill(LuminaTokens.Line.hairline).frame(height: LuminaTokens.Line.hairlineWidth)
-        }
+        .padding(.horizontal, LuminaTokens.Spacing.md)
+        .padding(.vertical, LuminaTokens.Spacing.sm)
+        .background(LuminaTokens.Surface.mist.opacity(0.4))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private func previewChip(_ title: String, mode: TreatmentPreviewMode) -> some View {
@@ -61,43 +64,14 @@ struct ContextualTreatmentStrip: View {
         } label: {
             Text(title)
                 .font(LuminaTokens.Typeface.meta(12))
-                .foregroundStyle(previewMode == mode ? LuminaTokens.Ink.primary : LuminaTokens.Ink.tertiary)
+                .foregroundStyle(LuminaTokens.Ink.primary)
                 .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.vertical, 5)
                 .background(
-                    Capsule(style: .continuous)
-                        .fill(previewMode == mode ? LuminaTokens.Surface.highlight : Color.clear)
+                    Capsule().fill(previewMode == mode ? LuminaTokens.Surface.well : Color.clear)
                 )
-                .overlay {
-                    Capsule(style: .continuous)
-                        .strokeBorder(LuminaTokens.Line.hairline, lineWidth: 1)
-                }
         }
         .buttonStyle(LuminaQuietButtonStyle())
-    }
-
-    private var detailedControls: some View {
-        VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
-            DevelopSliderRow(title: "Contrast", value: $offsets.contrast, range: -100...100, step: 1)
-            DevelopSliderRow(title: "Highlights", value: $offsets.highlights, range: -100...100, step: 1)
-            DevelopSliderRow(title: "Whites", value: $offsets.whites, range: -100...100, step: 1)
-            DevelopSliderRow(title: "Blacks", value: $offsets.blacks, range: -100...100, step: 1)
-            DevelopSliderRow(title: "Tint", value: $offsets.tint, range: -100...100, step: 1)
-            DevelopSliderRow(title: "Vibrance", value: $offsets.vibrance, range: -100...100, step: 1)
-            DevelopSliderRow(title: "Saturation", value: $offsets.saturation, range: -100...100, step: 1)
-            DevelopSliderRow(title: "Clarity", value: $offsets.clarity, range: -100...100, step: 1)
-        }
-        .padding(.top, LuminaTokens.Spacing.xs)
-    }
-
-    private func compactSlider(title: String, value: Binding<Double>, range: ClosedRange<Double>, step: Double) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(LuminaTokens.Typeface.meta(11))
-                .foregroundStyle(LuminaTokens.Ink.tertiary)
-            Slider(value: value, in: range, step: step)
-                .controlSize(.mini)
-        }
-        .frame(maxWidth: .infinity)
+        .accessibilityAddTraits(previewMode == mode ? .isSelected : [])
     }
 }

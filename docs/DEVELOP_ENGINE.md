@@ -45,7 +45,17 @@ Layout: ~66% leader, two reference frames, aspect-fit, Before/After, 1:1 pan, fi
 
 **Live RAW gate:** If no fixture directory is found, the lab reports that live RAW validation is blocked. Set `LUMINA_DEVELOP_RAW_DIR` or `--develop-raw-dir`.
 
-Workbench integration is **intentionally deferred** until the lab passes live-RAW correctness and responsiveness gates on a Mac.
+## Live scrub (Stage 2.1)
+
+See `docs/LIVE_EDIT_ROOT_CAUSE.md` and `docs/LIVE_EDIT_MANUAL_CHECKLIST.md`.
+
+Primary bug: interactive `scrub` cancelled in-flight Tasks and discarded results → Exposure/Warmth effectively updated on release. Fixed with a latest-wins drain loop, `DevelopEditorModel`, identity publication gates, and a persistent Workbench Metal surface (carousel temporarily removed).
+
+```bash
+# Isolated proof
+LUMINA_DEVELOP_RAW_DIR=~/Pictures/jeevana_mehendi_2026_MATCHED_RAWS \
+  Lumina.app/Contents/MacOS/Lumina --live-editor
+```
 
 ## Operation order (preview ≡ export)
 

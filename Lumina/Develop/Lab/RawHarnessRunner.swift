@@ -60,6 +60,7 @@ enum RawHarnessRunner {
            let raw = DevelopLabFixtures.discoverRAWFiles(in: dir, limit: 1).first {
             report["fixture"] = raw.path
             report["live"] = await liveChecks(rawURL: raw, outDir: outDir, failures: &failures)
+            report["liveFrames"] = await writeLiveFrameSequence(rawURL: raw, outDir: outDir, failures: &failures)
         } else {
             report["live"] = ["status": "blocked", "reason": "no RAW fixture directory (LUMINA_DEVELOP_RAW_DIR)"]
         }
@@ -271,6 +272,17 @@ enum RawHarnessRunner {
             "rawStageCacheHits": rawStageHits,
         ]
         if rawStageHits < 18 { failures += 1; live["rawStageCacheProblem"] = true }
+
+        // Control pixel-difference gates — every exposed control must move pixels.
+        live["controlPixelDiffs"] = await controlPixelDiffs(
+            photoID: photoID, rawURL: rawURL, failures: &failures
+        )
+
+        // Scheduler drain-loop: rapid scrub must publish multiple distinct
+        // revisions without waiting for mouse-up (no cancel-discard freeze).
+        live["scrubDrain"] = await scrubDrainCheck(
+            photoID: photoID, rawURL: rawURL, failures: &failures
+        )
 
         // RawIntent change must miss the RAW-stage cache
         let rawChanged = await DevelopRenderGraph.render(
@@ -565,6 +577,191 @@ enum RawHarnessRunner {
             out["error"] = "\(error)"
         }
         return out
+    }
+
+    /// Deterministic frame sequence — exposure / warmth / highlights / shadows
+    /// sweeps written as PNGs (Metal-path CIImage forced to bitmap).
+    private static func writeLiveFrameSequence(
+        rawURL: URL,
+        outDir: URL,
+        failures: inout Int
+    ) async -> [String: Any] {
+        let framesDir = outDir.appendingPathComponent("live-frames", isDirectory: true)
+        try? FileManager.default.createDirectory(at: framesDir, withIntermediateDirectories: true)
+        let photoID = UUID()
+        let sweeps: [(String, (Int) -> EditRecipe)] = [
+            ("exposure", { i in EditRecipe().updating { $0.exposure = -1.0 + Double(i) * 0.2 } }),
+            ("warmth", { i in EditRecipe().updating { $0.temperature = 4000 + Double(i) * 400 } }),
+            ("highlights", { i in EditRecipe().updating { $0.highlights = -80 + Double(i) * 16 } }),
+            ("shadows", { i in EditRecipe().updating { $0.shadows = -80 + Double(i) * 16 } }),
+        ]
+        var written: [String: Any] = [:]
+        for (name, make) in sweeps {
+            var paths: [String] = []
+            var distinct = 0
+            var prevBytes: [UInt8]?
+            for i in 0..<11 {
+                let recipe = make(i)
+                let result = await DevelopRenderGraph.render(RawRenderRequest(
+                    generation: UInt64(i + 1),
+                    photoID: photoID,
+                    rawURL: rawURL,
+                    recipe: recipe,
+                    quality: .interactive,
+                    forDisplay: false
+                ))
+                guard let cg = result.cgImage else {
+                    failures += 1
+                    continue
+                }
+                let file = framesDir.appendingPathComponent(String(format: "%@_%02d.png", name, i))
+                writePNG(cg, to: file, longEdge: 640)
+                paths.append(file.lastPathComponent)
+                if let pixels = resampleSRGB(cg, longEdge: 128) {
+                    if let prev = prevBytes {
+                        var diff = 0.0
+                        for k in 0..<pixels.count { diff += abs(Double(pixels[k]) - Double(prev[k])) }
+                        // Adjacent-frame threshold is intentionally low — highlights/shadows
+                        // change locally; min/max MAE is gated separately in controlPixelDiffs.
+                        if diff / Double(pixels.count) > 0.15 { distinct += 1 }
+                    } else {
+                        distinct += 1
+                    }
+                    prevBytes = pixels
+                }
+            }
+            written[name] = ["frames": paths.count, "distinctFromPrev": distinct, "files": paths]
+            if distinct < 5 { failures += 1 }
+        }
+        // Before/after pair from neutral vs treated.
+        let before = await DevelopRenderGraph.render(RawRenderRequest(
+            generation: 0, photoID: photoID, rawURL: rawURL, recipe: .neutral,
+            quality: .settled, forDisplay: false
+        ))
+        let after = await DevelopRenderGraph.render(RawRenderRequest(
+            generation: 1, photoID: photoID, rawURL: rawURL,
+            recipe: EditRecipe().updating { $0.exposure = 0.6; $0.temperature = 5200; $0.shadows = 30 },
+            quality: .settled, forDisplay: false
+        ))
+        if let b = before.cgImage {
+            writePNG(b, to: framesDir.appendingPathComponent("before.png"), longEdge: 960)
+        }
+        if let a = after.cgImage {
+            writePNG(a, to: framesDir.appendingPathComponent("after.png"), longEdge: 960)
+        }
+        written["beforeAfter"] = ["before": "before.png", "after": "after.png"]
+        written["directory"] = framesDir.path
+        return written
+    }
+
+    /// Min/max render for each trusted control — mean absolute channel delta
+    /// must be meaningfully nonzero.
+    private static func controlPixelDiffs(
+        photoID: UUID,
+        rawURL: URL,
+        failures: inout Int
+    ) async -> [String: Any] {
+        struct ControlSpec {
+            let name: String
+            let lo: (inout EditRecipe) -> Void
+            let hi: (inout EditRecipe) -> Void
+            let minMAE: Double
+        }
+        let controls: [ControlSpec] = [
+            .init(name: "exposure", lo: { $0.exposure = -1.5 }, hi: { $0.exposure = 1.5 }, minMAE: 2),
+            .init(name: "temperature", lo: { $0.temperature = 4000 }, hi: { $0.temperature = 8000 }, minMAE: 1),
+            .init(name: "tint", lo: { $0.tint = -30 }, hi: { $0.tint = 30 }, minMAE: 0.5),
+            .init(name: "highlights", lo: { $0.highlights = -80 }, hi: { $0.highlights = 80 }, minMAE: 0.5),
+            .init(name: "shadows", lo: { $0.shadows = -80 }, hi: { $0.shadows = 80 }, minMAE: 0.5),
+            .init(name: "contrast", lo: { $0.contrast = -60 }, hi: { $0.contrast = 60 }, minMAE: 0.5),
+            .init(name: "saturation", lo: { $0.saturation = -60 }, hi: { $0.saturation = 60 }, minMAE: 0.5),
+        ]
+
+        var out: [String: Any] = [:]
+        for control in controls {
+            let loRecipe = EditRecipe().updating(control.lo)
+            let hiRecipe = EditRecipe().updating(control.hi)
+            let lo = await DevelopRenderGraph.render(RawRenderRequest(
+                generation: 0, photoID: photoID, rawURL: rawURL, recipe: loRecipe,
+                quality: .interactive, forDisplay: false
+            ))
+            let hi = await DevelopRenderGraph.render(RawRenderRequest(
+                generation: 0, photoID: photoID, rawURL: rawURL, recipe: hiRecipe,
+                quality: .interactive, forDisplay: false
+            ))
+            guard let loCG = lo.cgImage, let hiCG = hi.cgImage,
+                  let a = resampleSRGB(loCG, longEdge: 256),
+                  let b = resampleSRGB(hiCG, longEdge: 256),
+                  a.count == b.count, !a.isEmpty else {
+                out[control.name] = ["status": "blocked"]
+                failures += 1
+                continue
+            }
+            var sum = 0.0
+            for i in 0..<a.count { sum += abs(Double(a[i]) - Double(b[i])) }
+            let mae = sum / Double(a.count)
+            let ok = mae >= control.minMAE
+            out[control.name] = ["mae_8bit": round2(mae), "pass": ok, "minMAE": control.minMAE]
+            if !ok { failures += 1 }
+        }
+        return out
+    }
+
+    /// Rapid interactive scrub through the real scheduler — must publish ≥20
+    /// distinct recipe revisions without requiring a pause (mouse-up).
+    private static func scrubDrainCheck(
+        photoID: UUID,
+        rawURL: URL,
+        failures: inout Int
+    ) async -> [String: Any] {
+        let scheduler = DevelopRenderScheduler()
+        scheduler.activeEditorIdentity = nil
+        let steps = 40
+        for step in 0..<steps {
+            let recipe = EditRecipe().updating { $0.exposure = Double(step) * 0.05 }
+            let t0 = CFAbsoluteTimeGetCurrent()
+            scheduler.scrub(
+                photoID: photoID,
+                rawURL: rawURL,
+                proxyURL: nil,
+                recipe: recipe,
+                recipeRevision: UInt64(step + 1),
+                inputEventAt: t0,
+                controlName: "exposure",
+                controlValue: recipe.exposure
+            )
+            // Yield so the drain loop can start evaluates between ticks.
+            try? await Task.sleep(nanoseconds: 8_000_000)
+        }
+        // Allow the drain loop to converge on the final revision.
+        for _ in 0..<200 {
+            if let rev = scheduler.displayedRevision[photoID], rev == UInt64(steps) {
+                break
+            }
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        // Count how many distinct revisions appeared during/after the sweep.
+        // We sample presented revision history via metrics.completed.
+        let completed = scheduler.metrics.completed
+        let stale = scheduler.metrics.staleRejected
+        let finalRev = scheduler.displayedRevision[photoID] ?? 0
+        let i2vP50 = scheduler.metrics.inputToVisiblePercentile(0.50)
+        let i2vP95 = scheduler.metrics.inputToVisiblePercentile(0.95)
+        let distinctEnough = completed >= 20
+        let converged = finalRev == UInt64(steps)
+        if !distinctEnough || !converged { failures += 1 }
+        return [
+            "steps": steps,
+            "completedPublishes": completed,
+            "staleRejected": stale,
+            "finalDisplayedRevision": finalRev,
+            "convergedOnLatest": converged,
+            "atLeast20Frames": distinctEnough,
+            "inputToVisibleP50Ms": i2vP50.map { round1($0) } as Any,
+            "inputToVisibleP95Ms": i2vP95.map { round1($0) } as Any,
+            "lifecycleSessionPrepares": PreparedRawSession.prepareCount,
+            "note": "Interactive lane drains latest-wins; cancel no longer discards finished frames.",
+        ]
     }
 
     /// Evaluate a lazy CIImage graph to pixels (like the Metal destination does).

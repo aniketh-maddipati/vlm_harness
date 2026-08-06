@@ -75,6 +75,8 @@ final class DevelopLabModel {
     /// states, never silent fakes.
     var leaderCapabilities: PreparedRawSession.Capabilities?
     var capabilityLine: String = ""
+    /// Lab-local recipe revision for latest-wins publication.
+    private var labRevision: UInt64 = 0
 
     let scheduler = DevelopRenderScheduler()
 
@@ -156,11 +158,16 @@ final class DevelopLabModel {
     func scrubRecipe(_ mutate: (inout EditRecipe) -> Void) {
         recipe = recipe.updating(mutate)
         guard let leader else { return }
+        // Lab path: bump a local revision so publication converges on latest.
+        labRevision &+= 1
         scheduler.scrub(
             photoID: leader.id,
             rawURL: leader.url,
             proxyURL: nil,
-            recipe: recipe
+            recipe: recipe,
+            recipeRevision: labRevision,
+            controlName: "lab",
+            controlValue: nil
         )
         // Independently render staged siblings against their own RAW — never reuse leader pixels.
         if batch.phase == .staged {
@@ -169,7 +176,8 @@ final class DevelopLabModel {
                     photoID: frame.id,
                     rawURL: frame.url,
                     proxyURL: nil,
-                    recipe: recipe
+                    recipe: recipe,
+                    recipeRevision: labRevision
                 )
             }
         }
@@ -179,11 +187,13 @@ final class DevelopLabModel {
     func warmLeader() {
         guard let leader, !liveRAWBlocked else { return }
         refreshCapabilities(for: leader)
+        labRevision &+= 1
         scheduler.scrub(
             photoID: leader.id,
             rawURL: leader.url,
             proxyURL: nil,
-            recipe: recipe
+            recipe: recipe,
+            recipeRevision: labRevision
         )
         Task {
             await scheduler.warmBeforeAfter(
@@ -224,7 +234,8 @@ final class DevelopLabModel {
                     photoID: frame.id,
                     rawURL: frame.url,
                     proxyURL: nil,
-                    recipe: recipe
+                    recipe: recipe,
+                    recipeRevision: labRevision
                 )
             }
         } catch BatchTreatmentError.emptySelection {

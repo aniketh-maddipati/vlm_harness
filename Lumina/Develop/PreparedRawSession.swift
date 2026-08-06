@@ -62,6 +62,9 @@ actor PreparedRawSession {
 
     let assetID: UUID
     let rawURL: URL
+    /// Stable for the lifetime of this prepared session instance. Eviction +
+    /// recreate yields a new ID so stale renders cannot publish into a new editor.
+    let sessionID: UUID
 
     private var interactiveFilter: CIRAWFilter?
     private var authoritativeFilter: CIRAWFilter?
@@ -73,9 +76,13 @@ actor PreparedRawSession {
     /// Bumped whenever Apple's decoder or our mapping changes meaningfully.
     static let decoderMappingVersion = "lumina-ciraw-1"
 
-    init(assetID: UUID, rawURL: URL) {
+    /// Process-wide lifecycle counter — session prepare must not bump while scrubbing.
+    nonisolated(unsafe) static var prepareCount: Int = 0
+
+    init(assetID: UUID, rawURL: URL, sessionID: UUID = UUID()) {
         self.assetID = assetID
         self.rawURL = rawURL
+        self.sessionID = sessionID
     }
 
     /// Whether CIRAWFilter can open this file at all.
@@ -125,6 +132,12 @@ actor PreparedRawSession {
         guard let filter else { return nil }
 
         apply(intent: intent, to: filter, tier: tier, scale: scale)
+        if tier == .interactive {
+            DevelopLiveLog.event(
+                "CIRAWFilter apply sessionID=\(sessionID.uuidString) tier=interactive "
+                    + "exposure=\(intent.exposureEV) temp=\(intent.temperature) scale=\(String(format: "%.4f", scale))"
+            )
+        }
         guard let output = filter.outputImage else { return nil }
 
         rawStageCache[key] = RawStageEntry(image: output, scale: scale, lastAccess: CFAbsoluteTimeGetCurrent())
@@ -147,6 +160,10 @@ actor PreparedRawSession {
 
     private func prepareIfNeeded() {
         guard metadata == nil else { return }
+        Self.prepareCount += 1
+        DevelopLiveLog.event(
+            "session prepare sessionID=\(sessionID.uuidString) photoID=\(assetID.uuidString) count=\(Self.prepareCount)"
+        )
 
         guard let auth = CIRAWFilter(imageURL: rawURL) else {
             // Not RAW-capable — ImageIO fallback handled by the graph with an

@@ -55,6 +55,9 @@ enum DevelopRenderGraph {
                 requestID: request.id,
                 generation: request.generation,
                 photoID: request.photoID,
+                preparedSessionID: request.preparedSessionID,
+                recipeRevision: request.recipeRevision,
+                displayProfileID: request.displayProfileID,
                 quality: request.quality,
                 fidelity: .proxyFallback,
                 ciImage: nil,
@@ -65,7 +68,8 @@ enum DevelopRenderGraph {
                 rawStageCacheHit: false,
                 cancelled: false,
                 usedProxyFallback: true,
-                colorSpaceName: "nil"
+                colorSpaceName: "nil",
+                inputEventAt: request.inputEventAt
             )
         }
 
@@ -113,6 +117,9 @@ enum DevelopRenderGraph {
             requestID: request.id,
             generation: request.generation,
             photoID: request.photoID,
+            preparedSessionID: request.preparedSessionID,
+            recipeRevision: request.recipeRevision,
+            displayProfileID: request.displayProfileID,
             quality: request.quality,
             fidelity: usedProxy ? .proxyFallback : fidelity,
             ciImage: image,
@@ -123,7 +130,8 @@ enum DevelopRenderGraph {
             rawStageCacheHit: rawStageCacheHit,
             cancelled: false,
             usedProxyFallback: usedProxy,
-            colorSpaceName: colorSpaceName
+            colorSpaceName: colorSpaceName,
+            inputEventAt: request.inputEventAt
         )
     }
 

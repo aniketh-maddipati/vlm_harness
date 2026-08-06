@@ -13,7 +13,9 @@ struct LuminaApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if DevelopLabLauncher.shouldPresentLab {
+                if LiveEditorProofLauncher.shouldPresent {
+                    LiveEditorProofView()
+                } else if DevelopLabLauncher.shouldPresentLab {
                     DevelopLabView()
                 } else {
                     ContentView()

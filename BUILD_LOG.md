@@ -4,6 +4,22 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-05 — Live RAW scrub (Lightroom-feel direct manipulation)
+
+**Claim:** While dragging Exposure/Warmth/etc., the focused ARW must change under the pointer — no release-to-apply.
+
+**Root cause:** `DevelopRenderScheduler.scrub` cancelled the in-flight Task on every slider tick; `renderNow` discarded cancelled results. RAW-sensitive evaluates (~100ms+) almost never published until drag paused. Secondary: Metal surface inside LazyVStack focus carousel; Workbench scrub via `.task(id:)`.
+
+**Fix:** Latest-wins drain loop (no cancel-discard); `DevelopEditorModel` + `DevelopEditorIdentity` publication gate; persistent Treatment Metal surface (carousel removed); row strip sliders removed; `--live-editor` proof; control pixel-diff + scrubDrain harness gates; live frame PNGs.
+
+**Build:** Debug + Release **SUCCEEDED**.
+
+**Harness** (`artifacts/live-edit-v1`, 24MP Sony ARW): failures **0** · scrubDrain 40/40 publishes, session prepare **1**, control MAE all pass · look-only interactive p50 **13.7ms** / p95 **16ms**.
+
+**Manual gate remaining:** Drag Exposure/Warmth in `--live-editor` or Treatment (T) on a real ARW — agent Aqua window capture was blocked; see `docs/LIVE_EDIT_MANUAL_CHECKLIST.md` and `docs/LIVE_EDIT_ROOT_CAUSE.md`.
+
+---
+
 ## 2026-08-04 — Continuous workspace (Workbench / Canvas / Proof)
 
 **Claim:** Replace stack-table + fixed develop sidebar with one continuous photographic workspace — three spatial stages sharing selection and scroll identity.
