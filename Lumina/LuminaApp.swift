@@ -16,7 +16,7 @@ struct LuminaApp: App {
                 if DevelopLabLauncher.shouldPresentLab {
                     DevelopLabView()
                 } else {
-                    ContentView()
+                    P0RootView()
                 }
             }
             .frame(minWidth: 1100, minHeight: 700)
@@ -41,58 +41,17 @@ struct LuminaApp: App {
                 }
                 .keyboardShortcut("h", modifiers: [.command, .shift])
 
-                Button("Sources") {
-                    NotificationCenter.default.post(name: .luminaOpenSources, object: nil)
-                }
-                .keyboardShortcut("1", modifiers: .command)
-
-                Button("Workbench") {
-                    NotificationCenter.default.post(name: .luminaOpenWorkbench, object: nil)
-                }
-                .keyboardShortcut("2", modifiers: .command)
-
-                Button("Story") {
-                    NotificationCenter.default.post(name: .luminaOpenStory, object: nil)
-                }
-                .keyboardShortcut("3", modifiers: .command)
-
-                Button("Read") {
-                    NotificationCenter.default.post(name: .luminaEnterRead, object: nil)
-                }
-                .keyboardShortcut("r", modifiers: .command)
-
-                Divider()
-
-                Button("Subject Lens") {
-                    NotificationCenter.default.post(name: .luminaSetLensAttempts, object: nil)
-                }
-                .keyboardShortcut("1", modifiers: [.command, .option])
-
-                Button("Time Lens") {
-                    NotificationCenter.default.post(name: .luminaSetLensLight, object: nil)
-                }
-                .keyboardShortcut("2", modifiers: [.command, .option])
-
-                Divider()
-
-                Button("More Treatment Controls") {
-                    NotificationCenter.default.post(name: .luminaMoreTreatment, object: nil)
-                }
-                .keyboardShortcut("c", modifiers: [.command, .option])
-
                 Button("Keyboard Shortcuts…") {
                     NotificationCenter.default.post(name: .luminaShowShortcuts, object: nil)
                 }
                 .keyboardShortcut("/", modifiers: .command)
             }
 
-            CommandMenu("Source") {
+            CommandMenu("Shoot") {
                 Button("Open Shoot…") {
                     NotificationCenter.default.post(name: .luminaImportRAW, object: nil)
                 }
-                Button("Scan Backlog…") {
-                    NotificationCenter.default.post(name: .luminaScanBacklog, object: nil)
-                }
+                .keyboardShortcut("o", modifiers: .command)
             }
         }
     }
