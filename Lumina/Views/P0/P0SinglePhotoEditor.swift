@@ -182,67 +182,150 @@ struct P0SinglePhotoEditor: View {
 
     private var filmstrip: some View {
         let neighbors = filmstripNeighbors()
-        return ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(neighbors, id: \.id) { item in
-                        Button {
-                            session.setFocus(item.id)
-                        } label: {
-                            ZStack {
-                                if let path = item.asset.gridThumbPath ?? item.asset.thumbPath {
-                                    ContactSheetInspectImage(path: path)
-                                        .frame(width: 72, height: 54)
-                                        .clipped()
-                                } else {
-                                    Rectangle()
-                                        .fill(LuminaTokens.Surface.well)
-                                        .frame(width: 72, height: 54)
-                                }
-                            }
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .strokeBorder(
-                                        item.id == session.focusedAssetID
-                                            ? LuminaTokens.Ink.primary
-                                            : Color.clear,
-                                        lineWidth: 2
-                                    )
-                            }
-                            .opacity(item.marks.rejected ? 0.5 : 1)
-                        }
-                        .buttonStyle(LuminaQuietButtonStyle())
-                        .accessibilityIdentifier(P0AccessibilityID.filmstripItem(item.id))
-                        .id(item.id)
+        let focusedSelected = session.focusedIsSelected
+        return VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Button {
+                    session.toggleSelectionOfFocused()
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: focusedSelected ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 18, weight: .semibold))
+                        Text(focusedSelected ? "Selected" : "Select")
+                            .font(LuminaTokens.Typeface.navigation(15, weight: .semibold))
+                        Text("Space")
+                            .font(LuminaTokens.Typeface.meta(11, weight: .medium))
+                            .foregroundStyle(LuminaTokens.Ink.tertiary)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(LuminaTokens.Surface.well)
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                     }
+                    .foregroundStyle(focusedSelected ? LuminaTokens.Ink.primary : LuminaTokens.Ink.primary)
+                    .frame(minWidth: 168, minHeight: 44)
+                    .padding(.horizontal, 14)
+                    .background(focusedSelected ? LuminaTokens.Surface.highlight : LuminaTokens.Surface.well)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(
+                                focusedSelected
+                                    ? LuminaTokens.Status.selection.opacity(0.55)
+                                    : LuminaTokens.Line.hairline,
+                                lineWidth: focusedSelected ? 1.5 : LuminaTokens.Line.hairlineWidth
+                            )
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .contentShape(Rectangle())
                 }
-                .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
-                .padding(.vertical, 10)
+                .buttonStyle(LuminaQuietButtonStyle())
+                .accessibilityLabel(focusedSelected ? "Deselect photograph" : "Select photograph")
+                .accessibilityHint("Space")
+
+                Text("Hover to browse · click to select · ← → move")
+                    .font(LuminaTokens.Typeface.meta(11))
+                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    .lineLimit(1)
+
+                Spacer(minLength: 8)
+
+                if session.selectionCount > 0 {
+                    Text("\(session.selectionCount) selected")
+                        .font(LuminaTokens.Typeface.meta(12, weight: .medium))
+                        .foregroundStyle(LuminaTokens.Ink.primary)
+                }
             }
-            .frame(height: 74)
-            .background(LuminaTokens.Surface.porcelain.opacity(0.94))
-            .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(LuminaTokens.Line.hairline.opacity(0.65))
-                    .frame(height: LuminaTokens.Line.hairlineWidth)
-            }
-            .onChange(of: session.focusedAssetID) { _, id in
-                guard let id else { return }
-                withAnimation(reduceMotion ? nil : LuminaTokens.Motion.control) {
-                    proxy.scrollTo(id, anchor: .center)
+            .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
+
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(neighbors, id: \.id) { item in
+                            filmstripThumb(item)
+                                .id(item.id)
+                        }
+                    }
+                    .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
+                    .padding(.bottom, 12)
+                    .padding(.top, 2)
+                }
+                .scrollBounceBehavior(.always)
+                .frame(height: 86)
+                .onChange(of: session.focusedAssetID) { _, id in
+                    guard let id else { return }
+                    withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.32, dampingFraction: 0.82)) {
+                        proxy.scrollTo(id, anchor: .center)
+                    }
                 }
             }
         }
+        .background(LuminaTokens.Surface.porcelain.opacity(0.96))
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(LuminaTokens.Line.hairline.opacity(0.65))
+                .frame(height: LuminaTokens.Line.hairlineWidth)
+        }
+    }
+
+    private func filmstripThumb(_ item: ContactSheetItem) -> some View {
+        let focused = item.id == session.focusedAssetID
+        let selected = item.marks.selected
+        return ZStack {
+            if let path = item.asset.gridThumbPath ?? item.asset.thumbPath {
+                ContactSheetInspectImage(path: path)
+                    .frame(width: 92, height: 68)
+                    .clipped()
+            } else {
+                Rectangle()
+                    .fill(LuminaTokens.Surface.well)
+                    .frame(width: 92, height: 68)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(
+                    focused
+                        ? LuminaTokens.Ink.primary
+                        : (selected ? LuminaTokens.Status.selection.opacity(0.85) : Color.clear),
+                    lineWidth: focused ? 2.5 : 2
+                )
+        }
+        .scaleEffect(focused ? 1.06 : 1.0)
+        .shadow(
+            color: focused ? LuminaTokens.Ink.primary.opacity(0.12) : .clear,
+            radius: focused ? 8 : 0,
+            y: focused ? 2 : 0
+        )
+        .opacity(item.marks.rejected ? 0.5 : 1)
+        .contentShape(Rectangle())
+        // Hover focuses for fast browsing; click toggles selection (deliberate).
+        .onHover { hovering in
+            guard hovering else { return }
+            if session.focusedAssetID != item.id {
+                session.setFocus(item.id)
+            }
+        }
+        .onTapGesture {
+            session.selectClick(id: item.id, command: true, shift: false)
+        }
+        .animation(reduceMotion ? nil : .interactiveSpring(response: 0.28, dampingFraction: 0.86), value: focused)
+        .accessibilityLabel(item.asset.filename)
+        .accessibilityAddTraits(focused ? .isSelected : [])
+        .accessibilityHint("Hover to focus, click to select")
+        .accessibilityIdentifier(P0AccessibilityID.filmstripItem(item.id))
     }
 
     private func filmstripNeighbors() -> [ContactSheetItem] {
         let items = session.visibleItems
         guard let focus = session.focusedAssetID,
               let idx = items.firstIndex(where: { $0.id == focus }) else {
-            return Array(items.prefix(12))
+            return Array(items.prefix(16))
         }
-        let lo = max(0, idx - 8)
-        let hi = min(items.count, idx + 9)
+        // Wider window so the elastic strip feels continuous while browsing.
+        let lo = max(0, idx - 14)
+        let hi = min(items.count, idx + 15)
         return Array(items[lo..<hi])
     }
 

@@ -268,6 +268,9 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
         scrollView.backgroundColor = .clear
+        scrollView.verticalScrollElasticity = .allowed
+        scrollView.horizontalScrollElasticity = .automatic
+        scrollView.scrollerStyle = .overlay
 
         layout.rowHeight = rowHeight(for: densityColumns)
         collectionView.collectionViewLayout = layout

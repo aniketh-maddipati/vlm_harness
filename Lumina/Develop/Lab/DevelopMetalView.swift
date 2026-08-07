@@ -97,7 +97,9 @@ struct DevelopMetalView: NSViewRepresentable {
                 commandBuffer: commandBuffer
             ) { drawable.texture }
             destination.colorSpace = displaySpace
-            destination.isFlipped = false
+            // MTKView presents top-down; Core Image is bottom-up. Flip the
+            // destination so RAW frames are upright relative to AppKit thumbs.
+            destination.isFlipped = true
 
             do {
                 _ = try context.startTask(toClear: destination)

@@ -680,6 +680,21 @@ final class P0SessionModel {
         setFocus(id)
     }
 
+    /// Toggle selection of the focused/inspected photograph without changing focus.
+    func toggleSelectionOfFocused() {
+        guard let id = focusedAssetID ?? inspectingAssetID else { return }
+        if selectedAssetIDs.contains(id) {
+            selectedAssetIDs.remove(id)
+        } else {
+            selectedAssetIDs.insert(id)
+        }
+    }
+
+    var focusedIsSelected: Bool {
+        guard let id = focusedAssetID ?? inspectingAssetID else { return false }
+        return selectedAssetIDs.contains(id)
+    }
+
     func openFocusedPhotograph() {
         guard let id = focusedAssetID ?? selectedAssetIDs.first else { return }
         schedulePersistRestore()

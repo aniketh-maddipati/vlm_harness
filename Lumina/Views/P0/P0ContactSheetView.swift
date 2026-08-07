@@ -81,6 +81,10 @@ struct P0ContactSheetView: View {
             }
             return .ignored
         }
+        .onKeyPress(.space) {
+            session.toggleSelectionOfFocused()
+            return .handled
+        }
         .animation(effectiveReduceMotion ? nil : LuminaTokens.Motion.route, value: session.inspectingAssetID)
     }
 
