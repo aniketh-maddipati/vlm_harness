@@ -79,6 +79,11 @@ final class ContactSheetItemView: NSCollectionViewItem {
         imageView_.layer?.cornerRadius = 3
         imageView_.layer?.masksToBounds = true
         imageView_.translatesAutoresizingMaskIntoConstraints = false
+        // Only the cell container is an accessibility element — inner views must not duplicate its
+        // identifier (a duplicate makes XCUITest's firstMatch ambiguous and clicks land wrong).
+        imageView_.setAccessibilityElement(false)
+        focusRing.setAccessibilityElement(false)
+        markStack.setAccessibilityElement(false)
 
         focusRing.wantsLayer = true
         focusRing.layer?.borderWidth = 0
@@ -110,6 +115,11 @@ final class ContactSheetItemView: NSCollectionViewItem {
     func configure(item: ContactSheetItem, focused: Bool, selected: Bool) {
         let identityChanged = boundID != item.id
         boundID = item.id
+        // Stable per-asset accessibility identity — keyed by durable asset UUID, never array index.
+        view.setAccessibilityElement(true)
+        view.setAccessibilityRole(.image)
+        view.setAccessibilityIdentifier(P0AccessibilityID.assetCell(item.id))
+        view.setAccessibilityLabel(item.asset.filename)
         applyChrome(marks: item.marks, focused: focused, selected: selected)
 
         if identityChanged {
@@ -162,6 +172,19 @@ final class ContactSheetItemView: NSCollectionViewItem {
             addMarkChip(symbol: "\(order)", fill: NSColor(srgbRed: 0.20, green: 0.20, blue: 0.19, alpha: 0.82))
         }
         // Unreviewed: no mark.
+
+        // Structured per-cell state for the UI-test harness (never the sole source of truth,
+        // but lets tests assert one cell's focus/selection/cull/edit without scraping pixels).
+        view.setAccessibilityValue(Self.cellStateValue(marks: marks, focused: focused, selected: selected))
+    }
+
+    /// Compact, parseable cell-state string, e.g. `cull:keep;focus:1;sel:0;edit:1`.
+    static func cellStateValue(marks: ContactSheetMarks, focused: Bool, selected: Bool) -> String {
+        let cull: String
+        if marks.kept { cull = "keep" }
+        else if marks.rejected { cull = "reject" }
+        else { cull = "unreviewed" }
+        return "cull:\(cull);focus:\(focused ? 1 : 0);sel:\(selected ? 1 : 0);edit:\(marks.edited ? 1 : 0)"
     }
 
     private func addMarkChip(symbol: String, fill: NSColor) {
@@ -252,6 +275,7 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
         collectionView.register(ContactSheetItemView.self, forItemWithIdentifier: ContactSheetItemView.identifier)
         collectionView.dataSource = self
         collectionView.delegate = self
+        collectionView.setAccessibilityIdentifier(P0AccessibilityID.contactCollection)
         scrollView.documentView = collectionView
         view = scrollView
 

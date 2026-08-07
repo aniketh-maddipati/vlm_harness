@@ -1,0 +1,48 @@
+{
+  "configurations" : [
+    {
+      "id" : "A0000001-0000-0000-0000-000000000001",
+      "name" : "Fast",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Lumina.xcodeproj",
+      "identifier" : "A10000010000000000000006",
+      "name" : "Lumina"
+    },
+    "testTimeoutsEnabled" : true,
+    "maximumTestExecutionTimeAllowance" : 180
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Lumina.xcodeproj",
+        "identifier" : "A30000010000000000000006",
+        "name" : "LuminaLogicTests"
+      }
+    },
+    {
+      "selectedTests" : [
+        "OpenNavigationTests",
+        "CullGrammarTests",
+        "UndoTests",
+        "SelectionFocusTests",
+        "GridPhotoRestoreTests",
+        "PersistenceTests",
+        "MissingOriginalsTests",
+        "LayoutTests",
+        "ExplorerSmokeTests"
+      ],
+      "target" : {
+        "containerPath" : "container:Lumina.xcodeproj",
+        "identifier" : "A20000010000000000000006",
+        "name" : "LuminaUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

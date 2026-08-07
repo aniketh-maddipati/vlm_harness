@@ -23,6 +23,7 @@ struct P0RootView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .uiTestStateProbe(session)
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             guard !session.showLegacyShell else { return false }
             return session.handleDrop(providers: providers)
@@ -41,7 +42,20 @@ struct P0RootView: View {
                 .allowsHitTesting(false)
             }
         }
-        .onAppear { session.refreshRecent() }
+        .onAppear {
+            session.refreshRecent()
+            #if DEBUG
+            // UI-test auto-open: open the seeded fixture through the real openRecent path so flows
+            // don't depend on the flaky Open-surface accessibility. The manual click-through path
+            // has its own dedicated test.
+            if UITestSupport.isActive, UITestSupport.autoOpen, session.route == .open,
+               let name = UITestSupport.fixtureName {
+                // Open by name via the real openExisting path — no dependency on the recent list
+                // being populated yet (that listing races on cold start).
+                session.openShoot(named: name)
+            }
+            #endif
+        }
         .onReceive(NotificationCenter.default.publisher(for: .luminaImportRAW)) { _ in
             if session.showLegacyShell {
                 legacyModel.pickRAWFolder()

@@ -77,6 +77,7 @@ struct P0OpenView: View {
                 LuminaTextActionButton(title: "Choose a folder", prominent: true) {
                     session.chooseFolder()
                 }
+                .accessibilityIdentifier(P0AccessibilityID.openChooseFolder)
                 Text("or drop a folder anywhere in this window")
                     .font(LuminaTokens.Typeface.meta(13))
                     .foregroundStyle(LuminaTokens.Ink.tertiary)
@@ -124,6 +125,7 @@ struct P0OpenView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(LuminaQuietButtonStyle())
+                    .accessibilityIdentifier(P0AccessibilityID.recentShoot(shoot.name))
 
                     Rectangle()
                         .fill(LuminaTokens.Line.hairline)

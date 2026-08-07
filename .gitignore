@@ -25,3 +25,7 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# UI-automation run outputs (xcresults, logs, isolated state)
+artifacts/ui-automation/
+*.profraw

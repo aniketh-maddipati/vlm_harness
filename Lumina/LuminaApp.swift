@@ -3,6 +3,11 @@ import SwiftUI
 @main
 struct LuminaApp: App {
     init() {
+        #if DEBUG
+        // UI-test mode: redirect state to an isolated directory and seed deterministic fixtures
+        // before any scene appears. Compiled out of Release.
+        UITestLaunch.runIfRequested()
+        #endif
         WorkbenchCapture.runIfRequested()
         // Headless harness exits inside the runner.
         _ = RawHarnessRunner.runIfRequested()
