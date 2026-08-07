@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Right adjustment rail for P0 single-photo editing.
-/// Only one section expands; Whites/Blacks are intentionally omitted (not rendered).
+/// Wide, tactile controls — only one section expands; Whites/Blacks omitted.
 struct P0AdjustmentRail: View {
     @Bindable var session: P0SessionModel
     let assetID: UUID
@@ -18,28 +18,30 @@ struct P0AdjustmentRail: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Adjust")
-                .font(LuminaTokens.Typeface.navigation(14, weight: .medium))
+                .font(LuminaTokens.Typeface.navigation(18, weight: .semibold))
                 .foregroundStyle(LuminaTokens.Ink.primary)
-                .padding(.bottom, 8)
+                .padding(.bottom, 14)
 
             section(.light) { lightControls }
             section(.color) { colorControls }
             section(.detail) { detailControls }
             section(.crop) { P0CropControls(session: session, assetID: assetID) }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 12)
 
             if recipe.hasSettings {
                 Button("Reset photo") {
                     session.resetRecipeToNeutral(assetID: assetID)
                 }
                 .buttonStyle(LuminaQuietButtonStyle())
-                .frame(minHeight: 30)
+                .frame(maxWidth: .infinity, minHeight: LuminaTokens.HitTarget.minimum)
+                .background(LuminaTokens.Surface.well)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(width: 268, alignment: .topLeading)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .frame(width: 352, alignment: .topLeading)
         .background(LuminaTokens.Surface.rail)
         .overlay(alignment: .leading) {
             Rectangle()
@@ -54,7 +56,7 @@ struct P0AdjustmentRail: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         let expanded = session.expandedAdjustmentSection == section
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             P0RailSectionHeader(title: section.title, expanded: expanded) {
                 withAnimation(reduceMotion ? nil : LuminaTokens.Motion.control) {
                     if session.expandedAdjustmentSection == section {
@@ -69,12 +71,12 @@ struct P0AdjustmentRail: View {
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(.bottom, 8)
+        .padding(.bottom, 12)
     }
 
     private var lightControls: some View {
-        VStack(spacing: 8) {
-            fieldSlider("Exposure", keyPath: \.exposure, range: -3...3, step: 0.05, neutral: 0) {
+        VStack(spacing: 14) {
+            fieldSlider("Exposure", keyPath: \.exposure, range: -3...3, step: 0.1, neutral: 0) {
                 String(format: "%+.2f EV", $0)
             }
             fieldSlider("Contrast", keyPath: \.contrast, range: -100...100, step: 1, neutral: 0) {
@@ -90,7 +92,7 @@ struct P0AdjustmentRail: View {
     }
 
     private var colorControls: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 14) {
             temperatureSlider
             fieldSlider("Tint", keyPath: \.tint, range: -150...150, step: 1, neutral: 0) {
                 String(format: "%+.0f", $0)
@@ -105,7 +107,7 @@ struct P0AdjustmentRail: View {
     }
 
     private var detailControls: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 14) {
             fieldSlider(
                 sharpenSupported ? "Sharpening" : "Sharpening — unsupported",
                 keyPath: \.sharpness,
@@ -124,7 +126,7 @@ struct P0AdjustmentRail: View {
             ) { String(format: "%.0f", $0) }
             if !sharpenSupported || !nrSupported {
                 Text("Unsupported Detail controls stay disabled for this file.")
-                    .font(LuminaTokens.Typeface.meta(10))
+                    .font(LuminaTokens.Typeface.meta(11))
                     .foregroundStyle(LuminaTokens.Ink.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }

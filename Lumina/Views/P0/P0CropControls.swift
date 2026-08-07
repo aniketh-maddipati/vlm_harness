@@ -13,12 +13,12 @@ struct P0CropControls: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             Text("Aspect")
-                .font(LuminaTokens.Typeface.meta(11))
+                .font(LuminaTokens.Typeface.meta(12))
                 .foregroundStyle(LuminaTokens.Ink.tertiary)
 
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ratioButton("Original", ratio: nil)
                 ratioButton("1:1", ratio: 1)
                 ratioButton("4:5", ratio: 4.0 / 5.0)
@@ -49,13 +49,13 @@ struct P0CropControls: View {
                 }
             )
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Button {
                     session.applyEditMutation({ $0.straightenDegrees -= 90 }, assetID: assetID)
                 } label: {
                     Label("Rotate left", systemImage: "rotate.left")
                         .labelStyle(.iconOnly)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 44, height: 44)
                 }
                 .buttonStyle(LuminaQuietButtonStyle())
                 .help("Rotate 90° counter-clockwise")
@@ -65,7 +65,7 @@ struct P0CropControls: View {
                 } label: {
                     Label("Rotate right", systemImage: "rotate.right")
                         .labelStyle(.iconOnly)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 44, height: 44)
                 }
                 .buttonStyle(LuminaQuietButtonStyle())
                 .help("Rotate 90° clockwise")
@@ -79,11 +79,12 @@ struct P0CropControls: View {
                     }, assetID: assetID)
                 }
                 .buttonStyle(LuminaQuietButtonStyle())
+                .frame(minHeight: 44)
                 .disabled(!recipe.hasGeometry)
             }
 
             Text("Drag handles on the photograph to refine the crop.")
-                .font(LuminaTokens.Typeface.meta(10))
+                .font(LuminaTokens.Typeface.meta(11))
                 .foregroundStyle(LuminaTokens.Ink.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -109,13 +110,14 @@ struct P0CropControls: View {
             }, assetID: assetID)
         } label: {
             Text(title)
-                .font(LuminaTokens.Typeface.meta(11, weight: active ? .semibold : .regular))
+                .font(LuminaTokens.Typeface.meta(12, weight: active ? .semibold : .regular))
                 .foregroundStyle(active ? LuminaTokens.Ink.primary : LuminaTokens.Ink.secondary)
-                .frame(minWidth: 44, minHeight: 28)
-                .padding(.horizontal, 4)
-                .background(active ? LuminaTokens.Surface.highlight : Color.clear)
+                .frame(minWidth: 56, minHeight: 40)
+                .padding(.horizontal, 6)
+                .background(active ? LuminaTokens.Surface.highlight : LuminaTokens.Surface.well)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .strokeBorder(LuminaTokens.Line.hairline, lineWidth: LuminaTokens.Line.hairlineWidth)
                 }
         }

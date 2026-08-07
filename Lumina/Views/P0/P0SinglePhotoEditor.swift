@@ -35,10 +35,10 @@ struct P0SinglePhotoEditor: View {
             session.flushPendingEditIfNeeded()
             removeBeforeKeyMonitor()
         }
-        .onChange(of: asset.id) { _, newID in
+        .onChange(of: asset.id) { _, _ in
             oneToOne = false
             panOffset = .zero
-            session.prewarmInspection(around: newID)
+            // Inspection warm is owned by setFocus debounce — avoid a second settle storm.
         }
     }
 
@@ -301,9 +301,8 @@ struct P0SinglePhotoEditor: View {
                 .frame(height: 86)
                 .onChange(of: session.focusedAssetID) { _, id in
                     guard let id else { return }
-                    withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.32, dampingFraction: 0.82)) {
-                        proxy.scrollTo(id, anchor: .center)
-                    }
+                    // No spring on every key — animation under arrow-repeat was a major lag source.
+                    proxy.scrollTo(id, anchor: .center)
                 }
             }
         }

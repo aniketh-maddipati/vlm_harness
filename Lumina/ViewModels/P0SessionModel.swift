@@ -109,9 +109,13 @@ final class P0SessionModel {
 
     private var preparationTask: Task<Void, Never>?
     private var persistTask: Task<Void, Never>?
+    private var shootPersistTask: Task<Void, Never>?
     private var folderAccess: (url: URL, didStartAccess: Bool)?
     private var capabilityTask: Task<Void, Never>?
     private var prewarmTask: Task<Void, Never>?
+    /// Debounces expensive settle/prewarm while arrow keys / filmstrip hover spam focus.
+    private var inspectionWarmTask: Task<Void, Never>?
+    private var inspectionWarmGeneration = 0
     private var scrubInputStartedAt: CFAbsoluteTime?
 
     var selectionCount: Int { selectedAssetIDs.count }
@@ -390,7 +394,7 @@ final class P0SessionModel {
             finalOrderAfter: orderAfter
         )
         undoCoordinator.push(command)
-        persistShootImmediately()
+        schedulePersistShoot()
     }
 
     // MARK: - Edit (single-photo)
@@ -427,6 +431,7 @@ final class P0SessionModel {
             return
         }
         commitRecipeMutation(assetID: id, before: before, after: after)
+        settleCurrentRecipe(for: id, recipe: after)
         clearGestureState()
     }
 
@@ -439,6 +444,7 @@ final class P0SessionModel {
         let after = before.updating(mutate)
         commitRecipeMutation(assetID: id, before: before, after: after)
         scrubCurrentRecipe(for: id, recipe: recipe(for: id), recordInput: false)
+        settleCurrentRecipe(for: id, recipe: recipe(for: id))
     }
 
     func resetRecipeToNeutral(assetID: UUID? = nil) {
@@ -531,6 +537,16 @@ final class P0SessionModel {
         )
     }
 
+    private func settleCurrentRecipe(for assetID: UUID, recipe: EditRecipe) {
+        guard let urls = resolveRenderURLs(for: assetID) else { return }
+        developScheduler.settlePhotograph(
+            photoID: assetID,
+            rawURL: urls.rawURL ?? urls.proxyURL!,
+            proxyURL: urls.proxyURL,
+            recipe: recipe
+        )
+    }
+
     /// First paint for inspection — settled RAW, not draft interactive.
     private func openRender(for assetID: UUID, recipe: EditRecipe) {
         guard let urls = resolveRenderURLs(for: assetID) else {
@@ -570,21 +586,50 @@ final class P0SessionModel {
     }
 
     func prewarmInspection(around assetID: UUID) {
+        inspectionWarmGeneration += 1
+        let generation = inspectionWarmGeneration
         capabilityTask?.cancel()
         prewarmTask?.cancel()
         showingBefore = false
         refreshCapabilities(for: assetID)
         let recipe = recipe(for: assetID)
+        // Leader frame immediately — cancels prior inflight for this photo.
         openRender(for: assetID, recipe: recipe)
-        warmBeforeAfter(for: assetID, recipe: recipe)
 
-        let neighbors = neighborIDs(around: assetID, radius: 2)
-        let photos: [(UUID, URL)] = neighbors.compactMap { id in
-            guard let raw = resolveRenderURLs(for: id)?.rawURL else { return nil }
-            return (id, raw)
+        // Before/After + neighbor settles are expensive; only run for the latest focus.
+        prewarmTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard !Task.isCancelled, let self else { return }
+            guard generation == self.inspectionWarmGeneration,
+                  self.inspectingAssetID == assetID else { return }
+            self.warmBeforeAfter(for: assetID, recipe: recipe)
+            let neighbors = self.neighborIDs(around: assetID, radius: 1)
+            let photos: [(UUID, URL)] = neighbors.compactMap { id in
+                guard id != assetID,
+                      let raw = self.resolveRenderURLs(for: id)?.rawURL else { return nil }
+                return (id, raw)
+            }
+            self.developScheduler.prewarm(photos: photos, recipe: .neutral)
+            LatencyMetrics.record("p0.edit.nav_prewarm_count", milliseconds: Double(photos.count))
         }
-        developScheduler.prewarm(photos: photos, recipe: .neutral)
-        LatencyMetrics.record("p0.edit.nav_prewarm_count", milliseconds: Double(photos.count))
+    }
+
+    /// Focus changed while inspecting — update chrome now, settle after key/hover pause.
+    private func scheduleInspectionWarm(around assetID: UUID) {
+        inspectionWarmTask?.cancel()
+        inspectionWarmGeneration += 1
+        let generation = inspectionWarmGeneration
+        capabilityTask?.cancel()
+        prewarmTask?.cancel()
+        showingBefore = false
+        developScheduler.cancelExcept(photoID: assetID)
+        inspectionWarmTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            guard !Task.isCancelled, let self else { return }
+            guard generation == self.inspectionWarmGeneration,
+                  self.inspectingAssetID == assetID else { return }
+            self.prewarmInspection(around: assetID)
+        }
     }
 
     private func refreshCapabilities(for assetID: UUID) {
@@ -644,10 +689,15 @@ final class P0SessionModel {
         if inspectingAssetID != nil, let id, id != inspectingAssetID {
             flushPendingEditIfNeeded()
         }
+        let changed = focusedAssetID != id
         focusedAssetID = id
         if inspectingAssetID != nil, let id {
+            let photoChanged = inspectingAssetID != id
             inspectingAssetID = id
-            prewarmInspection(around: id)
+            if photoChanged {
+                // Debounce settle/prewarm — arrow spam was launching N settled RAW demosaics.
+                scheduleInspectionWarm(around: id)
+            }
             LatencyMetrics.record(
                 "p0.edit.nav_to_neighbor_ms",
                 milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000
@@ -661,16 +711,23 @@ final class P0SessionModel {
                 milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000
             )
         }
-        schedulePersistRestore()
+        if changed {
+            schedulePersistRestore()
+        }
     }
 
     func moveFocus(dx: Int, dy: Int, columns: Int) {
         let items = visibleItems
         guard !items.isEmpty else { return }
         if inspectingAssetID != nil {
+            // Single-photo filmstrip is linear — ignore grid column stride.
+            let step = dx != 0 ? dx : dy
+            guard step != 0 else { return }
             let current = focusedAssetID.flatMap { id in items.firstIndex(where: { $0.id == id }) } ?? 0
-            let next = min(max(current + dx + dy * max(columns, 1), 0), items.count - 1)
-            setFocus(items[next].id)
+            let next = min(max(current + step, 0), items.count - 1)
+            if items[next].id != focusedAssetID {
+                setFocus(items[next].id)
+            }
             return
         }
         let cols = max(columns, 1)
@@ -681,7 +738,9 @@ final class P0SessionModel {
         let newCol = min(max(0, col + dx), cols - 1)
         var next = newRow * cols + newCol
         if next >= items.count { next = items.count - 1 }
-        setFocus(items[next].id)
+        if items[next].id != focusedAssetID {
+            setFocus(items[next].id)
+        }
     }
 
     func selectClick(id: UUID, command: Bool, shift: Bool) {
@@ -934,8 +993,19 @@ final class P0SessionModel {
         }
     }
 
+    /// Cull mutations coalesce disk writes so P/X spam stays responsive.
+    private func schedulePersistShoot() {
+        shootPersistTask?.cancel()
+        shootPersistTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { self?.persistShootImmediately() }
+        }
+    }
+
     /// Cull mutations persist immediately — not wait for restore debounce.
     private func persistShootImmediately() {
+        shootPersistTask?.cancel()
         guard var shoot else { return }
         shoot.workspace = WorkspaceRestoreState(
             focusedAssetID: focusedAssetID,
