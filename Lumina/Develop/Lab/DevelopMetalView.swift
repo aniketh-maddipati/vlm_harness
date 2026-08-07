@@ -18,17 +18,20 @@ struct DevelopMetalView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> MTKView {
         let view = MTKView(frame: .zero, device: context.coordinator.device)
+        // SDR BGRA8 — matches DevelopColorPolicy display blit. rgba16Float with a
+        // gamma display destination left linear values looking milky / white-cast.
         view.framebufferOnly = false
-        view.colorPixelFormat = .rgba16Float
+        view.colorPixelFormat = .bgra8Unorm
         view.isPaused = true
         view.enableSetNeedsDisplay = true
         view.autoResizeDrawable = true
         view.layer?.isOpaque = false
         view.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
         view.delegate = context.coordinator
-        // Interactive surfaces use half-float RGBA; conversion to the display
-        // profile happens exactly once, here at the destination.
-        (view.layer as? CAMetalLayer)?.wantsExtendedDynamicRangeContent = false
+        if let metalLayer = view.layer as? CAMetalLayer {
+            metalLayer.wantsExtendedDynamicRangeContent = false
+            metalLayer.colorspace = DevelopColorPolicy.displayColorSpace
+        }
         return view
     }
 
@@ -36,6 +39,13 @@ struct DevelopMetalView: NSViewRepresentable {
         context.coordinator.image = image
         context.coordinator.zoom = zoom
         context.coordinator.panOffset = panOffset
+        if let metalLayer = view.layer as? CAMetalLayer {
+            let space = view.window?.screen?.colorSpace?.cgColorSpace
+                ?? DevelopColorPolicy.displayColorSpace
+            if metalLayer.colorspace !== space {
+                metalLayer.colorspace = space
+            }
+        }
         view.needsDisplay = true
     }
 
@@ -83,8 +93,10 @@ struct DevelopMetalView: NSViewRepresentable {
                 y: dy - scaled.extent.origin.y
             ))
 
-            // Final display conversion — the active display profile, exactly once.
-            let displaySpace = view.window?.screen?.colorSpace?.cgColorSpace
+            // Final display conversion — tagged the same on destination and layer
+            // so AppKit does not re-interpret gamma-encoded pixels as linear.
+            let displaySpace = (view.layer as? CAMetalLayer)?.colorspace
+                ?? view.window?.screen?.colorSpace?.cgColorSpace
                 ?? DevelopColorPolicy.displayColorSpace
 
             guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
