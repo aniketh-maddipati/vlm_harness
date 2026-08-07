@@ -4,6 +4,18 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-07 — P0 editing restacked onto main + minimal editing probe
+
+**Claim:** Land the seven single-photo editing commits on current `main` (post #23 harness, #24 UX hardening) with the harness contracts intact, add the smallest useful structured editing coverage, and stop shipping generated run evidence in the repo — without starting the deeper Metal/grouping roadmap.
+
+**Finding:** The rebase itself was clean after conflict resolution (Debug + Release build green, `p0_edit_test.swift` 29/29), but one conflict-resolution defect survived review and was only caught by running the existing harness: `p0.singlePhoto.image` had been moved onto a plain container `ZStack`. SwiftUI creates no accessibility element for such a container, so the identifier was undiscoverable and `MissingOriginalsTests` failed — it also violated the repo's own leaf-only rule. Two harness traps recurred while writing the new flow: macOS consumes the first mouse-down on a non-frontmost app as a window-activation click, and a slider drag that *begins* at the neutral midpoint can commit an unchanged value (the fingerprint no-op guard then correctly drops it), so the press must start off-neutral.
+
+**Fix:** Moved `singlePhotoImage` onto the two mutually-exclusive presenting leaves (Metal canvas when an image exists, cached preview otherwise). Added one DEBUG-only probe field, `focusedRecipeFingerprint` (the existing `EditRecipe.valueFingerprint` — no paths, pixels, or payload), mirrored in the test-side decoder; one leaf identifier `p0.singlePhoto.exposure` via `P0EditSlider.identifier`; and one flow, `EditingProbeTests`, proving gesture → fingerprint change → cull untouched → undo restores → P/X leaves the recipe alone. Untracked 24 generated evidence files (~180 MB) under `artifacts/p0-edit*` with narrow ignore rules, preserving local copies and correcting the doc links.
+
+**Build / gates:** Debug + Release **SUCCEEDED**; Release binary contains no harness symbols or launch flags (Debug positive control confirms the check). Targeted gates: `p0_edit_test.swift` 29/29 (0.5 s) · logic 5/5 (2.7 s) · `EditingProbeTests` 1/1 (5.0 s, stable over 3 runs) · `MissingOriginalsTests` 1/1 (6.3 s) · `UXHardeningTests` 2/2 (6.3 s) · smoke 6/6 (5.0 s). Not run by design: `P0Fast`, stress, visual, explorer, real-media audit. Perf tables in `docs/P0_EDITING.md` are marked historical — not re-measured since the rebase, which changed preview/scheduler sizing. Scrub and nav latency targets remain missed.
+
+---
+
 ## 2026-08-07 — P0 UI automation harness (XCUITest)
 
 **Claim:** A Playwright-like native macOS UI-automation harness that launches Lumina against isolated deterministic fixture state, drives the real P0 interface with keyboard/mouse, and yields replayable evidence (seed + trace + screenshots + structured state) — without touching real user data, changing product behavior, or implementing editing.

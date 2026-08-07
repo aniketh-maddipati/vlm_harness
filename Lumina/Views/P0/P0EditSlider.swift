@@ -15,6 +15,9 @@ struct P0EditSlider: View {
     let onScrub: (Double) -> Void
     let onEnd: () -> Void
     let onReset: () -> Void
+    /// Leaf accessibility identifier for the harness — set only on the one representative control
+    /// (Exposure) that the UI-test editing-probe flow drives. Never set on a container.
+    var identifier: String? = nil
 
     @State private var draft: Double?
     @State private var isDragging = false
@@ -98,6 +101,7 @@ struct P0EditSlider: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier ?? "")
         .accessibilityLabel(title)
         .accessibilityValue(display(shown))
         .accessibilityAdjustableAction { direction in

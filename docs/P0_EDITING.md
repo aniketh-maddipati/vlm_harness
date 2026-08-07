@@ -2,6 +2,8 @@
 
 Checkpoint after culling (`docs/P0_CULLING.md`). Opens a photograph from the contact sheet into an editing surface bound only to `EditRecipe`, with live RAW preview and shared undo.
 
+Rebased onto current `main` — this checkpoint now sits on top of the P0 UI automation harness (#23) and P0 UX hardening (#24), not on the old `cursor/p0-cull-grammar` stack. `P0SinglePhotoEditor` replaces the former `P0SinglePhotoPlaceholder` as the only single-photo surface; the harness contracts those two PRs introduced (leaf-only accessibility identifiers, forced test reduce-motion, keyboard-ready grid, the `p0.singlePhoto.originalOffline` affordance) are preserved on the real editor.
+
 ## Canonical recipe ownership
 
 | Concern | Owner |
@@ -66,6 +68,37 @@ Whites, Blacks, Texture, Clarity, Dehaze — stored and fingerprinted for compat
 - Missing originals → cached preview + factual “Original missing” notice; recipe still persists.
 - Opening a photo prewarms its session; neighbors are prefetched.
 
+## UI-harness editing contract
+
+The XCUITest harness observes editing through one structured probe field — never screenshots or UI
+text:
+
+| Probe field | Meaning |
+|---|---|
+| `focusedRecipeFingerprint` | `EditRecipe.valueFingerprint` of the focused asset's canonical recipe (nil when nothing is focused) |
+
+It is the existing deterministic fingerprint already used for cache keys and undo's no-op guard, so
+it adds no new source of truth. It carries no file paths, no pixel data, and no recipe payload — a
+fixed-width digest of the numeric values only. Like the rest of `ProbeSnapshot` it exists solely
+under the DEBUG harness (`UITestSupport.isActive`) and is compiled out of Release.
+
+One leaf accessibility identifier drives one representative control:
+
+| Identifier | Element |
+|---|---|
+| `p0.singlePhoto.exposure` | The Exposure slider (leaf element; `P0EditSlider.identifier`) |
+
+`p0.singlePhoto.image` rides whichever leaf actually presents the photograph — the Metal canvas when
+a rendered image exists, the cached preview otherwise — never a container. SwiftUI creates no
+accessibility element for a plain `ZStack`, so an identifier placed on one is undiscoverable; the two
+carriers are mutually exclusive so `firstMatch` is never ambiguous.
+
+Coverage split, deliberately: `Scripts/p0_edit_test.swift` remains the owner of persistence, crop,
+recipe serialization, and command behavior. `LuminaUITests/Flows/EditingProbeTests.swift` proves only
+the end-to-end wiring — real Exposure gesture → fingerprint changes → cull unchanged → one undo
+restores the exact prior fingerprint → P/X leaves the fingerprint alone. Comparison, batch editing,
+export, and AI are out of scope for this checkpoint.
+
 ## Measured performance
 
 Instrument keys:
@@ -78,7 +111,18 @@ Instrument keys:
 
 Plus existing develop scheduler metrics (cache hit/miss, raw-stage hits, stale rejects, queue delay via `os_signpost`).
 
-### Live harness on Sony ARW (`DSC08241.ARW`, Debug, 2026-08-06)
+> **Historical measurements.** Both tables below were recorded on 2026-08-06 against a local Sony
+> ARW shoot, before the rebase onto current `main`. They are kept as the measured record for this
+> checkpoint; they have **not** been re-measured since the rebase, and the rebase included preview
+> and scheduler changes (interactive long edge 1600→1920, settled 3200→4096, grid preview 768→1200,
+> gesture-end settle) that would move them. Re-run the harnesses below before quoting these numbers
+> as current.
+>
+> The run evidence (frames, reports) is **not committed** — the frames run to tens of MB each and no
+> test consumes them as a reviewed golden, so `artifacts/p0-edit/` and `artifacts/p0-edit-live/` are
+> gitignored. Regenerate locally with the commands shown.
+
+### Live harness on Sony ARW (`DSC08241.ARW`, Debug, 2026-08-06 — historical)
 
 Command: `Lumina.app --p0-edit-harness artifacts/p0-edit`
 
@@ -93,11 +137,11 @@ Command: `Lumina.app --p0-edit-harness artifacts/p0-edit`
 | Whites/Blacks meanΔ | 0.26 | inert | Treated inert (≪ real controls); not exposed |
 | Exposed controls | all changed pixels | required | Exposure/Contrast/HL/Shadows/Temp/Tint/Vibrance/Sat/Crop/Straighten/Rotate90 |
 
-Report: `artifacts/p0-edit/p0_edit_harness_report.json`. Frames under `artifacts/p0-edit/screenshots/`.
+Writes (locally, gitignored): report `artifacts/p0-edit/p0_edit_harness_report.json`, frames under `artifacts/p0-edit/screenshots/`.
 
 Fixture folder available on this Mac: 94 ARWs under `jeevana_mehendi_2026_MATCHED_RAWS` (not 200+).
 
-### Mac live session (`--p0-edit-live`, 2026-08-06)
+### Mac live session (`--p0-edit-live`, 2026-08-06 — historical)
 
 Command:
 
@@ -120,9 +164,25 @@ open -W -n DerivedData/Build/Products/Debug/Lumina.app --args \
 | Edited mark independent of Keep | Pass |
 | Undo edit leaves cull unchanged | Pass |
 | Quit/reopen retains recipe + cull | Pass (preparation saves now merge live cull/recipe) |
-| 1280×800 captures | Pass — `artifacts/p0-edit-live/*.png` |
+| 1280×800 captures | Pass — frames written to `artifacts/p0-edit-live/*.png` |
 
-Report: `artifacts/p0-edit-live/p0_edit_live_report.json`.
+Writes (locally, gitignored): report `artifacts/p0-edit-live/p0_edit_live_report.json`.
+
+### Automated gates run after the rebase (2026-08-07, warm Mac)
+
+These are the targeted gates this checkpoint is verified by — not the full test plan.
+
+| Gate | Command | Result |
+|---|---|---|
+| Deterministic edit contracts | `swift Scripts/p0_edit_test.swift` | 29/29 pass · 0.5 s |
+| Native logic tests | `bash Scripts/run_p0_ui_tests.sh logic` | 5/5 pass · 2.7 s |
+| Editing probe flow | `-only-testing:LuminaUITests/EditingProbeTests` | 1/1 pass · 5.0 s |
+| Missing originals | `-only-testing:LuminaUITests/MissingOriginalsTests` | 1/1 pass · 6.3 s |
+| UX hardening | `-only-testing:LuminaUITests/UXHardeningTests` | 2/2 pass · 6.3 s |
+| Smoke | `bash Scripts/run_p0_ui_tests.sh smoke` | 6/6 pass · 5.0 s |
+| Release build | `xcodebuild -configuration Release build` | Succeeds · 40 s · no harness symbols in the binary |
+
+Not run in this pass, by design: `P0Fast`, stress, visual, explorer, and the real-media E2E audit.
 
 ## Mac live-test instructions
 
@@ -139,7 +199,19 @@ Shoot: `/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS` (Sony ARW).
 9. Undo an edit without changing cull.
 10. Quit and reopen; verify recipes and crops.
 11. Resize to 1280×800 — photo stays large; rail does not scroll in ordinary use.
-12. Capture screenshots under `artifacts/p0-edit/`.
+12. Capture screenshots under `artifacts/p0-edit/` (local only — gitignored).
+
+### Still manual after the rebase
+
+Automation covers the recipe/cull/undo state contract, not perceptual truth. These remain
+GUI-only checks on real RAW files and were **not** re-run in this pass:
+
+- RAW orientation and the BGRA8 / display-color-space fix (no milky cast, no upside-down preview).
+- 1:1 zoom and pan under the pointer; double-click zoom toggle.
+- Elastic filmstrip feel — hover-to-browse, click-to-select, spring scroll.
+- Shift+G grouping surface behavior beyond route entry.
+- Sustained ≥10 s scrub for blank/stale frames.
+- Crop handles and straighten on a real photograph.
 
 ## Known Metal bottlenecks (next checkpoint)
 
@@ -148,6 +220,13 @@ Shoot: `/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS` (Sony ARW).
 3. Quarter-turn + fine straighten share one `straightenDegrees` field — dedicated orientation field would clarify export/XMP.
 4. Filmstrip thumbs remain uncropped (acceptable); main surface and authoritative output must match.
 5. Deeper GPU residency / IOSurface presentation path beyond current CI→Metal drawable.
+
+## What this checkpoint does not claim
+
+Deeper Metal hardening, grouping intelligence, batch editing, comparison, export, and AI/model
+inference are **not** complete. Grouping ships only as a route and surface entry point. The scrub and
+navigation latency targets are still missed (see the historical tables above), and no
+Lightroom-class latency claim is made.
 
 ## Next checkpoint
 

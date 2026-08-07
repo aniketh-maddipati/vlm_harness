@@ -169,6 +169,11 @@ struct P0SinglePhotoEditor: View {
 
             ZStack {
                 // Retain last valid frame — never clear on scrub.
+                // `singlePhotoImage` rides whichever leaf is actually presenting the photograph —
+                // the live canvas here, the cached preview below — never this container: SwiftUI
+                // creates no accessibility element for a plain ZStack, so an identifier put there
+                // is undiscoverable. The two are mutually exclusive on `image`, so exactly one
+                // element ever carries it (a duplicate would make firstMatch ambiguous).
                 DevelopMetalView(
                     image: image,
                     zoom: oneToOne ? 2.2 : 1,
@@ -186,6 +191,9 @@ struct P0SinglePhotoEditor: View {
                 .onTapGesture(count: 2) {
                     toggleOneToOneZoom()
                 }
+                .accessibilityElement()
+                .accessibilityIdentifier(image == nil ? "" : P0AccessibilityID.singlePhotoImage)
+                .accessibilityValue(asset.source.availability.rawValue)
                 .accessibilityHint("Double-click to zoom")
 
                 if image == nil {
@@ -194,6 +202,8 @@ struct P0SinglePhotoEditor: View {
                             .padding(18)
                             .opacity(0.92)
                             .allowsHitTesting(false)
+                            .accessibilityIdentifier(P0AccessibilityID.singlePhotoImage)
+                            .accessibilityValue(asset.source.availability.rawValue)
                     } else {
                         Text(session.fidelityNotice ?? "Preparing photograph…")
                             .font(LuminaTokens.Typeface.body(17))
@@ -212,8 +222,6 @@ struct P0SinglePhotoEditor: View {
                     .padding(18)
                 }
             }
-            .accessibilityIdentifier(P0AccessibilityID.singlePhotoImage)
-            .accessibilityValue(asset.source.availability.rawValue)
         }
     }
 

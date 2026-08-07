@@ -76,7 +76,10 @@ struct P0AdjustmentRail: View {
 
     private var lightControls: some View {
         VStack(spacing: 14) {
-            fieldSlider("Exposure", keyPath: \.exposure, range: -3...3, step: 0.1, neutral: 0) {
+            fieldSlider(
+                "Exposure", keyPath: \.exposure, range: -3...3, step: 0.1, neutral: 0,
+                identifier: P0AccessibilityID.singlePhotoExposureSlider
+            ) {
                 String(format: "%+.2f EV", $0)
             }
             fieldSlider("Contrast", keyPath: \.contrast, range: -100...100, step: 1, neutral: 0) {
@@ -171,6 +174,7 @@ struct P0AdjustmentRail: View {
         step: Double,
         neutral: Double,
         enabled: Bool = true,
+        identifier: String? = nil,
         display: @escaping (Double) -> String
     ) -> some View {
         P0EditSlider(
@@ -188,7 +192,8 @@ struct P0AdjustmentRail: View {
             onEnd: { session.endEditGesture() },
             onReset: {
                 session.applyEditMutation({ $0[keyPath: keyPath] = neutral }, assetID: assetID)
-            }
+            },
+            identifier: identifier
         )
     }
 }

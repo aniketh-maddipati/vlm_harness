@@ -29,3 +29,9 @@ fastlane/test_output
 # UI-automation run outputs (xcresults, logs, isolated state)
 artifacts/ui-automation/
 *.profraw
+
+# P0 edit harness run evidence — regenerate with `--p0-edit-harness` / `--p0-edit-live`
+# (see docs/P0_EDITING.md). Frames run to tens of MB each and no test consumes them as a
+# reviewed golden, so measurements live in the docs as tables instead.
+artifacts/p0-edit/
+artifacts/p0-edit-live/
