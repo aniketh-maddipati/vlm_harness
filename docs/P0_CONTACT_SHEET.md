@@ -51,8 +51,11 @@ Headless bench: `swift Scripts/p0_contact_sheet_bench.swift FOLDER [limit]`
 
 ## Next checkpoint (culling)
 
-1. Keep this contact sheet as the browse surface
-2. Implement P / X (and hold) mutations on `CullDecision` only — never touch `EditRecipe`
-3. Wire selection count + keyboard cull without opening Workbench
-4. Persist decisions through `ShootStore`; restore focus/filter/density/scroll from `WorkspaceRestoreState`
-5. Do not add AI scoring or treatment families yet
+Completed on branch `cursor/p0-cull-grammar` — see `docs/P0_CULLING.md`.
+
+## Next checkpoint (trustworthy single-photo editing)
+
+1. Keep cull grammar and grid↔photo restore
+2. Bind adjustment controls to `EditRecipe` only
+3. Share `P0UndoCoordinator` for edit commands
+4. Never mutate cull from edits; no compare/batch/AI yet
