@@ -1,0 +1,33 @@
+{
+  "configurations" : [
+    {
+      "id" : "A0000001-0000-0000-0000-000000000003",
+      "name" : "Visual",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Lumina.xcodeproj",
+      "identifier" : "A10000010000000000000006",
+      "name" : "Lumina"
+    },
+    "testTimeoutsEnabled" : true,
+    "maximumTestExecutionTimeAllowance" : 600
+  },
+  "testTargets" : [
+    {
+      "selectedTests" : [
+        "VisualRegressionTests"
+      ],
+      "target" : {
+        "containerPath" : "container:Lumina.xcodeproj",
+        "identifier" : "A20000010000000000000006",
+        "name" : "LuminaUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

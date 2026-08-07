@@ -4,6 +4,18 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-07 — P0 UI automation harness (XCUITest)
+
+**Claim:** A Playwright-like native macOS UI-automation harness that launches Lumina against isolated deterministic fixture state, drives the real P0 interface with keyboard/mouse, and yields replayable evidence (seed + trace + screenshots + structured state) — without touching real user data, changing product behavior, or implementing editing.
+
+**Finding:** No UI-test target, no shared scheme, zero accessibility identifiers, and persistence hard-wired to `~/Library/Application Support/Lumina`. Two macOS-specific traps surfaced: (1) SwiftUI propagates a container's `accessibilityIdentifier` onto every descendant, clobbering leaf identifiers (density/count/toolbar controls became `p0.contactSheet`/`p0.toolbar`); (2) a freshly launched app under XCUITest sometimes stays background, collapsing its accessibility tree, and duplicate cell identifiers (container + inner image) made clicks land on the wrong cell.
+
+**Fix:** DEBUG-only launch mode (`Lumina/Testing/`: `UITestSupport`/`UITestLaunch`/`UITestFixtures`/`UITestStateProbe`/`P0AccessibilityID`) with a `ShootStore.supportDirectory()` override for isolated state, deterministic fixtures (`mixed-60`/`mixed-200`/`missing-originals`, synthesized images — no RAW/binaries), a JSON state probe, and an app activator. `LuminaUITests` (robots + 9 deterministic flows + seeded state-aware explorer + invariants + visual regression) and a minimal `LuminaLogicTests` XCTest target, wired via a shared scheme and `TestPlans/{P0Fast,P0Stress,P0Visual}`. Removed container identifiers (leaf-only rule), made inner cell views non-accessibility, added verify+retry to cell/density clicks and self-healing launch. Runner `Scripts/run_p0_ui_tests.sh` (fast/stress/visual/logic/seed); portable manifest checks wired into `Scripts/regression.sh` (no Linux macOS-test claims); docs `docs/P0_UI_AUTOMATION.md`. No P0 product behavior changed.
+
+**Build:** Debug build green. `P0Fast` 14/14 pass (5 logic + 9 UI incl. short explorer). Explorer seed replay green (`seed 55555`, mixed-200). See delivery report / PR.
+
+---
+
 ## 2026-08-06 — P0 cull grammar + single-photo placeholder
 
 **Claim:** P/X toggle cull with immediate persistence and undo; exact grid↔photo restore; no AI/recipe side effects.

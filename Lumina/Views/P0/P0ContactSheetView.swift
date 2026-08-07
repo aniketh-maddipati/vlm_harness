@@ -5,6 +5,9 @@ struct P0ContactSheetView: View {
     @Bindable var session: P0SessionModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Reduced motion when the system setting asks for it, or when the UI-test harness forces it.
+    private var effectiveReduceMotion: Bool { reduceMotion || UITestSupport.reduceMotionForced }
+
     var body: some View {
         ZStack {
             LuminaTokens.Surface.mist.ignoresSafeArea()
@@ -20,7 +23,7 @@ struct P0ContactSheetView: View {
             if let id = session.inspectingAssetID,
                let asset = session.assets.first(where: { $0.id == id }) {
                 P0SinglePhotoPlaceholder(session: session, asset: asset)
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.985)))
+                    .transition(effectiveReduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.985)))
             }
         }
         .focusable()
@@ -78,7 +81,7 @@ struct P0ContactSheetView: View {
             }
             return .ignored
         }
-        .animation(reduceMotion ? nil : LuminaTokens.Motion.route, value: session.inspectingAssetID)
+        .animation(effectiveReduceMotion ? nil : LuminaTokens.Motion.route, value: session.inspectingAssetID)
     }
 
     private var toolbar: some View {
@@ -92,15 +95,18 @@ struct P0ContactSheetView: View {
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .accessibilityLabel("Back to open")
+            .accessibilityIdentifier(P0AccessibilityID.homeButton)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(session.shoot?.name ?? "Shoot")
                     .font(LuminaTokens.Typeface.editorial(22))
                     .foregroundStyle(LuminaTokens.Ink.primary)
+                    .accessibilityIdentifier(P0AccessibilityID.shootTitle)
                 Text(session.preparationLine)
                     .font(LuminaTokens.Typeface.meta(12))
                     .foregroundStyle(LuminaTokens.Ink.secondary)
                     .lineLimit(1)
+                    .accessibilityIdentifier(P0AccessibilityID.preparationStatus)
             }
 
             Spacer(minLength: 12)
@@ -113,6 +119,8 @@ struct P0ContactSheetView: View {
                     .padding(.vertical, 5)
                     .background(LuminaTokens.Surface.well)
                     .help("Export count equals the complete kept set")
+                    .accessibilityIdentifier(P0AccessibilityID.exportCount)
+                    .accessibilityValue("\(session.exportCount)")
             }
 
             if session.selectionCount > 0 {
@@ -122,12 +130,15 @@ struct P0ContactSheetView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(LuminaTokens.Surface.well)
+                    .accessibilityIdentifier(P0AccessibilityID.selectionCount)
+                    .accessibilityValue("\(session.selectionCount)")
             }
 
             if session.canUndo {
                 Button("Undo") { session.undoLastCull() }
                     .buttonStyle(LuminaQuietButtonStyle())
                     .keyboardShortcut("z", modifiers: .command)
+                    .accessibilityIdentifier(P0AccessibilityID.undoButton)
             }
 
             densityControls
@@ -147,13 +158,17 @@ struct P0ContactSheetView: View {
             Button("-") { session.adjustDensity(1) }
                 .buttonStyle(LuminaQuietButtonStyle())
                 .accessibilityLabel("Show more photographs")
+                .accessibilityIdentifier(P0AccessibilityID.densityDecrease)
             Text("\(session.densityColumns)")
                 .font(LuminaTokens.Typeface.meta(12))
                 .foregroundStyle(LuminaTokens.Ink.tertiary)
                 .frame(minWidth: 16)
+                .accessibilityIdentifier(P0AccessibilityID.densityValue)
+                .accessibilityValue("\(session.densityColumns)")
             Button("+") { session.adjustDensity(-1) }
                 .buttonStyle(LuminaQuietButtonStyle())
                 .accessibilityLabel("Show fewer photographs")
+                .accessibilityIdentifier(P0AccessibilityID.densityIncrease)
         }
     }
 }
@@ -175,14 +190,18 @@ struct P0SinglePhotoPlaceholder: View {
                 }
                 .buttonStyle(LuminaQuietButtonStyle())
                 .accessibilityLabel("Return to contact sheet")
+                .accessibilityIdentifier(P0AccessibilityID.gridReturn)
 
                 Text(asset.filename)
                     .font(LuminaTokens.Typeface.meta(13))
                     .foregroundStyle(LuminaTokens.Ink.inspection)
+                    .accessibilityIdentifier(P0AccessibilityID.singlePhotoFilename)
 
                 Spacer()
 
                 cullStatusChip
+                    .accessibilityIdentifier(P0AccessibilityID.singlePhotoCullChip)
+                    .accessibilityValue(asset.cull.rawValue)
 
                 Text("P keep · X reject · Esc grid")
                     .font(LuminaTokens.Typeface.meta(11))
@@ -196,10 +215,13 @@ struct P0SinglePhotoPlaceholder: View {
                 if let path = asset.thumbPath ?? asset.gridThumbPath {
                     ContactSheetInspectImage(path: path)
                         .padding(24)
+                        .accessibilityIdentifier(P0AccessibilityID.singlePhotoImage)
+                        .accessibilityValue(asset.source.availability.rawValue)
                 } else {
                     Text("Preview unavailable — cached preview missing")
                         .font(LuminaTokens.Typeface.body(17))
                         .foregroundStyle(LuminaTokens.Ink.inspection)
+                        .accessibilityIdentifier(P0AccessibilityID.singlePhotoUnavailable)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -259,6 +281,7 @@ struct P0SinglePhotoPlaceholder: View {
                         .opacity(item.marks.rejected ? 0.5 : 1)
                     }
                     .buttonStyle(LuminaQuietButtonStyle())
+                    .accessibilityIdentifier(P0AccessibilityID.filmstripItem(item.id))
                 }
             }
             .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)

@@ -174,6 +174,12 @@ final class P0SessionModel {
     }
 
     func openRecent(_ summary: RecentShootSummary) {
+        openShoot(named: summary.name)
+    }
+
+    /// Open an existing shoot by name (used by Recent, and by the DEBUG UI-test auto-open path,
+    /// which must not depend on the recent-shoots list being populated yet).
+    func openShoot(named name: String) {
         preparationTask?.cancel()
         releaseFolderAccess()
         userFacingError = nil
@@ -184,7 +190,7 @@ final class P0SessionModel {
 
         preparationTask = Task { [weak self] in
             guard let self else { return }
-            let stream = ContactSheetPreparation.openExisting(shootName: summary.name)
+            let stream = ContactSheetPreparation.openExisting(shootName: name)
             await self.consume(stream)
         }
     }

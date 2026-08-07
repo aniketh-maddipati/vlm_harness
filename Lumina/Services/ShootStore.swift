@@ -12,8 +12,16 @@ actor ShootStore {
     // MARK: - Paths (nonisolated)
 
     nonisolated static func supportDirectory() throws -> URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Lumina", isDirectory: true)
+        // Under the UI-test harness, redirect all persistence into an isolated temporary root so
+        // tests never read or modify the maintainer's real `~/Library/Application Support/Lumina`.
+        // In Release nothing sets this override, so the real path is always used.
+        let root: URL
+        if let override = UITestSupport.stateDirectoryOverride {
+            root = override
+        } else {
+            root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        }
+        let base = root.appendingPathComponent("Lumina", isDirectory: true)
         try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         return base
     }

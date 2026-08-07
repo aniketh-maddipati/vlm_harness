@@ -36,10 +36,44 @@ swift "$ROOT/Scripts/p0_cull_test.swift"
 echo "P0 cull tests: OK"
 echo ""
 
-echo "--- 5/7 Build ---"
+echo "--- 4b/7 UI-automation manifest checks (portable; runs on Linux too) ---"
+# Static validation of the XCUITest harness plumbing. These do NOT run any macOS UI tests — they
+# only confirm the runner script, test plans, and shared scheme are well-formed, so a Linux cloud
+# agent can catch harness breakage without ever claiming it executed macOS automation.
+bash -n "$ROOT/Scripts/run_p0_ui_tests.sh"
+for plan in P0Fast P0Stress P0Visual; do
+  python3 -c "import json,sys; json.load(open('$ROOT/TestPlans/$plan.xctestplan'))"
+  echo "  test plan $plan: valid JSON"
+done
+python3 - "$ROOT/Lumina.xcodeproj/xcshareddata/xcschemes/Lumina.xcscheme" <<'PY'
+import sys, xml.dom.minidom
+xml.dom.minidom.parse(sys.argv[1])
+print("  shared scheme Lumina.xcscheme: well-formed XML")
+PY
+echo "UI-automation manifests: OK"
+echo ""
+
+# Everything below requires macOS + Xcode. On Linux the script has already done what it can.
+if [[ "$(uname -s)" != "Darwin" ]] || ! command -v xcodebuild >/dev/null 2>&1; then
+  echo "NOTE: xcodebuild unavailable (non-macOS) — skipping build, XCTest, and E2E audit."
+  echo "      Run 'bash Scripts/run_p0_ui_tests.sh fast' on a Mac for macOS UI automation."
+  exit 0
+fi
+
+echo "--- 5/7 Build (app + test targets) ---"
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
   -derivedDataPath ./DerivedData build 2>&1 | tail -5
+# Compile the UI + logic test targets so harness breakage fails the gate (does not run UI tests).
+xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
+  -derivedDataPath ./DerivedData -destination 'platform=macOS' build-for-testing 2>&1 | tail -3
 echo "Build: OK"
+echo ""
+
+echo "--- 5b/7 Native logic tests (XCTest, deterministic, no UI) ---"
+xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
+  -derivedDataPath ./DerivedData -destination 'platform=macOS' \
+  -only-testing:LuminaLogicTests test-without-building 2>&1 | grep -E "Executed .* test|failed" | tail -3
+echo "Logic tests: OK  (full macOS UI suites: bash Scripts/run_p0_ui_tests.sh fast|stress|visual)"
 echo ""
 
 echo "--- 6/7 Headless E2E audit ---"

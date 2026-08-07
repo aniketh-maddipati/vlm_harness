@@ -1,0 +1,43 @@
+{
+  "configurations" : [
+    {
+      "id" : "A0000001-0000-0000-0000-000000000002",
+      "name" : "Stress",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "environmentVariableEntries" : [
+      {
+        "key" : "LUMINA_UI_TEST_STEPS",
+        "value" : "80"
+      }
+    ],
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Lumina.xcodeproj",
+      "identifier" : "A10000010000000000000006",
+      "name" : "Lumina"
+    },
+    "testTimeoutsEnabled" : true,
+    "maximumTestExecutionTimeAllowance" : 1200
+  },
+  "testTargets" : [
+    {
+      "selectedTests" : [
+        "RepeatedNavigationStressTests",
+        "ExplorerStressTests",
+        "PersistenceTests",
+        "MissingOriginalsTests",
+        "LayoutTests"
+      ],
+      "target" : {
+        "containerPath" : "container:Lumina.xcodeproj",
+        "identifier" : "A20000010000000000000006",
+        "name" : "LuminaUITests"
+      }
+    }
+  ],
+  "version" : 1
+}
