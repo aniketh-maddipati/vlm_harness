@@ -259,6 +259,8 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
 
     private var itemIDs: [UUID] = []
     private var magnifyAccum: CGFloat = 0
+    /// Grid becomes keyboard-ready on first load so arrows/P/X work without a prior click.
+    private var didEstablishInitialFocus = false
 
     override func loadView() {
         scrollView.hasVerticalScroller = true
@@ -344,6 +346,20 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
                 restoreScroll(anchor: anchor)
             }
         }
+
+        establishInitialFocusIfNeeded()
+    }
+
+    /// Make the collection the window's first responder once, when assets first appear, so keyboard
+    /// grammar (arrows, P/X, ⌘Z) is available immediately on open — no click required.
+    private func establishInitialFocusIfNeeded() {
+        guard !didEstablishInitialFocus, !items.isEmpty,
+              let window = collectionView.window else { return }
+        // Don't steal focus from an active text field (none on the P0 sheet, but be defensive).
+        if !(window.firstResponder is NSText) {
+            window.makeFirstResponder(collectionView)
+        }
+        didEstablishInitialFocus = true
     }
 
     // MARK: - Data source

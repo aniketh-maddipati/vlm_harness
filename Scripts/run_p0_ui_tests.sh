@@ -1,11 +1,12 @@
 #!/bin/bash
 # Lumina P0 UI-automation runner (XCUITest).
 #
-# Usage:
-#   bash Scripts/run_p0_ui_tests.sh fast            # P0Fast plan (deterministic flows + short explorer + logic)
-#   bash Scripts/run_p0_ui_tests.sh stress          # P0Stress plan (mixed-200, long explorer, relaunch, resize)
-#   bash Scripts/run_p0_ui_tests.sh visual          # P0Visual plan (pinned 1280x800 capture + semantic layout)
-#   bash Scripts/run_p0_ui_tests.sh logic           # native logic tests only (fast, no UI)
+# Usage (approx wall-clock on a warm Mac; first UI launch adds a ~25-30s macOS cold start):
+#   bash Scripts/run_p0_ui_tests.sh logic           # native logic tests only, no UI     (~5s)
+#   bash Scripts/run_p0_ui_tests.sh smoke           # logic + one end-to-end UI open     (~35s)
+#   bash Scripts/run_p0_ui_tests.sh fast            # full deterministic flows + short explorer (~2-4 min)
+#   bash Scripts/run_p0_ui_tests.sh visual          # pinned 1280x800 capture + layout   (~1 min)
+#   bash Scripts/run_p0_ui_tests.sh stress          # mixed-200, long explorer, relaunch (~10-20 min)
 #   bash Scripts/run_p0_ui_tests.sh seed 84721 [N]  # replay one explorer seed (N steps, default 200)
 #
 # Env overrides honored by the tests (forwarded to the test runner):
@@ -102,6 +103,18 @@ case "$MODE" in
     set -e
     finish "$status"
     ;;
+  smoke)
+    # Fast confidence: all logic tests + one end-to-end UI open. ~35s (incl. the one cold start).
+    echo "=== Lumina smoke: logic + one UI open ==="
+    set +e
+    xcodebuild "${XC_ARGS[@]}" \
+      -only-testing:LuminaLogicTests \
+      -only-testing:LuminaUITests/OpenNavigationTests/testOpenPreparedShootShowsContactSheet \
+      "${RUNNER_ENV[@]}" test 2>&1 | tee "$LOG"
+    status=${PIPESTATUS[0]}
+    set -e
+    finish "$status"
+    ;;
   seed)
     SEED="${2:-84721}"
     STEPS="${3:-200}"
@@ -123,7 +136,7 @@ case "$MODE" in
     ;;
   *)
     echo "Unknown mode: $MODE" >&2
-    echo "Usage: bash Scripts/run_p0_ui_tests.sh [fast|stress|visual|logic|seed <N> [steps]]" >&2
+    echo "Usage: bash Scripts/run_p0_ui_tests.sh [logic|smoke|fast|visual|stress|seed <N> [steps]]" >&2
     exit 2
     ;;
 esac

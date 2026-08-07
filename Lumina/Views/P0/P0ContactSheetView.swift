@@ -154,21 +154,27 @@ struct P0ContactSheetView: View {
     }
 
     private var densityControls: some View {
-        HStack(spacing: 6) {
-            Button("-") { session.adjustDensity(1) }
-                .buttonStyle(LuminaQuietButtonStyle())
-                .accessibilityLabel("Show more photographs")
-                .accessibilityIdentifier(P0AccessibilityID.densityDecrease)
+        // Comfortable hit targets — the bare glyphs were ~6pt wide, well under Lumina's own minimum.
+        let hit: CGFloat = 28
+        return HStack(spacing: 6) {
+            Button { session.adjustDensity(1) } label: {
+                Text("-").frame(width: hit, height: hit).contentShape(Rectangle())
+            }
+            .buttonStyle(LuminaQuietButtonStyle())
+            .accessibilityLabel("Show more photographs")
+            .accessibilityIdentifier(P0AccessibilityID.densityDecrease)
             Text("\(session.densityColumns)")
                 .font(LuminaTokens.Typeface.meta(12))
                 .foregroundStyle(LuminaTokens.Ink.tertiary)
                 .frame(minWidth: 16)
                 .accessibilityIdentifier(P0AccessibilityID.densityValue)
                 .accessibilityValue("\(session.densityColumns)")
-            Button("+") { session.adjustDensity(-1) }
-                .buttonStyle(LuminaQuietButtonStyle())
-                .accessibilityLabel("Show fewer photographs")
-                .accessibilityIdentifier(P0AccessibilityID.densityIncrease)
+            Button { session.adjustDensity(-1) } label: {
+                Text("+").frame(width: hit, height: hit).contentShape(Rectangle())
+            }
+            .buttonStyle(LuminaQuietButtonStyle())
+            .accessibilityLabel("Show fewer photographs")
+            .accessibilityIdentifier(P0AccessibilityID.densityIncrease)
         }
     }
 }
@@ -198,6 +204,20 @@ struct P0SinglePhotoPlaceholder: View {
                     .accessibilityIdentifier(P0AccessibilityID.singlePhotoFilename)
 
                 Spacer()
+
+                if asset.source.availability == .missing {
+                    // Factual, in-place affordance: the cached preview is shown but the original
+                    // file is unavailable. Previously only a global toolbar status hinted at this.
+                    Text("Original offline")
+                        .font(LuminaTokens.Typeface.meta(12))
+                        .foregroundStyle(LuminaTokens.Ink.inspection)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(LuminaTokens.Surface.well.opacity(0.6))
+                        .clipShape(Capsule())
+                        .help("Cached preview shown — the original file is currently unavailable")
+                        .accessibilityIdentifier(P0AccessibilityID.singlePhotoOriginalOffline)
+                }
 
                 cullStatusChip
                     .accessibilityIdentifier(P0AccessibilityID.singlePhotoCullChip)

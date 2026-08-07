@@ -39,6 +39,7 @@ enum P0AXID {
     static let singlePhotoFilename = "p0.singlePhoto.filename"
     static let singlePhotoCullChip = "p0.singlePhoto.cullChip"
     static let singlePhotoUnavailable = "p0.singlePhoto.unavailable"
+    static let singlePhotoOriginalOffline = "p0.singlePhoto.originalOffline"
     static let filmstrip = "p0.filmstrip"
     static let filmstripItemPrefix = "p0.filmstrip."
     static func filmstripItem(_ id: String) -> String { filmstripItemPrefix + id }
