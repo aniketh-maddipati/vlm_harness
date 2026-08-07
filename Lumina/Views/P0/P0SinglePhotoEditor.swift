@@ -9,6 +9,8 @@ struct P0SinglePhotoEditor: View {
     let asset: AssetRecord
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var keyMonitor: Any?
+    @State private var oneToOne = false
+    @State private var panOffset: CGSize = .zero
 
     private var recipe: EditRecipe { session.recipe(for: asset.id) }
 
@@ -34,6 +36,8 @@ struct P0SinglePhotoEditor: View {
             removeBeforeKeyMonitor()
         }
         .onChange(of: asset.id) { _, newID in
+            oneToOne = false
+            panOffset = .zero
             session.prewarmInspection(around: newID)
         }
     }
@@ -85,6 +89,21 @@ struct P0SinglePhotoEditor: View {
             }
 
             Spacer(minLength: 8)
+
+            Button {
+                toggleOneToOneZoom()
+            } label: {
+                Text(oneToOne ? "Fit" : "1:1")
+                    .font(LuminaTokens.Typeface.meta(12, weight: .medium))
+                    .foregroundStyle(LuminaTokens.Ink.primary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(LuminaTokens.Surface.well)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            }
+            .buttonStyle(LuminaQuietButtonStyle())
+            .help("Double-click the photograph to zoom")
+            .accessibilityLabel(oneToOne ? "Fit photograph" : "Zoom to 1:1")
 
             if let notice = session.fidelityNotice {
                 Text(notice)
@@ -150,19 +169,37 @@ struct P0SinglePhotoEditor: View {
 
             ZStack {
                 // Retain last valid frame — never clear on scrub.
-                DevelopMetalView(image: image)
-                    .padding(18)
+                DevelopMetalView(
+                    image: image,
+                    zoom: oneToOne ? 2.2 : 1,
+                    panOffset: oneToOne ? panOffset : .zero
+                )
+                .padding(18)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: oneToOne ? 1 : 10_000)
+                        .onChanged { value in
+                            guard oneToOne else { return }
+                            panOffset = value.translation
+                        }
+                )
+                .onTapGesture(count: 2) {
+                    toggleOneToOneZoom()
+                }
+                .accessibilityHint("Double-click to zoom")
 
                 if image == nil {
                     if let path = asset.thumbPath ?? asset.gridThumbPath {
                         ContactSheetInspectImage(path: path)
                             .padding(18)
                             .opacity(0.92)
+                            .allowsHitTesting(false)
                     } else {
                         Text(session.fidelityNotice ?? "Preparing photograph…")
                             .font(LuminaTokens.Typeface.body(17))
                             .foregroundStyle(LuminaTokens.Ink.inspection)
                             .accessibilityIdentifier(P0AccessibilityID.singlePhotoUnavailable)
+                            .allowsHitTesting(false)
                     }
                 }
 
@@ -178,6 +215,16 @@ struct P0SinglePhotoEditor: View {
             .accessibilityIdentifier(P0AccessibilityID.singlePhotoImage)
             .accessibilityValue(asset.source.availability.rawValue)
         }
+    }
+
+    private func toggleOneToOneZoom() {
+        oneToOne.toggle()
+        if !oneToOne {
+            panOffset = .zero
+            return
+        }
+        panOffset = .zero
+        session.requestOneToOneZoom(for: asset.id)
     }
 
     private var filmstrip: some View {
@@ -272,7 +319,7 @@ struct P0SinglePhotoEditor: View {
         let focused = item.id == session.focusedAssetID
         let selected = item.marks.selected
         return ZStack {
-            if let path = item.asset.gridThumbPath ?? item.asset.thumbPath {
+            if let path = item.asset.thumbPath ?? item.asset.gridThumbPath {
                 ContactSheetInspectImage(path: path)
                     .frame(width: 92, height: 68)
                     .clipped()

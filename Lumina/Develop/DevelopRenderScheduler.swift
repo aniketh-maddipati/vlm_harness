@@ -204,6 +204,34 @@ final class DevelopRenderScheduler {
 
     // MARK: - Interactive scrub
 
+    /// Open / navigate path — authoritative settle first so the first frame is
+    /// not draft demosaic (which reads as grainy when upscaled to the stage).
+    func openPhotograph(
+        photoID: UUID,
+        rawURL: URL,
+        proxyURL: URL?,
+        recipe: EditRecipe
+    ) {
+        visiblePhotoID = photoID
+        pendingRecipe[photoID] = recipe
+        fidelityByPhoto[photoID] = .settling
+        inflight[photoID]?.cancel()
+        settleTasks[photoID]?.cancel()
+
+        let task = Task { [weak self] in
+            guard !Task.isCancelled, let self else { return }
+            guard let latest = self.pendingRecipe[photoID] else { return }
+            await self.renderNow(
+                photoID: photoID,
+                rawURL: rawURL,
+                proxyURL: proxyURL,
+                recipe: latest,
+                quality: .settled
+            )
+        }
+        inflight[photoID] = task
+    }
+
     /// High-frequency slider path — coalesce + interactive quality only.
     /// Key auto-repeat / UI event bursts collapse into the latest recipe.
     func scrub(

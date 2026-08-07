@@ -18,8 +18,10 @@ enum DevelopRenderQuality: String, Codable, Hashable, Sendable, CaseIterable {
     var defaultLongEdge: Int {
         switch self {
         case .browse: return 1600
-        case .interactive: return 1600
-        case .settled: return 3200
+        // Interactive must stay sharp enough on Retina stages; draft demosaic
+        // at 1600 upscales into visible grain.
+        case .interactive: return 2400
+        case .settled: return 4096
         case .oneToOne: return 0 // region-sized
         case .export: return 0 // full
         }

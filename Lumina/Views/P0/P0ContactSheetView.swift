@@ -85,6 +85,13 @@ struct P0ContactSheetView: View {
             session.toggleSelectionOfFocused()
             return .handled
         }
+        .onKeyPress(keys: [.init("g"), .init("G")]) { press in
+            guard press.modifiers.contains(.shift),
+                  !press.modifiers.contains(.command),
+                  session.inspectingAssetID == nil else { return .ignored }
+            session.enterGrouping()
+            return .handled
+        }
         .animation(effectiveReduceMotion ? nil : LuminaTokens.Motion.route, value: session.inspectingAssetID)
     }
 
@@ -114,6 +121,37 @@ struct P0ContactSheetView: View {
             }
 
             Spacer(minLength: 12)
+
+            Text("Double-click zoom · ⇧G group")
+                .font(LuminaTokens.Typeface.meta(11))
+                .foregroundStyle(LuminaTokens.Ink.tertiary)
+                .lineLimit(1)
+                .help("Double-click a photograph to zoom in. Shift+G opens grouping.")
+
+            Button {
+                session.enterGrouping()
+            } label: {
+                HStack(spacing: 6) {
+                    Text("Group")
+                        .font(LuminaTokens.Typeface.navigation(13, weight: .medium))
+                    Text("⇧G")
+                        .font(LuminaTokens.Typeface.meta(10, weight: .medium))
+                        .foregroundStyle(LuminaTokens.Ink.tertiary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(LuminaTokens.Surface.mist)
+                        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                }
+                .foregroundStyle(LuminaTokens.Ink.primary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(LuminaTokens.Surface.well)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+            .buttonStyle(LuminaQuietButtonStyle())
+            .accessibilityLabel("Open grouping")
+            .accessibilityHint("Shift G")
+            .disabled(session.inspectingAssetID != nil)
 
             if session.exportCount > 0 {
                 Text("\(session.exportCount) export")

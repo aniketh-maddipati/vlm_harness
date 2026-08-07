@@ -7,6 +7,8 @@ import SwiftUI
 enum P0Route: Equatable {
     case open
     case contactSheet
+    /// Bridge into grouping — cull/selection state stays intact; full grouping is next.
+    case grouping
 }
 
 enum P0AdjustmentSection: String, CaseIterable, Identifiable, Sendable {
@@ -529,6 +531,26 @@ final class P0SessionModel {
         )
     }
 
+    /// First paint for inspection — settled RAW, not draft interactive.
+    private func openRender(for assetID: UUID, recipe: EditRecipe) {
+        guard let urls = resolveRenderURLs(for: assetID) else {
+            fidelityNotice = "Original missing — showing cached preview"
+            return
+        }
+        if urls.rawURL == nil {
+            fidelityNotice = "Original missing — showing cached preview"
+        } else {
+            fidelityNotice = nil
+        }
+        developScheduler.openPhotograph(
+            photoID: assetID,
+            rawURL: urls.rawURL ?? urls.proxyURL!,
+            proxyURL: urls.proxyURL,
+            recipe: recipe
+        )
+        editMetricsLine = developScheduler.metrics.summaryLine
+    }
+
     private func warmBeforeAfter(for assetID: UUID, recipe: EditRecipe) {
         guard let urls = resolveRenderURLs(for: assetID), let raw = urls.rawURL else { return }
         Task { [weak self] in
@@ -553,7 +575,7 @@ final class P0SessionModel {
         showingBefore = false
         refreshCapabilities(for: assetID)
         let recipe = recipe(for: assetID)
-        scrubCurrentRecipe(for: assetID, recipe: recipe, recordInput: false)
+        openRender(for: assetID, recipe: recipe)
         warmBeforeAfter(for: assetID, recipe: recipe)
 
         let neighbors = neighborIDs(around: assetID, radius: 2)
@@ -632,7 +654,7 @@ final class P0SessionModel {
             )
         }
         if let id, let asset = assets.first(where: { $0.id == id }),
-           let path = asset.gridThumbPath ?? asset.thumbPath {
+           let path = asset.thumbPath ?? asset.gridThumbPath {
             ThumbCache.shared.prefetch(path)
             LatencyMetrics.record(
                 "p0.focus_to_preview",
@@ -711,6 +733,39 @@ final class P0SessionModel {
         pendingScrollRestore = true
         inspectingAssetID = nil
         persistRestoreNow()
+    }
+
+    /// Contact sheet → grouping. Keeps shoot, cull marks, and selection; Esc returns to the grid.
+    func enterGrouping() {
+        guard shoot != nil else { return }
+        flushPendingEditIfNeeded()
+        showingBefore = false
+        inspectingAssetID = nil
+        route = .grouping
+        persistRestoreNow()
+    }
+
+    func leaveGrouping() {
+        guard route == .grouping else { return }
+        route = .contactSheet
+        pendingScrollRestore = true
+        persistRestoreNow()
+    }
+
+    /// Pixel zoom request for the inspecting photograph (double-click / 1:1).
+    func requestOneToOneZoom(for assetID: UUID) {
+        guard let urls = resolveRenderURLs(for: assetID), let raw = urls.rawURL else { return }
+        let recipe = recipe(for: assetID)
+        let region = DevelopRenderRegion(x: 0.35, y: 0.35, width: 0.3, height: 0.3)
+        Task {
+            await developScheduler.renderOneToOne(
+                photoID: assetID,
+                rawURL: raw,
+                proxyURL: urls.proxyURL,
+                recipe: recipe,
+                region: region
+            )
+        }
     }
 
     func adjustDensity(_ delta: Int) {
