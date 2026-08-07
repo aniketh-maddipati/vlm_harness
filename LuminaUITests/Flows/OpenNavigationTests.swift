@@ -3,16 +3,25 @@ import XCTest
 /// Flow 1 — open a prepared shoot and navigate the contact sheet.
 final class OpenNavigationTests: LuminaUITestCase {
 
-    /// The real Open surface renders and is accessible (autoOpen off so the app stays on Open).
-    func testOpenSurfaceIsReachable() {
-        launch(LaunchConfig(fixture: .mixed60, autoOpen: false))
+    /// The one dedicated Recent-list UX test (autoOpen off so the app stays on Open). Proves the
+    /// full real interaction: route=open, the fixture seeded in the isolated ShootStore, the
+    /// Recent row accessible within a bounded window, and a **single** click reaching the contact
+    /// sheet. Deterministic flows never depend on this row (they auto-open via `openExisting`).
+    func testRecentRowOpensPreparedShoot() {
+        let config = LaunchConfig(fixture: .mixed60, autoOpen: false)
+        launch(config)
         lumina.openShoot.assertVisible()
+        XCTAssertTrue(
+            OpenShootRobot.seededShoots(in: config.stateDirectory).contains(Fixture.mixed60.rawValue),
+            "mixed-60 must exist in the isolated seeded ShootStore state"
+        )
         let chooseFolder = app.descendants(matching: .any)
             .matching(identifier: P0AXID.openChooseFolder).firstMatch
-        XCTAssertTrue(chooseFolder.waitForExistence(timeout: 10), "Choose-a-folder control is reachable")
-        let recent = app.descendants(matching: .any)
-            .matching(identifier: P0AXID.recentShoot(Fixture.mixed60.rawValue)).firstMatch
-        XCTAssertTrue(recent.waitForExistence(timeout: 10), "prepared shoot is listed in Recent")
+        XCTAssertTrue(chooseFolder.waitForExistence(timeout: UITestWait.transition), "Choose-a-folder control is reachable")
+        lumina.openShoot.openViaRecentRow(.mixed60)
+        let probe = lumina.requireProbe()
+        XCTAssertEqual(probe.route, "contactSheet")
+        XCTAssertEqual(probe.assetCount, 60, "mixed-60 should expose 60 assets after the row click")
     }
 
     /// Opening the prepared shoot reaches the contact sheet with its full asset set (real

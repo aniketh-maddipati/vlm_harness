@@ -78,6 +78,9 @@ struct ContactSheetRobot {
             return self
         }
         for attempt in 0..<4 {
+            // Clicks land in whatever app owns the screen; on a desktop in interactive use the
+            // app can lose the foreground between attempts. Re-front it before clicking.
+            if app.state != .runningForeground { app.activate() }
             let element = cell(assetID) // re-resolve each attempt (elements can go stale on reflow)
             guard element.exists else { continue }
             element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()

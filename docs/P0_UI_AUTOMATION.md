@@ -93,8 +93,10 @@ index (no RNG, no wall clock; capture dates derive from a fixed epoch).
 | `mixed-200` | 200 | Navigation/scroll/stress |
 | `missing-originals` | 48 | Cached previews present; a deterministic 1/3 of originals removed so they read unavailable while the catalog stays intact |
 
-Fixtures seed a `ShootRecord` + identity-keyed preview cache into the temp state dir; the harness
-opens them through the real Recent-shoots UI.
+Fixtures seed a `ShootRecord` + identity-keyed preview cache into the temp state dir. Deterministic
+flows open them via the DEBUG auto-open path (`--ui-test-autoopen` → the real `openExisting`); the
+real Recent-row click is covered by one dedicated UX test
+(`OpenNavigationTests/testRecentRowOpensPreparedShoot`).
 
 ## 6. Accessibility contract
 
@@ -112,7 +114,7 @@ index. Adding identifiers changes no visuals.
 
 ```
 LuminaRobot          // façade: openShoot / contactSheet / singlePhoto, probe(), waitForProbe, resizeWindow
-OpenShootRobot       // reopen the prepared shoot through Recent
+OpenShootRobot       // open(): auto-open via openExisting · openViaRecentRow(): the Recent-row UX
 ContactSheetRobot    // focus, selection (real ⌘/⇧-clicks), cull (P/X keys), density, undo, open
 SinglePhotoRobot     // filmstrip, arrow nav, cull + undo at photo scale, return
 DiagnosticsRobot     // screenshots, hierarchy, structured context; attachments (.keepAlways)

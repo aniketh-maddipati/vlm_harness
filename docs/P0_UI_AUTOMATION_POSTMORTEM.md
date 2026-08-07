@@ -117,6 +117,45 @@ These cost real iteration time. Internalize them before touching the harness.
    plan with a raised `maximumTestExecutionTimeAllowance` — otherwise a healthy run is killed and
    reported as a crash/timeout.
 
+9. **The 127 s `p0.open.recent.mixed-60` dead-poll (root-caused and fixed).** A `P0Fast` run
+   spent 2+ minutes re-checking one Recent-row element and then failed with the misleading
+   "Recent shoot mixed-60 not listed". Reproduced and proven
+   (`OpenNavigationTests/testOpenPreparedShootShowsContactSheet`, failed at 151.9 s):
+   - *Trigger:* on a desktop in **active interactive use**, the freshly launched app can lose
+     activation to the human user; a backgrounded app exposes a **collapsed accessibility tree**
+     (menu bar only — no window, no probe). Both 25 s launch self-heal attempts saw no probe.
+     Evidence: `XCUIApplication.state == 3` (background), a11y tree without a window, and the
+     failure-time "main window" screenshot showing the user's own frontmost app.
+   - *Amplifier 1 — dead-app continuation:* after both attempts failed, `launchUntilProbeAppears`
+     returned the **terminated** app handle instead of failing, so every later query polled a dead
+     process.
+   - *Amplifier 2 — coupling:* `OpenShootRobot.open()` had a Recent-row **click fallback**, so a
+     deterministic flow ended up waiting 40 s for `p0.open.recent.mixed-60` — an element that
+     cannot exist once auto-open has left the Open surface (or the app is gone).
+   - *Amplifier 3 — false-success waits:* `waitForProbe` returned the *last seen* snapshot on
+     timeout, so `!= nil` checks passed while the predicate never held, and nested waits stacked
+     (8 s + 40 s + 40 s + retries ≈ the 180 s kill allowance).
+   - *Not the cause (proven healthy):* fixture seeding/persistence (`shoot.json`, 60 assets, in the
+     isolated state root), state-root plumbing (app and runner agree on the path), and Open-view
+     accessibility (the row appears in ~2 s when the app is frontmost on `route == open`).
+   - *Fix:* the two contracts below, explicit budgets in `UITestWait`, strict `waitForProbe`
+     (returns nil unless the predicate matched), launch failure → immediate diagnostic `XCTFail`,
+     and bounded re-activation (`app.activate()` when `state != runningForeground`) inside probe
+     polls and before clicks. No wait anywhere may approach the 180 s allowance.
+
+   **Separated contracts.** (a) *Deterministic navigation* — cull/undo/persistence/explorer flows
+   open fixtures **only** via `--ui-test-autoopen` → real `openExisting`, with one bounded probe
+   wait (`UITestWait.autoOpenNavigation`, 30 s) and a diagnostic failure that reports probe route,
+   app activation state, state root, the shoots actually seeded on disk, and a concise
+   accessibility excerpt. They never look up a Recent-row element. (b) *Recent-list UX* — one
+   dedicated test, `testRecentRowOpensPreparedShoot`, proves `route == open`, `mixed-60` seeded in
+   the isolated store, the row accessible within `UITestWait.recentRow` (12 s), and a **single**
+   click reaching `route == contactSheet` within `UITestWait.transition` (10 s).
+
+   **Budgets** (`LuminaUITests/Support/UITestWait.swift`): launch ≤ 2 × 25 s, auto-open ≤ 30 s,
+   Recent row ≤ 12 s, action transition ≤ 10 s. Measured after the fix on a warm Mac: logic suite
+   < 0.1 s; Recent-row test 4.6–12.7 s; auto-open test 2.2–7.9 s; full `P0Fast` 20/20 in ~2 min.
+
 ---
 
 ## 4. Ground truth — the P0 UX surfaces (from the code)
@@ -153,7 +192,7 @@ Legend: ✅ covered & robust · 🟡 partially / indirectly covered · ⬜ not y
 
 | UX flow | Today's coverage | Gap / what to add to test it well |
 |---|---|---|
-| Open via **Recent** row click | 🟡 `testOpenSurfaceIsReachable` asserts the row exists; navigation is exercised via auto-open (real `openExisting`) | Make the row-click **navigation** itself gated once the Open-surface a11y is hardened (§6.2). Add `p0.open.recent.<name>` hit-target + populated-list invariant |
+| Open via **Recent** row click | ✅ `testRecentRowOpensPreparedShoot` proves row accessibility ≤ 12 s of `route==open` and single-click navigation to the contact sheet (§3.9) | Product-side hit-target hardening (§6.2) still worthwhile |
 | Open via **Choose folder** / **Drop folder** | ⬜ | Needs a fixture *folder* on disk + a way to drive `NSOpenPanel` (can't via XCUITest) → add a DEBUG `--ui-test-open-folder <path>` that routes through the real `openFolder`; test drop via a synthesized file-URL drag |
 | **Arrow** focus navigation | ✅ | — |
 | **Density** +/- (and pinch) | ✅ buttons; ⬜ pinch gesture | Add a magnify-gesture driver or a probe assertion after a synthesized pinch |
@@ -298,8 +337,13 @@ Sequenced by dependency. Each checkpoint extends the harness via §7.
   Accessibility/Automation permission granted (blocks headless CI until pre-granted).
 - **`NSOpenPanel`-based open can't be driven by XCUITest** — needs a DEBUG folder-open arg to be
   testable end-to-end.
-- The **auto-open-by-name** path is a test convenience; keep the one manual click-through test so the
-  real Open UI stays covered.
+- The **auto-open-by-name** path is a test convenience; keep the one manual click-through test
+  (`testRecentRowOpensPreparedShoot`) so the real Open UI stays covered.
+- **A desktop in active interactive use degrades XCUITest reliability**: the human user can steal
+  activation/focus at any moment, collapsing the app's accessibility tree and swallowing injected
+  clicks/keys (§3.9). The harness re-activates the app (bounded) and fails fast with diagnostics,
+  but a genuinely contended screen can still fail click-driven tests — prefer a quiescent session
+  (or a dedicated CI Mac) for gating runs.
 
 ---
 

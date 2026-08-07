@@ -48,8 +48,16 @@ class LuminaUITestCase: XCTestCase {
 
     /// Launch the app and wait for the structured probe to appear, retrying once on a cold-start
     /// miss (occasionally the first launch of a fresh app process never fronts / renders under
-    /// XCUITest). Self-healing keeps flows deterministic without arbitrary sleeps.
-    private func launchUntilProbeAppears(_ config: LaunchConfig, perAttemptTimeout: TimeInterval = 25) -> XCUIApplication {
+    /// XCUITest — e.g. when the desktop session is in active interactive use and the new window
+    /// loses activation). Self-healing keeps flows deterministic without arbitrary sleeps.
+    ///
+    /// If the probe never appears, this **fails the test immediately with diagnostics** instead of
+    /// returning a terminated app handle. (Continuing used to cascade into minutes of dead element
+    /// polling — 8 s + 40 s + 40 s nested waits against a process that no longer existed.)
+    private func launchUntilProbeAppears(
+        _ config: LaunchConfig,
+        perAttemptTimeout: TimeInterval = UITestWait.launchAttempt
+    ) -> XCUIApplication {
         var last = XCUIApplication()
         for attempt in 0..<2 {
             let application = XCUIApplication()
@@ -58,13 +66,31 @@ class LuminaUITestCase: XCTestCase {
             application.activate()
             last = application
             let deadline = Date().addingTimeInterval(perAttemptTimeout)
+            var nextActivation = Date().addingTimeInterval(5)
             while Date() < deadline {
                 if application.probe() != nil { return application }
+                // The app can lose activation to the interactive user mid-launch; a backgrounded
+                // app exposes a collapsed accessibility tree. Re-front it periodically (bounded —
+                // this adds no wait time of its own).
+                if Date() >= nextActivation {
+                    application.activate()
+                    nextActivation = Date().addingTimeInterval(5)
+                }
                 RunLoop.current.run(until: Date().addingTimeInterval(0.2))
             }
             record("launch attempt \(attempt) saw no probe; retrying")
             application.terminate()
         }
+        XCTFail(
+            """
+            state probe never appeared after 2 launch attempts of \(Int(perAttemptTimeout))s each — \
+            the app's window/accessibility tree did not mount (is the desktop session busy?).
+            app state: \(last.state.rawValue) (4 = runningForeground)
+            state root: \(config.stateDirectory.path)
+            seeded shoots: \(OpenShootRobot.seededShoots(in: config.stateDirectory))
+            launch args: \(config.launchArguments.joined(separator: " "))
+            """
+        )
         return last
     }
 
