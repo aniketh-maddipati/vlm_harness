@@ -35,6 +35,7 @@
         "PersistenceTests",
         "MissingOriginalsTests",
         "LayoutTests",
+        "UXHardeningTests",
         "ExplorerSmokeTests"
       ],
       "target" : {

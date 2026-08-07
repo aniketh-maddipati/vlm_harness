@@ -23,6 +23,10 @@ final class MissingOriginalsTests: LuminaUITestCase {
         let inPhoto = lumina.waitForProbe { $0.route == "singlePhoto" }
         XCTAssertEqual(inPhoto.focusedAvailability, "missing", "structured state reports the original as unavailable")
         XCTAssertTrue(single.image.waitForExistence(timeout: 8), "cached preview remains visible for a missing original")
+        // #6 — an in-place affordance surfaces the unavailable original (not just a global hint).
+        let offline = app.descendants(matching: .any)
+            .matching(identifier: P0AXID.singlePhotoOriginalOffline).firstMatch
+        XCTAssertTrue(offline.waitForExistence(timeout: 8), "single-photo shows an Original-offline affordance")
 
         // Catalog is intact; return to grid cleanly.
         single.returnToGrid()
