@@ -127,7 +127,7 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 |-----|-------|--------|----------|
 | **1 — Honest HUD** | Split upload into decode/blit/wrap; GPU prefetch hit = texture resident; in→photon at Metal present; paint_commit separate | **VERIFIED** | `PreviewSpine.swift` L30–31, L169–177, L196–221, L379–398 · `MetalPreviewPool.swift` L16–21, L161–165 · `MetalBrowseCanvas.swift` L162–165 · `SpeedContractHUD.swift` L20–24 |
 | **2 — Kill CPU blit** | No `CGContext.draw` between JPEG decode and IOSurface; vImage copy/convert | **VERIFIED** | `MetalPreviewPool.swift` L12, L84–87, L248–283 · e2e static check: no `ctx.draw` |
-| **3 — One decode→GPU** | Drop NSImage preview hot path; browse tier = GPU texture only; silhouette = tiny grid thumb | **PARTIAL** | `PreviewSpine.swift` L7, L56–57, L196–214, L348–366 — no `previews` dict ✓ · **Gap:** dual upload triggers (`PreviewSpine.enqueueGPU` L328–344 + `MetalBrowseCanvas.bind` L82–84); `MetalPreviewPool.upload` has no per-photo inflight dedup L64–113 |
+| **3 — One decode→GPU** | Drop NSImage preview hot path; browse tier = GPU texture only; silhouette = tiny grid thumb | **PARTIAL** | `PreviewSpine.swift` — no `previews` dict ✓ · dual callers remain (`PreviewSpine.enqueueGPU` + `MetalBrowseCanvas.bind`) · **Hardened:** `MetalPreviewPool.upload` / `scheduleUpload` coalesce per-photo via `inflightUploads` (second caller returns cache-hit / no-op; `.luminaTextureReady` fans out) |
 | **4 — Off main upload** | Never sync-decode/upload in `updateNSView`; background pipeline only | **VERIFIED** | `MetalPreviewPool.swift` L62–65, L116–120 · `MetalBrowseCanvas.swift` L183–184 · `PreviewSpine.swift` L336–337 · draw/present stays on main (CAMetalLayer requirement) |
 | **5 — Decouple filmstrip/chrome** | Canvas alone updates per keypress; filmstrip/chrome debounced during rips | **PARTIAL** | `SpeedBrowseViewer.swift` L4, L12–14, L100–108, L120–147, L240–285 — debounced filmstrip + rip-skipped controls ✓ · **Gap:** `tierLabel` L112–117 tracks every paint; parent ZStack still observes full `@Observable` spine |
 | **RAW guard** | Browse never demosaics RAW; debug assert on RAW path | **VERIFIED** | `PreviewSpine.swift` L79–81, L368–377 · `MetalPreviewPool.swift` L193–198, L219–225 · `PhotoImageCache.swift` L27–33 |
@@ -209,7 +209,7 @@ Diagnostic session only — **no re-architect**. Profile main thread during rip;
 1. ⌥` HUD held-F rip on Mehendi ARWs — record decode/blit/wrap, GPU prefetch %, in→photon p95
 2. Confirm Pick grid after "Pick from this set" — no spinners on cached thumbs
 3. If p95 still fails, diagnostic session only — profile main thread during rip
-4. Optional hardening (only if rip profile confirms): inflight dedup in `MetalPreviewPool.upload`; throttle `tierLabel` like filmstrip
+4. Optional hardening: throttle `tierLabel` like filmstrip (inflight dedup in `MetalPreviewPool.upload` landed)
 
 ---
 

@@ -33,6 +33,8 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
     private var ringIndex = 0
     private let lock = NSLock()
     private let uploadQueue = DispatchQueue(label: "lumina.metal-preview.upload", qos: .userInitiated, attributes: .concurrent)
+    /// Per-photo gate so PreviewSpine.enqueueGPU + MetalBrowseCanvas.bind cannot double-decode.
+    private var inflightUploads = Set<UUID>()
 
     private(set) var lastTimings = UploadTimings()
     private(set) var decodeSamples: [Double] = []
@@ -83,6 +85,7 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
     }
 
     /// Background-only upload. Never call from the main thread.
+    /// Concurrent callers for the same photo coalesce onto one decode→GPU path.
     @discardableResult
     func upload(id: UUID, jpegPath: String, distanceBias: Int = 0, generation: UInt64 = 0) -> UploadTimings {
         assert(!Thread.isMainThread, "MetalPreviewPool.upload must not run on the main thread")
@@ -97,7 +100,19 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
             recordTimings(hit)
             return hit
         }
+        // Spine prefetch + canvas bind both schedule uploads; only the first proceeds.
+        guard !inflightUploads.contains(id) else {
+            lock.unlock()
+            return UploadTimings(cacheHit: true)
+        }
+        inflightUploads.insert(id)
         lock.unlock()
+
+        defer {
+            lock.lock()
+            inflightUploads.remove(id)
+            lock.unlock()
+        }
 
         Self.assertBrowseJPEGPath(jpegPath)
 
@@ -164,11 +179,15 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         return timings
     }
 
-    /// Schedule upload off the main thread; no-op if texture already resident.
+    /// Schedule upload off the main thread; no-op if texture resident or upload already inflight.
     func scheduleUpload(id: UUID, jpegPath: String, distanceBias: Int = 0, generation: UInt64 = 0) {
         if let info = textureInfo(for: id), generation == 0 || info.generation == generation {
             return
         }
+        lock.lock()
+        let alreadyInflight = inflightUploads.contains(id)
+        lock.unlock()
+        guard !alreadyInflight else { return }
         uploadQueue.async {
             _ = self.upload(id: id, jpegPath: jpegPath, distanceBias: distanceBias, generation: generation)
         }
@@ -193,6 +212,7 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         defer { lock.unlock() }
         slots = (0..<slotCount).map { _ in Slot() }
         ringIndex = 0
+        inflightUploads.removeAll()
         lastTimings = UploadTimings()
         decodeSamples.removeAll()
         blitSamples.removeAll()
