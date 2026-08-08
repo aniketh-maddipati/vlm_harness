@@ -168,49 +168,47 @@ struct P0SinglePhotoEditor: View {
             )
 
             ZStack {
-                // Retain last valid frame — never clear on scrub.
+                // Retain last valid frame while scrubbing the same asset — unmount Metal when
+                // the focused asset has no rendered surface yet so neighbor nav cannot show the
+                // previous photograph's drawable.
                 // `singlePhotoImage` rides whichever leaf is actually presenting the photograph —
-                // the live canvas here, the cached preview below — never this container: SwiftUI
-                // creates no accessibility element for a plain ZStack, so an identifier put there
-                // is undiscoverable. The two are mutually exclusive on `image`, so exactly one
-                // element ever carries it (a duplicate would make firstMatch ambiguous).
-                DevelopMetalView(
-                    image: image,
-                    zoom: oneToOne ? 2.2 : 1,
-                    panOffset: oneToOne ? panOffset : .zero
-                )
-                .padding(18)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: oneToOne ? 1 : 10_000)
-                        .onChanged { value in
-                            guard oneToOne else { return }
-                            panOffset = value.translation
-                        }
-                )
-                .onTapGesture(count: 2) {
-                    toggleOneToOneZoom()
-                }
-                .accessibilityElement()
-                .accessibilityIdentifier(image == nil ? "" : P0AccessibilityID.singlePhotoImage)
-                .accessibilityValue(asset.source.availability.rawValue)
-                .accessibilityHint("Double-click to zoom")
-
-                if image == nil {
-                    if let path = asset.thumbPath ?? asset.gridThumbPath {
-                        ContactSheetInspectImage(path: path)
-                            .padding(18)
-                            .opacity(0.92)
-                            .allowsHitTesting(false)
-                            .accessibilityIdentifier(P0AccessibilityID.singlePhotoImage)
-                            .accessibilityValue(asset.source.availability.rawValue)
-                    } else {
-                        Text(session.fidelityNotice ?? "Preparing photograph…")
-                            .font(LuminaTokens.Typeface.body(17))
-                            .foregroundStyle(LuminaTokens.Ink.inspection)
-                            .accessibilityIdentifier(P0AccessibilityID.singlePhotoUnavailable)
-                            .allowsHitTesting(false)
+                // Metal when a render exists, cached preview or placeholder otherwise — never this
+                // container: SwiftUI creates no accessibility element for a plain ZStack, so an
+                // identifier put there is undiscoverable. Exactly one leaf carries it at a time.
+                if let image {
+                    DevelopMetalView(
+                        image: image,
+                        zoom: oneToOne ? 2.2 : 1,
+                        panOffset: oneToOne ? panOffset : .zero
+                    )
+                    .padding(18)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: oneToOne ? 1 : 10_000)
+                            .onChanged { value in
+                                guard oneToOne else { return }
+                                panOffset = value.translation
+                            }
+                    )
+                    .onTapGesture(count: 2) {
+                        toggleOneToOneZoom()
                     }
+                    .accessibilityElement()
+                    .accessibilityIdentifier(P0AccessibilityID.singlePhotoImage)
+                    .accessibilityValue(asset.source.availability.rawValue)
+                    .accessibilityHint("Double-click to zoom")
+                } else if let path = asset.thumbPath ?? asset.gridThumbPath {
+                    ContactSheetInspectImage(path: path)
+                        .padding(18)
+                        .allowsHitTesting(false)
+                        .accessibilityIdentifier(P0AccessibilityID.singlePhotoImage)
+                        .accessibilityValue(asset.source.availability.rawValue)
+                } else {
+                    Text(session.fidelityNotice ?? "Preparing photograph…")
+                        .font(LuminaTokens.Typeface.body(17))
+                        .foregroundStyle(LuminaTokens.Ink.inspection)
+                        .accessibilityIdentifier(P0AccessibilityID.singlePhotoUnavailable)
+                        .allowsHitTesting(false)
                 }
 
                 if session.expandedAdjustmentSection == .crop {

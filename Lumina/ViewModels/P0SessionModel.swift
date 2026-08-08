@@ -595,10 +595,46 @@ final class P0SessionModel {
         let recipe = recipe(for: assetID)
         // Leader frame immediately — cancels prior inflight for this photo.
         openRender(for: assetID, recipe: recipe)
+        scheduleDebouncedPrewarm(around: assetID, generation: generation, recipe: recipe, delayNanoseconds: 120_000_000)
+    }
 
-        // Before/After + neighbor settles are expensive; only run for the latest focus.
+    /// Focus changed while inspecting — leader render now; neighbor/before-after after pause.
+    private func scheduleInspectionWarm(around assetID: UUID) {
+        inspectionWarmTask?.cancel()
+        inspectionWarmGeneration += 1
+        let generation = inspectionWarmGeneration
+        capabilityTask?.cancel()
+        prewarmTask?.cancel()
+        showingBefore = false
+        developScheduler.cancelExcept(photoID: assetID)
+        let recipe = recipe(for: assetID)
+        openRender(for: assetID, recipe: recipe)
+        refreshCapabilities(for: assetID)
+        inspectionWarmTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            guard !Task.isCancelled, let self else { return }
+            guard generation == self.inspectionWarmGeneration,
+                  self.inspectingAssetID == assetID else { return }
+            self.scheduleDebouncedPrewarm(
+                around: assetID,
+                generation: generation,
+                recipe: recipe,
+                delayNanoseconds: 0
+            )
+        }
+    }
+
+    /// Before/After + neighbor settled prewarm — debounced separately from the leader frame.
+    private func scheduleDebouncedPrewarm(
+        around assetID: UUID,
+        generation: Int,
+        recipe: EditRecipe,
+        delayNanoseconds: UInt64
+    ) {
         prewarmTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 120_000_000)
+            if delayNanoseconds > 0 {
+                try? await Task.sleep(nanoseconds: delayNanoseconds)
+            }
             guard !Task.isCancelled, let self else { return }
             guard generation == self.inspectionWarmGeneration,
                   self.inspectingAssetID == assetID else { return }
@@ -611,24 +647,6 @@ final class P0SessionModel {
             }
             self.developScheduler.prewarm(photos: photos, recipe: .neutral)
             LatencyMetrics.record("p0.edit.nav_prewarm_count", milliseconds: Double(photos.count))
-        }
-    }
-
-    /// Focus changed while inspecting — update chrome now, settle after key/hover pause.
-    private func scheduleInspectionWarm(around assetID: UUID) {
-        inspectionWarmTask?.cancel()
-        inspectionWarmGeneration += 1
-        let generation = inspectionWarmGeneration
-        capabilityTask?.cancel()
-        prewarmTask?.cancel()
-        showingBefore = false
-        developScheduler.cancelExcept(photoID: assetID)
-        inspectionWarmTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 90_000_000)
-            guard !Task.isCancelled, let self else { return }
-            guard generation == self.inspectionWarmGeneration,
-                  self.inspectingAssetID == assetID else { return }
-            self.prewarmInspection(around: assetID)
         }
     }
 
