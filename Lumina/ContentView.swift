@@ -95,71 +95,36 @@ struct ContentView: View {
         ImportAndAlertModifier(model: model, shell: shell)
     }
 
+    /// Non-workspace / global chords only.
+    /// Workspace keyboard is owned exclusively by `CommandHandlingModifier`
+    /// (installed while `shell.route == .workspace`).
     private func handleKey(_ event: NSEvent) -> NSEvent? {
         if NSApp.keyWindow?.firstResponder is NSTextView { return event }
 
-        // Command-layer owns workspace ⌘ chords when the workbench selection is active.
-        // ContentView keeps legacy single-key routing for an empty selection.
-        let selection = shell.workbenchSelection
-        let commandLayerActive = shell.route == .workspace
-            && (selection.isHandling || selection.staged != nil || !selection.isEmpty || shell.isTreatmentStageOpen)
+        // Global: Option+` speed HUD (works on every route).
+        if event.type == .keyDown, event.keyCode == 50, event.modifierFlags.contains(.option) {
+            model.toggleSpeedHUD()
+            return nil
+        }
+
+        // Defer the entire workspace board to CommandHandlingModifier.
+        if shell.route == .workspace {
+            return event
+        }
 
         if event.modifierFlags.contains(.command), event.type == .keyDown {
             let chars = event.charactersIgnoringModifiers?.lowercased()
-            let option = event.modifierFlags.contains(.option)
-            let shift = event.modifierFlags.contains(.shift)
 
-            if shell.route == .workspace {
-                switch chars {
-                case "1" where !option && !shift:
-                    shell.openShootSelection()
-                    return nil
-                case "2" where !option && !shift:
-                    shell.setWorkspaceStage(.workbench)
-                    shell.isReadMode = false
-                    return nil
-                case "3" where !option && !shift:
-                    shell.setWorkspaceStage(.canvas)
-                    shell.isReadMode = false
-                    return nil
-                case "r" where !option && !shift:
-                    shell.enterReadMode()
-                    return nil
-                case "z" where !option && !shift:
-                    if shell.lastRoundReceipt != nil || shell.decisionUndo != nil {
-                        shell.undoLastDecision(model: model)
-                        return nil
-                    }
-                case "c" where option && !shift:
-                    shell.showDetailedEdits = true
-                    return nil
-                default:
-                    break
-                }
-
-                // Let CommandHandlingModifier own Return / Delete staging when gathering.
-                if commandLayerActive {
-                    let isReturn = event.keyCode == 36 || event.keyCode == 76
-                    let isDelete = event.keyCode == 51 || event.keyCode == 117
-                    if isReturn || isDelete {
-                        return event
-                    }
-                }
-            } else if chars == "k" {
+            if chars == "k" {
                 NotificationCenter.default.post(name: .focusLuminaSearch, object: nil)
                 return nil
             }
 
-            if event.keyCode == 36, shell.route != .workspace {
+            if event.keyCode == 36 {
                 model.exportCarousel()
                 return nil
             }
             return event
-        }
-
-        if event.type == .keyDown, event.keyCode == 50, event.modifierFlags.contains(.option) {
-            model.toggleSpeedHUD()
-            return nil
         }
 
         if event.type == .keyDown {
@@ -168,74 +133,7 @@ struct ContentView: View {
                 return event
             }
 
-            if shell.route == .workspace, !event.modifierFlags.contains(.command) {
-                // When the command layer is gathering / staged / editing, defer arrows & Return.
-                if commandLayerActive {
-                    return event
-                }
-
-                let presentation = shell.workspacePresentation(model: model)
-                let photoID = shell.selectedAssetID ?? model.cursor
-
-                if event.keyCode == 126 {
-                    shell.moveAttempt(delta: -1, presentation: presentation, model: model)
-                    return nil
-                }
-                if event.keyCode == 125 {
-                    shell.moveAttempt(delta: 1, presentation: presentation, model: model)
-                    return nil
-                }
-                if event.keyCode == 123 {
-                    shell.moveAlternative(delta: -1, presentation: presentation, model: model)
-                    return nil
-                }
-                if event.keyCode == 124 {
-                    shell.moveAlternative(delta: 1, presentation: presentation, model: model)
-                    return nil
-                }
-                if event.keyCode == 36 {
-                    shell.toggleRowExpanded()
-                    return nil
-                }
-                if event.keyCode == 49 {
-                    shell.isFocusMode.toggle()
-                    return nil
-                }
-
-                switch event.charactersIgnoringModifiers?.lowercased() {
-                case "a":
-                    shell.previewAutoTreatment(model: model)
-                    return nil
-                case "e":
-                    shell.toggleDetailedEdits()
-                    return nil
-                case "t":
-                    shell.openTreatmentStage()
-                    return nil
-                case "s":
-                    LuminaHaptics.decision()
-                    if let photoID {
-                        shell.applyDecision(.keep, for: photoID, model: model)
-                    }
-                    return nil
-                case "m":
-                    LuminaHaptics.decision()
-                    if let photoID {
-                        shell.applyDecision(.needsMe, for: photoID, model: model)
-                    }
-                    return nil
-                case "x":
-                    LuminaHaptics.decision()
-                    if let photoID {
-                        shell.applyDecision(.cut, for: photoID, model: model)
-                    }
-                    return nil
-                default:
-                    break
-                }
-            }
-
-            if event.charactersIgnoringModifiers?.lowercased() == "g", !commandLayerActive {
+            if event.charactersIgnoringModifiers?.lowercased() == "g" {
                 shell.openFinish()
                 return nil
             }
