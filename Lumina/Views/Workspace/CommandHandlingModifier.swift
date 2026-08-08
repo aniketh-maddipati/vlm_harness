@@ -1,8 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// Local-monitor ⌘ handling layer — flagsChanged + real key-down/key-up separation.
-/// `.onKeyPress` / `.keyboardShortcut` cannot express "second press of the same key".
+/// Sole owner of workspace `NSEvent` keyboard routing.
+/// Uses local monitors (flagsChanged + keyDown/keyUp) because `.onKeyPress` /
+/// `.keyboardShortcut` cannot express "second press of the same key".
+/// ContentView keeps a separate monitor only for non-workspace / global chords.
 struct CommandHandlingModifier: ViewModifier {
     @Bindable var shell: LuminaShellModel
     @Bindable var model: ProjectViewModel
@@ -117,63 +119,61 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
             return event
         }
 
+        /// True while gathering / staged / multi-select / treatment — staging chords own the board.
+        private var commandLayerActive: Bool {
+            selection.isHandling || selection.staged != nil || !selection.isEmpty || shell.isTreatmentStageOpen
+        }
+
         private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             let command = flags.contains(.command)
             let shift = flags.contains(.shift)
             let option = flags.contains(.option)
             let chars = event.charactersIgnoringModifiers ?? ""
+            let lower = chars.lowercased()
 
-            // Escape
+            // Escape — workspace overlays / selection only (never dumps to Home).
             if event.keyCode == 53 {
                 _ = shell.handleEscape()
                 return nil
             }
 
             // ⌘Z undo round / last decision
-            if command && !shift && !option && (chars.lowercased() == "z") {
+            if command && !shift && !option && lower == "z" {
                 shell.undoLastDecision(model: model)
                 return nil
             }
 
             // ⌘⌥C — more treatment controls (never ⌘,)
-            if command && option && !shift && (chars.lowercased() == "c") {
+            if command && option && !shift && lower == "c" {
                 shell.showDetailedEdits = true
                 return nil
             }
 
             // ⌘⇧A — apply the current treatment to every photo in the leader's set.
-            if command && shift && !option && (chars.lowercased() == "a"), shell.isTreatmentStageOpen {
+            if command && shift && !option && lower == "a", shell.isTreatmentStageOpen {
                 let applied = shell.applyTreatmentToSet(model: model, presentation: presentation)
                 if applied > 0 { LuminaHaptics.decision() } else { LuminaHaptics.light() }
                 return nil
             }
 
-            // T opens treatment when workbench
-            if !command && chars.lowercased() == "t", shell.workspaceStage == .workbench {
-                shell.openTreatmentStage()
-                return nil
-            }
-
-            // ⌘1 Sources · ⌘2 Workbench · ⌘3 Story
+            // ⌘1 Sources · ⌘2 Workbench · ⌘3 Story · ⌘R Read
             if command && !shift && !option {
                 if chars == "1" {
                     shell.openShootSelection()
                     return nil
                 }
                 if chars == "2" {
-                    if shell.route != .workspace { shell.openWorkspace(lens: shell.lens) }
                     shell.setWorkspaceStage(.workbench)
                     shell.isReadMode = false
                     return nil
                 }
                 if chars == "3" {
-                    if shell.route != .workspace { shell.openWorkspace(lens: shell.lens) }
                     shell.setWorkspaceStage(.canvas)
                     shell.isReadMode = false
                     return nil
                 }
-                if chars.lowercased() == "r", shell.workspaceStage == .canvas || shell.workspaceStage == .proof {
+                if lower == "r" {
                     shell.enterReadMode()
                     return nil
                 }
@@ -200,17 +200,14 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                 return nil
             }
 
-            // Space — Edit: hold Original; Workbench: 1:1 focus toggle (no ⌘ — never bind ⌘Space)
+            // Space — Edit: hold Original; otherwise 1:1 focus toggle (never bind ⌘Space)
             if event.keyCode == 49, !command {
                 if shell.isTreatmentStageOpen {
                     shell.treatmentPreviewMode = .original
                     return nil
                 }
-                if shell.workspaceStage == .workbench {
-                    shell.toggleFocus()
-                    return nil
-                }
-                return event
+                shell.toggleFocus()
+                return nil
             }
 
             if event.keyCode == 36 || event.keyCode == 76 { // Return
@@ -220,6 +217,47 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
             // ⌘⌫ / ⌘Delete — stage set aside
             if command && (event.keyCode == 51 || event.keyCode == 117) {
                 return stage(.setAside)
+            }
+
+            // T opens treatment from workbench (even while gathering), or any stage when idle.
+            if !command && lower == "t", (shell.workspaceStage == .workbench || !commandLayerActive) {
+                shell.openTreatmentStage()
+                return nil
+            }
+
+            // Legacy single-key routing when the command layer is idle (empty selection).
+            if !command && !commandLayerActive {
+                switch lower {
+                case "a":
+                    shell.previewAutoTreatment(model: model)
+                    return nil
+                case "e":
+                    shell.toggleDetailedEdits()
+                    return nil
+                case "s":
+                    LuminaHaptics.decision()
+                    if let photoID = shell.selectedAssetID ?? model.cursor {
+                        shell.applyDecision(.keep, for: photoID, model: model)
+                    }
+                    return nil
+                case "m":
+                    LuminaHaptics.decision()
+                    if let photoID = shell.selectedAssetID ?? model.cursor {
+                        shell.applyDecision(.needsMe, for: photoID, model: model)
+                    }
+                    return nil
+                case "x":
+                    LuminaHaptics.decision()
+                    if let photoID = shell.selectedAssetID ?? model.cursor {
+                        shell.applyDecision(.cut, for: photoID, model: model)
+                    }
+                    return nil
+                case "g":
+                    shell.openFinish()
+                    return nil
+                default:
+                    break
+                }
             }
 
             return event
@@ -235,8 +273,14 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                 return nil
             }
 
-            // First press must hold ⌘
-            guard command else { return event }
+            // Plain Return expands the active row when the command layer is idle.
+            guard command else {
+                if !commandLayerActive {
+                    shell.toggleRowExpanded()
+                    return nil
+                }
+                return event
+            }
 
             if shift {
                 return stage(.hold)
