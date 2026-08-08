@@ -202,10 +202,52 @@ final class DevelopRenderScheduler {
         Task { await gate.invalidateAll() }
     }
 
+    /// Drop in-flight work for every photo except the one being viewed — stops
+    /// arrow-key spam from stacking settled demosaics across the filmstrip.
+    func cancelExcept(photoID: UUID) {
+        for (id, task) in inflight where id != photoID {
+            task.cancel()
+            inflight[id] = nil
+        }
+        for (id, task) in settleTasks where id != photoID {
+            task.cancel()
+            settleTasks[id] = nil
+        }
+        visiblePhotoID = photoID
+    }
+
     // MARK: - Interactive scrub
 
+    /// Open / navigate path — authoritative settle first so the first frame is
+    /// not draft demosaic (which reads as grainy when upscaled to the stage).
+    func openPhotograph(
+        photoID: UUID,
+        rawURL: URL,
+        proxyURL: URL?,
+        recipe: EditRecipe
+    ) {
+        cancelExcept(photoID: photoID)
+        pendingRecipe[photoID] = recipe
+        fidelityByPhoto[photoID] = .settling
+        inflight[photoID]?.cancel()
+        settleTasks[photoID]?.cancel()
+
+        let task = Task { [weak self] in
+            guard !Task.isCancelled, let self else { return }
+            guard let latest = self.pendingRecipe[photoID] else { return }
+            await self.renderNow(
+                photoID: photoID,
+                rawURL: rawURL,
+                proxyURL: proxyURL,
+                recipe: latest,
+                quality: .settled
+            )
+        }
+        inflight[photoID] = task
+    }
+
     /// High-frequency slider path — coalesce + interactive quality only.
-    /// Key auto-repeat / UI event bursts collapse into the latest recipe.
+    /// Settled upgrade runs on gesture end via `settlePhotograph`, not mid-scrub.
     func scrub(
         photoID: UUID,
         rawURL: URL,
@@ -219,7 +261,7 @@ final class DevelopRenderScheduler {
         settleTasks[photoID]?.cancel()
 
         let task = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 16_000_000)
+            try? await Task.sleep(nanoseconds: 8_000_000)
             guard !Task.isCancelled, let self else { return }
             guard let latest = self.pendingRecipe[photoID] else { return }
             await self.renderNow(
@@ -229,10 +271,19 @@ final class DevelopRenderScheduler {
                 recipe: latest,
                 quality: .interactive
             )
-            guard !Task.isCancelled else { return }
-            self.scheduleSettled(photoID: photoID, rawURL: rawURL, proxyURL: proxyURL, recipe: latest)
         }
         inflight[photoID] = task
+    }
+
+    /// Authoritative settle after a scrub gesture ends (or open pause).
+    func settlePhotograph(
+        photoID: UUID,
+        rawURL: URL,
+        proxyURL: URL?,
+        recipe: EditRecipe
+    ) {
+        pendingRecipe[photoID] = recipe
+        scheduleSettled(photoID: photoID, rawURL: rawURL, proxyURL: proxyURL, recipe: recipe)
     }
 
     /// Authoritative settled render after input pauses. One per photo.
@@ -240,13 +291,14 @@ final class DevelopRenderScheduler {
         settleTasks[photoID]?.cancel()
         fidelityByPhoto[photoID] = .settling
         settleTasks[photoID] = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 120_000_000)
+            try? await Task.sleep(nanoseconds: 40_000_000)
             guard !Task.isCancelled, let self else { return }
+            let latest = self.pendingRecipe[photoID] ?? recipe
             await self.renderNow(
                 photoID: photoID,
                 rawURL: rawURL,
                 proxyURL: proxyURL,
-                recipe: recipe,
+                recipe: latest,
                 quality: .settled
             )
         }

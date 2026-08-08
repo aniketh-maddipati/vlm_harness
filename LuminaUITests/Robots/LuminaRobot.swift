@@ -26,7 +26,7 @@ struct LuminaRobot {
                 assetCount: 0, visibleCount: 0, selectionCount: 0, keptCount: 0,
                 rejectedCount: 0, unreviewedCount: 0, editedCount: 0, densityColumns: 0,
                 filter: "", canUndo: false, focusedAssetID: nil, focusedVisible: false,
-                focusedAvailability: nil, focusedCull: nil, inspectingAssetID: nil,
+                focusedAvailability: nil, focusedCull: nil, focusedRecipeFingerprint: nil, inspectingAssetID: nil,
                 selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
                 phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
                 missingAssetIDs: []

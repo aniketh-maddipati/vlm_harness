@@ -23,6 +23,9 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedVisible: Bool
     var focusedAvailability: String?
     var focusedCull: String?
+    /// Deterministic fingerprint of the focused asset's canonical `EditRecipe` (nil when nothing is
+    /// focused). Mirrors `Lumina/Testing/UITestStateProbe.swift`.
+    var focusedRecipeFingerprint: String?
     var inspectingAssetID: String?
     var selectedAssetIDs: [String]
     var missingOriginalCount: Int
