@@ -450,7 +450,7 @@ enum PresentationAdapter {
         var buckets: [[PhotoRecord]] = []
         let calendar = Calendar.current
         let dayGroups = Dictionary(grouping: dated) { photo in
-            calendar.startOfDay(for: photo.capturedAt!)
+            calendar.startOfDay(for: photo.capturedAt ?? .distantPast)
         }.sorted { $0.key < $1.key }
 
         for (_, dayPhotos) in dayGroups {
@@ -547,7 +547,10 @@ enum PresentationAdapter {
         if dates.count <= 1 || dates.last == first {
             return "\(dayLabel) · \(shortTime(first))"
         }
-        let range = "\(shortTime(first)) – \(shortTime(dates.last!))"
+        guard let last = dates.last else {
+            return "\(dayLabel) · \(shortTime(first))"
+        }
+        let range = "\(shortTime(first)) – \(shortTime(last))"
         if totalBuckets > 1, prefix != "Roll" {
             return "\(prefix) · \(dayLabel) · \(range)"
         }

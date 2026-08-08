@@ -290,7 +290,7 @@ private struct BrowseFilmstripOverlay: View {
                 }
                 .onAppear {
                     PreviewSpine.shared.warm(photos: photos, focus: focusID ?? photos.first?.id)
-                    ThumbCache.shared.prefetchPhotos(photos, maxPixelSize: 512)
+                    ThumbCache.shared.prefetchPhotos(photos, maxPixelSize: PhotoImageTier.gridMaxPixelSize)
                 }
                 .onChange(of: focusID) { _, id in
                     guard let id else { return }

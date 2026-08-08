@@ -15,10 +15,13 @@ enum PhotoImageTier: Sendable {
         }
     }
 
+    /// Named grid decode cap — prefer this over a bare `512` at call sites.
+    static let gridMaxPixelSize = 512
+
     /// Display decode cap — avoids full-res JPEG decode in grids and filmstrips.
     var displayMaxPixelSize: Int? {
         switch self {
-        case .grid: 512
+        case .grid: Self.gridMaxPixelSize
         case .preview: 1600
         case .proxy: nil
         }
@@ -70,10 +73,11 @@ actor PhotoImageCache {
         sessionID = id
         self.projectName = projectName
         if let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
-            sessionDiskRoot = caches
+            let root = caches
                 .appendingPathComponent("Lumina/sessions", isDirectory: true)
                 .appendingPathComponent("\(projectName)-\(id.uuidString)", isDirectory: true)
-            try? FileManager.default.createDirectory(at: sessionDiskRoot!, withIntermediateDirectories: true)
+            sessionDiskRoot = root
+            try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         }
         ThumbCache.shared.resetSession()
     }
@@ -244,7 +248,7 @@ final class ThumbCache: @unchecked Sendable {
         lock.unlock()
     }
 
-    func prefetch(_ path: String, maxPixelSize: Int? = 512, allowRAW: Bool = false) {
+    func prefetch(_ path: String, maxPixelSize: Int? = PhotoImageTier.gridMaxPixelSize, allowRAW: Bool = false) {
         lock.lock()
         let key = maxPixelSize.map { "\(path)@\($0)" } ?? path
         let fresh = warm.insert(key).inserted
@@ -253,14 +257,14 @@ final class ThumbCache: @unchecked Sendable {
         Task { await PhotoImageCache.shared.prefetch([path], maxPixelSize: maxPixelSize, allowRAW: allowRAW) }
     }
 
-    func prefetchPhotos(_ photos: [PhotoRecord], maxPixelSize: Int? = 512) {
+    func prefetchPhotos(_ photos: [PhotoRecord], maxPixelSize: Int? = PhotoImageTier.gridMaxPixelSize) {
         for photo in photos {
             guard let path = photo.gridThumbPath ?? photo.thumbPath else { continue }
             prefetch(path, maxPixelSize: maxPixelSize, allowRAW: false)
         }
     }
 
-    func prefetchPaths(_ paths: [String], maxPixelSize: Int? = 512, allowRAW: Bool = false) {
+    func prefetchPaths(_ paths: [String], maxPixelSize: Int? = PhotoImageTier.gridMaxPixelSize, allowRAW: Bool = false) {
         for path in paths {
             prefetch(path, maxPixelSize: maxPixelSize, allowRAW: allowRAW)
         }

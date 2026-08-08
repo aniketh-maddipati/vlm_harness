@@ -70,10 +70,7 @@ struct ContentView: View {
             handleDrop: handleDrop,
             onAppear: {
                 guard keyMonitor == nil else { return }
-                keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .swipe]) { event in
-                    if event.type == .swipe, shell.route == .workspace {
-                        return handleSwipe(event) ?? event
-                    }
+                keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { event in
                     return handleKey(event)
                 }
                 model.refreshResumeAvailability()
@@ -96,10 +93,6 @@ struct ContentView: View {
 
     private var importAndAlert: some ViewModifier {
         ImportAndAlertModifier(model: model, shell: shell)
-    }
-
-    private func handleSwipe(_ event: NSEvent) -> NSEvent? {
-        event
     }
 
     private func handleKey(_ event: NSEvent) -> NSEvent? {
@@ -252,30 +245,8 @@ struct ContentView: View {
     }
 
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
-        let lock = NSLock()
-        var collected: [URL] = []
-        let group = DispatchGroup()
-        for provider in providers where provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-            group.enter()
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                defer { group.leave() }
-                let url: URL?
-                if let value = item as? URL {
-                    url = value
-                } else if let data = item as? Data {
-                    url = URL(dataRepresentation: data, relativeTo: nil)
-                } else {
-                    url = nil
-                }
-                if let url {
-                    lock.lock()
-                    collected.append(url)
-                    lock.unlock()
-                }
-            }
-        }
-        group.notify(queue: .main) {
-            model.ingestFromDroppedURLs(collected)
+        FileDropResolver.collectURLs(from: providers, requireFileURLType: true) { urls in
+            model.ingestFromDroppedURLs(urls)
         }
         return true
     }

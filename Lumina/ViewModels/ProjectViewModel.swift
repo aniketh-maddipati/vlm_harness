@@ -771,7 +771,7 @@ final class ProjectViewModel {
 
     func prefetchPhotoDisplay(_ photo: PhotoRecord) {
         if let grid = photo.gridThumbPath {
-            ThumbCache.shared.prefetch(grid, maxPixelSize: 512, allowRAW: false)
+            ThumbCache.shared.prefetch(grid, maxPixelSize: PhotoImageTier.gridMaxPixelSize, allowRAW: false)
         }
         var paths = [photo.previewPath, photo.sharpPath].compactMap { $0 }
 
@@ -1003,7 +1003,7 @@ final class ProjectViewModel {
             photos: members,
             focus: paintFocus ? (cluster.heroID ?? members.first?.id) : members.first?.id
         )
-        ThumbCache.shared.prefetchPhotos(members, maxPixelSize: 512)
+        ThumbCache.shared.prefetchPhotos(members, maxPixelSize: PhotoImageTier.gridMaxPixelSize)
     }
 
     /// Rescue is the only per-tile audit mutation. Accepting materializes the pile default.
@@ -1065,12 +1065,12 @@ final class ProjectViewModel {
     }
 
     func onCursorReachedEnd() {
-        guard project != nil else { return }
+        guard let project else { return }
         syncActiveCatalogStats()
         SessionCache.endEditingSession(clearBrowseSpine: false)
-        let feedbackCount = (try? FeedbackStore.load(project: project!.name).count) ?? 0
+        let feedbackCount = (try? FeedbackStore.load(project: project.name).count) ?? 0
         sessionSummary = PhotoAgentOrchestrator.buildSessionSummary(
-            photos: project!.photos,
+            photos: project.photos,
             agentLog: agentLog,
             feedbackCount: feedbackCount
         )

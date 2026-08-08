@@ -196,21 +196,7 @@ final class P0SessionModel {
     }
 
     func handleDrop(providers: [NSItemProvider]) -> Bool {
-        var urls: [URL] = []
-        let group = DispatchGroup()
-        for provider in providers {
-            group.enter()
-            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
-                defer { group.leave() }
-                if let data = item as? Data,
-                   let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    urls.append(url)
-                } else if let url = item as? URL {
-                    urls.append(url)
-                }
-            }
-        }
-        group.notify(queue: .main) { [weak self] in
+        FileDropResolver.collectURLs(from: providers, requireFileURLType: false) { [weak self] urls in
             guard let self, let root = Self.scanRoot(from: urls) else { return }
             self.openFolder(root)
         }

@@ -82,7 +82,7 @@ struct ContextualTreatmentStrip: View {
             DevelopSliderRow(title: "Highlights", value: $offsets.highlights, range: -100...100, step: 1)
             DevelopSliderRow(title: "Whites", value: $offsets.whites, range: -100...100, step: 1)
             DevelopSliderRow(title: "Blacks", value: $offsets.blacks, range: -100...100, step: 1)
-            DevelopSliderRow(title: "Tint", value: $offsets.tint, range: -100...100, step: 1)
+            DevelopSliderRow(title: "Tint", value: $offsets.tint, range: -50...50, step: 1)
             DevelopSliderRow(title: "Vibrance", value: $offsets.vibrance, range: -100...100, step: 1)
             DevelopSliderRow(title: "Saturation", value: $offsets.saturation, range: -100...100, step: 1)
             DevelopSliderRow(title: "Clarity", value: $offsets.clarity, range: -100...100, step: 1)

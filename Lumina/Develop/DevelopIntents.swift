@@ -14,7 +14,7 @@ import Foundation
 struct RawIntent: Hashable, Sendable {
     /// EV applied in RAW domain (`CIRAWFilter.exposure`).
     var exposureEV: Double
-    /// Target neutral temperature in Kelvin. 6500 + tint 0 means "as shot".
+    /// Target neutral temperature in Kelvin. Neutral + tint 0 means "as shot".
     var temperature: Double
     var tint: Double
     /// crs-style 0…100 — mapped onto `luminanceNoiseReductionAmount` when supported.
@@ -22,11 +22,17 @@ struct RawIntent: Hashable, Sendable {
     /// crs-style 0…150 — mapped onto `sharpnessAmount` when supported.
     var sharpness: Double
 
-    static let neutral = RawIntent(exposureEV: 0, temperature: 6500, tint: 0, luminanceNR: 0, sharpness: 0)
+    static let neutral = RawIntent(
+        exposureEV: 0,
+        temperature: EditRecipe.neutralTemperature,
+        tint: 0,
+        luminanceNR: 0,
+        sharpness: 0
+    )
 
     /// "As shot" means the photographer has not overridden white balance.
     var isAsShotWhiteBalance: Bool {
-        abs(temperature - 6500) <= 1 && abs(tint) <= 0.01
+        abs(temperature - EditRecipe.neutralTemperature) <= 1 && abs(tint) <= 0.01
     }
 
     var fingerprint: String {

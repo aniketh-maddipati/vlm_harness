@@ -299,7 +299,7 @@ struct RetouchSpot: Codable, Hashable, Sendable, Identifiable {
 /// crop / straighten. `DevelopRecipe` remains as the taste / XMP / older-UI adapter.
 struct DevelopRecipe: Codable, Hashable {
     var exposure: Double = 0
-    var temperature: Double = 6500
+    var temperature: Double = EditRecipe.neutralTemperature
     var tint: Double = 0
     var contrast: Double = 0
     var highlights: Double = 0
@@ -321,7 +321,7 @@ struct DevelopRecipe: Codable, Hashable {
     static let neutral = DevelopRecipe()
 
     init(
-        exposure: Double = 0, temperature: Double = 6500, tint: Double = 0,
+        exposure: Double = 0, temperature: Double = EditRecipe.neutralTemperature, tint: Double = 0,
         contrast: Double = 0, highlights: Double = 0, shadows: Double = 0,
         whites: Double = 0, blacks: Double = 0, texture: Double = 0,
         clarity: Double = 0, dehaze: Double = 0, vibrance: Double = 0,
@@ -352,7 +352,7 @@ struct DevelopRecipe: Codable, Hashable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         exposure = try c.decodeIfPresent(Double.self, forKey: .exposure) ?? 0
-        temperature = try c.decodeIfPresent(Double.self, forKey: .temperature) ?? 6500
+        temperature = try c.decodeIfPresent(Double.self, forKey: .temperature) ?? EditRecipe.neutralTemperature
         tint = try c.decodeIfPresent(Double.self, forKey: .tint) ?? 0
         contrast = try c.decodeIfPresent(Double.self, forKey: .contrast) ?? 0
         highlights = try c.decodeIfPresent(Double.self, forKey: .highlights) ?? 0
@@ -372,7 +372,7 @@ struct DevelopRecipe: Codable, Hashable {
     }
 
     var hasSettings: Bool {
-        exposure != 0 || temperature != 6500 || tint != 0 || contrast != 0
+        exposure != 0 || temperature != EditRecipe.neutralTemperature || tint != 0 || contrast != 0
             || highlights != 0 || shadows != 0 || whites != 0 || blacks != 0
             || texture != 0 || clarity != 0 || dehaze != 0 || vibrance != 0 || saturation != 0
             || sharpness != 0 || luminanceNR != 0 || !retouch.isEmpty
@@ -433,7 +433,7 @@ struct DevelopRecipe: Codable, Hashable {
         r.clarity = 0
         r.dehaze = 0
         r.texture = 0
-        if r.temperature <= 0 { r.temperature = 6500 }
+        if r.temperature <= 0 { r.temperature = EditRecipe.neutralTemperature }
         r.temperature = min(max(r.temperature, 2500), 10000)
         r.exposure = min(max(r.exposure, -3), 3)
         r.sharpness = min(max(r.sharpness, 0), 150)

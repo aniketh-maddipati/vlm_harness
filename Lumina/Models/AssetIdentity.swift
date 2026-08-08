@@ -70,6 +70,13 @@ enum AssetIdentity {
         assetID.uuidString.lowercased()
     }
 
+    /// One-shot copy of a stem-keyed cache file into the identity-keyed location when missing.
+    static func migrateLegacyCache(from legacy: URL, to identityURL: URL) {
+        guard !FileManager.default.fileExists(atPath: identityURL.path),
+              FileManager.default.fileExists(atPath: legacy.path) else { return }
+        try? FileManager.default.copyItem(at: legacy, to: identityURL)
+    }
+
     // MARK: - Internals
 
     private static func normalizeRelativePath(_ path: String) -> String {

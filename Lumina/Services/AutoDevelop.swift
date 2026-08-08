@@ -48,13 +48,8 @@ enum AutoDevelop {
             ? clamp((0.16 - stats.meanSaturation) * 180, 0, 20)
             : 0
 
-        // Gray-world white balance from the channel averages (same math as
-        // AutoWhiteBalance, computed on the shared downsample).
-        let rbImbalance = (stats.rAvg - stats.bAvg) / max((stats.rAvg + stats.bAvg) / 2, 0.001)
-        let kelvin = clamp(6500 - rbImbalance * 6500 * 0.55, 3000, 9500)
-        let gImbalance = (stats.gAvg - (stats.rAvg + stats.bAvg) / 2)
-            / max((stats.rAvg + stats.gAvg + stats.bAvg) / 3, 0.001)
-        let tint = clamp(-gImbalance * 120, -40, 40)
+        // Gray-world white balance from the channel averages (shared heuristic).
+        let wb = AutoWhiteBalance.grayWorld(r: stats.rAvg, g: stats.gAvg, b: stats.bAvg)
 
         return Suggestion(
             exposure: exposure,
@@ -62,8 +57,8 @@ enum AutoDevelop {
             highlights: highlights,
             shadows: shadows,
             vibrance: vibrance,
-            kelvin: kelvin,
-            tint: tint
+            kelvin: wb.kelvin,
+            tint: wb.tint
         )
     }
 

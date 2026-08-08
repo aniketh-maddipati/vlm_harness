@@ -20,9 +20,17 @@ struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
     let id: UUID
     let schemaVersion: EditRecipeSchemaVersion
 
+    /// Daylight-neutral Kelvin used as the recipe default and "as shot" anchor.
+    static let neutralTemperature: Double = 6500
+
+    /// Treat legacy `0` as unset and map it to daylight-neutral Kelvin.
+    static func normalizedTemperature(_ value: Double) -> Double {
+        value == 0 ? neutralTemperature : value
+    }
+
     /// Absolute Lightroom-compatible develop parameters.
     var exposure: Double
-    /// Kelvin white balance (neutral ≈ 6500).
+    /// Kelvin white balance (neutral ≈ `neutralTemperature`).
     var temperature: Double
     var tint: Double
     var contrast: Double
@@ -61,7 +69,7 @@ struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
         id: UUID = UUID(),
         schemaVersion: EditRecipeSchemaVersion = .current,
         exposure: Double = 0,
-        temperature: Double = 6500,
+        temperature: Double = EditRecipe.neutralTemperature,
         tint: Double = 0,
         contrast: Double = 0,
         highlights: Double = 0,
@@ -117,7 +125,7 @@ struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
             schemaVersion = .v1
         }
         exposure = try c.decodeIfPresent(Double.self, forKey: .exposure) ?? 0
-        temperature = try c.decodeIfPresent(Double.self, forKey: .temperature) ?? 6500
+        temperature = try c.decodeIfPresent(Double.self, forKey: .temperature) ?? Self.neutralTemperature
         tint = try c.decodeIfPresent(Double.self, forKey: .tint) ?? 0
         contrast = try c.decodeIfPresent(Double.self, forKey: .contrast) ?? 0
         highlights = try c.decodeIfPresent(Double.self, forKey: .highlights) ?? 0
@@ -165,7 +173,7 @@ struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
     }
 
     var hasToneOrColorSettings: Bool {
-        exposure != 0 || temperature != 6500 || tint != 0 || contrast != 0
+        exposure != 0 || temperature != Self.neutralTemperature || tint != 0 || contrast != 0
             || highlights != 0 || shadows != 0 || whites != 0 || blacks != 0
             || texture != 0 || clarity != 0 || dehaze != 0 || vibrance != 0 || saturation != 0
             || sharpness != 0 || luminanceNR != 0
@@ -221,7 +229,7 @@ struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
             id: id,
             schemaVersion: .current,
             exposure: legacy.exposure,
-            temperature: legacy.temperature == 0 ? 6500 : legacy.temperature,
+            temperature: Self.normalizedTemperature(legacy.temperature),
             tint: legacy.tint,
             contrast: legacy.contrast,
             highlights: legacy.highlights,
@@ -289,7 +297,7 @@ struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
     func replacingTone(from legacy: DevelopRecipe) -> EditRecipe {
         updating { r in
             r.exposure = legacy.exposure
-            r.temperature = legacy.temperature == 0 ? 6500 : legacy.temperature
+            r.temperature = Self.normalizedTemperature(legacy.temperature)
             r.tint = legacy.tint
             r.contrast = legacy.contrast
             r.highlights = legacy.highlights

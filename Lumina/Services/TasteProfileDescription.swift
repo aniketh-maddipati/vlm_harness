@@ -20,7 +20,7 @@ enum TasteProfileDescription {
         }
 
         var traits: [String] = []
-        let tempDelta = profile.temperature - 6500
+        let tempDelta = profile.temperature - EditRecipe.neutralTemperature
         if tempDelta > 200 { traits.append("Warmer") }
         else if tempDelta < -200 { traits.append("Cooler") }
 

@@ -226,10 +226,10 @@ enum DevelopRenderGraph {
             f.setValue(recipe.exposure, forKey: kCIInputEVKey)
             result = f.outputImage ?? result
         }
-        if abs(recipe.temperature - 6500) > 1 || recipe.tint != 0,
+        if abs(recipe.temperature - EditRecipe.neutralTemperature) > 1 || recipe.tint != 0,
            let f = CIFilter(name: "CITemperatureAndTint") {
             f.setValue(result, forKey: kCIInputImageKey)
-            f.setValue(CIVector(x: 6500, y: 0), forKey: "inputNeutral")
+            f.setValue(CIVector(x: EditRecipe.neutralTemperature, y: 0), forKey: "inputNeutral")
             f.setValue(CIVector(x: recipe.temperature, y: recipe.tint), forKey: "inputTargetNeutral")
             result = f.outputImage ?? result
         }

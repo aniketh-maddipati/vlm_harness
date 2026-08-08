@@ -231,7 +231,7 @@ struct StableThumbView: View {
                 cornerRadius: LuminaTokens.Radius.photographThumb,
                 showDecisionBadge: false,
                 isSelected: isSelected,
-                maxPixelSize: 512
+                maxPixelSize: PhotoImageTier.gridMaxPixelSize
             )
             .frame(height: 72)
             if let label {
