@@ -127,8 +127,9 @@ nonisolated enum ContactSheetPreparation {
         var access: (url: URL, didStartAccess: Bool)?
         if let raw = shoot.rawFolder {
             do {
-                access = try SecurityScopedAccess.resolveFolder(from: raw)
-                shoot = refreshAvailability(shoot, folderURL: access!.url)
+                let resolved = try SecurityScopedAccess.resolveFolder(from: raw)
+                access = resolved
+                shoot = refreshAvailability(shoot, folderURL: resolved.url)
                 status.folderMissing = false
             } catch {
                 status.folderMissing = true
@@ -353,11 +354,11 @@ nonisolated enum ContactSheetPreparation {
 
                         let legacyStem = rawURL.deletingPathExtension().lastPathComponent
                         // Migrate legacy stem-keyed caches once.
-                        migrateLegacyCache(
+                        AssetIdentity.migrateLegacyCache(
                             from: preview.appendingPathComponent(legacyStem + ".jpg"),
                             to: previewURL
                         )
-                        migrateLegacyCache(
+                        AssetIdentity.migrateLegacyCache(
                             from: grid.appendingPathComponent(legacyStem + ".jpg"),
                             to: gridURL
                         )
@@ -499,12 +500,6 @@ nonisolated enum ContactSheetPreparation {
         let h = props[kCGImagePropertyPixelHeight] as? Int ?? 0
         guard w > 0, h > 0 else { return nil }
         return (w, h)
-    }
-
-    private static func migrateLegacyCache(from legacy: URL, to identityURL: URL) {
-        guard !FileManager.default.fileExists(atPath: identityURL.path),
-              FileManager.default.fileExists(atPath: legacy.path) else { return }
-        try? FileManager.default.copyItem(at: legacy, to: identityURL)
     }
 
     private static func refreshAvailability(_ shoot: ShootRecord, folderURL: URL) -> ShootRecord {

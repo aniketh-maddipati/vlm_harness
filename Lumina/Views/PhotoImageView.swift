@@ -156,7 +156,7 @@ struct PhotoPathImageView: View {
             }
         }
         .task(id: path) {
-            let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: 512, allowRAW: false)
+            let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: PhotoImageTier.gridMaxPixelSize, allowRAW: false)
             switch outcome {
             case .image(let img): image = img
             case .missing, .failed: failed = true

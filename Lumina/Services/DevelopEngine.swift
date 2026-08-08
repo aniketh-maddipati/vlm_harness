@@ -71,7 +71,7 @@ enum DevelopEngine {
     static func clampRecipe(_ recipe: DevelopRecipe) -> DevelopRecipe {
         var r = recipe
         r.exposure = min(max(r.exposure, -3), 3)
-        r.temperature = min(max(r.temperature == 0 ? 6500 : r.temperature, 2500), 10000)
+        r.temperature = min(max(EditRecipe.normalizedTemperature(r.temperature), 2500), 10000)
         r.tint = min(max(r.tint, -50), 50)
         r.contrast = min(max(r.contrast, -100), 100)
         r.highlights = min(max(r.highlights, -100), 100)

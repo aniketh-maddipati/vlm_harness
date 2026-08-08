@@ -290,16 +290,14 @@ enum ImportPipeline {
 
                         // Fall back to legacy stem-keyed caches once, then prefer identity keys.
                         let legacyStem = rawURL.deletingPathExtension().lastPathComponent
-                        let legacyPreview = previewDir.appendingPathComponent(legacyStem + ".jpg")
-                        let legacyGrid = gridDir.appendingPathComponent(legacyStem + ".jpg")
-                        if !FileManager.default.fileExists(atPath: previewURL.path),
-                           FileManager.default.fileExists(atPath: legacyPreview.path) {
-                            try? FileManager.default.copyItem(at: legacyPreview, to: previewURL)
-                        }
-                        if !FileManager.default.fileExists(atPath: gridURL.path),
-                           FileManager.default.fileExists(atPath: legacyGrid.path) {
-                            try? FileManager.default.copyItem(at: legacyGrid, to: gridURL)
-                        }
+                        AssetIdentity.migrateLegacyCache(
+                            from: previewDir.appendingPathComponent(legacyStem + ".jpg"),
+                            to: previewURL
+                        )
+                        AssetIdentity.migrateLegacyCache(
+                            from: gridDir.appendingPathComponent(legacyStem + ".jpg"),
+                            to: gridURL
+                        )
 
                         let extracted = PreviewExtractor.extractBrowsePreview(
                             to: previewURL,
@@ -366,11 +364,10 @@ enum ImportPipeline {
                             let rawURL = URL(fileURLWithPath: rawPath)
                             let thumbURL = thumbDir.appendingPathComponent(AssetIdentity.cacheStem(for: assetID) + ".jpg")
                             let legacyStem = rawURL.deletingPathExtension().lastPathComponent
-                            let legacyThumb = thumbDir.appendingPathComponent(legacyStem + ".jpg")
-                            if !FileManager.default.fileExists(atPath: thumbURL.path),
-                               FileManager.default.fileExists(atPath: legacyThumb.path) {
-                                try? FileManager.default.copyItem(at: legacyThumb, to: thumbURL)
-                            }
+                            AssetIdentity.migrateLegacyCache(
+                                from: thumbDir.appendingPathComponent(legacyStem + ".jpg"),
+                                to: thumbURL
+                            )
                             if !FileManager.default.fileExists(atPath: thumbURL.path) {
                                 try? PreviewExtractor.extractBest(to: thumbURL, from: rawURL, maxPixelSize: 2048)
                             }

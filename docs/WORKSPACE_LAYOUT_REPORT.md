@@ -131,7 +131,7 @@ Presentation snapshots still cached by fingerprint; selection overlays without g
 | File | Role |
 |------|------|
 | `ContinuousWorkspaceView.swift` | Stage orchestrator |
-| `WorkbenchLedgerView.swift` | Row scroll + treatment strip |
+| `ContinuousWorkspaceView.swift` (`WorkbenchLedgerView`) | Row scroll + treatment strip |
 | `TreatmentFamilyRow.swift` | Comparison family UI |
 | `ContextualTreatmentStrip.swift` | Develop controls |
 | `EmergingSetRail.swift` | Kept-photo receipt |

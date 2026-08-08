@@ -31,11 +31,11 @@ struct ProgressivePhotoWall: View {
             }
             .scrollIndicators(.hidden)
             .onAppear {
-                ThumbCache.shared.prefetchPaths(visible, maxPixelSize: 512, allowRAW: false)
+                ThumbCache.shared.prefetchPaths(visible, maxPixelSize: PhotoImageTier.gridMaxPixelSize, allowRAW: false)
             }
             .onChange(of: paths) { _, new in
                 let next = Array(new.filter { !$0.isEmpty }.prefix(maxSlots ?? new.count))
-                ThumbCache.shared.prefetchPaths(next, maxPixelSize: 512, allowRAW: false)
+                ThumbCache.shared.prefetchPaths(next, maxPixelSize: PhotoImageTier.gridMaxPixelSize, allowRAW: false)
             }
         }
     }
@@ -84,7 +84,7 @@ struct SessionPhotoGrid: View {
     private func warmSessionCache() {
         guard !photos.isEmpty else { return }
         PreviewSpine.shared.warm(photos: photos, focus: photos.first?.id)
-        ThumbCache.shared.prefetchPhotos(photos, maxPixelSize: 512)
+        ThumbCache.shared.prefetchPhotos(photos, maxPixelSize: PhotoImageTier.gridMaxPixelSize)
     }
 }
 
@@ -198,7 +198,7 @@ private struct ProgressiveWallTile: View {
             }
         }
         .task(id: path) {
-            let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: 512, allowRAW: false)
+            let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: PhotoImageTier.gridMaxPixelSize, allowRAW: false)
             switch outcome {
             case .image(let img):
                 withAnimation(.easeOut(duration: 0.25)) { image = img }

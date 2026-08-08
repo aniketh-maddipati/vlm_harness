@@ -69,7 +69,7 @@ enum XMPDevelopParser {
     static func recipe(from item: [String: Any]) -> DevelopRecipe {
         DevelopRecipe(
             exposure: d(item["Exposure2012"]),
-            temperature: d(item["ColorTemperature"], default: 6500),
+            temperature: d(item["ColorTemperature"], default: EditRecipe.neutralTemperature),
             tint: d(item["Tint"]),
             contrast: d(item["Contrast2012"]),
             highlights: d(item["Highlights2012"]),

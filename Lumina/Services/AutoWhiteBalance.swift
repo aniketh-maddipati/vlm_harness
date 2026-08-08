@@ -46,12 +46,23 @@ enum AutoWhiteBalance {
         let r = Double(pixel[0]) / 255
         let g = Double(pixel[1]) / 255
         let b = Double(pixel[2]) / 255
-        guard r + g + b > 0.03 else { return nil }
+        return estimate(r: r, g: g, b: b)
+    }
 
+    /// Gray-world Kelvin/tint from normalized channel averages (0…1).
+    /// Rejects near-black samples (CI-area path).
+    static func estimate(r: Double, g: Double, b: Double) -> Estimate? {
+        guard r + g + b > 0.03 else { return nil }
+        return grayWorld(r: r, g: g, b: b)
+    }
+
+    /// Shared gray-world formula used by CI-area and CPU-downsample auto paths.
+    static func grayWorld(r: Double, g: Double, b: Double) -> Estimate {
         // Warm cast (r > b) → target cooler than neutral; cool cast → warmer.
         // ~130K per 1% channel imbalance, clamped to a plausible range.
+        let neutral = EditRecipe.neutralTemperature
         let rbImbalance = (r - b) / max((r + b) / 2, 0.001)
-        let kelvin = min(max(6500 - rbImbalance * 6500 * 0.55, 3000), 9500)
+        let kelvin = min(max(neutral - rbImbalance * neutral * 0.55, 3000), 9500)
 
         // Green/magenta: green above the r/b mean → push tint toward magenta.
         let gImbalance = (g - (r + b) / 2) / max((r + g + b) / 3, 0.001)

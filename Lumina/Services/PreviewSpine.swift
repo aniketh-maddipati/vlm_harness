@@ -192,7 +192,7 @@ final class PreviewSpine {
     }
 
     /// Single fidelity gateway for session photo pixels. PhotoImageCache stays internal.
-    func fidelityImage(for photo: PhotoRecord, maxPixelSize: Int = 512) async -> NSImage? {
+    func fidelityImage(for photo: PhotoRecord, maxPixelSize: Int = PhotoImageTier.gridMaxPixelSize) async -> NSImage? {
         let candidates = [
             previewPathByID[photo.id],
             photo.gridThumbPath,

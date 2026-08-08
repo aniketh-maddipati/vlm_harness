@@ -208,7 +208,11 @@ enum CullEngine {
     }
 
     static func clusters(from photos: [PhotoRecord]) -> [PhotoCluster] {
-        let groups = Dictionary(grouping: photos.filter { $0.clusterID != nil }, by: { $0.clusterID! })
+        let clustered = photos.compactMap { photo -> (String, PhotoRecord)? in
+            guard let clusterID = photo.clusterID else { return nil }
+            return (clusterID, photo)
+        }
+        let groups = Dictionary(grouping: clustered, by: \.0).mapValues { $0.map(\.1) }
         return groups.keys.sorted().compactMap { key in
             guard let group = groups[key], group.count >= 1 else { return nil }
             let hero = group.first(where: \.isClusterHero)?.id ?? group.max(by: { $0.cullScore < $1.cullScore })?.id

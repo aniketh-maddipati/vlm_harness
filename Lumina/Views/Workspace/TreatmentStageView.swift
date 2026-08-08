@@ -53,7 +53,7 @@ enum WhiteBalancePreset: String, CaseIterable, Identifiable {
         switch self {
         case .asShot, .auto: return nil
         case .daylight: return (5500, 0)
-        case .cloudy: return (6500, 3)
+        case .cloudy: return (EditRecipe.neutralTemperature, 3)
         case .shade: return (7500, 8)
         case .tungsten: return (3200, 0)
         case .fluorescent: return (4000, 20)
