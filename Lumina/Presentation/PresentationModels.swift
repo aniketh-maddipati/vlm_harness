@@ -93,6 +93,14 @@ enum SourceReadiness: String, Hashable {
     case ready, findingMore, disconnected, missing, empty
 }
 
+/// Post-commit adapt provenance — drives ← frame · count chips on the table.
+struct AdaptProvenance: Hashable, Sendable {
+    let referenceFrame: String
+    let scopeCount: Int
+    /// Reference photograph wears `Edited`; recipients wear the ← chip.
+    let isReference: Bool
+}
+
 /// Immutable photographic presentation unit. Geometry is predetermined; UX never stretches.
 struct AssetPresentation: Identifiable, Hashable, Sendable {
     let id: AssetID
@@ -110,6 +118,8 @@ struct AssetPresentation: Identifiable, Hashable, Sendable {
     let qualityScore: Double
     /// EXIF capture time when known.
     let capturedAt: Date?
+    /// Post-commit edit-family chip — nil until an adapt round commits.
+    let adaptProvenance: AdaptProvenance?
 
     init(
         id: AssetID = AssetID(),
@@ -122,7 +132,8 @@ struct AssetPresentation: Identifiable, Hashable, Sendable {
         isProtected: Bool = false,
         caption: String? = nil,
         qualityScore: Double = 0,
-        capturedAt: Date? = nil
+        capturedAt: Date? = nil,
+        adaptProvenance: AdaptProvenance? = nil
     ) {
         self.id = id
         self.filename = filename
@@ -135,6 +146,7 @@ struct AssetPresentation: Identifiable, Hashable, Sendable {
         self.caption = caption
         self.qualityScore = qualityScore
         self.capturedAt = capturedAt
+        self.adaptProvenance = adaptProvenance
     }
 }
 

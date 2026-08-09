@@ -560,6 +560,10 @@ final class LuminaShellModel {
             routingFlightIDs = []
 
         case .treat(let recipe):
+            let referenceID = selection.leader ?? targets.first
+            let referenceFrame = CopyContractBuilder.referenceFrameNumber(
+                from: referenceID.flatMap { model.photo(with: $0)?.filename }
+            )
             for id in targets {
                 guard let snapshot = model.photoRoutingSnapshot(for: id) else { continue }
                 let priorRecipe = model.photo(with: id)?.recipe
@@ -575,6 +579,14 @@ final class LuminaShellModel {
                 ))
                 model.persistRecipe(recipe, for: id)
                 treatCount += 1
+            }
+            if treatCount > 0, let referenceID {
+                model.persistAdaptProvenance(
+                    referenceFrame: referenceFrame,
+                    scopeCount: treatCount,
+                    referencePhotoID: referenceID,
+                    photoIDs: targets
+                )
             }
         }
 

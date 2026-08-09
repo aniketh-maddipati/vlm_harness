@@ -185,6 +185,39 @@ final class ProjectViewModel {
         guard var project else { return }
         guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
         project.photos[index].recipe = nil
+        project.photos[index].adaptReferenceFrame = nil
+        project.photos[index].adaptScopeCount = nil
+        project.photos[index].isAdaptReference = false
+        self.project = project
+        persistDebounced()
+    }
+
+    /// Persist post-commit adapt provenance for edit-family chips on the table.
+    func persistAdaptProvenance(
+        referenceFrame: String,
+        scopeCount: Int,
+        referencePhotoID: UUID,
+        photoIDs: [UUID]
+    ) {
+        guard var project else { return }
+        for id in photoIDs {
+            guard let index = project.photos.firstIndex(where: { $0.id == id }) else { continue }
+            project.photos[index].adaptReferenceFrame = referenceFrame
+            project.photos[index].adaptScopeCount = scopeCount
+            project.photos[index].isAdaptReference = (id == referencePhotoID)
+        }
+        self.project = project
+        persistDebounced()
+    }
+
+    func clearAdaptProvenance(for photoIDs: [UUID]) {
+        guard var project else { return }
+        for id in photoIDs {
+            guard let index = project.photos.firstIndex(where: { $0.id == id }) else { continue }
+            project.photos[index].adaptReferenceFrame = nil
+            project.photos[index].adaptScopeCount = nil
+            project.photos[index].isAdaptReference = false
+        }
         self.project = project
         persistDebounced()
     }
