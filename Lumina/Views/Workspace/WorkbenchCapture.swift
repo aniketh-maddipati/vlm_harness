@@ -130,7 +130,9 @@ enum WorkbenchCapture {
             onFocusPhoto: { _ in },
             onPreviewEdits: {},
             onHome: {},
-            onFinish: {}
+            onFinish: {},
+            cropSession: .constant(nil),
+            onEnterCrop: {}
         )
         .frame(width: size.width, height: size.height)
         .luminaWorkspaceAppearance()

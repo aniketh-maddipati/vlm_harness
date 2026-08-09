@@ -138,6 +138,34 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                 return nil
             }
 
+            // Crop latch re-scopes decision keys (see .cursorrules — frame C).
+            if shell.cropSession != nil {
+                if event.keyCode == 36 || event.keyCode == 76, !event.isARepeat {
+                    shell.applyCrop(model: model)
+                    return nil
+                }
+                if !command && !event.isARepeat {
+                    switch lower {
+                    case "a":
+                        shell.cropToggleAspectLock()
+                        return nil
+                    case "x":
+                        shell.cropFlipOrientation()
+                        return nil
+                    default:
+                        break
+                    }
+                }
+            }
+
+            // Key 4 — enter crop (Straighten section arms crop; no zoom jump).
+            if !command && chars == "4", shell.isTreatmentStageOpen, shell.cropSession == nil {
+                if let photoID = shell.selectedAssetID ?? selection.leader {
+                    shell.enterCrop(for: photoID, model: model)
+                }
+                return nil
+            }
+
             // ⌘Z undo round / last decision
             if command && !shift && !option && lower == "z" {
                 shell.undoLastDecision(model: model)
@@ -229,6 +257,7 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
             if !command && !commandLayerActive {
                 switch lower {
                 case "a":
+                    if shell.cropSession != nil { return nil }
                     shell.previewAutoTreatment(model: model)
                     return nil
                 case "e":
@@ -247,6 +276,7 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                     }
                     return nil
                 case "x":
+                    if shell.cropSession != nil { return nil }
                     LuminaHaptics.decision()
                     if let photoID = shell.selectedAssetID ?? model.cursor {
                         shell.applyDecision(.cut, for: photoID, model: model)

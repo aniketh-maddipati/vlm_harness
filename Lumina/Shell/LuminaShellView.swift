@@ -232,6 +232,14 @@ struct LuminaShellView: View {
                 onClearRetouch: { assetID in
                     model.updateRetouch(for: assetID) { $0.removeAll() }
                 },
+                cropSession: Binding(
+                    get: { shell.cropSession },
+                    set: { shell.cropSession = $0 }
+                ),
+                onEnterCrop: {
+                    guard let photoID else { return }
+                    shell.enterCrop(for: photoID, model: model)
+                },
                 onStageAdvance: {
                     if shell.workbenchSelection.stage(.advance) {
                         LuminaHaptics.decision()

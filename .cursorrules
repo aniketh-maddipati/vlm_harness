@@ -53,6 +53,20 @@ Banner, header, and receipt strings come from `design/copy-contract.txt` — now
 
 Default scope = the row. Each additional ⇧⏎ widens exactly one ring (row → scene → shoot). Esc narrows one ring; at the row ring Esc cancels the whole stage. Exclusions persist through re-staging within the shoot.
 
+### Crop latch key re-scoping (frame C)
+
+While `cropSession` is latched inside Edit, decision keys are **re-scoped** — global meanings are swallowed:
+
+| Key | Global (idle) | Inside crop latch |
+|-----|---------------|-------------------|
+| `A` | Stage Develop proposal | Toggle aspect-ratio lock on the fixed boundary |
+| `X` | Reject / set aside | Flip crop orientation (never marks reject) |
+| `⏎` | Confirm staged round | Apply crop geometry to sidecar (one ⌘Z entry) |
+| `Esc` | Cancel staging / close overlay | Dismiss crop — restore entry layout hash, nothing written |
+| `4` | — | Enter crop from Straighten section |
+
+Trackpad / pointer drag still only **moves**: inside boundary = pan photograph; outside = rotate with alignment grid (grid visible only while dragging outside). Navigating away from Edit dismisses crop like Esc.
+
 ### 90 px halo (OPEN)
 
 Ship the plain 1.5 pt halo. Both fallbacks stay mocked and unpicked. The brighter-ring fallback lives behind a debug flag only.

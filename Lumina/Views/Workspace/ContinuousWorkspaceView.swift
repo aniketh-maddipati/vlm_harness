@@ -46,6 +46,8 @@ struct ContinuousWorkspaceView: View {
     var onAddRetouch: (AssetID, RetouchSpot) -> Void = { _, _ in }
     var onUndoRetouch: (AssetID) -> Void = { _ in }
     var onClearRetouch: (AssetID) -> Void = { _ in }
+    @Binding var cropSession: CropSession?
+    var onEnterCrop: () -> Void = {}
     var onStageAdvance: () -> Void = {}
     var onStageSetAside: () -> Void = {}
     var onStageHold: () -> Void = {}
@@ -276,7 +278,9 @@ struct ContinuousWorkspaceView: View {
                 onApplyToSet: onApplyToSet,
                 onAddRetouch: { spot in onAddRetouch(leaderID, spot) },
                 onUndoRetouch: { onUndoRetouch(leaderID) },
-                onClearRetouch: { onClearRetouch(leaderID) }
+                onClearRetouch: { onClearRetouch(leaderID) },
+                cropSession: $cropSession,
+                onEnterCrop: onEnterCrop
             )
         }
     }
@@ -952,7 +956,9 @@ struct WorkbenchSourceRail: View {
         onFocusPhoto: { _ in },
         onPreviewEdits: {},
         onHome: {},
-        onFinish: {}
+        onFinish: {},
+        cropSession: .constant(nil),
+        onEnterCrop: {}
     )
     .frame(width: 1440, height: 900)
 }
