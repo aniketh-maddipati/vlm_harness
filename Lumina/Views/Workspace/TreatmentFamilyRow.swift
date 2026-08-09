@@ -16,7 +16,8 @@ struct TreatmentFamilyRow: View {
     var routingFlightID: AssetID?
     var routingFlightIDs: [AssetID] = []
     var showDecisionShelf: Bool = false
-    var gatheredIDs: Set<AssetID> = []
+    var handSelectedIDs: Set<AssetID> = []
+    var isStagingActive: Bool = false
     var leaderID: AssetID?
     var isHandling: Bool = false
     var stagedAdvance: Bool = false
@@ -29,6 +30,8 @@ struct TreatmentFamilyRow: View {
     let onSelect: () -> Void
     let onSelectPhoto: (AssetID) -> Void
     var onGatherPhoto: (AssetID) -> Void = { _ in }
+    var onToggleHandSelection: (AssetID) -> Void = { _ in }
+    var tableCoordinateSpace: CoordinateSpace = .global
     let onDoubleTapPhoto: (AssetID) -> Void
     var onCommandDoubleTap: (AssetID) -> Void = { _ in }
     var onAddToSet: ((AssetID) -> Void)?
@@ -230,7 +233,7 @@ struct TreatmentFamilyRow: View {
 
     @ViewBuilder
     private func photoTile(asset: AssetPresentation, width: CGFloat, height: CGFloat, mat: CGFloat = 8) -> some View {
-        let gathered = gatheredIDs.contains(asset.id)
+        let handSelected = handSelectedIDs.contains(asset.id)
         let isLeader = leaderID == asset.id
         let isSelected = asset.id == selectedID
         let isSuggested = asset.id == suggestedStartID && asset.decision == .undecided
@@ -239,26 +242,28 @@ struct TreatmentFamilyRow: View {
         let onHoldMark = asset.decision == .needsMe
         let matColor: Color = {
             if reduceTransparency {
-                return gathered && isHandling ? LuminaTokens.Surface.tableMatLifted : LuminaTokens.Surface.tableMat
+                return handSelected && isHandling ? LuminaTokens.Surface.tableMatLifted : LuminaTokens.Surface.tableMat
             }
             return isHandling ? LuminaTokens.Surface.tableMatLifted : LuminaTokens.Surface.tableMat
         }()
 
         let lift: CGFloat = {
-            guard gathered && isHandling else { return 0 }
+            guard handSelected && isHandling else { return 0 }
             return effectiveReduceMotion ? 0 : -14
         }()
         let stageOffset: CGSize = {
-            guard gathered && stagedAdvance else { return .zero }
+            guard handSelected && stagedAdvance else { return .zero }
             if effectiveReduceMotion { return .zero }
             return CGSize(width: 26, height: -16)
         }()
-        let stageRotation: Double = (gathered && stagedAdvance && !effectiveReduceMotion) ? 1.6 : 0
+        let stageRotation: Double = (handSelected && stagedAdvance && !effectiveReduceMotion) ? 1.6 : 0
 
         VStack(spacing: 0) {
             Button {
                 onSelect()
-                if isHandling {
+                if isStagingActive {
+                    onToggleHandSelection(asset.id)
+                } else if isHandling {
                     onGatherPhoto(asset.id)
                 } else {
                     onSelectPhoto(asset.id)
@@ -303,13 +308,21 @@ struct TreatmentFamilyRow: View {
                     }
                 }
                 .overlay {
-                    // Focus / gather keyline on the mat — never over the image.
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .strokeBorder(keylineColor(gathered: gathered, isLeader: isLeader, isSelected: isSelected, isSuggested: isSuggested), lineWidth: gathered ? 1 : (isSelected ? 2 : 1))
+                        .strokeBorder(
+                            keylineColor(
+                                handSelected: handSelected,
+                                isLeader: isLeader,
+                                isSelected: isSelected,
+                                isSuggested: isSuggested
+                            ),
+                            lineWidth: keylineWidth(handSelected: handSelected, isSuggested: isSuggested, isSelected: isSelected)
+                        )
                 }
+                .reportsTableTileFrame(id: asset.id, in: tableCoordinateSpace)
                 .offset(x: stageOffset.width, y: lift + stageOffset.height)
                 .rotationEffect(.degrees(stageRotation))
-                .animation(effectiveReduceMotion ? nil : LuminaTokens.Motion.lift, value: gathered && isHandling)
+                .animation(effectiveReduceMotion ? nil : LuminaTokens.Motion.lift, value: handSelected && isHandling)
                 .animation(effectiveReduceMotion ? LuminaTokens.Motion.reduceMotionKeyline : LuminaTokens.Motion.stage, value: stagedAdvance)
             }
             .buttonStyle(LuminaQuietButtonStyle())
@@ -338,22 +351,27 @@ struct TreatmentFamilyRow: View {
                 flightIDs: routingFlightIDs,
                 reduceMotion: effectiveReduceMotion
             ))
-            .accessibilityLabel(gathered ? "Gathered photograph \(asset.filename)" : asset.filename)
-            .accessibilityAddTraits(gathered ? .isSelected : [])
+            .accessibilityLabel(handSelected ? "Selected photograph \(asset.filename)" : asset.filename)
+            .accessibilityAddTraits(handSelected ? .isSelected : [])
         }
-        // Gathered group is one focus stop when announced at selection level.
-        .opacity(inSet && !gathered ? 0.92 : 1)
+        .opacity(inSet && !handSelected ? 0.92 : 1)
     }
 
-    private func keylineColor(gathered: Bool, isLeader: Bool, isSelected: Bool, isSuggested: Bool) -> Color {
-        if gathered {
-            return Color.white.opacity(0.5)
+    private func keylineWidth(handSelected: Bool, isSuggested: Bool, isSelected: Bool) -> CGFloat {
+        if handSelected { return HiFiTokens.Ring.haloWidth }
+        if isSuggested { return HiFiTokens.Ring.haloWidth }
+        return isSelected ? 2 : 1
+    }
+
+    private func keylineColor(handSelected: Bool, isLeader: Bool, isSelected: Bool, isSuggested: Bool) -> Color {
+        if handSelected {
+            return HiFiTokens.Ring.selection
+        }
+        if isSuggested {
+            return HiFiTokens.Ring.halo.opacity(HiFiTokens.Ring.haloOpacity)
         }
         if isSelected || isLeader {
             return Color.white.opacity(0.55)
-        }
-        if isSuggested {
-            return Color.white.opacity(0.28)
         }
         return Color.clear
     }
