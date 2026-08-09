@@ -51,6 +51,11 @@ python3 "$ROOT/Scripts/table_layout_test.py"
 echo "Table layout test: OK"
 echo ""
 
+echo "--- 4f/7 Crop latch (frame C) ---"
+swift "$ROOT/Scripts/crop_latch_test.swift"
+echo "Crop latch tests: OK"
+echo ""
+
 echo "--- 4b/7 UI-automation manifest checks (portable; runs on Linux too) ---"
 # Static validation of the XCUITest harness plumbing. These do NOT run any macOS UI tests — they
 # only confirm the runner script, test plans, and shared scheme are well-formed, so a Linux cloud

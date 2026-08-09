@@ -151,4 +151,39 @@ final class P0LogicTests: XCTestCase {
         let compression = TableLayout.comparisonCompression(pageSize: 4, hasSelection: true)
         XCTAssertGreaterThan(compression.focusScale, compression.neighborScale)
     }
+
+    // MARK: - Crop latch (frame C)
+
+    func testCropLayoutHashRestoration() {
+        let recipe = EditRecipe(
+            crop: EditCrop(x: 0.1, y: 0.1, width: 0.8, height: 0.6),
+            straightenDegrees: 1.0
+        )
+        var session = CropSession(photoID: UUID(), recipe: recipe)
+        let baselineHash = session.baseline.layoutHash
+        session.working.photoPanX = 0.4
+        session.working.straightenDegrees = 4.2
+        session.working.flipOrientation()
+        XCTAssertNotEqual(session.working.layoutHash, baselineHash)
+        session.revert()
+        XCTAssertEqual(session.working.layoutHash, baselineHash)
+    }
+
+    func testCropStraightenMagnet() {
+        var session = CropSession(photoID: UUID(), recipe: .neutral)
+        session.setStraighten(0.3)
+        XCTAssertEqual(session.working.straightenDegrees, 0, accuracy: 0.01)
+        session.setStraighten(2.5)
+        XCTAssertEqual(session.working.straightenDegrees, 2.5, accuracy: 0.01)
+    }
+
+    func testCropKeyScopeNeverStagesOrRejects() {
+        // Mirrors CommandHandlingModifier crop latch re-scoping (.cursorrules frame C).
+        XCTAssertNotEqual(CropSessionCopy.header(straightenDegrees: 0).contains("reject"), true)
+        var session = CropSession(photoID: UUID(), recipe: .neutral)
+        session.toggleAspectLock()
+        XCTAssertTrue(session.working.aspectUnlocked)
+        session.flipOrientation()
+        XCTAssertTrue(session.working.orientationFlipped)
+    }
 }
