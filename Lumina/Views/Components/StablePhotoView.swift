@@ -12,6 +12,8 @@ struct StablePhotoView: View {
     var isSelected: Bool = false
     var matte: Color? = nil
     var maxPixelSize: Int = 1600
+    /// Table fill-up — opacity/blur rise only at first embedded JPEG decode.
+    var tableBirth: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var boundAssetID: AssetID?
@@ -19,6 +21,9 @@ struct StablePhotoView: View {
     @State private var fidelity: Fidelity = .empty
     @State private var loadFailed = false
     @State private var requestGeneration = 0
+    @State private var birthComplete = false
+    @State private var birthVisible = false
+    @State private var upgradeBlur: CGFloat = 0
 
     private enum Fidelity: Int, Comparable {
         case empty = 0
@@ -54,6 +59,9 @@ struct StablePhotoView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityLabel)
             .task(id: asset.id) {
+                birthComplete = false
+                birthVisible = false
+                upgradeBlur = 0
                 await loadProgressive(for: asset)
             }
             .onChange(of: asset.previewPath) { _, _ in
@@ -71,7 +79,9 @@ struct StablePhotoView: View {
                 .resizable()
                 .interpolation(fidelity <= .silhouette ? .medium : .high)
                 .aspectRatio(contentMode: contentMode)
-                .transition(reduceMotion ? .identity : .opacity.animation(LuminaTokens.Motion.fidelity))
+                .opacity(tableBirth && !birthComplete && fidelity >= .preview ? (birthVisible ? 1 : 0) : 1)
+                .blur(radius: birthBlurRadius + upgradeBlur)
+                .offset(y: birthOffsetY)
         } else if loadFailed {
             Image(systemName: "photo")
                 .font(.system(size: 22, weight: .regular))
@@ -79,6 +89,16 @@ struct StablePhotoView: View {
         } else {
             LuminaTokens.Surface.secondary
         }
+    }
+
+    private var birthBlurRadius: CGFloat {
+        guard tableBirth, !birthComplete, !birthVisible, !reduceMotion else { return 0 }
+        return 14
+    }
+
+    private var birthOffsetY: CGFloat {
+        guard tableBirth, !birthComplete, !birthVisible, !reduceMotion else { return 0 }
+        return 10
     }
 
     @ViewBuilder
@@ -205,6 +225,43 @@ struct StablePhotoView: View {
 
     private func commit(image: NSImage, fidelity: Fidelity, reduceMotion: Bool) {
         if fidelity < self.fidelity { return }
+
+        if tableBirth {
+            if !birthComplete, fidelity >= .preview {
+                self.image = image
+                self.fidelity = fidelity
+                if reduceMotion {
+                    birthVisible = true
+                    birthComplete = true
+                    upgradeBlur = 8
+                    withAnimation(LuminaTokens.Motion.fidelityCrossfade) {
+                        upgradeBlur = 0
+                    }
+                } else {
+                    withAnimation(LuminaTokens.Motion.photoBirth) {
+                        birthVisible = true
+                    }
+                    birthComplete = true
+                }
+                return
+            }
+            if birthComplete {
+                let upgrading = fidelity > self.fidelity
+                self.image = image
+                self.fidelity = fidelity
+                if upgrading, reduceMotion {
+                    upgradeBlur = 8
+                    withAnimation(LuminaTokens.Motion.fidelityCrossfade) {
+                        upgradeBlur = 0
+                    }
+                }
+                return
+            }
+            self.image = image
+            self.fidelity = fidelity
+            return
+        }
+
         if reduceMotion {
             self.image = image
             self.fidelity = fidelity
