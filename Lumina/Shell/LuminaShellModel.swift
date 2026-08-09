@@ -58,6 +58,7 @@ final class LuminaShellModel {
     var routingFlightIDs: [AssetID] = []
     /// Latched crop inside focused edit — Esc dismisses, ⏎ applies (hi-fi frame C).
     var cropSession: CropSession?
+    private let developProposalEngine: DevelopProposalEngine = HistogramDevelopProposalEngine()
     private var previewAnimationTask: Task<Void, Never>?
     private var developPersistTask: Task<Void, Never>?
     private var receiptDismissTask: Task<Void, Never>?
@@ -203,13 +204,17 @@ final class LuminaShellModel {
     }
 
     /// Escape closes transient overlays — never dumps the workspace to Home.
-    func handleEscape() -> Bool {
+    func handleEscape(model: ProjectViewModel? = nil) -> Bool {
         if dismissCrop(revert: true) {
             return true
         }
         if workbenchSelection.staged != nil {
+            let wasDevelop = workbenchSelection.staged?.isDevelopStaging == true
             workbenchSelection.cancel()
             stagingCopySnapshot = nil
+            if wasDevelop, let model, let photoID = selectedAssetID ?? model.cursor {
+                loadDevelop(for: photoID, model: model)
+            }
             LuminaHaptics.alignment()
             return true
         }
@@ -515,6 +520,7 @@ final class LuminaShellModel {
         var setAsideCount = 0
         var holdCount = 0
         var treatCount = 0
+        var developCount = 0
 
         switch action {
         case .advance:
@@ -596,6 +602,26 @@ final class LuminaShellModel {
                     photoIDs: targets
                 )
             }
+
+        case .develop(let proposals):
+            for id in targets {
+                guard let proposal = proposals[id],
+                      let snapshot = model.photoRoutingSnapshot(for: id),
+                      let photo = model.photo(with: id) else { continue }
+                let priorEdit = photo.effectiveEditRecipe
+                entries.append(DecisionLedgerEntry(
+                    photoID: id,
+                    priorTier: snapshot.tier,
+                    priorFlagged: snapshot.isFlagged,
+                    priorUncertaintyKind: snapshot.uncertaintyKind,
+                    priorWhyUncertain: snapshot.whyUncertain,
+                    applied: .undecided,
+                    priorRecipe: model.appliedRecipe(for: photo),
+                    priorEditRecipe: priorEdit
+                ))
+                model.persistEditRecipe(proposal, for: id)
+                developCount += 1
+            }
         }
 
         guard !entries.isEmpty else { return nil }
@@ -607,6 +633,7 @@ final class LuminaShellModel {
         if setAsideCount > 0 { parts.append("Set aside \(setAsideCount)") }
         if holdCount > 0 { parts.append("Hold \(holdCount)") }
         if treatCount > 0 { parts.append(CopyContract.adaptedReceipt(count: treatCount)) }
+        if developCount > 0 { parts.append("Developed → \(developCount) · ⌘Z") }
         let text = parts.isEmpty ? "Round committed" : parts.joined(separator: " · ")
 
         let receipt = RoundReceipt(
@@ -1008,6 +1035,34 @@ final class LuminaShellModel {
         cropSession = session
     }
 
+    /// Stage a per-RAW develop proposal for the focused photograph (A key — hi-fi H4).
+    func stageDevelopProposal(for photoID: AssetID, model: ProjectViewModel) async {
+        guard let photo = model.photo(with: photoID),
+              let path = photo.previewPath ?? photo.thumbPath else { return }
+        let baseEdit = photo.effectiveEditRecipe
+        guard let proposal = await developProposalEngine.propose(imagePath: path, baseRecipe: baseEdit) else {
+            LuminaHaptics.light()
+            return
+        }
+
+        if !workbenchSelection.contains(photoID) {
+            workbenchSelection.gather(photoID)
+        }
+        selectedAssetID = photoID
+        model.setCursor(photoID)
+
+        let baseDevelop = model.appliedRecipe(for: photo)
+        developOffsets = DevelopAdjustments.from(proposal: proposal, base: baseDevelop)
+        treatmentPreviewMode = .current
+
+        guard workbenchSelection.stage(.develop(proposals: [photoID: proposal])) else {
+            LuminaHaptics.light()
+            return
+        }
+        refreshStagingCopy(model: model)
+        LuminaHaptics.decision()
+    }
+
     func refreshStagingCopy(model: ProjectViewModel) {
         guard workbenchSelection.staged != nil else {
             stagingCopySnapshot = nil
@@ -1019,7 +1074,7 @@ final class LuminaShellModel {
             presentation: presentation,
             excludedCount: 0,
             ring: .row,
-            isDevelop: isTreatmentStageOpen
+            isDevelop: workbenchSelection.staged?.isDevelopStaging == true
         )
     }
 }

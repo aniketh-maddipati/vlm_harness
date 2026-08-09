@@ -134,7 +134,7 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
 
             // Escape — workspace overlays / selection only (never dumps to Home).
             if event.keyCode == 53 {
-                _ = shell.handleEscape()
+                _ = shell.handleEscape(model: model)
                 return nil
             }
 
@@ -253,13 +253,21 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                 return nil
             }
 
+            // A — stage Develop proposal (decision key; swallows autorepeat — Law 3).
+            if !command && lower == "a" {
+                if shell.cropSession != nil { return nil }
+                if event.isARepeat { return nil }
+                if shell.isTreatmentStageOpen || !commandLayerActive {
+                    if let photoID = shell.selectedAssetID ?? model.cursor {
+                        Task { await shell.stageDevelopProposal(for: photoID, model: model) }
+                        return nil
+                    }
+                }
+            }
+
             // Legacy single-key routing when the command layer is idle (empty selection).
             if !command && !commandLayerActive {
                 switch lower {
-                case "a":
-                    if shell.cropSession != nil { return nil }
-                    shell.previewAutoTreatment(model: model)
-                    return nil
                 case "e":
                     shell.toggleDetailedEdits()
                     return nil

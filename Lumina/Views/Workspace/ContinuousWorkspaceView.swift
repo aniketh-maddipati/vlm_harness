@@ -240,8 +240,11 @@ struct ContinuousWorkspaceView: View {
                 .filter { $0 != leaderID }
                 .compactMap { asset(for: $0) }
             let stagedRecipe: DevelopRecipe? = {
-                if case .treat(let r) = selection?.staged { return r }
-                return nil
+                switch selection?.staged {
+                case .treat(let r): return r
+                case .develop: return baseRecipe.applying(developOffsets)
+                default: return nil
+                }
             }()
             let setAssets = presentation.groups
                 .first { group in group.assets.contains(where: { $0.id == leaderID }) }?
@@ -311,8 +314,10 @@ struct ContinuousWorkspaceView: View {
         let isHandling = selection?.isHandling == true
         let stagedAdvance = selection?.staged == .advance
         let stagedTreat = {
-            if case .treat = selection?.staged { return true }
-            return false
+            switch selection?.staged {
+            case .treat, .develop: return true
+            default: return false
+            }
         }()
         let receivingCount = stagedAdvance ? (selection?.count ?? 0) : 0
         // Width actually available to the ledger tray — rows size themselves

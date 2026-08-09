@@ -7,6 +7,13 @@ enum StagedAction: Equatable {
     case setAside
     case hold
     case treat(DevelopRecipe)
+    /// Per-photograph develop proposals — each RAW evaluated independently (hi-fi H4).
+    case develop(proposals: [AssetID: EditRecipe])
+
+    var isDevelopStaging: Bool {
+        if case .develop = self { return true }
+        return false
+    }
 }
 
 /// One undoable round of workbench decisions — one receipt, one ledger transaction.
@@ -210,6 +217,7 @@ final class WorkbenchSelection {
             case .setAside: text += ", staged to set aside"
             case .hold: text += ", staged to hold"
             case .treat: text += ", staged to treat"
+            case .develop: text += ", staged to develop"
             }
         }
         return text
