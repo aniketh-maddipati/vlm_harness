@@ -170,6 +170,12 @@ struct TreatmentStageView: View {
                 .frame(maxHeight: .infinity)
         }
         .background(LuminaTokens.Surface.table)
+        .overlay(alignment: .bottom) {
+            if let snapshot = stagingSnapshot, snapshot.isDevelop, stagedRecipe != nil {
+                StagedTreatmentBanner(snapshot: snapshot)
+                    .padding(.bottom, 24)
+            }
+        }
         .onExitCommand(perform: onClose)
     }
 
@@ -499,6 +505,12 @@ struct TreatmentStageView: View {
             // Preview modes and Auto edit each get their own space at the top.
             chipRow
                 .padding(.bottom, 8)
+            if cropSession == nil, stagingSnapshot?.isDevelop != true {
+                Text(CopyContract.developThisPhotograph)
+                    .font(LuminaTokens.Typeface.meta(11))
+                    .foregroundStyle(LuminaTokens.Ink.secondary)
+                    .padding(.bottom, 8)
+            }
             autoEditButton
                 .padding(.bottom, 12)
 

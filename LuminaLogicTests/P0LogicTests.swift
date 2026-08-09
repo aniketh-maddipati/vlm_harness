@@ -186,4 +186,35 @@ final class P0LogicTests: XCTestCase {
         session.flipOrientation()
         XCTAssertTrue(session.working.orientationFlipped)
     }
+
+    // MARK: - Develop staging (H4)
+
+    func testDevelopStagingActionIsDevelopFlag() {
+        let id = UUID()
+        let action = StagedAction.develop(proposals: [id: .neutral])
+        XCTAssertTrue(action.isDevelopStaging)
+        XCTAssertFalse(StagedAction.treat(.neutral).isDevelopStaging)
+    }
+
+    func testDevelopBannerA1ScopeCount() {
+        let snapshot = StagingCopySnapshot(scopeCount: 1, isDevelop: true)
+        let header = CopyContract.stagedHeader(snapshot)
+        let banner = CopyContract.developBanner(count: snapshot.scopeCount)
+        XCTAssertTrue(A1Invariant.validate(header: header, banner: banner, receipt: banner, snapshot: snapshot))
+    }
+
+    func testDevelopAdjustmentsFromProposal() {
+        var base = DevelopRecipe.neutral
+        base.exposure = 0.2
+        base.temperature = 6000
+        base.contrast = 10
+        var proposal = EditRecipe.neutral
+        proposal.exposure = 0.5
+        proposal.temperature = 5500
+        proposal.contrast = 20
+        let offsets = DevelopAdjustments.from(proposal: proposal, base: base)
+        XCTAssertEqual(offsets.exposure, 0.3, accuracy: 0.001)
+        XCTAssertEqual(offsets.temperature, -500, accuracy: 0.001)
+        XCTAssertEqual(offsets.contrast, 10, accuracy: 0.001)
+    }
 }

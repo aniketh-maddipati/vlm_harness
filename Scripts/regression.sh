@@ -51,6 +51,11 @@ python3 "$ROOT/Scripts/table_layout_test.py"
 echo "Table layout test: OK"
 echo ""
 
+echo "--- 4g/7 Develop staging (A key) ---"
+swift "$ROOT/Scripts/develop_staging_test.swift"
+echo "Develop staging tests: OK"
+echo ""
+
 echo "--- 4f/7 Crop latch (frame C) ---"
 swift "$ROOT/Scripts/crop_latch_test.swift"
 echo "Crop latch tests: OK"

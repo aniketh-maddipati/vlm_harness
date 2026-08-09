@@ -60,6 +60,7 @@ enum CopyContract {
     static let tableFooterHover = "P keep · X out · ⏎ edit · Space loupe · drag to move (hover)"
     static let tableFooterShortcuts = "P · X · arrows · ⏎ edit · ? all shortcuts"
     static let editFooterShortcuts = "A develop · Tab arms · ⌥←→ adjusts · ⏎ done, next kept · ? all shortcuts"
+    static let developThisPhotograph = "Develop this photograph · A"
 
     // MARK: - Export
 
