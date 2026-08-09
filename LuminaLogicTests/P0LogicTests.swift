@@ -217,4 +217,27 @@ final class P0LogicTests: XCTestCase {
         XCTAssertEqual(offsets.temperature, -500, accuracy: 0.001)
         XCTAssertEqual(offsets.contrast, 10, accuracy: 0.001)
     }
+
+    // MARK: - Table hand selection (H5)
+
+    func testTablePhotographSelectionCrossRow() {
+        let a = UUID(), b = UUID(), c = UUID()
+        var sel = TablePhotographSelection()
+        sel.rubberBand([a, c])
+        XCTAssertEqual(sel.count, 2)
+        sel.extend(in: [a, b, c], to: b)
+        XCTAssertTrue(sel.set.contains(b))
+        XCTAssertEqual(sel.count, 3)
+    }
+
+    func testDevelopBannerCrossRowCount() {
+        let snapshot = StagingCopySnapshot(scopeCount: 4, isDevelop: true)
+        let banner = CopyContract.developBanner(count: snapshot.scopeCount)
+        XCTAssertTrue(A1Invariant.validate(
+            header: CopyContract.stagedHeader(snapshot),
+            banner: banner,
+            receipt: banner,
+            snapshot: snapshot
+        ))
+    }
 }

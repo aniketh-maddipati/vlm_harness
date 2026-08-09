@@ -51,6 +51,11 @@ python3 "$ROOT/Scripts/table_layout_test.py"
 echo "Table layout test: OK"
 echo ""
 
+echo "--- 4h/7 Table hand-selection (frame D) ---"
+swift "$ROOT/Scripts/table_selection_test.swift"
+echo "Table selection tests: OK"
+echo ""
+
 echo "--- 4g/7 Develop staging (A key) ---"
 swift "$ROOT/Scripts/develop_staging_test.swift"
 echo "Develop staging tests: OK"

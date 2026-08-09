@@ -67,6 +67,16 @@ While `cropSession` is latched inside Edit, decision keys are **re-scoped** — 
 
 Trackpad / pointer drag still only **moves**: inside boundary = pan photograph; outside = rotate with alignment grid (grid visible only while dragging outside). Navigating away from Edit dismisses crop like Esc.
 
+### Hand selection + drag-box Develop (frame D)
+
+- **Selection model** (`TablePhotographSelection`): whole photographs across rows — row scope ignored for the user's hand.
+- **Rubber-band** on empty table space selects every touched photograph — trackpad act only, never commits.
+- **⇧← / ⇧→** extend selection along table order from the focused frame.
+- **Rings**: user hand = `HiFiTokens.Ring.selection` (charcoal); table proposal halo = `HiFiTokens.Ring.halo` (warm-white) — must stay distinct (`assertDistinctSelectionAndHalo`).
+- **A** with selection stages Develop → N with independent proposals per RAW; empty selection falls back to focused frame.
+- **Click** while staged toggles a member in/out; edited frames may be included — prior edit folds into one ⌘Z.
+- **Esc** clears stage first, then selection; navigating away or commit also clears selection.
+
 ### 90 px halo (OPEN)
 
 Ship the plain 1.5 pt halo. Both fallbacks stay mocked and unpicked. The brighter-ring fallback lives behind a debug flag only.
