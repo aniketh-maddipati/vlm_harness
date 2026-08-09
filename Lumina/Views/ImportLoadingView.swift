@@ -72,7 +72,7 @@ struct ImportLoadingView: View {
             .animation(LuminaAtmosphere.Motion.settle, value: progress.overallFraction)
 
             HStack {
-                Text(isFinishing ? "Opening the shoot" : "Previews arrive as we read")
+                Text(isFinishing ? "Opening the shoot" : CopyContract.copyingOriginals)
                     .font(LuminaAtmosphere.Typeface.caption(11))
                     .foregroundStyle(LuminaAtmosphere.breath)
                 Spacer()

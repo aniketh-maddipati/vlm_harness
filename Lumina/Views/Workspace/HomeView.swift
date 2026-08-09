@@ -99,10 +99,19 @@ struct HomeView: View {
                 .font(LuminaTokens.Typeface.editorial(28))
                 .foregroundStyle(LuminaTokens.Ink.primary)
 
-            Text("Open a shoot folder to begin reviewing photographs.")
+            Text(CopyContract.dropPhotographsOrFolder)
                 .font(LuminaTokens.Typeface.body(17))
                 .foregroundStyle(LuminaTokens.Ink.secondary)
                 .lineSpacing(LuminaTokens.Typeface.bodyLineSpacing)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(CopyContract.nothingLeavesMac)
+                .font(LuminaTokens.Typeface.meta(13))
+                .foregroundStyle(LuminaTokens.Ink.tertiary)
+
+            Text(CopyContract.groupingVisibleMotion)
+                .font(LuminaTokens.Typeface.meta(13))
+                .foregroundStyle(LuminaTokens.Ink.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
             LuminaTextActionButton(title: "Open shoot", prominent: true, action: onOpenShoot)
