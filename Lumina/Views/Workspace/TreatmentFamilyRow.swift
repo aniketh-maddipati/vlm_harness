@@ -80,16 +80,8 @@ struct TreatmentFamilyRow: View {
                 compactStrip
             }
         }
-        .padding(.leading, group.isSiblingContinuation ? LuminaTokens.Spacing.lg : 0)
-        .overlay(alignment: .leading) {
-            if group.isSiblingContinuation {
-                Rectangle()
-                    .fill(Color.white.opacity(0.18))
-                    .frame(width: 2)
-                    .padding(.vertical, LuminaTokens.Spacing.xs)
-            }
-        }
-        .padding(.vertical, isExpanded && isActive ? LuminaTokens.Spacing.md : LuminaTokens.Spacing.xs)
+        .padding(.leading, group.isSiblingContinuation ? LuminaTokens.Spacing.md : 0)
+        .padding(.vertical, isExpanded && isActive ? LuminaTokens.Spacing.sm : LuminaTokens.Spacing.xs)
         .contentShape(Rectangle())
         .onTapGesture(count: 1) { onSelect() }
         .onChange(of: selectedID) { _, newID in
@@ -182,9 +174,7 @@ struct TreatmentFamilyRow: View {
 
     /// How many compact tiles genuinely fit across the row.
     private var compactVisibleCount: Int {
-        guard availableWidth > 0 else { return 6 }
-        let tile = 104 + LuminaTokens.Spacing.xs
-        return min(max(Int((availableWidth - 60) / tile), 4), 12)
+        TableLayout.compactVisibleCount(availableWidth: availableWidth)
     }
 
     private var compactStrip: some View {
@@ -208,26 +198,23 @@ struct TreatmentFamilyRow: View {
         let photos = pagePhotos
         let gap: CGFloat = 16
         let mat: CGFloat = 12
-        let n = CGFloat(max(pageSize, 1))
-        // Justify the page to the available width: tiles share it equally,
-        // clamped so small windows never crush and huge displays never blow
-        // decode budgets. Falls back to the fixed sizes when width is unknown.
-        let baseW: CGFloat = {
-            guard availableWidth > 0 else { return twoUp ? 480 : 336 }
-            let per = (availableWidth - gap * (n - 1)) / n - mat * 2
-            return min(max(per, 280), 720)
-        }()
-        // Focused tile grows ~22% larger; neighbors shrink slightly so the
-        // row still fits. The selected photograph is the visual focus.
-        let focusBoost: CGFloat = 1.22
-        let neighborScale: CGFloat = photos.contains(where: { $0.id == selectedID })
-            ? (n > 1 ? (n - focusBoost) / (n - 1) : 1) : 1
-        let focusH = (baseW * focusBoost * 2 / 3).rounded()
+        let baseW = TableLayout.comparisonTileWidth(
+            availableWidth: availableWidth,
+            pageSize: pageSize,
+            twoUp: twoUp,
+            gap: gap,
+            mat: mat
+        )
+        let compression = TableLayout.comparisonCompression(
+            pageSize: pageSize,
+            hasSelection: photos.contains(where: { $0.id == selectedID })
+        )
+        let focusH = (baseW * compression.focusScale * 2 / 3).rounded()
 
         return HStack(alignment: .center, spacing: gap) {
             ForEach(photos) { asset in
                 let focused = asset.id == selectedID
-                let tileW = (focused ? baseW * focusBoost : baseW * neighborScale).rounded()
+                let tileW = (focused ? baseW * compression.focusScale : baseW * compression.neighborScale).rounded()
                 let tileH = (tileW * 2 / 3).rounded()
                 photoTile(asset: asset, width: tileW, height: tileH, mat: focused ? mat + 2 : mat)
                     .scaleEffect(focused ? 1.02 : 0.96)
@@ -290,11 +277,19 @@ struct TreatmentFamilyRow: View {
                         contentMode: .fit,
                         showDecisionBadge: false,
                         isSelected: false,
-                        maxPixelSize: isExpanded ? 2048 : 768
+                        maxPixelSize: isExpanded ? 2048 : 768,
+                        tableBirth: true
                     )
                     .frame(width: width, height: height)
                     .aspectRatio(asset.aspectRatio, contentMode: .fit)
                     .padding(mat)
+
+                    if let provenance = asset.adaptProvenance {
+                        EditProvenanceChip(provenance: provenance)
+                            .padding(mat + 4)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                            .allowsHitTesting(false)
+                    }
 
                     if inSet || onHoldMark {
                         Text(asset.decision.quietMarker)

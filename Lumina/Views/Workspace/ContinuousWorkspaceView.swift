@@ -66,7 +66,6 @@ struct ContinuousWorkspaceView: View {
     @State private var dragOriginFraction: Double?
     @State private var forceTwoUp = false
     @State private var savedStoryFractionForEdit: Double?
-    @State private var tableFooterHovered = false
 
     private var selectedID: AssetID? {
         selection?.leader ?? presentation.selectedAssetID
@@ -426,15 +425,6 @@ struct ContinuousWorkspaceView: View {
                     .zIndex(16)
                     .transition(.opacity)
             }
-
-            if workspaceStage == .workbench, !isTreatmentStageOpen {
-                Text(tableFooterHovered ? CopyContract.tableFooterHover : CopyContract.tableFooterShortcuts)
-                    .font(LuminaTokens.Typeface.meta(11))
-                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary.opacity(0.72))
-                    .padding(.bottom, 8)
-                    .accessibilityHidden(true)
-                    .onHover { tableFooterHovered = $0 }
-            }
         }
         .animation(reduceMotion ? nil : LuminaTokens.Motion.stage, value: selection?.staged)
     }
@@ -760,96 +750,139 @@ struct WorkbenchLedgerView: View {
     /// Two across when the story pane is wide; otherwise as many 300 pt+
     /// tiles as the tray genuinely fits (3–5).
     private var responsivePageSize: Int {
-        if twoUp { return 2 }
-        guard availableWidth > 0 else { return 3 }
-        let fits = Int((availableWidth - 60 + 16) / (300 + 16))
-        return min(max(fits, 3), 5)
+        TableLayout.responsivePageSize(twoUp: twoUp, availableWidth: availableWidth)
     }
 
+    @State private var tableHovered = false
+    @State private var hoverHintOpacity: Double = 0
+
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: LuminaTokens.Spacing.md) {
-                    ForEach(presentation.groups) { group in
-                        let isActive = group.id == presentation.selectedGroupID
-                        let selected = presentation.selectedAssetID
-                        let suggested = group.captureOrderedAssets.first(where: { $0.decision == .undecided })?.id
-                        let expanded = isActive && isRowExpanded
-
-                        VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
-                            TreatmentFamilyRow(
-                                group: group,
-                                isActive: isActive,
-                                isExpanded: expanded,
-                                selectedID: isActive ? selected : nil,
-                                suggestedStartID: suggested,
-                                projectName: projectName,
-                                baseRecipe: baseRecipe,
-                                developOffsets: effectiveOffsets,
-                                previewMix: stackPreviewMix,
-                                rowPreviewActive: rowPreviewActive && isActive,
-                                routingNamespace: routingNamespace,
-                                routingFlightID: routingFlightID,
-                                routingFlightIDs: routingFlightIDs,
-                                showDecisionShelf: false,
-                                gatheredIDs: isActive ? gatheredIDs : [],
-                                leaderID: isActive ? leaderID : nil,
-                                isHandling: isHandling && isActive,
-                                stagedAdvance: stagedAdvance && isActive,
-                                pageSize: responsivePageSize,
-                                availableWidth: max(availableWidth - 60, 0),
-                                twoUp: twoUp,
-                                reduceMotion: reduceMotion,
-                                travelAnimation: travelAnimation,
-                                onSelect: { onSelectGroup(group.id) },
-                                onSelectPhoto: { onSelectPhoto(group.id, $0) },
-                                onGatherPhoto: onGatherPhoto,
-                                onDoubleTapPhoto: onFocusPhoto,
-                                onCommandDoubleTap: onOpenTreatment,
-                                onAddToSet: { onAddToSet($0, group.id) },
-                                onSetAside: { onSetAside($0, group.id) },
-                                onHold: { onHold($0, group.id) },
-                                onRestore: onRestore
-                            )
-                            .frame(minHeight: expanded ? 480 : nil)
-                            .frame(maxHeight: expanded ? .infinity : nil)
-
-                            if expanded {
-                                ContextualTreatmentStrip(
-                                    previewMode: $treatmentPreviewMode,
-                                    offsets: Binding(
-                                        get: { developOffsets },
-                                        set: { newValue in
-                                            developOffsets = newValue
-                                            onDevelopChange(newValue)
-                                        }
-                                    ),
-                                    showDetailed: $showDetailedEdits,
-                                    rowPreviewActive: rowPreviewActive,
-                                    onPreviewRow: onPreviewEdits,
-                                    onReset: {
-                                        developOffsets = .zero
-                                        onDevelopChange(.zero)
-                                        treatmentPreviewMode = .current
+        ZStack(alignment: .bottom) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: LuminaTokens.Spacing.md) {
+                        ForEach(TableLayout.swimLaneUnits(from: presentation.groups)) { unit in
+                            SwimLaneContainer(
+                                laneHeader: unit.laneHeader,
+                                sceneBreakBefore: unit.sceneBreakBefore
+                            ) {
+                                VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
+                                    ForEach(unit.groups) { group in
+                                        rowBlock(for: group)
+                                            .id(group.id)
                                     }
-                                )
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.bottom, 10)
                             }
                         }
-                        .id(group.id)
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, LuminaTokens.Spacing.md)
+                }
+                .background(Color.clear)
+                .onHover { hovering in
+                    tableHovered = hovering
+                    withAnimation(hovering ? LuminaTokens.Motion.tableHoverIn : LuminaTokens.Motion.tableHoverOut) {
+                        hoverHintOpacity = hovering ? 1 : 0
                     }
                 }
-                .padding(.horizontal, 30)
-                .padding(.vertical, LuminaTokens.Spacing.md)
-            }
-            .background(Color.clear)
-            .onChange(of: presentation.selectedGroupID) { _, new in
-                guard let new else { return }
-                withAnimation(LuminaTokens.Motion.selection) {
-                    proxy.scrollTo(new, anchor: .center)
+                .onChange(of: presentation.selectedGroupID) { _, new in
+                    guard let new else { return }
+                    withAnimation(LuminaTokens.Motion.selection) {
+                        proxy.scrollTo(new, anchor: .center)
+                    }
+                }
+                .onAppear {
+                    if let scrollAnchor { proxy.scrollTo(scrollAnchor, anchor: .center) }
                 }
             }
-            .onAppear {
-                if let scrollAnchor { proxy.scrollTo(scrollAnchor, anchor: .center) }
+
+            tableFooterChrome
+        }
+    }
+
+    private var tableFooterChrome: some View {
+        ZStack(alignment: .bottomLeading) {
+            Text(CopyContract.tableFooterShortcuts)
+                .font(LuminaTokens.Typeface.meta(11))
+                .foregroundStyle(LuminaTokens.Ink.onTableSecondary.opacity(0.72))
+            Text(CopyContract.tableFooterHover)
+                .font(LuminaTokens.Typeface.meta(11))
+                .foregroundStyle(LuminaTokens.Ink.onTableSecondary.opacity(0.92))
+                .opacity(hoverHintOpacity)
+        }
+        .padding(.horizontal, 30)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func rowBlock(for group: GroupPresentation) -> some View {
+        let isActive = group.id == presentation.selectedGroupID
+        let selected = presentation.selectedAssetID
+        let suggested = group.captureOrderedAssets.first(where: { $0.decision == .undecided })?.id
+        let expanded = isActive && isRowExpanded
+
+        VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
+            TreatmentFamilyRow(
+                group: group,
+                isActive: isActive,
+                isExpanded: expanded,
+                selectedID: isActive ? selected : nil,
+                suggestedStartID: suggested,
+                projectName: projectName,
+                baseRecipe: baseRecipe,
+                developOffsets: effectiveOffsets,
+                previewMix: stackPreviewMix,
+                rowPreviewActive: rowPreviewActive && isActive,
+                routingNamespace: routingNamespace,
+                routingFlightID: routingFlightID,
+                routingFlightIDs: routingFlightIDs,
+                showDecisionShelf: false,
+                gatheredIDs: isActive ? gatheredIDs : [],
+                leaderID: isActive ? leaderID : nil,
+                isHandling: isHandling && isActive,
+                stagedAdvance: stagedAdvance && isActive,
+                pageSize: responsivePageSize,
+                availableWidth: max(availableWidth - 60, 0),
+                twoUp: twoUp,
+                reduceMotion: reduceMotion,
+                travelAnimation: travelAnimation,
+                onSelect: { onSelectGroup(group.id) },
+                onSelectPhoto: { onSelectPhoto(group.id, $0) },
+                onGatherPhoto: onGatherPhoto,
+                onDoubleTapPhoto: onFocusPhoto,
+                onCommandDoubleTap: onOpenTreatment,
+                onAddToSet: { onAddToSet($0, group.id) },
+                onSetAside: { onSetAside($0, group.id) },
+                onHold: { onHold($0, group.id) },
+                onRestore: onRestore
+            )
+            .frame(minHeight: expanded ? 480 : nil)
+            .frame(maxHeight: expanded ? .infinity : nil)
+
+            if expanded {
+                ContextualTreatmentStrip(
+                    previewMode: $treatmentPreviewMode,
+                    offsets: Binding(
+                        get: { developOffsets },
+                        set: { newValue in
+                            developOffsets = newValue
+                            onDevelopChange(newValue)
+                        }
+                    ),
+                    showDetailed: $showDetailedEdits,
+                    rowPreviewActive: rowPreviewActive,
+                    onPreviewRow: onPreviewEdits,
+                    onReset: {
+                        developOffsets = .zero
+                        onDevelopChange(.zero)
+                        treatmentPreviewMode = .current
+                    }
+                )
             }
         }
     }

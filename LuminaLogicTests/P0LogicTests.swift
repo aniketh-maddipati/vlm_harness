@@ -109,4 +109,46 @@ final class P0LogicTests: XCTestCase {
         let receipt = CopyContract.adaptedReceipt(count: snapshot.scopeCount)
         XCTAssertTrue(A1Invariant.validate(header: header, banner: banner, receipt: receipt, snapshot: snapshot))
     }
+
+    // MARK: - Table layout (swim lanes, wrap-shares-lane, geometry)
+
+    func testSwimLaneWrapSharesLane() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = start.addingTimeInterval(8 * 60)
+        let part1 = GroupPresentation(
+            id: "p1",
+            title: "Set 1",
+            assets: [],
+            timeStart: start,
+            timeEnd: end,
+            siblingGroupID: "lane-a",
+            siblingPartIndex: 1,
+            siblingPartCount: 2
+        )
+        let part2 = GroupPresentation(
+            id: "p2",
+            title: "Set 1 continued",
+            assets: [],
+            timeStart: end.addingTimeInterval(60),
+            timeEnd: end.addingTimeInterval(9 * 60),
+            siblingGroupID: "lane-a",
+            siblingPartIndex: 2,
+            siblingPartCount: 2
+        )
+        let units = TableLayout.swimLaneUnits(from: [part1, part2])
+        XCTAssertEqual(units.count, 1)
+        XCTAssertEqual(units[0].groups.count, 2)
+        XCTAssertEqual(units[0].laneHeader, CopyContractBuilder.laneTimestamp(from: start))
+        XCTAssertTrue(TableLayout.wrapSharesLane(part2))
+    }
+
+    func testTableLayoutGeometry() {
+        XCTAssertEqual(TableLayout.responsivePageSize(twoUp: true, availableWidth: 1400), 2)
+        XCTAssertGreaterThanOrEqual(TableLayout.compactVisibleCount(availableWidth: 900), 4)
+        let width = TableLayout.comparisonTileWidth(availableWidth: 1100, pageSize: 4, twoUp: false)
+        XCTAssertGreaterThanOrEqual(width, 280)
+        XCTAssertLessThanOrEqual(width, 720)
+        let compression = TableLayout.comparisonCompression(pageSize: 4, hasSelection: true)
+        XCTAssertGreaterThan(compression.focusScale, compression.neighborScale)
+    }
 }

@@ -161,4 +161,20 @@ if let enumerator = FileManager.default.enumerator(at: luminaURL, includingPrope
 }
 pass("No legacy pre-H1 staged/receipt strings in Lumina")
 
+# MARK: - Table layout contract (H2)
+
+guard FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Lumina/Design/TableLayout.swift").path) else {
+    fail("Lumina/Design/TableLayout.swift missing")
+}
+guard let stablePhoto = read("Lumina/Views/Components/StablePhotoView.swift") else {
+    fail("Lumina/Views/Components/StablePhotoView.swift missing")
+}
+if stablePhoto.contains(".transition(.opacity.animation(LuminaTokens.Motion.fidelity))") {
+    fail("StablePhotoView still uses post-birth photograph opacity transition")
+}
+guard stablePhoto.contains("tableBirth"), stablePhoto.contains("photoBirth") else {
+    fail("StablePhotoView missing tableBirth / photoBirth landing path")
+}
+pass("Table photograph opacity animation limited to birth landing")
+
 print("Prompt-9 audit: all checks passed")

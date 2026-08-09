@@ -47,7 +47,15 @@ enum PresentationAdapter {
     }
 
     static func asset(from photo: PhotoRecord) -> AssetPresentation {
-        AssetPresentation(
+        var provenance: AdaptProvenance?
+        if let frame = photo.adaptReferenceFrame, let count = photo.adaptScopeCount {
+            provenance = AdaptProvenance(
+                referenceFrame: frame,
+                scopeCount: count,
+                isReference: photo.isAdaptReference
+            )
+        }
+        return AssetPresentation(
             id: photo.id,
             filename: photo.filename,
             aspectRatio: inferredAspect(for: photo),
@@ -58,7 +66,8 @@ enum PresentationAdapter {
             isProtected: photo.isBurstHero || photo.isClusterHero,
             caption: photo.clusterLabel,
             qualityScore: photo.cullScore,
-            capturedAt: photo.capturedAt
+            capturedAt: photo.capturedAt,
+            adaptProvenance: provenance
         )
     }
 

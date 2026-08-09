@@ -219,4 +219,22 @@ for path in (ROOT / "Lumina").rglob("*.swift"):
 
 pass_("Hi-fi copy surfaces route through CopyContract")
 
+# MARK: - Table birth motion (H2) — opacity only at first decode
+
+stable_photo = read("Lumina/Views/Components/StablePhotoView.swift")
+if stable_photo is None:
+    fail("Lumina/Views/Components/StablePhotoView.swift missing")
+if ".transition(.opacity.animation(LuminaTokens.Motion.fidelity))" in stable_photo:
+    fail("StablePhotoView still uses post-birth photograph opacity transition")
+if "tableBirth" not in stable_photo or "photoBirth" not in stable_photo:
+    fail("StablePhotoView missing tableBirth / photoBirth landing path")
+
+table_row = read("Lumina/Views/Workspace/TreatmentFamilyRow.swift")
+if table_row is None:
+    fail("Lumina/Views/Workspace/TreatmentFamilyRow.swift missing")
+if "tableBirth: true" not in table_row:
+    fail("TreatmentFamilyRow must enable per-arrival table birth landing")
+
+pass_("Table photograph opacity animation limited to birth landing")
+
 print("Prompt-9 audit: all checks passed")

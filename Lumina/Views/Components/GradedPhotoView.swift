@@ -13,6 +13,7 @@ struct GradedPhotoView: View {
     var isSelected: Bool = false
     var isLead: Bool = false
     var maxPixelSize: Int = 1200
+    var tableBirth: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var gradedImage: NSImage?
@@ -35,7 +36,8 @@ struct GradedPhotoView: View {
                 showDecisionBadge: showDecisionBadge && !useGraded,
                 isSelected: isSelected,
                 matte: LuminaTokens.Surface.well,
-                maxPixelSize: maxPixelSize
+                maxPixelSize: maxPixelSize,
+                tableBirth: tableBirth
             )
             .opacity(useGraded ? Double(1 - previewMix) : 1)
 
