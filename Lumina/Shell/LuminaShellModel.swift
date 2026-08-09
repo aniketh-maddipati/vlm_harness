@@ -56,6 +56,8 @@ final class LuminaShellModel {
     var routingFlightID: AssetID?
     /// Grouped flight proxy for a multi-photo Advance stack.
     var routingFlightIDs: [AssetID] = []
+    /// Latched crop inside focused edit — Esc dismisses, ⏎ applies (hi-fi frame C).
+    var cropSession: CropSession?
     private var previewAnimationTask: Task<Void, Never>?
     private var developPersistTask: Task<Void, Never>?
     private var receiptDismissTask: Task<Void, Never>?
@@ -97,6 +99,7 @@ final class LuminaShellModel {
     private var cachedFinish: FinishPresentation?
 
     func openHome() {
+        dismissCrop(revert: true)
         route = .home
         isFocusMode = false
         showInspector = false
@@ -119,6 +122,7 @@ final class LuminaShellModel {
 
     func setWorkspaceStage(_ stage: WorkspaceStage) {
         guard stage != workspaceStage else { return }
+        dismissCrop(revert: true)
         if workspaceStage == .workbench {
             workbenchScrollAnchor = selectedGroupID
         } else if workspaceStage == .canvas {
@@ -200,6 +204,9 @@ final class LuminaShellModel {
 
     /// Escape closes transient overlays — never dumps the workspace to Home.
     func handleEscape() -> Bool {
+        if dismissCrop(revert: true) {
+            return true
+        }
         if workbenchSelection.staged != nil {
             workbenchSelection.cancel()
             stagingCopySnapshot = nil
@@ -207,6 +214,7 @@ final class LuminaShellModel {
             return true
         }
         if isTreatmentStageOpen {
+            dismissCrop(revert: true)
             isTreatmentStageOpen = false
             return true
         }
@@ -636,7 +644,9 @@ final class LuminaShellModel {
                 uncertaintyKind: entry.priorUncertaintyKind,
                 whyUncertain: entry.priorWhyUncertain
             )
-            if let priorRecipe = entry.priorRecipe {
+            if let priorEdit = entry.priorEditRecipe {
+                model.persistEditRecipe(priorEdit, for: entry.photoID)
+            } else if let priorRecipe = entry.priorRecipe {
                 model.persistRecipe(priorRecipe, for: entry.photoID)
             } else if entry.appliedRecipe != nil {
                 model.clearRecipe(for: entry.photoID)
@@ -710,6 +720,7 @@ final class LuminaShellModel {
     }
 
     func closeTreatmentStage() {
+        dismissCrop(revert: true)
         isTreatmentStageOpen = false
     }
 
@@ -938,6 +949,63 @@ final class LuminaShellModel {
         ThumbCache.shared.prefetchPaths(neighborPaths, maxPixelSize: 2048)
         let rowPaths = ordered.prefix(8).compactMap { $0.previewPath ?? $0.thumbPath }
         ThumbCache.shared.prefetchPaths(rowPaths, maxPixelSize: 768)
+    }
+
+    func enterCrop(for photoID: AssetID, model: ProjectViewModel) {
+        guard let photo = model.photo(with: photoID) else { return }
+        cropSession = CropSession(photoID: photoID, recipe: photo.effectiveEditRecipe)
+    }
+
+    func applyCrop(model: ProjectViewModel) {
+        guard let session = cropSession,
+              let photo = model.photo(with: session.photoID),
+              let snapshot = model.photoRoutingSnapshot(for: session.photoID) else { return }
+        let priorEdit = photo.effectiveEditRecipe
+        let merged = session.working.merged(into: priorEdit)
+        let entry = DecisionLedgerEntry(
+            photoID: session.photoID,
+            priorTier: snapshot.tier,
+            priorFlagged: snapshot.isFlagged,
+            priorUncertaintyKind: snapshot.uncertaintyKind,
+            priorWhyUncertain: snapshot.whyUncertain,
+            applied: .undecided,
+            priorRecipe: model.appliedRecipe(for: photo),
+            priorEditRecipe: priorEdit
+        )
+        model.persistEditRecipe(merged, for: session.photoID)
+        lastRoundReceipt = RoundReceipt(
+            id: UUID(),
+            text: "Crop applied",
+            entries: [entry],
+            priorEmergingOrder: model.emergingSetPresentations().map(\.id)
+        )
+        cropSession = nil
+        LuminaHaptics.decision()
+    }
+
+    /// Dismiss latched crop — optionally revert working state to entry baseline (Esc / navigate away).
+    @discardableResult
+    func dismissCrop(revert: Bool) -> Bool {
+        guard cropSession != nil else { return false }
+        if revert, var session = cropSession {
+            session.revert()
+            cropSession = session
+        }
+        cropSession = nil
+        LuminaHaptics.alignment()
+        return true
+    }
+
+    func cropToggleAspectLock() {
+        guard var session = cropSession else { return }
+        session.toggleAspectLock()
+        cropSession = session
+    }
+
+    func cropFlipOrientation() {
+        guard var session = cropSession else { return }
+        session.flipOrientation()
+        cropSession = session
     }
 
     func refreshStagingCopy(model: ProjectViewModel) {

@@ -28,6 +28,8 @@ struct DecisionLedgerEntry: Equatable, Identifiable {
     let applied: AssetDecision
     let priorRecipe: DevelopRecipe?
     let appliedRecipe: DevelopRecipe?
+    /// Canonical edit recipe before a geometry commit (crop undo).
+    let priorEditRecipe: EditRecipe?
 
     init(
         id: UUID = UUID(),
@@ -38,7 +40,8 @@ struct DecisionLedgerEntry: Equatable, Identifiable {
         priorWhyUncertain: String?,
         applied: AssetDecision,
         priorRecipe: DevelopRecipe? = nil,
-        appliedRecipe: DevelopRecipe? = nil
+        appliedRecipe: DevelopRecipe? = nil,
+        priorEditRecipe: EditRecipe? = nil
     ) {
         self.id = id
         self.photoID = photoID
@@ -49,6 +52,7 @@ struct DecisionLedgerEntry: Equatable, Identifiable {
         self.applied = applied
         self.priorRecipe = priorRecipe
         self.appliedRecipe = appliedRecipe
+        self.priorEditRecipe = priorEditRecipe
     }
 }
 
