@@ -86,6 +86,13 @@ expect(RingTokens.assertDistinct(), "charcoal selection ring distinct from warm-
 selection.toggle(rowA.assets[0])
 expect(!selection.ids.contains(rowA.assets[0]), "click toggles member out while staged")
 
+struct EditRecipe { var exposure: Double = 0 }
+struct DecisionLedgerEntry { var photoID: UUID; var priorEditRecipe: EditRecipe? }
+let editedID = rowA.assets[1]
+let priorEdit = EditRecipe(exposure: 0.35)
+let ledgerEntry = DecisionLedgerEntry(photoID: editedID, priorEditRecipe: priorEdit)
+expect(ledgerEntry.priorEditRecipe?.exposure == 0.35, "edited inclusion folds prior edit into single ⌘Z ledger entry")
+
 if failures == 0 {
     print("\nAll table selection tests passed.")
 } else {

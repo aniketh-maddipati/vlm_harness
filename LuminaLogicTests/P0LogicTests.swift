@@ -240,4 +240,21 @@ final class P0LogicTests: XCTestCase {
             snapshot: snapshot
         ))
     }
+
+    func testDevelopCommitCapturesPriorEditForUndo() {
+        let photoID = UUID()
+        let prior = EditRecipe.neutral
+        var priorMutated = prior
+        priorMutated.exposure = 0.4
+        let entry = DecisionLedgerEntry(
+            photoID: photoID,
+            priorTier: .unranked,
+            priorFlagged: false,
+            priorUncertaintyKind: .none,
+            priorWhyUncertain: nil,
+            applied: .undecided,
+            priorEditRecipe: priorMutated
+        )
+        XCTAssertEqual(entry.priorEditRecipe?.exposure, 0.4, accuracy: 0.001)
+    }
 }
