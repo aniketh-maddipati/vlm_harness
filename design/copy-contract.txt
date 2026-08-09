@@ -1,0 +1,66 @@
+# Lumina hi-fi copy contract — frozen inventory
+# Source: design/hifi.pdf (transcribed verbatim; tags preserved)
+# Banner, header, and receipt strings in the app MUST come from here via CopyContract.
+
+## OPEN
+
+[P] ON THE TABLE · FINISHED
+[P+V] 38 of 109 undecided · Continue culling ⏎
+[P+V] 10 kept · 3 edited · Continue editing ⏎
+[P+V] Culled to 10 · Export ⌘E
+[P] table exactly as you left it
+[V] ✓ exported · 10 written
+[PL] files stay where they are · edits in open sidecars · this shoot opens in Lightroom as-is
+[P] nothing leaves this Mac
+[P] Insert a card — the shoot lands on the table
+[P] copies automatically · safe to eject when ✓ appears
+[P] Point at a folder ⏎
+[P] drop photographs or a folder anywhere
+[P] grouping happens in front of you, in visible motion
+
+## TABLE
+
+[V] 17:12 · 17:36 · 18:17 (lane headers)
+[V] + 41 min (scene break)
+[V] 1/250 · f/2.8 · iso 400 · 35 mm · 17:36
+[P] P · X · arrows · ⏎ edit · ? all shortcuts
+[P] back where you left it · 38 undecided
+[P+V] 6/8 kept · 2 out · resume = first undecided frame
+[P] P keep · X out · ⏎ edit · Space loupe · drag to move (hover)
+[P+V] copying originals · work while it copies
+
+## FIDELITY
+
+[P] preview (first rung)
+[P] preview · sharpening (second rung)
+[—] (no chip at full truth — absence is the third string)
+[PL] fetching full RAW (loupe only — sanctioned exception)
+
+## EDIT
+
+[P] Develop this photograph · A
+[P] Exposure · Contrast · Highlights · Shadows · Temp · Tint · Vibrance · Saturation · Detail · Straighten
+[V] +0.35 ev · 5 600 K · 0.0°
+[P] A develop · Tab arms · ⌥←→ adjusts · ⏎ done, next kept · ? all shortcuts
+
+## STAGED & RECEIPT
+
+[P+V] STAGED · row 4 · 18:17 · 4 selected · ⏎ applies · Esc cancels, nothing applied
+[P+V] STAGED · scene · 12 selected · 2 excluded · ⏎ applies · Esc cancels
+[P+V] Adapt → 4 ⏎ · Esc
+[P] adapted — each RAW rendered independently
+[V] ← 8288 · 4
+[P] Edited
+[P+V] Adapted → 4 · ⌘Z
+[P+V] Adapt → 12 · 2 excluded ⏎ · ⇧⏎ shoot
+[P+V] Develop → 4 ⏎ · Esc
+
+## FAILURE (headlines)
+
+[P] Card ejected early · Original offline · Disk full · Pointed folder moved
+[P] file damaged — preview only
+[P] Stale render
+
+## EXPORT
+
+[PL] ⌥⌘E changes the recipe.

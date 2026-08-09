@@ -73,4 +73,40 @@ final class P0LogicTests: XCTestCase {
         let decoded = try? JSONDecoder().decode(ProbeSnapshot.self, from: Data(json.utf8))
         XCTAssertEqual(decoded, snapshot)
     }
+
+    // MARK: - A1 staged-copy invariant (banner, header, receipt share ONE count)
+
+    func testA1InvariantRowScope() {
+        let snapshot = StagingCopySnapshot(
+            scopeCount: 4,
+            rowIndex: 4,
+            laneTimestamp: "18:17"
+        )
+        let header = CopyContract.stagedHeader(snapshot)
+        let banner = CopyContract.adaptBanner(snapshot)
+        let receipt = CopyContract.adaptedReceipt(count: snapshot.scopeCount)
+        XCTAssertTrue(A1Invariant.validate(header: header, banner: banner, receipt: receipt, snapshot: snapshot))
+    }
+
+    func testA1InvariantExcludedCount() {
+        let snapshot = StagingCopySnapshot(
+            scopeCount: 12,
+            excludedCount: 2,
+            rowIndex: 4,
+            laneTimestamp: "18:17",
+            ring: .scene
+        )
+        let header = CopyContract.stagedHeader(snapshot)
+        let banner = CopyContract.adaptBanner(
+            StagingCopySnapshot(
+                scopeCount: 12,
+                excludedCount: 2,
+                rowIndex: 4,
+                laneTimestamp: "18:17",
+                ring: .shoot
+            )
+        )
+        let receipt = CopyContract.adaptedReceipt(count: snapshot.scopeCount)
+        XCTAssertTrue(A1Invariant.validate(header: header, banner: banner, receipt: receipt, snapshot: snapshot))
+    }
 }

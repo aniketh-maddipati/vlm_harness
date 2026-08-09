@@ -110,4 +110,55 @@ for snippet in requiredTokenSnippets {
 }
 pass("DesignTokens/Tokens.swift contains required hi-fi token contract")
 
+// MARK: - Copy contract diff (H1)
+
+guard FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("design/copy-contract.txt").path) else {
+    fail("design/copy-contract.txt missing")
+}
+guard let contractText = read("design/copy-contract.txt") else { fail("design/copy-contract.txt unreadable") }
+var contractLines: [String] = []
+for line in contractText.split(separator: "\n") {
+    let trimmed = line.trimmingCharacters(in: .whitespaces)
+    if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
+    if let range = trimmed.range(of: #/^\[[^\]]+\]\s+(.+)$/#, options: .regularExpression) {
+        let body = String(trimmed[range]).trimmingCharacters(in: .whitespaces)
+        contractLines.append(body)
+    }
+}
+guard contractLines.count >= 20 else { fail("copy-contract.txt looks truncated") }
+
+func inContract(_ value: String) -> Bool {
+    if contractLines.contains(value) { return true }
+    return contractLines.contains { $0.contains(value) }
+}
+
+guard let copyContract = read("Lumina/Design/CopyContract.swift") else {
+    fail("Lumina/Design/CopyContract.swift missing")
+}
+let exemptStatic: Set<String> = [
+    "pointedFolderMovedBody", "pointedFolderMovedAction", "staleRenderBody", "staleRenderAction",
+]
+let staticPattern = #/static let (\w+) = "((?:[^"\\]|\\.)*)"/#
+for match in copyContract.matches(of: staticPattern) {
+    let name = String(match.output.1)
+    let value = String(match.output.2)
+    if exemptStatic.contains(name) { continue }
+    guard inContract(value) else { fail("CopyContract.\(name) not in design/copy-contract.txt: \(value)") }
+}
+pass("CopyContract static strings are frozen in design/copy-contract.txt")
+
+let legacyBanned = ["Adapt treatment to", "Adapted treatment to", "undoes all of it", "From DSC"]
+let luminaURL = repoRoot.appendingPathComponent("Lumina")
+if let enumerator = FileManager.default.enumerator(at: luminaURL, includingPropertiesForKeys: nil) {
+    for case let file as URL in enumerator {
+        guard file.pathExtension == "swift" else { continue }
+        if file.lastPathComponent == "CopyContract.swift" { continue }
+        guard let text = try? String(contentsOf: file, encoding: .utf8) else { continue }
+        for phrase in legacyBanned where text.contains(phrase) {
+            fail("Legacy hi-fi copy still present (\(phrase)) in \(file.path)")
+        }
+    }
+}
+pass("No legacy pre-H1 staged/receipt strings in Lumina")
+
 print("Prompt-9 audit: all checks passed")
