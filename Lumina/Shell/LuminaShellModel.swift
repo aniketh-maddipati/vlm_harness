@@ -101,12 +101,16 @@ final class LuminaShellModel {
 
     func openHome() {
         dismissCrop(revert: true)
+        workbenchSelection.clearSelection()
+        stagingCopySnapshot = nil
         route = .home
         isFocusMode = false
         showInspector = false
     }
 
     func openShootSelection() {
+        workbenchSelection.clearSelection()
+        stagingCopySnapshot = nil
         route = .shootSelection
         isFocusMode = false
         showInspector = false
@@ -124,6 +128,8 @@ final class LuminaShellModel {
     func setWorkspaceStage(_ stage: WorkspaceStage) {
         guard stage != workspaceStage else { return }
         dismissCrop(revert: true)
+        workbenchSelection.clearSelection()
+        stagingCopySnapshot = nil
         if workspaceStage == .workbench {
             workbenchScrollAnchor = selectedGroupID
         } else if workspaceStage == .canvas {
@@ -176,6 +182,8 @@ final class LuminaShellModel {
     }
 
     func openFinish() {
+        workbenchSelection.clearSelection()
+        stagingCopySnapshot = nil
         route = .finish
         isFocusMode = false
         showInspector = false
@@ -220,6 +228,8 @@ final class LuminaShellModel {
         }
         if isTreatmentStageOpen {
             dismissCrop(revert: true)
+            workbenchSelection.clearSelection()
+            stagingCopySnapshot = nil
             isTreatmentStageOpen = false
             return true
         }
@@ -742,12 +752,16 @@ final class LuminaShellModel {
     }
 
     func openTreatmentStage() {
+        workbenchSelection.clearSelection()
+        stagingCopySnapshot = nil
         isTreatmentStageOpen = true
         isFocusMode = false
     }
 
     func closeTreatmentStage() {
         dismissCrop(revert: true)
+        workbenchSelection.clearSelection()
+        stagingCopySnapshot = nil
         isTreatmentStageOpen = false
     }
 
@@ -1035,32 +1049,90 @@ final class LuminaShellModel {
         cropSession = session
     }
 
-    /// Stage a per-RAW develop proposal for the focused photograph (A key — hi-fi H4).
-    func stageDevelopProposal(for photoID: AssetID, model: ProjectViewModel) async {
-        guard let photo = model.photo(with: photoID),
-              let path = photo.previewPath ?? photo.thumbPath else { return }
-        let baseEdit = photo.effectiveEditRecipe
-        guard let proposal = await developProposalEngine.propose(imagePath: path, baseRecipe: baseEdit) else {
+    /// Stage per-RAW develop proposals — selection when non-empty, else focused frame (hi-fi H4/H5).
+    func stageDevelopProposal(model: ProjectViewModel, presentation: WorkspacePresentation) async {
+        let targetIDs: [AssetID]
+        if workbenchSelection.isEmpty {
+            guard let photoID = selectedAssetID ?? model.cursor else { return }
+            targetIDs = [photoID]
+        } else {
+            targetIDs = workbenchSelection.ids
+        }
+
+        var proposals: [AssetID: EditRecipe] = [:]
+        for id in targetIDs {
+            guard let photo = model.photo(with: id),
+                  let path = photo.previewPath ?? photo.thumbPath,
+                  let proposal = await developProposalEngine.propose(
+                    imagePath: path,
+                    baseRecipe: photo.effectiveEditRecipe
+                  ) else { continue }
+            proposals[id] = proposal
+        }
+
+        guard !proposals.isEmpty else {
             LuminaHaptics.light()
             return
         }
 
-        if !workbenchSelection.contains(photoID) {
-            workbenchSelection.gather(photoID)
+        workbenchSelection.setSelection(Array(proposals.keys))
+        if let focus = selectedAssetID ?? proposals.keys.first,
+           let photo = model.photo(with: focus),
+           let proposal = proposals[focus] {
+            selectedAssetID = focus
+            model.setCursor(focus)
+            developOffsets = DevelopAdjustments.from(
+                proposal: proposal,
+                base: model.appliedRecipe(for: photo)
+            )
         }
-        selectedAssetID = photoID
-        model.setCursor(photoID)
-
-        let baseDevelop = model.appliedRecipe(for: photo)
-        developOffsets = DevelopAdjustments.from(proposal: proposal, base: baseDevelop)
         treatmentPreviewMode = .current
 
-        guard workbenchSelection.stage(.develop(proposals: [photoID: proposal])) else {
+        guard workbenchSelection.stage(.develop(proposals: proposals)) else {
             LuminaHaptics.light()
             return
         }
         refreshStagingCopy(model: model)
         LuminaHaptics.decision()
+    }
+
+    func toggleHandSelection(_ photoID: AssetID, model: ProjectViewModel, presentation: WorkspacePresentation) {
+        if workbenchSelection.staged != nil {
+            workbenchSelection.toggle(photoID)
+            if var proposals = workbenchSelection.developProposals {
+                if workbenchSelection.contains(photoID) {
+                    if proposals[photoID] == nil,
+                       let photo = model.photo(with: photoID),
+                       let path = photo.previewPath ?? photo.thumbPath {
+                        Task {
+                            if let proposal = await developProposalEngine.propose(
+                                imagePath: path,
+                                baseRecipe: photo.effectiveEditRecipe
+                            ) {
+                                proposals[photoID] = proposal
+                                workbenchSelection.updateDevelopStaging(proposals)
+                                refreshStagingCopy(model: model)
+                            }
+                        }
+                    }
+                } else {
+                    proposals.removeValue(forKey: photoID)
+                    if proposals.isEmpty {
+                        workbenchSelection.cancel()
+                        stagingCopySnapshot = nil
+                    } else {
+                        workbenchSelection.updateDevelopStaging(proposals)
+                        refreshStagingCopy(model: model)
+                    }
+                }
+            }
+        } else {
+            workbenchSelection.focus(photoID)
+        }
+        selectedAssetID = photoID
+        model.setCursor(photoID)
+        loadDevelop(for: photoID, model: model)
+        _ = presentation
     }
 
     func rubberBandSelect(_ photoIDs: [AssetID]) {

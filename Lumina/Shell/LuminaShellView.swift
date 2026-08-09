@@ -141,17 +141,24 @@ struct LuminaShellView: View {
                 },
                 onSelectPhoto: { groupID, assetID in
                     shell.selectGroup(groupID)
-                    shell.selectAsset(assetID)
+                    shell.toggleHandSelection(assetID, model: model, presentation: presentation)
                     shell.scrollTargetGroupID = groupID
-                    if model.project != nil { model.setCursor(assetID) }
-                    shell.loadDevelop(for: assetID, model: model)
                     _ = PreviewSpine.shared.paint(id: assetID, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
                 },
                 onGatherPhoto: { assetID in
-                    shell.workbenchSelection.gather(assetID)
+                    shell.workbenchSelection.toggle(assetID)
                     shell.selectAsset(assetID)
                     if model.project != nil { model.setCursor(assetID) }
                     shell.loadDevelop(for: assetID, model: model)
+                },
+                onToggleHandSelection: { assetID in
+                    shell.toggleHandSelection(assetID, model: model, presentation: presentation)
+                },
+                onRubberBandSelect: { ids in
+                    shell.rubberBandSelect(ids)
+                    if model.project != nil, let last = ids.last {
+                        model.setCursor(last)
+                    }
                 },
                 onLensChange: { newLens in
                     shell.setLens(newLens)

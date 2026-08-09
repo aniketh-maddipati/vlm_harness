@@ -269,10 +269,8 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                 if shell.cropSession != nil { return nil }
                 if event.isARepeat { return nil }
                 if shell.isTreatmentStageOpen || !commandLayerActive {
-                    if let photoID = shell.selectedAssetID ?? model.cursor {
-                        Task { await shell.stageDevelopProposal(for: photoID, model: model) }
-                        return nil
-                    }
+                    Task { await shell.stageDevelopProposal(model: model, presentation: presentation) }
+                    return nil
                 }
             }
 
