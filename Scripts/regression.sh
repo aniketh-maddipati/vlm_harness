@@ -36,6 +36,11 @@ swift "$ROOT/Scripts/p0_cull_test.swift"
 echo "P0 cull tests: OK"
 echo ""
 
+echo "--- 4c/7 Prompt-9 hi-fi contract audit ---"
+python3 "$ROOT/Scripts/prompt_9_audit.py"
+echo "Prompt-9 audit: OK"
+echo ""
+
 echo "--- 4b/7 UI-automation manifest checks (portable; runs on Linux too) ---"
 # Static validation of the XCUITest harness plumbing. These do NOT run any macOS UI tests — they
 # only confirm the runner script, test plans, and shared scheme are well-formed, so a Linux cloud

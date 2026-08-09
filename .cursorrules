@@ -1,0 +1,58 @@
+# Lumina agent contract
+
+## Five laws (immutable)
+
+1. **Touch moves, never decides** — pointer, drag, and keyboard travel change focus, selection, and staging only; only decision keys commit.
+2. **Hold Space, release returns** — transient loupe / Before states revert on release; force-press is optional redundancy, never the only route.
+3. **The table keeps working** — failures wear a facts-chip; one sentence names it; one action fixes it; never a modal dead-end.
+4. **Nothing the user did is ever lost** — continuously saved; quit-anywhere restores the exact table; un-applied staging cancels like Esc.
+5. **Esc restores space** — Esc narrows one scope ring or cancels staging; at the row ring Esc cancels the whole stage; drag origin gaps stay visible until resolved.
+
+## Build rulings
+
+### Visual authority
+
+`design/hifi.pdf` is the visual authority. Where it conflicts with older contract docs, the PDF plus this rules file win.
+
+### Decision keys (v1)
+
+`P`, `X`, `⏎`, `⇧⏎`, `A`. All five swallow key-repeat. Travel keys autorepeat.
+
+### Banned words (user-visible strings)
+
+Banned everywhere: sync, preset, copy settings, catalog, import (noun), AI, smart, auto, analyze, generate.
+
+**Develop** is the sanctioned physical word (the action is Develop; the key stays `A`). **Auto** (capital A in UI) is still not allowed.
+
+### Shelved / un-shelved
+
+**Un-shelved for this pass:**
+
+- `A` / Develop
+- multi-select (drag-box + ⇧-arrows)
+- cross-row / shoot-wide propagation via the ⇧⏎ ripple
+- the `?` shortcuts surface
+
+**Still shelved, verbatim:**
+
+- suggested-treatment browsing UI
+- ⇧P / ⇧X
+- two-up
+- gather-drag / reordering by treatment
+- ordering surface
+- haptics (socket only)
+- folder watching
+- seam gap
+- Edit families read by repeated ← chips, never by reorder
+
+### Staged / receipt copy
+
+Banner, header, and receipt strings come from `design/copy-contract.txt` — nowhere else. (H1 installs the strings; this ruling only names the source.)
+
+### Scope
+
+Default scope = the row. Each additional ⇧⏎ widens exactly one ring (row → scene → shoot). Esc narrows one ring; at the row ring Esc cancels the whole stage. Exclusions persist through re-staging within the shoot.
+
+### 90 px halo (OPEN)
+
+Ship the plain 1.5 pt halo. Both fallbacks stay mocked and unpicked. The brighter-ring fallback lives behind a debug flag only.

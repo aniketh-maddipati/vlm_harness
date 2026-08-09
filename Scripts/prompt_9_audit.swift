@@ -1,0 +1,113 @@
+#!/usr/bin/env swift
+/**
+ Prompt-9 contract audit — banned-word scan + hi-fi ruling checks.
+ Run: swift Scripts/prompt_9_audit.swift
+ */
+import Foundation
+
+let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+
+func read(_ relative: String) -> String? {
+    try? String(contentsOf: repoRoot.appendingPathComponent(relative), encoding: .utf8)
+}
+
+func fail(_ message: String) -> Never {
+    fputs("FAIL: \(message)\n", stderr)
+    exit(1)
+}
+
+func pass(_ message: String) {
+    print("PASS: \(message)")
+}
+
+// MARK: - .cursorrules contract
+
+guard let rules = read(".cursorrules") else { fail(".cursorrules missing") }
+
+if rules.contains("PDF is wrong") || rules.contains("pdf is wrong") {
+    fail(".cursorrules still contains deleted PDF-is-wrong ruling")
+}
+pass("No PDF-is-wrong ruling in .cursorrules")
+
+let requiredRulingSnippets = [
+    "`P`, `X`, `⏎`, `⇧⏎`, `A`",
+    "All five swallow key-repeat",
+    "`design/hifi.pdf` is the visual authority",
+    "`design/copy-contract.txt`",
+    "Default scope = the row",
+    "Each additional ⇧⏎ widens exactly one ring",
+    "**Develop** is the sanctioned physical word",
+    "multi-select (drag-box + ⇧-arrows)",
+    "cross-row / shoot-wide propagation via the ⇧⏎ ripple",
+    "the `?` shortcuts surface",
+    "Still shelved, verbatim",
+    "Ship the plain 1.5 pt halo",
+    "brighter-ring fallback lives behind a debug flag only",
+]
+for snippet in requiredRulingSnippets {
+    guard rules.contains(snippet) else { fail(".cursorrules missing ruling snippet: \(snippet)") }
+}
+pass(".cursorrules contains all H0 ruling deltas")
+
+if rules.contains("Develop` is banned") || rules.contains("Develop is banned") {
+    fail(".cursorrules still bans Develop in user-visible strings")
+}
+pass("Develop removed from banned-words list")
+
+// MARK: - No PDF-is-wrong in source
+
+let sourceRoots = ["Lumina", "Scripts", "LuminaLogicTests", "LuminaUITests", "DesignTokens"]
+let sourceSkip = Set(["Scripts/prompt_9_audit.swift", "Scripts/prompt_9_audit.py"])
+for root in sourceRoots {
+    let url = repoRoot.appendingPathComponent(root)
+    guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: nil) else { continue }
+    for case let file as URL in enumerator {
+        guard ["swift", "md", "sh", "txt"].contains(file.pathExtension) else { continue }
+        let rel = file.path.replacingOccurrences(of: repoRoot.path + "/", with: "")
+        if sourceSkip.contains(rel) { continue }
+        guard let text = try? String(contentsOf: file, encoding: .utf8) else { continue }
+        if text.localizedCaseInsensitiveContains("PDF is wrong") {
+            fail("Source file references deleted PDF-is-wrong ruling: \(file.path)")
+        }
+    }
+}
+pass("No source file references the deleted PDF-is-wrong ruling")
+
+// MARK: - Banned words policy (.cursorrules is source of truth for H0)
+
+let bannedParts = rules.components(separatedBy: "### Banned words")
+guard bannedParts.count > 1 else { fail(".cursorrules missing ### Banned words section") }
+let bannedLower = bannedParts[1].lowercased()
+for word in ["sync", "preset", "copy settings", "catalog", "import", "ai", "smart", "auto", "analyze", "generate"] {
+    guard bannedLower.contains(word) else { fail(".cursorrules banned-words section missing: \(word)") }
+}
+if bannedLower.contains("banned everywhere: develop") || bannedLower.contains("banned: develop") {
+    fail(".cursorrules still lists Develop among banned words")
+}
+pass("Banned-words policy matches hi-fi contract (Develop allowed)")
+
+// MARK: - DesignTokens compile contract (static structure)
+
+guard let tokens = read("DesignTokens/Tokens.swift") else { fail("DesignTokens/Tokens.swift missing") }
+
+let requiredTokenSnippets = [
+    "static let fill",
+    "opacity: 0.07",
+    "static let width: CGFloat = 252",
+    "static let height: CGFloat = 64",
+    "static let handleSize: CGFloat = 18",
+    "static let minimumHit: CGFloat = 44",
+    "static let selection = Color(hex: \"2E2E2C\")",
+    "static let halo = Color(red: 255 / 255, green: 236 / 255, blue: 205 / 255)",
+    "static let secondOrderOpacity: Double = 0.45",
+    "static let grabDuration: TimeInterval = 0.100",
+    "static let carryDuration: TimeInterval = 0.180",
+    "static let placeDuration: TimeInterval = 0.140",
+    "assert(selection != halo",
+]
+for snippet in requiredTokenSnippets {
+    guard tokens.contains(snippet) else { fail("DesignTokens/Tokens.swift missing: \(snippet)") }
+}
+pass("DesignTokens/Tokens.swift contains required hi-fi token contract")
+
+print("Prompt-9 audit: all checks passed")
