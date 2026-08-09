@@ -116,12 +116,31 @@ struct DecisionReceiptBanner: View {
     let message: String
     var onUndo: (() -> Void)?
 
+    private var isUndoReceipt: Bool {
+        message.contains("⌘Z") && onUndo != nil
+    }
+
     var body: some View {
+        Group {
+            if isUndoReceipt, let onUndo {
+                Button(action: onUndo) {
+                    receiptContent
+                }
+                .buttonStyle(LuminaQuietButtonStyle())
+                .accessibilityLabel(message)
+                .accessibilityHint("Click to undo the whole round")
+            } else {
+                receiptContent
+            }
+        }
+    }
+
+    private var receiptContent: some View {
         HStack(spacing: 10) {
             Text(message)
                 .font(LuminaTokens.Typeface.meta(13))
                 .foregroundStyle(LuminaTokens.Ink.primary)
-            if let onUndo {
+            if let onUndo, !isUndoReceipt {
                 Text("·")
                     .foregroundStyle(LuminaTokens.Ink.tertiary)
                 Button("Undo") { onUndo() }

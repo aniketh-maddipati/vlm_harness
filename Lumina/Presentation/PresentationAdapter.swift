@@ -122,10 +122,22 @@ enum PresentationAdapter {
             }
             return HomePresentation(
                 greeting: greeting,
-                newSection: nil,
+                newSection: .init(
+                    headline: "New",
+                    detail: CopyContract.dropPhotographsOrFolder,
+                    card: ShootCardPresentation(
+                        id: "open-new",
+                        title: "Open a shoot",
+                        photographCount: 0,
+                        progressLabel: CopyContract.nothingLeavesMac,
+                        readiness: .ready,
+                        primaryActionTitle: CopyContract.dropPhotographsOrFolder
+                    ),
+                    actionTitle: CopyContract.dropPhotographsOrFolder
+                ),
                 continueSection: nil,
                 recentlyFinished: [],
-                readinessSummary: readinessSummary(for: model) ?? "Open a shoot to begin"
+                readinessSummary: CopyContract.groupingVisibleMotion
             )
         }
 
@@ -232,6 +244,7 @@ enum PresentationAdapter {
                 selectedGroupID: nil,
                 progressCurrent: 0,
                 progressTotal: 0,
+                tableHeader: nil,
                 inspectorAvailable: false
             )
         }
@@ -251,7 +264,10 @@ enum PresentationAdapter {
                 ?? groups.first?.id
         }()
 
-        let decided = project.photos.filter { $0.tier != .unranked || $0.isFlagged }.count
+        let kept = project.photos.filter { $0.tier == .keep }.count
+        let out = project.photos.filter { $0.tier == .reject }.count
+        let total = max(project.photos.count, 1)
+        let tableHeader = CopyContract.cullHeader(kept: kept, total: total, out: out)
 
         return WorkspacePresentation(
             shootTitle: readableShootTitle(project.name),
@@ -260,7 +276,8 @@ enum PresentationAdapter {
             selectedAssetID: cursor,
             selectedGroupID: groupID,
             progressCurrent: min(max(decided, 1), max(project.photos.count, 1)),
-            progressTotal: max(project.photos.count, 1),
+            progressTotal: total,
+            tableHeader: tableHeader,
             inspectorAvailable: true
         )
     }

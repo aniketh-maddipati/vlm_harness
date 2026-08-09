@@ -315,6 +315,7 @@ struct WorkspacePresentation: Hashable, Sendable {
     let selectedGroupID: String?
     let progressCurrent: Int
     let progressTotal: Int
+    let tableHeader: String?
     let inspectorAvailable: Bool
 
     var selectedGroup: GroupPresentation? {
@@ -332,6 +333,10 @@ struct WorkspacePresentation: Hashable, Sendable {
             }
         }
         return selectedGroup?.representative
+    }
+
+    var tableHeaderLabel: String {
+        tableHeader ?? progressLabel
     }
 
     var progressLabel: String {
@@ -352,6 +357,7 @@ struct WorkspacePresentation: Hashable, Sendable {
             selectedGroupID: selectedGroupID ?? self.selectedGroupID,
             progressCurrent: progressCurrent,
             progressTotal: progressTotal,
+            tableHeader: self.tableHeader,
             inspectorAvailable: inspectorAvailable
         )
     }

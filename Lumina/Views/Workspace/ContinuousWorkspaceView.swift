@@ -21,6 +21,7 @@ struct ContinuousWorkspaceView: View {
     var routingFlightID: AssetID?
     var routingFlightIDs: [AssetID] = []
     var decisionReceiptMessage: String?
+    var stagingCopySnapshot: StagingCopySnapshot?
     var selection: WorkbenchSelection?
     var isTreatmentStageOpen: Bool = false
     var isReadMode: Bool = false
@@ -65,6 +66,7 @@ struct ContinuousWorkspaceView: View {
     @State private var dragOriginFraction: Double?
     @State private var forceTwoUp = false
     @State private var savedStoryFractionForEdit: Double?
+    @State private var tableFooterHovered = false
 
     private var selectedID: AssetID? {
         selection?.leader ?? presentation.selectedAssetID
@@ -144,10 +146,20 @@ struct ContinuousWorkspaceView: View {
 
     private var workspaceHeader: some View {
         VStack(spacing: 0) {
+            if let snapshot = stagingCopySnapshot {
+                Text(CopyContract.stagedHeader(snapshot))
+                    .font(LuminaTokens.Typeface.meta(12, weight: .medium).monospaced())
+                    .foregroundStyle(LuminaTokens.Ink.onTable)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
+                    .padding(.vertical, 8)
+                    .background(LuminaTokens.Surface.tableHead)
+            }
+
             WorkspaceToolbar(
                 title: presentation.shootTitle,
                 lens: presentation.lens,
-                progressLabel: presentation.progressLabel,
+                progressLabel: presentation.tableHeaderLabel,
                 onLensChange: onLensChange,
                 onHome: onHome,
                 onFinish: onFinish
@@ -246,6 +258,7 @@ struct ContinuousWorkspaceView: View {
                 offsets: $developOffsets,
                 previewMode: $treatmentPreviewMode,
                 stagedRecipe: stagedRecipe,
+                stagingSnapshot: stagingCopySnapshot,
                 fidelity: sourceDisconnected ? .previewsOnly : fidelity,
                 localOverrideNotes: localOverrideNotes(for: refs),
                 storyStrip: emergingSet,
@@ -294,6 +307,10 @@ struct ContinuousWorkspaceView: View {
             || availableWidth < (IngestPreferences.workbenchLeftMin + IngestPreferences.workbenchRightMin)
         let isHandling = selection?.isHandling == true
         let stagedAdvance = selection?.staged == .advance
+        let stagedTreat = {
+            if case .treat = selection?.staged { return true }
+            return false
+        }()
         let receivingCount = stagedAdvance ? (selection?.count ?? 0) : 0
         // Width actually available to the ledger tray — rows size themselves
         // from this so the bench always justifies to the screen.
@@ -398,11 +415,25 @@ struct ContinuousWorkspaceView: View {
                     .transition(.opacity)
             }
 
-            if stagedAdvance, let count = selection?.count, count > 0 {
+            if stagedTreat, let snapshot = stagingCopySnapshot {
+                StagedTreatmentBanner(snapshot: snapshot)
+                    .padding(.bottom, 152)
+                    .zIndex(16)
+                    .transition(.opacity)
+            } else if stagedAdvance, let count = selection?.count, count > 0 {
                 StagedAdvanceBanner(count: count)
                     .padding(.bottom, 152)
                     .zIndex(16)
                     .transition(.opacity)
+            }
+
+            if workspaceStage == .workbench, !isTreatmentStageOpen {
+                Text(tableFooterHovered ? CopyContract.tableFooterHover : CopyContract.tableFooterShortcuts)
+                    .font(LuminaTokens.Typeface.meta(11))
+                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary.opacity(0.72))
+                    .padding(.bottom, 8)
+                    .accessibilityHidden(true)
+                    .onHover { tableFooterHovered = $0 }
             }
         }
         .animation(reduceMotion ? nil : LuminaTokens.Motion.stage, value: selection?.staged)

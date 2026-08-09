@@ -126,6 +126,7 @@ struct LuminaShellView: View {
                 routingFlightID: shell.routingFlightID,
                 routingFlightIDs: shell.routingFlightIDs,
                 decisionReceiptMessage: shell.decisionReceipt?.message,
+                stagingCopySnapshot: shell.stagingCopySnapshot,
                 selection: shell.workbenchSelection,
                 isTreatmentStageOpen: shell.isTreatmentStageOpen,
                 isReadMode: shell.isReadMode,
@@ -207,6 +208,7 @@ struct LuminaShellView: View {
                           let photo = model.photo(with: photoID) else { return }
                     let recipe = model.appliedRecipe(for: photo).applying(shell.developOffsets)
                     _ = shell.workbenchSelection.stage(.treat(recipe))
+                    shell.refreshStagingCopy(model: model)
                     LuminaHaptics.decision()
                 },
                 onConfirmRound: {
@@ -214,6 +216,7 @@ struct LuminaShellView: View {
                 },
                 onCancelStage: {
                     shell.workbenchSelection.cancel()
+                    shell.stagingCopySnapshot = nil
                     LuminaHaptics.alignment()
                 },
                 onApplyToSet: {
