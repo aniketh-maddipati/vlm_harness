@@ -132,7 +132,9 @@ enum WorkbenchCapture {
             onHome: {},
             onFinish: {},
             cropSession: .constant(nil),
-            onEnterCrop: {}
+            onEnterCrop: {},
+            onToggleHandSelection: { _ in },
+            onRubberBandSelect: { _ in }
         )
         .frame(width: size.width, height: size.height)
         .luminaWorkspaceAppearance()

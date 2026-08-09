@@ -1063,6 +1063,19 @@ final class LuminaShellModel {
         LuminaHaptics.decision()
     }
 
+    func rubberBandSelect(_ photoIDs: [AssetID]) {
+        workbenchSelection.rubberBandSelect(photoIDs)
+        if let last = photoIDs.last {
+            selectedAssetID = last
+        }
+    }
+
+    func extendHandSelection(to photoID: AssetID, presentation: WorkspacePresentation) {
+        let order = TablePhotographSelection.tableOrder(from: presentation.groups)
+        workbenchSelection.extendSelection(in: order, to: photoID)
+        selectedAssetID = photoID
+    }
+
     func refreshStagingCopy(model: ProjectViewModel) {
         guard workbenchSelection.staged != nil else {
             stagingCopySnapshot = nil

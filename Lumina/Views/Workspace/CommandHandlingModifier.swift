@@ -207,9 +207,20 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                 }
             }
 
-            // Arrow keys
+            // Arrow keys — ⇧ extends hand selection; plain moves focus / leader.
             if event.keyCode == 123 || event.keyCode == 124 { // ← →
                 let delta = event.keyCode == 123 ? -1 : 1
+                if shift {
+                    let order = TablePhotographSelection.tableOrder(from: presentation.groups)
+                    let focus = shell.selectedAssetID ?? selection.leader ?? model.cursor
+                    guard let focus, let index = order.firstIndex(of: focus) else { return nil }
+                    let next = min(max(index + delta, 0), order.count - 1)
+                    let nextID = order[next]
+                    shell.extendHandSelection(to: nextID, presentation: presentation)
+                    if model.project != nil { model.setCursor(nextID) }
+                    shell.loadDevelop(for: nextID, model: model)
+                    return nil
+                }
                 if !selection.isEmpty {
                     selection.moveLeader(delta)
                     if let leader = selection.leader {

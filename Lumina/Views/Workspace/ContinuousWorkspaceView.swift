@@ -30,6 +30,8 @@ struct ContinuousWorkspaceView: View {
     var onSelectGroup: (String) -> Void
     var onSelectPhoto: (String, AssetID) -> Void
     var onGatherPhoto: (AssetID) -> Void = { _ in }
+    var onToggleHandSelection: (AssetID) -> Void = { _ in }
+    var onRubberBandSelect: ([AssetID]) -> Void = { _ in }
     var onLensChange: (WorkspaceLens) -> Void
     var onSendToSet: (AssetID, String) -> Void
     var onFold: (AssetID, String) -> Void
@@ -75,6 +77,10 @@ struct ContinuousWorkspaceView: View {
 
     private var gatheredIDs: Set<AssetID> {
         Set(selection?.ids ?? [])
+    }
+
+    private var isStagingActive: Bool {
+        selection?.staged != nil
     }
 
     private var twoUp: Bool {
@@ -539,7 +545,8 @@ struct ContinuousWorkspaceView: View {
             routingFlightID: routingFlightID,
             routingFlightIDs: routingFlightIDs,
             showDecisionShelf: false,
-            gatheredIDs: gatheredIDs,
+            handSelectedIDs: gatheredIDs,
+            isStagingActive: isStagingActive,
             leaderID: selection?.leader,
             isHandling: isHandling,
             stagedAdvance: stagedAdvance,
@@ -551,6 +558,8 @@ struct ContinuousWorkspaceView: View {
             onSelectGroup: onSelectGroup,
             onSelectPhoto: onSelectPhoto,
             onGatherPhoto: onGatherPhoto,
+            onToggleHandSelection: onToggleHandSelection,
+            onRubberBandSelect: onRubberBandSelect,
             onFocusPhoto: onFocusPhoto,
             onOpenTreatment: onOpenTreatment,
             onAddToSet: { id, gid in onSendToSet(id, gid) },
@@ -733,7 +742,8 @@ struct WorkbenchLedgerView: View {
     var routingFlightID: AssetID?
     var routingFlightIDs: [AssetID] = []
     var showDecisionShelf: Bool
-    var gatheredIDs: Set<AssetID> = []
+    var handSelectedIDs: Set<AssetID> = []
+    var isStagingActive: Bool = false
     var leaderID: AssetID?
     var isHandling: Bool = false
     var stagedAdvance: Bool = false
@@ -745,6 +755,8 @@ struct WorkbenchLedgerView: View {
     let onSelectGroup: (String) -> Void
     let onSelectPhoto: (String, AssetID) -> Void
     var onGatherPhoto: (AssetID) -> Void = { _ in }
+    var onToggleHandSelection: (AssetID) -> Void = { _ in }
+    var onRubberBandSelect: ([AssetID]) -> Void = { _ in }
     let onFocusPhoto: (AssetID) -> Void
     var onOpenTreatment: (AssetID) -> Void = { _ in }
     var onAddToSet: (AssetID, String) -> Void
@@ -764,6 +776,7 @@ struct WorkbenchLedgerView: View {
 
     @State private var tableHovered = false
     @State private var hoverHintOpacity: Double = 0
+    @State private var tileFrames: [AssetID: CGRect] = [:]
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -789,6 +802,13 @@ struct WorkbenchLedgerView: View {
                     .padding(.horizontal, 22)
                     .padding(.vertical, LuminaTokens.Spacing.md)
                 }
+                .coordinateSpace(name: "workbenchTable")
+                .onPreferenceChange(TableTileFramePreference.Key.self) { tileFrames = $0 }
+                .overlay {
+                    TableRubberBandOverlay(tileFrames: tileFrames) { ids in
+                        onRubberBandSelect(ids)
+                    }
+                }
                 .background(Color.clear)
                 .onHover { hovering in
                     tableHovered = hovering
@@ -808,6 +828,9 @@ struct WorkbenchLedgerView: View {
             }
 
             tableFooterChrome
+        }
+        .onAppear {
+            HiFiTokens.Ring.assertDistinctSelectionAndHalo()
         }
     }
 
@@ -851,18 +874,21 @@ struct WorkbenchLedgerView: View {
                 routingFlightID: routingFlightID,
                 routingFlightIDs: routingFlightIDs,
                 showDecisionShelf: false,
-                gatheredIDs: isActive ? gatheredIDs : [],
-                leaderID: isActive ? leaderID : nil,
-                isHandling: isHandling && isActive,
-                stagedAdvance: stagedAdvance && isActive,
+                handSelectedIDs: handSelectedIDs,
+                leaderID: leaderID,
+                isHandling: isHandling,
+                isStagingActive: isStagingActive,
+                stagedAdvance: stagedAdvance,
                 pageSize: responsivePageSize,
                 availableWidth: max(availableWidth - 60, 0),
                 twoUp: twoUp,
                 reduceMotion: reduceMotion,
                 travelAnimation: travelAnimation,
+                tableCoordinateSpace: .named("workbenchTable"),
                 onSelect: { onSelectGroup(group.id) },
                 onSelectPhoto: { onSelectPhoto(group.id, $0) },
                 onGatherPhoto: onGatherPhoto,
+                onToggleHandSelection: onToggleHandSelection,
                 onDoubleTapPhoto: onFocusPhoto,
                 onCommandDoubleTap: onOpenTreatment,
                 onAddToSet: { onAddToSet($0, group.id) },
