@@ -96,6 +96,8 @@ struct TreatmentStageView: View {
     var onAddRetouch: (RetouchSpot) -> Void = { _ in }
     var onUndoRetouch: () -> Void = {}
     var onClearRetouch: () -> Void = {}
+    @Binding var cropSession: CropSession?
+    var onEnterCrop: () -> Void = {}
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingOriginalHold = false
@@ -379,14 +381,28 @@ struct TreatmentStageView: View {
             asset: asset,
             projectName: projectName,
             recipe: liveRecipe,
-            oneToOne: oneToOne
+            oneToOne: oneToOne,
+            cropState: cropSession?.working
         )
+        .overlay {
+            if let binding = cropBinding(for: asset.id) {
+                CropOverlayView(session: binding, aspectRatio: asset.aspectRatio)
+            }
+        }
         .overlay {
             if healMode {
                 healOverlay
             }
         }
         .accessibilityLabel("Photograph being treated: \(asset.filename)")
+    }
+
+    private func cropBinding(for photoID: AssetID) -> Binding<CropSession>? {
+        guard cropSession?.photoID == photoID, cropSession != nil else { return nil }
+        return Binding(
+            get: { cropSession! },
+            set: { cropSession = $0 }
+        )
     }
 
     private var healOverlay: some View {
@@ -458,7 +474,13 @@ struct TreatmentStageView: View {
 
     private var controlsColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if stagedRecipe != nil {
+            if let session = cropSession {
+                Text(CropSessionCopy.header(straightenDegrees: session.working.straightenDegrees))
+                    .font(LuminaTokens.Typeface.meta(12, weight: .medium).monospaced())
+                    .foregroundStyle(LuminaTokens.Ink.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.bottom, 10)
+            } else if stagedRecipe != nil {
                 if let snapshot = stagingSnapshot {
                     Text(CopyContract.stagedHeader(snapshot))
                         .font(LuminaTokens.Typeface.meta(12, weight: .medium).monospaced())
@@ -494,6 +516,7 @@ struct TreatmentStageView: View {
                         slider("Saturation", value: binding(\.saturation), range: -100...100)
                     }
                     panel("Detail") { detailSection }
+                    panel("Straighten") { straightenSection }
                     panel("Erase / heal") { healSection }
                 }
                 .padding(.bottom, 12)
@@ -662,11 +685,64 @@ struct TreatmentStageView: View {
         VStack(alignment: .leading, spacing: 12) {
             slider("Noise reduction", value: binding(\.luminanceNR), range: 0...100)
             slider("Sharpening", value: binding(\.sharpness), range: 0...150)
-            Text("RAW-domain when supported · Crop — ⌘⌥C opens the rest")
+            Text("RAW-domain when supported · ⌘⌥C opens the rest")
                 .font(LuminaTokens.Typeface.meta(10))
                 .foregroundStyle(LuminaTokens.Ink.tertiary)
                 .onTapGesture(perform: onOpenMore)
         }
+    }
+
+    private var straightenSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Straighten")
+                    .font(LuminaTokens.Typeface.meta(11))
+                    .foregroundStyle(LuminaTokens.Ink.secondary)
+                Spacer()
+                Text(String(format: "%.1f°", cropSession?.working.straightenDegrees ?? 0))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(LuminaTokens.Ink.primary)
+            }
+            if let binding = cropStraightenBinding {
+                Slider(value: binding, in: -45...45)
+                    .controlSize(.small)
+                    .frame(minHeight: 36)
+            }
+            Button {
+                onEnterCrop()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "crop")
+                        .font(.system(size: 12))
+                    Text(cropSession != nil ? "Crop latched · 4" : "Enter crop · 4")
+                        .font(LuminaTokens.Typeface.navigation(12, weight: .medium))
+                }
+                .foregroundStyle(LuminaTokens.Ink.primary)
+                .frame(maxWidth: .infinity, minHeight: 34)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(cropSession != nil ? LuminaTokens.Status.selection.opacity(0.22) : LuminaTokens.Surface.mist)
+                )
+            }
+            .buttonStyle(LuminaQuietButtonStyle())
+            .accessibilityLabel(cropSession != nil ? "Crop latched" : "Enter crop mode")
+            .accessibilityHint("Fixed boundary · drag inside to reposition · outside to straighten · ⏎ applies · Esc dismisses")
+            Text("A unlocks aspect · X flips orientation while latched")
+                .font(LuminaTokens.Typeface.meta(10))
+                .foregroundStyle(LuminaTokens.Ink.tertiary)
+        }
+    }
+
+    private var cropStraightenBinding: Binding<Double>? {
+        guard cropSession != nil else { return nil }
+        return Binding(
+            get: { cropSession?.working.straightenDegrees ?? 0 },
+            set: { newValue in
+                guard var session = cropSession else { return }
+                session.setStraighten(newValue)
+                cropSession = session
+            }
+        )
     }
 
     private var healSection: some View {
