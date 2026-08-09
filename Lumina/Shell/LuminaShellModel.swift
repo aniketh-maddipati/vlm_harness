@@ -42,6 +42,8 @@ final class LuminaShellModel {
     var lastRoundReceipt: RoundReceipt?
     /// Darkroom gathering + two-beat commit model.
     var workbenchSelection = WorkbenchSelection()
+    /// Active staged copy snapshot — banner/header/receipt share `scopeCount` (A1).
+    var stagingCopySnapshot: StagingCopySnapshot?
     /// Fast-run travel shortening.
     var fastRunTracker = LuminaTokens.FastRunTracker()
     /// Treatment stage (Edit) open over the workbench.
@@ -200,6 +202,7 @@ final class LuminaShellModel {
     func handleEscape() -> Bool {
         if workbenchSelection.staged != nil {
             workbenchSelection.cancel()
+            stagingCopySnapshot = nil
             LuminaHaptics.alignment()
             return true
         }
@@ -583,7 +586,7 @@ final class LuminaShellModel {
         if advanceCount > 0 { parts.append("Advanced \(advanceCount)") }
         if setAsideCount > 0 { parts.append("Set aside \(setAsideCount)") }
         if holdCount > 0 { parts.append("Hold \(holdCount)") }
-        if treatCount > 0 { parts.append("Treated \(treatCount)") }
+        if treatCount > 0 { parts.append(CopyContract.adaptedReceipt(count: treatCount)) }
         let text = parts.isEmpty ? "Round committed" : parts.joined(separator: " · ")
 
         let receipt = RoundReceipt(
@@ -595,6 +598,7 @@ final class LuminaShellModel {
         lastRoundReceipt = receipt
         decisionUndo = nil
         selection.markRoundCompleted()
+        stagingCopySnapshot = nil
         fastRunTracker.noteConfirm()
         LuminaHaptics.levelChange()
         showRoundReceipt(receipt)
@@ -922,5 +926,20 @@ final class LuminaShellModel {
         ThumbCache.shared.prefetchPaths(neighborPaths, maxPixelSize: 2048)
         let rowPaths = ordered.prefix(8).compactMap { $0.previewPath ?? $0.thumbPath }
         ThumbCache.shared.prefetchPaths(rowPaths, maxPixelSize: 768)
+    }
+
+    func refreshStagingCopy(model: ProjectViewModel) {
+        guard workbenchSelection.staged != nil else {
+            stagingCopySnapshot = nil
+            return
+        }
+        let presentation = workspacePresentation(model: model)
+        stagingCopySnapshot = CopyContractBuilder.snapshot(
+            from: workbenchSelection,
+            presentation: presentation,
+            excludedCount: 0,
+            ring: .row,
+            isDevelop: isTreatmentStageOpen
+        )
     }
 }

@@ -67,11 +67,15 @@ struct P0OpenView: View {
                 .font(LuminaTokens.Typeface.editorial(36))
                 .foregroundStyle(LuminaTokens.Ink.primary)
 
-            Text("Choose a folder of RAW or JPEG photographs. Lumina references files in place and opens a contact sheet as soon as assets are discovered.")
+            Text(CopyContract.dropPhotographsOrFolder)
                 .font(LuminaTokens.Typeface.body(17))
                 .foregroundStyle(LuminaTokens.Ink.secondary)
                 .lineSpacing(LuminaTokens.Typeface.bodyLineSpacing)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Text(CopyContract.nothingLeavesMac)
+                .font(LuminaTokens.Typeface.meta(13))
+                .foregroundStyle(LuminaTokens.Ink.tertiary)
 
             HStack(spacing: LuminaTokens.Spacing.md) {
                 LuminaTextActionButton(title: "Choose a folder", prominent: true) {

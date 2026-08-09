@@ -80,6 +80,7 @@ struct TreatmentStageView: View {
     @Binding var offsets: DevelopAdjustments
     @Binding var previewMode: TreatmentPreviewMode
     var stagedRecipe: DevelopRecipe?
+    var stagingSnapshot: StagingCopySnapshot?
     var fidelity: TreatmentFidelity
     var localOverrideNotes: [AssetID: String] = [:]
     var storyStrip: [AssetPresentation]
@@ -328,6 +329,14 @@ struct TreatmentStageView: View {
                         .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
                         .transition(.opacity)
                 }
+                if stagedRecipe != nil, let snapshot = stagingSnapshot {
+                    Text(CopyContract.provenanceChip(
+                        referenceFrame: snapshot.referenceFrameNumber,
+                        scopeCount: snapshot.scopeCount
+                    ))
+                    .font(.system(size: 11.5, weight: .regular, design: .monospaced))
+                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
+                }
                 fidelityChip
             }
             Text(liveDevelopLine)
@@ -450,11 +459,19 @@ struct TreatmentStageView: View {
     private var controlsColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
             if stagedRecipe != nil {
-                Text("Staged across \(selectionCount) · ↩ commits, Esc cancels")
-                    .font(LuminaTokens.Typeface.meta(12))
-                    .foregroundStyle(LuminaTokens.Ink.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.bottom, 10)
+                if let snapshot = stagingSnapshot {
+                    Text(CopyContract.stagedHeader(snapshot))
+                        .font(LuminaTokens.Typeface.meta(12, weight: .medium).monospaced())
+                        .foregroundStyle(LuminaTokens.Ink.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 4)
+                    if !snapshot.isDevelop {
+                        Text(CopyContract.adaptedIndependently)
+                            .font(LuminaTokens.Typeface.meta(11))
+                            .foregroundStyle(LuminaTokens.Ink.tertiary)
+                            .padding(.bottom, 10)
+                    }
+                }
             }
 
             // Preview modes and Auto edit each get their own space at the top.
@@ -486,6 +503,12 @@ struct TreatmentStageView: View {
 
             Divider()
                 .padding(.vertical, 10)
+
+            Text(CopyContract.editFooterShortcuts)
+                .font(LuminaTokens.Typeface.meta(10))
+                .foregroundStyle(LuminaTokens.Ink.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.bottom, 8)
 
             actionButtons
         }

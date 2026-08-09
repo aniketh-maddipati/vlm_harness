@@ -118,4 +118,105 @@ for snippet in required_token_snippets:
         fail(f"DesignTokens/Tokens.swift missing: {snippet}")
 
 pass_("DesignTokens/Tokens.swift contains required hi-fi token contract")
+
+# MARK: - Copy contract diff (H1)
+
+sys.path.insert(0, str(ROOT / "Scripts"))
+from copy_contract_loader import load_contract_strings, string_in_contract  # noqa: E402
+
+contract_path = ROOT / "design" / "copy-contract.txt"
+if not contract_path.is_file():
+    fail("design/copy-contract.txt missing")
+contract = load_contract_strings()
+if len(contract) < 20:
+    fail(f"copy-contract.txt looks truncated ({len(contract)} strings)")
+
+copy_contract_swift = read("Lumina/Design/CopyContract.swift")
+if copy_contract_swift is None:
+    fail("Lumina/Design/CopyContract.swift missing")
+
+# Static headline copy in CopyContract must appear verbatim in the contract.
+static_literal = re.compile(r'static let \w+ = "((?:[^"\\]|\\.)*)"')
+exempt_static = {
+    "pointedFolderMovedBody",
+    "pointedFolderMovedAction",
+    "staleRenderBody",
+    "staleRenderAction",
+}
+for match in re.finditer(r'static let (\w+) = "((?:[^"\\]|\\.)*)"', copy_contract_swift):
+    name, value = match.group(1), match.group(2)
+    if name in exempt_static:
+        continue
+    if not string_in_contract(value, contract):
+        fail(f"CopyContract.{name} not in design/copy-contract.txt: {value!r}")
+
+pass_("CopyContract static strings are frozen in design/copy-contract.txt")
+
+
+def staged_header(scope: int, row: int, lane: str, excluded: int = 0, ring: str = "row") -> str:
+    if excluded > 0:
+        ring_label = f"row {row}" if ring == "row" else ring
+        return f"STAGED · {ring_label} · {scope} selected · {excluded} excluded · ⏎ applies · Esc cancels"
+    return (
+        f"STAGED · row {row} · {lane} · {scope} selected · ⏎ applies · Esc cancels, nothing applied"
+    )
+
+
+def adapt_banner(scope: int, excluded: int = 0, ring: str = "row") -> str:
+    if excluded > 0 and ring == "shoot":
+        return f"Adapt → {scope} · {excluded} excluded ⏎ · ⇧⏎ shoot"
+    if ring == "scene":
+        return f"Adapt → {scope} ⏎ · ⇧⏎ scene · Esc"
+    return f"Adapt → {scope} ⏎ · Esc"
+
+
+formatter_samples = [
+    staged_header(4, 4, "18:17"),
+    staged_header(12, 4, "18:17", excluded=2, ring="scene"),
+    adapt_banner(4),
+    adapt_banner(12, excluded=2, ring="shoot"),
+    f"Develop → 4 ⏎ · Esc",
+    "Adapted → 4 · ⌘Z",
+    "← 8288 · 4",
+    "6/8 kept · 2 out · resume = first undecided frame",
+]
+for sample in formatter_samples:
+    if sample not in contract:
+        fail(f"Formatter sample missing from contract: {sample!r}")
+pass_("Copy contract covers staged/receipt/header formatter samples")
+
+legacy_banned = [
+    "Adapt treatment to",
+    "Adapted treatment to",
+    "undoes all of it",
+    "From DSC",
+]
+for root_name in ["Lumina"]:
+    root = ROOT / root_name
+    for path in root.rglob("*.swift"):
+        rel = str(path.relative_to(ROOT))
+        if rel == "Lumina/Design/CopyContract.swift":
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for phrase in legacy_banned:
+            if phrase in text:
+                fail(f"Legacy hi-fi copy still present ({phrase!r}) in {rel}")
+
+pass_("No legacy pre-H1 staged/receipt strings in Lumina")
+
+# Hi-fi surface literals outside CopyContract must not duplicate contract copy.
+hifi_outside = re.compile(
+    r'Text\(\s*"(STAGED ·|Adapt →|Adapted →|Develop →|← \d|nothing leaves this Mac|'
+    r'file damaged — preview only|Pointed folder moved|Stale render)"'
+)
+for path in (ROOT / "Lumina").rglob("*.swift"):
+    rel = str(path.relative_to(ROOT))
+    if rel.endswith("CopyContract.swift"):
+        continue
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if hifi_outside.search(text):
+        fail(f"Hardcoded hi-fi copy outside CopyContract.swift: {rel}")
+
+pass_("Hi-fi copy surfaces route through CopyContract")
+
 print("Prompt-9 audit: all checks passed")

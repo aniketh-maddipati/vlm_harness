@@ -41,6 +41,11 @@ python3 "$ROOT/Scripts/prompt_9_audit.py"
 echo "Prompt-9 audit: OK"
 echo ""
 
+echo "--- 4d/7 A1 staged-copy invariant ---"
+python3 "$ROOT/Scripts/a1_invariant_test.py"
+echo "A1 invariant test: OK"
+echo ""
+
 echo "--- 4b/7 UI-automation manifest checks (portable; runs on Linux too) ---"
 # Static validation of the XCUITest harness plumbing. These do NOT run any macOS UI tests — they
 # only confirm the runner script, test plans, and shared scheme are well-formed, so a Linux cloud
