@@ -11,7 +11,8 @@ enum TreatmentFidelity: Equatable {
     var label: String {
         switch self {
         case .interactivePreview: "Interactive preview"
-        case .settling: "Settling"
+        case .settling:
+            return CopyContract.fetchingFullRAW
         case .fullPreview: "Full preview"
         case .oneToOneRAW: "1:1 RAW"
         case .previewsOnly: "Previews only — reconnect for full resolution"
@@ -23,7 +24,7 @@ enum TreatmentFidelity: Equatable {
         case .interactivePreview:
             return "Interactive preview. Good for framing decisions; not final colour."
         case .settling:
-            return "Settling. Waiting for a sharper proxy."
+            return "Settling. \(CopyContract.fetchingFullRAW)."
         case .fullPreview:
             return "Full preview. Suitable for exposure and colour judgement."
         case .oneToOneRAW:
@@ -38,7 +39,7 @@ enum TreatmentFidelity: Equatable {
 /// the photo's base recipe so Auto/taste edits compose correctly.
 enum WhiteBalancePreset: String, CaseIterable, Identifiable {
     case asShot = "As Shot"
-    case auto = "Auto"
+    case auto = "Estimate"
     case daylight = "Daylight"
     case cloudy = "Cloudy"
     case shade = "Shade"
@@ -653,7 +654,7 @@ struct TreatmentStageView: View {
             HStack(spacing: 6) {
                 Image(systemName: "wand.and.stars")
                     .font(.system(size: 12))
-                Text(autoBusy ? "Analyzing…" : "Auto edit")
+                Text(autoBusy ? "Analyzing…" : "Assist edit")
                     .font(LuminaTokens.Typeface.navigation(12, weight: .medium))
             }
             .foregroundStyle(LuminaTokens.Ink.primary)
@@ -665,8 +666,8 @@ struct TreatmentStageView: View {
         }
         .buttonStyle(LuminaQuietButtonStyle())
         .disabled(autoBusy)
-        .accessibilityLabel("Auto edit")
-        .accessibilityHint("Vision-assisted auto: face-weighted exposure when faces are present, otherwise whole-frame histogram. Sliders update to match.")
+        .accessibilityLabel("Assist edit")
+        .accessibilityHint("Vision-assisted exposure when faces are present, otherwise whole-frame histogram. Sliders update to match.")
     }
 
     private func applyAutoEdit() {
@@ -698,7 +699,7 @@ struct TreatmentStageView: View {
             } else {
                 visionHint = nil
             }
-            showReceipt("Auto edit applied — sliders updated")
+            showReceipt("Assist edit applied — sliders updated")
             if visionHint != nil {
                 Task {
                     try? await Task.sleep(nanoseconds: 3_000_000_000)
@@ -719,11 +720,11 @@ struct TreatmentStageView: View {
     private var whiteBalanceSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 5)], spacing: 5) {
-                ForEach(WhiteBalancePreset.allCases) { preset in
+                ForEach(WhiteBalancePreset.allCases) { wb in
                     Button {
-                        applyWhiteBalancePreset(preset)
+                        applyWhiteBalancePreset(wb)
                     } label: {
-                        Text(preset.rawValue)
+                        Text(wb.rawValue)
                             .font(LuminaTokens.Typeface.meta(11))
                             .foregroundStyle(LuminaTokens.Ink.primary)
                             .lineLimit(1)
@@ -734,7 +735,7 @@ struct TreatmentStageView: View {
                             )
                     }
                     .buttonStyle(LuminaQuietButtonStyle())
-                    .accessibilityLabel("White balance: \(preset.rawValue)")
+                    .accessibilityLabel("White balance: \(wb.rawValue)")
                 }
             }
             slider("Temperature", value: binding(\.temperature), range: -2000...2000)
@@ -947,7 +948,7 @@ struct TreatmentStageView: View {
     private func modeLabel(_ mode: TreatmentPreviewMode) -> String {
         switch mode {
         case .original: "Original"
-        case .auto: "Auto"
+        case .auto: "Taste"
         case .current: "Current"
         }
     }

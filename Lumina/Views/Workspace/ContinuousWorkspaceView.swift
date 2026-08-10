@@ -409,7 +409,7 @@ struct ContinuousWorkspaceView: View {
             if let selection, !selection.isEmpty {
                 Color.clear
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(selection.accessibilityAnnouncement)
+                    .accessibilityLabel(selection.accessibilityAnnouncement(stagingSnapshot: stagingCopySnapshot))
                     .accessibilitySortPriority(1.5)
                     .frame(width: 0, height: 0)
             }

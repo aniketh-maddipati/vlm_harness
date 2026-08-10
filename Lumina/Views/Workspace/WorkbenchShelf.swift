@@ -187,6 +187,22 @@ struct StagedTreatmentBanner: View {
                 .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(stagedAccessibilityLabel)
+    }
+
+    private var stagedAccessibilityLabel: String {
+        let banner = snapshot.isDevelop
+            ? CopyContract.developBanner(count: snapshot.scopeCount)
+            : CopyContract.adaptBanner(snapshot)
+        let ring: String = switch snapshot.ring {
+        case .row: "row ring"
+        case .scene: "scene ring"
+        case .shoot: "shoot ring"
+        }
+        if snapshot.excludedCount > 0 {
+            return "\(banner), \(ring), \(snapshot.excludedCount) excluded"
+        }
+        return "\(banner), \(ring)"
     }
 }
 

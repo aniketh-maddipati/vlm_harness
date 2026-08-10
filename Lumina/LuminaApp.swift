@@ -33,11 +33,6 @@ struct LuminaApp: App {
                     NotificationCenter.default.post(name: .luminaImportRAW, object: nil)
                 }
                 .keyboardShortcut("o", modifiers: .command)
-
-                Button("Import Photos…") {
-                    NotificationCenter.default.post(name: .luminaImportRAW, object: nil)
-                }
-                .keyboardShortcut("i", modifiers: .command)
             }
 
             CommandMenu("View") {

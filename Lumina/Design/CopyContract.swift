@@ -66,6 +66,11 @@ enum CopyContract {
 
     static let exportRecipeHint = "⌥⌘E changes the recipe."
 
+    // MARK: - Plumbing (PL — sovereignty + loupe exception)
+
+    static let sovereigntyPlumbing = "files stay where they are · edits in open sidecars · this shoot opens in Lightroom as-is"
+    static let fetchingFullRAW = "fetching full RAW"
+
     // MARK: - Failure headlines
 
     static let pointedFolderMoved = "Pointed folder moved"

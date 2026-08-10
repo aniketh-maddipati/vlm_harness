@@ -326,7 +326,7 @@ struct LuminaShellView: View {
                 )
             }
         }
-        .accessibilityHint(shell.workbenchSelection.accessibilityAnnouncement)
+        .accessibilityHint(shell.workbenchSelection.accessibilityAnnouncement(stagingSnapshot: shell.stagingCopySnapshot))
     }
 
     private func enterWorkspaceFromHome() {

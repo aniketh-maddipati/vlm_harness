@@ -242,6 +242,10 @@ final class WorkbenchSelection {
     }
 
     var accessibilityAnnouncement: String {
+        accessibilityAnnouncement(stagingSnapshot: nil)
+    }
+
+    func accessibilityAnnouncement(stagingSnapshot: StagingCopySnapshot?) -> String {
         let n = table.count
         guard n > 0 else { return "No photographs selected" }
         var text = "\(n) photograph\(n == 1 ? "" : "s") selected"
@@ -252,6 +256,17 @@ final class WorkbenchSelection {
             case .hold: text += ", staged to hold"
             case .treat: text += ", staged to treat"
             case .develop: text += ", staged to develop"
+            }
+        }
+        if let stagingSnapshot {
+            let ring: String = switch stagingSnapshot.ring {
+            case .row: "row ring"
+            case .scene: "scene ring"
+            case .shoot: "shoot ring"
+            }
+            text += ", \(ring), \(stagingSnapshot.scopeCount) in scope"
+            if stagingSnapshot.excludedCount > 0 {
+                text += ", \(stagingSnapshot.excludedCount) excluded"
             }
         }
         return text
