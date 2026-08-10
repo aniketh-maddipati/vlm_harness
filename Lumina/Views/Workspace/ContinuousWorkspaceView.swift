@@ -23,6 +23,9 @@ struct ContinuousWorkspaceView: View {
     var decisionReceiptMessage: String?
     var stagingCopySnapshot: StagingCopySnapshot?
     var selection: WorkbenchSelection?
+    var propagationScope: PropagationScope?
+    var dockedAdaptChip: LuminaShellModel.DockedAdaptChip?
+    var onDockedChipDrop: (String) -> Void = { _ in }
     var isTreatmentStageOpen: Bool = false
     var isReadMode: Bool = false
     var travelAnimation: Animation = LuminaTokens.Motion.travel
@@ -81,6 +84,14 @@ struct ContinuousWorkspaceView: View {
 
     private var isStagingActive: Bool {
         selection?.staged != nil
+    }
+
+    private var propagationMemberIDs: Set<AssetID> {
+        Set(propagationScope?.memberIDs ?? [])
+    }
+
+    private var propagationProposalIDs: Set<AssetID> {
+        propagationScope?.proposalRecipientIDs ?? []
     }
 
     private var twoUp: Bool {
@@ -440,6 +451,13 @@ struct ContinuousWorkspaceView: View {
                     .zIndex(16)
                     .transition(.opacity)
             }
+
+            if let chip = dockedAdaptChip, selection?.staged == nil {
+                DockedAdaptChipView(chip: chip)
+                    .padding(.bottom, 88)
+                    .zIndex(17)
+                    .transition(.opacity)
+            }
         }
         .animation(reduceMotion ? nil : LuminaTokens.Motion.stage, value: selection?.staged)
     }
@@ -547,6 +565,8 @@ struct ContinuousWorkspaceView: View {
             showDecisionShelf: false,
             handSelectedIDs: gatheredIDs,
             isStagingActive: isStagingActive,
+            propagationMemberIDs: propagationMemberIDs,
+            propagationProposalIDs: propagationProposalIDs,
             leaderID: selection?.leader,
             isHandling: isHandling,
             stagedAdvance: stagedAdvance,
@@ -562,6 +582,7 @@ struct ContinuousWorkspaceView: View {
             onRubberBandSelect: onRubberBandSelect,
             onFocusPhoto: onFocusPhoto,
             onOpenTreatment: onOpenTreatment,
+            onDockedChipDrop: onDockedChipDrop,
             onAddToSet: { id, gid in onSendToSet(id, gid) },
             onSetAside: { id, gid in onFold(id, gid) },
             onHold: { id, gid in onHold(id, gid) },
@@ -744,6 +765,8 @@ struct WorkbenchLedgerView: View {
     var showDecisionShelf: Bool
     var handSelectedIDs: Set<AssetID> = []
     var isStagingActive: Bool = false
+    var propagationMemberIDs: Set<AssetID> = []
+    var propagationProposalIDs: Set<AssetID> = []
     var leaderID: AssetID?
     var isHandling: Bool = false
     var stagedAdvance: Bool = false
@@ -759,6 +782,7 @@ struct WorkbenchLedgerView: View {
     var onRubberBandSelect: ([AssetID]) -> Void = { _ in }
     let onFocusPhoto: (AssetID) -> Void
     var onOpenTreatment: (AssetID) -> Void = { _ in }
+    var onDockedChipDrop: (String) -> Void = { _ in }
     var onAddToSet: (AssetID, String) -> Void
     var onSetAside: (AssetID, String) -> Void
     var onHold: (AssetID, String) -> Void
@@ -786,7 +810,9 @@ struct WorkbenchLedgerView: View {
                         ForEach(TableLayout.swimLaneUnits(from: presentation.groups)) { unit in
                             SwimLaneContainer(
                                 laneHeader: unit.laneHeader,
-                                sceneBreakBefore: unit.sceneBreakBefore
+                                sceneBreakBefore: unit.sceneBreakBefore,
+                                laneGroupID: unit.groups.first?.id,
+                                onDockedChipDrop: onDockedChipDrop
                             ) {
                                 VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
                                     ForEach(unit.groups) { group in
@@ -878,6 +904,8 @@ struct WorkbenchLedgerView: View {
                 leaderID: leaderID,
                 isHandling: isHandling,
                 isStagingActive: isStagingActive,
+                propagationMemberIDs: propagationMemberIDs,
+                propagationProposalIDs: propagationProposalIDs,
                 stagedAdvance: stagedAdvance,
                 pageSize: responsivePageSize,
                 availableWidth: max(availableWidth - 60, 0),

@@ -4,6 +4,9 @@ import SwiftUI
 struct SwimLaneContainer<Content: View>: View {
     let laneHeader: String?
     let sceneBreakBefore: String?
+    /// Primary group id in this lane — chip drop target (hi-fi H6).
+    var laneGroupID: String?
+    var onDockedChipDrop: ((String) -> Void)?
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -38,6 +41,23 @@ struct SwimLaneContainer<Content: View>: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(HiFiTokens.SwimLane.fill)
+            .modifier(DockedChipLaneDropModifier(
+                laneGroupID: laneGroupID,
+                onDrop: onDockedChipDrop
+            ))
+        }
+    }
+}
+
+private struct DockedChipLaneDropModifier: ViewModifier {
+    let laneGroupID: String?
+    let onDrop: ((String) -> Void)?
+
+    func body(content: Content) -> some View {
+        if let laneGroupID, let onDrop {
+            content.dockedChipLaneDrop(laneGroupID: laneGroupID, onDrop: onDrop)
+        } else {
+            content
         }
     }
 }
