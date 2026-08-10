@@ -75,6 +75,14 @@ struct LuminaShellView: View {
         .sheet(isPresented: $shell.showShortcuts) {
             KeyboardShortcutsSheet()
         }
+        .overlay {
+            if shell.shortcutsGlanceHeld {
+                ShortcutsGlanceOverlay()
+                    .transition(reduceMotion ? .opacity : .opacity)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: shell.shortcutsGlanceHeld)
+                    .zIndex(200)
+            }
+        }
     }
 
     @ViewBuilder

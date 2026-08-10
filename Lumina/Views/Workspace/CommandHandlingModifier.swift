@@ -116,6 +116,18 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
             if event.keyCode == 36 || event.keyCode == 76 { // Return / keypad Enter
                 selection.noteReturnKeyUp()
             }
+            // Space release restores preview (Law 2).
+            if event.keyCode == 49, !event.modifierFlags.contains(.command) {
+                if shell.isTreatmentStageOpen, shell.treatmentPreviewMode == .original {
+                    shell.treatmentPreviewMode = .current
+                }
+            }
+            // ? release dismisses shortcuts glance (Law 2).
+            let chars = event.charactersIgnoringModifiers ?? ""
+            let shift = event.modifierFlags.contains(.shift)
+            if chars == "?" || (shift && chars == "/") {
+                shell.shortcutsGlanceHeld = false
+            }
             return event
         }
 
@@ -236,6 +248,12 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
             if event.keyCode == 125 || event.keyCode == 126 { // ↓ ↑
                 let delta = event.keyCode == 126 ? -1 : 1
                 shell.moveAttempt(delta: delta, presentation: presentation, model: model)
+                return nil
+            }
+
+            // Hold-? — shortcuts glance (not ⌘/ modal sheet).
+            if !command && (chars == "?" || (shift && chars == "/")) {
+                shell.shortcutsGlanceHeld = true
                 return nil
             }
 

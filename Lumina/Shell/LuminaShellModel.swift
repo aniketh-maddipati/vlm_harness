@@ -30,6 +30,8 @@ final class LuminaShellModel {
     var isFocusMode = false
     var showInspector = false
     var showShortcuts = false
+    /// Hold-? chrome-fade glance — release dismisses (Law 2, hi-fi H7).
+    var shortcutsGlanceHeld = false
     var pendingPeerSuggestion: PeerCullSuggestion?
     var developOffsets: DevelopAdjustments = .zero
     var stackPreviewMix: Double = 1
@@ -297,6 +299,10 @@ final class LuminaShellModel {
         }
         if showShortcuts {
             showShortcuts = false
+            return true
+        }
+        if shortcutsGlanceHeld {
+            shortcutsGlanceHeld = false
             return true
         }
         if !workbenchSelection.isEmpty {
