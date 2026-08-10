@@ -75,6 +75,14 @@ struct LuminaShellView: View {
         .sheet(isPresented: $shell.showShortcuts) {
             KeyboardShortcutsSheet()
         }
+        .overlay {
+            if shell.shortcutsGlanceHeld {
+                ShortcutsGlanceOverlay()
+                    .transition(reduceMotion ? .opacity : .opacity)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: shell.shortcutsGlanceHeld)
+                    .zIndex(200)
+            }
+        }
     }
 
     @ViewBuilder
@@ -126,7 +134,17 @@ struct LuminaShellView: View {
                 routingFlightID: shell.routingFlightID,
                 routingFlightIDs: shell.routingFlightIDs,
                 decisionReceiptMessage: shell.decisionReceipt?.message,
+                stagingCopySnapshot: shell.stagingCopySnapshot,
                 selection: shell.workbenchSelection,
+                propagationScope: shell.propagationScope(model: model),
+                dockedAdaptChip: shell.dockedAdaptChip,
+                onDockedChipDrop: { groupID in
+                    shell.stageAdaptFromDockedChip(
+                        targetGroupID: groupID,
+                        model: model,
+                        presentation: presentation
+                    )
+                },
                 isTreatmentStageOpen: shell.isTreatmentStageOpen,
                 isReadMode: shell.isReadMode,
                 travelAnimation: shell.fastRunTracker.travelAnimation,
@@ -140,17 +158,24 @@ struct LuminaShellView: View {
                 },
                 onSelectPhoto: { groupID, assetID in
                     shell.selectGroup(groupID)
-                    shell.selectAsset(assetID)
+                    shell.toggleHandSelection(assetID, model: model, presentation: presentation)
                     shell.scrollTargetGroupID = groupID
-                    if model.project != nil { model.setCursor(assetID) }
-                    shell.loadDevelop(for: assetID, model: model)
                     _ = PreviewSpine.shared.paint(id: assetID, inputTime: CFAbsoluteTimeGetCurrent(), held: false)
                 },
                 onGatherPhoto: { assetID in
-                    shell.workbenchSelection.gather(assetID)
+                    shell.workbenchSelection.toggle(assetID)
                     shell.selectAsset(assetID)
                     if model.project != nil { model.setCursor(assetID) }
                     shell.loadDevelop(for: assetID, model: model)
+                },
+                onToggleHandSelection: { assetID in
+                    shell.toggleHandSelection(assetID, model: model, presentation: presentation)
+                },
+                onRubberBandSelect: { ids in
+                    shell.rubberBandSelect(ids)
+                    if model.project != nil, let last = ids.last {
+                        model.setCursor(last)
+                    }
                 },
                 onLensChange: { newLens in
                     shell.setLens(newLens)
@@ -204,16 +229,23 @@ struct LuminaShellView: View {
                 },
                 onStageTreat: {
                     guard let photoID,
-                          let photo = model.photo(with: photoID) else { return }
+                          let photo = model.photo(with: photoID),
+                          let groupID = presentation.selectedGroupID else { return }
                     let recipe = model.appliedRecipe(for: photo).applying(shell.developOffsets)
-                    _ = shell.workbenchSelection.stage(.treat(recipe))
-                    LuminaHaptics.decision()
+                    shell.stageTreatAtRow(
+                        model: model,
+                        presentation: presentation,
+                        recipe: recipe,
+                        referencePhotoID: photoID,
+                        referenceGroupID: groupID
+                    )
                 },
                 onConfirmRound: {
                     _ = shell.commitRound(shell.workbenchSelection, model: model)
                 },
                 onCancelStage: {
                     shell.workbenchSelection.cancel()
+                    shell.stagingCopySnapshot = nil
                     LuminaHaptics.alignment()
                 },
                 onApplyToSet: {
@@ -228,6 +260,14 @@ struct LuminaShellView: View {
                 },
                 onClearRetouch: { assetID in
                     model.updateRetouch(for: assetID) { $0.removeAll() }
+                },
+                cropSession: Binding(
+                    get: { shell.cropSession },
+                    set: { shell.cropSession = $0 }
+                ),
+                onEnterCrop: {
+                    guard let photoID else { return }
+                    shell.enterCrop(for: photoID, model: model)
                 },
                 onStageAdvance: {
                     if shell.workbenchSelection.stage(.advance) {
@@ -286,7 +326,7 @@ struct LuminaShellView: View {
                 )
             }
         }
-        .accessibilityHint(shell.workbenchSelection.accessibilityAnnouncement)
+        .accessibilityHint(shell.workbenchSelection.accessibilityAnnouncement(stagingSnapshot: shell.stagingCopySnapshot))
     }
 
     private func enterWorkspaceFromHome() {

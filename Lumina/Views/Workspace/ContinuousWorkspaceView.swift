@@ -21,7 +21,11 @@ struct ContinuousWorkspaceView: View {
     var routingFlightID: AssetID?
     var routingFlightIDs: [AssetID] = []
     var decisionReceiptMessage: String?
+    var stagingCopySnapshot: StagingCopySnapshot?
     var selection: WorkbenchSelection?
+    var propagationScope: PropagationScope?
+    var dockedAdaptChip: LuminaShellModel.DockedAdaptChip?
+    var onDockedChipDrop: (String) -> Void = { _ in }
     var isTreatmentStageOpen: Bool = false
     var isReadMode: Bool = false
     var travelAnimation: Animation = LuminaTokens.Motion.travel
@@ -29,6 +33,8 @@ struct ContinuousWorkspaceView: View {
     var onSelectGroup: (String) -> Void
     var onSelectPhoto: (String, AssetID) -> Void
     var onGatherPhoto: (AssetID) -> Void = { _ in }
+    var onToggleHandSelection: (AssetID) -> Void = { _ in }
+    var onRubberBandSelect: ([AssetID]) -> Void = { _ in }
     var onLensChange: (WorkspaceLens) -> Void
     var onSendToSet: (AssetID, String) -> Void
     var onFold: (AssetID, String) -> Void
@@ -45,6 +51,8 @@ struct ContinuousWorkspaceView: View {
     var onAddRetouch: (AssetID, RetouchSpot) -> Void = { _, _ in }
     var onUndoRetouch: (AssetID) -> Void = { _ in }
     var onClearRetouch: (AssetID) -> Void = { _ in }
+    @Binding var cropSession: CropSession?
+    var onEnterCrop: () -> Void = {}
     var onStageAdvance: () -> Void = {}
     var onStageSetAside: () -> Void = {}
     var onStageHold: () -> Void = {}
@@ -72,6 +80,18 @@ struct ContinuousWorkspaceView: View {
 
     private var gatheredIDs: Set<AssetID> {
         Set(selection?.ids ?? [])
+    }
+
+    private var isStagingActive: Bool {
+        selection?.staged != nil
+    }
+
+    private var propagationMemberIDs: Set<AssetID> {
+        Set(propagationScope?.memberIDs ?? [])
+    }
+
+    private var propagationProposalIDs: Set<AssetID> {
+        propagationScope?.proposalRecipientIDs ?? []
     }
 
     private var twoUp: Bool {
@@ -144,10 +164,20 @@ struct ContinuousWorkspaceView: View {
 
     private var workspaceHeader: some View {
         VStack(spacing: 0) {
+            if let snapshot = stagingCopySnapshot {
+                Text(CopyContract.stagedHeader(snapshot))
+                    .font(LuminaTokens.Typeface.meta(12, weight: .medium).monospaced())
+                    .foregroundStyle(LuminaTokens.Ink.onTable)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
+                    .padding(.vertical, 8)
+                    .background(LuminaTokens.Surface.tableHead)
+            }
+
             WorkspaceToolbar(
                 title: presentation.shootTitle,
                 lens: presentation.lens,
-                progressLabel: presentation.progressLabel,
+                progressLabel: presentation.tableHeaderLabel,
                 onLensChange: onLensChange,
                 onHome: onHome,
                 onFinish: onFinish
@@ -227,8 +257,11 @@ struct ContinuousWorkspaceView: View {
                 .filter { $0 != leaderID }
                 .compactMap { asset(for: $0) }
             let stagedRecipe: DevelopRecipe? = {
-                if case .treat(let r) = selection?.staged { return r }
-                return nil
+                switch selection?.staged {
+                case .treat(let r): return r
+                case .develop: return baseRecipe.applying(developOffsets)
+                default: return nil
+                }
             }()
             let setAssets = presentation.groups
                 .first { group in group.assets.contains(where: { $0.id == leaderID }) }?
@@ -246,6 +279,7 @@ struct ContinuousWorkspaceView: View {
                 offsets: $developOffsets,
                 previewMode: $treatmentPreviewMode,
                 stagedRecipe: stagedRecipe,
+                stagingSnapshot: stagingCopySnapshot,
                 fidelity: sourceDisconnected ? .previewsOnly : fidelity,
                 localOverrideNotes: localOverrideNotes(for: refs),
                 storyStrip: emergingSet,
@@ -264,7 +298,9 @@ struct ContinuousWorkspaceView: View {
                 onApplyToSet: onApplyToSet,
                 onAddRetouch: { spot in onAddRetouch(leaderID, spot) },
                 onUndoRetouch: { onUndoRetouch(leaderID) },
-                onClearRetouch: { onClearRetouch(leaderID) }
+                onClearRetouch: { onClearRetouch(leaderID) },
+                cropSession: $cropSession,
+                onEnterCrop: onEnterCrop
             )
         }
     }
@@ -294,6 +330,12 @@ struct ContinuousWorkspaceView: View {
             || availableWidth < (IngestPreferences.workbenchLeftMin + IngestPreferences.workbenchRightMin)
         let isHandling = selection?.isHandling == true
         let stagedAdvance = selection?.staged == .advance
+        let stagedTreat = {
+            switch selection?.staged {
+            case .treat, .develop: return true
+            default: return false
+            }
+        }()
         let receivingCount = stagedAdvance ? (selection?.count ?? 0) : 0
         // Width actually available to the ledger tray — rows size themselves
         // from this so the bench always justifies to the screen.
@@ -367,7 +409,7 @@ struct ContinuousWorkspaceView: View {
             if let selection, !selection.isEmpty {
                 Color.clear
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(selection.accessibilityAnnouncement)
+                    .accessibilityLabel(selection.accessibilityAnnouncement(stagingSnapshot: stagingCopySnapshot))
                     .accessibilitySortPriority(1.5)
                     .frame(width: 0, height: 0)
             }
@@ -398,10 +440,22 @@ struct ContinuousWorkspaceView: View {
                     .transition(.opacity)
             }
 
-            if stagedAdvance, let count = selection?.count, count > 0 {
+            if stagedTreat, let snapshot = stagingCopySnapshot {
+                StagedTreatmentBanner(snapshot: snapshot)
+                    .padding(.bottom, 152)
+                    .zIndex(16)
+                    .transition(.opacity)
+            } else if stagedAdvance, let count = selection?.count, count > 0 {
                 StagedAdvanceBanner(count: count)
                     .padding(.bottom, 152)
                     .zIndex(16)
+                    .transition(.opacity)
+            }
+
+            if let chip = dockedAdaptChip, selection?.staged == nil {
+                DockedAdaptChipView(chip: chip)
+                    .padding(.bottom, 88)
+                    .zIndex(17)
                     .transition(.opacity)
             }
         }
@@ -509,7 +563,10 @@ struct ContinuousWorkspaceView: View {
             routingFlightID: routingFlightID,
             routingFlightIDs: routingFlightIDs,
             showDecisionShelf: false,
-            gatheredIDs: gatheredIDs,
+            handSelectedIDs: gatheredIDs,
+            isStagingActive: isStagingActive,
+            propagationMemberIDs: propagationMemberIDs,
+            propagationProposalIDs: propagationProposalIDs,
             leaderID: selection?.leader,
             isHandling: isHandling,
             stagedAdvance: stagedAdvance,
@@ -521,8 +578,11 @@ struct ContinuousWorkspaceView: View {
             onSelectGroup: onSelectGroup,
             onSelectPhoto: onSelectPhoto,
             onGatherPhoto: onGatherPhoto,
+            onToggleHandSelection: onToggleHandSelection,
+            onRubberBandSelect: onRubberBandSelect,
             onFocusPhoto: onFocusPhoto,
             onOpenTreatment: onOpenTreatment,
+            onDockedChipDrop: onDockedChipDrop,
             onAddToSet: { id, gid in onSendToSet(id, gid) },
             onSetAside: { id, gid in onFold(id, gid) },
             onHold: { id, gid in onHold(id, gid) },
@@ -703,7 +763,10 @@ struct WorkbenchLedgerView: View {
     var routingFlightID: AssetID?
     var routingFlightIDs: [AssetID] = []
     var showDecisionShelf: Bool
-    var gatheredIDs: Set<AssetID> = []
+    var handSelectedIDs: Set<AssetID> = []
+    var isStagingActive: Bool = false
+    var propagationMemberIDs: Set<AssetID> = []
+    var propagationProposalIDs: Set<AssetID> = []
     var leaderID: AssetID?
     var isHandling: Bool = false
     var stagedAdvance: Bool = false
@@ -715,8 +778,11 @@ struct WorkbenchLedgerView: View {
     let onSelectGroup: (String) -> Void
     let onSelectPhoto: (String, AssetID) -> Void
     var onGatherPhoto: (AssetID) -> Void = { _ in }
+    var onToggleHandSelection: (AssetID) -> Void = { _ in }
+    var onRubberBandSelect: ([AssetID]) -> Void = { _ in }
     let onFocusPhoto: (AssetID) -> Void
     var onOpenTreatment: (AssetID) -> Void = { _ in }
+    var onDockedChipDrop: (String) -> Void = { _ in }
     var onAddToSet: (AssetID, String) -> Void
     var onSetAside: (AssetID, String) -> Void
     var onHold: (AssetID, String) -> Void
@@ -729,96 +795,157 @@ struct WorkbenchLedgerView: View {
     /// Two across when the story pane is wide; otherwise as many 300 pt+
     /// tiles as the tray genuinely fits (3–5).
     private var responsivePageSize: Int {
-        if twoUp { return 2 }
-        guard availableWidth > 0 else { return 3 }
-        let fits = Int((availableWidth - 60 + 16) / (300 + 16))
-        return min(max(fits, 3), 5)
+        TableLayout.responsivePageSize(twoUp: twoUp, availableWidth: availableWidth)
     }
 
+    @State private var tableHovered = false
+    @State private var hoverHintOpacity: Double = 0
+    @State private var tileFrames: [AssetID: CGRect] = [:]
+
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: LuminaTokens.Spacing.md) {
-                    ForEach(presentation.groups) { group in
-                        let isActive = group.id == presentation.selectedGroupID
-                        let selected = presentation.selectedAssetID
-                        let suggested = group.captureOrderedAssets.first(where: { $0.decision == .undecided })?.id
-                        let expanded = isActive && isRowExpanded
-
-                        VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
-                            TreatmentFamilyRow(
-                                group: group,
-                                isActive: isActive,
-                                isExpanded: expanded,
-                                selectedID: isActive ? selected : nil,
-                                suggestedStartID: suggested,
-                                projectName: projectName,
-                                baseRecipe: baseRecipe,
-                                developOffsets: effectiveOffsets,
-                                previewMix: stackPreviewMix,
-                                rowPreviewActive: rowPreviewActive && isActive,
-                                routingNamespace: routingNamespace,
-                                routingFlightID: routingFlightID,
-                                routingFlightIDs: routingFlightIDs,
-                                showDecisionShelf: false,
-                                gatheredIDs: isActive ? gatheredIDs : [],
-                                leaderID: isActive ? leaderID : nil,
-                                isHandling: isHandling && isActive,
-                                stagedAdvance: stagedAdvance && isActive,
-                                pageSize: responsivePageSize,
-                                availableWidth: max(availableWidth - 60, 0),
-                                twoUp: twoUp,
-                                reduceMotion: reduceMotion,
-                                travelAnimation: travelAnimation,
-                                onSelect: { onSelectGroup(group.id) },
-                                onSelectPhoto: { onSelectPhoto(group.id, $0) },
-                                onGatherPhoto: onGatherPhoto,
-                                onDoubleTapPhoto: onFocusPhoto,
-                                onCommandDoubleTap: onOpenTreatment,
-                                onAddToSet: { onAddToSet($0, group.id) },
-                                onSetAside: { onSetAside($0, group.id) },
-                                onHold: { onHold($0, group.id) },
-                                onRestore: onRestore
-                            )
-                            .frame(minHeight: expanded ? 480 : nil)
-                            .frame(maxHeight: expanded ? .infinity : nil)
-
-                            if expanded {
-                                ContextualTreatmentStrip(
-                                    previewMode: $treatmentPreviewMode,
-                                    offsets: Binding(
-                                        get: { developOffsets },
-                                        set: { newValue in
-                                            developOffsets = newValue
-                                            onDevelopChange(newValue)
-                                        }
-                                    ),
-                                    showDetailed: $showDetailedEdits,
-                                    rowPreviewActive: rowPreviewActive,
-                                    onPreviewRow: onPreviewEdits,
-                                    onReset: {
-                                        developOffsets = .zero
-                                        onDevelopChange(.zero)
-                                        treatmentPreviewMode = .current
+        ZStack(alignment: .bottom) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: LuminaTokens.Spacing.md) {
+                        ForEach(TableLayout.swimLaneUnits(from: presentation.groups)) { unit in
+                            SwimLaneContainer(
+                                laneHeader: unit.laneHeader,
+                                sceneBreakBefore: unit.sceneBreakBefore,
+                                laneGroupID: unit.groups.first?.id,
+                                onDockedChipDrop: onDockedChipDrop
+                            ) {
+                                VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
+                                    ForEach(unit.groups) { group in
+                                        rowBlock(for: group)
+                                            .id(group.id)
                                     }
-                                )
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.bottom, 10)
                             }
                         }
-                        .id(group.id)
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, LuminaTokens.Spacing.md)
+                }
+                .coordinateSpace(name: "workbenchTable")
+                .onPreferenceChange(TableTileFramePreference.Key.self) { tileFrames = $0 }
+                .overlay {
+                    TableRubberBandOverlay(tileFrames: tileFrames) { ids in
+                        onRubberBandSelect(ids)
                     }
                 }
-                .padding(.horizontal, 30)
-                .padding(.vertical, LuminaTokens.Spacing.md)
-            }
-            .background(Color.clear)
-            .onChange(of: presentation.selectedGroupID) { _, new in
-                guard let new else { return }
-                withAnimation(LuminaTokens.Motion.selection) {
-                    proxy.scrollTo(new, anchor: .center)
+                .background(Color.clear)
+                .onHover { hovering in
+                    tableHovered = hovering
+                    withAnimation(hovering ? LuminaTokens.Motion.tableHoverIn : LuminaTokens.Motion.tableHoverOut) {
+                        hoverHintOpacity = hovering ? 1 : 0
+                    }
+                }
+                .onChange(of: presentation.selectedGroupID) { _, new in
+                    guard let new else { return }
+                    withAnimation(LuminaTokens.Motion.selection) {
+                        proxy.scrollTo(new, anchor: .center)
+                    }
+                }
+                .onAppear {
+                    if let scrollAnchor { proxy.scrollTo(scrollAnchor, anchor: .center) }
                 }
             }
-            .onAppear {
-                if let scrollAnchor { proxy.scrollTo(scrollAnchor, anchor: .center) }
+
+            tableFooterChrome
+        }
+        .onAppear {
+            HiFiTokens.Ring.assertDistinctSelectionAndHalo()
+        }
+    }
+
+    private var tableFooterChrome: some View {
+        ZStack(alignment: .bottomLeading) {
+            Text(CopyContract.tableFooterShortcuts)
+                .font(LuminaTokens.Typeface.meta(11))
+                .foregroundStyle(LuminaTokens.Ink.onTableSecondary.opacity(0.72))
+            Text(CopyContract.tableFooterHover)
+                .font(LuminaTokens.Typeface.meta(11))
+                .foregroundStyle(LuminaTokens.Ink.onTableSecondary.opacity(0.92))
+                .opacity(hoverHintOpacity)
+        }
+        .padding(.horizontal, 30)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func rowBlock(for group: GroupPresentation) -> some View {
+        let isActive = group.id == presentation.selectedGroupID
+        let selected = presentation.selectedAssetID
+        let suggested = group.captureOrderedAssets.first(where: { $0.decision == .undecided })?.id
+        let expanded = isActive && isRowExpanded
+
+        VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
+            TreatmentFamilyRow(
+                group: group,
+                isActive: isActive,
+                isExpanded: expanded,
+                selectedID: isActive ? selected : nil,
+                suggestedStartID: suggested,
+                projectName: projectName,
+                baseRecipe: baseRecipe,
+                developOffsets: effectiveOffsets,
+                previewMix: stackPreviewMix,
+                rowPreviewActive: rowPreviewActive && isActive,
+                routingNamespace: routingNamespace,
+                routingFlightID: routingFlightID,
+                routingFlightIDs: routingFlightIDs,
+                showDecisionShelf: false,
+                handSelectedIDs: handSelectedIDs,
+                leaderID: leaderID,
+                isHandling: isHandling,
+                isStagingActive: isStagingActive,
+                propagationMemberIDs: propagationMemberIDs,
+                propagationProposalIDs: propagationProposalIDs,
+                stagedAdvance: stagedAdvance,
+                pageSize: responsivePageSize,
+                availableWidth: max(availableWidth - 60, 0),
+                twoUp: twoUp,
+                reduceMotion: reduceMotion,
+                travelAnimation: travelAnimation,
+                tableCoordinateSpace: .named("workbenchTable"),
+                onSelect: { onSelectGroup(group.id) },
+                onSelectPhoto: { onSelectPhoto(group.id, $0) },
+                onGatherPhoto: onGatherPhoto,
+                onToggleHandSelection: onToggleHandSelection,
+                onDoubleTapPhoto: onFocusPhoto,
+                onCommandDoubleTap: onOpenTreatment,
+                onAddToSet: { onAddToSet($0, group.id) },
+                onSetAside: { onSetAside($0, group.id) },
+                onHold: { onHold($0, group.id) },
+                onRestore: onRestore
+            )
+            .frame(minHeight: expanded ? 480 : nil)
+            .frame(maxHeight: expanded ? .infinity : nil)
+
+            if expanded {
+                ContextualTreatmentStrip(
+                    previewMode: $treatmentPreviewMode,
+                    offsets: Binding(
+                        get: { developOffsets },
+                        set: { newValue in
+                            developOffsets = newValue
+                            onDevelopChange(newValue)
+                        }
+                    ),
+                    showDetailed: $showDetailedEdits,
+                    rowPreviewActive: rowPreviewActive,
+                    onPreviewRow: onPreviewEdits,
+                    onReset: {
+                        developOffsets = .zero
+                        onDevelopChange(.zero)
+                        treatmentPreviewMode = .current
+                    }
+                )
             }
         }
     }
@@ -888,7 +1015,9 @@ struct WorkbenchSourceRail: View {
         onFocusPhoto: { _ in },
         onPreviewEdits: {},
         onHome: {},
-        onFinish: {}
+        onFinish: {},
+        cropSession: .constant(nil),
+        onEnterCrop: {}
     )
     .frame(width: 1440, height: 900)
 }

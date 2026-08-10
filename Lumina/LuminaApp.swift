@@ -24,7 +24,7 @@ struct LuminaApp: App {
                     P0RootView()
                 }
             }
-            .frame(minWidth: 1100, minHeight: 700)
+            .frame(minWidth: EditRailLayout.minWindowWidth, minHeight: EditRailLayout.minWindowHeight)
             .luminaWorkspaceAppearance()
         }
         .commands {
@@ -33,11 +33,6 @@ struct LuminaApp: App {
                     NotificationCenter.default.post(name: .luminaImportRAW, object: nil)
                 }
                 .keyboardShortcut("o", modifiers: .command)
-
-                Button("Import Photos…") {
-                    NotificationCenter.default.post(name: .luminaImportRAW, object: nil)
-                }
-                .keyboardShortcut("i", modifiers: .command)
             }
 
             CommandMenu("View") {

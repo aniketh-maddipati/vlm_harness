@@ -22,6 +22,7 @@ struct LiveDevelopView: View {
     /// Full absolute recipe (base + offsets already applied).
     var recipe: DevelopRecipe
     var oneToOne: Bool = false
+    var cropState: CropLayoutState? = nil
 
     @State private var scheduler = WorkbenchDevelop.scheduler
 
@@ -36,8 +37,14 @@ struct LiveDevelopView: View {
     }
 
     private var editRecipe: EditRecipe {
-        // Stable id — the scheduler keys caches off the value fingerprint.
-        EditRecipe(from: DevelopEngine.clampRecipe(recipe), id: photoID)
+        var merged = EditRecipe(from: DevelopEngine.clampRecipe(recipe), id: photoID)
+        if let cropState {
+            merged = merged.updating {
+                $0.crop = cropState.effectiveCrop
+                $0.straightenDegrees = cropState.straightenDegrees
+            }
+        }
+        return merged
     }
 
     /// Honest fidelity for the chip in the stage header.

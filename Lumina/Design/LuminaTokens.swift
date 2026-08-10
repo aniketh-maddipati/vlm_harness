@@ -166,6 +166,11 @@ enum LuminaTokens {
         static let shelfIn = Animation.easeOut(duration: 0.120)
         static let fidelityCrossfade = Animation.easeOut(duration: 0.120)
         static let reduceMotionKeyline = Animation.easeOut(duration: 0.090)
+        /// Table footer hover hint — in 120 ms, out 250 ms.
+        static let tableHoverIn = Animation.easeOut(duration: 0.120)
+        static let tableHoverOut = Animation.easeOut(duration: 0.250)
+        /// Per-arrival table landing (lumFill) — opacity only at birth.
+        static let photoBirth = Animation.easeOut(duration: 0.340)
     }
 
     /// Rolling confirm cadence — 3 confirms inside 8 s shortens travel to 90 ms until 10 s idle.

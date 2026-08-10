@@ -9,7 +9,7 @@ enum TasteProfileDescription {
     }
 
     static func lowConfidenceExplanation() -> String {
-        "Using a neutral default — point Lumina at a folder with at least \(lowSourceThreshold) edited JPGs from Lightroom to learn your look."
+        "Using a neutral default — point Lumina at a folder with at least \(lowSourceThreshold) edited JPGs to learn your look."
     }
 
     static func summary(profile: DevelopRecipe, sourceCount: Int) -> String {

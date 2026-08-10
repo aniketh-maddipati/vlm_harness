@@ -33,6 +33,16 @@ struct ExportPayoffSheet: View {
                     .font(LuminaAtmosphere.Typeface.body(15))
                     .foregroundStyle(LuminaAtmosphere.whisper)
 
+                Text(CopyContract.exportRecipeHint)
+                    .font(LuminaAtmosphere.Typeface.caption(12))
+                    .foregroundStyle(LuminaAtmosphere.breath)
+
+                Text(CopyContract.sovereigntyPlumbing)
+                    .font(LuminaAtmosphere.Typeface.caption(11))
+                    .foregroundStyle(LuminaAtmosphere.breath.opacity(0.85))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 440)
+
                 if !payoff.tasteSummary.isEmpty {
                     Text(payoff.tasteSummary)
                         .font(LuminaAtmosphere.Typeface.caption(12))

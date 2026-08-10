@@ -208,7 +208,7 @@ struct P0SinglePhotoPlaceholder: View {
                 if asset.source.availability == .missing {
                     // Factual, in-place affordance: the cached preview is shown but the original
                     // file is unavailable. Previously only a global toolbar status hinted at this.
-                    Text("Original offline")
+                    Text(CopyContract.fileDamagedPreviewOnly)
                         .font(LuminaTokens.Typeface.meta(12))
                         .foregroundStyle(LuminaTokens.Ink.inspection)
                         .padding(.horizontal, 8)

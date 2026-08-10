@@ -1,0 +1,104 @@
+# Lumina agent contract
+
+## Five laws (immutable)
+
+1. **Touch moves, never decides** — pointer, drag, and keyboard travel change focus, selection, and staging only; only decision keys commit.
+2. **Hold Space, release returns** — transient loupe / Before states revert on release; force-press is optional redundancy, never the only route.
+3. **The table keeps working** — failures wear a facts-chip; one sentence names it; one action fixes it; never a modal dead-end.
+4. **Nothing the user did is ever lost** — continuously saved; quit-anywhere restores the exact table; un-applied staging cancels like Esc.
+5. **Esc restores space** — Esc narrows one scope ring or cancels staging; at the row ring Esc cancels the whole stage; drag origin gaps stay visible until resolved.
+
+## Build rulings
+
+### Visual authority
+
+`design/hifi.pdf` is the visual authority. Where it conflicts with older contract docs, the PDF plus this rules file win.
+
+### Decision keys (v1)
+
+`P`, `X`, `⏎`, `⇧⏎`, `A`. All five swallow key-repeat. Travel keys autorepeat.
+
+### Banned words (user-visible strings)
+
+Banned everywhere: sync, preset, copy settings, catalog, import (noun), AI, smart, auto, analyze, generate.
+
+**Develop** is the sanctioned physical word (the action is Develop; the key stays `A`). **Auto** (capital A in UI) is still not allowed.
+
+### Shelved / un-shelved
+
+**Un-shelved for this pass:**
+
+- `A` / Develop
+- multi-select (drag-box + ⇧-arrows)
+- cross-row / shoot-wide propagation via the ⇧⏎ ripple
+- the `?` shortcuts surface
+
+**Still shelved, verbatim:**
+
+- suggested-treatment browsing UI
+- ⇧P / ⇧X
+- two-up
+- gather-drag / reordering by treatment
+- ordering surface
+- haptics (socket only)
+- folder watching
+- seam gap
+- Edit families read by repeated ← chips, never by reorder
+
+### Staged / receipt copy
+
+Banner, header, and receipt strings come from `design/copy-contract.txt` — nowhere else. (H1 installs the strings; this ruling only names the source.)
+
+### Scope
+
+Default scope = the row. Each additional ⇧⏎ widens exactly one ring (row → scene → shoot). Esc narrows one ring; at the row ring Esc cancels the whole stage. Exclusions persist through re-staging within the shoot.
+
+### Crop latch key re-scoping (frame C)
+
+While `cropSession` is latched inside Edit, decision keys are **re-scoped** — global meanings are swallowed:
+
+| Key | Global (idle) | Inside crop latch |
+|-----|---------------|-------------------|
+| `A` | Stage Develop proposal | Toggle aspect-ratio lock on the fixed boundary |
+| `X` | Reject / set aside | Flip crop orientation (never marks reject) |
+| `⏎` | Confirm staged round | Apply crop geometry to sidecar (one ⌘Z entry) |
+| `Esc` | Cancel staging / close overlay | Dismiss crop — restore entry layout hash, nothing written |
+| `4` | — | Enter crop from Straighten section |
+
+Trackpad / pointer drag still only **moves**: inside boundary = pan photograph; outside = rotate with alignment grid (grid visible only while dragging outside). Navigating away from Edit dismisses crop like Esc.
+
+### Hand selection + drag-box Develop (frame D)
+
+- **Selection model** (`TablePhotographSelection`): whole photographs across rows — row scope ignored for the user's hand.
+- **Rubber-band** on empty table space selects every touched photograph — trackpad act only, never commits.
+- **⇧← / ⇧→** extend selection along table order from the focused frame.
+- **Rings**: user hand = `HiFiTokens.Ring.selection` (charcoal); table proposal halo = `HiFiTokens.Ring.halo` (warm-white) — must stay distinct (`assertDistinctSelectionAndHalo`).
+- **A** with selection stages Develop → N with independent proposals per RAW; empty selection falls back to focused frame.
+- **Click** while staged toggles a member in/out; edited frames may be included — prior edit folds into one ⌘Z.
+- **Esc** clears stage first, then selection; navigating away or commit also clears selection.
+
+### Wholesale ripple + docked chip (frame H6)
+
+- **Propagation rings** (`PropagationState`): row → scene → shoot; scope resolves kept/non-cut frames minus shoot-persisted exclusions and offline/damaged auto-exclusions.
+- **Halos**: first-order warm-white on in-scope members; faint second-order on proposal recipients until widened (`HiFiTokens.Ring.secondOrderOpacity`).
+- **⇧⏎** stages adapt at row (from Edit) or widens one ring while staged; **⏎** commits at current ring; **Esc** narrows one ring (full cancel at row).
+- **Exceptions** (`wholesaleExcludedPhotoIDs`): toggled out while staged — persist with marks through re-staging and relaunch; staged batches dissolve on relaunch.
+- **A1 invariant**: banner = header = receipt scope count; excluded arithmetic at every ring.
+- **Docked chip** after commit: grabbable `← frame · N` — drop on lane stages same recipe on that lane's kept frames; Esc mid-drag returns it.
+
+### Chrome corrections (frame H7)
+
+- **Histogram**: 252 × 64 above treatment rail (`HiFiTokens.Histogram`); yields before any control at min window.
+- **Min window**: 1280 × 800 (`EditRailLayout`); frame 12 collapse — context → strip → hero → **never targets**; ten rows @ 46 pt.
+- **Hold-?**: chrome-fade shortcuts glance from footer hints; release dismisses (Law 2); awaiting drawn frame in PDF.
+- **Export receipt**: `CopyContract.exportRecipeHint`; ⌥⌘E reopens export pre-filled via `IngestPreferences.lastExportFolderPath`.
+
+### Audit gate v2 (H8)
+
+- **`Scripts/audit_hifi.py`** — copy / grammar / accessibility / performance static gate; writes `AUDIT-HIFI.md`.
+- Copy diffs user-visible strings against `design/copy-contract.txt`; banned words minus Develop; Auto absent; Lightroom exactly once (sovereignty PL line).
+- Grammar: five decision keys swallow repeat; crop latch re-scoping; ripple widen/narrow; rubber-band + chip-drag zero commit paths.
+
+### 90 px halo (OPEN)
+
+Ship the plain 1.5 pt halo. Both fallbacks stay mocked and unpicked. The brighter-ring fallback lives behind a debug flag only.

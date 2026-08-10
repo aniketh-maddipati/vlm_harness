@@ -11,7 +11,8 @@ enum TreatmentFidelity: Equatable {
     var label: String {
         switch self {
         case .interactivePreview: "Interactive preview"
-        case .settling: "Settling"
+        case .settling:
+            return CopyContract.fetchingFullRAW
         case .fullPreview: "Full preview"
         case .oneToOneRAW: "1:1 RAW"
         case .previewsOnly: "Previews only — reconnect for full resolution"
@@ -23,7 +24,7 @@ enum TreatmentFidelity: Equatable {
         case .interactivePreview:
             return "Interactive preview. Good for framing decisions; not final colour."
         case .settling:
-            return "Settling. Waiting for a sharper proxy."
+            return "Settling. \(CopyContract.fetchingFullRAW)."
         case .fullPreview:
             return "Full preview. Suitable for exposure and colour judgement."
         case .oneToOneRAW:
@@ -38,7 +39,7 @@ enum TreatmentFidelity: Equatable {
 /// the photo's base recipe so Auto/taste edits compose correctly.
 enum WhiteBalancePreset: String, CaseIterable, Identifiable {
     case asShot = "As Shot"
-    case auto = "Auto"
+    case auto = "Estimate"
     case daylight = "Daylight"
     case cloudy = "Cloudy"
     case shade = "Shade"
@@ -80,6 +81,7 @@ struct TreatmentStageView: View {
     @Binding var offsets: DevelopAdjustments
     @Binding var previewMode: TreatmentPreviewMode
     var stagedRecipe: DevelopRecipe?
+    var stagingSnapshot: StagingCopySnapshot?
     var fidelity: TreatmentFidelity
     var localOverrideNotes: [AssetID: String] = [:]
     var storyStrip: [AssetPresentation]
@@ -95,6 +97,8 @@ struct TreatmentStageView: View {
     var onAddRetouch: (RetouchSpot) -> Void = { _ in }
     var onUndoRetouch: () -> Void = {}
     var onClearRetouch: () -> Void = {}
+    @Binding var cropSession: CropSession?
+    var onEnterCrop: () -> Void = {}
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingOriginalHold = false
@@ -105,6 +109,7 @@ struct TreatmentStageView: View {
     @State private var receipt: String?
     @State private var autoBusy = false
     @State private var visionHint: String?
+    @State private var histogramBins = DevelopHistogram.Bins.empty
 
     private var effectiveRecipe: DevelopRecipe {
         if showingOriginalHold || previewMode == .original { return .neutral }
@@ -155,25 +160,44 @@ struct TreatmentStageView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            storyCollapsedStrip
-                .frame(width: 80)
+        GeometryReader { geo in
+            let compact = EditRailLayout.isCompact(windowHeight: geo.size.height)
+            let stripWidth = EditRailLayout.storyStripWidth(compact: compact)
 
-            focusCarousel
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            HStack(spacing: 0) {
+                storyCollapsedStrip(compact: compact)
+                    .frame(width: stripWidth)
 
-            controlsColumn
-                .frame(width: 324)
-                .frame(maxHeight: .infinity)
+                focusCarousel(compact: compact)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                controlsColumn(windowHeight: geo.size.height)
+                    .frame(width: EditRailLayout.railWidth)
+                    .frame(maxHeight: .infinity)
+            }
         }
         .background(LuminaTokens.Surface.table)
+        .overlay(alignment: .bottom) {
+            if let snapshot = stagingSnapshot, snapshot.isDevelop, stagedRecipe != nil {
+                StagedTreatmentBanner(snapshot: snapshot)
+                    .padding(.bottom, 24)
+            }
+        }
+        .onAppear { refreshHistogram() }
+        .onChange(of: leader.id) { _, _ in refreshHistogram() }
+        .onChange(of: liveRecipe.exposure) { _, _ in refreshHistogram() }
         .onExitCommand(perform: onClose)
+    }
+
+    private func refreshHistogram() {
+        histogramBins = DevelopHistogramView.bins(for: leader.id, asset: leader, scheduler: scheduler)
     }
 
     // MARK: - Story collapse (96 pt)
 
-    private var storyCollapsedStrip: some View {
-        VStack(spacing: 8) {
+    private func storyCollapsedStrip(compact: Bool) -> some View {
+        let thumb = compact ? 36.0 : 48.0
+        return VStack(spacing: compact ? 6 : 8) {
             Text("Story")
                 .font(LuminaTokens.Typeface.meta(10))
                 .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
@@ -186,8 +210,8 @@ struct TreatmentStageView: View {
                             cornerRadius: 2,
                             maxPixelSize: 240
                         )
-                        .frame(width: 48, height: 48 * (1 / max(asset.aspectRatio, 0.1)))
-                        .frame(maxHeight: 48)
+                        .frame(width: thumb, height: thumb * (1 / max(asset.aspectRatio, 0.1)))
+                        .frame(maxHeight: thumb)
                         .opacity(0.60)
                     }
                 }
@@ -199,8 +223,8 @@ struct TreatmentStageView: View {
                 .buttonStyle(LuminaQuietButtonStyle())
                 .accessibilityLabel("Done — close treatment")
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 8)
+        .padding(.vertical, compact ? 8 : 12)
+        .padding(.horizontal, compact ? 6 : 8)
         .background(LuminaTokens.Surface.tableHead)
         .overlay(alignment: .trailing) {
             Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
@@ -211,11 +235,12 @@ struct TreatmentStageView: View {
 
     /// Scroll the set; the focused photograph grows to dominate and hosts
     /// the live Metal develop surface. Neighbors stay poised smaller.
-    private var focusCarousel: some View {
+    private func focusCarousel(compact: Bool) -> some View {
         GeometryReader { geo in
-            let pad: CGFloat = 16
-            let focusH = max(geo.size.height * 0.88, 480)
-            let neighborH = max(focusH * 0.22, 96)
+            let pad: CGFloat = compact ? 12 : 16
+            let focusFraction: CGFloat = compact ? 0.72 : 0.88
+            let focusH = max(geo.size.height * focusFraction, compact ? 360 : 480)
+            let neighborH = max(focusH * 0.22, compact ? 72 : 96)
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 14) {
@@ -328,6 +353,14 @@ struct TreatmentStageView: View {
                         .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
                         .transition(.opacity)
                 }
+                if stagedRecipe != nil, let snapshot = stagingSnapshot {
+                    Text(CopyContract.provenanceChip(
+                        referenceFrame: snapshot.referenceFrameNumber,
+                        scopeCount: snapshot.scopeCount
+                    ))
+                    .font(.system(size: 11.5, weight: .regular, design: .monospaced))
+                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
+                }
                 fidelityChip
             }
             Text(liveDevelopLine)
@@ -370,14 +403,28 @@ struct TreatmentStageView: View {
             asset: asset,
             projectName: projectName,
             recipe: liveRecipe,
-            oneToOne: oneToOne
+            oneToOne: oneToOne,
+            cropState: cropSession?.working
         )
+        .overlay {
+            if let binding = cropBinding(for: asset.id) {
+                CropOverlayView(session: binding, aspectRatio: asset.aspectRatio)
+            }
+        }
         .overlay {
             if healMode {
                 healOverlay
             }
         }
         .accessibilityLabel("Photograph being treated: \(asset.filename)")
+    }
+
+    private func cropBinding(for photoID: AssetID) -> Binding<CropSession>? {
+        guard cropSession?.photoID == photoID, cropSession != nil else { return nil }
+        return Binding(
+            get: { cropSession! },
+            set: { cropSession = $0 }
+        )
     }
 
     private var healOverlay: some View {
@@ -447,56 +494,143 @@ struct TreatmentStageView: View {
 
     // MARK: - Controls
 
-    private var controlsColumn: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if stagedRecipe != nil {
-                Text("Staged across \(selectionCount) · ↩ commits, Esc cancels")
-                    .font(LuminaTokens.Typeface.meta(12))
-                    .foregroundStyle(LuminaTokens.Ink.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.bottom, 10)
-            }
+    private func controlsColumn(windowHeight: CGFloat) -> some View {
+        let compact = EditRailLayout.isCompact(windowHeight: windowHeight)
+        let showHistogram = EditRailLayout.showsHistogram(windowHeight: windowHeight)
 
-            // Preview modes and Auto edit each get their own space at the top.
-            chipRow
-                .padding(.bottom, 8)
-            autoEditButton
-                .padding(.bottom, 12)
+        return VStack(alignment: .leading, spacing: 0) {
+            DevelopHistogramView(bins: histogramBins, visible: showHistogram)
+                .padding(.bottom, showHistogram ? 8 : 0)
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 10) {
-                    panel("White balance") { whiteBalanceSection }
-                    panel("Tone") {
-                        slider("Exposure", value: binding(\.exposure), range: -2...2)
-                        slider("Highlights", value: binding(\.highlights), range: -100...100)
-                        slider("Shadows", value: binding(\.shadows), range: -100...100)
-                        slider("Contrast", value: binding(\.contrast), range: -100...100)
-                    }
-                    panel("Color") {
-                        slider("Vibrance", value: binding(\.vibrance), range: -100...100)
-                        slider("Saturation", value: binding(\.saturation), range: -100...100)
-                    }
-                    panel("Detail") { detailSection }
-                    panel("Erase / heal") { healSection }
+            if !compact {
+                contextHeaderBlock
+                chipRow
+                    .padding(.bottom, 8)
+                if cropSession == nil, stagingSnapshot?.isDevelop != true {
+                    Text(CopyContract.developThisPhotograph)
+                        .font(LuminaTokens.Typeface.meta(11))
+                        .foregroundStyle(LuminaTokens.Ink.secondary)
+                        .padding(.bottom, 8)
                 }
-                .padding(.bottom, 12)
+                autoEditButton
+                    .padding(.bottom, 12)
             }
+
+            targetRail
 
             Spacer(minLength: 0)
 
             Divider()
                 .padding(.vertical, 10)
 
+            Text(CopyContract.editFooterShortcuts)
+                .font(LuminaTokens.Typeface.meta(10))
+                .foregroundStyle(LuminaTokens.Ink.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.bottom, 8)
+
             actionButtons
         }
-        .padding(16)
+        .padding(EditRailLayout.railPadding)
         .background(LuminaTokens.Surface.side)
         .overlay(alignment: .leading) {
             Rectangle().fill(LuminaTokens.Line.hairline).frame(width: 1)
         }
     }
 
-    /// Card container so each control family has its own visual space.
+    @ViewBuilder
+    private var contextHeaderBlock: some View {
+        if let session = cropSession {
+            Text(CropSessionCopy.header(straightenDegrees: session.working.straightenDegrees))
+                .font(LuminaTokens.Typeface.meta(12, weight: .medium).monospaced())
+                .foregroundStyle(LuminaTokens.Ink.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.bottom, 10)
+        } else if stagedRecipe != nil {
+            if let snapshot = stagingSnapshot {
+                Text(CopyContract.stagedHeader(snapshot))
+                    .font(LuminaTokens.Typeface.meta(12, weight: .medium).monospaced())
+                    .foregroundStyle(LuminaTokens.Ink.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.bottom, 4)
+                if !snapshot.isDevelop {
+                    Text(CopyContract.adaptedIndependently)
+                        .font(LuminaTokens.Typeface.meta(11))
+                        .foregroundStyle(LuminaTokens.Ink.tertiary)
+                        .padding(.bottom, 10)
+                }
+            }
+        }
+    }
+
+    /// Ten fixed target rows — never scale down (frame 12).
+    private var targetRail: some View {
+        VStack(spacing: 0) {
+            targetRow("Exposure", value: binding(\.exposure), range: -2...2)
+            targetRow("Contrast", value: binding(\.contrast), range: -100...100)
+            targetRow("Highlights", value: binding(\.highlights), range: -100...100)
+            targetRow("Shadows", value: binding(\.shadows), range: -100...100)
+            targetRow("Temp", value: binding(\.temperature), range: -2000...2000)
+            targetRow("Tint", value: binding(\.tint), range: -50...50)
+            targetRow("Vibrance", value: binding(\.vibrance), range: -100...100)
+            targetRow("Saturation", value: binding(\.saturation), range: -100...100)
+            targetRow("Detail", value: binding(\.luminanceNR), range: 0...100)
+            straightenTargetRow
+        }
+    }
+
+    private func targetRow(_ title: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(title)
+                    .font(LuminaTokens.Typeface.meta(11))
+                    .foregroundStyle(LuminaTokens.Ink.secondary)
+                Spacer()
+                Text(valueLabel(value.wrappedValue, range: range))
+                    .font(.system(size: 10, weight: value.wrappedValue == 0 ? .regular : .medium, design: .monospaced))
+                    .foregroundStyle(value.wrappedValue == 0 ? LuminaTokens.Ink.tertiary : LuminaTokens.Ink.primary)
+            }
+            Slider(value: value, in: range)
+                .controlSize(.mini)
+                .frame(height: 18)
+                .accessibilityLabel(title)
+        }
+        .frame(height: EditRailLayout.rowHeight)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+
+    private var straightenTargetRow: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text("Straighten")
+                    .font(LuminaTokens.Typeface.meta(11))
+                    .foregroundStyle(LuminaTokens.Ink.secondary)
+                Spacer()
+                Text(String(format: "%.1f°", cropSession?.working.straightenDegrees ?? 0))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(LuminaTokens.Ink.primary)
+            }
+            if let binding = cropStraightenBinding {
+                Slider(value: binding, in: -45...45)
+                    .controlSize(.mini)
+                    .frame(height: 18)
+            } else {
+                Button(action: onEnterCrop) {
+                    Text(cropSession != nil ? "Crop latched · 4" : "Enter crop · 4")
+                        .font(LuminaTokens.Typeface.meta(10))
+                        .foregroundStyle(LuminaTokens.Ink.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(LuminaQuietButtonStyle())
+                .frame(height: 18)
+            }
+        }
+        .frame(height: EditRailLayout.rowHeight)
+        .accessibilityLabel("Straighten")
+    }
+
+    /// Legacy panel container — detailed controls via ⌘⌥C / onOpenMore.
     private func panel<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title.uppercased())
@@ -520,7 +654,7 @@ struct TreatmentStageView: View {
             HStack(spacing: 6) {
                 Image(systemName: "wand.and.stars")
                     .font(.system(size: 12))
-                Text(autoBusy ? "Analyzing…" : "Auto edit")
+                Text(autoBusy ? "Analyzing…" : "Assist edit")
                     .font(LuminaTokens.Typeface.navigation(12, weight: .medium))
             }
             .foregroundStyle(LuminaTokens.Ink.primary)
@@ -532,8 +666,8 @@ struct TreatmentStageView: View {
         }
         .buttonStyle(LuminaQuietButtonStyle())
         .disabled(autoBusy)
-        .accessibilityLabel("Auto edit")
-        .accessibilityHint("Vision-assisted auto: face-weighted exposure when faces are present, otherwise whole-frame histogram. Sliders update to match.")
+        .accessibilityLabel("Assist edit")
+        .accessibilityHint("Vision-assisted exposure when faces are present, otherwise whole-frame histogram. Sliders update to match.")
     }
 
     private func applyAutoEdit() {
@@ -565,7 +699,7 @@ struct TreatmentStageView: View {
             } else {
                 visionHint = nil
             }
-            showReceipt("Auto edit applied — sliders updated")
+            showReceipt("Assist edit applied — sliders updated")
             if visionHint != nil {
                 Task {
                     try? await Task.sleep(nanoseconds: 3_000_000_000)
@@ -586,11 +720,11 @@ struct TreatmentStageView: View {
     private var whiteBalanceSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 5)], spacing: 5) {
-                ForEach(WhiteBalancePreset.allCases) { preset in
+                ForEach(WhiteBalancePreset.allCases) { wb in
                     Button {
-                        applyWhiteBalancePreset(preset)
+                        applyWhiteBalancePreset(wb)
                     } label: {
-                        Text(preset.rawValue)
+                        Text(wb.rawValue)
                             .font(LuminaTokens.Typeface.meta(11))
                             .foregroundStyle(LuminaTokens.Ink.primary)
                             .lineLimit(1)
@@ -601,7 +735,7 @@ struct TreatmentStageView: View {
                             )
                     }
                     .buttonStyle(LuminaQuietButtonStyle())
-                    .accessibilityLabel("White balance: \(preset.rawValue)")
+                    .accessibilityLabel("White balance: \(wb.rawValue)")
                 }
             }
             slider("Temperature", value: binding(\.temperature), range: -2000...2000)
@@ -639,11 +773,64 @@ struct TreatmentStageView: View {
         VStack(alignment: .leading, spacing: 12) {
             slider("Noise reduction", value: binding(\.luminanceNR), range: 0...100)
             slider("Sharpening", value: binding(\.sharpness), range: 0...150)
-            Text("RAW-domain when supported · Crop — ⌘⌥C opens the rest")
+            Text("RAW-domain when supported · ⌘⌥C opens the rest")
                 .font(LuminaTokens.Typeface.meta(10))
                 .foregroundStyle(LuminaTokens.Ink.tertiary)
                 .onTapGesture(perform: onOpenMore)
         }
+    }
+
+    private var straightenSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Straighten")
+                    .font(LuminaTokens.Typeface.meta(11))
+                    .foregroundStyle(LuminaTokens.Ink.secondary)
+                Spacer()
+                Text(String(format: "%.1f°", cropSession?.working.straightenDegrees ?? 0))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(LuminaTokens.Ink.primary)
+            }
+            if let binding = cropStraightenBinding {
+                Slider(value: binding, in: -45...45)
+                    .controlSize(.small)
+                    .frame(minHeight: 36)
+            }
+            Button {
+                onEnterCrop()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "crop")
+                        .font(.system(size: 12))
+                    Text(cropSession != nil ? "Crop latched · 4" : "Enter crop · 4")
+                        .font(LuminaTokens.Typeface.navigation(12, weight: .medium))
+                }
+                .foregroundStyle(LuminaTokens.Ink.primary)
+                .frame(maxWidth: .infinity, minHeight: 34)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(cropSession != nil ? LuminaTokens.Status.selection.opacity(0.22) : LuminaTokens.Surface.mist)
+                )
+            }
+            .buttonStyle(LuminaQuietButtonStyle())
+            .accessibilityLabel(cropSession != nil ? "Crop latched" : "Enter crop mode")
+            .accessibilityHint("Fixed boundary · drag inside to reposition · outside to straighten · ⏎ applies · Esc dismisses")
+            Text("A unlocks aspect · X flips orientation while latched")
+                .font(LuminaTokens.Typeface.meta(10))
+                .foregroundStyle(LuminaTokens.Ink.tertiary)
+        }
+    }
+
+    private var cropStraightenBinding: Binding<Double>? {
+        guard cropSession != nil else { return nil }
+        return Binding(
+            get: { cropSession?.working.straightenDegrees ?? 0 },
+            set: { newValue in
+                guard var session = cropSession else { return }
+                session.setStraighten(newValue)
+                cropSession = session
+            }
+        )
     }
 
     private var healSection: some View {
@@ -761,7 +948,7 @@ struct TreatmentStageView: View {
     private func modeLabel(_ mode: TreatmentPreviewMode) -> String {
         switch mode {
         case .original: "Original"
-        case .auto: "Auto"
+        case .auto: "Taste"
         case .current: "Current"
         }
     }

@@ -38,10 +38,10 @@ enum PresentationFixtures {
         let card = ShootCardPresentation(
             id: "new-sd",
             title: "Untitled shoot",
-            subtitle: "Card just mounted",
+            subtitle: CopyContract.copiesAutomatically,
             dateLabel: "Today · 4:12 PM",
             photographCount: 642,
-            progressLabel: "642 new photographs · 2 proposed shoots",
+            progressLabel: CopyContract.copyingOriginals,
             previewAssets: Array(brooklynAssets.prefix(3)),
             readiness: .findingMore,
             primaryActionTitle: "Review new photographs"
@@ -180,6 +180,7 @@ enum PresentationFixtures {
             selectedGroupID: groups[0].id,
             progressCurrent: 8,
             progressTotal: 31,
+            tableHeader: nil,
             inspectorAvailable: true
         )
     }
@@ -213,6 +214,7 @@ enum PresentationFixtures {
             selectedGroupID: "two-up",
             progressCurrent: 2,
             progressTotal: 5,
+            tableHeader: nil,
             inspectorAvailable: true
         )
     }
@@ -241,6 +243,7 @@ enum PresentationFixtures {
             selectedGroupID: "four-up",
             progressCurrent: 1,
             progressTotal: 4,
+            tableHeader: nil,
             inspectorAvailable: true
         )
     }
@@ -264,6 +267,7 @@ enum PresentationFixtures {
             selectedGroupID: "six-up",
             progressCurrent: 0,
             progressTotal: 6,
+            tableHeader: nil,
             inspectorAvailable: true
         )
     }
@@ -286,6 +290,7 @@ enum PresentationFixtures {
             selectedGroupID: groups[0].id,
             progressCurrent: 8,
             progressTotal: 31,
+            tableHeader: nil,
             inspectorAvailable: true
         )
     }
@@ -308,6 +313,7 @@ enum PresentationFixtures {
             selectedGroupID: "mixed",
             progressCurrent: 3,
             progressTotal: 5,
+            tableHeader: nil,
             inspectorAvailable: true
         )
     }
@@ -323,6 +329,7 @@ enum PresentationFixtures {
             selectedGroupID: workspace.selectedGroupID,
             progressCurrent: workspace.progressCurrent,
             progressTotal: workspace.progressTotal,
+            tableHeader: nil,
             inspectorAvailable: workspace.inspectorAvailable
         )
     }
@@ -336,6 +343,7 @@ enum PresentationFixtures {
             selectedGroupID: nil,
             progressCurrent: 0,
             progressTotal: 0,
+            tableHeader: nil,
             inspectorAvailable: false
         )
     }

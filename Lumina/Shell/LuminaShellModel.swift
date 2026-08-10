@@ -30,6 +30,8 @@ final class LuminaShellModel {
     var isFocusMode = false
     var showInspector = false
     var showShortcuts = false
+    /// Hold-? chrome-fade glance — release dismisses (Law 2, hi-fi H7).
+    var shortcutsGlanceHeld = false
     var pendingPeerSuggestion: PeerCullSuggestion?
     var developOffsets: DevelopAdjustments = .zero
     var stackPreviewMix: Double = 1
@@ -42,6 +44,8 @@ final class LuminaShellModel {
     var lastRoundReceipt: RoundReceipt?
     /// Darkroom gathering + two-beat commit model.
     var workbenchSelection = WorkbenchSelection()
+    /// Active staged copy snapshot — banner/header/receipt share `scopeCount` (A1).
+    var stagingCopySnapshot: StagingCopySnapshot?
     /// Fast-run travel shortening.
     var fastRunTracker = LuminaTokens.FastRunTracker()
     /// Treatment stage (Edit) open over the workbench.
@@ -54,6 +58,12 @@ final class LuminaShellModel {
     var routingFlightID: AssetID?
     /// Grouped flight proxy for a multi-photo Advance stack.
     var routingFlightIDs: [AssetID] = []
+    /// Latched crop inside focused edit — Esc dismisses, ⏎ applies (hi-fi frame C).
+    var cropSession: CropSession?
+    /// Post-commit grabbable adapt chip — carry to another lane (hi-fi H6).
+    var dockedAdaptChip: DockedAdaptChip?
+    var dockedChipDragActive = false
+    private let developProposalEngine: DevelopProposalEngine = HistogramDevelopProposalEngine()
     private var previewAnimationTask: Task<Void, Never>?
     private var developPersistTask: Task<Void, Never>?
     private var receiptDismissTask: Task<Void, Never>?
@@ -81,6 +91,14 @@ final class LuminaShellModel {
         }
     }
 
+    /// Grabbable post-commit treatment chip (← frame · N).
+    struct DockedAdaptChip: Equatable {
+        var recipe: DevelopRecipe
+        var referenceFrame: String
+        var scopeCount: Int
+        var sourceLaneID: String
+    }
+
     var fixtureHome: HomePresentation?
     var fixtureShoots: ShootSelectionPresentation?
     var fixtureWorkspace: WorkspacePresentation?
@@ -95,12 +113,17 @@ final class LuminaShellModel {
     private var cachedFinish: FinishPresentation?
 
     func openHome() {
+        dismissCrop(revert: true)
+        workbenchSelection.clearSelection()
+        stagingCopySnapshot = nil
         route = .home
         isFocusMode = false
         showInspector = false
     }
 
     func openShootSelection() {
+        workbenchSelection.clearSelection()
+        stagingCopySnapshot = nil
         route = .shootSelection
         isFocusMode = false
         showInspector = false
@@ -117,6 +140,9 @@ final class LuminaShellModel {
 
     func setWorkspaceStage(_ stage: WorkspaceStage) {
         guard stage != workspaceStage else { return }
+        dismissCrop(revert: true)
+        workbenchSelection.clearSelection()
+        stagingCopySnapshot = nil
         if workspaceStage == .workbench {
             workbenchScrollAnchor = selectedGroupID
         } else if workspaceStage == .canvas {
@@ -169,6 +195,8 @@ final class LuminaShellModel {
     }
 
     func openFinish() {
+        workbenchSelection.clearSelection()
+        stagingCopySnapshot = nil
         route = .finish
         isFocusMode = false
         showInspector = false
@@ -197,13 +225,46 @@ final class LuminaShellModel {
     }
 
     /// Escape closes transient overlays — never dumps the workspace to Home.
-    func handleEscape() -> Bool {
+    func handleEscape(model: ProjectViewModel? = nil) -> Bool {
+        if dismissCrop(revert: true) {
+            return true
+        }
+        if dockedChipDragActive {
+            dockedChipDragActive = false
+            LuminaHaptics.alignment()
+            return true
+        }
         if workbenchSelection.staged != nil {
+            if workbenchSelection.staged?.isTreatStaging == true,
+               var propagation = workbenchSelection.propagation {
+                if propagation.ring == .row {
+                    workbenchSelection.cancel()
+                    stagingCopySnapshot = nil
+                    LuminaHaptics.alignment()
+                    return true
+                }
+                if propagation.narrow() {
+                    workbenchSelection.setPropagation(propagation)
+                    if let model {
+                        syncPropagationScope(model: model)
+                    }
+                    LuminaHaptics.alignment()
+                    return true
+                }
+            }
+            let wasDevelop = workbenchSelection.staged?.isDevelopStaging == true
             workbenchSelection.cancel()
+            stagingCopySnapshot = nil
+            if wasDevelop, let model, let photoID = selectedAssetID ?? model.cursor {
+                loadDevelop(for: photoID, model: model)
+            }
             LuminaHaptics.alignment()
             return true
         }
         if isTreatmentStageOpen {
+            dismissCrop(revert: true)
+            workbenchSelection.clearSelection()
+            stagingCopySnapshot = nil
             isTreatmentStageOpen = false
             return true
         }
@@ -238,6 +299,10 @@ final class LuminaShellModel {
         }
         if showShortcuts {
             showShortcuts = false
+            return true
+        }
+        if shortcutsGlanceHeld {
+            shortcutsGlanceHeld = false
             return true
         }
         if !workbenchSelection.isEmpty {
@@ -495,8 +560,17 @@ final class LuminaShellModel {
     /// Empty selection / missing stage are no-ops at the model level.
     @discardableResult
     func commitRound(_ selection: WorkbenchSelection, model: ProjectViewModel) -> RoundReceipt? {
-        guard let action = selection.staged, !selection.ids.isEmpty else { return nil }
-        let targets = selection.ids
+        guard let action = selection.staged else { return nil }
+        let presentation = workspacePresentation(model: model)
+        let targets: [AssetID]
+        if case .treat = action, let propagation = selection.propagation {
+            let scope = propagation.resolvedScope(presentation: presentation, model: model)
+            guard !scope.memberIDs.isEmpty else { return nil }
+            targets = scope.memberIDs
+        } else {
+            guard !selection.ids.isEmpty else { return nil }
+            targets = selection.ids
+        }
         let priorEmerging = model.emergingSetPresentations().map(\.id)
 
         var entries: [DecisionLedgerEntry] = []
@@ -504,6 +578,7 @@ final class LuminaShellModel {
         var setAsideCount = 0
         var holdCount = 0
         var treatCount = 0
+        var developCount = 0
 
         switch action {
         case .advance:
@@ -557,6 +632,17 @@ final class LuminaShellModel {
             routingFlightIDs = []
 
         case .treat(let recipe):
+            let referenceID: AssetID?
+            let referenceFrame: String
+            if let propagation = selection.propagation {
+                referenceID = propagation.referencePhotoID
+                referenceFrame = propagation.referenceFrame
+            } else {
+                referenceID = selection.leader ?? targets.first
+                referenceFrame = CopyContractBuilder.referenceFrameNumber(
+                    from: referenceID.flatMap { model.photo(with: $0)?.filename }
+                )
+            }
             for id in targets {
                 guard let snapshot = model.photoRoutingSnapshot(for: id) else { continue }
                 let priorRecipe = model.photo(with: id)?.recipe
@@ -573,6 +659,42 @@ final class LuminaShellModel {
                 model.persistRecipe(recipe, for: id)
                 treatCount += 1
             }
+            if treatCount > 0, let referenceID {
+                model.persistAdaptProvenance(
+                    referenceFrame: referenceFrame,
+                    scopeCount: treatCount,
+                    referencePhotoID: referenceID,
+                    photoIDs: targets
+                )
+                if let propagation = selection.propagation {
+                    dockedAdaptChip = DockedAdaptChip(
+                        recipe: recipe,
+                        referenceFrame: referenceFrame,
+                        scopeCount: treatCount,
+                        sourceLaneID: propagation.referenceGroupID
+                    )
+                }
+            }
+
+        case .develop(let proposals):
+            for id in targets {
+                guard let proposal = proposals[id],
+                      let snapshot = model.photoRoutingSnapshot(for: id),
+                      let photo = model.photo(with: id) else { continue }
+                let priorEdit = photo.effectiveEditRecipe
+                entries.append(DecisionLedgerEntry(
+                    photoID: id,
+                    priorTier: snapshot.tier,
+                    priorFlagged: snapshot.isFlagged,
+                    priorUncertaintyKind: snapshot.uncertaintyKind,
+                    priorWhyUncertain: snapshot.whyUncertain,
+                    applied: .undecided,
+                    priorRecipe: model.appliedRecipe(for: photo),
+                    priorEditRecipe: priorEdit
+                ))
+                model.persistEditRecipe(proposal, for: id)
+                developCount += 1
+            }
         }
 
         guard !entries.isEmpty else { return nil }
@@ -583,7 +705,8 @@ final class LuminaShellModel {
         if advanceCount > 0 { parts.append("Advanced \(advanceCount)") }
         if setAsideCount > 0 { parts.append("Set aside \(setAsideCount)") }
         if holdCount > 0 { parts.append("Hold \(holdCount)") }
-        if treatCount > 0 { parts.append("Treated \(treatCount)") }
+        if treatCount > 0 { parts.append(CopyContract.adaptedReceipt(count: treatCount)) }
+        if developCount > 0 { parts.append("Developed → \(developCount) · ⌘Z") }
         let text = parts.isEmpty ? "Round committed" : parts.joined(separator: " · ")
 
         let receipt = RoundReceipt(
@@ -595,6 +718,7 @@ final class LuminaShellModel {
         lastRoundReceipt = receipt
         decisionUndo = nil
         selection.markRoundCompleted()
+        stagingCopySnapshot = nil
         fastRunTracker.noteConfirm()
         LuminaHaptics.levelChange()
         showRoundReceipt(receipt)
@@ -620,10 +744,16 @@ final class LuminaShellModel {
                 uncertaintyKind: entry.priorUncertaintyKind,
                 whyUncertain: entry.priorWhyUncertain
             )
-            if let priorRecipe = entry.priorRecipe {
+            if let priorEdit = entry.priorEditRecipe {
+                model.persistEditRecipe(priorEdit, for: entry.photoID)
+            } else if let priorRecipe = entry.priorRecipe {
                 model.persistRecipe(priorRecipe, for: entry.photoID)
+                if entry.appliedRecipe != nil {
+                    model.clearAdaptProvenance(for: [entry.photoID])
+                }
             } else if entry.appliedRecipe != nil {
                 model.clearRecipe(for: entry.photoID)
+                model.clearAdaptProvenance(for: [entry.photoID])
             }
         }
         if lastRoundReceipt?.id == receipt.id {
@@ -689,11 +819,16 @@ final class LuminaShellModel {
     }
 
     func openTreatmentStage() {
+        workbenchSelection.clearSelection()
+        stagingCopySnapshot = nil
         isTreatmentStageOpen = true
         isFocusMode = false
     }
 
     func closeTreatmentStage() {
+        dismissCrop(revert: true)
+        workbenchSelection.clearSelection()
+        stagingCopySnapshot = nil
         isTreatmentStageOpen = false
     }
 
@@ -922,5 +1057,278 @@ final class LuminaShellModel {
         ThumbCache.shared.prefetchPaths(neighborPaths, maxPixelSize: 2048)
         let rowPaths = ordered.prefix(8).compactMap { $0.previewPath ?? $0.thumbPath }
         ThumbCache.shared.prefetchPaths(rowPaths, maxPixelSize: 768)
+    }
+
+    func enterCrop(for photoID: AssetID, model: ProjectViewModel) {
+        guard let photo = model.photo(with: photoID) else { return }
+        cropSession = CropSession(photoID: photoID, recipe: photo.effectiveEditRecipe)
+    }
+
+    func applyCrop(model: ProjectViewModel) {
+        guard let session = cropSession,
+              let photo = model.photo(with: session.photoID),
+              let snapshot = model.photoRoutingSnapshot(for: session.photoID) else { return }
+        let priorEdit = photo.effectiveEditRecipe
+        let merged = session.working.merged(into: priorEdit)
+        let entry = DecisionLedgerEntry(
+            photoID: session.photoID,
+            priorTier: snapshot.tier,
+            priorFlagged: snapshot.isFlagged,
+            priorUncertaintyKind: snapshot.uncertaintyKind,
+            priorWhyUncertain: snapshot.whyUncertain,
+            applied: .undecided,
+            priorRecipe: model.appliedRecipe(for: photo),
+            priorEditRecipe: priorEdit
+        )
+        model.persistEditRecipe(merged, for: session.photoID)
+        lastRoundReceipt = RoundReceipt(
+            id: UUID(),
+            text: "Crop applied",
+            entries: [entry],
+            priorEmergingOrder: model.emergingSetPresentations().map(\.id)
+        )
+        cropSession = nil
+        LuminaHaptics.decision()
+    }
+
+    /// Dismiss latched crop — optionally revert working state to entry baseline (Esc / navigate away).
+    @discardableResult
+    func dismissCrop(revert: Bool) -> Bool {
+        guard cropSession != nil else { return false }
+        if revert, var session = cropSession {
+            session.revert()
+            cropSession = session
+        }
+        cropSession = nil
+        LuminaHaptics.alignment()
+        return true
+    }
+
+    func cropToggleAspectLock() {
+        guard var session = cropSession else { return }
+        session.toggleAspectLock()
+        cropSession = session
+    }
+
+    func cropFlipOrientation() {
+        guard var session = cropSession else { return }
+        session.flipOrientation()
+        cropSession = session
+    }
+
+    /// Stage per-RAW develop proposals — selection when non-empty, else focused frame (hi-fi H4/H5).
+    func stageDevelopProposal(model: ProjectViewModel, presentation: WorkspacePresentation) async {
+        let targetIDs: [AssetID]
+        if workbenchSelection.isEmpty {
+            guard let photoID = selectedAssetID ?? model.cursor else { return }
+            targetIDs = [photoID]
+        } else {
+            targetIDs = workbenchSelection.ids
+        }
+
+        var proposals: [AssetID: EditRecipe] = [:]
+        for id in targetIDs {
+            guard let photo = model.photo(with: id),
+                  let path = photo.previewPath ?? photo.thumbPath,
+                  let proposal = await developProposalEngine.propose(
+                    imagePath: path,
+                    baseRecipe: photo.effectiveEditRecipe
+                  ) else { continue }
+            proposals[id] = proposal
+        }
+
+        guard !proposals.isEmpty else {
+            LuminaHaptics.light()
+            return
+        }
+
+        workbenchSelection.setSelection(Array(proposals.keys))
+        if let focus = selectedAssetID ?? proposals.keys.first,
+           let photo = model.photo(with: focus),
+           let proposal = proposals[focus] {
+            selectedAssetID = focus
+            model.setCursor(focus)
+            developOffsets = DevelopAdjustments.from(
+                proposal: proposal,
+                base: model.appliedRecipe(for: photo)
+            )
+        }
+        treatmentPreviewMode = .current
+
+        guard workbenchSelection.stage(.develop(proposals: proposals)) else {
+            LuminaHaptics.light()
+            return
+        }
+        refreshStagingCopy(model: model)
+        LuminaHaptics.decision()
+    }
+
+    func toggleHandSelection(_ photoID: AssetID, model: ProjectViewModel, presentation: WorkspacePresentation) {
+        if workbenchSelection.staged?.isTreatStaging == true,
+           workbenchSelection.propagation != nil {
+            togglePropagationExclusion(photoID, model: model)
+            selectedAssetID = photoID
+            model.setCursor(photoID)
+            return
+        }
+        if workbenchSelection.staged != nil {
+            workbenchSelection.toggle(photoID)
+            if var proposals = workbenchSelection.developProposals {
+                if workbenchSelection.contains(photoID) {
+                    if proposals[photoID] == nil,
+                       let photo = model.photo(with: photoID),
+                       let path = photo.previewPath ?? photo.thumbPath {
+                        Task {
+                            if let proposal = await developProposalEngine.propose(
+                                imagePath: path,
+                                baseRecipe: photo.effectiveEditRecipe
+                            ) {
+                                proposals[photoID] = proposal
+                                workbenchSelection.updateDevelopStaging(proposals)
+                                refreshStagingCopy(model: model)
+                            }
+                        }
+                    }
+                } else {
+                    proposals.removeValue(forKey: photoID)
+                    if proposals.isEmpty {
+                        workbenchSelection.cancel()
+                        stagingCopySnapshot = nil
+                    } else {
+                        workbenchSelection.updateDevelopStaging(proposals)
+                        refreshStagingCopy(model: model)
+                    }
+                }
+            }
+        } else {
+            workbenchSelection.focus(photoID)
+        }
+        selectedAssetID = photoID
+        model.setCursor(photoID)
+        loadDevelop(for: photoID, model: model)
+        _ = presentation
+    }
+
+    func rubberBandSelect(_ photoIDs: [AssetID]) {
+        workbenchSelection.rubberBandSelect(photoIDs)
+        if let last = photoIDs.last {
+            selectedAssetID = last
+        }
+    }
+
+    func extendHandSelection(to photoID: AssetID, presentation: WorkspacePresentation) {
+        let order = TablePhotographSelection.tableOrder(from: presentation.groups)
+        workbenchSelection.extendSelection(in: order, to: photoID)
+        selectedAssetID = photoID
+    }
+
+    func refreshStagingCopy(model: ProjectViewModel) {
+        guard workbenchSelection.staged != nil else {
+            stagingCopySnapshot = nil
+            return
+        }
+        let presentation = workspacePresentation(model: model)
+        stagingCopySnapshot = CopyContractBuilder.snapshot(
+            from: workbenchSelection,
+            presentation: presentation,
+            model: model,
+            isDevelop: workbenchSelection.staged?.isDevelopStaging == true
+        )
+    }
+
+    // MARK: - Wholesale propagation (hi-fi H6)
+
+    func propagationScope(model: ProjectViewModel) -> PropagationScope? {
+        guard let propagation = workbenchSelection.propagation else { return nil }
+        let presentation = workspacePresentation(model: model)
+        return propagation.resolvedScope(presentation: presentation, model: model)
+    }
+
+    func stageTreatAtRow(
+        model: ProjectViewModel,
+        presentation: WorkspacePresentation,
+        recipe: DevelopRecipe,
+        referencePhotoID: AssetID,
+        referenceGroupID: String
+    ) {
+        var propagation = PropagationState(
+            referencePhotoID: referencePhotoID,
+            referenceGroupID: referenceGroupID,
+            referenceFrame: CopyContractBuilder.referenceFrameNumber(
+                from: model.photo(with: referencePhotoID)?.filename
+            ),
+            ring: .row,
+            excludedIDs: model.wholesaleExcludedPhotoIDs
+        )
+        let scope = propagation.resolvedScope(presentation: presentation, model: model)
+        guard workbenchSelection.stageTreat(recipe, propagation: propagation, memberIDs: scope.memberIDs) else {
+            LuminaHaptics.light()
+            return
+        }
+        refreshStagingCopy(model: model)
+        LuminaHaptics.decision()
+    }
+
+    func widenPropagation(model: ProjectViewModel) {
+        guard var propagation = workbenchSelection.propagation else {
+            LuminaHaptics.light()
+            return
+        }
+        guard propagation.widen() else {
+            LuminaHaptics.light()
+            return
+        }
+        workbenchSelection.setPropagation(propagation)
+        syncPropagationScope(model: model)
+        LuminaHaptics.decision()
+    }
+
+    func syncPropagationScope(model: ProjectViewModel) {
+        guard let propagation = workbenchSelection.propagation else { return }
+        let presentation = workspacePresentation(model: model)
+        let scope = propagation.resolvedScope(presentation: presentation, model: model)
+        workbenchSelection.syncPropagationMembers(scope.memberIDs)
+        refreshStagingCopy(model: model)
+    }
+
+    func togglePropagationExclusion(_ photoID: AssetID, model: ProjectViewModel) {
+        guard workbenchSelection.staged?.isTreatStaging == true,
+              workbenchSelection.propagation != nil else { return }
+        _ = model.toggleWholesaleExclusion(photoID)
+        if var propagation = workbenchSelection.propagation {
+            propagation.excludedIDs = model.wholesaleExcludedPhotoIDs
+            workbenchSelection.setPropagation(propagation)
+        }
+        syncPropagationScope(model: model)
+    }
+
+    func stageAdaptFromDockedChip(
+        targetGroupID: String,
+        model: ProjectViewModel,
+        presentation: WorkspacePresentation
+    ) {
+        guard let chip = dockedAdaptChip else { return }
+        let kept = PropagationState.keptIDs(inLaneContaining: targetGroupID, presentation: presentation)
+        guard !kept.isEmpty,
+              let referenceID = kept.first else { return }
+        var propagation = PropagationState(
+            referencePhotoID: referenceID,
+            referenceGroupID: targetGroupID,
+            referenceFrame: chip.referenceFrame,
+            ring: .row,
+            excludedIDs: model.wholesaleExcludedPhotoIDs
+        )
+        let scope = propagation.resolvedScope(presentation: presentation, model: model)
+        guard workbenchSelection.stageTreat(chip.recipe, propagation: propagation, memberIDs: scope.memberIDs) else {
+            LuminaHaptics.light()
+            return
+        }
+        dockedChipDragActive = false
+        refreshStagingCopy(model: model)
+        LuminaHaptics.decision()
+    }
+
+    func cancelDockedChipDrag() {
+        dockedChipDragActive = false
     }
 }

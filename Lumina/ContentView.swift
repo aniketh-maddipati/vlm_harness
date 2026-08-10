@@ -46,6 +46,14 @@ struct ContentView: View {
                     .padding(16)
                     .allowsHitTesting(false)
             }
+
+            if model.showExportPayoff, let payoff = model.exportPayoff {
+                ExportPayoffSheet(payoff: payoff) {
+                    model.showExportPayoff = false
+                    if model.isCatalogMode { model.advanceCatalogQueueAfterExport() }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.985)))
+            }
         }
         .overlay {
             if isDropTargeted {
@@ -114,9 +122,17 @@ struct ContentView: View {
 
         if event.modifierFlags.contains(.command), event.type == .keyDown {
             let chars = event.charactersIgnoringModifiers?.lowercased()
+            let option = event.modifierFlags.contains(.option)
 
             if chars == "k" {
                 NotificationCenter.default.post(name: .focusLuminaSearch, object: nil)
+                return nil
+            }
+
+            // ⌥⌘E — refine export recipe (reopen sheet pre-filled).
+            if option, chars == "e", model.showExportPayoff {
+                model.showExportPayoff = false
+                model.exportCarousel(refine: true)
                 return nil
             }
 

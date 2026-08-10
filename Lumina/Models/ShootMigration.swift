@@ -59,7 +59,8 @@ enum ShootMigration {
             batchHistory: project.batchHistory ?? [],
             decisionLedger: project.decisionLedger,
             auditSeedPhotoIDs: project.auditSeedPhotoIDs,
-            workspace: workspace
+            workspace: workspace,
+            wholesaleExcludedPhotoIDs: project.wholesaleExcludedPhotoIDs
         )
     }
 
@@ -159,6 +160,7 @@ enum ShootMigration {
         project.exportHistory = shoot.exportHistory
         project.batchHistory = shoot.batchHistory
         project.workspaceRestore = shoot.workspace
+        project.wholesaleExcludedPhotoIDs = shoot.wholesaleExcludedPhotoIDs
         return project
     }
 

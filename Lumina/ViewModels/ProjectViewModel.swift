@@ -185,8 +185,70 @@ final class ProjectViewModel {
         guard var project else { return }
         guard let index = project.photos.firstIndex(where: { $0.id == photoID }) else { return }
         project.photos[index].recipe = nil
+        project.photos[index].adaptReferenceFrame = nil
+        project.photos[index].adaptScopeCount = nil
+        project.photos[index].isAdaptReference = false
         self.project = project
         persistDebounced()
+    }
+
+    /// Persist post-commit adapt provenance for edit-family chips on the table.
+    func persistAdaptProvenance(
+        referenceFrame: String,
+        scopeCount: Int,
+        referencePhotoID: UUID,
+        photoIDs: [UUID]
+    ) {
+        guard var project else { return }
+        for id in photoIDs {
+            guard let index = project.photos.firstIndex(where: { $0.id == id }) else { continue }
+            project.photos[index].adaptReferenceFrame = referenceFrame
+            project.photos[index].adaptScopeCount = scopeCount
+            project.photos[index].isAdaptReference = (id == referencePhotoID)
+        }
+        self.project = project
+        persistDebounced()
+    }
+
+    func clearAdaptProvenance(for photoIDs: [UUID]) {
+        guard var project else { return }
+        for id in photoIDs {
+            guard let index = project.photos.firstIndex(where: { $0.id == id }) else { continue }
+            project.photos[index].adaptReferenceFrame = nil
+            project.photos[index].adaptScopeCount = nil
+            project.photos[index].isAdaptReference = false
+        }
+        self.project = project
+        persistDebounced()
+    }
+
+    var wholesaleExcludedPhotoIDs: Set<PhotoID> {
+        project?.wholesaleExcludedPhotoIDs ?? []
+    }
+
+    func addWholesaleExclusion(_ photoID: PhotoID) {
+        guard var project else { return }
+        project.wholesaleExcludedPhotoIDs.insert(photoID)
+        self.project = project
+        persistDebounced()
+    }
+
+    func removeWholesaleExclusion(_ photoID: PhotoID) {
+        guard var project else { return }
+        project.wholesaleExcludedPhotoIDs.remove(photoID)
+        self.project = project
+        persistDebounced()
+    }
+
+    func toggleWholesaleExclusion(_ photoID: PhotoID) -> Bool {
+        guard var project else { return false }
+        let inserted = project.wholesaleExcludedPhotoIDs.insert(photoID).inserted
+        if !inserted {
+            project.wholesaleExcludedPhotoIDs.remove(photoID)
+        }
+        self.project = project
+        persistDebounced()
+        return inserted
     }
 
     /// Replace the in-memory project after a ledger append (no full reload).
@@ -1085,7 +1147,7 @@ final class ProjectViewModel {
         self.project = project
     }
 
-    func exportCarousel() {
+    func exportCarousel(refine: Bool = false) {
         guard let project else { return }
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -1093,7 +1155,12 @@ final class ProjectViewModel {
         panel.canCreateDirectories = true
         panel.prompt = "Export"
         panel.message = "Choose export destination folder"
+        if refine, let path = IngestPreferences.lastExportFolderPath {
+            panel.directoryURL = URL(fileURLWithPath: path)
+        }
         guard panel.runModal() == .OK, let folder = panel.url else { return }
+
+        IngestPreferences.lastExportFolderPath = folder.path
 
         isBusy = true
         statusMessage = "Exporting carousel…"

@@ -7,6 +7,18 @@ enum StagedAction: Equatable {
     case setAside
     case hold
     case treat(DevelopRecipe)
+    /// Per-photograph develop proposals — each RAW evaluated independently (hi-fi H4/H5).
+    case develop(proposals: [AssetID: EditRecipe])
+
+    var isDevelopStaging: Bool {
+        if case .develop = self { return true }
+        return false
+    }
+
+    var isTreatStaging: Bool {
+        if case .treat = self { return true }
+        return false
+    }
 }
 
 /// One undoable round of workbench decisions — one receipt, one ledger transaction.
@@ -28,6 +40,8 @@ struct DecisionLedgerEntry: Equatable, Identifiable {
     let applied: AssetDecision
     let priorRecipe: DevelopRecipe?
     let appliedRecipe: DevelopRecipe?
+    /// Canonical edit recipe before a geometry commit (crop undo).
+    let priorEditRecipe: EditRecipe?
 
     init(
         id: UUID = UUID(),
@@ -38,7 +52,8 @@ struct DecisionLedgerEntry: Equatable, Identifiable {
         priorWhyUncertain: String?,
         applied: AssetDecision,
         priorRecipe: DevelopRecipe? = nil,
-        appliedRecipe: DevelopRecipe? = nil
+        appliedRecipe: DevelopRecipe? = nil,
+        priorEditRecipe: EditRecipe? = nil
     ) {
         self.id = id
         self.photoID = photoID
@@ -49,12 +64,12 @@ struct DecisionLedgerEntry: Equatable, Identifiable {
         self.applied = applied
         self.priorRecipe = priorRecipe
         self.appliedRecipe = appliedRecipe
+        self.priorEditRecipe = priorEditRecipe
     }
 }
 
 /// Pure confirm-gating state for the two-beat Return chord (unit-testable).
 struct CommandChordGate: Equatable {
-    /// Set `true` when an action is staged; cleared on the first Return keyUp.
     var awaitingFreshReturn = false
     var staged: StagedAction?
 
@@ -72,140 +87,186 @@ struct CommandChordGate: Equatable {
         awaitingFreshReturn = false
     }
 
-    /// Confirm only on a fresh (non-repeat) Return after a keyUp since staging.
     func canConfirm(isARepeat: Bool) -> Bool {
         staged != nil && !isARepeat && !awaitingFreshReturn
     }
 }
 
-/// Ordered gathering model for the darkroom table. Cap 3; ⌘ is an anchor, not a command.
+/// Hand selection + staging for the darkroom table — cross-row, no row scope (hi-fi frame D).
 @MainActor
 @Observable
 final class WorkbenchSelection {
-    private(set) var ids: [AssetID] = []
-    private(set) var leader: AssetID?
+    private(set) var table = TablePhotographSelection()
     private(set) var isHandling = false
     private(set) var staged: StagedAction?
-    /// True after the photographer has pressed ⌘ at least once this session.
     private(set) var hasEverHandled = false
-    /// Completed rounds this session — hint fades after the third.
     private(set) var completedRoundCount = 0
-    /// Auto-repeat defence — set on stage, cleared on Return keyUp.
     private(set) var awaitingFreshReturn = false
+    /// Wholesale ripple scope — row → scene → shoot (hi-fi H6).
+    private(set) var propagation: PropagationState?
 
-    var isEmpty: Bool { ids.isEmpty }
-    var count: Int { ids.count }
+    var ids: [AssetID] { table.ids }
+    var leader: AssetID? { table.focusID }
+    var isEmpty: Bool { table.isEmpty }
+    var count: Int { table.count }
 
     func setHandling(_ down: Bool) {
         if down {
             isHandling = true
             hasEverHandled = true
         } else {
-            // Releasing ⌘ never clears selection, never commits, never cancels.
             isHandling = false
         }
     }
 
-    /// Toggle membership. Cap 3 — a 4th replaces the oldest.
-    @discardableResult
-    func gather(_ id: AssetID) -> Bool {
-        if let existing = ids.firstIndex(of: id) {
-            ids.remove(at: existing)
-            if leader == id {
-                leader = ids.last
-            }
-            if staged != nil, ids.isEmpty {
-                staged = nil
-                awaitingFreshReturn = false
-            }
-            return true
-        }
+    func contains(_ id: AssetID) -> Bool { table.contains(id) }
 
-        if ids.count >= 3 {
-            ids.removeFirst()
-            LuminaHaptics.alignment()
+    /// Plain focus — single photograph selected.
+    func focus(_ id: AssetID) {
+        table.focus(id)
+    }
+
+    /// Toggle member — while staged or ⌘-handling.
+    @discardableResult
+    func toggle(_ id: AssetID) -> Bool {
+        table.toggle(id)
+        if staged != nil, table.isEmpty {
+            staged = nil
+            awaitingFreshReturn = false
         }
-        ids.append(id)
-        leader = id
         return true
     }
 
-    func contains(_ id: AssetID) -> Bool {
-        ids.contains(id)
+    @discardableResult
+    func gather(_ id: AssetID) -> Bool { toggle(id) }
+
+    func rubberBandSelect(_ ids: [AssetID]) {
+        table.rubberBand(ids)
     }
 
-    /// Cycle leader inside the selection without dropping membership.
+    func extendSelection(in tableOrder: [AssetID], to target: AssetID) {
+        table.extend(in: tableOrder, to: target)
+    }
+
+    func setSelection(_ ids: [AssetID]) {
+        table.setMembers(ids)
+    }
+
     func moveLeader(_ delta: Int) {
-        guard ids.count > 1, let current = leader,
-              let index = ids.firstIndex(of: current) else { return }
-        let next = (index + delta + ids.count) % ids.count
-        leader = ids[next]
+        guard table.ids.count > 1, let current = table.focusID,
+              let index = table.ids.firstIndex(of: current) else { return }
+        let next = (index + delta + table.ids.count) % table.ids.count
+        table.focusID = table.ids[next]
     }
 
-    /// Stage a group action. Empty selection cannot stage — returns false.
     @discardableResult
     func stage(_ action: StagedAction) -> Bool {
-        guard !ids.isEmpty else { return false }
+        guard !table.isEmpty else { return false }
         staged = action
         awaitingFreshReturn = true
         return true
+    }
+
+    /// Stage adapt at row ring with propagation scope (hi-fi H6).
+    @discardableResult
+    func stageTreat(_ recipe: DevelopRecipe, propagation state: PropagationState, memberIDs: [AssetID]) -> Bool {
+        guard !memberIDs.isEmpty else { return false }
+        propagation = state
+        table.setMembers(memberIDs)
+        staged = .treat(recipe)
+        awaitingFreshReturn = true
+        return true
+    }
+
+    func syncPropagationMembers(_ memberIDs: [AssetID]) {
+        table.setMembers(memberIDs)
+    }
+
+    func setPropagation(_ state: PropagationState?) {
+        propagation = state
     }
 
     func noteReturnKeyUp() {
         awaitingFreshReturn = false
     }
 
-    /// Confirm only on a fresh (non-repeat) Return after a keyUp since staging.
     func canConfirm(isARepeat: Bool) -> Bool {
-        staged != nil && !ids.isEmpty && !isARepeat && !awaitingFreshReturn
+        guard staged != nil, !isARepeat, !awaitingFreshReturn else { return false }
+        if staged?.isTreatStaging == true, propagation != nil {
+            return !table.isEmpty
+        }
+        return !table.isEmpty
     }
 
-    /// Clears staged only. Selection survives.
     func cancel() {
         staged = nil
+        propagation = nil
         awaitingFreshReturn = false
     }
 
-    /// Escape with nothing staged clears the selection.
     func clearSelection() {
-        ids = []
-        leader = nil
+        table.clear()
         staged = nil
+        propagation = nil
         awaitingFreshReturn = false
     }
 
     func markRoundCompleted() {
         completedRoundCount += 1
-        staged = nil
-        ids = []
-        leader = nil
-        awaitingFreshReturn = false
+        clearSelection()
     }
 
     func clearAfterConfirm() {
-        staged = nil
-        ids = []
-        leader = nil
-        awaitingFreshReturn = false
+        clearSelection()
+    }
+
+    var developProposals: [AssetID: EditRecipe]? {
+        if case .develop(let proposals) = staged { return proposals }
+        return nil
+    }
+
+    func updateDevelopStaging(_ proposals: [AssetID: EditRecipe]) {
+        guard !proposals.isEmpty else {
+            cancel()
+            return
+        }
+        staged = .develop(proposals: proposals)
+        awaitingFreshReturn = true
     }
 
     var shelfLabel: String {
-        let n = ids.count
+        let n = table.count
         if n <= 0 { return "" }
         if n == 1 { return "1 photograph — one object" }
         return "\(n) photographs — one object"
     }
 
     var accessibilityAnnouncement: String {
-        let n = ids.count
-        guard n > 0 else { return "No photographs gathered" }
-        var text = "\(n) photograph\(n == 1 ? "" : "s") gathered"
+        accessibilityAnnouncement(stagingSnapshot: nil)
+    }
+
+    func accessibilityAnnouncement(stagingSnapshot: StagingCopySnapshot?) -> String {
+        let n = table.count
+        guard n > 0 else { return "No photographs selected" }
+        var text = "\(n) photograph\(n == 1 ? "" : "s") selected"
         if let staged {
             switch staged {
             case .advance: text += ", staged to advance"
             case .setAside: text += ", staged to set aside"
             case .hold: text += ", staged to hold"
             case .treat: text += ", staged to treat"
+            case .develop: text += ", staged to develop"
+            }
+        }
+        if let stagingSnapshot {
+            let ring: String = switch stagingSnapshot.ring {
+            case .row: "row ring"
+            case .scene: "scene ring"
+            case .shoot: "shoot ring"
+            }
+            text += ", \(ring), \(stagingSnapshot.scopeCount) in scope"
+            if stagingSnapshot.excludedCount > 0 {
+                text += ", \(stagingSnapshot.excludedCount) excluded"
             }
         }
         return text

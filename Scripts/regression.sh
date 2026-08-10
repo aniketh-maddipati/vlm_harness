@@ -36,6 +36,46 @@ swift "$ROOT/Scripts/p0_cull_test.swift"
 echo "P0 cull tests: OK"
 echo ""
 
+echo "--- 4c/7 Prompt-9 hi-fi contract audit (H8 gate v2) ---"
+python3 "$ROOT/Scripts/audit_hifi.py"
+echo "Hi-fi audit gate: OK"
+echo ""
+
+echo "--- 4d/7 A1 staged-copy invariant ---"
+python3 "$ROOT/Scripts/a1_invariant_test.py"
+echo "A1 invariant test: OK"
+echo ""
+
+echo "--- 4e/7 Table layout (swim lanes / geometry) ---"
+python3 "$ROOT/Scripts/table_layout_test.py"
+echo "Table layout test: OK"
+echo ""
+
+echo "--- 4e2/7 Edit rail layout (frame 12 / min window) ---"
+python3 "$ROOT/Scripts/edit_rail_layout_test.py"
+echo "Edit rail layout test: OK"
+echo ""
+
+echo "--- 4i/8 Wholesale propagation (frame H6) ---"
+swift "$ROOT/Scripts/propagation_test.swift"
+echo "Propagation tests: OK"
+echo ""
+
+echo "--- 4h/8 Table hand-selection (frame D) ---"
+swift "$ROOT/Scripts/table_selection_test.swift"
+echo "Table selection tests: OK"
+echo ""
+
+echo "--- 4g/7 Develop staging (A key) ---"
+swift "$ROOT/Scripts/develop_staging_test.swift"
+echo "Develop staging tests: OK"
+echo ""
+
+echo "--- 4f/7 Crop latch (frame C) ---"
+swift "$ROOT/Scripts/crop_latch_test.swift"
+echo "Crop latch tests: OK"
+echo ""
+
 echo "--- 4b/7 UI-automation manifest checks (portable; runs on Linux too) ---"
 # Static validation of the XCUITest harness plumbing. These do NOT run any macOS UI tests — they
 # only confirm the runner script, test plans, and shared scheme are well-formed, so a Linux cloud

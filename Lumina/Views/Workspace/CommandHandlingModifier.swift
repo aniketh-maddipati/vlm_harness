@@ -116,6 +116,18 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
             if event.keyCode == 36 || event.keyCode == 76 { // Return / keypad Enter
                 selection.noteReturnKeyUp()
             }
+            // Space release restores preview (Law 2).
+            if event.keyCode == 49, !event.modifierFlags.contains(.command) {
+                if shell.isTreatmentStageOpen, shell.treatmentPreviewMode == .original {
+                    shell.treatmentPreviewMode = .current
+                }
+            }
+            // ? release dismisses shortcuts glance (Law 2).
+            let chars = event.charactersIgnoringModifiers ?? ""
+            let shift = event.modifierFlags.contains(.shift)
+            if chars == "?" || (shift && chars == "/") {
+                shell.shortcutsGlanceHeld = false
+            }
             return event
         }
 
@@ -134,7 +146,35 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
 
             // Escape — workspace overlays / selection only (never dumps to Home).
             if event.keyCode == 53 {
-                _ = shell.handleEscape()
+                _ = shell.handleEscape(model: model)
+                return nil
+            }
+
+            // Crop latch re-scopes decision keys (see .cursorrules — frame C).
+            if shell.cropSession != nil {
+                if event.keyCode == 36 || event.keyCode == 76, !event.isARepeat {
+                    shell.applyCrop(model: model)
+                    return nil
+                }
+                if !command && !event.isARepeat {
+                    switch lower {
+                    case "a":
+                        shell.cropToggleAspectLock()
+                        return nil
+                    case "x":
+                        shell.cropFlipOrientation()
+                        return nil
+                    default:
+                        break
+                    }
+                }
+            }
+
+            // Key 4 — enter crop (Straighten section arms crop; no zoom jump).
+            if !command && chars == "4", shell.isTreatmentStageOpen, shell.cropSession == nil {
+                if let photoID = shell.selectedAssetID ?? selection.leader {
+                    shell.enterCrop(for: photoID, model: model)
+                }
                 return nil
             }
 
@@ -179,9 +219,20 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                 }
             }
 
-            // Arrow keys
+            // Arrow keys — ⇧ extends hand selection; plain moves focus / leader.
             if event.keyCode == 123 || event.keyCode == 124 { // ← →
                 let delta = event.keyCode == 123 ? -1 : 1
+                if shift {
+                    let order = TablePhotographSelection.tableOrder(from: presentation.groups)
+                    let focus = shell.selectedAssetID ?? selection.leader ?? model.cursor
+                    guard let focus, let index = order.firstIndex(of: focus) else { return nil }
+                    let next = min(max(index + delta, 0), order.count - 1)
+                    let nextID = order[next]
+                    shell.extendHandSelection(to: nextID, presentation: presentation)
+                    if model.project != nil { model.setCursor(nextID) }
+                    shell.loadDevelop(for: nextID, model: model)
+                    return nil
+                }
                 if !selection.isEmpty {
                     selection.moveLeader(delta)
                     if let leader = selection.leader {
@@ -197,6 +248,12 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
             if event.keyCode == 125 || event.keyCode == 126 { // ↓ ↑
                 let delta = event.keyCode == 126 ? -1 : 1
                 shell.moveAttempt(delta: delta, presentation: presentation, model: model)
+                return nil
+            }
+
+            // Hold-? — shortcuts glance (not ⌘/ modal sheet).
+            if !command && (chars == "?" || (shift && chars == "/")) {
+                shell.shortcutsGlanceHeld = true
                 return nil
             }
 
@@ -225,28 +282,39 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                 return nil
             }
 
+            // A — stage Develop proposal (decision key; swallows autorepeat — Law 3).
+            if !command && lower == "a" {
+                if shell.cropSession != nil { return nil }
+                if event.isARepeat { return nil }
+                if shell.isTreatmentStageOpen || !commandLayerActive {
+                    Task { await shell.stageDevelopProposal(model: model, presentation: presentation) }
+                    return nil
+                }
+            }
+
             // Legacy single-key routing when the command layer is idle (empty selection).
             if !command && !commandLayerActive {
                 switch lower {
-                case "a":
-                    shell.previewAutoTreatment(model: model)
-                    return nil
                 case "e":
                     shell.toggleDetailedEdits()
                     return nil
-                case "s":
+                case "p", "s":
+                    if event.isARepeat { return nil }
                     LuminaHaptics.decision()
                     if let photoID = shell.selectedAssetID ?? model.cursor {
                         shell.applyDecision(.keep, for: photoID, model: model)
                     }
                     return nil
                 case "m":
+                    if event.isARepeat { return nil }
                     LuminaHaptics.decision()
                     if let photoID = shell.selectedAssetID ?? model.cursor {
                         shell.applyDecision(.needsMe, for: photoID, model: model)
                     }
                     return nil
                 case "x":
+                    if shell.cropSession != nil { return nil }
+                    if event.isARepeat { return nil }
                     LuminaHaptics.decision()
                     if let photoID = shell.selectedAssetID ?? model.cursor {
                         shell.applyDecision(.cut, for: photoID, model: model)
@@ -268,8 +336,34 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
             if event.isARepeat { return nil }
 
             // Confirm path: staged + fresh Return (keyUp seen) — ⌘ optional on second press.
-            if selection.canConfirm(isARepeat: false) {
+            if selection.canConfirm(isARepeat: false), !shift {
                 _ = shell.commitRound(selection, model: model)
+                return nil
+            }
+
+            // ⇧⏎ — widen propagation or stage row adapt (decision key).
+            if shift {
+                if selection.staged?.isTreatStaging == true {
+                    shell.widenPropagation(model: model)
+                    return nil
+                }
+                if shell.isTreatmentStageOpen, !command {
+                    guard let photoID = shell.selectedAssetID ?? selection.leader ?? model.cursor,
+                          let groupID = presentation.selectedGroupID,
+                          let photo = model.photo(with: photoID) else { return nil }
+                    let recipe = model.appliedRecipe(for: photo).applying(shell.developOffsets)
+                    shell.stageTreatAtRow(
+                        model: model,
+                        presentation: presentation,
+                        recipe: recipe,
+                        referencePhotoID: photoID,
+                        referenceGroupID: groupID
+                    )
+                    return nil
+                }
+                if command {
+                    return stage(.hold)
+                }
                 return nil
             }
 
@@ -282,16 +376,20 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                 return event
             }
 
-            if shift {
-                return stage(.hold)
-            }
-
-            // In treatment stage, ⌘↩ stages the recipe across the selection.
+            // In treatment stage, ⌘↩ stages the recipe at row ring.
             if shell.isTreatmentStageOpen {
-                if let photoID = selection.leader ?? shell.selectedAssetID,
+                if let photoID = selection.leader ?? shell.selectedAssetID ?? model.cursor,
+                   let groupID = presentation.selectedGroupID,
                    let photo = model.photo(with: photoID) {
                     let recipe = model.appliedRecipe(for: photo).applying(shell.developOffsets)
-                    return stage(.treat(recipe))
+                    shell.stageTreatAtRow(
+                        model: model,
+                        presentation: presentation,
+                        recipe: recipe,
+                        referencePhotoID: photoID,
+                        referenceGroupID: groupID
+                    )
+                    return nil
                 }
             }
 

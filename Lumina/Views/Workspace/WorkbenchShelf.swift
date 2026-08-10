@@ -158,6 +158,54 @@ private struct WorkbenchShelfButtonStyle: ButtonStyle {
     }
 }
 
+/// Centred staged treatment banner — Adapt / Develop copy from the contract.
+struct StagedTreatmentBanner: View {
+    let snapshot: StagingCopySnapshot
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(snapshot.isDevelop
+                 ? CopyContract.developBanner(count: snapshot.scopeCount)
+                 : CopyContract.adaptBanner(snapshot))
+                .font(LuminaTokens.Typeface.navigation(15, weight: .medium))
+                .foregroundStyle(LuminaTokens.Ink.onTable)
+                .multilineTextAlignment(.center)
+            if !snapshot.isDevelop {
+                Text(CopyContract.adaptedIndependently)
+                    .font(LuminaTokens.Typeface.meta(11))
+                    .foregroundStyle(LuminaTokens.Ink.onTableSecondary)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(LuminaTokens.Surface.shelfOpaque.opacity(0.94))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(stagedAccessibilityLabel)
+    }
+
+    private var stagedAccessibilityLabel: String {
+        let banner = snapshot.isDevelop
+            ? CopyContract.developBanner(count: snapshot.scopeCount)
+            : CopyContract.adaptBanner(snapshot)
+        let ring: String = switch snapshot.ring {
+        case .row: "row ring"
+        case .scene: "scene ring"
+        case .shoot: "shoot ring"
+        }
+        if snapshot.excludedCount > 0 {
+            return "\(banner), \(ring), \(snapshot.excludedCount) excluded"
+        }
+        return "\(banner), \(ring)"
+    }
+}
+
 /// Centred staged-advance banner — clear of the shelf.
 struct StagedAdvanceBanner: View {
     let count: Int

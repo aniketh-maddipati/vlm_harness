@@ -551,6 +551,11 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
     var editRecipe: EditRecipe?
     var embedding: [Float]?
 
+    /// Post-commit adapt provenance for table family chips.
+    var adaptReferenceFrame: String?
+    var adaptScopeCount: Int?
+    var isAdaptReference: Bool = false
+
     // MARK: Stable identity / source (P0)
 
     /// Opaque rediscovery key — volume + relative path + size + capture.
@@ -613,6 +618,9 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         recipe: DevelopRecipe? = nil,
         editRecipe: EditRecipe? = nil,
         embedding: [Float]? = nil,
+        adaptReferenceFrame: String? = nil,
+        adaptScopeCount: Int? = nil,
+        isAdaptReference: Bool = false,
         sourceKey: String? = nil,
         sourceRelativePath: String? = nil,
         sourceVolumeID: String? = nil,
@@ -660,6 +668,9 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
             self.editRecipe = nil
         }
         self.embedding = embedding
+        self.adaptReferenceFrame = adaptReferenceFrame
+        self.adaptScopeCount = adaptScopeCount
+        self.isAdaptReference = isAdaptReference
         self.sourceKey = sourceKey
         self.sourceRelativePath = sourceRelativePath
         self.sourceVolumeID = sourceVolumeID
@@ -720,6 +731,7 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         case cullScore, cullConfidence, editConfidence, tasteMatch
         case tier, proposedTier, userDecidedAt, settledAt, isFlagged, isBurstHero, isClusterHero
         case uncertaintyKind, whyUncertain, whyAction, recipe, editRecipe, embedding
+        case adaptReferenceFrame, adaptScopeCount, isAdaptReference
         case sourceKey, sourceRelativePath, sourceVolumeID, sourceBookmark, sourceAvailability, fileSize
     }
 
@@ -758,6 +770,9 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         whyUncertain = try c.decodeIfPresent(String.self, forKey: .whyUncertain)
         whyAction = try c.decodeIfPresent(String.self, forKey: .whyAction)
         embedding = try c.decodeIfPresent([Float].self, forKey: .embedding)
+        adaptReferenceFrame = try c.decodeIfPresent(String.self, forKey: .adaptReferenceFrame)
+        adaptScopeCount = try c.decodeIfPresent(Int.self, forKey: .adaptScopeCount)
+        isAdaptReference = try c.decodeIfPresent(Bool.self, forKey: .isAdaptReference) ?? false
         sourceKey = try c.decodeIfPresent(String.self, forKey: .sourceKey)
         sourceRelativePath = try c.decodeIfPresent(String.self, forKey: .sourceRelativePath)
         sourceVolumeID = try c.decodeIfPresent(String.self, forKey: .sourceVolumeID)
@@ -814,6 +829,9 @@ struct PhotoRecord: Identifiable, Codable, Hashable {
         // Canonical key — do not also write legacy `recipe` (avoids dual representations).
         try c.encodeIfPresent(editRecipe, forKey: .editRecipe)
         try c.encodeIfPresent(embedding, forKey: .embedding)
+        try c.encodeIfPresent(adaptReferenceFrame, forKey: .adaptReferenceFrame)
+        try c.encodeIfPresent(adaptScopeCount, forKey: .adaptScopeCount)
+        try c.encode(isAdaptReference, forKey: .isAdaptReference)
         try c.encodeIfPresent(sourceKey, forKey: .sourceKey)
         try c.encodeIfPresent(sourceRelativePath, forKey: .sourceRelativePath)
         try c.encodeIfPresent(sourceVolumeID, forKey: .sourceVolumeID)
@@ -871,6 +889,8 @@ struct LuminaProject: Codable {
     var exportHistory: [ExportRecord]?
     var batchHistory: [BatchEditCommand]?
     var workspaceRestore: WorkspaceRestoreState?
+    /// Shoot-scoped wholesale exclusions — persist through re-staging and relaunch (hi-fi H6).
+    var wholesaleExcludedPhotoIDs: Set<PhotoID> = []
 
     enum CodingKeys: String, CodingKey {
         case name, rawFolder, jpgFolder, keepRateTarget, jobBrief, profile
@@ -878,6 +898,7 @@ struct LuminaProject: Codable {
         case auditSeedPhotoIDs, createdAt
         case globalAdjustments
         case shootID, editProfile, finalSetOrder, exportHistory, batchHistory, workspaceRestore
+        case wholesaleExcludedPhotoIDs
         case schemaVersion
     }
 
@@ -941,6 +962,7 @@ struct LuminaProject: Codable {
         exportHistory = try c.decodeIfPresent([ExportRecord].self, forKey: .exportHistory)
         batchHistory = try c.decodeIfPresent([BatchEditCommand].self, forKey: .batchHistory)
         workspaceRestore = try c.decodeIfPresent(WorkspaceRestoreState.self, forKey: .workspaceRestore)
+        wholesaleExcludedPhotoIDs = try c.decodeIfPresent(Set<PhotoID>.self, forKey: .wholesaleExcludedPhotoIDs) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -965,6 +987,9 @@ struct LuminaProject: Codable {
         try c.encodeIfPresent(exportHistory, forKey: .exportHistory)
         try c.encodeIfPresent(batchHistory, forKey: .batchHistory)
         try c.encodeIfPresent(workspaceRestore, forKey: .workspaceRestore)
+        if !wholesaleExcludedPhotoIDs.isEmpty {
+            try c.encode(wholesaleExcludedPhotoIDs, forKey: .wholesaleExcludedPhotoIDs)
+        }
     }
 }
 

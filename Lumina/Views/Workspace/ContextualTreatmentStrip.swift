@@ -13,7 +13,7 @@ struct ContextualTreatmentStrip: View {
         VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
             HStack(spacing: LuminaTokens.Spacing.sm) {
                 previewChip("Original", mode: .original)
-                previewChip("Auto", mode: .auto)
+                previewChip("Taste", mode: .auto)
                 previewChip("Current", mode: .current)
                 Spacer(minLength: 0)
                 Button("More…") { showDetailed.toggle() }
