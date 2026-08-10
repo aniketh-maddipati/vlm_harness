@@ -128,6 +128,15 @@ struct LuminaShellView: View {
                 decisionReceiptMessage: shell.decisionReceipt?.message,
                 stagingCopySnapshot: shell.stagingCopySnapshot,
                 selection: shell.workbenchSelection,
+                propagationScope: shell.propagationScope(model: model),
+                dockedAdaptChip: shell.dockedAdaptChip,
+                onDockedChipDrop: { groupID in
+                    shell.stageAdaptFromDockedChip(
+                        targetGroupID: groupID,
+                        model: model,
+                        presentation: presentation
+                    )
+                },
                 isTreatmentStageOpen: shell.isTreatmentStageOpen,
                 isReadMode: shell.isReadMode,
                 travelAnimation: shell.fastRunTracker.travelAnimation,
@@ -212,11 +221,16 @@ struct LuminaShellView: View {
                 },
                 onStageTreat: {
                     guard let photoID,
-                          let photo = model.photo(with: photoID) else { return }
+                          let photo = model.photo(with: photoID),
+                          let groupID = presentation.selectedGroupID else { return }
                     let recipe = model.appliedRecipe(for: photo).applying(shell.developOffsets)
-                    _ = shell.workbenchSelection.stage(.treat(recipe))
-                    shell.refreshStagingCopy(model: model)
-                    LuminaHaptics.decision()
+                    shell.stageTreatAtRow(
+                        model: model,
+                        presentation: presentation,
+                        recipe: recipe,
+                        referencePhotoID: photoID,
+                        referenceGroupID: groupID
+                    )
                 },
                 onConfirmRound: {
                     _ = shell.commitRound(shell.workbenchSelection, model: model)

@@ -315,8 +315,34 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
             if event.isARepeat { return nil }
 
             // Confirm path: staged + fresh Return (keyUp seen) — ⌘ optional on second press.
-            if selection.canConfirm(isARepeat: false) {
+            if selection.canConfirm(isARepeat: false), !shift {
                 _ = shell.commitRound(selection, model: model)
+                return nil
+            }
+
+            // ⇧⏎ — widen propagation or stage row adapt (decision key).
+            if shift {
+                if selection.staged?.isTreatStaging == true {
+                    shell.widenPropagation(model: model)
+                    return nil
+                }
+                if shell.isTreatmentStageOpen, !command {
+                    guard let photoID = shell.selectedAssetID ?? selection.leader ?? model.cursor,
+                          let groupID = presentation.selectedGroupID,
+                          let photo = model.photo(with: photoID) else { return nil }
+                    let recipe = model.appliedRecipe(for: photo).applying(shell.developOffsets)
+                    shell.stageTreatAtRow(
+                        model: model,
+                        presentation: presentation,
+                        recipe: recipe,
+                        referencePhotoID: photoID,
+                        referenceGroupID: groupID
+                    )
+                    return nil
+                }
+                if command {
+                    return stage(.hold)
+                }
                 return nil
             }
 
@@ -329,16 +355,20 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                 return event
             }
 
-            if shift {
-                return stage(.hold)
-            }
-
-            // In treatment stage, ⌘↩ stages the recipe across the selection.
+            // In treatment stage, ⌘↩ stages the recipe at row ring.
             if shell.isTreatmentStageOpen {
-                if let photoID = selection.leader ?? shell.selectedAssetID,
+                if let photoID = selection.leader ?? shell.selectedAssetID ?? model.cursor,
+                   let groupID = presentation.selectedGroupID,
                    let photo = model.photo(with: photoID) {
                     let recipe = model.appliedRecipe(for: photo).applying(shell.developOffsets)
-                    return stage(.treat(recipe))
+                    shell.stageTreatAtRow(
+                        model: model,
+                        presentation: presentation,
+                        recipe: recipe,
+                        referencePhotoID: photoID,
+                        referenceGroupID: groupID
+                    )
+                    return nil
                 }
             }
 
