@@ -18,6 +18,10 @@ struct TreatmentFamilyRow: View {
     var showDecisionShelf: Bool = false
     var handSelectedIDs: Set<AssetID> = []
     var isStagingActive: Bool = false
+    /// First-order propagation halo — full warm-white on in-scope members (hi-fi H6).
+    var propagationMemberIDs: Set<AssetID> = []
+    /// Second-order proposal halo — faint, widens on ⇧⏎ (hi-fi H6).
+    var propagationProposalIDs: Set<AssetID> = []
     var leaderID: AssetID?
     var isHandling: Bool = false
     var stagedAdvance: Bool = false
@@ -237,6 +241,8 @@ struct TreatmentFamilyRow: View {
         let isLeader = leaderID == asset.id
         let isSelected = asset.id == selectedID
         let isSuggested = asset.id == suggestedStartID && asset.decision == .undecided
+        let isPropagationMember = propagationMemberIDs.contains(asset.id)
+        let isPropagationProposal = propagationProposalIDs.contains(asset.id)
         let usePreview = isActive && rowPreviewActive
         let inSet = asset.decision == .keep || asset.decision == .anchor
         let onHoldMark = asset.decision == .needsMe
@@ -314,9 +320,17 @@ struct TreatmentFamilyRow: View {
                                 handSelected: handSelected,
                                 isLeader: isLeader,
                                 isSelected: isSelected,
-                                isSuggested: isSuggested
+                                isSuggested: isSuggested,
+                                isPropagationMember: isPropagationMember,
+                                isPropagationProposal: isPropagationProposal
                             ),
-                            lineWidth: keylineWidth(handSelected: handSelected, isSuggested: isSuggested, isSelected: isSelected)
+                            lineWidth: keylineWidth(
+                                handSelected: handSelected,
+                                isSuggested: isSuggested,
+                                isSelected: isSelected,
+                                isPropagationMember: isPropagationMember,
+                                isPropagationProposal: isPropagationProposal
+                            )
                         )
                 }
                 .reportsTableTileFrame(id: asset.id, in: tableCoordinateSpace)
@@ -357,15 +371,35 @@ struct TreatmentFamilyRow: View {
         .opacity(inSet && !handSelected ? 0.92 : 1)
     }
 
-    private func keylineWidth(handSelected: Bool, isSuggested: Bool, isSelected: Bool) -> CGFloat {
+    private func keylineWidth(
+        handSelected: Bool,
+        isSuggested: Bool,
+        isSelected: Bool,
+        isPropagationMember: Bool,
+        isPropagationProposal: Bool
+    ) -> CGFloat {
         if handSelected { return HiFiTokens.Ring.haloWidth }
-        if isSuggested { return HiFiTokens.Ring.haloWidth }
+        if isPropagationMember || isSuggested { return HiFiTokens.Ring.haloWidth }
+        if isPropagationProposal { return HiFiTokens.Ring.secondOrderWidth }
         return isSelected ? 2 : 1
     }
 
-    private func keylineColor(handSelected: Bool, isLeader: Bool, isSelected: Bool, isSuggested: Bool) -> Color {
+    private func keylineColor(
+        handSelected: Bool,
+        isLeader: Bool,
+        isSelected: Bool,
+        isSuggested: Bool,
+        isPropagationMember: Bool,
+        isPropagationProposal: Bool
+    ) -> Color {
         if handSelected {
             return HiFiTokens.Ring.selection
+        }
+        if isPropagationMember {
+            return HiFiTokens.Ring.halo.opacity(HiFiTokens.Ring.haloOpacity)
+        }
+        if isPropagationProposal {
+            return HiFiTokens.Ring.halo.opacity(HiFiTokens.Ring.secondOrderOpacity)
         }
         if isSuggested {
             return HiFiTokens.Ring.halo.opacity(HiFiTokens.Ring.haloOpacity)

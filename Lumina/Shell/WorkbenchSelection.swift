@@ -14,6 +14,11 @@ enum StagedAction: Equatable {
         if case .develop = self { return true }
         return false
     }
+
+    var isTreatStaging: Bool {
+        if case .treat = self { return true }
+        return false
+    }
 }
 
 /// One undoable round of workbench decisions — one receipt, one ledger transaction.
@@ -97,6 +102,8 @@ final class WorkbenchSelection {
     private(set) var hasEverHandled = false
     private(set) var completedRoundCount = 0
     private(set) var awaitingFreshReturn = false
+    /// Wholesale ripple scope — row → scene → shoot (hi-fi H6).
+    private(set) var propagation: PropagationState?
 
     var ids: [AssetID] { table.ids }
     var leader: AssetID? { table.focusID }
@@ -160,22 +167,47 @@ final class WorkbenchSelection {
         return true
     }
 
+    /// Stage adapt at row ring with propagation scope (hi-fi H6).
+    @discardableResult
+    func stageTreat(_ recipe: DevelopRecipe, propagation state: PropagationState, memberIDs: [AssetID]) -> Bool {
+        guard !memberIDs.isEmpty else { return false }
+        propagation = state
+        table.setMembers(memberIDs)
+        staged = .treat(recipe)
+        awaitingFreshReturn = true
+        return true
+    }
+
+    func syncPropagationMembers(_ memberIDs: [AssetID]) {
+        table.setMembers(memberIDs)
+    }
+
+    func setPropagation(_ state: PropagationState?) {
+        propagation = state
+    }
+
     func noteReturnKeyUp() {
         awaitingFreshReturn = false
     }
 
     func canConfirm(isARepeat: Bool) -> Bool {
-        staged != nil && !table.isEmpty && !isARepeat && !awaitingFreshReturn
+        guard staged != nil, !isARepeat, !awaitingFreshReturn else { return false }
+        if staged?.isTreatStaging == true, propagation != nil {
+            return !table.isEmpty
+        }
+        return !table.isEmpty
     }
 
     func cancel() {
         staged = nil
+        propagation = nil
         awaitingFreshReturn = false
     }
 
     func clearSelection() {
         table.clear()
         staged = nil
+        propagation = nil
         awaitingFreshReturn = false
     }
 
