@@ -86,6 +86,13 @@ Trackpad / pointer drag still only **moves**: inside boundary = pan photograph; 
 - **A1 invariant**: banner = header = receipt scope count; excluded arithmetic at every ring.
 - **Docked chip** after commit: grabbable `← frame · N` — drop on lane stages same recipe on that lane's kept frames; Esc mid-drag returns it.
 
+### Chrome corrections (frame H7)
+
+- **Histogram**: 252 × 64 above treatment rail (`HiFiTokens.Histogram`); yields before any control at min window.
+- **Min window**: 1280 × 800 (`EditRailLayout`); frame 12 collapse — context → strip → hero → **never targets**; ten rows @ 46 pt.
+- **Hold-?**: chrome-fade shortcuts glance from footer hints; release dismisses (Law 2); awaiting drawn frame in PDF.
+- **Export receipt**: `CopyContract.exportRecipeHint`; ⌥⌘E reopens export pre-filled via `IngestPreferences.lastExportFolderPath`.
+
 ### 90 px halo (OPEN)
 
 Ship the plain 1.5 pt halo. Both fallbacks stay mocked and unpicked. The brighter-ring fallback lives behind a debug flag only.

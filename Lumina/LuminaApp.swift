@@ -24,7 +24,7 @@ struct LuminaApp: App {
                     P0RootView()
                 }
             }
-            .frame(minWidth: 1100, minHeight: 700)
+            .frame(minWidth: EditRailLayout.minWindowWidth, minHeight: EditRailLayout.minWindowHeight)
             .luminaWorkspaceAppearance()
         }
         .commands {

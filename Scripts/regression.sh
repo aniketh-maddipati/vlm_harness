@@ -51,6 +51,11 @@ python3 "$ROOT/Scripts/table_layout_test.py"
 echo "Table layout test: OK"
 echo ""
 
+echo "--- 4e2/7 Edit rail layout (frame 12 / min window) ---"
+python3 "$ROOT/Scripts/edit_rail_layout_test.py"
+echo "Edit rail layout test: OK"
+echo ""
+
 echo "--- 4i/8 Wholesale propagation (frame H6) ---"
 swift "$ROOT/Scripts/propagation_test.swift"
 echo "Propagation tests: OK"
