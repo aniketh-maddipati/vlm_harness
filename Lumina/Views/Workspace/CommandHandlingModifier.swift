@@ -298,13 +298,15 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                 case "e":
                     shell.toggleDetailedEdits()
                     return nil
-                case "s":
+                case "p", "s":
+                    if event.isARepeat { return nil }
                     LuminaHaptics.decision()
                     if let photoID = shell.selectedAssetID ?? model.cursor {
                         shell.applyDecision(.keep, for: photoID, model: model)
                     }
                     return nil
                 case "m":
+                    if event.isARepeat { return nil }
                     LuminaHaptics.decision()
                     if let photoID = shell.selectedAssetID ?? model.cursor {
                         shell.applyDecision(.needsMe, for: photoID, model: model)
@@ -312,6 +314,7 @@ private struct CommandHandlingRepresentable: NSViewRepresentable {
                     return nil
                 case "x":
                     if shell.cropSession != nil { return nil }
+                    if event.isARepeat { return nil }
                     LuminaHaptics.decision()
                     if let photoID = shell.selectedAssetID ?? model.cursor {
                         shell.applyDecision(.cut, for: photoID, model: model)
