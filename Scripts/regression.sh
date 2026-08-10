@@ -36,9 +36,9 @@ swift "$ROOT/Scripts/p0_cull_test.swift"
 echo "P0 cull tests: OK"
 echo ""
 
-echo "--- 4c/7 Prompt-9 hi-fi contract audit ---"
-python3 "$ROOT/Scripts/prompt_9_audit.py"
-echo "Prompt-9 audit: OK"
+echo "--- 4c/7 Prompt-9 hi-fi contract audit (H8 gate v2) ---"
+python3 "$ROOT/Scripts/audit_hifi.py"
+echo "Hi-fi audit gate: OK"
 echo ""
 
 echo "--- 4d/7 A1 staged-copy invariant ---"

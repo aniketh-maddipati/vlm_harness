@@ -93,6 +93,12 @@ Trackpad / pointer drag still only **moves**: inside boundary = pan photograph; 
 - **Hold-?**: chrome-fade shortcuts glance from footer hints; release dismisses (Law 2); awaiting drawn frame in PDF.
 - **Export receipt**: `CopyContract.exportRecipeHint`; ⌥⌘E reopens export pre-filled via `IngestPreferences.lastExportFolderPath`.
 
+### Audit gate v2 (H8)
+
+- **`Scripts/audit_hifi.py`** — copy / grammar / accessibility / performance static gate; writes `AUDIT-HIFI.md`.
+- Copy diffs user-visible strings against `design/copy-contract.txt`; banned words minus Develop; Auto absent; Lightroom exactly once (sovereignty PL line).
+- Grammar: five decision keys swallow repeat; crop latch re-scoping; ripple widen/narrow; rubber-band + chip-drag zero commit paths.
+
 ### 90 px halo (OPEN)
 
 Ship the plain 1.5 pt halo. Both fallbacks stay mocked and unpicked. The brighter-ring fallback lives behind a debug flag only.
