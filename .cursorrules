@@ -77,6 +77,15 @@ Trackpad / pointer drag still only **moves**: inside boundary = pan photograph; 
 - **Click** while staged toggles a member in/out; edited frames may be included — prior edit folds into one ⌘Z.
 - **Esc** clears stage first, then selection; navigating away or commit also clears selection.
 
+### Wholesale ripple + docked chip (frame H6)
+
+- **Propagation rings** (`PropagationState`): row → scene → shoot; scope resolves kept/non-cut frames minus shoot-persisted exclusions and offline/damaged auto-exclusions.
+- **Halos**: first-order warm-white on in-scope members; faint second-order on proposal recipients until widened (`HiFiTokens.Ring.secondOrderOpacity`).
+- **⇧⏎** stages adapt at row (from Edit) or widens one ring while staged; **⏎** commits at current ring; **Esc** narrows one ring (full cancel at row).
+- **Exceptions** (`wholesaleExcludedPhotoIDs`): toggled out while staged — persist with marks through re-staging and relaunch; staged batches dissolve on relaunch.
+- **A1 invariant**: banner = header = receipt scope count; excluded arithmetic at every ring.
+- **Docked chip** after commit: grabbable `← frame · N` — drop on lane stages same recipe on that lane's kept frames; Esc mid-drag returns it.
+
 ### 90 px halo (OPEN)
 
 Ship the plain 1.5 pt halo. Both fallbacks stay mocked and unpicked. The brighter-ring fallback lives behind a debug flag only.

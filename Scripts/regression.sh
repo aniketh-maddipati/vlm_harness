@@ -51,7 +51,12 @@ python3 "$ROOT/Scripts/table_layout_test.py"
 echo "Table layout test: OK"
 echo ""
 
-echo "--- 4h/7 Table hand-selection (frame D) ---"
+echo "--- 4i/8 Wholesale propagation (frame H6) ---"
+swift "$ROOT/Scripts/propagation_test.swift"
+echo "Propagation tests: OK"
+echo ""
+
+echo "--- 4h/8 Table hand-selection (frame D) ---"
 swift "$ROOT/Scripts/table_selection_test.swift"
 echo "Table selection tests: OK"
 echo ""

@@ -257,4 +257,38 @@ final class P0LogicTests: XCTestCase {
         )
         XCTAssertEqual(entry.priorEditRecipe?.exposure, 0.4, accuracy: 0.001)
     }
+
+    // MARK: - Wholesale propagation (H6)
+
+    func testPropagationRingWidenNarrowOrder() {
+        var state = PropagationState(
+            referencePhotoID: UUID(),
+            referenceGroupID: "g1",
+            referenceFrame: "8288"
+        )
+        XCTAssertEqual(state.ring, .row)
+        XCTAssertTrue(state.widen())
+        XCTAssertEqual(state.ring, .scene)
+        XCTAssertTrue(state.widen())
+        XCTAssertEqual(state.ring, .shoot)
+        XCTAssertFalse(state.widen())
+        XCTAssertTrue(state.narrow())
+        XCTAssertEqual(state.ring, .scene)
+        XCTAssertTrue(state.narrow())
+        XCTAssertEqual(state.ring, .row)
+        XCTAssertFalse(state.narrow())
+    }
+
+    func testA1InvariantShootExcluded() {
+        let snapshot = StagingCopySnapshot(
+            scopeCount: 12,
+            excludedCount: 2,
+            rowIndex: 4,
+            ring: .shoot
+        )
+        let header = CopyContract.stagedHeader(snapshot)
+        let banner = CopyContract.adaptBanner(snapshot)
+        let receipt = CopyContract.adaptedReceipt(count: snapshot.scopeCount)
+        XCTAssertTrue(A1Invariant.validate(header: header, banner: banner, receipt: receipt, snapshot: snapshot))
+    }
 }
