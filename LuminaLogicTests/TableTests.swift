@@ -52,7 +52,7 @@ final class TableTests: XCTestCase {
         let units = TableLayout.swimLaneUnits(from: [g1, g2, g3])
         XCTAssertEqual(units.count, 2)
         XCTAssertEqual(units[1].sceneBreakBefore, "+ 44 min")
-        XCTAssertNil(TableLayout.sceneBreakLabel(from: g2, to: g3).flatMap { $0 == "+ 0 min" ? $0 : nil })
+        XCTAssertEqual(TableLayout.sceneBreakLabel(from: g2, to: g3), "+ 44 min")
         let immediate = GroupPresentation(
             id: "d",
             title: "Immediate",
