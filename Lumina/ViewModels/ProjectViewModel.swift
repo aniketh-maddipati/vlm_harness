@@ -1147,7 +1147,7 @@ final class ProjectViewModel {
         self.project = project
     }
 
-    func exportCarousel() {
+    func exportCarousel(refine: Bool = false) {
         guard let project else { return }
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -1155,7 +1155,12 @@ final class ProjectViewModel {
         panel.canCreateDirectories = true
         panel.prompt = "Export"
         panel.message = "Choose export destination folder"
+        if refine, let path = IngestPreferences.lastExportFolderPath {
+            panel.directoryURL = URL(fileURLWithPath: path)
+        }
         guard panel.runModal() == .OK, let folder = panel.url else { return }
+
+        IngestPreferences.lastExportFolderPath = folder.path
 
         isBusy = true
         statusMessage = "Exporting carousel…"
