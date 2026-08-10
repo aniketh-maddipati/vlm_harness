@@ -222,6 +222,35 @@ final class ProjectViewModel {
         persistDebounced()
     }
 
+    var wholesaleExcludedPhotoIDs: Set<PhotoID> {
+        project?.wholesaleExcludedPhotoIDs ?? []
+    }
+
+    func addWholesaleExclusion(_ photoID: PhotoID) {
+        guard var project else { return }
+        project.wholesaleExcludedPhotoIDs.insert(photoID)
+        self.project = project
+        persistDebounced()
+    }
+
+    func removeWholesaleExclusion(_ photoID: PhotoID) {
+        guard var project else { return }
+        project.wholesaleExcludedPhotoIDs.remove(photoID)
+        self.project = project
+        persistDebounced()
+    }
+
+    func toggleWholesaleExclusion(_ photoID: PhotoID) -> Bool {
+        guard var project else { return false }
+        let inserted = project.wholesaleExcludedPhotoIDs.insert(photoID).inserted
+        if !inserted {
+            project.wholesaleExcludedPhotoIDs.remove(photoID)
+        }
+        self.project = project
+        persistDebounced()
+        return inserted
+    }
+
     /// Replace the in-memory project after a ledger append (no full reload).
     func replaceProject(_ project: LuminaProject) {
         self.project = project

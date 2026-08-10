@@ -402,6 +402,15 @@ struct ShootRecord: Codable, Sendable, Identifiable {
     var decisionLedger: [DecisionEvent]
     var auditSeedPhotoIDs: Set<UUID>
     var workspace: WorkspaceRestoreState
+    /// Shoot-scoped wholesale exclusions — persist through re-staging and relaunch (hi-fi H6).
+    var wholesaleExcludedPhotoIDs: Set<UUID> = []
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion, id, name, createdAt, rawFolder, jpgFolder, keepRateTarget, jobBrief
+        case profile, tasteSourceCount, tasteStrength, assets, finalSetOrder, collections
+        case exportHistory, batchHistory, decisionLedger, auditSeedPhotoIDs, workspace
+        case wholesaleExcludedPhotoIDs
+    }
 
     init(
         schemaVersion: ShootSchemaVersion = .current,
@@ -422,7 +431,8 @@ struct ShootRecord: Codable, Sendable, Identifiable {
         batchHistory: [BatchEditCommand] = [],
         decisionLedger: [DecisionEvent] = [],
         auditSeedPhotoIDs: Set<UUID> = [],
-        workspace: WorkspaceRestoreState = .default
+        workspace: WorkspaceRestoreState = .default,
+        wholesaleExcludedPhotoIDs: Set<UUID> = []
     ) {
         self.schemaVersion = schemaVersion
         self.id = id
@@ -443,6 +453,31 @@ struct ShootRecord: Codable, Sendable, Identifiable {
         self.decisionLedger = decisionLedger
         self.auditSeedPhotoIDs = auditSeedPhotoIDs
         self.workspace = workspace
+        self.wholesaleExcludedPhotoIDs = wholesaleExcludedPhotoIDs
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decodeIfPresent(ShootSchemaVersion.self, forKey: .schemaVersion) ?? .current
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        rawFolder = try c.decodeIfPresent(SourceReference.self, forKey: .rawFolder)
+        jpgFolder = try c.decodeIfPresent(SourceReference.self, forKey: .jpgFolder)
+        keepRateTarget = try c.decodeIfPresent(Double.self, forKey: .keepRateTarget) ?? 0.10
+        jobBrief = try c.decodeIfPresent(JobBrief.self, forKey: .jobBrief) ?? JobBrief()
+        profile = try c.decodeIfPresent(EditRecipe.self, forKey: .profile) ?? .neutral
+        tasteSourceCount = try c.decodeIfPresent(Int.self, forKey: .tasteSourceCount) ?? 0
+        tasteStrength = try c.decodeIfPresent(Double.self, forKey: .tasteStrength) ?? 1.0
+        assets = try c.decodeIfPresent([AssetRecord].self, forKey: .assets) ?? []
+        finalSetOrder = try c.decodeIfPresent(FinalSetOrder.self, forKey: .finalSetOrder) ?? FinalSetOrder()
+        collections = try c.decodeIfPresent([ExportCollection].self, forKey: .collections) ?? []
+        exportHistory = try c.decodeIfPresent([ExportRecord].self, forKey: .exportHistory) ?? []
+        batchHistory = try c.decodeIfPresent([BatchEditCommand].self, forKey: .batchHistory) ?? []
+        decisionLedger = try c.decodeIfPresent([DecisionEvent].self, forKey: .decisionLedger) ?? []
+        auditSeedPhotoIDs = try c.decodeIfPresent(Set<UUID>.self, forKey: .auditSeedPhotoIDs) ?? []
+        workspace = try c.decodeIfPresent(WorkspaceRestoreState.self, forKey: .workspace) ?? .default
+        wholesaleExcludedPhotoIDs = try c.decodeIfPresent(Set<UUID>.self, forKey: .wholesaleExcludedPhotoIDs) ?? []
     }
 }
 

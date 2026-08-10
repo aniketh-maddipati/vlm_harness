@@ -889,6 +889,8 @@ struct LuminaProject: Codable {
     var exportHistory: [ExportRecord]?
     var batchHistory: [BatchEditCommand]?
     var workspaceRestore: WorkspaceRestoreState?
+    /// Shoot-scoped wholesale exclusions — persist through re-staging and relaunch (hi-fi H6).
+    var wholesaleExcludedPhotoIDs: Set<PhotoID> = []
 
     enum CodingKeys: String, CodingKey {
         case name, rawFolder, jpgFolder, keepRateTarget, jobBrief, profile
@@ -896,6 +898,7 @@ struct LuminaProject: Codable {
         case auditSeedPhotoIDs, createdAt
         case globalAdjustments
         case shootID, editProfile, finalSetOrder, exportHistory, batchHistory, workspaceRestore
+        case wholesaleExcludedPhotoIDs
         case schemaVersion
     }
 
@@ -959,6 +962,7 @@ struct LuminaProject: Codable {
         exportHistory = try c.decodeIfPresent([ExportRecord].self, forKey: .exportHistory)
         batchHistory = try c.decodeIfPresent([BatchEditCommand].self, forKey: .batchHistory)
         workspaceRestore = try c.decodeIfPresent(WorkspaceRestoreState.self, forKey: .workspaceRestore)
+        wholesaleExcludedPhotoIDs = try c.decodeIfPresent(Set<PhotoID>.self, forKey: .wholesaleExcludedPhotoIDs) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -983,6 +987,9 @@ struct LuminaProject: Codable {
         try c.encodeIfPresent(exportHistory, forKey: .exportHistory)
         try c.encodeIfPresent(batchHistory, forKey: .batchHistory)
         try c.encodeIfPresent(workspaceRestore, forKey: .workspaceRestore)
+        if !wholesaleExcludedPhotoIDs.isEmpty {
+            try c.encode(wholesaleExcludedPhotoIDs, forKey: .wholesaleExcludedPhotoIDs)
+        }
     }
 }
 
