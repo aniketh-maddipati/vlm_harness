@@ -6,7 +6,8 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ## 2026-08-11 — Constitution: Batch 1 seal verification (agent-rules + Phase 4)
 
-**Branch:** `constitution/amendment-batch-1` (head contains seal #29 + batch #30).  
+**Branch:** `constitution/batch1-verify-agent-rules` (cherry-picked onto seal tip after #30 squash; #30 head `constitution/amendment-batch-1` also carries the same commits).  
+**PR:** [#31 Constitution: Batch 1 seal verify — agent-rules D63 + Phase 4](https://github.com/aniketh-maddipati/vlm_harness/pull/31).  
 **Range for Phase 4:** `#29-head (78ea577)..#30-head (21da1d5)` — **not** `origin/main..HEAD`.
 
 **Process CONFLICT (worktree base) — recorded + resolution:**  
