@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 """Lumina harness runner — FAST / FULL / HEAVY lanes.
 
-FAST (<90s): on save/commit via watch mode — token lint, copy-table lint,
-banned-pattern grep, existing lints, unit + property tests.
+F1 vacuous-green: each lane declares a test inventory; shortfall or zero
+app-coupled tests when any are expected → FAIL/INCOMPLETE, never PASS.
 
-FULL (<10min, pre-merge, parallel): snapshot/golden diffs, input-script grammar
-suite via state probe, signpost trace parse, one-⌘Z-per-gesture asserts, count
-invariants. Runs against a git worktree snapshot — never locks the editing tree.
-A red FULL blocks MERGE, never EDITING.
+F3 platform: FULL/HEAVY are macOS-Apple-Silicon-only. On other hosts they
+report PLATFORM-UNAVAILABLE (not PASS).
 
-HEAVY (nightly + release): ingest timing, kill-fuzz, eject faults, RAM-tier,
-LR round-trip, zero-egress audit, grammar-stability re-run of ALL prior scripts.
+F4 ledger: orchestration hosts write UNMEASURED acceptance numbers; gates
+activate only on a measured macOS run.
 """
 from __future__ import annotations
 
@@ -22,13 +20,20 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 HARNESS = ROOT / "Scripts" / "harness"
 ARTIFACTS = ROOT / "artifacts" / "harness" / "runs"
+
+sys.path.insert(0, str(HARNESS))
+from lanes.inventory import (  # noqa: E402
+    evaluate_inventory,
+    format_lane_summary,
+    load_manifest,
+)
+from lanes.host_platform import check_lane_platform  # noqa: E402
 
 
 def _post_dashboard(event: dict) -> None:
@@ -38,7 +43,6 @@ def _post_dashboard(event: dict) -> None:
     try:
         urllib.request.urlopen(req, timeout=0.3)
     except (urllib.error.URLError, TimeoutError, ConnectionError):
-        # Dashboard is optional — always also append locally.
         pass
     log = ROOT / "artifacts" / "harness" / "dashboard" / "events.ndjson"
     log.parent.mkdir(parents=True, exist_ok=True)
@@ -63,7 +67,11 @@ def _run(step: str, argv: list[str], lane: str, cwd: Path | None = None) -> dict
         "step": step,
         "ok": ok,
         "ms": ms,
-        "message": (proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else proc.stderr.strip()[:200]),
+        "message": (
+            proc.stdout.strip().splitlines()[-1]
+            if proc.stdout.strip()
+            else proc.stderr.strip()[:200]
+        ),
         "returncode": proc.returncode,
     }
     _post_dashboard(event)
@@ -76,7 +84,33 @@ def _run(step: str, argv: list[str], lane: str, cwd: Path | None = None) -> dict
     return event
 
 
-def lane_fast() -> list[dict]:
+def _write_orchestration_ledger() -> Path:
+    """F4: record UNMEASURED acceptance numbers on orchestration-only hosts."""
+    py = sys.executable
+    ledger = ROOT / "artifacts" / "harness" / "ledgers" / "orchestration-only.json"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    proc = subprocess.run(
+        [
+            py,
+            str(HARNESS / "trace" / "parse_signposts.py"),
+            "--orchestration-only",
+            "--ledger",
+            str(ledger),
+        ],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"orchestration ledger failed: {proc.stderr}")
+    # Also refresh latest.json for local dashboards.
+    latest = ROOT / "artifacts" / "harness" / "ledgers" / "latest.json"
+    latest.write_text(ledger.read_text(encoding="utf-8"), encoding="utf-8")
+    return ledger
+
+
+def lane_fast() -> tuple[list[dict], list[str]]:
+    """FAST: orchestration-only on any platform (lint/codegen/schema/unit)."""
     py = sys.executable
     steps = [
         ("token_lint", [py, str(HARNESS / "lint" / "token_lint.py")]),
@@ -92,73 +126,136 @@ def lane_fast() -> list[dict]:
         ("unit_golden", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "golden"), "-p", "test_*.py"]),
         ("unit_trace", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "trace"), "-p", "test_*.py"]),
         ("unit_invariants", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "tests"), "-p", "test_*.py"]),
-        ("seed_scripts", [py, str(HARNESS / "probe" / "run_scripts.py")]),
+        ("unit_lane_guards", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "lanes"), "-p", "test_*.py"]),
+        ("seed_script_schema", [py, str(HARNESS / "probe" / "run_scripts.py"), "--schema-only"]),
+        # STUB grammar oracle — orchestration unit only; not app-coupled (F2).
+        ("grammar_oracle_unit", [py, str(HARNESS / "probe" / "run_scripts.py"), "--oracle"]),
     ]
-    return [_run(name, argv, "FAST") for name, argv in steps]
+    results = [_run(name, argv, "FAST") for name, argv in steps]
+    executed = [r["step"] for r in results if r["ok"]]
+    return results, executed
 
 
-def _full_steps(cwd: Path) -> list[tuple[str, list[str]]]:
-    py = sys.executable
-    fixture_trace = HARNESS / "trace" / "fixtures" / "acceptance_sample.log"
-    return [
-        ("grammar_scripts", [py, str(HARNESS / "probe" / "run_scripts.py")]),
-        ("count_invariants", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "tests"), "-p", "test_*.py"]),
-        (
-            "signpost_trace",
-            [py, str(HARNESS / "trace" / "parse_signposts.py"), str(fixture_trace), "--ledger",
-             str(cwd / "artifacts" / "harness" / "ledgers" / "full.json")],
-        ),
-        (
-            "golden_chrome_compare",
-            [py, str(HARNESS / "golden" / "run_chrome_diff.py")],
-        ),
-        (
-            "parallel_instances_dry",
-            [py, str(HARNESS / "parallel_instances.py"), "--dry-run", "--n", "2"],
-        ),
-    ]
-
-
-def lane_full() -> list[dict]:
+def lane_full_macos() -> tuple[list[dict], list[str]]:
+    """FULL app-coupled suite — only invoked after macos-apple-silicon check."""
     sys.path.insert(0, str(HARNESS))
-    from worktree_runner import cleanup_snapshot, create_snapshot  # noqa: WPS433
+    from worktree_runner import cleanup_snapshot, create_snapshot
 
     snap = create_snapshot(ROOT)
     print(f"[FULL] snapshot worktree: {snap}")
+    py = sys.executable
+    results: list[dict] = []
+    executed: list[str] = []
     try:
-        steps = _full_steps(snap)
-        # Parallel where independent.
-        results: list[dict] = []
-        with ThreadPoolExecutor(max_workers=min(4, len(steps))) as pool:
-            futs = {pool.submit(_run, name, argv, "FULL", snap): name for name, argv in steps}
-            for fut in as_completed(futs):
-                results.append(fut.result())
-        # Preserve step order in report
-        order = {name: i for i, (name, _) in enumerate(steps)}
-        results.sort(key=lambda r: order.get(r["step"], 99))
-        return results
+        # Orchestration bookkeeping first.
+        results.append(_run("worktree_snapshot", [py, "-c", "print('snapshot ok')"], "FULL", snap))
+        if results[-1]["ok"]:
+            executed.append("worktree_snapshot")
+        try:
+            _write_orchestration_ledger()
+            # On macOS the live signpost step replaces UNMEASURED; until emitters
+            # are wired into product paths this records orchestration honesty.
+            results.append(
+                {
+                    "lane": "FULL",
+                    "step": "ledger_orchestration_write",
+                    "ok": True,
+                    "ms": 0,
+                    "message": "orchestration-only ledger written (gates inactive until measured)",
+                    "returncode": 0,
+                }
+            )
+            executed.append("ledger_orchestration_write")
+            print("[FULL] ledger_orchestration_write: OK (0ms)")
+        except RuntimeError as exc:
+            results.append(
+                {
+                    "lane": "FULL",
+                    "step": "ledger_orchestration_write",
+                    "ok": False,
+                    "ms": 0,
+                    "message": str(exc),
+                    "returncode": 1,
+                }
+            )
+            print(f"[FULL] ledger_orchestration_write: FAIL — {exc}", file=sys.stderr)
+
+        # App-coupled steps — Swift-on-macOS required (F2). These invoke the
+        # live driver when present; missing driver → step FAIL (not silent skip).
+        app_steps = [
+            ("grammar_scripts_live", [py, str(HARNESS / "probe" / "run_live_scripts.py")]),
+            ("probe_v2_mid_script", [py, str(HARNESS / "probe" / "run_live_probe.py")]),
+            (
+                "signpost_acceptance_measured",
+                [py, str(HARNESS / "trace" / "run_live_signposts.py")],
+            ),
+            ("one_cmd_z_per_gesture", [py, str(HARNESS / "probe" / "run_live_undo.py")]),
+            ("count_invariants_live", [py, str(HARNESS / "probe" / "run_live_invariants.py")]),
+            ("golden_chrome_strict", [py, str(HARNESS / "golden" / "run_chrome_diff.py"), "--live"]),
+            (
+                "parallel_headless_instances",
+                [py, str(HARNESS / "parallel_instances.py"), "--n", "2"],
+            ),
+        ]
+        for name, argv in app_steps:
+            results.append(_run(name, argv, "FULL", snap))
+            if results[-1]["ok"]:
+                executed.append(name)
+        return results, executed
     finally:
         cleanup_snapshot(snap)
 
 
-def lane_heavy() -> list[dict]:
+def lane_heavy_macos() -> tuple[list[dict], list[str]]:
     py = sys.executable
-    steps = [
-        ("grammar_stability_all_scripts", [py, str(HARNESS / "probe" / "run_scripts.py")]),
+    results: list[dict] = []
+    executed: list[str] = []
+    orch = [
         ("zero_egress_audit", ["bash", str(HARNESS / "lint" / "banned_patterns.sh")]),
-        ("heavy_placeholders", [py, str(HARNESS / "heavy_placeholders.py")]),
+        ("heavy_job_registry", [py, str(HARNESS / "heavy_placeholders.py")]),
     ]
-    return [_run(name, argv, "HEAVY") for name, argv in steps]
+    for name, argv in orch:
+        results.append(_run(name, argv, "HEAVY"))
+        if results[-1]["ok"]:
+            executed.append(name)
+    app_steps = [
+        ("ingest_timing", [py, str(HARNESS / "heavy" / "run_job.py"), "ingest_timing"]),
+        ("kill_fuzz_replay", [py, str(HARNESS / "heavy" / "run_job.py"), "kill_fuzz_replay"]),
+        ("eject_fault_injection", [py, str(HARNESS / "heavy" / "run_job.py"), "eject_fault_injection"]),
+        ("ram_tier_runs", [py, str(HARNESS / "heavy" / "run_job.py"), "ram_tier_runs"]),
+        ("lr_round_trip", [py, str(HARNESS / "heavy" / "run_job.py"), "lr_round_trip"]),
+        (
+            "grammar_stability_rerun_live",
+            [py, str(HARNESS / "probe" / "run_live_scripts.py"), "--all-prior"],
+        ),
+    ]
+    for name, argv in app_steps:
+        results.append(_run(name, argv, "HEAVY"))
+        if results[-1]["ok"]:
+            executed.append(name)
+    return results, executed
 
 
-def write_report(lane: str, results: list[dict], elapsed_ms: int) -> Path:
+def write_report(
+    lane: str,
+    results: list[dict],
+    elapsed_ms: int,
+    *,
+    status: str,
+    inventory: dict,
+    platform_reason: str | None = None,
+) -> Path:
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     path = ARTIFACTS / f"{lane.lower()}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
     body = {
         "lane": lane,
         "elapsed_ms": elapsed_ms,
-        "ok": all(r["ok"] for r in results),
+        "status": status,
+        "ok": status == "PASS",
+        "inventory": inventory,
+        "platform_reason": platform_reason,
         "results": results,
+        "summary": format_lane_summary(lane, status, elapsed_ms, inventory),
     }
     path.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
     latest = ARTIFACTS / f"{lane.lower()}-latest.json"
@@ -166,8 +263,94 @@ def write_report(lane: str, results: list[dict], elapsed_ms: int) -> Path:
     return path
 
 
+def run_lane(lane: str) -> tuple[str, int]:
+    """Execute one lane. Returns (status, exit_code_contribution).
+
+    exit_code_contribution: 0 PASS, 1 FAIL/INCOMPLETE, 2 PLATFORM-UNAVAILABLE
+    """
+    manifest = load_manifest()
+    lane_def = manifest["lanes"][lane]
+    requirement = lane_def["platform"]
+    plat_status, plat_reason = check_lane_platform(requirement)
+
+    started = time.perf_counter()
+
+    if plat_status == "platform-unavailable":
+        # Still write an honest orchestration ledger for FULL/HEAVY requests.
+        if lane in {"full", "heavy"}:
+            try:
+                _write_orchestration_ledger()
+            except RuntimeError as exc:
+                print(f"[{lane.upper()}] ledger write failed: {exc}", file=sys.stderr)
+        elapsed = int((time.perf_counter() - started) * 1000)
+        inventory = evaluate_inventory(lane, [])  # zero executed
+        # Force vacuous fields for the summary line.
+        inventory["executed_app_coupled"] = 0
+        inventory["executed_orchestration"] = 0
+        inventory["executed_count"] = 0
+        status = "PLATFORM-UNAVAILABLE"
+        path = write_report(
+            lane.upper(),
+            [],
+            elapsed,
+            status=status,
+            inventory=inventory,
+            platform_reason=plat_reason,
+        )
+        print(format_lane_summary(lane, status, elapsed, inventory))
+        print(f"    reason: {plat_reason}")
+        print(f"    report={path}")
+        _post_dashboard(
+            {
+                "lane": lane.upper(),
+                "step": "platform_gate",
+                "ok": False,
+                "ms": elapsed,
+                "message": f"PLATFORM-UNAVAILABLE ({inventory['executed_app_coupled']} app tests)",
+            }
+        )
+        return status, 2
+
+    if lane == "fast":
+        results, executed = lane_fast()
+    elif lane == "full":
+        results, executed = lane_full_macos()
+    else:
+        results, executed = lane_heavy_macos()
+
+    elapsed = int((time.perf_counter() - started) * 1000)
+    inventory = evaluate_inventory(lane, executed)
+    step_ok = all(r["ok"] for r in results) if results else False
+    if inventory["verdict"] != "PASS":
+        status = inventory["verdict"]  # FAIL or INCOMPLETE
+        code = 1
+    elif not step_ok:
+        status = "FAIL"
+        code = 1
+    else:
+        status = "PASS"
+        code = 0
+
+    path = write_report(
+        lane.upper(),
+        results,
+        elapsed,
+        status=status,
+        inventory=inventory,
+        platform_reason=plat_reason,
+    )
+    print(format_lane_summary(lane, status, elapsed, inventory))
+    if inventory["reasons"]:
+        for reason in inventory["reasons"]:
+            print(f"    inventory: {reason}", file=sys.stderr)
+    print(f"    report={path}")
+    budget = int(lane_def["budgetMs"])
+    if elapsed > budget:
+        print(f"WARN: {lane.upper()} exceeded budget ({elapsed} > {budget})", file=sys.stderr)
+    return status, code
+
+
 def watch_loop() -> int:
-    """Poll for changes; stream FAST results to the local dashboard."""
     print("[WATCH] FAST on change — Ctrl+C to stop")
     last = None
     while True:
@@ -187,11 +370,15 @@ def watch_loop() -> int:
         key = max(stamp) if stamp else 0
         if key != last:
             last = key
-            started = time.perf_counter()
-            results = lane_fast()
-            elapsed = int((time.perf_counter() - started) * 1000)
-            write_report("FAST", results, elapsed)
-            _post_dashboard({"lane": "FAST", "step": "watch_cycle", "ok": all(r["ok"] for r in results), "ms": elapsed})
+            status, _code = run_lane("fast")
+            _post_dashboard(
+                {
+                    "lane": "FAST",
+                    "step": "watch_cycle",
+                    "ok": status == "PASS",
+                    "message": status,
+                }
+            )
         time.sleep(1.0)
 
 
@@ -204,26 +391,16 @@ def main(argv: list[str] | None = None) -> int:
         return watch_loop()
 
     lanes = ["fast", "full", "heavy"] if args.lane == "all" else [args.lane]
-    overall_ok = True
+    codes = []
     for lane in lanes:
-        started = time.perf_counter()
-        if lane == "fast":
-            results = lane_fast()
-        elif lane == "full":
-            results = lane_full()
-        else:
-            results = lane_heavy()
-        elapsed = int((time.perf_counter() - started) * 1000)
-        path = write_report(lane.upper(), results, elapsed)
-        ok = all(r["ok"] for r in results)
-        overall_ok = overall_ok and ok
-        budget = {"fast": 90_000, "full": 600_000, "heavy": 3_600_000}[lane]
-        over = elapsed > budget
-        print(f"=== {lane.upper()} {'PASS' if ok else 'FAIL'} in {elapsed}ms (budget {budget}ms) report={path}")
-        if over:
-            print(f"WARN: {lane.upper()} exceeded budget ({elapsed} > {budget})", file=sys.stderr)
-            # Budget overage warns but does not fail the lane on Linux cold start.
-    return 0 if overall_ok else 1
+        _status, code = run_lane(lane)
+        codes.append(code)
+    # Prefer FAIL (1) over PLATFORM-UNAVAILABLE (2) over PASS (0).
+    if any(c == 1 for c in codes):
+        return 1
+    if any(c == 2 for c in codes):
+        return 2
+    return 0
 
 
 if __name__ == "__main__":

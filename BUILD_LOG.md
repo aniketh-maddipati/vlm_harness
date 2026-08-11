@@ -4,6 +4,30 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-11 — CP0 review: vacuous-green / platform / ledger honesty
+
+**Branch:** `checkpoint/cp0-harness` · **PR:** #32  
+**Claim:** Resolve review F1–F4 before merge — no vacuous PASS; FULL/HEAVY macOS-AS-only; stubs owned; ledger UNMEASURED.
+
+**Fixes:**
+- **F1** Lane manifests (`lanes/manifests.json`) + inventory guard; summary always prints `N app tests executed / M expected`
+- **F2** HARNESS.md platform split (Python orchestration vs Swift-on-macOS app-coupled); every Python app stub marked `STUB` + `owned-by-*`
+- **F3** FULL/HEAVY → `PLATFORM-UNAVAILABLE` on non-AS-macOS (exit 2), never PASS
+- **F4** `ledgers/orchestration-only.json` records all acceptance numbers as `UNMEASURED`; gates inactive until measured macOS run
+
+**Re-measured lane times (Linux cloud):**
+| Lane | Result | Elapsed | App tests |
+|------|--------|---------|-----------|
+| FAST | PASS | **3149 ms** | **0 app / 0 expected** (16 orchestration) |
+| FULL | **PLATFORM-UNAVAILABLE** | **119 ms** | **0 app / 7 expected** |
+| HEAVY | **PLATFORM-UNAVAILABLE** | **114 ms** | **0 app / 6 expected** |
+
+Exit codes: FAST `0` · FULL/HEAVY `2` (PLATFORM-UNAVAILABLE). Ledger: `artifacts/harness/ledgers/orchestration-only.json` — all six acceptance numbers `UNMEASURED`, `gates_active: false`.
+
+**Follow-ups unchanged:** live Swift drivers (CP4/CP7/SPIKE A/HEAVY) — stubs refuse PASS until wired.
+
+---
+
 ## 2026-08-11 — CP0: harness upgrade
 
 **Branch:** `checkpoint/cp0-harness` (worktree `/lumina-wt/cp0-harness` off `seal-v6.1`).  
@@ -18,18 +42,19 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 **GAP LIST intake:** codegen / motion-timing guard / grammar scripts / golden service **closed in CP0**; remaining seal follow-ups owned (CP1/CP3/CP5/CP8/HEAVY/D46/1.0) — see `HARNESS.md`.
 
-**Measured lane times (Linux cloud):**
+**Measured lane times (Linux cloud) — superseded by review entry above (vacuous-green / PLATFORM-UNAVAILABLE):**
 | Lane | Result | Elapsed | Budget |
 |------|--------|---------|--------|
 | FAST | PASS | **2959 ms** | 90s |
-| FULL | PASS | **409 ms** | 10min |
-| HEAVY | PASS | **280 ms** | nightly |
+| FULL | PASS *(vacuous — corrected)* | **409 ms** | 10min |
+| HEAVY | PASS *(vacuous — corrected)* | **280 ms** | nightly |
 
 **Platform:** Linux — simulator/fixture FULL; no `xcodebuild`. Live Probe v2 socket + XCUITest remain macOS.
 
 **Follow-ups:** live signpost emitters on product paths (SPIKE A/B+); pixel goldens per body (CP3); A5 CopyContract spacing; P0OpenView alert→facts-chip (CP8).
 
 ---
+
 
 ## 2026-08-11 — Constitution: Batch 1 seal verification (agent-rules + Phase 4)
 

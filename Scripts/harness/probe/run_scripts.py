@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Validate input-script schema and run seed scripts against the probe simulator."""
+"""Validate input-script schema and (optionally) run the Python grammar oracle.
+
+STUB NOTE (F2): The Python ProbeSimulator is an orchestration oracle for schema /
+assert shape — NOT the app-coupled event driver. Live grammar execution is
+Swift-on-macOS via run_live_scripts.py (owned-by-CP4). Unowned stubs are forbidden.
+"""
 from __future__ import annotations
 
-import json
+import argparse
 import sys
 from pathlib import Path
 
@@ -25,7 +30,6 @@ def _validate_basic_script(script: dict) -> list[str]:
     for i, event in enumerate(script.get("events") or []):
         if "op" not in event:
             errs.append(f"events[{i}] missing op")
-        # Ban recorded coordinates
         for banned in ("x", "y", "cgPoint", "screenX", "screenY"):
             if banned in event:
                 errs.append(f"events[{i}] contains banned coordinate field '{banned}'")
@@ -52,15 +56,33 @@ def _validate_state_shape(state: dict) -> list[str]:
     return errs
 
 
-def run_all(seed_dir: Path = SEED) -> int:
+def run_schema_only(seed_dir: Path = SEED) -> int:
     scripts = sorted(seed_dir.glob("*.json"))
     if len(scripts) < 5:
         print(f"FAIL: expected ≥5 seed scripts, found {len(scripts)}", file=sys.stderr)
         return 1
-    # Schema files must exist (feature drop-in contract).
     if not SCRIPT_SCHEMA.is_file() or not PROBE_SCHEMA.is_file():
         print("FAIL: missing script/probe schema", file=sys.stderr)
         return 1
+    fail = 0
+    for path in scripts:
+        script = load_script(path)
+        errs = _validate_basic_script(script)
+        if errs:
+            print(f"FAIL: {path.name} schema: {errs}", file=sys.stderr)
+            fail = 1
+        else:
+            print(f"  schema {path.name}: OK")
+    if fail:
+        return 1
+    print("run_scripts.py --schema-only: OK")
+    return 0
+
+
+def run_oracle(seed_dir: Path = SEED) -> int:
+    """STUB (F2): Python grammar oracle — orchestration unit, not app-coupled."""
+    print("STUB: ProbeSimulator grammar oracle (owned-by-CP4 for live Swift driver)")
+    scripts = sorted(seed_dir.glob("*.json"))
     fail = 0
     for path in scripts:
         script = load_script(path)
@@ -79,15 +101,35 @@ def run_all(seed_dir: Path = SEED) -> int:
             print(f"FAIL: {path.name} asserts: {result['failures']}", file=sys.stderr)
             fail = 1
         else:
-            print(f"  script {path.name}: OK")
+            print(f"  oracle {path.name}: OK")
     if fail:
         return 1
-    print("run_scripts.py: OK")
+    print("run_scripts.py --oracle: OK")
     return 0
 
 
-def main() -> int:
-    return run_all()
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--schema-only",
+        action="store_true",
+        help="Validate seed script schemas only (FAST orchestration)",
+    )
+    parser.add_argument(
+        "--oracle",
+        action="store_true",
+        help="Run Python STUB grammar oracle (not app-coupled)",
+    )
+    args = parser.parse_args(argv)
+    if args.schema_only:
+        return run_schema_only()
+    if args.oracle:
+        return run_oracle()
+    # Default: schema + oracle (legacy entry for local debugging).
+    code = run_schema_only()
+    if code != 0:
+        return code
+    return run_oracle()
 
 
 if __name__ == "__main__":

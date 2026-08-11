@@ -1,0 +1,62 @@
+{
+  "gates_active": false,
+  "generated_at": "2026-08-11T19:17:32.623955+00:00",
+  "mode": "orchestration-only",
+  "ok": null,
+  "results": [
+    {
+      "detail": "orchestration-only \u2014 acceptance gate inactive until macOS measured run",
+      "name": "open_usable",
+      "notes": "Open <1s to usable table",
+      "pass": null,
+      "samples": 0,
+      "signpost": "lumina.accept.open",
+      "status": "UNMEASURED"
+    },
+    {
+      "detail": "orchestration-only \u2014 acceptance gate inactive until macOS measured run",
+      "name": "crossfade_same_rect",
+      "notes": "120ms same-rect zero-layout-passes",
+      "pass": null,
+      "samples": 0,
+      "signpost": "lumina.accept.crossfade",
+      "status": "UNMEASURED"
+    },
+    {
+      "detail": "orchestration-only \u2014 acceptance gate inactive until macOS measured run",
+      "name": "settle",
+      "notes": "settle 200ms \u22642% overshoot",
+      "pass": null,
+      "samples": 0,
+      "signpost": "lumina.accept.settle",
+      "status": "UNMEASURED"
+    },
+    {
+      "detail": "orchestration-only \u2014 acceptance gate inactive until macOS measured run",
+      "name": "grab",
+      "notes": "grab 90ms",
+      "pass": null,
+      "samples": 0,
+      "signpost": "lumina.accept.grab",
+      "status": "UNMEASURED"
+    },
+    {
+      "detail": "orchestration-only \u2014 acceptance gate inactive until macOS measured run",
+      "name": "halo",
+      "notes": "halo 600ms",
+      "pass": null,
+      "samples": 0,
+      "signpost": "lumina.accept.halo",
+      "status": "UNMEASURED"
+    },
+    {
+      "detail": "orchestration-only \u2014 acceptance gate inactive until macOS measured run",
+      "name": "slider_to_photon",
+      "notes": "slider-to-photon \u2014 bound by develop scheduler evidence",
+      "pass": null,
+      "samples": 0,
+      "signpost": "lumina.accept.slider_to_photon",
+      "status": "UNMEASURED"
+    }
+  ]
+}

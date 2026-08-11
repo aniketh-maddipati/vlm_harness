@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""HEAVY-lane registry — nightly/release jobs owned here; macOS executes them.
+"""HEAVY-lane registry — orchestration bookkeeping (Python permitted).
 
-Linux validates that each HEAVY job is registered with an owner + entrypoint so
-no gap remains unowned. Live ingest/kill-fuzz/eject/RAM/LR require Mac + fixtures.
+STUB (F2): Live job bodies are Swift-on-macOS (owned-by-HEAVY via run_job.py).
+This file only proves every HEAVY job id has an owner + entrypoint so no gap
+remains unowned. It is not an app-coupled PASS.
 """
 from __future__ import annotations
 

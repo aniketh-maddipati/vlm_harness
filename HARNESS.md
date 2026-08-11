@@ -4,7 +4,61 @@
 **Checkpoint:** CP0 — harness upgrade (testing never blocks building).  
 **Runner:** `python3 Scripts/harness/run.py {fast|full|heavy|watch|all}`
 
-A red FULL lane blocks **MERGE**, never **EDITING**. FULL/HEAVY run against a disposable git worktree snapshot (`Scripts/harness/worktree_runner.py`).
+A red FULL lane blocks **MERGE**, never **EDITING**. FULL/HEAVY run against a disposable git worktree snapshot when the platform is available.
+
+---
+
+## Platform split (F2) — language / OS boundary
+
+| Layer | Language / host | Examples |
+|-------|-----------------|----------|
+| **Orchestration** | **Python** (any host) | runner, lane manifests, lints, codegen freshness, dashboard, golden *bookkeeping*, script/probe *schemas*, numbers ledger writer, HEAVY job registry |
+| **App-coupled** | **Swift on macOS Apple Silicon** (REQUIRED) | Probe v2 client + in-app server, `os_signpost` emission, input-script event driver, headless app instances, `HarnessFakeClock` |
+
+**Rule:** any app-coupled component that is not yet live in Swift must carry an explicit `STUB` marker and an `owned-by-CP<N>` (or SPIKE/HEAVY) owner. Unowned stubs = unowned gaps = FAIL.
+
+Swift already in-tree (DEBUG only): `Lumina/Testing/ProbeV2/{StateProbeV2,HarnessFakeClock,AcceptanceSignposts}.swift`.
+
+### STUB register (app-coupled)
+
+| Stub | Path | Owner |
+|------|------|-------|
+| Grammar event driver + live scripts | `Scripts/harness/probe/run_live_scripts.py` | **CP4** |
+| Probe v2 mid-script client | `Scripts/harness/probe/run_live_probe.py` | **CP4** |
+| Python grammar oracle (not live) | `Scripts/harness/probe/simulator.py` | **CP4** (oracle only; never app PASS) |
+| One-⌘Z-per-gesture live | `Scripts/harness/probe/run_live_undo.py` | **CP4** |
+| Count invariants live | `Scripts/harness/probe/run_live_invariants.py` | **CP7** |
+| Measured signpost capture | `Scripts/harness/trace/run_live_signposts.py` | **SPIKE A** |
+| Chrome pixel golden `--live` | `Scripts/harness/golden/run_chrome_diff.py --live` | **CP1** |
+| Parallel headless instances | `Scripts/harness/parallel_instances.py` (non-dry-run) | **HEAVY** |
+| HEAVY job bodies | `Scripts/harness/heavy/run_job.py` | **HEAVY** |
+
+---
+
+## CI topology (F3)
+
+| Lane | Platform | Linux cloud | macOS AS 14+ |
+|------|----------|-------------|--------------|
+| **FAST** | `any` | lint / codegen / schema / unit — **may PASS** | same |
+| **FULL** | `macos-apple-silicon` | **PLATFORM-UNAVAILABLE** (not PASS) | app-coupled suite |
+| **HEAVY** | `macos-apple-silicon` | **PLATFORM-UNAVAILABLE** (not PASS) | nightly / release |
+
+Fleet floor: Apple Silicon, macOS 14+ (`design/mvp-test-plan.md`, D65 / A1). Intel → PLATFORM-UNAVAILABLE.
+
+Lane definitions live in `Scripts/harness/lanes/manifests.json` and are enforced by `Scripts/harness/lanes/host_platform.py` — not tribal knowledge.
+
+Exit codes: `0` PASS · `1` FAIL/INCOMPLETE · `2` PLATFORM-UNAVAILABLE.
+
+---
+
+## Vacuous-green guard (F1)
+
+Each lane declares an expected test inventory (`lanes/manifests.json`). After execution the runner compares executed IDs to the manifest:
+
+- Missing any expected ID → **INCOMPLETE** (never PASS)
+- Manifest expects app-coupled tests and **0** ran → **INCOMPLETE** (vacuous-green)
+- Summary line always includes counts, e.g.  
+  `=== HEAVY PLATFORM-UNAVAILABLE in 12ms (0 app tests executed / 6 expected; 0 orchestration)`
 
 ---
 
@@ -12,12 +66,23 @@ A red FULL lane blocks **MERGE**, never **EDITING**. FULL/HEAVY run against a di
 
 | Lane | Budget | When | Contents |
 |------|--------|------|----------|
-| **FAST** | <90s | save/commit / `watch` | token lint · copy-table lint · banned-pattern grep · magic-number grep · existing lints (`agent_rules_contract.sh`, …) · unit/property tests · 5 seed scripts |
-| **FULL** | <10min | pre-merge, parallel | chrome golden compare (photo regions masked) · input-script grammar suite via probe · signpost trace parse → numbers ledger · one-⌘Z-per-gesture · count invariants (banner=header=receipt, export=kept, chip-absence⟺full-rung) · parallel-instance dry-run |
-| **HEAVY** | nightly + release | scheduled | ingest timing · kill-fuzz + replay · eject faults · RAM-tier · LR round-trip · zero-egress audit · grammar-stability re-run of **all** prior scripts unchanged |
+| **FAST** | <90s | save/commit / `watch` | orchestration only: token/copy/banned/magic lints, contract lints, unit tests, seed **schema** + grammar **oracle** (STUB) |
+| **FULL** | <10min | pre-merge | macOS AS: live grammar/probe/signpost/⌘Z/invariants/chrome/parallel (+ worktree snapshot). Linux: PLATFORM-UNAVAILABLE |
+| **HEAVY** | nightly + release | scheduled | macOS AS: ingest / kill-fuzz / eject / RAM / LR / live grammar-stability. Linux: PLATFORM-UNAVAILABLE |
 
-Dashboard (optional): `python3 Scripts/harness/dashboard/server.py` → `http://127.0.0.1:8765/`  
-Watch mode streams FAST events there (and to `artifacts/harness/dashboard/events.ndjson`).
+Dashboard (optional): `python3 Scripts/harness/dashboard/server.py` → `http://127.0.0.1:8765/`
+
+---
+
+## Numbers ledger honesty (F4)
+
+Acceptance numbers (`open <1s`, crossfade 120ms, settle 200ms, grab 90ms, halo 600ms, slider-to-photon) are written to `artifacts/harness/ledgers/orchestration-only.json` as:
+
+- `mode: orchestration-only`
+- `gates_active: false`
+- each entry `status: UNMEASURED` (not absent, not PASS)
+
+Gates activate only when a macOS measured run populates samples (`mode: measured`, `gates_active: true`). Fixture sample logs may unit-test the parser; they must not bless a lane.
 
 ---
 
@@ -25,62 +90,35 @@ Watch mode streams FAST events there (and to `artifacts/harness/dashboard/events
 
 A new feature ships as **data**, not runner changes:
 
-1. **Input script** JSON under `Scripts/harness/scripts/seed/` (schema: `Scripts/harness/scripts/schema.json`) — event stream, **never recorded coordinates**.
-2. **Probe asserts** — declarative `asserts[]` in the same file (schema: `Scripts/harness/probe/schema.json`).
-3. **Optional goldens** — propose via `python3 Scripts/harness/golden/service.py propose <name> --file …` then **human** `approve` (never auto-bless). Store keyed by `tokens-hash`.
-4. **Optional signpost names** — add to `Scripts/harness/trace/acceptance_numbers.json`; emit via `AcceptanceSignposts` (DEBUG only).
-
-Zero changes to `Scripts/harness/run.py` required.
+1. **Input script** JSON under `Scripts/harness/scripts/seed/` (schema: `scripts/schema.json`) — event stream, **never recorded coordinates**.
+2. **Probe asserts** — declarative `asserts[]` (schema: `probe/schema.json`).
+3. **Optional goldens** — `golden/service.py propose` then human `approve` (never auto-bless); keyed by `tokens-hash`.
+4. **Optional signpost names** — `trace/acceptance_numbers.json` + Swift `AcceptanceSignposts`.
+5. **Manifest ID** — add the test id to `lanes/manifests.json` (orchestration vs app-coupled).
 
 ### Worked example — P/X advance
 
-File: `Scripts/harness/scripts/seed/px_advance.json`
-
-```json
-{
-  "schemaVersion": 1,
-  "id": "px_advance",
-  "title": "P/X advance — keep then reject advances focus",
-  "cite": ["D10", "D59", "L1"],
-  "fixture": "mixed-60",
-  "seed": 1001,
-  "events": [
-    { "op": "focusIndex", "index": 0 },
-    { "op": "key", "key": "P" },
-    { "op": "waitProbe", "ms": 0 },
-    { "op": "key", "key": "X" },
-    { "op": "waitProbe", "ms": 0 }
-  ],
-  "asserts": [
-    { "op": "markEquals", "assetIndex": 0, "mark": "keep" },
-    { "op": "markEquals", "assetIndex": 1, "mark": "reject" },
-    { "op": "focusIndex", "equals": 2 },
-    { "op": "undoEntries", "entries": 2 }
-  ]
-}
-```
-
-On Linux, `Scripts/harness/probe/simulator.py` executes the script against Probe v2 canonical state. On macOS, the same asserts read live NDJSON from `StateProbeV2Server` (loopback).
+File: `Scripts/harness/scripts/seed/px_advance.json` — see seed file.  
+FAST runs it through the **STUB** Python oracle (orchestration).  
+FULL on macOS AS runs it through the **live** Swift driver (`run_live_scripts.py`, owned-by-CP4).
 
 ---
 
 ## State Probe v2
 
-- **Schema:** `Scripts/harness/probe/schema.json` (records, marks, staging, focus, generation counters, resident rung per visible frame).
-- **Transport:** streaming NDJSON over local TCP (`Lumina/Testing/ProbeV2/StateProbeV2.swift`) — DEBUG / `--probe-v2` only.
-- **Fake clock:** `HarnessFakeClock` — `#if DEBUG` only; must not exist in Release.
-- **v1 probe** (`UITestStateProbe` accessibility JSON) remains for XCUITest; v2 is the mid-script socket.
+- **Schema:** `Scripts/harness/probe/schema.json`
+- **Transport:** Swift `StateProbeV2Server` — DEBUG / `--probe-v2`, loopback only
+- **Fake clock:** Swift `HarnessFakeClock` — `#if DEBUG` only; never in Release
+- **Python simulator:** STUB oracle only (owned-by-CP4)
 
 ---
 
 ## Token codegen
 
 ```bash
-python3 Scripts/harness/codegen/tokens_codegen.py          # write DesignTokens/HiFiTokens.generated.swift
-python3 Scripts/harness/codegen/tokens_codegen.py --check  # CI freshness
+python3 Scripts/harness/codegen/tokens_codegen.py
+python3 Scripts/harness/codegen/tokens_codegen.py --check
 ```
-
-`artifacts/harness/tokens.hash` keys the golden store. Magic-number grep bans raw chrome literals in UI files (allowlisted debt in `artifacts/harness/magic_number_allowlist.txt`).
 
 ---
 
@@ -96,40 +134,24 @@ python3 Scripts/harness/codegen/tokens_codegen.py --check  # CI freshness
 
 ---
 
-## GAP LIST intake (seal-verification → ownership)
-
-Clauses with no mechanical guard at seal-v6.1, plus seal follow-ups. **No gap may remain unowned.**
+## GAP LIST intake
 
 | Gap | Status | Owner |
 |-----|--------|-------|
 | `tokens.yaml` → Swift codegen | **Closed in CP0** | CP0 |
-| Motion timing mechanical guard (signpost parse + ledger) | **Closed in CP0** (fixture trace; live Mac emitters DEBUG) | CP0 |
-| Grammar scripts (P/X, same-mark, ⇧⏎/⏎ gate, Esc, arming) | **Closed in CP0** (5 seeds + simulator) | CP0 |
-| Golden service (propose→approve, tokens-hash keying) | **Closed in CP0** | CP0 |
-| Chrome/photo golden *pixel* captures per body | Registered | **CP1** (layout) / body matrix **CP3** |
-| Live os_signpost on open/crossfade/settle/grab/halo/slider paths | Registered | **SPIKE A/B** + surface CPs (emitters wired DEBUG in CP0) |
-| A5 banner spacing drift (`Adapt → N  ⏎` vs CopyContract one-space) | Registered | CopyContract wire-up (**CP5/CP7**) |
-| P0OpenView `.alert` vs Law 3 facts-chip | Registered | **CP8** (allowlisted in banned_patterns) |
-| Hover handlers in quarantined Workspace shell | Registered | **CP5** (D48) — legacy hits in `banned_patterns_legacy.txt` |
-| ProgressView in legacy Compare/PhotoImageView | Registered | **CP4** retirement |
-| Six-body fleet fixtures | Registered | **CP3** |
-| Taste-model proof harness | Registered | post–wave-one (**D46 / A10**) — do not begin early |
-| A7 TestFlight crash reporting strip | Registered | **1.0 launch** |
+| Vacuous-green + platform gates | **Closed in CP0 review** | CP0 |
+| Ledger UNMEASURED honesty | **Closed in CP0 review** | CP0 |
+| Motion timing *measured* gate | STUB / UNMEASURED until live signposts | **SPIKE A** |
+| Grammar scripts *live* | STUB oracle only | **CP4** |
+| Golden service bookkeeping | **Closed in CP0** | CP0 |
+| Chrome/photo golden *pixels* | STUB `--live` | **CP1** / bodies **CP3** |
+| A5 banner spacing drift | Registered | **CP5/CP7** |
+| P0OpenView `.alert` | Registered | **CP8** |
+| Hover handlers (legacy shell) | Registered | **CP5** |
+| ProgressView legacy | Registered | **CP4** |
+| Six-body fixtures | Registered | **CP3** |
+| Taste-model proof harness | Registered | **D46 / A10** (post wave-one) |
+| A7 TestFlight strip | Registered | **1.0** |
 | A8 / R-I.3 licensing | Registered | post-test, pre-launch |
-| `AUDIT-HIFI.md` regenerate (old A/X crop PASS) | Registered | next audit run |
-| LuminaTokens hand literals → yaml secondary enum | Registered | **CP5** rail |
-| SwimLane.headerInset pre-yaml chrome | Registered | **CP1** |
-| HEAVY ingest/kill-fuzz/eject/RAM/LR live runners | Registered | **HEAVY** (stubs in `heavy_placeholders.py`; need Mac) |
-| Grammar-stability suite named by D51 (full prior corpus) | **Partial in CP0** (seed corpus + HEAVY re-run hook) | grow with each CP; **D51** pre-release gate |
-
----
-
-## Parallel headless instances
-
-`python3 Scripts/harness/parallel_instances.py --n 2 --dry-run` creates isolated temp dirs + journal roots. Live app launch is macOS-only (`--ui-testing --probe-v2 --ui-test-state-directory …`).
-
----
-
-## Platform note
-
-Linux cloud agents run FAST + FULL (simulator/goldens/trace fixtures) and HEAVY registry checks. `xcodebuild` / live Probe v2 socket / XCUITest remain macOS (see `AGENTS.md`).
+| HEAVY live runners | STUB `run_job.py` | **HEAVY** |
+| Grammar-stability live corpus | STUB until CP4 driver | **D51 / HEAVY** |

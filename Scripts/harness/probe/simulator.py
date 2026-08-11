@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Headless State Probe v2 simulator — runs input scripts without the macOS app.
+"""STUB (F2): Python grammar oracle for Probe v2 assert shape — NOT the live driver.
 
-Used by FAST/FULL on Linux and as a grammar oracle. The real app streams the same
-NDJSON schema over a local socket (Lumina/Testing/ProbeV2).
+owned-by-CP4 — Swift-on-macOS event driver + probe client are REQUIRED for
+app-coupled grammar (FULL). This module is orchestration-only: schema/oracle
+unit tests under FAST. It must never be reported as an app-coupled PASS.
+
+Real transport: Lumina/Testing/ProbeV2/StateProbeV2.swift (DEBUG, loopback).
 """
 from __future__ import annotations
 
