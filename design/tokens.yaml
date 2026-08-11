@@ -131,8 +131,8 @@ color:
   swimlane_fill_opacity:
     value: 0.07
     type: opacity
-    cite: [WG-gaps]
-    notes: rgba(242,239,233,0.07) over table.
+    cite: [WG-gaps, D64, A6]
+    notes: "Socket only — lane plates shelved (A6). rgba(242,239,233,0.07) over table if a ruled experiment re-enters."
   reject_dim_opacity:
     value: 0.45
     type: opacity
