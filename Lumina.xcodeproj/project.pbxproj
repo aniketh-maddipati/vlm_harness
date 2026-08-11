@@ -50,6 +50,16 @@
 			path = DesignTokens;
 			sourceTree = "<group>";
 		};
+		A50000010000000000000002 /* Legacy */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Legacy;
+			sourceTree = "<group>";
+		};
+		A60000010000000000000002 /* Salvage */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Salvage;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +92,8 @@
 			children = (
 				A10000010000000000000002 /* Lumina */,
 				A40000010000000000000002 /* DesignTokens */,
+				A60000010000000000000002 /* Salvage */,
+				A50000010000000000000002 /* Legacy */,
 				A20000010000000000000002 /* LuminaUITests */,
 				A30000010000000000000002 /* LuminaLogicTests */,
 				A10000010000000000000005 /* Products */,
@@ -116,6 +128,8 @@
 			fileSystemSynchronizedGroups = (
 				A10000010000000000000002 /* Lumina */,
 				A40000010000000000000002 /* DesignTokens */,
+				A60000010000000000000002 /* Salvage */,
+				A50000010000000000000002 /* Legacy */,
 			);
 			name = Lumina;
 			packageProductDependencies = (
