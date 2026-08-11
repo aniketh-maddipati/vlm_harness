@@ -115,7 +115,7 @@ names it and wears the key. A second ⏎ is always safe (rhythm, never a timed g
 *Adopted from code:* the Return-release gate — after ⇧⏎ stages, ⏎ cannot commit until
 Return is physically released; one held press can never stage-and-commit.
 
-**D12. Modifier temperaments: ⇧ enlarges/coarsens, ⌥ refines.** �D12. Modifier temperaments: ⇧ enlarges/coarsens, ⌥ refines.** ⌥-drag fine, ⌥←→ fine
+**D12. Modifier temperaments: ⇧ enlarges/coarsens, ⌥ refines.** ⌥-drag fine, ⌥←→ fine
 detents, ⌥-click reset, ⇧⌥←→ coarse. Precision is GAIN, never finer motor control —
 nothing ever asks for a more careful hand.
 *Rejected:* ⇧-drag = fine (GPT and one design pass both proposed it; contradicts "⇧ is
@@ -268,7 +268,7 @@ applies live — taxing the common case to prevent a reversible typo is the wron
 Tier 0 delivers most of the value at zero model risk; re-enters through shipping halo
 grammar). Tier 2 = the user's edit radiating (ships). Authority: hand > suggestion >
 baseline, each one ⌘Z apart. Halo-pressure rule: at most one suggestion halo speaks at
-rest. *Rejected:* � ⌘Z apart. Halo-pressure rule: at most one suggestion halo speaks at
+rest. *Rejected:* �. Halo-pressure rule: at most one suggestion halo speaks at
 rest. *Rejected:* ⌘A as auto (sacred select-all); a house look (camera-matched, not
 Instagram-slop).
 
