@@ -1,5 +1,5 @@
-# Lumina frozen copy table — Contract v6
-# Source authority: design/contract-v6.md + prior hi-fi inventory.
+# Lumina frozen copy table — Contract v6 (re-seal)
+# Source authority: design/contract-v6.md + design/contract-v5.md (D10/D11 verbatim lines).
 # Tags: [P] physical · [V] value · [PL] plumbing · [P+V] mixed
 # Change-marks: [●] changed or added this constitution pass · [○] carried unchanged
 # Banner, header, and receipt strings in the app MUST come from here via CopyContract.
@@ -38,9 +38,8 @@
 [○][P] back where you left it · 38 undecided
 [○][P+V] 6/8 kept · 2 out · resume = first undecided frame
 [●][P] P keep · X out · ⏎ edit · Space loupe · drag to move
-[○][P] P keep · X out · ⏎ edit · Space loupe · drag to move (hover)
-# ^ SUPERSEDED by D48 (hover deleted). Retained only until a build session
-#   removes CopyContract.tableFooterHover; do not teach hover in new chrome.
+[●][P] P keeps · X rejects · same key again clears
+[●][P] Re-pressing the mark on a marked frame clears it to unreviewed, in place. Decision keys never autorepeat.
 [○][P+V] copying originals · work while it copies
 
 ## FIDELITY
@@ -69,6 +68,7 @@
 [○][P+V] Adapted → 4 · ⌘Z
 [○][P+V] Adapt → 12 · 2 excluded ⏎ · ⇧⏎ shoot
 [○][P+V] Develop → 4 ⏎ · Esc
+[●][P] After ⇧⏎ stages, ⏎ cannot commit until Return is physically released. One held press can never stage-and-commit.
 
 ## FAILURE (headlines)
 
@@ -85,19 +85,11 @@
 [○][PL] ⌥⌘E changes the recipe.
 [●][P+V] Rejects to Trash · N files · size
 
-## ADOPTED MECHANICS — VERBATIM PENDING
-
-# Audit accepted “same-mark clears” and “Return-release gate” and required each
-# stated verbatim in this table. The constitution prompt did not paste those
-# strings. Do not invent them. Build sessions must STOP until the verbatim
-# lines are supplied and frozen below this banner.
-# D59 same-mark clears — verbatim OPEN
-# D60 Return-release gate — verbatim OPEN
-
 ## NOTES (not shippable UI strings)
 
-# D48: hover deleted — former “(hover)” parenthetical removed from TABLE line.
+# D48: hover deleted — superseded “(hover)” footer string removed from CopyContract.
 # D43: no positive full-truth chip — absence remains the third FIDELITY string.
 # D42: clipping is hold grammar; no new clipping chip string was named by the ruling.
 # D55: share sheet is a destination field on the ONE recipe — field labels OPEN.
 # D56: videos copied, counted, not shown; ✓ covers them — no table chip invented.
+# D59 / D60: verbatim lines sealed above from v5 D10 / D11 (re-seal resolution 3).

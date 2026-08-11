@@ -1,79 +1,62 @@
-# Checkpoint sequence sanity check — Contract v6 / Task 5
+# Checkpoint sequence — Contract v6 (Task 5 sealed)
 
-**Role:** Review Layer-2 sequence in Prompt Pack v1 against D40’s retirement plan; reorder only with stated reasons.
-
----
-
-## CONFLICT
-
-```
-CONFLICT
-law: D40 retirement plan (Contract v5); Prompt Pack v1 Layer-2 sequence
-conflict: Neither artifact is present in the workspace or in the pasted
-  constitution prompt fragment. Task 5 cannot verify or reorder checkpoints
-  against D40 without inventing D40 or the Layer-2 list.
-resolution options:
-  1. Attach Prompt Pack v1 Layer-2 (Checkpoints 0–8 + Spikes) and
-     design/contract-v5.md §D40; re-run Task 5 only.
-  2. Authorize D40 reconstruction from WG-quarantine + P0 route docs, then
-     re-run Task 5 against that provisional retirement plan.
-```
-
-**Reorder decision this session:** **none** — no sequence body to reorder.
+**Authority:** Contract v5 D40 + Layer-2 sequence supplied at re-seal.  
+**Supersedes:** first-pass `design/checkpoint-sequence-v6.md` (CONFLICT placeholder).
 
 ---
 
-## What the pasted pack *does* state (routing only)
+## D40 retirement plan (v5 §10 — carried)
 
-From the Prompt Pack v1 fragment embedded in the constitution prompt:
-
-| Layer | Content | Model routing (pack recommendation) |
-|-------|---------|-------------------------------------|
-| Layer 1 | Constitution (this session) — contract / tokens / copy / fixtures | Strongest reasoning tier |
-| Layer 2 | Scoped build sessions: Checkpoint 0 (harness), Spikes A/B, Checkpoints 1–8 | Checkpoint 0 + Spikes A/B → strongest coding tier; 1–8 → fast coding tier; escalate after two audit fails |
-| Layer 3 | Audit sessions | Strongest reasoning tier |
-
-Hard rules from the pack fragment:
-
-- Never let one session span two checkpoints.
-- Never let a build-tier session edit the contract, tokens, or copy table.
-- Shelved items stay shelved without a ruling (see Contract v6 Shelved Register).
+- P0 is the live path.
+- Legacy shell (Workbench/Canvas/Proof, S/X/M, tiers, taste-index, audit piles, set rail) is quarantined and **retired checkpoint-by-checkpoint**.
+- Salvage only: EmbeddingService + burst grouping; ExifToolService.
+- Lab-gated develop engine integrates into **P0**, never the legacy shell; interactive grading of camera JPEGs must never return.
+- Canonical state discipline + P0Command (one ⌘Z / gesture) govern new work.
+- XCUITest harness invariants (leaf-only IDs, deterministic fixtures, state probe) ship with every new surface.
+- `BUILD_LOG.md` — one entry per session.
 
 ---
 
-## Retirement pressure visible without D40 (informative — not a reorder)
+## Sealed Layer-2 order
 
-Working grammar already states legacy quarantine (WG-quarantine): no Workbench/Canvas/Proof, S/X/M, TasteIndex, PhotoScorer, QualityScorer, FaceDetector, audit piles, set rail; salvage EmbeddingService (grouping only) + ExifToolService; all new work on P0.
+**Reorder decision: none.** The supplied sequence already matches D40’s checkpoint-by-checkpoint retirement and the R-A.1 story re-weight (land → tidy → Tier 0 → cull → export; propagation as act two). Reasons against reorder are stated per step.
 
-P0 docs in-repo imply an engineering ladder already walked:
-
-1. Canonical state  
-2. Contact sheet  
-3. Cull grammar  
-4. UI automation harness  
-5. Single-photo editing (in flight on other branches)
-
-That ladder is **historical engineering**, not the Prompt Pack Layer-2 sequence, and must not be silently substituted for D40.
+| Step | Name | Binds | D40 / story fit |
+|------|------|-------|-----------------|
+| SPIKE A | Fidelity ladder on real files (ingest tee, three rungs, fused float16, latest-wins, histogram in-shader, R-Q.1 90/120/140 px ledger) | D20, D21, R-5.3, R-Q.1 / D43, D57 | Evidence before hero/fidelity chrome; does not touch legacy shell |
+| SPIKE B | Table physics (owned spring, retargeting, transform-only 40-frame @ 120Hz, dead-stop, reduced-motion) | D27, D28, R-X.2 / D49 | Physics evidence before layout CP; aligns D27 birth-opacity amendment |
+| CP1 | Layout as pure function; quantized; exact-at-rest; long rows wrap; no rest compression (audit V9 dead) | D7, D26, D28, R-X.2 / D49 | Foundation for all table surfaces; P0-only |
+| CP2 | Journal + sidecars + crash-only startup; staged-not-persisted; kill-fuzz; LR round-trip | persistence, D35, D36 | Data-safety non-deferrable (D35); D36 anti-irritant + XMP before file-touch endgame |
+| CP3 | Ingest for real: D31 + device-plug + videos-copied-not-shown + ✓/eject | D31, D39, R-M.2 / D53, R-M.5 / D56 | Card-in IS import; before cull hot loop |
+| CP4 | Culling hot loop; same-mark-clears; resume-first-undecided; **retire corresponding legacy cull checkpoint** | D10, D11, D39, D59 | Explicit D40 retirement step; story places cull before propagation |
+| CP5 | The rail: ten controls from tokens; arming; detents; value-echo during-adjustment-only; pixel-diff golden | D23, D24, D25, R-X.1 / D48 | Hover deletion + rail stability before focused edit |
+| CP6 | Focused edit + fidelity chrome; clipping-hold; consequence chips; settle-as-confirmation; loupe on ADAPTED | D9, D20–D22, D26, R-5.1–5.3, R-Q.1 | Lab develop → P0 (D40); after cull baseline |
+| CP7 | The hero: row-scoped batch; halo 1.5pt; warm-in; Return-release gate; Edited protection; post-commit advance | D13–D19, R-Q.1 / D57, D60, D62 | Propagation as act two (R-A.1); after SPIKE A evidence |
+| CP8 | Open surface, export, endgame: resume sentences; Tier 0; one recipe + share destination; ⌥⌘E; rejects-to-Trash; sample shoot; three-state Export; R-I.2 socket | D32, D34, D35, D36 amendment, R-M.1/M.3/M.4, R-8.1, D61, D51 socket | Endgame after table loop exists; D40 harness continues on each surface |
 
 ---
 
-## Provisional alignment notes (for the re-run; not sealed)
+## Binding clarifications (not reorders)
 
-When D40 + Layer-2 arrive, check at least:
+1. **CP2 ↔ D36:** CP2 takes D36’s persistence / no-catalog / XMP / “X never touches FS” clauses. **Rejects-to-Trash** (R-M.1 amendment) ships in **CP8**, after ✓ — not in CP2.
+2. **Harness:** D40’s XCUITest invariants are a **continuous gate** on every CP surface, not a separate Layer-2 slot that displaces SPIKE A. CP0/codegen from `tokens.yaml` remains FOLLOW-UP / build work.
+3. **Multi-select:** D29/D38 keep multi-select shelved. CP7’s “re-scope free-selection max-3 → row” is D17 row-scope — not an un-shelf of D29.
+4. **Develop / Tier 1:** Banked under D46 until taste-model proof; CP6/CP7 ship Tier 2 radiation + rail grammar without ungating Tier 1.
 
-1. **Harness before taste** — Checkpoint 0 / grammar-stability suite before D51 silent updates and before D46 Develop ungating.  
-2. **Hover deletion (D48) before pointer-cull spike (D47)** — D47 is shelved at MVP-question rank; any spike must assume hover is gone.  
-3. **Proxy-linear adapted previews (D57) before PERSUADE strip claims** — Spike for 90 px must not use embedded JPEG.  
-4. **Export three-state (D61) before Rejects-to-Trash (D36)** — trash offer only after ✓.  
-5. **Sample shoot (D54) before first-run polish checkpoints** — onboarding is the sample, not a tour.  
-6. **Legacy retirement (D40)** must not re-enter quarantined types under new names.
+---
 
-If Layer-2 order violates any of the above, reorder with a one-line reason citing the D-law — in the re-run session only.
+## Why not reordered
+
+| Temptation | Why rejected |
+|------------|--------------|
+| Open/export (CP8) earlier | D39/D31 need table+ingest honesty first; Open greets only when nothing is new |
+| Hero (CP7) before cull (CP4) | Conflicts R-A.1 act-two propagation and D40’s explicit legacy-cull retirement at CP4 |
+| Rail (CP5) before spikes | SPIKE A/B are measurement doors; moving them after CP5 wastes the rail golden on unproven fidelity/physics |
+| Merge SPIKE A into CP6 | D40/R-Q.1 require evidence ledger before shipping PERSUADE claims |
 
 ---
 
 ## FOLLOW-UPS
 
-- Paste/check in Prompt Pack Layer-2 + Contract v5 D40.
-- Re-run Task 5; produce a sealed checkpoint order table.
-- Do not start Checkpoint 0 against provisional order as if sealed.
+- CP0 / build: codegen from `design/tokens.yaml`; grammar-stability suite named by D51.
+- Do not start a build session that spans two checkpoints.

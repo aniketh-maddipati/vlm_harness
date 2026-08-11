@@ -4,6 +4,25 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-11 — Constitution re-seal: Contract v6 merge against v5
+
+**Scope:** Second-pass constitution merge. Close the three first-pass CONFLICT blocks; seal D24/D27/D36/D40 amendments against real prior text; freeze D59/D60 verbatim copy; Task 5 checkpoint sanity; drop superseded CopyContract hover string. No tokens.yaml codegen (FOLLOW-UP / CP0).
+
+**Conflicts closed:**
+1. Contract v5 source → `design/contract-v5.md` (verbatim PDR D1–D40).
+2. Layer-2 + D40 → sealed order in `design/checkpoint-sequence-v6.md` (**reorder: none**).
+3. Same-mark / Return-release verbatim → frozen [P] rows from v5 D10/D11; D59/D60 OPEN closed.
+
+**Laws touched:** D21 (R-5.2), D24 (R-X.1), D27 (birth-opacity one-liner), D32/success test (R-A.1), D36 (R-M.1), D37 (hover deleted), D40 history note; D41–D62 carried/sealed.
+
+**Code (session-allowed next step only):** `CopyContract.tableFooterHover` removed → `tableFooterHints` without “(hover)”; call sites updated; D59/D60/R-M strings added to CopyContract.
+
+**Measured:** `contract_v6_presence.sh` · `copy_contract_diff.sh` · `banned_words.sh` · `contract_structure.sh`.
+
+**Follow-ups:** tokens.yaml codegen (CP0); remove remaining hover *handlers* (CP5 / D48); taste-proof gate (D46); fixture bodies.
+
+---
+
 ## 2026-08-11 — Constitution: Contract v6 artifacts (documents only)
 
 **Scope:** Prompt Pack v1 constitution session — produce Contract v6, tokens.yaml, frozen copy table, fixture manifest, checkpoint-sequence sanity check. No product code; no D-law weakened.
