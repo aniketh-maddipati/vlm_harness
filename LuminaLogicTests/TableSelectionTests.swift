@@ -34,7 +34,7 @@ final class TableSelectionTests: XCTestCase {
         XCTAssertFalse(selection.set.contains(a))
     }
 
-    func testDecisionLedgerCapturesPriorEditForUndo() {
+    func testDecisionLedgerCapturesPriorEditForUndo() throws {
         let editedID = UUID()
         let priorEdit = EditRecipe(exposure: 0.35)
         let entry = DecisionLedgerEntry(
@@ -46,6 +46,6 @@ final class TableSelectionTests: XCTestCase {
             applied: .undecided,
             priorEditRecipe: priorEdit
         )
-        XCTAssertEqual(entry.priorEditRecipe?.exposure, 0.35, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(entry.priorEditRecipe?.exposure), 0.35, accuracy: 0.001)
     }
 }

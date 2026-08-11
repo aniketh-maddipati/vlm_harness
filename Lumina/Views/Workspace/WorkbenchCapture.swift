@@ -122,19 +122,19 @@ enum WorkbenchCapture {
             isTreatmentStageOpen: treatmentOpen,
             onSelectGroup: { _ in },
             onSelectPhoto: { _, _ in },
+            onToggleHandSelection: { _ in },
+            onRubberBandSelect: { _ in },
             onLensChange: { _ in },
             onSendToSet: { _, _ in },
             onFold: { _, _ in },
             onHold: { _, _ in },
             onUndo: {},
             onFocusPhoto: { _ in },
-            onPreviewEdits: {},
-            onHome: {},
-            onFinish: {},
             cropSession: .constant(nil),
             onEnterCrop: {},
-            onToggleHandSelection: { _ in },
-            onRubberBandSelect: { _ in }
+            onPreviewEdits: {},
+            onHome: {},
+            onFinish: {}
         )
         .frame(width: size.width, height: size.height)
         .luminaWorkspaceAppearance()

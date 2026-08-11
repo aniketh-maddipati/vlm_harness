@@ -17,7 +17,7 @@ final class P0StateTests: XCTestCase {
         XCTAssertEqual(d1, d2)
         let decoded = try EditRecipe.decode(d1)
         XCTAssertEqual(decoded.exposure, 0.4, accuracy: 1e-9)
-        XCTAssertEqual(decoded.crop?.width, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(decoded.crop?.width), 0.5, accuracy: 1e-9)
         XCTAssertEqual(decoded.retouch.count, 1)
         XCTAssertEqual(decoded.valueFingerprint, recipe.valueFingerprint)
     }
@@ -66,7 +66,7 @@ final class P0StateTests: XCTestCase {
         )
         let data = try JSONEncoder().encode(cmd)
         let round = try JSONDecoder().decode(BatchEditCommand.self, from: data)
-        XCTAssertEqual(round.recipients[0].before?.exposure, 0.1, accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(round.recipients[0].before?.exposure), 0.1, accuracy: 1e-9)
         XCTAssertEqual(round.recipients[0].after.exposure, 0.8, accuracy: 1e-9)
         XCTAssertNil(round.recipients[0].after.crop)
         XCTAssertFalse(round.includeGeometry)
@@ -104,7 +104,7 @@ final class P0StateTests: XCTestCase {
         XCTAssertEqual(loaded.assets.count, 1)
         XCTAssertEqual(loaded.assets[0].source.availability, .missing)
         XCTAssertEqual(loaded.assets[0].cull, .keep)
-        XCTAssertEqual(loaded.assets[0].recipe?.exposure, 0.3, accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(loaded.assets[0].recipe?.exposure), 0.3, accuracy: 1e-9)
         XCTAssertEqual(loaded.workspace.scale, .singlePhoto)
     }
 

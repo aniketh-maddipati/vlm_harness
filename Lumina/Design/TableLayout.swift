@@ -74,8 +74,9 @@ enum TableLayout {
 
     static func compactVisibleCount(availableWidth: CGFloat) -> Int {
         guard availableWidth > 0 else { return 6 }
-        let tile = 104 + 6
-        return min(max(Int((availableWidth - 60) / tile), 4), 12)
+        let tile = CGFloat(104 + 6)
+        let fits = Int(floor((availableWidth - 60) / tile))
+        return min(max(fits, 4), 12)
     }
 
     /// Justified tile width for an expanded comparison page (gap + mat included).

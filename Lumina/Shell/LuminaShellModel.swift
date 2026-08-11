@@ -357,6 +357,7 @@ final class LuminaShellModel {
                 selectedGroupID: selectedGroupID ?? fixtureWorkspace.selectedGroupID,
                 progressCurrent: fixtureWorkspace.progressCurrent,
                 progressTotal: fixtureWorkspace.progressTotal,
+                tableHeader: fixtureWorkspace.tableHeader,
                 inspectorAvailable: fixtureWorkspace.inspectorAvailable
             )
         }
@@ -1252,12 +1253,12 @@ final class LuminaShellModel {
         referenceGroupID: String
     ) {
         var propagation = PropagationState(
+            ring: .row,
             referencePhotoID: referencePhotoID,
             referenceGroupID: referenceGroupID,
             referenceFrame: CopyContractBuilder.referenceFrameNumber(
                 from: model.photo(with: referencePhotoID)?.filename
             ),
-            ring: .row,
             excludedIDs: model.wholesaleExcludedPhotoIDs
         )
         let scope = propagation.resolvedScope(presentation: presentation, model: model)
@@ -1312,10 +1313,10 @@ final class LuminaShellModel {
         guard !kept.isEmpty,
               let referenceID = kept.first else { return }
         var propagation = PropagationState(
+            ring: .row,
             referencePhotoID: referenceID,
             referenceGroupID: targetGroupID,
             referenceFrame: chip.referenceFrame,
-            ring: .row,
             excludedIDs: model.wholesaleExcludedPhotoIDs
         )
         let scope = propagation.resolvedScope(presentation: presentation, model: model)

@@ -20,7 +20,7 @@ final class P0CullTests: XCTestCase {
         )
     }
 
-    func testCullLeavesRecipeAndSelectionIndependent() {
+    func testCullLeavesRecipeAndSelectionIndependent() throws {
         let a = UUID(), b = UUID()
         let session = P0SessionModel()
         session.assets = [
@@ -32,7 +32,11 @@ final class P0CullTests: XCTestCase {
 
         session.pressKeep()
         XCTAssertEqual(session.assets.first(where: { $0.id == a })?.cull, .keep)
-        XCTAssertEqual(session.assets.first(where: { $0.id == a })?.recipe?.exposure, 0.3, accuracy: 1e-9)
+        XCTAssertEqual(
+            try XCTUnwrap(session.assets.first(where: { $0.id == a })?.recipe?.exposure),
+            0.3,
+            accuracy: 1e-9
+        )
         XCTAssertEqual(session.selectedAssetIDs, [b])
         XCTAssertEqual(session.focusedAssetID, a)
     }

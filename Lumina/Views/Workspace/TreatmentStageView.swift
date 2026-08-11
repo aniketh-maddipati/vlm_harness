@@ -10,12 +10,11 @@ enum TreatmentFidelity: Equatable {
 
     var label: String {
         switch self {
-        case .interactivePreview: "Interactive preview"
-        case .settling:
-            return CopyContract.fetchingFullRAW
-        case .fullPreview: "Full preview"
-        case .oneToOneRAW: "1:1 RAW"
-        case .previewsOnly: "Previews only — reconnect for full resolution"
+        case .interactivePreview: return "Interactive preview"
+        case .settling: return CopyContract.fetchingFullRAW
+        case .fullPreview: return "Full preview"
+        case .oneToOneRAW: return "1:1 RAW"
+        case .previewsOnly: return "Previews only — reconnect for full resolution"
         }
     }
 
