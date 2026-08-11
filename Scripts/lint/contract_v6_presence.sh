@@ -66,6 +66,17 @@ if [[ -f Lumina/Design/CopyContract.swift ]]; then
 fi
 
 bash Scripts/lint/copy_contract_diff.sh || report "copy_contract_diff.sh failed"
+bash Scripts/lint/agent_rules_contract.sh || report "agent_rules_contract.sh failed (D63 / agent-rules drift)"
+
+# Batch 1 presence
+[[ -f design/mvp-test-plan.md ]] || report "missing design/mvp-test-plan.md (A1)"
+if [[ -f design/contract-v6.md ]]; then
+  grep -q 'D63' design/contract-v6.md || report "contract-v6.md missing D63 (crop latch)"
+  grep -q 'expires at 1.0' design/contract-v6.md || report "contract-v6.md missing A7 expiry text"
+fi
+if [[ -f BUILD_LOG.md ]]; then
+  grep -q 'Process CONFLICT' BUILD_LOG.md || report "BUILD_LOG missing Process CONFLICT (worktree base) record"
+fi
 
 if [[ "$fail" -ne 0 ]]; then
   exit 1
