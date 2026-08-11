@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "lumina://harness/probe-v2-state.schema.json",
+  "title": "StateProbeV2CanonicalState",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "tsMs",
+    "generation",
+    "records",
+    "marks",
+    "staging",
+    "focus",
+    "residentRungByFrame"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 2 },
+    "tsMs": { "type": "integer", "minimum": 0 },
+    "generation": {
+      "type": "object",
+      "required": ["records", "marks", "staging", "focus", "layout"],
+      "properties": {
+        "records": { "type": "integer", "minimum": 0 },
+        "marks": { "type": "integer", "minimum": 0 },
+        "staging": { "type": "integer", "minimum": 0 },
+        "focus": { "type": "integer", "minimum": 0 },
+        "layout": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "row", "scene"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "row": { "type": "integer", "minimum": 0 },
+          "scene": { "type": "integer", "minimum": 0 },
+          "availability": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "marks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["undecided", "keep", "reject", "hold"]
+      }
+    },
+    "staging": {
+      "type": "object",
+      "required": ["active", "ring", "scopeCount", "excludedCount", "returnReleaseArmed"],
+      "properties": {
+        "active": { "type": "boolean" },
+        "ring": { "type": "string", "enum": ["none", "row", "scene", "shoot"] },
+        "scopeCount": { "type": "integer", "minimum": 0 },
+        "excludedCount": { "type": "integer", "minimum": 0 },
+        "bannerCount": { "type": "integer", "minimum": 0 },
+        "headerCount": { "type": "integer", "minimum": 0 },
+        "receiptCount": { "type": "integer", "minimum": 0 },
+        "returnReleaseArmed": { "type": "boolean" },
+        "recipeKind": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "focus": {
+      "type": "object",
+      "required": ["assetId", "visible"],
+      "properties": {
+        "assetId": { "type": ["string", "null"] },
+        "visible": { "type": "boolean" },
+        "armedControl": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "residentRungByFrame": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["preview", "previewSharpening", "full", "absent"]
+      }
+    },
+    "undoDepth": { "type": "integer", "minimum": 0 },
+    "exportKeptCount": { "type": "integer", "minimum": 0 },
+    "chipPresent": { "type": "boolean" },
+    "fixture": { "type": ["string", "null"] },
+    "seed": { "type": ["string", "null"] },
+    "fakeClockMs": { "type": ["integer", "null"] }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "notes": "Vacuous-green guard (F1): a lane that executes fewer tests than its manifest, or zero app-coupled tests when the manifest expects any, is FAIL/INCOMPLETE — never PASS.",
+  "lanes": {
+    "fast": {
+      "platform": "any",
+      "budgetMs": 90000,
+      "tests": [
+        { "id": "token_lint", "kind": "orchestration" },
+        { "id": "copy_table_lint", "kind": "orchestration" },
+        { "id": "banned_patterns", "kind": "orchestration" },
+        { "id": "magic_numbers", "kind": "orchestration" },
+        { "id": "banned_words", "kind": "orchestration" },
+        { "id": "copy_contract_diff", "kind": "orchestration" },
+        { "id": "contract_structure", "kind": "orchestration" },
+        { "id": "contract_v6_presence", "kind": "orchestration" },
+        { "id": "agent_rules_contract", "kind": "orchestration" },
+        { "id": "unit_codegen", "kind": "orchestration" },
+        { "id": "unit_golden", "kind": "orchestration" },
+        { "id": "unit_trace", "kind": "orchestration" },
+        { "id": "unit_invariants", "kind": "orchestration" },
+        { "id": "unit_lane_guards", "kind": "orchestration" },
+        { "id": "seed_script_schema", "kind": "orchestration" },
+        { "id": "grammar_oracle_unit", "kind": "orchestration", "notes": "Python simulator schema/oracle only — not app-coupled" }
+      ]
+    },
+    "full": {
+      "platform": "macos-apple-silicon",
+      "budgetMs": 600000,
+      "tests": [
+        { "id": "worktree_snapshot", "kind": "orchestration" },
+        { "id": "ledger_orchestration_write", "kind": "orchestration" },
+        { "id": "grammar_scripts_live", "kind": "app-coupled" },
+        { "id": "probe_v2_mid_script", "kind": "app-coupled" },
+        { "id": "signpost_acceptance_measured", "kind": "app-coupled" },
+        { "id": "one_cmd_z_per_gesture", "kind": "app-coupled" },
+        { "id": "count_invariants_live", "kind": "app-coupled" },
+        { "id": "golden_chrome_strict", "kind": "app-coupled" },
+        { "id": "parallel_headless_instances", "kind": "app-coupled" }
+      ]
+    },
+    "heavy": {
+      "platform": "macos-apple-silicon",
+      "budgetMs": 3600000,
+      "tests": [
+        { "id": "zero_egress_audit", "kind": "orchestration" },
+        { "id": "heavy_job_registry", "kind": "orchestration" },
+        { "id": "ingest_timing", "kind": "app-coupled" },
+        { "id": "kill_fuzz_replay", "kind": "app-coupled" },
+        { "id": "eject_fault_injection", "kind": "app-coupled" },
+        { "id": "ram_tier_runs", "kind": "app-coupled" },
+        { "id": "lr_round_trip", "kind": "app-coupled" },
+        { "id": "grammar_stability_rerun_live", "kind": "app-coupled" }
+      ]
+    }
+  }
+}

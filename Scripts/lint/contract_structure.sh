@@ -8,7 +8,8 @@ fail=0
 report() { echo "FAIL: $1" >&2; fail=1; }
 
 RULES="$ROOT/.cursorrules"
-TOKENS="$ROOT/DesignTokens/Tokens.swift"
+TOKENS="$ROOT/DesignTokens/HiFiTokens.generated.swift"
+TOKENS_YAML="$ROOT/design/tokens.yaml"
 STABLE="$ROOT/Lumina/Views/Components/StablePhotoView.swift"
 
 require_in_file() {
@@ -19,7 +20,8 @@ require_in_file() {
 }
 
 [[ -f "$RULES" ]] || report "missing .cursorrules"
-[[ -f "$TOKENS" ]] || report "missing DesignTokens/Tokens.swift"
+[[ -f "$TOKENS_YAML" ]] || report "missing design/tokens.yaml"
+[[ -f "$TOKENS" ]] || report "missing DesignTokens/HiFiTokens.generated.swift (run tokens_codegen.py)"
 [[ -f "$STABLE" ]] || report "missing StablePhotoView.swift"
 
 if [[ -f "$RULES" ]]; then
@@ -29,9 +31,12 @@ if [[ -f "$RULES" ]]; then
 fi
 
 if [[ -f "$TOKENS" ]]; then
-  require_in_file "$TOKENS" 'Color(hex: "2E2E2C")' "selection ring token"
+  require_in_file "$TOKENS" 'selectionColor: String = "2E2E2C"' "selection ring token"
   require_in_file "$TOKENS" "assertDistinctSelectionAndHalo" "selection/halo distinct helper"
+  require_in_file "$TOKENS" "tokens-hash:" "codegen tokens-hash stamp"
 fi
+# Keep generated file fresh vs yaml (CP0).
+python3 "$ROOT/Scripts/harness/codegen/tokens_codegen.py" --check || report "HiFiTokens.generated.swift stale vs tokens.yaml"
 
 if [[ -f "$STABLE" ]]; then
   require_in_file "$STABLE" "tableBirth" "StablePhotoView tableBirth"

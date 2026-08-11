@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "lumina://harness/input-script.schema.json",
+  "title": "LuminaHarnessInputScript",
+  "type": "object",
+  "required": ["schemaVersion", "id", "title", "fixture", "events", "asserts"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "cite": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "fixture": { "type": "string", "minLength": 1 },
+    "seed": { "type": "integer", "minimum": 0 },
+    "notes": { "type": "string" },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["op"],
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "keyDown",
+              "keyUp",
+              "key",
+              "wait",
+              "waitProbe",
+              "focusIndex",
+              "armControl",
+              "pointerDown",
+              "pointerUp",
+              "pointerTap"
+            ]
+          },
+          "key": { "type": "string" },
+          "modifiers": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["shift", "option", "command", "control"] }
+          },
+          "ms": { "type": "integer", "minimum": 0 },
+          "index": { "type": "integer", "minimum": 0 },
+          "control": { "type": "string" },
+          "target": {
+            "type": "string",
+            "description": "Logical target id — never recorded screen coordinates."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "asserts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["op"],
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "probeEquals",
+              "probePath",
+              "markEquals",
+              "focusIndex",
+              "stagingRing",
+              "returnReleaseGate",
+              "exactRestore",
+              "countInvariant",
+              "undoEntries",
+              "chipAbsenceIffFullRung",
+              "armedConsent"
+            ]
+          },
+          "path": { "type": "string" },
+          "equals": {},
+          "assetIndex": { "type": "integer", "minimum": 0 },
+          "mark": { "type": "string" },
+          "ring": { "type": "string" },
+          "armed": { "type": "boolean" },
+          "snapshot": { "type": "string" },
+          "entries": { "type": "integer", "minimum": 0 },
+          "control": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

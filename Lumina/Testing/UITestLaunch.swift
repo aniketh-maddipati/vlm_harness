@@ -33,6 +33,10 @@ enum UITestLaunch {
         UITestSupport.fixtureName = fixture
         let opened = UITestFixtures.ensure(named: fixture, reset: UITestSupport.resetRequested())
 
+        // Probe v2 + fake clock — DEBUG harness only; never present in Release.
+        HarnessFakeClock.reset()
+        ProbeV2Launch.runIfRequested()
+
         fputs(
             "[UITestLaunch] ui-testing active · fixture=\(opened ?? "none") · seed=\(UITestSupport.seed) · state=\(stateDir.path)\n",
             stderr

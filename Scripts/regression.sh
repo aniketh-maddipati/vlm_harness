@@ -19,6 +19,9 @@ bash "$ROOT/Scripts/lint/contract_v6_presence.sh"
 bash "$ROOT/Scripts/lint/agent_rules_contract.sh"
 bash -n "$ROOT/Scripts/run_p0_ui_tests.sh"
 
+echo "--- Phase 1b: CP0 harness FAST lane ---"
+python3 "$ROOT/Scripts/harness/run.py" fast
+
 validate_json() {
   local file="$1"
   if command -v jq >/dev/null 2>&1; then
