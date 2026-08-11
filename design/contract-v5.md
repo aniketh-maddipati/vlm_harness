@@ -268,7 +268,6 @@ applies live — taxing the common case to prevent a reversible typo is the wron
 Tier 0 delivers most of the value at zero model risk; re-enters through shipping halo
 grammar). Tier 2 = the user's edit radiating (ships). Authority: hand > suggestion >
 baseline, each one ⌘Z apart. Halo-pressure rule: at most one suggestion halo speaks at
-rest. *Rejected:* �. Halo-pressure rule: at most one suggestion halo speaks at
 rest. *Rejected:* ⌘A as auto (sacred select-all); a house look (camera-matched, not
 Instagram-slop).
 
