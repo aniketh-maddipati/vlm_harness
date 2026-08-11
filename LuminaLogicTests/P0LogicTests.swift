@@ -258,7 +258,7 @@ final class P0LogicTests: XCTestCase {
         ))
     }
 
-    func testDevelopCommitCapturesPriorEditForUndo() {
+    func testDevelopCommitCapturesPriorEditForUndo() throws {
         let photoID = UUID()
         let prior = EditRecipe.neutral
         var priorMutated = prior
@@ -272,7 +272,7 @@ final class P0LogicTests: XCTestCase {
             applied: .undecided,
             priorEditRecipe: priorMutated
         )
-        XCTAssertEqual(entry.priorEditRecipe?.exposure, 0.4, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(entry.priorEditRecipe?.exposure), 0.4, accuracy: 0.001)
     }
 
     // MARK: - Wholesale propagation (H6)
