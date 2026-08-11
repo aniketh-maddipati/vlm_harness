@@ -1,0 +1,23 @@
+{
+  "name": "chrome_metrics",
+  "payload": {
+    "chrome": {
+      "halo_width": 1.5,
+      "histogram_height": 64,
+      "histogram_width": 252,
+      "min_window": [
+        1280,
+        800
+      ],
+      "warm_in_ms": 120
+    },
+    "mask": [
+      "photograph",
+      "contact_sheet_tiles"
+    ],
+    "notes": "Chrome strict; photograph regions masked from pixel diff when captures exist."
+  },
+  "proposed_at": "2026-08-11T18:51:27.166831+00:00",
+  "status": "proposed",
+  "tokens_hash": "4165261bd21cd51478584549c48bebfc0c9868adfd4bcfe85431918d9780b375"
+}

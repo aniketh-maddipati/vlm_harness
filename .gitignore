@@ -29,3 +29,11 @@ fastlane/test_output
 # UI-automation run outputs (xcresults, logs, isolated state)
 artifacts/ui-automation/
 *.profraw
+
+# CP0 harness ephemeral streams (keep allowlists, tokens.hash, seed goldens)
+artifacts/harness/dashboard/events.ndjson
+artifacts/harness/banned_patterns_legacy.txt
+artifacts/harness/ledgers/
+artifacts/harness/runs/
+Scripts/harness/**/__pycache__/
+**/__pycache__/

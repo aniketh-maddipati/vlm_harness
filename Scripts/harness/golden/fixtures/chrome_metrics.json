@@ -1,0 +1,11 @@
+{
+  "chrome": {
+    "histogram_width": 252,
+    "histogram_height": 64,
+    "halo_width": 1.5,
+    "min_window": [1280, 800],
+    "warm_in_ms": 120
+  },
+  "mask": ["photograph", "contact_sheet_tiles"],
+  "notes": "Chrome strict; photograph regions masked from pixel diff when captures exist."
+}
