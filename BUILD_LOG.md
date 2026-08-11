@@ -7,7 +7,7 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 ## 2026-08-11 — Constitution: Amendment Batch 1 (A1–A10)
 
 **Branch:** `constitution/amendment-batch-1` (worktree; based on sealed `cursor/contract-v6-artifacts-3877` — `origin/main` lacked constitution artifacts).  
-**PR:** Constitution: Amendment Batch 1 (A1–A10) — opened against the sealed v6 branch (not merged; no `seal-v6.1` tag).
+**PR:** [#30 Constitution: Amendment Batch 1 (A1–A10)](https://github.com/aniketh-maddipati/vlm_harness/pull/30) — against sealed v6 branch (not merged; no `seal-v6.1` tag).
 
 **Scope:** Documents only. Integrate MVP-test questionnaire rulings A1–A10 into contract / tokens / copy / fixtures / checkpoint / new `design/mvp-test-plan.md`. No product code. No law weakened beyond the two scoped amendments (A5 D16; A7 R-9.1).
 
