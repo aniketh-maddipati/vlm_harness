@@ -1013,11 +1013,11 @@ struct WorkbenchSourceRail: View {
         onFold: { _, _ in },
         onHold: { _, _ in },
         onFocusPhoto: { _ in },
+        cropSession: .constant(nil),
+        onEnterCrop: {},
         onPreviewEdits: {},
         onHome: {},
-        onFinish: {},
-        cropSession: .constant(nil),
-        onEnterCrop: {}
+        onFinish: {}
     )
     .frame(width: 1440, height: 900)
 }
