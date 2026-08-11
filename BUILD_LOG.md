@@ -4,6 +4,31 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-11 — Constitution: Amendment Batch 1 (A1–A10)
+
+**Branch:** `constitution/amendment-batch-1` (worktree; based on sealed `cursor/contract-v6-artifacts-3877` — `origin/main` lacked constitution artifacts).  
+**PR:** [#30 Constitution: Amendment Batch 1 (A1–A10)](https://github.com/aniketh-maddipati/vlm_harness/pull/30) — against sealed v6 branch (not merged; no `seal-v6.1` tag).
+
+**Scope:** Documents only. Integrate MVP-test questionnaire rulings A1–A10 into contract / tokens / copy / fixtures / checkpoint / new `design/mvp-test-plan.md`. No product code. No law weakened beyond the two scoped amendments (A5 D16; A7 R-9.1).
+
+**Laws touched:** D16 (A5), D21/D42 (A4 Hold-J), D23/D63 (A2 crop), D32/D46 (A10), D45/D66 (A7), D47 (A3), D52 (A8), D64 (A6), D65 (A1); Shelved Register updates.
+
+**Scoped weakenings (review):**
+1. **A5 → D16:** word "Adapt" verbatim in banner; remainder may compress.
+2. **A7 → R-9.1/D45:** TestFlight crash reporting beta-only; **expires at 1.0**.
+
+**Surviving [FLAG] markers:**
+1. `[FLAG: body list is Claude's pick; swap freely before fixtures are cut.]`
+2. `[FLAG: R/O are Claude's pick — validate with wave-one testers.]`
+
+**Process CONFLICT (flagged, not silent):** GIT PROTOCOL named `origin/main` as base, but `design/contract-v6.md` (and peers) exist only on `cursor/contract-v6-artifacts-3877` (PR #29). Options considered: (1) stack amendments on sealed v6 — **chosen**; (2) wait for #29→main. HARNESS.md absent on sealed tree — noted, not invented.
+
+**Measured:** `contract_v6_presence.sh` OK · `copy_contract_diff.sh` OK · `banned_words.sh` OK. (No xcodebuild on Linux.)
+
+**Follow-ups:** Wire A5/A2/A1 copy through CopyContract.swift; align `.cursorrules` crop A/X remap to D63; six-body fixtures; A7 strip at 1.0; A8 licensing post-test; taste harness after wave-one eval set; human review → merge → `seal-v6.1`.
+
+---
+
 ## 2026-08-11 — Constitution re-seal: Contract v6 merge against v5
 
 **Scope:** Second-pass constitution merge. Close the three first-pass CONFLICT blocks; seal D24/D27/D36/D40 amendments against real prior text; freeze D59/D60 verbatim copy; Task 5 checkpoint sanity; drop superseded CopyContract hover string. No tokens.yaml codegen (FOLLOW-UP / CP0).

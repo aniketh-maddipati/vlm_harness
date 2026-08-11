@@ -1,11 +1,14 @@
-# Lumina design tokens — Contract v6
+# Lumina design tokens — Contract v6 (+ Amendment Batch 1)
 # Generates Swift constants (HiFiTokens / LuminaTokens). Every value cites law.
 # Schema: section → token → { value, unit?, type, cite, notes? }
 # Types: color | pt | px | ms | opacity | animation | enum | bool | string
 # Authority: design/contract-v6.md → this file → code → tests.
 # Magic numbers in UI code are banned; consume these tokens only.
+# Change-marks: tokens with cite containing A1–A10 are Batch 1; see grammar.* and color.swimlane_fill_opacity.
+# [● A1] mvp_test_floor · [● A2] crop_* · [● A3] pointer_cull_* · [● A4] clipping_hold_key / clipping_grammar
+# [● A6] swimlane_fill_opacity socket · [● A7] beta_testflight_crash_reporting · [● A8] beta_licensing
 
-version: 6
+version: "6.1-batch1"
 contract: design/contract-v6.md
 codegen:
   swift_enum: HiFiTokens
@@ -131,8 +134,8 @@ color:
   swimlane_fill_opacity:
     value: 0.07
     type: opacity
-    cite: [WG-gaps]
-    notes: rgba(242,239,233,0.07) over table.
+    cite: [WG-gaps, D64, A6]
+    notes: "Socket only — lane plates shelved (A6). rgba(242,239,233,0.07) over table if a ruled experiment re-enters."
   reject_dim_opacity:
     value: 0.45
     type: opacity
@@ -458,10 +461,15 @@ slider:
     cite: [WG-chrome]
     notes: Double-click means expand/return only.
   clipping_grammar:
-    value: hold_anytime
+    value: hold_j_anytime
     type: enum
-    cite: [D42, L2]
-    notes: Adjust-only trigger is a subset.
+    cite: [D42, D21, L2, A4]
+    notes: "Hold-J shows clipping anytime; release returns. Adjust-only trigger is a subset."
+  clipping_hold_key:
+    value: "J"
+    type: enum
+    cite: [D42, A4]
+    notes: "Completes R-5.2."
   hover_handlers:
     value: forbidden
     type: enum
@@ -518,3 +526,49 @@ grammar:
     value: zero_ideal
     type: enum
     cite: [D45, D51, D52]
+    notes: "Launch = local-only. Beta TestFlight crash reporting is A7 exception only."
+  beta_testflight_crash_reporting:
+    value: accepted_beta_only_expires_at_1_0
+    type: enum
+    cite: [D45, D66, A7]
+    notes: "EXPIRES AT 1.0 — must not silently persist. Launch builds direct-notarized + local-only."
+  beta_licensing:
+    value: none
+    type: enum
+    cite: [D52, D66, A8]
+    notes: "Wave builds free; R-I.3 post-test pre-launch."
+  mvp_test_floor:
+    value: apple_silicon_macos_14_plus
+    type: enum
+    cite: [D65, A1]
+    notes: "Intel never."
+  # --- Amendment Batch 1 (A2/A3) ---
+  crop_mode:
+    value: work_state_latch
+    type: enum
+    cite: [D23, D63, A2]
+    notes: "Fixed frame; photo slides beneath; rising grid; matte; non-destructive."
+  crop_keys:
+    value: ["R", "O"]
+    type: enum
+    cite: [D63, A2]
+    notes: "R frees aspect; O flips orientation. FLAG — Claude pick; validate wave-one."
+  crop_decision_key_remap:
+    value: forbidden
+    type: enum
+    cite: [D23, D63, A2]
+    notes: "A and X never remapped inside crop; keep global meanings."
+  crop_banner:
+    value: "Crop · ⏎ applies · Esc cancels"
+    type: string
+    cite: [D63, A2]
+  pointer_cull_marks:
+    value: persistent_on_focused_frame
+    type: enum
+    cite: [D47, A3]
+    notes: "Always visible; never hover; ≥44pt; wear P/X; same-mark-clears parity."
+  pointer_cull_mark_min_hit:
+    value: 44
+    unit: pt
+    type: pt
+    cite: [D47, A3, L1]
