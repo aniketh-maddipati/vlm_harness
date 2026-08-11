@@ -4,6 +4,33 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-11 — CP0: harness upgrade
+
+**Branch:** `checkpoint/cp0-harness` (worktree `/lumina-wt/cp0-harness` off `seal-v6.1`).  
+**Claim:** Three-lane harness (FAST/FULL/HEAVY), non-blocking watch dashboard, Probe v2 NDJSON, input-script grammar suite, signpost ledger, golden propose→approve keyed by tokens-hash, tokens.yaml codegen, feature drop-in contract — testing never blocks building; red FULL blocks MERGE only.
+
+**Delivered:**
+- `Scripts/harness/run.py` + dashboard + worktree snapshot runner
+- Probe v2 (`Lumina/Testing/ProbeV2/*`) + Python simulator + 5 seed scripts
+- `DesignTokens/HiFiTokens.generated.swift` from `design/tokens.yaml` + freshness lint
+- Golden service + chrome metrics golden; acceptance signpost parse + fixture ledger
+- `HARNESS.md` with drop-in contract, P/X worked example, GAP LIST ownership (no unowned gaps)
+
+**GAP LIST intake:** codegen / motion-timing guard / grammar scripts / golden service **closed in CP0**; remaining seal follow-ups owned (CP1/CP3/CP5/CP8/HEAVY/D46/1.0) — see `HARNESS.md`.
+
+**Measured lane times (Linux cloud):**
+| Lane | Result | Elapsed | Budget |
+|------|--------|---------|--------|
+| FAST | PASS | **2959 ms** | 90s |
+| FULL | PASS | **409 ms** | 10min |
+| HEAVY | PASS | **280 ms** | nightly |
+
+**Platform:** Linux — simulator/fixture FULL; no `xcodebuild`. Live Probe v2 socket + XCUITest remain macOS.
+
+**Follow-ups:** live signpost emitters on product paths (SPIKE A/B+); pixel goldens per body (CP3); A5 CopyContract spacing; P0OpenView alert→facts-chip (CP8).
+
+---
+
 ## 2026-08-11 — Constitution: Batch 1 seal verification (agent-rules + Phase 4)
 
 **Branch:** `constitution/batch1-verify-agent-rules` (cherry-picked onto seal tip after #30 squash; #30 head `constitution/amendment-batch-1` also carries the same commits).  
