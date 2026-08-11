@@ -1,7 +1,8 @@
-# Checkpoint sequence — Contract v6 (Task 5 sealed)
+# Checkpoint sequence — Contract v6 (Task 5 sealed + Amendment Batch 1)
 
-**Authority:** Contract v5 D40 + Layer-2 sequence supplied at re-seal.  
-**Supersedes:** first-pass `design/checkpoint-sequence-v6.md` (CONFLICT placeholder).
+**Authority:** Contract v5 D40 + Layer-2 sequence supplied at re-seal; A2/A3 scope extensions.  
+**Supersedes:** first-pass `design/checkpoint-sequence-v6.md` (CONFLICT placeholder).  
+**Change-marks:** `[● A2]` crop → CP6 · `[● A3]` pointer cull marks → CP4.
 
 ---
 
@@ -28,9 +29,9 @@
 | CP1 | Layout as pure function; quantized; exact-at-rest; long rows wrap; no rest compression (audit V9 dead) | D7, D26, D28, R-X.2 / D49 | Foundation for all table surfaces; P0-only |
 | CP2 | Journal + sidecars + crash-only startup; staged-not-persisted; kill-fuzz; LR round-trip | persistence, D35, D36 | Data-safety non-deferrable (D35); D36 anti-irritant + XMP before file-touch endgame |
 | CP3 | Ingest for real: D31 + device-plug + videos-copied-not-shown + ✓/eject | D31, D39, R-M.2 / D53, R-M.5 / D56 | Card-in IS import; before cull hot loop |
-| CP4 | Culling hot loop; same-mark-clears; resume-first-undecided; **retire corresponding legacy cull checkpoint** | D10, D11, D39, D59 | Explicit D40 retirement step; story places cull before propagation |
+| CP4 | Culling hot loop; same-mark-clears; resume-first-undecided; **pointer ✓/✕ mark targets** (A3); **retire corresponding legacy cull checkpoint** | D10, D11, D39, D59, D47 / A3 | Explicit D40 retirement step; story places cull before propagation; amateur pointer door without hover |
 | CP5 | The rail: ten controls from tokens; arming; detents; value-echo during-adjustment-only; pixel-diff golden | D23, D24, D25, R-X.1 / D48 | Hover deletion + rail stability before focused edit |
-| CP6 | Focused edit + fidelity chrome; clipping-hold; consequence chips; settle-as-confirmation; loupe on ADAPTED | D9, D20–D22, D26, R-5.1–5.3, R-Q.1 | Lab develop → P0 (D40); after cull baseline |
+| CP6 | Focused edit + fidelity chrome; clipping-hold; consequence chips; settle-as-confirmation; loupe on ADAPTED; **crop mode latch** (A2: fixed frame, R/O keys, A/X remap banned, banner) | D9, D20–D23, D26, R-5.1–5.3, R-Q.1, D63 / A2 | Lab develop → P0 (D40); crop enters MVP here; after cull baseline |
 | CP7 | The hero: row-scoped batch; halo 1.5pt; warm-in; Return-release gate; Edited protection; post-commit advance | D13–D19, R-Q.1 / D57, D60, D62 | Propagation as act two (R-A.1); after SPIKE A evidence |
 | CP8 | Open surface, export, endgame: resume sentences; Tier 0; one recipe + share destination; ⌥⌘E; rejects-to-Trash; sample shoot; three-state Export; R-I.2 socket | D32, D34, D35, D36 amendment, R-M.1/M.3/M.4, R-8.1, D61, D51 socket | Endgame after table loop exists; D40 harness continues on each surface |
 
@@ -42,6 +43,8 @@
 2. **Harness:** D40’s XCUITest invariants are a **continuous gate** on every CP surface, not a separate Layer-2 slot that displaces SPIKE A. CP0/codegen from `tokens.yaml` remains FOLLOW-UP / build work.
 3. **Multi-select:** D29/D38 keep multi-select shelved. CP7’s “re-scope free-selection max-3 → row” is D17 row-scope — not an un-shelf of D29.
 4. **Develop / Tier 1:** Banked under D46 until taste-model proof; CP6/CP7 ship Tier 2 radiation + rail grammar without ungating Tier 1.
+5. **Crop (A2) `[● A2]`:** CP6 owns crop latch grammar (fixed frame, R/O, A/X remap ban, banner). Not a separate Layer-2 slot.
+6. **Pointer cull marks (A3) `[● A3]`:** CP4 owns ✓/✕ targets on the focused frame. Does not un-shelf multi-select (D29).
 
 ---
 
