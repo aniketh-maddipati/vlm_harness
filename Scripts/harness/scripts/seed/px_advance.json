@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "px_advance",
+  "title": "P/X advance — keep then reject advances focus",
+  "cite": ["D10", "D59", "L1"],
+  "fixture": "mixed-60",
+  "seed": 1001,
+  "notes": "Worked example in HARNESS.md. Decision keys swallow repeat; travel advances.",
+  "events": [
+    { "op": "focusIndex", "index": 0 },
+    { "op": "key", "key": "P" },
+    { "op": "waitProbe", "ms": 0 },
+    { "op": "key", "key": "X" },
+    { "op": "waitProbe", "ms": 0 }
+  ],
+  "asserts": [
+    { "op": "markEquals", "assetIndex": 0, "mark": "keep" },
+    { "op": "markEquals", "assetIndex": 1, "mark": "reject" },
+    { "op": "focusIndex", "equals": 2 },
+    { "op": "undoEntries", "entries": 2 }
+  ]
+}

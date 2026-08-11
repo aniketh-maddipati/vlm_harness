@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "esc_exact_restore",
+  "title": "Esc restores pre-stage space exactly",
+  "cite": ["L5", "D11", "D35"],
+  "fixture": "mixed-60",
+  "seed": 1004,
+  "events": [
+    { "op": "focusIndex", "index": 0 },
+    { "op": "key", "key": "P" },
+    { "op": "key", "key": "Return", "modifiers": ["shift"] },
+    { "op": "waitProbe", "ms": 0 },
+    { "op": "key", "key": "Escape" },
+    { "op": "waitProbe", "ms": 0 }
+  ],
+  "asserts": [
+    { "op": "stagingRing", "ring": "none" },
+    { "op": "exactRestore", "snapshot": "preStage" },
+    { "op": "markEquals", "assetIndex": 0, "mark": "keep" },
+    { "op": "undoEntries", "entries": 1 }
+  ]
+}
