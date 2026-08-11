@@ -180,7 +180,7 @@ final class P0LogicTests: XCTestCase {
         let baselineHash = session.baseline.layoutHash
         session.working.photoPanX = 0.4
         session.working.straightenDegrees = 4.2
-        session.working.flipOrientation()
+        session.flipOrientation()
         XCTAssertNotEqual(session.working.layoutHash, baselineHash)
         session.revert()
         XCTAssertEqual(session.working.layoutHash, baselineHash)
