@@ -15,6 +15,8 @@ echo "--- Phase 1: static lint (runs anywhere) ---"
 bash "$ROOT/Scripts/lint/banned_words.sh"
 bash "$ROOT/Scripts/lint/copy_contract_diff.sh"
 bash "$ROOT/Scripts/lint/contract_structure.sh"
+bash "$ROOT/Scripts/lint/contract_v6_presence.sh"
+bash "$ROOT/Scripts/lint/agent_rules_contract.sh"
 bash -n "$ROOT/Scripts/run_p0_ui_tests.sh"
 
 validate_json() {
