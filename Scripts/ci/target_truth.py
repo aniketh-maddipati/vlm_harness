@@ -159,6 +159,56 @@ def check_debug_only() -> None:
     notes.append(f"DEBUG-only harness sources verified: {len(DEBUG_ONLY)}")
 
 
+def debug_regions(lines: list[str]) -> list[bool]:
+    """For each line, whether it sits inside a #if DEBUG region."""
+    out, stack = [], []
+    for ln in lines:
+        s = ln.strip()
+        if s.startswith("#if"):
+            stack.append("DEBUG" in s)
+        elif s.startswith("#endif"):
+            if stack:
+                stack.pop()
+        elif s.startswith("#else") and stack:
+            stack[-1] = False
+        out.append(any(stack))
+    return out
+
+
+def check_debug_reachability() -> None:
+    """No Release code path may reach probe or fake-clock symbols.
+
+    On macOS the compiler enforces this, but the FAST lane runs where there is
+    no compiler, so the closure is checked statically.
+    """
+    owned: dict[str, str] = {}
+    for rel in DEBUG_ONLY:
+        p = ROOT / rel
+        if not p.exists():
+            continue
+        for m in re.finditer(r"^(?:@\w+\s+)*(?:final\s+)?(?:struct|class|enum|actor)\s+"
+                             r"([A-Za-z_]\w*)", p.read_text(encoding="utf-8"), re.M):
+            owned[m.group(1)] = rel
+    if not owned:
+        fail("no DEBUG-only symbols found — check DEBUG_ONLY paths")
+        return
+
+    pattern = re.compile(r"\b(" + "|".join(map(re.escape, owned)) + r")\b")
+    for rel in app_sources():
+        if rel in DEBUG_ONLY:
+            continue
+        lines = (ROOT / rel).read_text(encoding="utf-8", errors="replace").splitlines()
+        guarded = debug_regions(lines)
+        for i, ln in enumerate(lines):
+            code = re.sub(r"//.*", "", ln)
+            m = pattern.search(code)
+            if m and not guarded[i]:
+                fail(f"{rel}:{i + 1} reaches DEBUG-only symbol "
+                     f"'{m.group(1)}' ({owned[m.group(1)]}) outside #if DEBUG — "
+                     f"probe/fake-clock code must not link into Release")
+    notes.append(f"Release-unreachability verified for {len(owned)} harness symbols")
+
+
 def check_test_plans() -> None:
     scheme_dir = ROOT / "Lumina.xcodeproj/xcshareddata/xcschemes"
     schemes = sorted(scheme_dir.glob("*.xcscheme")) if scheme_dir.exists() else []
@@ -221,6 +271,7 @@ def main() -> int:
     check_zero_egress(pbx)
     check_no_dependencies(pbx)
     check_debug_only()
+    check_debug_reachability()
     check_test_plans()
     check_manifest(args.generate)
 
