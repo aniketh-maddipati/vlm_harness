@@ -4,10 +4,35 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-11 — Constitution: Batch 1 seal verification (agent-rules + Phase 4)
+
+**Branch:** `constitution/amendment-batch-1` (head contains seal #29 + batch #30).  
+**Range for Phase 4:** `#29-head (78ea577)..#30-head (21da1d5)` — **not** `origin/main..HEAD`.
+
+**Process CONFLICT (worktree base) — recorded + resolution:**  
+GIT PROTOCOL named `origin/main` as worktree base, but `design/contract-v6.md` (and peers) existed only on `cursor/contract-v6-artifacts-3877` (PR #29).  
+**Options:** (1) stack amendments on sealed v6 — **chosen**; (2) wait for #29→main.  
+Resolution executed: worktree/branch from sealed v6; PR #30 stacked on #29. (Unrecorded resolution would be FAIL — this entry + the Batch 1 entry both carry it.)
+
+**AGENT-RULES CHECK (permanent):**  
+- Scanned `.cursorrules`, `AGENTS.md` (no CLAUDE.md).  
+- **FAIL found:** `.cursorrules` taught crop latch **A→aspect / X→orientation** re-scoping — contradicts **D63** (R/O; A and X banned from remapping).  
+- **Fix:** rewrite crop section to D63; authority line now defers to contract; multi-select re-shelved to match D29/D38; Hold-J named; pointer marks listed.  
+- **Gate:** `Scripts/lint/agent_rules_contract.sh` added; wired into `contract_v6_presence.sh` + `Scripts/regression.sh` Phase 1.
+
+**Phase 4 diff-scope (`78ea577..21da1d5`):**  
+Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `design/contract-v6.md`, `design/copy-contract.txt`, `design/fixture-manifest.md`, `design/mvp-test-plan.md`, `design/tokens.yaml`. Seal’s own files absent from the batch diff — **PASS**.
+
+**Measured:** `agent_rules_contract.sh` · `contract_v6_presence.sh` · `copy_contract_diff.sh` · `banned_words.sh` · `contract_structure.sh` · `bash -n Scripts/regression.sh`.
+
+**Follow-ups:** regenerate `AUDIT-HIFI.md` (still records old A/X crop PASS); CopyContract.swift wire-up; fixtures; `seal-v6.1` after human review.
+
+---
+
 ## 2026-08-11 — Constitution: Amendment Batch 1 (A1–A10)
 
 **Branch:** `constitution/amendment-batch-1` (worktree; based on sealed `cursor/contract-v6-artifacts-3877` — `origin/main` lacked constitution artifacts).  
-**PR:** [#30 Constitution: Amendment Batch 1 (A1–A10)](https://github.com/aniketh-maddipati/vlm_harness/pull/30) — against sealed v6 branch (not merged; no `seal-v6.1` tag).
+**PR:** [#30 Constitution: Amendment Batch 1 (A1–A10)](https://github.com/aniketh-maddipati/vlm_harness/pull/30) — stacked on seal branch #29 (squash-merged to seal tip `897b951`; no `seal-v6.1` tag).
 
 **Scope:** Documents only. Integrate MVP-test questionnaire rulings A1–A10 into contract / tokens / copy / fixtures / checkpoint / new `design/mvp-test-plan.md`. No product code. No law weakened beyond the two scoped amendments (A5 D16; A7 R-9.1).
 
