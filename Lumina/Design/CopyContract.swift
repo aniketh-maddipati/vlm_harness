@@ -57,10 +57,19 @@ enum CopyContract {
 
     // MARK: - Footer hints
 
-    static let tableFooterHover = "P keep · X out · ⏎ edit · Space loupe · drag to move (hover)"
+    /// At-rest / during-action table teaching line (D48: hover deleted — no “(hover)” string).
+    static let tableFooterHints = "P keep · X out · ⏎ edit · Space loupe · drag to move"
     static let tableFooterShortcuts = "P · X · arrows · ⏎ edit · ? all shortcuts"
+    static let sameMarkClearsFooter = "P keeps · X rejects · same key again clears"
+    static let sameMarkClearsNote =
+        "Re-pressing the mark on a marked frame clears it to unreviewed, in place. Decision keys never autorepeat."
+    static let returnReleaseGateNote =
+        "After ⇧⏎ stages, ⏎ cannot commit until Return is physically released. One held press can never stage-and-commit."
     static let editFooterShortcuts = "A develop · Tab arms · ⌥←→ adjusts · ⏎ done, next kept · ? all shortcuts"
     static let developThisPhotograph = "Develop this photograph · A"
+    static let sampleShootReplaces = "Sample shoot — yours replaces it"
+    static let rejectsToTrashTemplate = "Rejects to Trash · N files · size"
+    static let sharpnessNotFinal = "sharpness not final"
 
     // MARK: - Export
 
