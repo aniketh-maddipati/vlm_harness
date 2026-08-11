@@ -277,6 +277,7 @@ enum PresentationAdapter {
         let out = project.photos.filter { $0.tier == .reject }.count
         let total = max(project.photos.count, 1)
         let tableHeader = CopyContract.cullHeader(kept: kept, total: total, out: out)
+        let decided = project.photos.filter { $0.tier != .unranked || $0.isFlagged }.count
 
         return WorkspacePresentation(
             shootTitle: readableShootTitle(project.name),
