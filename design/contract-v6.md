@@ -24,9 +24,9 @@ No open CONFLICT blocks remain from the first pass.
 ## How to read v6
 
 1. **Carry:** All of Contract v5 (D1–D40) remains law except where an amendment below replaces named clauses.  
-2. **Amend:** D16 (via A5), D21 (via R-5.2), D24, D27, D32/success-test (via R-A.1), D36, D37 (via R-X.1), D40 history note.  
-3. **Add:** D41–D62 (rulings + audit integrations).  
-4. **Shelf:** Shelved Register below supersedes first-pass WG-hand multi-select drift — v5 D29/D38 win unless a ruling un-shelves.
+2. **Amend:** D16 (via A5), D21 (via R-5.2), D23 (via A2), D24, D27, D32/success-test (via R-A.1), D36, D37 (via R-X.1), D40 history note; D47 (via A3).  
+3. **Add:** D41–D62 (rulings + audit integrations); D63 crop-mode latch detail (A2) cited from D23.  
+4. **Shelf:** Shelved Register below supersedes first-pass WG-hand multi-select drift — v5 D29/D38 win unless a ruling un-shelves. **A3 un-shelves** pointer path to culling (D47).
 
 Five Laws mapping (v5 D8 ↔ session L1–L5): touch moves never decides · held is temporary · taps decide / work states latch · ⇧ is more ⌥ is less · Esc puts it back / ⌘Z takes it back. Session L3/L4 failure & persistence language remains the operational reading of D35/D36.
 
@@ -58,6 +58,20 @@ Citations: `D#`, `R-*`.
 - **why:** R-5.2; truth-at-a-glance must not depend on already being mid-tone-drag.
 - **rejected:** Persistent clipping; hover-to-show clipping; LR-style forgettable J-toggle as the only path.
 - **history / socket:** Amends D21 clipping clause. Cross-cites D42, D9, R-X.1.
+
+### D23 — Ten controls + Crop mode *(amended by A2)* `[● A2]`
+
+**v5 prior:** Ten controls, four fixed sections (Light · Color · Detail · Crop/Straighten); schema rich, rail narrow; positions never move across versions.
+
+- **decision:** Rail sections and ten controls unchanged (stability promise). **Crop mode enters MVP** as a **work-state latch** (D9), not a panel tour:
+  - Interaction (audited frame C): **fixed frame**, photograph slides beneath, rising grid, matte; **non-destructive**; maps to `DevelopRenderGraph` straighten/crop stage; persists in `EditRecipe` rich schema.
+  - Keys: **`R`** frees the aspect ratio; **`O`** flips orientation. `[FLAG: R/O are Claude's pick — validate with wave-one testers.]`
+  - **`A` and `X` are BANNED from remapping in crop mode** — decision keys keep their meanings everywhere (stability promise). Crop verbs never steal Develop / Reject.
+  - Banner + header (Law 3 / work-state latch): `Crop · ⏎ applies · Esc cancels`. Chips in crop state = **facts only** — no key instructions in chips.
+  - `⏎` applies crop geometry to sidecar (one ⌘Z entry). `Esc` dismisses crop — restore entry layout hash, nothing written.
+- **why:** Amateurs need crop at MVP; fixed-frame model matches audited frame C; remapping A/X would break the decision-key stability promise.
+- **rejected:** Re-scoping A→aspect or X→orientation (hi-fi latch drift); hover-only crop handles as sole path; destructive crop; key instructions inside facts chips; inventing crop chrome beyond the frozen banner.
+- **history / socket:** Extends D23 Crop section. CP6 scope. Cross-cites D9, D10, D37, D48. Supersedes hi-fi A/X crop re-scoping for MVP. See also D63.
 
 ### D24 — Arming / value-echo *(amended by R-X.1 + audit)*
 
@@ -155,12 +169,19 @@ Citations: `D#`, `R-*`.
 - **decision:** See D32 / success-test amendment. Develop is the sanctioned physical word (key `A`); critical path gated on taste-model proof.
 - **why / rejected / history:** As D32 amendment. Touches D32, D38, D47.
 
-### D47 — Pointer path to culling *(R-A.2)*
+### D47 — Pointer path to culling *(R-A.2 → MVP via A3)* `[● A3]`
 
-- **decision:** Pointer path to culling is **shelved at MVP-question rank**. Must survive nothing-hover (D48) and chips-are-facts (D18/D41).
-- **why:** Amateur door without hover grammar.
-- **rejected:** Hover-only marks; persuasive reject chips.
-- **history / socket:** Shelf entry only — not implementation.
+- **decision:** Pointer path to culling **ships at MVP** (un-shelved from MVP-question rank). Persistent **✓** and **✕** mark targets on the **focused frame**:
+  - **Always visible** (never hover — D48 / R-X.1 holds).
+  - Hit target **≥44 pt** (`tokens.yaml` `hit.minimum`).
+  - Taps **decide** (Law 3); never commit on release or hover.
+  - Each wears its key: ✓ shows **P**, ✕ shows **X** — the button teaches the fast path.
+  - Full **same-mark-clears** parity with the keys (D59).
+  - Advance behavior **identical** to P/X.
+  - Marks are **shapes never color alone** (D37).
+- **why:** Amateur door without hover grammar; teaches keyboard without replacing it.
+- **rejected:** Hover-only marks; persuasive reject chips; color-only mark encoding; timed double-tap marks; release-commit on the targets.
+- **history / socket:** Resolves R-A.2 shelf → MVP. CP4 scope. Touches D10, D37, D48, D59. Multi-select remains shelved (D29/D38).
 
 ### D48 — Hover deleted entirely *(R-X.1)*
 
@@ -268,6 +289,13 @@ Citations: `D#`, `R-*`.
 - **rejected:** Focus stuck on reference as sole path; arrows that cannot re-mark rejects.
 - **history / socket:** CP7. Touches D11, D19.
 
+### D63 — Crop latch keys & ban on decision-key remap *(A2)* `[● A2]`
+
+- **decision:** Numbered citation entry for crop-mode keys and the A/X remap ban. Normative text lives in the D23 amendment. Frozen banner: `Crop · ⏎ applies · Esc cancels`.
+- **why:** Checkpoints and tokens need a stable D# for crop latch without overloading D9.
+- **rejected:** Inventing additional crop chips or teaching strings beyond the banner.
+- **history / socket:** CP6. Cross-cites D23, D9, tokens `grammar.crop_*`.
+
 ---
 
 ## Shelved Register (v6)
@@ -287,7 +315,7 @@ Per D38 + rulings. **Doors, not deletions.**
 | Hold-keycap aim | Shelved |
 | Folder watching | Shelved |
 | Speculative pre-render | Shelved |
-| Pointer path to culling | Shelved at MVP-question rank (D47) |
+| Pointer path to culling | **Un-shelved for MVP** (D47 / A3) — mark targets on focused frame |
 | MAS distribution | Deferred socket (D50) |
 | Suggested-treatment browsing UI | Shelved |
 

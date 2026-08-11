@@ -518,3 +518,33 @@ grammar:
     value: zero_ideal
     type: enum
     cite: [D45, D51, D52]
+  # --- Amendment Batch 1 ---
+  crop_mode:
+    value: work_state_latch
+    type: enum
+    cite: [D23, D63, A2]
+    notes: "Fixed frame; photo slides beneath; rising grid; matte; non-destructive."
+  crop_keys:
+    value: ["R", "O"]
+    type: enum
+    cite: [D63, A2]
+    notes: "R frees aspect; O flips orientation. FLAG — Claude pick; validate wave-one."
+  crop_decision_key_remap:
+    value: forbidden
+    type: enum
+    cite: [D23, D63, A2]
+    notes: "A and X never remapped inside crop; keep global meanings."
+  crop_banner:
+    value: "Crop · ⏎ applies · Esc cancels"
+    type: string
+    cite: [D63, A2]
+  pointer_cull_marks:
+    value: persistent_on_focused_frame
+    type: enum
+    cite: [D47, A3]
+    notes: "Always visible; never hover; ≥44pt; wear P/X; same-mark-clears parity."
+  pointer_cull_mark_min_hit:
+    value: 44
+    unit: pt
+    type: pt
+    cite: [D47, A3, L1]

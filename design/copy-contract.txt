@@ -58,6 +58,7 @@
 [○][P] Exposure · Contrast · Highlights · Shadows · Temp · Tint · Vibrance · Saturation · Detail · Straighten
 [○][V] +0.35 ev · 5 600 K · 0.0°
 [○][P] A develop · Tab arms · ⌥←→ adjusts · ⏎ done, next kept · ? all shortcuts
+[●][P] Crop · ⏎ applies · Esc cancels
 
 ## STAGED & RECEIPT
 
@@ -81,6 +82,7 @@
 [○][P] Point at it again
 [○][PL] Latest-wins: ⌘E re-renders dirty frames only; the header counts what is current.
 [○][P] ⌘E re-renders
+[●][P] body not yet supported
 
 ## EXPORT
 
@@ -98,5 +100,7 @@
 # A5: banner "Adapt → N  ⏎ · Esc"; receipt "Adapted → N · ⌘Z"; provenance "← 8288".
 #     Word "Adapt" verbatim in banner; remainder compressed. Sync/copy settings banned.
 #     D19 count invariant + clickable receipt untouched.
+# A2: crop latch banner in EDIT; chips in crop state = facts only (no key instructions in chips).
+# A1: unsupported-body facts-chip; D35 table-keeps-working.
 # Lint note: CopyContract.swift static literals must still appear above; scene/excluded
 #     Adapt variants and STAGED headers remain for D19 / ring chrome until a later ruling.
