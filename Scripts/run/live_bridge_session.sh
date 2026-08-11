@@ -2,13 +2,13 @@
 # Live photographic bridge gate for Phase 1 — macOS + Xcode required.
 # Per AGENTS.md this cannot run on Linux cloud agents.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "SKIP: live bridge test requires macOS (see AGENTS.md)."
   echo "On a Mac with Xcode and Mehendi ARWs, run:"
-  echo "  bash Scripts/live_bridge_session.sh [RAW_FOLDER]"
+  echo "  bash Scripts/run/live_bridge_session.sh [RAW_FOLDER]"
   exit 0
 fi
 

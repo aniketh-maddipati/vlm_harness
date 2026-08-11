@@ -98,7 +98,7 @@ Instrumentation: `DevelopRenderScheduler.metrics` (cache hit/miss, cancel, stale
 ```bash
 python3 Scripts/develop_engine_test.py          # Linux + macOS
 swift Scripts/develop_recipe_test.swift         # macOS Swift
-bash Scripts/regression.sh [RAW] [JPG]          # macOS full
+bash Scripts/ci/regression.sh [RAW] [JPG]          # macOS full
 ```
 
 ## Known Lightroom differences

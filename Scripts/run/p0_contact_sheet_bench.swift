@@ -4,7 +4,7 @@
  Measures folder→first catalog, first embedded preview, and memory during preparation.
 
  Usage:
-   swift Scripts/p0_contact_sheet_bench.swift /path/to/arw-folder [limit]
+   swift Scripts/run/p0_contact_sheet_bench.swift /path/to/arw-folder [limit]
 
  Writes JSON metrics to DerivedData/p0-contact-sheet/bench.json
  */
@@ -16,7 +16,7 @@ import Darwin
 
 let args = CommandLine.arguments.dropFirst()
 guard let folderArg = args.first else {
-    fputs("Usage: swift Scripts/p0_contact_sheet_bench.swift FOLDER [limit]\n", stderr)
+    fputs("Usage: swift Scripts/run/p0_contact_sheet_bench.swift FOLDER [limit]\n", stderr)
     exit(2)
 }
 let folder = URL(fileURLWithPath: folderArg)

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Lumina regression runner — lint (anywhere) + build/test/E2E (macOS only)
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 RAW="${1:-/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS}"
@@ -17,7 +17,7 @@ bash "$ROOT/Scripts/lint/copy_contract_diff.sh"
 bash "$ROOT/Scripts/lint/contract_structure.sh"
 bash "$ROOT/Scripts/lint/contract_v6_presence.sh"
 bash "$ROOT/Scripts/lint/agent_rules_contract.sh"
-bash -n "$ROOT/Scripts/run_p0_ui_tests.sh"
+bash -n "$ROOT/Scripts/run/run_p0_ui_tests.sh"
 
 echo "--- Phase 1b: CP0 harness FAST lane ---"
 python3 "$ROOT/Scripts/harness/run.py" fast
@@ -67,8 +67,8 @@ xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
 echo "Logic tests: OK"
 echo ""
 
-if [[ -x "$ROOT/Scripts/run_p0_ui_tests.sh" ]]; then
-  echo "(Optional) macOS UI automation: bash Scripts/run_p0_ui_tests.sh fast"
+if [[ -x "$ROOT/Scripts/run/run_p0_ui_tests.sh" ]]; then
+  echo "(Optional) macOS UI automation: bash Scripts/run/run_p0_ui_tests.sh fast"
 fi
 echo ""
 
@@ -77,7 +77,7 @@ if [[ ! -d "$RAW" ]]; then
   echo "WARN: RAW folder missing ($RAW) — skipping media audit"
   exit 0
 fi
-swift "$ROOT/Scripts/e2e_audit.swift" "$RAW" "$JPG"
+swift "$ROOT/Scripts/ci/e2e_audit.swift" "$RAW" "$JPG"
 
 REPORT="$ROOT/DerivedData/e2e/report.json"
 if [[ -f "$REPORT" ]]; then

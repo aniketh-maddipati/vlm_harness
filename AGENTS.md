@@ -9,7 +9,7 @@ Lumina **cannot be built or run on Linux**. Cloud Agent VMs are Ubuntu-based and
 | Capability | Linux cloud agent | macOS dev machine |
 |---|---|---|
 | `xcodebuild` / run `Lumina.app` | No | Yes |
-| `Scripts/regression.sh` (full) | No (needs xcodebuild + Swift ImageIO) | Yes |
+| `Scripts/ci/regression.sh` (full) | No (needs xcodebuild + Swift ImageIO) | Yes |
 | Static lint (`Scripts/lint/*.sh`) | Yes | Yes |
 | `exiftool` CLI (metadata) | Yes (`/usr/bin/exiftool` via apt) | Yes (`brew install exiftool` → `/usr/local/bin/exiftool`) |
 
@@ -39,14 +39,14 @@ xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
   -destination 'platform=macOS' -only-testing:LuminaLogicTests test
 
 # Full regression (lint + build + logic tests + headless E2E + SLA check)
-bash Scripts/regression.sh [RAW_FOLDER] [JPG_FOLDER]
+bash Scripts/ci/regression.sh [RAW_FOLDER] [JPG_FOLDER]
 ```
 
-Default regression folders in `Scripts/regression.sh` point to the maintainer's machine; override with your own RAW + JPG shoot folders.
+Default regression folders in `Scripts/ci/regression.sh` point to the maintainer's machine; override with your own RAW + JPG shoot folders.
 
 ### Headless E2E audit
 
-`Scripts/e2e_audit.swift` runs outside the GUI and checks import/extract/taste/timing signals. It requires **macOS Swift** (Foundation, ImageIO, CoreGraphics) and looks for exiftool at **`/usr/local/bin/exiftool`** (Homebrew path). Install with:
+`Scripts/ci/e2e_audit.swift` runs outside the GUI and checks import/extract/taste/timing signals. It requires **macOS Swift** (Foundation, ImageIO, CoreGraphics) and looks for exiftool at **`/usr/local/bin/exiftool`** (Homebrew path). Install with:
 
 ```bash
 brew install exiftool
@@ -56,16 +56,16 @@ brew install exiftool
 
 Cloud agents run `bash Scripts/lint/*.sh` for static contract checks. All logic tests require macOS + Xcode (`xcodebuild test -only-testing:LuminaLogicTests`).
 
-Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on Linux.
+Do **not** expect `xcodebuild` or `swift Scripts/ci/e2e_audit.swift` to succeed on Linux.
 
 ### Key directories
 
 - `Lumina/` — SwiftUI app (Views, ViewModels, Services, Models)
 - `LuminaLogicTests/` — XCTest logic contracts (`@testable import Lumina`)
 - `Lumina.xcodeproj/` — Xcode project (single target `Lumina`)
-- `Scripts/regression.sh` — lint + build + logic tests + E2E runner
+- `Scripts/ci/regression.sh` — lint + build + logic tests + E2E runner
 - `Scripts/lint/` — banned-word, copy-contract, and structure checks
-- `Scripts/e2e_audit.swift` — headless macOS audit script
+- `Scripts/ci/e2e_audit.swift` — headless macOS audit script
 - `README.md` — product overview and manual test steps
 - `BUILD_LOG.md` — build history and verification notes
 

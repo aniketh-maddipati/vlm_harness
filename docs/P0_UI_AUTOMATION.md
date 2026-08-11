@@ -23,7 +23,7 @@ future external-driver layer.
 | Visual regression | `LuminaUITests/Visual/` | Pinned-window capture + semantic layout assertions |
 | App-side test hooks | `Lumina/Testing/` | DEBUG-only launch mode, fixtures, state probe, accessibility IDs |
 | Test plans | `TestPlans/*.xctestplan` | `P0Fast`, `P0Stress`, `P0Visual` |
-| Runner | `Scripts/run_p0_ui_tests.sh` | `fast` / `stress` / `visual` / `logic` / `seed` |
+| Runner | `Scripts/run/run_p0_ui_tests.sh` | `fast` / `stress` / `visual` / `logic` / `seed` |
 
 The **state probe** is the backbone: an invisible accessibility element
 (`p0.stateProbe`) whose value is a JSON `ProbeSnapshot` of the live session (route, counts,
@@ -44,7 +44,7 @@ Assertions read structured state from the probe rather than scraping UI text.
 
 | Task | Linux cloud agent | macOS |
 |---|---|---|
-| `bash Scripts/regression.sh` static/manifest checks | ✅ (bash-syntax, test-plan JSON, scheme XML) | ✅ |
+| `bash Scripts/ci/regression.sh` static/manifest checks | ✅ (bash-syntax, test-plan JSON, scheme XML) | ✅ |
 | `xcodebuild build` / `build-for-testing` | ❌ | ✅ |
 | `LuminaLogicTests` (XCTest) | ❌ | ✅ |
 | `P0Fast` / `P0Stress` / `P0Visual` (XCUITest) | ❌ | ✅ |
@@ -158,10 +158,10 @@ successful action, attached as `explorer-report-seed-<seed>` (`.keepAlways`).
 ### Exact seed replay
 
 ```bash
-bash Scripts/run_p0_ui_tests.sh seed 84721            # default 200 steps
-bash Scripts/run_p0_ui_tests.sh seed 84721 120        # explicit step count
+bash Scripts/run/run_p0_ui_tests.sh seed 84721            # default 200 steps
+bash Scripts/run/run_p0_ui_tests.sh seed 84721 120        # explicit step count
 # or, matching the plan example:
-LUMINA_UI_TEST_SEED=84721 LUMINA_UI_TEST_STEPS=200 bash Scripts/run_p0_ui_tests.sh stress
+LUMINA_UI_TEST_SEED=84721 LUMINA_UI_TEST_STEPS=200 bash Scripts/run/run_p0_ui_tests.sh stress
 ```
 
 Seed/steps reach the test bundle via `TEST_RUNNER_LUMINA_UI_TEST_*` (xcodebuild forwards
@@ -188,7 +188,7 @@ not delete assets. Structured probe values — not UI text — are the source of
 
 ## 12. Artifacts, diagnostics & replay
 
-`Scripts/run_p0_ui_tests.sh` writes everything under
+`Scripts/run/run_p0_ui_tests.sh` writes everything under
 `artifacts/ui-automation/<mode>-<timestamp>/`: the `.xcresult` bundle, `xcodebuild.log`, and an
 isolated `state/` root (failure snapshots preserved there). The exact result-bundle path is printed.
 
