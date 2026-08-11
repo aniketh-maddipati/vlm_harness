@@ -120,7 +120,7 @@ final class DevelopEngineTests: XCTestCase {
 
         let n1 = normalizedFractions(preview, width: 3200, height: 2000)
         let n2 = normalizedFractions(export, width: 8000, height: 5000)
-        for (a, b) in zip(n1, n2) {
+        for (a, b) in zip([n1.0, n1.1, n1.2, n1.3], [n2.0, n2.1, n2.2, n2.3]) {
             XCTAssertEqual(a, b, accuracy: 1e-9)
         }
     }
