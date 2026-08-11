@@ -4,6 +4,24 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-11 — Tree compiles (mechanical fix session)
+
+**Branch:** `fix/legacy-callsite-argument-order` · worktree `../lumina-wt/fix-callsites`  
+**Claim:** Drive `xcodebuild … build` and `build-for-testing` to zero errors with mechanical fixes only.
+
+**Result:**
+- **First commit at which the app tree compiles in recorded history:** `fa22692` (`fix(tree): TreatmentStageView — explicit return on all TreatmentFidelity.label cases`)
+- **Errors fixed:** 14 mechanical fixes across 11 files (argument-order, Int(floor) how-many-fit, restored `decided` binding, explicit returns, XCTUnwrap for `Double?` accuracy asserts, `CropSession.flipOrientation`, zip-tuple→arrays)
+- **STOP count outstanding:** 0
+- **Launch proof:** `artifacts/tree-compiles/launch-proof.png` — Open-a-shoot window reached without crash
+
+**Gates:** `xcodebuild -scheme Lumina -destination 'platform=macOS,arch=arm64' -derivedDataPath ./DD build` → SUCCEEDED · `build-for-testing` → SUCCEEDED.  
+`Scripts/quarantine_d40.sh` absent from tree (noted). FAST shell lints (`banned_patterns` / `magic_numbers` / `banned_words`) FAIL on host bash 3.2 (`mapfile` / syntax) — host tooling, not introduced by this session; remaining FAST orchestration OK after PyYAML install.
+
+**Follow-ups (listed, not done):** wire `xcodebuild build` as FULL lane job #1 on macOS runner · warnings triage · install bash≥4 / fix lint shebangs for macOS system bash.
+
+---
+
 ## 2026-08-11 — CP0 review: vacuous-green / platform / ledger honesty
 
 **Branch:** `checkpoint/cp0-harness` · **PR:** #32  
