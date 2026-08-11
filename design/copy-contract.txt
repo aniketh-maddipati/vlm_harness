@@ -1,66 +1,103 @@
-# Lumina hi-fi copy contract — frozen inventory
-# Source: design/hifi.pdf (transcribed verbatim; tags preserved)
+# Lumina frozen copy table — Contract v6
+# Source authority: design/contract-v6.md + prior hi-fi inventory.
+# Tags: [P] physical · [V] value · [PL] plumbing · [P+V] mixed
+# Change-marks: [●] changed or added this constitution pass · [○] carried unchanged
 # Banner, header, and receipt strings in the app MUST come from here via CopyContract.
+#
+# BANNED WORDS (user-visible, everywhere):
+#   auto · AI · sync · copy settings · preset · smart · magic
+#   also banned (carried): catalog · import (noun) · analyze · generate
+# Develop is the sanctioned physical word (action Develop; key stays A).
+# Auto (capital A in UI) is still not allowed.
+# Lightroom named exactly once (sovereignty PL line).
 
 ## OPEN
 
-[P] ON THE TABLE · FINISHED
-[P+V] 38 of 109 undecided · Continue culling ⏎
-[P+V] 10 kept · 3 edited · Continue editing ⏎
-[P+V] Culled to 10 · Export ⌘E
-[P] table exactly as you left it
-[V] ✓ exported · 10 written
-[PL] files stay where they are · edits in open sidecars · this shoot opens in Lightroom as-is
-[P] nothing leaves this Mac
-[P] Insert a card — the shoot lands on the table
-[P] copies automatically · safe to eject when ✓ appears
-[P] Point at a folder ⏎
-[P] drop photographs or a folder anywhere
-[P] grouping happens in front of you, in visible motion
+[○][P] ON THE TABLE · FINISHED
+[○][P+V] 38 of 109 undecided · Continue culling ⏎
+[○][P+V] 10 kept · 3 edited · Continue editing ⏎
+[○][P+V] Culled to 10 · Export ⌘E
+[○][P] table exactly as you left it
+[○][V] ✓ exported · 10 written
+[○][PL] files stay where they are · edits in open sidecars · this shoot opens in Lightroom as-is
+[○][P] nothing leaves this Mac
+[○][P] Insert a card — the shoot lands on the table
+[○][P] copies automatically · safe to eject when ✓ appears
+[○][P] Point at a folder ⏎
+[○][P] drop photographs or a folder anywhere
+[○][P] grouping happens in front of you, in visible motion
+[●][P] Sample shoot — yours replaces it
+[●][V] Export —
 
 ## TABLE
 
-[V] 17:12 · 17:36 · 18:17 (lane headers)
-[V] + 41 min (scene break)
-[V] 1/250 · f/2.8 · iso 400 · 35 mm · 17:36
-[P] P · X · arrows · ⏎ edit · ? all shortcuts
-[P] back where you left it · 38 undecided
-[P+V] 6/8 kept · 2 out · resume = first undecided frame
-[P] P keep · X out · ⏎ edit · Space loupe · drag to move (hover)
-[P+V] copying originals · work while it copies
+[○][V] 17:12 · 17:36 · 18:17 (lane headers)
+[○][V] + 41 min (scene break)
+[○][V] 1/250 · f/2.8 · iso 400 · 35 mm · 17:36
+[○][P] P · X · arrows · ⏎ edit · ? all shortcuts
+[○][P] back where you left it · 38 undecided
+[○][P+V] 6/8 kept · 2 out · resume = first undecided frame
+[●][P] P keep · X out · ⏎ edit · Space loupe · drag to move
+[○][P] P keep · X out · ⏎ edit · Space loupe · drag to move (hover)
+# ^ SUPERSEDED by D48 (hover deleted). Retained only until a build session
+#   removes CopyContract.tableFooterHover; do not teach hover in new chrome.
+[○][P+V] copying originals · work while it copies
 
 ## FIDELITY
 
-[P] preview (first rung)
-[P] preview · sharpening (second rung)
-[—] (no chip at full truth — absence is the third string)
-[PL] fetching full RAW (loupe only — sanctioned exception)
+[○][P] preview (first rung)
+[○][P] preview · sharpening (second rung)
+[○][—] (no chip at full truth — absence is the third string)
+[○][PL] fetching full RAW (loupe only — sanctioned exception)
+[●][P] sharpness not final
 
 ## EDIT
 
-[P] Develop this photograph · A
-[P] Exposure · Contrast · Highlights · Shadows · Temp · Tint · Vibrance · Saturation · Detail · Straighten
-[V] +0.35 ev · 5 600 K · 0.0°
-[P] A develop · Tab arms · ⌥←→ adjusts · ⏎ done, next kept · ? all shortcuts
+[○][P] Develop this photograph · A
+[○][P] Exposure · Contrast · Highlights · Shadows · Temp · Tint · Vibrance · Saturation · Detail · Straighten
+[○][V] +0.35 ev · 5 600 K · 0.0°
+[○][P] A develop · Tab arms · ⌥←→ adjusts · ⏎ done, next kept · ? all shortcuts
 
 ## STAGED & RECEIPT
 
-[P+V] STAGED · row 4 · 18:17 · 4 selected · ⏎ applies · Esc cancels, nothing applied
-[P+V] STAGED · scene · 12 selected · 2 excluded · ⏎ applies · Esc cancels
-[P+V] Adapt → 4 ⏎ · Esc
-[P] adapted — each RAW rendered independently
-[V] ← 8288 · 4
-[P] Edited
-[P+V] Adapted → 4 · ⌘Z
-[P+V] Adapt → 12 · 2 excluded ⏎ · ⇧⏎ shoot
-[P+V] Develop → 4 ⏎ · Esc
+[○][P+V] STAGED · row 4 · 18:17 · 4 selected · ⏎ applies · Esc cancels, nothing applied
+[○][P+V] STAGED · scene · 12 selected · 2 excluded · ⏎ applies · Esc cancels
+[○][P+V] Adapt → 4 ⏎ · Esc
+[○][P] adapted — each RAW rendered independently
+[○][V] ← 8288 · 4
+[○][P] Edited
+[○][P+V] Adapted → 4 · ⌘Z
+[○][P+V] Adapt → 12 · 2 excluded ⏎ · ⇧⏎ shoot
+[○][P+V] Develop → 4 ⏎ · Esc
 
 ## FAILURE (headlines)
 
-[P] Card ejected early · Original offline · Disk full · Pointed folder moved
-[P] file damaged — preview only
-[P] Stale render
+[○][P] Card ejected early · Original offline · Disk full · Pointed folder moved
+[○][P] file damaged — preview only
+[○][P] Stale render
+[○][PL] The folder you pointed at is no longer where it was.
+[○][P] Point at it again
+[○][PL] Latest-wins: ⌘E re-renders dirty frames only; the header counts what is current.
+[○][P] ⌘E re-renders
 
 ## EXPORT
 
-[PL] ⌥⌘E changes the recipe.
+[○][PL] ⌥⌘E changes the recipe.
+[●][P+V] Rejects to Trash · N files · size
+
+## ADOPTED MECHANICS — VERBATIM PENDING
+
+# Audit accepted “same-mark clears” and “Return-release gate” and required each
+# stated verbatim in this table. The constitution prompt did not paste those
+# strings. Do not invent them. Build sessions must STOP until the verbatim
+# lines are supplied and frozen below this banner.
+# D59 same-mark clears — verbatim OPEN
+# D60 Return-release gate — verbatim OPEN
+
+## NOTES (not shippable UI strings)
+
+# D48: hover deleted — former “(hover)” parenthetical removed from TABLE line.
+# D43: no positive full-truth chip — absence remains the third FIDELITY string.
+# D42: clipping is hold grammar; no new clipping chip string was named by the ruling.
+# D55: share sheet is a destination field on the ONE recipe — field labels OPEN.
+# D56: videos copied, counted, not shown; ✓ covers them — no table chip invented.

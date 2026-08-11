@@ -4,6 +4,25 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-11 — Constitution: Contract v6 artifacts (documents only)
+
+**Scope:** Prompt Pack v1 constitution session — produce Contract v6, tokens.yaml, frozen copy table, fixture manifest, checkpoint-sequence sanity check. No product code; no D-law weakened.
+
+**Laws touched:** L1–L5 carried; amendments D24 / D27 / D36 (texts from rulings/audit); new D41–D62 integrating R-5.1, R-5.2, R-5.3, R-8.1, R-9.1, R-A.1, R-A.2, R-X.1, R-X.2, R-I.1–I.3, R-M.1–M.5, R-Q.1 + audit items (halo 1.5 pt, Export three-state, post-commit focus advance, Develop banked, birth-opacity).
+
+**Conflicts flagged:**
+1. Contract v5 (D1–D40) verbatim source absent — cannot seal D24/D27/D36/D40 diffs against prior text.
+2. Prompt Pack Layer-2 sequence body + D40 retirement plan absent — Task 5 reorder = none.
+3. Same-mark-clears + Return-release gate verbatim copy lines not pasted — frozen as OPEN, not invented.
+
+**Artifacts:** `design/contract-v6.md`, `design/tokens.yaml`, `design/copy-contract.txt` (v6 tags/change-marks), `design/fixture-manifest.md`, `design/checkpoint-sequence-v6.md`, harness `Scripts/lint/contract_v6_presence.sh`.
+
+**Follow-ups:** Check in v5 + Layer-2; re-seal v6; supply verbatim D59/D60 copy; codegen Swift from tokens.yaml; remove superseded hover string from `CopyContract`; taste-proof gate for D46.
+
+**Measured:** `contract_v6_presence.sh` OK · `copy_contract_diff.sh` OK · `banned_words.sh` OK · `contract_structure.sh` OK. (No xcodebuild on Linux.)
+
+---
+
 ## 2026-08-07 — P0 UI automation harness (XCUITest)
 
 **Claim:** A Playwright-like native macOS UI-automation harness that launches Lumina against isolated deterministic fixture state, drives the real P0 interface with keyboard/mouse, and yields replayable evidence (seed + trace + screenshots + structured state) — without touching real user data, changing product behavior, or implementing editing.
