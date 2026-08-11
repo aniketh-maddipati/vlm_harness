@@ -1,0 +1,7 @@
+# Salvage/ deny-list seam — callers reaching a taste/scoring re-entry
+# primitive of a salvaged service. D40 salvages EmbeddingService for
+# grouping only; these edges ratchet to zero.
+#
+# file	symbol	owner
+Legacy/Services/TasteIndex.swift	l2Distance	CP4
+Legacy/Services/XMPDevelopParser.swift	embed	CP2

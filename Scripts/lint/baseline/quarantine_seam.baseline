@@ -1,0 +1,16 @@
+# P0 -> Legacy/ seam, frozen at checkpoint CQ. Each edge is a real compile
+# dependency of the live path on a quarantined symbol, owned by the
+# checkpoint that retires it (design/checkpoint-sequence-v6.md).
+# New edges FAIL. Edges may only be cut.
+#
+# file	symbol	owner
+Lumina/Core/PropagationState.swift	ProjectViewModel	CP7
+Lumina/Design/CopyContract.swift	ProjectViewModel	CP7
+Lumina/Design/CopyContract.swift	WorkbenchSelection	CP7
+Lumina/LuminaApp.swift	WorkbenchCapture	CP8
+Lumina/Views/Components/DevelopHistogramView.swift	WorkbenchDevelop	CP6
+Lumina/Views/P0/P0RootView.swift	ImportLoadingView	CP4
+Lumina/Views/P0/P0RootView.swift	LuminaShellModel	CP4
+Lumina/Views/P0/P0RootView.swift	LuminaShellView	CP4
+Lumina/Views/P0/P0RootView.swift	ProjectViewModel	CP4
+Salvage/Services/ExifToolService.swift	XMPDevelopParser	CP2
