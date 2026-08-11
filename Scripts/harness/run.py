@@ -115,8 +115,13 @@ def lane_fast() -> tuple[list[dict], list[str]]:
     steps = [
         ("token_lint", [py, str(HARNESS / "lint" / "token_lint.py")]),
         ("copy_table_lint", [py, str(HARNESS / "lint" / "copy_table_lint.py")]),
-        ("banned_patterns", ["bash", str(HARNESS / "lint" / "banned_patterns.sh")]),
-        ("magic_numbers", ["bash", str(HARNESS / "lint" / "magic_numbers.sh")]),
+        # CQ.3 — banned-pattern greps run in RATCHET mode against an owned
+        # baseline. Counts may only fall; any hit in a new file fails.
+        ("banned_patterns_ratchet", [py, str(ROOT / "Scripts" / "lint" / "ratchet.py")]),
+        # CQ.2 — D40 quarantine boundary + Salvage grouping-only allowlist.
+        ("quarantine_d40", ["bash", str(ROOT / "Scripts" / "lint" / "quarantine_d40.sh")]),
+        # CQ.6 — target list, zero-egress config, DEBUG-only probe linkage.
+        ("target_truth", [py, str(ROOT / "Scripts" / "ci" / "target_truth.py")]),
         ("banned_words", ["bash", str(ROOT / "Scripts" / "lint" / "banned_words.sh")]),
         ("copy_contract_diff", ["bash", str(ROOT / "Scripts" / "lint" / "copy_contract_diff.sh")]),
         ("contract_structure", ["bash", str(ROOT / "Scripts" / "lint" / "contract_structure.sh")]),
@@ -211,7 +216,7 @@ def lane_heavy_macos() -> tuple[list[dict], list[str]]:
     results: list[dict] = []
     executed: list[str] = []
     orch = [
-        ("zero_egress_audit", ["bash", str(HARNESS / "lint" / "banned_patterns.sh")]),
+        ("zero_egress_audit", [sys.executable, str(ROOT / "Scripts" / "lint" / "ratchet.py")]),
         ("heavy_job_registry", [py, str(HARNESS / "heavy_placeholders.py")]),
     ]
     for name, argv in orch:

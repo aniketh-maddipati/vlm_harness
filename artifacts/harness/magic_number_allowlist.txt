@@ -1,6 +1,0 @@
-# path<space>literal — owned debt; see HARNESS.md GAP LIST
-# Quarantined legacy shell preview sizes — owned-by-CP4 retirement
-Lumina/Views/Workspace/ShootSelectionView.swift 800
-Lumina/Views/Workspace/FinishView.swift 800
-# P0 contact sheet floor width (not min-window token) — owned-by-CP1 layout
-Lumina/Views/P0/ContactSheetCollection.swift 800
