@@ -1,0 +1,13 @@
+# Sample signpost trace for FULL-lane parse (fixture — not a live Mac capture)
+signpost begin lumina.accept.open id=1
+signpost end   lumina.accept.open id=1 duration_ms=420 layout_passes=0 overshoot_pct=0
+signpost begin lumina.accept.crossfade id=2
+signpost end   lumina.accept.crossfade id=2 duration_ms=120 layout_passes=0 overshoot_pct=0
+signpost begin lumina.accept.settle id=3
+signpost end   lumina.accept.settle id=3 duration_ms=200 layout_passes=0 overshoot_pct=1.2
+signpost begin lumina.accept.grab id=4
+signpost end   lumina.accept.grab id=4 duration_ms=90 layout_passes=0 overshoot_pct=0
+signpost begin lumina.accept.halo id=5
+signpost end   lumina.accept.halo id=5 duration_ms=600 layout_passes=0 overshoot_pct=0
+signpost begin lumina.accept.slider_to_photon id=6
+signpost end   lumina.accept.slider_to_photon id=6 duration_ms=16.5 layout_passes=0 overshoot_pct=0

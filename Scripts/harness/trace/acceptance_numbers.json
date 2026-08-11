@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "cite": ["D43", "D57", "SPIKE A", "SPIKE B", "L1"],
+  "numbers": [
+    {
+      "name": "open_usable",
+      "signpost": "lumina.accept.open",
+      "maxMs": 1000,
+      "notes": "Open <1s to usable table"
+    },
+    {
+      "name": "crossfade_same_rect",
+      "signpost": "lumina.accept.crossfade",
+      "exactMs": 120,
+      "zeroLayoutPasses": true,
+      "notes": "120ms same-rect zero-layout-passes"
+    },
+    {
+      "name": "settle",
+      "signpost": "lumina.accept.settle",
+      "exactMs": 200,
+      "maxOvershootPct": 2,
+      "notes": "settle 200ms ≤2% overshoot"
+    },
+    {
+      "name": "grab",
+      "signpost": "lumina.accept.grab",
+      "exactMs": 90,
+      "notes": "grab 90ms"
+    },
+    {
+      "name": "halo",
+      "signpost": "lumina.accept.halo",
+      "exactMs": 600,
+      "notes": "halo 600ms"
+    },
+    {
+      "name": "slider_to_photon",
+      "signpost": "lumina.accept.slider_to_photon",
+      "notes": "slider-to-photon — bound by develop scheduler evidence"
+    }
+  ]
+}

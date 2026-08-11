@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Lumina harness — FAST lane</title>
+  <style>
+    :root { color-scheme: light; --ink:#2E2E2C; --paper:#F6F4F0; --ok:#9CC355; --bad:#AD2111; }
+    body { margin: 0; font: 14px/1.45 ui-monospace, Menlo, monospace; background: var(--paper); color: var(--ink); }
+    header { padding: 16px 20px; border-bottom: 1px solid rgba(46,46,44,.12); }
+    h1 { font: 22px/1.2 "Iowan Old Style", Georgia, serif; margin: 0 0 4px; font-weight: 400; }
+    #meta { opacity: .7; }
+    main { padding: 16px 20px; }
+    .row { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(46,46,44,.08); }
+    .lane { min-width: 64px; text-transform: uppercase; letter-spacing: .04em; }
+    .ok { color: var(--ok); }
+    .bad { color: var(--bad); }
+    .msg { flex: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Lumina harness</h1>
+    <div id="meta">FAST streams here · FULL/HEAVY never lock the editing tree</div>
+  </header>
+  <main id="feed"></main>
+  <script>
+    async function refresh() {
+      const res = await fetch('/events?' + Date.now());
+      const text = await res.text();
+      const lines = text.trim().split('\n').filter(Boolean).slice(-80).reverse();
+      const feed = document.getElementById('feed');
+      feed.innerHTML = lines.map(line => {
+        let ev = {};
+        try { ev = JSON.parse(line); } catch { ev = { message: line }; }
+        const cls = ev.ok === false ? 'bad' : (ev.ok === true ? 'ok' : '');
+        return `<div class="row"><div class="lane">${ev.lane || '—'}</div>
+          <div class="msg ${cls}">${ev.step || ''} ${ev.message || ''} <span style="opacity:.55">${ev.ts || ''}</span>
+          ${ev.ms != null ? ` · ${ev.ms}ms` : ''}</div></div>`;
+      }).join('');
+    }
+    refresh();
+    setInterval(refresh, 1000);
+  </script>
+</body>
+</html>
