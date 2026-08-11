@@ -2,11 +2,12 @@ import CoreGraphics
 import Foundation
 
 /// Edit chrome geometry — frame 6 / frame 12 (hi-fi H7).
+/// Window + row metrics come from generated `HiFiTokens` (design/tokens.yaml).
 enum EditRailLayout {
-    static let minWindowWidth: CGFloat = 1280
-    static let minWindowHeight: CGFloat = 800
-    static let rowHeight: CGFloat = 46
-    static let rowCount = 10
+    static let minWindowWidth: CGFloat = HiFiTokens.Layout.minWindowWidth
+    static let minWindowHeight: CGFloat = HiFiTokens.Layout.minWindowHeight
+    static let rowHeight: CGFloat = HiFiTokens.Layout.editRailRowHeight
+    static let rowCount = HiFiTokens.Layout.editRailRowCount
     static let railWidth: CGFloat = 324
     static let railPadding: CGFloat = 16
     static let storyStripWidthNormal: CGFloat = 80
