@@ -369,10 +369,10 @@ Spinners; skeletons; progress bars; modals/NSAlert in failure paths; hover handl
 10. `[FLAG]` A1 body list — Claude’s pick; swap freely before fixtures are cut.  
 11. `[FLAG]` A2 crop keys R/O — Claude’s pick; validate with wave-one testers.  
 12. A6 rows-probe **alarm threshold** (rate that re-opens lane plates) — not named by the ruling.  
-13. Hi-fi / `.cursorrules` crop latch still documents A/X re-scoping — must be aligned to D23/D63 (A/X remap banned) in a code/.cursorrules session (FOLLOW-UP; not silent dual grammar).
 
 *Closed by re-seal:* v5 source; Layer-2/D40; D59/D60 verbatim; v5 open question 1 (90 px) → D57.  
-*Closed by Batch 1:* R-5.2 key name → Hold-J (A4); R-A.2 shelf → MVP pointer marks (A3); swim-lane plates → shelved with evidence (A6); beta diagnostics/licensing posture (A7/A8); D16 compression (A5).
+*Closed by Batch 1:* R-5.2 key name → Hold-J (A4); R-A.2 shelf → MVP pointer marks (A3); swim-lane plates → shelved with evidence (A6); beta diagnostics/licensing posture (A7/A8); D16 compression (A5).  
+*Closed by Batch 1 verify:* `.cursorrules` crop A/X re-scoping → D63 (R/O; A/X remap banned); agent-rules lint permanent.
 
 ---
 
@@ -384,7 +384,7 @@ Spinners; skeletons; progress bars; modals/NSAlert in failure paths; hover handl
 - Implement fixture manifest bodies (six-body fleet — critical path).  
 - Grammar-stability suite (D51).  
 - Taste-model proof harness after wave-one eval set exists (D46 / A10) — do not begin earlier.  
-- Align `.cursorrules` / hi-fi crop latch A/X remapping docs to D23/D63 (R/O; A/X ban).  
 - R-I.3 licensing implementation post-test, pre-launch (A8).  
 - Strip TestFlight crash reporting at 1.0 (A7 expiry).  
+- `AUDIT-HIFI.md` still records old “crop latch re-scopes A/X” PASS — regenerate on next audit run (artifact drift, not agent-rules).  
 - `seal-v6.1` tag after human review + seal verification (not this session).
