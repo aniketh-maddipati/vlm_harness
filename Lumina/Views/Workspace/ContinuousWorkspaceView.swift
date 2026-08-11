@@ -865,7 +865,7 @@ struct WorkbenchLedgerView: View {
             Text(CopyContract.tableFooterShortcuts)
                 .font(LuminaTokens.Typeface.meta(11))
                 .foregroundStyle(LuminaTokens.Ink.onTableSecondary.opacity(0.72))
-            Text(CopyContract.tableFooterHover)
+            Text(CopyContract.tableFooterHints)
                 .font(LuminaTokens.Typeface.meta(11))
                 .foregroundStyle(LuminaTokens.Ink.onTableSecondary.opacity(0.92))
                 .opacity(hoverHintOpacity)

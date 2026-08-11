@@ -14,7 +14,7 @@ struct ShortcutsGlanceOverlay: View {
             VStack(spacing: 18) {
                 glanceSection(title: "Table", lines: [
                     CopyContract.tableFooterShortcuts,
-                    CopyContract.tableFooterHover
+                    CopyContract.tableFooterHints
                 ])
                 glanceSection(title: "Edit", lines: [
                     CopyContract.editFooterShortcuts

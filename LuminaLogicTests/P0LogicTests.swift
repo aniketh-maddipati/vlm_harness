@@ -1,10 +1,7 @@
 import XCTest
 @testable import Lumina
 
-/// Native XCTest logic tests for P0 state / command logic. These complement — and do not replace —
-/// the repository's existing standalone `Scripts/*.swift` deterministic tests; they exercise the
-/// same contracts from inside the module and additionally guard the accessibility-identifier and
-/// state-probe contracts the UI harness depends on.
+/// Native XCTest logic tests for P0 state / command logic — real types via `@testable import Lumina`.
 @MainActor
 final class P0LogicTests: XCTestCase {
 
@@ -86,6 +83,26 @@ final class P0LogicTests: XCTestCase {
         let banner = CopyContract.adaptBanner(snapshot)
         let receipt = CopyContract.adaptedReceipt(count: snapshot.scopeCount)
         XCTAssertTrue(A1Invariant.validate(header: header, banner: banner, receipt: receipt, snapshot: snapshot))
+    }
+
+    func testA1FormatterSamplesInCopyContract() throws {
+        let contractURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("design/copy-contract.txt")
+        let contract = try String(contentsOf: contractURL, encoding: .utf8)
+        let samples = [
+            CopyContract.stagedHeader(StagingCopySnapshot(scopeCount: 4, rowIndex: 4, laneTimestamp: "18:17")),
+            CopyContract.adaptBanner(StagingCopySnapshot(scopeCount: 4)),
+            CopyContract.adaptedReceipt(count: 4),
+            CopyContract.stagedHeader(StagingCopySnapshot(
+                scopeCount: 12, excludedCount: 2, rowIndex: 4, laneTimestamp: "18:17", ring: .scene
+            )),
+            CopyContract.adaptBanner(StagingCopySnapshot(scopeCount: 12, excludedCount: 2, ring: .shoot)),
+        ]
+        for sample in samples {
+            XCTAssertTrue(contract.contains(sample), "Formatted copy missing from contract: \(sample)")
+        }
     }
 
     func testA1InvariantExcludedCount() {
@@ -178,7 +195,7 @@ final class P0LogicTests: XCTestCase {
     }
 
     func testCropKeyScopeNeverStagesOrRejects() {
-        // Mirrors CommandHandlingModifier crop latch re-scoping (.cursorrules frame C).
+        // Crop latch re-scoping (.cursorrules frame C).
         XCTAssertNotEqual(CropSessionCopy.header(straightenDegrees: 0).contains("reject"), true)
         var session = CropSession(photoID: UUID(), recipe: .neutral)
         session.toggleAspectLock()

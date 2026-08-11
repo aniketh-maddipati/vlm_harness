@@ -1,0 +1,520 @@
+# Lumina design tokens — Contract v6
+# Generates Swift constants (HiFiTokens / LuminaTokens). Every value cites law.
+# Schema: section → token → { value, unit?, type, cite, notes? }
+# Types: color | pt | px | ms | opacity | animation | enum | bool | string
+# Authority: design/contract-v6.md → this file → code → tests.
+# Magic numbers in UI code are banned; consume these tokens only.
+
+version: 6
+contract: design/contract-v6.md
+codegen:
+  swift_enum: HiFiTokens
+  secondary_swift_enum: LuminaTokens
+  rules:
+    - Prefer HiFiTokens for table/halo/histogram/crop; LuminaTokens for surface/type/motion shared chrome.
+    - Do not hand-literal UI numbers that appear here.
+
+ring:
+  selection_color:
+    value: "2E2E2C"
+    type: color
+    cite: [D58, WG-hand, L1]
+    notes: User hand / focus charcoal family (INK).
+  selection_focus_width:
+    value: 3
+    unit: pt
+    type: pt
+    cite: [WG-hand, D58]
+    notes: Resting-table focus ring.
+  selection_width:
+    value: 1.5
+    unit: pt
+    type: pt
+    cite: [D58, WG-hand]
+    notes: Multi-select charcoal stroke.
+  halo_color:
+    value: "FFECCD"
+    type: color
+    cite: [D57, D58, WG-ripple]
+    notes: Warm-white table proposal halo RGB.
+  halo_opacity:
+    value: 0.95
+    type: opacity
+    cite: [D57, D58]
+  halo_width:
+    value: 1.5
+    unit: pt
+    type: pt
+    cite: [D57, D58]
+    notes: Plain shipped halo. PERSUADE target uses preview change + this stroke.
+  second_order_opacity:
+    value: 0.45
+    type: opacity
+    cite: [WG-ripple, D57]
+  second_order_width:
+    value: 2
+    unit: pt
+    type: pt
+    cite: [WG-ripple]
+  fallback_a_halo_width:
+    value: 2.5
+    unit: pt
+    type: pt
+    cite: [D57]
+    notes: Designated Fallback A (brighter ring). Debug-flag socket until spike seals.
+  fallback_a_halo_color:
+    value: "FFFFFF"
+    type: color
+    cite: [D57]
+  fallback_b_growth:
+    value: false
+    type: bool
+    cite: [D57]
+    notes: Rejected — must not ship.
+  armed_control_ring_width:
+    value: 2
+    unit: pt
+    type: pt
+    cite: [D24, WG-chrome]
+  assert_distinct_selection_and_halo:
+    value: true
+    type: bool
+    cite: [D58, WG-hand]
+
+color:
+  ink:
+    value: "2E2E2C"
+    type: color
+    cite: [D58, WG-chrome]
+  parchment:
+    value: "F2EFE9"
+    type: color
+    cite: [WG-chrome, D58]
+  shell:
+    value: "F6F4F0"
+    type: color
+    cite: [WG-chrome]
+  table_plate:
+    value: "8D8C8A"
+    type: color
+    cite: [WG-chrome]
+  subink:
+    value: "8A857E"
+    type: color
+    cite: [WG-chrome]
+  reject:
+    value: "AD2111"
+    type: color
+    cite: [L1]
+    notes: Shape marks remain primary; color never sole channel.
+  keep:
+    value: "9CC355"
+    type: color
+    cite: [L1]
+  selection_accent:
+    value: "0E9EE4"
+    type: color
+    cite: [WG-hand]
+    notes: Not a substitute for charcoal selection ring on the table.
+  porcelain:
+    value: "FFFFFF"
+    type: color
+    cite: [WG-chrome]
+  table_dark:
+    value: "141312"
+    type: color
+    cite: [WG-chrome]
+  on_table:
+    value: "EFECE6"
+    type: color
+    cite: [WG-chrome]
+  swimlane_fill_opacity:
+    value: 0.07
+    type: opacity
+    cite: [WG-gaps]
+    notes: rgba(242,239,233,0.07) over table.
+  reject_dim_opacity:
+    value: 0.45
+    type: opacity
+    cite: [L1, D59]
+    notes: Rejects dim in place — recognizable, recoverable.
+
+grid:
+  burst_gap:
+    value: 3
+    unit: pt
+    type: pt
+    cite: [D49, WG-gaps]
+  scene_gap:
+    value: 20
+    unit: pt
+    type: pt
+    cite: [D49, WG-gaps]
+    notes: Approximate same-scene gap; quantized, not interpolated at rest.
+  seam_gap:
+    value: null
+    type: enum
+    cite: [WG-gaps]
+    notes: Shelved — must not ship a third gap vocabulary.
+  elasticity_steps_px:
+    value: [210, 140, 96, 64]
+    type: enum
+    cite: [D49, D57]
+    notes: Distant-first periphery compression steps.
+  near_row_mate_min:
+    value: 120
+    unit: px
+    type: px
+    cite: [D57]
+  near_row_mate_max:
+    value: 140
+    unit: px
+    type: px
+    cite: [D57]
+  strip_evidence_height:
+    value: 90
+    unit: px
+    type: px
+    cite: [D57]
+    notes: 90 px evidence strip for PERSUADE judgement.
+  photo_radius_large:
+    value: 4
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  photo_radius_thumb:
+    value: 3
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  density_snap:
+    value: named_steps_only
+    type: enum
+    cite: [D49]
+    notes: Pinch density snaps; nothing interpolates at rest. Named step list OPEN.
+
+type:
+  editorial_family:
+    value: "Iowan Old Style"
+    type: string
+    cite: [WG-chrome]
+    notes: Fallback Georgia / system serif.
+  mono_family:
+    value: "ui-monospace, Menlo, monospace"
+    type: string
+    cite: [WG-chrome]
+  sans_system:
+    value: "SF Pro / system"
+    type: string
+    cite: [WG-chrome]
+  exif_size:
+    value: 11.5
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  chip_size:
+    value: 11
+    unit: pt
+    type: pt
+    cite: [D41, WG-fidelity]
+  footer_size:
+    value: 11.5
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  group_heading_tracking:
+    value: -0.3
+    type: pt
+    cite: [WG-chrome]
+
+motion:
+  warm_in_crossfade:
+    value: 120
+    unit: ms
+    type: ms
+    cite: [D57, D43]
+    notes: Adapted preview warm-in; change itself must be visible.
+  fidelity_crossfade:
+    value: 120
+    unit: ms
+    type: ms
+    cite: [D43, D57]
+  banner_in:
+    value: 120
+    unit: ms
+    type: ms
+    cite: [WG-ripple]
+  shelf_in:
+    value: 120
+    unit: ms
+    type: ms
+    cite: [WG-chrome]
+  photo_birth:
+    value: 340
+    unit: ms
+    type: ms
+    cite: [D27, WG-photos]
+    notes: Opacity only at birth.
+  lift:
+    value: 100
+    unit: ms
+    type: ms
+    cite: [L1]
+  travel:
+    value: 180
+    unit: ms
+    type: ms
+    cite: [L1]
+  travel_fast:
+    value: 90
+    unit: ms
+    type: ms
+    cite: [L1]
+  stage:
+    value: 140
+    unit: ms
+    type: ms
+    cite: [WG-ripple]
+  docked_chip_grab:
+    value: 100
+    unit: ms
+    type: ms
+    cite: [WG-ripple]
+  docked_chip_carry:
+    value: 180
+    unit: ms
+    type: ms
+    cite: [WG-ripple]
+  docked_chip_place:
+    value: 140
+    unit: ms
+    type: ms
+    cite: [WG-ripple]
+  reduce_motion_keyline:
+    value: 90
+    unit: ms
+    type: ms
+    cite: [D27, L2]
+  handling_feedback_frames:
+    value: 1
+    type: enum
+    cite: [L1]
+    notes: One frame — no animation on handling feedback.
+  settle_positive_signal:
+    value: final_rung_crossfade_only
+    type: enum
+    cite: [D43]
+    notes: No chip invented.
+
+layout:
+  min_window_width:
+    value: 1280
+    unit: pt
+    type: pt
+    cite: [D49, WG-chrome]
+  min_window_height:
+    value: 800
+    unit: pt
+    type: pt
+    cite: [D49, WG-chrome]
+    notes: Implied by 800 pt rail.
+  histogram_width:
+    value: 252
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  histogram_height:
+    value: 64
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  edit_rail_row_height:
+    value: 46
+    unit: pt
+    type: pt
+    cite: [WG-chrome, D49]
+  edit_rail_row_count:
+    value: 10
+    type: enum
+    cite: [WG-chrome]
+  collapse_order:
+    value: [context, strip, hero]
+    type: enum
+    cite: [WG-chrome]
+    notes: Never targets.
+  open_card_min_target:
+    value: 120
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  control_row_height:
+    value: 50
+    unit: pt
+    type: pt
+    cite: [D24]
+  thumb_rest:
+    value: 16
+    unit: pt
+    type: pt
+    cite: [D24]
+  thumb_armed:
+    value: 18
+    unit: pt
+    type: pt
+    cite: [D24]
+  thumb_adjusting:
+    value: 22
+    unit: pt
+    type: pt
+    cite: [D24]
+
+gap:
+  burst:
+    ref: grid.burst_gap
+    cite: [D49, WG-gaps]
+  scene:
+    ref: grid.scene_gap
+    cite: [D49, WG-gaps]
+  spacing_xs:
+    value: 6
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  spacing_sm:
+    value: 10
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  spacing_md:
+    value: 16
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  spacing_lg:
+    value: 24
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  spacing_xl:
+    value: 32
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  workspace_margin:
+    value: 28
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+
+hit:
+  minimum:
+    value: 44
+    unit: pt
+    type: pt
+    cite: [L1, WG-hand]
+  decision:
+    value: 48
+    unit: pt
+    type: pt
+    cite: [L1]
+  command:
+    value: 64
+    unit: pt
+    type: pt
+    cite: [L1]
+  crop_handle:
+    value: 18
+    unit: pt
+    type: pt
+    cite: [WG-crop]
+  crop_minimum:
+    value: 44
+    unit: pt
+    type: pt
+    cite: [WG-crop, L1]
+  dock_height:
+    value: 56
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  header:
+    value: 54
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+
+slider:
+  value_echo:
+    value: during_adjustment_only
+    type: enum
+    cite: [D24, D48]
+  settle_display:
+    value: dark_value_on_rail
+    type: enum
+    cite: [D24, D43]
+  reset_gesture:
+    value: option_click_only
+    type: enum
+    cite: [WG-chrome]
+    notes: Double-click means expand/return only.
+  clipping_grammar:
+    value: hold_anytime
+    type: enum
+    cite: [D42, L2]
+    notes: Adjust-only trigger is a subset.
+  hover_handlers:
+    value: forbidden
+    type: enum
+    cite: [D48]
+
+# Decision-key and scope tokens (non-visual, for codegen asserts)
+grammar:
+  decision_keys:
+    value: ["P", "X", "Return", "ShiftReturn", "A"]
+    type: enum
+    cite: [L1, D59, D60]
+  decision_keys_swallow_repeat:
+    value: true
+    type: bool
+    cite: [D60, L1]
+  travel_keys_autorepeat:
+    value: true
+    type: bool
+    cite: [L1]
+  scope_rings:
+    value: [row, scene, shoot]
+    type: enum
+    cite: [WG-scope]
+  post_commit_focus:
+    value: next_row_first_kept
+    type: enum
+    cite: [D62]
+  develop_critical_path:
+    value: gated_on_taste_proof
+    type: enum
+    cite: [D46]
+  adapted_preview_source:
+    value: proxy_linear
+    type: enum
+    cite: [D57]
+    notes: Never embedded JPEG for adapted previews.
+  loupe_on_staged_strip:
+    value: adapted_preview
+    type: enum
+    cite: [D57, L2]
+  export_states:
+    value: [quiet_text, quiet_outline, dark_primary]
+    type: enum
+    cite: [D61]
+  rejects_file_touch:
+    value: post_export_trash_offer_only
+    type: enum
+    cite: [D36]
+  hover:
+    value: deleted
+    type: enum
+    cite: [D48]
+  network_egress:
+    value: zero_ideal
+    type: enum
+    cite: [D45, D51, D52]
