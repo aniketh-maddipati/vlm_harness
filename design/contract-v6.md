@@ -1,10 +1,11 @@
 # Lumina Product Decision Record — Contract v6
 
-**Status:** Sealed constitution re-seal (second pass).  
-**Authority flow:** contract → tokens → code → tests.  
+**Status:** Amendment Batch 1 (A1–A10) on sealed re-seal.  
+**Authority flow:** contract → tokens → copy → code → tests.  
 **Provenance:** `design/contract-v5.md` (D1–D40, unmodified PDR body).  
-**Sources integrated:** Rulings R-5.1…R-Q.1; audit-accepted items; Layer-2 sequence (Task 5).  
-**Does not:** invent grammar, chips, copy, chrome, or motion beyond rulings and sealed sources.
+**Sources integrated:** Rulings R-5.1…R-Q.1; audit-accepted items; Layer-2 sequence (Task 5); MVP-test questionnaire A1–A10.  
+**Does not:** invent grammar, chips, copy, chrome, or motion beyond rulings and sealed sources.  
+**Change-marks:** `[● A#]` = Amendment Batch 1. Two scoped weakenings only: **A5** (D16) · **A7** (R-9.1 / D45).
 
 ---
 
@@ -23,7 +24,7 @@ No open CONFLICT blocks remain from the first pass.
 ## How to read v6
 
 1. **Carry:** All of Contract v5 (D1–D40) remains law except where an amendment below replaces named clauses.  
-2. **Amend:** D21 (via R-5.2), D24, D27, D32/success-test (via R-A.1), D36, D37 (via R-X.1), D40 history note.  
+2. **Amend:** D16 (via A5), D21 (via R-5.2), D24, D27, D32/success-test (via R-A.1), D36, D37 (via R-X.1), D40 history note.  
 3. **Add:** D41–D62 (rulings + audit integrations).  
 4. **Shelf:** Shelved Register below supersedes first-pass WG-hand multi-select drift — v5 D29/D38 win unless a ruling un-shelves.
 
@@ -39,6 +40,15 @@ Citations: `D#`, `R-*`.
 ---
 
 ## Amended v5 entries (merge against real prior text)
+
+### D16 — Adapt, never copy *(amended by A5)* `[● A5]`
+
+**v5 prior:** Product language is "Adapt treatment to N," never "sync/copy settings"; each recipient gets a different numeric adjustment sharing the same visual intention; that phrase appears in the banner verbatim.
+
+- **decision:** Product language remains Adapt — never "sync" / "copy settings" (banned words). **Amendment (A5), verbatim:** the word **"Adapt"** appears in the banner verbatim; the remainder of the sentence may compress. Frozen compressed forms: banner `Adapt → N  ⏎ · Esc` · receipt `Adapted → N · ⌘Z` · provenance chip `← 8288`. Each recipient still gets a different numeric adjustment sharing the same visual intention.
+- **why:** Banner/receipt chrome must stay scannable at pro rates; the differentiation word is Adapt, not the full v5 sentence.
+- **rejected:** Restoring "sync/copy settings"; dropping the word Adapt from the banner; compressing away the count invariant (D19) or the clickable receipt.
+- **history / socket:** **Scoped weakening of D16** — one of two Batch-1 weakenings (with A7). D19 count invariant and clickable receipt are untouched. Copy rows in `design/copy-contract.txt`.
 
 ### D21 — Truth-at-a-glance *(amended by R-5.2)*
 

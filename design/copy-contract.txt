@@ -1,7 +1,7 @@
-# Lumina frozen copy table — Contract v6 (re-seal)
+# Lumina frozen copy table — Contract v6 (+ Amendment Batch 1)
 # Source authority: design/contract-v6.md + design/contract-v5.md (D10/D11 verbatim lines).
 # Tags: [P] physical · [V] value · [PL] plumbing · [P+V] mixed
-# Change-marks: [●] changed or added this constitution pass · [○] carried unchanged
+# Change-marks: [●] changed or added this constitution pass (A1–A10) · [○] carried unchanged
 # Banner, header, and receipt strings in the app MUST come from here via CopyContract.
 #
 # BANNED WORDS (user-visible, everywhere):
@@ -10,6 +10,8 @@
 # Develop is the sanctioned physical word (action Develop; key stays A).
 # Auto (capital A in UI) is still not allowed.
 # Lightroom named exactly once (sovereignty PL line).
+# A5: "Adapt" appears in the banner verbatim; remainder may compress.
+#     "Sync/copy settings" remain banned words. D19 count invariant untouched.
 
 ## OPEN
 
@@ -26,8 +28,8 @@
 [○][P] Point at a folder ⏎
 [○][P] drop photographs or a folder anywhere
 [○][P] grouping happens in front of you, in visible motion
-[●][P] Sample shoot — yours replaces it
-[●][V] Export —
+[○][P] Sample shoot — yours replaces it
+[○][V] Export —
 
 ## TABLE
 
@@ -37,9 +39,9 @@
 [○][P] P · X · arrows · ⏎ edit · ? all shortcuts
 [○][P] back where you left it · 38 undecided
 [○][P+V] 6/8 kept · 2 out · resume = first undecided frame
-[●][P] P keep · X out · ⏎ edit · Space loupe · drag to move
-[●][P] P keeps · X rejects · same key again clears
-[●][P] Re-pressing the mark on a marked frame clears it to unreviewed, in place. Decision keys never autorepeat.
+[○][P] P keep · X out · ⏎ edit · Space loupe · drag to move
+[○][P] P keeps · X rejects · same key again clears
+[○][P] Re-pressing the mark on a marked frame clears it to unreviewed, in place. Decision keys never autorepeat.
 [○][P+V] copying originals · work while it copies
 
 ## FIDELITY
@@ -48,7 +50,7 @@
 [○][P] preview · sharpening (second rung)
 [○][—] (no chip at full truth — absence is the third string)
 [○][PL] fetching full RAW (loupe only — sanctioned exception)
-[●][P] sharpness not final
+[○][P] sharpness not final
 
 ## EDIT
 
@@ -61,14 +63,14 @@
 
 [○][P+V] STAGED · row 4 · 18:17 · 4 selected · ⏎ applies · Esc cancels, nothing applied
 [○][P+V] STAGED · scene · 12 selected · 2 excluded · ⏎ applies · Esc cancels
-[○][P+V] Adapt → 4 ⏎ · Esc
+[●][P+V] Adapt → 4  ⏎ · Esc
 [○][P] adapted — each RAW rendered independently
-[○][V] ← 8288 · 4
+[●][V] ← 8288
 [○][P] Edited
-[○][P+V] Adapted → 4 · ⌘Z
+[●][P+V] Adapted → 4 · ⌘Z
 [○][P+V] Adapt → 12 · 2 excluded ⏎ · ⇧⏎ shoot
 [○][P+V] Develop → 4 ⏎ · Esc
-[●][P] After ⇧⏎ stages, ⏎ cannot commit until Return is physically released. One held press can never stage-and-commit.
+[○][P] After ⇧⏎ stages, ⏎ cannot commit until Return is physically released. One held press can never stage-and-commit.
 
 ## FAILURE (headlines)
 
@@ -83,7 +85,7 @@
 ## EXPORT
 
 [○][PL] ⌥⌘E changes the recipe.
-[●][P+V] Rejects to Trash · N files · size
+[○][P+V] Rejects to Trash · N files · size
 
 ## NOTES (not shippable UI strings)
 
@@ -93,3 +95,8 @@
 # D55: share sheet is a destination field on the ONE recipe — field labels OPEN.
 # D56: videos copied, counted, not shown; ✓ covers them — no table chip invented.
 # D59 / D60: verbatim lines sealed above from v5 D10 / D11 (re-seal resolution 3).
+# A5: banner "Adapt → N  ⏎ · Esc"; receipt "Adapted → N · ⌘Z"; provenance "← 8288".
+#     Word "Adapt" verbatim in banner; remainder compressed. Sync/copy settings banned.
+#     D19 count invariant + clickable receipt untouched.
+# Lint note: CopyContract.swift static literals must still appear above; scene/excluded
+#     Adapt variants and STAGED headers remain for D19 / ring chrome until a later ruling.
