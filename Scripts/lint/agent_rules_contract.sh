@@ -39,11 +39,47 @@ check_crop_d63() {
   fi
 }
 
+# --- Legacy cull grammar must not be taught as current (D10 / D40 / D59) ---
+# CQ.5 extends the agent-rules check to any doc that claims a key table.
+# The D40-quarantined shell used S keep / X fold / M maybe / A auto-treatment;
+# Contract v6 decision keys are P X ⏎ ⇧⏎ A. A doc outside design/archive/ that
+# still teaches the old table is the same FAIL class as copy drift.
+check_cull_grammar() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  case "$f" in design/archive/*) return 0 ;; esac
+
+  if grep -Eq '^\| *`?S`? *\|.*([Kk]eep|[Ee]merging set)' "$f"; then
+    report "$f: key table maps S → keep (D10/D59 decision keys are P X ⏎ ⇧⏎ A)"
+  fi
+  if grep -Eq '^\| *`?M`? *\|.*([Mm]aybe|[Hh]old|audit pile)' "$f"; then
+    report "$f: key table maps M → maybe/audit pile (quarantined S/X/M grammar, D40)"
+  fi
+  if grep -Eq '^\| *`?X`? *\|.*[Ff]old' "$f"; then
+    report "$f: key table maps X → fold (X rejects; D59)"
+  fi
+  if grep -Eqi 'Preview Auto treatment' "$f"; then
+    report "$f: teaches 'Auto' treatment (Develop is the sanctioned word; Auto is banned)"
+  fi
+}
+
 RULE_FILES=(
   .cursorrules
   AGENTS.md
   CLAUDE.md
+  README.md
+  CONTRIBUTING.md
+  HARNESS.md
   .cursor/rules
+)
+
+GRAMMAR_FILES=(
+  .cursorrules
+  AGENTS.md
+  CLAUDE.md
+  README.md
+  CONTRIBUTING.md
+  HARNESS.md
 )
 
 shopt -s nullglob
@@ -63,7 +99,16 @@ while IFS= read -r -d '' f; do
   check_crop_d63 "$f"
 done < <(find . -maxdepth 3 -name 'CLAUDE.md' -print0 2>/dev/null)
 
+# Grammar / key-table drift across agent-rule files and product docs (CQ.5).
+for f in "${GRAMMAR_FILES[@]}"; do
+  check_cull_grammar "$f"
+done
+while IFS= read -r -d '' f; do
+  check_cull_grammar "$f"
+  check_crop_d63 "$f"
+done < <(find docs -name '*.md' -print0 2>/dev/null)
+
 if [[ "$fail" -ne 0 ]]; then
   exit 1
 fi
-echo "agent_rules_contract.sh: OK (D63 crop keys; A/X remap banned)"
+echo "agent_rules_contract.sh: OK (D63 crop keys; A/X remap banned; no legacy cull grammar)"
