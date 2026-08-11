@@ -1,3 +1,6 @@
+// SALVAGE(D40) — salvaged service, retained for a named capability only.
+// Contract: design/contract-v6.md D40 (salvage: EmbeddingService grouping, ExifToolService).
+// Allowed callers and denied entry points: Scripts/lint/quarantine_d40.sh.
 import Foundation
 import ImageIO
 import CoreGraphics

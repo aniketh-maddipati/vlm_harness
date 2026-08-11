@@ -1,3 +1,7 @@
+// QUARANTINED(D40) — legacy quarantine, retired checkpoint-by-checkpoint.
+// Contract: design/contract-v6.md D40 · schedule: design/checkpoint-sequence-v6.md
+// No new references from outside Legacy/. Enforced by Scripts/lint/quarantine_d40.sh.
+// Do not extend, restyle, or re-enter these types under new names.
 import SwiftUI
 
 /// Shared workbench shelf — one per table, not one per photograph.
