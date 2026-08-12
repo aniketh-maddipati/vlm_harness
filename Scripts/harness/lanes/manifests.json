@@ -27,7 +27,7 @@
     },
     "full": {
       "platform": "macos-apple-silicon",
-      "budgetMs": 600000,
+      "budgetMs": 480000,
       "tests": [
         { "id": "worktree_snapshot", "kind": "orchestration" },
         { "id": "ledger_orchestration_write", "kind": "orchestration" },
