@@ -1,3 +1,4 @@
+#if DEBUG
 import AppKit
 import SwiftUI
 
@@ -415,3 +416,4 @@ struct DevelopLabView: View {
         }
     }
 }
+#endif

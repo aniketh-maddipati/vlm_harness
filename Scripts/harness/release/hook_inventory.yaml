@@ -1,0 +1,80 @@
+# F11.1 — DEBUG-only harness hooks (source + Release symbol absence).
+# P0AccessibilityID is allowlisted: ships in all configs (accessibility surface).
+schemaVersion: 1
+
+allowlist_release_symbols:
+  - P0AccessibilityID
+  - ProbeSnapshot
+
+hooks:
+  - id: probe_v2_server
+    label: Probe v2 server (StateProbeV2)
+    source_globs:
+      - Lumina/Testing/ProbeV2/StateProbeV2.swift
+    forbidden_symbols:
+      - StateProbeV2Server
+      - ProbeV2Launch
+      - ProbeV2State
+
+  - id: harness_fake_clock
+    label: HarnessFakeClock
+    source_globs:
+      - Lumina/Testing/ProbeV2/HarnessFakeClock.swift
+    forbidden_symbols:
+      - HarnessFakeClock
+
+  - id: acceptance_signposts
+    label: Acceptance signposts (DEBUG probe)
+    source_globs:
+      - Lumina/Testing/ProbeV2/AcceptanceSignposts.swift
+    forbidden_symbols:
+      - AcceptanceSignposts
+
+  - id: fixture_synthesis
+    label: UI-test fixture synthesis
+    source_globs:
+      - Lumina/Testing/UITestFixtures.swift
+      - Lumina/Testing/MotionProbe/MotionProbeFixtures.swift
+    forbidden_symbols:
+      - UITestFixtures
+      - MotionProbeFixtures
+
+  - id: ui_testing_launch
+    label: "--ui-testing / UITestLaunch handling"
+    source_globs:
+      - Lumina/Testing/UITestLaunch.swift
+    forbidden_symbols:
+      - UITestLaunch
+
+  - id: motion_probe
+    label: F07 motion probe (--motion-probe)
+    source_globs:
+      - Lumina/Testing/MotionProbe/*.swift
+    forbidden_symbols:
+      - MotionProbeLauncher
+      - MotionProbeView
+      - MotionProbeSession
+      - MotionProbeExport
+
+  - id: input_script_driver
+    label: F02 input script driver (motion probe / probe v2)
+    source_globs:
+      - Lumina/Testing/MotionProbe/InputScriptDriver.swift
+    forbidden_symbols:
+      - InputScriptDriver
+
+  - id: s19_playground
+    label: S19 Develop Lab playground (--develop-lab)
+    source_globs:
+      - Lumina/Develop/Lab/DevelopLabLauncher.swift
+      - Lumina/Develop/Lab/DevelopLabView.swift
+    forbidden_symbols:
+      - DevelopLabLauncher
+      - DevelopLabView
+
+  - id: f07_display_link_tap
+    label: F07 display-link tap (motion probe frame driver)
+    source_globs:
+      - Lumina/Testing/MotionProbe/MotionProbeDisplayLink.swift
+    forbidden_symbols:
+      - MotionProbeDisplayLink

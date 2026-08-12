@@ -37,5 +37,7 @@ artifacts/harness/ledgers/*
 !artifacts/harness/ledgers/orchestration-only.json
 artifacts/harness/runs/
 artifacts/harness/build-cache/
+Lumina/Resources/LuminaBuildManifest.json
+artifacts/release/shipped/
 Scripts/harness/**/__pycache__/
 **/__pycache__/
