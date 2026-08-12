@@ -21,7 +21,8 @@
         { "id": "unit_invariants", "kind": "orchestration" },
         { "id": "unit_lane_guards", "kind": "orchestration" },
         { "id": "seed_script_schema", "kind": "orchestration" },
-        { "id": "grammar_oracle_unit", "kind": "orchestration", "notes": "Python simulator schema/oracle only — not app-coupled" }
+        { "id": "grammar_oracle_unit", "kind": "orchestration", "notes": "Python simulator schema/oracle only — not app-coupled" },
+        { "id": "allowlist_ratchet", "kind": "orchestration" }
       ]
     },
     "full": {
