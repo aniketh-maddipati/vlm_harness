@@ -4,6 +4,19 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — S15 split STOP: F04 fast-lane hardening (0/4 commits)
+
+**Branch:** `feature/f04-fast-lane-hardening` (**DRAFT PR**)  
+**Claim:** Cherry-pick F04 commits `b4fb0a7`, `7b02485`, `2f0422d`, `1320688` off merge-base `2fca1c1`.
+
+**STOP at `b4fb0a7`** — commit spans **F01+F04** (touches `Scripts/harness/lanes/manifests.json`, `Scripts/harness/run.py`). Conflicts not resolved per S15 rule.
+
+**Merge gate (DRAFT until):** FULL green on quiescent macOS + A3 unexecuted-change list empty. Unit `ProbePollingTests` nil-return alone is insufficient evidence for dead-app fail-fast.
+
+**Instrument reading:** not run (no F04 delta). See `checkpoint/f0-prompt-factory` for full split ledger.
+
+---
+
 ## 2026-08-11 — Tree compiles (mechanical fix session)
 
 **Branch:** `fix/legacy-callsite-argument-order` · worktree `../lumina-wt/fix-callsites`  
