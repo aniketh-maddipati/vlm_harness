@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generated_at": "2026-08-12T01:05:47.796600+00:00",
+  "generated_at": "2026-08-12T14:58:20.568264+00:00",
   "summary": {
     "total": 82,
-    "covered": 44,
+    "covered": 29,
     "shelved": 7,
-    "not_covered": 31
+    "not_covered": 46
   },
   "not_covered": [
     "D1",
@@ -24,21 +24,36 @@
     "D21",
     "D22",
     "D25",
+    "D27",
     "D28",
     "D30",
     "D31",
     "D33",
     "D34",
+    "D36",
     "D40",
+    "D41",
+    "D42",
     "D45",
     "D49",
     "D51",
     "D52",
+    "D54",
     "D55",
     "D56",
+    "D57",
     "D58",
+    "D61",
     "D62",
-    "D66"
+    "D66",
+    "R-5.1",
+    "R-5.2",
+    "R-5.3",
+    "R-A.2",
+    "R-M.1",
+    "R-M.3",
+    "R-M.5",
+    "R-Q.1"
   ],
   "shelved": [
     "D29",
@@ -163,11 +178,9 @@
         "v5"
       ],
       "lint": [
-        "held_is_temporary"
+        "grammar_oracle_unit"
       ],
-      "logic": [
-        "CullGrammarTests.testHoldKeysTrackMomentaryState"
-      ],
+      "logic": [],
       "flow": [],
       "golden": [],
       "battery": [],
@@ -182,13 +195,10 @@
         "v5"
       ],
       "lint": [
-        "held_is_temporary",
         "grammar_oracle_unit",
-        "grammar_oracle_parity"
+        "seed_script_schema"
       ],
-      "logic": [
-        "CullGrammarTests.testHoldKeysTrackMomentaryState"
-      ],
+      "logic": [],
       "flow": [],
       "golden": [],
       "battery": [],
@@ -203,12 +213,10 @@
         "v5"
       ],
       "lint": [
-        "same_mark_clears",
         "grammar_oracle_unit",
-        "grammar_oracle_parity"
+        "seed_script_schema"
       ],
       "logic": [
-        "CullGrammarTests.testD10_decisionKeysToggleWithoutAutorepeatSemantics",
         "P0LogicTests.testCullToggleGrammar"
       ],
       "flow": [
@@ -227,14 +235,10 @@
         "v5"
       ],
       "lint": [
-        "shift_return_return_release",
-        "esc_exact_restore",
         "grammar_oracle_unit",
-        "grammar_oracle_parity"
+        "seed_script_schema"
       ],
       "logic": [
-        "CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn",
-        "CullGrammarTests.testD11D13_shiftReturnKeyDownWithoutReleaseDoesNotCommit",
         "CommandChordTests.testHeldReturnCannotDoubleCommit"
       ],
       "flow": [],
@@ -266,12 +270,10 @@
         "v5"
       ],
       "lint": [
-        "shift_return_return_release",
         "grammar_oracle_unit",
-        "grammar_oracle_parity"
+        "seed_script_schema"
       ],
       "logic": [
-        "CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn",
         "CommandChordTests.testHeldReturnCannotDoubleCommit"
       ],
       "flow": [],
@@ -458,13 +460,10 @@
         "v6"
       ],
       "lint": [
-        "value_echo_adjustment_only",
         "grammar_oracle_unit",
-        "grammar_oracle_parity"
+        "seed_script_schema"
       ],
-      "logic": [
-        "CullGrammarTests.testMoveFocusAndArming"
-      ],
+      "logic": [],
       "flow": [],
       "golden": [],
       "battery": [],
@@ -494,13 +493,10 @@
         "v5"
       ],
       "lint": [
-        "esc_exact_restore",
         "grammar_oracle_unit",
-        "grammar_oracle_parity"
+        "seed_script_schema"
       ],
-      "logic": [
-        "CullGrammarTests.testEscRestoresPreStageMarks"
-      ],
+      "logic": [],
       "flow": [],
       "golden": [],
       "battery": [],
@@ -518,12 +514,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-birth-opacity"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "D28",
@@ -662,12 +656,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-rejects-trash-offer"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "D37",
@@ -713,12 +705,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-fidelity-rungs"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "D42",
@@ -730,12 +720,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-hold-j-clipping"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "D43",
@@ -749,9 +737,7 @@
       ],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-fidelity-rungs"
-      ],
+      "golden": [],
       "battery": [],
       "not_covered": "",
       "status": "COVERED"
@@ -815,9 +801,7 @@
         "probe_mirror",
         "leaf_only_ids"
       ],
-      "logic": [
-        "CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically"
-      ],
+      "logic": [],
       "flow": [],
       "golden": [],
       "battery": [],
@@ -833,16 +817,13 @@
       ],
       "lint": [
         "banned_patterns",
-        "value_echo_adjustment_only",
         "leaf_only_ids",
         "grammar_oracle_unit",
-        "grammar_oracle_parity"
+        "seed_script_schema"
       ],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-hover-absent"
-      ],
+      "golden": [],
       "battery": [],
       "not_covered": "",
       "status": "COVERED"
@@ -934,12 +915,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-sample-retire"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "D55",
@@ -981,12 +960,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-adapted-proxy-linear"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "D58",
@@ -1013,18 +990,14 @@
       "lint": [
         "copy_contract_diff",
         "contract_v6_presence",
-        "same_mark_clears",
         "grammar_oracle_unit",
-        "grammar_oracle_parity"
+        "seed_script_schema"
       ],
       "logic": [
-        "CullGrammarTests.testD59_sameMarkClearsInPlace",
         "P0LogicTests.testCullToggleGrammar"
       ],
       "flow": [],
-      "golden": [
-        "golden-cull-marks"
-      ],
+      "golden": [],
       "battery": [],
       "not_covered": "",
       "status": "COVERED"
@@ -1039,12 +1012,10 @@
       "lint": [
         "copy_contract_diff",
         "contract_v6_presence",
-        "shift_return_return_release",
         "grammar_oracle_unit",
-        "grammar_oracle_parity"
+        "seed_script_schema"
       ],
       "logic": [
-        "CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn",
         "CommandChordTests.testHeldReturnCannotDoubleCommit"
       ],
       "flow": [],
@@ -1063,12 +1034,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-export-three-state"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "D62",
@@ -1101,9 +1070,7 @@
         "CropTests.testLayoutHashChangesOnEditAndReverts"
       ],
       "flow": [],
-      "golden": [
-        "golden-crop-latch"
-      ],
+      "golden": [],
       "battery": [],
       "not_covered": "",
       "status": "COVERED"
@@ -1165,12 +1132,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-fidelity-rungs"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "R-5.2",
@@ -1182,12 +1147,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-hold-j-clipping"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "R-5.3",
@@ -1196,17 +1159,13 @@
       "sources": [
         "v6"
       ],
-      "lint": [
-        "unit_trace"
-      ],
+      "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-fidelity-rungs"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "R-8.1",
@@ -1265,14 +1224,12 @@
         "v6"
       ],
       "lint": [],
-      "logic": [
-        "CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically"
-      ],
+      "logic": [],
       "flow": [],
       "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "R-I.1",
@@ -1333,12 +1290,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-rejects-trash-offer"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "R-M.2",
@@ -1367,12 +1322,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-sample-retire"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "R-M.4",
@@ -1401,12 +1354,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-export-three-state"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "R-Q.1",
@@ -1418,12 +1369,10 @@
       "lint": [],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-adapted-proxy-linear"
-      ],
+      "golden": [],
       "battery": [],
-      "not_covered": "",
-      "status": "COVERED"
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "R-X.1",
@@ -1434,14 +1383,13 @@
       ],
       "lint": [
         "banned_patterns",
-        "value_echo_adjustment_only",
-        "leaf_only_ids"
+        "leaf_only_ids",
+        "grammar_oracle_unit",
+        "seed_script_schema"
       ],
       "logic": [],
       "flow": [],
-      "golden": [
-        "golden-hover-absent"
-      ],
+      "golden": [],
       "battery": [],
       "not_covered": "",
       "status": "COVERED"
