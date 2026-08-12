@@ -28,6 +28,7 @@
         { "id": "constitution_coverage", "kind": "orchestration", "notes": "F03.5 — matrix freshness vs registry; maintainer regen: generate_constitution_coverage.py --write" },
         { "id": "registry_staleness", "kind": "orchestration", "notes": "F03 — two-direction registry completeness (S14 A2/#7)" },
         { "id": "no_sleeps", "kind": "orchestration", "notes": "F04.3 — ban sleeps in LuminaUITests + harness (one allowlist: run.py watch poll)" },
+        { "id": "flake_policy", "kind": "orchestration", "notes": "F04.6 — TestPlans must not encode repetition, retry-on-failure, or quarantine tags" },
         { "id": "allowlist_ratchet", "kind": "orchestration" }
       ]
     },

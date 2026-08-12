@@ -103,6 +103,8 @@ Each lane declares an expected test inventory (`lanes/manifests.json`). After ex
 | **FULL** | <10min | pre-merge | macOS AS: live grammar/probe/signpost/⌘Z/invariants/chrome/parallel (+ worktree snapshot). Linux: PLATFORM-UNAVAILABLE |
 | **HEAVY** | nightly + release | scheduled | macOS AS: ingest / kill-fuzz / eject / RAM / LR / live grammar-stability. Linux: PLATFORM-UNAVAILABLE |
 
+**Flake policy:** a flaking pre-merge test is fixed same-day or demoted to nightly by a manifest diff — those are the only two moves. FAST **`flake_policy`** reads `TestPlans/*.xctestplan` and fails on test repetition, retry-on-failure, or quarantine tags (none permitted).
+
 Dashboard (optional): `python3 Scripts/harness/dashboard/server.py` → `http://127.0.0.1:8765/`
 
 ---
