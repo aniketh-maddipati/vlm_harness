@@ -2,9 +2,44 @@
 
 **Authority:** `design/contract-v6.md` → `design/tokens.yaml` → `design/copy-contract.txt` → code → tests.  
 **Checkpoint:** CP0 — harness upgrade (testing never blocks building).  
-**Runner:** `python3 Scripts/harness/run.py {fast|full|heavy|watch|all}`
+**Primary entry:** `bash Scripts/regression.sh {pre-commit|pre-merge|nightly}` — default `pre-commit`. Dispatches to `python3 Scripts/harness/run.py {fast|full|heavy}` and propagates exit codes verbatim.  
+**Direct runner:** `python3 Scripts/harness/run.py {fast|full|heavy|watch|all}` — for harness development and `watch`.
 
 A red FULL lane blocks **MERGE**, never **EDITING**. FULL/HEAVY run against a disposable git worktree snapshot when the platform is available.
+
+---
+
+## Lane aliases (`regression.sh` ↔ `run.py`)
+
+Human-facing save/merge/nightly names map to manifest lane ids without renaming either side:
+
+| `regression.sh` | `run.py` | Manifest lane |
+|-----------------|----------|---------------|
+| `pre-commit` (default) | `fast` | `fast` |
+| `pre-merge` | `full` | `full` |
+| `nightly` | `heavy` | `heavy` |
+
+No argument to `regression.sh` ≡ `pre-commit`. Exit codes: `0` PASS · `1` FAIL/INCOMPLETE · `2` PLATFORM-UNAVAILABLE.
+
+---
+
+## Budget ceiling (enforced)
+
+Each lane declares `budgetMs` in `Scripts/harness/lanes/manifests.json`. **Total lane elapsed time above the ceiling is a lane FAIL** — not a warning. On breach the runner prints the slowest manifest test ids by measured ms (descending), then the sentence **delete or demote** (never hardware, parallelism, or a raised ceiling). Ceilings: FAST **90000** ms (<90s) · FULL **600000** ms (<10min) · HEAVY **3600000** ms (nightly budget).
+
+**Pre-merge build cache (F04.1):** `Scripts/harness/build_cache.py` stores `xcodebuild build-for-testing` products under `artifacts/harness/build-cache/<source-hash12>-<tokens-hash12>/`. `bash Scripts/regression.sh pre-merge` reuses when source + `design/tokens.yaml` are unchanged.
+
+---
+
+## Allowlist ratchet
+
+FAST manifest id `allowlist_ratchet` fails pre-commit if `artifacts/harness/banned_patterns_allowlist.txt` or `artifacts/harness/magic_number_allowlist.txt` carries **more** debt lines (non-blank, non-`#`) than the same file on `origin/main`. Allowlists may shrink; they must not grow without a deliberate baseline change on main.
+
+---
+
+## Shell lint host (bash)
+
+Orchestration shell lints live under `Scripts/harness/lint/*.sh` and are reachable **only** through FAST manifest ids. They must execute on **macOS system bash 3.2+** (Gatekeeper Mac default). They must not use bash 4-only builtins (e.g. `mapfile`). A lint that cannot run on the gating Mac must never contribute a PASS.
 
 ---
 
@@ -66,9 +101,11 @@ Each lane declares an expected test inventory (`lanes/manifests.json`). After ex
 
 | Lane | Budget | When | Contents |
 |------|--------|------|----------|
-| **FAST** | <90s | save/commit / `watch` | orchestration only: token/copy/banned/magic lints, contract lints, unit tests, seed **schema** + grammar **oracle** (STUB) |
+| **FAST** | <90s | save/commit / `watch` | orchestration only: token/copy/banned/magic lints, contract lints, unit tests, seed **schema** + grammar **oracle** + **oracle↔Swift parity** (orchestration — never app PASS) |
 | **FULL** | <10min | pre-merge | macOS AS: live grammar/probe/signpost/⌘Z/invariants/chrome/parallel (+ worktree snapshot). Linux: PLATFORM-UNAVAILABLE |
 | **HEAVY** | nightly + release | scheduled | macOS AS: ingest / kill-fuzz / eject / RAM / LR / live grammar-stability. Linux: PLATFORM-UNAVAILABLE |
+
+**Flake policy:** a flaking pre-merge test is fixed same-day or demoted to nightly by a manifest diff — those are the only two moves. FAST **`flake_policy`** reads `TestPlans/*.xctestplan` and fails on test repetition, retry-on-failure, or quarantine tags (none permitted).
 
 Dashboard (optional): `python3 Scripts/harness/dashboard/server.py` → `http://127.0.0.1:8765/`
 
@@ -96,10 +133,10 @@ A new feature ships as **data**, not runner changes:
 4. **Optional signpost names** — `trace/acceptance_numbers.json` + Swift `AcceptanceSignposts`.
 5. **Manifest ID** — add the test id to `lanes/manifests.json` (orchestration vs app-coupled).
 
-### Worked example — P/X advance
+### Worked example — same-mark clears (v2)
 
-File: `Scripts/harness/scripts/seed/px_advance.json` — see seed file.  
-FAST runs it through the **STUB** Python oracle (orchestration).  
+File: `Scripts/harness/scripts/seed/same_mark_clears.json` — schema v2 (`tMs` on every event, no `wait` sleeps).  
+FAST runs it through the Python oracle **and** `grammar_oracle_parity` (oracle vs `CullGrammarMachine` mirror).  
 FULL on macOS AS runs it through the **live** Swift driver (`run_live_scripts.py`, owned-by-CP4).
 
 ---
@@ -122,19 +159,25 @@ python3 Scripts/harness/codegen/tokens_codegen.py --check
 
 ---
 
-## Seed scripts (5)
+## Seed scripts (5) — schema v2
+
+All seeds use **schemaVersion 2**: monotonic `tMs` on every event (no wall-clock sleeps; `wait`/`waitProbe` omitted in F02.4 replays). Each script ends with **`grammarExact`** — full grammar snapshot assertion.
 
 | id | Law |
 |----|-----|
-| `px_advance` | D10 / D59 |
+| `held_is_temporary` | D9 / L2 (hold grammar) |
 | `same_mark_clears` | D59 |
 | `shift_return_return_release` | D60 / D13 |
-| `esc_exact_restore` | L5 / D11 |
-| `arming_consent` | D24 / D48 |
+| `esc_exact_restore` | D11 / D26 |
+| `value_echo_adjustment_only` | D24 / D48 |
+
+FAST **`grammar_oracle_parity`** replays all five through `ProbeSimulator` and the Swift-machine mirror (`grammar_machine.py`); divergence prints both readings and FAILs the lane (orchestration only — never an app-coupled PASS).
 
 ---
 
 ## GAP LIST intake
+
+**Intake source:** `artifacts/harness/coverage/constitution-coverage.md` (and `.json`) — generated by `Scripts/harness/coverage/generate_constitution_coverage.py` from contract D/R headings, `artifact_registry.yaml`, and `shelved_register.yaml`. Every row lists **named artifacts only** (lint id, test name, golden id, script id); `NOT-COVERED` is printed explicitly; shelved register rows read `SHELVED` so an un-shelf shows as a coverage change. Battery column stays empty (F10 gated). Regenerate after registry or contract edits: `python3 Scripts/harness/coverage/generate_constitution_coverage.py --write` then commit; FAST **`constitution_coverage`** runs `--check` on pre-commit.
 
 | Gap | Status | Owner |
 |-----|--------|-------|

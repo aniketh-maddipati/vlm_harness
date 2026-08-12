@@ -1,26 +1,31 @@
 #!/bin/bash
-# Lumina regression runner — lint (anywhere) + build/test/E2E (macOS only)
+# Lumina regression runner — harness lane dispatch + build/test/E2E (macOS only)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-RAW="${1:-/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS}"
-JPG="${2:-/Users/aniketh/jeevana_mehendi_2026}"
+LANE="${1:-pre-commit}"
+RAW="${2:-/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS}"
+JPG="${3:-/Users/aniketh/jeevana_mehendi_2026}"
+
+case "$LANE" in
+  pre-commit) RUNPY_LANE="fast" ;;
+  pre-merge)  RUNPY_LANE="full" ;;
+  nightly)    RUNPY_LANE="heavy" ;;
+  *)
+    echo "Usage: $0 [pre-commit|pre-merge|nightly] [RAW_DIR] [JPG_DIR]" >&2
+    exit 1
+    ;;
+esac
 
 echo "=== Lumina regression ==="
 echo "Repo: $ROOT"
+echo "Lane: $LANE → run.py $RUNPY_LANE"
 echo ""
 
-echo "--- Phase 1: static lint (runs anywhere) ---"
-bash "$ROOT/Scripts/lint/banned_words.sh"
-bash "$ROOT/Scripts/lint/copy_contract_diff.sh"
-bash "$ROOT/Scripts/lint/contract_structure.sh"
-bash "$ROOT/Scripts/lint/contract_v6_presence.sh"
-bash "$ROOT/Scripts/lint/agent_rules_contract.sh"
-bash -n "$ROOT/Scripts/run_p0_ui_tests.sh"
-
-echo "--- Phase 1b: CP0 harness FAST lane ---"
-python3 "$ROOT/Scripts/harness/run.py" fast
+echo "--- Phase 1: harness lane ($RUNPY_LANE) ---"
+python3 "$ROOT/Scripts/harness/run.py" "$RUNPY_LANE"
+echo ""
 
 validate_json() {
   local file="$1"
@@ -44,7 +49,7 @@ else
   grep -q '<Scheme' "$ROOT/Lumina.xcodeproj/xcshareddata/xcschemes/Lumina.xcscheme"
   echo "  shared scheme Lumina.xcscheme: present (xmllint unavailable)"
 fi
-echo "Phase 1 lint: OK"
+echo "Phase 1: OK"
 echo ""
 
 if [[ "$(uname -s)" != "Darwin" ]] || ! command -v xcodebuild >/dev/null 2>&1; then
@@ -54,15 +59,14 @@ if [[ "$(uname -s)" != "Darwin" ]] || ! command -v xcodebuild >/dev/null 2>&1; t
 fi
 
 echo "--- Phase 2: build + logic tests (macOS) ---"
-xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
-  -derivedDataPath ./DerivedData build 2>&1 | tail -5
-xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
-  -derivedDataPath ./DerivedData -destination 'platform=macOS' build-for-testing 2>&1 | tail -3
+DERIVED="$(python3 "$ROOT/Scripts/harness/build_cache.py" --derived-data-path)"
+echo "derivedDataPath: $DERIVED (key: $(python3 "$ROOT/Scripts/harness/build_cache.py" --cache-key))"
+python3 "$ROOT/Scripts/harness/build_cache.py" --ensure-build-for-testing
 echo "Build: OK"
 echo ""
 
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
-  -derivedDataPath ./DerivedData -destination 'platform=macOS' \
+  -derivedDataPath "$DERIVED" -destination 'platform=macOS' \
   -only-testing:LuminaLogicTests test-without-building 2>&1 | grep -E "Executed .* test|failed" | tail -3
 echo "Logic tests: OK"
 echo ""

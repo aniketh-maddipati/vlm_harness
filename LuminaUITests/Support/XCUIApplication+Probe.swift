@@ -23,22 +23,23 @@ extension XCUIApplication {
     /// app was in the wrong state — the enabler of the Recent-row dead-poll cascade.)
     @discardableResult
     func waitForProbe(
-        timeout: TimeInterval = 10,
+        timeout: TimeInterval = UITestWait.transition,
         where predicate: (ProbeSnapshot) -> Bool
     ) -> ProbeSnapshot? {
         let deadline = Date().addingTimeInterval(timeout)
         var nextActivation = Date()
-        while Date() < deadline {
-            if let snapshot = probe(), predicate(snapshot) { return snapshot }
-            // A backgrounded app exposes a collapsed accessibility tree (menu bar only — no
-            // window, no probe). On a desktop in interactive use the app can lose activation at
-            // any time, so re-front it while polling. Bounded: adds no wait time of its own.
-            if state != .runningForeground, Date() >= nextActivation {
-                activate()
-                nextActivation = Date().addingTimeInterval(3)
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-        }
-        return nil
+        return ProbePolling.waitUntil(
+            deadline: deadline,
+            pollInterval: 0.05,
+            snapshot: { [weak self] in
+                guard let self else { return nil }
+                if self.state != .runningForeground, Date() >= nextActivation {
+                    self.activate()
+                    nextActivation = Date().addingTimeInterval(3)
+                }
+                return self.probe()
+            },
+            where: predicate
+        )
     }
 }

@@ -4,6 +4,105 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — F04.1 / F04.7: build-for-testing cache + budget breach policy
+
+**Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F04: fast-lane hardening](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
+**Claim:** Land F04.1 stable `derivedDataPath` cache keyed by source hash + tokens hash (reuse / rebuild) and F04.7 budget breach output — slowest manifest ids, then **delete or demote** only.
+
+**Finding:** `regression.sh` rebuilt into `./DerivedData` every pre-merge; budget breach text said `budget` not `ceiling` and did not name slowest ids as manifest test ids explicitly.
+
+**Fix:** `Scripts/harness/build_cache.py` → `artifacts/harness/build-cache/<source12>-<tokens12>/` with manifest · `regression.sh` Phase 2 calls `--ensure-build-for-testing` · `run_p0_ui_tests.sh` shares the same derived path · `lanes/budget_breach.py` + runner hook · unit tests in `tests/test_build_cache.py` and `lanes/test_lane_guards.py`.
+
+**Instrument reading (Linux cloud — measured this session):**
+
+| Alias / lane | Entry | Elapsed | Status | App tests executed / expected | Orchestration |
+|--------------|-------|---------|--------|-------------------------------|---------------|
+| `pre-commit` / FAST | `run.py fast` | **4147 ms** | PASS | **0 / 0** | **25 / 25** |
+| `pre-merge` / FULL | `run.py full` | **106 ms** | PLATFORM-UNAVAILABLE | **0 / 7** | **0 / 2** |
+
+**Pre-merge wall time on macOS runner:** **not measured this session** — this cloud agent is Linux-only (no `xcodebuild`, no Apple Silicon FULL lane). Record macOS `bash Scripts/regression.sh pre-merge` wall time + app-coupled executed/expected on the next Mac run.
+
+**Follow-ups:** first macOS cache hit/miss timings · measured FULL lane when live Swift drivers land (CP4+).
+
+---
+
+## 2026-08-12 — F03.4 / F03.5 / F03.6: constitution coverage matrix + probe completeness gate
+
+**Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F03: probe completeness + constitution coverage](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
+**Claim:** Land F03.4 explicit D/R → artifact registry, F03.5 FAST `constitution_coverage` freshness gate, F03.6 GAP LIST intake wired to the coverage report.
+
+**Finding:** No honest constitution coverage matrix; GAP LIST had no machine-readable intake tying D/R rows to named lint/logic/flow/golden artifacts; probe lints (F03.1–F03.3) lacked a coverage ledger.
+
+**Fix:** `Scripts/harness/coverage/{generate_constitution_coverage.py,artifact_registry.yaml,shelved_register.yaml}` → `artifacts/harness/coverage/constitution-coverage.{md,json}` · shelved rows (`D29`, `D38`, `D46`, `D32`, `D64`, `D50`, `R-I.3`, `R-A.1`) → `SHELVED` not `NOT-COVERED` · FAST manifest id `constitution_coverage` (`--check`) · `HARNESS.md` GAP LIST intake points at the report.
+
+**Constitution coverage (honest count — low NOT-COVERED would be suspicious):**
+
+| Total | Covered | Shelved | **NOT-COVERED** |
+|------:|--------:|--------:|----------------:|
+| 82 | 44 | 7 | **31** |
+
+**NOT-COVERED (printed):** `D1`–`D7`, `D12`, `D14`, `D15`, `D17`, `D18`, `D20`–`D22`, `D25`, `D28`, `D30`, `D31`, `D33`, `D34`, `D40`, `D45`, `D49`, `D51`, `D52`, `D55`, `D56`, `D58`, `D62`, `D66`.
+
+**Instrument reading (Linux cloud — measured this session):**
+
+| Alias / lane | `run.py` | Elapsed | Status | App tests executed / expected | Orchestration |
+|--------------|----------|---------|--------|-------------------------------|---------------|
+| `pre-commit` / FAST (after F03.4–F03.6) | `fast` | **3667 ms** | PASS | **0 / 0** | **22 / 22** |
+
+**Follow-ups:** map NOT-COVERED rows as artifacts land · golden fixture bodies (CP3) · battery column when F10 un-gates · macOS `xcodebuild test` for logic column names.
+
+---
+
+## 2026-08-12 — F02.4 / F02.5: headless grammar replays + oracle parity
+
+**Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F02: headless grammar rung](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
+**Claim:** Land F02.4 (five v2 seed replays with `grammarExact`, no sleeps) and F02.5 (`grammar_oracle_parity` on pre-commit — oracle vs Swift-machine mirror; divergence FAIL with both readings printed).
+
+**Finding:** Seeds mixed partial asserts and included `px_advance` / `arming_consent` outside the F02.4 law roster; no parity gate between Python oracle and `CullGrammarMachine`.
+
+**Fix:** F02.4 five replays (`held_is_temporary`, `same_mark_clears`, `shift_return_return_release`, `esc_exact_restore`, `value_echo_adjustment_only`) · hold/adjust events + `grammarExact` asserts · F02.5 `grammar_machine.py` mirror + `run_scripts.py --parity` · manifest id `grammar_oracle_parity`.
+
+**Instrument reading (Linux cloud — measured this session):**
+
+| Alias / lane | `run.py` | Elapsed | Status | App tests executed / expected | Orchestration |
+|--------------|----------|---------|--------|-------------------------------|---------------|
+| `pre-commit` / FAST (prior F02.1 baseline) | `fast` | **3105 ms** | PASS | **0 / 0** | **17 / 17** |
+| `pre-commit` / FAST (after F02.4/F02.5) | `fast` | **3154 ms** | PASS | **0 / 0** | **18 / 18** |
+
+**Pre-commit delta this session:** +1 orchestration test (`grammar_oracle_parity`, ~166 ms measured step time) · +49 ms total lane wall time vs F02.1 baseline.
+
+**Not built:** **F02.2** (live Swift grammar driver wiring) remains gated on **CP1** per checkpoint sequence — STUB register unchanged for app-coupled grammar.
+
+**Follow-ups:** macOS `xcodebuild test` for `CullGrammarTests` · CP4 live driver · emit F0 prompt pack when `design/build-prompts/` lands.
+
+---
+
+## 2026-08-12 — F01: CP0 shell reconciliation
+
+**Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F01: CP0 shell reconciliation](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
+**Claim:** Land F01 CP0-shell rulings (F01.1–F01.7) — single entry point, lint home, enforced budget, bash-3.2 shell lints, allowlist ratchet, HARNESS lane-alias table and shell prose.
+
+**Finding:** Harness had dual lint paths (`Scripts/lint/` plus duplicate Phase 1 in `regression.sh`); `budgetMs` was advisory only; `mapfile` in shell lints broke FAST on macOS system bash 3.2 (see 2026-08-11 Tree compiles entry); debt allowlists could grow silently; HARNESS lacked `pre-commit` / `pre-merge` / `nightly` mapping to `run.py` lanes.
+
+**Fix:** F01.1 `regression.sh` lane dispatch · F01.3 lint home under `Scripts/harness/lint/` · F01.4 budget FAIL + slowest-id listing · F01.5 bash-3.2-safe shell lints · F01.6 `allowlist_ratchet` manifest id · F01.2/F01.7 HARNESS prose (this entry).
+
+**Instrument reading (Linux cloud — measured this session):**
+
+| Alias / lane | `run.py` | Elapsed | Status | App tests executed / expected | Orchestration |
+|--------------|----------|---------|--------|-------------------------------|---------------|
+| `pre-commit` / FAST | `fast` | **3292 ms** | PASS (exit 0) | **0 / 0** | **17 / 17** |
+| `pre-merge` / FULL | `full` | **130 ms** | PLATFORM-UNAVAILABLE (exit 2) | **0 / 7** | **0 / 2** |
+| `nightly` / HEAVY | `heavy` | **118 ms** | PLATFORM-UNAVAILABLE (exit 2) | **0 / 6** | **0 / 2** |
+
+**CONFLICT status (prompt-factory headings):**
+- **CONFLICT 1 (CP0 shell fragmentation): partially closed** — single entry point (`regression.sh` → `run.py`), lint home via manifest ids only, enforced `budgetMs` ceiling, allowlist ratchet, bash-3.2 shell lints, HARNESS lane-alias table. Remaining shell work rolls to macOS measured FULL/HEAVY (CONFLICT 2).
+- **CONFLICT 2 (app-coupled live suite): open** — FULL/HEAVY report PLATFORM-UNAVAILABLE on this host; 0 app-coupled tests executed; live Swift drivers remain STUB-owned (CP4 / CP7 / SPIKE A / HEAVY per STUB register).
+- **CONFLICT 4 (prompt factory): open** — `design/build-prompts/` (`INDEX.md` + F01–F13) not yet in tree; F0 factory emit blocked on missing artifacts.
+
+**Follow-ups:** macOS AS measured FULL/HEAVY run · emit F0 prompt pack · wire live app-coupled drivers per STUB register.
+
+---
+
 ## 2026-08-11 — Tree compiles (mechanical fix session)
 
 **Branch:** `fix/legacy-callsite-argument-order` · worktree `../lumina-wt/fix-callsites`  
@@ -89,7 +188,7 @@ Resolution executed: worktree/branch from sealed v6; PR #30 stacked on #29. (Unr
 - Scanned `.cursorrules`, `AGENTS.md` (no CLAUDE.md).  
 - **FAIL found:** `.cursorrules` taught crop latch **A→aspect / X→orientation** re-scoping — contradicts **D63** (R/O; A and X banned from remapping).  
 - **Fix:** rewrite crop section to D63; authority line now defers to contract; multi-select re-shelved to match D29/D38; Hold-J named; pointer marks listed.  
-- **Gate:** `Scripts/lint/agent_rules_contract.sh` added; wired into `contract_v6_presence.sh` + `Scripts/regression.sh` Phase 1.
+- **Gate:** `Scripts/harness/lint/agent_rules_contract.sh` added; wired into `contract_v6_presence.sh` + FAST lane manifest.
 
 **Phase 4 diff-scope (`78ea577..21da1d5`):**  
 Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `design/contract-v6.md`, `design/copy-contract.txt`, `design/fixture-manifest.md`, `design/mvp-test-plan.md`, `design/tokens.yaml`. Seal’s own files absent from the batch diff — **PASS**.
@@ -155,7 +254,7 @@ Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `desig
 2. Prompt Pack Layer-2 sequence body + D40 retirement plan absent — Task 5 reorder = none.
 3. Same-mark-clears + Return-release gate verbatim copy lines not pasted — frozen as OPEN, not invented.
 
-**Artifacts:** `design/contract-v6.md`, `design/tokens.yaml`, `design/copy-contract.txt` (v6 tags/change-marks), `design/fixture-manifest.md`, `design/checkpoint-sequence-v6.md`, harness `Scripts/lint/contract_v6_presence.sh`.
+**Artifacts:** `design/contract-v6.md`, `design/tokens.yaml`, `design/copy-contract.txt` (v6 tags/change-marks), `design/fixture-manifest.md`, `design/checkpoint-sequence-v6.md`, harness `Scripts/harness/lint/contract_v6_presence.sh`.
 
 **Follow-ups:** Check in v5 + Layer-2; re-seal v6; supply verbatim D59/D60 copy; codegen Swift from tokens.yaml; remove superseded hover string from `CopyContract`; taste-proof gate for D46.
 

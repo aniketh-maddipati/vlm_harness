@@ -5,7 +5,7 @@
   "type": "object",
   "required": ["schemaVersion", "id", "title", "fixture", "events", "asserts"],
   "properties": {
-    "schemaVersion": { "type": "integer", "const": 1 },
+    "schemaVersion": { "type": "integer", "const": 2 },
     "id": { "type": "string", "minLength": 1 },
     "title": { "type": "string", "minLength": 1 },
     "cite": {
@@ -20,7 +20,7 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["op"],
+        "required": ["op", "tMs"],
         "properties": {
           "op": {
             "type": "string",
@@ -32,11 +32,16 @@
               "waitProbe",
               "focusIndex",
               "armControl",
+              "holdBegin",
+              "holdEnd",
+              "adjustBegin",
+              "adjustEnd",
               "pointerDown",
               "pointerUp",
               "pointerTap"
             ]
           },
+          "tMs": { "type": "integer", "minimum": 0 },
           "key": { "type": "string" },
           "modifiers": {
             "type": "array",
@@ -73,7 +78,10 @@
               "countInvariant",
               "undoEntries",
               "chipAbsenceIffFullRung",
-              "armedConsent"
+              "armedConsent",
+              "grammarExact",
+              "valueEchoPresent",
+              "activeHolds"
             ]
           },
           "path": { "type": "string" },
@@ -84,7 +92,12 @@
           "armed": { "type": "boolean" },
           "snapshot": { "type": "string" },
           "entries": { "type": "integer", "minimum": 0 },
-          "control": { "type": "string" }
+          "control": { "type": "string" },
+          "present": { "type": "boolean" },
+          "keys": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
         },
         "additionalProperties": false
       }

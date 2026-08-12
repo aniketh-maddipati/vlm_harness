@@ -18,6 +18,7 @@ class LuminaUITestCase: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        UITestWait.validateBudgetsOnLoad()
         continueAfterFailure = false
     }
 
@@ -85,10 +86,13 @@ class LuminaUITestCase: XCTestCase {
             """
             state probe never appeared after 2 launch attempts of \(Int(perAttemptTimeout))s each — \
             the app's window/accessibility tree did not mount (is the desktop session busy?).
+            probe route: \(last.probe()?.route ?? "<no probe>")
             app state: \(last.state.rawValue) (4 = runningForeground)
             state root: \(config.stateDirectory.path)
             seeded shoots: \(OpenShootRobot.seededShoots(in: config.stateDirectory))
             launch args: \(config.launchArguments.joined(separator: " "))
+            accessibility excerpt:
+            \(String(last.debugDescription.prefix(1_500)))
             """
         )
         return last

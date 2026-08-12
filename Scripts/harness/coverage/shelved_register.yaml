@@ -1,0 +1,20 @@
+# Shelved-register rows from design/contract-v6.md — SHELVED, not NOT-COVERED.
+# Un-shelf shows as a coverage change when artifacts land.
+schemaVersion: 1
+entries:
+  D29:
+    note: Multi-select + two-up shelved (D29 / D38)
+  D38:
+    note: MVP knife / shelved features register (Tier 1, multi-select, hold-keycap aim)
+  D46:
+    note: Tier 1 + Develop critical path banked on taste-model proof (D46 / A10)
+  D32:
+    note: Tier 1 + A-ladder banked under Develop gate (R-A.1 / A10)
+  D64:
+    note: Swim-lane plates shelved with evidence clause (A6)
+  D50:
+    note: MAS distribution deferred socket (R-I.1)
+  R-I.3:
+    note: Licensing machinery post-test, pre-launch (A8)
+  R-A.1:
+    note: Tier 1 / Develop path banked until taste proof (paired with D46 gate)

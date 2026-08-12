@@ -11,7 +11,7 @@ struct ContactSheetRobot {
     // MARK: - Presence
 
     @discardableResult
-    func assertVisible(timeout: TimeInterval = 30) -> ContactSheetRobot {
+    func assertVisible(timeout: TimeInterval = UITestWait.autoOpenNavigation) -> ContactSheetRobot {
         // Anchor on the structured probe: on the contact sheet with assets present.
         let snapshot = app.waitForProbe(timeout: timeout) { $0.route == "contactSheet" && $0.assetCount > 0 }
         XCTAssertEqual(snapshot?.route, "contactSheet", "Contact sheet never reported route=contactSheet")
@@ -60,9 +60,9 @@ struct ContactSheetRobot {
     @discardableResult
     func establishKeyboardFocus() -> ContactSheetRobot {
         let collection = element(P0AXID.contactCollection)
-        guard collection.waitForExistence(timeout: 5), collection.isHittable else { return self }
+        guard collection.waitForExistence(timeout: UITestWait.elementExistence), collection.isHittable else { return self }
         collection.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).click()
-        _ = app.waitForProbe(timeout: 3) { $0.focusedAssetID != nil }
+        _ = app.waitForProbe(timeout: UITestWait.transition) { $0.focusedAssetID != nil }
         return self
     }
 
@@ -73,7 +73,7 @@ struct ContactSheetRobot {
     /// the retry makes focusing deterministic without arbitrary sleeps.
     @discardableResult
     func focus(assetID: String) -> ContactSheetRobot {
-        guard cell(assetID).waitForExistence(timeout: 10) else {
+        guard cell(assetID).waitForExistence(timeout: UITestWait.transition) else {
             XCTFail("cell \(assetID) not found")
             return self
         }
@@ -84,7 +84,7 @@ struct ContactSheetRobot {
             let element = cell(assetID) // re-resolve each attempt (elements can go stale on reflow)
             guard element.exists else { continue }
             element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
-            if app.waitForProbe(timeout: 3, where: { $0.focusedAssetID == assetID }) != nil {
+            if app.waitForProbe(timeout: UITestWait.transition, where: { $0.focusedAssetID == assetID }) != nil {
                 return self
             }
             _ = attempt // keep looping; next iteration re-resolves and re-clicks
@@ -125,7 +125,7 @@ struct ContactSheetRobot {
             if expectIncrease && before >= 12 { return self }
             if !expectIncrease && before <= 2 { return self }
             element(identifier).click()
-            let matched = app.waitForProbe(timeout: 2) {
+            let matched = app.waitForProbe(timeout: UITestWait.transition) {
                 expectIncrease ? $0.densityColumns > before : $0.densityColumns < before
             }
             if matched != nil { return self }
