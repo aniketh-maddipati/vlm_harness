@@ -22,6 +22,9 @@
         { "id": "unit_lane_guards", "kind": "orchestration" },
         { "id": "seed_script_schema", "kind": "orchestration" },
         { "id": "grammar_oracle_unit", "kind": "orchestration", "notes": "Python simulator schema/oracle only — not app-coupled" },
+        { "id": "probe_growth", "kind": "orchestration", "notes": "P0 surface/route diff requires probe type diff (F03.1)" },
+        { "id": "probe_mirror", "kind": "orchestration", "notes": "ProbeSnapshot four-site field mirror (F03.2 / postmortem §7.2)" },
+        { "id": "leaf_only_ids", "kind": "orchestration", "notes": "P0 container accessibilityIdentifier with identified children (F03.3)" },
         { "id": "allowlist_ratchet", "kind": "orchestration" }
       ]
     },
