@@ -133,6 +133,10 @@ def lane_fast() -> tuple[list[dict], list[str]]:
         ("probe_growth", [py, str(HARNESS / "lint" / "probe_growth.py")]),
         ("probe_mirror", [py, str(HARNESS / "lint" / "probe_mirror.py")]),
         ("leaf_only_ids", [py, str(HARNESS / "lint" / "leaf_only_ids.py")]),
+        (
+            "constitution_coverage",
+            [py, str(HARNESS / "coverage" / "generate_constitution_coverage.py"), "--check"],
+        ),
         ("allowlist_ratchet", [py, str(HARNESS / "lint" / "allowlist_ratchet.py")]),
     ]
     results = [_run(name, argv, "FAST") for name, argv in steps]

@@ -1,0 +1,223 @@
+# Explicit constitution entry → named artifact map (F03.4).
+# Cells are filled ONLY from this file — no inference from adjacency.
+schemaVersion: 1
+entries:
+  D8:
+    logic:
+      - CullGrammarTests.testHoldKeysTrackMomentaryState
+    lint:
+      - held_is_temporary
+  D9:
+    logic:
+      - CullGrammarTests.testHoldKeysTrackMomentaryState
+    lint:
+      - held_is_temporary
+      - grammar_oracle_unit
+      - grammar_oracle_parity
+  D10:
+    logic:
+      - CullGrammarTests.testD10_decisionKeysToggleWithoutAutorepeatSemantics
+      - P0LogicTests.testCullToggleGrammar
+    lint:
+      - same_mark_clears
+      - grammar_oracle_unit
+      - grammar_oracle_parity
+    flow:
+      - CullGrammarTests.testKeepRejectToggleGrammar
+  D11:
+    logic:
+      - CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn
+      - CullGrammarTests.testD11D13_shiftReturnKeyDownWithoutReleaseDoesNotCommit
+      - CommandChordTests.testHeldReturnCannotDoubleCommit
+    lint:
+      - shift_return_return_release
+      - esc_exact_restore
+      - grammar_oracle_unit
+      - grammar_oracle_parity
+  D13:
+    logic:
+      - CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn
+      - CommandChordTests.testHeldReturnCannotDoubleCommit
+    lint:
+      - shift_return_return_release
+      - grammar_oracle_unit
+      - grammar_oracle_parity
+  D16:
+    lint:
+      - copy_contract_diff
+      - copy_table_lint
+    logic:
+      - P0LogicTests.testA1FormatterSamplesInCopyContract
+  D19:
+    logic:
+      - P0LogicTests.testA1InvariantRowScope
+      - P0LogicTests.testA1InvariantExcludedCount
+      - PropagationTests.testA1AtShootRingWithExclusions
+  D23:
+    logic:
+      - P0LogicTests.testCropLayoutHashRestoration
+      - P0LogicTests.testCropStraightenMagnet
+      - P0LogicTests.testCropKeyScopeNeverStagesOrRejects
+      - CropTests.testLayoutHashChangesOnEditAndReverts
+      - CropTests.testCropHeaderNeverMentionsReject
+    lint:
+      - agent_rules_contract
+  D24:
+    lint:
+      - value_echo_adjustment_only
+      - grammar_oracle_unit
+      - grammar_oracle_parity
+    logic:
+      - CullGrammarTests.testMoveFocusAndArming
+  D26:
+    lint:
+      - esc_exact_restore
+      - grammar_oracle_unit
+      - grammar_oracle_parity
+    logic:
+      - CullGrammarTests.testEscRestoresPreStageMarks
+  D35:
+    logic:
+      - P0StateTests.testMissingOriginalShootPersistence
+      - P0StateTests.testAtomicSaveLeavesFinalAndGoodCopy
+    flow:
+      - MissingOriginalsTests.testMissingOriginalsPreserveCatalogAndPreviews
+  D37:
+    lint:
+      - token_lint
+  D41:
+    golden:
+      - golden-fidelity-rungs
+  D42:
+    golden:
+      - golden-hold-j-clipping
+  D43:
+    lint:
+      - unit_trace
+    golden:
+      - golden-fidelity-rungs
+  D44:
+    logic:
+      - P0LogicTests.testExportRecipeHintContract
+  D47:
+    logic:
+      - CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically
+    lint:
+      - probe_growth
+      - probe_mirror
+      - leaf_only_ids
+  D48:
+    lint:
+      - banned_patterns
+      - value_echo_adjustment_only
+      - leaf_only_ids
+      - grammar_oracle_unit
+      - grammar_oracle_parity
+    golden:
+      - golden-hover-absent
+  D57:
+    golden:
+      - golden-adapted-proxy-linear
+  D59:
+    logic:
+      - CullGrammarTests.testD59_sameMarkClearsInPlace
+      - P0LogicTests.testCullToggleGrammar
+    lint:
+      - copy_contract_diff
+      - contract_v6_presence
+      - same_mark_clears
+      - grammar_oracle_unit
+      - grammar_oracle_parity
+    golden:
+      - golden-cull-marks
+  D60:
+    logic:
+      - CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn
+      - CommandChordTests.testHeldReturnCannotDoubleCommit
+    lint:
+      - copy_contract_diff
+      - contract_v6_presence
+      - shift_return_return_release
+      - grammar_oracle_unit
+      - grammar_oracle_parity
+  D61:
+    golden:
+      - golden-export-three-state
+  D63:
+    lint:
+      - agent_rules_contract
+      - contract_v6_presence
+    logic:
+      - P0LogicTests.testCropKeyScopeNeverStagesOrRejects
+      - CropTests.testLayoutHashChangesOnEditAndReverts
+    golden:
+      - golden-crop-latch
+  D36:
+    golden:
+      - golden-rejects-trash-offer
+  D27:
+    golden:
+      - golden-birth-opacity
+  D54:
+    golden:
+      - golden-sample-retire
+  D53:
+    lint:
+      - contract_v6_presence
+  D65:
+    lint:
+      - unit_lane_guards
+  R-5.2:
+    golden:
+      - golden-hold-j-clipping
+  R-5.1:
+    golden:
+      - golden-fidelity-rungs
+  R-5.3:
+    lint:
+      - unit_trace
+    golden:
+      - golden-fidelity-rungs
+  R-8.1:
+    logic:
+      - P0LogicTests.testExportRecipeHintContract
+  R-9.1:
+    lint:
+      - zero_egress_audit
+  R-A.2:
+    logic:
+      - CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically
+  R-X.1:
+    lint:
+      - banned_patterns
+      - value_echo_adjustment_only
+      - leaf_only_ids
+    golden:
+      - golden-hover-absent
+  R-X.2:
+    lint:
+      - magic_numbers
+  R-M.1:
+    golden:
+      - golden-rejects-trash-offer
+  R-M.2:
+    lint:
+      - contract_v6_presence
+  R-M.3:
+    golden:
+      - golden-sample-retire
+  R-M.4:
+    lint:
+      - copy_table_lint
+  R-M.5:
+    golden:
+      - golden-export-three-state
+  R-Q.1:
+    golden:
+      - golden-adapted-proxy-linear
+  R-I.1:
+    lint:
+      - contract_v6_presence
+  R-I.2:
+    lint:
+      - heavy_job_registry
