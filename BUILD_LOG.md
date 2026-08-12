@@ -4,6 +4,28 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — F04.1 / F04.7: build-for-testing cache + budget breach policy
+
+**Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F04: fast-lane hardening](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
+**Claim:** Land F04.1 stable `derivedDataPath` cache keyed by source hash + tokens hash (reuse / rebuild) and F04.7 budget breach output — slowest manifest ids, then **delete or demote** only.
+
+**Finding:** `regression.sh` rebuilt into `./DerivedData` every pre-merge; budget breach text said `budget` not `ceiling` and did not name slowest ids as manifest test ids explicitly.
+
+**Fix:** `Scripts/harness/build_cache.py` → `artifacts/harness/build-cache/<source12>-<tokens12>/` with manifest · `regression.sh` Phase 2 calls `--ensure-build-for-testing` · `run_p0_ui_tests.sh` shares the same derived path · `lanes/budget_breach.py` + runner hook · unit tests in `tests/test_build_cache.py` and `lanes/test_lane_guards.py`.
+
+**Instrument reading (Linux cloud — measured this session):**
+
+| Alias / lane | Entry | Elapsed | Status | App tests executed / expected | Orchestration |
+|--------------|-------|---------|--------|-------------------------------|---------------|
+| `pre-commit` / FAST | `run.py fast` | **4147 ms** | PASS | **0 / 0** | **25 / 25** |
+| `pre-merge` / FULL | `run.py full` | **106 ms** | PLATFORM-UNAVAILABLE | **0 / 7** | **0 / 2** |
+
+**Pre-merge wall time on macOS runner:** **not measured this session** — this cloud agent is Linux-only (no `xcodebuild`, no Apple Silicon FULL lane). Record macOS `bash Scripts/regression.sh pre-merge` wall time + app-coupled executed/expected on the next Mac run.
+
+**Follow-ups:** first macOS cache hit/miss timings · measured FULL lane when live Swift drivers land (CP4+).
+
+---
+
 ## 2026-08-12 — F03.4 / F03.5 / F03.6: constitution coverage matrix + probe completeness gate
 
 **Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F03: probe completeness + constitution coverage](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
