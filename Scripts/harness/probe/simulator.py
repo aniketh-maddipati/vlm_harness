@@ -42,6 +42,9 @@ def blank_state(fixture: str, seed: int, n: int = 8) -> dict[str, Any]:
         "undoDepth": 0,
         "exportKeptCount": 0,
         "chipPresent": True,
+        "activeHolds": [],
+        "valueEchoPresent": False,
+        "adjusting": False,
         "fixture": fixture,
         "seed": str(seed),
         "fakeClockMs": 0,
@@ -82,11 +85,18 @@ class ProbeSimulator:
             self.state["generation"][key] += 1
         self.state["tsMs"] = int(self.state.get("fakeClockMs") or 0)
 
+    def _sync_value_echo(self) -> None:
+        armed = self.state["focus"].get("armedControl")
+        adjusting = bool(self.state.get("adjusting"))
+        self.state["valueEchoPresent"] = bool(armed and adjusting)
+
     def apply_event(self, event: dict[str, Any]) -> None:
+        t_ms = int(event["tMs"])
+        self.state["fakeClockMs"] = t_ms
+        self.state["tsMs"] = t_ms
         op = event["op"]
         if op == "wait":
-            self.state["fakeClockMs"] = int(self.state.get("fakeClockMs") or 0) + int(event.get("ms") or 0)
-            self.state["tsMs"] = self.state["fakeClockMs"]
+            # Sugar: timeline advance is encoded in tMs (= prior tMs + ms); no separate op body.
             return
         if op == "waitProbe":
             return
@@ -95,7 +105,26 @@ class ProbeSimulator:
             return
         if op == "armControl":
             self.state["focus"]["armedControl"] = event["control"]
+            self._sync_value_echo()
             self._bump("focus")
+            return
+        if op == "holdBegin":
+            holds = set(self.state.get("activeHolds") or [])
+            holds.add(str(event.get("key") or ""))
+            self.state["activeHolds"] = sorted(holds)
+            return
+        if op == "holdEnd":
+            holds = set(self.state.get("activeHolds") or [])
+            holds.discard(str(event.get("key") or ""))
+            self.state["activeHolds"] = sorted(holds)
+            return
+        if op == "adjustBegin":
+            self.state["adjusting"] = True
+            self._sync_value_echo()
+            return
+        if op == "adjustEnd":
+            self.state["adjusting"] = False
+            self._sync_value_echo()
             return
         if op in {"pointerDown", "pointerUp", "pointerTap"}:
             # Pointer targets are logical ids — never coordinates.
@@ -139,6 +168,7 @@ class ProbeSimulator:
             else:
                 # Enter edit — no recipe mutation yet.
                 self.state["focus"]["armedControl"] = None
+                self._sync_value_echo()
                 self._bump("focus")
         elif key == "Escape":
             self._esc()
@@ -146,6 +176,7 @@ class ProbeSimulator:
             # Arm first control as consent (D24) — no recipe write.
             if self.state["focus"].get("armedControl") is None:
                 self.state["focus"]["armedControl"] = "Exposure"
+                self._sync_value_echo()
                 self._bump("focus")
 
     def _mark_toggle(self, mark: str) -> None:
@@ -210,6 +241,7 @@ class ProbeSimulator:
             self._bump("staging", "focus", "marks")
             return
         self.state["focus"]["armedControl"] = None
+        self._sync_value_echo()
         self._bump("focus")
 
     def run(self, script: dict[str, Any]) -> dict[str, Any]:
@@ -289,6 +321,26 @@ class ProbeSimulator:
                 )
             if st["staging"]["active"]:
                 return "armedConsent must not imply staging"
+            return None
+        if op == "grammarExact":
+            from grammar_probe import extract_grammar
+
+            actual = extract_grammar(st)
+            expected = assertion["equals"]
+            if actual != expected:
+                return f"grammarExact mismatch expected {expected!r} got {actual!r}"
+            return None
+        if op == "valueEchoPresent":
+            actual = bool(st.get("valueEchoPresent"))
+            expected = bool(assertion.get("present"))
+            if actual != expected:
+                return f"valueEchoPresent expected {expected} got {actual}"
+            return None
+        if op == "activeHolds":
+            actual = sorted(st.get("activeHolds") or [])
+            expected = sorted(assertion.get("keys") or [])
+            if actual != expected:
+                return f"activeHolds expected {expected} got {actual}"
             return None
         return f"unknown assert op {op}"
 

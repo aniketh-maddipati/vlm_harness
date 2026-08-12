@@ -35,7 +35,7 @@ fi
 
 SCHEME="Lumina"
 DESTINATION="platform=macOS"
-DERIVED="$ROOT/DerivedData"
+DERIVED="$(python3 "$ROOT/Scripts/harness/build_cache.py" --derived-data-path)"
 
 # --- Artifact directory (documented, per-run) ------------------------------
 STAMP="$(date +%Y%m%d-%H%M%S)"

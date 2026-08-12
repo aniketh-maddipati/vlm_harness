@@ -25,7 +25,9 @@ No argument to `regression.sh` ≡ `pre-commit`. Exit codes: `0` PASS · `1` FAI
 
 ## Budget ceiling (enforced)
 
-Each lane declares `budgetMs` in `Scripts/harness/lanes/manifests.json`. **Total lane elapsed time above the ceiling is a lane FAIL** — not a warning. On breach the runner prints the slowest manifest test ids by measured ms (descending), then the sentence **delete or demote**. Ceilings: FAST **90000** ms (<90s) · FULL **600000** ms (<10min) · HEAVY **3600000** ms (nightly budget).
+Each lane declares `budgetMs` in `Scripts/harness/lanes/manifests.json`. **Total lane elapsed time above the ceiling is a lane FAIL** — not a warning. On breach the runner prints the slowest manifest test ids by measured ms (descending), then the sentence **delete or demote** (never hardware, parallelism, or a raised ceiling). Ceilings: FAST **90000** ms (<90s) · FULL **600000** ms (<10min) · HEAVY **3600000** ms (nightly budget).
+
+**Pre-merge build cache (F04.1):** `Scripts/harness/build_cache.py` stores `xcodebuild build-for-testing` products under `artifacts/harness/build-cache/<source-hash12>-<tokens-hash12>/`. `bash Scripts/regression.sh pre-merge` reuses when source + `design/tokens.yaml` are unchanged.
 
 ---
 
@@ -99,9 +101,11 @@ Each lane declares an expected test inventory (`lanes/manifests.json`). After ex
 
 | Lane | Budget | When | Contents |
 |------|--------|------|----------|
-| **FAST** | <90s | save/commit / `watch` | orchestration only: token/copy/banned/magic lints, contract lints, unit tests, seed **schema** + grammar **oracle** (STUB) |
+| **FAST** | <90s | save/commit / `watch` | orchestration only: token/copy/banned/magic lints, contract lints, unit tests, seed **schema** + grammar **oracle** + **oracle↔Swift parity** (orchestration — never app PASS) |
 | **FULL** | <10min | pre-merge | macOS AS: live grammar/probe/signpost/⌘Z/invariants/chrome/parallel (+ worktree snapshot). Linux: PLATFORM-UNAVAILABLE |
 | **HEAVY** | nightly + release | scheduled | macOS AS: ingest / kill-fuzz / eject / RAM / LR / live grammar-stability. Linux: PLATFORM-UNAVAILABLE |
+
+**Flake policy:** a flaking pre-merge test is fixed same-day or demoted to nightly by a manifest diff — those are the only two moves. FAST **`flake_policy`** reads `TestPlans/*.xctestplan` and fails on test repetition, retry-on-failure, or quarantine tags (none permitted).
 
 Dashboard (optional): `python3 Scripts/harness/dashboard/server.py` → `http://127.0.0.1:8765/`
 
@@ -129,11 +133,46 @@ A new feature ships as **data**, not runner changes:
 4. **Optional signpost names** — `trace/acceptance_numbers.json` + Swift `AcceptanceSignposts`.
 5. **Manifest ID** — add the test id to `lanes/manifests.json` (orchestration vs app-coupled).
 
-### Worked example — P/X advance
+### Worked example — same-mark clears (v2)
 
-File: `Scripts/harness/scripts/seed/px_advance.json` — see seed file.  
-FAST runs it through the **STUB** Python oracle (orchestration).  
+File: `Scripts/harness/scripts/seed/same_mark_clears.json` — schema v2 (`tMs` on every event, no `wait` sleeps).  
+FAST runs it through the Python oracle **and** `grammar_oracle_parity` (oracle vs `CullGrammarMachine` mirror).  
 FULL on macOS AS runs it through the **live** Swift driver (`run_live_scripts.py`, owned-by-CP4).
+
+---
+
+## Release integrity (F11 — macOS only)
+
+Runs against the **built Release** `Lumina.app`, never Debug. Entry:
+
+```bash
+xcodebuild -project Lumina.xcodeproj -target Lumina -configuration Release -arch arm64 build
+python3 Scripts/harness/release/f11_hooks_absent.py --app build/Release/Lumina.app
+python3 Scripts/harness/release/f11_zero_network.py --app build/Release/Lumina.app
+python3 Scripts/harness/release/f11_signature.py --app build/Release/Lumina.app
+```
+
+| Check | Script | Pass criterion |
+|-------|--------|----------------|
+| **F11.1** hooks absent | `f11_hooks_absent.py` | Every harness hook file is `#if DEBUG` fenced; forbidden symbols absent from Release binary (`nm`) |
+| **F11.2** zero network | `f11_zero_network.py` | No outgoing-network entitlements; no CFNetwork/Network/NetworkExtension on app binary paths (**app only** — not OS crash reporters; CONFLICT 4 / A7) |
+| **F11.3** signature | `f11_signature.py` | Developer ID + notarization + **stapled** ticket (`codesign --verify --deep --strict`, `spctl`, `stapler validate`). Signed-but-unstapled **FAIL**. |
+| **F11.4** build manifest | `write_build_manifest.py` + `f11_read_manifest.py` | Embeds `LuminaBuildManifest.json` (git sha, tokens hash, fixture manifest version, contract version, build date). Install page / bug reports cite `LuminaBuildManifest.bugReportLine`. |
+| **F11.5** shipped rollback | `retain_shipped_artifact.py promote` | Retains `artifacts/release/shipped/previous/Lumina.app` + manifest — rollback is a file copy (D51 / R-I.2). |
+| **F11.6** A7 expiry | `f11_a7_expiry.py` | **FAIL** at marketing version ≥ 1.0 if `betaDiagnostics` still present in manifest. Socket: `BetaDiagnosticsSocket.swift`. |
+| **F11.7** no licensing | `f11_no_licensing.py` | Wave builds: no license/activation/expiry code (D52 / A8; `grammar.beta_licensing: none`). |
+
+Orchestrator (all F11 checks vs Release app): `python3 Scripts/harness/release/run_f11_release.py --app build/Release/Lumina.app`
+
+Fixture manifest version: `design/fixture-manifest.yaml` (`version` field).
+
+Hook inventory: `Scripts/harness/release/hook_inventory.yaml`.
+
+### F11.1 allowlist — `P0AccessibilityID` (ruling 3)
+
+`P0AccessibilityID` and `ProbeSnapshot` **ship in all configurations** by design. They are the product accessibility identifier namespace and the probe JSON schema — not harness hooks. The XCUITest bundle mirrors IDs via `P0AXID`; logic tests assert parity (`LuminaLogicTests`). Release builds must never activate `UITestSupport.isActive` (set only from DEBUG `UITestLaunch`); the identifier strings alone are inert without activation.
+
+Forbidden in Release: probe v2 server, fake clock, fixture synthesis, `--ui-testing` / `--probe-v2` / `--motion-probe` entry points, S19 Develop Lab playground, F07 display-link tap (when implemented).
 
 ---
 
@@ -155,15 +194,19 @@ python3 Scripts/harness/codegen/tokens_codegen.py --check
 
 ---
 
-## Seed scripts (5)
+## Seed scripts (5) — schema v2
+
+All seeds use **schemaVersion 2**: monotonic `tMs` on every event (no wall-clock sleeps; `wait`/`waitProbe` omitted in F02.4 replays). Each script ends with **`grammarExact`** — full grammar snapshot assertion.
 
 | id | Law |
 |----|-----|
-| `px_advance` | D10 / D59 |
+| `held_is_temporary` | D9 / L2 (hold grammar) |
 | `same_mark_clears` | D59 |
 | `shift_return_return_release` | D60 / D13 |
-| `esc_exact_restore` | L5 / D11 |
-| `arming_consent` | D24 / D48 |
+| `esc_exact_restore` | D11 / D26 |
+| `value_echo_adjustment_only` | D24 / D48 |
+
+FAST **`grammar_oracle_parity`** replays all five through `ProbeSimulator` and the Swift-machine mirror (`grammar_machine.py`); divergence prints both readings and FAILs the lane (orchestration only — never an app-coupled PASS).
 
 ---
 
@@ -177,6 +220,10 @@ python3 Scripts/harness/codegen/tokens_codegen.py --check
 | Vacuous-green + platform gates | **Closed in CP0 review** | CP0 |
 | Ledger UNMEASURED honesty | **Closed in CP0 review** | CP0 |
 | Motion timing *measured* gate | STUB / UNMEASURED until live signposts | **SPIKE A** |
+| F07.4 dead-stop exact (orchestration) | **Closed — SPIKE B seal** (`spring_physics_f07`; see BUILD_LOG drift note) | **SPIKE B** |
+| F07.5 retarget continuity | **Closed — SPIKE B seal** | **SPIKE B** |
+| F07.6 reduced-motion variant | **Closed — SPIKE B seal** | **SPIKE B** |
+| Spring trajectory golden (tokens-hash) | **Closed — SPIKE B seal** | **SPIKE B** |
 | Grammar scripts *live* | STUB oracle only | **CP4** |
 | Golden service bookkeeping | **Closed in CP0** | CP0 |
 | Chrome/photo golden *pixels* | STUB `--live` | **CP1** / bodies **CP3** |

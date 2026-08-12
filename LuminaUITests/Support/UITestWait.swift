@@ -11,6 +11,9 @@ import Foundation
 /// - The Recent-row UX test gets one bounded row wait (`recentRow`) and one bounded
 ///   post-click transition wait (`transition`); it must not retry-click in a loop.
 enum UITestWait {
+    /// P0Fast plan per-test ceiling (`TestPlans/P0Fast.xctestplan`).
+    static let p0FastMaximumTestExecutionTimeAllowance: TimeInterval = 180
+
     /// Per-attempt budget for the app's window + accessibility tree (and thus the state probe)
     /// to mount after launch. Two attempts maximum; then the test fails with diagnostics.
     static let launchAttempt: TimeInterval = 25
@@ -25,4 +28,38 @@ enum UITestWait {
 
     /// A single user action (click, key) must reflect in the probe within this window.
     static let transition: TimeInterval = 10
+
+    /// Element existence checks tied to the same action budget (never stack a second probe wait).
+    static let elementExistence: TimeInterval = transition
+
+    /// Worst-case deterministic flow: launch self-heal + one auto-open probe wait.
+    static var worstDeterministicWaitChain: TimeInterval {
+        launchAttempt * 2 + autoOpenNavigation
+    }
+
+    /// Worst-case Recent-row UX test: launch self-heal + row wait + one transition.
+    static var worstRecentRowWaitChain: TimeInterval {
+        launchAttempt * 2 + recentRow + transition
+    }
+
+    /// Compile-time gate — no legal wait chain may approach the 180 s allowance.
+    static func assertChainsBelowTestAllowance() {
+        let half = p0FastMaximumTestExecutionTimeAllowance / 2
+        precondition(worstDeterministicWaitChain < p0FastMaximumTestExecutionTimeAllowance)
+        precondition(worstRecentRowWaitChain < p0FastMaximumTestExecutionTimeAllowance)
+        precondition(worstDeterministicWaitChain < half)
+        precondition(worstRecentRowWaitChain < half)
+        for budget in [launchAttempt, autoOpenNavigation, recentRow, transition, elementExistence] {
+            precondition(budget < half, "budget \(budget)s must stay below half allowance")
+        }
+    }
+
+    private static let budgetValidation: Void = {
+        assertChainsBelowTestAllowance()
+    }()
+
+    /// Invoked from `LuminaUITestCase.setUp` so budget preconditions run before every UI test.
+    static func validateBudgetsOnLoad() {
+        _ = budgetValidation
+    }
 }

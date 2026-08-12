@@ -16,7 +16,7 @@ final class GridPhotoRestoreTests: LuminaUITestCase {
 
         // Scroll well into the sheet.
         sheet.scroll(dy: -600, times: 5)
-        let scrolled = lumina.waitForProbe(timeout: 6) { $0.scrollAnchor > 0.03 }
+        let scrolled = lumina.waitForProbe(timeout: UITestWait.transition) { $0.scrollAnchor > 0.03 }
         XCTAssertGreaterThan(scrolled.scrollAnchor, 0.03, "scrolled into the contact sheet")
         let anchorBefore = scrolled.scrollAnchor
 
@@ -29,7 +29,7 @@ final class GridPhotoRestoreTests: LuminaUITestCase {
 
         // Navigate + cull + undo at single-photo scale.
         single.navigateNext()
-        _ = lumina.waitForProbe(timeout: 4) { $0.route == "singlePhoto" }
+        _ = lumina.waitForProbe(timeout: UITestWait.transition) { $0.route == "singlePhoto" }
         let cullFocus = lumina.requireProbe().focusedAssetID
         let cullWas = cullFocus.flatMap { lumina.requireProbe().culls[$0] }
         single.pressReject()

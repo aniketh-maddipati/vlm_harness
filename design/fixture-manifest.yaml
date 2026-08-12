@@ -1,0 +1,4 @@
+# Fixture manifest version — pairs with design/fixture-manifest.md (D53, A1).
+version: "1.0-mvp-fleet"
+contract: design/contract-v6.md
+doc: design/fixture-manifest.md

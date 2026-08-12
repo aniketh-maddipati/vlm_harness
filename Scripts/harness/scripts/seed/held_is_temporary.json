@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 2,
+  "id": "held_is_temporary",
+  "title": "Held is temporary \u2014 hold keys momentary, release returns (D9)",
+  "cite": [
+    "D9",
+    "L2"
+  ],
+  "fixture": "mixed-60",
+  "seed": 1006,
+  "notes": "No latch on hold; marks and staging unchanged.",
+  "events": [
+    {
+      "op": "focusIndex",
+      "index": 0,
+      "tMs": 0
+    },
+    {
+      "op": "holdBegin",
+      "key": "space",
+      "tMs": 0
+    },
+    {
+      "op": "holdBegin",
+      "key": "j",
+      "tMs": 40
+    },
+    {
+      "op": "holdEnd",
+      "key": "space",
+      "tMs": 80
+    },
+    {
+      "op": "holdEnd",
+      "key": "j",
+      "tMs": 120
+    }
+  ],
+  "asserts": [
+    {
+      "op": "grammarExact",
+      "equals": {
+        "focusIndex": 0,
+        "marks": [
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided"
+        ],
+        "staging": {
+          "active": false,
+          "ring": "none",
+          "scopeCount": 0,
+          "excludedCount": 0,
+          "bannerCount": 0,
+          "headerCount": 0,
+          "receiptCount": 0,
+          "returnReleaseArmed": false
+        },
+        "armedControl": null,
+        "undoDepth": 0,
+        "activeHolds": [],
+        "valueEchoPresent": false
+      }
+    },
+    {
+      "op": "countInvariant"
+    },
+    {
+      "op": "activeHolds",
+      "keys": []
+    }
+  ]
+}

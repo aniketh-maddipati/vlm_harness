@@ -19,15 +19,23 @@
         { "id": "unit_golden", "kind": "orchestration" },
         { "id": "unit_trace", "kind": "orchestration" },
         { "id": "unit_invariants", "kind": "orchestration" },
+        { "id": "spring_physics_f07", "kind": "orchestration", "notes": "F07.4–F07.6 dead-stop, retarget continuity, reduced-motion + trajectory golden (SPIKE B seal)" },
         { "id": "unit_lane_guards", "kind": "orchestration" },
         { "id": "seed_script_schema", "kind": "orchestration" },
         { "id": "grammar_oracle_unit", "kind": "orchestration", "notes": "Python simulator schema/oracle only — not app-coupled" },
+        { "id": "grammar_oracle_parity", "kind": "orchestration", "notes": "v2 seed replay: ProbeSimulator vs Swift-machine mirror; divergence FAIL; never app PASS" },
         { "id": "probe_growth", "kind": "orchestration", "notes": "P0 surface/route diff requires probe type diff (F03.1)" },
         { "id": "probe_mirror", "kind": "orchestration", "notes": "ProbeSnapshot four-site field mirror (F03.2 / postmortem §7.2)" },
         { "id": "leaf_only_ids", "kind": "orchestration", "notes": "P0 container accessibilityIdentifier with identified children (F03.3)" },
         { "id": "constitution_coverage", "kind": "orchestration", "notes": "F03.5 — matrix freshness vs registry; maintainer regen: generate_constitution_coverage.py --write" },
         { "id": "registry_staleness", "kind": "orchestration", "notes": "F03 — two-direction registry completeness (S14 A2/#7)" },
-        { "id": "allowlist_ratchet", "kind": "orchestration" }
+        { "id": "no_sleeps", "kind": "orchestration", "notes": "F04.3 — ban sleeps in LuminaUITests + harness (one allowlist: run.py watch poll)" },
+        { "id": "flake_policy", "kind": "orchestration", "notes": "F04.6 — TestPlans must not encode repetition, retry-on-failure, or quarantine tags" },
+        { "id": "wait_budgets", "kind": "orchestration", "notes": "F04.4 — UITestWait chains stay below P0Fast 180 s; no waitForProbe ?? fallbacks" },
+        { "id": "allowlist_ratchet", "kind": "orchestration" },
+        { "id": "f11_no_licensing", "kind": "orchestration", "notes": "F11.7 — D52/A8 wave builds: no license/activation/expiry code" },
+        { "id": "f11_a7_expiry", "kind": "orchestration", "notes": "F11.6 — A7 beta diagnostics must not survive marketing 1.0" },
+        { "id": "unit_f11_release", "kind": "orchestration", "notes": "F11.4–F11.7 unit tests" }
       ]
     },
     "full": {
@@ -56,7 +64,8 @@
         { "id": "eject_fault_injection", "kind": "app-coupled" },
         { "id": "ram_tier_runs", "kind": "app-coupled" },
         { "id": "lr_round_trip", "kind": "app-coupled" },
-        { "id": "grammar_stability_rerun_live", "kind": "app-coupled" }
+        { "id": "grammar_stability_rerun_live", "kind": "app-coupled" },
+        { "id": "release_integrity_f11", "kind": "orchestration", "notes": "F11.1–F11.7 vs built Release Lumina.app (macOS)" }
       ]
     }
   }

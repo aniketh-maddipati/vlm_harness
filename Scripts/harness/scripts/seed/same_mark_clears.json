@@ -1,21 +1,68 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "same_mark_clears",
-  "title": "Same-mark clears — re-press P clears keep to undecided in place",
-  "cite": ["D59", "D10"],
+  "title": "Same-mark clears \u2014 re-press P clears keep to undecided in place",
+  "cite": [
+    "D59",
+    "D10"
+  ],
   "fixture": "mixed-60",
   "seed": 1002,
   "events": [
-    { "op": "focusIndex", "index": 0 },
-    { "op": "key", "key": "P" },
-    { "op": "waitProbe", "ms": 0 },
-    { "op": "focusIndex", "index": 0 },
-    { "op": "key", "key": "P" },
-    { "op": "waitProbe", "ms": 0 }
+    {
+      "op": "focusIndex",
+      "index": 0,
+      "tMs": 0
+    },
+    {
+      "op": "key",
+      "key": "P",
+      "tMs": 50
+    },
+    {
+      "op": "focusIndex",
+      "index": 0,
+      "tMs": 100
+    },
+    {
+      "op": "key",
+      "key": "P",
+      "tMs": 150
+    }
   ],
   "asserts": [
-    { "op": "markEquals", "assetIndex": 0, "mark": "undecided" },
-    { "op": "focusIndex", "equals": 0 },
-    { "op": "probePath", "path": "focus.visible", "equals": true }
+    {
+      "op": "grammarExact",
+      "equals": {
+        "focusIndex": 0,
+        "marks": [
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided"
+        ],
+        "staging": {
+          "active": false,
+          "ring": "none",
+          "scopeCount": 0,
+          "excludedCount": 0,
+          "bannerCount": 0,
+          "headerCount": 0,
+          "receiptCount": 0,
+          "returnReleaseArmed": false
+        },
+        "armedControl": null,
+        "undoDepth": 2,
+        "activeHolds": [],
+        "valueEchoPresent": false
+      }
+    },
+    {
+      "op": "countInvariant"
+    }
   ]
 }

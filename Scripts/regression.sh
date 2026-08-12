@@ -59,15 +59,14 @@ if [[ "$(uname -s)" != "Darwin" ]] || ! command -v xcodebuild >/dev/null 2>&1; t
 fi
 
 echo "--- Phase 2: build + logic tests (macOS) ---"
-xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
-  -derivedDataPath ./DerivedData build 2>&1 | tail -5
-xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
-  -derivedDataPath ./DerivedData -destination 'platform=macOS' build-for-testing 2>&1 | tail -3
+DERIVED="$(python3 "$ROOT/Scripts/harness/build_cache.py" --derived-data-path)"
+echo "derivedDataPath: $DERIVED (key: $(python3 "$ROOT/Scripts/harness/build_cache.py" --cache-key))"
+python3 "$ROOT/Scripts/harness/build_cache.py" --ensure-build-for-testing
 echo "Build: OK"
 echo ""
 
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
-  -derivedDataPath ./DerivedData -destination 'platform=macOS' \
+  -derivedDataPath "$DERIVED" -destination 'platform=macOS' \
   -only-testing:LuminaLogicTests test-without-building 2>&1 | grep -E "Executed .* test|failed" | tail -3
 echo "Logic tests: OK"
 echo ""

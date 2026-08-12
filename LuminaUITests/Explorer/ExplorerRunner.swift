@@ -49,23 +49,24 @@ final class ExplorerRunner {
             app = test.app! // relaunch swaps the app handle
 
             // Read post-action state and sweep invariants.
-            let after = app.waitForProbe(timeout: 8) { _ in true } ?? before
+            guard let after = app.waitForProbe(timeout: UITestWait.transition, where: { _ in true }) else {
+                test.record("step \(index): probe missing after \(action.rawValue)")
+                XCTFail("state probe unavailable after step \(index) (\(action.rawValue))")
+                attachReport()
+                return
+            }
             carried = after
             var violations: [String] = []
-            if let after {
-                violations += Invariants.stateless(after, app: app)
-                if action == .keep || action == .reject, let b = before, let cb = cullBefore {
-                    violations += Invariants.editMarkersUnchanged(before: b, after: after)
-                    violations += Invariants.catalogPreserved(before: b, after: after)
-                    if after.culls != cb { undoExpectations.append(cb) }
+            violations += Invariants.stateless(after, app: app)
+            if action == .keep || action == .reject, let b = before, let cb = cullBefore {
+                violations += Invariants.editMarkersUnchanged(before: b, after: after)
+                violations += Invariants.catalogPreserved(before: b, after: after)
+                if after.culls != cb { undoExpectations.append(cb) }
+            }
+            if action == .undo, let expected = undoExpectations.popLast() {
+                if after.culls != expected {
+                    violations.append("undo did not restore prior cull state")
                 }
-                if action == .undo, let expected = undoExpectations.popLast() {
-                    if after.culls != expected {
-                        violations.append("undo did not restore prior cull state")
-                    }
-                }
-            } else if state != .openShoot {
-                violations.append("no probe snapshot after \(action.rawValue)")
             }
 
             report.steps.append(ExplorerStep(
@@ -154,10 +155,10 @@ final class ExplorerRunner {
             // post-action invariant sweep validates whatever state results (no hard assert here).
             sheet.establishKeyboardFocus()
             test.app.typeKey(.return, modifierFlags: [])
-            _ = test.app.waitForProbe(timeout: 5) { $0.route == "singlePhoto" }
+            _ = test.app.waitForProbe(timeout: UITestWait.transition) { $0.route == "singlePhoto" }
         case .closePhoto:
             test.app.typeKey(.escape, modifierFlags: [])
-            _ = test.app.waitForProbe(timeout: 5) { $0.route == "contactSheet" }
+            _ = test.app.waitForProbe(timeout: UITestWait.transition) { $0.route == "contactSheet" }
         case .increaseDensity: sheet.increaseDensity()
         case .decreaseDensity: sheet.decreaseDensity()
         case .relaunch:

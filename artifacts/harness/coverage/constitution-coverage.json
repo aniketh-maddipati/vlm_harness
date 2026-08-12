@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generated_at": "2026-08-12T14:58:20.568264+00:00",
+  "generated_at": "2026-08-12T15:10:30.128591+00:00",
   "summary": {
     "total": 82,
-    "covered": 29,
+    "covered": 30,
     "shelved": 7,
-    "not_covered": 46
+    "not_covered": 45
   },
   "not_covered": [
     "D1",
@@ -49,7 +49,6 @@
     "R-5.1",
     "R-5.2",
     "R-5.3",
-    "R-A.2",
     "R-M.1",
     "R-M.3",
     "R-M.5",
@@ -178,9 +177,13 @@
         "v5"
       ],
       "lint": [
-        "grammar_oracle_unit"
+        "grammar_oracle_parity",
+        "grammar_oracle_unit",
+        "seed_script_schema"
       ],
-      "logic": [],
+      "logic": [
+        "CullGrammarTests.testHoldKeysTrackMomentaryState"
+      ],
       "flow": [],
       "golden": [],
       "battery": [],
@@ -195,10 +198,13 @@
         "v5"
       ],
       "lint": [
+        "grammar_oracle_parity",
         "grammar_oracle_unit",
         "seed_script_schema"
       ],
-      "logic": [],
+      "logic": [
+        "CullGrammarTests.testHoldKeysTrackMomentaryState"
+      ],
       "flow": [],
       "golden": [],
       "battery": [],
@@ -213,10 +219,12 @@
         "v5"
       ],
       "lint": [
+        "grammar_oracle_parity",
         "grammar_oracle_unit",
         "seed_script_schema"
       ],
       "logic": [
+        "CullGrammarTests.testD10_decisionKeysToggleWithoutAutorepeatSemantics",
         "P0LogicTests.testCullToggleGrammar"
       ],
       "flow": [
@@ -235,10 +243,13 @@
         "v5"
       ],
       "lint": [
+        "grammar_oracle_parity",
         "grammar_oracle_unit",
         "seed_script_schema"
       ],
       "logic": [
+        "CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn",
+        "CullGrammarTests.testD11D13_shiftReturnKeyDownWithoutReleaseDoesNotCommit",
         "CommandChordTests.testHeldReturnCannotDoubleCommit"
       ],
       "flow": [],
@@ -270,10 +281,12 @@
         "v5"
       ],
       "lint": [
+        "grammar_oracle_parity",
         "grammar_oracle_unit",
         "seed_script_schema"
       ],
       "logic": [
+        "CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn",
         "CommandChordTests.testHeldReturnCannotDoubleCommit"
       ],
       "flow": [],
@@ -460,10 +473,13 @@
         "v6"
       ],
       "lint": [
+        "grammar_oracle_parity",
         "grammar_oracle_unit",
         "seed_script_schema"
       ],
-      "logic": [],
+      "logic": [
+        "CullGrammarTests.testMoveFocusAndArming"
+      ],
       "flow": [],
       "golden": [],
       "battery": [],
@@ -493,10 +509,13 @@
         "v5"
       ],
       "lint": [
+        "grammar_oracle_parity",
         "grammar_oracle_unit",
         "seed_script_schema"
       ],
-      "logic": [],
+      "logic": [
+        "CullGrammarTests.testEscRestoresPreStageMarks"
+      ],
       "flow": [],
       "golden": [],
       "battery": [],
@@ -801,7 +820,9 @@
         "probe_mirror",
         "leaf_only_ids"
       ],
-      "logic": [],
+      "logic": [
+        "CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically"
+      ],
       "flow": [],
       "golden": [],
       "battery": [],
@@ -817,6 +838,7 @@
       ],
       "lint": [
         "banned_patterns",
+        "grammar_oracle_parity",
         "leaf_only_ids",
         "grammar_oracle_unit",
         "seed_script_schema"
@@ -990,10 +1012,12 @@
       "lint": [
         "copy_contract_diff",
         "contract_v6_presence",
+        "grammar_oracle_parity",
         "grammar_oracle_unit",
         "seed_script_schema"
       ],
       "logic": [
+        "CullGrammarTests.testD59_sameMarkClearsInPlace",
         "P0LogicTests.testCullToggleGrammar"
       ],
       "flow": [],
@@ -1012,10 +1036,12 @@
       "lint": [
         "copy_contract_diff",
         "contract_v6_presence",
+        "grammar_oracle_parity",
         "grammar_oracle_unit",
         "seed_script_schema"
       ],
       "logic": [
+        "CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn",
         "CommandChordTests.testHeldReturnCannotDoubleCommit"
       ],
       "flow": [],
@@ -1224,12 +1250,14 @@
         "v6"
       ],
       "lint": [],
-      "logic": [],
+      "logic": [
+        "CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically"
+      ],
       "flow": [],
       "golden": [],
       "battery": [],
-      "not_covered": "NOT-COVERED",
-      "status": "NOT-COVERED"
+      "not_covered": "",
+      "status": "COVERED"
     },
     {
       "id": "R-I.1",
@@ -1383,6 +1411,7 @@
       ],
       "lint": [
         "banned_patterns",
+        "grammar_oracle_parity",
         "leaf_only_ids",
         "grammar_oracle_unit",
         "seed_script_schema"

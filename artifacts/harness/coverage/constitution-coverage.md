@@ -6,7 +6,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 
 | Total entries | Covered | Shelved | NOT-COVERED |
 |--------------:|--------:|--------:|------------:|
-| 82 | 29 | 7 | **46** |
+| 82 | 30 | 7 | **45** |
 
 > A low NOT-COVERED count would be suspicious; honest gaps are expected pre-CP1.
 
@@ -53,7 +53,6 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 - `R-5.1`
 - `R-5.2`
 - `R-5.3`
-- `R-A.2`
 - `R-M.1`
 - `R-M.3`
 - `R-M.5`
@@ -70,12 +69,12 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D5 | The row is the unit of work; the loop is edit-then-cull-within-row. |  |  |  |  |  | NOT-COVERED |
 | D6 | Chronological landing → one watched tidy pass. |  |  |  |  |  | NOT-COVERED |
 | D7 | Spacing is quantized language — two values in MVP. |  |  |  |  |  | NOT-COVERED |
-| D8 | Five laws replace the rulebook. | `grammar_oracle_unit` |  |  |  |  |  |
-| D9 | Glances are holds; work states are latches. | `grammar_oracle_unit`<br>`seed_script_schema` |  |  |  |  |  |
-| D10 | Culling keys: P/X decide AND advance; no Hold/Maybe; no chord on the hot | `grammar_oracle_unit`<br>`seed_script_schema` | `P0LogicTests.testCullToggleGrammar` | `CullGrammarTests.testKeepRejectToggleGrammar` |  |  |  |
-| D11 | The ⏎ doctrine. | `grammar_oracle_unit`<br>`seed_script_schema` | `CommandChordTests.testHeldReturnCannotDoubleCommit` |  |  |  |  |
+| D8 | Five laws replace the rulebook. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testHoldKeysTrackMomentaryState` |  |  |  |  |
+| D9 | Glances are holds; work states are latches. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testHoldKeysTrackMomentaryState` |  |  |  |  |
+| D10 | Culling keys: P/X decide AND advance; no Hold/Maybe; no chord on the hot | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testD10_decisionKeysToggleWithoutAutorepeatSemantics`<br>`P0LogicTests.testCullToggleGrammar` | `CullGrammarTests.testKeepRejectToggleGrammar` |  |  |  |
+| D11 | The ⏎ doctrine. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn`<br>`CullGrammarTests.testD11D13_shiftReturnKeyDownWithoutReleaseDoesNotCommit`<br>`CommandChordTests.testHeldReturnCannotDoubleCommit` |  |  |  |  |
 | D12 | Modifier temperaments: ⇧ enlarges/coarsens, ⌥ refines. |  |  |  |  |  | NOT-COVERED |
-| D13 | Release never commits — anywhere, in any form. | `grammar_oracle_unit`<br>`seed_script_schema` | `CommandChordTests.testHeldReturnCannotDoubleCommit` |  |  |  |  |
+| D13 | Release never commits — anywhere, in any form. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn`<br>`CommandChordTests.testHeldReturnCannotDoubleCommit` |  |  |  |  |
 | D14 | Propose → stage → commit, with the halo as the proposal. |  |  |  |  |  | NOT-COVERED |
 | D15 | Exceptions: click-toggle; `Edited` protection with visible override. |  |  |  |  |  | NOT-COVERED |
 | D16 | Adapt, never copy *(amended by A5)* `[● A5]` | `copy_contract_diff`<br>`copy_table_lint` | `P0LogicTests.testA1FormatterSamplesInCopyContract` |  |  |  |  |
@@ -86,9 +85,9 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D21 | Truth-at-a-glance *(amended by R-5.2 + A4)* `[● A4]` |  |  |  |  |  | NOT-COVERED |
 | D22 | Sharpness is judged only in the loupe or at 1:1. |  |  |  |  |  | NOT-COVERED |
 | D23 | Ten controls + Crop mode *(amended by A2)* `[● A2]` | `agent_rules_contract` | `P0LogicTests.testCropLayoutHashRestoration`<br>`P0LogicTests.testCropStraightenMagnet`<br>`P0LogicTests.testCropKeyScopeNeverStagesOrRejects`<br>`CropTests.testLayoutHashChangesOnEditAndReverts`<br>`CropTests.testCropHeaderNeverMentionsReject` |  |  |  |  |
-| D24 | Arming / value-echo *(amended by R-X.1 + audit)* | `grammar_oracle_unit`<br>`seed_script_schema` |  |  |  |  |  |
+| D24 | Arming / value-echo *(amended by R-X.1 + audit)* | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testMoveFocusAndArming` |  |  |  |  |
 | D25 | Detents in photographic units; slider anatomy fixed. |  |  |  |  |  | NOT-COVERED |
-| D26 | Focused edit = hero + elastic strip + rail; no ghost table. | `grammar_oracle_unit`<br>`seed_script_schema` |  |  |  |  |  |
+| D26 | Focused edit = hero + elastic strip + rail; no ghost table. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testEscRestoresPreStageMarks` |  |  |  |  |
 | D27 | Motion/fade *(amended by audit frame-F — one-line)* |  |  |  |  |  | NOT-COVERED |
 | D28 | Elasticity: elastic in motion, exact at rest, anchored at the focus. |  |  |  |  |  | NOT-COVERED |
 | D29 | Selection: standard Mac grammar; hold-to-select banned. |  |  |  |  |  | SHELVED |
@@ -107,8 +106,8 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D44 | ⌥⌘E recipe re-entry *(R-8.1)* |  | `P0LogicTests.testExportRecipeHintContract` |  |  |  |  |
 | D45 | Diagnostics local-only or absent *(R-9.1 + A7)* `[● A7]` |  |  |  |  |  | NOT-COVERED |
 | D46 | Amateur pivot + Develop gate *(R-A.1 + A10)* `[● A10]` |  |  |  |  |  | SHELVED |
-| D47 | Pointer path to culling *(R-A.2 → MVP via A3)* `[● A3]` | `probe_growth`<br>`probe_mirror`<br>`leaf_only_ids` |  |  |  |  |  |
-| D48 | Hover deleted entirely *(R-X.1)* | `banned_patterns`<br>`leaf_only_ids`<br>`grammar_oracle_unit`<br>`seed_script_schema` |  |  |  |  |  |
+| D47 | Pointer path to culling *(R-A.2 → MVP via A3)* `[● A3]` | `probe_growth`<br>`probe_mirror`<br>`leaf_only_ids` | `CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically` |  |  |  |  |
+| D48 | Hover deleted entirely *(R-X.1)* | `banned_patterns`<br>`grammar_oracle_parity`<br>`leaf_only_ids`<br>`grammar_oracle_unit`<br>`seed_script_schema` |  |  |  |  |  |
 | D49 | Layout quantized everywhere *(R-X.2)* |  |  |  |  |  | NOT-COVERED |
 | D50 | Distribution Developer ID *(R-I.1)* |  |  |  |  |  | SHELVED |
 | D51 | Silent updates *(R-I.2)* |  |  |  |  |  | NOT-COVERED |
@@ -119,8 +118,8 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D56 | Videos copied, counted, not shown *(R-M.5)* |  |  |  |  |  | NOT-COVERED |
 | D57 | 90 px / PERSUADE *(R-Q.1)* |  |  |  |  |  | NOT-COVERED |
 | D58 | Halo 1.5 pt restored *(audit)* |  |  |  |  |  | NOT-COVERED |
-| D59 | Same-mark clears *(D10 + audit; copy sealed)* | `copy_contract_diff`<br>`contract_v6_presence`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `P0LogicTests.testCullToggleGrammar` |  |  |  |  |
-| D60 | Return-release gate *(D11 + audit; copy sealed)* | `copy_contract_diff`<br>`contract_v6_presence`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CommandChordTests.testHeldReturnCannotDoubleCommit` |  |  |  |  |
+| D59 | Same-mark clears *(D10 + audit; copy sealed)* | `copy_contract_diff`<br>`contract_v6_presence`<br>`grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testD59_sameMarkClearsInPlace`<br>`P0LogicTests.testCullToggleGrammar` |  |  |  |  |
+| D60 | Return-release gate *(D11 + audit; copy sealed)* | `copy_contract_diff`<br>`contract_v6_presence`<br>`grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn`<br>`CommandChordTests.testHeldReturnCannotDoubleCommit` |  |  |  |  |
 | D61 | Export three-state *(audit + D37)* |  |  |  |  |  | NOT-COVERED |
 | D62 | Post-commit focus advance *(audit)* |  |  |  |  |  | NOT-COVERED |
 | D63 | Crop latch keys & ban on decision-key remap *(A2)* `[● A2]` | `agent_rules_contract`<br>`contract_v6_presence` | `P0LogicTests.testCropKeyScopeNeverStagesOrRejects`<br>`CropTests.testLayoutHashChangesOnEditAndReverts` |  |  |  |  |
@@ -133,7 +132,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | R-8.1 | ⌥⌘E recipe re-entry |  | `P0LogicTests.testExportRecipeHintContract` |  |  |  |  |
 | R-9.1 | Diagnostics local-only or absent | `zero_egress_audit` |  |  |  |  |  |
 | R-A.1 | Amateur pivot / Develop gate |  |  |  |  |  | SHELVED |
-| R-A.2 | Pointer path to culling (shelf → MVP) |  |  |  |  |  | NOT-COVERED |
+| R-A.2 | Pointer path to culling (shelf → MVP) |  | `CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically` |  |  |  |  |
 | R-I.1 | Distribution Developer ID | `contract_v6_presence` |  |  |  |  |  |
 | R-I.2 | Silent updates | `heavy_job_registry` |  |  |  |  |  |
 | R-I.3 | Offline licensing |  |  |  |  |  | SHELVED |
@@ -143,5 +142,5 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | R-M.4 | Share sheet destination | `copy_table_lint` |  |  |  |  |  |
 | R-M.5 | Videos copied, counted, not shown |  |  |  |  |  | NOT-COVERED |
 | R-Q.1 | 90 px / PERSUADE |  |  |  |  |  | NOT-COVERED |
-| R-X.1 | Hover deleted / value-echo at-rest | `banned_patterns`<br>`leaf_only_ids`<br>`grammar_oracle_unit`<br>`seed_script_schema` |  |  |  |  |  |
+| R-X.1 | Hover deleted / value-echo at-rest | `banned_patterns`<br>`grammar_oracle_parity`<br>`leaf_only_ids`<br>`grammar_oracle_unit`<br>`seed_script_schema` |  |  |  |  |  |
 | R-X.2 | Layout quantized everywhere | `magic_numbers` |  |  |  |  |  |

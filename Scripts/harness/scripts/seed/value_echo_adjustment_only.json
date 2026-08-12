@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 2,
+  "id": "value_echo_adjustment_only",
+  "title": "Value-echo during adjustment only \u2014 absent at rest (D24/D48)",
+  "cite": [
+    "D24",
+    "D48"
+  ],
+  "fixture": "mixed-60",
+  "seed": 1005,
+  "notes": "No hover path. Echo present only while adjusting armed control.",
+  "events": [
+    {
+      "op": "focusIndex",
+      "index": 0,
+      "tMs": 0
+    },
+    {
+      "op": "key",
+      "key": "Return",
+      "tMs": 50
+    },
+    {
+      "op": "key",
+      "key": "Tab",
+      "tMs": 100
+    },
+    {
+      "op": "adjustBegin",
+      "tMs": 150
+    },
+    {
+      "op": "adjustEnd",
+      "tMs": 200
+    }
+  ],
+  "asserts": [
+    {
+      "op": "grammarExact",
+      "equals": {
+        "focusIndex": 0,
+        "marks": [
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided"
+        ],
+        "staging": {
+          "active": false,
+          "ring": "none",
+          "scopeCount": 0,
+          "excludedCount": 0,
+          "bannerCount": 0,
+          "headerCount": 0,
+          "receiptCount": 0,
+          "returnReleaseArmed": false
+        },
+        "armedControl": "Exposure",
+        "undoDepth": 0,
+        "activeHolds": [],
+        "valueEchoPresent": false
+      }
+    },
+    {
+      "op": "countInvariant"
+    },
+    {
+      "op": "valueEchoPresent",
+      "present": false
+    },
+    {
+      "op": "armedConsent",
+      "control": "Exposure"
+    }
+  ]
+}
