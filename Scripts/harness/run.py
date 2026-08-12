@@ -130,6 +130,7 @@ def lane_fast() -> tuple[list[dict], list[str]]:
         ("seed_script_schema", [py, str(HARNESS / "probe" / "run_scripts.py"), "--schema-only"]),
         # STUB grammar oracle — orchestration unit only; not app-coupled (F2).
         ("grammar_oracle_unit", [py, str(HARNESS / "probe" / "run_scripts.py"), "--oracle"]),
+        ("allowlist_ratchet", [py, str(HARNESS / "lint" / "allowlist_ratchet.py")]),
     ]
     results = [_run(name, argv, "FAST") for name, argv in steps]
     executed = [r["step"] for r in results if r["ok"]]
@@ -321,6 +322,7 @@ def run_lane(lane: str) -> tuple[str, int]:
     elapsed = int((time.perf_counter() - started) * 1000)
     inventory = evaluate_inventory(lane, executed)
     step_ok = all(r["ok"] for r in results) if results else False
+    budget = int(lane_def["budgetMs"])
     if inventory["verdict"] != "PASS":
         status = inventory["verdict"]  # FAIL or INCOMPLETE
         code = 1
@@ -330,6 +332,18 @@ def run_lane(lane: str) -> tuple[str, int]:
     else:
         status = "PASS"
         code = 0
+
+    if elapsed > budget:
+        slowest = sorted(results, key=lambda r: r.get("ms", 0), reverse=True)
+        print(
+            f"BUDGET BREACH: {lane.upper()} {elapsed}ms > {budget}ms budget",
+            file=sys.stderr,
+        )
+        for row in slowest:
+            print(f"  {row['step']}: {row['ms']}ms", file=sys.stderr)
+        print("delete or demote", file=sys.stderr)
+        status = "FAIL"
+        code = 1
 
     path = write_report(
         lane.upper(),
@@ -344,9 +358,6 @@ def run_lane(lane: str) -> tuple[str, int]:
         for reason in inventory["reasons"]:
             print(f"    inventory: {reason}", file=sys.stderr)
     print(f"    report={path}")
-    budget = int(lane_def["budgetMs"])
-    if elapsed > budget:
-        print(f"WARN: {lane.upper()} exceeded budget ({elapsed} > {budget})", file=sys.stderr)
     return status, code
 
 
