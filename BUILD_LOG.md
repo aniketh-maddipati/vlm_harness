@@ -4,6 +4,33 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — F03.4 / F03.5 / F03.6: constitution coverage matrix + probe completeness gate
+
+**Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F03: probe completeness + constitution coverage](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
+**Claim:** Land F03.4 explicit D/R → artifact registry, F03.5 FAST `constitution_coverage` freshness gate, F03.6 GAP LIST intake wired to the coverage report.
+
+**Finding:** No honest constitution coverage matrix; GAP LIST had no machine-readable intake tying D/R rows to named lint/logic/flow/golden artifacts; probe lints (F03.1–F03.3) lacked a coverage ledger.
+
+**Fix:** `Scripts/harness/coverage/{generate_constitution_coverage.py,artifact_registry.yaml,shelved_register.yaml}` → `artifacts/harness/coverage/constitution-coverage.{md,json}` · shelved rows (`D29`, `D38`, `D46`, `D32`, `D64`, `D50`, `R-I.3`, `R-A.1`) → `SHELVED` not `NOT-COVERED` · FAST manifest id `constitution_coverage` (`--check`) · `HARNESS.md` GAP LIST intake points at the report.
+
+**Constitution coverage (honest count — low NOT-COVERED would be suspicious):**
+
+| Total | Covered | Shelved | **NOT-COVERED** |
+|------:|--------:|--------:|----------------:|
+| 82 | 44 | 7 | **31** |
+
+**NOT-COVERED (printed):** `D1`–`D7`, `D12`, `D14`, `D15`, `D17`, `D18`, `D20`–`D22`, `D25`, `D28`, `D30`, `D31`, `D33`, `D34`, `D40`, `D45`, `D49`, `D51`, `D52`, `D55`, `D56`, `D58`, `D62`, `D66`.
+
+**Instrument reading (Linux cloud — measured this session):**
+
+| Alias / lane | `run.py` | Elapsed | Status | App tests executed / expected | Orchestration |
+|--------------|----------|---------|--------|-------------------------------|---------------|
+| `pre-commit` / FAST (after F03.4–F03.6) | `fast` | **3667 ms** | PASS | **0 / 0** | **22 / 22** |
+
+**Follow-ups:** map NOT-COVERED rows as artifacts land · golden fixture bodies (CP3) · battery column when F10 un-gates · macOS `xcodebuild test` for logic column names.
+
+---
+
 ## 2026-08-12 — F02.4 / F02.5: headless grammar replays + oracle parity
 
 **Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F02: headless grammar rung](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
