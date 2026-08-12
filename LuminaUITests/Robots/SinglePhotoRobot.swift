@@ -7,7 +7,7 @@ struct SinglePhotoRobot {
     unowned let test: XCTestCase
 
     @discardableResult
-    func assertVisible(timeout: TimeInterval = 15) -> SinglePhotoRobot {
+    func assertVisible(timeout: TimeInterval = UITestWait.transition) -> SinglePhotoRobot {
         let snapshot = app.waitForProbe(timeout: timeout) { $0.route == "singlePhoto" }
         XCTAssertEqual(snapshot?.route, "singlePhoto", "Single-photo surface never reported route=singlePhoto")
         return self
@@ -17,7 +17,8 @@ struct SinglePhotoRobot {
     /// container-propagation rule in P0AccessibilityID).
     func hasFilmstripItems() -> Bool {
         let predicate = NSPredicate(format: "identifier BEGINSWITH %@", P0AXID.filmstripItemPrefix)
-        return app.descendants(matching: .any).matching(predicate).firstMatch.waitForExistence(timeout: 8)
+        return app.descendants(matching: .any).matching(predicate).firstMatch
+            .waitForExistence(timeout: UITestWait.elementExistence)
     }
 
     func filmstripItem(_ id: String) -> XCUIElement {
@@ -43,7 +44,7 @@ struct SinglePhotoRobot {
     func returnToGrid() -> ContactSheetRobot {
         app.typeKey(.escape, modifierFlags: [])
         let sheet = ContactSheetRobot(app: app, test: test)
-        _ = app.waitForProbe(timeout: 8) { $0.route == "contactSheet" }
+        _ = app.waitForProbe(timeout: UITestWait.transition) { $0.route == "contactSheet" }
         return sheet
     }
 
@@ -52,7 +53,7 @@ struct SinglePhotoRobot {
     func returnToGridByButton() -> ContactSheetRobot {
         app.descendants(matching: .any).matching(identifier: P0AXID.gridReturn).firstMatch.click()
         let sheet = ContactSheetRobot(app: app, test: test)
-        _ = app.waitForProbe(timeout: 8) { $0.route == "contactSheet" }
+        _ = app.waitForProbe(timeout: UITestWait.transition) { $0.route == "contactSheet" }
         return sheet
     }
 }

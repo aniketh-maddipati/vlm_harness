@@ -140,6 +140,7 @@ def lane_fast() -> tuple[list[dict], list[str]]:
         ("registry_staleness", [py, str(HARNESS / "lint" / "registry_staleness.py")]),
         ("no_sleeps", [py, str(HARNESS / "lint" / "no_sleeps.py")]),
         ("flake_policy", [py, str(HARNESS / "lint" / "flake_policy.py")]),
+        ("wait_budgets", [py, str(HARNESS / "lint" / "wait_budgets.py")]),
         ("allowlist_ratchet", [py, str(HARNESS / "lint" / "allowlist_ratchet.py")]),
     ]
     results = [_run(name, argv, "FAST") for name, argv in steps]
