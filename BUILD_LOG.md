@@ -4,6 +4,19 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — S15 split STOP: F03 probe coverage (0/2 commits)
+
+**Branch:** `feature/f03-probe-coverage`  
+**Claim:** Cherry-pick F03 commits `8efa3e4`, `b7a98b5` off merge-base `2fca1c1`.
+
+**STOP at `8efa3e4`** — commit spans **F01+F03** (touches `Scripts/harness/lanes/manifests.json`, `Scripts/harness/run.py`). Conflicts not resolved per S15 rule. Branch tip remains `2fca1c1` for block code; this ledger commit records the STOP.
+
+**Instrument reading:** not run (no F03 delta).
+
+**Merge gate:** F03 mergeable when FAST green + S14 #3/#7 closed or ruled. See `checkpoint/f0-prompt-factory` for full split ledger.
+
+---
+
 ## 2026-08-11 — Tree compiles (mechanical fix session)
 
 **Branch:** `fix/legacy-callsite-argument-order` · worktree `../lumina-wt/fix-callsites`  
