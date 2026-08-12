@@ -26,6 +26,7 @@
         { "id": "probe_mirror", "kind": "orchestration", "notes": "ProbeSnapshot four-site field mirror (F03.2 / postmortem §7.2)" },
         { "id": "leaf_only_ids", "kind": "orchestration", "notes": "P0 container accessibilityIdentifier with identified children (F03.3)" },
         { "id": "constitution_coverage", "kind": "orchestration", "notes": "F03.5 — matrix freshness vs registry; maintainer regen: generate_constitution_coverage.py --write" },
+        { "id": "registry_staleness", "kind": "orchestration", "notes": "F03 — two-direction registry completeness (S14 A2/#7)" },
         { "id": "allowlist_ratchet", "kind": "orchestration" }
       ]
     },
