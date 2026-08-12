@@ -1,8 +1,8 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: 4165261bd21cd51478584549c48bebfc0c9868adfd4bcfe85431918d9780b375
-// version: 6.1-batch1
+// tokens-hash: c8f75e1a3733ee3209699deb0c2d418318a1b65ca47e46507a88929822c9c9a7
+// version: 6.2-batch2
 // contract: design/contract-v6.md
 
 import CoreGraphics

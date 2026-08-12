@@ -1,4 +1,4 @@
-# Lumina design tokens — Contract v6 (+ Amendment Batch 1)
+# Lumina design tokens — Contract v6 (+ Amendment Batch 1; Batch 2 distribution)
 # Generates Swift constants (HiFiTokens / LuminaTokens). Every value cites law.
 # Schema: section → token → { value, unit?, type, cite, notes? }
 # Types: color | pt | px | ms | opacity | animation | enum | bool | string
@@ -8,7 +8,7 @@
 # [● A1] mvp_test_floor · [● A2] crop_* · [● A3] pointer_cull_* · [● A4] clipping_hold_key / clipping_grammar
 # [● A6] swimlane_fill_opacity socket · [● A7] beta_testflight_crash_reporting · [● A8] beta_licensing
 
-version: "6.1-batch1"
+version: "6.2-batch2"
 contract: design/contract-v6.md
 codegen:
   swift_enum: HiFiTokens
