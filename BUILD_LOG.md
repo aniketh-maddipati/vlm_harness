@@ -4,6 +4,35 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — S15 split: `cursor/f0-prompt-factory-cbe0` → five block branches
+
+**Branch:** `checkpoint/f0-prompt-factory` (split ledger only — **F0 prompt pack not present in git**)  
+**Claim:** Cherry-pick the monolithic f0 factory branch into five reviewable branches off merge-base `2fca1c1` (pre–PR #35 squash on `origin/main`).
+
+**Split result:**
+
+| Branch | Base | Commits applied | Status |
+|--------|------|-----------------|--------|
+| `checkpoint/f0-prompt-factory` | `2fca1c1` | — | **STOP** — `design/build-prompts/` (14 files) + F0 BUILD_LOG entry **never committed** on source branch |
+| `feature/f01-cp0-shell` | `2fca1c1` | 6/6 F01 (`86f3b33`…`546e830`) | Complete |
+| `feature/f02-headless-grammar-rung` | `2fca1c1` | 2/3 F02 (`6b0c4c0`, `88590be`) | **STOP** at `50fda96` — spans F01+F02; conflicts in `BUILD_LOG.md`, `manifests.json`, `run.py` |
+| `feature/f03-probe-coverage` | `2fca1c1` | 0/2 F03 | **STOP** at `8efa3e4` — spans F01+F03; same manifest/run conflicts |
+| `feature/f04-fast-lane-hardening` | `2fca1c1` | 0/4 F04 | **STOP** at `b4fb0a7` — spans F01+F04; same manifest/run conflicts |
+
+**Merge gates (open / closed):**
+
+- **F0:** blocked — prompt pack absent; no FAST claim.
+- **F01:** FAST not green on this host (`banned_words` / `banned_patterns` / `magic_numbers` bash 3.2); S14 findings #6 (bash shebangs) open.
+- **F02:** incomplete cherry-pick; S14 #1–#3 (conflict-blindness, seed roster) open; `CullGrammarTests` not run on macOS.
+- **F03:** no block commits landed; S14 #3 (coverage honesty) open.
+- **F04:** DRAFT — FULL 0/7 on Linux; A3 unexecuted-change list (12 files) non-empty until quiescent macOS FULL green.
+
+**S14 findings unclosed on this split:** #1 conflict-blindness · #2 F04 merge gate · #3 coverage honesty · #4 budget 600000 vs 480000 · #5 seed roster drift · #6 build-cache gitignore · #7 one-way staleness lint · #8 F0 prompt pack missing · #9 S15 split friction (7/15 commits span F01 manifest spine).
+
+**Not merged. Not tagged.**
+
+---
+
 ## 2026-08-11 — Tree compiles (mechanical fix session)
 
 **Branch:** `fix/legacy-callsite-argument-order` · worktree `../lumina-wt/fix-callsites`  
