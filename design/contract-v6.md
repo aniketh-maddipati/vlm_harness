@@ -1,11 +1,11 @@
 # Lumina Product Decision Record — Contract v6
 
-**Status:** Amendment Batch 1 (A1–A10) on sealed re-seal.  
+**Status:** Amendment Batch 1 (A1–A10) + **Batch 2 (A11–A13)** on sealed re-seal.  
 **Authority flow:** contract → tokens → copy → code → tests.  
 **Provenance:** `design/contract-v5.md` (D1–D40, unmodified PDR body).  
-**Sources integrated:** Rulings R-5.1…R-Q.1; audit-accepted items; Layer-2 sequence (Task 5); MVP-test questionnaire A1–A10.  
+**Sources integrated:** Rulings R-5.1…R-Q.1; audit-accepted items; Layer-2 sequence (Task 5); MVP-test questionnaire A1–A10; Batch 2 ratification `design/amendments/proposal-batch-2.md`.  
 **Does not:** invent grammar, chips, copy, chrome, or motion beyond rulings and sealed sources.  
-**Change-marks:** `[● A#]` = Amendment Batch 1. Two scoped weakenings only: **A5** (D16) · **A7** (R-9.1 / D45).
+**Change-marks:** `[● A#]` = Amendment Batch 1 unless marked Batch 2. Batch 1 scoped weakening: **A5** (D16) only — **A7 withdrawn (A13, Batch 2).**
 
 ---
 
@@ -24,13 +24,15 @@ No open CONFLICT blocks remain from the first pass.
 ## How to read v6
 
 1. **Carry:** All of Contract v5 (D1–D40) remains law except where an amendment below replaces named clauses.  
-2. **Amend:** D16 (via A5), D21 (via R-5.2 + A4), D23 (via A2), D24, D27, D32/success-test (via R-A.1 + A10), D36, D37 (via R-X.1), D40 history note; D45 (via A7), D46 (via A10), D47 (via A3), D52 (via A8).  
-3. **Add:** D41–D62 (rulings + audit integrations); D63–D66 (Batch 1).  
+2. **Amend:** D16 (via A5), D21 (via R-5.2 + A4), D23 (via A2), D24, D27, D32/success-test (via R-A.1 + A10), D36, D37 (via R-X.1), D40 history note; D45 (via A13 — restores R-9.1; withdraws A7), D46 (via A10), D47 (via A3), D52 (via A8); **Batch 2:** D66 (via A12).  
+3. **Add:** D41–D62 (rulings + audit integrations); D63–D66 (Batch 1). **Batch 2:** A11 closes CONFLICT 4 (R-I.4); A13 withdraws A7.  
 4. **Shelf:** Shelved Register below supersedes first-pass WG-hand multi-select drift — v5 D29/D38 win unless a ruling un-shelves. **A3 un-shelves** pointer culling (D47). **A6 shelves** swim-lane plates with an evidence re-entry door.
 
 Five Laws mapping (v5 D8 ↔ session L1–L5): touch moves never decides · held is temporary · taps decide / work states latch · ⇧ is more ⌥ is less · Esc puts it back / ⌘Z takes it back. Session L3/L4 failure & persistence language remains the operational reading of D35/D36.
 
-**Scoped weakenings this batch (review must see):** **A5** amends D16 (Adapt word verbatim; remainder may compress). **A7** scopes R-9.1 / D45 (TestFlight crash reporting for beta ONLY; expires at 1.0).
+**Scoped weakenings — Batch 1 (review must see):** **A5** amends D16 (Adapt word verbatim; remainder may compress). ~~**A7**~~ **WITHDRAWN (A13, Batch 2)** — was TestFlight crash reporting for beta ONLY; no referent after A12.
+
+**Batch 2 amendments (review must see):** **A11** closes CONFLICT 4 — notarized Developer ID beta (R-I.4). **A12** amends D66 beta channel. **A13** withdraws A7; R-9.1 / D45 apply in full to beta, wave, and launch builds.
 
 ---
 
@@ -50,7 +52,7 @@ Citations: `D#`, `R-*`.
 - **decision:** Product language remains Adapt — never "sync" / "copy settings" (banned words). **Amendment (A5), verbatim:** the word **"Adapt"** appears in the banner verbatim; the remainder of the sentence may compress. Frozen compressed forms: banner `Adapt → N  ⏎ · Esc` · receipt `Adapted → N · ⌘Z` · provenance chip `← 8288`. Each recipient still gets a different numeric adjustment sharing the same visual intention.
 - **why:** Banner/receipt chrome must stay scannable at pro rates; the differentiation word is Adapt, not the full v5 sentence.
 - **rejected:** Restoring "sync/copy settings"; dropping the word Adapt from the banner; compressing away the count invariant (D19) or the clickable receipt.
-- **history / socket:** **Scoped weakening of D16** — one of two Batch-1 weakenings (with A7). D19 count invariant and clickable receipt are untouched. Copy rows in `design/copy-contract.txt`.
+- **history / socket:** **Scoped weakening of D16** — Batch-1 weakening (A7 withdrawn A13). D19 count invariant and clickable receipt are untouched. Copy rows in `design/copy-contract.txt`.
 
 ### D21 — Truth-at-a-glance *(amended by R-5.2 + A4)* `[● A4]`
 
@@ -159,12 +161,12 @@ Citations: `D#`, `R-*`.
 - **rejected:** Per-network presets; copy-settings flows.
 - **history / socket:** Touches D34, D55, CP8.
 
-### D45 — Diagnostics local-only or absent *(R-9.1 + A7)* `[● A7]`
+### D45 — Diagnostics local-only or absent *(R-9.1; A7 withdrawn A13)* `[● A13]`
 
-- **decision:** Diagnostics are local-only or absent; reveal/send manual only — never automatic egress. **Scoped amendment (A7):** Beta builds distribute via **TestFlight**; **TestFlight crash reporting is accepted for the beta ONLY**. **Expiry (must not silently persist):** this exception **expires at 1.0** — launch builds are **direct-notarized** (R-I.1 / D50) with **local-only diagnostics** (R-9.1 restored in full). Write the expiry into every beta diagnostics socket so it cannot outlive 1.0 by neglect.
-- **why:** D4 / D36 sovereignty; zero-egress ideal at launch; beta needs a crash channel without poisoning 1.0.
-- **rejected:** Auto crash reporters in launch builds; background telemetry; network calls from failure chips; letting the TestFlight exception silently persist past 1.0.
-- **history / socket:** **Scoped weakening of R-9.1** — one of two Batch-1 weakenings (with A5). Manual reveal chrome OPEN if required — not invented here.
+- **decision:** Diagnostics are **local-only or absent**; reveal/send **manual only** — never automatic egress. **No beta-channel exception.** No TestFlight crash reporting. No third-party crash reporter bundled with wave builds. Manual reveal chrome remains OPEN if required — not invented here.
+- **why:** D4 / D36 sovereignty; zero-egress ideal at launch and on wave builds (A12 notarized Developer ID beta; A11 / R-I.4). A7 TestFlight exception withdrawn — no referent.
+- **rejected:** Auto crash reporters in any build; background telemetry; network calls from failure chips; silent diagnostics sockets.
+- **history / socket:** **A7 withdrawn (A13, Batch 2)** — R-9.1 restored in full for beta, wave, and launch. Cross-cites D66, F11.6 (`betaDiagnostics` null assertion — follow-up on F11 branch).
 
 ### D46 — Amateur pivot + Develop gate *(R-A.1 + A10)* `[● A10]`
 
@@ -312,12 +314,12 @@ Citations: `D#`, `R-*`.
 - **rejected:** Intel support at MVP; modal dead-ends for unsupported bodies; inventing fleet bodies beyond the flagged list without a fixture cut.
 - **history / socket:** Fixture critical path ~doubles vs. 3-body plan.
 
-### D66 — Beta distribution posture *(A7 + A8)* `[● A7]` `[● A8]`
+### D66 — Beta distribution posture *(A12 + A8)* `[● A12]` `[● A8]`
 
-- **decision:** Beta via TestFlight with A7 diagnostics exception (expires at 1.0). Wave builds free (A8). Launch = direct-notarized (D50) + local-only diagnostics (D45 restored) + R-I.3 licensing implemented post-test pre-launch.
-- **why:** Citation hub for beta vs 1.0 distribution without scattering expiry.
-- **rejected:** Shipping 1.0 with TestFlight crash reporting still on; beta license walls.
-- **history / socket:** Touches D45, D50, D52.
+- **decision:** **Beta and wave builds** distribute via **notarized Developer ID artifact** (Developer ID Application signing, notarized, stapled — same family as D50 / R-I.1 direct distribution). Distribution surface: install page linking the current ship artifact and F11.4 build manifest fields. **No TestFlight.** **No Mac App Store beta.** Wave builds remain **free** (A8 — no license machinery). **Launch at 1.0** = direct-notarized (D50) + local-only diagnostics (D45 / R-9.1 in full) + R-I.3 licensing implemented post-test pre-launch.
+- **why:** Citation hub for beta vs 1.0 distribution without scattering expiry; aligns with A11 / R-I.4 and shipped F11 posture (`betaDiagnostics: null`).
+- **rejected:** TestFlight beta; Mac App Store beta; beta license walls; non-notarized wave artifacts.
+- **history / socket:** **A7 withdrawn (A13)** — D66 no longer cites TestFlight diagnostics. Touches D45, D50, D52, R-I.4.
 
 ---
 
@@ -362,7 +364,7 @@ Spinners; skeletons; progress bars; modals/NSAlert in failure paths; hover handl
 3. **D55** share destination field labels.  
 4. **D56** whether video count needs chrome beyond ✓.  
 5. **D51** update channel vs zero-egress ideal.  
-6. **D45** manual diagnostics chrome — absent vs minimal local reveal (beta TestFlight path is A7; launch local-only).  
+6. **D45** manual diagnostics chrome — absent vs minimal local reveal (launch and wave: local-only per A13; no TestFlight path).  
 7. **Named pinch density steps** (D49) for token seal.  
 8. v5 open question 2 — keycap tap-to-arm feel (still open).  
 9. v5 open question 3 — NSCollectionView virtualization of rows/gaps (still open).  
@@ -371,8 +373,9 @@ Spinners; skeletons; progress bars; modals/NSAlert in failure paths; hover handl
 12. A6 rows-probe **alarm threshold** (rate that re-opens lane plates) — not named by the ruling.  
 
 *Closed by re-seal:* v5 source; Layer-2/D40; D59/D60 verbatim; v5 open question 1 (90 px) → D57.  
-*Closed by Batch 1:* R-5.2 key name → Hold-J (A4); R-A.2 shelf → MVP pointer marks (A3); swim-lane plates → shelved with evidence (A6); beta diagnostics/licensing posture (A7/A8); D16 compression (A5).  
-*Closed by Batch 1 verify:* `.cursorrules` crop A/X re-scoping → D63 (R/O; A/X remap banned); agent-rules lint permanent.
+*Closed by Batch 1:* R-5.2 key name → Hold-J (A4); R-A.2 shelf → MVP pointer marks (A3); swim-lane plates → shelved with evidence (A6); beta diagnostics/licensing posture (A7/A8 — **A7 withdrawn A13, Batch 2**); D16 compression (A5).  
+*Closed by Batch 1 verify:* `.cursorrules` crop A/X re-scoping → D63 (R/O; A/X remap banned); agent-rules lint permanent.  
+*Closed by Batch 2:* CONFLICT 4 → notarized Developer ID beta (A11 / R-I.4); D66 beta channel (A12); A7 withdrawal / D45 restore (A13).
 
 ---
 
@@ -385,6 +388,9 @@ Spinners; skeletons; progress bars; modals/NSAlert in failure paths; hover handl
 - Grammar-stability suite (D51).  
 - Taste-model proof harness after wave-one eval set exists (D46 / A10) — do not begin earlier.  
 - R-I.3 licensing implementation post-test, pre-launch (A8).  
-- Strip TestFlight crash reporting at 1.0 (A7 expiry).  
+- Install-page spec revision — drop dangling audit citation; anchor on A11 / D66; add `nothing leaves this Mac` if operator chooses (A13 makes it truthful of wave builds).  
+- F11.6 → `betaDiagnostics`-null assertion (F11 branch); F11.3 staple `.app` inside artifact (zip cannot carry ticket; DMG can).  
+- Rebuild post-ratification — every artifact built before `6.2-batch2` carries stale `contractVersion`.  
+- ITEM 4 — operator still chooses distribution copy home (a / b / c).  
 - `AUDIT-HIFI.md` still records old “crop latch re-scopes A/X” PASS — regenerate on next audit run (artifact drift, not agent-rules).  
-- `seal-v6.1` tag after human review + seal verification (not this session).
+- `seal-v6.2` tag after human review + seal verification (not this session).

@@ -1,11 +1,17 @@
 # Amendment Batch 2 — proposal for human ratification
 
-**Status:** PROPOSAL ONLY — not law.  
-**Branch:** `constitution/batch-2-distribution`  
-**Session:** B2.1  
-**Touches on ratification:** D45, D66, A7 (withdrawal), CONFLICT 4 closure, install-page copy scope (ITEM 4 — operator choice).
+## Ratification decisions (2026-08-12)
 
-**Does not amend in this session:** `design/contract-v6.md`, `design/copy-contract.txt`, `design/tokens.yaml`.
+| Item | Amendment | Decision |
+|------|-----------|----------|
+| **ITEM 1** — CONFLICT 4 closure (option 2) | **A11** / **R-I.4** | **RATIFIED** |
+| **ITEM 2** — D66 beta channel | **A12** | **RATIFIED** |
+| **ITEM 3** — A7 withdrawal | **A13** | **RATIFIED** |
+| **ITEM 4** — install-page copy scope | (a / b / c) | **NOT RATIFIED** — no operator choice recorded |
+
+**Status:** **A11–A13 RATIFIED** (2026-08-12) — applied to `design/contract-v6.md` and `design/tokens.yaml` on `constitution/batch-2-distribution`. ITEM 4 deferred.  
+**Branch:** `constitution/batch-2-distribution`  
+**Session:** B2.1 (proposal) · B2.2 (apply ratified items)
 
 **Authority order reminder:** `design/contract-v6.md` → `design/tokens.yaml` → `design/copy-contract.txt` → code → tests. An audit doc (`docs/release/MACOS_RELEASE_READINESS_AUDIT.md`) sits below the contract and cannot justify departing from D66 — though it may inform engineering.
 
@@ -188,6 +194,8 @@ Contract cites “Rulings R-5.1…R-Q.1” as integrated sources; no R-number ab
 Distribution is not app UI; strangers encounter it before the table. It still needs banned-word and sovereignty discipline — especially if ITEM 3 ratifies and `nothing leaves this Mac` may appear on the page. A sibling file preserves separation without orphaning distribution copy from the constitution stack. Extend lint in the ratification **implementation** pass, not in this proposal.
 
 **This proposal does not ratify (b).** Operator chooses at Batch 2 seal.
+
+**B2.2 apply (2026-08-12):** ITEM 4 **not ratified** — no `(a)`, `(b)`, or `(c)` line recorded. No distribution copy home created. Install-page `[NEW]` strings remain uncontracted.
 
 ---
 

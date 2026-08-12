@@ -4,6 +4,45 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — Batch 2 ratification: distribution & diagnostics (A11–A13)
+
+**Branch:** `constitution/batch-2-distribution` · **PR:** draft — Batch 2 apply  
+**Claim:** Apply ratified Batch 2 items only — CONFLICT 4 closure, D66 beta channel, A7 withdrawal; bump tokens; record declined ITEM 4.
+
+**Ratified:**
+
+| Item | Amendment | Applied |
+|------|-----------|---------|
+| ITEM 1 — CONFLICT 4 option 2 (notarized Developer ID beta) | **A11** / **R-I.4** | `design/build-prompts/INDEX.md` §CONFLICTS; contract Batch 2 header |
+| ITEM 2 — D66 beta channel | **A12** | `design/contract-v6.md` D66 |
+| ITEM 3 — A7 withdrawal / D45 restore | **A13** | `design/contract-v6.md` D45; scoped-weakening note; A7 visible as withdrawn |
+
+**Declined / deferred:**
+
+| Item | Status |
+|------|--------|
+| ITEM 4 — install-page copy scope (a / b / c) | **NOT RATIFIED** — no operator choice; no copy home created |
+
+**Instrument readings:**
+
+| Step | Result |
+|------|--------|
+| `design/tokens.yaml` version | **`6.2-batch2`** (was `6.1-batch1`) |
+| `python3 Scripts/harness/codegen/tokens_codegen.py --check` | **PASS** (`tokens-hash=c8f75e1a3733…`) |
+
+**Follow-ups (listed, not built this session):**
+
+- **Install-page spec** — drop dangling `MACOS_RELEASE_READINESS_AUDIT.md` citation; anchor on A11 / D66; add `nothing leaves this Mac` (A13 makes it truthful of wave builds).
+- **F11.6** — becomes `betaDiagnostics`-null assertion (F11 branch).
+- **F11.3** — must staple the `.app` inside the artifact; a zip cannot carry a ticket; a DMG can.
+- **Pre-ratification artifacts** — every build before `6.2-batch2` embeds stale `contractVersion` in F11.4 manifest.
+- **ITEM 4** — operator chooses (a) copy-contract distribution section, (b) sibling file, or (c) outside contract.
+- **tokens.yaml** — `beta_testflight_crash_reporting` socket stale vs A13; clean on follow-up pass.
+- **mvp-test-plan.md** — consent line still cites “D45 / A7”; update on copy pass.
+- **Do not merge** contract branch until operator says merge.
+
+---
+
 ## 2026-08-12 — F11: release integrity (F11.1–F11.7)
 
 **Branch:** `feature/f11-release-integrity`  
