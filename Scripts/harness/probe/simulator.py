@@ -83,10 +83,12 @@ class ProbeSimulator:
         self.state["tsMs"] = int(self.state.get("fakeClockMs") or 0)
 
     def apply_event(self, event: dict[str, Any]) -> None:
+        t_ms = int(event["tMs"])
+        self.state["fakeClockMs"] = t_ms
+        self.state["tsMs"] = t_ms
         op = event["op"]
         if op == "wait":
-            self.state["fakeClockMs"] = int(self.state.get("fakeClockMs") or 0) + int(event.get("ms") or 0)
-            self.state["tsMs"] = self.state["fakeClockMs"]
+            # Sugar: timeline advance is encoded in tMs (= prior tMs + ms); no separate op body.
             return
         if op == "waitProbe":
             return

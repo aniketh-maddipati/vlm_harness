@@ -20,19 +20,45 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from simulator import ProbeSimulator, load_script  # noqa: E402
 
 
-def _validate_basic_script(script: dict) -> list[str]:
-    errs = []
+def _validate_basic_script(script: dict, *, filename: str) -> list[str]:
+    errs: list[str] = []
     for key in ("schemaVersion", "id", "title", "fixture", "events", "asserts"):
         if key not in script:
-            errs.append(f"missing {key}")
-    if script.get("schemaVersion") != 1:
-        errs.append("schemaVersion must be 1")
+            errs.append(f"{filename}: missing required field {key}")
+    version = script.get("schemaVersion")
+    if version != 2:
+        if version == 1:
+            errs.append(
+                f"{filename}: schemaVersion 1 rejected — input-script schema requires schemaVersion 2"
+            )
+        elif "schemaVersion" in script:
+            errs.append(f"{filename}: schemaVersion must be 2 (got {version!r})")
+
+    prev_t: int | None = None
     for i, event in enumerate(script.get("events") or []):
         if "op" not in event:
-            errs.append(f"events[{i}] missing op")
+            errs.append(f"{filename}: events[{i}] missing op")
+            continue
+        if "tMs" not in event:
+            errs.append(f"{filename}: events[{i}] missing required field tMs")
+            continue
+        if version != 2:
+            continue
+        t_ms = int(event["tMs"])
+        if prev_t is not None and t_ms < prev_t:
+            errs.append(
+                f"{filename}: events[{i}] tMs {t_ms} regresses from events[{i - 1}] tMs {prev_t}"
+            )
+        if event["op"] == "wait":
+            delta = int(event.get("ms") or 0)
+            if prev_t is not None and t_ms != prev_t + delta:
+                errs.append(
+                    f"{filename}: events[{i}] wait tMs {t_ms} must equal prior tMs {prev_t} + ms {delta}"
+                )
+        prev_t = t_ms
         for banned in ("x", "y", "cgPoint", "screenX", "screenY"):
             if banned in event:
-                errs.append(f"events[{i}] contains banned coordinate field '{banned}'")
+                errs.append(f"{filename}: events[{i}] contains banned coordinate field '{banned}'")
     return errs
 
 
@@ -67,9 +93,10 @@ def run_schema_only(seed_dir: Path = SEED) -> int:
     fail = 0
     for path in scripts:
         script = load_script(path)
-        errs = _validate_basic_script(script)
+        errs = _validate_basic_script(script, filename=path.name)
         if errs:
-            print(f"FAIL: {path.name} schema: {errs}", file=sys.stderr)
+            for err in errs:
+                print(f"FAIL: {err}", file=sys.stderr)
             fail = 1
         else:
             print(f"  schema {path.name}: OK")
@@ -86,9 +113,10 @@ def run_oracle(seed_dir: Path = SEED) -> int:
     fail = 0
     for path in scripts:
         script = load_script(path)
-        errs = _validate_basic_script(script)
+        errs = _validate_basic_script(script, filename=path.name)
         if errs:
-            print(f"FAIL: {path.name} schema: {errs}", file=sys.stderr)
+            for err in errs:
+                print(f"FAIL: {err}", file=sys.stderr)
             fail = 1
             continue
         sim = ProbeSimulator.from_script(script)
