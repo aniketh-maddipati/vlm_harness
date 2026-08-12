@@ -24,7 +24,7 @@ final class RepeatedNavigationStressTests: LuminaUITestCase {
                 }
                 if step % 30 == 0 {
                     // Periodically confirm the surface is still healthy (not blank / not hung).
-                    let probe = lumina.waitForProbe(timeout: 8) { $0.route != "open" && $0.assetCount == 200 }
+                    let probe = lumina.waitForProbe(timeout: UITestWait.transition) { $0.route != "open" && $0.assetCount == 200 }
                     Invariants.assert(probe, app: app)
                 }
             }
@@ -32,7 +32,7 @@ final class RepeatedNavigationStressTests: LuminaUITestCase {
 
         let elapsed = Date().timeIntervalSince(clock)
         record("repeated navigation elapsed: \(String(format: "%.1f", elapsed))s over \(changes) changes")
-        let final = lumina.waitForProbe(timeout: 10) { $0.assetCount == 200 }
+        let final = lumina.waitForProbe(timeout: UITestWait.transition) { $0.assetCount == 200 }
         XCTAssertEqual(final.assetCount, 200, "no assets lost")
         XCTAssertNotEqual(final.route, "open", "did not fall back to a blank/open state")
         Invariants.assert(final, app: app)

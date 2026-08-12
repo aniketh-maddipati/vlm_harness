@@ -18,7 +18,10 @@ struct LuminaRobot {
     func probe() -> ProbeSnapshot? { app.probe() }
 
     @discardableResult
-    func waitForProbe(timeout: TimeInterval = 12, where predicate: (ProbeSnapshot) -> Bool) -> ProbeSnapshot {
+    func waitForProbe(
+        timeout: TimeInterval = UITestWait.transition,
+        where predicate: (ProbeSnapshot) -> Bool
+    ) -> ProbeSnapshot {
         guard let snapshot = app.waitForProbe(timeout: timeout, where: predicate) else {
             XCTFail("state probe never satisfied predicate within \(timeout)s", file: #file, line: #line)
             return ProbeSnapshot(
@@ -39,7 +42,16 @@ struct LuminaRobot {
     func requireProbe(_ message: String = "expected an open shoot", file: StaticString = #file, line: UInt = #line) -> ProbeSnapshot {
         guard let snapshot = app.probe() else {
             XCTFail(message, file: file, line: line)
-            return waitForProbe { _ in true }
+            return ProbeSnapshot(
+                route: "unknown", shootName: nil, fixture: nil, seed: "0",
+                assetCount: 0, visibleCount: 0, selectionCount: 0, keptCount: 0,
+                rejectedCount: 0, unreviewedCount: 0, editedCount: 0, densityColumns: 0,
+                filter: "", canUndo: false, focusedAssetID: nil, focusedVisible: false,
+                focusedAvailability: nil, focusedCull: nil, inspectingAssetID: nil,
+                selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
+                phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
+                missingAssetIDs: []
+            )
         }
         return snapshot
     }

@@ -71,8 +71,19 @@ final class OpenNavigationTests: LuminaUITestCase {
 extension ContactSheetRobot {
     /// Assert there is a focused asset and return the current snapshot.
     func requireFocus(file: StaticString = #file, line: UInt = #line) -> ProbeSnapshot {
-        let snapshot = app.waitForProbe(timeout: 5) { $0.focusedAssetID != nil } ?? app.probe()!
-        XCTAssertNotNil(snapshot.focusedAssetID, "expected a focused asset", file: file, line: line)
+        guard let snapshot = app.waitForProbe(timeout: UITestWait.transition, where: { $0.focusedAssetID != nil }) else {
+            XCTFail("expected a focused asset within \(Int(UITestWait.transition))s", file: file, line: line)
+            return ProbeSnapshot(
+                route: "contactSheet", shootName: nil, fixture: nil, seed: "0",
+                assetCount: 0, visibleCount: 0, selectionCount: 0, keptCount: 0,
+                rejectedCount: 0, unreviewedCount: 0, editedCount: 0, densityColumns: 0,
+                filter: "", canUndo: false, focusedAssetID: nil, focusedVisible: false,
+                focusedAvailability: nil, focusedCull: nil, inspectingAssetID: nil,
+                selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
+                phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
+                missingAssetIDs: []
+            )
+        }
         return snapshot
     }
 }
