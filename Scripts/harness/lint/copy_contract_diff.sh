@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copy-contract diff — CopyContract.swift literals must appear in design/copy-contract.txt
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 
 CONTRACT="$ROOT/design/copy-contract.txt"

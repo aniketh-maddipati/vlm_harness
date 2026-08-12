@@ -89,7 +89,7 @@ Resolution executed: worktree/branch from sealed v6; PR #30 stacked on #29. (Unr
 - Scanned `.cursorrules`, `AGENTS.md` (no CLAUDE.md).  
 - **FAIL found:** `.cursorrules` taught crop latch **A→aspect / X→orientation** re-scoping — contradicts **D63** (R/O; A and X banned from remapping).  
 - **Fix:** rewrite crop section to D63; authority line now defers to contract; multi-select re-shelved to match D29/D38; Hold-J named; pointer marks listed.  
-- **Gate:** `Scripts/lint/agent_rules_contract.sh` added; wired into `contract_v6_presence.sh` + `Scripts/regression.sh` Phase 1.
+- **Gate:** `Scripts/harness/lint/agent_rules_contract.sh` added; wired into `contract_v6_presence.sh` + FAST lane manifest.
 
 **Phase 4 diff-scope (`78ea577..21da1d5`):**  
 Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `design/contract-v6.md`, `design/copy-contract.txt`, `design/fixture-manifest.md`, `design/mvp-test-plan.md`, `design/tokens.yaml`. Seal’s own files absent from the batch diff — **PASS**.
@@ -155,7 +155,7 @@ Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `desig
 2. Prompt Pack Layer-2 sequence body + D40 retirement plan absent — Task 5 reorder = none.
 3. Same-mark-clears + Return-release gate verbatim copy lines not pasted — frozen as OPEN, not invented.
 
-**Artifacts:** `design/contract-v6.md`, `design/tokens.yaml`, `design/copy-contract.txt` (v6 tags/change-marks), `design/fixture-manifest.md`, `design/checkpoint-sequence-v6.md`, harness `Scripts/lint/contract_v6_presence.sh`.
+**Artifacts:** `design/contract-v6.md`, `design/tokens.yaml`, `design/copy-contract.txt` (v6 tags/change-marks), `design/fixture-manifest.md`, `design/checkpoint-sequence-v6.md`, harness `Scripts/harness/lint/contract_v6_presence.sh`.
 
 **Follow-ups:** Check in v5 + Layer-2; re-seal v6; supply verbatim D59/D60 copy; codegen Swift from tokens.yaml; remove superseded hover string from `CopyContract`; taste-proof gate for D46.
 
