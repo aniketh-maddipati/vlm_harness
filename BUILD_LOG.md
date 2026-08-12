@@ -4,6 +4,32 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — F01: CP0 shell reconciliation
+
+**Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F01: CP0 shell reconciliation](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
+**Claim:** Land F01 CP0-shell rulings (F01.1–F01.7) — single entry point, lint home, enforced budget, bash-3.2 shell lints, allowlist ratchet, HARNESS lane-alias table and shell prose.
+
+**Finding:** Harness had dual lint paths (`Scripts/lint/` plus duplicate Phase 1 in `regression.sh`); `budgetMs` was advisory only; `mapfile` in shell lints broke FAST on macOS system bash 3.2 (see 2026-08-11 Tree compiles entry); debt allowlists could grow silently; HARNESS lacked `pre-commit` / `pre-merge` / `nightly` mapping to `run.py` lanes.
+
+**Fix:** F01.1 `regression.sh` lane dispatch · F01.3 lint home under `Scripts/harness/lint/` · F01.4 budget FAIL + slowest-id listing · F01.5 bash-3.2-safe shell lints · F01.6 `allowlist_ratchet` manifest id · F01.2/F01.7 HARNESS prose (this entry).
+
+**Instrument reading (Linux cloud — measured this session):**
+
+| Alias / lane | `run.py` | Elapsed | Status | App tests executed / expected | Orchestration |
+|--------------|----------|---------|--------|-------------------------------|---------------|
+| `pre-commit` / FAST | `fast` | **3292 ms** | PASS (exit 0) | **0 / 0** | **17 / 17** |
+| `pre-merge` / FULL | `full` | **130 ms** | PLATFORM-UNAVAILABLE (exit 2) | **0 / 7** | **0 / 2** |
+| `nightly` / HEAVY | `heavy` | **118 ms** | PLATFORM-UNAVAILABLE (exit 2) | **0 / 6** | **0 / 2** |
+
+**CONFLICT status (prompt-factory headings):**
+- **CONFLICT 1 (CP0 shell fragmentation): partially closed** — single entry point (`regression.sh` → `run.py`), lint home via manifest ids only, enforced `budgetMs` ceiling, allowlist ratchet, bash-3.2 shell lints, HARNESS lane-alias table. Remaining shell work rolls to macOS measured FULL/HEAVY (CONFLICT 2).
+- **CONFLICT 2 (app-coupled live suite): open** — FULL/HEAVY report PLATFORM-UNAVAILABLE on this host; 0 app-coupled tests executed; live Swift drivers remain STUB-owned (CP4 / CP7 / SPIKE A / HEAVY per STUB register).
+- **CONFLICT 4 (prompt factory): open** — `design/build-prompts/` (`INDEX.md` + F01–F13) not yet in tree; F0 factory emit blocked on missing artifacts.
+
+**Follow-ups:** macOS AS measured FULL/HEAVY run · emit F0 prompt pack · wire live app-coupled drivers per STUB register.
+
+---
+
 ## 2026-08-11 — Tree compiles (mechanical fix session)
 
 **Branch:** `fix/legacy-callsite-argument-order` · worktree `../lumina-wt/fix-callsites`  

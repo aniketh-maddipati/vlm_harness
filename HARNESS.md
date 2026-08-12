@@ -2,9 +2,42 @@
 
 **Authority:** `design/contract-v6.md` → `design/tokens.yaml` → `design/copy-contract.txt` → code → tests.  
 **Checkpoint:** CP0 — harness upgrade (testing never blocks building).  
-**Runner:** `python3 Scripts/harness/run.py {fast|full|heavy|watch|all}`
+**Primary entry:** `bash Scripts/regression.sh {pre-commit|pre-merge|nightly}` — default `pre-commit`. Dispatches to `python3 Scripts/harness/run.py {fast|full|heavy}` and propagates exit codes verbatim.  
+**Direct runner:** `python3 Scripts/harness/run.py {fast|full|heavy|watch|all}` — for harness development and `watch`.
 
 A red FULL lane blocks **MERGE**, never **EDITING**. FULL/HEAVY run against a disposable git worktree snapshot when the platform is available.
+
+---
+
+## Lane aliases (`regression.sh` ↔ `run.py`)
+
+Human-facing save/merge/nightly names map to manifest lane ids without renaming either side:
+
+| `regression.sh` | `run.py` | Manifest lane |
+|-----------------|----------|---------------|
+| `pre-commit` (default) | `fast` | `fast` |
+| `pre-merge` | `full` | `full` |
+| `nightly` | `heavy` | `heavy` |
+
+No argument to `regression.sh` ≡ `pre-commit`. Exit codes: `0` PASS · `1` FAIL/INCOMPLETE · `2` PLATFORM-UNAVAILABLE.
+
+---
+
+## Budget ceiling (enforced)
+
+Each lane declares `budgetMs` in `Scripts/harness/lanes/manifests.json`. **Total lane elapsed time above the ceiling is a lane FAIL** — not a warning. On breach the runner prints the slowest manifest test ids by measured ms (descending), then the sentence **delete or demote**. Ceilings: FAST **90000** ms (<90s) · FULL **600000** ms (<10min) · HEAVY **3600000** ms (nightly budget).
+
+---
+
+## Allowlist ratchet
+
+FAST manifest id `allowlist_ratchet` fails pre-commit if `artifacts/harness/banned_patterns_allowlist.txt` or `artifacts/harness/magic_number_allowlist.txt` carries **more** debt lines (non-blank, non-`#`) than the same file on `origin/main`. Allowlists may shrink; they must not grow without a deliberate baseline change on main.
+
+---
+
+## Shell lint host (bash)
+
+Orchestration shell lints live under `Scripts/harness/lint/*.sh` and are reachable **only** through FAST manifest ids. They must execute on **macOS system bash 3.2+** (Gatekeeper Mac default). They must not use bash 4-only builtins (e.g. `mapfile`). A lint that cannot run on the gating Mac must never contribute a PASS.
 
 ---
 
