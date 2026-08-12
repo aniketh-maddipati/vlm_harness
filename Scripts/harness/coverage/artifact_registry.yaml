@@ -1,27 +1,30 @@
 # Explicit constitution entry → named artifact map (F03.4).
 # Cells are filled ONLY from this file — no inference from adjacency.
+# Lint/golden columns reference manifest test ids only (all lanes).
 schemaVersion: 1
 entries:
   D8:
     logic:
       - CullGrammarTests.testHoldKeysTrackMomentaryState
     lint:
-      - held_is_temporary
+      - grammar_oracle_parity
+      - grammar_oracle_unit
+      - seed_script_schema
   D9:
     logic:
       - CullGrammarTests.testHoldKeysTrackMomentaryState
     lint:
-      - held_is_temporary
-      - grammar_oracle_unit
       - grammar_oracle_parity
+      - grammar_oracle_unit
+      - seed_script_schema
   D10:
     logic:
       - CullGrammarTests.testD10_decisionKeysToggleWithoutAutorepeatSemantics
       - P0LogicTests.testCullToggleGrammar
     lint:
-      - same_mark_clears
-      - grammar_oracle_unit
       - grammar_oracle_parity
+      - grammar_oracle_unit
+      - seed_script_schema
     flow:
       - CullGrammarTests.testKeepRejectToggleGrammar
   D11:
@@ -30,18 +33,17 @@ entries:
       - CullGrammarTests.testD11D13_shiftReturnKeyDownWithoutReleaseDoesNotCommit
       - CommandChordTests.testHeldReturnCannotDoubleCommit
     lint:
-      - shift_return_return_release
-      - esc_exact_restore
-      - grammar_oracle_unit
       - grammar_oracle_parity
+      - grammar_oracle_unit
+      - seed_script_schema
   D13:
     logic:
       - CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn
       - CommandChordTests.testHeldReturnCannotDoubleCommit
     lint:
-      - shift_return_return_release
-      - grammar_oracle_unit
       - grammar_oracle_parity
+      - grammar_oracle_unit
+      - seed_script_schema
   D16:
     lint:
       - copy_contract_diff
@@ -64,16 +66,16 @@ entries:
       - agent_rules_contract
   D24:
     lint:
-      - value_echo_adjustment_only
-      - grammar_oracle_unit
       - grammar_oracle_parity
+      - grammar_oracle_unit
+      - seed_script_schema
     logic:
       - CullGrammarTests.testMoveFocusAndArming
   D26:
     lint:
-      - esc_exact_restore
-      - grammar_oracle_unit
       - grammar_oracle_parity
+      - grammar_oracle_unit
+      - seed_script_schema
     logic:
       - CullGrammarTests.testEscRestoresPreStageMarks
   D35:
@@ -85,17 +87,9 @@ entries:
   D37:
     lint:
       - token_lint
-  D41:
-    golden:
-      - golden-fidelity-rungs
-  D42:
-    golden:
-      - golden-hold-j-clipping
   D43:
     lint:
       - unit_trace
-    golden:
-      - golden-fidelity-rungs
   D44:
     logic:
       - P0LogicTests.testExportRecipeHintContract
@@ -109,15 +103,13 @@ entries:
   D48:
     lint:
       - banned_patterns
-      - value_echo_adjustment_only
+      - grammar_oracle_parity
       - leaf_only_ids
       - grammar_oracle_unit
-      - grammar_oracle_parity
-    golden:
-      - golden-hover-absent
-  D57:
-    golden:
-      - golden-adapted-proxy-linear
+      - seed_script_schema
+  D53:
+    lint:
+      - contract_v6_presence
   D59:
     logic:
       - CullGrammarTests.testD59_sameMarkClearsInPlace
@@ -125,11 +117,9 @@ entries:
     lint:
       - copy_contract_diff
       - contract_v6_presence
-      - same_mark_clears
-      - grammar_oracle_unit
       - grammar_oracle_parity
-    golden:
-      - golden-cull-marks
+      - grammar_oracle_unit
+      - seed_script_schema
   D60:
     logic:
       - CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn
@@ -137,12 +127,9 @@ entries:
     lint:
       - copy_contract_diff
       - contract_v6_presence
-      - shift_return_return_release
-      - grammar_oracle_unit
       - grammar_oracle_parity
-  D61:
-    golden:
-      - golden-export-three-state
+      - grammar_oracle_unit
+      - seed_script_schema
   D63:
     lint:
       - agent_rules_contract
@@ -150,34 +137,9 @@ entries:
     logic:
       - P0LogicTests.testCropKeyScopeNeverStagesOrRejects
       - CropTests.testLayoutHashChangesOnEditAndReverts
-    golden:
-      - golden-crop-latch
-  D36:
-    golden:
-      - golden-rejects-trash-offer
-  D27:
-    golden:
-      - golden-birth-opacity
-  D54:
-    golden:
-      - golden-sample-retire
-  D53:
-    lint:
-      - contract_v6_presence
   D65:
     lint:
       - unit_lane_guards
-  R-5.2:
-    golden:
-      - golden-hold-j-clipping
-  R-5.1:
-    golden:
-      - golden-fidelity-rungs
-  R-5.3:
-    lint:
-      - unit_trace
-    golden:
-      - golden-fidelity-rungs
   R-8.1:
     logic:
       - P0LogicTests.testExportRecipeHintContract
@@ -190,31 +152,19 @@ entries:
   R-X.1:
     lint:
       - banned_patterns
-      - value_echo_adjustment_only
+      - grammar_oracle_parity
       - leaf_only_ids
-    golden:
-      - golden-hover-absent
+      - grammar_oracle_unit
+      - seed_script_schema
   R-X.2:
     lint:
       - magic_numbers
-  R-M.1:
-    golden:
-      - golden-rejects-trash-offer
   R-M.2:
     lint:
       - contract_v6_presence
-  R-M.3:
-    golden:
-      - golden-sample-retire
   R-M.4:
     lint:
       - copy_table_lint
-  R-M.5:
-    golden:
-      - golden-export-three-state
-  R-Q.1:
-    golden:
-      - golden-adapted-proxy-linear
   R-I.1:
     lint:
       - contract_v6_presence

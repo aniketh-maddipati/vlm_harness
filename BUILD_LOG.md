@@ -4,31 +4,140 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — F11: release integrity (F11.1–F11.7)
+
+**Branch:** `feature/f11-release-integrity`  
+**Claim:** Release-integrity gates — DEBUG hooks absent, zero network, signature, embedded build manifest, shipped rollback retention, A7 expiry, no licensing (D45/A7, D52/A8, D51/R-I.2).
+
+**Embedded manifest (F11.4)** — `Lumina/Resources/LuminaBuildManifest.json` via Xcode Run Script + `write_build_manifest.py`:
+
+```json
+{
+  "gitSha": "11b9ec4e8c8544439f6cdd260baf01bd91034362",
+  "tokensHash": "7b0c1552736eba4c253d4f32bd81f35691f8b4c0ff238e602054729c50e36b36",
+  "fixtureManifestVersion": "1.0-mvp-fleet",
+  "contractVersion": "6.2-motion-seal",
+  "buildDate": "2026-08-12T15:35:36Z",
+  "marketingVersion": "0.1.0",
+  "betaDiagnostics": null
+}
+```
+
+Read back: `python3 Scripts/harness/release/f11_read_manifest.py --app build/Release/Lumina.app --check` → **PASS**.
+
+**Instrument readings (macOS — Release `build/Release/Lumina.app`):**
+
+| Check | Result |
+|-------|--------|
+| F11.1 hooks absent | **PASS** |
+| F11.2 zero network | **PASS** |
+| F11.3 signature | **FAIL** — ad-hoc; `spctl` rejected; unstapled |
+| F11.4 manifest embed/read | **PASS** |
+| F11.5 shipped rollback | **Ready** — `retain_shipped_artifact.py promote` |
+| F11.6 A7 expiry | **PASS** (wave @ 0.1.0; gate fails at 1.0 + betaDiagnostics) |
+| F11.7 no licensing | **PASS** |
+
+**Follow-ups:** Developer ID + notarize + staple (F11.3); first `promote` after signed ship.
+
+---
+
+## 2026-08-12 — F07 / SPIKE B: motion seal + physics gates (F07.4–F07.6)
+
+**Branch:** (working tree)  
+**Claim:** Paste motion-probe export into `design/tokens.yaml` §motion, bump version, codegen + magic-number gate; activate F07.4 / F07.5 / F07.6 against sealed params; golden trajectory keyed by `tokens-hash`; close SPIKE B STUB rows in `HARNESS.md`.
+
+**Judged:** 2026-08-12 (SPIKE B motion physics seal).
+
+**Sealed params verbatim (`design/tokens.yaml` §motion, version `6.2-motion-seal`):**
+
+```yaml
+  chrome_fade_out:
+    value: 250
+    unit: ms
+    type: ms
+  place_return:
+    value: 200
+    unit: ms
+    type: ms
+  spring_max_overshoot:
+    value: 0.02
+    type: opacity
+  spring_trajectory_frames:
+    value: 40
+    type: enum
+  spring_trajectory_sample_rate_hz:
+    value: 120
+    type: enum
+  spring_dead_stop_epsilon:
+    value: 0.001
+    type: opacity
+  spring_retarget_continuity_epsilon:
+    value: 0.000001
+    type: opacity
+  spring_reduced_motion_overshoot:
+    value: 0
+    type: opacity
+  travel:
+    value: 180
+    unit: ms
+  stage:
+    value: 140
+    unit: ms
+  lift:
+    value: 100
+    unit: ms
+```
+
+**tokens-hash:** `7b0c1552736eba4c253d4f32bd81f35691f8b4c0ff238e602054729c50e36b36`
+
+**Fix:** `LuminaSpring` + Python mirror read sealed tokens only; `magic_numbers.sh` scans motion sources; FAST id `spring_physics_f07`; golden `spring_trajectory_place_return` approved under tokens-hash.
+
+**Drift (seal not adjusted):** **F07.4** dead-stop for `place_return` at the sealed observation horizon `(spring_trajectory_frames − 1) / spring_trajectory_sample_rate_hz` → `|value − 1| = 0.001105` **>** `spring_dead_stop_epsilon` `0.001`. Build spring sampler has not converged within sealed ε at the SPIKE B window end. F07.5, F07.6, and trajectory golden **PASS**.
+
+**Instrument reading (Linux — measured this session):**
+
+| Step | Status |
+|------|--------|
+| `tokens_codegen.py --check` | PASS |
+| `spring_physics_f07` | **FAIL** (F07.4 drift above) |
+| F07.5 / F07.6 / golden | PASS |
+
+---
+
+---
+
 ## 2026-08-12 — F04.1 / F04.7: build-for-testing cache + budget breach policy
 
-**Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F04: fast-lane hardening](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
+**Branch:** `feature/f04-fast-lane-hardening` · **PR:** [#40 F04: fast-lane hardening](https://github.com/aniketh-maddipati/vlm_harness/pull/40)  
 **Claim:** Land F04.1 stable `derivedDataPath` cache keyed by source hash + tokens hash (reuse / rebuild) and F04.7 budget breach output — slowest manifest ids, then **delete or demote** only.
 
 **Finding:** `regression.sh` rebuilt into `./DerivedData` every pre-merge; budget breach text said `budget` not `ceiling` and did not name slowest ids as manifest test ids explicitly.
 
 **Fix:** `Scripts/harness/build_cache.py` → `artifacts/harness/build-cache/<source12>-<tokens12>/` with manifest · `regression.sh` Phase 2 calls `--ensure-build-for-testing` · `run_p0_ui_tests.sh` shares the same derived path · `lanes/budget_breach.py` + runner hook · unit tests in `tests/test_build_cache.py` and `lanes/test_lane_guards.py`.
 
-**Instrument reading (Linux cloud — measured this session):**
+**Instrument reading (Linux cloud — measured monolith session):**
 
 | Alias / lane | Entry | Elapsed | Status | App tests executed / expected | Orchestration |
 |--------------|-------|---------|--------|-------------------------------|---------------|
 | `pre-commit` / FAST | `run.py fast` | **4147 ms** | PASS | **0 / 0** | **25 / 25** |
 | `pre-merge` / FULL | `run.py full` | **106 ms** | PLATFORM-UNAVAILABLE | **0 / 7** | **0 / 2** |
 
-**Pre-merge wall time on macOS runner:** **not measured this session** — this cloud agent is Linux-only (no `xcodebuild`, no Apple Silicon FULL lane). Record macOS `bash Scripts/regression.sh pre-merge` wall time + app-coupled executed/expected on the next Mac run.
+**Follow-ups:** macOS pre-merge wall time · first cache hit/miss timings · measured FULL lane when live Swift drivers land (CP4+).
 
-**Follow-ups:** first macOS cache hit/miss timings · measured FULL lane when live Swift drivers land (CP4+).
+---
+
+## 2026-08-12 — S15 split STOP: F04 fast-lane hardening (resolved — stacked F01–F03)
+
+**Branch:** `feature/f04-fast-lane-hardening` (**DRAFT PR** until A3 gate clears)  
+**Claim:** Cherry-pick F04 commits `b4fb0a7`, `7b02485`, `2f0422d`, `1320688` off merge-base `2fca1c1`.
+
+**Resolution:** F01–F03 merged; F04.1–F04.7 cherry-picked with manifest/run conflicts resolved.
 
 ---
 
 ## 2026-08-12 — F03.4 / F03.5 / F03.6: constitution coverage matrix + probe completeness gate
 
-**Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F03: probe completeness + constitution coverage](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
+**Branch:** `feature/f03-probe-coverage` · **PR:** [#39 F03: probe coverage matrix](https://github.com/aniketh-maddipati/vlm_harness/pull/39)  
 **Claim:** Land F03.4 explicit D/R → artifact registry, F03.5 FAST `constitution_coverage` freshness gate, F03.6 GAP LIST intake wired to the coverage report.
 
 **Finding:** No honest constitution coverage matrix; GAP LIST had no machine-readable intake tying D/R rows to named lint/logic/flow/golden artifacts; probe lints (F03.1–F03.3) lacked a coverage ledger.
@@ -53,6 +162,15 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — S15 split STOP: F03 probe coverage (resolved — stacked on F01)
+
+**Branch:** `feature/f03-probe-coverage`  
+**Claim:** Cherry-pick F03 commits `8efa3e4`, `b7a98b5` off merge-base `2fca1c1`.
+
+**Resolution:** F01 spine merged; F03.1–F03.6 cherry-picked with manifest/run conflicts resolved (F02-only `grammar_oracle_parity` omitted on this branch).
+
+---
+
 ## 2026-08-12 — F02.4 / F02.5: headless grammar replays + oracle parity
 
 **Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F02: headless grammar rung](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
@@ -74,6 +192,22 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 **Not built:** **F02.2** (live Swift grammar driver wiring) remains gated on **CP1** per checkpoint sequence — STUB register unchanged for app-coupled grammar.
 
 **Follow-ups:** macOS `xcodebuild test` for `CullGrammarTests` · CP4 live driver · emit F0 prompt pack when `design/build-prompts/` lands.
+
+---
+
+## 2026-08-12 — F02.1: G1 rulings applied (S14 A1 conflict rows)
+
+**Branch:** `feature/f02-headless-grammar-rung`  
+**Claim:** Close S14 finding #1 (conflict-blindness) — apply G1 rulings for each CHANGED row; D59 was SAME.
+
+| Row | G1 ruling | Amendment owed (live P0 / shell) |
+|-----|-----------|----------------------------------|
+| D10 — P/X decide **and advance** | **KEEP** | `P0SessionModel.applyCullToggle` owes focus advance after non-clear mark-set |
+| D10 — decision keys never autorepeat | **KEEP** | `P0ContactSheetView` P/X handlers owe autorepeat swallow (shell-owned per machine contract) |
+| D47 / A3 — pointer marks parity | **KEEP** | P0 owes ✓/✕ pointer marks wired to the same mark path (A3 un-shelf) |
+| D11 / D13 — release never commits | **KEEP** | P0 Return→`openFocusedPhotograph()` is a separate surface; wholesale staging grammar stays headless-only until CP7 |
+
+**D59 same-mark-clears:** SAME — no code change on this branch.
 
 ---
 

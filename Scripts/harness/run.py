@@ -127,6 +127,10 @@ def lane_fast() -> tuple[list[dict], list[str]]:
         ("unit_golden", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "golden"), "-p", "test_*.py"]),
         ("unit_trace", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "trace"), "-p", "test_*.py"]),
         ("unit_invariants", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "tests"), "-p", "test_*.py"]),
+        (
+            "spring_physics_f07",
+            [py, str(HARNESS / "tests" / "test_f07_spring_physics.py")],
+        ),
         ("unit_lane_guards", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "lanes"), "-p", "test_*.py"]),
         ("seed_script_schema", [py, str(HARNESS / "probe" / "run_scripts.py"), "--schema-only"]),
         # STUB grammar oracle — orchestration unit only; not app-coupled (F2).
@@ -139,10 +143,14 @@ def lane_fast() -> tuple[list[dict], list[str]]:
             "constitution_coverage",
             [py, str(HARNESS / "coverage" / "generate_constitution_coverage.py"), "--check"],
         ),
+        ("registry_staleness", [py, str(HARNESS / "lint" / "registry_staleness.py")]),
         ("no_sleeps", [py, str(HARNESS / "lint" / "no_sleeps.py")]),
         ("flake_policy", [py, str(HARNESS / "lint" / "flake_policy.py")]),
         ("wait_budgets", [py, str(HARNESS / "lint" / "wait_budgets.py")]),
         ("allowlist_ratchet", [py, str(HARNESS / "lint" / "allowlist_ratchet.py")]),
+        ("f11_no_licensing", [py, str(HARNESS / "release" / "f11_no_licensing.py")]),
+        ("f11_a7_expiry", [py, str(HARNESS / "release" / "f11_a7_expiry.py")]),
+        ("unit_f11_release", [py, str(HARNESS / "tests" / "test_f11_release.py")]),
     ]
     results = [_run(name, argv, "FAST") for name, argv in steps]
     executed = [r["step"] for r in results if r["ok"]]
@@ -226,6 +234,10 @@ def lane_heavy_macos() -> tuple[list[dict], list[str]]:
     orch = [
         ("zero_egress_audit", ["bash", str(HARNESS / "lint" / "banned_patterns.sh")]),
         ("heavy_job_registry", [py, str(HARNESS / "heavy_placeholders.py")]),
+        (
+            "release_integrity_f11",
+            [py, str(HARNESS / "release" / "run_f11_release.py"), "--app", str(ROOT / "build" / "Release" / "Lumina.app")],
+        ),
     ]
     for name, argv in orch:
         results.append(_run(name, argv, "HEAVY"))
