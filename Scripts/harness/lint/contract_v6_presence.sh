@@ -1,7 +1,7 @@
 #!/bin/bash
 # Constitution v6 presence harness — re-seal asserts.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 
 fail=0
@@ -65,8 +65,8 @@ if [[ -f Lumina/Design/CopyContract.swift ]]; then
   fi
 fi
 
-bash Scripts/lint/copy_contract_diff.sh || report "copy_contract_diff.sh failed"
-bash Scripts/lint/agent_rules_contract.sh || report "agent_rules_contract.sh failed (D63 / agent-rules drift)"
+bash "$ROOT/Scripts/harness/lint/copy_contract_diff.sh" || report "copy_contract_diff.sh failed"
+bash "$ROOT/Scripts/harness/lint/agent_rules_contract.sh" || report "agent_rules_contract.sh failed (D63 / agent-rules drift)"
 
 # Batch 1 presence
 [[ -f design/mvp-test-plan.md ]] || report "missing design/mvp-test-plan.md (A1)"

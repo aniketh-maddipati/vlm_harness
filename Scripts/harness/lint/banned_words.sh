@@ -1,7 +1,7 @@
 #!/bin/bash
 # Banned-word and legacy-string scan — pure grep on user-visible literals.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 
 fail=0

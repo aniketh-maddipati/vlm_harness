@@ -15,8 +15,19 @@ report() { echo "FAIL: $1" >&2; fail=1; }
 ALLOW="$ROOT/artifacts/harness/banned_patterns_allowlist.txt"
 LEGACY_OUT="$ROOT/artifacts/harness/banned_patterns_legacy.txt"
 
-mapfile -d '' STRICT_FILES < <(find Lumina/Views/P0 Lumina/Design Lumina/Testing/ProbeV2 -name '*.swift' -print0 2>/dev/null)
-mapfile -d '' LEGACY_FILES < <(find Lumina/Views/Workspace Lumina/Views/Components Lumina/Views/CompareAndSoftViews.swift Lumina/Views/PhotoImageView.swift Lumina/ContentView.swift Lumina/Shell -name '*.swift' -print0 2>/dev/null || true)
+STRICT_FILES=()
+while IFS= read -r -d '' f; do
+  STRICT_FILES+=("$f")
+done < <(find Lumina/Views/P0 Lumina/Design Lumina/Testing/ProbeV2 -name '*.swift' -print0 2>/dev/null)
+
+LEGACY_FILES=()
+while IFS= read -r -d '' f; do
+  LEGACY_FILES+=("$f")
+done < <(
+  find Lumina/Views/Workspace Lumina/Views/Components Lumina/Views/CompareAndSoftViews.swift \
+    Lumina/Views/PhotoImageView.swift Lumina/ContentView.swift Lumina/Shell \
+    -name '*.swift' -print0 2>/dev/null || true
+)
 
 is_allowed() {
   local file="$1" pattern="$2"

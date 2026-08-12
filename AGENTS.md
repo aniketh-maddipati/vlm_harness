@@ -10,7 +10,7 @@ Lumina **cannot be built or run on Linux**. Cloud Agent VMs are Ubuntu-based and
 |---|---|---|
 | `xcodebuild` / run `Lumina.app` | No | Yes |
 | `Scripts/regression.sh` (full) | No (needs xcodebuild + Swift ImageIO) | Yes |
-| Static lint (`Scripts/lint/*.sh`) | Yes | Yes |
+| Static lint (`Scripts/harness/lint/*.sh`) | Yes | Yes |
 | `exiftool` CLI (metadata) | Yes (`/usr/bin/exiftool` via apt) | Yes (`brew install exiftool` → `/usr/local/bin/exiftool`) |
 
 For end-to-end verification (build, headless audit, GUI), use a **local Mac** with macOS 14+ and Xcode 15+.
@@ -27,9 +27,9 @@ On a Mac with Xcode 15+ and exiftool:
 
 ```bash
 # Static contract lint (runs on Linux too)
-bash Scripts/lint/banned_words.sh
-bash Scripts/lint/copy_contract_diff.sh
-bash Scripts/lint/contract_structure.sh
+bash Scripts/harness/lint/banned_words.sh
+bash Scripts/harness/lint/copy_contract_diff.sh
+bash Scripts/harness/lint/contract_structure.sh
 
 # Build
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug build
@@ -54,7 +54,7 @@ brew install exiftool
 
 ### Cloud agents (Linux)
 
-Cloud agents run `bash Scripts/lint/*.sh` for static contract checks. All logic tests require macOS + Xcode (`xcodebuild test -only-testing:LuminaLogicTests`).
+Cloud agents run `python3 Scripts/harness/run.py fast` (or `bash Scripts/regression.sh pre-commit`) for static contract checks. All logic tests require macOS + Xcode (`xcodebuild test -only-testing:LuminaLogicTests`).
 
 Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on Linux.
 
@@ -64,7 +64,7 @@ Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on 
 - `LuminaLogicTests/` — XCTest logic contracts (`@testable import Lumina`)
 - `Lumina.xcodeproj/` — Xcode project (single target `Lumina`)
 - `Scripts/regression.sh` — lint + build + logic tests + E2E runner
-- `Scripts/lint/` — banned-word, copy-contract, and structure checks
+- `Scripts/harness/lint/` — banned-word, copy-contract, and structure checks (FAST lane manifest ids)
 - `Scripts/e2e_audit.swift` — headless macOS audit script
 - `README.md` — product overview and manual test steps
 - `BUILD_LOG.md` — build history and verification notes

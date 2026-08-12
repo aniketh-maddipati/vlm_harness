@@ -2,7 +2,7 @@
 # Agent-rules vs Contract v6 — permanent drift gate.
 # Agent-instruction files teaching outdated grammar are the same FAIL class as copy drift.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 
 fail=0
