@@ -22,6 +22,7 @@
         { "id": "unit_lane_guards", "kind": "orchestration" },
         { "id": "seed_script_schema", "kind": "orchestration" },
         { "id": "grammar_oracle_unit", "kind": "orchestration", "notes": "Python simulator schema/oracle only — not app-coupled" },
+        { "id": "grammar_oracle_parity", "kind": "orchestration", "notes": "v2 seed replay: ProbeSimulator vs Swift-machine mirror; divergence FAIL; never app PASS" },
         { "id": "allowlist_ratchet", "kind": "orchestration" }
       ]
     },

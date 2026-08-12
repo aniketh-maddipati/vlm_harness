@@ -17,6 +17,8 @@ SCRIPT_SCHEMA = ROOT / "Scripts" / "harness" / "scripts" / "schema.json"
 PROBE_SCHEMA = ROOT / "Scripts" / "harness" / "probe" / "schema.json"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from grammar_machine import GrammarMachine  # noqa: E402
+from grammar_probe import extract_grammar, grammar_diff  # noqa: E402
 from simulator import ProbeSimulator, load_script  # noqa: E402
 
 
@@ -136,6 +138,48 @@ def run_oracle(seed_dir: Path = SEED) -> int:
     return 0
 
 
+def run_parity(seed_dir: Path = SEED) -> int:
+    """F02.5: replay v2 seeds through oracle + Swift-machine mirror; divergence is FAIL."""
+    print(
+        "grammar_oracle_parity: ProbeSimulator vs CullGrammarMachine mirror "
+        "(orchestration only — never app-coupled PASS)"
+    )
+    scripts = sorted(seed_dir.glob("*.json"))
+    fail = 0
+    for path in scripts:
+        script = load_script(path)
+        errs = _validate_basic_script(script, filename=path.name)
+        if errs:
+            for err in errs:
+                print(f"FAIL: {err}", file=sys.stderr)
+            fail = 1
+            continue
+
+        sim = ProbeSimulator.from_script(script)
+        for event in script["events"]:
+            sim.apply_event(event)
+        oracle = extract_grammar(sim.state)
+
+        machine = GrammarMachine.from_script(script)
+        machine.replay_script(script)
+        swift = machine.grammar_snapshot()
+
+        diffs = grammar_diff(oracle, swift)
+        if diffs:
+            fail = 1
+            print(f"FAIL: {path.name} oracle ↔ Swift-machine divergence:", file=sys.stderr)
+            for line in diffs:
+                print(line, file=sys.stderr)
+            print(f"  oracle reading:  {oracle!r}", file=sys.stderr)
+            print(f"  machine reading: {swift!r}", file=sys.stderr)
+        else:
+            print(f"  parity {path.name}: OK")
+    if fail:
+        return 1
+    print("run_scripts.py --parity: OK")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -148,11 +192,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Run Python STUB grammar oracle (not app-coupled)",
     )
+    parser.add_argument(
+        "--parity",
+        action="store_true",
+        help="Oracle ↔ Swift-machine parity on v2 seed replays (FAST orchestration)",
+    )
     args = parser.parse_args(argv)
     if args.schema_only:
         return run_schema_only()
     if args.oracle:
         return run_oracle()
+    if args.parity:
+        return run_parity()
     # Default: schema + oracle (legacy entry for local debugging).
     code = run_schema_only()
     if code != 0:

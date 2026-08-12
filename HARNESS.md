@@ -99,7 +99,7 @@ Each lane declares an expected test inventory (`lanes/manifests.json`). After ex
 
 | Lane | Budget | When | Contents |
 |------|--------|------|----------|
-| **FAST** | <90s | save/commit / `watch` | orchestration only: token/copy/banned/magic lints, contract lints, unit tests, seed **schema** + grammar **oracle** (STUB) |
+| **FAST** | <90s | save/commit / `watch` | orchestration only: token/copy/banned/magic lints, contract lints, unit tests, seed **schema** + grammar **oracle** + **oracle↔Swift parity** (orchestration — never app PASS) |
 | **FULL** | <10min | pre-merge | macOS AS: live grammar/probe/signpost/⌘Z/invariants/chrome/parallel (+ worktree snapshot). Linux: PLATFORM-UNAVAILABLE |
 | **HEAVY** | nightly + release | scheduled | macOS AS: ingest / kill-fuzz / eject / RAM / LR / live grammar-stability. Linux: PLATFORM-UNAVAILABLE |
 
@@ -129,10 +129,10 @@ A new feature ships as **data**, not runner changes:
 4. **Optional signpost names** — `trace/acceptance_numbers.json` + Swift `AcceptanceSignposts`.
 5. **Manifest ID** — add the test id to `lanes/manifests.json` (orchestration vs app-coupled).
 
-### Worked example — P/X advance
+### Worked example — same-mark clears (v2)
 
-File: `Scripts/harness/scripts/seed/px_advance.json` — see seed file.  
-FAST runs it through the **STUB** Python oracle (orchestration).  
+File: `Scripts/harness/scripts/seed/same_mark_clears.json` — schema v2 (`tMs` on every event, no `wait` sleeps).  
+FAST runs it through the Python oracle **and** `grammar_oracle_parity` (oracle vs `CullGrammarMachine` mirror).  
 FULL on macOS AS runs it through the **live** Swift driver (`run_live_scripts.py`, owned-by-CP4).
 
 ---
@@ -155,15 +155,19 @@ python3 Scripts/harness/codegen/tokens_codegen.py --check
 
 ---
 
-## Seed scripts (5)
+## Seed scripts (5) — schema v2
+
+All seeds use **schemaVersion 2**: monotonic `tMs` on every event (no wall-clock sleeps; `wait`/`waitProbe` omitted in F02.4 replays). Each script ends with **`grammarExact`** — full grammar snapshot assertion.
 
 | id | Law |
 |----|-----|
-| `px_advance` | D10 / D59 |
+| `held_is_temporary` | D9 / L2 (hold grammar) |
 | `same_mark_clears` | D59 |
 | `shift_return_return_release` | D60 / D13 |
-| `esc_exact_restore` | L5 / D11 |
-| `arming_consent` | D24 / D48 |
+| `esc_exact_restore` | D11 / D26 |
+| `value_echo_adjustment_only` | D24 / D48 |
+
+FAST **`grammar_oracle_parity`** replays all five through `ProbeSimulator` and the Swift-machine mirror (`grammar_machine.py`); divergence prints both readings and FAILs the lane (orchestration only — never an app-coupled PASS).
 
 ---
 

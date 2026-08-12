@@ -4,6 +4,30 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — F02.4 / F02.5: headless grammar replays + oracle parity
+
+**Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F02: headless grammar rung](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
+**Claim:** Land F02.4 (five v2 seed replays with `grammarExact`, no sleeps) and F02.5 (`grammar_oracle_parity` on pre-commit — oracle vs Swift-machine mirror; divergence FAIL with both readings printed).
+
+**Finding:** Seeds mixed partial asserts and included `px_advance` / `arming_consent` outside the F02.4 law roster; no parity gate between Python oracle and `CullGrammarMachine`.
+
+**Fix:** F02.4 five replays (`held_is_temporary`, `same_mark_clears`, `shift_return_return_release`, `esc_exact_restore`, `value_echo_adjustment_only`) · hold/adjust events + `grammarExact` asserts · F02.5 `grammar_machine.py` mirror + `run_scripts.py --parity` · manifest id `grammar_oracle_parity`.
+
+**Instrument reading (Linux cloud — measured this session):**
+
+| Alias / lane | `run.py` | Elapsed | Status | App tests executed / expected | Orchestration |
+|--------------|----------|---------|--------|-------------------------------|---------------|
+| `pre-commit` / FAST (prior F02.1 baseline) | `fast` | **3105 ms** | PASS | **0 / 0** | **17 / 17** |
+| `pre-commit` / FAST (after F02.4/F02.5) | `fast` | **3154 ms** | PASS | **0 / 0** | **18 / 18** |
+
+**Pre-commit delta this session:** +1 orchestration test (`grammar_oracle_parity`, ~166 ms measured step time) · +49 ms total lane wall time vs F02.1 baseline.
+
+**Not built:** **F02.2** (live Swift grammar driver wiring) remains gated on **CP1** per checkpoint sequence — STUB register unchanged for app-coupled grammar.
+
+**Follow-ups:** macOS `xcodebuild test` for `CullGrammarTests` · CP4 live driver · emit F0 prompt pack when `design/build-prompts/` lands.
+
+---
+
 ## 2026-08-12 — F01: CP0 shell reconciliation
 
 **Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F01: CP0 shell reconciliation](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  

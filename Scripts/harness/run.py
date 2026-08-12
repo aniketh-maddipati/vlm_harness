@@ -130,6 +130,7 @@ def lane_fast() -> tuple[list[dict], list[str]]:
         ("seed_script_schema", [py, str(HARNESS / "probe" / "run_scripts.py"), "--schema-only"]),
         # STUB grammar oracle — orchestration unit only; not app-coupled (F2).
         ("grammar_oracle_unit", [py, str(HARNESS / "probe" / "run_scripts.py"), "--oracle"]),
+        ("grammar_oracle_parity", [py, str(HARNESS / "probe" / "run_scripts.py"), "--parity"]),
         ("allowlist_ratchet", [py, str(HARNESS / "lint" / "allowlist_ratchet.py")]),
     ]
     results = [_run(name, argv, "FAST") for name, argv in steps]

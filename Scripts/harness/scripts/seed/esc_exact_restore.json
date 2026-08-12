@@ -1,22 +1,76 @@
 {
   "schemaVersion": 2,
   "id": "esc_exact_restore",
-  "title": "Esc restores pre-stage space exactly",
-  "cite": ["L5", "D11", "D35"],
+  "title": "Esc restores pre-stage space exactly \u2014 nothing written",
+  "cite": [
+    "D11",
+    "D26",
+    "L5"
+  ],
   "fixture": "mixed-60",
   "seed": 1004,
   "events": [
-    { "op": "focusIndex", "index": 0, "tMs": 0 },
-    { "op": "key", "key": "P", "tMs": 83 },
-    { "op": "key", "key": "Return", "modifiers": ["shift"], "tMs": 167 },
-    { "op": "waitProbe", "ms": 0, "tMs": 244 },
-    { "op": "key", "key": "Escape", "tMs": 331 },
-    { "op": "waitProbe", "ms": 0, "tMs": 418 }
+    {
+      "op": "focusIndex",
+      "index": 0,
+      "tMs": 0
+    },
+    {
+      "op": "key",
+      "key": "P",
+      "tMs": 50
+    },
+    {
+      "op": "key",
+      "key": "Return",
+      "modifiers": [
+        "shift"
+      ],
+      "tMs": 100
+    },
+    {
+      "op": "key",
+      "key": "Escape",
+      "tMs": 150
+    }
   ],
   "asserts": [
-    { "op": "stagingRing", "ring": "none" },
-    { "op": "exactRestore", "snapshot": "preStage" },
-    { "op": "markEquals", "assetIndex": 0, "mark": "keep" },
-    { "op": "undoEntries", "entries": 1 }
+    {
+      "op": "exactRestore",
+      "snapshot": "preStage"
+    },
+    {
+      "op": "grammarExact",
+      "equals": {
+        "focusIndex": 1,
+        "marks": [
+          "keep",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided",
+          "undecided"
+        ],
+        "staging": {
+          "active": false,
+          "ring": "none",
+          "scopeCount": 0,
+          "excludedCount": 0,
+          "bannerCount": 0,
+          "headerCount": 0,
+          "receiptCount": 0,
+          "returnReleaseArmed": false
+        },
+        "armedControl": null,
+        "undoDepth": 1,
+        "activeHolds": [],
+        "valueEchoPresent": false
+      }
+    },
+    {
+      "op": "countInvariant"
+    }
   ]
 }
