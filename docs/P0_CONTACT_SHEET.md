@@ -47,7 +47,7 @@ Preview / grid paths use `AssetIdentity.cacheStem(assetID)`. Legacy stem-keyed f
 - `p0.visible_cell_cache`
 - `p0.focus_to_preview`
 
-Headless bench: `swift Scripts/p0_contact_sheet_bench.swift FOLDER [limit]`
+Headless bench: `swift Scripts/run/p0_contact_sheet_bench.swift FOLDER [limit]`
 
 ## Next checkpoint (culling)
 

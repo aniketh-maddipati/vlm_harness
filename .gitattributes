@@ -1,0 +1,54 @@
+# Lumina — Git LFS tracking rules for the fixture corpus (CQ.4).
+#
+# Rules now, blobs when the fixtures are cut. design/fixture-manifest.md puts a
+# six-body MVP fleet plus the card-* ingest schedules and the bundled sample
+# shoot on the critical path; that corpus is binary, large, and must never land
+# in git object storage as raw blobs.
+#
+# Authority: design/fixture-manifest.md (D53-D56, D65/A1) · design/contract-v6.md
+#
+# Corpus roots:
+#   Fixtures/bodies/<body-id>/   one directory per MVP body (sony-a7iv, canon-r6ii,
+#                               nikon-z6iii, fujifilm-xt5, iphone-proraw, iphone-heic)
+#   Fixtures/cards/<card-id>/    ingest fault schedules (card-clean-500, ...)
+#   Fixtures/sample-shoot/       bundled onboarding shoot (D54)
+#   Fixtures/goldens/            per-body golden reference images
+#
+# Small deterministic JSON under Scripts/harness/**/fixtures/ is NOT corpus and
+# is deliberately left out of LFS.
+
+# --- RAW bodies (design/fixture-manifest.md §1) -----------------------------
+*.ARW  filter=lfs diff=lfs merge=lfs -text
+*.arw  filter=lfs diff=lfs merge=lfs -text
+*.CR3  filter=lfs diff=lfs merge=lfs -text
+*.cr3  filter=lfs diff=lfs merge=lfs -text
+*.NEF  filter=lfs diff=lfs merge=lfs -text
+*.nef  filter=lfs diff=lfs merge=lfs -text
+*.RAF  filter=lfs diff=lfs merge=lfs -text
+*.raf  filter=lfs diff=lfs merge=lfs -text
+*.DNG  filter=lfs diff=lfs merge=lfs -text
+*.dng  filter=lfs diff=lfs merge=lfs -text
+*.HEIC filter=lfs diff=lfs merge=lfs -text
+*.heic filter=lfs diff=lfs merge=lfs -text
+
+# --- Video (D56: copied, counted, not shown) --------------------------------
+*.MOV  filter=lfs diff=lfs merge=lfs -text
+*.mov  filter=lfs diff=lfs merge=lfs -text
+*.MP4  filter=lfs diff=lfs merge=lfs -text
+*.mp4  filter=lfs diff=lfs merge=lfs -text
+
+# --- Corpus-scoped rasters and exports --------------------------------------
+# Extension rules alone would sweep up app icons and small harness PNGs, so the
+# heavy raster formats are tracked only inside the corpus.
+Fixtures/**/*.jpg  filter=lfs diff=lfs merge=lfs -text
+Fixtures/**/*.JPG  filter=lfs diff=lfs merge=lfs -text
+Fixtures/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
+Fixtures/**/*.png  filter=lfs diff=lfs merge=lfs -text
+Fixtures/**/*.tif  filter=lfs diff=lfs merge=lfs -text
+Fixtures/**/*.tiff filter=lfs diff=lfs merge=lfs -text
+
+# --- Text that must stay diffable -------------------------------------------
+# Sidecars and receipts are round-trip evidence; reviewers read them as text.
+*.xmp  text
+*.xctestplan  text
+*.pbxproj     text -diff

@@ -1,3 +1,0 @@
-# path<space>pattern — owned debt; see HARNESS.md GAP LIST
-# P0 open still uses SwiftUI .alert; Law 3 wants facts-chip — owned-by-CP8
-Lumina/Views/P0/P0OpenView.swift NSAlert\s*\(|\.alert\s*\(

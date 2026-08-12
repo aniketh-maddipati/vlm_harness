@@ -4,6 +4,41 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-11 — CQ: quarantine & repo cleanup
+
+**Branch:** `checkpoint/cq-cleanup` (worktree `../lumina-wt/cq-cleanup`, off the post-CP0 tip `8dacec5`).
+**Claim:** Make the D40 quarantine physical; make the debt owned and ratcheted; one Scripts layout; archive superseded documents; assert target/config truth. **Zero behaviour change** — this checkpoint moves, deletes, configures and lints; it never edits logic.
+
+**Process CONFLICT (worktree base) — recorded, not silently worked around:**
+GIT PROTOCOL named `origin/main` as the base and called it "post-CP0". `origin/main` is still `993ad3f` (hi-fi H0–H8): it carries no `design/contract-v6.md`, no `tokens.yaml`, no `HARNESS.md`, no `Scripts/harness/`, no `Scripts/lint/`. Basing there would have made the named law unreadable and CQ.2/CQ.3 (wire into FAST, ratchet the existing greps) impossible. Options: (1) branch from the post-CP0 tip `8dacec5` = PR #32 merged, content-identical to `checkpoint/cp0-harness` — **chosen**; (2) wait for #29/#30/#31/#32 to reach main. Same conflict and the same resolution are already recorded in the two Batch-1 entries below; this is the third occurrence and it will keep recurring until the constitution branches land on `main`.
+
+**Second CONFLICT — CQ.1 "compile-out beats quarantine-in" vs the PRIME CONSTRAINT:**
+Compile-out is not reachable without a real code change, so per the prompt's own STOP rule it was not attempted. Evidence: `P0RootView` (the live root) declares `ProjectViewModel`, `LuminaShellModel` and `LuminaShellView` as `@State`, hosts them through `ContentViewLegacyHost`, and keeps the legacy route reachable at runtime behind `session.showLegacyShell`; `LuminaApp.init` calls `WorkbenchCapture.runIfRequested()`; `ImportPipeline` hard-calls `CullEngine`, `TasteIndex`, `PhotoScorer` and `FaceDetector`. Dropping any of that from the target breaks compilation **and** removes a reachable route. Resolution: the files move under `Legacy/`, and `Legacy/` is added to the app target as a synchronized root group so membership is unchanged. Compile-out is CP4–CP8 work, on a machine that can build.
+
+**Delivered:**
+- **CQ.1** 136 sources inventoried P0 78 · LEGACY 56 · SALVAGE 2; 58 files moved to `Legacy/` (structure preserved) and `Salvage/`; `QUARANTINED(D40)` / `SALVAGE(D40)` banners. Zero `public`/`open` under quarantine, so narrowing was already satisfied and is asserted rather than hand-edited.
+- **CQ.2** `Scripts/lint/quarantine_d40.sh` in FAST — new Legacy file, new inbound reference, `public`/`open`, missing banner, and Salvage scoring/judging entry points all FAIL. Ten seam edges frozen and owned (CP2/CP4/CP6/CP7/CP8); Salvage deny-list `embed` / `l2Distance` / `buildProfile` with two owned callers.
+- **CQ.3** `Scripts/lint/ratchet.py` + `Scripts/lint/baseline/banned_patterns.baseline` — **236 violations baselined across 47 files, all owned**. Replaced the two allowlist-silenced greps; four zero-tolerance patterns (timed double-tap, release-commit, cached decisions, network egress) are clean and may never be baselined.
+- **CQ.4** `Scripts/{lint,run,ci}/`, zero strays at `Scripts/` root; 67 dead capture files (19 MB) deleted; artifact store, worktree roots and per-run ledgers ignored (committed ledger is the summary only); `.gitattributes` LFS rules for the six-body fixture corpus — rules now, blobs when it is cut.
+- **CQ.5** `design/` reduced to the living constitution set; `hifi-reference.html`, `AUDIT-HIFI.md` and `WORKSPACE_LAYOUT_REPORT.md` archived with an index. `README.md` was teaching the quarantined `S` keep / `X` fold / `M` maybe grammar — rewritten against Contract v6; `agent_rules_contract.sh` now gates README/CONTRIBUTING/HARNESS/`docs/*` for the same drift.
+- **CQ.6** `Scripts/ci/target_truth.py` in FAST — target list, source roots, zero network entitlement, no packages or linked frameworks, DEBUG-only probe linkage plus Release-unreachability closure, test plans, and the frozen 136-source manifest.
+
+**Zero-behaviour-change proof:** `python3 Scripts/ci/prove_no_behavior_change.py 8dacec5` → same **136** app-target sources, **58 relocated**, **0** code changes (comment-stripped digests identical). Target list before and after: `Lumina`, `LuminaUITests`, `LuminaLogicTests`.
+
+**Measured:**
+| Gate | Result |
+|------|--------|
+| FAST lane (17 orchestration steps) | **PASS**, 3143 ms (budget 90 s) |
+| `Scripts/ci/regression.sh` Phase 1 + 1b | **PASS** from its new path |
+| `prove_no_behavior_change.py 8dacec5` | **PASS** — 136 sources, 0 code changes |
+| Launch smoke test (before/after) | **PLATFORM-UNAVAILABLE** — no `xcodebuild`/macOS on this Linux agent |
+
+**Launch smoke test is NOT claimed.** Per HARNESS.md F3, a lane that cannot run on this platform reports PLATFORM-UNAVAILABLE, never PASS. The static substitute — identical target list, identical compiled source set, byte-identical code — is proven above; the GUI launch must be run on Apple Silicon macOS before merge.
+
+**Follow-ups:** per-checkpoint `Legacy/` retirement as CP4–CP8 land (each migration deletes its slice, cuts seam edges, and shrinks the baseline — `--refresh` / `--tighten` reap it); `Salvage/EmbeddingService` grouping-API review at CP1; `ExifToolService.buildProfile` is a caller-less taste entry point on a salvaged service — delete at CP2; fixture blobs into LFS when the six-body corpus is cut.
+
+---
+
 ## 2026-08-11 — CP0 review: vacuous-green / platform / ledger honesty
 
 **Branch:** `checkpoint/cp0-harness` · **PR:** #32  

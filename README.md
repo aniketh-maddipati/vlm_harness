@@ -1,79 +1,88 @@
-# Lumina MVP (ship today)
+# Lumina
 
-Native macOS app: import Sony ARW folder → cull with keyboard → apply Lightroom taste from JPG XMP → export 4:5 Instagram carousel.
+Native macOS photo culling app. A shoot lands on a table; you decide with the
+keyboard; the originals never move.
+
+**Authority:** `design/contract-v6.md` → `design/tokens.yaml` →
+`design/copy-contract.txt` → code → tests. Where this file and the contract
+disagree, the contract wins.
 
 ## Requirements
 
-- macOS 14+
+- macOS 14+, Apple Silicon (Intel is out of scope — D65)
 - Xcode 15+
 - [exiftool](https://exiftool.org): `brew install exiftool`
 
 ## Run
 
 ```bash
-open Lumina.xcodeproj
-# ⌘R to build and run
+open Lumina.xcodeproj   # ⌘R
 ```
-
-## Workspace (continuous cull)
-
-Inside an open shoot, the workspace has three stages (**Workbench · Canvas · Proof**) — same photos and selection throughout.
-
-| Key | Action |
-|-----|--------|
-| ↑ / ↓ | Previous / next comparison row |
-| ← / → | Previous / next photo in row |
-| Return | Expand / collapse row |
-| Space | High-resolution focus |
-| S | Send to emerging set (Keep) |
-| X | Fold (Reject) |
-| M | Hold / Maybe |
-| ⌘1 / ⌘2 / ⌘3 | Workbench / Canvas / Proof |
-
-Lens switching (Subject vs Time grouping) is in the toolbar.
 
 Or:
 
 ```bash
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug build
-open ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Debug/Lumina.app
 ```
 
-## Quick test (mehendi data)
+## Decision keys
 
-1. **Import RAW Folder** → `/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS`
-2. Choose JPG folder → `/Users/aniketh/jeevana_mehendi_2026`
-3. Move through the canvas with `F`/`D`; use `P` to keep, `X` to cut, and `M` to open the relevant audit pile
-4. Rescue exceptions in each reason-grouped audit pile, then accept its remaining proposals
-5. **Export** → pick folder → get `grid_4x5/` + `export.json`
-
-## Keyboard
+Five decision keys commit; everything else only moves (Law 1). Decision keys
+never autorepeat.
 
 | Key | Action |
 |-----|--------|
-| `⌘I` | Import |
-| `P` | Keep |
-| `X` | Reject |
-| `M` | Open audit pile |
-| `F` | Next photo |
-| `D` | Previous photo |
-| `G` | Grid lens |
-| `Esc` | Close lens |
-| `⌘↵` | Export |
+| `P` | Keep the focused photograph — pressing it again clears the mark to unreviewed, in place (D59) |
+| `X` | Reject — same-key-again clears, and it never touches the file system (D36) |
+| `⏎` | Confirm the staged round |
+| `⇧⏎` | Stage, then widen one scope ring: row → scene → shoot |
+| `A` | Stage a Develop proposal |
 
-## What this MVP does
+`Esc` narrows one ring, or cancels the stage at the row ring. Arrows travel.
+Hold `Space` for the loupe; release returns.
 
-- Extracts embedded preview from ARW via exiftool
-- Blur + Vision face scoring
-- Timestamp burst grouping
-- Tier assignment (~10% keep)
-- Taste profile from mean Lightroom XMP in JPG folder
-- Core Image preview adjustments
-- 4:5 JPEG export + manifest
+Crop is a work-state latch inside Edit: `R` frees the aspect ratio, `O` flips
+orientation. **`A` and `X` are never remapped** — decision keys keep their
+meaning everywhere (D63).
+
+## Live path
+
+The shipping route is P0: Open a shoot → contact sheet → cull. The
+Workbench · Canvas · Proof shell is quarantined under `Legacy/` and retires
+checkpoint by checkpoint (D40, `design/checkpoint-sequence-v6.md`); it stays
+reachable from the P0 root only until CP4 retires it.
+
+## Layout
+
+| Path | Role |
+|------|------|
+| `Lumina/` | P0 live path (SwiftUI app) |
+| `Legacy/` | D40 quarantine — retires checkpoint by checkpoint, may only shrink |
+| `Salvage/` | Salvaged services: `EmbeddingService` (grouping only), `ExifToolService` |
+| `DesignTokens/` | `HiFiTokens.generated.swift`, generated from `design/tokens.yaml` |
+| `design/` | The constitution; superseded documents live in `design/archive/` |
+| `Scripts/lint/` · `Scripts/run/` · `Scripts/ci/` | Lints, runners, CI entry points |
+| `Scripts/harness/` | CP0 three-lane harness (see `HARNESS.md`) |
+
+## Test
+
+```bash
+python3 Scripts/harness/run.py fast   # lints + unit, any platform, <90s
+bash Scripts/ci/regression.sh         # full: build + XCTest + E2E (macOS only)
+bash Scripts/run/run_p0_ui_tests.sh fast
+```
+
+FAST runs anywhere. FULL and HEAVY are Apple-Silicon-macOS only and report
+`PLATFORM-UNAVAILABLE` elsewhere — never a pass. See `HARNESS.md`.
+
+## Sovereignty
+
+Files stay where they are; edits go to open sidecars; nothing leaves this Mac.
+The app declares no network entitlement, and `Scripts/ci/target_truth.py`
+keeps it that way (D4 / D45).
 
 ## Known limits (v0.1)
 
-- Preview/export uses embedded camera JPEG, not full RAW develop
-- No SD card auto-import
-- No chat agent
-- Single project per session
+- Preview/export can still use the embedded camera JPEG rather than a full RAW develop on some paths
+- The six-body fixture corpus is not cut yet (`design/fixture-manifest.md`)
+- Tier 1 / Develop as a critical path is banked pending taste-model proof (D46 / A10)

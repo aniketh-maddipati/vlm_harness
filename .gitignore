@@ -3,12 +3,30 @@
 .exiftool/
 DerivedData/
 
-# Harness / develop evidence — keep JSON/PNG/XMP reports;
-# never commit full-res ProPhoto TIFFs or private RAW fixtures.
-artifacts/**/handoff/*.tif
-artifacts/**/handoff/*.tiff
-artifacts/**/handoff/*.ARW
-artifacts/**/handoff/*.arw
+# --- Artifact store (CQ.4) ---
+# Capture output is regenerable and is never committed: --capture-workbench,
+# --raw-harness and --develop-lab all rewrite it on demand. The only committed
+# harness state is the approved golden store, the tokens hash, and the summary
+# ledger; per-run ledgers and lane reports stay local.
+artifacts/*
+!artifacts/harness/
+artifacts/harness/*
+!artifacts/harness/goldens/
+!artifacts/harness/tokens.hash
+!artifacts/harness/ledgers/
+artifacts/harness/ledgers/*
+!artifacts/harness/ledgers/orchestration-only.json
+
+# Never commit full-res ProPhoto TIFFs or private RAW originals, anywhere.
+**/handoff/*.tif
+**/handoff/*.tiff
+**/handoff/*.ARW
+**/handoff/*.arw
+
+# --- Worktree roots (CQ.4) ---
+# Checkpoint worktrees are siblings by convention, but never inside the repo.
+lumina-wt/
+*.worktree/
 
 # Xcode
 xcuserdata/
@@ -30,11 +48,5 @@ fastlane/test_output
 artifacts/ui-automation/
 *.profraw
 
-# CP0 harness ephemeral streams (keep allowlists, tokens.hash, seed goldens)
-artifacts/harness/dashboard/events.ndjson
-artifacts/harness/banned_patterns_legacy.txt
-artifacts/harness/ledgers/*
-!artifacts/harness/ledgers/orchestration-only.json
-artifacts/harness/runs/
 Scripts/harness/**/__pycache__/
 **/__pycache__/

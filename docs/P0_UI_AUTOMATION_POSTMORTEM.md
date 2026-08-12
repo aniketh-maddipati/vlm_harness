@@ -65,7 +65,7 @@ LuminaUITests/                      black-box XCUITest bundle (cannot import the
 
 LuminaLogicTests/  @testable import Lumina — cull/undo/membership + ID/probe contract
 TestPlans/         P0Fast.xctestplan, P0Stress.xctestplan, P0Visual.xctestplan
-Scripts/run_p0_ui_tests.sh
+Scripts/run/run_p0_ui_tests.sh
 ```
 
 **The load-bearing idea:** tests assert against the **state probe** (structured JSON), not UI text
@@ -350,11 +350,11 @@ Sequenced by dependency. Each checkpoint extends the harness via §7.
 ## 10. Quick reference
 
 ```bash
-bash Scripts/run_p0_ui_tests.sh fast            # deterministic flows + logic + short explorer
-bash Scripts/run_p0_ui_tests.sh stress          # mixed-200, long explorer, relaunch, resize
-bash Scripts/run_p0_ui_tests.sh visual          # pinned 1280x800 capture + semantic layout
-bash Scripts/run_p0_ui_tests.sh logic           # native XCTest only (fast, no UI)
-bash Scripts/run_p0_ui_tests.sh seed 84721 120  # exact explorer seed replay
+bash Scripts/run/run_p0_ui_tests.sh fast            # deterministic flows + logic + short explorer
+bash Scripts/run/run_p0_ui_tests.sh stress          # mixed-200, long explorer, relaunch, resize
+bash Scripts/run/run_p0_ui_tests.sh visual          # pinned 1280x800 capture + semantic layout
+bash Scripts/run/run_p0_ui_tests.sh logic           # native XCTest only (fast, no UI)
+bash Scripts/run/run_p0_ui_tests.sh seed 84721 120  # exact explorer seed replay
 ```
 
 Artifacts (per run): `artifacts/ui-automation/<mode>-<timestamp>/` — `.xcresult`, log, isolated

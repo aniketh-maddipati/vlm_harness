@@ -49,7 +49,7 @@ JOBS = [
     {
         "id": "zero_egress_audit",
         "owner": "HEAVY",
-        "entrypoint": "Scripts/harness/lint/banned_patterns.sh",
+        "entrypoint": "Scripts/lint/ratchet.py",
         "status": "active",
     },
     {

@@ -8,7 +8,7 @@ enum Fixture: String {
     case missingOriginals = "missing-originals"
 }
 
-/// Environment overrides supplied by `Scripts/run_p0_ui_tests.sh` (or Xcode) so a single test can
+/// Environment overrides supplied by `Scripts/run/run_p0_ui_tests.sh` (or Xcode) so a single test can
 /// be scaled or replayed without editing code.
 enum TestEnv {
     static var seed: UInt64? {

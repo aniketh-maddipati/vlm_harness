@@ -1,0 +1,46 @@
+# Checkpoint owners for quarantine seam rows (CQ.2 / CQ.3).
+# Longest matching path prefix wins. Every owner is a step in
+# design/checkpoint-sequence-v6.md. A seam row that matches nothing here is
+# unowned debt and fails --refresh.
+#
+# prefix	owner
+#
+# --- P0 files that still reach into the quarantine ---
+Lumina/Views/P0/P0RootView.swift	CP4
+Lumina/Views/P0/P0ContactSheetView.swift	CP4
+Lumina/Views/P0/P0OpenView.swift	CP8
+Lumina/Views/Components/DevelopHistogramView.swift	CP6
+Lumina/Core/PropagationState.swift	CP7
+Lumina/Design/CopyContract.swift	CP7
+Lumina/LuminaApp.swift	CP8
+#
+# --- salvage callers ---
+Legacy/Services/TasteIndex.swift	CP4
+Legacy/Services/XMPDevelopParser.swift	CP2
+Legacy/Services/ImportPipeline.swift	CP3
+# ExifToolService.buildProfile reaches XMPDevelopParser.buildTasteLibrary — a
+# taste entry point on a salvaged service, with no callers. CP2 owns the XMP /
+# Lightroom round-trip slice and deletes it there.
+Salvage/Services/ExifToolService.swift	CP2
+#
+# --- fallbacks by surface ---
+Lumina/Views/P0/	CP4
+Lumina/Views/Components/	CP5
+Lumina/Views/	CP4
+Lumina/Design/	CP5
+Lumina/Develop/Lab/	CP6
+Lumina/Develop/	CP6
+Lumina/Services/	CP3
+Lumina/Models/	CP2
+Lumina/ViewModels/	CP4
+Lumina/Core/	CP7
+Lumina/Presentation/	CP1
+Lumina/Rendering/	CP1
+Lumina/Testing/	CP0
+Lumina/	CP8
+Salvage/	CP1
+DesignTokens/	CP0
+Legacy/Services/	CP4
+Legacy/Views/Workspace/	CP8
+Legacy/Views/	CP4
+Legacy/	CP8

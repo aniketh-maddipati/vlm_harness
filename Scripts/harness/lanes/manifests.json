@@ -8,8 +8,9 @@
       "tests": [
         { "id": "token_lint", "kind": "orchestration" },
         { "id": "copy_table_lint", "kind": "orchestration" },
-        { "id": "banned_patterns", "kind": "orchestration" },
-        { "id": "magic_numbers", "kind": "orchestration" },
+        { "id": "banned_patterns_ratchet", "kind": "orchestration", "notes": "CQ.3 — owned baseline; counts may only decrease, new files must be clean" },
+        { "id": "quarantine_d40", "kind": "orchestration", "notes": "CQ.2 — D40 quarantine boundary + Salvage grouping-only allowlist" },
+        { "id": "target_truth", "kind": "orchestration", "notes": "CQ.6 — target list, zero-egress config, DEBUG-only probe linkage" },
         { "id": "banned_words", "kind": "orchestration" },
         { "id": "copy_contract_diff", "kind": "orchestration" },
         { "id": "contract_structure", "kind": "orchestration" },

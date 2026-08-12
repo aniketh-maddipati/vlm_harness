@@ -2,7 +2,7 @@
 
 **Authority (one way, never backwards):** `design/contract-v6.md` → `design/tokens.yaml` → `design/copy-contract.txt` → code → tests.  
 This file and any other agent-instruction file **must not contradict** the contract. Where this file conflicts with Contract v6, **the contract wins** (agent-rules drift is the same FAIL class as copy drift).  
-`design/hifi.pdf` / `design/hifi-reference.html` are visual chrome references only where the contract is silent — they do not re-scope decision keys or un-shelf laws.
+`design/archive/hifi-reference.html` is a visual chrome reference only where the contract is silent — it does not re-scope decision keys or un-shelf laws.
 
 ## Five laws (immutable)
 
@@ -103,10 +103,10 @@ Multi-select / rubber-band / ⇧-arrow extend remain **shelved** (D29 / D38). Do
 
 ### Audit gate v2 (H8)
 
-- **`Scripts/audit_hifi.py`** / `Scripts/lint/*` — copy / grammar / accessibility / performance static gate; writes `AUDIT-HIFI.md` where applicable.
+- **`Scripts/lint/*`** run by the FAST lane — copy / grammar / quarantine / target static gate. (`Scripts/audit_hifi.py` and its `AUDIT-HIFI.md` output were retired at T1/CQ; the output is archived under `design/archive/`.)
 - Copy diffs user-visible strings against `design/copy-contract.txt`; banned words minus Develop; Auto absent; Lightroom exactly once (sovereignty PL line).
 - Grammar: five decision keys swallow repeat; **crop latch uses R/O — A/X remap banned (D63)**; ripple widen/narrow; rubber-band + chip-drag zero commit paths (rubber-band shelved until ruled).
-- **Agent-rules:** `.cursorrules` / `AGENTS.md` / CLAUDE.md must not teach grammar that contradicts Contract v6 (permanent check).
+- **Agent-rules:** `.cursorrules` / `AGENTS.md` / CLAUDE.md / `README.md` / `CONTRIBUTING.md` / `docs/*` must not teach grammar or keys that contradict Contract v6 (permanent check).
 
 ### 90 px halo
 
