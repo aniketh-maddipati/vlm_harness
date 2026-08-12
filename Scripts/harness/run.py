@@ -34,6 +34,7 @@ from lanes.inventory import (  # noqa: E402
     load_manifest,
 )
 from lanes.host_platform import check_lane_platform  # noqa: E402
+from lanes.budget_breach import emit_budget_breach  # noqa: E402
 
 
 def _post_dashboard(event: dict) -> None:
@@ -345,14 +346,7 @@ def run_lane(lane: str) -> tuple[str, int]:
         code = 0
 
     if elapsed > budget:
-        slowest = sorted(results, key=lambda r: r.get("ms", 0), reverse=True)
-        print(
-            f"BUDGET BREACH: {lane.upper()} {elapsed}ms > {budget}ms budget",
-            file=sys.stderr,
-        )
-        for row in slowest:
-            print(f"  {row['step']}: {row['ms']}ms", file=sys.stderr)
-        print("delete or demote", file=sys.stderr)
+        emit_budget_breach(lane, elapsed, budget, results)
         status = "FAIL"
         code = 1
 

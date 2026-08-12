@@ -6,16 +6,25 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
-## 2026-08-12 — S15 split STOP: F04 fast-lane hardening (0/4 commits)
+## 2026-08-12 — F04.1 / F04.7: build-for-testing cache + budget breach policy
 
-**Branch:** `feature/f04-fast-lane-hardening` (**DRAFT PR**)  
+**Branch:** `feature/f04-fast-lane-hardening` · **PR:** [#40 F04: fast-lane hardening](https://github.com/aniketh-maddipati/vlm_harness/pull/40)  
+**Claim:** Land F04.1 stable `derivedDataPath` cache keyed by source hash + tokens hash (reuse / rebuild) and F04.7 budget breach output — slowest manifest ids, then **delete or demote** only.
+
+**Finding:** `regression.sh` rebuilt into `./DerivedData` every pre-merge; budget breach text said `budget` not `ceiling` and did not name slowest ids as manifest test ids explicitly.
+
+**Fix:** `Scripts/harness/build_cache.py` → `artifacts/harness/build-cache/<source12>-<tokens12>/` with manifest · `regression.sh` Phase 2 calls `--ensure-build-for-testing` · `run_p0_ui_tests.sh` shares the same derived path · `lanes/budget_breach.py` + runner hook · unit tests in `tests/test_build_cache.py` and `lanes/test_lane_guards.py`.
+
+**Follow-ups:** macOS pre-merge wall time · first cache hit/miss timings · measured FULL lane when live Swift drivers land (CP4+).
+
+---
+
+## 2026-08-12 — S15 split STOP: F04 fast-lane hardening (resolved — stacked F01–F03)
+
+**Branch:** `feature/f04-fast-lane-hardening` (**DRAFT PR** until A3 gate clears)  
 **Claim:** Cherry-pick F04 commits `b4fb0a7`, `7b02485`, `2f0422d`, `1320688` off merge-base `2fca1c1`.
 
-**STOP at `b4fb0a7`** — commit spans **F01+F04** (touches `Scripts/harness/lanes/manifests.json`, `Scripts/harness/run.py`). Conflicts not resolved per S15 rule.
-
-**Merge gate (DRAFT until):** FULL green on quiescent macOS + A3 unexecuted-change list empty. Unit `ProbePollingTests` nil-return alone is insufficient evidence for dead-app fail-fast.
-
-**Instrument reading:** not run (no F04 delta). See `checkpoint/f0-prompt-factory` for full split ledger.
+**Resolution:** F01–F03 merged; F04.1–F04.7 cherry-picked with manifest/run conflicts resolved.
 
 ---
 

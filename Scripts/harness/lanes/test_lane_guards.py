@@ -8,6 +8,7 @@ from unittest import mock
 
 from inventory import evaluate_inventory, format_lane_summary, load_manifest
 from host_platform import check_lane_platform
+from budget_breach import budget_breach_lines, slowest_test_rows
 
 
 class InventoryTests(unittest.TestCase):
@@ -65,6 +66,29 @@ class PlatformTests(unittest.TestCase):
         if os.uname().sysname != "Darwin":
             self.assertEqual(status, "platform-unavailable")
             self.assertIn("Darwin", reason)
+
+
+class BudgetBreachTests(unittest.TestCase):
+    def test_slowest_rows_descending(self):
+        rows = slowest_test_rows(
+            [{"step": "a", "ms": 10}, {"step": "b", "ms": 50}, {"step": "c", "ms": 25}]
+        )
+        self.assertEqual([r["step"] for r in rows], ["b", "c", "a"])
+
+    def test_breach_message_lists_ids_and_delete_or_demote_only(self):
+        lines = budget_breach_lines(
+            "fast",
+            120_000,
+            90_000,
+            [{"step": "slow_lint", "ms": 40_000}, {"step": "fast_lint", "ms": 1000}],
+        )
+        text = "\n".join(lines)
+        self.assertIn("BUDGET BREACH: FAST 120000ms > 90000ms ceiling", text)
+        self.assertIn("slow_lint: 40000ms", text)
+        self.assertIn("fast_lint: 1000ms", text)
+        self.assertEqual(lines[-1], "delete or demote")
+        for forbidden in ("hardware", "parallel", "parallelism", "raise the ceiling", "raised ceiling"):
+            self.assertNotIn(forbidden, text.lower())
 
 
 if __name__ == "__main__":
