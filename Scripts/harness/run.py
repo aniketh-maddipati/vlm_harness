@@ -117,11 +117,11 @@ def lane_fast() -> tuple[list[dict], list[str]]:
         ("copy_table_lint", [py, str(HARNESS / "lint" / "copy_table_lint.py")]),
         ("banned_patterns", ["bash", str(HARNESS / "lint" / "banned_patterns.sh")]),
         ("magic_numbers", ["bash", str(HARNESS / "lint" / "magic_numbers.sh")]),
-        ("banned_words", ["bash", str(ROOT / "Scripts" / "lint" / "banned_words.sh")]),
-        ("copy_contract_diff", ["bash", str(ROOT / "Scripts" / "lint" / "copy_contract_diff.sh")]),
-        ("contract_structure", ["bash", str(ROOT / "Scripts" / "lint" / "contract_structure.sh")]),
-        ("contract_v6_presence", ["bash", str(ROOT / "Scripts" / "lint" / "contract_v6_presence.sh")]),
-        ("agent_rules_contract", ["bash", str(ROOT / "Scripts" / "lint" / "agent_rules_contract.sh")]),
+        ("banned_words", ["bash", str(HARNESS / "lint" / "banned_words.sh")]),
+        ("copy_contract_diff", ["bash", str(HARNESS / "lint" / "copy_contract_diff.sh")]),
+        ("contract_structure", ["bash", str(HARNESS / "lint" / "contract_structure.sh")]),
+        ("contract_v6_presence", ["bash", str(HARNESS / "lint" / "contract_v6_presence.sh")]),
+        ("agent_rules_contract", ["bash", str(HARNESS / "lint" / "agent_rules_contract.sh")]),
         ("unit_codegen", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "codegen"), "-p", "test_*.py"]),
         ("unit_golden", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "golden"), "-p", "test_*.py"]),
         ("unit_trace", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "trace"), "-p", "test_*.py"]),
@@ -130,6 +130,7 @@ def lane_fast() -> tuple[list[dict], list[str]]:
         ("seed_script_schema", [py, str(HARNESS / "probe" / "run_scripts.py"), "--schema-only"]),
         # STUB grammar oracle — orchestration unit only; not app-coupled (F2).
         ("grammar_oracle_unit", [py, str(HARNESS / "probe" / "run_scripts.py"), "--oracle"]),
+        ("allowlist_ratchet", [py, str(HARNESS / "lint" / "allowlist_ratchet.py")]),
     ]
     results = [_run(name, argv, "FAST") for name, argv in steps]
     executed = [r["step"] for r in results if r["ok"]]
@@ -321,6 +322,7 @@ def run_lane(lane: str) -> tuple[str, int]:
     elapsed = int((time.perf_counter() - started) * 1000)
     inventory = evaluate_inventory(lane, executed)
     step_ok = all(r["ok"] for r in results) if results else False
+    budget = int(lane_def["budgetMs"])
     if inventory["verdict"] != "PASS":
         status = inventory["verdict"]  # FAIL or INCOMPLETE
         code = 1
@@ -330,6 +332,18 @@ def run_lane(lane: str) -> tuple[str, int]:
     else:
         status = "PASS"
         code = 0
+
+    if elapsed > budget:
+        slowest = sorted(results, key=lambda r: r.get("ms", 0), reverse=True)
+        print(
+            f"BUDGET BREACH: {lane.upper()} {elapsed}ms > {budget}ms budget",
+            file=sys.stderr,
+        )
+        for row in slowest:
+            print(f"  {row['step']}: {row['ms']}ms", file=sys.stderr)
+        print("delete or demote", file=sys.stderr)
+        status = "FAIL"
+        code = 1
 
     path = write_report(
         lane.upper(),
@@ -344,9 +358,6 @@ def run_lane(lane: str) -> tuple[str, int]:
         for reason in inventory["reasons"]:
             print(f"    inventory: {reason}", file=sys.stderr)
     print(f"    report={path}")
-    budget = int(lane_def["budgetMs"])
-    if elapsed > budget:
-        print(f"WARN: {lane.upper()} exceeded budget ({elapsed} > {budget})", file=sys.stderr)
     return status, code
 
 

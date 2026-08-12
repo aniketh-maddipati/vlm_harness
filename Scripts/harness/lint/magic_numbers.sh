@@ -27,7 +27,15 @@ is_allowed() {
   grep -Fq "${file} ${lit}" "$ALLOW" 2>/dev/null
 }
 
-mapfile -d '' FILES < <(find Lumina/Views Lumina/Design Lumina/Shell -name '*.swift' -print0 2>/dev/null)
+FILES=()
+while IFS= read -r -d '' f; do
+  FILES+=("$f")
+done < <(find Lumina/Views Lumina/Design Lumina/Shell -name '*.swift' -print0 2>/dev/null)
+
+if [[ ${#FILES[@]} -eq 0 ]]; then
+  echo "magic_numbers.sh: OK (no UI files scanned)"
+  exit 0
+fi
 
 for item in "${CHECKS[@]}"; do
   lit="${item%%|*}"
