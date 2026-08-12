@@ -1,17 +1,17 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "esc_exact_restore",
   "title": "Esc restores pre-stage space exactly",
   "cite": ["L5", "D11", "D35"],
   "fixture": "mixed-60",
   "seed": 1004,
   "events": [
-    { "op": "focusIndex", "index": 0 },
-    { "op": "key", "key": "P" },
-    { "op": "key", "key": "Return", "modifiers": ["shift"] },
-    { "op": "waitProbe", "ms": 0 },
-    { "op": "key", "key": "Escape" },
-    { "op": "waitProbe", "ms": 0 }
+    { "op": "focusIndex", "index": 0, "tMs": 0 },
+    { "op": "key", "key": "P", "tMs": 83 },
+    { "op": "key", "key": "Return", "modifiers": ["shift"], "tMs": 167 },
+    { "op": "waitProbe", "ms": 0, "tMs": 244 },
+    { "op": "key", "key": "Escape", "tMs": 331 },
+    { "op": "waitProbe", "ms": 0, "tMs": 418 }
   ],
   "asserts": [
     { "op": "stagingRing", "ring": "none" },
