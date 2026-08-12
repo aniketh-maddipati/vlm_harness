@@ -1,17 +1,17 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "same_mark_clears",
   "title": "Same-mark clears — re-press P clears keep to undecided in place",
   "cite": ["D59", "D10"],
   "fixture": "mixed-60",
   "seed": 1002,
   "events": [
-    { "op": "focusIndex", "index": 0 },
-    { "op": "key", "key": "P" },
-    { "op": "waitProbe", "ms": 0 },
-    { "op": "focusIndex", "index": 0 },
-    { "op": "key", "key": "P" },
-    { "op": "waitProbe", "ms": 0 }
+    { "op": "focusIndex", "index": 0, "tMs": 0 },
+    { "op": "key", "key": "P", "tMs": 83 },
+    { "op": "waitProbe", "ms": 0, "tMs": 127 },
+    { "op": "focusIndex", "index": 0, "tMs": 176 },
+    { "op": "key", "key": "P", "tMs": 241 },
+    { "op": "waitProbe", "ms": 0, "tMs": 318 }
   ],
   "asserts": [
     { "op": "markEquals", "assetIndex": 0, "mark": "undecided" },

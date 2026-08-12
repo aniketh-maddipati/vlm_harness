@@ -19,6 +19,22 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — F02.1: G1 rulings applied (S14 A1 conflict rows)
+
+**Branch:** `feature/f02-headless-grammar-rung`  
+**Claim:** Close S14 finding #1 (conflict-blindness) — apply G1 rulings for each CHANGED row; D59 was SAME.
+
+| Row | G1 ruling | Amendment owed (live P0 / shell) |
+|-----|-----------|----------------------------------|
+| D10 — P/X decide **and advance** | **KEEP** | `P0SessionModel.applyCullToggle` owes focus advance after non-clear mark-set |
+| D10 — decision keys never autorepeat | **KEEP** | `P0ContactSheetView` P/X handlers owe autorepeat swallow (shell-owned per machine contract) |
+| D47 / A3 — pointer marks parity | **KEEP** | P0 owes ✓/✕ pointer marks wired to the same mark path (A3 un-shelf) |
+| D11 / D13 — release never commits | **KEEP** | P0 Return→`openFocusedPhotograph()` is a separate surface; wholesale staging grammar stays headless-only until CP7 |
+
+**D59 same-mark-clears:** SAME — no code change on this branch.
+
+---
+
 ## 2026-08-12 — F01: CP0 shell reconciliation
 
 **Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F01: CP0 shell reconciliation](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  

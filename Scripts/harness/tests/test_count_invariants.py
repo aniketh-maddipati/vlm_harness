@@ -44,9 +44,9 @@ class CountInvariantTests(unittest.TestCase):
     def test_one_undo_per_mark_gesture(self):
         sim = ProbeSimulator(blank_state("mixed-60", 4))
         before = sim.state["undoDepth"]
-        sim.apply_event({"op": "key", "key": "P"})
+        sim.apply_event({"op": "key", "key": "P", "tMs": 0})
         self.assertEqual(sim.state["undoDepth"], before + 1)
-        sim.apply_event({"op": "key", "key": "X"})
+        sim.apply_event({"op": "key", "key": "X", "tMs": 83})
         self.assertEqual(sim.state["undoDepth"], before + 2)
 
 
