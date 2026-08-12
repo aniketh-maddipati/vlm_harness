@@ -141,6 +141,41 @@ FULL on macOS AS runs it through the **live** Swift driver (`run_live_scripts.py
 
 ---
 
+## Release integrity (F11 — macOS only)
+
+Runs against the **built Release** `Lumina.app`, never Debug. Entry:
+
+```bash
+xcodebuild -project Lumina.xcodeproj -target Lumina -configuration Release -arch arm64 build
+python3 Scripts/harness/release/f11_hooks_absent.py --app build/Release/Lumina.app
+python3 Scripts/harness/release/f11_zero_network.py --app build/Release/Lumina.app
+python3 Scripts/harness/release/f11_signature.py --app build/Release/Lumina.app
+```
+
+| Check | Script | Pass criterion |
+|-------|--------|----------------|
+| **F11.1** hooks absent | `f11_hooks_absent.py` | Every harness hook file is `#if DEBUG` fenced; forbidden symbols absent from Release binary (`nm`) |
+| **F11.2** zero network | `f11_zero_network.py` | No outgoing-network entitlements; no CFNetwork/Network/NetworkExtension on app binary paths (**app only** — not OS crash reporters; CONFLICT 4 / A7) |
+| **F11.3** signature | `f11_signature.py` | Developer ID + notarization + **stapled** ticket (`codesign --verify --deep --strict`, `spctl`, `stapler validate`). Signed-but-unstapled **FAIL**. |
+| **F11.4** build manifest | `write_build_manifest.py` + `f11_read_manifest.py` | Embeds `LuminaBuildManifest.json` (git sha, tokens hash, fixture manifest version, contract version, build date). Install page / bug reports cite `LuminaBuildManifest.bugReportLine`. |
+| **F11.5** shipped rollback | `retain_shipped_artifact.py promote` | Retains `artifacts/release/shipped/previous/Lumina.app` + manifest — rollback is a file copy (D51 / R-I.2). |
+| **F11.6** A7 expiry | `f11_a7_expiry.py` | **FAIL** at marketing version ≥ 1.0 if `betaDiagnostics` still present in manifest. Socket: `BetaDiagnosticsSocket.swift`. |
+| **F11.7** no licensing | `f11_no_licensing.py` | Wave builds: no license/activation/expiry code (D52 / A8; `grammar.beta_licensing: none`). |
+
+Orchestrator (all F11 checks vs Release app): `python3 Scripts/harness/release/run_f11_release.py --app build/Release/Lumina.app`
+
+Fixture manifest version: `design/fixture-manifest.yaml` (`version` field).
+
+Hook inventory: `Scripts/harness/release/hook_inventory.yaml`.
+
+### F11.1 allowlist — `P0AccessibilityID` (ruling 3)
+
+`P0AccessibilityID` and `ProbeSnapshot` **ship in all configurations** by design. They are the product accessibility identifier namespace and the probe JSON schema — not harness hooks. The XCUITest bundle mirrors IDs via `P0AXID`; logic tests assert parity (`LuminaLogicTests`). Release builds must never activate `UITestSupport.isActive` (set only from DEBUG `UITestLaunch`); the identifier strings alone are inert without activation.
+
+Forbidden in Release: probe v2 server, fake clock, fixture synthesis, `--ui-testing` / `--probe-v2` / `--motion-probe` entry points, S19 Develop Lab playground, F07 display-link tap (when implemented).
+
+---
+
 ## State Probe v2
 
 - **Schema:** `Scripts/harness/probe/schema.json`
@@ -185,6 +220,10 @@ FAST **`grammar_oracle_parity`** replays all five through `ProbeSimulator` and t
 | Vacuous-green + platform gates | **Closed in CP0 review** | CP0 |
 | Ledger UNMEASURED honesty | **Closed in CP0 review** | CP0 |
 | Motion timing *measured* gate | STUB / UNMEASURED until live signposts | **SPIKE A** |
+| F07.4 dead-stop exact (orchestration) | **Closed — SPIKE B seal** (`spring_physics_f07`; see BUILD_LOG drift note) | **SPIKE B** |
+| F07.5 retarget continuity | **Closed — SPIKE B seal** | **SPIKE B** |
+| F07.6 reduced-motion variant | **Closed — SPIKE B seal** | **SPIKE B** |
+| Spring trajectory golden (tokens-hash) | **Closed — SPIKE B seal** | **SPIKE B** |
 | Grammar scripts *live* | STUB oracle only | **CP4** |
 | Golden service bookkeeping | **Closed in CP0** | CP0 |
 | Chrome/photo golden *pixels* | STUB `--live` | **CP1** / bodies **CP3** |

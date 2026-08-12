@@ -1,3 +1,4 @@
+#if DEBUG
 import AppKit
 import SwiftUI
 
@@ -77,3 +78,4 @@ enum DevelopLabLauncher {
         exit(0)
     }
 }
+#endif

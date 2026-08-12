@@ -105,6 +105,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = A10000010000000000000007 /* Build configuration list for PBXNativeTarget "Lumina" */;
 			buildPhases = (
+				A50000010000000000000008 /* Embed Build Manifest */,
 				A10000010000000000000008 /* Sources */,
 				A10000010000000000000003 /* Frameworks */,
 				A10000010000000000000009 /* Resources */,
@@ -237,6 +238,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A50000010000000000000008 /* Embed Build Manifest */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Build Manifest";
+			outputPaths = (
+				"$(SRCROOT)/Lumina/Resources/LuminaBuildManifest.json",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "export MARKETING_VERSION=\"${MARKETING_VERSION}\"\nexport CURRENT_PROJECT_VERSION=\"${CURRENT_PROJECT_VERSION}\"\nexport CONFIGURATION=\"${CONFIGURATION}\"\npython3 \"${SRCROOT}/Scripts/harness/release/write_build_manifest.py\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A10000010000000000000008 /* Sources */ = {

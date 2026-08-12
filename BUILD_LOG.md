@@ -4,6 +4,106 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — F11: release integrity (F11.1–F11.7)
+
+**Branch:** `feature/f11-release-integrity`  
+**Claim:** Release-integrity gates — DEBUG hooks absent, zero network, signature, embedded build manifest, shipped rollback retention, A7 expiry, no licensing (D45/A7, D52/A8, D51/R-I.2).
+
+**Embedded manifest (F11.4)** — `Lumina/Resources/LuminaBuildManifest.json` via Xcode Run Script + `write_build_manifest.py`:
+
+```json
+{
+  "gitSha": "11b9ec4e8c8544439f6cdd260baf01bd91034362",
+  "tokensHash": "7b0c1552736eba4c253d4f32bd81f35691f8b4c0ff238e602054729c50e36b36",
+  "fixtureManifestVersion": "1.0-mvp-fleet",
+  "contractVersion": "6.2-motion-seal",
+  "buildDate": "2026-08-12T15:35:36Z",
+  "marketingVersion": "0.1.0",
+  "betaDiagnostics": null
+}
+```
+
+Read back: `python3 Scripts/harness/release/f11_read_manifest.py --app build/Release/Lumina.app --check` → **PASS**.
+
+**Instrument readings (macOS — Release `build/Release/Lumina.app`):**
+
+| Check | Result |
+|-------|--------|
+| F11.1 hooks absent | **PASS** |
+| F11.2 zero network | **PASS** |
+| F11.3 signature | **FAIL** — ad-hoc; `spctl` rejected; unstapled |
+| F11.4 manifest embed/read | **PASS** |
+| F11.5 shipped rollback | **Ready** — `retain_shipped_artifact.py promote` |
+| F11.6 A7 expiry | **PASS** (wave @ 0.1.0; gate fails at 1.0 + betaDiagnostics) |
+| F11.7 no licensing | **PASS** |
+
+**Follow-ups:** Developer ID + notarize + staple (F11.3); first `promote` after signed ship.
+
+---
+
+## 2026-08-12 — F07 / SPIKE B: motion seal + physics gates (F07.4–F07.6)
+
+**Branch:** (working tree)  
+**Claim:** Paste motion-probe export into `design/tokens.yaml` §motion, bump version, codegen + magic-number gate; activate F07.4 / F07.5 / F07.6 against sealed params; golden trajectory keyed by `tokens-hash`; close SPIKE B STUB rows in `HARNESS.md`.
+
+**Judged:** 2026-08-12 (SPIKE B motion physics seal).
+
+**Sealed params verbatim (`design/tokens.yaml` §motion, version `6.2-motion-seal`):**
+
+```yaml
+  chrome_fade_out:
+    value: 250
+    unit: ms
+    type: ms
+  place_return:
+    value: 200
+    unit: ms
+    type: ms
+  spring_max_overshoot:
+    value: 0.02
+    type: opacity
+  spring_trajectory_frames:
+    value: 40
+    type: enum
+  spring_trajectory_sample_rate_hz:
+    value: 120
+    type: enum
+  spring_dead_stop_epsilon:
+    value: 0.001
+    type: opacity
+  spring_retarget_continuity_epsilon:
+    value: 0.000001
+    type: opacity
+  spring_reduced_motion_overshoot:
+    value: 0
+    type: opacity
+  travel:
+    value: 180
+    unit: ms
+  stage:
+    value: 140
+    unit: ms
+  lift:
+    value: 100
+    unit: ms
+```
+
+**tokens-hash:** `7b0c1552736eba4c253d4f32bd81f35691f8b4c0ff238e602054729c50e36b36`
+
+**Fix:** `LuminaSpring` + Python mirror read sealed tokens only; `magic_numbers.sh` scans motion sources; FAST id `spring_physics_f07`; golden `spring_trajectory_place_return` approved under tokens-hash.
+
+**Drift (seal not adjusted):** **F07.4** dead-stop for `place_return` at the sealed observation horizon `(spring_trajectory_frames − 1) / spring_trajectory_sample_rate_hz` → `|value − 1| = 0.001105` **>** `spring_dead_stop_epsilon` `0.001`. Build spring sampler has not converged within sealed ε at the SPIKE B window end. F07.5, F07.6, and trajectory golden **PASS**.
+
+**Instrument reading (Linux — measured this session):**
+
+| Step | Status |
+|------|--------|
+| `tokens_codegen.py --check` | PASS |
+| `spring_physics_f07` | **FAIL** (F07.4 drift above) |
+| F07.5 / F07.6 / golden | PASS |
+
+---
+
 ---
 
 ## 2026-08-12 — F04.1 / F04.7: build-for-testing cache + budget breach policy
