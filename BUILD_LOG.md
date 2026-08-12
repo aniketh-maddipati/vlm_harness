@@ -15,6 +15,13 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 **Fix:** `Scripts/harness/build_cache.py` → `artifacts/harness/build-cache/<source12>-<tokens12>/` with manifest · `regression.sh` Phase 2 calls `--ensure-build-for-testing` · `run_p0_ui_tests.sh` shares the same derived path · `lanes/budget_breach.py` + runner hook · unit tests in `tests/test_build_cache.py` and `lanes/test_lane_guards.py`.
 
+**Instrument reading (Linux cloud — measured monolith session):**
+
+| Alias / lane | Entry | Elapsed | Status | App tests executed / expected | Orchestration |
+|--------------|-------|---------|--------|-------------------------------|---------------|
+| `pre-commit` / FAST | `run.py fast` | **4147 ms** | PASS | **0 / 0** | **25 / 25** |
+| `pre-merge` / FULL | `run.py full` | **106 ms** | PLATFORM-UNAVAILABLE | **0 / 7** | **0 / 2** |
+
 **Follow-ups:** macOS pre-merge wall time · first cache hit/miss timings · measured FULL lane when live Swift drivers land (CP4+).
 
 ---
@@ -37,6 +44,20 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 **Fix:** `Scripts/harness/coverage/{generate_constitution_coverage.py,artifact_registry.yaml,shelved_register.yaml}` → `artifacts/harness/coverage/constitution-coverage.{md,json}` · shelved rows (`D29`, `D38`, `D46`, `D32`, `D64`, `D50`, `R-I.3`, `R-A.1`) → `SHELVED` not `NOT-COVERED` · FAST manifest id `constitution_coverage` (`--check`) · `HARNESS.md` GAP LIST intake points at the report.
 
+**Constitution coverage (honest count — low NOT-COVERED would be suspicious):**
+
+| Total | Covered | Shelved | **NOT-COVERED** |
+|------:|--------:|--------:|----------------:|
+| 82 | 44 | 7 | **31** |
+
+**NOT-COVERED (printed):** `D1`–`D7`, `D12`, `D14`, `D15`, `D17`, `D18`, `D20`–`D22`, `D25`, `D28`, `D30`, `D31`, `D33`, `D34`, `D40`, `D45`, `D49`, `D51`, `D52`, `D55`, `D56`, `D58`, `D62`, `D66`.
+
+**Instrument reading (Linux cloud — measured this session):**
+
+| Alias / lane | `run.py` | Elapsed | Status | App tests executed / expected | Orchestration |
+|--------------|----------|---------|--------|-------------------------------|---------------|
+| `pre-commit` / FAST (after F03.4–F03.6) | `fast` | **3667 ms** | PASS | **0 / 0** | **22 / 22** |
+
 **Follow-ups:** map NOT-COVERED rows as artifacts land · golden fixture bodies (CP3) · battery column when F10 un-gates · macOS `xcodebuild test` for logic column names.
 
 ---
@@ -47,6 +68,30 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 **Claim:** Cherry-pick F03 commits `8efa3e4`, `b7a98b5` off merge-base `2fca1c1`.
 
 **Resolution:** F01 spine merged; F03.1–F03.6 cherry-picked with manifest/run conflicts resolved (F02-only `grammar_oracle_parity` omitted on this branch).
+
+---
+
+## 2026-08-12 — F02.4 / F02.5: headless grammar replays + oracle parity
+
+**Branch:** `cursor/f0-prompt-factory-cbe0` · **PR:** [#35 F02: headless grammar rung](https://github.com/aniketh-maddipati/vlm_harness/pull/35)  
+**Claim:** Land F02.4 (five v2 seed replays with `grammarExact`, no sleeps) and F02.5 (`grammar_oracle_parity` on pre-commit — oracle vs Swift-machine mirror; divergence FAIL with both readings printed).
+
+**Finding:** Seeds mixed partial asserts and included `px_advance` / `arming_consent` outside the F02.4 law roster; no parity gate between Python oracle and `CullGrammarMachine`.
+
+**Fix:** F02.4 five replays (`held_is_temporary`, `same_mark_clears`, `shift_return_return_release`, `esc_exact_restore`, `value_echo_adjustment_only`) · hold/adjust events + `grammarExact` asserts · F02.5 `grammar_machine.py` mirror + `run_scripts.py --parity` · manifest id `grammar_oracle_parity`.
+
+**Instrument reading (Linux cloud — measured this session):**
+
+| Alias / lane | `run.py` | Elapsed | Status | App tests executed / expected | Orchestration |
+|--------------|----------|---------|--------|-------------------------------|---------------|
+| `pre-commit` / FAST (prior F02.1 baseline) | `fast` | **3105 ms** | PASS | **0 / 0** | **17 / 17** |
+| `pre-commit` / FAST (after F02.4/F02.5) | `fast` | **3154 ms** | PASS | **0 / 0** | **18 / 18** |
+
+**Pre-commit delta this session:** +1 orchestration test (`grammar_oracle_parity`, ~166 ms measured step time) · +49 ms total lane wall time vs F02.1 baseline.
+
+**Not built:** **F02.2** (live Swift grammar driver wiring) remains gated on **CP1** per checkpoint sequence — STUB register unchanged for app-coupled grammar.
+
+**Follow-ups:** macOS `xcodebuild test` for `CullGrammarTests` · CP4 live driver · emit F0 prompt pack when `design/build-prompts/` lands.
 
 ---
 
