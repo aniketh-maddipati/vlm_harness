@@ -19,6 +19,28 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — F03.4 / F03.5 / F03.6: constitution coverage matrix + probe completeness gate
+
+**Branch:** `feature/f03-probe-coverage` · **PR:** [#39 F03: probe coverage matrix](https://github.com/aniketh-maddipati/vlm_harness/pull/39)  
+**Claim:** Land F03.4 explicit D/R → artifact registry, F03.5 FAST `constitution_coverage` freshness gate, F03.6 GAP LIST intake wired to the coverage report.
+
+**Finding:** No honest constitution coverage matrix; GAP LIST had no machine-readable intake tying D/R rows to named lint/logic/flow/golden artifacts; probe lints (F03.1–F03.3) lacked a coverage ledger.
+
+**Fix:** `Scripts/harness/coverage/{generate_constitution_coverage.py,artifact_registry.yaml,shelved_register.yaml}` → `artifacts/harness/coverage/constitution-coverage.{md,json}` · shelved rows (`D29`, `D38`, `D46`, `D32`, `D64`, `D50`, `R-I.3`, `R-A.1`) → `SHELVED` not `NOT-COVERED` · FAST manifest id `constitution_coverage` (`--check`) · `HARNESS.md` GAP LIST intake points at the report.
+
+**Follow-ups:** map NOT-COVERED rows as artifacts land · golden fixture bodies (CP3) · battery column when F10 un-gates · macOS `xcodebuild test` for logic column names.
+
+---
+
+## 2026-08-12 — S15 split STOP: F03 probe coverage (resolved — stacked on F01)
+
+**Branch:** `feature/f03-probe-coverage`  
+**Claim:** Cherry-pick F03 commits `8efa3e4`, `b7a98b5` off merge-base `2fca1c1`.
+
+**Resolution:** F01 spine merged; F03.1–F03.6 cherry-picked with manifest/run conflicts resolved (F02-only `grammar_oracle_parity` omitted on this branch).
+
+---
+
 ## 2026-08-12 — F02.1: G1 rulings applied (S14 A1 conflict rows)
 
 **Branch:** `feature/f02-headless-grammar-rung`  

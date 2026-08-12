@@ -1,0 +1,1415 @@
+{
+  "schemaVersion": 1,
+  "generated_at": "2026-08-12T14:58:20.568264+00:00",
+  "summary": {
+    "total": 82,
+    "covered": 29,
+    "shelved": 7,
+    "not_covered": 46
+  },
+  "not_covered": [
+    "D1",
+    "D2",
+    "D3",
+    "D4",
+    "D5",
+    "D6",
+    "D7",
+    "D12",
+    "D14",
+    "D15",
+    "D17",
+    "D18",
+    "D20",
+    "D21",
+    "D22",
+    "D25",
+    "D27",
+    "D28",
+    "D30",
+    "D31",
+    "D33",
+    "D34",
+    "D36",
+    "D40",
+    "D41",
+    "D42",
+    "D45",
+    "D49",
+    "D51",
+    "D52",
+    "D54",
+    "D55",
+    "D56",
+    "D57",
+    "D58",
+    "D61",
+    "D62",
+    "D66",
+    "R-5.1",
+    "R-5.2",
+    "R-5.3",
+    "R-A.2",
+    "R-M.1",
+    "R-M.3",
+    "R-M.5",
+    "R-Q.1"
+  ],
+  "shelved": [
+    "D29",
+    "D32",
+    "D46",
+    "D50",
+    "D64",
+    "R-A.1",
+    "R-I.3"
+  ],
+  "entries": [
+    {
+      "id": "D1",
+      "kind": "D",
+      "title": "The interface is a table with photographs on it.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D2",
+      "kind": "D",
+      "title": "Agentic-quiet: the AI is embodied in the table's behavior, never addressed.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D3",
+      "kind": "D",
+      "title": "Lumina arranges but never judges.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D4",
+      "kind": "D",
+      "title": "Positioning: \"Edit the set, not every photograph.\"",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D5",
+      "kind": "D",
+      "title": "The row is the unit of work; the loop is edit-then-cull-within-row.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D6",
+      "kind": "D",
+      "title": "Chronological landing \u2192 one watched tidy pass.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D7",
+      "kind": "D",
+      "title": "Spacing is quantized language \u2014 two values in MVP.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D8",
+      "kind": "D",
+      "title": "Five laws replace the rulebook.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [
+        "grammar_oracle_unit"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D9",
+      "kind": "D",
+      "title": "Glances are holds; work states are latches.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [
+        "grammar_oracle_unit",
+        "seed_script_schema"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D10",
+      "kind": "D",
+      "title": "Culling keys: P/X decide AND advance; no Hold/Maybe; no chord on the hot loop.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [
+        "grammar_oracle_unit",
+        "seed_script_schema"
+      ],
+      "logic": [
+        "P0LogicTests.testCullToggleGrammar"
+      ],
+      "flow": [
+        "CullGrammarTests.testKeepRejectToggleGrammar"
+      ],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D11",
+      "kind": "D",
+      "title": "The \u23ce doctrine.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [
+        "grammar_oracle_unit",
+        "seed_script_schema"
+      ],
+      "logic": [
+        "CommandChordTests.testHeldReturnCannotDoubleCommit"
+      ],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D12",
+      "kind": "D",
+      "title": "Modifier temperaments: \u21e7 enlarges/coarsens, \u2325 refines.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D13",
+      "kind": "D",
+      "title": "Release never commits \u2014 anywhere, in any form.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [
+        "grammar_oracle_unit",
+        "seed_script_schema"
+      ],
+      "logic": [
+        "CommandChordTests.testHeldReturnCannotDoubleCommit"
+      ],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D14",
+      "kind": "D",
+      "title": "Propose \u2192 stage \u2192 commit, with the halo as the proposal.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D15",
+      "kind": "D",
+      "title": "Exceptions: click-toggle; `Edited` protection with visible override.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D16",
+      "kind": "D",
+      "title": "Adapt, never copy *(amended by A5)* `[\u25cf A5]`",
+      "sources": [
+        "v5",
+        "v6"
+      ],
+      "lint": [
+        "copy_contract_diff",
+        "copy_table_lint"
+      ],
+      "logic": [
+        "P0LogicTests.testA1FormatterSamplesInCopyContract"
+      ],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D17",
+      "kind": "D",
+      "title": "Scope = the row, full stop (MVP).",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D18",
+      "kind": "D",
+      "title": "The four exposures + facts-only chips.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D19",
+      "kind": "D",
+      "title": "Count invariant + clickable receipt.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [
+        "P0LogicTests.testA1InvariantRowScope",
+        "P0LogicTests.testA1InvariantExcludedCount",
+        "PropagationTests.testA1AtShootRingWithExclusions"
+      ],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D20",
+      "kind": "D",
+      "title": "The fidelity contract.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D21",
+      "kind": "D",
+      "title": "Truth-at-a-glance *(amended by R-5.2 + A4)* `[\u25cf A4]`",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D22",
+      "kind": "D",
+      "title": "Sharpness is judged only in the loupe or at 1:1.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D23",
+      "kind": "D",
+      "title": "Ten controls + Crop mode *(amended by A2)* `[\u25cf A2]`",
+      "sources": [
+        "v5",
+        "v6"
+      ],
+      "lint": [
+        "agent_rules_contract"
+      ],
+      "logic": [
+        "P0LogicTests.testCropLayoutHashRestoration",
+        "P0LogicTests.testCropStraightenMagnet",
+        "P0LogicTests.testCropKeyScopeNeverStagesOrRejects",
+        "CropTests.testLayoutHashChangesOnEditAndReverts",
+        "CropTests.testCropHeaderNeverMentionsReject"
+      ],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D24",
+      "kind": "D",
+      "title": "Arming / value-echo *(amended by R-X.1 + audit)*",
+      "sources": [
+        "v5",
+        "v6"
+      ],
+      "lint": [
+        "grammar_oracle_unit",
+        "seed_script_schema"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D25",
+      "kind": "D",
+      "title": "Detents in photographic units; slider anatomy fixed.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D26",
+      "kind": "D",
+      "title": "Focused edit = hero + elastic strip + rail; no ghost table.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [
+        "grammar_oracle_unit",
+        "seed_script_schema"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D27",
+      "kind": "D",
+      "title": "Motion/fade *(amended by audit frame-F \u2014 one-line)*",
+      "sources": [
+        "v5",
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D28",
+      "kind": "D",
+      "title": "Elasticity: elastic in motion, exact at rest, anchored at the focus.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D29",
+      "kind": "D",
+      "title": "Selection: standard Mac grammar; hold-to-select banned.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "SHELVED",
+      "status": "SHELVED"
+    },
+    {
+      "id": "D30",
+      "kind": "D",
+      "title": "Trackpad: full map, no decisions.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D31",
+      "kind": "D",
+      "title": "Card-in IS the import; direct to table.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D32",
+      "kind": "D",
+      "title": "### D32 / Success test \u2014 Amateur pivot *(amended by R-A.1 + A10)* `[\u25cf A10]`",
+      "sources": [
+        "v5",
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "SHELVED",
+      "status": "SHELVED"
+    },
+    {
+      "id": "D33",
+      "kind": "D",
+      "title": "Learning = within-shoot memory only.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D34",
+      "kind": "D",
+      "title": "Export = receipts, not a task.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D35",
+      "kind": "D",
+      "title": "The failure-mode law.",
+      "sources": [
+        "v5"
+      ],
+      "lint": [],
+      "logic": [
+        "P0StateTests.testMissingOriginalShootPersistence",
+        "P0StateTests.testAtomicSaveLeavesFinalAndGoodCopy"
+      ],
+      "flow": [
+        "MissingOriginalsTests.testMissingOriginalsPreserveCatalogAndPreviews"
+      ],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D36",
+      "kind": "D",
+      "title": "Anti-irritant + rejects endgame *(amended by R-M.1)*",
+      "sources": [
+        "v5",
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D37",
+      "kind": "D",
+      "title": "Visual language *(amended by R-X.1)*",
+      "sources": [
+        "v5",
+        "v6"
+      ],
+      "lint": [
+        "token_lint"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D40",
+      "kind": "D",
+      "title": "Engineering reconciliation *(history note \u2014 retirement schedule)*",
+      "sources": [
+        "v5",
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D41",
+      "kind": "D",
+      "title": "Chip copy in consequence language *(R-5.1)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D42",
+      "kind": "D",
+      "title": "Clipping hold grammar *(R-5.2 + A4)* `[\u25cf A4]`",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D43",
+      "kind": "D",
+      "title": "Settle-as-confirmation *(R-5.3)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "unit_trace"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D44",
+      "kind": "D",
+      "title": "\u2325\u2318E recipe re-entry *(R-8.1)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [
+        "P0LogicTests.testExportRecipeHintContract"
+      ],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D45",
+      "kind": "D",
+      "title": "Diagnostics local-only or absent *(R-9.1 + A7)* `[\u25cf A7]`",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D46",
+      "kind": "D",
+      "title": "Amateur pivot + Develop gate *(R-A.1 + A10)* `[\u25cf A10]`",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "SHELVED",
+      "status": "SHELVED"
+    },
+    {
+      "id": "D47",
+      "kind": "D",
+      "title": "Pointer path to culling *(R-A.2 \u2192 MVP via A3)* `[\u25cf A3]`",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "probe_growth",
+        "probe_mirror",
+        "leaf_only_ids"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D48",
+      "kind": "D",
+      "title": "Hover deleted entirely *(R-X.1)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "banned_patterns",
+        "leaf_only_ids",
+        "grammar_oracle_unit",
+        "seed_script_schema"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D49",
+      "kind": "D",
+      "title": "Layout quantized everywhere *(R-X.2)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D50",
+      "kind": "D",
+      "title": "Distribution Developer ID *(R-I.1)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "SHELVED",
+      "status": "SHELVED"
+    },
+    {
+      "id": "D51",
+      "kind": "D",
+      "title": "Silent updates *(R-I.2)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D52",
+      "kind": "D",
+      "title": "Offline licensing *(R-I.3 + A8)* `[\u25cf A8]`",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D53",
+      "kind": "D",
+      "title": "Device-plug ingestion *(R-M.2)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "contract_v6_presence"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D54",
+      "kind": "D",
+      "title": "Sample shoot onboarding *(R-M.3)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D55",
+      "kind": "D",
+      "title": "Share sheet destination *(R-M.4)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D56",
+      "kind": "D",
+      "title": "Videos copied, counted, not shown *(R-M.5)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D57",
+      "kind": "D",
+      "title": "90 px / PERSUADE *(R-Q.1)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D58",
+      "kind": "D",
+      "title": "Halo 1.5 pt restored *(audit)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D59",
+      "kind": "D",
+      "title": "Same-mark clears *(D10 + audit; copy sealed)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "copy_contract_diff",
+        "contract_v6_presence",
+        "grammar_oracle_unit",
+        "seed_script_schema"
+      ],
+      "logic": [
+        "P0LogicTests.testCullToggleGrammar"
+      ],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D60",
+      "kind": "D",
+      "title": "Return-release gate *(D11 + audit; copy sealed)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "copy_contract_diff",
+        "contract_v6_presence",
+        "grammar_oracle_unit",
+        "seed_script_schema"
+      ],
+      "logic": [
+        "CommandChordTests.testHeldReturnCannotDoubleCommit"
+      ],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D61",
+      "kind": "D",
+      "title": "Export three-state *(audit + D37)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D62",
+      "kind": "D",
+      "title": "Post-commit focus advance *(audit)*",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "D63",
+      "kind": "D",
+      "title": "Crop latch keys & ban on decision-key remap *(A2)* `[\u25cf A2]`",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "agent_rules_contract",
+        "contract_v6_presence"
+      ],
+      "logic": [
+        "P0LogicTests.testCropKeyScopeNeverStagesOrRejects",
+        "CropTests.testLayoutHashChangesOnEditAndReverts"
+      ],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D64",
+      "kind": "D",
+      "title": "Swim lanes shelved with evidence clause *(A6)* `[\u25cf A6]`",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "SHELVED",
+      "status": "SHELVED"
+    },
+    {
+      "id": "D65",
+      "kind": "D",
+      "title": "MVP test fleet & unsupported body *(A1)* `[\u25cf A1]`",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "unit_lane_guards"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "D66",
+      "kind": "D",
+      "title": "Beta distribution posture *(A7 + A8)* `[\u25cf A7]` `[\u25cf A8]`",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "R-5.1",
+      "kind": "R",
+      "title": "Chip copy in consequence language",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "R-5.2",
+      "kind": "R",
+      "title": "Clipping hold grammar (Hold-J)",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "R-5.3",
+      "kind": "R",
+      "title": "Settle-as-confirmation",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "R-8.1",
+      "kind": "R",
+      "title": "\u2325\u2318E recipe re-entry",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [
+        "P0LogicTests.testExportRecipeHintContract"
+      ],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "R-9.1",
+      "kind": "R",
+      "title": "Diagnostics local-only or absent",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "zero_egress_audit"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "R-A.1",
+      "kind": "R",
+      "title": "Amateur pivot / Develop gate",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "SHELVED",
+      "status": "SHELVED"
+    },
+    {
+      "id": "R-A.2",
+      "kind": "R",
+      "title": "Pointer path to culling (shelf \u2192 MVP)",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "R-I.1",
+      "kind": "R",
+      "title": "Distribution Developer ID",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "contract_v6_presence"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "R-I.2",
+      "kind": "R",
+      "title": "Silent updates",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "heavy_job_registry"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "R-I.3",
+      "kind": "R",
+      "title": "Offline licensing",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "SHELVED",
+      "status": "SHELVED"
+    },
+    {
+      "id": "R-M.1",
+      "kind": "R",
+      "title": "Rejects endgame / Trash offer",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "R-M.2",
+      "kind": "R",
+      "title": "Device-plug ingestion",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "contract_v6_presence"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "R-M.3",
+      "kind": "R",
+      "title": "Sample shoot onboarding",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "R-M.4",
+      "kind": "R",
+      "title": "Share sheet destination",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "copy_table_lint"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "R-M.5",
+      "kind": "R",
+      "title": "Videos copied, counted, not shown",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "R-Q.1",
+      "kind": "R",
+      "title": "90 px / PERSUADE",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "R-X.1",
+      "kind": "R",
+      "title": "Hover deleted / value-echo at-rest",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "banned_patterns",
+        "leaf_only_ids",
+        "grammar_oracle_unit",
+        "seed_script_schema"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    },
+    {
+      "id": "R-X.2",
+      "kind": "R",
+      "title": "Layout quantized everywhere",
+      "sources": [
+        "v6"
+      ],
+      "lint": [
+        "magic_numbers"
+      ],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "",
+      "status": "COVERED"
+    }
+  ]
+}
