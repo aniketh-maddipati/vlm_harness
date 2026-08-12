@@ -103,7 +103,7 @@ Multi-select / rubber-band / ⇧-arrow extend remain **shelved** (D29 / D38). Do
 
 ### Audit gate v2 (H8)
 
-- **`Scripts/audit_hifi.py`** / `Scripts/lint/*` — copy / grammar / accessibility / performance static gate; writes `AUDIT-HIFI.md` where applicable.
+- **`Scripts/audit_hifi.py`** / `Scripts/harness/lint/*` — copy / grammar / accessibility / performance static gate; writes `AUDIT-HIFI.md` where applicable.
 - Copy diffs user-visible strings against `design/copy-contract.txt`; banned words minus Develop; Auto absent; Lightroom exactly once (sovereignty PL line).
 - Grammar: five decision keys swallow repeat; **crop latch uses R/O — A/X remap banned (D63)**; ripple widen/narrow; rubber-band + chip-drag zero commit paths (rubber-band shelved until ruled).
 - **Agent-rules:** `.cursorrules` / `AGENTS.md` / CLAUDE.md must not teach grammar that contradicts Contract v6 (permanent check).
