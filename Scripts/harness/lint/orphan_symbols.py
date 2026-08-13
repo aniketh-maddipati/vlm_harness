@@ -32,6 +32,13 @@ LIVE_PREFIXES = (
     "Lumina/Shell/",
 )
 LIVE_FILES = ("Lumina/LuminaApp.swift", "Lumina/ContentView.swift")
+# Design bridges consumed by the P0 live path (W4 motion wiring).
+LIVE_BRIDGE_FILES = frozenset(
+    {
+        "Lumina/Design/LuminaSpringAnimation.swift",
+        "Lumina/Design/LuminaTokens.swift",
+    }
+)
 
 # Files whose types are dead (zero wiring) — W8 deletes; not orphan-register rows.
 DEAD_FILES = frozenset(
@@ -59,7 +66,7 @@ class RegisterEntry:
 
 
 def is_live_path(rel: str) -> bool:
-    if rel in LIVE_FILES:
+    if rel in LIVE_FILES or rel in LIVE_BRIDGE_FILES:
         return True
     if not any(rel.startswith(p) for p in LIVE_PREFIXES):
         return False

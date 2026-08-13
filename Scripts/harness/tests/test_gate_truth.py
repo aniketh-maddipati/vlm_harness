@@ -56,7 +56,7 @@ class OrphanSymbolGateTests(unittest.TestCase):
         reg = (ROOT / "artifacts/harness/orphan_register.txt").read_text(encoding="utf-8")
         for needle in (
             "Lumina/Core/CullGrammarMachine.swift CullGrammarMachine",
-            "Lumina/Design/LuminaSpring.swift LuminaSpring",
+            "Lumina/Design/LuminaSpring.swift LuminaSpringRetarget",
             "Lumina/Core/BetaDiagnosticsSocket.swift BetaDiagnosticsSocket",
             "Lumina/Views/Components/RecoveryFactsChip.swift RecoveryFactsChip",
         ):

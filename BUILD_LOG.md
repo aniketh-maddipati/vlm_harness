@@ -6,6 +6,34 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — W4 motion-wiring: live path through sealed spring
+
+**Branch:** `cursor/w4-motion-wiring-39dd` · **Base:** `cursor/w1-gate-truth-39dd` @ `8ef67e6`  
+**Claim:** Route live-path motion through `LuminaSpring` / `LuminaSpringAnimation`; every `durationMs:` literal on the live path becomes a token read; D27 reduced-motion at wired sites; legacy literals registered as W8 debt. Do not tune spring parameters.
+
+**Judged:** 2026-08-13 (W4 motion-wiring — measured this session).
+
+**TOKEN OWED (interim ms preserved from hand-typed call sites):** `photo_focus` 280 · `route_transition` 240 · `selection_ring` 320 · `develop_reveal` 550 · `fidelity_settle` 220 — version `6.3-motion-wiring`.
+
+**tokens-hash:** `1b1db60f4b927c6ba29f320508ebfe2f427a0eb1d6acef7f64051edff7b7158c` — golden trajectory payload unchanged vs `6.2-motion-seal` hash `666762f7…`.
+
+**Instrument reading (Linux):**
+
+| Command | Result |
+|---------|--------|
+| `python3 Scripts/harness/codegen/tokens_codegen.py --check` | **PASS** |
+| `bash Scripts/harness/lint/magic_numbers.sh` | **PASS** — 95 token literals derived; +32 W8 legacy allowlist rows |
+| `python3 Scripts/harness/lint/orphan_symbols.py` | **PASS** — 25 orphans registered; `LuminaSpring*` wired via bridge |
+| `python3 Scripts/harness/run.py fast` | measured at merge |
+| `test_f07_spring_physics.py` | **PASS** — golden keyed by new hash |
+| `xcodebuild … LuminaLogicTests` | **PLATFORM-UNAVAILABLE** (Linux cloud VM) |
+
+**Live path wired:** `P0SinglePhotoEditor` · `P0ContactSheetView` · `P0AdjustmentRail` → `LuminaSpringAnimation.transform` + `HiFiTokens.Motion.*Ms`. Probe adds `reduceMotionActive` (D27).
+
+**Legacy debt (W8):** `artifacts/harness/motion_legacy_allowlist.txt` + 32 magic-number allowlist rows for legacy shell / Workspace / Shell paths.
+
+---
+
 ## 2026-08-13 — W3 cull-grammar: ADOPT CullGrammarMachine on P0 live path
 
 **Ruling:** **ADOPT** — `P0SessionModel` routes every cull mark through `CullGrammarMachine`; session owns presentation/persistence only; machine is what the app runs and joins the oracle↔machine parity triangle.

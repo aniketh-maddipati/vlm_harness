@@ -1,3 +1,4 @@
+# owned-by-W8 — legacy shell hand-typed motion ms (not live P0)
 # path<space>literal — owned debt; derived from HiFiTokens.generated.swift (W1 gate-truth)
 # Re-baselined W1 — every token-owned literal in UI scan roots
 # owned-by-CP1 — P0 layout debt — migrate to HiFiTokens
@@ -249,3 +250,38 @@ Lumina/Design/LuminaTokens.swift 48
 Lumina/Design/LuminaTokens.swift 54
 Lumina/Design/LuminaTokens.swift 56
 Lumina/Design/LuminaTokens.swift 64
+# Legacy shell / ViewModel hand-typed durationMs literals — owned-by-W8 (not live P0 path)
+# path<space>literal
+Lumina/ViewModels/ProjectViewModel.swift 400
+Lumina/ViewModels/ProjectViewModel.swift 350
+Lumina/Views/ProgressivePhotoWall.swift 200
+Lumina/Views/ProgressivePhotoWall.swift 250
+Lumina/Views/CompareAndSoftViews.swift 200
+Lumina/Views/Workspace/TreatmentStageView.swift 250
+# owned-by-W8 — legacy shell token-owned motion ms / opacity (W4 widened gate)
+Lumina/Views/Components/CropOverlayView.swift 0.55
+Lumina/Views/Components/DevelopHistogramView.swift 0.55
+Lumina/Views/ExportPayoffSheet.swift 220
+Lumina/Views/P0/P0CropControls.swift 0.28
+Lumina/Views/ProgressivePhotoWall.swift 220
+Lumina/Views/SpeedBrowseViewer.swift 0.55
+Lumina/Views/UncertainAndClusterViews.swift 0.22
+Lumina/Views/UncertainAndClusterViews.swift 0.28
+Lumina/Views/UncertainAndClusterViews.swift 0.55
+Lumina/Views/Workspace/ContinuousWorkspaceView.swift 220
+Lumina/Views/Workspace/ContinuousWorkspaceView.swift 240
+Lumina/Views/Workspace/DockedAdaptChipView.swift 0.22
+Lumina/Views/Workspace/EmergingSetRail.swift 280
+Lumina/Views/Workspace/EmergingSetRail.swift 320
+Lumina/Views/Workspace/FinishView.swift 280
+Lumina/Views/Workspace/StoryCanvasView.swift 320
+Lumina/Views/Workspace/TreatmentFamilyRow.swift 0.55
+Lumina/Views/Workspace/TreatmentFamilyRow.swift 320
+Lumina/Views/Workspace/TreatmentStageView.swift 0.22
+Lumina/Views/Workspace/TreatmentStageView.swift 0.55
+Lumina/Views/Workspace/TreatmentStageView.swift 240
+Lumina/Views/Workspace/TreatmentStageView.swift 320
+Lumina/Views/Workspace/WorkbenchShelf.swift 0.28
+Lumina/Design/TableLayout.swift 280
+Lumina/Shell/LuminaShellModel.swift 0.55
+Lumina/Shell/LuminaShellModel.swift 280

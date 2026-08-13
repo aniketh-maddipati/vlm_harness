@@ -38,6 +38,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var editedIDs: [String]
     var visibleAssetIDs: [String]
     var missingAssetIDs: [String]
+    /// D27 — whether live-path transform/shadow animations snap (accessibility or harness flag).
+    var reduceMotionActive: Bool
 
     /// Convenience: the Nth visible asset ID (nil when out of range).
     func visibleID(at index: Int) -> String? {

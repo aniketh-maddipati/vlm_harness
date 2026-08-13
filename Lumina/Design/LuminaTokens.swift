@@ -149,14 +149,21 @@ enum LuminaTokens {
     }
 
     enum Motion {
-        // Durations cite design/tokens.yaml §motion where sealed; interim spring params preserve prior curves.
-        static let control = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.travelMs), curve: .easeOut)
-        static let photo = LuminaSpringAnimation.animation(durationMs: 280, curve: .interactive)
-        static let selection = LuminaSpringAnimation.animation(durationMs: 320, curve: .easeInOut)
-        static let develop = LuminaSpringAnimation.animation(durationMs: 550, curve: .easeInOut)
-        static let route = LuminaSpringAnimation.animation(durationMs: 240, curve: .easeOut)
-        static let fidelity = LuminaSpringAnimation.animation(durationMs: 220, curve: .easeOut)
-        static let reveal = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.photoBirthMs), curve: .easeOut)
+        // All durations from design/tokens.yaml §motion via HiFiTokens — LuminaSpring only path.
+        static let control = LuminaSpringAnimation.animation(
+            durationMs: Double(HiFiTokens.Motion.travelMs), curve: .easeOut)
+        static let photo = LuminaSpringAnimation.animation(
+            durationMs: Double(HiFiTokens.Motion.photoFocusMs), curve: .interactive)
+        static let selection = LuminaSpringAnimation.animation(
+            durationMs: Double(HiFiTokens.Motion.selectionRingMs), curve: .easeInOut)
+        static let develop = LuminaSpringAnimation.animation(
+            durationMs: Double(HiFiTokens.Motion.developRevealMs), curve: .easeInOut)
+        static let route = LuminaSpringAnimation.animation(
+            durationMs: Double(HiFiTokens.Motion.routeTransitionMs), curve: .easeOut)
+        static let fidelity = LuminaSpringAnimation.animation(
+            durationMs: Double(HiFiTokens.Motion.fidelitySettleMs), curve: .easeOut)
+        static let reveal = LuminaSpringAnimation.animation(
+            durationMs: Double(HiFiTokens.Motion.photoBirthMs), curve: .easeOut)
 
         /// Darkroom command-layer timings (tokens.yaml §motion ms).
         static let handlingFeedback: Animation? = nil // 1 frame — no animation
