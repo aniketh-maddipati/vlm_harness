@@ -36,6 +36,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var editedIDs: [String]
     var visibleAssetIDs: [String]
     var missingAssetIDs: [String]
+    /// True when the explicit legacy Workbench door is open (W8).
+    var legacyShellActive: Bool
 
     /// Convenience: the Nth visible asset ID (nil when out of range).
     func visibleID(at index: Int) -> String? {

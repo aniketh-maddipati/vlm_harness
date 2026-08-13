@@ -2,17 +2,15 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// P0 product root — Open a shoot + contact-sheet workspace.
-/// Legacy Workbench shell remains reachable until this route is proven.
+/// Legacy Workbench shell is behind an explicit door (`P0LegacyShellContainer`); not constructed at launch.
 struct P0RootView: View {
     @State private var session = P0SessionModel()
-    @State private var legacyModel = ProjectViewModel()
-    @State private var legacyShell = LuminaShellModel()
     @State private var isDropTargeted = false
 
     var body: some View {
         Group {
             if session.showLegacyShell {
-                legacyContainer
+                P0LegacyShellContainer(session: session)
             } else {
                 switch session.route {
                 case .open:
@@ -26,7 +24,10 @@ struct P0RootView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .uiTestStateProbe(session)
-        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+        .onDrop(of: [.fileURL], isTargeted: Binding(
+            get: { session.isDropTargeted },
+            set: { session.isDropTargeted = $0 }
+        )) { providers in
             guard !session.showLegacyShell else { return false }
             return session.handleDrop(providers: providers)
         }
@@ -59,49 +60,14 @@ struct P0RootView: View {
             #endif
         }
         .onReceive(NotificationCenter.default.publisher(for: .luminaImportRAW)) { _ in
-            if session.showLegacyShell {
-                legacyModel.pickRAWFolder()
-            } else {
-                session.chooseFolder()
-            }
+            guard !session.showLegacyShell else { return }
+            session.chooseFolder()
         }
         .onReceive(NotificationCenter.default.publisher(for: .luminaGoHome)) { _ in
             if session.showLegacyShell {
                 session.showLegacyShell = false
             }
             session.goHome()
-        }
-    }
-
-    private var legacyContainer: some View {
-        ZStack(alignment: .topTrailing) {
-            ContentViewLegacyHost(model: legacyModel, shell: legacyShell)
-            Button("P0 contact sheet") {
-                session.showLegacyShell = false
-                session.refreshRecent()
-            }
-            .buttonStyle(LuminaQuietButtonStyle())
-            .padding(16)
-        }
-    }
-}
-
-/// Hosts the preserved pre-P0 shell without replacing ContentView's drop/key wiring permanently.
-struct ContentViewLegacyHost: View {
-    @Bindable var model: ProjectViewModel
-    @Bindable var shell: LuminaShellModel
-
-    var body: some View {
-        // Reuse LuminaShellView directly; import overlay behavior stays in ContentView for legacy path.
-        ZStack {
-            LuminaShellView(model: model, shell: shell)
-            if model.isImporting {
-                ImportLoadingView(
-                    progress: model.importProgress,
-                    photos: model.importPreviewPhotos,
-                    isFinishing: model.importFinishing
-                )
-            }
         }
     }
 }

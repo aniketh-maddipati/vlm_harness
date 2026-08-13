@@ -64,7 +64,7 @@ final class P0LogicTests: XCTestCase {
             focusedCull: "keep", focusedRecipeFingerprint: "fp-abc", inspectingAssetID: nil, selectedAssetIDs: ["a", "b"],
             missingOriginalCount: 0, previewReadyCount: 60, phaseDetail: "60 photos",
             scrollAnchor: 0, culls: ["a": "keep"], editedIDs: ["a"], visibleAssetIDs: ["a", "b"],
-            missingAssetIDs: []
+            missingAssetIDs: [], legacyShellActive: false
         )
         let json = snapshot.jsonString()
         let decoded = try? JSONDecoder().decode(ProbeSnapshot.self, from: Data(json.utf8))

@@ -4,6 +4,54 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — W8 legacy-severance: sever live root from legacy shell
+
+**Branch:** `cursor/w8-legacy-severance-39dd`  
+**Claim:** Stop constructing `ProjectViewModel` / `LuminaShellModel` on every launch; delete measured-dead code; disposition register for all surviving legacy files (D38 / D40).
+
+**D38 / D40 (grep verified):**
+
+| Ruling | Location | Substance |
+|--------|----------|-----------|
+| **D38** | `design/contract-v6.md` L328 | Shelved Register — **doors, not deletions** |
+| **D40** | `design/contract-v6.md` L125–131 | Legacy quarantined; checkpoint-by-checkpoint retirement via `design/checkpoint-sequence-v6.md` |
+| **CP4** | checkpoint-sequence L32 | Retires legacy cull checkpoint — does **not** authorize deleting CP7 propagation surfaces |
+
+**Severance:**
+
+- `P0RootView` — removed eager `@State` legacy models; legacy behind `P0LegacyShellContainer` (`P0LegacyShellDoor.swift`) with lazy construction on first door open.
+- **Deleted** `DecisionDock` — **0** external references (incl. tests); hover handler removed (D48). Button styles moved to `Lumina/Views/LuminaButtons.swift`.
+- **Disposition register:** `design/strategy/legacy-disposition.md` — every surviving legacy file tagged PORT-TO-P0 / DELETE-AT / KEEP with owning checkpoint.
+
+**Reachability (method: `Scripts/harness/lint/swift_reachability.py`; legacy-only = inventory files with zero P0 type-name refs excl. `P0RootView`):**
+
+| Metric | Before | After |
+|--------|-------:|------:|
+| Total Swift files (`Lumina/**/*.swift`) | **152** | **151** |
+| Total Swift lines | **35,120** | **35,064** |
+| From `LuminaApp` (symbol BFS) files / lines | 127 / 30,245* | 127 / 30,189 |
+| Legacy-only inventory files / lines | **31 / 10,230** | **27 / 7,100** |
+
+\*Before `from_lumina_app` estimated via same BFS on pre-change tree (legacy models held alive in `P0RootView` `@State`).
+
+After severance, `P0LegacyShellDoor.swift` references `ProjectViewModel`, `LuminaShellModel`, `LuminaShellView`, and `ImportLoadingView` — four files leave the legacy-only set; **CP7 propagation surfaces untouched** (ContinuousWorkspaceView, TreatmentFamilyRow, TreatmentStageView, DockedAdaptChipView, TableRubberBandOverlay, WorkbenchSelection).
+
+**Probe:** added `legacyShellActive` to `ProbeSnapshot` (app + UI test + logic round-trip) for door state under harness only.
+
+**Instrument reading (Linux):**
+
+| Command | Result |
+|---------|--------|
+| `python3 Scripts/harness/run.py fast` | **PASS** 6798ms · orchestration **32/32** |
+| `python3 Scripts/harness/lint/swift_reachability.py --json` | after row above |
+| `xcodebuild … build` | **PLATFORM-UNAVAILABLE** (Linux cloud VM) |
+| `xcodebuild … LuminaLogicTests` | **PLATFORM-UNAVAILABLE** (Linux cloud VM) |
+| `python3 Scripts/harness/run.py full` | **PLATFORM-UNAVAILABLE** partial (no macOS app tests) |
+
+**Live-path behavior:** unchanged on default launch — Open / contact sheet / grouping / edit routes identical; legacy door still via “Legacy shell” on Open surface.
+
+---
+
 ## 2026-08-13 — P8 operator ruling: wave sequencing (P7 / R3 / P5)
 
 **Branch:** `strategy/p8-surface-sweep`  
