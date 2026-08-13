@@ -96,6 +96,14 @@ entries:
     logic:
       - ShootDecisionJournalTests.testD36_journalBesideShootNotCentralCatalog
       - ShootDecisionJournalTests.testD36_journalDoesNotTouchPhotographFiles
+      - ShootSidecarStoreTests.testD36_writeOpenXMPBesideOriginal
+      - ShootSidecarStoreTests.testD36_readForeignXMPPreservesUnknownFields
+      - ShootSidecarStoreTests.testD36_lrRoundTripSurvivesReimport
+      - ShootSidecarStoreTests.testD35_reconciliationSessionWinsOnExternalDrift
+      - P0SidecarIntegrationTests.testD36_sessionEditCommitWritesSidecarBesideOriginal
+      - P0SidecarIntegrationTests.testD35_sidecarDriftDetectedWithoutMutatingSessionRecipe
+    lint:
+      - cp2_lr_round_trip
   D37:
     lint:
       - token_lint

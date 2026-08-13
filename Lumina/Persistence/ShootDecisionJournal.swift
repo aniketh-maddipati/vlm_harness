@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - CP2 journal (append-only, beside-shoot) — scope: journal only (P4 sidecars, P5 crash startup later)
+// MARK: - CP2 persistence (journal + open XMP sidecars)
 
 /// Committed decision kinds journaled beside the shoot. Staging is intentionally absent (D13).
 enum ShootJournalRecordKind: String, Codable, Sendable, Hashable {

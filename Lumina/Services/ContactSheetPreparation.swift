@@ -264,6 +264,8 @@ nonisolated enum ContactSheetPreparation {
             )
             let assetID = AssetIdentity.resolveID(sourceKey: sourceKey, preserved: existingByKey[sourceKey])
             let source = SourceReference.make(fileURL: url, rootURL: folderURL)
+            let sidecarURL = ShootSidecarStore.sidecarURL(besideOriginal: url)
+            let sidecarRecipe = try? ShootSidecarStore.readMappedRecipe(at: sidecarURL)
             records.append(
                 AssetRecord(
                     id: assetID,
@@ -271,6 +273,7 @@ nonisolated enum ContactSheetPreparation {
                     source: source,
                     filename: url.lastPathComponent,
                     cull: .undecided,
+                    recipe: sidecarRecipe?.hasSettings == true ? sidecarRecipe : nil,
                     fileSize: size
                 )
             )

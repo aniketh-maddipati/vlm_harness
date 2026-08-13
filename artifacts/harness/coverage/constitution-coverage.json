@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generated_at": "2026-08-13T14:43:42.261100+00:00",
+  "generated_at": "2026-08-13T14:46:34.359504+00:00",
   "summary": {
     "total": 83,
     "covered": 31,
@@ -680,10 +680,18 @@
         "v5",
         "v6"
       ],
-      "lint": [],
+      "lint": [
+        "cp2_lr_round_trip"
+      ],
       "logic": [
         "ShootDecisionJournalTests.testD36_journalBesideShootNotCentralCatalog",
-        "ShootDecisionJournalTests.testD36_journalDoesNotTouchPhotographFiles"
+        "ShootDecisionJournalTests.testD36_journalDoesNotTouchPhotographFiles",
+        "ShootSidecarStoreTests.testD36_writeOpenXMPBesideOriginal",
+        "ShootSidecarStoreTests.testD36_readForeignXMPPreservesUnknownFields",
+        "ShootSidecarStoreTests.testD36_lrRoundTripSurvivesReimport",
+        "ShootSidecarStoreTests.testD35_reconciliationSessionWinsOnExternalDrift",
+        "P0SidecarIntegrationTests.testD36_sessionEditCommitWritesSidecarBesideOriginal",
+        "P0SidecarIntegrationTests.testD35_sidecarDriftDetectedWithoutMutatingSessionRecipe"
       ],
       "flow": [],
       "golden": [],
