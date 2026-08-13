@@ -1,6 +1,6 @@
 import AppKit
-import Foundation
 import CryptoKit
+import Foundation
 
 enum PhotoImageTier: Sendable {
     case grid
@@ -42,19 +42,29 @@ enum PhotoLoadOutcome: Sendable {
     case failed
 }
 
-/// Session-scoped image cache: memory LRU + optional session disk + async writes off the hot path.
+/// Session-scoped image cache: byte-budgeted memory LRU + optional session disk + async writes.
 actor PhotoImageCache {
     static let shared = PhotoImageCache()
 
+    struct PrefetchDiagnostics: Sendable {
+        let pending: Int
+        let active: Int
+    }
+
     private var memory: [String: NSImage] = [:]
     private var memoryOrder: [String] = []
+    private var memoryCostByKey: [String: Int] = [:]
+    private var memoryBytes = 0
     private var inflight: [String: Task<PhotoLoadOutcome, Never>] = [:]
     private var sessionID: UUID?
     private var sessionDiskRoot: URL?
     private var projectName: String?
     private var pendingDiskWrites: [String: DispatchWorkItem] = [:]
-    private let memoryCap = 320
     private let diskWriteQueue = DispatchQueue(label: "lumina.image-cache.disk", qos: .utility)
+
+    private var prefetchGeneration: UInt64 = 0
+    private var prefetchQueue: [(path: String, maxPixelSize: Int?, allowRAW: Bool)] = []
+    private var prefetchActive = 0
 
     private static let rawExtensions: Set<String> = [
         "ARW", "CR2", "CR3", "NEF", "RAF", "DNG", "ORF", "RW2", "PEF", "SRW", "3FR", "IIQ",
@@ -83,8 +93,14 @@ actor PhotoImageCache {
     }
 
     func endSession() {
+        prefetchGeneration &+= 1
+        prefetchQueue.removeAll(keepingCapacity: false)
+        prefetchActive = 0
         memory.removeAll()
         memoryOrder.removeAll()
+        memoryCostByKey.removeAll()
+        memoryBytes = 0
+        inflight.values.forEach { $0.cancel() }
         inflight.removeAll()
         pendingDiskWrites.values.forEach { $0.cancel() }
         pendingDiskWrites.removeAll()
@@ -97,6 +113,12 @@ actor PhotoImageCache {
         sessionID = nil
         projectName = nil
         ThumbCache.shared.resetSession()
+    }
+
+    func trackedMemoryBytes() -> Int { memoryBytes }
+
+    func prefetchDiagnostics() -> PrefetchDiagnostics {
+        PrefetchDiagnostics(pending: prefetchQueue.count, active: prefetchActive)
     }
 
     func image(for path: String, maxPixelSize: Int? = nil) -> NSImage? {
@@ -113,7 +135,7 @@ actor PhotoImageCache {
             if !allowRAW, Self.isRAW(path) { return .missing }
 
             if let disk = await self.loadFromSessionDisk(key: key) {
-                await self.storeInMemory(key: key, image: disk)
+                await self.storeInMemory(key: key, image: disk, maxPixelSize: maxPixelSize)
                 return .image(disk)
             }
 
@@ -125,7 +147,7 @@ actor PhotoImageCache {
 
             switch decoded {
             case .image(let img):
-                await self.storeInMemory(key: key, image: img)
+                await self.storeInMemory(key: key, image: img, maxPixelSize: maxPixelSize)
                 await self.scheduleDiskWrite(key: key, image: img)
                 return .image(img)
             case .missing, .failed:
@@ -142,19 +164,66 @@ actor PhotoImageCache {
         for path in paths {
             let key = Self.cacheKey(path: path, maxPixelSize: maxPixelSize)
             guard memory[key] == nil, inflight[key] == nil else { continue }
-            Task { _ = await load(path: path, maxPixelSize: maxPixelSize, allowRAW: allowRAW) }
+            prefetchQueue.append((path, maxPixelSize, allowRAW))
+        }
+        drainPrefetchQueue()
+    }
+
+    private func drainPrefetchQueue() {
+        let generation = prefetchGeneration
+        while prefetchActive < PhotoImageCacheBudget.prefetchConcurrencyWidth, !prefetchQueue.isEmpty {
+            let item = prefetchQueue.removeFirst()
+            let key = Self.cacheKey(path: item.path, maxPixelSize: item.maxPixelSize)
+            guard memory[key] == nil, inflight[key] == nil else { continue }
+            prefetchActive += 1
+            Task {
+                defer { await self.prefetchSlotFinished(generation: generation) }
+                guard await self.prefetchStillValid(generation: generation) else { return }
+                _ = await self.load(path: item.path, maxPixelSize: item.maxPixelSize, allowRAW: item.allowRAW)
+            }
         }
     }
 
-    // MARK: - Memory LRU
+    private func prefetchSlotFinished(generation: UInt64) {
+        prefetchActive = max(0, prefetchActive - 1)
+        if generation == prefetchGeneration {
+            drainPrefetchQueue()
+        }
+    }
 
-    private func storeInMemory(key: String, image: NSImage) {
+    private func prefetchStillValid(generation: UInt64) -> Bool {
+        generation == prefetchGeneration
+    }
+
+    // MARK: - Memory LRU (byte budget)
+
+    private func storeInMemory(key: String, image: NSImage, maxPixelSize: Int?) {
+        let cost = PhotoImageCacheBudget.memoryCost(of: image)
+        if let prior = memoryCostByKey[key] {
+            memoryBytes -= prior
+            memoryOrder.removeAll { $0 == key }
+        }
+
+        while memoryBytes + cost > PhotoImageCacheBudget.totalCeilingBytes, !memoryOrder.isEmpty {
+            evictOldest()
+        }
+        let tierCeiling = PhotoImageCacheBudget.tierCeiling(maxPixelSize: maxPixelSize)
+        while memoryBytes + cost > tierCeiling, !memoryOrder.isEmpty {
+            evictOldest()
+        }
+
         memory[key] = image
-        memoryOrder.removeAll { $0 == key }
+        memoryCostByKey[key] = cost
+        memoryBytes += cost
         memoryOrder.append(key)
-        while memoryOrder.count > memoryCap {
-            let evict = memoryOrder.removeFirst()
-            memory.removeValue(forKey: evict)
+    }
+
+    private func evictOldest() {
+        guard let evict = memoryOrder.first else { return }
+        memoryOrder.removeFirst()
+        memory.removeValue(forKey: evict)
+        if let cost = memoryCostByKey.removeValue(forKey: evict) {
+            memoryBytes -= cost
         }
     }
 
@@ -170,19 +239,22 @@ actor PhotoImageCache {
         guard let url = sessionDiskURL(for: key),
               FileManager.default.fileExists(atPath: url.path) else { return nil }
         return await Task.detached(priority: .utility) {
-            NSImage(contentsOf: url)
+            autoreleasepool {
+                NSImage(contentsOf: url)
+            }
         }.value
     }
 
     private func scheduleDiskWrite(key: String, image: NSImage) {
         guard sessionDiskRoot != nil, let url = sessionDiskURL(for: key) else { return }
         pendingDiskWrites[key]?.cancel()
-        // Encode on diskWriteQueue — keep TIFF/JPEG work off the actor.
         let work = DispatchWorkItem {
-            guard let tiff = image.tiffRepresentation,
-                  let rep = NSBitmapImageRep(data: tiff),
-                  let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.88]) else { return }
-            try? jpeg.write(to: url, options: .atomic)
+            autoreleasepool {
+                guard let tiff = image.tiffRepresentation,
+                      let rep = NSBitmapImageRep(data: tiff),
+                      let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.88]) else { return }
+                try? jpeg.write(to: url, options: .atomic)
+            }
         }
         pendingDiskWrites[key] = work
         diskWriteQueue.async(execute: work)
@@ -199,38 +271,40 @@ actor PhotoImageCache {
     }
 
     nonisolated private static func decode(path: String, maxPixelSize: Int?, allowRAW: Bool) -> PhotoLoadOutcome {
-        if !fileExists(path) { return .missing }
-        if !allowRAW, isRAW(path) { return .missing }
+        autoreleasepool {
+            if !fileExists(path) { return .missing }
+            if !allowRAW, isRAW(path) { return .missing }
 
-        let url = URL(fileURLWithPath: path)
-        let source: CGImageSource? = {
-            if let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) {
-                return CGImageSourceCreateWithData(data as CFData, nil)
+            let url = URL(fileURLWithPath: path)
+            let source: CGImageSource? = autoreleasepool {
+                if let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) {
+                    return CGImageSourceCreateWithData(data as CFData, nil)
+                }
+                return CGImageSourceCreateWithURL(url as CFURL, nil)
             }
-            return CGImageSourceCreateWithURL(url as CFURL, nil)
-        }()
-        guard let source else { return .failed }
+            guard let source else { return .failed }
 
-        let cg: CGImage?
-        if let maxPixelSize {
-            let opts: [CFString: Any] = [
-                kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
-                kCGImageSourceCreateThumbnailFromImageAlways: false,
-                kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceShouldCacheImmediately: false,
-            ]
-            cg = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary)
-                ?? CGImageSourceCreateImageAtIndex(source, 0, nil)
-        } else {
-            cg = CGImageSourceCreateImageAtIndex(source, 0, nil)
+            let cg: CGImage? = autoreleasepool {
+                if let maxPixelSize {
+                    let opts: [CFString: Any] = [
+                        kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
+                        kCGImageSourceCreateThumbnailFromImageAlways: false,
+                        kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+                        kCGImageSourceCreateThumbnailWithTransform: true,
+                        kCGImageSourceShouldCacheImmediately: false,
+                    ]
+                    return CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary)
+                        ?? CGImageSourceCreateImageAtIndex(source, 0, nil)
+                }
+                return CGImageSourceCreateImageAtIndex(source, 0, nil)
+            }
+
+            guard let cg else { return .failed }
+
+            let scale: CGFloat = 2
+            let size = NSSize(width: CGFloat(cg.width) / scale, height: CGFloat(cg.height) / scale)
+            return .image(NSImage(cgImage: cg, size: size))
         }
-
-        guard let cg else { return .failed }
-
-        let scale: CGFloat = 2
-        let size = NSSize(width: CGFloat(cg.width) / scale, height: CGFloat(cg.height) / scale)
-        return .image(NSImage(cgImage: cg, size: size))
     }
 }
 
@@ -258,16 +332,12 @@ final class ThumbCache: @unchecked Sendable {
     }
 
     func prefetchPhotos(_ photos: [PhotoRecord], maxPixelSize: Int? = PhotoImageTier.gridMaxPixelSize) {
-        for photo in photos {
-            guard let path = photo.gridThumbPath ?? photo.thumbPath else { continue }
-            prefetch(path, maxPixelSize: maxPixelSize, allowRAW: false)
-        }
+        let paths = photos.compactMap { $0.gridThumbPath ?? $0.thumbPath }
+        Task { await PhotoImageCache.shared.prefetch(paths, maxPixelSize: maxPixelSize, allowRAW: false) }
     }
 
     func prefetchPaths(_ paths: [String], maxPixelSize: Int? = PhotoImageTier.gridMaxPixelSize, allowRAW: Bool = false) {
-        for path in paths {
-            prefetch(path, maxPixelSize: maxPixelSize, allowRAW: allowRAW)
-        }
+        Task { await PhotoImageCache.shared.prefetch(paths, maxPixelSize: maxPixelSize, allowRAW: allowRAW) }
     }
 }
 

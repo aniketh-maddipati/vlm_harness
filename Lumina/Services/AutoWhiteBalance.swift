@@ -33,7 +33,7 @@ enum AutoWhiteBalance {
         guard let output = filter.outputImage else { return nil }
 
         var pixel = [UInt8](repeating: 0, count: 4)
-        let context = CIContext(options: [.workingColorSpace: NSNull()])
+        let context = DevelopRenderGraph.sharedContext
         context.render(
             output,
             toBitmap: &pixel,

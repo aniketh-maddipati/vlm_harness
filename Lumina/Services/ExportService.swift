@@ -197,7 +197,7 @@ enum ExportService {
                   let url = Optional(URL(fileURLWithPath: src)),
                   let ci = CIImage(contentsOf: url) else { return nil }
             let graded = DevelopEngine.apply(recipe: recipe, to: ci)
-            let ctx = CIContext()
+            let ctx = DevelopRenderGraph.sharedExportContext
             cgImage = ctx.createCGImage(graded, from: graded.extent)
         }
 

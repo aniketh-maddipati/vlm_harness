@@ -66,8 +66,8 @@ Swift already in-tree (DEBUG only): `Lumina/Testing/ProbeV2/{StateProbeV2,Harnes
 | Measured signpost capture | `Scripts/harness/trace/run_live_signposts.py` | **SPIKE A** |
 | Chrome pixel golden `--live` | `Scripts/harness/golden/run_chrome_diff.py --live` | **CP1** |
 | Parallel headless instances | `Scripts/harness/parallel_instances.py` (non-dry-run) | **HEAVY** |
-| HEAVY job bodies | `Scripts/harness/heavy/run_job.py` | **HEAVY** |
-| RAM tier / memory gate | **NO gate** — `Scripts/harness/heavy/ram_tiers.sh` **does not exist**; `ram_tier_runs` manifest id is registry-only until **W6** | **W6** |
+| HEAVY job bodies (unwired ids) | `Scripts/harness/heavy/run_job.py` (non-delegated jobs) | **HEAVY** |
+| RAM tier gate | `Scripts/harness/heavy/ram_tiers.sh` → `--ram-harness` | **HEAVY / W6** — active on macOS |
 
 ---
 
