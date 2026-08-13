@@ -4,6 +4,51 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — P8 operator ruling: wave sequencing (P7 / R3 / P5)
+
+**Branch:** `strategy/p8-surface-sweep`  
+**Claim:** Record operator invariants true regardless of P8 measurement — appended to `design/strategy/surface-sweep.md` §5.
+
+**Ruling (verbatim substance):**
+
+1. **P7 moves `tokensHash`** — any DMG cut before P7 embeds stale **`tokensHash`** and **`contractVersion`** in `LuminaBuildManifest.json` (`write_build_manifest.py`). **Re-run R3 before Wave 0.**
+2. **Wave 1 gated on P5** — CP2 session where D36 “nothing you did is ever lost” becomes a **test result**, not a claim (`ShootStore` → `shoot.json` violation live on `a076644`).
+
+**Session map:** P7 = SPIKE B seal · R3 = `run_f11_release.py` + manifest embed + promote · P5 = CP2 · Wave 0 = first ship cut · Wave 1 = second wave (P5 gate).
+
+**Instrument reading:** No new commands — ruling is operator-authored; P8 Linux FAST (`a076644`) already shows pre-P7 manifest/hash drift.
+
+---
+
+## 2026-08-13 — P8 surface sweep: existence matrix + checkpoint evidence
+
+**Branch:** `strategy/p8-surface-sweep` · **Base:** `origin/main` @ `a076644`  
+**Claim:** Measure-only strategy session — existence matrix (D/R), checkpoint landing (SPIKE A/B, CP1–CP8), sealed vs tuned surfaces, wave-worthy remainder. No code.
+
+**Judged:** 2026-08-13 (P8.1 surface sweep).
+
+**Deliverable:** `design/strategy/surface-sweep.md`
+
+**Instrument reading (Linux — measured this session):**
+
+| Command | Result |
+|---------|--------|
+| `git rev-parse --short HEAD` | `a076644` |
+| `python3 Scripts/harness/run.py fast` | **INCOMPLETE** 5126ms · orchestration **26/27** · FAIL: `banned_patterns`, `contract_v6_presence`, `spring_physics_f07`, `constitution_coverage` |
+| `test -f Lumina/Design/LuminaSpring.swift` | **NO** (SPIKE B not on main) |
+| `test -f Scripts/harness/tests/test_f07_spring_physics.py` | **NO** |
+| `cat artifacts/harness/tokens.hash` | `c8f75e1a3733ee3209699deb0c2d418318a1b65ca47e46507a88929822c9c9a7` (version `6.2-batch2`) |
+
+**Findings (corroborated in tree, not BUILD_LOG alone):**
+
+- Live path: `LuminaApp` → `P0RootView`; legacy shell via `showLegacyShell`.
+- CP2 **NOT STARTED:** `ShootStore.saveShoot` → catalog `shoot.json` (D36 violation).
+- SPIKE B on main **NOT STARTED**; unmerged `spike/b-motion` @ `cf583f8` has F07 green — not landed.
+- Wave-worthy on main: **NO** — macOS automation UNMEASURED, harness red, P0 vs legacy split, Batch 3 unratified.
+
+**Follow-ups recorded in doc:** merge SPIKE B, CP2, Batch 3 ruling, macOS diagnostic — see `design/strategy/surface-sweep.md` §4.
+---
+
 ## 2026-08-13 — F07 / SPIKE B: motion seal landed (F07.4–F07.6 green)
 
 **Branch:** `spike/b-motion`  
@@ -66,7 +111,6 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 | Trajectory golden | **PASS** (40 samples @ 120Hz) |
 
 **Stale artifacts:** Any build keyed to prior `tokens-hash` (`6.2-batch2` / `7b0c1552…`) — F11.4 manifest, F04.1 build cache, chrome goldens under old hash — require re-measure.
-
 ---
 
 ## 2026-08-13 — One-off queue recorded (post-cascade)
