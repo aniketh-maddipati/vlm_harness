@@ -40,8 +40,12 @@ def load_allowlist() -> set[tuple[str, str]]:
     return allowed
 
 
-def scan_files() -> list[tuple[str, int, str, str]]:
-    forbidden = extract_forbidden_literals(GENERATED)
+def scan_files(
+    forbidden: dict[str, set[str]] | None = None,
+) -> list[tuple[str, int, str, str]]:
+    forbidden = (
+        extract_forbidden_literals(GENERATED) if forbidden is None else forbidden
+    )
     literal_pattern = compile_literal_pattern(list(forbidden))
     hits: list[tuple[str, int, str, str]] = []
     for root in SCAN_ROOTS:
@@ -61,7 +65,6 @@ def scan_files() -> list[tuple[str, int, str, str]]:
                     if index_literal_skipped(line, literal):
                         continue
                     hits.append((rel, line_no, literal, line.strip()))
-                    break
     return hits
 
 
@@ -79,8 +82,9 @@ def main() -> int:
         sys.stderr.write(proc.stderr or proc.stdout)
         return proc.returncode
 
+    forbidden = extract_forbidden_literals(GENERATED)
     allowed = load_allowlist()
-    hits = scan_files()
+    hits = scan_files(forbidden)
     fail = 0
     for rel, line_no, literal, _ in hits:
         if (rel, literal) in allowed:
@@ -99,8 +103,7 @@ def main() -> int:
         )
         return 1
 
-    count = len(extract_forbidden_literals(GENERATED))
-    print(f"magic_numbers.py: OK ({count} token literals derived)")
+    print(f"magic_numbers.py: OK ({len(forbidden)} token literals derived)")
     return 0
 
 
