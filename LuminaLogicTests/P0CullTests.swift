@@ -38,7 +38,47 @@ final class P0CullTests: XCTestCase {
             accuracy: 1e-9
         )
         XCTAssertEqual(session.selectedAssetIDs, [b])
-        XCTAssertEqual(session.focusedAssetID, a)
+        XCTAssertEqual(session.focusedAssetID, b, "D10 — keep advances focus to next frame")
+    }
+
+    func testCullMarkAdvancesFocusAfterKeep() {
+        let a = UUID(), b = UUID(), c = UUID()
+        let session = P0SessionModel()
+        session.assets = [makeAsset(id: a), makeAsset(id: b), makeAsset(id: c)]
+        session.focusedAssetID = a
+
+        session.pressKeep()
+        XCTAssertEqual(session.focusedAssetID, b)
+        session.pressReject()
+        XCTAssertEqual(session.focusedAssetID, c)
+    }
+
+    func testSameMarkClearDoesNotAdvanceFocus() {
+        let a = UUID(), b = UUID()
+        let session = P0SessionModel()
+        session.assets = [makeAsset(id: a), makeAsset(id: b)]
+        session.focusedAssetID = a
+        session.assets[0].cull = .keep
+
+        session.pressKeep()
+        XCTAssertEqual(session.assets[0].cull, .undecided)
+        XCTAssertEqual(session.focusedAssetID, a, "D59 same-mark clear stays in place")
+    }
+
+    func testPointerMarkMatchesKeyCullPath() {
+        let a = UUID(), b = UUID()
+        let keySession = P0SessionModel()
+        keySession.assets = [makeAsset(id: a), makeAsset(id: b)]
+        keySession.focusedAssetID = a
+        keySession.pressKeep()
+
+        let pointerSession = P0SessionModel()
+        pointerSession.assets = [makeAsset(id: a), makeAsset(id: b)]
+        pointerSession.focusedAssetID = a
+        pointerSession.pressKeep()
+
+        XCTAssertEqual(keySession.assets[0].cull, pointerSession.assets[0].cull)
+        XCTAssertEqual(keySession.focusedAssetID, pointerSession.focusedAssetID)
     }
 
     func testExportCountTracksKeptSet() {

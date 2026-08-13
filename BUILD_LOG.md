@@ -4,6 +4,27 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — W3 / CP4: P0 cull advance + pointer marks (D10/D47/A3)
+
+**Branch:** `build/w3-cp4-p0-cull` · **Worktree:** `lumina-wt/w3-cp4-p0-cull` (parent `../lumina-wt` not writable on VM — used in-repo path)  
+**Claim:** Close W3 cull-machine gaps on the P0 live path — focus advances after keep/reject; D47/A3 pointer ✓/✕ targets on the focused frame only.
+
+**Finding:** `P0SessionModel.applyCullToggle` persisted marks but left focus in place (`grep advanceFocusAfterCullMark Lumina/ViewModels/P0SessionModel.swift` → **0 hits** on main). `rg pointerMarkKeep Lumina/Views/P0/` → **0 hits**. Headless `CullGrammarMachine` + `CullGrammarTests.testD47A3_*` already green; P0 UI diverged.
+
+**Fix:** `advanceFocusAfterCullMark` after non-undecided marks (D59 same-mark clear stays put). `PointerCullMarkControl` on focused cell only — 44 pt hit (`HiFiTokens.Grammar.pointerCullMarkMinHit`), ✓/P and ✕/X, mouseDown decides (no hover handlers). Probe field `pointerCullTargetsVisible` for F03.1 growth gate.
+
+**Instrument reading (Linux — measured this session):**
+
+| Command | Result |
+|---------|--------|
+| `grep '### D47' design/contract-v6.md` | **1 hit** — `[● A3]` |
+| `grep '### D59' design/contract-v6.md` | **1 hit** |
+| `python3 Scripts/harness/run.py fast` | **PASS** 7265ms · orchestration **33/33** |
+| `rg onHover Lumina/Views/P0/` | **0 hits** |
+| `xcodebuild test -only-testing:LuminaLogicTests/P0CullTests` | **PLATFORM-UNAVAILABLE** |
+
+---
+
 ## 2026-08-13 — P8 operator ruling: wave sequencing (P7 / R3 / P5)
 
 **Branch:** `strategy/p8-surface-sweep`  

@@ -1,5 +1,60 @@
 import AppKit
 
+/// Tap target for D47 / A3 pointer cull marks — decides on mouseDown; no hover handlers (D48).
+final class PointerCullMarkControl: NSView {
+    var onPress: (() -> Void)?
+
+    init(symbol: String, keyLetter: String, accessibilityID: String, accessibilityLabel: String) {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 4
+        layer?.backgroundColor = NSColor(srgbRed: 0.12, green: 0.12, blue: 0.11, alpha: 0.88).cgColor
+        layer?.borderWidth = 0.5
+        layer?.borderColor = NSColor.white.withAlphaComponent(0.28).cgColor
+
+        let symbolLabel = NSTextField(labelWithString: symbol)
+        symbolLabel.font = .systemFont(ofSize: 16, weight: .bold)
+        symbolLabel.textColor = NSColor(srgbRed: 0.96, green: 0.95, blue: 0.92, alpha: 1)
+        symbolLabel.alignment = .center
+        symbolLabel.translatesAutoresizingMaskIntoConstraints = false
+        symbolLabel.setAccessibilityElement(false)
+
+        let keyLabel = NSTextField(labelWithString: keyLetter)
+        keyLabel.font = .systemFont(ofSize: 11, weight: .semibold)
+        keyLabel.textColor = NSColor(srgbRed: 0.82, green: 0.80, blue: 0.76, alpha: 1)
+        keyLabel.alignment = .center
+        keyLabel.translatesAutoresizingMaskIntoConstraints = false
+        keyLabel.setAccessibilityElement(false)
+
+        addSubview(symbolLabel)
+        addSubview(keyLabel)
+
+        let hit = HiFiTokens.Grammar.pointerCullMarkMinHit
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: hit),
+            heightAnchor.constraint(equalToConstant: hit),
+            symbolLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            symbolLabel.topAnchor.constraint(equalTo: topAnchor, constant: 6),
+            keyLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            keyLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -5),
+        ])
+
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
+        setAccessibilityIdentifier(accessibilityID)
+        setAccessibilityLabel(accessibilityLabel)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        onPress?()
+    }
+}
+
 /// Row-packing layout: fixed row height, cell width from aspect ratio — no uniform crop.
 final class ContactSheetLayout: NSCollectionViewLayout {
     var rowHeight: CGFloat = 160
@@ -65,11 +120,26 @@ final class ContactSheetItemView: NSCollectionViewItem {
     private let imageView_ = NSImageView()
     private let focusRing = NSView()
     private let markStack = NSStackView()
+    private let pointerCullStack = NSStackView()
+    private var pointerKeepControl: PointerCullMarkControl!
+    private var pointerRejectControl: PointerCullMarkControl!
     private var loadToken = UUID()
     private var boundID: UUID?
     private var aspectConstraint: NSLayoutConstraint?
 
     override func loadView() {
+        pointerKeepControl = PointerCullMarkControl(
+            symbol: "✓",
+            keyLetter: "P",
+            accessibilityID: P0AccessibilityID.pointerCullKeep,
+            accessibilityLabel: "Keep, P"
+        )
+        pointerRejectControl = PointerCullMarkControl(
+            symbol: "✕",
+            keyLetter: "X",
+            accessibilityID: P0AccessibilityID.pointerCullReject,
+            accessibilityLabel: "Reject, X"
+        )
         view = NSView()
         view.wantsLayer = true
 
@@ -94,9 +164,19 @@ final class ContactSheetItemView: NSCollectionViewItem {
         markStack.spacing = 3
         markStack.translatesAutoresizingMaskIntoConstraints = false
 
+        pointerCullStack.orientation = .horizontal
+        pointerCullStack.spacing = 6
+        pointerCullStack.translatesAutoresizingMaskIntoConstraints = false
+        pointerCullStack.addArrangedSubview(pointerKeepControl)
+        pointerCullStack.addArrangedSubview(pointerRejectControl)
+        pointerCullStack.setAccessibilityElement(false)
+        pointerKeepControl.setAccessibilityElement(false)
+        pointerRejectControl.setAccessibilityElement(false)
+
         view.addSubview(imageView_)
         view.addSubview(focusRing)
         view.addSubview(markStack)
+        view.addSubview(pointerCullStack)
 
         NSLayoutConstraint.activate([
             imageView_.topAnchor.constraint(equalTo: view.topAnchor, constant: 2),
@@ -109,10 +189,19 @@ final class ContactSheetItemView: NSCollectionViewItem {
             focusRing.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             markStack.topAnchor.constraint(equalTo: imageView_.topAnchor, constant: 6),
             markStack.leadingAnchor.constraint(equalTo: imageView_.leadingAnchor, constant: 6),
+            pointerCullStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -6),
+            pointerCullStack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -6),
         ])
     }
 
-    func configure(item: ContactSheetItem, focused: Bool, selected: Bool) {
+    func configure(
+        item: ContactSheetItem,
+        focused: Bool,
+        selected: Bool,
+        showPointerCullTargets: Bool,
+        onPointerKeep: (() -> Void)?,
+        onPointerReject: (() -> Void)?
+    ) {
         let identityChanged = boundID != item.id
         boundID = item.id
         // Stable per-asset accessibility identity — keyed by durable asset UUID, never array index.
@@ -121,6 +210,11 @@ final class ContactSheetItemView: NSCollectionViewItem {
         view.setAccessibilityIdentifier(P0AccessibilityID.assetCell(item.id))
         view.setAccessibilityLabel(item.asset.filename)
         applyChrome(marks: item.marks, focused: focused, selected: selected)
+        applyPointerCullChrome(
+            visible: showPointerCullTargets,
+            onKeep: onPointerKeep,
+            onReject: onPointerReject
+        )
 
         if identityChanged {
             imageView_.image = nil
@@ -176,6 +270,18 @@ final class ContactSheetItemView: NSCollectionViewItem {
         // Structured per-cell state for the UI-test harness (never the sole source of truth,
         // but lets tests assert one cell's focus/selection/cull/edit without scraping pixels).
         view.setAccessibilityValue(Self.cellStateValue(marks: marks, focused: focused, selected: selected))
+    }
+
+    fileprivate func applyPointerCullChrome(
+        visible: Bool,
+        onKeep: (() -> Void)?,
+        onReject: (() -> Void)?
+    ) {
+        pointerCullStack.isHidden = !visible
+        pointerKeepControl.onPress = visible ? onKeep : nil
+        pointerRejectControl.onPress = visible ? onReject : nil
+        pointerKeepControl.setAccessibilityElement(visible)
+        pointerRejectControl.setAccessibilityElement(visible)
     }
 
     /// Compact, parseable cell-state string, e.g. `cull:keep;focus:1;sel:0;edit:1`.
@@ -275,6 +381,9 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
     var onDensityDelta: ((Int) -> Void)?
     var onScrollAnchor: ((Double) -> Void)?
     var onVisibleRange: ((Range<Int>) -> Void)?
+    var pointerCullEnabled = true
+    var onPointerMarkKeep: (() -> Void)?
+    var onPointerMarkReject: (() -> Void)?
 
     private var itemIDs: [UUID] = []
     private var magnifyAccum: CGFloat = 0
@@ -397,10 +506,14 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
     func collectionView(_ collectionView: NSCollectionView, itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem {
         let item = collectionView.makeItem(withIdentifier: ContactSheetItemView.identifier, for: indexPath) as! ContactSheetItemView
         let model = items[indexPath.item]
+        let showPointer = pointerCullTargetsVisible(for: model.id)
         item.configure(
             item: model,
             focused: model.id == focusedID,
-            selected: selectedIDs.contains(model.id)
+            selected: selectedIDs.contains(model.id),
+            showPointerCullTargets: showPointer,
+            onPointerKeep: showPointer ? onPointerMarkKeep : nil,
+            onPointerReject: showPointer ? onPointerMarkReject : nil
         )
         return item
     }
@@ -445,10 +558,16 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
             guard indexPath.item < items.count,
                   let cell = collectionView.item(at: indexPath) as? ContactSheetItemView else { continue }
             let model = items[indexPath.item]
+            let showPointer = pointerCullTargetsVisible(for: model.id)
             cell.applyChrome(
                 marks: model.marks,
                 focused: model.id == focusedID,
                 selected: selectedIDs.contains(model.id)
+            )
+            cell.applyPointerCullChrome(
+                visible: showPointer,
+                onKeep: showPointer ? onPointerMarkKeep : nil,
+                onReject: showPointer ? onPointerMarkReject : nil
             )
         }
         if let focusedID,
@@ -464,12 +583,20 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
             guard indexPath.item < items.count,
                   let cell = collectionView.item(at: indexPath) as? ContactSheetItemView else { continue }
             let model = items[indexPath.item]
+            let showPointer = pointerCullTargetsVisible(for: model.id)
             cell.configure(
                 item: model,
                 focused: model.id == focusedID,
-                selected: selectedIDs.contains(model.id)
+                selected: selectedIDs.contains(model.id),
+                showPointerCullTargets: showPointer,
+                onPointerKeep: showPointer ? onPointerMarkKeep : nil,
+                onPointerReject: showPointer ? onPointerMarkReject : nil
             )
         }
+    }
+
+    private func pointerCullTargetsVisible(for itemID: UUID) -> Bool {
+        pointerCullEnabled && itemID == focusedID
     }
 
     private func currentScrollAnchor() -> Double {
