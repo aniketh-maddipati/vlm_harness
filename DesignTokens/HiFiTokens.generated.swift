@@ -1,8 +1,8 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: 666762f75cbf7b3a3302b044e89c68641fabd852a911039afc52d1067f557f89
-// version: 6.2-motion-seal
+// tokens-hash: 1b1db60f4b927c6ba29f320508ebfe2f427a0eb1d6acef7f64051edff7b7158c
+// version: 6.3-motion-wiring
 // contract: design/contract-v6.md
 
 import CoreGraphics
@@ -114,6 +114,16 @@ enum HiFiTokens {
         static let springReducedMotionOvershoot: Double = 0.0 // cite: D27, D28
         static let handlingFeedbackFrames: Int = 1 // cite: L1 — One frame — no animation on handling feedback.
         static let settlePositiveSignal: String = "final_rung_crossfade_only" // cite: D43 — No chip invented.
+        static let photoFocus: TimeInterval = 0.28 // cite: D27, WG-photos — Filmstrip focus chrome — scale/shadow only; not birth opacity (photo_birth).
+        static let photoFocusMs: Int = 280 // cite: D27, WG-photos — Filmstrip focus chrome — scale/shadow only; not birth opacity (photo_birth).
+        static let routeTransition: TimeInterval = 0.24 // cite: D27, WG-chrome — P0 contact sheet ↔ single-photo route.
+        static let routeTransitionMs: Int = 240 // cite: D27, WG-chrome — P0 contact sheet ↔ single-photo route.
+        static let selectionRing: TimeInterval = 0.32 // cite: D27, WG-hand — Legacy shell selection ring — W8 retires path.
+        static let selectionRingMs: Int = 320 // cite: D27, WG-hand — Legacy shell selection ring — W8 retires path.
+        static let developReveal: TimeInterval = 0.55 // cite: D27, WG-chrome — Legacy develop crossfade — W8 retires path.
+        static let developRevealMs: Int = 550 // cite: D27, WG-chrome — Legacy develop crossfade — W8 retires path.
+        static let fidelitySettle: TimeInterval = 0.22 // cite: D43, D57 — Legacy fidelity settle — W8 retires path.
+        static let fidelitySettleMs: Int = 220 // cite: D43, D57 — Legacy fidelity settle — W8 retires path.
     }
 
     enum Layout {

@@ -92,7 +92,14 @@ struct P0ContactSheetView: View {
             session.enterGrouping()
             return .handled
         }
-        .animation(effectiveReduceMotion ? nil : LuminaTokens.Motion.route, value: session.inspectingAssetID)
+        .animation(
+            LuminaSpringAnimation.transform(
+                reduceMotion: effectiveReduceMotion,
+                durationMs: Double(HiFiTokens.Motion.routeTransitionMs),
+                curve: .easeOut
+            ),
+            value: session.inspectingAssetID
+        )
     }
 
     private var toolbar: some View {

@@ -8,7 +8,7 @@
 # [● A1] mvp_test_floor · [● A2] crop_* · [● A3] pointer_cull_* · [● A4] clipping_hold_key / clipping_grammar
 # [● A6] swimlane_fill_opacity socket · [● A7] beta_testflight_crash_reporting · [● A8] beta_licensing
 
-version: "6.2-motion-seal"
+version: "6.3-motion-wiring"
 contract: design/contract-v6.md
 codegen:
   swift_enum: HiFiTokens
@@ -345,6 +345,37 @@ motion:
     type: enum
     cite: [D43]
     notes: No chip invented.
+  # --- W4 motion wiring (TOKEN OWED — interim ms preserved from live/legacy call sites) ---
+  photo_focus:
+    value: 280
+    unit: ms
+    type: ms
+    cite: [D27, WG-photos]
+    notes: Filmstrip focus chrome — scale/shadow only; not birth opacity (photo_birth).
+  route_transition:
+    value: 240
+    unit: ms
+    type: ms
+    cite: [D27, WG-chrome]
+    notes: P0 contact sheet ↔ single-photo route.
+  selection_ring:
+    value: 320
+    unit: ms
+    type: ms
+    cite: [D27, WG-hand]
+    notes: Legacy shell selection ring — W8 retires path.
+  develop_reveal:
+    value: 550
+    unit: ms
+    type: ms
+    cite: [D27, WG-chrome]
+    notes: Legacy develop crossfade — W8 retires path.
+  fidelity_settle:
+    value: 220
+    unit: ms
+    type: ms
+    cite: [D43, D57]
+    notes: Legacy fidelity settle — W8 retires path.
 
 layout:
   min_window_width:

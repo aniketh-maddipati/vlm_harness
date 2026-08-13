@@ -1,0 +1,8 @@
+# Legacy shell / ViewModel hand-typed durationMs literals — owned-by-W8 (not live P0 path)
+# path<space>literal
+Lumina/ViewModels/ProjectViewModel.swift 400
+Lumina/ViewModels/ProjectViewModel.swift 350
+Lumina/Views/ProgressivePhotoWall.swift 200
+Lumina/Views/ProgressivePhotoWall.swift 250
+Lumina/Views/CompareAndSoftViews.swift 200
+Lumina/Views/Workspace/TreatmentStageView.swift 250

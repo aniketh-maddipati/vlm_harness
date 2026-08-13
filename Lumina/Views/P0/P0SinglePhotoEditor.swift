@@ -358,7 +358,14 @@ struct P0SinglePhotoEditor: View {
             }
             session.selectClick(id: item.id, command: true, shift: false)
         }
-        .animation(reduceMotion ? nil : LuminaTokens.Motion.photo, value: focused)
+        .animation(
+            LuminaSpringAnimation.transform(
+                reduceMotion: reduceMotion,
+                durationMs: Double(HiFiTokens.Motion.photoFocusMs),
+                curve: .interactive
+            ),
+            value: focused
+        )
         .accessibilityLabel(item.asset.filename)
         .accessibilityAddTraits(focused ? .isSelected : [])
         .accessibilityHint("Tap to focus and select")

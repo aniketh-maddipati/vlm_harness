@@ -58,7 +58,13 @@ struct P0AdjustmentRail: View {
         let expanded = session.expandedAdjustmentSection == section
         VStack(alignment: .leading, spacing: 10) {
             P0RailSectionHeader(title: section.title, expanded: expanded) {
-                withAnimation(reduceMotion ? nil : LuminaTokens.Motion.control) {
+                withAnimation(
+                    LuminaSpringAnimation.transform(
+                        reduceMotion: reduceMotion,
+                        durationMs: Double(HiFiTokens.Motion.travelMs),
+                        curve: .easeOut
+                    )
+                ) {
                     if session.expandedAdjustmentSection == section {
                         session.expandedAdjustmentSection = nil
                     } else {

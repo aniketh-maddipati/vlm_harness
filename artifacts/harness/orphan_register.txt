@@ -15,11 +15,7 @@ Lumina/Core/CullGrammarMachine.swift CullHoldKey
 Lumina/Core/LuminaBuildManifest.swift LuminaBuildManifest
 # owned-by-CP4 — probe polling helper — live driver wiring
 Lumina/Core/ProbePolling.swift ProbePolling
-# owned-by-P7 — SPIKE B spring physics — wire via LuminaSpringAnimation (W4)
-Lumina/Design/LuminaSpring.swift LuminaSpring
-# owned-by-P7 — LuminaSpring support type
-Lumina/Design/LuminaSpring.swift LuminaSpringCurve
-Lumina/Design/LuminaSpring.swift LuminaSpringParams
+# owned-by-W4 — F07 golden trajectory retarget samples — test-only API surface
 Lumina/Design/LuminaSpring.swift LuminaSpringRetarget
 # owned-by-CP1 — workspace chrome tokens — legacy shell
 Lumina/Design/LuminaTokens.swift LuminaWorkspaceAppearance
