@@ -36,8 +36,8 @@ JOBS = [
         "id": "ram_tier_runs",
         "owner": "HEAVY",
         "entrypoint": "Scripts/harness/heavy/ram_tiers.sh",
-        "status": "registered",
-        "requires": ["macOS"],
+        "status": "active",
+        "requires": ["macOS", "card-clean-500", "mixed-200"],
     },
     {
         "id": "lr_round_trip",

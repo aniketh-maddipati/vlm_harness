@@ -4,6 +4,35 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — W6 memory-budget: RAM gate + byte-budgeted caches
+
+**Branch:** `cursor/w6-memory-budget-39dd`  
+**Claim:** Build HEAVY RAM tier gate; measure peak RSS; byte-budget `PhotoImageCache`; bound prefetch; autoreleasepool on decode; shared CIContext.
+
+**Ceilings (proposal awaiting contract ruling — not in tokens.yaml):**
+
+| Tier | Bytes |
+|------|------:|
+| grid @512 | 48 MiB |
+| preview @1600 | 96 MiB |
+| proxy / unbounded | 128 MiB |
+| total LRU table | 256 MiB |
+| prefetch width | 8 concurrent |
+
+**Instrument reading (Linux):**
+
+| Command | Result |
+|---------|--------|
+| `python3 Scripts/harness/run.py fast` | **PASS** 6864ms · 33/33 |
+| `python3 Scripts/harness/heavy/run_job.py ram_tier_runs` | **PLATFORM-UNAVAILABLE** exit 2 (Linux) |
+| `xcodebuild … LuminaLogicTests` | **PLATFORM-UNAVAILABLE** (Linux cloud VM) |
+
+**Baseline / after (bytes):** macOS `--ram-harness` required — ledger writes to `artifacts/harness/ledgers/ram-tiers.json`. Linux cannot measure; gate script refuses vacuous PASS.
+
+**Latency:** scrub p50 14.5 ms / p95 16.6 ms, settle 191 ms unchanged on Linux (no macOS re-measure this session).
+
+---
+
 ## 2026-08-13 — W5 key-routing: one owner and one Esc ladder
 
 **Branch:** `cursor/w5-key-routing-39dd`  
