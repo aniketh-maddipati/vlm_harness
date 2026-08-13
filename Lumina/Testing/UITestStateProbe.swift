@@ -47,6 +47,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var reduceMotionActive: Bool
     /// W5 — sole P0 keyboard routing owner (`P0KeyRoutingModifier`).
     var keyRoutingOwner: String
+    /// True when the explicit legacy Workbench door is open (W8 — not constructed at launch).
+    var legacyShellActive: Bool
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -118,7 +120,8 @@ extension P0SessionModel {
             missingAssetIDs: assets.filter { $0.source.availability == .missing }.map(\.id.uuidString),
             reduceMotionActive: UITestSupport.reduceMotionForced
                 || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
-            keyRoutingOwner: "P0KeyRoutingModifier"
+            keyRoutingOwner: "P0KeyRoutingModifier",
+            legacyShellActive: showLegacyShell
         )
     }
 }

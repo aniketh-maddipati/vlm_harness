@@ -123,3 +123,75 @@ struct LuminaFooterBar<Content: View>: View {
         }
     }
 }
+
+struct LuminaQuietButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        QuietBody(configuration: configuration)
+    }
+
+    /// Hover halo + press dip — quiet, but every press reads as a press.
+    private struct QuietBody: View {
+        let configuration: Configuration
+        @State private var hovering = false
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .opacity(configuration.isPressed ? 0.7 : 1)
+                .scaleEffect(configuration.isPressed && !reduceMotion ? 0.975 : 1)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.primary.opacity(configuration.isPressed ? 0.10 : (hovering ? 0.05 : 0)))
+                        .padding(-2)
+                )
+                .onHover { hovering = $0 }
+                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: configuration.isPressed)
+                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: hovering)
+        }
+    }
+}
+
+struct LuminaTextActionButton: View {
+    let title: String
+    var prominent: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(LuminaTokens.Typeface.navigation(15))
+                .foregroundStyle(LuminaTokens.Ink.primary)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .frame(minHeight: LuminaTokens.HitTarget.minimum)
+                .background(
+                    Capsule(style: .continuous)
+                        .strokeBorder(
+                            LuminaTokens.Ink.primary.opacity(prominent ? 0.85 : 0.55),
+                            lineWidth: 1
+                        )
+                )
+        }
+        .buttonStyle(LuminaQuietButtonStyle())
+        .accessibilityLabel(title)
+    }
+}
+
+struct LuminaGhostActionButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(LuminaTokens.Typeface.navigation(15))
+                .foregroundStyle(LuminaTokens.Ink.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(minHeight: LuminaTokens.HitTarget.minimum)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(LuminaQuietButtonStyle())
+        .accessibilityLabel(title)
+    }
+}

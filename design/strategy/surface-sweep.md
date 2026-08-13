@@ -292,6 +292,49 @@ Also invalidated by P7 (re-measure, not just manifest): F04.1 build-cache key (`
 
 ---
 
+## 6. Post-W cascade completion instrument (P8.2)
+
+**Judged:** 2026-08-13 (re-run after W1–W8 PRs opened; **not merged to `main`**).  
+**Instrument:** each row is a **measurement**, not a lane label. If any row still reads **Before**, the cascade did not finish — regardless of what the lane says.
+
+**Branch topology (measured):** W1–W8 branches fork from `origin/main` @ `83ba118` in **parallel**, not stacked. W6 includes W5 commits; W8 does **not** include W1/W3/W4/W5/W6/W7. No single tip satisfies all **After** columns today.
+
+| Reading | Before (main @ `83ba118`) | After (target) | Best W tip measured | Status |
+|---------|---------------------------|----------------|---------------------|--------|
+| **Orphan register** | **4 unwired + 1 dead** — no gate on main; informal set: `CullGrammarMachine`, `LuminaSpring`, `RecoveryFactsChip`, `ProbePolling` + dead `DecisionDock` | **0** orphans, **0** dead | **W1:** gate lands · **28 registered + 2 dead** (`orphan_symbols.py`). **W8:** dead file deleted · **4 unwired remain**, no gate on tip. **W7:** PLANNED (CP8 gate) — `RecoveryFactsChip` still unwired. | **FAIL** — gate exists on W1 but count ≠ 0; main/W8 still read Before on unwired set |
+| **Grammar implementations** | **2** — headless `CullGrammarMachine` + parallel `P0SessionModel.applyCullToggle` | **1** | **W3** (`d35eae1`): `applyCullGrammarEvent` → machine only (`git grep CullGrammarMachine w3 -- P0SessionModel` → 4 hits). Main/W8: **2**. | **PASS on W3** · **FAIL on main** until W3 merges |
+| **Decision persistence roots** | **2** — `ShootDecisionJournal` (beside-folder) **and** `ShootStore` → `shoot.json` (catalog cull/assets) | **1** | **All tips:** journal + `shoot.json` both live (`P0SessionModel` L1059/L1065 + `ShootStore.swift` L36). No W branch consolidates. | **FAIL** — still **Before** everywhere; **P5/CP2** session, not W cascade |
+| **Key-routing owners (live path)** | **3** — `P0ContactSheetView`, `P0GroupingView`, `P0SinglePhotoEditor` each own monitors / `.onKeyPress` | **1** true owner | **W5/W6:** `P0KeyRoutingModifier` only (`p0_key_files: 1`). Main/W8: **3**. | **PASS on W5/W6** · **FAIL on main/W8** |
+| **Esc owners** | **2+** — `.onKeyPress(.escape)` in contact sheet + grouping | **1** ladder | **W5/W6:** `P0EscLadder` + zero view-level Esc handlers. Main/W8: **2** view handlers, no ladder. | **PASS on W5/W6** · **FAIL on main/W8** |
+| **Memory gate** | **STUB** — `ram_tiers.sh` **absent**; `heavy_placeholders.py` notes “NO memory gate” | Measured ledger + named ceilings | **W6:** `ram_tiers.sh`, `RamTierHarnessRunner.swift`, BUILD_LOG ceiling table (48/96/128/256 MiB). Linux: `run_job.py ram_tier_runs` → **PLATFORM-UNAVAILABLE**. | **PASS (structure)** on W6 · ledger bytes **UNMEASURED** (macOS `--ram-harness`) |
+| **Legacy reachable from launch** | **Unconditional** — `@State legacyModel/legacyShell` in `P0RootView` | Behind explicit door | **W8:** lazy `P0LegacyShellContainer`; no legacy `@State` at launch; `DecisionDock` deleted (0 refs). | **PASS on W8** · **FAIL on main** |
+| **Magic-number literals gated** | **3** hand checks (`252`, `1280`, `800`) in `magic_numbers.sh` | Every numeric token derived | **W1/W4:** `magic_numbers.py` → **80** derived literals from `HiFiTokens.generated.swift`. Main: 3 checks only. | **PASS on W1/W4** · **FAIL on main** |
+| **Banned-pattern strict scope** | **3** directories (`Views/P0`, `Design`, `Testing/ProbeV2`) | Every live-path directory | **W1/W4:** **7** strict roots (+ `ViewModels`, `Core`, `Services`, `Persistence`). Main: **3**. | **PASS on W1/W4** · **FAIL on main** |
+
+### Cascade verdict
+
+**The cascade did not finish.** `origin/main` @ `83ba118` still reads **Before** on all nine rows. No open W tip reads **After** on all nine rows because branches are parallel and row 3 is unowned by W1–W8.
+
+**Rows still at Before on integration tip (`main`):** all nine.
+
+**Rows with landed W work (merge required):**
+
+| Row | Land via |
+|-----|----------|
+| 8, 9 | **W1** (or W4 which includes gate truth) |
+| 2 | **W3** |
+| 4, 5 | **W5** (W6 stacks W5) |
+| 6 | **W6** + macOS ledger measure |
+| 7 | **W8** |
+| 1 | **W1** gate + **W3**/`W4`/`W7` wiring + **W8** dead delete → **0** |
+| 3 | **P5 / CP2** — outside W cascade; D36 `shoot.json` violation (M3) |
+
+**Recommended merge order for a green cascade instrument:** W1 → W3 → W4 → W5 → W6 → W7 (when CP8 unblocks) → W8 alone on quiet main (per W8 merge rule).
+
+**Wave-worthy:** not yet — at minimum **main must read After** on rows 1–2, 4–9 and row 3 must read After via **P5** before Wave 1 gate clears.
+
+---
+
 ## Summary counts (existence axis, D1–D66 + key R)
 
 | Status | Count (approx.) |
