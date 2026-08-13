@@ -120,6 +120,8 @@ final class P0SessionModel {
     /// Managed-field hash Lumina last wrote per asset — drift detection domain (CP2 sidecars).
     private var sidecarManagedHashes: [UUID: String] = [:]
     private(set) var sidecarDriftAssetIDs: Set<UUID> = []
+    /// Cull hot-loop grammar — sole authority for mark/focus/advance (CP4 / D10 / D59).
+    private var cullGrammar = CullGrammarMachine(assetCount: 0)
 
     var selectionCount: Int { selectedAssetIDs.count }
 
@@ -285,16 +287,26 @@ final class P0SessionModel {
         openFolder(root)
     }
 
-    // MARK: - Cull (P / X)
+    // MARK: - Cull (P / X) — routed through CullGrammarMachine (ADOPT / CP4)
 
     /// Keep focused photograph. Repeat clears to unreviewed. Never touches recipe/selection/AI.
     func pressKeep() {
-        applyCullToggle(pressed: .keep)
+        applyCullGrammarEvent(.markKeep)
     }
 
     /// Reject focused photograph. Repeat clears to unreviewed. Rejected stay visible.
     func pressReject() {
-        applyCullToggle(pressed: .reject)
+        applyCullGrammarEvent(.markReject)
+    }
+
+    /// Pointer ✓ target (D47 / A3) — same grammar as `P`, no hover path.
+    func pointerMarkKeep() {
+        applyCullGrammarEvent(.pointerMarkKeep)
+    }
+
+    /// Pointer ✕ target (D47 / A3) — same grammar as `X`, no hover path.
+    func pointerMarkReject() {
+        applyCullGrammarEvent(.pointerMarkReject)
     }
 
     func undoLast() {
@@ -303,6 +315,7 @@ final class P0SessionModel {
         switch entry {
         case .cull(let command):
             applyCullUndo(command)
+            installCullGrammarFromSession()
         case .edit(let command):
             applyEditUndo(command)
         }
@@ -328,43 +341,68 @@ final class P0SessionModel {
         persistShootImmediately()
     }
 
-    private func applyEditUndo(_ command: EditMutationCommand) {
-        let selectionSnapshot = selectedAssetIDs
-        let cullSnapshot = assets.first(where: { $0.id == command.assetID })?.cull
-        guard let index = assets.firstIndex(where: { $0.id == command.assetID }) else { return }
-
-        assets[index].recipe = command.before.hasSettings ? command.before : nil
-        // Hard invariant: edit undo never mutates cull or selection.
-        if let cullSnapshot {
-            assets[index].cull = cullSnapshot
+    /// Install machine state from visible grid + session marks (coordinator owns undo depth).
+    private func installCullGrammarFromSession() {
+        let ids = visibleItems.map(\.id)
+        guard !ids.isEmpty else {
+            cullGrammar = CullGrammarMachine(assetCount: 0)
+            return
         }
-        selectedAssetIDs = selectionSnapshot
-        workingRecipe = nil
-        gestureBaselineRecipe = nil
-        gestureAssetID = nil
-        isEditGestureActive = false
-        persistShootImmediately()
-        if inspectingAssetID == command.assetID {
-            scrubCurrentRecipe(for: command.assetID, recipe: recipe(for: command.assetID), recordInput: false)
+        var marks: [UUID: CullDecision] = [:]
+        for id in ids {
+            marks[id] = assets.first(where: { $0.id == id })?.cull ?? .undecided
         }
+        let focusIndex: Int
+        if let fid = focusedAssetID ?? inspectingAssetID,
+           let idx = ids.firstIndex(of: fid) {
+            focusIndex = idx
+        } else {
+            focusIndex = 0
+        }
+        let state = CullGrammarState(
+            assetIDs: ids,
+            columnsPerRow: max(densityColumns, 1),
+            marks: marks,
+            focusIndex: focusIndex,
+            staging: cullGrammar.state.staging,
+            armedControl: cullGrammar.state.armedControl,
+            activeHolds: cullGrammar.state.activeHolds,
+            undoStack: []
+        )
+        cullGrammar = CullGrammarMachine(state: state)
     }
 
-    private func applyCullToggle(pressed: CullDecision) {
+    private func applyCullGrammarEvent(_ event: CullGrammarEvent) {
+        installCullGrammarFromSession()
         guard let focusID = focusedAssetID ?? inspectingAssetID,
-              let index = assets.firstIndex(where: { $0.id == focusID }) else { return }
+              let assetIndex = assets.firstIndex(where: { $0.id == focusID }) else { return }
 
         let selectionSnapshot = selectedAssetIDs
-        let recipeBefore = assets[index].recipe
-        let before = assets[index].cull
-        let after = CullMutationCommand.resolveToggle(current: before, pressed: pressed)
+        let recipeBefore = assets[assetIndex].recipe
+        let before = assets[assetIndex].cull
+        let orderBefore = shoot?.finalSetOrder.assetIDs ?? []
+        let wasInspecting = inspectingAssetID != nil
+
+        cullGrammar.apply(event)
+
+        // Single-photo scale: marks commit but focus stays on the inspected frame.
+        if wasInspecting {
+            switch event {
+            case .markKeep, .markReject, .pointerMarkKeep, .pointerMarkReject:
+                if let idx = cullGrammar.state.assetIDs.firstIndex(of: focusID) {
+                    cullGrammar.apply(.focusIndex(idx))
+                }
+            default:
+                break
+            }
+        }
+
+        let after = cullGrammar.state.marks[focusID] ?? .undecided
         guard before != after else { return }
 
-        let orderBefore = shoot?.finalSetOrder.assetIDs ?? []
-
-        assets[index].cull = after
-        assets[index].userDecidedAt = after == .undecided ? nil : Date()
-        // Hard invariant: cull never mutates edit state.
-        assets[index].recipe = recipeBefore
+        assets[assetIndex].cull = after
+        assets[assetIndex].userDecidedAt = after == .undecided ? nil : Date()
+        assets[assetIndex].recipe = recipeBefore
 
         var orderAfter = orderBefore
         if var shoot {
@@ -389,6 +427,42 @@ final class P0SessionModel {
         undoCoordinator.push(command)
         journalCullCommit(command)
         schedulePersistShoot()
+
+        if wasInspecting {
+            focusedAssetID = focusID
+            inspectingAssetID = focusID
+        } else if let nextID = cullGrammar.state.focusedAssetID {
+            setFocus(nextID)
+        }
+    }
+
+    private func applyCullToggle(pressed: CullDecision) {
+        switch pressed {
+        case .keep: applyCullGrammarEvent(.markKeep)
+        case .reject: applyCullGrammarEvent(.markReject)
+        default: return
+        }
+    }
+
+    private func applyEditUndo(_ command: EditMutationCommand) {
+        let selectionSnapshot = selectedAssetIDs
+        let cullSnapshot = assets.first(where: { $0.id == command.assetID })?.cull
+        guard let index = assets.firstIndex(where: { $0.id == command.assetID }) else { return }
+
+        assets[index].recipe = command.before.hasSettings ? command.before : nil
+        // Hard invariant: edit undo never mutates cull or selection.
+        if let cullSnapshot {
+            assets[index].cull = cullSnapshot
+        }
+        selectedAssetIDs = selectionSnapshot
+        workingRecipe = nil
+        gestureBaselineRecipe = nil
+        gestureAssetID = nil
+        isEditGestureActive = false
+        persistShootImmediately()
+        if inspectingAssetID == command.assetID {
+            scrubCurrentRecipe(for: command.assetID, recipe: recipe(for: command.assetID), recordInput: false)
+        }
     }
 
     // MARK: - Edit (single-photo)

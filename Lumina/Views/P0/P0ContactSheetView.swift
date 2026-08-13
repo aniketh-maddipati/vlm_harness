@@ -267,11 +267,18 @@ struct ContactSheetRepresentable: NSViewControllerRepresentable {
         controller.onScrollAnchor = { [weak session] anchor in
             session?.setScrollAnchor(anchor)
         }
+        controller.onPointerMarkKeep = { [weak session] in
+            session?.pointerMarkKeep()
+        }
+        controller.onPointerMarkReject = { [weak session] in
+            session?.pointerMarkReject()
+        }
         return controller
     }
 
     func updateNSViewController(_ controller: ContactSheetCollectionController, context: Context) {
         let force = session.pendingScrollRestore
+        controller.pointerCullEnabled = session.inspectingAssetID == nil
         controller.apply(
             items: session.visibleItems,
             focusedID: session.focusedAssetID,

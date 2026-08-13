@@ -6,6 +6,46 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — W3 cull-grammar: ADOPT CullGrammarMachine on P0 live path
+
+**Ruling:** **ADOPT** — `P0SessionModel` routes every cull mark through `CullGrammarMachine`; session owns presentation/persistence only; machine is what the app runs and joins the oracle↔machine parity triangle.
+
+**Branch:** `cursor/w3-cull-grammar-39dd` · **Base:** prior W3 work @ `cdd4f35`  
+**Claim:** End dual implementation — headless machine had zero product call sites; P0 duplicated toggle/advance independently.
+
+**Fix:** `applyCullGrammarEvent` installs machine from visible grid, applies `CullGrammarEvent`, syncs marks/focus/order/undo/journal. Pointer targets call `pointerMarkKeep`/`pointerMarkReject` (D47/A3). Single-photo scale suppresses advance after mark. Tests: pointer parity, edit-never-decides.
+
+**Instrument reading:**
+
+| Command | Result |
+|---------|--------|
+| `grep '### D10' design/contract-v6.md` | **1 hit** — decision keys |
+| `grep '### D59' design/contract-v6.md` | **1 hit** — same-mark clears |
+| `grep 'D47' design/contract-v6.md` | **A3** pointer cull |
+| `python3 Scripts/harness/run.py fast` | measured at merge |
+| `xcodebuild … -only-testing:LuminaLogicTests test` | **PLATFORM-UNAVAILABLE** (Linux) |
+
+---
+
+## 2026-08-13 — W3 / CP4: P0 cull advance + pointer marks (D10/D47/A3)
+
+**Branch:** `cursor/w3-cp4-p0-cull-39dd`  
+**Claim:** Close W3 cull-machine gaps on the P0 live path — focus advances after keep/reject; D47/A3 pointer ✓/✕ targets on the focused frame only.
+
+**Fix:** `advanceFocusAfterCullMark` after non-undecided marks (D59 same-mark clear stays put). `PointerCullMarkControl` on focused cell only — 44 pt hit (`HiFiTokens.Grammar.pointerCullMarkMinHit`), ✓/P and ✕/X, mouseDown decides (no hover handlers). Probe field `pointerCullTargetsVisible` for F03.1 growth gate.
+
+**Instrument reading (Linux — measured this session):**
+
+| Command | Result |
+|---------|--------|
+| `grep 'D10' design/contract-v5.md` | **1 hit** (line 97) |
+| `grep '### D47' design/contract-v6.md` | **1 hit** — `[● A3]` |
+| `grep '### D59' design/contract-v6.md` | **1 hit** |
+| `python3 Scripts/harness/run.py fast` | **PASS** at branch tip |
+| `xcodebuild … -only-testing:LuminaLogicTests test` | **PLATFORM-UNAVAILABLE** (Linux cloud VM) |
+
+---
+
 ## 2026-08-13 — W1 gate-truth: constitutional enforcement widened
 
 **Branch:** `cursor/w1-gate-truth-39dd` · **Base:** `origin/main` @ `83ba118`  
@@ -25,7 +65,7 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 | `python3 Scripts/harness/lint/orphan_symbols.py` | **PASS** — 28 orphans registered, 2 dead (`DecisionDock`) |
 | `python3 Scripts/harness/lint/allowlist_ratchet.py` | **FAIL** — magic 243 > 3, orphan 28 > 0 |
 
-**Follow-ups:** W3 wires `CullGrammarMachine` · W4/`P7` wires `LuminaSpring` · W7 wires `RecoveryFactsChip` · W8 deletes `DecisionDock` · W6 builds `ram_tiers.sh`.
+**Follow-ups:** W4/`P7` wires `LuminaSpring` · W7 wires `RecoveryFactsChip` · W8 deletes `DecisionDock` · W6 builds `ram_tiers.sh`.
 
 ---
 

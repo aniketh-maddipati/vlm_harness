@@ -38,8 +38,9 @@ Escape / Grid → contact sheet with same focus + approximate scroll restore. Se
 
 ## Architecture
 
-- `CullMutationCommand` + `P0UndoCoordinator` — shared command boundary for later edit/batch
-- `P0SessionModel.pressKeep/pressReject/undoLastCull` — sole P0 cull path
+- `CullGrammarMachine` — sole cull grammar authority; P0 routes every mark/focus/advance event through it (CP4)
+- `CullMutationCommand` + `P0UndoCoordinator` — committed command boundary for journal/undo (one ⌘Z per act)
+- `P0SessionModel.pressKeep/pressReject/pointerMarkKeep/pointerMarkReject` — presentation + persistence only
 - Legacy Workbench decision undo remains on the old route only
 
 ## Next checkpoint (trustworthy single-photo editing)

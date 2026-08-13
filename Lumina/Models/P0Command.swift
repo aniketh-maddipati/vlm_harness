@@ -53,6 +53,21 @@ struct CullMutationCommand: P0Command, Equatable, Sendable {
     }
 }
 
+/// D10 / D47 — linear focus advance after a committed cull mark (D59: caller gates on `after != .undecided`).
+enum CullFocusAdvance {
+    static func nextIndex(after markedIndex: Int, count: Int) -> Int? {
+        let next = markedIndex + 1
+        guard next < count else { return nil }
+        return next
+    }
+
+    static func nextID(after markedID: UUID, in orderedIDs: [UUID]) -> UUID? {
+        guard let index = orderedIDs.firstIndex(of: markedID),
+              let next = nextIndex(after: index, count: orderedIDs.count) else { return nil }
+        return orderedIDs[next]
+    }
+}
+
 /// Exact prior/next recipe for one asset — never touches cull, selection, or final order.
 struct EditMutationCommand: P0Command, Equatable, Sendable {
     let id: UUID

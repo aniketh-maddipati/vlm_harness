@@ -162,14 +162,9 @@ struct CullGrammarMachine: Equatable, Sendable {
         guard before != after else { return }
         pushUndo()
         state.marks[assetID] = after
-        if after != .undecided {
-            advanceFocusAfterMarkSet()
+        if after != .undecided, let next = CullFocusAdvance.nextIndex(after: state.focusIndex, count: state.assetIDs.count) {
+            state.focusIndex = next
         }
-    }
-
-    private mutating func advanceFocusAfterMarkSet() {
-        guard state.focusIndex + 1 < state.assetIDs.count else { return }
-        state.focusIndex += 1
     }
 
     // MARK: - Focus travel
