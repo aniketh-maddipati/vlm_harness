@@ -145,6 +145,10 @@ nonisolated enum ContactSheetPreparation {
             status.folderMissing = true
         }
 
+        if let rawFolderURL = access?.url {
+            _ = try? ShootCrashRecovery.replayJournal(into: &shoot, besideShootFolder: rawFolderURL)
+        }
+
         continuation.yield(.opened(shoot: shoot, status: status))
         LatencyMetrics.record(
             "p0.folder_to_first_paint",
@@ -288,6 +292,8 @@ nonisolated enum ContactSheetPreparation {
         status.assetCount = records.count
         status.phaseDetail = "\(records.count) photos"
         status.isPreparingPreviews = true
+
+        _ = try? ShootCrashRecovery.replayJournal(into: &shoot, besideShootFolder: folderURL)
 
         // Open the workspace before preview extraction completes.
         continuation.yield(.opened(shoot: shoot, status: status))

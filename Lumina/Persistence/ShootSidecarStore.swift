@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - CP2 sidecars (open XMP beside originals) — scope: sidecars + LR round-trip (P5 crash startup later)
+// MARK: - CP2 sidecars (open XMP beside originals)
 
 /// Reconciliation between the in-session journal and durable open XMP sidecars.
 ///

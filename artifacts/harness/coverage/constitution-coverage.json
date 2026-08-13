@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generated_at": "2026-08-13T14:46:34.359504+00:00",
+  "generated_at": "2026-08-13T14:49:30.431082+00:00",
   "summary": {
     "total": 83,
     "covered": 31,
@@ -289,7 +289,8 @@
         "CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn",
         "CommandChordTests.testHeldReturnCannotDoubleCommit",
         "ShootDecisionJournalTests.testD13_stagingSurfaceAbsentFromJournalAPI",
-        "P0JournalIntegrationTests.testD13_editGestureStagingNotJournaledUntilCommit"
+        "P0JournalIntegrationTests.testD13_editGestureStagingNotJournaledUntilCommit",
+        "ShootCrashRecoveryTests.testD13_stagedScopeGoneAfterCrashRecovery"
       ],
       "flow": [],
       "golden": [],
@@ -654,7 +655,8 @@
         "v5"
       ],
       "lint": [
-        "cp2_journal_kill_fuzz"
+        "cp2_journal_kill_fuzz",
+        "f06_data_safety_bounded"
       ],
       "logic": [
         "P0StateTests.testMissingOriginalShootPersistence",
@@ -662,7 +664,13 @@
         "ShootDecisionJournalTests.testD35_committedDecisionsAppendNeverRewriteHistory",
         "ShootDecisionJournalTests.testD35_editCommitsAppendBesideShoot",
         "ShootDecisionJournalTests.testD35_killMidWritePreservesCommittedPrefix",
-        "P0JournalIntegrationTests.testD35_sessionCullCommitAppendsJournal"
+        "P0JournalIntegrationTests.testD35_sessionCullCommitAppendsJournal",
+        "ShootCrashRecoveryTests.testD35_crashOnlyStartupRestoresCommittedStateExactly",
+        "ShootCrashRecoveryTests.testD36_xNeverTouchesFS_onCullJournalAppend",
+        "IngestFaultScheduleTests.testD35_cardDiskFullFailureShape",
+        "IngestFaultScheduleTests.testD35_cardCorruptFileFailureShape",
+        "IngestFaultScheduleTests.testD35_cardTwoCardFailureShape",
+        "IngestFaultScheduleTests.testD35_noBannedFailureChrome"
       ],
       "flow": [
         "MissingOriginalsTests.testMissingOriginalsPreserveCatalogAndPreviews"
@@ -681,7 +689,8 @@
         "v6"
       ],
       "lint": [
-        "cp2_lr_round_trip"
+        "cp2_lr_round_trip",
+        "f06_data_safety_bounded"
       ],
       "logic": [
         "ShootDecisionJournalTests.testD36_journalBesideShootNotCentralCatalog",
@@ -691,7 +700,8 @@
         "ShootSidecarStoreTests.testD36_lrRoundTripSurvivesReimport",
         "ShootSidecarStoreTests.testD35_reconciliationSessionWinsOnExternalDrift",
         "P0SidecarIntegrationTests.testD36_sessionEditCommitWritesSidecarBesideOriginal",
-        "P0SidecarIntegrationTests.testD35_sidecarDriftDetectedWithoutMutatingSessionRecipe"
+        "P0SidecarIntegrationTests.testD35_sidecarDriftDetectedWithoutMutatingSessionRecipe",
+        "ShootCrashRecoveryTests.testD13_stagedScopeGoneAfterCrashRecovery"
       ],
       "flow": [],
       "golden": [],

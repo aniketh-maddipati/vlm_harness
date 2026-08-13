@@ -19,8 +19,12 @@ struct ShootJournalRecord: Codable, Equatable, Sendable, Identifiable {
     var assetID: UUID
     var cullBefore: CullDecision?
     var cullAfter: CullDecision?
+    /// Final-order snapshot after cull commit — replay domain (crash-only startup).
+    var finalOrderAfter: [UUID]?
     var editBeforeFingerprint: String?
     var editAfterFingerprint: String?
+    /// Committed recipe after edit — replay domain (D13: staging never stored).
+    var editAfterRecipe: EditRecipe?
 
     init(
         id: UUID = UUID(),
@@ -31,8 +35,10 @@ struct ShootJournalRecord: Codable, Equatable, Sendable, Identifiable {
         assetID: UUID,
         cullBefore: CullDecision? = nil,
         cullAfter: CullDecision? = nil,
+        finalOrderAfter: [UUID]? = nil,
         editBeforeFingerprint: String? = nil,
-        editAfterFingerprint: String? = nil
+        editAfterFingerprint: String? = nil,
+        editAfterRecipe: EditRecipe? = nil
     ) {
         self.id = id
         self.sequence = sequence
@@ -42,8 +48,10 @@ struct ShootJournalRecord: Codable, Equatable, Sendable, Identifiable {
         self.assetID = assetID
         self.cullBefore = cullBefore
         self.cullAfter = cullAfter
+        self.finalOrderAfter = finalOrderAfter
         self.editBeforeFingerprint = editBeforeFingerprint
         self.editAfterFingerprint = editAfterFingerprint
+        self.editAfterRecipe = editAfterRecipe
     }
 }
 
@@ -78,7 +86,8 @@ enum ShootDecisionJournal {
             commandID: command.id,
             assetID: command.assetID,
             cullBefore: command.before,
-            cullAfter: command.after
+            cullAfter: command.after,
+            finalOrderAfter: command.finalOrderAfter
         )
         try append(record, besideShootFolder: rawFolder)
         return record
@@ -95,7 +104,8 @@ enum ShootDecisionJournal {
             commandID: command.id,
             assetID: command.assetID,
             editBeforeFingerprint: command.before.valueFingerprint,
-            editAfterFingerprint: command.after.valueFingerprint
+            editAfterFingerprint: command.after.valueFingerprint,
+            editAfterRecipe: command.after
         )
         try append(record, besideShootFolder: rawFolder)
         return record

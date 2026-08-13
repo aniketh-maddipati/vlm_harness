@@ -77,6 +77,11 @@
 
 [○][P] Card ejected early · Original offline · Disk full · Pointed folder moved
 [○][P] file damaged — preview only
+[○][P] Continue with preview
+[○][P] Disk full
+[○][P] Free space, then retry
+[○][P] Card ejected early
+[○][P] Reinsert the card
 [○][P] Stale render
 [○][PL] The folder you pointed at is no longer where it was.
 [○][P] Point at it again
