@@ -4,6 +4,31 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+---
+
+## 2026-08-13 — W1 gate-truth: constitutional enforcement widened
+
+**Branch:** `cursor/w1-gate-truth-39dd` · **Base:** `origin/main` @ `83ba118`  
+**Claim:** Harness gates read as spot checks — widen banned-pattern strict scope, derive magic numbers from generated tokens, add orphan-symbol gate, stop HEAVY RAM stub reading as covered. Register every hit; do not fix product code.
+
+**Judged:** 2026-08-13 (W1 gate-truth — measured this session).
+
+**Debt delta (exact counts):** orphans found **28** · new magic-number hits **240** · new banned-pattern hits **0**
+
+**Instrument reading (Linux):**
+
+| Command | Result |
+|---------|--------|
+| `python3 Scripts/harness/run.py fast` | **INCOMPLETE** 12057ms · orchestration **33/34** · `allowlist_ratchet` FAIL (debt vs `origin/main` — expected until merge) |
+| `bash Scripts/harness/lint/magic_numbers.sh` | **PASS** — 80 token literals derived |
+| `bash Scripts/harness/lint/banned_patterns.sh` | **PASS** — strict scope widened; legacy lane unchanged |
+| `python3 Scripts/harness/lint/orphan_symbols.py` | **PASS** — 28 orphans registered, 2 dead (`DecisionDock`) |
+| `python3 Scripts/harness/lint/allowlist_ratchet.py` | **FAIL** — magic 243 > 3, orphan 28 > 0 |
+
+**Follow-ups:** W3 wires `CullGrammarMachine` · W4/`P7` wires `LuminaSpring` · W7 wires `RecoveryFactsChip` · W8 deletes `DecisionDock` · W6 builds `ram_tiers.sh`.
+
+---
+
 ## 2026-08-13 — F11.6 Batch 2 follow-up: betaDiagnostics null assertion (D45/A13)
 
 **Branch:** `cursor/f11-6-beta-diagnostics-null-39dd`  

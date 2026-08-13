@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[3]
 ALLOWLISTS = (
     ROOT / "artifacts" / "harness" / "banned_patterns_allowlist.txt",
     ROOT / "artifacts" / "harness" / "magic_number_allowlist.txt",
+    ROOT / "artifacts" / "harness" / "orphan_register.txt",
 )
 
 

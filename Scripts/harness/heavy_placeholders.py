@@ -34,10 +34,11 @@ JOBS = [
     },
     {
         "id": "ram_tier_runs",
-        "owner": "HEAVY",
+        "owner": "W6",
         "entrypoint": "Scripts/harness/heavy/ram_tiers.sh",
-        "status": "registered",
+        "status": "stub-missing",
         "requires": ["macOS"],
+        "notes": "NO memory gate exists — entrypoint file absent; W6 owns implementation",
     },
     {
         "id": "lr_round_trip",
