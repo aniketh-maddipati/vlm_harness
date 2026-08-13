@@ -171,6 +171,7 @@ Lumina/Views/Workspace/EmergingSetRail.swift 10
 Lumina/Views/Workspace/EmergingSetRail.swift 120
 Lumina/Views/Workspace/EmergingSetRail.swift 24
 Lumina/Views/Workspace/EmergingSetRail.swift 48
+Lumina/Views/Workspace/EmergingSetRail.swift 220
 Lumina/Views/Workspace/FinishView.swift 10
 Lumina/Views/Workspace/FinishView.swift 800
 Lumina/Views/Workspace/HomeView.swift 200
@@ -199,6 +200,7 @@ Lumina/Views/Workspace/TreatmentStageView.swift 20
 Lumina/Views/Workspace/TreatmentStageView.swift 200
 Lumina/Views/Workspace/TreatmentStageView.swift 24
 Lumina/Views/Workspace/TreatmentStageView.swift 250
+Lumina/Views/Workspace/TreatmentStageView.swift 28
 Lumina/Views/Workspace/TreatmentStageView.swift 44
 Lumina/Views/Workspace/TreatmentStageView.swift 48.0
 Lumina/Views/Workspace/TreatmentStageView.swift 50

@@ -59,7 +59,12 @@ final class PointerCullMarkControl: NSView {
 final class ContactSheetLayout: NSCollectionViewLayout {
     var rowHeight: CGFloat = 160
     var spacing: CGFloat = 10
-    var sectionInset = NSEdgeInsets(top: 16, left: 28, bottom: 28, right: 28)
+    var sectionInset = NSEdgeInsets(
+        top: 16,
+        left: HiFiTokens.Layout.workspaceMargin,
+        bottom: HiFiTokens.Layout.workspaceMargin,
+        right: HiFiTokens.Layout.workspaceMargin
+    )
     var aspects: [CGFloat] = []
 
     private var attributes: [IndexPath: NSCollectionViewLayoutAttributes] = [:]

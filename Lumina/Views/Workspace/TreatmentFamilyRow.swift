@@ -355,7 +355,10 @@ struct TreatmentFamilyRow: View {
                     cornerRadius: LuminaTokens.Radius.photographThumb,
                     maxPixelSize: 320
                 )
-                .frame(width: 120, height: 90)
+                .frame(
+                    width: HiFiTokens.Grid.nearRowMateMin,
+                    height: HiFiTokens.Grid.stripEvidenceHeight
+                )
                 .opacity(0.9)
             }
             .modifier(RoutingFlightModifier(
