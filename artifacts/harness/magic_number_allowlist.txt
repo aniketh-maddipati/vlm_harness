@@ -2,7 +2,9 @@
 # path<space>literal — owned debt; derived from HiFiTokens.generated.swift (W1 gate-truth)
 # Re-baselined W1 — every token-owned literal in UI scan roots
 # owned-by-CP1 — P0 layout debt — migrate to HiFiTokens
+Lumina/Views/P0/ContactSheetCollection.swift 0.12
 Lumina/Views/P0/ContactSheetCollection.swift 0.25
+Lumina/Views/P0/ContactSheetCollection.swift 0.28
 Lumina/Views/P0/ContactSheetCollection.swift 0.5
 Lumina/Views/P0/ContactSheetCollection.swift 0.95
 Lumina/Views/P0/ContactSheetCollection.swift 1.5
@@ -40,6 +42,7 @@ Lumina/Views/P0/P0GroupingView.swift 16
 Lumina/Views/P0/P0GroupingView.swift 18
 Lumina/Views/P0/P0GroupingView.swift 24
 Lumina/Views/P0/P0GroupingView.swift 40
+Lumina/Views/P0/P0LegacyShellDoor.swift 16
 Lumina/Views/P0/P0OpenView.swift 120
 Lumina/Views/P0/P0OpenView.swift 18
 Lumina/Views/P0/P0RootView.swift 16

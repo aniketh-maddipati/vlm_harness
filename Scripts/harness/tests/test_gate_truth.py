@@ -62,27 +62,23 @@ class OrphanSymbolGateTests(unittest.TestCase):
         ):
             self.assertIn(needle, reg)
 
-    def test_decision_dock_reported_dead_not_registered(self) -> None:
+    def test_decision_dock_deleted_not_in_register(self) -> None:
+        dock = ROOT / "Lumina/Views/Components/DecisionDock.swift"
+        self.assertFalse(dock.is_file(), "W8 deleted DecisionDock — file must be absent")
         reg = (ROOT / "artifacts/harness/orphan_register.txt").read_text(encoding="utf-8")
         self.assertNotIn("DecisionDock.swift DecisionDock", reg)
-        proc = subprocess.run(
-            [sys.executable, str(ROOT / "Scripts/harness/lint/orphan_symbols.py")],
-            cwd=str(ROOT),
-            capture_output=True,
-            text=True,
-        )
-        self.assertIn("DecisionDock.swift · DecisionDock", proc.stderr)
 
 
 class HeavyStubHonestyTests(unittest.TestCase):
-    def test_ram_tiers_script_absent(self) -> None:
+    def test_ram_tiers_script_present(self) -> None:
         path = ROOT / "Scripts/harness/heavy/ram_tiers.sh"
-        self.assertFalse(path.is_file())
+        self.assertTrue(path.is_file(), "W6 implements ram_tiers.sh")
 
-    def test_heavy_registry_marks_ram_stub(self) -> None:
+    def test_heavy_registry_marks_ram_active(self) -> None:
         text = (ROOT / "Scripts/harness/heavy_placeholders.py").read_text(encoding="utf-8")
-        self.assertIn('"status": "stub-missing"', text)
+        self.assertIn('"status": "active"', text)
         self.assertIn("ram_tier_runs", text)
+        self.assertIn("Scripts/harness/heavy/ram_tiers.sh", text)
 
 
 if __name__ == "__main__":
