@@ -50,6 +50,8 @@ After severance, `P0LegacyShellDoor.swift` references `ProjectViewModel`, `Lumin
 
 **Live-path behavior:** unchanged on default launch — Open / contact sheet / grouping / edit routes identical; legacy door still via “Legacy shell” on Open surface.
 
+**P8.2 cascade instrument (2026-08-13):** re-run in `design/strategy/surface-sweep.md` §6 — **cascade NOT FINISHED** on `main`; 2/9 rows pass only on isolated W tips; row 3 (persistence roots) unowned by W1–W8.
+
 ---
 
 ## 2026-08-13 — P8 operator ruling: wave sequencing (P7 / R3 / P5)
