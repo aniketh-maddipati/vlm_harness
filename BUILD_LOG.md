@@ -4,6 +4,36 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — P8 surface sweep: existence matrix + checkpoint evidence
+
+**Branch:** `strategy/p8-surface-sweep` · **Base:** `origin/main` @ `a076644`  
+**Claim:** Measure-only strategy session — existence matrix (D/R), checkpoint landing (SPIKE A/B, CP1–CP8), sealed vs tuned surfaces, wave-worthy remainder. No code.
+
+**Judged:** 2026-08-13 (P8.1 surface sweep).
+
+**Deliverable:** `design/strategy/surface-sweep.md`
+
+**Instrument reading (Linux — measured this session):**
+
+| Command | Result |
+|---------|--------|
+| `git rev-parse --short HEAD` | `a076644` |
+| `python3 Scripts/harness/run.py fast` | **INCOMPLETE** 5126ms · orchestration **26/27** · FAIL: `banned_patterns`, `contract_v6_presence`, `spring_physics_f07`, `constitution_coverage` |
+| `test -f Lumina/Design/LuminaSpring.swift` | **NO** (SPIKE B not on main) |
+| `test -f Scripts/harness/tests/test_f07_spring_physics.py` | **NO** |
+| `cat artifacts/harness/tokens.hash` | `c8f75e1a3733ee3209699deb0c2d418318a1b65ca47e46507a88929822c9c9a7` (version `6.2-batch2`) |
+
+**Findings (corroborated in tree, not BUILD_LOG alone):**
+
+- Live path: `LuminaApp` → `P0RootView`; legacy shell via `showLegacyShell`.
+- CP2 **NOT STARTED:** `ShootStore.saveShoot` → catalog `shoot.json` (D36 violation).
+- SPIKE B on main **NOT STARTED**; unmerged `spike/b-motion` @ `cf583f8` has F07 green — not landed.
+- Wave-worthy on main: **NO** — macOS automation UNMEASURED, harness red, P0 vs legacy split, Batch 3 unratified.
+
+**Follow-ups recorded in doc:** merge SPIKE B, CP2, Batch 3 ruling, macOS diagnostic — see `design/strategy/surface-sweep.md` §4.
+
+---
+
 ## 2026-08-13 — One-off queue recorded (post-cascade)
 
 **Branch:** `main` @ `228175c`
