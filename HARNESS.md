@@ -155,11 +155,11 @@ python3 Scripts/harness/release/f11_signature.py --app build/Release/Lumina.app
 | Check | Script | Pass criterion |
 |-------|--------|----------------|
 | **F11.1** hooks absent | `f11_hooks_absent.py` | Every harness hook file is `#if DEBUG` fenced; forbidden symbols absent from Release binary (`nm`) |
-| **F11.2** zero network | `f11_zero_network.py` | No outgoing-network entitlements; no CFNetwork/Network/NetworkExtension on app binary paths (**app only** — not OS crash reporters; CONFLICT 4 / A7) |
+| **F11.2** zero network | `f11_zero_network.py` | No outgoing-network entitlements; no CFNetwork/Network/NetworkExtension on app binary paths (**app only** — not OS crash reporters; CONFLICT 4 closed / D45) |
 | **F11.3** signature | `f11_signature.py` | Developer ID + notarization + **stapled** ticket (`codesign --verify --deep --strict`, `spctl`, `stapler validate`). Signed-but-unstapled **FAIL**. |
 | **F11.4** build manifest | `write_build_manifest.py` + `f11_read_manifest.py` | Embeds `LuminaBuildManifest.json` (git sha, tokens hash, fixture manifest version, contract version, build date). Install page / bug reports cite `LuminaBuildManifest.bugReportLine`. |
 | **F11.5** shipped rollback | `retain_shipped_artifact.py promote` | Retains `artifacts/release/shipped/previous/Lumina.app` + manifest — rollback is a file copy (D51 / R-I.2). |
-| **F11.6** A7 expiry | `f11_a7_expiry.py` | **FAIL** at marketing version ≥ 1.0 if `betaDiagnostics` still present in manifest. Socket: `BetaDiagnosticsSocket.swift`. |
+| **F11.6** betaDiagnostics null | `f11_a7_expiry.py` | **FAIL** if `betaDiagnostics` is non-null on any wave/beta manifest, or if `BetaDiagnosticsSocket.activeKind` is non-nil (D45/A13). |
 | **F11.7** no licensing | `f11_no_licensing.py` | Wave builds: no license/activation/expiry code (D52 / A8; `grammar.beta_licensing: none`). |
 
 Orchestrator (all F11 checks vs Release app): `python3 Scripts/harness/release/run_f11_release.py --app build/Release/Lumina.app`

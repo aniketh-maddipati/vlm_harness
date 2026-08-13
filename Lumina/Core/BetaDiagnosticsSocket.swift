@@ -1,15 +1,12 @@
 import Foundation
 
-/// A7 / D45 beta diagnostics socket — TestFlight crash reporting exception only.
+/// D45 / R-9.1 diagnostics socket — must remain absent on wave and launch builds.
 ///
-/// Wave builds: `activeKind` is `nil` (local-only / absent diagnostics).
-/// When a beta distribution enables TestFlight crash reporting, set `activeKind` and
-/// ensure `LuminaBuildManifest` records `betaDiagnostics` with `expiresAtMarketingVersion: "1.0"`.
-/// F11.6 fails if marketing version ≥ 1.0 while this socket is still active.
+/// Wave builds: `activeKind` is `nil` (local-only / absent diagnostics per D45/A13).
+/// A7 (TestFlight crash reporting) was withdrawn; enabling any non-nil kind requires an
+/// explicit future amendment — F11.6 fails if this socket or manifest `betaDiagnostics`
+/// is non-null.
 enum BetaDiagnosticsSocket {
-    /// Contract token value when beta TestFlight reporting is enabled.
-    static let testFlightCrashReportingKind = "testflight_crash_reporting"
-
     /// Active beta diagnostics kind, or `nil` when absent (wave / launch default).
     static let activeKind: String? = nil
 }
