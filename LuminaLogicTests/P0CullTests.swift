@@ -65,20 +65,11 @@ final class P0CullTests: XCTestCase {
         XCTAssertEqual(session.focusedAssetID, a, "D59 same-mark clear stays in place")
     }
 
-    func testPointerMarkMatchesKeyCullPath() {
-        let a = UUID(), b = UUID()
-        let keySession = P0SessionModel()
-        keySession.assets = [makeAsset(id: a), makeAsset(id: b)]
-        keySession.focusedAssetID = a
-        keySession.pressKeep()
-
-        let pointerSession = P0SessionModel()
-        pointerSession.assets = [makeAsset(id: a), makeAsset(id: b)]
-        pointerSession.focusedAssetID = a
-        pointerSession.pressKeep()
-
-        XCTAssertEqual(keySession.assets[0].cull, pointerSession.assets[0].cull)
-        XCTAssertEqual(keySession.focusedAssetID, pointerSession.focusedAssetID)
+    func testCullFocusAdvancePureFunction() {
+        let ids = (0..<4).map { _ in UUID() }
+        XCTAssertNil(CullFocusAdvance.nextIndex(after: 3, count: 4))
+        XCTAssertEqual(CullFocusAdvance.nextIndex(after: 1, count: 4), 2)
+        XCTAssertEqual(CullFocusAdvance.nextID(after: ids[0], in: ids), ids[1])
     }
 
     func testExportCountTracksKeptSet() {

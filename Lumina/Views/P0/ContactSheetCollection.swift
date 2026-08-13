@@ -506,15 +506,7 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
     func collectionView(_ collectionView: NSCollectionView, itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem {
         let item = collectionView.makeItem(withIdentifier: ContactSheetItemView.identifier, for: indexPath) as! ContactSheetItemView
         let model = items[indexPath.item]
-        let showPointer = pointerCullTargetsVisible(for: model.id)
-        item.configure(
-            item: model,
-            focused: model.id == focusedID,
-            selected: selectedIDs.contains(model.id),
-            showPointerCullTargets: showPointer,
-            onPointerKeep: showPointer ? onPointerMarkKeep : nil,
-            onPointerReject: showPointer ? onPointerMarkReject : nil
-        )
+        configureItemCell(item, model: model)
         return item
     }
 
@@ -582,21 +574,24 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
         for indexPath in collectionView.indexPathsForVisibleItems() {
             guard indexPath.item < items.count,
                   let cell = collectionView.item(at: indexPath) as? ContactSheetItemView else { continue }
-            let model = items[indexPath.item]
-            let showPointer = pointerCullTargetsVisible(for: model.id)
-            cell.configure(
-                item: model,
-                focused: model.id == focusedID,
-                selected: selectedIDs.contains(model.id),
-                showPointerCullTargets: showPointer,
-                onPointerKeep: showPointer ? onPointerMarkKeep : nil,
-                onPointerReject: showPointer ? onPointerMarkReject : nil
-            )
+            configureItemCell(cell, model: items[indexPath.item])
         }
     }
 
     private func pointerCullTargetsVisible(for itemID: UUID) -> Bool {
         pointerCullEnabled && itemID == focusedID
+    }
+
+    private func configureItemCell(_ cell: ContactSheetItemView, model: ContactSheetItem) {
+        let showPointer = pointerCullTargetsVisible(for: model.id)
+        cell.configure(
+            item: model,
+            focused: model.id == focusedID,
+            selected: selectedIDs.contains(model.id),
+            showPointerCullTargets: showPointer,
+            onPointerKeep: showPointer ? onPointerMarkKeep : nil,
+            onPointerReject: showPointer ? onPointerMarkReject : nil
+        )
     }
 
     private func currentScrollAnchor() -> Double {

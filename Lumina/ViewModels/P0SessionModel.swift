@@ -390,18 +390,10 @@ final class P0SessionModel {
         journalCullCommit(command)
         schedulePersistShoot()
 
-        if after != .undecided {
-            advanceFocusAfterCullMark(from: focusID)
+        if after != .undecided, inspectingAssetID == nil,
+           let nextID = CullFocusAdvance.nextID(after: focusID, in: visibleItems.map(\.id)) {
+            setFocus(nextID)
         }
-    }
-
-    /// D10 / D47 — after a committed keep or reject, advance to the next visible frame (same as `CullGrammarMachine`).
-    private func advanceFocusAfterCullMark(from focusID: UUID) {
-        guard inspectingAssetID == nil else { return }
-        let items = visibleItems
-        guard let current = items.firstIndex(where: { $0.id == focusID }),
-              current + 1 < items.count else { return }
-        setFocus(items[current + 1].id)
     }
 
     // MARK: - Edit (single-photo)
