@@ -268,10 +268,10 @@ struct ContactSheetRepresentable: NSViewControllerRepresentable {
             session?.setScrollAnchor(anchor)
         }
         controller.onPointerMarkKeep = { [weak session] in
-            session?.pressKeep()
+            session?.pointerMarkKeep()
         }
         controller.onPointerMarkReject = { [weak session] in
-            session?.pressReject()
+            session?.pointerMarkReject()
         }
         return controller
     }

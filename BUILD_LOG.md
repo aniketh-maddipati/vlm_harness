@@ -4,6 +4,29 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — W3 cull-grammar: ADOPT CullGrammarMachine on P0 live path
+
+**Ruling:** **ADOPT** — `P0SessionModel` routes every cull mark through `CullGrammarMachine`; session owns presentation/persistence only; machine is what the app runs and joins the oracle↔machine parity triangle.
+
+**Branch:** `cursor/w3-cull-grammar-39dd` · **Base:** prior W3 work @ `cdd4f35`  
+**Claim:** End dual implementation — headless machine had zero product call sites; P0 duplicated toggle/advance independently.
+
+**Fix:** `applyCullGrammarEvent` installs machine from visible grid, applies `CullGrammarEvent`, syncs marks/focus/order/undo/journal. Pointer targets call `pointerMarkKeep`/`pointerMarkReject` (D47/A3). Single-photo scale suppresses advance after mark. Tests: pointer parity, edit-never-decides.
+
+**Instrument reading:**
+
+| Command | Result |
+|---------|--------|
+| `grep '### D10' design/contract-v6.md` | **1 hit** — decision keys |
+| `grep '### D59' design/contract-v6.md` | **1 hit** — same-mark clears |
+| `grep 'D47' design/contract-v6.md` | **A3** pointer cull |
+| `python3 Scripts/harness/run.py fast` | measured below |
+| `xcodebuild … -only-testing:LuminaLogicTests test` | **PLATFORM-UNAVAILABLE** (Linux) |
+
+**Follow-ups:** Rebase onto post-W1 `main`; remove `CullGrammarMachine` rows from `orphan_register.txt` when W1 merges.
+
+---
+
 ## 2026-08-13 — W3 / CP4: P0 cull advance + pointer marks (D10/D47/A3)
 
 **Branch:** `build/w3-cp4-p0-cull` · **Worktree:** `lumina-wt/w3-cp4-p0-cull` (parent `../lumina-wt` not writable on VM — used in-repo path)  

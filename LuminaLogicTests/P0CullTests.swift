@@ -65,6 +65,36 @@ final class P0CullTests: XCTestCase {
         XCTAssertEqual(session.focusedAssetID, a, "D59 same-mark clear stays in place")
     }
 
+    func testPointerMarkParityWithKeys() {
+        let a = UUID(), b = UUID()
+        let session = P0SessionModel()
+        session.assets = [makeAsset(id: a), makeAsset(id: b)]
+        session.focusedAssetID = a
+
+        session.pointerMarkKeep()
+        XCTAssertEqual(session.assets[0].cull, .keep)
+        XCTAssertEqual(session.focusedAssetID, b, "pointer keep advances like P")
+
+        session.focusedAssetID = a
+        session.pressKeep()
+        XCTAssertEqual(session.assets[0].cull, .undecided, "D59 same-mark clear")
+        XCTAssertEqual(session.focusedAssetID, a)
+    }
+
+    func testEditNeverDecides() {
+        let a = UUID()
+        let session = P0SessionModel()
+        session.assets = [makeAsset(id: a)]
+        session.focusedAssetID = a
+        session.openFocusedPhotograph()
+
+        session.beginEditGesture()
+        session.scrubEdit { $0.exposure = 0.4 }
+        session.endEditGesture()
+
+        XCTAssertEqual(session.assets[0].cull, .undecided, "Phase-0: edit never decides")
+    }
+
     func testCullFocusAdvancePureFunction() {
         let ids = (0..<4).map { _ in UUID() }
         XCTAssertNil(CullFocusAdvance.nextIndex(after: 3, count: 4))
