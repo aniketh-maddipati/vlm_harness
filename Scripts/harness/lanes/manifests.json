@@ -10,6 +10,7 @@
         { "id": "copy_table_lint", "kind": "orchestration" },
         { "id": "banned_patterns", "kind": "orchestration" },
         { "id": "magic_numbers", "kind": "orchestration" },
+        { "id": "orphan_symbols", "kind": "orchestration", "notes": "W1 — sealed types with no live wiring; register in orphan_register.txt" },
         { "id": "banned_words", "kind": "orchestration" },
         { "id": "copy_contract_diff", "kind": "orchestration" },
         { "id": "contract_structure", "kind": "orchestration" },

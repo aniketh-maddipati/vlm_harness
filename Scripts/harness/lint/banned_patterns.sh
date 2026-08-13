@@ -2,8 +2,9 @@
 # Banned-pattern grep — spinners, skeletons, progress bars, failure modals,
 # hover handlers, timed double-taps, release-commits, cached decisions, egress.
 #
-# Strict on P0 + Design (live path). Quarantined legacy shell hits are recorded
-# in artifacts/harness/banned_patterns_legacy.txt and owned in HARNESS.md GAP LIST
+# Strict on live path: P0 + Design + ViewModels + Core + Services + Persistence
+# + ProbeV2. Quarantined legacy shell hits are recorded in
+# artifacts/harness/banned_patterns_legacy.txt and owned in HARNESS.md GAP LIST
 # (must not be silent).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
@@ -18,7 +19,11 @@ LEGACY_OUT="$ROOT/artifacts/harness/banned_patterns_legacy.txt"
 STRICT_FILES=()
 while IFS= read -r -d '' f; do
   STRICT_FILES+=("$f")
-done < <(find Lumina/Views/P0 Lumina/Design Lumina/Testing/ProbeV2 -name '*.swift' -print0 2>/dev/null)
+done < <(
+  find Lumina/Views/P0 Lumina/Design Lumina/ViewModels Lumina/Core \
+    Lumina/Services Lumina/Persistence Lumina/Testing/ProbeV2 \
+    -name '*.swift' -print0 2>/dev/null
+)
 
 LEGACY_FILES=()
 while IFS= read -r -d '' f; do

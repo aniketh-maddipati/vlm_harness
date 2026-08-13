@@ -118,6 +118,7 @@ def lane_fast() -> tuple[list[dict], list[str]]:
         ("copy_table_lint", [py, str(HARNESS / "lint" / "copy_table_lint.py")]),
         ("banned_patterns", ["bash", str(HARNESS / "lint" / "banned_patterns.sh")]),
         ("magic_numbers", ["bash", str(HARNESS / "lint" / "magic_numbers.sh")]),
+        ("orphan_symbols", [py, str(HARNESS / "lint" / "orphan_symbols.py")]),
         ("banned_words", ["bash", str(HARNESS / "lint" / "banned_words.sh")]),
         ("copy_contract_diff", ["bash", str(HARNESS / "lint" / "copy_contract_diff.sh")]),
         ("contract_structure", ["bash", str(HARNESS / "lint" / "contract_structure.sh")]),

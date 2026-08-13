@@ -33,7 +33,7 @@ Each lane declares `budgetMs` in `Scripts/harness/lanes/manifests.json`. **Total
 
 ## Allowlist ratchet
 
-FAST manifest id `allowlist_ratchet` fails pre-commit if `artifacts/harness/banned_patterns_allowlist.txt` or `artifacts/harness/magic_number_allowlist.txt` carries **more** debt lines (non-blank, non-`#`) than the same file on `origin/main`. Allowlists may shrink; they must not grow without a deliberate baseline change on main.
+FAST manifest id `allowlist_ratchet` fails pre-commit if `artifacts/harness/banned_patterns_allowlist.txt`, `artifacts/harness/magic_number_allowlist.txt`, or `artifacts/harness/orphan_register.txt` carries **more** debt lines (non-blank, non-`#`) than the same file on `origin/main`. Allowlists may shrink; they must not grow without a deliberate baseline change on main.
 
 ---
 
@@ -67,6 +67,7 @@ Swift already in-tree (DEBUG only): `Lumina/Testing/ProbeV2/{StateProbeV2,Harnes
 | Chrome pixel golden `--live` | `Scripts/harness/golden/run_chrome_diff.py --live` | **CP1** |
 | Parallel headless instances | `Scripts/harness/parallel_instances.py` (non-dry-run) | **HEAVY** |
 | HEAVY job bodies | `Scripts/harness/heavy/run_job.py` | **HEAVY** |
+| RAM tier / memory gate | **NO gate** — `Scripts/harness/heavy/ram_tiers.sh` **does not exist**; `ram_tier_runs` manifest id is registry-only until **W6** | **W6** |
 
 ---
 
@@ -191,6 +192,18 @@ Forbidden in Release: probe v2 server, fake clock, fixture synthesis, `--ui-test
 python3 Scripts/harness/codegen/tokens_codegen.py
 python3 Scripts/harness/codegen/tokens_codegen.py --check
 ```
+
+### Magic-number gate (derived)
+
+`Scripts/harness/lint/magic_numbers.sh` derives forbidden UI literals at runtime from `DesignTokens/HiFiTokens.generated.swift` (not a hand list). Excluded by rule: `0`, `1`, small array indices (`2`–`9`), hex literals, and the generated file itself. Debt: `artifacts/harness/magic_number_allowlist.txt`.
+
+### Orphan-symbol gate
+
+`Scripts/harness/lint/orphan_symbols.py` — types under `Lumina/Core`, `Lumina/Design`, `Lumina/Views/Components` with no live wiring (only tests / scan-dir peers / own file). Registered debt: `artifacts/harness/orphan_register.txt` (`# owned-by-CP<N>`). **Dead** symbols (zero external references, e.g. `DecisionDock.swift`) are reported separately — W8 deletes.
+
+### Banned-pattern strict scope
+
+Strict lane: `Lumina/Views/P0`, `Lumina/Design`, `Lumina/ViewModels`, `Lumina/Core`, `Lumina/Services`, `Lumina/Persistence`, `Lumina/Testing/ProbeV2`. Legacy lane unchanged (Workspace / Components / Shell).
 
 ---
 
