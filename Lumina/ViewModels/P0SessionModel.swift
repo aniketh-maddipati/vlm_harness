@@ -117,6 +117,9 @@ final class P0SessionModel {
     private var inspectionWarmTask: Task<Void, Never>?
     private var inspectionWarmGeneration = 0
     private var scrubInputStartedAt: CFAbsoluteTime?
+    /// Managed-field hash Lumina last wrote per asset — drift detection domain (CP2 sidecars).
+    private var sidecarManagedHashes: [UUID: String] = [:]
+    private(set) var sidecarDriftAssetIDs: Set<UUID> = []
 
     var selectionCount: Int { selectedAssetIDs.count }
 
@@ -226,6 +229,8 @@ final class P0SessionModel {
         clearGestureState()
         undoCoordinator.clear()
         developScheduler.cancelAll()
+        sidecarManagedHashes = [:]
+        sidecarDriftAssetIDs = []
 
         let started = url.startAccessingSecurityScopedResource()
         folderAccess = (url, started)
@@ -254,6 +259,8 @@ final class P0SessionModel {
         clearGestureState()
         undoCoordinator.clear()
         developScheduler.cancelAll()
+        sidecarManagedHashes = [:]
+        sidecarDriftAssetIDs = []
 
         preparationTask = Task { [weak self] in
             guard let self else { return }
@@ -380,6 +387,7 @@ final class P0SessionModel {
             finalOrderAfter: orderAfter
         )
         undoCoordinator.push(command)
+        journalCullCommit(command)
         schedulePersistShoot()
     }
 
@@ -482,6 +490,8 @@ final class P0SessionModel {
 
         let command = EditMutationCommand(assetID: assetID, before: before, after: after)
         undoCoordinator.push(command)
+        journalEditCommit(command)
+        sidecarEditCommit(command)
         persistShootImmediately()
         warmBeforeAfter(for: assetID, recipe: after.hasSettings ? after : .neutral)
     }
@@ -863,6 +873,8 @@ final class P0SessionModel {
         showingBefore = false
         clearGestureState()
         undoCoordinator.clear()
+        sidecarManagedHashes = [:]
+        sidecarDriftAssetIDs = []
         route = .open
         refreshRecent()
     }
@@ -1032,6 +1044,51 @@ final class P0SessionModel {
             SecurityScopedAccess.stopIfNeeded(folderAccess.url, didStartAccess: folderAccess.didStartAccess)
         }
         folderAccess = nil
+    }
+
+    // MARK: - CP2 decision journal (append-only beside shoot — D35 / D13)
+
+    private func journalRawFolderURL() -> URL? {
+        guard let path = shoot?.rawFolder?.originalPath else { return nil }
+        return URL(fileURLWithPath: path)
+    }
+
+    /// Committed cull only — staging and undo paths never reach the journal (D13).
+    private func journalCullCommit(_ command: CullMutationCommand) {
+        guard let folder = journalRawFolderURL() else { return }
+        try? ShootDecisionJournal.appendCullCommit(command, besideShootFolder: folder)
+    }
+
+    /// Committed edit only — gesture staging is not journaled until commit (D13).
+    private func journalEditCommit(_ command: EditMutationCommand) {
+        guard let folder = journalRawFolderURL() else { return }
+        try? ShootDecisionJournal.appendEditCommit(command, besideShootFolder: folder)
+    }
+
+    /// Open XMP beside the original — durable interoperable form (D36).
+    private func sidecarEditCommit(_ command: EditMutationCommand) {
+        guard let rawURL = resolveRenderURLs(for: command.assetID)?.rawURL else { return }
+        guard let result = try? ShootSidecarStore.writeCommittedEdit(command.after, besideOriginal: rawURL) else {
+            return
+        }
+        sidecarManagedHashes[command.assetID] = result.managedFieldsHash
+        sidecarDriftAssetIDs.remove(command.assetID)
+    }
+
+    /// Journal + in-memory recipe win when sidecar changes underneath a running session.
+    func reconcileSidecarDrift(for assetID: UUID) -> SidecarReconciliation? {
+        guard let rawURL = resolveRenderURLs(for: assetID)?.rawURL else { return nil }
+        let xmpURL = ShootSidecarStore.sidecarURL(besideOriginal: rawURL)
+        let sessionRecipe = recipe(for: assetID)
+        guard let outcome = try? ShootSidecarStore.reconcileDuringSession(
+            sessionRecipe: sessionRecipe,
+            lastWrittenHash: sidecarManagedHashes[assetID],
+            xmpURL: xmpURL
+        ) else { return nil }
+        if case .externalDrift = outcome {
+            sidecarDriftAssetIDs.insert(assetID)
+        }
+        return outcome
     }
 
     private static func scanRoot(from urls: [URL]) -> URL? {

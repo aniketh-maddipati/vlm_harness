@@ -3,6 +3,7 @@ import SwiftUI
 
 /// Machine-readable snapshot of P0 session state. The XCUITest harness reads this (never UI text)
 /// to assert structured invariants: counts, focus/selection independence, cull map, availability.
+/// CP2 journal persistence is beside-shoot on disk — not reflected in this probe schema.
 struct ProbeSnapshot: Codable, Equatable {
     var route: String                 // "open" | "contactSheet" | "singlePhoto"
     var shootName: String?

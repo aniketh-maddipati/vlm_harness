@@ -6,7 +6,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 
 | Total entries | Covered | Shelved | NOT-COVERED |
 |--------------:|--------:|--------:|------------:|
-| 82 | 30 | 7 | **45** |
+| 83 | 31 | 7 | **45** |
 
 > A low NOT-COVERED count would be suspicious; honest gaps are expected pre-CP1.
 
@@ -34,7 +34,6 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 - `D31`
 - `D33`
 - `D34`
-- `D36`
 - `D40`
 - `D41`
 - `D42`
@@ -53,6 +52,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 - `R-5.1`
 - `R-5.2`
 - `R-5.3`
+- `R-I.4`
 - `R-M.1`
 - `R-M.3`
 - `R-M.5`
@@ -74,7 +74,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D10 | Culling keys: P/X decide AND advance; no Hold/Maybe; no chord on the hot | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testD10_decisionKeysToggleWithoutAutorepeatSemantics`<br>`P0LogicTests.testCullToggleGrammar` | `CullGrammarTests.testKeepRejectToggleGrammar` |  |  |  |
 | D11 | The ⏎ doctrine. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn`<br>`CullGrammarTests.testD11D13_shiftReturnKeyDownWithoutReleaseDoesNotCommit`<br>`CommandChordTests.testHeldReturnCannotDoubleCommit` |  |  |  |  |
 | D12 | Modifier temperaments: ⇧ enlarges/coarsens, ⌥ refines. |  |  |  |  |  | NOT-COVERED |
-| D13 | Release never commits — anywhere, in any form. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn`<br>`CommandChordTests.testHeldReturnCannotDoubleCommit` |  |  |  |  |
+| D13 | Release never commits — anywhere, in any form. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn`<br>`CommandChordTests.testHeldReturnCannotDoubleCommit`<br>`ShootDecisionJournalTests.testD13_stagingSurfaceAbsentFromJournalAPI`<br>`P0JournalIntegrationTests.testD13_editGestureStagingNotJournaledUntilCommit`<br>`ShootCrashRecoveryTests.testD13_stagedScopeGoneAfterCrashRecovery` |  |  |  |  |
 | D14 | Propose → stage → commit, with the halo as the proposal. |  |  |  |  |  | NOT-COVERED |
 | D15 | Exceptions: click-toggle; `Edited` protection with visible override. |  |  |  |  |  | NOT-COVERED |
 | D16 | Adapt, never copy *(amended by A5)* `[● A5]` | `copy_contract_diff`<br>`copy_table_lint` | `P0LogicTests.testA1FormatterSamplesInCopyContract` |  |  |  |  |
@@ -96,15 +96,15 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D32 | ### D32 / Success test — Amateur pivot *(amended by R-A.1 + A10)* `[● A1 |  |  |  |  |  | SHELVED |
 | D33 | Learning = within-shoot memory only. |  |  |  |  |  | NOT-COVERED |
 | D34 | Export = receipts, not a task. |  |  |  |  |  | NOT-COVERED |
-| D35 | The failure-mode law. |  | `P0StateTests.testMissingOriginalShootPersistence`<br>`P0StateTests.testAtomicSaveLeavesFinalAndGoodCopy` | `MissingOriginalsTests.testMissingOriginalsPreserveCatalogAndPreviews` |  |  |  |
-| D36 | Anti-irritant + rejects endgame *(amended by R-M.1)* |  |  |  |  |  | NOT-COVERED |
+| D35 | The failure-mode law. | `cp2_journal_kill_fuzz`<br>`f06_data_safety_bounded` | `P0StateTests.testMissingOriginalShootPersistence`<br>`P0StateTests.testAtomicSaveLeavesFinalAndGoodCopy`<br>`ShootDecisionJournalTests.testD35_committedDecisionsAppendNeverRewriteHistory`<br>`ShootDecisionJournalTests.testD35_editCommitsAppendBesideShoot`<br>`ShootDecisionJournalTests.testD35_killMidWritePreservesCommittedPrefix`<br>`P0JournalIntegrationTests.testD35_sessionCullCommitAppendsJournal`<br>`ShootCrashRecoveryTests.testD35_crashOnlyStartupRestoresCommittedStateExactly`<br>`ShootCrashRecoveryTests.testD36_xNeverTouchesFS_onCullJournalAppend`<br>`IngestFaultScheduleTests.testD35_cardDiskFullFailureShape`<br>`IngestFaultScheduleTests.testD35_cardCorruptFileFailureShape`<br>`IngestFaultScheduleTests.testD35_cardTwoCardFailureShape`<br>`IngestFaultScheduleTests.testD35_noBannedFailureChrome` | `MissingOriginalsTests.testMissingOriginalsPreserveCatalogAndPreviews` |  |  |  |
+| D36 | Anti-irritant + rejects endgame *(amended by R-M.1)* | `cp2_lr_round_trip`<br>`f06_data_safety_bounded` | `ShootDecisionJournalTests.testD36_journalBesideShootNotCentralCatalog`<br>`ShootDecisionJournalTests.testD36_journalDoesNotTouchPhotographFiles`<br>`ShootSidecarStoreTests.testD36_writeOpenXMPBesideOriginal`<br>`ShootSidecarStoreTests.testD36_readForeignXMPPreservesUnknownFields`<br>`ShootSidecarStoreTests.testD36_lrRoundTripSurvivesReimport`<br>`ShootSidecarStoreTests.testD35_reconciliationSessionWinsOnExternalDrift`<br>`P0SidecarIntegrationTests.testD36_sessionEditCommitWritesSidecarBesideOriginal`<br>`P0SidecarIntegrationTests.testD35_sidecarDriftDetectedWithoutMutatingSessionRecipe`<br>`ShootCrashRecoveryTests.testD13_stagedScopeGoneAfterCrashRecovery` |  |  |  |  |
 | D37 | Visual language *(amended by R-X.1)* | `token_lint` |  |  |  |  |  |
 | D40 | Engineering reconciliation *(history note — retirement schedule)* |  |  |  |  |  | NOT-COVERED |
 | D41 | Chip copy in consequence language *(R-5.1)* |  |  |  |  |  | NOT-COVERED |
 | D42 | Clipping hold grammar *(R-5.2 + A4)* `[● A4]` |  |  |  |  |  | NOT-COVERED |
 | D43 | Settle-as-confirmation *(R-5.3)* | `unit_trace` |  |  |  |  |  |
 | D44 | ⌥⌘E recipe re-entry *(R-8.1)* |  | `P0LogicTests.testExportRecipeHintContract` |  |  |  |  |
-| D45 | Diagnostics local-only or absent *(R-9.1 + A7)* `[● A7]` |  |  |  |  |  | NOT-COVERED |
+| D45 | Diagnostics local-only or absent *(R-9.1; A7 withdrawn A13)* `[● A13]` |  |  |  |  |  | NOT-COVERED |
 | D46 | Amateur pivot + Develop gate *(R-A.1 + A10)* `[● A10]` |  |  |  |  |  | SHELVED |
 | D47 | Pointer path to culling *(R-A.2 → MVP via A3)* `[● A3]` | `probe_growth`<br>`probe_mirror`<br>`leaf_only_ids` | `CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically` |  |  |  |  |
 | D48 | Hover deleted entirely *(R-X.1)* | `banned_patterns`<br>`grammar_oracle_parity`<br>`leaf_only_ids`<br>`grammar_oracle_unit`<br>`seed_script_schema` |  |  |  |  |  |
@@ -125,7 +125,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D63 | Crop latch keys & ban on decision-key remap *(A2)* `[● A2]` | `agent_rules_contract`<br>`contract_v6_presence` | `P0LogicTests.testCropKeyScopeNeverStagesOrRejects`<br>`CropTests.testLayoutHashChangesOnEditAndReverts` |  |  |  |  |
 | D64 | Swim lanes shelved with evidence clause *(A6)* `[● A6]` |  |  |  |  |  | SHELVED |
 | D65 | MVP test fleet & unsupported body *(A1)* `[● A1]` | `unit_lane_guards` |  |  |  |  |  |
-| D66 | Beta distribution posture *(A7 + A8)* `[● A7]` `[● A8]` |  |  |  |  |  | NOT-COVERED |
+| D66 | Beta distribution posture *(A12 + A8)* `[● A12]` `[● A8]` |  |  |  |  |  | NOT-COVERED |
 | R-5.1 | Chip copy in consequence language |  |  |  |  |  | NOT-COVERED |
 | R-5.2 | Clipping hold grammar (Hold-J) |  |  |  |  |  | NOT-COVERED |
 | R-5.3 | Settle-as-confirmation |  |  |  |  |  | NOT-COVERED |
@@ -136,6 +136,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | R-I.1 | Distribution Developer ID | `contract_v6_presence` |  |  |  |  |  |
 | R-I.2 | Silent updates | `heavy_job_registry` |  |  |  |  |  |
 | R-I.3 | Offline licensing |  |  |  |  |  | SHELVED |
+| R-I.4 | R-I.4 |  |  |  |  |  | NOT-COVERED |
 | R-M.1 | Rejects endgame / Trash offer |  |  |  |  |  | NOT-COVERED |
 | R-M.2 | Device-plug ingestion | `contract_v6_presence` |  |  |  |  |  |
 | R-M.3 | Sample shoot onboarding |  |  |  |  |  | NOT-COVERED |

@@ -40,6 +40,9 @@ entries:
     logic:
       - CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn
       - CommandChordTests.testHeldReturnCannotDoubleCommit
+      - ShootDecisionJournalTests.testD13_stagingSurfaceAbsentFromJournalAPI
+      - P0JournalIntegrationTests.testD13_editGestureStagingNotJournaledUntilCommit
+      - ShootCrashRecoveryTests.testD13_stagedScopeGoneAfterCrashRecovery
     lint:
       - grammar_oracle_parity
       - grammar_oracle_unit
@@ -82,8 +85,35 @@ entries:
     logic:
       - P0StateTests.testMissingOriginalShootPersistence
       - P0StateTests.testAtomicSaveLeavesFinalAndGoodCopy
+      - ShootDecisionJournalTests.testD35_committedDecisionsAppendNeverRewriteHistory
+      - ShootDecisionJournalTests.testD35_editCommitsAppendBesideShoot
+      - ShootDecisionJournalTests.testD35_killMidWritePreservesCommittedPrefix
+      - P0JournalIntegrationTests.testD35_sessionCullCommitAppendsJournal
+      - ShootCrashRecoveryTests.testD35_crashOnlyStartupRestoresCommittedStateExactly
+      - ShootCrashRecoveryTests.testD36_xNeverTouchesFS_onCullJournalAppend
+      - IngestFaultScheduleTests.testD35_cardDiskFullFailureShape
+      - IngestFaultScheduleTests.testD35_cardCorruptFileFailureShape
+      - IngestFaultScheduleTests.testD35_cardTwoCardFailureShape
+      - IngestFaultScheduleTests.testD35_noBannedFailureChrome
+    lint:
+      - cp2_journal_kill_fuzz
+      - f06_data_safety_bounded
     flow:
       - MissingOriginalsTests.testMissingOriginalsPreserveCatalogAndPreviews
+  D36:
+    logic:
+      - ShootDecisionJournalTests.testD36_journalBesideShootNotCentralCatalog
+      - ShootDecisionJournalTests.testD36_journalDoesNotTouchPhotographFiles
+      - ShootSidecarStoreTests.testD36_writeOpenXMPBesideOriginal
+      - ShootSidecarStoreTests.testD36_readForeignXMPPreservesUnknownFields
+      - ShootSidecarStoreTests.testD36_lrRoundTripSurvivesReimport
+      - ShootSidecarStoreTests.testD35_reconciliationSessionWinsOnExternalDrift
+      - P0SidecarIntegrationTests.testD36_sessionEditCommitWritesSidecarBesideOriginal
+      - P0SidecarIntegrationTests.testD35_sidecarDriftDetectedWithoutMutatingSessionRecipe
+      - ShootCrashRecoveryTests.testD13_stagedScopeGoneAfterCrashRecovery
+    lint:
+      - cp2_lr_round_trip
+      - f06_data_safety_bounded
   D37:
     lint:
       - token_lint

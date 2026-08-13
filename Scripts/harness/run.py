@@ -131,6 +131,18 @@ def lane_fast() -> tuple[list[dict], list[str]]:
             "spring_physics_f07",
             [py, str(HARNESS / "tests" / "test_f07_spring_physics.py")],
         ),
+        (
+            "cp2_journal_kill_fuzz",
+            [py, str(HARNESS / "cp2" / "journal_kill_fuzz.py")],
+        ),
+        (
+            "cp2_lr_round_trip",
+            [py, str(HARNESS / "cp2" / "lr_round_trip.py")],
+        ),
+        (
+            "f06_data_safety_bounded",
+            [py, str(HARNESS / "cp2" / "f06_data_safety.py"), "--bounded"],
+        ),
         ("unit_lane_guards", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "lanes"), "-p", "test_*.py"]),
         ("seed_script_schema", [py, str(HARNESS / "probe" / "run_scripts.py"), "--schema-only"]),
         # STUB grammar oracle — orchestration unit only; not app-coupled (F2).
@@ -201,6 +213,16 @@ def lane_full_macos() -> tuple[list[dict], list[str]]:
             )
             print(f"[FULL] ledger_orchestration_write: FAIL — {exc}", file=sys.stderr)
 
+        f06 = _run(
+            "f06_data_safety_bounded",
+            [py, str(HARNESS / "cp2" / "f06_data_safety.py"), "--bounded"],
+            "FULL",
+            snap,
+        )
+        results.append(f06)
+        if f06["ok"]:
+            executed.append("f06_data_safety_bounded")
+
         # App-coupled steps — Swift-on-macOS required (F2). These invoke the
         # live driver when present; missing driver → step FAIL (not silent skip).
         app_steps = [
@@ -245,7 +267,7 @@ def lane_heavy_macos() -> tuple[list[dict], list[str]]:
             executed.append(name)
     app_steps = [
         ("ingest_timing", [py, str(HARNESS / "heavy" / "run_job.py"), "ingest_timing"]),
-        ("kill_fuzz_replay", [py, str(HARNESS / "heavy" / "run_job.py"), "kill_fuzz_replay"]),
+        ("kill_fuzz_replay", [py, str(HARNESS / "cp2" / "f06_data_safety.py"), "--full"]),
         ("eject_fault_injection", [py, str(HARNESS / "heavy" / "run_job.py"), "eject_fault_injection"]),
         ("ram_tier_runs", [py, str(HARNESS / "heavy" / "run_job.py"), "ram_tier_runs"]),
         ("lr_round_trip", [py, str(HARNESS / "heavy" / "run_job.py"), "lr_round_trip"]),

@@ -84,6 +84,11 @@ enum CopyContract {
 
     static let pointedFolderMoved = "Pointed folder moved"
     static let fileDamagedPreviewOnly = "file damaged — preview only"
+    static let fileDamagedPreviewOnlyAction = "Continue with preview"
+    static let diskFullHeadline = "Disk full"
+    static let diskFullAction = "Free space, then retry"
+    static let cardEjectedEarlyHeadline = "Card ejected early"
+    static let cardEjectedEarlyAction = "Reinsert the card"
     static let staleRender = "Stale render"
 
     static let pointedFolderMovedBody = "The folder you pointed at is no longer where it was."

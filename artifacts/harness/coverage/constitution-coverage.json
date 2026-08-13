@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generated_at": "2026-08-12T15:10:30.128591+00:00",
+  "generated_at": "2026-08-13T14:49:30.431082+00:00",
   "summary": {
-    "total": 82,
-    "covered": 30,
+    "total": 83,
+    "covered": 31,
     "shelved": 7,
     "not_covered": 45
   },
@@ -30,7 +30,6 @@
     "D31",
     "D33",
     "D34",
-    "D36",
     "D40",
     "D41",
     "D42",
@@ -49,6 +48,7 @@
     "R-5.1",
     "R-5.2",
     "R-5.3",
+    "R-I.4",
     "R-M.1",
     "R-M.3",
     "R-M.5",
@@ -287,7 +287,10 @@
       ],
       "logic": [
         "CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn",
-        "CommandChordTests.testHeldReturnCannotDoubleCommit"
+        "CommandChordTests.testHeldReturnCannotDoubleCommit",
+        "ShootDecisionJournalTests.testD13_stagingSurfaceAbsentFromJournalAPI",
+        "P0JournalIntegrationTests.testD13_editGestureStagingNotJournaledUntilCommit",
+        "ShootCrashRecoveryTests.testD13_stagedScopeGoneAfterCrashRecovery"
       ],
       "flow": [],
       "golden": [],
@@ -651,10 +654,23 @@
       "sources": [
         "v5"
       ],
-      "lint": [],
+      "lint": [
+        "cp2_journal_kill_fuzz",
+        "f06_data_safety_bounded"
+      ],
       "logic": [
         "P0StateTests.testMissingOriginalShootPersistence",
-        "P0StateTests.testAtomicSaveLeavesFinalAndGoodCopy"
+        "P0StateTests.testAtomicSaveLeavesFinalAndGoodCopy",
+        "ShootDecisionJournalTests.testD35_committedDecisionsAppendNeverRewriteHistory",
+        "ShootDecisionJournalTests.testD35_editCommitsAppendBesideShoot",
+        "ShootDecisionJournalTests.testD35_killMidWritePreservesCommittedPrefix",
+        "P0JournalIntegrationTests.testD35_sessionCullCommitAppendsJournal",
+        "ShootCrashRecoveryTests.testD35_crashOnlyStartupRestoresCommittedStateExactly",
+        "ShootCrashRecoveryTests.testD36_xNeverTouchesFS_onCullJournalAppend",
+        "IngestFaultScheduleTests.testD35_cardDiskFullFailureShape",
+        "IngestFaultScheduleTests.testD35_cardCorruptFileFailureShape",
+        "IngestFaultScheduleTests.testD35_cardTwoCardFailureShape",
+        "IngestFaultScheduleTests.testD35_noBannedFailureChrome"
       ],
       "flow": [
         "MissingOriginalsTests.testMissingOriginalsPreserveCatalogAndPreviews"
@@ -672,13 +688,26 @@
         "v5",
         "v6"
       ],
-      "lint": [],
-      "logic": [],
+      "lint": [
+        "cp2_lr_round_trip",
+        "f06_data_safety_bounded"
+      ],
+      "logic": [
+        "ShootDecisionJournalTests.testD36_journalBesideShootNotCentralCatalog",
+        "ShootDecisionJournalTests.testD36_journalDoesNotTouchPhotographFiles",
+        "ShootSidecarStoreTests.testD36_writeOpenXMPBesideOriginal",
+        "ShootSidecarStoreTests.testD36_readForeignXMPPreservesUnknownFields",
+        "ShootSidecarStoreTests.testD36_lrRoundTripSurvivesReimport",
+        "ShootSidecarStoreTests.testD35_reconciliationSessionWinsOnExternalDrift",
+        "P0SidecarIntegrationTests.testD36_sessionEditCommitWritesSidecarBesideOriginal",
+        "P0SidecarIntegrationTests.testD35_sidecarDriftDetectedWithoutMutatingSessionRecipe",
+        "ShootCrashRecoveryTests.testD13_stagedScopeGoneAfterCrashRecovery"
+      ],
       "flow": [],
       "golden": [],
       "battery": [],
-      "not_covered": "NOT-COVERED",
-      "status": "NOT-COVERED"
+      "not_covered": "",
+      "status": "COVERED"
     },
     {
       "id": "D37",
@@ -781,7 +810,7 @@
     {
       "id": "D45",
       "kind": "D",
-      "title": "Diagnostics local-only or absent *(R-9.1 + A7)* `[\u25cf A7]`",
+      "title": "Diagnostics local-only or absent *(R-9.1; A7 withdrawn A13)* `[\u25cf A13]`",
       "sources": [
         "v6"
       ],
@@ -1136,7 +1165,7 @@
     {
       "id": "D66",
       "kind": "D",
-      "title": "Beta distribution posture *(A7 + A8)* `[\u25cf A7]` `[\u25cf A8]`",
+      "title": "Beta distribution posture *(A12 + A8)* `[\u25cf A12]` `[\u25cf A8]`",
       "sources": [
         "v6"
       ],
@@ -1307,6 +1336,21 @@
       "battery": [],
       "not_covered": "SHELVED",
       "status": "SHELVED"
+    },
+    {
+      "id": "R-I.4",
+      "kind": "R",
+      "title": "R-I.4",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
     },
     {
       "id": "R-M.1",

@@ -145,6 +145,10 @@ nonisolated enum ContactSheetPreparation {
             status.folderMissing = true
         }
 
+        if let rawFolderURL = access?.url {
+            _ = try? ShootCrashRecovery.replayJournal(into: &shoot, besideShootFolder: rawFolderURL)
+        }
+
         continuation.yield(.opened(shoot: shoot, status: status))
         LatencyMetrics.record(
             "p0.folder_to_first_paint",
@@ -264,6 +268,8 @@ nonisolated enum ContactSheetPreparation {
             )
             let assetID = AssetIdentity.resolveID(sourceKey: sourceKey, preserved: existingByKey[sourceKey])
             let source = SourceReference.make(fileURL: url, rootURL: folderURL)
+            let sidecarURL = ShootSidecarStore.sidecarURL(besideOriginal: url)
+            let sidecarRecipe = try? ShootSidecarStore.readMappedRecipe(at: sidecarURL)
             records.append(
                 AssetRecord(
                     id: assetID,
@@ -271,6 +277,7 @@ nonisolated enum ContactSheetPreparation {
                     source: source,
                     filename: url.lastPathComponent,
                     cull: .undecided,
+                    recipe: sidecarRecipe?.hasSettings == true ? sidecarRecipe : nil,
                     fileSize: size
                 )
             )
@@ -285,6 +292,8 @@ nonisolated enum ContactSheetPreparation {
         status.assetCount = records.count
         status.phaseDetail = "\(records.count) photos"
         status.isPreparingPreviews = true
+
+        _ = try? ShootCrashRecovery.replayJournal(into: &shoot, besideShootFolder: folderURL)
 
         // Open the workspace before preview extraction completes.
         continuation.yield(.opened(shoot: shoot, status: status))

@@ -21,8 +21,8 @@ JOBS = [
     {
         "id": "kill_fuzz_replay",
         "owner": "HEAVY",
-        "entrypoint": "Scripts/harness/heavy/kill_fuzz.sh",
-        "status": "registered",
+        "entrypoint": "Scripts/harness/heavy/kill_fuzz_replay.sh",
+        "status": "active",
         "requires": ["macOS", "CP2"],
     },
     {

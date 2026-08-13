@@ -352,20 +352,16 @@ struct P0SinglePhotoEditor: View {
         )
         .opacity(item.marks.rejected ? 0.5 : 1)
         .contentShape(Rectangle())
-        // Hover focuses for fast browsing; click toggles selection (deliberate).
-        .onHover { hovering in
-            guard hovering else { return }
+        .onTapGesture {
             if session.focusedAssetID != item.id {
                 session.setFocus(item.id)
             }
-        }
-        .onTapGesture {
             session.selectClick(id: item.id, command: true, shift: false)
         }
         .animation(reduceMotion ? nil : LuminaTokens.Motion.photo, value: focused)
         .accessibilityLabel(item.asset.filename)
         .accessibilityAddTraits(focused ? .isSelected : [])
-        .accessibilityHint("Hover to focus, click to select")
+        .accessibilityHint("Tap to focus and select")
         .accessibilityIdentifier(P0AccessibilityID.filmstripItem(item.id))
     }
 
