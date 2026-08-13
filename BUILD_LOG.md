@@ -4,6 +4,22 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-12 — Auditor: human-led intent propagation branch (OUTSIDE PROTOCOL)
+
+**Branch:** `human-led-edit-propagation` (worktree `conductor/.../dhaka`) · **Merge-base:** `120c004c903630279c69a2d735a890a4c28831e0` (`origin/main`, Batch 2 proposal #42) · **Tip:** same commit; **~994 LOC uncommitted** working-tree diff only.
+
+**Claim audited:** Photographer-authored Develop change → editable intent group → per-recipient adaptation → Return-release commit; BUILD_LOG asserts 102/102 logic, 29/29 FAST, 31/31 regression, honest live-driver stub ledger.
+
+**Verdict:** **NEVER MERGE.** Auditable material only. Three independent kill classes: (1) **provenance** — build session authored **D67** + Shelved Register rewrite in `design/contract-v6.md` without constitution session; (2) **protocol** — CP7 hero work on ad-hoc branch/worktree with no owning checkpoint session; (3) **law** — cross-row hand selection (`TablePhotographSelection`, gather, rubber-band replace, ⇧-extend) still ships under intent/new names while D17/D29/D38 shelved register on ratified v6 says otherwise; ⇧⏎ ring widen (row→scene→shoot) ships wholesale ripple without ratified un-shelf.
+
+**Instrument reading (auditor re-run):** Logic **102/102 PASS** · FAST **29/29 PASS** (but `spring_physics_f07` demoted from manifest — SPIKE B seal weakened; HARNESS.md honestly re-marked OPEN) · `pre-commit` regression **PASS** (dashboard log write blocked sandbox; exit 0). UI automation timeout (XCTest 1000) and seven live-driver stubs match builder ledger.
+
+**Routing:** Cherry-pick carries under **CP7** after constitution session (if any): Return-release gate, Esc ring narrow, `BatchEditCommand` atomic undo, `IntentBoundaryCorrection` (D33), `LocalIntentPropagationEngine` adaptation math, VoiceOver include/exclude actions, `EditRailLayout` +1 pt tolerance, develop double-apply test. **CUT:** D67 file edits, contract self-ratification, cross-row selection paths, identical `⌘⇧A` set apply, scene-ring banner string absent from copy-contract, FAST demotion without ruling.
+
+**Proceed:** Do not merge branch. Strip D67 from any tree. If hero semantics are wanted, open constitution session for CP7 scope (intent shaping vs D17 row law) then re-implement inside a single CP7 checkpoint session from merge-base.
+
+---
+
 ## 2026-08-12 — Batch 2 ratification: distribution & diagnostics (A11–A13)
 
 **Branch:** `constitution/batch-2-distribution` · **PR:** draft — Batch 2 apply  
