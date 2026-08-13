@@ -4,6 +4,78 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — W7 failure-grammar: facts-chip on live path
+
+**Branch:** `cursor/w7-failure-grammar-39dd`  
+**Status:** **PLANNED — not SCHEDULED.** CP8 gate blocks execution; no code written this session.
+
+**Claim:** Every fault on the P0 live path wears `RecoveryFactsChip` (D35); remove `P0OpenView` SwiftUI `.alert` and its allowlist line in the same commit; copy-contract-only strings; `orphan_symbols` drops `RecoveryFactsChip`.
+
+**Gate check (CP8 has not landed):**
+
+| Source | CP8 state |
+|--------|-----------|
+| `RESUME.md` L48 | **PARTIAL** (F12 bundle absent) |
+| `design/strategy/surface-sweep.md` L164 | **PARTIAL** — missing sample shoot, D61 three-state export, R-M.1 Trash UI, share destination |
+| `design/checkpoint-sequence-v6.md` L36 | CP8 owns D35/D36-amendment/R-M.1 on Open/export/endgame surface |
+
+**D35 / D36 amendment (grep verified):**
+
+| Ruling | Location | Text (abridged) |
+|--------|----------|-----------------|
+| **D35** | `design/contract-v5.md` L288 | Table keeps working · broken thing wears facts-chip · one sentence · one action · never modal |
+| **D36 amendment (R-M.1)** | `design/contract-v6.md` L107–114 | v5 anti-irritant clauses remain; **one** file-touching verb = post-export `Rejects to Trash · N files · size`; never auto; CP8 socket |
+| **F06 failure shape** | `design/build-prompts/F06-data-safety-fuzz.md` L17–19 | No modal/NSAlert/spinner/progress bar; one sentence + one action; table keeps working |
+
+**Measured debt (main @ gate time):**
+
+| Item | Evidence |
+|------|----------|
+| `RecoveryFactsChip` orphan | Zero live callers; listed in `orphan_register.txt` on W1 gate branch |
+| `P0OpenView` modal | L38–45 `.alert("Could not open", …)` |
+| Allowlist debt | `artifacts/harness/banned_patterns_allowlist.txt` L2–3 — owned-by-CP8 |
+| Free-form errors | `P0SessionModel.userFacingError: String?` — L282 `"No importable photos in drop."` (not in copy contract); L933 `.failed(message)` from `ContactSheetPreparation` localized strings |
+| Hand-typed offline chip | `P0SinglePhotoEditor` L65 `Text("Original offline")` — headline ruled in copy contract but **no `CopyContract` static** yet |
+
+**Ruled FAILURE headlines** (`design/copy-contract.txt` L76–90): Card ejected early · Original offline · Disk full · Pointed folder moved · file damaged — preview only · copying originals · work while it copies · body not yet supported (+ actions where listed).
+
+**COPY OWED (STOP if implementing without contract entry):**
+
+| Fault path today | Proposed mapping |
+|------------------|------------------|
+| `"No importable photos in drop."` | No ruled headline — propose contract row (e.g. empty-folder variant) or map to nearest OPEN string with human ruling |
+| `ContactSheetPreparation` `.failed(error.localizedDescription)` | Classify errors → typed `P0Fault` enum; map to ruled headlines only |
+| `"Could not open"` alert title | Delete with alert — not a chip string |
+| `Original offline` per-frame chip | Add `CopyContract.originalOffline` (+ action if contract names one — headline-only in FAILURE row today) |
+
+**Implementation plan (execute only after CP8 lands):**
+
+1. **Typed fault model** — Replace `userFacingError: String?` with `P0Fault?` (or equivalent) on `P0SessionModel`; cases mirror ruled headlines + `IngestFaultSchedule` surfaces.
+2. **`RecoveryFactsChip` wiring** — Add factories for: `diskFull`, `cardEjectedEarly`, `originalOffline`, `bodyNotYetSupported`, `copyingOriginals` (facts-only where no action); reuse existing `pointedFolderMoved`, `fileDamagedPreviewOnly`, `staleRender`.
+3. **`P0OpenView`** — Remove `.alert`; overlay inline chip below hero when `session.activeFault != nil`; action dismisses fault and re-triggers recovery (`chooseFolder`, `openFolder`, etc.).
+4. **Contact sheet + edit surfaces** — Toolbar/status faults via chip not modal; per-frame offline via `RecoveryFactsChip` or capsule helper using `CopyContract`; ingest progress = `copying originals · work while it copies` (no spinner/bar).
+5. **`ContactSheetPreparation`** — Emit typed fault events instead of `.failed(String)` where schedules are known; keep table working on partial ingest (D35 + F06 schedules).
+6. **Allowlist + orphan** — Same commit: delete allowlist L2–3; remove `RecoveryFactsChip` from `orphan_register.txt`; confirm `orphan_symbols` gate PASS.
+7. **Accessibility / motion** — Chip focusable; action via keyboard; respect `reduceMotion` (no fault-only animation mode).
+8. **Probe** — Update P0 probe if fault surface changes (`P0EditLiveRunner` `openError` field → typed fault id).
+
+**Coordination:** Touches `Lumina/Views/P0/` — **land W5 first** (`cursor/w5-key-routing-39dd`); rebase W7 onto W5 tip before implementing.
+
+**Verify (when SCHEDULED):**
+
+| Command | Lane |
+|---------|------|
+| `python3 Scripts/harness/cp2/f06_data_safety.py --bounded` | macOS logic + Linux orchestration |
+| `bash Scripts/harness/lint/copy_contract_diff.sh` | Linux |
+| `bash Scripts/harness/lint/banned_patterns.sh` | Linux |
+| `python3 Scripts/harness/run.py fast` | Linux |
+
+**Commit message (when SCHEDULED):** `build(W7): facts-chip failure grammar on the live path`
+
+**Instrument reading (this session):** Gate only — **no implementation commit.**
+
+---
+
 ## 2026-08-13 — P8 operator ruling: wave sequencing (P7 / R3 / P5)
 
 **Branch:** `strategy/p8-surface-sweep`  
