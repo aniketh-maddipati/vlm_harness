@@ -380,6 +380,7 @@ final class P0SessionModel {
             finalOrderAfter: orderAfter
         )
         undoCoordinator.push(command)
+        journalCullCommit(command)
         schedulePersistShoot()
     }
 
@@ -482,6 +483,7 @@ final class P0SessionModel {
 
         let command = EditMutationCommand(assetID: assetID, before: before, after: after)
         undoCoordinator.push(command)
+        journalEditCommit(command)
         persistShootImmediately()
         warmBeforeAfter(for: assetID, recipe: after.hasSettings ? after : .neutral)
     }
@@ -1032,6 +1034,25 @@ final class P0SessionModel {
             SecurityScopedAccess.stopIfNeeded(folderAccess.url, didStartAccess: folderAccess.didStartAccess)
         }
         folderAccess = nil
+    }
+
+    // MARK: - CP2 decision journal (append-only beside shoot — D35 / D13)
+
+    private func journalRawFolderURL() -> URL? {
+        guard let path = shoot?.rawFolder?.originalPath else { return nil }
+        return URL(fileURLWithPath: path)
+    }
+
+    /// Committed cull only — staging and undo paths never reach the journal (D13).
+    private func journalCullCommit(_ command: CullMutationCommand) {
+        guard let folder = journalRawFolderURL() else { return }
+        try? ShootDecisionJournal.appendCullCommit(command, besideShootFolder: folder)
+    }
+
+    /// Committed edit only — gesture staging is not journaled until commit (D13).
+    private func journalEditCommit(_ command: EditMutationCommand) {
+        guard let folder = journalRawFolderURL() else { return }
+        try? ShootDecisionJournal.appendEditCommit(command, besideShootFolder: folder)
     }
 
     private static func scanRoot(from urls: [URL]) -> URL? {

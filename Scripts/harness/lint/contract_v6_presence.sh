@@ -72,7 +72,7 @@ bash "$ROOT/Scripts/harness/lint/agent_rules_contract.sh" || report "agent_rules
 [[ -f design/mvp-test-plan.md ]] || report "missing design/mvp-test-plan.md (A1)"
 if [[ -f design/contract-v6.md ]]; then
   grep -q 'D63' design/contract-v6.md || report "contract-v6.md missing D63 (crop latch)"
-  grep -q 'expires at 1.0' design/contract-v6.md || report "contract-v6.md missing A7 expiry text"
+  grep -q 'A7 withdrawn' design/contract-v6.md || report "contract-v6.md missing A7 withdrawal (A13 / Batch 2)"
 fi
 if [[ -f BUILD_LOG.md ]]; then
   grep -q 'Process CONFLICT' BUILD_LOG.md || report "BUILD_LOG missing Process CONFLICT (worktree base) record"

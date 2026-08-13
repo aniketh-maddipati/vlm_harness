@@ -131,6 +131,10 @@ def lane_fast() -> tuple[list[dict], list[str]]:
             "spring_physics_f07",
             [py, str(HARNESS / "tests" / "test_f07_spring_physics.py")],
         ),
+        (
+            "cp2_journal_kill_fuzz",
+            [py, str(HARNESS / "cp2" / "journal_kill_fuzz.py")],
+        ),
         ("unit_lane_guards", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "lanes"), "-p", "test_*.py"]),
         ("seed_script_schema", [py, str(HARNESS / "probe" / "run_scripts.py"), "--schema-only"]),
         # STUB grammar oracle — orchestration unit only; not app-coupled (F2).

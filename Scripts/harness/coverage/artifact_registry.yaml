@@ -40,6 +40,8 @@ entries:
     logic:
       - CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn
       - CommandChordTests.testHeldReturnCannotDoubleCommit
+      - ShootDecisionJournalTests.testD13_stagingSurfaceAbsentFromJournalAPI
+      - P0JournalIntegrationTests.testD13_editGestureStagingNotJournaledUntilCommit
     lint:
       - grammar_oracle_parity
       - grammar_oracle_unit
@@ -82,8 +84,18 @@ entries:
     logic:
       - P0StateTests.testMissingOriginalShootPersistence
       - P0StateTests.testAtomicSaveLeavesFinalAndGoodCopy
+      - ShootDecisionJournalTests.testD35_committedDecisionsAppendNeverRewriteHistory
+      - ShootDecisionJournalTests.testD35_editCommitsAppendBesideShoot
+      - ShootDecisionJournalTests.testD35_killMidWritePreservesCommittedPrefix
+      - P0JournalIntegrationTests.testD35_sessionCullCommitAppendsJournal
+    lint:
+      - cp2_journal_kill_fuzz
     flow:
       - MissingOriginalsTests.testMissingOriginalsPreserveCatalogAndPreviews
+  D36:
+    logic:
+      - ShootDecisionJournalTests.testD36_journalBesideShootNotCentralCatalog
+      - ShootDecisionJournalTests.testD36_journalDoesNotTouchPhotographFiles
   D37:
     lint:
       - token_lint

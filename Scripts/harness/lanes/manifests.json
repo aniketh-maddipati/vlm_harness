@@ -20,6 +20,7 @@
         { "id": "unit_trace", "kind": "orchestration" },
         { "id": "unit_invariants", "kind": "orchestration" },
         { "id": "spring_physics_f07", "kind": "orchestration", "notes": "F07.4–F07.6 dead-stop, retarget continuity, reduced-motion + trajectory golden (SPIKE B seal)" },
+        { "id": "cp2_journal_kill_fuzz", "kind": "orchestration", "notes": "CP2 D35 — SIGKILL mid JSONL append; committed prefix survives" },
         { "id": "unit_lane_guards", "kind": "orchestration" },
         { "id": "seed_script_schema", "kind": "orchestration" },
         { "id": "grammar_oracle_unit", "kind": "orchestration", "notes": "Python simulator schema/oracle only — not app-coupled" },
