@@ -4,6 +4,20 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — One-off queue recorded (post-cascade)
+
+**Branch:** `main` @ `228175c`
+
+**Claim:** Operator one-off queue after wrap-up cascade — macOS automation diagnostic → CP2 → SPIKE B (S18/S19/seal/S20) → D67 after W3 proposal.
+
+**Finding:** RESUME §6 listed Batch 3 first; operator re-ordered: automation diagnostic (failed twice, gates F04/F07/F11/all flows) before any build session; SPIKE B before artifact hardening because `tokensHash` moves; D67 ratification sequenced after W3 proposal review.
+
+**Fix:** RESUME.md §6 → ONE-OFF QUEUE (four items); §3 next action → automation diagnostic; §7 subordinate “would do next”.
+
+**Instrument reading:** No new macOS run this session — queue is operator-authored, not measured here.
+
+---
+
 ## 2026-08-13 — Wrap-up cascade: RESUME + W4 strategy branches (inventory close)
 
 **Branch:** `main` @ `6652c65` · **Worktrees (untracked locally):** `lumina-wt/` → `constitution/batch-3-propagation`, `strategy/s1-mvp-sharpening`

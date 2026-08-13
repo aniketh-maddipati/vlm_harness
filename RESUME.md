@@ -1,6 +1,6 @@
 # RESUME
 
-**Measured @ `main` `6652c65` · 2026-08-13 · Linux pre-commit: exit **1**, FAST **INCOMPLETE** ~5050ms, **26/27** orchestration ids**
+**Measured @ `main` `228175c` · 2026-08-13 · Linux pre-commit: exit **1**, FAST **INCOMPLETE** ~5050ms, **26/27** orchestration ids**
 
 Authority order: `design/contract-v6.md` → `design/tokens.yaml` → `design/copy-contract.txt` → code → tests.  
 Strategy source (W4, not on main): `design/strategy/s1-mvp-sharpening.md` on branch `strategy/s1-mvp-sharpening` @ `ce677f6`.
@@ -55,7 +55,7 @@ W4 implications (carried verbatim in substance):
 3. SHELF-BROKEN (RISK-001) and D36-VIOLATION (RISK-002) remain live — schedule remediation or explicit amendment; S1 did not choose.
 4. Next constitutional act: human ratification of `design/amendments/proposal-batch-3.md` (branch `constitution/batch-3-propagation`).
 
-**Next single action:** Operator reads and ratifies or rejects Batch 3 ITEM 1 (D67 / A14 / R-A.3) — everything else that cites CP7 as law waits on that ruling.
+**Next single action:** macOS automation-mode **diagnostic** (see §7 queue item 1) — not a build session; every app-coupled assertion is gated until it passes.
 
 ---
 
@@ -80,8 +80,25 @@ Hand experimentation only — not merge gates.
 
 ---
 
-## 6. WHAT I WOULD DO NEXT
+## 6. ONE-OFF QUEUE
 
-1. **Operator: Batch 3 ITEM 1 ruling** — CP7 is shipped but cites law not in force; ratify, amend, or reject `proposal-batch-3.md` before any D67 claims in code or BUILD_LOG.
-2. **Operator: macOS AS measured FULL** — close CONFLICT 2/F04 follow-up with one BUILD_LOG row (wall time, app tests executed/expected, cache hit/miss); unblocks honest live-driver stub retirement schedule.
-3. **Engineering: FAST red on main** — remove D48 hover in `P0SinglePhotoEditor.swift`, restore `test_f07_spring_physics.py`, refresh constitution coverage (`generate_constitution_coverage.py --write`), fix `contract_v6_presence` A7-expiry check — pre-commit must go green before the next merge wave.
+*Operator sequence after wrap-up cascade. Supersedes ad-hoc “do next” lists. Each item: measured fact → why it blocks → session type.*
+
+| # | Item | Blocks | Session type |
+|---|------|--------|--------------|
+| **1** | **macOS automation mode** | Every app-coupled assertion — F04 FULL, F07 live/motion, F11 Release `.app` checks, all XCUITest flows (`P0Fast` / stress / visual). DEBUG `--ui-testing` / `LUMINA_UI_TEST_MODE` (`Lumina/Testing/UITestLaunch.swift`) must activate; backgrounded-app collapsed tree documented (`docs/P0_UI_AUTOMATION_POSTMORTEM.md` §3, §9). **Failed twice** (operator report — no BUILD_LOG row yet). | **Diagnostic only** — reproduce, capture TCC/activation/probe evidence; **not** a build session |
+| **2** | **CP2** — journal, sidecars, crash-only startup | **Long pole.** D36 open-XMP / no-catalog (W2 **D36-VIOLATION**, RISK-002). **F06** prompt **UNMEASURED** (not in `design/build-prompts/`). **F12** bug-report bundle and HEAVY kill-fuzz / LR round-trip (`Scripts/harness/heavy/run_job.py` → HEAVY/CP2) sit behind CP2. P0 today: `ShootStore.saveShoot` → catalog `shoot.json`. | **Checkpoint build session** (single CP2 owner) |
+| **3** | **SPIKE B** — S18 → S19 → seal → S20 | **Before artifact hardening** — seal edits `design/tokens.yaml` §motion → **`tokensHash`** changes → F11.4 manifest, F04.1 build cache key, golden trajectories all invalidate until re-measured. Measured on main: F07.4 dead-stop drift **0.001105** > ε **0.001**; `test_f07_spring_physics.py` **absent**; FAST `spring_physics_f07` FAIL. **S19** = Develop Lab playground (`--develop-lab`, `hook_inventory.yaml` `s19_playground`) — on main. **S18**, **S20** = operator session labels — **UNMEASURED** in tree (no BUILD_LOG / prompt rows). `Lumina/Testing/MotionProbe/` **absent** on main (F07 motion-probe hook registered, not shipped). | **SPIKE sessions** S18–S20 then seal ruling on §motion |
+| **4** | **D67 ratification** | CP7 code **SHIPPED**; law **NOT IN FORCE** (no `### D67` in contract). W4 RISK-001/004 live. | **Constitution session** — **after W3 proposal is in front of operator:** `design/amendments/proposal-batch-3.md` on `constitution/batch-3-propagation` (Batch 3 / B3.1, **NOT RATIFIED**). Ratify/reject ITEM 1 (A14 / R-A.3); ITEM 2 operator choice still open |
+
+**Queue rule:** Item 1 must pass before trusting any macOS measurement for items 2–3. Item 3 must close (including `tokensHash` re-measure) before F11.3/F11.4 artifact hardening. Item 4 waits on W3 proposal review — not before.
+
+---
+
+## 7. WHAT I WOULD DO NEXT
+
+*(Subordinate to §6 queue.)*
+
+1. **Run macOS automation diagnostic** — confirm `[UITestLaunch] ui-testing active` on stderr, probe visible, `P0Fast` ≥1 flow green on an idle Mac; log pass/fail in BUILD_LOG. Reason: gates every downstream app-coupled claim.
+2. **Do not start CP2 or SPIKE B build sessions** until diagnostic item 1 is green or failure mode is named with evidence.
+3. **Surface W3 proposal to operator** — merge or PR `constitution/batch-3-propagation` so `proposal-batch-3.md` is reviewable before queue item 4.
