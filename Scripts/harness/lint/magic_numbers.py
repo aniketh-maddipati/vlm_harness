@@ -19,10 +19,10 @@ SCAN_ROOTS = (
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from magic_number_literals import (  # noqa: E402
+    compile_literal_pattern,
     extract_forbidden_literals,
     index_literal_skipped,
     line_skipped,
-    literal_in_line,
 )
 
 
@@ -42,6 +42,7 @@ def load_allowlist() -> set[tuple[str, str]]:
 
 def scan_files() -> list[tuple[str, int, str, str]]:
     forbidden = extract_forbidden_literals(GENERATED)
+    literal_pattern = compile_literal_pattern(list(forbidden))
     hits: list[tuple[str, int, str, str]] = []
     for root in SCAN_ROOTS:
         if not root.is_dir():
@@ -55,12 +56,12 @@ def scan_files() -> list[tuple[str, int, str, str]]:
             ):
                 if line_skipped(line):
                     continue
-                for literal in forbidden:
+                for match in literal_pattern.finditer(line):
+                    literal = match.group(0)
                     if index_literal_skipped(line, literal):
                         continue
-                    if literal_in_line(literal, line):
-                        hits.append((rel, line_no, literal, line.strip()))
-                        break
+                    hits.append((rel, line_no, literal, line.strip()))
+                    break
     return hits
 
 

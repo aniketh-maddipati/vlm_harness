@@ -2,8 +2,11 @@
 """Unit tests for vacuous-green inventory + platform gate (F1/F3)."""
 from __future__ import annotations
 
+import json
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from inventory import evaluate_inventory, format_lane_summary, load_manifest
@@ -16,6 +19,23 @@ class InventoryTests(unittest.TestCase):
         m = load_manifest()
         app = [t for t in m["lanes"]["fast"]["tests"] if t["kind"] == "app-coupled"]
         self.assertEqual(app, [])
+
+    def test_manifest_rejects_duplicate_test_ids(self):
+        manifest = {
+            "lanes": {
+                "fast": {
+                    "tests": [
+                        {"id": "same", "kind": "orchestration"},
+                        {"id": "same", "kind": "orchestration"},
+                    ]
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.json"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "duplicate test ids.*same"):
+                load_manifest(path)
 
     def test_full_and_heavy_require_macos_as(self):
         m = load_manifest()
