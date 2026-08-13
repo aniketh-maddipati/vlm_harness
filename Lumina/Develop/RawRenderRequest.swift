@@ -18,8 +18,9 @@ enum DevelopRenderQuality: String, Codable, Hashable, Sendable, CaseIterable {
     var defaultLongEdge: Int {
         switch self {
         case .browse: return 1600
-        case .interactive: return 1600
-        case .settled: return 3200
+        // Keep interactive lean so slider scrub stays under the pointer.
+        case .interactive: return 1920
+        case .settled: return 4096
         case .oneToOne: return 0 // region-sized
         case .export: return 0 // full
         }

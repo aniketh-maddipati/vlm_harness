@@ -451,6 +451,30 @@ Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `desig
 
 ---
 
+## 2026-08-13 — P0 editing merged onto main (post F04/F11)
+
+**Claim:** Merge `cursor/p0-single-photo-editing` (#25) onto current `main` with harness lane dispatch intact, leaf-only probe identifiers preserved, and generated edit harness evidence gitignored.
+
+**Finding:** Four merge conflicts — `.gitignore`, `BUILD_LOG.md`, `ContactSheetInspectImage` body (main had misplaced inspection chrome), `Scripts/regression.sh` (kept F01 harness Phase 1 dispatch; dropped pre-F01 numbered script steps).
+
+**Fix:** Resolved conflicts favoring main harness architecture + P0 editing surface. `ContactSheetInspectImage` restored to image-loading `Group`. Combined ignore rules for harness ephemeral streams and `artifacts/p0-edit*`.
+
+**Build / gates:** Linux FAST orchestration re-run post-merge (macOS xcodebuild not available here). Targeted macOS gates from prior session: `p0_edit_test.swift` 29/29 · `EditingProbeTests` 1/1 · leaf-only id lint. Perf tables in `docs/P0_EDITING.md` remain historical.
+
+---
+
+## 2026-08-07 — P0 editing restacked onto main + minimal editing probe
+
+**Claim:** Land the seven single-photo editing commits on current `main` (post #23 harness, #24 UX hardening) with the harness contracts intact, add the smallest useful structured editing coverage, and stop shipping generated run evidence in the repo — without starting the deeper Metal/grouping roadmap.
+
+**Finding:** The rebase itself was clean after conflict resolution (Debug + Release build green, `p0_edit_test.swift` 29/29), but one conflict-resolution defect survived review and was only caught by running the existing harness: `p0.singlePhoto.image` had been moved onto a plain container `ZStack`. SwiftUI creates no accessibility element for such a container, so the identifier was undiscoverable and `MissingOriginalsTests` failed — it also violated the repo's own leaf-only rule. Two harness traps recurred while writing the new flow: macOS consumes the first mouse-down on a non-frontmost app as a window-activation click, and a slider drag that *begins* at the neutral midpoint can commit an unchanged value (the fingerprint no-op guard then correctly drops it), so the press must start off-neutral.
+
+**Fix:** Moved `singlePhotoImage` onto the two mutually-exclusive presenting leaves (Metal canvas when an image exists, cached preview otherwise). Added one DEBUG-only probe field, `focusedRecipeFingerprint` (the existing `EditRecipe.valueFingerprint` — no paths, pixels, or payload), mirrored in the test-side decoder; one leaf identifier `p0.singlePhoto.exposure` via `P0EditSlider.identifier`; and one flow, `EditingProbeTests`, proving gesture → fingerprint change → cull untouched → undo restores → P/X leaves the recipe alone. Untracked 24 generated evidence files (~180 MB) under `artifacts/p0-edit*` with narrow ignore rules, preserving local copies and correcting the doc links.
+
+**Build / gates:** Debug + Release **SUCCEEDED**; Release binary contains no harness symbols or launch flags (Debug positive control confirms the check). Targeted gates: `p0_edit_test.swift` 29/29 (0.5 s) · logic 5/5 (2.7 s) · `EditingProbeTests` 1/1 (5.0 s, stable over 3 runs) · `MissingOriginalsTests` 1/1 (6.3 s) · `UXHardeningTests` 2/2 (6.3 s) · smoke 6/6 (5.0 s). Not run by design: `P0Fast`, stress, visual, explorer, real-media audit. Perf tables in `docs/P0_EDITING.md` are marked historical — not re-measured since the rebase, which changed preview/scheduler sizing. Scrub and nav latency targets remain missed.
+
+---
+
 ## 2026-08-07 — P0 UI automation harness (XCUITest)
 
 **Claim:** A Playwright-like native macOS UI-automation harness that launches Lumina against isolated deterministic fixture state, drives the real P0 interface with keyboard/mouse, and yields replayable evidence (seed + trace + screenshots + structured state) — without touching real user data, changing product behavior, or implementing editing.
@@ -460,6 +484,18 @@ Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `desig
 **Fix:** DEBUG-only launch mode (`Lumina/Testing/`: `UITestSupport`/`UITestLaunch`/`UITestFixtures`/`UITestStateProbe`/`P0AccessibilityID`) with a `ShootStore.supportDirectory()` override for isolated state, deterministic fixtures (`mixed-60`/`mixed-200`/`missing-originals`, synthesized images — no RAW/binaries), a JSON state probe, and an app activator. `LuminaUITests` (robots + 9 deterministic flows + seeded state-aware explorer + invariants + visual regression) and a minimal `LuminaLogicTests` XCTest target, wired via a shared scheme and `TestPlans/{P0Fast,P0Stress,P0Visual}`. Removed container identifiers (leaf-only rule), made inner cell views non-accessibility, added verify+retry to cell/density clicks and self-healing launch. Runner `Scripts/run_p0_ui_tests.sh` (fast/stress/visual/logic/seed); portable manifest checks wired into `Scripts/regression.sh` (no Linux macOS-test claims); docs `docs/P0_UI_AUTOMATION.md`. No P0 product behavior changed.
 
 **Build:** Debug build green. `P0Fast` 14/14 pass (5 logic + 9 UI incl. short explorer). Explorer seed replay green (`seed 55555`, mixed-200). See delivery report / PR.
+
+---
+
+## 2026-08-06 — P0 trustworthy single-photo RAW editing
+
+**Claim:** Open a photograph from the contact sheet and adjust it with immediate, trustworthy RAW feedback bound only to `EditRecipe`, shared undo, and no cull/selection regression.
+
+**Finding:** Single-photo surface was a JPEG-thumb placeholder; Whites/Blacks/Texture/Clarity/Dehaze remain render-inert; undo coordinator was cull-only; no gesture-coalesced edit command.
+
+**Fix:** `EditMutationCommand` on shared `P0UndoCoordinator`; session scrub/commit/flush/Before; `P0SinglePhotoEditor` + adjustment rail + crop overlay wired to `DevelopRenderScheduler`/`DevelopMetalView`; Whites/Blacks deferred; docs `docs/P0_EDITING.md`; tests `Scripts/p0_edit_test.swift`; harness `--p0-edit-harness`.
+
+**Build / gates:** Debug **SUCCEEDED**. Deterministic P0 edit/cull/state/contact tests green. Live ARW harness **PASSED**. Full `--p0-edit-live` session on 94 Mehendi ARWs **PASSED** (10s scrub, Before, 20-nav, crop, undo, quit/reopen). Fixed preparation saves clobbering live cull/recipe. Perf: scrub p95 ~19 ms during live scrub; nav p95 still misses 35 ms target on cold neighbors.
 
 ---
 

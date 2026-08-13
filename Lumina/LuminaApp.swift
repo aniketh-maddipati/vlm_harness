@@ -11,8 +11,10 @@ struct LuminaApp: App {
         DevelopLabLauncher.runIfRequested()
         #endif
         WorkbenchCapture.runIfRequested()
-        // Headless harness exits inside the runner.
+        // Headless harnesses exit inside the runner.
         _ = RawHarnessRunner.runIfRequested()
+        _ = P0EditHarnessRunner.runIfRequested()
+        _ = P0EditLiveRunner.runIfRequested()
         // Capture-only lab exits inside the launcher; interactive lab continues into the scene.
         #if DEBUG
         _ = DevelopLabLauncher.runIfRequested()

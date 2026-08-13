@@ -202,7 +202,9 @@ final class ContactSheetItemView: NSCollectionViewItem {
     }
 
     private func loadImage(for asset: AssetRecord) {
-        guard let path = asset.gridThumbPath ?? asset.thumbPath else {
+        // Prefer the 1600px browse preview over the 768px grid cache — upscaled
+        // grid JPEGs read as grainy/soft on Retina contact-sheet cells.
+        guard let path = asset.thumbPath ?? asset.gridThumbPath else {
             imageView_.image = nil
             return
         }
@@ -237,10 +239,27 @@ final class ContactSheetItemView: NSCollectionViewItem {
     }
 }
 
+/// Collection view that owns double-click → open (zoom into photograph).
+/// NSViewController.mouseDown never receives cell clicks; this must live on the view.
+final class ContactSheetCollectionView: NSCollectionView {
+    var onDoubleClickItem: ((IndexPath) -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 {
+            let point = convert(event.locationInWindow, from: nil)
+            if let indexPath = indexPathForItem(at: point) {
+                onDoubleClickItem?(indexPath)
+                return
+            }
+        }
+        super.mouseDown(with: event)
+    }
+}
+
 /// AppKit contact sheet with virtualization, incremental updates, and distinct focus/selection.
 final class ContactSheetCollectionController: NSViewController, NSCollectionViewDataSource, NSCollectionViewDelegate {
     private let scrollView = NSScrollView()
-    private let collectionView = NSCollectionView()
+    private let collectionView = ContactSheetCollectionView()
     private let layout = ContactSheetLayout()
 
     var items: [ContactSheetItem] = []
@@ -268,6 +287,9 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
         scrollView.backgroundColor = .clear
+        scrollView.verticalScrollElasticity = .allowed
+        scrollView.horizontalScrollElasticity = .automatic
+        scrollView.scrollerStyle = .overlay
 
         layout.rowHeight = rowHeight(for: densityColumns)
         collectionView.collectionViewLayout = layout
@@ -278,6 +300,10 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.setAccessibilityIdentifier(P0AccessibilityID.contactCollection)
+        collectionView.onDoubleClickItem = { [weak self] indexPath in
+            guard let self, indexPath.item < self.items.count else { return }
+            self.onOpen?(self.items[indexPath.item].id)
+        }
         scrollView.documentView = collectionView
         view = scrollView
 
@@ -384,15 +410,6 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
         let id = items[path.item].id
         let flags = NSApp.currentEvent?.modifierFlags ?? []
         onSelectClick?(id, flags.contains(.command), flags.contains(.shift))
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        if event.clickCount == 2,
-           let indexPath = collectionView.indexPathForItem(at: collectionView.convert(event.locationInWindow, from: nil)) {
-            onOpen?(items[indexPath.item].id)
-            return
-        }
-        super.mouseDown(with: event)
     }
 
     func collectionView(

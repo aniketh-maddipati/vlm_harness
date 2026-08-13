@@ -61,7 +61,7 @@ final class P0LogicTests: XCTestCase {
             assetCount: 60, visibleCount: 60, selectionCount: 2, keptCount: 18, rejectedCount: 9,
             unreviewedCount: 33, editedCount: 12, densityColumns: 6, filter: "All", canUndo: true,
             focusedAssetID: "abc", focusedVisible: true, focusedAvailability: "available",
-            focusedCull: "keep", inspectingAssetID: nil, selectedAssetIDs: ["a", "b"],
+            focusedCull: "keep", focusedRecipeFingerprint: "fp-abc", inspectingAssetID: nil, selectedAssetIDs: ["a", "b"],
             missingOriginalCount: 0, previewReadyCount: 60, phaseDetail: "60 photos",
             scrollAnchor: 0, culls: ["a": "keep"], editedIDs: ["a"], visibleAssetIDs: ["a", "b"],
             missingAssetIDs: []

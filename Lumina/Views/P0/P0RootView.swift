@@ -19,6 +19,8 @@ struct P0RootView: View {
                     P0OpenView(session: session)
                 case .contactSheet:
                     P0ContactSheetView(session: session)
+                case .grouping:
+                    P0GroupingView(session: session)
                 }
             }
         }

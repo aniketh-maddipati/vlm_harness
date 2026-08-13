@@ -300,16 +300,32 @@ enum DevelopRenderGraph {
 
     static func applyGeometry(_ recipe: EditRecipe, to image: CIImage) -> CIImage {
         var result = image
-        let bounds = result.extent.integral
+        var bounds = result.extent.integral
 
         if abs(recipe.straightenDegrees) > 0.01 {
-            let radians = CGFloat(recipe.straightenDegrees) * .pi / 180
-            let center = CGPoint(x: bounds.midX, y: bounds.midY)
-            var transform = CGAffineTransform(translationX: center.x, y: center.y)
-            transform = transform.rotated(by: -radians)
-            transform = transform.translatedBy(x: -center.x, y: -center.y)
-            result = result.transformed(by: transform)
-            result = result.cropped(to: bounds)
+            // Split quarter-turn orientation from fine straighten so 90° keeps
+            // the rotated canvas instead of cropping back to the pre-rotate bounds.
+            let turns = (recipe.straightenDegrees / 90.0).rounded()
+            let fineDegrees = recipe.straightenDegrees - turns * 90
+
+            if abs(turns) > 0.01 {
+                let radians = CGFloat(turns * 90) * .pi / 180
+                let center = CGPoint(x: bounds.midX, y: bounds.midY)
+                var transform = CGAffineTransform(translationX: center.x, y: center.y)
+                transform = transform.rotated(by: -radians)
+                transform = transform.translatedBy(x: -center.x, y: -center.y)
+                result = normalizeOrigin(result.transformed(by: transform))
+                bounds = result.extent.integral
+            }
+
+            if abs(fineDegrees) > 0.01 {
+                let radians = CGFloat(fineDegrees) * .pi / 180
+                let center = CGPoint(x: bounds.midX, y: bounds.midY)
+                var transform = CGAffineTransform(translationX: center.x, y: center.y)
+                transform = transform.rotated(by: -radians)
+                transform = transform.translatedBy(x: -center.x, y: -center.y)
+                result = result.transformed(by: transform).cropped(to: bounds)
+            }
         }
 
         if let crop = recipe.crop, !crop.isFullFrame {

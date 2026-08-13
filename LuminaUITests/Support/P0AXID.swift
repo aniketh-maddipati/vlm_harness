@@ -43,6 +43,7 @@ enum P0AXID {
     static let filmstrip = "p0.filmstrip"
     static let filmstripItemPrefix = "p0.filmstrip."
     static func filmstripItem(_ id: String) -> String { filmstripItemPrefix + id }
+    static let singlePhotoExposureSlider = "p0.singlePhoto.exposure"
 
     // Structured state probe
     static let stateProbe = "p0.stateProbe"

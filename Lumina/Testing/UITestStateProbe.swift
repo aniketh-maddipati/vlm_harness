@@ -22,6 +22,10 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedVisible: Bool
     var focusedAvailability: String?
     var focusedCull: String?
+    /// Deterministic fingerprint of the focused asset's canonical `EditRecipe` (nil when nothing is
+    /// focused). Lets the harness assert an edit gesture changed/reverted state without exposing
+    /// pixel data, file paths, or the full recipe payload.
+    var focusedRecipeFingerprint: String?
     var inspectingAssetID: String?
     var selectedAssetIDs: [String]
     var missingOriginalCount: Int
@@ -93,6 +97,7 @@ extension P0SessionModel {
             focusedVisible: focusedAssetID.map { visibleIDs.contains($0) } ?? false,
             focusedAvailability: focused?.source.availability.rawValue,
             focusedCull: focused?.cull.rawValue,
+            focusedRecipeFingerprint: focused.map { recipe(for: $0.id).valueFingerprint },
             inspectingAssetID: inspectingAssetID?.uuidString,
             selectedAssetIDs: selectedAssetIDs.map(\.uuidString).sorted(),
             missingOriginalCount: status.missingOriginalCount,

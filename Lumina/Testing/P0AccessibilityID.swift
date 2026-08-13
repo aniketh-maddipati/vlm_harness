@@ -55,6 +55,8 @@ enum P0AccessibilityID {
     static let filmstrip = "p0.filmstrip"
     static let filmstripItemPrefix = "p0.filmstrip."       // + asset UUID
     static func filmstripItem(_ id: UUID) -> String { filmstripItemPrefix + id.uuidString }
+    // One representative adjustment control, so the harness can drive a real edit gesture.
+    static let singlePhotoExposureSlider = "p0.singlePhoto.exposure"
 
     // Structured state probe — the authoritative machine-readable snapshot of session state.
     // Its accessibilityValue is a JSON document (see UITestStateProbe / ProbeSnapshot).

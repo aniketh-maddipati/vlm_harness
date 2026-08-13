@@ -1,10 +1,19 @@
 import Foundation
 
 nonisolated enum ExifToolService {
-    private static let exifToolPath = "/usr/local/bin/exiftool"
+    /// Homebrew on Apple silicon installs here; Intel Homebrew and Linux apt use the others.
+    private static let candidatePaths = [
+        "/opt/homebrew/bin/exiftool",
+        "/usr/local/bin/exiftool",
+        "/usr/bin/exiftool",
+    ]
+
+    private static func resolvedPath() -> String? {
+        candidatePaths.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
 
     static var isAvailable: Bool {
-        FileManager.default.isExecutableFile(atPath: exifToolPath)
+        resolvedPath() != nil
     }
 
     static func extractPreview(from rawURL: URL, to destURL: URL) throws {
@@ -71,7 +80,7 @@ nonisolated enum ExifToolService {
     }
 
     private static func runData(arguments: [String]) throws -> Data {
-        guard isAvailable else { throw ExifToolError.notInstalled }
+        guard let exifToolPath = resolvedPath() else { throw ExifToolError.notInstalled }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: exifToolPath)
         process.arguments = arguments
@@ -107,7 +116,7 @@ enum ExifToolError: LocalizedError {
         case .previewExtractionFailed(let name):
             "Could not extract preview from \(name)"
         case .notInstalled:
-            "exiftool not found at /usr/local/bin/exiftool"
+            "exiftool not found — install with brew install exiftool"
         case .commandFailed(let cmd):
             "exiftool failed: \(cmd)"
         }

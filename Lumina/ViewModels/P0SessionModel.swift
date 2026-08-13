@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage
 import Foundation
 import Observation
 import SwiftUI
@@ -6,6 +7,26 @@ import SwiftUI
 enum P0Route: Equatable {
     case open
     case contactSheet
+    /// Bridge into grouping — cull/selection state stays intact; full grouping is next.
+    case grouping
+}
+
+enum P0AdjustmentSection: String, CaseIterable, Identifiable, Sendable {
+    case light
+    case color
+    case detail
+    case crop
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .light: return "Light"
+        case .color: return "Color"
+        case .detail: return "Detail"
+        case .crop: return "Crop"
+        }
+    }
 }
 
 /// Orthogonal visual marks derived from canonical state.
@@ -35,7 +56,7 @@ struct ContactSheetMarks: Equatable {
             kept: asset.cull == .keep,
             rejected: asset.cull == .reject,
             selected: selectedIDs.contains(asset.id),
-            edited: asset.recipe != nil,
+            edited: asset.recipe?.hasSettings == true,
             orderIndex: orderIndex
         )
     }
@@ -64,16 +85,38 @@ final class P0SessionModel {
     var scrollAnchor: Double = 0
     var userFacingError: String?
     var isDropTargeted = false
-    /// Single-photo placeholder — opens on Return / double-click; editing rail is a later checkpoint.
+    /// Single-photo editing surface — opens on Return / double-click.
     var inspectingAssetID: UUID?
     var showLegacyShell = false
     /// One-shot flag so returning from single-photo restores scroll without fighting live browsing.
     var pendingScrollRestore = false
     let undoCoordinator = P0UndoCoordinator()
+    /// Shared RAW develop scheduler for the P0 single-photo surface.
+    let developScheduler = DevelopRenderScheduler()
+    /// Working recipe while a slider/crop gesture is active (authoritative only after commit).
+    private(set) var workingRecipe: EditRecipe?
+    private(set) var gestureBaselineRecipe: EditRecipe?
+    private(set) var gestureAssetID: UUID?
+    private(set) var isEditGestureActive = false
+    /// Press-and-hold Before — never mutates recipe or undo.
+    var showingBefore = false
+    var expandedAdjustmentSection: P0AdjustmentSection? = .light
+    var rawCapabilities: PreparedRawSession.Capabilities?
+    var rawNativeTemperature: Double?
+    var rawNativeTint: Double?
+    var fidelityNotice: String?
+    private(set) var editMetricsLine: String = ""
 
     private var preparationTask: Task<Void, Never>?
     private var persistTask: Task<Void, Never>?
+    private var shootPersistTask: Task<Void, Never>?
     private var folderAccess: (url: URL, didStartAccess: Bool)?
+    private var capabilityTask: Task<Void, Never>?
+    private var prewarmTask: Task<Void, Never>?
+    /// Debounces expensive settle/prewarm while arrow keys / filmstrip hover spam focus.
+    private var inspectionWarmTask: Task<Void, Never>?
+    private var inspectionWarmGeneration = 0
+    private var scrubInputStartedAt: CFAbsoluteTime?
 
     var selectionCount: Int { selectedAssetIDs.count }
 
@@ -93,6 +136,24 @@ final class P0SessionModel {
     }
 
     var canUndo: Bool { undoCoordinator.canUndo }
+
+    var undoLabel: String? { undoCoordinator.undoLabel }
+
+    /// Canonical recipe for the focused/inspected photograph (nil → neutral).
+    func recipe(for assetID: UUID) -> EditRecipe {
+        if gestureAssetID == assetID, let workingRecipe {
+            return workingRecipe
+        }
+        return assets.first(where: { $0.id == assetID })?.recipe ?? .neutral
+    }
+
+    func displayedCIImage(for assetID: UUID) -> CIImage? {
+        if showingBefore {
+            return developScheduler.beforeImage(for: assetID)
+                ?? developScheduler.presentedCIImage(for: assetID)
+        }
+        return developScheduler.presentedCIImage(for: assetID)
+    }
 
     var visibleItems: [ContactSheetItem] {
         let ordered = orderedIDList
@@ -161,7 +222,10 @@ final class P0SessionModel {
         inspectingAssetID = nil
         selectedAssetIDs = []
         focusedAssetID = nil
+        showingBefore = false
+        clearGestureState()
         undoCoordinator.clear()
+        developScheduler.cancelAll()
 
         let started = url.startAccessingSecurityScopedResource()
         folderAccess = (url, started)
@@ -186,7 +250,10 @@ final class P0SessionModel {
         inspectingAssetID = nil
         selectedAssetIDs = []
         focusedAssetID = nil
+        showingBefore = false
+        clearGestureState()
         undoCoordinator.clear()
+        developScheduler.cancelAll()
 
         preparationTask = Task { [weak self] in
             guard let self else { return }
@@ -223,8 +290,23 @@ final class P0SessionModel {
         applyCullToggle(pressed: .reject)
     }
 
+    func undoLast() {
+        flushPendingEditIfNeeded()
+        guard let entry = undoCoordinator.pop() else { return }
+        switch entry {
+        case .cull(let command):
+            applyCullUndo(command)
+        case .edit(let command):
+            applyEditUndo(command)
+        }
+    }
+
+    /// Compatibility alias — shared stack now undoes edit or cull.
     func undoLastCull() {
-        guard let command = undoCoordinator.popCull() else { return }
+        undoLast()
+    }
+
+    private func applyCullUndo(_ command: CullMutationCommand) {
         let selectionSnapshot = selectedAssetIDs
         guard let index = assets.firstIndex(where: { $0.id == command.assetID }) else { return }
 
@@ -237,6 +319,27 @@ final class P0SessionModel {
         }
         selectedAssetIDs = selectionSnapshot
         persistShootImmediately()
+    }
+
+    private func applyEditUndo(_ command: EditMutationCommand) {
+        let selectionSnapshot = selectedAssetIDs
+        let cullSnapshot = assets.first(where: { $0.id == command.assetID })?.cull
+        guard let index = assets.firstIndex(where: { $0.id == command.assetID }) else { return }
+
+        assets[index].recipe = command.before.hasSettings ? command.before : nil
+        // Hard invariant: edit undo never mutates cull or selection.
+        if let cullSnapshot {
+            assets[index].cull = cullSnapshot
+        }
+        selectedAssetIDs = selectionSnapshot
+        workingRecipe = nil
+        gestureBaselineRecipe = nil
+        gestureAssetID = nil
+        isEditGestureActive = false
+        persistShootImmediately()
+        if inspectingAssetID == command.assetID {
+            scrubCurrentRecipe(for: command.assetID, recipe: recipe(for: command.assetID), recordInput: false)
+        }
     }
 
     private func applyCullToggle(pressed: CullDecision) {
@@ -277,35 +380,358 @@ final class P0SessionModel {
             finalOrderAfter: orderAfter
         )
         undoCoordinator.push(command)
+        schedulePersistShoot()
+    }
+
+    // MARK: - Edit (single-photo)
+
+    func beginEditGesture(for assetID: UUID? = nil) {
+        let id = assetID ?? inspectingAssetID ?? focusedAssetID
+        guard let id else { return }
+        if isEditGestureActive, gestureAssetID == id { return }
+        flushPendingEditIfNeeded()
+        gestureAssetID = id
+        gestureBaselineRecipe = recipe(for: id)
+        workingRecipe = gestureBaselineRecipe
+        isEditGestureActive = true
+        scrubInputStartedAt = CFAbsoluteTimeGetCurrent()
+    }
+
+    func scrubEdit(_ mutate: (inout EditRecipe) -> Void) {
+        let id = gestureAssetID ?? inspectingAssetID ?? focusedAssetID
+        guard let id else { return }
+        if !isEditGestureActive || gestureAssetID != id {
+            beginEditGesture(for: id)
+        }
+        let next = (workingRecipe ?? recipe(for: id)).updating(mutate)
+        workingRecipe = next
+        // Live pixels only — undo commits on gesture end.
+        scrubCurrentRecipe(for: id, recipe: next, recordInput: true)
+    }
+
+    func endEditGesture() {
+        guard isEditGestureActive, let id = gestureAssetID,
+              let before = gestureBaselineRecipe,
+              let after = workingRecipe else {
+            clearGestureState()
+            return
+        }
+        commitRecipeMutation(assetID: id, before: before, after: after)
+        settleCurrentRecipe(for: id, recipe: after)
+        clearGestureState()
+    }
+
+    /// Commit an instantaneous edit (reset, crop preset, rotate) as one undo command.
+    func applyEditMutation(_ mutate: (inout EditRecipe) -> Void, assetID: UUID? = nil) {
+        flushPendingEditIfNeeded()
+        let id = assetID ?? inspectingAssetID ?? focusedAssetID
+        guard let id else { return }
+        let before = recipe(for: id)
+        let after = before.updating(mutate)
+        commitRecipeMutation(assetID: id, before: before, after: after)
+        scrubCurrentRecipe(for: id, recipe: recipe(for: id), recordInput: false)
+        settleCurrentRecipe(for: id, recipe: recipe(for: id))
+    }
+
+    func resetRecipeToNeutral(assetID: UUID? = nil) {
+        applyEditMutation({ recipe in
+            let retainedID = recipe.id
+            let neighbors = recipe.sourceNeighbors
+            let confidence = recipe.confidence
+            recipe = EditRecipe(
+                id: retainedID,
+                schemaVersion: .current,
+                sourceNeighbors: neighbors,
+                confidence: confidence
+            )
+        }, assetID: assetID)
+    }
+
+    func resetField(_ keyPath: WritableKeyPath<EditRecipe, Double>, to value: Double = 0) {
+        applyEditMutation { $0[keyPath: keyPath] = value }
+    }
+
+    func setShowingBefore(_ show: Bool) {
+        showingBefore = show
+        // Never mutate recipe / undo on Before.
+    }
+
+    func flushPendingEditIfNeeded() {
+        guard isEditGestureActive else { return }
+        endEditGesture()
+    }
+
+    private func commitRecipeMutation(assetID: UUID, before: EditRecipe, after: EditRecipe) {
+        guard before.valueFingerprint != after.valueFingerprint else { return }
+        let selectionSnapshot = selectedAssetIDs
+        let cullSnapshot = assets.first(where: { $0.id == assetID })?.cull
+        let orderSnapshot = shoot?.finalSetOrder.assetIDs ?? []
+        guard let index = assets.firstIndex(where: { $0.id == assetID }) else { return }
+
+        assets[index].recipe = after.hasSettings ? after : nil
+        if let cullSnapshot {
+            assets[index].cull = cullSnapshot
+        }
+        if var shoot {
+            // Hard invariant: editing never mutates final order.
+            shoot.finalSetOrder.assetIDs = orderSnapshot
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+        selectedAssetIDs = selectionSnapshot
+
+        let command = EditMutationCommand(assetID: assetID, before: before, after: after)
+        undoCoordinator.push(command)
         persistShootImmediately()
+        warmBeforeAfter(for: assetID, recipe: after.hasSettings ? after : .neutral)
+    }
+
+    private func clearGestureState() {
+        isEditGestureActive = false
+        gestureAssetID = nil
+        gestureBaselineRecipe = nil
+        workingRecipe = nil
+        scrubInputStartedAt = nil
+    }
+
+    private func scrubCurrentRecipe(for assetID: UUID, recipe: EditRecipe, recordInput: Bool) {
+        guard let urls = resolveRenderURLs(for: assetID) else {
+            fidelityNotice = "Original missing — showing cached preview"
+            return
+        }
+        if urls.rawURL == nil {
+            fidelityNotice = "Original missing — showing cached preview"
+        } else {
+            fidelityNotice = nil
+        }
+        let inputStart = scrubInputStartedAt
+        developScheduler.scrub(
+            photoID: assetID,
+            rawURL: urls.rawURL ?? urls.proxyURL!,
+            proxyURL: urls.proxyURL,
+            recipe: recipe
+        )
+        if recordInput, let inputStart,
+           developScheduler.presentedCIImage(for: assetID) != nil {
+            let ms = (CFAbsoluteTimeGetCurrent() - inputStart) * 1000
+            LatencyMetrics.record("p0.edit.slider_to_pixels", milliseconds: ms)
+        }
+        editMetricsLine = developScheduler.metrics.summaryLine
+        LatencyMetrics.record(
+            "p0.edit.interactive_ms",
+            milliseconds: developScheduler.metrics.lastDurationMs
+        )
+    }
+
+    private func settleCurrentRecipe(for assetID: UUID, recipe: EditRecipe) {
+        guard let urls = resolveRenderURLs(for: assetID) else { return }
+        developScheduler.settlePhotograph(
+            photoID: assetID,
+            rawURL: urls.rawURL ?? urls.proxyURL!,
+            proxyURL: urls.proxyURL,
+            recipe: recipe
+        )
+    }
+
+    /// First paint for inspection — settled RAW, not draft interactive.
+    private func openRender(for assetID: UUID, recipe: EditRecipe) {
+        guard let urls = resolveRenderURLs(for: assetID) else {
+            fidelityNotice = "Original missing — showing cached preview"
+            return
+        }
+        if urls.rawURL == nil {
+            fidelityNotice = "Original missing — showing cached preview"
+        } else {
+            fidelityNotice = nil
+        }
+        developScheduler.openPhotograph(
+            photoID: assetID,
+            rawURL: urls.rawURL ?? urls.proxyURL!,
+            proxyURL: urls.proxyURL,
+            recipe: recipe
+        )
+        editMetricsLine = developScheduler.metrics.summaryLine
+    }
+
+    private func warmBeforeAfter(for assetID: UUID, recipe: EditRecipe) {
+        guard let urls = resolveRenderURLs(for: assetID), let raw = urls.rawURL else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            let start = CFAbsoluteTimeGetCurrent()
+            await self.developScheduler.warmBeforeAfter(
+                photoID: assetID,
+                rawURL: raw,
+                proxyURL: urls.proxyURL,
+                recipe: recipe
+            )
+            LatencyMetrics.record(
+                "p0.edit.before_warm_ms",
+                milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000
+            )
+        }
+    }
+
+    func prewarmInspection(around assetID: UUID) {
+        inspectionWarmGeneration += 1
+        let generation = inspectionWarmGeneration
+        capabilityTask?.cancel()
+        prewarmTask?.cancel()
+        showingBefore = false
+        refreshCapabilities(for: assetID)
+        let recipe = recipe(for: assetID)
+        // Leader frame immediately — cancels prior inflight for this photo.
+        openRender(for: assetID, recipe: recipe)
+        scheduleDebouncedPrewarm(around: assetID, generation: generation, recipe: recipe, delayNanoseconds: 120_000_000)
+    }
+
+    /// Focus changed while inspecting — leader render now; neighbor/before-after after pause.
+    private func scheduleInspectionWarm(around assetID: UUID) {
+        inspectionWarmTask?.cancel()
+        inspectionWarmGeneration += 1
+        let generation = inspectionWarmGeneration
+        capabilityTask?.cancel()
+        prewarmTask?.cancel()
+        showingBefore = false
+        developScheduler.cancelExcept(photoID: assetID)
+        let recipe = recipe(for: assetID)
+        openRender(for: assetID, recipe: recipe)
+        refreshCapabilities(for: assetID)
+        inspectionWarmTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            guard !Task.isCancelled, let self else { return }
+            guard generation == self.inspectionWarmGeneration,
+                  self.inspectingAssetID == assetID else { return }
+            self.scheduleDebouncedPrewarm(
+                around: assetID,
+                generation: generation,
+                recipe: recipe,
+                delayNanoseconds: 0
+            )
+        }
+    }
+
+    /// Before/After + neighbor settled prewarm — debounced separately from the leader frame.
+    private func scheduleDebouncedPrewarm(
+        around assetID: UUID,
+        generation: Int,
+        recipe: EditRecipe,
+        delayNanoseconds: UInt64
+    ) {
+        prewarmTask = Task { [weak self] in
+            if delayNanoseconds > 0 {
+                try? await Task.sleep(nanoseconds: delayNanoseconds)
+            }
+            guard !Task.isCancelled, let self else { return }
+            guard generation == self.inspectionWarmGeneration,
+                  self.inspectingAssetID == assetID else { return }
+            self.warmBeforeAfter(for: assetID, recipe: recipe)
+            let neighbors = self.neighborIDs(around: assetID, radius: 1)
+            let photos: [(UUID, URL)] = neighbors.compactMap { id in
+                guard id != assetID,
+                      let raw = self.resolveRenderURLs(for: id)?.rawURL else { return nil }
+                return (id, raw)
+            }
+            self.developScheduler.prewarm(photos: photos, recipe: .neutral)
+            LatencyMetrics.record("p0.edit.nav_prewarm_count", milliseconds: Double(photos.count))
+        }
+    }
+
+    private func refreshCapabilities(for assetID: UUID) {
+        guard let rawURL = resolveRenderURLs(for: assetID)?.rawURL else {
+            rawCapabilities = nil
+            rawNativeTemperature = nil
+            rawNativeTint = nil
+            return
+        }
+        capabilityTask = Task { [weak self] in
+            let start = CFAbsoluteTimeGetCurrent()
+            let session = await PreparedRawSessionRegistry.shared.session(for: assetID, rawURL: rawURL)
+            let report = await session.capabilityReport()
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self, self.inspectingAssetID == assetID else { return }
+                self.rawCapabilities = report.0
+                self.rawNativeTemperature = report.1?.nativeNeutralTemperature
+                self.rawNativeTint = report.1?.nativeNeutralTint
+                LatencyMetrics.record(
+                    "p0.edit.session_prepare_ms",
+                    milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000
+                )
+            }
+        }
+    }
+
+    private func neighborIDs(around id: UUID, radius: Int) -> [UUID] {
+        let items = visibleItems
+        guard let idx = items.firstIndex(where: { $0.id == id }) else { return [id] }
+        let lo = max(0, idx - radius)
+        let hi = min(items.count, idx + radius + 1)
+        return Array(items[lo..<hi].map(\.id))
+    }
+
+    struct RenderURLs {
+        var rawURL: URL?
+        var proxyURL: URL?
+    }
+
+    func resolveRenderURLs(for assetID: UUID) -> RenderURLs? {
+        guard let asset = assets.first(where: { $0.id == assetID }) else { return nil }
+        let rawPath = asset.source.originalPath
+        let rawExists = FileManager.default.fileExists(atPath: rawPath)
+            && asset.source.availability != .missing
+        let rawURL = rawExists ? URL(fileURLWithPath: rawPath) : nil
+        let proxyPath = asset.proxyPath ?? asset.thumbPath ?? asset.gridThumbPath
+        let proxyURL = proxyPath.map { URL(fileURLWithPath: $0) }
+        if rawURL == nil && proxyURL == nil { return nil }
+        return RenderURLs(rawURL: rawURL, proxyURL: proxyURL)
     }
 
     // MARK: - Focus / selection
 
     func setFocus(_ id: UUID?) {
         let start = CFAbsoluteTimeGetCurrent()
+        if inspectingAssetID != nil, let id, id != inspectingAssetID {
+            flushPendingEditIfNeeded()
+        }
+        let changed = focusedAssetID != id
         focusedAssetID = id
         if inspectingAssetID != nil, let id {
+            let photoChanged = inspectingAssetID != id
             inspectingAssetID = id
+            if photoChanged {
+                // Debounce settle/prewarm — arrow spam was launching N settled RAW demosaics.
+                scheduleInspectionWarm(around: id)
+            }
+            LatencyMetrics.record(
+                "p0.edit.nav_to_neighbor_ms",
+                milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000
+            )
         }
         if let id, let asset = assets.first(where: { $0.id == id }),
-           let path = asset.gridThumbPath ?? asset.thumbPath {
+           let path = asset.thumbPath ?? asset.gridThumbPath {
             ThumbCache.shared.prefetch(path)
             LatencyMetrics.record(
                 "p0.focus_to_preview",
                 milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000
             )
         }
-        schedulePersistRestore()
+        if changed {
+            schedulePersistRestore()
+        }
     }
 
     func moveFocus(dx: Int, dy: Int, columns: Int) {
         let items = visibleItems
         guard !items.isEmpty else { return }
         if inspectingAssetID != nil {
+            // Single-photo filmstrip is linear — ignore grid column stride.
+            let step = dx != 0 ? dx : dy
+            guard step != 0 else { return }
             let current = focusedAssetID.flatMap { id in items.firstIndex(where: { $0.id == id }) } ?? 0
-            let next = min(max(current + dx + dy * max(columns, 1), 0), items.count - 1)
-            setFocus(items[next].id)
+            let next = min(max(current + step, 0), items.count - 1)
+            if items[next].id != focusedAssetID {
+                setFocus(items[next].id)
+            }
             return
         }
         let cols = max(columns, 1)
@@ -316,7 +742,9 @@ final class P0SessionModel {
         let newCol = min(max(0, col + dx), cols - 1)
         var next = newRow * cols + newCol
         if next >= items.count { next = items.count - 1 }
-        setFocus(items[next].id)
+        if items[next].id != focusedAssetID {
+            setFocus(items[next].id)
+        }
     }
 
     func selectClick(id: UUID, command: Bool, shift: Bool) {
@@ -337,18 +765,70 @@ final class P0SessionModel {
         setFocus(id)
     }
 
+    /// Toggle selection of the focused/inspected photograph without changing focus.
+    func toggleSelectionOfFocused() {
+        guard let id = focusedAssetID ?? inspectingAssetID else { return }
+        if selectedAssetIDs.contains(id) {
+            selectedAssetIDs.remove(id)
+        } else {
+            selectedAssetIDs.insert(id)
+        }
+    }
+
+    var focusedIsSelected: Bool {
+        guard let id = focusedAssetID ?? inspectingAssetID else { return false }
+        return selectedAssetIDs.contains(id)
+    }
+
     func openFocusedPhotograph() {
         guard let id = focusedAssetID ?? selectedAssetIDs.first else { return }
         schedulePersistRestore()
         inspectingAssetID = id
         focusedAssetID = id
+        expandedAdjustmentSection = .light
+        prewarmInspection(around: id)
         persistRestoreNow()
     }
 
     func closeInspection() {
+        flushPendingEditIfNeeded()
+        showingBefore = false
         pendingScrollRestore = true
         inspectingAssetID = nil
         persistRestoreNow()
+    }
+
+    /// Contact sheet → grouping. Keeps shoot, cull marks, and selection; Esc returns to the grid.
+    func enterGrouping() {
+        guard shoot != nil else { return }
+        flushPendingEditIfNeeded()
+        showingBefore = false
+        inspectingAssetID = nil
+        route = .grouping
+        persistRestoreNow()
+    }
+
+    func leaveGrouping() {
+        guard route == .grouping else { return }
+        route = .contactSheet
+        pendingScrollRestore = true
+        persistRestoreNow()
+    }
+
+    /// Pixel zoom request for the inspecting photograph (double-click / 1:1).
+    func requestOneToOneZoom(for assetID: UUID) {
+        guard let urls = resolveRenderURLs(for: assetID), let raw = urls.rawURL else { return }
+        let recipe = recipe(for: assetID)
+        let region = DevelopRenderRegion(x: 0.35, y: 0.35, width: 0.3, height: 0.3)
+        Task {
+            await developScheduler.renderOneToOne(
+                photoID: assetID,
+                rawURL: raw,
+                proxyURL: urls.proxyURL,
+                recipe: recipe,
+                region: region
+            )
+        }
     }
 
     func adjustDensity(_ delta: Int) {
@@ -367,15 +847,21 @@ final class P0SessionModel {
     }
 
     func goHome() {
+        flushPendingEditIfNeeded()
         preparationTask?.cancel()
+        capabilityTask?.cancel()
+        prewarmTask?.cancel()
         persistRestoreNow()
         releaseFolderAccess()
+        developScheduler.cancelAll()
         shoot = nil
         assets = []
         status = ContactSheetPreparationStatus()
         focusedAssetID = nil
         selectedAssetIDs = []
         inspectingAssetID = nil
+        showingBefore = false
+        clearGestureState()
         undoCoordinator.clear()
         route = .open
         refreshRecent()
@@ -481,6 +967,7 @@ final class P0SessionModel {
         }
         if workspace.scale == .singlePhoto, let focusedAssetID {
             inspectingAssetID = focusedAssetID
+            prewarmInspection(around: focusedAssetID)
         }
     }
 
@@ -510,8 +997,19 @@ final class P0SessionModel {
         }
     }
 
+    /// Cull mutations coalesce disk writes so P/X spam stays responsive.
+    private func schedulePersistShoot() {
+        shootPersistTask?.cancel()
+        shootPersistTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { self?.persistShootImmediately() }
+        }
+    }
+
     /// Cull mutations persist immediately — not wait for restore debounce.
     private func persistShootImmediately() {
+        shootPersistTask?.cancel()
         guard var shoot else { return }
         shoot.workspace = WorkspaceRestoreState(
             focusedAssetID: focusedAssetID,
