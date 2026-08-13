@@ -27,6 +27,8 @@ struct ProbeSnapshot: Codable, Equatable {
     /// focused). Lets the harness assert an edit gesture changed/reverted state without exposing
     /// pixel data, file paths, or the full recipe payload.
     var focusedRecipeFingerprint: String?
+    /// D47/A3 — pointer cull mark targets visible on the focused contact-sheet frame.
+    var pointerCullTargetsVisible: Bool
     var inspectingAssetID: String?
     var selectedAssetIDs: [String]
     var missingOriginalCount: Int
@@ -99,6 +101,7 @@ extension P0SessionModel {
             focusedAvailability: focused?.source.availability.rawValue,
             focusedCull: focused?.cull.rawValue,
             focusedRecipeFingerprint: focused.map { recipe(for: $0.id).valueFingerprint },
+            pointerCullTargetsVisible: route == "contactSheet" && inspectingAssetID == nil && focusedAssetID != nil,
             inspectingAssetID: inspectingAssetID?.uuidString,
             selectedAssetIDs: selectedAssetIDs.map(\.uuidString).sorted(),
             missingOriginalCount: status.missingOriginalCount,
