@@ -1,0 +1,44 @@
+# path<space>symbol — owned orphan; no live wiring (W1 gate-truth)
+# Format: register row then # owned-by-CP<N> reason on prior line
+# owned-by-CP8 — A11 beta diagnostics socket — manifest-only
+Lumina/Core/BetaDiagnosticsSocket.swift BetaDiagnosticsSocket
+# owned-by-CP4 — CullGrammarMachine support type
+Lumina/Core/CullGrammarMachine.swift CullGrammarEvent
+# owned-by-CP4 — headless grammar — wire to P0SessionModel (W3)
+Lumina/Core/CullGrammarMachine.swift CullGrammarMachine
+# owned-by-CP4 — CullGrammarMachine support type
+Lumina/Core/CullGrammarMachine.swift CullGrammarSnapshot
+Lumina/Core/CullGrammarMachine.swift CullGrammarStaging
+Lumina/Core/CullGrammarMachine.swift CullGrammarState
+Lumina/Core/CullGrammarMachine.swift CullHoldKey
+# owned-by-R3 — release manifest — consumed by F11 harness only
+Lumina/Core/LuminaBuildManifest.swift LuminaBuildManifest
+# owned-by-CP4 — probe polling helper — live driver wiring
+Lumina/Core/ProbePolling.swift ProbePolling
+# owned-by-P7 — SPIKE B spring physics — wire via LuminaSpringAnimation (W4)
+Lumina/Design/LuminaSpring.swift LuminaSpring
+# owned-by-P7 — LuminaSpring support type
+Lumina/Design/LuminaSpring.swift LuminaSpringCurve
+Lumina/Design/LuminaSpring.swift LuminaSpringParams
+Lumina/Design/LuminaSpring.swift LuminaSpringRetarget
+# owned-by-CP1 — workspace chrome tokens — legacy shell
+Lumina/Design/LuminaTokens.swift LuminaWorkspaceAppearance
+# owned-by-CP7 — A1 invariant staging copy — wholesale ripple
+Lumina/Design/StagingCopyContext.swift A1Invariant
+# owned-by-CP7 — PropagationRing helper
+Lumina/Design/StagingCopyContext.swift PropagationRing
+# owned-by-CP4 — legacy component — retire or wire on P0
+Lumina/Views/Components/FloatingDecisionShelf.swift FloatingDecisionShelf
+Lumina/Views/Components/FloatingDecisionShelf.swift FloatingShelfButtonStyle
+# owned-by-CP8 — Law 3 facts chip — wire on P0 failure paths (W7)
+Lumina/Views/Components/RecoveryFactsChip.swift RecoveryFactsChip
+# owned-by-CP4 — legacy component — retire or wire on P0
+Lumina/Views/Components/StablePhotoView.swift StableThumbView
+Lumina/Views/Components/SwimLaneContainer.swift DockedChipLaneDropModifier
+Lumina/Views/Components/WorkspaceChrome.swift AttemptFilmstrip
+Lumina/Views/Components/WorkspaceChrome.swift GroupRelationshipCaption
+Lumina/Views/Components/WorkspaceChrome.swift LensSwitcher
+Lumina/Views/Components/WorkspaceChrome.swift LuminaCard
+Lumina/Views/Components/WorkspaceCommandBar.swift LuminaCommandButton
+Lumina/Views/Components/WorkspaceCommandBar.swift LuminaCommandPressStyle
+Lumina/Views/Components/WorkspaceCommandBar.swift WorkspaceCommandBar
