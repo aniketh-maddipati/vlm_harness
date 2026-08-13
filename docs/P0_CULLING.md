@@ -41,7 +41,24 @@ Escape / Grid → contact sheet with same focus + approximate scroll restore. Se
 - `CullGrammarMachine` — sole cull grammar authority; P0 routes every mark/focus/advance event through it (CP4)
 - `CullMutationCommand` + `P0UndoCoordinator` — committed command boundary for journal/undo (one ⌘Z per act)
 - `P0SessionModel.pressKeep/pressReject/pointerMarkKeep/pointerMarkReject` — presentation + persistence only
+- `P0KeyRoutingModifier` — sole P0 live-path keyboard owner; Esc via `P0EscLadder`
 - Legacy Workbench decision undo remains on the old route only
+
+## Keyboard routing (W5)
+
+All P0 keys route through `P0KeyRoutingModifier` on `P0RootView`. Decision keys (`P`, `X`, `⏎`, `⌘Z` undo chord, `⇧G`) swallow autorepeat at the owner; travel keys (arrows, density `+`/`-`) autorepeat.
+
+## Pointer / keyboard parity (D10, D47/A3)
+
+| Pointer act | Key path | Status |
+|---|---|---|
+| Click cell → focus | Arrow keys → `moveFocus` | **Parity** |
+| `P` / `X` cull | `P` / `X` keys | **Parity** |
+| Double-click → open | `⏎` on focused cell | **Parity** |
+| Space-equivalent selection toggle | `Space` on focused cell | **Parity** |
+| Command-click toggle off focused cell | Focus then `Space` | **Partial** — no direct key for arbitrary cell |
+| Shift-click range select | — | **RULING NEEDED** — no contract key |
+| Pointer ✓/✕ mark targets (D47/A3) | `P` / `X` keys | **Parity** |
 
 ## Next checkpoint (trustworthy single-photo editing)
 

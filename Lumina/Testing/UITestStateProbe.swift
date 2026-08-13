@@ -45,6 +45,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var missingAssetIDs: [String]
     /// D27 — whether live-path transform/shadow animations snap (accessibility or harness flag).
     var reduceMotionActive: Bool
+    /// W5 — sole P0 keyboard routing owner (`P0KeyRoutingModifier`).
+    var keyRoutingOwner: String
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -115,7 +117,8 @@ extension P0SessionModel {
             visibleAssetIDs: visible.map(\.id.uuidString),
             missingAssetIDs: assets.filter { $0.source.availability == .missing }.map(\.id.uuidString),
             reduceMotionActive: UITestSupport.reduceMotionForced
-                || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+            keyRoutingOwner: "P0KeyRoutingModifier"
         )
     }
 }

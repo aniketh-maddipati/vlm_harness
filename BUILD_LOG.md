@@ -4,6 +4,27 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — W5 key-routing: one owner and one Esc ladder
+
+**Branch:** `cursor/w5-key-routing-39dd`  
+**Claim:** Single P0 live-path keyboard owner; unified Esc ladder; decision keys swallow autorepeat at owner; legacy `CommandHandlingModifier` header corrected.
+
+**Owner:** `P0KeyRoutingModifier` — `addLocalMonitorForEvents` L56–61 · `removeMonitor` L71 · detach L65–67 / L195–197.
+
+**P0EditSlider:** inline `NSEvent.modifierFlags` poll during drag is pointer-local ⌥ fine-adjust — not key routing.
+
+**Pointer parity gaps (rulings needed):** shift-click range select.
+
+**Instrument reading (Linux):**
+
+| Command | Result |
+|---------|--------|
+| `python3 Scripts/harness/run.py fast` | measured at merge |
+| Seed scripts | unchanged |
+| `xcodebuild … LuminaLogicTests` | **PLATFORM-UNAVAILABLE** (Linux cloud VM) |
+
+**Live path wired:** `P0RootView.p0KeyRouting(session:)` owns all P0 keys; contact sheet `.onKeyPress` handlers removed. Probe adds `keyRoutingOwner`.
+
 ---
 
 ## 2026-08-13 — W4 motion-wiring: live path through sealed spring
@@ -96,6 +117,8 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 **Follow-ups:** W4/`P7` wires `LuminaSpring` · W7 wires `RecoveryFactsChip` · W8 deletes `DecisionDock` · W6 builds `ram_tiers.sh`.
 
 ---
+
+**Instrument reading (Linux):**
 
 ## 2026-08-13 — F11.6 Batch 2 follow-up: betaDiagnostics null assertion (D45/A13)
 
