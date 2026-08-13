@@ -17,11 +17,19 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 | Command | Result |
 |---------|--------|
+| `grep 'D10' design/contract-v5.md` | **1 hit** (line 97) |
 | `grep '### D47' design/contract-v6.md` | **1 hit** — `[● A3]` |
 | `grep '### D59' design/contract-v6.md` | **1 hit** |
-| `python3 Scripts/harness/run.py fast` | **PASS** 7265ms · orchestration **33/33** |
+| `git rebase origin/main` | **up to date** @ `83ba118` |
+| `python3 Scripts/harness/run.py fast` | **PASS** 6708ms · orchestration **33/33** · `allowlist_ratchet` **OK** |
+| `python3 Scripts/harness/run.py full` | **PLATFORM-UNAVAILABLE** 113ms · app tests **0/7** expected |
 | `rg onHover Lumina/Views/P0/` | **0 hits** |
-| `xcodebuild test -only-testing:LuminaLogicTests/P0CullTests` | **PLATFORM-UNAVAILABLE** |
+| `xcodebuild -scheme Lumina build` | **PLATFORM-UNAVAILABLE** (Linux cloud VM) |
+| `xcodebuild … -only-testing:LuminaLogicTests test` | **PLATFORM-UNAVAILABLE** (Linux cloud VM) |
+
+**Merge gate (§2.3):** Linux FAST **green** (inventory **33/33**, not INCOMPLETE). FULL + xcodebuild **unverified** on this host — PR mergeable on orchestration evidence only; macOS operator must run pre-merge FULL + logic tests before Wave 0.
+
+**Debt delta:** banned-pattern allowlist **1 → 1** · magic-number allowlist **3 → 3** · no lines added or removed.
 
 ---
 
