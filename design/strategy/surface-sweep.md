@@ -221,20 +221,62 @@ Ordered by blocker severity. **Must-ship** = blocks a honest wave demo or ship g
 | **L11** | F12 bug-report bundle | Behind CP2 | CP2 → F12 chain per RESUME |
 | **L12** | Chrome / P0 pixel goldens under new hash | Bookkeeping after token seal | Re-propose after M2 merge |
 
-### Suggested wave order (measurement-derived, not a build plan)
+### Suggested wave order (measurement-derived — subordinate to §5 operator invariants)
 
 ```
 M1 macOS automation diagnostic
   → M7 harness hygiene (parallel on Linux)
-  → M2 merge SPIKE B + tokensHash re-measure
-  → M6 Batch 3 ruling (can parallel operator review)
-  → M3 CP2 persistence
-  → M4 product ruling (P0 vs legacy promotion)
-  → M5 D48 hover fix
-  → CP4/CP6/CP8 completion sessions (L5–L4) as separate checkpoints
+  → P7 (SPIKE B seal — moves tokensHash)
+  → R3 (F11 release + fresh manifest — re-run before Wave 0)
+  → Wave 0 (first DMG / ship cut — manifest fields current)
+  → … checkpoint work …
+  → P5 (CP2 persistence — “nothing lost” becomes test result)
+  → Wave 1 (gated on P5 only)
 ```
 
+Legacy measurement order (§4 M-items) remains valid for **engineering** sequencing inside Wave 0 prep; **distribution** sequencing is fixed by §5.
+
 **One-checkpoint rule** (`checkpoint-sequence-v6.md`): do not span two checkpoints in one build session.
+
+---
+
+## 5. Operator wave invariants (true regardless of P8 findings)
+
+*Recorded 2026-08-13 from operator ruling. These override ad-hoc “ship now” shortcuts in §4.*
+
+### Session map (operator labels)
+
+| Label | Maps to | What it proves |
+|-------|---------|----------------|
+| **P7** | SPIKE B motion seal (`design/tokens.yaml` §motion → `6.2-motion-seal` or successor) | **`tokensHash` moves** — F07.4–F07.6 green; codegen `--check`; spring trajectory golden under new hash. Unmerged work: `spike/b-motion` @ `cf583f8` (**UNMEASURED on main**). |
+| **R3** | F11 release integrity + manifest embed + promote | **`run_f11_release.py`** (F11.1–F11.7) + **`write_build_manifest.py`** + optional **`retain_shipped_artifact.py promote`**. macOS only (`PLATFORM-UNAVAILABLE` on Linux — **UNMEASURED** here). |
+| **P5** | CP2 checkpoint (journal + sidecars + crash-only startup + kill-fuzz) | D36 “nothing you did is ever lost” stops being a **claim** and becomes a **test result** (F06 / HEAVY kill-fuzz / LR round-trip — **NOT BUILT** on `a076644`; `ShootStore.saveShoot` → `shoot.json` still live). |
+| **Wave 0** | First wave-worthy DMG / ship cut to testers | First distribution artifact after P7 + R3. |
+| **Wave 1** | Second wave distribution | **Gated on P5** — do not ship Wave 1 until CP2 persistence is measured green. |
+
+### Manifest stale rule (P7 → R3 → Wave 0)
+
+**P7 moves `tokensHash`.** Any DMG cut packaged **before** P7 lands embeds stale values in **two** `LuminaBuildManifest.json` fields (written by `Scripts/harness/release/write_build_manifest.py`):
+
+| Field | Source at build time | Goes stale when |
+|-------|---------------------|-----------------|
+| **`tokensHash`** | `artifacts/harness/tokens.hash` | Any `design/tokens.yaml` edit (P7 §motion seal) |
+| **`contractVersion`** | `design/tokens.yaml` `version` key | Same bump (e.g. `6.2-batch2` → `6.2-motion-seal`) |
+
+Measured stale example on main @ `a076644`: embedded BUILD_LOG cites `tokensHash: 7b0c1552…` / `contractVersion: 6.2-motion-seal` while live tree has `c8f75e1a…` / `6.2-batch2` — **contradiction proves pre-P7 cuts lie about law.**
+
+**Corollary:** **`R3` must complete after P7 and before Wave 0** — rebuild Release `.app`, re-embed manifest, re-run `f11_read_manifest.py --check`, then promote (`F11.5`). Install-page `bugReportLine` and tester bug citations inherit both fields (`docs/release/install-page-content-spec.md` Surface 1).
+
+Also invalidated by P7 (re-measure, not just manifest): F04.1 build-cache key (`<source12>-<tokens12>`), spring trajectory golden, chrome goldens under old hash (`artifacts/harness/goldens/<hash>/…`).
+
+### Wave gates (fixed)
+
+| Wave | Gate | Blocker if skipped |
+|------|------|-------------------|
+| **Wave 0** | P7 closed + **R3 re-run** on macOS | Ship artifact cites wrong `tokensHash` / `contractVersion`; rollback manifest (`F11.5 previous/`) also stale |
+| **Wave 1** | **P5 closed** (CP2 measured) | “Nothing you did is ever lost” remains marketing copy; D36 catalog violation (`shoot.json`) live |
+
+**Wave 1 is not gated on Wave 0 completion** — it is gated on **P5**. Wave 0 may ship a narrower surface; Wave 1 assumes persistence law is enforced by tests, not prose.
 
 ---
 
@@ -260,4 +302,4 @@ M1 macOS automation diagnostic
 | SHELVED / BANKED | 8 register rows |
 | NOT RATIFIED | R-A.3 / proposed D67 |
 
-**Wave-worthy today:** **No** — M1–M7 block an honest wave demo on `origin/main` @ `a076644`. Unmerged SPIKE B work reduces physics gap but does not clear M1, M3, M4, or M6.
+**Wave-worthy today:** **No** — M1–M7 block an honest Wave 0 on `origin/main` @ `a076644`. Unmerged SPIKE B work reduces physics gap but does not clear M1, M3, M4, or M6. **Even if M-items green:** Wave 0 still requires **P7 → R3**; Wave 1 still requires **P5** (§5).

@@ -4,6 +4,22 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — P8 operator ruling: wave sequencing (P7 / R3 / P5)
+
+**Branch:** `strategy/p8-surface-sweep`  
+**Claim:** Record operator invariants true regardless of P8 measurement — appended to `design/strategy/surface-sweep.md` §5.
+
+**Ruling (verbatim substance):**
+
+1. **P7 moves `tokensHash`** — any DMG cut before P7 embeds stale **`tokensHash`** and **`contractVersion`** in `LuminaBuildManifest.json` (`write_build_manifest.py`). **Re-run R3 before Wave 0.**
+2. **Wave 1 gated on P5** — CP2 session where D36 “nothing you did is ever lost” becomes a **test result**, not a claim (`ShootStore` → `shoot.json` violation live on `a076644`).
+
+**Session map:** P7 = SPIKE B seal · R3 = `run_f11_release.py` + manifest embed + promote · P5 = CP2 · Wave 0 = first ship cut · Wave 1 = second wave (P5 gate).
+
+**Instrument reading:** No new commands — ruling is operator-authored; P8 Linux FAST (`a076644`) already shows pre-P7 manifest/hash drift.
+
+---
+
 ## 2026-08-13 — P8 surface sweep: existence matrix + checkpoint evidence
 
 **Branch:** `strategy/p8-surface-sweep` · **Base:** `origin/main` @ `a076644`  
