@@ -688,7 +688,7 @@ struct TreatmentStageView: View {
             next.vibrance = min(max(s.vibrance - baseRecipe.vibrance, -100), 100)
             next.temperature = min(max(s.kelvin - baseRecipe.temperature, -2000), 2000)
             next.tint = min(max(s.tint - baseRecipe.tint, -50), 50)
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
+            withAnimation(reduceMotion ? nil : LuminaSpringAnimation.animation(durationMs: 250, curve: .easeOut)) {
                 commit(next)
             }
             if map?.hasFace == true {

@@ -123,7 +123,7 @@ struct PhotoImageView: View {
         if let proxy = await PhotoImageLoader.ensureProxyPath(photo: photo, projectName: projectName) {
             let outcome = await PhotoImageCache.shared.load(path: proxy, maxPixelSize: nil, allowRAW: true)
             if case .image(let img) = outcome {
-                withAnimation(.easeOut(duration: 0.22)) {
+                withAnimation(LuminaTokens.Motion.fidelity) {
                     image = img
                 }
             }

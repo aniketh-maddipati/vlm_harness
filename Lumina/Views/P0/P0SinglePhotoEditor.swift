@@ -362,7 +362,7 @@ struct P0SinglePhotoEditor: View {
         .onTapGesture {
             session.selectClick(id: item.id, command: true, shift: false)
         }
-        .animation(reduceMotion ? nil : .interactiveSpring(response: 0.28, dampingFraction: 0.86), value: focused)
+        .animation(reduceMotion ? nil : LuminaTokens.Motion.photo, value: focused)
         .accessibilityLabel(item.asset.filename)
         .accessibilityAddTraits(focused ? .isSelected : [])
         .accessibilityHint("Hover to focus, click to select")

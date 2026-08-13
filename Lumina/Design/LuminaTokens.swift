@@ -149,28 +149,29 @@ enum LuminaTokens {
     }
 
     enum Motion {
-        static let control = Animation.easeOut(duration: 0.18)
-        static let photo = Animation.easeOut(duration: 0.28)
-        static let selection = Animation.easeInOut(duration: 0.32)
-        static let develop = Animation.easeInOut(duration: 0.55)
-        static let route = Animation.easeOut(duration: 0.24)
-        static let fidelity = Animation.easeOut(duration: 0.22)
-        static let reveal = Animation.easeOut(duration: 0.34)
+        // Durations cite design/tokens.yaml §motion where sealed; interim spring params preserve prior curves.
+        static let control = LuminaSpringAnimation.animation(durationMs: 180, curve: .easeOut)
+        static let photo = LuminaSpringAnimation.animation(durationMs: 280, curve: .interactive)
+        static let selection = LuminaSpringAnimation.animation(durationMs: 320, curve: .easeInOut)
+        static let develop = LuminaSpringAnimation.animation(durationMs: 550, curve: .easeInOut)
+        static let route = LuminaSpringAnimation.animation(durationMs: 240, curve: .easeOut)
+        static let fidelity = LuminaSpringAnimation.animation(durationMs: 220, curve: .easeOut)
+        static let reveal = LuminaSpringAnimation.animation(durationMs: 340, curve: .easeOut)
 
-        /// Darkroom command-layer timings.
+        /// Darkroom command-layer timings (tokens.yaml §motion ms).
         static let handlingFeedback: Animation? = nil // 1 frame — no animation
-        static let lift = Animation.easeOut(duration: 0.100)
-        static let travel = Animation.easeOut(duration: 0.180)
-        static let travelFast = Animation.easeOut(duration: 0.090)
-        static let stage = Animation.easeInOut(duration: 0.140)
-        static let shelfIn = Animation.easeOut(duration: 0.120)
-        static let fidelityCrossfade = Animation.easeOut(duration: 0.120)
-        static let reduceMotionKeyline = Animation.easeOut(duration: 0.090)
+        static let lift = LuminaSpringAnimation.animation(durationMs: 100, curve: .easeOut)
+        static let travel = LuminaSpringAnimation.animation(durationMs: 180, curve: .easeOut)
+        static let travelFast = LuminaSpringAnimation.animation(durationMs: 90, curve: .easeOut)
+        static let stage = LuminaSpringAnimation.animation(durationMs: 140, curve: .easeInOut)
+        static let shelfIn = LuminaSpringAnimation.animation(durationMs: 120, curve: .easeOut)
+        static let fidelityCrossfade = LuminaSpringAnimation.animation(durationMs: 120, curve: .easeOut)
+        static let reduceMotionKeyline = LuminaSpringAnimation.animation(durationMs: 90, curve: .easeOut)
         /// Table footer hover hint — in 120 ms, out 250 ms.
-        static let tableHoverIn = Animation.easeOut(duration: 0.120)
-        static let tableHoverOut = Animation.easeOut(duration: 0.250)
+        static let tableHoverIn = LuminaSpringAnimation.animation(durationMs: 120, curve: .easeOut)
+        static let tableHoverOut = LuminaSpringAnimation.animation(durationMs: 250, curve: .easeOut)
         /// Per-arrival table landing (lumFill) — opacity only at birth.
-        static let photoBirth = Animation.easeOut(duration: 0.340)
+        static let photoBirth = LuminaSpringAnimation.animation(durationMs: 340, curve: .easeOut)
     }
 
     /// Rolling confirm cadence — 3 confirms inside 8 s shortens travel to 90 ms until 10 s idle.

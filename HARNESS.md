@@ -220,10 +220,10 @@ FAST **`grammar_oracle_parity`** replays all five through `ProbeSimulator` and t
 | Vacuous-green + platform gates | **Closed in CP0 review** | CP0 |
 | Ledger UNMEASURED honesty | **Closed in CP0 review** | CP0 |
 | Motion timing *measured* gate | STUB / UNMEASURED until live signposts | **SPIKE A** |
-| F07.4 dead-stop exact (orchestration) | **Closed — SPIKE B seal** (`spring_physics_f07`; see BUILD_LOG drift note) | **SPIKE B** |
-| F07.5 retarget continuity | **Closed — SPIKE B seal** | **SPIKE B** |
-| F07.6 reduced-motion variant | **Closed — SPIKE B seal** | **SPIKE B** |
-| Spring trajectory golden (tokens-hash) | **Closed — SPIKE B seal** | **SPIKE B** |
+| F07.4 dead-stop exact (orchestration) | **STUB — SPIKE B** (seal absent from `tokens.yaml` §motion; `spring_physics_f07` exits 0) | **SPIKE B** |
+| F07.5 retarget continuity | **STUB — SPIKE B** | **SPIKE B** |
+| F07.6 reduced-motion variant | **STUB — SPIKE B** | **SPIKE B** |
+| Spring trajectory golden (tokens-hash) | **STUB — SPIKE B** | **SPIKE B** |
 | Grammar scripts *live* | STUB oracle only | **CP4** |
 | Golden service bookkeeping | **Closed in CP0** | CP0 |
 | Chrome/photo golden *pixels* | STUB `--live` | **CP1** / bodies **CP3** |

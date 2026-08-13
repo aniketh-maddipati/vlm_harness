@@ -164,7 +164,7 @@ struct SpineAwarePhotoTile: View {
 
         if let img = await PreviewSpine.shared.fidelityImage(for: photo) {
             await MainActor.run {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(LuminaSpringAnimation.animation(durationMs: 200, curve: .easeOut)) {
                     image = img
                     showingSilhouette = false
                     failed = false
@@ -201,7 +201,7 @@ private struct ProgressiveWallTile: View {
             let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: PhotoImageTier.gridMaxPixelSize, allowRAW: false)
             switch outcome {
             case .image(let img):
-                withAnimation(.easeOut(duration: 0.25)) { image = img }
+                withAnimation(LuminaSpringAnimation.animation(durationMs: 250, curve: .easeOut)) { image = img }
             case .missing, .failed:
                 failed = true
             }

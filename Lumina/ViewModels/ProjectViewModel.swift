@@ -386,7 +386,7 @@ final class ProjectViewModel {
         for await event in stream {
             switch event {
             case .progress(let progress):
-                withAnimation(.easeInOut(duration: 0.55)) {
+                withAnimation(LuminaTokens.Motion.develop) {
                     importProgress = progress
                 }
                 // Stop once Meet opens (isImporting → false) so "Grouping similar…" can't stick forever.
@@ -406,7 +406,7 @@ final class ProjectViewModel {
                     cursorPhotoID: firstPhotoID(in: photos)
                 )
                 SessionCache.beginEditingSession(projectName: p.name)
-                withAnimation(.easeInOut(duration: 0.4)) {
+                withAnimation(LuminaSpringAnimation.animation(durationMs: 400, curve: .easeInOut)) {
                     project = p
                     importPreviewPhotos = photos
                 }
@@ -422,7 +422,7 @@ final class ProjectViewModel {
                 project = finished
                 importPreviewPhotos = finished.photos
                 ProjectStore.saveLastProjectName(finished.name)
-                withAnimation(.easeInOut(duration: 0.35)) {
+                withAnimation(LuminaSpringAnimation.animation(durationMs: 350, curve: .easeInOut)) {
                     sortMode = .similar
                     lens = nil
                     isImporting = false
@@ -439,7 +439,7 @@ final class ProjectViewModel {
             case .failed(let msg):
                 statusMessage = msg
                 userFacingError = msg
-                withAnimation(.easeInOut(duration: 0.35)) {
+                withAnimation(LuminaSpringAnimation.animation(durationMs: 350, curve: .easeInOut)) {
                     isImporting = false
                     importFinishing = false
                 }

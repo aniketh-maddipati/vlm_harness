@@ -11,7 +11,7 @@ struct DynamicSortBar: View {
                 HStack(spacing: 8) {
                     ForEach(SortMode.gridLensModes) { mode in
                         lensButton(mode.rawValue, active: sortMode == mode) {
-                            withAnimation(.spring(duration: 0.28, bounce: 0.12)) {
+                            withAnimation(LuminaTokens.Motion.photo) {
                                 sortMode = mode
                             }
                         }
@@ -23,7 +23,7 @@ struct DynamicSortBar: View {
                 HStack(spacing: 8) {
                     ForEach(GridFilter.allCases) { f in
                         lensButton(f.rawValue, active: filter == f) {
-                            withAnimation(.spring(duration: 0.28, bounce: 0.12)) {
+                            withAnimation(LuminaTokens.Motion.photo) {
                                 filter = f
                             }
                         }
@@ -228,7 +228,7 @@ struct GradedCompareView: View {
                 return (before, after)
             }.value
             if Task.isCancelled { return }
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(LuminaSpringAnimation.animation(durationMs: 200, curve: .easeOut)) {
                 beforeImage = loaded.0
                 afterImage = loaded.1
             }
