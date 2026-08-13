@@ -4,6 +4,30 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — Wrap-up cascade: RESUME + W4 strategy branches (inventory close)
+
+**Branch:** `main` @ `6652c65` · **Worktrees (untracked locally):** `lumina-wt/` → `constitution/batch-3-propagation`, `strategy/s1-mvp-sharpening`
+
+**Claim:** Close W1 inventory / W2 audit / W4 MVP-sharpening cascade with a measured resume note at repo root; no aspirational statements.
+
+**Finding:** Integration tip carries CP7 propagation + P0 editing but FAST pre-commit red on Linux; Batch 3 and S1 strategy docs exist only on unpushed-to-main branches; CONFLICT 2 / macOS FULL / SPIKE B seal / D67 ratification / CP2 chain remain open.
+
+**Fix:** Added `RESUME.md` (six sections: stand, open gates, critical path, do-not-touch, playground rules, next three actions). W4 matrices remain on `strategy/s1-mvp-sharpening`; Batch 3 proposal on `constitution/batch-3-propagation`.
+
+**Instrument reading (Linux — measured this session):**
+
+| Step | Result |
+|------|--------|
+| `git status` (tracked) | clean @ `6652c65`; untracked `lumina-wt/` only |
+| `bash Scripts/regression.sh pre-commit` | **FAIL exit 1** · FAST **INCOMPLETE** ~5050ms · **26/27** orchestration |
+| Fail ids | `banned_patterns` (D48 hover `P0SinglePhotoEditor.swift:356`) · `contract_v6_presence` · `spring_physics_f07` (missing `test_f07_spring_physics.py`) · `constitution_coverage` (stale) |
+| Open PRs (stale) | #36–#39 F0–F03 — superseded by main; operator close blocked (integration permission) |
+| W4 source | `design/strategy/s1-mvp-sharpening.md` @ `ce677f6` — **not on main** |
+
+**Routing:** Operator → Batch 3 ITEM 1 ruling · macOS AS pre-merge FULL measurement · FAST red cleanup before next merge.
+
+---
+
 ## 2026-08-12 — Auditor: human-led intent propagation branch (OUTSIDE PROTOCOL)
 
 **Branch:** `human-led-edit-propagation` (worktree `conductor/.../dhaka`) · **Merge-base:** `120c004c903630279c69a2d735a890a4c28831e0` (`origin/main`, Batch 2 proposal #42) · **Tip:** same commit; **~994 LOC uncommitted** working-tree diff only.
