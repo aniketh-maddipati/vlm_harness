@@ -85,8 +85,8 @@ def beta_diagnostics_from_socket() -> dict | None:
     text = socket.read_text(encoding="utf-8")
     if "activeKind: String? = nil" in text:
         return None
-    # Non-nil socket — record A7 expiry (F11.6).
-    kind = "testflight_crash_reporting"
+    # Non-nil socket — F11.6 FAIL; mirror kind for manifest embed diagnostics only.
+    kind = "unspecified"
     if 'activeKind: String? = "' in text:
         import re
 
@@ -97,7 +97,7 @@ def beta_diagnostics_from_socket() -> dict | None:
         "kind": kind,
         "path": "Lumina/Core/BetaDiagnosticsSocket.swift",
         "expiresAtMarketingVersion": "1.0",
-        "cite": ["D45", "A7", "D66"],
+        "cite": ["D45", "A13"],
     }
 
 

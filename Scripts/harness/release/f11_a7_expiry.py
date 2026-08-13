@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""F11.6 — A7 beta diagnostics expiry gate (D45 / A7).
+"""F11.6 — betaDiagnostics null assertion (D45 / A13).
 
-FAIL when marketingVersion >= 1.0 and embedded manifest still records betaDiagnostics.
-Expiry must be written into the socket so 1.0 cannot ship with A7 path by neglect.
+FAIL when any wave/beta manifest records non-null betaDiagnostics, or when
+BetaDiagnosticsSocket.activeKind is non-nil in source. A7 (TestFlight reporter)
+was withdrawn — R-9.1 applies in full to beta, wave, and launch builds.
 """
 from __future__ import annotations
 
@@ -16,18 +17,6 @@ ROOT = Path(__file__).resolve().parents[3]
 SOCKET = ROOT / "Lumina" / "Core" / "BetaDiagnosticsSocket.swift"
 
 
-def parse_version(version: str) -> tuple[int, int, int]:
-    parts = version.strip().split(".")
-    nums = [int(p) for p in parts if p.isdigit()]
-    while len(nums) < 3:
-        nums.append(0)
-    return nums[0], nums[1], nums[2]
-
-
-def version_gte(a: str, b: str) -> bool:
-    return parse_version(a) >= parse_version(b)
-
-
 def socket_active() -> bool:
     if not SOCKET.is_file():
         return False
@@ -39,18 +28,18 @@ def socket_active() -> bool:
 
 def check_manifest(manifest: dict) -> tuple[bool, list[str]]:
     errors: list[str] = []
-    marketing = str(manifest.get("marketingVersion", "0"))
     beta = manifest.get("betaDiagnostics")
-    if beta and version_gte(marketing, "1.0"):
+    if beta is not None:
+        marketing = str(manifest.get("marketingVersion", "0"))
         errors.append(
-            f"marketingVersion {marketing} >= 1.0 but betaDiagnostics still present: {beta!r}"
+            f"betaDiagnostics must be null on wave/beta builds (D45/A13); "
+            f"marketingVersion={marketing!r} got {beta!r}"
         )
-    if beta:
-        expires = beta.get("expiresAtMarketingVersion")
-        if expires != "1.0":
-            errors.append(f"betaDiagnostics.expiresAtMarketingVersion must be '1.0', got {expires!r}")
-    if socket_active() and not beta:
-        errors.append("BetaDiagnosticsSocket active in source but manifest omits betaDiagnostics")
+    if socket_active():
+        errors.append(
+            "BetaDiagnosticsSocket.activeKind must be nil (A7 withdrawn A13); "
+            "socket is active in source"
+        )
     return len(errors) == 0, errors
 
 
@@ -60,7 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--app", type=Path, help="Built Lumina.app")
     parser.add_argument(
         "--simulate-marketing-version",
-        help="Override marketingVersion for dry-run (e.g. 1.0 to prove gate)",
+        help="Override marketingVersion for dry-run",
     )
     args = parser.parse_args(argv)
 
@@ -68,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     elif args.app:
         if sys.platform != "darwin":
-            print("F11.6 A7 expiry: PLATFORM-UNAVAILABLE (macOS only)")
+            print("F11.6 betaDiagnostics null: PLATFORM-UNAVAILABLE (macOS only)")
             return 2
         path = args.app / "Contents" / "Resources" / "LuminaBuildManifest.json"
         if not path.is_file():
@@ -93,7 +82,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest["marketingVersion"] = args.simulate_marketing_version
 
     ok, errors = check_manifest(manifest)
-    print("=== F11.6 A7 expiry ===")
+    print("=== F11.6 betaDiagnostics null (D45/A13) ===")
     print(json.dumps(manifest, indent=2, sort_keys=True))
     if ok:
         print("\nF11.6: PASS")
