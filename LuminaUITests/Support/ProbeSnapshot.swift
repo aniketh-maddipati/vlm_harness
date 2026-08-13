@@ -36,6 +36,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var editedIDs: [String]
     var visibleAssetIDs: [String]
     var missingAssetIDs: [String]
+    /// W5 — sole P0 keyboard routing owner (`P0KeyRoutingModifier`).
+    var keyRoutingOwner: String
 
     /// Convenience: the Nth visible asset ID (nil when out of range).
     func visibleID(at index: Int) -> String? {

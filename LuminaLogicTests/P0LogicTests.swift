@@ -64,7 +64,7 @@ final class P0LogicTests: XCTestCase {
             focusedCull: "keep", focusedRecipeFingerprint: "fp-abc", inspectingAssetID: nil, selectedAssetIDs: ["a", "b"],
             missingOriginalCount: 0, previewReadyCount: 60, phaseDetail: "60 photos",
             scrollAnchor: 0, culls: ["a": "keep"], editedIDs: ["a"], visibleAssetIDs: ["a", "b"],
-            missingAssetIDs: []
+            missingAssetIDs: [], keyRoutingOwner: "P0KeyRoutingModifier"
         )
         let json = snapshot.jsonString()
         let decoded = try? JSONDecoder().decode(ProbeSnapshot.self, from: Data(json.utf8))
@@ -330,5 +330,30 @@ final class P0LogicTests: XCTestCase {
 
     func testExportRecipeHintContract() {
         XCTAssertEqual(CopyContract.exportRecipeHint, "⌥⌘E changes the recipe.")
+    }
+
+    // MARK: - W5 Esc ladder (single owner)
+
+    func testEscLadderLeavesGrouping() {
+        let session = P0SessionModel()
+        session.route = .grouping
+        XCTAssertTrue(P0EscLadder.handle(session: session))
+        XCTAssertEqual(session.route, .contactSheet)
+    }
+
+    func testEscLadderClosesInspectionWithoutChangingRoute() {
+        let session = P0SessionModel()
+        session.route = .contactSheet
+        let id = UUID()
+        session.inspectingAssetID = id
+        XCTAssertTrue(P0EscLadder.handle(session: session))
+        XCTAssertNil(session.inspectingAssetID)
+        XCTAssertEqual(session.route, .contactSheet)
+    }
+
+    func testEscLadderNoOpOnBareContactSheet() {
+        let session = P0SessionModel()
+        session.route = .contactSheet
+        XCTAssertFalse(P0EscLadder.handle(session: session))
     }
 }

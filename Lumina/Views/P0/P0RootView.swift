@@ -25,6 +25,7 @@ struct P0RootView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .p0KeyRouting(session: session)
         .uiTestStateProbe(session)
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             guard !session.showLegacyShell else { return false }

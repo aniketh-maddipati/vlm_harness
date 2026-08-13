@@ -32,7 +32,7 @@ struct LuminaRobot {
                 focusedAvailability: nil, focusedCull: nil, focusedRecipeFingerprint: nil, inspectingAssetID: nil,
                 selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
                 phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
-                missingAssetIDs: []
+                missingAssetIDs: [], keyRoutingOwner: "P0KeyRoutingModifier"
             )
         }
         return snapshot
@@ -50,7 +50,7 @@ struct LuminaRobot {
                 focusedAvailability: nil, focusedCull: nil, inspectingAssetID: nil,
                 selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
                 phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
-                missingAssetIDs: []
+                missingAssetIDs: [], keyRoutingOwner: "P0KeyRoutingModifier"
             )
         }
         return snapshot

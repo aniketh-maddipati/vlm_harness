@@ -21,16 +21,6 @@ struct P0GroupingView: View {
                 Spacer(minLength: 40)
             }
         }
-        .focusable()
-        .onKeyPress(.escape) {
-            session.leaveGrouping()
-            return .handled
-        }
-        .onKeyPress(keys: [.init("g"), .init("G")]) { press in
-            guard press.modifiers.contains(.shift) else { return .ignored }
-            session.leaveGrouping()
-            return .handled
-        }
     }
 
     private var header: some View {

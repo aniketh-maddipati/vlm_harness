@@ -41,6 +41,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var visibleAssetIDs: [String]
     /// Assets whose original file is currently unavailable (cached preview may still exist).
     var missingAssetIDs: [String]
+    /// W5 — sole P0 keyboard routing owner (`P0KeyRoutingModifier`).
+    var keyRoutingOwner: String
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -108,7 +110,8 @@ extension P0SessionModel {
             culls: culls,
             editedIDs: editedIDs.sorted(),
             visibleAssetIDs: visible.map(\.id.uuidString),
-            missingAssetIDs: assets.filter { $0.source.availability == .missing }.map(\.id.uuidString)
+            missingAssetIDs: assets.filter { $0.source.availability == .missing }.map(\.id.uuidString),
+            keyRoutingOwner: "P0KeyRoutingModifier"
         )
     }
 }

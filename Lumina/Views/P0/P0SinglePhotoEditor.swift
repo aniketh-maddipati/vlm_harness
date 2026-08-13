@@ -8,7 +8,6 @@ struct P0SinglePhotoEditor: View {
     @Bindable var session: P0SessionModel
     let asset: AssetRecord
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var keyMonitor: Any?
     @State private var oneToOne = false
     @State private var panOffset: CGSize = .zero
 
@@ -28,12 +27,11 @@ struct P0SinglePhotoEditor: View {
         }
         .background(LuminaTokens.Surface.mist)
         .onAppear {
-            installBeforeKeyMonitor()
             session.prewarmInspection(around: asset.id)
         }
         .onDisappear {
             session.flushPendingEditIfNeeded()
-            removeBeforeKeyMonitor()
+            session.setShowingBefore(false)
         }
         .onChange(of: asset.id) { _, _ in
             oneToOne = false
@@ -375,30 +373,5 @@ struct P0SinglePhotoEditor: View {
         let lo = max(0, idx - 14)
         let hi = min(items.count, idx + 15)
         return Array(items[lo..<hi])
-    }
-
-    private func installBeforeKeyMonitor() {
-        guard keyMonitor == nil else { return }
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { event in
-            let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
-            guard chars == "b", !event.modifierFlags.contains(.command) else { return event }
-            if event.type == .keyDown, !event.isARepeat {
-                session.setShowingBefore(true)
-                return nil
-            }
-            if event.type == .keyUp {
-                session.setShowingBefore(false)
-                return nil
-            }
-            return nil
-        }
-    }
-
-    private func removeBeforeKeyMonitor() {
-        if let keyMonitor {
-            NSEvent.removeMonitor(keyMonitor)
-            self.keyMonitor = nil
-        }
-        session.setShowingBefore(false)
     }
 }

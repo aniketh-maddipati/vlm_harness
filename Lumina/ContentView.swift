@@ -103,8 +103,8 @@ struct ContentView: View {
         ImportAndAlertModifier(model: model, shell: shell)
     }
 
-    /// Non-workspace / global chords only.
-    /// Workspace keyboard is owned exclusively by `CommandHandlingModifier`
+    /// Non-workspace / global chords only (legacy `ContentView` route — not P0 live path).
+    /// Legacy workspace keyboard is owned by `CommandHandlingModifier`
     /// (installed while `shell.route == .workspace`).
     private func handleKey(_ event: NSEvent) -> NSEvent? {
         if NSApp.keyWindow?.firstResponder is NSTextView { return event }

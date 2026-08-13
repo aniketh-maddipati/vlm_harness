@@ -1,7 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// Sole owner of workspace `NSEvent` keyboard routing.
+/// Legacy workspace keyboard routing — **not on the P0 live path** (`LuminaApp` → `P0RootView`).
+/// Sole owner of legacy `ContentView` / `LuminaShellView` `NSEvent` routing.
 /// Uses local monitors (flagsChanged + keyDown/keyUp) because `.onKeyPress` /
 /// `.keyboardShortcut` cannot express "second press of the same key".
 /// ContentView keeps a separate monitor only for non-workspace / global chords.
