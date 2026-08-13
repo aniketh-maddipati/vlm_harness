@@ -8,7 +8,7 @@
 # [● A1] mvp_test_floor · [● A2] crop_* · [● A3] pointer_cull_* · [● A4] clipping_hold_key / clipping_grammar
 # [● A6] swimlane_fill_opacity socket · [● A7] beta_testflight_crash_reporting · [● A8] beta_licensing
 
-version: "6.2-batch2"
+version: "6.2-motion-seal"
 contract: design/contract-v6.md
 codegen:
   swift_enum: HiFiTokens
@@ -298,6 +298,43 @@ motion:
     unit: ms
     type: ms
     cite: [D27, L2]
+  chrome_fade_out:
+    value: 250
+    unit: ms
+    type: ms
+    cite: [D27, WG-chrome]
+    notes: Chrome fade out; table hover hint out leg.
+  place_return:
+    value: 200
+    unit: ms
+    type: ms
+    cite: [D27, D28]
+    notes: Place/return one spring ≤2% overshoot.
+  spring_max_overshoot:
+    value: 0.02
+    type: opacity
+    cite: [D28]
+  spring_trajectory_frames:
+    value: 40
+    type: enum
+    cite: [D28]
+    notes: Transform-only observation window.
+  spring_trajectory_sample_rate_hz:
+    value: 120
+    type: enum
+    cite: [D28]
+  spring_dead_stop_epsilon:
+    value: 0.001
+    type: opacity
+    cite: [D28]
+  spring_retarget_continuity_epsilon:
+    value: 0.000001
+    type: opacity
+    cite: [D28]
+  spring_reduced_motion_overshoot:
+    value: 0
+    type: opacity
+    cite: [D27, D28]
   handling_feedback_frames:
     value: 1
     type: enum

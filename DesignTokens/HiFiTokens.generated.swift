@@ -1,8 +1,8 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: c8f75e1a3733ee3209699deb0c2d418318a1b65ca47e46507a88929822c9c9a7
-// version: 6.2-batch2
+// tokens-hash: 666762f75cbf7b3a3302b044e89c68641fabd852a911039afc52d1067f557f89
+// version: 6.2-motion-seal
 // contract: design/contract-v6.md
 
 import CoreGraphics
@@ -102,6 +102,16 @@ enum HiFiTokens {
         static let dockedChipPlaceMs: Int = 140 // cite: WG-ripple
         static let reduceMotionKeyline: TimeInterval = 0.09 // cite: D27, L2
         static let reduceMotionKeylineMs: Int = 90 // cite: D27, L2
+        static let chromeFadeOut: TimeInterval = 0.25 // cite: D27, WG-chrome — Chrome fade out; table hover hint out leg.
+        static let chromeFadeOutMs: Int = 250 // cite: D27, WG-chrome — Chrome fade out; table hover hint out leg.
+        static let placeReturn: TimeInterval = 0.2 // cite: D27, D28 — Place/return one spring ≤2% overshoot.
+        static let placeReturnMs: Int = 200 // cite: D27, D28 — Place/return one spring ≤2% overshoot.
+        static let springMaxOvershoot: Double = 0.02 // cite: D28
+        static let springTrajectoryFrames: Int = 40 // cite: D28 — Transform-only observation window.
+        static let springTrajectorySampleRateHz: Int = 120 // cite: D28
+        static let springDeadStopEpsilon: Double = 0.001 // cite: D28
+        static let springRetargetContinuityEpsilon: Double = 0.000001 // cite: D28
+        static let springReducedMotionOvershoot: Double = 0.0 // cite: D27, D28
         static let handlingFeedbackFrames: Int = 1 // cite: L1 — One frame — no animation on handling feedback.
         static let settlePositiveSignal: String = "final_rung_crossfade_only" // cite: D43 — No chip invented.
     }

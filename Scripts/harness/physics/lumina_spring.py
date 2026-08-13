@@ -1,7 +1,6 @@
 """Python mirror of Lumina/Design/LuminaSpring.swift — headless F07 gates."""
 from __future__ import annotations
 
-import json
 import math
 import sys
 from dataclasses import dataclass
@@ -174,16 +173,24 @@ def run_f07_gates(root: Path) -> int:
         return 1
 
     # F07.5 retarget continuity — mid-flight retarget preserves value/velocity.
-    mid = horizon * 0.45
+    step = 1.0 / sample_hz
+    mid_frame = round(horizon * 0.45 / step)
+    mid = mid_frame * step
     retargets = [LuminaSpringRetarget(time=mid, target=0.65)]
     before = trajectory(mid, p, sample_rate_hz=sample_hz)
     after = trajectory(horizon, p, retargets=retargets, sample_rate_hz=sample_hz)
     bridge = next(s for s in after if abs(s.time - mid) < 1e-9)
     if abs(bridge.value - before[-1].value) > retarget_eps:
-        print("FAIL F07.5 retarget value discontinuity", file=sys.stderr)
+        print(
+            f"FAIL F07.5 retarget value discontinuity: {bridge.value} vs {before[-1].value}",
+            file=sys.stderr,
+        )
         return 1
     if abs(bridge.velocity - before[-1].velocity) > retarget_eps:
-        print("FAIL F07.5 retarget velocity discontinuity", file=sys.stderr)
+        print(
+            f"FAIL F07.5 retarget velocity discontinuity: {bridge.velocity} vs {before[-1].velocity}",
+            file=sys.stderr,
+        )
         return 1
 
     # F07.6 reduced-motion variant — zero overshoot bound.
@@ -207,14 +214,30 @@ def run_f07_gates(root: Path) -> int:
         / "goldens"
         / "spring_trajectory_place_return"
     )
-    if golden_dir.is_dir():
-        proposed = [s.value for s in samples]
-        approved_path = golden_dir / "approved.json"
-        if approved_path.is_file():
-            approved = json.loads(approved_path.read_text(encoding="utf-8"))
-            if approved.get("values") != proposed:
-                print("FAIL F07 trajectory golden drift", file=sys.stderr)
-                return 1
+    payload = {
+        "values": [s.value for s in samples],
+        "sample_rate_hz": sample_hz,
+        "frames": frames,
+        "horizon": horizon,
+        "place_return_ms": place_return_ms,
+    }
+
+    sys.path.insert(0, str(root / "Scripts" / "harness" / "golden"))
+    import service as golden_service  # noqa: WPS433
+
+    digest = golden_service.tokens_hash()
+    result = golden_service.compare("spring_trajectory_place_return", payload, digest=digest)
+    if not result.get("ok"):
+        reason = result.get("reason")
+        if reason == "missing_approved":
+            print(
+                "FAIL F07 trajectory golden: missing approved golden "
+                f"@ {digest} — propose and approve spring_trajectory_place_return",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"FAIL F07 trajectory golden drift ({reason})", file=sys.stderr)
+        return 1
 
     print("PASS spring_physics_f07")
     return 0

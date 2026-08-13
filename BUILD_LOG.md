@@ -4,6 +4,71 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-13 — F07 / SPIKE B: motion seal landed (F07.4–F07.6 green)
+
+**Branch:** `spike/b-motion`  
+**Claim:** Paste motion-probe export into `design/tokens.yaml` §motion, bump version, codegen + magic-number gate; activate F07.4 / F07.5 / F07.6 against sealed params; golden trajectory keyed by `tokens-hash`; close SPIKE B STUB rows in `HARNESS.md`.
+
+**Judged:** 2026-08-13 (SPIKE B motion physics seal — measured this session).
+
+**Sealed params verbatim (`design/tokens.yaml` §motion, version `6.2-motion-seal`):**
+
+```yaml
+  chrome_fade_out:
+    value: 250
+    unit: ms
+    type: ms
+  place_return:
+    value: 200
+    unit: ms
+    type: ms
+  spring_max_overshoot:
+    value: 0.02
+    type: opacity
+  spring_trajectory_frames:
+    value: 40
+    type: enum
+  spring_trajectory_sample_rate_hz:
+    value: 120
+    type: enum
+  spring_dead_stop_epsilon:
+    value: 0.001
+    type: opacity
+  spring_retarget_continuity_epsilon:
+    value: 0.000001
+    type: opacity
+  spring_reduced_motion_overshoot:
+    value: 0
+    type: opacity
+  travel:
+    value: 180
+    unit: ms
+  stage:
+    value: 140
+    unit: ms
+  lift:
+    value: 100
+    unit: ms
+```
+
+**tokens-hash:** `666762f75cbf7b3a3302b044e89c68641fabd852a911039afc52d1067f557f89`
+
+**Fix:** `LuminaSpring` + Python mirror read sealed tokens only; `HiFiTokens.Motion.*Ms` consumed in `LuminaTokens.Motion` for sealed durations; FAST id `spring_physics_f07`; golden `spring_trajectory_place_return` approved under tokens-hash `666762f75cbf…`.
+
+**Instrument reading (Linux — measured this session):**
+
+| Step | Status |
+|------|--------|
+| `tokens_codegen.py --check` | **PASS** |
+| `spring_physics_f07` (F07.4 dead-stop) | **PASS** (`\|value − 1\| = 0.000452` ≤ ε `0.001` at horizon `0.325s`) |
+| F07.5 retarget continuity | **PASS** |
+| F07.6 reduced-motion overshoot | **PASS** |
+| Trajectory golden | **PASS** (40 samples @ 120Hz) |
+
+**Stale artifacts:** Any build keyed to prior `tokens-hash` (`6.2-batch2` / `7b0c1552…`) — F11.4 manifest, F04.1 build cache, chrome goldens under old hash — require re-measure.
+
+---
+
 ## 2026-08-13 — One-off queue recorded (post-cascade)
 
 **Branch:** `main` @ `228175c`

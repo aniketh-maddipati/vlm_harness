@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """F07.4–F07.6 spring physics seal (SPIKE B).
 
-When motion seal keys are absent from design/tokens.yaml §motion, F07.4–F07.6 stay STUB
-(SPIKE B owner) — exit 0 without faking green. When seal lands, gates run honestly
-(BUILD_LOG records F07.4 dead-stop drift may FAIL until re-sealed).
+Runs against sealed params in design/tokens.yaml §motion only — tolerances from the seal,
+never invented by the test. When seal keys are absent, exits 0 STUB (SPIKE B owner).
 """
 from __future__ import annotations
 

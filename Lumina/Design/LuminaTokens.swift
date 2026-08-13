@@ -150,28 +150,30 @@ enum LuminaTokens {
 
     enum Motion {
         // Durations cite design/tokens.yaml §motion where sealed; interim spring params preserve prior curves.
-        static let control = LuminaSpringAnimation.animation(durationMs: 180, curve: .easeOut)
+        static let control = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.travelMs), curve: .easeOut)
         static let photo = LuminaSpringAnimation.animation(durationMs: 280, curve: .interactive)
         static let selection = LuminaSpringAnimation.animation(durationMs: 320, curve: .easeInOut)
         static let develop = LuminaSpringAnimation.animation(durationMs: 550, curve: .easeInOut)
         static let route = LuminaSpringAnimation.animation(durationMs: 240, curve: .easeOut)
         static let fidelity = LuminaSpringAnimation.animation(durationMs: 220, curve: .easeOut)
-        static let reveal = LuminaSpringAnimation.animation(durationMs: 340, curve: .easeOut)
+        static let reveal = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.photoBirthMs), curve: .easeOut)
 
         /// Darkroom command-layer timings (tokens.yaml §motion ms).
         static let handlingFeedback: Animation? = nil // 1 frame — no animation
-        static let lift = LuminaSpringAnimation.animation(durationMs: 100, curve: .easeOut)
-        static let travel = LuminaSpringAnimation.animation(durationMs: 180, curve: .easeOut)
-        static let travelFast = LuminaSpringAnimation.animation(durationMs: 90, curve: .easeOut)
-        static let stage = LuminaSpringAnimation.animation(durationMs: 140, curve: .easeInOut)
-        static let shelfIn = LuminaSpringAnimation.animation(durationMs: 120, curve: .easeOut)
-        static let fidelityCrossfade = LuminaSpringAnimation.animation(durationMs: 120, curve: .easeOut)
-        static let reduceMotionKeyline = LuminaSpringAnimation.animation(durationMs: 90, curve: .easeOut)
-        /// Table footer hover hint — in 120 ms, out 250 ms.
-        static let tableHoverIn = LuminaSpringAnimation.animation(durationMs: 120, curve: .easeOut)
-        static let tableHoverOut = LuminaSpringAnimation.animation(durationMs: 250, curve: .easeOut)
+        static let lift = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.liftMs), curve: .easeOut)
+        static let travel = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.travelMs), curve: .easeOut)
+        static let travelFast = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.travelFastMs), curve: .easeOut)
+        static let stage = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.stageMs), curve: .easeInOut)
+        static let shelfIn = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.shelfInMs), curve: .easeOut)
+        static let fidelityCrossfade = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.fidelityCrossfadeMs), curve: .easeOut)
+        static let reduceMotionKeyline = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.reduceMotionKeylineMs), curve: .easeOut)
+        /// Table footer hover hint — in 120 ms, out 250 ms (chrome_fade_out).
+        static let tableHoverIn = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.shelfInMs), curve: .easeOut)
+        static let tableHoverOut = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.chromeFadeOutMs), curve: .easeOut)
         /// Per-arrival table landing (lumFill) — opacity only at birth.
-        static let photoBirth = LuminaSpringAnimation.animation(durationMs: 340, curve: .easeOut)
+        static let photoBirth = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.photoBirthMs), curve: .easeOut)
+        /// SPIKE B place/return spring (F07.4–F07.6).
+        static let placeReturn = LuminaSpringAnimation.animation(durationMs: Double(HiFiTokens.Motion.placeReturnMs), curve: .easeOut)
     }
 
     /// Rolling confirm cadence — 3 confirms inside 8 s shortens travel to 90 ms until 10 s idle.
