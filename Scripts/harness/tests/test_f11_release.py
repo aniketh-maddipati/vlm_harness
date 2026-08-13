@@ -26,11 +26,24 @@ licensing = _load("f11_no_lic", "f11_no_licensing.py")
 read_manifest = _load("f11_read", "f11_read_manifest.py")
 
 
-class A7ExpiryTests(unittest.TestCase):
+class BetaDiagnosticsNullTests(unittest.TestCase):
     def test_wave_build_passes_without_beta_diagnostics(self) -> None:
         manifest = {"marketingVersion": "0.1.0", "betaDiagnostics": None}
         ok, errors = a7.check_manifest(manifest)
         self.assertTrue(ok, errors)
+
+    def test_fails_on_wave_build_with_beta_diagnostics(self) -> None:
+        manifest = {
+            "marketingVersion": "0.1.0",
+            "betaDiagnostics": {
+                "kind": "testflight_crash_reporting",
+                "path": "Lumina/Core/BetaDiagnosticsSocket.swift",
+                "expiresAtMarketingVersion": "1.0",
+            },
+        }
+        ok, errors = a7.check_manifest(manifest)
+        self.assertFalse(ok)
+        self.assertTrue(any("must be null" in e for e in errors))
 
     def test_fails_at_1_0_with_beta_diagnostics(self) -> None:
         manifest = {
@@ -43,7 +56,7 @@ class A7ExpiryTests(unittest.TestCase):
         }
         ok, errors = a7.check_manifest(manifest)
         self.assertFalse(ok)
-        self.assertTrue(any("1.0" in e for e in errors))
+        self.assertTrue(any("must be null" in e for e in errors))
 
 
 class ReadManifestTests(unittest.TestCase):

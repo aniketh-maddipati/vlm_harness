@@ -4,6 +4,8 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+---
+
 ## 2026-08-13 — W8 legacy-severance: sever live root from legacy shell
 
 **Branch:** `cursor/w8-legacy-severance-39dd`  
@@ -51,6 +53,29 @@ After severance, `P0LegacyShellDoor.swift` references `ProjectViewModel`, `Lumin
 **Live-path behavior:** unchanged on default launch — Open / contact sheet / grouping / edit routes identical; legacy door still via “Legacy shell” on Open surface.
 
 **P8.2 cascade instrument (2026-08-13):** re-run in `design/strategy/surface-sweep.md` §6 — **cascade NOT FINISHED** on `main`; 2/9 rows pass only on isolated W tips; row 3 (persistence roots) unowned by W1–W8.
+
+---
+
+## 2026-08-13 — F11.6 Batch 2 follow-up: betaDiagnostics null assertion (D45/A13)
+
+**Branch:** `cursor/f11-6-beta-diagnostics-null-39dd`  
+**Claim:** Close Batch 2 F11.6 follow-up — harness asserts `betaDiagnostics` is null on every wave/beta build, not an A7 expiry gate at marketing 1.0.
+
+**Finding:** `f11_a7_expiry.py` only FAILed when `marketingVersion >= 1.0` with non-null `betaDiagnostics`; wave builds at 0.x could still embed a TestFlight reporter socket. `BetaDiagnosticsSocket.swift` and `HARNESS.md` still cited withdrawn A7 / TestFlight semantics. Contract D45 `[● A13]` (verified `grep '### D45' design/contract-v6.md`) requires null assertion on all wave/beta builds.
+
+**Fix:** `check_manifest` now FAILs on any non-null `betaDiagnostics` or non-nil `BetaDiagnosticsSocket.activeKind`; updated socket comments, manifest writer cite, HARNESS F11.6/F11.2 rows, manifest id notes; added unit test for 0.1.0 + non-null FAIL.
+
+**Instrument reading (Linux — measured this session):**
+
+| Command | Result |
+|---------|--------|
+| `grep '### D45' design/contract-v6.md` | **1 hit** — D45 present with `[● A13]` |
+| `python3 Scripts/harness/tests/test_f11_release.py` | **PASS** — 5/5 tests |
+| `python3 Scripts/harness/release/f11_a7_expiry.py` | **PASS** — `betaDiagnostics: null`, marketing 0.1.0 |
+| `python3 Scripts/harness/run.py fast` | **PASS** 6692ms · orchestration **33/33** · `f11_a7_expiry` OK |
+| `xcodebuild` | **PLATFORM-UNAVAILABLE** (Linux cloud VM) |
+
+**Follow-up (not this session):** F11.3 staple `.app` on macOS ship host; install-page Batch 2 ITEM 4 operator choice.
 
 ---
 

@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
         ("F11.2 zero network", "f11_zero_network.py", app_flag),
         ("F11.3 signature", "f11_signature.py", app_flag),
         ("F11.4 read manifest", "f11_read_manifest.py", app_flag + ["--check"]),
-        ("F11.6 A7 expiry", "f11_a7_expiry.py", app_flag),
+        ("F11.6 betaDiagnostics null", "f11_a7_expiry.py", app_flag),
         ("F11.7 no licensing", "f11_no_licensing.py", []),
     ]
     worst = 0
