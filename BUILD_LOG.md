@@ -4,6 +4,20 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-14 — O0 merge integrity: W-cascade git audit
+
+**Branch:** `strategy/o0-merge-integrity` · **Base:** `origin/main` @ `dbd4766`
+
+**Claim:** Establish by git evidence whether the W cascade landed with nothing dropped, duplicated, or added outside its review path; no product, test, or harness code.
+
+**Finding:** W1, W3, W4, W5, W6, and W8 contain **15 distinct reachable commits** across their pre-cascade ranges, each present exactly once; every merged branch has **0** `git cherry` `+` lines and **0** missing owned-delta files. W7 remains **1** intentionally unmerged planning commit. Main is not exactly the seven-PR union: `c7c999b` is a direct **2-file** reconciliation commit with no PR, W8 carried the cross-session `6dd6997` P8.2 document commit, and the W8 relocation leaves **1** D48-conflicting live hover used at **18** P0 call sites across **7** files. No W merge touched the three W2 persistence paths.
+
+**Fix:** Added `design/strategy/o0-merge-integrity.md` with merge-method, completeness, stacking, W8 conflict-resolution, W7/W2, artifact/hash, verification-gap, remediation, ruling, and conflict records. No history or product path was changed.
+
+**Instrument reading:** No runtime measurement was taken. `git fetch --prune --tags` → `origin/main` `dbd4766`, clean tree; six W PRs are two-parent merge commits; merged-branch `git cherry` `+` lines **0**, W7 **1**; merged own-delta files missing **0**; exact merged SHA occurrences **1 each**; `tokens.hash` = generated header `1b1db60f…`; tags containing `83ba118` **0**; GitHub releases **0**; ship artifacts in tree **0**; superseded golden hashes **2 / 4 files**; cascade BUILD_LOG and PR bodies record successful `xcodebuild` / LuminaLogicTests runs **0**.
+
+---
+
 ## 2026-08-14 — C3 fast-idempotence: a no-op run leaves the tree clean
 
 **Branch:** `cursor/c3-fast-idempotence-b243` · **Base:** `origin/main` @ `f2e9ee3`
