@@ -1,11 +1,11 @@
 # P8.2 — Adjudication (strategy session)
 
-**Session id:** P8.2-ADJ (PART 0 of the wiring cascade)
-**Branch:** `cursor/p8-2-adjudication-b243` · **Base measured:** `origin/main` @ `f2e9ee3` (`Lightweight footprint: exclude harness from Release and defer P0 develop init (#55)`)
-**Authority:** `design/contract-v6.md` → `design/tokens.yaml` → `design/copy-contract.txt` → code → tests
-**Contract status read before citing:** `design/contract-v6.md` L3 — *Amendment Batch 1 (A1–A10) + **Batch 2 (A11–A13)** on sealed re-seal.* Batch 3 / `D67`: `rg -c '\bD67\b' design/contract-v6.md` → **0 hits** — **NOT RATIFIED**; nothing below is built against it.
-**Provenance only, not run, not cited as authority:** `design/contract-v5.md`, `design/hifi-reference.html`.
-**Deliverable:** this document + one `BUILD_LOG.md` entry. **No product, test, or harness code in this session.**
+**Session id:** P8.2-ADJ (PART 0 of the wiring cascade)  
+**Branch:** `cursor/p8-2-adjudication-b243` · **Base measured:** `origin/main` @ `f2e9ee3` (`Lightweight footprint: exclude harness from Release and defer P0 develop init (#55)`)  
+**Authority:** `design/contract-v6.md` → `design/tokens.yaml` → `design/copy-contract.txt` → code → tests  
+**Contract status read before citing:** `design/contract-v6.md` L3 — *Amendment Batch 1 (A1–A10) + **Batch 2 (A11–A13)** on sealed re-seal.* Batch 3 / `D67`: `rg -c '\bD67\b' design/contract-v6.md` → **0 hits** — **NOT RATIFIED**; nothing below is built against it.  
+**Provenance only, not run, not cited as authority:** `design/contract-v5.md`, `design/hifi-reference.html`.  
+**Deliverable:** this document + one `BUILD_LOG.md` entry. **No product, test, or harness code in this session.**  
 
 ---
 
@@ -46,7 +46,7 @@ Command: `git log --oneline -12 origin/main`; parents confirmed per commit with 
 | `rg -c '\bD67\b' design/contract-v6.md` | **0 hits** |
 | `xcodebuild … build` · `xcodebuild … -only-testing:LuminaLogicTests test` | **PLATFORM-UNAVAILABLE** — Linux cloud VM, no Xcode / macOS SDK (`AGENTS.md`) |
 
-**PLATFORM-UNAVAILABLE means not verified.** No claim below about compilation, runtime behaviour, resident bytes, or latency is asserted from this host. Two throwaway measurement instruments were used and live in `/tmp`, not in the repo: `/tmp/classify_orphans.py` (0.2 reference sites), `/tmp/orphan_scope.py` (0.2 scan-scope and post-W8 live rule), `/tmp/lane_coverage.py` (0.5 lane holes). Each is a read-only re-implementation of a shipped gate's own rule; every number they produce is cross-checked against the shipped gate's own output where one exists.
+**PLATFORM-UNAVAILABLE means not verified.** No claim below about compilation, runtime behaviour, resident bytes, or latency is asserted from this host. Three throwaway measurement instruments were used and live in `/tmp`, not in the repo: `/tmp/classify_orphans.py` (0.2 reference sites), `/tmp/orphan_scope.py` (0.2 scan-scope and post-W8 live rule), `/tmp/lane_coverage.py` (0.5 lane holes). Each is a read-only re-implementation of a shipped gate's own rule; every number they produce is cross-checked against the shipped gate's own output where one exists.
 
 ### The nine-row instrument re-read on `main` — the headline
 
@@ -64,7 +64,7 @@ P8.2 (`design/strategy/surface-sweep.md` §6) judged `main` @ `83ba118` as **Bef
 | 8 | Magic-number literals gated | **95** derived literals; **277** allowlisted rows | **PASS** with declared debt |
 | 9 | Banned-pattern strict scope | **7** strict roots · **72 of 160** product files strict · **54** in **no lane** | **PARTIAL** |
 
-**Four rows read After (2, 4, 5, 7), one reads After with declared debt (8), two read Before (1, 3), one is unmeasurable on this host (6), one is partial (9).** That is the correct current reading, and it is materially better than P8.2's. It is also not wave-worthy: §0.5 adds five blocking readings that had no row at all.
+**Four rows read After (2, 4, 5, 7), one reads After with declared debt (8), two read Before (1, 3), one is unmeasurable on this host (6), one is partial (9).** That is the correct current reading, and it is materially better than P8.2's. It is also not wave-worthy: §0.5 adds six blocking readings that had no row at all.
 
 ---
 
