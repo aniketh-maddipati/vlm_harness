@@ -37,6 +37,9 @@
         { "id": "flake_policy", "kind": "orchestration", "notes": "F04.6 — TestPlans must not encode repetition, retry-on-failure, or quarantine tags" },
         { "id": "wait_budgets", "kind": "orchestration", "notes": "F04.4 — UITestWait chains stay below P0Fast 180 s; no waitForProbe ?? fallbacks" },
         { "id": "allowlist_ratchet", "kind": "orchestration" },
+        { "id": "shipping_fence", "kind": "orchestration", "notes": "Headless harness compiled out of LUMINA_SHIPPING_APP Release" },
+        { "id": "module_boundary", "kind": "orchestration", "notes": "Core models must not import UI/GPU frameworks" },
+        { "id": "repo_artifact_bloat", "kind": "orchestration", "notes": "Duplicate PNG evidence dirs must not re-enter git" },
         { "id": "f11_no_licensing", "kind": "orchestration", "notes": "F11.7 — D52/A8 wave builds: no license/activation/expiry code" },
         { "id": "f11_a7_expiry", "kind": "orchestration", "notes": "F11.6 — betaDiagnostics must be null on wave/beta builds (D45/A13)" },
         { "id": "unit_f11_release", "kind": "orchestration", "notes": "F11.4–F11.7 unit tests" }

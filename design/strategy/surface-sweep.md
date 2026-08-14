@@ -67,7 +67,7 @@ Every status below names the command or tree read that decided it. Claims not ru
 | **D28** | Elasticity exact-at-rest | **PARTIAL** | Token `HiFiTokens.Grid.elasticityStepsPx`. No `LuminaSpring` / motion probe on this tree. |
 | **D29** | Multi-select | **SHELVED** | Register honored. **Legacy code remains:** `TableRubberBandOverlay`, `ContinuousWorkspaceView.twoUp`, `WorkbenchSelection.rubberBand`. |
 | **D30** | Trackpad map | **ABSENT** | No pinch-density / glide on P0 path. |
-| **D31** | Card-in import | **PARTIAL** | `IngestOrchestrator`, `ImportPipeline`; P0 folder drop `P0RootView.onDrop`. Not full card-stream UX on P0. |
+| **D31** | Card-in import | **PARTIAL** | `ContactSheetPreparation`, `ImportPipeline`; P0 folder drop `P0RootView.onDrop`. Not full card-stream UX on P0. |
 | **D32** | Tier 0 / success test | **BANKED** (Tier 1) | Tier 1/A-ladder banked (D46). `AutoDevelop` partial; success test not instrumented. |
 | **D33** | Within-shoot memory | **PARTIAL** | `ShootRecord.wholesaleExcludedPhotoIDs` via `ShootStore` / `ShootMigration`. |
 | **D34** | Export = receipts | **PARTIAL** | `ExportService`, `ExportPayoffSheet` (legacy `ProjectViewModel`). P0 export count only; not full one-recipe inline CP8. |
@@ -94,7 +94,7 @@ Every status below names the command or tree read that decided it. Claims not ru
 | **D50** | Developer ID (R-I.1) | **SHELVED** | MAS/deferred socket; F11 scripts exist. |
 | **D51** | Silent updates (R-I.2) | **PARTIAL** | `heavy_job_registry` lint; no updater machinery. |
 | **D52** | Offline licensing (R-I.3) | **SHELVED** | Token `betaLicensing: none`; post-test pre-launch door. |
-| **D53** | Device-plug ingest (R-M.2) | **PARTIAL** | `IngestOrchestrator`, `MediaFormats`. |
+| **D53** | Device-plug ingest (R-M.2) | **PARTIAL** | `MediaFormats`, `ContactSheetPreparation`. |
 | **D54** | Sample shoot (R-M.3) | **ABSENT** | `CopyContract.sampleShootReplaces` only; no bundled fixture in app. |
 | **D55** | Share destination (R-M.4) | **PARTIAL** | `copy_table_lint`; no share-sheet wiring on P0. |
 | **D56** | Videos copied not shown (R-M.5) | **PARTIAL** | `MediaFormats.videoExtensions`; ingest skip logic. |
@@ -126,7 +126,7 @@ Every status below names the command or tree read that decided it. Claims not ru
 | **R-I.3** | D52 | **SHELVED** | Token `betaLicensing: none` |
 | **R-I.4** | D66 | **PARTIAL** | F11 release scripts; no stapled ship artifact (**UNMEASURED** notarize) |
 | **R-M.1** | D36 | **ABSENT** | Copy template only |
-| **R-M.2** | D53 | **PARTIAL** | `IngestOrchestrator` |
+| **R-M.2** | D53 | **PARTIAL** | `ContactSheetPreparation` |
 | **R-M.3** | D54 | **ABSENT** | Copy only |
 | **R-M.4** | D55 | **PARTIAL** | `copy_table_lint` |
 | **R-M.5** | D56 | **PARTIAL** | `MediaFormats`, ingest tests |
@@ -156,7 +156,7 @@ Evidence from `design/checkpoint-sequence-v6.md` cross-checked against **this tr
 | **SPIKE B** — Table physics / F07 | **NOT STARTED on main** | **Absent:** `LuminaSpring.swift`, `test_f07_spring_physics.py`, motion seal keys in `tokens.yaml`, `Lumina/Testing/MotionProbe/`. FAST `spring_physics_f07` **FAIL** (missing test file). `LuminaApp.swift` references missing `MotionProbeLauncher`/`MotionProbeView`. | BUILD_LOG 2026-08-12 seal claim **not corroborated on main**. Unmerged `spike/b-motion` @ `cf583f8` has seal + F07 **PASS** — treat as **branch work**, not landed |
 | **CP1** — Layout pure function | **PARTIAL** | **SHIPPED:** `EditRailLayout.swift`, `HiFiTokens.Layout`, `P0LogicTests.testEditRailLayoutMinWindow`. Legacy: `TableLayout.swift`. Live P0 ≠ full table layout grammar (D1/D49). | CP1 “landed” claims **overstated** for P0 path |
 | **CP2** — Journal + sidecars + kill-fuzz | **NOT STARTED** | `ShootStore.saveShoot` → `shoot.json` catalog (`ShootStore.swift:102`). Sidecar write on export/handoff only (`ExportService`, `LightroomHandoffService`). No continuous open-XMP beside files; no kill-fuzz job; F06 prompt **absent** from `design/build-prompts/`. | RESUME CP2 “NOT BUILT” **corroborated** |
-| **CP3** — Ingest for real | **PARTIAL** | `IngestOrchestrator`, `ImportPipeline`, `MediaFormats` (HEIC/video skip). P0 folder drop. Six-body fleet: fixture manifest only — **UNMEASURED** e2e. Sample shoot **ABSENT**. | Partial ingest **corroborated** |
+| **CP3** — Ingest for real | **PARTIAL** | `ContactSheetPreparation`, `ImportPipeline`, `MediaFormats` (HEIC/video skip). P0 folder drop. Six-body fleet: fixture manifest only — **UNMEASURED** e2e. Sample shoot **ABSENT**. | Partial ingest **corroborated** |
 | **CP4** — Cull hot loop + pointer marks | **PARTIAL** | **P0 SHIPPED:** P/X, same-mark (`P0SessionModel`, `P0ContactSheetView`). **Missing:** advance-after-mark on P0, pointer ✓/✕ UI (D47), resume-first-undecided (D39). Legacy cull uses pre-contract S/M/X. | “SHIPPED” in W4 **overstates** P0 completeness |
 | **CP5** — Rail (10 controls, arming, echo) | **PARTIAL** | P0: `P0AdjustmentRail`, `P0EditSlider`. Legacy: `TreatmentStageView` closer to contract rail. Hover debt (D48). Pixel golden exists under **stale** tokens-hash (see §3). | Chrome golden **stale** vs current hash |
 | **CP6** — Focused edit + crop latch | **PARTIAL** | **P0 SHIPPED:** `P0SinglePhotoEditor`, RAW edit path. **Missing:** `CropSession` latch on P0, Hold-J/clipping overlay, full ten-control flat rail. Legacy: `CropSession`, `TreatmentStageView`. | P0 edit **SHIPPED**; crop latch **legacy only** |
