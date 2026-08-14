@@ -7,6 +7,7 @@
       "budgetMs": 90000,
       "tests": [
         { "id": "token_lint", "kind": "orchestration" },
+        { "id": "swift_token_refs", "kind": "orchestration", "notes": "HiFiTokens.* Swift refs must exist in generated tokens — catches missing Motion members before xcodebuild" },
         { "id": "copy_table_lint", "kind": "orchestration" },
         { "id": "banned_patterns", "kind": "orchestration" },
         { "id": "magic_numbers", "kind": "orchestration" },
@@ -49,6 +50,7 @@
       "platform": "macos-apple-silicon",
       "budgetMs": 480000,
       "tests": [
+        { "id": "swift_build_check", "kind": "orchestration", "notes": "macOS xcodebuild build-for-testing — skipped on Linux; regression.sh Phase 2 equivalent" },
         { "id": "worktree_snapshot", "kind": "orchestration" },
         { "id": "ledger_orchestration_write", "kind": "orchestration" },
         { "id": "grammar_scripts_live", "kind": "app-coupled" },

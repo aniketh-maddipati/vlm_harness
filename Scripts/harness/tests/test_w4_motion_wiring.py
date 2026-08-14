@@ -52,6 +52,27 @@ class MotionWiringTests(unittest.TestCase):
         body = LEGACY.read_text(encoding="utf-8")
         self.assertIn("ProjectViewModel.swift 400", body)
 
+    def test_lumina_spring_reads_f07_seal_tokens(self) -> None:
+        spring = (ROOT / "Lumina" / "Design" / "LuminaSpring.swift").read_text(
+            encoding="utf-8"
+        )
+        for token in (
+            "HiFiTokens.Motion.placeReturnMs",
+            "HiFiTokens.Motion.springTrajectorySampleRateHz",
+            "HiFiTokens.Motion.springMaxOvershoot",
+            "HiFiTokens.Motion.springReducedMotionOvershoot",
+        ):
+            self.assertIn(token, spring)
+
+    def test_swift_token_refs_lint(self) -> None:
+        proc = subprocess.run(
+            [sys.executable, str(ROOT / "Scripts/harness/lint/swift_token_refs.py")],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+
     def test_spring_physics_f07(self) -> None:
         proc = subprocess.run(
             [sys.executable, str(ROOT / "Scripts/harness/tests/test_f07_spring_physics.py")],

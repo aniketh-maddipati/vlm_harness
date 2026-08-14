@@ -41,6 +41,15 @@ def main() -> int:
         if key not in motion:
             print(f"FAIL: motion.{key} missing", file=sys.stderr)
             fail = 1
+    for key in (
+        "place_return",
+        "spring_trajectory_sample_rate_hz",
+        "spring_max_overshoot",
+        "spring_reduced_motion_overshoot",
+    ):
+        if key not in motion:
+            print(f"FAIL: motion.{key} missing (F07 / SPIKE B seal)", file=sys.stderr)
+            fail = 1
     gen = ROOT / "DesignTokens" / "HiFiTokens.generated.swift"
     if check_fresh(data, raw, gen) != 0:
         fail = 1
