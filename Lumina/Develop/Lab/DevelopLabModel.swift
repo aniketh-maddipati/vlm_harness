@@ -1,3 +1,4 @@
+#if DEBUG
 import AppKit
 import Foundation
 import Observation
@@ -344,3 +345,5 @@ final class DevelopLabModel {
         return scheduler.presentedCIImage(for: frame.id)
     }
 }
+
+#endif

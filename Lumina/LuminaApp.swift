@@ -7,9 +7,9 @@ struct LuminaApp: App {
         // UI-test mode: redirect state to an isolated directory and seed deterministic fixtures
         // before any scene appears. Compiled out of Release.
         UITestLaunch.runIfRequested()
-        MotionProbeLauncher.runIfRequested()
         DevelopLabLauncher.runIfRequested()
         #endif
+        #if !LUMINA_SHIPPING_APP
         WorkbenchCapture.runIfRequested()
         // Headless harnesses exit inside the runner.
         _ = RawHarnessRunner.runIfRequested()
@@ -17,7 +17,6 @@ struct LuminaApp: App {
         _ = P0EditHarnessRunner.runIfRequested()
         _ = P0EditLiveRunner.runIfRequested()
         // Capture-only lab exits inside the launcher; interactive lab continues into the scene.
-        #if DEBUG
         _ = DevelopLabLauncher.runIfRequested()
         #endif
     }
@@ -26,9 +25,7 @@ struct LuminaApp: App {
         WindowGroup {
             Group {
                 #if DEBUG
-                if MotionProbeLauncher.shouldPresent {
-                    MotionProbeView()
-                } else if DevelopLabLauncher.shouldPresentLab {
+                if DevelopLabLauncher.shouldPresentLab {
                     DevelopLabView()
                 } else {
                     P0RootView()

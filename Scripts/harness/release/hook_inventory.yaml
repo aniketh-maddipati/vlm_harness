@@ -72,6 +72,28 @@ hooks:
       - DevelopLabLauncher
       - DevelopLabView
 
+  - id: headless_harness
+    label: Headless develop/raw/P0 harness runners
+    source_globs:
+      - Lumina/Develop/Lab/RawHarnessRunner.swift
+      - Lumina/Develop/Lab/RamTierHarnessRunner.swift
+      - Lumina/Develop/Lab/P0EditHarnessRunner.swift
+      - Lumina/Develop/Lab/P0EditLiveRunner.swift
+      - Lumina/Views/Workspace/WorkbenchCapture.swift
+    forbidden_symbols:
+      - RawHarnessRunner
+      - RamTierHarnessRunner
+      - P0EditHarnessRunner
+      - P0EditLiveRunner
+      - WorkbenchCapture
+
+  - id: develop_lab_model
+    label: Develop Lab model (DEBUG-only)
+    source_globs:
+      - Lumina/Develop/Lab/DevelopLabModel.swift
+    forbidden_symbols:
+      - DevelopLabModel
+
   - id: f07_display_link_tap
     label: F07 display-link tap (motion probe frame driver)
     source_globs:
