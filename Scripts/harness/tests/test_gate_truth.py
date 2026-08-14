@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "Scripts" / "harness" / "lint"))
 
 from magic_number_literals import (  # noqa: E402
+    compile_literal_pattern,
     extract_forbidden_literals,
     index_literal_skipped,
     literal_in_line,
@@ -39,6 +40,13 @@ class MagicNumberLiteralTests(unittest.TestCase):
 
     def test_index_subscript_skipped(self) -> None:
         self.assertTrue(index_literal_skipped("items[3]", "3"))
+
+    def test_combined_matcher_preserves_boundaries_and_longest_form(self) -> None:
+        pattern = compile_literal_pattern(["12", "12.5", "0.1"])
+        self.assertEqual(
+            [match.group(0) for match in pattern.finditer("12.5, 12, 0.12, 0.1")],
+            ["12.5", "12", "0.1"],
+        )
 
 
 class OrphanSymbolGateTests(unittest.TestCase):

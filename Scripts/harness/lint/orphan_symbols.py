@@ -22,6 +22,7 @@ TYPE_DECL = re.compile(
     r"(?:final\s+)?(?:struct|class|enum|actor)\s+(\w+)",
     re.MULTILINE,
 )
+WORD = re.compile(r"\b\w+\b")
 
 LIVE_PREFIXES = (
     "Lumina/Views/",
@@ -101,12 +102,12 @@ def collect_sources() -> dict[str, str]:
     return files
 
 
-def word_refs(symbol: str, text: str) -> bool:
-    return re.search(rf"\b{re.escape(symbol)}\b", text) is not None
-
-
 def analyze() -> tuple[list[SymbolRef], list[SymbolRef]]:
     sources = collect_sources()
+    source_words = {
+        rel: frozenset(WORD.findall(body))
+        for rel, body in sources.items()
+    }
     orphans: list[SymbolRef] = []
     dead: list[SymbolRef] = []
 
@@ -115,16 +116,16 @@ def analyze() -> tuple[list[SymbolRef], list[SymbolRef]]:
             continue
         for path in sorted(scan.rglob("*.swift")):
             decl_rel = path.relative_to(ROOT).as_posix()
-            text = path.read_text(encoding="utf-8")
+            text = sources[decl_rel]
             for match in TYPE_DECL.finditer(text):
                 symbol = match.group(1)
                 test_refs: list[str] = []
                 live_refs: list[str] = []
                 external = 0
-                for rel, body in sources.items():
+                for rel in sources:
                     if rel == decl_rel:
                         continue
-                    if not word_refs(symbol, body):
+                    if symbol not in source_words[rel]:
                         continue
                     external += 1
                     if is_test_path(rel):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +11,15 @@ MANIFEST_PATH = Path(__file__).resolve().parent / "manifests.json"
 
 
 def load_manifest(path: Path = MANIFEST_PATH) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    for lane, definition in manifest["lanes"].items():
+        ids = [test["id"] for test in definition["tests"]]
+        duplicates = sorted(
+            test_id for test_id, count in Counter(ids).items() if count > 1
+        )
+        if duplicates:
+            raise ValueError(f"{lane} manifest contains duplicate test ids: {duplicates}")
+    return manifest
 
 
 def expected_ids(lane: str, manifest: dict[str, Any] | None = None) -> list[str]:

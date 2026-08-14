@@ -80,6 +80,16 @@ def literal_in_line(literal: str, line: str) -> bool:
     return re.search(pattern, line) is not None
 
 
+def compile_literal_pattern(literals: list[str]) -> re.Pattern[str]:
+    """Compile one matcher for a set of literals, preferring longest forms."""
+    alternatives = "|".join(
+        re.escape(literal) for literal in sorted(literals, key=len, reverse=True)
+    )
+    if not alternatives:
+        return re.compile(r"(?!x)x")
+    return re.compile(rf"(?<![0-9.])(?:{alternatives})(?![0-9.eE])")
+
+
 def line_skipped(line: str) -> bool:
     if re.match(r"\s*//", line):
         return True

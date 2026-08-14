@@ -3,6 +3,7 @@
 # Re-baselined W1 — every token-owned literal in UI scan roots
 # owned-by-CP1 — P0 layout debt — migrate to HiFiTokens
 Lumina/Views/P0/ContactSheetCollection.swift 0.12
+Lumina/Views/P0/ContactSheetCollection.swift 0.22
 Lumina/Views/P0/ContactSheetCollection.swift 0.25
 Lumina/Views/P0/ContactSheetCollection.swift 0.28
 Lumina/Views/P0/ContactSheetCollection.swift 0.5
@@ -15,6 +16,7 @@ Lumina/Views/P0/ContactSheetCollection.swift 16
 Lumina/Views/P0/ContactSheetCollection.swift 18
 Lumina/Views/P0/ContactSheetCollection.swift 180
 Lumina/Views/P0/ContactSheetCollection.swift 2.5
+Lumina/Views/P0/ContactSheetCollection.swift 28
 Lumina/Views/P0/ContactSheetCollection.swift 40
 Lumina/Views/P0/ContactSheetCollection.swift 800
 Lumina/Views/P0/P0AdjustmentRail.swift 0.1
@@ -30,6 +32,7 @@ Lumina/Views/P0/P0CropControls.swift 0.1
 Lumina/Views/P0/P0CropControls.swift 10
 Lumina/Views/P0/P0CropControls.swift 40
 Lumina/Views/P0/P0CropControls.swift 44
+Lumina/Views/P0/P0CropControls.swift 56
 Lumina/Views/P0/P0CropControls.swift 90
 Lumina/Views/P0/P0CropControls.swift 90.0
 Lumina/Views/P0/P0EditSlider.swift 0.18
@@ -45,7 +48,6 @@ Lumina/Views/P0/P0GroupingView.swift 40
 Lumina/Views/P0/P0LegacyShellDoor.swift 16
 Lumina/Views/P0/P0OpenView.swift 120
 Lumina/Views/P0/P0OpenView.swift 18
-Lumina/Views/P0/P0RootView.swift 16
 Lumina/Views/P0/P0RootView.swift 18
 Lumina/Views/P0/P0SinglePhotoEditor.swift 0.5
 Lumina/Views/P0/P0SinglePhotoEditor.swift 10
@@ -80,6 +82,7 @@ Lumina/Views/LuminaButtons.swift 18
 Lumina/Views/LuminaButtons.swift 24
 Lumina/Views/LuminaButtons.swift 40
 Lumina/Views/LuminaButtons.swift 44
+Lumina/Views/LuminaButtons.swift 56
 Lumina/Views/MetalBrowseCanvas.swift 16
 Lumina/Views/MetalBrowseCanvas.swift 64
 Lumina/Views/PhotoGridView.swift 0.07
@@ -169,6 +172,7 @@ Lumina/Views/Workspace/EmergingSetRail.swift 10
 Lumina/Views/Workspace/EmergingSetRail.swift 120
 Lumina/Views/Workspace/EmergingSetRail.swift 24
 Lumina/Views/Workspace/EmergingSetRail.swift 48
+Lumina/Views/Workspace/EmergingSetRail.swift 220
 Lumina/Views/Workspace/FinishView.swift 10
 Lumina/Views/Workspace/FinishView.swift 800
 Lumina/Views/Workspace/HomeView.swift 200
@@ -178,7 +182,6 @@ Lumina/Views/Workspace/ShootSelectionView.swift 800
 Lumina/Views/Workspace/TreatmentFamilyRow.swift 0.02
 Lumina/Views/Workspace/TreatmentFamilyRow.swift 0.45
 Lumina/Views/Workspace/TreatmentFamilyRow.swift 11
-Lumina/Views/Workspace/TreatmentFamilyRow.swift 120
 Lumina/Views/Workspace/TreatmentFamilyRow.swift 16
 Lumina/Views/Workspace/TreatmentFamilyRow.swift 64
 Lumina/Views/Workspace/TreatmentStageView.swift 0.02
@@ -197,6 +200,7 @@ Lumina/Views/Workspace/TreatmentStageView.swift 20
 Lumina/Views/Workspace/TreatmentStageView.swift 200
 Lumina/Views/Workspace/TreatmentStageView.swift 24
 Lumina/Views/Workspace/TreatmentStageView.swift 250
+Lumina/Views/Workspace/TreatmentStageView.swift 28
 Lumina/Views/Workspace/TreatmentStageView.swift 44
 Lumina/Views/Workspace/TreatmentStageView.swift 48.0
 Lumina/Views/Workspace/TreatmentStageView.swift 50
@@ -215,8 +219,6 @@ Lumina/Views/Components/CropOverlayView.swift 120
 Lumina/Views/Components/CropOverlayView.swift 18
 Lumina/Views/Components/CropOverlayView.swift 24
 Lumina/Views/Components/CropOverlayView.swift 44
-Lumina/Views/Components/DecisionDock.swift 10
-Lumina/Views/Components/DecisionDock.swift 18
 Lumina/Views/Components/DevelopHistogramView.swift 0.14
 Lumina/Views/Components/DevelopHistogramView.swift 0.18
 Lumina/Views/Components/DevelopHistogramView.swift 0.5
@@ -242,7 +244,6 @@ Lumina/Views/Components/WorkspaceCommandBar.swift 16
 # owned-by-P7 — hand-typed motion literals pending token seal
 Lumina/Design/LuminaTokens.swift -0.3
 Lumina/Design/LuminaTokens.swift 0.18
-Lumina/Design/LuminaTokens.swift 0.3
 Lumina/Design/LuminaTokens.swift 10
 Lumina/Design/LuminaTokens.swift 16
 Lumina/Design/LuminaTokens.swift 24
@@ -255,8 +256,6 @@ Lumina/Design/LuminaTokens.swift 56
 Lumina/Design/LuminaTokens.swift 64
 # Legacy shell / ViewModel hand-typed durationMs literals — owned-by-W8 (not live P0 path)
 # path<space>literal
-Lumina/ViewModels/ProjectViewModel.swift 400
-Lumina/ViewModels/ProjectViewModel.swift 350
 Lumina/Views/ProgressivePhotoWall.swift 200
 Lumina/Views/ProgressivePhotoWall.swift 250
 Lumina/Views/CompareAndSoftViews.swift 200
