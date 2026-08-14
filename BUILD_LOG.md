@@ -4,6 +4,20 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-14 — O0 merge integrity: W-cascade git audit
+
+**Branch:** `strategy/o0-merge-integrity` · **Base:** `origin/main` @ `dbd4766`
+
+**Claim:** Establish by git evidence whether the W cascade landed with nothing dropped, duplicated, or added outside its review path; no product, test, or harness code.
+
+**Finding:** W1, W3, W4, W5, W6, and W8 contain **15 distinct reachable commits** across ranges cut from common development base `83ba118`, each SHA present exactly once; actual integration starts at `78309ec`. No merged branch-delta path was wholly dropped; `git show --remerge-diff` identifies conflict-resolution paths in W1 **1**, W3 **1**, W4 **1**, W5 **8**, W6 **2**, and W8 **6** files. `dcc6015` and PR #45 merge `78309ec` are the sole patch-equivalent pair; PR #50's effective delta does not apply that content twice. W7 remains **1** intentionally unmerged planning commit and must not merge as-is. Main also contains direct **2-file** reconciliation commit `c7c999b`, W8 carried cross-session `6dd6997`, and W8's relocation leaves **1** D48-conflicting hover used at **18** P0 call sites across **7** files. No W merge touched the three W2 persistence paths.
+
+**Fix:** Added `design/strategy/o0-merge-integrity.md` with merge-method, completeness, stacking, W8 conflict-resolution, W7/W2, artifact/hash, verification-gap, remediation, ruling, and conflict records. No history or product path was changed.
+
+**Instrument reading:** No runtime measurement was taken. `git fetch --prune --tags` → `origin/main` `dbd4766`, clean tree; six W PRs are two-parent merge commits; merged-branch `git cherry` effective `+` lines **0**, W7 **1**; wholly missing merged paths **0**; exact merged SHA occurrences **1 each**; duplicate stable patch IDs **1 pair**; `tokens.hash` = generated header `1b1db60f…`; tags containing integration start `78309ec` **0**; GitHub releases **0**; ship artifacts in tree **0**; superseded golden hashes **2 / 4 files**; cascade BUILD_LOG and PR bodies record successful `xcodebuild` / LuminaLogicTests runs **0**.
+
+---
+
 ## 2026-08-14 — C3 fast-idempotence: a no-op run leaves the tree clean
 
 **Branch:** `cursor/c3-fast-idempotence-b243` · **Base:** `origin/main` @ `f2e9ee3`
