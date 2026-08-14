@@ -1,3 +1,4 @@
+#if !LUMINA_SHIPPING_APP
 import AppKit
 import SwiftUI
 
@@ -177,3 +178,5 @@ enum WorkbenchCapture {
         window.close()
     }
 }
+
+#endif

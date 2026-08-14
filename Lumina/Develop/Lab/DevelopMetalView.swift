@@ -59,9 +59,9 @@ struct DevelopMetalView: NSViewRepresentable {
         var panOffset: CGSize = .zero
 
         override init() {
-            let device = MTLCreateSystemDefaultDevice()
+            let device = LuminaMetalDevice.shared
             self.device = device
-            self.commandQueue = device?.makeCommandQueue()
+            self.commandQueue = LuminaMetalDevice.commandQueue
             // Reuse the shared long-lived develop context — same working space
             // as the render graph; no per-frame context allocation.
             self.context = DevelopRenderGraph.sharedContext

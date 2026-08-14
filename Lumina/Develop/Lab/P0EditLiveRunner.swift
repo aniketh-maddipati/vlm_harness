@@ -1,3 +1,4 @@
+#if !LUMINA_SHIPPING_APP
 import AppKit
 import CoreImage
 import Foundation
@@ -430,3 +431,5 @@ enum P0EditLiveRunner {
         }
     }
 }
+
+#endif

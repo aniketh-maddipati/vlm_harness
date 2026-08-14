@@ -23,8 +23,16 @@ actor DevelopPresentationCache {
     private var totalBytes = 0
     private let budgetBytes: Int
 
-    init(budgetMegabytes: Int = 512) {
-        self.budgetBytes = max(budgetMegabytes, 64) * 1_024 * 1_024
+    init(budgetMegabytes: Int? = nil) {
+        let resolved = budgetMegabytes ?? Self.defaultBudgetMegabytes()
+        self.budgetBytes = max(resolved, 64) * 1_024 * 1_024
+    }
+
+    private static func defaultBudgetMegabytes() -> Int {
+        let physical = ProcessInfo.processInfo.physicalMemory
+        if physical <= 8 * 1_024 * 1_024 * 1_024 { return 256 }
+        if physical <= 16 * 1_024 * 1_024 * 1_024 { return 384 }
+        return 512
     }
 
     func get(_ key: String) -> Entry? {

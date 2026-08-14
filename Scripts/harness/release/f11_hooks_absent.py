@@ -19,7 +19,7 @@ except ImportError as exc:  # pragma: no cover
 ROOT = Path(__file__).resolve().parents[3]
 INVENTORY = Path(__file__).with_name("hook_inventory.yaml")
 
-DEBUG_FENCE = re.compile(r"#if\s+DEBUG\b")
+RELEASE_FENCE = re.compile(r"#if\s+(?:DEBUG|!LUMINA_SHIPPING_APP)\b")
 DEBUG_END = re.compile(r"#endif\b")
 
 
@@ -27,8 +27,8 @@ def load_inventory() -> dict:
     return yaml.safe_load(INVENTORY.read_text(encoding="utf-8"))
 
 
-def file_debug_fenced(path: Path) -> tuple[bool, str]:
-    """Return (ok, detail). Entire file must be wrapped in #if DEBUG … #endif."""
+def file_release_fenced(path: Path) -> tuple[bool, str]:
+    """Return (ok, detail). Entire file must be wrapped in a Release-excluding fence."""
     if not path.is_file():
         return True, "missing (optional hook file not present)"
     text = path.read_text(encoding="utf-8")
@@ -41,20 +41,25 @@ def file_debug_fenced(path: Path) -> tuple[bool, str]:
     )
     if first_non_comment >= len(lines):
         return True, "comments only"
-    if not DEBUG_FENCE.search(lines[first_non_comment]):
-        return False, f"first code line {first_non_comment + 1} not under #if DEBUG"
-    # Require closing #endif at EOF region (last non-empty line).
+    if not RELEASE_FENCE.search(lines[first_non_comment]):
+        return False, (
+            f"first code line {first_non_comment + 1} not under "
+            "#if DEBUG or #if !LUMINA_SHIPPING_APP"
+        )
     tail = [ln for ln in lines if ln.strip()]
     if not tail or not DEBUG_END.search(tail[-1]):
-        # Allow #endif followed by blank lines only.
         for line in reversed(tail):
             if DEBUG_END.search(line):
                 break
             if line.strip() and not line.strip().startswith("//"):
-                return False, "missing trailing #endif for file-level DEBUG fence"
+                return False, "missing trailing #endif for file-level Release fence"
         else:
             return False, "missing #endif"
-    return True, "file-level #if DEBUG"
+    return True, "file-level Release exclusion fence"
+
+
+def file_debug_fenced(path: Path) -> tuple[bool, str]:
+    return file_release_fenced(path)
 
 
 def check_source_hooks(inventory: dict) -> list[dict]:
@@ -174,7 +179,7 @@ def main(argv: list[str] | None = None) -> int:
         sym_fail = sym_status == "OK" and any(r.get("symbols") == "FAIL" for r in sym_results)
 
     print("=== F11.1 hooks absent ===")
-    print("\n--- Source (#if DEBUG fencing) ---")
+    print("\n--- Source (Release exclusion fencing) ---")
     for row in source_results:
         status = row.get("source", "?")
         file = row.get("file", "")

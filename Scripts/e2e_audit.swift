@@ -488,13 +488,13 @@ if sourceContains(repoRoot.appendingPathComponent("Lumina/Views/GridOverviewView
     note("friction", "ux", "Spine UX incomplete", "Missing GridOverviewView or GradedCompareView")
 }
 
-let ingestOrchestrator = repoRoot.appendingPathComponent("Lumina/Services/IngestOrchestrator.swift").path
+let contactSheetPrep = repoRoot.appendingPathComponent("Lumina/Services/ContactSheetPreparation.swift").path
 let mediaFormats = repoRoot.appendingPathComponent("Lumina/Services/MediaFormats.swift").path
-if FileManager.default.fileExists(atPath: ingestOrchestrator)
+if FileManager.default.fileExists(atPath: contactSheetPrep)
     && sourceContains(mediaFormats, "discoverPhotos") {
-    note("pass", "ingest", "Discovery helpers present", "Deep folder scan available (manual import path)")
+    note("pass", "ingest", "P0 contact-sheet discovery present", "Folder open path uses MediaFormats + ContactSheetPreparation")
 } else {
-    note("friction", "ingest", "Discovery helpers missing", "MediaFormats.discoverPhotos not found")
+    note("friction", "ingest", "P0 discovery helpers missing", "ContactSheetPreparation or MediaFormats.discoverPhotos not found")
 }
 
 if sourceContains(mediaFormats, "maxDepth") && sourceContains(mediaFormats, "duplicate") {

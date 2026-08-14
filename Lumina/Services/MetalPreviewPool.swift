@@ -56,7 +56,7 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
     ]
 
     private init() {
-        let device = MTLCreateSystemDefaultDevice()
+        let device = LuminaMetalDevice.shared
         self.device = device
         if let device {
             CVMetalTextureCacheCreate(nil, nil, device, nil, &textureCache)

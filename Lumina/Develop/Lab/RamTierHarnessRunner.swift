@@ -1,3 +1,4 @@
+#if !LUMINA_SHIPPING_APP
 import AppKit
 import CoreImage
 import Darwin
@@ -212,3 +213,5 @@ enum MemoryFootprint {
         return UInt64(info.resident_size)
     }
 }
+
+#endif

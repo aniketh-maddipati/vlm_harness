@@ -58,6 +58,12 @@ Cloud agents run `python3 Scripts/harness/run.py fast` (or `bash Scripts/regress
 
 Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on Linux.
 
+### Footprint / lightweight Release
+
+- Release builds define `LUMINA_SHIPPING_APP`, excluding headless harness runners from the shipping binary.
+- macOS footprint baseline: `bash Scripts/harness/release/footprint_baseline.sh`
+- Register: `design/strategy/footprint-register.md`
+
 ### Key directories
 
 - `Lumina/` — SwiftUI app (Views, ViewModels, Services, Models)

@@ -1,3 +1,4 @@
+#if !LUMINA_SHIPPING_APP
 import AppKit
 import CoreImage
 import Foundation
@@ -630,3 +631,5 @@ enum RawHarnessRunner {
     private static func round1(_ v: Double) -> Double { (v * 10).rounded() / 10 }
     private static func round2(_ v: Double) -> Double { (v * 100).rounded() / 100 }
 }
+
+#endif
