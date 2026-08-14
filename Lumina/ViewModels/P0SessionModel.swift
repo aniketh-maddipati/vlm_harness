@@ -91,8 +91,8 @@ final class P0SessionModel {
     /// One-shot flag so returning from single-photo restores scroll without fighting live browsing.
     var pendingScrollRestore = false
     let undoCoordinator = P0UndoCoordinator()
-    /// Shared RAW develop scheduler for the P0 single-photo surface.
-    let developScheduler = DevelopRenderScheduler()
+    /// RAW develop scheduler — created on first edit entry, released when leaving a shoot.
+    private var developSchedulerStorage: DevelopRenderScheduler?
     /// Working recipe while a slider/crop gesture is active (authoritative only after commit).
     private(set) var workingRecipe: EditRecipe?
     private(set) var gestureBaselineRecipe: EditRecipe?
@@ -153,11 +153,12 @@ final class P0SessionModel {
     }
 
     func displayedCIImage(for assetID: UUID) -> CIImage? {
+        guard let developSchedulerStorage else { return nil }
         if showingBefore {
-            return developScheduler.beforeImage(for: assetID)
-                ?? developScheduler.presentedCIImage(for: assetID)
+            return developSchedulerStorage.beforeImage(for: assetID)
+                ?? developSchedulerStorage.presentedCIImage(for: assetID)
         }
-        return developScheduler.presentedCIImage(for: assetID)
+        return developSchedulerStorage.presentedCIImage(for: assetID)
     }
 
     var visibleItems: [ContactSheetItem] {
@@ -203,6 +204,18 @@ final class P0SessionModel {
         refreshRecent()
     }
 
+    private var developScheduler: DevelopRenderScheduler {
+        if let developSchedulerStorage { return developSchedulerStorage }
+        let created = DevelopRenderScheduler()
+        developSchedulerStorage = created
+        return created
+    }
+
+    private func releaseDevelopScheduler() {
+        developSchedulerStorage?.cancelAll()
+        developSchedulerStorage = nil
+    }
+
     func refreshRecent() {
         recentShoots = (try? ShootStore.listRecentShoots()) ?? []
     }
@@ -230,7 +243,7 @@ final class P0SessionModel {
         showingBefore = false
         clearGestureState()
         undoCoordinator.clear()
-        developScheduler.cancelAll()
+        releaseDevelopScheduler()
         sidecarManagedHashes = [:]
         sidecarDriftAssetIDs = []
 
@@ -260,7 +273,7 @@ final class P0SessionModel {
         showingBefore = false
         clearGestureState()
         undoCoordinator.clear()
-        developScheduler.cancelAll()
+        releaseDevelopScheduler()
         sidecarManagedHashes = [:]
         sidecarDriftAssetIDs = []
 
@@ -937,7 +950,7 @@ final class P0SessionModel {
         prewarmTask?.cancel()
         persistRestoreNow()
         releaseFolderAccess()
-        developScheduler.cancelAll()
+        releaseDevelopScheduler()
         shoot = nil
         assets = []
         status = ContactSheetPreparationStatus()

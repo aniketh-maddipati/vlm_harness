@@ -26,7 +26,7 @@ final class MetalBrowseNSView: NSView {
     var onPhotonPresent: ((CFAbsoluteTime) -> Void)?
 
     override init(frame frameRect: NSRect) {
-        let device = MetalPreviewPool.shared.device ?? MTLCreateSystemDefaultDevice()
+        let device = MetalPreviewPool.shared.device ?? LuminaMetalDevice.shared
         self.device = device
         self.queue = device?.makeCommandQueue()
         self.metalAvailable = device != nil && queue != nil
