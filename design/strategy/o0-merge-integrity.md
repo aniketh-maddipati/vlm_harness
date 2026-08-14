@@ -25,13 +25,13 @@ a366d38 Merge pull request #47: W1 gate truth (orphan register, magic numbers, b
 <git status --porcelain printed no lines>
 ```
 
-The pre-cascade boundary used below is `83ba118`. C1 establishes that it is the common branch base named by the cascade and that `origin/main` advanced through PR #45 before W1 merged:
+The common development base is `83ba118`; the actual integration-start SHA is `78309ec`, the first parent of W1's merge. C1 distinguishes them:
 
 ```text
 $ git show -s --format='%h parents=%P subject=%s' 83ba118
 83ba118 parents=a565c2e... subject=docs: refresh RESUME after P7/P5/P8 and #43/#44 merge cascade
 
-$ git log --first-parent --oneline 83ba118..origin/main
+$ git log --first-parent --oneline 78309ec..origin/main
 dbd4766 build(C3): make a no-op FAST run leave the tree clean (#57)
 f2e9ee3 Lightweight footprint: exclude harness from Release and defer P0 develop init (#55)
 3f41c93 Clean up harness inventory and repeated scans (#54)
@@ -42,12 +42,11 @@ e0d4473 Merge pull request #53: W8 legacy severance — lazy shell door and dead
 137deaa Merge pull request #49: W4 motion wiring through sealed spring
 90c075f Merge pull request #48: W3 cull grammar through CullGrammarMachine
 a366d38 Merge pull request #47: W1 gate truth (orphan register, magic numbers, banned patterns)
-78309ec harness(F11.6): assert betaDiagnostics null on wave builds (D45/A13) (#45)
 ```
 
 ## HEADLINE
 
-**No commit or branch-delta file from merged W1, W3, W4, W5, W6, or W8 was dropped or duplicated, but main is not exactly the seven-PR union: W7 remains intentionally unmerged, `c7c999b` is a direct post-merge commit with no PR, and W8's branch carried the P8.2 document commit outside the W8 build delta.**
+**No merged feature commit or branch-delta path from W1, W3, W4, W5, W6, or W8 was wholly dropped; however, main is not exactly the seven-PR union: W5 carries patch-equivalent F11.6 commit `dcc6015` alongside PR #45 merge `78309ec`, W7 remains intentionally unmerged, `c7c999b` is a direct post-merge commit with no PR, and W8 carried the P8.2 document commit outside its build delta.**
 
 ## METHOD
 
@@ -72,7 +71,7 @@ e0d4473 parents=25dcbef... 8628307... subject=Merge pull request #53: W8 legacy 
 | #47 / W1 (C2) | merge commit; second parent `8ef67e6` (C2) | exact ancestry, `git cherry`, and branch-file set versus first-parent delta (C3–C5) |
 | #48 / W3 (C2) | merge commit; second parent `d35eae1` (C2) | exact ancestry, including PR #46 predecessor, plus file-set comparison (C3–C5) |
 | #49 / W4 (C2) | merge commit; second parent `018ecaa` (C2) | true base `8ef67e6`; inherited W1 SHAs counted once (C3–C6) |
-| #50 / W5 (C2) | merge commit; second parent `f7bc9fe` (C2) | own commit delta checked separately from already-landed PR #45 parent `dcc6015` (C3–C6) |
+| #50 / W5 (C2) | merge commit; second parent `f7bc9fe` (C2) | own commit delta checked separately from `dcc6015`, which is patch-equivalent to already-landed PR #45 merge `78309ec` (C3–C6) |
 | #51 / W6 (C2) | merge commit; second parent `1a67da5` (C2) | true base `f7bc9fe`; inherited W5 and PR #45 SHAs counted once (C3–C6) |
 | #52 / W7 (C3) | open, unmerged; no merge commit (C3) | `git cherry` and reachability; its one file remains absent from main (C4–C5) |
 | #53 / W8 (C2) | merge commit; second parent `8628307` (C2) | intended and landed 13-file sets, conflict-resolution audit, and retained probe fields (C5, C7–C8) |
@@ -107,7 +106,7 @@ W7: + 314ef1e55513195808ca23b20295776889328053
 W8: <no lines>
 ```
 
-Command C5 compared files changed from each branch's true base with files changed by its merge result:
+Command C5 compared path sets changed from each branch's true base with paths changed by its merge result. It proves path presence, not blob equality:
 
 ```text
 a366d38 base=83ba118 branch-files=14 merge-result-files=14 missing-branch-files=0
@@ -119,17 +118,17 @@ a366d38 base=83ba118 branch-files=14 merge-result-files=14 missing-branch-files=
 e0d4473 base=78309ec branch-files=13 merge-result-files=13 missing-branch-files=0
 ```
 
-Command C6 ran `git merge-base --is-ancestor <sha> origin/main` for every branch commit, including W8's inherited `78309ec`, then counted exact SHA occurrences with `git rev-list origin/main`. All 15 distinct merged-range SHAs printed `reachable=YES` and `occurrences-in-main-dag=1`; `314ef1e` printed `reachable=NO`.
+Command C6 ran `git merge-base --is-ancestor <sha> origin/main` for every branch commit, including W8's inherited `78309ec`, then counted exact SHA occurrences with `git rev-list origin/main`. All 15 distinct merged-range SHAs printed `reachable=YES` and `occurrences-in-main-dag=1`; `314ef1e` printed `reachable=NO`. Stable patch IDs additionally show `dcc6015` and `78309ec` are the sole patch-equivalent pair in the range (`b2d99027…`), so distinct-SHA occurrence is not evidence of unique content.
 
-| Branch | Commits on branch | Reachable on main | `git cherry` `+` | Files diverging from intended merge |
-|---|---:|---:|---:|---:|
-| W1 (C3) | 2 (C3) | 2 (C6) | 0 (C4) | 0 of 14 (C5) |
-| W3 (C3) | 5 (C3) | 5 (C6) | 0 (C4) | 0 of 15 (C5) |
-| W4 (C3) | 3, including 2 W1 SHAs (C3) | 3 (C6) | 0 (C4) | 0 of 22 from true base (C5) |
-| W5 (C3) | 2, including PR #45 SHA (C3) | 2 (C6) | 0 (C4) | 0 of 16 W5 files; 8 PR #45 files pre-existed (C5) |
-| W6 (C3) | 3, including W5 and PR #45 SHAs (C3) | 3 (C6) | 0 (C4) | 0 of 13 from true base (C5) |
-| W7 (C3) | 1 (C3) | 0 (C6) | 1 (C4) | 1: `BUILD_LOG.md`, intentionally unmerged (C4) |
-| W8 (C3) | 4, including its internal merge (C3) | 4 (C6) | 0 (C4) | 0 of 13 (C5) |
+| Branch | Commits on branch | Reachable on main | `git cherry origin/main` `+` | Wholly dropped paths | Conflict-resolution paths |
+|---|---:|---:|---:|---:|---:|
+| W1 (C3) | 2 (C3) | 2 (C6) | 0 (C4) | 0 of 14 (C5) | 1 (remerge-diff) |
+| W3 (C3) | 5 (C3) | 5 (C6) | 0 (C4) | 0 of 15 (C5) | 1 (remerge-diff) |
+| W4 (C3) | 3, including 2 W1 SHAs (C3) | 3 (C6) | 0 (C4) | 0 of 22 from true base (C5) | 1 (remerge-diff) |
+| W5 (C3) | 2, including patch-equivalent F11.6 SHA (C3/C6) | 2 (C6) | 0 (C4); merge-relative check marks `dcc6015` `-` and `f7bc9fe` `+` | 0 of 16 W5 paths (C5) | 8 (remerge-diff) |
+| W6 (C3) | 3, including W5 and F11.6 SHAs (C3) | 3 (C6) | 0 (C4) | 0 of 13 from true base (C5) | 2 (remerge-diff) |
+| W7 (C3) | 1 (C3) | 0 (C6) | 1 (C4) | 1: `BUILD_LOG.md`, intentionally unmerged (C4) | not integrated |
+| W8 (C3) | 4, including its internal merge (C3) | 4 (C6) | 0 (C4) | 0 of 13 (C5) | 6 (remerge-diff) |
 
 ## CORRECTNESS FINDINGS
 
@@ -148,7 +147,7 @@ W7  base 83ba118: 1 W7 commit
 W8  base 83ba118: W8 build + P8.2 doc + PR #45 main parent + internal merge
 ```
 
-The four cross-session stacks are W4→W1, W5→PR #45, W6→W5/PR #45, and W8→main/PR #45. W3→its own PR #46 predecessor is a same-owner predecessor. C6 prints one exact occurrence for every inherited SHA, so none landed twice.
+The four cross-session stacks are W4→W1, W5→the patch-equivalent F11.6 feature commit, W6→W5/F11.6, and W8→main/PR #45. W3→its own PR #46 predecessor is a same-owner predecessor. C6 prints one exact occurrence for each SHA, while the patch-ID check records the `dcc6015`/`78309ec` content duplicate. PR #50's effective first-parent delta excludes the already-landed F11.6 content, so it was not applied to the tree twice.
 
 ### W8's merge of main into itself
 
@@ -254,7 +253,7 @@ $ git cherry origin/main origin/cursor/w7-failure-grammar-39dd
 + 314ef1e55513195808ca23b20295776889328053
 ```
 
-W7 is not superseded: its facts-chip work is still CP8-gated. Its one stale-base `BUILD_LOG.md` planning commit should not merge now. Preserve the open PR as the D38 door and re-cut the implementation only when CP8 is scheduled; abandoning the implementation door would be wrong, while merging the planning-only commit would change no product or gate.
+W7's facts-chip work is still CP8-gated, but its one stale-base `BUILD_LOG.md` planning commit should not merge. The PR is 25 commits behind main, conflicts in `BUILD_LOG.md`, and contains trailing whitespace. Closing versus retaining the planning PR is a process ruling; either choice must preserve the CP8 implementation door.
 
 ### W2
 
@@ -270,7 +269,7 @@ $ gh pr list --state all --search 'W2 in:title' --json ...
 Command C13:
 
 ```text
-$ git diff --name-status 83ba118..origin/main -- \
+$ git diff --name-status 78309ec..origin/main -- \
     Lumina/Services/ShootStore.swift Lumina/Persistence \
     Lumina/Services/ContactSheetPreparation.swift
 <no lines>
@@ -288,9 +287,9 @@ No W2 branch or PR exists, and no partial W2 persistence-path change leaked thro
 Command C14:
 
 ```text
-$ git tag --contains 83ba118
+$ git tag --contains 78309ec
 <no lines>
-tags-containing-pre-cascade=0
+tags-containing-integration-start=0
 
 $ git log --oneline --tags --no-walk
 985ad2b Constitution: Batch 1 seal verify — agent-rules D63 + Phase 4 (#31)
@@ -368,7 +367,7 @@ It must also record at least one live P0 flow on an idle Apple Silicon Mac; FAST
 2. **HIGH — direct commit `c7c999b`.** Owner: operator/O1. Record whether to accept it as a one-time integration reconciliation or route a non-destructive replacement through a PR. Recommendation: accept the content and record the protocol exception; reverting its gate expectations and three registrations is not justified by this git-only audit.
 3. **HIGH — W8 hover relocation.** Owner: the already-named row-10 hygiene session from P8.2-ADJ. Remove the live hover and widen the strict lane; this audit performs neither.
 4. **MEDIUM — W8 cross-session document commit.** Owner: strategy/O1. Attribute `6dd6997` explicitly to P8.2 in history and require future build PRs to exclude strategy-session commits.
-5. **MEDIUM — W7.** Owner: CP8/W7. Keep PR #52 unmerged while CP8 is partial; re-cut implementation from then-current main when scheduled.
+5. **MEDIUM — W7.** Owner: CP8/W7. Do not merge PR #52 as-is. Operator may keep or close the conflicting planning PR, but implementation must be re-cut from then-current main when CP8 is scheduled.
 6. **MEDIUM — stale hash-keyed goldens.** Owner: R3/golden bookkeeping. Re-measure or disposition the 4 files under 2 superseded hashes; do not delete them from this audit. R3 remains mandatory before a wave artifact.
 7. **UNRESOLVED — exhaustive ownership manifests.** Owner: O1 process. Preserve each W prompt's owned-path list in-tree or in its PR body so future audits can compare paths without inference.
 
@@ -390,8 +389,8 @@ RULING-OWED — W7 planning branch
 OPTION A: keep PR #52 open and unmerged until CP8 is scheduled.
 OPTION B: close the stale planning PR and create a new CP8-owned door record.
 OPTION C: merge the planning-only BUILD_LOG commit now.
-RECOMMENDATION: A. The work is not superseded, CP8 remains partial, and C11 proves
-the commit changes no implementation or gate. C would add stale-base prose only.
+RECOMMENDATION: reject C. Git decides that the commit must remain unmerged; whether
+to retain A as a visible door or choose B is an operator process decision.
 ```
 
 ## CONFLICTS
