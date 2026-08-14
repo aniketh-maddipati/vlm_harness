@@ -39,8 +39,17 @@ public enum LuminaSpringCurve: Sendable {
 }
 
 public enum LuminaSpring {
-    /// Matches F07 trajectory sample rate when a seal exists.
-    public static let defaultSampleRateHz: Double = 120
+    /// F07 trajectory sample rate — sealed in `design/tokens.yaml` §motion.
+    public static let defaultSampleRateHz: Double = Double(HiFiTokens.Motion.springTrajectorySampleRateHz)
+
+    /// SPIKE B place/return duration (ms).
+    public static let placeReturnMs: Double = Double(HiFiTokens.Motion.placeReturnMs)
+
+    /// F07.4 overshoot cap for standard place/return springs.
+    public static let maxOvershoot: Double = HiFiTokens.Motion.springMaxOvershoot
+
+    /// F07.6 reduced-motion overshoot bound (0 = critically damped seal).
+    public static let reducedMotionOvershoot: Double = HiFiTokens.Motion.springReducedMotionOvershoot
 
     /// Derive spring constants from a token duration (ms) and curve family.
     public static func params(durationMs: Double, curve: LuminaSpringCurve, mass: Double = 1.0) -> LuminaSpringParams {
