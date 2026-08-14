@@ -50,7 +50,14 @@ def parse_trace(text: str) -> list[dict]:
 
 
 def orchestration_ledger(spec: dict | None = None) -> dict:
-    """F4: honest ledger when no acceptance numbers were measured."""
+    """F4: honest ledger when no acceptance numbers were measured.
+
+    Content-addressed on purpose: this report is fully determined by
+    acceptance_numbers.json, it is the tracked F4 evidence, and it carries no
+    wall-clock field so a no-op run cannot dirty the tree. When the evidence last
+    changed is the commit date; when a lane last ran is `ledgers/latest.json`,
+    which is run exhaust and ignored.
+    """
     spec = spec or load_spec()
     results = []
     for item in spec["numbers"]:
@@ -69,7 +76,6 @@ def orchestration_ledger(spec: dict | None = None) -> dict:
         "mode": "orchestration-only",
         "gates_active": False,
         "ok": None,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
         "results": results,
     }
 

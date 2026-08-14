@@ -11,7 +11,6 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -217,10 +216,12 @@ def _cell(items: list[str]) -> str:
 
 
 def write_outputs(entries: list[dict[str, Any]], summary: dict[str, int]) -> None:
+    """Content-addressed: `--check` compares entries and summary only, so a
+    wall-clock field would dirty the tree on a no-op `--write` and be read by
+    nothing. Regeneration date is the commit date."""
     COVERAGE_DIR.mkdir(parents=True, exist_ok=True)
     payload = {
         "schemaVersion": 1,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": summary,
         "not_covered": [e["id"] for e in entries if e["status"] == "NOT-COVERED"],
         "shelved": [e["id"] for e in entries if e["status"] == "SHELVED"],
