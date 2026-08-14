@@ -4,6 +4,45 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-14 — P8.2-ADJ / PART 0: adjudication of the five open cascade items
+
+**Branch:** `cursor/p8-2-adjudication-b243` · **Base:** `origin/main` @ `f2e9ee3`
+**Deliverable:** `design/strategy/p8-2-adjudication.md`. Documents only — no product, test, or harness code.
+
+**Claim:** The five items P8.2 left open are adjudicated with measured evidence, and the nine-row cascade instrument is re-read on `main`: **four rows now read After (2, 4, 5, 7), one After with declared debt (8), two Before (1, 3), one unmeasurable on Linux (6), one partial (9)** — not "all nine Before" as P8.2 recorded at `83ba118`.
+
+**Finding — the ordering premise was already void.** PART 0 was written to run before any merge; W1/W3/W4/W5/W6/W8 landed on `main` on 2026-08-13 (`a366d38`, `90c075f`, `137deaa`, `30aa6a5`, `25dcbef`, `e0d4473`), in the order P8.2 recommended. W2 never existed; W7 is one unmerged doc commit. So 0.2, 0.3 and 0.5 describe debt on `main`, and 0.4 is reportable only.
+
+**Findings (each grep- or command-verified; full evidence in the document):**
+
+| # | Finding | Number |
+|---|---------|--------|
+| **0.1** | `shoot.json` (central, `ShootStore.swift:36`) and the beside-shoot journal are both wired on **every** tip and on `main` (`P0SessionModel` L1146/L1152 journal · L1095/L1125 catalog). `ShootRecord` (`P0State.swift:384`) carries `assets[].cull`, `recipe`, `finalSetOrder`, `decisionLedger`, exclusions. The three green CP2 gates **never open `shoot.json`** (`rg 'shoot\.json\|ShootStore' Scripts/harness/cp2/` → no matches) and `journal_kill_fuzz.py:28` says it mirrors the Swift reader in Python. Row 3 is not untested — it is tested by a mirror that cannot see the bug. **RULING-OWED emitted; recommendation (b) schedule P5, with conditions.** | **2** write roots, **3** stores |
+| **0.2** | All 28 classified, **0 UNCLASSIFIED**: 10 TRUE ORPHAN · 7 DETECTION MISS (one — `LuminaWorkspaceAppearance` — reached from `LuminaApp.swift:38`, so wire-or-delete would delete a launch-path type) · 1 WIRE-OWED · 10 DEAD-BY-COUNT · 3 stale rows on `main`. The prediction that most of the extra 24 were detection misses is **wrong**. Gate scans **53 of 390** product type declarations; counting the severed legacy shell as live hides **21** more; `DEAD` is a hardcoded one-file list. Six-rule self-classification spec recorded. | **22** reported · **43** under a post-W8 rule |
+| **0.3** | Ceilings 48/96/128/256 MiB exist in `PhotoImageCacheBudget.swift` with comments; **no `ram-tiers.json` ledger has ever been written**. Gate passes at `ceilingBytes * 2` (`RamTierHarnessRunner.swift:161`), measures synthesized flat JPEGs, sets `allowRAW: false` on all three tiers so `proxyTierCeilingBytes` is unreachable, and writes `mode: "measured"` unconditionally. **Adjudicated PROVISIONAL and NON-BLOCKING; promotion needs a contract ruling.** | **0** ceilings measured |
+| **0.4** | **4 of 8** branches were cut off a predecessor (W3-cull-grammar, W4⊃W1, W5⊃F11.6, W6⊃W5) and W8 merged main into itself. P8.2's "parallel, not stacked" line is contradicted by its own next clause. W4's own numbers are right (+32 magic against its declared W1 base; +272 would be wrong against `main`). `main` carried unregistered literals from `a366d38` to `c7c999b`. | **3** new hits surfaced by the merges; **30** unmerged branches predate the gate |
+| **0.5** | The M5 hover is gone from `P0SinglePhotoEditor` and **alive one file away**: `LuminaButtons.swift:147` inside `LuminaQuietButtonStyle`, applied at **18** live P0 call sites across 7 files. W8 moved it there from `DecisionDock.swift` (recorded-legacy lane) while deleting that dead file, so it now sits in **no lane**; the record that would show it is gitignored (`.gitignore:35`). **54 of 160** product files are in no lane, including `LuminaApp.swift` and all of `Lumina/Models`. Six blocking readings had no row: hover, orphan scope, M1, R3 after the hash move, D67, disposition completeness. | **15**-row amended instrument published |
+
+**Instrument reading (Linux — measured this session):**
+
+| Command | Result |
+|---------|--------|
+| `python3 Scripts/harness/run.py fast` | **PASS** 7401 ms · **37/37** orchestration · 0 app tests / 0 expected |
+| `python3 Scripts/harness/run.py full` | **PLATFORM-UNAVAILABLE** · 0 app tests / **7** expected |
+| `python3 Scripts/harness/heavy/run_job.py ram_tier_runs` | **PLATFORM-UNAVAILABLE** (exit 2, non-Darwin) |
+| `python3 Scripts/harness/lint/orphan_symbols.py` | **OK** — 22 orphans registered, 0 dead |
+| `bash Scripts/harness/lint/magic_numbers.sh` | **OK** — 95 token literals derived |
+| `python3 Scripts/harness/codegen/tokens_codegen.py --check` | **OK** — `hash=1b1db60f4b92…` (`6.3-motion-wiring`) |
+| `rg -c '\bD67\b' design/contract-v6.md` | **0 hits** — Batch 3 NOT RATIFIED |
+| `find artifacts -name 'LuminaBuildManifest.json'` | **no artifact** — R3 not re-run after W4 moved `tokensHash` |
+| `xcodebuild … build` · `… -only-testing:LuminaLogicTests test` | **PLATFORM-UNAVAILABLE** (Linux cloud VM) |
+
+**Conflicts (3, verbatim in the document):** DEAD-by-count symbol inside a D64-shelved surface · orphan gate's "live" contradicts W8's severance · a banned pattern left every lane during a dead-code deletion.
+
+**Republished sequence:** ruling on 0.1 → M1 macOS diagnostic → row-10 hover hygiene + lane widening → self-classifying orphan gate → W7/CP8 → P5/CP2 → CP3 fixtures then ceiling validation → **R3 before any wave artifact** → Batch 3 ruling.
+
+---
+
 ## 2026-08-13 — W8 legacy-severance: sever live root from legacy shell
 
 **Branch:** `cursor/w8-legacy-severance-39dd`  
