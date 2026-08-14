@@ -4,6 +4,41 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-14 — C3 fast-idempotence: a no-op run leaves the tree clean
+
+**Branch:** `cursor/c3-fast-idempotence-b243` · **Base:** `origin/main` @ `f2e9ee3`
+**Claim:** A no-op run of any lane leaves the tree clean, and the tracked F4 ledger still moves when its result moves. **37** FAST orchestration checks before and after — this session changes no verdicts.
+
+**Finding (the session's premise did not resolve):** `run.py fast` was **already** idempotent. Measured with the prompt's own sequence: `git status --porcelain` → empty, `run.py fast` → PASS, `git status --porcelain` → empty, `git diff <ledger>` → empty. The churn came from **FULL and HEAVY**, which call `_write_orchestration_ledger()` at `run.py:192` and `run.py:333` — the second on the PLATFORM-UNAVAILABLE path, so a Linux host that cannot run the lane still rewrites the tracked ledger.
+
+**Finding (the class has two members, not one):** of **14** tracked artifacts under `artifacts/harness/`, exactly **2** carried a wall-clock field — `ledgers/orchestration-only.json` (`generated_at`, rewritten by FULL/HEAVY) and `coverage/constitution-coverage.json` (`generated_at`, rewritten by `--write`). The other 12 — allowlists, orphan register, `tokens.hash`, goldens, and `constitution-coverage.md` — are already content-only. `ledgers/latest.json` is untracked exhaust (`.gitignore:36`).
+
+**Finding (nothing read the field):** `generated_at` is written in 4 places and read in **0**. `generate_constitution_coverage.py:262` compares `entries` and `summary` only — the check already excluded the field it was diffing on.
+
+**Disposition — EVIDENCE, not exhaust:** the `.gitignore` re-inclusion is deliberate and documented. `git log -S'!artifacts/harness/ledgers/orchestration-only.json' -- .gitignore` → **`8dacec5` "CP0: harness upgrade (#32)"**, whose body states *"F4: orchestration ledger records acceptance numbers as UNMEASURED"*, codified in HARNESS.md "Numbers ledger honesty (F4)". Ignoring the file would have overridden a documented reason — a STOP condition — so it is made **content-addressed** instead.
+
+**Fix:** drop `generated_at` from `orchestration_ledger()` and from the coverage payload; regenerate both tracked artifacts; delete the now-unused `datetime` import. `evaluate()` keeps its timestamp — its default destination is `ledgers/latest.json`, ignored run exhaust, where a per-run wall clock belongs. HARNESS.md gains a **Run idempotence** section with the evidence-versus-exhaust table so a dirty tree after a run reads as a harness bug, not as normal.
+
+**Instrument reading (Linux — all executed this session):**
+
+| Command | Result |
+|---------|--------|
+| `git status --porcelain` (arrival) | empty — clean |
+| `python3 Scripts/harness/run.py fast` | **PASS** · **37** orchestration · 0 app tests / 0 expected |
+| three-run FAST sequence (`status` → `fast` → `status` → `fast` → `status`) | every `status` **empty** |
+| `run.py full` ×3, `run.py heavy` ×1 (the former churners) | **CLEAN** after every run |
+| `generate_constitution_coverage.py --write` (no-op) | **CLEAN** |
+| `python3 Scripts/harness/lint/allowlist_ratchet.py` | **OK** |
+| `Scripts/harness/trace/test_trace_parse.py` | **OK** — 3 tests |
+| `generate_constitution_coverage.py --check` | **OK** |
+| ledger-moves probe: `acceptance_numbers.json` notes edited → regenerate | ledger diff shows the changed note; revert → byte-identical |
+| coverage-moves probe: lint id added to `D8` in `artifact_registry.yaml` → `--write` | `.json` and `.md` both show `c3_idempotence_probe`; revert → byte-identical |
+| `xcodebuild` | not required — this session touches no Swift |
+
+**Lines:** +26 / −6 across 5 files; of that, harness code +11 / −4 and the two tracked artifacts −1 line each (the timestamp).
+
+---
+
 ## 2026-08-13 — W8 legacy-severance: sever live root from legacy shell
 
 **Branch:** `cursor/w8-legacy-severance-39dd`  

@@ -124,6 +124,21 @@ Gates activate only when a macOS measured run populates samples (`mode: measured
 
 ---
 
+## Run idempotence
+
+**A no-op run of any lane leaves the tree clean.** A modified file after `run.py {fast|full|heavy}` on an unchanged tree is a bug in the harness, not something to restore by hand — restoring it by hand is how a real evidence change gets mistaken for churn and discarded.
+
+Tracked harness artifacts are **content-addressed**: same inputs, same bytes, no wall-clock field. That is what makes a diff on one of them mean something. When the evidence last changed is the commit date; when a lane last ran is run exhaust — `artifacts/harness/ledgers/latest.json` and `artifacts/harness/runs/*.json`, both ignored (see the evidence-versus-exhaust split in `.gitignore`).
+
+| Artifact | Tracked | Wall-clock field |
+|----------|---------|------------------|
+| `ledgers/orchestration-only.json` | yes (F4 evidence, `.gitignore` re-includes it) | none |
+| `coverage/constitution-coverage.{json,md}` | yes | none |
+| `tokens.hash`, `*allowlist*.txt`, `orphan_register.txt`, `goldens/**` | yes | none |
+| `ledgers/latest.json`, `runs/*.json`, `dashboard/events.ndjson`, `build-cache/**` | no — exhaust | expected |
+
+---
+
 ## Feature drop-in contract
 
 A new feature ships as **data**, not runner changes:
