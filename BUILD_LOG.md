@@ -4,6 +4,20 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-15 — C-prep: static render hazard inventory (no measurements)
+
+**Branch:** `strategy/cprep-render-hazards` · **Base:** `origin/main` @ `4feea5c`
+
+**Claim:** Produce a static inventory of render hazards on the default-launch contact sheet and single-photo editor after W8, with no measurements, so SPIKE C has a target list.
+
+**Finding:** `xcodebuild` is absent (Linux). Default launch is `LuminaApp` → `P0RootView` → Open / `NSCollectionView` sheet / inspect overlay (`DevelopMetalView`). Sixteen photograph-pixel files. Thirty-six inventory items in seven categories; twelve UNKNOWN. Six-body fleet, `card-clean-500`, and `mixed-200` are absent or synthesized flat JPEGs. Symbol-BFS from `LuminaApp` is not the live-pixel set (`Develop/Lab` skipped; door types included).
+
+**Fix:** Added `design/strategy/render-hazard-inventory.md`. No product, test, or harness code.
+
+**Instrument reading:** No runtime measurement was taken. `git rev-parse origin/main` → `4feea5c6b68dcb8e2a807025bdc517c299f435ec`; `uname -s` → Linux; `xcodebuild=MISSING`. Grep counts are in the inventory verify section. FAST not run.
+
+---
+
 ## 2026-08-14 — O0 merge integrity: W-cascade git audit
 
 **Branch:** `strategy/o0-merge-integrity` · **Base:** `origin/main` @ `dbd4766`
