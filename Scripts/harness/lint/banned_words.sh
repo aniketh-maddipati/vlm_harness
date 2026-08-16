@@ -10,14 +10,11 @@ report() { echo "FAIL: $1" >&2; fail=1; }
 SWIFT_FILES=()
 while IFS= read -r -d '' f; do
   SWIFT_FILES+=("$f")
-done < <(find Lumina -name '*.swift' -print0 | while IFS= read -r -d '' f; do
-  case "$f" in
-    Lumina/Design/CopyContract.swift) continue ;;
-    Lumina/Develop/Lab/*) continue ;;
-    Lumina/Testing/*) continue ;;
-  esac
-  printf '%s\0' "$f"
-done)
+done < <(find Lumina -name '*.swift' \
+  ! -path 'Lumina/Design/CopyContract.swift' \
+  ! -path 'Lumina/Develop/Lab/*' \
+  ! -path 'Lumina/Testing/*' \
+  -print0)
 
 plumbing=(
   "files stay where they are · edits in open sidecars · this shoot opens in Lightroom as-is"

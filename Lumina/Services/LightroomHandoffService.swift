@@ -412,10 +412,6 @@ enum LightroomHandoffService {
         return sha256Hex(joined)
     }
 
-    private static func hashOfManagedFields(for recipe: EditRecipe) -> String {
-        hashOfManagedFields(forMapped: mappedCRSFields(for: recipe))
-    }
-
     private static func hashOfManagedFields(forMapped mapped: [(name: String, value: String)]) -> String {
         let written = Dictionary(uniqueKeysWithValues: mapped.map { ($0.name, $0.value) })
         let joined = managedFieldNames.map { "\($0)=\(written[$0] ?? "")" }.joined(separator: ";")
