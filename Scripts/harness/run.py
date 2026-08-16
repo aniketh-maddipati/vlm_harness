@@ -127,7 +127,17 @@ def lane_fast() -> tuple[list[dict], list[str]]:
         ("unit_codegen", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "codegen"), "-p", "test_*.py"]),
         ("unit_golden", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "golden"), "-p", "test_*.py"]),
         ("unit_trace", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "trace"), "-p", "test_*.py"]),
-        ("unit_invariants", [py, "-m", "unittest", "discover", "-s", str(HARNESS / "tests"), "-p", "test_*.py"]),
+        (
+            "unit_invariants",
+            [
+                py,
+                "-m",
+                "unittest",
+                str(HARNESS / "tests" / "test_build_cache.py"),
+                str(HARNESS / "tests" / "test_count_invariants.py"),
+                str(HARNESS / "tests" / "test_f11_release.py"),
+            ],
+        ),
         (
             "spring_physics_f07",
             [py, str(HARNESS / "tests" / "test_f07_spring_physics.py")],
