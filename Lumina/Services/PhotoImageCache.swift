@@ -177,9 +177,12 @@ actor PhotoImageCache {
             guard memory[key] == nil, inflight[key] == nil else { continue }
             prefetchActive += 1
             Task {
-                defer { await self.prefetchSlotFinished(generation: generation) }
-                guard await self.prefetchStillValid(generation: generation) else { return }
+                guard await self.prefetchStillValid(generation: generation) else {
+                    await self.prefetchSlotFinished(generation: generation)
+                    return
+                }
                 _ = await self.load(path: item.path, maxPixelSize: item.maxPixelSize, allowRAW: item.allowRAW)
+                await self.prefetchSlotFinished(generation: generation)
             }
         }
     }
