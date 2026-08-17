@@ -38,7 +38,7 @@ final class P0InspectNavigationTests: XCTestCase {
 
         XCTAssertEqual(session.inspectingAssetID, b)
         XCTAssertEqual(
-            session.developScheduler.fidelityByPhoto[b],
+            session.developFidelity(for: b),
             .settling,
             "leader openRender must run synchronously on neighbor nav, not after debounce"
         )

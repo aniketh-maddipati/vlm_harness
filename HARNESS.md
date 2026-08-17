@@ -29,6 +29,8 @@ Each lane declares `budgetMs` in `Scripts/harness/lanes/manifests.json`. **Total
 
 **Pre-merge build cache (F04.1):** `Scripts/harness/build_cache.py` stores `xcodebuild build-for-testing` products under `artifacts/harness/build-cache/<source-hash12>-<tokens-hash12>/`. `bash Scripts/regression.sh pre-merge` reuses when source + `design/tokens.yaml` are unchanged.
 
+**Compile rot-guard:** FAST `session_surface` keeps `P0SessionModel.developScheduler` file-private (call sites use `displayedCIImage` / `developFidelity` / `editMetricsLine`). FULL job #1 `xcode_compile` runs `xcodebuild build-for-testing` with `SWIFT_CONTINUE_BUILDING_AFTER_ERRORS=YES` and prints a compact error ledger so one file does not hide the rest. Developers: `bash Scripts/compile_check.sh`. Local `./DD` and `./build` are gitignored.
+
 ---
 
 ## Allowlist ratchet

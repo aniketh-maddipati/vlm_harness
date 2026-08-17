@@ -39,6 +39,7 @@
         { "id": "allowlist_ratchet", "kind": "orchestration" },
         { "id": "shipping_fence", "kind": "orchestration", "notes": "Headless harness compiled out of LUMINA_SHIPPING_APP Release" },
         { "id": "module_boundary", "kind": "orchestration", "notes": "Core models must not import UI/GPU frameworks" },
+        { "id": "session_surface", "kind": "orchestration", "notes": "P0SessionModel developScheduler stays file-private; call sites use session APIs" },
         { "id": "repo_artifact_bloat", "kind": "orchestration", "notes": "Duplicate PNG evidence dirs must not re-enter git" },
         { "id": "f11_no_licensing", "kind": "orchestration", "notes": "F11.7 — D52/A8 wave builds: no license/activation/expiry code" },
         { "id": "f11_a7_expiry", "kind": "orchestration", "notes": "F11.6 — betaDiagnostics must be null on wave/beta builds (D45/A13)" },
@@ -50,6 +51,7 @@
       "budgetMs": 480000,
       "tests": [
         { "id": "worktree_snapshot", "kind": "orchestration" },
+        { "id": "xcode_compile", "kind": "orchestration", "notes": "FULL job #1 — xcodebuild build with continue-after-errors; compact error ledger" },
         { "id": "ledger_orchestration_write", "kind": "orchestration" },
         { "id": "grammar_scripts_live", "kind": "app-coupled" },
         { "id": "probe_v2_mid_script", "kind": "app-coupled" },

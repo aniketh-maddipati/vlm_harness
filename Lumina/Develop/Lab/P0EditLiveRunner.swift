@@ -117,7 +117,6 @@ enum P0EditLiveRunner {
         session.prewarmInspection(around: landscape.id)
         await wait(0.6)
         let hasFrame = session.displayedCIImage(for: landscape.id) != nil
-            || session.developScheduler.presentedCIImage(for: landscape.id) != nil
         note("RAW preview presents without blank canvas", hasFrame)
 
         // Capture editor @ 1280×800
@@ -162,8 +161,7 @@ enum P0EditLiveRunner {
             let v = sin((CFAbsoluteTimeGetCurrent() - scrubStart) * 3.2) * 1.2
             session.scrubEdit { $0.exposure = v }
             await wait(0.016)
-            if session.displayedCIImage(for: landscape.id) == nil,
-               session.developScheduler.presentedCIImage(for: landscape.id) == nil {
+            if session.displayedCIImage(for: landscape.id) == nil {
                 blankSeen = true
             }
             scrubSamples.append((CFAbsoluteTimeGetCurrent() - t0) * 1000)
@@ -177,7 +175,7 @@ enum P0EditLiveRunner {
             "p50Ms": percentile(scrubSamples, 0.50),
             "p95Ms": scrubP95,
             "blankSeen": blankSeen,
-            "scheduler": session.developScheduler.metrics.summaryLine,
+            "scheduler": session.editMetricsLine,
         ]
         note("Rapid Exposure scrub ≥10s without blank canvas", !blankSeen, String(format: "p95=%.1fms n=%d", scrubP95, scrubSamples.count))
 
@@ -203,11 +201,10 @@ enum P0EditLiveRunner {
             session.setFocus(id)
             await wait(0.03)
             navSamples.append((CFAbsoluteTimeGetCurrent() - t0) * 1000)
-            if session.developScheduler.presentedCIImage(for: id) == nil,
-               session.displayedCIImage(for: id) == nil {
+            if session.displayedCIImage(for: id) == nil {
                 // Cold frames may be empty briefly; only fail if still empty after wait.
                 await wait(0.12)
-                if session.developScheduler.presentedCIImage(for: id) == nil {
+                if session.displayedCIImage(for: id) == nil {
                     navBlank = true
                 }
             }
@@ -351,7 +348,7 @@ enum P0EditLiveRunner {
         report["metrics"] = [
             "scrub": report["rapidScrub"] as Any,
             "navigation": report["navigation"] as Any,
-            "scheduler": session.developScheduler.metrics.summaryLine,
+            "scheduler": session.editMetricsLine,
         ]
         write(report, to: outDir)
         fputs("P0 edit live → \(outDir.path) (\(failures) failure(s))\n", stderr)

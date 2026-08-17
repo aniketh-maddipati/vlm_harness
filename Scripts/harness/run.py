@@ -136,6 +136,7 @@ def lane_fast() -> tuple[list[dict], list[str]]:
                 str(HARNESS / "tests" / "test_build_cache.py"),
                 str(HARNESS / "tests" / "test_count_invariants.py"),
                 str(HARNESS / "tests" / "test_f11_release.py"),
+                str(HARNESS / "tests" / "test_xcode_compile.py"),
             ],
         ),
         (
@@ -173,6 +174,7 @@ def lane_fast() -> tuple[list[dict], list[str]]:
         ("allowlist_ratchet", [py, str(HARNESS / "lint" / "allowlist_ratchet.py")]),
         ("shipping_fence", [py, str(HARNESS / "lint" / "shipping_fence.py")]),
         ("module_boundary", [py, str(HARNESS / "lint" / "module_boundary.py")]),
+        ("session_surface", [py, str(HARNESS / "lint" / "session_surface.py")]),
         ("repo_artifact_bloat", [py, str(HARNESS / "lint" / "repo_artifact_bloat.py")]),
         ("f11_no_licensing", [py, str(HARNESS / "release" / "f11_no_licensing.py")]),
         ("f11_a7_expiry", [py, str(HARNESS / "release" / "f11_a7_expiry.py")]),
@@ -198,6 +200,15 @@ def lane_full_macos() -> tuple[list[dict], list[str]]:
         results.append(_run("worktree_snapshot", [py, "-c", "print('snapshot ok')"], "FULL", snap))
         if results[-1]["ok"]:
             executed.append("worktree_snapshot")
+        compile_step = _run(
+            "xcode_compile",
+            [py, str(HARNESS / "lint" / "xcode_compile.py"), "--project-root", str(snap)],
+            "FULL",
+            snap,
+        )
+        results.append(compile_step)
+        if compile_step["ok"]:
+            executed.append("xcode_compile")
         try:
             _write_orchestration_ledger()
             # On macOS the live signpost step replaces UNMEASURED; until emitters

@@ -27,6 +27,7 @@ struct ProbeSnapshot: Codable, Equatable {
     /// focused). Lets the harness assert an edit gesture changed/reverted state without exposing
     /// pixel data, file paths, or the full recipe payload.
     var focusedRecipeFingerprint: String?
+    /// Render fidelity stays session-internal (`P0SessionModel.developFidelity(for:)`) — not probed.
     /// D47/A3 — pointer cull mark targets visible on the focused contact-sheet frame.
     var pointerCullTargetsVisible: Bool
     var inspectingAssetID: String?

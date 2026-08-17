@@ -4,6 +4,28 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-16 — Fix tree compile + compile rot-guard
+
+**Branch:** `main` · **Base:** `origin/main` @ `b90fdfd`
+
+**Claim:** Drive `xcodebuild … build` to zero errors and add resiliency so one private-access slip cannot hide the rest of the error list.
+
+**Finding:** Debug build failed in `P0EditLiveRunner` — `developScheduler` is `private` on `P0SessionModel`, but the live harness, `P0SinglePhotoEditor`, and `P0InspectNavigationTests` still reached it. Swift compiles in batches, so sibling call sites would have failed on the next wave.
+
+**Fix:** Session APIs `displayedCIImage` / `developFidelity(for:)` / `editMetricsLine` are the only call-site surface; scheduler stays file-private. FAST `session_surface` forbids `.developScheduler` outside `P0SessionModel`. FULL job #1 `xcode_compile` runs `xcodebuild` with `SWIFT_CONTINUE_BUILDING_AFTER_ERRORS=YES` and prints a compact ledger. `bash Scripts/compile_check.sh` for the editing tree. `./DD` and `./build` gitignored.
+
+**Instrument reading (this Mac, Xcode 26.6):**
+
+| Command | Result |
+|---------|--------|
+| `xcodebuild … build` | **BUILD SUCCEEDED** |
+| `xcodebuild … build-for-testing` | **TEST BUILD SUCCEEDED** |
+| `python3 Scripts/harness/run.py fast` | **PASS** · **38** orchestration · 0 app / 0 expected · 16897 ms |
+| `session_surface` | OK |
+| `xcode_compile --parse-log` | 0 errors on the green BFT log |
+
+---
+
 ## 2026-08-15 — C-prep: static render hazard inventory (no measurements)
 
 **Branch:** `strategy/cprep-render-hazards` · **Base:** `origin/main` @ `4feea5c`
