@@ -10,6 +10,10 @@ artifacts/**/handoff/*.tiff
 artifacts/**/handoff/*.ARW
 artifacts/**/handoff/*.arw
 
+# Local xcodebuild derived data (compile_check / tree-compiles use ./DD)
+/DD/
+/build/
+
 # Xcode
 xcuserdata/
 *.xcuserstate

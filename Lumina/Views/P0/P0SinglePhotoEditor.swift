@@ -108,7 +108,7 @@ struct P0SinglePhotoEditor: View {
                     .font(LuminaTokens.Typeface.meta(11))
                     .foregroundStyle(LuminaTokens.Ink.secondary)
                     .lineLimit(1)
-            } else if let fidelity = session.developScheduler.fidelityByPhoto[asset.id] {
+            } else if let fidelity = session.developFidelity(for: asset.id) {
                 Text(session.showingBefore ? "Original" : fidelity.label)
                     .font(LuminaTokens.Typeface.meta(11))
                     .foregroundStyle(LuminaTokens.Ink.tertiary)

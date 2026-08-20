@@ -161,6 +161,11 @@ final class P0SessionModel {
         return developSchedulerStorage.presentedCIImage(for: assetID)
     }
 
+    /// Live develop fidelity for a photograph, if the scheduler has started.
+    func developFidelity(for assetID: UUID) -> DevelopFidelityState? {
+        developSchedulerStorage?.fidelityByPhoto[assetID]
+    }
+
     var visibleItems: [ContactSheetItem] {
         let ordered = orderedIDList
         let selected = selectedAssetIDs

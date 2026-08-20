@@ -73,12 +73,12 @@ final class ExplorerRunner {
                 index: index,
                 action: action.rawValue,
                 stateBefore: state.rawValue,
-                stateAfter: (after.map { ExplorerState(route: $0.route).rawValue }) ?? "unknown",
+                stateAfter: ExplorerState(route: after.route).rawValue,
                 routeBefore: before?.route ?? "open",
-                routeAfter: after?.route ?? "open",
+                routeAfter: after.route,
                 keptBefore: before?.keptCount ?? 0,
-                keptAfter: after?.keptCount ?? 0,
-                selectionAfter: after?.selectionCount ?? 0,
+                keptAfter: after.keptCount,
+                selectionAfter: after.selectionCount,
                 violations: violations
             ))
             report.completedSteps = index + 1

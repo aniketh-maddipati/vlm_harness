@@ -16,7 +16,7 @@ struct P0LegacyShellContainer: View {
                         .ignoresSafeArea()
                 }
             }
-            .onAppear(ensureLegacyShellConstructed)
+            .onAppear(perform: ensureLegacyShellConstructed)
             .onChange(of: session.showLegacyShell) { _, isShowing in
                 if isShowing { ensureLegacyShellConstructed() }
             }
