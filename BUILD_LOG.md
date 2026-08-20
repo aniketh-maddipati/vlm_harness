@@ -4,6 +4,28 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-19 — Phase 1.5 probe-timeout root cause (hypothesis disproved)
+
+**Branch:** `long/full-ladder` · **Base:** `origin/main` @ `2d09216`
+
+**Claim:** Root-cause the pre-Gate-1 `p0.stateProbe` timeout by measuring whether `LuminaApp.init()` blocks on synchronous `UITestFixtures.ensure()` work before the first scene mounts.
+
+**Finding:** The cache-miss fixture build is real but tiny. On `smoke`, first launch of `mixed-60` recorded `ensure.cache-miss` **42 ms** build / **43 ms** total, and `runIfRequested` **45 ms** end-to-end; relaunch against the same state recorded `ensure.cache-hit` **2 ms** and `runIfRequested` **4 ms**. On `blocking`, first launch of `mixed-60` again recorded `ensure.cache-miss` **42 ms** build / **42 ms** total and `runIfRequested` **44 ms**. The probe still failed to appear while XCUITest kept polling for **25 s** per launch attempt, so the timeout is **not** explained by synchronous fixture synthesis on the pre-scene path.
+
+**State-root finding:** The runner script passes `TEST_RUNNER_LUMINA_UI_TEST_STATE_ROOT=$ARTIFACT_DIR/state`, and `LaunchConfig` would reuse that as a per-run root with a unique UUID child per test launch. In practice, both `smoke` and `blocking` launched with `--ui-test-state-directory /Users/aniketh/Library/Containers/com.lumina.app.uitests.xctrunner/Data/tmp/LuminaUITestState/<UUID>`, and the artifact `state/` directory stayed empty. So the plans are currently using a unique XCTest temp-container state directory per launch, not the documented artifact state root.
+
+**Fix / instrumentation:** Added monotonic timing logs around `UITestLaunch.runIfRequested()` and `UITestFixtures.ensure()`, mirrored both to `stderr` and a per-launch `launch-timing.log` under the active UI-test state directory so the measurements survive Xcode log filtering. No timeout, retry, or startup behavior was changed in this phase.
+
+**Instrument reading (this Mac, Xcode 26.6):**
+
+| Command | Result |
+|---------|--------|
+| `bash Scripts/run_p0_ui_tests.sh smoke` | **FAILED** — probe never appeared; launch timing file showed `mixed-60` miss **42/43/45 ms**, relaunch hit **2/4 ms** |
+| `bash Scripts/run_p0_ui_tests.sh blocking` | first launch reproduced probe wait; launch timing file showed `mixed-60` miss **42/44 ms**; phase stopped after hypothesis was disproved |
+| `vet "Phase 1.5 instrumentation…"` | **UNKNOWN** — `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` unset |
+
+**Artifacts / evidence:** `artifacts/ui-automation/smoke-20260819-230349/` and `artifacts/ui-automation/blocking-20260819-230520/`; timing files under `~/Library/Containers/com.lumina.app.uitests.xctrunner/Data/tmp/LuminaUITestState/DF891D82-D968-4156-A002-8464EEAAFBAA/launch-timing.log` and `.../F3BFB92E-9360-484F-97CC-2A2DFBDB1B15/launch-timing.log`.
+
 ## 2026-08-16 — Fix tree compile + compile rot-guard
 
 **Branch:** `main` · **Base:** `origin/main` @ `b90fdfd`

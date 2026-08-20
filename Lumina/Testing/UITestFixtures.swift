@@ -37,7 +37,9 @@ enum UITestFixtures {
     /// Returns the shoot name that the harness should open, or nil when the fixture is unknown.
     @discardableResult
     static func ensure(named fixture: String, reset: Bool) -> String? {
+        let start = monotonicMilliseconds()
         guard let spec = specs[fixture] else {
+            log("ensure.unknown fixture=\(fixture) elapsedMs=\(monotonicMilliseconds() - start)")
             fputs("[UITestFixtures] unknown fixture \(fixture)\n", stderr)
             return nil
         }
@@ -45,13 +47,26 @@ enum UITestFixtures {
         // Relaunch against the same state must preserve prior decisions: only rebuild on reset
         // or when the shoot is absent.
         if !reset, let existing = try? ShootStore.loadShoot(id: spec.name), !existing.assets.isEmpty {
+            log(
+                """
+                ensure.cache-hit fixture=\(spec.name) reset=\(reset) assetCount=\(existing.assets.count) \
+                elapsedMs=\(monotonicMilliseconds() - start)
+                """
+            )
             return existing.name
         }
 
         do {
+            let buildStart = monotonicMilliseconds()
+            log("ensure.cache-miss fixture=\(spec.name) reset=\(reset) assetCount=\(spec.count) buildStart=\(buildStart)")
             try build(spec)
+            let end = monotonicMilliseconds()
+            log(
+                "ensure.build-complete fixture=\(spec.name) assetCount=\(spec.count) elapsedMs=\(end - start) buildMs=\(end - buildStart)"
+            )
             return spec.name
         } catch {
+            log("ensure.build-failed fixture=\(spec.name) assetCount=\(spec.count) elapsedMs=\(monotonicMilliseconds() - start)")
             fputs("[UITestFixtures] build failed for \(spec.name): \(error)\n", stderr)
             return nil
         }
@@ -243,6 +258,30 @@ enum UITestFixtures {
         var hasher = FNV1aUUIDMixer()
         hasher.update(seed)
         return hasher.uuid()
+    }
+
+    private static func monotonicMilliseconds() -> Int {
+        Int((ProcessInfo.processInfo.systemUptime * 1_000.0).rounded())
+    }
+
+    private static func log(_ message: String) {
+        appendTimingLogLine("[UITestFixturesTiming] \(message)")
+    }
+
+    private static func appendTimingLogLine(_ line: String) {
+        let fullLine = "\(line)\n"
+        fputs(fullLine, stderr)
+        guard let stateDir = UITestSupport.stateDirectoryOverride else { return }
+        let url = stateDir.appendingPathComponent("launch-timing.log")
+        let data = Data(fullLine.utf8)
+        if FileManager.default.fileExists(atPath: url.path),
+           let handle = try? FileHandle(forWritingTo: url) {
+            defer { try? handle.close() }
+            _ = try? handle.seekToEnd()
+            try? handle.write(contentsOf: data)
+        } else {
+            try? data.write(to: url, options: .atomic)
+        }
     }
 }
 
