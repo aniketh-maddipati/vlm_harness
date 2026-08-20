@@ -1,0 +1,468 @@
+[live-edit 807649579.641] session prepare sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 count=1
+[live-edit 807649579.839] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.3 temp=5600.0 scale=0.2667
+[live-edit 807649580.352] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=-1.5 temp=6500.0 scale=0.2667
+[live-edit 807649580.515] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.5 temp=6500.0 scale=0.2667
+[live-edit 807649580.649] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.0 temp=4000.0 scale=0.2667
+[live-edit 807649580.655] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.0 temp=8000.0 scale=0.2667
+[live-edit 807649580.700] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.0 temp=6500.0 scale=0.2667
+[live-edit 807649580.706] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.0 temp=6500.0 scale=0.2667
+[live-edit 807649580.751] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.0 temp=6500.0 scale=0.2667
+[live-edit 807649580.952] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=E139BC97-E03E-4E4B-A3D9-080D1C4F661B recipeRevision=1 control=exposure value=0.000
+[live-edit 807649580.952] render start requestID=29FC8750-A1D3-453A-9C06-A10DB49C4496 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=1 quality=interactive
+[live-edit 807649580.952] render finish requestID=29FC8750-A1D3-453A-9C06-A10DB49C4496 durationMs=0.1 rawHit=true cancelled=false
+[live-edit 807649580.952] publication accepted requestID=29FC8750-A1D3-453A-9C06-A10DB49C4496 recipeRevision=1 textureID=ObjectIdentifier(0x0000000bed8708c0) inputToVisibleMs=0.7
+[live-edit 807649580.961] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=BCC0EC5D-252A-407E-B375-162B5454B74A recipeRevision=2 control=exposure value=0.050
+[live-edit 807649580.961] render start requestID=64C6E592-7CE4-44A3-B0E8-DA5325AF5C0E photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=2 quality=interactive
+[live-edit 807649580.962] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.05 temp=6500.0 scale=0.2667
+[live-edit 807649580.962] render finish requestID=64C6E592-7CE4-44A3-B0E8-DA5325AF5C0E durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649580.962] publication accepted requestID=64C6E592-7CE4-44A3-B0E8-DA5325AF5C0E recipeRevision=2 textureID=ObjectIdentifier(0x0000000bed872080) inputToVisibleMs=1.2
+[live-edit 807649580.971] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=2E689216-3A9A-4D2E-9514-86E8154DE42E recipeRevision=3 control=exposure value=0.100
+[live-edit 807649580.972] render start requestID=FBAF557B-28EE-4284-813D-BC2EEF7BD76D photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=3 quality=interactive
+[live-edit 807649580.972] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.1 temp=6500.0 scale=0.2667
+[live-edit 807649580.973] render finish requestID=FBAF557B-28EE-4284-813D-BC2EEF7BD76D durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649580.973] publication accepted requestID=FBAF557B-28EE-4284-813D-BC2EEF7BD76D recipeRevision=3 textureID=ObjectIdentifier(0x0000000bed872280) inputToVisibleMs=1.2
+[live-edit 807649580.981] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=A284991A-6484-4556-B816-A5EC3CB0149E recipeRevision=4 control=exposure value=0.150
+[live-edit 807649580.981] render start requestID=06EB629E-757F-4A5A-A5A3-D4308501DF1F photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=4 quality=interactive
+[live-edit 807649580.981] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.15000000000000002 temp=6500.0 scale=0.2667
+[live-edit 807649580.982] render finish requestID=06EB629E-757F-4A5A-A5A3-D4308501DF1F durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649580.982] publication accepted requestID=06EB629E-757F-4A5A-A5A3-D4308501DF1F recipeRevision=4 textureID=ObjectIdentifier(0x0000000bed872380) inputToVisibleMs=1.2
+[live-edit 807649580.991] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=1B8A07F5-168A-4A89-AE1E-C7A339EA6AE2 recipeRevision=5 control=exposure value=0.200
+[live-edit 807649580.991] render start requestID=92825E90-82BA-475E-B251-EF287242CBA5 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=5 quality=interactive
+[live-edit 807649580.992] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.2 temp=6500.0 scale=0.2667
+[live-edit 807649580.992] render finish requestID=92825E90-82BA-475E-B251-EF287242CBA5 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649580.992] publication accepted requestID=92825E90-82BA-475E-B251-EF287242CBA5 recipeRevision=5 textureID=ObjectIdentifier(0x0000000bed8723e0) inputToVisibleMs=1.1
+[live-edit 807649581.001] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=D6290E9F-C988-4337-9797-31DB983A6F0D recipeRevision=6 control=exposure value=0.250
+[live-edit 807649581.001] render start requestID=080174D7-4BAA-4503-BC73-736E86EBAAD0 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=6 quality=interactive
+[live-edit 807649581.002] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.25 temp=6500.0 scale=0.2667
+[live-edit 807649581.002] render finish requestID=080174D7-4BAA-4503-BC73-736E86EBAAD0 durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649581.003] publication accepted requestID=080174D7-4BAA-4503-BC73-736E86EBAAD0 recipeRevision=6 textureID=ObjectIdentifier(0x0000000bed8725e0) inputToVisibleMs=1.2
+[live-edit 807649581.012] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=BBCE9D94-ED65-483B-817F-2E07027D2A9B recipeRevision=7 control=exposure value=0.300
+[live-edit 807649581.012] render start requestID=7CF3265A-08DA-4A8E-99DB-DC3B60692287 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=7 quality=interactive
+[live-edit 807649581.012] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.30000000000000004 temp=6500.0 scale=0.2667
+[live-edit 807649581.013] render finish requestID=7CF3265A-08DA-4A8E-99DB-DC3B60692287 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649581.013] publication accepted requestID=7CF3265A-08DA-4A8E-99DB-DC3B60692287 recipeRevision=7 textureID=ObjectIdentifier(0x0000000bed8727c0) inputToVisibleMs=1.1
+[live-edit 807649581.021] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=CFEF7C46-0B88-4799-8907-6BE307FD97F4 recipeRevision=8 control=exposure value=0.350
+[live-edit 807649581.021] render start requestID=5E7D91F9-C842-4F53-A211-97E9E57C1354 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=8 quality=interactive
+[live-edit 807649581.022] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.35000000000000003 temp=6500.0 scale=0.2667
+[live-edit 807649581.023] render finish requestID=5E7D91F9-C842-4F53-A211-97E9E57C1354 durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649581.023] publication accepted requestID=5E7D91F9-C842-4F53-A211-97E9E57C1354 recipeRevision=8 textureID=ObjectIdentifier(0x0000000bed8729e0) inputToVisibleMs=1.3
+[live-edit 807649581.032] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=C8053754-5C7B-47C2-9FE3-47B2BA3DC2AE recipeRevision=9 control=exposure value=0.400
+[live-edit 807649581.032] render start requestID=C9A78A85-F750-410F-AE8C-3BC9C680B982 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=9 quality=interactive
+[live-edit 807649581.032] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.4 temp=6500.0 scale=0.2667
+[live-edit 807649581.033] render finish requestID=C9A78A85-F750-410F-AE8C-3BC9C680B982 durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649581.033] publication accepted requestID=C9A78A85-F750-410F-AE8C-3BC9C680B982 recipeRevision=9 textureID=ObjectIdentifier(0x0000000bed872bc0) inputToVisibleMs=1.3
+[live-edit 807649581.042] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=BCD471C9-183D-4010-8EB2-6D015738E849 recipeRevision=10 control=exposure value=0.450
+[live-edit 807649581.042] render start requestID=16F96E95-77AE-4DD7-A445-146D671A0128 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=10 quality=interactive
+[live-edit 807649581.042] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.45 temp=6500.0 scale=0.2667
+[live-edit 807649581.043] render finish requestID=16F96E95-77AE-4DD7-A445-146D671A0128 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649581.043] publication accepted requestID=16F96E95-77AE-4DD7-A445-146D671A0128 recipeRevision=10 textureID=ObjectIdentifier(0x0000000bed872dc0) inputToVisibleMs=1.2
+[live-edit 807649581.052] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=85D139F2-0057-476D-BBBA-90DEC3FE9578 recipeRevision=11 control=exposure value=0.500
+[live-edit 807649581.052] render start requestID=35637BA5-CBAF-441F-B309-108A2EE913FB photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=11 quality=interactive
+[live-edit 807649581.052] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.5 temp=6500.0 scale=0.2667
+[live-edit 807649581.053] render finish requestID=35637BA5-CBAF-441F-B309-108A2EE913FB durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649581.053] publication accepted requestID=35637BA5-CBAF-441F-B309-108A2EE913FB recipeRevision=11 textureID=ObjectIdentifier(0x0000000bed872fa0) inputToVisibleMs=1.1
+[live-edit 807649581.062] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=B3FF07CB-1CAB-4274-9EC5-C7F7DA572982 recipeRevision=12 control=exposure value=0.550
+[live-edit 807649581.062] render start requestID=BF876B43-83CA-48E2-8175-3C70D553BEBB photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=12 quality=interactive
+[live-edit 807649581.062] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.55 temp=6500.0 scale=0.2667
+[live-edit 807649581.063] render finish requestID=BF876B43-83CA-48E2-8175-3C70D553BEBB durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649581.063] publication accepted requestID=BF876B43-83CA-48E2-8175-3C70D553BEBB recipeRevision=12 textureID=ObjectIdentifier(0x0000000bed8731a0) inputToVisibleMs=1.3
+[live-edit 807649581.072] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=02B565DE-77E2-4542-B558-43F6AA62EE7E recipeRevision=13 control=exposure value=0.600
+[live-edit 807649581.072] render start requestID=EFEA5D77-950D-40BE-A25F-E59D7F28E7B7 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=13 quality=interactive
+[live-edit 807649581.073] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.6000000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649581.074] render finish requestID=EFEA5D77-950D-40BE-A25F-E59D7F28E7B7 durationMs=1.1 rawHit=false cancelled=false
+[live-edit 807649581.074] publication accepted requestID=EFEA5D77-950D-40BE-A25F-E59D7F28E7B7 recipeRevision=13 textureID=ObjectIdentifier(0x0000000bed873340) inputToVisibleMs=1.4
+[live-edit 807649581.082] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=21AC4946-3E88-42E2-8794-86A0D9E560B0 recipeRevision=14 control=exposure value=0.650
+[live-edit 807649581.083] render start requestID=5E8C996C-58A0-4E61-BC2B-F25AD4FBBA44 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=14 quality=interactive
+[live-edit 807649581.083] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.65 temp=6500.0 scale=0.2667
+[live-edit 807649581.084] render finish requestID=5E8C996C-58A0-4E61-BC2B-F25AD4FBBA44 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649581.084] publication accepted requestID=5E8C996C-58A0-4E61-BC2B-F25AD4FBBA44 recipeRevision=14 textureID=ObjectIdentifier(0x0000000bed8735a0) inputToVisibleMs=1.2
+[live-edit 807649581.092] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=67C514DA-57FB-4CBD-8A1B-29B9C0B37D71 recipeRevision=15 control=exposure value=0.700
+[live-edit 807649581.092] render start requestID=1AB06B3D-D611-4A22-A407-114D2442FA24 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=15 quality=interactive
+[live-edit 807649581.092] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.7000000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649581.093] render finish requestID=1AB06B3D-D611-4A22-A407-114D2442FA24 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649581.093] publication accepted requestID=1AB06B3D-D611-4A22-A407-114D2442FA24 recipeRevision=15 textureID=ObjectIdentifier(0x0000000bed873780) inputToVisibleMs=1.2
+[live-edit 807649581.102] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=B43022BB-66F9-4ACF-AE67-FA5BEAD78224 recipeRevision=16 control=exposure value=0.750
+[live-edit 807649581.102] render start requestID=9DA3C772-EAE1-4409-825D-6FD0AAA4DBE1 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=16 quality=interactive
+[live-edit 807649581.103] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.75 temp=6500.0 scale=0.2667
+[live-edit 807649581.103] render finish requestID=9DA3C772-EAE1-4409-825D-6FD0AAA4DBE1 durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649581.103] publication accepted requestID=9DA3C772-EAE1-4409-825D-6FD0AAA4DBE1 recipeRevision=16 textureID=ObjectIdentifier(0x0000000bed873980) inputToVisibleMs=1.0
+[live-edit 807649581.111] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=BADF113A-107E-4AE3-8580-5CD9AAB6EB13 recipeRevision=17 control=exposure value=0.800
+[live-edit 807649581.111] render start requestID=976575AA-8FB3-4649-A211-5B49EE8ADF18 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=17 quality=interactive
+[live-edit 807649581.111] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.8 temp=6500.0 scale=0.2667
+[live-edit 807649581.112] render finish requestID=976575AA-8FB3-4649-A211-5B49EE8ADF18 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649581.112] publication accepted requestID=976575AA-8FB3-4649-A211-5B49EE8ADF18 recipeRevision=17 textureID=ObjectIdentifier(0x0000000bed873b80) inputToVisibleMs=1.2
+[live-edit 807649581.120] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=DA3575CF-F33D-47EB-94F0-E61E7125F465 recipeRevision=18 control=exposure value=0.850
+[live-edit 807649581.120] render start requestID=17B7EE02-43D8-4FFD-BBCF-CC589BE34FAC photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=18 quality=interactive
+[live-edit 807649581.120] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.8500000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649581.121] render finish requestID=17B7EE02-43D8-4FFD-BBCF-CC589BE34FAC durationMs=1.0 rawHit=false cancelled=false
+[live-edit 807649581.121] publication accepted requestID=17B7EE02-43D8-4FFD-BBCF-CC589BE34FAC recipeRevision=18 textureID=ObjectIdentifier(0x0000000bed873ce0) inputToVisibleMs=1.3
+[live-edit 807649581.129] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=9C01DB3B-5A66-4F98-BB9C-5DD8E2D8B798 recipeRevision=19 control=exposure value=0.900
+[live-edit 807649581.129] render start requestID=B7D24A48-A7D2-4D8F-8623-F524817E5E4A photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=19 quality=interactive
+[live-edit 807649581.129] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.9 temp=6500.0 scale=0.2667
+[live-edit 807649581.130] render finish requestID=B7D24A48-A7D2-4D8F-8623-F524817E5E4A durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649581.130] publication accepted requestID=B7D24A48-A7D2-4D8F-8623-F524817E5E4A recipeRevision=19 textureID=ObjectIdentifier(0x0000000bed873f60) inputToVisibleMs=1.3
+[live-edit 807649581.138] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EA338F66-686B-4260-BA1D-1972D3DE7865 recipeRevision=20 control=exposure value=0.950
+[live-edit 807649581.138] render start requestID=19E59D34-1FAB-4D21-89AD-88CFD26E2247 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=20 quality=interactive
+[live-edit 807649581.138] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.9500000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649581.139] render finish requestID=19E59D34-1FAB-4D21-89AD-88CFD26E2247 durationMs=1.2 rawHit=false cancelled=false
+[live-edit 807649581.140] publication accepted requestID=19E59D34-1FAB-4D21-89AD-88CFD26E2247 recipeRevision=20 textureID=ObjectIdentifier(0x0000000bed86b620) inputToVisibleMs=1.6
+[live-edit 807649581.147] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=7AA8E414-CEB9-44D9-8AC3-0E4EA2FC6C28 recipeRevision=21 control=exposure value=1.000
+[live-edit 807649581.147] render start requestID=37915148-3220-47D1-98CA-3749AD2306D9 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=21 quality=interactive
+[live-edit 807649581.148] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.0 temp=6500.0 scale=0.2667
+[live-edit 807649581.148] render finish requestID=37915148-3220-47D1-98CA-3749AD2306D9 durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649581.148] publication accepted requestID=37915148-3220-47D1-98CA-3749AD2306D9 recipeRevision=21 textureID=ObjectIdentifier(0x0000000bed873740) inputToVisibleMs=1.0
+[live-edit 807649581.156] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=0F2B16A9-09C3-4385-ADFD-E0BFD5F16EB6 recipeRevision=22 control=exposure value=1.050
+[live-edit 807649581.157] render start requestID=44646D29-5533-4E0F-9574-8B98E12747F9 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=22 quality=interactive
+[live-edit 807649581.157] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.05 temp=6500.0 scale=0.2667
+[live-edit 807649581.158] render finish requestID=44646D29-5533-4E0F-9574-8B98E12747F9 durationMs=1.3 rawHit=false cancelled=false
+[live-edit 807649581.158] publication accepted requestID=44646D29-5533-4E0F-9574-8B98E12747F9 recipeRevision=22 textureID=ObjectIdentifier(0x0000000bed947de0) inputToVisibleMs=1.7
+[live-edit 807649581.166] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=39F38522-3AF0-4AF2-BB98-2DAB7BC2E16F recipeRevision=23 control=exposure value=1.100
+[live-edit 807649581.166] render start requestID=DE1C557C-87E0-4440-A906-6FEF2E3CC01E photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=23 quality=interactive
+[live-edit 807649581.166] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.1 temp=6500.0 scale=0.2667
+[live-edit 807649581.167] render finish requestID=DE1C557C-87E0-4440-A906-6FEF2E3CC01E durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649581.167] publication accepted requestID=DE1C557C-87E0-4440-A906-6FEF2E3CC01E recipeRevision=23 textureID=ObjectIdentifier(0x0000000bed86bc40) inputToVisibleMs=1.2
+[live-edit 807649581.175] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=944962B0-639E-4741-8067-624172FF7952 recipeRevision=24 control=exposure value=1.150
+[live-edit 807649581.175] render start requestID=8A216E0B-7096-4B9C-AAF4-D78857A3B29B photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=24 quality=interactive
+[live-edit 807649581.175] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.1500000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649581.176] render finish requestID=8A216E0B-7096-4B9C-AAF4-D78857A3B29B durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649581.176] publication accepted requestID=8A216E0B-7096-4B9C-AAF4-D78857A3B29B recipeRevision=24 textureID=ObjectIdentifier(0x0000000bed871600) inputToVisibleMs=1.2
+[live-edit 807649581.185] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=1B40E310-EDE6-453F-8BC9-954D0FF2170B recipeRevision=25 control=exposure value=1.200
+[live-edit 807649581.185] render start requestID=13840647-7A86-4676-996A-96A8BA80C423 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=25 quality=interactive
+[live-edit 807649581.185] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.2000000000000002 temp=6500.0 scale=0.2667
+[live-edit 807649581.186] render finish requestID=13840647-7A86-4676-996A-96A8BA80C423 durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649581.186] publication accepted requestID=13840647-7A86-4676-996A-96A8BA80C423 recipeRevision=25 textureID=ObjectIdentifier(0x0000000bed86af80) inputToVisibleMs=1.1
+[live-edit 807649581.194] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=005BA803-B9C1-4F78-8C77-43178D674BA5 recipeRevision=26 control=exposure value=1.250
+[live-edit 807649581.195] render start requestID=26C64F4F-2F14-416F-AD41-72B9CB0AB9D5 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=26 quality=interactive
+[live-edit 807649581.195] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.25 temp=6500.0 scale=0.2667
+[live-edit 807649581.196] render finish requestID=26C64F4F-2F14-416F-AD41-72B9CB0AB9D5 durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649581.196] publication accepted requestID=26C64F4F-2F14-416F-AD41-72B9CB0AB9D5 recipeRevision=26 textureID=ObjectIdentifier(0x0000000bed871680) inputToVisibleMs=1.2
+[live-edit 807649581.204] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=7067BBB2-6063-4FBE-895B-0835EA6A4CE4 recipeRevision=27 control=exposure value=1.300
+[live-edit 807649581.204] render start requestID=4B67CD5F-9523-4F82-A41B-DB2F8C0D305B photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=27 quality=interactive
+[live-edit 807649581.204] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.3 temp=6500.0 scale=0.2667
+[live-edit 807649581.205] render finish requestID=4B67CD5F-9523-4F82-A41B-DB2F8C0D305B durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649581.205] publication accepted requestID=4B67CD5F-9523-4F82-A41B-DB2F8C0D305B recipeRevision=27 textureID=ObjectIdentifier(0x0000000bed86b400) inputToVisibleMs=1.4
+[live-edit 807649581.213] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=4ED2D099-CF99-4E81-9F30-BB627888E704 recipeRevision=28 control=exposure value=1.350
+[live-edit 807649581.213] render start requestID=DBF4B54B-3EC1-43E2-BDD6-3581BFE4E263 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=28 quality=interactive
+[live-edit 807649581.213] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.35 temp=6500.0 scale=0.2667
+[live-edit 807649581.214] render finish requestID=DBF4B54B-3EC1-43E2-BDD6-3581BFE4E263 durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649581.214] publication accepted requestID=DBF4B54B-3EC1-43E2-BDD6-3581BFE4E263 recipeRevision=28 textureID=ObjectIdentifier(0x0000000bed873fc0) inputToVisibleMs=1.1
+[live-edit 807649581.223] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=8990509C-EF38-4B62-94EB-0DE1E63A04C8 recipeRevision=29 control=exposure value=1.400
+[live-edit 807649581.223] render start requestID=08C859A9-BDFF-4066-BC87-88A11AA03EAC photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=29 quality=interactive
+[live-edit 807649581.223] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.4000000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649581.224] render finish requestID=08C859A9-BDFF-4066-BC87-88A11AA03EAC durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649581.224] publication accepted requestID=08C859A9-BDFF-4066-BC87-88A11AA03EAC recipeRevision=29 textureID=ObjectIdentifier(0x0000000bed85b8e0) inputToVisibleMs=1.1
+[live-edit 807649581.232] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=96E8AFB8-CDC4-4D0B-BCEB-3B9446732689 recipeRevision=30 control=exposure value=1.450
+[live-edit 807649581.232] render start requestID=6AC54E15-4E60-4D6F-A2C4-F26F123078B3 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=30 quality=interactive
+[live-edit 807649581.232] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.4500000000000002 temp=6500.0 scale=0.2667
+[live-edit 807649581.233] render finish requestID=6AC54E15-4E60-4D6F-A2C4-F26F123078B3 durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649581.233] publication accepted requestID=6AC54E15-4E60-4D6F-A2C4-F26F123078B3 recipeRevision=30 textureID=ObjectIdentifier(0x0000000bed86bb20) inputToVisibleMs=1.2
+[live-edit 807649581.241] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=687FF6F4-5DED-484B-A638-6270BE8A5D9C recipeRevision=31 control=exposure value=1.500
+[live-edit 807649581.241] render start requestID=D0E3C4EE-30B7-491D-84D5-E3DAE533379C photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=31 quality=interactive
+[live-edit 807649581.241] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.5 temp=6500.0 scale=0.2667
+[live-edit 807649581.242] render finish requestID=D0E3C4EE-30B7-491D-84D5-E3DAE533379C durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649581.242] publication accepted requestID=D0E3C4EE-30B7-491D-84D5-E3DAE533379C recipeRevision=31 textureID=ObjectIdentifier(0x0000000bed8879a0) inputToVisibleMs=1.1
+[live-edit 807649581.250] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=26E271D1-1993-44C2-94DA-1E1B91D9E1E7 recipeRevision=32 control=exposure value=1.550
+[live-edit 807649581.251] render start requestID=2DE3CFB3-C546-4303-96D2-690FFA10E32C photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=32 quality=interactive
+[live-edit 807649581.251] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.55 temp=6500.0 scale=0.2667
+[live-edit 807649581.251] render finish requestID=2DE3CFB3-C546-4303-96D2-690FFA10E32C durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649581.251] publication accepted requestID=2DE3CFB3-C546-4303-96D2-690FFA10E32C recipeRevision=32 textureID=ObjectIdentifier(0x0000000bed884680) inputToVisibleMs=1.1
+[live-edit 807649581.260] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=8839CD69-4AD6-4358-ADB2-4B60C471BF3A recipeRevision=33 control=exposure value=1.600
+[live-edit 807649581.260] render start requestID=11EA3F96-A7DD-4A90-A1E7-FDDB37A20066 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=33 quality=interactive
+[live-edit 807649581.260] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.6 temp=6500.0 scale=0.2667
+[live-edit 807649581.261] render finish requestID=11EA3F96-A7DD-4A90-A1E7-FDDB37A20066 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649581.261] publication accepted requestID=11EA3F96-A7DD-4A90-A1E7-FDDB37A20066 recipeRevision=33 textureID=ObjectIdentifier(0x0000000bed884880) inputToVisibleMs=1.2
+[live-edit 807649581.269] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=B637F6B2-D07C-4398-AC2B-0C9D65684F71 recipeRevision=34 control=exposure value=1.650
+[live-edit 807649581.269] render start requestID=C4C9B2B7-C65B-47D4-B65B-319C1313624A photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=34 quality=interactive
+[live-edit 807649581.269] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.6500000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649581.270] render finish requestID=C4C9B2B7-C65B-47D4-B65B-319C1313624A durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649581.270] publication accepted requestID=C4C9B2B7-C65B-47D4-B65B-319C1313624A recipeRevision=34 textureID=ObjectIdentifier(0x0000000bed884a60) inputToVisibleMs=1.1
+[live-edit 807649581.277] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=D4B5033E-B11C-4814-874F-9D019C337CA4 recipeRevision=35 control=exposure value=1.700
+[live-edit 807649581.277] render start requestID=EA405C63-1CAF-421F-AB41-72756C3257AA photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=35 quality=interactive
+[live-edit 807649581.278] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.7000000000000002 temp=6500.0 scale=0.2667
+[live-edit 807649581.278] render finish requestID=EA405C63-1CAF-421F-AB41-72756C3257AA durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649581.279] publication accepted requestID=EA405C63-1CAF-421F-AB41-72756C3257AA recipeRevision=35 textureID=ObjectIdentifier(0x0000000bed884c60) inputToVisibleMs=1.3
+[live-edit 807649581.286] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=DF561ECC-9671-4A76-A7CB-91AEC354F5DD recipeRevision=36 control=exposure value=1.750
+[live-edit 807649581.286] render start requestID=1154721E-F5F6-4420-A95C-78DFBCB23814 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=36 quality=interactive
+[live-edit 807649581.286] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.75 temp=6500.0 scale=0.2667
+[live-edit 807649581.286] render finish requestID=1154721E-F5F6-4420-A95C-78DFBCB23814 durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649581.287] publication accepted requestID=1154721E-F5F6-4420-A95C-78DFBCB23814 recipeRevision=36 textureID=ObjectIdentifier(0x0000000bed884e60) inputToVisibleMs=1.0
+[live-edit 807649581.295] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=D99402F6-8634-48C2-AE0D-D26B18A84F9C recipeRevision=37 control=exposure value=1.800
+[live-edit 807649581.295] render start requestID=E151E969-C6D1-40A3-A404-226E7431756C photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=37 quality=interactive
+[live-edit 807649581.296] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.8 temp=6500.0 scale=0.2667
+[live-edit 807649581.297] render finish requestID=E151E969-C6D1-40A3-A404-226E7431756C durationMs=1.8 rawHit=false cancelled=false
+[live-edit 807649581.297] publication accepted requestID=E151E969-C6D1-40A3-A404-226E7431756C recipeRevision=37 textureID=ObjectIdentifier(0x0000000bed13cb60) inputToVisibleMs=2.6
+[live-edit 807649581.303] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=659B3015-BFB9-4184-9176-71917F337D44 recipeRevision=38 control=exposure value=1.850
+[live-edit 807649581.303] render start requestID=25EBA243-189C-4028-BDF7-879C8C7AA11C photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=38 quality=interactive
+[live-edit 807649581.304] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.85 temp=6500.0 scale=0.2667
+[live-edit 807649581.305] render finish requestID=25EBA243-189C-4028-BDF7-879C8C7AA11C durationMs=1.1 rawHit=false cancelled=false
+[live-edit 807649581.305] publication accepted requestID=25EBA243-189C-4028-BDF7-879C8C7AA11C recipeRevision=38 textureID=ObjectIdentifier(0x0000000bed885000) inputToVisibleMs=1.5
+[live-edit 807649581.313] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=34FDC321-2486-4B26-8E0F-FCA4BEF7ABB1 recipeRevision=39 control=exposure value=1.900
+[live-edit 807649581.313] render start requestID=C2E5572C-A86F-4EA9-80BA-9220E59BF030 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=39 quality=interactive
+[live-edit 807649581.313] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.9000000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649581.315] render finish requestID=C2E5572C-A86F-4EA9-80BA-9220E59BF030 durationMs=1.7 rawHit=false cancelled=false
+[live-edit 807649581.315] publication accepted requestID=C2E5572C-A86F-4EA9-80BA-9220E59BF030 recipeRevision=39 textureID=ObjectIdentifier(0x0000000bed13ccc0) inputToVisibleMs=2.4
+[live-edit 807649581.322] slider event photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=5417CB68-2624-4169-AE45-86764ECB9A5F recipeRevision=40 control=exposure value=1.950
+[live-edit 807649581.322] render start requestID=3B755BD3-ECCF-4EB6-B8CD-9008B3A63AE8 photoID=AB8C33CF-B891-4B6E-8318-F094A3AAF6C4 sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 recipeRevision=40 quality=interactive
+[live-edit 807649581.323] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.9500000000000002 temp=6500.0 scale=0.2667
+[live-edit 807649581.324] render finish requestID=3B755BD3-ECCF-4EB6-B8CD-9008B3A63AE8 durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649581.324] publication accepted requestID=3B755BD3-ECCF-4EB6-B8CD-9008B3A63AE8 recipeRevision=40 textureID=ObjectIdentifier(0x0000000bed885240) inputToVisibleMs=1.8
+[live-edit 807649581.333] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=1.1 temp=5600.0 scale=0.2667
+[live-edit 807649581.652] CIRAWFilter apply sessionID=EF1EA62C-1F7A-4891-A2E9-464F31181664 tier=interactive exposure=0.3 temp=5600.0 scale=0.2667
+[live-edit 807649590.000] session prepare sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 photoID=09319981-81A4-4059-89BA-150CA5025FD6 count=2
+[live-edit 807649590.067] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=-1.0 temp=6500.0 scale=0.2667
+[live-edit 807649590.208] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=-0.8 temp=6500.0 scale=0.2667
+[live-edit 807649590.248] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=-0.6 temp=6500.0 scale=0.2667
+[live-edit 807649590.288] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=-0.3999999999999999 temp=6500.0 scale=0.2667
+[live-edit 807649590.328] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=-0.19999999999999996 temp=6500.0 scale=0.2667
+[live-edit 807649590.371] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=6500.0 scale=0.2667
+[live-edit 807649590.412] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.20000000000000018 temp=6500.0 scale=0.2667
+[live-edit 807649590.454] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.40000000000000013 temp=6500.0 scale=0.2667
+[live-edit 807649590.496] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.6000000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649590.540] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.8 temp=6500.0 scale=0.2667
+[live-edit 807649590.584] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=1.0 temp=6500.0 scale=0.2667
+[live-edit 807649590.627] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=4000.0 scale=0.2667
+[live-edit 807649590.667] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=4400.0 scale=0.2667
+[live-edit 807649590.710] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=4800.0 scale=0.2667
+[live-edit 807649590.756] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=5200.0 scale=0.2667
+[live-edit 807649590.798] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=5600.0 scale=0.2667
+[live-edit 807649590.841] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=6000.0 scale=0.2667
+[live-edit 807649590.883] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=6400.0 scale=0.2667
+[live-edit 807649590.926] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=6800.0 scale=0.2667
+[live-edit 807649590.968] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=7200.0 scale=0.2667
+[live-edit 807649591.010] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=7600.0 scale=0.2667
+[live-edit 807649591.054] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=8000.0 scale=0.2667
+[live-edit 807649591.095] CIRAWFilter apply sessionID=4D9AA453-755A-487F-B2B8-ED43CB59EEE3 tier=interactive exposure=0.0 temp=6500.0 scale=0.2667
+[live-edit 807649643.988] session prepare sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E count=1
+[live-edit 807649644.180] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.3 temp=5600.0 scale=0.2667
+[live-edit 807649644.591] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=-1.5 temp=6500.0 scale=0.2667
+[live-edit 807649644.625] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.5 temp=6500.0 scale=0.2667
+[live-edit 807649644.671] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.0 temp=4000.0 scale=0.2667
+[live-edit 807649644.675] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.0 temp=8000.0 scale=0.2667
+[live-edit 807649644.721] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.0 temp=6500.0 scale=0.2667
+[live-edit 807649644.726] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.0 temp=6500.0 scale=0.2667
+[live-edit 807649644.771] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.0 temp=6500.0 scale=0.2667
+[live-edit 807649644.964] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=33EBD302-5A90-406E-A45D-CF4A9B4D8E81 recipeRevision=1 control=exposure value=0.000
+[live-edit 807649644.964] render start requestID=226C4849-49D7-4BD2-9C68-B92FDB5E29AC photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=1 quality=interactive
+[live-edit 807649644.965] render finish requestID=226C4849-49D7-4BD2-9C68-B92FDB5E29AC durationMs=0.1 rawHit=true cancelled=false
+[live-edit 807649644.965] publication accepted requestID=226C4849-49D7-4BD2-9C68-B92FDB5E29AC recipeRevision=1 textureID=ObjectIdentifier(0x000000083044ca80) inputToVisibleMs=0.9
+[live-edit 807649644.974] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=7F614420-1876-45B0-B450-0D1DAB6E1047 recipeRevision=2 control=exposure value=0.050
+[live-edit 807649644.974] render start requestID=938EBCD0-EAAE-4417-BB32-6D158D5EC748 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=2 quality=interactive
+[live-edit 807649644.975] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.05 temp=6500.0 scale=0.2667
+[live-edit 807649644.975] render finish requestID=938EBCD0-EAAE-4417-BB32-6D158D5EC748 durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649644.976] publication accepted requestID=938EBCD0-EAAE-4417-BB32-6D158D5EC748 recipeRevision=2 textureID=ObjectIdentifier(0x000000083044eae0) inputToVisibleMs=1.3
+[live-edit 807649644.983] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=01B7AF85-D964-4512-A300-98CAB83B61C8 recipeRevision=3 control=exposure value=0.100
+[live-edit 807649644.983] render start requestID=DAE2F491-E213-4FE2-B72B-4561843CBAAD photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=3 quality=interactive
+[live-edit 807649644.983] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.1 temp=6500.0 scale=0.2667
+[live-edit 807649644.984] render finish requestID=DAE2F491-E213-4FE2-B72B-4561843CBAAD durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649644.984] publication accepted requestID=DAE2F491-E213-4FE2-B72B-4561843CBAAD recipeRevision=3 textureID=ObjectIdentifier(0x000000083044eb40) inputToVisibleMs=1.2
+[live-edit 807649644.991] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=A168AC37-9C25-43E0-A34F-0EF57A465669 recipeRevision=4 control=exposure value=0.150
+[live-edit 807649644.992] render start requestID=9626F9A8-6094-4FA3-B401-9FA086A2AAC1 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=4 quality=interactive
+[live-edit 807649644.992] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.15000000000000002 temp=6500.0 scale=0.2667
+[live-edit 807649644.993] render finish requestID=9626F9A8-6094-4FA3-B401-9FA086A2AAC1 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649644.993] publication accepted requestID=9626F9A8-6094-4FA3-B401-9FA086A2AAC1 recipeRevision=4 textureID=ObjectIdentifier(0x000000083044eba0) inputToVisibleMs=1.3
+[live-edit 807649645.001] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=D45AF7C3-7F73-4668-A831-ABBE74296D20 recipeRevision=5 control=exposure value=0.200
+[live-edit 807649645.001] render start requestID=73E49325-E8B0-4A31-B0F8-11B6F3847861 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=5 quality=interactive
+[live-edit 807649645.002] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.2 temp=6500.0 scale=0.2667
+[live-edit 807649645.002] render finish requestID=73E49325-E8B0-4A31-B0F8-11B6F3847861 durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649645.003] publication accepted requestID=73E49325-E8B0-4A31-B0F8-11B6F3847861 recipeRevision=5 textureID=ObjectIdentifier(0x000000083044ec00) inputToVisibleMs=1.6
+[live-edit 807649645.011] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=ABF74BFD-1382-4FCD-924C-293E8C220D54 recipeRevision=6 control=exposure value=0.250
+[live-edit 807649645.011] render start requestID=859F35AF-38BA-48AC-A829-F11496356D8B photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=6 quality=interactive
+[live-edit 807649645.012] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.25 temp=6500.0 scale=0.2667
+[live-edit 807649645.012] render finish requestID=859F35AF-38BA-48AC-A829-F11496356D8B durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.012] publication accepted requestID=859F35AF-38BA-48AC-A829-F11496356D8B recipeRevision=6 textureID=ObjectIdentifier(0x000000083044ede0) inputToVisibleMs=1.2
+[live-edit 807649645.021] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=776FE2BB-D9C8-46D2-A682-0D76E0793CC6 recipeRevision=7 control=exposure value=0.300
+[live-edit 807649645.022] render start requestID=1D675985-DFB1-44C5-8215-94CF75C2B5CC photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=7 quality=interactive
+[live-edit 807649645.022] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.30000000000000004 temp=6500.0 scale=0.2667
+[live-edit 807649645.023] render finish requestID=1D675985-DFB1-44C5-8215-94CF75C2B5CC durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649645.023] publication accepted requestID=1D675985-DFB1-44C5-8215-94CF75C2B5CC recipeRevision=7 textureID=ObjectIdentifier(0x000000083044efe0) inputToVisibleMs=1.3
+[live-edit 807649645.032] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=2847E3F0-12A6-4D21-A7C6-16F6F063661F recipeRevision=8 control=exposure value=0.350
+[live-edit 807649645.032] render start requestID=B3287958-479C-4E7E-AB58-CF33975336CA photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=8 quality=interactive
+[live-edit 807649645.032] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.35000000000000003 temp=6500.0 scale=0.2667
+[live-edit 807649645.033] render finish requestID=B3287958-479C-4E7E-AB58-CF33975336CA durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.033] publication accepted requestID=B3287958-479C-4E7E-AB58-CF33975336CA recipeRevision=8 textureID=ObjectIdentifier(0x000000083044f1e0) inputToVisibleMs=1.1
+[live-edit 807649645.041] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=D92744B4-A1AF-4DE8-B591-1F78332BBB5F recipeRevision=9 control=exposure value=0.400
+[live-edit 807649645.042] render start requestID=53F2E902-E949-4F08-BC11-E7783B60AEB2 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=9 quality=interactive
+[live-edit 807649645.042] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.4 temp=6500.0 scale=0.2667
+[live-edit 807649645.043] render finish requestID=53F2E902-E949-4F08-BC11-E7783B60AEB2 durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649645.043] publication accepted requestID=53F2E902-E949-4F08-BC11-E7783B60AEB2 recipeRevision=9 textureID=ObjectIdentifier(0x000000083044f400) inputToVisibleMs=1.2
+[live-edit 807649645.051] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=243B80C0-B786-4969-B520-75F01781981F recipeRevision=10 control=exposure value=0.450
+[live-edit 807649645.051] render start requestID=4C51C07D-F9AD-421F-A2A1-9C560A54B2C8 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=10 quality=interactive
+[live-edit 807649645.051] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.45 temp=6500.0 scale=0.2667
+[live-edit 807649645.052] render finish requestID=4C51C07D-F9AD-421F-A2A1-9C560A54B2C8 durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649645.052] publication accepted requestID=4C51C07D-F9AD-421F-A2A1-9C560A54B2C8 recipeRevision=10 textureID=ObjectIdentifier(0x000000082f2c8ac0) inputToVisibleMs=1.6
+[live-edit 807649645.061] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=E43776DF-FC05-4B5C-B514-E1C4F6BDDEF5 recipeRevision=11 control=exposure value=0.500
+[live-edit 807649645.061] render start requestID=018BFF73-8F2E-4EC8-83FD-8E2C91E1453C photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=11 quality=interactive
+[live-edit 807649645.061] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.5 temp=6500.0 scale=0.2667
+[live-edit 807649645.062] render finish requestID=018BFF73-8F2E-4EC8-83FD-8E2C91E1453C durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.062] publication accepted requestID=018BFF73-8F2E-4EC8-83FD-8E2C91E1453C recipeRevision=11 textureID=ObjectIdentifier(0x000000083044f600) inputToVisibleMs=1.2
+[live-edit 807649645.071] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=7272493D-F3C4-4FB3-BB07-8EC7775E078E recipeRevision=12 control=exposure value=0.550
+[live-edit 807649645.071] render start requestID=7D02CA6E-D29D-46F5-8193-4868B6F21FF5 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=12 quality=interactive
+[live-edit 807649645.072] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.55 temp=6500.0 scale=0.2667
+[live-edit 807649645.072] render finish requestID=7D02CA6E-D29D-46F5-8193-4868B6F21FF5 durationMs=1.0 rawHit=false cancelled=false
+[live-edit 807649645.073] publication accepted requestID=7D02CA6E-D29D-46F5-8193-4868B6F21FF5 recipeRevision=12 textureID=ObjectIdentifier(0x000000082f2c9b40) inputToVisibleMs=1.4
+[live-edit 807649645.081] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=E4238F06-904A-40FC-9770-BD22F70A11E6 recipeRevision=13 control=exposure value=0.600
+[live-edit 807649645.081] render start requestID=6FE57029-6D6D-470D-B117-896B42801EAB photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=13 quality=interactive
+[live-edit 807649645.081] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.6000000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649645.082] render finish requestID=6FE57029-6D6D-470D-B117-896B42801EAB durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649645.082] publication accepted requestID=6FE57029-6D6D-470D-B117-896B42801EAB recipeRevision=13 textureID=ObjectIdentifier(0x000000083044f800) inputToVisibleMs=1.1
+[live-edit 807649645.091] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=15241201-8860-4B08-BCBE-D12520EFE31B recipeRevision=14 control=exposure value=0.650
+[live-edit 807649645.091] render start requestID=2D628210-F0BE-4325-A0C0-6848F0197E4D photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=14 quality=interactive
+[live-edit 807649645.092] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.65 temp=6500.0 scale=0.2667
+[live-edit 807649645.092] render finish requestID=2D628210-F0BE-4325-A0C0-6848F0197E4D durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.092] publication accepted requestID=2D628210-F0BE-4325-A0C0-6848F0197E4D recipeRevision=14 textureID=ObjectIdentifier(0x000000083044f9e0) inputToVisibleMs=1.2
+[live-edit 807649645.101] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=051B4105-44E1-4439-A1A6-380D746DA8AE recipeRevision=15 control=exposure value=0.700
+[live-edit 807649645.101] render start requestID=7CB43006-3D23-454E-B6A3-77C11474E3A1 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=15 quality=interactive
+[live-edit 807649645.101] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.7000000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649645.102] render finish requestID=7CB43006-3D23-454E-B6A3-77C11474E3A1 durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649645.102] publication accepted requestID=7CB43006-3D23-454E-B6A3-77C11474E3A1 recipeRevision=15 textureID=ObjectIdentifier(0x000000083044fc00) inputToVisibleMs=1.4
+[live-edit 807649645.110] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=513CBFDF-4EFF-4D22-BEFA-4FEE99CE407E recipeRevision=16 control=exposure value=0.750
+[live-edit 807649645.111] render start requestID=571E69C5-5962-4EDD-86E4-465F3376933D photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=16 quality=interactive
+[live-edit 807649645.111] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.75 temp=6500.0 scale=0.2667
+[live-edit 807649645.112] render finish requestID=571E69C5-5962-4EDD-86E4-465F3376933D durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649645.112] publication accepted requestID=571E69C5-5962-4EDD-86E4-465F3376933D recipeRevision=16 textureID=ObjectIdentifier(0x000000083044fde0) inputToVisibleMs=1.3
+[live-edit 807649645.120] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=A933DF69-BCA6-4526-9B34-3E164BF2AFC5 recipeRevision=17 control=exposure value=0.800
+[live-edit 807649645.120] render start requestID=21021F69-E383-4F74-8FE2-D2681DF2E74E photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=17 quality=interactive
+[live-edit 807649645.120] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.8 temp=6500.0 scale=0.2667
+[live-edit 807649645.121] render finish requestID=21021F69-E383-4F74-8FE2-D2681DF2E74E durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.121] publication accepted requestID=21021F69-E383-4F74-8FE2-D2681DF2E74E recipeRevision=17 textureID=ObjectIdentifier(0x000000083044ffe0) inputToVisibleMs=1.2
+[live-edit 807649645.128] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=1F713248-41E8-4618-8DF6-70146C96EB8E recipeRevision=18 control=exposure value=0.850
+[live-edit 807649645.129] render start requestID=BC710A78-557D-454A-8F15-0C38D6B48F0D photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=18 quality=interactive
+[live-edit 807649645.129] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.8500000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649645.130] render finish requestID=BC710A78-557D-454A-8F15-0C38D6B48F0D durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649645.130] publication accepted requestID=BC710A78-557D-454A-8F15-0C38D6B48F0D recipeRevision=18 textureID=ObjectIdentifier(0x0000000830447ec0) inputToVisibleMs=1.2
+[live-edit 807649645.138] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=7087C42A-0714-40A4-9317-0A561B1C94D9 recipeRevision=19 control=exposure value=0.900
+[live-edit 807649645.138] render start requestID=4357312C-53D2-4F1F-9DB1-8F238D285963 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=19 quality=interactive
+[live-edit 807649645.138] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.9 temp=6500.0 scale=0.2667
+[live-edit 807649645.139] render finish requestID=4357312C-53D2-4F1F-9DB1-8F238D285963 durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649645.139] publication accepted requestID=4357312C-53D2-4F1F-9DB1-8F238D285963 recipeRevision=19 textureID=ObjectIdentifier(0x0000000830453c80) inputToVisibleMs=1.1
+[live-edit 807649645.146] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=49F05200-8093-491A-9F6C-78078C6A1230 recipeRevision=20 control=exposure value=0.950
+[live-edit 807649645.147] render start requestID=8441EEE4-636A-4AC3-A0B5-8584E695F096 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=20 quality=interactive
+[live-edit 807649645.147] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.9500000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649645.147] render finish requestID=8441EEE4-636A-4AC3-A0B5-8584E695F096 durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649645.148] publication accepted requestID=8441EEE4-636A-4AC3-A0B5-8584E695F096 recipeRevision=20 textureID=ObjectIdentifier(0x00000008304506a0) inputToVisibleMs=1.2
+[live-edit 807649645.156] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=1B86EFAE-46B1-4A8C-9F62-76AA608F447F recipeRevision=21 control=exposure value=1.000
+[live-edit 807649645.156] render start requestID=B7F366D7-9841-4D78-917B-AFE42C28E988 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=21 quality=interactive
+[live-edit 807649645.156] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.0 temp=6500.0 scale=0.2667
+[live-edit 807649645.157] render finish requestID=B7F366D7-9841-4D78-917B-AFE42C28E988 durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649645.157] publication accepted requestID=B7F366D7-9841-4D78-917B-AFE42C28E988 recipeRevision=21 textureID=ObjectIdentifier(0x0000000830450880) inputToVisibleMs=1.1
+[live-edit 807649645.165] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=25273457-F431-461E-9D9B-99D1955A0B42 recipeRevision=22 control=exposure value=1.050
+[live-edit 807649645.165] render start requestID=037A5A14-62F6-424C-B9AE-E812BF9C7597 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=22 quality=interactive
+[live-edit 807649645.165] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.05 temp=6500.0 scale=0.2667
+[live-edit 807649645.166] render finish requestID=037A5A14-62F6-424C-B9AE-E812BF9C7597 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.166] publication accepted requestID=037A5A14-62F6-424C-B9AE-E812BF9C7597 recipeRevision=22 textureID=ObjectIdentifier(0x0000000830450aa0) inputToVisibleMs=1.1
+[live-edit 807649645.175] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=E1D416FE-71E3-4AF5-915C-B50D65E7996C recipeRevision=23 control=exposure value=1.100
+[live-edit 807649645.175] render start requestID=AEE5FE6C-18D0-4F77-866A-28E90E3CC8E2 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=23 quality=interactive
+[live-edit 807649645.175] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.1 temp=6500.0 scale=0.2667
+[live-edit 807649645.176] render finish requestID=AEE5FE6C-18D0-4F77-866A-28E90E3CC8E2 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.176] publication accepted requestID=AEE5FE6C-18D0-4F77-866A-28E90E3CC8E2 recipeRevision=23 textureID=ObjectIdentifier(0x0000000830450c80) inputToVisibleMs=1.2
+[live-edit 807649645.185] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=865871F9-0D92-432F-BD5F-351C4EDDFF87 recipeRevision=24 control=exposure value=1.150
+[live-edit 807649645.185] render start requestID=1ABD9340-410A-46DC-A93E-ABB249CCC9D6 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=24 quality=interactive
+[live-edit 807649645.185] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.1500000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649645.186] render finish requestID=1ABD9340-410A-46DC-A93E-ABB249CCC9D6 durationMs=0.9 rawHit=false cancelled=false
+[live-edit 807649645.186] publication accepted requestID=1ABD9340-410A-46DC-A93E-ABB249CCC9D6 recipeRevision=24 textureID=ObjectIdentifier(0x0000000830450e80) inputToVisibleMs=1.6
+[live-edit 807649645.195] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=09596609-F2A4-4069-B4C7-83060110246D recipeRevision=25 control=exposure value=1.200
+[live-edit 807649645.195] render start requestID=9B1DD8A6-0A5B-4BD8-8078-A2D4B4229AEB photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=25 quality=interactive
+[live-edit 807649645.195] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.2000000000000002 temp=6500.0 scale=0.2667
+[live-edit 807649645.196] render finish requestID=9B1DD8A6-0A5B-4BD8-8078-A2D4B4229AEB durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.196] publication accepted requestID=9B1DD8A6-0A5B-4BD8-8078-A2D4B4229AEB recipeRevision=25 textureID=ObjectIdentifier(0x0000000830451060) inputToVisibleMs=1.2
+[live-edit 807649645.204] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=1E67BF2B-A1D5-4E18-93FF-47C77429683F recipeRevision=26 control=exposure value=1.250
+[live-edit 807649645.205] render start requestID=69F13813-1391-4189-9B3E-94895773EF21 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=26 quality=interactive
+[live-edit 807649645.205] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.25 temp=6500.0 scale=0.2667
+[live-edit 807649645.205] render finish requestID=69F13813-1391-4189-9B3E-94895773EF21 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.206] publication accepted requestID=69F13813-1391-4189-9B3E-94895773EF21 recipeRevision=26 textureID=ObjectIdentifier(0x0000000830451280) inputToVisibleMs=1.2
+[live-edit 807649645.214] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=AD27F8F6-3C93-4334-8877-CA2288D7E536 recipeRevision=27 control=exposure value=1.300
+[live-edit 807649645.214] render start requestID=884062CC-7CB9-4B7D-ACC8-208F01F4A669 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=27 quality=interactive
+[live-edit 807649645.214] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.3 temp=6500.0 scale=0.2667
+[live-edit 807649645.215] render finish requestID=884062CC-7CB9-4B7D-ACC8-208F01F4A669 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.215] publication accepted requestID=884062CC-7CB9-4B7D-ACC8-208F01F4A669 recipeRevision=27 textureID=ObjectIdentifier(0x0000000830451460) inputToVisibleMs=1.2
+[live-edit 807649645.224] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=C792DAF6-2DAE-4B6C-A44E-44080FF31375 recipeRevision=28 control=exposure value=1.350
+[live-edit 807649645.224] render start requestID=DC22F231-63A4-43A3-B6E2-88BCB0120461 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=28 quality=interactive
+[live-edit 807649645.224] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.35 temp=6500.0 scale=0.2667
+[live-edit 807649645.225] render finish requestID=DC22F231-63A4-43A3-B6E2-88BCB0120461 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.225] publication accepted requestID=DC22F231-63A4-43A3-B6E2-88BCB0120461 recipeRevision=28 textureID=ObjectIdentifier(0x0000000830451660) inputToVisibleMs=1.2
+[live-edit 807649645.233] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=BB8B63F4-CE95-49A9-B4CC-276FFD0F8BBA recipeRevision=29 control=exposure value=1.400
+[live-edit 807649645.233] render start requestID=29EB414C-80C9-4EDA-B4BE-144317D7AF22 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=29 quality=interactive
+[live-edit 807649645.233] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.4000000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649645.234] render finish requestID=29EB414C-80C9-4EDA-B4BE-144317D7AF22 durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649645.234] publication accepted requestID=29EB414C-80C9-4EDA-B4BE-144317D7AF22 recipeRevision=29 textureID=ObjectIdentifier(0x0000000830451840) inputToVisibleMs=1.0
+[live-edit 807649645.243] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=FE36B88B-F893-4FA3-9535-9068EF57F24B recipeRevision=30 control=exposure value=1.450
+[live-edit 807649645.243] render start requestID=F347ACE8-2C5B-43C5-9F29-0A6A38B1483E photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=30 quality=interactive
+[live-edit 807649645.244] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.4500000000000002 temp=6500.0 scale=0.2667
+[live-edit 807649645.244] render finish requestID=F347ACE8-2C5B-43C5-9F29-0A6A38B1483E durationMs=0.7 rawHit=false cancelled=false
+[live-edit 807649645.244] publication accepted requestID=F347ACE8-2C5B-43C5-9F29-0A6A38B1483E recipeRevision=30 textureID=ObjectIdentifier(0x0000000830451a40) inputToVisibleMs=1.2
+[live-edit 807649645.253] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=AA4C0752-6C84-43B8-97FE-2FB65B343C23 recipeRevision=31 control=exposure value=1.500
+[live-edit 807649645.253] render start requestID=83AA4914-3E4C-4BDB-B5AA-69A06F424DAF photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=31 quality=interactive
+[live-edit 807649645.254] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.5 temp=6500.0 scale=0.2667
+[live-edit 807649645.254] render finish requestID=83AA4914-3E4C-4BDB-B5AA-69A06F424DAF durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.254] publication accepted requestID=83AA4914-3E4C-4BDB-B5AA-69A06F424DAF recipeRevision=31 textureID=ObjectIdentifier(0x0000000830451c40) inputToVisibleMs=1.2
+[live-edit 807649645.264] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=16477CD6-976E-4DFA-9CF8-898CDB333494 recipeRevision=32 control=exposure value=1.550
+[live-edit 807649645.264] render start requestID=B8DBB70C-DD7D-4C58-8415-3CA679588397 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=32 quality=interactive
+[live-edit 807649645.265] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.55 temp=6500.0 scale=0.2667
+[live-edit 807649645.266] render finish requestID=B8DBB70C-DD7D-4C58-8415-3CA679588397 durationMs=1.8 rawHit=false cancelled=false
+[live-edit 807649645.266] publication accepted requestID=B8DBB70C-DD7D-4C58-8415-3CA679588397 recipeRevision=32 textureID=ObjectIdentifier(0x000000082f818ac0) inputToVisibleMs=2.9
+[live-edit 807649645.273] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=022E7B9E-5F11-4EA2-99A0-A3886336C3A9 recipeRevision=33 control=exposure value=1.600
+[live-edit 807649645.273] render start requestID=63817660-CD46-44A7-9C10-0109DEA75216 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=33 quality=interactive
+[live-edit 807649645.274] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.6 temp=6500.0 scale=0.2667
+[live-edit 807649645.275] render finish requestID=63817660-CD46-44A7-9C10-0109DEA75216 durationMs=1.6 rawHit=false cancelled=false
+[live-edit 807649645.275] publication accepted requestID=63817660-CD46-44A7-9C10-0109DEA75216 recipeRevision=33 textureID=ObjectIdentifier(0x000000082f818c20) inputToVisibleMs=2.4
+[live-edit 807649645.282] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=1E8EF731-CB78-4745-9758-611BC46E31B5 recipeRevision=34 control=exposure value=1.650
+[live-edit 807649645.282] render start requestID=C4834521-E32E-4512-87FA-DA72ABC757F1 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=34 quality=interactive
+[live-edit 807649645.283] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.6500000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649645.285] render finish requestID=C4834521-E32E-4512-87FA-DA72ABC757F1 durationMs=2.0 rawHit=false cancelled=false
+[live-edit 807649645.285] publication accepted requestID=C4834521-E32E-4512-87FA-DA72ABC757F1 recipeRevision=34 textureID=ObjectIdentifier(0x000000082f818d80) inputToVisibleMs=2.8
+[live-edit 807649645.291] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=9475A791-D690-448B-A9F9-6894926D9C9A recipeRevision=35 control=exposure value=1.700
+[live-edit 807649645.291] render start requestID=B0D1D454-AAFD-4464-8D5B-94E015613B2D photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=35 quality=interactive
+[live-edit 807649645.292] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.7000000000000002 temp=6500.0 scale=0.2667
+[live-edit 807649645.292] render finish requestID=B0D1D454-AAFD-4464-8D5B-94E015613B2D durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.292] publication accepted requestID=B0D1D454-AAFD-4464-8D5B-94E015613B2D recipeRevision=35 textureID=ObjectIdentifier(0x0000000830451e40) inputToVisibleMs=1.2
+[live-edit 807649645.301] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=058877FC-CE3A-4152-856C-5097F6152747 recipeRevision=36 control=exposure value=1.750
+[live-edit 807649645.303] render start requestID=07622E81-3AD3-4796-81C1-CD58F82DE6C5 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=36 quality=interactive
+[live-edit 807649645.303] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.75 temp=6500.0 scale=0.2667
+[live-edit 807649645.304] render finish requestID=07622E81-3AD3-4796-81C1-CD58F82DE6C5 durationMs=1.0 rawHit=false cancelled=false
+[live-edit 807649645.304] publication accepted requestID=07622E81-3AD3-4796-81C1-CD58F82DE6C5 recipeRevision=36 textureID=ObjectIdentifier(0x0000000830452020) inputToVisibleMs=3.7
+[live-edit 807649645.310] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=29D80954-F618-4EEC-8DB1-1E51592ED330 recipeRevision=37 control=exposure value=1.800
+[live-edit 807649645.310] render start requestID=6029A5FE-E2DB-428E-B59C-DE0680BB9FB1 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=37 quality=interactive
+[live-edit 807649645.310] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.8 temp=6500.0 scale=0.2667
+[live-edit 807649645.312] render finish requestID=6029A5FE-E2DB-428E-B59C-DE0680BB9FB1 durationMs=1.4 rawHit=false cancelled=false
+[live-edit 807649645.312] publication accepted requestID=6029A5FE-E2DB-428E-B59C-DE0680BB9FB1 recipeRevision=37 textureID=ObjectIdentifier(0x000000082f8186e0) inputToVisibleMs=2.0
+[live-edit 807649645.319] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=7A836F56-5865-4C00-9290-617BF74070F8 recipeRevision=38 control=exposure value=1.850
+[live-edit 807649645.319] render start requestID=1CE40DDD-3BBB-4128-ADDD-3BB35D20E8AE photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=38 quality=interactive
+[live-edit 807649645.320] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.85 temp=6500.0 scale=0.2667
+[live-edit 807649645.321] render finish requestID=1CE40DDD-3BBB-4128-ADDD-3BB35D20E8AE durationMs=1.7 rawHit=false cancelled=false
+[live-edit 807649645.321] publication accepted requestID=1CE40DDD-3BBB-4128-ADDD-3BB35D20E8AE recipeRevision=38 textureID=ObjectIdentifier(0x000000082f819020) inputToVisibleMs=2.9
+[live-edit 807649645.328] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=1D94C6A7-15BF-400D-82C8-08216A09C9AD recipeRevision=39 control=exposure value=1.900
+[live-edit 807649645.328] render start requestID=867ABB48-F7B2-47DD-A453-26FB318E49D5 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=39 quality=interactive
+[live-edit 807649645.329] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.9000000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649645.330] render finish requestID=867ABB48-F7B2-47DD-A453-26FB318E49D5 durationMs=1.7 rawHit=false cancelled=false
+[live-edit 807649645.331] publication accepted requestID=867ABB48-F7B2-47DD-A453-26FB318E49D5 recipeRevision=39 textureID=ObjectIdentifier(0x000000082f819180) inputToVisibleMs=2.5
+[live-edit 807649645.337] slider event photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=37293160-0B4B-4435-984B-B2D044981A47 recipeRevision=40 control=exposure value=1.950
+[live-edit 807649645.338] render start requestID=F24B9BDF-9FEA-499A-BE44-435851481A20 photoID=E227BE97-F837-41AE-8BDC-F6F41787DF0E sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D recipeRevision=40 quality=interactive
+[live-edit 807649645.338] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.9500000000000002 temp=6500.0 scale=0.2667
+[live-edit 807649645.339] render finish requestID=F24B9BDF-9FEA-499A-BE44-435851481A20 durationMs=0.8 rawHit=false cancelled=false
+[live-edit 807649645.339] publication accepted requestID=F24B9BDF-9FEA-499A-BE44-435851481A20 recipeRevision=40 textureID=ObjectIdentifier(0x0000000830452240) inputToVisibleMs=1.2
+[live-edit 807649645.349] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=1.1 temp=5600.0 scale=0.2667
+[live-edit 807649645.519] CIRAWFilter apply sessionID=84B7F39C-A518-4188-B11F-0024D29AE39D tier=interactive exposure=0.3 temp=5600.0 scale=0.2667
+[live-edit 807649653.597] session prepare sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 photoID=37146CD9-9703-41F8-AEBB-66B1D0AF574A count=2
+[live-edit 807649653.664] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=-1.0 temp=6500.0 scale=0.2667
+[live-edit 807649653.806] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=-0.8 temp=6500.0 scale=0.2667
+[live-edit 807649653.847] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=-0.6 temp=6500.0 scale=0.2667
+[live-edit 807649653.887] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=-0.3999999999999999 temp=6500.0 scale=0.2667
+[live-edit 807649653.929] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=-0.19999999999999996 temp=6500.0 scale=0.2667
+[live-edit 807649653.971] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=6500.0 scale=0.2667
+[live-edit 807649654.014] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.20000000000000018 temp=6500.0 scale=0.2667
+[live-edit 807649654.056] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.40000000000000013 temp=6500.0 scale=0.2667
+[live-edit 807649654.099] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.6000000000000001 temp=6500.0 scale=0.2667
+[live-edit 807649654.142] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.8 temp=6500.0 scale=0.2667
+[live-edit 807649654.185] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=1.0 temp=6500.0 scale=0.2667
+[live-edit 807649654.232] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=4000.0 scale=0.2667
+[live-edit 807649654.272] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=4400.0 scale=0.2667
+[live-edit 807649654.318] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=4800.0 scale=0.2667
+[live-edit 807649654.358] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=5200.0 scale=0.2667
+[live-edit 807649654.399] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=5600.0 scale=0.2667
+[live-edit 807649654.440] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=6000.0 scale=0.2667
+[live-edit 807649654.482] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=6400.0 scale=0.2667
+[live-edit 807649654.523] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=6800.0 scale=0.2667
+[live-edit 807649654.563] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=7200.0 scale=0.2667
+[live-edit 807649654.605] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=7600.0 scale=0.2667
+[live-edit 807649654.646] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=8000.0 scale=0.2667
+[live-edit 807649654.686] CIRAWFilter apply sessionID=0FF537CA-309F-48B4-9C12-2C3A16221581 tier=interactive exposure=0.0 temp=6500.0 scale=0.2667
