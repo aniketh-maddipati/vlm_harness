@@ -84,7 +84,7 @@ final class DevelopEngineTests: XCTestCase {
 
         var undoSession = BatchTreatmentSession()
         undoSession.setSelection([p1, p2], leader: p1)
-        try undoSession.stage(leaderRecipe: recipe, isARepeat: false)
+        try undoSession.stage(leaderRecipe: EditRecipe(exposure: 0.6), isARepeat: false)
         undoSession.noteReturnReleased()
         _ = try undoSession.confirmCommit(into: &store, isARepeat: false)
         let priorExposure = store.binding(for: p1).effectiveCommittedRecipe(shared: store.recipes).exposure

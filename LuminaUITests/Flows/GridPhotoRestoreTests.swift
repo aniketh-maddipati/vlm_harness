@@ -10,7 +10,9 @@ final class GridPhotoRestoreTests: LuminaUITestCase {
 
         // Establish a multi-selection we will assert survives the round trip.
         sheet.focus(assetID: ids[3])
-        sheet.commandClick(assetID: ids[7])
+        sheet.toggleSelection()
+        sheet.focus(assetID: ids[7])
+        sheet.toggleSelection()
         let selected = lumina.waitForProbe { $0.selectionCount == 2 }
         let selectionBefore = selected.selectedAssetIDs
 

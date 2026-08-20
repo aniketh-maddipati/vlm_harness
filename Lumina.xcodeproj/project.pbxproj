@@ -254,7 +254,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export MARKETING_VERSION=\"${MARKETING_VERSION}\"\nexport CURRENT_PROJECT_VERSION=\"${CURRENT_PROJECT_VERSION}\"\nexport CONFIGURATION=\"${CONFIGURATION}\"\npython3 \"${SRCROOT}/Scripts/harness/release/write_build_manifest.py\"\n";
+			shellScript = "export MARKETING_VERSION=\"${MARKETING_VERSION}\"\nexport CURRENT_PROJECT_VERSION=\"${CURRENT_PROJECT_VERSION}\"\nexport CONFIGURATION=\"${CONFIGURATION}\"\npython3 \"${SRCROOT}/Scripts/harness/release/write_build_manifest.py\"\npython3 \"${SRCROOT}/Scripts/harness/release/write_build_manifest.py\" --out \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/LuminaBuildManifest.json\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

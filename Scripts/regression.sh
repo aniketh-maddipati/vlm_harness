@@ -37,7 +37,7 @@ validate_json() {
   fi
 }
 
-for plan in P0Fast P0Stress P0Visual; do
+for plan in P0Blocking P0Quarantined P0Fast P0Stress P0Visual; do
   validate_json "$ROOT/TestPlans/$plan.xctestplan"
   echo "  test plan $plan: valid JSON"
 done

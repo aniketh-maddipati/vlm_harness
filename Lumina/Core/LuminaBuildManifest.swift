@@ -25,12 +25,17 @@ struct LuminaBuildManifest: Codable, Equatable, Sendable {
 
     /// Load manifest bundled in `Lumina.app/Contents/Resources/`.
     static func load(from bundle: Bundle = .main) -> LuminaBuildManifest? {
-        guard let url = bundle.url(
-            forResource: resourceName,
-            withExtension: resourceExtension
-        ) else { return nil }
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(LuminaBuildManifest.self, from: data)
+        for candidate in candidateBundles(startingWith: bundle) {
+            guard let url = candidate.url(
+                forResource: resourceName,
+                withExtension: resourceExtension
+            ) else { continue }
+            guard let data = try? Data(contentsOf: url) else { continue }
+            if let manifest = try? JSONDecoder().decode(LuminaBuildManifest.self, from: data) {
+                return manifest
+            }
+        }
+        return nil
     }
 
     /// One-line citation for bug reports / About surfaces.
@@ -46,5 +51,22 @@ struct LuminaBuildManifest: Codable, Equatable, Sendable {
             parts.append("betaDiag=\(beta.kind) expires=\(beta.expiresAtMarketingVersion)")
         }
         return parts.joined(separator: " · ")
+    }
+
+    private static func candidateBundles(startingWith bundle: Bundle) -> [Bundle] {
+        var seen = Set<ObjectIdentifier>()
+        var ordered: [Bundle] = []
+
+        func append(_ candidate: Bundle) {
+            let key = ObjectIdentifier(candidate)
+            guard seen.insert(key).inserted else { return }
+            ordered.append(candidate)
+        }
+
+        append(bundle)
+        append(.main)
+        Bundle.allBundles.forEach(append)
+        Bundle.allFrameworks.forEach(append)
+        return ordered
     }
 }

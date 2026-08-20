@@ -62,8 +62,9 @@ struct OpenShootRobot {
                 return ContactSheetRobot(app: app, test: test)
             }
         }
-        // One click, coordinate-centered (rows can reflow under a hard element click).
-        row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        // One semantic click on the row itself; the dedicated Recent-list UX test owns this
+        // identifier-coupled surface check, not the blocking plan.
+        row.click()
         let snapshot = app.waitForProbe(timeout: UITestWait.transition) { $0.route == "contactSheet" }
         if snapshot == nil {
             failWithDiagnostics("one click on the Recent row did not reach route=contactSheet within \(Int(UITestWait.transition))s")

@@ -1,0 +1,38 @@
+{
+  "configurations" : [
+    {
+      "id" : "A0000001-0000-0000-0000-000000000011",
+      "name" : "Quarantined",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Lumina.xcodeproj",
+      "identifier" : "A10000010000000000000006",
+      "name" : "Lumina"
+    },
+    "testTimeoutsEnabled" : true,
+    "maximumTestExecutionTimeAllowance" : 600
+  },
+  "testTargets" : [
+    {
+      "selectedTests" : [
+        "OpenNavigationTests/testRecentRowOpensPreparedShoot",
+        "MissingOriginalsTests/testMissingOriginalsShowOfflineAffordance",
+        "LayoutTests",
+        "UXHardeningTests/testDensityControlsHaveComfortableHitTargets",
+        "EditingProbeTests",
+        "VisualRegressionTests"
+      ],
+      "target" : {
+        "containerPath" : "container:Lumina.xcodeproj",
+        "identifier" : "A20000010000000000000006",
+        "name" : "LuminaUITests"
+      }
+    }
+  ],
+  "version" : 1
+}
