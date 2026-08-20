@@ -4,6 +4,22 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-20 — AG.1: agent-first grammar (strategy; documents only)
+
+**Branch:** intended `strategy/agent-grammar` off `origin/main` — **NOT CREATED**: session ran on an uploaded source archive with no `.git` metadata and no network egress; no worktree, commit, or PR was possible. Files delivered for operator to commit.
+
+**Claim:** Re-derive the interaction grammar from the premise that an agent is a first-class actor; establish which rulings survive, strengthen, or need re-argument; propose, never rule.
+
+**Finding:** Thesis holds — the agent needs no privileged API because the ratified grammar already confines it to glances (D9 holds) and D60's Return-release gate mechanically bars it from commit, *provided* "physically released" is ratified to mean hardware key-up (P1). Journal is operator-pure by construction (staging never journaled + agent cannot commit); purity breaks only if a suggestion rung ships without a provenance field (P2). No ratified D/R entry conflicts with agent-first design. Session brief carried three mis-citations caught by grep (D62→D60, D40→D36/R-M.1, D57→D46/A10). Artifact drift found: tokens.yaml `6.3-motion-wiring` + mvp-test-plan still cite withdrawn A7 against D45/A13 (contract wins; cleanup routed as P4). Wired-key census on this tree: b/⇧g/p/x/⌘z + Esc/arrows/⏎/Space confirmed, plus two contract-silent bindings (+/-) and one contract-conflicting one (Space = selection toggle vs D9 hold-Space loupe / D29 shelf). Prior art researched with sources: Vim macros (one language, blind replay, abort-on-failed-motion), git index (staged-vs-tested divergence), Airbus hard vs Boeing soft limits (Lumina = hard limits aimed at consequences, not at the operator), accept/reject review data (~30% acceptance; 96% distrust vs 48% verify → per-frame review predicted to rubber-stamp), Ableton automation override (hand wins per-parameter, explicit re-enable), Bainbridge 1983 / children of the magenta / AF447 (atrophy → eval-set contamination is Lumina's version).
+
+**Fix:** Added `design/strategy/agent-grammar.md` (headline · prior art · rules verdicts · full grammar map with agent rungs · the record · never-list (6 principles, 2 cautions) · unknowns · conflicts · P1–P5 proposals). No product, token, copy, or test code.
+
+**Instrument reading:** No runtime measurement. `.git` absent → SHA UNVERIFIABLE on this host (tokens version `6.3-motion-wiring`; prior BUILD_LOG entry claims `b90fdfd`). Greps: contract-v6 `### D` entries = 26 (D16–D66 amended/new), copy-contract rows read in full, P0KeyRoutingModifier read in full (218 lines). `release-readiness.md` ABSENT. `python3 Scripts/harness/run.py fast` → **INCOMPLETE** 4641ms · **35** orchestration OK · 0 app tests · missing 3 manifest tests (`unit_invariants`, `allowlist_ratchet`, `repo_artifact_bloat`) — each shells to `git ls-files`, which fails on this `.git`-less archive; not a verdict change.
+
+**Landed (operator commit, 2026-08-20):** branch `strategy/agent-grammar` created off `origin/main` @ `5dff438` (not `b90fdfd` — main advanced since the archive was cut). Re-verified on the real checkout: tokens version `6.3-motion-wiring` / hash `1b1db60f…` match; `release-readiness.md` still ABSENT; A7 drift confirmed at `design/tokens.yaml:597,601` and `design/mvp-test-plan.md:107`; Space = `toggleSelectionOfFocused` confirmed at `P0KeyRoutingModifier.swift:164`. `python3 Scripts/harness/run.py fast` on this host → **PASS** 16599ms · **38** orchestration · 0 app / 0 expected — the 3 git-dependent manifest tests missing on the archive all pass here.
+
+---
+
 ## 2026-08-16 — Fix tree compile + compile rot-guard
 
 **Branch:** `main` · **Base:** `origin/main` @ `b90fdfd`
