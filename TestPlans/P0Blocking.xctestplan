@@ -1,0 +1,58 @@
+{
+  "configurations" : [
+    {
+      "id" : "A0000001-0000-0000-0000-000000000010",
+      "name" : "Blocking",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "environmentVariableEntries" : [
+      {
+        "key" : "LUMINA_UI_TEST_STEPS",
+        "value" : "80"
+      }
+    ],
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Lumina.xcodeproj",
+      "identifier" : "A10000010000000000000006",
+      "name" : "Lumina"
+    },
+    "testTimeoutsEnabled" : true,
+    "maximumTestExecutionTimeAllowance" : 1200
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Lumina.xcodeproj",
+        "identifier" : "A30000010000000000000006",
+        "name" : "LuminaLogicTests"
+      }
+    },
+    {
+      "selectedTests" : [
+        "OpenNavigationTests/testOpenPreparedShootShowsContactSheet",
+        "OpenNavigationTests/testArrowKeysMoveFocus",
+        "OpenNavigationTests/testDensityControlsChangeColumnsAndStayResponsive",
+        "CullGrammarTests",
+        "UndoTests",
+        "SelectionFocusTests",
+        "GridPhotoRestoreTests",
+        "PersistenceTests",
+        "MissingOriginalsTests/testMissingOriginalsPreserveCatalogAndProbeFacts",
+        "RepeatedNavigationStressTests",
+        "UXHardeningTests/testGridIsKeyboardReadyOnOpen",
+        "ExplorerSmokeTests",
+        "ExplorerStressTests"
+      ],
+      "target" : {
+        "containerPath" : "container:Lumina.xcodeproj",
+        "identifier" : "A20000010000000000000006",
+        "name" : "LuminaUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -54,42 +54,50 @@ struct ContactSheetRobot {
         return ids[index]
     }
 
-    /// Keyboard grammar (arrows, P/X) needs the collection to be first responder. Clicking the
-    /// *stable* collection view at a fixed on-screen point grants that (and focuses whatever cell is
-    /// there) without the stale-element risk of targeting a specific, possibly-reflowed cell.
+    /// P0 keyboard grammar routes app-wide through `P0KeyRoutingModifier`, so the blocking tests
+    /// can establish keyboard ownership entirely through the probe rather than by clicking layout.
     @discardableResult
     func establishKeyboardFocus() -> ContactSheetRobot {
-        let collection = element(P0AXID.contactCollection)
-        guard collection.waitForExistence(timeout: UITestWait.elementExistence), collection.isHittable else { return self }
-        collection.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).click()
-        _ = app.waitForProbe(timeout: UITestWait.transition) { $0.focusedAssetID != nil }
+        if app.waitForProbe(timeout: UITestWait.transition, where: { $0.route == "contactSheet" && $0.focusedAssetID != nil }) != nil {
+            return self
+        }
+        if app.state != .runningForeground { app.activate() }
+        app.typeKey(.rightArrow, modifierFlags: [])
+        _ = app.waitForProbe(timeout: UITestWait.transition) { $0.route == "contactSheet" && $0.focusedAssetID != nil }
         return self
     }
 
-    // MARK: - Focus (click establishes AppKit first responder + model focus)
+    // MARK: - Focus (probe + keyboard, never geometry)
 
-    /// Click a cell to focus it, verifying focus landed and retrying on a miss. The contact sheet
-    /// reflows while previews stream in, which can occasionally move a cell out from under a click;
-    /// the retry makes focusing deterministic without arbitrary sleeps.
+    /// Drive focus to a visible asset through the app's own arrow-key grammar, asserting through
+    /// the probe instead of the contact-sheet cell geometry. This keeps blocking flows alive when
+    /// the layout changes on purpose.
     @discardableResult
     func focus(assetID: String) -> ContactSheetRobot {
-        guard cell(assetID).waitForExistence(timeout: UITestWait.transition) else {
-            XCTFail("cell \(assetID) not found")
+        guard visibleIDs().contains(assetID) else {
+            XCTFail("visible asset \(assetID) not found in probe order")
             return self
         }
-        for attempt in 0..<4 {
-            // Clicks land in whatever app owns the screen; on a desktop in interactive use the
-            // app can lose the foreground between attempts. Re-front it before clicking.
-            if app.state != .runningForeground { app.activate() }
-            let element = cell(assetID) // re-resolve each attempt (elements can go stale on reflow)
-            guard element.exists else { continue }
-            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
-            if app.waitForProbe(timeout: UITestWait.transition, where: { $0.focusedAssetID == assetID }) != nil {
+
+        establishKeyboardFocus()
+        let hopBudget = max(visibleIDs().count * 2, 8)
+        for _ in 0..<hopBudget {
+            guard let snapshot = app.probe() else { continue }
+            if snapshot.focusedAssetID == assetID {
                 return self
             }
-            _ = attempt // keep looping; next iteration re-resolves and re-clicks
+            guard let currentID = snapshot.focusedAssetID,
+                  let currentIndex = snapshot.visibleAssetIDs.firstIndex(of: currentID),
+                  let targetIndex = snapshot.visibleAssetIDs.firstIndex(of: assetID) else {
+                if app.state != .runningForeground { app.activate() }
+                app.typeKey(.rightArrow, modifierFlags: [])
+                continue
+            }
+            if app.state != .runningForeground { app.activate() }
+            app.typeKey(currentIndex < targetIndex ? .rightArrow : .leftArrow, modifierFlags: [])
+            _ = app.waitForProbe(timeout: UITestWait.transition / 2) { $0.focusedAssetID != currentID }
         }
-        XCTFail("could not focus \(assetID) after retries")
+        XCTFail("could not focus \(assetID) through keyboard navigation")
         return self
     }
 
@@ -107,6 +115,7 @@ struct ContactSheetRobot {
 
     @discardableResult func pressKeep() -> ContactSheetRobot { char("p") }
     @discardableResult func pressReject() -> ContactSheetRobot { char("x") }
+    @discardableResult func toggleSelection() -> ContactSheetRobot { key(.space) }
     @discardableResult func increaseDensity() -> ContactSheetRobot { char("-") } // more, smaller cells
     @discardableResult func decreaseDensity() -> ContactSheetRobot { char("=") } // fewer, bigger cells
 
@@ -205,12 +214,14 @@ struct ContactSheetRobot {
 
     @discardableResult
     private func key(_ key: XCUIKeyboardKey) -> ContactSheetRobot {
+        if app.state != .runningForeground { app.activate() }
         app.typeKey(key, modifierFlags: [])
         return self
     }
 
     @discardableResult
     private func char(_ character: String) -> ContactSheetRobot {
+        if app.state != .runningForeground { app.activate() }
         app.typeKey(character, modifierFlags: [])
         return self
     }

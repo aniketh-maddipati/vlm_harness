@@ -27,7 +27,7 @@ enum CopyContract {
         if snapshot.ring == .scene {
             return "Adapt → \(snapshot.scopeCount) ⏎ · ⇧⏎ scene · Esc"
         }
-        return "Adapt → \(snapshot.scopeCount) ⏎ · Esc"
+        return "Adapt → \(snapshot.scopeCount)  ⏎ · Esc"
     }
 
     static func developBanner(count: Int) -> String {

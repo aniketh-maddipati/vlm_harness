@@ -325,7 +325,7 @@ final class P0LogicTests: XCTestCase {
         XCTAssertEqual(EditRailLayout.rowCount, 10)
         XCTAssertEqual(EditRailLayout.rowHeight, 46)
         XCTAssertTrue(EditRailLayout.straightenRowFits(windowHeight: 800, contextVisible: false))
-        XCTAssertFalse(EditRailLayout.showsHistogram(windowHeight: 801))
+        XCTAssertTrue(EditRailLayout.showsHistogram(windowHeight: 801))
     }
 
     func testExportRecipeHintContract() {

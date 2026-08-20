@@ -41,11 +41,14 @@ final class CullGrammarTests: LuminaUITestCase {
         launch(LaunchConfig(fixture: .mixed60))
         let sheet = lumina.openShoot.open(.mixed60)
 
-        // Establish a multi-selection; the last clicked cell is the focused (and keyboard) target.
+        // Establish a multi-selection entirely through focus + keyboard selection toggles.
         let ids = sheet.visibleIDs()
         sheet.focus(assetID: ids[1])
-        sheet.commandClick(assetID: ids[4])
-        sheet.commandClick(assetID: ids[6])
+        sheet.toggleSelection()
+        sheet.focus(assetID: ids[4])
+        sheet.toggleSelection()
+        sheet.focus(assetID: ids[6])
+        sheet.toggleSelection()
         let before = lumina.waitForProbe { $0.selectionCount == 3 }
         XCTAssertEqual(before.selectionCount, 3)
 

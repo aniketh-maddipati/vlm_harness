@@ -57,8 +57,14 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <TestPlans>
          <TestPlanReference
-            reference = "container:TestPlans/P0Fast.xctestplan"
+            reference = "container:TestPlans/P0Blocking.xctestplan"
             default = "YES">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:TestPlans/P0Quarantined.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:TestPlans/P0Fast.xctestplan">
          </TestPlanReference>
          <TestPlanReference
             reference = "container:TestPlans/P0Stress.xctestplan">

@@ -22,8 +22,8 @@ future external-driver layer.
 | Seeded explorer | `LuminaUITests/Explorer/` | State-aware randomized workflows |
 | Visual regression | `LuminaUITests/Visual/` | Pinned-window capture + semantic layout assertions |
 | App-side test hooks | `Lumina/Testing/` | DEBUG-only launch mode, fixtures, state probe, accessibility IDs |
-| Test plans | `TestPlans/*.xctestplan` | `P0Fast`, `P0Stress`, `P0Visual` |
-| Runner | `Scripts/run_p0_ui_tests.sh` | `fast` / `stress` / `visual` / `logic` / `seed` |
+| Test plans | `TestPlans/*.xctestplan` | `P0Blocking`, `P0Quarantined`, plus convenience plans `P0Fast`, `P0Stress`, `P0Visual` |
+| Runner | `Scripts/run_p0_ui_tests.sh` | `blocking` / `quarantined` / `fast` / `stress` / `visual` / `logic` / `seed` |
 
 The **state probe** is the backbone: an invisible accessibility element
 (`p0.stateProbe`) whose value is a JSON `ProbeSnapshot` of the live session (route, counts,
@@ -47,7 +47,7 @@ Assertions read structured state from the probe rather than scraping UI text.
 | `bash Scripts/regression.sh` static/manifest checks | ✅ (bash-syntax, test-plan JSON, scheme XML) | ✅ |
 | `xcodebuild build` / `build-for-testing` | ❌ | ✅ |
 | `LuminaLogicTests` (XCTest) | ❌ | ✅ |
-| `P0Fast` / `P0Stress` / `P0Visual` (XCUITest) | ❌ | ✅ |
+| `P0Blocking` / `P0Quarantined` / `P0Fast` / `P0Stress` / `P0Visual` (XCUITest) | ❌ | ✅ |
 
 `regression.sh` runs the portable manifest checks everywhere and **exits cleanly on Linux without
 claiming it ran macOS UI tests**.
@@ -122,12 +122,12 @@ DiagnosticsRobot     // screenshots, hierarchy, structured context; attachments 
 
 Robots own accessibility queries, **bounded** waits (poll observable state / probe — never fixed
 sleeps), keyboard/mouse input, assertions, and failure diagnostics. Coordinate-based interaction is
-used only where no accessible semantic element exists (e.g. establishing keyboard first-responder by
-clicking the stable collection view) and is documented at the call site.
+used only where no accessible semantic element exists (for example the custom single-photo slider
+drag and window-resize helper) and is documented at the call site.
 
-Keyboard note: macOS routes keys to the first responder, so keyboard grammar (arrows, P/X, ⌘Z)
-requires a prior click into the contact sheet. `focus(assetID:)` clicks (and verifies + retries);
-`establishKeyboardFocus()` clicks the stable collection view for the explorer.
+Keyboard note: P0 key routing currently flows through `P0KeyRoutingModifier`, so blocking flows can
+move focus and selection through the app's own keyboard grammar plus the probe, with no contact-sheet
+geometry clicks.
 
 ## 8. Deterministic flows
 
@@ -179,12 +179,20 @@ not delete assets. Structured probe values — not UI text — are the source of
 
 ## 11. Test plans
 
-- **P0Fast** — logic tests + open/nav, cull, undo, selection/focus, grid/photo restore, persistence,
-  missing-originals, layout, short explorer. Target: a few minutes.
-- **P0Stress** — mixed-200 repeated navigation, long seeded explorer, relaunch, resize,
-  missing-originals, layout; longer per-test allowance.
-- **P0Visual** — pinned 1280×800 capture + semantic layout, incl. the focused-plus-selected outline
-  case.
+- **P0Blocking** — the pre-merge semantic gate. All assertions are probe/model-state based:
+  logic tests, deterministic open/navigation, cull/undo/persistence, keyboard selection/focus,
+  grid↔photo restore, missing-original preservation facts, keyboard-ready-on-open, and both seeded
+  explorer runs.
+- **P0Quarantined** — deliberately surface-coupled checks: Recent-row accessibility, offline
+  affordance presence, density-button hit targets, layout/hittability assertions, the representative
+  single-photo edit-control drag, and visual capture.
+- **Rule:** if **P0Blocking is green** and **P0Quarantined is red**, treat it as an intentional
+  surface change first. Re-baseline the quarantined expectation without ceremony once the new UX is
+  accepted; quarantined red may not by itself veto a UX experiment.
+- **P0Fast** — convenience subset for fast local confidence (short deterministic flows + explorer).
+- **P0Stress** — convenience subset for long repeated navigation / explorer / relaunch coverage with
+  a raised per-test allowance.
+- **P0Visual** — convenience capture plan for pinned 1280×800 visual evidence.
 
 ## 12. Artifacts, diagnostics & replay
 
