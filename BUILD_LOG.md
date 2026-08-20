@@ -4,6 +4,23 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-20 — P4: A7-reference cleanup to match A13 (tokens + test plan + check prose)
+**Branch:** `cleanup/p4-a7-references` · **Base:** `origin/main` @ `5dff438` (independent of `strategy/agent-grammar`, not stacked)
+**Claim:** Close AG.1's P4 — every *live* citation of withdrawn A7 rewritten to reflect A13; withdrawal notes, historical records, and camera names untouched.
+**Finding:** Census `grep -rn '\bA7\b' design/ Lumina/ Scripts/` → 13 files. Nine already correct and left alone: contract-v6 change-marks/withdrawal notes, `BetaDiagnosticsSocket.swift` comment, `f11_a7_expiry.py` ("A7 withdrawn A13"), `contract_v6_presence.sh` (asserts the withdrawal note exists), proposal-batch-2/-3 (historical ratification records), `build-prompts/INDEX.md` pointer, `surface-sweep.md` history, "Sony A7 IV" in fixture-manifest + mvp-test-plan, base64 coincidence in `hifi-reference.html`. **Four live-citation sites fixed:** `tokens.yaml:9/597/601` and `mvp-test-plan.md:107` (the two AG.1 flagged) **plus** `f11_zero_network.py:6/91`, whose scope prose still cited "CONFLICT 4 / A7" as if live — surfaced only by the full census. Codegen consumption checked before choosing rewrite-vs-delete: `HiFiTokens.generated.swift:187` `betaTestflightCrashReporting` is generated but has **zero** Swift consumers; token **rewritten** (value → `withdrawn`, cite → `[D45, D66, A13]`), not deleted, so the socket remains a truthful record for machine readers.
+**Consent line (§6):** the line ships verbatim in tester agreements; no wave build has shipped (surface-sweep 2026-08-13: wave-worthy **NO**) and no signed agreement exists in this tree, so this is a forward-looking text fix — any agreement signed on the old wording outside the tree remains what was signed and is not retconned; the new text also widens truthfully from "launch builds" to "any build" per A13.
+**Fix:** tokens version `6.3-motion-wiring` → **`6.4-a7-cleanup`**; codegen regenerated (`tokens-hash` `1b1db60f…` → **`8461f732…`**); F07 trajectory golden re-proposed and approved under the new hash with **byte-identical payload** (no motion token touched — pure re-key). Prior-hash golden dirs retained.
+**Instrument reading (this Mac, measured this session):**
+| Command | Result |
+|---------|--------|
+| falsifier `grep '\bA7\b'` on edited files | only withdrawal notes + Sony A7 IV camera name remain |
+| `python3 Scripts/harness/codegen/tokens_codegen.py` | wrote generated Swift + hash `8461f732…` |
+| `python3 Scripts/harness/golden/service.py propose/approve spring_trajectory_place_return` | approved @ `8461f732…` |
+| `python3 Scripts/harness/run.py fast` | **PASS** 16365ms · **38** orchestration · 0 app / 0 expected (`spring_physics_f07` OK) |
+| `bash Scripts/compile_check.sh` | **OK** |
+**Stale-artifact note (standing rule):** any build keyed to `1b1db60f…` (F11.4 manifest, F04.1 build cache) requires re-measure at next cut.
+---
+
 ## 2026-08-16 — Fix tree compile + compile rot-guard
 
 **Branch:** `main` · **Base:** `origin/main` @ `b90fdfd`

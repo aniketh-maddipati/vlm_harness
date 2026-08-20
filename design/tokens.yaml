@@ -6,9 +6,9 @@
 # Magic numbers in UI code are banned; consume these tokens only.
 # Change-marks: tokens with cite containing A1–A10 are Batch 1; see grammar.* and color.swimlane_fill_opacity.
 # [● A1] mvp_test_floor · [● A2] crop_* · [● A3] pointer_cull_* · [● A4] clipping_hold_key / clipping_grammar
-# [● A6] swimlane_fill_opacity socket · [● A7] beta_testflight_crash_reporting · [● A8] beta_licensing
+# [● A6] swimlane_fill_opacity socket · [● A7 — withdrawn A13, Batch 2] beta_testflight_crash_reporting · [● A8] beta_licensing
 
-version: "6.3-motion-wiring"
+version: "6.4-a7-cleanup"
 contract: design/contract-v6.md
 codegen:
   swift_enum: HiFiTokens
@@ -594,12 +594,12 @@ grammar:
     value: zero_ideal
     type: enum
     cite: [D45, D51, D52]
-    notes: "Launch = local-only. Beta TestFlight crash reporting is A7 exception only."
+    notes: "Local-only on every build — beta, wave, launch. A7 withdrawn (A13, Batch 2); no TestFlight crash-reporting exception."
   beta_testflight_crash_reporting:
-    value: accepted_beta_only_expires_at_1_0
+    value: withdrawn
     type: enum
-    cite: [D45, D66, A7]
-    notes: "EXPIRES AT 1.0 — must not silently persist. Launch builds direct-notarized + local-only."
+    cite: [D45, D66, A13]
+    notes: "A7 withdrawn (A13, Batch 2). betaDiagnostics must be null on every wave/beta build; F11.6 asserts. All builds direct-notarized + local-only."
   beta_licensing:
     value: none
     type: enum

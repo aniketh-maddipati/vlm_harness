@@ -1,8 +1,8 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: 1b1db60f4b927c6ba29f320508ebfe2f427a0eb1d6acef7f64051edff7b7158c
-// version: 6.3-motion-wiring
+// tokens-hash: 8461f73252684583bcc5356f280d0710f039fab31d7f88e9003dc6aac43ee2e0
+// version: 6.4-a7-cleanup
 // contract: design/contract-v6.md
 
 import CoreGraphics
@@ -183,8 +183,8 @@ enum HiFiTokens {
         static let exportStates: [String] = ["quiet_text", "quiet_outline", "dark_primary"] // cite: D61
         static let rejectsFileTouch: String = "post_export_trash_offer_only" // cite: D36
         static let hover: String = "deleted" // cite: D48
-        static let networkEgress: String = "zero_ideal" // cite: D45, D51, D52 — Launch = local-only. Beta TestFlight crash reporting is A7 exception only.
-        static let betaTestflightCrashReporting: String = "accepted_beta_only_expires_at_1_0" // cite: D45, D66, A7 — EXPIRES AT 1.0 — must not silently persist. Launch builds direct-notarized + local-only.
+        static let networkEgress: String = "zero_ideal" // cite: D45, D51, D52 — Local-only on every build — beta, wave, launch. A7 withdrawn (A13, Batch 2); no TestFlight crash-reporting exception.
+        static let betaTestflightCrashReporting: String = "withdrawn" // cite: D45, D66, A13 — A7 withdrawn (A13, Batch 2). betaDiagnostics must be null on every wave/beta build; F11.6 asserts. All builds direct-notarized + local-only.
         static let betaLicensing: String = "none" // cite: D52, D66, A8 — Wave builds free; R-I.3 post-test pre-launch.
         static let mvpTestFloor: String = "apple_silicon_macos_14_plus" // cite: D65, A1 — Intel never.
         static let cropMode: String = "work_state_latch" // cite: D23, D63, A2 — Fixed frame; photo slides beneath; rising grid; matte; non-destructive.
