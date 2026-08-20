@@ -104,7 +104,7 @@ Schedules the D46 / R-A.1 gate:
 
 Include verbatim in the tester agreement:
 
-> I consent to Lumina using photographs from this test session, and my final hand edits on those photographs, as an evaluation set for taste-model proving. Edits and marks from this session are used only to measure whether a future Develop proposal beats my own hand finishing — not for training without a further agreement, and not for network upload from launch builds (diagnostics: see contract D45 / A7).
+> I consent to Lumina using photographs from this test session, and my final hand edits on those photographs, as an evaluation set for taste-model proving. Edits and marks from this session are used only to measure whether a future Develop proposal beats my own hand finishing — not for training without a further agreement, and not for network upload from any build — beta, wave, or launch (diagnostics: see contract D45; A7 withdrawn by A13, Batch 2).
 
 ---
 

@@ -2,8 +2,9 @@
 """F11.2 — Zero outgoing network on app paths (Release artifact).
 
 Scope: Lumina.app entitlements and linked networking frameworks on the app's own
-binary paths only. Does NOT cover OS-level crash reporters or TestFlight telemetry
-(CONFLICT 4 / A7 — out of scope for this check).
+binary paths only. Does NOT cover OS-level crash reporters (out of scope for this
+check). No TestFlight telemetry is sanctioned on any build — CONFLICT 4 closed by
+A11; A7 withdrawn by A13 (D45 applies in full).
 
 macOS only.
 """
@@ -87,8 +88,8 @@ def main(argv: list[str] | None = None) -> int:
     print("=== F11.2 zero network (app paths only) ===")
     print(
         "Scope note: this check covers Lumina.app entitlements and the app's linked "
-        "networking frameworks only — not OS-level crash reporters or TestFlight "
-        "telemetry (CONFLICT 4 / A7)."
+        "networking frameworks only — not OS-level crash reporters. No TestFlight "
+        "telemetry is sanctioned on any build (A7 withdrawn A13; D45 in full)."
     )
 
     app = find_release_app(args.app)
