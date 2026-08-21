@@ -3,7 +3,7 @@
 **Authority:** `design/contract-v6.md` (D53–D56, D57, WG-quarantine; A1 fleet).  
 **Purpose:** Enumerate bodies, card images, golden sets, and the sample-shoot content spec for harnesses.  
 **Rule:** Fixtures are deterministic. No network. No legacy Workbench route. Marks/edits/staging are not cached as a second store of decisions.  
-**Change-marks:** `[● A#]` = Amendment Batch 1 · `[○]` = carried from v6 seal.
+**Change-marks:** `[● A#]` = Amendment Batch 1 · `[○]` = carried from v6 seal · `[◐ E1]` = **PROPOSED** by session E1, not ratified.
 
 ---
 
@@ -20,8 +20,11 @@ Floor: Apple Silicon, macOS 14+. Intel: never.
 | `iphone-proraw` | iPhone (Pro) | `.DNG` (ProRAW) | **First-class** per R-M.2 / D53 | D53, A1 |
 | `iphone-heic` | iPhone (Pro) | `.HEIC` | **First-class** per R-M.2 / D53 | D53, A1 |
 | `jpeg-sidecar-pair` `[○]` | — | `.JPG` + RAW | Provenance / pre-edited pair support | D54 |
+| `sony-a7iii` `[◐ E1]` | Sony A7 III (`ILCE-7M3`) | `.ARW` | **Seed body actually available on the maintainer's machine and used to cut the E1 latency cards.** Not a fleet target — proposed as a *seed* id so the cut cards name their true origin. Ratify or swap. | E1 Gate 2, D53 |
 
 `[FLAG: body list is Claude's pick; swap freely before fixtures are cut.]`
+
+**Seed-vs-fleet honesty `[◐ E1]`:** The fleet table names `sony-a7iv` (A7 IV). The RAW present on the maintainer's machine is `ILCE-7M3` (A7 III) — same maker, same `.ARW` container, different body. E1 cut its latency cards from the A7 III and records that body rather than labelling the frames with a body that never took them. No A7 IV, R6 II, Z6 III, X-T5, ProRAW, or HEIC frames were found on this machine; those fleet rows remain uncut.
 
 **Critical-path cost `[● A1]`:** Six bodies ~**doubles** fixture / golden / baseline work vs. the prior 3-body plan. Fleet cut sits on the critical path before wave-one testing (`design/mvp-test-plan.md`).
 
@@ -37,7 +40,8 @@ Synthetic UI-test bodies (`mixed-60`, `mixed-200`, `missing-originals`) remain v
 
 | Fixture id | Spec | Cite |
 |------------|------|------|
-| `card-clean-500` | Clean 500-frame card; single volume; stable names; no videos | D53, L3 |
+| `card-clean-500` `[◐ E1 — CUT]` | Clean 500-frame card; single volume; stable names; no videos. **Cut 2026-08-20** from `sony-a7iii`; 500 distinct frames; replication 1.0× | D53, L3, E1 |
+| `card-clean-2000` `[◐ E1 — CUT]` | Clean 2000-frame card for the E2 Gate 1 60 s glide. **Cut 2026-08-20** from `sony-a7iii`; 1000 distinct frames; replication 2.0×; clone-backed | E1 Gate 2, cited by E2 Gate 1 |
 | `card-slow-reader` | Same topology as clean-500 with injected read latency schedule (harness clock) | L3 |
 | `card-corrupt-file` | One damaged file mid-card; wears `file damaged — preview only`; remainder works | L3, copy FAILURE |
 | `card-duplicate-names` | Duplicate basenames across folders/volumes; identity must not collapse | WG-quarantine / AssetIdentity |
@@ -103,10 +107,60 @@ These do not replace `card-*` or sample-shoot specs for ingest/RAW honesty.
 
 ---
 
-## 6. OPEN (fixture)
+## 6. Latency card cut provenance `[◐ E1 — PROPOSED]`
+
+Cut by `Scripts/fixtures/cut_latency_card.py`; verified by `Scripts/fixtures/verify_latency_card.py`.
+Cut location is a working directory, **not** committed: `~/Pictures/lumina-fixtures/<fixture-id>/`.
+Each cut writes `fixture.json` (provenance) and `checksums.sha256` (per-frame SHA-256).
+
+| Field | `card-clean-500` | `card-clean-2000` |
+|-------|------------------|-------------------|
+| Frames | 500 | 2000 |
+| Seed body | `sony-a7iii` — SONY `ILCE-7M3` | `sony-a7iii` — SONY `ILCE-7M3` |
+| Seed origin | Sony card volume, `DCIM/100MSDCF` (3,352 real `.ARW`; read-only) | same |
+| Distinct frames | 500 | 1000 |
+| Replication factor | **1.0× — none** | **2.0×** |
+| Clone-backed | No — every frame physically distinct | Yes — the repeat of each seed is an APFS clone |
+| Content variety | Full | **Partial — 1000 distinct frames, each appearing twice** |
+| Decode cost | Preserved — every file is a whole real RAW | Preserved — every file is a whole real RAW |
+| Cold-I/O fidelity | Faithful | **Understated** — cloned repeats share physical blocks |
+| Naming | `LUM00001.ARW` … sequential, unique, stable | same |
+| Videos | None | None |
+| Volume topology | Single directory, single volume | Single directory, single volume |
+
+**What "replication 2.0×" costs, stated plainly.** `card-clean-2000` is 2000 files but only 1000
+distinct photographs. Decode work per frame is real and unchanged — every file is a complete RAW
+that ImageIO must actually decode. What is *not* real is content variety (the second thousand
+repeats the first) and cold-I/O pressure (APFS clones share physical blocks, so the working set is
+~10.4 GiB rather than ~21 GiB). On a 24 GB machine that smaller working set is likelier to sit in
+page cache than a true 2000-frame card would be. **Absolute numbers taken on `card-clean-2000` are
+therefore optimistic and must not be quoted as SLA passes.** Before/after comparisons on the same
+fixture remain valid, which is what E2 Gate 1 needs.
+
+Why replication at all: 2000 physically distinct frames cost ~21 GiB, and the machine that cut
+these had 42 GiB free on a disk already at 91% — with `xcodebuild` and trace capture still to run
+on it. `card-clean-500` was cut at full fidelity because 500 distinct frames cost only 5.14 GiB;
+a real 500-frame card *is* that size, so that fixture has no caveat at all.
+
+**Re-cut and verify:**
+
+```bash
+python3 Scripts/fixtures/cut_latency_card.py --seed <CARD>/DCIM/100MSDCF --out ~/Pictures/lumina-fixtures --card card-clean-500
+python3 Scripts/fixtures/cut_latency_card.py --seed <CARD>/DCIM/100MSDCF --out ~/Pictures/lumina-fixtures --card card-clean-2000 --clone
+python3 Scripts/fixtures/verify_latency_card.py ~/Pictures/lumina-fixtures/card-clean-500
+```
+
+The cutter refuses synthesized input: seeds must be real RAW over 1 MB, so the 4-byte stub problem
+recorded in `design/strategy/render-hazard-inventory.md` cannot recur silently.
+
+---
+
+## 7. OPEN (fixture)
 
 - Exact frame counts for sample shoot beyond “small/calm.”
 - Whether `card-mixed-video` surfaces a count in chrome (D56 copy OPEN).
 - ProRAW/HEIC licensing for bundled sample (must be redistributable).
 - `[FLAG]` final body swap before fixtures are cut (A1).
 - Per-body golden matrix ownership once fleet locks.
+- `[◐ E1]` Ratify or reject `sony-a7iii` as a seed id; decide whether the A7 IV fleet row is cut or swapped.
+- `[◐ E1]` Whether `card-clean-2000` should be re-cut at replication 1.0× (~21 GiB) once disk allows.

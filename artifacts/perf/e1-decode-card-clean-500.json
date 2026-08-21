@@ -1,0 +1,23 @@
+{
+  "coverage" : "full run",
+  "decode_failures" : 0,
+  "fixture" : "card-clean-500",
+  "frames_on_disk" : 500,
+  "max_ms" : 182.15596675872803,
+  "max_sample_index" : 0,
+  "mean_ms" : 16.814427852630615,
+  "metric" : "decode.grid_512",
+  "p50_ms" : 16.557097434997559,
+  "p95_ms" : 17.838954925537109,
+  "p99_ms" : 18.617033958435059,
+  "ring512_max_ms" : 182.15596675872803,
+  "ring512_p99_ms" : 18.617033958435059,
+  "ring512_window_declaration" : "n=500, full run",
+  "rss_peak_bytes" : 222822400,
+  "rss_start_bytes" : 184451072,
+  "sample_count" : 500,
+  "wall_seconds" : 8.4547059535980225,
+  "what_it_is_not" : "scroll.frame — excludes SwiftUI layout, cell reuse, compositing, display-link pacing",
+  "what_it_measures" : "embedded-preview decode at PhotoImageTier.gridMaxPixelSize (512 px)",
+  "window_declaration" : "n=500, full run"
+}
