@@ -40,14 +40,28 @@ extension View {
 /// out of product types.
 private struct WorkbenchHotHost<Content: View>: View {
     @ObserveInjection private var inject
-    private let content: Content
+    private let content: () -> Content
 
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
+    init(@ViewBuilder content: @escaping () -> Content) {
+        self.content = content
     }
 
     var body: some View {
-        content.enableInjection()
+        // Re-run the builder on each injection so edited SwiftUI bodies take effect.
+        let _ = inject
+        return content()
+            .enableInjection()
+            .overlay(alignment: .topTrailing) {
+                Text("Playground")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
+                    .padding(10)
+                    .allowsHitTesting(false)
+            }
     }
 }
 #endif

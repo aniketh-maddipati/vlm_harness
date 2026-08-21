@@ -22,7 +22,7 @@
 [○][P] table exactly as you left it
 [○][V] ✓ exported · 10 written
 [○][PL] files stay where they are · edits in open sidecars · this shoot opens in Lightroom as-is
-[○][P] nothing leaves this Mac
+[○][P] nothing leaves this computer
 [○][P] Insert a card — the shoot lands on the table
 [○][P] copies automatically · safe to eject when ✓ appears
 [○][P] Point at a folder ⏎
