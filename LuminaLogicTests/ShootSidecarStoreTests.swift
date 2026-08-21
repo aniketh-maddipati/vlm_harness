@@ -85,7 +85,7 @@ final class ShootSidecarStoreTests: XCTestCase {
 
     func testD36_lrRoundTripSurvivesReimport() throws {
         let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
         let fixtureDir = root.appendingPathComponent("Scripts/harness/fixtures/cp2/jpeg-sidecar-pair")
         let raw = fixtureDir.appendingPathComponent("DSC0001.ARW")
         let fixtureXMP = fixtureDir.appendingPathComponent("DSC0001.xmp")
