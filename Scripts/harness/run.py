@@ -115,6 +115,7 @@ def lane_fast() -> tuple[list[dict], list[str]]:
     py = sys.executable
     steps = [
         ("token_lint", [py, str(HARNESS / "lint" / "token_lint.py")]),
+        ("swift_token_refs", ["bash", str(HARNESS / "lint" / "swift_token_refs.sh")]),
         ("copy_table_lint", [py, str(HARNESS / "lint" / "copy_table_lint.py")]),
         ("banned_patterns", ["bash", str(HARNESS / "lint" / "banned_patterns.sh")]),
         ("magic_numbers", ["bash", str(HARNESS / "lint" / "magic_numbers.sh")]),
@@ -197,6 +198,16 @@ def lane_full_macos() -> tuple[list[dict], list[str]]:
     results: list[dict] = []
     executed: list[str] = []
     try:
+        build = _run(
+            "swift_build_check",
+            [py, str(HARNESS / "lint" / "swift_build_check.py")],
+            "FULL",
+            snap,
+        )
+        results.append(build)
+        if build["ok"]:
+            executed.append("swift_build_check")
+
         # Orchestration bookkeeping first.
         results.append(_run("worktree_snapshot", [py, "-c", "print('snapshot ok')"], "FULL", snap))
         if results[-1]["ok"]:

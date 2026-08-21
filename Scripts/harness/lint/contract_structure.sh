@@ -34,6 +34,8 @@ if [[ -f "$TOKENS" ]]; then
   require_in_file "$TOKENS" 'selectionColor: String = "2E2E2C"' "selection ring token"
   require_in_file "$TOKENS" "assertDistinctSelectionAndHalo" "selection/halo distinct helper"
   require_in_file "$TOKENS" "tokens-hash:" "codegen tokens-hash stamp"
+  require_in_file "$TOKENS" "placeReturnMs:" "F07 place_return motion seal"
+  require_in_file "$TOKENS" "springReducedMotionOvershoot:" "F07 reduced-motion overshoot seal"
 fi
 # Keep generated file fresh vs yaml (CP0).
 python3 "$ROOT/Scripts/harness/codegen/tokens_codegen.py" --check || report "HiFiTokens.generated.swift stale vs tokens.yaml"
