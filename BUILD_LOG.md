@@ -4,6 +4,33 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-21 — Three stale tests on clean main (`fix/three-stale-tests`)
+**Branch:** `fix/three-stale-tests` · **Base:** `origin/main` @ `9c799cf` (sidecar fix `#69` and E2 keys `#70` both verified ancestors, by commit not by vibes)
+**Claim:** The E2 engine sessions plan to make **"suites green"** claims while excluding exactly one test by name — the sidecar `#filePath` case fixed in `#69`. That exclusion was never sufficient: three further failures survive a clean checkout of `origin/main`, none of them related to the sidecar bug. Diagnose each and fix it, or correct the expectation with a cited reason. **No token value changed.**
+**Finding (the quoted baseline was itself stale):** the incoming brief said **138 tests / 4 failures**. On `9c799cf` the true reading is **154 / 3** — `#70` added the E2 instrument tests and `#69` removed the sidecar failure. The three named failures were all still live; only the count and the fourth entry had moved.
+**Finding (F1 — an assertion that could never have failed in the other direction):** `DevelopEngineTests.testBatchStageCommitCancelUndo` commits `recipe` (exposure **0.2**) via `session`, then commits **the same `recipe`** again via `undoSession`, then asserts exposure *changed* after undo. The engine is correct — `undoLastCommit` did restore p1's link from shared recipe B back to A — but `EditRecipe.forked()` gives B a fresh UUID carrying identical values, so exposure reads 0.2 on both sides of the undo. `XCTAssertNotEqual(0.2, 0.2)` was a **no-op probe**: it could not have passed whether or not undo worked. Stale expectation, not an engine defect.
+**Fix (F1, strictly stronger than what the old line attempted):** stage a **distinct** value (1.25) in `undoSession`, assert the commit landed, then assert undo restores **both** p1 and p2 to 0.2, re-links both to the **original** shared recipe ID, and drains the undo stack. Cited to Law 5 (`design/contract-v6.md:31`, "⌘Z takes it back") and the one-transaction rule at `contract-v6.md:75`. The old line witnessed only the leader; the new one covers the whole selection.
+**Finding (F2 — the drift runs the other way: code, not contract):** `testA1FormatterSamplesInCopyContract` failed on `Adapt → 4 ⏎ · Esc`. Both authorities above code carry a **double space** between the count and `⏎` — `design/contract-v6.md:52` (D16 amended by A5, "Frozen compressed forms: banner `Adapt → N  ⏎ · Esc`") and `design/copy-contract.txt:67` / `:105`. `CopyContract.adaptBanner` emitted **one**. Per the authority order (contract-v6 → tokens → copy-contract → code → tests) the **code** is the drifted party, so the code was fixed and the contract left untouched — the opposite of what "copy-contract drift" implies.
+**Fix (F2, narrowly scoped):** base form only. A5 freezes the base form and says the remainder "may compress", so the `.scene` variant was **deliberately not touched** (no frozen form exists for it), and the `.shoot` variant already matches `copy-contract.txt:72` byte-for-byte. Verified safe against both parsers: `A1Invariant.committedCount` matches `Adapt → (\d+)` and `copy_table_lint.py` matches `Adapt → \d+`, so neither reads trailing spacing.
+**Finding (F3 — a test contradicted by an oracle from its own commit):** `EditRailLayout.isCompact` uses `height <= minWindowHeight + 0.5`, so `showsHistogram(801)` is `true`, and `testEditRailLayoutMinWindow` asserted `false`. This test has been **failing since the commit that introduced it** — `753b9df` ("h7: min-window collapse"); `isCompact` has never carried a different threshold, so the assertion was wrong at birth rather than rotted into wrongness. The **same commit** added `Scripts/edit_rail_layout_test.py`, a Python oracle stating the opposite: `if not shows_histogram(MIN_H + 1): fail("histogram should show above min window height")`. Oracle and implementation agreed; only the Swift assert dissented — a transcription slip that survived because the oracle was deleted in `108da0b` ("t1: convert text audits to shell lint scripts") **without its rules being carried into the harness**.
+**Fix (F3):** flipped to `XCTAssertTrue`, cited to the `753b9df` oracle line in-comment so the next reader finds the authority without the archaeology.
+**Instrument reading (this Mac — M4 Pro, macOS 26.5.2, Xcode 26.6, Debug):**
+| Command | Result |
+|---------|--------|
+| `xcodebuild -project Lumina.xcodeproj -scheme Lumina -destination 'platform=macOS' -only-testing:LuminaLogicTests test` — **before**, @ `9c799cf` | **TEST FAILED** · **154 tests / 3 failures** (brief claimed 138/4) |
+| same command — **after** | **TEST SUCCEEDED** · **154 tests / 0 failures** in 1.342 s |
+| `python3 Scripts/harness/run.py fast` | **PASS** · **39** orchestration, 0 regressions |
+| `python3 Scripts/harness/lint/copy_table_lint.py` | OK |
+| `bash Scripts/harness/lint/copy_contract_diff.sh` | OK |
+| `bash Scripts/harness/lint/banned_words.sh` | OK |
+| `git diff origin/main -- design/ DesignTokens/` | **empty** — no token value, no contract line changed |
+**Write-set:** `Lumina/Design/CopyContract.swift` (one string) · `LuminaLogicTests/DevelopEngineTests.swift` · `LuminaLogicTests/P0LogicTests.swift` · `BUILD_LOG.md`. No engine, no Metal, no fixtures, nothing un-shelved.
+**Routed follow-ups (named, deliberately not built this session):**
+- **T1.1 — interpolated formatters are unguarded.** `copy_contract_diff.sh` validates only `static let` literals, so **every interpolated formatter in `CopyContract` is outside lint coverage** — exactly how F2 survived; the Swift test is currently the only thing catching that class of drift. *Proposed:* extend the lint, or add a Swift golden test enumerating every formatter against the contract's frozen forms.
+- **T1.2 — h7 layout rules have had no oracle since `108da0b`.** The Python oracle that would have caught F3 on day one was deleted in the text-audit-to-shell-lint conversion and its rules were never ported. *Proposed:* restore the Python oracle, or port its rules into the harness.
+
+---
+
 ## 2026-08-21 — W0: the workbench (hot loop, fixture boot, deep-links, costume lint)
 **Branch:** `workbench/w0` · **Base:** `origin/main` @ `417958c` (E1 `7fa1362` verified an ancestor, by commit not by vibes)
 **Claim:** Polish is a hundred five-second judgments and each one currently costs a full rebuild. Make the change loop ~1 s, boot straight into real photographs, make the polished state reachable by launch argument — and land the costume law in the same session, because cheap change without the lint is how affordance drift happens. **No shipped pixel changes.**
