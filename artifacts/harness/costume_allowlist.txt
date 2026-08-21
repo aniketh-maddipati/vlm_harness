@@ -1,0 +1,23 @@
+# Costume debt register — W0 Gate 3 (costume_lint.py)
+# Format: <path>:<line> <finding text>, exactly as costume_lint.py prints it.
+# Under the E1 allowlist ratchet: this list may SHRINK, never grow. It is the polish
+# thread's backlog, not W0's to fix — W0 ships no pixel changes.
+#
+# owned-by-polish — bare Button in live P0 chrome; needs a named Lumina*ButtonStyle
+Lumina/Views/P0/P0EditSlider.swift:47 Button without a named Lumina*Style
+Lumina/Views/P0/P0EditSlider.swift:181 Button without a named Lumina*Style
+#
+# owned-by-polish — legacy/non-P0 surfaces; system costume and raw SwiftUI colors
+Lumina/Views/CompareAndSoftViews.swift:39 Button without a named Lumina*Style
+Lumina/Views/UncertainAndClusterViews.swift:269 Button without a named Lumina*Style
+Lumina/Views/UncertainAndClusterViews.swift:276 Button without a named Lumina*Style
+Lumina/Views/UncertainAndClusterViews.swift:280 Button without a named Lumina*Style
+#
+# owned-by-D35 — buttons inside .alert{} failure modals. The fix is NOT a button style:
+# the modal itself violates D35 ("never an error page or modal"). Removing the alert in
+# favour of a facts-chip clears these two rows. See P0OpenView.swift:38 / ContentView.swift:250.
+Lumina/ContentView.swift:255 Button without a named Lumina*Style
+Lumina/Views/P0/P0OpenView.swift:42 Button without a named Lumina*Style
+#
+# owned-by-polish — D47: tap target with no visible affordance and no >=44pt hit area
+Lumina/Views/Workspace/TreatmentStageView.swift:778 tap gesture on undecorated Text

@@ -1,0 +1,54 @@
+#if DEBUG
+import SwiftUI
+#if LUMINA_WORKBENCH
+import Inject
+#endif
+
+/// The hot loop.
+///
+/// `.workbenchHot()` marks a view as hot: editing its source and saving re-renders it in the
+/// running app, without relaunch and without losing session state.
+///
+/// **This is the only file in the codebase that names an Inject symbol.** Every other call site
+/// says `.workbenchHot()`, so the dependency has exactly one seam. Two fences guard it:
+///
+/// 1. `#if DEBUG` — Release compiles this file to nothing.
+/// 2. `#if LUMINA_WORKBENCH` — only the LuminaPlayground target defines it, and it is the only
+///    target that links Inject. The shipping `Lumina` target does not link the package at all,
+///    so no dead-stripping argument is needed: the symbols cannot reach the shipping binary.
+///
+/// `costume_lint.py` enforces fence 1 mechanically.
+extension View {
+    /// Compiles to `WorkbenchHotHost { self }` in the playground and to plain `self` everywhere
+    /// else — including the ordinary Lumina Debug build.
+    @ViewBuilder
+    func workbenchHot() -> some View {
+        #if LUMINA_WORKBENCH
+        WorkbenchHotHost { self }
+        #else
+        self
+        #endif
+    }
+}
+
+#if LUMINA_WORKBENCH
+/// Observes the injection bundle and rebuilds `content` when its source file is recompiled.
+///
+/// Inject needs both halves to work: `@ObserveInjection` supplies the observable that triggers
+/// the rebuild, `enableInjection()` loads the bundle and boxes the view so its structure may
+/// change between edits. Hosting them here rather than in each view keeps the property wrapper
+/// out of product types.
+private struct WorkbenchHotHost<Content: View>: View {
+    @ObserveInjection private var inject
+    private let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        content.enableInjection()
+    }
+}
+#endif
+#endif

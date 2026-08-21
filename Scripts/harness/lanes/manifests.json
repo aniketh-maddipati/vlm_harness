@@ -38,6 +38,7 @@
         { "id": "wait_budgets", "kind": "orchestration", "notes": "F04.4 — UITestWait chains stay below P0Fast 180 s; no waitForProbe ?? fallbacks" },
         { "id": "allowlist_ratchet", "kind": "orchestration" },
         { "id": "shipping_fence", "kind": "orchestration", "notes": "Headless harness compiled out of LUMINA_SHIPPING_APP Release" },
+        { "id": "costume_lint", "kind": "orchestration", "notes": "W0 Gate 3 — shipped Button/tap costume (ratcheted register) + #if DEBUG workbench fence" },
         { "id": "module_boundary", "kind": "orchestration", "notes": "Core models must not import UI/GPU frameworks" },
         { "id": "session_surface", "kind": "orchestration", "notes": "P0SessionModel developScheduler stays file-private; call sites use session APIs" },
         { "id": "repo_artifact_bloat", "kind": "orchestration", "notes": "Duplicate PNG evidence dirs must not re-enter git" },

@@ -34,6 +34,9 @@ struct P0ContactSheetView: View {
             ),
             value: session.inspectingAssetID
         )
+        #if DEBUG
+        .workbenchHot()
+        #endif
     }
 
     private var toolbar: some View {

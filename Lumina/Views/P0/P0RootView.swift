@@ -25,6 +25,10 @@ struct P0RootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .p0KeyRouting(session: session)
         .uiTestStateProbe(session)
+        #if DEBUG
+        .workbenchBoot(session: session)
+        .workbenchHot()
+        #endif
         .onDrop(of: [.fileURL], isTargeted: Binding(
             get: { session.isDropTargeted },
             set: { session.isDropTargeted = $0 }

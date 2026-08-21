@@ -173,6 +173,7 @@ def lane_fast() -> tuple[list[dict], list[str]]:
         ("wait_budgets", [py, str(HARNESS / "lint" / "wait_budgets.py")]),
         ("allowlist_ratchet", [py, str(HARNESS / "lint" / "allowlist_ratchet.py")]),
         ("shipping_fence", [py, str(HARNESS / "lint" / "shipping_fence.py")]),
+        ("costume_lint", [py, str(HARNESS / "lint" / "costume_lint.py")]),
         ("module_boundary", [py, str(HARNESS / "lint" / "module_boundary.py")]),
         ("session_surface", [py, str(HARNESS / "lint" / "session_surface.py")]),
         ("repo_artifact_bloat", [py, str(HARNESS / "lint" / "repo_artifact_bloat.py")]),

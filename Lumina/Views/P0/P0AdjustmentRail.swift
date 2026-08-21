@@ -48,6 +48,9 @@ struct P0AdjustmentRail: View {
                 .fill(LuminaTokens.Line.hairline)
                 .frame(width: LuminaTokens.Line.hairlineWidth)
         }
+        #if DEBUG
+        .workbenchHot()
+        #endif
     }
 
     @ViewBuilder

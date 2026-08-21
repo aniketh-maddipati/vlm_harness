@@ -8,6 +8,8 @@ struct LuminaApp: App {
         // before any scene appears. Compiled out of Release.
         UITestLaunch.runIfRequested()
         DevelopLabLauncher.runIfRequested()
+        // W0 workbench: resolve the deep-link before any scene appears.
+        WorkbenchLaunch.runIfRequested()
         #endif
         #if !LUMINA_SHIPPING_APP
         WorkbenchCapture.runIfRequested()

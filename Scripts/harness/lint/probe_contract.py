@@ -170,11 +170,37 @@ def added_route_cases(base: str | None = None) -> list[str]:
     return cases
 
 
+# W0: the hot-reload marker is DEBUG-only and adds no surface, no route and no observable
+# state, so it cannot require a probe field. The exemption is deliberately as narrow as it can
+# be — EVERY changed line in the file must be one of these — so any real surface edit riding
+# alongside a workbench line still trips the gate.
+WORKBENCH_FENCE_LINE_RE = re.compile(
+    r"^\s*(#if\s+DEBUG|#endif|\.workbenchHot\(\)|\.workbenchBoot\([^)]*\))\s*$"
+)
+
+
+def _only_workbench_fence_changed(path: str) -> bool:
+    """True when a file's whole diff is DEBUG-fenced workbench wiring."""
+    patch = git_diff_patch(path=path)
+    if not patch:
+        return False
+    changed = [
+        line[1:]
+        for line in patch.splitlines()
+        if line[:1] in "+-" and not line.startswith(("+++", "---"))
+    ]
+    if not changed:
+        return False
+    return all(WORKBENCH_FENCE_LINE_RE.match(line) for line in changed)
+
+
 def p0_view_surfaces_changed(changed: Iterable[str]) -> list[str]:
     surfaces: list[str] = []
     prefix = "Lumina/Views/P0/"
     for name in changed:
         if name.startswith(prefix):
+            if _only_workbench_fence_changed(name):
+                continue
             surfaces.append(name.removeprefix(prefix))
     return surfaces
 
