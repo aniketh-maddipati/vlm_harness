@@ -40,6 +40,26 @@ nonisolated enum LatencyMetrics {
     static let fidelitySLAms: Double = 100
     static let developScrubSLAms: Double = 120
 
+    // MARK: - PROPOSED thresholds (E2 instruments)
+    //
+    // Invented constants, not tokens. They exist so the four render keys declare a budget
+    // instead of inheriting one by accident (see `sla(for:)`). Nothing in
+    // `design/tokens.yaml` or `design/contract-v6.md` rules a frame or gesture budget
+    // today, so these are proposals awaiting ratification and are marked PROPOSED
+    // wherever they are quoted. Promoting them to tokens would move the tokens hash and
+    // is deliberately not done here.
+
+    /// One display interval at a pinned 120 Hz. The physically grounded one of the four:
+    /// a frame that misses this budget was a dropped frame, whatever anyone intends.
+    /// PROPOSED.
+    static let frameBudget120HzMs: Double = 8.33
+
+    /// Event-to-pixels budget for the travel, mark, and zoom keys. Equal to
+    /// `navigationSLAms` today **by declaration, not by inheritance** — the value is a
+    /// placeholder that E2's Window 1 measurements should replace with an argued one.
+    /// PROPOSED.
+    static let gestureToPixelsSLAms: Double = 50
+
     // MARK: - Window declaration
 
     /// What a reported percentile actually covers.
@@ -250,7 +270,30 @@ nonisolated enum LatencyMetrics {
         return samples[key]?.count ?? 0
     }
 
+    /// Declared budgets for the four E2 render keys.
+    ///
+    /// Exact keys, deliberately not a `p0.` prefix rule: `p0.edit.slider_to_pixels`,
+    /// `p0.edit.nav_prewarm_count` and the rest of the existing `p0.*` family reach
+    /// `sla(for:)` too, and a prefix rule would silently re-budget all of them. Adding a
+    /// key here is the only way to give it a budget; anything absent keeps the historical
+    /// fallback below, unchanged.
+    private static let declaredSLAms: [String: Double] = [
+        P0RenderInstruments.Key.scrollFrame: frameBudget120HzMs,
+        P0RenderInstruments.Key.keyTravel: gestureToPixelsSLAms,
+        P0RenderInstruments.Key.keyMark: gestureToPixelsSLAms,
+        P0RenderInstruments.Key.zoomGesture: gestureToPixelsSLAms,
+    ]
+
+    /// The budget a key is judged against, used by the SLO-breach signpost in `record`.
+    ///
+    /// The defect this mapping closes: every key not matched by a rule below fell through
+    /// to `navigationSLAms` — 50 ms. For a per-frame key at 120 Hz the real budget is
+    /// 8.33 ms, so a frame key would have had to miss by **6×** before anything said so,
+    /// and nothing in the output would have revealed which budget was applied. Declared
+    /// keys are matched first; the fallback chain below is byte-for-byte the historical
+    /// one, so no existing key changes budget.
     static func sla(for key: String) -> Double {
+        if let declared = declaredSLAms[key] { return declared }
         if key.hasPrefix("spine.input_to_photon") || key.hasPrefix("navigation") {
             return navigationSLAms
         }
@@ -259,6 +302,9 @@ nonisolated enum LatencyMetrics {
         if key.hasPrefix("develop") { return developScrubSLAms }
         return key.hasPrefix("cache") ? cacheHitSLAms : navigationSLAms
     }
+
+    /// Keys with a declared budget. Exposed so a test can pin the mapping.
+    static var declaredSLAKeys: [String] { declaredSLAms.keys.sorted() }
 
     /// Clears samples for a new session. Capture *registration* survives, so a harness that
     /// called `beginCapture` keeps capturing across a session boundary rather than silently

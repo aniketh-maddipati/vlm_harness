@@ -38,6 +38,60 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 **Routed follow-ups (named, not built):** W0.1 debug overlay toggles · W0.2 costume gallery preview · W0.3 slow-motion spring inspection · W0.4 tweak rail with "copy as tokens proposal" (E2 Gate 2.1 inherits) · W0.5 snapshot diff (`make snap`).
 ---
 
+## 2026-08-21 — E2 instruments: the four render keys (`instruments/e2-keys`)
+**Branch:** `instruments/e2-keys` · **Base:** `origin/main` @ `9921bdb`
+**Claim:** E2 rev 3 measures with instruments that merged before it. E1 proved the four keys it
+needs do not exist; this session wires them, and nothing else. It ships a stopwatch, not a reading.
+**Finding (F5, silent SLA inheritance):** `LatencyMetrics.sla(for:)` ended in
+`return key.hasPrefix("cache") ? cacheHitSLAms : navigationSLAms` — every unmatched key inherited
+the **50 ms** navigation SLA. For a per-frame key at a pinned 120 Hz the budget is **8.33 ms**, so
+a frame key would have had to miss by **6×** before a breach signpost fired, and the output never
+said which budget was applied. Pinned by `testFrameBudgetIsNotTheInheritedNavigationSLA`.
+**Finding (why exact keys, not a `p0.` prefix):** `p0.edit.slider_to_pixels`,
+`p0.edit.nav_prewarm_count` and `p0.visible_cell_cache` already reach `sla(for:)`. A prefix rule
+would have silently re-budgeted all three. The mapping matches exact keys and the historical
+fallback chain is byte-for-byte unchanged; `testExistingP0KeysKeepTheirHistoricalBudget` and
+`testHistoricalPrefixRulesAreUntouched` pin that no existing consumer moved.
+**Finding (mixed clocks, caught by a test):** `noteScrollActivity()` read `CACurrentMediaTime()`
+while the frame path took the display link's timestamp. Driving the two from different clocks
+defeats the idle gate silently — a stale activity stamp makes every frame look like a glide
+frame. `noteScrollActivity(at:)` now takes the time, defaulting to the same base.
+**Finding (probe contract, F03.1):** touching two P0 surfaces failed FAST `probe_growth`, then
+`probe_mirror` named two further mirrors (`LuminaRobot.swift`, `P0LogicTests.swift`) beyond the
+two the growth lint names. The probe now carries `renderInstrumentsEnabled`, so a measurement
+session can assert the instruments are live before it trusts a number — the gate bought real
+coverage, not a rubber stamp.
+**Finding (pre-existing red, not this session's):** `origin/main` fails **four**
+`LuminaLogicTests`, not one. Beyond the known sidecar test, `DevelopEngineTests`
+`testBatchStageCommitCancelUndo`, `P0LogicTests` `testA1FormatterSamplesInCopyContract`, and
+`P0LogicTests` `testEditRailLayoutMinWindow` are red on a clean checkout. Any future "suites
+green" claim must reckon with all four; the sidecar exclusion alone was never sufficient.
+**Fix:** `Lumina/Services/P0RenderInstruments.swift` — a display-link instrument recording
+`p0.scroll.frame` (frame interval while scrolling), `p0.key.travel`, `p0.key.mark`,
+`p0.zoom.gesture` (event timestamp → first frame presented after the mutation). Off by default:
+the link is created only when enabled, via `--p0-instruments` or `enable()`, so an ordinary run
+is unchanged. All four record through `LatencyMetrics`, so capture mode and `Window` declaration
+apply unmodified. Arming sites sit **after** the state mutation and never inspect the event —
+`P0KeyRoutingModifier` remains sole routing owner. Stated bound, written into the code and
+`docs/perf/e2-instrument-proposals.md`: the three event keys are quantised by one display
+interval (≤ 8.33 ms at 120 Hz); the bias is the instrument's, identical on both A/B sides, and
+cancels in a delta but rides on every absolute.
+**Instrument reading (this Mac — M4 Pro, 24 GB, macOS 26.5.2, Xcode 26.6, Debug):**
+| Command | Result |
+|---------|--------|
+| `python3 Scripts/harness/run.py fast` | **PASS**, 39 orchestration — identical count to the `origin/main` baseline |
+| `xcodebuild … -only-testing:LuminaLogicTests test` (this branch) | **154 tests, 4 failures** |
+| `xcodebuild … -only-testing:LuminaLogicTests test` (clean `origin/main`) | **138 tests, 4 failures** |
+| Net | 16 new tests, all passing; the 4 failures are the same 4 on both sides |
+| `xcodebuild … build` / `build-for-testing` | **BUILD SUCCEEDED** / **TEST BUILD SUCCEEDED** |
+
+**Not measured, by construction:** the display link's real cadence, and therefore every number
+these keys will report. The tests drive `presentFrame(at:)` with an injected clock; a real
+reading needs a person at a machine with the display pinned — E2 Window 1. This session
+deliberately produces no performance number.
+
+---
+
 ## 2026-08-20 — E1: instruments (stopwatch, fixtures, baseline)
 **Branch:** `instruments/e1-baseline` · **Base:** `origin/main` @ `3207101`
 **Claim:** E2 Gate 1 cannot honestly begin — it measures a 60 s glide with an instrument that remembers 512 frames, on fixtures that do not exist. Repair the instrument, cut and name the fixtures, take the baseline.

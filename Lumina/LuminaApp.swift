@@ -12,6 +12,10 @@ struct LuminaApp: App {
         WorkbenchLaunch.runIfRequested()
         #endif
         #if !LUMINA_SHIPPING_APP
+        // E2 render instruments: off unless asked for, so an ordinary run is unchanged.
+        if P0RenderInstruments.launchRequested {
+            MainActor.assumeIsolated { P0RenderInstruments.shared.enable() }
+        }
         WorkbenchCapture.runIfRequested()
         // Headless harnesses exit inside the runner.
         _ = RawHarnessRunner.runIfRequested()

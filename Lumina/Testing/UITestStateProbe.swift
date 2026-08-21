@@ -50,6 +50,10 @@ struct ProbeSnapshot: Codable, Equatable {
     var keyRoutingOwner: String
     /// True when the explicit legacy Workbench door is open (W8 — not constructed at launch).
     var legacyShellActive: Bool
+    /// E2 — whether the display-link render instruments (`p0.scroll.frame`, `p0.key.travel`,
+    /// `p0.key.mark`, `p0.zoom.gesture`) are live. Off in an ordinary run; a measurement
+    /// session asserts this is true before it trusts a single number.
+    var renderInstrumentsEnabled: Bool
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -122,7 +126,8 @@ extension P0SessionModel {
             reduceMotionActive: UITestSupport.reduceMotionForced
                 || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
             keyRoutingOwner: "P0KeyRoutingModifier",
-            legacyShellActive: showLegacyShell
+            legacyShellActive: showLegacyShell,
+            renderInstrumentsEnabled: P0RenderInstruments.shared.isEnabled
         )
     }
 }
