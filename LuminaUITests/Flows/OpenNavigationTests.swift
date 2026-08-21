@@ -81,7 +81,8 @@ extension ContactSheetRobot {
                 focusedAvailability: nil, focusedCull: nil, focusedRecipeFingerprint: nil, pointerCullTargetsVisible: false, inspectingAssetID: nil,
                 selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
                 phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
-                missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier", legacyShellActive: false
+                missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier", legacyShellActive: false,
+                renderInstrumentsEnabled: false
             )
         }
         return snapshot

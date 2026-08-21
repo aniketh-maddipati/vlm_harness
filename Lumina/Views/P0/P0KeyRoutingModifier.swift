@@ -108,15 +108,19 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             switch event.keyCode {
             case 123:
                 session.moveFocus(dx: -1, dy: 0, columns: session.densityColumns)
+                armTravel(event)
                 return nil
             case 124:
                 session.moveFocus(dx: 1, dy: 0, columns: session.densityColumns)
+                armTravel(event)
                 return nil
             case 126:
                 session.moveFocus(dx: 0, dy: -1, columns: session.densityColumns)
+                armTravel(event)
                 return nil
             case 125:
                 session.moveFocus(dx: 0, dy: 1, columns: session.densityColumns)
+                armTravel(event)
                 return nil
             default:
                 break
@@ -133,24 +137,28 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             if !command && (lower == "=" || lower == "+") {
                 guard session.inspectingAssetID == nil else { return event }
                 session.adjustDensity(-1)
+                armZoom(event)
                 return nil
             }
 
             if !command && (lower == "-" || lower == "_") {
                 guard session.inspectingAssetID == nil else { return event }
                 session.adjustDensity(1)
+                armZoom(event)
                 return nil
             }
 
             if !command && lower == "p" {
                 if event.isARepeat { return nil }
                 session.pressKeep()
+                armMark(event)
                 return nil
             }
 
             if !command && lower == "x" {
                 if event.isARepeat { return nil }
                 session.pressReject()
+                armMark(event)
                 return nil
             }
 
@@ -172,6 +180,21 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             }
 
             return event
+        }
+
+        // Instrumentation only. Each helper is called *after* the state mutation it times,
+        // so the next presented frame is the first that can carry the change. None of them
+        // inspects or consumes the event: routing ownership is unchanged.
+        private func armTravel(_ event: NSEvent) {
+            P0RenderInstruments.shared.arm(P0RenderInstruments.Key.keyTravel, event: event)
+        }
+
+        private func armMark(_ event: NSEvent) {
+            P0RenderInstruments.shared.arm(P0RenderInstruments.Key.keyMark, event: event)
+        }
+
+        private func armZoom(_ event: NSEvent) {
+            P0RenderInstruments.shared.arm(P0RenderInstruments.Key.zoomGesture, event: event)
         }
 
         private func handleKeyUp(_ event: NSEvent) -> NSEvent? {

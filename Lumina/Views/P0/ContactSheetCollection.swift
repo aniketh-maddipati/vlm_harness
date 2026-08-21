@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 
 /// Tap target for D47 / A3 pointer cull marks — decides on mouseDown; no hover handlers (D48).
 final class PointerCullMarkControl: NSView {
@@ -428,6 +429,16 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
         scrollView.contentView.postsBoundsChangedNotifications = true
     }
 
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        P0RenderInstruments.shared.attach(to: scrollView)
+    }
+
+    override func viewWillDisappear() {
+        super.viewWillDisappear()
+        P0RenderInstruments.shared.detach()
+    }
+
     func apply(
         items: [ContactSheetItem],
         focusedID: UUID?,
@@ -611,6 +622,9 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
     }
 
     @objc private func scrollChanged() {
+        // Instrumentation only: marks the sheet as scrolling so the display link knows
+        // which of its ticks are glide frames. No-op unless instruments are enabled.
+        P0RenderInstruments.shared.noteScrollActivity()
         onScrollAnchor?(currentScrollAnchor())
         reportVisibleRange()
     }
@@ -626,14 +640,23 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
         if magnifyAccum > 0.25 {
             onDensityDelta?(-1)
             magnifyAccum = 0
+            armZoom(gr)
         } else if magnifyAccum < -0.25 {
             onDensityDelta?(1)
             magnifyAccum = 0
+            armZoom(gr)
         }
         if gr.state == .ended || gr.state == .cancelled {
             magnifyAccum = 0
         }
         gr.magnification = 0
+    }
+
+    /// Stamp the pinch that just changed density, after the change has been dispatched.
+    /// The recogniser's event time is the gesture's, not this callback's.
+    private func armZoom(_ gr: NSMagnificationGestureRecognizer) {
+        let stamp = NSApp.currentEvent?.timestamp ?? CACurrentMediaTime()
+        P0RenderInstruments.shared.arm(P0RenderInstruments.Key.zoomGesture, at: stamp)
     }
 
     private func isPrefixCompatible(old: [UUID], new: [UUID]) -> Bool {
