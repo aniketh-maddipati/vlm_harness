@@ -82,17 +82,36 @@ final class DevelopEngineTests: XCTestCase {
         cancelSession.cancelStaging()
         XCTAssertEqual(cancelSession.canStage, true)
 
+        // Undo takes the whole batch back as one transaction (Law 5 — "⌘Z takes it back").
+        // Stage a value distinct from the first commit: re-staging `recipe` lands on 0.2 both
+        // before and after the undo, so exposure cannot witness the revert.
+        let firstBatchRecipeID = store.binding(for: p1).sharedRecipeID
+        XCTAssertNotNil(firstBatchRecipeID)
+
         var undoSession = BatchTreatmentSession()
         undoSession.setSelection([p1, p2], leader: p1)
-        try undoSession.stage(leaderRecipe: recipe, isARepeat: false)
+        try undoSession.stage(leaderRecipe: EditRecipe(exposure: 1.25), isARepeat: false)
         undoSession.noteReturnReleased()
         _ = try undoSession.confirmCommit(into: &store, isARepeat: false)
-        let priorExposure = store.binding(for: p1).effectiveCommittedRecipe(shared: store.recipes).exposure
-        _ = undoSession.undoLastCommit(into: &store)
-        XCTAssertNotEqual(
-            store.binding(for: p1).effectiveCommittedRecipe(shared: store.recipes).exposure,
-            priorExposure
-        )
+        for id in [p1, p2] {
+            XCTAssertEqual(
+                store.binding(for: id).effectiveCommittedRecipe(shared: store.recipes).exposure,
+                1.25,
+                accuracy: 1e-9
+            )
+        }
+
+        XCTAssertNotNil(undoSession.undoLastCommit(into: &store))
+        for id in [p1, p2] {
+            XCTAssertEqual(
+                store.binding(for: id).effectiveCommittedRecipe(shared: store.recipes).exposure,
+                0.2,
+                accuracy: 1e-9,
+                "undo must restore every photograph in the batch, not just the leader"
+            )
+            XCTAssertEqual(store.binding(for: id).sharedRecipeID, firstBatchRecipeID)
+        }
+        XCTAssertFalse(undoSession.canUndo)
     }
 
     func testRenderGenerationStaleRejection() {

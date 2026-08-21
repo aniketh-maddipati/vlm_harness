@@ -326,7 +326,9 @@ final class P0LogicTests: XCTestCase {
         XCTAssertEqual(EditRailLayout.rowCount, 10)
         XCTAssertEqual(EditRailLayout.rowHeight, 46)
         XCTAssertTrue(EditRailLayout.straightenRowFits(windowHeight: 800, contextVisible: false))
-        XCTAssertFalse(EditRailLayout.showsHistogram(windowHeight: 801))
+        // Histogram yields only at the min window; it returns as soon as there is headroom
+        // (h7 oracle 753b9df: "histogram should show above min window height").
+        XCTAssertTrue(EditRailLayout.showsHistogram(windowHeight: 801))
     }
 
     func testExportRecipeHintContract() {

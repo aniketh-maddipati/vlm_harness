@@ -27,7 +27,8 @@ enum CopyContract {
         if snapshot.ring == .scene {
             return "Adapt → \(snapshot.scopeCount) ⏎ · ⇧⏎ scene · Esc"
         }
-        return "Adapt → \(snapshot.scopeCount) ⏎ · Esc"
+        // A5 frozen form (contract-v6 D16): two spaces between the count and ⏎.
+        return "Adapt → \(snapshot.scopeCount)  ⏎ · Esc"
     }
 
     static func developBanner(count: Int) -> String {
