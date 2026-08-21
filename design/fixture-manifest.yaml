@@ -1,4 +1,54 @@
-# Fixture manifest version — pairs with design/fixture-manifest.md (D53, A1).
-version: "1.0-mvp-fleet"
+# Fixture manifest version — pairs with design/fixture-manifest.md (D53, A1; E1 proposal).
+version: "1.1-latency-cards"
 contract: design/contract-v6.md
 doc: design/fixture-manifest.md
+
+# [◐ E1 — PROPOSED, NOT RATIFIED] Latency cards cut for E2 Gate 1.
+# Cut root is a working directory, not committed.
+cut_root: "~/Pictures/lumina-fixtures"
+tooling:
+  cut: Scripts/fixtures/cut_latency_card.py
+  verify: Scripts/fixtures/verify_latency_card.py
+
+seed_bodies:
+  sony-a7iii:
+    status: proposed
+    make: SONY
+    model: ILCE-7M3
+    extension: .ARW
+    note: >-
+      Body actually present on the maintainer's machine. The fleet table names
+      sony-a7iv (A7 IV); these frames are A7 III. Recorded as the true seed
+      rather than mislabelled.
+
+latency_cards:
+  card-clean-500:
+    status: cut
+    cut_date: "2026-08-20"
+    frames: 500
+    seed_body: sony-a7iii
+    distinct_frames: 500
+    replication_factor: 1.0
+    clone_backed: false
+    bytes_on_disk: 5519134720
+    content_variety: full
+    decode_cost: preserved
+    cold_io_fidelity: faithful
+    checksums: card-clean-500/checksums.sha256
+  card-clean-2000:
+    status: cut
+    cut_date: "2026-08-20"
+    frames: 2000
+    seed_body: sony-a7iii
+    distinct_frames: 1000
+    replication_factor: 2.0
+    clone_backed: true
+    content_variety: partial
+    decode_cost: preserved
+    cold_io_fidelity: understated
+    caveat: >-
+      2000 files, 1000 distinct photographs. Decode cost per frame is real;
+      cold-I/O pressure is understated because cloned repeats share physical
+      blocks. Absolute numbers are optimistic and must not be quoted as SLA
+      passes. Before/after comparison on the same fixture remains valid.
+    checksums: card-clean-2000/checksums.sha256

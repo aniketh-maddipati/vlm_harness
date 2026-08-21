@@ -4,6 +4,32 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-08-20 — E1: instruments (stopwatch, fixtures, baseline)
+**Branch:** `instruments/e1-baseline` · **Base:** `origin/main` @ `3207101`
+**Claim:** E2 Gate 1 cannot honestly begin — it measures a 60 s glide with an instrument that remembers 512 frames, on fixtures that do not exist. Repair the instrument, cut and name the fixtures, take the baseline.
+**Finding (F2, stopwatch):** `LatencyMetrics.maxSamplesPerKey = 512` with `removeFirst` on overflow. A 60 s @ 120 Hz glide is ~7,200 `scroll.frame` samples, so every percentile described the last 512 frames and nothing in the output said so. **Proven on real decode data, not a synthetic spike:** on `card-clean-2000` the ring reports worst-frame **19.37 ms**; capture mode reports **189.16 ms** at sample #0 — the cold-start decode. The old instrument understated the worst frame by **9.8×**, silently.
+**Finding (F3, fixtures):** `card-clean-500` was named-but-absent (`design/strategy/render-hazard-inventory.md`: "Absent as files"; `RamTierHarnessRunner` synthesizes 500 flat JPEGs under that id). No ≈2000-frame fixture was named anywhere.
+**Finding (new, F4 — Gate 3 blocker):** the keys Gate 3 asks for **do not exist in the app**. `grep -rn "scroll\.frame|key\.travel|key\.mark" Lumina/` → 0 hits. Capture mode cannot rescue a measurement never taken; those rows are UNMEASURED and E2 must wire the keys itself (wiring a frame-time key means touching the render path, which is E2's to earn).
+**Finding (provenance):** `E2-PREFLIGHT.md` is **absent** from this tree and from every branch and git object (`git rev-list --all --objects | grep -i preflight` → 0). F2/F3 were re-derived from code and corroborated against `render-hazard-inventory.md` rather than cited.
+**Finding (seed body):** the RAW on this machine is `ILCE-7M3` (A7 III), **not** the `sony-a7iv` the fleet table names. Cards record the body that actually took the frames; `sony-a7iii` proposed as a seed id under the manifest's own `[FLAG: swap freely before fixtures are cut]`.
+**Fix:** `LatencyMetrics` gains opt-in unbounded `beginCapture(key:)`; the 512 ring stays the default so `SpeedContractHUD` (`p95`/`sampleCount`, grepped) and `SessionCache.resetSession()` (grepped) are unchanged by construction. Percentiles now carry a `Window` (`n=7203, full run` vs `n=512, tail (of 7203 recorded)`); `Reading` cannot be constructed without one, so a row cannot silently omit its coverage. `resetSession()` clears samples but keeps capture registration, so a harness cannot be silently demoted to the ring mid-run. Fixtures cut by `Scripts/fixtures/cut_latency_card.py` (refuses stubs/synthesized input), verified by `verify_latency_card.py`. Manifest amended as a **PROPOSAL** (`1.0-mvp-fleet` → `1.1-latency-cards`).
+**Memory cost (Gate 1.4):** capture is ~**57.6 KB per key** for a 60 s @ 120 Hz glide (7,200 × 8-byte doubles); measured exactly by `testCaptureMemoryCostIsStated`.
+**Instrument reading (this Mac — M4 Pro, 24 GB, macOS 26.5.2, Xcode 26.6, Debug):**
+| Command | Result |
+|---------|--------|
+| `xcodebuild … -only-testing:LuminaLogicTests/LatencyMetricsWindowTests test` | **7/7 PASS** |
+| `xcodebuild … -only-testing:LuminaLogicTests test` | 138 executed, **1 failure — pre-existing**, `ShootSidecarStoreTests` strips one path component too many (`#filePath`→`/Users/aniketh`); file untouched by this session |
+| `python3 Scripts/harness/run.py fast` | **PASS** 17352ms · **38** orchestration · 0 app / 0 expected |
+| `bash Scripts/compile_check.sh` | **OK** |
+| `cut_latency_card.py --card card-clean-500` | 500 frames, 5.14 GiB, 500 distinct, replication **1.0×** |
+| `cut_latency_card.py --card card-clean-2000 --clone` | 2000 frames, 1000 distinct, replication **2.0×**, ~12 GiB physical / ~20.8 GiB logical |
+| `verify_latency_card.py` ×2 | **OK** — 500/500 and 2000/2000 match checksums |
+| `e1_decode_baseline.swift card-clean-500` | `decode.grid_512` p50 **16.56** · p95 **17.84** · p99 **18.62** · max **182.16** ms · `n=500, full run` |
+| `e1_decode_baseline.swift card-clean-2000` | `decode.grid_512` p50 **16.56** · p95 **18.04** · p99 **18.75** · max **189.16** ms · `n=2000, full run` |
+**Honesty notes carried into the baseline:** all numbers are **Debug**; page-cache state **uncontrolled** (no root for `purge`); display Hz **UNMEASURED** (`system_profiler` emitted no refresh field — no frame-budget claim was made on an unconfirmed Hz); `card-clean-2000` absolute numbers are **optimistic** (clone-backed repeats understate cold I/O) and must not be quoted as SLA passes — before/after on the same fixture stays valid.
+**Baseline:** `docs/perf/e1-baseline.md`. **No engine, render, camera, Metal, spring, token, or UI change; nothing un-shelved.**
+---
+
 ## 2026-08-20 — P4: A7-reference cleanup to match A13 (tokens + test plan + check prose)
 **Branch:** `cleanup/p4-a7-references` · **Base:** `origin/main` @ `5dff438` (independent of `strategy/agent-grammar`, not stacked)
 **Claim:** Close AG.1's P4 — every *live* citation of withdrawn A7 rewritten to reflect A13; withdrawal notes, historical records, and camera names untouched.
