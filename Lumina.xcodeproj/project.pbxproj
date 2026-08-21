@@ -192,6 +192,7 @@
 				A60000010000000000000008 /* Sources */,
 				A60000010000000000000003 /* Frameworks */,
 				A60000010000000000000009 /* Resources */,
+				A60000010000000000000010 /* Copy Injection Bundle */,
 			);
 			buildRules = (
 			);
@@ -307,6 +308,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "export MARKETING_VERSION=\"${MARKETING_VERSION}\"\nexport CURRENT_PROJECT_VERSION=\"${CURRENT_PROJECT_VERSION}\"\nexport CONFIGURATION=\"${CONFIGURATION}\"\npython3 \"${SRCROOT}/Scripts/harness/release/write_build_manifest.py\"\n";
+		};
+		A60000010000000000000010 /* Copy Injection Bundle */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Injection Bundle";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "RESOURCES=\"/Applications/InjectionIII.app/Contents/Resources\"\nif [ -f \"$RESOURCES/copy_bundle.sh\" ]; then\n  \"$RESOURCES/copy_bundle.sh\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -550,9 +565,12 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
+				EMIT_FRONTEND_COMMAND_LINES = YES;
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Lumina Playground";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -35,6 +35,9 @@ struct P0OpenView: View {
         )) { providers in
             session.handleDrop(providers: providers)
         }
+        #if DEBUG
+        .workbenchHot()
+        #endif
         .alert("Could not open", isPresented: Binding(
             get: { session.userFacingError != nil },
             set: { if !$0 { session.userFacingError = nil } }
@@ -63,9 +66,10 @@ struct P0OpenView: View {
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: LuminaTokens.Spacing.lg) {
-            Text("Open a shoot")
+            Text("Choose a folder")
                 .font(LuminaTokens.Typeface.editorial(36))
                 .foregroundStyle(LuminaTokens.Ink.primary)
+                .accessibilityIdentifier("open-hero-title")
 
             Text(CopyContract.dropPhotographsOrFolder)
                 .font(LuminaTokens.Typeface.body(17))
@@ -92,7 +96,7 @@ struct P0OpenView: View {
                 .background(LuminaTokens.Surface.porcelain.opacity(0.5))
                 .frame(height: 120)
                 .overlay {
-                    Text("Drop folder")
+                    Text("Drop the folder")
                         .font(LuminaTokens.Typeface.meta(13))
                         .foregroundStyle(LuminaTokens.Ink.tertiary)
                 }

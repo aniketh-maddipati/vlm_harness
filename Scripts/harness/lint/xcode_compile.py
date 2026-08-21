@@ -81,14 +81,16 @@ def platform_unavailable() -> int:
     return 2
 
 
-def run_build(root: Path, derived: Path, configuration: str, action: str) -> tuple[int, str]:
+def run_build(
+    root: Path, derived: Path, configuration: str, action: str, scheme: str = "Lumina"
+) -> tuple[int, str]:
     derived.mkdir(parents=True, exist_ok=True)
     cmd = [
         "xcodebuild",
         "-project",
         "Lumina.xcodeproj",
         "-scheme",
-        "Lumina",
+        scheme,
         "-configuration",
         configuration,
         "-destination",
@@ -113,6 +115,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-root", default=None)
     parser.add_argument("--configuration", default="Debug")
+    parser.add_argument(
+        "--scheme",
+        default="Lumina",
+        help="xcodebuild scheme (default: Lumina; use LuminaPlayground for the polish loop)",
+    )
     parser.add_argument(
         "--derived-data",
         default=None,
@@ -147,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     if not derived.is_absolute():
         derived = root / derived
 
-    code, log = run_build(root, derived, args.configuration, args.action)
+    code, log = run_build(root, derived, args.configuration, args.action, args.scheme)
     errors = parse_errors(log)
     if errors:
         print("xcode_compile: FAIL — compiler errors:", file=sys.stderr)

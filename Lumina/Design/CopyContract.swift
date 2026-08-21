@@ -45,7 +45,7 @@ enum CopyContract {
 
     // MARK: - Open
 
-    static let nothingLeavesMac = "nothing leaves this Mac"
+    static let nothingLeavesMac = "nothing leaves this computer"
     static let dropPhotographsOrFolder = "drop photographs or a folder anywhere"
     static let groupingVisibleMotion = "grouping happens in front of you, in visible motion"
     static let copiesAutomatically = "copies automatically · safe to eject when ✓ appears"
