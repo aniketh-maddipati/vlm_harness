@@ -9,21 +9,14 @@ import Foundation
 /// "am I a workbench launch, and which photographs am I pointed at?".
 ///
 /// Compiled out of Release entirely. Within DEBUG it is still inert unless `--workbench` is
-/// passed; the LuminaPlayground target flips the default on via `LUMINA_WORKBENCH`.
+/// passed; Lumina Debug defines `LUMINA_WORKBENCH` for Inject + `.workbenchHot()`.
 @MainActor
 enum WorkbenchLaunch {
     static let flag = "--workbench"
     static let offFlag = "--no-workbench"
 
-    /// True in the LuminaPlayground target, where booting into photographs is the whole point.
-    /// False in the ordinary Lumina Debug app, which must still open silently (D36).
-    nonisolated static var defaultOn: Bool {
-        #if LUMINA_WORKBENCH
-        return true
-        #else
-        return false
-        #endif
-    }
+    /// Workbench boot is opt-in via `--workbench`; hot reload is always on in Debug.
+    nonisolated static var defaultOn: Bool { false }
 
     /// Resolved state for this launch. `nil` until `runIfRequested()` has run.
     nonisolated(unsafe) static private(set) var boot: WorkbenchBootPlan?

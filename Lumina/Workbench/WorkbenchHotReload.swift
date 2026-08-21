@@ -13,14 +13,11 @@ import Inject
 /// says `.workbenchHot()`, so the dependency has exactly one seam. Two fences guard it:
 ///
 /// 1. `#if DEBUG` — Release compiles this file to nothing.
-/// 2. `#if LUMINA_WORKBENCH` — only the LuminaPlayground target defines it, and it is the only
-///    target that links Inject. The shipping `Lumina` target does not link the package at all,
-///    so no dead-stripping argument is needed: the symbols cannot reach the shipping binary.
+/// 2. `#if LUMINA_WORKBENCH` — Lumina Debug defines it; Release does not link this path.
 ///
 /// `costume_lint.py` enforces fence 1 mechanically.
 extension View {
-    /// Compiles to `WorkbenchHotHost { self }` in the playground and to plain `self` everywhere
-    /// else — including the ordinary Lumina Debug build.
+    /// Compiles to `WorkbenchHotHost { self }` in Lumina Debug; plain `self` in Release.
     @ViewBuilder
     func workbenchHot() -> some View {
         #if LUMINA_WORKBENCH
@@ -52,7 +49,7 @@ private struct WorkbenchHotHost<Content: View>: View {
         return content()
             .enableInjection()
             .overlay(alignment: .topTrailing) {
-                Text("Playground")
+                Text("Hot")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# LuminaPlayground — build, run, and see compile errors from the terminal.
-# Hot reload still needs InjectionIII pointed at this repo + save in Xcode/editor.
+# Lumina Debug — build, run, and see compile errors from the terminal.
+# Hot reload: InjectionIII on this repo + ⌘R once in Xcode + save Swift files.
 #
 # Usage (from repo root):
 #   bash Scripts/playground.sh          # build + run (open screen)
@@ -14,9 +14,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 DERIVED="${LUMINA_DERIVED_DATA:-$ROOT/.derivedData}"
-APP="$DERIVED/Build/Products/Debug/LuminaPlayground.app"
-BIN="$APP/Contents/MacOS/LuminaPlayground"
-SCHEME="LuminaPlayground"
+APP="$DERIVED/Build/Products/Debug/Lumina.app"
+BIN="$APP/Contents/MacOS/Lumina"
+SCHEME="Lumina"
 INJECTION="/Applications/InjectionIII.app"
 
 usage() {
@@ -99,7 +99,6 @@ run_playground() {
 
   # Quit other Lumina processes so the right window is obvious.
   pgrep -x Lumina >/dev/null 2>&1 && killall Lumina 2>/dev/null || true
-  pgrep -x LuminaPlayground >/dev/null 2>&1 && killall LuminaPlayground 2>/dev/null || true
   sleep 0.3
 
   local -a args=("$@")
@@ -107,20 +106,18 @@ run_playground() {
     args=(--no-workbench)
   fi
 
-  echo "=== running Lumina Playground ==="
+  echo "=== running Lumina (Debug) ==="
   echo "app: $APP"
   echo "args: ${args[*]}"
   open "$APP" --args "${args[@]}"
   echo ""
-  echo "Look for: menu bar «Lumina Playground» + «Playground» badge top-right."
-  echo "Edit Swift → save → pixels update (~1s). No relaunch."
-  echo "Inject / save errors: Xcode debug console (bottom) while app is running."
-  echo "Full project errors:  bash Scripts/playground.sh build"
+  echo "Look for: menu bar «Lumina» + «Hot» badge top-right (Debug only)."
+  echo "Edit Swift → save → pixels update (~1s). Best with ⌘R from Xcode first."
 }
 
 open_xcode() {
   open "$ROOT/Lumina.xcodeproj"
-  echo "playground: use scheme LuminaPlayground, then ⌘R."
+  echo "playground: use scheme Lumina, then ⌘R."
   echo "Issue navigator ⌘5 — all compile errors. Debug area ⌘⇧Y — inject errors on save."
 }
 
