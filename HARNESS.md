@@ -272,6 +272,106 @@ swift Scripts/perf/e1_decode_baseline.swift ~/Pictures/lumina-fixtures/card-clea
 
 ---
 
+## Workbench (W0) — the polish loop
+
+Edit a view file, see it on real photographs in about a second. Two targets share one source tree:
+
+| Target | Inject linked | `LUMINA_WORKBENCH` | Purpose |
+|---|---|---|---|
+| `Lumina` | **no** | never defined | the shipping app; workbench compiles to nothing |
+| `LuminaPlayground` | yes (Debug) | Debug only | the polish surface |
+
+Everything workbench sits inside `#if DEBUG`, and the Inject seam additionally inside
+`#if LUMINA_WORKBENCH`. Release cannot contain it — the shipping target does not link the
+package at all, so this is structural, not a dead-stripping argument. `costume_lint` proves the
+`#if DEBUG` half in the tree on every FAST run.
+
+### One-time pairing step (manual — human authorization)
+
+The hot loop needs the injection bundle, which is **not** an SPM dependency and is **not**
+fetched at build time. Install it once, by hand:
+
+There is **no Homebrew cask** for it (checked: `brew info --cask injectioniii` → no such cask).
+Install from the Mac App Store ("InjectionIII"), or download the signed release directly:
+
+```bash
+# InjectionIII.app.zip, latest release (5.2.1RC5 at time of writing)
+open https://github.com/johnno1962/InjectionIII/releases/latest
+```
+
+Unzip to `/Applications`, launch it, grant it access when macOS asks, and point it at this repo
+(`File → Open Project…` → the `vlm_harness` directory). Inject loads
+`/Applications/InjectionIII.app/Contents/Resources/macOSInjection.bundle` at runtime; with the app
+absent, `.workbenchHot()` is inert and the playground still boots and runs normally — the loop is
+simply not hot.
+
+This download is a **developer-tool install, not a build-time fetch**: nothing in `xcodebuild`
+reaches for it, and D45's no-egress rule is untouched. The only network access the build itself
+performs is the one SPM resolution of `Inject` (pinned `exactVersion 1.6.0`, zero transitive
+dependencies).
+
+### Deep-link recipes
+
+Run the playground from Xcode (scheme **LuminaPlayground**, which already carries `--workbench`),
+or drive the Debug app directly — the launch-argument parser is DEBUG, not workbench-gated, so
+both honor it:
+
+```bash
+LUMINA=~/Library/Developer/Xcode/DerivedData/Lumina-*/Build/Products/Debug/Lumina.app
+open -a $LUMINA --args --workbench --card card-clean-500                        # table at rest
+open -a $LUMINA --args --workbench --card card-clean-500 --row 40 --focused     # focused frame in the table
+open -a $LUMINA --args --workbench --card card-clean-500 --surface frame --row 12  # single-photo editor
+open -a $LUMINA --args --workbench                                              # restore the last deep-link
+```
+
+| Flag | Meaning |
+|---|---|
+| `--workbench` / `--no-workbench` | force the workbench on/off (defaults **on** in LuminaPlayground) |
+| `--card <name>` | latency card under `FIXTURE_ROOT` (default `card-clean-500`) |
+| `--row N` | 1-based contact-sheet row to scroll to |
+| `--focused` | give the row's first photograph focus |
+| `--surface table\|frame\|loupe` | which surface to land on |
+
+`FIXTURE_ROOT` (or `LUMINA_FIXTURE_ROOT`) overrides the fixture location; it defaults to
+`~/Pictures/lumina-fixtures`. A missing card is **not** a modal and **not** a crash (D35): the app
+stays alive wearing a facts-chip that names the path it tried, with the cut command one click away.
+
+`--surface loupe` parses but **has no referent in P0 today** — "Space loupe" exists only as footer
+copy; Space is bound to `toggleSelectionOfFocused`. It lands on the frame and reports itself in the
+chip rather than inventing a surface.
+
+### Watching the boot
+
+`open` swallows stderr, so the workbench also writes to the unified log:
+
+```bash
+/usr/bin/log stream --predicate 'subsystem == "com.lumina.workbench"' --level debug
+```
+
+It reports the resolved card, whether it exists, the applied deep-link, and the
+`launch-to-photographs` reading (recorded through the E1 `LatencyMetrics` capture mode, so it
+carries a `Window` like every other emitted row).
+
+### Verify
+
+```bash
+python3 Scripts/harness/lint/costume_lint.py     # FAST; both clauses
+python3 Scripts/harness/run.py fast              # 39 orchestration checks
+xcodebuild -project Lumina.xcodeproj -scheme LuminaPlayground -configuration Debug build
+```
+
+Release purity — `P0SessionModel` is the control proving `strings` sees Swift type names in a
+stripped binary, so the zero counts mean something:
+
+```bash
+REL=~/Library/Developer/Xcode/DerivedData/Lumina-*/Build/Products/Release/Lumina.app/Contents/MacOS/Lumina
+for s in InjectConfiguration enableInjection WorkbenchLaunch workbenchHot P0SessionModel; do
+  echo "$s -> $(strings -a $REL | grep -c $s)"   # all 0 except P0SessionModel
+done
+```
+
+---
+
 ## GAP LIST intake
 
 **Intake source:** `artifacts/harness/coverage/constitution-coverage.md` (and `.json`) — generated by `Scripts/harness/coverage/generate_constitution_coverage.py` from contract D/R headings, `artifact_registry.yaml`, and `shelved_register.yaml`. Every row lists **named artifacts only** (lint id, test name, golden id, script id); `NOT-COVERED` is printed explicitly; shelved register rows read `SHELVED` so an un-shelf shows as a coverage change. Battery column stays empty (F10 gated). Regenerate after registry or contract edits: `python3 Scripts/harness/coverage/generate_constitution_coverage.py --write` then commit; FAST **`constitution_coverage`** runs `--check` on pre-commit.
@@ -297,5 +397,9 @@ swift Scripts/perf/e1_decode_baseline.swift ~/Pictures/lumina-fixtures/card-clea
 | Taste-model proof harness | Registered | **D46 / A10** (post wave-one) |
 | A7 TestFlight strip | Registered | **1.0** |
 | A8 / R-I.3 licensing | Registered | post-test, pre-launch |
+| W0 live-injection proof (edit→pixels) | **UNVERIFIED** — InjectionIII.app not installed | **W0 follow-up** |
+| LuminaPlayground bundle: no window when launch args present | Registered — boot verified via `Lumina` Debug instead | **W0 follow-up** |
+| Costume debt (9 rows, ratcheted) | Registered — `costume_allowlist.txt` | **polish thread** |
+| W0 deep-link parser unit tests | Not written — W0 write-set was closed | **W0 follow-up** |
 | HEAVY live runners | STUB `run_job.py` | **HEAVY** |
 | Grammar-stability live corpus | STUB until CP4 driver | **D51 / HEAVY** |

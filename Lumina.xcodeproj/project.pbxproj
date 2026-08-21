@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A70000010000000000000004 /* Inject in Frameworks */ = {isa = PBXBuildFile; productRef = A70000010000000000000003 /* Inject */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A2000001000000000000000A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +31,7 @@
 		A10000010000000000000001 /* Lumina.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Lumina.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000010000000000000001 /* LuminaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LuminaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A30000010000000000000001 /* LuminaLogicTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LuminaLogicTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A60000010000000000000001 /* LuminaPlayground.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LuminaPlayground.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -74,6 +79,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A60000010000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A70000010000000000000004 /* Inject in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -94,6 +107,7 @@
 				A10000010000000000000001 /* Lumina.app */,
 				A20000010000000000000001 /* LuminaUITests.xctest */,
 				A30000010000000000000001 /* LuminaLogicTests.xctest */,
+				A60000010000000000000001 /* LuminaPlayground.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -171,6 +185,30 @@
 			productReference = A30000010000000000000001 /* LuminaLogicTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		A60000010000000000000006 /* LuminaPlayground */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A60000010000000000000007 /* Build configuration list for PBXNativeTarget "LuminaPlayground" */;
+			buildPhases = (
+				A60000010000000000000008 /* Sources */,
+				A60000010000000000000003 /* Frameworks */,
+				A60000010000000000000009 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A10000010000000000000002 /* Lumina */,
+				A40000010000000000000002 /* DesignTokens */,
+			);
+			name = LuminaPlayground;
+			packageProductDependencies = (
+				A70000010000000000000003 /* Inject */,
+			);
+			productName = LuminaPlayground;
+			productReference = A60000010000000000000001 /* LuminaPlayground.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -192,6 +230,9 @@
 						CreatedOnToolsVersion = 26.0;
 						TestTargetID = A10000010000000000000006;
 					};
+					A60000010000000000000006 = {
+						CreatedOnToolsVersion = 26.0;
+					};
 				};
 			};
 			buildConfigurationList = A1000001000000000000000B /* Build configuration list for PBXProject "Lumina" */;
@@ -203,6 +244,9 @@
 			);
 			mainGroup = A10000010000000000000004;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A70000010000000000000002 /* XCRemoteSwiftPackageReference "Inject" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A10000010000000000000005 /* Products */;
 			projectDirPath = "";
@@ -211,6 +255,7 @@
 				A10000010000000000000006 /* Lumina */,
 				A20000010000000000000006 /* LuminaUITests */,
 				A30000010000000000000006 /* LuminaLogicTests */,
+				A60000010000000000000006 /* LuminaPlayground */,
 			);
 		};
 /* End PBXProject section */
@@ -231,6 +276,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A30000010000000000000009 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A60000010000000000000009 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -274,6 +326,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A30000010000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A60000010000000000000008 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -392,10 +451,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_SWIFT_SYMBOLS = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
-					"LUMINA_SHIPPING_APP",
-					"$(inherited)",
-				);
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "LUMINA_SHIPPING_APP $(inherited)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -485,6 +541,67 @@
 			};
 			name = Release;
 		};
+		A6000001000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-Xlinker",
+					"-interposable",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.lumina.playground;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "LUMINA_WORKBENCH $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A6000001000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lumina.playground;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -524,7 +641,35 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		A60000010000000000000007 /* Build configuration list for PBXNativeTarget "LuminaPlayground" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A6000001000000000000000E /* Debug */,
+				A6000001000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A70000010000000000000002 /* XCRemoteSwiftPackageReference "Inject" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/krzysztofzablocki/Inject.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A70000010000000000000003 /* Inject */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A70000010000000000000002 /* XCRemoteSwiftPackageReference "Inject" */;
+			productName = Inject;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A1000001000000000000000A /* Project object */;
 }
