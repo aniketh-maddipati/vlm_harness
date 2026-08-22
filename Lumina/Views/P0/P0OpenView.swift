@@ -41,6 +41,9 @@ struct P0OpenView: View {
         )) { providers in
             session.handleDrop(providers: providers)
         }
+        #if DEBUG
+        .workbenchHot()
+        #endif
         .alert("Could not open", isPresented: Binding(
             get: { session.userFacingError != nil },
             set: { if !$0 { session.userFacingError = nil } }
@@ -72,6 +75,7 @@ struct P0OpenView: View {
             Text("Open a shoot")
                 .font(LuminaTokens.Typeface.editorial(40))
                 .foregroundStyle(LuminaTokens.Ink.primary)
+                .accessibilityIdentifier("open-hero-title")
 
             Text(CopyContract.dropPhotographsOrFolder)
                 .font(LuminaTokens.Typeface.body(18))
