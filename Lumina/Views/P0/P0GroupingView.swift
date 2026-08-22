@@ -31,6 +31,9 @@ struct P0GroupingView: View {
                 Label("Grid", systemImage: "square.grid.2x2")
                     .font(LuminaTokens.Typeface.navigation(14))
                     .foregroundStyle(LuminaTokens.Ink.primary)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: LuminaTokens.HitTarget.minimum)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .accessibilityLabel("Return to contact sheet")
@@ -86,12 +89,13 @@ struct P0GroupingView: View {
                 session.leaveGrouping()
             } label: {
                 Text("Back to grid")
-                    .font(LuminaTokens.Typeface.navigation(14, weight: .semibold))
+                    .font(LuminaTokens.Typeface.navigation(15, weight: .semibold))
                     .foregroundStyle(LuminaTokens.Ink.primary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 20)
+                    .frame(minHeight: LuminaTokens.HitTarget.minimum)
                     .background(LuminaTokens.Surface.well)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .padding(.top, 8)

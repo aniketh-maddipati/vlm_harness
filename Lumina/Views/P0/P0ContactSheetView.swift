@@ -14,7 +14,7 @@ struct P0ContactSheetView: View {
 
             VStack(spacing: 0) {
                 toolbar
-                ContactSheetRepresentable(session: session)
+                P0ChapterTableView(session: session)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(session.inspectingAssetID == nil ? 1 : 0)
                     .allowsHitTesting(session.inspectingAssetID == nil)
@@ -66,37 +66,6 @@ struct P0ContactSheetView: View {
 
             Spacer(minLength: 12)
 
-            Text("Double-click zoom · ⇧G group")
-                .font(LuminaTokens.Typeface.meta(11))
-                .foregroundStyle(LuminaTokens.Ink.tertiary)
-                .lineLimit(1)
-                .help("Double-click a photograph to zoom in. Shift+G opens grouping.")
-
-            Button {
-                session.enterGrouping()
-            } label: {
-                HStack(spacing: 6) {
-                    Text("Group")
-                        .font(LuminaTokens.Typeface.navigation(13, weight: .medium))
-                    Text("⇧G")
-                        .font(LuminaTokens.Typeface.meta(10, weight: .medium))
-                        .foregroundStyle(LuminaTokens.Ink.tertiary)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(LuminaTokens.Surface.mist)
-                        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
-                }
-                .foregroundStyle(LuminaTokens.Ink.primary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(LuminaTokens.Surface.well)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            }
-            .buttonStyle(LuminaQuietButtonStyle())
-            .accessibilityLabel("Open grouping")
-            .accessibilityHint("Shift G")
-            .disabled(session.inspectingAssetID != nil)
-
             if session.exportCount > 0 {
                 Text("\(session.exportCount) export")
                     .font(LuminaTokens.Typeface.meta(12))
@@ -123,6 +92,7 @@ struct P0ContactSheetView: View {
             if session.canUndo {
                 Button(session.undoLabel ?? "Undo") { session.undoLast() }
                     .buttonStyle(LuminaQuietButtonStyle())
+                    .padding(.horizontal, 12)
                     .keyboardShortcut("z", modifiers: .command)
                     .accessibilityIdentifier(P0AccessibilityID.undoButton)
             }
@@ -141,7 +111,7 @@ struct P0ContactSheetView: View {
 
     private var densityControls: some View {
         // Comfortable hit targets — the bare glyphs were ~6pt wide, well under Lumina's own minimum.
-        let hit: CGFloat = 28
+        let hit = LuminaTokens.HitTarget.minimum
         return HStack(spacing: 6) {
             Button { session.adjustDensity(1) } label: {
                 Text("-").frame(width: hit, height: hit).contentShape(Rectangle())
@@ -149,12 +119,12 @@ struct P0ContactSheetView: View {
             .buttonStyle(LuminaQuietButtonStyle())
             .accessibilityLabel("Show more photographs")
             .accessibilityIdentifier(P0AccessibilityID.densityDecrease)
-            Text("\(session.densityColumns)")
+            Text(session.densityLeaned ? "\(session.densityColumns)" : "Fit")
                 .font(LuminaTokens.Typeface.meta(12))
                 .foregroundStyle(LuminaTokens.Ink.tertiary)
                 .frame(minWidth: 16)
                 .accessibilityIdentifier(P0AccessibilityID.densityValue)
-                .accessibilityValue("\(session.densityColumns)")
+                .accessibilityValue(session.densityLeaned ? "\(session.densityColumns)" : "Fit")
             Button { session.adjustDensity(-1) } label: {
                 Text("+").frame(width: hit, height: hit).contentShape(Rectangle())
             }
