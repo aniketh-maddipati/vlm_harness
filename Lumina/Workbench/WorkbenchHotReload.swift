@@ -1,5 +1,6 @@
 #if DEBUG
 import SwiftUI
+import Combine
 #if LUMINA_WORKBENCH
 import Inject
 #endif
@@ -29,14 +30,32 @@ extension View {
 }
 
 #if LUMINA_WORKBENCH
-/// Observes the injection bundle and rebuilds `content` when its source file is recompiled.
-///
-/// Inject needs both halves to work: `@ObserveInjection` supplies the observable that triggers
-/// the rebuild, `enableInjection()` loads the bundle and boxes the view so its structure may
-/// change between edits. Hosting them here rather than in each view keeps the property wrapper
-/// out of product types.
+/// InjectionIII posts `INJECTION_BUNDLE_NOTIFICATION` off the main thread. The Inject package's
+/// `@ObserveInjection` sometimes misses that hop on macOS, so the eval dylib loads (code is
+/// patched) but SwiftUI never redraws. This host re-broadcasts on the main queue and forces a
+/// fresh view identity via `.id(generation)`.
+@MainActor
+private final class WorkbenchInjectionPulse: ObservableObject {
+    static let shared = WorkbenchInjectionPulse()
+
+    @Published private(set) var generation = 0
+    private var bag = Set<AnyCancellable>()
+
+    private init() {
+        _ = InjectConfiguration.load
+        NotificationCenter.default.publisher(for: Notification.Name("INJECTION_BUNDLE_NOTIFICATION"))
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.generation += 1
+                WorkbenchTrace.log("inject pulse generation=\(self?.generation ?? -1)")
+            }
+            .store(in: &bag)
+    }
+}
+
 private struct WorkbenchHotHost<Content: View>: View {
     @ObserveInjection private var inject
+    @ObservedObject private var pulse = WorkbenchInjectionPulse.shared
     private let content: () -> Content
 
     init(@ViewBuilder content: @escaping () -> Content) {
@@ -44,14 +63,14 @@ private struct WorkbenchHotHost<Content: View>: View {
     }
 
     var body: some View {
-        // Re-run the builder on each injection so edited SwiftUI bodies take effect.
-        let _ = inject
+        let generation = max(InjectConfiguration.observer.injectionNumber, pulse.generation)
         return content()
+            .id(generation)
             .enableInjection()
             .overlay(alignment: .topTrailing) {
-                Text("Hot")
+                Text(generation == 0 ? "Hot" : "Hot · \(generation)")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(generation == 0 ? Color.secondary : Color.green)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(.ultraThinMaterial)
