@@ -79,6 +79,8 @@ final class P0SessionModel {
     var status = ContactSheetPreparationStatus()
     var recentShoots: [RecentShootSummary] = []
     var focusedAssetID: UUID?
+    /// Time-rail chapter currently on the board. Nil until a shoot has photographs.
+    var activeChapterID: String?
     var selectedAssetIDs: Set<UUID> = []
     var densityColumns: Int = 6
     var filter: GridFilter = .all
@@ -166,11 +168,23 @@ final class P0SessionModel {
         developSchedulerStorage?.fidelityByPhoto[assetID]
     }
 
+    var chapters: [ShootChapter] {
+        ShootChapterArrangement.arrange(assets)
+    }
+
+    var activeChapter: ShootChapter? {
+        if let activeChapterID,
+           let match = chapters.first(where: { $0.id == activeChapterID }) {
+            return match
+        }
+        return chapters.first
+    }
+
     var visibleItems: [ContactSheetItem] {
         let ordered = orderedIDList
         let selected = selectedAssetIDs
         let orderMode = keptOrderMode
-        return filteredAssets.map { asset in
+        return boardAssets.map { asset in
             ContactSheetItem(
                 asset: asset,
                 aspectRatio: ContactSheetPreparation.aspectRatio(for: asset),
@@ -182,6 +196,16 @@ final class P0SessionModel {
                 )
             )
         }
+    }
+
+    /// Inspect walks the whole shoot. The board shows one chapter.
+    private var boardAssets: [AssetRecord] {
+        if inspectingAssetID != nil {
+            return filteredAssets
+        }
+        guard let chapter = activeChapter else { return filteredAssets }
+        let members = Set(chapter.assetIDs)
+        return filteredAssets.filter { members.contains($0.id) }
     }
 
     var filteredAssets: [AssetRecord] {
@@ -817,16 +841,48 @@ final class P0SessionModel {
                 milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000
             )
         }
+        if inspectingAssetID == nil, let id,
+           let chapter = ShootChapterArrangement.chapter(containing: id, in: chapters) {
+            activeChapterID = chapter.id
+        }
         if changed {
             schedulePersistRestore()
         }
     }
 
-    func moveFocus(dx: Int, dy: Int, columns: Int) {
-        let items = visibleItems
-        guard !items.isEmpty else { return }
+    func selectChapter(_ id: String, focus: ChapterFocusPreference = .firstUndecided) {
+        guard let chapter = chapters.first(where: { $0.id == id }) else { return }
+        activeChapterID = chapter.id
+        switch focus {
+        case .last:
+            if let last = chapter.assetIDs.last {
+                setFocus(last)
+            }
+        case .firstUndecided:
+            let preferred = chapter.assetIDs.first { member in
+                assets.first(where: { $0.id == member })?.cull == .undecided
+            }
+            setFocus(preferred ?? chapter.assetIDs.first)
+        }
+    }
+
+    func reconcileActiveChapter() {
+        let list = chapters
+        if let focus = focusedAssetID,
+           let match = ShootChapterArrangement.chapter(containing: focus, in: list) {
+            activeChapterID = match.id
+            return
+        }
+        if let activeChapterID, list.contains(where: { $0.id == activeChapterID }) {
+            return
+        }
+        activeChapterID = list.first?.id
+    }
+
+    func moveFocus(dx: Int, dy: Int, columns _: Int) {
         if inspectingAssetID != nil {
-            // Single-photo filmstrip is linear — ignore grid column stride.
+            let items = visibleItems
+            guard !items.isEmpty else { return }
             let step = dx != 0 ? dx : dy
             guard step != 0 else { return }
             let current = focusedAssetID.flatMap { id in items.firstIndex(where: { $0.id == id }) } ?? 0
@@ -836,16 +892,27 @@ final class P0SessionModel {
             }
             return
         }
-        let cols = max(columns, 1)
-        let current = focusedAssetID.flatMap { id in items.firstIndex(where: { $0.id == id }) } ?? 0
-        let row = current / cols
-        let col = current % cols
-        let newRow = max(0, row + dy)
-        let newCol = min(max(0, col + dx), cols - 1)
-        var next = newRow * cols + newCol
-        if next >= items.count { next = items.count - 1 }
-        if items[next].id != focusedAssetID {
-            setFocus(items[next].id)
+
+        let list = chapters
+        guard let chapter = activeChapter else { return }
+
+        if dy != 0 {
+            guard let index = list.firstIndex(where: { $0.id == chapter.id }) else { return }
+            let next = index + dy
+            guard list.indices.contains(next) else { return }
+            selectChapter(list[next].id, focus: dy < 0 ? .last : .firstUndecided)
+            return
+        }
+
+        guard dx != 0 else { return }
+        let bursts = chapter.bursts
+        guard !bursts.isEmpty else { return }
+        let currentBurst = bursts.firstIndex { burst in
+            focusedAssetID.map { burst.assetIDs.contains($0) } ?? false
+        } ?? 0
+        let next = min(max(currentBurst + dx, 0), bursts.count - 1)
+        if let cover = bursts[next].assetIDs.first {
+            setFocus(cover)
         }
     }
 
@@ -960,6 +1027,7 @@ final class P0SessionModel {
         assets = []
         status = ContactSheetPreparationStatus()
         focusedAssetID = nil
+        activeChapterID = nil
         selectedAssetIDs = []
         inspectingAssetID = nil
         showingBefore = false
@@ -987,6 +1055,7 @@ final class P0SessionModel {
             self.assets = shoot.assets
             self.status = status
             restoreWorkspace(from: shoot.workspace)
+            reconcileActiveChapter()
             route = .contactSheet
         case .assetsReplaced(let assets, let status):
             let focus = focusedAssetID
@@ -996,9 +1065,11 @@ final class P0SessionModel {
             self.status = status
             focusedAssetID = focus.flatMap { id in assets.contains(where: { $0.id == id }) ? id : nil } ?? focus
             selectedAssetIDs = selection.intersection(Set(assets.map(\.id)))
+            reconcileActiveChapter()
         case .assetsInserted(let assets, let status):
             mergeAssets(assets)
             self.status = status
+            reconcileActiveChapter()
         case .previewsUpdated(let assets, let status):
             mergePreviewFields(from: assets)
             self.status = status
@@ -1019,6 +1090,7 @@ final class P0SessionModel {
                 focusedAssetID = focus
             }
             selectedAssetIDs = selection.intersection(Set(merged.map(\.id)))
+            reconcileActiveChapter()
         case .status(let status):
             self.status = status
         case .failed(let message):

@@ -14,7 +14,7 @@ struct P0ContactSheetView: View {
 
             VStack(spacing: 0) {
                 toolbar
-                ContactSheetRepresentable(session: session)
+                P0ChapterTableView(session: session)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(session.inspectingAssetID == nil ? 1 : 0)
                     .allowsHitTesting(session.inspectingAssetID == nil)
@@ -75,22 +75,23 @@ struct P0ContactSheetView: View {
             Button {
                 session.enterGrouping()
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Text("Group")
-                        .font(LuminaTokens.Typeface.navigation(13, weight: .medium))
+                        .font(LuminaTokens.Typeface.navigation(14, weight: .medium))
                     Text("⇧G")
-                        .font(LuminaTokens.Typeface.meta(10, weight: .medium))
+                        .font(LuminaTokens.Typeface.meta(11, weight: .medium))
                         .foregroundStyle(LuminaTokens.Ink.tertiary)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
                         .background(LuminaTokens.Surface.mist)
-                        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                 }
                 .foregroundStyle(LuminaTokens.Ink.primary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 14)
+                .frame(minHeight: LuminaTokens.HitTarget.minimum)
                 .background(LuminaTokens.Surface.well)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .accessibilityLabel("Open grouping")
@@ -123,6 +124,7 @@ struct P0ContactSheetView: View {
             if session.canUndo {
                 Button(session.undoLabel ?? "Undo") { session.undoLast() }
                     .buttonStyle(LuminaQuietButtonStyle())
+                    .padding(.horizontal, 12)
                     .keyboardShortcut("z", modifiers: .command)
                     .accessibilityIdentifier(P0AccessibilityID.undoButton)
             }
@@ -141,7 +143,7 @@ struct P0ContactSheetView: View {
 
     private var densityControls: some View {
         // Comfortable hit targets — the bare glyphs were ~6pt wide, well under Lumina's own minimum.
-        let hit: CGFloat = 28
+        let hit = LuminaTokens.HitTarget.minimum
         return HStack(spacing: 6) {
             Button { session.adjustDensity(1) } label: {
                 Text("-").frame(width: hit, height: hit).contentShape(Rectangle())

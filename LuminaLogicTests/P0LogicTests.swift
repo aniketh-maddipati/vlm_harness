@@ -51,6 +51,8 @@ final class P0LogicTests: XCTestCase {
         let id = UUID()
         XCTAssertEqual(P0AccessibilityID.assetCell(id), "p0.asset.\(id.uuidString)")
         XCTAssertEqual(P0AccessibilityID.filmstripItem(id), "p0.filmstrip.\(id.uuidString)")
+        XCTAssertEqual(P0AccessibilityID.chapterMark("abc"), "p0.chapter.abc")
+        XCTAssertEqual(P0AccessibilityID.keptRail, "p0.keptRail")
     }
 
     // MARK: - State-probe JSON round trip (schema the harness decodes)
@@ -358,5 +360,125 @@ final class P0LogicTests: XCTestCase {
         let session = P0SessionModel()
         session.route = .contactSheet
         XCTAssertFalse(P0EscLadder.handle(session: session))
+    }
+
+    // MARK: - Open-surface shoot ranking
+
+    func testOpenShootArrangementResumeAndImpact() {
+        let now = Date()
+        let tiny = RecentShootSummary(
+            id: UUID(), name: "scratch", assetCount: 6, keepCount: 0,
+            lastOpenedAt: now, rawFolderPath: nil
+        )
+        let wedding = RecentShootSummary(
+            id: UUID(), name: "wedding", assetCount: 420, keepCount: 18,
+            lastOpenedAt: now.addingTimeInterval(-3600), rawFolderPath: nil
+        )
+        let portraits = RecentShootSummary(
+            id: UUID(), name: "portraits", assetCount: 180, keepCount: 4,
+            lastOpenedAt: now.addingTimeInterval(-7200), rawFolderPath: nil
+        )
+        let arranged = OpenShootArrangement.arrange([tiny, wedding, portraits])
+        XCTAssertEqual(arranged.resume?.name, "scratch")
+        XCTAssertEqual(arranged.largerSets.map(\.name), ["wedding", "portraits"])
+        XCTAssertTrue(arranged.smaller.isEmpty)
+    }
+
+    func testOpenShootArrangementAllSmallStaySmall() {
+        let now = Date()
+        let first = RecentShootSummary(
+            id: UUID(), name: "a", assetCount: 4, keepCount: 0,
+            lastOpenedAt: now, rawFolderPath: nil
+        )
+        let second = RecentShootSummary(
+            id: UUID(), name: "b", assetCount: 8, keepCount: 0,
+            lastOpenedAt: now.addingTimeInterval(-10), rawFolderPath: nil
+        )
+        let arranged = OpenShootArrangement.arrange([first, second])
+        XCTAssertEqual(arranged.resume?.name, "a")
+        XCTAssertTrue(arranged.largerSets.isEmpty)
+        XCTAssertEqual(arranged.smaller.map(\.name), ["b"])
+    }
+
+    func testOpenShootArrangementEmpty() {
+        let arranged = OpenShootArrangement.arrange([])
+        XCTAssertNil(arranged.resume)
+        XCTAssertTrue(arranged.largerSets.isEmpty)
+        XCTAssertTrue(arranged.smaller.isEmpty)
+    }
+
+    // MARK: - Chapter table (time rail)
+
+    private func datedAsset(id: UUID, offset: TimeInterval, cull: CullDecision = .undecided) -> AssetRecord {
+        AssetRecord(
+            id: id,
+            sourceKey: "k-\(id.uuidString)",
+            source: SourceReference(
+                originalPath: "/x/\(id.uuidString).ARW",
+                relativePath: "\(id.uuidString).ARW",
+                volumeID: "VOL",
+                availability: .available
+            ),
+            filename: "IMG_\(id.uuidString.prefix(4)).ARW",
+            cull: cull,
+            capturedAt: Date(timeIntervalSince1970: 1_700_000_000 + offset)
+        )
+    }
+
+    func testChapterArrangementTightSpacingIsOneChapter() {
+        let assets = (0..<60).map { index in
+            datedAsset(id: UUID(), offset: Double(index) * 3)
+        }
+        let chapters = ShootChapterArrangement.arrange(assets)
+        XCTAssertEqual(chapters.count, 1)
+        XCTAssertEqual(chapters[0].assetIDs.count, 60)
+        XCTAssertEqual(chapters[0].bursts.count, 60, "3s gaps stay singleton bursts")
+    }
+
+    func testChapterArrangementSplitsOnLongPause() {
+        let early = (0..<8).map { index in
+            datedAsset(id: UUID(), offset: Double(index) * 3)
+        }
+        let late = (0..<5).map { index in
+            datedAsset(id: UUID(), offset: 20 * 60 + Double(index) * 3)
+        }
+        let chapters = ShootChapterArrangement.arrange(early + late)
+        XCTAssertEqual(chapters.count, 2)
+        XCTAssertEqual(chapters[0].assetIDs.count, 8)
+        XCTAssertEqual(chapters[1].assetIDs.count, 5)
+    }
+
+    func testBurstArrangementMergesSubTwoSecondFrames() {
+        let ids = (0..<5).map { _ in UUID() }
+        let assets = ids.enumerated().map { index, id in
+            datedAsset(id: id, offset: Double(index) * 0.4)
+        }
+        let bursts = ShootChapterArrangement.bursts(in: assets)
+        XCTAssertEqual(bursts.count, 1)
+        XCTAssertEqual(bursts[0].assetIDs, ids)
+    }
+
+    func testChapterBoardFiltersVisibleItemsAndArrowWalksBursts() {
+        let first = UUID()
+        let second = UUID()
+        let later = UUID()
+        let session = P0SessionModel()
+        session.assets = [
+            datedAsset(id: first, offset: 0),
+            datedAsset(id: second, offset: 3),
+            datedAsset(id: later, offset: 46 * 60),
+        ]
+        session.focusedAssetID = first
+        session.reconcileActiveChapter()
+        XCTAssertEqual(session.chapters.count, 2)
+        XCTAssertEqual(session.visibleItems.map(\.id), [first, second])
+
+        session.moveFocus(dx: 1, dy: 0, columns: 6)
+        XCTAssertEqual(session.focusedAssetID, second)
+
+        session.moveFocus(dx: 0, dy: 1, columns: 6)
+        XCTAssertEqual(session.activeChapterID, session.chapters[1].id)
+        XCTAssertEqual(session.focusedAssetID, later)
+        XCTAssertEqual(session.visibleItems.map(\.id), [later])
     }
 }

@@ -112,16 +112,17 @@ struct P0CropControls: View {
             Text(title)
                 .font(LuminaTokens.Typeface.meta(12, weight: active ? .semibold : .regular))
                 .foregroundStyle(active ? LuminaTokens.Ink.primary : LuminaTokens.Ink.secondary)
-                .frame(minWidth: 56, minHeight: 40)
-                .padding(.horizontal, 6)
+                .frame(minWidth: 64, minHeight: LuminaTokens.HitTarget.minimum)
+                .padding(.horizontal, 8)
                 .background(active ? LuminaTokens.Surface.highlight : LuminaTokens.Surface.well)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .strokeBorder(LuminaTokens.Line.hairline, lineWidth: LuminaTokens.Line.hairlineWidth)
                 }
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LuminaQuietButtonStyle())
     }
 
     /// Centered crop in oriented image space for a target width/height ratio.

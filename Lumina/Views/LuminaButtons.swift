@@ -1,47 +1,82 @@
 import SwiftUI
 
+/// Shared press language — every control dips, the whole frame is the target.
 struct LuminaPressStyle: ButtonStyle {
-    var pressedScale: CGFloat = 0.98
+    var pressedScale: CGFloat = 0.97
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? pressedScale : 1)
-            .opacity(configuration.isPressed ? 0.72 : 1)
-            .animation(LuminaTokens.Motion.control, value: configuration.isPressed)
+        PressBody(configuration: configuration, pressedScale: pressedScale)
+    }
+
+    private struct PressBody: View {
+        let configuration: Configuration
+        var pressedScale: CGFloat
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .contentShape(Rectangle())
+                .scaleEffect(configuration.isPressed && !reduceMotion ? pressedScale : 1)
+                .opacity(configuration.isPressed ? 0.78 : 1)
+                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: configuration.isPressed)
+        }
     }
 }
 
 struct LuminaPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(LuminaTokens.Typeface.navigation(15))
-            .foregroundStyle(LuminaTokens.Ink.primary)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 10)
-            .frame(minHeight: 40)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(configuration.isPressed ? LuminaTokens.Surface.hover : Color.clear)
-            )
-            .overlay {
-                Capsule(style: .continuous)
-                    .strokeBorder(
-                        LuminaTokens.Ink.primary.opacity(configuration.isPressed ? 0.45 : 0.85),
-                        lineWidth: 1
-                    )
-            }
-            .animation(LuminaTokens.Motion.control, value: configuration.isPressed)
+        PrimaryBody(configuration: configuration)
+    }
+
+    private struct PrimaryBody: View {
+        let configuration: Configuration
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .font(LuminaTokens.Typeface.navigation(15))
+                .foregroundStyle(LuminaTokens.Ink.primary)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .frame(minHeight: LuminaTokens.HitTarget.minimum)
+                .contentShape(Capsule(style: .continuous))
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(configuration.isPressed ? LuminaTokens.Surface.hover : Color.clear)
+                )
+                .overlay {
+                    Capsule(style: .continuous)
+                        .strokeBorder(
+                            LuminaTokens.Ink.primary.opacity(configuration.isPressed ? 0.40 : 0.85),
+                            lineWidth: 1
+                        )
+                }
+                .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
+                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: configuration.isPressed)
+        }
     }
 }
 
 struct LuminaGhostButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(LuminaTokens.Typeface.navigation(15))
-            .foregroundStyle(LuminaTokens.Ink.secondary.opacity(configuration.isPressed ? 0.55 : 0.95))
-            .padding(.horizontal, 18)
-            .padding(.vertical, 10)
-            .animation(LuminaTokens.Motion.control, value: configuration.isPressed)
+        GhostBody(configuration: configuration)
+    }
+
+    private struct GhostBody: View {
+        let configuration: Configuration
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .font(LuminaTokens.Typeface.navigation(15))
+                .foregroundStyle(LuminaTokens.Ink.secondary.opacity(configuration.isPressed ? 0.55 : 0.95))
+                .padding(.horizontal, 18)
+                .padding(.vertical, 12)
+                .frame(minHeight: LuminaTokens.HitTarget.minimum)
+                .contentShape(Rectangle())
+                .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
+                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: configuration.isPressed)
+        }
     }
 }
 
@@ -79,7 +114,7 @@ struct LuminaDecisionButton: View {
                     .font(LuminaTokens.Typeface.meta(11))
                     .foregroundStyle(LuminaTokens.Ink.secondary)
             }
-            .frame(minWidth: 56, minHeight: 44)
+            .frame(minWidth: 56, minHeight: LuminaTokens.HitTarget.minimum)
             .contentShape(Rectangle())
         }
         .buttonStyle(LuminaPressStyle())
@@ -129,24 +164,23 @@ struct LuminaQuietButtonStyle: ButtonStyle {
         QuietBody(configuration: configuration)
     }
 
-    /// Hover halo + press dip — quiet, but every press reads as a press.
+    /// Press dip on the whole frame — no hover, nothing smaller than a thumb.
     private struct QuietBody: View {
         let configuration: Configuration
-        @State private var hovering = false
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
         var body: some View {
             configuration.label
-                .opacity(configuration.isPressed ? 0.7 : 1)
+                .frame(minHeight: LuminaTokens.HitTarget.minimum)
+                .contentShape(Rectangle())
+                .opacity(configuration.isPressed ? 0.72 : 1)
                 .scaleEffect(configuration.isPressed && !reduceMotion ? 0.975 : 1)
                 .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Color.primary.opacity(configuration.isPressed ? 0.10 : (hovering ? 0.05 : 0)))
-                        .padding(-2)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.primary.opacity(configuration.isPressed ? 0.10 : 0))
+                        .padding(-4)
                 )
-                .onHover { hovering = $0 }
                 .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: configuration.isPressed)
-                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: hovering)
         }
     }
 }
@@ -161,8 +195,8 @@ struct LuminaTextActionButton: View {
             Text(title)
                 .font(LuminaTokens.Typeface.navigation(15))
                 .foregroundStyle(LuminaTokens.Ink.primary)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
                 .frame(minHeight: LuminaTokens.HitTarget.minimum)
                 .background(
                     Capsule(style: .continuous)
@@ -171,6 +205,7 @@ struct LuminaTextActionButton: View {
                             lineWidth: 1
                         )
                 )
+                .contentShape(Capsule(style: .continuous))
         }
         .buttonStyle(LuminaQuietButtonStyle())
         .accessibilityLabel(title)
@@ -186,8 +221,8 @@ struct LuminaGhostActionButton: View {
             Text(title)
                 .font(LuminaTokens.Typeface.navigation(15))
                 .foregroundStyle(LuminaTokens.Ink.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
                 .frame(minHeight: LuminaTokens.HitTarget.minimum)
                 .contentShape(Rectangle())
         }
