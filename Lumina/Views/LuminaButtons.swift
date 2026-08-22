@@ -1,5 +1,24 @@
 import SwiftUI
 
+/// Plate press — opacity only. Scaling a photograph every click is slow and looks cheap.
+struct LuminaPlatePressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        PlatePressBody(configuration: configuration)
+    }
+
+    private struct PlatePressBody: View {
+        let configuration: Configuration
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .contentShape(Rectangle())
+                .opacity(configuration.isPressed ? 0.82 : 1)
+                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: configuration.isPressed)
+        }
+    }
+}
+
 /// Shared press language — every control dips, the whole frame is the target.
 struct LuminaPressStyle: ButtonStyle {
     var pressedScale: CGFloat = 0.97

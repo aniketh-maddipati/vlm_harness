@@ -26,7 +26,7 @@ struct P0OpenView: View {
                     }
                     .padding(.horizontal, LuminaTokens.Spacing.xxl)
                     .padding(.vertical, LuminaTokens.Spacing.xl)
-                    .frame(maxWidth: 720, alignment: .leading)
+                    .frame(maxWidth: 1120, alignment: .leading)
                     .frame(maxWidth: .infinity)
                 }
             }

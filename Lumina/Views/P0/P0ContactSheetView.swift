@@ -66,12 +66,6 @@ struct P0ContactSheetView: View {
 
             Spacer(minLength: 12)
 
-            Text("Double-click zoom · ⇧G group")
-                .font(LuminaTokens.Typeface.meta(11))
-                .foregroundStyle(LuminaTokens.Ink.tertiary)
-                .lineLimit(1)
-                .help("Double-click a photograph to zoom in. Shift+G opens grouping.")
-
             Button {
                 session.enterGrouping()
             } label: {

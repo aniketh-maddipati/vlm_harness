@@ -855,15 +855,17 @@ final class P0SessionModel {
         activeChapterID = chapter.id
         switch focus {
         case .last:
-            if let last = chapter.assetIDs.last {
+            if let last = chapter.bursts.last?.preferredCoverID(in: assets) {
                 setFocus(last)
             }
         case .firstUndecided:
-            let preferred = chapter.assetIDs.first { member in
-                assets.first(where: { $0.id == member })?.cull == .undecided
+            let covers = chapter.bursts.compactMap { $0.preferredCoverID(in: assets) }
+            let undecided = covers.first { id in
+                assets.first(where: { $0.id == id })?.cull == .undecided
             }
-            setFocus(preferred ?? chapter.assetIDs.first)
+            setFocus(undecided ?? covers.first ?? chapter.assetIDs.first)
         }
+        prefetchChapterCovers()
     }
 
     func reconcileActiveChapter() {
@@ -871,12 +873,33 @@ final class P0SessionModel {
         if let focus = focusedAssetID,
            let match = ShootChapterArrangement.chapter(containing: focus, in: list) {
             activeChapterID = match.id
+            prefetchChapterCovers()
             return
         }
         if let activeChapterID, list.contains(where: { $0.id == activeChapterID }) {
+            prefetchChapterCovers()
             return
         }
         activeChapterID = list.first?.id
+        prefetchChapterCovers()
+    }
+
+    /// Warm grid-tier covers for this chapter and its neighbors.
+    func prefetchChapterCovers() {
+        let list = chapters
+        guard let current = activeChapter else { return }
+        var targets = [current]
+        if let index = list.firstIndex(where: { $0.id == current.id }) {
+            if list.indices.contains(index + 1) { targets.append(list[index + 1]) }
+            if list.indices.contains(index - 1) { targets.append(list[index - 1]) }
+        }
+        let byID = Dictionary(uniqueKeysWithValues: assets.map { ($0.id, $0) })
+        let paths = targets.flatMap(\.bursts).compactMap { burst -> String? in
+            guard let coverID = burst.preferredCoverID(in: assets),
+                  let asset = byID[coverID] else { return nil }
+            return asset.gridThumbPath ?? asset.thumbPath
+        }
+        ThumbCache.shared.prefetchPaths(paths, maxPixelSize: PhotoImageTier.gridMaxPixelSize, allowRAW: false)
     }
 
     func moveFocus(dx: Int, dy: Int, columns _: Int) {
@@ -911,7 +934,7 @@ final class P0SessionModel {
             focusedAssetID.map { burst.assetIDs.contains($0) } ?? false
         } ?? 0
         let next = min(max(currentBurst + dx, 0), bursts.count - 1)
-        if let cover = bursts[next].assetIDs.first {
+        if let cover = bursts[next].preferredCoverID(in: assets) {
             setFocus(cover)
         }
     }
@@ -1113,6 +1136,7 @@ final class P0SessionModel {
         }
         assets = map.values.sorted(by: ContactSheetPreparation.chronologicalLess)
         shoot?.assets = assets
+        prefetchChapterCovers()
     }
 
     private func mergePreviewFields(from incoming: [AssetRecord]) {
@@ -1126,6 +1150,7 @@ final class P0SessionModel {
             assets[i].source.availability = updated.source.availability
         }
         shoot?.assets = assets
+        prefetchChapterCovers()
     }
 
     private func restoreWorkspace(from workspace: WorkspaceRestoreState) {

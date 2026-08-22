@@ -3,33 +3,43 @@ import SwiftUI
 /// Three-band chapter table — time rail, one chapter of burst plates, empty kept rail.
 struct P0ChapterTableView: View {
     @Bindable var session: P0SessionModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             chapterRail
-                .frame(width: 176)
+                .frame(width: 168)
             chapterBoard
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             keptRail
-                .frame(width: 176)
+                .frame(width: 160)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(LuminaTokens.Surface.mist)
+        .onAppear { session.prefetchChapterCovers() }
+        .onChange(of: session.activeChapterID) { _, _ in
+            session.prefetchChapterCovers()
+        }
     }
 
     private var chapterRail: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 8) {
                 ForEach(session.chapters) { chapter in
                     let active = chapter.id == session.activeChapter?.id
                     Button {
                         session.selectChapter(chapter.id)
                     } label: {
-                        Text(chapterLabel(chapter))
-                            .font(LuminaTokens.Typeface.editorial(32))
-                            .foregroundStyle(active ? LuminaTokens.Ink.primary : LuminaTokens.Ink.tertiary)
-                            .frame(maxWidth: .infinity, minHeight: LuminaTokens.HitTarget.minimum, alignment: .leading)
-                            .contentShape(Rectangle())
+                        HStack(spacing: 10) {
+                            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                                .fill(active ? LuminaTokens.Ink.primary : Color.clear)
+                                .frame(width: 2, height: 28)
+                            Text(chapterLabel(chapter))
+                                .font(LuminaTokens.Typeface.editorial(active ? 34 : 26))
+                                .foregroundStyle(active ? LuminaTokens.Ink.primary : LuminaTokens.Ink.tertiary)
+                                .frame(maxWidth: .infinity, minHeight: LuminaTokens.HitTarget.minimum, alignment: .leading)
+                        }
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(LuminaQuietButtonStyle())
                     .accessibilityIdentifier(P0AccessibilityID.chapterMark(chapter.id))
@@ -37,8 +47,9 @@ struct P0ChapterTableView: View {
                     .accessibilityAddTraits(active ? .isSelected : [])
                 }
             }
-            .padding(.top, LuminaTokens.Spacing.xl)
-            .padding(.horizontal, LuminaTokens.Spacing.md)
+            .padding(.top, 36)
+            .padding(.trailing, LuminaTokens.Spacing.sm)
+            .padding(.leading, LuminaTokens.Spacing.md)
             .padding(.bottom, LuminaTokens.Spacing.xxl)
         }
         .background(LuminaTokens.Surface.porcelain)
@@ -52,16 +63,17 @@ struct P0ChapterTableView: View {
     private var chapterBoard: some View {
         GeometryReader { geo in
             let bursts = session.activeChapter?.bursts ?? []
+            let byID = Dictionary(uniqueKeysWithValues: session.assets.map { ($0.id, $0) })
             if bursts.isEmpty {
                 Color.clear
             } else {
                 let columns = max(1, min(session.densityColumns, bursts.count))
-                let spacing: CGFloat = 28
+                let spacing: CGFloat = 22
                 let rows = max(1, Int(ceil(Double(bursts.count) / Double(columns))))
-                let availableHeight = geo.size.height - 48
+                let availableHeight = geo.size.height - 40
                 let fitted = (availableHeight - spacing * CGFloat(rows - 1)) / CGFloat(rows)
-                let plateHeight = min(220, max(88, fitted))
-                let allowScroll = fitted < 88
+                let plateHeight = min(240, max(96, fitted))
+                let allowScroll = fitted < 96
 
                 let grid = LazyVGrid(
                     columns: Array(
@@ -72,12 +84,15 @@ struct P0ChapterTableView: View {
                     spacing: spacing
                 ) {
                     ForEach(bursts) { burst in
-                        if let asset = coverAsset(for: burst) {
+                        if let asset = coverAsset(for: burst, byID: byID) {
                             BurstPlate(
-                                asset: asset,
-                                count: burst.assetIDs.count,
+                                assetID: asset.id,
+                                filename: asset.filename,
+                                imagePath: asset.gridThumbPath ?? asset.thumbPath,
+                                count: burst.frameCount,
                                 isFocused: session.focusedAssetID.map { burst.assetIDs.contains($0) } ?? false,
-                                marks: marks(for: asset)
+                                isRejected: asset.cull == .reject,
+                                isKept: asset.cull == .keep
                             ) {
                                 session.setFocus(asset.id)
                             } onOpen: {
@@ -95,28 +110,35 @@ struct P0ChapterTableView: View {
                         }
                     }
                 }
-                .padding(24)
+                .padding(20)
 
-                if allowScroll {
-                    ScrollView {
+                Group {
+                    if allowScroll {
+                        ScrollView { grid }
+                    } else {
                         grid
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     }
-                } else {
-                    grid
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
+                .id(session.activeChapterID)
+                .transition(
+                    reduceMotion
+                        ? .identity
+                        : .asymmetric(insertion: .offset(y: 14), removal: .offset(y: -10))
+                )
+                .animation(reduceMotion ? nil : LuminaTokens.Motion.travel, value: session.activeChapterID)
             }
         }
     }
 
     private var keptRail: some View {
-        VStack(alignment: .leading, spacing: LuminaTokens.Spacing.md) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Kept")
-                .font(LuminaTokens.Typeface.editorial(28))
-                .foregroundStyle(LuminaTokens.Ink.tertiary)
+                .font(LuminaTokens.Typeface.editorial(22))
+                .foregroundStyle(LuminaTokens.Ink.tertiary.opacity(0.7))
             Spacer(minLength: 0)
         }
-        .padding(.top, LuminaTokens.Spacing.xl)
+        .padding(.top, 36)
         .padding(.horizontal, LuminaTokens.Spacing.md)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(LuminaTokens.Surface.porcelain)
@@ -133,29 +155,19 @@ struct P0ChapterTableView: View {
         return CopyContractBuilder.laneTimestamp(from: startedAt)
     }
 
-    private func coverAsset(for burst: ShootBurst) -> AssetRecord? {
-        let undecided = burst.assetIDs.first { id in
-            session.assets.first(where: { $0.id == id })?.cull == .undecided
-        }
-        let coverID = undecided ?? burst.assetIDs.first
-        return coverID.flatMap { id in session.assets.first(where: { $0.id == id }) }
-    }
-
-    private func marks(for asset: AssetRecord) -> ContactSheetMarks {
-        .derive(
-            asset: asset,
-            selectedIDs: session.selectedAssetIDs,
-            orderedIDs: session.orderedIDList,
-            keptOrderMode: session.keptOrderMode
-        )
+    private func coverAsset(for burst: ShootBurst, byID: [UUID: AssetRecord]) -> AssetRecord? {
+        burst.preferredCoverID(in: session.assets).flatMap { byID[$0] }
     }
 }
 
 private struct BurstPlate: View {
-    let asset: AssetRecord
+    let assetID: UUID
+    let filename: String
+    let imagePath: String?
     let count: Int
     let isFocused: Bool
-    let marks: ContactSheetMarks
+    let isRejected: Bool
+    let isKept: Bool
     let onFocus: () -> Void
     let onOpen: () -> Void
     let onKeep: () -> Void
@@ -166,36 +178,47 @@ private struct BurstPlate: View {
             Button(action: onFocus) {
                 ZStack(alignment: .bottomTrailing) {
                     plateImage
-                        .opacity(marks.rejected ? 0.45 : 1)
+                        .opacity(isRejected ? 0.42 : 1)
                     if count > 1 {
                         Text("\(count)")
-                            .font(LuminaTokens.Typeface.editorial(22))
+                            .font(LuminaTokens.Typeface.editorial(20))
                             .foregroundStyle(LuminaTokens.Ink.primary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(LuminaTokens.Surface.porcelain.opacity(0.92))
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                            .padding(10)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(LuminaTokens.Surface.porcelain.opacity(0.94))
+                            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            .padding(8)
+                    }
+                    if isKept {
+                        Text("✓")
+                            .font(LuminaTokens.Typeface.navigation(13, weight: .semibold))
+                            .foregroundStyle(LuminaTokens.Ink.primary)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 4)
+                            .background(LuminaTokens.Surface.porcelain.opacity(0.94))
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                            .padding(8)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(LuminaTokens.Surface.well)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .strokeBorder(
-                            isFocused ? LuminaTokens.Ink.primary.opacity(0.85) : Color.clear,
-                            lineWidth: 1.5
+                            isFocused ? LuminaTokens.Ink.primary : Color.clear,
+                            lineWidth: isFocused ? 1.5 : 0
                         )
                 }
-                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
-            .buttonStyle(LuminaQuietButtonStyle())
+            .buttonStyle(LuminaPlatePressStyle())
             .simultaneousGesture(
                 TapGesture(count: 2).onEnded { onOpen() }
             )
-            .accessibilityIdentifier(P0AccessibilityID.assetCell(asset.id))
-            .accessibilityLabel(asset.filename)
+            .accessibilityIdentifier(P0AccessibilityID.assetCell(assetID))
+            .accessibilityLabel(filename)
             .accessibilityAddTraits(isFocused ? .isSelected : [])
 
             if isFocused {
@@ -207,17 +230,16 @@ private struct BurstPlate: View {
                         .accessibilityIdentifier(P0AccessibilityID.pointerCullReject)
                         .accessibilityLabel("Reject")
                 }
-                .padding(10)
+                .padding(8)
             }
         }
     }
 
     @ViewBuilder
     private var plateImage: some View {
-        if let path = asset.thumbPath ?? asset.gridThumbPath {
-            ContactSheetInspectImage(path: path)
+        if let imagePath {
+            ChapterPlateImage(path: imagePath)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
         } else {
             Rectangle()
                 .fill(LuminaTokens.Surface.well)
@@ -238,6 +260,6 @@ private struct BurstPlate: View {
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .contentShape(Rectangle())
         }
-        .buttonStyle(LuminaQuietButtonStyle())
+        .buttonStyle(LuminaPlatePressStyle())
     }
 }

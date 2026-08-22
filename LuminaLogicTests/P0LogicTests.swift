@@ -419,7 +419,7 @@ final class P0LogicTests: XCTestCase {
                 volumeID: "VOL",
                 availability: .available
             ),
-            filename: "IMG_\(id.uuidString.prefix(4)).ARW",
+            filename: "asset-\(id.uuidString).ARW",
             cull: cull,
             capturedAt: Date(timeIntervalSince1970: 1_700_000_000 + offset)
         )
@@ -456,6 +456,77 @@ final class P0LogicTests: XCTestCase {
         let bursts = ShootChapterArrangement.bursts(in: assets)
         XCTAssertEqual(bursts.count, 1)
         XCTAssertEqual(bursts[0].assetIDs, ids)
+        XCTAssertEqual(bursts[0].frameCount, 5)
+    }
+
+    func testCaptureNamePairsRawAndJpegAndStripsVersionSuffix() {
+        let raw = CaptureName.parse("IMG_2841.CR3")
+        let jpeg = CaptureName.parse("IMG_2841.JPG")
+        let extra = CaptureName.parse("IMG_2841_1.JPG")
+        XCTAssertEqual(raw.stemKey, jpeg.stemKey)
+        XCTAssertEqual(raw.stemKey, extra.stemKey)
+        XCTAssertEqual(raw.sequence, 2841)
+        XCTAssertEqual(CaptureName.parse("DSC02841.ARW").sequence, 2841)
+    }
+
+    func testStemCollapsePairsSiblingsIntoOneFrame() {
+        let raw = UUID()
+        let jpeg = UUID()
+        let assets = [
+            namedAsset(id: raw, filename: "IMG_2841.CR3", offset: 0),
+            namedAsset(id: jpeg, filename: "IMG_2841.JPG", offset: 0, thumbPath: "/tmp/2841.jpg"),
+        ]
+        let frames = ShootChapterArrangement.collapseStems(assets)
+        XCTAssertEqual(frames.count, 1)
+        XCTAssertEqual(Set(frames[0].assetIDs), Set([raw, jpeg]))
+        XCTAssertEqual(frames[0].coverID, jpeg, "previewed sibling is the cover")
+        XCTAssertEqual(ShootChapterArrangement.bursts(from: frames).count, 1)
+        XCTAssertEqual(ShootChapterArrangement.bursts(from: frames)[0].frameCount, 1)
+    }
+
+    func testNamedRunWithoutDatesCollapsesConsecutiveStems() {
+        let first = UUID()
+        let second = UUID()
+        let assets = [
+            namedAsset(id: first, filename: "IMG_2841.ARW", offset: nil),
+            namedAsset(id: second, filename: "IMG_2842.ARW", offset: nil),
+        ]
+        let bursts = ShootChapterArrangement.bursts(in: assets)
+        XCTAssertEqual(bursts.count, 1)
+        XCTAssertEqual(bursts[0].frameCount, 2)
+        XCTAssertEqual(bursts[0].assetIDs, [first, second])
+    }
+
+    func testConsecutiveNamesThreeSecondsApartStaySeparateBursts() {
+        let first = UUID()
+        let second = UUID()
+        let assets = [
+            namedAsset(id: first, filename: "IMG_0001.JPG", offset: 0),
+            namedAsset(id: second, filename: "IMG_0002.JPG", offset: 3),
+        ]
+        let bursts = ShootChapterArrangement.bursts(in: assets)
+        XCTAssertEqual(bursts.count, 2, "time must confirm a named run; 3s fixture stays readable")
+    }
+
+    private func namedAsset(
+        id: UUID,
+        filename: String,
+        offset: TimeInterval?,
+        thumbPath: String? = nil
+    ) -> AssetRecord {
+        AssetRecord(
+            id: id,
+            sourceKey: "k-\(id.uuidString)",
+            source: SourceReference(
+                originalPath: "/x/\(filename)",
+                relativePath: filename,
+                volumeID: "VOL",
+                availability: .available
+            ),
+            filename: filename,
+            capturedAt: offset.map { Date(timeIntervalSince1970: 1_700_000_000 + $0) },
+            thumbPath: thumbPath
+        )
     }
 
     func testChapterBoardFiltersVisibleItemsAndArrowWalksBursts() {
