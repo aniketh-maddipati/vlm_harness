@@ -1,18 +1,19 @@
 import SwiftUI
 
-/// Three-band chapter table — time rail, one chapter of burst plates, empty kept rail.
+/// Three-band chapter table — chronology rod, one chapter of burst plates, kept rail.
 struct P0ChapterTableView: View {
     @Bindable var session: P0SessionModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var travel
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            chapterRail
-                .frame(width: 168)
+            chronologyRod
+                .frame(width: 156)
             chapterBoard
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             keptRail
-                .frame(width: 160)
+                .frame(width: 168)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(LuminaTokens.Surface.mist)
@@ -20,32 +21,29 @@ struct P0ChapterTableView: View {
         .onChange(of: session.activeChapterID) { _, _ in
             session.prefetchChapterCovers()
         }
+        .overlay {
+            if session.holdingLoupe {
+                loupeOverlay
+            }
+        }
     }
 
-    private var chapterRail: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(session.chapters) { chapter in
-                    let active = chapter.id == session.activeChapter?.id
-                    Button {
-                        session.selectChapter(chapter.id)
-                    } label: {
-                        HStack(spacing: 10) {
-                            RoundedRectangle(cornerRadius: 1, style: .continuous)
-                                .fill(active ? LuminaTokens.Ink.primary : Color.clear)
-                                .frame(width: 2, height: 28)
-                            Text(chapterLabel(chapter))
-                                .font(LuminaTokens.Typeface.editorial(active ? 34 : 26))
-                                .foregroundStyle(active ? LuminaTokens.Ink.primary : LuminaTokens.Ink.tertiary)
-                                .frame(maxWidth: .infinity, minHeight: LuminaTokens.HitTarget.minimum, alignment: .leading)
+    private var chronologyRod: some View {
+        let marks = ChapterRodLayout.marks(for: session.chapters)
+        return ScrollView(showsIndicators: false) {
+            HStack(alignment: .top, spacing: 12) {
+                rodSpine(marks: marks)
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(marks.enumerated()), id: \.element.id) { _, mark in
+                        if let chapter = session.chapters.first(where: { $0.id == mark.chapterID }) {
+                            rodMark(chapter: chapter, mark: mark)
+                            if mark.spacingAfter > 0 {
+                                elapsedGap(mark)
+                            }
                         }
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(LuminaQuietButtonStyle())
-                    .accessibilityIdentifier(P0AccessibilityID.chapterMark(chapter.id))
-                    .accessibilityLabel(chapterLabel(chapter))
-                    .accessibilityAddTraits(active ? .isSelected : [])
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.top, 36)
             .padding(.trailing, LuminaTokens.Spacing.sm)
@@ -60,94 +58,300 @@ struct P0ChapterTableView: View {
         }
     }
 
+    private func rodSpine(marks: [ChapterRodLayout.Mark]) -> some View {
+        let activeID = session.activeChapter?.id
+        return ZStack(alignment: .top) {
+            Capsule(style: .continuous)
+                .fill(LuminaTokens.Ink.primary.opacity(0.14))
+                .frame(width: 2)
+                .padding(.vertical, 10)
+            VStack(spacing: 0) {
+                ForEach(marks) { mark in
+                    let active = mark.chapterID == activeID
+                    Circle()
+                        .fill(active ? LuminaTokens.Ink.primary : LuminaTokens.Surface.porcelain)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(
+                                    LuminaTokens.Ink.primary.opacity(active ? 1 : 0.35),
+                                    lineWidth: active ? 0 : 1.5
+                                )
+                        }
+                        .frame(width: active ? 11 : 7, height: active ? 11 : 7)
+                        .padding(.top, active ? 16 : 18)
+                    if mark.spacingAfter > 0 {
+                        Spacer()
+                            .frame(height: mark.spacingAfter)
+                    }
+                }
+            }
+        }
+        .frame(width: 12)
+    }
+
+    private func rodMark(chapter: ShootChapter, mark: ChapterRodLayout.Mark) -> some View {
+        let active = chapter.id == session.activeChapter?.id
+        return Button {
+            session.walkingKeptRail = false
+            session.selectChapter(chapter.id)
+        } label: {
+            Text(chapterLabel(chapter))
+                .font(LuminaTokens.Typeface.editorial(active ? 36 : 20))
+                .foregroundStyle(active ? LuminaTokens.Ink.primary : LuminaTokens.Ink.tertiary)
+                .frame(maxWidth: .infinity, minHeight: LuminaTokens.HitTarget.minimum, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(LuminaQuietButtonStyle())
+        .accessibilityIdentifier(P0AccessibilityID.chapterMark(chapter.id))
+        .accessibilityLabel(chapterLabel(chapter))
+        .accessibilityAddTraits(active ? .isSelected : [])
+    }
+
+    private func elapsedGap(_ mark: ChapterRodLayout.Mark) -> some View {
+        ZStack(alignment: .topLeading) {
+            Color.clear.frame(height: mark.spacingAfter)
+            if let label = ChapterRodLayout.elapsedLabel(seconds: mark.gapAfter) {
+                Text(label)
+                    .font(LuminaTokens.Typeface.meta(11))
+                    .foregroundStyle(LuminaTokens.Ink.tertiary.opacity(0.8))
+                    .padding(.top, 2)
+            }
+        }
+    }
+
     private var chapterBoard: some View {
         GeometryReader { geo in
-            let bursts = session.activeChapter?.bursts ?? []
-            let byID = Dictionary(uniqueKeysWithValues: session.assets.map { ($0.id, $0) })
-            if bursts.isEmpty {
+            let chapter = session.activeChapter
+            let leaned = session.leanedBurst
+            let plateItems = boardItems(in: chapter, leaned: leaned)
+            if plateItems.isEmpty {
                 Color.clear
             } else {
-                let columns = max(1, min(session.densityColumns, bursts.count))
-                let spacing: CGFloat = 22
-                let rows = max(1, Int(ceil(Double(bursts.count) / Double(columns))))
-                let availableHeight = geo.size.height - 40
-                let fitted = (availableHeight - spacing * CGFloat(rows - 1)) / CGFloat(rows)
-                let plateHeight = min(240, max(96, fitted))
-                let allowScroll = fitted < 96
-
+                let leanedColumns = session.densityLeaned ? session.densityColumns : nil
+                let pack = ChapterPack.columns(
+                    count: plateItems.count,
+                    width: geo.size.width - 40,
+                    height: geo.size.height - 40,
+                    leanedColumns: leanedColumns
+                )
                 let grid = LazyVGrid(
                     columns: Array(
-                        repeating: GridItem(.flexible(), spacing: spacing),
-                        count: columns
+                        repeating: GridItem(.flexible(), spacing: ChapterPack.spacing),
+                        count: pack.columns
                     ),
                     alignment: .leading,
-                    spacing: spacing
+                    spacing: ChapterPack.spacing
                 ) {
-                    ForEach(bursts) { burst in
-                        if let asset = coverAsset(for: burst, byID: byID) {
-                            BurstPlate(
-                                assetID: asset.id,
-                                filename: asset.filename,
-                                imagePath: asset.gridThumbPath ?? asset.thumbPath,
-                                count: burst.frameCount,
-                                isFocused: session.focusedAssetID.map { burst.assetIDs.contains($0) } ?? false,
-                                isRejected: asset.cull == .reject,
-                                isKept: asset.cull == .keep
-                            ) {
-                                session.setFocus(asset.id)
-                            } onOpen: {
-                                session.setFocus(asset.id)
-                                session.openFocusedPhotograph()
-                            } onKeep: {
-                                session.setFocus(asset.id)
-                                session.pointerMarkKeep()
-                            } onReject: {
-                                session.setFocus(asset.id)
-                                session.pointerMarkReject()
-                            }
-                            .frame(minHeight: plateHeight)
-                            .frame(maxWidth: .infinity)
-                        }
+                    ForEach(plateItems) { item in
+                        boardCell(item, plateHeight: pack.plateHeight)
                     }
                 }
                 .padding(20)
+                .animation(reduceMotion ? nil : LuminaTokens.Motion.travel, value: plateItems.map(\.id))
 
                 Group {
-                    if allowScroll {
+                    if pack.allowScroll {
                         ScrollView { grid }
                     } else {
                         grid
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     }
                 }
-                .id(session.activeChapterID)
+                .id(session.leanedBurstID ?? session.activeChapterID)
                 .transition(
                     reduceMotion
                         ? .identity
-                        : .asymmetric(insertion: .offset(y: 14), removal: .offset(y: -10))
+                        : .asymmetric(insertion: .offset(y: 14), removal: .offset(y: -12))
                 )
                 .animation(reduceMotion ? nil : LuminaTokens.Motion.travel, value: session.activeChapterID)
+                .animation(reduceMotion ? nil : LuminaTokens.Motion.travel, value: session.leanedBurstID)
+                .animation(reduceMotion ? nil : LuminaTokens.Motion.travel, value: session.lookGlancing)
+                .gesture(leanPinch)
             }
         }
     }
 
+    private var leanPinch: some Gesture {
+        MagnificationGesture()
+            .onEnded { value in
+                if value > 1.12 {
+                    session.activateFocusedPhotograph()
+                }
+            }
+    }
+
+    private func boardItems(in chapter: ShootChapter?, leaned: ShootBurst?) -> [BoardItem] {
+        let byID = Dictionary(uniqueKeysWithValues: session.assets.map { ($0.id, $0) })
+        if let leaned {
+            return leaned.frames.compactMap { frame in
+                guard let asset = byID[frame.coverID] else { return nil }
+                return BoardItem(id: frame.id, kind: .frame(frame, asset))
+            }
+        }
+        guard let chapter else { return [] }
+        return session.displayedBursts(in: chapter).compactMap { burst in
+            switch burst.boardRole(in: session.assets) {
+            case .gone:
+                return nil
+            case .hole:
+                return BoardItem(id: burst.id, kind: .hole(burst))
+            case .plate:
+                guard let asset = coverAsset(for: burst, byID: byID) else { return nil }
+                return BoardItem(id: burst.id, kind: .burst(burst, asset))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func boardCell(_ item: BoardItem, plateHeight: CGFloat) -> some View {
+        switch item.kind {
+        case .hole(let burst):
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(LuminaTokens.Ink.primary.opacity(0.12), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                .frame(minHeight: plateHeight)
+                .frame(maxWidth: .infinity)
+                .matchedGeometryEffect(id: burst.id, in: travel)
+        case .burst(let burst, let asset):
+            BurstPlate(
+                assetID: asset.id,
+                filename: asset.filename,
+                imagePath: asset.gridThumbPath ?? asset.thumbPath,
+                count: burst.frameCount,
+                isFocused: session.focusedAssetID.map { burst.assetIDs.contains($0) } ?? false,
+                isRejected: asset.cull == .reject,
+                isKept: asset.cull == .keep,
+                showClipping: session.holdingClipping
+            ) {
+                session.walkingKeptRail = false
+                session.setFocus(asset.id)
+            } onOpen: {
+                session.setFocus(asset.id)
+                session.activateFocusedPhotograph()
+            } onKeep: {
+                session.setFocus(asset.id)
+                session.pointerMarkKeep()
+            } onReject: {
+                session.setFocus(asset.id)
+                session.pointerMarkReject()
+            }
+            .frame(minHeight: plateHeight)
+            .frame(maxWidth: .infinity)
+            .transition(reduceMotion ? .identity : .offset(x: -36, y: 14))
+        case .frame(let frame, let asset):
+            BurstPlate(
+                assetID: asset.id,
+                filename: asset.filename,
+                imagePath: asset.gridThumbPath ?? asset.thumbPath,
+                count: 1,
+                isFocused: session.focusedAssetID == asset.id,
+                isRejected: asset.cull == .reject,
+                isKept: asset.cull == .keep,
+                showClipping: session.holdingClipping
+            ) {
+                session.setFocus(asset.id)
+            } onOpen: {
+                session.setFocus(asset.id)
+                session.openFocusedPhotograph()
+            } onKeep: {
+                session.setFocus(asset.id)
+                session.pointerMarkKeep()
+            } onReject: {
+                session.setFocus(asset.id)
+                session.pointerMarkReject()
+            }
+            .frame(minHeight: plateHeight)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
     private var keptRail: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let kept = session.keptRailAssets
+        return VStack(alignment: .leading, spacing: 10) {
             Text("Kept")
                 .font(LuminaTokens.Typeface.editorial(22))
                 .foregroundStyle(LuminaTokens.Ink.tertiary.opacity(0.7))
-            Spacer(minLength: 0)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 10) {
+                    ForEach(kept, id: \.id) { asset in
+                        keptPlate(asset)
+                    }
+                }
+            }
         }
         .padding(.top, 36)
         .padding(.horizontal, LuminaTokens.Spacing.md)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(LuminaTokens.Surface.porcelain)
+        .background(session.walkingKeptRail ? LuminaTokens.Surface.mist : LuminaTokens.Surface.porcelain)
         .overlay(alignment: .leading) {
             Rectangle()
                 .fill(LuminaTokens.Line.hairline)
                 .frame(width: LuminaTokens.Line.hairlineWidth)
         }
         .accessibilityLabel("Kept")
+    }
+
+    private func keptPlate(_ asset: AssetRecord) -> some View {
+        let focused = session.walkingKeptRail && session.focusedAssetID == asset.id
+        return Button {
+            session.focusKeptAsset(asset.id)
+        } label: {
+            ZStack {
+                if let path = asset.gridThumbPath ?? asset.thumbPath {
+                    ChapterPlateImage(path: path)
+                } else {
+                    Rectangle().fill(LuminaTokens.Surface.well)
+                }
+            }
+            .frame(height: 92)
+            .frame(maxWidth: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(
+                        focused ? LuminaTokens.Ink.primary : Color.clear,
+                        lineWidth: focused ? 1.5 : 0
+                    )
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(LuminaPlatePressStyle())
+        .matchedGeometryEffect(id: travelID(for: asset), in: travel)
+        .accessibilityIdentifier(P0AccessibilityID.filmstripItem(asset.id))
+        .accessibilityLabel(asset.filename)
+    }
+
+    private var loupeOverlay: some View {
+        let path = focusedImagePath
+        return ZStack {
+            LuminaTokens.Surface.mist.opacity(0.55)
+            if let path {
+                ChapterPlateImage(path: path)
+                    .overlay {
+                        if session.holdingClipping {
+                            Color.red.blendMode(.difference).opacity(0.28)
+                        }
+                    }
+                    .frame(maxWidth: 720, maxHeight: 720)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+        }
+        .allowsHitTesting(false)
+        .transition(reduceMotion ? .identity : .offset(y: 10))
+    }
+
+    private var focusedImagePath: String? {
+        guard let id = session.focusedAssetID,
+              let asset = session.assets.first(where: { $0.id == id })
+        else { return nil }
+        return asset.thumbPath ?? asset.gridThumbPath
+    }
+
+    private func travelID(for asset: AssetRecord) -> String {
+        if let burst = session.chapters.flatMap(\.bursts).first(where: { $0.assetIDs.contains(asset.id) }),
+           burst.coverID == asset.id || burst.preferredCoverID(in: session.assets) == asset.id {
+            return burst.id
+        }
+        return asset.id.uuidString
     }
 
     private func chapterLabel(_ chapter: ShootChapter) -> String {
@@ -160,6 +364,17 @@ struct P0ChapterTableView: View {
     }
 }
 
+private struct BoardItem: Identifiable {
+    enum Kind {
+        case burst(ShootBurst, AssetRecord)
+        case hole(ShootBurst)
+        case frame(ShootFrame, AssetRecord)
+    }
+
+    var id: String
+    var kind: Kind
+}
+
 private struct BurstPlate: View {
     let assetID: UUID
     let filename: String
@@ -168,6 +383,7 @@ private struct BurstPlate: View {
     let isFocused: Bool
     let isRejected: Bool
     let isKept: Bool
+    let showClipping: Bool
     let onFocus: () -> Void
     let onOpen: () -> Void
     let onKeep: () -> Void
@@ -239,6 +455,11 @@ private struct BurstPlate: View {
     private var plateImage: some View {
         if let imagePath {
             ChapterPlateImage(path: imagePath)
+                .overlay {
+                    if showClipping && isFocused {
+                        Color.red.blendMode(.difference).opacity(0.3)
+                    }
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             Rectangle()

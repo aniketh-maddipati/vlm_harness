@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// One camera exposure — RAW + JPEG (and leftover `_1` / `-Edit`) share a stem.
@@ -26,6 +27,20 @@ struct ShootBurst: Identifiable, Equatable, Sendable {
         }
         return coverID
     }
+
+    func boardRole(in assets: [AssetRecord]) -> BurstBoardRole {
+        let byID = Dictionary(uniqueKeysWithValues: assets.map { ($0.id, $0) })
+        let marks = assetIDs.map { byID[$0]?.cull ?? .undecided }
+        if marks.allSatisfy({ $0 == .reject }) { return .gone }
+        if !marks.contains(.undecided) && marks.contains(.keep) { return .hole }
+        return .plate
+    }
+}
+
+enum BurstBoardRole: Equatable, Sendable {
+    case plate
+    case hole
+    case gone
 }
 
 struct ShootChapter: Identifiable, Equatable, Sendable {
@@ -91,7 +106,9 @@ struct CaptureName: Equatable, Sendable {
 enum ShootChapterArrangement {
     static let burstGap: TimeInterval = 2
     static let sceneGapFloor: TimeInterval = 3 * 60
-    static let sceneGapCeiling: TimeInterval = 45 * 60
+    static let sceneGapCeiling: TimeInterval = 15 * 60
+    /// A walk this long is always a new chapter, even when the median gap is large.
+    static let sceneGapWalk: TimeInterval = 8 * 60
 
     static func arrange(_ assets: [AssetRecord]) -> [ShootChapter] {
         let frames = collapseStems(assets)
@@ -213,7 +230,7 @@ enum ShootChapterArrangement {
             } else {
                 gap = 0
             }
-            if gap > threshold {
+            if gap >= threshold {
                 groups.append(current)
                 current = [next]
             } else {
@@ -235,6 +252,157 @@ enum ShootChapterArrangement {
         guard !gaps.isEmpty else { return 12 * 60 }
         gaps.sort()
         let median = gaps[gaps.count / 2]
-        return min(max(median * 5, sceneGapFloor), sceneGapCeiling)
+        let medianBased = min(max(median * 3, sceneGapFloor), sceneGapCeiling)
+        return min(medianBased, sceneGapWalk)
+    }
+}
+
+/// Time-proportional gaps on the left chronology rod.
+enum ChapterRodLayout {
+    static let minGap: CGFloat = 36
+    static let maxGap: CGFloat = 140
+    static let undatedGap: CGFloat = 52
+
+    struct Mark: Identifiable, Equatable, Sendable {
+        var id: String { chapterID }
+        var chapterID: String
+        var gapAfter: TimeInterval
+        var spacingAfter: CGFloat
+    }
+
+    static func marks(for chapters: [ShootChapter]) -> [Mark] {
+        guard !chapters.isEmpty else { return [] }
+        let spacings = gaps(between: chapters)
+        return chapters.enumerated().map { index, chapter in
+            let next = chapters.indices.contains(index + 1) ? chapters[index + 1] : nil
+            let gap: TimeInterval
+            if let start = chapter.startedAt, let end = next?.startedAt {
+                gap = max(0, end.timeIntervalSince(start))
+            } else {
+                gap = 0
+            }
+            return Mark(
+                chapterID: chapter.id,
+                gapAfter: gap,
+                spacingAfter: index < spacings.count ? spacings[index] : 0
+            )
+        }
+    }
+
+    static func gaps(between chapters: [ShootChapter]) -> [CGFloat] {
+        guard chapters.count > 1 else { return [] }
+        var raw: [TimeInterval] = []
+        for index in 0..<(chapters.count - 1) {
+            if let start = chapters[index].startedAt, let end = chapters[index + 1].startedAt {
+                raw.append(max(0, end.timeIntervalSince(start)))
+            } else {
+                raw.append(-1)
+            }
+        }
+        let dated = raw.filter { $0 >= 0 }
+        let lo = dated.min() ?? 60
+        let hi = dated.max() ?? lo
+        return raw.map { gap in
+            if gap < 0 { return undatedGap }
+            if hi <= lo { return minGap }
+            let t = (gap - lo) / (hi - lo)
+            return minGap + CGFloat(sqrt(t)) * (maxGap - minGap)
+        }
+    }
+
+    static func elapsedLabel(seconds: TimeInterval) -> String? {
+        guard seconds >= sceneWalkSeconds else { return nil }
+        let minutes = Int((seconds / 60).rounded())
+        return "+ \(minutes) min"
+    }
+
+    private static let sceneWalkSeconds: TimeInterval = 8 * 60
+}
+
+/// Rest-state packing: large plates first. Density is a lean.
+enum ChapterPack {
+    static let readable: CGFloat = 160
+    static let maxPlate: CGFloat = 280
+    static let spacing: CGFloat = 28
+
+    static func columns(
+        count: Int,
+        width: CGFloat,
+        height: CGFloat,
+        leanedColumns: Int?
+    ) -> (columns: Int, plateHeight: CGFloat, allowScroll: Bool) {
+        let count = max(1, count)
+        let usableHeight = max(height, readable)
+        let usableWidth = max(width, readable)
+        if let leaned = leanedColumns {
+            let cols = max(1, min(leaned, count))
+            let rows = rowCount(count: count, columns: cols)
+            let fitted = fittedHeight(rows: rows, height: usableHeight)
+            return (cols, min(maxPlate, max(72, fitted)), fitted < readable)
+        }
+
+        var bestColumns = 1
+        var bestScore: CGFloat = -1
+        var fallbackColumns = 1
+        var fallbackScore: CGFloat = -1
+        for cols in 1...count {
+            let rows = rowCount(count: count, columns: cols)
+            let plateH = fittedHeight(rows: rows, height: usableHeight)
+            let plateW = (usableWidth - spacing * CGFloat(max(0, cols - 1))) / CGFloat(cols)
+            let score = min(plateW, plateH)
+            if score > fallbackScore {
+                fallbackScore = score
+                fallbackColumns = cols
+            }
+            if score >= readable && score > bestScore {
+                bestScore = score
+                bestColumns = cols
+            }
+        }
+        let cols = bestScore >= 0 ? bestColumns : fallbackColumns
+        let rows = rowCount(count: count, columns: cols)
+        let fitted = fittedHeight(rows: rows, height: usableHeight)
+        return (cols, min(maxPlate, max(96, fitted)), fitted < readable)
+    }
+
+    private static func rowCount(count: Int, columns: Int) -> Int {
+        (count + columns - 1) / columns
+    }
+
+    private static func fittedHeight(rows: Int, height: CGFloat) -> CGFloat {
+        (height - spacing * CGFloat(max(0, rows - 1))) / CGFloat(max(1, rows))
+    }
+}
+
+/// Hold-⌘G glance: same plates, ordered by look, release returns to time.
+enum ChapterLookGlance {
+    static func orderedIDs(
+        bursts: [ShootBurst],
+        assets: [AssetRecord],
+        focusedBurstID: String?
+    ) -> [String] {
+        let byID = Dictionary(uniqueKeysWithValues: assets.map { ($0.id, $0) })
+        var embeddings: [String: [Float]] = [:]
+        for burst in bursts {
+            guard let coverID = burst.preferredCoverID(in: assets) ?? burst.coverID,
+                  let asset = byID[coverID],
+                  let path = asset.gridThumbPath ?? asset.thumbPath,
+                  let embedding = EmbeddingService.embed(url: URL(fileURLWithPath: path))
+            else { continue }
+            embeddings[burst.id] = embedding
+        }
+        guard let focusID = focusedBurstID ?? bursts.first?.id,
+              let focusEmb = embeddings[focusID]
+        else {
+            return bursts.map(\.id)
+        }
+        return bursts.sorted { lhs, rhs in
+            let left = embeddings[lhs.id].map { EmbeddingService.l2Distance(focusEmb, $0) }
+                ?? Float.greatestFiniteMagnitude
+            let right = embeddings[rhs.id].map { EmbeddingService.l2Distance(focusEmb, $0) }
+                ?? Float.greatestFiniteMagnitude
+            if left != right { return left < right }
+            return lhs.id < rhs.id
+        }.map(\.id)
     }
 }

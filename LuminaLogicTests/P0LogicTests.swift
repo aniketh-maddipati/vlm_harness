@@ -362,6 +362,15 @@ final class P0LogicTests: XCTestCase {
         XCTAssertFalse(P0EscLadder.handle(session: session))
     }
 
+    func testEscLadderEndsLookGlanceBeforeGrouping() {
+        let session = P0SessionModel()
+        session.route = .contactSheet
+        session.lookGlancing = true
+        XCTAssertTrue(P0EscLadder.handle(session: session))
+        XCTAssertFalse(session.lookGlancing)
+        XCTAssertEqual(session.route, .contactSheet)
+    }
+
     // MARK: - Open-surface shoot ranking
 
     func testOpenShootArrangementResumeAndImpact() {
@@ -551,5 +560,116 @@ final class P0LogicTests: XCTestCase {
         XCTAssertEqual(session.activeChapterID, session.chapters[1].id)
         XCTAssertEqual(session.focusedAssetID, later)
         XCTAssertEqual(session.visibleItems.map(\.id), [later])
+    }
+
+    func testChapterArrangementWalkPauseSplitsWhenMedianIsLarge() {
+        let assets = [0.0, 5 * 60, 10 * 60, 20 * 60].map { datedAsset(id: UUID(), offset: $0) }
+        let chapters = ShootChapterArrangement.arrange(assets)
+        XCTAssertEqual(chapters.count, 2, "10 min walk splits when the median gap is already minutes")
+        XCTAssertEqual(chapters[0].assetIDs.count, 3)
+        XCTAssertEqual(chapters[1].assetIDs.count, 1)
+    }
+
+    func testRodGapsGrowWithElapsedTime() {
+        let assets = [0.0, 10 * 60, 50 * 60].map { datedAsset(id: UUID(), offset: $0) }
+        let chapters = ShootChapterArrangement.arrange(assets)
+        XCTAssertEqual(chapters.count, 3)
+        let gaps = ChapterRodLayout.gaps(between: chapters)
+        XCTAssertEqual(gaps.count, 2)
+        XCTAssertGreaterThan(gaps[1], gaps[0])
+        XCTAssertNotNil(ChapterRodLayout.elapsedLabel(seconds: 10 * 60))
+        XCTAssertNil(ChapterRodLayout.elapsedLabel(seconds: 90))
+    }
+
+    func testChapterPackPrefersReadablePlatesUntilLeaned() {
+        let rest = ChapterPack.columns(count: 3, width: 900, height: 700, leanedColumns: nil)
+        XCTAssertLessThanOrEqual(rest.columns, 3)
+        XCTAssertGreaterThanOrEqual(rest.plateHeight, ChapterPack.readable)
+
+        let leaned = ChapterPack.columns(count: 40, width: 900, height: 700, leanedColumns: 8)
+        XCTAssertEqual(leaned.columns, 8)
+        XCTAssertLessThan(leaned.plateHeight, ChapterPack.readable)
+    }
+
+    func testKeepFocusedBurstRejectsRestAndOneUndoRestores() {
+        let keeper = UUID()
+        let sibling = UUID()
+        let later = UUID()
+        let session = P0SessionModel()
+        session.assets = [
+            datedAsset(id: keeper, offset: 0),
+            datedAsset(id: sibling, offset: 3),
+            datedAsset(id: later, offset: 46 * 60),
+        ]
+        session.focusedAssetID = keeper
+        session.reconcileActiveChapter()
+        XCTAssertEqual(session.chapters.count, 2)
+
+        session.keepFocusedBurst()
+        XCTAssertEqual(session.assets.first { $0.id == keeper }?.cull, .keep)
+        XCTAssertEqual(session.assets.first { $0.id == sibling }?.cull, .reject)
+        XCTAssertEqual(session.assets.first { $0.id == later }?.cull, .undecided)
+        XCTAssertEqual(session.keptRailAssets.map(\.id), [keeper])
+        XCTAssertEqual(session.activeChapterID, session.chapters[1].id)
+        XCTAssertEqual(session.undoLabel, "Undo Keep burst")
+
+        session.undoLast()
+        XCTAssertEqual(session.assets.first { $0.id == keeper }?.cull, .undecided)
+        XCTAssertEqual(session.assets.first { $0.id == sibling }?.cull, .undecided)
+        XCTAssertTrue(session.keptRailAssets.isEmpty)
+        XCTAssertEqual(session.activeChapterID, session.chapters[0].id)
+        XCTAssertEqual(session.focusedAssetID, keeper)
+    }
+
+    func testLookGlanceBeginAndEndReturnsToTime() {
+        let first = UUID()
+        let second = UUID()
+        let session = P0SessionModel()
+        session.assets = [
+            datedAsset(id: first, offset: 0),
+            datedAsset(id: second, offset: 3),
+        ]
+        session.focusedAssetID = first
+        session.reconcileActiveChapter()
+        session.beginLookGlance()
+        XCTAssertTrue(session.lookGlancing)
+        XCTAssertEqual(session.glanceBurstIDs.count, 2)
+        session.endLookGlance()
+        XCTAssertFalse(session.lookGlancing)
+        XCTAssertTrue(session.glanceBurstIDs.isEmpty)
+    }
+
+    func testLeanIntoBurstThenEscReturnsToChapter() {
+        let ids = (0..<4).map { _ in UUID() }
+        let session = P0SessionModel()
+        session.assets = ids.enumerated().map { index, id in
+            datedAsset(id: id, offset: Double(index) * 0.4)
+        }
+        session.focusedAssetID = ids[0]
+        session.reconcileActiveChapter()
+        XCTAssertEqual(session.focusedBurst?.frameCount, 4)
+
+        session.activateFocusedPhotograph()
+        XCTAssertEqual(session.leanedBurstID, session.focusedBurst?.id)
+        XCTAssertNil(session.inspectingAssetID)
+
+        XCTAssertTrue(P0EscLadder.handle(session: session))
+        XCTAssertNil(session.leanedBurstID)
+        XCTAssertNil(session.inspectingAssetID)
+    }
+
+    func testActivateSingletonOpensInspect() {
+        let first = UUID()
+        let second = UUID()
+        let session = P0SessionModel()
+        session.assets = [
+            datedAsset(id: first, offset: 0),
+            datedAsset(id: second, offset: 3),
+        ]
+        session.focusedAssetID = first
+        session.reconcileActiveChapter()
+        session.activateFocusedPhotograph()
+        XCTAssertEqual(session.inspectingAssetID, first)
+        XCTAssertNil(session.leanedBurstID)
     }
 }

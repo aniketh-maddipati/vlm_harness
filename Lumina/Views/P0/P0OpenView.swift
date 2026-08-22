@@ -113,7 +113,7 @@ struct P0OpenView: View {
         VStack(alignment: .leading, spacing: LuminaTokens.Spacing.section) {
             if let resume = arrangement.resume {
                 shootBand(title: "Continue") {
-                    OpenShootRow(shoot: resume, weight: .resume) {
+                    OpenShootPlate(shoot: resume, weight: .resume) {
                         session.openRecent(resume)
                     }
                 }
@@ -121,9 +121,15 @@ struct P0OpenView: View {
 
             if !arrangement.largerSets.isEmpty {
                 shootBand(title: "Larger sets") {
-                    VStack(spacing: 10) {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: ChapterPack.spacing),
+                            GridItem(.flexible(), spacing: ChapterPack.spacing),
+                        ],
+                        spacing: ChapterPack.spacing
+                    ) {
                         ForEach(arrangement.largerSets) { shoot in
-                            OpenShootRow(shoot: shoot, weight: .larger) {
+                            OpenShootPlate(shoot: shoot, weight: .larger) {
                                 session.openRecent(shoot)
                             }
                         }
@@ -133,9 +139,16 @@ struct P0OpenView: View {
 
             if !arrangement.smaller.isEmpty {
                 shootBand(title: nil) {
-                    VStack(spacing: 2) {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: 16),
+                            GridItem(.flexible(), spacing: 16),
+                            GridItem(.flexible(), spacing: 16),
+                        ],
+                        spacing: 16
+                    ) {
                         ForEach(arrangement.smaller) { shoot in
-                            OpenShootRow(shoot: shoot, weight: .smaller) {
+                            OpenShootPlate(shoot: shoot, weight: .smaller) {
                                 session.openRecent(shoot)
                             }
                         }
@@ -173,7 +186,7 @@ struct P0OpenView: View {
     }
 }
 
-private struct OpenShootRow: View {
+private struct OpenShootPlate: View {
     enum Weight {
         case resume
         case larger
@@ -186,30 +199,30 @@ private struct OpenShootRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .firstTextBaseline, spacing: LuminaTokens.Spacing.md) {
-                VStack(alignment: .leading, spacing: weight == .smaller ? 2 : 6) {
-                    Text(shoot.name)
-                        .font(titleFont)
-                        .foregroundStyle(LuminaTokens.Ink.primary)
-                        .lineLimit(1)
+            VStack(alignment: .leading, spacing: weight == .smaller ? 6 : 10) {
+                Text(shoot.name)
+                    .font(titleFont)
+                    .foregroundStyle(LuminaTokens.Ink.primary)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+                HStack(alignment: .firstTextBaseline) {
                     Text(subtitle)
                         .font(LuminaTokens.Typeface.meta(weight == .resume ? 13 : 12))
                         .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    Spacer(minLength: 8)
+                    Text("\(shoot.assetCount)")
+                        .font(countFont)
+                        .foregroundStyle(weight == .smaller ? LuminaTokens.Ink.tertiary : LuminaTokens.Ink.primary)
+                        .monospacedDigit()
                 }
-                Spacer(minLength: 12)
-                Text("\(shoot.assetCount)")
-                    .font(countFont)
-                    .foregroundStyle(weight == .smaller ? LuminaTokens.Ink.tertiary : LuminaTokens.Ink.primary)
-                    .monospacedDigit()
             }
-            .padding(.horizontal, weight == .smaller ? 4 : LuminaTokens.Spacing.md)
-            .padding(.vertical, verticalPadding)
+            .padding(weight == .smaller ? 12 : LuminaTokens.Spacing.md)
             .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
             .background(fill)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
-        .buttonStyle(LuminaQuietButtonStyle())
+        .buttonStyle(LuminaPlatePressStyle())
         .accessibilityIdentifier(P0AccessibilityID.recentShoot(shoot.name))
         .accessibilityLabel("\(shoot.name), \(shoot.assetCount) photographs")
     }
@@ -232,24 +245,16 @@ private struct OpenShootRow: View {
 
     private var minHeight: CGFloat {
         switch weight {
-        case .resume: 88
-        case .larger: 64
-        case .smaller: LuminaTokens.HitTarget.minimum
-        }
-    }
-
-    private var verticalPadding: CGFloat {
-        switch weight {
-        case .resume: LuminaTokens.Spacing.md
-        case .larger: LuminaTokens.Spacing.sm
-        case .smaller: 8
+        case .resume: 168
+        case .larger: 140
+        case .smaller: 88
         }
     }
 
     private var fill: Color {
         switch weight {
         case .resume, .larger: LuminaTokens.Surface.porcelain
-        case .smaller: Color.clear
+        case .smaller: LuminaTokens.Surface.well.opacity(0.55)
         }
     }
 

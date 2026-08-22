@@ -66,32 +66,6 @@ struct P0ContactSheetView: View {
 
             Spacer(minLength: 12)
 
-            Button {
-                session.enterGrouping()
-            } label: {
-                HStack(spacing: 8) {
-                    Text("Group")
-                        .font(LuminaTokens.Typeface.navigation(14, weight: .medium))
-                    Text("⇧G")
-                        .font(LuminaTokens.Typeface.meta(11, weight: .medium))
-                        .foregroundStyle(LuminaTokens.Ink.tertiary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(LuminaTokens.Surface.mist)
-                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                }
-                .foregroundStyle(LuminaTokens.Ink.primary)
-                .padding(.horizontal, 14)
-                .frame(minHeight: LuminaTokens.HitTarget.minimum)
-                .background(LuminaTokens.Surface.well)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-            .buttonStyle(LuminaQuietButtonStyle())
-            .accessibilityLabel("Open grouping")
-            .accessibilityHint("Shift G")
-            .disabled(session.inspectingAssetID != nil)
-
             if session.exportCount > 0 {
                 Text("\(session.exportCount) export")
                     .font(LuminaTokens.Typeface.meta(12))
@@ -145,12 +119,12 @@ struct P0ContactSheetView: View {
             .buttonStyle(LuminaQuietButtonStyle())
             .accessibilityLabel("Show more photographs")
             .accessibilityIdentifier(P0AccessibilityID.densityDecrease)
-            Text("\(session.densityColumns)")
+            Text(session.densityLeaned ? "\(session.densityColumns)" : "Fit")
                 .font(LuminaTokens.Typeface.meta(12))
                 .foregroundStyle(LuminaTokens.Ink.tertiary)
                 .frame(minWidth: 16)
                 .accessibilityIdentifier(P0AccessibilityID.densityValue)
-                .accessibilityValue("\(session.densityColumns)")
+                .accessibilityValue(session.densityLeaned ? "\(session.densityColumns)" : "Fit")
             Button { session.adjustDensity(-1) } label: {
                 Text("+").frame(width: hit, height: hit).contentShape(Rectangle())
             }

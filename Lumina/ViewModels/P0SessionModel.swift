@@ -83,6 +83,20 @@ final class P0SessionModel {
     var activeChapterID: String?
     var selectedAssetIDs: Set<UUID> = []
     var densityColumns: Int = 6
+    /// Density is a lean. Rest state packs to leftover height.
+    var densityLeaned: Bool = false
+    /// Hold-Space loupe — release returns.
+    var holdingLoupe: Bool = false
+    /// Hold-J clipping glance — release returns.
+    var holdingClipping: Bool = false
+    /// Hold-⌘G look glance — release returns to time.
+    var lookGlancing: Bool = false
+    var glanceBurstIDs: [String] = []
+    /// Return / pinch opens a multi-frame burst to pick a frame.
+    var leanedBurstID: String?
+    /// Tab / click walks the kept rail instead of the chapter.
+    var walkingKeptRail: Bool = false
+    var travelingBurstID: String?
     var filter: GridFilter = .all
     var scrollAnchor: Double = 0
     var userFacingError: String?
@@ -360,6 +374,9 @@ final class P0SessionModel {
             installCullGrammarFromSession()
         case .edit(let command):
             applyEditUndo(command)
+        case .chapterKeep(let command):
+            applyChapterKeepUndo(command)
+            installCullGrammarFromSession()
         }
     }
 
@@ -916,10 +933,16 @@ final class P0SessionModel {
             return
         }
 
+        if walkingKeptRail, dx != 0 {
+            walkKeptRail(dx)
+            return
+        }
+
         let list = chapters
         guard let chapter = activeChapter else { return }
 
         if dy != 0 {
+            walkingKeptRail = false
             guard let index = list.firstIndex(where: { $0.id == chapter.id }) else { return }
             let next = index + dy
             guard list.indices.contains(next) else { return }
@@ -928,7 +951,16 @@ final class P0SessionModel {
         }
 
         guard dx != 0 else { return }
-        let bursts = chapter.bursts
+
+        if let leaned = leanedBurst, leaned.frameCount > 1 {
+            let covers = leaned.frames.map(\.coverID)
+            let current = focusedAssetID.flatMap { id in covers.firstIndex(of: id) } ?? 0
+            let next = min(max(current + dx, 0), covers.count - 1)
+            setFocus(covers[next])
+            return
+        }
+
+        let bursts = displayedBursts(in: chapter)
         guard !bursts.isEmpty else { return }
         let currentBurst = bursts.firstIndex { burst in
             focusedAssetID.map { burst.assetIDs.contains($0) } ?? false
@@ -972,9 +1004,211 @@ final class P0SessionModel {
         return selectedAssetIDs.contains(id)
     }
 
+    var focusedBurst: ShootBurst? {
+        guard let focus = focusedAssetID, let chapter = activeChapter else { return nil }
+        return chapter.bursts.first { $0.assetIDs.contains(focus) }
+    }
+
+    var leanedBurst: ShootBurst? {
+        guard let leanedBurstID else { return nil }
+        return activeChapter?.bursts.first { $0.id == leanedBurstID }
+            ?? chapters.flatMap(\.bursts).first { $0.id == leanedBurstID }
+    }
+
+    var keptRailAssets: [AssetRecord] {
+        assets.filter { $0.cull == .keep }
+    }
+
+    func displayedBursts(in chapter: ShootChapter) -> [ShootBurst] {
+        var bursts = chapter.bursts.filter { $0.boardRole(in: assets) != .gone }
+        if lookGlancing, !glanceBurstIDs.isEmpty {
+            let rank = Dictionary(uniqueKeysWithValues: glanceBurstIDs.enumerated().map { ($0.element, $0.offset) })
+            bursts.sort { lhs, rhs in
+                (rank[lhs.id] ?? Int.max) < (rank[rhs.id] ?? Int.max)
+            }
+        }
+        return bursts
+    }
+
+    func keepFocusedBurst() {
+        guard inspectingAssetID == nil else { return }
+        guard let chapter = activeChapter, let burst = focusedBurst else { return }
+        let orderBefore = shoot?.finalSetOrder.assetIDs ?? []
+        let chapterBefore = chapter.id
+        let focusBefore = focusedAssetID
+        var marks: [ChapterKeepCommand.Mark] = []
+
+        func apply(_ id: UUID, _ after: CullDecision) {
+            guard let index = assets.firstIndex(where: { $0.id == id }) else { return }
+            let before = assets[index].cull
+            guard before != after else { return }
+            marks.append(ChapterKeepCommand.Mark(assetID: id, before: before, after: after))
+            assets[index].cull = after
+            assets[index].userDecidedAt = after == .undecided ? nil : Date()
+        }
+
+        for id in burst.assetIDs { apply(id, .keep) }
+        for other in chapter.bursts where other.id != burst.id {
+            for id in other.assetIDs { apply(id, .reject) }
+        }
+        guard !marks.isEmpty else { return }
+
+        var orderAfter = orderBefore
+        if var shoot {
+            var order = shoot.finalSetOrder
+            let keptIDs = assets.filter { $0.cull == .keep }.map(\.id)
+            order.reconcileKeptMembership(keptIDsInChronologicalOrder: keptIDs)
+            orderAfter = order.assetIDs
+            shoot.finalSetOrder = order
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+
+        travelingBurstID = burst.id
+        undoCoordinator.push(
+            ChapterKeepCommand(
+                marks: marks,
+                finalOrderBefore: orderBefore,
+                finalOrderAfter: orderAfter,
+                chapterBefore: chapterBefore,
+                focusBefore: focusBefore,
+                burstID: burst.id
+            )
+        )
+        for mark in marks {
+            journalCullCommit(
+                CullMutationCommand(
+                    assetID: mark.assetID,
+                    before: mark.before,
+                    after: mark.after,
+                    finalOrderBefore: orderBefore,
+                    finalOrderAfter: orderAfter
+                )
+            )
+        }
+        persistShootImmediately()
+        advanceIfChapterEmpty(from: chapterBefore)
+    }
+
+    private func applyChapterKeepUndo(_ command: ChapterKeepCommand) {
+        for mark in command.marks {
+            guard let index = assets.firstIndex(where: { $0.id == mark.assetID }) else { continue }
+            assets[index].cull = mark.before
+            assets[index].userDecidedAt = mark.before == .undecided ? nil : Date()
+        }
+        if var shoot {
+            shoot.finalSetOrder.assetIDs = command.finalOrderBefore
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+        travelingBurstID = nil
+        walkingKeptRail = false
+        if let chapterID = command.chapterBefore {
+            selectChapter(chapterID, focus: .firstUndecided)
+        }
+        if let focus = command.focusBefore {
+            setFocus(focus)
+        }
+        persistShootImmediately()
+    }
+
+    private func advanceIfChapterEmpty(from chapterID: String) {
+        let list = chapters
+        guard let chapter = list.first(where: { $0.id == chapterID }) else { return }
+        let hasWork = chapter.bursts.contains { $0.boardRole(in: assets) == .plate }
+        guard !hasWork else { return }
+        if let next = list.drop(while: { $0.id != chapterID }).dropFirst().first(where: { candidate in
+            candidate.bursts.contains { $0.boardRole(in: assets) == .plate }
+        }) {
+            selectChapter(next.id)
+        }
+    }
+
+    func activateFocusedPhotograph() {
+        guard inspectingAssetID == nil else { return }
+        guard let burst = focusedBurst else {
+            openFocusedPhotograph()
+            return
+        }
+        if leanedBurstID == burst.id || burst.frameCount <= 1 {
+            openFocusedPhotograph()
+        } else {
+            leanIntoBurst(burst.id)
+        }
+    }
+
+    func leanIntoBurst(_ id: String) {
+        leanedBurstID = id
+        if let burst = chapters.flatMap(\.bursts).first(where: { $0.id == id }) {
+            let covers = burst.frames.map(\.coverID)
+            let undecided = covers.first { cover in
+                assets.first(where: { $0.id == cover })?.cull == .undecided
+            }
+            setFocus(undecided ?? covers.first ?? burst.coverID)
+        }
+    }
+
+    func leaveBurstLean() {
+        leanedBurstID = nil
+    }
+
+    func beginLookGlance() {
+        guard inspectingAssetID == nil, let chapter = activeChapter else { return }
+        lookGlancing = true
+        glanceBurstIDs = ChapterLookGlance.orderedIDs(
+            bursts: chapter.bursts.filter { $0.boardRole(in: assets) != .gone },
+            assets: assets,
+            focusedBurstID: focusedBurst?.id
+        )
+    }
+
+    func endLookGlance() {
+        lookGlancing = false
+        glanceBurstIDs = []
+    }
+
+    func setHoldingLoupe(_ holding: Bool) {
+        holdingLoupe = holding
+    }
+
+    func setHoldingClipping(_ holding: Bool) {
+        holdingClipping = holding
+    }
+
+    func toggleKeptRailWalk() {
+        if walkingKeptRail {
+            walkingKeptRail = false
+            return
+        }
+        guard !keptRailAssets.isEmpty else { return }
+        walkingKeptRail = true
+        if let first = keptRailAssets.first {
+            focusedAssetID = first.id
+        }
+    }
+
+    func focusKeptAsset(_ id: UUID) {
+        walkingKeptRail = true
+        setFocus(id)
+    }
+
+    private func walkKeptRail(_ dx: Int) {
+        let kept = keptRailAssets
+        guard !kept.isEmpty else {
+            walkingKeptRail = false
+            return
+        }
+        let current = focusedAssetID.flatMap { id in kept.firstIndex(where: { $0.id == id }) } ?? 0
+        let next = min(max(current + dx, 0), kept.count - 1)
+        focusedAssetID = kept[next].id
+    }
+
     func openFocusedPhotograph() {
         guard let id = focusedAssetID ?? selectedAssetIDs.first else { return }
         schedulePersistRestore()
+        leanedBurstID = nil
+        walkingKeptRail = false
+        lookGlancing = false
         inspectingAssetID = id
         focusedAssetID = id
         expandedAdjustmentSection = .light
@@ -1024,6 +1258,7 @@ final class P0SessionModel {
     }
 
     func adjustDensity(_ delta: Int) {
+        densityLeaned = true
         densityColumns = min(12, max(2, densityColumns + delta))
         schedulePersistRestore()
     }
@@ -1053,6 +1288,14 @@ final class P0SessionModel {
         activeChapterID = nil
         selectedAssetIDs = []
         inspectingAssetID = nil
+        densityLeaned = false
+        holdingLoupe = false
+        holdingClipping = false
+        lookGlancing = false
+        glanceBurstIDs = []
+        leanedBurstID = nil
+        walkingKeptRail = false
+        travelingBurstID = nil
         showingBefore = false
         clearGestureState()
         undoCoordinator.clear()
