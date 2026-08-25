@@ -72,8 +72,8 @@ Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on 
 - `Scripts/regression.sh` — lint + build + logic tests + E2E runner
 - `Scripts/harness/lint/` — banned-word, copy-contract, and structure checks (FAST lane manifest ids)
 - `Scripts/e2e_audit.swift` — headless macOS audit script
-- `README.md` — collaborator setup (Mac + bootstrap + open a folder or card)
-- `Scripts/bootstrap.sh` — Xcode / Homebrew / exiftool check for a first run
+- `README.md` — collaborator setup (clone, bootstrap, open a folder or card)
+- `Scripts/bootstrap.sh` — Mac first run: Xcode / Homebrew / exiftool, then a Lumina Debug build into `.derivedData` and `open` the app. `bash Scripts/bootstrap.sh --dev` also builds LuminaPlayground (Inject) and checks InjectionIII
 - `BUILD_LOG.md` — build history and verification notes
 
 ### External dependency
