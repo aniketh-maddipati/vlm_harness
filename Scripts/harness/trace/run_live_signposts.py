@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """STUB (F2): Live acceptance signpost capture — Swift-on-macOS REQUIRED.
 
-owned-by-SPIKE-A — os_signpost emission is Swift (`AcceptanceSignposts`);
+owned-by-SPIKE-A — os_signpost emission is Swift (not wired);
 this orchestrator collects a measured trace and writes a gates_active ledger.
 Until wired, acceptance numbers remain UNMEASURED (F4).
 """

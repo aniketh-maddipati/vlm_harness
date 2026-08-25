@@ -110,7 +110,7 @@ Ingest that writes the JPEGs the sheet reads is included. Chrome-only files on t
 
 ### Legacy-reachable (door only — do not measure as the default path)
 
-W8 register in `design/strategy/legacy-disposition.md` still matches the door: `P0LegacyShellDoor.swift` → `ContentViewLegacyHost` → `LuminaShellView` + `ImportLoadingView`. Photograph surfaces behind that door include `PhotoGridView`, `ProgressivePhotoWall`, `MetalBrowseCanvas`, `SpeedBrowseViewer`, `ContinuousWorkspaceView`, `TreatmentStageView`, `StablePhotoView`. They are out of scope for Parts 2–3.
+W8 register in `design/strategy/legacy-disposition.md` still matches the door: `P0LegacyShellDoor.swift` → `ContentViewLegacyHost` → `LuminaShellView` + `ImportLoadingView`. Photograph surfaces behind that door include `ProgressivePhotoWall`, `MetalBrowseCanvas`, `SpeedBrowseViewer`, `ContinuousWorkspaceView`, `TreatmentStageView`, `StablePhotoView`. They are out of scope for Parts 2–3.
 
 ### Dead
 
@@ -186,7 +186,7 @@ Question: Without `NSCollectionViewPrefetching`, which items does the collection
 **B2 — `reloadData` call sites**  
 Live path: **2** sites, both in `ContactSheetCollection.swift` `apply` — L455 and L470 — when item IDs change and the prefix-compatible incremental insert (L460–467) does not apply. Threshold at L453: `oldCount == 0 || abs(newIDs.count - oldCount) > 40 || !prefixOK`.  
 Comment at L477: “Cull / focus / selection — chrome only; never reloadData for one-cell decisions.”  
-Legacy: `PhotoGridView.swift` L77 — out of scope.  
+Legacy `PhotoGridView` (reloadData at L77) was deleted; zero callers.  
 Structural cost: full data-source reload + async scroll restore (L456–458, L471–473).  
 Question: On incremental ingest after the first 40 IDs, which branch runs — `insertItems` or `reloadData` — and does `reloadData` recreate visible `NSImageView`s?
 
@@ -194,7 +194,7 @@ Question: On incremental ingest after the first 40 IDs, which branch runs — `i
 Live path: **1** site — `densityColumns` `didSet` at L375 (`updateRowHeight(); layout.invalidateLayout()`). `apply` also assigns `densityColumns` (L447), so every representable update that changes density invalidates.  
 Pinch: `handleMagnify` L624–637 accumulates magnification and calls `onDensityDelta` at ±0.25, which is `adjustDensity` (`P0SessionModel.swift` L931–932: clamp 2…12). Each step assignment hits the `didSet`.  
 `shouldInvalidateLayout(forBoundsChange:)` L112–114 invalidates when width changes by more than 0.5.  
-Legacy: `PhotoGridView.swift` L66 — out of scope.  
+Legacy `PhotoGridView` (invalidateLayout at L66) was deleted; zero callers.  
 Structural cost: layout invalidation of the custom `ContactSheetLayout` (L73–102 rebuilds all attributes).  
 Question: During a pinch gesture, how many `invalidateLayout` / `prepare` cycles fire per named density step? (Named step list is open question #7 — not named here.)
 
@@ -326,7 +326,7 @@ Question: Confirm none of those 5 sites appear in a default-launch Instruments t
 
 **E2 — `NSCollectionView` on the live path**  
 **1** live site: `ContactSheetCollectionView` / `ContactSheetCollectionController` (`ContactSheetCollection.swift` L350, L366).  
-Legacy `PhotoGridView` also hosts one — out of scope.
+Legacy `PhotoGridView` was deleted (zero callers).
 
 **E3 — Filmstrip is not a collection view**  
 `P0SinglePhotoEditor.swift` L292–311: `ScrollView` + `HStack` + `ForEach` of up to 29 items. Not `LazyHStack`.  
@@ -520,11 +520,9 @@ rg -n "CVDisplayLink|CADisplayLink|CAMetalDisplayLink" Lumina --glob '*.swift'
 rg -n "reloadData\(" Lumina --glob '*.swift'
 Lumina/Views/P0/ContactSheetCollection.swift:455
 Lumina/Views/P0/ContactSheetCollection.swift:470
-Lumina/Views/PhotoGridView.swift:77
 
 rg -n "invalidateLayout\(" Lumina --glob '*.swift'
 Lumina/Views/P0/ContactSheetCollection.swift:375
-Lumina/Views/PhotoGridView.swift:66
 
 rg -n "LazyVGrid" Lumina --glob '*.swift'
 5 sites, none under Lumina/Views/P0

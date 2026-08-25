@@ -35,6 +35,3 @@ Lumina/Views/Components/WorkspaceChrome.swift AttemptFilmstrip
 Lumina/Views/Components/WorkspaceChrome.swift GroupRelationshipCaption
 Lumina/Views/Components/WorkspaceChrome.swift LensSwitcher
 Lumina/Views/Components/WorkspaceChrome.swift LuminaCard
-Lumina/Views/Components/WorkspaceCommandBar.swift LuminaCommandButton
-Lumina/Views/Components/WorkspaceCommandBar.swift LuminaCommandPressStyle
-Lumina/Views/Components/WorkspaceCommandBar.swift WorkspaceCommandBar

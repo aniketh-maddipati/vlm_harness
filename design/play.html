@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lumina · flows</title>
+  <style>
+    :root {
+      --ink: #2E2E2C;
+      --subink: #8A857E;
+      --parchment: #F2EFE9;
+      --shell: #F6F4F0;
+      --mist: #F3F3F2;
+      --plate: #8D8C8A;
+      --keep: #9CC355;
+      --reject: #AD2111;
+      --halo: #FFECCD;
+      --focus: #2E2E2C;
+      --font: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--parchment); color: var(--ink); font-family: var(--font); }
+    body { min-height: 100vh; }
+    button { font-family: inherit; }
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 24px 64px;
+    }
+    h1 { font-weight: 500; font-size: 28px; letter-spacing: -0.03em; margin: 0 0 6px; }
+    .lede { color: var(--subink); font-size: 14.5px; line-height: 1.6; margin: 0 0 28px; max-width: 720px; }
+    .lede code { font-size: 12.5px; background: #fff; padding: 1px 6px; border-radius: 4px; }
+    section { margin-bottom: 28px; }
+    section > h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--subink); margin: 0 0 12px; }
+
+    .seq {
+      background: #fff;
+      border: 1px solid rgba(46,46,44,0.12);
+      border-radius: 12px;
+      padding: 16px 12px 8px;
+      overflow-x: auto;
+    }
+    .seq svg { display: block; width: 720px; max-width: 100%; height: auto; }
+    .seq text { font-family: var(--font); }
+    .seq .hit { cursor: pointer; pointer-events: all; }
+    .seq .hit:hover rect { fill: var(--halo); }
+    .seq .hit.active rect { fill: var(--ink); }
+    .seq .hit.active text { fill: #F6F4F0; }
+    .seq .hit rect { fill: var(--shell); stroke: rgba(46,46,44,0.14); pointer-events: all; }
+    .seq .hit text { pointer-events: none; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+
+    .window {
+      background: var(--mist);
+      border-radius: 12px;
+      min-height: 560px;
+      box-shadow: 0 1px 0 rgba(46,46,44,0.06), 0 18px 40px rgba(46,46,44,0.08);
+      overflow: hidden;
+      position: relative;
+      outline: none;
+    }
+    .window:focus { box-shadow: 0 0 0 2px var(--ink), 0 18px 40px rgba(46,46,44,0.08); }
+    .chrome {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 18px;
+      border-bottom: 1px solid rgba(46,46,44,0.08);
+    }
+    .brand { font-size: 20px; font-weight: 500; letter-spacing: -0.03em; }
+    .banner { font-size: 13px; color: var(--subink); flex: 1; }
+    .surface { padding: 28px 32px 24px; min-height: 420px; }
+
+    .hero-title { font-size: 36px; font-weight: 400; letter-spacing: -0.03em; margin: 0 0 10px; }
+    .body { font-size: 17px; color: #676767; line-height: 1.5; margin: 0 0 8px; }
+    .meta { font-size: 13px; color: #969696; margin: 0 0 18px; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .btn {
+      appearance: none;
+      border: 0;
+      background: var(--ink);
+      color: #F6F4F0;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .btn.quiet { background: transparent; color: var(--ink); border: 1px solid rgba(46,46,44,0.18); }
+    .drop {
+      margin-top: 22px;
+      height: 120px;
+      border: 1px dashed rgba(46,46,44,0.28);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #969696;
+      font-size: 13px;
+      background: rgba(255,255,255,0.5);
+    }
+
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .cell {
+      position: relative;
+      aspect-ratio: 3 / 2;
+      border-radius: 6px;
+      background: var(--plate);
+      cursor: pointer;
+    }
+    .cell:nth-child(2) { background: #C77E3F; }
+    .cell:nth-child(3) { background: #3C3836; }
+    .cell:nth-child(5) { background: #6B6560; }
+    .cell:nth-child(6) { background: #A3927E; }
+    .cell:nth-child(7) { background: #4A4844; }
+    .cell:nth-child(8) { background: #B7A18A; }
+    .cell.cut { opacity: 0.5; }
+    .cell.focused { box-shadow: inset 0 0 0 3px var(--focus); }
+    .cell.halo { box-shadow: inset 0 0 0 3px var(--focus), 0 0 0 1.5px var(--halo); }
+    .mark {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      background: #fff;
+    }
+    .mark.keep { color: var(--ink); }
+    .mark.cut { color: var(--reject); }
+    .ptr {
+      position: absolute;
+      left: 8px;
+      bottom: 8px;
+      display: none;
+      gap: 6px;
+    }
+    .cell.focused .ptr { display: flex; }
+    .ptr button {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      border: 0;
+      background: rgba(246,244,240,0.92);
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .edit {
+      display: grid;
+      grid-template-columns: 1fr 252px;
+      gap: 18px;
+      min-height: 380px;
+    }
+    .hero {
+      background: #3C3836;
+      border-radius: 8px;
+      position: relative;
+      min-height: 360px;
+      overflow: hidden;
+    }
+    .hero.crop .matte {
+      position: absolute;
+      inset: 0;
+      background: rgba(20,19,18,0.45);
+      pointer-events: none;
+    }
+    .hero.crop .frame {
+      position: absolute;
+      inset: 12% 18%;
+      border: 1.5px solid var(--halo);
+      box-shadow: 0 0 0 999px rgba(20,19,18,0.45);
+      pointer-events: none;
+    }
+    .hero.crop.portrait .frame { inset: 8% 28%; }
+    .hero.crop.free .frame { border-style: dashed; }
+    .hero.crop .gridlines {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to right, rgba(246,244,240,0.28) 1px, transparent 1px) 0 0 / 33.33% 100%,
+        linear-gradient(to bottom, rgba(246,244,240,0.28) 1px, transparent 1px) 0 0 / 100% 33.33%;
+      pointer-events: none;
+    }
+    .rail { font-size: 13px; color: var(--subink); }
+    .rail .control { padding: 8px 0; border-bottom: 1px solid rgba(46,46,44,0.08); display: flex; justify-content: space-between; }
+    .rail .control.armed { box-shadow: inset 3px 0 0 var(--ink); padding-left: 8px; }
+
+    .chip {
+      position: absolute;
+      left: 24px;
+      bottom: 72px;
+      background: #fff;
+      border: 1px solid rgba(46,46,44,0.12);
+      border-radius: 10px;
+      padding: 12px 14px;
+      max-width: 320px;
+      box-shadow: 0 8px 24px rgba(46,46,44,0.1);
+    }
+    .chip h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+    .chip p { margin: 0 0 10px; font-size: 13px; color: var(--subink); }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(246,244,240,0.72);
+      display: grid;
+      place-items: center;
+    }
+    .receipt {
+      background: #fff;
+      padding: 22px 24px;
+      border-radius: 12px;
+      min-width: 280px;
+      box-shadow: 0 18px 40px rgba(46,46,44,0.12);
+    }
+
+    .footer {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 18px;
+      font-size: 12px;
+      color: var(--subink);
+      border-top: 1px solid rgba(46,46,44,0.08);
+    }
+    .help-btn {
+      appearance: none;
+      border: 1px solid rgba(46,46,44,0.18);
+      background: #fff;
+      color: var(--ink);
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      flex: none;
+    }
+    .help-btn[aria-pressed="true"] { background: var(--ink); color: #F6F4F0; }
+    .hold {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(20,19,18,0.28);
+      color: #F6F4F0;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+      pointer-events: none;
+    }
+
+    .side { background: #fff; border-radius: 12px; padding: 16px 16px 12px; border: 1px solid rgba(46,46,44,0.12); }
+    .side h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--subink); margin: 0 0 10px; }
+    .side p { font-size: 13px; line-height: 1.5; color: var(--subink); margin: 0 0 12px; }
+    .keys { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .keys td { padding: 5px 0; border-bottom: 1px solid rgba(46,46,44,0.06); vertical-align: top; }
+    .keys td:first-child { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; width: 92px; color: var(--ink); }
+    .note { font-size: 12px; color: var(--subink); margin-top: 12px; line-height: 1.45; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Lumina</h1>
+    <p class="lede">
+      Browser mock of the live path. Not the Mac app. Click a step in the sequence, or click the window and use the same keys.
+      Open this file anytime: <code>open design/play.html</code>
+    </p>
+
+    <section>
+      <h2>Sequence</h2>
+      <div class="seq" id="seq"></div>
+    </section>
+
+    <div class="layout">
+      <div>
+        <section>
+          <h2>Window</h2>
+          <div class="window" id="win" tabindex="0" aria-label="Lumina mock">
+            <div class="chrome">
+              <div class="brand">Lumina</div>
+              <div class="banner" id="banner"></div>
+            </div>
+            <div class="surface" id="surface"></div>
+            <div class="footer">
+              <span id="foot-left">P · X · arrows · ⏎ edit · ? all shortcuts</span>
+              <button type="button" class="help-btn" id="help-btn" aria-label="shortcuts glance" aria-pressed="false">?</button>
+              <span id="foot-right">P keep · X out · ⏎ edit · Space loupe · drag to move</span>
+            </div>
+          </div>
+        </section>
+      </div>
+      <aside class="side">
+        <h2>Now</h2>
+        <p id="now">Open. Point at a folder, drop one, or pick DCIM on a card.</p>
+        <h2>Keys on this surface</h2>
+        <table class="keys" id="keys"></table>
+        <p class="note">Decision keys swallow repeat. Travel keys repeat. Hold Space, J, or ? and release to return. Esc restores space. A and X keep Develop / Reject everywhere, including crop.</p>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const COPY = {
+      drop: "drop photographs or a folder anywhere",
+      nothing: "nothing leaves this computer",
+      grouping: "grouping happens in front of you, in visible motion",
+      footerKeys: "P · X · arrows · ⏎ edit · ? all shortcuts",
+      footerHints: "P keep · X out · ⏎ edit · Space loupe · drag to move",
+      crop: "Crop · ⏎ applies · Esc cancels",
+      adapt: "Adapt → 4  ⏎ · Esc",
+      develop: "Develop this photograph · A",
+      editFoot: "A develop · Tab arms · ⌥←→ adjusts · ⏎ done, next kept · ? all shortcuts",
+      card: "Card ejected early",
+      reinsert: "Reinsert the card",
+      pointed: "Pointed folder moved",
+      folder: "The folder you pointed at is no longer where it was.",
+      pointAgain: "Point at it again",
+      disk: "Disk full",
+      free: "Free space, then retry",
+      damaged: "file damaged — preview only",
+      continuePreview: "Continue with preview",
+      exportHint: "⌥⌘E changes the recipe.",
+      copied: "copying originals · work while it copies",
+      sovereignty: "files stay where they are · edits in open sidecars · this shoot opens in Lightroom as-is",
+      insertCard: "Insert a card — the shoot lands on the table",
+      pointFolder: "Point at a folder ⏎",
+      provenance: "← 8288",
+      exported: (n) => "✓ exported · " + n + " written",
+    };
+
+    const PALETTE = ["#8D8C8A", "#C77E3F", "#3C3836", "#A3927E", "#6B6560", "#B7A18A", "#4A4844", "#9A8B78"];
+
+    function freshFrames() {
+      return PALETTE.map((color, i) => ({
+        id: String(8288 + i),
+        color,
+        mark: null,
+      }));
+    }
+
+    const state = {
+      route: "open",
+      source: null,
+      crop: false,
+      cropFree: false,
+      cropPortrait: false,
+      staged: false,
+      hold: null,
+      failure: null,
+      exportOn: false,
+      armed: 0,
+      focus: 0,
+      frames: freshFrames(),
+      step: "open",
+    };
+
+    function seedCull() {
+      state.frames.forEach((f, i) => { f.mark = i < 6 ? "keep" : "cut"; });
+    }
+
+    function ensureTable() {
+      if (state.route === "open") openSource(state.source || "folder");
+    }
+
+    function goOpen() {
+      Object.assign(state, {
+        route: "open", source: null, crop: false, cropFree: false, cropPortrait: false,
+        staged: false, hold: null, failure: null, exportOn: false, armed: 0, focus: 0,
+        frames: freshFrames(),
+      });
+    }
+
+    function openSource(kind) {
+      state.source = kind;
+      state.route = "table";
+      state.crop = false;
+      state.staged = false;
+      state.exportOn = false;
+      state.failure = null;
+      state.hold = null;
+      if (!state.frames.length) state.frames = freshFrames();
+    }
+
+    function goEdit() {
+      state.route = "edit";
+      state.crop = false;
+    }
+
+    function mark(kind) {
+      const f = state.frames[state.focus];
+      if (!f) return;
+      f.mark = f.mark === kind ? null : kind;
+    }
+
+    function counts() {
+      const kept = state.frames.filter(f => f.mark === "keep").length;
+      const out = state.frames.filter(f => f.mark === "cut").length;
+      const total = state.frames.length;
+      return { kept, out, undecided: total - kept - out, total };
+    }
+
+    function cullHeader() {
+      const c = counts();
+      return c.kept + "/" + c.total + " kept · " + c.out + " out · resume = first undecided frame";
+    }
+
+    const STEPS = [
+      { id: "open", from: "You", to: "Lumina", label: "open the app", apply: () => goOpen() },
+      { id: "folder", from: "You", to: "Lumina", label: "Choose a folder", apply: () => openSource("folder") },
+      { id: "drop", from: "You", to: "Lumina", label: "drop a folder", apply: () => openSource("drop") },
+      { id: "card", from: "You", to: "Lumina", label: "pick DCIM on the card", apply: () => openSource("card") },
+      { id: "read", from: "Lumina", to: "Disk", label: "read files in place", apply: () => openSource(state.source || "folder") },
+      { id: "keep", from: "You", to: "Lumina", label: "P keep", apply: () => { ensureTable(); mark("keep"); } },
+      { id: "cut", from: "You", to: "Lumina", label: "X cut", apply: () => { ensureTable(); mark("cut"); } },
+      { id: "edit", from: "You", to: "Lumina", label: "⏎ edit", apply: () => { ensureTable(); goEdit(); } },
+      { id: "crop", from: "You", to: "Lumina", label: "4 crop · R/O · ⏎ / Esc", apply: () => { ensureTable(); goEdit(); state.crop = true; } },
+      { id: "adapt", from: "You", to: "Lumina", label: "⇧⏎ stage · ⏎ commit", apply: () => { ensureTable(); seedCull(); state.staged = true; } },
+      { id: "export", from: "You", to: "Disk", label: "⌘E write kept frames", apply: () => { ensureTable(); seedCull(); state.exportOn = true; } },
+      { id: "fail", from: "Disk", to: "Lumina", label: "card / folder / disk chip", apply: () => { ensureTable(); seedCull(); state.failure = "card"; } },
+    ];
+
+    let seqReady = false;
+    let hashLock = false;
+
+    function setHash(id) {
+      if (location.hash.slice(1) === id) return;
+      hashLock = true;
+      history.replaceState(null, "", "#" + id);
+      hashLock = false;
+    }
+
+    function setStep(id) {
+      const step = STEPS.find(s => s.id === id);
+      if (!step) return;
+      state.step = id;
+      step.apply();
+      setHash(id);
+      render();
+    }
+
+    function routeFromHash() {
+      const id = location.hash.slice(1);
+      if (!STEPS.some(s => s.id === id)) {
+        render();
+        return;
+      }
+      if (state.step === id && seqReady) {
+        render();
+        return;
+      }
+      setStep(id);
+    }
+
+    function drawSeq() {
+      const root = document.getElementById("seq");
+      if (!seqReady) {
+        const col = { You: 90, Lumina: 360, Disk: 630 };
+        let y = 48;
+        const rows = STEPS.map(s => {
+          const y0 = y;
+        y += 30;
+          return Object.assign({}, s, { y: y0 });
+        });
+        const h = y + 24;
+        const lines = Object.keys(col).map(name => {
+          const x = col[name];
+          return '<text x="' + x + '" y="22" text-anchor="middle" font-size="13" fill="#2E2E2C">' + name + "</text>" +
+            '<line x1="' + x + '" y1="32" x2="' + x + '" y2="' + (h - 8) + '" stroke="#2E2E2C" stroke-opacity="0.18"/>';
+        }).join("");
+        const msgs = rows.map(s => {
+          const x1 = col[s.from];
+          const x2 = col[s.to];
+          const left = Math.min(x1, x2);
+          const width = Math.abs(x2 - x1);
+          return '<g class="hit" data-step="' + s.id + '">' +
+            '<rect x="' + (left + 8) + '" y="' + (s.y - 12) + '" width="' + (width - 16) + '" height="24" rx="6"/>' +
+            '<text x="' + (left + width / 2) + '" y="' + (s.y + 4) + '" text-anchor="middle" font-size="12" fill="#2E2E2C">' + s.label + "</text>" +
+            "</g>";
+        }).join("");
+        root.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 ' + h + '" role="img" aria-label="Possible Lumina flows">' + lines + msgs + "</svg>";
+        root.addEventListener("click", onSeqClick);
+        seqReady = true;
+      }
+      root.querySelectorAll(".hit").forEach(g => {
+        g.classList.toggle("active", g.getAttribute("data-step") === state.step);
+      });
+    }
+
+    function onSeqClick(e) {
+      const hit = e.target.closest("[data-step]");
+      if (!hit) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setStep(hit.getAttribute("data-step"));
+    }
+
+    function keysFor() {
+      if (state.hold) return [["release", "returns"]];
+      if (state.crop) return [["R", "free aspect"], ["O", "flip orientation"], ["⏎", "apply crop"], ["Esc", "dismiss, nothing written"], ["A / X", "still Develop / Reject"]];
+      if (state.staged) return [["⏎", "commit this ring"], ["⇧⏎", "widen one ring"], ["Esc", "narrow / cancel at row"]];
+      if (state.route === "edit") return [["A", COPY.develop], ["Tab", "arm a control"], ["4", "enter crop"], ["⇧⏎", "stage Adapt"], ["Esc", "back to table"]];
+      if (state.route === "table") return [["arrows", "move"], ["P / X", "keep / cut, same key clears"], ["⏎", "edit"], ["Space / J / ?", "hold glances"], ["⌘E", "export"]];
+      return [["⏎", COPY.pointFolder], ["drop", COPY.drop], ["⌘O", "open"]];
+    }
+
+    function nowText() {
+      if (state.hold === "space") return "Hold Space. Loupe is up. Release returns.";
+      if (state.hold === "j") return "Hold J. Clipping glance. Release returns.";
+      if (state.hold === "?") return "Hold ?. Shortcuts glance. Release returns.";
+      if (state.exportOn) return COPY.exported(counts().kept);
+      if (state.failure === "card") return COPY.card + " · " + COPY.reinsert;
+      if (state.failure === "folder") return COPY.pointed + " · " + COPY.pointAgain;
+      if (state.failure === "disk") return COPY.disk + " · " + COPY.free;
+      if (state.failure === "damaged") return COPY.damaged + " · " + COPY.continuePreview;
+      if (state.crop) return COPY.crop;
+      if (state.staged) return COPY.adapt;
+      if (state.route === "edit") return COPY.develop;
+      if (state.route === "table") return cullHeader();
+      return COPY.pointFolder + " · " + COPY.insertCard;
+    }
+
+    function bannerText() {
+      if (state.crop) return COPY.crop;
+      if (state.staged) return COPY.adapt;
+      if (state.route === "edit") return COPY.develop;
+      if (state.route === "table" && state.source === "card") return COPY.copied;
+      if (state.route === "table") return cullHeader();
+      return "";
+    }
+
+    function surfaceHTML() {
+      if (state.route === "open") {
+        return '<div class="hero-title">Choose a folder</div>' +
+          '<p class="body">' + COPY.drop + "</p>" +
+          '<p class="meta">' + COPY.nothing + "</p>" +
+          '<p class="meta">' + COPY.grouping + "</p>" +
+          '<div class="row">' +
+            '<button type="button" class="btn" data-act="folder">Choose a folder</button>' +
+            '<button type="button" class="btn quiet" data-act="card">' + COPY.insertCard + "</button>" +
+          "</div>" +
+          '<div class="drop" data-act="drop">Drop the folder</div>';
+      }
+
+      const cells = state.frames.map((f, i) => {
+        const cls = ["cell"];
+        if (i === state.focus) cls.push("focused");
+        if (f.mark === "cut") cls.push("cut");
+        if (state.staged && f.mark !== "cut") cls.push("halo");
+        const mark = f.mark ? '<span class="mark ' + f.mark + '">' + (f.mark === "keep" ? "✓" : "✕") + "</span>" : "";
+        const ptr = i === state.focus
+          ? '<div class="ptr"><button type="button" data-act="keep">P</button><button type="button" data-act="cut">X</button></div>'
+          : "";
+        return '<div class="' + cls.join(" ") + '" data-focus="' + i + '" style="background:' + f.color + '">' + mark + ptr + "</div>";
+      }).join("");
+
+      if (state.route === "table") {
+        let extra = "";
+        if (state.failure === "card") extra = chip(COPY.card, "", COPY.reinsert, "clear-fail");
+        if (state.failure === "folder") extra = chip(COPY.pointed, COPY.folder, COPY.pointAgain, "open");
+        if (state.failure === "disk") extra = chip(COPY.disk, "", COPY.free, "clear-fail");
+        if (state.failure === "damaged") extra = chip(COPY.damaged, "", COPY.continuePreview, "clear-fail");
+        if (state.exportOn) extra += receipt();
+        return '<div class="grid">' + cells + "</div>" + extra + holdLayer();
+      }
+
+      const f = state.frames[state.focus];
+      const controls = ["Exposure", "Contrast", "Highlights", "Shadows", "Temp", "Tint", "Vibrance", "Saturation", "Detail", "Straighten"];
+      const rail = controls.map((name, i) =>
+        '<div class="control' + (i === state.armed ? " armed" : "") + '">' + name +
+        "<span>" + (i === 0 ? "+0.35 ev" : "") + "</span></div>"
+      ).join("");
+      const cropCls = state.crop
+        ? " crop" + (state.cropPortrait ? " portrait" : "") + (state.cropFree ? " free" : "")
+        : "";
+      const cropBits = state.crop ? '<div class="gridlines"></div><div class="frame"></div>' : "";
+      return '<div class="edit">' +
+        '<div class="hero' + cropCls + '" style="background:' + f.color + '">' + cropBits + "</div>" +
+        '<div class="rail">' + rail + '<p style="margin-top:12px">' + COPY.editFoot + "</p>" +
+        (state.staged ? '<p class="meta">' + COPY.provenance + "</p>" : "") +
+        "</div></div>" +
+        (state.exportOn ? receipt() : "") +
+        holdLayer();
+    }
+
+    function chip(title, detail, action, act) {
+      const p = detail ? "<p>" + detail + "</p>" : "";
+      return '<div class="chip"><h3>' + title + "</h3>" + p +
+        '<button type="button" class="btn" data-act="' + act + '">' + action + "</button></div>";
+    }
+
+    function receipt() {
+      const c = counts();
+      return '<div class="overlay"><div class="receipt">' +
+        '<div class="hero-title" style="font-size:22px">' + COPY.exported(c.kept) + "</div>" +
+        '<p class="body">' + COPY.sovereignty + "</p>" +
+        '<p class="meta">' + COPY.exportHint + "</p>" +
+        '<button type="button" class="btn" data-act="clear-export">Back to the table</button></div></div>';
+    }
+
+    function holdLayer() {
+      if (state.hold === "space") return '<div class="hold">Space loupe · release returns</div>';
+      if (state.hold === "j") return '<div class="hold">Clipping · release returns</div>';
+      if (state.hold === "?") return '<div class="hold">' + COPY.footerKeys + "<br>" + COPY.footerHints + "</div>";
+      return "";
+    }
+
+    function render() {
+      drawSeq();
+      document.getElementById("banner").textContent = bannerText();
+      document.getElementById("surface").innerHTML = surfaceHTML();
+      document.getElementById("now").textContent = nowText();
+      document.getElementById("foot-left").textContent = state.route === "edit" ? COPY.editFoot : COPY.footerKeys;
+      document.getElementById("foot-right").textContent = COPY.footerHints;
+      document.getElementById("help-btn").setAttribute("aria-pressed", state.hold === "?" ? "true" : "false");
+      document.getElementById("keys").innerHTML = keysFor().map(pair =>
+        "<tr><td>" + pair[0] + "</td><td>" + pair[1] + "</td></tr>"
+      ).join("");
+    }
+
+    function onAct(act, focus) {
+      if (focus != null) state.focus = Number(focus);
+      if (act === "folder") { setStep("folder"); return; }
+      if (act === "drop") { setStep("drop"); return; }
+      if (act === "card") { setStep("card"); return; }
+      if (act === "keep") { mark("keep"); state.step = "keep"; setHash("keep"); render(); return; }
+      if (act === "cut") { mark("cut"); state.step = "cut"; setHash("cut"); render(); return; }
+      if (act === "open") { setStep("open"); return; }
+      if (act === "clear-fail") { state.failure = null; render(); return; }
+      if (act === "clear-export") { state.exportOn = false; render(); return; }
+      render();
+    }
+
+    document.getElementById("win").addEventListener("click", (e) => {
+      const act = e.target.closest("[data-act]");
+      const cell = e.target.closest("[data-focus]");
+      if (cell && !act) {
+        state.focus = Number(cell.getAttribute("data-focus"));
+        if (e.detail === 2 && state.route === "table") goEdit();
+        render();
+        return;
+      }
+      if (act) onAct(act.getAttribute("data-act"), cell && cell.getAttribute("data-focus"));
+    });
+
+    document.getElementById("help-btn").addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      state.hold = state.hold === "?" ? null : "?";
+      render();
+      document.getElementById("win").focus();
+    });
+
+    function keyDown(e) {
+      const meta = e.metaKey || e.ctrlKey;
+      const key = e.key;
+      const decision = key === "Enter" || key === "p" || key === "P" || key === "x" || key === "X" || key === "a" || key === "A";
+      if (e.repeat && decision) return;
+      if (e.repeat && (key === "?" || key === " " || key === "j" || key === "J")) return;
+      if ([" ", "Spacebar", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
+      if (key === "?" || (e.shiftKey && key === "/")) { state.hold = "?"; render(); return; }
+      if (key === "j" || key === "J") { state.hold = "j"; render(); return; }
+      if (key === " ") { state.hold = "space"; render(); return; }
+      if (meta && (key === "e" || key === "E")) { e.preventDefault(); setStep("export"); return; }
+      if (meta && (key === "o" || key === "O")) { e.preventDefault(); setStep("open"); return; }
+      if (key === "Escape") {
+        if (state.exportOn) { state.exportOn = false; }
+        else if (state.hold) { state.hold = null; }
+        else if (state.crop) { state.crop = false; }
+        else if (state.staged) { state.staged = false; }
+        else if (state.route === "edit") { state.route = "table"; }
+        else if (state.route === "table") { goOpen(); state.step = "open"; setHash("open"); }
+        render();
+        return;
+      }
+      if (state.crop) {
+        if (key === "Enter") { state.crop = false; render(); return; }
+        if (key === "r" || key === "R") { state.cropFree = !state.cropFree; render(); return; }
+        if (key === "o" || key === "O") { state.cropPortrait = !state.cropPortrait; render(); return; }
+      }
+      if (key === "Enter" && e.shiftKey) { ensureTable(); seedCull(); state.staged = true; state.step = "adapt"; setHash("adapt"); render(); return; }
+      if (key === "Enter") {
+        if (state.staged) { state.staged = false; render(); return; }
+        if (state.route === "open") { setStep("folder"); return; }
+        if (state.route === "table") { goEdit(); state.step = "edit"; setHash("edit"); render(); return; }
+        if (state.route === "edit") {
+          state.focus = Math.min(state.frames.length - 1, state.focus + 1);
+          state.route = "table";
+          render();
+          return;
+        }
+      }
+      if (state.route === "edit" && key === "4") { state.crop = true; state.step = "crop"; setHash("crop"); render(); return; }
+      if (state.route === "edit" && key === "Tab") { e.preventDefault(); state.armed = (state.armed + 1) % 10; render(); return; }
+      if (key === "p" || key === "P") { ensureTable(); mark("keep"); state.step = "keep"; setHash("keep"); render(); return; }
+      if (key === "x" || key === "X") { ensureTable(); mark("cut"); state.step = "cut"; setHash("cut"); render(); return; }
+      if (key === "ArrowRight" || key === "ArrowDown") { state.focus = Math.min(state.frames.length - 1, state.focus + 1); render(); return; }
+      if (key === "ArrowLeft" || key === "ArrowUp") { state.focus = Math.max(0, state.focus - 1); render(); return; }
+    }
+
+    function keyUp(e) {
+      if (e.key === " " || e.key === "j" || e.key === "J" || e.key === "?" || e.key === "/") {
+        if (state.hold) {
+          state.hold = null;
+          render();
+        }
+      }
+    }
+
+    window.addEventListener("keydown", keyDown);
+    window.addEventListener("keyup", keyUp);
+    window.addEventListener("hashchange", () => {
+      if (hashLock) return;
+      routeFromHash();
+    });
+    routeFromHash();
+    document.getElementById("win").focus();
+  </script>
+</body>
+</html>

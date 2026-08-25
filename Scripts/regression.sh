@@ -5,8 +5,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 LANE="${1:-pre-commit}"
-RAW="${2:-/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS}"
-JPG="${3:-/Users/aniketh/jeevana_mehendi_2026}"
+RAW="${2:-${LUMINA_RAW_DIR:-}}"
+JPG="${3:-${LUMINA_JPG_DIR:-}}"
 
 case "$LANE" in
   pre-commit) RUNPY_LANE="fast" ;;
@@ -77,11 +77,15 @@ fi
 echo ""
 
 echo "--- Phase 3: headless E2E audit (macOS + RAW fixtures) ---"
-if [[ ! -d "$RAW" ]]; then
-  echo "WARN: RAW folder missing ($RAW) — skipping media audit"
+if [[ -z "$RAW" || ! -d "$RAW" ]]; then
+  echo "WARN: no RAW folder (pass args or set LUMINA_RAW_DIR) — skipping media audit"
   exit 0
 fi
-swift "$ROOT/Scripts/e2e_audit.swift" "$RAW" "$JPG"
+if [[ -n "$JPG" ]]; then
+  swift "$ROOT/Scripts/e2e_audit.swift" "$RAW" "$JPG"
+else
+  swift "$ROOT/Scripts/e2e_audit.swift" "$RAW"
+fi
 
 REPORT="$ROOT/DerivedData/e2e/report.json"
 if [[ -f "$REPORT" ]]; then

@@ -54,7 +54,7 @@ Orchestration shell lints live under `Scripts/harness/lint/*.sh` and are reachab
 
 **Rule:** any app-coupled component that is not yet live in Swift must carry an explicit `STUB` marker and an `owned-by-CP<N>` (or SPIKE/HEAVY) owner. Unowned stubs = unowned gaps = FAIL.
 
-Swift already in-tree (DEBUG only): `Lumina/Testing/ProbeV2/{StateProbeV2,HarnessFakeClock,AcceptanceSignposts}.swift`.
+Swift already in-tree (DEBUG only): `Lumina/Testing/ProbeV2/{StateProbeV2,HarnessFakeClock}.swift`.
 
 ### STUB register (app-coupled)
 
@@ -148,7 +148,7 @@ A new feature ships as **data**, not runner changes:
 1. **Input script** JSON under `Scripts/harness/scripts/seed/` (schema: `scripts/schema.json`) — event stream, **never recorded coordinates**.
 2. **Probe asserts** — declarative `asserts[]` (schema: `probe/schema.json`).
 3. **Optional goldens** — `golden/service.py propose` then human `approve` (never auto-bless); keyed by `tokens-hash`.
-4. **Optional signpost names** — `trace/acceptance_numbers.json` + Swift `AcceptanceSignposts`.
+4. **Optional signpost names** — `trace/acceptance_numbers.json`. Live Swift emitters are not wired yet (`run_live_signposts.py` stays a refusing stub).
 5. **Manifest ID** — add the test id to `lanes/manifests.json` (orchestration vs app-coupled).
 
 ### Worked example — same-mark clears (v2)

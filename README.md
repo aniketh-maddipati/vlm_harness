@@ -1,79 +1,94 @@
-# Lumina MVP (ship today)
+# Lumina
 
-Native macOS app: import Sony ARW folder → cull with keyboard → apply Lightroom taste from JPG XMP → export 4:5 Instagram carousel.
+Mac app for culling a shoot. Open a folder or an SD card. Keep with P, cut with X.
 
-## Requirements
+Apple Silicon. macOS 14+. Xcode 15+ from the App Store, then `brew install exiftool`.
 
-- macOS 14+
-- Xcode 15+
-- [exiftool](https://exiftool.org): `brew install exiftool`
+These are pictures of the Mac app.
 
-## Run
+```bash
+open design/hifi-v5.html
+```
+
+![Open](design/grabs/hifi_open.png)
+
+Shoots on the table. Drop a folder to land a new one.
+
+![Table](design/grabs/hifi_table_cull.png)
+
+Rows of photos. Keep with P, cut with X.
+
+![Crop](design/grabs/hifi_crop.png)
+
+The frame stays put. You slide the photo under it.
+
+![Receipt](design/grabs/hifi_receipt.png)
+
+After you apply, a small receipt. Click it to undo.
+
+Toy you can click. Not the Mac app.
+
+```bash
+open design/play.html
+```
+
+- Mac: run the app (Xcode).
+- Stills of the Mac app: `open design/hifi-v5.html`
+- Click mock: `open design/play.html`
+- Linux / Cursor cloud: `python3 Scripts/harness/run.py fast` before a push. The app will not build there.
+
+Work on a branch. `python3 Scripts/harness/run.py fast` is the shared gate. Full `xcodebuild test` is Mac-only.
+
+## Setup
+
+1. Clone.
+
+```bash
+git clone https://github.com/aniketh-maddipati/vlm_harness.git
+cd vlm_harness
+```
+
+2. Homebrew, if `brew` is missing.
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+eval "$(/opt/homebrew/bin/brew shellenv)"
+```
+
+3. Install exiftool. The app looks at `/opt/homebrew/bin/exiftool`.
+
+```bash
+brew install exiftool
+```
+
+4. Open the project. Scheme `Lumina`. Command-R.
 
 ```bash
 open Lumina.xcodeproj
-# ⌘R to build and run
 ```
 
-## Workspace (continuous cull)
+Click **Choose a folder**, or drop a folder onto the window. A tiny sample is in `fixtures/sample-shoot/`. For an SD card, pick `DCIM` on the volume. Files stay on disk. Keep your own shoots out of this repo.
 
-Inside an open shoot, the workspace has three stages (**Workbench · Canvas · Proof**) — same photos and selection throughout.
-
-| Key | Action |
-|-----|--------|
-| ↑ / ↓ | Previous / next comparison row |
-| ← / → | Previous / next photo in row |
-| Return | Expand / collapse row |
-| Space | High-resolution focus |
-| S | Send to emerging set (Keep) |
-| X | Fold (Reject) |
-| M | Hold / Maybe |
-| ⌘1 / ⌘2 / ⌘3 | Workbench / Canvas / Proof |
-
-Lens switching (Subject vs Time grouping) is in the toolbar.
-
-Or:
+CLI fallback, Debug into `.derivedData`:
 
 ```bash
-xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug build
-open ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Debug/Lumina.app
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+xcodebuild -project Lumina.xcodeproj -scheme Lumina -resolvePackageDependencies
+xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' \
+  -derivedDataPath .derivedData \
+  build
+open .derivedData/Build/Products/Debug/Lumina.app
 ```
 
-## Quick test (mehendi data)
+5. Playground, optional. Hot reload needs InjectionIII in `/Applications`.
 
-1. **Import RAW Folder** → `/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS`
-2. Choose JPG folder → `/Users/aniketh/jeevana_mehendi_2026`
-3. Move through the canvas with `F`/`D`; use `P` to keep, `X` to cut, and `M` to open the relevant audit pile
-4. Rescue exceptions in each reason-grouped audit pile, then accept its remaining proposals
-5. **Export** → pick folder → get `grid_4x5/` + `export.json`
-
-## Keyboard
-
-| Key | Action |
-|-----|--------|
-| `⌘I` | Import |
-| `P` | Keep |
-| `X` | Reject |
-| `M` | Open audit pile |
-| `F` | Next photo |
-| `D` | Previous photo |
-| `G` | Grid lens |
-| `Esc` | Close lens |
-| `⌘↵` | Export |
-
-## What this MVP does
-
-- Extracts embedded preview from ARW via exiftool
-- Blur + Vision face scoring
-- Timestamp burst grouping
-- Tier assignment (~10% keep)
-- Taste profile from mean Lightroom XMP in JPG folder
-- Core Image preview adjustments
-- 4:5 JPEG export + manifest
-
-## Known limits (v0.1)
-
-- Preview/export uses embedded camera JPEG, not full RAW develop
-- No SD card auto-import
-- No chat agent
-- Single project per session
+```bash
+xcodebuild -project Lumina.xcodeproj -scheme LuminaPlayground -resolvePackageDependencies
+xcodebuild -project Lumina.xcodeproj -scheme LuminaPlayground -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' \
+  -derivedDataPath .derivedData \
+  build
+open .derivedData/Build/Products/Debug/LuminaPlayground.app
+```

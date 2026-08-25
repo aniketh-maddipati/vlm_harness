@@ -18,6 +18,13 @@
 | File | Primary symbol | External refs (incl. tests) | Action |
 |------|----------------|------------------------------|--------|
 | `Lumina/Views/Components/DecisionDock.swift` | `DecisionDock` | **0** | **DELETED** — dead view + hover handler (D48). Button styles moved to `Lumina/Views/LuminaButtons.swift`. |
+| `Lumina/Views/PhotoGridView.swift` | `PhotoGridView` | **0** | **DELETED** — unused NSCollectionView grid (was DELETE-AT post-CP8). |
+| `Lumina/Views/PhotoImageView.swift` | `PhotoImageView` | **0** | **DELETED** — unused image view. |
+| `Lumina/Views/UnifiedCanvasView.swift` | `UnifiedCanvasView` | **0** | **DELETED** — superseded by `LuminaShellView`. |
+| `Lumina/Views/Components/WorkspaceCommandBar.swift` | `WorkspaceCommandBar` | **0** | **DELETED** — unused command bar. |
+| `Lumina/Services/SourceCatalog.swift` | `SourceCatalog` | **0** | **DELETED** — unused volume scanner; P0 open is `NSOpenPanel` / drop. |
+| `Lumina/Testing/ProbeV2/AcceptanceSignposts.swift` | `AcceptanceSignposts` | **0** | **DELETED** — unused DEBUG signpost enum (`run_live_signposts.py` still a stub). |
+| `Lumina/Views/CompareAndSoftViews.swift` (`GradedCompareView`, `CompareOverlayView`) | compare overlays | **0** | **TRIMMED** — kept `DynamicSortBar` (wired from `GridOverviewView`). |
 
 ## Legacy-only inventory (31 files before severance → 27 after door file)
 
@@ -34,12 +41,10 @@ Before W8, **31 files / 10,230 lines** in the legacy shell inventory had **zero*
 | `Lumina/Views/GridOverviewView.swift` | 41 | **DELETE-AT** post-CP8 | Legacy grid chrome |
 | `Lumina/Views/ImportLoadingView.swift` | 102 | **DELETE-AT** post-CP8 | Spinner-style import overlay — banned on P0 failure path (D35) |
 | `Lumina/Views/MetalBrowseCanvas.swift` | 309 | **DELETE-AT** post-CP8 | Legacy browse renderer |
-| `Lumina/Views/PhotoGridView.swift` | 277 | **DELETE-AT** post-CP8 | Legacy grid |
 | `Lumina/Views/ProgressivePhotoWall.swift` | 276 | **DELETE-AT** post-CP8 | Legacy wall |
 | `Lumina/Views/SpeedBrowseViewer.swift` | 312 | **DELETE-AT** post-CP8 | Legacy speed browse |
 | `Lumina/Views/SpeedContractHUD.swift` | 54 | **DELETE-AT** post-CP8 | Legacy HUD |
 | `Lumina/Views/UncertainAndClusterViews.swift` | 446 | **DELETE-AT** post-CP8 | Legacy cluster chrome |
-| `Lumina/Views/UnifiedCanvasView.swift` | 37 | **DELETE-AT** post-CP8 | Superseded by `LuminaShellView` |
 | `Lumina/Views/Workspace/CommandHandlingModifier.swift` | 422 | **DELETE-AT** post-CP8 | Legacy key owner — P0 uses `P0KeyRoutingModifier` (W5) |
 | `Lumina/Views/Workspace/ContextualTreatmentStrip.swift` | 137 | **PORT-TO-P0** | **CP5/CP6** — treatment rail chrome |
 | `Lumina/Views/Workspace/ContinuousWorkspaceView.swift` | 1023 | **KEEP** | Legacy table workspace — CP7 propagation host until port |

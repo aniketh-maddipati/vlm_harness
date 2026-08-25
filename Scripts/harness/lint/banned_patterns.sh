@@ -30,7 +30,7 @@ while IFS= read -r -d '' f; do
   LEGACY_FILES+=("$f")
 done < <(
   find Lumina/Views/Workspace Lumina/Views/Components Lumina/Views/CompareAndSoftViews.swift \
-    Lumina/Views/PhotoImageView.swift Lumina/ContentView.swift Lumina/Shell \
+    Lumina/ContentView.swift Lumina/Shell \
     -name '*.swift' -print0 2>/dev/null || true
 )
 

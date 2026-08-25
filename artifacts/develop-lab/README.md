@@ -27,7 +27,7 @@ Phase 1 isolated Develop Lab + deterministic recipe/render/batch architecture. W
 ## Next smallest validation step (Mac)
 
 1. `xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug build`
-2. Launch with `--develop-lab --develop-raw-dir /Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS`
+2. Launch with `--develop-lab --develop-raw-dir /path/to/raw/folder`
 3. Scrub Exposure/WB; confirm fidelity chip moves Interactive → Settling → Full Preview
 4. Before/After and 1:1; stage/commit batch across 3 ARWs; confirm local override isolation
 5. Capture screenshots into `artifacts/develop-lab/`; run fidelity script on preview vs downsampled export

@@ -56,11 +56,7 @@ Lumina/Views/P0/P0SinglePhotoEditor.swift 18
 Lumina/Views/P0/P0SinglePhotoEditor.swift 2.5
 Lumina/Views/P0/P0SinglePhotoEditor.swift 44
 # owned-by-CP1 — UI literal — migrate to HiFiTokens
-Lumina/Views/CompareAndSoftViews.swift 0.12
 Lumina/Views/CompareAndSoftViews.swift 0.18
-Lumina/Views/CompareAndSoftViews.swift 0.5
-Lumina/Views/CompareAndSoftViews.swift 200
-Lumina/Views/CompareAndSoftViews.swift 90
 Lumina/Views/ExportPayoffSheet.swift 10
 Lumina/Views/ExportPayoffSheet.swift 11
 Lumina/Views/ExportPayoffSheet.swift 140
@@ -85,18 +81,6 @@ Lumina/Views/LuminaButtons.swift 44
 Lumina/Views/LuminaButtons.swift 56
 Lumina/Views/MetalBrowseCanvas.swift 16
 Lumina/Views/MetalBrowseCanvas.swift 64
-Lumina/Views/PhotoGridView.swift 0.07
-Lumina/Views/PhotoGridView.swift 0.5
-Lumina/Views/PhotoGridView.swift 1.5
-Lumina/Views/PhotoGridView.swift 10
-Lumina/Views/PhotoGridView.swift 100
-Lumina/Views/PhotoGridView.swift 120
-Lumina/Views/PhotoGridView.swift 180
-Lumina/Views/PhotoGridView.swift 20
-Lumina/Views/PhotoGridView.swift 200
-Lumina/Views/PhotoGridView.swift 24
-Lumina/Views/PhotoGridView.swift 28
-Lumina/Views/PhotoGridView.swift 40
 Lumina/Views/ProgressivePhotoWall.swift 0.1
 Lumina/Views/ProgressivePhotoWall.swift 0.18
 Lumina/Views/ProgressivePhotoWall.swift 0.2
@@ -132,8 +116,6 @@ Lumina/Views/UncertainAndClusterViews.swift 28
 Lumina/Views/UncertainAndClusterViews.swift 32
 Lumina/Views/UncertainAndClusterViews.swift 40
 Lumina/Views/UncertainAndClusterViews.swift 48
-Lumina/Views/UnifiedCanvasView.swift 120
-Lumina/Views/UnifiedCanvasView.swift 18
 # owned-by-CP1 — design chrome literal — migrate to HiFiTokens
 Lumina/Design/CopyContract.swift 18
 Lumina/Design/EditRailLayout.swift 0.5
@@ -237,9 +219,6 @@ Lumina/Views/Components/WorkspaceChrome.swift 120
 Lumina/Views/Components/WorkspaceChrome.swift 40
 Lumina/Views/Components/WorkspaceChrome.swift 64
 Lumina/Views/Components/WorkspaceChrome.swift 96
-Lumina/Views/Components/WorkspaceCommandBar.swift 1.5
-Lumina/Views/Components/WorkspaceCommandBar.swift 10
-Lumina/Views/Components/WorkspaceCommandBar.swift 16
 # owned-by-P7 — hand-typed motion literals pending token seal
 Lumina/Design/LuminaTokens.swift -0.3
 Lumina/Design/LuminaTokens.swift 0.18
@@ -257,7 +236,6 @@ Lumina/Design/LuminaTokens.swift 64
 # path<space>literal
 Lumina/Views/ProgressivePhotoWall.swift 200
 Lumina/Views/ProgressivePhotoWall.swift 250
-Lumina/Views/CompareAndSoftViews.swift 200
 Lumina/Views/Workspace/TreatmentStageView.swift 250
 # owned-by-W8 — legacy shell token-owned motion ms / opacity (W4 widened gate)
 Lumina/Views/Components/CropOverlayView.swift 0.55

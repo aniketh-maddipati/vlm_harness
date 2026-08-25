@@ -11,7 +11,7 @@ Lumina **cannot be built or run on Linux**. Cloud Agent VMs are Ubuntu-based and
 | `xcodebuild` / run `Lumina.app` | No | Yes |
 | `Scripts/regression.sh` (full) | No (needs xcodebuild + Swift ImageIO) | Yes |
 | Static lint (`Scripts/harness/lint/*.sh`) | Yes | Yes |
-| `exiftool` CLI (metadata) | Yes (`/usr/bin/exiftool` via apt) | Yes (`brew install exiftool` → `/usr/local/bin/exiftool`) |
+| `exiftool` CLI (metadata) | Yes (`/usr/bin/exiftool` via apt) | Yes (`brew install exiftool`) |
 
 For end-to-end verification (build, headless audit, GUI), use a **local Mac** with macOS 14+ and Xcode 15+.
 
@@ -42,11 +42,11 @@ xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
 bash Scripts/regression.sh [RAW_FOLDER] [JPG_FOLDER]
 ```
 
-Default regression folders in `Scripts/regression.sh` point to the maintainer's machine; override with your own RAW + JPG shoot folders.
+Pass your own shoot folders: `bash Scripts/regression.sh pre-commit /path/to/raws /path/to/jpgs`. Or set `LUMINA_RAW_DIR` / `LUMINA_JPG_DIR`. If those are unset, the media audit is skipped.
 
 ### Headless E2E audit
 
-`Scripts/e2e_audit.swift` runs outside the GUI and checks import/extract/taste/timing signals. It requires **macOS Swift** (Foundation, ImageIO, CoreGraphics) and looks for exiftool at **`/usr/local/bin/exiftool`** (Homebrew path). Install with:
+`Scripts/e2e_audit.swift` runs outside the GUI and checks extract/taste/timing signals. It requires **macOS Swift** (Foundation, ImageIO, CoreGraphics) and probes the same exiftool paths as the app (`/opt/homebrew/bin/exiftool`, `/usr/local/bin/exiftool`, `/usr/bin/exiftool`). Install with:
 
 ```bash
 brew install exiftool
@@ -72,7 +72,9 @@ Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on 
 - `Scripts/regression.sh` — lint + build + logic tests + E2E runner
 - `Scripts/harness/lint/` — banned-word, copy-contract, and structure checks (FAST lane manifest ids)
 - `Scripts/e2e_audit.swift` — headless macOS audit script
-- `README.md` — product overview and manual test steps
+- `README.md` — collaborator setup (clone, exiftool, `open Lumina.xcodeproj`)
+- `design/hifi-v5.html` — standalone hi-fi stills (visual chrome reference; `file://` works)
+- `design/play.html` — standalone browser mock of open / table / edit / crop / export / failure flows
 - `BUILD_LOG.md` — build history and verification notes
 
 ### External dependency

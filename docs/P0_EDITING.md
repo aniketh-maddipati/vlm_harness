@@ -139,7 +139,7 @@ Command: `Lumina.app --p0-edit-harness artifacts/p0-edit`
 
 Writes (locally, gitignored): report `artifacts/p0-edit/p0_edit_harness_report.json`, frames under `artifacts/p0-edit/screenshots/`.
 
-Fixture folder available on this Mac: 94 ARWs under `jeevana_mehendi_2026_MATCHED_RAWS` (not 200+).
+Fixture folder: point `--p0-open` at a local RAW folder. Do not commit shoots into this repo.
 
 ### Mac live session (`--p0-edit-live`, 2026-08-06 — historical)
 
@@ -148,7 +148,7 @@ Command:
 ```bash
 open -W -n DerivedData/Build/Products/Debug/Lumina.app --args \
   --p0-edit-live artifacts/p0-edit-live \
-  --p0-open /Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS
+  --p0-open /path/to/raw/folder
 ```
 
 | Checklist item | Result |
@@ -186,7 +186,7 @@ Not run in this pass, by design: `P0Fast`, stress, visual, explorer, and the rea
 
 ## Mac live-test instructions
 
-Shoot: `/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS` (Sony ARW).
+Shoot: a local RAW folder (Sony ARW or any supported camera file).
 
 1. Open the shoot into the P0 contact sheet.
 2. Return / double-click a photograph.

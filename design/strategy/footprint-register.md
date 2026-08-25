@@ -16,6 +16,9 @@
 | macOS footprint baseline script | Done | `Scripts/harness/release/footprint_baseline.sh` |
 | Dead `IngestOrchestrator` removed | Done | P0 uses `ContactSheetPreparation` |
 | Duplicate artifact dirs pruned | Done | canonical: `workbench-v6`, `raw-harness-v6`, `raw-perf` |
+| Unreferenced Swift surfaces deleted | Done | `PhotoGridView`, `PhotoImageView`, `UnifiedCanvasView`, `WorkspaceCommandBar`, `SourceCatalog`, `AcceptanceSignposts`; compare overlays trimmed |
+| Duplicate fidelity PNGs dropped from `raw-harness-v6` | Done | keep `raw-perf` copies + unique `fidelity_difference.png` |
+| Hi-fi stills | Done | `design/hifi-v5.html`; `hifi-reference.html` points there plus `play.html` |
 
 ## Contract-blocked until CP7 / CP8 (do not delete early)
 

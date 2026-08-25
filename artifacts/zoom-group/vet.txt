@@ -1,2 +1,0 @@
-analyzing /Users/aniketh/vlm_harness (relative to HEAD)
-vet: Neither ANTHROPIC_API_KEY nor ANTHROPIC_AUTH_TOKEN environment variable is set

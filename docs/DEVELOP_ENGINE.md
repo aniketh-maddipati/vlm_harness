@@ -109,7 +109,7 @@ See `docs/COLOR_PIPELINE.md` and the “Known differences” section in the deli
 
 # Stage 2 — RAW Performance + Lightroom Handoff (delivery report)
 
-Branch `cursor/raw-perf-lr-handoff` (from `origin/cursor/ethereal-ui`). Hardware for all measurements: MacBook Pro, Apple M4 Pro, 24 GB, macOS 26.5.2. Fixture: Sony ILCE-7M3 ARW, 24 MP (6000×4000), `~/Pictures/jeevana_mehendi_2026_MATCHED_RAWS`.
+Branch `cursor/raw-perf-lr-handoff` (from `origin/cursor/ethereal-ui`). Hardware for all measurements: MacBook Pro, Apple M4 Pro, 24 GB, macOS 26.5.2. Fixture: Sony ILCE-7M3 ARW, 24 MP (6000×4000), local RAW folder (set `LUMINA_DEVELOP_RAW_DIR`).
 
 ## Architecture: before → after
 
@@ -176,7 +176,7 @@ exiftool verification of the handoff TIFF: `BitsPerSample 16 16 16 16`, `Compres
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Release build
 
 # Deterministic harness (unit checks + XMP merge + live ARW measurements)
-LUMINA_DEVELOP_RAW_DIR=~/Pictures/jeevana_mehendi_2026_MATCHED_RAWS \
+LUMINA_DEVELOP_RAW_DIR=/path/to/raw/folder \
   Lumina.app/Contents/MacOS/Lumina --raw-harness artifacts/raw-perf
 
 # Existing regressions (all passing)
