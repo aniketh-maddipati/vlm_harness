@@ -4,33 +4,33 @@ Mac app for culling a shoot. Open a folder or an SD card. Keep with P, cut with 
 
 Apple Silicon. macOS 14+. Xcode 15+ from the App Store.
 
+Stills of the layout (browser, not the app):
+
 ```bash
 open design/hifi-v5.html
 ```
 
-Stills. Chrome reference. Not the Mac app.
-
 ![Open](design/grabs/hifi_open.png)
 
-Open. Work still on the table, and finished shoots. Drop a folder or an SD card.
+Shoots on the table. Drop a folder to land a new one.
 
 ![Table](design/grabs/hifi_table_cull.png)
 
-Table. Rows of photographs. Keep with P, cut with X. Export sits in the corner once something is kept.
+Rows of photos. Keep with P, cut with X.
 
 ![Crop](design/grabs/hifi_crop.png)
 
-Edit and crop. The photograph slides under a fixed window. Return writes it. Esc leaves it.
+The frame stays put. You slide the photo under it.
 
 ![Receipt](design/grabs/hifi_receipt.png)
 
-After Return. A receipt names what just happened. Export stays in the corner.
+After you apply, a small receipt. Click it to undo.
+
+Click-around mock. Not the Mac app.
 
 ```bash
 open design/play.html
 ```
-
-Browser mock. Click the sequence, or click the window and use P, X, arrows, Return, 4, Esc, Space, J, ?. Not the Mac app.
 
 ## Setup
 
@@ -78,8 +78,6 @@ open .derivedData/Build/Products/Debug/Lumina.app
 ```
 
 Click **Choose a folder**, or drop a folder onto the window. For an SD card, pick `DCIM` on the volume. Files stay on disk. Keep shoots out of this repo.
-
-Hold `?` for keys. Vision is on-device. No extra model.
 
 7. Playground, optional. Hot reload needs InjectionIII in `/Applications`.
 
