@@ -17,6 +17,8 @@
 | Dead `IngestOrchestrator` removed | Done | P0 uses `ContactSheetPreparation` |
 | Duplicate artifact dirs pruned | Done | canonical: `workbench-v6`, `raw-harness-v6`, `raw-perf` |
 | Unreferenced Swift surfaces deleted | Done | `PhotoGridView`, `PhotoImageView`, `UnifiedCanvasView`, `WorkspaceCommandBar`, `SourceCatalog`, `AcceptanceSignposts`; compare overlays trimmed |
+| Duplicate fidelity PNGs dropped from `raw-harness-v6` | Done | keep `raw-perf` copies + unique `fidelity_difference.png` |
+| Hi-fi HTML dump replaced with pointer | Done | `design/hifi-reference.html` → `play.html` / `hifi.pdf` |
 
 ## Contract-blocked until CP7 / CP8 (do not delete early)
 
