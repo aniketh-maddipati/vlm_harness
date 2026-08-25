@@ -31,3 +31,11 @@ bash Scripts/bootstrap.sh
 Click **Choose a folder**, or drop a folder onto the window. For an SD card, pick `DCIM` on the volume. Files stay on disk. Keep shoots out of this repo.
 
 Vision embeddings are on-device. No extra model to install. A folder of Lightroom-edited JPGs with XMP is optional taste. Hold `?` for keys.
+
+## Design
+
+```bash
+open design/play.html
+```
+
+Browser mock. Click the sequence, or click the window and use P, X, arrows, Return, 4, Esc, Space, J, ?. Not the Mac app. The hi-fi PDF dump is `design/hifi-reference.html` if you want the old stills.

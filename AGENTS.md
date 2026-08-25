@@ -74,6 +74,7 @@ Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on 
 - `Scripts/e2e_audit.swift` — headless macOS audit script
 - `README.md` — collaborator setup (clone, bootstrap, open a folder or card)
 - `Scripts/bootstrap.sh` — Mac first run: Xcode / Homebrew / exiftool, then a Lumina Debug build into `.derivedData` and `open` the app. `bash Scripts/bootstrap.sh --dev` also builds LuminaPlayground (Inject) and checks InjectionIII
+- `design/play.html` — standalone browser mock of open / table / edit / crop / export / failure flows
 - `BUILD_LOG.md` — build history and verification notes
 
 ### External dependency
