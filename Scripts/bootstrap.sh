@@ -12,7 +12,7 @@ for arg in "$@"; do
   case "$arg" in
     --dev) DEV=1 ;;
     -h|--help)
-      sed -n '2,5p' "$0" | sed 's/^# \?//'
+      sed -n '2,4p' "$0" | sed 's/^# \?//'
       exit 0
       ;;
     *)
