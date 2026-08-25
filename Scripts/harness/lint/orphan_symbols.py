@@ -45,6 +45,7 @@ LIVE_BRIDGE_FILES = frozenset(
 DEAD_FILES = frozenset(
     {
         "Lumina/Views/Components/DecisionDock.swift",
+        "Lumina/Views/Components/WorkspaceCommandBar.swift",
     }
 )
 

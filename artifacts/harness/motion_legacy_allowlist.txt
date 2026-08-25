@@ -4,5 +4,4 @@ Lumina/ViewModels/ProjectViewModel.swift 400
 Lumina/ViewModels/ProjectViewModel.swift 350
 Lumina/Views/ProgressivePhotoWall.swift 200
 Lumina/Views/ProgressivePhotoWall.swift 250
-Lumina/Views/CompareAndSoftViews.swift 200
 Lumina/Views/Workspace/TreatmentStageView.swift 250

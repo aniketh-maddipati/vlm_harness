@@ -265,7 +265,7 @@ This contradicts `UITestSupport.swift:8` for the **P0 UI automation harness spec
 | `NSDesktopFolderUsageDescription` | Recent-shoot re-read at launch (`ShootStore.listRecentShoots`) |
 | `NSDocumentsFolderUsageDescription` | Same |
 | `NSDownloadsFolderUsageDescription` | Same |
-| `NSRemovableVolumesUsageDescription` | `/Volumes/` sources (`SourceCatalog.swift`) |
+| `NSRemovableVolumesUsageDescription` | `/Volumes/` sources (`P0SessionModel.chooseFolder` / SD `DCIM`) |
 | `LSApplicationCategoryType` | App Store requirement |
 | `NSHumanReadableCopyright` | About panel |
 

@@ -8,7 +8,7 @@ Authority: `design/contract-v5.md` §7 (D27, D28) · interim durations from `des
 | 2 | `Lumina/Views/LuminaButtons.swift` | 10,33,44 | `Motion.control` | `travel` | yes |
 | 3 | `Lumina/Views/Workspace/WorkbenchShelf.swift` | 157 | `Motion.control` | `travel` | yes |
 | 4 | `Lumina/Views/Components/FloatingDecisionShelf.swift` | 110 | `Motion.control` | `travel` | yes |
-| 5 | `Lumina/Views/Components/WorkspaceCommandBar.swift` | 140 | `Motion.control` | `travel` | yes |
+| 5 | ~~`Lumina/Views/Components/WorkspaceCommandBar.swift`~~ | — | deleted (zero callers) | — | — |
 | 6 | `Lumina/Views/Components/DecisionDock.swift` | 107–108 | `Motion.control` ×2 | `travel` | **CONFLICT D28** (dual modifiers) |
 | 7 | `Lumina/Shell/LuminaShellView.swift` | 53–54 | `Motion.route` ×2 | `chromeFadeOut` | **CONFLICT D28** (route+lens) |
 | 8 | `Lumina/Shell/LuminaShellView.swift` | 82 | `.easeOut(0.18)` | `travel` | yes |
@@ -33,9 +33,9 @@ Authority: `design/contract-v5.md` §7 (D27, D28) · interim durations from `des
 | 27 | `Lumina/Views/SpeedBrowseViewer.swift` | 297 | dissolve | `travel` | yes |
 | 28 | `Lumina/Views/ImportLoadingView.swift` | 50,56,72 | reveal/condense/settle | `photoBirth`/`travel`/`chromeFadeOut` | yes |
 | 29 | `Lumina/Views/UncertainAndClusterViews.swift` | 95,178 | bloom/settle | `chromeFadeOut`/`travel` | yes |
-| 30 | `Lumina/Views/CompareAndSoftViews.swift` | 14,26 | `.spring(0.28,bounce:0.12)` | `placeReturn` | yes |
-| 31 | `Lumina/Views/CompareAndSoftViews.swift` | 231 | `.easeOut(0.2)` | `travel` | yes |
-| 32 | `Lumina/Views/PhotoImageView.swift` | 126 | `.easeOut(0.22)` | `travel` | yes |
+| 30 | `Lumina/Views/CompareAndSoftViews.swift` | 14,26 | `Motion.photo` (`DynamicSortBar`) | `placeReturn` | yes |
+| 31 | ~~`Lumina/Views/CompareAndSoftViews.swift` GradedCompareView~~ | — | deleted (zero callers) | — | — |
+| 32 | ~~`Lumina/Views/PhotoImageView.swift`~~ | — | deleted (zero callers) | — | — |
 | 33 | `Lumina/Views/ProgressivePhotoWall.swift` | 167,204 | `.easeOut(0.2/0.25)` | `travel` / `chromeFadeOut` | yes |
 | 34 | `Lumina/ViewModels/ProjectViewModel.swift` | 389,409,425,442 | `.easeInOut(0.55/0.4/0.35)` | — | **CONFLICT D28** (no token duration; chained import phases) |
 | 35 | `Lumina/Views/Components/StablePhotoView.swift` | 237–241 | birth crossfade + photoBirth | — | **CONFLICT D27+D28** |

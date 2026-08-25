@@ -30,8 +30,6 @@ LEGACY_EXPLICIT = frozenset(
         "Lumina/Views/ExportPayoffSheet.swift",
         "Lumina/Views/SpeedContractHUD.swift",
         "Lumina/Views/UncertainAndClusterViews.swift",
-        "Lumina/Views/UnifiedCanvasView.swift",
-        "Lumina/Views/PhotoGridView.swift",
         "Lumina/Views/ProgressivePhotoWall.swift",
         "Lumina/Views/GridOverviewView.swift",
         "Lumina/Views/SpeedBrowseViewer.swift",

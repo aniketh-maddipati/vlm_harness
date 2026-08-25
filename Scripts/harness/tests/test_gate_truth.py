@@ -76,6 +76,22 @@ class OrphanSymbolGateTests(unittest.TestCase):
         reg = (ROOT / "artifacts/harness/orphan_register.txt").read_text(encoding="utf-8")
         self.assertNotIn("DecisionDock.swift DecisionDock", reg)
 
+    def test_unreferenced_deadweight_deleted(self) -> None:
+        gone = [
+            "Lumina/Views/PhotoGridView.swift",
+            "Lumina/Views/PhotoImageView.swift",
+            "Lumina/Views/UnifiedCanvasView.swift",
+            "Lumina/Views/Components/WorkspaceCommandBar.swift",
+            "Lumina/Services/SourceCatalog.swift",
+            "Lumina/Testing/ProbeV2/AcceptanceSignposts.swift",
+        ]
+        for rel in gone:
+            self.assertFalse((ROOT / rel).is_file(), f"{rel} must stay deleted (zero callers)")
+        compare = (ROOT / "Lumina/Views/CompareAndSoftViews.swift").read_text(encoding="utf-8")
+        self.assertIn("struct DynamicSortBar", compare)
+        self.assertNotIn("struct GradedCompareView", compare)
+        self.assertNotIn("struct CompareOverlayView", compare)
+
 
 class HeavyStubHonestyTests(unittest.TestCase):
     def test_ram_tiers_script_present(self) -> None:

@@ -367,13 +367,12 @@ let agentFiles = [
     "Lumina/Models/AgentModels.swift",
     "Lumina/Services/FeedbackStore.swift",
     "Lumina/Services/PhotoAgentOrchestrator.swift",
-    "Lumina/Views/UnifiedCanvasView.swift",
     "Lumina/Models/P0State.swift",
     "Lumina/Services/ShootStore.swift",
 ]
 let missingAgent = agentFiles.filter { !FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent($0).path) }
 if missingAgent.isEmpty {
-    note("pass", "agent", "Agentic + P0 modules present", "JobBrief, FeedbackStore, Orchestrator, UnifiedCanvas, ShootStore")
+    note("pass", "agent", "Agentic + P0 modules present", "JobBrief, FeedbackStore, Orchestrator, ShootStore")
 } else {
     note("bug", "agent", "Missing agent modules", missingAgent.joined(separator: ", "))
 }
@@ -464,7 +463,7 @@ let tokensPath = repoRoot.appendingPathComponent("Lumina/Design/LuminaTokens.swi
 let presentationPath = repoRoot.appendingPathComponent("Lumina/Presentation/PresentationModels.swift").path
 let stablePhotoPath = repoRoot.appendingPathComponent("Lumina/Views/Components/StablePhotoView.swift").path
 let shellModelPath = repoRoot.appendingPathComponent("Lumina/Shell/LuminaShellModel.swift").path
-let photoGridPath = repoRoot.appendingPathComponent("Lumina/Views/PhotoGridView.swift").path
+let contactSheetPath = repoRoot.appendingPathComponent("Lumina/Views/P0/ContactSheetCollection.swift").path
 
 if sourceContains(contentView, "case \"k\"") && sourceContains(contentView, "case \"x\"")
     && sourceContains(contentView, "case \"m\"") && sourceContains(contentView, "case \"a\"")
@@ -486,18 +485,17 @@ if FileManager.default.fileExists(atPath: shellView)
     && sourceContains(stablePhotoPath, "SpineActiveStage")
     && sourceContains(shellModelPath, "projectFingerprint")
     && sourceContains(shellModelPath, "handleEscape")
-    && sourceContains(photoGridPath, "refreshVisibleBadges")
-    && !sourceContains(photoGridPath, "reloadData()\n        if let id = selectedID") {
+    && sourceContains(contactSheetPath, "never reloadData for one-cell decisions") {
     note("pass", "ux", "Phase 1 shell + spine bridge", "Tokens · snapshots · SpineActiveStage · cached adapter · selection without reloadData")
 } else {
     note("friction", "ux", "Phase 1 shell incomplete", "Missing shell bridge contracts (spine / cache / selection)")
 }
 
 if sourceContains(repoRoot.appendingPathComponent("Lumina/Views/GridOverviewView.swift").path, "DynamicSortBar")
-    && sourceContains(repoRoot.appendingPathComponent("Lumina/Views/CompareAndSoftViews.swift").path, "GradedCompareView") {
-    note("pass", "ux", "Grid lens + graded compare", "Sort bar in grid only · unified taste preview")
+    && sourceContains(repoRoot.appendingPathComponent("Lumina/Views/CompareAndSoftViews.swift").path, "struct DynamicSortBar") {
+    note("pass", "ux", "Grid lens", "Sort bar in grid overview only")
 } else {
-    note("friction", "ux", "Spine UX incomplete", "Missing GridOverviewView or GradedCompareView")
+    note("friction", "ux", "Spine UX incomplete", "Missing GridOverviewView or DynamicSortBar")
 }
 
 let contactSheetPrep = repoRoot.appendingPathComponent("Lumina/Services/ContactSheetPreparation.swift").path
@@ -522,11 +520,11 @@ if sourceContains(repoRoot.appendingPathComponent("Lumina/Models/P0State.swift")
     note("friction", "ingest", "No source bookmark model", "External drive remount recovery incomplete")
 }
 
-if FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Lumina/Services/SourceCatalog.swift").path)
-    && sourceContains(repoRoot.appendingPathComponent("Lumina/Services/SourceCatalog.swift").path, "iCloud") {
-    note("pass", "ingest", "Multi-source catalog present", "SD · external HDD · iCloud · iPhone detection")
+if FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Lumina/Services/FileDropResolver.swift").path)
+    && sourceContains(repoRoot.appendingPathComponent("Lumina/Services/MediaFormats.swift").path, "discoverPhotos") {
+    note("pass", "ingest", "Folder and drop ingest present", "NSOpenPanel / drop → MediaFormats.discoverPhotos")
 } else {
-    note("friction", "ingest", "Source catalog missing", "No iCloud/iPhone/external drive routing")
+    note("friction", "ingest", "Ingest helpers missing", "No FileDropResolver or MediaFormats.discoverPhotos")
 }
 
 if sourceContains(repoRoot.appendingPathComponent("Lumina/Services/ProjectStore.swift").path, "extractFullImage") {

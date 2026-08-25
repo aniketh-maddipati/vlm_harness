@@ -16,6 +16,7 @@
 | macOS footprint baseline script | Done | `Scripts/harness/release/footprint_baseline.sh` |
 | Dead `IngestOrchestrator` removed | Done | P0 uses `ContactSheetPreparation` |
 | Duplicate artifact dirs pruned | Done | canonical: `workbench-v6`, `raw-harness-v6`, `raw-perf` |
+| Unreferenced Swift surfaces deleted | Done | `PhotoGridView`, `PhotoImageView`, `UnifiedCanvasView`, `WorkspaceCommandBar`, `SourceCatalog`, `AcceptanceSignposts`; compare overlays trimmed |
 
 ## Contract-blocked until CP7 / CP8 (do not delete early)
 
