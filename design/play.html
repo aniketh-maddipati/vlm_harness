@@ -40,7 +40,7 @@
       padding: 16px 12px 8px;
       overflow-x: auto;
     }
-    .seq svg { display: block; min-width: 720px; width: 100%; height: auto; }
+    .seq svg { display: block; width: 720px; max-width: 100%; height: auto; }
     .seq text { font-family: var(--font); }
     .seq .hit { cursor: pointer; pointer-events: all; }
     .seq .hit:hover rect { fill: var(--halo); }
@@ -472,7 +472,7 @@
         let y = 48;
         const rows = STEPS.map(s => {
           const y0 = y;
-          y += 34;
+        y += 30;
           return Object.assign({}, s, { y: y0 });
         });
         const h = y + 24;
@@ -521,7 +521,7 @@
       if (state.hold === "space") return "Hold Space. Loupe is up. Release returns.";
       if (state.hold === "j") return "Hold J. Clipping glance. Release returns.";
       if (state.hold === "?") return "Hold ?. Shortcuts glance. Release returns.";
-      if (state.exportOn) return COPY.sovereignty;
+      if (state.exportOn) return COPY.exported(counts().kept);
       if (state.failure === "card") return COPY.card + " · " + COPY.reinsert;
       if (state.failure === "folder") return COPY.pointed + " · " + COPY.pointAgain;
       if (state.failure === "disk") return COPY.disk + " · " + COPY.free;
