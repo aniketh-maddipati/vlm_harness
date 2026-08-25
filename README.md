@@ -2,35 +2,67 @@
 
 Mac app for culling a shoot. Open a folder or an SD card. Keep with P, cut with X.
 
-Apple Silicon. macOS 14+. Xcode 15+ from the App Store. Homebrew.
+Apple Silicon. macOS 14+. Xcode 15+ from the App Store.
 
 ## Setup
+
+1. Clone.
 
 ```bash
 git clone https://github.com/aniketh-maddipati/vlm_harness.git
 cd vlm_harness
-bash Scripts/bootstrap.sh
 ```
 
-That script installs exiftool, builds Debug, and opens the app. If something is missing it prints the one command to run next. Then re-run bootstrap.
-
-UI polish (playground + Inject):
+2. Homebrew, if `brew` is missing.
 
 ```bash
-bash Scripts/bootstrap.sh --dev
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+eval "$(/opt/homebrew/bin/brew shellenv)"
 ```
 
-## Run
-
-Bootstrap already opens Lumina. To build and open again:
+3. Point the CLI at Xcode. Open Xcode.app once if it asks for a license.
 
 ```bash
-bash Scripts/bootstrap.sh
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+```
+
+4. Install exiftool. The app looks at `/opt/homebrew/bin/exiftool`.
+
+```bash
+brew install exiftool
+```
+
+5. Build Debug.
+
+```bash
+xcodebuild -project Lumina.xcodeproj -scheme Lumina -resolvePackageDependencies
+xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' \
+  -derivedDataPath .derivedData \
+  build
+```
+
+6. Open the app.
+
+```bash
+open .derivedData/Build/Products/Debug/Lumina.app
 ```
 
 Click **Choose a folder**, or drop a folder onto the window. For an SD card, pick `DCIM` on the volume. Files stay on disk. Keep shoots out of this repo.
 
-Vision embeddings are on-device. No extra model to install. A folder of Lightroom-edited JPGs with XMP is optional taste. Hold `?` for keys.
+Hold `?` for keys. Vision is on-device. No extra model.
+
+7. Playground, optional. Hot reload needs InjectionIII in `/Applications`.
+
+```bash
+xcodebuild -project Lumina.xcodeproj -scheme LuminaPlayground -resolvePackageDependencies
+xcodebuild -project Lumina.xcodeproj -scheme LuminaPlayground -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' \
+  -derivedDataPath .derivedData \
+  build
+open .derivedData/Build/Products/Debug/LuminaPlayground.app
+```
 
 ## Design
 

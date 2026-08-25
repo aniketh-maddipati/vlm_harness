@@ -11,7 +11,7 @@ Lumina **cannot be built or run on Linux**. Cloud Agent VMs are Ubuntu-based and
 | `xcodebuild` / run `Lumina.app` | No | Yes |
 | `Scripts/regression.sh` (full) | No (needs xcodebuild + Swift ImageIO) | Yes |
 | Static lint (`Scripts/harness/lint/*.sh`) | Yes | Yes |
-| `exiftool` CLI (metadata) | Yes (`/usr/bin/exiftool` via apt) | Yes (`bash Scripts/bootstrap.sh` or `brew install exiftool`) |
+| `exiftool` CLI (metadata) | Yes (`/usr/bin/exiftool` via apt) | Yes (`brew install exiftool`) |
 
 For end-to-end verification (build, headless audit, GUI), use a **local Mac** with macOS 14+ and Xcode 15+.
 
@@ -46,7 +46,7 @@ Pass your own shoot folders: `bash Scripts/regression.sh pre-commit /path/to/raw
 
 ### Headless E2E audit
 
-`Scripts/e2e_audit.swift` runs outside the GUI and checks extract/taste/timing signals. It requires **macOS Swift** (Foundation, ImageIO, CoreGraphics) and probes the same exiftool paths as the app (`/opt/homebrew/bin/exiftool`, `/usr/local/bin/exiftool`, `/usr/bin/exiftool`). Install with `bash Scripts/bootstrap.sh`, or:
+`Scripts/e2e_audit.swift` runs outside the GUI and checks extract/taste/timing signals. It requires **macOS Swift** (Foundation, ImageIO, CoreGraphics) and probes the same exiftool paths as the app (`/opt/homebrew/bin/exiftool`, `/usr/local/bin/exiftool`, `/usr/bin/exiftool`). Install with:
 
 ```bash
 brew install exiftool
@@ -72,8 +72,7 @@ Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on 
 - `Scripts/regression.sh` — lint + build + logic tests + E2E runner
 - `Scripts/harness/lint/` — banned-word, copy-contract, and structure checks (FAST lane manifest ids)
 - `Scripts/e2e_audit.swift` — headless macOS audit script
-- `README.md` — collaborator setup (clone, bootstrap, open a folder or card)
-- `Scripts/bootstrap.sh` — Mac first run: Xcode / Homebrew / exiftool, then a Lumina Debug build into `.derivedData` and `open` the app. `bash Scripts/bootstrap.sh --dev` also builds LuminaPlayground (Inject) and checks InjectionIII
+- `README.md` — collaborator setup (numbered clone / brew / xcodebuild / open)
 - `design/play.html` — standalone browser mock of open / table / edit / crop / export / failure flows
 - `BUILD_LOG.md` — build history and verification notes
 
