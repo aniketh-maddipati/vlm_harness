@@ -38,6 +38,10 @@ fastlane/test_output
 artifacts/ui-automation/
 *.profraw
 
+# Local live-edit / zoom harness junk (pid, vet, captured streams, one-off screenshots)
+artifacts/live-edit-v1/
+artifacts/zoom-group/
+
 # CP0 harness ephemeral streams (keep allowlists, tokens.hash, seed goldens)
 artifacts/harness/dashboard/events.ndjson
 artifacts/harness/banned_patterns_legacy.txt
