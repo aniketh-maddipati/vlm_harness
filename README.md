@@ -1,79 +1,73 @@
-# Lumina MVP (ship today)
+# Lumina
 
-Native macOS app: import Sony ARW folder → cull with keyboard → apply Lightroom taste from JPG XMP → export 4:5 Instagram carousel.
+Mac app for culling a shoot. Open a folder or an SD card. Keep with P, cut with X.
 
-## Requirements
+Needs an Apple Silicon Mac, macOS 14+, Xcode 15+ from the App Store, and Homebrew.
 
-- macOS 14+
-- Xcode 15+
-- [exiftool](https://exiftool.org): `brew install exiftool`
+## Setup
+
+```bash
+git clone https://github.com/aniketh-maddipati/vlm_harness.git
+cd vlm_harness
+bash Scripts/bootstrap.sh
+```
+
+If Homebrew is not installed yet, do this first, then re-run bootstrap:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+eval "$(/opt/homebrew/bin/brew shellenv)"
+bash Scripts/bootstrap.sh
+```
+
+If Xcode is installed but `xcodebuild` fails:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
+```
+
+Open Xcode once after installing it so extra components can finish.
 
 ## Run
 
 ```bash
 open Lumina.xcodeproj
-# ⌘R to build and run
 ```
 
-## Workspace (continuous cull)
+Scheme `Lumina`. Press ⌘R.
 
-Inside an open shoot, the workspace has three stages (**Workbench · Canvas · Proof**) — same photos and selection throughout.
+## Photographs
+
+Click **Choose a folder**, or drop a folder onto the window.
+
+For an SD card: plug it in, then pick the card in that dialog. Camera cards are usually the `DCIM` folder on the volume.
+
+RAW, JPG, HEIC, DNG, and the usual camera files all work. Files stay on disk. Nothing leaves the Mac.
+
+Keep shoots out of this repo. Leave them on the card or in Pictures.
+
+## Keys
+
+Hold `?` in the app for the rest.
 
 | Key | Action |
 |-----|--------|
-| ↑ / ↓ | Previous / next comparison row |
-| ← / → | Previous / next photo in row |
-| Return | Expand / collapse row |
-| Space | High-resolution focus |
-| S | Send to emerging set (Keep) |
-| X | Fold (Reject) |
-| M | Hold / Maybe |
-| ⌘1 / ⌘2 / ⌘3 | Workbench / Canvas / Proof |
+| arrows | move |
+| `P` | keep |
+| `X` | cut |
+| same key again | clear the mark |
+| `Return` | edit |
+| `Space` | hold for loupe |
+| `Esc` | back |
+| `⌘O` | open another folder |
+| `⌘E` | export |
 
-Lens switching (Subject vs Time grouping) is in the toolbar.
-
-Or:
+## Stuck
 
 ```bash
-xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug build
-open ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Debug/Lumina.app
+bash Scripts/bootstrap.sh
 ```
 
-## Quick test (mehendi data)
-
-1. **Import RAW Folder** → `/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS`
-2. Choose JPG folder → `/Users/aniketh/jeevana_mehendi_2026`
-3. Move through the canvas with `F`/`D`; use `P` to keep, `X` to cut, and `M` to open the relevant audit pile
-4. Rescue exceptions in each reason-grouped audit pile, then accept its remaining proposals
-5. **Export** → pick folder → get `grid_4x5/` + `export.json`
-
-## Keyboard
-
-| Key | Action |
-|-----|--------|
-| `⌘I` | Import |
-| `P` | Keep |
-| `X` | Reject |
-| `M` | Open audit pile |
-| `F` | Next photo |
-| `D` | Previous photo |
-| `G` | Grid lens |
-| `Esc` | Close lens |
-| `⌘↵` | Export |
-
-## What this MVP does
-
-- Extracts embedded preview from ARW via exiftool
-- Blur + Vision face scoring
-- Timestamp burst grouping
-- Tier assignment (~10% keep)
-- Taste profile from mean Lightroom XMP in JPG folder
-- Core Image preview adjustments
-- 4:5 JPEG export + manifest
-
-## Known limits (v0.1)
-
-- Preview/export uses embedded camera JPEG, not full RAW develop
-- No SD card auto-import
-- No chat agent
-- Single project per session
+exiftool has to exist at `/opt/homebrew/bin/exiftool` or `/usr/local/bin/exiftool`. The app looks there on purpose. Xcode does not load the PATH from your shell.

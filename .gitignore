@@ -3,6 +3,9 @@
 .exiftool/
 DerivedData/
 
+# Local shoots copied into the repo by accident. Keep photographs on the card or in Pictures.
+/local-shoots/
+
 # Harness / develop evidence — keep JSON/PNG/XMP reports;
 # never commit full-res ProPhoto TIFFs or private RAW fixtures.
 artifacts/**/handoff/*.tif

@@ -7,12 +7,17 @@ cd "$ROOT"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "SKIP: live bridge test requires macOS (see AGENTS.md)."
-  echo "On a Mac with Xcode and Mehendi ARWs, run:"
-  echo "  bash Scripts/live_bridge_session.sh [RAW_FOLDER]"
+  echo "On a Mac with Xcode, run:"
+  echo "  bash Scripts/live_bridge_session.sh /path/to/raw/folder"
   exit 0
 fi
 
-RAW="${1:-/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS}"
+if [[ $# -lt 1 ]]; then
+  echo "Usage: bash Scripts/live_bridge_session.sh RAW_FOLDER" >&2
+  exit 1
+fi
+
+RAW="$1"
 if [[ ! -d "$RAW" ]]; then
   echo "RAW folder missing: $RAW"
   exit 1

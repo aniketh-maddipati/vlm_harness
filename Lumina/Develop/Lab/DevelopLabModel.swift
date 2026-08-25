@@ -17,7 +17,6 @@ enum DevelopLabFixtures {
             if FileManager.default.fileExists(atPath: url.path) { return url }
         }
         let candidates = [
-            NSHomeDirectory() + "/Pictures/jeevana_mehendi_2026_MATCHED_RAWS",
             NSHomeDirectory() + "/Pictures/LuminaFixtures",
         ]
         for path in candidates {

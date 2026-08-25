@@ -133,7 +133,7 @@ deliberately produces no performance number.
 | Command | Result |
 |---------|--------|
 | `xcodebuild … -only-testing:LuminaLogicTests/LatencyMetricsWindowTests test` | **7/7 PASS** |
-| `xcodebuild … -only-testing:LuminaLogicTests test` | 138 executed, **1 failure — pre-existing**, `ShootSidecarStoreTests` strips one path component too many (`#filePath`→`/Users/aniketh`); file untouched by this session |
+| `xcodebuild … -only-testing:LuminaLogicTests test` | 138 executed, **1 failure — pre-existing**, `ShootSidecarStoreTests` strips one path component too many (`#filePath`→`/Users/<name>`); file untouched by this session |
 | `python3 Scripts/harness/run.py fast` | **PASS** 17352ms · **38** orchestration · 0 app / 0 expected |
 | `bash Scripts/compile_check.sh` | **OK** |
 | `cut_latency_card.py --card card-clean-500` | 500 frames, 5.14 GiB, 500 distinct, replication **1.0×** |
@@ -1103,7 +1103,7 @@ Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `desig
 
 **Fix:** `EditMutationCommand` on shared `P0UndoCoordinator`; session scrub/commit/flush/Before; `P0SinglePhotoEditor` + adjustment rail + crop overlay wired to `DevelopRenderScheduler`/`DevelopMetalView`; Whites/Blacks deferred; docs `docs/P0_EDITING.md`; tests `Scripts/p0_edit_test.swift`; harness `--p0-edit-harness`.
 
-**Build / gates:** Debug **SUCCEEDED**. Deterministic P0 edit/cull/state/contact tests green. Live ARW harness **PASSED**. Full `--p0-edit-live` session on 94 Mehendi ARWs **PASSED** (10s scrub, Before, 20-nav, crop, undo, quit/reopen). Fixed preparation saves clobbering live cull/recipe. Perf: scrub p95 ~19 ms during live scrub; nav p95 still misses 35 ms target on cold neighbors.
+**Build / gates:** Debug **SUCCEEDED**. Deterministic P0 edit/cull/state/contact tests green. Live ARW harness **PASSED**. Full `--p0-edit-live` session on 94 local ARWs **PASSED** (10s scrub, Before, 20-nav, crop, undo, quit/reopen). Fixed preparation saves clobbering live cull/recipe. Perf: scrub p95 ~19 ms during live scrub; nav p95 still misses 35 ms target on cold neighbors.
 
 ---
 
@@ -1158,7 +1158,7 @@ Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `desig
 
 **Build:** `xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug build` → **BUILD SUCCEEDED** (macOS).
 
-**Not verified this session:** Live Mehendi/Death Valley GUI, regression.sh E2E, quit/resume, screenshots.
+**Not verified this session:** Live local-shoot GUI, regression.sh E2E, quit/resume, screenshots.
 
 **Debt:** Undo, persisted story order, per-frame adaptive develop, treatment-compatible grouping — see `docs/WORKSPACE_LAYOUT_REPORT.md`.
 
@@ -1171,7 +1171,7 @@ Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `desig
 **Repo verification:**
 - `AGENTS.md` exists on `origin/main` and is now on this branch.
 - Prior Mac-desktop Phase 1 edits were never committed; this Linux cloud checkout rebuilt them.
-- Platform: Linux cloud agent — **cannot** `xcodebuild` or run Mehendi live session (see AGENTS.md).
+- Platform: Linux cloud agent — **cannot** `xcodebuild` or run a local-shoot live session (see AGENTS.md).
 
 **Bridge requirements implemented in code:**
 - `StablePhotoView` → PreviewSpine silhouette + fidelity + PhotoImageCache with AssetID request validation; lower fidelity remains during upgrades.
@@ -1180,7 +1180,7 @@ Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `desig
 - `PhotoGridView` selection path uses `applySelectionOnly` / `refreshVisibleBadges` — no `reloadData()` for selection.
 - Escape closes Focus / inspector / shortcuts only — never workspace → Home.
 
-**Live gate remaining (macOS only):** `bash Scripts/live_bridge_session.sh` with Mehendi ARWs — rapid nav, 20× lens switch, decisions, resize, Focus, quit/resume, screen capture.
+**Live gate remaining (macOS only):** `bash Scripts/live_bridge_session.sh` with a local RAW folder — rapid nav, 20× lens switch, decisions, resize, Focus, quit/resume, screen capture.
 
 ---
 
@@ -1198,7 +1198,7 @@ Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `desig
 
 ## 2026-08-02 — Kill-the-Defeater (speed browse)
 
-**Claim:** Held-key rip through Mehendi ARWs — p95 in→photon <50 ms; `blit_ms` ≈0; one decode/frame; zero main-thread decode/upload; no RAW on interactive path.
+**Claim:** Held-key rip through local ARWs — p95 in→photon <50 ms; `blit_ms` ≈0; one decode/frame; zero main-thread decode/upload; no RAW on interactive path.
 
 ### Findings (pre-fix diagnostic)
 
@@ -1210,7 +1210,7 @@ Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `desig
 | **Main-thread upload** | `MetalBrowseCanvas.updateNSView` called sync `upload()` on main |
 | **RAW on browse path** | `sourcePathByID` RAW fallback; ImageIO `IfAbsent/Always=true` could demosaic |
 | **Filmstrip thrash** | `scrollTo` + chrome animation on every advance during held-key rip |
-| **ARW 1616 px synth** | Sony embeds 1616×1080 only; `minLongEdge: 2000` in `ProjectStore.extractBrowsePreview` → 100% ingest-synth for Mehendi ARWs (~456 ms once at ingest, ~50 ms cached JPEG browse thereafter) |
+| **ARW 1616 px synth** | Sony embeds 1616×1080 only; `minLongEdge: 2000` in `ProjectStore.extractBrowsePreview` → 100% ingest-synth for those ARWs (~456 ms once at ingest, ~50 ms cached JPEG browse thereafter) |
 
 ### Fix verification table
 
@@ -1226,7 +1226,7 @@ Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `desig
 
 **Static audit (e2e):** `[PASS] Defeater-killed browse path` — honest HUD · vImage blit · one GPU decode · no main upload · no RAW fallback.
 
-**Live numbers:** Pending manual ⌥` HUD rip on Mehendi ARWs. Regression cache p95 ~0.14 ms is grid/filmstrip path, not browse photon.
+**Live numbers:** Pending manual ⌥` HUD rip on local ARWs. Regression cache p95 ~0.14 ms is grid/filmstrip path, not browse photon.
 
 **Docs owed:** ARW 1616 px → synth threshold note in ingest spec; filmstrip decouple note in review-surface charter.
 
@@ -1263,11 +1263,11 @@ Only batch artifacts: `BUILD_LOG.md`, `design/checkpoint-sequence-v6.md`, `desig
 
 ## Manual verification checklist
 
-Run on **Mehendi ARW shoot** (`/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS`).
+Run on a local RAW shoot folder.
 
 ### 1. ⌥` HUD held-key rip (Kill-the-Defeater)
 
-1. Open Lumina → import or resume Mehendi project → enter speed browse (F/D cull).
+1. Open Lumina → import or resume the last shoot → enter speed browse (F/D cull).
 2. Toggle HUD: **⌥`** (Option + backtick).
 3. Hold **F** (or **D**) for 3–5 s — rip through 20+ frames.
 4. Record HUD lines:
@@ -1275,7 +1275,7 @@ Run on **Mehendi ARW shoot** (`/Users/aniketh/Pictures/jeevana_mehendi_2026_MATC
    - `in→photon` p50/p95 — **target ≤50 ms**; measured **at present**, not at bind
    - `decode · blit · wrap` p50 — blit should be **≈0 ms** (vImage, not CGContext)
    - `GPU prefetch` % — should climb during rip; misses show silhouette tier briefly
-   - `preview: emb · synth · jpg` — Mehendi ARWs expect **synth >> emb** (1616 px embed below 2000 threshold)
+   - `preview: emb · synth · jpg` — those ARWs expect **synth >> emb** (1616 px embed below 2000 threshold)
 5. **Pass criteria:** photon p95 badge green; no main-thread stalls visible; silhouettes acceptable on cold frames, preview tier on warm.
 
 ### 2. Pick grid (Session cache)
@@ -1297,7 +1297,7 @@ Diagnostic session only — **no re-architect**. Profile main thread during rip;
 
 ## Next session checklist
 
-1. ⌥` HUD held-F rip on Mehendi ARWs — record decode/blit/wrap, GPU prefetch %, in→photon p95
+1. ⌥` HUD held-F rip on local ARWs — record decode/blit/wrap, GPU prefetch %, in→photon p95
 2. Confirm Pick grid after "Pick from this set" — no spinners on cached thumbs
 3. If p95 still fails, diagnostic session only — profile main thread during rip
 4. Optional hardening: throttle `tierLabel` like filmstrip (inflight dedup in `MetalPreviewPool.upload` landed)

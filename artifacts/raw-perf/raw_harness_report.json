@@ -1,7 +1,7 @@
 {
   "build" : "Debug",
   "failures" : 0,
-  "fixture" : "\/Users\/aniketh\/Pictures\/jeevana_mehendi_2026_MATCHED_RAWS\/DSC08242.ARW",
+  "fixture" : "$LUMINA_DEVELOP_RAW_DIR\/sample.ARW",
   "generatedAt" : "2026-08-05T13:59:33Z",
   "live" : {
     "capabilities" : "exposure:supported wb:supported nr:supported sharpen:supported lens:supported draft:supported",

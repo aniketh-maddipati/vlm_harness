@@ -9,12 +9,14 @@ import CoreGraphics
 
 // MARK: - Config
 
-let rawFolder = URL(fileURLWithPath: CommandLine.arguments.count > 1
-    ? CommandLine.arguments[1]
-    : "/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS")
+guard CommandLine.arguments.count > 1 else {
+    fputs("Usage: swift Scripts/e2e_audit.swift RAW_FOLDER [JPG_FOLDER]\n", stderr)
+    exit(2)
+}
+let rawFolder = URL(fileURLWithPath: CommandLine.arguments[1])
 let jpgFolder = URL(fileURLWithPath: CommandLine.arguments.count > 2
     ? CommandLine.arguments[2]
-    : "/Users/aniketh/jeevana_mehendi_2026")
+    : CommandLine.arguments[1])
 let workDir = FileManager.default.temporaryDirectory.appendingPathComponent("lumina-e2e-\(UUID().uuidString)", isDirectory: true)
 let sampleLimit = 24
 
@@ -82,8 +84,18 @@ func percentile(_ values: [Double], p: Double) -> Double {
     return s[idx]
 }
 
+let exiftoolCandidates = [
+    "/opt/homebrew/bin/exiftool",
+    "/usr/local/bin/exiftool",
+    "/usr/bin/exiftool",
+]
+
+func resolvedExiftool() -> String? {
+    exiftoolCandidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+}
+
 func runExiftool(_ args: [String]) -> Data? {
-    let path = "/usr/local/bin/exiftool"
+    guard let path = resolvedExiftool() else { return nil }
     guard FileManager.default.isExecutableFile(atPath: path) else { return nil }
     let p = Process()
     p.executableURL = URL(fileURLWithPath: path)
@@ -576,7 +588,7 @@ let metrics = Metrics(
     portraitCount: portrait,
     landscapeCount: landscape,
     burstGuessCount: bursts,
-    exiftoolAvailable: FileManager.default.isExecutableFile(atPath: "/usr/local/bin/exiftool")
+    exiftoolAvailable: resolvedExiftool() != nil
 )
 
 let outDir = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("DerivedData/e2e")

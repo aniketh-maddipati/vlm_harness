@@ -238,7 +238,7 @@ This contradicts `UITestSupport.swift:8` for the **P0 UI automation harness spec
 
 #### F5 — Maintainer's personal filesystem path in Release binary
 
-**Evidence:** `DevelopLabModel.swift:19` — `/Users/aniketh/Pictures/jeevana_mehendi_2026_MATCHED_RAWS`.
+**Evidence:** `DevelopLabModel.swift` previously hardcoded a maintainer Pictures path. It now only probes `LUMINA_DEVELOP_RAW_DIR`, `--develop-raw-dir`, and `~/Pictures/LuminaFixtures`.
 
 **Remediation:** Delete line 19; fallbacks on lines 20–21 remain functional.
 
@@ -432,7 +432,7 @@ Every item must clear. F2 and F9 **must land together**.
 
 1. `-showBuildSettings` assertions: team set, hardened runtime on, sandbox state matches target lane.
 2. `xcodebuild -configuration Release build` — Release is never compiled in CI today.
-3. `strings` hygiene: no `--develop-lab`, `--capture-workbench`, `--raw-harness`, `/Users/aniketh`.
+3. `strings` hygiene: no `--develop-lab`, `--capture-workbench`, `--raw-harness`, or personal home-directory shoot paths.
 4. Asset/manifest presence when targeting App Store: icon PNGs, `PrivacyInfo.xcprivacy`, required `INFOPLIST_KEY_*`.
 
 ### Tier 2 — Pre-distribution (when cutting a build)
