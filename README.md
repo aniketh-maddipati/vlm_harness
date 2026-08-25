@@ -4,7 +4,7 @@ Mac app for culling a shoot. Open a folder or an SD card. Keep with P, cut with 
 
 Apple Silicon. macOS 14+. Xcode 15+ from the App Store.
 
-Stills of the layout (browser, not the app):
+These are pictures of the Mac app.
 
 ```bash
 open design/hifi-v5.html
