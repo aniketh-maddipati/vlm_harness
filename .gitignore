@@ -5,6 +5,9 @@ DerivedData/
 
 # Local shoots copied into the repo by accident. Keep photographs on the card or in Pictures.
 /local-shoots/
+# Public tiny sample JPGs in fixtures/sample-shoot/ are tracked.
+!/fixtures/sample-shoot/
+!/fixtures/sample-shoot/*.JPG
 
 # Harness / develop evidence — keep JSON/PNG/XMP reports;
 # never commit full-res ProPhoto TIFFs or private RAW fixtures.
