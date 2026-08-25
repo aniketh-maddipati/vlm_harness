@@ -1,9 +1,15 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Surface 1 — choose a folder, drop a folder, or reopen a recent shoot.
+/// Surface 1 — open a folder, or continue a shoot. Large sets carry more weight
+/// than small ones; the last-opened shoot sits first.
 struct P0OpenView: View {
     @Bindable var session: P0SessionModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var arrangement: OpenShootArrangement.Result {
+        OpenShootArrangement.arrange(session.recentShoots)
+    }
 
     var body: some View {
         ZStack {
@@ -12,15 +18,15 @@ struct P0OpenView: View {
             VStack(alignment: .leading, spacing: 0) {
                 header
                 ScrollView {
-                    VStack(alignment: .leading, spacing: LuminaTokens.Spacing.section) {
+                    VStack(alignment: .leading, spacing: LuminaTokens.Spacing.xxl) {
                         hero
-                        if !session.recentShoots.isEmpty {
-                            recentSection
+                        if arrangement.resume != nil || !arrangement.largerSets.isEmpty || !arrangement.smaller.isEmpty {
+                            shoots
                         }
                     }
-                    .padding(.horizontal, LuminaTokens.Spacing.xl)
-                    .padding(.vertical, LuminaTokens.Spacing.lg)
-                    .frame(maxWidth: 880, alignment: .leading)
+                    .padding(.horizontal, LuminaTokens.Spacing.xxl)
+                    .padding(.vertical, LuminaTokens.Spacing.xl)
+                    .frame(maxWidth: 1120, alignment: .leading)
                     .frame(maxWidth: .infinity)
                 }
             }
@@ -60,19 +66,19 @@ struct P0OpenView: View {
             .buttonStyle(LuminaQuietButtonStyle())
             .help("Open the previous Workbench shell (preserved until P0 is proven)")
         }
-        .padding(.horizontal, LuminaTokens.Spacing.xl)
+        .padding(.horizontal, LuminaTokens.Spacing.xxl)
         .frame(height: LuminaTokens.HitTarget.header)
     }
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: LuminaTokens.Spacing.lg) {
-            Text("Choose a folder")
-                .font(LuminaTokens.Typeface.editorial(36))
+            Text("Open a shoot")
+                .font(LuminaTokens.Typeface.editorial(40))
                 .foregroundStyle(LuminaTokens.Ink.primary)
                 .accessibilityIdentifier("open-hero-title")
 
             Text(CopyContract.dropPhotographsOrFolder)
-                .font(LuminaTokens.Typeface.body(17))
+                .font(LuminaTokens.Typeface.body(18))
                 .foregroundStyle(LuminaTokens.Ink.secondary)
                 .lineSpacing(LuminaTokens.Typeface.bodyLineSpacing)
                 .fixedSize(horizontal: false, vertical: true)
@@ -81,65 +87,92 @@ struct P0OpenView: View {
                 .font(LuminaTokens.Typeface.meta(13))
                 .foregroundStyle(LuminaTokens.Ink.tertiary)
 
-            HStack(spacing: LuminaTokens.Spacing.md) {
-                LuminaTextActionButton(title: "Choose a folder", prominent: true) {
-                    session.chooseFolder()
-                }
-                .accessibilityIdentifier(P0AccessibilityID.openChooseFolder)
-                Text("or drop a folder anywhere in this window")
-                    .font(LuminaTokens.Typeface.meta(13))
-                    .foregroundStyle(LuminaTokens.Ink.tertiary)
-            }
-
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .strokeBorder(LuminaTokens.Line.hairline, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
-                .background(LuminaTokens.Surface.porcelain.opacity(0.5))
-                .frame(height: 120)
-                .overlay {
-                    Text("Drop the folder")
+            Button(action: { session.chooseFolder() }) {
+                VStack(spacing: 8) {
+                    Text("Open a folder")
+                        .font(LuminaTokens.Typeface.editorial(22))
+                        .foregroundStyle(LuminaTokens.Ink.primary)
+                    Text("or drop one on this window")
                         .font(LuminaTokens.Typeface.meta(13))
                         .foregroundStyle(LuminaTokens.Ink.tertiary)
                 }
-                .onTapGesture { session.chooseFolder() }
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 120)
+                .background(LuminaTokens.Surface.porcelain)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(LuminaTokens.Ink.primary.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [6, 5]))
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(LuminaQuietButtonStyle())
+            .accessibilityIdentifier(P0AccessibilityID.openChooseFolder)
+            .accessibilityLabel("Open a folder")
         }
         .padding(.top, LuminaTokens.Spacing.md)
     }
 
-    private var recentSection: some View {
-        VStack(alignment: .leading, spacing: LuminaTokens.Spacing.md) {
-            Text("Recent shoots")
-                .font(LuminaTokens.Typeface.navigation(15, weight: .medium))
-                .foregroundStyle(LuminaTokens.Ink.secondary)
-
-            VStack(spacing: 0) {
-                ForEach(session.recentShoots.prefix(12)) { shoot in
-                    Button {
-                        session.openRecent(shoot)
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(shoot.name)
-                                    .font(LuminaTokens.Typeface.editorial(20))
-                                    .foregroundStyle(LuminaTokens.Ink.primary)
-                                Text(recentSubtitle(shoot))
-                                    .font(LuminaTokens.Typeface.meta(12))
-                                    .foregroundStyle(LuminaTokens.Ink.tertiary)
-                            }
-                            Spacer()
-                            Image(systemName: "arrow.right")
-                                .foregroundStyle(LuminaTokens.Ink.tertiary)
-                        }
-                        .padding(.vertical, LuminaTokens.Spacing.md)
-                        .contentShape(Rectangle())
+    private var shoots: some View {
+        VStack(alignment: .leading, spacing: LuminaTokens.Spacing.section) {
+            if let resume = arrangement.resume {
+                shootBand(title: "Continue") {
+                    OpenShootPlate(shoot: resume, weight: .resume) {
+                        session.openRecent(resume)
                     }
-                    .buttonStyle(LuminaQuietButtonStyle())
-                    .accessibilityIdentifier(P0AccessibilityID.recentShoot(shoot.name))
-
-                    Rectangle()
-                        .fill(LuminaTokens.Line.hairline)
-                        .frame(height: LuminaTokens.Line.hairlineWidth)
                 }
             }
+
+            if !arrangement.largerSets.isEmpty {
+                shootBand(title: "Larger sets") {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: ChapterPack.spacing),
+                            GridItem(.flexible(), spacing: ChapterPack.spacing),
+                        ],
+                        spacing: ChapterPack.spacing
+                    ) {
+                        ForEach(arrangement.largerSets) { shoot in
+                            OpenShootPlate(shoot: shoot, weight: .larger) {
+                                session.openRecent(shoot)
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !arrangement.smaller.isEmpty {
+                shootBand(title: nil) {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: 16),
+                            GridItem(.flexible(), spacing: 16),
+                            GridItem(.flexible(), spacing: 16),
+                        ],
+                        spacing: 16
+                    ) {
+                        ForEach(arrangement.smaller) { shoot in
+                            OpenShootPlate(shoot: shoot, weight: .smaller) {
+                                session.openRecent(shoot)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .animation(reduceMotion ? nil : LuminaTokens.Motion.reveal, value: session.recentShoots.map(\.id))
+    }
+
+    private func shootBand(title: String?, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
+            if let title {
+                Text(title)
+                    .font(LuminaTokens.Typeface.meta(13, weight: .medium))
+                    .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    .textCase(.uppercase)
+                    .tracking(0.8)
+            }
+            content()
         }
     }
 
@@ -155,13 +188,91 @@ struct P0OpenView: View {
         }
         .allowsHitTesting(false)
     }
+}
 
-    private func recentSubtitle(_ shoot: RecentShootSummary) -> String {
-        var parts = ["\(shoot.assetCount) photos"]
-        if shoot.keepCount > 0 { parts.append("\(shoot.keepCount) kept") }
-        if let path = shoot.rawFolderPath {
-            parts.append((path as NSString).lastPathComponent)
+private struct OpenShootPlate: View {
+    enum Weight {
+        case resume
+        case larger
+        case smaller
+    }
+
+    let shoot: RecentShootSummary
+    let weight: Weight
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: weight == .smaller ? 6 : 10) {
+                Text(shoot.name)
+                    .font(titleFont)
+                    .foregroundStyle(LuminaTokens.Ink.primary)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(subtitle)
+                        .font(LuminaTokens.Typeface.meta(weight == .resume ? 13 : 12))
+                        .foregroundStyle(LuminaTokens.Ink.tertiary)
+                    Spacer(minLength: 8)
+                    Text("\(shoot.assetCount)")
+                        .font(countFont)
+                        .foregroundStyle(weight == .smaller ? LuminaTokens.Ink.tertiary : LuminaTokens.Ink.primary)
+                        .monospacedDigit()
+                }
+            }
+            .padding(weight == .smaller ? 12 : LuminaTokens.Spacing.md)
+            .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+            .background(fill)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
-        return parts.joined(separator: " · ")
+        .buttonStyle(LuminaPlatePressStyle())
+        .accessibilityIdentifier(P0AccessibilityID.recentShoot(shoot.name))
+        .accessibilityLabel("\(shoot.name), \(shoot.assetCount) photographs")
+    }
+
+    private var titleFont: Font {
+        switch weight {
+        case .resume: LuminaTokens.Typeface.editorial(26)
+        case .larger: LuminaTokens.Typeface.editorial(22)
+        case .smaller: LuminaTokens.Typeface.editorial(17)
+        }
+    }
+
+    private var countFont: Font {
+        switch weight {
+        case .resume: LuminaTokens.Typeface.editorial(28)
+        case .larger: LuminaTokens.Typeface.editorial(22)
+        case .smaller: LuminaTokens.Typeface.meta(15)
+        }
+    }
+
+    private var minHeight: CGFloat {
+        switch weight {
+        case .resume: 168
+        case .larger: 140
+        case .smaller: 88
+        }
+    }
+
+    private var fill: Color {
+        switch weight {
+        case .resume, .larger: LuminaTokens.Surface.porcelain
+        case .smaller: LuminaTokens.Surface.well.opacity(0.55)
+        }
+    }
+
+    private var subtitle: String {
+        switch weight {
+        case .resume:
+            var parts = ["as you left it"]
+            if shoot.keepCount > 0 { parts.append("\(shoot.keepCount) kept") }
+            return parts.joined(separator: " · ")
+        case .larger, .smaller:
+            if shoot.keepCount > 0 {
+                return "\(shoot.keepCount) kept"
+            }
+            return "photographs"
+        }
     }
 }

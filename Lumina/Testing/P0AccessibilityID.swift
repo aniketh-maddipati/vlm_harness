@@ -25,6 +25,9 @@ enum P0AccessibilityID {
     // Contact sheet
     static let contactSheet = "p0.contactSheet"
     static let contactCollection = "p0.contactSheet.collection"
+    static let chapterMarkPrefix = "p0.chapter."
+    static func chapterMark(_ id: String) -> String { chapterMarkPrefix + id }
+    static let keptRail = "p0.keptRail"
     static let contactCellPrefix = "p0.asset."            // + asset UUID
     static func assetCell(_ id: UUID) -> String { contactCellPrefix + id.uuidString }
     /// D47 / A3 — persistent pointer cull targets on the focused frame only.

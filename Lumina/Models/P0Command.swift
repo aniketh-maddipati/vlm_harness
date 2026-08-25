@@ -97,15 +97,57 @@ struct EditMutationCommand: P0Command, Equatable, Sendable {
     }
 }
 
+/// One keep-this-burst move — every mark in the chapter restores together.
+struct ChapterKeepCommand: P0Command, Equatable, Sendable {
+    struct Mark: Equatable, Sendable {
+        var assetID: UUID
+        var before: CullDecision
+        var after: CullDecision
+    }
+
+    let id: UUID
+    let createdAt: Date
+    let marks: [Mark]
+    let finalOrderBefore: [UUID]
+    let finalOrderAfter: [UUID]
+    let chapterBefore: String?
+    let focusBefore: UUID?
+    let burstID: String
+
+    var label: String { "Keep burst" }
+
+    init(
+        id: UUID = UUID(),
+        createdAt: Date = Date(),
+        marks: [Mark],
+        finalOrderBefore: [UUID],
+        finalOrderAfter: [UUID],
+        chapterBefore: String?,
+        focusBefore: UUID?,
+        burstID: String
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.marks = marks
+        self.finalOrderBefore = finalOrderBefore
+        self.finalOrderAfter = finalOrderAfter
+        self.chapterBefore = chapterBefore
+        self.focusBefore = focusBefore
+        self.burstID = burstID
+    }
+}
+
 /// Heterogeneous undo entry on the shared P0 command stack.
 enum P0UndoEntry: Equatable, Sendable {
     case cull(CullMutationCommand)
     case edit(EditMutationCommand)
+    case chapterKeep(ChapterKeepCommand)
 
     var label: String {
         switch self {
         case .cull(let command): return command.label
         case .edit(let command): return command.label
+        case .chapterKeep(let command): return command.label
         }
     }
 }
@@ -134,6 +176,10 @@ final class P0UndoCoordinator {
 
     func push(_ command: EditMutationCommand) {
         append(.edit(command))
+    }
+
+    func push(_ command: ChapterKeepCommand) {
+        append(.chapterKeep(command))
     }
 
     func pop() -> P0UndoEntry? {
