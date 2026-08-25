@@ -38,4 +38,4 @@ Vision embeddings are on-device. No extra model to install. A folder of Lightroo
 open design/play.html
 ```
 
-Browser mock. Click the sequence, or click the window and use P, X, arrows, Return, 4, Esc, Space, J, ?. Not the Mac app. Chrome stills: `design/hifi.pdf`.
+Browser mock. Click the sequence, or click the window and use P, X, arrows, Return, 4, Esc, Space, J, ?. Not the Mac app.
