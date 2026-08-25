@@ -2,7 +2,7 @@
 
 **Authority (one way, never backwards):** `design/contract-v6.md` → `design/tokens.yaml` → `design/copy-contract.txt` → code → tests.  
 This file and any other agent-instruction file **must not contradict** the contract. Where this file conflicts with Contract v6, **the contract wins** (agent-rules drift is the same FAIL class as copy drift).  
-`design/play.html` is the visual chrome reference only where the contract is silent — it does not re-scope decision keys or un-shelf laws.
+`design/hifi-v5.html` is the visual chrome / stills reference only where the contract is silent — it does not re-scope decision keys or un-shelf laws. `design/play.html` is the playable browser mock.
 
 ## Five laws (immutable)
 
@@ -16,7 +16,7 @@ This file and any other agent-instruction file **must not contradict** the contr
 
 ### Visual authority
 
-`design/play.html` informs layout chrome. Grammar, keys, shelf, and copy come from Contract v6 + frozen copy table — never from this file inventing against them.
+`design/hifi-v5.html` informs layout chrome (stills). `design/play.html` is the playable mock. Grammar, keys, shelf, and copy come from Contract v6 + frozen copy table — never from this file inventing against them.
 
 ### Decision keys (v1)
 

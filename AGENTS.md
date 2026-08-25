@@ -73,6 +73,7 @@ Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on 
 - `Scripts/harness/lint/` — banned-word, copy-contract, and structure checks (FAST lane manifest ids)
 - `Scripts/e2e_audit.swift` — headless macOS audit script
 - `README.md` — collaborator setup (numbered clone / brew / xcodebuild / open)
+- `design/hifi-v5.html` — standalone hi-fi stills (visual chrome reference; `file://` works)
 - `design/play.html` — standalone browser mock of open / table / edit / crop / export / failure flows
 - `BUILD_LOG.md` — build history and verification notes
 

@@ -4,6 +4,34 @@ Mac app for culling a shoot. Open a folder or an SD card. Keep with P, cut with 
 
 Apple Silicon. macOS 14+. Xcode 15+ from the App Store.
 
+```bash
+open design/hifi-v5.html
+```
+
+Stills. Chrome reference. Not the Mac app.
+
+![Open](design/grabs/hifi_open.png)
+
+Open. Work still on the table, and finished shoots. Drop a folder or an SD card.
+
+![Table](design/grabs/hifi_table_cull.png)
+
+Table. Rows of photographs. Keep with P, cut with X. Export sits in the corner once something is kept.
+
+![Crop](design/grabs/hifi_crop.png)
+
+Edit and crop. The photograph slides under a fixed window. Return writes it. Esc leaves it.
+
+![Receipt](design/grabs/hifi_receipt.png)
+
+After Return. A receipt names what just happened. Export stays in the corner.
+
+```bash
+open design/play.html
+```
+
+Browser mock. Click the sequence, or click the window and use P, X, arrows, Return, 4, Esc, Space, J, ?. Not the Mac app.
+
 ## Setup
 
 1. Clone.
@@ -63,11 +91,3 @@ xcodebuild -project Lumina.xcodeproj -scheme LuminaPlayground -configuration Deb
   build
 open .derivedData/Build/Products/Debug/LuminaPlayground.app
 ```
-
-## Design
-
-```bash
-open design/play.html
-```
-
-Browser mock. Click the sequence, or click the window and use P, X, arrows, Return, 4, Esc, Space, J, ?. Not the Mac app.
