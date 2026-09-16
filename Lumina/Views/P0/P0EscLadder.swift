@@ -15,6 +15,27 @@ import Foundation
 enum P0EscLadder {
     /// Returns true when Esc was consumed.
     static func handle(session: P0SessionModel) -> Bool {
+        if session.holdingLoupe || session.holdingClipping {
+            session.setHoldingLoupe(false)
+            session.setHoldingClipping(false)
+            return true
+        }
+
+        if session.lookGlancing {
+            session.endLookGlance()
+            return true
+        }
+
+        if session.leanedBurstID != nil {
+            session.leaveBurstLean()
+            return true
+        }
+
+        if session.walkingKeptRail {
+            session.walkingKeptRail = false
+            return true
+        }
+
         if session.route == .grouping {
             session.leaveGrouping()
             return true

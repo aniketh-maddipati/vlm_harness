@@ -129,7 +129,7 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             if event.keyCode == 36 || event.keyCode == 76 {
                 if event.isARepeat { return nil }
                 if session.inspectingAssetID == nil {
-                    session.openFocusedPhotograph()
+                    session.activateFocusedPhotograph()
                 }
                 return nil
             }
@@ -169,7 +169,35 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             }
 
             if event.keyCode == 49, !command {
-                session.toggleSelectionOfFocused()
+                if !event.isARepeat {
+                    session.setHoldingLoupe(true)
+                }
+                return nil
+            }
+
+            if !command && lower == "j" {
+                if !event.isARepeat {
+                    session.setHoldingClipping(true)
+                }
+                return nil
+            }
+
+            if !command && lower == "k", session.inspectingAssetID == nil {
+                if event.isARepeat { return nil }
+                session.keepFocusedBurst()
+                return nil
+            }
+
+            if event.keyCode == 48, session.inspectingAssetID == nil {
+                if event.isARepeat { return nil }
+                session.toggleKeptRailWalk()
+                return nil
+            }
+
+            if command && !shift && lower == "g", session.inspectingAssetID == nil {
+                if !event.isARepeat {
+                    session.beginLookGlance()
+                }
                 return nil
             }
 
@@ -201,6 +229,18 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             guard !session.showLegacyShell else { return event }
 
             let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
+            if event.keyCode == 49 {
+                session.setHoldingLoupe(false)
+                return nil
+            }
+            if chars == "j" {
+                session.setHoldingClipping(false)
+                return nil
+            }
+            if session.lookGlancing, chars == "g" || event.keyCode == 54 || event.keyCode == 55 {
+                session.endLookGlance()
+                return nil
+            }
             if chars == "b", !event.modifierFlags.contains(.command), session.inspectingAssetID != nil {
                 session.setShowingBefore(false)
                 return nil

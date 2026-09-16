@@ -38,6 +38,11 @@ struct P0SinglePhotoEditor: View {
             panOffset = .zero
             // Inspection warm is owned by setFocus debounce — avoid a second settle storm.
         }
+        .onChange(of: session.holdingLoupe) { _, holding in
+            if holding != oneToOne {
+                toggleOneToOneZoom()
+            }
+        }
     }
 
     private var header: some View {
@@ -209,6 +214,12 @@ struct P0SinglePhotoEditor: View {
                         .allowsHitTesting(false)
                 }
 
+                if session.holdingClipping {
+                    Color.red.blendMode(.difference).opacity(0.28)
+                        .padding(18)
+                        .allowsHitTesting(false)
+                }
+
                 if session.expandedAdjustmentSection == .crop {
                     P0CropOverlay(
                         session: session,
@@ -233,62 +244,7 @@ struct P0SinglePhotoEditor: View {
 
     private var filmstrip: some View {
         let neighbors = filmstripNeighbors()
-        let focusedSelected = session.focusedIsSelected
         return VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Button {
-                    session.toggleSelectionOfFocused()
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: focusedSelected ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 18, weight: .semibold))
-                        Text(focusedSelected ? "Selected" : "Select")
-                            .font(LuminaTokens.Typeface.navigation(15, weight: .semibold))
-                        Text("Space")
-                            .font(LuminaTokens.Typeface.meta(11, weight: .medium))
-                            .foregroundStyle(LuminaTokens.Ink.tertiary)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(LuminaTokens.Surface.well)
-                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    }
-                    .foregroundStyle(focusedSelected ? LuminaTokens.Ink.primary : LuminaTokens.Ink.primary)
-                    .frame(minWidth: 168, minHeight: 44)
-                    .padding(.horizontal, 14)
-                    .background(focusedSelected ? LuminaTokens.Surface.highlight : LuminaTokens.Surface.well)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(
-                                focusedSelected
-                                    ? LuminaTokens.Status.selection.opacity(0.55)
-                                    : LuminaTokens.Line.hairline,
-                                lineWidth: focusedSelected ? 1.5 : LuminaTokens.Line.hairlineWidth
-                            )
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(LuminaQuietButtonStyle())
-                .accessibilityLabel(focusedSelected ? "Deselect photograph" : "Select photograph")
-                .accessibilityHint("Space")
-
-                Text("Hover to browse · click to select · ← → move")
-                    .font(LuminaTokens.Typeface.meta(11))
-                    .foregroundStyle(LuminaTokens.Ink.tertiary)
-                    .lineLimit(1)
-
-                Spacer(minLength: 8)
-
-                if session.selectionCount > 0 {
-                    Text("\(session.selectionCount) selected")
-                        .font(LuminaTokens.Typeface.meta(12, weight: .medium))
-                        .foregroundStyle(LuminaTokens.Ink.primary)
-                }
-            }
-            .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
-            .padding(.top, 10)
-            .padding(.bottom, 6)
-
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
