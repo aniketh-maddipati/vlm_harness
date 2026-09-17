@@ -660,6 +660,8 @@ final class P0SessionModel {
             LatencyMetrics.record("p0.edit.slider_to_pixels", milliseconds: ms)
         }
         editMetricsLine = developScheduler.metrics.summaryLine
+        // Graph construction only on the display path; slider-to-pixels is
+        // `p0.edit.draw_ms` around DevelopMetalView's startTask pair.
         LatencyMetrics.record(
             "p0.edit.interactive_ms",
             milliseconds: developScheduler.metrics.lastDurationMs

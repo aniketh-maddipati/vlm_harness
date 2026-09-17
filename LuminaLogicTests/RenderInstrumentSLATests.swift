@@ -74,6 +74,11 @@ final class RenderInstrumentSLATests: XCTestCase {
                 "\(key) predates the mapping and must not be re-budgeted by it"
             )
         }
+        XCTAssertEqual(
+            LatencyMetrics.sla(for: "p0.edit.draw_ms"),
+            LatencyMetrics.sla(for: "p0.edit.interactive_ms"),
+            "draw_ms is the honest display-path sibling of interactive_ms and keeps the same budget"
+        )
     }
 
     func testHistoricalPrefixRulesAreUntouched() {

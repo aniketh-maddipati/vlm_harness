@@ -2,6 +2,7 @@ import AppKit
 import CoreImage
 import Metal
 import MetalKit
+import os
 import SwiftUI
 
 /// Metal-backed live preview for the Develop Lab.
@@ -50,6 +51,8 @@ struct DevelopMetalView: NSViewRepresentable {
     }
 
     final class Renderer: NSObject, MTKViewDelegate {
+        private static let signposter = OSSignposter(subsystem: "app.lumina.develop", category: "draw")
+
         let device: MTLDevice?
         private let commandQueue: MTLCommandQueue?
         private let context: CIContext
@@ -113,12 +116,23 @@ struct DevelopMetalView: NSViewRepresentable {
             // destination so RAW frames are upright relative to AppKit thumbs.
             destination.isFlipped = true
 
+            let signpostID = Self.signposter.makeSignpostID()
+            let drawState = Self.signposter.beginInterval("draw", id: signpostID)
+            let started = CFAbsoluteTimeGetCurrent()
             do {
                 _ = try context.startTask(toClear: destination)
                 _ = try context.startTask(toRender: positioned, to: destination)
             } catch {
+                Self.signposter.endInterval("draw", drawState)
                 return
             }
+            // This — not interactive `durationMs` — is slider-to-pixels: the
+            // GPU actually evaluates the graph here on the display path.
+            LatencyMetrics.record(
+                "p0.edit.draw_ms",
+                milliseconds: (CFAbsoluteTimeGetCurrent() - started) * 1000
+            )
+            Self.signposter.endInterval("draw", drawState)
             commandBuffer.present(drawable)
             commandBuffer.commit()
         }

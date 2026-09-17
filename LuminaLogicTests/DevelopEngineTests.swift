@@ -265,6 +265,49 @@ final class DevelopEngineTests: XCTestCase {
         XCTAssertTrue(sessionText.contains("tier == .interactive"))
     }
 
+    func testInteractiveRawStageMaterializesToTexture() throws {
+        let sessionText = try String(
+            contentsOf: repoRoot().appendingPathComponent("Lumina/Develop/PreparedRawSession.swift"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(sessionText.contains("materializeInteractiveStage"))
+        XCTAssertTrue(sessionText.contains("rgba16Float"))
+        XCTAssertTrue(sessionText.contains(".shaderRead"))
+        XCTAssertTrue(sessionText.contains(".shaderWrite"))
+        XCTAssertTrue(sessionText.contains(".renderTarget"))
+        XCTAssertTrue(sessionText.contains("mtlTexture: texture"))
+        XCTAssertTrue(sessionText.contains("interactiveCacheLimit = 2"))
+        XCTAssertTrue(sessionText.contains("DevelopRenderGraph.sharedContext"))
+        XCTAssertTrue(sessionText.contains("DevelopColorPolicy.workingColorSpace"))
+        XCTAssertTrue(sessionText.contains("tier == .interactive, let realized"))
+        XCTAssertTrue(sessionText.contains("dropStage"))
+    }
+
+    func testDrawPathRecordsEditDrawMsAroundStartTasks() throws {
+        let metalText = try String(
+            contentsOf: repoRoot().appendingPathComponent("Lumina/Develop/Lab/DevelopMetalView.swift"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(metalText.contains("p0.edit.draw_ms"))
+        XCTAssertTrue(metalText.contains("beginInterval(\"draw\""))
+        XCTAssertTrue(metalText.contains("startTask(toClear:"))
+        XCTAssertTrue(metalText.contains("startTask(toRender:"))
+
+        let schedulerText = try String(
+            contentsOf: repoRoot().appendingPathComponent("Lumina/Develop/DevelopRenderScheduler.swift"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(schedulerText.contains("graph construction only"))
+        XCTAssertTrue(schedulerText.contains("p0.edit.draw_ms"))
+
+        let sessionModel = try String(
+            contentsOf: repoRoot().appendingPathComponent("Lumina/ViewModels/P0SessionModel.swift"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(sessionModel.contains("p0.edit.draw_ms"))
+        XCTAssertTrue(sessionModel.contains("p0.edit.interactive_ms"))
+    }
+
     private func repoRoot() -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

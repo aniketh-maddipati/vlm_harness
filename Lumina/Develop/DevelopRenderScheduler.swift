@@ -464,6 +464,10 @@ final class DevelopRenderScheduler {
             return
         }
 
+        // Display-path interactive `durationMs` is graph construction only:
+        // CIRAWFilter.outputImage is lazy, and GPU evaluation happens inside
+        // DevelopMetalView.draw (`p0.edit.draw_ms`). Settled/export still
+        // include evaluation because they materialize a CGImage.
         let evalState = Self.signposter.beginInterval("evaluate", id: signpostID)
         let rendered = await DevelopRenderGraph.render(request)
         Self.signposter.endInterval("evaluate", evalState)

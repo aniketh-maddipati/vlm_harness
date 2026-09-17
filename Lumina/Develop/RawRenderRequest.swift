@@ -195,6 +195,9 @@ struct DevelopRenderResult: @unchecked Sendable {
     let ciImage: CIImage?
     let cgImage: CGImage?
     let extent: CGRect
+    /// Wall time of `DevelopRenderGraph.render`. On the display-path interactive
+    /// tier this is graph construction only; real slider-to-pixels is
+    /// `p0.edit.draw_ms` around the Metal `startTask` pair.
     let durationMs: Double
     let cacheHit: Bool
     let rawStageCacheHit: Bool
