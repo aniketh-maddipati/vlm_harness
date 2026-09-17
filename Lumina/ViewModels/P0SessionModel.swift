@@ -122,6 +122,9 @@ final class P0SessionModel {
     var rawNativeTint: Double?
     var fidelityNotice: String?
     private(set) var editMetricsLine: String = ""
+    /// Drawable-native authoritative preview target. Full resolution remains
+    /// reserved for 1:1 ROI and export.
+    private(set) var inspectionSettledLongEdge = 2560
 
     private var preparationTask: Task<Void, Never>?
     private var persistTask: Task<Void, Never>?
@@ -131,6 +134,7 @@ final class P0SessionModel {
     private var prewarmTask: Task<Void, Never>?
     /// Debounces expensive settle/prewarm while arrow keys / filmstrip hover spam focus.
     private var inspectionWarmTask: Task<Void, Never>?
+    private var inspectionResizeTask: Task<Void, Never>?
     private var inspectionWarmGeneration = 0
     private var scrubInputStartedAt: CFAbsoluteTime?
     /// Managed-field hash Lumina last wrote per asset — drift detection domain (CP2 sidecars).
@@ -674,7 +678,8 @@ final class P0SessionModel {
             photoID: assetID,
             rawURL: urls.rawURL ?? urls.proxyURL!,
             proxyURL: urls.proxyURL,
-            recipe: recipe
+            recipe: recipe,
+            settledLongEdge: inspectionSettledLongEdge
         )
     }
 
@@ -693,9 +698,30 @@ final class P0SessionModel {
             photoID: assetID,
             rawURL: urls.rawURL ?? urls.proxyURL!,
             proxyURL: urls.proxyURL,
-            recipe: recipe
+            recipe: recipe,
+            settledLongEdge: inspectionSettledLongEdge
         )
         editMetricsLine = developScheduler.metrics.summaryLine
+    }
+
+    /// Called with actual drawable pixels by the permanent Metal surface.
+    /// Resize settles are coalesced so live window resizing cannot start a RAW
+    /// render for every intermediate geometry.
+    func updateInspectionDrawableSize(_ size: CGSize) {
+        let drawableEdge = max(size.width, size.height)
+        guard drawableEdge > 1 else { return }
+        let target = min(4096, max(2560, Int((drawableEdge * 1.15).rounded(.up))))
+        guard abs(target - inspectionSettledLongEdge) >= 128 else { return }
+        inspectionSettledLongEdge = target
+        inspectionResizeTask?.cancel()
+        guard let id = inspectingAssetID else { return }
+        inspectionResizeTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard !Task.isCancelled,
+                  let self,
+                  self.inspectingAssetID == id else { return }
+            self.settleCurrentRecipe(for: id, recipe: self.recipe(for: id))
+        }
     }
 
     private func warmBeforeAfter(for assetID: UUID, recipe: EditRecipe) {
@@ -854,7 +880,12 @@ final class P0SessionModel {
         }
         if let id, let asset = assets.first(where: { $0.id == id }),
            let path = asset.thumbPath ?? asset.gridThumbPath {
-            ThumbCache.shared.prefetch(path)
+            Task {
+                await BrowsePixelService.shared.prefetch(
+                    [(assetID: id, path: path)],
+                    tier: .focused
+                )
+            }
             LatencyMetrics.record(
                 "p0.focus_to_preview",
                 milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000
@@ -913,12 +944,15 @@ final class P0SessionModel {
             if list.indices.contains(index - 1) { targets.append(list[index - 1]) }
         }
         let byID = Dictionary(uniqueKeysWithValues: assets.map { ($0.id, $0) })
-        let paths = targets.flatMap(\.bursts).compactMap { burst -> String? in
+        let requests = targets.flatMap(\.bursts).compactMap { burst -> (assetID: UUID, path: String)? in
             guard let coverID = burst.preferredCoverID(in: assets),
-                  let asset = byID[coverID] else { return nil }
-            return asset.gridThumbPath ?? asset.thumbPath
+                  let asset = byID[coverID],
+                  let path = asset.gridThumbPath ?? asset.thumbPath else { return nil }
+            return (coverID, path)
         }
-        ThumbCache.shared.prefetchPaths(paths, maxPixelSize: PhotoImageTier.gridMaxPixelSize, allowRAW: false)
+        Task {
+            await BrowsePixelService.shared.prefetch(requests, tier: .grid)
+        }
     }
 
     func moveFocus(dx: Int, dy: Int, columns _: Int) {
@@ -1222,7 +1256,13 @@ final class P0SessionModel {
         flushPendingEditIfNeeded()
         showingBefore = false
         pendingScrollRestore = true
+        inspectionWarmTask?.cancel()
+        inspectionResizeTask?.cancel()
+        prewarmTask?.cancel()
+        capabilityTask?.cancel()
+        developSchedulerStorage?.cancelAll()
         inspectingAssetID = nil
+        Task { await BrowsePixelService.shared.clearFocusedPin() }
         persistRestoreNow()
     }
 

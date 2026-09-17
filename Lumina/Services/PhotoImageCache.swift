@@ -356,14 +356,20 @@ enum PhotoImageLoader {
 enum SessionCache {
     @MainActor
     static func beginEditingSession(projectName: String) {
-        Task { await PhotoImageCache.shared.beginSession(projectName: projectName) }
+        Task {
+            await PhotoImageCache.shared.beginSession(projectName: projectName)
+            await BrowsePixelService.shared.removeAll()
+        }
         LatencyMetrics.resetSession()
         MetalCanvasLifecycle.beginSession()
     }
 
     @MainActor
     static func endEditingSession(clearBrowseSpine: Bool = true) {
-        Task { await PhotoImageCache.shared.endSession() }
+        Task {
+            await PhotoImageCache.shared.endSession()
+            await BrowsePixelService.shared.removeAll()
+        }
         if clearBrowseSpine {
             PreviewSpine.shared.clear()
             MetalPreviewPool.shared.evictAll()

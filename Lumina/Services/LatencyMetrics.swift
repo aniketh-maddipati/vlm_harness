@@ -39,6 +39,7 @@ nonisolated enum LatencyMetrics {
     static let cacheHitSLAms: Double = 50
     static let fidelitySLAms: Double = 100
     static let developScrubSLAms: Double = 120
+    static let editDrawKey = "p0.edit.draw_ms"
 
     // MARK: - PROPOSED thresholds (E2 instruments)
     //
@@ -282,6 +283,9 @@ nonisolated enum LatencyMetrics {
         P0RenderInstruments.Key.keyTravel: gestureToPixelsSLAms,
         P0RenderInstruments.Key.keyMark: gestureToPixelsSLAms,
         P0RenderInstruments.Key.zoomGesture: gestureToPixelsSLAms,
+        // Preserve the historical 50 ms budget, now by declaration rather
+        // than accidental p0.* fallback.
+        editDrawKey: navigationSLAms,
     ]
 
     /// The budget a key is judged against, used by the SLO-breach signpost in `record`.

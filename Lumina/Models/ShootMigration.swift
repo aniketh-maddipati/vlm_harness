@@ -100,7 +100,10 @@ enum ShootMigration {
             sourceKey: key,
             source: source,
             filename: photo.filename,
-            cull: CullDecision(tier: photo.tier),
+            // Legacy machine tiers are observations, not photographer
+            // decisions. Only records carrying a hand-decision timestamp may
+            // cross the canonical P0 cull boundary.
+            cull: photo.userDecidedAt == nil ? .undecided : CullDecision(tier: photo.tier),
             recipe: photo.editRecipe,
             capturedAt: photo.capturedAt,
             fileSize: size,

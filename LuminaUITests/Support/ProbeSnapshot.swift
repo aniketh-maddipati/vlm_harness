@@ -26,7 +26,10 @@ struct ProbeSnapshot: Codable, Equatable {
     /// Deterministic fingerprint of the focused asset's canonical `EditRecipe` (nil when nothing is
     /// focused). Mirrors `Lumina/Testing/UITestStateProbe.swift`.
     var focusedRecipeFingerprint: String?
-    /// Render fidelity stays session-internal (`P0SessionModel.developFidelity(for:)`) — not probed.
+    /// Progressive rendering state for stability assertions.
+    var focusedRenderFidelity: String? = nil
+    var focusedHasPresentedRAW: Bool? = nil
+    var inspectionSettledLongEdge: Int? = nil
     /// D47/A3 — pointer cull mark targets visible on the focused contact-sheet frame.
     var pointerCullTargetsVisible: Bool
     var inspectingAssetID: String?

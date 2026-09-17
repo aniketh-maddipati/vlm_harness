@@ -152,6 +152,14 @@ enum P0EditLiveRunner {
         captureEditor(session: session, size: CGSize(width: 1280, height: 800), name: "editor-after-controls", to: outDir)
 
         // 3. Rapid Exposure scrub ≥ 10 s
+        // Keep a real Metal-backed editor mounted so p0.edit.draw_ms measures
+        // slider-to-pixels rather than scheduler graph construction.
+        let liveEditorWindow = makeEditorWindow(
+            session: session,
+            size: CGSize(width: 1280, height: 800)
+        )
+        LatencyMetrics.beginCapture(key: "p0.edit.draw_ms")
+        var drawCaptureEnded = false
         let scrubStart = CFAbsoluteTimeGetCurrent()
         var blankSeen = false
         var scrubSamples: [Double] = []
@@ -165,10 +173,19 @@ enum P0EditLiveRunner {
                 blankSeen = true
             }
             scrubSamples.append((CFAbsoluteTimeGetCurrent() - t0) * 1000)
+            if !drawCaptureEnded, CFAbsoluteTimeGetCurrent() - scrubStart >= 3.0 {
+                LatencyMetrics.endCapture(key: "p0.edit.draw_ms")
+                drawCaptureEnded = true
+            }
+        }
+        if !drawCaptureEnded {
+            LatencyMetrics.endCapture(key: "p0.edit.draw_ms")
         }
         session.endEditGesture()
+        liveEditorWindow.close()
         scrubSamples.sort()
         let scrubP95 = percentile(scrubSamples, 0.95)
+        let drawReading = LatencyMetrics.reading(for: "p0.edit.draw_ms")
         report["rapidScrub"] = [
             "durationSec": 10,
             "samples": scrubSamples.count,
@@ -176,6 +193,15 @@ enum P0EditLiveRunner {
             "p95Ms": scrubP95,
             "blankSeen": blankSeen,
             "scheduler": session.editMetricsLine,
+            "draw3Seconds": drawReading.map {
+                [
+                    "p50Ms": $0.p50,
+                    "p95Ms": $0.p95,
+                    "p99Ms": $0.p99,
+                    "sampleCount": $0.window.sampleCount,
+                    "window": $0.window.declaration,
+                ] as [String: Any]
+            } ?? ["sampleCount": 0],
         ]
         note("Rapid Exposure scrub ≥10s without blank canvas", !blankSeen, String(format: "p95=%.1fms n=%d", scrubP95, scrubSamples.count))
 
@@ -418,6 +444,33 @@ enum P0EditLiveRunner {
             fputs("Wrote \(name).png\n", stderr)
         }
         window.close()
+    }
+
+    private static func makeEditorWindow(
+        session: P0SessionModel,
+        size: CGSize
+    ) -> NSWindow {
+        guard let id = session.inspectingAssetID,
+              let asset = session.assets.first(where: { $0.id == id }) else {
+            return NSWindow()
+        }
+        let view = P0SinglePhotoEditor(session: session, asset: asset)
+            .frame(width: size.width, height: size.height)
+            .luminaWorkspaceAppearance()
+        let hosting = NSHostingView(rootView: view)
+        hosting.frame = NSRect(origin: .zero, size: size)
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.contentView = hosting
+        window.setContentSize(size)
+        window.orderFrontRegardless()
+        hosting.layoutSubtreeIfNeeded()
+        return window
     }
 
     private static func write(_ report: [String: Any], to outDir: URL) {

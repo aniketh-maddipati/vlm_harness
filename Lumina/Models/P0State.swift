@@ -219,6 +219,50 @@ struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+// MARK: - Arrangement / evidence / recommendation boundaries
+
+/// Arrangement only: answers which frames belong to the same moment.
+/// It carries no preference, rating, or cull mutation.
+struct SceneMembership: Codable, Hashable, Sendable {
+    var burstID: String?
+    var sceneID: String?
+}
+
+/// Replaceable technical observations. These may help the photographer
+/// inspect a frame but cannot write `CullDecision`.
+struct QualitySignals: Codable, Hashable, Sendable {
+    var sharpness: Double
+    var exposureHealth: Double
+    var faceDetected: Bool
+    var faceQuality: Double
+}
+
+/// Future, gated output. Deliberately separate from both `AssetRecord.cull`
+/// and persisted ratings so a model can be benchmarked or removed without
+/// changing anything the photographer decided.
+struct RecommendationObservation: Codable, Hashable, Sendable {
+    var assetID: UUID
+    var sceneID: String
+    var modelVersion: String
+    var relativeScore: Double
+    var generatedAt: Date
+}
+
+extension AssetRecord {
+    var sceneMembership: SceneMembership {
+        SceneMembership(burstID: burstID, sceneID: clusterID)
+    }
+
+    var qualitySignals: QualitySignals {
+        QualitySignals(
+            sharpness: sharpness,
+            exposureHealth: exposureHealth,
+            faceDetected: faceDetected,
+            faceQuality: faceQuality
+        )
+    }
+}
+
 // MARK: - Final order (independent of discovery order)
 
 struct FinalSetOrder: Codable, Hashable, Sendable {

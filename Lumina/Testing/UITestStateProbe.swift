@@ -27,7 +27,11 @@ struct ProbeSnapshot: Codable, Equatable {
     /// focused). Lets the harness assert an edit gesture changed/reverted state without exposing
     /// pixel data, file paths, or the full recipe payload.
     var focusedRecipeFingerprint: String?
-    /// Render fidelity stays session-internal (`P0SessionModel.developFidelity(for:)`) — not probed.
+    /// Progressive rendering probe: the focused asset may sharpen in place,
+    /// but identity and geometry remain stable.
+    var focusedRenderFidelity: String? = nil
+    var focusedHasPresentedRAW: Bool? = nil
+    var inspectionSettledLongEdge: Int? = nil
     /// D47/A3 — pointer cull mark targets visible on the focused contact-sheet frame.
     var pointerCullTargetsVisible: Bool
     var inspectingAssetID: String?
@@ -112,6 +116,13 @@ extension P0SessionModel {
             focusedAvailability: focused?.source.availability.rawValue,
             focusedCull: focused?.cull.rawValue,
             focusedRecipeFingerprint: focused.map { recipe(for: $0.id).valueFingerprint },
+            focusedRenderFidelity: focusedAssetID.flatMap {
+                developFidelity(for: $0)?.rawValue
+            },
+            focusedHasPresentedRAW: focusedAssetID.map {
+                displayedCIImage(for: $0) != nil
+            } ?? false,
+            inspectionSettledLongEdge: inspectionSettledLongEdge,
             pointerCullTargetsVisible: route == "contactSheet" && inspectingAssetID == nil && focusedAssetID != nil,
             inspectingAssetID: inspectingAssetID?.uuidString,
             selectedAssetIDs: selectedAssetIDs.map(\.uuidString).sorted(),

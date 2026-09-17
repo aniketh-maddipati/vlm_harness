@@ -152,10 +152,7 @@ struct ContactSheetInspectImage: View {
             }
         }
         .task(id: path) {
-            let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: 2400, allowRAW: false)
-            if case .image(let img) = outcome {
-                image = img
-            }
+            image = await BrowsePixelService.shared.image(path: path, tier: .focused)
         }
     }
 }
