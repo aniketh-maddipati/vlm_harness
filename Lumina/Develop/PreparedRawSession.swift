@@ -96,6 +96,10 @@ actor PreparedRawSession {
     ///
     /// Reduced scale is applied through `CIRAWFilter.scaleFactor` so the decoder
     /// never produces a full-size image only to throw pixels away.
+    ///
+    /// Interactive caches a pinned decode (camera WB, 0 EV) and applies
+    /// exposure / WB as Core Image post-ops so slider ticks stay cache-valid.
+    /// Authoritative still bakes the live intent onto `CIRAWFilter`.
     func rawStageImage(
         intent: RawIntent,
         targetLongEdge: Int?,
@@ -104,8 +108,9 @@ actor PreparedRawSession {
         prepareIfNeeded()
 
         let scale = scaleFactor(for: targetLongEdge)
+        let decodeIntent = tier == .interactive ? intent.pinnedInteractiveDecode : intent
         let key = [
-            intent.fingerprint,
+            decodeIntent.fingerprint,
             String(format: "%.4f", scale),
             tier.rawValue,
             Self.decoderMappingVersion,
@@ -114,7 +119,7 @@ actor PreparedRawSession {
         if var hit = rawStageCache[key] {
             hit.lastAccess = CFAbsoluteTimeGetCurrent()
             rawStageCache[key] = hit
-            return (hit.image, true)
+            return (finishRawStage(hit.image, intent: intent, tier: tier), true)
         }
 
         let filter: CIRAWFilter?
@@ -129,7 +134,7 @@ actor PreparedRawSession {
 
         rawStageCache[key] = RawStageEntry(image: output, scale: scale, lastAccess: CFAbsoluteTimeGetCurrent())
         evictRawStageIfNeeded()
-        return (output, false)
+        return (finishRawStage(output, intent: intent, tier: tier), false)
     }
 
     /// Drop cached RAW-stage surfaces (RawIntent changed upstream or memory pressure).
@@ -194,28 +199,42 @@ actor PreparedRawSession {
         return Double(targetLongEdge) / Double(metadata.longEdge)
     }
 
+    /// Authoritative writes the live `EditRecipe` RAW slice onto `CIRAWFilter`:
+    /// `exposure`, `neutralTemperature` / `neutralTint` (or camera as-shot),
+    /// `luminanceNoiseReductionAmount`, `sharpnessAmount`, `scaleFactor`.
+    ///
+    /// Interactive pins exposure to 0 and WB to camera as-shot so the demosaic
+    /// stays cache-stable; NR, sharpen, and scale still write through.
     private func apply(intent: RawIntent, to filter: CIRAWFilter, tier: Tier, scale: Double) {
-        filter.exposure = Float(intent.exposureEV)
+        let decode = tier == .interactive ? intent.pinnedInteractiveDecode : intent
+        filter.exposure = Float(decode.exposureEV)
 
-        if intent.isAsShotWhiteBalance {
+        if decode.isAsShotWhiteBalance {
             // Restore camera as-shot neutral rather than forcing 6500 K.
             if let metadata {
                 filter.neutralTemperature = Float(metadata.nativeNeutralTemperature)
                 filter.neutralTint = Float(metadata.nativeNeutralTint)
             }
         } else {
-            filter.neutralTemperature = Float(intent.temperature)
-            filter.neutralTint = Float(intent.tint)
+            filter.neutralTemperature = Float(decode.temperature)
+            filter.neutralTint = Float(decode.tint)
         }
 
         if capabilities.luminanceNoiseReduction == .supported {
-            filter.luminanceNoiseReductionAmount = Float(min(max(intent.luminanceNR / 100.0, 0), 1))
+            filter.luminanceNoiseReductionAmount = Float(min(max(decode.luminanceNR / 100.0, 0), 1))
         }
         if capabilities.sharpness == .supported {
-            filter.sharpnessAmount = Float(min(max(intent.sharpness / 150.0, 0), 1))
+            filter.sharpnessAmount = Float(min(max(decode.sharpness / 150.0, 0), 1))
         }
 
         filter.scaleFactor = Float(scale)
+    }
+
+    /// Interactive: cheap CI post-ops on the pinned decode. Authoritative: the
+    /// image already carries baked RAW-domain exposure / WB.
+    private func finishRawStage(_ image: CIImage, intent: RawIntent, tier: Tier) -> CIImage {
+        guard tier == .interactive else { return image }
+        return DevelopRenderGraph.applyExposureAndWhiteBalance(intent, to: image)
     }
 
     private func evictRawStageIfNeeded() {

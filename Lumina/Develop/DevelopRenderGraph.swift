@@ -12,6 +12,8 @@ import UniformTypeIdentifiers
 ///    RAW exposure, RAW noise reduction and capture sharpening. Applied through
 ///    `PreparedRawSession`; reduced scale goes through `CIRAWFilter.scaleFactor`
 ///    so a full-size image is never decoded just to be thrown away.
+///    Interactive pins decode to camera WB + 0 EV and applies exposure / WB as
+///    CI post-ops on that cached surface; settled / export still bake on the filter.
 /// 2. Look stage — scene-linear Core Image graph for the small honest set:
 ///    highlights/shadows (documented approximation), contrast, vibrance, saturation.
 ///    Whites/blacks/clarity/texture/dehaze are **not rendered**; their controls
@@ -78,7 +80,9 @@ enum DevelopRenderGraph {
             // or export-equivalent.
             image = applyProxyApproximation(request.recipe, to: image)
         } else {
-            // RAW stage already carries RawIntent — apply look, then heal spots.
+            // RAW stage already carries RawIntent (baked on settled / export;
+            // interactive exposure / WB are CI post-ops on the pinned decode).
+            // Tone (look) is always a post-op. Then heal spots.
             image = applyLook(request.recipe.lookIntent, to: image)
             image = applyRetouch(request.recipe.retouch, to: image)
         }
@@ -214,28 +218,36 @@ enum DevelopRenderGraph {
         return result.cropped(to: bounds)
     }
 
+    /// Interactive RAW-stage post-ops — exposure and white balance on a pinned
+    /// (camera WB, 0 EV) demosaic. Also used by the Proxy fallback path.
+    /// Tone (highlights / shadows / contrast / vibrance / saturation) stays in
+    /// `applyLook` so it is not applied twice.
+    static func applyExposureAndWhiteBalance(_ intent: RawIntent, to image: CIImage) -> CIImage {
+        var result = image
+        let bounds = image.extent.integral
+
+        if intent.exposureEV != 0, let f = CIFilter(name: "CIExposureAdjust") {
+            f.setValue(result, forKey: kCIInputImageKey)
+            f.setValue(intent.exposureEV, forKey: kCIInputEVKey)
+            result = f.outputImage ?? result
+        }
+        if !intent.isAsShotWhiteBalance, let f = CIFilter(name: "CITemperatureAndTint") {
+            f.setValue(result, forKey: kCIInputImageKey)
+            f.setValue(CIVector(x: EditRecipe.neutralTemperature, y: 0), forKey: "inputNeutral")
+            f.setValue(CIVector(x: intent.temperature, y: intent.tint), forKey: "inputTargetNeutral")
+            result = f.outputImage ?? result
+        }
+        return result.cropped(to: bounds)
+    }
+
     /// Proxy/JPEG fallback grading — approximates RAW-domain operations with
     /// generic CI filters because no RAW domain exists. Only ever displayed
     /// under the Proxy fidelity label.
     static func applyProxyApproximation(_ recipe: EditRecipe, to image: CIImage) -> CIImage {
-        var result = image
-        let bounds = image.extent.integral
-
-        if recipe.exposure != 0, let f = CIFilter(name: "CIExposureAdjust") {
-            f.setValue(result, forKey: kCIInputImageKey)
-            f.setValue(recipe.exposure, forKey: kCIInputEVKey)
-            result = f.outputImage ?? result
-        }
-        if abs(recipe.temperature - EditRecipe.neutralTemperature) > 1 || recipe.tint != 0,
-           let f = CIFilter(name: "CITemperatureAndTint") {
-            f.setValue(result, forKey: kCIInputImageKey)
-            f.setValue(CIVector(x: EditRecipe.neutralTemperature, y: 0), forKey: "inputNeutral")
-            f.setValue(CIVector(x: recipe.temperature, y: recipe.tint), forKey: "inputTargetNeutral")
-            result = f.outputImage ?? result
-        }
+        var result = applyExposureAndWhiteBalance(recipe.rawIntent, to: image)
         result = applyLook(recipe.lookIntent, to: result)
         result = applyRetouch(recipe.retouch, to: result)
-        return result.cropped(to: bounds)
+        return result.cropped(to: result.extent.integral)
     }
 
     /// Legacy shared apply path (JPEG proxy grading in the workbench).
