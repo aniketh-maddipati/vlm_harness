@@ -98,6 +98,15 @@ enum RawHarnessRunner {
                "intents: look change alters LookIntent")
         expect(base.rawIntent.fingerprint != rawChange.rawIntent.fingerprint,
                "intents: exposure invalidates RawIntent")
+        expect(base.rawIntent.pinnedInteractiveDecode.fingerprint
+                == rawChange.rawIntent.pinnedInteractiveDecode.fingerprint,
+               "intents: interactive pin ignores exposure")
+        expect(base.rawIntent.pinnedInteractiveDecode.fingerprint
+                == base.updating { $0.temperature = 4800 }.rawIntent.pinnedInteractiveDecode.fingerprint,
+               "intents: interactive pin ignores WB")
+        expect(base.rawIntent.pinnedInteractiveDecode.fingerprint
+                != base.updating { $0.luminanceNR = 40 }.rawIntent.pinnedInteractiveDecode.fingerprint,
+               "intents: interactive pin still keys NR")
         expect(base.geometryIntent.fingerprint == rawChange.geometryIntent.fingerprint,
                "intents: exposure preserves GeometryIntent")
 
@@ -273,29 +282,55 @@ enum RawHarnessRunner {
         ]
         if rawStageHits < 18 { failures += 1; live["rawStageCacheProblem"] = true }
 
-        // RawIntent change must miss the RAW-stage cache
-        let rawChanged = await DevelopRenderGraph.render(
+        // Interactive exposure / WB are post-ops on the pinned decode — must HIT.
+        let exposureChanged = await DevelopRenderGraph.render(
             request(recipe.updating { $0.exposure = 1.1 }, .interactive)
         )
-        live["rawIntentInvalidates"] = !rawChanged.rawStageCacheHit
-        if rawChanged.rawStageCacheHit { failures += 1 }
+        live["interactiveExposureReusesRawStage"] = exposureChanged.rawStageCacheHit
+        if !exposureChanged.rawStageCacheHit { failures += 1 }
+
+        let wbChanged = await DevelopRenderGraph.render(
+            request(recipe.updating { $0.temperature = 4800 }, .interactive)
+        )
+        live["interactiveWBReusesRawStage"] = wbChanged.rawStageCacheHit
+        if !wbChanged.rawStageCacheHit { failures += 1 }
+
+        // NR still writes onto CIRAWFilter, so it must miss the pinned cache.
+        let nrChanged = await DevelopRenderGraph.render(
+            request(recipe.updating { $0.luminanceNR = 80 }, .interactive)
+        )
+        live["interactiveNRInvalidates"] = !nrChanged.rawStageCacheHit
+        if nrChanged.rawStageCacheHit { failures += 1 }
 
         // Settled + 1:1
         let settled = await DevelopRenderGraph.render(request(recipe, .settled))
         live["settledMs"] = round1(settled.durationMs)
         live["settledFidelity"] = settled.fidelity.rawValue
 
+        // Authoritative bake is unchanged — a different exposure must miss.
+        let settledExposure = await DevelopRenderGraph.render(
+            request(recipe.updating { $0.exposure = 1.1 }, .settled)
+        )
+        live["settledRawIntentInvalidates"] = !settledExposure.rawStageCacheHit
+        if settledExposure.rawStageCacheHit { failures += 1 }
+
         // Interactive ↔ settled discontinuity — the visible "settle jump".
-        // If the draft-scale decode drifts from the authoritative decode,
-        // draft mode must be disabled; this gate keeps that honest.
+        // Compare a pin-matched recipe (0 EV, as-shot WB) so this gate still
+        // measures draft-scale vs authoritative decode, not the interactive
+        // exposure/WB post-op approximation (corrected 40ms after gesture end).
         // Bitmaps are materialized via forDisplay:false so both frames land
         // in the same (working) color space.
+        let pinMatched = recipe.updating {
+            $0.exposure = 0
+            $0.temperature = EditRecipe.neutralTemperature
+            $0.tint = 0
+        }
         let iBitmap = await DevelopRenderGraph.render(RawRenderRequest(
-            generation: 0, photoID: photoID, rawURL: rawURL, recipe: recipe,
+            generation: 0, photoID: photoID, rawURL: rawURL, recipe: pinMatched,
             quality: .interactive, forDisplay: false
         ))
         let sBitmap = await DevelopRenderGraph.render(RawRenderRequest(
-            generation: 0, photoID: photoID, rawURL: rawURL, recipe: recipe,
+            generation: 0, photoID: photoID, rawURL: rawURL, recipe: pinMatched,
             quality: .settled, forDisplay: false
         ))
         if let iCG = iBitmap.cgImage, let sCG = sBitmap.cgImage,

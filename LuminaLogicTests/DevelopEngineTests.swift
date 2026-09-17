@@ -1,3 +1,4 @@
+import CoreImage
 import XCTest
 @testable import Lumina
 
@@ -188,6 +189,80 @@ final class DevelopEngineTests: XCTestCase {
         let a = EditRecipe(exposure: 0.1)
         let b = EditRecipe(exposure: 0.2)
         XCTAssertNotEqual(a.valueFingerprint, b.valueFingerprint)
+    }
+
+    func testInteractiveRawStagePinIgnoresExposureAndWB() {
+        let base = EditRecipe()
+        let exposure = base.updating { $0.exposure = 1.25 }
+        let wb = base.updating { $0.temperature = 4800; $0.tint = 12 }
+        let look = base.updating { $0.contrast = 30; $0.highlights = -20 }
+        let nr = base.updating { $0.luminanceNR = 40 }
+        let sharp = base.updating { $0.sharpness = 80 }
+
+        XCTAssertEqual(
+            base.rawIntent.pinnedInteractiveDecode,
+            exposure.rawIntent.pinnedInteractiveDecode
+        )
+        XCTAssertEqual(
+            base.rawIntent.pinnedInteractiveDecode,
+            wb.rawIntent.pinnedInteractiveDecode
+        )
+        XCTAssertEqual(
+            base.rawIntent.pinnedInteractiveDecode,
+            look.rawIntent.pinnedInteractiveDecode
+        )
+        XCTAssertNotEqual(base.rawIntent.fingerprint, exposure.rawIntent.fingerprint)
+        XCTAssertNotEqual(base.rawIntent.fingerprint, wb.rawIntent.fingerprint)
+        XCTAssertNotEqual(
+            base.rawIntent.pinnedInteractiveDecode.fingerprint,
+            nr.rawIntent.pinnedInteractiveDecode.fingerprint
+        )
+        XCTAssertNotEqual(
+            base.rawIntent.pinnedInteractiveDecode.fingerprint,
+            sharp.rawIntent.pinnedInteractiveDecode.fingerprint
+        )
+
+        let pin = exposure.rawIntent.pinnedInteractiveDecode
+        XCTAssertEqual(pin.exposureEV, 0, accuracy: 1e-12)
+        XCTAssertTrue(pin.isAsShotWhiteBalance)
+    }
+
+    func testInteractiveExposurePostOpMovesPixels() {
+        let gray = CIImage(color: CIColor(red: 0.35, green: 0.35, blue: 0.35, alpha: 1))
+            .cropped(to: CGRect(x: 0, y: 0, width: 8, height: 8))
+        let lifted = RawIntent(
+            exposureEV: 1.5,
+            temperature: EditRecipe.neutralTemperature,
+            tint: 0,
+            luminanceNR: 0,
+            sharpness: 0
+        )
+        let adjusted = DevelopRenderGraph.applyExposureAndWhiteBalance(lifted, to: gray)
+        let ctx = CIContext(options: [.workingColorSpace: NSNull()])
+        func luma(_ image: CIImage) -> Double {
+            var px = [UInt8](repeating: 0, count: 4)
+            ctx.render(
+                image,
+                toBitmap: &px,
+                rowBytes: 4,
+                bounds: CGRect(x: 3, y: 3, width: 1, height: 1),
+                format: .RGBA8,
+                colorSpace: nil
+            )
+            return Double(px[0]) / 255
+        }
+        XCTAssertGreaterThan(luma(adjusted), luma(gray) + 0.1)
+    }
+
+    func testPreparedRawSessionInteractivePinIsInApply() throws {
+        let sessionText = try String(
+            contentsOf: repoRoot().appendingPathComponent("Lumina/Develop/PreparedRawSession.swift"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(sessionText.contains("pinnedInteractiveDecode"))
+        XCTAssertTrue(sessionText.contains("finishRawStage"))
+        XCTAssertTrue(sessionText.contains("applyExposureAndWhiteBalance"))
+        XCTAssertTrue(sessionText.contains("tier == .interactive"))
     }
 
     private func repoRoot() -> URL {

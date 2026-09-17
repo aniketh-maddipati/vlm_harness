@@ -4,15 +4,18 @@ import Foundation
 /// Explicit invalidation domains derived from `EditRecipe`.
 ///
 /// Changing `LookIntent` must not rerun RAW decoding when a compatible RAW-stage
-/// surface is cached. Changing `RawIntent` invalidates the RAW-stage surface and
-/// everything downstream.
+/// surface is cached. On the interactive tier, exposure and white balance are
+/// Core Image post-ops on a pinned decode, so those ticks also reuse the cached
+/// RAW-stage surface. Settled / export still bake exposure and WB onto
+/// `CIRAWFilter` and invalidate. NR and sharpen remain RAW-domain on both tiers.
 ///
 /// `EditRecipe` remains the single stored source of truth; intents are derived
 /// views used for cache keys and stage application.
 
-/// RAW-domain settings applied on `CIRAWFilter` before demosaic output.
+/// RAW-domain settings. Authoritative / export bake these onto `CIRAWFilter`
+/// before demosaic. Interactive pins exposure + WB and applies them as post-ops.
 struct RawIntent: Hashable, Sendable {
-    /// EV applied in RAW domain (`CIRAWFilter.exposure`).
+    /// EV applied in RAW domain (`CIRAWFilter.exposure`) on settled / export.
     var exposureEV: Double
     /// Target neutral temperature in Kelvin. Neutral + tint 0 means "as shot".
     var temperature: Double
@@ -33,6 +36,19 @@ struct RawIntent: Hashable, Sendable {
     /// "As shot" means the photographer has not overridden white balance.
     var isAsShotWhiteBalance: Bool {
         abs(temperature - EditRecipe.neutralTemperature) <= 1 && abs(tint) <= 0.01
+    }
+
+    /// Camera as-shot WB + zero exposure bias. Interactive `CIRAWFilter` writes
+    /// use this pin so demosaic stays cache-valid across slider ticks. NR and
+    /// sharpen stay on the live intent — they are not scrubbed at slider rate.
+    var pinnedInteractiveDecode: RawIntent {
+        RawIntent(
+            exposureEV: 0,
+            temperature: EditRecipe.neutralTemperature,
+            tint: 0,
+            luminanceNR: luminanceNR,
+            sharpness: sharpness
+        )
     }
 
     var fingerprint: String {
