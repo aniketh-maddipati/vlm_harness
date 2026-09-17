@@ -204,6 +204,22 @@ enum P0EditLiveRunner {
             } ?? ["sampleCount": 0],
         ]
         note("Rapid Exposure scrub ≥10s without blank canvas", !blankSeen, String(format: "p95=%.1fms n=%d", scrubP95, scrubSamples.count))
+        let drawPass = drawReading.map {
+            $0.window.sampleCount > 0
+                && $0.p95 <= LatencyMetrics.sla(for: LatencyMetrics.editDrawKey)
+        } ?? false
+        note(
+            "3 second Metal draw capture",
+            drawPass,
+            drawReading.map {
+                String(
+                    format: "p95=%.1fms n=%d · %@",
+                    $0.p95,
+                    $0.window.sampleCount,
+                    $0.window.declaration
+                )
+            } ?? "no draw samples"
+        )
 
         // 4. Before press-and-hold (does not mutate)
         let recipeBeforeB = session.recipe(for: landscape.id)

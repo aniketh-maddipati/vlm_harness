@@ -508,7 +508,14 @@ final class DevelopRenderScheduler {
         defer { Self.signposter.endInterval("request", requestState) }
 
         let queuedAt = CFAbsoluteTimeGetCurrent()
-        let generation = await gate.next(for: photoID)
+        // Speculative cache fills live in a separate generation domain and
+        // can never supersede a visible request for the same photograph.
+        let generation: UInt64
+        if speculative {
+            generation = 0
+        } else {
+            generation = await gate.next(for: photoID)
+        }
         let request = RawRenderRequest(
             generation: generation,
             photoID: photoID,
@@ -558,7 +565,7 @@ final class DevelopRenderScheduler {
         Self.signposter.emitEvent("queueDelay", id: signpostID, "\(queueDelayMs, format: .fixed(precision: 1))ms")
 
         // Superseded before starting? Skip the evaluation entirely.
-        if await !gate.isCurrent(generation, for: photoID) {
+        if !speculative, await !gate.isCurrent(generation, for: photoID) {
             await lane.release()
             Self.signposter.emitEvent("staleDiscardPreRender", id: signpostID)
             return
@@ -595,7 +602,12 @@ final class DevelopRenderScheduler {
         }
 
         // Superseded results must never publish or enter a cache.
-        let current = await gate.isCurrent(generation, for: photoID)
+        let current: Bool
+        if speculative {
+            current = true
+        } else {
+            current = await gate.isCurrent(generation, for: photoID)
+        }
         guard current else {
             Self.signposter.emitEvent("staleDiscard", id: signpostID)
             metrics.record(result: rendered, stale: true)

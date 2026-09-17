@@ -163,7 +163,7 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
             lock.unlock()
             return timings
         }
-        let idx = pickSlotLocked()
+        let idx = slots.firstIndex(where: { $0.photoID == id }) ?? pickSlotLocked()
         slots[idx] = Slot(
             photoID: id,
             texture: texture,
@@ -270,7 +270,7 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
             lock.unlock()
             return timings
         }
-        let idx = pickSlotLocked()
+        let idx = slots.firstIndex(where: { $0.photoID == id }) ?? pickSlotLocked()
         slots[idx] = Slot(
             photoID: id,
             texture: texture,

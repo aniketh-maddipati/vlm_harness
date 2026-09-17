@@ -113,7 +113,9 @@ actor BrowsePixelService {
             return hit
         }
         if let pending = inflight[key] {
-            return await pending.task.value
+            let decoded = await pending.task.value
+            guard pending.epoch == epoch else { return nil }
+            return decoded
         }
 
         cacheMisses &+= 1
