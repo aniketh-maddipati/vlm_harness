@@ -18,8 +18,8 @@ enum DevelopRenderQuality: String, Codable, Hashable, Sendable, CaseIterable {
     var defaultLongEdge: Int {
         switch self {
         case .browse: return 1600
-        // Keep interactive lean so slider scrub stays under the pointer.
-        case .interactive: return 1920
+        // Realized interactive demosaic. 1280 keeps first-hit decode under the pointer.
+        case .interactive: return 1280
         case .settled: return 4096
         case .oneToOne: return 0 // region-sized
         case .export: return 0 // full

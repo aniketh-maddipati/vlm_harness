@@ -132,9 +132,12 @@ actor PreparedRawSession {
         apply(intent: intent, to: filter, tier: tier, scale: scale)
         guard let output = filter.outputImage else { return nil }
 
-        rawStageCache[key] = RawStageEntry(image: output, scale: scale, lastAccess: CFAbsoluteTimeGetCurrent())
+        // CIRAWFilter.outputImage is a lazy recipe. Caching it still re-demosaics
+        // on every Metal tick. Interactive must store realized pixels.
+        let stored = tier == .interactive ? materializeInteractive(output) : output
+        rawStageCache[key] = RawStageEntry(image: stored, scale: scale, lastAccess: CFAbsoluteTimeGetCurrent())
         evictRawStageIfNeeded()
-        return (finishRawStage(output, intent: intent, tier: tier), false)
+        return (finishRawStage(stored, intent: intent, tier: tier), false)
     }
 
     /// Drop cached RAW-stage surfaces (RawIntent changed upstream or memory pressure).
@@ -176,12 +179,17 @@ actor PreparedRawSession {
             inter?.isLensCorrectionEnabled = true
         }
 
-        let extent = auth.outputImage?.extent ?? .zero
+        var (pixelWidth, pixelHeight) = pixelSizeFromSource()
+        if pixelWidth <= 0 || pixelHeight <= 0 {
+            let extent = inter?.outputImage?.extent ?? auth.outputImage?.extent ?? .zero
+            pixelWidth = Int(extent.width)
+            pixelHeight = Int(extent.height)
+        }
         let mtime = (try? FileManager.default.attributesOfItem(atPath: rawURL.path)[.modificationDate] as? Date) ?? .distantPast
 
         metadata = Metadata(
-            pixelWidth: Int(extent.width),
-            pixelHeight: Int(extent.height),
+            pixelWidth: pixelWidth,
+            pixelHeight: pixelHeight,
             decoderVersion: Self.decoderMappingVersion,
             fileModificationDate: mtime ?? .distantPast,
             nativeNeutralTemperature: Double(auth.neutralTemperature),
@@ -228,6 +236,33 @@ actor PreparedRawSession {
         }
 
         filter.scaleFactor = Float(scale)
+    }
+
+    /// Pixel size without evaluating `CIRAWFilter.outputImage` (that demosaics).
+    private func pixelSizeFromSource() -> (Int, Int) {
+        guard let src = CGImageSourceCreateWithURL(rawURL as CFURL, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] else {
+            return (0, 0)
+        }
+        let width = (props[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue ?? 0
+        let height = (props[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue ?? 0
+        return (width, height)
+    }
+
+    /// Bake the interactive demosaic to a bitmap so later exposure/WB post-ops
+    /// do not re-run `CIRAWFilter`.
+    private func materializeInteractive(_ image: CIImage) -> CIImage {
+        let bounds = image.extent.integral
+        guard bounds.width > 1, bounds.height > 1 else { return image }
+        if let cg = DevelopRenderGraph.sharedContext.createCGImage(
+            image,
+            from: bounds,
+            format: .RGBAh,
+            colorSpace: DevelopColorPolicy.workingColorSpace
+        ) {
+            return CIImage(cgImage: cg)
+        }
+        return image
     }
 
     /// Interactive: cheap CI post-ops on the pinned decode. Authoritative: the

@@ -262,6 +262,9 @@ final class DevelopEngineTests: XCTestCase {
         XCTAssertTrue(sessionText.contains("pinnedInteractiveDecode"))
         XCTAssertTrue(sessionText.contains("finishRawStage"))
         XCTAssertTrue(sessionText.contains("applyExposureAndWhiteBalance"))
+        XCTAssertTrue(sessionText.contains("materializeInteractive"))
+        XCTAssertTrue(sessionText.contains("createCGImage"))
+        XCTAssertTrue(sessionText.contains("pixelSizeFromSource"))
         XCTAssertTrue(sessionText.contains("tier == .interactive"))
     }
 
