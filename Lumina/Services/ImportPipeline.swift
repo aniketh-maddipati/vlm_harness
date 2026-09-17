@@ -6,14 +6,14 @@ import CoreGraphics
 enum ImportPipeline {
     private static let refineConcurrency = 2
     private static var instantPreviewConcurrency: Int {
-        min(max(ProcessInfo.processInfo.activeProcessorCount * 3, 16), 32)
+        min(ProcessInfo.processInfo.activeProcessorCount, 8)
     }
     private static var scoreConcurrency: Int {
         min(max(ProcessInfo.processInfo.activeProcessorCount, 8), 16)
     }
 
     /// UI pacing between major phases (skipped during instant preview burst).
-    private static let phasePauseNs: UInt64 = 380_000_000
+    private static let phasePauseNs: UInt64 = 100_000_000
 
     static func importProject(
         sourceFolder: URL,
@@ -146,9 +146,7 @@ enum ImportPipeline {
             if recentThumbs.count > 32 { recentThumbs.removeFirst(recentThumbs.count - 32) }
             let frac = 0.08 + 0.40 * (Double(done) / Double(max(total, 1)))
             emit(.previews, detail: "Preview \(done) of \(total)", completed: done, total: total, fraction: frac)
-            if done % 4 == 0 || done == total {
-                continuation.yield(.photosUpdated(partial))
-            }
+            continuation.yield(.photosUpdated(partial))
         }
 
         CullEngine.assignBursts(&records)
@@ -262,6 +260,8 @@ enum ImportPipeline {
         var records: [PhotoRecord?] = Array(repeating: nil, count: rawFiles.count)
         var done = 0
         let total = rawFiles.count
+        var completionsSinceProgress = 0
+        var lastProgressAt = Date()
         let indexed = Array(rawFiles.enumerated())
         // Full browse previews live next to grid thumbs.
         let previewDir = gridDir.deletingLastPathComponent().appendingPathComponent("preview", isDirectory: true)
@@ -303,7 +303,7 @@ enum ImportPipeline {
                             to: previewURL,
                             from: rawURL,
                             maxPixelSize: 2400,
-                            minLongEdge: 2000
+                            minLongEdge: 1024
                         )
                         if extracted.success, !FileManager.default.fileExists(atPath: gridURL.path) {
                             _ = PreviewExtractor.downscaleJPEG(from: previewURL, to: gridURL, maxPixelSize: 768)
@@ -334,8 +334,16 @@ enum ImportPipeline {
                 for try await (index, record) in group {
                     records[index] = record
                     done += 1
+                    completionsSinceProgress += 1
+                    let elapsed = Date().timeIntervalSince(lastProgressAt)
+                    let shouldReport = completionsSinceProgress >= 16
+                        || elapsed >= 0.250
+                        || done == total
+                    guard shouldReport else { continue }
                     let partial = records.compactMap { $0 }
                     await progress(done, total, record.gridThumbPath ?? record.thumbPath, partial)
+                    completionsSinceProgress = 0
+                    lastProgressAt = Date()
                 }
             }
         }
