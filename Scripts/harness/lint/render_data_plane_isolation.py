@@ -45,7 +45,12 @@ NONISOLATED_TYPE_MARKERS: dict[str, tuple[str, ...]] = {
     "Lumina/Models/PhotoRecord.swift": (
         "nonisolated struct DevelopAdjustments",
         "nonisolated struct DevelopRecipe",
+        "nonisolated struct PhotoRecord",
+        "nonisolated enum PhotoTier",
+        "nonisolated enum PreviewOrigin",
     ),
+    "Lumina/Models/AssetIdentity.swift": ("nonisolated enum AssetIdentity",),
+    "Lumina/Services/ProjectStore.swift": ("nonisolated enum ProjectStore",),
 }
 
 FORBIDDEN_PATTERNS: tuple[tuple[str, str], ...] = (
@@ -65,6 +70,11 @@ REQUIRED_PATTERNS: tuple[tuple[str, str], ...] = (
         "LuminaLogicTests/ProgressiveRenderingArchitectureTests.swift",
         "nonisolated func nonisolatedRenderCacheKey",
     ),
+    (
+        "LuminaLogicTests/ProgressiveRenderingArchitectureTests.swift",
+        "nonisolated func nonisolatedEnsureProxy",
+    ),
+    ("Lumina/Models/P0State.swift", "nonisolated extension AssetRecord"),
 )
 
 # Actor nested statics/constants read synchronously from nonisolated decode paths.

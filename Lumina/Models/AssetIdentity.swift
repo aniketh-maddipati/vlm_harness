@@ -3,7 +3,7 @@ import Foundation
 
 /// Stable asset identity independent of grid position and discovery order.
 /// Prefer this over ephemeral `UUID()` assignment at import.
-enum AssetIdentity {
+nonisolated enum AssetIdentity {
     /// Schema for the opaque source key that seeds a deterministic UUID.
     static let keyVersion = 1
 

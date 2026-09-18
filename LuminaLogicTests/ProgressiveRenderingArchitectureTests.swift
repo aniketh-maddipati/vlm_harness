@@ -10,6 +10,14 @@ nonisolated func nonisolatedRenderCacheKey(_ request: RawRenderRequest) -> Strin
     request.cacheKey
 }
 
+nonisolated func nonisolatedEnsureProxy(for photo: PhotoRecord, projectName: String) -> URL? {
+    DevelopEngine.ensureProxy(for: photo, projectName: projectName)
+}
+
+nonisolated func nonisolatedPhotoTierPath(_ photo: PhotoRecord) -> String? {
+    PhotoImageTier.proxy.path(for: photo)
+}
+
 final class ProgressiveRenderingArchitectureTests: XCTestCase {
     func testLegacyMachineTierCannotBecomeP0Decision() {
         let machineTier = PhotoRecord(
@@ -92,6 +100,18 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
         XCTAssertNotEqual(baseKey, lookKey)
         XCTAssertTrue(lookKey.contains(lookPrint))
         XCTAssertTrue(lookKey.contains(RawDecodeBackendRegistry.mappingVersion))
+    }
+
+    func testPhotoRecordIsReachableFromTheRenderDataPlane() {
+        let photo = PhotoRecord(
+            rawPath: "/tmp/frame.arw",
+            filename: "frame.arw",
+            thumbPath: "/tmp/frame-thumb.jpg",
+            proxyPath: "/tmp/frame-proxy.jpg"
+        )
+        XCTAssertEqual(nonisolatedPhotoTierPath(photo), "/tmp/frame-proxy.jpg")
+        // ensureProxy may return nil without real cache dirs — call is the compile lock.
+        _ = nonisolatedEnsureProxy(for: photo, projectName: "isolation-lock")
     }
 
     func testOneToOneRegionMatchesDrawablePixelsAndPan() {

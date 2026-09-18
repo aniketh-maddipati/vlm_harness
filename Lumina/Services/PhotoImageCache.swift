@@ -316,7 +316,7 @@ actor PhotoImageCache {
 }
 
 /// Deduped prefetch front-end — used by grid overview and Pick phase.
-final class ThumbCache: @unchecked Sendable {
+nonisolated final class ThumbCache: @unchecked Sendable {
     static let shared = ThumbCache()
     private var warm = Set<String>()
     private let lock = NSLock()
@@ -348,7 +348,7 @@ final class ThumbCache: @unchecked Sendable {
     }
 }
 
-enum PhotoImageLoader {
+nonisolated enum PhotoImageLoader {
     static func ensureProxyPath(photo: PhotoRecord, projectName: String) async -> String? {
         await Task.detached(priority: .userInitiated) {
             DevelopEngine.ensureProxy(for: photo, projectName: projectName)?.path

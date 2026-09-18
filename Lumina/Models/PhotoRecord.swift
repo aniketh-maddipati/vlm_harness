@@ -4,7 +4,7 @@ typealias PhotoID = UUID
 
 // MARK: - Tiers & sort
 
-enum PhotoTier: String, Codable, CaseIterable {
+nonisolated enum PhotoTier: String, Codable, CaseIterable {
     case keep, reject, unranked
 
     var label: String {
@@ -50,7 +50,7 @@ enum GridFilter: String, CaseIterable, Identifiable, Codable, Sendable {
     var id: String { rawValue }
 }
 
-enum UncertaintyKind: String, Codable, Hashable {
+nonisolated enum UncertaintyKind: String, Codable, Hashable {
     case cullTie
     case cullBorderline
     case editLowConfidence
@@ -62,7 +62,7 @@ enum SessionLens: Equatable {
     case audit(AuditReason)
 }
 
-enum AuditReason: String, Codable, CaseIterable, Hashable, Identifiable {
+nonisolated enum AuditReason: String, Codable, CaseIterable, Hashable, Identifiable {
     case cullTie
     case cullBorderline
     case editLowConfidence
@@ -498,14 +498,14 @@ nonisolated extension DevelopRecipe {
 
 // MARK: - Photo
 
-enum PreviewOrigin: String, Codable, Hashable {
+nonisolated enum PreviewOrigin: String, Codable, Hashable {
     case embedded
     case synthesized
     case processed
     case unknown
 }
 
-struct PhotoRecord: Identifiable, Codable, Hashable {
+nonisolated struct PhotoRecord: Identifiable, Codable, Hashable {
     let id: UUID
     var rawPath: String
     var filename: String

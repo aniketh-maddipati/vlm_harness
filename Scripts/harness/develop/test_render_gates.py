@@ -204,6 +204,35 @@ class RenderingWorkflowTests(unittest.TestCase):
         self.assertIn("render-live-gate", text)
         self.assertIn("needs.render-live-gate.outputs.enabled", text)
 
+    def test_job_level_env_does_not_use_runner_context(self) -> None:
+        """GitHub rejects workflows that use runner.* in jobs.<id>.env."""
+        workflow = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "rendering.yml"
+        text = workflow.read_text(encoding="utf-8")
+        in_job_env = False
+        env_indent = 0
+        for line_no, raw in enumerate(text.splitlines(), 1):
+            stripped = raw.lstrip()
+            indent = len(raw) - len(stripped)
+            if stripped == "env:":
+                # Job-level env is indented under the job (2 spaces typically for `  env:`).
+                # Step-level env is deeper (`        env:`). Only flag shallow job env blocks.
+                if indent <= 2:
+                    in_job_env = True
+                    env_indent = indent
+                else:
+                    in_job_env = False
+                continue
+            if in_job_env:
+                if stripped and indent <= env_indent and not stripped.startswith("#"):
+                    in_job_env = False
+                    continue
+                self.assertNotIn(
+                    "runner.",
+                    stripped,
+                    f"{workflow}:{line_no} uses runner.* in job-level env; "
+                    "set paths via $RUNNER_TEMP / GITHUB_ENV instead",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

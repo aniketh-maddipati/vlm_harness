@@ -137,7 +137,7 @@ final class SoftRenderController {
 }
 
 // Compatibility wrapper
-enum PreviewRenderer {
+nonisolated enum PreviewRenderer {
     static func render(url: URL, profile: DevelopRecipe, offsets: DevelopAdjustments = .zero) -> NSImage? {
         DevelopEngine.render(url: url, recipe: profile, offsets: offsets, mix: 1)
     }
