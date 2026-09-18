@@ -64,6 +64,7 @@ jobs:
             compile-logic-${{ runner.os }}-
       - name: Build app and tests
         run: |
+          python3 Scripts/harness/release/write_build_manifest.py
           python3 Scripts/harness/lint/xcode_compile.py \
             --project-root . --derived-data DD
       - name: Logic tests
@@ -77,7 +78,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: compile-logic
-          path: artifacts/harness/runs/
+          path: |
+            artifacts/harness/runs/
+            Lumina/Resources/LuminaBuildManifest.json
+            DD/Build/Products/Debug/Lumina.app/Contents/Resources/LuminaBuildManifest.json
           if-no-files-found: warn
 
   # GitHub forbids `secrets` in job-level `if`. Probe them on Ubuntu, then
