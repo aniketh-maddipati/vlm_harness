@@ -125,6 +125,7 @@ final class StateProbeV2Server {
     }
 }
 
+@MainActor
 enum ProbeV2Launch {
     static let portFlag = "--probe-v2-port"
     static let enableFlag = "--probe-v2"
