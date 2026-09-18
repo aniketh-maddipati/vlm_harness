@@ -134,9 +134,34 @@ python3 Scripts/fixtures/verify_raw_fixture_bundle.py \
   --root "$LUMINA_RAW_FIXTURE_ROOT" --tier hosted --fetch
 ```
 
-Pull-request hosted Macs gate correctness and broad ceilings. Exact performance
-comparisons are owned by HEAVY on a fixed machine; a missing baseline records
-measurements but never invents a regression PASS.
+### Rendering CI
+
+`.github/workflows/rendering.yml` is the hosted merge path. It does **not**
+call `run.py full` (FULL still contains STUB live drivers that refuse a
+vacuous PASS).
+
+| Job | When | Merge gate |
+|-----|------|------------|
+| `fast` | every matching PR | required — Linux orchestration |
+| `compile-logic` | every matching PR | required — `xcode_compile` + `LuminaLogicTests` |
+| `render-live` | matching PR **and** fixture secrets present | optional until secrets exist; then mark required |
+| `render-nightly` | cron / dispatch `nightly` or `all` | never on the PR critical path |
+
+A skipped `render-live` job is not a live-gate PASS. Invoking the live
+scripts without a verified bundle still exits **BLOCKED**.
+
+Operator checklist:
+
+1. Repo secrets: `LUMINA_RAW_FIXTURE_BUNDLE_URL`, `LUMINA_RAW_FIXTURE_BUNDLE_SHA256`.
+2. After those secrets exist, mark `render-live` required in branch protection.
+3. Self-hosted nightly runner labels: `self-hosted`, `macOS`, `ARM64`, `lumina-render`.
+4. Repo vars: `LUMINA_RAW_FIXTURE_ROOT`, `LUMINA_RENDER_BASELINE`, `LUMINA_RENDER_STATE_PATH`.
+
+Until the secrets exist, PRs merge on `fast` + `compile-logic` only. FAST
+pins architecture; logic tests pin Swift contracts. Hosted Macs cache
+DerivedData across `compile-logic` and `render-live`, and cache the RAW
+archive by SHA256. Exact performance comparisons stay on HEAVY; a missing
+baseline records measurements but never invents a regression PASS.
 
 Dashboard (optional): `python3 Scripts/harness/dashboard/server.py` → `http://127.0.0.1:8765/`
 
