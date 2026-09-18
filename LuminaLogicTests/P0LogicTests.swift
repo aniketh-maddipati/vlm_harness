@@ -566,7 +566,7 @@ final class P0LogicTests: XCTestCase {
     }
 
     func testChapterArrangementWalkPauseSplitsWhenMedianIsLarge() {
-        let assets = [0.0, 5 * 60, 10 * 60, 20 * 60].map { datedAsset(id: UUID(), offset: $0) }
+        let assets = [0.0, 5 * 60.0, 10 * 60.0, 20 * 60.0].map { datedAsset(id: UUID(), offset: $0) }
         let chapters = ShootChapterArrangement.arrange(assets)
         XCTAssertEqual(chapters.count, 2, "10 min walk splits when the median gap is already minutes")
         XCTAssertEqual(chapters[0].assetIDs.count, 3)
@@ -574,7 +574,7 @@ final class P0LogicTests: XCTestCase {
     }
 
     func testRodGapsGrowWithElapsedTime() {
-        let assets = [0.0, 10 * 60, 50 * 60].map { datedAsset(id: UUID(), offset: $0) }
+        let assets = [0.0, 10 * 60.0, 50 * 60.0].map { datedAsset(id: UUID(), offset: $0) }
         let chapters = ShootChapterArrangement.arrange(assets)
         XCTAssertEqual(chapters.count, 3)
         let gaps = ChapterRodLayout.gaps(between: chapters)
