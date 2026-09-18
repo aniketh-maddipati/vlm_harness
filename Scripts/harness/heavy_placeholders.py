@@ -40,6 +40,13 @@ JOBS = [
         "requires": ["macOS", "card-clean-500", "mixed-200"],
     },
     {
+        "id": "progressive_render_stability",
+        "owner": "RENDER",
+        "entrypoint": "Scripts/harness/develop/run_nightly_render.py",
+        "status": "active",
+        "requires": ["macOS", "raw-correctness-v1", "fixed Apple Silicon"],
+    },
+    {
         "id": "lr_round_trip",
         "owner": "HEAVY",
         "entrypoint": "Scripts/harness/heavy/lr_round_trip.sh",

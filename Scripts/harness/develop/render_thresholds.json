@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "hosted": {
+    "interactiveScrubP95Ms": 50,
+    "interactiveColdMs": 750,
+    "settledMs": 1000,
+    "drawP95Ms": 50,
+    "minimumRawStageHits": 18,
+    "minimumRawStageSamples": 20
+  },
+  "nightly": {
+    "relativeRegressionFraction": 0.2,
+    "consecutiveRegressionsToFail": 2,
+    "correctnessFailuresBlockImmediately": true,
+    "requiredFixtureTier": "full"
+  }
+}

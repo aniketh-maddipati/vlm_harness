@@ -6,7 +6,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 
 | Total entries | Covered | Shelved | NOT-COVERED |
 |--------------:|--------:|--------:|------------:|
-| 83 | 31 | 7 | **45** |
+| 83 | 33 | 7 | **43** |
 
 > A low NOT-COVERED count would be suspicious; honest gaps are expected pre-CP1.
 
@@ -14,7 +14,6 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 
 - `D1`
 - `D2`
-- `D3`
 - `D4`
 - `D5`
 - `D6`
@@ -28,7 +27,6 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 - `D21`
 - `D22`
 - `D25`
-- `D27`
 - `D28`
 - `D30`
 - `D31`
@@ -64,7 +62,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 |-------|-------|------|-------|------|--------|---------|-------------|
 | D1 | The interface is a table with photographs on it. |  |  |  |  |  | NOT-COVERED |
 | D2 | Agentic-quiet: the AI is embodied in the table's behavior, never address |  |  |  |  |  | NOT-COVERED |
-| D3 | Lumina arranges but never judges. |  |  |  |  |  | NOT-COVERED |
+| D3 | Lumina arranges but never judges. | `progressive_render_architecture` | `ProgressiveRenderingArchitectureTests.testLegacyMachineTierCannotBecomeP0Decision`<br>`ProgressiveRenderingArchitectureTests.testSceneAndSignalsAreIndependentOfCull` |  |  |  |  |
 | D4 | Positioning: "Edit the set, not every photograph." |  |  |  |  |  | NOT-COVERED |
 | D5 | The row is the unit of work; the loop is edit-then-cull-within-row. |  |  |  |  |  | NOT-COVERED |
 | D6 | Chronological landing → one watched tidy pass. |  |  |  |  |  | NOT-COVERED |
@@ -88,7 +86,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D24 | Arming / value-echo *(amended by R-X.1 + audit)* | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testMoveFocusAndArming` |  |  |  |  |
 | D25 | Detents in photographic units; slider anatomy fixed. |  |  |  |  |  | NOT-COVERED |
 | D26 | Focused edit = hero + elastic strip + rail; no ghost table. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testEscRestoresPreStageMarks` |  |  |  |  |
-| D27 | Motion/fade *(amended by audit frame-F — one-line)* |  |  |  |  |  | NOT-COVERED |
+| D27 | Motion/fade *(amended by audit frame-F — one-line)* | `progressive_render_architecture` |  | `progressive_focus_live` |  |  |  |
 | D28 | Elasticity: elastic in motion, exact at rest, anchored at the focus. |  |  |  |  |  | NOT-COVERED |
 | D29 | Selection: standard Mac grammar; hold-to-select banned. |  |  |  |  |  | SHELVED |
 | D30 | Trackpad: full map, no decisions. |  |  |  |  |  | NOT-COVERED |
@@ -102,7 +100,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D40 | Engineering reconciliation *(history note — retirement schedule)* |  |  |  |  |  | NOT-COVERED |
 | D41 | Chip copy in consequence language *(R-5.1)* |  |  |  |  |  | NOT-COVERED |
 | D42 | Clipping hold grammar *(R-5.2 + A4)* `[● A4]` |  |  |  |  |  | NOT-COVERED |
-| D43 | Settle-as-confirmation *(R-5.3)* | `unit_trace` |  |  |  |  |  |
+| D43 | Settle-as-confirmation *(R-5.3)* | `unit_trace`<br>`progressive_render_architecture` | `ProgressiveRenderingArchitectureTests.testCancelledRenderWaiterDoesNotBlockLatestWork`<br>`ProgressiveRenderingArchitectureTests.testDisplayTargetParticipatesInRenderCacheKey` | `raw_render_live`<br>`progressive_focus_live` |  |  |  |
 | D44 | ⌥⌘E recipe re-entry *(R-8.1)* |  | `P0LogicTests.testExportRecipeHintContract` |  |  |  |  |
 | D45 | Diagnostics local-only or absent *(R-9.1; A7 withdrawn A13)* `[● A13]` |  |  |  |  |  | NOT-COVERED |
 | D46 | Amateur pivot + Develop gate *(R-A.1 + A10)* `[● A10]` |  |  |  |  |  | SHELVED |

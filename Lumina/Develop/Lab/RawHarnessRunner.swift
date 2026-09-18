@@ -57,10 +57,42 @@ enum RawHarnessRunner {
         report["unitChecks"] = unitChecks(failures: &failures)
         report["xmpMerge"] = xmpMergeChecks(failures: &failures)
 
-        if let dir = DevelopLabFixtures.resolveRawDirectory(),
-           let raw = DevelopLabFixtures.discoverRAWFiles(in: dir, limit: 1).first {
-            report["fixture"] = raw.path
-            report["live"] = await liveChecks(rawURL: raw, outDir: outDir, failures: &failures)
+        let requestedLimit = Int(
+            ProcessInfo.processInfo.environment["LUMINA_RAW_HARNESS_LIMIT"] ?? ""
+        ) ?? 1
+        if let dir = DevelopLabFixtures.resolveRawDirectory() {
+            let raws = DevelopLabFixtures.discoverRepresentativeRAWFiles(
+                in: dir,
+                limit: max(requestedLimit, 1)
+            )
+            var fleet: [[String: Any]] = []
+            for (index, raw) in raws.enumerated() {
+                let fixtureOut = outDir.appendingPathComponent(
+                    "fixture-\(index + 1)",
+                    isDirectory: true
+                )
+                try? FileManager.default.createDirectory(
+                    at: fixtureOut,
+                    withIntermediateDirectories: true
+                )
+                let result = await liveChecks(
+                    rawURL: raw,
+                    outDir: fixtureOut,
+                    failures: &failures
+                )
+                fleet.append(["fixture": raw.path, "live": result])
+                if index == 0 {
+                    report["fixture"] = raw.path
+                    report["live"] = result
+                }
+            }
+            report["fleet"] = fleet
+            if raws.isEmpty {
+                report["live"] = [
+                    "status": "blocked",
+                    "reason": "verified RAW fixture directory contains no supported RAW files",
+                ]
+            }
         } else {
             report["live"] = ["status": "blocked", "reason": "no RAW fixture directory (LUMINA_DEVELOP_RAW_DIR)"]
         }
@@ -261,6 +293,9 @@ enum RawHarnessRunner {
         live["interactiveColdMs"] = round1((CFAbsoluteTimeGetCurrent() - coldStart) * 1000)
         live["interactiveFidelity"] = cold.fidelity.rawValue
         if cold.usedProxyFallback { failures += 1; live["interactiveProxyFallback"] = true }
+        let interactiveMaterialized = await session.interactiveStageIsMaterialized()
+        live["interactiveStageMaterialized"] = interactiveMaterialized
+        if !interactiveMaterialized { failures += 1 }
 
         var scrubTimes: [Double] = []
         var rawStageHits = 0
@@ -306,6 +341,9 @@ enum RawHarnessRunner {
         let settled = await DevelopRenderGraph.render(request(recipe, .settled))
         live["settledMs"] = round1(settled.durationMs)
         live["settledFidelity"] = settled.fidelity.rawValue
+        let authoritativeLazy = await session.authoritativeStageIsLazy()
+        live["authoritativeStageStayedLazy"] = authoritativeLazy
+        if !authoritativeLazy { failures += 1 }
 
         // Authoritative bake is unchanged — a different exposure must miss.
         let settledExposure = await DevelopRenderGraph.render(

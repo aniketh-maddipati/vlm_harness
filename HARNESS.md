@@ -110,6 +110,34 @@ Each lane declares an expected test inventory (`lanes/manifests.json`). After ex
 
 **Flake policy:** a flaking pre-merge test is fixed same-day or demoted to nightly by a manifest diff — those are the only two moves. FAST **`flake_policy`** reads `TestPlans/*.xctestplan` and fails on test repetition, retry-on-failure, or quarantine tags (none permitted).
 
+### Progressive rendering gates
+
+- FAST `progressive_render_architecture` statically pins the one-surface,
+  JPEG-only browse, generation-safe scheduler, and texture-backed interactive
+  RAW architecture.
+- FULL `raw_render_live` launches `--raw-harness`; FULL
+  `progressive_focus_live` launches `--p0-edit-live`. Both require the hosted
+  tier of `raw-correctness-v1` and reject blocked, missing, malformed, or empty
+  reports.
+- HEAVY `progressive_render_stability` requires the full fixture tier and a
+  fixed Apple Silicon worker. It runs a 60-second scrub, 500 navigation acts,
+  the RAW backend benchmark, and the rolling regression policy in
+  `Scripts/harness/develop/render_thresholds.json`.
+
+Fixture setup:
+
+```bash
+export LUMINA_RAW_FIXTURE_BUNDLE_URL='https://…/raw-correctness-v1.tar'
+export LUMINA_RAW_FIXTURE_BUNDLE_SHA256='<archive sha256>'
+export LUMINA_RAW_FIXTURE_ROOT="$HOME/Pictures/lumina-fixtures/raw-correctness-v1"
+python3 Scripts/fixtures/verify_raw_fixture_bundle.py \
+  --root "$LUMINA_RAW_FIXTURE_ROOT" --tier hosted --fetch
+```
+
+Pull-request hosted Macs gate correctness and broad ceilings. Exact performance
+comparisons are owned by HEAVY on a fixed machine; a missing baseline records
+measurements but never invents a regression PASS.
+
 Dashboard (optional): `python3 Scripts/harness/dashboard/server.py` → `http://127.0.0.1:8765/`
 
 ---

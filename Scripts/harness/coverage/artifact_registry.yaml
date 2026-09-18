@@ -3,6 +3,17 @@
 # Lint/golden columns reference manifest test ids only (all lanes).
 schemaVersion: 1
 entries:
+  D3:
+    lint:
+      - progressive_render_architecture
+    logic:
+      - ProgressiveRenderingArchitectureTests.testLegacyMachineTierCannotBecomeP0Decision
+      - ProgressiveRenderingArchitectureTests.testSceneAndSignalsAreIndependentOfCull
+  D27:
+    lint:
+      - progressive_render_architecture
+    flow:
+      - progressive_focus_live
   D8:
     logic:
       - CullGrammarTests.testHoldKeysTrackMomentaryState
@@ -120,6 +131,13 @@ entries:
   D43:
     lint:
       - unit_trace
+      - progressive_render_architecture
+    logic:
+      - ProgressiveRenderingArchitectureTests.testCancelledRenderWaiterDoesNotBlockLatestWork
+      - ProgressiveRenderingArchitectureTests.testDisplayTargetParticipatesInRenderCacheKey
+    flow:
+      - raw_render_live
+      - progressive_focus_live
   D44:
     logic:
       - P0LogicTests.testExportRecipeHintContract

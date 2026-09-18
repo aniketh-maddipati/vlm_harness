@@ -1,0 +1,104 @@
+name: Rendering gates
+
+on:
+  pull_request:
+    paths:
+      - "Lumina/**"
+      - "LuminaLogicTests/**"
+      - "LuminaUITests/**"
+      - "Scripts/harness/**"
+      - "Scripts/fixtures/**"
+      - "TestPlans/**"
+      - "design/fixture-manifest.*"
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: Rendering lane to run
+        required: true
+        default: correctness
+        type: choice
+        options:
+          - correctness
+          - nightly
+          - all
+  schedule:
+    - cron: "20 5 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  fast:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 Scripts/harness/run.py fast
+
+  render-correctness:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
+    runs-on: macos-15-xlarge
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify hosted RAW fixtures
+        env:
+          LUMINA_RAW_FIXTURE_BUNDLE_URL: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_URL }}
+          LUMINA_RAW_FIXTURE_BUNDLE_SHA256: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 }}
+          LUMINA_RAW_FIXTURE_ROOT: ${{ runner.temp }}/raw-correctness-v1
+        run: |
+          python3 Scripts/fixtures/verify_raw_fixture_bundle.py \
+            --root "$LUMINA_RAW_FIXTURE_ROOT" --tier hosted --fetch
+      - name: Build app and tests
+        run: |
+          python3 Scripts/harness/lint/xcode_compile.py \
+            --project-root . --derived-data DD
+      - name: Logic tests
+        run: |
+          xcodebuild -project Lumina.xcodeproj -scheme Lumina \
+            -configuration Debug -derivedDataPath DD \
+            -destination 'platform=macOS,arch=arm64' \
+            -only-testing:LuminaLogicTests test-without-building
+      - name: Live render correctness
+        env:
+          LUMINA_RAW_FIXTURE_ROOT: ${{ runner.temp }}/raw-correctness-v1
+        run: |
+          python3 Scripts/harness/develop/run_live_raw_render.py \
+            --project-root . --derived-data DD --fixture-tier hosted
+          python3 Scripts/harness/develop/run_live_progressive_focus.py \
+            --project-root . --derived-data DD --fixture-tier hosted
+      - name: Preserve render evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendering-correctness
+          path: |
+            artifacts/harness/runs/
+            artifacts/harness/ledgers/render-*.json
+
+  render-nightly:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'correctness')
+    runs-on: [self-hosted, macOS, ARM64, lumina-render]
+    timeout-minutes: 60
+    env:
+      LUMINA_RAW_FIXTURE_ROOT: ${{ vars.LUMINA_RAW_FIXTURE_ROOT }}
+      LUMINA_RAW_FIXTURE_BUNDLE_URL: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_URL }}
+      LUMINA_RAW_FIXTURE_BUNDLE_SHA256: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 }}
+      LUMINA_RENDER_BASELINE: ${{ vars.LUMINA_RENDER_BASELINE }}
+      LUMINA_RENDER_STATE_PATH: ${{ vars.LUMINA_RENDER_STATE_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify full RAW fixture fleet
+        run: |
+          python3 Scripts/fixtures/verify_raw_fixture_bundle.py \
+            --root "$LUMINA_RAW_FIXTURE_ROOT" --tier full --fetch
+      - name: Fixed-hardware rendering stress
+        run: python3 Scripts/harness/develop/run_nightly_render.py
+      - name: Preserve render evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendering-nightly
+          path: |
+            artifacts/harness/runs/
+            artifacts/harness/ledgers/render-*.json
