@@ -91,7 +91,7 @@ struct P0GroupingView: View {
                 Text("Back to grid")
                     .font(LuminaTokens.Typeface.navigation(15, weight: .semibold))
                     .foregroundStyle(LuminaTokens.Ink.primary)
-                    .padding(.horizontal, 20)
+        .padding(.horizontal, HiFiTokens.Layout.chromeSpacingLg)
                     .frame(minHeight: LuminaTokens.HitTarget.minimum)
                     .background(LuminaTokens.Surface.well)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))

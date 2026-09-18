@@ -10,6 +10,9 @@ struct P0SinglePhotoEditor: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var oneToOne = false
     @State private var panOffset: CGSize = .zero
+    @State private var drawableSize: CGSize = .zero
+    @State private var backingScale: CGFloat = 1
+    @State private var oneToOneCenter = CGPoint(x: 0.5, y: 0.5)
     /// The clicked photograph's browse pixels remain mounted until RAW
     /// promotion succeeds. Quality changes never replace the view itself.
     @State private var fallbackImage: CIImage?
@@ -45,6 +48,7 @@ struct P0SinglePhotoEditor: View {
         .onChange(of: asset.id) { _, _ in
             oneToOne = false
             panOffset = .zero
+            oneToOneCenter = CGPoint(x: 0.5, y: 0.5)
             fallbackAssetID = asset.id
             fallbackImage = Self.immediateBrowseImage(for: asset)
             // Inspection warm is owned by setFocus debounce — avoid a second settle storm.
@@ -134,12 +138,18 @@ struct P0SinglePhotoEditor: View {
             }
 
             if session.exportCount > 0 {
-                Text("\(session.exportCount) export")
-                    .font(LuminaTokens.Typeface.meta(12))
-                    .foregroundStyle(LuminaTokens.Ink.primary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(LuminaTokens.Surface.well)
+                Button {
+                    session.chooseAndExportKept()
+                } label: {
+                    Text(session.exportStatusLine ?? "\(session.exportCount) export")
+                        .font(LuminaTokens.Typeface.meta(12))
+                        .foregroundStyle(LuminaTokens.Ink.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(LuminaTokens.Surface.well)
+                }
+                .buttonStyle(LuminaQuietButtonStyle())
+                .disabled(session.isExporting)
             }
 
             if session.canUndo {
@@ -192,9 +202,13 @@ struct P0SinglePhotoEditor: View {
                 // none of those promotions remounts or moves the photograph.
                 DevelopMetalView(
                     image: image,
-                    zoom: oneToOne ? 2.2 : 1,
+                    zoom: 1,
                     panOffset: oneToOne ? panOffset : .zero,
-                    onDrawableSizeChange: { session.updateInspectionDrawableSize($0) }
+                    onDrawableSizeChange: {
+                        drawableSize = $0
+                        session.updateInspectionDrawableSize($0)
+                    },
+                    onBackingScaleChange: { backingScale = $0 }
                 )
                 .padding(18)
                 .contentShape(Rectangle())
@@ -203,6 +217,10 @@ struct P0SinglePhotoEditor: View {
                         .onChanged { value in
                             guard oneToOne else { return }
                             panOffset = value.translation
+                        }
+                        .onEnded { value in
+                            guard oneToOne else { return }
+                            commitOneToOnePan(value.translation)
                         }
                 )
                 .onTapGesture(count: 2) {
@@ -222,7 +240,8 @@ struct P0SinglePhotoEditor: View {
                 }
 
                 if session.holdingClipping {
-                    Color.red.blendMode(.difference).opacity(0.28)
+                    Color.red.blendMode(.difference)
+                        .opacity(HiFiTokens.Color.clippingOverlayOpacity)
                         .padding(18)
                         .allowsHitTesting(false)
                 }
@@ -284,7 +303,42 @@ struct P0SinglePhotoEditor: View {
             return
         }
         panOffset = .zero
-        session.requestOneToOneZoom(for: asset.id)
+        oneToOneCenter = CGPoint(x: 0.5, y: 0.5)
+        session.requestOneToOneZoom(
+            for: asset.id,
+            center: oneToOneCenter,
+            drawableSize: drawableSize
+        )
+    }
+
+    private func commitOneToOnePan(_ translation: CGSize) {
+        let imageSize = session.renderedPixelSize(for: asset.id)
+        guard imageSize.width > 0, imageSize.height > 0 else {
+            panOffset = .zero
+            return
+        }
+        oneToOneCenter = CGPoint(
+            x: min(
+                max(
+                    oneToOneCenter.x - translation.width * backingScale / imageSize.width,
+                    0
+                ),
+                1
+            ),
+            y: min(
+                max(
+                    oneToOneCenter.y - translation.height * backingScale / imageSize.height,
+                    0
+                ),
+                1
+            )
+        )
+        panOffset = .zero
+        session.requestOneToOneZoom(
+            for: asset.id,
+            center: oneToOneCenter,
+            drawableSize: drawableSize
+        )
     }
 
     private var filmstrip: some View {
@@ -292,7 +346,7 @@ struct P0SinglePhotoEditor: View {
         return VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
+                    LazyHStack(spacing: 10) {
                         ForEach(neighbors, id: \.id) { item in
                             filmstripThumb(item)
                                 .id(item.id)
@@ -324,7 +378,7 @@ struct P0SinglePhotoEditor: View {
         let selected = item.marks.selected
         return ZStack {
             if let path = item.asset.thumbPath ?? item.asset.gridThumbPath {
-                ContactSheetInspectImage(path: path)
+                ChapterPlateImage(path: path)
                     .frame(width: 92, height: 68)
                     .clipped()
             } else {

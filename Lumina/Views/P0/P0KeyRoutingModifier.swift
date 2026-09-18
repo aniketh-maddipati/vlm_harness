@@ -168,7 +168,16 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return nil
             }
 
-            if event.keyCode == 49, !command {
+            if command,
+               !shift,
+               !event.modifierFlags.contains(.option),
+               lower == "e" {
+                if event.isARepeat { return nil }
+                session.chooseAndExportKept()
+                return nil
+            }
+
+            if event.keyCode == P0VirtualKey.space, !command {
                 if !event.isARepeat {
                     session.setHoldingLoupe(true)
                 }
@@ -188,7 +197,7 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return nil
             }
 
-            if event.keyCode == 48, session.inspectingAssetID == nil {
+            if event.keyCode == P0VirtualKey.tab, session.inspectingAssetID == nil {
                 if event.isARepeat { return nil }
                 session.toggleKeptRailWalk()
                 return nil
@@ -229,7 +238,7 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             guard !session.showLegacyShell else { return event }
 
             let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
-            if event.keyCode == 49 {
+            if event.keyCode == P0VirtualKey.space {
                 session.setHoldingLoupe(false)
                 return nil
             }
@@ -237,7 +246,10 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 session.setHoldingClipping(false)
                 return nil
             }
-            if session.lookGlancing, chars == "g" || event.keyCode == 54 || event.keyCode == 55 {
+            if session.lookGlancing,
+               chars == "g"
+                || event.keyCode == P0VirtualKey.rightCommand
+                || event.keyCode == P0VirtualKey.leftCommand {
                 session.endLookGlance()
                 return nil
             }

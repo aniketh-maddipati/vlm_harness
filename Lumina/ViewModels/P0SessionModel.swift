@@ -120,7 +120,10 @@ final class P0SessionModel {
     var rawCapabilities: PreparedRawSession.Capabilities?
     var rawNativeTemperature: Double?
     var rawNativeTint: Double?
+    private(set) var rawPixelSize: CGSize?
     var fidelityNotice: String?
+    private(set) var isExporting = false
+    private(set) var exportStatusLine: String?
     private(set) var editMetricsLine: String = ""
     /// Drawable-native authoritative preview target. Full resolution remains
     /// reserved for 1:1 ROI and export.
@@ -149,6 +152,50 @@ final class P0SessionModel {
 
     /// Export count is always derived from the complete kept set.
     var exportCount: Int { keptCount }
+
+    func chooseAndExportKept() {
+        guard exportCount > 0, !isExporting else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        if let path = IngestPreferences.lastExportFolderPath {
+            panel.directoryURL = URL(fileURLWithPath: path)
+        }
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        IngestPreferences.lastExportFolderPath = folder.path
+        exportKept(to: folder)
+    }
+
+    func exportKept(to folder: URL) {
+        guard let shoot, exportCount > 0, !isExporting else { return }
+        let snapshot = assets
+        isExporting = true
+        exportStatusLine = "Exporting \(exportCount)…"
+        developScheduler.enqueueExport { [weak self] in
+            do {
+                let outcome = try await P0AuthoritativeExportService.export(
+                    shootName: shoot.name,
+                    assets: snapshot,
+                    to: folder
+                )
+                await MainActor.run {
+                    guard let self else { return }
+                    self.isExporting = false
+                    self.exportStatusLine = "Exported \(outcome.urls.count)"
+                    NSWorkspace.shared.activateFileViewerSelecting([outcome.root])
+                }
+            } catch {
+                await MainActor.run {
+                    guard let self else { return }
+                    self.isExporting = false
+                    self.exportStatusLine = nil
+                    self.userFacingError = error.localizedDescription
+                }
+            }
+        }
+    }
 
     var keptOrderMode: Bool { shoot?.workspace.keptOrderMode ?? false }
 
@@ -683,7 +730,8 @@ final class P0SessionModel {
         )
     }
 
-    /// First paint for inspection — settled RAW, not draft interactive.
+    /// Inspection promotion — clicked JPEG stays visible, then interactive RAW
+    /// presents before drawable-sized authoritative RAW.
     private func openRender(for assetID: UUID, recipe: EditRecipe) {
         guard let urls = resolveRenderURLs(for: assetID) else {
             fidelityNotice = "Original missing — showing cached preview"
@@ -812,6 +860,7 @@ final class P0SessionModel {
             rawCapabilities = nil
             rawNativeTemperature = nil
             rawNativeTint = nil
+            rawPixelSize = nil
             return
         }
         capabilityTask = Task { [weak self] in
@@ -824,6 +873,9 @@ final class P0SessionModel {
                 self.rawCapabilities = report.0
                 self.rawNativeTemperature = report.1?.nativeNeutralTemperature
                 self.rawNativeTint = report.1?.nativeNeutralTint
+                self.rawPixelSize = report.1.map {
+                    CGSize(width: $0.pixelWidth, height: $0.pixelHeight)
+                }
                 LatencyMetrics.record(
                     "p0.edit.session_prepare_ms",
                     milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000
@@ -949,6 +1001,28 @@ final class P0SessionModel {
                   let asset = byID[coverID],
                   let path = asset.gridThumbPath ?? asset.thumbPath else { return nil }
             return (coverID, path)
+        }
+        Task {
+            await BrowsePixelService.shared.prefetch(requests, tier: .grid)
+        }
+    }
+
+    /// Virtualized collection callback: warm only the visible window plus a
+    /// small directional cushion. Inspection unmounts the sheet, so hidden
+    /// cells cannot compete with the visible RAW lane.
+    func prefetchVisibleRange(_ range: Range<Int>) {
+        guard inspectingAssetID == nil else { return }
+        let items = visibleItems
+        guard !items.isEmpty else { return }
+        let lower = max(0, range.lowerBound - PhotoImageCacheBudget.visiblePrefetchPadding)
+        let upper = min(
+            items.count,
+            range.upperBound + PhotoImageCacheBudget.visiblePrefetchPadding
+        )
+        guard lower < upper else { return }
+        let requests = items[lower..<upper].compactMap { item -> (assetID: UUID, path: String)? in
+            guard let path = item.asset.gridThumbPath ?? item.asset.thumbPath else { return nil }
+            return (item.id, path)
         }
         Task {
             await BrowsePixelService.shared.prefetch(requests, tier: .grid)
@@ -1284,10 +1358,18 @@ final class P0SessionModel {
     }
 
     /// Pixel zoom request for the inspecting photograph (double-click / 1:1).
-    func requestOneToOneZoom(for assetID: UUID) {
+    func requestOneToOneZoom(
+        for assetID: UUID,
+        center: CGPoint = CGPoint(x: 0.5, y: 0.5),
+        drawableSize: CGSize? = nil
+    ) {
         guard let urls = resolveRenderURLs(for: assetID), let raw = urls.rawURL else { return }
         let recipe = recipe(for: assetID)
-        let region = DevelopRenderRegion(x: 0.35, y: 0.35, width: 0.3, height: 0.3)
+        let region = DevelopRenderRegion.oneToOne(
+            center: center,
+            drawableSize: drawableSize ?? .zero,
+            imagePixelSize: renderedPixelSize(for: assetID)
+        )
         Task {
             await developScheduler.renderOneToOne(
                 photoID: assetID,
@@ -1297,6 +1379,24 @@ final class P0SessionModel {
                 region: region
             )
         }
+    }
+
+    /// Pixel extent after quarter-turn and crop, matching graph order before
+    /// the 1:1 region extract.
+    func renderedPixelSize(for assetID: UUID) -> CGSize {
+        guard var size = rawPixelSize else { return .zero }
+        let recipe = recipe(for: assetID)
+        let quarterTurns = Int((recipe.straightenDegrees / 90).rounded())
+        if abs(quarterTurns) % 2 == 1 {
+            size = CGSize(width: size.height, height: size.width)
+        }
+        if let crop = recipe.crop, !crop.isFullFrame {
+            size = CGSize(
+                width: size.width * CGFloat(crop.width),
+                height: size.height * CGFloat(crop.height)
+            )
+        }
+        return size
     }
 
     func adjustDensity(_ delta: Int) {

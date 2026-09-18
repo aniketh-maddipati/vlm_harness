@@ -1,7 +1,7 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: 8461f73252684583bcc5356f280d0710f039fab31d7f88e9003dc6aac43ee2e0
+// tokens-hash: a6631c10f342cfc8f0ff854b94255025a7afde86466902c45d4597a7ad2ffb31
 // version: 6.4-a7-cleanup
 // contract: design/contract-v6.md
 
@@ -14,6 +14,7 @@ enum HiFiTokens {
         static let selectionColor: String = "2E2E2C" // cite: D58, WG-hand, L1 — User hand / focus charcoal family (INK).
         static let selectionFocusWidth: CGFloat = 3.0 // cite: WG-hand, D58 — Resting-table focus ring.
         static let selectionWidth: CGFloat = 1.5 // cite: D58, WG-hand — Multi-select charcoal stroke.
+        static let plateFocusWidth: CGFloat = 1.5 // cite: D37, L1 — Compact kept/board plate focus outline.
         static let haloColor: String = "FFECCD" // cite: D57, D58, WG-ripple — Warm-white table proposal halo RGB.
         static let haloOpacity: Double = 0.95 // cite: D57, D58
         static let haloWidth: CGFloat = 1.5 // cite: D57, D58 — Plain shipped halo. PERSUADE target uses preview change + this stroke.
@@ -50,6 +51,7 @@ enum HiFiTokens {
         static let onTable: String = "EFECE6" // cite: WG-chrome
         static let swimlaneFillOpacity: Double = 0.07 // cite: WG-gaps, D64, A6 — Socket only — lane plates shelved (A6). rgba(242,239,233,0.07) over table if a ruled experiment re-enters.
         static let rejectDimOpacity: Double = 0.45 // cite: L1, D59 — Rejects dim in place — recognizable, recoverable.
+        static let clippingOverlayOpacity: Double = 0.28 // cite: D42, A4 — Hold-J clipping glance overlay; release returns.
     }
 
     enum Grid {
@@ -135,6 +137,12 @@ enum HiFiTokens {
         static let editRailRowCount: Int = 10 // cite: WG-chrome
         static let collapseOrder: [String] = ["context", "strip", "hero"] // cite: WG-chrome — Never targets.
         static let openCardMinTarget: CGFloat = 120.0 // cite: WG-chrome
+        static let chromeSpacingLg: CGFloat = 20.0 // cite: WG-chrome
+        static let recentShootCornerRadius: CGFloat = 10.0 // cite: WG-chrome
+        static let recentShootLargerHeight: CGFloat = 140.0 // cite: WG-chrome
+        static let chapterDotActiveSize: CGFloat = 11.0 // cite: WG-chrome
+        static let chapterDotActiveTop: CGFloat = 16.0 // cite: WG-chrome
+        static let chapterDotRestTop: CGFloat = 18.0 // cite: WG-chrome
         static let controlRowHeight: CGFloat = 50.0 // cite: D24
         static let thumbRest: CGFloat = 16.0 // cite: D24
         static let thumbArmed: CGFloat = 18.0 // cite: D24

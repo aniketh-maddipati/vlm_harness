@@ -17,6 +17,10 @@ enum PhotoImageTier: Sendable {
 
     /// Named grid decode cap — prefer this over a bare `512` at call sites.
     static let gridMaxPixelSize = 512
+    /// Durable Retina grid JPEG written once during ingest.
+    static let durableGridLongEdge = 1200
+    /// Focused embedded/matching JPEG before RAW promotion.
+    static let focusedPreviewLongEdge = 2400
 
     /// Display decode cap — avoids full-res JPEG decode in grids and filmstrips.
     var displayMaxPixelSize: Int? {

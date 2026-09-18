@@ -18,7 +18,7 @@ actor BrowsePixelService {
         var maxPixelSize: Int {
             switch self {
             case .grid: PhotoImageTier.gridMaxPixelSize
-            case .focused: 2400
+            case .focused: PhotoImageTier.focusedPreviewLongEdge
             }
         }
     }

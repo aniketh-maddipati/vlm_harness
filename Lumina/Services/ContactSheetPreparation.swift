@@ -380,8 +380,11 @@ nonisolated enum ContactSheetPreparation {
                                 minLongEdge: 800
                             )
                             if extracted.success, !FileManager.default.fileExists(atPath: gridURL.path) {
-                                // 1200 keeps Retina grid cells sharp; 768 upscaled reads grainy.
-                                _ = PreviewExtractor.downscaleJPEG(from: previewURL, to: gridURL, maxPixelSize: 1200)
+                                _ = PreviewExtractor.downscaleJPEG(
+                                    from: previewURL,
+                                    to: gridURL,
+                                    maxPixelSize: PhotoImageTier.durableGridLongEdge
+                                )
                             }
                             updated.previewOrigin = extracted.origin
                             updated.previewLongEdge = extracted.longEdge

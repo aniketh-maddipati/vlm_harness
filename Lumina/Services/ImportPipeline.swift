@@ -306,7 +306,11 @@ enum ImportPipeline {
                             minLongEdge: 2000
                         )
                         if extracted.success, !FileManager.default.fileExists(atPath: gridURL.path) {
-                            _ = PreviewExtractor.downscaleJPEG(from: previewURL, to: gridURL, maxPixelSize: 768)
+                            _ = PreviewExtractor.downscaleJPEG(
+                                from: previewURL,
+                                to: gridURL,
+                                maxPixelSize: PhotoImageTier.durableGridLongEdge
+                            )
                         }
 
                         let hasPreview = FileManager.default.fileExists(atPath: previewURL.path)

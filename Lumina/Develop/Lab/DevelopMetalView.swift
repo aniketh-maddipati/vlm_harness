@@ -15,9 +15,13 @@ struct DevelopMetalView: NSViewRepresentable {
     var zoom: CGFloat = 1
     var panOffset: CGSize = .zero
     var onDrawableSizeChange: ((CGSize) -> Void)?
+    var onBackingScaleChange: ((CGFloat) -> Void)?
 
     func makeCoordinator() -> Renderer {
-        Renderer(onDrawableSizeChange: onDrawableSizeChange)
+        Renderer(
+            onDrawableSizeChange: onDrawableSizeChange,
+            onBackingScaleChange: onBackingScaleChange
+        )
     }
 
     func makeNSView(context: Context) -> MTKView {
@@ -44,6 +48,7 @@ struct DevelopMetalView: NSViewRepresentable {
         context.coordinator.zoom = zoom
         context.coordinator.panOffset = panOffset
         context.coordinator.onDrawableSizeChange = onDrawableSizeChange
+        context.coordinator.onBackingScaleChange = onBackingScaleChange
         if let metalLayer = view.layer as? CAMetalLayer {
             let space = view.window?.screen?.colorSpace?.cgColorSpace
                 ?? DevelopColorPolicy.displayColorSpace
@@ -65,13 +70,18 @@ struct DevelopMetalView: NSViewRepresentable {
         var zoom: CGFloat = 1
         var panOffset: CGSize = .zero
         var onDrawableSizeChange: ((CGSize) -> Void)?
+        var onBackingScaleChange: ((CGFloat) -> Void)?
         private var reportedDrawableSize = CGSize.zero
 
-        init(onDrawableSizeChange: ((CGSize) -> Void)? = nil) {
+        init(
+            onDrawableSizeChange: ((CGSize) -> Void)? = nil,
+            onBackingScaleChange: ((CGFloat) -> Void)? = nil
+        ) {
             let device = LuminaMetalDevice.shared
             self.device = device
             self.commandQueue = LuminaMetalDevice.commandQueue
             self.onDrawableSizeChange = onDrawableSizeChange
+            self.onBackingScaleChange = onBackingScaleChange
             // Reuse the shared long-lived develop context — same working space
             // as the render graph; no per-frame context allocation.
             self.context = DevelopRenderGraph.sharedContext
@@ -81,8 +91,10 @@ struct DevelopMetalView: NSViewRepresentable {
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
             guard size != reportedDrawableSize else { return }
             reportedDrawableSize = size
+            let backingScale = view.window?.backingScaleFactor ?? 1
             DispatchQueue.main.async { [weak self] in
                 self?.onDrawableSizeChange?(size)
+                self?.onBackingScaleChange?(backingScale)
             }
         }
 

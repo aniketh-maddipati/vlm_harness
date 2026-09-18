@@ -145,11 +145,11 @@ struct P0OpenView: View {
                 shootBand(title: nil) {
                     LazyVGrid(
                         columns: [
-                            GridItem(.flexible(), spacing: 16),
-                            GridItem(.flexible(), spacing: 16),
-                            GridItem(.flexible(), spacing: 16),
+                            GridItem(.flexible(), spacing: LuminaTokens.Spacing.md),
+                            GridItem(.flexible(), spacing: LuminaTokens.Spacing.md),
+                            GridItem(.flexible(), spacing: LuminaTokens.Spacing.md),
                         ],
-                        spacing: 16
+                        spacing: LuminaTokens.Spacing.md
                     ) {
                         ForEach(arrangement.smaller) { shoot in
                             OpenShootPlate(shoot: shoot, weight: .smaller) {
@@ -203,7 +203,12 @@ private struct OpenShootPlate: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: weight == .smaller ? 6 : 10) {
+            VStack(
+                alignment: .leading,
+                spacing: weight == .smaller
+                    ? LuminaTokens.Spacing.xs
+                    : LuminaTokens.Spacing.sm
+            ) {
                 Text(shoot.name)
                     .font(titleFont)
                     .foregroundStyle(LuminaTokens.Ink.primary)
@@ -223,8 +228,18 @@ private struct OpenShootPlate: View {
             .padding(weight == .smaller ? 12 : LuminaTokens.Spacing.md)
             .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
             .background(fill)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: HiFiTokens.Layout.recentShootCornerRadius,
+                    style: .continuous
+                )
+            )
+            .contentShape(
+                RoundedRectangle(
+                    cornerRadius: HiFiTokens.Layout.recentShootCornerRadius,
+                    style: .continuous
+                )
+            )
         }
         .buttonStyle(LuminaPlatePressStyle())
         .accessibilityIdentifier(P0AccessibilityID.recentShoot(shoot.name))
@@ -250,7 +265,7 @@ private struct OpenShootPlate: View {
     private var minHeight: CGFloat {
         switch weight {
         case .resume: 168
-        case .larger: 140
+        case .larger: HiFiTokens.Layout.recentShootLargerHeight
         case .smaller: 88
         }
     }

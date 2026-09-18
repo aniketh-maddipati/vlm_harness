@@ -35,6 +35,12 @@ ring:
     type: pt
     cite: [D58, WG-hand]
     notes: Multi-select charcoal stroke.
+  plate_focus_width:
+    value: 1.5
+    unit: pt
+    type: pt
+    cite: [D37, L1]
+    notes: Compact kept/board plate focus outline.
   halo_color:
     value: "FFECCD"
     type: color
@@ -141,6 +147,11 @@ color:
     type: opacity
     cite: [L1, D59]
     notes: Rejects dim in place — recognizable, recoverable.
+  clipping_overlay_opacity:
+    value: 0.28
+    type: opacity
+    cite: [D42, A4]
+    notes: Hold-J clipping glance overlay; release returns.
 
 grid:
   burst_gap:
@@ -415,6 +426,36 @@ layout:
     notes: Never targets.
   open_card_min_target:
     value: 120
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  chrome_spacing_lg:
+    value: 20
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  recent_shoot_corner_radius:
+    value: 10
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  recent_shoot_larger_height:
+    value: 140
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  chapter_dot_active_size:
+    value: 11
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  chapter_dot_active_top:
+    value: 16
+    unit: pt
+    type: pt
+    cite: [WG-chrome]
+  chapter_dot_rest_top:
+    value: 18
     unit: pt
     type: pt
     cite: [WG-chrome]

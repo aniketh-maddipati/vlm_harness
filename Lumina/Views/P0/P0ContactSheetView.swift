@@ -12,12 +12,12 @@ struct P0ContactSheetView: View {
         ZStack {
             LuminaTokens.Surface.mist.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                toolbar
-                P0ChapterTableView(session: session)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .opacity(session.inspectingAssetID == nil ? 1 : 0)
-                    .allowsHitTesting(session.inspectingAssetID == nil)
+            if session.inspectingAssetID == nil {
+                VStack(spacing: 0) {
+                    toolbar
+                    P0ChapterTableView(session: session)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
 
             if let id = session.inspectingAssetID,
@@ -67,15 +67,21 @@ struct P0ContactSheetView: View {
             Spacer(minLength: 12)
 
             if session.exportCount > 0 {
-                Text("\(session.exportCount) export")
-                    .font(LuminaTokens.Typeface.meta(12))
-                    .foregroundStyle(LuminaTokens.Ink.primary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(LuminaTokens.Surface.well)
-                    .help("Export count equals the complete kept set")
-                    .accessibilityIdentifier(P0AccessibilityID.exportCount)
-                    .accessibilityValue("\(session.exportCount)")
+                Button {
+                    session.chooseAndExportKept()
+                } label: {
+                    Text(session.exportStatusLine ?? "\(session.exportCount) export")
+                        .font(LuminaTokens.Typeface.meta(12))
+                        .foregroundStyle(LuminaTokens.Ink.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(LuminaTokens.Surface.well)
+                }
+                .buttonStyle(LuminaQuietButtonStyle())
+                .disabled(session.isExporting)
+                .help("Export count equals the complete kept set")
+                .accessibilityIdentifier(P0AccessibilityID.exportCount)
+                .accessibilityValue("\(session.exportCount)")
             }
 
             if session.selectionCount > 0 {
@@ -177,6 +183,9 @@ struct ContactSheetRepresentable: NSViewControllerRepresentable {
         }
         controller.onScrollAnchor = { [weak session] anchor in
             session?.setScrollAnchor(anchor)
+        }
+        controller.onVisibleRange = { [weak session] range in
+            session?.prefetchVisibleRange(range)
         }
         controller.onPointerMarkKeep = { [weak session] in
             session?.pointerMarkKeep()
