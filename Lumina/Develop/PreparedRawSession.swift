@@ -322,7 +322,8 @@ actor PreparedRawSession {
             _ = try DevelopRenderGraph.sharedContext.startTask(
                 toRender: image,
                 from: extent,
-                to: destination
+                to: destination,
+                at: .zero
             ).waitUntilCompleted()
         } catch {
             return nil
