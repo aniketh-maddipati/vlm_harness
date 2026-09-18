@@ -184,7 +184,7 @@ nonisolated struct RawRenderRequest: Hashable, Sendable, Identifiable {
     var cacheKey: String {
         [
             photoID.uuidString,
-            PreparedRawSession.decoderMappingVersion,
+            RawDecodeBackendRegistry.mappingVersion,
             DevelopColorPolicy.workingSpaceVersion,
             recipe.rawIntent.fingerprint,
             recipe.lookIntent.fingerprint,

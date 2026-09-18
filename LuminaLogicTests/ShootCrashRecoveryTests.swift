@@ -1,6 +1,7 @@
 import XCTest
 @testable import Lumina
 
+@MainActor
 final class ShootCrashRecoveryTests: XCTestCase {
 
     private func makeFolder() throws -> URL {

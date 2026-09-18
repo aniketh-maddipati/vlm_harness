@@ -153,6 +153,7 @@ final class RenderInstrumentSLATests: XCTestCase {
 /// Pins the frame-sampling rules themselves, driven through `presentFrame(at:)` so the logic
 /// is checked without a display. What a real display link adds beyond this is the cadence —
 /// that part is only observable live, and E2's Window 1 is where it gets measured.
+@MainActor
 final class RenderInstrumentSamplingTests: XCTestCase {
 
     private func fresh() -> P0RenderInstruments {
@@ -166,7 +167,7 @@ final class RenderInstrumentSamplingTests: XCTestCase {
     }
 
     override func tearDown() {
-        MainActor.assumeIsolated { P0RenderInstruments.shared.disable() }
+        P0RenderInstruments.shared.disable()
         LatencyMetrics.resetSession()
         super.tearDown()
     }

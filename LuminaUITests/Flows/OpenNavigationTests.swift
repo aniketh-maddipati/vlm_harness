@@ -84,7 +84,7 @@ extension ContactSheetRobot {
                 selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
                 phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
                 missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier", legacyShellActive: false,
-                renderInstrumentsEnabled: false
+                renderInstrumentsEnabled: false, escTransientHoldActive: false
             )
         }
         return snapshot

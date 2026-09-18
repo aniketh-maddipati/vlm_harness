@@ -6,7 +6,7 @@ import Vision
 /// Premium Vision assist for develop — face-aware auto tone, attention
 /// saliency for subject protection, and face-avoiding heal donor placement.
 /// All analysis runs off the main actor on a downsampled proxy.
-enum VisionAssist {
+nonisolated enum VisionAssist {
     struct SubjectMap: Sendable {
         /// Normalized face boxes (Vision coords: origin bottom-left).
         var faces: [CGRect]
@@ -32,7 +32,7 @@ enum VisionAssist {
         async let base = AutoDevelop.suggest(imagePath: imagePath)
         async let map = subjectMap(imagePath: imagePath)
         guard var suggestion = await base else { return nil }
-        guard let map, map.hasFace, let cg = thumbnail(path: imagePath, maxSide: 256) else {
+        guard let map = await map, map.hasFace, let cg = thumbnail(path: imagePath, maxSide: 256) else {
             return suggestion
         }
         // Re-anchor exposure on the largest face so skin tones stay protected.

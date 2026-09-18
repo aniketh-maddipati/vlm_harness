@@ -101,6 +101,7 @@ enum CopyContract {
 
 // MARK: - Snapshot builder (ONE count source for A1)
 
+@MainActor
 enum CopyContractBuilder {
     private static let laneTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()

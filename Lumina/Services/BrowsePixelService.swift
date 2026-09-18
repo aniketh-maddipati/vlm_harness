@@ -72,7 +72,7 @@ actor BrowsePixelService {
     private var cacheHits = 0
     private var cacheMisses = 0
 
-    private static let rawExtensions: Set<String> = [
+    nonisolated private static let rawExtensions: Set<String> = [
         "ARW", "CR2", "CR3", "NEF", "RAF", "DNG", "ORF", "RW2", "PEF", "SRW", "3FR", "IIQ",
     ]
 

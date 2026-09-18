@@ -52,6 +52,8 @@ struct ProbeSnapshot: Codable, Equatable {
     /// `p0.key.mark`, `p0.zoom.gesture`) are live. Off in an ordinary run; a measurement
     /// session asserts this is true before it trusts a single number.
     var renderInstrumentsEnabled: Bool
+    /// Law 5 / D11 — Esc would clear a transient hold before navigation (`P0EscLadder`).
+    var escTransientHoldActive: Bool
 
     /// Convenience: the Nth visible asset ID (nil when out of range).
     func visibleID(at index: Int) -> String? {

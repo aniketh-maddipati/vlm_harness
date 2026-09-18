@@ -49,7 +49,7 @@ enum RawHarnessRunner {
         var report: [String: Any] = [
             "generatedAt": ISO8601DateFormatter().string(from: Date()),
             "build": buildConfiguration(),
-            "mappingVersion": PreparedRawSession.decoderMappingVersion,
+            "mappingVersion": RawDecodeBackendRegistry.mappingVersion,
             "workingSpaceVersion": DevelopColorPolicy.workingSpaceVersion,
         ]
         var failures = 0

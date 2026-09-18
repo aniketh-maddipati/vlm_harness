@@ -1,6 +1,23 @@
 import XCTest
 @testable import Lumina
 
+/// Compile lock: `lookIntent` / `cacheKey` must be reachable off the main actor.
+nonisolated func nonisolatedLookIntentFingerprint(_ recipe: EditRecipe) -> String {
+    recipe.lookIntent.fingerprint
+}
+
+nonisolated func nonisolatedRenderCacheKey(_ request: RawRenderRequest) -> String {
+    request.cacheKey
+}
+
+nonisolated func nonisolatedEnsureProxy(for photo: PhotoRecord, projectName: String) -> URL? {
+    DevelopEngine.ensureProxy(for: photo, projectName: projectName)
+}
+
+nonisolated func nonisolatedPhotoTierPath(_ photo: PhotoRecord) -> String? {
+    PhotoImageTier.proxy.path(for: photo)
+}
+
 final class ProgressiveRenderingArchitectureTests: XCTestCase {
     func testLegacyMachineTierCannotBecomeP0Decision() {
         let machineTier = PhotoRecord(
@@ -63,6 +80,38 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
             longEdgeCap: 4096
         )
         XCTAssertNotEqual(compact.cacheKey, retina.cacheKey)
+    }
+
+    func testLookIntentIsReachableFromTheRenderDataPlane() {
+        let base = EditRecipe()
+        let look = base.updating { $0.contrast = 25 }
+        let lookPrint = nonisolatedLookIntentFingerprint(look)
+        XCTAssertNotEqual(nonisolatedLookIntentFingerprint(base), lookPrint)
+        XCTAssertEqual(base.rawIntent.fingerprint, look.rawIntent.fingerprint)
+
+        let id = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let url = URL(fileURLWithPath: "/tmp/frame.arw")
+        let baseKey = nonisolatedRenderCacheKey(
+            RawRenderRequest(generation: 1, photoID: id, rawURL: url, recipe: base, quality: .interactive)
+        )
+        let lookKey = nonisolatedRenderCacheKey(
+            RawRenderRequest(generation: 1, photoID: id, rawURL: url, recipe: look, quality: .interactive)
+        )
+        XCTAssertNotEqual(baseKey, lookKey)
+        XCTAssertTrue(lookKey.contains(lookPrint))
+        XCTAssertTrue(lookKey.contains(RawDecodeBackendRegistry.mappingVersion))
+    }
+
+    func testPhotoRecordIsReachableFromTheRenderDataPlane() {
+        let photo = PhotoRecord(
+            rawPath: "/tmp/frame.arw",
+            filename: "frame.arw",
+            thumbPath: "/tmp/frame-thumb.jpg",
+            proxyPath: "/tmp/frame-proxy.jpg"
+        )
+        XCTAssertEqual(nonisolatedPhotoTierPath(photo), "/tmp/frame-proxy.jpg")
+        // ensureProxy may return nil without real cache dirs — call is the compile lock.
+        _ = nonisolatedEnsureProxy(for: photo, projectName: "isolation-lock")
     }
 
     func testOneToOneRegionMatchesDrawablePixelsAndPan() {

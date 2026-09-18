@@ -97,7 +97,8 @@ nonisolated enum OutputIntent: String, Hashable, Sendable {
     var fingerprint: String { "out|\(rawValue)" }
 }
 
-extension EditRecipe {
+/// Intent slices are derived on the render data plane — not MainActor UI state.
+nonisolated extension EditRecipe {
     /// RAW-domain slice — invalidates the RAW-stage surface when changed.
     var rawIntent: RawIntent {
         RawIntent(

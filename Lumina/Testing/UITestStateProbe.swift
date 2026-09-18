@@ -58,6 +58,9 @@ struct ProbeSnapshot: Codable, Equatable {
     /// `p0.key.mark`, `p0.zoom.gesture`) are live. Off in an ordinary run; a measurement
     /// session asserts this is true before it trusts a single number.
     var renderInstrumentsEnabled: Bool
+    /// Law 5 / D11 — Esc would clear a transient hold (loupe / clipping / look glance /
+    /// burst lean / kept rail) before navigation. Mirrors `P0EscLadder` depth 0.
+    var escTransientHoldActive: Bool
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -138,7 +141,12 @@ extension P0SessionModel {
                 || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
             keyRoutingOwner: "P0KeyRoutingModifier",
             legacyShellActive: showLegacyShell,
-            renderInstrumentsEnabled: P0RenderInstruments.shared.isEnabled
+            renderInstrumentsEnabled: P0RenderInstruments.shared.isEnabled,
+            escTransientHoldActive: holdingLoupe
+                || holdingClipping
+                || lookGlancing
+                || leanedBurstID != nil
+                || walkingKeptRail
         )
     }
 }
