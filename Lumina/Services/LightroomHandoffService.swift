@@ -95,7 +95,7 @@ enum LightroomHandoffService {
         let receiptURL = (tiffURL ?? xmpURL).deletingPathExtension().appendingPathExtension("lumina-receipt.json")
         let receipt: [String: Any] = [
             "generator": "Lumina",
-            "mappingVersion": PreparedRawSession.decoderMappingVersion,
+            "mappingVersion": RawDecodeBackendRegistry.mappingVersion,
             "workingSpaceVersion": DevelopColorPolicy.workingSpaceVersion,
             "recipeFingerprint": recipe.valueFingerprint,
             "mergeOutcome": outcome.rawValue,
@@ -316,7 +316,7 @@ enum LightroomHandoffService {
             xmlns:crs="\(crsNamespace)"
             xmlns:lumina="\(luminaNamespace)"
         \(crsAttributes)
-            lumina:MappingVersion="\(PreparedRawSession.decoderMappingVersion)"
+            lumina:MappingVersion="\(RawDecodeBackendRegistry.mappingVersion)"
             lumina:RecipeFingerprint="\(xmlEscape(recipe.valueFingerprint))"
             lumina:WrittenFieldsHash="\(fieldsHash)"
             lumina:WrittenAt="\(ISO8601DateFormatter().string(from: Date()))"/>
@@ -368,7 +368,7 @@ enum LightroomHandoffService {
 
     private static func stampLuminaBlock(recipe: EditRecipe, on description: XMLElement, conflictDetected: Bool) {
         let fieldsHash = hashOfManagedFields(for: recipe)
-        setField(name: "lumina:MappingVersion", value: PreparedRawSession.decoderMappingVersion, on: description)
+        setField(name: "lumina:MappingVersion", value: RawDecodeBackendRegistry.mappingVersion, on: description)
         setField(name: "lumina:RecipeFingerprint", value: recipe.valueFingerprint, on: description)
         setField(name: "lumina:WrittenFieldsHash", value: fieldsHash, on: description)
         setField(name: "lumina:WrittenAt", value: ISO8601DateFormatter().string(from: Date()), on: description)

@@ -97,11 +97,10 @@ nonisolated enum OutputIntent: String, Hashable, Sendable {
     var fingerprint: String { "out|\(rawValue)" }
 }
 
-/// Intent slices are derived on the render data plane. The extension must be
-/// `nonisolated` — default MainActor isolation does not follow the type.
-extension EditRecipe {
+/// Intent slices are derived on the render data plane — not MainActor UI state.
+nonisolated extension EditRecipe {
     /// RAW-domain slice — invalidates the RAW-stage surface when changed.
-    nonisolated var rawIntent: RawIntent {
+    var rawIntent: RawIntent {
         RawIntent(
             exposureEV: exposure,
             temperature: temperature,
@@ -114,7 +113,7 @@ extension EditRecipe {
     /// Post-RAW look slice. Whites/blacks/clarity/texture/dehaze are deliberately
     /// absent: their algorithms are not defensible and the controls are disabled.
     /// Stored values migrate forward but are not rendered.
-    nonisolated var lookIntent: LookIntent {
+    var lookIntent: LookIntent {
         LookIntent(
             contrast: contrast,
             highlights: highlights,
@@ -124,7 +123,7 @@ extension EditRecipe {
         )
     }
 
-    nonisolated var geometryIntent: GeometryIntent {
+    var geometryIntent: GeometryIntent {
         GeometryIntent(crop: crop, straightenDegrees: straightenDegrees)
     }
 }

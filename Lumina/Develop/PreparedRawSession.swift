@@ -85,9 +85,6 @@ actor PreparedRawSession {
     /// Interactive stages are realized GPU textures; two × ~32 MB is the cap.
     private let interactiveCacheLimit = 2
 
-    /// Bumped whenever Apple's decoder or our mapping changes meaningfully.
-    nonisolated static let decoderMappingVersion = "lumina-ciraw-1"
-
     init(
         assetID: UUID,
         rawURL: URL,
@@ -143,7 +140,7 @@ actor PreparedRawSession {
             decodeIntent.fingerprint,
             String(format: "%.4f", scale),
             tier.rawValue,
-            Self.decoderMappingVersion,
+            RawDecodeBackendRegistry.mappingVersion,
         ].joined(separator: "#")
 
         if var hit = rawStageCache[key] {
@@ -235,7 +232,7 @@ actor PreparedRawSession {
         metadata = Metadata(
             pixelWidth: Int(extent.width),
             pixelHeight: Int(extent.height),
-            decoderVersion: Self.decoderMappingVersion,
+            decoderVersion: RawDecodeBackendRegistry.mappingVersion,
             fileModificationDate: mtime,
             nativeNeutralTemperature: Double(auth.neutralTemperature),
             nativeNeutralTint: Double(auth.neutralTint)

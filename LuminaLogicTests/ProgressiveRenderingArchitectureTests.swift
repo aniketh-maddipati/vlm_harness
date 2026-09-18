@@ -91,7 +91,7 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
         )
         XCTAssertNotEqual(baseKey, lookKey)
         XCTAssertTrue(lookKey.contains(lookPrint))
-        XCTAssertTrue(lookKey.contains(PreparedRawSession.decoderMappingVersion))
+        XCTAssertTrue(lookKey.contains(RawDecodeBackendRegistry.mappingVersion))
     }
 
     func testOneToOneRegionMatchesDrawablePixelsAndPan() {
