@@ -15,7 +15,7 @@ enum ShootSchemaVersion: Int, Codable, Sendable, Comparable {
 
 // MARK: - Cull (independent of edit)
 
-enum CullDecision: String, Codable, Hashable, Sendable {
+nonisolated enum CullDecision: String, Codable, Hashable, Sendable {
     case undecided
     case keep
     case reject
@@ -40,14 +40,14 @@ enum CullDecision: String, Codable, Hashable, Sendable {
 
 // MARK: - Source references
 
-enum SourceAvailability: String, Codable, Hashable, Sendable {
+nonisolated enum SourceAvailability: String, Codable, Hashable, Sendable {
     case available
     case missing
     case unknown
 }
 
 /// External folder / drive reference with security-scoped bookmark support.
-struct SourceReference: Codable, Hashable, Sendable, Identifiable {
+nonisolated struct SourceReference: Codable, Hashable, Sendable, Identifiable {
     var id: UUID
     /// Absolute path when last known.
     var originalPath: String
@@ -99,7 +99,7 @@ struct SourceReference: Codable, Hashable, Sendable, Identifiable {
 // MARK: - Asset
 
 /// Durable per-photograph catalog record. Missing originals do not delete this.
-struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
+nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     /// Opaque rediscovery key (volume + relative path + size + capture).
     var sourceKey: String

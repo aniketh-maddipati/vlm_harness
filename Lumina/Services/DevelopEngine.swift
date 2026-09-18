@@ -4,7 +4,7 @@ import AppKit
 /// Dual-path develop facade.
 /// Interactive scrub and export both route through `DevelopRenderGraph` so operation
 /// ordering, recipe interpretation, geometry, and color transforms do not drift.
-enum DevelopEngine {
+nonisolated enum DevelopEngine {
     private static let context = DevelopRenderGraph.sharedContext
 
     static func ensureProxy(for photo: PhotoRecord, projectName: String) -> URL? {

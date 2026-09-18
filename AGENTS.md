@@ -58,6 +58,25 @@ Cloud agents run `python3 Scripts/harness/run.py fast` (or `bash Scripts/regress
 
 Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on Linux.
 
+### MainActor default isolation (render data plane)
+
+The Xcode project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`. Types touched from the render/export path (`DevelopRenderGraph`, `RawRenderRequest`, `P0AuthoritativeExportService`, detached decode in `PhotoImageCache` / `BrowsePixelService`) must be explicitly **`nonisolated`** — including **`nonisolated extension EditRecipe`** for intent slices. Actor nested types (`PreparedRawSession.Tier`) and actor statics must not be read synchronously from that plane; hoist constants to `RawDecodeBackendRegistry` instead.
+
+**Before pushing render/develop changes:**
+
+```bash
+# Linux + Mac — static gate (includes render_data_plane_isolation)
+python3 Scripts/harness/run.py fast
+
+# Mac only — required proof (also runs on CI push/PR via rendering.yml compile-logic)
+python3 Scripts/harness/lint/xcode_compile.py --project-root . --derived-data DD
+xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
+  -derivedDataPath DD -destination 'platform=macOS,arch=arm64' \
+  -only-testing:LuminaLogicTests test-without-building
+```
+
+Hosted CI: `.github/workflows/rendering.yml` runs `fast` + `compile-logic` on **push** and **pull_request** for `Lumina/**` changes. A green `fast` lane alone is not sufficient when Swift types change.
+
 ### Footprint / lightweight Release
 
 - Release builds define `LUMINA_SHIPPING_APP`, excluding headless harness runners from the shipping binary.

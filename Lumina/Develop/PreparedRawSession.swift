@@ -54,7 +54,7 @@ actor PreparedRawSession {
         var longEdge: Int { max(pixelWidth, pixelHeight) }
     }
 
-    enum Tier: String, Sendable {
+    nonisolated enum Tier: String, Sendable {
         case interactive
         case authoritative
     }

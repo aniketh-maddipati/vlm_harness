@@ -181,6 +181,10 @@ def lane_fast() -> tuple[list[dict], list[str]]:
             "progressive_render_architecture",
             [py, str(HARNESS / "lint" / "progressive_render_architecture.py")],
         ),
+        (
+            "render_data_plane_isolation",
+            [py, str(HARNESS / "lint" / "render_data_plane_isolation.py")],
+        ),
         ("repo_artifact_bloat", [py, str(HARNESS / "lint" / "repo_artifact_bloat.py")]),
         ("f11_no_licensing", [py, str(HARNESS / "release" / "f11_no_licensing.py")]),
         ("f11_a7_expiry", [py, str(HARNESS / "release" / "f11_a7_expiry.py")]),

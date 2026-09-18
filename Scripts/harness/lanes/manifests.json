@@ -42,6 +42,7 @@
         { "id": "module_boundary", "kind": "orchestration", "notes": "Core models must not import UI/GPU frameworks" },
         { "id": "session_surface", "kind": "orchestration", "notes": "P0SessionModel developScheduler stays file-private; call sites use session APIs" },
         { "id": "progressive_render_architecture", "kind": "orchestration", "notes": "Stable focused surface, JPEG-only browse, generation-safe lanes, texture-backed interactive RAW" },
+        { "id": "render_data_plane_isolation", "kind": "orchestration", "notes": "MainActor-default isolation — render/export data plane must be nonisolated" },
         { "id": "repo_artifact_bloat", "kind": "orchestration", "notes": "Duplicate PNG evidence dirs must not re-enter git" },
         { "id": "f11_no_licensing", "kind": "orchestration", "notes": "F11.7 — D52/A8 wave builds: no license/activation/expiry code" },
         { "id": "f11_a7_expiry", "kind": "orchestration", "notes": "F11.6 — betaDiagnostics must be null on wave/beta builds (D45/A13)" },

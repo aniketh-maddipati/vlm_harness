@@ -1,6 +1,19 @@
 name: Rendering gates
 
 on:
+  push:
+    branches:
+      - main
+      - "cursor/**"
+    paths:
+      - "Lumina/**"
+      - "LuminaLogicTests/**"
+      - "LuminaUITests/**"
+      - "Scripts/harness/**"
+      - "Scripts/fixtures/**"
+      - "TestPlans/**"
+      - "design/fixture-manifest.*"
+      - ".github/workflows/**"
   pull_request:
     paths:
       - "Lumina/**"
@@ -30,14 +43,14 @@ permissions:
 
 jobs:
   fast:
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: python3 Scripts/harness/run.py fast
 
   compile-logic:
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
     runs-on: macos-15
     timeout-minutes: 20
     steps:
@@ -70,7 +83,7 @@ jobs:
   # GitHub forbids `secrets` in job-level `if`. Probe them on Ubuntu, then
   # start macos-15 only when both hosted fixture secrets exist.
   render-live-gate:
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
     runs-on: ubuntu-latest
     outputs:
       enabled: ${{ steps.check.outputs.enabled }}
@@ -90,7 +103,8 @@ jobs:
   render-live:
     if: >
       needs.render-live-gate.outputs.enabled == 'true' &&
-      (github.event_name == 'pull_request' ||
+      (github.event_name == 'push' ||
+      github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly'))
     needs: [compile-logic, render-live-gate]
     runs-on: macos-15

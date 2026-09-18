@@ -141,7 +141,7 @@ enum ExportAspect: String, CaseIterable, Identifiable, Codable {
 
 // MARK: - Develop
 
-struct DevelopAdjustments: Codable, Hashable {
+nonisolated struct DevelopAdjustments: Codable, Hashable {
     var exposure: Double = 0
     var temperature: Double = 0 // offset from profile Kelvin
     var tint: Double = 0
@@ -473,7 +473,7 @@ nonisolated struct DevelopRecipe: Codable, Hashable {
 /// Back-compat alias used by older UI code.
 typealias DevelopProfile = DevelopRecipe
 
-extension DevelopRecipe {
+nonisolated extension DevelopRecipe {
     var sourceCount: Int { sourceNeighbors.isEmpty ? (hasSettings ? 1 : 0) : sourceNeighbors.count }
     var hasDevelopSettings: Bool { hasSettings }
 

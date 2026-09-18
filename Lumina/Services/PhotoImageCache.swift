@@ -2,7 +2,7 @@ import AppKit
 import CryptoKit
 import Foundation
 
-enum PhotoImageTier: Sendable {
+nonisolated enum PhotoImageTier: Sendable {
     case grid
     case preview
     case proxy
@@ -40,7 +40,7 @@ enum PhotoImageTier: Sendable {
     }
 }
 
-enum PhotoLoadOutcome: Sendable {
+nonisolated enum PhotoLoadOutcome: Sendable {
     case image(NSImage)
     case missing
     case failed
@@ -70,7 +70,7 @@ actor PhotoImageCache {
     private var prefetchQueue: [(path: String, maxPixelSize: Int?, allowRAW: Bool)] = []
     private var prefetchActive = 0
 
-    private static let rawExtensions: Set<String> = [
+    nonisolated private static let rawExtensions: Set<String> = [
         "ARW", "CR2", "CR3", "NEF", "RAF", "DNG", "ORF", "RW2", "PEF", "SRW", "3FR", "IIQ",
     ]
 
