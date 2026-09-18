@@ -10,7 +10,7 @@ import ImageIO
 /// shadow lift, spread-based contrast, and a gentle vibrance floor.
 /// White balance reuses the gray-world estimate. All values are absolute
 /// targets from neutral — callers convert to offsets against the base recipe.
-enum AutoDevelop {
+nonisolated enum AutoDevelop {
     struct Suggestion: Sendable {
         var exposure: Double      // stops
         var contrast: Double      // -100...100

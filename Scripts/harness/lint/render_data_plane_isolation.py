@@ -51,6 +51,8 @@ NONISOLATED_TYPE_MARKERS: dict[str, tuple[str, ...]] = {
     ),
     "Lumina/Models/AssetIdentity.swift": ("nonisolated enum AssetIdentity",),
     "Lumina/Services/ProjectStore.swift": ("nonisolated enum ProjectStore",),
+    "Lumina/Services/AutoDevelop.swift": ("nonisolated enum AutoDevelop",),
+    "Lumina/Services/VisionAssist.swift": ("nonisolated enum VisionAssist",),
 }
 
 FORBIDDEN_PATTERNS: tuple[tuple[str, str], ...] = (
