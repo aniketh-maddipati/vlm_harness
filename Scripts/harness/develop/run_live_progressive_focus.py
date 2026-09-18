@@ -18,7 +18,7 @@ from render_gate_common import (
 from run_live_raw_render import verify_fixture
 
 
-def validate(report: dict) -> dict:
+def validate(report: dict, expected_extensions: set[str] | None = None) -> dict:
     limits = thresholds("hosted")
     failures: list[str] = []
     if report.get("status") != "passed" or int(report.get("failures", 1)) != 0:
@@ -67,6 +67,16 @@ def validate(report: dict) -> dict:
         if stability.get(key) is not True:
             failures.append(f"{key} is not true")
 
+    measured_extensions = {
+        str(value).upper() for value in report.get("formatExtensions", [])
+    }
+    if expected_extensions:
+        missing_extensions = sorted(expected_extensions - measured_extensions)
+        if missing_extensions:
+            failures.append(
+                "progressive focus did not open " + ", ".join(missing_extensions)
+            )
+
     if failures:
         raise RuntimeError("; ".join(failures))
     return {
@@ -74,6 +84,7 @@ def validate(report: dict) -> dict:
         "drawSampleCount": samples,
         "drawWindow": draw.get("window"),
         "navigationP95Ms": float(navigation.get("p95Ms", 0)),
+        "formatExtensions": sorted(measured_extensions),
         **{key: True for key in required_true},
     }
 
@@ -127,7 +138,17 @@ def main(argv: list[str] | None = None) -> int:
                 raise RuntimeError(f"P0EditLiveRunner exited {proc.returncode}")
             report_path = output / "p0_edit_live_report.json"
 
-        metrics = validate(read_report(report_path))
+        expected_extensions = None
+        if not args.parse_report:
+            expected_extensions = (
+                {"ARW", "CR3", "DNG"}
+                if args.fixture_tier == "hosted"
+                else {"ARW", "CR3", "NEF", "RAF", "DNG", "HEIC"}
+            )
+        metrics = validate(
+            read_report(report_path),
+            expected_extensions=expected_extensions,
+        )
         ledger = (
             project_root
             / "artifacts"

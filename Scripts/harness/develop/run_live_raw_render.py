@@ -20,6 +20,39 @@ from render_gate_common import (
 def validate(report: dict, expected_extensions: set[str] | None = None) -> dict:
     limits = thresholds("hosted")
     failures: list[str] = []
+
+    def validate_fidelity(item: dict, label: str) -> dict:
+        fidelity = item.get("fidelity")
+        if not isinstance(fidelity, dict) or fidelity.get("status") != "measured":
+            failures.append(f"{label}: fidelity not measured")
+            return {}
+        checks = (
+            ("deltaE2000Mean", "<=", float(limits["fidelityDeltaEMeanMax"])),
+            ("deltaE2000P95", "<=", float(limits["fidelityDeltaEP95Max"])),
+            ("ssimLuma", ">=", float(limits["fidelitySSIMMin"])),
+            ("maeR_8bit", "<=", float(limits["fidelityChannelMAEMax"])),
+            ("maeG_8bit", "<=", float(limits["fidelityChannelMAEMax"])),
+            ("maeB_8bit", "<=", float(limits["fidelityChannelMAEMax"])),
+        )
+        for key, comparison, bound in checks:
+            value = fidelity.get(key)
+            if not isinstance(value, (int, float)):
+                failures.append(f"{label}: missing fidelity {key}")
+            elif comparison == "<=" and float(value) > bound:
+                failures.append(f"{label}: {key} {value} > {bound}")
+            elif comparison == ">=" and float(value) < bound:
+                failures.append(f"{label}: {key} {value} < {bound}")
+        preview_clip = fidelity.get("clippedFractionPreview")
+        export_clip = fidelity.get("clippedFractionExport")
+        if not isinstance(preview_clip, (int, float)) or not isinstance(
+            export_clip, (int, float)
+        ):
+            failures.append(f"{label}: clipping fractions missing")
+        elif abs(float(preview_clip) - float(export_clip)) > float(
+            limits["fidelityClippedFractionDeltaMax"]
+        ):
+            failures.append(f"{label}: clipping fraction drift too large")
+        return fidelity
     if int(report.get("failures", 1)) != 0:
         failures.append(f"runner failures={report.get('failures')!r}")
     live = report.get("live")
@@ -28,6 +61,7 @@ def validate(report: dict, expected_extensions: set[str] | None = None) -> dict:
         live = {}
     if live.get("status") == "blocked":
         failures.append(f"blocked: {live.get('reason', 'unknown')}")
+    primary_fidelity = validate_fidelity(live, "primary")
 
     scrub = live.get("interactiveScrub")
     if not isinstance(scrub, dict):
@@ -74,15 +108,14 @@ def validate(report: dict, expected_extensions: set[str] | None = None) -> dict:
             f"settled {settled:.1f}ms > hosted ceiling {settled_ceiling:.1f}ms"
         )
 
-    if failures:
-        raise RuntimeError("; ".join(failures))
     fleet = report.get("fleet")
     if not isinstance(fleet, list) or not fleet:
         raise RuntimeError("missing non-empty fleet measurements")
-    for entry in fleet:
+    for index, entry in enumerate(fleet):
         item = entry.get("live") if isinstance(entry, dict) else None
         if not isinstance(item, dict) or item.get("interactiveStageMaterialized") is not True:
             raise RuntimeError("fleet entry missing interactive texture materialization")
+        validate_fidelity(item, f"fleet[{index}]")
     measured_extensions = {
         Path(str(entry.get("fixture", ""))).suffix.upper()
         for entry in fleet
@@ -94,6 +127,8 @@ def validate(report: dict, expected_extensions: set[str] | None = None) -> dict:
             raise RuntimeError(
                 "fleet measurements missing " + ", ".join(missing_extensions)
             )
+    if failures:
+        raise RuntimeError("; ".join(failures))
     return {
         "interactiveColdMs": cold,
         "interactiveScrubP95Ms": p95,
@@ -103,6 +138,9 @@ def validate(report: dict, expected_extensions: set[str] | None = None) -> dict:
         "interactiveStageMaterialized": True,
         "fleetCount": len(fleet),
         "fleetExtensions": sorted(measured_extensions),
+        "fidelityDeltaEMean": primary_fidelity.get("deltaE2000Mean"),
+        "fidelityDeltaEP95": primary_fidelity.get("deltaE2000P95"),
+        "fidelitySSIM": primary_fidelity.get("ssimLuma"),
     }
 
 

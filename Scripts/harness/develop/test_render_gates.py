@@ -23,7 +23,20 @@ class RenderGateParserTests(unittest.TestCase):
             "fleet": [
                 {
                     "fixture": "sony.ARW",
-                    "live": {"interactiveStageMaterialized": True},
+                    "live": {
+                        "interactiveStageMaterialized": True,
+                        "fidelity": {
+                            "status": "measured",
+                            "deltaE2000Mean": 1,
+                            "deltaE2000P95": 4,
+                            "ssimLuma": 0.98,
+                            "maeR_8bit": 2,
+                            "maeG_8bit": 1,
+                            "maeB_8bit": 1,
+                            "clippedFractionPreview": 0.35,
+                            "clippedFractionExport": 0.34,
+                        },
+                    },
                 }
             ],
             "live": {
@@ -40,6 +53,17 @@ class RenderGateParserTests(unittest.TestCase):
                 "settledRawIntentInvalidates": True,
                 "interactiveStageMaterialized": True,
                 "authoritativeStageStayedLazy": True,
+                "fidelity": {
+                    "status": "measured",
+                    "deltaE2000Mean": 1,
+                    "deltaE2000P95": 4,
+                    "ssimLuma": 0.98,
+                    "maeR_8bit": 2,
+                    "maeG_8bit": 1,
+                    "maeB_8bit": 1,
+                    "clippedFractionPreview": 0.35,
+                    "clippedFractionExport": 0.34,
+                },
             },
         }
         self.assertEqual(validate_raw(report)["rawStageCacheHits"], 20)

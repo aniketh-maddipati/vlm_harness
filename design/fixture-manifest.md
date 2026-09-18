@@ -40,9 +40,9 @@ Synthetic UI-test bodies (`mixed-60`, `mixed-200`, `missing-originals`) remain v
 permitted only in the explicit fixture setup step; live gates run against the
 verified local copy with zero network dependency.
 
-- Hosted tier: at least `.ARW`, `.CR3`, and `.DNG`; correctness and broad
+- Hosted tier: at least eight photographs spanning `.ARW`, `.CR3`, and `.DNG`; correctness and broad
   latency ceilings only.
-- Full tier: `.ARW`, `.CR3`, `.NEF`, `.RAF`, `.DNG`, and `.HEIC`; fixed
+- Full tier: at least twelve photographs spanning `.ARW`, `.CR3`, `.NEF`, `.RAF`, `.DNG`, and `.HEIC`; fixed
   Apple-Silicon nightly performance and body-specific fidelity.
 - CI supplies `LUMINA_RAW_FIXTURE_BUNDLE_URL`,
   `LUMINA_RAW_FIXTURE_BUNDLE_SHA256`, and `LUMINA_RAW_FIXTURE_ROOT`.

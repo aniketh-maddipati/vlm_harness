@@ -55,6 +55,10 @@ def safe_extract(archive: Path, destination: Path) -> None:
             for member in bundle.getmembers():
                 if member.issym() or member.islnk():
                     raise RuntimeError(f"fixture archive links are forbidden: {member.name}")
+                if not member.isfile() and not member.isdir():
+                    raise RuntimeError(
+                        f"fixture archive special entries are forbidden: {member.name}"
+                    )
                 target = (destination / member.name).resolve()
                 if destination.resolve() not in target.parents and target != destination.resolve():
                     raise RuntimeError(f"unsafe archive member {member.name}")
@@ -86,11 +90,12 @@ def fetch(destination: Path, spec: dict) -> None:
         safe_extract(archive, destination)
 
 
-def verify_checksums(root: Path, checksum_name: str) -> int:
+def verify_checksums(root: Path, checksum_name: str) -> tuple[int, set[Path]]:
     checksum_file = root / checksum_name
     if not checksum_file.is_file():
         raise RuntimeError(f"BLOCKED: missing {checksum_file}")
     checked = 0
+    verified: set[Path] = set()
     for raw in checksum_file.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -109,15 +114,16 @@ def verify_checksums(root: Path, checksum_name: str) -> int:
         if actual.lower() != expected.lower():
             raise RuntimeError(f"checksum mismatch: {relative}")
         checked += 1
+        verified.add(path)
     if checked == 0:
         raise RuntimeError("checksum manifest contains no files")
-    return checked
+    return checked, verified
 
 
 def verify(root: Path, tier: str, spec: dict) -> int:
     if not root.is_dir():
         raise RuntimeError(f"BLOCKED: fixture root does not exist: {root}")
-    checked = verify_checksums(root, str(spec["checksums"]))
+    checked, verified = verify_checksums(root, str(spec["checksums"]))
     tier_spec = spec["tiers"][tier]
     files = [path for path in root.rglob("*") if path.is_file()]
     extensions = {path.suffix.upper() for path in files}
@@ -126,7 +132,14 @@ def verify(root: Path, tier: str, spec: dict) -> int:
     if missing:
         raise RuntimeError(f"BLOCKED: {tier} fixture tier missing {', '.join(missing)}")
     minimum = int(tier_spec["minimum_photos"])
-    media_count = sum(1 for path in files if path.suffix.upper() in required)
+    unverified_media = [
+        path for path in files
+        if path.suffix.upper() in required and path.resolve() not in verified
+    ]
+    if unverified_media:
+        names = ", ".join(str(path.relative_to(root)) for path in unverified_media[:5])
+        raise RuntimeError(f"required media missing from checksums: {names}")
+    media_count = sum(1 for path in verified if path.suffix.upper() in required)
     if media_count < minimum:
         raise RuntimeError(
             f"BLOCKED: {tier} tier has {media_count} required media files; need {minimum}"

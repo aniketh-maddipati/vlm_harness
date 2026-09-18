@@ -371,7 +371,11 @@ enum DevelopRenderGraph {
 
     /// 16-bit ProPhoto RGB TIFF with embedded ICC profile and ZIP (Deflate)
     /// compression, for Lightroom/Photoshop handoff.
-    static func exportTIFF(cgImage: CGImage, to url: URL, preserveMetadataFrom rawURL: URL?) -> Bool {
+    nonisolated static func exportTIFF(
+        cgImage: CGImage,
+        to url: URL,
+        preserveMetadataFrom rawURL: URL?
+    ) -> Bool {
         let type = UTType.tiff.identifier as CFString
         guard let dest = CGImageDestinationCreateWithURL(url as CFURL, type, 1, nil) else {
             return false

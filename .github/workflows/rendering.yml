@@ -37,10 +37,12 @@ jobs:
 
   render-correctness:
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
-    runs-on: macos-15-xlarge
+    runs-on: macos-15
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Install harness YAML parser
+        run: python3 -m pip install --disable-pip-version-check pyyaml
       - name: Verify hosted RAW fixtures
         env:
           LUMINA_RAW_FIXTURE_BUNDLE_URL: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_URL }}
@@ -88,6 +90,8 @@ jobs:
       LUMINA_RENDER_STATE_PATH: ${{ vars.LUMINA_RENDER_STATE_PATH }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install harness YAML parser
+        run: python3 -m pip install --disable-pip-version-check pyyaml
       - name: Verify full RAW fixture fleet
         run: |
           python3 Scripts/fixtures/verify_raw_fixture_bundle.py \

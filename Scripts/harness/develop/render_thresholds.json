@@ -5,6 +5,11 @@
     "interactiveColdMs": 750,
     "settledMs": 1000,
     "drawP95Ms": 50,
+    "fidelityDeltaEMeanMax": 5,
+    "fidelityDeltaEP95Max": 15,
+    "fidelitySSIMMin": 0.9,
+    "fidelityChannelMAEMax": 12,
+    "fidelityClippedFractionDeltaMax": 0.1,
     "minimumRawStageHits": 18,
     "minimumRawStageSamples": 20
   },

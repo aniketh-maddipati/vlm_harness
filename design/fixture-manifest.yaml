@@ -25,11 +25,11 @@ raw_correctness_bundle:
   tiers:
     hosted:
       purpose: pull-request correctness and broad latency ceilings
-      minimum_photos: 3
+      minimum_photos: 8
       required_extensions: [.ARW, .CR3, .DNG]
     full:
       purpose: fixed-hardware nightly performance and format fidelity
-      minimum_photos: 6
+      minimum_photos: 12
       required_extensions: [.ARW, .CR3, .NEF, .RAF, .DNG, .HEIC]
 
 seed_bodies:

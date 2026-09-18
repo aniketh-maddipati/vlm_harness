@@ -89,6 +89,11 @@ enum P0EditLiveRunner {
         let opened = await waitUntil(timeout: 60) { session.assets.count >= 8 }
         let assetCount = session.assets.count
         report["assetCount"] = assetCount
+        report["formatExtensions"] = Array(
+            Set(session.assets.map {
+                URL(fileURLWithPath: $0.source.originalPath).pathExtension.uppercased()
+            })
+        ).sorted()
         report["openError"] = session.userFacingError ?? ""
         report["statusLine"] = session.preparationLine
         note("Open shoot into contact sheet", opened && assetCount >= 8, "\(assetCount) assets · \(session.preparationLine)")
@@ -274,7 +279,16 @@ enum P0EditLiveRunner {
         // Progressive focus contract: one requested identity, non-decreasing
         // fidelity, fixed aspect geometry, authoritative pixels reaching the
         // drawable target. Quality may sharpen; the photograph may not move.
-        let stabilityTarget = session.visibleItems.last ?? landscape
+        let rawExtensions: Set<String> = [
+            "ARW", "CR2", "CR3", "NEF", "RAF", "DNG", "ORF", "RW2",
+        ]
+        let stabilityTarget = session.visibleItems.last(where: {
+            rawExtensions.contains(
+                URL(fileURLWithPath: $0.asset.source.originalPath)
+                    .pathExtension
+                    .uppercased()
+            )
+        }) ?? landscape
         session.applyEditMutation(
             { $0.exposure = 0.37 },
             assetID: stabilityTarget.id
