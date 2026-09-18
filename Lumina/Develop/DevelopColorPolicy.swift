@@ -28,7 +28,7 @@ import Foundation
 /// 3. Display conversion to 8-bit BGRA for Metal preview
 /// 4. JPEG export quantization (q≈0.92)
 /// 5. Any unavailable CIRAW control approximated by CI filters (see DEVELOP_ENGINE.md)
-enum DevelopColorPolicy {
+nonisolated enum DevelopColorPolicy {
     /// Preferred linear working space for filter evaluation.
     static var workingColorSpace: CGColorSpace {
         if let linear = CGColorSpace(name: CGColorSpace.extendedLinearSRGB) {

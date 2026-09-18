@@ -23,7 +23,7 @@ import UniformTypeIdentifiers
 /// 4. Region extract (1:1).
 /// 5. Output conversion **once** — display profile at the Metal destination, or
 ///    export space during encode.
-enum DevelopRenderGraph {
+nonisolated enum DevelopRenderGraph {
 
     /// Long-lived shared contexts — never allocate per frame.
     private static let context = CIContext(options: DevelopColorPolicy.ciContextOptions)

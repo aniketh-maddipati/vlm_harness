@@ -171,23 +171,26 @@ final class P0SessionModel {
     func exportKept(to folder: URL) {
         guard let shoot, exportCount > 0, !isExporting else { return }
         let snapshot = assets
+        let shootName = shoot.name
+        let destination = folder
+        let count = exportCount
         isExporting = true
-        exportStatusLine = "Exporting \(exportCount)…"
-        developScheduler.enqueueExport { [weak self] in
+        exportStatusLine = "Exporting \(count)…"
+        developScheduler.enqueueExport {
             do {
                 let outcome = try await P0AuthoritativeExportService.export(
-                    shootName: shoot.name,
+                    shootName: shootName,
                     assets: snapshot,
-                    to: folder
+                    to: destination
                 )
-                await MainActor.run {
+                await MainActor.run { [weak self] in
                     guard let self else { return }
                     self.isExporting = false
                     self.exportStatusLine = "Exported \(outcome.urls.count)"
                     NSWorkspace.shared.activateFileViewerSelecting([outcome.root])
                 }
             } catch {
-                await MainActor.run {
+                await MainActor.run { [weak self] in
                     guard let self else { return }
                     self.isExporting = false
                     self.exportStatusLine = nil

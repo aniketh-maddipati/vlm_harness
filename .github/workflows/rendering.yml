@@ -67,13 +67,32 @@ jobs:
           path: artifacts/harness/runs/
           if-no-files-found: warn
 
+  # GitHub forbids `secrets` in job-level `if`. Probe them on Ubuntu, then
+  # start macos-15 only when both hosted fixture secrets exist.
+  render-live-gate:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        env:
+          URL: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_URL }}
+          SHA: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 }}
+        run: |
+          if [ -n "$URL" ] && [ -n "$SHA" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Hosted RAW fixture secrets unset; render-live skipped (BLOCKED, not a pass)."
+          fi
+
   render-live:
     if: >
+      needs.render-live-gate.outputs.enabled == 'true' &&
       (github.event_name == 'pull_request' ||
-      (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')) &&
-      secrets.LUMINA_RAW_FIXTURE_BUNDLE_URL != '' &&
-      secrets.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 != ''
-    needs: compile-logic
+      (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly'))
+    needs: [compile-logic, render-live-gate]
     runs-on: macos-15
     timeout-minutes: 25
     env:
@@ -94,7 +113,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/raw-correctness-v1-archive
-          key: raw-correctness-v1-${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 }}
+          key: raw-correctness-v1-${{ env.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 }}
       - name: Install harness YAML parser
         run: |
           python3 -m venv "$RUNNER_TEMP/lumina-venv"

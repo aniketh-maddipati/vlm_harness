@@ -178,5 +178,32 @@ class RenderGateParserTests(unittest.TestCase):
             self.assertEqual((dest / "readme.txt").read_text(encoding="utf-8"), "ok\n")
 
 
+class RenderingWorkflowTests(unittest.TestCase):
+    def test_job_if_conditions_do_not_use_secrets(self) -> None:
+        workflow = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "rendering.yml"
+        text = workflow.read_text(encoding="utf-8")
+        in_if = False
+        if_indent = 0
+        for line_no, raw in enumerate(text.splitlines(), 1):
+            stripped = raw.lstrip()
+            indent = len(raw) - len(stripped)
+            if stripped.startswith("if:"):
+                in_if = True
+                if_indent = indent
+                blob = stripped
+            elif in_if and indent > if_indent and stripped:
+                blob = stripped
+            else:
+                in_if = False
+                continue
+            self.assertNotIn(
+                "secrets.",
+                blob,
+                f"{workflow}:{line_no} uses secrets in if; probe them from env instead",
+            )
+        self.assertIn("render-live-gate", text)
+        self.assertIn("needs.render-live-gate.outputs.enabled", text)
+
+
 if __name__ == "__main__":
     unittest.main()

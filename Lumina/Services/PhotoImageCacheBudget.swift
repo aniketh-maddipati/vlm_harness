@@ -11,7 +11,7 @@ enum PhotoImageCacheBudget {
     /// Proxy / unbounded decode path.
     static let proxyTierCeilingBytes = 128 * 1024 * 1024
     /// Combined LRU table ceiling across all tiers.
-    static let totalCeilingBytes = 256 * 1024 * 1024
+    nonisolated static let totalCeilingBytes = 256 * 1024 * 1024
 
     /// Max concurrent prefetch decodes — width tied to `PreparedRawSession` capacity (4)
     /// doubled for grid+preview overlap without unbounded fan-out.
