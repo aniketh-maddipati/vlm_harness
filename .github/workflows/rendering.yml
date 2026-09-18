@@ -42,7 +42,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install harness YAML parser
-        run: python3 -m pip install --disable-pip-version-check pyyaml
+        run: |
+          python3 -m venv "$RUNNER_TEMP/lumina-venv"
+          "$RUNNER_TEMP/lumina-venv/bin/python" -m pip install --disable-pip-version-check pyyaml
+          echo "$RUNNER_TEMP/lumina-venv/bin" >> "$GITHUB_PATH"
       - name: Verify hosted RAW fixtures
         env:
           LUMINA_RAW_FIXTURE_BUNDLE_URL: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_URL }}
@@ -91,7 +94,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install harness YAML parser
-        run: python3 -m pip install --disable-pip-version-check pyyaml
+        run: |
+          python3 -m venv "$RUNNER_TEMP/lumina-venv"
+          "$RUNNER_TEMP/lumina-venv/bin/python" -m pip install --disable-pip-version-check pyyaml
+          echo "$RUNNER_TEMP/lumina-venv/bin" >> "$GITHUB_PATH"
       - name: Verify full RAW fixture fleet
         run: |
           python3 Scripts/fixtures/verify_raw_fixture_bundle.py \
