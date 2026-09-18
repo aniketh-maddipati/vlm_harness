@@ -288,7 +288,7 @@ enum P0EditLiveRunner {
                     .pathExtension
                     .uppercased()
             )
-        }) ?? landscape
+        })?.asset ?? landscape
         session.applyEditMutation(
             { $0.exposure = 0.37 },
             assetID: stabilityTarget.id
