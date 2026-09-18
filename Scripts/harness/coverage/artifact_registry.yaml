@@ -13,7 +13,7 @@ entries:
     lint:
       - progressive_render_architecture
     flow:
-      - progressive_focus_live
+      - ProgressiveFocusTests.testNavigationKeepsOneStableFocusedSurface
   D8:
     logic:
       - CullGrammarTests.testHoldKeysTrackMomentaryState
@@ -132,12 +132,13 @@ entries:
     lint:
       - unit_trace
       - progressive_render_architecture
+      - raw_render_live
+      - progressive_focus_live
     logic:
       - ProgressiveRenderingArchitectureTests.testCancelledRenderWaiterDoesNotBlockLatestWork
       - ProgressiveRenderingArchitectureTests.testDisplayTargetParticipatesInRenderCacheKey
     flow:
-      - raw_render_live
-      - progressive_focus_live
+      - ProgressiveFocusTests.testNavigationKeepsOneStableFocusedSurface
   D44:
     logic:
       - P0LogicTests.testExportRecipeHintContract

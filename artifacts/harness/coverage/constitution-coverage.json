@@ -540,7 +540,7 @@
       ],
       "logic": [],
       "flow": [
-        "progressive_focus_live"
+        "ProgressiveFocusTests.testNavigationKeepsOneStableFocusedSurface"
       ],
       "golden": [],
       "battery": [],
@@ -788,15 +788,16 @@
       ],
       "lint": [
         "unit_trace",
-        "progressive_render_architecture"
+        "progressive_render_architecture",
+        "raw_render_live",
+        "progressive_focus_live"
       ],
       "logic": [
         "ProgressiveRenderingArchitectureTests.testCancelledRenderWaiterDoesNotBlockLatestWork",
         "ProgressiveRenderingArchitectureTests.testDisplayTargetParticipatesInRenderCacheKey"
       ],
       "flow": [
-        "raw_render_live",
-        "progressive_focus_live"
+        "ProgressiveFocusTests.testNavigationKeepsOneStableFocusedSurface"
       ],
       "golden": [],
       "battery": [],

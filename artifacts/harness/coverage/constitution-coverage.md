@@ -86,7 +86,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D24 | Arming / value-echo *(amended by R-X.1 + audit)* | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testMoveFocusAndArming` |  |  |  |  |
 | D25 | Detents in photographic units; slider anatomy fixed. |  |  |  |  |  | NOT-COVERED |
 | D26 | Focused edit = hero + elastic strip + rail; no ghost table. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testEscRestoresPreStageMarks` |  |  |  |  |
-| D27 | Motion/fade *(amended by audit frame-F — one-line)* | `progressive_render_architecture` |  | `progressive_focus_live` |  |  |  |
+| D27 | Motion/fade *(amended by audit frame-F — one-line)* | `progressive_render_architecture` |  | `ProgressiveFocusTests.testNavigationKeepsOneStableFocusedSurface` |  |  |  |
 | D28 | Elasticity: elastic in motion, exact at rest, anchored at the focus. |  |  |  |  |  | NOT-COVERED |
 | D29 | Selection: standard Mac grammar; hold-to-select banned. |  |  |  |  |  | SHELVED |
 | D30 | Trackpad: full map, no decisions. |  |  |  |  |  | NOT-COVERED |
@@ -100,7 +100,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D40 | Engineering reconciliation *(history note — retirement schedule)* |  |  |  |  |  | NOT-COVERED |
 | D41 | Chip copy in consequence language *(R-5.1)* |  |  |  |  |  | NOT-COVERED |
 | D42 | Clipping hold grammar *(R-5.2 + A4)* `[● A4]` |  |  |  |  |  | NOT-COVERED |
-| D43 | Settle-as-confirmation *(R-5.3)* | `unit_trace`<br>`progressive_render_architecture` | `ProgressiveRenderingArchitectureTests.testCancelledRenderWaiterDoesNotBlockLatestWork`<br>`ProgressiveRenderingArchitectureTests.testDisplayTargetParticipatesInRenderCacheKey` | `raw_render_live`<br>`progressive_focus_live` |  |  |  |
+| D43 | Settle-as-confirmation *(R-5.3)* | `unit_trace`<br>`progressive_render_architecture`<br>`raw_render_live`<br>`progressive_focus_live` | `ProgressiveRenderingArchitectureTests.testCancelledRenderWaiterDoesNotBlockLatestWork`<br>`ProgressiveRenderingArchitectureTests.testDisplayTargetParticipatesInRenderCacheKey` | `ProgressiveFocusTests.testNavigationKeepsOneStableFocusedSurface` |  |  |  |
 | D44 | ⌥⌘E recipe re-entry *(R-8.1)* |  | `P0LogicTests.testExportRecipeHintContract` |  |  |  |  |
 | D45 | Diagnostics local-only or absent *(R-9.1; A7 withdrawn A13)* `[● A13]` |  |  |  |  |  | NOT-COVERED |
 | D46 | Amateur pivot + Develop gate *(R-A.1 + A10)* `[● A10]` |  |  |  |  |  | SHELVED |
