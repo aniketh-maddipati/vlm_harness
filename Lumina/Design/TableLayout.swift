@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 
 /// Swim-lane grouping and comparison-row geometry for the workbench table.
+@MainActor
 enum TableLayout {
 
     struct SwimLaneUnit: Identifiable, Hashable, Sendable {

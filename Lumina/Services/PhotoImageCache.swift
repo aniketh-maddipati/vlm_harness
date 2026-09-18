@@ -357,8 +357,8 @@ nonisolated enum PhotoImageLoader {
 }
 
 /// Evicts runtime browse caches after an editing session — ingest disk tiers are untouched.
+@MainActor
 enum SessionCache {
-    @MainActor
     static func beginEditingSession(projectName: String) {
         Task {
             await PhotoImageCache.shared.beginSession(projectName: projectName)
@@ -368,7 +368,6 @@ enum SessionCache {
         MetalCanvasLifecycle.beginSession()
     }
 
-    @MainActor
     static func endEditingSession(clearBrowseSpine: Bool = true) {
         Task {
             await PhotoImageCache.shared.endSession()

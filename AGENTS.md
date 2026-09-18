@@ -60,7 +60,9 @@ Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on 
 
 ### MainActor default isolation (render data plane)
 
-The Xcode project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`. Types touched from the render/export path (`DevelopRenderGraph`, `RawRenderRequest`, `P0AuthoritativeExportService`, detached decode in `PhotoImageCache` / `BrowsePixelService`) must be explicitly **`nonisolated`** — including **`nonisolated extension EditRecipe`** for intent slices. Actor nested types (`PreparedRawSession.Tier`) and actor statics must not be read synchronously from that plane; hoist constants to `RawDecodeBackendRegistry` instead.
+The Xcode project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` with `SWIFT_VERSION = 5.0`. In practice, unmarked helpers are still treated as **nonisolated** when they touch explicitly `@MainActor` types — mark UI/session helpers **`@MainActor`** explicitly (`P0EscLadder`, `CopyContractBuilder`, `TableLayout`, `ProbeV2Launch`, `PropagationState` model-touching extension, etc.).
+
+Types touched from the render/export path (`DevelopRenderGraph`, `RawRenderRequest`, `P0AuthoritativeExportService`, detached decode in `PhotoImageCache` / `BrowsePixelService`) must be explicitly **`nonisolated`** — including **`nonisolated extension EditRecipe`** for intent slices. Actor nested types (`PreparedRawSession.Tier`) and actor statics must not be read synchronously from that plane; hoist constants to `RawDecodeBackendRegistry` instead. `CIContext.startTask(toRender:from:to:at:)` requires the `at:` argument.
 
 **Before pushing render/develop changes:**
 
