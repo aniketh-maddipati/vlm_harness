@@ -79,6 +79,27 @@ struct DevelopRenderRegion: Codable, Hashable, Sendable {
 
     static let full = DevelopRenderRegion(x: 0, y: 0, width: 1, height: 1)
 
+    static func oneToOne(
+        center: CGPoint,
+        drawableSize: CGSize,
+        imagePixelSize: CGSize
+    ) -> DevelopRenderRegion {
+        guard drawableSize.width > 0,
+              drawableSize.height > 0,
+              imagePixelSize.width > 0,
+              imagePixelSize.height > 0 else {
+            return DevelopRenderRegion(x: 0.35, y: 0.35, width: 0.3, height: 0.3)
+        }
+        let width = min(max(drawableSize.width / imagePixelSize.width, 0.01), 1)
+        let height = min(max(drawableSize.height / imagePixelSize.height, 0.01), 1)
+        return DevelopRenderRegion(
+            x: Double(center.x - width / 2),
+            y: Double(center.y - height / 2),
+            width: Double(width),
+            height: Double(height)
+        ).normalized()
+    }
+
     func normalized() -> DevelopRenderRegion {
         let w = min(max(width, 0.01), 1)
         let h = min(max(height, 0.01), 1)
@@ -195,6 +216,9 @@ struct DevelopRenderResult: @unchecked Sendable {
     let ciImage: CIImage?
     let cgImage: CGImage?
     let extent: CGRect
+    /// Wall time of `DevelopRenderGraph.render`. On the display-path interactive
+    /// tier this is graph construction only; real slider-to-pixels is
+    /// `p0.edit.draw_ms` around the Metal `startTask` pair.
     let durationMs: Double
     let cacheHit: Bool
     let rawStageCacheHit: Bool

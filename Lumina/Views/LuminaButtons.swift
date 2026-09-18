@@ -55,7 +55,7 @@ struct LuminaPrimaryButtonStyle: ButtonStyle {
             configuration.label
                 .font(LuminaTokens.Typeface.navigation(15))
                 .foregroundStyle(LuminaTokens.Ink.primary)
-                .padding(.horizontal, 20)
+            .padding(.horizontal, HiFiTokens.Layout.chromeSpacingLg)
                 .padding(.vertical, 12)
                 .frame(minHeight: LuminaTokens.HitTarget.minimum)
                 .contentShape(Capsule(style: .continuous))
@@ -214,7 +214,7 @@ struct LuminaTextActionButton: View {
             Text(title)
                 .font(LuminaTokens.Typeface.navigation(15))
                 .foregroundStyle(LuminaTokens.Ink.primary)
-                .padding(.horizontal, 20)
+            .padding(.horizontal, HiFiTokens.Layout.chromeSpacingLg)
                 .padding(.vertical, 12)
                 .frame(minHeight: LuminaTokens.HitTarget.minimum)
                 .background(

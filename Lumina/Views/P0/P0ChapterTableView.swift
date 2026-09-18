@@ -64,7 +64,7 @@ struct P0ChapterTableView: View {
             Capsule(style: .continuous)
                 .fill(LuminaTokens.Ink.primary.opacity(0.14))
                 .frame(width: 2)
-                .padding(.vertical, 10)
+                .padding(.vertical, LuminaTokens.Spacing.sm)
             VStack(spacing: 0) {
                 ForEach(marks) { mark in
                     let active = mark.chapterID == activeID
@@ -74,11 +74,19 @@ struct P0ChapterTableView: View {
                             Circle()
                                 .strokeBorder(
                                     LuminaTokens.Ink.primary.opacity(active ? 1 : 0.35),
-                                    lineWidth: active ? 0 : 1.5
+                                    lineWidth: active ? 0 : HiFiTokens.Ring.plateFocusWidth
                                 )
                         }
-                        .frame(width: active ? 11 : 7, height: active ? 11 : 7)
-                        .padding(.top, active ? 16 : 18)
+                        .frame(
+                            width: active ? HiFiTokens.Layout.chapterDotActiveSize : 7,
+                            height: active ? HiFiTokens.Layout.chapterDotActiveSize : 7
+                        )
+                        .padding(
+                            .top,
+                            active
+                                ? HiFiTokens.Layout.chapterDotActiveTop
+                                : HiFiTokens.Layout.chapterDotRestTop
+                        )
                     if mark.spacingAfter > 0 {
                         Spacer()
                             .frame(height: mark.spacingAfter)
@@ -130,8 +138,8 @@ struct P0ChapterTableView: View {
                 let leanedColumns = session.densityLeaned ? session.densityColumns : nil
                 let pack = ChapterPack.columns(
                     count: plateItems.count,
-                    width: geo.size.width - 40,
-                    height: geo.size.height - 40,
+                    width: geo.size.width - 2 * HiFiTokens.Layout.chromeSpacingLg,
+                    height: geo.size.height - 2 * HiFiTokens.Layout.chromeSpacingLg,
                     leanedColumns: leanedColumns
                 )
                 let grid = LazyVGrid(
@@ -146,7 +154,7 @@ struct P0ChapterTableView: View {
                         boardCell(item, plateHeight: pack.plateHeight)
                     }
                 }
-                .padding(20)
+                .padding(HiFiTokens.Layout.chromeSpacingLg)
                 .animation(reduceMotion ? nil : LuminaTokens.Motion.travel, value: plateItems.map(\.id))
 
                 Group {
@@ -266,12 +274,12 @@ struct P0ChapterTableView: View {
 
     private var keptRail: some View {
         let kept = session.keptRailAssets
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
             Text("Kept")
                 .font(LuminaTokens.Typeface.editorial(22))
                 .foregroundStyle(LuminaTokens.Ink.tertiary.opacity(0.7))
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 10) {
+                VStack(spacing: LuminaTokens.Spacing.sm) {
                     ForEach(kept, id: \.id) { asset in
                         keptPlate(asset)
                     }
@@ -309,7 +317,7 @@ struct P0ChapterTableView: View {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .strokeBorder(
                         focused ? LuminaTokens.Ink.primary : Color.clear,
-                        lineWidth: focused ? 1.5 : 0
+                        lineWidth: focused ? HiFiTokens.Ring.plateFocusWidth : 0
                     )
             }
             .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
@@ -328,7 +336,8 @@ struct P0ChapterTableView: View {
                 ChapterPlateImage(path: path)
                     .overlay {
                         if session.holdingClipping {
-                            Color.red.blendMode(.difference).opacity(0.28)
+                            Color.red.blendMode(.difference)
+                                .opacity(HiFiTokens.Color.clippingOverlayOpacity)
                         }
                     }
                     .frame(maxWidth: 720, maxHeight: 720)
@@ -336,7 +345,7 @@ struct P0ChapterTableView: View {
             }
         }
         .allowsHitTesting(false)
-        .transition(reduceMotion ? .identity : .offset(y: 10))
+        .transition(reduceMotion ? .identity : .offset(y: LuminaTokens.Spacing.sm))
     }
 
     private var focusedImagePath: String? {
@@ -424,7 +433,7 @@ private struct BurstPlate: View {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .strokeBorder(
                             isFocused ? LuminaTokens.Ink.primary : Color.clear,
-                            lineWidth: isFocused ? 1.5 : 0
+                            lineWidth: isFocused ? HiFiTokens.Ring.plateFocusWidth : 0
                         )
                 }
                 .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
@@ -457,7 +466,8 @@ private struct BurstPlate: View {
             ChapterPlateImage(path: imagePath)
                 .overlay {
                     if showClipping && isFocused {
-                        Color.red.blendMode(.difference).opacity(0.3)
+                        Color.red.blendMode(.difference)
+                            .opacity(HiFiTokens.Color.clippingOverlayOpacity)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

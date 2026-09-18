@@ -34,6 +34,7 @@
         "GridPhotoRestoreTests",
         "PersistenceTests",
         "MissingOriginalsTests",
+        "ProgressiveFocusTests",
         "LayoutTests",
         "UXHardeningTests",
         "ExplorerSmokeTests"

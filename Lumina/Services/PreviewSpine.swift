@@ -88,8 +88,9 @@ final class PreviewSpine {
         ) { [weak self] note in
             guard let self,
                   let id = note.userInfo?["photoID"] as? UUID else { return }
+            let textureGeneration = note.userInfo?["generation"] as? UInt64 ?? 0
             Task { @MainActor in
-                self.textureBecameReady(id: id)
+                self.textureBecameReady(id: id, textureGeneration: textureGeneration)
             }
         }
     }
@@ -119,7 +120,9 @@ final class PreviewSpine {
                 for id in photoOrder where silhouettes[id] == nil {
                     enqueueSilhouette(id: id, generation: gen)
                 }
-                if let focus, let path = previewPathByID[focus], MetalPreviewPool.shared.texture(for: focus) == nil {
+                if let focus,
+                   let path = previewPathByID[focus],
+                   !hasCurrentTexture(for: focus, generation: gen) {
                     enqueueGPU(id: focus, path: path, generation: gen, distanceBias: 0)
                 }
             }
@@ -143,7 +146,7 @@ final class PreviewSpine {
         let alive = Set(photoOrder)
         silhouettes = silhouettes.filter { alive.contains($0.key) }
         silhouetteCount = silhouettes.count
-        gpuTextureCount = photoOrder.filter { MetalPreviewPool.shared.texture(for: $0) != nil }.count
+        gpuTextureCount = photoOrder.filter { hasCurrentTexture(for: $0, generation: gen) }.count
 
         for id in photoOrder where silhouettes[id] == nil {
             enqueueSilhouette(id: id, generation: gen)
@@ -201,12 +204,12 @@ final class PreviewSpine {
         ].compactMap { $0 }.filter { !$0.isEmpty }
         for path in candidates {
             if Task.isCancelled { return nil }
-            let outcome = await PhotoImageCache.shared.load(
+            if let image = await BrowsePixelService.shared.image(
                 path: path,
-                maxPixelSize: maxPixelSize,
-                allowRAW: false
-            )
-            if case .image(let image) = outcome { return image }
+                maxPixelSize: maxPixelSize
+            ) {
+                return image
+            }
         }
         return nil
     }
@@ -239,7 +242,7 @@ final class PreviewSpine {
         paintedJPEGPath = previewPathByID[id]
         pendingPhotonInputTime = inputTime
 
-        if MetalPreviewPool.shared.texture(for: id) != nil {
+        if hasCurrentTexture(for: id, generation: generation) {
             paintedTier = .preview
             paintedSilhouette = nil
             gpuPrefetchHits &+= 1
@@ -296,8 +299,11 @@ final class PreviewSpine {
         return id
     }
 
-    private func textureBecameReady(id: UUID) {
-        gpuTextureCount = photoOrder.filter { MetalPreviewPool.shared.texture(for: $0) != nil }.count
+    private func textureBecameReady(id: UUID, textureGeneration: UInt64) {
+        guard textureGeneration == 0 || textureGeneration == UInt64(generation) else { return }
+        gpuTextureCount = photoOrder.filter {
+            hasCurrentTexture(for: $0, generation: generation)
+        }.count
         guard paintedPhotoID == id else { return }
         paintedTier = .preview
         paintedSilhouette = nil
@@ -340,7 +346,8 @@ final class PreviewSpine {
             if center + 1 <= hi { order.append(contentsOf: photoOrder[(center + 1)...hi]) }
         }
 
-        for (offset, pid) in order.enumerated() where MetalPreviewPool.shared.texture(for: pid) == nil {
+        for (offset, pid) in order.enumerated()
+        where !hasCurrentTexture(for: pid, generation: gen) {
             guard let path = previewPathByID[pid] else { continue }
             enqueueGPU(id: pid, path: path, generation: gen, distanceBias: offset)
         }
@@ -372,22 +379,32 @@ final class PreviewSpine {
     }
 
     private func enqueueGPU(id: UUID, path: String, generation gen: Int, distanceBias: Int) {
-        guard MetalPreviewPool.shared.texture(for: id) == nil,
+        guard !hasCurrentTexture(for: id, generation: gen),
               !inflightGPU.contains(id),
               Self.isBrowseSafePath(path) else { return }
         inflightGPU.insert(id)
         decodeQueueDepth = inflightSilhouette.count + inflightGPU.count
-        let bias = distanceBias
 
-        decodeQueue.async { [weak self] in
-            _ = MetalPreviewPool.shared.upload(id: id, jpegPath: path, distanceBias: bias, generation: UInt64(gen))
-            DispatchQueue.main.async {
-                guard let self, self.generation == gen else { return }
-                self.inflightGPU.remove(id)
-                self.decodeQueueDepth = self.inflightSilhouette.count + self.inflightGPU.count
-                self.gpuTextureCount = self.photoOrder.filter { MetalPreviewPool.shared.texture(for: $0) != nil }.count
-            }
+        Task { [weak self] in
+            await BrowsePixelService.shared.prepareTexture(
+                assetID: id,
+                path: path,
+                tier: .focused,
+                generation: UInt64(gen),
+                distanceBias: distanceBias
+            )
+            guard let self, self.generation == gen else { return }
+            self.inflightGPU.remove(id)
+            self.decodeQueueDepth = self.inflightSilhouette.count + self.inflightGPU.count
+            self.gpuTextureCount = self.photoOrder.filter {
+                self.hasCurrentTexture(for: $0, generation: gen)
+            }.count
         }
+    }
+
+    private func hasCurrentTexture(for id: UUID, generation: Int) -> Bool {
+        guard let info = MetalPreviewPool.shared.textureInfo(for: id) else { return false }
+        return info.generation == 0 || info.generation == UInt64(generation)
     }
 
     /// Grid/small JPEG only — never preview JPEG, never RAW.

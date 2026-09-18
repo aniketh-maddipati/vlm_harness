@@ -2,6 +2,7 @@
 import AppKit
 import CoreImage
 import Foundation
+import MetalKit
 import SwiftUI
 
 /// Full P0 editing live session — `--p0-edit-live [output-dir] [--p0-open <RAW_FOLDER>]`.
@@ -88,6 +89,11 @@ enum P0EditLiveRunner {
         let opened = await waitUntil(timeout: 60) { session.assets.count >= 8 }
         let assetCount = session.assets.count
         report["assetCount"] = assetCount
+        report["formatExtensions"] = Array(
+            Set(session.assets.map {
+                URL(fileURLWithPath: $0.source.originalPath).pathExtension.uppercased()
+            })
+        ).sorted()
         report["openError"] = session.userFacingError ?? ""
         report["statusLine"] = session.preparationLine
         note("Open shoot into contact sheet", opened && assetCount >= 8, "\(assetCount) assets · \(session.preparationLine)")
@@ -151,12 +157,23 @@ enum P0EditLiveRunner {
         }
         captureEditor(session: session, size: CGSize(width: 1280, height: 800), name: "editor-after-controls", to: outDir)
 
-        // 3. Rapid Exposure scrub ≥ 10 s
+        // 3. Rapid Exposure scrub (10 s FULL; 60 s fixed-hardware nightly)
+        // Keep a real Metal-backed editor mounted so p0.edit.draw_ms measures
+        // slider-to-pixels rather than scheduler graph construction.
+        let liveEditorWindow = makeEditorWindow(
+            session: session,
+            size: CGSize(width: 1280, height: 800)
+        )
+        LatencyMetrics.beginCapture(key: "p0.edit.draw_ms")
+        var drawCaptureEnded = false
+        let scrubDuration = Double(
+            ProcessInfo.processInfo.environment["LUMINA_RENDER_STRESS_SECONDS"] ?? ""
+        ) ?? 10
         let scrubStart = CFAbsoluteTimeGetCurrent()
         var blankSeen = false
         var scrubSamples: [Double] = []
         session.beginEditGesture(for: landscape.id)
-        while CFAbsoluteTimeGetCurrent() - scrubStart < 10.0 {
+        while CFAbsoluteTimeGetCurrent() - scrubStart < scrubDuration {
             let t0 = CFAbsoluteTimeGetCurrent()
             let v = sin((CFAbsoluteTimeGetCurrent() - scrubStart) * 3.2) * 1.2
             session.scrubEdit { $0.exposure = v }
@@ -165,19 +182,57 @@ enum P0EditLiveRunner {
                 blankSeen = true
             }
             scrubSamples.append((CFAbsoluteTimeGetCurrent() - t0) * 1000)
+            if !drawCaptureEnded, CFAbsoluteTimeGetCurrent() - scrubStart >= 3.0 {
+                LatencyMetrics.endCapture(key: "p0.edit.draw_ms")
+                drawCaptureEnded = true
+            }
+        }
+        if !drawCaptureEnded {
+            LatencyMetrics.endCapture(key: "p0.edit.draw_ms")
         }
         session.endEditGesture()
+        liveEditorWindow.close()
         scrubSamples.sort()
         let scrubP95 = percentile(scrubSamples, 0.95)
+        let drawReading = LatencyMetrics.reading(for: "p0.edit.draw_ms")
         report["rapidScrub"] = [
-            "durationSec": 10,
+            "durationSec": scrubDuration,
             "samples": scrubSamples.count,
             "p50Ms": percentile(scrubSamples, 0.50),
             "p95Ms": scrubP95,
             "blankSeen": blankSeen,
             "scheduler": session.editMetricsLine,
+            "draw3Seconds": drawReading.map {
+                [
+                    "p50Ms": $0.p50,
+                    "p95Ms": $0.p95,
+                    "p99Ms": $0.p99,
+                    "sampleCount": $0.window.sampleCount,
+                    "window": $0.window.declaration,
+                ] as [String: Any]
+            } ?? ["sampleCount": 0],
         ]
-        note("Rapid Exposure scrub ≥10s without blank canvas", !blankSeen, String(format: "p95=%.1fms n=%d", scrubP95, scrubSamples.count))
+        note(
+            "Rapid Exposure scrub without blank canvas",
+            !blankSeen,
+            String(format: "%.0fs · p95=%.1fms n=%d", scrubDuration, scrubP95, scrubSamples.count)
+        )
+        let drawPass = drawReading.map {
+            $0.window.sampleCount > 0
+                && $0.p95 <= LatencyMetrics.sla(for: LatencyMetrics.editDrawKey)
+        } ?? false
+        note(
+            "3 second Metal draw capture",
+            drawPass,
+            drawReading.map {
+                String(
+                    format: "p95=%.1fms n=%d · %@",
+                    $0.p95,
+                    $0.window.sampleCount,
+                    $0.window.declaration
+                )
+            } ?? "no draw samples"
+        )
 
         // 4. Before press-and-hold (does not mutate)
         let recipeBeforeB = session.recipe(for: landscape.id)
@@ -192,7 +247,10 @@ enum P0EditLiveRunner {
         )
 
         // 5. Navigate ≥ 20 neighbors (or all available)
-        let navCount = min(20, session.visibleItems.count)
+        let requestedNavigationCount = Int(
+            ProcessInfo.processInfo.environment["LUMINA_RENDER_NAVIGATION_COUNT"] ?? ""
+        )
+        let navCount = requestedNavigationCount ?? min(20, session.visibleItems.count)
         var navSamples: [Double] = []
         var navBlank = false
         for i in 0..<navCount {
@@ -217,6 +275,95 @@ enum P0EditLiveRunner {
             "blankAfterWait": navBlank,
         ]
         note("Navigate neighbors", navCount >= min(20, assetCount), "\(navCount) frames")
+
+        // Progressive focus contract: one requested identity, non-decreasing
+        // fidelity, fixed aspect geometry, authoritative pixels reaching the
+        // drawable target. Quality may sharpen; the photograph may not move.
+        let rawExtensions: Set<String> = [
+            "ARW", "CR2", "CR3", "NEF", "RAF", "DNG", "ORF", "RW2",
+        ]
+        let stabilityTarget = session.visibleItems.last(where: {
+            rawExtensions.contains(
+                URL(fileURLWithPath: $0.asset.source.originalPath)
+                    .pathExtension
+                    .uppercased()
+            )
+        }) ?? landscape
+        session.applyEditMutation(
+            { $0.exposure = 0.37 },
+            assetID: stabilityTarget.id
+        )
+        session.setFocus(stabilityTarget.id)
+        let stabilityWindow = makeEditorWindow(
+            session: session,
+            size: CGSize(width: 1280, height: 800)
+        )
+        var identityStable = true
+        var fidelityRanks: [Int] = []
+        var aspectRatios: [Double] = []
+        var metalFrames: [CGRect] = []
+        let stabilityStart = CFAbsoluteTimeGetCurrent()
+        while CFAbsoluteTimeGetCurrent() - stabilityStart < 2.0 {
+            identityStable = identityStable
+                && session.focusedAssetID == stabilityTarget.id
+                && session.inspectingAssetID == stabilityTarget.id
+            if let fidelity = session.developFidelity(for: stabilityTarget.id) {
+                fidelityRanks.append(fidelityRank(fidelity))
+            }
+            if let extent = session.displayedCIImage(for: stabilityTarget.id)?.extent,
+               extent.height > 0 {
+                aspectRatios.append(Double(extent.width / extent.height))
+            }
+            if let content = stabilityWindow.contentView,
+               let metal = firstMetalView(in: content) {
+                metalFrames.append(metal.convert(metal.bounds, to: nil))
+            }
+            if session.developFidelity(for: stabilityTarget.id) == .rawSettled {
+                break
+            }
+            await wait(0.01)
+        }
+        let fidelityMonotonic =
+            fidelityRanks.contains(1)
+            && fidelityRanks.contains(2)
+            && zip(fidelityRanks, fidelityRanks.dropFirst())
+                .allSatisfy { pair in pair.0 <= pair.1 }
+        let geometryStable: Bool = {
+            guard let firstAspect = aspectRatios.first,
+                  let firstFrame = metalFrames.first else { return false }
+            return aspectRatios.allSatisfy { abs($0 - firstAspect) <= 0.001 }
+                && metalFrames.allSatisfy {
+                    abs($0.minX - firstFrame.minX) <= 0.5
+                        && abs($0.minY - firstFrame.minY) <= 0.5
+                        && abs($0.width - firstFrame.width) <= 0.5
+                        && abs($0.height - firstFrame.height) <= 0.5
+                }
+        }()
+        let authoritativeEdge = session.displayedCIImage(for: stabilityTarget.id).map {
+            Int(max($0.extent.width, $0.extent.height))
+        } ?? 0
+        let authoritativeReachedDrawable =
+            session.developFidelity(for: stabilityTarget.id) == .rawSettled
+            && authoritativeEdge >= Int(Double(session.inspectionSettledLongEdge) * 0.95)
+        stabilityWindow.close()
+        report["focusStability"] = [
+            "identityStable": identityStable,
+            "fidelityMonotonic": fidelityMonotonic,
+            "geometryStable": geometryStable,
+            "authoritativeReachedDrawable": authoritativeReachedDrawable,
+            "fidelityRanks": fidelityRanks,
+            "metalFrameSamples": metalFrames.count,
+            "authoritativeLongEdge": authoritativeEdge,
+            "targetLongEdge": session.inspectionSettledLongEdge,
+        ]
+        note("Focused identity remains stable", identityStable)
+        note("Progressive fidelity is monotonic", fidelityMonotonic, "\(fidelityRanks)")
+        note("Quality promotion keeps geometry stable", geometryStable)
+        note(
+            "Authoritative preview reaches drawable target",
+            authoritativeReachedDrawable,
+            "\(authoritativeEdge)/\(session.inspectionSettledLongEdge)"
+        )
 
         // Return to landscape for crop, then portrait
         session.setFocus(landscape.id)
@@ -418,6 +565,56 @@ enum P0EditLiveRunner {
             fputs("Wrote \(name).png\n", stderr)
         }
         window.close()
+    }
+
+    private static func makeEditorWindow(
+        session: P0SessionModel,
+        size: CGSize
+    ) -> NSWindow {
+        guard let id = session.inspectingAssetID,
+              let asset = session.assets.first(where: { $0.id == id }) else {
+            return NSWindow()
+        }
+        let view = P0SinglePhotoEditor(session: session, asset: asset)
+            .frame(width: size.width, height: size.height)
+            .luminaWorkspaceAppearance()
+        let hosting = NSHostingView(rootView: view)
+        hosting.frame = NSRect(origin: .zero, size: size)
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.contentView = hosting
+        window.setContentSize(size)
+        window.orderFrontRegardless()
+        hosting.layoutSubtreeIfNeeded()
+        return window
+    }
+
+    private static func fidelityRank(_ fidelity: DevelopFidelityState) -> Int {
+        switch fidelity {
+        case .beforeOriginal, .proxyFallback, .settling:
+            return 0
+        case .interactive:
+            return 1
+        case .rawSettled:
+            return 2
+        case .oneToOneRAW:
+            return 3
+        case .exportQuality:
+            return 4
+        }
+    }
+
+    private static func firstMetalView(in view: NSView) -> MTKView? {
+        if let metal = view as? MTKView { return metal }
+        for child in view.subviews {
+            if let match = firstMetalView(in: child) { return match }
+        }
+        return nil
     }
 
     private static func write(_ report: [String: Any], to outDir: URL) {

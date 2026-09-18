@@ -2,6 +2,7 @@ import AppKit
 import CoreImage
 import Metal
 import MetalKit
+import os
 import SwiftUI
 
 /// Metal-backed live preview for the Develop Lab.
@@ -13,8 +14,15 @@ struct DevelopMetalView: NSViewRepresentable {
     var image: CIImage?
     var zoom: CGFloat = 1
     var panOffset: CGSize = .zero
+    var onDrawableSizeChange: ((CGSize) -> Void)?
+    var onBackingScaleChange: ((CGFloat) -> Void)?
 
-    func makeCoordinator() -> Renderer { Renderer() }
+    func makeCoordinator() -> Renderer {
+        Renderer(
+            onDrawableSizeChange: onDrawableSizeChange,
+            onBackingScaleChange: onBackingScaleChange
+        )
+    }
 
     func makeNSView(context: Context) -> MTKView {
         let view = MTKView(frame: .zero, device: context.coordinator.device)
@@ -39,6 +47,8 @@ struct DevelopMetalView: NSViewRepresentable {
         context.coordinator.image = image
         context.coordinator.zoom = zoom
         context.coordinator.panOffset = panOffset
+        context.coordinator.onDrawableSizeChange = onDrawableSizeChange
+        context.coordinator.onBackingScaleChange = onBackingScaleChange
         if let metalLayer = view.layer as? CAMetalLayer {
             let space = view.window?.screen?.colorSpace?.cgColorSpace
                 ?? DevelopColorPolicy.displayColorSpace
@@ -50,6 +60,8 @@ struct DevelopMetalView: NSViewRepresentable {
     }
 
     final class Renderer: NSObject, MTKViewDelegate {
+        private static let signposter = OSSignposter(subsystem: "app.lumina.develop", category: "draw")
+
         let device: MTLDevice?
         private let commandQueue: MTLCommandQueue?
         private let context: CIContext
@@ -57,26 +69,67 @@ struct DevelopMetalView: NSViewRepresentable {
         var image: CIImage?
         var zoom: CGFloat = 1
         var panOffset: CGSize = .zero
+        var onDrawableSizeChange: ((CGSize) -> Void)?
+        var onBackingScaleChange: ((CGFloat) -> Void)?
+        private var reportedDrawableSize = CGSize.zero
 
-        override init() {
+        init(
+            onDrawableSizeChange: ((CGSize) -> Void)? = nil,
+            onBackingScaleChange: ((CGFloat) -> Void)? = nil
+        ) {
             let device = LuminaMetalDevice.shared
             self.device = device
             self.commandQueue = LuminaMetalDevice.commandQueue
+            self.onDrawableSizeChange = onDrawableSizeChange
+            self.onBackingScaleChange = onBackingScaleChange
             // Reuse the shared long-lived develop context — same working space
             // as the render graph; no per-frame context allocation.
             self.context = DevelopRenderGraph.sharedContext
             super.init()
         }
 
-        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
+            guard size != reportedDrawableSize else { return }
+            reportedDrawableSize = size
+            let backingScale = view.window?.backingScaleFactor ?? 1
+            DispatchQueue.main.async { [weak self] in
+                self?.onDrawableSizeChange?(size)
+                self?.onBackingScaleChange?(backingScale)
+            }
+        }
 
         func draw(in view: MTKView) {
-            guard let image,
-                  let drawable = view.currentDrawable,
+            guard let drawable = view.currentDrawable,
                   let commandQueue else { return }
 
             let drawableSize = view.drawableSize
             guard drawableSize.width > 1, drawableSize.height > 1 else { return }
+
+            // A focus change may briefly have no pixels. Clear the persistent
+            // drawable rather than leaving the previously focused photograph
+            // resident on screen.
+            if image == nil {
+                guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
+                let destination = CIRenderDestination(
+                    width: Int(drawableSize.width),
+                    height: Int(drawableSize.height),
+                    pixelFormat: view.colorPixelFormat,
+                    commandBuffer: commandBuffer
+                ) { drawable.texture }
+                destination.colorSpace = (view.layer as? CAMetalLayer)?.colorspace
+                    ?? DevelopColorPolicy.displayColorSpace
+                destination.isFlipped = true
+                do {
+                    _ = try context.startTask(toClear: destination)
+                } catch {
+                    return
+                }
+                commandBuffer.present(drawable)
+                commandBuffer.commit()
+                return
+            }
+
+            guard let image else { return }
 
             let extent = image.extent
             guard extent.width > 0, extent.height > 0 else { return }
@@ -113,11 +166,25 @@ struct DevelopMetalView: NSViewRepresentable {
             // destination so RAW frames are upright relative to AppKit thumbs.
             destination.isFlipped = true
 
+            let signpostID = Self.signposter.makeSignpostID()
+            let drawState = Self.signposter.beginInterval("draw", id: signpostID)
+            let started = CFAbsoluteTimeGetCurrent()
             do {
                 _ = try context.startTask(toClear: destination)
                 _ = try context.startTask(toRender: positioned, to: destination)
             } catch {
+                Self.signposter.endInterval("draw", drawState)
                 return
+            }
+            Self.signposter.endInterval("draw", drawState)
+            // Record GPU completion, not command encoding. The signpost above
+            // still brackets the requested Core Image startTask pair; this
+            // metric is the honest slider-to-pixels cost.
+            commandBuffer.addCompletedHandler { _ in
+                LatencyMetrics.record(
+                    LatencyMetrics.editDrawKey,
+                    milliseconds: (CFAbsoluteTimeGetCurrent() - started) * 1000
+                )
             }
             commandBuffer.present(drawable)
             commandBuffer.commit()

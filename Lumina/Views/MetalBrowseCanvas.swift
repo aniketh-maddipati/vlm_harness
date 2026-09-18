@@ -109,7 +109,7 @@ final class MetalBrowseNSView: NSView {
             return
         }
 
-        if let tex = MetalPreviewPool.shared.texture(for: photoID) {
+        if generation == 0, let tex = MetalPreviewPool.shared.texture(for: photoID) {
             currentTexture = tex
             rebuildVertices()
             requestDraw()

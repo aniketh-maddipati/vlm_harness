@@ -110,6 +110,59 @@ Each lane declares an expected test inventory (`lanes/manifests.json`). After ex
 
 **Flake policy:** a flaking pre-merge test is fixed same-day or demoted to nightly by a manifest diff — those are the only two moves. FAST **`flake_policy`** reads `TestPlans/*.xctestplan` and fails on test repetition, retry-on-failure, or quarantine tags (none permitted).
 
+### Progressive rendering gates
+
+- FAST `progressive_render_architecture` statically pins the one-surface,
+  JPEG-only browse, generation-safe scheduler, and texture-backed interactive
+  RAW architecture.
+- FULL `raw_render_live` launches `--raw-harness`; FULL
+  `progressive_focus_live` launches `--p0-edit-live`. Both require the hosted
+  tier of `raw-correctness-v1` and reject blocked, missing, malformed, or empty
+  reports.
+- HEAVY `progressive_render_stability` requires the full fixture tier and a
+  fixed Apple Silicon worker. It runs a 60-second scrub, 500 navigation acts,
+  the RAW backend benchmark, and the rolling regression policy in
+  `Scripts/harness/develop/render_thresholds.json`.
+
+Fixture setup:
+
+```bash
+export LUMINA_RAW_FIXTURE_BUNDLE_URL='https://…/raw-correctness-v1.tar'
+export LUMINA_RAW_FIXTURE_BUNDLE_SHA256='<archive sha256>'
+export LUMINA_RAW_FIXTURE_ROOT="$HOME/Pictures/lumina-fixtures/raw-correctness-v1"
+python3 Scripts/fixtures/verify_raw_fixture_bundle.py \
+  --root "$LUMINA_RAW_FIXTURE_ROOT" --tier hosted --fetch
+```
+
+### Rendering CI
+
+`.github/workflows/rendering.yml` is the hosted merge path. It does **not**
+call `run.py full` (FULL still contains STUB live drivers that refuse a
+vacuous PASS).
+
+| Job | When | Merge gate |
+|-----|------|------------|
+| `fast` | every matching PR | required — Linux orchestration |
+| `compile-logic` | every matching PR | required — `xcode_compile` + `LuminaLogicTests` |
+| `render-live` | matching PR **and** fixture secrets present | optional until secrets exist; then mark required |
+| `render-nightly` | cron / dispatch `nightly` or `all` | never on the PR critical path |
+
+A skipped `render-live` job is not a live-gate PASS. Invoking the live
+scripts without a verified bundle still exits **BLOCKED**.
+
+Operator checklist:
+
+1. Repo secrets: `LUMINA_RAW_FIXTURE_BUNDLE_URL`, `LUMINA_RAW_FIXTURE_BUNDLE_SHA256`.
+2. After those secrets exist, mark `render-live` required in branch protection.
+3. Self-hosted nightly runner labels: `self-hosted`, `macOS`, `ARM64`, `lumina-render`.
+4. Repo vars: `LUMINA_RAW_FIXTURE_ROOT`, `LUMINA_RENDER_BASELINE`, `LUMINA_RENDER_STATE_PATH`.
+
+Until the secrets exist, PRs merge on `fast` + `compile-logic` only. FAST
+pins architecture; logic tests pin Swift contracts. Hosted Macs cache
+DerivedData across `compile-logic` and `render-live`, and cache the RAW
+archive by SHA256. Exact performance comparisons stay on HEAVY; a missing
+baseline records measurements but never invents a regression PASS.
+
 Dashboard (optional): `python3 Scripts/harness/dashboard/server.py` → `http://127.0.0.1:8765/`
 
 ---

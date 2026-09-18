@@ -320,14 +320,13 @@ final class ContactSheetItemView: NSCollectionViewItem {
         loadToken = token
         let pixelSize = Int(max(view.bounds.width, 120) * (NSScreen.main?.backingScaleFactor ?? 2))
         Task {
-            let outcome = await PhotoImageCache.shared.load(
+            let image = await BrowsePixelService.shared.image(
                 path: path,
-                maxPixelSize: max(pixelSize, 180),
-                allowRAW: false
+                maxPixelSize: max(pixelSize, 180)
             )
             await MainActor.run {
                 guard token == self.loadToken, self.boundID == asset.id else { return }
-                if case .image(let img) = outcome {
+                if let img = image {
                     self.imageView_.image = img
                     LatencyMetrics.record(
                         "p0.visible_cell_cache",

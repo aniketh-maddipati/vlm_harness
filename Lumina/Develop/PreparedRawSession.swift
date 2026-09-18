@@ -1,6 +1,7 @@
 import CoreImage
 import Foundation
 import ImageIO
+import Metal
 import os
 
 /// Per-photo prepared RAW session with serial (actor) ownership.
@@ -11,8 +12,13 @@ import os
 ///
 /// Draft mode is never flipped back and forth on one filter; the two
 /// configurations stay separate. `CIFilter` is mutable and not thread-safe,
-/// so all property application happens inside this actor. The returned
-/// `CIImage` is an immutable recipe snapshot and is safe to render elsewhere.
+/// so all property application happens inside this actor.
+///
+/// Interactive RAW-stage caches a GPU-materialized texture (the demosaic is
+/// evaluated once). Authoritative caches the lazy `CIRAWFilter.outputImage`
+/// graph so settled / export evaluate once at their own destination rather
+/// than doubling peak memory here. The returned `CIImage` is immutable and
+/// safe to render elsewhere.
 actor PreparedRawSession {
 
     /// Capability record per file — a missing feature is an explicit
@@ -57,25 +63,39 @@ actor PreparedRawSession {
     private struct RawStageEntry {
         let image: CIImage
         let scale: Double
+        let tier: Tier
         var lastAccess: CFAbsoluteTime
+        /// GPU backing for interactive entries (~32 MB at 2048 px rgba16Float).
+        /// Nil for lazy authoritative graphs.
+        let texture: MTLTexture?
     }
 
     let assetID: UUID
     let rawURL: URL
+    private let decodeBackend: any RawDecodeBackend
 
     private var interactiveFilter: CIRAWFilter?
     private var authoritativeFilter: CIRAWFilter?
     private(set) var capabilities = Capabilities()
     private(set) var metadata: Metadata?
+    private var didMaterializeInteractiveStage = false
+    private var didCacheAuthoritativeLazyStage = false
     private var rawStageCache: [String: RawStageEntry] = [:]
     private let rawStageCacheLimit = 4
+    /// Interactive stages are realized GPU textures; two × ~32 MB is the cap.
+    private let interactiveCacheLimit = 2
 
     /// Bumped whenever Apple's decoder or our mapping changes meaningfully.
     static let decoderMappingVersion = "lumina-ciraw-1"
 
-    init(assetID: UUID, rawURL: URL) {
+    init(
+        assetID: UUID,
+        rawURL: URL,
+        decodeBackend: any RawDecodeBackend = RawDecodeBackendRegistry.production
+    ) {
         self.assetID = assetID
         self.rawURL = rawURL
+        self.decodeBackend = decodeBackend
     }
 
     /// Whether CIRAWFilter can open this file at all.
@@ -89,6 +109,14 @@ actor PreparedRawSession {
         return (capabilities, metadata)
     }
 
+    func interactiveStageIsMaterialized() -> Bool {
+        didMaterializeInteractiveStage
+    }
+
+    func authoritativeStageIsLazy() -> Bool {
+        didCacheAuthoritativeLazyStage
+    }
+
     // MARK: - RAW stage
 
     /// Renders the RAW-domain stage (demosaic + RAW-applied intent) as a CIImage.
@@ -97,9 +125,11 @@ actor PreparedRawSession {
     /// Reduced scale is applied through `CIRAWFilter.scaleFactor` so the decoder
     /// never produces a full-size image only to throw pixels away.
     ///
-    /// Interactive caches a pinned decode (camera WB, 0 EV) and applies
-    /// exposure / WB as Core Image post-ops so slider ticks stay cache-valid.
-    /// Authoritative still bakes the live intent onto `CIRAWFilter`.
+    /// Interactive caches a GPU-materialized pinned decode (camera WB, 0 EV)
+    /// and applies exposure / WB as Core Image post-ops so slider ticks stay
+    /// cache-valid without re-running demosaic at draw time.
+    /// Authoritative still bakes the live intent onto `CIRAWFilter` and keeps
+    /// the lazy graph — settled / export evaluate once at their destination.
     func rawStageImage(
         intent: RawIntent,
         targetLongEdge: Int?,
@@ -132,20 +162,43 @@ actor PreparedRawSession {
         apply(intent: intent, to: filter, tier: tier, scale: scale)
         guard let output = filter.outputImage else { return nil }
 
-        rawStageCache[key] = RawStageEntry(image: output, scale: scale, lastAccess: CFAbsoluteTimeGetCurrent())
+        // Interactive: realize the demosaic once into an MTLTexture so later
+        // Metal draws do not re-walk CIRAWFilter. Authoritative stays lazy.
+        var cached = output
+        var texture: MTLTexture?
+        if tier == .interactive, let realized = materializeInteractiveStage(output) {
+            cached = realized.image
+            texture = realized.texture
+            didMaterializeInteractiveStage = true
+        } else if tier == .authoritative {
+            didCacheAuthoritativeLazyStage = true
+        }
+
+        rawStageCache[key] = RawStageEntry(
+            image: cached,
+            scale: scale,
+            tier: tier,
+            lastAccess: CFAbsoluteTimeGetCurrent(),
+            texture: texture
+        )
         evictRawStageIfNeeded()
-        return (finishRawStage(output, intent: intent, tier: tier), false)
+        return (finishRawStage(cached, intent: intent, tier: tier), false)
     }
 
     /// Drop cached RAW-stage surfaces (RawIntent changed upstream or memory pressure).
     func invalidateRawStage() {
-        rawStageCache.removeAll()
+        for key in Array(rawStageCache.keys) {
+            dropStage(key)
+        }
     }
 
-    /// Memory-pressure trim — keep at most one entry per tier.
+    /// Memory-pressure trim — keep at most one most-recent entry (existing policy)
+    /// and release GPU textures of every evicted interactive stage.
     func trimForMemoryPressure() {
         let sorted = rawStageCache.sorted { $0.value.lastAccess > $1.value.lastAccess }
-        rawStageCache = Dictionary(uniqueKeysWithValues: Array(sorted.prefix(1)))
+        for (key, _) in sorted.dropFirst() {
+            dropStage(key)
+        }
     }
 
     // MARK: - Internals
@@ -153,12 +206,12 @@ actor PreparedRawSession {
     private func prepareIfNeeded() {
         guard metadata == nil else { return }
 
-        guard let auth = CIRAWFilter(imageURL: rawURL) else {
+        guard let auth = decodeBackend.makeFilter(imageURL: rawURL) else {
             // Not RAW-capable — ImageIO fallback handled by the graph with an
             // honest proxy fidelity label.
             return
         }
-        let inter = CIRAWFilter(imageURL: rawURL)
+        let inter = decodeBackend.makeFilter(imageURL: rawURL)
 
         auth.isDraftModeEnabled = false
         if let inter {
@@ -237,11 +290,77 @@ actor PreparedRawSession {
         return DevelopRenderGraph.applyExposureAndWhiteBalance(intent, to: image)
     }
 
+    /// Evaluate the lazy CIRAWFilter graph once into a texture-backed CIImage.
+    /// Returns nil on Metal / render failure; the caller then caches the lazy
+    /// graph so the photograph still displays.
+    private func materializeInteractiveStage(_ image: CIImage) -> (image: CIImage, texture: MTLTexture)? {
+        guard let device = LuminaMetalDevice.shared else { return nil }
+        let extent = image.extent.integral
+        let width = Int(extent.width)
+        let height = Int(extent.height)
+        guard width >= 1, height >= 1 else { return nil }
+
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba16Float,
+            width: width,
+            height: height,
+            mipmapped: false
+        )
+        descriptor.usage = [.shaderRead, .shaderWrite, .renderTarget]
+        descriptor.storageMode = .private
+        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
+
+        let destination = CIRenderDestination(
+            width: width,
+            height: height,
+            pixelFormat: .rgba16Float,
+            commandBuffer: nil
+        ) { texture }
+        destination.colorSpace = DevelopColorPolicy.workingColorSpace
+        // Metal textures are top-left; CIImage(mtlTexture:) assumes that and
+        // flips back to CI's bottom-left. Match that convention here.
+        destination.isFlipped = true
+
+        do {
+            _ = try DevelopRenderGraph.sharedContext.startTask(
+                toRender: image,
+                from: extent,
+                to: destination
+            ).waitUntilCompleted()
+        } catch {
+            return nil
+        }
+
+        guard let wrapped = CIImage(
+            mtlTexture: texture,
+            options: [.colorSpace: DevelopColorPolicy.workingColorSpace]
+        ) else { return nil }
+        return (wrapped, texture)
+    }
+
     private func evictRawStageIfNeeded() {
         while rawStageCache.count > rawStageCacheLimit {
             guard let oldest = rawStageCache.min(by: { $0.value.lastAccess < $1.value.lastAccess }) else { break }
-            rawStageCache.removeValue(forKey: oldest.key)
+            dropStage(oldest.key)
         }
+        while interactiveStageCount > interactiveCacheLimit {
+            guard let oldestInteractive = rawStageCache
+                .filter({ $0.value.tier == .interactive })
+                .min(by: { $0.value.lastAccess < $1.value.lastAccess }) else { break }
+            dropStage(oldestInteractive.key)
+        }
+    }
+
+    private var interactiveStageCount: Int {
+        rawStageCache.values.filter { $0.tier == .interactive }.count
+    }
+
+    /// Drop an entry so its CIImage wrapper and MTLTexture can deallocate.
+    private func dropStage(_ key: String) {
+        guard let entry = rawStageCache.removeValue(forKey: key) else { return }
+        // Interactive entries hold a ~32 MB rgba16Float texture; dropping both
+        // the wrapper and this handle lets Metal reclaim it.
+        _ = entry.texture
     }
 }
 

@@ -12,8 +12,9 @@ import UniformTypeIdentifiers
 ///    RAW exposure, RAW noise reduction and capture sharpening. Applied through
 ///    `PreparedRawSession`; reduced scale goes through `CIRAWFilter.scaleFactor`
 ///    so a full-size image is never decoded just to be thrown away.
-///    Interactive pins decode to camera WB + 0 EV and applies exposure / WB as
-///    CI post-ops on that cached surface; settled / export still bake on the filter.
+///    Interactive pins decode to camera WB + 0 EV, materializes that demosaic
+///    into an MTLTexture, and applies exposure / WB as CI post-ops on the
+///    cached surface; settled / export still bake on the filter and stay lazy.
 /// 2. Look stage — scene-linear Core Image graph for the small honest set:
 ///    highlights/shadows (documented approximation), contrast, vibrance, saturation.
 ///    Whites/blacks/clarity/texture/dehaze are **not rendered**; their controls
@@ -81,7 +82,7 @@ enum DevelopRenderGraph {
             image = applyProxyApproximation(request.recipe, to: image)
         } else {
             // RAW stage already carries RawIntent (baked on settled / export;
-            // interactive exposure / WB are CI post-ops on the pinned decode).
+            // interactive is a texture-backed pinned decode plus CI post-ops).
             // Tone (look) is always a post-op. Then heal spots.
             image = applyLook(request.recipe.lookIntent, to: image)
             image = applyRetouch(request.recipe.retouch, to: image)
@@ -370,7 +371,11 @@ enum DevelopRenderGraph {
 
     /// 16-bit ProPhoto RGB TIFF with embedded ICC profile and ZIP (Deflate)
     /// compression, for Lightroom/Photoshop handoff.
-    static func exportTIFF(cgImage: CGImage, to url: URL, preserveMetadataFrom rawURL: URL?) -> Bool {
+    nonisolated static func exportTIFF(
+        cgImage: CGImage,
+        to url: URL,
+        preserveMetadataFrom rawURL: URL?
+    ) -> Bool {
         let type = UTType.tiff.identifier as CFString
         guard let dest = CGImageDestinationCreateWithURL(url as CFURL, type, 1, nil) else {
             return false

@@ -34,6 +34,22 @@ Synthetic UI-test bodies (`mixed-60`, `mixed-200`, `missing-originals`) remain v
 
 **Id migration note:** Prior seal ids `sony-arw` / `canon-cr3` / `nikon-nef` / `fujifilm-raf` map 1:1 onto the named MVP bodies above; update harness paths when fixtures are cut.
 
+### External RAW correctness bundle
+
+`raw-correctness-v1` is distributed separately and never committed. Network is
+permitted only in the explicit fixture setup step; live gates run against the
+verified local copy with zero network dependency.
+
+- Hosted tier: at least eight photographs spanning `.ARW`, `.CR3`, and `.DNG`; correctness and broad
+  latency ceilings only.
+- Full tier: at least twelve photographs spanning `.ARW`, `.CR3`, `.NEF`, `.RAF`, `.DNG`, and `.HEIC`; fixed
+  Apple-Silicon nightly performance and body-specific fidelity.
+- CI supplies `LUMINA_RAW_FIXTURE_BUNDLE_URL`,
+  `LUMINA_RAW_FIXTURE_BUNDLE_SHA256`, and `LUMINA_RAW_FIXTURE_ROOT`.
+- The archive digest is checked before extraction; every extracted file is
+  checked again against the bundle's `checksums.sha256`.
+- Missing files/checksums are BLOCKED/FAIL, never a skipped or vacuous PASS.
+
 ---
 
 ## 2. Card images (ingest fault schedules) `[○]`

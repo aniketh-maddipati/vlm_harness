@@ -40,9 +40,32 @@ enum DevelopLabFixtures {
             if exts.contains(url.pathExtension.lowercased()) {
                 urls.append(url)
             }
-            if urls.count >= limit { break }
         }
-        return urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        return Array(
+            urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+                .prefix(max(limit, 0))
+        )
+    }
+
+    /// One deterministic fixture per RAW container before any same-format
+    /// extras. Prevents a fleet run from accidentally measuring five ARWs.
+    static func discoverRepresentativeRAWFiles(
+        in directory: URL,
+        limit: Int
+    ) -> [URL] {
+        let all = discoverRAWFiles(in: directory, limit: .max)
+        let grouped = Dictionary(grouping: all) {
+            $0.pathExtension.lowercased()
+        }
+        let representatives = grouped.keys.sorted().compactMap {
+            grouped[$0]?.first
+        }
+        if representatives.count >= limit {
+            return Array(representatives.prefix(limit))
+        }
+        let represented = Set(representatives)
+        let extras = all.filter { !represented.contains($0) }
+        return Array((representatives + extras).prefix(limit))
     }
 }
 

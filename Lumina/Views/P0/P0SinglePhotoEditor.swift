@@ -10,8 +10,22 @@ struct P0SinglePhotoEditor: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var oneToOne = false
     @State private var panOffset: CGSize = .zero
+    @State private var drawableSize: CGSize = .zero
+    @State private var backingScale: CGFloat = 1
+    @State private var oneToOneCenter = CGPoint(x: 0.5, y: 0.5)
+    /// The clicked photograph's browse pixels remain mounted until RAW
+    /// promotion succeeds. Quality changes never replace the view itself.
+    @State private var fallbackImage: CIImage?
+    @State private var fallbackAssetID: UUID?
 
     private var recipe: EditRecipe { session.recipe(for: asset.id) }
+
+    init(session: P0SessionModel, asset: AssetRecord) {
+        self.session = session
+        self.asset = asset
+        _fallbackImage = State(initialValue: Self.immediateBrowseImage(for: asset))
+        _fallbackAssetID = State(initialValue: asset.id)
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -26,22 +40,26 @@ struct P0SinglePhotoEditor: View {
             P0AdjustmentRail(session: session, assetID: asset.id)
         }
         .background(LuminaTokens.Surface.mist)
-        .onAppear {
-            session.prewarmInspection(around: asset.id)
-        }
         .onDisappear {
             session.flushPendingEditIfNeeded()
             session.setShowingBefore(false)
+            Task { await BrowsePixelService.shared.clearFocusedPin() }
         }
         .onChange(of: asset.id) { _, _ in
             oneToOne = false
             panOffset = .zero
+            oneToOneCenter = CGPoint(x: 0.5, y: 0.5)
+            fallbackAssetID = asset.id
+            fallbackImage = Self.immediateBrowseImage(for: asset)
             // Inspection warm is owned by setFocus debounce — avoid a second settle storm.
         }
         .onChange(of: session.holdingLoupe) { _, holding in
             if holding != oneToOne {
                 toggleOneToOneZoom()
             }
+        }
+        .task(id: asset.id) {
+            await loadStableFallback()
         }
     }
 
@@ -120,12 +138,18 @@ struct P0SinglePhotoEditor: View {
             }
 
             if session.exportCount > 0 {
-                Text("\(session.exportCount) export")
-                    .font(LuminaTokens.Typeface.meta(12))
-                    .foregroundStyle(LuminaTokens.Ink.primary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(LuminaTokens.Surface.well)
+                Button {
+                    session.chooseAndExportKept()
+                } label: {
+                    Text(session.exportStatusLine ?? "\(session.exportCount) export")
+                        .font(LuminaTokens.Typeface.meta(12))
+                        .foregroundStyle(LuminaTokens.Ink.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(LuminaTokens.Surface.well)
+                }
+                .buttonStyle(LuminaQuietButtonStyle())
+                .disabled(session.isExporting)
             }
 
             if session.canUndo {
@@ -164,49 +188,50 @@ struct P0SinglePhotoEditor: View {
         ZStack {
             LuminaTokens.Surface.focusMatte.ignoresSafeArea(edges: .bottom)
 
-            let image = session.displayedCIImage(for: asset.id)
+            let promoted = session.displayedCIImage(for: asset.id)
+            let fallback = fallbackAssetID == asset.id ? fallbackImage : nil
+            let image = promoted ?? fallback
             let extent = image?.extent.size ?? CGSize(
                 width: max(asset.previewLongEdge, 1),
                 height: max(asset.previewLongEdge, 1)
             )
 
             ZStack {
-                // Retain last valid frame while scrubbing the same asset — unmount Metal when
-                // the focused asset has no rendered surface yet so neighbor nav cannot show the
-                // previous photograph's drawable.
-                // `singlePhotoImage` rides whichever leaf is actually presenting the photograph —
-                // Metal when a render exists, cached preview or placeholder otherwise — never this
-                // container: SwiftUI creates no accessibility element for a plain ZStack, so an
-                // identifier put there is undiscoverable. Exactly one leaf carries it at a time.
-                if let image {
-                    DevelopMetalView(
-                        image: image,
-                        zoom: oneToOne ? 2.2 : 1,
-                        panOffset: oneToOne ? panOffset : .zero
-                    )
-                    .padding(18)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: oneToOne ? 1 : 10_000)
-                            .onChanged { value in
-                                guard oneToOne else { return }
-                                panOffset = value.translation
-                            }
-                    )
-                    .onTapGesture(count: 2) {
-                        toggleOneToOneZoom()
-                    }
-                    .accessibilityElement()
-                    .accessibilityIdentifier(P0AccessibilityID.singlePhotoImage)
-                    .accessibilityValue(asset.source.availability.rawValue)
-                    .accessibilityHint("Double-click to zoom")
-                } else if let path = asset.thumbPath ?? asset.gridThumbPath {
-                    ContactSheetInspectImage(path: path)
-                        .padding(18)
-                        .allowsHitTesting(false)
-                        .accessibilityIdentifier(P0AccessibilityID.singlePhotoImage)
-                        .accessibilityValue(asset.source.availability.rawValue)
-                } else {
+                // One permanent Metal leaf owns this click. The clicked JPEG,
+                // interactive RAW, and settled RAW replace pixels in place;
+                // none of those promotions remounts or moves the photograph.
+                DevelopMetalView(
+                    image: image,
+                    zoom: 1,
+                    panOffset: oneToOne ? panOffset : .zero,
+                    onDrawableSizeChange: {
+                        drawableSize = $0
+                        session.updateInspectionDrawableSize($0)
+                    },
+                    onBackingScaleChange: { backingScale = $0 }
+                )
+                .padding(18)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: oneToOne ? 1 : 10_000)
+                        .onChanged { value in
+                            guard oneToOne else { return }
+                            panOffset = value.translation
+                        }
+                        .onEnded { value in
+                            guard oneToOne else { return }
+                            commitOneToOnePan(value.translation)
+                        }
+                )
+                .onTapGesture(count: 2) {
+                    toggleOneToOneZoom()
+                }
+                .accessibilityElement()
+                .accessibilityIdentifier(P0AccessibilityID.singlePhotoImage)
+                .accessibilityValue(asset.source.availability.rawValue)
+                .accessibilityHint("Double-click to zoom")
+
+                if image == nil {
                     Text(session.fidelityNotice ?? "Preparing photograph…")
                         .font(LuminaTokens.Typeface.body(17))
                         .foregroundStyle(LuminaTokens.Ink.inspection)
@@ -215,7 +240,8 @@ struct P0SinglePhotoEditor: View {
                 }
 
                 if session.holdingClipping {
-                    Color.red.blendMode(.difference).opacity(0.28)
+                    Color.red.blendMode(.difference)
+                        .opacity(HiFiTokens.Color.clippingOverlayOpacity)
                         .padding(18)
                         .allowsHitTesting(false)
                 }
@@ -232,6 +258,44 @@ struct P0SinglePhotoEditor: View {
         }
     }
 
+    /// Resolve the clicked asset's durable browse currency once and pin it.
+    /// A stale completion is ignored after focus moves to another photograph.
+    @MainActor
+    private func loadStableFallback() async {
+        let requestedID = asset.id
+        let paths = [asset.thumbPath, asset.gridThumbPath, asset.proxyPath]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+        await BrowsePixelService.shared.pinFocused(paths: paths)
+
+        fallbackAssetID = requestedID
+        let started = CFAbsoluteTimeGetCurrent()
+        for path in paths {
+            guard !Task.isCancelled else { return }
+            if let pixel = await BrowsePixelService.shared.pixel(path: path, tier: .focused) {
+                guard !Task.isCancelled, asset.id == requestedID else { return }
+                fallbackImage = CIImage(cgImage: pixel.cgImage)
+                LatencyMetrics.record(
+                    "p0.edit.open_preview_ms",
+                    milliseconds: (CFAbsoluteTimeGetCurrent() - started) * 1000
+                )
+                return
+            }
+        }
+    }
+
+    /// `CIImage(contentsOf:)` is a lazy, JPEG-only seed. It binds the clicked
+    /// asset synchronously so the permanent Metal view can never retain the
+    /// previous photograph while the shared decode service warms sharper pixels.
+    private static func immediateBrowseImage(for asset: AssetRecord) -> CIImage? {
+        let path = asset.thumbPath ?? asset.gridThumbPath ?? asset.proxyPath
+        guard let path else { return nil }
+        return CIImage(
+            contentsOf: URL(fileURLWithPath: path),
+            options: [.applyOrientationProperty: true]
+        )
+    }
+
     private func toggleOneToOneZoom() {
         oneToOne.toggle()
         if !oneToOne {
@@ -239,7 +303,42 @@ struct P0SinglePhotoEditor: View {
             return
         }
         panOffset = .zero
-        session.requestOneToOneZoom(for: asset.id)
+        oneToOneCenter = CGPoint(x: 0.5, y: 0.5)
+        session.requestOneToOneZoom(
+            for: asset.id,
+            center: oneToOneCenter,
+            drawableSize: drawableSize
+        )
+    }
+
+    private func commitOneToOnePan(_ translation: CGSize) {
+        let imageSize = session.renderedPixelSize(for: asset.id)
+        guard imageSize.width > 0, imageSize.height > 0 else {
+            panOffset = .zero
+            return
+        }
+        oneToOneCenter = CGPoint(
+            x: min(
+                max(
+                    oneToOneCenter.x - translation.width * backingScale / imageSize.width,
+                    0
+                ),
+                1
+            ),
+            y: min(
+                max(
+                    oneToOneCenter.y - translation.height * backingScale / imageSize.height,
+                    0
+                ),
+                1
+            )
+        )
+        panOffset = .zero
+        session.requestOneToOneZoom(
+            for: asset.id,
+            center: oneToOneCenter,
+            drawableSize: drawableSize
+        )
     }
 
     private var filmstrip: some View {
@@ -247,7 +346,7 @@ struct P0SinglePhotoEditor: View {
         return VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
+                    LazyHStack(spacing: 10) {
                         ForEach(neighbors, id: \.id) { item in
                             filmstripThumb(item)
                                 .id(item.id)
@@ -279,7 +378,7 @@ struct P0SinglePhotoEditor: View {
         let selected = item.marks.selected
         return ZStack {
             if let path = item.asset.thumbPath ?? item.asset.gridThumbPath {
-                ContactSheetInspectImage(path: path)
+                ChapterPlateImage(path: path)
                     .frame(width: 92, height: 68)
                     .clipped()
             } else {

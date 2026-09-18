@@ -103,25 +103,54 @@ actor DevelopPresentationCache {
 
 /// Async counting semaphore for global render concurrency.
 actor RenderGate {
+    private struct Waiter {
+        let id: UUID
+        let continuation: CheckedContinuation<Bool, Never>
+    }
+
     private var available: Int
-    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var waiters: [Waiter] = []
+    private var cancelledWaiterIDs: Set<UUID> = []
 
     init(limit: Int) { available = limit }
 
-    func acquire() async {
+    /// Cancellation-aware acquire. Superseded slider requests are removed
+    /// from the lane instead of forming a FIFO wall ahead of the latest frame.
+    func acquire() async -> Bool {
+        guard !Task.isCancelled else { return false }
         if available > 0 {
             available -= 1
-            return
+            return true
         }
-        await withCheckedContinuation { waiters.append($0) }
+        let id = UUID()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if Task.isCancelled || cancelledWaiterIDs.remove(id) != nil {
+                    continuation.resume(returning: false)
+                } else {
+                    waiters.append(Waiter(id: id, continuation: continuation))
+                }
+            }
+        } onCancel: {
+            Task { await self.cancelWaiter(id) }
+        }
     }
 
     func release() {
         if let next = waiters.first {
             waiters.removeFirst()
-            next.resume()
+            next.continuation.resume(returning: true)
         } else {
             available += 1
+        }
+    }
+
+    private func cancelWaiter(_ id: UUID) {
+        if let index = waiters.firstIndex(where: { $0.id == id }) {
+            let waiter = waiters.remove(at: index)
+            waiter.continuation.resume(returning: false)
+        } else {
+            cancelledWaiterIDs.insert(id)
         }
     }
 }
@@ -167,7 +196,7 @@ struct DevelopRenderMetrics {
 /// Latest-wins render coordinator.
 ///
 /// - At most one authoritative (settled/1:1) render active per photo.
-/// - At most `interactiveLimit` interactive/settled renders globally (tunable).
+/// - At most `interactiveLimit` visible + speculative renders globally.
 /// - Export is serialized on its own lane and never starves the visible photo.
 /// - New requests supersede older generation IDs; superseded results may finish
 ///   inside Core Image but never publish or enter a cache.
@@ -178,14 +207,19 @@ final class DevelopRenderScheduler {
     private(set) var presented: [UUID: DevelopRenderResult] = [:]
     private(set) var fidelityByPhoto: [UUID: DevelopFidelityState] = [:]
 
-    /// Tunable global limit for interactive + settled renders.
-    static var interactiveLimit = 2
+    /// One visible lane plus one speculative lane.
+    static let interactiveLimit = 2
 
     private let gate = RenderGenerationGate()
     private let cache = DevelopPresentationCache()
-    private let renderGate = RenderGate(limit: DevelopRenderScheduler.interactiveLimit)
+    /// Visible work owns a reserved lane. Neighbor/background work can fill
+    /// caches but cannot queue ahead of the photograph the user clicked.
+    private let visibleRenderGate = RenderGate(limit: 1)
+    private let speculativeRenderGate = RenderGate(limit: DevelopRenderScheduler.interactiveLimit - 1)
     private var inflight: [UUID: Task<Void, Never>] = [:]
     private var settleTasks: [UUID: Task<Void, Never>] = [:]
+    private var speculativeTasks: [UUID: Task<Void, Never>] = [:]
+    private var speculativeTaskTokens: [UUID: UUID] = [:]
     private var pendingRecipe: [UUID: EditRecipe] = [:]
     private var exportQueue: Task<Void, Never>?
     private var memoryPressureSource: DispatchSourceMemoryPressure?
@@ -205,8 +239,11 @@ final class DevelopRenderScheduler {
     func cancelAll() {
         for (_, task) in inflight { task.cancel() }
         for (_, task) in settleTasks { task.cancel() }
+        for (_, task) in speculativeTasks { task.cancel() }
         inflight.removeAll()
         settleTasks.removeAll()
+        speculativeTasks.removeAll()
+        speculativeTaskTokens.removeAll()
         Task { await gate.invalidateAll() }
     }
 
@@ -221,18 +258,24 @@ final class DevelopRenderScheduler {
             task.cancel()
             settleTasks[id] = nil
         }
+        for (id, task) in speculativeTasks where id != photoID {
+            task.cancel()
+            speculativeTasks[id] = nil
+            speculativeTaskTokens[id] = nil
+        }
         visiblePhotoID = photoID
     }
 
     // MARK: - Interactive scrub
 
-    /// Open / navigate path — authoritative settle first so the first frame is
-    /// not draft demosaic (which reads as grainy when upscaled to the stage).
+    /// Open / navigate path — publish a fast interactive RAW, then promote the
+    /// same asset in place to viewport-sized authoritative RAW.
     func openPhotograph(
         photoID: UUID,
         rawURL: URL,
         proxyURL: URL?,
-        recipe: EditRecipe
+        recipe: EditRecipe,
+        settledLongEdge: Int
     ) {
         cancelExcept(photoID: photoID)
         pendingRecipe[photoID] = recipe
@@ -243,12 +286,37 @@ final class DevelopRenderScheduler {
         let task = Task { [weak self] in
             guard !Task.isCancelled, let self else { return }
             guard let latest = self.pendingRecipe[photoID] else { return }
+            let openedAt = CFAbsoluteTimeGetCurrent()
             await self.renderNow(
                 photoID: photoID,
                 rawURL: rawURL,
                 proxyURL: proxyURL,
                 recipe: latest,
-                quality: .settled
+                quality: .interactive
+            )
+            guard !Task.isCancelled, self.visiblePhotoID == photoID else { return }
+            LatencyMetrics.record(
+                "p0.edit.open_interactive_ms",
+                milliseconds: (CFAbsoluteTimeGetCurrent() - openedAt) * 1000
+            )
+
+            try? await Task.sleep(nanoseconds: 40_000_000)
+            guard !Task.isCancelled,
+                  self.visiblePhotoID == photoID,
+                  let current = self.pendingRecipe[photoID] else { return }
+            let promotionStart = CFAbsoluteTimeGetCurrent()
+            await self.renderNow(
+                photoID: photoID,
+                rawURL: rawURL,
+                proxyURL: proxyURL,
+                recipe: current,
+                quality: .settled,
+                longEdgeCap: settledLongEdge
+            )
+            guard !Task.isCancelled, self.visiblePhotoID == photoID else { return }
+            LatencyMetrics.record(
+                "p0.edit.promote_settled_ms",
+                milliseconds: (CFAbsoluteTimeGetCurrent() - promotionStart) * 1000
             )
         }
         inflight[photoID] = task
@@ -288,14 +356,27 @@ final class DevelopRenderScheduler {
         photoID: UUID,
         rawURL: URL,
         proxyURL: URL?,
-        recipe: EditRecipe
+        recipe: EditRecipe,
+        settledLongEdge: Int
     ) {
         pendingRecipe[photoID] = recipe
-        scheduleSettled(photoID: photoID, rawURL: rawURL, proxyURL: proxyURL, recipe: recipe)
+        scheduleSettled(
+            photoID: photoID,
+            rawURL: rawURL,
+            proxyURL: proxyURL,
+            recipe: recipe,
+            longEdgeCap: settledLongEdge
+        )
     }
 
     /// Authoritative settled render after input pauses. One per photo.
-    private func scheduleSettled(photoID: UUID, rawURL: URL, proxyURL: URL?, recipe: EditRecipe) {
+    private func scheduleSettled(
+        photoID: UUID,
+        rawURL: URL,
+        proxyURL: URL?,
+        recipe: EditRecipe,
+        longEdgeCap: Int
+    ) {
         settleTasks[photoID]?.cancel()
         fidelityByPhoto[photoID] = .settling
         settleTasks[photoID] = Task { [weak self] in
@@ -307,7 +388,8 @@ final class DevelopRenderScheduler {
                 rawURL: rawURL,
                 proxyURL: proxyURL,
                 recipe: latest,
-                quality: .settled
+                quality: .settled,
+                longEdgeCap: longEdgeCap
             )
         }
     }
@@ -338,9 +420,8 @@ final class DevelopRenderScheduler {
         proxyURL: URL?,
         recipe: EditRecipe
     ) async {
-        let gen = await gate.next(for: photoID)
         let beforeReq = RawRenderRequest(
-            generation: gen,
+            generation: 0,
             photoID: photoID,
             rawURL: rawURL,
             proxyURL: proxyURL,
@@ -349,7 +430,7 @@ final class DevelopRenderScheduler {
             source: .originalRAW
         )
         let afterReq = RawRenderRequest(
-            generation: gen,
+            generation: 0,
             photoID: photoID,
             rawURL: rawURL,
             proxyURL: proxyURL,
@@ -366,19 +447,27 @@ final class DevelopRenderScheduler {
         if let img = after.ciImage { afterSurface[photoID] = img }
     }
 
-    /// Prewarm sessions + settled surfaces for the leader and visible references.
+    /// Prewarm interactive RAW stages only. Speculative work may populate
+    /// caches, but `renderNow` never publishes it to the focused surface.
     func prewarm(photos: [(id: UUID, rawURL: URL)], recipe: EditRecipe) {
         for (index, photo) in photos.prefix(3).enumerated() {
-            Task(priority: index == 0 ? .userInitiated : .utility) { [weak self] in
+            speculativeTasks[photo.id]?.cancel()
+            let token = UUID()
+            speculativeTaskTokens[photo.id] = token
+            speculativeTasks[photo.id] = Task(priority: index == 0 ? .userInitiated : .utility) { [weak self] in
                 guard let self else { return }
                 await self.renderNow(
                     photoID: photo.id,
                     rawURL: photo.rawURL,
                     proxyURL: nil,
                     recipe: recipe,
-                    quality: .settled,
-                    speculative: index > 0
+                    quality: .interactive,
+                    speculative: true
                 )
+                if self.speculativeTaskTokens[photo.id] == token {
+                    self.speculativeTasks[photo.id] = nil
+                    self.speculativeTaskTokens[photo.id] = nil
+                }
             }
         }
     }
@@ -411,6 +500,7 @@ final class DevelopRenderScheduler {
         recipe: EditRecipe,
         quality: DevelopRenderQuality,
         region: DevelopRenderRegion = .full,
+        longEdgeCap: Int? = nil,
         speculative: Bool = false
     ) async {
         let signpostID = Self.signposter.makeSignpostID()
@@ -418,7 +508,14 @@ final class DevelopRenderScheduler {
         defer { Self.signposter.endInterval("request", requestState) }
 
         let queuedAt = CFAbsoluteTimeGetCurrent()
-        let generation = await gate.next(for: photoID)
+        // Speculative cache fills live in a separate generation domain and
+        // can never supersede a visible request for the same photograph.
+        let generation: UInt64
+        if speculative {
+            generation = 0
+        } else {
+            generation = await gate.next(for: photoID)
+        }
         let request = RawRenderRequest(
             generation: generation,
             photoID: photoID,
@@ -426,7 +523,8 @@ final class DevelopRenderScheduler {
             proxyURL: proxyURL,
             recipe: recipe,
             quality: quality,
-            region: region
+            region: region,
+            longEdgeCap: longEdgeCap
         )
 
         let key = request.cacheKey
@@ -448,26 +546,39 @@ final class DevelopRenderScheduler {
                 usedProxyFallback: cached.fidelity == .proxyFallback,
                 colorSpaceName: "cached"
             )
-            present(result)
+            if !speculative,
+               !Task.isCancelled,
+               visiblePhotoID == photoID,
+               await gate.isCurrent(generation, for: photoID) {
+                present(result)
+            }
             return
         }
         Self.signposter.emitEvent("cacheMiss", id: signpostID)
 
-        await renderGate.acquire()
+        let lane = speculative ? speculativeRenderGate : visibleRenderGate
+        guard await lane.acquire() else {
+            Self.signposter.emitEvent("cancelledInQueue", id: signpostID)
+            return
+        }
         let queueDelayMs = (CFAbsoluteTimeGetCurrent() - queuedAt) * 1000
         Self.signposter.emitEvent("queueDelay", id: signpostID, "\(queueDelayMs, format: .fixed(precision: 1))ms")
 
         // Superseded before starting? Skip the evaluation entirely.
-        if await !gate.isCurrent(generation, for: photoID) {
-            await renderGate.release()
+        if !speculative, await !gate.isCurrent(generation, for: photoID) {
+            await lane.release()
             Self.signposter.emitEvent("staleDiscardPreRender", id: signpostID)
             return
         }
 
+        // Display-path interactive `durationMs` is graph construction only:
+        // CIRAWFilter.outputImage is lazy, and GPU evaluation happens inside
+        // DevelopMetalView.draw (`p0.edit.draw_ms`). Settled/export still
+        // include evaluation because they materialize a CGImage.
         let evalState = Self.signposter.beginInterval("evaluate", id: signpostID)
         let rendered = await DevelopRenderGraph.render(request)
         Self.signposter.endInterval("evaluate", evalState)
-        await renderGate.release()
+        await lane.release()
 
         if Task.isCancelled {
             let flag = DevelopRenderResult(
@@ -491,7 +602,12 @@ final class DevelopRenderScheduler {
         }
 
         // Superseded results must never publish or enter a cache.
-        let current = await gate.isCurrent(generation, for: photoID)
+        let current: Bool
+        if speculative {
+            current = true
+        } else {
+            current = await gate.isCurrent(generation, for: photoID)
+        }
         guard current else {
             Self.signposter.emitEvent("staleDiscard", id: signpostID)
             metrics.record(result: rendered, stale: true)
@@ -511,6 +627,10 @@ final class DevelopRenderScheduler {
                 Self.signposter.emitEvent("settlement", id: signpostID)
             }
         }
+        guard !speculative, visiblePhotoID == photoID else {
+            Self.signposter.emitEvent("cachedSpeculative", id: signpostID)
+            return
+        }
         present(rendered)
         Self.signposter.emitEvent("presented", id: signpostID)
     }
@@ -524,6 +644,10 @@ final class DevelopRenderScheduler {
         presented[result.photoID] = result
         fidelityByPhoto[result.photoID] = result.fidelity
         metrics.record(result: result, stale: false)
+        LatencyMetrics.record(
+            "p0.edit.quality_presented.\(result.quality.rawValue)",
+            milliseconds: result.durationMs
+        )
     }
 
     // MARK: - Memory pressure
@@ -543,6 +667,7 @@ final class DevelopRenderScheduler {
         let keep = visiblePhotoID
         // 1. Speculative prefetch, then presentation surfaces of other photos.
         await cache.trimForMemoryPressure(keeping: critical ? keep : nil)
+        await BrowsePixelService.shared.trimForMemoryPressure()
         // 2. Post-look Before/After surfaces for non-visible photos.
         if critical {
             beforeSurface = beforeSurface.filter { $0.key == keep }

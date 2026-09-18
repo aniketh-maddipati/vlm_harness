@@ -10,6 +10,28 @@ tooling:
   cut: Scripts/fixtures/cut_latency_card.py
   verify: Scripts/fixtures/verify_latency_card.py
 
+# External, checksum-verified media. The archive is deliberately not committed:
+# real RAW bodies are large and consent/license provenance travels with the
+# private bundle. CI supplies URL + archive digest; every extracted file is
+# verified again against checksums.sha256 inside the bundle.
+raw_correctness_bundle:
+  version: "raw-correctness-v1"
+  status: external-required
+  download_url_env: LUMINA_RAW_FIXTURE_BUNDLE_URL
+  archive_sha256_env: LUMINA_RAW_FIXTURE_BUNDLE_SHA256
+  root_env: LUMINA_RAW_FIXTURE_ROOT
+  checksums: checksums.sha256
+  verify: Scripts/fixtures/verify_raw_fixture_bundle.py
+  tiers:
+    hosted:
+      purpose: pull-request correctness and broad latency ceilings
+      minimum_photos: 8
+      required_extensions: [.ARW, .CR3, .DNG]
+    full:
+      purpose: fixed-hardware nightly performance and format fidelity
+      minimum_photos: 12
+      required_extensions: [.ARW, .CR3, .NEF, .RAF, .DNG, .HEIC]
+
 seed_bodies:
   sony-a7iii:
     status: proposed

@@ -19,14 +19,7 @@ struct ChapterPlateImage: View {
         }
         .clipped()
         .task(id: path) {
-            let outcome = await PhotoImageCache.shared.load(
-                path: path,
-                maxPixelSize: PhotoImageTier.gridMaxPixelSize,
-                allowRAW: false
-            )
-            if case .image(let img) = outcome {
-                image = img
-            }
+            image = await BrowsePixelService.shared.image(path: path, tier: .grid)
         }
     }
 }

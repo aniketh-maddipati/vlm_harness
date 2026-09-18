@@ -33,8 +33,10 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
     private var ringIndex = 0
     private let lock = NSLock()
     private let uploadQueue = DispatchQueue(label: "lumina.metal-preview.upload", qos: .userInitiated, attributes: .concurrent)
-    /// Per-photo gate so PreviewSpine.enqueueGPU + MetalBrowseCanvas.bind cannot double-decode.
-    private var inflightUploads = Set<UUID>()
+    /// Coalesce only the same generation. A newer focus generation must never
+    /// be dropped behind an older upload of the same photograph.
+    private var inflightUploads = Set<UploadKey>()
+    private var poolEpoch: UInt64 = 0
 
     private(set) var lastTimings = UploadTimings()
     private(set) var decodeSamples: [Double] = []
@@ -49,6 +51,11 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         var pixelHeight: Int = 0
         var uploadGeneration: UInt64 = 0
         var distanceBias: Int = .max
+    }
+
+    private struct UploadKey: Hashable {
+        let photoID: UUID
+        let generation: UInt64
     }
 
     private static let rawExtensions: Set<String> = [
@@ -90,7 +97,9 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
     func upload(id: UUID, jpegPath: String, distanceBias: Int = 0, generation: UInt64 = 0) -> UploadTimings {
         assert(!Thread.isMainThread, "MetalPreviewPool.upload must not run on the main thread")
 
+        let uploadKey = UploadKey(photoID: id, generation: generation)
         lock.lock()
+        let uploadEpoch = poolEpoch
         if let existing = slots.firstIndex(where: { $0.photoID == id }),
            slots[existing].texture != nil,
            slots[existing].uploadGeneration == generation || generation == 0 {
@@ -101,16 +110,16 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
             return hit
         }
         // Spine prefetch + canvas bind both schedule uploads; only the first proceeds.
-        guard !inflightUploads.contains(id) else {
+        guard !inflightUploads.contains(uploadKey) else {
             lock.unlock()
             return UploadTimings(cacheHit: true)
         }
-        inflightUploads.insert(id)
+        inflightUploads.insert(uploadKey)
         lock.unlock()
 
         defer {
             lock.lock()
-            inflightUploads.remove(id)
+            inflightUploads.remove(uploadKey)
             lock.unlock()
         }
 
@@ -143,6 +152,10 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
               let texture = CVMetalTextureGetTexture(cvTexture) else { return timings }
 
         lock.lock()
+        guard uploadEpoch == poolEpoch else {
+            lock.unlock()
+            return timings
+        }
         // Discard stale uploads whose generation no longer matches a rebind.
         if generation > 0,
            let existing = slots.firstIndex(where: { $0.photoID == id }),
@@ -150,7 +163,114 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
             lock.unlock()
             return timings
         }
-        let idx = pickSlotLocked()
+        let idx = slots.firstIndex(where: { $0.photoID == id }) ?? pickSlotLocked()
+        slots[idx] = Slot(
+            photoID: id,
+            texture: texture,
+            pixelBuffer: pb,
+            pixelWidth: pixelWidth,
+            pixelHeight: pixelHeight,
+            uploadGeneration: generation,
+            distanceBias: distanceBias
+        )
+        ringIndex = (idx + 1) % slotCount
+        lock.unlock()
+
+        recordTimings(timings)
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .luminaTextureReady,
+                object: nil,
+                userInfo: [
+                    "photoID": id,
+                    "generation": generation,
+                    "pixelWidth": pixelWidth,
+                    "pixelHeight": pixelHeight,
+                ]
+            )
+        }
+        return timings
+    }
+
+    /// Upload a browse pixel that was already decoded by `BrowsePixelService`.
+    /// This avoids a second ImageIO decode when AppKit and Metal need the same
+    /// photograph. Background-only, like the path-based overload.
+    @discardableResult
+    func upload(
+        id: UUID,
+        decoded image: CGImage,
+        distanceBias: Int = 0,
+        generation: UInt64 = 0,
+        decodeMs: Double = 0
+    ) -> UploadTimings {
+        assert(!Thread.isMainThread, "MetalPreviewPool.upload must not run on the main thread")
+
+        let uploadKey = UploadKey(photoID: id, generation: generation)
+        lock.lock()
+        let uploadEpoch = poolEpoch
+        if let existing = slots.firstIndex(where: { $0.photoID == id }),
+           slots[existing].texture != nil,
+           slots[existing].uploadGeneration == generation || generation == 0 {
+            slots[existing].distanceBias = distanceBias
+            lock.unlock()
+            let hit = UploadTimings(cacheHit: true)
+            recordTimings(hit)
+            return hit
+        }
+        guard !inflightUploads.contains(uploadKey) else {
+            lock.unlock()
+            return UploadTimings(cacheHit: true)
+        }
+        inflightUploads.insert(uploadKey)
+        lock.unlock()
+
+        defer {
+            lock.lock()
+            inflightUploads.remove(uploadKey)
+            lock.unlock()
+        }
+
+        var timings = UploadTimings()
+        timings.decodeMs = decodeMs
+        let pixelWidth = image.width
+        let pixelHeight = image.height
+
+        let blitStart = CFAbsoluteTimeGetCurrent()
+        guard let pb = Self.makeIOSurfacePixelBuffer(width: pixelWidth, height: pixelHeight),
+              Self.copyIntoPixelBuffer(image, pb) else { return timings }
+        timings.blitMs = (CFAbsoluteTimeGetCurrent() - blitStart) * 1000
+
+        guard let cache = textureCache else { return timings }
+        let wrapStart = CFAbsoluteTimeGetCurrent()
+        var cvTexture: CVMetalTexture?
+        let status = CVMetalTextureCacheCreateTextureFromImage(
+            nil,
+            cache,
+            pb,
+            nil,
+            ImagePixelFormat.metalPixelFormat,
+            pixelWidth,
+            pixelHeight,
+            0,
+            &cvTexture
+        )
+        timings.wrapMs = (CFAbsoluteTimeGetCurrent() - wrapStart) * 1000
+        guard status == kCVReturnSuccess,
+              let cvTexture,
+              let texture = CVMetalTextureGetTexture(cvTexture) else { return timings }
+
+        lock.lock()
+        guard uploadEpoch == poolEpoch else {
+            lock.unlock()
+            return timings
+        }
+        if generation > 0,
+           let existing = slots.firstIndex(where: { $0.photoID == id }),
+           slots[existing].uploadGeneration > generation {
+            lock.unlock()
+            return timings
+        }
+        let idx = slots.firstIndex(where: { $0.photoID == id }) ?? pickSlotLocked()
         slots[idx] = Slot(
             photoID: id,
             texture: texture,
@@ -185,7 +305,9 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
             return
         }
         lock.lock()
-        let alreadyInflight = inflightUploads.contains(id)
+        let alreadyInflight = inflightUploads.contains(
+            UploadKey(photoID: id, generation: generation)
+        )
         lock.unlock()
         guard !alreadyInflight else { return }
         uploadQueue.async {
@@ -212,6 +334,7 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         defer { lock.unlock() }
         slots = (0..<slotCount).map { _ in Slot() }
         ringIndex = 0
+        poolEpoch &+= 1
         inflightUploads.removeAll()
         lastTimings = UploadTimings()
         decodeSamples.removeAll()

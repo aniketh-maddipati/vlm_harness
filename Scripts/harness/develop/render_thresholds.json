@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "hosted": {
+    "interactiveScrubP95Ms": 50,
+    "interactiveColdMs": 750,
+    "settledMs": 1000,
+    "drawP95Ms": 50,
+    "fidelityDeltaEMeanMax": 5,
+    "fidelityDeltaEP95Max": 15,
+    "fidelitySSIMMin": 0.9,
+    "fidelityChannelMAEMax": 12,
+    "fidelityClippedFractionDeltaMax": 0.1,
+    "minimumRawStageHits": 18,
+    "minimumRawStageSamples": 20
+  },
+  "nightly": {
+    "relativeRegressionFraction": 0.2,
+    "consecutiveRegressionsToFail": 2,
+    "correctnessFailuresBlockImmediately": true,
+    "requiredFixtureTier": "full"
+  }
+}

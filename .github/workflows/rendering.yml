@@ -1,0 +1,162 @@
+name: Rendering gates
+
+on:
+  pull_request:
+    paths:
+      - "Lumina/**"
+      - "LuminaLogicTests/**"
+      - "LuminaUITests/**"
+      - "Scripts/harness/**"
+      - "Scripts/fixtures/**"
+      - "TestPlans/**"
+      - "design/fixture-manifest.*"
+      - ".github/workflows/**"
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: Rendering lane to run
+        required: true
+        default: correctness
+        type: choice
+        options:
+          - correctness
+          - nightly
+          - all
+  schedule:
+    - cron: "20 5 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  fast:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 Scripts/harness/run.py fast
+
+  compile-logic:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore DerivedData
+        uses: actions/cache@v4
+        with:
+          path: DD
+          key: compile-logic-${{ runner.os }}-${{ hashFiles('Lumina.xcodeproj/project.pbxproj', 'Scripts/harness/lint/xcode_compile.py') }}
+          restore-keys: |
+            compile-logic-${{ runner.os }}-
+      - name: Build app and tests
+        run: |
+          python3 Scripts/harness/lint/xcode_compile.py \
+            --project-root . --derived-data DD
+      - name: Logic tests
+        run: |
+          xcodebuild -project Lumina.xcodeproj -scheme Lumina \
+            -configuration Debug -derivedDataPath DD \
+            -destination 'platform=macOS,arch=arm64' \
+            -only-testing:LuminaLogicTests test-without-building
+      - name: Preserve compile evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compile-logic
+          path: artifacts/harness/runs/
+          if-no-files-found: warn
+
+  render-live:
+    if: >
+      (github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')) &&
+      secrets.LUMINA_RAW_FIXTURE_BUNDLE_URL != '' &&
+      secrets.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 != ''
+    needs: compile-logic
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      LUMINA_RAW_FIXTURE_BUNDLE_URL: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_URL }}
+      LUMINA_RAW_FIXTURE_BUNDLE_SHA256: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 }}
+      LUMINA_RAW_FIXTURE_ROOT: ${{ runner.temp }}/raw-correctness-v1
+      LUMINA_RAW_FIXTURE_ARCHIVE: ${{ runner.temp }}/raw-correctness-v1-archive/bundle
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore DerivedData
+        uses: actions/cache@v4
+        with:
+          path: DD
+          key: compile-logic-${{ runner.os }}-${{ hashFiles('Lumina.xcodeproj/project.pbxproj', 'Scripts/harness/lint/xcode_compile.py') }}
+          restore-keys: |
+            compile-logic-${{ runner.os }}-
+      - name: Restore hosted RAW archive
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/raw-correctness-v1-archive
+          key: raw-correctness-v1-${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 }}
+      - name: Install harness YAML parser
+        run: |
+          python3 -m venv "$RUNNER_TEMP/lumina-venv"
+          "$RUNNER_TEMP/lumina-venv/bin/python" -m pip install --disable-pip-version-check pyyaml
+          echo "$RUNNER_TEMP/lumina-venv/bin" >> "$GITHUB_PATH"
+      - name: Verify hosted RAW fixtures
+        run: |
+          python3 Scripts/fixtures/verify_raw_fixture_bundle.py \
+            --root "$LUMINA_RAW_FIXTURE_ROOT" --tier hosted --fetch \
+            --archive "$LUMINA_RAW_FIXTURE_ARCHIVE"
+      - name: Live render correctness
+        run: |
+          python3 Scripts/harness/develop/run_live_raw_render.py \
+            --project-root . --derived-data DD --fixture-tier hosted
+          python3 Scripts/harness/develop/run_live_progressive_focus.py \
+            --project-root . --derived-data DD --fixture-tier hosted
+      - name: Preserve render evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendering-live
+          path: |
+            artifacts/harness/runs/
+            artifacts/harness/ledgers/render-*.json
+          if-no-files-found: warn
+
+  render-nightly:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'correctness')
+    runs-on: [self-hosted, macOS, ARM64, lumina-render]
+    timeout-minutes: 60
+    env:
+      LUMINA_RAW_FIXTURE_ROOT: ${{ vars.LUMINA_RAW_FIXTURE_ROOT }}
+      LUMINA_RAW_FIXTURE_BUNDLE_URL: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_URL }}
+      LUMINA_RAW_FIXTURE_BUNDLE_SHA256: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 }}
+      LUMINA_RENDER_BASELINE: ${{ vars.LUMINA_RENDER_BASELINE }}
+      LUMINA_RENDER_STATE_PATH: ${{ vars.LUMINA_RENDER_STATE_PATH }}
+      LUMINA_RAW_FIXTURE_ARCHIVE: ${{ runner.temp }}/raw-correctness-v1-archive/bundle
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore full RAW archive
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/raw-correctness-v1-archive
+          key: raw-correctness-v1-${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 }}
+      - name: Install harness YAML parser
+        run: |
+          python3 -m venv "$RUNNER_TEMP/lumina-venv"
+          "$RUNNER_TEMP/lumina-venv/bin/python" -m pip install --disable-pip-version-check pyyaml
+          echo "$RUNNER_TEMP/lumina-venv/bin" >> "$GITHUB_PATH"
+      - name: Verify full RAW fixture fleet
+        run: |
+          python3 Scripts/fixtures/verify_raw_fixture_bundle.py \
+            --root "$LUMINA_RAW_FIXTURE_ROOT" --tier full --fetch \
+            --archive "$LUMINA_RAW_FIXTURE_ARCHIVE"
+      - name: Fixed-hardware rendering stress
+        run: python3 Scripts/harness/develop/run_nightly_render.py
+      - name: Preserve render evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendering-nightly
+          path: |
+            artifacts/harness/runs/
+            artifacts/harness/ledgers/render-*.json
+          if-no-files-found: warn

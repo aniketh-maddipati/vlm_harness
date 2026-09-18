@@ -2,14 +2,13 @@
   "schemaVersion": 1,
   "summary": {
     "total": 83,
-    "covered": 31,
+    "covered": 33,
     "shelved": 7,
-    "not_covered": 45
+    "not_covered": 43
   },
   "not_covered": [
     "D1",
     "D2",
-    "D3",
     "D4",
     "D5",
     "D6",
@@ -23,7 +22,6 @@
     "D21",
     "D22",
     "D25",
-    "D27",
     "D28",
     "D30",
     "D31",
@@ -100,13 +98,18 @@
       "sources": [
         "v5"
       ],
-      "lint": [],
-      "logic": [],
+      "lint": [
+        "progressive_render_architecture"
+      ],
+      "logic": [
+        "ProgressiveRenderingArchitectureTests.testLegacyMachineTierCannotBecomeP0Decision",
+        "ProgressiveRenderingArchitectureTests.testSceneAndSignalsAreIndependentOfCull"
+      ],
       "flow": [],
       "golden": [],
       "battery": [],
-      "not_covered": "NOT-COVERED",
-      "status": "NOT-COVERED"
+      "not_covered": "",
+      "status": "COVERED"
     },
     {
       "id": "D4",
@@ -532,13 +535,17 @@
         "v5",
         "v6"
       ],
-      "lint": [],
+      "lint": [
+        "progressive_render_architecture"
+      ],
       "logic": [],
-      "flow": [],
+      "flow": [
+        "ProgressiveFocusTests.testNavigationKeepsOneStableFocusedSurface"
+      ],
       "golden": [],
       "battery": [],
-      "not_covered": "NOT-COVERED",
-      "status": "NOT-COVERED"
+      "not_covered": "",
+      "status": "COVERED"
     },
     {
       "id": "D28",
@@ -780,10 +787,18 @@
         "v6"
       ],
       "lint": [
-        "unit_trace"
+        "unit_trace",
+        "progressive_render_architecture",
+        "raw_render_live",
+        "progressive_focus_live"
       ],
-      "logic": [],
-      "flow": [],
+      "logic": [
+        "ProgressiveRenderingArchitectureTests.testCancelledRenderWaiterDoesNotBlockLatestWork",
+        "ProgressiveRenderingArchitectureTests.testDisplayTargetParticipatesInRenderCacheKey"
+      ],
+      "flow": [
+        "ProgressiveFocusTests.testNavigationKeepsOneStableFocusedSurface"
+      ],
       "golden": [],
       "battery": [],
       "not_covered": "",

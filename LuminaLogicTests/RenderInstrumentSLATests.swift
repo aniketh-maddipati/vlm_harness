@@ -8,7 +8,7 @@ import XCTest
 /// for a per-frame key, whose budget at a pinned 120 Hz is 8.33 ms. Worse, nothing in the
 /// output said which budget had been applied, so a frame key would have breached silently.
 ///
-/// These tests pin both halves: the four declared keys now carry argued budgets, and the
+/// These tests pin both halves: render keys now carry explicit budgets, and the
 /// fallback still behaves exactly as it always did for everything else. The second half
 /// matters as much as the first — it is the evidence that adding the mapping moved no
 /// existing consumer.
@@ -19,7 +19,7 @@ final class RenderInstrumentSLATests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - The four declared keys
+    // MARK: - Declared keys
 
     func testEachRenderKeyPinsItsDeclaredSLA() {
         XCTAssertEqual(
@@ -50,8 +50,11 @@ final class RenderInstrumentSLATests: XCTestCase {
         XCTAssertEqual(LatencyMetrics.navigationSLAms / declared, 6.0, accuracy: 0.01)
     }
 
-    func testDeclaredKeysAreExactlyTheFourRenderKeys() {
-        XCTAssertEqual(LatencyMetrics.declaredSLAKeys, P0RenderInstruments.Key.all.sorted())
+    func testDeclaredKeysAreExactlyRenderKeysPlusEditDraw() {
+        XCTAssertEqual(
+            LatencyMetrics.declaredSLAKeys,
+            (P0RenderInstruments.Key.all + [LatencyMetrics.editDrawKey]).sorted()
+        )
     }
 
     // MARK: - The fallback, unchanged
@@ -74,6 +77,11 @@ final class RenderInstrumentSLATests: XCTestCase {
                 "\(key) predates the mapping and must not be re-budgeted by it"
             )
         }
+        XCTAssertEqual(
+            LatencyMetrics.sla(for: LatencyMetrics.editDrawKey),
+            LatencyMetrics.sla(for: "p0.edit.interactive_ms"),
+            "draw_ms is the honest display-path sibling of interactive_ms and keeps the same budget"
+        )
     }
 
     func testHistoricalPrefixRulesAreUntouched() {

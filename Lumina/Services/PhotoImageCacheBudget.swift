@@ -16,6 +16,8 @@ enum PhotoImageCacheBudget {
     /// Max concurrent prefetch decodes — width tied to `PreparedRawSession` capacity (4)
     /// doubled for grid+preview overlap without unbounded fan-out.
     static let prefetchConcurrencyWidth = 8
+    /// Virtualized grid: visible cells plus this many items on each side.
+    static let visiblePrefetchPadding = 8
 
     static func tierCeiling(maxPixelSize: Int?) -> Int {
         guard let maxPixelSize else { return proxyTierCeilingBytes }

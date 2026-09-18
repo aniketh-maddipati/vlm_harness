@@ -35,6 +35,10 @@ enum CullEngine {
         }
     }
 
+    /// Legacy-shell judgment path. P0 must never call this: technical signals
+    /// and scene membership stay independent until a future recommendation
+    /// gate has measured evidence.
+    @available(*, deprecated, message: "Legacy judgment only; P0 decisions are user-authored")
     static func scoreAndTier(_ photos: inout [PhotoRecord], keepRate: Double) {
         for index in photos.indices {
             let face = photos[index].faceDetected ? photos[index].faceQuality : 0

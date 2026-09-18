@@ -17,6 +17,10 @@ enum PhotoImageTier: Sendable {
 
     /// Named grid decode cap — prefer this over a bare `512` at call sites.
     static let gridMaxPixelSize = 512
+    /// Durable Retina grid JPEG written once during ingest.
+    static let durableGridLongEdge = 1200
+    /// Focused embedded/matching JPEG before RAW promotion.
+    static let focusedPreviewLongEdge = 2400
 
     /// Display decode cap — avoids full-res JPEG decode in grids and filmstrips.
     var displayMaxPixelSize: Int? {
@@ -356,14 +360,20 @@ enum PhotoImageLoader {
 enum SessionCache {
     @MainActor
     static func beginEditingSession(projectName: String) {
-        Task { await PhotoImageCache.shared.beginSession(projectName: projectName) }
+        Task {
+            await PhotoImageCache.shared.beginSession(projectName: projectName)
+            await BrowsePixelService.shared.removeAll()
+        }
         LatencyMetrics.resetSession()
         MetalCanvasLifecycle.beginSession()
     }
 
     @MainActor
     static func endEditingSession(clearBrowseSpine: Bool = true) {
-        Task { await PhotoImageCache.shared.endSession() }
+        Task {
+            await PhotoImageCache.shared.endSession()
+            await BrowsePixelService.shared.removeAll()
+        }
         if clearBrowseSpine {
             PreviewSpine.shared.clear()
             MetalPreviewPool.shared.evictAll()

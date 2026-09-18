@@ -137,6 +137,7 @@ def lane_fast() -> tuple[list[dict], list[str]]:
                 str(HARNESS / "tests" / "test_count_invariants.py"),
                 str(HARNESS / "tests" / "test_f11_release.py"),
                 str(HARNESS / "tests" / "test_xcode_compile.py"),
+                str(HARNESS / "develop" / "test_render_gates.py"),
             ],
         ),
         (
@@ -176,6 +177,10 @@ def lane_fast() -> tuple[list[dict], list[str]]:
         ("costume_lint", [py, str(HARNESS / "lint" / "costume_lint.py")]),
         ("module_boundary", [py, str(HARNESS / "lint" / "module_boundary.py")]),
         ("session_surface", [py, str(HARNESS / "lint" / "session_surface.py")]),
+        (
+            "progressive_render_architecture",
+            [py, str(HARNESS / "lint" / "progressive_render_architecture.py")],
+        ),
         ("repo_artifact_bloat", [py, str(HARNESS / "lint" / "repo_artifact_bloat.py")]),
         ("f11_no_licensing", [py, str(HARNESS / "release" / "f11_no_licensing.py")]),
         ("f11_a7_expiry", [py, str(HARNESS / "release" / "f11_a7_expiry.py")]),
@@ -252,6 +257,32 @@ def lane_full_macos() -> tuple[list[dict], list[str]]:
         # App-coupled steps — Swift-on-macOS required (F2). These invoke the
         # live driver when present; missing driver → step FAIL (not silent skip).
         app_steps = [
+            (
+                "raw_render_live",
+                [
+                    py,
+                    str(HARNESS / "develop" / "run_live_raw_render.py"),
+                    "--project-root",
+                    str(snap),
+                    "--derived-data",
+                    str(snap / "DD"),
+                    "--fixture-tier",
+                    "hosted",
+                ],
+            ),
+            (
+                "progressive_focus_live",
+                [
+                    py,
+                    str(HARNESS / "develop" / "run_live_progressive_focus.py"),
+                    "--project-root",
+                    str(snap),
+                    "--derived-data",
+                    str(snap / "DD"),
+                    "--fixture-tier",
+                    "hosted",
+                ],
+            ),
             ("grammar_scripts_live", [py, str(HARNESS / "probe" / "run_live_scripts.py")]),
             ("probe_v2_mid_script", [py, str(HARNESS / "probe" / "run_live_probe.py")]),
             (
@@ -296,6 +327,10 @@ def lane_heavy_macos() -> tuple[list[dict], list[str]]:
         ("kill_fuzz_replay", [py, str(HARNESS / "cp2" / "f06_data_safety.py"), "--full"]),
         ("eject_fault_injection", [py, str(HARNESS / "heavy" / "run_job.py"), "eject_fault_injection"]),
         ("ram_tier_runs", [py, str(HARNESS / "heavy" / "run_job.py"), "ram_tier_runs"]),
+        (
+            "progressive_render_stability",
+            [py, str(HARNESS / "develop" / "run_nightly_render.py")],
+        ),
         ("lr_round_trip", [py, str(HARNESS / "heavy" / "run_job.py"), "lr_round_trip"]),
         (
             "grammar_stability_rerun_live",
