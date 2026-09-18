@@ -236,7 +236,7 @@ actor PreparedRawSession {
             pixelWidth: Int(extent.width),
             pixelHeight: Int(extent.height),
             decoderVersion: Self.decoderMappingVersion,
-            fileModificationDate: mtime ?? .distantPast,
+            fileModificationDate: mtime,
             nativeNeutralTemperature: Double(auth.neutralTemperature),
             nativeNeutralTint: Double(auth.neutralTint)
         )

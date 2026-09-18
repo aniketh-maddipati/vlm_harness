@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 /// Schema version for recipe serialization / migration.
-enum EditRecipeSchemaVersion: Int, Codable, Sendable, Comparable {
+nonisolated enum EditRecipeSchemaVersion: Int, Codable, Sendable, Comparable {
     case v1 = 1
     /// Retouch spots participate in the serialized schema (were runtime-only in v1).
     case v2 = 2
@@ -16,7 +16,7 @@ enum EditRecipeSchemaVersion: Int, Codable, Sendable, Comparable {
 
 /// Canonical develop recipe for P0 — preview and export share this value.
 /// Immutable value type; edits produce a new instance.
-struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
+nonisolated struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
     let id: UUID
     let schemaVersion: EditRecipeSchemaVersion
 
@@ -444,7 +444,7 @@ struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
 }
 
 /// Normalized crop rectangle in oriented image coordinates (origin top-left, y down).
-struct EditCrop: Codable, Hashable, Sendable {
+nonisolated struct EditCrop: Codable, Hashable, Sendable {
     var x: Double
     var y: Double
     var width: Double

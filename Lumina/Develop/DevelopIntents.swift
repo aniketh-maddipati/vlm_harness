@@ -14,7 +14,7 @@ import Foundation
 
 /// RAW-domain settings. Authoritative / export bake these onto `CIRAWFilter`
 /// before demosaic. Interactive pins exposure + WB and applies them as post-ops.
-struct RawIntent: Hashable, Sendable {
+nonisolated struct RawIntent: Hashable, Sendable {
     /// EV applied in RAW domain (`CIRAWFilter.exposure`) on settled / export.
     var exposureEV: Double
     /// Target neutral temperature in Kelvin. Neutral + tint 0 means "as shot".
@@ -57,7 +57,7 @@ struct RawIntent: Hashable, Sendable {
 }
 
 /// Post-RAW scene-linear look operations — honestly implemented subset only.
-struct LookIntent: Hashable, Sendable {
+nonisolated struct LookIntent: Hashable, Sendable {
     var contrast: Double
     var highlights: Double
     var shadows: Double
@@ -74,7 +74,7 @@ struct LookIntent: Hashable, Sendable {
 }
 
 /// Orientation, crop and presentation geometry.
-struct GeometryIntent: Hashable, Sendable {
+nonisolated struct GeometryIntent: Hashable, Sendable {
     var crop: EditCrop?
     var straightenDegrees: Double
 
@@ -86,7 +86,7 @@ struct GeometryIntent: Hashable, Sendable {
 }
 
 /// Display or export destination.
-enum OutputIntent: String, Hashable, Sendable {
+nonisolated enum OutputIntent: String, Hashable, Sendable {
     /// Convert once to the active display profile at presentation.
     case display
     /// 16-bit ProPhoto RGB handoff TIFF.

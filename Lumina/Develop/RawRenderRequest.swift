@@ -3,7 +3,7 @@ import CoreImage
 import Foundation
 
 /// Preview / export quality tier. Resolution may differ; operation order must not.
-enum DevelopRenderQuality: String, Codable, Hashable, Sendable, CaseIterable {
+nonisolated enum DevelopRenderQuality: String, Codable, Hashable, Sendable, CaseIterable {
     /// Cached browse JPEG — never authoritative for editing.
     case browse
     /// Interactive scrub — fast, may use demosaic pyramid / downscaled RAW.
@@ -38,7 +38,7 @@ enum DevelopRenderQuality: String, Codable, Hashable, Sendable, CaseIterable {
 }
 
 /// Honest fidelity label shown while a surface is displayed.
-enum DevelopFidelityState: String, Codable, Hashable, Sendable {
+nonisolated enum DevelopFidelityState: String, Codable, Hashable, Sendable {
     case interactive
     case settling
     case rawSettled
@@ -61,7 +61,7 @@ enum DevelopFidelityState: String, Codable, Hashable, Sendable {
 }
 
 /// Source policy for a render request.
-enum DevelopDecodeSource: String, Codable, Hashable, Sendable {
+nonisolated enum DevelopDecodeSource: String, Codable, Hashable, Sendable {
     /// Decode from original RAW (required for settled / 1:1 / export).
     case originalRAW
     /// Interactive-only demosaic pyramid cache derived from RAW.
@@ -71,7 +71,7 @@ enum DevelopDecodeSource: String, Codable, Hashable, Sendable {
 }
 
 /// Normalized 1:1 inspection region in oriented image coordinates (origin top-left).
-struct DevelopRenderRegion: Codable, Hashable, Sendable {
+nonisolated struct DevelopRenderRegion: Codable, Hashable, Sendable {
     var x: Double
     var y: Double
     var width: Double
@@ -125,7 +125,7 @@ struct DevelopRenderRegion: Codable, Hashable, Sendable {
 }
 
 /// Single render request — one conceptual graph for all qualities.
-struct RawRenderRequest: Hashable, Sendable, Identifiable {
+nonisolated struct RawRenderRequest: Hashable, Sendable, Identifiable {
     let id: UUID
     /// Monotonic generation — reject stale results at presentation time.
     let generation: UInt64
@@ -207,7 +207,7 @@ struct RawRenderRequest: Hashable, Sendable, Identifiable {
 /// is materialized only for export encode and settled histogram/harness use.
 /// `CIImage`/`CGImage` are immutable after creation — safe to move across
 /// concurrency domains.
-struct DevelopRenderResult: @unchecked Sendable {
+nonisolated struct DevelopRenderResult: @unchecked Sendable {
     let requestID: UUID
     let generation: UInt64
     let photoID: UUID
@@ -254,7 +254,7 @@ actor RenderGenerationGate {
 }
 
 /// Pure ordering helper — testable without rendering.
-enum RenderGenerationOrdering {
+nonisolated enum RenderGenerationOrdering {
     /// Returns whether `candidate` should replace `presented` for the same photo.
     static func shouldPresent(candidate: UInt64, presented: UInt64?) -> Bool {
         guard let presented else { return true }

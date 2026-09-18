@@ -277,7 +277,7 @@ struct DevelopAdjustments: Codable, Hashable {
 /// (origin top-left). `sourceDX/DY` point at the donor region relative to the
 /// spot center. This is classic clone healing — not generative fill — and it
 /// renders identically in preview and export.
-struct RetouchSpot: Codable, Hashable, Sendable, Identifiable {
+nonisolated struct RetouchSpot: Codable, Hashable, Sendable, Identifiable {
     var id: UUID = UUID()
     /// Spot center 0…1.
     var x: Double
@@ -297,7 +297,7 @@ struct RetouchSpot: Codable, Hashable, Sendable, Identifiable {
 ///
 /// **Superseded for P0 photo persistence** by `EditRecipe`, which also carries
 /// crop / straighten. `DevelopRecipe` remains as the taste / XMP / older-UI adapter.
-struct DevelopRecipe: Codable, Hashable {
+nonisolated struct DevelopRecipe: Codable, Hashable {
     var exposure: Double = 0
     var temperature: Double = EditRecipe.neutralTemperature
     var tint: Double = 0

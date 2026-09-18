@@ -11,7 +11,7 @@ import Metal
 actor BrowsePixelService {
     static let shared = BrowsePixelService()
 
-    enum Tier: Int, Sendable {
+    nonisolated enum Tier: Int, Sendable {
         case grid = 0
         case focused = 1
 
@@ -23,7 +23,7 @@ actor BrowsePixelService {
         }
     }
 
-    final class Pixel: @unchecked Sendable {
+    nonisolated final class Pixel: @unchecked Sendable {
         let cgImage: CGImage
         let nsImage: NSImage
         let decodeMs: Double
@@ -44,7 +44,7 @@ actor BrowsePixelService {
         var byteEstimate: Int { cgImage.bytesPerRow * cgImage.height }
     }
 
-    struct Diagnostics: Sendable {
+    nonisolated struct Diagnostics: Sendable {
         let residentBytes: Int
         let residentCount: Int
         let inflightCount: Int
