@@ -86,7 +86,7 @@ actor PreparedRawSession {
     private let interactiveCacheLimit = 2
 
     /// Bumped whenever Apple's decoder or our mapping changes meaningfully.
-    static let decoderMappingVersion = "lumina-ciraw-1"
+    nonisolated static let decoderMappingVersion = "lumina-ciraw-1"
 
     init(
         assetID: UUID,

@@ -1,6 +1,15 @@
 import XCTest
 @testable import Lumina
 
+/// Compile lock: `lookIntent` / `cacheKey` must be reachable off the main actor.
+nonisolated func nonisolatedLookIntentFingerprint(_ recipe: EditRecipe) -> String {
+    recipe.lookIntent.fingerprint
+}
+
+nonisolated func nonisolatedRenderCacheKey(_ request: RawRenderRequest) -> String {
+    request.cacheKey
+}
+
 final class ProgressiveRenderingArchitectureTests: XCTestCase {
     func testLegacyMachineTierCannotBecomeP0Decision() {
         let machineTier = PhotoRecord(
@@ -63,6 +72,26 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
             longEdgeCap: 4096
         )
         XCTAssertNotEqual(compact.cacheKey, retina.cacheKey)
+    }
+
+    func testLookIntentIsReachableFromTheRenderDataPlane() {
+        let base = EditRecipe()
+        let look = base.updating { $0.contrast = 25 }
+        let lookPrint = nonisolatedLookIntentFingerprint(look)
+        XCTAssertNotEqual(nonisolatedLookIntentFingerprint(base), lookPrint)
+        XCTAssertEqual(base.rawIntent.fingerprint, look.rawIntent.fingerprint)
+
+        let id = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let url = URL(fileURLWithPath: "/tmp/frame.arw")
+        let baseKey = nonisolatedRenderCacheKey(
+            RawRenderRequest(generation: 1, photoID: id, rawURL: url, recipe: base, quality: .interactive)
+        )
+        let lookKey = nonisolatedRenderCacheKey(
+            RawRenderRequest(generation: 1, photoID: id, rawURL: url, recipe: look, quality: .interactive)
+        )
+        XCTAssertNotEqual(baseKey, lookKey)
+        XCTAssertTrue(lookKey.contains(lookPrint))
+        XCTAssertTrue(lookKey.contains(PreparedRawSession.decoderMappingVersion))
     }
 
     func testOneToOneRegionMatchesDrawablePixelsAndPan() {
