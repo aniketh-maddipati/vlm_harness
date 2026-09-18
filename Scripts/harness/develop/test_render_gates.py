@@ -2,10 +2,13 @@
 """Parser tests for non-vacuous progressive render live gates."""
 from __future__ import annotations
 
-import sys
 import hashlib
+import os
+import sys
 import tempfile
 import unittest
+import urllib.request
+import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -13,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from run_live_progressive_focus import validate as validate_focus  # noqa: E402
 from run_live_raw_render import validate as validate_raw  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "fixtures"))
+from verify_raw_fixture_bundle import fetch as fetch_fixture  # noqa: E402
 from verify_raw_fixture_bundle import verify as verify_fixture  # noqa: E402
 
 
@@ -140,6 +144,38 @@ class RenderGateParserTests(unittest.TestCase):
                 },
             )
             self.assertEqual(checked, 3)
+
+    def test_fetch_reuses_checksummed_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            archive = root / "cache" / "bundle"
+            dest = root / "extracted"
+            archive.parent.mkdir()
+            with zipfile.ZipFile(archive, "w") as bundle:
+                bundle.writestr("readme.txt", "ok\n")
+            digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+            os.environ["LUMINA_RAW_FIXTURE_BUNDLE_URL"] = "https://example.invalid/bundle"
+            os.environ["LUMINA_RAW_FIXTURE_BUNDLE_SHA256"] = digest
+            self.addCleanup(os.environ.pop, "LUMINA_RAW_FIXTURE_BUNDLE_URL", None)
+            self.addCleanup(os.environ.pop, "LUMINA_RAW_FIXTURE_BUNDLE_SHA256", None)
+
+            def fail_open(*_args, **_kwargs):
+                raise AssertionError("cached archive must not re-download")
+
+            original = urllib.request.urlopen
+            urllib.request.urlopen = fail_open  # type: ignore[assignment]
+            try:
+                fetch_fixture(
+                    dest,
+                    {
+                        "download_url_env": "LUMINA_RAW_FIXTURE_BUNDLE_URL",
+                        "archive_sha256_env": "LUMINA_RAW_FIXTURE_BUNDLE_SHA256",
+                    },
+                    archive=archive,
+                )
+            finally:
+                urllib.request.urlopen = original
+            self.assertEqual((dest / "readme.txt").read_text(encoding="utf-8"), "ok\n")
 
 
 if __name__ == "__main__":
