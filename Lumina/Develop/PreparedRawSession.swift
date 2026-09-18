@@ -72,11 +72,14 @@ actor PreparedRawSession {
 
     let assetID: UUID
     let rawURL: URL
+    private let decodeBackend: any RawDecodeBackend
 
     private var interactiveFilter: CIRAWFilter?
     private var authoritativeFilter: CIRAWFilter?
     private(set) var capabilities = Capabilities()
     private(set) var metadata: Metadata?
+    private var didMaterializeInteractiveStage = false
+    private var didCacheAuthoritativeLazyStage = false
     private var rawStageCache: [String: RawStageEntry] = [:]
     private let rawStageCacheLimit = 4
     /// Interactive stages are realized GPU textures; two × ~32 MB is the cap.
@@ -85,9 +88,14 @@ actor PreparedRawSession {
     /// Bumped whenever Apple's decoder or our mapping changes meaningfully.
     static let decoderMappingVersion = "lumina-ciraw-1"
 
-    init(assetID: UUID, rawURL: URL) {
+    init(
+        assetID: UUID,
+        rawURL: URL,
+        decodeBackend: any RawDecodeBackend = RawDecodeBackendRegistry.production
+    ) {
         self.assetID = assetID
         self.rawURL = rawURL
+        self.decodeBackend = decodeBackend
     }
 
     /// Whether CIRAWFilter can open this file at all.
@@ -99,6 +107,14 @@ actor PreparedRawSession {
     func capabilityReport() -> (Capabilities, Metadata?) {
         prepareIfNeeded()
         return (capabilities, metadata)
+    }
+
+    func interactiveStageIsMaterialized() -> Bool {
+        didMaterializeInteractiveStage
+    }
+
+    func authoritativeStageIsLazy() -> Bool {
+        didCacheAuthoritativeLazyStage
     }
 
     // MARK: - RAW stage
@@ -153,6 +169,9 @@ actor PreparedRawSession {
         if tier == .interactive, let realized = materializeInteractiveStage(output) {
             cached = realized.image
             texture = realized.texture
+            didMaterializeInteractiveStage = true
+        } else if tier == .authoritative {
+            didCacheAuthoritativeLazyStage = true
         }
 
         rawStageCache[key] = RawStageEntry(
@@ -187,12 +206,12 @@ actor PreparedRawSession {
     private func prepareIfNeeded() {
         guard metadata == nil else { return }
 
-        guard let auth = CIRAWFilter(imageURL: rawURL) else {
+        guard let auth = decodeBackend.makeFilter(imageURL: rawURL) else {
             // Not RAW-capable — ImageIO fallback handled by the graph with an
             // honest proxy fidelity label.
             return
         }
-        let inter = CIRAWFilter(imageURL: rawURL)
+        let inter = decodeBackend.makeFilter(imageURL: rawURL)
 
         auth.isDraftModeEnabled = false
         if let inter {

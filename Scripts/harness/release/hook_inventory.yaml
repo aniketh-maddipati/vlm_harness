@@ -79,12 +79,14 @@ hooks:
       - Lumina/Develop/Lab/RamTierHarnessRunner.swift
       - Lumina/Develop/Lab/P0EditHarnessRunner.swift
       - Lumina/Develop/Lab/P0EditLiveRunner.swift
+      - Lumina/Develop/Lab/RawBackendBenchmarkRunner.swift
       - Lumina/Views/Workspace/WorkbenchCapture.swift
     forbidden_symbols:
       - RawHarnessRunner
       - RamTierHarnessRunner
       - P0EditHarnessRunner
       - P0EditLiveRunner
+      - RawBackendBenchmarkRunner
       - WorkbenchCapture
 
   - id: develop_lab_model
