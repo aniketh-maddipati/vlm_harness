@@ -30,8 +30,12 @@ On a Mac with Xcode 15+ and exiftool:
 bash Scripts/harness/lint/banned_words.sh
 bash Scripts/harness/lint/copy_contract_diff.sh
 bash Scripts/harness/lint/contract_structure.sh
+bash Scripts/harness/lint/swift_token_refs.sh   # HiFiTokens.* refs must match generated tokens
 
-# Build
+# FAST lane (38+ orchestration checks; includes swift_token_refs + spring_physics_f07)
+python3 Scripts/harness/run.py fast
+
+# Build (macOS only)
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug build
 
 # Logic tests (real types via @testable import Lumina)
@@ -54,7 +58,7 @@ brew install exiftool
 
 ### Cloud agents (Linux)
 
-Cloud agents run `python3 Scripts/harness/run.py fast` (or `bash Scripts/regression.sh pre-commit`) for static contract checks. All logic tests require macOS + Xcode (`xcodebuild test -only-testing:LuminaLogicTests`).
+Cloud agents run `python3 Scripts/harness/run.py fast` (or `bash Scripts/regression.sh pre-commit`) for static contract checks. **`swift_token_refs`** catches missing `HiFiTokens.Motion.*` members before `xcodebuild`. All logic tests require macOS + Xcode (`xcodebuild test -only-testing:LuminaLogicTests`).
 
 Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on Linux.
 
