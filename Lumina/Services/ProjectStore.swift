@@ -4,7 +4,7 @@ import CoreGraphics
 import UniformTypeIdentifiers
 
 /// Compatibility facade over `ShootStore`. Prefer ShootStore for new P0 code.
-enum ProjectStore {
+nonisolated enum ProjectStore {
     static func supportDirectory() throws -> URL {
         try ShootStore.supportDirectory()
     }

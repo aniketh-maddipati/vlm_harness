@@ -38,6 +38,7 @@ struct PropagationScope: Equatable, Sendable {
     var proposalRecipientIDs: Set<AssetID>
 }
 
+@MainActor
 extension PropagationState {
     func resolvedScope(
         presentation: WorkspacePresentation,

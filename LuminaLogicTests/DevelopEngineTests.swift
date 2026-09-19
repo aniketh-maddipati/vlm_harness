@@ -288,7 +288,8 @@ final class DevelopEngineTests: XCTestCase {
             contentsOf: repoRoot().appendingPathComponent("Lumina/Develop/Lab/DevelopMetalView.swift"),
             encoding: .utf8
         )
-        XCTAssertTrue(metalText.contains("p0.edit.draw_ms"))
+        XCTAssertTrue(metalText.contains("LatencyMetrics.editDrawKey") || metalText.contains("p0.edit.draw_ms"))
+        XCTAssertEqual(LatencyMetrics.editDrawKey, "p0.edit.draw_ms")
         XCTAssertTrue(metalText.contains("beginInterval(\"draw\""))
         XCTAssertTrue(metalText.contains("startTask(toClear:"))
         XCTAssertTrue(metalText.contains("startTask(toRender:"))

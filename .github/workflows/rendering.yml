@@ -1,6 +1,19 @@
 name: Rendering gates
 
 on:
+  push:
+    branches:
+      - main
+      - "cursor/**"
+    paths:
+      - "Lumina/**"
+      - "LuminaLogicTests/**"
+      - "LuminaUITests/**"
+      - "Scripts/harness/**"
+      - "Scripts/fixtures/**"
+      - "TestPlans/**"
+      - "design/fixture-manifest.*"
+      - ".github/workflows/**"
   pull_request:
     paths:
       - "Lumina/**"
@@ -30,14 +43,14 @@ permissions:
 
 jobs:
   fast:
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: python3 Scripts/harness/run.py fast
 
   compile-logic:
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
     runs-on: macos-15
     timeout-minutes: 20
     steps:
@@ -51,6 +64,7 @@ jobs:
             compile-logic-${{ runner.os }}-
       - name: Build app and tests
         run: |
+          python3 Scripts/harness/release/write_build_manifest.py
           python3 Scripts/harness/lint/xcode_compile.py \
             --project-root . --derived-data DD
       - name: Logic tests
@@ -64,13 +78,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: compile-logic
-          path: artifacts/harness/runs/
+          path: |
+            artifacts/harness/runs/
+            Lumina/Resources/LuminaBuildManifest.json
+            DD/Build/Products/Debug/Lumina.app/Contents/Resources/LuminaBuildManifest.json
           if-no-files-found: warn
 
   # GitHub forbids `secrets` in job-level `if`. Probe them on Ubuntu, then
   # start macos-15 only when both hosted fixture secrets exist.
   render-live-gate:
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
     runs-on: ubuntu-latest
     outputs:
       enabled: ${{ steps.check.outputs.enabled }}
@@ -90,18 +107,22 @@ jobs:
   render-live:
     if: >
       needs.render-live-gate.outputs.enabled == 'true' &&
-      (github.event_name == 'pull_request' ||
+      (github.event_name == 'push' ||
+      github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly'))
     needs: [compile-logic, render-live-gate]
     runs-on: macos-15
     timeout-minutes: 25
+    # Job-level env cannot use runner.* (GitHub rejects the workflow). Paths use $RUNNER_TEMP.
     env:
       LUMINA_RAW_FIXTURE_BUNDLE_URL: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_URL }}
       LUMINA_RAW_FIXTURE_BUNDLE_SHA256: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 }}
-      LUMINA_RAW_FIXTURE_ROOT: ${{ runner.temp }}/raw-correctness-v1
-      LUMINA_RAW_FIXTURE_ARCHIVE: ${{ runner.temp }}/raw-correctness-v1-archive/bundle
     steps:
       - uses: actions/checkout@v4
+      - name: Export fixture paths
+        run: |
+          echo "LUMINA_RAW_FIXTURE_ROOT=${RUNNER_TEMP}/raw-correctness-v1" >> "$GITHUB_ENV"
+          echo "LUMINA_RAW_FIXTURE_ARCHIVE=${RUNNER_TEMP}/raw-correctness-v1-archive/bundle" >> "$GITHUB_ENV"
       - name: Restore DerivedData
         uses: actions/cache@v4
         with:
@@ -150,9 +171,11 @@ jobs:
       LUMINA_RAW_FIXTURE_BUNDLE_SHA256: ${{ secrets.LUMINA_RAW_FIXTURE_BUNDLE_SHA256 }}
       LUMINA_RENDER_BASELINE: ${{ vars.LUMINA_RENDER_BASELINE }}
       LUMINA_RENDER_STATE_PATH: ${{ vars.LUMINA_RENDER_STATE_PATH }}
-      LUMINA_RAW_FIXTURE_ARCHIVE: ${{ runner.temp }}/raw-correctness-v1-archive/bundle
     steps:
       - uses: actions/checkout@v4
+      - name: Export fixture archive path
+        run: |
+          echo "LUMINA_RAW_FIXTURE_ARCHIVE=${RUNNER_TEMP}/raw-correctness-v1-archive/bundle" >> "$GITHUB_ENV"
       - name: Restore full RAW archive
         uses: actions/cache@v4
         with:

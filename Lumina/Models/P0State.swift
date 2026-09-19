@@ -15,7 +15,7 @@ enum ShootSchemaVersion: Int, Codable, Sendable, Comparable {
 
 // MARK: - Cull (independent of edit)
 
-enum CullDecision: String, Codable, Hashable, Sendable {
+nonisolated enum CullDecision: String, Codable, Hashable, Sendable {
     case undecided
     case keep
     case reject
@@ -40,14 +40,14 @@ enum CullDecision: String, Codable, Hashable, Sendable {
 
 // MARK: - Source references
 
-enum SourceAvailability: String, Codable, Hashable, Sendable {
+nonisolated enum SourceAvailability: String, Codable, Hashable, Sendable {
     case available
     case missing
     case unknown
 }
 
 /// External folder / drive reference with security-scoped bookmark support.
-struct SourceReference: Codable, Hashable, Sendable, Identifiable {
+nonisolated struct SourceReference: Codable, Hashable, Sendable, Identifiable {
     var id: UUID
     /// Absolute path when last known.
     var originalPath: String
@@ -99,7 +99,7 @@ struct SourceReference: Codable, Hashable, Sendable, Identifiable {
 // MARK: - Asset
 
 /// Durable per-photograph catalog record. Missing originals do not delete this.
-struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
+nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     /// Opaque rediscovery key (volume + relative path + size + capture).
     var sourceKey: String
@@ -223,14 +223,14 @@ struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
 
 /// Arrangement only: answers which frames belong to the same moment.
 /// It carries no preference, rating, or cull mutation.
-struct SceneMembership: Codable, Hashable, Sendable {
+nonisolated struct SceneMembership: Codable, Hashable, Sendable {
     var burstID: String?
     var sceneID: String?
 }
 
 /// Replaceable technical observations. These may help the photographer
 /// inspect a frame but cannot write `CullDecision`.
-struct QualitySignals: Codable, Hashable, Sendable {
+nonisolated struct QualitySignals: Codable, Hashable, Sendable {
     var sharpness: Double
     var exposureHealth: Double
     var faceDetected: Bool
@@ -240,7 +240,7 @@ struct QualitySignals: Codable, Hashable, Sendable {
 /// Future, gated output. Deliberately separate from both `AssetRecord.cull`
 /// and persisted ratings so a model can be benchmarked or removed without
 /// changing anything the photographer decided.
-struct RecommendationObservation: Codable, Hashable, Sendable {
+nonisolated struct RecommendationObservation: Codable, Hashable, Sendable {
     var assetID: UUID
     var sceneID: String
     var modelVersion: String
@@ -248,7 +248,7 @@ struct RecommendationObservation: Codable, Hashable, Sendable {
     var generatedAt: Date
 }
 
-extension AssetRecord {
+nonisolated extension AssetRecord {
     var sceneMembership: SceneMembership {
         SceneMembership(burstID: burstID, sceneID: clusterID)
     }

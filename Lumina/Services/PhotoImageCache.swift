@@ -2,7 +2,7 @@ import AppKit
 import CryptoKit
 import Foundation
 
-enum PhotoImageTier: Sendable {
+nonisolated enum PhotoImageTier: Sendable {
     case grid
     case preview
     case proxy
@@ -40,7 +40,7 @@ enum PhotoImageTier: Sendable {
     }
 }
 
-enum PhotoLoadOutcome: Sendable {
+nonisolated enum PhotoLoadOutcome: Sendable {
     case image(NSImage)
     case missing
     case failed
@@ -70,7 +70,7 @@ actor PhotoImageCache {
     private var prefetchQueue: [(path: String, maxPixelSize: Int?, allowRAW: Bool)] = []
     private var prefetchActive = 0
 
-    private static let rawExtensions: Set<String> = [
+    nonisolated private static let rawExtensions: Set<String> = [
         "ARW", "CR2", "CR3", "NEF", "RAF", "DNG", "ORF", "RW2", "PEF", "SRW", "3FR", "IIQ",
     ]
 
@@ -316,7 +316,7 @@ actor PhotoImageCache {
 }
 
 /// Deduped prefetch front-end — used by grid overview and Pick phase.
-final class ThumbCache: @unchecked Sendable {
+nonisolated final class ThumbCache: @unchecked Sendable {
     static let shared = ThumbCache()
     private var warm = Set<String>()
     private let lock = NSLock()
@@ -348,7 +348,7 @@ final class ThumbCache: @unchecked Sendable {
     }
 }
 
-enum PhotoImageLoader {
+nonisolated enum PhotoImageLoader {
     static func ensureProxyPath(photo: PhotoRecord, projectName: String) async -> String? {
         await Task.detached(priority: .userInitiated) {
             DevelopEngine.ensureProxy(for: photo, projectName: projectName)?.path
@@ -357,8 +357,8 @@ enum PhotoImageLoader {
 }
 
 /// Evicts runtime browse caches after an editing session — ingest disk tiers are untouched.
+@MainActor
 enum SessionCache {
-    @MainActor
     static func beginEditingSession(projectName: String) {
         Task {
             await PhotoImageCache.shared.beginSession(projectName: projectName)
@@ -368,7 +368,6 @@ enum SessionCache {
         MetalCanvasLifecycle.beginSession()
     }
 
-    @MainActor
     static func endEditingSession(clearBrowseSpine: Bool = true) {
         Task {
             await PhotoImageCache.shared.endSession()

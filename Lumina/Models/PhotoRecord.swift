@@ -4,7 +4,7 @@ typealias PhotoID = UUID
 
 // MARK: - Tiers & sort
 
-enum PhotoTier: String, Codable, CaseIterable {
+nonisolated enum PhotoTier: String, Codable, CaseIterable {
     case keep, reject, unranked
 
     var label: String {
@@ -50,7 +50,7 @@ enum GridFilter: String, CaseIterable, Identifiable, Codable, Sendable {
     var id: String { rawValue }
 }
 
-enum UncertaintyKind: String, Codable, Hashable {
+nonisolated enum UncertaintyKind: String, Codable, Hashable {
     case cullTie
     case cullBorderline
     case editLowConfidence
@@ -62,7 +62,7 @@ enum SessionLens: Equatable {
     case audit(AuditReason)
 }
 
-enum AuditReason: String, Codable, CaseIterable, Hashable, Identifiable {
+nonisolated enum AuditReason: String, Codable, CaseIterable, Hashable, Identifiable {
     case cullTie
     case cullBorderline
     case editLowConfidence
@@ -141,7 +141,7 @@ enum ExportAspect: String, CaseIterable, Identifiable, Codable {
 
 // MARK: - Develop
 
-struct DevelopAdjustments: Codable, Hashable {
+nonisolated struct DevelopAdjustments: Codable, Hashable {
     var exposure: Double = 0
     var temperature: Double = 0 // offset from profile Kelvin
     var tint: Double = 0
@@ -473,7 +473,7 @@ nonisolated struct DevelopRecipe: Codable, Hashable {
 /// Back-compat alias used by older UI code.
 typealias DevelopProfile = DevelopRecipe
 
-extension DevelopRecipe {
+nonisolated extension DevelopRecipe {
     var sourceCount: Int { sourceNeighbors.isEmpty ? (hasSettings ? 1 : 0) : sourceNeighbors.count }
     var hasDevelopSettings: Bool { hasSettings }
 
@@ -498,14 +498,14 @@ extension DevelopRecipe {
 
 // MARK: - Photo
 
-enum PreviewOrigin: String, Codable, Hashable {
+nonisolated enum PreviewOrigin: String, Codable, Hashable {
     case embedded
     case synthesized
     case processed
     case unknown
 }
 
-struct PhotoRecord: Identifiable, Codable, Hashable {
+nonisolated struct PhotoRecord: Identifiable, Codable, Hashable {
     let id: UUID
     var rawPath: String
     var filename: String

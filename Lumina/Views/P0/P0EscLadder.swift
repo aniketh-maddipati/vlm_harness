@@ -12,6 +12,7 @@ import Foundation
 /// 6. *(reserved)* Un-applied staged batches → dissolve on relaunch.
 ///
 /// Steps 3–6 mirror `LuminaShellModel.handleEscape` and land when P0 gains parity.
+@MainActor
 enum P0EscLadder {
     /// Returns true when Esc was consumed.
     static func handle(session: P0SessionModel) -> Bool {

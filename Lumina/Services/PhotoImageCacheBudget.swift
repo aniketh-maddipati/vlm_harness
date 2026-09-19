@@ -3,7 +3,7 @@ import Foundation
 
 /// Byte budgets for `PhotoImageCache` — **proposal awaiting contract ruling (W6)**.
 /// Values are named here and in the RAM-tier ledger; not sealed in `tokens.yaml`.
-enum PhotoImageCacheBudget {
+nonisolated enum PhotoImageCacheBudget {
     /// Grid decode cap (`PhotoImageTier.gridMaxPixelSize` = 512).
     static let gridTierCeilingBytes = 48 * 1024 * 1024
     /// Preview / filmstrip decode cap (1600 px long edge).
@@ -11,7 +11,7 @@ enum PhotoImageCacheBudget {
     /// Proxy / unbounded decode path.
     static let proxyTierCeilingBytes = 128 * 1024 * 1024
     /// Combined LRU table ceiling across all tiers.
-    nonisolated static let totalCeilingBytes = 256 * 1024 * 1024
+    static let totalCeilingBytes = 256 * 1024 * 1024
 
     /// Max concurrent prefetch decodes — width tied to `PreparedRawSession` capacity (4)
     /// doubled for grid+preview overlap without unbounded fan-out.
