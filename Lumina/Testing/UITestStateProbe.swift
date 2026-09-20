@@ -32,6 +32,10 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedRenderFidelity: String? = nil
     var focusedHasPresentedRAW: Bool? = nil
     var inspectionSettledLongEdge: Int? = nil
+    /// File EXIF after one ImageIO bake — portrait vs landscape, independent of RAW promotion.
+    var focusedOrientedIsPortrait: Bool? = nil
+    /// Currently presented CIImage aspect class. Must match `focusedOrientedIsPortrait` when both set.
+    var focusedPresentedIsPortrait: Bool? = nil
     /// D47/A3 — pointer cull mark targets visible on the focused contact-sheet frame.
     var pointerCullTargetsVisible: Bool
     var inspectingAssetID: String?
@@ -123,6 +127,19 @@ extension P0SessionModel {
                 displayedCIImage(for: $0) != nil
             } ?? false,
             inspectionSettledLongEdge: inspectionSettledLongEdge,
+            focusedOrientedIsPortrait: focused.flatMap { asset -> Bool? in
+                let path = asset.thumbPath ?? asset.gridThumbPath ?? asset.source.originalPath
+                guard let size = ImagePixelFormat.orientedPixelSize(
+                    at: URL(fileURLWithPath: path)
+                ) else { return nil }
+                return size.width + 1 < size.height
+            },
+            focusedPresentedIsPortrait: focusedAssetID.flatMap { id -> Bool? in
+                guard let extent = displayedCIImage(for: id)?.extent, extent.height > 1 else {
+                    return nil
+                }
+                return extent.width + 1 < extent.height
+            },
             pointerCullTargetsVisible: route == "contactSheet" && inspectingAssetID == nil && focusedAssetID != nil,
             inspectingAssetID: inspectingAssetID?.uuidString,
             selectedAssetIDs: selectedAssetIDs.map(\.uuidString).sorted(),

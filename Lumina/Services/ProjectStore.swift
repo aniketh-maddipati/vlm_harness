@@ -206,21 +206,10 @@ nonisolated enum PreviewExtractor {
 
     @discardableResult
     static func extractFullImage(to destURL: URL, from url: URL, maxPixelSize: Int) -> Bool {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return false }
-        guard let full = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return false }
-        let maxDim = max(full.width, full.height)
-        if maxDim <= maxPixelSize {
-            return writeJPEG(cgImage: full, to: destURL, quality: 0.94)
+        guard let image = OrientedDisplayImage.cgImage(at: url, maxPixelSize: maxPixelSize) else {
+            return false
         }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-        ]
-        guard let scaled = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
-            return writeJPEG(cgImage: full, to: destURL, quality: 0.92)
-        }
-        return writeJPEG(cgImage: scaled, to: destURL, quality: 0.94)
+        return writeJPEG(cgImage: image, to: destURL, quality: 0.94)
     }
 
     static func renderedFallback(from rawURL: URL, maxPixelSize: Int = 6000) -> CGImage? {

@@ -1,7 +1,6 @@
 import Foundation
 import Metal
 import CoreVideo
-import ImageIO
 import CoreGraphics
 
 extension Notification.Name {
@@ -398,31 +397,10 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
     /// Cached preview JPEG only — EXIF orientation applied once via ImageIO transform.
     private static func decodeBrowseJPEG(path: String, maxPixel: Int) -> CGImage? {
         assertBrowseJPEGPath(path)
-        let url = URL(fileURLWithPath: path)
-        let source: CGImageSource? = {
-            if let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) {
-                return CGImageSourceCreateWithData(data as CFData, nil)
-            }
-            return CGImageSourceCreateWithURL(url as CFURL, nil)
-        }()
-        guard let source else { return nil }
-
-        let opts: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
-            kCGImageSourceCreateThumbnailFromImageAlways: false,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceShouldCacheImmediately: false,
-        ]
-
-        if let thumb = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) {
-            return thumb
-        }
-        if let full = CGImageSourceCreateImageAtIndex(source, 0, nil) {
-            let edge = max(full.width, full.height)
-            if edge <= maxPixel { return full }
-        }
-        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+        return OrientedDisplayImage.cgImage(
+            at: URL(fileURLWithPath: path),
+            maxPixelSize: maxPixel
+        )
     }
 
     private static func makeIOSurfacePixelBuffer(width: Int, height: Int) -> CVPixelBuffer? {

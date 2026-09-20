@@ -8,7 +8,9 @@
 
 ## Orientation
 
-- Applied **once** at decode (`CIRAWFilter` output or ImageIO `CreateThumbnailWithTransform` / `applyOrientationProperty`).
+- Applied **once** at decode, as pixels, never as a second CI transform on the Metal present path.
+- Browse / JPEG seed: ImageIO `CreateThumbnailWithTransform` (`OrientedDisplayImage`) then `CIImage(cgImage:)`. Do **not** feed `CIImage(contentsOf:)` + `applyOrientationProperty` into `DevelopMetalView` — that path flashes inverted for a frame against `CIRenderDestination.isFlipped`.
+- RAW: `CIRAWFilter` output, then `OrientedDisplayImage.aligning` if the demosaic is still in sensor space. Metal destination flip is the only Y conversion.
 - Crop and 1:1 regions are normalized in **oriented** image space (origin top-left for UI; converted to CI bottom-left when cropping).
 
 ## Display conversion

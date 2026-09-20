@@ -33,6 +33,14 @@ final class ProgressiveFocusTests: LuminaUITestCase {
         XCTAssertEqual(single.image.frame.origin.y, initialFrame.origin.y, accuracy: 1)
         XCTAssertEqual(single.image.frame.width, initialFrame.width, accuracy: 1)
         XCTAssertEqual(single.image.frame.height, initialFrame.height, accuracy: 1)
+        if let oriented = next.focusedOrientedIsPortrait,
+           let presented = next.focusedPresentedIsPortrait {
+            XCTAssertEqual(
+                oriented,
+                presented,
+                "click-through must not present a RAW frame in the opposite aspect"
+            )
+        }
         Invariants.assert(next, app: app)
     }
 }

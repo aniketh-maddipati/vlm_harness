@@ -1,6 +1,5 @@
 import CoreGraphics
 import CoreVideo
-import ImageIO
 import Metal
 
 /// Canonical browse-path pixel representation for Metal and Core Image.
@@ -22,19 +21,7 @@ enum ImagePixelFormat {
 
     /// Reads oriented pixel dimensions after applying EXIF orientation exactly once via ImageIO.
     static func orientedPixelSize(at url: URL) -> (width: Int, height: Int)? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else {
-            return nil
-        }
-        var w = props[kCGImagePropertyPixelWidth] as? Int ?? 0
-        var h = props[kCGImagePropertyPixelHeight] as? Int ?? 0
-        guard w > 0, h > 0 else { return nil }
-
-        if let orientation = props[kCGImagePropertyOrientation] as? UInt32,
-           (5...8).contains(orientation) {
-            swap(&w, &h)
-        }
-        return (w, h)
+        OrientedDisplayImage.fileOrientation(at: url)?.orientedSize
     }
 
     /// Preferred color space for a decoded still — embedded profile when ImageIO exposes it.

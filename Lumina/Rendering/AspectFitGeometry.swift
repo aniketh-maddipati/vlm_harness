@@ -116,13 +116,14 @@ enum AspectFitGeometry {
 #if DEBUG
 enum EXIFOrientationFixture {
     /// Expected dimension treatment when ImageIO applies `kCGImagePropertyOrientation`.
-    static let swapDimensionsForOrientations: Set<UInt32> = [5, 6, 7, 8]
+    static let swapDimensionsForOrientations: Set<UInt32> = OrientedDisplayImage.swapDimensions
 
     static func orientedSize(rawWidth: Int, rawHeight: Int, orientation: UInt32) -> (Int, Int) {
-        if swapDimensionsForOrientations.contains(orientation) {
-            return (rawHeight, rawWidth)
-        }
-        return (rawWidth, rawHeight)
+        OrientedDisplayImage.orientedSize(
+            pixelWidth: rawWidth,
+            pixelHeight: rawHeight,
+            orientation: orientation
+        )
     }
 }
 

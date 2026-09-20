@@ -12,6 +12,17 @@ REQUIREMENTS: dict[str, tuple[str, ...]] = {
         "DevelopMetalView(",
         "immediateBrowseImage",
         "BrowsePixelService.shared.pinFocused",
+        "OrientedDisplayImage.stablePresent",
+        "OrientedDisplayImage.ciImage",
+    ),
+    "Lumina/Rendering/OrientedDisplayImage.swift": (
+        "CreateThumbnailWithTransform",
+        "stablePresent",
+        "aligning",
+    ),
+    "Lumina/Develop/DevelopRenderGraph.swift": (
+        "OrientedDisplayImage.aligning",
+        "OrientedDisplayImage.ciImage",
     ),
     "Lumina/Views/P0/P0ContactSheetView.swift": (
         "if session.inspectingAssetID == nil",
@@ -60,6 +71,11 @@ REQUIREMENTS: dict[str, tuple[str, ...]] = {
 FORBIDDEN: dict[str, tuple[str, ...]] = {
     "Lumina/Views/P0/P0SinglePhotoEditor.swift": (
         "if let image {\n                    DevelopMetalView(",
+        "CIImage(contentsOf:",
+    ),
+    "Lumina/Develop/DevelopRenderGraph.swift": (
+        "applyOrientationProperty",
+        "CIImage(contentsOf:",
     ),
 }
 

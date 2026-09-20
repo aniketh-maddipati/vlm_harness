@@ -43,7 +43,8 @@ enum DevelopEngine {
         defer {
             LatencyMetrics.record("develop.render", milliseconds: (CFAbsoluteTimeGetCurrent() - start) * 1000)
         }
-        guard let source = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else {
+        guard let source = OrientedDisplayImage.ciImage(at: url) ??
+                CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else {
             return nil
         }
         let edit = EditRecipe(from: clampRecipe(recipe.applying(offsets)))

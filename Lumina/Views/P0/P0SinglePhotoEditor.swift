@@ -190,7 +190,7 @@ struct P0SinglePhotoEditor: View {
 
             let promoted = session.displayedCIImage(for: asset.id)
             let fallback = fallbackAssetID == asset.id ? fallbackImage : nil
-            let image = promoted ?? fallback
+            let image = OrientedDisplayImage.stablePresent(promoted: promoted, fallback: fallback)
             let extent = image?.extent.size ?? CGSize(
                 width: max(asset.previewLongEdge, 1),
                 height: max(asset.previewLongEdge, 1)
@@ -274,7 +274,7 @@ struct P0SinglePhotoEditor: View {
             guard !Task.isCancelled else { return }
             if let pixel = await BrowsePixelService.shared.pixel(path: path, tier: .focused) {
                 guard !Task.isCancelled, asset.id == requestedID else { return }
-                fallbackImage = CIImage(cgImage: pixel.cgImage)
+                fallbackImage = OrientedDisplayImage.ciImage(fromOrientedPixels: pixel.cgImage)
                 LatencyMetrics.record(
                     "p0.edit.open_preview_ms",
                     milliseconds: (CFAbsoluteTimeGetCurrent() - started) * 1000
@@ -284,15 +284,14 @@ struct P0SinglePhotoEditor: View {
         }
     }
 
-    /// `CIImage(contentsOf:)` is a lazy, JPEG-only seed. It binds the clicked
-    /// asset synchronously so the permanent Metal view can never retain the
-    /// previous photograph while the shared decode service warms sharper pixels.
+    /// ImageIO-oriented JPEG seed. Pixels are baked upright before the first
+    /// Metal present so click-through cannot flash an inverted file image.
     private static func immediateBrowseImage(for asset: AssetRecord) -> CIImage? {
         let path = asset.thumbPath ?? asset.gridThumbPath ?? asset.proxyPath
         guard let path else { return nil }
-        return CIImage(
-            contentsOf: URL(fileURLWithPath: path),
-            options: [.applyOrientationProperty: true]
+        return OrientedDisplayImage.ciImage(
+            at: URL(fileURLWithPath: path),
+            maxPixelSize: PhotoImageTier.focusedPreviewLongEdge
         )
     }
 

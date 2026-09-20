@@ -154,7 +154,7 @@ nonisolated enum DevelopRenderGraph {
                 tier: tier
             ) {
                 rawStageCacheHit = staged.cacheHit
-                return staged.image
+                return OrientedDisplayImage.aligning(staged.image, toFile: request.rawURL)
             }
             // ImageIO rendered fallback — honest proxy fidelity, not RAW developing.
             if let rendered = PreviewExtractor.renderedFallback(
@@ -163,10 +163,10 @@ nonisolated enum DevelopRenderGraph {
             ) {
                 usedProxy = true
                 fidelity = .proxyFallback
-                return CIImage(cgImage: rendered)
+                return OrientedDisplayImage.ciImage(fromOrientedPixels: rendered)
             }
             if let proxy = request.proxyURL,
-               let jpeg = CIImage(contentsOf: proxy, options: [.applyOrientationProperty: true]) {
+               let jpeg = OrientedDisplayImage.ciImage(at: proxy) {
                 usedProxy = true
                 fidelity = .proxyFallback
                 return jpeg
@@ -176,10 +176,10 @@ nonisolated enum DevelopRenderGraph {
             usedProxy = true
             fidelity = .proxyFallback
             if let proxy = request.proxyURL,
-               let jpeg = CIImage(contentsOf: proxy, options: [.applyOrientationProperty: true]) {
+               let jpeg = OrientedDisplayImage.ciImage(at: proxy) {
                 return jpeg
             }
-            return CIImage(contentsOf: request.rawURL, options: [.applyOrientationProperty: true])
+            return OrientedDisplayImage.ciImage(at: request.rawURL)
         }
     }
 
