@@ -80,7 +80,9 @@ final class EditVariantTests: XCTestCase {
         XCTAssertEqual(branched.recipe(forVariantAt: 3)?.exposure, 0.8)
 
         // 10. Choosing variant 1 collapses to one canonical recipe and one typed undo entry.
-        session.chooseEditVariant(at: 1)
+        session.focusEditVariant(at: 1)
+        XCTAssertEqual(session.assets[0].recipe, initial, "focus must not commit")
+        session.chooseFocusedEditVariant()
         let chosen = try XCTUnwrap(session.assets[0].recipe)
         XCTAssertNil(session.workspaceState.editVariants)
         XCTAssertEqual(chosen.exposure, 0.8)
@@ -109,11 +111,6 @@ final class EditVariantTests: XCTestCase {
         session.setSharedVariantExposure(1.0)
         session.setVariantWhiteBalance(temperature: 4_100, tint: 12, at: 3)
 
-        XCTAssertEqual(session.workspaceState.editVariantRawSessionCount, 0)
-        XCTAssertEqual(session.workspaceState.editVariantRenderCount, 0)
-        XCTAssertEqual(session.workspaceState.editVariantMemoryDelta, "UNMEASURED")
-        XCTAssertEqual(session.workspaceState.editVariantTimeToShowFour, "UNMEASURED")
-
         session.cancelEditVariants()
 
         XCTAssertNil(session.workspaceState.editVariants)
@@ -134,5 +131,52 @@ final class EditVariantTests: XCTestCase {
         XCTAssertFalse(canonical.contains("EditVariant"))
         XCTAssertFalse(workspace.contains("PreparedRawSession"))
         XCTAssertFalse(workspace.contains(": Codable"))
+    }
+
+    func testVariantFocusTravelStagesWithoutCommitting() {
+        let initial = EditRecipe(exposure: 0.15)
+        let session = P0SessionModel()
+        session.assets = [makeAsset(recipe: initial)]
+        session.beginEditVariants(assetID: assetID)
+
+        XCTAssertEqual(session.workspaceState.focusedEditVariantIndex, 0)
+        session.moveEditVariantFocus(by: 1)
+        session.moveEditVariantFocus(by: 1)
+        XCTAssertEqual(session.workspaceState.focusedEditVariantIndex, 2)
+        XCTAssertEqual(session.assets[0].recipe, initial)
+        XCTAssertFalse(session.canUndo)
+
+        session.moveEditVariantFocus(by: 99)
+        XCTAssertEqual(session.workspaceState.focusedEditVariantIndex, 3)
+        session.moveEditVariantFocus(by: -99)
+        XCTAssertEqual(session.workspaceState.focusedEditVariantIndex, 0)
+        XCTAssertEqual(session.assets[0].recipe, initial)
+    }
+
+    func testKeyRoutingAndMinimalTrayPreserveDecisionBoundary() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let routing = try String(
+            contentsOf: root.appendingPathComponent("Lumina/Views/P0/P0KeyRoutingModifier.swift"),
+            encoding: .utf8
+        )
+        let editor = try String(
+            contentsOf: root.appendingPathComponent("Lumina/Views/P0/P0SinglePhotoEditor.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(routing.contains("unmodified && lower == \"v\""))
+        XCTAssertTrue(routing.contains("session.beginEditVariants()"))
+        XCTAssertTrue(routing.contains("session.chooseFocusedEditVariant()"))
+        XCTAssertTrue(routing.contains("session.cancelEditVariants()"))
+        XCTAssertTrue(routing.contains("session.moveEditVariantFocus(by: -1)"))
+        XCTAssertTrue(routing.contains("session.moveEditVariantFocus(by: 1)"))
+        XCTAssertTrue(editor.contains("Variants · ⏎ chooses · Esc cancels"))
+        XCTAssertTrue(editor.contains("ForEach(0..<EditVariantSession.count"))
+        XCTAssertTrue(editor.contains("Shared exposure"))
+        XCTAssertTrue(editor.contains("setVariantWhiteBalance"))
+        XCTAssertFalse(editor.contains("PreparedRawSession"))
+        XCTAssertFalse(editor.contains("DevelopRenderScheduler"))
     }
 }

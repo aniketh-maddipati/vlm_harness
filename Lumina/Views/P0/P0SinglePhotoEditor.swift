@@ -43,6 +43,7 @@ struct P0SinglePhotoEditor: View {
         .onDisappear {
             session.flushPendingEditIfNeeded()
             session.setShowingBefore(false)
+            session.cancelEditVariants()
             Task { await BrowsePixelService.shared.clearFocusedPin() }
         }
         .onChange(of: asset.id) { _, _ in
@@ -255,7 +256,112 @@ struct P0SinglePhotoEditor: View {
                     .padding(18)
                 }
             }
+
+            if session.workspaceState.editVariants?.assetID == asset.id {
+                editVariantTray
+                    .padding(24)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            }
         }
+    }
+
+    private var editVariantTray: some View {
+        VStack(spacing: 10) {
+            Text("Variants · ⏎ chooses · Esc cancels")
+                .font(LuminaTokens.Typeface.meta(12, weight: .medium))
+                .foregroundStyle(LuminaTokens.Ink.primary)
+
+            HStack(spacing: 8) {
+                ForEach(0..<EditVariantSession.count, id: \.self) { index in
+                    editVariantCard(index)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Button("Shared exposure −") { adjustSharedVariantExposure(by: -0.1) }
+                Button("Shared exposure +") { adjustSharedVariantExposure(by: 0.1) }
+                Divider().frame(height: 20)
+                Button("Exposure −") { adjustFocusedVariantExposure(by: -0.1) }
+                Button("Exposure +") { adjustFocusedVariantExposure(by: 0.1) }
+                Button("Temp −") { adjustFocusedVariantTemperature(by: -250) }
+                Button("Temp +") { adjustFocusedVariantTemperature(by: 250) }
+                Button("Tint −") { adjustFocusedVariantTint(by: -2) }
+                Button("Tint +") { adjustFocusedVariantTint(by: 2) }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(12)
+        .background(LuminaTokens.Surface.porcelain.opacity(0.96))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(LuminaTokens.Line.hairline, lineWidth: LuminaTokens.Line.hairlineWidth)
+        }
+    }
+
+    private func editVariantCard(_ index: Int) -> some View {
+        let variant = session.workspaceState.editVariants?.recipe(forVariantAt: index)
+        let focused = session.workspaceState.focusedEditVariantIndex == index
+        return Button {
+            session.focusEditVariant(at: index)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Variant \(index + 1)")
+                    .font(LuminaTokens.Typeface.meta(12, weight: .medium))
+                Text(String(format: "Exposure %+.2f", variant?.exposure ?? 0))
+                Text(String(format: "WB %.0f · %+.0f", variant?.temperature ?? 0, variant?.tint ?? 0))
+            }
+            .font(LuminaTokens.Typeface.meta(11))
+            .foregroundStyle(LuminaTokens.Ink.primary)
+            .frame(minWidth: 118, alignment: .leading)
+            .padding(8)
+            .background(focused ? LuminaTokens.Status.selection.opacity(0.18) : LuminaTokens.Surface.well)
+            .overlay {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(
+                        focused ? LuminaTokens.Status.selection : LuminaTokens.Line.hairline,
+                        lineWidth: focused ? 2 : LuminaTokens.Line.hairlineWidth
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Variant \(index + 1)")
+        .accessibilityAddTraits(focused ? .isSelected : [])
+    }
+
+    private func adjustSharedVariantExposure(by delta: Double) {
+        guard let exposure = session.workspaceState.editVariants?.sharedRecipe.exposure else { return }
+        session.setSharedVariantExposure(exposure + delta)
+    }
+
+    private func adjustFocusedVariantExposure(by delta: Double) {
+        guard let index = session.workspaceState.focusedEditVariantIndex,
+              let exposure = session.workspaceState.editVariants?.recipe(forVariantAt: index)?.exposure
+        else { return }
+        session.setVariantExposure(exposure + delta, at: index)
+    }
+
+    private func adjustFocusedVariantTemperature(by delta: Double) {
+        guard let index = session.workspaceState.focusedEditVariantIndex,
+              let variant = session.workspaceState.editVariants?.recipe(forVariantAt: index)
+        else { return }
+        session.setVariantWhiteBalance(
+            temperature: variant.temperature + delta,
+            tint: variant.tint,
+            at: index
+        )
+    }
+
+    private func adjustFocusedVariantTint(by delta: Double) {
+        guard let index = session.workspaceState.focusedEditVariantIndex,
+              let variant = session.workspaceState.editVariants?.recipe(forVariantAt: index)
+        else { return }
+        session.setVariantWhiteBalance(
+            temperature: variant.temperature,
+            tint: variant.tint + delta,
+            at: index
+        )
     }
 
     /// Resolve the clicked asset's durable browse currency once and pin it.

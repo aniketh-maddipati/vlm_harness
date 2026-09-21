@@ -72,13 +72,8 @@ struct WorkspaceState: Equatable, Sendable {
     private(set) var comparisonAssetIDs: [UUID]
     private(set) var currentScope: PropagationRing
     private(set) var editVariants: EditVariantSession?
+    private(set) var focusedEditVariantIndex: Int?
     private(set) var editVariantCancellationCount = 0
-
-    /// Branching itself owns no decode or rendering resources.
-    var editVariantRawSessionCount: Int { 0 }
-    var editVariantRenderCount: Int { 0 }
-    var editVariantMemoryDelta: String { "UNMEASURED" }
-    var editVariantTimeToShowFour: String { "UNMEASURED" }
 
     init(
         focusedAssetID: UUID? = nil,
@@ -86,7 +81,8 @@ struct WorkspaceState: Equatable, Sendable {
         temporarilyExpandedAssetIDs: [UUID] = [],
         comparisonAssetIDs: [UUID] = [],
         currentScope: PropagationRing = .row,
-        editVariants: EditVariantSession? = nil
+        editVariants: EditVariantSession? = nil,
+        focusedEditVariantIndex: Int? = nil
     ) {
         self.focusedAssetID = focusedAssetID
         self.selectedAssetIDs = Self.unique(selectedAssetIDs)
@@ -94,6 +90,7 @@ struct WorkspaceState: Equatable, Sendable {
         self.comparisonAssetIDs = Self.unique(comparisonAssetIDs)
         self.currentScope = currentScope
         self.editVariants = editVariants
+        self.focusedEditVariantIndex = editVariants == nil ? nil : (focusedEditVariantIndex ?? 0)
     }
 
     mutating func focus(_ assetID: UUID?) {
@@ -130,6 +127,7 @@ struct WorkspaceState: Equatable, Sendable {
 
     mutating func beginEditVariants(assetID: UUID, sharedRecipe: EditRecipe) {
         editVariants = EditVariantSession(assetID: assetID, sharedRecipe: sharedRecipe)
+        focusedEditVariantIndex = 0
     }
 
     mutating func setSharedVariantExposure(_ exposure: Double) {
@@ -152,16 +150,31 @@ struct WorkspaceState: Equatable, Sendable {
         )
     }
 
+    mutating func focusEditVariant(at index: Int) {
+        guard let editVariants, editVariants.overrides.indices.contains(index) else { return }
+        focusedEditVariantIndex = index
+    }
+
+    mutating func moveEditVariantFocus(by delta: Int) {
+        guard let editVariants, let focusedEditVariantIndex else { return }
+        self.focusedEditVariantIndex = min(
+            max(focusedEditVariantIndex + delta, editVariants.overrides.startIndex),
+            editVariants.overrides.index(before: editVariants.overrides.endIndex)
+        )
+    }
+
     mutating func takeEditVariant(at index: Int) -> (assetID: UUID, recipe: EditRecipe)? {
         guard let session = editVariants,
               let recipe = session.recipe(forVariantAt: index) else { return nil }
         editVariants = nil
+        focusedEditVariantIndex = nil
         return (session.assetID, recipe)
     }
 
     mutating func cancelEditVariants() {
         guard editVariants != nil else { return }
         editVariants = nil
+        focusedEditVariantIndex = nil
         editVariantCancellationCount += 1
     }
 
@@ -174,6 +187,7 @@ struct WorkspaceState: Equatable, Sendable {
         comparisonAssetIDs.removeAll { !validAssetIDs.contains($0) }
         if let assetID = editVariants?.assetID, !validAssetIDs.contains(assetID) {
             editVariants = nil
+            focusedEditVariantIndex = nil
         }
     }
 
@@ -186,6 +200,7 @@ struct WorkspaceState: Equatable, Sendable {
         comparisonAssetIDs.removeAll()
         currentScope = .row
         editVariants = nil
+        focusedEditVariantIndex = nil
     }
 
     mutating func clear() {
@@ -195,6 +210,7 @@ struct WorkspaceState: Equatable, Sendable {
         comparisonAssetIDs.removeAll()
         currentScope = .row
         editVariants = nil
+        focusedEditVariantIndex = nil
     }
 
     private static func unique(_ assetIDs: [UUID]) -> [UUID] {

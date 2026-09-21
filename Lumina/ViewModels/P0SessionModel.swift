@@ -661,6 +661,19 @@ final class P0SessionModel {
         )
     }
 
+    func focusEditVariant(at index: Int) {
+        workspaceState.focusEditVariant(at: index)
+    }
+
+    func moveEditVariantFocus(by delta: Int) {
+        workspaceState.moveEditVariantFocus(by: delta)
+    }
+
+    func chooseFocusedEditVariant() {
+        guard let index = workspaceState.focusedEditVariantIndex else { return }
+        chooseEditVariant(at: index)
+    }
+
     func chooseEditVariant(at index: Int) {
         guard let chosen = workspaceState.takeEditVariant(at: index),
               assets.contains(where: { $0.id == chosen.assetID }) else { return }
@@ -959,6 +972,9 @@ final class P0SessionModel {
 
     func setFocus(_ id: UUID?) {
         let start = CFAbsoluteTimeGetCurrent()
+        if let stagedAssetID = workspaceState.editVariants?.assetID, stagedAssetID != id {
+            cancelEditVariants()
+        }
         if inspectingAssetID != nil, let id, id != inspectingAssetID {
             flushPendingEditIfNeeded()
         }
