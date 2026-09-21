@@ -407,7 +407,7 @@ enum P0EditLiveRunner {
         }
         let marks = ContactSheetMarks.derive(
             asset: session.assets.first(where: { $0.id == landscape.id })!,
-            selectedIDs: session.selectedAssetIDs,
+            selectedIDs: Set(session.selectedAssetIDs),
             orderedIDs: session.orderedIDList,
             keptOrderMode: session.keptOrderMode
         )

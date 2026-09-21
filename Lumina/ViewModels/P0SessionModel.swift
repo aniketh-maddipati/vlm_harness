@@ -78,10 +78,17 @@ final class P0SessionModel {
     var assets: [AssetRecord] = []
     var status = ContactSheetPreparationStatus()
     var recentShoots: [RecentShootSummary] = []
-    var focusedAssetID: UUID?
+    var workspaceState = WorkspaceState()
+    var focusedAssetID: UUID? {
+        get { workspaceState.focusedAssetID }
+        set { workspaceState.focus(newValue) }
+    }
     /// Time-rail chapter currently on the board. Nil until a shoot has photographs.
     var activeChapterID: String?
-    var selectedAssetIDs: Set<UUID> = []
+    var selectedAssetIDs: [UUID] {
+        get { workspaceState.selectedAssetIDs }
+        set { workspaceState.select(newValue) }
+    }
     var densityColumns: Int = 6
     /// Density is a lean. Rest state packs to leftover height.
     var densityLeaned: Bool = false
@@ -249,7 +256,7 @@ final class P0SessionModel {
 
     var visibleItems: [ContactSheetItem] {
         let ordered = orderedIDList
-        let selected = selectedAssetIDs
+        let selected = Set(selectedAssetIDs)
         let orderMode = keptOrderMode
         return boardAssets.map { asset in
             ContactSheetItem(
@@ -334,8 +341,7 @@ final class P0SessionModel {
         releaseFolderAccess()
         userFacingError = nil
         inspectingAssetID = nil
-        selectedAssetIDs = []
-        focusedAssetID = nil
+        workspaceState.clear()
         showingBefore = false
         clearGestureState()
         undoCoordinator.clear()
@@ -364,8 +370,7 @@ final class P0SessionModel {
         releaseFolderAccess()
         userFacingError = nil
         inspectingAssetID = nil
-        selectedAssetIDs = []
-        focusedAssetID = nil
+        workspaceState.clear()
         showingBefore = false
         clearGestureState()
         undoCoordinator.clear()
@@ -1088,13 +1093,9 @@ final class P0SessionModel {
            let a = visibleItems.firstIndex(where: { $0.id == anchor }),
            let b = visibleItems.firstIndex(where: { $0.id == id }) {
             let range = a <= b ? a...b : b...a
-            selectedAssetIDs = Set(visibleItems[range].map(\.id))
+            selectedAssetIDs = visibleItems[range].map(\.id)
         } else if command {
-            if selectedAssetIDs.contains(id) {
-                selectedAssetIDs.remove(id)
-            } else {
-                selectedAssetIDs.insert(id)
-            }
+            workspaceState.toggleSelection(id)
         } else {
             selectedAssetIDs = [id]
         }
@@ -1104,11 +1105,7 @@ final class P0SessionModel {
     /// Toggle selection of the focused/inspected photograph without changing focus.
     func toggleSelectionOfFocused() {
         guard let id = focusedAssetID ?? inspectingAssetID else { return }
-        if selectedAssetIDs.contains(id) {
-            selectedAssetIDs.remove(id)
-        } else {
-            selectedAssetIDs.insert(id)
-        }
+        workspaceState.toggleSelection(id)
     }
 
     var focusedIsSelected: Bool {
@@ -1428,9 +1425,8 @@ final class P0SessionModel {
         shoot = nil
         assets = []
         status = ContactSheetPreparationStatus()
-        focusedAssetID = nil
+        workspaceState.clear()
         activeChapterID = nil
-        selectedAssetIDs = []
         inspectingAssetID = nil
         densityLeaned = false
         holdingLoupe = false
@@ -1468,13 +1464,10 @@ final class P0SessionModel {
             reconcileActiveChapter()
             route = .contactSheet
         case .assetsReplaced(let assets, let status):
-            let focus = focusedAssetID
-            let selection = selectedAssetIDs
             self.assets = assets
             self.shoot?.assets = assets
             self.status = status
-            focusedAssetID = focus.flatMap { id in assets.contains(where: { $0.id == id }) ? id : nil } ?? focus
-            selectedAssetIDs = selection.intersection(Set(assets.map(\.id)))
+            workspaceState.retainAssets(Set(assets.map(\.id)))
             reconcileActiveChapter()
         case .assetsInserted(let assets, let status):
             mergeAssets(assets)
@@ -1484,8 +1477,6 @@ final class P0SessionModel {
             mergePreviewFields(from: assets)
             self.status = status
         case .metadataMerged(let assets, let status):
-            let focus = focusedAssetID
-            let selection = selectedAssetIDs
             let cullByID = Dictionary(uniqueKeysWithValues: self.assets.map { ($0.id, $0.cull) })
             var merged = assets
             for i in merged.indices {
@@ -1496,10 +1487,7 @@ final class P0SessionModel {
             self.assets = merged
             self.shoot?.assets = merged
             self.status = status
-            if let focus, merged.contains(where: { $0.id == focus }) {
-                focusedAssetID = focus
-            }
-            selectedAssetIDs = selection.intersection(Set(merged.map(\.id)))
+            workspaceState.retainAssets(Set(merged.map(\.id)))
             reconcileActiveChapter()
         case .status(let status):
             self.status = status
@@ -1547,12 +1535,8 @@ final class P0SessionModel {
         }
         scrollAnchor = workspace.scrollAnchor ?? 0
         pendingScrollRestore = workspace.scrollAnchor != nil
-        if let focused = workspace.focusedAssetID,
-           assets.contains(where: { $0.id == focused }) {
-            focusedAssetID = focused
-        } else {
-            focusedAssetID = assets.first?.id
-        }
+        workspaceState.restore(from: workspace, availableAssetIDs: Set(assets.map(\.id)))
+        if focusedAssetID == nil { focusedAssetID = assets.first?.id }
         if workspace.scale == .singlePhoto, let focusedAssetID {
             inspectingAssetID = focusedAssetID
             prewarmInspection(around: focusedAssetID)
