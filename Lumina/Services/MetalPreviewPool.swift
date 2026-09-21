@@ -1,7 +1,6 @@
 import Foundation
 import Metal
 import CoreVideo
-import ImageIO
 import CoreGraphics
 
 extension Notification.Name {
@@ -32,7 +31,6 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
     private var slots: [Slot]
     private var ringIndex = 0
     private let lock = NSLock()
-    private let uploadQueue = DispatchQueue(label: "lumina.metal-preview.upload", qos: .userInitiated, attributes: .concurrent)
     /// Coalesce only the same generation. A newer focus generation must never
     /// be dropped behind an older upload of the same photograph.
     private var inflightUploads = Set<UploadKey>()
@@ -57,10 +55,6 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         let photoID: UUID
         let generation: UInt64
     }
-
-    private static let rawExtensions: Set<String> = [
-        "ARW", "CR2", "CR3", "NEF", "RAF", "DNG", "ORF", "RW2", "PEF", "SRW", "3FR", "IIQ",
-    ]
 
     private init() {
         let device = LuminaMetalDevice.shared
@@ -91,110 +85,9 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         )
     }
 
-    /// Background-only upload. Never call from the main thread.
-    /// Concurrent callers for the same photo coalesce onto one decode→GPU path.
-    @discardableResult
-    func upload(id: UUID, jpegPath: String, distanceBias: Int = 0, generation: UInt64 = 0) -> UploadTimings {
-        assert(!Thread.isMainThread, "MetalPreviewPool.upload must not run on the main thread")
-
-        let uploadKey = UploadKey(photoID: id, generation: generation)
-        lock.lock()
-        let uploadEpoch = poolEpoch
-        if let existing = slots.firstIndex(where: { $0.photoID == id }),
-           slots[existing].texture != nil,
-           slots[existing].uploadGeneration == generation || generation == 0 {
-            slots[existing].distanceBias = distanceBias
-            lock.unlock()
-            let hit = UploadTimings(cacheHit: true)
-            recordTimings(hit)
-            return hit
-        }
-        // Spine prefetch + canvas bind both schedule uploads; only the first proceeds.
-        guard !inflightUploads.contains(uploadKey) else {
-            lock.unlock()
-            return UploadTimings(cacheHit: true)
-        }
-        inflightUploads.insert(uploadKey)
-        lock.unlock()
-
-        defer {
-            lock.lock()
-            inflightUploads.remove(uploadKey)
-            lock.unlock()
-        }
-
-        Self.assertBrowseJPEGPath(jpegPath)
-
-        var timings = UploadTimings()
-        let decodeStart = CFAbsoluteTimeGetCurrent()
-        guard let cg = Self.decodeBrowseJPEG(path: jpegPath, maxPixel: 2400) else { return timings }
-        timings.decodeMs = (CFAbsoluteTimeGetCurrent() - decodeStart) * 1000
-
-        let pixelWidth = cg.width
-        let pixelHeight = cg.height
-
-        let blitStart = CFAbsoluteTimeGetCurrent()
-        guard let pb = Self.makeIOSurfacePixelBuffer(width: pixelWidth, height: pixelHeight),
-              Self.copyIntoPixelBuffer(cg, pb) else { return timings }
-        timings.blitMs = (CFAbsoluteTimeGetCurrent() - blitStart) * 1000
-
-        guard let cache = textureCache else { return timings }
-
-        let wrapStart = CFAbsoluteTimeGetCurrent()
-        var cvTexture: CVMetalTexture?
-        let w = CVPixelBufferGetWidth(pb)
-        let h = CVPixelBufferGetHeight(pb)
-        let status = CVMetalTextureCacheCreateTextureFromImage(
-            nil, cache, pb, nil, ImagePixelFormat.metalPixelFormat, w, h, 0, &cvTexture
-        )
-        timings.wrapMs = (CFAbsoluteTimeGetCurrent() - wrapStart) * 1000
-        guard status == kCVReturnSuccess, let cvTexture,
-              let texture = CVMetalTextureGetTexture(cvTexture) else { return timings }
-
-        lock.lock()
-        guard uploadEpoch == poolEpoch else {
-            lock.unlock()
-            return timings
-        }
-        // Discard stale uploads whose generation no longer matches a rebind.
-        if generation > 0,
-           let existing = slots.firstIndex(where: { $0.photoID == id }),
-           slots[existing].uploadGeneration > generation {
-            lock.unlock()
-            return timings
-        }
-        let idx = slots.firstIndex(where: { $0.photoID == id }) ?? pickSlotLocked()
-        slots[idx] = Slot(
-            photoID: id,
-            texture: texture,
-            pixelBuffer: pb,
-            pixelWidth: pixelWidth,
-            pixelHeight: pixelHeight,
-            uploadGeneration: generation,
-            distanceBias: distanceBias
-        )
-        ringIndex = (idx + 1) % slotCount
-        lock.unlock()
-
-        recordTimings(timings)
-        DispatchQueue.main.async {
-            NotificationCenter.default.post(
-                name: .luminaTextureReady,
-                object: nil,
-                userInfo: [
-                    "photoID": id,
-                    "generation": generation,
-                    "pixelWidth": pixelWidth,
-                    "pixelHeight": pixelHeight,
-                ]
-            )
-        }
-        return timings
-    }
-
     /// Upload a browse pixel that was already decoded by `BrowsePixelService`.
     /// This avoids a second ImageIO decode when AppKit and Metal need the same
-    /// photograph. Background-only, like the path-based overload.
+    /// photograph. Background-only; this pool accepts decoded pixels, never paths.
     @discardableResult
     func upload(
         id: UUID,
@@ -299,22 +192,6 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         return timings
     }
 
-    /// Schedule upload off the main thread; no-op if texture resident or upload already inflight.
-    func scheduleUpload(id: UUID, jpegPath: String, distanceBias: Int = 0, generation: UInt64 = 0) {
-        if let info = textureInfo(for: id), generation == 0 || info.generation == generation {
-            return
-        }
-        lock.lock()
-        let alreadyInflight = inflightUploads.contains(
-            UploadKey(photoID: id, generation: generation)
-        )
-        lock.unlock()
-        guard !alreadyInflight else { return }
-        uploadQueue.async {
-            _ = self.upload(id: id, jpegPath: jpegPath, distanceBias: distanceBias, generation: generation)
-        }
-    }
-
     func evictFar(from centerIndex: Int, order: [UUID], keepRadius: Int) {
         lock.lock()
         defer { lock.unlock() }
@@ -383,46 +260,6 @@ nonisolated final class MetalPreviewPool: @unchecked Sendable {
         guard !samples.isEmpty else { return nil }
         let s = samples.sorted()
         return s[min(Int(Double(s.count - 1) * 0.50), s.count - 1)]
-    }
-
-    // MARK: - Browse-safe JPEG decode (never demosaic)
-
-    private static func assertBrowseJPEGPath(_ path: String) {
-        let ext = URL(fileURLWithPath: path).pathExtension.uppercased()
-        #if DEBUG
-        precondition(!rawExtensions.contains(ext), "Interactive browse path must never decode RAW: \(path)")
-        #endif
-        _ = ext
-    }
-
-    /// Cached preview JPEG only — EXIF orientation applied once via ImageIO transform.
-    private static func decodeBrowseJPEG(path: String, maxPixel: Int) -> CGImage? {
-        assertBrowseJPEGPath(path)
-        let url = URL(fileURLWithPath: path)
-        let source: CGImageSource? = {
-            if let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) {
-                return CGImageSourceCreateWithData(data as CFData, nil)
-            }
-            return CGImageSourceCreateWithURL(url as CFURL, nil)
-        }()
-        guard let source else { return nil }
-
-        let opts: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
-            kCGImageSourceCreateThumbnailFromImageAlways: false,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceShouldCacheImmediately: false,
-        ]
-
-        if let thumb = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) {
-            return thumb
-        }
-        if let full = CGImageSourceCreateImageAtIndex(source, 0, nil) {
-            let edge = max(full.width, full.height)
-            if edge <= maxPixel { return full }
-        }
-        return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 
     private static func makeIOSurfacePixelBuffer(width: Int, height: Int) -> CVPixelBuffer? {

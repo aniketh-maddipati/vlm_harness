@@ -120,12 +120,14 @@ final class MetalBrowseNSView: NSView {
         rebuildVertices()
         requestDraw()
         if let jpegPath {
-            MetalPreviewPool.shared.scheduleUpload(
-                id: photoID,
-                jpegPath: jpegPath,
-                distanceBias: 0,
-                generation: generation
-            )
+            Task {
+                await BrowsePixelService.shared.prepareTexture(
+                    assetID: photoID,
+                    path: jpegPath,
+                    tier: .focused,
+                    generation: generation
+                )
+            }
         }
     }
 

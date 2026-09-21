@@ -167,6 +167,27 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
         XCTAssertTrue(browse.contains("decoded: decoded.cgImage"))
         XCTAssertTrue(browse.contains("pinnedPaths"))
 
+        let metalPool = try source("Lumina/Services/MetalPreviewPool.swift")
+        XCTAssertFalse(metalPool.contains("decodeBrowseJPEG"))
+        XCTAssertFalse(metalPool.contains("func upload(id: UUID, jpegPath:"))
+
+        for path in [
+            "Lumina/Views/Components/StablePhotoView.swift",
+            "Lumina/Views/ProgressivePhotoWall.swift",
+            "Lumina/Views/MetalBrowseCanvas.swift",
+            "Lumina/ViewModels/ProjectViewModel.swift",
+        ] {
+            let interactiveSource = try source(path)
+            XCTAssertTrue(
+                interactiveSource.contains("BrowsePixelService.shared"),
+                "\(path) does not use the shared browse decode owner"
+            )
+            XCTAssertFalse(
+                interactiveSource.contains("PhotoImageCache.shared"),
+                "\(path) bypasses the shared browse decode owner"
+            )
+        }
+
         let export = try source("Lumina/Services/P0AuthoritativeExportService.swift")
         XCTAssertTrue(export.contains("DevelopRenderGraph.renderExportBitmap"))
         XCTAssertTrue(export.contains("DevelopRenderGraph.exportTIFF"))

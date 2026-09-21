@@ -437,6 +437,7 @@ if sourceContains(latencyPath, "percentile") && sourceContains(latencyPath, "p99
 
 let metalPoolPath = repoRoot.appendingPathComponent("Lumina/Services/MetalPreviewPool.swift").path
 let metalCanvasPath = repoRoot.appendingPathComponent("Lumina/Views/MetalBrowseCanvas.swift").path
+let browsePixelPath = repoRoot.appendingPathComponent("Lumina/Services/BrowsePixelService.swift").path
 let projectStorePath = repoRoot.appendingPathComponent("Lumina/Services/ProjectStore.swift").path
 let photoRecordPath = repoRoot.appendingPathComponent("Lumina/Models/PhotoRecord.swift").path
 if sourceContains(spinePath, "paint_commit")
@@ -444,7 +445,9 @@ if sourceContains(spinePath, "paint_commit")
     && sourceContains(metalPoolPath, "decodeMs")
     && sourceContains(metalPoolPath, "blitMs")
     && sourceContains(metalPoolPath, "wrapMs")
-    && sourceContains(metalPoolPath, "assertBrowseJPEGPath")
+    && sourceContains(browsePixelPath, "must never demosaic RAW")
+    && sourceContains(browsePixelPath, "decoded: decoded.cgImage")
+    && !sourceContains(metalPoolPath, "decodeBrowseJPEG")
     && !sourceContains(metalPoolPath, "ctx.draw") {
     note("pass", "perf", "Defeater-killed browse path", "honest HUD · vImage blit · one GPU decode · no main upload · no RAW fallback")
 } else {

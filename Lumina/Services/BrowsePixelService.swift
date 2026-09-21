@@ -160,9 +160,17 @@ actor BrowsePixelService {
     }
 
     func prefetch(_ requests: [(assetID: UUID, path: String)], tier: Tier) {
-        for request in requests {
+        prefetch(paths: requests.map(\.path), maxPixelSize: tier.maxPixelSize)
+    }
+
+    func prefetch(paths: [String], tier: Tier) {
+        prefetch(paths: paths, maxPixelSize: tier.maxPixelSize)
+    }
+
+    func prefetch(paths: [String], maxPixelSize: Int) {
+        for path in Set(paths) {
             Task(priority: .utility) {
-                _ = await pixel(path: request.path, tier: tier)
+                _ = await pixel(path: path, maxPixelSize: maxPixelSize, priority: .utility)
             }
         }
     }
