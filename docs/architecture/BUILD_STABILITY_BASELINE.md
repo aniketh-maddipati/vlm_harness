@@ -52,6 +52,24 @@ asserted separately.
 - Shipping `Lumina` Release defines `LUMINA_SHIPPING_APP`. Baseline
   `LuminaPlayground` Release did not.
 
+### Configuration identity matrix
+
+| Target | Configuration | `DEBUG` | `LUMINA_SHIPPING_APP` | `LUMINA_WORKBENCH` | Harness intent |
+|---|---|---:|---:|---:|---|
+| `Lumina` | Debug | yes | no | no | development/UI-test/lab harness available |
+| `Lumina` | Release | no | yes | no | shipping app; all harness runners excluded |
+| `LuminaPlayground` | Debug | yes | no | yes | development workbench and harness |
+| `LuminaPlayground` | Release | no | yes | no | shipping-like compile identity; no harness/lab runners |
+
+The Playground scheme uses Debug for launch, profile, and archive. Playground
+Release is therefore a build-coherence check, not a second workbench product.
+The project-setting fix changed only the number of
+`LUMINA_SHIPPING_APP` target conditions from one to two; `DEBUG` and
+`LUMINA_WORKBENCH` condition counts did not change.
+
+**Invariant:** every app Release configuration is shipping-fenced; only
+Playground Debug has workbench capability.
+
 ## Generated sources and build inputs
 
 | Generated output | Source of truth | Command | Baseline |

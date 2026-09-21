@@ -11,6 +11,19 @@
 Linux may run FAST only. Xcode gates on Linux are
 `PLATFORM-UNAVAILABLE`, never pass.
 
+## Configuration invariant
+
+| Target | Configuration | `DEBUG` | `LUMINA_SHIPPING_APP` | `LUMINA_WORKBENCH` | Intent |
+|---|---|---:|---:|---:|---|
+| `Lumina` | Debug | yes | no | no | development/test harness |
+| `Lumina` | Release | no | yes | no | shipping |
+| `LuminaPlayground` | Debug | yes | no | yes | development workbench |
+| `LuminaPlayground` | Release | no | yes | no | shipping-like source surface |
+
+Every app Release configuration is shipping-fenced; only Playground Debug has
+workbench capability. Do not add a third compile identity to repair a local
+source error.
+
 ## Canonical commands
 
 ```bash
