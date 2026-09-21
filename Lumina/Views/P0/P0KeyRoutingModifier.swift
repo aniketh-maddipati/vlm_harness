@@ -74,8 +74,6 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
         }
 
         private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
-            guard !session.showLegacyShell else { return event }
-
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             let command = flags.contains(.command)
             let shift = flags.contains(.shift)
@@ -235,8 +233,6 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
         }
 
         private func handleKeyUp(_ event: NSEvent) -> NSEvent? {
-            guard !session.showLegacyShell else { return event }
-
             let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
             if event.keyCode == P0VirtualKey.space {
                 session.setHoldingLoupe(false)

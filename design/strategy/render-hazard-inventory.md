@@ -59,13 +59,13 @@ Open question #9 (`design/contract-v6.md` L370): “NSCollectionView virtualizat
 
 ## PART 1 — Live render path reachability
 
-Method: read from `LuminaApp` down on this SHA. W8 `design/strategy/legacy-disposition.md` and `Scripts/harness/lint/swift_reachability.py` are leads, not substitutes. Symbol-BFS from `LuminaApp` includes the legacy door’s type names and is **not** the default-launch photograph path.
+Method: read from `LuminaApp` down on this SHA. W8 `design/strategy/legacy-disposition.md` and `Scripts/harness/lint/swift_reachability.py` are leads, not substitutes.
 
 ### Default launch (Release, and Debug without `--develop-lab`)
 
 `Lumina/LuminaApp.swift` L24–36: `WindowGroup` → `P0RootView()`. `DevelopLabView` is compiled only under `#if DEBUG` and shown only when `DevelopLabLauncher.shouldPresentLab` is true. That is not the default launch path.
 
-`Lumina/Views/P0/P0RootView.swift` L10–23: if `session.showLegacyShell` then `P0LegacyShellContainer`; else switch on `session.route`:
+`Lumina/Views/P0/P0RootView.swift` switches directly on `session.route`:
 
 | Route | View | Photograph pixels on this route? |
 |-------|------|----------------------------------|
@@ -74,8 +74,6 @@ Method: read from `LuminaApp` down on this SHA. W8 `design/strategy/legacy-dispo
 | `.grouping` | `P0GroupingView` | No |
 
 `P0ContactSheetView` L15–27: `ContactSheetRepresentable` fills the sheet. When `inspectingAssetID` is set, `P0SinglePhotoEditor` is an overlay; the collection remains in the hierarchy at opacity `0` (L19–20).
-
-`P0LegacyShellContainer` (`P0LegacyShellDoor.swift` L3–42) constructs `ProjectViewModel` / `LuminaShellModel` on first door open only. Default launch does not open the door.
 
 ### Live photograph-pixel files (later sections apply only to these)
 
@@ -108,9 +106,10 @@ Ingest that writes the JPEGs the sheet reads is included. Chrome-only files on t
 
 `P0OpenView.swift` · `P0GroupingView.swift` · `P0AdjustmentRail.swift` · `P0EditSlider.swift` · `P0KeyRoutingModifier.swift` · `P0EscLadder.swift`. Not inventoried below except where a construct sits on a repeated photograph (`filmstripThumb` is in `P0SinglePhotoEditor` and is inventoried).
 
-### Legacy-reachable (door only — do not measure as the default path)
+### Legacy implementation island
 
-W8 register in `design/strategy/legacy-disposition.md` still matches the door: `P0LegacyShellDoor.swift` → `ContentViewLegacyHost` → `LuminaShellView` + `ImportLoadingView`. Photograph surfaces behind that door include `ProgressivePhotoWall`, `MetalBrowseCanvas`, `SpeedBrowseViewer`, `ContinuousWorkspaceView`, `TreatmentStageView`, `StablePhotoView`. They are out of scope for Parts 2–3.
+The old shell implementation is compiled but has no entry from `LuminaApp`, `P0RootView`, or the
+P0 routes. Its photograph surfaces are not current-product render paths.
 
 ### Dead
 

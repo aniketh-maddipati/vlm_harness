@@ -69,8 +69,8 @@ final class P0LogicTests: XCTestCase {
             inspectingAssetID: nil, selectedAssetIDs: ["a", "b"],
             missingOriginalCount: 0, previewReadyCount: 60, phaseDetail: "60 photos",
             scrollAnchor: 0, culls: ["a": "keep"], editedIDs: ["a"], visibleAssetIDs: ["a", "b"],
-            missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier", legacyShellActive: false,
-                renderInstrumentsEnabled: false, escTransientHoldActive: false
+            missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier",
+            renderInstrumentsEnabled: false, escTransientHoldActive: false
         )
         let json = snapshot.jsonString()
         let decoded = try? JSONDecoder().decode(ProbeSnapshot.self, from: Data(json.utf8))

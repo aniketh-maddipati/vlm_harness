@@ -1,6 +1,6 @@
 # Lumina P0 — Canonical state
 
-Foundation checkpoint: stable asset identity, one recipe authority, and recoverable shoot persistence. The Workbench / Canvas / Proof shell remains for buildability; the contact-sheet workspace is a later checkpoint.
+Foundation checkpoint: stable asset identity, one recipe authority, and recoverable shoot persistence.
 
 ## Canonical state ownership
 
@@ -15,7 +15,6 @@ Foundation checkpoint: stable asset identity, one recipe authority, and recovera
 | Export history | `ExportRecord` | Does not redefine the kept set |
 | Workspace restore | `WorkspaceRestoreState` | Focus, filter, density, scroll, scale, kept-order mode |
 | Source / volume | `SourceReference` | Path, bookmark, relative path, availability |
-| Runtime UI model | `LuminaProject` / `PhotoRecord` | Adapted from `ShootRecord` via `ShootMigration` |
 
 Multi-selection is transient unless deliberately placed in restore state. Missing originals mark `SourceAvailability.missing` and never delete catalog rows.
 
@@ -57,19 +56,30 @@ Writes are serialized per shoot (debounced tasks keyed by shoot name — not one
 3. Replace with the temp file
 4. Refresh the good copy
 
-Corrupt primary recovers from `shoot.json.good`. Legacy `project.json` is still loaded and rewritten as `shoot.json` on the next save. Persistence errors are recorded and surfaced; they are not silently discarded.
-
-`ProjectStore` remains a thin facade for existing call sites.
+Corrupt primary recovers from `shoot.json.good`. Current files decode directly as `ShootRecord`. Legacy `project.json` is decoded only at the compatibility boundary and rewritten as `shoot.json` on the next save. Persistence errors are recorded and surfaced; they are not silently discarded.
 
 ## Legacy compatibility boundary
 
 | Type | Status | Why it remains |
 |---|---|---|
-| `LuminaProject` | Runtime + legacy decode | ViewModels / shell still consume it |
-| `PhotoRecord` | Runtime adapter | Maps to/from `AssetRecord`; `editRecipe` is canonical, `recipe` is a DevelopRecipe bridge |
+| `LuminaProject` | Compatibility-only + unreachable legacy island | Legacy project decoding and the retired shell implementation still consume it |
+| `PhotoRecord` | Compatibility-only + unreachable legacy island | Legacy project decoding and retired services still consume it |
+| `ProjectStore` | Unreachable legacy island | Retired import, catalog, and shell code still compile against it |
 | `DevelopRecipe` | Superseded for photo persistence | Taste learning, XMP mean, older slider offsets |
 | `EditRecipeStore` / `BatchTreatmentSession` | Lab / batch grammar | Not the shoot catalog; keep for develop lab |
-| Workbench / Canvas / Proof shell | Temporary product shell | Superseded later by continuous contact-sheet workspace |
+| Workbench / Canvas / Proof implementation | Unreachable legacy island | Deleting it requires removing its coupled views and services as a separate task |
+
+The current app root, P0 views, `P0SessionModel`, `ContactSheetPreparation`, and `ShootStore`
+do not read or write `LuminaProject`, `PhotoRecord`, or `ProjectStore`. The old shell door was
+deleted when the canonical-state boundary became mandatory.
+
+Deletion conditions:
+
+- Delete `ProjectStore` and the project-to-shoot conversions after the retired shell, catalog,
+  and import pipeline are removed or migrated to `ShootRecord`.
+- Delete legacy project decoding and `PhotoRecord` after the supported-install migration window
+  for on-disk `project.json` closes.
+- Delete `DevelopRecipe` bridges after taste and XMP consumers use `EditRecipe` directly.
 
 Obsolete architecture notes in `docs/DEVELOP_ENGINE.md` and `BUILD_LOG.md` that claimed EditRecipe was already the stored source of truth are corrected here: that claim is now true for P0 shoot persistence.
 
