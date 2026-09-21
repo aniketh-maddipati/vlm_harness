@@ -35,7 +35,9 @@ struct LuminaRobot {
                 selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
                 phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
                 missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier",
-                renderInstrumentsEnabled: false, escTransientHoldActive: false
+                renderInstrumentsEnabled: false, escTransientHoldActive: false,
+                editVariantsActive: false, editVariantAssetID: nil, focusedEditVariantIndex: nil,
+                editVariantCancellationCount: 0
             )
         }
         return snapshot
@@ -56,7 +58,9 @@ struct LuminaRobot {
                 selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
                 phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
                 missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier",
-                renderInstrumentsEnabled: false, escTransientHoldActive: false
+                renderInstrumentsEnabled: false, escTransientHoldActive: false,
+                editVariantsActive: false, editVariantAssetID: nil, focusedEditVariantIndex: nil,
+                editVariantCancellationCount: 0
             )
         }
         return snapshot

@@ -59,6 +59,11 @@ struct ProbeSnapshot: Codable, Equatable {
     /// Law 5 / D11 — Esc would clear a transient hold (loupe / clipping / look glance /
     /// burst lean / kept rail) before navigation. Mirrors `P0EscLadder` depth 0.
     var escTransientHoldActive: Bool
+    /// Temporary four-variant edit branch (session-only; never persisted).
+    var editVariantsActive: Bool
+    var editVariantAssetID: String?
+    var focusedEditVariantIndex: Int?
+    var editVariantCancellationCount: Int
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -143,7 +148,11 @@ extension P0SessionModel {
                 || holdingClipping
                 || lookGlancing
                 || leanedBurstID != nil
-                || walkingKeptRail
+                || walkingKeptRail,
+            editVariantsActive: workspaceState.editVariants != nil,
+            editVariantAssetID: workspaceState.editVariants?.assetID.uuidString,
+            focusedEditVariantIndex: workspaceState.focusedEditVariantIndex,
+            editVariantCancellationCount: workspaceState.editVariantCancellationCount
         )
     }
 }
