@@ -71,7 +71,7 @@ final class P0CommandApplicationTests: XCTestCase {
         XCTAssertNil(assets[0].recipe)
     }
 
-    func testCommittedCommandSurvivesStoreRestart() throws {
+    func testCommittedCommandSurvivesStoreRestart() async throws {
         let priorRoot = UITestSupport.stateDirectoryOverride
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("lumina-command-restart-\(UUID().uuidString)", isDirectory: true)
