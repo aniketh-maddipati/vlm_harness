@@ -1,7 +1,7 @@
 import Foundation
 
 /// Propagation ring for staged copy — row → scene → shoot.
-enum PropagationRing: Equatable {
+enum PropagationRing: Equatable, Sendable {
     case row
     case scene
     case shoot
