@@ -433,11 +433,6 @@ final class P0SessionModel {
         }
     }
 
-    /// Compatibility alias — shared stack now undoes edit or cull.
-    func undoLastCull() {
-        undoLast()
-    }
-
     private func applyCullUndo(_ command: CullMutationCommand) {
         let commandStartedAt = Date()
         let selectionSnapshot = selectedAssetIDs
