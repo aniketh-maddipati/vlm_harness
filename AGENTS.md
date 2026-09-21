@@ -80,7 +80,7 @@ xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
   -only-testing:LuminaLogicTests test-without-building
 ```
 
-Hosted CI: `.github/workflows/rendering.yml` runs `fast` + `compile-logic` on **push** and **pull_request** for `Lumina/**` changes. A green `fast` lane alone is not sufficient when Swift types change.
+Hosted CI: `.github/workflows/rendering.yml` runs `fast` + `compile-logic` on every matching **push** / **pull_request** (PR merge gate). `build-stability` and `render-live` run on **main** / schedule / dispatch only — not on every PR. A green `fast` lane alone is not sufficient when Swift types change.
 
 ### Footprint / lightweight Release
 
