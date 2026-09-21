@@ -2,9 +2,9 @@ import Foundation
 
 /// The only fields a temporary edit branch may replace.
 struct EditVariantOverride: Equatable, Sendable {
-    var exposure: Double?
-    var temperature: Double?
-    var tint: Double?
+    var exposure: Double? = nil
+    var temperature: Double? = nil
+    var tint: Double? = nil
 }
 
 /// Four transient branches over one asset and one shared recipe.
