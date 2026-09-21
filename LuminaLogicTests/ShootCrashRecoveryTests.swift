@@ -51,14 +51,20 @@ final class ShootCrashRecoveryTests: XCTestCase {
             assetID: a, before: .undecided, after: .keep,
             finalOrderBefore: [], finalOrderAfter: [a]
         )
-        _ = try ShootDecisionJournal.appendCullCommit(cull, besideShootFolder: folder)
+        try ShootDecisionJournal.append(
+            ShootDecisionJournal.cullRecord(cull, sequence: 1),
+            besideShootFolder: folder
+        )
 
         let edit = EditMutationCommand(
             assetID: b,
             before: .neutral,
             after: EditRecipe(exposure: 0.55, contrast: 12)
         )
-        _ = try ShootDecisionJournal.appendEditCommit(edit, besideShootFolder: folder)
+        try ShootDecisionJournal.append(
+            ShootDecisionJournal.editRecord(edit, sequence: 2),
+            besideShootFolder: folder
+        )
 
         // Simulate stale catalog (crash before shoot.json caught up).
         shoot.assets[0].cull = .undecided
@@ -128,7 +134,10 @@ final class ShootCrashRecoveryTests: XCTestCase {
             assetID: assetID, before: .undecided, after: .keep,
             finalOrderBefore: [], finalOrderAfter: [assetID]
         )
-        _ = try ShootDecisionJournal.appendCullCommit(cmd, besideShootFolder: folder)
+        try ShootDecisionJournal.append(
+            ShootDecisionJournal.cullRecord(cmd, sequence: 1),
+            besideShootFolder: folder
+        )
         let after = try ShootCrashRecovery.photographByteHashes(in: folder)
 
         XCTAssertEqual(before, after, "D36 / R-M.1: X and journal must not mutate photograph bytes")

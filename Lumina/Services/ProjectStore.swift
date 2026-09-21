@@ -49,12 +49,12 @@ nonisolated enum ProjectStore {
         }
     }
 
-    static func save(_ project: LuminaProject) throws {
+    static func save(_ project: LuminaProject) async throws {
         var shoot = ShootMigration.shoot(from: project)
         if let existing = try? ShootStore.loadShoot(id: project.name) {
             shoot.id = project.shootID ?? existing.id
         }
-        try ShootStore.saveShoot(shoot)
+        try await ShootStore.shared.saveShoot(shoot)
     }
 
     /// Debounced persist — per-shoot, not one global work item.

@@ -100,6 +100,7 @@ final class P0SessionModel {
     var filter: GridFilter = .all
     var scrollAnchor: Double = 0
     var userFacingError: String?
+    private(set) var persistenceError: String?
     var isDropTargeted = false
     /// Single-photo editing surface — opens on Return / double-click.
     var inspectingAssetID: UUID?
@@ -130,7 +131,6 @@ final class P0SessionModel {
 
     private var preparationTask: Task<Void, Never>?
     private var persistTask: Task<Void, Never>?
-    private var shootPersistTask: Task<Void, Never>?
     private var folderAccess: (url: URL, didStartAccess: Bool)?
     private var capabilityTask: Task<Void, Never>?
     private var prewarmTask: Task<Void, Never>?
@@ -439,6 +439,7 @@ final class P0SessionModel {
     }
 
     private func applyCullUndo(_ command: CullMutationCommand) {
+        let commandStartedAt = Date()
         let selectionSnapshot = selectedAssetIDs
         guard let index = assets.firstIndex(where: { $0.id == command.assetID }) else { return }
 
@@ -450,7 +451,15 @@ final class P0SessionModel {
             self.shoot = shoot
         }
         selectedAssetIDs = selectionSnapshot
-        persistShootImmediately()
+        let inverse = CullMutationCommand(
+            assetID: command.assetID,
+            before: command.after,
+            after: command.before,
+            finalOrderBefore: command.finalOrderAfter,
+            finalOrderAfter: command.finalOrderBefore
+        )
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueCullPersistence([inverse], commandStartedAt: commandStartedAt)
     }
 
     /// Install machine state from visible grid + session marks (coordinator owns undo depth).
@@ -485,6 +494,7 @@ final class P0SessionModel {
     }
 
     private func applyCullGrammarEvent(_ event: CullGrammarEvent) {
+        let commandStartedAt = Date()
         installCullGrammarFromSession()
         guard let focusID = focusedAssetID ?? inspectingAssetID,
               let assetIndex = assets.firstIndex(where: { $0.id == focusID }) else { return }
@@ -537,8 +547,6 @@ final class P0SessionModel {
             finalOrderAfter: orderAfter
         )
         undoCoordinator.push(command)
-        journalCullCommit(command)
-        schedulePersistShoot()
 
         if wasInspecting {
             focusedAssetID = focusID
@@ -546,6 +554,8 @@ final class P0SessionModel {
         } else if let nextID = cullGrammar.state.focusedAssetID {
             setFocus(nextID)
         }
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueCullPersistence([command], commandStartedAt: commandStartedAt)
     }
 
     private func applyCullToggle(pressed: CullDecision) {
@@ -557,6 +567,7 @@ final class P0SessionModel {
     }
 
     private func applyEditUndo(_ command: EditMutationCommand) {
+        let commandStartedAt = Date()
         let selectionSnapshot = selectedAssetIDs
         let cullSnapshot = assets.first(where: { $0.id == command.assetID })?.cull
         guard let index = assets.firstIndex(where: { $0.id == command.assetID }) else { return }
@@ -571,7 +582,13 @@ final class P0SessionModel {
         gestureBaselineRecipe = nil
         gestureAssetID = nil
         isEditGestureActive = false
-        persistShootImmediately()
+        let inverse = EditMutationCommand(
+            assetID: command.assetID,
+            before: command.after,
+            after: command.before
+        )
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueEditPersistence(inverse, commandStartedAt: commandStartedAt)
         if inspectingAssetID == command.assetID {
             scrubCurrentRecipe(for: command.assetID, recipe: recipe(for: command.assetID), recordInput: false)
         }
@@ -656,6 +673,7 @@ final class P0SessionModel {
     }
 
     private func commitRecipeMutation(assetID: UUID, before: EditRecipe, after: EditRecipe) {
+        let commandStartedAt = Date()
         guard before.valueFingerprint != after.valueFingerprint else { return }
         let selectionSnapshot = selectedAssetIDs
         let cullSnapshot = assets.first(where: { $0.id == assetID })?.cull
@@ -676,9 +694,8 @@ final class P0SessionModel {
 
         let command = EditMutationCommand(assetID: assetID, before: before, after: after)
         undoCoordinator.push(command)
-        journalEditCommit(command)
-        sidecarEditCommit(command)
-        persistShootImmediately()
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueEditPersistence(command, commandStartedAt: commandStartedAt)
         warmBeforeAfter(for: assetID, recipe: after.hasSettings ? after : .neutral)
     }
 
@@ -1143,6 +1160,7 @@ final class P0SessionModel {
     }
 
     func keepFocusedBurst() {
+        let commandStartedAt = Date()
         guard inspectingAssetID == nil else { return }
         guard let chapter = activeChapter, let burst = focusedBurst else { return }
         let orderBefore = shoot?.finalSetOrder.assetIDs ?? []
@@ -1187,22 +1205,22 @@ final class P0SessionModel {
                 burstID: burst.id
             )
         )
-        for mark in marks {
-            journalCullCommit(
-                CullMutationCommand(
+        let persistenceCommands = marks.map { mark in
+            CullMutationCommand(
                     assetID: mark.assetID,
                     before: mark.before,
                     after: mark.after,
                     finalOrderBefore: orderBefore,
                     finalOrderAfter: orderAfter
-                )
             )
         }
-        persistShootImmediately()
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueCullPersistence(persistenceCommands, commandStartedAt: commandStartedAt)
         advanceIfChapterEmpty(from: chapterBefore)
     }
 
     private func applyChapterKeepUndo(_ command: ChapterKeepCommand) {
+        let commandStartedAt = Date()
         for mark in command.marks {
             guard let index = assets.firstIndex(where: { $0.id == mark.assetID }) else { continue }
             assets[index].cull = mark.before
@@ -1221,7 +1239,17 @@ final class P0SessionModel {
         if let focus = command.focusBefore {
             setFocus(focus)
         }
-        persistShootImmediately()
+        let persistenceCommands = command.marks.map { mark in
+            CullMutationCommand(
+                assetID: mark.assetID,
+                before: mark.after,
+                after: mark.before,
+                finalOrderBefore: command.finalOrderAfter,
+                finalOrderAfter: command.finalOrderBefore
+            )
+        }
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueCullPersistence(persistenceCommands, commandStartedAt: commandStartedAt)
     }
 
     private func advanceIfChapterEmpty(from chapterID: String) {
@@ -1585,20 +1613,8 @@ final class P0SessionModel {
         }
     }
 
-    /// Cull mutations coalesce disk writes so P/X spam stays responsive.
-    private func schedulePersistShoot() {
-        shootPersistTask?.cancel()
-        shootPersistTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 120_000_000)
-            guard !Task.isCancelled else { return }
-            await MainActor.run { self?.persistShootImmediately() }
-        }
-    }
-
-    /// Cull mutations persist immediately — not wait for restore debounce.
-    private func persistShootImmediately() {
-        shootPersistTask?.cancel()
-        guard var shoot else { return }
+    private func canonicalShootSnapshot() -> ShootRecord? {
+        guard var shoot else { return nil }
         shoot.workspace = WorkspaceRestoreState(
             focusedAssetID: focusedAssetID,
             filter: filter,
@@ -1609,10 +1625,7 @@ final class P0SessionModel {
         )
         shoot.assets = assets
         self.shoot = shoot
-        let snapshot = shoot
-        Task {
-            try? await ShootStore.shared.saveShoot(snapshot)
-        }
+        return shoot
     }
 
     private func releaseFolderAccess() {
@@ -1622,33 +1635,62 @@ final class P0SessionModel {
         folderAccess = nil
     }
 
-    // MARK: - CP2 decision journal (append-only beside shoot — D35 / D13)
+    // MARK: - Serialized persistence
 
-    private func journalRawFolderURL() -> URL? {
+    private func persistenceRawFolderURL() -> URL? {
         guard let path = shoot?.rawFolder?.originalPath else { return nil }
         return URL(fileURLWithPath: path)
     }
 
-    /// Committed cull only — staging and undo paths never reach the journal (D13).
-    private func journalCullCommit(_ command: CullMutationCommand) {
-        guard let folder = journalRawFolderURL() else { return }
-        try? ShootDecisionJournal.appendCullCommit(command, besideShootFolder: folder)
+    private func recordCommandToMemory(startedAt: Date) {
+        LatencyMetrics.record(
+            ShootStore.commandToMemoryMetric,
+            milliseconds: Date().timeIntervalSince(startedAt) * 1_000
+        )
     }
 
-    /// Committed edit only — gesture staging is not journaled until commit (D13).
-    private func journalEditCommit(_ command: EditMutationCommand) {
-        guard let folder = journalRawFolderURL() else { return }
-        try? ShootDecisionJournal.appendEditCommit(command, besideShootFolder: folder)
-    }
-
-    /// Open XMP beside the original — durable interoperable form (D36).
-    private func sidecarEditCommit(_ command: EditMutationCommand) {
-        guard let rawURL = resolveRenderURLs(for: command.assetID)?.rawURL else { return }
-        guard let result = try? ShootSidecarStore.writeCommittedEdit(command.after, besideOriginal: rawURL) else {
-            return
+    private func enqueueCullPersistence(
+        _ commands: [CullMutationCommand],
+        commandStartedAt: Date
+    ) {
+        guard !commands.isEmpty,
+              let snapshot = canonicalShootSnapshot(),
+              let folder = persistenceRawFolderURL() else { return }
+        Task { [weak self] in
+            let error = await ShootStore.shared.commitCulls(
+                commands,
+                shoot: snapshot,
+                besideShootFolder: folder,
+                commandStartedAt: commandStartedAt
+            )
+            self?.persistenceError = error
         }
-        sidecarManagedHashes[command.assetID] = result.managedFieldsHash
-        sidecarDriftAssetIDs.remove(command.assetID)
+    }
+
+    private func enqueueEditPersistence(
+        _ command: EditMutationCommand,
+        commandStartedAt: Date
+    ) {
+        guard let snapshot = canonicalShootSnapshot(),
+              let folder = persistenceRawFolderURL() else { return }
+        let originalURL = assets.first(where: { $0.id == command.assetID }).map {
+            URL(fileURLWithPath: $0.source.originalPath)
+        }
+        Task { [weak self] in
+            let result = await ShootStore.shared.commitEdit(
+                command,
+                shoot: snapshot,
+                besideShootFolder: folder,
+                originalURL: originalURL,
+                commandStartedAt: commandStartedAt
+            )
+            guard let self else { return }
+            self.persistenceError = result.error
+            if let hash = result.sidecarHash {
+                self.sidecarManagedHashes[command.assetID] = hash
+                self.sidecarDriftAssetIDs.remove(command.assetID)
+            }
+        }
     }
 
     /// Journal + in-memory recipe win when sidecar changes underneath a running session.

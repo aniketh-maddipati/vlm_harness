@@ -17,6 +17,13 @@ enum ShootCrashRecovery {
         besideShootFolder rawFolder: URL
     ) throws -> CrashRecoveryReport {
         let records = try ShootDecisionJournal.readCommittedRecords(besideShootFolder: rawFolder)
+        return replay(records: records, into: &shoot)
+    }
+
+    static func replay(
+        records: [ShootJournalRecord],
+        into shoot: inout ShootRecord
+    ) -> CrashRecoveryReport {
         var applied = 0
         var cullCount = 0
         var editCount = 0
