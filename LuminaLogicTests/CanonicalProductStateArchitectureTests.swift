@@ -2,20 +2,20 @@ import XCTest
 @testable import Lumina
 
 final class CanonicalProductStateArchitectureTests: XCTestCase {
-    func testCurrentCullStatePersistsThroughShootRecord() throws {
-        try withIsolatedStore { shoot in
+    func testCurrentCullStatePersistsThroughShootRecord() async throws {
+        try await withIsolatedStore { shoot in
             var changed = shoot
             changed.assets[0].cull = .keep
 
-            try ShootStore.saveShoot(changed)
+            try await ShootStore.shared.saveShoot(changed)
             let reopened = try ShootStore.loadShoot(id: changed.name)
 
             XCTAssertEqual(reopened.assets[0].cull, .keep)
         }
     }
 
-    func testCurrentEditStatePersistsThroughAssetRecord() throws {
-        try withIsolatedStore { shoot in
+    func testCurrentEditStatePersistsThroughAssetRecord() async throws {
+        try await withIsolatedStore { shoot in
             var changed = shoot
             changed.assets[0].recipe = EditRecipe(
                 exposure: 0.75,
@@ -23,7 +23,7 @@ final class CanonicalProductStateArchitectureTests: XCTestCase {
                 straightenDegrees: 1.25
             )
 
-            try ShootStore.saveShoot(changed)
+            try await ShootStore.shared.saveShoot(changed)
             let reopened = try ShootStore.loadShoot(id: changed.name)
             let recipe = try XCTUnwrap(reopened.assets[0].recipe)
 
@@ -33,8 +33,8 @@ final class CanonicalProductStateArchitectureTests: XCTestCase {
         }
     }
 
-    func testOpeningCurrentShootDecodesShootRecordDirectly() throws {
-        try withIsolatedStore { shoot in
+    func testOpeningCurrentShootDecodesShootRecordDirectly() async throws {
+        try await withIsolatedStore { shoot in
             let url = try ShootStore.shootJSONURL(for: shoot.name)
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
@@ -47,9 +47,9 @@ final class CanonicalProductStateArchitectureTests: XCTestCase {
         }
     }
 
-    func testSavingCurrentShootWritesOnlyCanonicalCatalog() throws {
-        try withIsolatedStore { shoot in
-            try ShootStore.saveShoot(shoot)
+    func testSavingCurrentShootWritesOnlyCanonicalCatalog() async throws {
+        try await withIsolatedStore { shoot in
+            try await ShootStore.shared.saveShoot(shoot)
 
             XCTAssertTrue(
                 FileManager.default.fileExists(
@@ -93,7 +93,9 @@ final class CanonicalProductStateArchitectureTests: XCTestCase {
         }
     }
 
-    private func withIsolatedStore(_ body: (ShootRecord) throws -> Void) throws {
+    private func withIsolatedStore(
+        _ body: (ShootRecord) async throws -> Void
+    ) async throws {
         let priorRoot = UITestSupport.stateDirectoryOverride
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("lumina-canonical-state-\(UUID().uuidString)", isDirectory: true)
@@ -122,7 +124,7 @@ final class CanonicalProductStateArchitectureTests: XCTestCase {
             ],
             workspace: WorkspaceRestoreState(focusedAssetID: id)
         )
-        try body(shoot)
+        try await body(shoot)
     }
 
     private func repoRoot() -> URL {

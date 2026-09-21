@@ -186,7 +186,7 @@ enum ImportPipeline {
             photos: records
         )
         project.collections = ExportService.draftCollections(from: records)
-        try ProjectStore.save(project)
+        try await ProjectStore.save(project)
 
         let uncertain = records.filter(\.isUncertain).count
         emit(.ready, detail: "\(records.count) photos · \(uncertain) need you", completed: records.count, total: records.count, fraction: 0.72)
@@ -242,7 +242,7 @@ enum ImportPipeline {
         var stagedProject = project
         stagedProject.photos = staged
         stagedProject.collections = ExportService.draftCollections(from: staged)
-        try ProjectStore.save(stagedProject)
+        try await ProjectStore.save(stagedProject)
         continuation.yield(.refinementReady(staged))
         emit(.ready, detail: "Refined · \(staged.count) photos", completed: staged.count, total: staged.count, fraction: 1.0)
         continuation.finish()
@@ -504,7 +504,7 @@ enum ImportPipeline {
             photos: records
         )
         project.collections = ExportService.draftCollections(from: records)
-        try ProjectStore.save(project)
+        try await ProjectStore.save(project)
         return project
     }
 }

@@ -8,6 +8,14 @@ actor ShootStore {
 
     private var pendingSaves: [String: Task<Void, Never>] = [:]
     private var lastError: [String: String] = [:]
+    private var nextJournalSequence: [String: UInt64] = [:]
+    #if DEBUG
+    private var journalInitializationCounts: [String: Int] = [:]
+    #endif
+
+    static let commandToMemoryMetric = "p0.persistence.command_to_memory"
+    static let commandToJournalDurableMetric = "p0.persistence.command_to_journal_durable"
+    static let commandToSidecarDurableMetric = "p0.persistence.command_to_sidecar_durable"
 
     // MARK: - Paths (nonisolated)
 
@@ -99,10 +107,17 @@ actor ShootStore {
         throw ShootStoreError.notFound(name)
     }
 
-    nonisolated static func saveShoot(_ shoot: ShootRecord) throws {
+    nonisolated private static func writeShoot(_ shoot: ShootRecord) throws {
         try writeAtomically(shoot)
         try rememberLastOpened(name: shoot.name, id: shoot.id)
     }
+
+    #if DEBUG
+    /// Synchronous launch-fixture installation happens before the app creates its session.
+    nonisolated static func installFixtureShoot(_ shoot: ShootRecord) throws {
+        try writeShoot(shoot)
+    }
+    #endif
 
     nonisolated static func listRecentShoots() throws -> [RecentShootSummary] {
         let root = try supportDirectory().appendingPathComponent("projects", isDirectory: true)
@@ -136,7 +151,7 @@ actor ShootStore {
         let shootName = name ?? folderURL.lastPathComponent
         if let existing = try? loadShoot(id: shootName) {
             let refreshed = refreshAvailability(existing, folderURL: folderURL)
-            try saveShoot(refreshed)
+            try writeShoot(refreshed)
             return refreshed
         }
 
@@ -156,7 +171,7 @@ actor ShootStore {
         }
 
         let shoot = ShootRecord(name: shootName, rawFolder: rawRef)
-        try saveShoot(shoot)
+        try writeShoot(shoot)
         return shoot
     }
 
@@ -176,14 +191,104 @@ actor ShootStore {
         try Self.loadShoot(id: name)
     }
 
+    func recoverShoot(_ shoot: ShootRecord, besideShootFolder rawFolder: URL) throws -> ShootRecord {
+        try ShootDecisionJournal.repairIncompleteTrailingRecord(besideShootFolder: rawFolder)
+        let records = try ShootDecisionJournal.readCommittedRecords(besideShootFolder: rawFolder)
+        let key = journalKey(rawFolder)
+        nextJournalSequence[key] = (records.last?.sequence ?? 0) + 1
+        #if DEBUG
+        journalInitializationCounts[key, default: 0] += 1
+        #endif
+        var recovered = shoot
+        _ = ShootCrashRecovery.replay(records: records, into: &recovered)
+        return recovered
+    }
+
     func saveShoot(_ shoot: ShootRecord) throws {
         do {
-            try Self.saveShoot(shoot)
+            try Self.writeShoot(shoot)
             lastError.removeValue(forKey: shoot.name)
         } catch {
             lastError[shoot.name] = error.localizedDescription
             throw error
         }
+    }
+
+    /// Serial durability path for one visible cull mutation.
+    /// The caller has already changed canonical memory; failure never rolls that state back.
+    func commitCulls(
+        _ commands: [CullMutationCommand],
+        shoot: ShootRecord,
+        besideShootFolder rawFolder: URL,
+        commandStartedAt: Date
+    ) -> String? {
+        var failures: [String] = []
+        for command in commands {
+            do {
+                let sequence = try claimJournalSequence(besideShootFolder: rawFolder)
+                let record = ShootDecisionJournal.cullRecord(command, sequence: sequence)
+                try ShootDecisionJournal.append(record, besideShootFolder: rawFolder)
+                nextJournalSequence[journalKey(rawFolder)] = sequence + 1
+            } catch {
+                failures.append(error.localizedDescription)
+                break
+            }
+        }
+        if failures.isEmpty, !commands.isEmpty {
+            LatencyMetrics.record(
+                Self.commandToJournalDurableMetric,
+                milliseconds: Date().timeIntervalSince(commandStartedAt) * 1_000
+            )
+        }
+        persistCatalog(shoot, failures: &failures)
+        return finishPersistence(shootName: shoot.name, failures: failures)
+    }
+
+    /// Serial durability path for one visible edit mutation.
+    /// Journal precedes the catalog and open sidecar so crash replay remains authoritative.
+    func commitEdit(
+        _ command: EditMutationCommand,
+        shoot: ShootRecord,
+        besideShootFolder rawFolder: URL,
+        originalURL: URL?,
+        commandStartedAt: Date
+    ) -> (error: String?, sidecarHash: String?) {
+        var failures: [String] = []
+        do {
+            let sequence = try claimJournalSequence(besideShootFolder: rawFolder)
+            let record = ShootDecisionJournal.editRecord(command, sequence: sequence)
+            try ShootDecisionJournal.append(record, besideShootFolder: rawFolder)
+            nextJournalSequence[journalKey(rawFolder)] = sequence + 1
+            LatencyMetrics.record(
+                Self.commandToJournalDurableMetric,
+                milliseconds: Date().timeIntervalSince(commandStartedAt) * 1_000
+            )
+        } catch {
+            failures.append(error.localizedDescription)
+        }
+
+        persistCatalog(shoot, failures: &failures)
+
+        var sidecarHash: String?
+        if let originalURL {
+            do {
+                let result = try ShootSidecarStore.writeCommittedEdit(
+                    command.after,
+                    besideOriginal: originalURL
+                )
+                sidecarHash = result.managedFieldsHash
+                LatencyMetrics.record(
+                    Self.commandToSidecarDurableMetric,
+                    milliseconds: Date().timeIntervalSince(commandStartedAt) * 1_000
+                )
+            } catch {
+                failures.append(error.localizedDescription)
+            }
+        }
+        return (
+            finishPersistence(shootName: shoot.name, failures: failures),
+            sidecarHash
+        )
     }
 
     /// Per-shoot debounced save — never shares one global work item across shoots.
@@ -195,7 +300,7 @@ actor ShootStore {
             try? await Task.sleep(nanoseconds: delayNanoseconds)
             guard !Task.isCancelled else { return }
             do {
-                try Self.saveShoot(snapshot)
+                try Self.writeShoot(snapshot)
                 lastError.removeValue(forKey: name)
             } catch {
                 lastError[name] = error.localizedDescription
@@ -212,6 +317,28 @@ actor ShootStore {
         try Self.createOrOpenShoot(from: folderURL, name: name)
     }
 
+    /// Merge background preview/metadata progress without clobbering live decisions.
+    func savePreparedShootPreservingDecisions(_ prepared: ShootRecord) throws {
+        guard let disk = try? Self.loadShoot(id: prepared.name) else {
+            try saveShoot(prepared)
+            return
+        }
+        var merged = prepared
+        let liveByID = Dictionary(uniqueKeysWithValues: disk.assets.map { ($0.id, $0) })
+        for index in merged.assets.indices {
+            guard let live = liveByID[merged.assets[index].id] else { continue }
+            merged.assets[index].cull = live.cull
+            merged.assets[index].recipe = live.recipe
+            merged.assets[index].userDecidedAt = live.userDecidedAt
+            merged.assets[index].isFlagged = live.isFlagged
+        }
+        merged.finalSetOrder = disk.finalSetOrder
+        merged.workspace = disk.workspace
+        merged.exportHistory = disk.exportHistory
+        merged.batchHistory = disk.batchHistory
+        try saveShoot(merged)
+    }
+
     func lastPersistenceError(for name: String) -> String? {
         lastError[name]
     }
@@ -220,7 +347,50 @@ actor ShootStore {
         Self.lastOpenedShootName()
     }
 
+    #if DEBUG
+    func journalInitializationCount(besideShootFolder rawFolder: URL) -> Int {
+        journalInitializationCounts[journalKey(rawFolder), default: 0]
+    }
+    #endif
+
     // MARK: - Internals
+
+    private func journalKey(_ rawFolder: URL) -> String {
+        rawFolder.standardizedFileURL.path
+    }
+
+    private func claimJournalSequence(besideShootFolder rawFolder: URL) throws -> UInt64 {
+        let key = journalKey(rawFolder)
+        if let sequence = nextJournalSequence[key] {
+            return sequence
+        }
+        try ShootDecisionJournal.repairIncompleteTrailingRecord(besideShootFolder: rawFolder)
+        let records = try ShootDecisionJournal.readCommittedRecords(besideShootFolder: rawFolder)
+        let sequence = (records.last?.sequence ?? 0) + 1
+        nextJournalSequence[key] = sequence
+        #if DEBUG
+        journalInitializationCounts[key, default: 0] += 1
+        #endif
+        return sequence
+    }
+
+    private func persistCatalog(_ shoot: ShootRecord, failures: inout [String]) {
+        do {
+            try Self.writeShoot(shoot)
+        } catch {
+            failures.append(error.localizedDescription)
+        }
+    }
+
+    private func finishPersistence(shootName: String, failures: [String]) -> String? {
+        guard !failures.isEmpty else {
+            lastError.removeValue(forKey: shootName)
+            return nil
+        }
+        let message = failures.joined(separator: " · ")
+        lastError[shootName] = message
+        return message
+    }
 
     nonisolated private static func writeAtomically(_ shoot: ShootRecord) throws {
         let dir = try shootDirectory(for: shoot.name)

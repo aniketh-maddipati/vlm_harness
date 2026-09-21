@@ -10,6 +10,32 @@ final class ShootDecisionJournalTests: XCTestCase {
         return base
     }
 
+    private func makeShoot(folder: URL, assetID: UUID = UUID()) -> ShootRecord {
+        let name = "\(assetID.uuidString).ARW"
+        return ShootRecord(
+            name: "serialized-\(UUID().uuidString)",
+            rawFolder: SourceReference(
+                originalPath: folder.path,
+                relativePath: ".",
+                volumeID: "VOL",
+                availability: .available
+            ),
+            assets: [
+                AssetRecord(
+                    id: assetID,
+                    sourceKey: "k-\(assetID)",
+                    source: SourceReference(
+                        originalPath: folder.appendingPathComponent(name).path,
+                        relativePath: name,
+                        volumeID: "VOL",
+                        availability: .available
+                    ),
+                    filename: name
+                )
+            ]
+        )
+    }
+
     // MARK: - D35 — nothing the user did is ever lost (append-only committed history)
 
     func testD35_committedDecisionsAppendNeverRewriteHistory() throws {
@@ -25,8 +51,14 @@ final class ShootDecisionJournalTests: XCTestCase {
             assetID: asset, before: .keep, after: .reject,
             finalOrderBefore: [asset], finalOrderAfter: []
         )
-        _ = try ShootDecisionJournal.appendCullCommit(cull1, besideShootFolder: folder)
-        _ = try ShootDecisionJournal.appendCullCommit(cull2, besideShootFolder: folder)
+        try ShootDecisionJournal.append(
+            ShootDecisionJournal.cullRecord(cull1, sequence: 1),
+            besideShootFolder: folder
+        )
+        try ShootDecisionJournal.append(
+            ShootDecisionJournal.cullRecord(cull2, sequence: 2),
+            besideShootFolder: folder
+        )
 
         let records = try ShootDecisionJournal.readCommittedRecords(besideShootFolder: folder)
         XCTAssertEqual(records.count, 2)
@@ -39,7 +71,10 @@ final class ShootDecisionJournalTests: XCTestCase {
             before: .neutral,
             after: EditRecipe(exposure: 0.4)
         )
-        _ = try ShootDecisionJournal.appendEditCommit(edit, besideShootFolder: folder)
+        try ShootDecisionJournal.append(
+            ShootDecisionJournal.editRecord(edit, sequence: 3),
+            besideShootFolder: folder
+        )
         let afterEdit = try ShootDecisionJournal.readCommittedRecords(besideShootFolder: folder)
         XCTAssertEqual(afterEdit.count, 3)
         XCTAssertEqual(afterEdit[0].cullAfter, .keep, "D35: prior entries unchanged")
@@ -54,7 +89,8 @@ final class ShootDecisionJournalTests: XCTestCase {
             before: EditRecipe(exposure: 0.1),
             after: EditRecipe(exposure: 0.9, temperature: 5200)
         )
-        let written = try ShootDecisionJournal.appendEditCommit(cmd, besideShootFolder: folder)
+        let written = ShootDecisionJournal.editRecord(cmd, sequence: 1)
+        try ShootDecisionJournal.append(written, besideShootFolder: folder)
         let records = try ShootDecisionJournal.readCommittedRecords(besideShootFolder: folder)
         XCTAssertEqual(records.count, 1)
         XCTAssertEqual(records[0].kind, .editCommit)
@@ -82,7 +118,10 @@ final class ShootDecisionJournalTests: XCTestCase {
             assetID: asset, before: .undecided, after: .keep,
             finalOrderBefore: [], finalOrderAfter: [asset]
         )
-        _ = try ShootDecisionJournal.appendCullCommit(cmd, besideShootFolder: folder)
+        try ShootDecisionJournal.append(
+            ShootDecisionJournal.cullRecord(cmd, sequence: 1),
+            besideShootFolder: folder
+        )
 
         let journalURL = ShootDecisionJournal.journalURL(besideShootFolder: folder)
         XCTAssertTrue(journalURL.path.hasPrefix(folder.path),
@@ -104,7 +143,10 @@ final class ShootDecisionJournalTests: XCTestCase {
             assetID: asset, before: .undecided, after: .keep,
             finalOrderBefore: [], finalOrderAfter: [asset]
         )
-        _ = try ShootDecisionJournal.appendCullCommit(cmd, besideShootFolder: folder)
+        try ShootDecisionJournal.append(
+            ShootDecisionJournal.cullRecord(cmd, sequence: 1),
+            besideShootFolder: folder
+        )
 
         let after = try Data(contentsOf: rawPhoto)
         XCTAssertEqual(before, after, "D36 / R-M.1: mark key X never writes — journal must not mutate RAW bytes")
@@ -129,7 +171,10 @@ final class ShootDecisionJournalTests: XCTestCase {
                 after: .keep,
                 finalOrderBefore: [], finalOrderAfter: [asset]
             )
-            _ = try ShootDecisionJournal.appendCullCommit(cmd, besideShootFolder: folder)
+            try ShootDecisionJournal.append(
+                ShootDecisionJournal.cullRecord(cmd, sequence: UInt64(i + 1)),
+                besideShootFolder: folder
+            )
         }
 
         let url = ShootDecisionJournal.journalURL(besideShootFolder: folder)
@@ -140,6 +185,89 @@ final class ShootDecisionJournalTests: XCTestCase {
         let recovered = try ShootDecisionJournal.readCommittedRecords(besideShootFolder: folder)
         XCTAssertEqual(recovered.count, 5, "D35: complete lines survive kill mid-write on trailing line")
         XCTAssertEqual(recovered.map(\.sequence), [1, 2, 3, 4, 5])
+    }
+
+    func testSerializedStoreAssignsOrderedSequenceWithoutQuadraticRereads() async throws {
+        let folder = try makeShootFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let assetID = UUID()
+        var shoot = makeShoot(folder: folder, assetID: assetID)
+        let store = ShootStore()
+
+        for index in 0..<1_000 {
+            let before = shoot.assets[0].cull
+            let after: CullDecision = index.isMultiple(of: 2) ? .keep : .reject
+            shoot.assets[0].cull = after
+            let command = CullMutationCommand(
+                assetID: assetID,
+                before: before,
+                after: after,
+                finalOrderBefore: before == .keep ? [assetID] : [],
+                finalOrderAfter: after == .keep ? [assetID] : []
+            )
+            let error = await store.commitCulls(
+                [command],
+                shoot: shoot,
+                besideShootFolder: folder,
+                commandStartedAt: Date()
+            )
+            XCTAssertNil(error)
+        }
+
+        let records = try ShootDecisionJournal.readCommittedRecords(besideShootFolder: folder)
+        XCTAssertEqual(records.map(\.sequence), Array(1...1_000).map { UInt64($0) })
+        #if DEBUG
+        let initializationCount = await store.journalInitializationCount(besideShootFolder: folder)
+        XCTAssertEqual(initializationCount, 1, "the journal is scanned once, not once per append")
+        #endif
+    }
+
+    func testSerializedStoreResumesSequenceAfterRestart() async throws {
+        let folder = try makeShootFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let assetID = UUID()
+        var shoot = makeShoot(folder: folder, assetID: assetID)
+
+        let first = CullMutationCommand(
+            assetID: assetID,
+            before: .undecided,
+            after: .keep,
+            finalOrderBefore: [],
+            finalOrderAfter: [assetID]
+        )
+        shoot.assets[0].cull = .keep
+        let firstError = await ShootStore().commitCulls(
+            [first],
+            shoot: shoot,
+            besideShootFolder: folder,
+            commandStartedAt: Date()
+        )
+        XCTAssertNil(firstError)
+
+        let journalURL = ShootDecisionJournal.journalURL(besideShootFolder: folder)
+        let handle = try FileHandle(forWritingTo: journalURL)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data("{\"partial\":".utf8))
+        try handle.close()
+
+        let second = CullMutationCommand(
+            assetID: assetID,
+            before: .keep,
+            after: .reject,
+            finalOrderBefore: [assetID],
+            finalOrderAfter: []
+        )
+        shoot.assets[0].cull = .reject
+        let secondError = await ShootStore().commitCulls(
+            [second],
+            shoot: shoot,
+            besideShootFolder: folder,
+            commandStartedAt: Date()
+        )
+        XCTAssertNil(secondError)
+
+        let records = try ShootDecisionJournal.readCommittedRecords(besideShootFolder: folder)
+        XCTAssertEqual(records.map(\.sequence), [1, 2])
     }
 }
 

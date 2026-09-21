@@ -154,7 +154,7 @@ enum UITestFixtures {
             scale: .contactSheet,
             keptOrderMode: false
         )
-        try ShootStore.saveShoot(shoot)
+        try ShootStore.installFixtureShoot(shoot)
     }
 
     // MARK: - Deterministic state assignment
