@@ -77,7 +77,8 @@ final class P0LogicTests: XCTestCase {
             renderInstrumentsEnabled: false, escTransientHoldActive: false,
             editVariantsActive: false, editVariantAssetID: nil, focusedEditVariantIndex: nil,
             editVariantCancellationCount: 0,
-            elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64
+            elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
+            chapterTableMounted: true, inspectPeripheryDimOpacity: 1
         )
         let json = snapshot.jsonString()
         let decoded = try? JSONDecoder().decode(ProbeSnapshot.self, from: Data(json.utf8))

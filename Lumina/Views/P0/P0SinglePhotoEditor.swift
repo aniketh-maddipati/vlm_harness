@@ -3,11 +3,11 @@ import CoreImage
 import SwiftUI
 
 /// Finalized P0 single-photograph editing surface.
-/// Warm-white shell, middle-gray matte, Metal RAW preview, adjustment rail, filmstrip.
+/// Warm-white shell, middle-gray matte, Metal RAW preview, adjustment rail.
+/// The elastic strip lives on the still-mounted chapter table (D26).
 struct P0SinglePhotoEditor: View {
     @Bindable var session: P0SessionModel
     let asset: AssetRecord
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var oneToOne = false
     @State private var panOffset: CGSize = .zero
     @State private var drawableSize: CGSize = .zero
@@ -33,7 +33,6 @@ struct P0SinglePhotoEditor: View {
                 header
                 photographStage
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                filmstrip
             }
             .background(LuminaTokens.Surface.mist)
 
@@ -420,111 +419,5 @@ struct P0SinglePhotoEditor: View {
             center: oneToOneCenter,
             drawableSize: drawableSize
         )
-    }
-
-    private var filmstrip: some View {
-        let neighbors = filmstripNeighbors()
-        let focusIndex = neighbors.firstIndex(where: { $0.id == session.focusedAssetID })
-        return VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: LuminaTokens.Spacing.sm) {
-                        ForEach(Array(neighbors.enumerated()), id: \.element.id) { index, item in
-                            let distance = focusIndex.map {
-                                ElasticCanvasLayout.distance(from: index, focus: $0)
-                            } ?? ElasticCanvasLayout.steps.count
-                            filmstripThumb(
-                                item,
-                                longEdge: ElasticCanvasLayout.stripThumbLongEdge(
-                                    distanceFromFocus: distance
-                                )
-                            )
-                                .id(item.id)
-                        }
-                    }
-                    .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
-                    .padding(.bottom, 12)
-                    .padding(.top, 2)
-                }
-                .scrollBounceBehavior(.always)
-                .frame(height: ElasticCanvasLayout.stripTrackHeight)
-                .onChange(of: session.focusedAssetID) { _, id in
-                    guard let id else { return }
-                    // No spring on every key — animation under arrow-repeat was a major lag source.
-                    proxy.scrollTo(id, anchor: .center)
-                }
-            }
-        }
-        .background(LuminaTokens.Surface.porcelain.opacity(0.96))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(LuminaTokens.Line.hairline.opacity(0.65))
-                .frame(height: LuminaTokens.Line.hairlineWidth)
-        }
-    }
-
-    private func filmstripThumb(_ item: ContactSheetItem, longEdge: CGFloat) -> some View {
-        let focused = item.id == session.focusedAssetID
-        let selected = item.marks.selected
-        let height = min(longEdge, ElasticCanvasLayout.stripTrackHeight)
-        return ZStack {
-            if let path = item.asset.thumbPath ?? item.asset.gridThumbPath {
-                ChapterPlateImage(path: path)
-                    .frame(width: longEdge, height: height)
-                    .clipped()
-            } else {
-                Rectangle()
-                    .fill(LuminaTokens.Surface.well)
-                    .frame(width: longEdge, height: height)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .strokeBorder(
-                    focused
-                        ? LuminaTokens.Ink.primary
-                        : (selected ? LuminaTokens.Status.selection.opacity(0.85) : Color.clear),
-                    lineWidth: focused ? 2.5 : 2
-                )
-        }
-        .scaleEffect(focused ? 1.06 : 1.0)
-        .shadow(
-            color: focused ? LuminaTokens.Ink.primary.opacity(0.12) : .clear,
-            radius: focused ? 8 : 0,
-            y: focused ? 2 : 0
-        )
-        .opacity(item.marks.rejected ? 0.5 : 1)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if session.focusedAssetID != item.id {
-                session.setFocus(item.id)
-            }
-            session.selectClick(id: item.id, command: true, shift: false)
-        }
-        .animation(
-            LuminaSpringAnimation.transform(
-                reduceMotion: reduceMotion,
-                durationMs: Double(HiFiTokens.Motion.photoFocusMs),
-                curve: .interactive
-            ),
-            value: focused
-        )
-        .accessibilityLabel(item.asset.filename)
-        .accessibilityAddTraits(focused ? .isSelected : [])
-        .accessibilityHint("Tap to focus and select")
-        .accessibilityIdentifier(P0AccessibilityID.filmstripItem(item.id))
-    }
-
-    private func filmstripNeighbors() -> [ContactSheetItem] {
-        let items = session.visibleItems
-        guard let focus = session.focusedAssetID,
-              let idx = items.firstIndex(where: { $0.id == focus }) else {
-            return Array(items.prefix(16))
-        }
-        // Wider window so the elastic strip feels continuous while browsing.
-        let lo = max(0, idx - 14)
-        let hi = min(items.count, idx + 15)
-        return Array(items[lo..<hi])
     }
 }

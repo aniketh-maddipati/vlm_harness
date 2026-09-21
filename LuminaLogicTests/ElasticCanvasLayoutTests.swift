@@ -36,4 +36,21 @@ final class ElasticCanvasLayoutTests: XCTestCase {
         XCTAssertEqual(ElasticCanvasLayout.distance(from: 7, focus: 7), 0)
         XCTAssertEqual(ElasticCanvasLayout.distance(from: 4, focus: 7), 3)
     }
+
+    func testPeripheryDimIsTokenAndNeverAbsent() {
+        XCTAssertEqual(ElasticCanvasLayout.peripheryDimOpacity, HiFiTokens.Color.rejectDimOpacity)
+        XCTAssertEqual(ElasticCanvasLayout.peripheryDimOpacity, 0.45)
+        XCTAssertEqual(ElasticCanvasLayout.plateOpacity(distanceFromFocus: 0), 1)
+        XCTAssertEqual(ElasticCanvasLayout.plateOpacity(distanceFromFocus: 1), 0.45)
+        XCTAssertEqual(ElasticCanvasLayout.plateOpacity(distanceFromFocus: 12), 0.45)
+        XCTAssertEqual(ElasticCanvasLayout.plateOpacity(distanceFromFocus: 0, rejected: true), 0.45)
+        XCTAssertGreaterThan(ElasticCanvasLayout.plateOpacity(distanceFromFocus: 4), 0)
+    }
+
+    func testInspectNeighborRangeKeepsDistantFrames() {
+        XCTAssertEqual(ElasticCanvasLayout.inspectNeighborRange(focusIndex: 20, count: 40), 6..<35)
+        XCTAssertEqual(ElasticCanvasLayout.inspectNeighborRange(focusIndex: 0, count: 8), 0..<8)
+        XCTAssertEqual(ElasticCanvasLayout.inspectNeighborRange(focusIndex: nil, count: 40), 0..<16)
+        XCTAssertEqual(ElasticCanvasLayout.inspectNeighborRange(focusIndex: 0, count: 0), 0..<0)
+    }
 }

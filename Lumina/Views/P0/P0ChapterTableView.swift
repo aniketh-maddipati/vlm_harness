@@ -7,13 +7,19 @@ struct P0ChapterTableView: View {
     @Namespace private var travel
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            chronologyRod
-                .frame(width: 156)
-            chapterBoard
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            keptRail
-                .frame(width: 168)
+        Group {
+            if session.inspectingAssetID != nil {
+                inspectStrip
+            } else {
+                HStack(alignment: .top, spacing: 0) {
+                    chronologyRod
+                        .frame(width: 156)
+                    chapterBoard
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    keptRail
+                        .frame(width: 168)
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(LuminaTokens.Surface.mist)
@@ -22,7 +28,7 @@ struct P0ChapterTableView: View {
             session.prefetchChapterCovers()
         }
         .overlay {
-            if session.holdingLoupe {
+            if session.holdingLoupe && session.inspectingAssetID == nil {
                 loupeOverlay
             }
         }
@@ -346,6 +352,109 @@ struct P0ChapterTableView: View {
         }
         .allowsHitTesting(false)
         .transition(reduceMotion ? .identity : .offset(y: LuminaTokens.Spacing.sm))
+    }
+
+    private var inspectStrip: some View {
+        let neighbors = inspectStripNeighbors()
+        let focusIndex = neighbors.firstIndex(where: { $0.id == session.focusedAssetID })
+        return ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: LuminaTokens.Spacing.sm) {
+                    ForEach(Array(neighbors.enumerated()), id: \.element.id) { index, item in
+                        let distance = focusIndex.map {
+                            ElasticCanvasLayout.distance(from: index, focus: $0)
+                        } ?? ElasticCanvasLayout.steps.count
+                        inspectStripThumb(
+                            item,
+                            longEdge: ElasticCanvasLayout.stripThumbLongEdge(
+                                distanceFromFocus: distance
+                            ),
+                            distance: distance
+                        )
+                        .id(item.id)
+                    }
+                }
+                .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
+            }
+            .scrollBounceBehavior(.always)
+            .frame(height: ElasticCanvasLayout.stripTrackHeight)
+            .onChange(of: session.focusedAssetID) { _, id in
+                guard let id else { return }
+                proxy.scrollTo(id, anchor: .center)
+            }
+        }
+        .background(LuminaTokens.Surface.porcelain.opacity(0.96))
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(LuminaTokens.Line.hairline.opacity(0.65))
+                .frame(height: LuminaTokens.Line.hairlineWidth)
+        }
+    }
+
+    private func inspectStripThumb(
+        _ item: ContactSheetItem,
+        longEdge: CGFloat,
+        distance: Int
+    ) -> some View {
+        let focused = item.id == session.focusedAssetID
+        let selected = item.marks.selected
+        let height = min(longEdge, ElasticCanvasLayout.stripTrackHeight)
+        return ZStack {
+            if let path = item.asset.thumbPath ?? item.asset.gridThumbPath {
+                ChapterPlateImage(path: path)
+                    .frame(width: longEdge, height: height)
+                    .clipped()
+            } else {
+                Rectangle()
+                    .fill(LuminaTokens.Surface.well)
+                    .frame(width: longEdge, height: height)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: LuminaTokens.Radius.photographThumb, style: .continuous)
+                .strokeBorder(
+                    focused
+                        ? LuminaTokens.Ink.primary
+                        : (selected ? LuminaTokens.Status.selection.opacity(0.85) : Color.clear),
+                    lineWidth: focused
+                        ? HiFiTokens.Ring.plateFocusWidth
+                        : (selected ? HiFiTokens.Ring.selectionWidth : 0)
+                )
+        }
+        .scaleEffect(focused ? 1.06 : 1.0)
+        .shadow(
+            color: focused ? LuminaTokens.Ink.primary.opacity(0.12) : .clear,
+            radius: focused ? 8 : 0,
+            y: focused ? 2 : 0
+        )
+        .opacity(ElasticCanvasLayout.plateOpacity(distanceFromFocus: distance, rejected: item.marks.rejected))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if session.focusedAssetID != item.id {
+                session.setFocus(item.id)
+            }
+        }
+        .animation(
+            LuminaSpringAnimation.transform(
+                reduceMotion: reduceMotion,
+                durationMs: Double(HiFiTokens.Motion.photoFocusMs),
+                curve: .interactive
+            ),
+            value: focused
+        )
+        .accessibilityLabel(item.asset.filename)
+        .accessibilityAddTraits(focused ? .isSelected : [])
+        .accessibilityIdentifier(P0AccessibilityID.filmstripItem(item.id))
+    }
+
+    private func inspectStripNeighbors() -> [ContactSheetItem] {
+        let items = session.visibleItems
+        let focusIndex = session.focusedAssetID.flatMap { id in
+            items.firstIndex(where: { $0.id == id })
+        }
+        let range = ElasticCanvasLayout.inspectNeighborRange(focusIndex: focusIndex, count: items.count)
+        return Array(items[range])
     }
 
     private var focusedImagePath: String? {
