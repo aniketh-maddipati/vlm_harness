@@ -43,7 +43,7 @@ final class P0JournalIntegrationTests: XCTestCase {
 
     // MARK: - D35 — session commits append beside shoot
 
-    func testD35_sessionCullCommitAppendsJournal() throws {
+    func testD35_sessionCullCommitAppendsJournal() async throws {
         let folder = try makeShootFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let assetID = UUID()
@@ -53,6 +53,7 @@ final class P0JournalIntegrationTests: XCTestCase {
 
         session.pressKeep()
 
+        try await waitForJournal(count: 1, folder: folder)
         let records = try ShootDecisionJournal.readCommittedRecords(besideShootFolder: folder)
         XCTAssertEqual(records.count, 1)
         XCTAssertEqual(records[0].kind, .cullCommit)
@@ -61,7 +62,7 @@ final class P0JournalIntegrationTests: XCTestCase {
 
     // MARK: - D13 — staging is NOT journaled until commit
 
-    func testD13_editGestureStagingNotJournaledUntilCommit() throws {
+    func testD13_editGestureStagingNotJournaledUntilCommit() async throws {
         let folder = try makeShootFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let assetID = UUID()
@@ -79,8 +80,18 @@ final class P0JournalIntegrationTests: XCTestCase {
 
         session.endEditGesture()
 
+        try await waitForJournal(count: 1, folder: folder)
         let records = try ShootDecisionJournal.readCommittedRecords(besideShootFolder: folder)
         XCTAssertEqual(records.count, 1)
         XCTAssertEqual(records[0].kind, .editCommit)
+    }
+
+    private func waitForJournal(count: Int, folder: URL) async throws {
+        for _ in 0..<100 {
+            let records = try ShootDecisionJournal.readCommittedRecords(besideShootFolder: folder)
+            if records.count == count { return }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTFail("journal did not reach \(count) records")
     }
 }

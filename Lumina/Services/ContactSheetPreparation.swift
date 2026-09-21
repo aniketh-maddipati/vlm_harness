@@ -146,7 +146,10 @@ nonisolated enum ContactSheetPreparation {
         }
 
         if let rawFolderURL = access?.url {
-            _ = try? ShootCrashRecovery.replayJournal(into: &shoot, besideShootFolder: rawFolderURL)
+            shoot = (try? await ShootStore.shared.recoverShoot(
+                shoot,
+                besideShootFolder: rawFolderURL
+            )) ?? shoot
         }
 
         continuation.yield(.opened(shoot: shoot, status: status))
@@ -185,7 +188,7 @@ nonisolated enum ContactSheetPreparation {
             continuation: continuation
         )
 
-        try savePreservingLiveMutations(shoot)
+        try await ShootStore.shared.savePreparedShootPreservingDecisions(shoot)
         continuation.finish()
     }
 
@@ -202,7 +205,7 @@ nonisolated enum ContactSheetPreparation {
         let started = folderURL.startAccessingSecurityScopedResource()
         defer { SecurityScopedAccess.stopIfNeeded(folderURL, didStartAccess: started) }
 
-        var shoot = try ShootStore.createOrOpenShoot(from: folderURL, name: name)
+        var shoot = try await ShootStore.shared.createOrOpenShoot(from: folderURL, name: name)
         if shoot.rawFolder?.bookmarkData == nil {
             shoot.rawFolder?.bookmarkData = SecurityScopedAccess.bookmark(for: folderURL)
         }
@@ -235,7 +238,7 @@ nonisolated enum ContactSheetPreparation {
                 status: &status,
                 continuation: continuation
             )
-            try savePreservingLiveMutations(shoot)
+            try await ShootStore.shared.savePreparedShootPreservingDecisions(shoot)
             continuation.finish()
             return
         }
@@ -293,7 +296,10 @@ nonisolated enum ContactSheetPreparation {
         status.phaseDetail = "\(records.count) photos"
         status.isPreparingPreviews = true
 
-        _ = try? ShootCrashRecovery.replayJournal(into: &shoot, besideShootFolder: folderURL)
+        shoot = (try? await ShootStore.shared.recoverShoot(
+            shoot,
+            besideShootFolder: folderURL
+        )) ?? shoot
 
         // Open the workspace before preview extraction completes.
         continuation.yield(.opened(shoot: shoot, status: status))
@@ -303,7 +309,7 @@ nonisolated enum ContactSheetPreparation {
         )
 
         // Persist catalog early so reopen skips rediscovery.
-        try ShootStore.saveShoot(shoot)
+        try await ShootStore.shared.saveShoot(shoot)
 
         try await preparePreviews(
             shoot: &shoot,
@@ -322,7 +328,7 @@ nonisolated enum ContactSheetPreparation {
             continuation: continuation
         )
 
-        try savePreservingLiveMutations(shoot)
+        try await ShootStore.shared.savePreparedShootPreservingDecisions(shoot)
         continuation.finish()
     }
 
@@ -435,7 +441,7 @@ nonisolated enum ContactSheetPreparation {
         status.isPreparingPreviews = false
         status.phaseDetail = "\(status.assetCount) photos"
         continuation.yield(.status(status))
-        try? savePreservingLiveMutations(shoot)
+        try? await ShootStore.shared.savePreparedShootPreservingDecisions(shoot)
     }
 
     // MARK: - Metadata
@@ -479,28 +485,6 @@ nonisolated enum ContactSheetPreparation {
     }
 
     // MARK: - Helpers
-
-    /// Persist preview/metadata progress without clobbering cull/recipe writes from the live session.
-    private static func savePreservingLiveMutations(_ prepared: ShootRecord) throws {
-        guard let disk = try? ShootStore.loadShoot(id: prepared.name) else {
-            try ShootStore.saveShoot(prepared)
-            return
-        }
-        var merged = prepared
-        let liveByID = Dictionary(uniqueKeysWithValues: disk.assets.map { ($0.id, $0) })
-        for i in merged.assets.indices {
-            guard let live = liveByID[merged.assets[i].id] else { continue }
-            merged.assets[i].cull = live.cull
-            merged.assets[i].recipe = live.recipe
-            merged.assets[i].userDecidedAt = live.userDecidedAt
-            merged.assets[i].isFlagged = live.isFlagged
-        }
-        merged.finalSetOrder = disk.finalSetOrder
-        merged.workspace = disk.workspace
-        merged.exportHistory = disk.exportHistory
-        merged.batchHistory = disk.batchHistory
-        try ShootStore.saveShoot(merged)
-    }
 
     static func chronologicalLess(_ lhs: AssetRecord, _ rhs: AssetRecord) -> Bool {
         switch (lhs.capturedAt, rhs.capturedAt) {

@@ -56,10 +56,7 @@ struct ShootJournalRecord: Codable, Equatable, Sendable, Identifiable {
 }
 
 enum ShootJournalError: Error, Equatable, Sendable {
-    case missingShootFolder
     case sequenceRegression(expected: UInt64, found: UInt64)
-    case historyRewriteAttempt
-    case stagingNotJournaled
     case invalidTrailingLine
 }
 
@@ -75,13 +72,12 @@ enum ShootDecisionJournal {
             .appendingPathComponent(fileName)
     }
 
-    static func appendCullCommit(
+    static func cullRecord(
         _ command: CullMutationCommand,
-        besideShootFolder rawFolder: URL
-    ) throws -> ShootJournalRecord {
-        let nextSeq = try nextSequence(besideShootFolder: rawFolder)
-        let record = ShootJournalRecord(
-            sequence: nextSeq,
+        sequence: UInt64
+    ) -> ShootJournalRecord {
+        ShootJournalRecord(
+            sequence: sequence,
             kind: .cullCommit,
             commandID: command.id,
             assetID: command.assetID,
@@ -89,17 +85,14 @@ enum ShootDecisionJournal {
             cullAfter: command.after,
             finalOrderAfter: command.finalOrderAfter
         )
-        try append(record, besideShootFolder: rawFolder)
-        return record
     }
 
-    static func appendEditCommit(
+    static func editRecord(
         _ command: EditMutationCommand,
-        besideShootFolder rawFolder: URL
-    ) throws -> ShootJournalRecord {
-        let nextSeq = try nextSequence(besideShootFolder: rawFolder)
-        let record = ShootJournalRecord(
-            sequence: nextSeq,
+        sequence: UInt64
+    ) -> ShootJournalRecord {
+        ShootJournalRecord(
+            sequence: sequence,
             kind: .editCommit,
             commandID: command.id,
             assetID: command.assetID,
@@ -107,8 +100,6 @@ enum ShootDecisionJournal {
             editAfterFingerprint: command.after.valueFingerprint,
             editAfterRecipe: command.after
         )
-        try append(record, besideShootFolder: rawFolder)
-        return record
     }
 
     /// D13 — staging / release-never-commits paths must not reach the journal.
@@ -151,15 +142,22 @@ enum ShootDecisionJournal {
         return records
     }
 
-    // MARK: - Internals
-
-    private static func nextSequence(besideShootFolder rawFolder: URL) throws -> UInt64 {
-        let existing = try readCommittedRecords(besideShootFolder: rawFolder)
-        guard let last = existing.last else { return 1 }
-        return last.sequence + 1
+    /// Remove bytes from a killed partial append before the actor resumes appending.
+    static func repairIncompleteTrailingRecord(besideShootFolder rawFolder: URL) throws {
+        let url = journalURL(besideShootFolder: rawFolder)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        let data = try Data(contentsOf: url)
+        guard !data.isEmpty, data.last != 0x0A else { return }
+        guard let newline = data.lastIndex(of: 0x0A) else {
+            try Data().write(to: url, options: .atomic)
+            return
+        }
+        try Data(data.prefix(through: newline)).write(to: url, options: .atomic)
     }
 
-    private static func append(_ record: ShootJournalRecord, besideShootFolder rawFolder: URL) throws {
+    // MARK: - Internals
+
+    static func append(_ record: ShootJournalRecord, besideShootFolder rawFolder: URL) throws {
         let dir = rawFolder.appendingPathComponent(directoryName, isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let journalURL = journalURL(besideShootFolder: rawFolder)
@@ -168,15 +166,6 @@ enum ShootDecisionJournal {
         encoder.outputFormatting = [.sortedKeys]
         var lineData = try encoder.encode(record)
         lineData.append(0x0A) // newline — one complete record per line
-
-        if FileManager.default.fileExists(atPath: journalURL.path),
-           let existingData = try? Data(contentsOf: journalURL),
-           !existingData.isEmpty {
-            let existingText = String(decoding: existingData, as: UTF8.self)
-            if existingText.contains("\"sequence\":\(record.sequence)") {
-                throw ShootJournalError.historyRewriteAttempt
-            }
-        }
 
         if FileManager.default.fileExists(atPath: journalURL.path) {
             let handle = try FileHandle(forWritingTo: journalURL)
