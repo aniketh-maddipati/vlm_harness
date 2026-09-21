@@ -25,8 +25,13 @@ REQUIREMENTS: dict[str, tuple[str, ...]] = {
         "OrientedDisplayImage.ciImage",
     ),
     "Lumina/Views/P0/P0ContactSheetView.swift": (
-        "if session.inspectingAssetID == nil",
+        "P0ChapterTableView(session: session)",
         "value: session.inspectingAssetID",
+    ),
+    "Lumina/Views/P0/P0ChapterTableView.swift": (
+        "ElasticCanvasLayout.plateOpacity",
+        "ElasticCanvasLayout.stripThumbLongEdge",
+        "inspectStrip",
     ),
     "Lumina/Develop/DevelopRenderScheduler.swift": (
         "visibleRenderGate",
@@ -75,6 +80,9 @@ FORBIDDEN: dict[str, tuple[str, ...]] = {
     "Lumina/Views/P0/P0SinglePhotoEditor.swift": (
         "if let image {\n                    DevelopMetalView(",
         "CIImage(contentsOf:",
+    ),
+    "Lumina/Views/P0/P0ContactSheetView.swift": (
+        "if session.inspectingAssetID == nil {\n                VStack(spacing: 0) {\n                    toolbar\n                    P0ChapterTableView",
     ),
     "Lumina/Develop/DevelopRenderGraph.swift": (
         "applyOrientationProperty",

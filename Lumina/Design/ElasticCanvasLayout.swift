@@ -31,4 +31,25 @@ enum ElasticCanvasLayout {
         guard let maxStep = steps.first, maxStep > 0 else { return stripTrackHeight }
         return raw / maxStep * stripTrackHeight
     }
+
+    /// D27 dim-in-place for inspect periphery (and rejects). Not an opacity fade to absent.
+    static var peripheryDimOpacity: Double { HiFiTokens.Color.rejectDimOpacity }
+
+    static func plateOpacity(distanceFromFocus: Int, rejected: Bool = false) -> Double {
+        if distanceFromFocus <= 0 && !rejected { return 1 }
+        return peripheryDimOpacity
+    }
+
+    /// Neighbor window used by the inspect strip (same table, compressed).
+    static let inspectNeighborHalfWindow = 14
+
+    static func inspectNeighborRange(focusIndex: Int?, count: Int) -> Range<Int> {
+        guard count > 0 else { return 0..<0 }
+        guard let focusIndex, (0..<count).contains(focusIndex) else {
+            return 0..<min(count, inspectNeighborHalfWindow + 2)
+        }
+        let lo = max(0, focusIndex - inspectNeighborHalfWindow)
+        let hi = min(count, focusIndex + inspectNeighborHalfWindow + 1)
+        return lo..<hi
+    }
 }

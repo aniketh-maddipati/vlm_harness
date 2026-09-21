@@ -62,6 +62,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var elasticStripTrackHeight: Int = 90
     var elasticStripNearLongEdge: Int = 210
     var elasticStripFarLongEdge: Int = 64
+    var chapterTableMounted: Bool = false
+    var inspectPeripheryDimOpacity: Double = 1
 
     /// Convenience: the Nth visible asset ID (nil when out of range).
     func visibleID(at index: Int) -> String? {

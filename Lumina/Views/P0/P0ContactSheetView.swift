@@ -12,18 +12,30 @@ struct P0ContactSheetView: View {
         ZStack {
             LuminaTokens.Surface.mist.ignoresSafeArea()
 
-            if session.inspectingAssetID == nil {
-                VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                if session.inspectingAssetID == nil {
                     toolbar
-                    P0ChapterTableView(session: session)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-            }
 
-            if let id = session.inspectingAssetID,
-               let asset = session.assets.first(where: { $0.id == id }) {
-                P0SinglePhotoEditor(session: session, asset: asset)
-                    .transition(effectiveReduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.985)))
+                if let id = session.inspectingAssetID,
+                   let asset = session.assets.first(where: { $0.id == id }) {
+                    P0SinglePhotoEditor(session: session, asset: asset)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .layoutPriority(1)
+                        .transition(
+                            effectiveReduceMotion
+                                ? .opacity
+                                : .opacity.combined(with: .scale(scale: 0.985))
+                        )
+                }
+
+                P0ChapterTableView(session: session)
+                    .frame(maxWidth: .infinity)
+                    .frame(
+                        maxHeight: session.inspectingAssetID == nil
+                            ? .infinity
+                            : ElasticCanvasLayout.stripTrackHeight
+                    )
             }
         }
         .animation(

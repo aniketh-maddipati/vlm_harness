@@ -50,6 +50,9 @@ enum Invariants {
         if tallied != s.assetCount {
             violations.append("keep+reject+unreviewed (\(tallied)) != assetCount \(s.assetCount)")
         }
+        if (s.route == "singlePhoto" || s.inspectingAssetID != nil) && !s.chapterTableMounted {
+            violations.append("inspect unmounted the chapter table — D26 latch")
+        }
         return violations
     }
 

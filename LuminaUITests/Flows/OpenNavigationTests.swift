@@ -88,7 +88,8 @@ extension ContactSheetRobot {
                 renderInstrumentsEnabled: false, escTransientHoldActive: false,
                 editVariantsActive: false, editVariantAssetID: nil, focusedEditVariantIndex: nil,
                 editVariantCancellationCount: 0,
-                elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64
+                elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
+                chapterTableMounted: false, inspectPeripheryDimOpacity: 1
             )
         }
         return snapshot

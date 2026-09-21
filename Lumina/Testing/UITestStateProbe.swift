@@ -72,6 +72,10 @@ struct ProbeSnapshot: Codable, Equatable {
     var elasticStripTrackHeight: Int = 90
     var elasticStripNearLongEdge: Int = 210
     var elasticStripFarLongEdge: Int = 64
+    /// D26 — chapter table stays mounted under inspect (latch, not a replacement route).
+    var chapterTableMounted: Bool = false
+    /// D27 — dim applied to inspect periphery plates; 1 at rest on the table.
+    var inspectPeripheryDimOpacity: Double = 1
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -176,7 +180,11 @@ extension P0SessionModel {
             editVariantCancellationCount: workspaceState.editVariantCancellationCount,
             elasticStripTrackHeight: Int(ElasticCanvasLayout.stripTrackHeight.rounded()),
             elasticStripNearLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 1).rounded()),
-            elasticStripFarLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 4).rounded())
+            elasticStripFarLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 4).rounded()),
+            chapterTableMounted: self.route == .contactSheet,
+            inspectPeripheryDimOpacity: inspectingAssetID == nil
+                ? 1
+                : ElasticCanvasLayout.peripheryDimOpacity
         )
     }
 }

@@ -24,6 +24,7 @@ final class GridPhotoRestoreTests: LuminaUITestCase {
         let single = XCTContext.runActivity(named: "Open photograph") { _ -> SinglePhotoRobot in
             let s = sheet.openFocused()
             XCTAssertTrue(s.hasFilmstripItems(), "filmstrip should be present at single-photo scale")
+            XCTAssertTrue(lumina.requireProbe().chapterTableMounted, "inspect must keep the chapter table mounted")
             return s
         }
 
