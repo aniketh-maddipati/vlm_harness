@@ -271,7 +271,7 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 session.setHoldingClipping(false)
                 return nil
             }
-            if chars == "v" {
+            if chars == "v", session.inspectingAssetID != nil {
                 session.cancelEditVariants()
                 return nil
             }
