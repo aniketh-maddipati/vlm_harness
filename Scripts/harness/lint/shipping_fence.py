@@ -19,6 +19,10 @@ SHIPPING_ONLY_SOURCES = (
 
 FENCE = re.compile(r"#if\s+!LUMINA_SHIPPING_APP\b")
 APP = ROOT / "Lumina" / "LuminaApp.swift"
+RELEASE_CONFIGS = {
+    "Lumina": "A1000001000000000000000F",
+    "LuminaPlayground": "A6000001000000000000000F",
+}
 HARNESS_CALL = re.compile(
     r"(WorkbenchCapture|RawHarnessRunner|RamTierHarnessRunner|P0EditHarnessRunner|P0EditLiveRunner|RawBackendBenchmarkRunner)\."
 )
@@ -62,9 +66,22 @@ def main() -> int:
                 fail = 1
 
     pbx = ROOT / "Lumina.xcodeproj" / "project.pbxproj"
-    if "LUMINA_SHIPPING_APP" not in pbx.read_text(encoding="utf-8"):
-        print("FAIL: Release Lumina target missing LUMINA_SHIPPING_APP flag", file=sys.stderr)
-        fail = 1
+    pbx_text = pbx.read_text(encoding="utf-8")
+    for target, config_id in RELEASE_CONFIGS.items():
+        match = re.search(
+            rf"{config_id} /\* Release \*/ = \{{(?P<body>.*?)\n\t\t\}};",
+            pbx_text,
+            re.DOTALL,
+        )
+        if match is None:
+            print(f"FAIL: missing {target} Release build configuration", file=sys.stderr)
+            fail = 1
+        elif "LUMINA_SHIPPING_APP" not in match.group("body"):
+            print(
+                f"FAIL: {target} Release missing LUMINA_SHIPPING_APP flag",
+                file=sys.stderr,
+            )
+            fail = 1
 
     if fail:
         return 1

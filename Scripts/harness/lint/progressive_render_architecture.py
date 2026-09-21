@@ -25,9 +25,12 @@ REQUIREMENTS: dict[str, tuple[str, ...]] = {
         "quality: .settled",
     ),
     "Lumina/Services/BrowsePixelService.swift": (
-        "must never demosaic RAW",
+        "guard !rawExtensions.contains(ext) else { return nil }",
         "pinnedPaths",
         "decoded: decoded.cgImage",
+    ),
+    "Lumina/Views/MetalBrowseCanvas.swift": (
+        "BrowsePixelService.shared.prepareTexture",
     ),
     "Lumina/Develop/PreparedRawSession.swift": (
         "materializeInteractiveStage",
@@ -60,6 +63,22 @@ REQUIREMENTS: dict[str, tuple[str, ...]] = {
 FORBIDDEN: dict[str, tuple[str, ...]] = {
     "Lumina/Views/P0/P0SinglePhotoEditor.swift": (
         "if let image {\n                    DevelopMetalView(",
+    ),
+    "Lumina/Services/MetalPreviewPool.swift": (
+        "decodeBrowseJPEG",
+        "func upload(id: UUID, jpegPath:",
+    ),
+    "Lumina/Views/Components/StablePhotoView.swift": (
+        "PhotoImageCache.shared",
+    ),
+    "Lumina/Views/ProgressivePhotoWall.swift": (
+        "PhotoImageCache.shared",
+    ),
+    "Lumina/Views/MetalBrowseCanvas.swift": (
+        "MetalPreviewPool.shared.scheduleUpload",
+    ),
+    "Lumina/ViewModels/ProjectViewModel.swift": (
+        "PhotoImageCache.shared",
     ),
 }
 

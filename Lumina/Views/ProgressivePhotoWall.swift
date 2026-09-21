@@ -198,11 +198,9 @@ private struct ProgressiveWallTile: View {
             }
         }
         .task(id: path) {
-            let outcome = await PhotoImageCache.shared.load(path: path, maxPixelSize: PhotoImageTier.gridMaxPixelSize, allowRAW: false)
-            switch outcome {
-            case .image(let img):
+            if let img = await BrowsePixelService.shared.image(path: path, tier: .grid) {
                 withAnimation(LuminaSpringAnimation.animation(durationMs: 250, curve: .easeOut)) { image = img }
-            case .missing, .failed:
+            } else {
                 failed = true
             }
         }

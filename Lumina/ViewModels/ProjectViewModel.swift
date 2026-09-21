@@ -827,7 +827,10 @@ final class ProjectViewModel {
             }
         }
         Task {
-            await PhotoImageCache.shared.prefetch(Array(Set(paths)), maxPixelSize: 1600, allowRAW: false)
+            await BrowsePixelService.shared.prefetch(
+                paths: paths,
+                maxPixelSize: 1600
+            )
         }
     }
 
@@ -863,11 +866,14 @@ final class ProjectViewModel {
                 }
             }
         }
+        if let proxy = photo.proxyPath {
+            paths.append(proxy)
+        }
         Task {
-            await PhotoImageCache.shared.prefetch(Array(Set(paths)), maxPixelSize: 1600, allowRAW: false)
-            if let proxy = photo.proxyPath {
-                await PhotoImageCache.shared.prefetch([proxy], maxPixelSize: nil, allowRAW: true)
-            }
+            await BrowsePixelService.shared.prefetch(
+                paths: paths,
+                maxPixelSize: PhotoImageTier.focusedPreviewLongEdge
+            )
         }
     }
 

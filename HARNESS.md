@@ -25,11 +25,18 @@ No argument to `regression.sh` ≡ `pre-commit`. Exit codes: `0` PASS · `1` FAI
 
 ## Budget ceiling (enforced)
 
-Each lane declares `budgetMs` in `Scripts/harness/lanes/manifests.json`. **Total lane elapsed time above the ceiling is a lane FAIL** — not a warning. On breach the runner prints the slowest manifest test ids by measured ms (descending), then the sentence **delete or demote** (never hardware, parallelism, or a raised ceiling). Ceilings: FAST **90000** ms (<90s) · FULL **600000** ms (<10min) · HEAVY **3600000** ms (nightly budget).
+Each lane declares `budgetMs` in `Scripts/harness/lanes/manifests.json`. **Total lane elapsed time above the ceiling is a lane FAIL** — not a warning. On breach the runner prints the slowest manifest test ids by measured ms (descending), then the sentence **delete or demote** (never hardware, parallelism, or a raised ceiling). Ceilings: FAST **90000** ms (<90s) · FULL **480000** ms (<8min) · HEAVY **3600000** ms (nightly budget).
 
 **Pre-merge build cache (F04.1):** `Scripts/harness/build_cache.py` stores `xcodebuild build-for-testing` products under `artifacts/harness/build-cache/<source-hash12>-<tokens-hash12>/`. `bash Scripts/regression.sh pre-merge` reuses when source + `design/tokens.yaml` are unchanged.
 
 **Compile rot-guard:** FAST `session_surface` keeps `P0SessionModel.developScheduler` file-private (call sites use `displayedCIImage` / `developFidelity` / `editMetricsLine`). FULL job #1 `xcode_compile` runs `xcodebuild build-for-testing` with `SWIFT_CONTINUE_BUILDING_AFTER_ERRORS=YES` and prints a compact error ledger so one file does not hide the rest. Developers: `bash Scripts/compile_check.sh`. Local `./DD` and `./build` are gitignored.
+
+**Clean stability gate:** `bash Scripts/build_stability.sh` is the required
+Apple Silicon checkpoint before PR/merge. It performs two cache-free rounds of
+FAST, clean Debug, build-for-testing, complete logic tests, compile ledger,
+shipping Release, Playground Release, F11.1/F11.2, and clean-tree verification.
+It exits `2` on unsupported hosts. See
+`docs/architecture/BUILD_STABILITY_CONTRACT.md`.
 
 ---
 

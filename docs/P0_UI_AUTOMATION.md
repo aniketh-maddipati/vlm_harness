@@ -34,7 +34,7 @@ Assertions read structured state from the probe rather than scraping UI text.
 
 ## 2. Local Mac requirements
 
-- macOS 14+ with **Xcode 15+** (developed on Xcode 26 / Swift 6 toolchain, Swift-5 language mode).
+- Apple Silicon macOS 14+ with **Xcode 16.4+** (Swift-5 language mode).
 - **Accessibility / Automation permission**: the first XCUITest run may prompt to allow the test
   runner to control the app. Grant it (System Settings → Privacy & Security → Automation /
   Accessibility). Headless CI on a Mac needs this pre-granted.

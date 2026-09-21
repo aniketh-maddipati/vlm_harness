@@ -198,17 +198,16 @@ struct StablePhotoView: View {
             commit(image: spineImage, fidelity: .preview, reduceMotion: reduceMotion)
         }
 
-        // 3. Higher path via PhotoImageCache if available — keep prior pixels until ready.
+        // 3. Ask the same decode owner for the higher tier; keep prior pixels until ready.
         let candidates = [asset.previewPath, asset.thumbPath].compactMap { $0 }.filter { !$0.isEmpty }
         for path in candidates {
             guard generation == requestGeneration, boundAssetID == requestID else { return }
-            let outcome = await PhotoImageCache.shared.load(
+            let img = await BrowsePixelService.shared.image(
                 path: path,
-                maxPixelSize: maxPixelSize,
-                allowRAW: false
+                maxPixelSize: maxPixelSize
             )
             guard generation == requestGeneration, boundAssetID == requestID else { return }
-            if case .image(let img) = outcome {
+            if let img {
                 let next: Fidelity = maxPixelSize >= 2000 ? .high : .preview
                 if next >= fidelity {
                     commit(image: img, fidelity: next, reduceMotion: reduceMotion)

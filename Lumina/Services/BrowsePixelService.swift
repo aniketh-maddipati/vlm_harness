@@ -160,9 +160,17 @@ actor BrowsePixelService {
     }
 
     func prefetch(_ requests: [(assetID: UUID, path: String)], tier: Tier) {
-        for request in requests {
+        prefetch(paths: requests.map(\.path), maxPixelSize: tier.maxPixelSize)
+    }
+
+    func prefetch(paths: [String], tier: Tier) {
+        prefetch(paths: paths, maxPixelSize: tier.maxPixelSize)
+    }
+
+    func prefetch(paths: [String], maxPixelSize: Int) {
+        for path in Set(paths) {
             Task(priority: .utility) {
-                _ = await pixel(path: request.path, tier: tier)
+                _ = await pixel(path: path, maxPixelSize: maxPixelSize, priority: .utility)
             }
         }
     }
@@ -223,11 +231,11 @@ actor BrowsePixelService {
         autoreleasepool {
             let url = URL(fileURLWithPath: path)
             let ext = url.pathExtension.uppercased()
-            #if DEBUG
-            precondition(!rawExtensions.contains(ext), "BrowsePixelService must never demosaic RAW: \(path)")
-            #endif
-            guard !rawExtensions.contains(ext),
-                  FileManager.default.fileExists(atPath: path) else { return nil }
+            // PhotoRecord preview candidates may deliberately fall back to the
+            // source path. Decline that candidate; BrowsePixelService must never
+            // demosaic RAW, but a missing JPEG tier is not a programmer error.
+            guard !rawExtensions.contains(ext) else { return nil }
+            guard FileManager.default.fileExists(atPath: path) else { return nil }
 
             let started = CFAbsoluteTimeGetCurrent()
             let source: CGImageSource? = {

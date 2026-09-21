@@ -315,7 +315,7 @@ actor PhotoImageCache {
     }
 }
 
-/// Deduped prefetch front-end — used by grid overview and Pick phase.
+/// Deduped browse-prefetch front-end — used by grid overview and Pick phase.
 nonisolated final class ThumbCache: @unchecked Sendable {
     static let shared = ThumbCache()
     private var warm = Set<String>()
@@ -335,16 +335,34 @@ nonisolated final class ThumbCache: @unchecked Sendable {
         let fresh = warm.insert(key).inserted
         lock.unlock()
         guard fresh else { return }
-        Task { await PhotoImageCache.shared.prefetch([path], maxPixelSize: maxPixelSize, allowRAW: allowRAW) }
+        guard !allowRAW, let maxPixelSize else { return }
+        Task {
+            await BrowsePixelService.shared.prefetch(
+                paths: [path],
+                maxPixelSize: maxPixelSize
+            )
+        }
     }
 
     func prefetchPhotos(_ photos: [PhotoRecord], maxPixelSize: Int? = PhotoImageTier.gridMaxPixelSize) {
+        guard let maxPixelSize else { return }
         let paths = photos.compactMap { $0.gridThumbPath ?? $0.thumbPath }
-        Task { await PhotoImageCache.shared.prefetch(paths, maxPixelSize: maxPixelSize, allowRAW: false) }
+        Task {
+            await BrowsePixelService.shared.prefetch(
+                paths: paths,
+                maxPixelSize: maxPixelSize
+            )
+        }
     }
 
     func prefetchPaths(_ paths: [String], maxPixelSize: Int? = PhotoImageTier.gridMaxPixelSize, allowRAW: Bool = false) {
-        Task { await PhotoImageCache.shared.prefetch(paths, maxPixelSize: maxPixelSize, allowRAW: allowRAW) }
+        guard !allowRAW, let maxPixelSize else { return }
+        Task {
+            await BrowsePixelService.shared.prefetch(
+                paths: paths,
+                maxPixelSize: maxPixelSize
+            )
+        }
     }
 }
 
