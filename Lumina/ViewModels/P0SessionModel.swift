@@ -632,6 +632,45 @@ final class P0SessionModel {
         settleCurrentRecipe(for: id, recipe: recipe(for: id))
     }
 
+    // MARK: - Temporary edit variants
+
+    func beginEditVariants(assetID: UUID? = nil) {
+        flushPendingEditIfNeeded()
+        let id = assetID ?? inspectingAssetID ?? focusedAssetID
+        guard let id, assets.contains(where: { $0.id == id }) else { return }
+        workspaceState.beginEditVariants(assetID: id, sharedRecipe: recipe(for: id))
+    }
+
+    func setSharedVariantExposure(_ exposure: Double) {
+        workspaceState.setSharedVariantExposure(exposure)
+    }
+
+    func setVariantExposure(_ exposure: Double?, at index: Int) {
+        workspaceState.setVariantExposure(exposure, at: index)
+    }
+
+    func setVariantWhiteBalance(
+        temperature: Double?,
+        tint: Double?,
+        at index: Int
+    ) {
+        workspaceState.setVariantWhiteBalance(
+            temperature: temperature,
+            tint: tint,
+            at: index
+        )
+    }
+
+    func chooseEditVariant(at index: Int) {
+        guard let chosen = workspaceState.takeEditVariant(at: index),
+              assets.contains(where: { $0.id == chosen.assetID }) else { return }
+        applyEditMutation({ $0 = chosen.recipe }, assetID: chosen.assetID)
+    }
+
+    func cancelEditVariants() {
+        workspaceState.cancelEditVariants()
+    }
+
     func resetRecipeToNeutral(assetID: UUID? = nil) {
         applyEditMutation({ recipe in
             let retainedID = recipe.id
