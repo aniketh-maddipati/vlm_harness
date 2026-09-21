@@ -1,7 +1,7 @@
 # Lumina build-stability baseline
 
-Date: 2026-09-21  
-Untouched baseline: `375afe10535acc2fb3981ed4c5ae3ae25eb0a554`  
+Date: 2026-09-21
+Untouched baseline: `375afe10535acc2fb3981ed4c5ae3ae25eb0a554`
 Verified result: `1ce1d3dd294995f01aaa91e1bd4be49b173a5081`
 
 This document distinguishes local Linux evidence, hosted macOS evidence, and
