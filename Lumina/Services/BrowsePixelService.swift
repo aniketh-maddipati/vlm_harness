@@ -231,11 +231,11 @@ actor BrowsePixelService {
         autoreleasepool {
             let url = URL(fileURLWithPath: path)
             let ext = url.pathExtension.uppercased()
-            #if DEBUG
-            precondition(!rawExtensions.contains(ext), "BrowsePixelService must never demosaic RAW: \(path)")
-            #endif
-            guard !rawExtensions.contains(ext),
-                  FileManager.default.fileExists(atPath: path) else { return nil }
+            // PhotoRecord preview candidates may deliberately fall back to the
+            // source path. Decline that candidate; BrowsePixelService must never
+            // demosaic RAW, but a missing JPEG tier is not a programmer error.
+            guard !rawExtensions.contains(ext) else { return nil }
+            guard FileManager.default.fileExists(atPath: path) else { return nil }
 
             let started = CFAbsoluteTimeGetCurrent()
             let source: CGImageSource? = {
