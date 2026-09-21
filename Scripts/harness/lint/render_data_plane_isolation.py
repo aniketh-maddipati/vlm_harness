@@ -31,6 +31,7 @@ NONISOLATED_TYPE_MARKERS: dict[str, tuple[str, ...]] = {
     "Lumina/Develop/EditRecipe.swift": ("nonisolated struct EditRecipe",),
     "Lumina/Develop/DevelopColorPolicy.swift": ("nonisolated enum DevelopColorPolicy",),
     "Lumina/Develop/RawDecodeBackend.swift": ("nonisolated enum RawDecodeBackendRegistry",),
+    "Lumina/Rendering/OrientedDisplayImage.swift": ("nonisolated enum OrientedDisplayImage",),
     "Lumina/Services/P0AuthoritativeExportService.swift": (
         "nonisolated enum P0AuthoritativeExportService",
     ),

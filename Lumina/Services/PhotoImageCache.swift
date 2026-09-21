@@ -283,29 +283,32 @@ actor PhotoImageCache {
             if !allowRAW, isRAW(path) { return .missing }
 
             let url = URL(fileURLWithPath: path)
-            let source: CGImageSource? = autoreleasepool {
-                if let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) {
-                    return CGImageSourceCreateWithData(data as CFData, nil)
+            let cg: CGImage?
+            if !isRAW(path) {
+                cg = OrientedDisplayImage.cgImage(at: url, maxPixelSize: maxPixelSize)
+            } else {
+                let source: CGImageSource? = autoreleasepool {
+                    if let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) {
+                        return CGImageSourceCreateWithData(data as CFData, nil)
+                    }
+                    return CGImageSourceCreateWithURL(url as CFURL, nil)
                 }
-                return CGImageSourceCreateWithURL(url as CFURL, nil)
-            }
-            guard let source else { return .failed }
-
-            let cg: CGImage? = autoreleasepool {
-                if let maxPixelSize {
-                    let opts: [CFString: Any] = [
-                        kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
-                        kCGImageSourceCreateThumbnailFromImageAlways: false,
-                        kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-                        kCGImageSourceCreateThumbnailWithTransform: true,
-                        kCGImageSourceShouldCacheImmediately: false,
-                    ]
-                    return CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary)
-                        ?? CGImageSourceCreateImageAtIndex(source, 0, nil)
+                guard let source else { return .failed }
+                cg = autoreleasepool {
+                    if let maxPixelSize {
+                        let opts: [CFString: Any] = [
+                            kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
+                            kCGImageSourceCreateThumbnailFromImageAlways: false,
+                            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+                            kCGImageSourceCreateThumbnailWithTransform: true,
+                            kCGImageSourceShouldCacheImmediately: false,
+                        ]
+                        return CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary)
+                            ?? CGImageSourceCreateImageAtIndex(source, 0, nil)
+                    }
+                    return CGImageSourceCreateImageAtIndex(source, 0, nil)
                 }
-                return CGImageSourceCreateImageAtIndex(source, 0, nil)
             }
-
             guard let cg else { return .failed }
 
             let scale: CGFloat = 2

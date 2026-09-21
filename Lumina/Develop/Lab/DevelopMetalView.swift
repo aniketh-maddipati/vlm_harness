@@ -162,8 +162,9 @@ struct DevelopMetalView: NSViewRepresentable {
                 commandBuffer: commandBuffer
             ) { drawable.texture }
             destination.colorSpace = displaySpace
-            // MTKView presents top-down; Core Image is bottom-up. Flip the
-            // destination so RAW frames are upright relative to AppKit thumbs.
+            // MTKView presents top-down; Core Image is bottom-up. This is the
+            // only Y conversion on the present path. Incoming images must already
+            // be EXIF-baked / origin-normalized (`OrientedDisplayImage`).
             destination.isFlipped = true
 
             let signpostID = Self.signposter.makeSignpostID()

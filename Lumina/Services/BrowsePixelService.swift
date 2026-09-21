@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import ImageIO
 import Metal
 
 /// One decode owner for contact-sheet, focused-preview, and Metal browse pixels.
@@ -238,24 +237,9 @@ actor BrowsePixelService {
             guard FileManager.default.fileExists(atPath: path) else { return nil }
 
             let started = CFAbsoluteTimeGetCurrent()
-            let source: CGImageSource? = {
-                if let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) {
-                    return CGImageSourceCreateWithData(data as CFData, nil)
-                }
-                return CGImageSourceCreateWithURL(url as CFURL, nil)
-            }()
-            guard let source else { return nil }
-            let options: [CFString: Any] = [
-                kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
-                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceShouldCacheImmediately: false,
-            ]
-            guard let image = CGImageSourceCreateThumbnailAtIndex(
-                source,
-                0,
-                options as CFDictionary
+            guard let image = OrientedDisplayImage.cgImage(
+                at: url,
+                maxPixelSize: maxPixelSize
             ) else { return nil }
             return Pixel(
                 cgImage: image,
