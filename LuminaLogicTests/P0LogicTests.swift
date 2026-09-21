@@ -28,7 +28,10 @@ final class P0LogicTests: XCTestCase {
         )
         coordinator.push(cmd)
         XCTAssertTrue(coordinator.canUndo)
-        XCTAssertEqual(coordinator.popCull(), cmd)
+        guard case .cull(let popped) = coordinator.pop() else {
+            return XCTFail("expected cull command")
+        }
+        XCTAssertEqual(popped, cmd)
         XCTAssertFalse(coordinator.canUndo)
     }
 

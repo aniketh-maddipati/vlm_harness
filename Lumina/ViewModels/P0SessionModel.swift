@@ -433,23 +433,17 @@ final class P0SessionModel {
         }
     }
 
-    /// Compatibility alias — shared stack now undoes edit or cull.
-    func undoLastCull() {
-        undoLast()
-    }
-
     private func applyCullUndo(_ command: CullMutationCommand) {
         let selectionSnapshot = selectedAssetIDs
-        guard let index = assets.firstIndex(where: { $0.id == command.assetID }) else { return }
-
-        assets[index].cull = command.before
-        assets[index].userDecidedAt = command.before == .undecided ? nil : Date()
+        var finalOrder = shoot?.finalSetOrder ?? FinalSetOrder()
+        guard command.revert(in: &assets, finalOrder: &finalOrder) else { return }
         if var shoot {
-            shoot.finalSetOrder.assetIDs = command.finalOrderBefore
+            shoot.finalSetOrder = finalOrder
             shoot.assets = assets
             self.shoot = shoot
         }
         selectedAssetIDs = selectionSnapshot
+        journalCullCommit(command.reversed())
         persistShootImmediately()
     }
 
@@ -490,7 +484,6 @@ final class P0SessionModel {
               let assetIndex = assets.firstIndex(where: { $0.id == focusID }) else { return }
 
         let selectionSnapshot = selectedAssetIDs
-        let recipeBefore = assets[assetIndex].recipe
         let before = assets[assetIndex].cull
         let orderBefore = shoot?.finalSetOrder.assetIDs ?? []
         let wasInspecting = inspectingAssetID != nil
@@ -512,30 +505,30 @@ final class P0SessionModel {
         let after = cullGrammar.state.marks[focusID] ?? .undecided
         guard before != after else { return }
 
-        assets[assetIndex].cull = after
-        assets[assetIndex].userDecidedAt = after == .undecided ? nil : Date()
-        assets[assetIndex].recipe = recipeBefore
-
-        var orderAfter = orderBefore
-        if var shoot {
-            var order = shoot.finalSetOrder
-            let keptIDs = assets.filter { $0.cull == .keep }.map(\.id)
-            order.reconcileKeptMembership(keptIDsInChronologicalOrder: keptIDs)
-            orderAfter = order.assetIDs
-            shoot.finalSetOrder = order
-            shoot.assets = assets
-            self.shoot = shoot
-        }
-
-        selectedAssetIDs = selectionSnapshot
-
+        var projected = assets
+        projected[assetIndex].cull = after
+        var finalOrder = shoot?.finalSetOrder ?? FinalSetOrder()
+        finalOrder.reconcileKeptMembership(
+            keptIDsInChronologicalOrder: projected.filter { $0.cull == .keep }.map(\.id)
+        )
+        let committedAt = Date()
         let command = CullMutationCommand(
+            createdAt: committedAt,
             assetID: focusID,
             before: before,
             after: after,
+            userDecidedAtBefore: assets[assetIndex].userDecidedAt,
+            userDecidedAtAfter: after == .undecided ? nil : committedAt,
             finalOrderBefore: orderBefore,
-            finalOrderAfter: orderAfter
+            finalOrderAfter: finalOrder.assetIDs
         )
+        guard command.apply(to: &assets, finalOrder: &finalOrder) else { return }
+        if var shoot {
+            shoot.finalSetOrder = finalOrder
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+        selectedAssetIDs = selectionSnapshot
         undoCoordinator.push(command)
         journalCullCommit(command)
         schedulePersistShoot()
@@ -558,19 +551,19 @@ final class P0SessionModel {
 
     private func applyEditUndo(_ command: EditMutationCommand) {
         let selectionSnapshot = selectedAssetIDs
-        let cullSnapshot = assets.first(where: { $0.id == command.assetID })?.cull
-        guard let index = assets.firstIndex(where: { $0.id == command.assetID }) else { return }
-
-        assets[index].recipe = command.before.hasSettings ? command.before : nil
-        // Hard invariant: edit undo never mutates cull or selection.
-        if let cullSnapshot {
-            assets[index].cull = cullSnapshot
+        guard command.revert(in: &assets) else { return }
+        if var shoot {
+            shoot.assets = assets
+            self.shoot = shoot
         }
         selectedAssetIDs = selectionSnapshot
         workingRecipe = nil
         gestureBaselineRecipe = nil
         gestureAssetID = nil
         isEditGestureActive = false
+        let reversal = command.reversed()
+        journalEditCommit(reversal)
+        sidecarEditCommit(reversal)
         persistShootImmediately()
         if inspectingAssetID == command.assetID {
             scrubCurrentRecipe(for: command.assetID, recipe: recipe(for: command.assetID), recordInput: false)
@@ -658,14 +651,9 @@ final class P0SessionModel {
     private func commitRecipeMutation(assetID: UUID, before: EditRecipe, after: EditRecipe) {
         guard before.valueFingerprint != after.valueFingerprint else { return }
         let selectionSnapshot = selectedAssetIDs
-        let cullSnapshot = assets.first(where: { $0.id == assetID })?.cull
         let orderSnapshot = shoot?.finalSetOrder.assetIDs ?? []
-        guard let index = assets.firstIndex(where: { $0.id == assetID }) else { return }
-
-        assets[index].recipe = after.hasSettings ? after : nil
-        if let cullSnapshot {
-            assets[index].cull = cullSnapshot
-        }
+        let command = EditMutationCommand(assetID: assetID, before: before, after: after)
+        guard command.apply(to: &assets) else { return }
         if var shoot {
             // Hard invariant: editing never mutates final order.
             shoot.finalSetOrder.assetIDs = orderSnapshot
@@ -674,7 +662,6 @@ final class P0SessionModel {
         }
         selectedAssetIDs = selectionSnapshot
 
-        let command = EditMutationCommand(assetID: assetID, before: before, after: after)
         undoCoordinator.push(command)
         journalEditCommit(command)
         sidecarEditCommit(command)
@@ -1148,53 +1135,66 @@ final class P0SessionModel {
         let orderBefore = shoot?.finalSetOrder.assetIDs ?? []
         let chapterBefore = chapter.id
         let focusBefore = focusedAssetID
+        let committedAt = Date()
         var marks: [ChapterKeepCommand.Mark] = []
 
-        func apply(_ id: UUID, _ after: CullDecision) {
+        func stage(_ id: UUID, _ after: CullDecision) {
             guard let index = assets.firstIndex(where: { $0.id == id }) else { return }
             let before = assets[index].cull
             guard before != after else { return }
-            marks.append(ChapterKeepCommand.Mark(assetID: id, before: before, after: after))
-            assets[index].cull = after
-            assets[index].userDecidedAt = after == .undecided ? nil : Date()
+            marks.append(
+                ChapterKeepCommand.Mark(
+                    assetID: id,
+                    before: before,
+                    after: after,
+                    userDecidedAtBefore: assets[index].userDecidedAt,
+                    userDecidedAtAfter: after == .undecided ? nil : committedAt
+                )
+            )
         }
 
-        for id in burst.assetIDs { apply(id, .keep) }
+        for id in burst.assetIDs { stage(id, .keep) }
         for other in chapter.bursts where other.id != burst.id {
-            for id in other.assetIDs { apply(id, .reject) }
+            for id in other.assetIDs { stage(id, .reject) }
         }
         guard !marks.isEmpty else { return }
 
-        var orderAfter = orderBefore
+        let stagedCull = Dictionary(uniqueKeysWithValues: marks.map { ($0.assetID, $0.after) })
+        var finalOrder = shoot?.finalSetOrder ?? FinalSetOrder()
+        finalOrder.reconcileKeptMembership(
+            keptIDsInChronologicalOrder: assets.compactMap {
+                (stagedCull[$0.id] ?? $0.cull) == .keep ? $0.id : nil
+            }
+        )
+        let command = ChapterKeepCommand(
+            createdAt: committedAt,
+            marks: marks,
+            finalOrderBefore: orderBefore,
+            finalOrderAfter: finalOrder.assetIDs,
+            chapterBefore: chapterBefore,
+            focusBefore: focusBefore,
+            burstID: burst.id
+        )
+        guard command.apply(to: &assets, finalOrder: &finalOrder) else { return }
         if var shoot {
-            var order = shoot.finalSetOrder
-            let keptIDs = assets.filter { $0.cull == .keep }.map(\.id)
-            order.reconcileKeptMembership(keptIDsInChronologicalOrder: keptIDs)
-            orderAfter = order.assetIDs
-            shoot.finalSetOrder = order
+            shoot.finalSetOrder = finalOrder
             shoot.assets = assets
             self.shoot = shoot
         }
 
         travelingBurstID = burst.id
-        undoCoordinator.push(
-            ChapterKeepCommand(
-                marks: marks,
-                finalOrderBefore: orderBefore,
-                finalOrderAfter: orderAfter,
-                chapterBefore: chapterBefore,
-                focusBefore: focusBefore,
-                burstID: burst.id
-            )
-        )
+        undoCoordinator.push(command)
         for mark in marks {
             journalCullCommit(
                 CullMutationCommand(
+                    createdAt: committedAt,
                     assetID: mark.assetID,
                     before: mark.before,
                     after: mark.after,
+                    userDecidedAtBefore: mark.userDecidedAtBefore,
+                    userDecidedAtAfter: mark.userDecidedAtAfter,
                     finalOrderBefore: orderBefore,
-                    finalOrderAfter: orderAfter
+                    finalOrderAfter: finalOrder.assetIDs
                 )
             )
         }
@@ -1203,13 +1203,10 @@ final class P0SessionModel {
     }
 
     private func applyChapterKeepUndo(_ command: ChapterKeepCommand) {
-        for mark in command.marks {
-            guard let index = assets.firstIndex(where: { $0.id == mark.assetID }) else { continue }
-            assets[index].cull = mark.before
-            assets[index].userDecidedAt = mark.before == .undecided ? nil : Date()
-        }
+        var finalOrder = shoot?.finalSetOrder ?? FinalSetOrder()
+        guard command.revert(in: &assets, finalOrder: &finalOrder) else { return }
         if var shoot {
-            shoot.finalSetOrder.assetIDs = command.finalOrderBefore
+            shoot.finalSetOrder = finalOrder
             shoot.assets = assets
             self.shoot = shoot
         }
@@ -1220,6 +1217,19 @@ final class P0SessionModel {
         }
         if let focus = command.focusBefore {
             setFocus(focus)
+        }
+        for mark in command.marks {
+            journalCullCommit(
+                CullMutationCommand(
+                    assetID: mark.assetID,
+                    before: mark.after,
+                    after: mark.before,
+                    userDecidedAtBefore: mark.userDecidedAtAfter,
+                    userDecidedAtAfter: mark.userDecidedAtBefore,
+                    finalOrderBefore: command.finalOrderAfter,
+                    finalOrderAfter: command.finalOrderBefore
+                )
+            )
         }
         persistShootImmediately()
     }
