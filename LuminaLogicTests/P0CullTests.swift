@@ -124,7 +124,7 @@ final class P0CullTests: XCTestCase {
         session.pressKeep()
         session.pressReject()
         let recipeBeforeUndo = session.assets[0].recipe
-        session.undoLastCull()
+        session.undoLast()
         XCTAssertEqual(session.assets[0].cull, .keep)
         XCTAssertEqual(session.assets[0].recipe, recipeBeforeUndo)
     }

@@ -2,20 +2,15 @@ import Foundation
 
 // MARK: - P0 command boundary
 
-/// Shared undoable command surface for cull and edit mutations.
-protocol P0Command: Sendable {
-    var id: UUID { get }
-    var createdAt: Date { get }
-    var label: String { get }
-}
-
 /// Exact prior/next cull state for one asset — never touches recipes or selection.
-struct CullMutationCommand: P0Command, Equatable, Sendable {
+struct CullMutationCommand: Equatable, Sendable {
     let id: UUID
     let createdAt: Date
     let assetID: UUID
     let before: CullDecision
     let after: CullDecision
+    let userDecidedAtBefore: Date?
+    let userDecidedAtAfter: Date?
     /// Final-order snapshot before membership reconciliation (for exact undo).
     let finalOrderBefore: [UUID]
     let finalOrderAfter: [UUID]
@@ -34,6 +29,8 @@ struct CullMutationCommand: P0Command, Equatable, Sendable {
         assetID: UUID,
         before: CullDecision,
         after: CullDecision,
+        userDecidedAtBefore: Date? = nil,
+        userDecidedAtAfter: Date? = nil,
         finalOrderBefore: [UUID],
         finalOrderAfter: [UUID]
     ) {
@@ -42,8 +39,42 @@ struct CullMutationCommand: P0Command, Equatable, Sendable {
         self.assetID = assetID
         self.before = before
         self.after = after
+        self.userDecidedAtBefore = before == .undecided ? nil : (userDecidedAtBefore ?? createdAt)
+        self.userDecidedAtAfter = after == .undecided ? nil : (userDecidedAtAfter ?? createdAt)
         self.finalOrderBefore = finalOrderBefore
         self.finalOrderAfter = finalOrderAfter
+    }
+
+    @discardableResult
+    func apply(to assets: inout [AssetRecord], finalOrder: inout FinalSetOrder) -> Bool {
+        guard let index = assets.firstIndex(where: { $0.id == assetID }) else { return false }
+        assets[index].cull = after
+        assets[index].userDecidedAt = userDecidedAtAfter
+        finalOrder.assetIDs = finalOrderAfter
+        return true
+    }
+
+    @discardableResult
+    func revert(in assets: inout [AssetRecord], finalOrder: inout FinalSetOrder) -> Bool {
+        guard let index = assets.firstIndex(where: { $0.id == assetID }) else { return false }
+        assets[index].cull = before
+        assets[index].userDecidedAt = userDecidedAtBefore
+        finalOrder.assetIDs = finalOrderBefore
+        return true
+    }
+
+    func reversed(id: UUID = UUID(), createdAt: Date = Date()) -> CullMutationCommand {
+        CullMutationCommand(
+            id: id,
+            createdAt: createdAt,
+            assetID: assetID,
+            before: after,
+            after: before,
+            userDecidedAtBefore: userDecidedAtAfter,
+            userDecidedAtAfter: userDecidedAtBefore,
+            finalOrderBefore: finalOrderAfter,
+            finalOrderAfter: finalOrderBefore
+        )
     }
 
     /// Toggle grammar: same key clears to unreviewed; otherwise set the decision.
@@ -69,7 +100,7 @@ enum CullFocusAdvance {
 }
 
 /// Exact prior/next recipe for one asset — never touches cull, selection, or final order.
-struct EditMutationCommand: P0Command, Equatable, Sendable {
+struct EditMutationCommand: Equatable, Sendable {
     let id: UUID
     let createdAt: Date
     let assetID: UUID
@@ -95,14 +126,40 @@ struct EditMutationCommand: P0Command, Equatable, Sendable {
         self.before = before
         self.after = after
     }
+
+    @discardableResult
+    func apply(to assets: inout [AssetRecord]) -> Bool {
+        guard let index = assets.firstIndex(where: { $0.id == assetID }) else { return false }
+        assets[index].recipe = after.hasSettings ? after : nil
+        return true
+    }
+
+    @discardableResult
+    func revert(in assets: inout [AssetRecord]) -> Bool {
+        guard let index = assets.firstIndex(where: { $0.id == assetID }) else { return false }
+        assets[index].recipe = before.hasSettings ? before : nil
+        return true
+    }
+
+    func reversed(id: UUID = UUID(), createdAt: Date = Date()) -> EditMutationCommand {
+        EditMutationCommand(
+            id: id,
+            createdAt: createdAt,
+            assetID: assetID,
+            before: after,
+            after: before
+        )
+    }
 }
 
 /// One keep-this-burst move — every mark in the chapter restores together.
-struct ChapterKeepCommand: P0Command, Equatable, Sendable {
+struct ChapterKeepCommand: Equatable, Sendable {
     struct Mark: Equatable, Sendable {
         var assetID: UUID
         var before: CullDecision
         var after: CullDecision
+        var userDecidedAtBefore: Date? = nil
+        var userDecidedAtAfter: Date? = nil
     }
 
     let id: UUID
@@ -135,6 +192,38 @@ struct ChapterKeepCommand: P0Command, Equatable, Sendable {
         self.focusBefore = focusBefore
         self.burstID = burstID
     }
+
+    @discardableResult
+    func apply(to assets: inout [AssetRecord], finalOrder: inout FinalSetOrder) -> Bool {
+        var changed = false
+        for mark in marks {
+            guard let index = assets.firstIndex(where: { $0.id == mark.assetID }) else { continue }
+            assets[index].cull = mark.after
+            assets[index].userDecidedAt = mark.after == .undecided
+                ? nil
+                : (mark.userDecidedAtAfter ?? createdAt)
+            changed = true
+        }
+        guard changed else { return false }
+        finalOrder.assetIDs = finalOrderAfter
+        return true
+    }
+
+    @discardableResult
+    func revert(in assets: inout [AssetRecord], finalOrder: inout FinalSetOrder) -> Bool {
+        var changed = false
+        for mark in marks {
+            guard let index = assets.firstIndex(where: { $0.id == mark.assetID }) else { continue }
+            assets[index].cull = mark.before
+            assets[index].userDecidedAt = mark.before == .undecided
+                ? nil
+                : (mark.userDecidedAtBefore ?? createdAt)
+            changed = true
+        }
+        guard changed else { return false }
+        finalOrder.assetIDs = finalOrderBefore
+        return true
+    }
 }
 
 /// Heterogeneous undo entry on the shared P0 command stack.
@@ -157,13 +246,6 @@ enum P0UndoEntry: Equatable, Sendable {
 @Observable
 final class P0UndoCoordinator {
     private(set) var stack: [P0UndoEntry] = []
-    /// Compatibility mirror of cull-only entries for existing call sites / tests.
-    var cullStack: [CullMutationCommand] {
-        stack.compactMap {
-            if case .cull(let command) = $0 { return command }
-            return nil
-        }
-    }
 
     private let maxDepth = 64
 
@@ -184,13 +266,6 @@ final class P0UndoCoordinator {
 
     func pop() -> P0UndoEntry? {
         stack.popLast()
-    }
-
-    /// Legacy cull-only pop — returns nil when the top entry is an edit.
-    func popCull() -> CullMutationCommand? {
-        guard case .cull(let command) = stack.last else { return nil }
-        _ = stack.popLast()
-        return command
     }
 
     func clear() {
