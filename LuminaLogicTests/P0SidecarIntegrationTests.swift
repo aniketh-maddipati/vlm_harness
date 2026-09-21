@@ -113,10 +113,9 @@ final class P0SidecarIntegrationTests: XCTestCase {
         let folder = try makeShootFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let assetID = UUID()
-        let rawURL = folder.appendingPathComponent("\(assetID.uuidString).ARW")
-        try Data([0x01]).write(to: rawURL)
-        let xmp = ShootSidecarStore.sidecarURL(besideOriginal: rawURL)
-        try FileManager.default.createDirectory(at: xmp, withIntermediateDirectories: false)
+        let blockedParent = folder.appendingPathComponent("not-a-directory")
+        try Data([0x01]).write(to: blockedParent)
+        let rawURL = blockedParent.appendingPathComponent("\(assetID.uuidString).ARW")
 
         let asset = AssetRecord(
             id: assetID,
