@@ -92,7 +92,7 @@ final class P0CommandApplicationTests: XCTestCase {
         )
         XCTAssertTrue(command.apply(to: &shoot.assets, finalOrder: &shoot.finalSetOrder))
 
-        try ShootStore.saveShoot(shoot)
+        try await ShootStore.shared.saveShoot(shoot)
         let reopened = try ShootStore.loadShoot(id: shoot.name)
 
         XCTAssertEqual(reopened.assets[0].cull, .keep)
