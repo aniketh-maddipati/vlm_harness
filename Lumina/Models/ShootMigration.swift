@@ -1,6 +1,9 @@
 import Foundation
 
-/// Bidirectional migration between legacy `LuminaProject` / `PhotoRecord` and P0 `ShootRecord` / `AssetRecord`.
+/// Compatibility migration between legacy project state and canonical shoot state.
+///
+/// Current product flows decode `ShootRecord` through `decodeCurrentShoot`.
+/// The remaining bidirectional functions exist only for the unreachable legacy shell.
 enum ShootMigration {
     /// Convert a legacy or in-memory project into the canonical shoot record.
     static func shoot(from project: LuminaProject, shootID: UUID? = nil) -> ShootRecord {
@@ -213,17 +216,23 @@ enum ShootMigration {
         return photo
     }
 
-    /// Decode either a P0 `ShootRecord` or a legacy `LuminaProject` blob.
-    static func decodeShoot(from data: Data) throws -> ShootRecord {
+    /// Decode the canonical current format without constructing legacy product state.
+    static func decodeCurrentShoot(from data: Data) throws -> ShootRecord {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        if let shoot = try? decoder.decode(ShootRecord.self, from: data),
-           shoot.schemaVersion.rawValue >= 1,
-           !shoot.name.isEmpty {
-            return migrateForward(shoot)
+        let shoot = try decoder.decode(ShootRecord.self, from: data)
+        guard shoot.schemaVersion.rawValue >= 1, !shoot.name.isEmpty else {
+            throw ShootStoreError.migrationFailed("Invalid shoot record")
         }
+        return migrateForward(shoot)
+    }
 
+    /// Decode the retired project format at the on-disk compatibility boundary.
+    /// Delete when supported installs no longer need to open `project.json`.
+    static func decodeLegacyProject(from data: Data) throws -> ShootRecord {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
         do {
             let legacy = try decoder.decode(LuminaProject.self, from: data)
             return shoot(from: legacy)

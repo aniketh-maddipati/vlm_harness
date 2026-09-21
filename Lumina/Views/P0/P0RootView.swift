@@ -2,24 +2,19 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// P0 product root — Open a shoot + contact-sheet workspace.
-/// Legacy Workbench shell is behind an explicit door (`P0LegacyShellContainer`); not constructed at launch.
 struct P0RootView: View {
     @State private var session = P0SessionModel()
     @State private var isDropTargeted = false
 
     var body: some View {
         Group {
-            if session.showLegacyShell {
-                P0LegacyShellContainer(session: session)
-            } else {
-                switch session.route {
-                case .open:
-                    P0OpenView(session: session)
-                case .contactSheet:
-                    P0ContactSheetView(session: session)
-                case .grouping:
-                    P0GroupingView(session: session)
-                }
+            switch session.route {
+            case .open:
+                P0OpenView(session: session)
+            case .contactSheet:
+                P0ContactSheetView(session: session)
+            case .grouping:
+                P0GroupingView(session: session)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -33,11 +28,10 @@ struct P0RootView: View {
             get: { session.isDropTargeted },
             set: { session.isDropTargeted = $0 }
         )) { providers in
-            guard !session.showLegacyShell else { return false }
             return session.handleDrop(providers: providers)
         }
         .overlay {
-            if isDropTargeted, !session.showLegacyShell {
+            if isDropTargeted {
                 ZStack {
                     LuminaTokens.Status.selection.opacity(0.06)
                     RoundedRectangle(cornerRadius: LuminaTokens.Radius.panel, style: .continuous)
@@ -65,13 +59,9 @@ struct P0RootView: View {
             #endif
         }
         .onReceive(NotificationCenter.default.publisher(for: .luminaImportRAW)) { _ in
-            guard !session.showLegacyShell else { return }
             session.chooseFolder()
         }
         .onReceive(NotificationCenter.default.publisher(for: .luminaGoHome)) { _ in
-            if session.showLegacyShell {
-                session.showLegacyShell = false
-            }
             session.goHome()
         }
     }

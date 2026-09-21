@@ -103,7 +103,6 @@ final class P0SessionModel {
     var isDropTargeted = false
     /// Single-photo editing surface — opens on Return / double-click.
     var inspectingAssetID: UUID?
-    var showLegacyShell = false
     /// One-shot flag so returning from single-photo restores scroll without fighting live browsing.
     var pendingScrollRestore = false
     let undoCoordinator = P0UndoCoordinator()

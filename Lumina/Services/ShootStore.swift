@@ -76,11 +76,11 @@ actor ShootStore {
         if FileManager.default.fileExists(atPath: primary.path) {
             do {
                 let data = try Data(contentsOf: primary)
-                return try ShootMigration.decodeShoot(from: data)
+                return try ShootMigration.decodeCurrentShoot(from: data)
             } catch {
                 if FileManager.default.fileExists(atPath: good.path) {
                     let data = try Data(contentsOf: good)
-                    return try ShootMigration.decodeShoot(from: data)
+                    return try ShootMigration.decodeCurrentShoot(from: data)
                 }
                 throw ShootStoreError.decodeFailed(error.localizedDescription)
             }
@@ -88,12 +88,12 @@ actor ShootStore {
 
         if FileManager.default.fileExists(atPath: legacy.path) {
             let data = try Data(contentsOf: legacy)
-            return try ShootMigration.decodeShoot(from: data)
+            return try ShootMigration.decodeLegacyProject(from: data)
         }
 
         if FileManager.default.fileExists(atPath: good.path) {
             let data = try Data(contentsOf: good)
-            return try ShootMigration.decodeShoot(from: data)
+            return try ShootMigration.decodeCurrentShoot(from: data)
         }
 
         throw ShootStoreError.notFound(name)

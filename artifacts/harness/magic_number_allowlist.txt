@@ -45,7 +45,6 @@ Lumina/Views/P0/P0GroupingView.swift 16
 Lumina/Views/P0/P0GroupingView.swift 18
 Lumina/Views/P0/P0GroupingView.swift 24
 Lumina/Views/P0/P0GroupingView.swift 40
-Lumina/Views/P0/P0LegacyShellDoor.swift 16
 Lumina/Views/P0/P0OpenView.swift 120
 Lumina/Views/P0/P0OpenView.swift 18
 Lumina/Views/P0/P0RootView.swift 18

@@ -3,6 +3,17 @@
 **Authority:** D38 (doors, not deletions) · D40 retirement plan in `design/checkpoint-sequence-v6.md`.  
 **Measured:** 2026-08-13 · branch `cursor/w8-legacy-severance-39dd`.
 
+## Foundation reset update — 2026-09-21
+
+`P0LegacyShellDoor.swift` and its current-product entry point are deleted. The historical W8
+measurement below records the earlier severance state; it is not current reachability.
+
+The legacy shell, project view model, import pipeline, catalog services, and their
+`LuminaProject` / `PhotoRecord` / `ProjectStore` state now form an unreachable compiled island.
+They remain because deleting one member requires deleting or migrating the coupled island, which
+is separate scope. Delete that island when none of its grammar or harness surfaces remain required.
+Delete on-disk `project.json` decoding only after the supported-install migration window closes.
+
 ## Measurement method
 
 | Metric | Rule |
@@ -66,7 +77,6 @@ Before W8, **31 files / 10,230 lines** in the legacy shell inventory had **zero*
 
 | File | P0 type refs (excl. `P0RootView`) | Disposition | Owner |
 |------|-----------------------------------|-------------|-------|
-| `Lumina/Views/P0/P0LegacyShellDoor.swift` | 2 (`ContentViewLegacyHost`, door) | **KEEP** | W8 explicit door — D38 |
 | `Lumina/Core/PropagationState.swift` | 0 | **PORT-TO-P0** | **CP7** — propagation rings / exclusions |
 | `Lumina/Presentation/PresentationAdapter.swift` | 0 | **PORT-TO-P0** | **CP7/CP8** — presentation builders |
 | `Lumina/Develop/CropSession.swift` | 0 | **PORT-TO-P0** | **CP6** — crop latch (A2) |
@@ -79,7 +89,7 @@ Before W8, **31 files / 10,230 lines** in the legacy shell inventory had **zero*
 
 | File | Disposition | Notes |
 |------|-------------|-------|
-| `Lumina/Views/P0/P0RootView.swift` | **KEEP** | Live root — legacy branch delegates to door only |
+| `Lumina/Views/P0/P0RootView.swift` | **KEEP** | Live root — canonical P0 routes only |
 | `Lumina/ViewModels/P0SessionModel.swift` | **KEEP** | Canonical P0 session state |
 
 ## CP7 propagation set — DO NOT DELETE before port

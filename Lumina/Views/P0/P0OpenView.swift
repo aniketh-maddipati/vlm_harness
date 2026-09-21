@@ -60,11 +60,6 @@ struct P0OpenView: View {
                 .font(LuminaTokens.Typeface.brand(28))
                 .foregroundStyle(LuminaTokens.Ink.primary)
             Spacer()
-            Button("Legacy shell") {
-                session.showLegacyShell = true
-            }
-            .buttonStyle(LuminaQuietButtonStyle())
-            .help("Open the previous Workbench shell (preserved until P0 is proven)")
         }
         .padding(.horizontal, LuminaTokens.Spacing.xxl)
         .frame(height: LuminaTokens.HitTarget.header)
