@@ -59,6 +59,9 @@ struct ProbeSnapshot: Codable, Equatable {
     var editVariantAssetID: String?
     var focusedEditVariantIndex: Int?
     var editVariantCancellationCount: Int
+    var elasticStripTrackHeight: Int = 90
+    var elasticStripNearLongEdge: Int = 210
+    var elasticStripFarLongEdge: Int = 64
 
     /// Convenience: the Nth visible asset ID (nil when out of range).
     func visibleID(at index: Int) -> String? {
