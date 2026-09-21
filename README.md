@@ -2,7 +2,7 @@
 
 Mac app for culling a shoot. Open a folder or an SD card. Keep with P, cut with X.
 
-Apple Silicon. macOS 14+. Xcode 15+ from the App Store, then `brew install exiftool`.
+Apple Silicon. macOS 14+. Xcode 16.4+ from the App Store, then `brew install exiftool`.
 
 These are pictures of the Mac app.
 

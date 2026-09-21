@@ -4,6 +4,33 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-09-21 — Deterministic two-round build stability (`cursor/build-stability-7c63`)
+**Baseline:** `375afe1`, clean tree. Linux FAST was **INCOMPLETE 40/41** because one render lint asserted a prose fragment; local compile/build/test gates were `PLATFORM-UNAVAILABLE`. Hosted macOS 15.7.9 / Xcode 16.4 / Swift 6.1.2 compiled but ran 193 logic tests with the same one failing source assertion. Clean Debug/Release and repeat-DerivedData evidence did not exist.
+
+**Fix 1:** Replace the prose assertion with the executable RAW-path guard in FAST, XCTest, and E2E audit. FAST became **PASS 41/41**.
+
+**Finding 2 (revealed only by the new clean gate):** shipping Release built, but `LuminaPlayground` Release produced eight missing-symbol errors (`DevelopLabLauncher` / `DevelopLabFixtures`). Playground Release defined neither `DEBUG` nor `LUMINA_SHIPPING_APP`, compiling non-shipping runners while excluding their DEBUG fixtures.
+
+**Fix 2:** Add `LUMINA_SHIPPING_APP` to Playground Release and ratchet both app Release configurations in `shipping_fence`. Project-file diff: one build setting, no UUID or membership churn.
+
+**Guard:** `Scripts/build_stability.sh` runs two cache-free rounds: FAST, clean Debug, build-for-testing, all logic tests, compile ledger, shipping + Playground Release, F11.1/F11.2, and clean-tree assertion. `.github/workflows/rendering.yml` runs it without a DerivedData cache and now watches project/token/contract/build-script paths.
+
+**Instrument reading (hosted arm64 Mac, run `35566168557`, commit `1ce1d3d`):**
+
+| Check | Round 1 | Round 2 |
+|---|---:|---:|
+| FAST | 41/41 · 7.741 s | 41/41 · 14.709 s |
+| clean Debug / build-for-testing | PASS / PASS | PASS / PASS |
+| `LuminaLogicTests` | 193/193 · 0 failures · 1.343 s | 193/193 · 0 failures · 1.549 s |
+| compile ledger | 0 errors | 0 errors |
+| shipping + Playground Release | PASS / PASS | PASS / PASS |
+| F11.1 / F11.2 | PASS / PASS | PASS / PASS |
+| post-gate tracked tree | clean | clean |
+
+**Honesty:** 55 unique warnings remain, including Swift-6-mode future actor/sendability errors; Swift language mode remains 5. FULL is `PLATFORM-UNAVAILABLE` on Linux and still contains named refusing live stubs on macOS. Render-live without fixture secrets and credentialed signing/notarization remain blocked, not pass. See `docs/architecture/BUILD_STABILITY_BASELINE.md`.
+
+---
+
 ## 2026-08-21 — Three stale tests on clean main (`fix/three-stale-tests`)
 **Branch:** `fix/three-stale-tests` · **Base:** `origin/main` @ `9c799cf` (sidecar fix `#69` and E2 keys `#70` both verified ancestors, by commit not by vibes)
 **Claim:** The E2 engine sessions plan to make **"suites green"** claims while excluding exactly one test by name — the sidecar `#filePath` case fixed in `#69`. That exclusion was never sufficient: three further failures survive a clean checkout of `origin/main`, none of them related to the sidecar bug. Diagnose each and fix it, or correct the expectation with a cited reason. **No token value changed.**
