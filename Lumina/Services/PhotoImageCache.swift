@@ -21,6 +21,8 @@ nonisolated enum PhotoImageTier: Sendable {
     nonisolated static let durableGridLongEdge = 1200
     /// Focused embedded/matching JPEG before RAW promotion.
     nonisolated static let focusedPreviewLongEdge = 2400
+    /// Accept Sony A7III-class 1616px embeds at Tier-0 instead of synthesizing.
+    nonisolated static let embeddedPreviewMinLongEdge = 1024
 
     /// Display decode cap — avoids full-res JPEG decode in grids and filmstrips.
     var displayMaxPixelSize: Int? {

@@ -91,7 +91,7 @@ nonisolated enum PreviewExtractor {
         to destURL: URL,
         from sourceURL: URL,
         maxPixelSize: Int = 2400,
-        minLongEdge: Int = 2000
+        minLongEdge: Int = PhotoImageTier.embeddedPreviewMinLongEdge
     ) -> (success: Bool, origin: PreviewOrigin, longEdge: Int) {
         if FileManager.default.fileExists(atPath: destURL.path) {
             let edge = jpegLongEdge(at: destURL)
