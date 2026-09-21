@@ -202,7 +202,7 @@ struct ContactSheetRepresentable: NSViewControllerRepresentable {
         controller.apply(
             items: session.visibleItems,
             focusedID: session.focusedAssetID,
-            selectedIDs: session.selectedAssetIDs,
+            selectedIDs: Set(session.selectedAssetIDs),
             densityColumns: session.densityColumns,
             restoreScrollAnchor: session.scrollAnchor,
             forceScrollRestore: force

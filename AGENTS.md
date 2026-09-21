@@ -13,7 +13,7 @@ Lumina **cannot be built or run on Linux**. Cloud Agent VMs are Ubuntu-based and
 | Static lint (`Scripts/harness/lint/*.sh`) | Yes | Yes |
 | `exiftool` CLI (metadata) | Yes (`/usr/bin/exiftool` via apt) | Yes (`brew install exiftool`) |
 
-For end-to-end verification (build, headless audit, GUI), use a **local Mac** with macOS 14+ and Xcode 15+.
+For end-to-end verification (build, headless audit, GUI), use a **local Apple Silicon Mac** with macOS 14+ and Xcode 16.4+.
 
 ## Cursor Cloud specific instructions
 
@@ -23,7 +23,7 @@ The `.cursor/environment.json` `install` script installs **`libimage-exiftool-pe
 
 ### Lint / test / build (macOS required for logic tests)
 
-On a Mac with Xcode 15+ and exiftool:
+On a Mac with Xcode 16.4+ and exiftool:
 
 ```bash
 # Static contract lint (runs on Linux too)
@@ -40,6 +40,9 @@ xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
 
 # Full regression (lint + build + logic tests + headless E2E + SLA check)
 bash Scripts/regression.sh [RAW_FOLDER] [JPG_FOLDER]
+
+# Required cache-free checkpoint before PR/merge (runs twice)
+bash Scripts/build_stability.sh
 ```
 
 Pass your own shoot folders: `bash Scripts/regression.sh pre-commit /path/to/raws /path/to/jpgs`. Or set `LUMINA_RAW_DIR` / `LUMINA_JPG_DIR`. If those are unset, the media audit is skipped.

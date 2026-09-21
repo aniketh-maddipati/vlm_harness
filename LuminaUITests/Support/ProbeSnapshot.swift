@@ -52,6 +52,11 @@ struct ProbeSnapshot: Codable, Equatable {
     var renderInstrumentsEnabled: Bool
     /// Law 5 / D11 — Esc would clear a transient hold before navigation (`P0EscLadder`).
     var escTransientHoldActive: Bool
+    /// Temporary four-variant edit branch (session-only; never persisted).
+    var editVariantsActive: Bool
+    var editVariantAssetID: String?
+    var focusedEditVariantIndex: Int?
+    var editVariantCancellationCount: Int
 
     /// Convenience: the Nth visible asset ID (nil when out of range).
     func visibleID(at index: Int) -> String? {
