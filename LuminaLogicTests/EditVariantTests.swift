@@ -143,6 +143,10 @@ final class EditVariantTests: XCTestCase {
         session.moveEditVariantFocus(by: 1)
         session.moveEditVariantFocus(by: 1)
         XCTAssertEqual(session.workspaceState.focusedEditVariantIndex, 2)
+        session.nudgeSharedVariantExposure(up: true)
+        session.nudgeFocusedVariantExposure(up: false)
+        session.nudgeFocusedVariantTemperature(up: true)
+        session.nudgeFocusedVariantTint(up: false)
         XCTAssertEqual(session.assets[0].recipe, initial)
         XCTAssertFalse(session.canUndo)
 
@@ -175,7 +179,8 @@ final class EditVariantTests: XCTestCase {
         XCTAssertTrue(editor.contains("Variants · ⏎ chooses · Esc cancels"))
         XCTAssertTrue(editor.contains("ForEach(0..<EditVariantSession.count"))
         XCTAssertTrue(editor.contains("Shared exposure"))
-        XCTAssertTrue(editor.contains("setVariantWhiteBalance"))
+        XCTAssertTrue(editor.contains("nudgeFocusedVariantTemperature"))
+        XCTAssertTrue(editor.contains("nudgeFocusedVariantTint"))
         XCTAssertFalse(editor.contains("PreparedRawSession"))
         XCTAssertFalse(editor.contains("DevelopRenderScheduler"))
     }

@@ -73,6 +73,10 @@ struct ContactSheetItem: Identifiable, Equatable {
 @MainActor
 @Observable
 final class P0SessionModel {
+    private static let variantExposureStep = 0.1
+    private static let variantTemperatureStep = 250.0
+    private static let variantTintStep = 2.0
+
     var route: P0Route = .open
     var shoot: ShootRecord?
     var assets: [AssetRecord] = []
@@ -672,6 +676,43 @@ final class P0SessionModel {
     func chooseFocusedEditVariant() {
         guard let index = workspaceState.focusedEditVariantIndex else { return }
         chooseEditVariant(at: index)
+    }
+
+    func nudgeSharedVariantExposure(up: Bool) {
+        guard let exposure = workspaceState.editVariants?.sharedRecipe.exposure else { return }
+        setSharedVariantExposure(exposure + (up ? 1 : -1) * Self.variantExposureStep)
+    }
+
+    func nudgeFocusedVariantExposure(up: Bool) {
+        guard let index = workspaceState.focusedEditVariantIndex,
+              let exposure = workspaceState.editVariants?.recipe(forVariantAt: index)?.exposure
+        else { return }
+        setVariantExposure(
+            exposure + (up ? 1 : -1) * Self.variantExposureStep,
+            at: index
+        )
+    }
+
+    func nudgeFocusedVariantTemperature(up: Bool) {
+        guard let index = workspaceState.focusedEditVariantIndex,
+              let variant = workspaceState.editVariants?.recipe(forVariantAt: index)
+        else { return }
+        setVariantWhiteBalance(
+            temperature: variant.temperature + (up ? 1 : -1) * Self.variantTemperatureStep,
+            tint: variant.tint,
+            at: index
+        )
+    }
+
+    func nudgeFocusedVariantTint(up: Bool) {
+        guard let index = workspaceState.focusedEditVariantIndex,
+              let variant = workspaceState.editVariants?.recipe(forVariantAt: index)
+        else { return }
+        setVariantWhiteBalance(
+            temperature: variant.temperature,
+            tint: variant.tint + (up ? 1 : -1) * Self.variantTintStep,
+            at: index
+        )
     }
 
     func chooseEditVariant(at index: Int) {
