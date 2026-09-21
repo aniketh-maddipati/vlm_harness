@@ -25,7 +25,7 @@ REQUIREMENTS: dict[str, tuple[str, ...]] = {
         "quality: .settled",
     ),
     "Lumina/Services/BrowsePixelService.swift": (
-        "must never demosaic RAW",
+        "guard !rawExtensions.contains(ext) else { return nil }",
         "pinnedPaths",
         "decoded: decoded.cgImage",
     ),

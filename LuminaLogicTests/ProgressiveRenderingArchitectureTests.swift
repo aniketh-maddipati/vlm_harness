@@ -163,7 +163,6 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
         XCTAssertTrue(scheduler.contains("quality: .settled"))
 
         let browse = try source("Lumina/Services/BrowsePixelService.swift")
-        XCTAssertTrue(browse.contains("must never demosaic RAW"))
         XCTAssertTrue(browse.contains("guard !rawExtensions.contains(ext) else { return nil }"))
         XCTAssertFalse(browse.contains("precondition(!rawExtensions.contains(ext)"))
         XCTAssertTrue(browse.contains("decoded: decoded.cgImage"))

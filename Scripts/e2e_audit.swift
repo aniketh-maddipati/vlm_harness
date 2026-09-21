@@ -445,7 +445,7 @@ if sourceContains(spinePath, "paint_commit")
     && sourceContains(metalPoolPath, "decodeMs")
     && sourceContains(metalPoolPath, "blitMs")
     && sourceContains(metalPoolPath, "wrapMs")
-    && sourceContains(browsePixelPath, "must never demosaic RAW")
+    && sourceContains(browsePixelPath, "guard !rawExtensions.contains(ext) else { return nil }")
     && sourceContains(browsePixelPath, "decoded: decoded.cgImage")
     && !sourceContains(metalPoolPath, "decodeBrowseJPEG")
     && !sourceContains(metalPoolPath, "ctx.draw") {
