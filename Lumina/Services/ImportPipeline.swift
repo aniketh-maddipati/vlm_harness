@@ -303,7 +303,7 @@ enum ImportPipeline {
                             to: previewURL,
                             from: rawURL,
                             maxPixelSize: 2400,
-                            minLongEdge: 2000
+                            minLongEdge: PhotoImageTier.embeddedPreviewMinLongEdge
                         )
                         if extracted.success, !FileManager.default.fileExists(atPath: gridURL.path) {
                             _ = PreviewExtractor.downscaleJPEG(

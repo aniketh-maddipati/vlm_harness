@@ -18,6 +18,10 @@ nonisolated func nonisolatedPhotoTierPath(_ photo: PhotoRecord) -> String? {
     PhotoImageTier.proxy.path(for: photo)
 }
 
+nonisolated func nonisolatedEmbeddedPreviewMinLongEdge() -> Int {
+    PhotoImageTier.embeddedPreviewMinLongEdge
+}
+
 final class ProgressiveRenderingArchitectureTests: XCTestCase {
     func testLegacyMachineTierCannotBecomeP0Decision() {
         let machineTier = PhotoRecord(
@@ -211,6 +215,23 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
         XCTAssertTrue(oriented.contains("CreateThumbnailWithTransform"))
         XCTAssertTrue(oriented.contains("stablePresent"))
         XCTAssertFalse(oriented.contains("applyOrientationProperty"))
+    }
+
+    func testEmbeddedPreviewGateAcceptsA7III1616Embeds() throws {
+        XCTAssertEqual(nonisolatedEmbeddedPreviewMinLongEdge(), 1024)
+        XCTAssertLessThanOrEqual(PhotoImageTier.embeddedPreviewMinLongEdge, 1616)
+        XCTAssertEqual(PhotoImageTier.embeddedPreviewMinLongEdge, 1024)
+
+        let ingest = try source("Lumina/Services/ImportPipeline.swift")
+        XCTAssertTrue(ingest.contains("minLongEdge: PhotoImageTier.embeddedPreviewMinLongEdge"))
+        XCTAssertFalse(ingest.contains("minLongEdge: 2000"))
+
+        let extractor = try source("Lumina/Services/ProjectStore.swift")
+        XCTAssertTrue(extractor.contains("minLongEdge: Int = PhotoImageTier.embeddedPreviewMinLongEdge"))
+        XCTAssertFalse(extractor.contains("minLongEdge: Int = 2000"))
+
+        let contact = try source("Lumina/Services/ContactSheetPreparation.swift")
+        XCTAssertTrue(contact.contains("minLongEdge: 800"))
     }
 
     private func source(_ relativePath: String) throws -> String {
