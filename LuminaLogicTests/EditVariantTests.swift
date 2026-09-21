@@ -105,7 +105,7 @@ final class EditVariantTests: XCTestCase {
         let initial = EditRecipe(exposure: 0.2)
         let session = P0SessionModel()
         session.assets = [makeAsset(recipe: initial)]
-        let assetBytesBefore = try JSONEncoder().encode(session.assets)
+        let assetsBefore = session.assets
 
         session.beginEditVariants(assetID: assetID)
         session.setSharedVariantExposure(1.0)
@@ -115,7 +115,7 @@ final class EditVariantTests: XCTestCase {
 
         XCTAssertNil(session.workspaceState.editVariants)
         XCTAssertEqual(session.workspaceState.editVariantCancellationCount, 1)
-        XCTAssertEqual(try JSONEncoder().encode(session.assets), assetBytesBefore)
+        XCTAssertEqual(session.assets, assetsBefore)
 
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
