@@ -424,12 +424,21 @@ struct P0SinglePhotoEditor: View {
 
     private var filmstrip: some View {
         let neighbors = filmstripNeighbors()
+        let focusIndex = neighbors.firstIndex(where: { $0.id == session.focusedAssetID })
         return VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 10) {
-                        ForEach(neighbors, id: \.id) { item in
-                            filmstripThumb(item)
+                    LazyHStack(spacing: LuminaTokens.Spacing.sm) {
+                        ForEach(Array(neighbors.enumerated()), id: \.element.id) { index, item in
+                            let distance = focusIndex.map {
+                                ElasticCanvasLayout.distance(from: index, focus: $0)
+                            } ?? ElasticCanvasLayout.steps.count
+                            filmstripThumb(
+                                item,
+                                longEdge: ElasticCanvasLayout.stripThumbLongEdge(
+                                    distanceFromFocus: distance
+                                )
+                            )
                                 .id(item.id)
                         }
                     }
@@ -438,7 +447,7 @@ struct P0SinglePhotoEditor: View {
                     .padding(.top, 2)
                 }
                 .scrollBounceBehavior(.always)
-                .frame(height: 86)
+                .frame(height: ElasticCanvasLayout.stripTrackHeight)
                 .onChange(of: session.focusedAssetID) { _, id in
                     guard let id else { return }
                     // No spring on every key — animation under arrow-repeat was a major lag source.
@@ -454,18 +463,19 @@ struct P0SinglePhotoEditor: View {
         }
     }
 
-    private func filmstripThumb(_ item: ContactSheetItem) -> some View {
+    private func filmstripThumb(_ item: ContactSheetItem, longEdge: CGFloat) -> some View {
         let focused = item.id == session.focusedAssetID
         let selected = item.marks.selected
+        let height = min(longEdge, ElasticCanvasLayout.stripTrackHeight)
         return ZStack {
             if let path = item.asset.thumbPath ?? item.asset.gridThumbPath {
                 ChapterPlateImage(path: path)
-                    .frame(width: 92, height: 68)
+                    .frame(width: longEdge, height: height)
                     .clipped()
             } else {
                 Rectangle()
                     .fill(LuminaTokens.Surface.well)
-                    .frame(width: 92, height: 68)
+                    .frame(width: longEdge, height: height)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))

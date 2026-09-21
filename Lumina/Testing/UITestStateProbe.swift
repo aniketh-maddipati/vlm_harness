@@ -68,6 +68,10 @@ struct ProbeSnapshot: Codable, Equatable {
     var editVariantAssetID: String?
     var focusedEditVariantIndex: Int?
     var editVariantCancellationCount: Int
+    /// D26/D28 — quantized elastic-strip facts (token steps, never interpolated).
+    var elasticStripTrackHeight: Int = 90
+    var elasticStripNearLongEdge: Int = 210
+    var elasticStripFarLongEdge: Int = 64
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -169,7 +173,10 @@ extension P0SessionModel {
             editVariantsActive: workspaceState.editVariants != nil,
             editVariantAssetID: workspaceState.editVariants?.assetID.uuidString,
             focusedEditVariantIndex: workspaceState.focusedEditVariantIndex,
-            editVariantCancellationCount: workspaceState.editVariantCancellationCount
+            editVariantCancellationCount: workspaceState.editVariantCancellationCount,
+            elasticStripTrackHeight: Int(ElasticCanvasLayout.stripTrackHeight.rounded()),
+            elasticStripNearLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 1).rounded()),
+            elasticStripFarLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 4).rounded())
         )
     }
 }

@@ -38,7 +38,8 @@ struct LuminaRobot {
                 missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier",
                 renderInstrumentsEnabled: false, escTransientHoldActive: false,
                 editVariantsActive: false, editVariantAssetID: nil, focusedEditVariantIndex: nil,
-                editVariantCancellationCount: 0
+                editVariantCancellationCount: 0,
+                elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64
             )
         }
         return snapshot
@@ -62,7 +63,8 @@ struct LuminaRobot {
                 missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier",
                 renderInstrumentsEnabled: false, escTransientHoldActive: false,
                 editVariantsActive: false, editVariantAssetID: nil, focusedEditVariantIndex: nil,
-                editVariantCancellationCount: 0
+                editVariantCancellationCount: 0,
+                elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64
             )
         }
         return snapshot
