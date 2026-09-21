@@ -441,7 +441,7 @@ nonisolated enum ContactSheetPreparation {
         status.isPreparingPreviews = false
         status.phaseDetail = "\(status.assetCount) photos"
         continuation.yield(.status(status))
-        try? savePreservingLiveMutations(shoot)
+        try? await ShootStore.shared.savePreparedShootPreservingDecisions(shoot)
     }
 
     // MARK: - Metadata
