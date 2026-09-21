@@ -64,6 +64,14 @@ struct ProbeSnapshot: Codable, Equatable {
     var editVariantAssetID: String?
     var focusedEditVariantIndex: Int?
     var editVariantCancellationCount: Int
+    var preparedSessionCreated: Int? = nil
+    var preparedSessionHits: Int? = nil
+    var interactiveMaterializations: Int? = nil
+    var graphRenders: Int? = nil
+    var gpuUploads: Int? = nil
+    var variantRenders: Int? = nil
+    var metalPresents: Int? = nil
+    var variantSourceReady: Bool? = nil
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -101,6 +109,8 @@ extension P0SessionModel {
         for asset in assets {
             culls[asset.id.uuidString] = asset.cull.rawValue
         }
+
+        let counters = DevelopRenderCounters.snapshot()
 
         return ProbeSnapshot(
             route: route,
@@ -152,7 +162,15 @@ extension P0SessionModel {
             editVariantsActive: workspaceState.editVariants != nil,
             editVariantAssetID: workspaceState.editVariants?.assetID.uuidString,
             focusedEditVariantIndex: workspaceState.focusedEditVariantIndex,
-            editVariantCancellationCount: workspaceState.editVariantCancellationCount
+            editVariantCancellationCount: workspaceState.editVariantCancellationCount,
+            preparedSessionCreated: counters.preparedSessionCreated,
+            preparedSessionHits: counters.preparedSessionHits,
+            interactiveMaterializations: counters.interactiveMaterializations,
+            graphRenders: counters.graphRenders,
+            gpuUploads: counters.gpuUploads,
+            variantRenders: counters.variantRenders,
+            metalPresents: counters.metalPresents,
+            variantSourceReady: variantPinnedSource != nil
         )
     }
 }

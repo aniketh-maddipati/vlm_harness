@@ -139,12 +139,18 @@ final class P0SessionModel {
     /// Drawable-native authoritative preview target. Full resolution remains
     /// reserved for 1:1 ROI and export.
     private(set) var inspectionSettledLongEdge = 2560
+    /// Pinned interactive RAW surface shared by the four temporary variants.
+    /// Not an asset, not a recipe store, not a second RAW session.
+    private(set) var variantPinnedGeneration: UInt64 = 0
+    private(set) var variantPinnedSource: CIImage?
+    private var variantPinnedAssetID: UUID?
 
     private var preparationTask: Task<Void, Never>?
     private var persistTask: Task<Void, Never>?
     private var folderAccess: (url: URL, didStartAccess: Bool)?
     private var capabilityTask: Task<Void, Never>?
     private var prewarmTask: Task<Void, Never>?
+    private var variantPinnedTask: Task<Void, Never>?
     /// Debounces expensive settle/prewarm while arrow keys / filmstrip hover spam focus.
     private var inspectionWarmTask: Task<Void, Never>?
     private var inspectionResizeTask: Task<Void, Never>?
@@ -239,6 +245,14 @@ final class P0SessionModel {
                 ?? developSchedulerStorage.presentedCIImage(for: assetID)
         }
         return developSchedulerStorage.presentedCIImage(for: assetID)
+    }
+
+    func displayedVariantCIImage(at index: Int) -> CIImage? {
+        guard workspaceState.editVariants?.assetID == variantPinnedAssetID,
+              let source = variantPinnedSource,
+              let recipe = workspaceState.editVariants?.recipe(forVariantAt: index)
+        else { return nil }
+        return DevelopRenderGraph.branchInteractiveVariant(from: source, recipe: recipe)
     }
 
     /// Live develop fidelity for a photograph, if the scheduler has started.
@@ -345,6 +359,7 @@ final class P0SessionModel {
         releaseFolderAccess()
         userFacingError = nil
         inspectingAssetID = nil
+        cancelEditVariants()
         workspaceState.clear()
         showingBefore = false
         clearGestureState()
@@ -374,6 +389,7 @@ final class P0SessionModel {
         releaseFolderAccess()
         userFacingError = nil
         inspectingAssetID = nil
+        cancelEditVariants()
         workspaceState.clear()
         showingBefore = false
         clearGestureState()
@@ -636,7 +652,13 @@ final class P0SessionModel {
         flushPendingEditIfNeeded()
         let id = assetID ?? inspectingAssetID ?? focusedAssetID
         guard let id, assets.contains(where: { $0.id == id }) else { return }
+        abandonVariantPinnedSource()
         workspaceState.beginEditVariants(assetID: id, sharedRecipe: recipe(for: id))
+        variantPinnedAssetID = id
+        let generation = variantPinnedGeneration
+        variantPinnedTask = Task { [weak self] in
+            await self?.fillVariantPinnedSource(assetID: id, generation: generation)
+        }
     }
 
     func setSharedVariantExposure(_ exposure: Double) {
@@ -712,11 +734,55 @@ final class P0SessionModel {
     func chooseEditVariant(at index: Int) {
         guard let chosen = workspaceState.takeEditVariant(at: index),
               assets.contains(where: { $0.id == chosen.assetID }) else { return }
+        abandonVariantPinnedSource()
         applyEditMutation({ $0 = chosen.recipe }, assetID: chosen.assetID)
     }
 
     func cancelEditVariants() {
+        guard workspaceState.editVariants != nil else { return }
+        abandonVariantPinnedSource()
         workspaceState.cancelEditVariants()
+        DevelopRenderCounters.recordCancellation()
+    }
+
+    func publishVariantPinnedSource(_ image: CIImage?, generation: UInt64, assetID: UUID) {
+        guard generation == variantPinnedGeneration,
+              variantPinnedAssetID == assetID,
+              workspaceState.editVariants?.assetID == assetID else { return }
+        variantPinnedSource = image
+    }
+
+    private func abandonVariantPinnedSource() {
+        variantPinnedTask?.cancel()
+        variantPinnedTask = nil
+        variantPinnedGeneration &+= 1
+        variantPinnedSource = nil
+        variantPinnedAssetID = nil
+    }
+
+    private func fillVariantPinnedSource(assetID: UUID, generation: UInt64) async {
+        guard let urls = resolveRenderURLs(for: assetID) else { return }
+        let intent = workspaceState.editVariants?.sharedRecipe.rawIntent ?? recipe(for: assetID).rawIntent
+        let longEdge = DevelopRenderQuality.interactive.defaultLongEdge
+        var image: CIImage?
+        if let raw = urls.rawURL {
+            let session = await PreparedRawSessionRegistry.shared.session(for: assetID, rawURL: raw)
+            if let pin = await session.interactivePinnedSource(
+                intent: intent,
+                targetLongEdge: longEdge
+            ) {
+                image = pin.image
+            }
+        } else if let proxy = urls.proxyURL {
+            image = CIImage(contentsOf: proxy, options: [.applyOrientationProperty: true])
+        }
+        guard !Task.isCancelled else { return }
+        publishVariantPinnedSource(image, generation: generation, assetID: assetID)
+    }
+
+    private func dropVariantPinIfInactive() {
+        guard workspaceState.editVariants == nil else { return }
+        abandonVariantPinnedSource()
     }
 
     func resetRecipeToNeutral(assetID: UUID? = nil) {
@@ -1441,6 +1507,7 @@ final class P0SessionModel {
         prewarmTask?.cancel()
         capabilityTask?.cancel()
         developSchedulerStorage?.cancelAll()
+        cancelEditVariants()
         inspectingAssetID = nil
         Task { await BrowsePixelService.shared.clearFocusedPin() }
         persistRestoreNow()
@@ -1451,6 +1518,7 @@ final class P0SessionModel {
         guard shoot != nil else { return }
         flushPendingEditIfNeeded()
         showingBefore = false
+        cancelEditVariants()
         inspectingAssetID = nil
         route = .grouping
         persistRestoreNow()
@@ -1529,6 +1597,7 @@ final class P0SessionModel {
         persistRestoreNow()
         releaseFolderAccess()
         releaseDevelopScheduler()
+        cancelEditVariants()
         shoot = nil
         assets = []
         status = ContactSheetPreparationStatus()
@@ -1575,6 +1644,7 @@ final class P0SessionModel {
             self.shoot?.assets = assets
             self.status = status
             workspaceState.retainAssets(Set(assets.map(\.id)))
+            dropVariantPinIfInactive()
             reconcileActiveChapter()
         case .assetsInserted(let assets, let status):
             mergeAssets(assets)
@@ -1595,6 +1665,7 @@ final class P0SessionModel {
             self.shoot?.assets = merged
             self.status = status
             workspaceState.retainAssets(Set(merged.map(\.id)))
+            dropVariantPinIfInactive()
             reconcileActiveChapter()
         case .status(let status):
             self.status = status
@@ -1643,6 +1714,7 @@ final class P0SessionModel {
         scrollAnchor = workspace.scrollAnchor ?? 0
         pendingScrollRestore = workspace.scrollAnchor != nil
         workspaceState.restore(from: workspace, availableAssetIDs: Set(assets.map(\.id)))
+        abandonVariantPinnedSource()
         if focusedAssetID == nil { focusedAssetID = assets.first?.id }
         if workspace.scale == .singlePhoto, let focusedAssetID {
             inspectingAssetID = focusedAssetID

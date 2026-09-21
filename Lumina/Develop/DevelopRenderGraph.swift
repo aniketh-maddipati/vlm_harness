@@ -35,6 +35,7 @@ nonisolated enum DevelopRenderGraph {
     // MARK: - Public entry
 
     static func render(_ request: RawRenderRequest) async -> DevelopRenderResult {
+        DevelopRenderCounters.recordGraphRender()
         let start = CFAbsoluteTimeGetCurrent()
         var usedProxy = false
         var rawStageCacheHit = false
@@ -184,6 +185,19 @@ nonisolated enum DevelopRenderGraph {
     }
 
     // MARK: - Look stage (scene-linear, honest subset)
+
+    /// Four live variants share one pinned interactive RAW surface. Exposure and
+    /// white balance are the variant parameters; look / retouch / geometry follow
+    /// the shared recipe. This is not a second renderer.
+    static func branchInteractiveVariant(from pinnedSource: CIImage, recipe: EditRecipe) -> CIImage {
+        DevelopRenderCounters.recordVariantRender()
+        var image = normalizeOrigin(pinnedSource)
+        image = applyExposureAndWhiteBalance(recipe.rawIntent, to: image)
+        image = applyLook(recipe.lookIntent, to: image)
+        image = applyRetouch(recipe.retouch, to: image)
+        image = applyGeometry(recipe, to: image)
+        return normalizeOrigin(image)
+    }
 
     static func applyLook(_ look: LookIntent, to image: CIImage) -> CIImage {
         guard !look.isNeutral else { return image }

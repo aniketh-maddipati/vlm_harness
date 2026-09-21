@@ -1,4 +1,5 @@
 import XCTest
+import CoreImage
 @testable import Lumina
 
 @MainActor
@@ -178,10 +179,166 @@ final class EditVariantTests: XCTestCase {
         XCTAssertTrue(routing.contains("session.moveEditVariantFocus(by: 1)"))
         XCTAssertTrue(editor.contains("Variants · ⏎ chooses · Esc cancels"))
         XCTAssertTrue(editor.contains("ForEach(0..<EditVariantSession.count"))
+        XCTAssertTrue(editor.contains("displayedVariantCIImage(at:"))
+        XCTAssertTrue(editor.contains("DevelopMetalView"))
         XCTAssertTrue(editor.contains("Shared exposure"))
         XCTAssertTrue(editor.contains("nudgeFocusedVariantTemperature"))
         XCTAssertTrue(editor.contains("nudgeFocusedVariantTint"))
         XCTAssertFalse(editor.contains("PreparedRawSession"))
         XCTAssertFalse(editor.contains("DevelopRenderScheduler"))
+        XCTAssertFalse(editor.contains("VariantImageService"))
+        XCTAssertFalse(editor.contains("VariantRenderScheduler"))
+    }
+
+    func testFourVariantImagesBranchFromOnePinnedSource() {
+        let source = CIImage(color: .gray).cropped(to: CGRect(x: 0, y: 0, width: 8, height: 8))
+        DevelopRenderCounters.reset()
+        let recipes = [
+            EditRecipe(exposure: 0),
+            EditRecipe(exposure: 0.4),
+            EditRecipe(exposure: -0.25, temperature: 7_200),
+            EditRecipe(exposure: 0.8, tint: -8),
+        ]
+        let branched = recipes.map {
+            DevelopRenderGraph.branchInteractiveVariant(from: source, recipe: $0)
+        }
+        XCTAssertEqual(branched.count, 4)
+        XCTAssertEqual(DevelopRenderCounters.snapshot().variantRenders, 4)
+        XCTAssertEqual(DevelopRenderCounters.snapshot().preparedSessionCreated, 0)
+        XCTAssertEqual(DevelopRenderCounters.snapshot().interactiveMaterializations, 0)
+        XCTAssertEqual(DevelopRenderCounters.snapshot().gpuUploads, 0)
+        XCTAssertEqual(DevelopRenderCounters.snapshot().graphRenders, 0)
+        XCTAssertNotEqual(branched[0].extent, .zero)
+    }
+
+    func testHoldVUsesOnePreparedSessionAndRejectsStalePins() async throws {
+        await PreparedRawSessionRegistry.shared.removeAll()
+        DevelopRenderCounters.reset()
+        let initial = EditRecipe(exposure: 0.1)
+        let session = P0SessionModel()
+        session.assets = [makeOnDiskAsset(recipe: initial)]
+
+        session.beginEditVariants(assetID: assetID)
+        session.beginEditVariants(assetID: assetID)
+        session.beginEditVariants(assetID: assetID)
+        try await Task.sleep(nanoseconds: 80_000_000)
+
+        let afterBegin = DevelopRenderCounters.snapshot()
+        XCTAssertEqual(afterBegin.preparedSessionCreated, 1)
+        XCTAssertLessThan(afterBegin.interactiveMaterializations, 2)
+        XCTAssertLessThan(afterBegin.gpuUploads, 2)
+
+        let staleGeneration = session.variantPinnedGeneration
+        let staleImage = CIImage(color: .red).cropped(to: CGRect(x: 0, y: 0, width: 4, height: 4))
+        session.cancelEditVariants()
+        XCTAssertNil(session.workspaceState.editVariants)
+        XCTAssertNil(session.variantPinnedSource)
+        XCTAssertEqual(session.assets[0].recipe, initial)
+
+        session.publishVariantPinnedSource(staleImage, generation: staleGeneration, assetID: assetID)
+        XCTAssertNil(session.displayedVariantCIImage(at: 0), "stale pin must not publish after cancel")
+
+        session.beginEditVariants(assetID: assetID)
+        session.setVariantExposure(0.5, at: 0)
+        session.setVariantWhiteBalance(temperature: 4_800, tint: 6, at: 1)
+        let liveGeneration = session.variantPinnedGeneration
+        XCTAssertNotEqual(liveGeneration, staleGeneration)
+        let liveImage = CIImage(color: .blue).cropped(to: CGRect(x: 0, y: 0, width: 4, height: 4))
+        session.publishVariantPinnedSource(liveImage, generation: liveGeneration, assetID: assetID)
+        XCTAssertNotNil(session.displayedVariantCIImage(at: 0))
+        XCTAssertNotNil(session.displayedVariantCIImage(at: 1))
+        XCTAssertNotNil(session.displayedVariantCIImage(at: 2))
+        XCTAssertNotNil(session.displayedVariantCIImage(at: 3))
+
+        session.setFocus(UUID())
+        XCTAssertNil(session.workspaceState.editVariants)
+        XCTAssertNil(session.variantPinnedSource)
+        XCTAssertNil(session.displayedVariantCIImage(at: 0))
+        XCTAssertEqual(session.assets[0].recipe, initial)
+        XCTAssertEqual(DevelopRenderCounters.snapshot().preparedSessionCreated, 1)
+    }
+
+    func testChooseAndRapidCancelKeepSingleRawPreparation() async throws {
+        await PreparedRawSessionRegistry.shared.removeAll()
+        DevelopRenderCounters.reset()
+        let initial = EditRecipe(contrast: 7)
+        let session = P0SessionModel()
+        session.assets = [makeOnDiskAsset(recipe: initial)]
+
+        for _ in 0..<4 {
+            session.beginEditVariants(assetID: assetID)
+            session.cancelEditVariants()
+        }
+        try await Task.sleep(nanoseconds: 80_000_000)
+        XCTAssertEqual(DevelopRenderCounters.snapshot().preparedSessionCreated, 1)
+        XCTAssertEqual(session.workspaceState.editVariantCancellationCount, 4)
+        XCTAssertEqual(DevelopRenderCounters.snapshot().cancellations, 4)
+        XCTAssertNil(session.variantPinnedSource)
+        XCTAssertEqual(session.assets[0].recipe, initial)
+
+        session.beginEditVariants(assetID: assetID)
+        session.setSharedVariantExposure(0.3)
+        session.focusEditVariant(at: 2)
+        session.chooseFocusedEditVariant()
+        XCTAssertNil(session.workspaceState.editVariants)
+        XCTAssertNil(session.variantPinnedSource)
+        let chosen = try XCTUnwrap(session.assets[0].recipe)
+        XCTAssertEqual(chosen.exposure, 0.3, accuracy: 1e-9)
+        XCTAssertEqual(chosen.contrast, 7)
+        session.publishVariantPinnedSource(
+            CIImage(color: .green).cropped(to: CGRect(x: 0, y: 0, width: 2, height: 2)),
+            generation: session.variantPinnedGeneration,
+            assetID: assetID
+        )
+        XCTAssertNil(session.displayedVariantCIImage(at: 2), "choose must drop the pin")
+        XCTAssertEqual(DevelopRenderCounters.snapshot().preparedSessionCreated, 1)
+    }
+
+    func testVariantRenderPathStaysOnExistingOwners() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let session = try String(
+            contentsOf: root.appendingPathComponent("Lumina/ViewModels/P0SessionModel.swift"),
+            encoding: .utf8
+        )
+        let graph = try String(
+            contentsOf: root.appendingPathComponent("Lumina/Develop/DevelopRenderGraph.swift"),
+            encoding: .utf8
+        )
+        let prepared = try String(
+            contentsOf: root.appendingPathComponent("Lumina/Develop/PreparedRawSession.swift"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(session.contains("PreparedRawSessionRegistry.shared.session"))
+        XCTAssertTrue(session.contains("interactivePinnedSource"))
+        XCTAssertTrue(session.contains("branchInteractiveVariant"))
+        XCTAssertTrue(session.contains("DevelopRenderQuality.interactive.defaultLongEdge"))
+        XCTAssertTrue(graph.contains("func branchInteractiveVariant"))
+        XCTAssertTrue(graph.contains("applyExposureAndWhiteBalance"))
+        XCTAssertTrue(prepared.contains("func interactivePinnedSource"))
+        XCTAssertTrue(prepared.contains("surface.texture != nil"))
+        XCTAssertFalse(session.contains("VariantImageService"))
+        XCTAssertFalse(session.contains("VariantRenderScheduler"))
+        XCTAssertFalse(graph.contains("class Variant"))
+    }
+
+    private func makeOnDiskAsset(recipe: EditRecipe) -> AssetRecord {
+        let raw = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Scripts/harness/fixtures/cp2/jpeg-sidecar-pair/DSC0001.ARW")
+        return AssetRecord(
+            id: assetID,
+            sourceKey: "one-raw",
+            source: SourceReference(
+                originalPath: raw.path,
+                relativePath: "DSC0001.ARW",
+                volumeID: "PROOF",
+                availability: .available
+            ),
+            filename: "DSC0001.ARW",
+            recipe: recipe
+        )
     }
 }

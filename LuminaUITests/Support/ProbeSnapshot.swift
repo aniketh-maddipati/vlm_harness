@@ -57,6 +57,14 @@ struct ProbeSnapshot: Codable, Equatable {
     var editVariantAssetID: String?
     var focusedEditVariantIndex: Int?
     var editVariantCancellationCount: Int
+    var preparedSessionCreated: Int? = nil
+    var preparedSessionHits: Int? = nil
+    var interactiveMaterializations: Int? = nil
+    var graphRenders: Int? = nil
+    var gpuUploads: Int? = nil
+    var variantRenders: Int? = nil
+    var metalPresents: Int? = nil
+    var variantSourceReady: Bool? = nil
 
     /// Convenience: the Nth visible asset ID (nil when out of range).
     func visibleID(at index: Int) -> String? {
