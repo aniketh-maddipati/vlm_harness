@@ -73,6 +73,10 @@ struct ContactSheetItem: Identifiable, Equatable {
 @MainActor
 @Observable
 final class P0SessionModel {
+    private static let variantExposureStep = 0.1
+    private static let variantTemperatureStep = 250.0
+    private static let variantTintStep = 2.0
+
     var route: P0Route = .open
     var shoot: ShootRecord?
     var assets: [AssetRecord] = []
@@ -632,6 +636,95 @@ final class P0SessionModel {
         settleCurrentRecipe(for: id, recipe: recipe(for: id))
     }
 
+    // MARK: - Temporary edit variants
+
+    func beginEditVariants(assetID: UUID? = nil) {
+        flushPendingEditIfNeeded()
+        let id = assetID ?? inspectingAssetID ?? focusedAssetID
+        guard let id, assets.contains(where: { $0.id == id }) else { return }
+        workspaceState.beginEditVariants(assetID: id, sharedRecipe: recipe(for: id))
+    }
+
+    func setSharedVariantExposure(_ exposure: Double) {
+        workspaceState.setSharedVariantExposure(exposure)
+    }
+
+    func setVariantExposure(_ exposure: Double?, at index: Int) {
+        workspaceState.setVariantExposure(exposure, at: index)
+    }
+
+    func setVariantWhiteBalance(
+        temperature: Double?,
+        tint: Double?,
+        at index: Int
+    ) {
+        workspaceState.setVariantWhiteBalance(
+            temperature: temperature,
+            tint: tint,
+            at: index
+        )
+    }
+
+    func focusEditVariant(at index: Int) {
+        workspaceState.focusEditVariant(at: index)
+    }
+
+    func moveEditVariantFocus(by delta: Int) {
+        workspaceState.moveEditVariantFocus(by: delta)
+    }
+
+    func chooseFocusedEditVariant() {
+        guard let index = workspaceState.focusedEditVariantIndex else { return }
+        chooseEditVariant(at: index)
+    }
+
+    func nudgeSharedVariantExposure(up: Bool) {
+        guard let exposure = workspaceState.editVariants?.sharedRecipe.exposure else { return }
+        setSharedVariantExposure(exposure + (up ? 1 : -1) * Self.variantExposureStep)
+    }
+
+    func nudgeFocusedVariantExposure(up: Bool) {
+        guard let index = workspaceState.focusedEditVariantIndex,
+              let exposure = workspaceState.editVariants?.recipe(forVariantAt: index)?.exposure
+        else { return }
+        setVariantExposure(
+            exposure + (up ? 1 : -1) * Self.variantExposureStep,
+            at: index
+        )
+    }
+
+    func nudgeFocusedVariantTemperature(up: Bool) {
+        guard let index = workspaceState.focusedEditVariantIndex,
+              let variant = workspaceState.editVariants?.recipe(forVariantAt: index)
+        else { return }
+        setVariantWhiteBalance(
+            temperature: variant.temperature + (up ? 1 : -1) * Self.variantTemperatureStep,
+            tint: variant.tint,
+            at: index
+        )
+    }
+
+    func nudgeFocusedVariantTint(up: Bool) {
+        guard let index = workspaceState.focusedEditVariantIndex,
+              let variant = workspaceState.editVariants?.recipe(forVariantAt: index)
+        else { return }
+        setVariantWhiteBalance(
+            temperature: variant.temperature,
+            tint: variant.tint + (up ? 1 : -1) * Self.variantTintStep,
+            at: index
+        )
+    }
+
+    func chooseEditVariant(at index: Int) {
+        guard let chosen = workspaceState.takeEditVariant(at: index),
+              assets.contains(where: { $0.id == chosen.assetID }) else { return }
+        applyEditMutation({ $0 = chosen.recipe }, assetID: chosen.assetID)
+    }
+
+    func cancelEditVariants() {
+        workspaceState.cancelEditVariants()
+    }
+
     func resetRecipeToNeutral(assetID: UUID? = nil) {
         applyEditMutation({ recipe in
             let retainedID = recipe.id
@@ -920,6 +1013,9 @@ final class P0SessionModel {
 
     func setFocus(_ id: UUID?) {
         let start = CFAbsoluteTimeGetCurrent()
+        if let stagedAssetID = workspaceState.editVariants?.assetID, stagedAssetID != id {
+            cancelEditVariants()
+        }
         if inspectingAssetID != nil, let id, id != inspectingAssetID {
             flushPendingEditIfNeeded()
         }
