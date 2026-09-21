@@ -1736,6 +1736,8 @@ final class P0SessionModel {
     ) {
         guard let snapshot = canonicalShootSnapshot(),
               let folder = persistenceRawFolderURL() else { return }
+        sidecarManagedHashes[command.assetID] = LightroomHandoffService.hashOfManagedFields(for: command.after)
+        sidecarDriftAssetIDs.remove(command.assetID)
         let originalURL = assets.first(where: { $0.id == command.assetID }).map {
             URL(fileURLWithPath: $0.source.originalPath)
         }
