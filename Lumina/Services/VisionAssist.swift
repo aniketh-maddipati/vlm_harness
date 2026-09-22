@@ -27,9 +27,9 @@ nonisolated enum VisionAssist {
     }
 
     /// Face-weighted auto suggestion — exposure anchored on the face region
-    /// when present, otherwise falls back to whole-frame histogram AutoDevelop.
-    static func suggest(imagePath: String) async -> AutoDevelop.Suggestion? {
-        async let base = AutoDevelop.suggest(imagePath: imagePath)
+    /// when present, otherwise falls back to whole-frame histogram HistogramAutoTone.
+    static func suggest(imagePath: String) async -> HistogramAutoTone.Suggestion? {
+        async let base = HistogramAutoTone.suggest(imagePath: imagePath)
         async let map = subjectMap(imagePath: imagePath)
         guard var suggestion = await base else { return nil }
         guard let map = await map, map.hasFace, let cg = thumbnail(path: imagePath, maxSide: 256) else {

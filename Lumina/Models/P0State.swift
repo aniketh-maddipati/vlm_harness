@@ -163,6 +163,9 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
     /// Last hand-authored recipe, kept when the user switches to shot/auto so returning
     /// to "yours" restores it without re-deriving anything.
     var handRecipe: EditRecipe?
+    /// Cached measurements behind the auto pass. Derived, never authoritative —
+    /// safe to drop and recompute from the original at any time.
+    var imageStats: ImageStats?
 
     private enum CodingKeys: String, CodingKey {
         case id, sourceKey, source, filename, cull, recipe, capturedAt, fileSize,
@@ -171,7 +174,7 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
              faceDetected, cullScore, cullConfidence, editConfidence, tasteMatch,
              proposedTier, userDecidedAt, settledAt, isFlagged, isBurstHero, isClusterHero,
              uncertaintyKind, whyUncertain, whyAction, burstID, clusterID, clusterLabel,
-             embedding, recipeSource, handRecipe
+             embedding, recipeSource, handRecipe, imageStats
     }
 
     /// Tolerant decode: `recipeSource` and `handRecipe` post-date every on-disk catalog
@@ -217,6 +220,7 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
         embedding = try c.decodeIfPresent([Float].self, forKey: .embedding)
         recipeSource = try c.decodeIfPresent(RecipeSource.self, forKey: .recipeSource) ?? .shot
         handRecipe = try c.decodeIfPresent(EditRecipe.self, forKey: .handRecipe)
+        imageStats = try c.decodeIfPresent(ImageStats.self, forKey: .imageStats)
     }
 
     init(
@@ -257,7 +261,8 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
         clusterLabel: String? = nil,
         embedding: [Float]? = nil,
         recipeSource: RecipeSource = .shot,
-        handRecipe: EditRecipe? = nil
+        handRecipe: EditRecipe? = nil,
+        imageStats: ImageStats? = nil
     ) {
         self.id = id
         self.sourceKey = sourceKey
@@ -297,6 +302,7 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
         self.embedding = embedding
         self.recipeSource = recipeSource
         self.handRecipe = handRecipe
+        self.imageStats = imageStats
     }
 }
 

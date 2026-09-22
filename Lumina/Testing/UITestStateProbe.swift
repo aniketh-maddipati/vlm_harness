@@ -27,6 +27,10 @@ struct ProbeSnapshot: Codable, Equatable {
     /// focused). Lets the harness assert an edit gesture changed/reverted state without exposing
     /// pixel data, file paths, or the full recipe payload.
     var focusedRecipeFingerprint: String?
+    /// Provenance of the focused asset's recipe (`RecipeSource`): shot / auto /
+    /// autoHand / hand / sidecar. Lets the harness prove an auto pass tagged the
+    /// frames it changed, and that one undo put the prior provenance back.
+    var focusedRecipeSource: String?
     /// Progressive rendering probe: the focused asset may sharpen in place,
     /// but identity and geometry remain stable.
     var focusedRenderFidelity: String? = nil
@@ -145,6 +149,7 @@ extension P0SessionModel {
             focusedAvailability: focused?.source.availability.rawValue,
             focusedCull: focused?.cull.rawValue,
             focusedRecipeFingerprint: focused.map { recipe(for: $0.id).valueFingerprint },
+            focusedRecipeSource: focused.map(\.recipeSource.rawValue),
             focusedRenderFidelity: focusedAssetID.flatMap {
                 developFidelity(for: $0)?.rawValue
             },

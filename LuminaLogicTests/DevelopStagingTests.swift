@@ -10,10 +10,10 @@ final class DevelopStagingTests: XCTestCase {
     }
 
     func testDistinctAutoSuggestionsProduceDistinctProposals() {
-        let dark = AutoDevelop.Suggestion(
+        let dark = HistogramAutoTone.Suggestion(
             exposure: -0.8, contrast: 10, highlights: -20, shadows: 15, vibrance: 5, kelvin: 5200, tint: 2
         )
-        let bright = AutoDevelop.Suggestion(
+        let bright = HistogramAutoTone.Suggestion(
             exposure: 0.6, contrast: 5, highlights: -5, shadows: 0, vibrance: 12, kelvin: 6800, tint: -3
         )
         let base = DevelopRecipe.neutral
