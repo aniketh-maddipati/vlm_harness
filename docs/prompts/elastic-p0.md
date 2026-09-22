@@ -18,10 +18,21 @@ The stack, oldest first:
 9745c9e  WIP model assist                                      ← elastic-v4/model-assist
 ```
 
-All three branches are pushed to `origin`. `elastic-v4/model-assist` fails `banned_patterns` **by design**
-(network egress, contradicts contract-v6 D4/D36, parked pending a constitution ruling) —
-that is pre-existing and not yours to fix. There is also a separate
-`elastic-v4/model-core` branch outside this stack; leave it alone.
+All three branches are pushed to `origin`.
+
+**`elastic-v4/model-assist` is superseded — do not build on it and do not open a PR for
+it.** It is pre-ruling WIP that fails `banned_patterns` on `URLSession.shared`. The
+constitution question it was parked on has since been answered: **D67 / R-N.1, model
+inference is loopback-only**, landed on `elastic-v4/model-core` (`93862b5`), which also
+deleted the hosted provider and amended `banned_patterns.sh` to permit loopback in one
+sanctioned file while failing any non-loopback URL literal.
+
+`elastic-v4/model-core` branches from **checkpoint-02**, so it does **not** contain the
+Elastic shell or any of this stack. The two lineages both descend from `a034e52` and need
+reconciling — that is a separate decision, not yours. They overlap in exactly two files:
+`Lumina/ViewModels/P0SessionModel.swift` and `docs/ELASTIC_PLAN.md`. Leave `model-core`
+alone, but know it exists and that its `race/edge/threat pass` and
+`docs/security/MODEL_ASSIST_THREAT_MODEL.md` may already cover part of the P3 list.
 
 Read `AGENTS.md` and `docs/ELASTIC_PLAN.md` (§6 and "Elasticity backlog").
 

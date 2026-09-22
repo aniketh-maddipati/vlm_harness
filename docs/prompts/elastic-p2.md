@@ -15,8 +15,13 @@ Branch: start a new one off **`elastic-v4/fixture-generator`** (`596362a`). Run
 9745c9e  WIP model assist (unmergeable, parked)
 ```
 
-All three branches are pushed to `origin`. `model-assist` fails `banned_patterns` by design (network egress vs
-contract-v6 D4/D36) — not yours to fix.
+All three branches are pushed to `origin`.
+
+**`elastic-v4/model-assist` is superseded** — pre-ruling WIP that fails `banned_patterns`.
+The question it was parked on was answered by **D67 / R-N.1 (model inference is
+loopback-only)**, which landed on `elastic-v4/model-core`. That branch comes off
+checkpoint-02 and does not contain the Elastic shell; reconciling the two lineages is a
+separate decision. Leave both alone.
 
 Read `AGENTS.md`, `docs/DEVELOP_ENGINE.md`, and `docs/ELASTIC_PLAN.md` ("Elasticity
 backlog").
