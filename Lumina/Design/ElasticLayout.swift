@@ -228,4 +228,95 @@ enum ElasticLayout {
     // MARK: - Type
 
     static let systemLineHeight: CGFloat = 1.2
+
+    // MARK: - Peek (hold ⇥)
+
+    /// The bar pinned to the foot of the table while similar or the set is held:
+    /// `padding: 12px 28px 16px`, rows 10 apart, `rgba(46,46,44,0.94)` under a
+    /// `rgba(239,236,230,0.15)` rule.
+    static let peekPaddingTop: CGFloat = 12
+    static let peekPaddingBottom = HiFiTokens.Gap.spacingMd
+    static let peekGap = HiFiTokens.Gap.spacingSm
+    static let peekTitleGap = HiFiTokens.Gap.spacingMd
+    static let peekTitleSize: CGFloat = 14
+    static let peekSubSize: CGFloat = 12
+    static let peekSubOpacity: Double = 0.7
+    static let peekFillOpacity: Double = 0.94
+    static let peekRuleOpacity: Double = 0.15
+    /// Tiles: 150 in the set peek; in similar, 170 for a neighbour and 220 for the cursor.
+    static let peekSetTile: CGFloat = 150
+    static let peekRelatedTile: CGFloat = 170
+    static let peekCursorTile = HiFiTokens.Elastic.peekCursorTileWidth
+    static let peekTileRadius = HiFiTokens.Grid.photoRadiusLarge
+    static let peekCaptionGap: CGFloat = 5
+    static let peekCaptionSize = HiFiTokens.Typography.chipSize
+    static let peekCaptionSpacing = HiFiTokens.Gap.spacingXs
+    /// `min-width: 22px; height: 22px; padding: 0 6px` — the key that jumps to the tile.
+    static let peekKeyBadgeHeight = HiFiTokens.Elastic.versionBadgeHeight
+    static let peekKeyBadgeInset = HiFiTokens.Gap.spacingXs
+    static let peekKeyBadgePaddingH = HiFiTokens.Gap.spacingXs
+    static let peekKeyBadgeTextSize: CGFloat = 12.5
+    static let bornPeekMs = HiFiTokens.Motion.bannerInMs
+    /// Press and hold the photograph this long for before (`pressStart`, 200 ms).
+    static let beforePressSeconds = HiFiTokens.Motion.beforePress
+
+    /// Similar in the focus route: the neighbours share the band with the cursor at
+    /// `flex: 1.6`, bottoms aligned, 14 apart, each under a 24-high key badge.
+    static let relatedRowGap: CGFloat = 14
+    static let relatedColumnGap = HiFiTokens.Gap.spacingXs
+    static let relatedCursorGrow: CGFloat = 1.6
+    static let relatedKeyBadgeHeight = HiFiTokens.Elastic.peekRelatedBadgeHeight
+    static let relatedKeyBadgeTextSize: CGFloat = 13
+    static let relatedCaptionPaddingH: CGFloat = 2
+    static let bornRelatedMs = HiFiTokens.Motion.travelMs
+
+    /// The strip while the set is held: `rgba(255,236,205,0.16)` behind the set order.
+    static let stripSetFillOpacity: Double = 0.16
+
+    /// The shelf as a drop target: `outline: 2px dashed ink; outline-offset: -2px`.
+    static let shelfDropRingWidth: CGFloat = 2
+    static let shelfDropRingInset: CGFloat = 2
+    static let shelfDropRingDash: [CGFloat] = [6, 4]
+
+    // MARK: - Flags peek · inferred groups (`data-screen-label="Groups"`)
+
+    /// `max-height: 38vh; padding: 12px 28px 6px; gap: 8` on `#6F6E6C`, under a
+    /// `rgba(46,46,44,0.2)` rule; each row `padding: 8px 10px; radius 8; gap 14`.
+    static let groupsMaxHeightFraction: CGFloat = 0.38
+    static let groupsMaxHeight = HiFiTokens.Layout.minWindowHeight * groupsMaxHeightFraction
+    static let groupsPaddingTop: CGFloat = 12
+    static let groupsPaddingBottom = HiFiTokens.Gap.spacingXs
+    static let groupsGap: CGFloat = 8
+    static let groupsRuleOpacity = HiFiTokens.Elastic.groupsRuleOpacity
+    static let groupsRowPaddingV: CGFloat = 8
+    static let groupsRowPaddingH = HiFiTokens.Gap.spacingSm
+    static let groupsRowRadius: CGFloat = 8
+    static let groupsRowGap = relatedRowGap
+    static let groupsRowOpacity = HiFiTokens.Elastic.stackBackOpacity
+    static let groupsFocusRowOpacity = HiFiTokens.Elastic.groupsFocusRowOpacity
+    static let groupsColumnWidth = HiFiTokens.Elastic.groupsColumnWidth
+    static let groupsTextSize = HiFiTokens.Typography.exifSize
+    static let groupsLineHeight = HiFiTokens.Elastic.stripLabelLineHeight
+    static let groupsKindSize: CGFloat = 13
+    static let groupsReasonOpacity: Double = 0.9
+    static let groupsTakeOpacity: Double = 0.65
+    /// Frames in a row: `96×64`, radius 3, 3 apart; untaken ones at half strength.
+    static let groupsFrame = filmstripFocusedTile
+    static let groupsFrameGap = HiFiTokens.Grid.burstGap
+    static let groupsFrameRadius = HiFiTokens.Grid.photoRadiusThumb
+    static let groupsUntakenOpacity = HiFiTokens.Elastic.groupsUntakenOpacity
+    /// `sharpest` on a leader: `padding: 1px 5px; radius 4; rgba(46,46,44,0.85)`, 10 px.
+    static let groupsTagSize = HiFiTokens.Elastic.groupsTagTextSize
+    static let groupsTagPaddingH: CGFloat = 5
+    static let groupsTagPaddingV: CGFloat = 1
+    static let groupsTagRadius: CGFloat = 4
+    static let groupsTagOpacity: Double = 0.85
+    static let groupsTagInset: CGFloat = 4
+    static let bornGroupsMs = HiFiTokens.Motion.routeTransitionMs
+
+    /// `soft · clips · drift` on a table tile: salmon chip, `padding: 2px 6px`, radius 4, 10.5 px.
+    static let flagChipSize: CGFloat = 10.5
+    static let flagChipPaddingH = HiFiTokens.Gap.spacingXs
+    static let flagChipPaddingV: CGFloat = 2
+    static let flagChipRadius: CGFloat = 4
 }

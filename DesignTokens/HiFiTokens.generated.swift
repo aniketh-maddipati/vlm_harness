@@ -1,7 +1,7 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: df280d04baa93c55925ef10f8ba4f9664e72b0714be70c28d76f1a1538d518c0
+// tokens-hash: de232d008839ebcc7469be95404cf511577fd8765204df2db935f556944a7b65
 // version: 6.4-a7-cleanup
 // contract: design/contract-v6.md
 
@@ -120,6 +120,8 @@ enum HiFiTokens {
         static let photoFocusMs: Int = 280 // cite: D27, WG-photos — Filmstrip focus chrome — scale/shadow only; not birth opacity (photo_birth).
         static let routeTransition: TimeInterval = 0.24 // cite: D27, WG-chrome — P0 contact sheet ↔ single-photo route.
         static let routeTransitionMs: Int = 240 // cite: D27, WG-chrome — P0 contact sheet ↔ single-photo route.
+        static let beforePress: TimeInterval = 0.2 // cite: ELASTIC-V4 — Press and hold the photograph this long to see before; release returns.
+        static let beforePressMs: Int = 200 // cite: ELASTIC-V4 — Press and hold the photograph this long to see before; release returns.
         static let selectionRing: TimeInterval = 0.32 // cite: D27, WG-hand — Legacy shell selection ring — W8 retires path.
         static let selectionRingMs: Int = 320 // cite: D27, WG-hand — Legacy shell selection ring — W8 retires path.
         static let developReveal: TimeInterval = 0.55 // cite: D27, WG-chrome — Legacy develop crossfade — W8 retires path.
@@ -189,6 +191,13 @@ enum HiFiTokens {
         static let stripFillOpacity: Double = 0.18 // cite: ELASTIC-V4 — Strip wash — shadow ink over the table.
         static let keyPillOpacity: Double = 0.18 // cite: ELASTIC-V4 — Key pill on a dark button (⌘E).
         static let stackBackOpacity: Double = 0.22 // cite: ELASTIC-V4 — Back card of a collapsed burst stack.
+        static let peekCursorTileWidth: CGFloat = 220.0 // cite: ELASTIC-V4 — The cursor's own tile in the table's similar peek (its neighbours are 170).
+        static let peekRelatedBadgeHeight: CGFloat = 24.0 // cite: ELASTIC-V4 — Key badge on a related frame in the focus route (the table peek's badge is 22).
+        static let groupsColumnWidth: CGFloat = 210.0 // cite: ELASTIC-V4 — Left column of an inferred-groups row (kind · reason · take).
+        static let groupsFocusRowOpacity: Double = 0.14 // cite: ELASTIC-V4 — Warm wash on the inferred-groups row that holds the cursor.
+        static let groupsRuleOpacity: Double = 0.2 // cite: ELASTIC-V4 — Rule under the inferred-groups band.
+        static let groupsUntakenOpacity: Double = 0.5 // cite: ELASTIC-V4 — A frame in an inferred group that G would not take.
+        static let groupsTagTextSize: CGFloat = 10.0 // cite: ELASTIC-V4 — The `sharpest` tag on an inferred-group frame.
     }
 
     enum Hit {

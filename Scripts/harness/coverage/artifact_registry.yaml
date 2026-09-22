@@ -22,7 +22,6 @@ entries:
       - PointerTravelTests.testPointerThenDecisionKeysApplyToCurrentFocus
       - PointerTravelTests.testInspectFromPointerFocusIsPreserved
       - PointerTravelTests.testTwentyPointerTravelsDoNotGrowHiddenSelection
-      - PointerTravelTests.testVariantPointerTravelDoesNotCullOrSelect
       - PointerTravelTests.testPointerCallsitesAreTravelOnly
     lint:
       - grammar_oracle_parity

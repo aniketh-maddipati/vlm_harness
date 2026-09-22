@@ -27,11 +27,6 @@ struct P0ChapterTableView: View {
         .onChange(of: session.activeChapterID) { _, _ in
             session.prefetchChapterCovers()
         }
-        .overlay {
-            if session.holdingLoupe && session.inspectingAssetID == nil {
-                loupeOverlay
-            }
-        }
     }
 
     private var chronologyRod: some View {
@@ -332,26 +327,6 @@ struct P0ChapterTableView: View {
         .matchedGeometryEffect(id: travelID(for: asset), in: travel)
         .accessibilityIdentifier(P0AccessibilityID.filmstripItem(asset.id))
         .accessibilityLabel(asset.filename)
-    }
-
-    private var loupeOverlay: some View {
-        let path = focusedImagePath
-        return ZStack {
-            LuminaTokens.Surface.mist.opacity(0.55)
-            if let path {
-                ChapterPlateImage(path: path)
-                    .overlay {
-                        if session.holdingClipping {
-                            Color.red.blendMode(.difference)
-                                .opacity(HiFiTokens.Color.clippingOverlayOpacity)
-                        }
-                    }
-                    .frame(maxWidth: 720, maxHeight: 720)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-        }
-        .allowsHitTesting(false)
-        .transition(reduceMotion ? .identity : .offset(y: LuminaTokens.Spacing.sm))
     }
 
     private var inspectStrip: some View {
