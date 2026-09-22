@@ -94,9 +94,10 @@ extension P0SessionModel {
 
     /// Seconds between the start of moment `index` and the start of the next one.
     func gapInterval(after index: Int) -> TimeInterval? {
-        guard chapters.indices.contains(index), chapters.indices.contains(index + 1) else { return nil }
-        guard let start = chapters[index].startedAt,
-              let next = chapters[index + 1].startedAt else { return nil }
+        let list = chapters
+        guard list.indices.contains(index), list.indices.contains(index + 1) else { return nil }
+        guard let start = list[index].startedAt,
+              let next = list[index + 1].startedAt else { return nil }
         return max(0, next.timeIntervalSince(start))
     }
 

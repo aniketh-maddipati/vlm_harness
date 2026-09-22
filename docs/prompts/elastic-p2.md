@@ -201,7 +201,7 @@ but what was measured, on what card, warm or cold. Commit with
 
 ## Checklist
 
-- [ ] 1. A scroll-latency measurement exists and is recorded, before any change
+- [x] 1. A scroll-latency measurement exists and is recorded, before any change
 - [ ] 2. Nothing on the scroll path decodes synchronously
 - [ ] 3. Guaranteed-resident floor tier, with an explicit cap and eviction by distance
 - [ ] 4. Prefetch by scroll velocity; cancel behind
@@ -231,3 +231,21 @@ wrong._
   `ElasticRootView.swift` (tracker environment, one modifier),
   `P0SessionModel.openFolder(_:shootName:)` (cards share a `frames` leaf),
   `LuminaApp.swift` (runner registration), `shipping_fence.py` (new runner).
+- 2026-09-22 · item 1 **done** · The readiness bug was not the runner: the
+  dates phase hangs on any shoot past ~250 frames because `ExifToolService.
+  runData` waited for exit before draining a >64 KB pipe. Fixed
+  (`captureOutput` + `ExifToolProcessTests`), outside P2's row but nothing
+  large could be measured without it — and it is why every big catalog on
+  this Mac had no dates. Runner now waits for the lazy table to grow and
+  compares the document against the scroll view's frame (SwiftUI's clip view
+  reports bounds as tall as the document). Baseline on the 403-frame card is
+  in `docs/ELASTIC_PLAN.md`: 4 steps in 19.8 s, tick p95 1090 ms.
+- 2026-09-22 · item 2 **part 1** · `sample` put 86 % of the glide's main
+  thread in `session.chapters` recomputed per row and per gap, with a regex
+  compiled per filename inside the sort. Cached `chapters` with `assets`
+  (`P0SessionModel`, unowned), compiled the pattern once
+  (`ShootChapterArrangement`), `gapInterval` reads the list once. Glide went
+  from 4 steps / 19.8 s to 417 steps / 5.0 s, tick p95 2.5 ms. Still to do
+  for item 2: the tile samples `BrowsePixelService.residentPixel` in its body
+  and only enqueues on a miss — today every realized row shows a well for at
+  least a frame even when its pixels are resident.

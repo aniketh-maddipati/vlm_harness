@@ -367,11 +367,47 @@ are the ones that realized a row, and every newly realized row shows a well
 for at least one frame even when its pixels are resident, because the tile
 asks the actor asynchronously and sets state after the hop.
 
-**Baseline on the 403-frame card: not yet recorded.** Extraction completes in
-under a minute (403/403 grid thumbs in the catalog), but the runner's
-readiness wait never fires on that card — `assets` stays empty in the session
-while the same code path populates the 27-frame card. Open issue, first thing
-for the next pass.
+**Why the 403-frame baseline could not be taken at first.** "Reading dates…"
+never finished on any shoot past roughly 250 frames: `ExifToolService.runData`
+waited for exiftool to exit before draining its stdout pipe, and `-json` over
+that many frames is larger than the 64 KB pipe buffer, so the child blocked on
+write and the parent on exit — forever. Every large catalog on this machine
+(`card-clean-500`, the stress card) had `capturedAt` on 0 of its frames for
+that reason. Fixed by draining before waiting (`captureOutput`, pinned by
+`ExifToolProcessTests`). Not a scroll change; it is what made scroll
+measurable.
+
+**Baseline, 403-frame card (13.0 screens at 1280×800), warm, unfilmed, at
+`5181c75` plus the exiftool fix:**
+
+| pass | duration | steps | steps/s | tick p50 | tick p95 | tick max | well ticks | well tiles | decodes in pass |
+|---|---|---|---|---|---|---|---|---|---|
+| glide (1 screen/s, 5 screens) | 19.8 s | 4 | 0.2 | 634 ms | 1090 ms | 1752 ms | 3/4 | 47/62 | 105 |
+| flick (6 screens/s, to end) | 7.2 s | 2 | 0.3 | 0.04 ms | 0.04 ms | 284 ms | 1/2 | 16/60 | 16 |
+| return (6 screens/s, to top) | 6.9 s | 2 | 0.3 | 0.21 ms | 0.21 ms | 552 ms | 0/2 | 0/45 | 0 |
+
+A five-screen glide that should take 5 s took 20 s and managed four steps: the
+main thread was busy for seconds between them. An 8 s `sample` of the main
+thread during the glide put 86 % of it in the table's row closure, and nearly
+all of that in `session.gapInterval(after:)` → `session.chapters` →
+`ShootChapterArrangement.arrange(_:)` — the whole arrangement recomputed for
+every row and again for every gap — with `CaptureName.parse` compiling an
+`NSRegularExpression` per call inside a sort comparator.
+
+**After caching `chapters` with `assets` and compiling the pattern once**
+(same card, same conditions):
+
+| pass | duration | steps | steps/s | tick p50 | tick p95 | tick p99 | tick max | frame p95 | well ticks | well tiles | decodes in pass |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| glide | 5.0 s | 417 | 83 | 0.48 ms | 2.48 ms | 10.1 ms | 40.9 ms | 8.3 ms | 20/417 | 118/10553 | 91 |
+| flick | 1.2 s | 91 | 76 | 0.80 ms | 9.27 ms | 9.4 ms | 9.6 ms | 14.2 ms | 20/91 | 152/2544 | 152 |
+| return | 2.0 s | 178 | 88 | 0.56 ms | 8.99 ms | 9.8 ms | 70.7 ms | 8.3 ms | 0/178 | 0/4858 | 0 |
+
+The passes now run at the pace they were asked for. What remains is the scroll
+work proper: every decode in a pass is a tile that was realized before its
+pixels were asked for (flick: 152 decodes, 152 misses, 4 hits), the flick's
+tick p95 sits just over the 8.33 ms frame budget, and one step in twenty shows
+a well. Items 2–5 are aimed at exactly those three numbers.
 
 ### P3 — hardening
 

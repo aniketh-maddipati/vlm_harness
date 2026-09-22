@@ -87,7 +87,10 @@ final class P0SessionModel {
     var route: P0Route = .open
     var shoot: ShootRecord?
     var assets: [AssetRecord] = [] {
-        didSet { assetIndexCache = nil }
+        didSet {
+            assetIndexCache = nil
+            chaptersCache = nil
+        }
     }
 
     /// `id → position`, rebuilt on the first read after any mutation.
@@ -315,8 +318,18 @@ final class P0SessionModel {
         developSchedulerStorage?.fidelityByPhoto[assetID]
     }
 
+    /// The arrangement is a pure function of `assets`, and the table asks for
+    /// it once per row plus several times per gap — recomputing it each time
+    /// made a layout pass of a 400-frame shoot cost seconds. Same contract as
+    /// `assetIndexCache`: derived, invalidated with `assets`, ignored by
+    /// observation so filling it during a view update is not a change.
+    @ObservationIgnored private var chaptersCache: [ShootChapter]?
+
     var chapters: [ShootChapter] {
-        ShootChapterArrangement.arrange(assets)
+        if let chaptersCache { return chaptersCache }
+        let arranged = ShootChapterArrangement.arrange(assets)
+        chaptersCache = arranged
+        return arranged
     }
 
     var activeChapter: ShootChapter? {
