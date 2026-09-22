@@ -90,6 +90,7 @@ final class P0SessionModel {
         didSet {
             assetIndexCache = nil
             chaptersCache = nil
+            chapterIDByAssetCache = nil
         }
     }
 
@@ -330,6 +331,21 @@ final class P0SessionModel {
         let arranged = ShootChapterArrangement.arrange(assets)
         chaptersCache = arranged
         return arranged
+    }
+
+    /// Which moment each frame belongs to. Derived from `chapters`; the strip
+    /// asks per tile, and a scan of every chapter's members per tile made the
+    /// strip quadratic in the shoot.
+    @ObservationIgnored private var chapterIDByAssetCache: [UUID: String]?
+
+    func chapterID(containing assetID: UUID) -> String? {
+        if let chapterIDByAssetCache { return chapterIDByAssetCache[assetID] }
+        var map: [UUID: String] = [:]
+        for chapter in chapters {
+            for id in chapter.assetIDs { map[id] = chapter.id }
+        }
+        chapterIDByAssetCache = map
+        return map[assetID]
     }
 
     var activeChapter: ShootChapter? {

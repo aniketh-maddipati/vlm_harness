@@ -71,6 +71,21 @@ final class P0SessionChaptersCacheTests: XCTestCase {
         XCTAssertNil(session.gapInterval(after: 2), "no moment after the last")
     }
 
+    func testMomentMembershipFollowsAssets() {
+        let session = P0SessionModel()
+        session.assets = shoot(momentsApartMinutes: 12, count: 3)
+        let ids = session.assets.map(\.id)
+        XCTAssertNotEqual(session.chapterID(containing: ids[0]), session.chapterID(containing: ids[1]))
+        XCTAssertTrue(session.startsNewMoment(after: ids[0]))
+        XCTAssertFalse(session.startsNewMoment(after: ids[2]), "nothing follows the last frame")
+        XCTAssertNil(session.chapterID(containing: UUID()), "a stranger belongs to no moment")
+
+        session.assets = shoot(momentsApartMinutes: 0.5, count: 3)
+        let close = session.assets.map(\.id)
+        XCTAssertEqual(session.chapterID(containing: close[0]), session.chapterID(containing: close[1]))
+        XCTAssertFalse(session.startsNewMoment(after: close[0]), "the membership map must not survive the change")
+    }
+
     func testCaptureNameParseIsStableAcrossManyCalls() {
         // The version-suffix regex is compiled once; parsing must not depend on it.
         for index in 0..<2_000 {

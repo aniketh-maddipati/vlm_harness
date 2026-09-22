@@ -202,7 +202,7 @@ but what was measured, on what card, warm or cold. Commit with
 ## Checklist
 
 - [x] 1. A scroll-latency measurement exists and is recorded, before any change
-- [ ] 2. Nothing on the scroll path decodes synchronously
+- [x] 2. Nothing on the scroll path decodes synchronously
 - [ ] 3. Guaranteed-resident floor tier, with an explicit cap and eviction by distance
 - [ ] 4. Prefetch by scroll velocity; cancel behind
 - [ ] 5. Superseded requests dropped rather than queued
@@ -249,3 +249,13 @@ wrong._
   for item 2: the tile samples `BrowsePixelService.residentPixel` in its body
   and only enqueues on a miss — today every realized row shows a well for at
   least a frame even when its pixels are resident.
+- 2026-09-22 · item 2 **done** · `ChapterPlateImage` draws
+  `BrowsePixelService.residentPixel` in the same pass and only a miss awaits;
+  `startsNewMoment` reads `chapterID(containing:)` (indexed, cached with
+  `assets`) instead of scanning. Well tiles now equal decodes exactly (91/91
+  on the glide); glide tick p95 0.95 ms. Audit result: nothing sync on the
+  tile path but a lock-guarded dictionary read. Two things seen and left:
+  `ShootBurst.preferredCoverID(in:)` builds a 403-entry dictionary per group
+  per layout (called from P1's `ElasticTableView`; not in the profile after
+  the chapters fix, so not touched), and the flick's ~9 ms tick p95 is row
+  wrap-layout, P0's item. Next: item 3, the floor tier.

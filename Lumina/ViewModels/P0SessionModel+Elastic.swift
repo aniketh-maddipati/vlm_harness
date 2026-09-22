@@ -279,11 +279,9 @@ extension P0SessionModel {
 
     /// True when the next frame in shoot order belongs to a different moment.
     func startsNewMoment(after assetID: UUID) -> Bool {
-        guard let index = assets.firstIndex(where: { $0.id == assetID }),
+        guard let index = assetIndex(assetID),
               assets.indices.contains(index + 1) else { return false }
-        let here = ShootChapterArrangement.chapter(containing: assetID, in: chapters)?.id
-        let next = ShootChapterArrangement.chapter(containing: assets[index + 1].id, in: chapters)?.id
-        return here != next
+        return chapterID(containing: assetID) != chapterID(containing: assets[index + 1].id)
     }
 
     /// `1` / `2` / `3` — as shot, auto, yours.

@@ -409,6 +409,24 @@ pixels were asked for (flick: 152 decodes, 152 misses, 4 hits), the flick's
 tick p95 sits just over the 8.33 ms frame budget, and one step in twenty shows
 a well. Items 2–5 are aimed at exactly those three numbers.
 
+**After the plate samples residency synchronously** (item 2 closed — the tile
+draws what is resident in the same pass and only a miss enqueues; the strip's
+moment-gap check reads an indexed membership map instead of scanning):
+
+| pass | steps | tick p50 | tick p95 | tick p99 | well ticks | well tiles | decodes in pass |
+|---|---|---|---|---|---|---|---|
+| glide | 439 | 0.45 ms | 0.95 ms | 8.9 ms | 14/439 | 91/10910 | 91 |
+| flick | 93 | 0.78 ms | 9.19 ms | 9.3 ms | 20/93 | 152/2614 | 152 |
+| return | 190 | 0.55 ms | 8.53 ms | 9.9 ms | 0/190 | 0/5043 | 0 |
+
+Well tiles now equal decodes exactly: every well is a miss and nothing else.
+The "resident but not yet shown" frame is gone (glide well ticks 20 → 14, tick
+p95 2.5 → 0.95 ms). The flick is unchanged because its wells are all misses —
+that is items 3–5. The flick's tick p95 of ~9 ms is the cost of realizing a
+new row's wrap layout, which is P0's `ElasticWrapLayout` item, not this one.
+Nothing on the scroll path decodes synchronously: the only sync work reached
+from a tile's body is a lock-guarded dictionary read.
+
 ### P3 — hardening
 
 - `[edge]` Orientation 2/3/4 and square images — latent, now guarded by
