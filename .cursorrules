@@ -6,7 +6,7 @@ This file and any other agent-instruction file **must not contradict** the contr
 
 ## Five laws (immutable)
 
-1. **Touch moves, never decides** — pointer, drag, and keyboard travel change focus, selection, and staging only; only decision keys commit.
+1. **Touch moves, never decides** — pointer, drag, and keyboard travel change focus only; only decision keys commit. Pointer on media never writes persistent selection (D29 remains shelved).
 2. **Hold Space, release returns** — transient loupe / Before states revert on release; force-press is optional redundancy, never the only route.
 3. **The table keeps working** — failures wear a facts-chip; one sentence names it; one action fixes it; never a modal dead-end.
 4. **Nothing the user did is ever lost** — continuously saved; quit-anywhere restores the exact table; un-applied staging cancels like Esc.
@@ -21,6 +21,10 @@ This file and any other agent-instruction file **must not contradict** the contr
 ### Decision keys (v1)
 
 `P`, `X`, `⏎`, `⇧⏎`, `A`. All five swallow key-repeat. Travel keys autorepeat. Decision keys keep their meanings everywhere (D10 / D63) — never remapped inside crop or other latches.
+
+### Pointer travel (Law 1)
+
+Pointer on media — chapter table plate, filmstrip thumb, inspect canvas, variant card — **travels**. It changes focus only. It does not write cull, recipe, or persistent selection. **Pointer ✓/✕ on the focused frame** (D47 / A3) remain the amateur door to P/X. Do not wire pointer taps to `selectedAssetIDs`, rubber-band, or ⇧-range membership.
 
 ### Banned words (user-visible strings)
 

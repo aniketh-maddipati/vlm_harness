@@ -1,6 +1,6 @@
 import XCTest
 
-/// Flow 5 — grid → photograph → grid, restoring focus, approximate scroll, and selection.
+/// Flow 5 — grid → photograph → grid, restoring focus and approximate scroll.
 final class GridPhotoRestoreTests: LuminaUITestCase {
 
     func testOpenPhotographNavigateAndReturnRestoresState() {
@@ -8,10 +8,9 @@ final class GridPhotoRestoreTests: LuminaUITestCase {
         let sheet = lumina.openShoot.open(.mixed200)
         let ids = sheet.visibleIDs()
 
-        // Establish a multi-selection we will assert survives the round trip.
         sheet.focus(assetID: ids[3])
-        sheet.commandClick(assetID: ids[7])
-        let selected = lumina.waitForProbe { $0.selectionCount == 2 }
+        let selected = lumina.waitForProbe { $0.focusedAssetID == ids[3] }
+        XCTAssertTrue(selected.selectedAssetIDs.isEmpty, "pointer focus is not a hidden selection")
         let selectionBefore = selected.selectedAssetIDs
 
         // Scroll well into the sheet.
@@ -42,7 +41,7 @@ final class GridPhotoRestoreTests: LuminaUITestCase {
         single.returnToGrid()
         let back = lumina.waitForProbe { $0.route == "contactSheet" }
         XCTAssertEqual(back.route, "contactSheet")
-        XCTAssertEqual(back.selectedAssetIDs, selectionBefore, "original multi-selection survives the round trip")
+        XCTAssertEqual(back.selectedAssetIDs, selectionBefore, "pointer travel must not invent selection across inspect")
         XCTAssertEqual(back.scrollAnchor, anchorBefore, accuracy: 0.2, "approximate scroll position restored")
         Invariants.assert(back, app: app)
     }

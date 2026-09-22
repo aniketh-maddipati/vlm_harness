@@ -17,6 +17,13 @@ entries:
   D8:
     logic:
       - CullGrammarTests.testHoldKeysTrackMomentaryState
+      - PointerTravelTests.testFilmstripTapChangesFocusWithoutHiddenSelectionOrCull
+      - PointerTravelTests.testTableFrameTapFocusesWithoutDeciding
+      - PointerTravelTests.testPointerThenDecisionKeysApplyToCurrentFocus
+      - PointerTravelTests.testInspectFromPointerFocusIsPreserved
+      - PointerTravelTests.testTwentyPointerTravelsDoNotGrowHiddenSelection
+      - PointerTravelTests.testVariantPointerTravelDoesNotCullOrSelect
+      - PointerTravelTests.testPointerCallsitesAreTravelOnly
     lint:
       - grammar_oracle_parity
       - grammar_oracle_unit
@@ -156,6 +163,8 @@ entries:
   D47:
     logic:
       - CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically
+      - PointerTravelTests.testPointerThenDecisionKeysApplyToCurrentFocus
+      - PointerTravelTests.testPointerCallsitesAreTravelOnly
     lint:
       - probe_growth
       - probe_mirror
