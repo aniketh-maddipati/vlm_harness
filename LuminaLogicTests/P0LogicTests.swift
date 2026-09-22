@@ -67,6 +67,7 @@ final class P0LogicTests: XCTestCase {
             unreviewedCount: 33, editedCount: 12, densityColumns: 6, filter: "All", canUndo: true,
             focusedAssetID: "abc", focusedVisible: true, focusedAvailability: "available",
             focusedCull: "keep", focusedRecipeFingerprint: "fp-abc",
+            focusedRecipeSource: "auto",
             focusedRenderFidelity: "interactive", focusedHasPresentedRAW: true,
             inspectionSettledLongEdge: 2560, focusedOrientedIsPortrait: false,
             focusedPresentedIsPortrait: false, pointerCullTargetsVisible: true,

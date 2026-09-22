@@ -31,6 +31,8 @@ Root cause of inaccurate / unresponsive editing: interactive path graded **camer
 | Cancellation / stale rejection | `RenderGenerationGate`, `DevelopRenderScheduler` |
 | Unified graph + export | `DevelopRenderGraph`, `ExportService` |
 | Lab entry | `--develop-lab` → `DevelopLabView` |
+| Auto pass (Elastic) | `AutoDevelop` + `ImageStats` (`Lumina/Develop`) |
+| Retired-shell auto tone | `HistogramAutoTone` (was `AutoDevelop`; serves `LuminaShellModel` / `Views/Workspace` only) |
 
 ## Develop Lab (Phase 1)
 
@@ -186,9 +188,72 @@ swift Scripts/aspect_geometry_test.swift
 swift Scripts/CommandChordTests.swift
 ```
 
+## AutoDevelop (the "auto" version)
+
+`AutoDevelop.recipe(for:stats:)` is a pure function of `ImageStats` plus the asset's
+existing recipe. Same measurements in, same recipe out — no wall clock, no cull, no
+taste, no selection. It backs `RecipeSource.auto`.
+
+`ImageStats` is measured once per frame from the **interactive tier decoded at
+`RawIntent.neutral`** (as-shot WB, 0 EV) and cached on `AssetRecord.imageStats`.
+Measuring the as-shot decode rather than the current recipe is deliberate: otherwise a
+second auto pass would read its own previous output. The cache is derived state — safe
+to drop and recompute from the original at any time.
+
+| Measurement | Source |
+|---|---|
+| 32-bin luminance histogram, mean | Rec.709 luma over a 256 px color-managed sample |
+| Clip fractions | luminance < 6/255 (low), > 249/255 (high) |
+| Native white balance | `CIRAWFilter.neutralTemperature` via `PreparedRawSession.Metadata` |
+| Horizon angle | `VNDetectHorizonRequest`, optional — nil when Vision finds none |
+
+Rules, deliberately simple (first pass; tuning is the L4 loop's job):
+
+| Control | Rule |
+|---|---|
+| Exposure | `clamp((0.46 − mean) × 3, ±1.5)`, quantized to 0.05 |
+| Highlights | clipping > 0.5% → `−min(80, hi × 3000)`, else −20 |
+| Shadows | clipping > 0.5% → `min(60, lo × 2000)`, else +15 |
+| Vibrance | 8 |
+| Temperature | native Kelvin when known, otherwise unchanged |
+| Straighten | horizon estimate when \|angle\| < 4°, else unchanged (quarter turns survive) |
+| Whites / Blacks / Dehaze | 0 — inert in the engine, so auto must not claim them |
+
+Two honest notes on the current coefficients:
+
+- The exposure clamp is **asymmetric in practice**. `(0.46 − mean) × 3` spans −1.62…+1.38,
+  so only the darkening side ever reaches ±1.5; a pure-black frame tops out at +1.40
+  because the formula, not the clamp, binds first (`AutoDevelopTests.testExposureClampsHardFrames`).
+- A frame that is *not* clipping still receives the default −20 / +15 curve. "Auto on an
+  already-fine frame" is therefore not a no-op, by design.
+
+`P0SessionModel.applyAuto(to:force:)` applies it as one `BatchEditMutationCommand` —
+one ⌘Z reverts the whole pass, including each frame's prior `RecipeSource`. Frames whose
+source is not `.shot` are skipped unless `force`, and frames with no cached `ImageStats`
+are skipped entirely rather than guessed at.
+
+### Verifying auto on real RAW
+
+`AutoDevelopRawFixtureTests` decodes real files and asserts auto produces a non-identity,
+deterministic recipe for each. It is fixture-gated and **skips** rather than passing
+vacuously when no RAW folder is supplied — the committed `.ARW` under
+`Scripts/harness/fixtures/` is a 4-byte placeholder and cannot stand in for a decode.
+
+```bash
+TEST_RUNNER_LUMINA_RAW_DIR=/path/to/raw/folder \
+  xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
+  -derivedDataPath DD -destination 'platform=macOS,arch=arm64' \
+  -only-testing:LuminaLogicTests/AutoDevelopRawFixtureTests test-without-building
+```
+
+The `TEST_RUNNER_` prefix is required — `xcodebuild` does not forward a bare environment
+variable into the test process.
+
 ## Known limits (honest)
 
 - Interactive Metal preview timing is measured via forced bitmap evaluation in the harness; MTKView captures in `--capture-develop-lab` show placeholder spinners because the capture window closes before RAW settle and layer-backed MTKView content is not composited by `cacheDisplay`.
 - Highlights/Shadows remain a labeled Core Image approximation, not crs-equivalent.
 - 61 MP gates: no 61 MP fixture available — reported as fixture-blocked, not fabricated.
 - Histogram reads the small settled bitmap (analysis path), so it updates on settle, not per scrub frame.
+- `AutoDevelop` coefficients are a first pass, unvalidated against real hand-edited sidecars. The L4 loop in `design_handoff_elastic_v4/LOOPS.md` is what tunes them; until it runs, auto is "deterministic and bounded", not "good".
+- Auto's horizon straighten is only as good as `VNDetectHorizonRequest`; frames with no detectable horizon get no straighten rather than a guess.

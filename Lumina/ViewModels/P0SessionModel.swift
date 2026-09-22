@@ -452,6 +452,8 @@ final class P0SessionModel {
             installCullGrammarFromSession()
         case .edit(let command):
             applyEditUndo(command)
+        case .batchEdit(let command):
+            applyBatchEditUndo(command)
         case .chapterKeep(let command):
             applyChapterKeepUndo(command)
             installCullGrammarFromSession()
@@ -594,6 +596,100 @@ final class P0SessionModel {
         if inspectingAssetID == command.assetID {
             scrubCurrentRecipe(for: command.assetID, recipe: recipe(for: command.assetID), recordInput: false)
         }
+    }
+
+    private func applyBatchEditUndo(_ command: BatchEditMutationCommand) {
+        let commandStartedAt = Date()
+        let selectionSnapshot = selectedAssetIDs
+        let orderSnapshot = shoot?.finalSetOrder.assetIDs ?? []
+        guard command.revert(in: &assets) else { return }
+        if var shoot {
+            // Editing never mutates cull or final order, on the way out either.
+            shoot.finalSetOrder.assetIDs = orderSnapshot
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+        selectedAssetIDs = selectionSnapshot
+        workingRecipe = nil
+        gestureBaselineRecipe = nil
+        gestureAssetID = nil
+        isEditGestureActive = false
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueBatchEditPersistence(command.reversed(), commandStartedAt: commandStartedAt)
+        if let inspectingAssetID, command.marks.contains(where: { $0.assetID == inspectingAssetID }) {
+            scrubCurrentRecipe(for: inspectingAssetID, recipe: recipe(for: inspectingAssetID), recordInput: false)
+        }
+    }
+
+    // MARK: - Auto
+
+    /// Measure and cache `ImageStats` for any of `ids` that lack them.
+    ///
+    /// Measuring is idempotent and never touches recipe, cull, or undo — a frame
+    /// whose original is offline is simply left unmeasured, and auto skips it.
+    func ensureImageStats(for ids: [UUID]) async {
+        for id in ids {
+            guard let asset = assets.first(where: { $0.id == id }), asset.imageStats == nil else { continue }
+            guard let rawURL = resolveRenderURLs(for: id)?.rawURL else { continue }
+            let session = await PreparedRawSessionRegistry.shared.session(for: id, rawURL: rawURL)
+            guard let stats = await session.imageStats() else { continue }
+            guard let index = assets.firstIndex(where: { $0.id == id }) else { continue }
+            assets[index].imageStats = stats
+            if var shoot {
+                shoot.assets = assets
+                self.shoot = shoot
+            }
+        }
+    }
+
+    /// Apply the deterministic auto pass to `ids` as one undoable move.
+    ///
+    /// Frames the photographer (or a sidecar) already spoke for are skipped unless
+    /// `force` — auto never silently overwrites a hand recipe. Frames with no cached
+    /// `ImageStats` are skipped too: guessing without measurements is exactly the
+    /// kind of invented correction this engine is supposed to avoid.
+    @discardableResult
+    func applyAuto(to ids: [UUID], force: Bool = false) -> Int {
+        flushPendingEditIfNeeded()
+        var marks: [BatchEditMutationCommand.Mark] = []
+        for id in ids {
+            guard let asset = assets.first(where: { $0.id == id }) else { continue }
+            guard force || asset.recipeSource == .shot else { continue }
+            guard let stats = asset.imageStats else { continue }
+            let before = recipe(for: id)
+            let after = AutoDevelop.recipe(for: asset, stats: stats)
+            guard before.valueFingerprint != after.valueFingerprint else { continue }
+            marks.append(
+                BatchEditMutationCommand.Mark(
+                    assetID: id,
+                    before: before,
+                    after: after,
+                    sourceBefore: asset.recipeSource,
+                    sourceAfter: .auto
+                )
+            )
+        }
+        guard !marks.isEmpty else { return 0 }
+
+        let commandStartedAt = Date()
+        let selectionSnapshot = selectedAssetIDs
+        let orderSnapshot = shoot?.finalSetOrder.assetIDs ?? []
+        let command = BatchEditMutationCommand(marks: marks, label: "Auto")
+        guard command.apply(to: &assets) else { return 0 }
+        if var shoot {
+            shoot.finalSetOrder.assetIDs = orderSnapshot
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+        selectedAssetIDs = selectionSnapshot
+
+        undoCoordinator.push(command)
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueBatchEditPersistence(command, commandStartedAt: commandStartedAt)
+        if let inspectingAssetID, command.marks.contains(where: { $0.assetID == inspectingAssetID }) {
+            warmBeforeAfter(for: inspectingAssetID, recipe: recipe(for: inspectingAssetID))
+        }
+        return marks.count
     }
 
     // MARK: - Edit (single-photo)
@@ -1812,6 +1908,47 @@ final class P0SessionModel {
             if let hash = result.sidecarHash {
                 self.sidecarManagedHashes[command.assetID] = hash
                 self.sidecarDriftAssetIDs.remove(command.assetID)
+            }
+        }
+    }
+
+    /// Durability for a multi-asset edit move.
+    ///
+    /// One `Task`, awaited commit by commit, so the journal keeps the same serial
+    /// order the undo stack has. `ShootStore` is an actor and would serialize N
+    /// parallel tasks anyway; doing it explicitly keeps the ordering legible.
+    private func enqueueBatchEditPersistence(
+        _ command: BatchEditMutationCommand,
+        commandStartedAt: Date
+    ) {
+        guard let snapshot = canonicalShootSnapshot(),
+              let folder = persistenceRawFolderURL() else { return }
+        let commands = command.editCommands
+        var originals: [UUID: URL] = [:]
+        for edit in commands {
+            sidecarManagedHashes[edit.assetID] = LightroomHandoffService.hashOfManagedFields(for: edit.after)
+            sidecarDriftAssetIDs.remove(edit.assetID)
+            if let asset = assets.first(where: { $0.id == edit.assetID }) {
+                originals[edit.assetID] = URL(fileURLWithPath: asset.source.originalPath)
+            }
+        }
+        Task { [weak self] in
+            for edit in commands {
+                let result = await ShootStore.shared.commitEdit(
+                    edit,
+                    shoot: snapshot,
+                    besideShootFolder: folder,
+                    originalURL: originals[edit.assetID],
+                    commandStartedAt: commandStartedAt
+                )
+                guard let self else { return }
+                if let error = result.error {
+                    self.persistenceError = error
+                }
+                if let hash = result.sidecarHash {
+                    self.sidecarManagedHashes[edit.assetID] = hash
+                    self.sidecarDriftAssetIDs.remove(edit.assetID)
+                }
             }
         }
     }

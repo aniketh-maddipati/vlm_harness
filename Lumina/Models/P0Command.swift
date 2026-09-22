@@ -226,16 +226,104 @@ struct ChapterKeepCommand: Equatable, Sendable {
     }
 }
 
+/// One edit move spanning several assets — every recipe restores together on one ⌘Z.
+///
+/// Carries `RecipeSource` alongside the recipes because provenance is part of what
+/// the move changed: undoing an auto pass has to put `.shot` back, not leave the
+/// frames claiming an engine authored them.
+struct BatchEditMutationCommand: Equatable, Sendable {
+    struct Mark: Equatable, Sendable {
+        var assetID: UUID
+        var before: EditRecipe
+        var after: EditRecipe
+        var sourceBefore: RecipeSource
+        var sourceAfter: RecipeSource
+    }
+
+    let id: UUID
+    let createdAt: Date
+    let marks: [Mark]
+    let label: String
+
+    init(
+        id: UUID = UUID(),
+        createdAt: Date = Date(),
+        marks: [Mark],
+        label: String
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.marks = marks
+        self.label = label
+    }
+
+    /// Per-asset commands for the durability path, which commits one asset at a time.
+    var editCommands: [EditMutationCommand] {
+        marks.map {
+            EditMutationCommand(
+                createdAt: createdAt,
+                assetID: $0.assetID,
+                before: $0.before,
+                after: $0.after
+            )
+        }
+    }
+
+    @discardableResult
+    func apply(to assets: inout [AssetRecord]) -> Bool {
+        mutate(assets: &assets) { ($0.after, $0.sourceAfter) }
+    }
+
+    @discardableResult
+    func revert(in assets: inout [AssetRecord]) -> Bool {
+        mutate(assets: &assets) { ($0.before, $0.sourceBefore) }
+    }
+
+    private func mutate(
+        assets: inout [AssetRecord],
+        pick: (Mark) -> (EditRecipe, RecipeSource)
+    ) -> Bool {
+        var changed = false
+        for mark in marks {
+            guard let index = assets.firstIndex(where: { $0.id == mark.assetID }) else { continue }
+            let (recipe, source) = pick(mark)
+            assets[index].recipe = recipe.hasSettings ? recipe : nil
+            assets[index].recipeSource = source
+            changed = true
+        }
+        return changed
+    }
+
+    func reversed(id: UUID = UUID(), createdAt: Date = Date()) -> BatchEditMutationCommand {
+        BatchEditMutationCommand(
+            id: id,
+            createdAt: createdAt,
+            marks: marks.map {
+                Mark(
+                    assetID: $0.assetID,
+                    before: $0.after,
+                    after: $0.before,
+                    sourceBefore: $0.sourceAfter,
+                    sourceAfter: $0.sourceBefore
+                )
+            },
+            label: label
+        )
+    }
+}
+
 /// Heterogeneous undo entry on the shared P0 command stack.
 enum P0UndoEntry: Equatable, Sendable {
     case cull(CullMutationCommand)
     case edit(EditMutationCommand)
+    case batchEdit(BatchEditMutationCommand)
     case chapterKeep(ChapterKeepCommand)
 
     var label: String {
         switch self {
         case .cull(let command): return command.label
         case .edit(let command): return command.label
+        case .batchEdit(let command): return command.label
         case .chapterKeep(let command): return command.label
         }
     }
@@ -258,6 +346,10 @@ final class P0UndoCoordinator {
 
     func push(_ command: EditMutationCommand) {
         append(.edit(command))
+    }
+
+    func push(_ command: BatchEditMutationCommand) {
+        append(.batchEdit(command))
     }
 
     func push(_ command: ChapterKeepCommand) {
