@@ -227,7 +227,7 @@ anything you learned that contradicts what is written there. Commit with
 - [x] 1. Photo-pixel proof: a test fails if the photograph stops rendering, comes out blank, or comes out the wrong way up
 - [x] 2. Reproduce the flip (ask the user for a repro if you cannot)
 - [x] 3. Fix the flip, or write down precisely what it is and why it is not fixable here
-- [ ] 4. `ElasticWrapLayout` returns known tile sizes instead of asking every subview twice per pass
+- [x] 4. `ElasticWrapLayout` returns known tile sizes instead of asking every subview twice per pass
 - [ ] 5. Version thumbnails render through the interactive tier, or the column stops implying a difference
 - [ ] 6. Cold-catalog `previews 0/N` — decided and either surfaced honestly or fixed
 - [ ] 7. `docs/ELASTIC_PLAN.md` P0 section updated, gate green
@@ -307,6 +307,20 @@ the next pass needs to know — especially anything here that turned out to be w
   **Not touched:** `stablePresent`. Once the browse tier is upright the promoted and
   fallback shapes agree, so its latch never fires wrongly, and changing its
   signature would mean editing `ElasticFocusView.swift`, which is P1's.
+- 2026-09-22 · item 4 · `ElasticWrapLayout` now measures each group **once per
+  pass** (it was three times: arranging in `sizeThatFits`, arranging again in
+  `placeSubviews`, then once more while placing). It uses a `Layout` cache, and
+  the row arrangement is kept too when the width has not moved.
+  **The prompt's framing does not survive contact:** "return the known size" is
+  right only for a lone frame (`tile` 168). A collapsed stack is 168 **plus
+  `stackPadding`**, and an open burst is `frameCount × tileInOpenBurst` plus gaps,
+  so a constant would misplace two of the three group shapes. The measurement is
+  also deliberately *not* cached across passes: leaning on a burst changes a
+  group from collapsed to open **without adding or removing a subview**, and a
+  stale size would lay the open burst on top of its neighbour.
+  Proof it changed nothing visible: `--p0-edit-live` table captures before and
+  after are **byte-identical** (sha256 `9132b462f0907980…`) over the 27-frame card,
+  which contains lone frames, a collapsed ×5 burst and a camera+phone moment.
   **Still open for the user:** whether this is the flip they saw. If their frames
   are Sony and ImageIO decodes them, something else is also wrong — the question
   to ask is which frame, and whether it flips on open, on scroll, or at the moment
