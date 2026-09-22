@@ -181,6 +181,7 @@ struct DevelopMetalView: NSViewRepresentable {
             // Record GPU completion, not command encoding. The signpost above
             // still brackets the requested Core Image startTask pair; this
             // metric is the honest slider-to-pixels cost.
+            DevelopRenderCounters.recordMetalPresent()
             commandBuffer.addCompletedHandler { _ in
                 LatencyMetrics.record(
                     LatencyMetrics.editDrawKey,

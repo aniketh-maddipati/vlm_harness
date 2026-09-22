@@ -313,6 +313,10 @@ struct P0SinglePhotoEditor: View {
             session.focusEditVariant(at: index)
         } label: {
             VStack(alignment: .leading, spacing: LuminaTokens.Spacing.xs) {
+                DevelopMetalView(image: session.displayedVariantCIImage(at: index))
+                    .frame(width: 118, height: 74)
+                    .clipped()
+                    .allowsHitTesting(false)
                 Text("Variant \(index + 1)")
                     .font(LuminaTokens.Typeface.meta(12, weight: .medium))
                 Text(String(format: "Exposure %+.2f", variant?.exposure ?? 0))

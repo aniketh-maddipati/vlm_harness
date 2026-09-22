@@ -132,6 +132,40 @@ actor PreparedRawSession {
         targetLongEdge: Int?,
         tier: Tier
     ) -> (image: CIImage, cacheHit: Bool)? {
+        guard let surface = rawStageSurface(
+            intent: intent,
+            targetLongEdge: targetLongEdge,
+            tier: tier
+        ) else { return nil }
+        return (finishRawStage(surface.image, intent: intent, tier: tier), surface.cacheHit)
+    }
+
+    /// Texture-backed interactive demosaic without exposure / WB post-ops.
+    /// Four variant branches share this surface; a lazy `CIRAWFilter` graph is
+    /// rejected so four Metal draws cannot re-walk demosaic independently.
+    func interactivePinnedSource(
+        intent: RawIntent,
+        targetLongEdge: Int?
+    ) -> (image: CIImage, cacheHit: Bool)? {
+        guard let surface = rawStageSurface(
+            intent: intent,
+            targetLongEdge: targetLongEdge,
+            tier: .interactive
+        ), surface.texture != nil else { return nil }
+        return (surface.image, surface.cacheHit)
+    }
+
+    private struct RawStageSurface {
+        let image: CIImage
+        let cacheHit: Bool
+        let texture: MTLTexture?
+    }
+
+    private func rawStageSurface(
+        intent: RawIntent,
+        targetLongEdge: Int?,
+        tier: Tier
+    ) -> RawStageSurface? {
         prepareIfNeeded()
 
         let scale = scaleFactor(for: targetLongEdge)
@@ -146,7 +180,7 @@ actor PreparedRawSession {
         if var hit = rawStageCache[key] {
             hit.lastAccess = CFAbsoluteTimeGetCurrent()
             rawStageCache[key] = hit
-            return (finishRawStage(hit.image, intent: intent, tier: tier), true)
+            return RawStageSurface(image: hit.image, cacheHit: true, texture: hit.texture)
         }
 
         let filter: CIRAWFilter?
@@ -179,7 +213,7 @@ actor PreparedRawSession {
             texture: texture
         )
         evictRawStageIfNeeded()
-        return (finishRawStage(cached, intent: intent, tier: tier), false)
+        return RawStageSurface(image: cached, cacheHit: false, texture: texture)
     }
 
     /// Drop cached RAW-stage surfaces (RawIntent changed upstream or memory pressure).
@@ -333,6 +367,8 @@ actor PreparedRawSession {
             mtlTexture: texture,
             options: [.colorSpace: DevelopColorPolicy.workingColorSpace]
         ) else { return nil }
+        DevelopRenderCounters.recordInteractiveMaterialization()
+        DevelopRenderCounters.recordGPUUpload()
         return (wrapped, texture)
     }
 
@@ -375,8 +411,10 @@ actor PreparedRawSessionRegistry {
         if let existing = sessions[assetID] {
             order.removeAll { $0 == assetID }
             order.append(assetID)
+            DevelopRenderCounters.recordPreparedSessionHit()
             return existing
         }
+        DevelopRenderCounters.recordPreparedSessionCreated()
         let created = PreparedRawSession(assetID: assetID, rawURL: rawURL)
         sessions[assetID] = created
         order.append(assetID)
