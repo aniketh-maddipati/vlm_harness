@@ -20,7 +20,7 @@ extension P0SessionModel {
         for asset in assets {
             switch asset.recipeSource {
             case .shot: asShot += 1
-            case .auto: auto += 1
+            case .auto, .model: auto += 1
             case .autoHand, .hand, .sidecar: yours += 1
             }
         }
@@ -209,7 +209,7 @@ extension P0SessionModel {
     func versionIndex(for asset: AssetRecord) -> Int {
         switch asset.recipeSource {
         case .shot: return 1
-        case .auto: return 2
+        case .auto, .model: return 2
         case .autoHand, .hand, .sidecar: return 3
         }
     }
@@ -219,6 +219,7 @@ extension P0SessionModel {
         switch asset.recipeSource {
         case .shot: return "as shot"
         case .auto: return "auto"
+        case .model: return "auto · model"
         case .autoHand: return "auto + your hand"
         case .hand: return "yours"
         case .sidecar: return "yours · from sidecar"
