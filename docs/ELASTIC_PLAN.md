@@ -230,6 +230,15 @@ not hidden.
 schema-conformant JSON. The model proposed `highlights +30` on a frame with 0.0006%
 highlight clipping; `Band.highlights` clamped it to `+10`. The band is load-bearing.
 
+## 7. Stream D — the eval harness exists (2026-09-22)
+
+`LuminaLogicTests/DevelopEvalHarnessTests.swift` + `Scripts/harness/eval/` render every auto
+arm through Lumina's own graph and measure it against the owner's own Lightroom edits, in
+pixel space and slider space, with an oracle ceiling and a decoder-gap calibration. Method,
+commands and the first results: `docs/DEVELOP_EVAL.md`. Fixture-gated, numbers only, nothing
+from the eval set is committed. FiveK plugs into the same harness via
+`Scripts/harness/eval/fivek_fetch.py`.
+
 ## Next
 
 Checkpoint 03 (the first UI: routes, table, focus) — blocked on the `focus`-field question in §3.
