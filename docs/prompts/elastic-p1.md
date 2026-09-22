@@ -3,8 +3,9 @@
 ## Where you are
 
 Repo: `/Users/aniketh/vlm_harness` (Lumina, native macOS photo culling app, Swift/SwiftUI).
-Branch: start a new one off **`elastic-v4/fixture-generator`** (`596362a`). Run
-`git branch --show-current` before every build and commit.
+Branch: create **`elastic-v4/p1-grammar`** off `elastic-v4/fixture-generator`
+(`541119f` or later) and stay on it. Run `git branch --show-current` before every build
+and commit.
 
 ```
 596802c  checkpoint 03 (base)
@@ -23,8 +24,9 @@ loopback-only)**, which landed on `elastic-v4/model-core`. That branch comes off
 checkpoint-02 and does not contain the Elastic shell; reconciling the two lineages is a
 separate decision. Leave both alone.
 
-**Do P0 first if it is not done.** The surfaces you are about to build cannot be verified
-visually until the photograph is provable — see `PROMPT_P0.md`.
+**You run alongside P0 and P2, not after them.** P0 is building the photo-pixel proof;
+until it lands you cannot verify a photograph visually, so lean on the logic tests and
+the chrome captures, and do not block on it.
 
 Read `AGENTS.md`, `docs/ELASTIC_PLAN.md` (§2 grammar conflicts, §6, "Elasticity
 backlog"), and `docs/P0_CULLING.md`.
@@ -120,22 +122,54 @@ open/fold path, a camera+phone moment, a crop/straighten A/B pair with real Ligh
 18.5.1 sidecars, and a byte-identical duplicate pair. The generator verifies its own
 output against Lumina's rules and fails if they disagree.
 
-## How these three fit together
+## Running this in a loop
 
-Run **P0 alone first**, branched off `elastic-v4/fixture-generator`. It is small, it
-unblocks visual verification for the other two, and it carries the user-visible bug.
+This prompt is written to be re-entered. Each time you start or wake:
 
-Once P0 lands, **P1 and P2 can run in parallel** off its tip: P1 is keys, the Esc ladder
-and the drawer; P2 is `BrowsePixelService` and `DevelopRenderScheduler`. Their overlap in
-the view files is small *only because P0 already took* the wrap-layout caching and the
-version thumbnails — do not move those around.
+1. `git branch --show-current` — confirm you are on your own branch. If it
+   changed under you, stop and say so.
+2. `git log --oneline -5` and re-read the **Progress** section at the bottom of
+   this file. That is the only record of what you already did; the conversation
+   may not survive.
+3. Run the gate before changing anything, so you know whether you are starting
+   from green.
+4. Do the **next unchecked item only**, then commit, then update **Progress**
+   in this file in the same commit.
+5. When every item is checked and the gate is green, say so and stop. Do not
+   invent more work — the other two streams own the rest.
 
-```
-fixture-generator (596362a)
-        └── P0
-              ├── P1
-              └── P2
-```
+Commit after every item, never in a batch. A loop that dies between items must
+lose at most one item's work.
+
+## Working alongside P0, P1 and P2
+
+All three streams run **at the same time**, each on its own branch off
+`elastic-v4/fixture-generator` (`541119f` or later). The Elastic views were
+split by owner in `541119f` precisely so this works:
+
+| File | Owner |
+|---|---|
+| `ElasticWrapLayout.swift` | **P0** |
+| `ElasticVersionColumn.swift` | **P0** (pixels) and **P1** (hide under drawer) |
+| `P0EditLiveRunner.swift`, `OrientedDisplayImage.swift`, `DevelopMetalView.swift` | **P0** |
+| `ElasticSetShelf.swift`, `P0KeyRoutingModifier.swift`, `P0EscLadder.swift` | **P1** |
+| `ElasticFocusView.swift`, `ElasticTableView.swift` | **P1** |
+| `ElasticFilmstrip.swift`, `BrowsePixelService.swift`, `DevelopRenderScheduler.swift`, `PreparedRawSession.swift` | **P2** |
+| `ElasticLayout.swift`, `docs/ELASTIC_PLAN.md` | **shared — append only** |
+
+Rules that keep this collision-free:
+
+- **Touch a file you do not own only if you must**, and say so in the commit
+  message so the others can find it.
+- `ElasticLayout.swift` and `ELASTIC_PLAN.md` are shared. **Append** at the end
+  of the relevant section; never reflow or renumber, because that turns a clean
+  merge into a conflict.
+- Never rename or move a file another stream owns.
+- Do not rebase onto another stream's branch. Rebase onto
+  `elastic-v4/fixture-generator` only, and only when it moves.
+- If you genuinely need something another stream is building, stub it behind
+  your own type and leave a `// TODO(Pn):` — do not wait, and do not reach into
+  their branch.
 
 ## Gate
 
@@ -170,3 +204,22 @@ is set — xcodebuild does not forward shell env to the test process). Fast lane
 Update `docs/ELASTIC_PLAN.md` §6 and the backlog with what landed and the honest gaps.
 One commit per checkpoint is fine; end each message with
 `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`. Ask before pushing.
+
+## Checklist
+
+- [ ] 1. Hold-`⇥` peek: related → set → flags, release returns, short tap pins, `Esc` closes
+- [ ] 2. `G` inside the flags peek takes the inferred picks
+- [ ] 3. Hold-`␣` is before; 1:1 zoom moves off Space
+- [ ] 4. `P0EscLadder` rewritten to peek → drawer → selection → route
+- [ ] 5. Hold-V remnants retired (`EditVariantSession`, `WorkspaceState` fields, `V` binding, probe fields); `EditVariantTests` deleted or rewritten
+- [ ] 6. Set shelf is a drop target
+- [ ] 7. `⇧`-click range, `⌘`-click toggle; the `P0_CULLING.md` ruling closed
+- [ ] 8. Develop drawer on `E`, with sliders, ratios, `R` rotate, straighten, profile
+- [ ] 9. Version column hides while the drawer or a hold is active
+- [ ] 10. `docs/ELASTIC_PLAN.md` P1 section updated, gate green
+
+## Progress
+
+_Nothing yet. Append one line per completed item: date, item number, commit sha,
+and anything the next pass needs to know — especially anything here that turned
+out to be wrong._

@@ -3,9 +3,10 @@
 ## Where you are
 
 Repo: `/Users/aniketh/vlm_harness` (Lumina, native macOS photo culling app, Swift/SwiftUI).
-Branch: **`elastic-v4/fixture-generator`**. Run `git branch --show-current` before every
-build and commit. If the branch changes under you, stop and say so — something switched
-the tree mid-session once before.
+Branch: create **`elastic-v4/p0-render-proof`** off `elastic-v4/fixture-generator`
+(`541119f` or later) and stay on it. Run `git branch --show-current` before every build
+and commit. If the branch changes under you, stop and say so — something switched the
+tree mid-session once before.
 
 The stack, oldest first:
 
@@ -132,22 +133,54 @@ highlight clipping (clears the 2% tick, the 0.5% AutoDevelop threshold and the 2
 −80 saturation point) and 1.99% shadow clip (one hundredth under the tick);
 `IMG_6420` has mean 0.551, the only frame that makes `AutoDevelop` darken.
 
-## How these three fit together
+## Running this in a loop
 
-Run **P0 alone first**, branched off `elastic-v4/fixture-generator`. It is small, it
-unblocks visual verification for the other two, and it carries the user-visible bug.
+This prompt is written to be re-entered. Each time you start or wake:
 
-Once P0 lands, **P1 and P2 can run in parallel** off its tip: P1 is keys, the Esc ladder
-and the drawer; P2 is `BrowsePixelService` and `DevelopRenderScheduler`. Their overlap in
-the view files is small *only because P0 already took* the wrap-layout caching and the
-version thumbnails — do not move those around.
+1. `git branch --show-current` — confirm you are on your own branch. If it
+   changed under you, stop and say so.
+2. `git log --oneline -5` and re-read the **Progress** section at the bottom of
+   this file. That is the only record of what you already did; the conversation
+   may not survive.
+3. Run the gate before changing anything, so you know whether you are starting
+   from green.
+4. Do the **next unchecked item only**, then commit, then update **Progress**
+   in this file in the same commit.
+5. When every item is checked and the gate is green, say so and stop. Do not
+   invent more work — the other two streams own the rest.
 
-```
-fixture-generator (596362a)
-        └── P0
-              ├── P1
-              └── P2
-```
+Commit after every item, never in a batch. A loop that dies between items must
+lose at most one item's work.
+
+## Working alongside P0, P1 and P2
+
+All three streams run **at the same time**, each on its own branch off
+`elastic-v4/fixture-generator` (`541119f` or later). The Elastic views were
+split by owner in `541119f` precisely so this works:
+
+| File | Owner |
+|---|---|
+| `ElasticWrapLayout.swift` | **P0** |
+| `ElasticVersionColumn.swift` | **P0** (pixels) and **P1** (hide under drawer) |
+| `P0EditLiveRunner.swift`, `OrientedDisplayImage.swift`, `DevelopMetalView.swift` | **P0** |
+| `ElasticSetShelf.swift`, `P0KeyRoutingModifier.swift`, `P0EscLadder.swift` | **P1** |
+| `ElasticFocusView.swift`, `ElasticTableView.swift` | **P1** |
+| `ElasticFilmstrip.swift`, `BrowsePixelService.swift`, `DevelopRenderScheduler.swift`, `PreparedRawSession.swift` | **P2** |
+| `ElasticLayout.swift`, `docs/ELASTIC_PLAN.md` | **shared — append only** |
+
+Rules that keep this collision-free:
+
+- **Touch a file you do not own only if you must**, and say so in the commit
+  message so the others can find it.
+- `ElasticLayout.swift` and `ELASTIC_PLAN.md` are shared. **Append** at the end
+  of the relevant section; never reflow or renumber, because that turns a clean
+  merge into a conflict.
+- Never rename or move a file another stream owns.
+- Do not rebase onto another stream's branch. Rebase onto
+  `elastic-v4/fixture-generator` only, and only when it moves.
+- If you genuinely need something another stream is building, stub it behind
+  your own type and leave a `// TODO(Pn):` — do not wait, and do not reach into
+  their branch.
 
 ## Gate
 
@@ -188,3 +221,19 @@ pre-existing and `main` scores 29/31 too.
 Update `docs/ELASTIC_PLAN.md` — move what you finished out of the P0 list and record
 anything you learned that contradicts what is written there. Commit with
 `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`. Ask before pushing.
+
+## Checklist
+
+- [ ] 1. Photo-pixel proof: a test fails if the photograph stops rendering, comes out blank, or comes out the wrong way up
+- [ ] 2. Reproduce the flip (ask the user for a repro if you cannot)
+- [ ] 3. Fix the flip, or write down precisely what it is and why it is not fixable here
+- [ ] 4. `ElasticWrapLayout` returns known tile sizes instead of asking every subview twice per pass
+- [ ] 5. Version thumbnails render through the interactive tier, or the column stops implying a difference
+- [ ] 6. Cold-catalog `previews 0/N` — decided and either surfaced honestly or fixed
+- [ ] 7. `docs/ELASTIC_PLAN.md` P0 section updated, gate green
+
+## Progress
+
+_Nothing yet. Append one line per completed item: date, item number, commit sha,
+and anything the next pass needs to know — especially anything here that turned
+out to be wrong._
