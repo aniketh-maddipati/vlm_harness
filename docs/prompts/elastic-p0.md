@@ -229,7 +229,7 @@ anything you learned that contradicts what is written there. Commit with
 - [x] 3. Fix the flip, or write down precisely what it is and why it is not fixable here
 - [x] 4. `ElasticWrapLayout` returns known tile sizes instead of asking every subview twice per pass
 - [x] 5. Version thumbnails render through the interactive tier, or the column stops implying a difference
-- [ ] 6. Cold-catalog `previews 0/N` — decided and either surfaced honestly or fixed
+- [x] 6. Cold-catalog `previews 0/N` — decided and either surfaced honestly or fixed
 - [ ] 7. `docs/ELASTIC_PLAN.md` P0 section updated, gate green
 
 ## Progress
@@ -337,6 +337,29 @@ the next pass needs to know — especially anything here that turned out to be w
   Not capture-visible: `ChapterPlateImage` loads in `.task`, which does not run for
   an offscreen-hosted view, so every version tile is an empty well in a capture
   either way. That is the same limitation item 1 exists to route around.
+- 2026-09-22 · item 6 · **decided: warm-up, and the count was never wrong.**
+  Measured by consuming the real preparation stream over a freshly copied
+  27-frame card with no catalog and no cached previews:
+
+      3 ms  0 photos                        (discovering)
+     10 ms  27 photos · previews 0/27       (sheet opens, nothing extracted yet)
+    381 ms  27 photos · previews 16/27      (first chunk — `previewConcurrency` is 16)
+    500 ms  27 photos · previews 27/27
+    500 ms  27 photos · 27 previews
+
+  So `0/N` is a real state that lasts as long as the first chunk takes, not a
+  miss, and the second open reads `N/N` simply because the previews are already
+  on disk. The chunk is 16 wide whatever N is, so the window does not grow with
+  the card — it grows with per-file extraction cost.
+  What was wrong was the copy: at the instant the sheet appears, `previews 0/27`
+  reads as a stall rather than as work starting. It now says `previews…` until
+  there is a count to report, which is the idiom the same line already uses for
+  `dates…`. Pinned by `ColdOpenStatusTests`, including a cold open that asserts
+  the count only rises, ends at N/N, and is never announced as a fraction of zero.
+  **Note for the other streams:** this edits
+  `Lumina/Services/ContactSheetPreparation.swift`, which no stream owns.
+  The copy-contract lint covers `Lumina/Design/CopyContract.swift` only, so this
+  string is not contract-pinned; the fast lane is green either way.
   **Still open for the user:** whether this is the flip they saw. If their frames
   are Sony and ImageIO decodes them, something else is also wrong — the question
   to ask is which frame, and whether it flips on open, on scroll, or at the moment

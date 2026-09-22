@@ -19,7 +19,15 @@ struct ContactSheetPreparationStatus: Equatable, Sendable {
     var toolbarLine: String {
         var parts: [String] = ["\(assetCount) photos"]
         if isPreparingPreviews {
-            parts.append("previews \(previewReadyCount)/\(max(assetCount, 1))")
+            // The sheet opens before extraction has produced anything, by design.
+            // `previews 0/N` at that moment reads as a stall rather than as work
+            // starting, so the count appears once there is a count to report —
+            // the same way `dates…` waits below.
+            parts.append(
+                previewReadyCount > 0
+                    ? "previews \(previewReadyCount)/\(max(assetCount, 1))"
+                    : "previews…"
+            )
         } else if previewReadyCount > 0 {
             parts.append("\(previewReadyCount) previews")
         }
