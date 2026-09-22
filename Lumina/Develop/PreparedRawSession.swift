@@ -155,6 +155,24 @@ actor PreparedRawSession {
         return (surface.image, surface.cacheHit)
     }
 
+    /// Measurements for the auto pass, taken from the interactive tier.
+    ///
+    /// Deliberately decoded at `RawIntent.neutral` (as-shot WB, 0 EV): auto must
+    /// measure the photograph, not whatever recipe is currently on it, or the
+    /// second auto pass over a frame would read its own previous output.
+    func imageStats(targetLongEdge: Int = ImageStatsRenderer.sampleLongEdge) -> ImageStats? {
+        prepareIfNeeded()
+        guard let surface = rawStageSurface(
+            intent: .neutral,
+            targetLongEdge: targetLongEdge,
+            tier: .interactive
+        ) else { return nil }
+        return ImageStatsRenderer.stats(
+            from: surface.image,
+            nativeTemperature: metadata?.nativeNeutralTemperature
+        )
+    }
+
     private struct RawStageSurface {
         let image: CIImage
         let cacheHit: Bool

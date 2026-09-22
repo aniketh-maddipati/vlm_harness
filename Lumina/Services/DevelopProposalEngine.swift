@@ -8,7 +8,7 @@ protocol DevelopProposalEngine: Sendable {
 /// v1: histogram auto-exposure + gray-world temp/tint — evaluated independently per photograph.
 struct HistogramDevelopProposalEngine: DevelopProposalEngine {
     func propose(imagePath: String, baseRecipe: EditRecipe) async -> EditRecipe? {
-        guard let suggestion = await AutoDevelop.suggest(imagePath: imagePath) else { return nil }
+        guard let suggestion = await HistogramAutoTone.suggest(imagePath: imagePath) else { return nil }
         let baseDevelop = baseRecipe.asDevelopRecipe
         let offsets = DevelopAdjustments.from(autoSuggestion: suggestion, base: baseDevelop)
         let merged = baseDevelop.applying(offsets)
@@ -21,8 +21,8 @@ struct HistogramDevelopProposalEngine: DevelopProposalEngine {
 }
 
 extension DevelopAdjustments {
-    /// Convert absolute AutoDevelop targets into offsets against the current base recipe.
-    static func from(autoSuggestion s: AutoDevelop.Suggestion, base: DevelopRecipe) -> DevelopAdjustments {
+    /// Convert absolute HistogramAutoTone targets into offsets against the current base recipe.
+    static func from(autoSuggestion s: HistogramAutoTone.Suggestion, base: DevelopRecipe) -> DevelopAdjustments {
         DevelopAdjustments(
             exposure: min(max(s.exposure - base.exposure, -2), 2),
             temperature: min(max(s.kelvin - base.temperature, -2000), 2000),

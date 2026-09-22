@@ -30,6 +30,9 @@ NONISOLATED_TYPE_MARKERS: dict[str, tuple[str, ...]] = {
     "Lumina/Develop/DevelopIntents.swift": ("nonisolated extension EditRecipe",),
     "Lumina/Develop/EditRecipe.swift": ("nonisolated struct EditRecipe",),
     "Lumina/Develop/DevelopColorPolicy.swift": ("nonisolated enum DevelopColorPolicy",),
+    "Lumina/Develop/AutoDevelop.swift": ("nonisolated struct AutoDevelop",),
+    "Lumina/Develop/ImageStats.swift": ("nonisolated struct ImageStats",),
+    "Lumina/Develop/ImageStatsRenderer.swift": ("nonisolated enum ImageStatsRenderer",),
     "Lumina/Develop/RawDecodeBackend.swift": ("nonisolated enum RawDecodeBackendRegistry",),
     "Lumina/Rendering/OrientedDisplayImage.swift": ("nonisolated enum OrientedDisplayImage",),
     "Lumina/Services/P0AuthoritativeExportService.swift": (
@@ -52,7 +55,7 @@ NONISOLATED_TYPE_MARKERS: dict[str, tuple[str, ...]] = {
     ),
     "Lumina/Models/AssetIdentity.swift": ("nonisolated enum AssetIdentity",),
     "Lumina/Services/ProjectStore.swift": ("nonisolated enum ProjectStore",),
-    "Lumina/Services/AutoDevelop.swift": ("nonisolated enum AutoDevelop",),
+    "Lumina/Services/HistogramAutoTone.swift": ("nonisolated enum HistogramAutoTone",),
     "Lumina/Services/VisionAssist.swift": ("nonisolated enum VisionAssist",),
 }
 

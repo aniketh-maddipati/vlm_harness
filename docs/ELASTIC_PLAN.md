@@ -135,7 +135,45 @@ Verified on this Mac: `xcodebuild ... -only-testing:LuminaLogicTests` — 249/24
 11 `SidecarAuthorityTests` cases unchanged; `python3 Scripts/harness/run.py fast` — 41/41 OK. No view
 file was touched.
 
+## 5. Checkpoint 02 — done (2026-09-21)
+
+- **Name collision resolved.** `AutoDevelop` already existed (`Lumina/Services/AutoDevelop.swift`),
+  a percentile-based auto-tone whose only consumers are the retired shell (`LuminaShellModel`) and
+  `Views/Workspace/TreatmentStageView` — both already slated for deletion here. Swift is one module,
+  so the two cannot coexist: the legacy type was renamed **`HistogramAutoTone`** and the spec'd name
+  given to the new engine. Its `render_data_plane_isolation` manifest entry moved with it.
+- `ImageStats` (`Lumina/Develop`): 32-bin Rec.709 luminance histogram, clip fractions at 6/255 and
+  249/255, mean, plus optional native Kelvin and Vision horizon angle. Cached on
+  `AssetRecord.imageStats` (tolerant-decoded, like checkpoint 01's fields) and treated as derived
+  state — safe to drop and recompute.
+- `AutoDevelop.recipe(for:stats:)`: pure, deterministic, rules exactly as specified. Whites/Blacks/
+  Dehaze forced to 0 because the engine is not honest about them.
+- Measured from the **interactive tier decoded at `RawIntent.neutral`**, not the live recipe —
+  otherwise a second auto pass would read its own previous output.
+- `BatchEditMutationCommand` + `P0UndoEntry.batchEdit`: the first multi-asset single-undo *edit*
+  command (modeled on `ChapterKeepCommand`, the existing template). It carries `RecipeSource` per
+  mark, so one ⌘Z restores provenance as well as recipes.
+- `P0SessionModel.applyAuto(to:force:)` and `ensureImageStats(for:)`. Skips non-`.shot` frames unless
+  forced, and skips unmeasured frames entirely rather than guessing.
+- Probe: added `focusedRecipeSource` (checkpoint 04 wanted a `versionSource` field anyway). This is
+  the five-site probe mirror — app probe, UI-test mirror, robot, logic round-trip — surfaced two
+  lints at a time by `probe_growth` then `probe_mirror`.
+
+**Two honest findings, both documented in `docs/DEVELOP_ENGINE.md` rather than papered over:**
+1. The exposure clamp is **asymmetric in practice**: `(0.46 − mean) × 3` spans −1.62…+1.38, so only
+   the darkening side reaches ±1.5. A pure-black frame tops out at +1.40 — the formula binds before
+   the clamp does. Left as-is; tuning coefficients is the L4 loop's job, not a silent edit here.
+2. Auto on a non-clipping frame is **not a no-op** — it still applies the default −20/+15 curve.
+
+**Gate status:**
+- Logic tests 264/264 (1 skipped by design), fast lane 41/41 — green.
+- `--p0-edit-harness` across "8 fixtures" **could not be run as written**: the `raw-correctness-v1`
+  bundle is external and env-var-gated (`design/fixture-manifest.md`), unset here, and the committed
+  `.ARW` fixture is a 4-byte placeholder. Instead, `AutoDevelopRawFixtureTests` verifies the same
+  claim directly against 8 real Sony ARW frames — decode → measure → auto → assert non-identity,
+  deterministic, and not collapsed onto one recipe. It skips rather than passing vacuously when no
+  RAW folder is supplied. This proves auto changes pixels; it does not replace the harness runner.
+
 ## Next
 
-Checkpoint 02 (`AutoDevelop`) is next in sequence. Checkpoints 03/04 should not start until the
-`focus`-field question above gets an explicit answer.
+Checkpoint 03 (the first UI: routes, table, focus) — blocked on the `focus`-field question in §3.

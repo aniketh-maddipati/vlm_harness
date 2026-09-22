@@ -26,6 +26,9 @@ struct ProbeSnapshot: Codable, Equatable {
     /// Deterministic fingerprint of the focused asset's canonical `EditRecipe` (nil when nothing is
     /// focused). Mirrors `Lumina/Testing/UITestStateProbe.swift`.
     var focusedRecipeFingerprint: String?
+    /// Provenance of the focused asset's recipe (`RecipeSource`). Mirrors
+    /// `Lumina/Testing/UITestStateProbe.swift`.
+    var focusedRecipeSource: String?
     /// Progressive rendering state for stability assertions.
     var focusedRenderFidelity: String? = nil
     var focusedHasPresentedRAW: Bool? = nil

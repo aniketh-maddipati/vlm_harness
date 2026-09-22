@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-/// Histogram-based auto edit.
+/// Percentile-based auto edit for the retired shell / Workspace surfaces.
 ///
 /// Downsamples the photograph, computes luminance percentiles and mean
 /// saturation on the CPU, and derives conservative tone targets:
@@ -10,7 +10,11 @@ import ImageIO
 /// shadow lift, spread-based contrast, and a gentle vibrance floor.
 /// White balance reuses the gray-world estimate. All values are absolute
 /// targets from neutral — callers convert to offsets against the base recipe.
-nonisolated enum AutoDevelop {
+///
+/// Not the Elastic engine: `AutoDevelop` (Lumina/Develop) owns the deterministic,
+/// stats-in/recipe-out pass that `RecipeSource.auto` refers to. This type stays
+/// only while `LuminaShellModel` and `Views/Workspace/*` still compile.
+nonisolated enum HistogramAutoTone {
     struct Suggestion: Sendable {
         var exposure: Double      // stops
         var contrast: Double      // -100...100
