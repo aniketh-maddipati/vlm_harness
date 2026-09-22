@@ -68,11 +68,6 @@ struct ProbeSnapshot: Codable, Equatable {
     /// Law 5 / D11 — Esc has something to unwind (peek / drawer / selection) before it
     /// would change the route. Mirrors `P0EscLadder` steps 1–3.
     var escTransientHoldActive: Bool
-    /// Temporary four-variant edit branch (session-only; never persisted).
-    var editVariantsActive: Bool
-    var editVariantAssetID: String?
-    var focusedEditVariantIndex: Int?
-    var editVariantCancellationCount: Int
     var preparedSessionCreated: Int? = nil
     var preparedSessionHits: Int? = nil
     var interactiveMaterializations: Int? = nil
@@ -80,7 +75,6 @@ struct ProbeSnapshot: Codable, Equatable {
     var gpuUploads: Int? = nil
     var variantRenders: Int? = nil
     var metalPresents: Int? = nil
-    var variantSourceReady: Bool? = nil
     /// D26/D28 — quantized elastic-strip facts (token steps, never interpolated).
     var elasticStripTrackHeight: Int = 90
     var elasticStripNearLongEdge: Int = 210
@@ -186,10 +180,6 @@ extension P0SessionModel {
             keyRoutingOwner: "P0KeyRoutingModifier",
             renderInstrumentsEnabled: P0RenderInstruments.shared.isEnabled,
             escTransientHoldActive: P0EscLadder.hasTransientDepth(session: self),
-            editVariantsActive: workspaceState.editVariants != nil,
-            editVariantAssetID: workspaceState.editVariants?.assetID.uuidString,
-            focusedEditVariantIndex: workspaceState.focusedEditVariantIndex,
-            editVariantCancellationCount: workspaceState.editVariantCancellationCount,
             preparedSessionCreated: counters.preparedSessionCreated,
             preparedSessionHits: counters.preparedSessionHits,
             interactiveMaterializations: counters.interactiveMaterializations,
@@ -197,7 +187,6 @@ extension P0SessionModel {
             gpuUploads: counters.gpuUploads,
             variantRenders: counters.variantRenders,
             metalPresents: counters.metalPresents,
-            variantSourceReady: variantPinnedSource != nil,
             elasticStripTrackHeight: Int(ElasticCanvasLayout.stripTrackHeight.rounded()),
             elasticStripNearLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 1).rounded()),
             elasticStripFarLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 4).rounded()),

@@ -211,7 +211,7 @@ One commit per checkpoint is fine; end each message with
 - [x] 2. `G` inside the flags peek takes the inferred picks
 - [x] 3. Hold-`␣` is before; 1:1 zoom moves off Space
 - [x] 4. `P0EscLadder` rewritten to peek → drawer → selection → route
-- [ ] 5. Hold-V remnants retired (`EditVariantSession`, `WorkspaceState` fields, `V` binding, probe fields); `EditVariantTests` deleted or rewritten
+- [x] 5. Hold-V remnants retired (`EditVariantSession`, `WorkspaceState` fields, `V` binding, probe fields); `EditVariantTests` deleted or rewritten
 - [ ] 6. Set shelf is a drop target
 - [ ] 7. `⇧`-click range, `⌘`-click toggle; the `P0_CULLING.md` ruling closed
 - [ ] 8. Develop drawer on `E`, with sliders, ratios, `R` rotate, straighten, profile
@@ -297,3 +297,19 @@ the next pass needs to know — especially anything here that turned out to be w
   (`isFlipped` double-flip in `PreparedRawSession.materializeInteractiveStage`); not
   cherry-picked here by the stream rule — it arrives via fixture-generator.
   Gate: 321 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · item 5 · Gone: `EditVariantSession` / `EditVariantOverride`, every
+  `editVariants` field and method on `WorkspaceState`, the session's variant methods and
+  its pinned-surface plumbing (`variantPinned*`, `displayedVariantCIImage`,
+  `pointerTravelToVariant`), the V key paths, and five probe fields
+  (`editVariantsActive`, `editVariantAssetID`, `focusedEditVariantIndex`,
+  `editVariantCancellationCount`, `variantSourceReady`) across all five mirror sites.
+  Kept, as instructed: `DevelopRenderGraph.branchInteractiveVariant`,
+  `PreparedRawSessionRegistry` / `interactivePinnedSource`, and the `variantRenders`
+  counter. `EditVariantTests.swift` deleted (9 cases, all source-substring or hold-V
+  behaviour); `PointerTravelTests.testVariantPointerTravelDoesNotCullOrSelect` deleted
+  and removed from `Scripts/harness/coverage/artifact_registry.yaml` — that made the
+  constitution-coverage artifacts stale, regenerated with `--write`. The legacy
+  `P0ChapterTableView.loupeOverlay` dead code went too. Live check n/a (V does nothing
+  now; the window problem persists — P0 confirms pid 64132 is not theirs and pid
+  73848 is model-core's; both foreign, not mine, not killed). Pushed to origin at the
+  user's request. Gate: 312 logic tests / 2 skipped, FAST 41/41.

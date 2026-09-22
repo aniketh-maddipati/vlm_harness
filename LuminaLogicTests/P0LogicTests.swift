@@ -76,11 +76,8 @@ final class P0LogicTests: XCTestCase {
             scrollAnchor: 0, culls: ["a": "keep"], editedIDs: ["a"], visibleAssetIDs: ["a", "b"],
             missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier",
             renderInstrumentsEnabled: false, escTransientHoldActive: false,
-            editVariantsActive: false, editVariantAssetID: nil, focusedEditVariantIndex: nil,
-            editVariantCancellationCount: 0,
             preparedSessionCreated: 0, preparedSessionHits: 0, interactiveMaterializations: 0,
             graphRenders: 0, gpuUploads: 0, variantRenders: 0, metalPresents: 0,
-            variantSourceReady: false,
             elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
             chapterTableMounted: true, inspectPeripheryDimOpacity: 1
         )

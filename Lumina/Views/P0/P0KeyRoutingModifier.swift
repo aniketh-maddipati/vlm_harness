@@ -104,21 +104,10 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             let lower = chars.lowercased()
 
             if event.keyCode == 53 {
-                if session.workspaceState.editVariants != nil {
-                    session.cancelEditVariants()
-                    return nil
-                }
                 if P0EscLadder.handle(session: session) {
                     return nil
                 }
                 return event
-            }
-
-            if unmodified && lower == "v", session.inspectingAssetID != nil {
-                if !event.isARepeat, session.workspaceState.editVariants == nil {
-                    session.beginEditVariants()
-                }
-                return nil
             }
 
             // ⇥ — the one peek. Hold: similar; a pinned peek cycles on ⇥ and closes past
@@ -151,21 +140,6 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 }
             }
 
-            if session.workspaceState.editVariants != nil {
-                switch event.keyCode {
-                case 123:
-                    session.moveEditVariantFocus(by: -1)
-                    return nil
-                case 124:
-                    session.moveEditVariantFocus(by: 1)
-                    return nil
-                case 125, 126:
-                    return nil
-                default:
-                    break
-                }
-            }
-
             switch event.keyCode {
             case 123:
                 session.moveFocus(dx: -1, dy: 0, columns: session.densityColumns)
@@ -189,9 +163,7 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
 
             if event.keyCode == 36 || event.keyCode == 76 {
                 if event.isARepeat { return nil }
-                if session.workspaceState.editVariants != nil {
-                    session.chooseFocusedEditVariant()
-                } else if session.inspectingAssetID == nil {
+                if session.inspectingAssetID == nil {
                     session.activateFocusedPhotograph()
                 }
                 return nil
@@ -299,10 +271,6 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             }
             if chars == "j" {
                 session.setHoldingClipping(false)
-                return nil
-            }
-            if chars == "v", session.inspectingAssetID != nil {
-                session.cancelEditVariants()
                 return nil
             }
             return event

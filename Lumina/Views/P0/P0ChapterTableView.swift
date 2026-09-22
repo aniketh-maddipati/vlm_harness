@@ -329,26 +329,6 @@ struct P0ChapterTableView: View {
         .accessibilityLabel(asset.filename)
     }
 
-    private var loupeOverlay: some View {
-        let path = focusedImagePath
-        return ZStack {
-            LuminaTokens.Surface.mist.opacity(0.55)
-            if let path {
-                ChapterPlateImage(path: path)
-                    .overlay {
-                        if session.holdingClipping {
-                            Color.red.blendMode(.difference)
-                                .opacity(HiFiTokens.Color.clippingOverlayOpacity)
-                        }
-                    }
-                    .frame(maxWidth: 720, maxHeight: 720)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-        }
-        .allowsHitTesting(false)
-        .transition(reduceMotion ? .identity : .offset(y: LuminaTokens.Spacing.sm))
-    }
-
     private var inspectStrip: some View {
         let neighbors = inspectStripNeighbors()
         let focusIndex = neighbors.firstIndex(where: { $0.id == session.focusedAssetID })

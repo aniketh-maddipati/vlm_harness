@@ -59,10 +59,6 @@ struct ProbeSnapshot: Codable, Equatable {
     /// Law 5 / D11 — Esc would clear a transient hold before navigation (`P0EscLadder`).
     var escTransientHoldActive: Bool
     /// Temporary four-variant edit branch (session-only; never persisted).
-    var editVariantsActive: Bool
-    var editVariantAssetID: String?
-    var focusedEditVariantIndex: Int?
-    var editVariantCancellationCount: Int
     var preparedSessionCreated: Int? = nil
     var preparedSessionHits: Int? = nil
     var interactiveMaterializations: Int? = nil
@@ -70,7 +66,6 @@ struct ProbeSnapshot: Codable, Equatable {
     var gpuUploads: Int? = nil
     var variantRenders: Int? = nil
     var metalPresents: Int? = nil
-    var variantSourceReady: Bool? = nil
     var elasticStripTrackHeight: Int = 90
     var elasticStripNearLongEdge: Int = 210
     var elasticStripFarLongEdge: Int = 64
