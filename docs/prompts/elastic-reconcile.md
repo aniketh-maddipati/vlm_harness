@@ -259,3 +259,19 @@ pass needs to know — especially anything here that turned out to be wrong._
   285 base + 19 (P0) + 39 (P1), and P1's own last number was 324 = 285 + 39, so nothing
   was lost or double-counted. Tokens hash on the tree is now `de232d00…` with its golden
   directory present; `spring_physics_f07` passed without re-approval.
+- 2026-09-22 · item 4 · P2 merged as `d92bcb3` (item 3 was the commit before `7f3a659`'s
+  successor; see `git log`). **The tip moved under the merge:** item 1 recorded P2 at
+  `1b9f751`, but P2 committed item 3 (`33782bc`, the floor tier) before `git merge` ran,
+  so the merge took **33782bc** and the merge message was amended to say so. The
+  extra commit overlaps P1 only in `P0SessionModel.swift` (`defer { publishScrollOrder() }`
+  at the top of `apply(_:)`, in the same cases P1 stripped `dropVariantPinIfInactive()`
+  from — auto-merged, read, coherent) and P0 only in `ELASTIC_PLAN.md`. One conflict,
+  `ExifToolService.swift`: resolved to P2's `captureOutput` shape (it is what
+  `ExifToolProcessTests` calls) with P0's stderr choice, `FileHandle.nullDevice`, so the
+  drain thread is gone. Property checked on the result: stdout `readDataToEndOfFile()`
+  on line 115, `waitUntilExit()` on 116, no second `Pipe`. No test file dropped: P0 added
+  none for ExifTool, and `PreviewOrientationTests` asserts orientation, not the process
+  contract; all three `ExifToolProcessTests` still pass with stderr on the null device
+  (200 KB to `/dev/null` cannot block). Gate: **359 / 2 skipped / 0 failures · FAST
+  41/41 · xcode_compile OK** — 343 + 16 (P2). The gate log header reads `58aced3`, the
+  pre-amend sha of the same tree. P2 is now on item 4 (velocity prefetch), uncommitted.
