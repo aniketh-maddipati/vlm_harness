@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The peek bar at the foot of the table while similar or the set is held
@@ -276,7 +277,8 @@ private struct ElasticGroupRow: View {
         let taken = group.takeIDs.contains(id)
         let ringed = session.focusedAssetID == id || session.selectedAssetIDs.contains(id)
         return Button {
-            session.setFocus(id)
+            let flags = NSEvent.modifierFlags
+            session.clickFrame(id, shift: flags.contains(.shift), command: flags.contains(.command))
         } label: {
             ZStack {
                 LuminaTokens.Elastic.deep

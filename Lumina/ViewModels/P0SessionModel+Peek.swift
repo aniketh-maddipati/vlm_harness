@@ -325,3 +325,32 @@ extension P0SessionModel {
         peek == .set ? "set\nrelease ⇥" : "time"
     }
 }
+
+// MARK: - Clicking a frame (the README's ruling: ⇧-click range · ⌘-click toggle)
+
+@MainActor
+extension P0SessionModel {
+    /// A click on a frame of the table or a group row. Plain: the cursor goes there,
+    /// the anchor moves with it, the selection clears. ⌘: the frame toggles in the
+    /// selection and the cursor stays. ⇧: everything from the anchor to the frame, in
+    /// shoot order, becomes the selection and the cursor goes to the frame.
+    func clickFrame(_ id: UUID, shift: Bool, command: Bool) {
+        guard assetIndex(id) != nil else { return }
+        if command {
+            if selectionAnchorID == nil { selectionAnchorID = focusedAssetID }
+            workspaceState.toggleSelection(id)
+            return
+        }
+        if shift {
+            let anchor = selectionAnchorID ?? focusedAssetID ?? id
+            guard let from = assetIndex(anchor), let to = assetIndex(id) else { return }
+            let range = min(from, to)...max(from, to)
+            selectedAssetIDs = assets[range].map(\.id)
+            setFocus(id)
+            return
+        }
+        setFocus(id)
+        selectionAnchorID = id
+        selectedAssetIDs = []
+    }
+}

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The time route — moments as rows, separated by how long the shooting stopped.
@@ -270,7 +271,10 @@ struct ElasticFrameTile: View {
             session.openFocusedPhotograph()
         }
         .onTapGesture {
-            session.setFocus(assetID)
+            // ⇧-click range · ⌘-click toggle · click moves the cursor. The modifier
+            // is read off the event, so one tap owns all three.
+            let flags = NSEvent.modifierFlags
+            session.clickFrame(assetID, shift: flags.contains(.shift), command: flags.contains(.command))
         }
     }
 }

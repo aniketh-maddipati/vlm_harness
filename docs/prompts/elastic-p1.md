@@ -213,7 +213,7 @@ One commit per checkpoint is fine; end each message with
 - [x] 4. `P0EscLadder` rewritten to peek → drawer → selection → route
 - [x] 5. Hold-V remnants retired (`EditVariantSession`, `WorkspaceState` fields, `V` binding, probe fields); `EditVariantTests` deleted or rewritten
 - [x] 6. Set shelf is a drop target
-- [ ] 7. `⇧`-click range, `⌘`-click toggle; the `P0_CULLING.md` ruling closed
+- [x] 7. `⇧`-click range, `⌘`-click toggle; the `P0_CULLING.md` ruling closed
 - [ ] 8. Develop drawer on `E`, with sliders, ratios, `R` rotate, straighten, profile
 - [ ] 9. Version column hides while the drawer or a hold is active
 - [ ] 10. `docs/ELASTIC_PLAN.md` P1 section updated, gate green
@@ -324,3 +324,14 @@ the next pass needs to know — especially anything here that turned out to be w
   (P2's file; the prototype's strip is not draggable either) and shelf tiles. Live
   drag check PENDING (no window; a real drag also needs a pointer driver, which
   System Events key events cannot do). Gate: 317 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · item 7 · `clickFrame(_:shift:command:)` on the session, `selectionAnchorID`
+  as the README's `anchor` (session var, reset on go-home). Plain click: cursor +
+  anchor, selection cleared (prototype `clickFrame`); ⌘: toggle, cursor stays, anchor
+  defaults to the cursor; ⇧: anchor→frame in shoot order across moments, cursor to the
+  frame. The modifier is read off `NSEvent.modifierFlags` inside the one tap, so table
+  tiles and group frames each keep a single gesture. `docs/P0_CULLING.md` parity table:
+  the RULING NEEDED row and the two stale Space rows replaced with the ruling (pointer-
+  only by design; `⌘A` is the keyboard path to a selection and is still on P0's unbound
+  list). Filmstrip / shelf / peek tiles unchanged (P2's file, or not click-to-select in
+  the prototype). Live check PENDING (needs a pointer with modifiers; no window anyway).
+  Gate: 324 logic tests / 2 skipped, FAST 41/41.

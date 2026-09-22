@@ -146,6 +146,9 @@ final class P0SessionModel {
     /// `E` — the develop drawer beside the photograph. Backing state; the drawer
     /// itself lands with checkpoint 05.
     var developDrawerOpen = false
+    /// Where a ⇧-click range starts: the last plain click, or the cursor when there
+    /// has been none (README `anchor`). Session-only.
+    var selectionAnchorID: UUID?
     /// A short tap on ⇥ pins the peek; the next ⇥ cycles it and past the end closes.
     var peekPinned = false
     /// When ⇥ opened the peek — tap versus hold is decided on release.
@@ -1669,6 +1672,7 @@ final class P0SessionModel {
         inspectingAssetID = nil
         densityLeaned = false
         developDrawerOpen = false
+        selectionAnchorID = nil
         holdingClipping = false
         lookGlancing = false
         glanceBurstIDs = []
