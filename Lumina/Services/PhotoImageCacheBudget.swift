@@ -28,6 +28,13 @@ nonisolated enum PhotoImageCacheBudget {
     /// Floor decodes in flight at once. Two keeps the warm of a 400-frame shoot
     /// under two seconds without starving the grid tier's decoders.
     static let floorDecodeWidth = 2
+    /// Grid-tier decodes in flight at once, across the plate's own misses and
+    /// the velocity window. A 6-screen/s flick needs ~150 decodes at ~5 ms
+    /// in ~1.2 s — two workers cover it; four is headroom for slower disks
+    /// without taking cores from layout on the main thread. Everything past
+    /// the width waits in one queue ordered by distance from the viewport,
+    /// and is dropped there if the window moves on before it starts.
+    static let gridDecodeWidth = 4
 
     /// Max concurrent prefetch decodes — width tied to `PreparedRawSession` capacity (4)
     /// doubled for grid+preview overlap without unbounded fan-out.

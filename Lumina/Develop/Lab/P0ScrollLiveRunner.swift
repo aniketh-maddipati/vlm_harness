@@ -324,12 +324,14 @@ enum P0ScrollLiveRunner {
                 "\(pass.name): no well while scrolling",
                 !result.blankSeen,
                 String(
-                    format: "%.1fs · tick p95=%.2fms p99=%.2fms · wells %d/%d ticks · %d tiles of %d sampled · soft (floor) %d tiles · decodes %d · prefetch issued %d cancelled %d",
+                    format: "%.1fs · tick p95=%.2fms p99=%.2fms · wells %d/%d ticks · %d tiles of %d sampled · soft (floor) %d tiles · decodes %d · prefetch issued %d cancelled %d · queue stale %d cancelled %d",
                     result.durationSec, result.tickP95, result.tickP99,
                     result.wellTicks, result.ticks, result.wellTiles, result.tilesSampled,
                     result.softTiles, result.decodes,
                     result.report["prefetchIssued"] as? Int ?? 0,
-                    result.report["prefetchCancelled"] as? Int ?? 0
+                    result.report["prefetchCancelled"] as? Int ?? 0,
+                    result.report["gridStale"] as? Int ?? 0,
+                    result.report["gridCancelled"] as? Int ?? 0
                 )
             )
             note(
@@ -496,6 +498,10 @@ enum P0ScrollLiveRunner {
             "prefetchIssued": diagnosticsEnd.prefetchIssued - diagnosticsStart.prefetchIssued,
             "prefetchCancelled": diagnosticsEnd.prefetchCancelled - diagnosticsStart.prefetchCancelled,
             "prefetchActiveAtEnd": diagnosticsEnd.prefetchActive,
+            "gridStarted": diagnosticsEnd.gridStarted - diagnosticsStart.gridStarted,
+            "gridStale": diagnosticsEnd.gridStale - diagnosticsStart.gridStale,
+            "gridCancelled": diagnosticsEnd.gridCancelled - diagnosticsStart.gridCancelled,
+            "gridQueuedAtEnd": diagnosticsEnd.gridQueued,
             "peakFramesPerSecond": passPeakSpeed,
             "lastWindowAhead": tracker.lastWindow.ahead.count,
             "decodes": decodes,

@@ -514,6 +514,36 @@ exercised (the dart's own window is what the recoil would cancel) and cheap.
 
 The flick's ~10 ms tick p95 is unchanged and is row wrap-layout (P0).
 
+**One request queue (item 5).** Until now a realized tile's own miss spawned
+a detached decode, and the window spawned one task per path — on a flick,
+~150 concurrent decodes competing with layout for cores, most of them for
+tiles the cursor had already left. Every grid-tier miss now goes through one
+queue in `BrowsePixelService`, `PhotoImageCacheBudget.gridDecodeWidth` (4)
+wide, ordered by *anyone waiting first, then distance from the viewport*, and
+re-ordered every time a slot frees — the order now, not the order of arrival.
+A request that leaves the window with nobody waiting, or loses its last
+waiter (the tile's `.task` was cancelled by SwiftUI when it scrolled off), is
+dropped before its decode starts and counted as `stale` or `cancelled`, the
+develop scheduler's own vocabulary. Concurrent asks for one path share one
+decode. Pinned by `BrowsePixelGridQueueTests` at width 1, where seven of ten
+window requests are dropped unrun when the window moves on.
+
+Two runs, 403-frame card, warm:
+
+| pass | steps | tick p95 | tick p99 | window issued | decodes started | stale | cancelled | soft (floor) tiles | wells |
+|---|---|---|---|---|---|---|---|---|---|
+| glide | 478 / 482 | 2.9 / 2.2 ms | 15.9 / 15.9 ms | 147 / 147 | 141 / 141 | 6 / 6 | 0 / 0 | 0 / 0 | 0 / 0 |
+| flick | 100 / 101 | 10.2 / 10.3 ms | 10.5 / 10.6 ms | 146 / 146 | 146 / 146 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| return | 183 / 180 | 9.3 / 10.3 ms | 11.4 / 11.4 ms | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| dart (cold grid) | 68 / 68 | 1.6 / 1.9 ms | 1.7 / 2.1 ms | 150 / 150 | 144 / 144 | 6 / 6 | 0 / 0 | 552 / 547 | 0 / 0 |
+| recoil | 66 / 66 | 1.9 / 2.3 ms | 2.1 / 2.4 ms | 19 / 19 | 19 / 19 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+
+On this disk decodes land inside the pass, so the stale counts stay small
+(six per glide, six per dart) and nothing is cancelled: the flick never asks
+for a tile the window did not already have in hand. The queue's value shows
+where decodes are slower than the flick — the width-1 test — and in what it
+bounds: at most four ImageIO decodes alongside layout, whatever the shoot.
+
 ### P3 — hardening
 
 - `[edge]` Orientation 2/3/4 and square images — latent, now guarded by

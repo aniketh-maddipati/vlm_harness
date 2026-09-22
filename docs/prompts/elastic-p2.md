@@ -205,7 +205,7 @@ but what was measured, on what card, warm or cold. Commit with
 - [x] 2. Nothing on the scroll path decodes synchronously
 - [x] 3. Guaranteed-resident floor tier, with an explicit cap and eviction by distance
 - [x] 4. Prefetch by scroll velocity; cancel behind
-- [ ] 5. Superseded requests dropped rather than queued
+- [x] 5. Superseded requests dropped rather than queued
 - [ ] 6. Re-measure; before/after recorded in `docs/ELASTIC_PLAN.md`
 - [ ] 7. Gate green, including `xcode_compile.py`
 
@@ -283,3 +283,13 @@ wrong._
   one Task per path with no bound; queue them, bounded, distance-ordered,
   and drop what leaves the window before it starts (counts already in
   `Diagnostics`).
+- 2026-09-22 · item 5 **done** · One grid queue in `BrowsePixelService`
+  (`gridDecodeWidth` 4; waiters first, then distance; re-ordered per slot).
+  Leaves-the-window → `stale`, loses-last-waiter → `cancelled`, both before
+  the decode starts; shared decode for concurrent asks.
+  `BrowsePixelGridQueueTests` (width 1) pins the drops. On the 403 card the
+  counts are small (6 stale per glide/dart, 0 cancelled) because decodes land
+  within the pass — the numbers are honest, not flattering. Item 4's
+  per-path prefetch tasks are gone; the window only enqueues. Next: item 6 —
+  the consolidated before/after at the head of the plan's P2 section, then
+  the item 7 gate.
