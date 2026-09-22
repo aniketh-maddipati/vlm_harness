@@ -279,6 +279,78 @@ Honest gaps in the copy this pass introduced:
 - The camera string is the real EXIF model, so it reads e.g. `ilce-7m3`, not the prototype's `a7 iii`.
 - The session date format is `mmm d` (`may 19`), not the prototype's `sept 14`.
 
+## Elasticity backlog (2026-09-22)
+
+Ordered by what blocks what, not by size. `[dbg]` debugging · `[edge]` edge
+conditions · `[resp]` responsiveness.
+
+### P0 — blocks this stack
+
+- `[dbg]` **The reported upside-down flip is unreproduced.** The first theory —
+  that `OrientedDisplayImage.aligning` drops orientations 2/3/4 — was wrong:
+  `CIRAWFilter` applies the file orientation itself, so the no-op is correct for
+  all eight values. Needs a repro naming the frame and whether it flips on open,
+  on scroll, or at promotion.
+- `[dbg]` **Nothing proves the photograph renders.** `.task` does not run for a
+  view hosted offscreen and Metal does not composite through `cacheDisplay`, so
+  every capture shows an empty well. The one thing the captures cannot check is
+  the thing a reader looks at. Fixing this first makes the flip cheaper to find.
+- `[resp]` **`ElasticWrapLayout` sizes every subview twice per pass**, uncached,
+  in both `sizeThatFits` and `placeSubviews`. Tiles are fixed-width.
+- **Version thumbnails all read `gridThumbPath`**, so shot / auto / yours render
+  identically — the column asserts a difference that is not on screen.
+- **Keys are not migrated**: `1/2/3`, `A`, `⌘A`, `?`-hold, pinch. `pickVersion`
+  is reachable only by clicking a version.
+- `[edge]` **A cold catalog reports `previews 0/N`** while extraction runs; the
+  second open reports `N/N`. Either surface it honestly or make it not say that.
+
+### P1 — the grammar the design specifies
+
+- Checkpoint 04: hold-`⇥` cycling related → set → flags, and hold-`␣` before.
+- Rewrite `P0EscLadder` to peek → drawer → selection → route.
+- Finish retiring hold-V: `EditVariantSession`, its `WorkspaceState` fields, the
+  `V` binding, its probe fields.
+- The set shelf as a drop target.
+- `⇧`-click range and `⌘`-click toggle — the ruling `docs/P0_CULLING.md` has had
+  open since before Elastic.
+- Checkpoint 05: develop drawer (`E`), sync (`M`), rotate (`R`), profile picker,
+  crop ratios, straighten.
+
+### P2 — responsiveness
+
+- `[resp]` A guaranteed-resident floor tier (~256 px for every frame, evicted by
+  distance) so scroll never shows a well.
+- `[resp]` Prefetch by scroll velocity rather than visibility, ~2 screens ahead,
+  cancelling behind. The gates exist; their trigger does not.
+- `[resp]` Coalesce the request stream so a flick drops superseded requests
+  instead of queueing work that is stale before it lands.
+- `[resp]` Render the three version thumbnails through the interactive tier,
+  which is what closes the P0 item properly.
+
+### P3 — hardening
+
+- `[edge]` Orientation 2/3/4 and square images — latent, now guarded by
+  `OrientationContractTests`, reachable only by a non-orienting backend.
+- `[edge]` Offline originals · damaged file mid-card · disk full · two-card
+  eject mid-copy.
+- `[edge]` Duplicate basenames across volumes · byte-identical duplicates ·
+  filenames containing spaces.
+- `[edge]` Sidecar date divergence reading as an external edit · `crs:CameraProfile`
+  values Lumina never writes (`Adobe Standard` is in the sample sidecars).
+- `[edge]` Boundaries: clip at exactly 2% and 0.5%, burst gap at exactly 2 s, and
+  the median-dependent chapter threshold.
+- `[dbg]` Races: stale promotion after the cursor moves · aspect flip on
+  promotion · scroll outrunning decode · eviction of a pinned tier mid-render ·
+  `⌘Z` during an in-flight auto pass · Lightroom rewriting a sidecar while the
+  shoot is open.
+
+### Fixture coverage against this list
+
+`Scripts/harness/fixtures/elastic_cards.py` cuts a card that exercises the
+moment, gap, light-word, burst, mix, clipping and tone conditions from real
+frames. It does not cover the P0 render proof, the P1 grammar, or the P2 work —
+those need code, not data.
+
 ## Known gaps in checkpoint 03
 
 - Version thumbnails all read the same `gridThumbPath`, so shot/auto/yours look identical. The prompt
