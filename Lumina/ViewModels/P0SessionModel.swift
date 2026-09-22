@@ -774,7 +774,7 @@ final class P0SessionModel {
                 image = pin.image
             }
         } else if let proxy = urls.proxyURL {
-            image = CIImage(contentsOf: proxy, options: [.applyOrientationProperty: true])
+            image = OrientedDisplayImage.ciImage(at: proxy, maxPixelSize: longEdge)
         }
         guard !Task.isCancelled else { return }
         publishVariantPinnedSource(image, generation: generation, assetID: assetID)

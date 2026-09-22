@@ -29,7 +29,6 @@ import Foundation
 /// them, return `.externalDrift` — session recipe unchanged until quit/reopen.
 enum SidecarReconciliation: Equatable, Sendable {
     case sessionAuthoritative
-    case seededFromSidecar
     case externalDrift(sidecarHash: String, sessionHash: String)
 }
 
