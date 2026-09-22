@@ -273,8 +273,10 @@ actor ShootStore {
         var sidecarHash: String?
         if let originalURL {
             do {
+                let recipeSource = shoot.assets.first(where: { $0.id == command.assetID })?.recipeSource ?? .shot
                 let result = try ShootSidecarStore.writeCommittedEdit(
                     command.after,
+                    source: recipeSource,
                     besideOriginal: originalURL
                 )
                 sidecarHash = result.managedFieldsHash

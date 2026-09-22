@@ -53,6 +53,7 @@ enum LightroomHandoffService {
         photoID: UUID,
         rawURL: URL,
         recipe: EditRecipe,
+        source: RecipeSource = .shot,
         tiffDestination: URL
     ) async throws -> HandoffResult {
         guard let bitmap = await DevelopRenderGraph.renderExportBitmap(
@@ -71,6 +72,7 @@ enum LightroomHandoffService {
         }
         return try writeSidecarAndReceipt(
             recipe: recipe,
+            source: source,
             rawURL: rawURL,
             tiffURL: tiffDestination
         )
@@ -79,11 +81,12 @@ enum LightroomHandoffService {
     /// Sidecar + receipt only (no TIFF render) — used when exporting settings.
     static func writeSidecarAndReceipt(
         recipe: EditRecipe,
+        source: RecipeSource = .shot,
         rawURL: URL,
         tiffURL: URL?
     ) throws -> HandoffResult {
         let xmpURL = rawURL.deletingPathExtension().appendingPathExtension("xmp")
-        let outcome = try mergeSidecar(recipe: recipe, at: xmpURL)
+        let outcome = try mergeSidecar(recipe: recipe, source: source, at: xmpURL)
 
         let xmpHash = try sha256(of: xmpURL)
         var tiffHash: String?
@@ -172,6 +175,9 @@ enum LightroomHandoffService {
         }
 
         let straighten = -crsDouble("crs:CropAngle", on: description)
+        let cameraProfile = fieldValue("crs:CameraProfile", on: description) ?? EditRecipe.defaultCameraProfile
+        let cropAspect = fieldValue("crs:CropAspect", on: description)
+            .flatMap { EditCropAspect(rawValue: $0) } ?? .original
         let recipe = EditRecipe(
             exposure: exposure,
             temperature: temperature,
@@ -184,9 +190,21 @@ enum LightroomHandoffService {
             sharpness: sharpness,
             luminanceNR: luminanceNR,
             crop: crop,
-            straightenDegrees: straighten
+            straightenDegrees: straighten,
+            cameraProfile: cameraProfile,
+            cropAspect: cropAspect
         )
         return recipe.hasSettings ? recipe : nil
+    }
+
+    /// Reads back `lumina:Source` — nil when the sidecar was never written by Lumina.
+    static func readRecipeSource(at xmpURL: URL) throws -> RecipeSource? {
+        guard FileManager.default.fileExists(atPath: xmpURL.path) else { return nil }
+        let data = try Data(contentsOf: xmpURL)
+        guard !data.isEmpty else { return nil }
+        let document = try XMLDocument(data: data, options: [.nodePreserveAll])
+        guard let description = firstDescription(in: document) else { return nil }
+        return fieldValue("lumina:Source", on: description).flatMap { RecipeSource(rawValue: $0) }
     }
 
     static func managedFieldsHash(at xmpURL: URL) throws -> String? {
@@ -217,6 +235,7 @@ enum LightroomHandoffService {
             ("crs:Saturation", String(format: "%+.0f", recipe.saturation)),
             ("crs:Sharpness", String(format: "%.0f", recipe.sharpness)),
             ("crs:LuminanceSmoothing", String(format: "%.0f", recipe.luminanceNR)),
+            ("crs:CameraProfile", recipe.cameraProfile),
         ]
         // White balance: only written when the photographer overrode as-shot.
         if recipe.rawIntent.isAsShotWhiteBalance {
@@ -233,17 +252,27 @@ enum LightroomHandoffService {
             fields.append(("crs:CropTop", String(format: "%.6f", crop.y)))
             fields.append(("crs:CropRight", String(format: "%.6f", crop.x + crop.width)))
             fields.append(("crs:CropBottom", String(format: "%.6f", crop.y + crop.height)))
+            fields.append(("crs:CropAspect", recipe.cropAspect.rawValue))
         }
         if abs(recipe.straightenDegrees) > 0.01 {
             fields.append(("crs:CropAngle", String(format: "%.4f", -recipe.straightenDegrees)))
+            // Informational decomposition for tools that model orientation and fine
+            // straighten separately. `crs:CropAngle` above remains the one value Lumina
+            // reads back — these two are derived, not a second stored source of truth.
+            // Matches P0CropControls.fineStraighten's turns/remainder split exactly.
+            let quarterTurns = (recipe.straightenDegrees / 90.0).rounded()
+            let orientation = (Int(quarterTurns) % 4 * 90 + 360) % 360
+            let fineAngle = recipe.straightenDegrees - quarterTurns * 90
+            fields.append(("crs:Orientation", String(orientation)))
+            fields.append(("crs:StraightenAngle", String(format: "%.4f", fineAngle)))
         }
         return fields
     }
 
-    static func mergeSidecar(recipe: EditRecipe, at xmpURL: URL) throws -> MergeOutcome {
+    static func mergeSidecar(recipe: EditRecipe, source: RecipeSource = .shot, at xmpURL: URL) throws -> MergeOutcome {
         let fm = FileManager.default
         if !fm.fileExists(atPath: xmpURL.path) {
-            let xml = freshSidecarXML(recipe: recipe)
+            let xml = freshSidecarXML(recipe: recipe, source: source)
             try atomicWrite(data: Data(xml.utf8), to: xmpURL)
             return .created
         }
@@ -257,7 +286,7 @@ enum LightroomHandoffService {
             let backup = xmpURL.appendingPathExtension("lumina-backup")
             try? fm.removeItem(at: backup)
             try fm.copyItem(at: xmpURL, to: backup)
-            try atomicWrite(data: Data(freshSidecarXML(recipe: recipe).utf8), to: xmpURL)
+            try atomicWrite(data: Data(freshSidecarXML(recipe: recipe, source: source).utf8), to: xmpURL)
             return .conflictExternalEdits
         }
 
@@ -291,7 +320,7 @@ enum LightroomHandoffService {
         for name in Self.managedFieldNames where !writtenNames.contains(name) {
             removeField(name: name, on: description)
         }
-        stampLuminaBlock(recipe: recipe, on: description, conflictDetected: conflict)
+        stampLuminaBlock(recipe: recipe, source: source, on: description, conflictDetected: conflict)
 
         document.characterEncoding = "UTF-8"
         let output = document.xmlData(options: [.nodePrettyPrint])
@@ -303,7 +332,7 @@ enum LightroomHandoffService {
 
     // MARK: - XML helpers
 
-    private static func freshSidecarXML(recipe: EditRecipe) -> String {
+    private static func freshSidecarXML(recipe: EditRecipe, source: RecipeSource) -> String {
         let crsAttributes = mappedCRSFields(for: recipe)
             .map { "    \($0.name)=\"\(xmlEscape($0.value))\"" }
             .joined(separator: "\n")
@@ -319,6 +348,7 @@ enum LightroomHandoffService {
             lumina:MappingVersion="\(RawDecodeBackendRegistry.mappingVersion)"
             lumina:RecipeFingerprint="\(xmlEscape(recipe.valueFingerprint))"
             lumina:WrittenFieldsHash="\(fieldsHash)"
+            lumina:Source="\(source.rawValue)"
             lumina:WrittenAt="\(ISO8601DateFormatter().string(from: Date()))"/>
          </rdf:RDF>
         </x:xmpmeta>
@@ -366,11 +396,17 @@ enum LightroomHandoffService {
         description.attribute(forName: name)?.stringValue
     }
 
-    private static func stampLuminaBlock(recipe: EditRecipe, on description: XMLElement, conflictDetected: Bool) {
+    private static func stampLuminaBlock(
+        recipe: EditRecipe,
+        source: RecipeSource,
+        on description: XMLElement,
+        conflictDetected: Bool
+    ) {
         let fieldsHash = hashOfManagedFields(for: recipe)
         setField(name: "lumina:MappingVersion", value: RawDecodeBackendRegistry.mappingVersion, on: description)
         setField(name: "lumina:RecipeFingerprint", value: recipe.valueFingerprint, on: description)
         setField(name: "lumina:WrittenFieldsHash", value: fieldsHash, on: description)
+        setField(name: "lumina:Source", value: source.rawValue, on: description)
         setField(name: "lumina:WrittenAt", value: ISO8601DateFormatter().string(from: Date()), on: description)
         if conflictDetected {
             setField(name: "lumina:LastMergeConflict", value: "true", on: description)

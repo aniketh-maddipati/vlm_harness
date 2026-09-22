@@ -162,4 +162,67 @@ final class P0SidecarIntegrationTests: XCTestCase {
         }
         XCTFail("file did not become durable: \(url.path)")
     }
+
+    // MARK: - Checkpoint 01: camera profile / crop aspect / orientation / source round trip
+
+    func testCameraProfileCropAspectAndSourceRoundTripThroughSidecar() throws {
+        let folder = try makeShootFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let rawURL = folder.appendingPathComponent("DSC0001.ARW")
+        try Data([0x01]).write(to: rawURL)
+
+        let written = EditRecipe(
+            exposure: 0.2,
+            crop: EditCrop(x: 0.1, y: 0.1, width: 0.5, height: 0.625),
+            straightenDegrees: 91.5,
+            cameraProfile: "Adobe Color",
+            cropAspect: .fourByFive
+        )
+        _ = try ShootSidecarStore.writeCommittedEdit(written, source: .hand, besideOriginal: rawURL)
+
+        let xmp = ShootSidecarStore.sidecarURL(besideOriginal: rawURL)
+        let readBack = try XCTUnwrap(try ShootSidecarStore.readMappedRecipe(at: xmp))
+        XCTAssertEqual(readBack.cameraProfile, "Adobe Color")
+        XCTAssertEqual(readBack.cropAspect, .fourByFive)
+        XCTAssertEqual(readBack.straightenDegrees, 91.5, accuracy: 1e-3)
+        let readBackCrop = try XCTUnwrap(readBack.crop)
+        XCTAssertEqual(readBackCrop.x, 0.1, accuracy: 1e-5)
+        XCTAssertEqual(readBackCrop.width, 0.5, accuracy: 1e-5)
+
+        let source = try ShootSidecarStore.readRecipeSource(at: xmp)
+        XCTAssertEqual(source, .hand)
+
+        let xml = try String(contentsOf: xmp, encoding: .utf8)
+        XCTAssertTrue(xml.contains("crs:Orientation=\"90\""), "91.5° decomposes to a 90° quarter turn + fine remainder")
+        XCTAssertTrue(xml.contains("crs:StraightenAngle=\"1.5"), "fine remainder after the quarter turn is 1.5°")
+    }
+
+    func testOldRecipeAndAssetJSONWithoutNewFieldsDecodeWithDefaults() throws {
+        // Shaped like JSON written before cameraProfile/cropAspect/recipeSource/handRecipe existed.
+        let oldRecipeJSON = """
+        {"id":"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE","schemaVersion":2,"exposure":0.3,
+         "temperature":6500,"tint":0,"contrast":0,"highlights":0,"shadows":0,"whites":0,
+         "blacks":0,"texture":0,"clarity":0,"dehaze":0,"vibrance":0,"saturation":0,
+         "sharpness":0,"luminanceNR":0,"straightenDegrees":0,"retouch":[],
+         "sourceNeighbors":[],"confidence":1}
+        """
+        let decodedRecipe = try EditRecipe.decode(Data(oldRecipeJSON.utf8))
+        XCTAssertEqual(decodedRecipe.cameraProfile, EditRecipe.defaultCameraProfile)
+        XCTAssertEqual(decodedRecipe.cropAspect, .original)
+        XCTAssertEqual(decodedRecipe.exposure, 0.3, accuracy: 1e-9)
+
+        let assetID = UUID()
+        let oldAssetJSON = """
+        {"id":"\(assetID.uuidString)","sourceKey":"k","source":{"id":"\(UUID().uuidString)",
+         "originalPath":"/x.ARW","relativePath":"x.ARW","availability":"available"},
+         "filename":"x.ARW","cull":"undecided","previewOrigin":"unknown","previewLongEdge":0,
+         "sharpness":0,"exposureHealth":0.5,"faceQuality":0,"aesthetic":0.5,"compositeQuality":0,
+         "faceDetected":false,"cullScore":0,"cullConfidence":0,"editConfidence":1,"tasteMatch":0.5,
+         "isFlagged":false,"isBurstHero":true,"isClusterHero":true,"uncertaintyKind":"none"}
+        """
+        let decodedAsset = try JSONDecoder().decode(AssetRecord.self, from: Data(oldAssetJSON.utf8))
+        XCTAssertEqual(decodedAsset.recipeSource, .shot)
+        XCTAssertNil(decodedAsset.handRecipe)
+        XCTAssertEqual(decodedAsset.id, assetID)
+    }
 }

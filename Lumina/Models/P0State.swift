@@ -38,6 +38,23 @@ nonisolated enum CullDecision: String, Codable, Hashable, Sendable {
     }
 }
 
+// MARK: - Recipe provenance (independent of CullDecision)
+
+/// Where `AssetRecord.recipe` currently comes from. Named `RecipeSource` (not `source`,
+/// which is already `AssetRecord.source: SourceReference` — the file/volume reference).
+nonisolated enum RecipeSource: String, Codable, Hashable, Sendable {
+    /// Identity `EditRecipe` — camera / neutral decode, nothing chosen yet.
+    case shot
+    /// Engine-produced recipe (`AutoDevelop`), untouched since.
+    case auto
+    /// An auto recipe the photographer has since nudged by hand.
+    case autoHand
+    /// Hand-authored from `.shot`, never touched `.auto`.
+    case hand
+    /// Loaded from an XMP sidecar — the durable receipt is the truth for this asset right now.
+    case sidecar
+}
+
 // MARK: - Source references
 
 nonisolated enum SourceAvailability: String, Codable, Hashable, Sendable {
@@ -141,6 +158,66 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
     var clusterID: String?
     var clusterLabel: String?
     var embedding: [Float]?
+    /// Where `recipe` currently comes from. Defaults to `.shot` for a fresh/identity recipe.
+    var recipeSource: RecipeSource
+    /// Last hand-authored recipe, kept when the user switches to shot/auto so returning
+    /// to "yours" restores it without re-deriving anything.
+    var handRecipe: EditRecipe?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, sourceKey, source, filename, cull, recipe, capturedAt, fileSize,
+             thumbPath, gridThumbPath, proxyPath, previewOrigin, previewLongEdge,
+             sharpness, exposureHealth, faceQuality, aesthetic, compositeQuality,
+             faceDetected, cullScore, cullConfidence, editConfidence, tasteMatch,
+             proposedTier, userDecidedAt, settledAt, isFlagged, isBurstHero, isClusterHero,
+             uncertaintyKind, whyUncertain, whyAction, burstID, clusterID, clusterLabel,
+             embedding, recipeSource, handRecipe
+    }
+
+    /// Tolerant decode: `recipeSource` and `handRecipe` post-date every on-disk catalog
+    /// written before them, so both fall back to their fresh-record defaults when absent.
+    /// Every other field has always been part of the schema and decodes as required.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        sourceKey = try c.decode(String.self, forKey: .sourceKey)
+        source = try c.decode(SourceReference.self, forKey: .source)
+        filename = try c.decode(String.self, forKey: .filename)
+        cull = try c.decode(CullDecision.self, forKey: .cull)
+        recipe = try c.decodeIfPresent(EditRecipe.self, forKey: .recipe)
+        capturedAt = try c.decodeIfPresent(Date.self, forKey: .capturedAt)
+        fileSize = try c.decodeIfPresent(Int64.self, forKey: .fileSize)
+        thumbPath = try c.decodeIfPresent(String.self, forKey: .thumbPath)
+        gridThumbPath = try c.decodeIfPresent(String.self, forKey: .gridThumbPath)
+        proxyPath = try c.decodeIfPresent(String.self, forKey: .proxyPath)
+        previewOrigin = try c.decode(PreviewOrigin.self, forKey: .previewOrigin)
+        previewLongEdge = try c.decode(Int.self, forKey: .previewLongEdge)
+        sharpness = try c.decode(Double.self, forKey: .sharpness)
+        exposureHealth = try c.decode(Double.self, forKey: .exposureHealth)
+        faceQuality = try c.decode(Double.self, forKey: .faceQuality)
+        aesthetic = try c.decode(Double.self, forKey: .aesthetic)
+        compositeQuality = try c.decode(Double.self, forKey: .compositeQuality)
+        faceDetected = try c.decode(Bool.self, forKey: .faceDetected)
+        cullScore = try c.decode(Double.self, forKey: .cullScore)
+        cullConfidence = try c.decode(Double.self, forKey: .cullConfidence)
+        editConfidence = try c.decode(Double.self, forKey: .editConfidence)
+        tasteMatch = try c.decode(Double.self, forKey: .tasteMatch)
+        proposedTier = try c.decodeIfPresent(PhotoTier.self, forKey: .proposedTier)
+        userDecidedAt = try c.decodeIfPresent(Date.self, forKey: .userDecidedAt)
+        settledAt = try c.decodeIfPresent(Date.self, forKey: .settledAt)
+        isFlagged = try c.decode(Bool.self, forKey: .isFlagged)
+        isBurstHero = try c.decode(Bool.self, forKey: .isBurstHero)
+        isClusterHero = try c.decode(Bool.self, forKey: .isClusterHero)
+        uncertaintyKind = try c.decode(UncertaintyKind.self, forKey: .uncertaintyKind)
+        whyUncertain = try c.decodeIfPresent(String.self, forKey: .whyUncertain)
+        whyAction = try c.decodeIfPresent(String.self, forKey: .whyAction)
+        burstID = try c.decodeIfPresent(String.self, forKey: .burstID)
+        clusterID = try c.decodeIfPresent(String.self, forKey: .clusterID)
+        clusterLabel = try c.decodeIfPresent(String.self, forKey: .clusterLabel)
+        embedding = try c.decodeIfPresent([Float].self, forKey: .embedding)
+        recipeSource = try c.decodeIfPresent(RecipeSource.self, forKey: .recipeSource) ?? .shot
+        handRecipe = try c.decodeIfPresent(EditRecipe.self, forKey: .handRecipe)
+    }
 
     init(
         id: UUID,
@@ -178,7 +255,9 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
         burstID: String? = nil,
         clusterID: String? = nil,
         clusterLabel: String? = nil,
-        embedding: [Float]? = nil
+        embedding: [Float]? = nil,
+        recipeSource: RecipeSource = .shot,
+        handRecipe: EditRecipe? = nil
     ) {
         self.id = id
         self.sourceKey = sourceKey
@@ -216,6 +295,8 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
         self.clusterID = clusterID
         self.clusterLabel = clusterLabel
         self.embedding = embedding
+        self.recipeSource = recipeSource
+        self.handRecipe = handRecipe
     }
 }
 

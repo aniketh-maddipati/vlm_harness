@@ -55,13 +55,19 @@ nonisolated struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
     var retouch: [RetouchSpot]
     var sourceNeighbors: [String]
     var confidence: Double
+    /// `crs:CameraProfile` — e.g. "Camera Standard", "Adobe Color".
+    var cameraProfile: String
+    /// Which crop preset produced `crop`, if any. Informational — the crop rect itself is authoritative.
+    var cropAspect: EditCropAspect
 
     private enum CodingKeys: String, CodingKey {
         case id, schemaVersion, exposure, temperature, tint, contrast, highlights,
              shadows, whites, blacks, texture, clarity, dehaze, vibrance, saturation,
              sharpness, luminanceNR, crop, straightenDegrees, retouch,
-             sourceNeighbors, confidence
+             sourceNeighbors, confidence, cameraProfile, cropAspect
     }
+
+    static let defaultCameraProfile = "Camera Standard"
 
     static let neutral = EditRecipe()
 
@@ -87,7 +93,9 @@ nonisolated struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
         straightenDegrees: Double = 0,
         retouch: [RetouchSpot] = [],
         sourceNeighbors: [String] = [],
-        confidence: Double = 1
+        confidence: Double = 1,
+        cameraProfile: String = EditRecipe.defaultCameraProfile,
+        cropAspect: EditCropAspect = .original
     ) {
         self.id = id
         self.schemaVersion = schemaVersion
@@ -111,6 +119,8 @@ nonisolated struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
         self.retouch = retouch
         self.sourceNeighbors = sourceNeighbors
         self.confidence = confidence
+        self.cameraProfile = cameraProfile
+        self.cropAspect = cropAspect
     }
 
     /// Tolerant decoding — accepts v1 EditRecipe, legacy DevelopRecipe-shaped JSON, and partial blobs.
@@ -144,6 +154,8 @@ nonisolated struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
         retouch = try c.decodeIfPresent([RetouchSpot].self, forKey: .retouch) ?? []
         sourceNeighbors = try c.decodeIfPresent([String].self, forKey: .sourceNeighbors) ?? []
         confidence = try c.decodeIfPresent(Double.self, forKey: .confidence) ?? 1
+        cameraProfile = try c.decodeIfPresent(String.self, forKey: .cameraProfile) ?? EditRecipe.defaultCameraProfile
+        cropAspect = try c.decodeIfPresent(EditCropAspect.self, forKey: .cropAspect) ?? .original
     }
 
     func encode(to encoder: Encoder) throws {
@@ -170,13 +182,15 @@ nonisolated struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
         try c.encode(retouch, forKey: .retouch)
         try c.encode(sourceNeighbors, forKey: .sourceNeighbors)
         try c.encode(confidence, forKey: .confidence)
+        try c.encode(cameraProfile, forKey: .cameraProfile)
+        try c.encode(cropAspect, forKey: .cropAspect)
     }
 
     var hasToneOrColorSettings: Bool {
         exposure != 0 || temperature != Self.neutralTemperature || tint != 0 || contrast != 0
             || highlights != 0 || shadows != 0 || whites != 0 || blacks != 0
             || texture != 0 || clarity != 0 || dehaze != 0 || vibrance != 0 || saturation != 0
-            || sharpness != 0 || luminanceNR != 0
+            || sharpness != 0 || luminanceNR != 0 || cameraProfile != Self.defaultCameraProfile
     }
 
     var hasGeometry: Bool {
@@ -218,7 +232,9 @@ nonisolated struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
             straightenDegrees: straightenDegrees,
             retouch: retouch,
             sourceNeighbors: sourceNeighbors,
-            confidence: confidence
+            confidence: confidence,
+            cameraProfile: cameraProfile,
+            cropAspect: cropAspect
         )
     }
 
@@ -357,10 +373,12 @@ nonisolated struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
             r.saturation = baseline.saturation * u + saturation * t
             r.sharpness = baseline.sharpness * u + sharpness * t
             r.luminanceNR = baseline.luminanceNR * u + luminanceNR * t
-            // Heal spots and geometry are binary user intent — never scaled.
+            // Heal spots, geometry, and profile/aspect are binary user intent — never scaled.
             r.retouch = retouch
             r.crop = crop
             r.straightenDegrees = straightenDegrees
+            r.cameraProfile = cameraProfile
+            r.cropAspect = cropAspect
         }
     }
 
@@ -370,6 +388,8 @@ nonisolated struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
             $0.crop = crop
             $0.straightenDegrees = straightenDegrees
             $0.retouch = retouch
+            $0.cameraProfile = cameraProfile
+            $0.cropAspect = cropAspect
         }
     }
 
@@ -420,7 +440,9 @@ nonisolated struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
             straightenDegrees: straightenDegrees,
             retouch: retouch,
             sourceNeighbors: sourceNeighbors,
-            confidence: confidence
+            confidence: confidence,
+            cameraProfile: cameraProfile,
+            cropAspect: cropAspect
         )
     }
 
@@ -434,6 +456,7 @@ nonisolated struct EditRecipe: Codable, Hashable, Sendable, Identifiable {
             fmt(sharpness), fmt(luminanceNR), fmt(straightenDegrees),
             crop?.fingerprint ?? "nocrop",
             retouch.isEmpty ? "noheal" : retouch.map(\.fingerprint).joined(separator: ";"),
+            cameraProfile, cropAspect.rawValue,
         ]
         return parts.joined(separator: "|")
     }
@@ -481,4 +504,16 @@ nonisolated struct EditCrop: Codable, Hashable, Sendable {
             height: CGFloat(c.height) * extent.height
         )
     }
+}
+
+/// Which crop preset (if any) produced `EditRecipe.crop`. Informational only — the
+/// normalized rect in `EditCrop` remains the one authoritative geometry; a custom
+/// ratio is fully recoverable from that rect's own width/height and is not duplicated here.
+nonisolated enum EditCropAspect: String, Codable, Hashable, Sendable {
+    case original
+    case threeByTwo
+    case fourByFive
+    case oneByOne
+    case sixteenByNine
+    case custom
 }
