@@ -57,6 +57,24 @@ NONISOLATED_TYPE_MARKERS: dict[str, tuple[str, ...]] = {
     "Lumina/Services/ProjectStore.swift": ("nonisolated enum ProjectStore",),
     "Lumina/Services/HistogramAutoTone.swift": ("nonisolated enum HistogramAutoTone",),
     "Lumina/Services/VisionAssist.swift": ("nonisolated enum VisionAssist",),
+    # Model assist (D67 / R-N.1) — planning, resolution and bounds stay off the main
+    # actor so a slow model can never block the render plane.
+    "Lumina/Services/ModelClient.swift": (
+        "nonisolated struct ModelEndpoint",
+        "nonisolated struct ChatCompletionsClient",
+        "nonisolated enum ModelImage",
+    ),
+    "Lumina/Services/AskCommand.swift": (
+        "nonisolated enum AskScope",
+        "nonisolated struct AskDelta",
+        "nonisolated struct AskPlan",
+    ),
+    "Lumina/Services/AskScopeResolver.swift": ("nonisolated enum AskScopeResolver",),
+    "Lumina/Services/AskPlanApply.swift": ("nonisolated enum AskPlanApply",),
+    "Lumina/Develop/ModelAutoDevelop.swift": (
+        "nonisolated struct ModelToneProposal",
+        "nonisolated enum ModelAutoDevelop",
+    ),
 }
 
 FORBIDDEN_PATTERNS: tuple[tuple[str, str], ...] = (

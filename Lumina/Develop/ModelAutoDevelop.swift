@@ -133,6 +133,9 @@ nonisolated enum ModelAutoDevelop {
             guard let proposal = ModelToneProposal(json: json) else {
                 return Result(recipe: base, source: .auto, fallbackReason: "model returned no usable values")
             }
+            guard !isEcho(proposal, stats: stats) else {
+                return Result(recipe: base, source: .auto, fallbackReason: "model echoed the measurements")
+            }
             return Result(recipe: bound(proposal, onto: base), source: .model, fallbackReason: nil)
         } catch {
             return Result(recipe: base, source: .auto, fallbackReason: "model unavailable: \(error)")
@@ -141,6 +144,49 @@ nonisolated enum ModelAutoDevelop {
 
     private static func clamp(_ value: Double, _ range: ClosedRange<Double>) -> Double {
         min(max(value, range.lowerBound), range.upperBound)
+    }
+
+    // MARK: - Echo guard
+
+    /// The prompt hands the model three measured numbers. A small model sometimes
+    /// completes the pattern by handing them back as *edit values*.
+    ///
+    /// Observed live on 2026-09-22 against qwen2.5-vl-3b-instruct: given
+    /// "2.09% of pixels crushed to black, 0.00% clipped to white", it answered
+    /// `highlights: 2.09, shadows: 0.00`. Those are statistics, not corrections, and no
+    /// band catches them — 2.09 is a perfectly ordinary-looking highlights value.
+    ///
+    /// A quoted statistic is an arbitrary measured real, so a genuine correction
+    /// landing on one *exactly*, at the prompt's own two-decimal precision, is
+    /// vanishingly unlikely. One match is therefore enough to refuse the proposal.
+    /// Zero is excluded because the prompt explicitly sanctions it ("use 0 for
+    /// anything that needs no change"), so a zeroed statistic proves nothing.
+    ///
+    /// A false positive costs a fall back to the deterministic recipe, which is the
+    /// safe answer anyway — this is deliberately biased toward refusing.
+    static func isEcho(_ proposal: ModelToneProposal, stats: ImageStats) -> Bool {
+        let quoted = quotedStatistics(stats)
+        guard !quoted.isEmpty else { return false }
+        let proposed = [
+            proposal.exposure, proposal.contrast, proposal.highlights, proposal.shadows,
+            proposal.vibrance, proposal.saturation, proposal.temperatureShift, proposal.tintShift,
+        ].compactMap { $0 }
+        return proposed.contains { quoted.contains(round2($0)) }
+    }
+
+    /// The numbers `userPrompt` puts in front of the model, at the precision it shows
+    /// them. Kept beside the prompt so the two cannot drift apart.
+    static func quotedStatistics(_ stats: ImageStats) -> Set<Double> {
+        let values = [
+            stats.mean,
+            stats.shadowClipFraction * 100,
+            stats.highlightClipFraction * 100,
+        ]
+        return Set(values.map(round2).filter { $0 != 0 })
+    }
+
+    private static func round2(_ value: Double) -> Double {
+        (value * 100).rounded() / 100
     }
 
     // MARK: - Prompt

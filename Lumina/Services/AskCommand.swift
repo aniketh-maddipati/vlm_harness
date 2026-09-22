@@ -174,9 +174,9 @@ nonisolated struct KeywordAskPlanner: AskPlanner {
     }
 }
 
-/// A hosted language model plans; the scope vocabulary and bounds keep it honest.
-/// Only the request text and scope counts are sent — no images, no filenames beyond
-/// the focused one, no IDs.
+/// A local language model plans (D67: loopback only); the scope vocabulary and bounds
+/// keep it honest. Only the request text and scope counts are sent — no images, no
+/// filenames beyond the focused one, no IDs.
 nonisolated struct ModelAskPlanner: AskPlanner {
     let client: ChatCompletionsClient
 
