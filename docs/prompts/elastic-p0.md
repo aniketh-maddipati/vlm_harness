@@ -225,7 +225,7 @@ anything you learned that contradicts what is written there. Commit with
 ## Checklist
 
 - [x] 1. Photo-pixel proof: a test fails if the photograph stops rendering, comes out blank, or comes out the wrong way up
-- [ ] 2. Reproduce the flip (ask the user for a repro if you cannot)
+- [x] 2. Reproduce the flip (ask the user for a repro if you cannot)
 - [ ] 3. Fix the flip, or write down precisely what it is and why it is not fixable here
 - [ ] 4. `ElasticWrapLayout` returns known tile sizes instead of asking every subview twice per pass
 - [ ] 5. Version thumbnails render through the interactive tier, or the column stops implying a difference
@@ -257,3 +257,30 @@ the next pass needs to know — especially anything here that turned out to be w
   (`~/LuminaFixtures/card-elastic-v4/frames` first) and does run.
 - Fixture card orientations, measured: 14 frames at 1, 6 at 6, 7 at 8. No 2/3/4
   and no square frame anywhere in it, so the latent P3 hole has no fixture.
+- 2026-09-22 · item 2 · **a flip is reproduced**, in the browse tier, not in
+  `OrientedDisplayImage`. `PreviewExtractor.extract` tries `extractWithImageIO`
+  (orientation applied) and falls back to `exiftool -b -PreviewImage` when ImageIO
+  cannot make a thumbnail. That fallback writes the embedded preview **verbatim**:
+  measured on the fixture card, an orientation-8 ARW yields a 1616×1080 *landscape*
+  JPEG carrying **no orientation tag of its own**. Nothing downstream can recover
+  it — `cgImage(at:)` applies a transform that is a no-op on an untagged file, and
+  `aligning` is never applied to browse-tier files — so the tile, the filmstrip and
+  the focus fallback all show that photograph on its side. Re-measure with
+  `xcrun swift Scripts/harness/develop/preview_orientation_repro.swift <raw-folder>`:
+  **7 of 21 frames** in `card-elastic-v4` land sideways through that branch.
+  Two things make it stick rather than flicker:
+  1. `stablePresent` compares portrait-ness and **keeps the fallback** when the
+     promotion disagrees, so the correct RAW render is rejected by the wrong
+     browse pixels rather than replacing them.
+  2. `extractBrowsePreview` returns early when the destination already exists, so
+     a once-written sideways file survives every reopen.
+  Reachability: the fallback runs only when ImageIO cannot thumbnail the RAW — a
+  camera macOS does not know, or a truncated/partially copied file. Sony ARW on
+  this host decodes fine, which is why this never reproduced from the UI. The
+  other entry point, `extractBrowsePreview`, transforms on every branch and is
+  clean; only `extract` is holed, reached from `DevelopEngine.ensureProxy` and
+  `extractBest`.
+  **Still open for the user:** whether this is the flip they saw. If their frames
+  are Sony and ImageIO decodes them, something else is also wrong — the question
+  to ask is which frame, and whether it flips on open, on scroll, or at the moment
+  RAW promotion lands.
