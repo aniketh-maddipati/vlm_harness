@@ -239,6 +239,11 @@ commands and the first results: `docs/DEVELOP_EVAL.md`. Fixture-gated, numbers o
 from the eval set is committed. FiveK plugs into the same harness via
 `Scripts/harness/eval/fivek_fetch.py`.
 
+Four loop-safe prompts split the follow-up so it runs at once — `docs/prompts/develop-INDEX.md`:
+D1 auto rules, D2 eval workflow + FiveK, D3 model arm, D4 render truth. Each carries a
+three-row scoreboard (model accuracy, workflow accuracy, UX polish) and a commit is allowed
+only when no row regresses.
+
 ## Next
 
 Checkpoint 03 (the first UI: routes, table, focus) — blocked on the `focus`-field question in §3.
