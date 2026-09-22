@@ -304,6 +304,72 @@ conditions · `[resp]` responsiveness.
 - `[edge]` **A cold catalog reports `previews 0/N`** while extraction runs; the
   second open reports `N/N`. Either surface it honestly or make it not say that.
 
+#### P0 stream — closed 2026-09-22 (`elastic-v4/p0-render-proof`)
+
+Five of the six bullets above are done. They are left in place rather than
+deleted: P1 and P2 are editing this file at the same time, and reflowing a list
+they are also touching turns a clean merge into a conflict. **Keys are not
+migrated** is the one still open, and it is P1's.
+
+- **The photograph is provable.** `PhotoRenderProofTests` fails if it stops
+  rendering, comes out blank, or comes out the wrong way up, without needing a
+  view at all. `PhotoPresentProof.positioned` now owns the aspect-fit/zoom/pan
+  transform and `DevelopMetalView` calls it, so the proof measures the drawable's
+  real geometry; `probe` renders to a bitmap through the drawable's own
+  `isFlipped` destination. Both negative controls were run.
+- **The flip is found and fixed — and it was never in `OrientedDisplayImage`.**
+  `PreviewExtractor.extract` falls back to `exiftool -b -PreviewImage` when
+  ImageIO cannot thumbnail a RAW, and wrote that embedded preview verbatim:
+  sensor space, no orientation tag of its own, so nothing downstream could
+  recover it. Seven of twenty-one frames in `card-elastic-v4` come out sideways
+  that way. `OrientedDisplayImage.uprightPreview` now bakes the source's
+  orientation in, and `DevelopRenderGraph` runs proxy-derived images through
+  `aligning` so a catalog that already holds a sideways proxy heals on read.
+- **That path was also deadlocked.** `ExifToolService.runData` waited for the
+  process to exit before draining its pipe, so any output past a pipe buffer hung
+  forever — an embedded preview is ~600 KB. The same call backs
+  `batchCaptureDates` with `-json`, which passes a pipe buffer at a few hundred
+  frames, so this was a live hang on import. Read-then-wait now, and stderr goes
+  to `nullDevice` rather than into a buffer nothing reads.
+- **`ElasticWrapLayout` measures each group once per pass**, not three times.
+  Not the constant the bullet above assumes: a collapsed stack is `tile` plus
+  `stackPadding` and an open burst is `frameCount × tileInOpenBurst` plus gaps, so
+  a constant would misplace two of the three shapes. Table captures before and
+  after are byte-identical.
+- **The version column stops implying a difference.** Only `shot` shows pixels,
+  because the browse thumbnail is the camera's own rendering and depicts that
+  version and no other. Rendering `auto` and `yours` through the interactive tier
+  stays P2's, and a `// TODO(P2):` marks where it plugs in.
+- **`previews 0/N` is warm-up, measured, not a miss.** Cold open of a 27-frame
+  card: sheet at 10 ms with nothing extracted, 16/27 at 381 ms, 27/27 at 500 ms.
+  The count was always truthful; the copy was not, because `0/N` reads as a stall
+  at the moment the sheet appears. It now says `previews…` until there is a count,
+  matching `dates…` on the same line.
+
+**The flip had a second, larger cause, found after the above and fixed here.**
+Every photograph was upside down on the **interactive** tier — the first pixels a
+reader sees on open — and righted itself only when the settled render replaced it.
+`PreparedRawSession.materializeInteractiveStage` renders the RAW graph into an
+`MTLTexture` with `destination.isFlipped = true`, on the assumption that
+`CIImage(mtlTexture:)` flips back; it does not, so the photograph was stored
+inverted and handed back inverted. Measured on five frames: interactive disagreed
+with ImageIO's preview about which half is the top, settled agreed. Thumbnails
+never pass through this tier, which is why every visual pass missed it and why the
+version column looked right beside an upside-down photograph. Repro came from the
+P1 session (LUM0012 in a set walk). `testEveryTierPresentsTheSameWayUp` pins it.
+That file is P2's by the ownership table; this is one line and its comment inside
+`materializeInteractiveStage`, and P2 was told directly.
+
+Two corrections to what is written above and in the P0 prompt:
+
+1. `TEST_RUNNER_LUMINA_RAW_DIR=` does **not** reach a hosted logic test, and
+   neither does a plain `LUMINA_RAW_DIR=` argument — both measured. The host app
+   is launched with a scrubbed environment, so only a scheme or test plan can set
+   it. Fixture-gated tests added here resolve their folder from disk instead.
+2. The fixture card has orientations 1, 6 and 8 only (14 / 6 / 7 frames). There is
+   no 2/3/4 frame and no square frame in it, so the P3 orientation hole still has
+   no fixture.
+
 ### P1 — the grammar the design specifies
 
 - Checkpoint 04: hold-`⇥` cycling related → set → flags, and hold-`␣` before.

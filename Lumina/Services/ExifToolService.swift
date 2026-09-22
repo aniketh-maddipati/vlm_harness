@@ -86,10 +86,16 @@ nonisolated enum ExifToolService {
         process.arguments = arguments
         let pipe = Pipe()
         process.standardOutput = pipe
-        process.standardError = Pipe()
+        // An unread pipe fills and blocks the writer, so stderr goes nowhere
+        // rather than into a buffer nothing drains.
+        process.standardError = FileHandle.nullDevice
         try process.run()
-        process.waitUntilExit()
+        // Read before waiting. The other order deadlocks the moment exiftool
+        // writes more than a pipe buffer — which an embedded preview always does,
+        // and a `-json` listing of a few hundred frames does too. Waiting first
+        // meant this call hung forever instead of returning a photograph.
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
         guard process.terminationStatus == 0 else {
             throw ExifToolError.commandFailed(arguments.joined(separator: " "))
         }
