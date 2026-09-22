@@ -203,7 +203,7 @@ but what was measured, on what card, warm or cold. Commit with
 
 - [x] 1. A scroll-latency measurement exists and is recorded, before any change
 - [x] 2. Nothing on the scroll path decodes synchronously
-- [ ] 3. Guaranteed-resident floor tier, with an explicit cap and eviction by distance
+- [x] 3. Guaranteed-resident floor tier, with an explicit cap and eviction by distance
 - [ ] 4. Prefetch by scroll velocity; cancel behind
 - [ ] 5. Superseded requests dropped rather than queued
 - [ ] 6. Re-measure; before/after recorded in `docs/ELASTIC_PLAN.md`
@@ -259,3 +259,14 @@ wrong._
   per layout (called from P1's `ElasticTableView`; not in the profile after
   the chapters fix, so not touched), and the flick's ~9 ms tick p95 is row
   wrap-layout, P0's item. Next: item 3, the floor tier.
+- 2026-09-22 · item 3 **done** · `Tier.floor` (256 px) in its own store in
+  `BrowsePixelService`, warmed nearest-first, evicted by distance, cap 64 MB
+  by bytes with the reasoning in `PhotoImageCacheBudget.floorCeilingBytes`
+  and the plan. Order comes from `ElasticScrollTracker.shootChanged`, called
+  once per event from `P0SessionModel.apply` — **not** from `assets.didSet`,
+  which fires per element write; a hook there made the reopen quadratic and
+  starved the main thread (the profile is in the plan). Runner counts soft
+  (floor) tiles apart from wells and waits out the dates replay a reopen
+  runs. Result: 0 wells on every pass; 369/403 resident at 63.9 MB. Next:
+  item 4 — the tracker already has the order and the centre; add velocity
+  and drive `BrowsePixelService.prefetch` two screens ahead, cancel behind.

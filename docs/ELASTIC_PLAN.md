@@ -427,6 +427,51 @@ new row's wrap layout, which is P0's `ElasticWrapLayout` item, not this one.
 Nothing on the scroll path decodes synchronously: the only sync work reached
 from a tile's body is a lock-guarded dictionary read.
 
+**Floor tier (item 3).** `BrowsePixelService.Tier.floor` is a 256 px entry
+(`PhotoImageTier.floorLongEdge`) in its own store, outside the LRU. It is
+warmed nearest-first from the viewport the moment the shoot's order is known
+(`ElasticScrollTracker.shootChanged`, fed once per preparation event from
+`P0SessionModel.apply`), two decodes in flight, and evicted by distance from
+the viewport centre — never by recency, so a flick to the far end cannot push
+out what the reader is about to scroll back to. The centre is the median index
+of the realized plates and moves on every appearance.
+
+Cap: **64 MB** (`PhotoImageCacheBudget.floorCeilingBytes`), by bytes rather
+than count so squares and mixed aspects stay bounded. A 256 px 3:2 frame is
+~175 KB, a square ~262 KB, so the budget holds at least 256 frames and about
+380 at 3:2 — six to nine screens either side of the viewport at 1280×800,
+past the two screens the velocity prefetch looks ahead. A 94-frame shoot fits
+whole (~16 MB); a 2000-frame shoot is a sliding window. On the 403-frame card
+369 frames are resident at 63.9 MB, warm 1.5 s after mount. Under memory
+pressure the floor halves by distance rather than dropping.
+
+A tile draws grid, else floor, else the well; a floor draw is *soft* and the
+grid tier is still requested. The runner now counts soft tiles separately from
+wells:
+
+| pass | steps | tick p95 | tick p99 | well ticks | well tiles | soft (floor) tiles | decodes in pass |
+|---|---|---|---|---|---|---|---|
+| glide | 498 | 1.18 ms | 9.95 ms | **0**/498 | **0**/11839 | 91 | 91 |
+| flick | 85 | 11.3 ms | 13.8 ms | **0**/85 | **0**/2372 | 148 | 144 |
+| return | 184 | 9.45 ms | 10.4 ms | 0/184 | 0/4941 | 0 | 0 |
+
+(Two runs of this build agree on the wells — 0 — and put glide tick p95 at
+0.82 and 1.18 ms, flick at 9.9 and 11.3 ms; the numbers above are the later
+run, the one that also carries the nearest-K floor.)
+
+No well on any pass. Every tile that would have been a well is now a soft
+draw of the same photograph, sharpened when the grid tier lands. The
+remaining numbers to move are the soft count on a flick (items 4 and 5: those
+grid decodes should have been issued ahead of the cursor) and the flick's
+~9–10 ms tick p95, which is row wrap-layout (P0).
+
+Two things the measurement itself taught: the session's `assets.didSet`
+fires once per *element* write, so anything there must be O(1) — a hook that
+recomputed the path list per element made the reopen's preview merge
+quadratic and starved the main thread; and a warm reopen replays the dates
+phase and then replaces `assets` wholesale, so the runner now waits for that
+phase to have been seen and the status to hold still before measuring.
+
 ### P3 — hardening
 
 - `[edge]` Orientation 2/3/4 and square images — latent, now guarded by

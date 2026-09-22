@@ -88,6 +88,8 @@ final class P0SessionModel {
     var shoot: ShootRecord?
     var assets: [AssetRecord] = [] {
         didSet {
+            // Element writes (`assets[i].cull = …`) fire this once per element,
+            // so it must stay O(1): invalidate, never recompute, here.
             assetIndexCache = nil
             chaptersCache = nil
             chapterIDByAssetCache = nil
@@ -1784,6 +1786,7 @@ final class P0SessionModel {
     }
 
     private func apply(_ event: ContactSheetEvent) {
+        defer { publishScrollOrder() }
         switch event {
         case .opened(let shoot, let status):
             self.shoot = shoot
@@ -1827,6 +1830,14 @@ final class P0SessionModel {
             userFacingError = message
             status.phaseDetail = message
         }
+    }
+
+    /// Scroll order for the floor tier and the prefetcher: once per
+    /// preparation event, never per element. Equal order is a no-op inside.
+    private func publishScrollOrder() {
+        ElasticScrollTracker.shared.shootChanged(
+            paths: assets.compactMap { $0.gridThumbPath ?? $0.thumbPath }
+        )
     }
 
     private func mergeAssets(_ incoming: [AssetRecord]) {

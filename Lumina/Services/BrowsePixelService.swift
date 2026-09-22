@@ -13,11 +13,15 @@ actor BrowsePixelService {
     nonisolated enum Tier: Int, Sendable {
         case grid = 0
         case focused = 1
+        /// Guaranteed-resident small entry for every frame the viewport can
+        /// reach; a tile draws it when the grid tier has not landed.
+        case floor = 2
 
         var maxPixelSize: Int {
             switch self {
             case .grid: PhotoImageTier.gridMaxPixelSize
             case .focused: PhotoImageTier.focusedPreviewLongEdge
+            case .floor: PhotoImageTier.floorLongEdge
             }
         }
     }
@@ -49,6 +53,10 @@ actor BrowsePixelService {
         let inflightCount: Int
         let cacheHits: Int
         let cacheMisses: Int
+        let floorResidentCount: Int
+        let floorBytes: Int
+        let floorQueued: Int
+        let floorEvicted: Int
     }
 
     nonisolated private struct Key: Hashable, Sendable {
@@ -100,6 +108,30 @@ actor BrowsePixelService {
     private var pinnedPaths: Set<String> = []
     private var cacheHits = 0
     private var cacheMisses = 0
+
+    // MARK: Floor tier
+    //
+    // Its own store, outside the LRU: the floor is evicted by distance from the
+    // viewport, never by how recently a tile drew it, so a flick to the far end
+    // of the shoot cannot push out what the reader is about to scroll back to.
+
+    private let floorBudgetBytes: Int
+    private var floorPixels: [String: Pixel] = [:]
+    private var floorBytes = 0
+    private var floorEvicted = 0
+    /// Shoot order by path — the distance metric.
+    private var scrollIndex: [String: Int] = [:]
+    private var scrollPaths: [String] = []
+    private var viewportCenter = 0
+    /// Paths waiting for a floor decode, nearest first. Re-sorted whenever the
+    /// centre moves, so a stale far-away request is never ahead of a near one.
+    private var floorQueue: [String] = []
+    private var floorInflight: Set<String> = []
+    private var floorGeneration: UInt64 = 0
+
+    init(floorBudgetBytes: Int = PhotoImageCacheBudget.floorCeilingBytes) {
+        self.floorBudgetBytes = floorBudgetBytes
+    }
 
     nonisolated private static let rawExtensions: Set<String> = [
         "ARW", "CR2", "CR3", "NEF", "RAF", "DNG", "ORF", "RW2", "PEF", "SRW", "3FR", "IIQ",
@@ -218,7 +250,115 @@ actor BrowsePixelService {
         for key in order where !pinnedPaths.contains(key.path) {
             remove(key)
         }
+        // The floor is what keeps scroll honest under pressure; halve it by
+        // distance rather than drop it.
+        evictFloor(toBytes: floorBudgetBytes / 2)
     }
+
+    // MARK: - Floor tier
+
+    /// The shoot in scroll order. Distances are measured along it. Paths not
+    /// in the new order lose their floor entry; the queue is rebuilt from the
+    /// current centre.
+    func setScrollOrder(paths: [String]) {
+        guard paths != scrollPaths else { return }
+        scrollPaths = paths
+        var index: [String: Int] = [:]
+        for (offset, path) in paths.enumerated() where index[path] == nil {
+            index[path] = offset
+        }
+        scrollIndex = index
+        for path in floorPixels.keys where index[path] == nil {
+            removeFloor(path)
+        }
+        floorGeneration &+= 1
+        rebuildFloorQueue()
+        pumpFloor()
+    }
+
+    /// Where the viewport is, as an index into the scroll order. Cheap enough
+    /// to call on every appearance; the queue is re-sorted only when it moves.
+    func setViewportCenter(index: Int) {
+        guard index != viewportCenter else { return }
+        viewportCenter = index
+        rebuildFloorQueue()
+        evictFloor(toBytes: floorBudgetBytes)
+        pumpFloor()
+    }
+
+    private func distance(_ path: String) -> Int {
+        guard let index = scrollIndex[path] else { return .max }
+        return abs(index - viewportCenter)
+    }
+
+    /// The floor is the nearest K frames, K being what the budget holds at the
+    /// size entries have actually turned out to be (a 3:2 estimate until one
+    /// has landed). Residents outside that set are evicted here, before the
+    /// budget forces it, so the floor is always the nearest frames and never
+    /// "the nearest plus whatever happened to fit".
+    private func rebuildFloorQueue() {
+        let estimate = PhotoImageTier.floorLongEdge * (PhotoImageTier.floorLongEdge * 2 / 3) * 4
+        let perEntry = floorPixels.isEmpty ? estimate : max(1, floorBytes / floorPixels.count)
+        let wantedCount = max(1, floorBudgetBytes / perEntry)
+        let wanted = scrollPaths.sorted { distance($0) < distance($1) }.prefix(wantedCount)
+        let wantedSet = Set(wanted)
+        for path in floorPixels.keys where !wantedSet.contains(path) {
+            removeFloor(path)
+            floorEvicted += 1
+        }
+        floorQueue = wanted.filter { floorPixels[$0] == nil && !floorInflight.contains($0) }
+    }
+
+    private func pumpFloor() {
+        while floorInflight.count < PhotoImageCacheBudget.floorDecodeWidth, !floorQueue.isEmpty {
+            let path = floorQueue.removeFirst()
+            floorInflight.insert(path)
+            let generation = floorGeneration
+            let size = Tier.floor.maxPixelSize
+            Task.detached(priority: .utility) { [weak self] in
+                let decoded = Self.decode(path: path, maxPixelSize: size)
+                await self?.floorDecodeFinished(path: path, pixel: decoded, generation: generation)
+            }
+        }
+    }
+
+    private func floorDecodeFinished(path: String, pixel: Pixel?, generation: UInt64) {
+        floorInflight.remove(path)
+        defer { pumpFloor() }
+        guard generation == floorGeneration, let pixel, scrollIndex[path] != nil else { return }
+        storeFloor(pixel, for: path)
+        LatencyMetrics.record("browse.floor.decode_ms", milliseconds: pixel.decodeMs)
+    }
+
+    private func storeFloor(_ pixel: Pixel, for path: String) {
+        if let previous = floorPixels[path] {
+            floorBytes -= previous.byteEstimate
+        }
+        floorPixels[path] = pixel
+        floorBytes += pixel.byteEstimate
+        residentIndex.set(pixel, for: Key(path: path, maxPixelSize: Tier.floor.maxPixelSize))
+        evictFloor(toBytes: floorBudgetBytes)
+    }
+
+    /// Farthest from the viewport goes first. The entry just stored can be the
+    /// one evicted, if it is the farthest — that is the contract, not a bug.
+    private func evictFloor(toBytes budget: Int) {
+        while floorBytes > budget,
+              let farthest = floorPixels.keys.max(by: { distance($0) < distance($1) }) {
+            removeFloor(farthest)
+            floorEvicted += 1
+        }
+    }
+
+    private func removeFloor(_ path: String) {
+        if let removed = floorPixels.removeValue(forKey: path) {
+            floorBytes -= removed.byteEstimate
+            residentIndex.set(nil, for: Key(path: path, maxPixelSize: Tier.floor.maxPixelSize))
+        }
+    }
+
+    /// Test seam: the floor's resident paths.
+    func floorResidentPaths() -> Set<String> { Set(floorPixels.keys) }
 
     func removeAll() {
         epoch &+= 1
@@ -228,6 +368,12 @@ actor BrowsePixelService {
         order.removeAll()
         pinnedPaths.removeAll()
         residentBytes = 0
+        floorGeneration &+= 1
+        floorQueue.removeAll()
+        floorPixels.removeAll()
+        floorBytes = 0
+        scrollPaths.removeAll()
+        scrollIndex.removeAll()
         residentIndex.removeAll()
     }
 
@@ -237,7 +383,11 @@ actor BrowsePixelService {
             residentCount: pixels.count,
             inflightCount: inflight.count,
             cacheHits: cacheHits,
-            cacheMisses: cacheMisses
+            cacheMisses: cacheMisses,
+            floorResidentCount: floorPixels.count,
+            floorBytes: floorBytes,
+            floorQueued: floorQueue.count + floorInflight.count,
+            floorEvicted: floorEvicted
         )
     }
 

@@ -14,6 +14,8 @@ struct ChapterPlateImage: View {
 
     var body: some View {
         let image = resident
+        let gridResident = (loaded?.path == path)
+            || BrowsePixelService.shared.isResident(path: path, tier: .grid)
         ZStack {
             LuminaTokens.Surface.well
             if let image {
@@ -26,7 +28,8 @@ struct ChapterPlateImage: View {
         }
         .clipped()
         .task(id: path) {
-            guard image == nil else { return }
+            // A floor draw is soft: the grid tier is still asked for.
+            guard !gridResident else { return }
             if let fetched = await BrowsePixelService.shared.image(path: path, tier: .grid) {
                 loaded = (path, fetched)
             }
@@ -38,10 +41,12 @@ struct ChapterPlateImage: View {
         .onChange(of: path) { old, new in scrollTracker?.plateChanged(from: old, to: new) }
     }
 
-    /// Resident pixels for this path, from the cache mirror or from the last
-    /// completed miss — whichever answers without waiting.
+    /// Resident pixels for this path, without waiting: the last completed
+    /// miss, the grid tier, then the floor. A floor draw is soft, not empty.
     private var resident: NSImage? {
         if let loaded, loaded.path == path { return loaded.image }
-        return BrowsePixelService.shared.residentPixel(path: path, tier: .grid)?.nsImage
+        let service = BrowsePixelService.shared
+        return service.residentPixel(path: path, tier: .grid)?.nsImage
+            ?? service.residentPixel(path: path, tier: .floor)?.nsImage
     }
 }

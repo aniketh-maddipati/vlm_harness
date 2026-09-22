@@ -143,14 +143,37 @@ enum P0ScrollLiveRunner {
 
         // Cold or warm is a fact about this run, not a setting: watch for the
         // extraction phase rather than trusting the second open to be warm.
+        //
+        // A reopen replays the dates phase and then replaces `assets` wholesale,
+        // which rebuilds the whole table. Measuring through that would charge
+        // the open to scroll, so readiness also waits for that phase to have
+        // been seen and for the status to hold still afterwards.
         let openedAt = CFAbsoluteTimeGetCurrent()
         var sawExtraction = false
+        var sawDates = false
+        var lastStatus = session.status
+        var stableSince = CFAbsoluteTimeGetCurrent()
         let ready = await waitUntil(timeout: 600) {
-            if session.status.isPreparingPreviews { sawExtraction = true }
+            // A reopen also runs the preview phase, to fill what is missing;
+            // cold means it actually had frames without a preview.
+            if session.status.isPreparingPreviews,
+               session.status.previewReadyCount < session.status.assetCount {
+                sawExtraction = true
+            }
+            if session.status.isPreparingMetadata { sawDates = true }
+            if session.status != lastStatus {
+                lastStatus = session.status
+                stableSince = CFAbsoluteTimeGetCurrent()
+            }
+            let settled = CFAbsoluteTimeGetCurrent() - stableSince >= 1.5
+            let datesDone = sawDates || CFAbsoluteTimeGetCurrent() - openedAt > 20
             return session.assets.count >= 8
                 && !session.status.isPreparingPreviews
                 && !session.status.isPreparingMetadata
+                && datesDone
+                && settled
         }
+        report["sawDatesPhase"] = sawDates
         let assetCount = session.assets.count
         report["assetCount"] = assetCount
         report["statusLine"] = session.preparationLine
@@ -196,6 +219,30 @@ enum P0ScrollLiveRunner {
         // Let the first rows realize and their covers land before measuring,
         // so the glide is judged on scrolling rather than on opening.
         await wait(1.5)
+        // The floor warms nearest-first from the moment the shoot opens; a
+        // reader who opens and scrolls at once meets it part-way. Wait for it
+        // here, and say how long it took, so the passes measure scroll rather
+        // than the warm — the cold case is the number below, not a guess.
+        let floorWarmStart = CFAbsoluteTimeGetCurrent()
+        var floorQueued = await BrowsePixelService.shared.diagnostics().floorQueued
+        while floorQueued > 0, CFAbsoluteTimeGetCurrent() - floorWarmStart < 15 {
+            await wait(0.1)
+            floorQueued = await BrowsePixelService.shared.diagnostics().floorQueued
+        }
+        let floorDiagnostics = await BrowsePixelService.shared.diagnostics()
+        report["floor"] = [
+            "residentCount": floorDiagnostics.floorResidentCount,
+            "bytes": floorDiagnostics.floorBytes,
+            "queuedAtStart": floorQueued,
+            "warmSecondsAfterMount": CFAbsoluteTimeGetCurrent() - floorWarmStart + 1.5,
+            "budgetBytes": PhotoImageCacheBudget.floorCeilingBytes,
+        ]
+        note(
+            "Floor tier warm before the passes",
+            floorQueued == 0,
+            String(format: "%d resident · %.1f MB · %.1fs after mount", floorDiagnostics.floorResidentCount,
+                   Double(floorDiagnostics.floorBytes) / 1_048_576, CFAbsoluteTimeGetCurrent() - floorWarmStart + 1.5)
+        )
 
         // A tall table lays out lazily; give the document up to ten seconds to
         // grow past the viewport before deciding there is nothing to scroll.
@@ -259,10 +306,10 @@ enum P0ScrollLiveRunner {
                 "\(pass.name): no well while scrolling",
                 !result.blankSeen,
                 String(
-                    format: "%.1fs · tick p95=%.2fms p99=%.2fms · wells %d/%d ticks · %d tiles of %d sampled · decodes %d",
+                    format: "%.1fs · tick p95=%.2fms p99=%.2fms · wells %d/%d ticks · %d tiles of %d sampled · soft (floor) %d tiles · decodes %d",
                     result.durationSec, result.tickP95, result.tickP99,
                     result.wellTicks, result.ticks, result.wellTiles, result.tilesSampled,
-                    result.decodes
+                    result.softTiles, result.decodes
                 )
             )
             note(
@@ -309,6 +356,7 @@ enum P0ScrollLiveRunner {
         let tickP99: Double
         let wellTicks: Int
         let wellTiles: Int
+        let softTiles: Int
         let tilesSampled: Int
         let decodes: Int
     }
@@ -347,6 +395,8 @@ enum P0ScrollLiveRunner {
         var ticks = 0
         var wellTicks = 0
         var wellTiles = 0
+        var softTicks = 0
+        var softTiles = 0
         var tilesSampled = 0
         var maxTickMs = 0.0
         let started = CFAbsoluteTimeGetCurrent()
@@ -370,10 +420,17 @@ enum P0ScrollLiveRunner {
 
             let visible = tracker.visiblePaths
             var missing = 0
+            var soft = 0
             for path in visible where !BrowsePixelService.shared.isResident(path: path, tier: .grid) {
-                missing += 1
+                if BrowsePixelService.shared.isResident(path: path, tier: .floor) {
+                    soft += 1
+                } else {
+                    missing += 1
+                }
             }
             tilesSampled += visible.count
+            softTiles += soft
+            if soft > 0 { softTicks += 1 }
             if missing > 0 {
                 wellTicks += 1
                 wellTiles += missing
@@ -411,6 +468,9 @@ enum P0ScrollLiveRunner {
             "wellTiles": wellTiles,
             "tilesSampled": tilesSampled,
             "wellTileFraction": tilesSampled > 0 ? Double(wellTiles) / Double(tilesSampled) : 0,
+            "softTicks": softTicks,
+            "softTiles": softTiles,
+            "floorEvictedDuringPass": diagnosticsEnd.floorEvicted - diagnosticsStart.floorEvicted,
             "decodes": decodes,
             "cacheHits": diagnosticsEnd.cacheHits - diagnosticsStart.cacheHits,
             "cacheMisses": diagnosticsEnd.cacheMisses - diagnosticsStart.cacheMisses,
@@ -437,6 +497,7 @@ enum P0ScrollLiveRunner {
             tickP99: tickP99,
             wellTicks: wellTicks,
             wellTiles: wellTiles,
+            softTiles: softTiles,
             tilesSampled: tilesSampled,
             decodes: decodes
         )
