@@ -215,7 +215,7 @@ One commit per checkpoint is fine; end each message with
 - [x] 6. Set shelf is a drop target
 - [x] 7. `⇧`-click range, `⌘`-click toggle; the `P0_CULLING.md` ruling closed
 - [x] 8. Develop drawer on `E`, with sliders, ratios, `R` rotate, straighten, profile
-- [ ] 9. Version column hides while the drawer or a hold is active
+- [x] 9. Version column hides while the drawer or a hold is active
 - [ ] 10. `docs/ELASTIC_PLAN.md` P1 section updated, gate green
 - [ ] 11. Stress pass (asked for 2026-09-22): every landed item driven in the live
   Debug app by real key events, with a guard that aborts unless Lumina is verified
@@ -357,3 +357,15 @@ the next pass needs to know — especially anything here that turned out to be w
   blank canvas`, `Rapid Exposure scrub without blank canvas`) that passed on the item‑1
   run — a baseline build of a4792c5 is running in `~/lumina-wt/p1-baseline` to settle
   whether they are mine; see the next line. Gate: 334 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · baseline · a4792c5 built in `~/lumina-wt/p1-baseline` and run through the
+  same `--p0-edit-live` on the same card minutes apart: baseline 27 pass / 4 fail, branch
+  29 pass / 4 fail. `RAW preview presents without blank canvas` fails on **both**;
+  `Rapid Exposure scrub` fails only on the branch while `Progressive fidelity is
+  monotonic` fails only on baseline — they trade places run to run under this load
+  (three foreign Lumina processes up). `Quality promotion keeps geometry stable` and
+  `drawable target` fail on both. Nothing here is P1's. Worktree removed afterwards.
+- 2026-09-22 · item 9 · `versionColumnVisible = !developDrawerOpen && peek == nil` on
+  the session; `ElasticFocusView` drops the column on it, so P0's
+  `ElasticVersionColumn.swift` is untouched. Before is not a hold in the prototype's
+  `variantsCol` sense, so the versions stay while ␣ is down. Gate: 335 / 2 skipped,
+  FAST 41/41.

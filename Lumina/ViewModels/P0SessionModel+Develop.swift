@@ -130,6 +130,12 @@ nonisolated enum ElasticCropRatio: String, CaseIterable, Sendable {
 
 @MainActor
 extension P0SessionModel {
+    /// `variantsCol: s.develop || s.hold ? 'none' : 'flex'` — the three versions step
+    /// aside while the drawer is open or a peek is held.
+    var versionColumnVisible: Bool {
+        !developDrawerOpen && peek == nil
+    }
+
     /// `crs:CameraProfile` values the drawer offers, the prototype's four.
     static let cameraProfiles = ["Camera Standard", "Camera Neutral", "Camera Portrait", "Adobe Color"]
 

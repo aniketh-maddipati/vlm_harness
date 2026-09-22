@@ -65,7 +65,10 @@ struct ElasticFocusView: View {
                     ElasticDevelopDrawer(session: session, asset: asset)
                         .elasticBorn(ElasticLayout.bornDrawerMs)
                 }
-                ElasticVersionColumn(session: session, asset: asset)
+                // `variantsCol: none` while developing or holding.
+                if session.versionColumnVisible {
+                    ElasticVersionColumn(session: session, asset: asset)
+                }
             }
             .opacity(showingRelated ? 0 : 1)
             .allowsHitTesting(!showingRelated)

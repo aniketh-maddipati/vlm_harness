@@ -36,6 +36,23 @@ final class ElasticDevelopTests: XCTestCase {
         return (session, ids)
     }
 
+    func testVersionColumnHidesWhileTheDrawerOrAHoldIsUp() {
+        let (session, _) = seeded()
+        XCTAssertTrue(session.versionColumnVisible)
+        session.toggleDevelopDrawer()
+        XCTAssertFalse(session.versionColumnVisible, "drawer")
+        session.toggleDevelopDrawer()
+        XCTAssertTrue(session.versionColumnVisible)
+        session.openPeek(.related)
+        XCTAssertFalse(session.versionColumnVisible, "held peek")
+        session.cyclePeek(by: 1)
+        XCTAssertFalse(session.versionColumnVisible, "any peek")
+        session.closePeek()
+        XCTAssertTrue(session.versionColumnVisible)
+        session.setShowingBefore(true)
+        XCTAssertTrue(session.versionColumnVisible, "before is not a hold in the prototype's sense — the versions stay")
+    }
+
     func testEOpensTheDrawerOnlyInFocus() {
         let (session, _) = seeded()
         session.route = .time
