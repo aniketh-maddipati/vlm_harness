@@ -254,3 +254,8 @@ pass needs to know — especially anything here that turned out to be wrong._
   `ELASTIC_PLAN.md` keeps both appends with zero deleted lines (P0's block at the old
   line 304, P2's at 393). Both session-model files auto-merge with every P1 and P2 hunk
   line present and no line from neither.
+- 2026-09-22 · item 3 · P1 `84aa136` merged as `7f3a659` (item 2 was `e3eccdc`). No
+  conflicts. Gate: **343 / 2 skipped / 0 failures · FAST 41/41 · xcode_compile OK** —
+  285 base + 19 (P0) + 39 (P1), and P1's own last number was 324 = 285 + 39, so nothing
+  was lost or double-counted. Tokens hash on the tree is now `de232d00…` with its golden
+  directory present; `spring_physics_f07` passed without re-approval.
