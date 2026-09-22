@@ -230,7 +230,7 @@ anything you learned that contradicts what is written there. Commit with
 - [x] 4. `ElasticWrapLayout` returns known tile sizes instead of asking every subview twice per pass
 - [x] 5. Version thumbnails render through the interactive tier, or the column stops implying a difference
 - [x] 6. Cold-catalog `previews 0/N` — decided and either surfaced honestly or fixed
-- [ ] 7. `docs/ELASTIC_PLAN.md` P0 section updated, gate green
+- [x] 7. `docs/ELASTIC_PLAN.md` P0 section updated, gate green
 
 ## Progress
 
@@ -360,6 +360,22 @@ the next pass needs to know — especially anything here that turned out to be w
   `Lumina/Services/ContactSheetPreparation.swift`, which no stream owns.
   The copy-contract lint covers `Lumina/Design/CopyContract.swift` only, so this
   string is not contract-pinned; the fast lane is green either way.
+- 2026-09-22 · item 7 · `ELASTIC_PLAN.md` gets a **`#### P0 stream — closed`**
+  block appended inside the P0 section. The finished bullets are left where they
+  are rather than moved out: P1 and P2 are editing this file at the same time and
+  reflowing a list they also touch is how a clean merge becomes a conflict. The
+  diff is 52 insertions, 0 deletions. **Keys are not migrated** is the one P0
+  bullet still open, and it belongs to P1.
+  Final gate: **303 logic tests, 2 skipped, 0 failures · fast lane 41/41.**
+  Live capture, same fixture card, same default settings, measured both ways:
+  **base `a4792c5` 27/31 · this branch 29/31.** The two checks that flipped to
+  passing are "RAW preview presents without blank canvas" and "Progressive
+  fidelity is monotonic", and the authoritative long edge went 1658 → 2212 of
+  2560 — all consistent with preview extraction no longer deadlocking. The two
+  that still fail, "Quality promotion keeps geometry stable" and "Authoritative
+  preview reaches drawable target", fail on the base commit too.
+  Note the prompt's 29/31 baseline was measured on a different shoot; on this card
+  the base is 27/31, so compare within a card, not across.
   **Still open for the user:** whether this is the flip they saw. If their frames
   are Sony and ImageIO decodes them, something else is also wrong — the question
   to ask is which frame, and whether it flips on open, on scroll, or at the moment
