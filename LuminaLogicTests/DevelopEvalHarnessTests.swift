@@ -547,6 +547,26 @@ final class DevelopEvalHarnessTests: XCTestCase {
         CGImageDestinationFinalize(destination)
     }
 
+    // MARK: - Journal
+
+    private static func readJournal(_ url: URL) -> [[String: Any]] {
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        return text.split(separator: "\n").compactMap { line in
+            (try? JSONSerialization.jsonObject(with: Data(line.utf8))) as? [String: Any]
+        }
+    }
+
+    private static func appendJournal(_ row: [String: Any], to url: URL) {
+        guard let data = try? JSONSerialization.data(withJSONObject: row, options: [.sortedKeys]) else { return }
+        if let handle = try? FileHandle(forWritingTo: url) {
+            defer { try? handle.close() }
+            _ = try? handle.seekToEnd()
+            try? handle.write(contentsOf: data + Data("\n".utf8))
+        } else {
+            try? (data + Data("\n".utf8)).write(to: url, options: .atomic)
+        }
+    }
+
     // MARK: - Recipes
 
     private static func recipeJSON(_ recipe: EditRecipe) -> [String: Any] {
@@ -624,12 +644,24 @@ final class DevelopEvalHarnessTests: XCTestCase {
         }
 
         let modelClient = ChatCompletionsClient(endpoint: .localVision)
-        var results: [[String: Any]] = []
         var modelFallbacks = 0
         var lastFallback: String?
         let runStart = CFAbsoluteTimeGetCurrent()
 
+        // Resumable: every finished frame is appended to frames.jsonl as it completes, and
+        // a relaunch skips frames already there. The test host can be quit from outside
+        // (a sibling session's `pkill Lumina` ends it with code 0 mid-run); fourteen
+        // minutes of decodes should not be lost to that.
+        let journalURL = config.outDir.appendingPathComponent("frames.jsonl")
+        var results = Self.readJournal(journalURL)
+        let done = Set(results.compactMap { row -> String? in
+            guard let raw = row["raw"] as? String, let edit = row["edit"] as? String else { return nil }
+            return raw + "|" + edit
+        })
+        if !done.isEmpty { print("[eval] resuming: \(done.count) frames already in \(journalURL.lastPathComponent)") }
+
         for (index, frame) in frames.enumerated() {
+            if done.contains(frame.raw + "|" + frame.edit) { continue }
             let frameStart = CFAbsoluteTimeGetCurrent()
             let rawURL = config.rawDir.appendingPathComponent(frame.raw)
             let editURL = config.editDir.appendingPathComponent(frame.edit)
@@ -828,6 +860,7 @@ final class DevelopEvalHarnessTests: XCTestCase {
             row["arms"] = arms
             row["seconds"] = Self.round4(CFAbsoluteTimeGetCurrent() - frameStart)
             results.append(row)
+            Self.appendJournal(row, to: journalURL)
 
             func summary(_ name: String) -> String {
                 guard let pixel = arms[name]?["pixel"] as? [String: Any],
@@ -844,6 +877,10 @@ final class DevelopEvalHarnessTests: XCTestCase {
             )
         }
 
+        // Rows restored from the journal carry their own fallback field.
+        modelFallbacks = results.filter {
+            (($0["arms"] as? [String: Any])?["model"] as? [String: Any])?["source"] as? String == "auto"
+        }.count
         if config.liveModel, modelFallbacks == results.count {
             XCTFail("model arm requested but every frame fell back: \(lastFallback ?? "unknown")")
         }

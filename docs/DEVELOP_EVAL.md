@@ -58,6 +58,10 @@ python3 Scripts/harness/eval/report.py ~/Pictures/lumina-harness/eval-out/mehend
 ```
 
 `TEST_RUNNER_LUMINA_EVAL_LIMIT=3` makes a smoke run. About 7 s per frame with the model arm.
+Each finished frame is appended to `frames.jsonl` in the output folder and a relaunch skips
+what is already there, so a run that is killed part-way (the test host quits with code 0 when
+another session runs `pkill Lumina`) resumes instead of starting over. Delete the file for
+a fresh run.
 `TEST_RUNNER_LUMINA_EVAL_CONTACT_DIR=<folder>` additionally writes one JPEG per frame with the
 panels neutral · auto · model · oracle · hand edit, left to right — pixels, for the
 photographer's own review, in a folder outside the repo.

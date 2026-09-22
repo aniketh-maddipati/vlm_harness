@@ -141,23 +141,29 @@ def main() -> int:
         (args.dest / f"expert_{expert}").mkdir(parents=True, exist_ok=True)
 
     fetched = 0
+    failures: list[str] = []
     for index, name in enumerate(names, 1):
         stem = name[: -len(".dng")]
         dng = dng_dir / name
-        if not dng.exists():
-            fetch_to(f"{BASE}img/dng/{name}", dng)
-            fetched += 1
-        for expert in experts:
-            png = args.dest / f"expert_{expert}" / f"{stem}.png"
-            if png.exists():
-                continue
-            tiff = args.dest / f"expert_{expert}" / f"{stem}.tif"
-            fetch_to(f"{BASE}img/tiff16_{expert}/{stem}.tif", tiff)
-            try:
-                reduce_tiff(tiff, png)
-            finally:
-                tiff.unlink(missing_ok=True)
-            fetched += 1
+        try:
+            if not dng.exists():
+                fetch_to(f"{BASE}img/dng/{name}", dng)
+                fetched += 1
+            for expert in experts:
+                png = args.dest / f"expert_{expert}" / f"{stem}.png"
+                if png.exists():
+                    continue
+                tiff = args.dest / f"expert_{expert}" / f"{stem}.tif"
+                fetch_to(f"{BASE}img/tiff16_{expert}/{stem}.tif", tiff)
+                try:
+                    reduce_tiff(tiff, png)
+                finally:
+                    tiff.unlink(missing_ok=True)
+                fetched += 1
+        except Exception as exc:  # noqa: BLE001 — one bad file must not end the run
+            failures.append(f"{name}: {exc}")
+            print(f"[fivek] {index}/{len(names)} {name} FAILED — {exc}", flush=True)
+            continue
         print(f"[fivek] {index}/{len(names)} {name}", flush=True)
 
     (args.dest / "truth.json").write_text(
@@ -177,8 +183,12 @@ def main() -> int:
         }, indent=1),
         encoding="utf-8",
     )
-    print(f"fivek: done, {fetched} files fetched this run")
-    return 0
+    print(f"fivek: done, {fetched} files fetched this run, {len(failures)} failures")
+    for line in failures:
+        print("  " + line)
+    # truth.json lists every selected frame; a frame whose files are missing skips in
+    # the harness with a loud failure rather than a silent pass. Re-run to fill gaps.
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

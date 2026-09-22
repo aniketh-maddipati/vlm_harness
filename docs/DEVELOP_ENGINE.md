@@ -137,7 +137,7 @@ Branch `cursor/raw-perf-lr-handoff` (from `origin/cursor/ethereal-ui`). Hardware
 | Noise reduction | `CIRAWFilter.luminanceNoiseReductionAmount` when `isLuminanceNoiseReductionSupported`, else explicit **unsupported** (slider disabled) | Trusted / gated |
 | Sharpening | `CIRAWFilter.sharpnessAmount` when supported, else explicit unsupported | Trusted / gated |
 | Lens correction | Enabled when `isLensCorrectionSupported` | Trusted / gated |
-| Highlights / Shadows | `CIHighlightShadowAdjust`, scene-linear, documented approximation | Trusted (approximation, labeled) |
+| Highlights / Shadows | `CIHighlightShadowAdjust`, scene-linear, documented approximation. Shadows −100…100 → shadow amount −1…1; Highlights ≤ 0 (recovery) → highlight amount 1…0; **positive Highlights has no counterpart in this filter and does nothing** | Trusted (approximation, labeled; mapping re-measured 2026-09-22, `docs/DEVELOP_EVAL.md`) |
 | Contrast / Vibrance / Saturation | `CIColorControls` / `CIVibrance`, scene-linear | Trusted |
 | Crop / Straighten | Normalized geometry post-look | Trusted |
 | **Whites / Blacks / Texture / Clarity / Dehaze** | **Disabled — no honest algorithm. Not rendered, not exported, values migrate untouched, UI says so.** | Disabled |
@@ -255,5 +255,5 @@ variable into the test process.
 - Highlights/Shadows remain a labeled Core Image approximation, not crs-equivalent.
 - 61 MP gates: no 61 MP fixture available — reported as fixture-blocked, not fabricated.
 - Histogram reads the small settled bitmap (analysis path), so it updates on settle, not per scrub frame.
-- `AutoDevelop` coefficients are a first pass, unvalidated against real hand-edited sidecars. The L4 loop in `design_handoff_elastic_v4/LOOPS.md` is what tunes them; until it runs, auto is "deterministic and bounded", not "good".
+- `AutoDevelop` coefficients are a first pass. They are now *measured* against real hand edits (`docs/DEVELOP_EVAL.md`: run 1 had doing-nothing beating auto 2×, through a broken highlight/shadow mapping since fixed) but not yet tuned; the L4 loop in `design_handoff_elastic_v4/LOOPS.md` is what tunes them. Until it runs, auto is "deterministic and bounded", not "good".
 - Auto's horizon straighten is only as good as `VNDetectHorizonRequest`; frames with no detectable horizon get no straighten rather than a guess.

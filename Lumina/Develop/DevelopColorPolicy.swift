@@ -130,7 +130,7 @@ enum DevelopControlSupport: String, CaseIterable, Sendable {
         case .sharpening:
             return "RAW-domain capture sharpening via CIRAWFilter when supported; unsupported otherwise."
         case .highlights, .shadows:
-            return "CIHighlightShadowAdjust scene-linear approximation — not Lightroom Highlights/Shadows."
+            return "CIHighlightShadowAdjust scene-linear approximation — not Lightroom Highlights/Shadows; positive Highlights has no effect here."
         default:
             return nil
         }
