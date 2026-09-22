@@ -346,6 +346,20 @@ migrated** is the one still open, and it is P1's.
   at the moment the sheet appears. It now says `previews…` until there is a count,
   matching `dates…` on the same line.
 
+**The flip had a second, larger cause, found after the above and fixed here.**
+Every photograph was upside down on the **interactive** tier — the first pixels a
+reader sees on open — and righted itself only when the settled render replaced it.
+`PreparedRawSession.materializeInteractiveStage` renders the RAW graph into an
+`MTLTexture` with `destination.isFlipped = true`, on the assumption that
+`CIImage(mtlTexture:)` flips back; it does not, so the photograph was stored
+inverted and handed back inverted. Measured on five frames: interactive disagreed
+with ImageIO's preview about which half is the top, settled agreed. Thumbnails
+never pass through this tier, which is why every visual pass missed it and why the
+version column looked right beside an upside-down photograph. Repro came from the
+P1 session (LUM0012 in a set walk). `testEveryTierPresentsTheSameWayUp` pins it.
+That file is P2's by the ownership table; this is one line and its comment inside
+`materializeInteractiveStage`, and P2 was told directly.
+
 Two corrections to what is written above and in the P0 prompt:
 
 1. `TEST_RUNNER_LUMINA_RAW_DIR=` does **not** reach a hosted logic test, and

@@ -376,6 +376,27 @@ the next pass needs to know — especially anything here that turned out to be w
   preview reaches drawable target", fail on the base commit too.
   Note the prompt's 29/31 baseline was measured on a different shoot; on this card
   the base is 27/31, so compare within a card, not across.
+- 2026-09-22 · item 3, reopened and **actually fixed** · The P1 session handed over
+  a repro (LUM0012 inverted in the focus route, thumbnails upright) and it was a
+  different bug from the one item 3 fixed — a bigger one.
+  **Every frame was upside down on the interactive tier.** Measured with item 1's
+  probe against ImageIO's preview on five frames: interactive disagreed about
+  which half is the top on all five, settled agreed on all five. Cause, in
+  `PreparedRawSession.materializeInteractiveStage`: the RAW graph is evaluated into
+  an `MTLTexture` with `destination.isFlipped = true`, on a comment's claim that
+  `CIImage(mtlTexture:)` flips back. It does not — it reads the texture's rows as
+  Core Image's own bottom-up rows. One flip, not two. Now `false`.
+  That is the user's report exactly: the photograph is inverted the moment it
+  opens, and rights itself when the settled render lands, which reads as glitching
+  and flipping. The thumbnails were never affected because they never go through
+  this tier — which is why it survived every visual pass.
+  `testEveryTierPresentsTheSameWayUp` pins interactive and settled against ImageIO;
+  negative control run (restoring `true` fails it with the quadrants printed).
+  **Touches `Lumina/Develop/PreparedRawSession.swift`, which the table gives to
+  P2** — one line and its comment, inside `materializeInteractiveStage`. P2 was
+  told directly. Gate: 304 logic tests, 2 skipped, fast 41/41.
+  Item 1 paid for itself here: without a pixel probe this was invisible, and with
+  it the diagnosis took one measurement.
   **Still open for the user:** whether this is the flip they saw. If their frames
   are Sony and ImageIO decodes them, something else is also wrong — the question
   to ask is which frame, and whether it flips on open, on scroll, or at the moment

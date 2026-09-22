@@ -323,6 +323,56 @@ final class PhotoRenderProofTests: XCTestCase {
         )
     }
 
+    /// Every tier must present the photograph the same way up.
+    ///
+    /// This is the flip the user reported, and it was in neither of the places the
+    /// backlog looked. The interactive tier evaluates the RAW graph into an
+    /// `MTLTexture` and wraps it with `CIImage(mtlTexture:)`, which reads the
+    /// texture's rows as Core Image's own bottom-up rows. The render into that
+    /// texture was flipped on the assumption that the wrap would flip back, so
+    /// every frame arrived upside down the moment it was opened and righted itself
+    /// only when the settled render replaced it.
+    ///
+    /// Settled is the reference for what the frame should look like, and ImageIO's
+    /// own preview is the second opinion that keeps settled honest.
+    func testEveryTierPresentsTheSameWayUp() async throws {
+        guard let directory = rawFixtureDirectory() else {
+            throw XCTSkip("no RAW fixture folder")
+        }
+        let raws = try FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.fileSizeKey],
+            options: [.skipsHiddenFiles]
+        )
+        .filter { $0.pathExtension.uppercased() == "ARW" }
+        .filter { (try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) ?? 0 > 1_000_000 }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        try XCTSkipIf(raws.isEmpty, "no .ARW frames in the fixture folder")
+
+        var compared = 0
+        for url in raws.prefix(4) {
+            let name = url.lastPathComponent
+            let reference = try XCTUnwrap(referenceProbe(for: url), "\(name): no preview")
+
+            for quality in [DevelopRenderQuality.interactive, .settled] {
+                let result = await renderThroughGraph(url, quality: quality)
+                let image = try XCTUnwrap(
+                    result.ciImage,
+                    "\(name) \(quality.rawValue): the graph produced no image"
+                )
+                let probe = try XCTUnwrap(
+                    PhotoPresentProof.probe(image, drawableSize: drawable),
+                    "\(name) \(quality.rawValue): nothing reached the drawable"
+                )
+                XCTAssertFalse(probe.isBlank, "\(name) \(quality.rawValue): blank frame")
+                assertSameWayUp(probe, reference, file: "\(name) \(quality.rawValue)")
+                compared += 1
+            }
+        }
+
+        XCTAssertGreaterThan(compared, 0, "no frame was compared at any tier")
+    }
+
     /// The same frame as ImageIO orients it, measured the same way.
     private func referenceProbe(for url: URL) -> PhotoPresentProof.Probe? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
