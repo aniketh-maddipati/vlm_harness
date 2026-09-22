@@ -202,7 +202,7 @@ struct ElasticFrameTile: View {
     let width: CGFloat
 
     private var asset: AssetRecord? {
-        session.assets.first(where: { $0.id == assetID })
+        session.asset(assetID)
     }
 
     var body: some View {
@@ -301,7 +301,7 @@ struct ElasticSetShelf: View {
     }
 
     private func shelfTile(_ id: UUID) -> some View {
-        let asset = session.assets.first(where: { $0.id == id })
+        let asset = session.asset(id)
         return ZStack {
             LuminaTokens.Elastic.shelfThumbFill
             if let path = asset?.gridThumbPath ?? asset?.thumbPath {

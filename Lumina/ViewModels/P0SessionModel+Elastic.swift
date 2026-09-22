@@ -76,7 +76,7 @@ extension P0SessionModel {
     }
 
     private func asShot(_ id: UUID) -> Bool {
-        assets.first(where: { $0.id == id })?.recipeSource == .shot
+        asset(id)?.recipeSource == .shot
     }
 
     /// `A` on the table: the set when there is one, otherwise everything.
@@ -147,7 +147,7 @@ extension P0SessionModel {
 
     /// Phone frames carry no RAW original.
     func isPhoneFrame(_ id: UUID) -> Bool {
-        guard let asset = assets.first(where: { $0.id == id }) else { return false }
+        guard let asset = asset(id) else { return false }
         let rawExtensions: Set<String> = ["arw", "cr2", "cr3", "nef", "raf", "dng", "orf", "rw2"]
         let ext = (asset.filename as NSString).pathExtension.lowercased()
         return !rawExtensions.contains(ext)
@@ -171,7 +171,7 @@ extension P0SessionModel {
     }
 
     func isInFinalSet(_ id: UUID) -> Bool {
-        assets.first(where: { $0.id == id })?.cull == .keep
+        asset(id)?.cull == .keep
     }
 
     /// `Export`, then `✓ written` once the set is on disk.

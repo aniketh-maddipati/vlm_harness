@@ -86,7 +86,40 @@ final class P0SessionModel {
 
     var route: P0Route = .open
     var shoot: ShootRecord?
-    var assets: [AssetRecord] = []
+    var assets: [AssetRecord] = [] {
+        didSet { assetIndexCache = nil }
+    }
+
+    /// `id → position`, rebuilt on the first read after any mutation.
+    ///
+    /// The table asks for an asset by id several times per tile — the record
+    /// itself, set membership, whether it came off a phone — so a linear scan
+    /// makes a render pass quadratic in the size of the shoot. Invalidation is
+    /// O(1) and the rebuild is paid once per pass rather than once per lookup.
+    /// Ignored by observation: it is derived, and writing it during a view
+    /// update must not read as a change.
+    @ObservationIgnored private var assetIndexCache: [UUID: Int]?
+
+    /// Position of `id` in `assets`, or nil when the shoot does not carry it.
+    func assetIndex(_ id: UUID) -> Int? {
+        if let cached = assetIndexCache { return cached[id] }
+        var map = [UUID: Int](minimumCapacity: assets.count)
+        for (offset, asset) in assets.enumerated() where map[asset.id] == nil {
+            // First occurrence wins, matching the `first(where:)` scans this
+            // replaces. Ids are unique in practice, but a drop-in should not
+            // quietly pick a different element when they are not.
+            map[asset.id] = offset
+        }
+        assetIndexCache = map
+        return map[id]
+    }
+
+    /// The record for `id`. Prefer this to `assets.first(where:)` anywhere a
+    /// view can call it more than once per frame.
+    func asset(_ id: UUID) -> AssetRecord? {
+        guard let index = assetIndex(id) else { return nil }
+        return assets[index]
+    }
     var status = ContactSheetPreparationStatus()
     var recentShoots: [RecentShootSummary] = []
     var workspaceState = WorkspaceState()
