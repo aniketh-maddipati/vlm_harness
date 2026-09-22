@@ -60,6 +60,11 @@ struct ElasticFocusView: View {
             HStack(spacing: ElasticLayout.photoRowGap) {
                 photograph
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // `develop: s.develop && !s.hold` — a held peek puts the drawer away.
+                if session.developDrawerOpen, session.peek == nil {
+                    ElasticDevelopDrawer(session: session, asset: asset)
+                        .elasticBorn(ElasticLayout.bornDrawerMs)
+                }
                 ElasticVersionColumn(session: session, asset: asset)
             }
             .opacity(showingRelated ? 0 : 1)

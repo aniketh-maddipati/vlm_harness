@@ -149,6 +149,8 @@ final class P0SessionModel {
     /// Where a ⇧-click range starts: the last plain click, or the cursor when there
     /// has been none (README `anchor`). Session-only.
     var selectionAnchorID: UUID?
+    /// Which groups `M` carries from the cursor (README `sync{}`). Session-only.
+    var matchGroups: Set<ElasticMatchGroup> = ElasticMatchGroup.defaultOn
     /// A short tap on ⇥ pins the peek; the next ⇥ cycles it and past the end closes.
     var peekPinned = false
     /// When ⇥ opened the peek — tap versus hold is decided on release.
@@ -777,6 +779,153 @@ final class P0SessionModel {
         commitRecipeMutation(assetID: id, before: before, after: after)
         settleCurrentRecipe(for: id, recipe: after)
         clearGestureState()
+    }
+
+    // MARK: - Develop drawer
+
+    /// `E` in the focus route.
+    func toggleDevelopDrawer() {
+        guard route == .focus else { return }
+        developDrawerOpen.toggle()
+    }
+
+    /// Where a nudge ripples: the selection when there is one, else the cursor's
+    /// burst, else the cursor alone (the prototype's `groupOf`).
+    func developScopeIDs(for id: UUID) -> [UUID] {
+        if !selectedAssetIDs.isEmpty { return selectedAssetIDs }
+        if let burst = chapters.flatMap(\.bursts).first(where: { $0.assetIDs.contains(id) }),
+           burst.frameCount > 1 {
+            return burst.frames.map(\.coverID)
+        }
+        return [id]
+    }
+
+    /// A drawer slider let go: the cursor takes the value it was scrubbed to, and
+    /// every other frame in the scope moves by the same delta, clamped to the
+    /// slider's range — one command, one ⌘Z. The result is yours.
+    func endDevelopGesture(_ keyPath: WritableKeyPath<EditRecipe, Double>, range: ClosedRange<Double>) {
+        guard isEditGestureActive, let id = gestureAssetID,
+              let before = gestureBaselineRecipe,
+              let after = workingRecipe else {
+            clearGestureState()
+            return
+        }
+        let delta = after[keyPath: keyPath] - before[keyPath: keyPath]
+        var marks: [BatchEditMutationCommand.Mark] = []
+        if let mark = developMark(for: id, before: before, after: after) {
+            marks.append(mark)
+        }
+        for other in developScopeIDs(for: id) where other != id && delta != 0 {
+            let current = recipe(for: other)
+            let moved = current.updating { recipe in
+                recipe[keyPath: keyPath] = min(max(recipe[keyPath: keyPath] + delta, range.lowerBound), range.upperBound)
+            }
+            if let mark = developMark(for: other, before: current, after: moved) {
+                marks.append(mark)
+            }
+        }
+        commitDevelopBatch(marks, label: "Develop")
+        settleCurrentRecipe(for: id, recipe: recipe(for: id))
+        clearGestureState()
+    }
+
+    /// An instantaneous drawer edit on the cursor — ratio, rotate, profile. Goes
+    /// through the same batch so provenance becomes yours.
+    func applyDevelopEdit(label: String, _ mutate: (inout EditRecipe) -> Void) {
+        flushPendingEditIfNeeded()
+        guard let id = inspectingAssetID ?? focusedAssetID else { return }
+        let before = recipe(for: id)
+        let after = before.updating(mutate)
+        guard let mark = developMark(for: id, before: before, after: after) else { return }
+        commitDevelopBatch([mark], label: label)
+        scrubCurrentRecipe(for: id, recipe: recipe(for: id), recordInput: false)
+        settleCurrentRecipe(for: id, recipe: recipe(for: id))
+    }
+
+    /// `R` — a quarter turn clockwise.
+    func rotateFocusedPhotograph() {
+        applyDevelopEdit(label: "Rotate") { $0.straightenDegrees += 90 }
+    }
+
+    /// `M` — carry the checked groups from the cursor to the frames it stands for:
+    /// the selection, else the set when the cursor is in it, else its moment.
+    @discardableResult
+    func matchToCursor() -> Int {
+        flushPendingEditIfNeeded()
+        guard let id = inspectingAssetID ?? focusedAssetID else { return 0 }
+        let source = recipe(for: id)
+        var marks: [BatchEditMutationCommand.Mark] = []
+        for target in matchTargetIDs(for: id) {
+            let before = recipe(for: target)
+            let after = before.updating { recipe in
+                for group in matchGroups {
+                    group.copy(from: source, to: &recipe)
+                }
+            }
+            guard before.valueFingerprint != after.valueFingerprint,
+                  let asset = assets.first(where: { $0.id == target }) else { continue }
+            marks.append(BatchEditMutationCommand.Mark(
+                assetID: target, before: before, after: after,
+                sourceBefore: asset.recipeSource, sourceAfter: .hand
+            ))
+        }
+        guard !marks.isEmpty else { return 0 }
+        commitDevelopBatch(marks, label: "Match")
+        return marks.count
+    }
+
+    /// The prototype's `syncIds`, without the cursor.
+    func matchTargetIDs(for id: UUID) -> [UUID] {
+        let targets: [UUID]
+        if !selectedAssetIDs.isEmpty {
+            targets = selectedAssetIDs
+        } else if peek == .set || isInFinalSet(id) {
+            targets = finalSetAssetIDs
+        } else if let chapter = ShootChapterArrangement.chapter(containing: id, in: chapters) {
+            targets = chapter.assetIDs
+        } else {
+            targets = []
+        }
+        return targets.filter { $0 != id }
+    }
+
+    /// A hand edit on a frame: an auto frame becomes auto + your hand, anything
+    /// else becomes yours. Nil when nothing changed.
+    private func developMark(for id: UUID, before: EditRecipe, after: EditRecipe) -> BatchEditMutationCommand.Mark? {
+        guard before.valueFingerprint != after.valueFingerprint,
+              let asset = assets.first(where: { $0.id == id }) else { return nil }
+        let wasAuto = asset.recipeSource == .auto || asset.recipeSource == .autoHand
+        return BatchEditMutationCommand.Mark(
+            assetID: id, before: before, after: after,
+            sourceBefore: asset.recipeSource, sourceAfter: wasAuto ? .autoHand : .hand
+        )
+    }
+
+    /// One batch: recipes and provenance together, the hand recipe cached for `3`.
+    private func commitDevelopBatch(_ marks: [BatchEditMutationCommand.Mark], label: String) {
+        guard !marks.isEmpty else { return }
+        let commandStartedAt = Date()
+        let selectionSnapshot = selectedAssetIDs
+        let orderSnapshot = shoot?.finalSetOrder.assetIDs ?? []
+        let command = BatchEditMutationCommand(marks: marks, label: label)
+        guard command.apply(to: &assets) else { return }
+        for mark in marks where mark.sourceAfter != .auto {
+            if let index = assets.firstIndex(where: { $0.id == mark.assetID }) {
+                assets[index].handRecipe = mark.after
+            }
+        }
+        if var shoot {
+            shoot.finalSetOrder.assetIDs = orderSnapshot
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+        selectedAssetIDs = selectionSnapshot
+        undoCoordinator.push(command)
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueBatchEditPersistence(command, commandStartedAt: commandStartedAt)
+        if let inspectingAssetID, command.marks.contains(where: { $0.assetID == inspectingAssetID }) {
+            warmBeforeAfter(for: inspectingAssetID, recipe: recipe(for: inspectingAssetID))
+        }
     }
 
     /// Commit an instantaneous edit (reset, crop preset, rotate) as one undo command.
@@ -1673,6 +1822,7 @@ final class P0SessionModel {
         densityLeaned = false
         developDrawerOpen = false
         selectionAnchorID = nil
+        matchGroups = ElasticMatchGroup.defaultOn
         holdingClipping = false
         lookGlancing = false
         glanceBurstIDs = []

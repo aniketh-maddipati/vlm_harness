@@ -214,7 +214,7 @@ One commit per checkpoint is fine; end each message with
 - [x] 5. Hold-V remnants retired (`EditVariantSession`, `WorkspaceState` fields, `V` binding, probe fields); `EditVariantTests` deleted or rewritten
 - [x] 6. Set shelf is a drop target
 - [x] 7. `⇧`-click range, `⌘`-click toggle; the `P0_CULLING.md` ruling closed
-- [ ] 8. Develop drawer on `E`, with sliders, ratios, `R` rotate, straighten, profile
+- [x] 8. Develop drawer on `E`, with sliders, ratios, `R` rotate, straighten, profile
 - [ ] 9. Version column hides while the drawer or a hold is active
 - [ ] 10. `docs/ELASTIC_PLAN.md` P1 section updated, gate green
 - [ ] 11. Stress pass (asked for 2026-09-22): every landed item driven in the live
@@ -335,3 +335,25 @@ the next pass needs to know — especially anything here that turned out to be w
   list). Filmstrip / shelf / peek tiles unchanged (P2's file, or not click-to-select in
   the prototype). Live check PENDING (needs a pointer with modifiers; no window anyway).
   Gate: 324 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · item 8 · `ElasticDevelopDrawer` (+ `ElasticDrawerSlider`, same
+  begin/scrub/end contract as `P0EditSlider` at the design's 78/1fr/44 · 18-high size);
+  session side in `P0SessionModel.swift` (needs the private helpers) with copy and the
+  pure types in `P0SessionModel+Develop.swift`. Every drawer edit goes through one
+  `BatchEditMutationCommand` so provenance moves with the recipe: a slider release
+  ripples its **delta** to the scope (selection, else the burst) clamped to the range,
+  auto → autoHand, else hand, `handRecipe` cached, one ⌘Z. `M` = `matchToCursor` over
+  the prototype's `syncIds` (selection › set › moment) copying only the checked groups;
+  the surface says **match** because "sync" is banned copy. `R` rotates +90. Keys E/R/M
+  are focus-only. Ten tokens added (44 · 18 · 24 · 32 · 0.14 · 10 · 0.1 · 50 · 100 ·
+  0.18); hash now `4a917285…`, golden moved. `P0CropControls.centeredCrop` was NOT
+  salvaged: it ignores the frame's own aspect (its 1:1 was a no-op on a 3:2 frame) —
+  `ElasticCropRatio.centeredCrop(imageAspect:)` replaces it, aspect from
+  `ContactSheetPreparation.aspectRatio`. Not built: the crop-handle overlay on the
+  photograph (P0 owns the photograph's pixels/gestures; `P0CropOverlay` still exists to
+  reuse), sharpness runs 0…100 not the engine's 0…150, and the drawer title truncates
+  at `yours · from sidecar`. Proof: offscreen `editor-drawer.png` via the live runner in
+  `~/lumina-wt/p1-grammar-proof/item8/` (photograph blank there by the known offscreen
+  limitation). That runner run also showed two new FAILs (`RAW preview presents without
+  blank canvas`, `Rapid Exposure scrub without blank canvas`) that passed on the item‑1
+  run — a baseline build of a4792c5 is running in `~/lumina-wt/p1-baseline` to settle
+  whether they are mine; see the next line. Gate: 334 logic tests / 2 skipped, FAST 41/41.

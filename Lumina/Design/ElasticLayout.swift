@@ -278,6 +278,59 @@ enum ElasticLayout {
     static let shelfDropRingInset: CGFloat = 2
     static let shelfDropRingDash: [CGFloat] = [6, 4]
 
+    // MARK: - Develop drawer (`data-screen-label="Develop"`)
+
+    /// `width 256; padding 12px 14px; radius 8; gap 6; rgba(46,46,44,0.35)`.
+    static let drawerWidth = developDrawerWidth
+    static let drawerFillOpacity: Double = 0.35
+    static let drawerRadius: CGFloat = 8
+    static let drawerPaddingV: CGFloat = 12
+    static let drawerPaddingH: CGFloat = 14
+    static let drawerGap: CGFloat = 6
+    static let drawerTitleSize: CGFloat = 13
+    static let drawerScopeSize: CGFloat = 12
+    static let drawerScopeOpacity: Double = 0.7
+    static let drawerTextSize = HiFiTokens.Typography.chipSize
+    static let drawerLabelOpacity: Double = 0.85
+    static let drawerMutedOpacity: Double = 0.6
+    static let drawerSectionTop: CGFloat = 8
+    /// Slider rows: `grid-template-columns: 78px 1fr 44px; gap 8; height 18`.
+    static let drawerLabelWidth: CGFloat = 78
+    static let drawerValueWidth = HiFiTokens.Elastic.drawerValueColumn
+    static let drawerRowGap: CGFloat = 8
+    static let drawerSliderHeight = HiFiTokens.Elastic.drawerSliderHeight
+    static let drawerTrackHeight: CGFloat = 4
+    static let drawerThumbSize: CGFloat = 12
+    static let drawerTrackOpacity = HiFiTokens.Elastic.stackBackOpacity
+    /// Chips: `height 24; padding 0 8; radius 6; gap 4`.
+    static let chipHeight = HiFiTokens.Elastic.drawerChipHeight
+    static let chipPaddingH: CGFloat = 8
+    static let chipGap: CGFloat = 4
+    static let chipFillOpacity = HiFiTokens.Elastic.drawerChipFillOpacity
+    /// `auto · match · reset`: `height 32; radius 7; gap 6`.
+    static let drawerButtonHeight = HiFiTokens.Elastic.drawerButtonHeight
+    static let drawerButtonRadius: CGFloat = 7
+    static let drawerButtonGap: CGFloat = 6
+    static let drawerResetPaddingH = HiFiTokens.Gap.spacingSm
+    static let drawerSourceSize: CGFloat = 10.5
+    static let drawerSourceLineHeight = HiFiTokens.Elastic.stripLabelLineHeight
+    static let bornDrawerMs = HiFiTokens.Motion.travelMs
+    /// Ranges: exposure ±3 by 0.05; tone ±100 by 1; temperature 2000…12000 by 50;
+    /// sharpness 0…100 by 1 (the engine's amount runs 0…150; the top is left alone);
+    /// straighten ±10 by 0.1.
+    static let exposureRange: Double = 3
+    static let exposureStep: Double = 0.05
+    static let toneRange = Double(HiFiTokens.Elastic.toneRange)
+    static let temperatureMin: Double = 2000
+    static let temperatureMax: Double = 12000
+    static let temperatureStep = Double(HiFiTokens.Elastic.temperatureStep)
+    static let sharpnessMax = Double(HiFiTokens.Elastic.toneRange)
+    static let straightenRange = Double(HiFiTokens.Elastic.straightenRange)
+    static let straightenStep = Double(HiFiTokens.Elastic.straightenStep)
+    /// `R` — a quarter turn.
+    static let quarterTurnDegrees: Double = 360 / 4
+    static let sliderFineTravel = Double(HiFiTokens.Elastic.sliderFineTravel)
+
     // MARK: - Flags peek · inferred groups (`data-screen-label="Groups"`)
 
     /// `max-height: 38vh; padding: 12px 28px 6px; gap: 8` on `#6F6E6C`, under a

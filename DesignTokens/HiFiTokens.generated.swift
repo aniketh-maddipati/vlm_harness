@@ -1,7 +1,7 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: de232d008839ebcc7469be95404cf511577fd8765204df2db935f556944a7b65
+// tokens-hash: 4a9172850f98ae82e5417f8791879280ee775c21fd2e8549efbf6830b3c14185
 // version: 6.4-a7-cleanup
 // contract: design/contract-v6.md
 
@@ -198,6 +198,16 @@ enum HiFiTokens {
         static let groupsRuleOpacity: Double = 0.2 // cite: ELASTIC-V4 — Rule under the inferred-groups band.
         static let groupsUntakenOpacity: Double = 0.5 // cite: ELASTIC-V4 — A frame in an inferred group that G would not take.
         static let groupsTagTextSize: CGFloat = 10.0 // cite: ELASTIC-V4 — The `sharpest` tag on an inferred-group frame.
+        static let drawerValueColumn: CGFloat = 44.0 // cite: ELASTIC-V4 — Develop drawer slider grid, third column (`78px 1fr 44px`).
+        static let drawerSliderHeight: CGFloat = 18.0 // cite: ELASTIC-V4 — Develop drawer range input height.
+        static let drawerChipHeight: CGFloat = 24.0 // cite: ELASTIC-V4 — Ratio / match chips and the profile select in the develop drawer.
+        static let drawerButtonHeight: CGFloat = 32.0 // cite: ELASTIC-V4 — auto · match · reset row in the develop drawer.
+        static let drawerChipFillOpacity: Double = 0.14 // cite: ELASTIC-V4 — An unlit chip in the develop drawer — shell over the drawer.
+        static let straightenRange: CGFloat = 10.0 // cite: ELASTIC-V4 — Straighten runs −10…10 in the drawer.
+        static let straightenStep: CGFloat = 0.1 // cite: ELASTIC-V4 — Straighten slider step.
+        static let temperatureStep: CGFloat = 50.0 // cite: ELASTIC-V4 — Temperature slider step.
+        static let toneRange: CGFloat = 100.0 // cite: ELASTIC-V4 — Contrast · highlights · shadows · tint · vibrance · saturation run −100…100.
+        static let sliderFineTravel: Double = 0.18 // cite: ELASTIC-V4 — ⌥-drag on a develop slider moves this share of the way to the pointer per event.
     }
 
     enum Hit {

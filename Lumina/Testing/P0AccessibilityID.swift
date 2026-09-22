@@ -42,6 +42,7 @@ enum P0AccessibilityID {
     static let elasticTilePrefix = "p0.elastic.tile."     // + asset UUID
     static func elasticTile(_ id: UUID) -> String { elasticTilePrefix + id.uuidString }
     static let elasticVersionPrefix = "p0.elastic.version." // + 1 / 2 / 3
+    static let elasticDevelopDrawer = "p0.elastic.develop"
     static func elasticVersion(_ index: Int) -> String { elasticVersionPrefix + String(index) }
 
     // Toolbar / counts / controls
