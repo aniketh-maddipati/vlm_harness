@@ -212,7 +212,7 @@ One commit per checkpoint is fine; end each message with
 - [x] 3. Hold-`␣` is before; 1:1 zoom moves off Space
 - [x] 4. `P0EscLadder` rewritten to peek → drawer → selection → route
 - [x] 5. Hold-V remnants retired (`EditVariantSession`, `WorkspaceState` fields, `V` binding, probe fields); `EditVariantTests` deleted or rewritten
-- [ ] 6. Set shelf is a drop target
+- [x] 6. Set shelf is a drop target
 - [ ] 7. `⇧`-click range, `⌘`-click toggle; the `P0_CULLING.md` ruling closed
 - [ ] 8. Develop drawer on `E`, with sliders, ratios, `R` rotate, straighten, profile
 - [ ] 9. Version column hides while the drawer or a hold is active
@@ -313,3 +313,14 @@ the next pass needs to know — especially anything here that turned out to be w
   now; the window problem persists — P0 confirms pid 64132 is not theirs and pid
   73848 is model-core's; both foreign, not mine, not killed). Pushed to origin at the
   user's request. Gate: 312 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · item 6 · Table tiles and inferred-group frames are `.draggable` with a
+  `text/plain` payload of comma-joined ids (`ElasticDragPayload`, Models); a dragged
+  frame inside the selection brings the selection. The shelf is a `.dropDestination`
+  for `String`: `dropOnShelf` keeps the undecided ones through the same keep-many
+  command `G` uses (`keepFrames`, label `Drop on the shelf`, one ⌘Z), skips rejects and
+  the already-kept, and spends the selection. Ring: 2 pt dashed ink inset 2 while
+  targeted; background `#EFECE6` while the set peek is held (that is what the
+  prototype's `shelfBg` keys on — not the drag). Not draggable: filmstrip tiles
+  (P2's file; the prototype's strip is not draggable either) and shelf tiles. Live
+  drag check PENDING (no window; a real drag also needs a pointer driver, which
+  System Events key events cannot do). Gate: 317 logic tests / 2 skipped, FAST 41/41.

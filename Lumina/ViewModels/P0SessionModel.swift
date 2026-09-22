@@ -1348,11 +1348,27 @@ final class P0SessionModel {
     /// left alone — the peek proposes, it never overrules a mark.
     @discardableResult
     func takeInferredPicks() -> Int {
+        keepFrames(inferredGroups.flatMap(\.takeIDs), label: "Take the picks", burstID: "inferred-picks")
+    }
+
+    /// Frames dropped on the shelf join the set, as one command and one `⌘Z`. The
+    /// selection they may have travelled as is spent by the drop.
+    @discardableResult
+    func dropOnShelf(_ ids: [UUID]) -> Int {
+        let added = keepFrames(ids, label: "Drop on the shelf", burstID: "shelf-drop")
+        selectedAssetIDs = []
+        return added
+    }
+
+    /// Keep several frames at once. Frames already kept or already out are left
+    /// alone — a batch proposes, it never overrules a mark. Returns how many changed.
+    @discardableResult
+    private func keepFrames(_ ids: [UUID], label: String, burstID: String) -> Int {
         let commandStartedAt = Date()
         let committedAt = Date()
         var seen: Set<UUID> = []
         var marks: [ChapterKeepCommand.Mark] = []
-        for id in inferredGroups.flatMap(\.takeIDs) where seen.insert(id).inserted {
+        for id in ids where seen.insert(id).inserted {
             guard let index = assets.firstIndex(where: { $0.id == id }),
                   assets[index].cull == .undecided || assets[index].cull == .hold else { continue }
             marks.append(ChapterKeepCommand.Mark(
@@ -1380,8 +1396,8 @@ final class P0SessionModel {
             finalOrderAfter: finalOrder.assetIDs,
             chapterBefore: activeChapterID,
             focusBefore: focusedAssetID,
-            burstID: "inferred-picks",
-            label: "Take the picks"
+            burstID: burstID,
+            label: label
         )
         guard command.apply(to: &assets, finalOrder: &finalOrder) else { return 0 }
         if var shoot {

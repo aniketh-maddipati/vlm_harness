@@ -260,6 +260,9 @@ struct ElasticFrameTile: View {
         .elasticMarked(radius: ElasticLayout.tileRadius, ringed: ringed, inSet: inSet)
         .opacity(cull == .reject ? ElasticLayout.outOpacity : 1)
         .contentShape(Rectangle())
+        .draggable(ElasticDragPayload.encode(
+            ElasticDragPayload.ids(forDragging: assetID, selection: session.selectedAssetIDs)
+        ))
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier(P0AccessibilityID.elasticTile(assetID))
         .onTapGesture(count: 2) {

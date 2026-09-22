@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ElasticSetShelf: View {
     @Bindable var session: P0SessionModel
+    /// A drag is over the shelf — the dashed ring says it will land.
+    @State private var dropTargeted = false
 
     var body: some View {
         let ids = session.finalSetAssetIDs
@@ -32,8 +34,32 @@ struct ElasticSetShelf: View {
         .padding(.horizontal, ElasticLayout.chromeGutter)
         .frame(height: ElasticLayout.setShelfHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(LuminaTokens.Elastic.shell)
+        // `#EFECE6` while the set strip is held; `#F6F4F0` otherwise.
+        .background(session.peek == .set ? LuminaTokens.Elastic.shellAlt : LuminaTokens.Elastic.shell)
         .overlay(alignment: .bottom) { ElasticHairline() }
+        .overlay {
+            if dropTargeted {
+                Rectangle()
+                    .inset(by: ElasticLayout.shelfDropRingInset)
+                    .strokeBorder(
+                        LuminaTokens.Elastic.ink,
+                        style: StrokeStyle(
+                            lineWidth: ElasticLayout.shelfDropRingWidth,
+                            dash: ElasticLayout.shelfDropRingDash
+                        )
+                    )
+                    .allowsHitTesting(false)
+            }
+        }
+        // Frames dragged from the table land here and join the set.
+        .dropDestination(for: String.self) { payloads, _ in
+            let ids = payloads.flatMap(ElasticDragPayload.decode)
+            guard !ids.isEmpty else { return false }
+            session.dropOnShelf(ids)
+            return true
+        } isTargeted: { targeted in
+            dropTargeted = targeted
+        }
     }
 
     private func shelfTile(_ id: UUID) -> some View {

@@ -308,6 +308,9 @@ private struct ElasticGroupRow: View {
             session.setFocus(id)
             session.openFocusedPhotograph()
         })
+        .draggable(ElasticDragPayload.encode(
+            ElasticDragPayload.ids(forDragging: id, selection: session.selectedAssetIDs)
+        ))
     }
 }
 

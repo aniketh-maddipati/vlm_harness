@@ -273,6 +273,11 @@ enum ElasticLayout {
     /// The strip while the set is held: `rgba(255,236,205,0.16)` behind the set order.
     static let stripSetFillOpacity: Double = 0.16
 
+    /// The shelf as a drop target: `outline: 2px dashed ink; outline-offset: -2px`.
+    static let shelfDropRingWidth: CGFloat = 2
+    static let shelfDropRingInset: CGFloat = 2
+    static let shelfDropRingDash: [CGFloat] = [6, 4]
+
     // MARK: - Flags peek · inferred groups (`data-screen-label="Groups"`)
 
     /// `max-height: 38vh; padding: 12px 28px 6px; gap: 8` on `#6F6E6C`, under a
