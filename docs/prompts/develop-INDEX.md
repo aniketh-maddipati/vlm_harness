@@ -63,6 +63,8 @@ prompt's Progress section in the same commit.
 | auto | 19.40 | +16.4 | 26.09 |
 | model | 21.63 | −8.5 | — |
 
-Tier gap (preview vs export): neutral 0.45, lrMapped 1.38, **auto 9.63**. Auto WB drift 3.6
+After `e047c2d` (run 2, same frames): lrMapped **10.04** / −1.3, oracle **5.58**, auto **11.70** / +4.9,
+model 33.32 / −27.4, auto on untouched 15.59. These are the numbers a D-stream commit must not
+regress. Tier gap (preview vs export, six-frame check): neutral 0.45, lrMapped 1.38, **auto 9.63**. Auto WB drift 3.6
 mean / 12.6 max. Straighten on 28/109 frames the owner never rotated. Subject metering moves
 exposure 0.06 EV.

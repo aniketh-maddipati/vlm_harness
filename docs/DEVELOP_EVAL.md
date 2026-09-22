@@ -171,3 +171,41 @@ oracle.
    tint needs a field `ImageStats` does not have. Re-measure `tierGap` and `autoWB`.
 3. Gate the horizon straighten on something stronger than "Vision returned an angle".
 4. Only then look at the auto coefficients — today they are measured through a broken filter.
+
+## Results — run 2, 2026-09-22, after the highlight/shadow mapping fix (`e047c2d`)
+
+Same 109 frames, same arms, model arm on, 13 min. Only the render graph changed.
+
+| arm | edited ΔE run 1 → run 2 | L\* bias run 1 → run 2 | untouched ΔE run 1 → run 2 |
+|---|---:|---:|---:|
+| `neutral` | 10.71 → 10.71 | −7.9 → −7.9 | 5.12 → 5.12 |
+| `lrMapped` — your own sliders | 15.54 → **10.04** | +11.8 → **−1.3** | 5.12 → 5.12 |
+| `oracle` | 6.16 → **5.58** | +0.4 → −0.4 | 4.01 → 4.01 |
+| `auto` | 19.40 → **11.70** | +16.4 → +4.9 | 26.09 → 15.59 |
+| `autoSubject` | 19.46 → 12.27 | +16.5 → +6.1 | 26.05 → 15.79 |
+| `model` | 21.63 → 33.32 | −8.5 → **−27.4** | — |
+
+- **The mapping was the brightness error.** Your sliders copied 1:1 now render within 1.3 L\*
+  of your export instead of 12; the oracle no longer compensates with exposure (mean
+  exposure difference −0.93 EV → **−0.04 EV**) and now actually moves highlights (MAE 0 → 41,
+  because before it could not find any effect). Same-direction on exposure for the oracle
+  rose from 13 % to 78 %.
+- **Auto improved 7.7 ΔE and is still 1 ΔE worse than doing nothing.** Its bias is +4.9 L\*
+  (exposure rule), its white balance drops native tint (3.6 ΔE mean, unchanged), and it
+  straightens 28 frames (unchanged). All three are D1 items; none needs research.
+- **Highlight/shadow scale is still open.** The correlation between the oracle's exposure
+  offset and the hand shadow lift is −0.39 (was −0.15 through the broken filter): per-unit
+  strength versus Lightroom is not yet calibrated. D4 item 2.
+- **The model arm got worse, not better**, which is the honest reading: its proposals did
+  not change (temperature 0), the render did. With shadows no longer pinned at maximum lift,
+  the model's exposure proposals (MAE 0.93 EV, same direction on 7 % of frames) show as a
+  −27 L\* darkening. It was never correcting; the broken filter was masking it. D3 owns this.
+- **Preview ≡ export, 109 frames:** `neutral` 1.40 mean, `lrMapped` 4.35 (9.28 on the 23
+  custom-WB frames), `auto` 8.43. The `neutral` mean is inflated by a few frames with gaps
+  above 30 ΔE that the six-frame check did not contain — see the note below; the custom-WB
+  and auto numbers are the Kelvin-semantics split (D4 item 1).
+- Subject-weighted metering, straighten count and cost are unchanged from run 1.
+
+**Harness caveat (D2):** on some frames the flipped interactive comparison still reports a
+large gap even for `neutral`. Until those are understood, read the tier-gap *medians*, or
+the custom-WB-only line, rather than the means.
