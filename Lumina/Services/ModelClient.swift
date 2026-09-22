@@ -1,66 +1,77 @@
 import Foundation
 import ImageIO
-import Security
 import UniformTypeIdentifiers
 
-/// Where a model lives. Both providers speak the OpenAI-compatible
-/// `/v1/chat/completions` API — LM Studio serves local models on it, OpenAI
-/// serves hosted ones — so one client covers both and only the endpoint differs.
+/// Where a model lives. D67 (R-N.1): a loopback address and nothing else — a
+/// model the operator runs on their own machine, reached over the
+/// OpenAI-compatible `/v1/chat/completions` API that LM Studio serves.
+///
+/// There is no hosted provider and no API key anywhere in this type. The
+/// capability was removed rather than defaulted off, so there is no flag to
+/// flip and nothing to leak.
 nonisolated struct ModelEndpoint: Sendable, Equatable {
     var baseURL: URL
     var model: String
-    /// Nil for a local server that takes no key.
-    var apiKey: String?
     var timeout: TimeInterval
 
-    /// Local Qwen2.5-VL served by LM Studio. Nothing leaves the machine.
-    /// Override with `LUMINA_AUTO_BASE_URL` / `LUMINA_AUTO_MODEL`.
+    /// Hosts that never leave the machine.
+    static let loopbackHosts: Set<String> = ["127.0.0.1", "localhost", "::1"]
+
+    /// `banned_patterns` catches non-loopback URL *literals*; it cannot see an
+    /// environment override. This is the half that can.
+    static func isLoopback(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              let host = url.host?.lowercased() else { return false }
+        return loopbackHosts.contains(host.trimmingCharacters(in: CharacterSet(charactersIn: "[]")))
+    }
+
+    /// Fails rather than builds an endpoint that could reach off the machine.
+    init?(baseURL: URL, model: String, timeout: TimeInterval) {
+        guard Self.isLoopback(baseURL) else { return nil }
+        self.baseURL = baseURL
+        self.model = model
+        self.timeout = timeout
+    }
+
+    /// Reads an override, and **refuses** it when it names a non-loopback host —
+    /// the compiled-in loopback default stands instead. Honoring it would make
+    /// D67 a configuration promise rather than a code one.
+    static func loopbackEndpoint(
+        overrideURL: String?,
+        defaultURL: String,
+        model: String,
+        timeout: TimeInterval
+    ) -> ModelEndpoint {
+        if let overrideURL, let url = URL(string: overrideURL),
+           let endpoint = ModelEndpoint(baseURL: url, model: model, timeout: timeout) {
+            return endpoint
+        }
+        // The default is a literal in this file, so it is loopback by construction
+        // and linted as such; the force-unwrap cannot fire.
+        return ModelEndpoint(baseURL: URL(string: defaultURL)!, model: model, timeout: timeout)!
+    }
+
+    /// Local Qwen2.5-VL served by LM Studio, for the auto pass. Nothing leaves the machine.
     static var localVision: ModelEndpoint {
         let env = ProcessInfo.processInfo.environment
-        return ModelEndpoint(
-            baseURL: URL(string: env["LUMINA_AUTO_BASE_URL"] ?? "http://127.0.0.1:1234/v1")!,
+        return loopbackEndpoint(
+            overrideURL: env["LUMINA_AUTO_BASE_URL"],
+            defaultURL: "http://127.0.0.1:1234/v1",
             model: env["LUMINA_AUTO_MODEL"] ?? "qwen2.5-vl-3b-instruct",
-            apiKey: nil,
             timeout: 60
         )
     }
 
-    /// Hosted OpenAI, or nil when no key is available. The key comes from the
-    /// Keychain entry `lumina.openai` first, then `OPENAI_API_KEY` — never from source.
-    static var openAI: ModelEndpoint? {
+    /// Local Qwen2.5 text, for ask planning. Under D67 this replaces the hosted
+    /// planner; `KeywordAskPlanner` remains the offline baseline beneath it.
+    static var localText: ModelEndpoint {
         let env = ProcessInfo.processInfo.environment
-        guard let key = KeychainSecret.read(service: KeychainSecret.openAIService)
-            ?? env["OPENAI_API_KEY"],
-            !key.isEmpty else { return nil }
-        return ModelEndpoint(
-            baseURL: URL(string: env["LUMINA_ASK_BASE_URL"] ?? "https://api.openai.com/v1")!,
-            model: env["LUMINA_ASK_MODEL"] ?? "gpt-4o-mini",
-            apiKey: key,
+        return loopbackEndpoint(
+            overrideURL: env["LUMINA_ASK_BASE_URL"],
+            defaultURL: "http://127.0.0.1:1234/v1",
+            model: env["LUMINA_ASK_MODEL"] ?? "qwen2.5-3b-instruct",
             timeout: 30
         )
-    }
-}
-
-/// Reads a generic-password Keychain item stored with
-/// `security add-generic-password -a "$USER" -s <service> -w`.
-nonisolated enum KeychainSecret {
-    static let openAIService = "lumina.openai"
-
-    static func read(service: String, account: String = NSUserName()) -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data,
-              let value = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines),
-              !value.isEmpty else { return nil }
-        return value
     }
 }
 
@@ -84,7 +95,8 @@ nonisolated enum ModelClientError: Error, Equatable, Sendable {
 
 /// Minimal OpenAI-compatible chat client: one system prompt, one user turn with
 /// optional image, JSON back. Deliberately small — the product needs a structured
-/// answer, not a conversation.
+/// answer, not a conversation. "OpenAI-compatible" names the wire format that LM
+/// Studio speaks; under D67 the only destination is loopback.
 nonisolated struct ChatCompletionsClient: Sendable {
     let endpoint: ModelEndpoint
     let transport: any ModelTransport
@@ -94,8 +106,8 @@ nonisolated struct ChatCompletionsClient: Sendable {
         self.transport = transport
     }
 
-    /// `schemaJSON` is a JSON Schema object serialized as a string. Both LM Studio and
-    /// OpenAI constrain decoding to it; the caller still validates what comes back.
+    /// `schemaJSON` is a JSON Schema object serialized as a string. LM Studio constrains
+    /// decoding to it; the caller still validates what comes back.
     func completeJSON(
         system: String,
         user: String,
@@ -128,9 +140,6 @@ nonisolated struct ChatCompletionsClient: Sendable {
         request.httpMethod = "POST"
         request.timeoutInterval = endpoint.timeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let key = endpoint.apiKey {
-            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, status) = try await transport.send(request)
@@ -155,7 +164,7 @@ nonisolated struct ChatCompletionsClient: Sendable {
         return (try? JSONSerialization.jsonObject(with: slice)) as? [String: Any]
     }
 
-    /// Error text for a failed call, never the request — so a key can't leak into a log.
+    /// Error text for a failed call, never the request — a request carries a photograph.
     private static func errorMessage(in data: Data) -> String {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let error = object["error"] as? [String: Any],
