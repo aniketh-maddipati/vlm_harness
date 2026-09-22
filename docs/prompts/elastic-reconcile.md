@@ -275,3 +275,21 @@ pass needs to know — especially anything here that turned out to be wrong._
   (200 KB to `/dev/null` cannot block). Gate: **359 / 2 skipped / 0 failures · FAST
   41/41 · xcode_compile OK** — 343 + 16 (P2). The gate log header reads `58aced3`, the
   pre-amend sha of the same tree. P2 is now on item 4 (velocity prefetch), uncommitted.
+- 2026-09-22 · item 5 · Semantic checks, all on the merged tree at `d92bcb3`/`411c1d5`,
+  from the item-4 gate logs plus direct reads: **tokens hash** `de232d00…` with
+  `approved.json` present under it, `spring_physics_f07` OK with no re-approval (P0 and
+  P2 never touch `tokens.yaml`, so P1's last digest is the tree's digest) · **forbidden
+  literals** `magic_numbers` OK — P0's rewritten `ElasticWrapLayout` / `ElasticVersionColumn`
+  and P1's seven added tokens coexist · **`progressive_render_architecture`** OK;
+  `ElasticVersionColumn.previewPath(for:)` and `guard index == 1` intact at lines 35–36
+  (P1's item 9 has not landed, so nothing hid the column) · **probe mirror** OK; P1's
+  `escTransientHoldActive` is at all four sites and the five removed variant fields are
+  at none · **`shipping_fence`** OK; `P0ScrollLiveRunner.swift` opens with
+  `#if !LUMINA_SHIPPING_APP` and ends with `#endif` · **`allowlist_ratchet`** OK and the
+  three allowlists are byte-identical to the base · **`registry_staleness`** OK with P1's
+  regenerated coverage artifacts (the one registry change is P1's removal of
+  `testVariantPointerTravelDoesNotCullOrSelect`) · **`banned_patterns`** and
+  `render_data_plane_isolation` OK, so the resolution reintroduced nothing and moved no
+  type across the actor line · **the flip:** `PreparedRawSession.swift:374` reads
+  `destination.isFlipped = false` with P0's comment, and `testEveryTierPresentsTheSameWayUp`
+  passed in the merged gate (3.48 s, real RAW fixtures). Nothing needed changing.
