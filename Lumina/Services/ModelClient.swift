@@ -91,6 +91,8 @@ nonisolated enum ModelClientError: Error, Equatable, Sendable {
     case http(status: Int, message: String)
     case emptyResponse
     case notJSON
+    /// The server sent more than any schema-constrained answer could need.
+    case responseTooLarge(bytes: Int)
 }
 
 /// Minimal OpenAI-compatible chat client: one system prompt, one user turn with
@@ -143,10 +145,18 @@ nonisolated struct ChatCompletionsClient: Sendable {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, status) = try await transport.send(request)
+        // Bounded before it is parsed: whoever is on the other end of the socket, a
+        // schema-constrained answer is a few hundred bytes, never megabytes.
+        guard data.count <= Self.maxResponseBytes else {
+            throw ModelClientError.responseTooLarge(bytes: data.count)
+        }
         guard (200..<300).contains(status) else {
             throw ModelClientError.http(status: status, message: Self.errorMessage(in: data))
         }
-        guard let envelope = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+        // An unparseable or non-object envelope is the client's own failure, not a
+        // Foundation error leaking out: whoever is on the socket, "nothing usable came
+        // back" is reported in one shape.
+        guard let envelope = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let choices = envelope["choices"] as? [[String: Any]],
               let message = choices.first?["message"] as? [String: Any],
               let text = message["content"] as? String,
@@ -154,6 +164,8 @@ nonisolated struct ChatCompletionsClient: Sendable {
         guard let object = Self.firstJSONObject(in: text) else { throw ModelClientError.notJSON }
         return object
     }
+
+    static let maxResponseBytes = 256 * 1024
 
     /// Tolerates code fences or stray prose around the object — small local models
     /// sometimes add them even under a schema.

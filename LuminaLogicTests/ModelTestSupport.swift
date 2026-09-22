@@ -3,6 +3,60 @@ import ImageIO
 import UniformTypeIdentifiers
 @testable import Lumina
 
+/// Holds requests at the door until a test opens it. No sleeps, no polling: a test
+/// awaits "N requests have arrived", acts, then opens the gate. Deterministic.
+final class ModelGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var opened = false
+    private var arrivals = 0
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var arrivalWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+
+    var arrived: Int {
+        lock.lock(); defer { lock.unlock() }
+        return arrivals
+    }
+
+    /// Releases everything waiting now and everything that arrives later.
+    func open() {
+        lock.lock()
+        opened = true
+        let released = waiters
+        waiters = []
+        lock.unlock()
+        released.forEach { $0.resume() }
+    }
+
+    /// Called by the transport before each send.
+    func pass() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            lock.lock()
+            arrivals += 1
+            let ready = arrivalWaiters.filter { $0.count <= arrivals }
+            arrivalWaiters.removeAll { $0.count <= arrivals }
+            let isOpen = opened
+            if !isOpen { waiters.append(continuation) }
+            lock.unlock()
+            ready.forEach { $0.continuation.resume() }
+            if isOpen { continuation.resume() }
+        }
+    }
+
+    /// Resumes once `count` sends have reached the gate.
+    func waitForArrivals(_ count: Int) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            lock.lock()
+            if arrivals >= count {
+                lock.unlock()
+                continuation.resume()
+                return
+            }
+            arrivalWaiters.append((count, continuation))
+            lock.unlock()
+        }
+    }
+}
+
 /// Stands in for a model server: replies from a script and records every request,
 /// so a test can assert both what came back and what was sent — without a socket.
 final class FakeModelTransport: ModelTransport, @unchecked Sendable {
@@ -18,12 +72,26 @@ final class FakeModelTransport: ModelTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var script: [Outcome]
     private var requests: [URLRequest] = []
+    private var inFlight = 0
+    private(set) var peakInFlight = 0
+    let gate: ModelGate?
 
-    init(_ script: [Outcome]) { self.script = script }
+    init(_ script: [Outcome], gate: ModelGate? = nil) {
+        self.script = script
+        self.gate = gate
+    }
     convenience init(content: String) { self.init([.content(content)]) }
     static var unreachable: FakeModelTransport { FakeModelTransport([.unreachable]) }
 
     func send(_ request: URLRequest) async throws -> (Data, Int) {
+        lock.lock()
+        inFlight += 1
+        peakInFlight = max(peakInFlight, inFlight)
+        lock.unlock()
+        defer { lock.lock(); inFlight -= 1; lock.unlock() }
+
+        if let gate { await gate.pass() }
+
         lock.lock(); defer { lock.unlock() }
         requests.append(request)
         guard !script.isEmpty else { throw Unreachable() }
@@ -110,6 +178,12 @@ enum ModelTestSupport {
         bins[min(max(index, 0), ImageStats.binCount - 1)] = 1024
         return bins
     }
+
+    /// A model reply that proposes one small, in-band contrast move.
+    static let mildProposal = """
+    {"exposure":0,"contrast":10,"highlights":0,"shadows":0,"vibrance":0,"saturation":0,
+     "temperature_shift":0,"tint_shift":0}
+    """
 
     /// A real JPEG on disk so `ModelImage.jpeg` has something to read; the model path
     /// can then be exercised end to end through a fake transport.

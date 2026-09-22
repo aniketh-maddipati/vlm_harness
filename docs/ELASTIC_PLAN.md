@@ -217,6 +217,15 @@ completely. It no longer does.
 **Runtime overrides are enforced in Swift, not by the lint.** `LUMINA_AUTO_BASE_URL` naming
 a non-loopback host is refused, not honored — a lint sees literals only.
 
+**Race, edge and threat pass (2026-09-22):** `applyModelAuto` fans out at concurrency 4,
+snapshots every frame at dispatch and drops any answer whose frame moved (hand edit, undo,
+removal) while the model was thinking; the batch is all-or-nothing and one ⌘Z. `applyPlan`
+carries `expectedCounts` and refuses a plan whose scopes resolve differently than previewed.
+The client bounds reply size before parsing and owns every envelope failure. Threats,
+mitigations and the test pinning each are in `docs/security/MODEL_ASSIST_THREAT_MODEL.md`;
+residual risks (band-edge values, trusted catalog, no per-batch deadline) are listed there,
+not hidden.
+
 **Measured on the ruling (local, `DSC08241.ARW` → 512 px):** 3.18 s round-trip, valid
 schema-conformant JSON. The model proposed `highlights +30` on a frame with 0.0006%
 highlight clipping; `Band.highlights` clamped it to `+10`. The band is load-bearing.

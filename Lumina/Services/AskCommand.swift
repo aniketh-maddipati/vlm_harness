@@ -109,6 +109,10 @@ nonisolated struct AskPlan: Equatable, Sendable {
     var summary: String
     /// Which planner produced it — shown so a fallback is never mistaken for the model.
     var planner: String
+    /// How many frames each scope resolved to when the plan was made. `applyPlan`
+    /// refuses the plan if any scope it uses resolves differently at apply time, so a
+    /// plan lands on what was previewed or not at all.
+    var expectedCounts: [AskScope: Int]? = nil
 }
 
 // MARK: - Planner
@@ -161,7 +165,8 @@ nonisolated struct KeywordAskPlanner: AskPlanner {
         if text.contains("auto") { steps.append(AskStep(scope: scope, action: .auto)) }
 
         guard !steps.isEmpty else { throw AskPlanError.nothingUnderstood }
-        return AskPlan(steps: steps, summary: AskPlanText.summary(steps, context: context), planner: "keywords")
+        return AskPlan(steps: steps, summary: AskPlanText.summary(steps, context: context), planner: "keywords",
+                       expectedCounts: context.scopeCounts)
     }
 
     static func scope(in text: String) -> AskScope {
@@ -189,7 +194,8 @@ nonisolated struct ModelAskPlanner: AskPlanner {
         )
         let steps = Self.steps(from: json)
         guard !steps.isEmpty else { throw AskPlanError.nothingUnderstood }
-        return AskPlan(steps: steps, summary: AskPlanText.summary(steps, context: context), planner: "model")
+        return AskPlan(steps: steps, summary: AskPlanText.summary(steps, context: context), planner: "model",
+                       expectedCounts: context.scopeCounts)
     }
 
     /// Parses defensively: an unknown scope or action drops that step rather than guessing.
@@ -243,10 +249,30 @@ nonisolated struct ModelAskPlanner: AskPlanner {
             .map { "\($0.rawValue): \(context.scopeCounts[$0] ?? 0)" }
             .joined(separator: ", ")
         return """
-        Request: \(request)
-        On screen: \(context.focusedFilename ?? "nothing focused") (route: \(context.route)).
+        Request: \(promptSafe(request, limit: requestLimit))
+        On screen: \(context.focusedFilename.map { promptSafe($0, limit: filenameLimit) } ?? "nothing focused") \
+        (route: \(promptSafe(context.route, limit: filenameLimit))).
         Frames per scope: \(counts).
         """
+    }
+
+    static let requestLimit = 500
+    static let filenameLimit = 64
+
+    /// A filename comes off a memory card; a request comes off a keyboard. Neither is
+    /// trusted to shape the prompt: control characters and line breaks are stripped so
+    /// a value can't open a new "line" of instructions, and the length is capped. The
+    /// real defense is downstream — the model can only answer in the fixed vocabulary,
+    /// and an unknown scope or action is dropped — this just keeps the prompt honest.
+    static func promptSafe(_ text: String, limit: Int) -> String {
+        let cleaned = text.unicodeScalars
+            .map { scalar -> Character in
+                if scalar.properties.generalCategory == .control || scalar == "\n" || scalar == "\r" {
+                    return " "
+                }
+                return Character(scalar)
+            }
+        return String(String(cleaned).prefix(limit))
     }
 
     static let schemaJSON = """

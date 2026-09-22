@@ -71,6 +71,7 @@ NONISOLATED_TYPE_MARKERS: dict[str, tuple[str, ...]] = {
     ),
     "Lumina/Services/AskScopeResolver.swift": ("nonisolated enum AskScopeResolver",),
     "Lumina/Services/AskPlanApply.swift": ("nonisolated enum AskPlanApply",),
+    "Lumina/ViewModels/P0SessionModel+Model.swift": ("nonisolated enum ModelAutoBatch",),
     "Lumina/Develop/ModelAutoDevelop.swift": (
         "nonisolated struct ModelToneProposal",
         "nonisolated enum ModelAutoDevelop",
