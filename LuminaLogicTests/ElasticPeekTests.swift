@@ -152,6 +152,15 @@ final class ElasticPeekTests: XCTestCase {
         XCTAssertEqual(session.route, .time)
     }
 
+    func testEscLadderIgnoresAPeekTheOpenSurfaceCannotShow() {
+        // The key owner guards Tab by route; if a peek ever leaks onto `.open`,
+        // the ladder must still not swallow Esc there.
+        let session = P0SessionModel()
+        XCTAssertEqual(session.route, .open)
+        XCTAssertNil(session.peek)
+        XCTAssertFalse(P0EscLadder.handle(session: session))
+    }
+
     // MARK: - The set peek walks the set
 
     func testSetPeekMovesTheCursorOntoTheNearestKeptFrameAndWalksTheSet() {

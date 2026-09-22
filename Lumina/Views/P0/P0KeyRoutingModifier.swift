@@ -78,6 +78,7 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             session.closePeek()
             session.setShowingBefore(false)
             session.setHoldingClipping(false)
+            session.setHoldingLoupe(false)
         }
 
         func detach() {
@@ -130,7 +131,7 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
 
             // ⇥ — the one peek. Hold: similar; a pinned peek cycles on ⇥ and closes past
             // the end. Release is decided in `handleKeyUp`. ⌘⇥ belongs to the system.
-            if event.keyCode == P0VirtualKey.tab, !command {
+            if event.keyCode == P0VirtualKey.tab, !command, session.route != .open {
                 if event.isARepeat { return nil }
                 if session.peek != nil, session.peekPinned {
                     session.cyclePeek(by: 1, wrap: false)

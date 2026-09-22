@@ -239,3 +239,9 @@ the next pass needs to know — especially anything here that turned out to be w
   `--p0-edit-live` on the 27-frame card: 3 render-path failures (fidelity monotonic,
   geometry stable, drawable target) — not measured against the base commit, so unverified
   whether pre-existing; none touch peek code.
+- 2026-09-22 · item 1 follow-up · Tab is now guarded by `route != .open` (it opened a
+  phantom peek on the Open surface and ate the next Esc), and the app-resign release
+  also drops the Space loupe. Known and deliberate: the peek bar overlays the last table
+  rows with no bottom inset, exactly as the prototype's `position:absolute` does — needs
+  a ruling, not a fix. Legacy `P0ChapterTableView.focusKeptAsset` can still arm the set
+  walk without a peek; it is unreachable from the Elastic shell and goes with item 5.
