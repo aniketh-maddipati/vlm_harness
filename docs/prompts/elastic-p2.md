@@ -207,7 +207,7 @@ but what was measured, on what card, warm or cold. Commit with
 - [x] 4. Prefetch by scroll velocity; cancel behind
 - [x] 5. Superseded requests dropped rather than queued
 - [x] 6. Re-measure; before/after recorded in `docs/ELASTIC_PLAN.md`
-- [ ] 7. Gate green, including `xcode_compile.py`
+- [x] 7. Gate green, including `xcode_compile.py`
 
 ## Progress
 
@@ -298,3 +298,10 @@ wrong._
   warm, unfilmed; what moved it in order; what is left and whose it is
   (wrap-layout tick cost is P0's; the dart's soft tiles are the floor
   working). Cold is stated as a separate case, not folded in.
+- 2026-09-22 · item 7 **done** · Final gate on the completed tree:
+  build-for-testing OK · 312 logic tests, 2 skipped, 0 failures (baseline was
+  285) · fast 41/41 · `xcode_compile.py` OK. Every item checked. Branch
+  pushed; PR #100 against `elastic-v4/fixture-generator`. Not pushed to
+  main, not merged — that is the user's call. Nothing further for this
+  stream; the two things left on the scroll path belong to P0 (wrap-layout
+  tick cost) and to disks slower than this one (the dart's soft tiles).
