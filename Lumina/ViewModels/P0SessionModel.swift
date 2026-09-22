@@ -1238,29 +1238,14 @@ final class P0SessionModel {
         }
     }
 
-    func selectClick(id: UUID, command: Bool, shift: Bool) {
-        if shift, let anchor = focusedAssetID ?? selectedAssetIDs.first,
-           let a = visibleItems.firstIndex(where: { $0.id == anchor }),
-           let b = visibleItems.firstIndex(where: { $0.id == id }) {
-            let range = a <= b ? a...b : b...a
-            selectedAssetIDs = visibleItems[range].map(\.id)
-        } else if command {
-            workspaceState.toggleSelection(id)
-        } else {
-            selectedAssetIDs = [id]
-        }
+    /// Law 1 — pointer travel. Moves focus only. Never writes cull, recipe, or persistent selection.
+    func pointerTravel(to id: UUID) {
         setFocus(id)
     }
 
-    /// Toggle selection of the focused/inspected photograph without changing focus.
-    func toggleSelectionOfFocused() {
-        guard let id = focusedAssetID ?? inspectingAssetID else { return }
-        workspaceState.toggleSelection(id)
-    }
-
-    var focusedIsSelected: Bool {
-        guard let id = focusedAssetID ?? inspectingAssetID else { return false }
-        return selectedAssetIDs.contains(id)
+    /// Variant-surface pointer travel — stages which temporary branch is armed. Nothing is committed.
+    func pointerTravelToVariant(at index: Int) {
+        focusEditVariant(at: index)
     }
 
     var focusedBurst: ShootBurst? {
@@ -1471,7 +1456,7 @@ final class P0SessionModel {
 
     func focusKeptAsset(_ id: UUID) {
         walkingKeptRail = true
-        setFocus(id)
+        pointerTravel(to: id)
     }
 
     private func walkKeptRail(_ dx: Int) {

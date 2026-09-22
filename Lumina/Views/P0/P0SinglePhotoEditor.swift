@@ -310,7 +310,7 @@ struct P0SinglePhotoEditor: View {
         let variant = session.workspaceState.editVariants?.recipe(forVariantAt: index)
         let focused = session.workspaceState.focusedEditVariantIndex == index
         return Button {
-            session.focusEditVariant(at: index)
+            session.pointerTravelToVariant(at: index)
         } label: {
             VStack(alignment: .leading, spacing: LuminaTokens.Spacing.xs) {
                 DevelopMetalView(image: session.displayedVariantCIImage(at: index))

@@ -181,13 +181,10 @@ struct ContactSheetRepresentable: NSViewControllerRepresentable {
     func makeNSViewController(context: Context) -> ContactSheetCollectionController {
         let controller = ContactSheetCollectionController()
         controller.onFocus = { [weak session] id in
-            session?.setFocus(id)
-        }
-        controller.onSelectClick = { [weak session] id, command, shift in
-            session?.selectClick(id: id, command: command, shift: shift)
+            session?.pointerTravel(to: id)
         }
         controller.onOpen = { [weak session] id in
-            session?.setFocus(id)
+            session?.pointerTravel(to: id)
             session?.openFocusedPhotograph()
         }
         controller.onDensityDelta = { [weak session] delta in
