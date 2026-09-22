@@ -10,6 +10,9 @@ struct CrashRecoveryReport: Equatable, Sendable {
 }
 
 /// Replay committed journal records on every launch — no clean-shutdown flag exists.
+/// Journal replay is the crash window over stale `shoot.json`. Sidecar durable-receipt
+/// compare runs after this, inside `ShootStore.recoverShoot` — replay itself never
+/// reads or writes XMP.
 enum ShootCrashRecovery {
     /// Crash-only startup path: always replay the beside-shoot journal over shoot state.
     static func replayJournal(

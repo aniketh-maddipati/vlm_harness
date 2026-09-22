@@ -122,6 +122,17 @@ entries:
       - P0SidecarIntegrationTests.testD36_sessionEditCommitWritesSidecarBesideOriginal
       - P0SidecarIntegrationTests.testD35_sidecarDriftDetectedWithoutMutatingSessionRecipe
       - ShootCrashRecoveryTests.testD13_stagedScopeGoneAfterCrashRecovery
+      - SidecarAuthorityTests.testCase1_cleanShutdownXMPAndShootCacheAgree
+      - SidecarAuthorityTests.testCase2_journalNewerThanSidecarWinsCrashWindow
+      - SidecarAuthorityTests.testCase3_sidecarNewerThanShootCacheWins
+      - SidecarAuthorityTests.testCase4_externalXMPChangeDetectedNotOverwritten
+      - SidecarAuthorityTests.testCase5_shootCacheWithoutSidecarKeepsRecipe
+      - SidecarAuthorityTests.testCase6_deletedApplicationSupportReconstructsFromXMP
+      - SidecarAuthorityTests.testCase7_sourceDriveReturnReconcilesSidecar
+      - SidecarAuthorityTests.testEditThenXMPThenRestart
+      - SidecarAuthorityTests.testEditCrashWindowJournalReplayThenRestart
+      - SidecarAuthorityTests.testStaleShootCacheCannotOverrideNewerSidecarOnFolderReopen
+      - SidecarAuthorityTests.testPersistenceRemainsSerializedThroughShootStore
     lint:
       - cp2_lr_round_trip
       - f06_data_safety_bounded

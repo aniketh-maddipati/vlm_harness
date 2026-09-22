@@ -146,10 +146,7 @@ nonisolated enum ContactSheetPreparation {
         }
 
         if let rawFolderURL = access?.url {
-            shoot = (try? await ShootStore.shared.recoverShoot(
-                shoot,
-                besideShootFolder: rawFolderURL
-            )) ?? shoot
+            shoot = try await recoverAndCatchUpCatalog(shoot, beside: rawFolderURL)
         }
 
         continuation.yield(.opened(shoot: shoot, status: status))
@@ -211,7 +208,9 @@ nonisolated enum ContactSheetPreparation {
         }
 
         // Reopen without rediscovery when the catalog already has assets for this folder.
+        // Recover still runs: journal crash-window + sidecar durable receipt.
         if !shoot.assets.isEmpty {
+            shoot = try await recoverAndCatchUpCatalog(shoot, beside: folderURL)
             var status = ContactSheetPreparationStatus()
             status.assetCount = shoot.assets.count
             status.discoveredCount = shoot.assets.count
@@ -271,8 +270,6 @@ nonisolated enum ContactSheetPreparation {
             )
             let assetID = AssetIdentity.resolveID(sourceKey: sourceKey, preserved: existingByKey[sourceKey])
             let source = SourceReference.make(fileURL: url, rootURL: folderURL)
-            let sidecarURL = ShootSidecarStore.sidecarURL(besideOriginal: url)
-            let sidecarRecipe = try? ShootSidecarStore.readMappedRecipe(at: sidecarURL)
             records.append(
                 AssetRecord(
                     id: assetID,
@@ -280,7 +277,6 @@ nonisolated enum ContactSheetPreparation {
                     source: source,
                     filename: url.lastPathComponent,
                     cull: .undecided,
-                    recipe: sidecarRecipe?.hasSettings == true ? sidecarRecipe : nil,
                     fileSize: size
                 )
             )
@@ -296,10 +292,7 @@ nonisolated enum ContactSheetPreparation {
         status.phaseDetail = "\(records.count) photos"
         status.isPreparingPreviews = true
 
-        shoot = (try? await ShootStore.shared.recoverShoot(
-            shoot,
-            besideShootFolder: folderURL
-        )) ?? shoot
+        shoot = try await recoverAndCatchUpCatalog(shoot, beside: folderURL)
 
         // Open the workspace before preview extraction completes.
         continuation.yield(.opened(shoot: shoot, status: status))
@@ -307,9 +300,6 @@ nonisolated enum ContactSheetPreparation {
             "p0.folder_to_first_paint",
             milliseconds: (CFAbsoluteTimeGetCurrent() - openStart) * 1000
         )
-
-        // Persist catalog early so reopen skips rediscovery.
-        try await ShootStore.shared.saveShoot(shoot)
 
         try await preparePreviews(
             shoot: &shoot,
@@ -485,6 +475,20 @@ nonisolated enum ContactSheetPreparation {
     }
 
     // MARK: - Helpers
+
+    /// Journal crash-window replay, then sidecar durable-receipt reconcile, then
+    /// catalog catch-up. Never writes XMP. Serialized through `ShootStore`.
+    private static func recoverAndCatchUpCatalog(
+        _ shoot: ShootRecord,
+        beside folderURL: URL
+    ) async throws -> ShootRecord {
+        let recovered = (try? await ShootStore.shared.recoverShoot(
+            shoot,
+            besideShootFolder: folderURL
+        )) ?? shoot
+        try await ShootStore.shared.saveShoot(recovered)
+        return recovered
+    }
 
     static func chronologicalLess(_ lhs: AssetRecord, _ rhs: AssetRecord) -> Bool {
         switch (lhs.capturedAt, rhs.capturedAt) {

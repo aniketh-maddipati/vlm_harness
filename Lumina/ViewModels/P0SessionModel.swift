@@ -1636,6 +1636,7 @@ final class P0SessionModel {
             self.shoot = shoot
             self.assets = shoot.assets
             self.status = status
+            adoptSidecarManagedHashes(from: shoot.assets)
             restoreWorkspace(from: shoot.workspace)
             reconcileActiveChapter()
             route = .contactSheet
@@ -1827,6 +1828,19 @@ final class P0SessionModel {
                 self.sidecarManagedHashes[command.assetID] = hash
                 self.sidecarDriftAssetIDs.remove(command.assetID)
             }
+        }
+    }
+
+    /// Adopt on-disk managed hashes after relaunch so in-session drift still
+    /// detects external XMP edits. Not a persistence store — session memory only.
+    func adoptSidecarManagedHashes(from assets: [AssetRecord]) {
+        sidecarManagedHashes = [:]
+        sidecarDriftAssetIDs = []
+        for asset in assets {
+            let original = URL(fileURLWithPath: asset.source.originalPath)
+            let xmp = ShootSidecarStore.sidecarURL(besideOriginal: original)
+            guard let hash = try? ShootSidecarStore.managedFieldsHash(at: xmp) else { continue }
+            sidecarManagedHashes[asset.id] = hash
         }
     }
 

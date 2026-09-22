@@ -6,7 +6,7 @@ Foundation checkpoint: stable asset identity, one recipe authority, and recovera
 
 | Concern | Owner | Notes |
 |---|---|---|
-| Shoot catalog | `ShootRecord` | Versioned on-disk authority (`shoot.json`) |
+| Shoot catalog | `ShootRecord` | Versioned Application Support cache (`shoot.json`) — navigation / previews, not edit authority |
 | Per-photo durable state | `AssetRecord` | Identity, source, cull, recipe, caches |
 | Cull | `CullDecision` on `AssetRecord` | Independent of edit |
 | Edit | `EditRecipe` on `AssetRecord` | Tone + geometry + retouch |
@@ -42,14 +42,35 @@ Cached preview paths are keyed by `AssetIdentity.cacheStem(assetID)` (UUID strin
 
 ## Persistence and recovery
 
-`ShootStore` (actor) is the narrow repository boundary:
+Durable edit receipt lives **beside the media**. Application Support may accelerate
+restore and navigation; it is not a second authority for recipes.
 
-- `loadShoot(id:)`
-- `saveShoot(_:)`
-- `listRecentShoots()`
-- `createOrOpenShoot(from:)`
+| Concern | Owner | Notes |
+|---|---|---|
+| Canonical in-memory recipe | `AssetRecord.recipe` | Session truth while the shoot is open (D35) |
+| Crash window | `ShootDecisionJournal` | Append-only JSONL at `<shoot>/.lumina/decisions.journal.jsonl` |
+| Durable edit receipt | Open XMP sidecar | Written on edit commit via `ShootSidecarStore`; survives deleting Lumina |
+| Navigation / preview cache | `shoot.json` under Application Support | Catch-up only; must not silently override a newer valid sidecar |
+| Sidecar managed hash | Session memory (`sidecarManagedHashes`) | Last observed managed `crs:` hash; cleared on open, re-adopted from disk |
+| External XMP modification | `SidecarReconciliation` / `SidecarOpenOutcome` | In-session: detect, do not overwrite session. Relaunch: sidecar wins if not older than the journal crash window |
 
-Writes are serialized per shoot (debounced tasks keyed by shoot name — not one global work item). Save path:
+`ShootStore` (actor) is the narrow persistence owner: `commitEdit` (journal → catalog → sidecar), `recoverShoot` (journal replay then sidecar reconcile), `saveShoot`. Writes are serialized per shoot.
+
+### Relaunch authority
+
+One deterministic winner per asset. Recover never writes XMP.
+
+| Case | Winner | Proof |
+|---|---|---|
+| 1. Clean shutdown, XMP and shoot cache agree | Agreed mapped recipe | `SidecarAuthorityTests.testCase1_cleanShutdownXMPAndShootCacheAgree` |
+| 2. Journal newer than sidecar | Journal (crash window) | `SidecarAuthorityTests.testCase2_journalNewerThanSidecarWinsCrashWindow` |
+| 3. Sidecar newer than shoot cache | Sidecar | `SidecarAuthorityTests.testCase3_sidecarNewerThanShootCacheWins` |
+| 4. External XMP changed | Sidecar adopted; XMP bytes unchanged; in-session drift does not mutate session | `SidecarAuthorityTests.testCase4_externalXMPChangeDetectedNotOverwritten` |
+| 5. Shoot cache exists, sidecar missing | Journal then catalog; sidecar not created | `SidecarAuthorityTests.testCase5_shootCacheWithoutSidecarKeepsRecipe` |
+| 6. Sidecar exists, Application Support deleted | Sidecar reconstructs mapped recipe | `SidecarAuthorityTests.testCase6_deletedApplicationSupportReconstructsFromXMP` |
+| 7. Application Support exists, source drive returns later | Offline: catalog only. Drive back: same as 1–6 | `SidecarAuthorityTests.testCase7_sourceDriveReturnReconcilesSidecar` |
+
+Save path for `shoot.json`:
 
 1. Encode sorted JSON to a temp file
 2. Promote previous `shoot.json` → `shoot.json.good`
@@ -81,7 +102,7 @@ Deletion conditions:
   for on-disk `project.json` closes.
 - Delete `DevelopRecipe` bridges after taste and XMP consumers use `EditRecipe` directly.
 
-Obsolete architecture notes in `docs/DEVELOP_ENGINE.md` and `BUILD_LOG.md` that claimed EditRecipe was already the stored source of truth are corrected here: that claim is now true for P0 shoot persistence.
+Obsolete architecture notes in `docs/DEVELOP_ENGINE.md` and `BUILD_LOG.md` that claimed EditRecipe was already the stored source of truth are corrected here: in-session canonical state is `EditRecipe` on `AssetRecord`; the durable receipt for edits that survive outside Lumina is open XMP.
 
 ## Next checkpoint (contact sheet)
 

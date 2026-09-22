@@ -201,6 +201,7 @@ actor ShootStore {
         #endif
         var recovered = shoot
         _ = ShootCrashRecovery.replay(records: records, into: &recovered)
+        _ = ShootSidecarStore.applyOpenReconciliation(into: &recovered, journalRecords: records)
         return recovered
     }
 
