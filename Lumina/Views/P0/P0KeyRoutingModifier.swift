@@ -262,6 +262,13 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return nil
             }
 
+            // G inside the flags peek takes the inferred picks — one command, one ⌘Z.
+            if unmodified, lower == "g", session.peek == .flags {
+                if event.isARepeat { return nil }
+                session.takeInferredPicks()
+                return nil
+            }
+
             if !command && lower == "k", session.inspectingAssetID == nil {
                 if event.isARepeat { return nil }
                 session.keepFocusedBurst()

@@ -170,8 +170,8 @@ struct ChapterKeepCommand: Equatable, Sendable {
     let chapterBefore: String?
     let focusBefore: UUID?
     let burstID: String
-
-    var label: String { "Keep burst" }
+    /// `Keep burst`, or `Take the picks` when the marks came from the flags peek.
+    let label: String
 
     init(
         id: UUID = UUID(),
@@ -181,7 +181,8 @@ struct ChapterKeepCommand: Equatable, Sendable {
         finalOrderAfter: [UUID],
         chapterBefore: String?,
         focusBefore: UUID?,
-        burstID: String
+        burstID: String,
+        label: String = "Keep burst"
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -191,6 +192,7 @@ struct ChapterKeepCommand: Equatable, Sendable {
         self.chapterBefore = chapterBefore
         self.focusBefore = focusBefore
         self.burstID = burstID
+        self.label = label
     }
 
     @discardableResult

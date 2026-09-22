@@ -153,6 +153,10 @@ final class P0SessionModel {
     var peekPinned = false
     /// When ⇥ opened the peek — tap versus hold is decided on release.
     @ObservationIgnored var peekOpenedAt: CFAbsoluteTime?
+    /// Sharpness and embeddings measured for the flags peek, off grid thumbnails,
+    /// filled in by `measureForInference` and kept for the life of the shoot.
+    var inferredMeasurements = ElasticInferredGroups.Measurements()
+    @ObservationIgnored private var inferenceTask: Task<Void, Never>?
     var travelingBurstID: String?
     var filter: GridFilter = .all
     var scrollAnchor: Double = 0
@@ -1507,6 +1511,105 @@ final class P0SessionModel {
         advanceIfChapterEmpty(from: chapterBefore)
     }
 
+    /// `G` inside the flags peek: every frame the inferred groups would take goes to
+    /// the set, as one command and one `⌘Z`. Frames already kept or already out are
+    /// left alone — the peek proposes, it never overrules a mark.
+    @discardableResult
+    func takeInferredPicks() -> Int {
+        let commandStartedAt = Date()
+        let committedAt = Date()
+        var seen: Set<UUID> = []
+        var marks: [ChapterKeepCommand.Mark] = []
+        for id in inferredGroups.flatMap(\.takeIDs) where seen.insert(id).inserted {
+            guard let index = assets.firstIndex(where: { $0.id == id }),
+                  assets[index].cull == .undecided || assets[index].cull == .hold else { continue }
+            marks.append(ChapterKeepCommand.Mark(
+                assetID: id,
+                before: assets[index].cull,
+                after: .keep,
+                userDecidedAtBefore: assets[index].userDecidedAt,
+                userDecidedAtAfter: committedAt
+            ))
+        }
+        guard !marks.isEmpty else { return 0 }
+
+        let orderBefore = shoot?.finalSetOrder.assetIDs ?? []
+        let taken = Set(marks.map(\.assetID))
+        var finalOrder = shoot?.finalSetOrder ?? FinalSetOrder()
+        finalOrder.reconcileKeptMembership(
+            keptIDsInChronologicalOrder: assets.compactMap {
+                ($0.cull == .keep || taken.contains($0.id)) ? $0.id : nil
+            }
+        )
+        let command = ChapterKeepCommand(
+            createdAt: committedAt,
+            marks: marks,
+            finalOrderBefore: orderBefore,
+            finalOrderAfter: finalOrder.assetIDs,
+            chapterBefore: activeChapterID,
+            focusBefore: focusedAssetID,
+            burstID: "inferred-picks",
+            label: "Take the picks"
+        )
+        guard command.apply(to: &assets, finalOrder: &finalOrder) else { return 0 }
+        if var shoot {
+            shoot.finalSetOrder = finalOrder
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+        undoCoordinator.push(command)
+        let persistenceCommands = marks.map { mark in
+            CullMutationCommand(
+                createdAt: committedAt,
+                assetID: mark.assetID,
+                before: mark.before,
+                after: mark.after,
+                userDecidedAtBefore: mark.userDecidedAtBefore,
+                userDecidedAtAfter: mark.userDecidedAtAfter,
+                finalOrderBefore: orderBefore,
+                finalOrderAfter: finalOrder.assetIDs
+            )
+        }
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueCullPersistence(persistenceCommands, commandStartedAt: commandStartedAt)
+        return marks.count
+    }
+
+    /// Measure what the flags peek needs and does not have yet: sharpness for every
+    /// frame, an embedding for one frame per burst. Off the main actor, off grid
+    /// thumbnails, in small batches; the groups redraw once when it lands.
+    func measureForInference() {
+        let sharpnessTargets = assets
+            .filter { inferredMeasurements.sharpness[$0.id] == nil }
+            .compactMap { asset in (asset.gridThumbPath ?? asset.thumbPath).map { (asset.id, $0) } }
+        // First frame of each burst: the same representative the inference reads.
+        let leaders = Set(chapters.flatMap(\.bursts).compactMap(\.coverID))
+        let embeddingTargets = assets
+            .filter { leaders.contains($0.id) && inferredMeasurements.embeddings[$0.id] == nil && !isPhoneFrame($0.id) }
+            .compactMap { asset in (asset.gridThumbPath ?? asset.thumbPath).map { (asset.id, $0) } }
+        guard !sharpnessTargets.isEmpty || !embeddingTargets.isEmpty else { return }
+        inferenceTask?.cancel()
+        inferenceTask = Task { [weak self] in
+            let measured = await Task.detached(priority: .utility) {
+                var result = ElasticInferredGroups.Measurements()
+                for (id, path) in sharpnessTargets {
+                    if Task.isCancelled { return result }
+                    result.sharpness[id] = BlurScorer.score(imageURL: URL(fileURLWithPath: path))
+                }
+                for (id, path) in embeddingTargets {
+                    if Task.isCancelled { return result }
+                    if let embedding = EmbeddingService.embed(url: URL(fileURLWithPath: path)) {
+                        result.embeddings[id] = embedding
+                    }
+                }
+                return result
+            }.value
+            guard let self, !Task.isCancelled else { return }
+            self.inferredMeasurements.sharpness.merge(measured.sharpness) { _, new in new }
+            self.inferredMeasurements.embeddings.merge(measured.embeddings) { _, new in new }
+        }
+    }
+
     private func applyChapterKeepUndo(_ command: ChapterKeepCommand) {
         let commandStartedAt = Date()
         var finalOrder = shoot?.finalSetOrder ?? FinalSetOrder()
@@ -1732,6 +1835,9 @@ final class P0SessionModel {
         peek = nil
         peekPinned = false
         peekOpenedAt = nil
+        inferenceTask?.cancel()
+        inferenceTask = nil
+        inferredMeasurements = ElasticInferredGroups.Measurements()
         travelingBurstID = nil
         showingBefore = false
         clearGestureState()

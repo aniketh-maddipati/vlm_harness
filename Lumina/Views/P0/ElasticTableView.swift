@@ -15,7 +15,15 @@ struct ElasticTableView: View {
                 // different screen — the mount survives so scroll and cursor do too.
                 ElasticFilmstrip(session: session)
             } else {
-                momentScroll
+                VStack(spacing: 0) {
+                    // The flags peek: what the shoot's own structure suggests, above
+                    // the table it was read from. The table stays put beneath it.
+                    if session.peek == .flags, !session.inferredGroups.isEmpty {
+                        ElasticGroupsBand(session: session)
+                            .elasticBorn(ElasticLayout.bornGroupsMs)
+                    }
+                    momentScroll
+                }
             }
         }
         .background(LuminaTokens.Elastic.matte)
@@ -242,6 +250,11 @@ struct ElasticFrameTile: View {
         .overlay(alignment: .bottomTrailing) {
             if session.isPhoneFrame(assetID) {
                 ElasticPhoneGlyph().padding(ElasticLayout.markInset)
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            if let flags = session.flagLine(for: assetID) {
+                ElasticFlagChip(text: flags).padding(ElasticLayout.markInset)
             }
         }
         .elasticMarked(radius: ElasticLayout.tileRadius, ringed: ringed, inSet: inSet)

@@ -185,3 +185,147 @@ struct ElasticRelatedRow: View {
         }
     }
 }
+
+/// The inferred groups above the table while flags are held (`data-screen-label="Groups"`):
+/// a head line, then one row per group — why these frames belong together on the left,
+/// the frames on the right, the ones `G` would take at full strength.
+struct ElasticGroupsBand: View {
+    @Bindable var session: P0SessionModel
+
+    var body: some View {
+        let groups = session.inferredGroups
+        VStack(alignment: .leading, spacing: ElasticLayout.groupsGap) {
+            HStack(alignment: .firstTextBaseline, spacing: ElasticLayout.peekTitleGap) {
+                Text(session.groupsHeadline)
+                    .font(ElasticType.mono(ElasticLayout.peekTitleSize, weight: .medium))
+                Text(session.groupsSubtitle)
+                    .font(ElasticType.mono(ElasticLayout.peekSubSize))
+                    .opacity(ElasticLayout.peekSubOpacity)
+                Spacer(minLength: 0)
+                Text(P0SessionModel.groupsKeyLine)
+                    .font(ElasticType.mono(ElasticLayout.peekSubSize))
+                    .opacity(ElasticLayout.peekSubOpacity)
+            }
+            .foregroundStyle(LuminaTokens.Elastic.shellAlt)
+            .lineLimit(1)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: ElasticLayout.groupsGap) {
+                    ForEach(groups) { group in
+                        ElasticGroupRow(session: session, group: group)
+                    }
+                }
+            }
+        }
+        .padding(.top, ElasticLayout.groupsPaddingTop)
+        .padding(.horizontal, ElasticLayout.tableGutter)
+        .padding(.bottom, ElasticLayout.groupsPaddingBottom)
+        .frame(maxWidth: .infinity, maxHeight: ElasticLayout.groupsMaxHeight, alignment: .topLeading)
+        .background(LuminaTokens.Elastic.groupsBar)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(LuminaTokens.Elastic.ink.opacity(ElasticLayout.groupsRuleOpacity))
+                .frame(height: ElasticLayout.hairline)
+        }
+    }
+}
+
+private struct ElasticGroupRow: View {
+    @Bindable var session: P0SessionModel
+    let group: ElasticInferredGroup
+
+    var body: some View {
+        let holdsCursor = session.focusedAssetID.map { group.frameIDs.contains($0) } ?? false
+        HStack(alignment: .center, spacing: ElasticLayout.groupsRowGap) {
+            VStack(alignment: .leading, spacing: ElasticType.lineSpacing(
+                size: ElasticLayout.groupsTextSize, lineHeight: ElasticLayout.groupsLineHeight
+            )) {
+                Text(group.kind.rawValue)
+                    .font(ElasticType.mono(ElasticLayout.groupsKindSize, weight: .semibold))
+                    .foregroundStyle(LuminaTokens.Elastic.warmAccent)
+                Text(group.reason)
+                    .opacity(ElasticLayout.groupsReasonOpacity)
+                Text(group.takeLine)
+                    .opacity(ElasticLayout.groupsTakeOpacity)
+            }
+            .font(ElasticType.mono(ElasticLayout.groupsTextSize))
+            .foregroundStyle(LuminaTokens.Elastic.shellAlt)
+            .frame(width: ElasticLayout.groupsColumnWidth, alignment: .leading)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: ElasticLayout.groupsFrameGap) {
+                    ForEach(group.frameIDs, id: \.self) { id in
+                        frame(id)
+                    }
+                }
+                .padding(ElasticLayout.ringOuter)
+            }
+        }
+        .padding(.vertical, ElasticLayout.groupsRowPaddingV)
+        .padding(.horizontal, ElasticLayout.groupsRowPaddingH)
+        .background(
+            holdsCursor
+                ? LuminaTokens.Elastic.warmAccent.opacity(ElasticLayout.groupsFocusRowOpacity)
+                : LuminaTokens.Elastic.ink.opacity(ElasticLayout.groupsRowOpacity),
+            in: RoundedRectangle(cornerRadius: ElasticLayout.groupsRowRadius, style: .continuous)
+        )
+    }
+
+    private func frame(_ id: UUID) -> some View {
+        let asset = session.asset(id)
+        let taken = group.takeIDs.contains(id)
+        let ringed = session.focusedAssetID == id || session.selectedAssetIDs.contains(id)
+        return Button {
+            session.setFocus(id)
+        } label: {
+            ZStack {
+                LuminaTokens.Elastic.deep
+                if let path = asset?.gridThumbPath ?? asset?.thumbPath {
+                    ChapterPlateImage(path: path)
+                }
+            }
+            .frame(width: ElasticLayout.groupsFrame.width, height: ElasticLayout.groupsFrame.height)
+            .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.groupsFrameRadius, style: .continuous))
+            .overlay(alignment: .bottomLeading) {
+                if let tag = group.tags[id] {
+                    Text(tag)
+                        .font(ElasticType.mono(ElasticLayout.groupsTagSize))
+                        .foregroundStyle(LuminaTokens.Elastic.shell)
+                        .padding(.horizontal, ElasticLayout.groupsTagPaddingH)
+                        .padding(.vertical, ElasticLayout.groupsTagPaddingV)
+                        .background(
+                            LuminaTokens.Elastic.ink.opacity(ElasticLayout.groupsTagOpacity),
+                            in: RoundedRectangle(cornerRadius: ElasticLayout.groupsTagRadius, style: .continuous)
+                        )
+                        .padding(ElasticLayout.groupsTagInset)
+                }
+            }
+            .elasticMarked(radius: ElasticLayout.groupsFrameRadius, ringed: ringed, inSet: session.isInFinalSet(id))
+            .opacity(taken || group.takeIDs.isEmpty ? 1 : ElasticLayout.groupsUntakenOpacity)
+        }
+        .buttonStyle(LuminaElasticButtonStyle())
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            session.setFocus(id)
+            session.openFocusedPhotograph()
+        })
+    }
+}
+
+/// `soft · clips · drift` — the salmon chip at a tile's foot while flags are held.
+struct ElasticFlagChip: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(ElasticType.mono(ElasticLayout.flagChipSize, weight: .semibold))
+            .foregroundStyle(LuminaTokens.Elastic.ink)
+            .lineLimit(1)
+            .padding(.horizontal, ElasticLayout.flagChipPaddingH)
+            .padding(.vertical, ElasticLayout.flagChipPaddingV)
+            .background(
+                LuminaTokens.Elastic.warn,
+                in: RoundedRectangle(cornerRadius: ElasticLayout.flagChipRadius, style: .continuous)
+            )
+            .allowsHitTesting(false)
+    }
+}

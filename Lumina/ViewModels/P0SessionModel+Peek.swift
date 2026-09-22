@@ -92,6 +92,9 @@ extension P0SessionModel {
             mode = .flags
         }
         peek = mode
+        if mode == .flags {
+            measureForInference()
+        }
         guard mode == .set else {
             walkingKeptRail = false
             return
@@ -248,6 +251,56 @@ extension P0SessionModel {
             )
         }
     }
+
+    // MARK: - Flags
+
+    /// The inferred groups, from what has been measured so far.
+    var inferredGroups: [ElasticInferredGroup] {
+        ElasticInferredGroups.infer(
+            chapters: chapters,
+            assets: assets,
+            measurements: inferredMeasurements,
+            context: ElasticInferredGroups.Context(
+                isPhone: { [weak self] in self?.isPhoneFrame($0) ?? false },
+                momentTimeLabel: { [weak self] in self?.momentTimeLabel($0) ?? "" },
+                momentLightWord: { [weak self] in self?.momentLightWord($0) ?? "" }
+            )
+        )
+    }
+
+    /// Frames the peek would send to the set that are not there yet.
+    var inferredPickCount: Int {
+        var seen: Set<UUID> = []
+        return inferredGroups.flatMap(\.takeIDs).filter { id in
+            seen.insert(id).inserted && !isInFinalSet(id) && asset(id)?.cull != .reject
+        }.count
+    }
+
+    /// `soft · clips · drift` on a table tile while flags are held; nil otherwise.
+    func flagLine(for id: UUID) -> String? {
+        guard peek == .flags, let asset = asset(id) else { return nil }
+        let mates = chapters.flatMap(\.bursts)
+            .first { $0.assetIDs.contains(id) }?
+            .frames.compactMap { self.asset($0.coverID) } ?? []
+        return ElasticInferredGroups.flags(for: asset, burstMates: mates, measurements: inferredMeasurements)
+    }
+
+    /// How many frames carry any flag right now.
+    var flaggedFrameCount: Int {
+        guard peek == .flags else { return 0 }
+        return assets.filter { flagLine(for: $0.id) != nil }.count
+    }
+
+    var groupsHeadline: String {
+        "\(inferredGroups.count) groups inferred"
+    }
+
+    var groupsSubtitle: String {
+        "\(inferredPickCount) picks would go to the set · "
+            + "\(flaggedFrameCount) frames need a hand (soft · clips · drift)"
+    }
+
+    static let groupsKeyLine = "holding ⇥ · ↑↓ or ⇥ cycles similar → set → flags · G takes the picks · ⌘Z undoes"
 
     // MARK: - Copy
 

@@ -1,7 +1,7 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: 35159b56cb57dc394c23463bbc2c1cbc7144071834394c7b00855e334a053041
+// tokens-hash: 1eac1762ac8c6436f9ce2d3c248c3ac6238c16dd80179ae0476f5213c5f3c17f
 // version: 6.4-a7-cleanup
 // contract: design/contract-v6.md
 
@@ -191,6 +191,11 @@ enum HiFiTokens {
         static let stackBackOpacity: Double = 0.22 // cite: ELASTIC-V4 — Back card of a collapsed burst stack.
         static let peekCursorTileWidth: CGFloat = 220.0 // cite: ELASTIC-V4 — The cursor's own tile in the table's similar peek (its neighbours are 170).
         static let peekRelatedBadgeHeight: CGFloat = 24.0 // cite: ELASTIC-V4 — Key badge on a related frame in the focus route (the table peek's badge is 22).
+        static let groupsColumnWidth: CGFloat = 210.0 // cite: ELASTIC-V4 — Left column of an inferred-groups row (kind · reason · take).
+        static let groupsFocusRowOpacity: Double = 0.14 // cite: ELASTIC-V4 — Warm wash on the inferred-groups row that holds the cursor.
+        static let groupsRuleOpacity: Double = 0.2 // cite: ELASTIC-V4 — Rule under the inferred-groups band.
+        static let groupsUntakenOpacity: Double = 0.5 // cite: ELASTIC-V4 — A frame in an inferred group that G would not take.
+        static let groupsTagTextSize: CGFloat = 10.0 // cite: ELASTIC-V4 — The `sharpest` tag on an inferred-group frame.
     }
 
     enum Hit {

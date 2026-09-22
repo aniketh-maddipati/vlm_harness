@@ -696,6 +696,33 @@ elastic:
     type: pt
     cite: [ELASTIC-V4]
     notes: Key badge on a related frame in the focus route (the table peek's badge is 22).
+  groups_column_width:
+    value: 210
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Left column of an inferred-groups row (kind · reason · take).
+  groups_focus_row_opacity:
+    value: 0.14
+    type: opacity
+    cite: [ELASTIC-V4]
+    notes: Warm wash on the inferred-groups row that holds the cursor.
+  groups_rule_opacity:
+    value: 0.2
+    type: opacity
+    cite: [ELASTIC-V4]
+    notes: Rule under the inferred-groups band.
+  groups_untaken_opacity:
+    value: 0.5
+    type: opacity
+    cite: [ELASTIC-V4]
+    notes: A frame in an inferred group that G would not take.
+  groups_tag_text_size:
+    value: 10
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: The `sharpest` tag on an inferred-group frame.
 
 hit:
   minimum:

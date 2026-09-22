@@ -208,7 +208,7 @@ One commit per checkpoint is fine; end each message with
 ## Checklist
 
 - [x] 1. Hold-`⇥` peek: related → set → flags, release returns, short tap pins, `Esc` closes
-- [ ] 2. `G` inside the flags peek takes the inferred picks
+- [x] 2. `G` inside the flags peek takes the inferred picks
 - [ ] 3. Hold-`␣` is before; 1:1 zoom moves off Space
 - [ ] 4. `P0EscLadder` rewritten to peek → drawer → selection → route
 - [ ] 5. Hold-V remnants retired (`EditVariantSession`, `WorkspaceState` fields, `V` binding, probe fields); `EditVariantTests` deleted or rewritten
@@ -217,6 +217,12 @@ One commit per checkpoint is fine; end each message with
 - [ ] 8. Develop drawer on `E`, with sliders, ratios, `R` rotate, straighten, profile
 - [ ] 9. Version column hides while the drawer or a hold is active
 - [ ] 10. `docs/ELASTIC_PLAN.md` P1 section updated, gate green
+- [ ] 11. Stress pass (asked for 2026-09-22): every landed item driven in the live
+  Debug app by real key events, with a guard that aborts unless Lumina is verified
+  frontmost before any key is sent; screenshots in `~/lumina-wt/p1-grammar-proof/<item>/`,
+  findings appended to Progress. Per item: 1 ✔ (17 shots) · 2 ✔ with one live re-check
+  pending · 3–9 as they land. Spam cases each time: 30 rapid ⇥ taps, held ⇥ + 40 arrows,
+  ⌘⇥ away mid-hold, 10× Esc, P/X bursts.
 
 ## Progress
 
@@ -245,3 +251,23 @@ the next pass needs to know — especially anything here that turned out to be w
   rows with no bottom inset, exactly as the prototype's `position:absolute` does — needs
   a ruling, not a fix. Legacy `P0ChapterTableView.focusKeptAsset` can still arm the set
   walk without a peek; it is unreachable from the Elastic shell and goes with item 5.
+- 2026-09-22 · item 2 · `ElasticInferredGroups` (Models, pure) + `takeInferredPicks` in
+  the session (one `ChapterKeepCommand`, label `Take the picks`, one ⌘Z). Sharpness is
+  never populated on P0 assets (all 27 read 0), so the flags peek measures it itself off
+  grid thumbs with `BlurScorer` (now `nonisolated`) and embeds one frame per burst with
+  `EmbeddingService.embed`, in a detached task; groups redraw when it lands (~3 s for
+  27). Same-burst / same-scene / same-subject only — the prototype's "same exposure
+  problem" group writes recipes, which is develop territory, and is not built; no
+  `eyes` flag either. Five tokens added (210 · 0.14 · 0.2 · 0.5 · 10); tokens hash is
+  now `1eac1762…`, golden moved. `P0Command.swift` gained a `label` on ChapterKeepCommand.
+  Live stress found and fixed one bug: the subject representative followed
+  `preferredCoverID`, so G's own marks regrouped the shoot (10 → 9 groups); pinned to
+  the burst's first frame, regression test added. Cosmetic, left: the band's head line
+  truncates at 1280 wide. Live re-check of the fix is PENDING — since ~14:08 the Debug
+  app launches into an idle run loop with no window (3 tries, exec and `open`), which
+  started when a second Lumina from Xcode DerivedData (pid 64132, not mine) appeared;
+  retry when it is gone. Incident: the first stress script resolved an empty pid and
+  sent ~60 keystrokes to the frontmost app, which was the Claude window — hence the
+  guard. Handed P0 a repro: LUM0012 renders 180° inverted in focus while its version
+  thumbnails are upright (shot in `item2/D1-focus-set-walk.png`, message sent to the
+  P0 session). Gate: 313 logic tests / 2 skipped, FAST 41/41.
