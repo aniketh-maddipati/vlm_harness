@@ -226,7 +226,7 @@ anything you learned that contradicts what is written there. Commit with
 
 - [x] 1. Photo-pixel proof: a test fails if the photograph stops rendering, comes out blank, or comes out the wrong way up
 - [x] 2. Reproduce the flip (ask the user for a repro if you cannot)
-- [ ] 3. Fix the flip, or write down precisely what it is and why it is not fixable here
+- [x] 3. Fix the flip, or write down precisely what it is and why it is not fixable here
 - [ ] 4. `ElasticWrapLayout` returns known tile sizes instead of asking every subview twice per pass
 - [ ] 5. Version thumbnails render through the interactive tier, or the column stops implying a difference
 - [ ] 6. Cold-catalog `previews 0/N` — decided and either surfaced honestly or fixed
@@ -280,6 +280,33 @@ the next pass needs to know — especially anything here that turned out to be w
   other entry point, `extractBrowsePreview`, transforms on every branch and is
   clean; only `extract` is holed, reached from `DevelopEngine.ensureProxy` and
   `extractBest`.
+- 2026-09-22 · item 3 · fixed in three places, and **the fallback path had a
+  second bug that mattered more**: `ExifToolService.runData` called
+  `process.waitUntilExit()` *before* draining the pipe, so any output larger than
+  a pipe buffer deadlocked. An embedded preview is ~600 KB, so preview extraction
+  did not produce a sideways photograph — it hung forever. Found because the new
+  fixture test timed out at 3 minutes; it now runs in 1.1 s. The same call is used
+  by `batchCaptureDates` with `-json`, which exceeds a pipe buffer at a few hundred
+  frames, so this was a live hang on import for any decent-sized shoot. stderr was
+  an unread `Pipe()` for the same reason and is now `nullDevice`.
+  The orientation fix itself:
+  1. `OrientedDisplayImage.uprightPreview(at:fromSourceAt:)` bakes the **source's**
+     orientation into a tagless sensor-space preview. It leaves alone a preview
+     carrying its own tag, and one already in the source's display shape — turning
+     an upright picture is the same bug facing the other way.
+  2. `PreviewExtractor.extract` uses it on the exiftool branch, and only re-encodes
+     when something actually had to turn.
+  3. `DevelopRenderGraph` now runs proxy-derived images through `aligning`, which
+     heals a catalog that already holds a sideways proxy. It is a no-op on every
+     proxy that is upright, which `testUprightProxyIsNotHealedIntoBeingWrong` pins.
+  Files touched outside the ownership table, deliberately:
+  `Lumina/Services/ProjectStore.swift` and `Lumina/Services/ExifToolService.swift`.
+  Gate: **299 logic tests, 2 skipped**, fast 41/41.
+  Visual proof rendered from LUM0005 (orientation 8) — sideways before, upright
+  after — and sent to the user; regenerate with `Scripts/harness/develop/preview_orientation_repro.swift`.
+  **Not touched:** `stablePresent`. Once the browse tier is upright the promoted and
+  fallback shapes agree, so its latch never fires wrongly, and changing its
+  signature would mean editing `ElasticFocusView.swift`, which is P1's.
   **Still open for the user:** whether this is the flip they saw. If their frames
   are Sony and ImageIO decodes them, something else is also wrong — the question
   to ask is which frame, and whether it flips on open, on scroll, or at the moment
