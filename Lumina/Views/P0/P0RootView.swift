@@ -11,10 +11,8 @@ struct P0RootView: View {
             switch session.route {
             case .open:
                 P0OpenView(session: session)
-            case .contactSheet:
-                P0ContactSheetView(session: session)
-            case .grouping:
-                P0GroupingView(session: session)
+            case .time, .focus:
+                ElasticRootView(session: session)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

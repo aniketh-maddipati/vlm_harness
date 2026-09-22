@@ -518,6 +518,49 @@ gap:
     type: pt
     cite: [WG-chrome]
 
+# Elastic v4 — values the design fixes that collide with existing token numbers
+# (design_handoff_elastic_v4/README.md). Named here so ElasticLayout references a
+# token rather than hand-writing an owned literal.
+elastic:
+  gap_medium:
+    value: 40
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Moment separation after a pause of 25 min or more.
+  gap_long:
+    value: 64
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Moment separation after a pause of 60 min or more.
+  gap_threshold_medium_min:
+    value: 10
+    unit: min
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Shortest pause that earns a visible gap.
+  filmstrip_focused_width:
+    value: 96
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+  filmstrip_focused_height:
+    value: 64
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+  filmstrip_tile_height:
+    value: 48
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+  set_shelf_height:
+    value: 96
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+
 hit:
   minimum:
     value: 44

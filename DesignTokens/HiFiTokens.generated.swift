@@ -1,7 +1,7 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: a6631c10f342cfc8f0ff854b94255025a7afde86466902c45d4597a7ad2ffb31
+// tokens-hash: 25555962f8c8306958cb9d21afb85739edbc67b4f7b06355f2116bd12136922b
 // version: 6.4-a7-cleanup
 // contract: design/contract-v6.md
 
@@ -158,6 +158,16 @@ enum HiFiTokens {
         static let spacingLg: CGFloat = 24.0 // cite: WG-chrome
         static let spacingXl: CGFloat = 32.0 // cite: WG-chrome
         static let workspaceMargin: CGFloat = 28.0 // cite: WG-chrome
+    }
+
+    enum Elastic {
+        static let gapMedium: CGFloat = 40.0 // cite: ELASTIC-V4 — Moment separation after a pause of 25 min or more.
+        static let gapLong: CGFloat = 64.0 // cite: ELASTIC-V4 — Moment separation after a pause of 60 min or more.
+        static let gapThresholdMediumMin: CGFloat = 10.0 // cite: ELASTIC-V4 — Shortest pause that earns a visible gap.
+        static let filmstripFocusedWidth: CGFloat = 96.0 // cite: ELASTIC-V4
+        static let filmstripFocusedHeight: CGFloat = 64.0 // cite: ELASTIC-V4
+        static let filmstripTileHeight: CGFloat = 48.0 // cite: ELASTIC-V4
+        static let setShelfHeight: CGFloat = 96.0 // cite: ELASTIC-V4
     }
 
     enum Hit {

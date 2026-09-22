@@ -35,7 +35,7 @@ struct OpenShootRobot {
             XCTFail("open(_:) requires autoOpen; use openViaRecentRow(_:) for the Recent-list UX test")
             return ContactSheetRobot(app: app, test: test)
         }
-        let snapshot = app.waitForProbe(timeout: timeout) { $0.route == "contactSheet" && $0.assetCount > 0 }
+        let snapshot = app.waitForProbe(timeout: timeout) { $0.route == "time" && $0.assetCount > 0 }
         if snapshot == nil {
             failWithDiagnostics("auto-open of \(fixture.rawValue) never reached the contact sheet within \(Int(timeout))s")
         }
@@ -64,7 +64,7 @@ struct OpenShootRobot {
         }
         // One click, coordinate-centered (rows can reflow under a hard element click).
         row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
-        let snapshot = app.waitForProbe(timeout: UITestWait.transition) { $0.route == "contactSheet" }
+        let snapshot = app.waitForProbe(timeout: UITestWait.transition) { $0.route == "time" }
         if snapshot == nil {
             failWithDiagnostics("one click on the Recent row did not reach route=contactSheet within \(Int(UITestWait.transition))s")
         }

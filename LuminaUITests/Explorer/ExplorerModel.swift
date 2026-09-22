@@ -9,8 +9,8 @@ enum ExplorerState: String {
 
     init(route: String) {
         switch route {
-        case "singlePhoto": self = .singlePhoto
-        case "contactSheet": self = .contactSheet
+        case "focus": self = .singlePhoto
+        case "time": self = .contactSheet
         default: self = .openShoot
         }
     }

@@ -4,11 +4,18 @@ import Foundation
 import Observation
 import SwiftUI
 
+/// Elastic routes. One continuous surface: the time table and the focused frame.
+///
+/// `focus` is a route, not a separate piece of state — "a photograph is open" is
+/// `route == .focus`, and *which* photograph is always `focusedAssetID`. The cursor
+/// survives the transition in both directions, so Esc returns to the table on the
+/// same frame it left from.
 enum P0Route: Equatable {
     case open
-    case contactSheet
-    /// Bridge into grouping — cull/selection state stays intact; full grouping is next.
-    case grouping
+    /// The table — moments as rows, bursts stacked.
+    case time
+    /// One photograph, centered.
+    case focus
 }
 
 enum P0AdjustmentSection: String, CaseIterable, Identifiable, Sendable {
@@ -113,8 +120,23 @@ final class P0SessionModel {
     var userFacingError: String?
     private(set) var persistenceError: String?
     var isDropTargeted = false
-    /// Single-photo editing surface — opens on Return / double-click.
-    var inspectingAssetID: UUID?
+    /// The open photograph, derived from the route and the cursor rather than stored.
+    ///
+    /// There is no second source of truth here: a frame is "being inspected" exactly
+    /// when the route is `.focus`, and it is always the focused frame. Assigning a
+    /// non-nil value focuses that frame and enters `.focus`; assigning nil leaves
+    /// `.focus` for the table without moving the cursor.
+    var inspectingAssetID: UUID? {
+        get { route == .focus ? focusedAssetID : nil }
+        set {
+            if let newValue {
+                focusedAssetID = newValue
+                route = .focus
+            } else if route == .focus {
+                route = .time
+            }
+        }
+    }
     /// One-shot flag so returning from single-photo restores scroll without fighting live browsing.
     var pendingScrollRestore = false
     let undoCoordinator = P0UndoCoordinator()
@@ -1163,17 +1185,20 @@ final class P0SessionModel {
 
     func setFocus(_ id: UUID?) {
         let start = CFAbsoluteTimeGetCurrent()
+        // Captured before the cursor moves: `inspectingAssetID` is derived from the
+        // cursor, so reading it after the assignment would always agree with `id`
+        // and the neighbor-nav warm below would never fire.
+        let previouslyInspecting = inspectingAssetID
         if let stagedAssetID = workspaceState.editVariants?.assetID, stagedAssetID != id {
             cancelEditVariants()
         }
-        if inspectingAssetID != nil, let id, id != inspectingAssetID {
+        if previouslyInspecting != nil, let id, id != previouslyInspecting {
             flushPendingEditIfNeeded()
         }
         let changed = focusedAssetID != id
         focusedAssetID = id
-        if inspectingAssetID != nil, let id {
-            let photoChanged = inspectingAssetID != id
-            inspectingAssetID = id
+        if previouslyInspecting != nil, let id {
+            let photoChanged = previouslyInspecting != id
             if photoChanged {
                 // Debounce settle/prewarm — arrow spam was launching N settled RAW demosaics.
                 scheduleInspectionWarm(around: id)
@@ -1594,24 +1619,6 @@ final class P0SessionModel {
         persistRestoreNow()
     }
 
-    /// Contact sheet → grouping. Keeps shoot, cull marks, and selection; Esc returns to the grid.
-    func enterGrouping() {
-        guard shoot != nil else { return }
-        flushPendingEditIfNeeded()
-        showingBefore = false
-        cancelEditVariants()
-        inspectingAssetID = nil
-        route = .grouping
-        persistRestoreNow()
-    }
-
-    func leaveGrouping() {
-        guard route == .grouping else { return }
-        route = .contactSheet
-        pendingScrollRestore = true
-        persistRestoreNow()
-    }
-
     /// Pixel zoom request for the inspecting photograph (double-click / 1:1).
     func requestOneToOneZoom(
         for assetID: UUID,
@@ -1720,7 +1727,7 @@ final class P0SessionModel {
             adoptSidecarManagedHashes(from: shoot.assets)
             restoreWorkspace(from: shoot.workspace)
             reconcileActiveChapter()
-            route = .contactSheet
+            route = .time
         case .assetsReplaced(let assets, let status):
             self.assets = assets
             self.shoot?.assets = assets

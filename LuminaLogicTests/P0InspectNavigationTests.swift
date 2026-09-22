@@ -46,7 +46,7 @@ final class P0InspectNavigationTests: XCTestCase {
 
     func testInspectLatchKeepsChapterTableMountedOnProbe() {
         let session = P0SessionModel()
-        session.route = .contactSheet
+        session.route = .time
         let table = session.uiTestSnapshot()
         XCTAssertTrue(table.chapterTableMounted)
         XCTAssertEqual(table.inspectPeripheryDimOpacity, 1)
@@ -55,7 +55,7 @@ final class P0InspectNavigationTests: XCTestCase {
         session.inspectingAssetID = id
         session.focusedAssetID = id
         let inspecting = session.uiTestSnapshot()
-        XCTAssertEqual(inspecting.route, "singlePhoto")
+        XCTAssertEqual(inspecting.route, "focus")
         XCTAssertTrue(inspecting.chapterTableMounted, "inspect must latch on the same table")
         XCTAssertEqual(inspecting.inspectPeripheryDimOpacity, ElasticCanvasLayout.peripheryDimOpacity)
         XCTAssertEqual(inspecting.inspectPeripheryDimOpacity, HiFiTokens.Color.rejectDimOpacity)
@@ -64,7 +64,7 @@ final class P0InspectNavigationTests: XCTestCase {
         let restored = session.uiTestSnapshot()
         XCTAssertTrue(restored.chapterTableMounted)
         XCTAssertEqual(restored.inspectPeripheryDimOpacity, 1)
-        XCTAssertEqual(restored.route, "contactSheet")
+        XCTAssertEqual(restored.route, "time")
 
         session.route = .open
         XCTAssertFalse(session.uiTestSnapshot().chapterTableMounted)

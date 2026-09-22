@@ -154,7 +154,7 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
     }
 
     func testFocusedSurfaceAndSchedulerOwnershipArePinnedInSource() throws {
-        let editor = try source("Lumina/Views/P0/P0SinglePhotoEditor.swift")
+        let editor = try source("Lumina/Views/P0/ElasticFocusView.swift")
         XCTAssertTrue(editor.contains("One permanent Metal leaf owns this click"))
         XCTAssertTrue(editor.contains("immediateBrowseImage"))
         XCTAssertTrue(editor.contains("OrientedDisplayImage.ciImage"))

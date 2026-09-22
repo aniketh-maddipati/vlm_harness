@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 
 REQUIREMENTS: dict[str, tuple[str, ...]] = {
-    "Lumina/Views/P0/P0SinglePhotoEditor.swift": (
+    "Lumina/Views/P0/ElasticFocusView.swift": (
         "DevelopMetalView(",
         "immediateBrowseImage",
         "BrowsePixelService.shared.pinFocused",
@@ -24,9 +24,9 @@ REQUIREMENTS: dict[str, tuple[str, ...]] = {
         "OrientedDisplayImage.aligning",
         "OrientedDisplayImage.ciImage",
     ),
-    "Lumina/Views/P0/P0ContactSheetView.swift": (
-        "P0ChapterTableView(session: session)",
-        "value: session.inspectingAssetID",
+    "Lumina/Views/P0/ElasticRootView.swift": (
+        "ElasticTableView(session: session)",
+        "value: session.route",
     ),
     "Lumina/Views/P0/P0ChapterTableView.swift": (
         "ElasticCanvasLayout.plateOpacity",
@@ -77,12 +77,12 @@ REQUIREMENTS: dict[str, tuple[str, ...]] = {
 }
 
 FORBIDDEN: dict[str, tuple[str, ...]] = {
-    "Lumina/Views/P0/P0SinglePhotoEditor.swift": (
+    "Lumina/Views/P0/ElasticFocusView.swift": (
         "if let image {\n                    DevelopMetalView(",
         "CIImage(contentsOf:",
     ),
-    "Lumina/Views/P0/P0ContactSheetView.swift": (
-        "if session.inspectingAssetID == nil {\n                VStack(spacing: 0) {\n                    toolbar\n                    P0ChapterTableView",
+    "Lumina/Views/P0/ElasticRootView.swift": (
+        "if session.route == .time {\n                    ElasticTableView",
     ),
     "Lumina/Develop/DevelopRenderGraph.swift": (
         "applyOrientationProperty",

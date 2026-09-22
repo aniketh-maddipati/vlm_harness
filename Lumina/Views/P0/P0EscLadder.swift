@@ -4,7 +4,7 @@ import Foundation
 /// First matching step wins — Esc never means two things at one depth.
 ///
 /// Ordered rules (deepest transient state first):
-/// 1. Grouping surface → return to contact sheet.
+/// 1. Focus route → return to the time table (same cursor).
 /// 2. Single-photo inspection → close and restore scroll/focus.
 /// 3. *(reserved)* Active edit/crop drag → restore gesture baseline without navigation.
 /// 4. *(reserved)* Latched crop → dismiss, revert entry layout.
@@ -34,11 +34,6 @@ enum P0EscLadder {
 
         if session.walkingKeptRail {
             session.walkingKeptRail = false
-            return true
-        }
-
-        if session.route == .grouping {
-            session.leaveGrouping()
             return true
         }
 

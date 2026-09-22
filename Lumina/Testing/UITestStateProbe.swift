@@ -5,7 +5,7 @@ import SwiftUI
 /// to assert structured invariants: counts, focus/selection independence, cull map, availability.
 /// CP2 journal persistence is beside-shoot on disk — not reflected in this probe schema.
 struct ProbeSnapshot: Codable, Equatable {
-    var route: String                 // "open" | "contactSheet" | "singlePhoto"
+    var route: String                 // "open" | "time" | "focus"
     var shootName: String?
     var fixture: String?
     var seed: String
@@ -114,9 +114,9 @@ extension P0SessionModel {
         if self.route == .open {
             route = "open"
         } else if inspectingAssetID != nil {
-            route = "singlePhoto"
+            route = "focus"
         } else {
-            route = "contactSheet"
+            route = "time"
         }
 
         let focused = focusedAssetID.flatMap { id in assets.first(where: { $0.id == id }) }
@@ -170,7 +170,7 @@ extension P0SessionModel {
                 }
                 return extent.width + 1 < extent.height
             },
-            pointerCullTargetsVisible: route == "contactSheet" && inspectingAssetID == nil && focusedAssetID != nil,
+            pointerCullTargetsVisible: route == "time" && inspectingAssetID == nil && focusedAssetID != nil,
             inspectingAssetID: inspectingAssetID?.uuidString,
             selectedAssetIDs: selectedAssetIDs.map(\.uuidString).sorted(),
             missingOriginalCount: status.missingOriginalCount,
@@ -205,7 +205,7 @@ extension P0SessionModel {
             elasticStripTrackHeight: Int(ElasticCanvasLayout.stripTrackHeight.rounded()),
             elasticStripNearLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 1).rounded()),
             elasticStripFarLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 4).rounded()),
-            chapterTableMounted: self.route == .contactSheet,
+            chapterTableMounted: self.route == .time || self.route == .focus,
             inspectPeripheryDimOpacity: inspectingAssetID == nil
                 ? 1
                 : ElasticCanvasLayout.peripheryDimOpacity

@@ -174,6 +174,56 @@ file was touched.
   deterministic, and not collapsed onto one recipe. It skips rather than passing vacuously when no
   RAW folder is supplied. This proves auto changes pixels; it does not replace the harness runner.
 
+## 6. Checkpoint 03 — first UI (2026-09-22)
+
+**The `focus`-field question from §3 is resolved:** `focusedAssetID` is the single cursor and
+`inspectingAssetID` is now *derived* (`route == .focus ? focusedAssetID : nil`), not stored. Verified
+first that the two never diverge — every site that opened inspection already set both to the same id.
+101 call sites keep working unchanged through the derived accessor.
+
+- `P0Route` is now `.open / .time / .focus`. `.grouping`, `P0GroupingView`, `P0ContactSheetView` and
+  `P0SinglePhotoEditor` are deleted.
+- `ElasticRootView` / `ElasticTableView` / `ElasticFocusView` / `ElasticSetShelf`, with
+  `P0SessionModel+Elastic` supplying the header line, moment copy, version picking and set state.
+- `ElasticLayout` is the single definition site for the design's numbers; where an existing token
+  already carries the meaning (reject dim, thumb radius, scene gap, focus ring) it defers to it.
+- Palette: `LuminaTokens.Elastic` — the README's warmer shell, no inlined hex.
+
+**The table stays mounted under focus.** Commit #93's probe contract ("inspect must latch on the same
+table") says the surface is never rebuilt, and the Elastic design says the same thing in its own words
+("one continuous surface"). So focus does not replace the table — the table compresses to the
+filmstrip. That kept `chapterTableMounted` honest instead of adapting the test away.
+
+**Gate:** logic tests 274/274 (1 skipped by design), fast lane 41/41.
+
+Three lints fired and were each fixed at the cause rather than loosened:
+1. `magic_numbers` — first attempt put the Elastic numbers in `tokens.yaml`, which retroactively made
+   common values (14, 72, 168) token-owned and broke ~30 unrelated pre-existing files. Reverted;
+   tokenized **only** values already owned elsewhere, so no new literal entered the forbidden set.
+2. `allowlist_ratchet` — correctly refused the shortcut of allowlisting instead (250 → 255).
+3. `spring_physics_f07` — the motion golden is keyed to the tokens hash. Re-approved under the new
+   digest using the *previous* payload, which passing then proves the change is motion-neutral.
+
+**What the capture shows and what it does not.** `artifacts/elastic-proof/table-1280x800.png` renders
+the real table over a 94-frame shoot: the exact header line, moment rows with times/light words,
+a `+ 18 min` gap label, focus ring, keep chip, set shelf. Photo pixels are **not** verified — SwiftUI
+`.task` does not run for a view hosted offscreen and captured via `cacheDisplay` (the same limitation
+`DEVELOP_ENGINE.md` already records for Metal layers), so every tile shows its empty well. The two
+`--p0-edit-live` failures ("blank canvas") were measured on `main` as well — 29/31 there too, so they
+are pre-existing, not from this work.
+
+## Known gaps in checkpoint 03
+
+- Version thumbnails all read the same `gridThumbPath`, so shot/auto/yours look identical. The prompt
+  allows rendering them through the scheduler's interactive tier; that is not wired yet.
+- Keys are not migrated: `1/2/3`, `A`, `⌘A`, `?` hold, and pinch in/out are still unbound. `pickVersion`
+  exists and is reachable by clicking a version.
+- `P0EscLadder` still has its old step list minus grouping; the peek → drawer → selection → route order
+  lands with checkpoint 04's peeks.
+- The hold-V variant system is only partly retired: the tray died with `P0SinglePhotoEditor`, but
+  `EditVariantSession`, its `WorkspaceState` fields, the V key binding and its probe fields remain.
+- The set shelf is not yet a drop target.
+
 ## Next
 
-Checkpoint 03 (the first UI: routes, table, focus) — blocked on the `focus`-field question in §3.
+Checkpoint 04 (hold-key peeks and before), plus the key bindings deferred above.

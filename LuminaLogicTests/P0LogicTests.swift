@@ -62,7 +62,7 @@ final class P0LogicTests: XCTestCase {
 
     func testProbeSnapshotRoundTrips() {
         let snapshot = ProbeSnapshot(
-            route: "contactSheet", shootName: "mixed-60", fixture: "mixed-60", seed: "84721",
+            route: "time", shootName: "mixed-60", fixture: "mixed-60", seed: "84721",
             assetCount: 60, visibleCount: 60, selectionCount: 2, keptCount: 18, rejectedCount: 9,
             unreviewedCount: 33, editedCount: 12, densityColumns: 6, filter: "All", canUndo: true,
             focusedAssetID: "abc", focusedVisible: true, focusedAvailability: "available",
@@ -354,36 +354,30 @@ final class P0LogicTests: XCTestCase {
 
     // MARK: - W5 Esc ladder (single owner)
 
-    func testEscLadderLeavesGrouping() {
+    func testEscLadderLeavesFocusForTheTable() {
         let session = P0SessionModel()
-        session.route = .grouping
-        XCTAssertTrue(P0EscLadder.handle(session: session))
-        XCTAssertEqual(session.route, .contactSheet)
-    }
-
-    func testEscLadderClosesInspectionWithoutChangingRoute() {
-        let session = P0SessionModel()
-        session.route = .contactSheet
         let id = UUID()
         session.inspectingAssetID = id
+        XCTAssertEqual(session.route, .focus)
         XCTAssertTrue(P0EscLadder.handle(session: session))
+        XCTAssertEqual(session.route, .time)
         XCTAssertNil(session.inspectingAssetID)
-        XCTAssertEqual(session.route, .contactSheet)
+        XCTAssertEqual(session.focusedAssetID, id, "leaving focus keeps the cursor where it was")
     }
 
-    func testEscLadderNoOpOnBareContactSheet() {
+    func testEscLadderNoOpOnBareTable() {
         let session = P0SessionModel()
-        session.route = .contactSheet
+        session.route = .time
         XCTAssertFalse(P0EscLadder.handle(session: session))
     }
 
-    func testEscLadderEndsLookGlanceBeforeGrouping() {
+    func testEscLadderEndsLookGlanceFirst() {
         let session = P0SessionModel()
-        session.route = .contactSheet
+        session.route = .time
         session.lookGlancing = true
         XCTAssertTrue(P0EscLadder.handle(session: session))
         XCTAssertFalse(session.lookGlancing)
-        XCTAssertEqual(session.route, .contactSheet)
+        XCTAssertEqual(session.route, .time)
     }
 
     // MARK: - Open-surface shoot ranking

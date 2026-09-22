@@ -13,8 +13,8 @@ struct ContactSheetRobot {
     @discardableResult
     func assertVisible(timeout: TimeInterval = UITestWait.autoOpenNavigation) -> ContactSheetRobot {
         // Anchor on the structured probe: on the contact sheet with assets present.
-        let snapshot = app.waitForProbe(timeout: timeout) { $0.route == "contactSheet" && $0.assetCount > 0 }
-        XCTAssertEqual(snapshot?.route, "contactSheet", "Contact sheet never reported route=contactSheet")
+        let snapshot = app.waitForProbe(timeout: timeout) { $0.route == "time" && $0.assetCount > 0 }
+        XCTAssertEqual(snapshot?.route, "time", "Contact sheet never reported route=contactSheet")
         XCTAssertGreaterThan(snapshot?.assetCount ?? 0, 0, "Contact sheet reported no assets")
         return self
     }
