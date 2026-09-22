@@ -197,8 +197,21 @@ enum P0ScrollLiveRunner {
         // so the glide is judged on scrolling rather than on opening.
         await wait(1.5)
 
-        guard let scrollView = tableScrollView(in: hosting) else {
-            note("Table scroll view found", false, "no vertical NSScrollView under the hosting view")
+        // A tall table lays out lazily; give the document up to ten seconds to
+        // grow past the viewport before deciding there is nothing to scroll.
+        var scrollViewFound: NSScrollView?
+        let scrollDeadline = CFAbsoluteTimeGetCurrent() + 10
+        while scrollViewFound == nil, CFAbsoluteTimeGetCurrent() < scrollDeadline {
+            scrollViewFound = tableScrollView(in: hosting)
+            if scrollViewFound == nil { await wait(0.25) }
+        }
+        guard let scrollView = scrollViewFound else {
+            capture(hosting, name: "00-no-scroll-view", to: outDir)
+            let all = allScrollViews(in: hosting).map {
+                String(format: "%.0f×%.0f doc %.0f×%.0f", $0.frame.width, $0.frame.height,
+                       $0.documentView?.frame.width ?? 0, $0.documentView?.frame.height ?? 0)
+            }
+            note("Table scroll view found", false, "no vertical NSScrollView taller than its viewport; scroll views: \(all)")
             report["status"] = "failed"
             report["reason"] = "no scroll view"
             report["checks"] = checks
@@ -206,7 +219,7 @@ enum P0ScrollLiveRunner {
             write(report, to: outDir)
             return 1
         }
-        let viewportHeight = scrollView.contentView.bounds.height
+        let viewportHeight = scrollView.frame.height
         let documentHeight = scrollView.documentView?.frame.height ?? 0
         let maxOffset = max(0, documentHeight - viewportHeight)
         report["viewport"] = ["width": size.width, "height": viewportHeight]
@@ -454,9 +467,11 @@ enum P0ScrollLiveRunner {
     /// is taller than its viewport. The strip is horizontal and unmounted on
     /// the time route; the shelf is absent until there is a set.
     private static func tableScrollView(in view: NSView) -> NSScrollView? {
+        // Compare against the scroll view's own frame: SwiftUI's clip view can
+        // report bounds as tall as the document, which would hide the table.
         if let scroll = view as? NSScrollView,
            let document = scroll.documentView,
-           document.frame.height > scroll.contentView.bounds.height {
+           document.frame.height > scroll.frame.height {
             return scroll
         }
         for child in view.subviews {
@@ -481,6 +496,13 @@ enum P0ScrollLiveRunner {
         guard leaf == "frames" else { return leaf }
         let parent = folder.deletingLastPathComponent().lastPathComponent
         return parent.isEmpty ? leaf : parent
+    }
+
+    private static func allScrollViews(in view: NSView) -> [NSScrollView] {
+        var found: [NSScrollView] = []
+        if let scroll = view as? NSScrollView { found.append(scroll) }
+        for child in view.subviews { found += allScrollViews(in: child) }
+        return found
     }
 
     private static func write(_ report: [String: Any], to outDir: URL) {

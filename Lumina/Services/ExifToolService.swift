@@ -81,19 +81,43 @@ nonisolated enum ExifToolService {
 
     private static func runData(arguments: [String]) throws -> Data {
         guard let exifToolPath = resolvedPath() else { throw ExifToolError.notInstalled }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: exifToolPath)
-        process.arguments = arguments
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-        try process.run()
-        process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard process.terminationStatus == 0 else {
+        let (data, status) = try captureOutput(
+            executable: URL(fileURLWithPath: exifToolPath),
+            arguments: arguments
+        )
+        guard status == 0 else {
             throw ExifToolError.commandFailed(arguments.joined(separator: " "))
         }
         return data
+    }
+
+    /// Run `executable` and return everything it wrote to stdout.
+    ///
+    /// stdout is drained **before** waiting for exit. A pipe holds 64 KB; a
+    /// child that writes more blocks until someone reads, and a parent that is
+    /// waiting for exit first never does — `-json` over a few hundred frames
+    /// is past that line, which is how "Reading dates…" hung for good on any
+    /// shoot larger than a small card. stderr is drained on its own thread for
+    /// the same reason.
+    static func captureOutput(
+        executable: URL,
+        arguments: [String]
+    ) throws -> (data: Data, status: Int32) {
+        let process = Process()
+        process.executableURL = executable
+        process.arguments = arguments
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+        try process.run()
+        let drainStderr = Thread {
+            _ = stderr.fileHandleForReading.readDataToEndOfFile()
+        }
+        drainStderr.start()
+        let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return (data, process.terminationStatus)
     }
 
     private static func parseExifDate(_ string: String) -> Date? {
