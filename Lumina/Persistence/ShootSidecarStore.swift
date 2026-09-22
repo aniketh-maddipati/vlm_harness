@@ -64,13 +64,22 @@ enum ShootSidecarStore {
     }
 
     /// Merge-write on edit commit — preserves foreign XMP; no receipt JSON.
-    static func writeCommittedEdit(_ recipe: EditRecipe, besideOriginal originalURL: URL) throws -> SidecarWriteResult {
+    static func writeCommittedEdit(
+        _ recipe: EditRecipe,
+        source: RecipeSource = .shot,
+        besideOriginal originalURL: URL
+    ) throws -> SidecarWriteResult {
         let xmpURL = sidecarURL(besideOriginal: originalURL)
-        let outcome = try LightroomHandoffService.mergeSidecar(recipe: recipe, at: xmpURL)
+        let outcome = try LightroomHandoffService.mergeSidecar(recipe: recipe, source: source, at: xmpURL)
         guard let hash = try LightroomHandoffService.managedFieldsHash(at: xmpURL) else {
             throw SidecarError.missingManagedHash
         }
         return SidecarWriteResult(mergeOutcome: outcome, managedFieldsHash: hash)
+    }
+
+    /// Reads back `lumina:Source`, written alongside the recipe fingerprint on every commit.
+    static func readRecipeSource(at xmpURL: URL) throws -> RecipeSource? {
+        try LightroomHandoffService.readRecipeSource(at: xmpURL)
     }
 
     /// Hash of Lumina-managed crs fields currently on disk — drift detection domain.
@@ -152,6 +161,7 @@ enum ShootSidecarStore {
             outcomes[asset.id] = outcome
             if case .sidecarDurableReceipt = outcome.winner {
                 shoot.assets[index].recipe = outcome.recipe?.hasSettings == true ? outcome.recipe : nil
+                shoot.assets[index].recipeSource = .sidecar
             }
         }
         return outcomes

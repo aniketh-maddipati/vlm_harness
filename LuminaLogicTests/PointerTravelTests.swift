@@ -114,7 +114,7 @@ final class PointerTravelTests: XCTestCase {
         XCTAssertEqual(session.workspaceState.focusedEditVariantIndex, 2)
         XCTAssertTrue(session.selectedAssetIDs.isEmpty)
         XCTAssertEqual(session.assets[0].cull, .undecided)
-        XCTAssertEqual(session.assets[0].recipe?.exposure, 0.2, accuracy: 1e-9)
+        XCTAssertEqual(session.assets[0].recipe?.exposure ?? .nan, 0.2, accuracy: 1e-9)
         XCTAssertFalse(session.canUndo, "variant pointer travel must not commit")
     }
 
