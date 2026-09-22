@@ -211,6 +211,23 @@ but what was measured, on what card, warm or cold. Commit with
 
 ## Progress
 
-_Nothing yet. Append one line per completed item: date, item number, commit sha,
-and anything the next pass needs to know — especially anything here that turned
-out to be wrong._
+_Append one line per completed item: date, item number, commit sha, and anything
+the next pass needs to know — especially anything here that turned out to be
+wrong._
+
+- 2026-09-22 · item 1 **partial** (checkpoint, sha in `git log`) · The
+  measurement exists: `--p0-scroll-live` runner, `ElasticScrollTracker`,
+  `BrowsePixelService.isResident`, `elastic_cards.py --stress`, film mode.
+  Recorded in `docs/ELASTIC_PLAN.md` § "P2 measurement". **Not done:** the
+  baseline on the 403-frame card. Extraction finishes in < 1 min, but the
+  runner's readiness wait never fires there (session `assets` stays empty while
+  the 27-frame card populates) — debug `P0SessionModel.consume` on the big
+  card before anything else. Card lives at
+  `~/LuminaFixtures/card-elastic-v4-stress/frames`, catalog already warm.
+  Wrong in this prompt: the base branch does **not** carry P0's two items
+  (wrap-layout caching, version thumbnails) — P0 is doing them in parallel in
+  `~/lumina-wt/p0-render-proof`; do not redo them here. Files touched outside
+  P2's row, all minimal: `ChapterPlateImage.swift` (appear/disappear report),
+  `ElasticRootView.swift` (tracker environment, one modifier),
+  `P0SessionModel.openFolder(_:shootName:)` (cards share a `frames` leaf),
+  `LuminaApp.swift` (runner registration), `shipping_fence.py` (new runner).

@@ -409,7 +409,10 @@ final class P0SessionModel {
         openFolder(url)
     }
 
-    func openFolder(_ url: URL) {
+    /// `shootName` overrides the catalog name, which otherwise is the folder's
+    /// last path component. Generated cards all keep their frames in a folder
+    /// called `frames`; without a name they would share one catalog.
+    func openFolder(_ url: URL, shootName: String? = nil) {
         preparationTask?.cancel()
         releaseFolderAccess()
         userFacingError = nil
@@ -428,7 +431,7 @@ final class P0SessionModel {
 
         preparationTask = Task { [weak self] in
             guard let self else { return }
-            let stream = ContactSheetPreparation.openFolder(url)
+            let stream = ContactSheetPreparation.openFolder(url, shootName: shootName)
             await self.consume(stream)
         }
     }

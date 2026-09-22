@@ -327,6 +327,52 @@ conditions · `[resp]` responsiveness.
 - `[resp]` Render the three version thumbnails through the interactive tier,
   which is what closes the P0 item properly.
 
+#### P2 measurement (2026-09-22, branch `elastic-v4/p2-scroll`)
+
+Scroll now has its own instrument, `--p0-scroll-live [out] --p0-open <folder>`
+(`P0ScrollLiveRunner`). It mounts the shell on the time route in a real
+1280×800 window, drives the table's `NSScrollView` through three passes —
+`glide` 1 screen/s for 5 screens, `flick` 6 screens/s to the bottom, `return`
+6 screens/s back — and reports per pass, in the `rapidScrub` shape:
+
+- `p0.scroll.tick_ms.<pass>` — main-thread cost of one step: offset change,
+  SwiftUI layout, AppKit display. A synchronous decode reached from a tile's
+  `body` lands here. p50/p95/p99 with the window declared.
+- `p0.scroll.frame` — display-link interval while scrolling, via
+  `P0RenderInstruments`; catches dropped frames the layout timer cannot see.
+- `blankSeen` / `wellTicks` / `wellTiles` — a realized tile with nothing
+  resident at the grid tier when the step finished. Realization is reported by
+  `ChapterPlateImage` through `ElasticScrollTracker`, injected only under the
+  table; residency is read from `BrowsePixelService.isResident`, a lock-guarded
+  mirror of the cache that never hops to the actor.
+- `LUMINA_SCROLL_FILM=1` writes a PNG per step and a second copy of every step
+  that saw a well, so the frames that matter can be found without scrubbing.
+  Filmed runs are flagged and are never a baseline.
+
+Card: `elastic_cards.py --stress 400 --name card-elastic-v4-stress` appends
+RAW-heavy stress moments (six RAW, two phone, 12 min apart) until the card has
+403 frames in 55 moments — about 7 GB, local only.
+
+**Baseline, 27-frame card, warm** (harness proof, not the number that matters —
+the card is 2.1 screens tall, so the glide reaches the bottom and there is no
+flick to measure):
+
+| pass | steps | tick p50 | tick p95 | tick p99 | max | well ticks | tiles decoded during pass |
+|---|---|---|---|---|---|---|---|
+| glide | 101 | 0.4 ms | 0.95 ms | 21.3 ms | 21.3 ms | 4 | 10 |
+| return | 19 | — | 0.92 ms | 0.92 ms | — | 0 | 0 |
+
+The shape of the problem is already visible: the only steps that cost anything
+are the ones that realized a row, and every newly realized row shows a well
+for at least one frame even when its pixels are resident, because the tile
+asks the actor asynchronously and sets state after the hop.
+
+**Baseline on the 403-frame card: not yet recorded.** Extraction completes in
+under a minute (403/403 grid thumbs in the catalog), but the runner's
+readiness wait never fires on that card — `assets` stays empty in the session
+while the same code path populates the 27-frame card. Open issue, first thing
+for the next pass.
+
 ### P3 — hardening
 
 - `[edge]` Orientation 2/3/4 and square images — latent, now guarded by

@@ -52,6 +52,9 @@ struct ElasticRootView: View {
                         : .infinity
                 )
                 .accessibilityIdentifier(P0AccessibilityID.elasticTable)
+                // Only the table reports realized plates: the shelf and the
+                // version column show frames from anywhere in the shoot.
+                .environment(\.elasticScrollTracker, ElasticScrollTracker.shared)
         }
         .background(LuminaTokens.Elastic.paper.ignoresSafeArea())
         // The route change is a size change on one mounted surface: the table

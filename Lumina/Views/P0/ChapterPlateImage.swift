@@ -1,10 +1,10 @@
-import AppKit
 import SwiftUI
 
-/// Grid-tier photograph for a chapter plate — never the 2400 px browse decode.
+/// Grid-tier plate for a chapter cover, a table tile, or a strip thumb.
 struct ChapterPlateImage: View {
     let path: String
     @State private var image: NSImage?
+    @Environment(\.elasticScrollTracker) private var scrollTracker
 
     var body: some View {
         ZStack {
@@ -21,5 +21,10 @@ struct ChapterPlateImage: View {
         .task(id: path) {
             image = await BrowsePixelService.shared.image(path: path, tier: .grid)
         }
+        // Realization is what the scroll path asks for; report it where a
+        // tracker is listening so scroll can be measured against it.
+        .onAppear { scrollTracker?.plateAppeared(path: path) }
+        .onDisappear { scrollTracker?.plateDisappeared(path: path) }
+        .onChange(of: path) { old, new in scrollTracker?.plateChanged(from: old, to: new) }
     }
 }

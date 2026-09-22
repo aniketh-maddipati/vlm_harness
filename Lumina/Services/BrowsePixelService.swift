@@ -51,10 +51,40 @@ actor BrowsePixelService {
         let cacheMisses: Int
     }
 
-    private struct Key: Hashable {
+    nonisolated private struct Key: Hashable, Sendable {
         let path: String
         let maxPixelSize: Int
     }
+
+    /// The sampling side of the cache: what is resident right now, readable
+    /// from any isolation without an actor hop. Scroll must never wait on the
+    /// actor to learn that it has nothing to draw — the well and the enqueue
+    /// are decided from here. Mirrors `pixels` exactly; written only by the
+    /// actor, read from anywhere.
+    nonisolated private final class ResidentIndex: @unchecked Sendable {
+        private let lock = NSLock()
+        private var entries: [Key: Pixel] = [:]
+
+        func lookup(_ key: Key) -> Pixel? {
+            lock.lock()
+            defer { lock.unlock() }
+            return entries[key]
+        }
+
+        func set(_ pixel: Pixel?, for key: Key) {
+            lock.lock()
+            defer { lock.unlock() }
+            entries[key] = pixel
+        }
+
+        func removeAll() {
+            lock.lock()
+            defer { lock.unlock() }
+            entries.removeAll()
+        }
+    }
+
+    nonisolated private let residentIndex = ResidentIndex()
 
     private struct Inflight {
         let id: UUID
@@ -81,6 +111,16 @@ actor BrowsePixelService {
 
     func clearFocusedPin() {
         pinnedPaths.removeAll()
+    }
+
+    /// Already-decoded pixels for `path` at `tier`, or nil — never a decode,
+    /// never a wait. Does not touch the LRU: sampling is not use.
+    nonisolated func residentPixel(path: String, tier: Tier) -> Pixel? {
+        residentIndex.lookup(Key(path: path, maxPixelSize: tier.maxPixelSize))
+    }
+
+    nonisolated func isResident(path: String, tier: Tier) -> Bool {
+        residentPixel(path: path, tier: tier) != nil
     }
 
     func image(path: String, tier: Tier) async -> NSImage? {
@@ -188,6 +228,7 @@ actor BrowsePixelService {
         order.removeAll()
         pinnedPaths.removeAll()
         residentBytes = 0
+        residentIndex.removeAll()
     }
 
     func diagnostics() -> Diagnostics {
@@ -210,6 +251,7 @@ actor BrowsePixelService {
             residentBytes -= previous.byteEstimate
         }
         pixels[key] = pixel
+        residentIndex.set(pixel, for: key)
         residentBytes += pixel.byteEstimate
         touch(key)
 
@@ -223,6 +265,7 @@ actor BrowsePixelService {
         order.removeAll { $0 == key }
         if let removed = pixels.removeValue(forKey: key) {
             residentBytes -= removed.byteEstimate
+            residentIndex.set(nil, for: key)
         }
     }
 
