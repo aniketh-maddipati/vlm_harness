@@ -134,17 +134,17 @@ struct DevelopMetalView: NSViewRepresentable {
             let extent = image.extent
             guard extent.width > 0, extent.height > 0 else { return }
 
-            // Aspect-fit into the drawable, then optional 1:1 zoom + pan.
-            let fit = min(drawableSize.width / extent.width, drawableSize.height / extent.height)
-            let scale = fit * zoom
-            let scaled = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            // Aspect-fit into the drawable, then optional 1:1 zoom + pan. The
+            // transform lives in `PhotoPresentProof` so the headless render proof
+            // measures this geometry rather than a copy of it.
             let backing = view.window?.backingScaleFactor ?? 2
-            let dx = (drawableSize.width - scaled.extent.width) / 2 + panOffset.width * backing
-            let dy = (drawableSize.height - scaled.extent.height) / 2 - panOffset.height * backing
-            let positioned = scaled.transformed(by: CGAffineTransform(
-                translationX: dx - scaled.extent.origin.x,
-                y: dy - scaled.extent.origin.y
-            ))
+            guard let positioned = PhotoPresentProof.positioned(
+                image,
+                in: drawableSize,
+                zoom: zoom,
+                panOffset: panOffset,
+                backingScale: backing
+            ) else { return }
 
             // Final display conversion — tagged the same on destination and layer
             // so AppKit does not re-interpret gamma-encoded pixels as linear.

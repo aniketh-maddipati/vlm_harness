@@ -224,7 +224,7 @@ anything you learned that contradicts what is written there. Commit with
 
 ## Checklist
 
-- [ ] 1. Photo-pixel proof: a test fails if the photograph stops rendering, comes out blank, or comes out the wrong way up
+- [x] 1. Photo-pixel proof: a test fails if the photograph stops rendering, comes out blank, or comes out the wrong way up
 - [ ] 2. Reproduce the flip (ask the user for a repro if you cannot)
 - [ ] 3. Fix the flip, or write down precisely what it is and why it is not fixable here
 - [ ] 4. `ElasticWrapLayout` returns known tile sizes instead of asking every subview twice per pass
@@ -234,6 +234,26 @@ anything you learned that contradicts what is written there. Commit with
 
 ## Progress
 
-_Nothing yet. Append one line per completed item: date, item number, commit sha,
-and anything the next pass needs to know — especially anything here that turned
-out to be wrong._
+_Append one line per completed item: date, item number, commit sha, and anything
+the next pass needs to know — especially anything here that turned out to be wrong._
+
+- 2026-09-22 · item 1 · commit "P0 item 1: prove the photograph actually renders" (sha recorded by the next item, since amending to write it here changes it) · Photo-pixel proof landed as a headless
+  assertion (the second option), not an offscreen Metal capture. Reason: it needs
+  no view, so it runs inside `LuminaLogicTests` on every PR, and it can assert on
+  pixels instead of writing a PNG nobody checks. `PhotoPresentProof.positioned`
+  now holds the aspect-fit/zoom/pan transform and `DevelopMetalView` calls it, so
+  the proof measures the drawable's real geometry rather than a copy.
+  `PhotoPresentProof.probe` renders to a CPU bitmap through a `CIRenderDestination`
+  with `isFlipped = true` — the drawable's own flag — so buffer row 0 is the top of
+  the photograph (measured, not assumed). Both negative controls were run: negating
+  the present scale fails 3 tests, and turning off `CreateThumbnailWithTransform`
+  fails 2. Gate after: **292 logic tests, 2 skipped**, fast 41/41.
+- **The prompt's env instruction is wrong.** `TEST_RUNNER_LUMINA_RAW_DIR=` does
+  *not* reach a hosted logic test; neither does a plain `LUMINA_RAW_DIR=` argument
+  (both measured — the test still skipped). The host app is launched with a
+  scrubbed environment, so only a scheme or test plan can set it. `LUMINA_RAW_DIR`
+  therefore still skips `testRawDecoderAppliesFileOrientation` in the gate above.
+  The new RAW proof resolves its folder from disk instead
+  (`~/LuminaFixtures/card-elastic-v4/frames` first) and does run.
+- Fixture card orientations, measured: 14 frames at 1, 6 at 6, 7 at 8. No 2/3/4
+  and no square frame anywhere in it, so the latent P3 hole has no fixture.
