@@ -228,7 +228,7 @@ anything you learned that contradicts what is written there. Commit with
 - [x] 2. Reproduce the flip (ask the user for a repro if you cannot)
 - [x] 3. Fix the flip, or write down precisely what it is and why it is not fixable here
 - [x] 4. `ElasticWrapLayout` returns known tile sizes instead of asking every subview twice per pass
-- [ ] 5. Version thumbnails render through the interactive tier, or the column stops implying a difference
+- [x] 5. Version thumbnails render through the interactive tier, or the column stops implying a difference
 - [ ] 6. Cold-catalog `previews 0/N` — decided and either surfaced honestly or fixed
 - [ ] 7. `docs/ELASTIC_PLAN.md` P0 section updated, gate green
 
@@ -321,6 +321,22 @@ the next pass needs to know — especially anything here that turned out to be w
   Proof it changed nothing visible: `--p0-edit-live` table captures before and
   after are **byte-identical** (sha256 `9132b462f0907980…`) over the 27-frame card,
   which contains lone frames, a collapsed ×5 burst and a camera+phone moment.
+- 2026-09-22 · item 5 · took the second branch — **the column stops implying a
+  difference**, because rendering the three versions through the interactive tier
+  is on P2's list and touching `DevelopRenderScheduler` is not P0's to do.
+  `ElasticVersionColumn.previewPath(for:)` returns the browse thumbnail for `shot`
+  and nil for the other two. Reasoning: that thumbnail is the camera's own
+  rendering of the frame, so it truthfully depicts `shot` and nothing else;
+  `auto` and `yours` keep their plate until pixels exist that are actually theirs.
+  A `// TODO(P2):` marks where the real previews plug in.
+  Pinned in `progressive_render_architecture` (REQUIREMENTS + FORBIDDEN) so the
+  column cannot quietly go back to drawing one thumbnail three times; the same
+  commit pins the render proof's `isFlipped` destination and the present transform
+  living outside `DevelopMetalView`. **Note for the other streams:** this edits
+  `Scripts/harness/lint/progressive_render_architecture.py`, appending keys only.
+  Not capture-visible: `ChapterPlateImage` loads in `.task`, which does not run for
+  an offscreen-hosted view, so every version tile is an empty well in a capture
+  either way. That is the same limitation item 1 exists to route around.
   **Still open for the user:** whether this is the flip they saw. If their frames
   are Sony and ImageIO decodes them, something else is also wrong — the question
   to ask is which frame, and whether it flips on open, on scroll, or at the moment
