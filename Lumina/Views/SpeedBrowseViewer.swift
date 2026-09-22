@@ -55,7 +55,7 @@ struct SpeedBrowseViewer: View {
                         photos: filmstripPhotos,
                         focusID: filmstripFocusID,
                         filmstripHeight: filmstripHeight,
-                        onSelect: { photo in
+                        onFocus: { photo in
                             let t = CFAbsoluteTimeGetCurrent()
                             model.selectBrowsePhoto(photo.id, in: photos, inputTime: t)
                             selection = photo.id
@@ -251,7 +251,7 @@ private struct BrowseFilmstripOverlay: View {
     let photos: [PhotoRecord]
     let focusID: UUID?
     let filmstripHeight: CGFloat
-    var onSelect: (PhotoRecord) -> Void
+    var onFocus: (PhotoRecord) -> Void
 
     private let filmCellWidth: CGFloat = 88
     private let filmCellHeight: CGFloat = 96
@@ -264,7 +264,7 @@ private struct BrowseFilmstripOverlay: View {
                     HStack(spacing: 8) {
                         ForEach(photos) { photo in
                             Button {
-                                onSelect(photo)
+                                onFocus(photo)
                             } label: {
                                 SpineAwarePhotoTile(photo: photo)
                                     .frame(width: filmCellWidth, height: filmCellHeight)

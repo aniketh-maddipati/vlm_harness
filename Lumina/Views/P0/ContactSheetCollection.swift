@@ -345,24 +345,28 @@ final class ContactSheetItemView: NSCollectionViewItem {
     }
 }
 
-/// Collection view that owns double-click → open (zoom into photograph).
+/// Collection view that owns pointer travel (click → focus) and double-click → inspect.
 /// NSViewController.mouseDown never receives cell clicks; this must live on the view.
+/// AppKit selection is not a product verb — Law 1; persistent multi-select stays shelved (D29).
 final class ContactSheetCollectionView: NSCollectionView {
+    var onClickItem: ((IndexPath) -> Void)?
     var onDoubleClickItem: ((IndexPath) -> Void)?
 
     override func mouseDown(with event: NSEvent) {
-        if event.clickCount == 2 {
-            let point = convert(event.locationInWindow, from: nil)
-            if let indexPath = indexPathForItem(at: point) {
-                onDoubleClickItem?(indexPath)
-                return
-            }
+        let point = convert(event.locationInWindow, from: nil)
+        guard let indexPath = indexPathForItem(at: point) else {
+            super.mouseDown(with: event)
+            return
         }
-        super.mouseDown(with: event)
+        if event.clickCount >= 2 {
+            onDoubleClickItem?(indexPath)
+            return
+        }
+        onClickItem?(indexPath)
     }
 }
 
-/// AppKit contact sheet with virtualization, incremental updates, and distinct focus/selection.
+/// AppKit contact sheet with virtualization and incremental updates. Pointer clicks travel (focus).
 final class ContactSheetCollectionController: NSViewController, NSCollectionViewDataSource, NSCollectionViewDelegate {
     private let scrollView = NSScrollView()
     private let collectionView = ContactSheetCollectionView()
@@ -376,7 +380,6 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
     }
 
     var onFocus: ((UUID) -> Void)?
-    var onSelectClick: ((_ id: UUID, _ command: Bool, _ shift: Bool) -> Void)?
     var onOpen: ((UUID) -> Void)?
     var onDensityDelta: ((Int) -> Void)?
     var onScrollAnchor: ((Double) -> Void)?
@@ -402,13 +405,17 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
 
         layout.rowHeight = rowHeight(for: densityColumns)
         collectionView.collectionViewLayout = layout
-        collectionView.isSelectable = true
-        collectionView.allowsMultipleSelection = true
+        collectionView.isSelectable = false
+        collectionView.allowsMultipleSelection = false
         collectionView.backgroundColors = [.clear]
         collectionView.register(ContactSheetItemView.self, forItemWithIdentifier: ContactSheetItemView.identifier)
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.setAccessibilityIdentifier(P0AccessibilityID.contactCollection)
+        collectionView.onClickItem = { [weak self] indexPath in
+            guard let self, indexPath.item < self.items.count else { return }
+            self.onFocus?(self.items[indexPath.item].id)
+        }
         collectionView.onDoubleClickItem = { [weak self] indexPath in
             guard let self, indexPath.item < self.items.count else { return }
             self.onOpen?(self.items[indexPath.item].id)
@@ -520,13 +527,6 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
         return item
     }
 
-    func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
-        guard let path = indexPaths.first else { return }
-        let id = items[path.item].id
-        let flags = NSApp.currentEvent?.modifierFlags ?? []
-        onSelectClick?(id, flags.contains(.command), flags.contains(.shift))
-    }
-
     func collectionView(
         _ collectionView: NSCollectionView,
         willDisplay item: NSCollectionViewItem,
@@ -575,7 +575,6 @@ final class ContactSheetCollectionController: NSViewController, NSCollectionView
         if let focusedID,
            let index = items.firstIndex(where: { $0.id == focusedID }) {
             let path = IndexPath(item: index, section: 0)
-            collectionView.selectionIndexPaths = [path]
             collectionView.scrollToItems(at: [path], scrollPosition: [.nearestVerticalEdge])
         }
     }
