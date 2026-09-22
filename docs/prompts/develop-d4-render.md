@@ -22,6 +22,16 @@ frames.
 
 ## The task, in order
 
+0. **The interactive stage is vertically mirrored in CI space.** Measured in
+   `docs/DEVELOP_EVAL.md` run 2: uncropped frames match the authoritative render only after a
+   vertical flip (0.45 vs ~34 ΔE), and every cropped frame crops the wrong region on the
+   interactive tier. Source: `materializeInteractiveStage` (`CIRenderDestination.isFlipped =
+   true` + `CIImage(mtlTexture:)`). This is the owner's "photographs flip upside down" report
+   (`docs/prompts/elastic-p0.md` §2) — coordinate with that stream before touching
+   `DevelopMetalView`, which may be compensating on display. Acceptance: the harness's
+   `asIsDeltaE` on `neutral` drops to the mirrored value; D2's tier gap needs no mirroring;
+   a cropped frame previews the same region it exports. Do this before item 1 — item 1's
+   measurement depends on it.
 1. **White balance previews as it exports.** The interactive post-op must shift from the
    file's *native* neutral (`PreparedRawSession.Metadata.nativeNeutralTemperature/Tint`), not
    from 6500. `finishRawStage` has the metadata; `branchInteractiveVariant` and the proxy path
@@ -75,6 +85,7 @@ registered there, never worked around.
 
 ## Checklist
 
+- [ ] 0 interactive stage mirrored (the flip)
 - [ ] 1 WB previews as it exports
 - [ ] 2 highlight/shadow scale + positive Highlights decision
 - [ ] 3 preview ≡ export contract test

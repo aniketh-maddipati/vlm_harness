@@ -200,12 +200,26 @@ Same 109 frames, same arms, model arm on, 13 min. Only the render graph changed.
   not change (temperature 0), the render did. With shadows no longer pinned at maximum lift,
   the model's exposure proposals (MAE 0.93 EV, same direction on 7 % of frames) show as a
   −27 L\* darkening. It was never correcting; the broken filter was masking it. D3 owns this.
-- **Preview ≡ export, 109 frames:** `neutral` 1.40 mean, `lrMapped` 4.35 (9.28 on the 23
-  custom-WB frames), `auto` 8.43. The `neutral` mean is inflated by a few frames with gaps
-  above 30 ΔE that the six-frame check did not contain — see the note below; the custom-WB
-  and auto numbers are the Kelvin-semantics split (D4 item 1).
+- **Preview ≡ export, 109 frames** (run 2b, same tree, no model arm, interactive stage
+  mirrored in CI space before look and geometry): `neutral` **0.50 mean / 0.83 max** — the
+  two tiers agree once the flip is undone; as-is the same comparison is 30.14. `lrMapped`
+  3.44 (8.92 on the 23 custom-WB frames), `auto` 7.62 / max 17.7: the Kelvin-semantics split
+  (D4 item 1). Every arm's ΔE in run 2b equals run 2 to the hundredth — without the model
+  arm the harness is deterministic.
 - Subject-weighted metering, straighten count and cost are unchanged from run 1.
 
-**Harness caveat (D2):** on some frames the flipped interactive comparison still reports a
-large gap even for `neutral`. Until those are understood, read the tier-gap *medians*, or
-the custom-WB-only line, rather than the means.
+**The interactive stage is upside down in Core Image space — this is the "flip".** Every
+frame with a tier gap above 3 ΔE on `neutral` (five of 109: 08280, 08289, 08294, 08300,
+08416) is a **cropped** frame. Uncropped frames match the authoritative render only after a
+vertical flip (0.45 ΔE flipped, ~34 as-is); cropped frames match neither, because
+`applyGeometry` took the crop from the flipped image. So the texture-backed interactive
+stage (`PreparedRawSession.materializeInteractiveStage`, `CIImage(mtlTexture:)` after a
+`CIRenderDestination` with `isFlipped = true`) is vertically mirrored relative to the lazy
+authoritative graph, and any consumer that applies geometry to it crops the wrong region.
+The authoritative graph is the correct one (it sits 5 ΔE from Lightroom; the mirrored one
+sits 34). This is the mechanism behind the owner's report of photographs "flipping upside
+down" that `docs/prompts/elastic-p0.md` §2 could not reproduce: interactive and settled
+disagree by a vertical flip, so the image flips when promotion lands. The harness now
+mirrors the interactive stage in CI space before the look and geometry stages (tier gap =
+colour only) and records the as-is number separately. Owner of the fix: D4 (render plane),
+in coordination with the P0 stream.

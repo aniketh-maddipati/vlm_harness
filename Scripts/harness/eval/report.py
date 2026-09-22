@@ -212,6 +212,14 @@ def build_report(doc: dict) -> str:
         for arm, px in gap.items():
             if isinstance(px, dict) and "deltaE" in px:
                 tier.setdefault(arm, []).append(px["deltaE"])
+    as_is = [
+        px["asIsDeltaE"] for f in frames
+        for arm, px in (f.get("tierGap") or {}).items() if arm == "neutral" and "asIsDeltaE" in px
+    ]
+    if as_is:
+        out.append(f"- **Interactive texture orientation:** the texture-backed interactive image compared as-is "
+                   f"to the authoritative render: mean ΔE {fmt(mean(as_is))} on `neutral` over {len(as_is)} frames "
+                   "(a value far above the mirrored gap below means the interactive stage is upside down in CI space).")
     for arm, gaps in tier.items():
         custom = [
             (f.get("tierGap") or {}).get(arm, {}).get("deltaE")

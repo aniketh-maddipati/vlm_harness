@@ -812,16 +812,21 @@ final class DevelopEvalHarnessTests: XCTestCase {
                           intent: recipe.rawIntent, targetLongEdge: Self.decodeLongEdge
                       ) else { continue }
                 let aligned = OrientedDisplayImage.aligning(pinned.image, toFile: rawURL)
-                let variant = DevelopRenderGraph.branchInteractiveVariant(from: aligned, recipe: recipe)
-                // The texture-backed interactive image rasterizes upside down relative to
-                // the lazy authoritative graph (Metal top-left vs Core Image bottom-left);
-                // the flipped comparison is the real gap. The unflipped number is kept so a
-                // change in that convention shows up rather than hiding in the gap.
+                // The texture-backed interactive image is vertically flipped in Core Image
+                // space relative to the lazy authoritative graph (measured: neutral, no crop,
+                // ΔE 0.45 flipped vs 34 as-is; cropped frames stay wrong when flipped after
+                // geometry because the crop was taken from the flipped image). To measure
+                // colour alone, mirror in CI space *before* the look and geometry stages.
+                // `asIsDeltaE` keeps the untreated number so the flip itself is on record.
+                let mirrored = aligned.oriented(.downMirrored)
+                let variant = DevelopRenderGraph.branchInteractiveVariant(from: mirrored, recipe: recipe)
+                let asIs = DevelopRenderGraph.branchInteractiveVariant(from: aligned, recipe: recipe)
                 if let interactive = rasterize(variant, size: size),
-                   let gap = Self.compare(Self.flippedVertically(interactive), authoritative),
-                   let unflipped = Self.compare(interactive, authoritative) {
+                   let gap = Self.compare(interactive, authoritative),
+                   let untreated = rasterize(asIs, size: size),
+                   let asIsGap = Self.compare(untreated, authoritative) {
                     var entry = gap.json
-                    entry["unflippedDeltaE"] = Self.round4(unflipped.deltaE)
+                    entry["asIsDeltaE"] = Self.round4(asIsGap.deltaE)
                     tierGaps[name] = entry
                 }
             }
