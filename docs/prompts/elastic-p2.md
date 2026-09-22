@@ -206,7 +206,7 @@ but what was measured, on what card, warm or cold. Commit with
 - [x] 3. Guaranteed-resident floor tier, with an explicit cap and eviction by distance
 - [x] 4. Prefetch by scroll velocity; cancel behind
 - [x] 5. Superseded requests dropped rather than queued
-- [ ] 6. Re-measure; before/after recorded in `docs/ELASTIC_PLAN.md`
+- [x] 6. Re-measure; before/after recorded in `docs/ELASTIC_PLAN.md`
 - [ ] 7. Gate green, including `xcode_compile.py`
 
 ## Progress
@@ -293,3 +293,8 @@ wrong._
   per-path prefetch tasks are gone; the window only enqueues. Next: item 6 —
   the consolidated before/after at the head of the plan's P2 section, then
   the item 7 gate.
+- 2026-09-22 · item 6 **done** · One before/after table at the head of
+  `docs/ELASTIC_PLAN.md` § "P2 measurement": same card, machine, runner,
+  warm, unfilmed; what moved it in order; what is left and whose it is
+  (wrap-layout tick cost is P0's; the dart's soft tiles are the floor
+  working). Cold is stated as a separate case, not folded in.
