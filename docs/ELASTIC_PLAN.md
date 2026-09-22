@@ -174,6 +174,57 @@ file was touched.
   deterministic, and not collapsed onto one recipe. It skips rather than passing vacuously when no
   RAW folder is supplied. This proves auto changes pixels; it does not replace the harness runner.
 
+## 6. Ruling R-N.1 — model inference is loopback-only (2026-09-22)
+
+**Owner ruling: loopback only.** Recorded as **D67** in `design/contract-v6.md`.
+
+Model-backed Develop may open a socket only to `127.0.0.1` / `::1`, serving a model the
+operator runs themselves. The hosted provider is **deleted, not disabled** — no flag, no
+key, no Keychain read. Qwen vision auto ships; ask falls back to local Qwen text
+(`qwen2.5-3b-instruct`) or the keyword planner.
+
+**Why this was the narrow reading, not a weakening.** The contract bans "network calls
+(zero egress ideal)" — an *ideal*, and its own OPEN QUESTION 5 already flags the tension.
+D45's hard clause ("never automatic egress") is scoped to **diagnostics** and is about
+*where bytes go*, not whether a socket exists. Loopback bytes never leave the machine,
+create no account and reach no third party, so the privacy posture is unchanged. The
+absolute claim lived in the **audit**, not the contract, and was amended to match.
+
+**Amended in one commit, before any feature code relied on it:** contract (D67 + the
+banned-patterns line), `Scripts/harness/lint/banned_patterns.sh`, and
+`docs/release/MACOS_RELEASE_READINESS_AUDIT.md:107, :113, :289, :477`. No privacy manifest
+change is needed — nothing is collected and nothing is sent off-device.
+
+**The lint got stricter, not looser.** Two changes:
+1. `URLSession.shared` is permitted in exactly one sanctioned file
+   (`Lumina/Services/ModelClient.swift`) and stays banned across the rest of the strict tree.
+2. **New:** any `URL(string:)` built for a non-loopback host fails anywhere in the strict
+   tree, sanctioned file included. Scoped to `URL(string:)` because XMP/RDF namespace URIs
+   (`XMPDevelopParser`, `LightroomHandoffService`) are identifiers that are never fetched.
+
+Before this ruling a hand-built `URLSession` pointed at any host passed the lint
+completely. It no longer does.
+
+**Two latent lint bugs found and fixed while doing it:**
+- The `PATTERNS` array (`banned_patterns.sh:71`) is **never iterated** — the executable
+  checks are the `scan_pair` calls below it. Its `http://|https://` entry was dead
+  documentation that read as enforcement. Marked as a descriptive index and brought in step.
+- The generic comment filter `:[[:space:]]*//` matches the `://` inside **every URL**, so a
+  URL check reusing it skips every hit silently. The new scan strips the `file:line:` prefix
+  and tests the content instead. This is why the dead pattern would not have worked even if
+  it had been wired up.
+
+**Runtime overrides are enforced in Swift, not by the lint.** `LUMINA_AUTO_BASE_URL` naming
+a non-loopback host is refused, not honored — a lint sees literals only.
+
+**Measured on the ruling (local, `DSC08241.ARW` → 512 px):** 3.18 s round-trip, valid
+schema-conformant JSON. The model proposed `highlights +30` on a frame with 0.0006%
+highlight clipping; `Band.highlights` clamped it to `+10`. The band is load-bearing.
+
 ## Next
 
 Checkpoint 03 (the first UI: routes, table, focus) — blocked on the `focus`-field question in §3.
+
+Model work proceeds on `elastic-v4/model-core`, based on checkpoint 02 and independent of the
+UI branch: scope resolver, session layer (`planAsk` / `applyPlan`), tests, then
+`applyModelAuto` at concurrency 4. UI (⌘K field, key routing, Esc order, labels) rejoins later.

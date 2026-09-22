@@ -25,7 +25,7 @@ No open CONFLICT blocks remain from the first pass.
 
 1. **Carry:** All of Contract v5 (D1–D40) remains law except where an amendment below replaces named clauses.  
 2. **Amend:** D16 (via A5), D21 (via R-5.2 + A4), D23 (via A2), D24, D27, D32/success-test (via R-A.1 + A10), D36, D37 (via R-X.1), D40 history note; D45 (via A13 — restores R-9.1; withdraws A7), D46 (via A10), D47 (via A3), D52 (via A8); **Batch 2:** D66 (via A12).  
-3. **Add:** D41–D62 (rulings + audit integrations); D63–D66 (Batch 1). **Batch 2:** A11 closes CONFLICT 4 (R-I.4); A13 withdraws A7.  
+3. **Add:** D41–D62 (rulings + audit integrations); D63–D66 (Batch 1). **Batch 2:** A11 closes CONFLICT 4 (R-I.4); A13 withdraws A7. **Ruling R-N.1:** D67 (loopback-only model inference).  
 4. **Shelf:** Shelved Register below supersedes first-pass WG-hand multi-select drift — v5 D29/D38 win unless a ruling un-shelves. **A3 un-shelves** pointer culling (D47). **A6 shelves** swim-lane plates with an evidence re-entry door.
 
 Five Laws mapping (v5 D8 ↔ session L1–L5): touch moves never decides · held is temporary · taps decide / work states latch · ⇧ is more ⌥ is less · Esc puts it back / ⌘Z takes it back. Session L3/L4 failure & persistence language remains the operational reading of D35/D36.
@@ -323,6 +323,15 @@ Citations: `D#`, `R-*`.
 
 ---
 
+### D67 — Model inference is loopback-only *(R-N.1)* `[● R-N.1]`
+
+- **decision:** Model-backed Develop (vision auto; ask planning) may open a socket **only to a loopback address** (`127.0.0.1` / `::1`), serving a model the operator runs on their own machine. **No hosted provider.** The base URL is loopback-enforced **in code, not by configuration** — an override naming a non-loopback host is refused, not honored. **Zero egress is unchanged:** loopback traffic never leaves the machine, creates no account, no telemetry, and no third-party relationship. The socket lives in exactly one sanctioned file (`Lumina/Services/ModelClient.swift`); `banned_patterns` permits `URLSession.shared` there and nowhere else, and fails any non-loopback URL literal across the strict tree.
+- **why:** D4 / D36 sovereignty and D45's "never automatic egress" are properties of **where bytes go**, not of whether a socket exists. A model the operator loaded, on their own hardware, is nearer an XPC helper than a network service. Carrying the ban as literally written would have shelved model-backed Develop for no privacy gain.
+- **rejected:** Hosted ask (any vendor) — the provider is **deleted, not disabled**, so there is no flag to flip and no key to store; API keys in Keychain or environment; a dev-only fence that keeps the capability out of users' hands; hand-built `URLSession` instances that dodge the lint pattern; pixels or metadata to any off-device address.
+- **history / socket:** Amends the "network calls" line in Banned patterns & words. Touches D4, D36, D45, D50, D66. **Closes nothing in OPEN QUESTIONS** — open question 5 (D51 update channel vs zero-egress ideal) is untouched: an update channel is off-device egress and this ruling gives it no cover.
+
+---
+
 ## Shelved Register (v6)
 
 Per D38 + rulings. **Doors, not deletions.**
@@ -350,7 +359,7 @@ Per D38 + rulings. **Doors, not deletions.**
 
 ## Banned patterns & words (carried)
 
-Spinners; skeletons; progress bars; modals/NSAlert in failure paths; hover handlers (D48); timed double-taps; release-commits; localStorage-of-decisions analogs; network calls (zero egress ideal); magic numbers in UI (tokens only); hand-typed copy (frozen table only).
+Spinners; skeletons; progress bars; modals/NSAlert in failure paths; hover handlers (D48); timed double-taps; release-commits; localStorage-of-decisions analogs; network calls (zero egress ideal — **D67** carves out loopback-only model inference in one sanctioned file, and nothing else); magic numbers in UI (tokens only); hand-typed copy (frozen table only).
 
 **Banned words:** sync, preset, copy settings, catalog, import (noun), AI, smart, auto, analyze, generate, magic.  
 **Develop** sanctioned; key `A`. **Auto** still banned in UI.

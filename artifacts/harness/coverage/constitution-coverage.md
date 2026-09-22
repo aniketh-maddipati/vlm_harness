@@ -6,7 +6,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 
 | Total entries | Covered | Shelved | NOT-COVERED |
 |--------------:|--------:|--------:|------------:|
-| 83 | 33 | 7 | **43** |
+| 84 | 33 | 7 | **44** |
 
 > A low NOT-COVERED count would be suspicious; honest gaps are expected pre-CP1.
 
@@ -54,6 +54,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 - `R-M.1`
 - `R-M.3`
 - `R-M.5`
+- `R-N.1`
 - `R-Q.1`
 
 ## Matrix
@@ -140,6 +141,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | R-M.3 | Sample shoot onboarding |  |  |  |  |  | NOT-COVERED |
 | R-M.4 | Share sheet destination | `copy_table_lint` |  |  |  |  |  |
 | R-M.5 | Videos copied, counted, not shown |  |  |  |  |  | NOT-COVERED |
+| R-N.1 | R-N.1 |  |  |  |  |  | NOT-COVERED |
 | R-Q.1 | 90 px / PERSUADE |  |  |  |  |  | NOT-COVERED |
 | R-X.1 | Hover deleted / value-echo at-rest | `banned_patterns`<br>`grammar_oracle_parity`<br>`leaf_only_ids`<br>`grammar_oracle_unit`<br>`seed_script_schema` |  |  |  |  |  |
 | R-X.2 | Layout quantized everywhere | `magic_numbers` |  |  |  |  |  |

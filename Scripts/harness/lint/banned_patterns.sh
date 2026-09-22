@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Banned-pattern grep — spinners, skeletons, progress bars, failure modals,
 # hover handlers, timed double-taps, release-commits, cached decisions, egress.
+# Egress rule is D67 (R-N.1): loopback-only model inference, one sanctioned file.
 #
 # Strict on live path: P0 + Design + ViewModels + Core + Services + Persistence
 # + ProbeV2. Quarantined legacy shell hits are recorded in
@@ -76,10 +77,12 @@ PATTERNS=(
   'onHover\s*\(|\.onHover|hover handler (D48)'
   'doubleTap|timedDouble|double_tap|timed double-tap'
   'releaseCommit|commitOnRelease|onReleaseCommit|release-commit'
-  'URLSession\.shared|http://|https://|network egress from app'
+  'URLSession\.shared|network egress from app (D67: loopback-only, one sanctioned file)'
   'cachedDecision|localStorage|cached decisions smell'
 )
 
+# PATTERNS above is a descriptive index only — it is never iterated.
+# The executable scans are the scan_pair calls below; keep the two in step.
 # PATTERNS stored as pattern|message — split carefully
 scan_pair() {
   local mode="$1"
@@ -95,7 +98,51 @@ scan_pair strict 'NSAlert\s*\(|\.alert\s*\(' 'modal/alert (failure-path ban)' "$
 scan_pair strict 'onHover\s*\(|\.onHover' 'hover handler (D48)' "${STRICT_FILES[@]}"
 scan_pair strict 'doubleTap|timedDouble|double_tap' 'timed double-tap' "${STRICT_FILES[@]}"
 scan_pair strict 'releaseCommit|commitOnRelease|onReleaseCommit' 'release-commit' "${STRICT_FILES[@]}"
-scan_pair strict 'URLSession\.shared' 'network egress from app' "${STRICT_FILES[@]}"
+# --- D67 (R-N.1): model inference is loopback-only --------------------------
+# The socket lives in exactly one sanctioned file. Everywhere else in the strict
+# tree URLSession.shared stays banned outright, exactly as before this ruling.
+SANCTIONED_NET_FILE="Lumina/Services/ModelClient.swift"
+if [[ ! -f "$SANCTIONED_NET_FILE" ]]; then
+  report "D67 sanctioned net file missing: $SANCTIONED_NET_FILE (update this lint if it moved)"
+fi
+
+NET_SCAN_FILES=()
+for f in "${STRICT_FILES[@]}"; do
+  [[ "$f" == "$SANCTIONED_NET_FILE" ]] || NET_SCAN_FILES+=("$f")
+done
+scan_pair strict 'URLSession\.shared' "network egress from app (D67: only $SANCTIONED_NET_FILE)" "${NET_SCAN_FILES[@]}"
+
+# D67 bans the destination, not only the transport: a URL built for any
+# non-loopback host fails across the whole strict tree, sanctioned file included.
+# Scoped to URL(string:) construction because XMP/RDF namespace URIs
+# (XMPDevelopParser, LightroomHandoffService) are identifiers that are never
+# fetched. Runtime overrides cannot be seen here — Swift enforces those.
+scan_non_loopback_url_literals() {
+  local -a files=("$@")
+  [[ ${#files[@]} -eq 0 ]] && return 0
+  local hits
+  hits="$(grep -HnE 'URL\(string:.*https?://' "${files[@]}" 2>/dev/null || true)"
+  [[ -z "$hits" ]] && return 0
+  local line content urls url
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    # Strip the grep "file:line:" prefix before testing for a comment. The
+    # generic scan_files filter cannot be reused here: its ":[[:space:]]*//"
+    # test matches the "://" inside every URL, which would skip every hit.
+    content="${line#*:}"
+    content="${content#*:}"
+    [[ "$content" =~ ^[[:space:]]*// ]] && continue
+    urls="$(grep -oE 'https?://[^"]*' <<< "$content" || true)"
+    while IFS= read -r url; do
+      [[ -z "$url" ]] && continue
+      if [[ ! "$url" =~ ^https?://(127\.0\.0\.1|localhost|\[::1\])([:/]|$) ]]; then
+        report "non-loopback URL literal (D67) :: $line"
+        break
+      fi
+    done <<< "$urls"
+  done <<< "$hits"
+}
+scan_non_loopback_url_literals "${STRICT_FILES[@]}"
 scan_pair strict 'cachedDecision|localStorage' 'cached decisions smell' "${STRICT_FILES[@]}"
 
 scan_pair strict 'func selectClick\b|onSelectClick' 'pointer-to-selection wiring (Law 1 / D29 shelf)' "${STRICT_FILES[@]}"
