@@ -12,12 +12,14 @@ import SwiftUI
 /// p50/p95/p99 with the window they cover, plus a `blankSeen` flag — so runs
 /// compare across commits.
 ///
-/// Three passes, by distance rather than by time so a taller card does not
+/// Five passes, by distance rather than by time so a taller card does not
 /// change what "a flick" means:
 /// - `glide`  — 1 screen/s for 5 screens: reading pace.
 /// - `flick`  — 6 screens/s to the bottom: the case that outruns decode.
 /// - `return` — 6 screens/s back to the top: what was behind the cursor is
 ///   now ahead of it.
+/// - `dart` / `recoil` — 6 screens/s for 4 screens and straight back: the
+///   reversal, where prefetch issued ahead of the dart must be cancelled.
 ///
 /// Two numbers per pass, deliberately different instruments:
 /// - `p0.scroll.tick_ms.<pass>` — wall time of one scroll step on the main
@@ -61,6 +63,11 @@ enum P0ScrollLiveRunner {
         Pass(name: "glide", screensPerSecond: 1, screens: 5),
         Pass(name: "flick", screensPerSecond: 6, screens: nil),
         Pass(name: "return", screensPerSecond: -6, screens: nil),
+        // A flick that stops mid-shoot with prefetch still in flight ahead of
+        // it, then an immediate reversal: what was ahead is now behind and
+        // must be cancelled, and what is behind is already resident.
+        Pass(name: "dart", screensPerSecond: 6, screens: 4),
+        Pass(name: "recoil", screensPerSecond: -6, screens: 4),
     ]
 
     static func runIfRequested() -> Bool {
@@ -290,6 +297,17 @@ enum P0ScrollLiveRunner {
         var offset: CGFloat = scrollView.contentView.bounds.origin.y
         var scroll: [String: Any] = [:]
         for (index, pass) in passes.enumerated() {
+            if pass.name == "dart" {
+                // The dart starts over a cold grid tier and a warm floor: the
+                // state after a memory-pressure trim, and the only way the
+                // reversal has anything in flight to cancel.
+                await BrowsePixelService.shared.dropGridTierForMeasurement()
+                let dropped = await BrowsePixelService.shared.diagnostics()
+                report["gridTierDroppedBeforeDart"] = [
+                    "residentCount": dropped.residentCount,
+                    "floorResidentCount": dropped.floorResidentCount,
+                ]
+            }
             let result = await drive(
                 pass,
                 scrollView: scrollView,
@@ -306,10 +324,12 @@ enum P0ScrollLiveRunner {
                 "\(pass.name): no well while scrolling",
                 !result.blankSeen,
                 String(
-                    format: "%.1fs · tick p95=%.2fms p99=%.2fms · wells %d/%d ticks · %d tiles of %d sampled · soft (floor) %d tiles · decodes %d",
+                    format: "%.1fs · tick p95=%.2fms p99=%.2fms · wells %d/%d ticks · %d tiles of %d sampled · soft (floor) %d tiles · decodes %d · prefetch issued %d cancelled %d",
                     result.durationSec, result.tickP95, result.tickP99,
                     result.wellTicks, result.ticks, result.wellTiles, result.tilesSampled,
-                    result.softTiles, result.decodes
+                    result.softTiles, result.decodes,
+                    result.report["prefetchIssued"] as? Int ?? 0,
+                    result.report["prefetchCancelled"] as? Int ?? 0
                 )
             )
             note(
@@ -382,6 +402,7 @@ enum P0ScrollLiveRunner {
         let diagnosticsStart = await BrowsePixelService.shared.diagnostics()
         let tracker = ElasticScrollTracker.shared
         let appearStart = tracker.appearEvents
+        var passPeakSpeed = 0.0
 
         let velocity = CGFloat(pass.screensPerSecond) * viewportHeight
         let target: CGFloat
@@ -429,6 +450,7 @@ enum P0ScrollLiveRunner {
                 }
             }
             tilesSampled += visible.count
+            passPeakSpeed = max(passPeakSpeed, abs(tracker.velocity))
             softTiles += soft
             if soft > 0 { softTicks += 1 }
             if missing > 0 {
@@ -471,6 +493,11 @@ enum P0ScrollLiveRunner {
             "softTicks": softTicks,
             "softTiles": softTiles,
             "floorEvictedDuringPass": diagnosticsEnd.floorEvicted - diagnosticsStart.floorEvicted,
+            "prefetchIssued": diagnosticsEnd.prefetchIssued - diagnosticsStart.prefetchIssued,
+            "prefetchCancelled": diagnosticsEnd.prefetchCancelled - diagnosticsStart.prefetchCancelled,
+            "prefetchActiveAtEnd": diagnosticsEnd.prefetchActive,
+            "peakFramesPerSecond": passPeakSpeed,
+            "lastWindowAhead": tracker.lastWindow.ahead.count,
             "decodes": decodes,
             "cacheHits": diagnosticsEnd.cacheHits - diagnosticsStart.cacheHits,
             "cacheMisses": diagnosticsEnd.cacheMisses - diagnosticsStart.cacheMisses,

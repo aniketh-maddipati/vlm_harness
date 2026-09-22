@@ -57,6 +57,9 @@ actor BrowsePixelService {
         let floorBytes: Int
         let floorQueued: Int
         let floorEvicted: Int
+        let prefetchIssued: Int
+        let prefetchCancelled: Int
+        let prefetchActive: Int
     }
 
     nonisolated private struct Key: Hashable, Sendable {
@@ -129,6 +132,17 @@ actor BrowsePixelService {
     private var floorInflight: Set<String> = []
     private var floorGeneration: UInt64 = 0
 
+    // MARK: Velocity prefetch (grid tier)
+    //
+    // The tracker hands over a window: paths to warm ahead of the cursor, in
+    // issue order, and the set to keep. Prefetch outside the keep set is
+    // cancelled — a task cancelled before its decode started costs nothing,
+    // which is the point of cancelling behind a flick.
+
+    private var gridPrefetchTasks: [String: Task<Void, Never>] = [:]
+    private var prefetchIssued = 0
+    private var prefetchCancelled = 0
+
     init(floorBudgetBytes: Int = PhotoImageCacheBudget.floorCeilingBytes) {
         self.floorBudgetBytes = floorBudgetBytes
     }
@@ -188,6 +202,10 @@ actor BrowsePixelService {
             guard pending.epoch == epoch else { return nil }
             return decoded
         }
+
+        // Cancelled before the decode started — behind a flick, or a window
+        // that moved on. Costs nothing, which is why cancelling is worth it.
+        guard !Task.isCancelled else { return nil }
 
         cacheMisses &+= 1
         let requestID = UUID()
@@ -253,6 +271,34 @@ actor BrowsePixelService {
         // The floor is what keeps scroll honest under pressure; halve it by
         // distance rather than drop it.
         evictFloor(toBytes: floorBudgetBytes / 2)
+    }
+
+    // MARK: - Velocity prefetch
+
+    /// Warm `ahead` at the grid tier in that order; cancel any prefetch whose
+    /// path is not in `keep`. Called by the tracker whenever the window it
+    /// computes changes, so a flick that reverses cancels its own wake.
+    func setGridPrefetchWindow(ahead: [String], keep: Set<String>) {
+        for (path, task) in gridPrefetchTasks where !keep.contains(path) {
+            task.cancel()
+            gridPrefetchTasks[path] = nil
+            prefetchCancelled += 1
+        }
+        let size = Tier.grid.maxPixelSize
+        for path in ahead {
+            let key = Key(path: path, maxPixelSize: size)
+            guard pixels[key] == nil, gridPrefetchTasks[path] == nil else { continue }
+            prefetchIssued += 1
+            gridPrefetchTasks[path] = Task(priority: .utility) { [weak self] in
+                guard let self else { return }
+                _ = await self.pixel(path: path, maxPixelSize: size, priority: .utility)
+                await self.gridPrefetchFinished(path: path)
+            }
+        }
+    }
+
+    private func gridPrefetchFinished(path: String) {
+        gridPrefetchTasks[path] = nil
     }
 
     // MARK: - Floor tier
@@ -360,10 +406,24 @@ actor BrowsePixelService {
     /// Test seam: the floor's resident paths.
     func floorResidentPaths() -> Set<String> { Set(floorPixels.keys) }
 
+    /// Harness seam: forget the grid and focused tiers but keep the floor,
+    /// the order and the window — a cold LRU over a warm floor, which is the
+    /// state a long shoot is in after a memory-pressure trim.
+    func dropGridTierForMeasurement() {
+        for (path, task) in gridPrefetchTasks {
+            task.cancel()
+            gridPrefetchTasks[path] = nil
+        }
+        for key in order { remove(key) }
+        order.removeAll()
+    }
+
     func removeAll() {
         epoch &+= 1
         inflight.values.forEach { $0.task.cancel() }
         inflight.removeAll()
+        gridPrefetchTasks.values.forEach { $0.cancel() }
+        gridPrefetchTasks.removeAll()
         pixels.removeAll()
         order.removeAll()
         pinnedPaths.removeAll()
@@ -387,7 +447,10 @@ actor BrowsePixelService {
             floorResidentCount: floorPixels.count,
             floorBytes: floorBytes,
             floorQueued: floorQueue.count + floorInflight.count,
-            floorEvicted: floorEvicted
+            floorEvicted: floorEvicted,
+            prefetchIssued: prefetchIssued,
+            prefetchCancelled: prefetchCancelled,
+            prefetchActive: gridPrefetchTasks.count
         )
     }
 

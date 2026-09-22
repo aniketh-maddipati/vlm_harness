@@ -204,7 +204,7 @@ but what was measured, on what card, warm or cold. Commit with
 - [x] 1. A scroll-latency measurement exists and is recorded, before any change
 - [x] 2. Nothing on the scroll path decodes synchronously
 - [x] 3. Guaranteed-resident floor tier, with an explicit cap and eviction by distance
-- [ ] 4. Prefetch by scroll velocity; cancel behind
+- [x] 4. Prefetch by scroll velocity; cancel behind
 - [ ] 5. Superseded requests dropped rather than queued
 - [ ] 6. Re-measure; before/after recorded in `docs/ELASTIC_PLAN.md`
 - [ ] 7. Gate green, including `xcode_compile.py`
@@ -270,3 +270,16 @@ wrong._
   runs. Result: 0 wells on every pass; 369/403 resident at 63.9 MB. Next:
   item 4 — the tracker already has the order and the centre; add velocity
   and drive `BrowsePixelService.prefetch` two screens ahead, cancel behind.
+- 2026-09-22 · item 4 **done** · `ElasticScrollTracker` velocity (0.25 s
+  horizon) → `prefetchWindow` (pure, tested) → `BrowsePixelService.
+  setGridPrefetchWindow(ahead:keep:)`, two screens ahead, one kept behind,
+  rest cancelled before decode. Two rules that were not obvious: a still
+  window keeps the hull of the last keep range, and a direction is committed
+  only after 120 ms — without both, the median's phase jumps cancelled and
+  re-issued two screens of prefetch per flick (501 issued / 288 cancelled).
+  Runner has `dart`/`recoil` passes over a dropped grid tier (floor kept).
+  Soft tiles: glide 91 → 0, flick 148 → 0; dart from cold still 534 soft, 0
+  wells. Next: item 5 — the plate's own misses and the prefetch both spawn
+  one Task per path with no bound; queue them, bounded, distance-ordered,
+  and drop what leaves the window before it starts (counts already in
+  `Diagnostics`).

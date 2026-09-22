@@ -472,6 +472,48 @@ quadratic and starved the main thread; and a warm reopen replays the dates
 phase and then replaces `assets` wholesale, so the runner now waits for that
 phase to have been seen and the status to hold still before measuring.
 
+**Prefetch by velocity (item 4).** `ElasticScrollTracker` now estimates
+velocity from its viewport centre over a 0.25 s horizon (frames/s along the
+shoot order, signed) and hands `BrowsePixelService.setGridPrefetchWindow` a
+window: still → one screen either side, nearest first; moving → two screens
+past the leading edge in the direction of travel, one screen behind the
+trailing edge kept, everything further behind cancelled. A cancel that lands
+before the decode starts costs nothing (`pixel` checks `Task.isCancelled`
+before spawning), which is the point of cancelling behind a flick.
+
+Two rules the first runs forced. The median moves in phases as rows leave
+and arrive, so the estimate dips to "still" mid-flick and occasionally flips
+sign for one sample; turning the window on either cancelled two screens of
+good prefetch and re-issued it (one run: 501 issued, 288 cancelled, 711 soft
+tiles). Now a still window keeps the hull of the previous keep range, and a
+direction is committed only after it has held for 120 ms.
+
+The runner gained two passes — `dart` (6 screens/s for 4 screens) and
+`recoil` (straight back) — and drops the grid tier, keeping the floor, before
+the dart: a cold LRU over a warm floor is the state after a memory-pressure
+trim and the only way the reversal has anything in flight to cancel.
+
+Two runs of the same build, 403-frame card, warm:
+
+| pass | steps | tick p95 | tick p99 | peak frames/s | prefetch issued | cancelled | soft (floor) tiles | wells | decodes in pass |
+|---|---|---|---|---|---|---|---|---|---|
+| glide | 499 / 501 | 1.05 / 1.45 ms | 9.7 / 10.0 ms | 92 / 94 | 147 / 147 | 6 / 6 | **0 / 0** | 0 / 0 | 141 / 141 |
+| flick | 98 / 92 | 10.6 / 10.9 ms | 10.9 / 14.9 ms | 212 / 212 | 146 / 146 | 0 / 1 | **0 / 0** | 0 / 0 | 146 / 146 |
+| return | 175 / 179 | 10.6 / 9.9 ms | 15.6 / 10.8 ms | 166 / 161 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| dart (cold grid) | 67 / 67 | 1.84 / 1.95 ms | 2.0 / 2.2 ms | 153 / 152 | 144 / 144 | 0 / 0 | 534 / 534 | 0 / 0 | 144 / 144 |
+| recoil | 67 / 66 | 1.99 / 2.05 ms | 3.2 / 2.2 ms | 196 / 187 | 19 / 19 | 0 / 0 | **0 / 0** | 0 / 0 | 19 / 19 |
+
+Read against item 3's table: the glide's 91 and the flick's 148 soft tiles
+are now 0 — every grid decode a pass needed was issued by the window before
+the tile was realized (issued = decodes, hits from the plate 0 because the
+plate found the pixels resident and never asked). The dart from a cold grid
+tier still shows 534 soft draws: at 6 screens/s from nothing, prefetch cannot
+outrun realization, and that is what the floor is for — 0 wells. Cancels stay
+in single digits because decodes land within the pass; the mechanism is
+exercised (the dart's own window is what the recoil would cancel) and cheap.
+
+The flick's ~10 ms tick p95 is unchanged and is row wrap-layout (P0).
+
 ### P3 — hardening
 
 - `[edge]` Orientation 2/3/4 and square images — latent, now guarded by
