@@ -1,5 +1,9 @@
 name: Rendering gates
 
+# Lean merge path: fast + compile-logic on every matching PR/push.
+# Heavy Mac jobs (build-stability, render-live) run on main / schedule / dispatch only.
+# No new harness lanes or frameworks — workflow conditions only.
+
 on:
   push:
     branches:
@@ -61,6 +65,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: rendering-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   fast:
     if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
@@ -104,9 +112,13 @@ jobs:
             DD/Build/Products/Debug/Lumina.app/Contents/Resources/LuminaBuildManifest.json
           if-no-files-found: warn
 
+  # Two clean rounds (~10–15 min). Not on the PR critical path — main / nightly / dispatch only.
+  # No needs:[fast] — the script already runs FAST each round; schedule would skip if fast were required.
   build-stability:
-    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
-    needs: [fast]
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.lane != 'correctness')
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -128,8 +140,11 @@ jobs:
 
   # GitHub forbids `secrets` in job-level `if`. Probe them on Ubuntu, then
   # start macos-15 only when both hosted fixture secrets exist.
+  # Hosted live render stays off the PR path (main / correctness dispatch only).
   render-live-gate:
-    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly')
     runs-on: ubuntu-latest
     outputs:
       enabled: ${{ steps.check.outputs.enabled }}
@@ -149,8 +164,7 @@ jobs:
   render-live:
     if: >
       needs.render-live-gate.outputs.enabled == 'true' &&
-      (github.event_name == 'push' ||
-      github.event_name == 'pull_request' ||
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && inputs.lane != 'nightly'))
     needs: [compile-logic, render-live-gate]
     runs-on: macos-15

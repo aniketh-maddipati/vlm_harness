@@ -3,11 +3,11 @@ import CoreImage
 import SwiftUI
 
 /// Finalized P0 single-photograph editing surface.
-/// Warm-white shell, middle-gray matte, Metal RAW preview, adjustment rail, filmstrip.
+/// Warm-white shell, middle-gray matte, Metal RAW preview, adjustment rail.
+/// The elastic strip lives on the still-mounted chapter table (D26).
 struct P0SinglePhotoEditor: View {
     @Bindable var session: P0SessionModel
     let asset: AssetRecord
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var oneToOne = false
     @State private var panOffset: CGSize = .zero
     @State private var drawableSize: CGSize = .zero
@@ -33,7 +33,6 @@ struct P0SinglePhotoEditor: View {
                 header
                 photographStage
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                filmstrip
             }
             .background(LuminaTokens.Surface.mist)
 
@@ -191,7 +190,7 @@ struct P0SinglePhotoEditor: View {
 
             let promoted = session.displayedCIImage(for: asset.id)
             let fallback = fallbackAssetID == asset.id ? fallbackImage : nil
-            let image = promoted ?? fallback
+            let image = OrientedDisplayImage.stablePresent(promoted: promoted, fallback: fallback)
             let extent = image?.extent.size ?? CGSize(
                 width: max(asset.previewLongEdge, 1),
                 height: max(asset.previewLongEdge, 1)
@@ -360,7 +359,7 @@ struct P0SinglePhotoEditor: View {
             guard !Task.isCancelled else { return }
             if let pixel = await BrowsePixelService.shared.pixel(path: path, tier: .focused) {
                 guard !Task.isCancelled, asset.id == requestedID else { return }
-                fallbackImage = CIImage(cgImage: pixel.cgImage)
+                fallbackImage = OrientedDisplayImage.ciImage(fromOrientedPixels: pixel.cgImage)
                 LatencyMetrics.record(
                     "p0.edit.open_preview_ms",
                     milliseconds: (CFAbsoluteTimeGetCurrent() - started) * 1000
@@ -370,15 +369,14 @@ struct P0SinglePhotoEditor: View {
         }
     }
 
-    /// `CIImage(contentsOf:)` is a lazy, JPEG-only seed. It binds the clicked
-    /// asset synchronously so the permanent Metal view can never retain the
-    /// previous photograph while the shared decode service warms sharper pixels.
+    /// ImageIO-oriented JPEG seed. Pixels are baked upright before the first
+    /// Metal present so click-through cannot flash an inverted file image.
     private static func immediateBrowseImage(for asset: AssetRecord) -> CIImage? {
         let path = asset.thumbPath ?? asset.gridThumbPath ?? asset.proxyPath
         guard let path else { return nil }
-        return CIImage(
-            contentsOf: URL(fileURLWithPath: path),
-            options: [.applyOrientationProperty: true]
+        return OrientedDisplayImage.ciImage(
+            at: URL(fileURLWithPath: path),
+            maxPixelSize: PhotoImageTier.focusedPreviewLongEdge
         )
     }
 
@@ -425,101 +423,5 @@ struct P0SinglePhotoEditor: View {
             center: oneToOneCenter,
             drawableSize: drawableSize
         )
-    }
-
-    private var filmstrip: some View {
-        let neighbors = filmstripNeighbors()
-        return VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 10) {
-                        ForEach(neighbors, id: \.id) { item in
-                            filmstripThumb(item)
-                                .id(item.id)
-                        }
-                    }
-                    .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
-                    .padding(.bottom, 12)
-                    .padding(.top, 2)
-                }
-                .scrollBounceBehavior(.always)
-                .frame(height: 86)
-                .onChange(of: session.focusedAssetID) { _, id in
-                    guard let id else { return }
-                    // No spring on every key — animation under arrow-repeat was a major lag source.
-                    proxy.scrollTo(id, anchor: .center)
-                }
-            }
-        }
-        .background(LuminaTokens.Surface.porcelain.opacity(0.96))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(LuminaTokens.Line.hairline.opacity(0.65))
-                .frame(height: LuminaTokens.Line.hairlineWidth)
-        }
-    }
-
-    private func filmstripThumb(_ item: ContactSheetItem) -> some View {
-        let focused = item.id == session.focusedAssetID
-        let selected = item.marks.selected
-        return ZStack {
-            if let path = item.asset.thumbPath ?? item.asset.gridThumbPath {
-                ChapterPlateImage(path: path)
-                    .frame(width: 92, height: 68)
-                    .clipped()
-            } else {
-                Rectangle()
-                    .fill(LuminaTokens.Surface.well)
-                    .frame(width: 92, height: 68)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .strokeBorder(
-                    focused
-                        ? LuminaTokens.Ink.primary
-                        : (selected ? LuminaTokens.Status.selection.opacity(0.85) : Color.clear),
-                    lineWidth: focused ? 2.5 : 2
-                )
-        }
-        .scaleEffect(focused ? 1.06 : 1.0)
-        .shadow(
-            color: focused ? LuminaTokens.Ink.primary.opacity(0.12) : .clear,
-            radius: focused ? 8 : 0,
-            y: focused ? 2 : 0
-        )
-        .opacity(item.marks.rejected ? 0.5 : 1)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if session.focusedAssetID != item.id {
-                session.setFocus(item.id)
-            }
-            session.selectClick(id: item.id, command: true, shift: false)
-        }
-        .animation(
-            LuminaSpringAnimation.transform(
-                reduceMotion: reduceMotion,
-                durationMs: Double(HiFiTokens.Motion.photoFocusMs),
-                curve: .interactive
-            ),
-            value: focused
-        )
-        .accessibilityLabel(item.asset.filename)
-        .accessibilityAddTraits(focused ? .isSelected : [])
-        .accessibilityHint("Tap to focus and select")
-        .accessibilityIdentifier(P0AccessibilityID.filmstripItem(item.id))
-    }
-
-    private func filmstripNeighbors() -> [ContactSheetItem] {
-        let items = session.visibleItems
-        guard let focus = session.focusedAssetID,
-              let idx = items.firstIndex(where: { $0.id == focus }) else {
-            return Array(items.prefix(16))
-        }
-        // Wider window so the elastic strip feels continuous while browsing.
-        let lo = max(0, idx - 14)
-        let hi = min(items.count, idx + 15)
-        return Array(items[lo..<hi])
     }
 }

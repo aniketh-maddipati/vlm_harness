@@ -68,7 +68,8 @@ final class P0LogicTests: XCTestCase {
             focusedAssetID: "abc", focusedVisible: true, focusedAvailability: "available",
             focusedCull: "keep", focusedRecipeFingerprint: "fp-abc",
             focusedRenderFidelity: "interactive", focusedHasPresentedRAW: true,
-            inspectionSettledLongEdge: 2560, pointerCullTargetsVisible: true,
+            inspectionSettledLongEdge: 2560, focusedOrientedIsPortrait: false,
+            focusedPresentedIsPortrait: false, pointerCullTargetsVisible: true,
             inspectingAssetID: nil, selectedAssetIDs: ["a", "b"],
             missingOriginalCount: 0, previewReadyCount: 60, phaseDetail: "60 photos",
             scrollAnchor: 0, culls: ["a": "keep"], editedIDs: ["a"], visibleAssetIDs: ["a", "b"],
@@ -78,7 +79,9 @@ final class P0LogicTests: XCTestCase {
             editVariantCancellationCount: 0,
             preparedSessionCreated: 0, preparedSessionHits: 0, interactiveMaterializations: 0,
             graphRenders: 0, gpuUploads: 0, variantRenders: 0, metalPresents: 0,
-            variantSourceReady: false
+            variantSourceReady: false,
+            elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
+            chapterTableMounted: true, inspectPeripheryDimOpacity: 1
         )
         let json = snapshot.jsonString()
         let decoded = try? JSONDecoder().decode(ProbeSnapshot.self, from: Data(json.utf8))

@@ -31,8 +31,9 @@ Each lane declares `budgetMs` in `Scripts/harness/lanes/manifests.json`. **Total
 
 **Compile rot-guard:** FAST `session_surface` keeps `P0SessionModel.developScheduler` file-private (call sites use `displayedCIImage` / `developFidelity` / `editMetricsLine`). FULL job #1 `xcode_compile` runs `xcodebuild build-for-testing` with `SWIFT_CONTINUE_BUILDING_AFTER_ERRORS=YES` and prints a compact error ledger so one file does not hide the rest. Developers: `bash Scripts/compile_check.sh`. Local `./DD` and `./build` are gitignored.
 
-**Clean stability gate:** `bash Scripts/build_stability.sh` is the required
-Apple Silicon checkpoint before PR/merge. It performs two cache-free rounds of
+**Clean stability gate:** `bash Scripts/build_stability.sh` is the Apple Silicon
+post-merge / release checkpoint (and optional local Mac proof before merge).
+It is **not** on the PR critical path. It performs two cache-free rounds of
 FAST, clean Debug, build-for-testing, complete logic tests, compile ledger,
 shipping Release, Playground Release, F11.1/F11.2, and clean-tree verification.
 It exits `2` on unsupported hosts. See
@@ -143,16 +144,23 @@ python3 Scripts/fixtures/verify_raw_fixture_bundle.py \
 
 ### Rendering CI
 
-`.github/workflows/rendering.yml` is the hosted merge path. It does **not**
-call `run.py full` (FULL still contains STUB live drivers that refuse a
-vacuous PASS).
+`.github/workflows/rendering.yml` is the hosted path. It does **not** call
+`run.py full` (FULL still contains STUB live drivers that refuse a vacuous
+PASS). No extra harness lanes — only job `if` conditions and concurrency.
 
-| Job | When | Merge gate |
-|-----|------|------------|
-| `fast` | every matching PR | required — Linux orchestration |
-| `compile-logic` | every matching PR | required — `xcode_compile` + `LuminaLogicTests` |
-| `render-live` | matching PR **and** fixture secrets present | optional until secrets exist; then mark required |
-| `render-nightly` | cron / dispatch `nightly` or `all` | never on the PR critical path |
+| Job | PR / `cursor/**` push | `main` push | Nightly / dispatch |
+|-----|----------------------|-------------|--------------------|
+| `fast` | required | required | `correctness` / `all` |
+| `compile-logic` | required (~2 min Mac) | required | `correctness` / `all` |
+| `build-stability` | skipped | yes (~10–15 min) | `nightly` / `all` + schedule |
+| `render-live` | skipped | when fixture secrets exist | `correctness` / `all` |
+| `render-nightly` | skipped | skipped | schedule / `nightly` / `all` |
+
+**Branch protection:** require only `fast` and `compile-logic`. Do not require
+`build-stability` or `render-live` on PRs (skipped required checks block merge).
+
+Superseded pushes cancel in-progress runs on the same PR/ref; `main` does not
+cancel.
 
 A skipped `render-live` job is not a live-gate PASS. Invoking the live
 scripts without a verified bundle still exits **BLOCKED**.
@@ -160,15 +168,16 @@ scripts without a verified bundle still exits **BLOCKED**.
 Operator checklist:
 
 1. Repo secrets: `LUMINA_RAW_FIXTURE_BUNDLE_URL`, `LUMINA_RAW_FIXTURE_BUNDLE_SHA256`.
-2. After those secrets exist, mark `render-live` required in branch protection.
+2. Keep branch protection on `fast` + `compile-logic` only.
 3. Self-hosted nightly runner labels: `self-hosted`, `macOS`, `ARM64`, `lumina-render`.
 4. Repo vars: `LUMINA_RAW_FIXTURE_ROOT`, `LUMINA_RENDER_BASELINE`, `LUMINA_RENDER_STATE_PATH`.
 
-Until the secrets exist, PRs merge on `fast` + `compile-logic` only. FAST
-pins architecture; logic tests pin Swift contracts. Hosted Macs cache
-DerivedData across `compile-logic` and `render-live`, and cache the RAW
-archive by SHA256. Exact performance comparisons stay on HEAVY; a missing
-baseline records measurements but never invents a regression PASS.
+PRs merge on `fast` + `compile-logic`. FAST pins architecture; logic tests pin
+Swift contracts. Heavy clean builds and hosted live render run after merge to
+`main` (and on schedule/dispatch). Hosted Macs cache DerivedData for
+`compile-logic` / `render-live`, and cache the RAW archive by SHA256. Exact
+performance comparisons stay on HEAVY; a missing baseline records measurements
+but never invents a regression PASS.
 
 Dashboard (optional): `python3 Scripts/harness/dashboard/server.py` → `http://127.0.0.1:8765/`
 

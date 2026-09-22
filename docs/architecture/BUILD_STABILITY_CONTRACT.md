@@ -74,9 +74,14 @@ xcodebuild -project Lumina.xcodeproj -scheme Lumina \
   -only-testing:LuminaLogicTests test-without-building
 ```
 
-## Before PR or merge
+## Before merge to main (Mac) / after land (CI)
 
-Run `bash Scripts/build_stability.sh`. It must complete two rounds with:
+Hosted CI runs `build-stability` on **push to `main`**, schedule, and
+`workflow_dispatch` (`nightly` / `all`) — not on every PR. PR merge gates stay
+`fast` + `compile-logic`.
+
+On an Apple Silicon Mac, optionally run `bash Scripts/build_stability.sh`
+before merging a large compile-surface change. It must complete two rounds with:
 
 - FAST green
 - clean Debug build

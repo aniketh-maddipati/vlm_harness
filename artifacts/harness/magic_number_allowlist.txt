@@ -50,10 +50,7 @@ Lumina/Views/P0/P0OpenView.swift 18
 Lumina/Views/P0/P0RootView.swift 18
 Lumina/Views/P0/P0SinglePhotoEditor.swift 0.5
 Lumina/Views/P0/P0SinglePhotoEditor.swift 10
-Lumina/Views/P0/P0SinglePhotoEditor.swift 16
 Lumina/Views/P0/P0SinglePhotoEditor.swift 18
-Lumina/Views/P0/P0SinglePhotoEditor.swift 2.5
-Lumina/Views/P0/P0SinglePhotoEditor.swift 44
 # owned-by-CP1 — UI literal — migrate to HiFiTokens
 Lumina/Views/CompareAndSoftViews.swift 0.18
 Lumina/Views/ExportPayoffSheet.swift 10

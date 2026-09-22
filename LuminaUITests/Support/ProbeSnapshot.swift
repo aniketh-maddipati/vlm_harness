@@ -30,6 +30,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedRenderFidelity: String? = nil
     var focusedHasPresentedRAW: Bool? = nil
     var inspectionSettledLongEdge: Int? = nil
+    var focusedOrientedIsPortrait: Bool? = nil
+    var focusedPresentedIsPortrait: Bool? = nil
     /// D47/A3 — pointer cull mark targets visible on the focused contact-sheet frame.
     var pointerCullTargetsVisible: Bool
     var inspectingAssetID: String?
@@ -65,6 +67,11 @@ struct ProbeSnapshot: Codable, Equatable {
     var variantRenders: Int? = nil
     var metalPresents: Int? = nil
     var variantSourceReady: Bool? = nil
+    var elasticStripTrackHeight: Int = 90
+    var elasticStripNearLongEdge: Int = 210
+    var elasticStripFarLongEdge: Int = 64
+    var chapterTableMounted: Bool = false
+    var inspectPeripheryDimOpacity: Double = 1
 
     /// Convenience: the Nth visible asset ID (nil when out of range).
     func visibleID(at index: Int) -> String? {

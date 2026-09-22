@@ -14,6 +14,8 @@ final class ProgressiveFocusTests: LuminaUITestCase {
         }
 
         XCTAssertEqual(opened.inspectingAssetID, firstID)
+        XCTAssertTrue(opened.chapterTableMounted, "inspect is a latch on the chapter table")
+        XCTAssertEqual(opened.inspectPeripheryDimOpacity, 0.45, accuracy: 0.001)
         XCTAssertTrue(single.image.waitForExistence(timeout: UITestWait.elementExistence))
         let initialFrame = single.image.frame
         XCTAssertGreaterThan(opened.inspectionSettledLongEdge ?? 0, 0)
@@ -33,6 +35,14 @@ final class ProgressiveFocusTests: LuminaUITestCase {
         XCTAssertEqual(single.image.frame.origin.y, initialFrame.origin.y, accuracy: 1)
         XCTAssertEqual(single.image.frame.width, initialFrame.width, accuracy: 1)
         XCTAssertEqual(single.image.frame.height, initialFrame.height, accuracy: 1)
+        if let oriented = next.focusedOrientedIsPortrait,
+           let presented = next.focusedPresentedIsPortrait {
+            XCTAssertEqual(
+                oriented,
+                presented,
+                "click-through must not present a RAW frame in the opposite aspect"
+            )
+        }
         Invariants.assert(next, app: app)
     }
 }

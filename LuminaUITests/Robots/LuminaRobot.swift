@@ -31,7 +31,8 @@ struct LuminaRobot {
                 filter: "", canUndo: false, focusedAssetID: nil, focusedVisible: false,
                 focusedAvailability: nil, focusedCull: nil, focusedRecipeFingerprint: nil,
                 focusedRenderFidelity: nil, focusedHasPresentedRAW: false,
-                inspectionSettledLongEdge: nil, pointerCullTargetsVisible: false, inspectingAssetID: nil,
+                inspectionSettledLongEdge: nil, focusedOrientedIsPortrait: nil,
+                focusedPresentedIsPortrait: nil, pointerCullTargetsVisible: false, inspectingAssetID: nil,
                 selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
                 phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
                 missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier",
@@ -40,7 +41,9 @@ struct LuminaRobot {
                 editVariantCancellationCount: 0,
                 preparedSessionCreated: 0, preparedSessionHits: 0, interactiveMaterializations: 0,
                 graphRenders: 0, gpuUploads: 0, variantRenders: 0, metalPresents: 0,
-                variantSourceReady: false
+                variantSourceReady: false,
+                elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
+                chapterTableMounted: false, inspectPeripheryDimOpacity: 1
             )
         }
         return snapshot
@@ -57,7 +60,8 @@ struct LuminaRobot {
                 filter: "", canUndo: false, focusedAssetID: nil, focusedVisible: false,
                 focusedAvailability: nil, focusedCull: nil, focusedRecipeFingerprint: nil,
                 focusedRenderFidelity: nil, focusedHasPresentedRAW: false,
-                inspectionSettledLongEdge: nil, pointerCullTargetsVisible: false, inspectingAssetID: nil,
+                inspectionSettledLongEdge: nil, focusedOrientedIsPortrait: nil,
+                focusedPresentedIsPortrait: nil, pointerCullTargetsVisible: false, inspectingAssetID: nil,
                 selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
                 phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
                 missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier",
@@ -66,7 +70,9 @@ struct LuminaRobot {
                 editVariantCancellationCount: 0,
                 preparedSessionCreated: 0, preparedSessionHits: 0, interactiveMaterializations: 0,
                 graphRenders: 0, gpuUploads: 0, variantRenders: 0, metalPresents: 0,
-                variantSourceReady: false
+                variantSourceReady: false,
+                elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
+                chapterTableMounted: false, inspectPeripheryDimOpacity: 1
             )
         }
         return snapshot

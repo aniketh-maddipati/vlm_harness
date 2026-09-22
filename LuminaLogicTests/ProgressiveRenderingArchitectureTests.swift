@@ -18,6 +18,10 @@ nonisolated func nonisolatedPhotoTierPath(_ photo: PhotoRecord) -> String? {
     PhotoImageTier.proxy.path(for: photo)
 }
 
+nonisolated func nonisolatedEmbeddedPreviewMinLongEdge() -> Int {
+    PhotoImageTier.embeddedPreviewMinLongEdge
+}
+
 final class ProgressiveRenderingArchitectureTests: XCTestCase {
     func testLegacyMachineTierCannotBecomeP0Decision() {
         let machineTier = PhotoRecord(
@@ -153,6 +157,9 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
         let editor = try source("Lumina/Views/P0/P0SinglePhotoEditor.swift")
         XCTAssertTrue(editor.contains("One permanent Metal leaf owns this click"))
         XCTAssertTrue(editor.contains("immediateBrowseImage"))
+        XCTAssertTrue(editor.contains("OrientedDisplayImage.ciImage"))
+        XCTAssertTrue(editor.contains("OrientedDisplayImage.stablePresent"))
+        XCTAssertFalse(editor.contains("CIImage(contentsOf:"))
         XCTAssertTrue(editor.contains(".task(id: asset.id)"))
 
         let scheduler = try source("Lumina/Develop/DevelopRenderScheduler.swift")
@@ -167,6 +174,7 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
         XCTAssertFalse(browse.contains("precondition(!rawExtensions.contains(ext)"))
         XCTAssertTrue(browse.contains("decoded: decoded.cgImage"))
         XCTAssertTrue(browse.contains("pinnedPaths"))
+        XCTAssertTrue(browse.contains("OrientedDisplayImage.cgImage"))
 
         let metalPool = try source("Lumina/Services/MetalPreviewPool.swift")
         XCTAssertFalse(metalPool.contains("decodeBrowseJPEG"))
@@ -192,6 +200,38 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
         let export = try source("Lumina/Services/P0AuthoritativeExportService.swift")
         XCTAssertTrue(export.contains("DevelopRenderGraph.renderExportBitmap"))
         XCTAssertTrue(export.contains("DevelopRenderGraph.exportTIFF"))
+
+        let graph = try source("Lumina/Develop/DevelopRenderGraph.swift")
+        XCTAssertTrue(graph.contains("OrientedDisplayImage.aligning"))
+        XCTAssertTrue(graph.contains("OrientedDisplayImage.ciImage"))
+        XCTAssertFalse(graph.contains("applyOrientationProperty"))
+        XCTAssertFalse(graph.contains("CIImage(contentsOf:"))
+
+        let metal = try source("Lumina/Develop/Lab/DevelopMetalView.swift")
+        XCTAssertTrue(metal.contains("destination.isFlipped = true"))
+        XCTAssertTrue(metal.contains("OrientedDisplayImage"))
+
+        let oriented = try source("Lumina/Rendering/OrientedDisplayImage.swift")
+        XCTAssertTrue(oriented.contains("CreateThumbnailWithTransform"))
+        XCTAssertTrue(oriented.contains("stablePresent"))
+        XCTAssertFalse(oriented.contains("applyOrientationProperty"))
+    }
+
+    func testEmbeddedPreviewGateAcceptsA7III1616Embeds() throws {
+        XCTAssertEqual(nonisolatedEmbeddedPreviewMinLongEdge(), 1024)
+        XCTAssertLessThanOrEqual(PhotoImageTier.embeddedPreviewMinLongEdge, 1616)
+        XCTAssertEqual(PhotoImageTier.embeddedPreviewMinLongEdge, 1024)
+
+        let ingest = try source("Lumina/Services/ImportPipeline.swift")
+        XCTAssertTrue(ingest.contains("minLongEdge: PhotoImageTier.embeddedPreviewMinLongEdge"))
+        XCTAssertFalse(ingest.contains("minLongEdge: 2000"))
+
+        let extractor = try source("Lumina/Services/ProjectStore.swift")
+        XCTAssertTrue(extractor.contains("minLongEdge: Int = PhotoImageTier.embeddedPreviewMinLongEdge"))
+        XCTAssertFalse(extractor.contains("minLongEdge: Int = 2000"))
+
+        let contact = try source("Lumina/Services/ContactSheetPreparation.swift")
+        XCTAssertTrue(contact.contains("minLongEdge: 800"))
     }
 
     private func source(_ relativePath: String) throws -> String {

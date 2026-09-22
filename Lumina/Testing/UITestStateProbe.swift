@@ -32,6 +32,10 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedRenderFidelity: String? = nil
     var focusedHasPresentedRAW: Bool? = nil
     var inspectionSettledLongEdge: Int? = nil
+    /// File EXIF after one ImageIO bake — portrait vs landscape, independent of RAW promotion.
+    var focusedOrientedIsPortrait: Bool? = nil
+    /// Currently presented CIImage aspect class. Must match `focusedOrientedIsPortrait` when both set.
+    var focusedPresentedIsPortrait: Bool? = nil
     /// D47/A3 — pointer cull mark targets visible on the focused contact-sheet frame.
     var pointerCullTargetsVisible: Bool
     var inspectingAssetID: String?
@@ -72,6 +76,14 @@ struct ProbeSnapshot: Codable, Equatable {
     var variantRenders: Int? = nil
     var metalPresents: Int? = nil
     var variantSourceReady: Bool? = nil
+    /// D26/D28 — quantized elastic-strip facts (token steps, never interpolated).
+    var elasticStripTrackHeight: Int = 90
+    var elasticStripNearLongEdge: Int = 210
+    var elasticStripFarLongEdge: Int = 64
+    /// D26 — chapter table stays mounted under inspect (latch, not a replacement route).
+    var chapterTableMounted: Bool = false
+    /// D27 — dim applied to inspect periphery plates; 1 at rest on the table.
+    var inspectPeripheryDimOpacity: Double = 1
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -139,6 +151,19 @@ extension P0SessionModel {
                 displayedCIImage(for: $0) != nil
             } ?? false,
             inspectionSettledLongEdge: inspectionSettledLongEdge,
+            focusedOrientedIsPortrait: focused.flatMap { asset -> Bool? in
+                let path = asset.thumbPath ?? asset.gridThumbPath ?? asset.source.originalPath
+                guard let size = ImagePixelFormat.orientedPixelSize(
+                    at: URL(fileURLWithPath: path)
+                ) else { return nil }
+                return size.width + 1 < size.height
+            },
+            focusedPresentedIsPortrait: focusedAssetID.flatMap { id -> Bool? in
+                guard let extent = displayedCIImage(for: id)?.extent, extent.height > 1 else {
+                    return nil
+                }
+                return extent.width + 1 < extent.height
+            },
             pointerCullTargetsVisible: route == "contactSheet" && inspectingAssetID == nil && focusedAssetID != nil,
             inspectingAssetID: inspectingAssetID?.uuidString,
             selectedAssetIDs: selectedAssetIDs.map(\.uuidString).sorted(),
@@ -170,7 +195,14 @@ extension P0SessionModel {
             gpuUploads: counters.gpuUploads,
             variantRenders: counters.variantRenders,
             metalPresents: counters.metalPresents,
-            variantSourceReady: variantPinnedSource != nil
+            variantSourceReady: variantPinnedSource != nil,
+            elasticStripTrackHeight: Int(ElasticCanvasLayout.stripTrackHeight.rounded()),
+            elasticStripNearLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 1).rounded()),
+            elasticStripFarLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 4).rounded()),
+            chapterTableMounted: self.route == .contactSheet,
+            inspectPeripheryDimOpacity: inspectingAssetID == nil
+                ? 1
+                : ElasticCanvasLayout.peripheryDimOpacity
         )
     }
 }
