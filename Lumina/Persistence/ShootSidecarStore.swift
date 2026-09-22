@@ -12,15 +12,39 @@ import Foundation
 /// XMP (`crs:`) beside the original. Sidecars are the interoperable form another
 /// tool reads; deleting Lumina loses nothing.
 ///
-/// **Cold open:** When no journal replay applies, mapped `crs:` fields seed `recipe`
-/// from the sidecar. Foreign namespaces and properties are never stripped on read or merge-write.
+/// **Relaunch authority (single winner, no silent disagreement):**
+/// 1. Clean shutdown, XMP and `shoot.json` agree → agreed mapped recipe.
+/// 2. Journal newer than sidecar → journal (crash window before XMP durability).
+/// 3. Sidecar newer than shoot cache → sidecar; catalog is catch-up only.
+/// 4. External XMP changed while closed → sidecar adopted; XMP is not rewritten.
+/// 5. Shoot cache exists, sidecar missing → journal then catalog; XMP is not created.
+/// 6. Sidecar exists, Application Support deleted → sidecar (then journal if newer).
+/// 7. Application Support exists, source drive returns → same as 1–6 once originals
+///    are readable; offline, catalog only accelerates navigation.
 ///
-/// **Drift:** If managed `crs:` fields change on disk after Lumina wrote them,
-/// return `.externalDrift` — session recipe unchanged until quit/reopen.
+/// Recover never writes XMP. `shoot.json` must not silently keep a conflicting
+/// recipe when a newer valid sidecar is readable.
+///
+/// **In-session drift:** If managed `crs:` fields change on disk after Lumina wrote
+/// them, return `.externalDrift` — session recipe unchanged until quit/reopen.
 enum SidecarReconciliation: Equatable, Sendable {
     case sessionAuthoritative
-    case seededFromSidecar
     case externalDrift(sidecarHash: String, sessionHash: String)
+}
+
+/// Cold-open / relaunch winner between catalog+journal memory and the beside-file sidecar.
+struct SidecarOpenOutcome: Equatable, Sendable {
+    enum Winner: Equatable, Sendable {
+        case agreed
+        case journalCrashWindow
+        case sidecarDurableReceipt
+        case sidecarMissing
+        case sidecarUnreadable
+    }
+
+    var winner: Winner
+    /// Recipe to keep on the asset. Recover applies this only for `.sidecarDurableReceipt`.
+    var recipe: EditRecipe?
 }
 
 struct SidecarWriteResult: Equatable, Sendable {
@@ -71,6 +95,66 @@ enum ShootSidecarStore {
             return .externalDrift(sidecarHash: diskHash, sessionHash: sessionHash)
         }
         return .sessionAuthoritative
+    }
+
+    /// Relaunch compare: journal covers the in-flight crash window; a sidecar that is
+    /// not older than that window is the durable receipt. Never writes XMP.
+    static func reconcileOnOpen(
+        existingRecipe: EditRecipe?,
+        lastJournalEditAt: Date?,
+        xmpURL: URL
+    ) -> SidecarOpenOutcome {
+        guard FileManager.default.fileExists(atPath: xmpURL.path) else {
+            return SidecarOpenOutcome(winner: .sidecarMissing, recipe: existingRecipe)
+        }
+        let diskHash: String
+        do {
+            guard let hash = try managedFieldsHash(at: xmpURL) else {
+                return SidecarOpenOutcome(winner: .sidecarUnreadable, recipe: existingRecipe)
+            }
+            diskHash = hash
+        } catch {
+            return SidecarOpenOutcome(winner: .sidecarUnreadable, recipe: existingRecipe)
+        }
+        let existingHash = LightroomHandoffService.hashOfManagedFields(for: existingRecipe ?? .neutral)
+        if existingHash == diskHash {
+            return SidecarOpenOutcome(winner: .agreed, recipe: existingRecipe)
+        }
+        let sidecarTime = (try? xmpURL.resourceValues(forKeys: [.contentModificationDateKey]))?
+            .contentModificationDate
+        if let journalAt = lastJournalEditAt, let sidecarTime, journalAt > sidecarTime {
+            return SidecarOpenOutcome(winner: .journalCrashWindow, recipe: existingRecipe)
+        }
+        let sidecarRecipe = try? readMappedRecipe(at: xmpURL)
+        return SidecarOpenOutcome(winner: .sidecarDurableReceipt, recipe: sidecarRecipe)
+    }
+
+    /// Apply relaunch sidecar authority after journal replay. Does not write XMP.
+    @discardableResult
+    static func applyOpenReconciliation(
+        into shoot: inout ShootRecord,
+        journalRecords: [ShootJournalRecord]
+    ) -> [UUID: SidecarOpenOutcome] {
+        var lastEditAt: [UUID: Date] = [:]
+        for record in journalRecords where record.kind == .editCommit {
+            lastEditAt[record.assetID] = record.recordedAt
+        }
+        var outcomes: [UUID: SidecarOpenOutcome] = [:]
+        for index in shoot.assets.indices {
+            let asset = shoot.assets[index]
+            let originalURL = URL(fileURLWithPath: asset.source.originalPath)
+            guard FileManager.default.fileExists(atPath: originalURL.path) else { continue }
+            let outcome = reconcileOnOpen(
+                existingRecipe: asset.recipe,
+                lastJournalEditAt: lastEditAt[asset.id],
+                xmpURL: sidecarURL(besideOriginal: originalURL)
+            )
+            outcomes[asset.id] = outcome
+            if case .sidecarDurableReceipt = outcome.winner {
+                shoot.assets[index].recipe = outcome.recipe?.hasSettings == true ? outcome.recipe : nil
+            }
+        }
+        return outcomes
     }
 
     /// Files Lumina must not create for CP2 sidecar durability (D36 no private store).
