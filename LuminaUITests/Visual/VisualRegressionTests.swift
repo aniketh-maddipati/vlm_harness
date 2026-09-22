@@ -18,30 +18,24 @@ final class VisualRegressionTests: LuminaUITestCase {
         let sheet = lumina.openShoot.open(.mixed60)
         capture(name: "contact-sheet-1280x800")
 
-        // Focused asset.
+        // Focused asset — pointer travel, not a hidden selection.
         let ids = sheet.visibleIDs()
         sheet.focus(assetID: ids[2])
         assertFocused(ids[2])
         capture(name: "focused-asset", element: sheet.cell(ids[2]))
 
-        // Selected (different) asset — focus and selection on distinct cells. A plain click selects
-        // + focuses ids[2]; an arrow then moves focus off it while the selection stays put.
-        sheet.focus(assetID: ids[2])
         sheet.focusNext()
         let distinct = lumina.waitForProbe {
-            $0.selectedAssetIDs.contains(ids[2]) && !$0.selectedAssetIDs.contains($0.focusedAssetID ?? "")
+            $0.focusedAssetID != ids[2] && $0.focusedAssetID != nil
         }
-        XCTAssertTrue(distinct.selectedAssetIDs.contains(ids[2]), "ids[2] remains selected")
-        XCTAssertFalse(distinct.selectedAssetIDs.contains(distinct.focusedAssetID ?? ""),
-                       "focus and selection are on distinct cells")
+        XCTAssertNotEqual(distinct.focusedAssetID, ids[2])
+        XCTAssertTrue(distinct.selectedAssetIDs.isEmpty, "keyboard travel must not create selection")
         capture(name: "focused-and-selected-different-assets")
 
-        // Focused AND selected the same cell — the known outline-layering case. Do not silently
-        // approve: assert the cell truthfully reports both focus and selection, and capture it.
-        sheet.focus(assetID: ids[9])          // plain click → focus + select the same cell
-        let both = lumina.waitForProbe { $0.focusedAssetID == ids[9] && $0.selectedAssetIDs.contains(ids[9]) }
+        sheet.focus(assetID: ids[9])
+        let both = lumina.waitForProbe { $0.focusedAssetID == ids[9] }
         XCTAssertEqual(both.focusedAssetID, ids[9], "cell is focused")
-        XCTAssertTrue(both.selectedAssetIDs.contains(ids[9]), "same cell is also selected (outline-layering case)")
+        XCTAssertFalse(both.selectedAssetIDs.contains(ids[9]), "pointer focus is not persistent selection")
         capture(name: "focused-plus-selected-same-cell", element: sheet.cell(ids[9]))
 
         // Kept and rejected markers.

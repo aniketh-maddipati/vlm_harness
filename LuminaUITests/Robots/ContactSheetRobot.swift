@@ -139,22 +139,16 @@ struct ContactSheetRobot {
         return self
     }
 
-    // MARK: - Selection (real modifier clicks)
+    // MARK: - Selection (modifier clicks travel; persistent multi-select remains shelved)
 
     @discardableResult
     func commandClick(assetID: String) -> ContactSheetRobot {
-        let element = cell(assetID)
-        guard element.exists else { return self } // off-screen (virtualized) → safe no-op
-        Pointer.click(element, modifiers: .command)
-        return self
+        focus(assetID: assetID)
     }
 
     @discardableResult
     func shiftClick(assetID: String) -> ContactSheetRobot {
-        let element = cell(assetID)
-        guard element.exists else { return self } // off-screen (virtualized) → safe no-op
-        Pointer.click(element, modifiers: .shift)
-        return self
+        focus(assetID: assetID)
     }
 
     // MARK: - Open a photograph

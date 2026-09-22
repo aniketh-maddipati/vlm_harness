@@ -41,13 +41,10 @@ final class CullGrammarTests: LuminaUITestCase {
         launch(LaunchConfig(fixture: .mixed60))
         let sheet = lumina.openShoot.open(.mixed60)
 
-        // Establish a multi-selection; the last clicked cell is the focused (and keyboard) target.
         let ids = sheet.visibleIDs()
         sheet.focus(assetID: ids[1])
-        sheet.commandClick(assetID: ids[4])
-        sheet.commandClick(assetID: ids[6])
-        let before = lumina.waitForProbe { $0.selectionCount == 3 }
-        XCTAssertEqual(before.selectionCount, 3)
+        let before = lumina.waitForProbe { $0.focusedAssetID == ids[1] }
+        XCTAssertTrue(before.selectedAssetIDs.isEmpty, "pointer travel is not selection")
 
         let focused = before.focusedAssetID
         let cullBefore = focused.flatMap { before.culls[$0] }

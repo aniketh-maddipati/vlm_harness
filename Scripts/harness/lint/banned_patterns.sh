@@ -98,6 +98,9 @@ scan_pair strict 'releaseCommit|commitOnRelease|onReleaseCommit' 'release-commit
 scan_pair strict 'URLSession\.shared' 'network egress from app' "${STRICT_FILES[@]}"
 scan_pair strict 'cachedDecision|localStorage' 'cached decisions smell' "${STRICT_FILES[@]}"
 
+scan_pair strict 'func selectClick\b|onSelectClick' 'pointer-to-selection wiring (Law 1 / D29 shelf)' "${STRICT_FILES[@]}"
+scan_pair strict 'toggleSelectionOfFocused' 'Space/pointer selection toggle (D9 loupe; D29 shelf)' "${STRICT_FILES[@]}"
+
 # Legacy / quarantined shell — record, do not fail FAST (owned in HARNESS.md).
 scan_pair legacy 'ProgressView\s*\(' 'spinner/ProgressView in product path' "${LEGACY_FILES[@]}"
 scan_pair legacy 'onHover\s*\(|\.onHover' 'hover handler (D48)' "${LEGACY_FILES[@]}"

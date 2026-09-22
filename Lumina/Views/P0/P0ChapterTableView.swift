@@ -237,15 +237,15 @@ struct P0ChapterTableView: View {
                 showClipping: session.holdingClipping
             ) {
                 session.walkingKeptRail = false
-                session.setFocus(asset.id)
+                session.pointerTravel(to: asset.id)
             } onOpen: {
-                session.setFocus(asset.id)
+                session.pointerTravel(to: asset.id)
                 session.activateFocusedPhotograph()
             } onKeep: {
-                session.setFocus(asset.id)
+                session.pointerTravel(to: asset.id)
                 session.pointerMarkKeep()
             } onReject: {
-                session.setFocus(asset.id)
+                session.pointerTravel(to: asset.id)
                 session.pointerMarkReject()
             }
             .frame(minHeight: plateHeight)
@@ -262,15 +262,15 @@ struct P0ChapterTableView: View {
                 isKept: asset.cull == .keep,
                 showClipping: session.holdingClipping
             ) {
-                session.setFocus(asset.id)
+                session.pointerTravel(to: asset.id)
             } onOpen: {
-                session.setFocus(asset.id)
+                session.pointerTravel(to: asset.id)
                 session.openFocusedPhotograph()
             } onKeep: {
-                session.setFocus(asset.id)
+                session.pointerTravel(to: asset.id)
                 session.pointerMarkKeep()
             } onReject: {
-                session.setFocus(asset.id)
+                session.pointerTravel(to: asset.id)
                 session.pointerMarkReject()
             }
             .frame(minHeight: plateHeight)
@@ -397,7 +397,6 @@ struct P0ChapterTableView: View {
         distance: Int
     ) -> some View {
         let focused = item.id == session.focusedAssetID
-        let selected = item.marks.selected
         let height = min(longEdge, ElasticCanvasLayout.stripTrackHeight)
         return ZStack {
             if let path = item.asset.thumbPath ?? item.asset.gridThumbPath {
@@ -414,12 +413,8 @@ struct P0ChapterTableView: View {
         .overlay {
             RoundedRectangle(cornerRadius: LuminaTokens.Radius.photographThumb, style: .continuous)
                 .strokeBorder(
-                    focused
-                        ? LuminaTokens.Ink.primary
-                        : (selected ? LuminaTokens.Status.selection.opacity(0.85) : Color.clear),
-                    lineWidth: focused
-                        ? HiFiTokens.Ring.plateFocusWidth
-                        : (selected ? HiFiTokens.Ring.selectionWidth : 0)
+                    focused ? LuminaTokens.Ink.primary : Color.clear,
+                    lineWidth: focused ? HiFiTokens.Ring.plateFocusWidth : 0
                 )
         }
         .scaleEffect(focused ? 1.06 : 1.0)
@@ -432,7 +427,7 @@ struct P0ChapterTableView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             if session.focusedAssetID != item.id {
-                session.setFocus(item.id)
+                session.pointerTravel(to: item.id)
             }
         }
         .animation(

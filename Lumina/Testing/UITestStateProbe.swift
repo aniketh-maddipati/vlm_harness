@@ -39,6 +39,7 @@ struct ProbeSnapshot: Codable, Equatable {
     /// D47/A3 — pointer cull mark targets visible on the focused contact-sheet frame.
     var pointerCullTargetsVisible: Bool
     var inspectingAssetID: String?
+    /// Persistent selection membership. Pointer travel must not write this (Law 1 / D29).
     var selectedAssetIDs: [String]
     var missingOriginalCount: Int
     var previewReadyCount: Int

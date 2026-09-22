@@ -184,7 +184,14 @@
         "seed_script_schema"
       ],
       "logic": [
-        "CullGrammarTests.testHoldKeysTrackMomentaryState"
+        "CullGrammarTests.testHoldKeysTrackMomentaryState",
+        "PointerTravelTests.testFilmstripTapChangesFocusWithoutHiddenSelectionOrCull",
+        "PointerTravelTests.testTableFrameTapFocusesWithoutDeciding",
+        "PointerTravelTests.testPointerThenDecisionKeysApplyToCurrentFocus",
+        "PointerTravelTests.testInspectFromPointerFocusIsPreserved",
+        "PointerTravelTests.testTwentyPointerTravelsDoNotGrowHiddenSelection",
+        "PointerTravelTests.testVariantPointerTravelDoesNotCullOrSelect",
+        "PointerTravelTests.testPointerCallsitesAreTravelOnly"
       ],
       "flow": [],
       "golden": [],
@@ -864,7 +871,9 @@
         "leaf_only_ids"
       ],
       "logic": [
-        "CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically"
+        "CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically",
+        "PointerTravelTests.testPointerThenDecisionKeysApplyToCurrentFocus",
+        "PointerTravelTests.testPointerCallsitesAreTravelOnly"
       ],
       "flow": [],
       "golden": [],
