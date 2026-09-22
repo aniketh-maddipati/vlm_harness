@@ -98,6 +98,9 @@ class Moment:
     at: str
     note: str
     shots: tuple[Shot, ...]
+    # Days after BASE_DATE. The stress schedule runs past midnight, and
+    # `strptime` cannot parse `29:40`.
+    day: int = 0
 
 
 @dataclass
@@ -207,6 +210,60 @@ ELASTIC_CARD: tuple[Moment, ...] = (
 )
 
 
+# --- The stress schedule ----------------------------------------------------
+#
+# Scroll latency needs a table many screens tall, and the card above is one
+# screen. `--stress N` appends moments on the following day until the card
+# carries at least N frames. It is a schedule for tiles, not for pixels: the
+# pools cycle, so the same sources recur — that is fine for scroll, which only
+# ever reads the grid thumb. A 400-frame card is about 7 GB, mostly RAW.
+#
+# Moments sit 12 minutes apart (past `sceneGapWalk`, so every one splits) and
+# carry eight frames 30 s apart, which is one wrapped row and a bit at 1280
+# wide. Six of the eight are RAW: a shoot is mostly camera, and a table of
+# phone glyphs is not the table anyone scrolls. Every fifth moment ends in a
+# three-frame burst so the stack badge is on the scroll path too.
+
+STRESS_START_MINUTES = 5 * 60 + 40
+STRESS_MOMENT_SPACING_MINUTES = 12
+STRESS_FRAMES_PER_MOMENT = 8
+STRESS_SHOT_SPACING_SECONDS = 30
+
+
+def stress_moments(target_frames: int, base_frames: int) -> tuple[Moment, ...]:
+    """Deterministic moments appended until the card has `target_frames`."""
+    moments: list[Moment] = []
+    frames = base_frames
+    index = 0
+    while frames < target_frames:
+        minutes = STRESS_START_MINUTES + index * STRESS_MOMENT_SPACING_MINUTES
+        day, remainder = divmod(minutes, 24 * 60)
+        hour, minute = divmod(remainder, 60)
+        shots: list[Shot] = []
+        for slot in range(STRESS_FRAMES_PER_MOMENT):
+            kind = "phone" if slot in (3, 7) else "raw"
+            shots.append(Shot(offset=slot * STRESS_SHOT_SPACING_SECONDS, kind=kind))
+        if index % 5 == 4:
+            # Replace the last three singles with a burst — one tile, ×3 badge.
+            shots = shots[:-3] + burst(
+                (STRESS_FRAMES_PER_MOMENT - 3) * STRESS_SHOT_SPACING_SECONDS,
+                3,
+                kind="phone",
+                note="stress burst — ×3 badge",
+            )
+        moments.append(
+            Moment(
+                at=f"{hour:02d}:{minute:02d}",
+                note=f"stress moment {index}",
+                shots=tuple(shots),
+                day=1 + day,
+            )
+        )
+        frames += len(shots)
+        index += 1
+    return tuple(moments)
+
+
 def run(args: list[str]) -> None:
     result = subprocess.run(args, capture_output=True, text=True)
     if result.returncode != 0:
@@ -263,7 +320,9 @@ def emit(card: tuple[Moment, ...], raw_pool: list[Path], phone_pool: list[Path],
     sequence = 1
 
     for moment in card:
-        start = datetime.strptime(f"{BASE_DATE} {moment.at}", "%Y-%m-%d %H:%M")
+        start = datetime.strptime(
+            f"{BASE_DATE} {moment.at}", "%Y-%m-%d %H:%M"
+        ) + timedelta(days=moment.day)
         for shot in moment.shots:
             if shot.pick:
                 source = by_name.get(shot.pick)
@@ -345,7 +404,7 @@ def gap_label(seconds: float) -> str | None:
     return f"+ {hours} h {minutes} min"
 
 
-def verify(emitted: list[Emitted]) -> dict:
+def verify(emitted: list[Emitted], card: tuple[Moment, ...]) -> dict:
     """Re-derive what Lumina will see, so the card proves itself rather than
     trusting that the plan and the code still agree."""
     frames = sorted(emitted, key=lambda e: e.taken)
@@ -399,7 +458,7 @@ def verify(emitted: list[Emitted]) -> dict:
     }
 
     expected = {
-        "moments": len(ELASTIC_CARD),
+        "moments": len(card),
         "lightWords": [
             "after sunset", "afternoon", "before sunrise",
             "golden hour", "midday", "morning",
@@ -445,6 +504,9 @@ def main() -> int:
     parser.add_argument("--name", default="card-elastic-v4")
     parser.add_argument("--force", action="store_true",
                         help="replace an existing card of the same name")
+    parser.add_argument("--stress", type=int, default=0, metavar="N",
+                        help="append stress moments until the card has ≥ N frames "
+                             "(scroll-latency cards; pair with --name)")
     args = parser.parse_args()
 
     if not exiftool_available():
@@ -484,8 +546,13 @@ def main() -> int:
         )
         return 2
 
-    emitted = emit(ELASTIC_CARD, raw_pool, phone_pool, out_dir)
-    summary = verify(emitted)
+    card_plan = ELASTIC_CARD
+    base_frames = sum(len(moment.shots) for moment in ELASTIC_CARD)
+    if args.stress > base_frames:
+        card_plan = ELASTIC_CARD + stress_moments(args.stress, base_frames)
+    emitted = emit(card_plan, raw_pool, phone_pool, out_dir)
+    summary = verify(emitted, card_plan)
+    summary["stressFrames"] = max(0, len(emitted) - base_frames)
     write_checksums(out_dir, bundle_dir)
 
     card = {

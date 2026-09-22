@@ -83,7 +83,13 @@ final class P0SessionModel {
     var route: P0Route = .open
     var shoot: ShootRecord?
     var assets: [AssetRecord] = [] {
-        didSet { assetIndexCache = nil }
+        didSet {
+            // Element writes (`assets[i].cull = …`) fire this once per element,
+            // so it must stay O(1): invalidate, never recompute, here.
+            assetIndexCache = nil
+            chaptersCache = nil
+            chapterIDByAssetCache = nil
+        }
     }
 
     /// `id → position`, rebuilt on the first read after any mutation.
@@ -311,8 +317,33 @@ final class P0SessionModel {
         developSchedulerStorage?.fidelityByPhoto[assetID]
     }
 
+    /// The arrangement is a pure function of `assets`, and the table asks for
+    /// it once per row plus several times per gap — recomputing it each time
+    /// made a layout pass of a 400-frame shoot cost seconds. Same contract as
+    /// `assetIndexCache`: derived, invalidated with `assets`, ignored by
+    /// observation so filling it during a view update is not a change.
+    @ObservationIgnored private var chaptersCache: [ShootChapter]?
+
     var chapters: [ShootChapter] {
-        ShootChapterArrangement.arrange(assets)
+        if let chaptersCache { return chaptersCache }
+        let arranged = ShootChapterArrangement.arrange(assets)
+        chaptersCache = arranged
+        return arranged
+    }
+
+    /// Which moment each frame belongs to. Derived from `chapters`; the strip
+    /// asks per tile, and a scan of every chapter's members per tile made the
+    /// strip quadratic in the shoot.
+    @ObservationIgnored private var chapterIDByAssetCache: [UUID: String]?
+
+    func chapterID(containing assetID: UUID) -> String? {
+        if let chapterIDByAssetCache { return chapterIDByAssetCache[assetID] }
+        var map: [UUID: String] = [:]
+        for chapter in chapters {
+            for id in chapter.assetIDs { map[id] = chapter.id }
+        }
+        chapterIDByAssetCache = map
+        return map[assetID]
     }
 
     var activeChapter: ShootChapter? {
@@ -405,7 +436,10 @@ final class P0SessionModel {
         openFolder(url)
     }
 
-    func openFolder(_ url: URL) {
+    /// `shootName` overrides the catalog name, which otherwise is the folder's
+    /// last path component. Generated cards all keep their frames in a folder
+    /// called `frames`; without a name they would share one catalog.
+    func openFolder(_ url: URL, shootName: String? = nil) {
         preparationTask?.cancel()
         releaseFolderAccess()
         userFacingError = nil
@@ -423,7 +457,7 @@ final class P0SessionModel {
 
         preparationTask = Task { [weak self] in
             guard let self else { return }
-            let stream = ContactSheetPreparation.openFolder(url)
+            let stream = ContactSheetPreparation.openFolder(url, shootName: shootName)
             await self.consume(stream)
         }
     }
@@ -1704,6 +1738,7 @@ final class P0SessionModel {
     }
 
     private func apply(_ event: ContactSheetEvent) {
+        defer { publishScrollOrder() }
         switch event {
         case .opened(let shoot, let status):
             self.shoot = shoot
@@ -1745,6 +1780,14 @@ final class P0SessionModel {
             userFacingError = message
             status.phaseDetail = message
         }
+    }
+
+    /// Scroll order for the floor tier and the prefetcher: once per
+    /// preparation event, never per element. Equal order is a no-op inside.
+    private func publishScrollOrder() {
+        ElasticScrollTracker.shared.shootChanged(
+            paths: assets.compactMap { $0.gridThumbPath ?? $0.thumbPath }
+        )
     }
 
     private func mergeAssets(_ incoming: [AssetRecord]) {

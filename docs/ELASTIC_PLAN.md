@@ -393,6 +393,151 @@ Two corrections to what is written above and in the P0 prompt:
 - `[resp]` Render the three version thumbnails through the interactive tier,
   which is what closes the P0 item properly.
 
+#### P2 measurement (2026-09-22, branch `elastic-v4/p2-scroll`)
+
+Scroll now has its own instrument, `--p0-scroll-live [out] --p0-open <folder>`
+(`P0ScrollLiveRunner`). It mounts the shell on the time route in a real
+1280×800 window, drives the table's `NSScrollView` through three passes —
+`glide` 1 screen/s for 5 screens, `flick` 6 screens/s to the bottom, `return`
+6 screens/s back — and reports per pass, in the `rapidScrub` shape:
+
+- `p0.scroll.tick_ms.<pass>` — main-thread cost of one step: offset change,
+  SwiftUI layout, AppKit display. A synchronous decode reached from a tile's
+  `body` lands here. p50/p95/p99 with the window declared.
+- `p0.scroll.frame` — display-link interval while scrolling, via
+  `P0RenderInstruments`; catches dropped frames the layout timer cannot see.
+- `blankSeen` / `wellTicks` / `wellTiles` — a realized tile with nothing
+  resident at the grid tier when the step finished. Realization is reported by
+  `ChapterPlateImage` through `ElasticScrollTracker`, injected only under the
+  table; residency is read from `BrowsePixelService.isResident`, a lock-guarded
+  mirror of the cache that never hops to the actor.
+- `LUMINA_SCROLL_FILM=1` writes a PNG per step and a second copy of every step
+  that saw a well, so the frames that matter can be found without scrubbing.
+  Filmed runs are flagged and are never a baseline.
+
+Card: `elastic_cards.py --stress 400 --name card-elastic-v4-stress` appends
+RAW-heavy stress moments (six RAW, two phone, 12 min apart) until the card has
+403 frames in 55 moments — about 7 GB, local only.
+
+**Baseline, 27-frame card, warm** (harness proof, not the number that matters —
+the card is 2.1 screens tall, so the glide reaches the bottom and there is no
+flick to measure):
+
+| pass | steps | tick p50 | tick p95 | tick p99 | max | well ticks | tiles decoded during pass |
+|---|---|---|---|---|---|---|---|
+| glide | 101 | 0.4 ms | 0.95 ms | 21.3 ms | 21.3 ms | 4 | 10 |
+| return | 19 | — | 0.92 ms | 0.92 ms | — | 0 | 0 |
+
+The shape of the problem is already visible: the only steps that cost anything
+are the ones that realized a row, and every newly realized row shows a well
+for at least one frame even when its pixels are resident, because the tile
+asks the actor asynchronously and sets state after the hop.
+
+**Why the 403-frame baseline could not be taken at first.** "Reading dates…"
+never finished on any shoot past roughly 250 frames: `ExifToolService.runData`
+waited for exiftool to exit before draining its stdout pipe, and `-json` over
+that many frames is larger than the 64 KB pipe buffer, so the child blocked on
+write and the parent on exit — forever. Every large catalog on this machine
+(`card-clean-500`, the stress card) had `capturedAt` on 0 of its frames for
+that reason. Fixed by draining before waiting (`captureOutput`, pinned by
+`ExifToolProcessTests`). Not a scroll change; it is what made scroll
+measurable.
+
+**Baseline, 403-frame card (13.0 screens at 1280×800), warm, unfilmed, at
+`5181c75` plus the exiftool fix:**
+
+| pass | duration | steps | steps/s | tick p50 | tick p95 | tick max | well ticks | well tiles | decodes in pass |
+|---|---|---|---|---|---|---|---|---|---|
+| glide (1 screen/s, 5 screens) | 19.8 s | 4 | 0.2 | 634 ms | 1090 ms | 1752 ms | 3/4 | 47/62 | 105 |
+| flick (6 screens/s, to end) | 7.2 s | 2 | 0.3 | 0.04 ms | 0.04 ms | 284 ms | 1/2 | 16/60 | 16 |
+| return (6 screens/s, to top) | 6.9 s | 2 | 0.3 | 0.21 ms | 0.21 ms | 552 ms | 0/2 | 0/45 | 0 |
+
+A five-screen glide that should take 5 s took 20 s and managed four steps: the
+main thread was busy for seconds between them. An 8 s `sample` of the main
+thread during the glide put 86 % of it in the table's row closure, and nearly
+all of that in `session.gapInterval(after:)` → `session.chapters` →
+`ShootChapterArrangement.arrange(_:)` — the whole arrangement recomputed for
+every row and again for every gap — with `CaptureName.parse` compiling an
+`NSRegularExpression` per call inside a sort comparator.
+
+**After caching `chapters` with `assets` and compiling the pattern once**
+(same card, same conditions):
+
+| pass | duration | steps | steps/s | tick p50 | tick p95 | tick p99 | tick max | frame p95 | well ticks | well tiles | decodes in pass |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| glide | 5.0 s | 417 | 83 | 0.48 ms | 2.48 ms | 10.1 ms | 40.9 ms | 8.3 ms | 20/417 | 118/10553 | 91 |
+| flick | 1.2 s | 91 | 76 | 0.80 ms | 9.27 ms | 9.4 ms | 9.6 ms | 14.2 ms | 20/91 | 152/2544 | 152 |
+| return | 2.0 s | 178 | 88 | 0.56 ms | 8.99 ms | 9.8 ms | 70.7 ms | 8.3 ms | 0/178 | 0/4858 | 0 |
+
+The passes now run at the pace they were asked for. What remains is the scroll
+work proper: every decode in a pass is a tile that was realized before its
+pixels were asked for (flick: 152 decodes, 152 misses, 4 hits), the flick's
+tick p95 sits just over the 8.33 ms frame budget, and one step in twenty shows
+a well. Items 2–5 are aimed at exactly those three numbers.
+
+**After the plate samples residency synchronously** (item 2 closed — the tile
+draws what is resident in the same pass and only a miss enqueues; the strip's
+moment-gap check reads an indexed membership map instead of scanning):
+
+| pass | steps | tick p50 | tick p95 | tick p99 | well ticks | well tiles | decodes in pass |
+|---|---|---|---|---|---|---|---|
+| glide | 439 | 0.45 ms | 0.95 ms | 8.9 ms | 14/439 | 91/10910 | 91 |
+| flick | 93 | 0.78 ms | 9.19 ms | 9.3 ms | 20/93 | 152/2614 | 152 |
+| return | 190 | 0.55 ms | 8.53 ms | 9.9 ms | 0/190 | 0/5043 | 0 |
+
+Well tiles now equal decodes exactly: every well is a miss and nothing else.
+The "resident but not yet shown" frame is gone (glide well ticks 20 → 14, tick
+p95 2.5 → 0.95 ms). The flick is unchanged because its wells are all misses —
+that is items 3–5. The flick's tick p95 of ~9 ms is the cost of realizing a
+new row's wrap layout, which is P0's `ElasticWrapLayout` item, not this one.
+Nothing on the scroll path decodes synchronously: the only sync work reached
+from a tile's body is a lock-guarded dictionary read.
+
+**Floor tier (item 3).** `BrowsePixelService.Tier.floor` is a 256 px entry
+(`PhotoImageTier.floorLongEdge`) in its own store, outside the LRU. It is
+warmed nearest-first from the viewport the moment the shoot's order is known
+(`ElasticScrollTracker.shootChanged`, fed once per preparation event from
+`P0SessionModel.apply`), two decodes in flight, and evicted by distance from
+the viewport centre — never by recency, so a flick to the far end cannot push
+out what the reader is about to scroll back to. The centre is the median index
+of the realized plates and moves on every appearance.
+
+Cap: **64 MB** (`PhotoImageCacheBudget.floorCeilingBytes`), by bytes rather
+than count so squares and mixed aspects stay bounded. A 256 px 3:2 frame is
+~175 KB, a square ~262 KB, so the budget holds at least 256 frames and about
+380 at 3:2 — six to nine screens either side of the viewport at 1280×800,
+past the two screens the velocity prefetch looks ahead. A 94-frame shoot fits
+whole (~16 MB); a 2000-frame shoot is a sliding window. On the 403-frame card
+369 frames are resident at 63.9 MB, warm 1.5 s after mount. Under memory
+pressure the floor halves by distance rather than dropping.
+
+A tile draws grid, else floor, else the well; a floor draw is *soft* and the
+grid tier is still requested. The runner now counts soft tiles separately from
+wells:
+
+| pass | steps | tick p95 | tick p99 | well ticks | well tiles | soft (floor) tiles | decodes in pass |
+|---|---|---|---|---|---|---|---|
+| glide | 498 | 1.18 ms | 9.95 ms | **0**/498 | **0**/11839 | 91 | 91 |
+| flick | 85 | 11.3 ms | 13.8 ms | **0**/85 | **0**/2372 | 148 | 144 |
+| return | 184 | 9.45 ms | 10.4 ms | 0/184 | 0/4941 | 0 | 0 |
+
+(Two runs of this build agree on the wells — 0 — and put glide tick p95 at
+0.82 and 1.18 ms, flick at 9.9 and 11.3 ms; the numbers above are the later
+run, the one that also carries the nearest-K floor.)
+
+No well on any pass. Every tile that would have been a well is now a soft
+draw of the same photograph, sharpened when the grid tier lands. The
+remaining numbers to move are the soft count on a flick (items 4 and 5: those
+grid decodes should have been issued ahead of the cursor) and the flick's
+~9–10 ms tick p95, which is row wrap-layout (P0).
+
+Two things the measurement itself taught: the session's `assets.didSet`
+fires once per *element* write, so anything there must be O(1) — a hook that
+recomputed the path list per element made the reopen's preview merge
+quadratic and starved the main thread; and a warm reopen replays the dates
+phase and then replaces `assets` wholesale, so the runner now waits for that
+phase to have been seen and the status to hold still before measuring.
+
 ### P3 — hardening
 
 - `[edge]` Orientation 2/3/4 and square images — latent, now guarded by

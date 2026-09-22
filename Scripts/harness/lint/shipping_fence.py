@@ -13,6 +13,7 @@ SHIPPING_ONLY_SOURCES = (
     ROOT / "Lumina" / "Develop" / "Lab" / "RamTierHarnessRunner.swift",
     ROOT / "Lumina" / "Develop" / "Lab" / "P0EditHarnessRunner.swift",
     ROOT / "Lumina" / "Develop" / "Lab" / "P0EditLiveRunner.swift",
+    ROOT / "Lumina" / "Develop" / "Lab" / "P0ScrollLiveRunner.swift",
     ROOT / "Lumina" / "Develop" / "Lab" / "RawBackendBenchmarkRunner.swift",
     ROOT / "Lumina" / "Views" / "Workspace" / "WorkbenchCapture.swift",
 )
@@ -24,7 +25,7 @@ RELEASE_CONFIGS = {
     "LuminaPlayground": "A6000001000000000000000F",
 }
 HARNESS_CALL = re.compile(
-    r"(WorkbenchCapture|RawHarnessRunner|RamTierHarnessRunner|P0EditHarnessRunner|P0EditLiveRunner|RawBackendBenchmarkRunner)\."
+    r"(WorkbenchCapture|RawHarnessRunner|RamTierHarnessRunner|P0EditHarnessRunner|P0EditLiveRunner|P0ScrollLiveRunner|RawBackendBenchmarkRunner)\."
 )
 
 

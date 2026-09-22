@@ -17,6 +17,10 @@ nonisolated enum PhotoImageTier: Sendable {
 
     /// Named grid decode cap — prefer this over a bare `512` at call sites.
     nonisolated static let gridMaxPixelSize = 512
+    /// The floor: small enough that every frame of a shoot can stay resident,
+    /// large enough that a 128 px tile drawn from it reads as the photograph
+    /// rather than a blur (`BrowsePixelService.Tier.floor`).
+    nonisolated static let floorLongEdge = 256
     /// Durable Retina grid JPEG written once during ingest.
     nonisolated static let durableGridLongEdge = 1200
     /// Focused embedded/matching JPEG before RAW promotion.

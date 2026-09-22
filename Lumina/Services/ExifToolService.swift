@@ -81,25 +81,40 @@ nonisolated enum ExifToolService {
 
     private static func runData(arguments: [String]) throws -> Data {
         guard let exifToolPath = resolvedPath() else { throw ExifToolError.notInstalled }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: exifToolPath)
-        process.arguments = arguments
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        // An unread pipe fills and blocks the writer, so stderr goes nowhere
-        // rather than into a buffer nothing drains.
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        // Read before waiting. The other order deadlocks the moment exiftool
-        // writes more than a pipe buffer — which an embedded preview always does,
-        // and a `-json` listing of a few hundred frames does too. Waiting first
-        // meant this call hung forever instead of returning a photograph.
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
+        let (data, status) = try captureOutput(
+            executable: URL(fileURLWithPath: exifToolPath),
+            arguments: arguments
+        )
+        guard status == 0 else {
             throw ExifToolError.commandFailed(arguments.joined(separator: " "))
         }
         return data
+    }
+
+    /// Run `executable` and return everything it wrote to stdout.
+    ///
+    /// stdout is drained **before** waiting for exit. A pipe holds 64 KB; a
+    /// child that writes more blocks until someone reads, and a parent that is
+    /// waiting for exit first never does. An embedded preview (~600 KB) is
+    /// always past that line, and `-json` over a few hundred frames is too —
+    /// which is how preview extraction hung instead of returning a photograph,
+    /// and how "Reading dates…" hung for good on any shoot larger than a small
+    /// card. stderr goes to the null device rather than into a second pipe that
+    /// nothing drains, so it can never fill and block the writer either.
+    static func captureOutput(
+        executable: URL,
+        arguments: [String]
+    ) throws -> (data: Data, status: Int32) {
+        let process = Process()
+        process.executableURL = executable
+        process.arguments = arguments
+        let stdout = Pipe()
+        process.standardOutput = stdout
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return (data, process.terminationStatus)
     }
 
     private static func parseExifDate(_ string: String) -> Date? {
