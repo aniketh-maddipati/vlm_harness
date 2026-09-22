@@ -67,7 +67,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D5 | The row is the unit of work; the loop is edit-then-cull-within-row. |  |  |  |  |  | NOT-COVERED |
 | D6 | Chronological landing → one watched tidy pass. |  |  |  |  |  | NOT-COVERED |
 | D7 | Spacing is quantized language — two values in MVP. |  |  |  |  |  | NOT-COVERED |
-| D8 | Five laws replace the rulebook. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testHoldKeysTrackMomentaryState` |  |  |  |  |
+| D8 | Five laws replace the rulebook. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testHoldKeysTrackMomentaryState`<br>`PointerTravelTests.testFilmstripTapChangesFocusWithoutHiddenSelectionOrCull`<br>`PointerTravelTests.testTableFrameTapFocusesWithoutDeciding`<br>`PointerTravelTests.testPointerThenDecisionKeysApplyToCurrentFocus`<br>`PointerTravelTests.testInspectFromPointerFocusIsPreserved`<br>`PointerTravelTests.testTwentyPointerTravelsDoNotGrowHiddenSelection`<br>`PointerTravelTests.testVariantPointerTravelDoesNotCullOrSelect`<br>`PointerTravelTests.testPointerCallsitesAreTravelOnly` |  |  |  |  |
 | D9 | Glances are holds; work states are latches. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testHoldKeysTrackMomentaryState` |  |  |  |  |
 | D10 | Culling keys: P/X decide AND advance; no Hold/Maybe; no chord on the hot | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testD10_decisionKeysToggleWithoutAutorepeatSemantics`<br>`P0LogicTests.testCullToggleGrammar` | `CullGrammarTests.testKeepRejectToggleGrammar` |  |  |  |
 | D11 | The ⏎ doctrine. | `grammar_oracle_parity`<br>`grammar_oracle_unit`<br>`seed_script_schema` | `CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn`<br>`CullGrammarTests.testD11D13_shiftReturnKeyDownWithoutReleaseDoesNotCommit`<br>`CommandChordTests.testHeldReturnCannotDoubleCommit` |  |  |  |  |
@@ -104,7 +104,7 @@ Generated from `design/contract-v5.md`, `design/contract-v6.md`, and `Scripts/ha
 | D44 | ⌥⌘E recipe re-entry *(R-8.1)* |  | `P0LogicTests.testExportRecipeHintContract` |  |  |  |  |
 | D45 | Diagnostics local-only or absent *(R-9.1; A7 withdrawn A13)* `[● A13]` |  |  |  |  |  | NOT-COVERED |
 | D46 | Amateur pivot + Develop gate *(R-A.1 + A10)* `[● A10]` |  |  |  |  |  | SHELVED |
-| D47 | Pointer path to culling *(R-A.2 → MVP via A3)* `[● A3]` | `probe_growth`<br>`probe_mirror`<br>`leaf_only_ids` | `CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically` |  |  |  |  |
+| D47 | Pointer path to culling *(R-A.2 → MVP via A3)* `[● A3]` | `probe_growth`<br>`probe_mirror`<br>`leaf_only_ids` | `CullGrammarTests.testD47A3_pointerMarksMatchKeysAndAdvanceIdentically`<br>`PointerTravelTests.testPointerThenDecisionKeysApplyToCurrentFocus`<br>`PointerTravelTests.testPointerCallsitesAreTravelOnly` |  |  |  |  |
 | D48 | Hover deleted entirely *(R-X.1)* | `banned_patterns`<br>`grammar_oracle_parity`<br>`leaf_only_ids`<br>`grammar_oracle_unit`<br>`seed_script_schema` |  |  |  |  |  |
 | D49 | Layout quantized everywhere *(R-X.2)* |  |  |  |  |  | NOT-COVERED |
 | D50 | Distribution Developer ID *(R-I.1)* |  |  |  |  |  | SHELVED |

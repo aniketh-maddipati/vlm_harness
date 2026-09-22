@@ -9,7 +9,7 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 **Finding:** Live chapter-table plates already called `setFocus`, but filmstrip/collection pointer still had a second verb: `selectClick` wrote `selectedAssetIDs` (plain click = `[id]`; ⌘ = toggle; ⇧ = range). `ContactSheetCollection` `didSelectItemsAt` + `allowsMultipleSelection = true` + `selectionIndexPaths` were AppKit selection as product state. Inspect strip still painted a selection ring from `marks.selected`. That is hidden persistent selection — shelved by D29, forbidden by Law 1.
 **Fix:** One travel verb `pointerTravel(to:)` (variants: `pointerTravelToVariant`). Deleted `selectClick` / `toggleSelectionOfFocused`. Collection clicks call `onFocus` only (`isSelectable = false`). Filmstrip chrome is focus-only. FAST bans the old symbols. Five required tests plus callsite grep in `PointerTravelTests`. UI tests that taught ⌘/⇧-click membership were rewritten to the same rule — not a selection redesign.
 **Stop condition:** pointer moves through media; explicit decision commands decide.
-**Instrument reading:** Linux FAST after the patch (this host cannot run `xcodebuild`).
+**Instrument reading:** Linux FAST **PASS 41/41** in 3126 ms (`fast-20260922T023027Z.json`). This host cannot run `xcodebuild` / `LuminaLogicTests`.
 
 ---
 
