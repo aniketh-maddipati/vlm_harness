@@ -1,7 +1,7 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: 1eac1762ac8c6436f9ce2d3c248c3ac6238c16dd80179ae0476f5213c5f3c17f
+// tokens-hash: de232d008839ebcc7469be95404cf511577fd8765204df2db935f556944a7b65
 // version: 6.4-a7-cleanup
 // contract: design/contract-v6.md
 
@@ -120,6 +120,8 @@ enum HiFiTokens {
         static let photoFocusMs: Int = 280 // cite: D27, WG-photos — Filmstrip focus chrome — scale/shadow only; not birth opacity (photo_birth).
         static let routeTransition: TimeInterval = 0.24 // cite: D27, WG-chrome — P0 contact sheet ↔ single-photo route.
         static let routeTransitionMs: Int = 240 // cite: D27, WG-chrome — P0 contact sheet ↔ single-photo route.
+        static let beforePress: TimeInterval = 0.2 // cite: ELASTIC-V4 — Press and hold the photograph this long to see before; release returns.
+        static let beforePressMs: Int = 200 // cite: ELASTIC-V4 — Press and hold the photograph this long to see before; release returns.
         static let selectionRing: TimeInterval = 0.32 // cite: D27, WG-hand — Legacy shell selection ring — W8 retires path.
         static let selectionRingMs: Int = 320 // cite: D27, WG-hand — Legacy shell selection ring — W8 retires path.
         static let developReveal: TimeInterval = 0.55 // cite: D27, WG-chrome — Legacy develop crossfade — W8 retires path.

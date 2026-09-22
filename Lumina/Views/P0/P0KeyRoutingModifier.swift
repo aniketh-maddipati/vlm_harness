@@ -78,7 +78,6 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             session.closePeek()
             session.setShowingBefore(false)
             session.setHoldingClipping(false)
-            session.setHoldingLoupe(false)
         }
 
         func detach() {
@@ -118,13 +117,6 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             if unmodified && lower == "v", session.inspectingAssetID != nil {
                 if !event.isARepeat, session.workspaceState.editVariants == nil {
                     session.beginEditVariants()
-                }
-                return nil
-            }
-
-            if !command && lower == "b", session.inspectingAssetID != nil {
-                if !event.isARepeat {
-                    session.setShowingBefore(true)
                 }
                 return nil
             }
@@ -248,9 +240,11 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return nil
             }
 
-            if event.keyCode == P0VirtualKey.space, !command {
+            // Hold ␣ — before. Everything as shot while held; release returns. Never
+            // mutates recipe or undo. In both routes: the headline says it on the table.
+            if event.keyCode == P0VirtualKey.space, !command, session.route != .open {
                 if !event.isARepeat {
-                    session.setHoldingLoupe(true)
+                    session.setShowingBefore(true)
                 }
                 return nil
             }
@@ -307,7 +301,7 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return nil
             }
             if event.keyCode == P0VirtualKey.space {
-                session.setHoldingLoupe(false)
+                session.setShowingBefore(false)
                 return nil
             }
             if chars == "j" {
@@ -323,10 +317,6 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 || event.keyCode == P0VirtualKey.rightCommand
                 || event.keyCode == P0VirtualKey.leftCommand {
                 session.endLookGlance()
-                return nil
-            }
-            if chars == "b", !event.modifierFlags.contains(.command), session.inspectingAssetID != nil {
-                session.setShowingBefore(false)
                 return nil
             }
             return event

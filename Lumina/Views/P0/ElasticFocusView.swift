@@ -119,6 +119,14 @@ struct ElasticFocusView: View {
         .onTapGesture(count: 2) {
             session.closeInspection()
         }
+        // Pointer parity for hold-␣: press and hold the photograph for before.
+        .onLongPressGesture(minimumDuration: ElasticLayout.beforePressSeconds) {
+            session.setShowingBefore(true)
+        } onPressingChanged: { pressing in
+            if !pressing {
+                session.setShowingBefore(false)
+            }
+        }
     }
 
     private var presentedImage: CIImage? {

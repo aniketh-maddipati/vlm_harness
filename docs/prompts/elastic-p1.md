@@ -209,7 +209,7 @@ One commit per checkpoint is fine; end each message with
 
 - [x] 1. Hold-`⇥` peek: related → set → flags, release returns, short tap pins, `Esc` closes
 - [x] 2. `G` inside the flags peek takes the inferred picks
-- [ ] 3. Hold-`␣` is before; 1:1 zoom moves off Space
+- [x] 3. Hold-`␣` is before; 1:1 zoom moves off Space
 - [ ] 4. `P0EscLadder` rewritten to peek → drawer → selection → route
 - [ ] 5. Hold-V remnants retired (`EditVariantSession`, `WorkspaceState` fields, `V` binding, probe fields); `EditVariantTests` deleted or rewritten
 - [ ] 6. Set shelf is a drop target
@@ -271,3 +271,14 @@ the next pass needs to know — especially anything here that turned out to be w
   guard. Handed P0 a repro: LUM0012 renders 180° inverted in focus while its version
   thumbnails are upright (shot in `item2/D1-focus-set-walk.png`, message sent to the
   P0 session). Gate: 313 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · item 3 · Space is before in both routes (not `.open`); B is unbound.
+  The prompt's "1:1 zoom already has a double-click and a header button" was true of
+  `P0SinglePhotoEditor`, which is gone — `ElasticFocusView` has no 1:1 surface at all
+  and hold-Space only ever set `holdingLoupe`, which nothing in the Elastic shell reads.
+  So nothing was moved and nothing was lost; `requestOneToOneZoom` stays callable and
+  unbound, and `holdingLoupe` is now key-less (drop it with the ladder in item 4). Two
+  warm-path resets of `showingBefore` on cursor change were removed so before survives
+  → while held, as the prototype does. Pointer parity added: press-and-hold the
+  photograph 200 ms (`motion.before_press` token; hash `de232d00…`, golden moved).
+  Live check PENDING for the same no-window reason as item 2 (pid 64132 still up).
+  Gate: 317 logic tests / 2 skipped, FAST 41/41.

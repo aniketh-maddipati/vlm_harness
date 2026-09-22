@@ -1110,7 +1110,6 @@ final class P0SessionModel {
         let generation = inspectionWarmGeneration
         capabilityTask?.cancel()
         prewarmTask?.cancel()
-        showingBefore = false
         refreshCapabilities(for: assetID)
         let recipe = recipe(for: assetID)
         // Leader frame immediately — cancels prior inflight for this photo.
@@ -1125,7 +1124,6 @@ final class P0SessionModel {
         let generation = inspectionWarmGeneration
         capabilityTask?.cancel()
         prewarmTask?.cancel()
-        showingBefore = false
         developScheduler.cancelExcept(photoID: assetID)
         let recipe = recipe(for: assetID)
         openRender(for: assetID, recipe: recipe)

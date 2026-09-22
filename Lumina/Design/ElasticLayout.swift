@@ -257,6 +257,8 @@ enum ElasticLayout {
     static let peekKeyBadgePaddingH = HiFiTokens.Gap.spacingXs
     static let peekKeyBadgeTextSize: CGFloat = 12.5
     static let bornPeekMs = HiFiTokens.Motion.bannerInMs
+    /// Press and hold the photograph this long for before (`pressStart`, 200 ms).
+    static let beforePressSeconds = HiFiTokens.Motion.beforePress
 
     /// Similar in the focus route: the neighbours share the band with the cursor at
     /// `flex: 1.6`, bottoms aligned, 14 apart, each under a 24-high key badge.

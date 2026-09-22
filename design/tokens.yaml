@@ -369,6 +369,12 @@ motion:
     type: ms
     cite: [D27, WG-chrome]
     notes: P0 contact sheet ↔ single-photo route.
+  before_press:
+    value: 200
+    unit: ms
+    type: ms
+    cite: [ELASTIC-V4]
+    notes: Press and hold the photograph this long to see before; release returns.
   selection_ring:
     value: 320
     unit: ms
