@@ -8,8 +8,8 @@ final class ElasticLayoutTests: XCTestCase {
     // MARK: - Gap steps
 
     func testGapHeightUsesTheThreeQuantizedSteps() {
-        XCTAssertEqual(ElasticLayout.gapHeight(after: 0), 0, "a continuous burst gets no gap")
-        XCTAssertEqual(ElasticLayout.gapHeight(after: 9 * 60), 0, "under 10 min is not a pause")
+        XCTAssertEqual(ElasticLayout.gapHeight(after: 0), 14, "every moment after the first is separated")
+        XCTAssertEqual(ElasticLayout.gapHeight(after: 9 * 60), 14, "under 10 min still parts the rows")
         XCTAssertEqual(ElasticLayout.gapHeight(after: 10 * 60), 14)
         XCTAssertEqual(ElasticLayout.gapHeight(after: 24 * 60), 14)
         XCTAssertEqual(ElasticLayout.gapHeight(after: 25 * 60), 40)
@@ -45,6 +45,7 @@ final class ElasticLayoutTests: XCTestCase {
         XCTAssertEqual(ElasticLayout.filmstripFocusedTile, CGSize(width: 96, height: 64))
         XCTAssertEqual(ElasticLayout.filmstripTile, CGSize(width: 72, height: 48))
         XCTAssertEqual(ElasticLayout.filmstripMomentGap, 20)
+        XCTAssertEqual(ElasticLayout.versionColumnWidth, 144)
         XCTAssertEqual(ElasticLayout.developDrawerWidth, 256)
     }
 
@@ -113,7 +114,11 @@ final class ElasticLayoutTests: XCTestCase {
         ]
         let chapter = session.chapters.first
         XCTAssertNotNil(chapter)
-        XCTAssertTrue(session.momentCountLine(chapter!).contains("1 phone"), session.momentCountLine(chapter!))
+        XCTAssertEqual(session.momentMixLine(chapter!), "1 camera · 1 phone")
+        XCTAssertFalse(
+            session.momentCountLine(chapter!).contains("phone"),
+            "the span line counts frames and bursts; the mix line counts bodies"
+        )
     }
 
     func testLightWordTracksTheHour() {
@@ -126,7 +131,7 @@ final class ElasticLayoutTests: XCTestCase {
         }
         XCTAssertEqual(session.momentLightWord(chapter(atHour: 3)), "before sunrise")
         XCTAssertEqual(session.momentLightWord(chapter(atHour: 12)), "midday")
-        XCTAssertEqual(session.momentLightWord(chapter(atHour: 19)), "golden")
+        XCTAssertEqual(session.momentLightWord(chapter(atHour: 19)), "golden hour")
         XCTAssertEqual(session.momentLightWord(chapter(atHour: 21)), "after sunset")
     }
 

@@ -212,6 +212,73 @@ a `+ 18 min` gap label, focus ring, keep chip, set shelf. Photo pixels are **not
 `--p0-edit-live` failures ("blank canvas") were measured on `main` as well — 29/31 there too, so they
 are pre-existing, not from this work.
 
+### Visual accuracy pass (2026-09-22)
+
+Checkpoint 03's surfaces built the right structure with approximate numbers. This pass makes them
+match the prototype's inline styles, which is where every value in the visual spec comes from. No
+behaviour moved; the keys, peeks and thumbnails in "Known gaps" below are all still open.
+
+- **`design/tokens.yaml` `elastic:`** gained tokens only for spec values that were *already* forbidden
+  literals, so the forbidden set is unchanged before and after (95 either way). `set_shelf_height`
+  dropped 96 → 64. `LuminaTokens.Elastic` gained `paper`, `groupsBar`, `shelfThumbFill`, `shadowInk`.
+- **`ElasticLayout`** is now the sole home for every Elastic number, deferring to an existing token
+  wherever one already carries the meaning. `versionColumnWidth` is 144; `gapHeight` returns 14 for
+  every moment after the first (the prototype's `gapPx` is `null → 0`, else 14 / 40 / 64 at the 25
+  and 60 minute thresholds), while the gap *label* still starts at 10 minutes.
+- **`ElasticStyle`** holds the type stacks, the cursor ring (`0 0 0 3px ink, 0 0 0 4.5px #EFECE6`,
+  drawn outside the frame with the radius grown by each spread), the in-set outline, the fade-only
+  `born`, and the one button costume that does nothing on press or hover.
+- **`ElasticFocusView` rewritten.** The photograph is sized to its own aspect-fit box rather than
+  filling the band, so radius 4 and the `0 20px 40px rgba(20,19,18,0.35)` shadow trace the picture
+  and not the well it sits in. Version column 144 with 22-high badges (number in ink, word in
+  inkSoft, `yours` at 0.35 with no hand recipe). Status bar is time · camera · exposure · file stem ·
+  — · histogram · readout · state, with the state turning cream while `before` is held. The
+  histogram draws the design's 64×20 user space into 96×30 and carries salmon clip ticks past 2%.
+  Camera and exposure are read off the original with ImageIO on a background task.
+- **Histogram shift lives in the view model, not the view.** The bins are measured off the neutral
+  decode and never re-measured per recipe; `histogramBinShift` slides them by
+  `round(ev × 4 + shadows × 0.02)` instead. That also keeps `0.02` — a forbidden literal — out of the
+  linted view layer rather than dodging the lint with a `LuminaTokens` mention on the line.
+- **The filmstrip was being squeezed to nothing.** `ElasticTableView` had only a `maxHeight` under
+  focus, and the focus view's `layoutPriority(1)` with `maxHeight: .infinity` legitimately consumed
+  the whole stack. It is now pinned `minHeight == maxHeight == 92`. Neither committed capture would
+  have shown this: `captureTable` forces `route = .time` and `captureEditor` hosts `ElasticFocusView`
+  alone, so the root view is never captured in the focus route. Verified with a throwaway capture of
+  the root under focus, reverted afterwards.
+
+Three gate failures, each fixed at the cause:
+
+1. `progressive_render_architecture` wants `value: session.route` in `ElasticRootView`. The earlier
+   draft had removed the whole route animation along with its `.scale(0.985)` transition. The scale
+   was the part the design does not have — `born` is fade-only — so the transition is now a plain
+   fade and the `.animation(…, value: session.route)` is back. It is what makes "the table compresses
+   to the strip" true rather than a hard cut, and it is invisible in a still capture either way.
+2. `orphan_symbols` flagged `ElasticMarkedTile` as self-only. Registering it would have been a lie —
+   it is live in three views through `elasticMarked`. It was a named `ViewModifier` it never needed
+   to be, so the type is gone and the extension does the work directly.
+3. `spring_physics_f07` is keyed to the tokens hash. Re-approved under the new digest using the
+   *previous* payload byte-for-byte, so the test passing is itself the proof that the token change is
+   motion-neutral.
+
+**Gate:** logic tests 274/274 (1 skipped by design), fast lane 41/41, `--p0-edit-live` 30/31.
+
+**What the capture shows and what it does not.** Photo pixels are still unverifiable: SwiftUI `.task`
+does not run for a view hosted offscreen, and Metal layers do not composite through `cacheDisplay`.
+The thumbnail wells were filled for this pass by temporarily seeding `ChapterPlateImage`
+synchronously — reverted, because a synchronous full-file decode on the main thread across 94 tiles
+is exactly what the progressive-rendering contract forbids. With them filled, the table, the version
+column and the strip were confirmed against the prototype. The photograph itself was not.
+`--p0-edit-live` now scores **30/31**, up from the 29/31 that `main` also scores: "RAW preview
+presents without blank canvas" passes now that the photograph is sized to its fitted box. "Quality
+promotion keeps geometry stable" still fails, as it does on `main`.
+
+Honest gaps in the copy this pass introduced:
+
+- The export receipt has no XMP sample line; the prototype shows one.
+- The receipt persists until the next export rather than fading.
+- The camera string is the real EXIF model, so it reads e.g. `ilce-7m3`, not the prototype's `a7 iii`.
+- The session date format is `mmm d` (`may 19`), not the prototype's `sept 14`.
+
 ## Known gaps in checkpoint 03
 
 - Version thumbnails all read the same `gridThumbPath`, so shot/auto/yours look identical. The prompt

@@ -1,7 +1,7 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: 25555962f8c8306958cb9d21afb85739edbc67b4f7b06355f2116bd12136922b
+// tokens-hash: df280d04baa93c55925ef10f8ba4f9664e72b0714be70c28d76f1a1538d518c0
 // version: 6.4-a7-cleanup
 // contract: design/contract-v6.md
 
@@ -167,7 +167,28 @@ enum HiFiTokens {
         static let filmstripFocusedWidth: CGFloat = 96.0 // cite: ELASTIC-V4
         static let filmstripFocusedHeight: CGFloat = 64.0 // cite: ELASTIC-V4
         static let filmstripTileHeight: CGFloat = 48.0 // cite: ELASTIC-V4
-        static let setShelfHeight: CGFloat = 96.0 // cite: ELASTIC-V4
+        static let setShelfHeight: CGFloat = 64.0 // cite: ELASTIC-V4 — Shelf band — 8 pt padding around the 48 pt export button.
+        static let headerHeight: CGFloat = 56.0 // cite: ELASTIC-V4 — Header band.
+        static let exportHeight: CGFloat = 48.0 // cite: ELASTIC-V4 — Export button in the set shelf.
+        static let exportPadding: CGFloat = 18.0 // cite: ELASTIC-V4 — Export button horizontal padding.
+        static let exportRadius: CGFloat = 11.0 // cite: ELASTIC-V4 — Export button corner radius.
+        static let markSize: CGFloat = 24.0 // cite: ELASTIC-V4 — In-set / out mark circle on a table thumbnail.
+        static let burstBadgeHeight: CGFloat = 28.0 // cite: ELASTIC-V4 — Burst count / fold badge.
+        static let versionBadgeHeight: CGFloat = 22.0 // cite: ELASTIC-V4 — Version tile badge (1 shot · 2 auto · 3 yours).
+        static let phoneGlyphWidth: CGFloat = 10.0 // cite: ELASTIC-V4 — Phone glyph content width (1.5 pt border outside).
+        static let phoneGlyphHeight: CGFloat = 16.0 // cite: ELASTIC-V4 — Phone glyph content height (1.5 pt border outside).
+        static let phoneGlyphStroke: CGFloat = 1.5 // cite: ELASTIC-V4 — Phone glyph border.
+        static let stripLabelWidth: CGFloat = 64.0 // cite: ELASTIC-V4 — Strip label column (time / set).
+        static let momentRadius: CGFloat = 10.0 // cite: ELASTIC-V4 — Moment row card radius.
+        static let photoShadowY: CGFloat = 20.0 // cite: ELASTIC-V4 — Focused photograph drop-shadow offset.
+        static let photoShadowBlur: CGFloat = 40.0 // cite: ELASTIC-V4 — Focused photograph drop-shadow blur.
+        static let histogramWidth: CGFloat = 96.0 // cite: ELASTIC-V4 — Status-bar histogram rendered width.
+        static let histogramViewHeight: CGFloat = 20.0 // cite: ELASTIC-V4 — Status-bar histogram viewBox height.
+        static let clipTickWidth: CGFloat = 1.5 // cite: ELASTIC-V4 — Histogram clipping tick width in viewBox units.
+        static let stripLabelLineHeight: CGFloat = 1.5 // cite: ELASTIC-V4 — Strip label line-height, a multiple of its font size.
+        static let stripFillOpacity: Double = 0.18 // cite: ELASTIC-V4 — Strip wash — shadow ink over the table.
+        static let keyPillOpacity: Double = 0.18 // cite: ELASTIC-V4 — Key pill on a dark button (⌘E).
+        static let stackBackOpacity: Double = 0.22 // cite: ELASTIC-V4 — Back card of a collapsed burst stack.
     }
 
     enum Hit {

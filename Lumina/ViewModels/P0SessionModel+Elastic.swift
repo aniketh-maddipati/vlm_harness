@@ -28,6 +28,42 @@ extension P0SessionModel {
             + "\(auto) auto · \(yours) yours · ? keys"
     }
 
+    /// The header's right-aligned line — what the current surface is saying.
+    ///
+    /// Held before wins, then a selection, then the route's own line.
+    var elasticHeadline: String {
+        if showingBefore { return "before · everything as shot · release ␣" }
+        let selected = selectedAssetIDs.count
+        if route == .focus, let id = focusedAssetID {
+            if selected > 0 {
+                return "\(selected) selected · P · X · 1 2 3 apply to all · Esc clears"
+            }
+            guard let chapter = ShootChapterArrangement.chapter(containing: id, in: chapters) else {
+                return "? keys"
+            }
+            let related = min(chapter.assetIDs.count - 1, Self.relatedLimit)
+            let relatedWord = related > 0 ? "\(related) related" : "alone in this moment"
+            return "\(momentTimeLabel(chapter)) · \(momentLightWord(chapter)) · \(relatedWord) · ? keys"
+        }
+        if selected > 0 { return "\(selected) selected · P to set · X out · Esc clears" }
+        return elasticHeaderLine
+    }
+
+    /// How many neighbours a similar peek would ever show.
+    static let relatedLimit = 8
+
+    /// `road trip · sept 14` — the shoot's name and the day it was made.
+    var elasticSessionLabel: String {
+        guard let shoot else { return "" }
+        let day = assets.compactMap(\.capturedAt).min() ?? shoot.createdAt
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return "\(shoot.name.lowercased()) · \(formatter.string(from: day).lowercased())"
+    }
+
+    /// Auto is live while anything it would touch is still as shot.
+    var autoButtonEnabled: Bool { autoButtonSubLabel != "nothing as shot" }
+
     /// `the set · n` when a set exists, else `all · n`, else `nothing as shot`.
     var autoButtonSubLabel: String {
         let setIDs = finalSetAssetIDs
@@ -67,7 +103,7 @@ extension P0SessionModel {
     func momentTimeLabel(_ chapter: ShootChapter) -> String {
         guard let startedAt = chapter.startedAt else { return "Undated" }
         let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
+        formatter.dateFormat = "HH:mm"
         return formatter.string(from: startedAt)
     }
 
@@ -77,37 +113,40 @@ extension P0SessionModel {
         guard let startedAt = chapter.startedAt else { return "" }
         let hour = Calendar.current.component(.hour, from: startedAt)
         switch hour {
-        case 0..<5: return "before sunrise"
-        case 5..<7: return "first light"
-        case 7..<11: return "morning"
-        case 11..<15: return "midday"
+        case ..<7: return "before sunrise"
+        case 7..<10: return "morning"
+        case 10..<15: return "midday"
         case 15..<18: return "afternoon"
-        case 18..<20: return "golden"
-        case 20..<22: return "after sunset"
-        default: return "night"
+        case 18..<20: return "golden hour"
+        default: return "after sunset"
         }
     }
 
-    /// `n frames · k bursts`, plus the camera/phone mix when it is mixed.
+    /// `n frames · k bursts` — the moment's span line.
     func momentCountLine(_ chapter: ShootChapter) -> String {
         let frames = chapter.assetIDs.count
         let bursts = chapter.bursts.filter { $0.frameCount > 1 }.count
         let frameWord = frames == 1 ? "frame" : "frames"
         let burstWord = bursts == 1 ? "burst" : "bursts"
-        var line = bursts > 0
+        return bursts > 0
             ? "\(frames) \(frameWord) · \(bursts) \(burstWord)"
             : "\(frames) \(frameWord)"
+    }
+
+    /// `5 camera · 2 phone` — the moment's mix line.
+    func momentMixLine(_ chapter: ShootChapter) -> String {
         let phones = chapter.assetIDs.filter { isPhoneFrame($0) }.count
-        if phones > 0, phones < frames {
-            line += " · \(phones) phone"
-        } else if phones == frames, frames > 0 {
-            line += " · phone"
-        }
-        return line
+        let cameras = chapter.assetIDs.count - phones
+        return [
+            cameras > 0 ? "\(cameras) camera" : nil,
+            phones > 0 ? "\(phones) phone" : nil,
+        ]
+        .compactMap { $0 }
+        .joined(separator: " · ")
     }
 
     /// Phone frames carry no RAW original.
-    private func isPhoneFrame(_ id: UUID) -> Bool {
+    func isPhoneFrame(_ id: UUID) -> Bool {
         guard let asset = assets.first(where: { $0.id == id }) else { return false }
         let rawExtensions: Set<String> = ["arw", "cr2", "cr3", "nef", "raf", "dng", "orf", "rw2"]
         let ext = (asset.filename as NSString).pathExtension.lowercased()
@@ -135,22 +174,107 @@ extension P0SessionModel {
         assets.first(where: { $0.id == id })?.cull == .keep
     }
 
-    var setShelfLabel: String {
-        let count = finalSetAssetIDs.count
-        return count == 0 ? "no set yet" : "set · \(count)"
+    /// `Export`, then `✓ written` once the set is on disk.
+    var elasticExportLabel: String {
+        if isExporting { return "Exporting…" }
+        return exportStatusLine?.hasPrefix("Exported") == true ? "✓ written" : "Export"
+    }
+
+    /// The receipt band under the shelf, once an export has landed.
+    var elasticExportReceipt: (written: String, folder: String)? {
+        guard let line = exportStatusLine, line.hasPrefix("Exported") else { return nil }
+        let count = line.dropFirst("Exported ".count)
+        let folder = IngestPreferences.lastExportFolderPath.map {
+            ($0 as NSString).abbreviatingWithTildeInPath
+        } ?? ""
+        return ("✓ \(count) written", folder)
     }
 
     // MARK: - Focus route
 
-    /// The word the metadata bar uses for where this frame stands.
-    func focusStateWord(for asset: AssetRecord) -> String {
+    /// `14:02` — when this frame was taken, in the status bar's own format.
+    func focusTimeLabel(for asset: AssetRecord) -> String {
+        guard let capturedAt = asset.capturedAt else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: capturedAt)
+    }
+
+    /// The file without its extension — the status bar never names the container.
+    func focusFileStem(for asset: AssetRecord) -> String {
+        (asset.filename as NSString).deletingPathExtension
+    }
+
+    /// Which of the three versions the frame is showing: 1 shot · 2 auto · 3 yours.
+    func versionIndex(for asset: AssetRecord) -> Int {
+        switch asset.recipeSource {
+        case .shot: return 1
+        case .auto: return 2
+        case .autoHand, .hand, .sidecar: return 3
+        }
+    }
+
+    /// The version's own words, as the status bar and drawer title say them.
+    func versionLabel(for asset: AssetRecord) -> String {
         switch asset.recipeSource {
         case .shot: return "as shot"
         case .auto: return "auto"
-        case .autoHand, .hand: return "yours"
-        case .sidecar: return "yours · sidecar"
+        case .autoHand: return "auto + your hand"
+        case .hand: return "yours"
+        case .sidecar: return "yours · from sidecar"
         }
     }
+
+    /// The status bar's last word: set membership, then the version — or `before`.
+    func focusStateWord(for asset: AssetRecord) -> String {
+        if showingBefore { return "before" }
+        let mark: String? = asset.cull == .keep ? "in the set" : asset.cull == .reject ? "out" : nil
+        return [mark, versionLabel(for: asset)].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    /// Histogram readout: `12% black 3% clipped +0.50 ev`, only what is true.
+    func histogramReadout(for asset: AssetRecord) -> String {
+        guard let stats = asset.imageStats else { return "" }
+        var parts: [String] = []
+        if stats.shadowClipFraction > Self.clipReportFraction {
+            parts.append("\(Int((stats.shadowClipFraction * 100).rounded()))% black")
+        }
+        if stats.highlightClipFraction > Self.clipReportFraction {
+            parts.append("\(Int((stats.highlightClipFraction * 100).rounded()))% clipped")
+        }
+        if let recipe = asset.recipe, recipe.hasSettings, !showingBefore {
+            parts.append(String(format: "%+.2f ev", recipe.exposure))
+        }
+        return parts.joined(separator: " ")
+    }
+
+    /// Clipping below this share of the frame is not worth a word or a tick.
+    static let clipReportFraction = 0.02
+
+    func showsShadowClipTick(for asset: AssetRecord) -> Bool {
+        (asset.imageStats?.shadowClipFraction ?? 0) > Self.clipReportFraction
+    }
+
+    func showsHighlightClipTick(for asset: AssetRecord) -> Bool {
+        (asset.imageStats?.highlightClipFraction ?? 0) > Self.clipReportFraction
+    }
+
+    /// How far the drawn histogram slides once a frame is edited.
+    ///
+    /// The bins are measured off the neutral decode and never re-measured for a
+    /// recipe; the readout instead shifts them by what the tone move would do, so
+    /// the shape stays honest about the capture and still tracks the edit. Held
+    /// `before` shows the measurement unshifted, because that is what before means.
+    func histogramBinShift(for asset: AssetRecord) -> Int {
+        guard !showingBefore, let recipe = asset.recipe, recipe.hasSettings else { return 0 }
+        let moved = recipe.exposure * Self.histogramExposureBins
+            + recipe.shadows * Self.histogramShadowBins
+        return Int(moved.rounded())
+    }
+
+    /// One stop of exposure walks the histogram four bins; shadows barely move it.
+    static let histogramExposureBins = 4.0
+    static let histogramShadowBins = 0.02
 
     /// True when the next frame in shoot order belongs to a different moment.
     func startsNewMoment(after assetID: UUID) -> Bool {
