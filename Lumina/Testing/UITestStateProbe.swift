@@ -65,8 +65,8 @@ struct ProbeSnapshot: Codable, Equatable {
     /// `p0.key.mark`, `p0.zoom.gesture`) are live. Off in an ordinary run; a measurement
     /// session asserts this is true before it trusts a single number.
     var renderInstrumentsEnabled: Bool
-    /// Law 5 / D11 — Esc would clear a transient hold (loupe / clipping / look glance /
-    /// burst lean / kept rail) before navigation. Mirrors `P0EscLadder` depth 0.
+    /// Law 5 / D11 — Esc would clear a transient hold (peek / loupe / clipping / look
+    /// glance / burst lean / set walk) before navigation. Mirrors `P0EscLadder` depth 0.
     var escTransientHoldActive: Bool
     /// Temporary four-variant edit branch (session-only; never persisted).
     var editVariantsActive: Bool
@@ -185,7 +185,8 @@ extension P0SessionModel {
                 || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
             keyRoutingOwner: "P0KeyRoutingModifier",
             renderInstrumentsEnabled: P0RenderInstruments.shared.isEnabled,
-            escTransientHoldActive: holdingLoupe
+            escTransientHoldActive: peek != nil
+                || holdingLoupe
                 || holdingClipping
                 || lookGlancing
                 || leanedBurstID != nil

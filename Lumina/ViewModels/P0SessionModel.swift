@@ -145,8 +145,14 @@ final class P0SessionModel {
     var glanceBurstIDs: [String] = []
     /// Return / pinch opens a multi-frame burst to pick a frame.
     var leanedBurstID: String?
-    /// Tab / click walks the kept rail instead of the chapter.
+    /// The set peek walks the set instead of the shoot. Backing state for `peek == .set`.
     var walkingKeptRail: Bool = false
+    /// Hold-⇥ peek: similar → set → flags. Nil when nothing is held or pinned.
+    var peek: ElasticPeek?
+    /// A short tap on ⇥ pins the peek; the next ⇥ cycles it and past the end closes.
+    var peekPinned = false
+    /// When ⇥ opened the peek — tap versus hold is decided on release.
+    @ObservationIgnored var peekOpenedAt: CFAbsoluteTime?
     var travelingBurstID: String?
     var filter: GridFilter = .all
     var scrollAnchor: Double = 0
@@ -1341,6 +1347,11 @@ final class P0SessionModel {
     }
 
     func moveFocus(dx: Int, dy: Int, columns _: Int) {
+        if walkingKeptRail, dx != 0 {
+            walkKeptRail(dx)
+            return
+        }
+
         if inspectingAssetID != nil {
             let items = visibleItems
             guard !items.isEmpty else { return }
@@ -1351,11 +1362,6 @@ final class P0SessionModel {
             if items[next].id != focusedAssetID {
                 setFocus(items[next].id)
             }
-            return
-        }
-
-        if walkingKeptRail, dx != 0 {
-            walkKeptRail(dx)
             return
         }
 
@@ -1596,39 +1602,29 @@ final class P0SessionModel {
         holdingClipping = holding
     }
 
-    func toggleKeptRailWalk() {
-        if walkingKeptRail {
-            walkingKeptRail = false
-            return
-        }
-        guard !keptRailAssets.isEmpty else { return }
-        walkingKeptRail = true
-        if let first = keptRailAssets.first {
-            focusedAssetID = first.id
-        }
-    }
-
     func focusKeptAsset(_ id: UUID) {
         walkingKeptRail = true
         pointerTravel(to: id)
     }
 
     private func walkKeptRail(_ dx: Int) {
-        let kept = keptRailAssets
-        guard !kept.isEmpty else {
+        let set = finalSetAssetIDs
+        guard !set.isEmpty else {
             walkingKeptRail = false
             return
         }
-        let current = focusedAssetID.flatMap { id in kept.firstIndex(where: { $0.id == id }) } ?? 0
-        let next = min(max(current + dx, 0), kept.count - 1)
-        focusedAssetID = kept[next].id
+        let current = focusedAssetID.flatMap { set.firstIndex(of: $0) } ?? 0
+        let next = min(max(current + dx, 0), set.count - 1)
+        setFocus(set[next])
     }
 
     func openFocusedPhotograph() {
         guard let id = focusedAssetID ?? selectedAssetIDs.first else { return }
         schedulePersistRestore()
         leanedBurstID = nil
-        walkingKeptRail = false
+        if peek != .set {
+            walkingKeptRail = false
+        }
         lookGlancing = false
         inspectingAssetID = id
         focusedAssetID = id
@@ -1639,6 +1635,7 @@ final class P0SessionModel {
 
     func closeInspection() {
         flushPendingEditIfNeeded()
+        closePeek()
         showingBefore = false
         pendingScrollRestore = true
         inspectionWarmTask?.cancel()
@@ -1732,6 +1729,9 @@ final class P0SessionModel {
         glanceBurstIDs = []
         leanedBurstID = nil
         walkingKeptRail = false
+        peek = nil
+        peekPinned = false
+        peekOpenedAt = nil
         travelingBurstID = nil
         showingBefore = false
         clearGestureState()

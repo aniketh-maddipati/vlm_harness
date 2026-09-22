@@ -49,6 +49,14 @@ struct ElasticTableView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // `position: absolute; bottom: 0` — the peek sits over the foot of the table
+        // while ⇥ is held, and the table under it does not move.
+        .overlay(alignment: .bottom) {
+            if session.tablePeekVisible {
+                ElasticPeekBar(session: session)
+                    .elasticBorn(ElasticLayout.bornPeekMs)
+            }
+        }
     }
 
     /// `margin-top` above a moment, with its `+ 2 h 11 min` label centred in the gap.
@@ -126,7 +134,8 @@ struct ElasticFrameGroup: View {
     let burst: ShootBurst
 
     private var isBurst: Bool { burst.frameCount > 1 }
-    private var isOpen: Bool { isBurst && session.leanedBurstID == burst.id }
+    /// The flags peek (`shiftTable`) opens every burst at once; otherwise a stack opens by its badge.
+    private var isOpen: Bool { isBurst && (session.leanedBurstID == burst.id || session.peek == .flags) }
 
     var body: some View {
         if isOpen {

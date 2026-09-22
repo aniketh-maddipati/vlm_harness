@@ -1,7 +1,7 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: df280d04baa93c55925ef10f8ba4f9664e72b0714be70c28d76f1a1538d518c0
+// tokens-hash: 35159b56cb57dc394c23463bbc2c1cbc7144071834394c7b00855e334a053041
 // version: 6.4-a7-cleanup
 // contract: design/contract-v6.md
 
@@ -189,6 +189,8 @@ enum HiFiTokens {
         static let stripFillOpacity: Double = 0.18 // cite: ELASTIC-V4 — Strip wash — shadow ink over the table.
         static let keyPillOpacity: Double = 0.18 // cite: ELASTIC-V4 — Key pill on a dark button (⌘E).
         static let stackBackOpacity: Double = 0.22 // cite: ELASTIC-V4 — Back card of a collapsed burst stack.
+        static let peekCursorTileWidth: CGFloat = 220.0 // cite: ELASTIC-V4 — The cursor's own tile in the table's similar peek (its neighbours are 170).
+        static let peekRelatedBadgeHeight: CGFloat = 24.0 // cite: ELASTIC-V4 — Key badge on a related frame in the focus route (the table peek's badge is 22).
     }
 
     enum Hit {

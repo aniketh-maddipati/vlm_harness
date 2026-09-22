@@ -7,7 +7,7 @@ struct ElasticFilmstrip: View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: ElasticLayout.filmstripGap) {
-                    Text("time")
+                    Text(session.stripLabel)
                         .font(ElasticType.mono(ElasticLayout.stripLabelSize))
                         .lineSpacing(ElasticType.lineSpacing(
                             size: ElasticLayout.stripLabelSize,
@@ -19,15 +19,17 @@ struct ElasticFilmstrip: View {
                         )
                         .frame(width: ElasticLayout.stripLabelWidth, alignment: .leading)
 
-                    ForEach(session.assets) { asset in
-                        tile(asset)
-                            .id(asset.id)
-                            .padding(
-                                .trailing,
-                                session.startsNewMoment(after: asset.id)
-                                    ? ElasticLayout.filmstripMomentGap
-                                    : 0
-                            )
+                    ForEach(session.stripAssetIDs, id: \.self) { id in
+                        if let asset = session.asset(id) {
+                            tile(asset)
+                                .id(asset.id)
+                                .padding(
+                                    .trailing,
+                                    session.peek != .set && session.startsNewMoment(after: asset.id)
+                                        ? ElasticLayout.filmstripMomentGap
+                                        : 0
+                                )
+                        }
                     }
                 }
                 .padding(.horizontal, ElasticLayout.tableGutter)
@@ -40,7 +42,9 @@ struct ElasticFilmstrip: View {
         }
         .frame(height: ElasticLayout.filmstripHeight)
         .background(
-            LuminaTokens.Elastic.shadowInk.opacity(ElasticLayout.filmstripFillOpacity)
+            session.peek == .set
+                ? LuminaTokens.Elastic.warmAccent.opacity(ElasticLayout.stripSetFillOpacity)
+                : LuminaTokens.Elastic.shadowInk.opacity(ElasticLayout.filmstripFillOpacity)
         )
     }
 

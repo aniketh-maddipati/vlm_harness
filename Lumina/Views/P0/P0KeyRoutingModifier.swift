@@ -44,6 +44,7 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
     final class Coordinator {
         var session: P0SessionModel
         private var monitors: [Any] = []
+        private var resignObserver: NSObjectProtocol?
         private weak var view: P0KeyRoutingView?
 
         init(session: P0SessionModel) {
@@ -60,6 +61,23 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 self?.handleKeyUp(event) ?? event
             }
             monitors = [down, up].compactMap { $0 }
+            // A held key never comes back up for us once the app loses key status
+            // (⌘⇥ is the common case), so every hold releases with the app.
+            resignObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.didResignActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.releaseHolds()
+                }
+            }
+        }
+
+        private func releaseHolds() {
+            session.closePeek()
+            session.setShowingBefore(false)
+            session.setHoldingClipping(false)
         }
 
         func detach() {
@@ -71,6 +89,10 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 NSEvent.removeMonitor(monitor)
             }
             monitors = []
+            if let resignObserver {
+                NotificationCenter.default.removeObserver(resignObserver)
+            }
+            resignObserver = nil
         }
 
         private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
@@ -104,6 +126,36 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                     session.setShowingBefore(true)
                 }
                 return nil
+            }
+
+            // ⇥ — the one peek. Hold: similar; a pinned peek cycles on ⇥ and closes past
+            // the end. Release is decided in `handleKeyUp`. ⌘⇥ belongs to the system.
+            if event.keyCode == P0VirtualKey.tab, !command {
+                if event.isARepeat { return nil }
+                if session.peek != nil, session.peekPinned {
+                    session.cyclePeek(by: 1, wrap: false)
+                } else if session.peek == nil {
+                    session.openPeek(.related)
+                }
+                return nil
+            }
+
+            if session.peek != nil {
+                switch event.keyCode {
+                case 125:
+                    session.cyclePeek(by: 1)
+                    return nil
+                case 126:
+                    session.cyclePeek(by: -1)
+                    return nil
+                default:
+                    break
+                }
+                if unmodified, chars.count == 1, let number = Int(chars), (1...9).contains(number) {
+                    if event.isARepeat { return nil }
+                    session.jumpInPeek(to: number)
+                    return nil
+                }
             }
 
             if session.workspaceState.editVariants != nil {
@@ -215,12 +267,6 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return nil
             }
 
-            if event.keyCode == P0VirtualKey.tab, session.inspectingAssetID == nil {
-                if event.isARepeat { return nil }
-                session.toggleKeptRailWalk()
-                return nil
-            }
-
             if command && !shift && lower == "g", session.inspectingAssetID == nil {
                 if !event.isARepeat {
                     session.beginLookGlance()
@@ -248,6 +294,10 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
 
         private func handleKeyUp(_ event: NSEvent) -> NSEvent? {
             let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
+            if event.keyCode == P0VirtualKey.tab {
+                session.releasePeekKey()
+                return nil
+            }
             if event.keyCode == P0VirtualKey.space {
                 session.setHoldingLoupe(false)
                 return nil

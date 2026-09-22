@@ -228,4 +228,46 @@ enum ElasticLayout {
     // MARK: - Type
 
     static let systemLineHeight: CGFloat = 1.2
+
+    // MARK: - Peek (hold ⇥)
+
+    /// The bar pinned to the foot of the table while similar or the set is held:
+    /// `padding: 12px 28px 16px`, rows 10 apart, `rgba(46,46,44,0.94)` under a
+    /// `rgba(239,236,230,0.15)` rule.
+    static let peekPaddingTop: CGFloat = 12
+    static let peekPaddingBottom = HiFiTokens.Gap.spacingMd
+    static let peekGap = HiFiTokens.Gap.spacingSm
+    static let peekTitleGap = HiFiTokens.Gap.spacingMd
+    static let peekTitleSize: CGFloat = 14
+    static let peekSubSize: CGFloat = 12
+    static let peekSubOpacity: Double = 0.7
+    static let peekFillOpacity: Double = 0.94
+    static let peekRuleOpacity: Double = 0.15
+    /// Tiles: 150 in the set peek; in similar, 170 for a neighbour and 220 for the cursor.
+    static let peekSetTile: CGFloat = 150
+    static let peekRelatedTile: CGFloat = 170
+    static let peekCursorTile = HiFiTokens.Elastic.peekCursorTileWidth
+    static let peekTileRadius = HiFiTokens.Grid.photoRadiusLarge
+    static let peekCaptionGap: CGFloat = 5
+    static let peekCaptionSize = HiFiTokens.Typography.chipSize
+    static let peekCaptionSpacing = HiFiTokens.Gap.spacingXs
+    /// `min-width: 22px; height: 22px; padding: 0 6px` — the key that jumps to the tile.
+    static let peekKeyBadgeHeight = HiFiTokens.Elastic.versionBadgeHeight
+    static let peekKeyBadgeInset = HiFiTokens.Gap.spacingXs
+    static let peekKeyBadgePaddingH = HiFiTokens.Gap.spacingXs
+    static let peekKeyBadgeTextSize: CGFloat = 12.5
+    static let bornPeekMs = HiFiTokens.Motion.bannerInMs
+
+    /// Similar in the focus route: the neighbours share the band with the cursor at
+    /// `flex: 1.6`, bottoms aligned, 14 apart, each under a 24-high key badge.
+    static let relatedRowGap: CGFloat = 14
+    static let relatedColumnGap = HiFiTokens.Gap.spacingXs
+    static let relatedCursorGrow: CGFloat = 1.6
+    static let relatedKeyBadgeHeight = HiFiTokens.Elastic.peekRelatedBadgeHeight
+    static let relatedKeyBadgeTextSize: CGFloat = 13
+    static let relatedCaptionPaddingH: CGFloat = 2
+    static let bornRelatedMs = HiFiTokens.Motion.travelMs
+
+    /// The strip while the set is held: `rgba(255,236,205,0.16)` behind the set order.
+    static let stripSetFillOpacity: Double = 0.16
 }

@@ -207,7 +207,7 @@ One commit per checkpoint is fine; end each message with
 
 ## Checklist
 
-- [ ] 1. Hold-`⇥` peek: related → set → flags, release returns, short tap pins, `Esc` closes
+- [x] 1. Hold-`⇥` peek: related → set → flags, release returns, short tap pins, `Esc` closes
 - [ ] 2. `G` inside the flags peek takes the inferred picks
 - [ ] 3. Hold-`␣` is before; 1:1 zoom moves off Space
 - [ ] 4. `P0EscLadder` rewritten to peek → drawer → selection → route
@@ -220,6 +220,22 @@ One commit per checkpoint is fine; end each message with
 
 ## Progress
 
-_Nothing yet. Append one line per completed item: date, item number, commit sha,
-and anything the next pass needs to know — especially anything here that turned
-out to be wrong._
+_Append one line per completed item: date, item number, commit sha, and anything
+the next pass needs to know — especially anything here that turned out to be wrong._
+
+- 2026-09-22 · item 1 · branch lives in its own worktree `~/lumina-wt/p1-grammar`
+  (three sessions share `/Users/aniketh/vlm_harness`, so the branch was never checked
+  out there). Peek state is `P0SessionModel.peek/peekPinned/peekOpenedAt` with the
+  grammar in `P0SessionModel+Peek.swift`; views in `ElasticPeek.swift`. Two tokens added
+  (`peek_cursor_tile_width` 220, `peek_related_badge_height` 24) → tokens hash moved to
+  `35159b56…` and the F07 golden was re-approved with the previous payload. Touched
+  P2's `ElasticFilmstrip.swift` (label / ids / fill read off the session — ~10 lines).
+  `toggleKeptRailWalk` is gone; the set walk now follows `finalSetAssetIDs` through
+  `setFocus`. Not built: `⇧←→` reorders the set (no set-reorder command exists — copy
+  omits it), the flags peek's focus-check overlay, and the inferred-groups band (item 2).
+  Wheel gestures untouched. Proof: 17 live-window screenshots driven by System Events
+  in `~/lumina-wt/p1-grammar-proof/item1/` (tap-to-pin must be sent as one osascript;
+  two invocations exceed the 220 ms window). Gate: 301 logic tests / 2 skipped, FAST 41/41.
+  `--p0-edit-live` on the 27-frame card: 3 render-path failures (fidelity monotonic,
+  geometry stable, drawable target) — not measured against the base commit, so unverified
+  whether pre-existing; none touch peek code.

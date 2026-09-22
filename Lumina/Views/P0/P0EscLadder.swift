@@ -16,6 +16,11 @@ import Foundation
 enum P0EscLadder {
     /// Returns true when Esc was consumed.
     static func handle(session: P0SessionModel) -> Bool {
+        if session.peek != nil {
+            session.closePeek()
+            return true
+        }
+
         if session.holdingLoupe || session.holdingClipping {
             session.setHoldingLoupe(false)
             session.setHoldingClipping(false)

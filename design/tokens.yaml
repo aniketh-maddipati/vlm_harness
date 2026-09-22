@@ -684,6 +684,18 @@ elastic:
     type: opacity
     cite: [ELASTIC-V4]
     notes: Back card of a collapsed burst stack.
+  peek_cursor_tile_width:
+    value: 220
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: The cursor's own tile in the table's similar peek (its neighbours are 170).
+  peek_related_badge_height:
+    value: 24
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Key badge on a related frame in the focus route (the table peek's badge is 22).
 
 hit:
   minimum:

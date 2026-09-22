@@ -117,6 +117,20 @@ enum P0EditLiveRunner {
         session.setFocus(landscape.id)
         captureTable(session: session, size: CGSize(width: 1280, height: 800), name: "table-1280x800", to: outDir)
 
+        // Hold ⇥: similar, then the set (the second needs a kept frame to show).
+        session.openPeek(.related)
+        captureTable(session: session, size: CGSize(width: 1280, height: 800), name: "table-peek-similar", to: outDir)
+        if let neighbour = session.relatedFrames(to: landscape.id).first {
+            session.setFocus(neighbour.id)
+            session.pressKeep()
+            session.setFocus(landscape.id)
+        }
+        session.cyclePeek(by: 1)
+        captureTable(session: session, size: CGSize(width: 1280, height: 800), name: "table-peek-set", to: outDir)
+        note("Peek cycles similar → set", session.peek == .set, "cursor \(session.focusedAssetID == landscape.id ? "held" : "moved onto the set")")
+        session.closePeek()
+        session.setFocus(landscape.id)
+
         session.openFocusedPhotograph()
         note("Open photograph from contact sheet", session.inspectingAssetID == landscape.id)
 

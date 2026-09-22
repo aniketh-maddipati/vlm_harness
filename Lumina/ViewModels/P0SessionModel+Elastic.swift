@@ -38,6 +38,11 @@ extension P0SessionModel {
             if selected > 0 {
                 return "\(selected) selected · P · X · 1 2 3 apply to all · Esc clears"
             }
+            if peek == .set {
+                let set = finalSetAssetIDs
+                let position = (set.firstIndex(of: id) ?? 0) + 1
+                return "\(position) of \(set.count) in the set · release ⇥"
+            }
             guard let chapter = ShootChapterArrangement.chapter(containing: id, in: chapters) else {
                 return "? keys"
             }
