@@ -245,3 +245,12 @@ pass needs to know — especially anything here that turned out to be wrong._
   the item 2 line. Foreign Lumina instances up while this ran: pid 3599 (model-core's
   DD), pid 64132 (Xcode DerivedData `--workbench`, the one P1 hit), pid 8257 (P2's own
   `--p0-scroll-live` on the stress card). None are mine; none killed.
+- 2026-09-22 · item 2 · P0 `d2b2824` merged as `a08c050` (item 1 was `0a30416`). No
+  conflicts. **Base gate, measured on `a4792c5` before the merge: 285 logic tests / 2
+  skipped / 0 failures · FAST 41/41 · xcode_compile OK.** After P0: **304 / 2 skipped / 0
+  failures · FAST 41/41 · xcode_compile OK** — +19, matching P0's own last-recorded 304.
+  Dry-runs with `git merge-tree` before touching the tree: P1 onto this commit merges
+  clean; P2 onto (P0+P1) conflicts only in `ExifToolService.swift`, and the auto-merged
+  `ELASTIC_PLAN.md` keeps both appends with zero deleted lines (P0's block at the old
+  line 304, P2's at 393). Both session-model files auto-merge with every P1 and P2 hunk
+  line present and no line from neither.
