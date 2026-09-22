@@ -1,6 +1,6 @@
 import XCTest
 
-/// Flow 4 — focus and selection are independent; culling never disturbs selection.
+/// Flow 4 — pointer travel changes focus only; typed P/X decide on current focus.
 final class SelectionFocusTests: LuminaUITestCase {
 
     func testFocusAndSelectionAreIndependent() {
@@ -8,25 +8,22 @@ final class SelectionFocusTests: LuminaUITestCase {
         let sheet = lumina.openShoot.open(.mixed60)
         let ids = sheet.visibleIDs()
 
-        // Focus one, command-click another, then shift-select a range.
         sheet.focus(assetID: ids[2])
-        sheet.commandClick(assetID: ids[5])
-        let twoSelected = lumina.waitForProbe { $0.selectionCount == 2 }
-        XCTAssertEqual(twoSelected.selectionCount, 2, "command-click adds to selection")
+        let focused = lumina.waitForProbe { $0.focusedAssetID == ids[2] }
+        XCTAssertEqual(focused.focusedAssetID, ids[2])
+        XCTAssertTrue(focused.selectedAssetIDs.isEmpty, "pointer travel must not create hidden selection")
+        XCTAssertEqual(focused.selectionCount, 0)
 
-        sheet.shiftClick(assetID: ids[8])
-        let ranged = lumina.waitForProbe { $0.selectionCount >= 3 }
-        XCTAssertEqual(ranged.focusedAssetID, ids[8], "shift-click moves focus to the clicked cell")
-        XCTAssertGreaterThanOrEqual(ranged.selectionCount, 3, "shift extends the selection to a range")
-        // Independence: the focused asset is a single item; the selection is a distinct set.
-        XCTAssertNotEqual(ranged.selectionCount, 1, "selection is not collapsed to just the focus")
-        XCTAssertTrue(ranged.focusedVisible)
+        sheet.focus(assetID: ids[5])
+        let moved = lumina.waitForProbe { $0.focusedAssetID == ids[5] }
+        XCTAssertEqual(moved.focusedAssetID, ids[5])
+        XCTAssertTrue(moved.selectedAssetIDs.isEmpty, "repeat pointer travel must not grow selection")
 
-        // Cull the focused asset — selection must be untouched.
-        let selectionBefore = ranged.selectedAssetIDs
+        let cullBefore = moved.culls[ids[5]]
         sheet.pressKeep()
-        let afterCull = lumina.waitForProbe { $0.culls[ids[8]] != ranged.culls[ids[8]] }
-        XCTAssertEqual(afterCull.selectedAssetIDs, selectionBefore, "cull leaves the selection unchanged")
+        let afterCull = lumina.waitForProbe { $0.culls[ids[5]] != cullBefore }
+        XCTAssertEqual(afterCull.culls[ids[5]], "keep", "typed P applies to pointer focus")
+        XCTAssertTrue(afterCull.selectedAssetIDs.isEmpty, "cull must not invent selection")
         Invariants.assert(afterCull, app: app)
     }
 }

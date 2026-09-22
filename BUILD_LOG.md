@@ -4,6 +4,15 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-09-22 — Pointer travel is not selection (`cursor/pointer-travel-only-87da`)
+**Claim:** Pointer/tap navigation changes focus only; photographer decisions remain explicit typed decision commands (`P` `X` `⏎` `⇧⏎` `A`).
+**Finding:** Live chapter-table plates already called `setFocus`, but filmstrip/collection pointer still had a second verb: `selectClick` wrote `selectedAssetIDs` (plain click = `[id]`; ⌘ = toggle; ⇧ = range). `ContactSheetCollection` `didSelectItemsAt` + `allowsMultipleSelection = true` + `selectionIndexPaths` were AppKit selection as product state. Inspect strip still painted a selection ring from `marks.selected`. That is hidden persistent selection — shelved by D29, forbidden by Law 1.
+**Fix:** One travel verb `pointerTravel(to:)` (variants: `pointerTravelToVariant`). Deleted `selectClick` / `toggleSelectionOfFocused`. Collection clicks call `onFocus` only (`isSelectable = false`). Filmstrip chrome is focus-only. FAST bans the old symbols. Five required tests plus callsite grep in `PointerTravelTests`. UI tests that taught ⌘/⇧-click membership were rewritten to the same rule — not a selection redesign.
+**Stop condition:** pointer moves through media; explicit decision commands decide.
+**Instrument reading:** Linux FAST after the patch (this host cannot run `xcodebuild`).
+
+---
+
 ## 2026-09-21 — Deterministic two-round build stability (`cursor/build-stability-7c63`)
 **Baseline:** `375afe1`, clean tree. Linux FAST was **INCOMPLETE 40/41** because one render lint asserted a prose fragment; local compile/build/test gates were `PLATFORM-UNAVAILABLE`. Hosted macOS 15.7.9 / Xcode 16.4 / Swift 6.1.2 compiled but ran 193 logic tests with the same one failing source assertion. Clean Debug/Release and repeat-DerivedData evidence did not exist.
 
