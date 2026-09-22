@@ -210,7 +210,7 @@ One commit per checkpoint is fine; end each message with
 - [x] 1. Hold-`⇥` peek: related → set → flags, release returns, short tap pins, `Esc` closes
 - [x] 2. `G` inside the flags peek takes the inferred picks
 - [x] 3. Hold-`␣` is before; 1:1 zoom moves off Space
-- [ ] 4. `P0EscLadder` rewritten to peek → drawer → selection → route
+- [x] 4. `P0EscLadder` rewritten to peek → drawer → selection → route
 - [ ] 5. Hold-V remnants retired (`EditVariantSession`, `WorkspaceState` fields, `V` binding, probe fields); `EditVariantTests` deleted or rewritten
 - [ ] 6. Set shelf is a drop target
 - [ ] 7. `⇧`-click range, `⌘`-click toggle; the `P0_CULLING.md` ruling closed
@@ -282,3 +282,18 @@ the next pass needs to know — especially anything here that turned out to be w
   photograph 200 ms (`motion.before_press` token; hash `de232d00…`, golden moved).
   Live check PENDING for the same no-window reason as item 2 (pid 64132 still up).
   Gate: 317 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · item 4 · Ladder is peek → drawer → selection → route, nothing else;
+  `P0EscLadder.hasTransientDepth` is what the probe's `escTransientHoldActive` now
+  mirrors. `developDrawerOpen` added to the session as the drawer's backing bool for
+  item 8. Retired with the old rungs: `holdingLoupe` / `setHoldingLoupe` (key-less since
+  item 3; the legacy `P0ChapterTableView` overlay branch that read it is gone, its
+  `loupeOverlay` property is now dead code in a file item 5 touches anyway) and the
+  ⌘G look-glance binding (the `lookGlancing` state and `beginLookGlance` stay — a test
+  and `displayedBursts` still read them; drop them when `P0ChapterTableView` goes).
+  An open burst no longer answers to Esc (folds by its badge, as the prototype) —
+  `testLeanIntoBurstIsNotUnwoundByEsc` pins that. Live check PENDING (no window; my
+  instance was pid 84118, killed by my own script after the wait). P0 reports the
+  upside-down interactive tier fixed at d2b2824 on elastic-v4/p0-render-proof
+  (`isFlipped` double-flip in `PreparedRawSession.materializeInteractiveStage`); not
+  cherry-picked here by the stream rule — it arrives via fixture-generator.
+  Gate: 321 logic tests / 2 skipped, FAST 41/41.

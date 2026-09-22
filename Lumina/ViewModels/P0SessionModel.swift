@@ -136,8 +136,6 @@ final class P0SessionModel {
     var densityColumns: Int = 6
     /// Density is a lean. Rest state packs to leftover height.
     var densityLeaned: Bool = false
-    /// Hold-Space loupe — release returns.
-    var holdingLoupe: Bool = false
     /// Hold-J clipping glance — release returns.
     var holdingClipping: Bool = false
     /// Hold-⌘G look glance — release returns to time.
@@ -149,6 +147,9 @@ final class P0SessionModel {
     var walkingKeptRail: Bool = false
     /// Hold-⇥ peek: similar → set → flags. Nil when nothing is held or pinned.
     var peek: ElasticPeek?
+    /// `E` — the develop drawer beside the photograph. Backing state; the drawer
+    /// itself lands with checkpoint 05.
+    var developDrawerOpen = false
     /// A short tap on ⇥ pins the peek; the next ⇥ cycles it and past the end closes.
     var peekPinned = false
     /// When ⇥ opened the peek — tap versus hold is decided on release.
@@ -1695,10 +1696,6 @@ final class P0SessionModel {
         glanceBurstIDs = []
     }
 
-    func setHoldingLoupe(_ holding: Bool) {
-        holdingLoupe = holding
-    }
-
     func setHoldingClipping(_ holding: Bool) {
         holdingClipping = holding
     }
@@ -1824,7 +1821,7 @@ final class P0SessionModel {
         activeChapterID = nil
         inspectingAssetID = nil
         densityLeaned = false
-        holdingLoupe = false
+        developDrawerOpen = false
         holdingClipping = false
         lookGlancing = false
         glanceBurstIDs = []

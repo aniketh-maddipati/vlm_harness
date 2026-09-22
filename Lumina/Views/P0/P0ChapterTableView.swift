@@ -27,11 +27,6 @@ struct P0ChapterTableView: View {
         .onChange(of: session.activeChapterID) { _, _ in
             session.prefetchChapterCovers()
         }
-        .overlay {
-            if session.holdingLoupe && session.inspectingAssetID == nil {
-                loupeOverlay
-            }
-        }
     }
 
     private var chronologyRod: some View {

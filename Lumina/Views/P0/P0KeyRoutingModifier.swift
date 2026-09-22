@@ -269,13 +269,6 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return nil
             }
 
-            if command && !shift && lower == "g", session.inspectingAssetID == nil {
-                if !event.isARepeat {
-                    session.beginLookGlance()
-                }
-                return nil
-            }
-
             return event
         }
 
@@ -310,13 +303,6 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             }
             if chars == "v", session.inspectingAssetID != nil {
                 session.cancelEditVariants()
-                return nil
-            }
-            if session.lookGlancing,
-               chars == "g"
-                || event.keyCode == P0VirtualKey.rightCommand
-                || event.keyCode == P0VirtualKey.leftCommand {
-                session.endLookGlance()
                 return nil
             }
             return event

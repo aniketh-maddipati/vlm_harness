@@ -371,12 +371,15 @@ final class P0LogicTests: XCTestCase {
         XCTAssertFalse(P0EscLadder.handle(session: session))
     }
 
-    func testEscLadderEndsLookGlanceFirst() {
+    func testEscLadderClearsASelectionBeforeItLeavesFocus() {
         let session = P0SessionModel()
-        session.route = .time
-        session.lookGlancing = true
+        let id = UUID()
+        session.inspectingAssetID = id
+        session.selectedAssetIDs = [id]
         XCTAssertTrue(P0EscLadder.handle(session: session))
-        XCTAssertFalse(session.lookGlancing)
+        XCTAssertTrue(session.selectedAssetIDs.isEmpty)
+        XCTAssertEqual(session.route, .focus, "the first Esc only clears")
+        XCTAssertTrue(P0EscLadder.handle(session: session))
         XCTAssertEqual(session.route, .time)
     }
 
@@ -648,7 +651,7 @@ final class P0LogicTests: XCTestCase {
         XCTAssertTrue(session.glanceBurstIDs.isEmpty)
     }
 
-    func testLeanIntoBurstThenEscReturnsToChapter() {
+    func testLeanIntoBurstIsNotUnwoundByEsc() {
         let ids = (0..<4).map { _ in UUID() }
         let session = P0SessionModel()
         session.assets = ids.enumerated().map { index, id in
@@ -662,8 +665,10 @@ final class P0LogicTests: XCTestCase {
         XCTAssertEqual(session.leanedBurstID, session.focusedBurst?.id)
         XCTAssertNil(session.inspectingAssetID)
 
-        XCTAssertTrue(P0EscLadder.handle(session: session))
-        XCTAssertNil(session.leanedBurstID)
+        // An open burst folds by its badge, not by Esc — the table has nowhere
+        // further out to go, so Esc is not consumed and the stack stays open.
+        XCTAssertFalse(P0EscLadder.handle(session: session))
+        XCTAssertEqual(session.leanedBurstID, session.focusedBurst?.id)
         XCTAssertNil(session.inspectingAssetID)
     }
 
