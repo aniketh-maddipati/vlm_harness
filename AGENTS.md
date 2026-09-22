@@ -88,6 +88,28 @@ Hosted CI: `.github/workflows/rendering.yml` runs `fast` + `compile-logic` on ev
 - macOS footprint baseline: `bash Scripts/harness/release/footprint_baseline.sh`
 - Register: `design/strategy/footprint-register.md`
 
+### Rules that bite
+
+These are enforced by lints in `Scripts/harness/lint/`, not by review. They have each cost
+someone a rebuild.
+
+- **Authority order:** `contract-v6` → `tokens.yaml` → `copy-contract` → code → tests. When code and
+  contract disagree, the code is what changes.
+- **Magic numbers** (`magic_numbers.py`): scans Views, Design and Shell. It skips any line mentioning
+  `HiFiTokens` or `LuminaTokens` — do not exploit that to smuggle a literal past it. Route numbers
+  through a layout type. Only add a yaml token for a value that is already forbidden, and never grow
+  the allowlist.
+- **Costumes** (`costume_lint.py`): every `Button` needs a `Lumina*Style`; no bare `Text` or `Image`
+  gets an `.onTapGesture`.
+- **Banned outright:** `onHover`, `ProgressView`, `.alert`, anything network, and the word "sync" in
+  user-facing copy.
+- **Probe fields are a five-site mirror** (`probe_mirror.py`, `probe_contract.py`): adding one field
+  means touching five files, and the lints reveal them two at a time.
+- **Artifacts** (`repo_artifact_bloat.py`): a new `artifacts/` directory is untracked run evidence
+  until declared. `artifacts/p0-edit/` is 107MB of history for files nothing reads.
+- **Never `pkill -x Lumina`.** Project files use synchronized folders, so new files are picked up
+  without touching the pbxproj.
+
 ### Key directories
 
 - `Lumina/` — SwiftUI app (Views, ViewModels, Services, Models)
