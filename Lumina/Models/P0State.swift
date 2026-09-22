@@ -47,6 +47,9 @@ nonisolated enum RecipeSource: String, Codable, Hashable, Sendable {
     case shot
     /// Engine-produced recipe (`AutoDevelop`), untouched since.
     case auto
+    /// A vision model's proposal, bounded by the engine (`ModelAutoDevelop`), untouched
+    /// since. Distinct from `.auto` because it is not reproducible from stats alone.
+    case model
     /// An auto recipe the photographer has since nudged by hand.
     case autoHand
     /// Hand-authored from `.shot`, never touched `.auto`.
