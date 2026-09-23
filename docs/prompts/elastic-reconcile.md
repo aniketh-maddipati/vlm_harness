@@ -326,3 +326,22 @@ pass needs to know — especially anything here that turned out to be wrong._
   the driver aborts otherwise; it fired zero times. The user stopped an earlier unguarded
   run; nothing foreign was touched or killed at any point. **P1 items 8–9 (f280b9e) are not
   in this tree yet**, so the E drawer shot shows nothing; re-merge follows.
+- 2026-09-22 · re-merge (rule 2: a stream that moves is merged again) · Both streams
+  closed out after the first round. **P1** `f280b9e` merged as `228b590` (items 8–9: the
+  develop drawer on E, `versionColumnVisible` hides the column in `ElasticFocusView` —
+  `ElasticVersionColumn.swift` itself untouched, `previewPath(for:)` intact; tokens hash →
+  `4a917285…` with its golden; gate **370 / 2 skipped · FAST 41/41 · xcode_compile OK**),
+  then `68ccbc1` merged as `aa254ac` (docs only: plan record + Progress close-out, items
+  1–10 checked, item 11 open for live re-checks). **P2** `4ca6d2e` merged as `41d0942`
+  (items 4–7: velocity prefetch, one bounded request queue, before/after table, close-out;
+  P2's own final gate 312). Every merge conflict-free; `ELASTIC_PLAN.md` gained P1's `### P1`
+  section and P2's later tables with **zero deleted lines vs the base**. Final gate on
+  `41d0942`: **381 logic tests / 2 skipped / 0 failures · FAST 41/41 · xcode_compile OK**
+  = 285 + 19 (P0) + 50 (P1, 335−285) + 27 (P2, 312−285), exactly. Item-5 checks re-read on
+  this tree: golden dir for `4a917285…` present, `spring_physics_f07` OK, runner fenced,
+  flip at line 374 = `false`, allowlists byte-identical to base, all eight lints OK.
+  **Final tips: P0 d2b2824 · P1 68ccbc1 · P2 4ca6d2e**; all three unchanged on origin at
+  the time of writing. P0's capture and P2's scroll run re-executed on this tree — numbers
+  in the item-7 line. P1's guarded key pass was run on the pre-re-merge tree (item 6);
+  the E drawer and item 9 were not in it, so those two remain proven by
+  `ElasticDevelopTests` (11) and the runner's `editor-drawer` capture only.
