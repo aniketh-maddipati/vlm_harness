@@ -93,6 +93,93 @@ final class OrientedDisplayImageTests: XCTestCase {
         XCTAssertNil(OrientedDisplayImage.ciImage(at: url, maxPixelSize: 64))
     }
 
+    func testCanvasSelectionAcceptsIntendedTurnsAndCropsAcrossSourceShapes() throws {
+        for size in [CGSize(width: 6000, height: 4000), CGSize(width: 4000, height: 6000),
+                     CGSize(width: 4000, height: 4000)] {
+            for degrees in [0.0, 90.0, 180.0, 270.0] {
+                for crop in [nil, EditCrop(x: 0.2, y: 0.2, width: 0.6, height: 0.6),
+                             EditCrop(x: 0.1, y: 0.25, width: 0.5, height: 0.7)] {
+                    let assetID = UUID()
+                    let browse = CIImage(color: .red).cropped(to: CGRect(origin: .zero, size: size))
+                    let recipe = EditRecipe.neutral.updating {
+                        $0.straightenDegrees = degrees
+                        $0.crop = crop
+                    }
+                    let rendered = DevelopRenderGraph.applyGeometry(recipe, to: browse)
+                    let candidate = frame(assetID, rendered, recipe)
+                    let selected = try XCTUnwrap(OrientedDisplayImage.select(assetID: assetID, recipe: recipe,
+                        promoted: candidate, fallback: frame(assetID, browse, nil), retained: nil))
+                    XCTAssertTrue(selected.image === rendered, "\(size), \(degrees), \(String(describing: crop))")
+                    XCTAssertEqual(selected.recipe?.valueFingerprint, recipe.valueFingerprint)
+                }
+            }
+        }
+    }
+
+    func testCanvasSelectionRejectsWrongAssetRecipeAndSensorShape() throws {
+        let assetID = UUID()
+        let browse = CIImage(color: .red).cropped(to: CGRect(x: 0, y: 0, width: 600, height: 400))
+        let recipe = EditRecipe.neutral.updating { $0.straightenDegrees = 90 }
+        let rotated = DevelopRenderGraph.applyGeometry(recipe, to: browse)
+        let fallback = frame(assetID, browse, nil)
+        for candidate in [frame(UUID(), rotated, recipe), frame(assetID, rotated, .neutral),
+                          frame(assetID, browse, recipe)] {
+            let selected = try XCTUnwrap(OrientedDisplayImage.select(assetID: assetID, recipe: recipe,
+                promoted: candidate, fallback: fallback, retained: nil))
+            XCTAssertTrue(selected.image === browse)
+        }
+        XCTAssertNil(OrientedDisplayImage.select(assetID: UUID(), recipe: recipe,
+            promoted: nil, fallback: fallback, retained: fallback))
+    }
+
+    func testRetainsOnlyPreviouslySelectedSameAssetWhileNewRecipeRenders() throws {
+        let assetID = UUID()
+        let image = CIImage(color: .green).cropped(to: CGRect(x: 0, y: 0, width: 600, height: 400))
+        let previous = frame(assetID, image, .neutral)
+        let requested = EditRecipe.neutral.updating { $0.straightenDegrees = 90 }
+        let retained = try XCTUnwrap(OrientedDisplayImage.select(assetID: assetID, recipe: requested,
+            promoted: previous, fallback: nil, retained: previous))
+        XCTAssertTrue(retained.image === image)
+        XCTAssertNotEqual(retained.recipe?.valueFingerprint, requested.valueFingerprint)
+        let replacement = DevelopRenderGraph.applyGeometry(requested, to: image)
+        let selected = try XCTUnwrap(OrientedDisplayImage.select(assetID: assetID, recipe: requested,
+            promoted: frame(assetID, replacement, requested), fallback: previous, retained: previous))
+        XCTAssertTrue(selected.image === replacement)
+    }
+
+    func testUnchangedRecipeKeepsLayoutAcrossTierRoundingIncludingSquare() throws {
+        for size in [CGSize(width: 600, height: 400), CGSize(width: 400, height: 600),
+                     CGSize(width: 400, height: 400)] {
+            let assetID = UUID()
+            let browse = CIImage(color: .red).cropped(to: CGRect(origin: .zero, size: size))
+            let interactive = frame(assetID, browse, .neutral)
+            let rounded = CIImage(color: .blue).cropped(to: CGRect(x: 0, y: 0,
+                width: size.width * 2, height: size.height * 2 + 1))
+            let selection = try XCTUnwrap(OrientedDisplayImage.select(assetID: assetID, recipe: .neutral,
+                promoted: frame(assetID, rounded, .neutral), fallback: frame(assetID, browse, nil), retained: interactive))
+            XCTAssertTrue(selection.image === rounded)
+            XCTAssertEqual(selection.layoutSize, interactive.layoutSize)
+        }
+    }
+
+    func testSelectedFrameCannotRegressToOlderGenerationWithSameRecipe() throws {
+        let assetID = UUID()
+        let oldImage = CIImage(color: .red).cropped(to: CGRect(x: 0, y: 0, width: 600, height: 400))
+        let newImage = CIImage(color: .blue).cropped(to: oldImage.extent)
+        var old = frame(assetID, oldImage, .neutral)
+        old.generation = 4
+        var current = frame(assetID, newImage, .neutral)
+        current.generation = 5
+        let selected = try XCTUnwrap(OrientedDisplayImage.select(assetID: assetID, recipe: .neutral,
+            promoted: old, fallback: nil, retained: current))
+        XCTAssertTrue(selected.image === newImage)
+    }
+
+    private func frame(_ assetID: UUID, _ image: CIImage, _ recipe: EditRecipe?) -> OrientedDisplayImage.DisplayFrame {
+        OrientedDisplayImage.DisplayFrame(assetID: assetID, image: image, recipe: recipe,
+            layoutSize: image.extent.size, identity: nil)
+    }
+
     private func writeJPEG(width: Int, height: Int, orientation: UInt32) throws -> URL {
         let url = tempDir.appendingPathComponent("o\(orientation)-\(UUID().uuidString).jpg")
         let colorSpace = CGColorSpaceCreateDeviceRGB()

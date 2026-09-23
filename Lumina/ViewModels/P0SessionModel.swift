@@ -445,6 +445,18 @@ final class P0SessionModel {
             inputID: nil, inputAt: nil, requestedAt: nil, publishedAt: nil)
     }
 
+    func displayFrame(for assetID: UUID) -> OrientedDisplayImage.DisplayFrame? {
+        if showingBefore, let image = developSchedulerStorage?.beforeImage(for: assetID) {
+            return OrientedDisplayImage.DisplayFrame(assetID: assetID, image: image, recipe: .neutral,
+                layoutSize: image.extent.size, identity: displayedImageIdentity(for: assetID, selected: image))
+        }
+        guard let result = developSchedulerStorage?.presented[assetID],
+              result.photoID == assetID, let image = result.ciImage else { return nil }
+        return OrientedDisplayImage.DisplayFrame(assetID: result.photoID, image: image,
+            recipe: result.displayRecipe, layoutSize: image.extent.size, identity: result.measurementIdentity,
+            generation: result.generation)
+    }
+
     /// Live develop fidelity for a photograph, if the scheduler has started.
     func developFidelity(for assetID: UUID) -> DevelopFidelityState? {
         developSchedulerStorage?.fidelityByPhoto[assetID]

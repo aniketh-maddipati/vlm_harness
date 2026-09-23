@@ -224,6 +224,7 @@ final class DevelopRenderScheduler {
     private var exportQueue: Task<Void, Never>?
     private var memoryPressureSource: DispatchSourceMemoryPressure?
     private var visiblePhotoID: UUID?
+    private var visibleRequestID: UUID?
 
     private static let signposter = OSSignposter(subsystem: "app.lumina.develop", category: "render")
 
@@ -237,6 +238,7 @@ final class DevelopRenderScheduler {
     }
 
     func cancelAll() {
+        visibleRequestID = nil
         for (_, task) in inflight { task.cancel() }
         for (_, task) in settleTasks { task.cancel() }
         for (_, task) in speculativeTasks { task.cancel() }
@@ -513,6 +515,8 @@ final class DevelopRenderScheduler {
         defer { Self.signposter.endInterval("request", requestState) }
 
         let queuedAt = CFAbsoluteTimeGetCurrent()
+        let selectionRequestID = UUID()
+        if !speculative { visibleRequestID = selectionRequestID }
         let measurementRequestedAt = CACurrentMediaTime()
         let measurementInput = DevelopPresentationMeasurement.enabled
             ? DevelopPresentationTrace.shared.inputIdentity(asset: photoID, recipe: recipe.valueFingerprint) : nil
@@ -558,11 +562,24 @@ final class DevelopRenderScheduler {
                !Task.isCancelled,
                visiblePhotoID == photoID,
                await gate.isCurrent(generation, for: photoID) {
+                guard visibleRequestID == selectionRequestID, !Task.isCancelled else { return }
                 present(result, recipe: recipe, requestedAt: measurementRequestedAt, input: measurementInput)
             }
             return
         }
         Self.signposter.emitEvent("cacheMiss", id: signpostID)
+
+        #if DEBUG
+        if !speculative, quality == .settled, DevelopPresentationMeasurement.enabled,
+           let configured = ProcessInfo.processInfo.environment["LUMINA_DISPLAY_TEST_SETTLED_DELAY_MS"],
+           let milliseconds = UInt64(configured), milliseconds > 0 {
+            let boundedDelay = min(milliseconds, 5000)
+            DevelopPresentationTrace.shared.record("authoritative-delay", values: [
+                "requestID": request.id.uuidString, "milliseconds": boundedDelay])
+            try? await Task.sleep(nanoseconds: boundedDelay * 1_000_000)
+            guard !Task.isCancelled, visibleRequestID == selectionRequestID else { return }
+        }
+        #endif
 
         let lane = speculative ? speculativeRenderGate : visibleRenderGate
         guard await lane.acquire() else {
@@ -633,12 +650,17 @@ final class DevelopRenderScheduler {
                 fidelity: rendered.fidelity,
                 speculative: speculative
             )
+            if !speculative {
+                guard !Task.isCancelled, visibleRequestID == selectionRequestID,
+                      visiblePhotoID == photoID else { return }
+            }
             if quality == .settled {
                 afterSurface[photoID] = image
                 Self.signposter.emitEvent("settlement", id: signpostID)
             }
         }
-        guard !speculative, visiblePhotoID == photoID else {
+        guard !speculative, !Task.isCancelled, visiblePhotoID == photoID,
+              visibleRequestID == selectionRequestID else {
             Self.signposter.emitEvent("cachedSpeculative", id: signpostID)
             return
         }
@@ -654,6 +676,7 @@ final class DevelopRenderScheduler {
             return
         }
         var publication = result
+        publication.displayRecipe = recipe
         if DevelopPresentationMeasurement.enabled {
             publication.measurementIdentity = DevelopSelectedImageIdentity(
                 assetID: result.photoID, recipeFingerprint: recipe.valueFingerprint,
