@@ -621,6 +621,135 @@ final class DevelopEvalHarnessTests: XCTestCase {
         executionTimeAllowance = 4 * 60 * 60
     }
 
+    /// Reference-free shoot evaluation. Distances to neutral are change diagnostics,
+    /// never a quality score. Preference requires the separate blinded human review.
+    func testTechnicalShoot() async throws {
+        guard let config = Config.fromEnvironment() else { throw XCTSkip("Sony shoot configuration required") }
+        let urls = try FileManager.default.contentsOfDirectory(at: config.rawDir,
+            includingPropertiesForKeys: nil).filter { $0.pathExtension.lowercased() == "arw" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        XCTAssertFalse(urls.isEmpty)
+        let images = config.outDir.appendingPathComponent("images")
+        try FileManager.default.createDirectory(at: images, withIntermediateDirectories: true)
+        var rows: [[String: Any]] = []
+        let start = CFAbsoluteTimeGetCurrent()
+        for (index, url) in urls.enumerated() {
+            let frameStart = CFAbsoluteTimeGetCurrent()
+            let session = PreparedRawSession(assetID: UUID(), rawURL: url)
+            let statsValue = await session.imageStats()
+            let stats = try XCTUnwrap(statsValue)
+            let stageValue = await stage(session, rawURL: url, intent: .neutral)
+            let neutralStage = try XCTUnwrap(stageValue)
+            let size = (384, max(1, Int(384 * neutralStage.extent.height / neutralStage.extent.width)))
+            let neutral = try XCTUnwrap(rasterize(neutralStage, size: size))
+            let preview = config.outDir.appendingPathComponent("neutral-input.jpg")
+            XCTAssertTrue(writePreviewJPEG(neutralStage, to: preview))
+            let asset = AssetRecord(id: UUID(), sourceKey: url.lastPathComponent,
+                source: SourceReference(originalPath: url.path, relativePath: url.lastPathComponent,
+                    volumeID: "LOCAL", availability: .available), filename: url.lastPathComponent, imageStats: stats)
+            let policy = TechnicalAssist.deterministicAction(stats)
+            let decision = await TechnicalAssist.propose(neutralJPEG: try Data(contentsOf: preview),
+                base: .neutral, stats: stats, client: ChatCompletionsClient(endpoint: .localVision))
+            var arms: [String: Any] = [:]
+            for (name, recipe) in [("neutral", EditRecipe.neutral),
+                ("auto", AutoDevelop.recipe(for: asset, stats: stats)),
+                ("policy", TechnicalAssist.recipe(policy, base: .neutral, stats: stats) ?? .neutral),
+                ("technical", decision.recipe)] {
+                let value = await renderArm(session, rawURL: url, recipe: recipe, size: size)
+                let bitmap = try XCTUnwrap(value)
+                let change = try XCTUnwrap(Self.compare(bitmap, neutral))
+                var entry: [String: Any] = ["recipe": Self.recipeJSON(recipe), "changeFromNeutral": change.json]
+                if name == "technical" {
+                    entry["action"] = decision.action.rawValue
+                    entry["hypothesis"] = decision.hypothesis
+                    entry["reason"] = decision.reason
+                    entry["rawReply"] = decision.rawReply as Any
+                    entry["modelMS"] = decision.elapsedMS
+                    entry["renderedSuggestionMS"] = (CFAbsoluteTimeGetCurrent() - frameStart) * 1000
+                }
+                arms[name] = entry
+                writeContactSheet([bitmap], to: images.appendingPathComponent("frame-\(index)-\(name).jpg"))
+            }
+            let row: [String: Any] = ["raw": url.lastPathComponent, "arms": arms,
+                "stats": ["mean": stats.mean, "shadowClip": stats.shadowClipFraction,
+                          "highlightClip": stats.highlightClipFraction],
+                "seconds": CFAbsoluteTimeGetCurrent() - frameStart]
+            rows.append(row)
+            Self.appendJournal(row, to: config.outDir.appendingPathComponent("shoot-frames.jsonl"))
+        }
+        let data: [String: Any] = ["frames": rows, "referenceKind": "neutral-change-diagnostic-not-quality",
+            "seconds": CFAbsoluteTimeGetCurrent() - start, "controller": TechnicalAssist.version,
+            "decoder": RawDecodeBackendRegistry.mappingVersion]
+        try JSONSerialization.data(withJSONObject: data, options: [.prettyPrinted, .sortedKeys])
+            .write(to: config.outDir.appendingPathComponent("metrics.json"))
+        try? FileManager.default.removeItem(at: config.outDir.appendingPathComponent("neutral-input.jpg"))
+    }
+
+    func testSonyPreviewExportContract() async throws {
+        guard let config = Config.fromEnvironment() else { throw XCTSkip("Sony RAW configuration required") }
+        let truth = try JSONDecoder().decode(Truth.self, from: Data(contentsOf: config.truthURL))
+        let names = Array(Set(truth.frames.map(\.raw))).sorted()
+        XCTAssertFalse(names.isEmpty)
+        var timings: [Double] = []
+        var gaps: [Double] = []
+        var hits = 0
+        for name in names.prefix(8) {
+            let url = config.rawDir.appendingPathComponent(name)
+            let session = PreparedRawSession(assetID: UUID(), rawURL: url)
+            for recipe in [EditRecipe.neutral,
+                EditRecipe(exposure: 0.33, temperature: 5200, tint: 12, highlights: -20, shadows: 15,
+                    crop: EditCrop(x: 0.12, y: 0.07, width: 0.63, height: 0.72)),
+                EditRecipe(exposure: -0.33, temperature: 3800, tint: -8, straightenDegrees: 90)] {
+                let start = CFAbsoluteTimeGetCurrent()
+                let raw = await session.rawStageImage(intent: recipe.rawIntent, targetLongEdge: 640, tier: .interactive)
+                let stage = try XCTUnwrap(raw)
+                let oriented = OrientedDisplayImage.aligning(stage.image, toFile: url)
+                let preview = try XCTUnwrap(rasterize(finish(oriented, recipe: recipe), size: (384, 256)))
+                timings.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
+                let referenceValue = await renderArm(session, rawURL: url, recipe: recipe, size: (384, 256))
+                let reference = try XCTUnwrap(referenceValue)
+                let gap = try XCTUnwrap(Self.compare(preview, reference))
+                gaps.append(gap.deltaE)
+                XCTAssertLessThanOrEqual(gap.deltaE, 1.5, "\(name) crop/WB/orientation preview/export gap")
+                let cached = await session.rawStageImage(intent: recipe.rawIntent, targetLongEdge: 640, tier: .interactive)
+                if cached?.cacheHit == true { hits += 1 }
+                XCTAssertEqual(cached?.cacheHit, true)
+            }
+        }
+        try FileManager.default.createDirectory(at: config.outDir, withIntermediateDirectories: true)
+        // Exercise the public graph and encoded full-resolution export too, not
+        // only equal-size RAW-stage comparisons. TIFF stays in the private run.
+        var exportGaps: [Double] = []
+        for name in names.prefix(3) {
+            let url = config.rawDir.appendingPathComponent(name)
+            let id = UUID()
+            let recipe = EditRecipe(exposure: 0.33, temperature: 5200, tint: 12,
+                highlights: -20, shadows: 15, crop: EditCrop(x: 0.12, y: 0.07, width: 0.63, height: 0.72))
+            let previewResult = await DevelopRenderGraph.render(RawRenderRequest(generation: 0,
+                photoID: id, rawURL: url, recipe: recipe, quality: .interactive, longEdgeCap: 1920))
+            XCTAssertFalse(previewResult.usedProxyFallback)
+            let previewImage = try XCTUnwrap(previewResult.ciImage)
+            let exportValue = await DevelopRenderGraph.renderExportBitmap(rawURL: url, photoID: id, recipe: recipe)
+            let exported = try XCTUnwrap(exportValue)
+            XCTAssertGreaterThan(max(exported.width, exported.height), 1920)
+            let tiff = config.outDir.appendingPathComponent("contract-export.tiff")
+            XCTAssertTrue(DevelopRenderGraph.exportTIFF(cgImage: exported, to: tiff, preserveMetadataFrom: url))
+            let decoded = try XCTUnwrap(loadReference(tiff))
+            let size = Self.compareSize(for: decoded)
+            let preview = try XCTUnwrap(rasterize(previewImage, size: size))
+            let reference = try XCTUnwrap(draw(decoded, width: size.0, height: size.1))
+            let gap = try XCTUnwrap(Self.compare(preview, reference))
+            exportGaps.append(gap.deltaE)
+            XCTAssertLessThanOrEqual(gap.deltaE, 1.5, "\(name): actual preview vs encoded full export")
+            try FileManager.default.removeItem(at: tiff)
+            await PreparedRawSessionRegistry.shared.removeAll()
+        }
+        let data = try JSONSerialization.data(withJSONObject: ["gap": gaps, "fullExportGap": exportGaps, "coldRenderMS": timings,
+            "warmHits": hits, "hardware": ProcessInfo.processInfo.processorCount,
+            "physicalMemory": ProcessInfo.processInfo.physicalMemory], options: [.prettyPrinted])
+        try data.write(to: config.outDir.appendingPathComponent("preview-contract.json"))
+    }
+
     func testAutoArmsAgainstHandEdits() async throws {
         guard let config = Config.fromEnvironment() else {
             throw XCTSkip(
@@ -635,7 +764,7 @@ final class DevelopEvalHarnessTests: XCTestCase {
         try FileManager.default.createDirectory(at: config.outDir, withIntermediateDirectories: true)
         let previewDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("lumina-eval-\(UUID().uuidString)", isDirectory: true)
-        if config.liveModel {
+        if config.liveModel || ProcessInfo.processInfo.environment["LUMINA_TECHNICAL_MODEL"] == "1" {
             try FileManager.default.createDirectory(at: previewDir, withIntermediateDirectories: true)
         }
         defer { try? FileManager.default.removeItem(at: previewDir) }
@@ -812,15 +941,9 @@ final class DevelopEvalHarnessTests: XCTestCase {
                           intent: recipe.rawIntent, targetLongEdge: Self.decodeLongEdge
                       ) else { continue }
                 let aligned = OrientedDisplayImage.aligning(pinned.image, toFile: rawURL)
-                // The texture-backed interactive image is vertically flipped in Core Image
-                // space relative to the lazy authoritative graph (measured: neutral, no crop,
-                // ΔE 0.45 flipped vs 34 as-is; cropped frames stay wrong when flipped after
-                // geometry because the crop was taken from the flipped image). To measure
-                // colour alone, mirror in CI space *before* the look and geometry stages.
-                // `asIsDeltaE` keeps the untreated number so the flip itself is on record.
-                let mirrored = aligned.oriented(.downMirrored)
-                let variant = DevelopRenderGraph.branchInteractiveVariant(from: mirrored, recipe: recipe)
-                let asIs = DevelopRenderGraph.branchInteractiveVariant(from: aligned, recipe: recipe)
+                let variant = DevelopRenderGraph.branchInteractiveVariant(from: aligned, recipe: recipe,
+                    nativeTemperature: metadata.nativeNeutralTemperature, nativeTint: metadata.nativeNeutralTint, rawApplied: true)
+                let asIs = variant
                 if let interactive = rasterize(variant, size: size),
                    let gap = Self.compare(interactive, authoritative),
                    let untreated = rasterize(asIs, size: size),
@@ -831,6 +954,31 @@ final class DevelopEvalHarnessTests: XCTestCase {
                 }
             }
             row["tierGap"] = tierGaps
+
+            let policyAction = TechnicalAssist.deterministicAction(stats)
+            let policyRecipe = TechnicalAssist.recipe(policyAction, base: base, stats: stats) ?? base
+            await record("policy", policyRecipe, extra: ["action": policyAction.rawValue])
+            if ProcessInfo.processInfo.environment["LUMINA_TECHNICAL_MODEL"] == "1",
+               let neutralStage = await stage(session, rawURL: rawURL, intent: .neutral) {
+                let jpegURL = previewDir.appendingPathComponent("technical-\(assetID).jpg")
+                let suggestionStart = CFAbsoluteTimeGetCurrent()
+                if writePreviewJPEG(finish(neutralStage, recipe: base), to: jpegURL) {
+                    let decision = await TechnicalAssist.propose(neutralJPEG: try Data(contentsOf: jpegURL),
+                        base: base, stats: stats, client: modelClient)
+                    await record("technical", decision.recipe, extra: [
+                        "action": decision.action.rawValue, "hypothesis": decision.hypothesis,
+                        "reason": decision.reason, "rawReply": decision.rawReply as Any,
+                        "modelMS": decision.elapsedMS,
+                    ])
+                    arms["technical"]?["renderedSuggestionMS"] = (CFAbsoluteTimeGetCurrent() - suggestionStart) * 1000
+                }
+            }
+            // Individual review pixels remain private. Index avoids virtual-copy collisions.
+            if let contactDir = config.contactDir {
+                for (name, bitmap) in armBitmaps {
+                    writeContactSheet([bitmap], to: contactDir.appendingPathComponent("frame-\(index)-\(name).jpg"))
+                }
+            }
 
             // How far the auto pass's white balance alone moves the render from as-shot.
             if let wb = armBitmaps["autoWB"], let neutral = armBitmaps["neutral"],
@@ -850,13 +998,17 @@ final class DevelopEvalHarnessTests: XCTestCase {
                     await record("model", result.recipe.updating { $0.straightenDegrees = 0 }, extra: [
                         "source": result.source.rawValue,
                         "fallback": result.fallbackReason as Any,
+                        "rawProposal": result.rawProposal as Any,
                     ])
                     try? FileManager.default.removeItem(at: previewURL)
                 }
             }
 
             if let contactDir = config.contactDir {
-                let order = ["neutral", "auto", "model", "oracle"]
+                if let bitmap = armBitmaps["model"] {
+                    writeContactSheet([bitmap], to: contactDir.appendingPathComponent("frame-\(index)-model.jpg"))
+                }
+                let order = ["neutral", "auto", "policy", "technical", "model", "oracle"]
                 let panels = order.compactMap { armBitmaps[$0] } + [reference]
                 let stem = (frame.edit as NSString).deletingPathExtension
                 writeContactSheet(panels, to: contactDir.appendingPathComponent("\(stem)-neutral-auto\(config.liveModel ? "-model" : "")-oracle-edit.jpg"))

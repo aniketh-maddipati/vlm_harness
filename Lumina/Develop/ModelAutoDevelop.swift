@@ -84,6 +84,7 @@ nonisolated enum ModelAutoDevelop {
         var source: RecipeSource
         /// Why the model was not used, when it wasn't.
         var fallbackReason: String?
+        var rawProposal: String? = nil
     }
 
     /// Pure: the same base and proposal always give the same recipe.
@@ -136,7 +137,9 @@ nonisolated enum ModelAutoDevelop {
             guard !isEcho(proposal, stats: stats) else {
                 return Result(recipe: base, source: .auto, fallbackReason: "model echoed the measurements")
             }
-            return Result(recipe: bound(proposal, onto: base), source: .model, fallbackReason: nil)
+            let raw = (try? JSONSerialization.data(withJSONObject: json, options: [.sortedKeys]))
+                .flatMap { String(data: $0, encoding: .utf8) }
+            return Result(recipe: bound(proposal, onto: base), source: .model, fallbackReason: nil, rawProposal: raw)
         } catch {
             return Result(recipe: base, source: .auto, fallbackReason: "model unavailable: \(error)")
         }
