@@ -169,6 +169,12 @@ nonisolated struct ChatCompletionsClient: Sendable {
               let message = choices.first?["message"] as? [String: Any],
               let text = message["content"] as? String,
               !text.isEmpty else { throw ModelClientError.emptyResponse }
+        // The answer is a JSON string inside the envelope, so its own nesting is
+        // measured on its own: the envelope guard above never sees it.
+        let contentDepth = Self.nestingDepth(of: Data(text.utf8))
+        guard contentDepth <= Self.maxNestingDepth else {
+            throw ModelClientError.responseTooDeep(depth: contentDepth)
+        }
         guard let object = Self.firstJSONObject(in: text) else { throw ModelClientError.notJSON }
         return object
     }
