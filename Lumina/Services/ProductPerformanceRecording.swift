@@ -43,7 +43,10 @@ nonisolated final class ProductPerformanceRecording: @unchecked Sendable {
                 snapshotAt: ISO8601DateFormatter().string(from: Date()),
                 elapsedSeconds: Date().timeIntervalSince(started),
                 metrics: rows,
-                counters: counters
+                counters: counters,
+                selectedImageTrace: try? ProductPerformanceSnapshot.JSONValue(
+                    any: DevelopPresentationTrace.shared.snapshot()
+                )
             )
             do {
                 try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)

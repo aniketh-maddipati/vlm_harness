@@ -208,6 +208,7 @@ nonisolated struct RawRenderRequest: Hashable, Sendable, Identifiable {
 /// `CIImage`/`CGImage` are immutable after creation — safe to move across
 /// concurrency domains.
 nonisolated struct DevelopRenderResult: @unchecked Sendable {
+    var measurementIdentity: DevelopSelectedImageIdentity? = nil
     let requestID: UUID
     let generation: UInt64
     let photoID: UUID

@@ -54,6 +54,15 @@ enum P0EditLiveRunner {
         var report: [String: Any] = [
             "generatedAt": ISO8601DateFormatter().string(from: Date()),
             "checkpoint": "p0-single-photo-editing-live",
+            "inputCohort": "direct-session-callback",
+            "presentationLatencyStatus": "UNMEASURED",
+            "restartCoverage": "same-process-session-reload",
+            "captureCoverage": "hosted-chrome-only",
+            "sourceSHA": LuminaBuildManifest.load()?.gitSha ?? "unknown",
+            "executablePath": Bundle.main.executableURL?.path ?? "unknown",
+            "bundleID": Bundle.main.bundleIdentifier ?? "unknown",
+            "pid": ProcessInfo.processInfo.processIdentifier,
+            "dirtyState": "external build manifest required",
         ]
         var failures = 0
         var checks: [[String: Any]] = []
@@ -141,7 +150,7 @@ enum P0EditLiveRunner {
         session.prewarmInspection(around: landscape.id)
         await wait(0.6)
         let hasFrame = session.displayedCIImage(for: landscape.id) != nil
-        note("RAW preview presents without blank canvas", hasFrame)
+        note("Session publishes a preview after fixed warm waits", hasFrame)
 
         // Capture editor @ 1280×800
         captureEditor(session: session, size: CGSize(width: 1280, height: 800), name: "editor-1280x800", to: outDir)
@@ -149,7 +158,7 @@ enum P0EditLiveRunner {
         // E — the develop drawer beside the photograph; the version column steps aside.
         session.toggleDevelopDrawer()
         captureEditor(session: session, size: CGSize(width: 1280, height: 800), name: "editor-drawer", to: outDir)
-        note("Develop drawer opens on E", session.developDrawerOpen)
+        note("Develop drawer opens via session callback", session.developDrawerOpen)
         session.toggleDevelopDrawer()
 
         // 2. Adjust every exposed control
@@ -174,7 +183,7 @@ enum P0EditLiveRunner {
             let after = session.recipe(for: landscape.id)
             note(
                 "Control \(name) commits",
-                after.valueFingerprint != before.valueFingerprint || after.hasSettings,
+                after.valueFingerprint == before.updating(mutate).valueFingerprint,
                 after.valueFingerprint
             )
         }
@@ -205,7 +214,7 @@ enum P0EditLiveRunner {
                 editLatency.append(["control": control, "repeat": index >= 3,
                     "published": replaced, "milliseconds": (CFAbsoluteTimeGetCurrent() - start) * 1000,
                     "materializations": DevelopRenderCounters.snapshot().interactiveMaterializations - counters.interactiveMaterializations])
-                note("\(control) latest pixels published", replaced)
+                note("\(control) session image reference replaced", replaced)
                 await wait(0.05)
             }
             finishDrawerGesture(session, control: control)
@@ -276,7 +285,7 @@ enum P0EditLiveRunner {
             } ?? ["sampleCount": 0],
         ]
         note(
-            "Rapid \(control) scrub without blank canvas",
+            "Rapid \(control) callback loop retains session image",
             !blankSeen,
             String(format: "%.0fs · p95=%.1fms n=%d", scrubDuration, scrubP95, scrubSamples.count)
         )
@@ -285,7 +294,7 @@ enum P0EditLiveRunner {
                 && $0.p95 <= LatencyMetrics.sla(for: LatencyMetrics.editDrawKey)
         } ?? false
         note(
-            "3 second Metal draw capture",
+            "3 second GPU completion diagnostic meets existing SLA",
             drawPass,
             drawReading.map {
                 String(
@@ -361,12 +370,14 @@ enum P0EditLiveRunner {
         }
         navSamples.sort()
         report["navigation"] = [
+            "boundary": "callback plus fixed 30ms wait; optional 120ms probe excluded",
+            "presentationLatencyStatus": "UNMEASURED",
             "count": navCount,
             "p50Ms": percentile(navSamples, 0.50),
             "p95Ms": percentile(navSamples, 0.95),
             "blankAfterWait": navBlank,
         ]
-        note("Navigate neighbors", navCount >= min(20, assetCount), "\(navCount) frames")
+        note("Navigate neighbors with session image after waits", navCount >= min(20, assetCount) && !navBlank, "\(navCount) frames; blankAfterWait=\(navBlank)")
 
         // Progressive focus contract: one requested identity, non-decreasing
         // fidelity, fixed aspect geometry, authoritative pixels reaching the
@@ -423,12 +434,13 @@ enum P0EditLiveRunner {
         let geometryStable: Bool = {
             guard let firstAspect = aspectRatios.first,
                   let firstFrame = metalFrames.first else { return false }
+            let edgeTolerance = 1 / stabilityWindow.backingScaleFactor
             return aspectRatios.allSatisfy { abs($0 - firstAspect) <= 0.001 }
                 && metalFrames.allSatisfy {
-                    abs($0.minX - firstFrame.minX) <= 0.5
-                        && abs($0.minY - firstFrame.minY) <= 0.5
-                        && abs($0.width - firstFrame.width) <= 0.5
-                        && abs($0.height - firstFrame.height) <= 0.5
+                    abs($0.minX - firstFrame.minX) <= edgeTolerance
+                        && abs($0.minY - firstFrame.minY) <= edgeTolerance
+                        && abs($0.maxX - firstFrame.maxX) <= edgeTolerance
+                        && abs($0.maxY - firstFrame.maxY) <= edgeTolerance
                 }
         }()
         let authoritativeEdge = session.displayedCIImage(for: stabilityTarget.id).map {
@@ -446,6 +458,9 @@ enum P0EditLiveRunner {
             "fidelityRanks": fidelityRanks,
             "fidelityNondecreasing": zip(fidelityRanks, fidelityRanks.dropFirst()).allSatisfy { $0.0 <= $0.1 },
             "interactiveSampled": fidelityRanks.contains(1),
+            "intermediatePresentationStatus": "UNMEASURED",
+            "fastPathSkippedInteractiveSample": !fidelityRanks.contains(1) && fidelityRanks.contains(2),
+            "backingScale": stabilityWindow.backingScaleFactor,
             "aspectRatios": aspectRatios,
             "metalFrames": metalFrames.map { [Double($0.minX), Double($0.minY), Double($0.width), Double($0.height)] },
             "metalFrameSamples": metalFrames.count,
@@ -456,7 +471,7 @@ enum P0EditLiveRunner {
         note("Progressive fidelity is monotonic", fidelityMonotonic, "\(fidelityRanks)")
         note("Quality promotion keeps geometry stable", geometryStable)
         note(
-            "Authoritative preview reaches drawable target",
+            "Published authoritative image meets requested dimensions",
             authoritativeReachedDrawable,
             "\(authoritativeEdge)/\(session.inspectionSettledLongEdge)"
         )
@@ -563,16 +578,16 @@ enum P0EditLiveRunner {
         let reLand = reopened.assets.first(where: { $0.id == landscape.id })
         let rePort = reopened.assets.first(where: { $0.id == portrait.id })
         note(
-            "Quit/reopen retains landscape recipe",
-            reLand?.recipe?.crop != nil || reLand?.recipe?.valueFingerprint == landscapeRecipe.valueFingerprint,
+            "Same-process reload retains exact landscape recipe",
+            reLand?.recipe?.valueFingerprint == landscapeRecipe.valueFingerprint,
             reLand?.recipe?.valueFingerprint ?? "nil"
         )
         note(
-            "Quit/reopen retains portrait geometry",
-            rePort?.recipe?.hasGeometry == true || rePort?.recipe?.valueFingerprint == portraitRecipe.valueFingerprint
+            "Same-process reload retains exact portrait recipe",
+            rePort?.recipe?.valueFingerprint == portraitRecipe.valueFingerprint
         )
         note(
-            "Quit/reopen retains cull",
+            "Same-process reload retains cull",
             reLand?.cull == landscapeCull,
             String(describing: reLand?.cull)
         )
