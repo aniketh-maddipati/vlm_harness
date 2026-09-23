@@ -753,3 +753,82 @@ those need code, not data.
 ## Next
 
 Checkpoint 04 (hold-key peeks and before), plus the key bindings deferred above.
+
+## Reconciliation — the three UI streams as one tree (2026-09-22, branch `elastic-v4/ui-reconcile`)
+
+Created off `elastic-v4/fixture-generator` `a4792c5` in `~/lumina-wt/ui-reconcile`; the
+three stream branches were merged into it and never rebased. Base gate before any merge:
+285 logic tests / 2 skipped · FAST 41/41 · `xcode_compile` OK.
+
+**Merged, in order, each followed by the full gate:**
+
+| merge | stream tip | merge commit | gate after |
+|---|---|---|---|
+| P0 | `elastic-v4/p0-render-proof` **d2b2824** | `a08c050` | 304 / 2 skipped · 41/41 |
+| P1 | `elastic-v4/p1-grammar` **84aa136** | `7f3a659` | 343 / 2 skipped · 41/41 |
+| P2 | `elastic-v4/p2-scroll` **33782bc** (moved from 1b9f751 before the merge ran) | `d92bcb3` | 359 / 2 skipped · 41/41 |
+| P1 again | **f280b9e** (items 8–9) | `228b590` | 370 / 2 skipped · 41/41 |
+| P1 final | **68ccbc1** (docs) | `aa254ac` | covered by the next |
+| P2 final | **4ca6d2e** (items 4–7) | `41d0942` | **381 / 2 skipped / 0 failures · FAST 41/41 · `xcode_compile` OK** |
+
+381 = 285 + 19 (P0) + 50 (P1) + 27 (P2), so no test was lost or double-counted.
+
+**Conflict surface, recomputed at the first tips:** P0 ∩ P1 = nothing. P0 ∩ P2 =
+`Lumina/Services/ExifToolService.swift`, `docs/ELASTIC_PLAN.md`. P1 ∩ P2 =
+`Lumina/ViewModels/P0SessionModel.swift`, `Lumina/ViewModels/P0SessionModel+Elastic.swift`.
+The follow-up tips added only `P0SessionModel.swift` (P2 item 3 ↔ P1) and this file.
+
+**The one conflict, and how it was resolved.** `ExifToolService.runData` had been fixed
+twice for the same deadlock — `waitUntilExit()` before draining the stdout pipe, which
+hangs on any output past 64 KB (an embedded preview, a `-json` listing of a few hundred
+frames). Kept **one** implementation: P2's `captureOutput(executable:arguments:)` shape,
+because `ExifToolProcessTests` calls it, with P0's stderr choice — `FileHandle.nullDevice`
+instead of a second pipe, so no drain thread is needed. The result reads stdout to end
+*before* it waits, and all three `ExifToolProcessTests` pass with stderr on the null
+device. No test file was dropped: P0 added no ExifTool test.
+
+**Auto-merged and read, not just compiled:** `P0SessionModel.swift` carries P1's peek /
+drawer / anchor state, `keepFrames`, `measureForInference` and the variant removal next
+to P2's `chaptersCache`, `chapterID(containing:)`, `openFolder(_:shootName:)` and the
+`defer { publishScrollOrder() }` at the top of `apply(_:)` — the same `switch` P1 stripped
+`dropVariantPinIfInactive()` from. `+Elastic.swift` carries P1's set-peek key line beside
+P2's cached `gapInterval` / indexed `startsNewMoment`. This file kept every append from
+all three streams with zero deleted lines against the base.
+
+**Semantic checks on the merged tree** (none needed a change): tokens hash `4a917285…`
+with its approved `spring_trajectory_place_return` golden — P0 and P2 never touch
+`tokens.yaml`, so no re-approval; `magic_numbers` OK with P1's tokens and P0's rewritten
+views together; `progressive_render_architecture` OK — `ElasticVersionColumn.previewPath(for:)`
+/ `guard index == 1` intact, P1's item 9 hides the column from `ElasticFocusView` without
+touching that file; `probe_mirror` / `probe_growth` OK across all four sites;
+`shipping_fence` OK for `P0ScrollLiveRunner`; `allowlist_ratchet` OK with all three
+allowlists byte-identical to the base; `registry_staleness` OK with P1's regenerated
+coverage artifacts; `PreparedRawSession.materializeInteractiveStage` reads
+`destination.isFlipped = false` with P0's comment.
+
+**Each stream's proof, re-run here:**
+
+- P0 — `PhotoRenderProofTests` 8/8 including `testEveryTierPresentsTheSameWayUp` (real
+  RAW fixtures), `PreviewOrientationTests` 7/7, `ColdOpenStatusTests` 4/4.
+  `--p0-edit-live` on `card-elastic-v4/frames`: **31/33** on the final tree
+  (30/32 on the tree before the re-merges); the two failures are the ones P0 recorded
+  on its branch and on the base (`Quality promotion keeps geometry stable`,
+  `Authoritative preview reaches drawable target`), and the denominator grew by P1's
+  runner checks. P0's own numbers: base 27/31, branch 29/31.
+- P1 — a guarded, key-driven pass in the real Debug app on the 27-frame card, 27
+  screenshots in `~/lumina-wt/ui-reconcile-proof/p1-live/`: hold-⇥ similar → set →
+  flags (10 groups inferred), G / ⌘Z inside flags, tap-to-pin and ⇥ cycling past the
+  end, Esc, focus with the version column, hold-⇥ set strip, hold-␣ before, 30 taps,
+  held-⇥ arrow spam, Esc ×3. Run on the tree before P1's items 8–9 were merged; those two
+  are proven by `ElasticDevelopTests` and the runner's `editor-drawer` capture only.
+  The launch trap: with pid 64132 (`com.lumina.app`, a `--workbench` instance from Xcode
+  DerivedData, not any stream's) up, a second instance of that bundle id gets no main
+  window; a copy re-signed as `com.lumina.app.reconcile` gets one on roughly one launch
+  in three, so the driver retries its own launch. Nothing foreign was touched.
+- P2 — `--p0-scroll-live` on the 403-frame stress card, warm, unfilmed, with P2's own runs
+  quiescent: wells **0** on every pass (glide 0/473, flick 0/103, return 0/182, dart 0/68, recoil 0/65); soft (floor) tiles glide **0** and flick **0** (P2 item 4 took them 91 → 0 and 148 → 0), dart 547 from a dropped grid tier (P2: 534); tick p95 glide 3.37 ms, flick 8.84 ms, return 9.70 ms, dart 1.74 ms, recoil 1.90 ms; prefetch issued 147 / cancelled 6 on the glide, 146 / 0 on the flick; floor 369 resident at 63.9 MB 1.5 s after mount. Same shape as P2's record; the flick/return frame-budget
+  residue is row wrap-layout, P0's item.
+
+**Not merged:** nothing. All three streams had closed out by the final tips. Nothing
+pushed; the integration branch is the single PR for the round, against
+`elastic-v4/fixture-generator`, and moves with `git rebase --onto` when that lands.

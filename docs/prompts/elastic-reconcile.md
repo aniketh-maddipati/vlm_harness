@@ -204,18 +204,18 @@ its description is what the reviewer reads instead of three.
 
 ## Checklist
 
-- [ ] 1. `elastic-v4/ui-reconcile` created off the base in its own worktree; the three
+- [x] 1. `elastic-v4/ui-reconcile` created off the base in its own worktree; the three
   branch tips recorded; the conflict surface recomputed and written into Progress
-- [ ] 2. P0 merged; conflicts resolved; gate green
-- [ ] 3. P1 merged; conflicts resolved; gate green
-- [ ] 4. P2 merged; the duplicate `ExifToolService` fix reconciled to one implementation
+- [x] 2. P0 merged; conflicts resolved; gate green
+- [x] 3. P1 merged; conflicts resolved; gate green
+- [x] 4. P2 merged; the duplicate `ExifToolService` fix reconciled to one implementation
   that reads before it waits; gate green
-- [ ] 5. Semantic checks cleared on the merged tree: tokens hash and motion golden, forbidden
+- [x] 5. Semantic checks cleared on the merged tree: tokens hash and motion golden, forbidden
   literal set, `progressive_render_architecture`, probe mirror sites, shipping fence,
   allowlist ratchet, registry staleness
-- [ ] 6. Each stream's own proof re-run here and its numbers recorded, including
+- [x] 6. Each stream's own proof re-run here and its numbers recorded, including
   `testEveryTierPresentsTheSameWayUp` and the live capture score
-- [ ] 7. Reconciliation record appended to `docs/ELASTIC_PLAN.md`; nothing pushed without
+- [x] 7. Reconciliation record appended to `docs/ELASTIC_PLAN.md`; nothing pushed without
   asking
 
 ## Progress
@@ -345,3 +345,11 @@ pass needs to know — especially anything here that turned out to be wrong._
   in the item-7 line. P1's guarded key pass was run on the pre-re-merge tree (item 6);
   the E drawer and item 9 were not in it, so those two remain proven by
   `ElasticDevelopTests` (11) and the runner's `editor-drawer` capture only.
+- 2026-09-22 · item 7 · Reconciliation record appended at the end of `docs/ELASTIC_PLAN.md`
+  (after `## Next`; nothing above it reflowed). Proofs re-run on the final tree `41d0942`:
+  **P0 `--p0-edit-live` 31/33** — same two failures as always, denominator up one more for
+  P1's `Develop drawer opens on E` check; **P2 `--p0-scroll-live`** wells 0 on all five
+  passes, soft tiles glide 0 / flick 0 / dart 547, tick p95 3.37 / 8.84 / 9.70 / 1.74 / 1.90
+  ms, floor 369 resident. Artifacts in `~/lumina-wt/ui-reconcile-proof/*-final/`. Every
+  checklist item is ticked; gate on the final tree is green (381 / 2 skipped / 0 failures ·
+  FAST 41/41 · xcode_compile OK). **Nothing pushed, no PR opened** — both wait for the user.
