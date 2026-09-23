@@ -11,11 +11,12 @@ struct LuminaApp: App {
         // W0 workbench: resolve the deep-link before any scene appears.
         WorkbenchLaunch.runIfRequested()
         #endif
-        #if !LUMINA_SHIPPING_APP
         // E2 render instruments: off unless asked for, so an ordinary run is unchanged.
         if P0RenderInstruments.launchRequested {
             MainActor.assumeIsolated { P0RenderInstruments.shared.enable() }
+            ProductPerformanceRecording.shared.start()
         }
+        #if !LUMINA_SHIPPING_APP
         WorkbenchCapture.runIfRequested()
         // Headless harnesses exit inside the runner.
         _ = RawHarnessRunner.runIfRequested()
@@ -44,6 +45,11 @@ struct LuminaApp: App {
             }
             .frame(minWidth: EditRailLayout.minWindowWidth, minHeight: EditRailLayout.minWindowHeight)
             .luminaWorkspaceAppearance()
+            .background {
+                if P0RenderInstruments.launchRequested {
+                    ProductPerformanceDisplayProbe()
+                }
+            }
         }
         .commands {
             CommandGroup(replacing: .newItem) {
