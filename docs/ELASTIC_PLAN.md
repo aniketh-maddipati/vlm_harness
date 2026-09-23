@@ -461,6 +461,44 @@ Two corrections to what is written above and in the P0 prompt:
 
 #### P2 measurement (2026-09-22, branch `elastic-v4/p2-scroll`)
 
+**Before / after, in one table.** Same card (`card-elastic-v4-stress`, 403
+frames, 55 moments, 13 screens at 1280×800), same machine (M4 Pro, 24 GB),
+same runner, catalog warm, unfilmed. "Before" is `5181c75` plus only the
+exiftool pipe fix that made the card open; "after" is the item 5 build,
+run a. Cold is different and is measured separately below: a fresh card's
+first open extracts previews for ~1 min (`previews 0/N` meanwhile) and no
+scroll number applies until it is done.
+
+| pass | steps before → after | tick p95 before → after | tick p99 after | wells (ticks) before → after | soft (floor) tiles after | decodes in pass before → after |
+|---|---|---|---|---|---|---|
+| glide, 1 screen/s × 5 | 4 in 19.8 s → 478 in 5.0 s | 1090 ms → 2.9 ms | 15.9 ms | 3/4 → **0**/478 | 0 | 105 → 141, all issued ahead |
+| flick, 6 screens/s to end | 2 in 7.2 s → 100 in 1.2 s | 0.04 ms* → 10.2 ms | 10.5 ms | 1/2 → **0**/100 | 0 | 16 → 146, all issued ahead |
+| return, 6 screens/s to top | 2 in 6.9 s → 183 in 2.0 s | 0.21 ms* → 9.3 ms | 11.4 ms | 0/2 → 0/183 | 0 | 0 → 0 |
+| dart, cold grid over warm floor | — → 68 in 0.7 s | — → 1.6 ms | 1.7 ms | — → **0**/68 | 552 | — → 140 |
+| recoil | — → 66 in 0.7 s | — → 1.9 ms | 2.1 ms | — → 0/66 | 0 | — → 19 |
+
+\* The baseline's flick and return managed two steps each; their tick
+percentiles are two samples of the step itself while the main thread spent
+seconds between steps, and are not comparable. The step counts are.
+
+What moved it, in order: caching the chapter arrangement (item 2 part 1:
+steps 4 → 417 on the glide), the plate sampling residency in its own pass
+(item 2: wells 20 → 14 ticks, tick p95 2.5 → 0.95 ms), the floor tier (item
+3: wells → 0 on every pass), velocity prefetch (item 4: soft tiles 91/148 →
+0), one bounded queue (item 5: no change on this disk; bounds decode
+concurrency at 4). Full per-item tables follow.
+
+What is left on the scroll path is not scroll's: the flick's and return's
+~10 ms tick p95 is the cost of realizing a new row's wrap layout
+(`ElasticWrapLayout` sizes every subview twice per pass — P0's item), and a
+row-realization step is what the glide's 15.9 ms p99 is. The dart from a
+cold grid tier draws ~550 soft tiles at 6 screens/s — the floor doing its
+job; a faster grid decode would shrink it, nothing on the scroll path can.
+
+Not changed anywhere in P2: full resolution and true RAW for the focused
+frame and for export. Nothing here reaches `PreparedRawSession` or
+`DevelopRenderScheduler`; the scroll path samples JPEG tiers only.
+
 Scroll now has its own instrument, `--p0-scroll-live [out] --p0-open <folder>`
 (`P0ScrollLiveRunner`). It mounts the shell on the time route in a real
 1280×800 window, drives the table's `NSScrollView` through three passes —
@@ -603,6 +641,78 @@ recomputed the path list per element made the reopen's preview merge
 quadratic and starved the main thread; and a warm reopen replays the dates
 phase and then replaces `assets` wholesale, so the runner now waits for that
 phase to have been seen and the status to hold still before measuring.
+
+**Prefetch by velocity (item 4).** `ElasticScrollTracker` now estimates
+velocity from its viewport centre over a 0.25 s horizon (frames/s along the
+shoot order, signed) and hands `BrowsePixelService.setGridPrefetchWindow` a
+window: still → one screen either side, nearest first; moving → two screens
+past the leading edge in the direction of travel, one screen behind the
+trailing edge kept, everything further behind cancelled. A cancel that lands
+before the decode starts costs nothing (`pixel` checks `Task.isCancelled`
+before spawning), which is the point of cancelling behind a flick.
+
+Two rules the first runs forced. The median moves in phases as rows leave
+and arrive, so the estimate dips to "still" mid-flick and occasionally flips
+sign for one sample; turning the window on either cancelled two screens of
+good prefetch and re-issued it (one run: 501 issued, 288 cancelled, 711 soft
+tiles). Now a still window keeps the hull of the previous keep range, and a
+direction is committed only after it has held for 120 ms.
+
+The runner gained two passes — `dart` (6 screens/s for 4 screens) and
+`recoil` (straight back) — and drops the grid tier, keeping the floor, before
+the dart: a cold LRU over a warm floor is the state after a memory-pressure
+trim and the only way the reversal has anything in flight to cancel.
+
+Two runs of the same build, 403-frame card, warm:
+
+| pass | steps | tick p95 | tick p99 | peak frames/s | prefetch issued | cancelled | soft (floor) tiles | wells | decodes in pass |
+|---|---|---|---|---|---|---|---|---|---|
+| glide | 499 / 501 | 1.05 / 1.45 ms | 9.7 / 10.0 ms | 92 / 94 | 147 / 147 | 6 / 6 | **0 / 0** | 0 / 0 | 141 / 141 |
+| flick | 98 / 92 | 10.6 / 10.9 ms | 10.9 / 14.9 ms | 212 / 212 | 146 / 146 | 0 / 1 | **0 / 0** | 0 / 0 | 146 / 146 |
+| return | 175 / 179 | 10.6 / 9.9 ms | 15.6 / 10.8 ms | 166 / 161 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| dart (cold grid) | 67 / 67 | 1.84 / 1.95 ms | 2.0 / 2.2 ms | 153 / 152 | 144 / 144 | 0 / 0 | 534 / 534 | 0 / 0 | 144 / 144 |
+| recoil | 67 / 66 | 1.99 / 2.05 ms | 3.2 / 2.2 ms | 196 / 187 | 19 / 19 | 0 / 0 | **0 / 0** | 0 / 0 | 19 / 19 |
+
+Read against item 3's table: the glide's 91 and the flick's 148 soft tiles
+are now 0 — every grid decode a pass needed was issued by the window before
+the tile was realized (issued = decodes, hits from the plate 0 because the
+plate found the pixels resident and never asked). The dart from a cold grid
+tier still shows 534 soft draws: at 6 screens/s from nothing, prefetch cannot
+outrun realization, and that is what the floor is for — 0 wells. Cancels stay
+in single digits because decodes land within the pass; the mechanism is
+exercised (the dart's own window is what the recoil would cancel) and cheap.
+
+The flick's ~10 ms tick p95 is unchanged and is row wrap-layout (P0).
+
+**One request queue (item 5).** Until now a realized tile's own miss spawned
+a detached decode, and the window spawned one task per path — on a flick,
+~150 concurrent decodes competing with layout for cores, most of them for
+tiles the cursor had already left. Every grid-tier miss now goes through one
+queue in `BrowsePixelService`, `PhotoImageCacheBudget.gridDecodeWidth` (4)
+wide, ordered by *anyone waiting first, then distance from the viewport*, and
+re-ordered every time a slot frees — the order now, not the order of arrival.
+A request that leaves the window with nobody waiting, or loses its last
+waiter (the tile's `.task` was cancelled by SwiftUI when it scrolled off), is
+dropped before its decode starts and counted as `stale` or `cancelled`, the
+develop scheduler's own vocabulary. Concurrent asks for one path share one
+decode. Pinned by `BrowsePixelGridQueueTests` at width 1, where seven of ten
+window requests are dropped unrun when the window moves on.
+
+Two runs, 403-frame card, warm:
+
+| pass | steps | tick p95 | tick p99 | window issued | decodes started | stale | cancelled | soft (floor) tiles | wells |
+|---|---|---|---|---|---|---|---|---|---|
+| glide | 478 / 482 | 2.9 / 2.2 ms | 15.9 / 15.9 ms | 147 / 147 | 141 / 141 | 6 / 6 | 0 / 0 | 0 / 0 | 0 / 0 |
+| flick | 100 / 101 | 10.2 / 10.3 ms | 10.5 / 10.6 ms | 146 / 146 | 146 / 146 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| return | 183 / 180 | 9.3 / 10.3 ms | 11.4 / 11.4 ms | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| dart (cold grid) | 68 / 68 | 1.6 / 1.9 ms | 1.7 / 2.1 ms | 150 / 150 | 144 / 144 | 6 / 6 | 0 / 0 | 552 / 547 | 0 / 0 |
+| recoil | 66 / 66 | 1.9 / 2.3 ms | 2.1 / 2.4 ms | 19 / 19 | 19 / 19 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+
+On this disk decodes land inside the pass, so the stale counts stay small
+(six per glide, six per dart) and nothing is cancelled: the flick never asks
+for a tile the window did not already have in hand. The queue's value shows
+where decodes are slower than the flick — the width-1 test — and in what it
+bounds: at most four ImageIO decodes alongside layout, whatever the shoot.
 
 ### P3 — hardening
 

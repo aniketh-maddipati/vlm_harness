@@ -204,10 +204,10 @@ but what was measured, on what card, warm or cold. Commit with
 - [x] 1. A scroll-latency measurement exists and is recorded, before any change
 - [x] 2. Nothing on the scroll path decodes synchronously
 - [x] 3. Guaranteed-resident floor tier, with an explicit cap and eviction by distance
-- [ ] 4. Prefetch by scroll velocity; cancel behind
-- [ ] 5. Superseded requests dropped rather than queued
-- [ ] 6. Re-measure; before/after recorded in `docs/ELASTIC_PLAN.md`
-- [ ] 7. Gate green, including `xcode_compile.py`
+- [x] 4. Prefetch by scroll velocity; cancel behind
+- [x] 5. Superseded requests dropped rather than queued
+- [x] 6. Re-measure; before/after recorded in `docs/ELASTIC_PLAN.md`
+- [x] 7. Gate green, including `xcode_compile.py`
 
 ## Progress
 
@@ -270,3 +270,38 @@ wrong._
   runs. Result: 0 wells on every pass; 369/403 resident at 63.9 MB. Next:
   item 4 — the tracker already has the order and the centre; add velocity
   and drive `BrowsePixelService.prefetch` two screens ahead, cancel behind.
+- 2026-09-22 · item 4 **done** · `ElasticScrollTracker` velocity (0.25 s
+  horizon) → `prefetchWindow` (pure, tested) → `BrowsePixelService.
+  setGridPrefetchWindow(ahead:keep:)`, two screens ahead, one kept behind,
+  rest cancelled before decode. Two rules that were not obvious: a still
+  window keeps the hull of the last keep range, and a direction is committed
+  only after 120 ms — without both, the median's phase jumps cancelled and
+  re-issued two screens of prefetch per flick (501 issued / 288 cancelled).
+  Runner has `dart`/`recoil` passes over a dropped grid tier (floor kept).
+  Soft tiles: glide 91 → 0, flick 148 → 0; dart from cold still 534 soft, 0
+  wells. Next: item 5 — the plate's own misses and the prefetch both spawn
+  one Task per path with no bound; queue them, bounded, distance-ordered,
+  and drop what leaves the window before it starts (counts already in
+  `Diagnostics`).
+- 2026-09-22 · item 5 **done** · One grid queue in `BrowsePixelService`
+  (`gridDecodeWidth` 4; waiters first, then distance; re-ordered per slot).
+  Leaves-the-window → `stale`, loses-last-waiter → `cancelled`, both before
+  the decode starts; shared decode for concurrent asks.
+  `BrowsePixelGridQueueTests` (width 1) pins the drops. On the 403 card the
+  counts are small (6 stale per glide/dart, 0 cancelled) because decodes land
+  within the pass — the numbers are honest, not flattering. Item 4's
+  per-path prefetch tasks are gone; the window only enqueues. Next: item 6 —
+  the consolidated before/after at the head of the plan's P2 section, then
+  the item 7 gate.
+- 2026-09-22 · item 6 **done** · One before/after table at the head of
+  `docs/ELASTIC_PLAN.md` § "P2 measurement": same card, machine, runner,
+  warm, unfilmed; what moved it in order; what is left and whose it is
+  (wrap-layout tick cost is P0's; the dart's soft tiles are the floor
+  working). Cold is stated as a separate case, not folded in.
+- 2026-09-22 · item 7 **done** · Final gate on the completed tree:
+  build-for-testing OK · 312 logic tests, 2 skipped, 0 failures (baseline was
+  285) · fast 41/41 · `xcode_compile.py` OK. Every item checked. Branch
+  pushed; PR #100 against `elastic-v4/fixture-generator`. Not pushed to
+  main, not merged — that is the user's call. Nothing further for this
+  stream; the two things left on the scroll path belong to P0 (wrap-layout
+  tick cost) and to disks slower than this one (the dart's soft tiles).
