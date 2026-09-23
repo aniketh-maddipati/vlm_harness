@@ -1,6 +1,6 @@
 # UI/UX command-center scoreboard
 
-Documentation snapshot: 2026-09-23. Baseline source **`a6923588dfe3824f3b84556bbcac3d93d8f67876`** (PR #107); inspected checkout `codex/ui-ux-command-center`. This is an evidence ledger, **not a frozen acceptance baseline**. The initial ledger used historical/source evidence; the diagnostic addendum below records this session's new scoped native evidence. No overall completion percentage is meaningful.
+Documentation snapshot: 2026-09-23. Baseline source **`a6923588dfe3824f3b84556bbcac3d93d8f67876`** (PR #107); initial ledger copied from `codex/ui-ux-command-center`, updated only in Prompt 0's assigned worktree. Candidate code **`0725f80c2c7614e52b69d26112696ac008c472c9`** passes two cache-free rounds and current 45/45 graph parity. This is an evidence ledger, **not a frozen acceptance baseline**. No overall completion percentage is meaningful.
 
 ## Current diagnostic addendum
 
@@ -8,6 +8,9 @@ Prompt 0 implementation and assertion audit: [0-baseline-handoff](0-baseline-han
 The bounded selected-image trace and truthful callback/reload labels are implemented;
 UX02 remains PARTIAL until current native and complete assertion coverage are verified.
 No P-row receives acceptance from instrumentation plumbing or the inherited trace.
+Current verification, durable photograph PNGs, invalid-video evidence and ownership
+release are recorded in the handoff. The candidate still reproduces the Canvas
+quarter-turn fallback defect; graph parity cannot clear UX03.
 
 An isolated standalone Release build at the baseline SHA completed. Bundle
 `com.lumina.uiuxp0`, PID 31412, binary SHA-256

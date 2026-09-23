@@ -88,6 +88,28 @@ Video capture **BLOCKED**: exact-window `screencapture -v -V45 -l11474` produced
 
 `/private/tmp/lumina-ui-ux-evidence/p0-implementation/native-metrics-final.json` has run `311A9366-5365-4AD9-B206-71035BEBBD36`, SHA256 `f49165397781f7401fa0b2f17d2eb6f2afa5ccb06ec12078531e9574765d3e51`: 133 retained events, zero overwritten, 14 callback inputs, 18 drawable acquisitions/submissions/GPU completions/presented-handler callbacks. Seven selected browse fallback and eleven selected render envelopes. Only **two** callbacks have positive host presentedTime; **sixteen are zero and invalid for latency**. Screenshot + selected/submitted fallback evidence supports the quarter-turn diagnosis; zero-time callbacks do not prove presentation. Full-run/missing/coalesced per-interaction analysis is still UNMEASURED. Source packet 1 must distinguish RAW materialization `isFlipped=false` from final Metal destination `isFlipped=true`; neither was changed here.
 
-PID59671 was quit through its own native Cmd-Q; `ps -p 59671` confirmed absent. Interactive capture lease released; bounded harness/build verification remains with Prompt 0 until final handoff. No PR, push, merge or successor dispatch occurred. Cache-free build-stability checkpoint and current 45-case parity remain required before merge; no historical result substitutes for either.
+PID59671 was quit through its own native Cmd-Q; `ps -p 59671` confirmed absent. No PR, push, merge or successor dispatch occurred. Current cache-free checkpoint and parity results follow; they do not clear remaining native/performance acceptance gaps.
 
 Revised live runner: `/private/tmp/lumina-ui-ux-evidence/p0-implementation/harness/p0_edit_live_report.json`, PID60837, same binary; **53 checks, 51 pass, two fail**. Navigation correctly fails on `blankAfterWait=true`. Progressive ranks `[0,0,0,2]` do not sample intermediate; explicit fast-path flag true, intermediate presentation UNMEASURED. Sampled geometry passes at backing scale 2 with four identical container frames, only one session-image aspect sample; this does not replace the prior native defect or prove full promotion geometry. Exact recipe reload assertions pass. Run used `LUMINA_RENDER_STRESS_SECONDS=1` for smoke, so its legacy “3 second” GPU diagnostic has only a one-second capture and cannot establish the named duration; this run is not acceptance. Full-duration capture remains required. Output log: `/private/tmp/p0-live-harness.log`.
+
+## Final verification and ownership release
+
+Code commit **`0725f80c2c7614e52b69d26112696ac008c472c9`** is the reviewed candidate. The final handoff update changes documentation only; the native candidate's product Swift code matches this commit. No optimization is included.
+
+`BUILD_STABILITY_DERIVED_DATA=/private/tmp/lumina-p0-stability-DD bash Scripts/build_stability.sh` **PASS: two clean rounds**, including FAST, Debug clean/build, build-for-testing, 518 logic tests per round (five skipped, zero failures), compile guard, Release, Playground Release, and F11 checks. Log `/private/tmp/p0-build-stability.log`. Exact source at checkpoint: clean 0725f80. Host confirmed macOS26.5.2/25F84, Xcode26.6/17F113, Swift6.3.3, arm64. Debug binary SHA256 `8e59ef9647c060472dadde1e54aeabde10d1766f1220578c4725c8d8c7b77b4c`; Release `68dcccdb82cd3b83eb53b4d85a14aac833b5073041bc8b2a58e648f0b8384387`. Both executables are under the corresponding `Build/Products/{Debug,Release}/Lumina.app/Contents/MacOS/Lumina` in that derived-data directory. These are separate binaries from the earlier native candidate.
+
+Current RAW proof **PASS 45/45, each ≤1.5 CIE76 ΔE** on clean 0725f80 / checkpoint Debug binary, XCTest PID66744. Stage comparisons: 24, worst **0.9074209238**. Encoded full-export comparisons: 21, mean **0.6920500630**, worst **0.8945394194**. Final latest-wins replacement ΔE **0**. This is graph/export correctness, not final Canvas correctness or latency.
+
+Reproduction:
+
+```sh
+python3 Scripts/harness/eval/run_raw_parity.py \
+  --raw /Users/aniketh/Pictures/lumina-harness/mehendi-94 \
+  --truth /Users/aniketh/Pictures/lumina-harness/eval-out/truth.json \
+  --out /private/tmp/lumina-ui-ux-evidence/p0-implementation/parity \
+  --xctestrun /private/tmp/lumina-p0-stability-DD/Build/Products/Lumina_P0Fast_macosx26.5-arm64.xctestrun
+```
+
+Use a fresh output path when reproducing. Originals read-only; all exports go under the output directory. Input eight RAW hashes match the historic parity fixture manifest. Truth SHA256 `7750dec7cd8c86d1ea9efd3ae911f6b325951f096b1c685021e8805de8c130be`. Current `parity/manifest.json` SHA256 `d611dcaf639dca26ff3c857a061b9009e87b30c97f0d3af4c7e814347341b8a7`; `parity/preview-contract.json` SHA256 `89f387fcacf45a0e85a363e00adf8f13614b35e7d87edcf3673ead56aa219e52`. Manifest freezes all Swift source and RAW hashes. `parity/xcode.log` and `parity/result.xcresult` retain the actual assertion result.
+
+Prompt 0 releases shared-file, native and build ownership on delivery of this handoff. Next decision belongs to command center: review this bounded patch, then explicitly release packet 1 against the accepted integration commit. Outstanding: video capture BLOCKED, vet BLOCKED, full native input/presentation/observer matrix UNMEASURED, all P rows UNMEASURED, two current diagnostic harness failures, and the reproduced Canvas fallback defect. No successor is dispatched and no acceptance threshold is relaxed.
