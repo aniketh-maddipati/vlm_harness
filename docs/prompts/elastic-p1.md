@@ -216,7 +216,7 @@ One commit per checkpoint is fine; end each message with
 - [x] 7. `⇧`-click range, `⌘`-click toggle; the `P0_CULLING.md` ruling closed
 - [x] 8. Develop drawer on `E`, with sliders, ratios, `R` rotate, straighten, profile
 - [x] 9. Version column hides while the drawer or a hold is active
-- [ ] 10. `docs/ELASTIC_PLAN.md` P1 section updated, gate green
+- [x] 10. `docs/ELASTIC_PLAN.md` P1 section updated, gate green
 - [ ] 11. Stress pass (asked for 2026-09-22): every landed item driven in the live
   Debug app by real key events, with a guard that aborts unless Lumina is verified
   frontmost before any key is sent; screenshots in `~/lumina-wt/p1-grammar-proof/<item>/`,
@@ -369,3 +369,12 @@ the next pass needs to know — especially anything here that turned out to be w
   `ElasticVersionColumn.swift` is untouched. Before is not a hold in the prototype's
   `variantsCol` sense, so the versions stay while ␣ is down. Gate: 335 / 2 skipped,
   FAST 41/41.
+- 2026-09-22 · item 10 · `docs/ELASTIC_PLAN.md`: a "P1 — the grammar" subsection
+  appended at the end of §6 and a status line appended at the end of the P1 backlog
+  block — insertions only, nothing reflowed. Items 1–10 are checked; item 11 (the
+  stress pass the user asked for) stays open only for the live re-checks of items 3–9,
+  blocked by the no-window condition while pid 64132 is up. Next wake: if
+  `~/lumina-wt/p1-grammar/DD/.../Lumina --workbench …` shows a window, run the
+  guarded key-driven pass for ␣, Esc ladder, E/R/M, and a ⇧/⌘-click via osascript
+  `click … using {shift down}` on the tile's accessibility element. Baseline worktree
+  `~/lumina-wt/p1-baseline` removed. Final gate: 335 logic tests / 2 skipped, FAST 41/41.

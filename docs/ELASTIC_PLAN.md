@@ -279,6 +279,69 @@ Honest gaps in the copy this pass introduced:
 - The camera string is the real EXIF model, so it reads e.g. `ilce-7m3`, not the prototype's `a7 iii`.
 - The session date format is `mmm d` (`may 19`), not the prototype's `sept 14`.
 
+### P1 — the grammar (2026-09-22, branch `elastic-v4/p1-grammar`)
+
+Checkpoints 04 and 05 as the prototype specifies them, built alongside P0 and P2 on
+their own branch off `a4792c5`. Every item shipped as its own commit with its logic
+tests; the gate finished at **335 logic tests / 2 skipped, FAST 41/41**.
+
+- **Hold-⇥ is the one peek.** Similar → set → flags; `↑↓` or `⇥` cycles; release
+  returns; a tap inside 220 ms pins; `Esc` or `⇥` past the end closes. The set peek
+  keeps `walkingKeptRail` as backing state but the walk follows `finalSetAssetIDs`
+  in both routes. Surfaces: the bottom-pinned bar on the table (150 / 170 / 220
+  tiles), the similar row in focus (cursor at 1.6×), the strip in set order with
+  `set / release ⇥`. The flags peek unfolds every burst and shows the inferred
+  groups band; `G` takes the picks as one command.
+- **Inference is measured, not assumed.** P0 assets never carry sharpness, so the
+  flags peek measures it off grid thumbnails (`BlurScorer`, now `nonisolated`) and
+  embeds one frame per burst (`EmbeddingService`) in a detached task. Same burst,
+  same scene, same subject; the prototype's "same exposure problem" group writes
+  recipes and is not built.
+- **Hold-␣ is before**, in both routes, with press-and-hold-the-photograph parity
+  (200 ms). Nothing moved off Space: the 1:1 zoom the prompt cites died with
+  `P0SinglePhotoEditor`, so `holdingLoupe` was key-less and is gone.
+- **Esc ladder** is peek → drawer → selection → route and nothing else; an open burst
+  folds by its badge. Probe field `escTransientHoldActive` mirrors steps 1–3.
+- **Hold-V is retired** — `EditVariantSession`, the `WorkspaceState` fields, the V
+  paths, five probe fields at all five mirror sites, `EditVariantTests`.
+  `branchInteractiveVariant` and the registry pinning stay for the version thumbnails.
+- **Shelf is a drop target**; table tiles and group frames are draggable with the
+  prototype's comma-joined id payload; a drop keeps through the same keep-many
+  command `G` uses and spends the selection.
+- **⇧-click range · ⌘-click toggle** with an anchor; the `P0_CULLING.md` ruling closed.
+- **Develop drawer on `E`**: nine sliders (Whites / Blacks / Dehaze deliberately
+  absent), ratios, `R`, straighten, profile, match chips, auto · match · reset. Every
+  drawer edit is one `BatchEditMutationCommand` so provenance moves with the recipe;
+  a slider release ripples its delta to the selection or the burst. `M` matches the
+  checked groups to the selection › set › moment. The surface says *match* because
+  the prototype's word is banned copy.
+- **Version column hides** while the drawer or a peek is up.
+
+Honest gaps, in the order someone would hit them:
+
+- Live pixel verification of items 3–9 is pending. Since ~14:08 the Debug app
+  launches into an idle run loop with no window on this host whenever a Lumina from
+  Xcode's own DerivedData (pid 64132, not any stream's) is running; items 1–2 were
+  verified live by real key events before that (34 screenshots in
+  `~/lumina-wt/p1-grammar-proof/`), the rest by logic tests and the offscreen runner.
+- `⇧←→` reorders the set inside the set peek — no set-reorder command exists; the
+  peek's copy omits the clause.
+- The flags peek has no focus-check overlay and no `eyes` flag; the groups band's
+  head line truncates at 1280 wide.
+- The crop-handle overlay on the photograph is not wired to the drawer; the
+  photograph's gestures are P0's. `P0CropControls.centeredCrop` was not salvaged: it
+  ignored the frame's own aspect (1:1 was a no-op on a 3:2 frame).
+- Sharpness runs 0…100 in the drawer against the engine's 0…150.
+- The peek bar overlays the last table rows with no bottom inset, as the prototype's
+  `position: absolute` does — a ruling, not a bug.
+- `lookGlancing` / `beginLookGlance` and the legacy `P0ChapterTableView` remain; the
+  ⌘G binding is gone. They go when the legacy table does.
+- Twenty tokens were added along the way, every one for a value already forbidden;
+  the tokens hash is `4a917285…` and the F07 golden was carried forward each time
+  with the previous payload byte-for-byte.
+- P0 fixed the upside-down interactive tier at d2b2824 on their branch from a repro
+  this stream handed over (LUM0012); not cherry-picked here by the stream rule.
+
 ## Elasticity backlog (2026-09-22)
 
 Ordered by what blocks what, not by size. `[dbg]` debugging · `[edge]` edge
@@ -381,6 +444,9 @@ Two corrections to what is written above and in the P0 prompt:
   open since before Elastic.
 - Checkpoint 05: develop drawer (`E`), sync (`M`), rotate (`R`), profile picker,
   crop ratios, straighten.
+
+**Status (2026-09-22):** every item above landed on `elastic-v4/p1-grammar`; see §6
+"P1 — the grammar" for what shipped and the honest gaps.
 
 ### P2 — responsiveness
 
