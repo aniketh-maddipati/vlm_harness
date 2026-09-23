@@ -160,24 +160,6 @@ struct LuminaDecisionBar: View {
     }
 }
 
-struct LuminaFooterBar<Content: View>: View {
-    @ViewBuilder var content: () -> Content
-
-    var body: some View {
-        HStack(spacing: 14) {
-            content()
-        }
-        .padding(.horizontal, LuminaTokens.Spacing.workspaceMargin)
-        .padding(.vertical, 10)
-        .background(LuminaTokens.Surface.porcelain)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(LuminaTokens.Line.hairline)
-                .frame(height: LuminaTokens.Line.hairlineWidth)
-        }
-    }
-}
-
 struct LuminaQuietButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         QuietBody(configuration: configuration)

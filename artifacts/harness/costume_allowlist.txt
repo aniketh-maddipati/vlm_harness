@@ -5,7 +5,6 @@
 #
 # owned-by-polish — bare Button in live P0 chrome; needs a named Lumina*ButtonStyle
 Lumina/Views/P0/P0EditSlider.swift:47 Button without a named Lumina*Style
-Lumina/Views/P0/P0EditSlider.swift:181 Button without a named Lumina*Style
 #
 # owned-by-polish — legacy/non-P0 surfaces; system costume and raw SwiftUI colors
 Lumina/Views/CompareAndSoftViews.swift:39 Button without a named Lumina*Style

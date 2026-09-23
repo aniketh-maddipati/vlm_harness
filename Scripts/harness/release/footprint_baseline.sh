@@ -26,7 +26,9 @@ mkdir -p "$OUT"
 APP_BYTES=$(du -sk "$APP" | awk '{print $1 * 1024}')
 BIN_BYTES=$(stat -f%z "$BIN")
 LINKED=$(otool -L "$BIN" | tail -n +2 | wc -l | tr -d ' ')
-TEXT_BYTES=$(size -m "$BIN" 2>/dev/null | awk '/__TEXT/ {print $1}' || echo 0)
+MEASURED_ARCH=$(uname -m)
+TEXT_BYTES=$(size -m -arch "$MEASURED_ARCH" "$BIN" | awk '$1 == "Segment" && $2 == "__TEXT:" {print $3; exit}')
+[[ "$TEXT_BYTES" =~ ^[0-9]+$ ]] || { echo "footprint_baseline: invalid __TEXT size" >&2; exit 1; }
 
 python3 - <<PY
 import json, datetime, pathlib
@@ -36,10 +38,12 @@ payload = {
     "app_bytes": int("$APP_BYTES"),
     "executable_bytes": int("$BIN_BYTES"),
     "linked_dylibs": int("$LINKED"),
-    "text_segment_kb": int("$TEXT_BYTES") if "$TEXT_BYTES".isdigit() else 0,
+    "text_segment_arch": "$MEASURED_ARCH",
+    "text_segment_bytes": int("$TEXT_BYTES"),
+    "text_segment_kb": int("$TEXT_BYTES") / 1024,
 }
 path = pathlib.Path("$OUT/latest.json")
-path.write_text(json.dumps(payload, indent=2) + "\\n", encoding="utf-8")
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 print(f"footprint_baseline: OK app={payload['app_bytes']} exec={payload['executable_bytes']} linked={payload['linked_dylibs']}")
 print(f"    report={path}")
 PY
