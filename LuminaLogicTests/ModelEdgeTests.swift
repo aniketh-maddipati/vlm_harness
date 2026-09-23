@@ -218,8 +218,20 @@ final class ModelEdgeTests: XCTestCase {
         let depth = 2_000
         let nested = String(repeating: "{\"a\":", count: depth) + "1" + String(repeating: "}", count: depth)
         let transport = FakeModelTransport(content: nested)
-        // Either it parses (JSONSerialization can) or it's refused; it must not crash.
-        _ = try? await client(transport).completeJSON(system: "s", user: "u", schemaName: "t", schemaJSON: "{\"type\":\"object\"}")
+        // Refused before Foundation's recursive parser sees it: on CI's Foundation
+        // 2 000 levels was a stack overflow in the test host, not an error.
+        do {
+            _ = try await client(transport).completeJSON(system: "s", user: "u", schemaName: "t", schemaJSON: "{\"type\":\"object\"}")
+            XCTFail("a 2 000-deep reply must be refused")
+        } catch {
+            XCTAssertEqual(error as? ModelClientError, .responseTooDeep(depth: 2_000))
+        }
+    }
+
+    func testNestingDepthIgnoresBracketsInsideStrings() {
+        XCTAssertEqual(ChatCompletionsClient.nestingDepth(of: Data("{\"a\":\"{[[[\",\"b\":[1,[2]]}".utf8)), 3)
+        XCTAssertEqual(ChatCompletionsClient.nestingDepth(of: Data("{\"a\":\"\\\"{\"}".utf8)), 1)
+        XCTAssertEqual(ChatCompletionsClient.nestingDepth(of: Data("not json".utf8)), 0)
     }
 
     func testMalformedEnvelopeShapesAreEmptyResponse() async {

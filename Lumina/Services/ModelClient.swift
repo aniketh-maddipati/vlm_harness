@@ -93,6 +93,10 @@ nonisolated enum ModelClientError: Error, Equatable, Sendable {
     case notJSON
     /// The server sent more than any schema-constrained answer could need.
     case responseTooLarge(bytes: Int)
+    /// Nested deeper than any schema-constrained answer could be. Refused before
+    /// Foundation's recursive parser sees it — on some Foundation builds that is a
+    /// stack overflow, not an error.
+    case responseTooDeep(depth: Int)
 }
 
 /// Minimal OpenAI-compatible chat client: one system prompt, one user turn with
@@ -150,6 +154,10 @@ nonisolated struct ChatCompletionsClient: Sendable {
         guard data.count <= Self.maxResponseBytes else {
             throw ModelClientError.responseTooLarge(bytes: data.count)
         }
+        let depth = Self.nestingDepth(of: data)
+        guard depth <= Self.maxNestingDepth else {
+            throw ModelClientError.responseTooDeep(depth: depth)
+        }
         guard (200..<300).contains(status) else {
             throw ModelClientError.http(status: status, message: Self.errorMessage(in: data))
         }
@@ -167,12 +175,45 @@ nonisolated struct ChatCompletionsClient: Sendable {
 
     static let maxResponseBytes = 256 * 1024
 
+    /// A schema-constrained answer is an object of scalars, at most a few levels of
+    /// arrays inside; 32 leaves room for any envelope a compatible server wraps it in.
+    static let maxNestingDepth = 32
+
+    /// Deepest `{` / `[` nesting in the bytes, ignoring brackets inside strings. A
+    /// linear scan, so it costs nothing next to the parse it protects, and it never
+    /// recurses — which is the point.
+    static func nestingDepth(of data: Data) -> Int {
+        var depth = 0
+        var deepest = 0
+        var inString = false
+        var escaped = false
+        for byte in data {
+            if inString {
+                if escaped { escaped = false }
+                else if byte == UInt8(ascii: "\\") { escaped = true }
+                else if byte == UInt8(ascii: "\"") { inString = false }
+                continue
+            }
+            switch byte {
+            case UInt8(ascii: "\""): inString = true
+            case UInt8(ascii: "{"), UInt8(ascii: "["):
+                depth += 1
+                deepest = max(deepest, depth)
+            case UInt8(ascii: "}"), UInt8(ascii: "]"):
+                depth = max(0, depth - 1)
+            default: break
+            }
+        }
+        return deepest
+    }
+
     /// Tolerates code fences or stray prose around the object — small local models
     /// sometimes add them even under a schema.
     static func firstJSONObject(in text: String) -> [String: Any]? {
         guard let start = text.firstIndex(of: "{"), let end = text.lastIndex(of: "}"),
               start < end else { return nil }
         let slice = Data(text[start...end].utf8)
+        guard nestingDepth(of: slice) <= maxNestingDepth else { return nil }
         return (try? JSONSerialization.jsonObject(with: slice)) as? [String: Any]
     }
 
