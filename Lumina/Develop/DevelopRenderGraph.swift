@@ -170,7 +170,10 @@ nonisolated enum DevelopRenderGraph {
                let jpeg = OrientedDisplayImage.ciImage(at: proxy) {
                 usedProxy = true
                 fidelity = .proxyFallback
-                return jpeg
+                // A proxy written before the extractor baked orientation may still
+                // be in sensor space. Its extent says so, and `aligning` is a no-op
+                // on every proxy that is already upright.
+                return OrientedDisplayImage.aligning(jpeg, toFile: request.rawURL)
             }
             return nil
         case .jpegProxy:
@@ -178,7 +181,7 @@ nonisolated enum DevelopRenderGraph {
             fidelity = .proxyFallback
             if let proxy = request.proxyURL,
                let jpeg = OrientedDisplayImage.ciImage(at: proxy) {
-                return jpeg
+                return OrientedDisplayImage.aligning(jpeg, toFile: request.rawURL)
             }
             return OrientedDisplayImage.ciImage(at: request.rawURL)
         }

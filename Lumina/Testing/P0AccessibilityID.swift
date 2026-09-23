@@ -34,6 +34,17 @@ enum P0AccessibilityID {
     static let pointerCullKeep = "p0.pointerCull.keep"
     static let pointerCullReject = "p0.pointerCull.reject"
 
+    // Elastic — time table / focus route
+    static let elasticTable = "p0.elastic.table"
+    static let elasticHeader = "p0.elastic.header"
+    static let elasticAutoButton = "p0.elastic.auto"
+    static let elasticFocus = "p0.elastic.focus"
+    static let elasticTilePrefix = "p0.elastic.tile."     // + asset UUID
+    static func elasticTile(_ id: UUID) -> String { elasticTilePrefix + id.uuidString }
+    static let elasticVersionPrefix = "p0.elastic.version." // + 1 / 2 / 3
+    static let elasticDevelopDrawer = "p0.elastic.develop"
+    static func elasticVersion(_ index: Int) -> String { elasticVersionPrefix + String(index) }
+
     // Toolbar / counts / controls
     static let toolbar = "p0.toolbar"
     static let homeButton = "p0.toolbar.home"             // back to Open surface

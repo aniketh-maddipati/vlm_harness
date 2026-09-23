@@ -20,7 +20,7 @@ final class MissingOriginalsTests: LuminaUITestCase {
         // factual unavailable-original state.
         sheet.focus(assetID: missing)
         let single = sheet.openFocused()
-        let inPhoto = lumina.waitForProbe { $0.route == "singlePhoto" }
+        let inPhoto = lumina.waitForProbe { $0.route == "focus" }
         XCTAssertEqual(inPhoto.focusedAvailability, "missing", "structured state reports the original as unavailable")
         XCTAssertTrue(single.image.waitForExistence(timeout: 8), "cached preview remains visible for a missing original")
         // #6 — an in-place affordance surfaces the unavailable original (not just a global hint).
@@ -30,7 +30,7 @@ final class MissingOriginalsTests: LuminaUITestCase {
 
         // Catalog is intact; return to grid cleanly.
         single.returnToGrid()
-        let back = lumina.waitForProbe { $0.route == "contactSheet" }
+        let back = lumina.waitForProbe { $0.route == "time" }
         XCTAssertEqual(back.assetCount, assetCount, "missing originals must not delete assets")
         Invariants.assert(back, app: app)
     }

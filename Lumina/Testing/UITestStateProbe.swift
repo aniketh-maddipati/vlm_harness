@@ -5,7 +5,7 @@ import SwiftUI
 /// to assert structured invariants: counts, focus/selection independence, cull map, availability.
 /// CP2 journal persistence is beside-shoot on disk — not reflected in this probe schema.
 struct ProbeSnapshot: Codable, Equatable {
-    var route: String                 // "open" | "contactSheet" | "singlePhoto"
+    var route: String                 // "open" | "time" | "focus"
     var shootName: String?
     var fixture: String?
     var seed: String
@@ -65,14 +65,9 @@ struct ProbeSnapshot: Codable, Equatable {
     /// `p0.key.mark`, `p0.zoom.gesture`) are live. Off in an ordinary run; a measurement
     /// session asserts this is true before it trusts a single number.
     var renderInstrumentsEnabled: Bool
-    /// Law 5 / D11 — Esc would clear a transient hold (loupe / clipping / look glance /
-    /// burst lean / kept rail) before navigation. Mirrors `P0EscLadder` depth 0.
+    /// Law 5 / D11 — Esc has something to unwind (peek / drawer / selection) before it
+    /// would change the route. Mirrors `P0EscLadder` steps 1–3.
     var escTransientHoldActive: Bool
-    /// Temporary four-variant edit branch (session-only; never persisted).
-    var editVariantsActive: Bool
-    var editVariantAssetID: String?
-    var focusedEditVariantIndex: Int?
-    var editVariantCancellationCount: Int
     var preparedSessionCreated: Int? = nil
     var preparedSessionHits: Int? = nil
     var interactiveMaterializations: Int? = nil
@@ -80,7 +75,6 @@ struct ProbeSnapshot: Codable, Equatable {
     var gpuUploads: Int? = nil
     var variantRenders: Int? = nil
     var metalPresents: Int? = nil
-    var variantSourceReady: Bool? = nil
     /// D26/D28 — quantized elastic-strip facts (token steps, never interpolated).
     var elasticStripTrackHeight: Int = 90
     var elasticStripNearLongEdge: Int = 210
@@ -114,9 +108,9 @@ extension P0SessionModel {
         if self.route == .open {
             route = "open"
         } else if inspectingAssetID != nil {
-            route = "singlePhoto"
+            route = "focus"
         } else {
-            route = "contactSheet"
+            route = "time"
         }
 
         let focused = focusedAssetID.flatMap { id in assets.first(where: { $0.id == id }) }
@@ -170,7 +164,7 @@ extension P0SessionModel {
                 }
                 return extent.width + 1 < extent.height
             },
-            pointerCullTargetsVisible: route == "contactSheet" && inspectingAssetID == nil && focusedAssetID != nil,
+            pointerCullTargetsVisible: route == "time" && inspectingAssetID == nil && focusedAssetID != nil,
             inspectingAssetID: inspectingAssetID?.uuidString,
             selectedAssetIDs: selectedAssetIDs.map(\.uuidString).sorted(),
             missingOriginalCount: status.missingOriginalCount,
@@ -185,15 +179,7 @@ extension P0SessionModel {
                 || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
             keyRoutingOwner: "P0KeyRoutingModifier",
             renderInstrumentsEnabled: P0RenderInstruments.shared.isEnabled,
-            escTransientHoldActive: holdingLoupe
-                || holdingClipping
-                || lookGlancing
-                || leanedBurstID != nil
-                || walkingKeptRail,
-            editVariantsActive: workspaceState.editVariants != nil,
-            editVariantAssetID: workspaceState.editVariants?.assetID.uuidString,
-            focusedEditVariantIndex: workspaceState.focusedEditVariantIndex,
-            editVariantCancellationCount: workspaceState.editVariantCancellationCount,
+            escTransientHoldActive: P0EscLadder.hasTransientDepth(session: self),
             preparedSessionCreated: counters.preparedSessionCreated,
             preparedSessionHits: counters.preparedSessionHits,
             interactiveMaterializations: counters.interactiveMaterializations,
@@ -201,11 +187,10 @@ extension P0SessionModel {
             gpuUploads: counters.gpuUploads,
             variantRenders: counters.variantRenders,
             metalPresents: counters.metalPresents,
-            variantSourceReady: variantPinnedSource != nil,
             elasticStripTrackHeight: Int(ElasticCanvasLayout.stripTrackHeight.rounded()),
             elasticStripNearLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 1).rounded()),
             elasticStripFarLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 4).rounded()),
-            chapterTableMounted: self.route == .contactSheet,
+            chapterTableMounted: self.route == .time || self.route == .focus,
             inspectPeripheryDimOpacity: inspectingAssetID == nil
                 ? 1
                 : ElasticCanvasLayout.peripheryDimOpacity

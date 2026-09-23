@@ -4,11 +4,18 @@ import Foundation
 import Observation
 import SwiftUI
 
+/// Elastic routes. One continuous surface: the time table and the focused frame.
+///
+/// `focus` is a route, not a separate piece of state — "a photograph is open" is
+/// `route == .focus`, and *which* photograph is always `focusedAssetID`. The cursor
+/// survives the transition in both directions, so Esc returns to the table on the
+/// same frame it left from.
 enum P0Route: Equatable {
     case open
-    case contactSheet
-    /// Bridge into grouping — cull/selection state stays intact; full grouping is next.
-    case grouping
+    /// The table — moments as rows, bursts stacked.
+    case time
+    /// One photograph, centered.
+    case focus
 }
 
 enum P0AdjustmentSection: String, CaseIterable, Identifiable, Sendable {
@@ -73,13 +80,48 @@ struct ContactSheetItem: Identifiable, Equatable {
 @MainActor
 @Observable
 final class P0SessionModel {
-    private static let variantExposureStep = 0.1
-    private static let variantTemperatureStep = 250.0
-    private static let variantTintStep = 2.0
-
     var route: P0Route = .open
     var shoot: ShootRecord?
-    var assets: [AssetRecord] = []
+    var assets: [AssetRecord] = [] {
+        didSet {
+            // Element writes (`assets[i].cull = …`) fire this once per element,
+            // so it must stay O(1): invalidate, never recompute, here.
+            assetIndexCache = nil
+            chaptersCache = nil
+            chapterIDByAssetCache = nil
+        }
+    }
+
+    /// `id → position`, rebuilt on the first read after any mutation.
+    ///
+    /// The table asks for an asset by id several times per tile — the record
+    /// itself, set membership, whether it came off a phone — so a linear scan
+    /// makes a render pass quadratic in the size of the shoot. Invalidation is
+    /// O(1) and the rebuild is paid once per pass rather than once per lookup.
+    /// Ignored by observation: it is derived, and writing it during a view
+    /// update must not read as a change.
+    @ObservationIgnored private var assetIndexCache: [UUID: Int]?
+
+    /// Position of `id` in `assets`, or nil when the shoot does not carry it.
+    func assetIndex(_ id: UUID) -> Int? {
+        if let cached = assetIndexCache { return cached[id] }
+        var map = [UUID: Int](minimumCapacity: assets.count)
+        for (offset, asset) in assets.enumerated() where map[asset.id] == nil {
+            // First occurrence wins, matching the `first(where:)` scans this
+            // replaces. Ids are unique in practice, but a drop-in should not
+            // quietly pick a different element when they are not.
+            map[asset.id] = offset
+        }
+        assetIndexCache = map
+        return map[id]
+    }
+
+    /// The record for `id`. Prefer this to `assets.first(where:)` anywhere a
+    /// view can call it more than once per frame.
+    func asset(_ id: UUID) -> AssetRecord? {
+        guard let index = assetIndex(id) else { return nil }
+        return assets[index]
+    }
     var status = ContactSheetPreparationStatus()
     var recentShoots: [RecentShootSummary] = []
     var workspaceState = WorkspaceState()
@@ -96,8 +138,6 @@ final class P0SessionModel {
     var densityColumns: Int = 6
     /// Density is a lean. Rest state packs to leftover height.
     var densityLeaned: Bool = false
-    /// Hold-Space loupe — release returns.
-    var holdingLoupe: Bool = false
     /// Hold-J clipping glance — release returns.
     var holdingClipping: Bool = false
     /// Hold-⌘G look glance — release returns to time.
@@ -105,16 +145,49 @@ final class P0SessionModel {
     var glanceBurstIDs: [String] = []
     /// Return / pinch opens a multi-frame burst to pick a frame.
     var leanedBurstID: String?
-    /// Tab / click walks the kept rail instead of the chapter.
+    /// The set peek walks the set instead of the shoot. Backing state for `peek == .set`.
     var walkingKeptRail: Bool = false
+    /// Hold-⇥ peek: similar → set → flags. Nil when nothing is held or pinned.
+    var peek: ElasticPeek?
+    /// `E` — the develop drawer beside the photograph. Backing state; the drawer
+    /// itself lands with checkpoint 05.
+    var developDrawerOpen = false
+    /// Where a ⇧-click range starts: the last plain click, or the cursor when there
+    /// has been none (README `anchor`). Session-only.
+    var selectionAnchorID: UUID?
+    /// Which groups `M` carries from the cursor (README `sync{}`). Session-only.
+    var matchGroups: Set<ElasticMatchGroup> = ElasticMatchGroup.defaultOn
+    /// A short tap on ⇥ pins the peek; the next ⇥ cycles it and past the end closes.
+    var peekPinned = false
+    /// When ⇥ opened the peek — tap versus hold is decided on release.
+    @ObservationIgnored var peekOpenedAt: CFAbsoluteTime?
+    /// Sharpness and embeddings measured for the flags peek, off grid thumbnails,
+    /// filled in by `measureForInference` and kept for the life of the shoot.
+    var inferredMeasurements = ElasticInferredGroups.Measurements()
+    @ObservationIgnored private var inferenceTask: Task<Void, Never>?
     var travelingBurstID: String?
     var filter: GridFilter = .all
     var scrollAnchor: Double = 0
     var userFacingError: String?
     private(set) var persistenceError: String?
     var isDropTargeted = false
-    /// Single-photo editing surface — opens on Return / double-click.
-    var inspectingAssetID: UUID?
+    /// The open photograph, derived from the route and the cursor rather than stored.
+    ///
+    /// There is no second source of truth here: a frame is "being inspected" exactly
+    /// when the route is `.focus`, and it is always the focused frame. Assigning a
+    /// non-nil value focuses that frame and enters `.focus`; assigning nil leaves
+    /// `.focus` for the table without moving the cursor.
+    var inspectingAssetID: UUID? {
+        get { route == .focus ? focusedAssetID : nil }
+        set {
+            if let newValue {
+                focusedAssetID = newValue
+                route = .focus
+            } else if route == .focus {
+                route = .time
+            }
+        }
+    }
     /// One-shot flag so returning from single-photo restores scroll without fighting live browsing.
     var pendingScrollRestore = false
     let undoCoordinator = P0UndoCoordinator()
@@ -139,18 +212,12 @@ final class P0SessionModel {
     /// Drawable-native authoritative preview target. Full resolution remains
     /// reserved for 1:1 ROI and export.
     private(set) var inspectionSettledLongEdge = 2560
-    /// Pinned interactive RAW surface shared by the four temporary variants.
-    /// Not an asset, not a recipe store, not a second RAW session.
-    private(set) var variantPinnedGeneration: UInt64 = 0
-    private(set) var variantPinnedSource: CIImage?
-    private var variantPinnedAssetID: UUID?
 
     private var preparationTask: Task<Void, Never>?
     private var persistTask: Task<Void, Never>?
     private var folderAccess: (url: URL, didStartAccess: Bool)?
     private var capabilityTask: Task<Void, Never>?
     private var prewarmTask: Task<Void, Never>?
-    private var variantPinnedTask: Task<Void, Never>?
     /// Debounces expensive settle/prewarm while arrow keys / filmstrip hover spam focus.
     private var inspectionWarmTask: Task<Void, Never>?
     private var inspectionResizeTask: Task<Void, Never>?
@@ -247,21 +314,38 @@ final class P0SessionModel {
         return developSchedulerStorage.presentedCIImage(for: assetID)
     }
 
-    func displayedVariantCIImage(at index: Int) -> CIImage? {
-        guard workspaceState.editVariants?.assetID == variantPinnedAssetID,
-              let source = variantPinnedSource,
-              let recipe = workspaceState.editVariants?.recipe(forVariantAt: index)
-        else { return nil }
-        return DevelopRenderGraph.branchInteractiveVariant(from: source, recipe: recipe)
-    }
-
     /// Live develop fidelity for a photograph, if the scheduler has started.
     func developFidelity(for assetID: UUID) -> DevelopFidelityState? {
         developSchedulerStorage?.fidelityByPhoto[assetID]
     }
 
+    /// The arrangement is a pure function of `assets`, and the table asks for
+    /// it once per row plus several times per gap — recomputing it each time
+    /// made a layout pass of a 400-frame shoot cost seconds. Same contract as
+    /// `assetIndexCache`: derived, invalidated with `assets`, ignored by
+    /// observation so filling it during a view update is not a change.
+    @ObservationIgnored private var chaptersCache: [ShootChapter]?
+
     var chapters: [ShootChapter] {
-        ShootChapterArrangement.arrange(assets)
+        if let chaptersCache { return chaptersCache }
+        let arranged = ShootChapterArrangement.arrange(assets)
+        chaptersCache = arranged
+        return arranged
+    }
+
+    /// Which moment each frame belongs to. Derived from `chapters`; the strip
+    /// asks per tile, and a scan of every chapter's members per tile made the
+    /// strip quadratic in the shoot.
+    @ObservationIgnored private var chapterIDByAssetCache: [UUID: String]?
+
+    func chapterID(containing assetID: UUID) -> String? {
+        if let chapterIDByAssetCache { return chapterIDByAssetCache[assetID] }
+        var map: [UUID: String] = [:]
+        for chapter in chapters {
+            for id in chapter.assetIDs { map[id] = chapter.id }
+        }
+        chapterIDByAssetCache = map
+        return map[assetID]
     }
 
     var activeChapter: ShootChapter? {
@@ -354,12 +438,14 @@ final class P0SessionModel {
         openFolder(url)
     }
 
-    func openFolder(_ url: URL) {
+    /// `shootName` overrides the catalog name, which otherwise is the folder's
+    /// last path component. Generated cards all keep their frames in a folder
+    /// called `frames`; without a name they would share one catalog.
+    func openFolder(_ url: URL, shootName: String? = nil) {
         preparationTask?.cancel()
         releaseFolderAccess()
         userFacingError = nil
         inspectingAssetID = nil
-        cancelEditVariants()
         workspaceState.clear()
         showingBefore = false
         clearGestureState()
@@ -373,7 +459,7 @@ final class P0SessionModel {
 
         preparationTask = Task { [weak self] in
             guard let self else { return }
-            let stream = ContactSheetPreparation.openFolder(url)
+            let stream = ContactSheetPreparation.openFolder(url, shootName: shootName)
             await self.consume(stream)
         }
     }
@@ -389,7 +475,6 @@ final class P0SessionModel {
         releaseFolderAccess()
         userFacingError = nil
         inspectingAssetID = nil
-        cancelEditVariants()
         workspaceState.clear()
         showingBefore = false
         clearGestureState()
@@ -741,6 +826,153 @@ final class P0SessionModel {
         clearGestureState()
     }
 
+    // MARK: - Develop drawer
+
+    /// `E` in the focus route.
+    func toggleDevelopDrawer() {
+        guard route == .focus else { return }
+        developDrawerOpen.toggle()
+    }
+
+    /// Where a nudge ripples: the selection when there is one, else the cursor's
+    /// burst, else the cursor alone (the prototype's `groupOf`).
+    func developScopeIDs(for id: UUID) -> [UUID] {
+        if !selectedAssetIDs.isEmpty { return selectedAssetIDs }
+        if let burst = chapters.flatMap(\.bursts).first(where: { $0.assetIDs.contains(id) }),
+           burst.frameCount > 1 {
+            return burst.frames.map(\.coverID)
+        }
+        return [id]
+    }
+
+    /// A drawer slider let go: the cursor takes the value it was scrubbed to, and
+    /// every other frame in the scope moves by the same delta, clamped to the
+    /// slider's range — one command, one ⌘Z. The result is yours.
+    func endDevelopGesture(_ keyPath: WritableKeyPath<EditRecipe, Double>, range: ClosedRange<Double>) {
+        guard isEditGestureActive, let id = gestureAssetID,
+              let before = gestureBaselineRecipe,
+              let after = workingRecipe else {
+            clearGestureState()
+            return
+        }
+        let delta = after[keyPath: keyPath] - before[keyPath: keyPath]
+        var marks: [BatchEditMutationCommand.Mark] = []
+        if let mark = developMark(for: id, before: before, after: after) {
+            marks.append(mark)
+        }
+        for other in developScopeIDs(for: id) where other != id && delta != 0 {
+            let current = recipe(for: other)
+            let moved = current.updating { recipe in
+                recipe[keyPath: keyPath] = min(max(recipe[keyPath: keyPath] + delta, range.lowerBound), range.upperBound)
+            }
+            if let mark = developMark(for: other, before: current, after: moved) {
+                marks.append(mark)
+            }
+        }
+        commitDevelopBatch(marks, label: "Develop")
+        settleCurrentRecipe(for: id, recipe: recipe(for: id))
+        clearGestureState()
+    }
+
+    /// An instantaneous drawer edit on the cursor — ratio, rotate, profile. Goes
+    /// through the same batch so provenance becomes yours.
+    func applyDevelopEdit(label: String, _ mutate: (inout EditRecipe) -> Void) {
+        flushPendingEditIfNeeded()
+        guard let id = inspectingAssetID ?? focusedAssetID else { return }
+        let before = recipe(for: id)
+        let after = before.updating(mutate)
+        guard let mark = developMark(for: id, before: before, after: after) else { return }
+        commitDevelopBatch([mark], label: label)
+        scrubCurrentRecipe(for: id, recipe: recipe(for: id), recordInput: false)
+        settleCurrentRecipe(for: id, recipe: recipe(for: id))
+    }
+
+    /// `R` — a quarter turn clockwise.
+    func rotateFocusedPhotograph() {
+        applyDevelopEdit(label: "Rotate") { $0.straightenDegrees += 90 }
+    }
+
+    /// `M` — carry the checked groups from the cursor to the frames it stands for:
+    /// the selection, else the set when the cursor is in it, else its moment.
+    @discardableResult
+    func matchToCursor() -> Int {
+        flushPendingEditIfNeeded()
+        guard let id = inspectingAssetID ?? focusedAssetID else { return 0 }
+        let source = recipe(for: id)
+        var marks: [BatchEditMutationCommand.Mark] = []
+        for target in matchTargetIDs(for: id) {
+            let before = recipe(for: target)
+            let after = before.updating { recipe in
+                for group in matchGroups {
+                    group.copy(from: source, to: &recipe)
+                }
+            }
+            guard before.valueFingerprint != after.valueFingerprint,
+                  let asset = assets.first(where: { $0.id == target }) else { continue }
+            marks.append(BatchEditMutationCommand.Mark(
+                assetID: target, before: before, after: after,
+                sourceBefore: asset.recipeSource, sourceAfter: .hand
+            ))
+        }
+        guard !marks.isEmpty else { return 0 }
+        commitDevelopBatch(marks, label: "Match")
+        return marks.count
+    }
+
+    /// The prototype's `syncIds`, without the cursor.
+    func matchTargetIDs(for id: UUID) -> [UUID] {
+        let targets: [UUID]
+        if !selectedAssetIDs.isEmpty {
+            targets = selectedAssetIDs
+        } else if peek == .set || isInFinalSet(id) {
+            targets = finalSetAssetIDs
+        } else if let chapter = ShootChapterArrangement.chapter(containing: id, in: chapters) {
+            targets = chapter.assetIDs
+        } else {
+            targets = []
+        }
+        return targets.filter { $0 != id }
+    }
+
+    /// A hand edit on a frame: an auto frame becomes auto + your hand, anything
+    /// else becomes yours. Nil when nothing changed.
+    private func developMark(for id: UUID, before: EditRecipe, after: EditRecipe) -> BatchEditMutationCommand.Mark? {
+        guard before.valueFingerprint != after.valueFingerprint,
+              let asset = assets.first(where: { $0.id == id }) else { return nil }
+        let wasAuto = asset.recipeSource == .auto || asset.recipeSource == .autoHand
+        return BatchEditMutationCommand.Mark(
+            assetID: id, before: before, after: after,
+            sourceBefore: asset.recipeSource, sourceAfter: wasAuto ? .autoHand : .hand
+        )
+    }
+
+    /// One batch: recipes and provenance together, the hand recipe cached for `3`.
+    private func commitDevelopBatch(_ marks: [BatchEditMutationCommand.Mark], label: String) {
+        guard !marks.isEmpty else { return }
+        let commandStartedAt = Date()
+        let selectionSnapshot = selectedAssetIDs
+        let orderSnapshot = shoot?.finalSetOrder.assetIDs ?? []
+        let command = BatchEditMutationCommand(marks: marks, label: label)
+        guard command.apply(to: &assets) else { return }
+        for mark in marks where mark.sourceAfter != .auto {
+            if let index = assets.firstIndex(where: { $0.id == mark.assetID }) {
+                assets[index].handRecipe = mark.after
+            }
+        }
+        if var shoot {
+            shoot.finalSetOrder.assetIDs = orderSnapshot
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+        selectedAssetIDs = selectionSnapshot
+        undoCoordinator.push(command)
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueBatchEditPersistence(command, commandStartedAt: commandStartedAt)
+        if let inspectingAssetID, command.marks.contains(where: { $0.assetID == inspectingAssetID }) {
+            warmBeforeAfter(for: inspectingAssetID, recipe: recipe(for: inspectingAssetID))
+        }
+    }
+
     /// Commit an instantaneous edit (reset, crop preset, rotate) as one undo command.
     func applyEditMutation(_ mutate: (inout EditRecipe) -> Void, assetID: UUID? = nil) {
         flushPendingEditIfNeeded()
@@ -751,145 +983,6 @@ final class P0SessionModel {
         commitRecipeMutation(assetID: id, before: before, after: after)
         scrubCurrentRecipe(for: id, recipe: recipe(for: id), recordInput: false)
         settleCurrentRecipe(for: id, recipe: recipe(for: id))
-    }
-
-    // MARK: - Temporary edit variants
-
-    func beginEditVariants(assetID: UUID? = nil) {
-        flushPendingEditIfNeeded()
-        let id = assetID ?? inspectingAssetID ?? focusedAssetID
-        guard let id, assets.contains(where: { $0.id == id }) else { return }
-        abandonVariantPinnedSource()
-        workspaceState.beginEditVariants(assetID: id, sharedRecipe: recipe(for: id))
-        variantPinnedAssetID = id
-        let generation = variantPinnedGeneration
-        variantPinnedTask = Task { [weak self] in
-            await self?.fillVariantPinnedSource(assetID: id, generation: generation)
-        }
-    }
-
-    func setSharedVariantExposure(_ exposure: Double) {
-        workspaceState.setSharedVariantExposure(exposure)
-    }
-
-    func setVariantExposure(_ exposure: Double?, at index: Int) {
-        workspaceState.setVariantExposure(exposure, at: index)
-    }
-
-    func setVariantWhiteBalance(
-        temperature: Double?,
-        tint: Double?,
-        at index: Int
-    ) {
-        workspaceState.setVariantWhiteBalance(
-            temperature: temperature,
-            tint: tint,
-            at: index
-        )
-    }
-
-    func focusEditVariant(at index: Int) {
-        workspaceState.focusEditVariant(at: index)
-    }
-
-    func moveEditVariantFocus(by delta: Int) {
-        workspaceState.moveEditVariantFocus(by: delta)
-    }
-
-    func chooseFocusedEditVariant() {
-        guard let index = workspaceState.focusedEditVariantIndex else { return }
-        chooseEditVariant(at: index)
-    }
-
-    func nudgeSharedVariantExposure(up: Bool) {
-        guard let exposure = workspaceState.editVariants?.sharedRecipe.exposure else { return }
-        setSharedVariantExposure(exposure + (up ? 1 : -1) * Self.variantExposureStep)
-    }
-
-    func nudgeFocusedVariantExposure(up: Bool) {
-        guard let index = workspaceState.focusedEditVariantIndex,
-              let exposure = workspaceState.editVariants?.recipe(forVariantAt: index)?.exposure
-        else { return }
-        setVariantExposure(
-            exposure + (up ? 1 : -1) * Self.variantExposureStep,
-            at: index
-        )
-    }
-
-    func nudgeFocusedVariantTemperature(up: Bool) {
-        guard let index = workspaceState.focusedEditVariantIndex,
-              let variant = workspaceState.editVariants?.recipe(forVariantAt: index)
-        else { return }
-        setVariantWhiteBalance(
-            temperature: variant.temperature + (up ? 1 : -1) * Self.variantTemperatureStep,
-            tint: variant.tint,
-            at: index
-        )
-    }
-
-    func nudgeFocusedVariantTint(up: Bool) {
-        guard let index = workspaceState.focusedEditVariantIndex,
-              let variant = workspaceState.editVariants?.recipe(forVariantAt: index)
-        else { return }
-        setVariantWhiteBalance(
-            temperature: variant.temperature,
-            tint: variant.tint + (up ? 1 : -1) * Self.variantTintStep,
-            at: index
-        )
-    }
-
-    func chooseEditVariant(at index: Int) {
-        guard let chosen = workspaceState.takeEditVariant(at: index),
-              assets.contains(where: { $0.id == chosen.assetID }) else { return }
-        abandonVariantPinnedSource()
-        applyEditMutation({ $0 = chosen.recipe }, assetID: chosen.assetID)
-    }
-
-    func cancelEditVariants() {
-        guard workspaceState.editVariants != nil else { return }
-        abandonVariantPinnedSource()
-        workspaceState.cancelEditVariants()
-        DevelopRenderCounters.recordCancellation()
-    }
-
-    func publishVariantPinnedSource(_ image: CIImage?, generation: UInt64, assetID: UUID) {
-        guard generation == variantPinnedGeneration,
-              variantPinnedAssetID == assetID,
-              workspaceState.editVariants?.assetID == assetID else { return }
-        variantPinnedSource = image
-    }
-
-    private func abandonVariantPinnedSource() {
-        variantPinnedTask?.cancel()
-        variantPinnedTask = nil
-        variantPinnedGeneration &+= 1
-        variantPinnedSource = nil
-        variantPinnedAssetID = nil
-    }
-
-    private func fillVariantPinnedSource(assetID: UUID, generation: UInt64) async {
-        guard let urls = resolveRenderURLs(for: assetID) else { return }
-        let intent = workspaceState.editVariants?.sharedRecipe.rawIntent ?? recipe(for: assetID).rawIntent
-        let longEdge = DevelopRenderQuality.interactive.defaultLongEdge
-        var image: CIImage?
-        if let raw = urls.rawURL {
-            let session = await PreparedRawSessionRegistry.shared.session(for: assetID, rawURL: raw)
-            if let pin = await session.interactivePinnedSource(
-                intent: intent,
-                targetLongEdge: longEdge
-            ) {
-                image = pin.image
-            }
-        } else if let proxy = urls.proxyURL {
-            image = OrientedDisplayImage.ciImage(at: proxy, maxPixelSize: longEdge)
-        }
-        guard !Task.isCancelled else { return }
-        publishVariantPinnedSource(image, generation: generation, assetID: assetID)
-    }
-
-    private func dropVariantPinIfInactive() {
-        guard workspaceState.editVariants == nil else { return }
-        abandonVariantPinnedSource()
     }
 
     func resetRecipeToNeutral(assetID: UUID? = nil) {
@@ -1056,7 +1149,6 @@ final class P0SessionModel {
         let generation = inspectionWarmGeneration
         capabilityTask?.cancel()
         prewarmTask?.cancel()
-        showingBefore = false
         refreshCapabilities(for: assetID)
         let recipe = recipe(for: assetID)
         // Leader frame immediately — cancels prior inflight for this photo.
@@ -1071,7 +1163,6 @@ final class P0SessionModel {
         let generation = inspectionWarmGeneration
         capabilityTask?.cancel()
         prewarmTask?.cancel()
-        showingBefore = false
         developScheduler.cancelExcept(photoID: assetID)
         let recipe = recipe(for: assetID)
         openRender(for: assetID, recipe: recipe)
@@ -1174,17 +1265,17 @@ final class P0SessionModel {
 
     func setFocus(_ id: UUID?) {
         let start = CFAbsoluteTimeGetCurrent()
-        if let stagedAssetID = workspaceState.editVariants?.assetID, stagedAssetID != id {
-            cancelEditVariants()
-        }
-        if inspectingAssetID != nil, let id, id != inspectingAssetID {
+        // Captured before the cursor moves: `inspectingAssetID` is derived from the
+        // cursor, so reading it after the assignment would always agree with `id`
+        // and the neighbor-nav warm below would never fire.
+        let previouslyInspecting = inspectingAssetID
+        if previouslyInspecting != nil, let id, id != previouslyInspecting {
             flushPendingEditIfNeeded()
         }
         let changed = focusedAssetID != id
         focusedAssetID = id
-        if inspectingAssetID != nil, let id {
-            let photoChanged = inspectingAssetID != id
-            inspectingAssetID = id
+        if previouslyInspecting != nil, let id {
+            let photoChanged = previouslyInspecting != id
             if photoChanged {
                 // Debounce settle/prewarm — arrow spam was launching N settled RAW demosaics.
                 scheduleInspectionWarm(around: id)
@@ -1294,6 +1385,11 @@ final class P0SessionModel {
     }
 
     func moveFocus(dx: Int, dy: Int, columns _: Int) {
+        if walkingKeptRail, dx != 0 {
+            walkKeptRail(dx)
+            return
+        }
+
         if inspectingAssetID != nil {
             let items = visibleItems
             guard !items.isEmpty else { return }
@@ -1304,11 +1400,6 @@ final class P0SessionModel {
             if items[next].id != focusedAssetID {
                 setFocus(items[next].id)
             }
-            return
-        }
-
-        if walkingKeptRail, dx != 0 {
-            walkKeptRail(dx)
             return
         }
 
@@ -1348,11 +1439,6 @@ final class P0SessionModel {
     /// Law 1 — pointer travel. Moves focus only. Never writes cull, recipe, or persistent selection.
     func pointerTravel(to id: UUID) {
         setFocus(id)
-    }
-
-    /// Variant-surface pointer travel — stages which temporary branch is armed. Nothing is committed.
-    func pointerTravelToVariant(at index: Int) {
-        focusEditVariant(at: index)
     }
 
     var focusedBurst: ShootBurst? {
@@ -1454,6 +1540,121 @@ final class P0SessionModel {
         advanceIfChapterEmpty(from: chapterBefore)
     }
 
+    /// `G` inside the flags peek: every frame the inferred groups would take goes to
+    /// the set, as one command and one `⌘Z`. Frames already kept or already out are
+    /// left alone — the peek proposes, it never overrules a mark.
+    @discardableResult
+    func takeInferredPicks() -> Int {
+        keepFrames(inferredGroups.flatMap(\.takeIDs), label: "Take the picks", burstID: "inferred-picks")
+    }
+
+    /// Frames dropped on the shelf join the set, as one command and one `⌘Z`. The
+    /// selection they may have travelled as is spent by the drop.
+    @discardableResult
+    func dropOnShelf(_ ids: [UUID]) -> Int {
+        let added = keepFrames(ids, label: "Drop on the shelf", burstID: "shelf-drop")
+        selectedAssetIDs = []
+        return added
+    }
+
+    /// Keep several frames at once. Frames already kept or already out are left
+    /// alone — a batch proposes, it never overrules a mark. Returns how many changed.
+    @discardableResult
+    private func keepFrames(_ ids: [UUID], label: String, burstID: String) -> Int {
+        let commandStartedAt = Date()
+        let committedAt = Date()
+        var seen: Set<UUID> = []
+        var marks: [ChapterKeepCommand.Mark] = []
+        for id in ids where seen.insert(id).inserted {
+            guard let index = assets.firstIndex(where: { $0.id == id }),
+                  assets[index].cull == .undecided || assets[index].cull == .hold else { continue }
+            marks.append(ChapterKeepCommand.Mark(
+                assetID: id,
+                before: assets[index].cull,
+                after: .keep,
+                userDecidedAtBefore: assets[index].userDecidedAt,
+                userDecidedAtAfter: committedAt
+            ))
+        }
+        guard !marks.isEmpty else { return 0 }
+
+        let orderBefore = shoot?.finalSetOrder.assetIDs ?? []
+        let taken = Set(marks.map(\.assetID))
+        var finalOrder = shoot?.finalSetOrder ?? FinalSetOrder()
+        finalOrder.reconcileKeptMembership(
+            keptIDsInChronologicalOrder: assets.compactMap {
+                ($0.cull == .keep || taken.contains($0.id)) ? $0.id : nil
+            }
+        )
+        let command = ChapterKeepCommand(
+            createdAt: committedAt,
+            marks: marks,
+            finalOrderBefore: orderBefore,
+            finalOrderAfter: finalOrder.assetIDs,
+            chapterBefore: activeChapterID,
+            focusBefore: focusedAssetID,
+            burstID: burstID,
+            label: label
+        )
+        guard command.apply(to: &assets, finalOrder: &finalOrder) else { return 0 }
+        if var shoot {
+            shoot.finalSetOrder = finalOrder
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+        undoCoordinator.push(command)
+        let persistenceCommands = marks.map { mark in
+            CullMutationCommand(
+                createdAt: committedAt,
+                assetID: mark.assetID,
+                before: mark.before,
+                after: mark.after,
+                userDecidedAtBefore: mark.userDecidedAtBefore,
+                userDecidedAtAfter: mark.userDecidedAtAfter,
+                finalOrderBefore: orderBefore,
+                finalOrderAfter: finalOrder.assetIDs
+            )
+        }
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueCullPersistence(persistenceCommands, commandStartedAt: commandStartedAt)
+        return marks.count
+    }
+
+    /// Measure what the flags peek needs and does not have yet: sharpness for every
+    /// frame, an embedding for one frame per burst. Off the main actor, off grid
+    /// thumbnails, in small batches; the groups redraw once when it lands.
+    func measureForInference() {
+        let sharpnessTargets = assets
+            .filter { inferredMeasurements.sharpness[$0.id] == nil }
+            .compactMap { asset in (asset.gridThumbPath ?? asset.thumbPath).map { (asset.id, $0) } }
+        // First frame of each burst: the same representative the inference reads.
+        let leaders = Set(chapters.flatMap(\.bursts).compactMap(\.coverID))
+        let embeddingTargets = assets
+            .filter { leaders.contains($0.id) && inferredMeasurements.embeddings[$0.id] == nil && !isPhoneFrame($0.id) }
+            .compactMap { asset in (asset.gridThumbPath ?? asset.thumbPath).map { (asset.id, $0) } }
+        guard !sharpnessTargets.isEmpty || !embeddingTargets.isEmpty else { return }
+        inferenceTask?.cancel()
+        inferenceTask = Task { [weak self] in
+            let measured = await Task.detached(priority: .utility) {
+                var result = ElasticInferredGroups.Measurements()
+                for (id, path) in sharpnessTargets {
+                    if Task.isCancelled { return result }
+                    result.sharpness[id] = BlurScorer.score(imageURL: URL(fileURLWithPath: path))
+                }
+                for (id, path) in embeddingTargets {
+                    if Task.isCancelled { return result }
+                    if let embedding = EmbeddingService.embed(url: URL(fileURLWithPath: path)) {
+                        result.embeddings[id] = embedding
+                    }
+                }
+                return result
+            }.value
+            guard let self, !Task.isCancelled else { return }
+            self.inferredMeasurements.sharpness.merge(measured.sharpness) { _, new in new }
+            self.inferredMeasurements.embeddings.merge(measured.embeddings) { _, new in new }
+        }
+    }
+
     private func applyChapterKeepUndo(_ command: ChapterKeepCommand) {
         let commandStartedAt = Date()
         var finalOrder = shoot?.finalSetOrder ?? FinalSetOrder()
@@ -1541,24 +1742,8 @@ final class P0SessionModel {
         glanceBurstIDs = []
     }
 
-    func setHoldingLoupe(_ holding: Bool) {
-        holdingLoupe = holding
-    }
-
     func setHoldingClipping(_ holding: Bool) {
         holdingClipping = holding
-    }
-
-    func toggleKeptRailWalk() {
-        if walkingKeptRail {
-            walkingKeptRail = false
-            return
-        }
-        guard !keptRailAssets.isEmpty else { return }
-        walkingKeptRail = true
-        if let first = keptRailAssets.first {
-            focusedAssetID = first.id
-        }
     }
 
     func focusKeptAsset(_ id: UUID) {
@@ -1567,21 +1752,23 @@ final class P0SessionModel {
     }
 
     private func walkKeptRail(_ dx: Int) {
-        let kept = keptRailAssets
-        guard !kept.isEmpty else {
+        let set = finalSetAssetIDs
+        guard !set.isEmpty else {
             walkingKeptRail = false
             return
         }
-        let current = focusedAssetID.flatMap { id in kept.firstIndex(where: { $0.id == id }) } ?? 0
-        let next = min(max(current + dx, 0), kept.count - 1)
-        focusedAssetID = kept[next].id
+        let current = focusedAssetID.flatMap { set.firstIndex(of: $0) } ?? 0
+        let next = min(max(current + dx, 0), set.count - 1)
+        setFocus(set[next])
     }
 
     func openFocusedPhotograph() {
         guard let id = focusedAssetID ?? selectedAssetIDs.first else { return }
         schedulePersistRestore()
         leanedBurstID = nil
-        walkingKeptRail = false
+        if peek != .set {
+            walkingKeptRail = false
+        }
         lookGlancing = false
         inspectingAssetID = id
         focusedAssetID = id
@@ -1592,6 +1779,7 @@ final class P0SessionModel {
 
     func closeInspection() {
         flushPendingEditIfNeeded()
+        closePeek()
         showingBefore = false
         pendingScrollRestore = true
         inspectionWarmTask?.cancel()
@@ -1599,27 +1787,8 @@ final class P0SessionModel {
         prewarmTask?.cancel()
         capabilityTask?.cancel()
         developSchedulerStorage?.cancelAll()
-        cancelEditVariants()
         inspectingAssetID = nil
         Task { await BrowsePixelService.shared.clearFocusedPin() }
-        persistRestoreNow()
-    }
-
-    /// Contact sheet → grouping. Keeps shoot, cull marks, and selection; Esc returns to the grid.
-    func enterGrouping() {
-        guard shoot != nil else { return }
-        flushPendingEditIfNeeded()
-        showingBefore = false
-        cancelEditVariants()
-        inspectingAssetID = nil
-        route = .grouping
-        persistRestoreNow()
-    }
-
-    func leaveGrouping() {
-        guard route == .grouping else { return }
-        route = .contactSheet
-        pendingScrollRestore = true
         persistRestoreNow()
     }
 
@@ -1689,7 +1858,6 @@ final class P0SessionModel {
         persistRestoreNow()
         releaseFolderAccess()
         releaseDevelopScheduler()
-        cancelEditVariants()
         shoot = nil
         assets = []
         status = ContactSheetPreparationStatus()
@@ -1697,12 +1865,20 @@ final class P0SessionModel {
         activeChapterID = nil
         inspectingAssetID = nil
         densityLeaned = false
-        holdingLoupe = false
+        developDrawerOpen = false
+        selectionAnchorID = nil
+        matchGroups = ElasticMatchGroup.defaultOn
         holdingClipping = false
         lookGlancing = false
         glanceBurstIDs = []
         leanedBurstID = nil
         walkingKeptRail = false
+        peek = nil
+        peekPinned = false
+        peekOpenedAt = nil
+        inferenceTask?.cancel()
+        inferenceTask = nil
+        inferredMeasurements = ElasticInferredGroups.Measurements()
         travelingBurstID = nil
         showingBefore = false
         clearGestureState()
@@ -1723,6 +1899,7 @@ final class P0SessionModel {
     }
 
     private func apply(_ event: ContactSheetEvent) {
+        defer { publishScrollOrder() }
         switch event {
         case .opened(let shoot, let status):
             self.shoot = shoot
@@ -1731,13 +1908,12 @@ final class P0SessionModel {
             adoptSidecarManagedHashes(from: shoot.assets)
             restoreWorkspace(from: shoot.workspace)
             reconcileActiveChapter()
-            route = .contactSheet
+            route = .time
         case .assetsReplaced(let assets, let status):
             self.assets = assets
             self.shoot?.assets = assets
             self.status = status
             workspaceState.retainAssets(Set(assets.map(\.id)))
-            dropVariantPinIfInactive()
             reconcileActiveChapter()
         case .assetsInserted(let assets, let status):
             mergeAssets(assets)
@@ -1758,7 +1934,6 @@ final class P0SessionModel {
             self.shoot?.assets = merged
             self.status = status
             workspaceState.retainAssets(Set(merged.map(\.id)))
-            dropVariantPinIfInactive()
             reconcileActiveChapter()
         case .status(let status):
             self.status = status
@@ -1766,6 +1941,14 @@ final class P0SessionModel {
             userFacingError = message
             status.phaseDetail = message
         }
+    }
+
+    /// Scroll order for the floor tier and the prefetcher: once per
+    /// preparation event, never per element. Equal order is a no-op inside.
+    private func publishScrollOrder() {
+        ElasticScrollTracker.shared.shootChanged(
+            paths: assets.compactMap { $0.gridThumbPath ?? $0.thumbPath }
+        )
     }
 
     private func mergeAssets(_ incoming: [AssetRecord]) {
@@ -1807,7 +1990,6 @@ final class P0SessionModel {
         scrollAnchor = workspace.scrollAnchor ?? 0
         pendingScrollRestore = workspace.scrollAnchor != nil
         workspaceState.restore(from: workspace, availableAssetIDs: Set(assets.map(\.id)))
-        abandonVariantPinnedSource()
         if focusedAssetID == nil { focusedAssetID = assets.first?.id }
         if workspace.scale == .singlePhoto, let focusedAssetID {
             inspectingAssetID = focusedAssetID

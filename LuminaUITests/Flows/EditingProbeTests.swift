@@ -17,8 +17,8 @@ final class EditingProbeTests: LuminaUITestCase {
         let single = sheet.openFocused()
 
         // 3 — the single-photo surface is up.
-        let opened = lumina.waitForProbe(timeout: UITestWait.transition) { $0.route == "singlePhoto" }
-        XCTAssertEqual(opened.route, "singlePhoto")
+        let opened = lumina.waitForProbe(timeout: UITestWait.transition) { $0.route == "focus" }
+        XCTAssertEqual(opened.route, "focus")
 
         // 4 — capture the initial recipe fingerprint and cull state.
         let initialFingerprint = opened.focusedRecipeFingerprint

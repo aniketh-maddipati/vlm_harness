@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 
 REQUIREMENTS: dict[str, tuple[str, ...]] = {
-    "Lumina/Views/P0/P0SinglePhotoEditor.swift": (
+    "Lumina/Views/P0/ElasticFocusView.swift": (
         "DevelopMetalView(",
         "immediateBrowseImage",
         "BrowsePixelService.shared.pinFocused",
@@ -24,9 +24,9 @@ REQUIREMENTS: dict[str, tuple[str, ...]] = {
         "OrientedDisplayImage.aligning",
         "OrientedDisplayImage.ciImage",
     ),
-    "Lumina/Views/P0/P0ContactSheetView.swift": (
-        "P0ChapterTableView(session: session)",
-        "value: session.inspectingAssetID",
+    "Lumina/Views/P0/ElasticRootView.swift": (
+        "ElasticTableView(session: session)",
+        "value: session.route",
     ),
     "Lumina/Views/P0/P0ChapterTableView.swift": (
         "ElasticCanvasLayout.plateOpacity",
@@ -74,15 +74,38 @@ REQUIREMENTS: dict[str, tuple[str, ...]] = {
         "testCancelledRenderWaiterDoesNotBlockLatestWork",
         "testLegacyMachineTierCannotBecomeP0Decision",
     ),
+    # The version column may only show pixels that depict the version it labels.
+    # The browse thumbnail is the camera's rendering, so it is `shot` and nothing
+    # else; drawing it under all three made the column claim a difference that was
+    # not on screen.
+    "Lumina/Views/P0/ElasticVersionColumn.swift": (
+        "private func previewPath(for index: Int) -> String?",
+        "guard index == 1 else { return nil }",
+    ),
+    "LuminaLogicTests/PhotoRenderProofTests.swift": (
+        "testPhotographIsNeverPresentedUpsideDown",
+        "PhotoPresentProof.probe",
+    ),
+    "Lumina/Rendering/PhotoPresentProof.swift": (
+        "destination.isFlipped = true",
+    ),
 }
 
 FORBIDDEN: dict[str, tuple[str, ...]] = {
-    "Lumina/Views/P0/P0SinglePhotoEditor.swift": (
+    "Lumina/Views/P0/ElasticFocusView.swift": (
         "if let image {\n                    DevelopMetalView(",
         "CIImage(contentsOf:",
     ),
-    "Lumina/Views/P0/P0ContactSheetView.swift": (
-        "if session.inspectingAssetID == nil {\n                VStack(spacing: 0) {\n                    toolbar\n                    P0ChapterTableView",
+    "Lumina/Views/P0/ElasticRootView.swift": (
+        "if session.route == .time {\n                    ElasticTableView",
+    ),
+    "Lumina/Views/P0/ElasticVersionColumn.swift": (
+        "if let path = asset.gridThumbPath ?? asset.thumbPath {",
+    ),
+    "Lumina/Develop/Lab/DevelopMetalView.swift": (
+        # The present geometry lives in PhotoPresentProof so the render proof
+        # measures the real transform instead of a copy of it.
+        "let fit = min(drawableSize.width / extent.width",
     ),
     "Lumina/Develop/DevelopRenderGraph.swift": (
         "applyOrientationProperty",

@@ -1,0 +1,350 @@
+import Foundation
+
+/// Derived copy and grouping for the Elastic time route.
+///
+/// Everything here reads existing canonical state — chapters, cull, recipe source,
+/// final order — and formats it. Nothing in this file decides or mutates anything
+/// except through functions that already own their command boundary.
+@MainActor
+extension P0SessionModel {
+
+    // MARK: - Header
+
+    /// `{n} frames · {m} moments · {a} as shot · {b} auto · {c} yours · ? keys`
+    var elasticHeaderLine: String {
+        let frames = assets.count
+        let moments = chapters.count
+        var asShot = 0
+        var auto = 0
+        var yours = 0
+        for asset in assets {
+            switch asset.recipeSource {
+            case .shot: asShot += 1
+            case .auto: auto += 1
+            case .autoHand, .hand, .sidecar: yours += 1
+            }
+        }
+        return "\(frames) frames · \(moments) moments · \(asShot) as shot · "
+            + "\(auto) auto · \(yours) yours · ? keys"
+    }
+
+    /// The header's right-aligned line — what the current surface is saying.
+    ///
+    /// Held before wins, then a selection, then the route's own line.
+    var elasticHeadline: String {
+        if showingBefore { return "before · everything as shot · release ␣" }
+        let selected = selectedAssetIDs.count
+        if route == .focus, let id = focusedAssetID {
+            if selected > 0 {
+                return "\(selected) selected · P · X · 1 2 3 apply to all · Esc clears"
+            }
+            if peek == .set {
+                let set = finalSetAssetIDs
+                let position = (set.firstIndex(of: id) ?? 0) + 1
+                return "\(position) of \(set.count) in the set · release ⇥"
+            }
+            guard let chapter = ShootChapterArrangement.chapter(containing: id, in: chapters) else {
+                return "? keys"
+            }
+            let related = min(chapter.assetIDs.count - 1, Self.relatedLimit)
+            let relatedWord = related > 0 ? "\(related) related" : "alone in this moment"
+            return "\(momentTimeLabel(chapter)) · \(momentLightWord(chapter)) · \(relatedWord) · ? keys"
+        }
+        if selected > 0 { return "\(selected) selected · P to set · X out · Esc clears" }
+        return elasticHeaderLine
+    }
+
+    /// How many neighbours a similar peek would ever show.
+    static let relatedLimit = 8
+
+    /// `road trip · sept 14` — the shoot's name and the day it was made.
+    var elasticSessionLabel: String {
+        guard let shoot else { return "" }
+        let day = assets.compactMap(\.capturedAt).min() ?? shoot.createdAt
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return "\(shoot.name.lowercased()) · \(formatter.string(from: day).lowercased())"
+    }
+
+    /// Auto is live while anything it would touch is still as shot.
+    var autoButtonEnabled: Bool { autoButtonSubLabel != "nothing as shot" }
+
+    /// `the set · n` when a set exists, else `all · n`, else `nothing as shot`.
+    var autoButtonSubLabel: String {
+        let setIDs = finalSetAssetIDs
+        if !setIDs.isEmpty {
+            let count = setIDs.filter { asShot($0) }.count
+            return count > 0 ? "the set · \(count)" : "nothing as shot"
+        }
+        let count = assets.filter { $0.recipeSource == .shot }.count
+        return count > 0 ? "all · \(count)" : "nothing as shot"
+    }
+
+    private func asShot(_ id: UUID) -> Bool {
+        asset(id)?.recipeSource == .shot
+    }
+
+    /// `A` on the table: the set when there is one, otherwise everything.
+    func applyAutoToTable() {
+        let setIDs = finalSetAssetIDs
+        let targets = setIDs.isEmpty ? assets.map(\.id) : setIDs
+        Task { [weak self] in
+            guard let self else { return }
+            await self.ensureImageStats(for: targets)
+            self.applyAuto(to: targets)
+        }
+    }
+
+    // MARK: - Moments
+
+    /// Seconds between the start of moment `index` and the start of the next one.
+    func gapInterval(after index: Int) -> TimeInterval? {
+        let list = chapters
+        guard list.indices.contains(index), list.indices.contains(index + 1) else { return nil }
+        guard let start = list[index].startedAt,
+              let next = list[index + 1].startedAt else { return nil }
+        return max(0, next.timeIntervalSince(start))
+    }
+
+    func momentTimeLabel(_ chapter: ShootChapter) -> String {
+        guard let startedAt = chapter.startedAt else { return "Undated" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: startedAt)
+    }
+
+    /// What the light was doing, from the hour alone — no location, no almanac.
+    /// Deliberately coarse: it orients the photographer, it does not claim precision.
+    func momentLightWord(_ chapter: ShootChapter) -> String {
+        guard let startedAt = chapter.startedAt else { return "" }
+        let hour = Calendar.current.component(.hour, from: startedAt)
+        switch hour {
+        case ..<7: return "before sunrise"
+        case 7..<10: return "morning"
+        case 10..<15: return "midday"
+        case 15..<18: return "afternoon"
+        case 18..<20: return "golden hour"
+        default: return "after sunset"
+        }
+    }
+
+    /// `n frames · k bursts` — the moment's span line.
+    func momentCountLine(_ chapter: ShootChapter) -> String {
+        let frames = chapter.assetIDs.count
+        let bursts = chapter.bursts.filter { $0.frameCount > 1 }.count
+        let frameWord = frames == 1 ? "frame" : "frames"
+        let burstWord = bursts == 1 ? "burst" : "bursts"
+        return bursts > 0
+            ? "\(frames) \(frameWord) · \(bursts) \(burstWord)"
+            : "\(frames) \(frameWord)"
+    }
+
+    /// `5 camera · 2 phone` — the moment's mix line.
+    func momentMixLine(_ chapter: ShootChapter) -> String {
+        let phones = chapter.assetIDs.filter { isPhoneFrame($0) }.count
+        let cameras = chapter.assetIDs.count - phones
+        return [
+            cameras > 0 ? "\(cameras) camera" : nil,
+            phones > 0 ? "\(phones) phone" : nil,
+        ]
+        .compactMap { $0 }
+        .joined(separator: " · ")
+    }
+
+    /// Phone frames carry no RAW original.
+    func isPhoneFrame(_ id: UUID) -> Bool {
+        guard let asset = asset(id) else { return false }
+        let rawExtensions: Set<String> = ["arw", "cr2", "cr3", "nef", "raf", "dng", "orf", "rw2"]
+        let ext = (asset.filename as NSString).pathExtension.lowercased()
+        return !rawExtensions.contains(ext)
+    }
+
+    // MARK: - Bursts
+
+    /// Click a stack to open it in place; click again to close it.
+    func toggleBurstOpen(_ burstID: String) {
+        leanedBurstID = leanedBurstID == burstID ? nil : burstID
+    }
+
+    // MARK: - Set
+
+    /// The kept set in presentation order — custom order when the photographer
+    /// set one, chronological kept order otherwise.
+    var finalSetAssetIDs: [UUID] {
+        let custom = shoot?.finalSetOrder.assetIDs ?? []
+        if !custom.isEmpty { return custom }
+        return assets.filter { $0.cull == .keep }.map(\.id)
+    }
+
+    func isInFinalSet(_ id: UUID) -> Bool {
+        asset(id)?.cull == .keep
+    }
+
+    /// `Export`, then `✓ written` once the set is on disk.
+    var elasticExportLabel: String {
+        if isExporting { return "Exporting…" }
+        return exportStatusLine?.hasPrefix("Exported") == true ? "✓ written" : "Export"
+    }
+
+    /// The receipt band under the shelf, once an export has landed.
+    var elasticExportReceipt: (written: String, folder: String)? {
+        guard let line = exportStatusLine, line.hasPrefix("Exported") else { return nil }
+        let count = line.dropFirst("Exported ".count)
+        let folder = IngestPreferences.lastExportFolderPath.map {
+            ($0 as NSString).abbreviatingWithTildeInPath
+        } ?? ""
+        return ("✓ \(count) written", folder)
+    }
+
+    // MARK: - Focus route
+
+    /// `14:02` — when this frame was taken, in the status bar's own format.
+    func focusTimeLabel(for asset: AssetRecord) -> String {
+        guard let capturedAt = asset.capturedAt else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: capturedAt)
+    }
+
+    /// The file without its extension — the status bar never names the container.
+    func focusFileStem(for asset: AssetRecord) -> String {
+        (asset.filename as NSString).deletingPathExtension
+    }
+
+    /// Which of the three versions the frame is showing: 1 shot · 2 auto · 3 yours.
+    func versionIndex(for asset: AssetRecord) -> Int {
+        switch asset.recipeSource {
+        case .shot: return 1
+        case .auto: return 2
+        case .autoHand, .hand, .sidecar: return 3
+        }
+    }
+
+    /// The version's own words, as the status bar and drawer title say them.
+    func versionLabel(for asset: AssetRecord) -> String {
+        switch asset.recipeSource {
+        case .shot: return "as shot"
+        case .auto: return "auto"
+        case .autoHand: return "auto + your hand"
+        case .hand: return "yours"
+        case .sidecar: return "yours · from sidecar"
+        }
+    }
+
+    /// The status bar's last word: set membership, then the version — or `before`.
+    func focusStateWord(for asset: AssetRecord) -> String {
+        if showingBefore { return "before" }
+        let mark: String? = asset.cull == .keep ? "in the set" : asset.cull == .reject ? "out" : nil
+        return [mark, versionLabel(for: asset)].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    /// Histogram readout: `12% black 3% clipped +0.50 ev`, only what is true.
+    func histogramReadout(for asset: AssetRecord) -> String {
+        guard let stats = asset.imageStats else { return "" }
+        var parts: [String] = []
+        if stats.shadowClipFraction > Self.clipReportFraction {
+            parts.append("\(Int((stats.shadowClipFraction * 100).rounded()))% black")
+        }
+        if stats.highlightClipFraction > Self.clipReportFraction {
+            parts.append("\(Int((stats.highlightClipFraction * 100).rounded()))% clipped")
+        }
+        if let recipe = asset.recipe, recipe.hasSettings, !showingBefore {
+            parts.append(String(format: "%+.2f ev", recipe.exposure))
+        }
+        return parts.joined(separator: " ")
+    }
+
+    /// Clipping below this share of the frame is not worth a word or a tick.
+    static let clipReportFraction = 0.02
+
+    func showsShadowClipTick(for asset: AssetRecord) -> Bool {
+        (asset.imageStats?.shadowClipFraction ?? 0) > Self.clipReportFraction
+    }
+
+    func showsHighlightClipTick(for asset: AssetRecord) -> Bool {
+        (asset.imageStats?.highlightClipFraction ?? 0) > Self.clipReportFraction
+    }
+
+    /// How far the drawn histogram slides once a frame is edited.
+    ///
+    /// The bins are measured off the neutral decode and never re-measured for a
+    /// recipe; the readout instead shifts them by what the tone move would do, so
+    /// the shape stays honest about the capture and still tracks the edit. Held
+    /// `before` shows the measurement unshifted, because that is what before means.
+    func histogramBinShift(for asset: AssetRecord) -> Int {
+        guard !showingBefore, let recipe = asset.recipe, recipe.hasSettings else { return 0 }
+        let moved = recipe.exposure * Self.histogramExposureBins
+            + recipe.shadows * Self.histogramShadowBins
+        return Int(moved.rounded())
+    }
+
+    /// One stop of exposure walks the histogram four bins; shadows barely move it.
+    static let histogramExposureBins = 4.0
+    static let histogramShadowBins = 0.02
+
+    /// True when the next frame in shoot order belongs to a different moment.
+    func startsNewMoment(after assetID: UUID) -> Bool {
+        guard let index = assetIndex(assetID),
+              assets.indices.contains(index + 1) else { return false }
+        return chapterID(containing: assetID) != chapterID(containing: assets[index + 1].id)
+    }
+
+    /// `1` / `2` / `3` — as shot, auto, yours.
+    ///
+    /// Switching away from a hand recipe caches it first, so `3` can always return
+    /// to it. Auto is only derived when the frame has been measured.
+    func pickVersion(_ index: Int, for assetID: UUID) {
+        guard let asset = assets.first(where: { $0.id == assetID }) else { return }
+        cacheHandRecipeIfNeeded(for: asset)
+
+        switch index {
+        case 1:
+            applyVersion(.neutral, source: .shot, to: assetID)
+        case 2:
+            guard let stats = asset.imageStats else {
+                Task { [weak self] in
+                    guard let self else { return }
+                    await self.ensureImageStats(for: [assetID])
+                    guard let measured = self.assets.first(where: { $0.id == assetID })?.imageStats,
+                          let fresh = self.assets.first(where: { $0.id == assetID }) else { return }
+                    self.applyVersion(
+                        AutoDevelop.recipe(for: fresh, stats: measured),
+                        source: .auto,
+                        to: assetID
+                    )
+                }
+                return
+            }
+            applyVersion(AutoDevelop.recipe(for: asset, stats: stats), source: .auto, to: assetID)
+        case 3:
+            guard let hand = asset.handRecipe else { return }
+            applyVersion(hand, source: .hand, to: assetID)
+        default:
+            return
+        }
+    }
+
+    /// Keep the hand recipe before a version switch can overwrite it.
+    private func cacheHandRecipeIfNeeded(for asset: AssetRecord) {
+        let isHandAuthored = asset.recipeSource == .hand
+            || asset.recipeSource == .autoHand
+            || asset.recipeSource == .sidecar
+        guard isHandAuthored, let current = asset.recipe else { return }
+        guard let index = assets.firstIndex(where: { $0.id == asset.id }) else { return }
+        assets[index].handRecipe = current
+        if var shoot {
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+    }
+
+    private func applyVersion(_ recipe: EditRecipe, source: RecipeSource, to assetID: UUID) {
+        applyEditMutation({ $0 = recipe }, assetID: assetID)
+        guard let index = assets.firstIndex(where: { $0.id == assetID }) else { return }
+        assets[index].recipeSource = source
+        if var shoot {
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+    }
+}

@@ -62,7 +62,7 @@ final class P0LogicTests: XCTestCase {
 
     func testProbeSnapshotRoundTrips() {
         let snapshot = ProbeSnapshot(
-            route: "contactSheet", shootName: "mixed-60", fixture: "mixed-60", seed: "84721",
+            route: "time", shootName: "mixed-60", fixture: "mixed-60", seed: "84721",
             assetCount: 60, visibleCount: 60, selectionCount: 2, keptCount: 18, rejectedCount: 9,
             unreviewedCount: 33, editedCount: 12, densityColumns: 6, filter: "All", canUndo: true,
             focusedAssetID: "abc", focusedVisible: true, focusedAvailability: "available",
@@ -76,11 +76,8 @@ final class P0LogicTests: XCTestCase {
             scrollAnchor: 0, culls: ["a": "keep"], editedIDs: ["a"], visibleAssetIDs: ["a", "b"],
             missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier",
             renderInstrumentsEnabled: false, escTransientHoldActive: false,
-            editVariantsActive: false, editVariantAssetID: nil, focusedEditVariantIndex: nil,
-            editVariantCancellationCount: 0,
             preparedSessionCreated: 0, preparedSessionHits: 0, interactiveMaterializations: 0,
             graphRenders: 0, gpuUploads: 0, variantRenders: 0, metalPresents: 0,
-            variantSourceReady: false,
             elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
             chapterTableMounted: true, inspectPeripheryDimOpacity: 1
         )
@@ -354,36 +351,33 @@ final class P0LogicTests: XCTestCase {
 
     // MARK: - W5 Esc ladder (single owner)
 
-    func testEscLadderLeavesGrouping() {
+    func testEscLadderLeavesFocusForTheTable() {
         let session = P0SessionModel()
-        session.route = .grouping
-        XCTAssertTrue(P0EscLadder.handle(session: session))
-        XCTAssertEqual(session.route, .contactSheet)
-    }
-
-    func testEscLadderClosesInspectionWithoutChangingRoute() {
-        let session = P0SessionModel()
-        session.route = .contactSheet
         let id = UUID()
         session.inspectingAssetID = id
+        XCTAssertEqual(session.route, .focus)
         XCTAssertTrue(P0EscLadder.handle(session: session))
+        XCTAssertEqual(session.route, .time)
         XCTAssertNil(session.inspectingAssetID)
-        XCTAssertEqual(session.route, .contactSheet)
+        XCTAssertEqual(session.focusedAssetID, id, "leaving focus keeps the cursor where it was")
     }
 
-    func testEscLadderNoOpOnBareContactSheet() {
+    func testEscLadderNoOpOnBareTable() {
         let session = P0SessionModel()
-        session.route = .contactSheet
+        session.route = .time
         XCTAssertFalse(P0EscLadder.handle(session: session))
     }
 
-    func testEscLadderEndsLookGlanceBeforeGrouping() {
+    func testEscLadderClearsASelectionBeforeItLeavesFocus() {
         let session = P0SessionModel()
-        session.route = .contactSheet
-        session.lookGlancing = true
+        let id = UUID()
+        session.inspectingAssetID = id
+        session.selectedAssetIDs = [id]
         XCTAssertTrue(P0EscLadder.handle(session: session))
-        XCTAssertFalse(session.lookGlancing)
-        XCTAssertEqual(session.route, .contactSheet)
+        XCTAssertTrue(session.selectedAssetIDs.isEmpty)
+        XCTAssertEqual(session.route, .focus, "the first Esc only clears")
+        XCTAssertTrue(P0EscLadder.handle(session: session))
+        XCTAssertEqual(session.route, .time)
     }
 
     // MARK: - Open-surface shoot ranking
@@ -654,7 +648,7 @@ final class P0LogicTests: XCTestCase {
         XCTAssertTrue(session.glanceBurstIDs.isEmpty)
     }
 
-    func testLeanIntoBurstThenEscReturnsToChapter() {
+    func testLeanIntoBurstIsNotUnwoundByEsc() {
         let ids = (0..<4).map { _ in UUID() }
         let session = P0SessionModel()
         session.assets = ids.enumerated().map { index, id in
@@ -668,8 +662,10 @@ final class P0LogicTests: XCTestCase {
         XCTAssertEqual(session.leanedBurstID, session.focusedBurst?.id)
         XCTAssertNil(session.inspectingAssetID)
 
-        XCTAssertTrue(P0EscLadder.handle(session: session))
-        XCTAssertNil(session.leanedBurstID)
+        // An open burst folds by its badge, not by Esc — the table has nowhere
+        // further out to go, so Esc is not consumed and the stack stays open.
+        XCTAssertFalse(P0EscLadder.handle(session: session))
+        XCTAssertEqual(session.leanedBurstID, session.focusedBurst?.id)
         XCTAssertNil(session.inspectingAssetID)
     }
 

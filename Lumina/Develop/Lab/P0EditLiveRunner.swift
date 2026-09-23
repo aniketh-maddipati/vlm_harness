@@ -115,6 +115,22 @@ enum P0EditLiveRunner {
 
         // 1. Open photograph
         session.setFocus(landscape.id)
+        captureTable(session: session, size: CGSize(width: 1280, height: 800), name: "table-1280x800", to: outDir)
+
+        // Hold ⇥: similar, then the set (the second needs a kept frame to show).
+        session.openPeek(.related)
+        captureTable(session: session, size: CGSize(width: 1280, height: 800), name: "table-peek-similar", to: outDir)
+        if let neighbour = session.relatedFrames(to: landscape.id).first {
+            session.setFocus(neighbour.id)
+            session.pressKeep()
+            session.setFocus(landscape.id)
+        }
+        session.cyclePeek(by: 1)
+        captureTable(session: session, size: CGSize(width: 1280, height: 800), name: "table-peek-set", to: outDir)
+        note("Peek cycles similar → set", session.peek == .set, "cursor \(session.focusedAssetID == landscape.id ? "held" : "moved onto the set")")
+        session.closePeek()
+        session.setFocus(landscape.id)
+
         session.openFocusedPhotograph()
         note("Open photograph from contact sheet", session.inspectingAssetID == landscape.id)
 
@@ -127,6 +143,12 @@ enum P0EditLiveRunner {
 
         // Capture editor @ 1280×800
         captureEditor(session: session, size: CGSize(width: 1280, height: 800), name: "editor-1280x800", to: outDir)
+
+        // E — the develop drawer beside the photograph; the version column steps aside.
+        session.toggleDevelopDrawer()
+        captureEditor(session: session, size: CGSize(width: 1280, height: 800), name: "editor-drawer", to: outDir)
+        note("Develop drawer opens on E", session.developDrawerOpen)
+        session.toggleDevelopDrawer()
 
         // 2. Adjust every exposed control
         let controlProbes: [(String, (inout EditRecipe) -> Void)] = [
@@ -524,6 +546,28 @@ enum P0EditLiveRunner {
         return sorted[idx]
     }
 
+    /// Visual smoke for the time route. Leaves the session's route as it found it,
+    /// so a capture can never change what the rest of the run is measuring.
+    static func captureTable(
+        session: P0SessionModel,
+        size: CGSize,
+        name: String,
+        to directory: URL
+    ) {
+        let restoreRoute = session.route
+        session.route = .time
+        defer { session.route = restoreRoute }
+        // Covers load asynchronously; without a warm pass the capture shows empty wells.
+        session.prefetchChapterCovers()
+        RunLoop.current.run(until: Date().addingTimeInterval(2.0))
+        captureHosted(
+            AnyView(ElasticRootView(session: session)),
+            size: size,
+            name: name,
+            to: directory
+        )
+    }
+
     private static func captureEditor(
         session: P0SessionModel,
         size: CGSize,
@@ -532,10 +576,28 @@ enum P0EditLiveRunner {
     ) {
         guard let id = session.inspectingAssetID,
               let asset = session.assets.first(where: { $0.id == id }) else { return }
-        let view = P0SinglePhotoEditor(session: session, asset: asset)
-            .frame(width: size.width, height: size.height)
-            .luminaWorkspaceAppearance()
-        let hosting = NSHostingView(rootView: view)
+        captureHosted(
+            AnyView(ElasticFocusView(session: session, asset: asset)),
+            size: size,
+            name: name,
+            to: directory
+        )
+    }
+
+    /// Host a view offscreen and write a PNG. Metal layers do not composite through
+    /// `cacheDisplay`, so a photograph appears as its matte here — chrome, layout and
+    /// marks are what this capture is evidence for.
+    private static func captureHosted(
+        _ view: AnyView,
+        size: CGSize,
+        name: String,
+        to directory: URL
+    ) {
+        let hosting = NSHostingView(
+            rootView: view
+                .frame(width: size.width, height: size.height)
+                .luminaWorkspaceAppearance()
+        )
         hosting.frame = NSRect(origin: .zero, size: size)
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: size),
@@ -548,7 +610,7 @@ enum P0EditLiveRunner {
         window.setContentSize(size)
         window.orderFrontRegardless()
         hosting.layoutSubtreeIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        RunLoop.current.run(until: Date().addingTimeInterval(1.2))
         hosting.layoutSubtreeIfNeeded()
 
         guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
@@ -575,7 +637,7 @@ enum P0EditLiveRunner {
               let asset = session.assets.first(where: { $0.id == id }) else {
             return NSWindow()
         }
-        let view = P0SinglePhotoEditor(session: session, asset: asset)
+        let view = ElasticFocusView(session: session, asset: asset)
             .frame(width: size.width, height: size.height)
             .luminaWorkspaceAppearance()
         let hosting = NSHostingView(rootView: view)

@@ -55,9 +55,9 @@ All P0 keys route through `P0KeyRoutingModifier` on `P0RootView`. Decision keys 
 | Click cell → focus | Arrow keys → `moveFocus` | **Parity** |
 | `P` / `X` cull | `P` / `X` keys | **Parity** |
 | Double-click → open | `⏎` on focused cell | **Parity** |
-| Space-equivalent selection toggle | `Space` on focused cell | **Parity** |
-| Command-click toggle off focused cell | Focus then `Space` | **Partial** — no direct key for arbitrary cell |
-| Shift-click range select | — | **RULING NEEDED** — no contract key |
+| `⌘`-click toggles any cell in the selection, cursor stays | — | **Ruled 2026-09-22** (Elastic v4 README): pointer-only by design; `Space` is now hold-before, not a selection key |
+| `⇧`-click selects the range from the anchor (last plain click, else the cursor) to the cell, in shoot order; cursor moves to the cell | — | **Ruled 2026-09-22** (Elastic v4 README): pointer-only by design; `⌘A` selects the moment on the keyboard |
+| Plain click moves the cursor, sets the anchor, clears the selection | Arrow keys → `moveFocus` (selection untouched) | **Ruled 2026-09-22** — `Esc` clears a selection on both |
 | Pointer ✓/✕ mark targets (D47/A3) | `P` / `X` keys | **Parity** |
 
 ## Next checkpoint (trustworthy single-photo editing)

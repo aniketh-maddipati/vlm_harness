@@ -13,11 +13,15 @@ actor BrowsePixelService {
     nonisolated enum Tier: Int, Sendable {
         case grid = 0
         case focused = 1
+        /// Guaranteed-resident small entry for every frame the viewport can
+        /// reach; a tile draws it when the grid tier has not landed.
+        case floor = 2
 
         var maxPixelSize: Int {
             switch self {
             case .grid: PhotoImageTier.gridMaxPixelSize
             case .focused: PhotoImageTier.focusedPreviewLongEdge
+            case .floor: PhotoImageTier.floorLongEdge
             }
         }
     }
@@ -49,12 +53,58 @@ actor BrowsePixelService {
         let inflightCount: Int
         let cacheHits: Int
         let cacheMisses: Int
+        let floorResidentCount: Int
+        let floorBytes: Int
+        let floorQueued: Int
+        let floorEvicted: Int
+        let prefetchIssued: Int
+        let prefetchCancelled: Int
+        let prefetchActive: Int
+        /// Grid requests dropped from the queue before their decode started
+        /// because the window moved on — the scheduler's "stale".
+        let gridStale: Int
+        /// Grid requests whose every waiter was cancelled before the decode
+        /// started — the scheduler's "cancel".
+        let gridCancelled: Int
+        let gridQueued: Int
+        let gridActive: Int
+        let gridStarted: Int
     }
 
-    private struct Key: Hashable {
+    nonisolated private struct Key: Hashable, Sendable {
         let path: String
         let maxPixelSize: Int
     }
+
+    /// The sampling side of the cache: what is resident right now, readable
+    /// from any isolation without an actor hop. Scroll must never wait on the
+    /// actor to learn that it has nothing to draw — the well and the enqueue
+    /// are decided from here. Mirrors `pixels` exactly; written only by the
+    /// actor, read from anywhere.
+    nonisolated private final class ResidentIndex: @unchecked Sendable {
+        private let lock = NSLock()
+        private var entries: [Key: Pixel] = [:]
+
+        func lookup(_ key: Key) -> Pixel? {
+            lock.lock()
+            defer { lock.unlock() }
+            return entries[key]
+        }
+
+        func set(_ pixel: Pixel?, for key: Key) {
+            lock.lock()
+            defer { lock.unlock() }
+            entries[key] = pixel
+        }
+
+        func removeAll() {
+            lock.lock()
+            defer { lock.unlock() }
+            entries.removeAll()
+        }
+    }
+
+    nonisolated private let residentIndex = ResidentIndex()
 
     private struct Inflight {
         let id: UUID
@@ -71,6 +121,66 @@ actor BrowsePixelService {
     private var cacheHits = 0
     private var cacheMisses = 0
 
+    // MARK: Floor tier
+    //
+    // Its own store, outside the LRU: the floor is evicted by distance from the
+    // viewport, never by how recently a tile drew it, so a flick to the far end
+    // of the shoot cannot push out what the reader is about to scroll back to.
+
+    private let floorBudgetBytes: Int
+    private var floorPixels: [String: Pixel] = [:]
+    private var floorBytes = 0
+    private var floorEvicted = 0
+    /// Shoot order by path — the distance metric.
+    private var scrollIndex: [String: Int] = [:]
+    private var scrollPaths: [String] = []
+    private var viewportCenter = 0
+    /// Paths waiting for a floor decode, nearest first. Re-sorted whenever the
+    /// centre moves, so a stale far-away request is never ahead of a near one.
+    private var floorQueue: [String] = []
+    private var floorInflight: Set<String> = []
+    private var floorGeneration: UInt64 = 0
+
+    // MARK: Velocity prefetch (grid tier)
+    //
+    // The tracker hands over a window: paths to warm ahead of the cursor, in
+    // issue order, and the set to keep. Prefetch outside the keep set is
+    // cancelled — a task cancelled before its decode started costs nothing,
+    // which is the point of cancelling behind a flick.
+
+    private var prefetchIssued = 0
+    private var prefetchCancelled = 0
+
+    // MARK: Grid request queue
+    //
+    // Every grid-tier miss — a realized tile's own ask, or the window's
+    // prefetch — goes through one queue, `gridDecodeWidth` wide, ordered by
+    // whether anyone is waiting and then by distance from the viewport. A
+    // request that leaves the window, or loses its last waiter, before its
+    // decode starts is dropped there. On a flick most requests are stale
+    // before they would have run; this is where they stop costing anything.
+
+    private struct GridRequest {
+        var waiters: [UUID: CheckedContinuation<Pixel?, Never>] = [:]
+        var fromWindow = false
+    }
+
+    private let gridDecodeWidth: Int
+    private var gridRequests: [String: GridRequest] = [:]
+    private var gridActive: Set<String> = []
+    private var gridKeep: Set<String> = []
+    private var gridStale = 0
+    private var gridCancelled = 0
+    private var gridStarted = 0
+
+    init(
+        floorBudgetBytes: Int = PhotoImageCacheBudget.floorCeilingBytes,
+        gridDecodeWidth: Int = PhotoImageCacheBudget.gridDecodeWidth
+    ) {
+        self.floorBudgetBytes = floorBudgetBytes
+        self.gridDecodeWidth = max(1, gridDecodeWidth)
+    }
+
     nonisolated private static let rawExtensions: Set<String> = [
         "ARW", "CR2", "CR3", "NEF", "RAF", "DNG", "ORF", "RW2", "PEF", "SRW", "3FR", "IIQ",
     ]
@@ -81,6 +191,16 @@ actor BrowsePixelService {
 
     func clearFocusedPin() {
         pinnedPaths.removeAll()
+    }
+
+    /// Already-decoded pixels for `path` at `tier`, or nil — never a decode,
+    /// never a wait. Does not touch the LRU: sampling is not use.
+    nonisolated func residentPixel(path: String, tier: Tier) -> Pixel? {
+        residentIndex.lookup(Key(path: path, maxPixelSize: tier.maxPixelSize))
+    }
+
+    nonisolated func isResident(path: String, tier: Tier) -> Bool {
+        residentPixel(path: path, tier: tier) != nil
     }
 
     func image(path: String, tier: Tier) async -> NSImage? {
@@ -111,11 +231,18 @@ actor BrowsePixelService {
             LatencyMetrics.record("browse.pixel.cache_hit", milliseconds: 0)
             return hit
         }
+        if maxPixelSize == Tier.grid.maxPixelSize {
+            return await gridPixel(path: path)
+        }
         if let pending = inflight[key] {
             let decoded = await pending.task.value
             guard pending.epoch == epoch else { return nil }
             return decoded
         }
+
+        // Cancelled before the decode started — behind a flick, or a window
+        // that moved on. Costs nothing, which is why cancelling is worth it.
+        guard !Task.isCancelled else { return nil }
 
         cacheMisses &+= 1
         let requestID = UUID()
@@ -178,16 +305,257 @@ actor BrowsePixelService {
         for key in order where !pinnedPaths.contains(key.path) {
             remove(key)
         }
+        // The floor is what keeps scroll honest under pressure; halve it by
+        // distance rather than drop it.
+        evictFloor(toBytes: floorBudgetBytes / 2)
+    }
+
+    // MARK: - Velocity prefetch
+
+    /// Warm `ahead` at the grid tier in that order; cancel any prefetch whose
+    /// path is not in `keep`. Called by the tracker whenever the window it
+    /// computes changes, so a flick that reverses cancels its own wake.
+    func setGridPrefetchWindow(ahead: [String], keep: Set<String>) {
+        gridKeep = keep
+        // Queued by the window, now outside it, nobody waiting: gone before
+        // it cost a decode.
+        for (path, request) in gridRequests
+        where request.fromWindow && request.waiters.isEmpty && !keep.contains(path) && !gridActive.contains(path) {
+            gridRequests[path] = nil
+            gridStale += 1
+            prefetchCancelled += 1
+        }
+        let size = Tier.grid.maxPixelSize
+        for path in ahead {
+            let key = Key(path: path, maxPixelSize: size)
+            guard pixels[key] == nil else { continue }
+            if gridRequests[path] == nil {
+                gridRequests[path] = GridRequest(fromWindow: true)
+                prefetchIssued += 1
+            } else {
+                gridRequests[path]?.fromWindow = true
+            }
+        }
+        pumpGrid()
+    }
+
+    // MARK: - Grid request queue
+
+    /// Wait for `path` at the grid tier through the queue. Cancelling the
+    /// waiting task withdraws the waiter; a request with no waiters left and
+    /// no window behind it is dropped before it starts.
+    private func gridPixel(path: String) async -> Pixel? {
+        guard !Task.isCancelled else { return nil }
+        let waiterID = UUID()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Pixel?, Never>) in
+                var request = gridRequests[path] ?? GridRequest()
+                request.waiters[waiterID] = continuation
+                gridRequests[path] = request
+                pumpGrid()
+            }
+        } onCancel: {
+            Task { await self.withdrawGridWaiter(path: path, id: waiterID) }
+        }
+    }
+
+    private func withdrawGridWaiter(path: String, id: UUID) {
+        guard var request = gridRequests[path], let continuation = request.waiters.removeValue(forKey: id) else { return }
+        continuation.resume(returning: nil)
+        if request.waiters.isEmpty, !gridActive.contains(path), !(request.fromWindow && gridKeep.contains(path)) {
+            gridRequests[path] = nil
+            gridCancelled += 1
+        } else {
+            gridRequests[path] = request
+        }
+    }
+
+    /// Who goes next: anyone with a tile waiting first, then by distance from
+    /// the viewport. Re-evaluated every time a slot frees, so the order is
+    /// the order now — not the order the requests arrived in.
+    private func nextGridPath() -> String? {
+        gridRequests.keys
+            .filter { !gridActive.contains($0) }
+            .min { lhs, rhs in
+                let lw = gridRequests[lhs]?.waiters.isEmpty == false
+                let rw = gridRequests[rhs]?.waiters.isEmpty == false
+                if lw != rw { return lw }
+                return distance(lhs) < distance(rhs)
+            }
+    }
+
+    private func pumpGrid() {
+        while gridActive.count < gridDecodeWidth, let path = nextGridPath() {
+            guard let request = gridRequests[path] else { continue }
+            // Nobody waiting and the window has moved on: stale, dropped here.
+            if request.waiters.isEmpty, !gridKeep.contains(path) {
+                gridRequests[path] = nil
+                gridStale += 1
+                continue
+            }
+            gridActive.insert(path)
+            gridStarted += 1
+            cacheMisses &+= 1
+            let size = Tier.grid.maxPixelSize
+            let generation = epoch
+            Task.detached(priority: request.waiters.isEmpty ? .utility : .userInitiated) { [weak self] in
+                let decoded = Self.decode(path: path, maxPixelSize: size)
+                await self?.gridDecodeFinished(path: path, pixel: decoded, generation: generation)
+            }
+        }
+    }
+
+    private func gridDecodeFinished(path: String, pixel: Pixel?, generation: UInt64) {
+        gridActive.remove(path)
+        let request = gridRequests.removeValue(forKey: path)
+        defer { pumpGrid() }
+        guard generation == epoch else {
+            request?.waiters.values.forEach { $0.resume(returning: nil) }
+            return
+        }
+        if let pixel {
+            store(pixel, for: Key(path: path, maxPixelSize: Tier.grid.maxPixelSize))
+            LatencyMetrics.record("browse.pixel.decode_ms", milliseconds: pixel.decodeMs)
+        }
+        request?.waiters.values.forEach { $0.resume(returning: pixel) }
+    }
+
+    // MARK: - Floor tier
+
+    /// The shoot in scroll order. Distances are measured along it. Paths not
+    /// in the new order lose their floor entry; the queue is rebuilt from the
+    /// current centre.
+    func setScrollOrder(paths: [String]) {
+        guard paths != scrollPaths else { return }
+        scrollPaths = paths
+        var index: [String: Int] = [:]
+        for (offset, path) in paths.enumerated() where index[path] == nil {
+            index[path] = offset
+        }
+        scrollIndex = index
+        for path in floorPixels.keys where index[path] == nil {
+            removeFloor(path)
+        }
+        floorGeneration &+= 1
+        rebuildFloorQueue()
+        pumpFloor()
+    }
+
+    /// Where the viewport is, as an index into the scroll order. Cheap enough
+    /// to call on every appearance; the queue is re-sorted only when it moves.
+    func setViewportCenter(index: Int) {
+        guard index != viewportCenter else { return }
+        viewportCenter = index
+        rebuildFloorQueue()
+        evictFloor(toBytes: floorBudgetBytes)
+        pumpFloor()
+    }
+
+    private func distance(_ path: String) -> Int {
+        guard let index = scrollIndex[path] else { return .max }
+        return abs(index - viewportCenter)
+    }
+
+    /// The floor is the nearest K frames, K being what the budget holds at the
+    /// size entries have actually turned out to be (a 3:2 estimate until one
+    /// has landed). Residents outside that set are evicted here, before the
+    /// budget forces it, so the floor is always the nearest frames and never
+    /// "the nearest plus whatever happened to fit".
+    private func rebuildFloorQueue() {
+        let estimate = PhotoImageTier.floorLongEdge * (PhotoImageTier.floorLongEdge * 2 / 3) * 4
+        let perEntry = floorPixels.isEmpty ? estimate : max(1, floorBytes / floorPixels.count)
+        let wantedCount = max(1, floorBudgetBytes / perEntry)
+        let wanted = scrollPaths.sorted { distance($0) < distance($1) }.prefix(wantedCount)
+        let wantedSet = Set(wanted)
+        for path in floorPixels.keys where !wantedSet.contains(path) {
+            removeFloor(path)
+            floorEvicted += 1
+        }
+        floorQueue = wanted.filter { floorPixels[$0] == nil && !floorInflight.contains($0) }
+    }
+
+    private func pumpFloor() {
+        while floorInflight.count < PhotoImageCacheBudget.floorDecodeWidth, !floorQueue.isEmpty {
+            let path = floorQueue.removeFirst()
+            floorInflight.insert(path)
+            let generation = floorGeneration
+            let size = Tier.floor.maxPixelSize
+            Task.detached(priority: .utility) { [weak self] in
+                let decoded = Self.decode(path: path, maxPixelSize: size)
+                await self?.floorDecodeFinished(path: path, pixel: decoded, generation: generation)
+            }
+        }
+    }
+
+    private func floorDecodeFinished(path: String, pixel: Pixel?, generation: UInt64) {
+        floorInflight.remove(path)
+        defer { pumpFloor() }
+        guard generation == floorGeneration, let pixel, scrollIndex[path] != nil else { return }
+        storeFloor(pixel, for: path)
+        LatencyMetrics.record("browse.floor.decode_ms", milliseconds: pixel.decodeMs)
+    }
+
+    private func storeFloor(_ pixel: Pixel, for path: String) {
+        if let previous = floorPixels[path] {
+            floorBytes -= previous.byteEstimate
+        }
+        floorPixels[path] = pixel
+        floorBytes += pixel.byteEstimate
+        residentIndex.set(pixel, for: Key(path: path, maxPixelSize: Tier.floor.maxPixelSize))
+        evictFloor(toBytes: floorBudgetBytes)
+    }
+
+    /// Farthest from the viewport goes first. The entry just stored can be the
+    /// one evicted, if it is the farthest — that is the contract, not a bug.
+    private func evictFloor(toBytes budget: Int) {
+        while floorBytes > budget,
+              let farthest = floorPixels.keys.max(by: { distance($0) < distance($1) }) {
+            removeFloor(farthest)
+            floorEvicted += 1
+        }
+    }
+
+    private func removeFloor(_ path: String) {
+        if let removed = floorPixels.removeValue(forKey: path) {
+            floorBytes -= removed.byteEstimate
+            residentIndex.set(nil, for: Key(path: path, maxPixelSize: Tier.floor.maxPixelSize))
+        }
+    }
+
+    /// Test seam: the floor's resident paths.
+    func floorResidentPaths() -> Set<String> { Set(floorPixels.keys) }
+
+    /// Harness seam: forget the grid and focused tiers but keep the floor,
+    /// the order and the window — a cold LRU over a warm floor, which is the
+    /// state a long shoot is in after a memory-pressure trim.
+    func dropGridTierForMeasurement() {
+        for (path, request) in gridRequests where request.waiters.isEmpty && !gridActive.contains(path) {
+            gridRequests[path] = nil
+        }
+        for key in order { remove(key) }
+        order.removeAll()
     }
 
     func removeAll() {
         epoch &+= 1
         inflight.values.forEach { $0.task.cancel() }
         inflight.removeAll()
+        for (_, request) in gridRequests {
+            request.waiters.values.forEach { $0.resume(returning: nil) }
+        }
+        gridRequests.removeAll()
+        gridKeep.removeAll()
         pixels.removeAll()
         order.removeAll()
         pinnedPaths.removeAll()
         residentBytes = 0
+        floorGeneration &+= 1
+        floorQueue.removeAll()
+        floorPixels.removeAll()
+        floorBytes = 0
+        scrollPaths.removeAll()
+        scrollIndex.removeAll()
+        residentIndex.removeAll()
     }
 
     func diagnostics() -> Diagnostics {
@@ -196,7 +564,19 @@ actor BrowsePixelService {
             residentCount: pixels.count,
             inflightCount: inflight.count,
             cacheHits: cacheHits,
-            cacheMisses: cacheMisses
+            cacheMisses: cacheMisses,
+            floorResidentCount: floorPixels.count,
+            floorBytes: floorBytes,
+            floorQueued: floorQueue.count + floorInflight.count,
+            floorEvicted: floorEvicted,
+            prefetchIssued: prefetchIssued,
+            prefetchCancelled: prefetchCancelled,
+            prefetchActive: gridRequests.values.filter(\.fromWindow).count,
+            gridStale: gridStale,
+            gridCancelled: gridCancelled,
+            gridQueued: gridRequests.count - gridActive.count,
+            gridActive: gridActive.count,
+            gridStarted: gridStarted
         )
     }
 
@@ -210,6 +590,7 @@ actor BrowsePixelService {
             residentBytes -= previous.byteEstimate
         }
         pixels[key] = pixel
+        residentIndex.set(pixel, for: key)
         residentBytes += pixel.byteEstimate
         touch(key)
 
@@ -223,6 +604,7 @@ actor BrowsePixelService {
         order.removeAll { $0 == key }
         if let removed = pixels.removeValue(forKey: key) {
             residentBytes -= removed.byteEstimate
+            residentIndex.set(nil, for: key)
         }
     }
 

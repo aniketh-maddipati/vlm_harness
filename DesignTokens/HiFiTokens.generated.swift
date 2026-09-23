@@ -1,7 +1,7 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: a6631c10f342cfc8f0ff854b94255025a7afde86466902c45d4597a7ad2ffb31
+// tokens-hash: 4a9172850f98ae82e5417f8791879280ee775c21fd2e8549efbf6830b3c14185
 // version: 6.4-a7-cleanup
 // contract: design/contract-v6.md
 
@@ -120,6 +120,8 @@ enum HiFiTokens {
         static let photoFocusMs: Int = 280 // cite: D27, WG-photos — Filmstrip focus chrome — scale/shadow only; not birth opacity (photo_birth).
         static let routeTransition: TimeInterval = 0.24 // cite: D27, WG-chrome — P0 contact sheet ↔ single-photo route.
         static let routeTransitionMs: Int = 240 // cite: D27, WG-chrome — P0 contact sheet ↔ single-photo route.
+        static let beforePress: TimeInterval = 0.2 // cite: ELASTIC-V4 — Press and hold the photograph this long to see before; release returns.
+        static let beforePressMs: Int = 200 // cite: ELASTIC-V4 — Press and hold the photograph this long to see before; release returns.
         static let selectionRing: TimeInterval = 0.32 // cite: D27, WG-hand — Legacy shell selection ring — W8 retires path.
         static let selectionRingMs: Int = 320 // cite: D27, WG-hand — Legacy shell selection ring — W8 retires path.
         static let developReveal: TimeInterval = 0.55 // cite: D27, WG-chrome — Legacy develop crossfade — W8 retires path.
@@ -158,6 +160,54 @@ enum HiFiTokens {
         static let spacingLg: CGFloat = 24.0 // cite: WG-chrome
         static let spacingXl: CGFloat = 32.0 // cite: WG-chrome
         static let workspaceMargin: CGFloat = 28.0 // cite: WG-chrome
+    }
+
+    enum Elastic {
+        static let gapMedium: CGFloat = 40.0 // cite: ELASTIC-V4 — Moment separation after a pause of 25 min or more.
+        static let gapLong: CGFloat = 64.0 // cite: ELASTIC-V4 — Moment separation after a pause of 60 min or more.
+        static let gapThresholdMediumMin: CGFloat = 10.0 // cite: ELASTIC-V4 — Shortest pause that earns a visible gap.
+        static let filmstripFocusedWidth: CGFloat = 96.0 // cite: ELASTIC-V4
+        static let filmstripFocusedHeight: CGFloat = 64.0 // cite: ELASTIC-V4
+        static let filmstripTileHeight: CGFloat = 48.0 // cite: ELASTIC-V4
+        static let setShelfHeight: CGFloat = 64.0 // cite: ELASTIC-V4 — Shelf band — 8 pt padding around the 48 pt export button.
+        static let headerHeight: CGFloat = 56.0 // cite: ELASTIC-V4 — Header band.
+        static let exportHeight: CGFloat = 48.0 // cite: ELASTIC-V4 — Export button in the set shelf.
+        static let exportPadding: CGFloat = 18.0 // cite: ELASTIC-V4 — Export button horizontal padding.
+        static let exportRadius: CGFloat = 11.0 // cite: ELASTIC-V4 — Export button corner radius.
+        static let markSize: CGFloat = 24.0 // cite: ELASTIC-V4 — In-set / out mark circle on a table thumbnail.
+        static let burstBadgeHeight: CGFloat = 28.0 // cite: ELASTIC-V4 — Burst count / fold badge.
+        static let versionBadgeHeight: CGFloat = 22.0 // cite: ELASTIC-V4 — Version tile badge (1 shot · 2 auto · 3 yours).
+        static let phoneGlyphWidth: CGFloat = 10.0 // cite: ELASTIC-V4 — Phone glyph content width (1.5 pt border outside).
+        static let phoneGlyphHeight: CGFloat = 16.0 // cite: ELASTIC-V4 — Phone glyph content height (1.5 pt border outside).
+        static let phoneGlyphStroke: CGFloat = 1.5 // cite: ELASTIC-V4 — Phone glyph border.
+        static let stripLabelWidth: CGFloat = 64.0 // cite: ELASTIC-V4 — Strip label column (time / set).
+        static let momentRadius: CGFloat = 10.0 // cite: ELASTIC-V4 — Moment row card radius.
+        static let photoShadowY: CGFloat = 20.0 // cite: ELASTIC-V4 — Focused photograph drop-shadow offset.
+        static let photoShadowBlur: CGFloat = 40.0 // cite: ELASTIC-V4 — Focused photograph drop-shadow blur.
+        static let histogramWidth: CGFloat = 96.0 // cite: ELASTIC-V4 — Status-bar histogram rendered width.
+        static let histogramViewHeight: CGFloat = 20.0 // cite: ELASTIC-V4 — Status-bar histogram viewBox height.
+        static let clipTickWidth: CGFloat = 1.5 // cite: ELASTIC-V4 — Histogram clipping tick width in viewBox units.
+        static let stripLabelLineHeight: CGFloat = 1.5 // cite: ELASTIC-V4 — Strip label line-height, a multiple of its font size.
+        static let stripFillOpacity: Double = 0.18 // cite: ELASTIC-V4 — Strip wash — shadow ink over the table.
+        static let keyPillOpacity: Double = 0.18 // cite: ELASTIC-V4 — Key pill on a dark button (⌘E).
+        static let stackBackOpacity: Double = 0.22 // cite: ELASTIC-V4 — Back card of a collapsed burst stack.
+        static let peekCursorTileWidth: CGFloat = 220.0 // cite: ELASTIC-V4 — The cursor's own tile in the table's similar peek (its neighbours are 170).
+        static let peekRelatedBadgeHeight: CGFloat = 24.0 // cite: ELASTIC-V4 — Key badge on a related frame in the focus route (the table peek's badge is 22).
+        static let groupsColumnWidth: CGFloat = 210.0 // cite: ELASTIC-V4 — Left column of an inferred-groups row (kind · reason · take).
+        static let groupsFocusRowOpacity: Double = 0.14 // cite: ELASTIC-V4 — Warm wash on the inferred-groups row that holds the cursor.
+        static let groupsRuleOpacity: Double = 0.2 // cite: ELASTIC-V4 — Rule under the inferred-groups band.
+        static let groupsUntakenOpacity: Double = 0.5 // cite: ELASTIC-V4 — A frame in an inferred group that G would not take.
+        static let groupsTagTextSize: CGFloat = 10.0 // cite: ELASTIC-V4 — The `sharpest` tag on an inferred-group frame.
+        static let drawerValueColumn: CGFloat = 44.0 // cite: ELASTIC-V4 — Develop drawer slider grid, third column (`78px 1fr 44px`).
+        static let drawerSliderHeight: CGFloat = 18.0 // cite: ELASTIC-V4 — Develop drawer range input height.
+        static let drawerChipHeight: CGFloat = 24.0 // cite: ELASTIC-V4 — Ratio / match chips and the profile select in the develop drawer.
+        static let drawerButtonHeight: CGFloat = 32.0 // cite: ELASTIC-V4 — auto · match · reset row in the develop drawer.
+        static let drawerChipFillOpacity: Double = 0.14 // cite: ELASTIC-V4 — An unlit chip in the develop drawer — shell over the drawer.
+        static let straightenRange: CGFloat = 10.0 // cite: ELASTIC-V4 — Straighten runs −10…10 in the drawer.
+        static let straightenStep: CGFloat = 0.1 // cite: ELASTIC-V4 — Straighten slider step.
+        static let temperatureStep: CGFloat = 50.0 // cite: ELASTIC-V4 — Temperature slider step.
+        static let toneRange: CGFloat = 100.0 // cite: ELASTIC-V4 — Contrast · highlights · shadows · tint · vibrance · saturation run −100…100.
+        static let sliderFineTravel: Double = 0.18 // cite: ELASTIC-V4 — ⌥-drag on a develop slider moves this share of the way to the pointer per event.
     }
 
     enum Hit {

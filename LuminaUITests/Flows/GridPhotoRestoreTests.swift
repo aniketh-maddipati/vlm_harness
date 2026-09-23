@@ -29,7 +29,7 @@ final class GridPhotoRestoreTests: LuminaUITestCase {
 
         // Navigate + cull + undo at single-photo scale.
         single.navigateNext()
-        _ = lumina.waitForProbe(timeout: UITestWait.transition) { $0.route == "singlePhoto" }
+        _ = lumina.waitForProbe(timeout: UITestWait.transition) { $0.route == "focus" }
         let cullFocus = lumina.requireProbe().focusedAssetID
         let cullWas = cullFocus.flatMap { lumina.requireProbe().culls[$0] }
         single.pressReject()
@@ -39,8 +39,8 @@ final class GridPhotoRestoreTests: LuminaUITestCase {
 
         // Return to grid with Escape.
         single.returnToGrid()
-        let back = lumina.waitForProbe { $0.route == "contactSheet" }
-        XCTAssertEqual(back.route, "contactSheet")
+        let back = lumina.waitForProbe { $0.route == "time" }
+        XCTAssertEqual(back.route, "time")
         XCTAssertEqual(back.selectedAssetIDs, selectionBefore, "pointer travel must not invent selection across inspect")
         XCTAssertEqual(back.scrollAnchor, anchorBefore, accuracy: 0.2, "approximate scroll position restored")
         Invariants.assert(back, app: app)

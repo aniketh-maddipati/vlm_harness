@@ -181,10 +181,25 @@ nonisolated enum PreviewExtractor {
         let temp = destURL.deletingLastPathComponent()
             .appendingPathComponent(UUID().uuidString + ".jpg")
         try ExifToolService.extractPreview(from: rawURL, to: temp)
+        defer { try? FileManager.default.removeItem(at: temp) }
+
+        // The extracted preview is the RAW's embedded JPEG verbatim: sensor space,
+        // and with no orientation tag of its own. Every branch below writes pixels
+        // that nothing downstream can re-orient, so the file's orientation has to
+        // be baked in here or the photograph is displayed on its side for good.
+        if let upright = OrientedDisplayImage.uprightPreview(
+            at: temp,
+            fromSourceAt: rawURL,
+            maxPixelSize: maxPixelSize < 3000 ? maxPixelSize : nil
+        ), upright.rotated {
+            _ = writeJPEG(cgImage: upright.image, to: destURL, quality: 0.92)
+            return
+        }
+
         if maxPixelSize < 3000 {
             _ = downscaleJPEG(from: temp, to: destURL, maxPixelSize: maxPixelSize)
-            try? FileManager.default.removeItem(at: temp)
         } else {
+            // Nothing to rotate — keep the extracted bytes rather than re-encoding.
             try? FileManager.default.moveItem(at: temp, to: destURL)
         }
     }

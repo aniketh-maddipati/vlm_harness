@@ -3,50 +3,43 @@ import Foundation
 /// Single ordered Esc ladder for the P0 live path (Law 5 / D11).
 /// First matching step wins — Esc never means two things at one depth.
 ///
-/// Ordered rules (deepest transient state first):
-/// 1. Grouping surface → return to contact sheet.
-/// 2. Single-photo inspection → close and restore scroll/focus.
-/// 3. *(reserved)* Active edit/crop drag → restore gesture baseline without navigation.
-/// 4. *(reserved)* Latched crop → dismiss, revert entry layout.
-/// 5. *(reserved)* Staged propagation → narrow one ring; at row ring cancel whole stage.
-/// 6. *(reserved)* Un-applied staged batches → dissolve on relaunch.
+/// The prototype's own order, deepest transient first:
+/// 1. **Peek** — a held or pinned ⇥ peek closes.
+/// 2. **Drawer** — the develop drawer closes.
+/// 3. **Selection** — a selection clears.
+/// 4. **Route** — the focus route returns to the time table, same cursor.
 ///
-/// Steps 3–6 mirror `LuminaShellModel.handleEscape` and land when P0 gains parity.
+/// Nothing else answers to Esc: an open burst folds by its badge, a held key
+/// releases with the key, and the table itself has nowhere further out to go.
 @MainActor
 enum P0EscLadder {
     /// Returns true when Esc was consumed.
     static func handle(session: P0SessionModel) -> Bool {
-        if session.holdingLoupe || session.holdingClipping {
-            session.setHoldingLoupe(false)
-            session.setHoldingClipping(false)
+        if session.peek != nil {
+            session.closePeek()
             return true
         }
 
-        if session.lookGlancing {
-            session.endLookGlance()
+        if session.developDrawerOpen {
+            session.developDrawerOpen = false
             return true
         }
 
-        if session.leanedBurstID != nil {
-            session.leaveBurstLean()
+        if !session.selectedAssetIDs.isEmpty {
+            session.selectedAssetIDs = []
             return true
         }
 
-        if session.walkingKeptRail {
-            session.walkingKeptRail = false
-            return true
-        }
-
-        if session.route == .grouping {
-            session.leaveGrouping()
-            return true
-        }
-
-        if session.inspectingAssetID != nil {
+        if session.route == .focus {
             session.closeInspection()
             return true
         }
 
         return false
+    }
+
+    /// What the probe reports: Esc has something to unwind before it would move.
+    static func hasTransientDepth(session: P0SessionModel) -> Bool {
+        session.peek != nil || session.developDrawerOpen || !session.selectedAssetIDs.isEmpty
     }
 }

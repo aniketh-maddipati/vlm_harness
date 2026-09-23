@@ -102,31 +102,15 @@ final class PointerTravelTests: XCTestCase {
         XCTAssertFalse(session.canUndo)
     }
 
-    func testVariantPointerTravelDoesNotCullOrSelect() {
-        let (session, ids) = session(assetCount: 2)
-        session.assets[0].recipe = EditRecipe(exposure: 0.2)
-        session.pointerTravel(to: ids[0])
-        session.openFocusedPhotograph()
-        session.beginEditVariants()
-
-        session.pointerTravelToVariant(at: 2)
-
-        XCTAssertEqual(session.workspaceState.focusedEditVariantIndex, 2)
-        XCTAssertTrue(session.selectedAssetIDs.isEmpty)
-        XCTAssertEqual(session.assets[0].cull, .undecided)
-        XCTAssertEqual(session.assets[0].recipe?.exposure ?? .nan, 0.2, accuracy: 1e-9)
-        XCTAssertFalse(session.canUndo, "variant pointer travel must not commit")
-    }
-
     func testPointerCallsitesAreTravelOnly() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         let files = [
             "Lumina/Views/P0/P0ChapterTableView.swift",
-            "Lumina/Views/P0/P0ContactSheetView.swift",
             "Lumina/Views/P0/ContactSheetCollection.swift",
-            "Lumina/Views/P0/P0SinglePhotoEditor.swift",
+            "Lumina/Views/P0/ElasticTableView.swift",
+            "Lumina/Views/P0/ElasticFocusView.swift",
             "Lumina/ViewModels/P0SessionModel.swift",
         ]
         for rel in files {
@@ -141,11 +125,6 @@ final class PointerTravelTests: XCTestCase {
         )
         XCTAssertTrue(table.contains("pointerTravel(to:"))
         XCTAssertFalse(table.contains("marks.selected"))
-        let editor = try String(
-            contentsOf: root.appendingPathComponent("Lumina/Views/P0/P0SinglePhotoEditor.swift"),
-            encoding: .utf8
-        )
-        XCTAssertTrue(editor.contains("pointerTravelToVariant(at:"))
         let collection = try String(
             contentsOf: root.appendingPathComponent("Lumina/Views/P0/ContactSheetCollection.swift"),
             encoding: .utf8
