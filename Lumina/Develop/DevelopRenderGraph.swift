@@ -12,9 +12,9 @@ import UniformTypeIdentifiers
 ///    RAW exposure, RAW noise reduction and capture sharpening. Applied through
 ///    `PreparedRawSession`; reduced scale goes through `CIRAWFilter.scaleFactor`
 ///    so a full-size image is never decoded just to be thrown away.
-///    Interactive pins decode to camera WB + 0 EV, materializes that demosaic
-///    into an MTLTexture, and applies exposure / WB as CI post-ops on the
-///    cached surface; settled / export still bake on the filter and stay lazy.
+///    Both tiers bake the same exposure and WB intent on CIRAWFilter.
+///    Interactive materializes a texture; settled / export stay lazy.
+///    Exposure and WB changes deliberately invalidate the RAW stage.
 /// 2. Look stage — scene-linear Core Image graph for the small honest set:
 ///    highlights/shadows (documented approximation), contrast, vibrance, saturation.
 ///    Whites/blacks/clarity/texture/dehaze are **not rendered**; their controls
@@ -83,7 +83,7 @@ nonisolated enum DevelopRenderGraph {
             image = applyProxyApproximation(request.recipe, to: image)
         } else {
             // RAW stage already carries RawIntent (baked on settled / export;
-            // interactive is a texture-backed pinned decode plus CI post-ops).
+            // interactive is a texture-backed decode with the same baked RAW intent).
             // Tone (look) is always a post-op. Then heal spots.
             image = applyLook(request.recipe.lookIntent, to: image)
             image = applyRetouch(request.recipe.retouch, to: image)

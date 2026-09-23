@@ -623,6 +623,123 @@ final class DevelopEvalHarnessTests: XCTestCase {
         executionTimeAllowance = 4 * 60 * 60
     }
 
+    func testSonyPreviewExportContract() async throws {
+        guard let config = Config.fromEnvironment() else { throw XCTSkip("Sony RAW configuration required") }
+        let truth = try JSONDecoder().decode(Truth.self, from: Data(contentsOf: config.truthURL))
+        let names = Array(Set(truth.frames.map(\.raw))).sorted()
+        XCTAssertFalse(names.isEmpty)
+        var timings: [Double] = []
+        var gaps: [Double] = []
+        var hits = 0
+        for name in names.prefix(8) {
+            let url = config.rawDir.appendingPathComponent(name)
+            let session = PreparedRawSession(assetID: UUID(), rawURL: url)
+            for recipe in [EditRecipe.neutral,
+                EditRecipe(exposure: 0.33, temperature: 5200, tint: 12, highlights: -20, shadows: 15,
+                    crop: EditCrop(x: 0.12, y: 0.07, width: 0.63, height: 0.72)),
+                EditRecipe(exposure: -0.33, temperature: 3800, tint: -8, straightenDegrees: 90)] {
+                let start = CFAbsoluteTimeGetCurrent()
+                let raw = await session.rawStageImage(intent: recipe.rawIntent, targetLongEdge: 640, tier: .interactive)
+                let stage = try XCTUnwrap(raw)
+                let oriented = OrientedDisplayImage.aligning(stage.image, toFile: url)
+                let preview = try XCTUnwrap(rasterize(finish(oriented, recipe: recipe), size: (384, 256)))
+                timings.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
+                let referenceValue = await renderArm(session, rawURL: url, recipe: recipe, size: (384, 256))
+                let reference = try XCTUnwrap(referenceValue)
+                let gap = try XCTUnwrap(Self.compare(preview, reference))
+                gaps.append(gap.deltaE)
+                XCTAssertLessThanOrEqual(gap.deltaE, 1.5, "\(name) crop/WB/orientation preview/export gap")
+                let cached = await session.rawStageImage(intent: recipe.rawIntent, targetLongEdge: 640, tier: .interactive)
+                if cached?.cacheHit == true { hits += 1 }
+                XCTAssertEqual(cached?.cacheHit, true)
+            }
+        }
+        try FileManager.default.createDirectory(at: config.outDir, withIntermediateDirectories: true)
+        // Exercise the public graph and encoded full-resolution export too, not
+        // only equal-size RAW-stage comparisons. TIFF stays in the private run.
+        var exportGaps: [Double] = []
+        var exportRows: [[String: Any]] = []
+        let cases: [(String, EditRecipe)] = [
+            ("neutral", .neutral),
+            ("exposure", EditRecipe(exposure: 1)),
+            ("wb-tint", EditRecipe(temperature: 3800, tint: -18)),
+            ("tone", EditRecipe(highlights: -60, shadows: 45)),
+            ("crop", EditRecipe(crop: EditCrop(x: 0.12, y: 0.07, width: 0.63, height: 0.72))),
+            ("quarter-turn", EditRecipe(straightenDegrees: 90)),
+            ("crop-turn", EditRecipe(exposure: 0.33, temperature: 5200, tint: 12,
+                highlights: -20, shadows: 15,
+                crop: EditCrop(x: 0.12, y: 0.07, width: 0.63, height: 0.72), straightenDegrees: 270)),
+        ]
+        for name in names.prefix(3) {
+          for (caseName, recipe) in cases {
+            let url = config.rawDir.appendingPathComponent(name)
+            let id = UUID()
+            let request = RawRenderRequest(generation: 0, photoID: id, rawURL: url,
+                recipe: recipe, quality: .interactive, longEdgeCap: 1920)
+            let coldStart = CFAbsoluteTimeGetCurrent()
+            let previewResult = await DevelopRenderGraph.render(request)
+            let coldMS = (CFAbsoluteTimeGetCurrent() - coldStart) * 1000
+            XCTAssertFalse(previewResult.usedProxyFallback)
+            let previewImage = try XCTUnwrap(previewResult.ciImage)
+            let warmStart = CFAbsoluteTimeGetCurrent()
+            let warm = await DevelopRenderGraph.render(request)
+            let warmMS = (CFAbsoluteTimeGetCurrent() - warmStart) * 1000
+            XCTAssertTrue(warm.rawStageCacheHit)
+            let exportValue = await DevelopRenderGraph.renderExportBitmap(rawURL: url, photoID: id, recipe: recipe)
+            let exported = try XCTUnwrap(exportValue)
+            XCTAssertGreaterThan(max(exported.width, exported.height), 1920)
+            let tiff = config.outDir.appendingPathComponent("contract-export.tiff")
+            XCTAssertTrue(DevelopRenderGraph.exportTIFF(cgImage: exported, to: tiff, preserveMetadataFrom: url))
+            let decoded = try XCTUnwrap(loadReference(tiff))
+            let size = Self.compareSize(for: decoded)
+            XCTAssertEqual(previewImage.extent.width / previewImage.extent.height,
+                CGFloat(decoded.width) / CGFloat(decoded.height), accuracy: 0.005)
+            let preview = try XCTUnwrap(rasterize(previewImage, size: size))
+            let reference = try XCTUnwrap(draw(decoded, width: size.0, height: size.1))
+            let gap = try XCTUnwrap(Self.compare(preview, reference))
+            exportGaps.append(gap.deltaE)
+            exportRows.append(["raw": name, "case": caseName, "deltaE": gap.deltaE,
+                "coldMS": coldMS, "warmMS": warmMS, "warmRawHit": warm.rawStageCacheHit,
+                "exportWidth": exported.width, "exportHeight": exported.height])
+            writeContactSheet([preview, reference],
+                to: config.outDir.appendingPathComponent("\(name)-\(caseName).jpg"))
+            XCTAssertLessThanOrEqual(gap.deltaE, 1.5, "\(name)/\(caseName): actual preview vs encoded full export")
+            try FileManager.default.removeItem(at: tiff)
+            await PreparedRawSessionRegistry.shared.removeAll()
+          }
+        }
+        // The production latest-wins scheduler must replace cancelled RAW edits
+        // with the final recipe, even when a demosaic was already executing.
+        let scheduler = DevelopRenderScheduler()
+        let rapidID = UUID()
+        let rapidURL = config.rawDir.appendingPathComponent(try XCTUnwrap(names.first))
+        for index in 0..<24 {
+            scheduler.scrub(photoID: rapidID, rawURL: rapidURL, proxyURL: nil,
+                recipe: EditRecipe(exposure: Double(index) / 24,
+                    temperature: Double(3800 + index * 80), tint: 12))
+            try await Task.sleep(nanoseconds: 16_000_000)
+        }
+        scheduler.cancelAll()
+        let finalRecipe = EditRecipe(exposure: -0.7, temperature: 4300, tint: -12)
+        scheduler.scrub(photoID: rapidID, rawURL: rapidURL, proxyURL: nil, recipe: finalRecipe)
+        // Wait for the final request and any already executing cancelled decode.
+        try await Task.sleep(nanoseconds: 3_000_000_000)
+        let displayed = try XCTUnwrap(scheduler.presented[rapidID]?.ciImage)
+        let expected = await DevelopRenderGraph.render(RawRenderRequest(generation: 0,
+            photoID: rapidID, rawURL: rapidURL, recipe: finalRecipe, quality: .interactive))
+        let expectedImage = try XCTUnwrap(expected.ciImage)
+        let actualPixels = try XCTUnwrap(rasterize(displayed, size: (384, 256)))
+        let expectedPixels = try XCTUnwrap(rasterize(expectedImage, size: (384, 256)))
+        let replacementGap = try XCTUnwrap(Self.compare(actualPixels, expectedPixels))
+        XCTAssertLessThan(replacementGap.deltaE, 0.01, "a cancelled edit must never replace the final RAW intent")
+        scheduler.cancelAll()
+        let data = try JSONSerialization.data(withJSONObject: ["latestWinsDeltaE": replacementGap.deltaE, "cancelledRenders": scheduler.metrics.cancelled,
+            "gap": gaps, "fullExportGap": exportGaps, "exportCases": exportRows, "coldRenderMS": timings,
+            "warmHits": hits, "hardware": ProcessInfo.processInfo.processorCount,
+            "physicalMemory": ProcessInfo.processInfo.physicalMemory], options: [.prettyPrinted])
+        try data.write(to: config.outDir.appendingPathComponent("preview-contract.json"))
+    }
+
     func testAutoArmsAgainstHandEdits() async throws {
         guard let config = Config.fromEnvironment() else {
             throw XCTSkip(

@@ -20,7 +20,7 @@ nonisolated enum RawDecodeBackendRegistry {
     /// Bumped whenever Apple's decoder or our mapping changes meaningfully.
     /// Part of render cache keys — lives here (not on `PreparedRawSession`) so
     /// the data plane never touches actor-isolated state.
-    static let mappingVersion = "lumina-ciraw-1"
+    static let mappingVersion = "lumina-ciraw-2"
 
     static let production: any RawDecodeBackend = AppleRawDecodeBackend()
 
