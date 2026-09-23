@@ -12,9 +12,8 @@ import UniformTypeIdentifiers
 ///    RAW exposure, RAW noise reduction and capture sharpening. Applied through
 ///    `PreparedRawSession`; reduced scale goes through `CIRAWFilter.scaleFactor`
 ///    so a full-size image is never decoded just to be thrown away.
-///    Interactive pins decode to camera WB + 0 EV, materializes that demosaic
-///    into an MTLTexture, and applies exposure / WB as CI post-ops on the
-///    cached surface; settled / export still bake on the filter and stay lazy.
+///    Both tiers bake identical RAW intents. Interactive materializes a texture;
+///    settled/export stay lazy. RAW-control changes invalidate the stage.
 /// 2. Look stage — scene-linear Core Image graph for the small honest set:
 ///    highlights/shadows (documented approximation), contrast, vibrance, saturation.
 ///    Whites/blacks/clarity/texture/dehaze are **not rendered**; their controls
@@ -186,13 +185,14 @@ nonisolated enum DevelopRenderGraph {
 
     // MARK: - Look stage (scene-linear, honest subset)
 
-    /// Four live variants share one pinned interactive RAW surface. Exposure and
-    /// white balance are the variant parameters; look / retouch / geometry follow
-    /// the shared recipe. This is not a second renderer.
-    static func branchInteractiveVariant(from pinnedSource: CIImage, recipe: EditRecipe) -> CIImage {
+    /// RAW variants pass rawApplied=true with their exact baked RAW-intent surface.
+    /// Only proxy/synthetic callers use the explicitly approximate post-op branch.
+    static func branchInteractiveVariant(from pinnedSource: CIImage, recipe: EditRecipe, nativeTemperature: Double = EditRecipe.neutralTemperature, nativeTint: Double = 0, rawApplied: Bool = false) -> CIImage {
         DevelopRenderCounters.recordVariantRender()
         var image = normalizeOrigin(pinnedSource)
-        image = applyExposureAndWhiteBalance(recipe.rawIntent, to: image)
+        if !rawApplied {
+            image = applyExposureAndWhiteBalance(recipe.rawIntent, to: image, nativeTemperature: nativeTemperature, nativeTint: nativeTint)
+        }
         image = applyLook(recipe.lookIntent, to: image)
         image = applyRetouch(recipe.retouch, to: image)
         image = applyGeometry(recipe, to: image)
@@ -244,7 +244,7 @@ nonisolated enum DevelopRenderGraph {
     /// (camera WB, 0 EV) demosaic. Also used by the Proxy fallback path.
     /// Tone (highlights / shadows / contrast / vibrance / saturation) stays in
     /// `applyLook` so it is not applied twice.
-    static func applyExposureAndWhiteBalance(_ intent: RawIntent, to image: CIImage) -> CIImage {
+    static func applyExposureAndWhiteBalance(_ intent: RawIntent, to image: CIImage, nativeTemperature: Double = EditRecipe.neutralTemperature, nativeTint: Double = 0) -> CIImage {
         var result = image
         let bounds = image.extent.integral
 
@@ -255,7 +255,7 @@ nonisolated enum DevelopRenderGraph {
         }
         if !intent.isAsShotWhiteBalance, let f = CIFilter(name: "CITemperatureAndTint") {
             f.setValue(result, forKey: kCIInputImageKey)
-            f.setValue(CIVector(x: EditRecipe.neutralTemperature, y: 0), forKey: "inputNeutral")
+            f.setValue(CIVector(x: nativeTemperature, y: nativeTint), forKey: "inputNeutral")
             f.setValue(CIVector(x: intent.temperature, y: intent.tint), forKey: "inputTargetNeutral")
             result = f.outputImage ?? result
         }

@@ -244,7 +244,16 @@ final class EditVariantTests: XCTestCase {
         let liveGeneration = session.variantPinnedGeneration
         XCTAssertNotEqual(liveGeneration, staleGeneration)
         let liveImage = CIImage(color: .blue).cropped(to: CGRect(x: 0, y: 0, width: 4, height: 4))
-        session.publishVariantPinnedSource(liveImage, generation: liveGeneration, assetID: assetID)
+        // Each RAW intent needs its own baked source; a single as-shot pin can
+        // no longer claim to represent four different white balances.
+        var sources: [String: CIImage] = [:]
+        for index in 0..<EditVariantSession.count {
+            let recipe = try XCTUnwrap(session.workspaceState.editVariants?.recipe(forVariantAt: index))
+            sources[recipe.rawIntent.fingerprint] = liveImage
+        }
+        session.publishVariantRawSources(sources, areRAW: true, generation: staleGeneration, assetID: assetID)
+        XCTAssertNil(session.displayedVariantCIImage(at: 0))
+        session.publishVariantRawSources(sources, areRAW: true, generation: liveGeneration, assetID: assetID)
         XCTAssertNotNil(session.displayedVariantCIImage(at: 0))
         XCTAssertNotNil(session.displayedVariantCIImage(at: 1))
         XCTAssertNotNil(session.displayedVariantCIImage(at: 2))
@@ -270,7 +279,7 @@ final class EditVariantTests: XCTestCase {
             session.cancelEditVariants()
         }
         try await Task.sleep(nanoseconds: 80_000_000)
-        XCTAssertEqual(DevelopRenderCounters.snapshot().preparedSessionCreated, 1)
+        XCTAssertEqual(DevelopRenderCounters.snapshot().preparedSessionCreated, 0, "cancel before dispatch must not prepare a RAW")
         XCTAssertEqual(session.workspaceState.editVariantCancellationCount, 4)
         XCTAssertEqual(DevelopRenderCounters.snapshot().cancellations, 4)
         XCTAssertNil(session.variantPinnedSource)
@@ -291,7 +300,7 @@ final class EditVariantTests: XCTestCase {
             assetID: assetID
         )
         XCTAssertNil(session.displayedVariantCIImage(at: 2), "choose must drop the pin")
-        XCTAssertEqual(DevelopRenderCounters.snapshot().preparedSessionCreated, 1)
+        XCTAssertEqual(DevelopRenderCounters.snapshot().preparedSessionCreated, 0, "cancel before dispatch must not prepare a RAW")
     }
 
     func testVariantRenderPathStaysOnExistingOwners() throws {

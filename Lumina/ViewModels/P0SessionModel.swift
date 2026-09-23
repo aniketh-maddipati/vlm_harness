@@ -144,6 +144,8 @@ final class P0SessionModel {
     private(set) var variantPinnedGeneration: UInt64 = 0
     private(set) var variantPinnedSource: CIImage?
     private var variantPinnedAssetID: UUID?
+    private var variantRawSources: [String: CIImage] = [:]
+    private var variantsAreRAW = false
 
     private var preparationTask: Task<Void, Never>?
     private var persistTask: Task<Void, Never>?
@@ -249,10 +251,19 @@ final class P0SessionModel {
 
     func displayedVariantCIImage(at index: Int) -> CIImage? {
         guard workspaceState.editVariants?.assetID == variantPinnedAssetID,
-              let source = variantPinnedSource,
-              let recipe = workspaceState.editVariants?.recipe(forVariantAt: index)
-        else { return nil }
-        return DevelopRenderGraph.branchInteractiveVariant(from: source, recipe: recipe)
+              let recipe = workspaceState.editVariants?.recipe(forVariantAt: index),
+              let source = variantRawSources[recipe.rawIntent.fingerprint] else { return nil }
+        return DevelopRenderGraph.branchInteractiveVariant(from: source, recipe: recipe, rawApplied: variantsAreRAW)
+    }
+
+    private func refreshVariantSources() {
+        guard let id = variantPinnedAssetID else { return }
+        variantPinnedTask?.cancel()
+        variantPinnedGeneration &+= 1
+        let generation = variantPinnedGeneration
+        variantPinnedTask = Task { [weak self] in
+            await self?.fillVariantPinnedSource(assetID: id, generation: generation)
+        }
     }
 
     /// Live develop fidelity for a photograph, if the scheduler has started.
@@ -770,10 +781,12 @@ final class P0SessionModel {
 
     func setSharedVariantExposure(_ exposure: Double) {
         workspaceState.setSharedVariantExposure(exposure)
+        refreshVariantSources()
     }
 
     func setVariantExposure(_ exposure: Double?, at index: Int) {
         workspaceState.setVariantExposure(exposure, at: index)
+        refreshVariantSources()
     }
 
     func setVariantWhiteBalance(
@@ -786,6 +799,7 @@ final class P0SessionModel {
             tint: tint,
             at: index
         )
+        refreshVariantSources()
     }
 
     func focusEditVariant(at index: Int) {
@@ -859,32 +873,45 @@ final class P0SessionModel {
         variantPinnedSource = image
     }
 
+    func publishVariantRawSources(_ sources: [String: CIImage], areRAW: Bool,
+                                  generation: UInt64, assetID: UUID) {
+        guard generation == variantPinnedGeneration, variantPinnedAssetID == assetID,
+              workspaceState.editVariants?.assetID == assetID else { return }
+        variantsAreRAW = areRAW
+        variantRawSources = sources
+        publishVariantPinnedSource(sources.values.first, generation: generation, assetID: assetID)
+    }
+
     private func abandonVariantPinnedSource() {
         variantPinnedTask?.cancel()
         variantPinnedTask = nil
         variantPinnedGeneration &+= 1
         variantPinnedSource = nil
+        variantRawSources = [:]
         variantPinnedAssetID = nil
     }
 
     private func fillVariantPinnedSource(assetID: UUID, generation: UInt64) async {
-        guard let urls = resolveRenderURLs(for: assetID) else { return }
-        let intent = workspaceState.editVariants?.sharedRecipe.rawIntent ?? recipe(for: assetID).rawIntent
+        guard let urls = resolveRenderURLs(for: assetID),
+              let variants = workspaceState.editVariants else { return }
         let longEdge = DevelopRenderQuality.interactive.defaultLongEdge
-        var image: CIImage?
-        if let raw = urls.rawURL {
-            let session = await PreparedRawSessionRegistry.shared.session(for: assetID, rawURL: raw)
-            if let pin = await session.interactivePinnedSource(
-                intent: intent,
-                targetLongEdge: longEdge
-            ) {
-                image = pin.image
+        var sources: [String: CIImage] = [:]
+        for index in 0..<EditVariantSession.count {
+            guard !Task.isCancelled, let recipe = variants.recipe(forVariantAt: index) else { return }
+            let intent = recipe.rawIntent
+            if sources[intent.fingerprint] != nil { continue }
+            if let raw = urls.rawURL {
+                let session = await PreparedRawSessionRegistry.shared.session(for: assetID, rawURL: raw)
+                if let pin = await session.interactivePinnedSource(intent: intent, targetLongEdge: longEdge) {
+                    sources[intent.fingerprint] = OrientedDisplayImage.aligning(pin.image, toFile: raw)
+                }
+            } else if let proxy = urls.proxyURL {
+                sources[intent.fingerprint] = OrientedDisplayImage.ciImage(at: proxy, maxPixelSize: longEdge)
             }
-        } else if let proxy = urls.proxyURL {
-            image = OrientedDisplayImage.ciImage(at: proxy, maxPixelSize: longEdge)
         }
-        guard !Task.isCancelled else { return }
-        publishVariantPinnedSource(image, generation: generation, assetID: assetID)
+        guard !Task.isCancelled, generation == variantPinnedGeneration,
+              variantPinnedAssetID == assetID else { return }
+        publishVariantRawSources(sources, areRAW: urls.rawURL != nil, generation: generation, assetID: assetID)
     }
 
     private func dropVariantPinIfInactive() {
