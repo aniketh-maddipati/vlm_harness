@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Ratchet duplicate PNG/HTML evidence dirs out of the tracked tree."""
+"""Ratchet duplicate PNG/HTML evidence dirs out of the tracked tree.
+
+Two guards: named legacy dirs must stay untracked, and any *new* top-level
+artifacts/ directory must be declared before it can be tracked. The second one
+exists because the first only ever caught mistakes already made.
+"""
 from __future__ import annotations
 
 import subprocess
@@ -12,6 +17,21 @@ CANONICAL = {
     "artifacts/workbench-v6",
     "artifacts/raw-harness-v6",
     "artifacts/raw-perf",
+}
+
+# Every artifacts/ child that is allowed to carry tracked files. A new evidence
+# dir is untracked run output until someone argues otherwise here — see the
+# artifacts/p0-edit/ entry in .gitignore for what the alternative costs.
+DECLARED = {
+    "harness",
+    "workbench-v6",
+    "raw-perf",
+    "raw-harness-v6",
+    "perf",
+    "develop-lab",
+    "tree-compiles",
+    "release",
+    "p0-edit-rawcheck.err",
 }
 
 LEGACY_PREFIXES = (
@@ -46,6 +66,16 @@ def main() -> int:
             if path == legacy or path.startswith(legacy + "/")
         }
     )
+    undeclared = sorted(
+        {
+            path.split("/")[1]
+            for path in tracked
+            if path.startswith("artifacts/")
+            and len(path.split("/")) > 1
+            and path.split("/")[1] not in DECLARED
+        }
+    )
+
     if offenders:
         print("FAIL: duplicate artifact evidence still tracked:", file=sys.stderr)
         for path in offenders[:20]:
@@ -53,6 +83,17 @@ def main() -> int:
         if len(offenders) > 20:
             print(f"  … and {len(offenders) - 20} more", file=sys.stderr)
         print(f"NOTE: keep canonical dirs only: {sorted(CANONICAL)}", file=sys.stderr)
+        return 1
+
+    if undeclared:
+        print("FAIL: undeclared artifacts/ evidence dirs are tracked:", file=sys.stderr)
+        for name in undeclared:
+            print(f"  artifacts/{name}", file=sys.stderr)
+        print(
+            "NOTE: run evidence belongs in .gitignore. If this dir is genuinely "
+            "reviewed input, add it to DECLARED in this file and say why in the commit.",
+            file=sys.stderr,
+        )
         return 1
     print("repo_artifact_bloat: OK")
     return 0

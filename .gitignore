@@ -62,4 +62,6 @@ Scripts/harness/**/__pycache__/
 # reviewed golden, so measurements live in the docs as tables instead.
 artifacts/p0-edit/
 artifacts/p0-edit-live/
+# Same class, written to a named outdir instead of the default one.
+artifacts/elastic-proof/
 actionlint
