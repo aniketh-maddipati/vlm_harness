@@ -140,7 +140,7 @@ The T7 + local Lightroom scan found 15,109 files. Expanding to accessible
 | Video files | 309 |
 | Unrecognized/error files | 3 |
 
-7,196 records identify Sony ILCE-7M3; 8,007 lack camera identity. No accessible file
+In that initial scan, 7,196 records identify Sony ILCE-7M3; 8,007 lack camera identity. No accessible file
 identified iPhone, HEIC/HEIF, or verified ProRAW. This does not prove the unknown files
 were never from a phone. Photos and Photo Booth libraries are inaccessible due to
 macOS permissions; `scan_complete=false` and `discovery_errors` record both paths.
@@ -148,6 +148,34 @@ The inventory is complete only for accessible, recognized candidate paths in sco
 The 496 wall-clock groups are unverified; zero Sony/iPhone scene groups are established.
 Ten-minute buckets can miss pairs across boundaries or clock offsets and join unrelated
 events. They are navigation suggestions, never scene truth or split authority.
+
+### Subsequently supplied iPhone folder
+
+The owner supplied `/Volumes/T7/iphone` after the initial scan. The volume treats
+`iPhone` and `iphone` as the same directory. Counts grew during transfer; repeated
+cached scans finally covered 217 JPEGs, with an additional PNG inspected separately:
+
+- 216 JPEGs identify iPhone 16 Pro Max and carry Display P3 profiles.
+- One WYZE-named JPEG has no camera identity/profile; do not count it as verified iPhone.
+- `IMG_3839.PNG` is 1320×2868 with no reported camera identity; it is outside the
+  JPEG/HEIC/RAW inventory extension filter and was inspected using basic metadata only.
+- 213 identified phone JPEGs were captured on 2026-08-07; three on 2026-08-08.
+  Explicit capture offsets include -07:00 and -04:00. Do not assume one timezone.
+- All 217 JPEG metadata records extracted without errors. Full pixel decode remains
+  UNMEASURED. No HEIC or ProRAW file was supplied in this snapshot.
+- Sample JPEGs retain Apple HDRHeadroom/HDRGain and AROT HDRGainCurve tags. These do
+  not establish auxiliary gain-map preservation or correct HDR rendering by Lumina.
+- Metadata and filenames do not establish untouched-original or edit-history status.
+  Some dimensions are consistent with crops/panoramas; provenance still needs review.
+
+Private incremental manifest/report/cache: `/private/tmp/lumina-harmonization-evidence/iphone-inventory/`.
+AppleDouble files were excluded, GPS coordinates discarded, and sources stayed read-only.
+No Sony record in the existing inventory shares either capture date. That prevents a
+timestamp-based paired shortlist, but is not proof that the scenes differ if clocks or
+dates are wrong. Visual verification is still required. The 216 phone JPEGs are ample
+for a rendered-JPEG adapter pilot; HEIC/ProRAW coverage and verified Sony pairs remain
+missing. The earlier broad inventory and empty benchmark draft are historical snapshots,
+not an assertion that no phone files now exist.
 
 ```sh
 python3.12 Scripts/harness/harmonization/inventory.py \
@@ -163,7 +191,7 @@ python3.12 Scripts/harness/harmonization/inventory.py \
 
 `benchmark.schema.json` is the interchange schema; `benchmark.py` drafts candidate
 scenes and checks event/content-identity/burst split leakage. A draft can contain zero
-scenes; it must not fabricate phone pairs. Current `benchmark-draft.json` is empty.
+scenes; it must not fabricate phone pairs. Initial `benchmark-draft.json` is empty.
 Targets remain 30–50 scenes / 100–200 combined assets, without statistical significance
 claims. Keep complete sets, easy/hard pairs, daylight/shade/mixed/night/HDR strata.
 Obtain consent for local people/skin review and do not infer identity or race.
@@ -287,9 +315,25 @@ not sufficient build provenance on its own.
 
 Proven here: resumable accessible-file inventory, typed bounded candidate interface,
 existing-engine measurement wiring and explicit abstention. Promising but unproven:
-matched-scene candidate search with calibrated limits. Failed prerequisites: phone
-library access and verified phone corpus. Prior VLM aesthetic/perceptual judgments
+matched-scene candidate search with calibrated limits. Remaining prerequisites: phone
+library access for unavailable formats, verified HEIC/ProRAW coverage and paired-scene corpus.
+Supplied JPEGs resolve the lack of accessible phone input. Prior VLM aesthetic/perceptual judgments
 remain unreliable. Correct engine behavior, deterministic adjustment, cross-device
 normalization, set coherence, optional style preference and temporal video consistency
 are separate achievements. Training is not justified yet. The next smallest experiment
 is the 6–8-file phone adapter audit, followed by verified paired-scene deterministic review.
+
+## Integration status
+
+Foundation checkpoint `4b8035d` is locally committed and tested. This does not complete
+the harmonization product. The separately authorized documentation-only UI report
+commit `59dbaf4` is first in the current integration queue, pending its required gates.
+After that, this foundation may be considered independently if the owner authorizes
+publication/merge and its own two-round cache-free checkpoint and applicable CI pass.
+No such publication/merge authorization has been given for this branch.
+
+Parent-owned instrumentation `2da4659` is independent groundwork. Its whole-product
+baseline and presentation correlation remain incomplete; it is neither a dependency
+nor a merge-ready prerequisite for this foundation. Keep it local until the parent
+finishes its evidence and scope. The UI rotation defect also remains a separately owned
+correctness follow-up; these measurement foundations do not fix or certify it.
