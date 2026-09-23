@@ -158,14 +158,16 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
         XCTAssertTrue(editor.contains("One permanent Metal leaf owns this click"))
         XCTAssertTrue(editor.contains("immediateBrowseImage"))
         XCTAssertTrue(editor.contains("OrientedDisplayImage.ciImage"))
-        XCTAssertTrue(editor.contains("OrientedDisplayImage.stablePresent"))
+        XCTAssertTrue(editor.contains("OrientedDisplayImage.select"))
+        XCTAssertTrue(editor.contains("session.displayFrame(for: asset.id)"))
         XCTAssertFalse(editor.contains("CIImage(contentsOf:"))
         XCTAssertTrue(editor.contains(".task(id: asset.id)"))
 
         let scheduler = try source("Lumina/Develop/DevelopRenderScheduler.swift")
         XCTAssertTrue(scheduler.contains("visibleRenderGate"))
         XCTAssertTrue(scheduler.contains("speculativeRenderGate"))
-        XCTAssertTrue(scheduler.contains("guard !speculative, visiblePhotoID == photoID"))
+        XCTAssertTrue(scheduler.contains("guard !speculative, !Task.isCancelled, visiblePhotoID == photoID"))
+        XCTAssertTrue(scheduler.contains("visibleRequestID == selectionRequestID"))
         XCTAssertTrue(scheduler.contains("quality: .interactive"))
         XCTAssertTrue(scheduler.contains("quality: .settled"))
 
