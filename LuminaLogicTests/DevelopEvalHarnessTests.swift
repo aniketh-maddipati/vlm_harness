@@ -606,7 +606,9 @@ final class DevelopEvalHarnessTests: XCTestCase {
         }
     }
 
-    private static func round4(_ value: Double) -> Double {
+    /// Pure; `nonisolated` because `PixelMetrics.json` reaches it from a nonisolated
+    /// context under CI's Xcode, where the class's main-actor default would otherwise apply.
+    nonisolated private static func round4(_ value: Double) -> Double {
         guard value.isFinite else { return 0 }
         return (value * 10_000).rounded() / 10_000
     }
