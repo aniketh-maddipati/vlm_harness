@@ -40,15 +40,6 @@ enum WorkbenchCapture {
             to: outDir
         )
         capture(
-            name: "right-pane-enlarged",
-            presentation: PresentationFixtures.fourUpComparison(),
-            emerging: PresentationFixtures.emergingSetPreview(),
-            size: CGSize(width: 1440, height: 900),
-            setFraction: 0.38,
-            showReceipt: false,
-            to: outDir
-        )
-        capture(
             name: "floating-controls",
             presentation: PresentationFixtures.twoUpComparison(),
             emerging: PresentationFixtures.emergingSetPreview(),
