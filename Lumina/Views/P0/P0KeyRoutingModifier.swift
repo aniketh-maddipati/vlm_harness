@@ -228,6 +228,17 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return nil
             }
 
+            // Develop, in the focus route: E opens the drawer, R turns, M matches.
+            if unmodified, session.route == .focus, ["e", "r", "m"].contains(lower) {
+                if event.isARepeat { return nil }
+                switch lower {
+                case "e": session.toggleDevelopDrawer()
+                case "r": session.rotateFocusedPhotograph()
+                default: session.matchToCursor()
+                }
+                return nil
+            }
+
             // G inside the flags peek takes the inferred picks — one command, one ⌘Z.
             if unmodified, lower == "g", session.peek == .flags {
                 if event.isARepeat { return nil }

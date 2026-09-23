@@ -144,6 +144,12 @@ enum P0EditLiveRunner {
         // Capture editor @ 1280×800
         captureEditor(session: session, size: CGSize(width: 1280, height: 800), name: "editor-1280x800", to: outDir)
 
+        // E — the develop drawer beside the photograph; the version column steps aside.
+        session.toggleDevelopDrawer()
+        captureEditor(session: session, size: CGSize(width: 1280, height: 800), name: "editor-drawer", to: outDir)
+        note("Develop drawer opens on E", session.developDrawerOpen)
+        session.toggleDevelopDrawer()
+
         // 2. Adjust every exposed control
         let controlProbes: [(String, (inout EditRecipe) -> Void)] = [
             ("exposure", { $0.exposure = 0.55 }),
