@@ -369,6 +369,12 @@ motion:
     type: ms
     cite: [D27, WG-chrome]
     notes: P0 contact sheet ↔ single-photo route.
+  before_press:
+    value: 200
+    unit: ms
+    type: ms
+    cite: [ELASTIC-V4]
+    notes: Press and hold the photograph this long to see before; release returns.
   selection_ring:
     value: 320
     unit: ms
@@ -684,6 +690,103 @@ elastic:
     type: opacity
     cite: [ELASTIC-V4]
     notes: Back card of a collapsed burst stack.
+  peek_cursor_tile_width:
+    value: 220
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: The cursor's own tile in the table's similar peek (its neighbours are 170).
+  peek_related_badge_height:
+    value: 24
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Key badge on a related frame in the focus route (the table peek's badge is 22).
+  groups_column_width:
+    value: 210
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Left column of an inferred-groups row (kind · reason · take).
+  groups_focus_row_opacity:
+    value: 0.14
+    type: opacity
+    cite: [ELASTIC-V4]
+    notes: Warm wash on the inferred-groups row that holds the cursor.
+  groups_rule_opacity:
+    value: 0.2
+    type: opacity
+    cite: [ELASTIC-V4]
+    notes: Rule under the inferred-groups band.
+  groups_untaken_opacity:
+    value: 0.5
+    type: opacity
+    cite: [ELASTIC-V4]
+    notes: A frame in an inferred group that G would not take.
+  groups_tag_text_size:
+    value: 10
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: The `sharpest` tag on an inferred-group frame.
+  drawer_value_column:
+    value: 44
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Develop drawer slider grid, third column (`78px 1fr 44px`).
+  drawer_slider_height:
+    value: 18
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Develop drawer range input height.
+  drawer_chip_height:
+    value: 24
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Ratio / match chips and the profile select in the develop drawer.
+  drawer_button_height:
+    value: 32
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: auto · match · reset row in the develop drawer.
+  drawer_chip_fill_opacity:
+    value: 0.14
+    type: opacity
+    cite: [ELASTIC-V4]
+    notes: An unlit chip in the develop drawer — shell over the drawer.
+  straighten_range:
+    value: 10
+    unit: deg
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Straighten runs −10…10 in the drawer.
+  straighten_step:
+    value: 0.1
+    unit: deg
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Straighten slider step.
+  temperature_step:
+    value: 50
+    unit: K
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Temperature slider step.
+  tone_range:
+    value: 100
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Contrast · highlights · shadows · tint · vibrance · saturation run −100…100.
+  slider_fine_travel:
+    value: 0.18
+    type: opacity
+    cite: [ELASTIC-V4]
+    notes: ⌥-drag on a develop slider moves this share of the way to the pointer per event.
 
 hit:
   minimum:

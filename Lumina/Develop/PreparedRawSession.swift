@@ -366,9 +366,12 @@ actor PreparedRawSession {
             commandBuffer: nil
         ) { texture }
         destination.colorSpace = DevelopColorPolicy.workingColorSpace
-        // Metal textures are top-left; CIImage(mtlTexture:) assumes that and
-        // flips back to CI's bottom-left. Match that convention here.
-        destination.isFlipped = true
+        // `CIImage(mtlTexture:)` reads the texture's rows as Core Image's own
+        // bottom-up rows — it does not flip. Writing flipped here therefore
+        // stored the photograph upside down and handed it straight back that
+        // way, so every frame arrived inverted on the interactive tier and
+        // corrected itself only when the settled render landed.
+        destination.isFlipped = false
 
         do {
             _ = try DevelopRenderGraph.sharedContext.startTask(

@@ -224,16 +224,180 @@ anything you learned that contradicts what is written there. Commit with
 
 ## Checklist
 
-- [ ] 1. Photo-pixel proof: a test fails if the photograph stops rendering, comes out blank, or comes out the wrong way up
-- [ ] 2. Reproduce the flip (ask the user for a repro if you cannot)
-- [ ] 3. Fix the flip, or write down precisely what it is and why it is not fixable here
-- [ ] 4. `ElasticWrapLayout` returns known tile sizes instead of asking every subview twice per pass
-- [ ] 5. Version thumbnails render through the interactive tier, or the column stops implying a difference
-- [ ] 6. Cold-catalog `previews 0/N` — decided and either surfaced honestly or fixed
-- [ ] 7. `docs/ELASTIC_PLAN.md` P0 section updated, gate green
+- [x] 1. Photo-pixel proof: a test fails if the photograph stops rendering, comes out blank, or comes out the wrong way up
+- [x] 2. Reproduce the flip (ask the user for a repro if you cannot)
+- [x] 3. Fix the flip, or write down precisely what it is and why it is not fixable here
+- [x] 4. `ElasticWrapLayout` returns known tile sizes instead of asking every subview twice per pass
+- [x] 5. Version thumbnails render through the interactive tier, or the column stops implying a difference
+- [x] 6. Cold-catalog `previews 0/N` — decided and either surfaced honestly or fixed
+- [x] 7. `docs/ELASTIC_PLAN.md` P0 section updated, gate green
 
 ## Progress
 
-_Nothing yet. Append one line per completed item: date, item number, commit sha,
-and anything the next pass needs to know — especially anything here that turned
-out to be wrong._
+_Append one line per completed item: date, item number, commit sha, and anything
+the next pass needs to know — especially anything here that turned out to be wrong._
+
+- 2026-09-22 · item 1 · commit "P0 item 1: prove the photograph actually renders" (sha recorded by the next item, since amending to write it here changes it) · Photo-pixel proof landed as a headless
+  assertion (the second option), not an offscreen Metal capture. Reason: it needs
+  no view, so it runs inside `LuminaLogicTests` on every PR, and it can assert on
+  pixels instead of writing a PNG nobody checks. `PhotoPresentProof.positioned`
+  now holds the aspect-fit/zoom/pan transform and `DevelopMetalView` calls it, so
+  the proof measures the drawable's real geometry rather than a copy.
+  `PhotoPresentProof.probe` renders to a CPU bitmap through a `CIRenderDestination`
+  with `isFlipped = true` — the drawable's own flag — so buffer row 0 is the top of
+  the photograph (measured, not assumed). Both negative controls were run: negating
+  the present scale fails 3 tests, and turning off `CreateThumbnailWithTransform`
+  fails 2. Gate after: **292 logic tests, 2 skipped**, fast 41/41.
+- **The prompt's env instruction is wrong.** `TEST_RUNNER_LUMINA_RAW_DIR=` does
+  *not* reach a hosted logic test; neither does a plain `LUMINA_RAW_DIR=` argument
+  (both measured — the test still skipped). The host app is launched with a
+  scrubbed environment, so only a scheme or test plan can set it. `LUMINA_RAW_DIR`
+  therefore still skips `testRawDecoderAppliesFileOrientation` in the gate above.
+  The new RAW proof resolves its folder from disk instead
+  (`~/LuminaFixtures/card-elastic-v4/frames` first) and does run.
+- Fixture card orientations, measured: 14 frames at 1, 6 at 6, 7 at 8. No 2/3/4
+  and no square frame anywhere in it, so the latent P3 hole has no fixture.
+- 2026-09-22 · item 2 · **a flip is reproduced**, in the browse tier, not in
+  `OrientedDisplayImage`. `PreviewExtractor.extract` tries `extractWithImageIO`
+  (orientation applied) and falls back to `exiftool -b -PreviewImage` when ImageIO
+  cannot make a thumbnail. That fallback writes the embedded preview **verbatim**:
+  measured on the fixture card, an orientation-8 ARW yields a 1616×1080 *landscape*
+  JPEG carrying **no orientation tag of its own**. Nothing downstream can recover
+  it — `cgImage(at:)` applies a transform that is a no-op on an untagged file, and
+  `aligning` is never applied to browse-tier files — so the tile, the filmstrip and
+  the focus fallback all show that photograph on its side. Re-measure with
+  `xcrun swift Scripts/harness/develop/preview_orientation_repro.swift <raw-folder>`:
+  **7 of 21 frames** in `card-elastic-v4` land sideways through that branch.
+  Two things make it stick rather than flicker:
+  1. `stablePresent` compares portrait-ness and **keeps the fallback** when the
+     promotion disagrees, so the correct RAW render is rejected by the wrong
+     browse pixels rather than replacing them.
+  2. `extractBrowsePreview` returns early when the destination already exists, so
+     a once-written sideways file survives every reopen.
+  Reachability: the fallback runs only when ImageIO cannot thumbnail the RAW — a
+  camera macOS does not know, or a truncated/partially copied file. Sony ARW on
+  this host decodes fine, which is why this never reproduced from the UI. The
+  other entry point, `extractBrowsePreview`, transforms on every branch and is
+  clean; only `extract` is holed, reached from `DevelopEngine.ensureProxy` and
+  `extractBest`.
+- 2026-09-22 · item 3 · fixed in three places, and **the fallback path had a
+  second bug that mattered more**: `ExifToolService.runData` called
+  `process.waitUntilExit()` *before* draining the pipe, so any output larger than
+  a pipe buffer deadlocked. An embedded preview is ~600 KB, so preview extraction
+  did not produce a sideways photograph — it hung forever. Found because the new
+  fixture test timed out at 3 minutes; it now runs in 1.1 s. The same call is used
+  by `batchCaptureDates` with `-json`, which exceeds a pipe buffer at a few hundred
+  frames, so this was a live hang on import for any decent-sized shoot. stderr was
+  an unread `Pipe()` for the same reason and is now `nullDevice`.
+  The orientation fix itself:
+  1. `OrientedDisplayImage.uprightPreview(at:fromSourceAt:)` bakes the **source's**
+     orientation into a tagless sensor-space preview. It leaves alone a preview
+     carrying its own tag, and one already in the source's display shape — turning
+     an upright picture is the same bug facing the other way.
+  2. `PreviewExtractor.extract` uses it on the exiftool branch, and only re-encodes
+     when something actually had to turn.
+  3. `DevelopRenderGraph` now runs proxy-derived images through `aligning`, which
+     heals a catalog that already holds a sideways proxy. It is a no-op on every
+     proxy that is upright, which `testUprightProxyIsNotHealedIntoBeingWrong` pins.
+  Files touched outside the ownership table, deliberately:
+  `Lumina/Services/ProjectStore.swift` and `Lumina/Services/ExifToolService.swift`.
+  Gate: **299 logic tests, 2 skipped**, fast 41/41.
+  Visual proof rendered from LUM0005 (orientation 8) — sideways before, upright
+  after — and sent to the user; regenerate with `Scripts/harness/develop/preview_orientation_repro.swift`.
+  **Not touched:** `stablePresent`. Once the browse tier is upright the promoted and
+  fallback shapes agree, so its latch never fires wrongly, and changing its
+  signature would mean editing `ElasticFocusView.swift`, which is P1's.
+- 2026-09-22 · item 4 · `ElasticWrapLayout` now measures each group **once per
+  pass** (it was three times: arranging in `sizeThatFits`, arranging again in
+  `placeSubviews`, then once more while placing). It uses a `Layout` cache, and
+  the row arrangement is kept too when the width has not moved.
+  **The prompt's framing does not survive contact:** "return the known size" is
+  right only for a lone frame (`tile` 168). A collapsed stack is 168 **plus
+  `stackPadding`**, and an open burst is `frameCount × tileInOpenBurst` plus gaps,
+  so a constant would misplace two of the three group shapes. The measurement is
+  also deliberately *not* cached across passes: leaning on a burst changes a
+  group from collapsed to open **without adding or removing a subview**, and a
+  stale size would lay the open burst on top of its neighbour.
+  Proof it changed nothing visible: `--p0-edit-live` table captures before and
+  after are **byte-identical** (sha256 `9132b462f0907980…`) over the 27-frame card,
+  which contains lone frames, a collapsed ×5 burst and a camera+phone moment.
+- 2026-09-22 · item 5 · took the second branch — **the column stops implying a
+  difference**, because rendering the three versions through the interactive tier
+  is on P2's list and touching `DevelopRenderScheduler` is not P0's to do.
+  `ElasticVersionColumn.previewPath(for:)` returns the browse thumbnail for `shot`
+  and nil for the other two. Reasoning: that thumbnail is the camera's own
+  rendering of the frame, so it truthfully depicts `shot` and nothing else;
+  `auto` and `yours` keep their plate until pixels exist that are actually theirs.
+  A `// TODO(P2):` marks where the real previews plug in.
+  Pinned in `progressive_render_architecture` (REQUIREMENTS + FORBIDDEN) so the
+  column cannot quietly go back to drawing one thumbnail three times; the same
+  commit pins the render proof's `isFlipped` destination and the present transform
+  living outside `DevelopMetalView`. **Note for the other streams:** this edits
+  `Scripts/harness/lint/progressive_render_architecture.py`, appending keys only.
+  Not capture-visible: `ChapterPlateImage` loads in `.task`, which does not run for
+  an offscreen-hosted view, so every version tile is an empty well in a capture
+  either way. That is the same limitation item 1 exists to route around.
+- 2026-09-22 · item 6 · **decided: warm-up, and the count was never wrong.**
+  Measured by consuming the real preparation stream over a freshly copied
+  27-frame card with no catalog and no cached previews:
+
+      3 ms  0 photos                        (discovering)
+     10 ms  27 photos · previews 0/27       (sheet opens, nothing extracted yet)
+    381 ms  27 photos · previews 16/27      (first chunk — `previewConcurrency` is 16)
+    500 ms  27 photos · previews 27/27
+    500 ms  27 photos · 27 previews
+
+  So `0/N` is a real state that lasts as long as the first chunk takes, not a
+  miss, and the second open reads `N/N` simply because the previews are already
+  on disk. The chunk is 16 wide whatever N is, so the window does not grow with
+  the card — it grows with per-file extraction cost.
+  What was wrong was the copy: at the instant the sheet appears, `previews 0/27`
+  reads as a stall rather than as work starting. It now says `previews…` until
+  there is a count to report, which is the idiom the same line already uses for
+  `dates…`. Pinned by `ColdOpenStatusTests`, including a cold open that asserts
+  the count only rises, ends at N/N, and is never announced as a fraction of zero.
+  **Note for the other streams:** this edits
+  `Lumina/Services/ContactSheetPreparation.swift`, which no stream owns.
+  The copy-contract lint covers `Lumina/Design/CopyContract.swift` only, so this
+  string is not contract-pinned; the fast lane is green either way.
+- 2026-09-22 · item 7 · `ELASTIC_PLAN.md` gets a **`#### P0 stream — closed`**
+  block appended inside the P0 section. The finished bullets are left where they
+  are rather than moved out: P1 and P2 are editing this file at the same time and
+  reflowing a list they also touch is how a clean merge becomes a conflict. The
+  diff is 52 insertions, 0 deletions. **Keys are not migrated** is the one P0
+  bullet still open, and it belongs to P1.
+  Final gate: **303 logic tests, 2 skipped, 0 failures · fast lane 41/41.**
+  Live capture, same fixture card, same default settings, measured both ways:
+  **base `a4792c5` 27/31 · this branch 29/31.** The two checks that flipped to
+  passing are "RAW preview presents without blank canvas" and "Progressive
+  fidelity is monotonic", and the authoritative long edge went 1658 → 2212 of
+  2560 — all consistent with preview extraction no longer deadlocking. The two
+  that still fail, "Quality promotion keeps geometry stable" and "Authoritative
+  preview reaches drawable target", fail on the base commit too.
+  Note the prompt's 29/31 baseline was measured on a different shoot; on this card
+  the base is 27/31, so compare within a card, not across.
+- 2026-09-22 · item 3, reopened and **actually fixed** · The P1 session handed over
+  a repro (LUM0012 inverted in the focus route, thumbnails upright) and it was a
+  different bug from the one item 3 fixed — a bigger one.
+  **Every frame was upside down on the interactive tier.** Measured with item 1's
+  probe against ImageIO's preview on five frames: interactive disagreed about
+  which half is the top on all five, settled agreed on all five. Cause, in
+  `PreparedRawSession.materializeInteractiveStage`: the RAW graph is evaluated into
+  an `MTLTexture` with `destination.isFlipped = true`, on a comment's claim that
+  `CIImage(mtlTexture:)` flips back. It does not — it reads the texture's rows as
+  Core Image's own bottom-up rows. One flip, not two. Now `false`.
+  That is the user's report exactly: the photograph is inverted the moment it
+  opens, and rights itself when the settled render lands, which reads as glitching
+  and flipping. The thumbnails were never affected because they never go through
+  this tier — which is why it survived every visual pass.
+  `testEveryTierPresentsTheSameWayUp` pins interactive and settled against ImageIO;
+  negative control run (restoring `true` fails it with the quadrants printed).
+  **Touches `Lumina/Develop/PreparedRawSession.swift`, which the table gives to
+  P2** — one line and its comment, inside `materializeInteractiveStage`. P2 was
+  told directly. Gate: 304 logic tests, 2 skipped, fast 41/41.
+  Item 1 paid for itself here: without a pixel probe this was invisible, and with
+  it the diagnosis took one measurement.
+  **Still open for the user:** whether this is the flip they saw. If their frames
+  are Sony and ImageIO decodes them, something else is also wrong — the question
+  to ask is which frame, and whether it flips on open, on scroll, or at the moment
+  RAW promotion lands.

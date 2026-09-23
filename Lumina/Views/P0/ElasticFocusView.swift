@@ -52,12 +52,31 @@ struct ElasticFocusView: View {
     // MARK: - Photograph
 
     /// `padding: 24px 28px 12px` — the photograph and the version column share one
-    /// centred row inside it.
+    /// centred row inside it. While similar is held the row yields the band to the
+    /// neighbours; it stays mounted underneath, so the Metal leaf is never rebuilt.
     private var photographBand: some View {
-        HStack(spacing: ElasticLayout.photoRowGap) {
-            photograph
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            ElasticVersionColumn(session: session, asset: asset)
+        let showingRelated = session.peek == .related
+        return ZStack {
+            HStack(spacing: ElasticLayout.photoRowGap) {
+                photograph
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // `develop: s.develop && !s.hold` — a held peek puts the drawer away.
+                if session.developDrawerOpen, session.peek == nil {
+                    ElasticDevelopDrawer(session: session, asset: asset)
+                        .elasticBorn(ElasticLayout.bornDrawerMs)
+                }
+                // `variantsCol: none` while developing or holding.
+                if session.versionColumnVisible {
+                    ElasticVersionColumn(session: session, asset: asset)
+                }
+            }
+            .opacity(showingRelated ? 0 : 1)
+            .allowsHitTesting(!showingRelated)
+
+            if showingRelated {
+                ElasticRelatedRow(session: session)
+                    .elasticBorn(ElasticLayout.bornRelatedMs)
+            }
         }
         .padding(.top, ElasticLayout.photoPaddingTop)
         .padding(.horizontal, ElasticLayout.tableGutter)
@@ -107,6 +126,14 @@ struct ElasticFocusView: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
             session.closeInspection()
+        }
+        // Pointer parity for hold-␣: press and hold the photograph for before.
+        .onLongPressGesture(minimumDuration: ElasticLayout.beforePressSeconds) {
+            session.setShowingBefore(true)
+        } onPressingChanged: { pressing in
+            if !pressing {
+                session.setShowingBefore(false)
+            }
         }
     }
 

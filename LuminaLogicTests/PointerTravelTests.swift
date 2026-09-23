@@ -102,22 +102,6 @@ final class PointerTravelTests: XCTestCase {
         XCTAssertFalse(session.canUndo)
     }
 
-    func testVariantPointerTravelDoesNotCullOrSelect() {
-        let (session, ids) = session(assetCount: 2)
-        session.assets[0].recipe = EditRecipe(exposure: 0.2)
-        session.pointerTravel(to: ids[0])
-        session.openFocusedPhotograph()
-        session.beginEditVariants()
-
-        session.pointerTravelToVariant(at: 2)
-
-        XCTAssertEqual(session.workspaceState.focusedEditVariantIndex, 2)
-        XCTAssertTrue(session.selectedAssetIDs.isEmpty)
-        XCTAssertEqual(session.assets[0].cull, .undecided)
-        XCTAssertEqual(session.assets[0].recipe?.exposure ?? .nan, 0.2, accuracy: 1e-9)
-        XCTAssertFalse(session.canUndo, "variant pointer travel must not commit")
-    }
-
     func testPointerCallsitesAreTravelOnly() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

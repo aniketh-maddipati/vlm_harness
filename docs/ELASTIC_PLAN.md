@@ -279,6 +279,69 @@ Honest gaps in the copy this pass introduced:
 - The camera string is the real EXIF model, so it reads e.g. `ilce-7m3`, not the prototype's `a7 iii`.
 - The session date format is `mmm d` (`may 19`), not the prototype's `sept 14`.
 
+### P1 — the grammar (2026-09-22, branch `elastic-v4/p1-grammar`)
+
+Checkpoints 04 and 05 as the prototype specifies them, built alongside P0 and P2 on
+their own branch off `a4792c5`. Every item shipped as its own commit with its logic
+tests; the gate finished at **335 logic tests / 2 skipped, FAST 41/41**.
+
+- **Hold-⇥ is the one peek.** Similar → set → flags; `↑↓` or `⇥` cycles; release
+  returns; a tap inside 220 ms pins; `Esc` or `⇥` past the end closes. The set peek
+  keeps `walkingKeptRail` as backing state but the walk follows `finalSetAssetIDs`
+  in both routes. Surfaces: the bottom-pinned bar on the table (150 / 170 / 220
+  tiles), the similar row in focus (cursor at 1.6×), the strip in set order with
+  `set / release ⇥`. The flags peek unfolds every burst and shows the inferred
+  groups band; `G` takes the picks as one command.
+- **Inference is measured, not assumed.** P0 assets never carry sharpness, so the
+  flags peek measures it off grid thumbnails (`BlurScorer`, now `nonisolated`) and
+  embeds one frame per burst (`EmbeddingService`) in a detached task. Same burst,
+  same scene, same subject; the prototype's "same exposure problem" group writes
+  recipes and is not built.
+- **Hold-␣ is before**, in both routes, with press-and-hold-the-photograph parity
+  (200 ms). Nothing moved off Space: the 1:1 zoom the prompt cites died with
+  `P0SinglePhotoEditor`, so `holdingLoupe` was key-less and is gone.
+- **Esc ladder** is peek → drawer → selection → route and nothing else; an open burst
+  folds by its badge. Probe field `escTransientHoldActive` mirrors steps 1–3.
+- **Hold-V is retired** — `EditVariantSession`, the `WorkspaceState` fields, the V
+  paths, five probe fields at all five mirror sites, `EditVariantTests`.
+  `branchInteractiveVariant` and the registry pinning stay for the version thumbnails.
+- **Shelf is a drop target**; table tiles and group frames are draggable with the
+  prototype's comma-joined id payload; a drop keeps through the same keep-many
+  command `G` uses and spends the selection.
+- **⇧-click range · ⌘-click toggle** with an anchor; the `P0_CULLING.md` ruling closed.
+- **Develop drawer on `E`**: nine sliders (Whites / Blacks / Dehaze deliberately
+  absent), ratios, `R`, straighten, profile, match chips, auto · match · reset. Every
+  drawer edit is one `BatchEditMutationCommand` so provenance moves with the recipe;
+  a slider release ripples its delta to the selection or the burst. `M` matches the
+  checked groups to the selection › set › moment. The surface says *match* because
+  the prototype's word is banned copy.
+- **Version column hides** while the drawer or a peek is up.
+
+Honest gaps, in the order someone would hit them:
+
+- Live pixel verification of items 3–9 is pending. Since ~14:08 the Debug app
+  launches into an idle run loop with no window on this host whenever a Lumina from
+  Xcode's own DerivedData (pid 64132, not any stream's) is running; items 1–2 were
+  verified live by real key events before that (34 screenshots in
+  `~/lumina-wt/p1-grammar-proof/`), the rest by logic tests and the offscreen runner.
+- `⇧←→` reorders the set inside the set peek — no set-reorder command exists; the
+  peek's copy omits the clause.
+- The flags peek has no focus-check overlay and no `eyes` flag; the groups band's
+  head line truncates at 1280 wide.
+- The crop-handle overlay on the photograph is not wired to the drawer; the
+  photograph's gestures are P0's. `P0CropControls.centeredCrop` was not salvaged: it
+  ignored the frame's own aspect (1:1 was a no-op on a 3:2 frame).
+- Sharpness runs 0…100 in the drawer against the engine's 0…150.
+- The peek bar overlays the last table rows with no bottom inset, as the prototype's
+  `position: absolute` does — a ruling, not a bug.
+- `lookGlancing` / `beginLookGlance` and the legacy `P0ChapterTableView` remain; the
+  ⌘G binding is gone. They go when the legacy table does.
+- Twenty tokens were added along the way, every one for a value already forbidden;
+  the tokens hash is `4a917285…` and the F07 golden was carried forward each time
+  with the previous payload byte-for-byte.
+- P0 fixed the upside-down interactive tier at d2b2824 on their branch from a repro
+  this stream handed over (LUM0012); not cherry-picked here by the stream rule.
+
 ## Elasticity backlog (2026-09-22)
 
 Ordered by what blocks what, not by size. `[dbg]` debugging · `[edge]` edge
@@ -304,6 +367,72 @@ conditions · `[resp]` responsiveness.
 - `[edge]` **A cold catalog reports `previews 0/N`** while extraction runs; the
   second open reports `N/N`. Either surface it honestly or make it not say that.
 
+#### P0 stream — closed 2026-09-22 (`elastic-v4/p0-render-proof`)
+
+Five of the six bullets above are done. They are left in place rather than
+deleted: P1 and P2 are editing this file at the same time, and reflowing a list
+they are also touching turns a clean merge into a conflict. **Keys are not
+migrated** is the one still open, and it is P1's.
+
+- **The photograph is provable.** `PhotoRenderProofTests` fails if it stops
+  rendering, comes out blank, or comes out the wrong way up, without needing a
+  view at all. `PhotoPresentProof.positioned` now owns the aspect-fit/zoom/pan
+  transform and `DevelopMetalView` calls it, so the proof measures the drawable's
+  real geometry; `probe` renders to a bitmap through the drawable's own
+  `isFlipped` destination. Both negative controls were run.
+- **The flip is found and fixed — and it was never in `OrientedDisplayImage`.**
+  `PreviewExtractor.extract` falls back to `exiftool -b -PreviewImage` when
+  ImageIO cannot thumbnail a RAW, and wrote that embedded preview verbatim:
+  sensor space, no orientation tag of its own, so nothing downstream could
+  recover it. Seven of twenty-one frames in `card-elastic-v4` come out sideways
+  that way. `OrientedDisplayImage.uprightPreview` now bakes the source's
+  orientation in, and `DevelopRenderGraph` runs proxy-derived images through
+  `aligning` so a catalog that already holds a sideways proxy heals on read.
+- **That path was also deadlocked.** `ExifToolService.runData` waited for the
+  process to exit before draining its pipe, so any output past a pipe buffer hung
+  forever — an embedded preview is ~600 KB. The same call backs
+  `batchCaptureDates` with `-json`, which passes a pipe buffer at a few hundred
+  frames, so this was a live hang on import. Read-then-wait now, and stderr goes
+  to `nullDevice` rather than into a buffer nothing reads.
+- **`ElasticWrapLayout` measures each group once per pass**, not three times.
+  Not the constant the bullet above assumes: a collapsed stack is `tile` plus
+  `stackPadding` and an open burst is `frameCount × tileInOpenBurst` plus gaps, so
+  a constant would misplace two of the three shapes. Table captures before and
+  after are byte-identical.
+- **The version column stops implying a difference.** Only `shot` shows pixels,
+  because the browse thumbnail is the camera's own rendering and depicts that
+  version and no other. Rendering `auto` and `yours` through the interactive tier
+  stays P2's, and a `// TODO(P2):` marks where it plugs in.
+- **`previews 0/N` is warm-up, measured, not a miss.** Cold open of a 27-frame
+  card: sheet at 10 ms with nothing extracted, 16/27 at 381 ms, 27/27 at 500 ms.
+  The count was always truthful; the copy was not, because `0/N` reads as a stall
+  at the moment the sheet appears. It now says `previews…` until there is a count,
+  matching `dates…` on the same line.
+
+**The flip had a second, larger cause, found after the above and fixed here.**
+Every photograph was upside down on the **interactive** tier — the first pixels a
+reader sees on open — and righted itself only when the settled render replaced it.
+`PreparedRawSession.materializeInteractiveStage` renders the RAW graph into an
+`MTLTexture` with `destination.isFlipped = true`, on the assumption that
+`CIImage(mtlTexture:)` flips back; it does not, so the photograph was stored
+inverted and handed back inverted. Measured on five frames: interactive disagreed
+with ImageIO's preview about which half is the top, settled agreed. Thumbnails
+never pass through this tier, which is why every visual pass missed it and why the
+version column looked right beside an upside-down photograph. Repro came from the
+P1 session (LUM0012 in a set walk). `testEveryTierPresentsTheSameWayUp` pins it.
+That file is P2's by the ownership table; this is one line and its comment inside
+`materializeInteractiveStage`, and P2 was told directly.
+
+Two corrections to what is written above and in the P0 prompt:
+
+1. `TEST_RUNNER_LUMINA_RAW_DIR=` does **not** reach a hosted logic test, and
+   neither does a plain `LUMINA_RAW_DIR=` argument — both measured. The host app
+   is launched with a scrubbed environment, so only a scheme or test plan can set
+   it. Fixture-gated tests added here resolve their folder from disk instead.
+2. The fixture card has orientations 1, 6 and 8 only (14 / 6 / 7 frames). There is
+   no 2/3/4 frame and no square frame in it, so the P3 orientation hole still has
+   no fixture.
+
 ### P1 — the grammar the design specifies
 
 - Checkpoint 04: hold-`⇥` cycling related → set → flags, and hold-`␣` before.
@@ -316,6 +445,9 @@ conditions · `[resp]` responsiveness.
 - Checkpoint 05: develop drawer (`E`), sync (`M`), rotate (`R`), profile picker,
   crop ratios, straighten.
 
+**Status (2026-09-22):** every item above landed on `elastic-v4/p1-grammar`; see §6
+"P1 — the grammar" for what shipped and the honest gaps.
+
 ### P2 — responsiveness
 
 - `[resp]` A guaranteed-resident floor tier (~256 px for every frame, evicted by
@@ -326,6 +458,261 @@ conditions · `[resp]` responsiveness.
   instead of queueing work that is stale before it lands.
 - `[resp]` Render the three version thumbnails through the interactive tier,
   which is what closes the P0 item properly.
+
+#### P2 measurement (2026-09-22, branch `elastic-v4/p2-scroll`)
+
+**Before / after, in one table.** Same card (`card-elastic-v4-stress`, 403
+frames, 55 moments, 13 screens at 1280×800), same machine (M4 Pro, 24 GB),
+same runner, catalog warm, unfilmed. "Before" is `5181c75` plus only the
+exiftool pipe fix that made the card open; "after" is the item 5 build,
+run a. Cold is different and is measured separately below: a fresh card's
+first open extracts previews for ~1 min (`previews 0/N` meanwhile) and no
+scroll number applies until it is done.
+
+| pass | steps before → after | tick p95 before → after | tick p99 after | wells (ticks) before → after | soft (floor) tiles after | decodes in pass before → after |
+|---|---|---|---|---|---|---|
+| glide, 1 screen/s × 5 | 4 in 19.8 s → 478 in 5.0 s | 1090 ms → 2.9 ms | 15.9 ms | 3/4 → **0**/478 | 0 | 105 → 141, all issued ahead |
+| flick, 6 screens/s to end | 2 in 7.2 s → 100 in 1.2 s | 0.04 ms* → 10.2 ms | 10.5 ms | 1/2 → **0**/100 | 0 | 16 → 146, all issued ahead |
+| return, 6 screens/s to top | 2 in 6.9 s → 183 in 2.0 s | 0.21 ms* → 9.3 ms | 11.4 ms | 0/2 → 0/183 | 0 | 0 → 0 |
+| dart, cold grid over warm floor | — → 68 in 0.7 s | — → 1.6 ms | 1.7 ms | — → **0**/68 | 552 | — → 140 |
+| recoil | — → 66 in 0.7 s | — → 1.9 ms | 2.1 ms | — → 0/66 | 0 | — → 19 |
+
+\* The baseline's flick and return managed two steps each; their tick
+percentiles are two samples of the step itself while the main thread spent
+seconds between steps, and are not comparable. The step counts are.
+
+What moved it, in order: caching the chapter arrangement (item 2 part 1:
+steps 4 → 417 on the glide), the plate sampling residency in its own pass
+(item 2: wells 20 → 14 ticks, tick p95 2.5 → 0.95 ms), the floor tier (item
+3: wells → 0 on every pass), velocity prefetch (item 4: soft tiles 91/148 →
+0), one bounded queue (item 5: no change on this disk; bounds decode
+concurrency at 4). Full per-item tables follow.
+
+What is left on the scroll path is not scroll's: the flick's and return's
+~10 ms tick p95 is the cost of realizing a new row's wrap layout
+(`ElasticWrapLayout` sizes every subview twice per pass — P0's item), and a
+row-realization step is what the glide's 15.9 ms p99 is. The dart from a
+cold grid tier draws ~550 soft tiles at 6 screens/s — the floor doing its
+job; a faster grid decode would shrink it, nothing on the scroll path can.
+
+Not changed anywhere in P2: full resolution and true RAW for the focused
+frame and for export. Nothing here reaches `PreparedRawSession` or
+`DevelopRenderScheduler`; the scroll path samples JPEG tiers only.
+
+Scroll now has its own instrument, `--p0-scroll-live [out] --p0-open <folder>`
+(`P0ScrollLiveRunner`). It mounts the shell on the time route in a real
+1280×800 window, drives the table's `NSScrollView` through three passes —
+`glide` 1 screen/s for 5 screens, `flick` 6 screens/s to the bottom, `return`
+6 screens/s back — and reports per pass, in the `rapidScrub` shape:
+
+- `p0.scroll.tick_ms.<pass>` — main-thread cost of one step: offset change,
+  SwiftUI layout, AppKit display. A synchronous decode reached from a tile's
+  `body` lands here. p50/p95/p99 with the window declared.
+- `p0.scroll.frame` — display-link interval while scrolling, via
+  `P0RenderInstruments`; catches dropped frames the layout timer cannot see.
+- `blankSeen` / `wellTicks` / `wellTiles` — a realized tile with nothing
+  resident at the grid tier when the step finished. Realization is reported by
+  `ChapterPlateImage` through `ElasticScrollTracker`, injected only under the
+  table; residency is read from `BrowsePixelService.isResident`, a lock-guarded
+  mirror of the cache that never hops to the actor.
+- `LUMINA_SCROLL_FILM=1` writes a PNG per step and a second copy of every step
+  that saw a well, so the frames that matter can be found without scrubbing.
+  Filmed runs are flagged and are never a baseline.
+
+Card: `elastic_cards.py --stress 400 --name card-elastic-v4-stress` appends
+RAW-heavy stress moments (six RAW, two phone, 12 min apart) until the card has
+403 frames in 55 moments — about 7 GB, local only.
+
+**Baseline, 27-frame card, warm** (harness proof, not the number that matters —
+the card is 2.1 screens tall, so the glide reaches the bottom and there is no
+flick to measure):
+
+| pass | steps | tick p50 | tick p95 | tick p99 | max | well ticks | tiles decoded during pass |
+|---|---|---|---|---|---|---|---|
+| glide | 101 | 0.4 ms | 0.95 ms | 21.3 ms | 21.3 ms | 4 | 10 |
+| return | 19 | — | 0.92 ms | 0.92 ms | — | 0 | 0 |
+
+The shape of the problem is already visible: the only steps that cost anything
+are the ones that realized a row, and every newly realized row shows a well
+for at least one frame even when its pixels are resident, because the tile
+asks the actor asynchronously and sets state after the hop.
+
+**Why the 403-frame baseline could not be taken at first.** "Reading dates…"
+never finished on any shoot past roughly 250 frames: `ExifToolService.runData`
+waited for exiftool to exit before draining its stdout pipe, and `-json` over
+that many frames is larger than the 64 KB pipe buffer, so the child blocked on
+write and the parent on exit — forever. Every large catalog on this machine
+(`card-clean-500`, the stress card) had `capturedAt` on 0 of its frames for
+that reason. Fixed by draining before waiting (`captureOutput`, pinned by
+`ExifToolProcessTests`). Not a scroll change; it is what made scroll
+measurable.
+
+**Baseline, 403-frame card (13.0 screens at 1280×800), warm, unfilmed, at
+`5181c75` plus the exiftool fix:**
+
+| pass | duration | steps | steps/s | tick p50 | tick p95 | tick max | well ticks | well tiles | decodes in pass |
+|---|---|---|---|---|---|---|---|---|---|
+| glide (1 screen/s, 5 screens) | 19.8 s | 4 | 0.2 | 634 ms | 1090 ms | 1752 ms | 3/4 | 47/62 | 105 |
+| flick (6 screens/s, to end) | 7.2 s | 2 | 0.3 | 0.04 ms | 0.04 ms | 284 ms | 1/2 | 16/60 | 16 |
+| return (6 screens/s, to top) | 6.9 s | 2 | 0.3 | 0.21 ms | 0.21 ms | 552 ms | 0/2 | 0/45 | 0 |
+
+A five-screen glide that should take 5 s took 20 s and managed four steps: the
+main thread was busy for seconds between them. An 8 s `sample` of the main
+thread during the glide put 86 % of it in the table's row closure, and nearly
+all of that in `session.gapInterval(after:)` → `session.chapters` →
+`ShootChapterArrangement.arrange(_:)` — the whole arrangement recomputed for
+every row and again for every gap — with `CaptureName.parse` compiling an
+`NSRegularExpression` per call inside a sort comparator.
+
+**After caching `chapters` with `assets` and compiling the pattern once**
+(same card, same conditions):
+
+| pass | duration | steps | steps/s | tick p50 | tick p95 | tick p99 | tick max | frame p95 | well ticks | well tiles | decodes in pass |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| glide | 5.0 s | 417 | 83 | 0.48 ms | 2.48 ms | 10.1 ms | 40.9 ms | 8.3 ms | 20/417 | 118/10553 | 91 |
+| flick | 1.2 s | 91 | 76 | 0.80 ms | 9.27 ms | 9.4 ms | 9.6 ms | 14.2 ms | 20/91 | 152/2544 | 152 |
+| return | 2.0 s | 178 | 88 | 0.56 ms | 8.99 ms | 9.8 ms | 70.7 ms | 8.3 ms | 0/178 | 0/4858 | 0 |
+
+The passes now run at the pace they were asked for. What remains is the scroll
+work proper: every decode in a pass is a tile that was realized before its
+pixels were asked for (flick: 152 decodes, 152 misses, 4 hits), the flick's
+tick p95 sits just over the 8.33 ms frame budget, and one step in twenty shows
+a well. Items 2–5 are aimed at exactly those three numbers.
+
+**After the plate samples residency synchronously** (item 2 closed — the tile
+draws what is resident in the same pass and only a miss enqueues; the strip's
+moment-gap check reads an indexed membership map instead of scanning):
+
+| pass | steps | tick p50 | tick p95 | tick p99 | well ticks | well tiles | decodes in pass |
+|---|---|---|---|---|---|---|---|
+| glide | 439 | 0.45 ms | 0.95 ms | 8.9 ms | 14/439 | 91/10910 | 91 |
+| flick | 93 | 0.78 ms | 9.19 ms | 9.3 ms | 20/93 | 152/2614 | 152 |
+| return | 190 | 0.55 ms | 8.53 ms | 9.9 ms | 0/190 | 0/5043 | 0 |
+
+Well tiles now equal decodes exactly: every well is a miss and nothing else.
+The "resident but not yet shown" frame is gone (glide well ticks 20 → 14, tick
+p95 2.5 → 0.95 ms). The flick is unchanged because its wells are all misses —
+that is items 3–5. The flick's tick p95 of ~9 ms is the cost of realizing a
+new row's wrap layout, which is P0's `ElasticWrapLayout` item, not this one.
+Nothing on the scroll path decodes synchronously: the only sync work reached
+from a tile's body is a lock-guarded dictionary read.
+
+**Floor tier (item 3).** `BrowsePixelService.Tier.floor` is a 256 px entry
+(`PhotoImageTier.floorLongEdge`) in its own store, outside the LRU. It is
+warmed nearest-first from the viewport the moment the shoot's order is known
+(`ElasticScrollTracker.shootChanged`, fed once per preparation event from
+`P0SessionModel.apply`), two decodes in flight, and evicted by distance from
+the viewport centre — never by recency, so a flick to the far end cannot push
+out what the reader is about to scroll back to. The centre is the median index
+of the realized plates and moves on every appearance.
+
+Cap: **64 MB** (`PhotoImageCacheBudget.floorCeilingBytes`), by bytes rather
+than count so squares and mixed aspects stay bounded. A 256 px 3:2 frame is
+~175 KB, a square ~262 KB, so the budget holds at least 256 frames and about
+380 at 3:2 — six to nine screens either side of the viewport at 1280×800,
+past the two screens the velocity prefetch looks ahead. A 94-frame shoot fits
+whole (~16 MB); a 2000-frame shoot is a sliding window. On the 403-frame card
+369 frames are resident at 63.9 MB, warm 1.5 s after mount. Under memory
+pressure the floor halves by distance rather than dropping.
+
+A tile draws grid, else floor, else the well; a floor draw is *soft* and the
+grid tier is still requested. The runner now counts soft tiles separately from
+wells:
+
+| pass | steps | tick p95 | tick p99 | well ticks | well tiles | soft (floor) tiles | decodes in pass |
+|---|---|---|---|---|---|---|---|
+| glide | 498 | 1.18 ms | 9.95 ms | **0**/498 | **0**/11839 | 91 | 91 |
+| flick | 85 | 11.3 ms | 13.8 ms | **0**/85 | **0**/2372 | 148 | 144 |
+| return | 184 | 9.45 ms | 10.4 ms | 0/184 | 0/4941 | 0 | 0 |
+
+(Two runs of this build agree on the wells — 0 — and put glide tick p95 at
+0.82 and 1.18 ms, flick at 9.9 and 11.3 ms; the numbers above are the later
+run, the one that also carries the nearest-K floor.)
+
+No well on any pass. Every tile that would have been a well is now a soft
+draw of the same photograph, sharpened when the grid tier lands. The
+remaining numbers to move are the soft count on a flick (items 4 and 5: those
+grid decodes should have been issued ahead of the cursor) and the flick's
+~9–10 ms tick p95, which is row wrap-layout (P0).
+
+Two things the measurement itself taught: the session's `assets.didSet`
+fires once per *element* write, so anything there must be O(1) — a hook that
+recomputed the path list per element made the reopen's preview merge
+quadratic and starved the main thread; and a warm reopen replays the dates
+phase and then replaces `assets` wholesale, so the runner now waits for that
+phase to have been seen and the status to hold still before measuring.
+
+**Prefetch by velocity (item 4).** `ElasticScrollTracker` now estimates
+velocity from its viewport centre over a 0.25 s horizon (frames/s along the
+shoot order, signed) and hands `BrowsePixelService.setGridPrefetchWindow` a
+window: still → one screen either side, nearest first; moving → two screens
+past the leading edge in the direction of travel, one screen behind the
+trailing edge kept, everything further behind cancelled. A cancel that lands
+before the decode starts costs nothing (`pixel` checks `Task.isCancelled`
+before spawning), which is the point of cancelling behind a flick.
+
+Two rules the first runs forced. The median moves in phases as rows leave
+and arrive, so the estimate dips to "still" mid-flick and occasionally flips
+sign for one sample; turning the window on either cancelled two screens of
+good prefetch and re-issued it (one run: 501 issued, 288 cancelled, 711 soft
+tiles). Now a still window keeps the hull of the previous keep range, and a
+direction is committed only after it has held for 120 ms.
+
+The runner gained two passes — `dart` (6 screens/s for 4 screens) and
+`recoil` (straight back) — and drops the grid tier, keeping the floor, before
+the dart: a cold LRU over a warm floor is the state after a memory-pressure
+trim and the only way the reversal has anything in flight to cancel.
+
+Two runs of the same build, 403-frame card, warm:
+
+| pass | steps | tick p95 | tick p99 | peak frames/s | prefetch issued | cancelled | soft (floor) tiles | wells | decodes in pass |
+|---|---|---|---|---|---|---|---|---|---|
+| glide | 499 / 501 | 1.05 / 1.45 ms | 9.7 / 10.0 ms | 92 / 94 | 147 / 147 | 6 / 6 | **0 / 0** | 0 / 0 | 141 / 141 |
+| flick | 98 / 92 | 10.6 / 10.9 ms | 10.9 / 14.9 ms | 212 / 212 | 146 / 146 | 0 / 1 | **0 / 0** | 0 / 0 | 146 / 146 |
+| return | 175 / 179 | 10.6 / 9.9 ms | 15.6 / 10.8 ms | 166 / 161 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| dart (cold grid) | 67 / 67 | 1.84 / 1.95 ms | 2.0 / 2.2 ms | 153 / 152 | 144 / 144 | 0 / 0 | 534 / 534 | 0 / 0 | 144 / 144 |
+| recoil | 67 / 66 | 1.99 / 2.05 ms | 3.2 / 2.2 ms | 196 / 187 | 19 / 19 | 0 / 0 | **0 / 0** | 0 / 0 | 19 / 19 |
+
+Read against item 3's table: the glide's 91 and the flick's 148 soft tiles
+are now 0 — every grid decode a pass needed was issued by the window before
+the tile was realized (issued = decodes, hits from the plate 0 because the
+plate found the pixels resident and never asked). The dart from a cold grid
+tier still shows 534 soft draws: at 6 screens/s from nothing, prefetch cannot
+outrun realization, and that is what the floor is for — 0 wells. Cancels stay
+in single digits because decodes land within the pass; the mechanism is
+exercised (the dart's own window is what the recoil would cancel) and cheap.
+
+The flick's ~10 ms tick p95 is unchanged and is row wrap-layout (P0).
+
+**One request queue (item 5).** Until now a realized tile's own miss spawned
+a detached decode, and the window spawned one task per path — on a flick,
+~150 concurrent decodes competing with layout for cores, most of them for
+tiles the cursor had already left. Every grid-tier miss now goes through one
+queue in `BrowsePixelService`, `PhotoImageCacheBudget.gridDecodeWidth` (4)
+wide, ordered by *anyone waiting first, then distance from the viewport*, and
+re-ordered every time a slot frees — the order now, not the order of arrival.
+A request that leaves the window with nobody waiting, or loses its last
+waiter (the tile's `.task` was cancelled by SwiftUI when it scrolled off), is
+dropped before its decode starts and counted as `stale` or `cancelled`, the
+develop scheduler's own vocabulary. Concurrent asks for one path share one
+decode. Pinned by `BrowsePixelGridQueueTests` at width 1, where seven of ten
+window requests are dropped unrun when the window moves on.
+
+Two runs, 403-frame card, warm:
+
+| pass | steps | tick p95 | tick p99 | window issued | decodes started | stale | cancelled | soft (floor) tiles | wells |
+|---|---|---|---|---|---|---|---|---|---|
+| glide | 478 / 482 | 2.9 / 2.2 ms | 15.9 / 15.9 ms | 147 / 147 | 141 / 141 | 6 / 6 | 0 / 0 | 0 / 0 | 0 / 0 |
+| flick | 100 / 101 | 10.2 / 10.3 ms | 10.5 / 10.6 ms | 146 / 146 | 146 / 146 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| return | 183 / 180 | 9.3 / 10.3 ms | 11.4 / 11.4 ms | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| dart (cold grid) | 68 / 68 | 1.6 / 1.9 ms | 1.7 / 2.1 ms | 150 / 150 | 144 / 144 | 6 / 6 | 0 / 0 | 552 / 547 | 0 / 0 |
+| recoil | 66 / 66 | 1.9 / 2.3 ms | 2.1 / 2.4 ms | 19 / 19 | 19 / 19 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+
+On this disk decodes land inside the pass, so the stale counts stay small
+(six per glide, six per dart) and nothing is cancelled: the flick never asks
+for a tile the window did not already have in hand. The queue's value shows
+where decodes are slower than the flick — the width-1 test — and in what it
+bounds: at most four ImageIO decodes alongside layout, whatever the shoot.
 
 ### P3 — hardening
 
@@ -366,3 +753,89 @@ those need code, not data.
 ## Next
 
 Checkpoint 04 (hold-key peeks and before), plus the key bindings deferred above.
+
+## Reconciliation — the three UI streams as one tree (2026-09-22, branch `elastic-v4/ui-reconcile`)
+
+Created off `elastic-v4/fixture-generator` `a4792c5` in `~/lumina-wt/ui-reconcile`; the
+three stream branches were merged into it and never rebased. Base gate before any merge:
+285 logic tests / 2 skipped · FAST 41/41 · `xcode_compile` OK.
+
+**Merged, in order, each followed by the full gate:**
+
+| merge | stream tip | merge commit | gate after |
+|---|---|---|---|
+| P0 | `elastic-v4/p0-render-proof` **d2b2824** | `a08c050` | 304 / 2 skipped · 41/41 |
+| P1 | `elastic-v4/p1-grammar` **84aa136** | `7f3a659` | 343 / 2 skipped · 41/41 |
+| P2 | `elastic-v4/p2-scroll` **33782bc** (moved from 1b9f751 before the merge ran) | `d92bcb3` | 359 / 2 skipped · 41/41 |
+| P1 again | **f280b9e** (items 8–9) | `228b590` | 370 / 2 skipped · 41/41 |
+| P1 final | **68ccbc1** (docs) | `aa254ac` | covered by the next |
+| P2 final | **4ca6d2e** (items 4–7) | `41d0942` | **381 / 2 skipped / 0 failures · FAST 41/41 · `xcode_compile` OK** |
+
+381 = 285 + 19 (P0) + 50 (P1) + 27 (P2), so no test was lost or double-counted.
+
+**Conflict surface, recomputed at the first tips:** P0 ∩ P1 = nothing. P0 ∩ P2 =
+`Lumina/Services/ExifToolService.swift`, `docs/ELASTIC_PLAN.md`. P1 ∩ P2 =
+`Lumina/ViewModels/P0SessionModel.swift`, `Lumina/ViewModels/P0SessionModel+Elastic.swift`.
+The follow-up tips added only `P0SessionModel.swift` (P2 item 3 ↔ P1) and this file.
+
+**The one conflict, and how it was resolved.** `ExifToolService.runData` had been fixed
+twice for the same deadlock — `waitUntilExit()` before draining the stdout pipe, which
+hangs on any output past 64 KB (an embedded preview, a `-json` listing of a few hundred
+frames). Kept **one** implementation: P2's `captureOutput(executable:arguments:)` shape,
+because `ExifToolProcessTests` calls it, with P0's stderr choice — `FileHandle.nullDevice`
+instead of a second pipe, so no drain thread is needed. The result reads stdout to end
+*before* it waits, and all three `ExifToolProcessTests` pass with stderr on the null
+device. No test file was dropped: P0 added no ExifTool test.
+
+**Auto-merged and read, not just compiled:** `P0SessionModel.swift` carries P1's peek /
+drawer / anchor state, `keepFrames`, `measureForInference` and the variant removal next
+to P2's `chaptersCache`, `chapterID(containing:)`, `openFolder(_:shootName:)` and the
+`defer { publishScrollOrder() }` at the top of `apply(_:)` — the same `switch` P1 stripped
+`dropVariantPinIfInactive()` from. `+Elastic.swift` carries P1's set-peek key line beside
+P2's cached `gapInterval` / indexed `startsNewMoment`. This file kept every append from
+all three streams with zero deleted lines against the base.
+
+**Semantic checks on the merged tree** (none needed a change): tokens hash `4a917285…`
+with its approved `spring_trajectory_place_return` golden — P0 and P2 never touch
+`tokens.yaml`, so no re-approval; `magic_numbers` OK with P1's tokens and P0's rewritten
+views together; `progressive_render_architecture` OK — `ElasticVersionColumn.previewPath(for:)`
+/ `guard index == 1` intact, P1's item 9 hides the column from `ElasticFocusView` without
+touching that file; `probe_mirror` / `probe_growth` OK across all four sites;
+`shipping_fence` OK for `P0ScrollLiveRunner`; `allowlist_ratchet` OK with all three
+allowlists byte-identical to the base; `registry_staleness` OK with P1's regenerated
+coverage artifacts; `PreparedRawSession.materializeInteractiveStage` reads
+`destination.isFlipped = false` with P0's comment.
+
+**Each stream's proof, re-run here:**
+
+- P0 — `PhotoRenderProofTests` 8/8 including `testEveryTierPresentsTheSameWayUp` (real
+  RAW fixtures), `PreviewOrientationTests` 7/7, `ColdOpenStatusTests` 4/4.
+  `--p0-edit-live` on `card-elastic-v4/frames`: **31/33** on the final tree
+  (30/32 on the tree before the re-merges); the two failures are the ones P0 recorded
+  on its branch and on the base (`Quality promotion keeps geometry stable`,
+  `Authoritative preview reaches drawable target`), and the denominator grew by P1's
+  runner checks. P0's own numbers: base 27/31, branch 29/31.
+- P1 — a guarded, key-driven pass in the real Debug app on the 27-frame card, 27
+  screenshots in `~/lumina-wt/ui-reconcile-proof/p1-live/`: hold-⇥ similar → set →
+  flags (10 groups inferred), G / ⌘Z inside flags, tap-to-pin and ⇥ cycling past the
+  end, Esc, focus with the version column, hold-⇥ set strip, hold-␣ before, 30 taps,
+  held-⇥ arrow spam, Esc ×3. Run on the tree before P1's items 8–9 were merged; those two
+  are proven by `ElasticDevelopTests` and the runner's `editor-drawer` capture only.
+  **Second guarded pass on the final tree** (`~/lumina-wt/ui-reconcile-proof/p1-live-final/`,
+  27 screenshots, user watching, zero guard aborts): hold-⇥ in focus hides the version
+  column and the peek takes the width; hold-␣ before keeps the column, as item 9 specifies;
+  `E` opens the develop drawer (sliders, crop, straighten, profile, match-to-set) with the
+  column gone; Esc returns to a clean table. One thing seen: ⌘Z inside the flags peek with
+  no picks to undo undid the previous journaled keep from P0's capture on the same catalog
+  (set 17 → 16) — the CP2 journal working across relaunch, not a merge effect.
+  The launch trap: with pid 64132 (`com.lumina.app`, a `--workbench` instance from Xcode
+  DerivedData, not any stream's) up, a second instance of that bundle id gets no main
+  window; a copy re-signed as `com.lumina.app.reconcile` gets one on roughly one launch
+  in three, so the driver retries its own launch. Nothing foreign was touched.
+- P2 — `--p0-scroll-live` on the 403-frame stress card, warm, unfilmed, with P2's own runs
+  quiescent: wells **0** on every pass (glide 0/473, flick 0/103, return 0/182, dart 0/68, recoil 0/65); soft (floor) tiles glide **0** and flick **0** (P2 item 4 took them 91 → 0 and 148 → 0), dart 547 from a dropped grid tier (P2: 534); tick p95 glide 3.37 ms, flick 8.84 ms, return 9.70 ms, dart 1.74 ms, recoil 1.90 ms; prefetch issued 147 / cancelled 6 on the glide, 146 / 0 on the flick; floor 369 resident at 63.9 MB 1.5 s after mount. Same shape as P2's record; the flick/return frame-budget
+  residue is row wrap-layout, P0's item.
+
+**Not merged:** nothing. All three streams had closed out by the final tips. Nothing
+pushed; the integration branch is the single PR for the round, against
+`elastic-v4/fixture-generator`, and moves with `git rebase --onto` when that lands.

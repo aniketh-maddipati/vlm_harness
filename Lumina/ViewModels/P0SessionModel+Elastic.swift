@@ -38,6 +38,11 @@ extension P0SessionModel {
             if selected > 0 {
                 return "\(selected) selected · P · X · 1 2 3 apply to all · Esc clears"
             }
+            if peek == .set {
+                let set = finalSetAssetIDs
+                let position = (set.firstIndex(of: id) ?? 0) + 1
+                return "\(position) of \(set.count) in the set · release ⇥"
+            }
             guard let chapter = ShootChapterArrangement.chapter(containing: id, in: chapters) else {
                 return "? keys"
             }
@@ -94,9 +99,10 @@ extension P0SessionModel {
 
     /// Seconds between the start of moment `index` and the start of the next one.
     func gapInterval(after index: Int) -> TimeInterval? {
-        guard chapters.indices.contains(index), chapters.indices.contains(index + 1) else { return nil }
-        guard let start = chapters[index].startedAt,
-              let next = chapters[index + 1].startedAt else { return nil }
+        let list = chapters
+        guard list.indices.contains(index), list.indices.contains(index + 1) else { return nil }
+        guard let start = list[index].startedAt,
+              let next = list[index + 1].startedAt else { return nil }
         return max(0, next.timeIntervalSince(start))
     }
 
@@ -278,11 +284,9 @@ extension P0SessionModel {
 
     /// True when the next frame in shoot order belongs to a different moment.
     func startsNewMoment(after assetID: UUID) -> Bool {
-        guard let index = assets.firstIndex(where: { $0.id == assetID }),
+        guard let index = assetIndex(assetID),
               assets.indices.contains(index + 1) else { return false }
-        let here = ShootChapterArrangement.chapter(containing: assetID, in: chapters)?.id
-        let next = ShootChapterArrangement.chapter(containing: assets[index + 1].id, in: chapters)?.id
-        return here != next
+        return chapterID(containing: assetID) != chapterID(containing: assets[index + 1].id)
     }
 
     /// `1` / `2` / `3` — as shot, auto, yours.

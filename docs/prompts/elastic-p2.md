@@ -201,16 +201,107 @@ but what was measured, on what card, warm or cold. Commit with
 
 ## Checklist
 
-- [ ] 1. A scroll-latency measurement exists and is recorded, before any change
-- [ ] 2. Nothing on the scroll path decodes synchronously
-- [ ] 3. Guaranteed-resident floor tier, with an explicit cap and eviction by distance
-- [ ] 4. Prefetch by scroll velocity; cancel behind
-- [ ] 5. Superseded requests dropped rather than queued
-- [ ] 6. Re-measure; before/after recorded in `docs/ELASTIC_PLAN.md`
-- [ ] 7. Gate green, including `xcode_compile.py`
+- [x] 1. A scroll-latency measurement exists and is recorded, before any change
+- [x] 2. Nothing on the scroll path decodes synchronously
+- [x] 3. Guaranteed-resident floor tier, with an explicit cap and eviction by distance
+- [x] 4. Prefetch by scroll velocity; cancel behind
+- [x] 5. Superseded requests dropped rather than queued
+- [x] 6. Re-measure; before/after recorded in `docs/ELASTIC_PLAN.md`
+- [x] 7. Gate green, including `xcode_compile.py`
 
 ## Progress
 
-_Nothing yet. Append one line per completed item: date, item number, commit sha,
-and anything the next pass needs to know — especially anything here that turned
-out to be wrong._
+_Append one line per completed item: date, item number, commit sha, and anything
+the next pass needs to know — especially anything here that turned out to be
+wrong._
+
+- 2026-09-22 · item 1 **partial** (checkpoint, sha in `git log`) · The
+  measurement exists: `--p0-scroll-live` runner, `ElasticScrollTracker`,
+  `BrowsePixelService.isResident`, `elastic_cards.py --stress`, film mode.
+  Recorded in `docs/ELASTIC_PLAN.md` § "P2 measurement". **Not done:** the
+  baseline on the 403-frame card. Extraction finishes in < 1 min, but the
+  runner's readiness wait never fires there (session `assets` stays empty while
+  the 27-frame card populates) — debug `P0SessionModel.consume` on the big
+  card before anything else. Card lives at
+  `~/LuminaFixtures/card-elastic-v4-stress/frames`, catalog already warm.
+  Wrong in this prompt: the base branch does **not** carry P0's two items
+  (wrap-layout caching, version thumbnails) — P0 is doing them in parallel in
+  `~/lumina-wt/p0-render-proof`; do not redo them here. Files touched outside
+  P2's row, all minimal: `ChapterPlateImage.swift` (appear/disappear report),
+  `ElasticRootView.swift` (tracker environment, one modifier),
+  `P0SessionModel.openFolder(_:shootName:)` (cards share a `frames` leaf),
+  `LuminaApp.swift` (runner registration), `shipping_fence.py` (new runner).
+- 2026-09-22 · item 1 **done** · The readiness bug was not the runner: the
+  dates phase hangs on any shoot past ~250 frames because `ExifToolService.
+  runData` waited for exit before draining a >64 KB pipe. Fixed
+  (`captureOutput` + `ExifToolProcessTests`), outside P2's row but nothing
+  large could be measured without it — and it is why every big catalog on
+  this Mac had no dates. Runner now waits for the lazy table to grow and
+  compares the document against the scroll view's frame (SwiftUI's clip view
+  reports bounds as tall as the document). Baseline on the 403-frame card is
+  in `docs/ELASTIC_PLAN.md`: 4 steps in 19.8 s, tick p95 1090 ms.
+- 2026-09-22 · item 2 **part 1** · `sample` put 86 % of the glide's main
+  thread in `session.chapters` recomputed per row and per gap, with a regex
+  compiled per filename inside the sort. Cached `chapters` with `assets`
+  (`P0SessionModel`, unowned), compiled the pattern once
+  (`ShootChapterArrangement`), `gapInterval` reads the list once. Glide went
+  from 4 steps / 19.8 s to 417 steps / 5.0 s, tick p95 2.5 ms. Still to do
+  for item 2: the tile samples `BrowsePixelService.residentPixel` in its body
+  and only enqueues on a miss — today every realized row shows a well for at
+  least a frame even when its pixels are resident.
+- 2026-09-22 · item 2 **done** · `ChapterPlateImage` draws
+  `BrowsePixelService.residentPixel` in the same pass and only a miss awaits;
+  `startsNewMoment` reads `chapterID(containing:)` (indexed, cached with
+  `assets`) instead of scanning. Well tiles now equal decodes exactly (91/91
+  on the glide); glide tick p95 0.95 ms. Audit result: nothing sync on the
+  tile path but a lock-guarded dictionary read. Two things seen and left:
+  `ShootBurst.preferredCoverID(in:)` builds a 403-entry dictionary per group
+  per layout (called from P1's `ElasticTableView`; not in the profile after
+  the chapters fix, so not touched), and the flick's ~9 ms tick p95 is row
+  wrap-layout, P0's item. Next: item 3, the floor tier.
+- 2026-09-22 · item 3 **done** · `Tier.floor` (256 px) in its own store in
+  `BrowsePixelService`, warmed nearest-first, evicted by distance, cap 64 MB
+  by bytes with the reasoning in `PhotoImageCacheBudget.floorCeilingBytes`
+  and the plan. Order comes from `ElasticScrollTracker.shootChanged`, called
+  once per event from `P0SessionModel.apply` — **not** from `assets.didSet`,
+  which fires per element write; a hook there made the reopen quadratic and
+  starved the main thread (the profile is in the plan). Runner counts soft
+  (floor) tiles apart from wells and waits out the dates replay a reopen
+  runs. Result: 0 wells on every pass; 369/403 resident at 63.9 MB. Next:
+  item 4 — the tracker already has the order and the centre; add velocity
+  and drive `BrowsePixelService.prefetch` two screens ahead, cancel behind.
+- 2026-09-22 · item 4 **done** · `ElasticScrollTracker` velocity (0.25 s
+  horizon) → `prefetchWindow` (pure, tested) → `BrowsePixelService.
+  setGridPrefetchWindow(ahead:keep:)`, two screens ahead, one kept behind,
+  rest cancelled before decode. Two rules that were not obvious: a still
+  window keeps the hull of the last keep range, and a direction is committed
+  only after 120 ms — without both, the median's phase jumps cancelled and
+  re-issued two screens of prefetch per flick (501 issued / 288 cancelled).
+  Runner has `dart`/`recoil` passes over a dropped grid tier (floor kept).
+  Soft tiles: glide 91 → 0, flick 148 → 0; dart from cold still 534 soft, 0
+  wells. Next: item 5 — the plate's own misses and the prefetch both spawn
+  one Task per path with no bound; queue them, bounded, distance-ordered,
+  and drop what leaves the window before it starts (counts already in
+  `Diagnostics`).
+- 2026-09-22 · item 5 **done** · One grid queue in `BrowsePixelService`
+  (`gridDecodeWidth` 4; waiters first, then distance; re-ordered per slot).
+  Leaves-the-window → `stale`, loses-last-waiter → `cancelled`, both before
+  the decode starts; shared decode for concurrent asks.
+  `BrowsePixelGridQueueTests` (width 1) pins the drops. On the 403 card the
+  counts are small (6 stale per glide/dart, 0 cancelled) because decodes land
+  within the pass — the numbers are honest, not flattering. Item 4's
+  per-path prefetch tasks are gone; the window only enqueues. Next: item 6 —
+  the consolidated before/after at the head of the plan's P2 section, then
+  the item 7 gate.
+- 2026-09-22 · item 6 **done** · One before/after table at the head of
+  `docs/ELASTIC_PLAN.md` § "P2 measurement": same card, machine, runner,
+  warm, unfilmed; what moved it in order; what is left and whose it is
+  (wrap-layout tick cost is P0's; the dart's soft tiles are the floor
+  working). Cold is stated as a separate case, not folded in.
+- 2026-09-22 · item 7 **done** · Final gate on the completed tree:
+  build-for-testing OK · 312 logic tests, 2 skipped, 0 failures (baseline was
+  285) · fast 41/41 · `xcode_compile.py` OK. Every item checked. Branch
+  pushed; PR #100 against `elastic-v4/fixture-generator`. Not pushed to
+  main, not merged — that is the user's call. Nothing further for this
+  stream; the two things left on the scroll path belong to P0 (wrap-layout
+  tick cost) and to disks slower than this one (the dart's soft tiles).

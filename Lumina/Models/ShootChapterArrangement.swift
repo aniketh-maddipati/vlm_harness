@@ -61,6 +61,13 @@ struct CaptureName: Equatable, Sendable {
     var sequence: Int?
     var prefix: String
 
+    /// Compiled once. `parse` runs inside sort comparators over every frame in
+    /// the shoot; compiling the pattern per call put a regex build on every
+    /// comparison, which is most of what a 400-frame table cost to lay out.
+    nonisolated private static let versionSuffix = try? NSRegularExpression(
+        pattern: #"^(.*\d{3,})[-_]\d$"#
+    )
+
     static func parse(_ filename: String) -> CaptureName {
         var base = (filename as NSString).deletingPathExtension
         let suffixes = ["-edit", "-edited", " (1)", "-copy", "_copy"]
@@ -70,7 +77,7 @@ struct CaptureName: Equatable, Sendable {
                 break
             }
         }
-        if let regex = try? NSRegularExpression(pattern: #"^(.*\d{3,})[-_]\d$"#),
+        if let regex = versionSuffix,
            let match = regex.firstMatch(in: base, range: NSRange(base.startIndex..., in: base)),
            let kept = Range(match.range(at: 1), in: base) {
             base = String(base[kept])

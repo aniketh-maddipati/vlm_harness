@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The time route — moments as rows, separated by how long the shooting stopped.
@@ -15,7 +16,15 @@ struct ElasticTableView: View {
                 // different screen — the mount survives so scroll and cursor do too.
                 ElasticFilmstrip(session: session)
             } else {
-                momentScroll
+                VStack(spacing: 0) {
+                    // The flags peek: what the shoot's own structure suggests, above
+                    // the table it was read from. The table stays put beneath it.
+                    if session.peek == .flags, !session.inferredGroups.isEmpty {
+                        ElasticGroupsBand(session: session)
+                            .elasticBorn(ElasticLayout.bornGroupsMs)
+                    }
+                    momentScroll
+                }
             }
         }
         .background(LuminaTokens.Elastic.matte)
@@ -49,6 +58,14 @@ struct ElasticTableView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // `position: absolute; bottom: 0` — the peek sits over the foot of the table
+        // while ⇥ is held, and the table under it does not move.
+        .overlay(alignment: .bottom) {
+            if session.tablePeekVisible {
+                ElasticPeekBar(session: session)
+                    .elasticBorn(ElasticLayout.bornPeekMs)
+            }
+        }
     }
 
     /// `margin-top` above a moment, with its `+ 2 h 11 min` label centred in the gap.
@@ -126,7 +143,8 @@ struct ElasticFrameGroup: View {
     let burst: ShootBurst
 
     private var isBurst: Bool { burst.frameCount > 1 }
-    private var isOpen: Bool { isBurst && session.leanedBurstID == burst.id }
+    /// The flags peek (`shiftTable`) opens every burst at once; otherwise a stack opens by its badge.
+    private var isOpen: Bool { isBurst && (session.leanedBurstID == burst.id || session.peek == .flags) }
 
     var body: some View {
         if isOpen {
@@ -235,9 +253,17 @@ struct ElasticFrameTile: View {
                 ElasticPhoneGlyph().padding(ElasticLayout.markInset)
             }
         }
+        .overlay(alignment: .bottomLeading) {
+            if let flags = session.flagLine(for: assetID) {
+                ElasticFlagChip(text: flags).padding(ElasticLayout.markInset)
+            }
+        }
         .elasticMarked(radius: ElasticLayout.tileRadius, ringed: ringed, inSet: inSet)
         .opacity(cull == .reject ? ElasticLayout.outOpacity : 1)
         .contentShape(Rectangle())
+        .draggable(ElasticDragPayload.encode(
+            ElasticDragPayload.ids(forDragging: assetID, selection: session.selectedAssetIDs)
+        ))
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier(P0AccessibilityID.elasticTile(assetID))
         .onTapGesture(count: 2) {
@@ -245,7 +271,10 @@ struct ElasticFrameTile: View {
             session.openFocusedPhotograph()
         }
         .onTapGesture {
-            session.setFocus(assetID)
+            // ⇧-click range · ⌘-click toggle · click moves the cursor. The modifier
+            // is read off the event, so one tap owns all three.
+            let flags = NSEvent.modifierFlags
+            session.clickFrame(assetID, shift: flags.contains(.shift), command: flags.contains(.command))
         }
     }
 }

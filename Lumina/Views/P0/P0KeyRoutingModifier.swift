@@ -44,6 +44,7 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
     final class Coordinator {
         var session: P0SessionModel
         private var monitors: [Any] = []
+        private var resignObserver: NSObjectProtocol?
         private weak var view: P0KeyRoutingView?
 
         init(session: P0SessionModel) {
@@ -60,6 +61,23 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 self?.handleKeyUp(event) ?? event
             }
             monitors = [down, up].compactMap { $0 }
+            // A held key never comes back up for us once the app loses key status
+            // (⌘⇥ is the common case), so every hold releases with the app.
+            resignObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.didResignActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.releaseHolds()
+                }
+            }
+        }
+
+        private func releaseHolds() {
+            session.closePeek()
+            session.setShowingBefore(false)
+            session.setHoldingClipping(false)
         }
 
         func detach() {
@@ -71,6 +89,10 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 NSEvent.removeMonitor(monitor)
             }
             monitors = []
+            if let resignObserver {
+                NotificationCenter.default.removeObserver(resignObserver)
+            }
+            resignObserver = nil
         }
 
         private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
@@ -82,42 +104,39 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             let lower = chars.lowercased()
 
             if event.keyCode == 53 {
-                if session.workspaceState.editVariants != nil {
-                    session.cancelEditVariants()
-                    return nil
-                }
                 if P0EscLadder.handle(session: session) {
                     return nil
                 }
                 return event
             }
 
-            if unmodified && lower == "v", session.inspectingAssetID != nil {
-                if !event.isARepeat, session.workspaceState.editVariants == nil {
-                    session.beginEditVariants()
+            // ⇥ — the one peek. Hold: similar; a pinned peek cycles on ⇥ and closes past
+            // the end. Release is decided in `handleKeyUp`. ⌘⇥ belongs to the system.
+            if event.keyCode == P0VirtualKey.tab, !command, session.route != .open {
+                if event.isARepeat { return nil }
+                if session.peek != nil, session.peekPinned {
+                    session.cyclePeek(by: 1, wrap: false)
+                } else if session.peek == nil {
+                    session.openPeek(.related)
                 }
                 return nil
             }
 
-            if !command && lower == "b", session.inspectingAssetID != nil {
-                if !event.isARepeat {
-                    session.setShowingBefore(true)
-                }
-                return nil
-            }
-
-            if session.workspaceState.editVariants != nil {
+            if session.peek != nil {
                 switch event.keyCode {
-                case 123:
-                    session.moveEditVariantFocus(by: -1)
+                case 125:
+                    session.cyclePeek(by: 1)
                     return nil
-                case 124:
-                    session.moveEditVariantFocus(by: 1)
-                    return nil
-                case 125, 126:
+                case 126:
+                    session.cyclePeek(by: -1)
                     return nil
                 default:
                     break
+                }
+                if unmodified, chars.count == 1, let number = Int(chars), (1...9).contains(number) {
+                    if event.isARepeat { return nil }
+                    session.jumpInPeek(to: number)
+                    return nil
                 }
             }
 
@@ -144,9 +163,7 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
 
             if event.keyCode == 36 || event.keyCode == 76 {
                 if event.isARepeat { return nil }
-                if session.workspaceState.editVariants != nil {
-                    session.chooseFocusedEditVariant()
-                } else if session.inspectingAssetID == nil {
+                if session.inspectingAssetID == nil {
                     session.activateFocusedPhotograph()
                 }
                 return nil
@@ -195,9 +212,11 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return nil
             }
 
-            if event.keyCode == P0VirtualKey.space, !command {
+            // Hold ␣ — before. Everything as shot while held; release returns. Never
+            // mutates recipe or undo. In both routes: the headline says it on the table.
+            if event.keyCode == P0VirtualKey.space, !command, session.route != .open {
                 if !event.isARepeat {
-                    session.setHoldingLoupe(true)
+                    session.setShowingBefore(true)
                 }
                 return nil
             }
@@ -209,22 +228,27 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return nil
             }
 
+            // Develop, in the focus route: E opens the drawer, R turns, M matches.
+            if unmodified, session.route == .focus, ["e", "r", "m"].contains(lower) {
+                if event.isARepeat { return nil }
+                switch lower {
+                case "e": session.toggleDevelopDrawer()
+                case "r": session.rotateFocusedPhotograph()
+                default: session.matchToCursor()
+                }
+                return nil
+            }
+
+            // G inside the flags peek takes the inferred picks — one command, one ⌘Z.
+            if unmodified, lower == "g", session.peek == .flags {
+                if event.isARepeat { return nil }
+                session.takeInferredPicks()
+                return nil
+            }
+
             if !command && lower == "k", session.inspectingAssetID == nil {
                 if event.isARepeat { return nil }
                 session.keepFocusedBurst()
-                return nil
-            }
-
-            if event.keyCode == P0VirtualKey.tab, session.inspectingAssetID == nil {
-                if event.isARepeat { return nil }
-                session.toggleKeptRailWalk()
-                return nil
-            }
-
-            if command && !shift && lower == "g", session.inspectingAssetID == nil {
-                if !event.isARepeat {
-                    session.beginLookGlance()
-                }
                 return nil
             }
 
@@ -248,27 +272,16 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
 
         private func handleKeyUp(_ event: NSEvent) -> NSEvent? {
             let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
+            if event.keyCode == P0VirtualKey.tab {
+                session.releasePeekKey()
+                return nil
+            }
             if event.keyCode == P0VirtualKey.space {
-                session.setHoldingLoupe(false)
+                session.setShowingBefore(false)
                 return nil
             }
             if chars == "j" {
                 session.setHoldingClipping(false)
-                return nil
-            }
-            if chars == "v", session.inspectingAssetID != nil {
-                session.cancelEditVariants()
-                return nil
-            }
-            if session.lookGlancing,
-               chars == "g"
-                || event.keyCode == P0VirtualKey.rightCommand
-                || event.keyCode == P0VirtualKey.leftCommand {
-                session.endLookGlance()
-                return nil
-            }
-            if chars == "b", !event.modifierFlags.contains(.command), session.inspectingAssetID != nil {
-                session.setShowingBefore(false)
                 return nil
             }
             return event

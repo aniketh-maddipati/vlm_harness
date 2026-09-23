@@ -134,6 +134,56 @@ nonisolated enum OrientedDisplayImage {
         return normalizeOrigin(image.oriented(orientation))
     }
 
+    /// Decode a preview file and put it up the right way using the orientation of
+    /// the **source** it came out of.
+    ///
+    /// The embedded preview that `exiftool -b -PreviewImage` pulls out of a RAW is
+    /// in sensor space and carries no orientation tag of its own. Every decode of
+    /// such a file applies a transform that is a no-op, so a portrait frame stays
+    /// on its side for as long as that file exists. The orientation belongs to the
+    /// RAW, not to those bytes, so this is the one place that can bake it in.
+    ///
+    /// A preview that carries its own tag is left to the ordinary transform, and a
+    /// preview already in the source's display shape is left alone — rotating an
+    /// upright picture is the same bug facing the other way.
+    static func uprightPreview(
+        at previewURL: URL,
+        fromSourceAt sourceURL: URL,
+        maxPixelSize: Int? = nil
+    ) -> (image: CGImage, rotated: Bool)? {
+        guard let decoded = cgImage(at: previewURL, maxPixelSize: maxPixelSize) else { return nil }
+        guard let file = fileOrientation(at: sourceURL), file.orientation != 1 else {
+            return (decoded, false)
+        }
+        // The preview brought its own orientation; `cgImage` has applied it.
+        if let preview = fileOrientation(at: previewURL), preview.orientation != 1 {
+            return (decoded, false)
+        }
+        guard let orientation = CGImagePropertyOrientation(rawValue: file.orientation) else {
+            return (decoded, false)
+        }
+
+        if swapDimensions.contains(file.orientation) {
+            let oriented = file.orientedSize
+            let sourceIsPortrait = oriented.height > oriented.width
+            let previewIsPortrait = decoded.height > decoded.width
+            // Already in the source's display shape — nothing left to apply.
+            if sourceIsPortrait == previewIsPortrait { return (decoded, false) }
+        }
+        // Orientations 2, 3 and 4 do not change the shape, so there is nothing to
+        // compare and the tagless preview is taken at its word: sensor space.
+        // Same limit `OrientationContractTests` names for `aligning`.
+
+        let turned = CIImage(cgImage: decoded).oriented(orientation)
+        guard let baked = bakingContext.createCGImage(turned, from: turned.extent) else {
+            return (decoded, false)
+        }
+        return (baked, true)
+    }
+
+    /// Only ever used to bake an orientation into a preview being written to disk.
+    private static let bakingContext = CIContext(options: [.useSoftwareRenderer: false])
+
     /// Keep the oriented browse frame on screen when a RAW promotion arrives
     /// in the opposite aspect (sensor-space demosaic). Quality may sharpen;
     /// the photograph may not rotate or stretch for a frame.

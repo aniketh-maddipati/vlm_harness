@@ -207,19 +207,174 @@ One commit per checkpoint is fine; end each message with
 
 ## Checklist
 
-- [ ] 1. Hold-`⇥` peek: related → set → flags, release returns, short tap pins, `Esc` closes
-- [ ] 2. `G` inside the flags peek takes the inferred picks
-- [ ] 3. Hold-`␣` is before; 1:1 zoom moves off Space
-- [ ] 4. `P0EscLadder` rewritten to peek → drawer → selection → route
-- [ ] 5. Hold-V remnants retired (`EditVariantSession`, `WorkspaceState` fields, `V` binding, probe fields); `EditVariantTests` deleted or rewritten
-- [ ] 6. Set shelf is a drop target
-- [ ] 7. `⇧`-click range, `⌘`-click toggle; the `P0_CULLING.md` ruling closed
-- [ ] 8. Develop drawer on `E`, with sliders, ratios, `R` rotate, straighten, profile
-- [ ] 9. Version column hides while the drawer or a hold is active
-- [ ] 10. `docs/ELASTIC_PLAN.md` P1 section updated, gate green
+- [x] 1. Hold-`⇥` peek: related → set → flags, release returns, short tap pins, `Esc` closes
+- [x] 2. `G` inside the flags peek takes the inferred picks
+- [x] 3. Hold-`␣` is before; 1:1 zoom moves off Space
+- [x] 4. `P0EscLadder` rewritten to peek → drawer → selection → route
+- [x] 5. Hold-V remnants retired (`EditVariantSession`, `WorkspaceState` fields, `V` binding, probe fields); `EditVariantTests` deleted or rewritten
+- [x] 6. Set shelf is a drop target
+- [x] 7. `⇧`-click range, `⌘`-click toggle; the `P0_CULLING.md` ruling closed
+- [x] 8. Develop drawer on `E`, with sliders, ratios, `R` rotate, straighten, profile
+- [x] 9. Version column hides while the drawer or a hold is active
+- [x] 10. `docs/ELASTIC_PLAN.md` P1 section updated, gate green
+- [ ] 11. Stress pass (asked for 2026-09-22): every landed item driven in the live
+  Debug app by real key events, with a guard that aborts unless Lumina is verified
+  frontmost before any key is sent; screenshots in `~/lumina-wt/p1-grammar-proof/<item>/`,
+  findings appended to Progress. Per item: 1 ✔ (17 shots) · 2 ✔ with one live re-check
+  pending · 3–9 as they land. Spam cases each time: 30 rapid ⇥ taps, held ⇥ + 40 arrows,
+  ⌘⇥ away mid-hold, 10× Esc, P/X bursts.
 
 ## Progress
 
-_Nothing yet. Append one line per completed item: date, item number, commit sha,
-and anything the next pass needs to know — especially anything here that turned
-out to be wrong._
+_Append one line per completed item: date, item number, commit sha, and anything
+the next pass needs to know — especially anything here that turned out to be wrong._
+
+- 2026-09-22 · item 1 · branch lives in its own worktree `~/lumina-wt/p1-grammar`
+  (three sessions share `/Users/aniketh/vlm_harness`, so the branch was never checked
+  out there). Peek state is `P0SessionModel.peek/peekPinned/peekOpenedAt` with the
+  grammar in `P0SessionModel+Peek.swift`; views in `ElasticPeek.swift`. Two tokens added
+  (`peek_cursor_tile_width` 220, `peek_related_badge_height` 24) → tokens hash moved to
+  `35159b56…` and the F07 golden was re-approved with the previous payload. Touched
+  P2's `ElasticFilmstrip.swift` (label / ids / fill read off the session — ~10 lines).
+  `toggleKeptRailWalk` is gone; the set walk now follows `finalSetAssetIDs` through
+  `setFocus`. Not built: `⇧←→` reorders the set (no set-reorder command exists — copy
+  omits it), the flags peek's focus-check overlay, and the inferred-groups band (item 2).
+  Wheel gestures untouched. Proof: 17 live-window screenshots driven by System Events
+  in `~/lumina-wt/p1-grammar-proof/item1/` (tap-to-pin must be sent as one osascript;
+  two invocations exceed the 220 ms window). Gate: 301 logic tests / 2 skipped, FAST 41/41.
+  `--p0-edit-live` on the 27-frame card: 3 render-path failures (fidelity monotonic,
+  geometry stable, drawable target) — not measured against the base commit, so unverified
+  whether pre-existing; none touch peek code.
+- 2026-09-22 · item 1 follow-up · Tab is now guarded by `route != .open` (it opened a
+  phantom peek on the Open surface and ate the next Esc), and the app-resign release
+  also drops the Space loupe. Known and deliberate: the peek bar overlays the last table
+  rows with no bottom inset, exactly as the prototype's `position:absolute` does — needs
+  a ruling, not a fix. Legacy `P0ChapterTableView.focusKeptAsset` can still arm the set
+  walk without a peek; it is unreachable from the Elastic shell and goes with item 5.
+- 2026-09-22 · item 2 · `ElasticInferredGroups` (Models, pure) + `takeInferredPicks` in
+  the session (one `ChapterKeepCommand`, label `Take the picks`, one ⌘Z). Sharpness is
+  never populated on P0 assets (all 27 read 0), so the flags peek measures it itself off
+  grid thumbs with `BlurScorer` (now `nonisolated`) and embeds one frame per burst with
+  `EmbeddingService.embed`, in a detached task; groups redraw when it lands (~3 s for
+  27). Same-burst / same-scene / same-subject only — the prototype's "same exposure
+  problem" group writes recipes, which is develop territory, and is not built; no
+  `eyes` flag either. Five tokens added (210 · 0.14 · 0.2 · 0.5 · 10); tokens hash is
+  now `1eac1762…`, golden moved. `P0Command.swift` gained a `label` on ChapterKeepCommand.
+  Live stress found and fixed one bug: the subject representative followed
+  `preferredCoverID`, so G's own marks regrouped the shoot (10 → 9 groups); pinned to
+  the burst's first frame, regression test added. Cosmetic, left: the band's head line
+  truncates at 1280 wide. Live re-check of the fix is PENDING — since ~14:08 the Debug
+  app launches into an idle run loop with no window (3 tries, exec and `open`), which
+  started when a second Lumina from Xcode DerivedData (pid 64132, not mine) appeared;
+  retry when it is gone. Incident: the first stress script resolved an empty pid and
+  sent ~60 keystrokes to the frontmost app, which was the Claude window — hence the
+  guard. Handed P0 a repro: LUM0012 renders 180° inverted in focus while its version
+  thumbnails are upright (shot in `item2/D1-focus-set-walk.png`, message sent to the
+  P0 session). Gate: 313 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · item 3 · Space is before in both routes (not `.open`); B is unbound.
+  The prompt's "1:1 zoom already has a double-click and a header button" was true of
+  `P0SinglePhotoEditor`, which is gone — `ElasticFocusView` has no 1:1 surface at all
+  and hold-Space only ever set `holdingLoupe`, which nothing in the Elastic shell reads.
+  So nothing was moved and nothing was lost; `requestOneToOneZoom` stays callable and
+  unbound, and `holdingLoupe` is now key-less (drop it with the ladder in item 4). Two
+  warm-path resets of `showingBefore` on cursor change were removed so before survives
+  → while held, as the prototype does. Pointer parity added: press-and-hold the
+  photograph 200 ms (`motion.before_press` token; hash `de232d00…`, golden moved).
+  Live check PENDING for the same no-window reason as item 2 (pid 64132 still up).
+  Gate: 317 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · item 4 · Ladder is peek → drawer → selection → route, nothing else;
+  `P0EscLadder.hasTransientDepth` is what the probe's `escTransientHoldActive` now
+  mirrors. `developDrawerOpen` added to the session as the drawer's backing bool for
+  item 8. Retired with the old rungs: `holdingLoupe` / `setHoldingLoupe` (key-less since
+  item 3; the legacy `P0ChapterTableView` overlay branch that read it is gone, its
+  `loupeOverlay` property is now dead code in a file item 5 touches anyway) and the
+  ⌘G look-glance binding (the `lookGlancing` state and `beginLookGlance` stay — a test
+  and `displayedBursts` still read them; drop them when `P0ChapterTableView` goes).
+  An open burst no longer answers to Esc (folds by its badge, as the prototype) —
+  `testLeanIntoBurstIsNotUnwoundByEsc` pins that. Live check PENDING (no window; my
+  instance was pid 84118, killed by my own script after the wait). P0 reports the
+  upside-down interactive tier fixed at d2b2824 on elastic-v4/p0-render-proof
+  (`isFlipped` double-flip in `PreparedRawSession.materializeInteractiveStage`); not
+  cherry-picked here by the stream rule — it arrives via fixture-generator.
+  Gate: 321 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · item 5 · Gone: `EditVariantSession` / `EditVariantOverride`, every
+  `editVariants` field and method on `WorkspaceState`, the session's variant methods and
+  its pinned-surface plumbing (`variantPinned*`, `displayedVariantCIImage`,
+  `pointerTravelToVariant`), the V key paths, and five probe fields
+  (`editVariantsActive`, `editVariantAssetID`, `focusedEditVariantIndex`,
+  `editVariantCancellationCount`, `variantSourceReady`) across all five mirror sites.
+  Kept, as instructed: `DevelopRenderGraph.branchInteractiveVariant`,
+  `PreparedRawSessionRegistry` / `interactivePinnedSource`, and the `variantRenders`
+  counter. `EditVariantTests.swift` deleted (9 cases, all source-substring or hold-V
+  behaviour); `PointerTravelTests.testVariantPointerTravelDoesNotCullOrSelect` deleted
+  and removed from `Scripts/harness/coverage/artifact_registry.yaml` — that made the
+  constitution-coverage artifacts stale, regenerated with `--write`. The legacy
+  `P0ChapterTableView.loupeOverlay` dead code went too. Live check n/a (V does nothing
+  now; the window problem persists — P0 confirms pid 64132 is not theirs and pid
+  73848 is model-core's; both foreign, not mine, not killed). Pushed to origin at the
+  user's request. Gate: 312 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · item 6 · Table tiles and inferred-group frames are `.draggable` with a
+  `text/plain` payload of comma-joined ids (`ElasticDragPayload`, Models); a dragged
+  frame inside the selection brings the selection. The shelf is a `.dropDestination`
+  for `String`: `dropOnShelf` keeps the undecided ones through the same keep-many
+  command `G` uses (`keepFrames`, label `Drop on the shelf`, one ⌘Z), skips rejects and
+  the already-kept, and spends the selection. Ring: 2 pt dashed ink inset 2 while
+  targeted; background `#EFECE6` while the set peek is held (that is what the
+  prototype's `shelfBg` keys on — not the drag). Not draggable: filmstrip tiles
+  (P2's file; the prototype's strip is not draggable either) and shelf tiles. Live
+  drag check PENDING (no window; a real drag also needs a pointer driver, which
+  System Events key events cannot do). Gate: 317 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · item 7 · `clickFrame(_:shift:command:)` on the session, `selectionAnchorID`
+  as the README's `anchor` (session var, reset on go-home). Plain click: cursor +
+  anchor, selection cleared (prototype `clickFrame`); ⌘: toggle, cursor stays, anchor
+  defaults to the cursor; ⇧: anchor→frame in shoot order across moments, cursor to the
+  frame. The modifier is read off `NSEvent.modifierFlags` inside the one tap, so table
+  tiles and group frames each keep a single gesture. `docs/P0_CULLING.md` parity table:
+  the RULING NEEDED row and the two stale Space rows replaced with the ruling (pointer-
+  only by design; `⌘A` is the keyboard path to a selection and is still on P0's unbound
+  list). Filmstrip / shelf / peek tiles unchanged (P2's file, or not click-to-select in
+  the prototype). Live check PENDING (needs a pointer with modifiers; no window anyway).
+  Gate: 324 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · item 8 · `ElasticDevelopDrawer` (+ `ElasticDrawerSlider`, same
+  begin/scrub/end contract as `P0EditSlider` at the design's 78/1fr/44 · 18-high size);
+  session side in `P0SessionModel.swift` (needs the private helpers) with copy and the
+  pure types in `P0SessionModel+Develop.swift`. Every drawer edit goes through one
+  `BatchEditMutationCommand` so provenance moves with the recipe: a slider release
+  ripples its **delta** to the scope (selection, else the burst) clamped to the range,
+  auto → autoHand, else hand, `handRecipe` cached, one ⌘Z. `M` = `matchToCursor` over
+  the prototype's `syncIds` (selection › set › moment) copying only the checked groups;
+  the surface says **match** because "sync" is banned copy. `R` rotates +90. Keys E/R/M
+  are focus-only. Ten tokens added (44 · 18 · 24 · 32 · 0.14 · 10 · 0.1 · 50 · 100 ·
+  0.18); hash now `4a917285…`, golden moved. `P0CropControls.centeredCrop` was NOT
+  salvaged: it ignores the frame's own aspect (its 1:1 was a no-op on a 3:2 frame) —
+  `ElasticCropRatio.centeredCrop(imageAspect:)` replaces it, aspect from
+  `ContactSheetPreparation.aspectRatio`. Not built: the crop-handle overlay on the
+  photograph (P0 owns the photograph's pixels/gestures; `P0CropOverlay` still exists to
+  reuse), sharpness runs 0…100 not the engine's 0…150, and the drawer title truncates
+  at `yours · from sidecar`. Proof: offscreen `editor-drawer.png` via the live runner in
+  `~/lumina-wt/p1-grammar-proof/item8/` (photograph blank there by the known offscreen
+  limitation). That runner run also showed two new FAILs (`RAW preview presents without
+  blank canvas`, `Rapid Exposure scrub without blank canvas`) that passed on the item‑1
+  run — a baseline build of a4792c5 is running in `~/lumina-wt/p1-baseline` to settle
+  whether they are mine; see the next line. Gate: 334 logic tests / 2 skipped, FAST 41/41.
+- 2026-09-22 · baseline · a4792c5 built in `~/lumina-wt/p1-baseline` and run through the
+  same `--p0-edit-live` on the same card minutes apart: baseline 27 pass / 4 fail, branch
+  29 pass / 4 fail. `RAW preview presents without blank canvas` fails on **both**;
+  `Rapid Exposure scrub` fails only on the branch while `Progressive fidelity is
+  monotonic` fails only on baseline — they trade places run to run under this load
+  (three foreign Lumina processes up). `Quality promotion keeps geometry stable` and
+  `drawable target` fail on both. Nothing here is P1's. Worktree removed afterwards.
+- 2026-09-22 · item 9 · `versionColumnVisible = !developDrawerOpen && peek == nil` on
+  the session; `ElasticFocusView` drops the column on it, so P0's
+  `ElasticVersionColumn.swift` is untouched. Before is not a hold in the prototype's
+  `variantsCol` sense, so the versions stay while ␣ is down. Gate: 335 / 2 skipped,
+  FAST 41/41.
+- 2026-09-22 · item 10 · `docs/ELASTIC_PLAN.md`: a "P1 — the grammar" subsection
+  appended at the end of §6 and a status line appended at the end of the P1 backlog
+  block — insertions only, nothing reflowed. Items 1–10 are checked; item 11 (the
+  stress pass the user asked for) stays open only for the live re-checks of items 3–9,
+  blocked by the no-window condition while pid 64132 is up. Next wake: if
+  `~/lumina-wt/p1-grammar/DD/.../Lumina --workbench …` shows a window, run the
+  guarded key-driven pass for ␣, Esc ladder, E/R/M, and a ⇧/⌘-click via osascript
+  `click … using {shift down}` on the tile's accessibility element. Baseline worktree
+  `~/lumina-wt/p1-baseline` removed. Final gate: 335 logic tests / 2 skipped, FAST 41/41.
