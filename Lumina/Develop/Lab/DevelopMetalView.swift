@@ -12,6 +12,7 @@ import SwiftUI
 /// with one final ColorSync conversion to the active display profile.
 struct DevelopMetalView: NSViewRepresentable {
     var image: CIImage?
+    var measurementIdentity: DevelopSelectedImageIdentity? = nil
     var zoom: CGFloat = 1
     var panOffset: CGSize = .zero
     var onDrawableSizeChange: ((CGSize) -> Void)?
@@ -45,6 +46,7 @@ struct DevelopMetalView: NSViewRepresentable {
 
     func updateNSView(_ view: MTKView, context: Context) {
         context.coordinator.image = image
+        context.coordinator.measurementIdentity = measurementIdentity
         context.coordinator.zoom = zoom
         context.coordinator.panOffset = panOffset
         context.coordinator.onDrawableSizeChange = onDrawableSizeChange
@@ -67,6 +69,7 @@ struct DevelopMetalView: NSViewRepresentable {
         private let context: CIContext
 
         var image: CIImage?
+        var measurementIdentity: DevelopSelectedImageIdentity?
         var zoom: CGFloat = 1
         var panOffset: CGSize = .zero
         var onDrawableSizeChange: ((CGSize) -> Void)?
@@ -99,8 +102,16 @@ struct DevelopMetalView: NSViewRepresentable {
         }
 
         func draw(in view: MTKView) {
+            let acquisitionStarted = CACurrentMediaTime()
+            let drawID = DevelopPresentationMeasurement.enabled ? UUID().uuidString : ""
+            let selectedIdentity = measurementIdentity
             guard let drawable = view.currentDrawable,
-                  let commandQueue else { return }
+                  let commandQueue else {
+                DevelopPresentationTrace.shared.record("drawable-unavailable", identity: selectedIdentity,
+                    values: ["drawID": drawID, "acquisitionStartedAt": acquisitionStarted])
+                return
+            }
+            let acquiredAt = CACurrentMediaTime()
 
             // A completion handler measures GPU work, not display. This opt-in
             // acknowledgement uses the drawable's host presentation time. A zero
@@ -108,7 +119,15 @@ struct DevelopMetalView: NSViewRepresentable {
             if DevelopPresentationMeasurement.enabled {
                 let drawStarted = CACurrentMediaTime()
                 let blank = image == nil
+                DevelopPresentationTrace.shared.record("drawable-acquired", identity: selectedIdentity,
+                    at: acquiredAt, values: ["drawID": drawID, "acquisitionStartedAt": acquisitionStarted,
+                        "width": image?.extent.width ?? 0, "height": image?.extent.height ?? 0,
+                        "blank": blank])
                 drawable.addPresentedHandler { presented in
+                    DevelopPresentationTrace.shared.record("drawable-presented", identity: selectedIdentity,
+                        at: CACurrentMediaTime(), values: ["drawID": drawID, "presentedAt": presented.presentedTime,
+                            "acquisitionStartedAt": acquisitionStarted, "acquiredAt": acquiredAt,
+                            "blank": blank])
                     DevelopPresentationMeasurement.record(
                         startedAt: drawStarted,
                         presentedAt: presented.presentedTime,
@@ -140,6 +159,8 @@ struct DevelopMetalView: NSViewRepresentable {
                     return
                 }
                 commandBuffer.present(drawable)
+                DevelopPresentationTrace.shared.record("present-submitted", identity: selectedIdentity,
+                    values: ["drawID": drawID, "blank": true])
                 commandBuffer.commit()
                 return
             }
@@ -197,13 +218,17 @@ struct DevelopMetalView: NSViewRepresentable {
             // still brackets the requested Core Image startTask pair; this
             // metric measures draw-to-GPU-completion, not slider-to-pixels.
             DevelopRenderCounters.recordMetalPresent()
-            commandBuffer.addCompletedHandler { _ in
+            commandBuffer.addCompletedHandler { completed in
+                DevelopPresentationTrace.shared.record("gpu-completed", identity: selectedIdentity,
+                    values: ["drawID": drawID, "status": completed.status.rawValue])
                 LatencyMetrics.record(
                     LatencyMetrics.editDrawKey,
                     milliseconds: (CFAbsoluteTimeGetCurrent() - started) * 1000
                 )
             }
             commandBuffer.present(drawable)
+            DevelopPresentationTrace.shared.record("present-submitted", identity: selectedIdentity,
+                values: ["drawID": drawID, "blank": false])
             commandBuffer.commit()
         }
     }

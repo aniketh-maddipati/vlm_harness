@@ -42,6 +42,7 @@ nonisolated final class ProductPerformanceRecording: @unchecked Sendable {
                 "elapsedSeconds": Date().timeIntervalSince(started),
                 "snapshotNote": "Live snapshot; coverage ends at this flush, not process exit. Keys are sampled sequentially.",
                 "metrics": rows,
+                "selectedImageTrace": DevelopPresentationTrace.shared.snapshot(),
                 "renderCounters": ["materializations": counters.interactiveMaterializations,
                     "preparedSessions": counters.preparedSessionCreated,
                     "preparedSessionHits": counters.preparedSessionHits,

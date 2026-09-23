@@ -33,6 +33,7 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedRenderFidelity: String? = nil
     var focusedHasPresentedRAW: Bool? = nil
     var inspectionSettledLongEdge: Int? = nil
+    var presentationTraceEnabled: Bool? = nil
     var focusedOrientedIsPortrait: Bool? = nil
     var focusedPresentedIsPortrait: Bool? = nil
     /// D47/A3 — pointer cull mark targets visible on the focused contact-sheet frame.

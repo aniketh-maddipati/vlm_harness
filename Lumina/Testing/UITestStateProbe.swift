@@ -36,6 +36,7 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedRenderFidelity: String? = nil
     var focusedHasPresentedRAW: Bool? = nil
     var inspectionSettledLongEdge: Int? = nil
+    var presentationTraceEnabled: Bool? = nil
     /// File EXIF after one ImageIO bake — portrait vs landscape, independent of RAW promotion.
     var focusedOrientedIsPortrait: Bool? = nil
     /// Currently presented CIImage aspect class. Must match `focusedOrientedIsPortrait` when both set.
@@ -151,6 +152,7 @@ extension P0SessionModel {
                 displayedCIImage(for: $0) != nil
             } ?? false,
             inspectionSettledLongEdge: inspectionSettledLongEdge,
+            presentationTraceEnabled: DevelopPresentationMeasurement.enabled,
             focusedOrientedIsPortrait: focused.flatMap { asset -> Bool? in
                 let path = asset.thumbPath ?? asset.gridThumbPath ?? asset.source.originalPath
                 guard let size = ImagePixelFormat.orientedPixelSize(

@@ -314,6 +314,21 @@ final class P0SessionModel {
         return developSchedulerStorage.presentedCIImage(for: assetID)
     }
 
+    func displayedImageIdentity(for assetID: UUID, selected: CIImage?) -> DevelopSelectedImageIdentity? {
+        guard DevelopPresentationMeasurement.enabled, let selected else { return nil }
+        if showingBefore, selected === developSchedulerStorage?.beforeImage(for: assetID) {
+            return DevelopSelectedImageIdentity(assetID: assetID, recipeFingerprint: nil,
+                requestID: nil, generation: nil, tier: "comparison", provenance: "before-cache-unattributed",
+                inputID: nil, inputAt: nil, requestedAt: nil, publishedAt: nil)
+        }
+        if let result = developSchedulerStorage?.presented[assetID], selected === result.ciImage {
+            return result.measurementIdentity
+        }
+        return DevelopSelectedImageIdentity(assetID: assetID, recipeFingerprint: nil,
+            requestID: nil, generation: nil, tier: "browse", provenance: "canvas-browse-fallback",
+            inputID: nil, inputAt: nil, requestedAt: nil, publishedAt: nil)
+    }
+
     /// Live develop fidelity for a photograph, if the scheduler has started.
     func developFidelity(for assetID: UUID) -> DevelopFidelityState? {
         developSchedulerStorage?.fidelityByPhoto[assetID]
@@ -803,12 +818,16 @@ final class P0SessionModel {
     }
 
     func scrubEdit(_ mutate: (inout EditRecipe) -> Void) {
+        let measurementInputAt = CACurrentMediaTime()
         let id = gestureAssetID ?? inspectingAssetID ?? focusedAssetID
         guard let id else { return }
         if !isEditGestureActive || gestureAssetID != id {
             beginEditGesture(for: id)
         }
         let next = (workingRecipe ?? recipe(for: id)).updating(mutate)
+        if DevelopPresentationMeasurement.enabled {
+            DevelopPresentationTrace.shared.input(asset: id, recipe: next.valueFingerprint, startedAt: measurementInputAt)
+        }
         workingRecipe = next
         // Live pixels only — undo commits on gesture end.
         scrubCurrentRecipe(for: id, recipe: next, recordInput: true)
@@ -849,6 +868,7 @@ final class P0SessionModel {
     /// every other frame in the scope moves by the same delta, clamped to the
     /// slider's range — one command, one ⌘Z. The result is yours.
     func endDevelopGesture(_ keyPath: WritableKeyPath<EditRecipe, Double>, range: ClosedRange<Double>) {
+        DevelopPresentationTrace.shared.release()
         guard isEditGestureActive, let id = gestureAssetID,
               let before = gestureBaselineRecipe,
               let after = workingRecipe else {
@@ -877,10 +897,15 @@ final class P0SessionModel {
     /// An instantaneous drawer edit on the cursor — ratio, rotate, profile. Goes
     /// through the same batch so provenance becomes yours.
     func applyDevelopEdit(label: String, _ mutate: (inout EditRecipe) -> Void) {
+        let measurementInputAt = CACurrentMediaTime()
         flushPendingEditIfNeeded()
         guard let id = inspectingAssetID ?? focusedAssetID else { return }
         let before = recipe(for: id)
         let after = before.updating(mutate)
+        if DevelopPresentationMeasurement.enabled {
+            DevelopPresentationTrace.shared.input(asset: id, recipe: after.valueFingerprint,
+                startedAt: measurementInputAt, action: "develop-edit")
+        }
         guard let mark = developMark(for: id, before: before, after: after) else { return }
         commitDevelopBatch([mark], label: label)
         scrubCurrentRecipe(for: id, recipe: recipe(for: id), recordInput: false)
@@ -975,11 +1000,16 @@ final class P0SessionModel {
 
     /// Commit an instantaneous edit (reset, crop preset, rotate) as one undo command.
     func applyEditMutation(_ mutate: (inout EditRecipe) -> Void, assetID: UUID? = nil) {
+        let measurementInputAt = CACurrentMediaTime()
         flushPendingEditIfNeeded()
         let id = assetID ?? inspectingAssetID ?? focusedAssetID
         guard let id else { return }
         let before = recipe(for: id)
         let after = before.updating(mutate)
+        if DevelopPresentationMeasurement.enabled {
+            DevelopPresentationTrace.shared.input(asset: id, recipe: after.valueFingerprint,
+                startedAt: measurementInputAt, action: "edit-mutation")
+        }
         commitRecipeMutation(assetID: id, before: before, after: after)
         scrubCurrentRecipe(for: id, recipe: recipe(for: id), recordInput: false)
         settleCurrentRecipe(for: id, recipe: recipe(for: id))
@@ -1004,6 +1034,7 @@ final class P0SessionModel {
     }
 
     func setShowingBefore(_ show: Bool) {
+        DevelopPresentationTrace.shared.record("before-callback", values: ["show": show])
         showingBefore = show
         // Never mutate recipe / undo on Before.
     }
@@ -1264,6 +1295,7 @@ final class P0SessionModel {
     // MARK: - Focus / selection
 
     func setFocus(_ id: UUID?) {
+        let measurementInputAt = CACurrentMediaTime()
         let start = CFAbsoluteTimeGetCurrent()
         // Captured before the cursor moves: `inspectingAssetID` is derived from the
         // cursor, so reading it after the assignment would always agree with `id`
@@ -1273,6 +1305,10 @@ final class P0SessionModel {
             flushPendingEditIfNeeded()
         }
         let changed = focusedAssetID != id
+        if let id, DevelopPresentationMeasurement.enabled {
+            DevelopPresentationTrace.shared.input(asset: id, recipe: recipe(for: id).valueFingerprint,
+                startedAt: measurementInputAt, action: "focus")
+        }
         focusedAssetID = id
         if previouslyInspecting != nil, let id {
             let photoChanged = previouslyInspecting != id
@@ -1763,7 +1799,12 @@ final class P0SessionModel {
     }
 
     func openFocusedPhotograph() {
+        let measurementInputAt = CACurrentMediaTime()
         guard let id = focusedAssetID ?? selectedAssetIDs.first else { return }
+        if DevelopPresentationMeasurement.enabled {
+            DevelopPresentationTrace.shared.input(asset: id, recipe: recipe(for: id).valueFingerprint,
+                startedAt: measurementInputAt, action: "open-canvas")
+        }
         schedulePersistRestore()
         leanedBurstID = nil
         if peek != .set {

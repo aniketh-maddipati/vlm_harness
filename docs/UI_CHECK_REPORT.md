@@ -1,5 +1,7 @@
 # Current Elastic UI verification — 2026-09-23
 
+Later Prompt 0 assertion/measurement work is recorded in [0-baseline-handoff](0-baseline-handoff.md). The findings and 53-check outcome below remain historical evidence for the exact source and binary identified here.
+
 The intended Elastic UI is built and running from the isolated current checkout. **The UI gate fails:** a saved quarter-turn can export correctly while Canvas continues to show the unrotated browse photograph. The RAW graph parity results do not cover this final display-selection error.
 
 No application behavior was changed. Corrections await the parent task's frozen baseline/ranking and file-ownership coordination. This report records observed correctness, not a performance pass.

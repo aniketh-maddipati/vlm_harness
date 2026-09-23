@@ -95,7 +95,7 @@ struct ElasticFocusView: View {
                 // One permanent Metal leaf owns this click. The clicked JPEG,
                 // interactive RAW, and settled RAW replace pixels in place; no
                 // promotion remounts or moves the photograph.
-                DevelopMetalView(image: image)
+                DevelopMetalView(image: image, measurementIdentity: session.displayedImageIdentity(for: asset.id, selected: image))
                     .frame(width: box.width, height: box.height)
                     .clipShape(
                         RoundedRectangle(cornerRadius: ElasticLayout.photoRadius, style: .continuous)
