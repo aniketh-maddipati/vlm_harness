@@ -20,7 +20,7 @@ final class OpenNavigationTests: LuminaUITestCase {
         XCTAssertTrue(chooseFolder.waitForExistence(timeout: UITestWait.transition), "Choose-a-folder control is reachable")
         lumina.openShoot.openViaRecentRow(.mixed60)
         let probe = lumina.requireProbe()
-        XCTAssertEqual(probe.route, "contactSheet")
+        XCTAssertEqual(probe.route, "time")
         XCTAssertEqual(probe.assetCount, 60, "mixed-60 should expose 60 assets after the row click")
     }
 
@@ -30,7 +30,7 @@ final class OpenNavigationTests: LuminaUITestCase {
         launch(LaunchConfig(fixture: .mixed60))
         lumina.openShoot.open(.mixed60)
         let probe = lumina.requireProbe()
-        XCTAssertEqual(probe.route, "contactSheet")
+        XCTAssertEqual(probe.route, "time")
         XCTAssertEqual(probe.assetCount, 60, "mixed-60 should expose 60 assets")
         Invariants.assert(probe, app: app)
     }
@@ -74,7 +74,7 @@ extension ContactSheetRobot {
         guard let snapshot = app.waitForProbe(timeout: UITestWait.transition, where: { $0.focusedAssetID != nil }) else {
             XCTFail("expected a focused asset within \(Int(UITestWait.transition))s", file: file, line: line)
             return ProbeSnapshot(
-                route: "contactSheet", shootName: nil, fixture: nil, seed: "0",
+                route: "time", shootName: nil, fixture: nil, seed: "0",
                 assetCount: 0, visibleCount: 0, selectionCount: 0, keptCount: 0,
                 rejectedCount: 0, unreviewedCount: 0, editedCount: 0, densityColumns: 0,
                 filter: "", canUndo: false, focusedAssetID: nil, focusedVisible: false,

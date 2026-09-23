@@ -226,6 +226,35 @@ struct LuminaWorkspaceAppearance: ViewModifier {
     }
 }
 
+/// Elastic v4 palette (`design_handoff_elastic_v4/README.md` §Palette).
+///
+/// A warmer shell than the older porcelain tokens above: paper rather than screen.
+/// Only values with no existing equivalent live here — everything else maps onto
+/// `LuminaTokens`, and no Elastic view inlines a hex.
+extension LuminaTokens {
+    enum Elastic {
+        /// Page background behind every band.
+        static let paper = Color(hex: HiFiTokens.Color.parchment)
+        static let shell = Color(hex: "F6F4F0")
+        static let shellAlt = Color(hex: "EFECE6")
+        static let ink = Color(hex: "2E2E2C")
+        static let inkSoft = Color(hex: "5A5751")
+        static let muted = Color(hex: "8A857E")
+        static let matte = Color(hex: "8D8C8A")
+        static let deep = Color(hex: "3C3836")
+        /// Set membership, sync affordances — the one warm accent.
+        static let warmAccent = Color(hex: "FFECCD")
+        static let warn = Color(hex: "FFB4A2")
+        static let ok = Color(hex: "CFE8C6")
+        /// Inferred-groups panel.
+        static let groupsBar = Color(hex: "6F6E6C")
+        /// Shelf thumbnail placeholder while the image loads.
+        static let shelfThumbFill = Color(hex: "D9D5CE")
+        /// Base for every drop shadow and the strip wash.
+        static let shadowInk = Color(hex: HiFiTokens.Color.tableDark)
+    }
+}
+
 extension View {
     func luminaWorkspaceAppearance() -> some View {
         modifier(LuminaWorkspaceAppearance())

@@ -8,8 +8,8 @@ struct SinglePhotoRobot {
 
     @discardableResult
     func assertVisible(timeout: TimeInterval = UITestWait.transition) -> SinglePhotoRobot {
-        let snapshot = app.waitForProbe(timeout: timeout) { $0.route == "singlePhoto" }
-        XCTAssertEqual(snapshot?.route, "singlePhoto", "Single-photo surface never reported route=singlePhoto")
+        let snapshot = app.waitForProbe(timeout: timeout) { $0.route == "focus" }
+        XCTAssertEqual(snapshot?.route, "focus", "Single-photo surface never reported route=singlePhoto")
         return self
     }
 
@@ -85,7 +85,7 @@ struct SinglePhotoRobot {
     func returnToGrid() -> ContactSheetRobot {
         app.typeKey(.escape, modifierFlags: [])
         let sheet = ContactSheetRobot(app: app, test: test)
-        _ = app.waitForProbe(timeout: UITestWait.transition) { $0.route == "contactSheet" }
+        _ = app.waitForProbe(timeout: UITestWait.transition) { $0.route == "time" }
         return sheet
     }
 
@@ -94,7 +94,7 @@ struct SinglePhotoRobot {
     func returnToGridByButton() -> ContactSheetRobot {
         app.descendants(matching: .any).matching(identifier: P0AXID.gridReturn).firstMatch.click()
         let sheet = ContactSheetRobot(app: app, test: test)
-        _ = app.waitForProbe(timeout: UITestWait.transition) { $0.route == "contactSheet" }
+        _ = app.waitForProbe(timeout: UITestWait.transition) { $0.route == "time" }
         return sheet
     }
 }

@@ -124,9 +124,9 @@ final class PointerTravelTests: XCTestCase {
             .deletingLastPathComponent()
         let files = [
             "Lumina/Views/P0/P0ChapterTableView.swift",
-            "Lumina/Views/P0/P0ContactSheetView.swift",
             "Lumina/Views/P0/ContactSheetCollection.swift",
-            "Lumina/Views/P0/P0SinglePhotoEditor.swift",
+            "Lumina/Views/P0/ElasticTableView.swift",
+            "Lumina/Views/P0/ElasticFocusView.swift",
             "Lumina/ViewModels/P0SessionModel.swift",
         ]
         for rel in files {
@@ -141,11 +141,6 @@ final class PointerTravelTests: XCTestCase {
         )
         XCTAssertTrue(table.contains("pointerTravel(to:"))
         XCTAssertFalse(table.contains("marks.selected"))
-        let editor = try String(
-            contentsOf: root.appendingPathComponent("Lumina/Views/P0/P0SinglePhotoEditor.swift"),
-            encoding: .utf8
-        )
-        XCTAssertTrue(editor.contains("pointerTravelToVariant(at:"))
         let collection = try String(
             contentsOf: root.appendingPathComponent("Lumina/Views/P0/ContactSheetCollection.swift"),
             encoding: .utf8

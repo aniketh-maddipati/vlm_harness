@@ -174,6 +174,195 @@ file was touched.
   deterministic, and not collapsed onto one recipe. It skips rather than passing vacuously when no
   RAW folder is supplied. This proves auto changes pixels; it does not replace the harness runner.
 
+## 6. Checkpoint 03 — first UI (2026-09-22)
+
+**The `focus`-field question from §3 is resolved:** `focusedAssetID` is the single cursor and
+`inspectingAssetID` is now *derived* (`route == .focus ? focusedAssetID : nil`), not stored. Verified
+first that the two never diverge — every site that opened inspection already set both to the same id.
+101 call sites keep working unchanged through the derived accessor.
+
+- `P0Route` is now `.open / .time / .focus`. `.grouping`, `P0GroupingView`, `P0ContactSheetView` and
+  `P0SinglePhotoEditor` are deleted.
+- `ElasticRootView` / `ElasticTableView` / `ElasticFocusView` / `ElasticSetShelf`, with
+  `P0SessionModel+Elastic` supplying the header line, moment copy, version picking and set state.
+- `ElasticLayout` is the single definition site for the design's numbers; where an existing token
+  already carries the meaning (reject dim, thumb radius, scene gap, focus ring) it defers to it.
+- Palette: `LuminaTokens.Elastic` — the README's warmer shell, no inlined hex.
+
+**The table stays mounted under focus.** Commit #93's probe contract ("inspect must latch on the same
+table") says the surface is never rebuilt, and the Elastic design says the same thing in its own words
+("one continuous surface"). So focus does not replace the table — the table compresses to the
+filmstrip. That kept `chapterTableMounted` honest instead of adapting the test away.
+
+**Gate:** logic tests 274/274 (1 skipped by design), fast lane 41/41.
+
+Three lints fired and were each fixed at the cause rather than loosened:
+1. `magic_numbers` — first attempt put the Elastic numbers in `tokens.yaml`, which retroactively made
+   common values (14, 72, 168) token-owned and broke ~30 unrelated pre-existing files. Reverted;
+   tokenized **only** values already owned elsewhere, so no new literal entered the forbidden set.
+2. `allowlist_ratchet` — correctly refused the shortcut of allowlisting instead (250 → 255).
+3. `spring_physics_f07` — the motion golden is keyed to the tokens hash. Re-approved under the new
+   digest using the *previous* payload, which passing then proves the change is motion-neutral.
+
+**What the capture shows and what it does not.** `artifacts/elastic-proof/table-1280x800.png` renders
+the real table over a 94-frame shoot: the exact header line, moment rows with times/light words,
+a `+ 18 min` gap label, focus ring, keep chip, set shelf. Photo pixels are **not** verified — SwiftUI
+`.task` does not run for a view hosted offscreen and captured via `cacheDisplay` (the same limitation
+`DEVELOP_ENGINE.md` already records for Metal layers), so every tile shows its empty well. The two
+`--p0-edit-live` failures ("blank canvas") were measured on `main` as well — 29/31 there too, so they
+are pre-existing, not from this work.
+
+### Visual accuracy pass (2026-09-22)
+
+Checkpoint 03's surfaces built the right structure with approximate numbers. This pass makes them
+match the prototype's inline styles, which is where every value in the visual spec comes from. No
+behaviour moved; the keys, peeks and thumbnails in "Known gaps" below are all still open.
+
+- **`design/tokens.yaml` `elastic:`** gained tokens only for spec values that were *already* forbidden
+  literals, so the forbidden set is unchanged before and after (95 either way). `set_shelf_height`
+  dropped 96 → 64. `LuminaTokens.Elastic` gained `paper`, `groupsBar`, `shelfThumbFill`, `shadowInk`.
+- **`ElasticLayout`** is now the sole home for every Elastic number, deferring to an existing token
+  wherever one already carries the meaning. `versionColumnWidth` is 144; `gapHeight` returns 14 for
+  every moment after the first (the prototype's `gapPx` is `null → 0`, else 14 / 40 / 64 at the 25
+  and 60 minute thresholds), while the gap *label* still starts at 10 minutes.
+- **`ElasticStyle`** holds the type stacks, the cursor ring (`0 0 0 3px ink, 0 0 0 4.5px #EFECE6`,
+  drawn outside the frame with the radius grown by each spread), the in-set outline, the fade-only
+  `born`, and the one button costume that does nothing on press or hover.
+- **`ElasticFocusView` rewritten.** The photograph is sized to its own aspect-fit box rather than
+  filling the band, so radius 4 and the `0 20px 40px rgba(20,19,18,0.35)` shadow trace the picture
+  and not the well it sits in. Version column 144 with 22-high badges (number in ink, word in
+  inkSoft, `yours` at 0.35 with no hand recipe). Status bar is time · camera · exposure · file stem ·
+  — · histogram · readout · state, with the state turning cream while `before` is held. The
+  histogram draws the design's 64×20 user space into 96×30 and carries salmon clip ticks past 2%.
+  Camera and exposure are read off the original with ImageIO on a background task.
+- **Histogram shift lives in the view model, not the view.** The bins are measured off the neutral
+  decode and never re-measured per recipe; `histogramBinShift` slides them by
+  `round(ev × 4 + shadows × 0.02)` instead. That also keeps `0.02` — a forbidden literal — out of the
+  linted view layer rather than dodging the lint with a `LuminaTokens` mention on the line.
+- **The filmstrip was being squeezed to nothing.** `ElasticTableView` had only a `maxHeight` under
+  focus, and the focus view's `layoutPriority(1)` with `maxHeight: .infinity` legitimately consumed
+  the whole stack. It is now pinned `minHeight == maxHeight == 92`. Neither committed capture would
+  have shown this: `captureTable` forces `route = .time` and `captureEditor` hosts `ElasticFocusView`
+  alone, so the root view is never captured in the focus route. Verified with a throwaway capture of
+  the root under focus, reverted afterwards.
+
+Three gate failures, each fixed at the cause:
+
+1. `progressive_render_architecture` wants `value: session.route` in `ElasticRootView`. The earlier
+   draft had removed the whole route animation along with its `.scale(0.985)` transition. The scale
+   was the part the design does not have — `born` is fade-only — so the transition is now a plain
+   fade and the `.animation(…, value: session.route)` is back. It is what makes "the table compresses
+   to the strip" true rather than a hard cut, and it is invisible in a still capture either way.
+2. `orphan_symbols` flagged `ElasticMarkedTile` as self-only. Registering it would have been a lie —
+   it is live in three views through `elasticMarked`. It was a named `ViewModifier` it never needed
+   to be, so the type is gone and the extension does the work directly.
+3. `spring_physics_f07` is keyed to the tokens hash. Re-approved under the new digest using the
+   *previous* payload byte-for-byte, so the test passing is itself the proof that the token change is
+   motion-neutral.
+
+**Gate:** logic tests 274/274 (1 skipped by design), fast lane 41/41, `--p0-edit-live` 30/31.
+
+**What the capture shows and what it does not.** Photo pixels are still unverifiable: SwiftUI `.task`
+does not run for a view hosted offscreen, and Metal layers do not composite through `cacheDisplay`.
+The thumbnail wells were filled for this pass by temporarily seeding `ChapterPlateImage`
+synchronously — reverted, because a synchronous full-file decode on the main thread across 94 tiles
+is exactly what the progressive-rendering contract forbids. With them filled, the table, the version
+column and the strip were confirmed against the prototype. The photograph itself was not.
+`--p0-edit-live` now scores **30/31**, up from the 29/31 that `main` also scores: "RAW preview
+presents without blank canvas" passes now that the photograph is sized to its fitted box. "Quality
+promotion keeps geometry stable" still fails, as it does on `main`.
+
+Honest gaps in the copy this pass introduced:
+
+- The export receipt has no XMP sample line; the prototype shows one.
+- The receipt persists until the next export rather than fading.
+- The camera string is the real EXIF model, so it reads e.g. `ilce-7m3`, not the prototype's `a7 iii`.
+- The session date format is `mmm d` (`may 19`), not the prototype's `sept 14`.
+
+## Elasticity backlog (2026-09-22)
+
+Ordered by what blocks what, not by size. `[dbg]` debugging · `[edge]` edge
+conditions · `[resp]` responsiveness.
+
+### P0 — blocks this stack
+
+- `[dbg]` **The reported upside-down flip is unreproduced.** The first theory —
+  that `OrientedDisplayImage.aligning` drops orientations 2/3/4 — was wrong:
+  `CIRAWFilter` applies the file orientation itself, so the no-op is correct for
+  all eight values. Needs a repro naming the frame and whether it flips on open,
+  on scroll, or at promotion.
+- `[dbg]` **Nothing proves the photograph renders.** `.task` does not run for a
+  view hosted offscreen and Metal does not composite through `cacheDisplay`, so
+  every capture shows an empty well. The one thing the captures cannot check is
+  the thing a reader looks at. Fixing this first makes the flip cheaper to find.
+- `[resp]` **`ElasticWrapLayout` sizes every subview twice per pass**, uncached,
+  in both `sizeThatFits` and `placeSubviews`. Tiles are fixed-width.
+- **Version thumbnails all read `gridThumbPath`**, so shot / auto / yours render
+  identically — the column asserts a difference that is not on screen.
+- **Keys are not migrated**: `1/2/3`, `A`, `⌘A`, `?`-hold, pinch. `pickVersion`
+  is reachable only by clicking a version.
+- `[edge]` **A cold catalog reports `previews 0/N`** while extraction runs; the
+  second open reports `N/N`. Either surface it honestly or make it not say that.
+
+### P1 — the grammar the design specifies
+
+- Checkpoint 04: hold-`⇥` cycling related → set → flags, and hold-`␣` before.
+- Rewrite `P0EscLadder` to peek → drawer → selection → route.
+- Finish retiring hold-V: `EditVariantSession`, its `WorkspaceState` fields, the
+  `V` binding, its probe fields.
+- The set shelf as a drop target.
+- `⇧`-click range and `⌘`-click toggle — the ruling `docs/P0_CULLING.md` has had
+  open since before Elastic.
+- Checkpoint 05: develop drawer (`E`), sync (`M`), rotate (`R`), profile picker,
+  crop ratios, straighten.
+
+### P2 — responsiveness
+
+- `[resp]` A guaranteed-resident floor tier (~256 px for every frame, evicted by
+  distance) so scroll never shows a well.
+- `[resp]` Prefetch by scroll velocity rather than visibility, ~2 screens ahead,
+  cancelling behind. The gates exist; their trigger does not.
+- `[resp]` Coalesce the request stream so a flick drops superseded requests
+  instead of queueing work that is stale before it lands.
+- `[resp]` Render the three version thumbnails through the interactive tier,
+  which is what closes the P0 item properly.
+
+### P3 — hardening
+
+- `[edge]` Orientation 2/3/4 and square images — latent, now guarded by
+  `OrientationContractTests`, reachable only by a non-orienting backend.
+- `[edge]` Offline originals · damaged file mid-card · disk full · two-card
+  eject mid-copy.
+- `[edge]` Duplicate basenames across volumes · byte-identical duplicates ·
+  filenames containing spaces.
+- `[edge]` Sidecar date divergence reading as an external edit · `crs:CameraProfile`
+  values Lumina never writes (`Adobe Standard` is in the sample sidecars).
+- `[edge]` Boundaries: clip at exactly 2% and 0.5%, burst gap at exactly 2 s, and
+  the median-dependent chapter threshold.
+- `[dbg]` Races: stale promotion after the cursor moves · aspect flip on
+  promotion · scroll outrunning decode · eviction of a pinned tier mid-render ·
+  `⌘Z` during an in-flight auto pass · Lightroom rewriting a sidecar while the
+  shoot is open.
+
+### Fixture coverage against this list
+
+`Scripts/harness/fixtures/elastic_cards.py` cuts a card that exercises the
+moment, gap, light-word, burst, mix, clipping and tone conditions from real
+frames. It does not cover the P0 render proof, the P1 grammar, or the P2 work —
+those need code, not data.
+
+## Known gaps in checkpoint 03
+
+- Version thumbnails all read the same `gridThumbPath`, so shot/auto/yours look identical. The prompt
+  allows rendering them through the scheduler's interactive tier; that is not wired yet.
+- Keys are not migrated: `1/2/3`, `A`, `⌘A`, `?` hold, and pinch in/out are still unbound. `pickVersion`
+  exists and is reachable by clicking a version.
+- `P0EscLadder` still has its old step list minus grouping; the peek → drawer → selection → route order
+  lands with checkpoint 04's peeks.
+- The hold-V variant system is only partly retired: the tray died with `P0SinglePhotoEditor`, but
+  `EditVariantSession`, its `WorkspaceState` fields, the V key binding and its probe fields remain.
+- The set shelf is not yet a drop target.
+
 ## Next
 
-Checkpoint 03 (the first UI: routes, table, focus) — blocked on the `focus`-field question in §3.
+Checkpoint 04 (hold-key peeks and before), plus the key bindings deferred above.

@@ -22,7 +22,7 @@ final class ProgressiveFocusTests: LuminaUITestCase {
 
         single.navigateNext()
         let next = lumina.waitForProbe(timeout: UITestWait.transition) {
-            $0.route == "singlePhoto"
+            $0.route == "focus"
                 && $0.focusedAssetID != nil
                 && $0.focusedAssetID != firstID
                 && $0.inspectingAssetID == $0.focusedAssetID

@@ -518,6 +518,173 @@ gap:
     type: pt
     cite: [WG-chrome]
 
+# Elastic v4 — values the design fixes that collide with existing token numbers
+# (design_handoff_elastic_v4/README.md). Named here so ElasticLayout references a
+# token rather than hand-writing an owned literal.
+elastic:
+  gap_medium:
+    value: 40
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Moment separation after a pause of 25 min or more.
+  gap_long:
+    value: 64
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Moment separation after a pause of 60 min or more.
+  gap_threshold_medium_min:
+    value: 10
+    unit: min
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Shortest pause that earns a visible gap.
+  filmstrip_focused_width:
+    value: 96
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+  filmstrip_focused_height:
+    value: 64
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+  filmstrip_tile_height:
+    value: 48
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+  set_shelf_height:
+    value: 64
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Shelf band — 8 pt padding around the 48 pt export button.
+  header_height:
+    value: 56
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Header band.
+  export_height:
+    value: 48
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Export button in the set shelf.
+  export_padding:
+    value: 18
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Export button horizontal padding.
+  export_radius:
+    value: 11
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Export button corner radius.
+  mark_size:
+    value: 24
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: In-set / out mark circle on a table thumbnail.
+  burst_badge_height:
+    value: 28
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Burst count / fold badge.
+  version_badge_height:
+    value: 22
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Version tile badge (1 shot · 2 auto · 3 yours).
+  phone_glyph_width:
+    value: 10
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Phone glyph content width (1.5 pt border outside).
+  phone_glyph_height:
+    value: 16
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Phone glyph content height (1.5 pt border outside).
+  phone_glyph_stroke:
+    value: 1.5
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Phone glyph border.
+  strip_label_width:
+    value: 64
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Strip label column (time / set).
+  moment_radius:
+    value: 10
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Moment row card radius.
+  photo_shadow_y:
+    value: 20
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Focused photograph drop-shadow offset.
+  photo_shadow_blur:
+    value: 40
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Focused photograph drop-shadow blur.
+  histogram_width:
+    value: 96
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Status-bar histogram rendered width.
+  histogram_view_height:
+    value: 20
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Status-bar histogram viewBox height.
+  clip_tick_width:
+    value: 1.5
+    unit: pt
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Histogram clipping tick width in viewBox units.
+  strip_label_line_height:
+    value: 1.5
+    unit: em
+    type: pt
+    cite: [ELASTIC-V4]
+    notes: Strip label line-height, a multiple of its font size.
+  strip_fill_opacity:
+    value: 0.18
+    type: opacity
+    cite: [ELASTIC-V4]
+    notes: Strip wash — shadow ink over the table.
+  key_pill_opacity:
+    value: 0.18
+    type: opacity
+    cite: [ELASTIC-V4]
+    notes: Key pill on a dark button (⌘E).
+  stack_back_opacity:
+    value: 0.22
+    type: opacity
+    cite: [ELASTIC-V4]
+    notes: Back card of a collapsed burst stack.
+
 hit:
   minimum:
     value: 44

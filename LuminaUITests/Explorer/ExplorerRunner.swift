@@ -155,10 +155,10 @@ final class ExplorerRunner {
             // post-action invariant sweep validates whatever state results (no hard assert here).
             sheet.establishKeyboardFocus()
             test.app.typeKey(.return, modifierFlags: [])
-            _ = test.app.waitForProbe(timeout: UITestWait.transition) { $0.route == "singlePhoto" }
+            _ = test.app.waitForProbe(timeout: UITestWait.transition) { $0.route == "focus" }
         case .closePhoto:
             test.app.typeKey(.escape, modifierFlags: [])
-            _ = test.app.waitForProbe(timeout: UITestWait.transition) { $0.route == "contactSheet" }
+            _ = test.app.waitForProbe(timeout: UITestWait.transition) { $0.route == "time" }
         case .increaseDensity: sheet.increaseDensity()
         case .decreaseDensity: sheet.decreaseDensity()
         case .relaunch:

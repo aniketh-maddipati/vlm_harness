@@ -92,15 +92,6 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return event
             }
 
-            if session.route == .grouping {
-                if shift && !command && lower == "g" {
-                    if event.isARepeat { return nil }
-                    session.leaveGrouping()
-                    return nil
-                }
-                return event
-            }
-
             if unmodified && lower == "v", session.inspectingAssetID != nil {
                 if !event.isARepeat, session.workspaceState.editVariants == nil {
                     session.beginEditVariants()
@@ -234,12 +225,6 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 if !event.isARepeat {
                     session.beginLookGlance()
                 }
-                return nil
-            }
-
-            if shift && !command && lower == "g", session.inspectingAssetID == nil {
-                if event.isARepeat { return nil }
-                session.enterGrouping()
                 return nil
             }
 
