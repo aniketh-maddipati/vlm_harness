@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "status": "PREPARING_NOT_FROZEN",
+  "baseCommit": "a3b7fe751dca3bdffac91015c60a8ecf7c7e9ed2",
+  "branch": "codex/product-performance-baseline",
+  "rawParityCommit": "c3f2a89078501d3985eb1dc721ba5e2f7ec6df46",
+  "rawParityMerged": true,
+  "pr": "https://github.com/aniketh-maddipati/vlm_harness/pull/104",
+  "machine": {
+    "model": "Mac16,7",
+    "chip": "Apple M4 Pro",
+    "cpuCores": 14,
+    "gpuCores": 20,
+    "memoryBytes": 25769803776,
+    "macOS": "26.5.2 (25F84)",
+    "xcode": "26.6 (17F113)",
+    "display": "Built-in 3456x2234 Retina",
+    "activeRefreshHz": null
+  },
+  "cacheDeclaration": "Disposable APFS-cloned fixtures; OS page cache uncontrolled. No absolute cold-I/O claims.",
+  "configurations": [
+    "Debug Xcode debugger attached",
+    "same Debug direct",
+    "Release direct"
+  ],
+  "manualGlide": "Owner agreed; not yet run",
+  "fixes": []
+}
