@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:lumina:harmonization-benchmark:1",
+  "title": "Private harmonization benchmark",
+  "type": "object",
+  "required": ["schema_version", "assets", "scenes"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "status": {"enum": ["draft_unverified", "frozen"]},
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["asset_id", "source_path", "fingerprint", "classification", "color"],
+        "properties": {
+          "asset_id": {"type": "string", "minLength": 1},
+          "source_path": {"type": "string", "minLength": 1},
+          "fingerprint": {
+            "type": "object", "required": ["method", "stat", "content_identity"],
+            "properties": {"method": {"type": "string"}, "stat": {"type": "array"}, "content_identity": {"type": ["string", "null"]}}
+          },
+          "classification": {"enum": ["raw_candidate", "rendered", "video", "cache_derivative", "unrecognized"]},
+          "color": {"type": "object"},
+          "burst_id": {"type": ["string", "number", "null"]},
+          "near_duplicate_group": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["scene_id", "event_id", "asset_ids", "split", "scene_verified", "anchors", "lighting", "people_consent", "initial_acceptability", "needs_correction", "abstain", "approved_recipe", "reject_reasons", "matched_content", "complete_set_confirmed"],
+        "properties": {
+          "scene_id": {"type": "string", "minLength": 1},
+          "event_id": {"type": ["string", "null"]},
+          "asset_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+          "split": {"enum": ["development", "validation", "heldout", "quarantine"]},
+          "scene_verified": {"type": "boolean"},
+          "anchors": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+          "lighting": {"enum": ["daylight", "shade", "mixed", "night", "hdr", "other", "unreviewed"]},
+          "people_consent": {"enum": ["unreviewed", "no_people", "local_review_approved", "excluded"]},
+          "initial_acceptability": {"type": ["boolean", "null"]},
+          "needs_correction": {"type": ["boolean", "null"]},
+          "abstain": {"type": "boolean"},
+          "approved_recipe": {"type": ["object", "null"]},
+          "reject_reasons": {"type": "array", "items": {"enum": ["clipping", "cast", "local_tone_artifacts", "oversharpening", "noise", "subject_mismatch", "no_anchor"]}},
+          "matched_content": {
+            "type": "array", "items": {
+              "type": "object", "required": ["source_asset", "anchor_asset", "source_roi", "anchor_roi", "verified_by", "evidence"],
+              "properties": {
+                "source_asset": {"type": "string"}, "anchor_asset": {"type": "string"},
+                "source_roi": {"$ref": "#/$defs/roi"}, "anchor_roi": {"$ref": "#/$defs/roi"},
+                "verified_by": {"type": "string", "minLength": 1}, "evidence": {"type": "string", "minLength": 1}
+              }
+            }
+          },
+          "complete_set_confirmed": {"type": "boolean"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "roi": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number", "minimum": 0, "maximum": 1}, "description": "x,y,width,height in oriented normalized image coordinates; validator must also enforce containment."}
+  }
+}
