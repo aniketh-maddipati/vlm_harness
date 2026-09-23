@@ -363,3 +363,11 @@ pass needs to know — especially anything here that turned out to be wrong._
   `~/lumina-wt/ui-reconcile-proof/p1-live-final/`; addendum in the plan's Reconciliation
   record. ⌘Z with nothing to undo in the peek undid P0's last journaled keep (17 → 16 in the
   set) — journal behaviour, noted, not fixed here.
+- 2026-09-22 · landing order, at the user's "merge in order" · #100 closed as superseded.
+  The shell (fixture-generator `a4792c5` + main, branch `elastic-v4/shell-to-main`) landed on
+  main as **#102 → f79ac8f** (gate 285 / 41/41). Then `origin/main` merged into this branch
+  as `54851fb`: the squash re-added fixture-generator's tree, so 25 files conflicted, and in
+  every one main's copy was byte-identical to `a4792c5`, so the round's version won;
+  `EditVariantTests.swift` stays deleted. Net change vs the round: #99's three files only.
+  Gate after: **381 / 2 skipped / 0 failures · FAST 41/41 · xcode_compile OK**. #101 now
+  targets `main`. Next: model-core (#TBD) after this lands, with its five known overlaps.
