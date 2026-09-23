@@ -36,6 +36,21 @@ final class ElasticDevelopTests: XCTestCase {
         return (session, ids)
     }
 
+    /// A model proposal (`RecipeSource.model`, D67 loopback) is the engine's second
+    /// version: it counts as auto in the header, sits at version 2, and its words say
+    /// where it came from — never "yours" until a hand touches it.
+    func testAModelProposalIsTheAutoVersionAndSaysSo() {
+        let (session, ids) = seeded()
+        session.assets[0].recipeSource = .model
+        session.assets[1].recipeSource = .auto
+        let modelFrame = session.asset(ids[0])!
+        XCTAssertEqual(session.versionIndex(for: modelFrame), 2)
+        XCTAssertEqual(session.versionLabel(for: modelFrame), "auto · from the model")
+        XCTAssertTrue(session.developSourceLine(for: modelFrame).hasPrefix("auto from the model"))
+        XCTAssertTrue(session.elasticHeaderLine.contains("2 auto"), session.elasticHeaderLine)
+        XCTAssertFalse(session.elasticHeaderLine.contains("1 auto"), session.elasticHeaderLine)
+    }
+
     func testVersionColumnHidesWhileTheDrawerOrAHoldIsUp() {
         let (session, _) = seeded()
         XCTAssertTrue(session.versionColumnVisible)

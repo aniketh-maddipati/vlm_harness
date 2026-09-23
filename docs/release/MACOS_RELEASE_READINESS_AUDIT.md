@@ -104,13 +104,13 @@ These do **not** block the notarized Developer ID MVP. Every item must clear bef
 
 **Recommended for App Store (not strictly blocking review):**
 
-- **F13** — In-app shoot removal (no account-deletion obligation — app has no accounts and no network)
+- **F13** — In-app shoot removal (no account-deletion obligation — app has no accounts and no off-device network)
 
 ---
 
 ## 4. Executive summary
 
-Lumina is a single-target, dependency-free, fully-offline native macOS app. Structurally it is in good shape for release: universal binary (`arm64 x86_64`), hardened runtime already on, `macOS 14.0` deployment target, an `Archive` action bound to `Release`, zero third-party **bundled** code to license, and no network calls.
+Lumina is a single-target, dependency-free, fully-offline native macOS app. Structurally it is in good shape for release: universal binary (`arm64 x86_64`), hardened runtime already on, `macOS 14.0` deployment target, an `Archive` action bound to `Release`, zero third-party **bundled** code to license, and no off-device network calls (D67: model inference is loopback-only).
 
 The gap is **release configuration and product-surface hygiene**, not architecture:
 
@@ -286,7 +286,7 @@ User-picked folders via `NSOpenPanel` (`P0SessionModel.chooseFolder`) need no st
 | `NSPrivacyAccessedAPICategoryFileTimestamp` | `ShootStore.swift:112, 119`; `ExifToolService.swift:58` |
 | `NSPrivacyAccessedAPICategoryUserDefaults` | `IngestPreferences.swift:4` |
 
-No network calls anywhere — manifest should declare no collected data and no tracking.
+No off-device network calls — the only socket is loopback to a model server the operator runs (D67), which collects nothing and reaches no third party. Manifest should declare no collected data and no tracking.
 
 **Remediation:** Add `Lumina/PrivacyInfo.xcprivacy`. Defer until App Store track.
 
@@ -474,7 +474,7 @@ Every item must clear. F2 and F9 **must land together**.
 - Hardened runtime enabled; no entitlement exceptions needed.
 - Universal `arm64 x86_64`; `macOS 14.0` deployment target.
 - Zero bundled third-party dependencies.
-- Zero network calls — offline by construction.
+- Zero **off-device** network calls — offline by construction. Model inference is loopback-only (`127.0.0.1`), enforced in code and linted (D67 / R-N.1); no hosted provider ships.
 - Xcode-generated Info.plist (`GENERATE_INFOPLIST_FILE = YES`) is a valid shipping approach.
 - Debug/Release compiler settings correctly separated; dSYM generation on.
 - Atomic, debounced, recoverable shoot persistence.

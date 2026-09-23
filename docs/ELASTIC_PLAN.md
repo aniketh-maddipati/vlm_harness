@@ -839,3 +839,81 @@ coverage artifacts; `PreparedRawSession.materializeInteractiveStage` reads
 **Not merged:** nothing. All three streams had closed out by the final tips. Nothing
 pushed; the integration branch is the single PR for the round, against
 `elastic-v4/fixture-generator`, and moves with `git rebase --onto` when that lands.
+
+## Ruling R-N.1 — model inference is loopback-only (2026-09-22)
+
+**Owner ruling: loopback only.** Recorded as **D67** in `design/contract-v6.md`.
+
+Model-backed Develop may open a socket only to `127.0.0.1` / `::1`, serving a model the
+operator runs themselves. The hosted provider is **deleted, not disabled** — no flag, no
+key, no Keychain read. Qwen vision auto ships; ask falls back to local Qwen text
+(`qwen2.5-3b-instruct`) or the keyword planner.
+
+**Why this was the narrow reading, not a weakening.** The contract bans "network calls
+(zero egress ideal)" — an *ideal*, and its own OPEN QUESTION 5 already flags the tension.
+D45's hard clause ("never automatic egress") is scoped to **diagnostics** and is about
+*where bytes go*, not whether a socket exists. Loopback bytes never leave the machine,
+create no account and reach no third party, so the privacy posture is unchanged. The
+absolute claim lived in the **audit**, not the contract, and was amended to match.
+
+**Amended in one commit, before any feature code relied on it:** contract (D67 + the
+banned-patterns line), `Scripts/harness/lint/banned_patterns.sh`, and
+`docs/release/MACOS_RELEASE_READINESS_AUDIT.md:107, :113, :289, :477`. No privacy manifest
+change is needed — nothing is collected and nothing is sent off-device.
+
+**The lint got stricter, not looser.** Two changes:
+1. `URLSession.shared` is permitted in exactly one sanctioned file
+   (`Lumina/Services/ModelClient.swift`) and stays banned across the rest of the strict tree.
+2. **New:** any `URL(string:)` built for a non-loopback host fails anywhere in the strict
+   tree, sanctioned file included. Scoped to `URL(string:)` because XMP/RDF namespace URIs
+   (`XMPDevelopParser`, `LightroomHandoffService`) are identifiers that are never fetched.
+
+Before this ruling a hand-built `URLSession` pointed at any host passed the lint
+completely. It no longer does.
+
+**Two latent lint bugs found and fixed while doing it:**
+- The `PATTERNS` array (`banned_patterns.sh:71`) is **never iterated** — the executable
+  checks are the `scan_pair` calls below it. Its `http://|https://` entry was dead
+  documentation that read as enforcement. Marked as a descriptive index and brought in step.
+- The generic comment filter `:[[:space:]]*//` matches the `://` inside **every URL**, so a
+  URL check reusing it skips every hit silently. The new scan strips the `file:line:` prefix
+  and tests the content instead. This is why the dead pattern would not have worked even if
+  it had been wired up.
+
+**Runtime overrides are enforced in Swift, not by the lint.** `LUMINA_AUTO_BASE_URL` naming
+a non-loopback host is refused, not honored — a lint sees literals only.
+
+**Race, edge and threat pass (2026-09-22):** `applyModelAuto` fans out at concurrency 4,
+snapshots every frame at dispatch and drops any answer whose frame moved (hand edit, undo,
+removal) while the model was thinking; the batch is all-or-nothing and one ⌘Z. `applyPlan`
+carries `expectedCounts` and refuses a plan whose scopes resolve differently than previewed.
+The client bounds reply size before parsing and owns every envelope failure. Threats,
+mitigations and the test pinning each are in `docs/security/MODEL_ASSIST_THREAT_MODEL.md`;
+residual risks (band-edge values, trusted catalog, no per-batch deadline) are listed there,
+not hidden.
+
+**Measured on the ruling (local, `DSC08241.ARW` → 512 px):** 3.18 s round-trip, valid
+schema-conformant JSON. The model proposed `highlights +30` on a frame with 0.0006%
+highlight clipping; `Band.highlights` clamped it to `+10`. The band is load-bearing.
+
+## Stream D — the eval harness exists (2026-09-22)
+
+`LuminaLogicTests/DevelopEvalHarnessTests.swift` + `Scripts/harness/eval/` render every auto
+arm through Lumina's own graph and measure it against the owner's own Lightroom edits, in
+pixel space and slider space, with an oracle ceiling and a decoder-gap calibration. Method,
+commands and the first results: `docs/DEVELOP_EVAL.md`. Fixture-gated, numbers only, nothing
+from the eval set is committed. FiveK plugs into the same harness via
+`Scripts/harness/eval/fivek_fetch.py`.
+
+Four loop-safe prompts split the follow-up so it runs at once — `docs/prompts/develop-INDEX.md`:
+D1 auto rules, D2 eval workflow + FiveK, D3 model arm, D4 render truth. Each carries a
+three-row scoreboard (model accuracy, workflow accuracy, UX polish) and a commit is allowed
+only when no row regresses.
+
+## Next — model stream
+
+Checkpoint 03 (the first UI: routes, table, focus) — blocked on the `focus`-field question in §3.
+
+Model work proceeds on `elastic-v4/model-core`, based on checkpoint 02 and independent of the
+UI branch: scope resolver, session layer (`planAsk` / `applyPlan`), tests, then
+`applyModelAuto` at concurrency 4. UI (⌘K field, key routing, Esc order, labels) rejoins later.

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "summary": {
-    "total": 83,
+    "total": 84,
     "covered": 33,
     "shelved": 7,
-    "not_covered": 43
+    "not_covered": 44
   },
   "not_covered": [
     "D1",
@@ -49,6 +49,7 @@
     "R-M.1",
     "R-M.3",
     "R-M.5",
+    "R-N.1",
     "R-Q.1"
   ],
   "shelved": [
@@ -1453,6 +1454,21 @@
       "id": "R-M.5",
       "kind": "R",
       "title": "Videos copied, counted, not shown",
+      "sources": [
+        "v6"
+      ],
+      "lint": [],
+      "logic": [],
+      "flow": [],
+      "golden": [],
+      "battery": [],
+      "not_covered": "NOT-COVERED",
+      "status": "NOT-COVERED"
+    },
+    {
+      "id": "R-N.1",
+      "kind": "R",
+      "title": "R-N.1",
       "sources": [
         "v6"
       ],

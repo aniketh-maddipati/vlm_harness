@@ -754,12 +754,23 @@ final class P0SessionModel {
                 )
             )
         }
+        return commitBatchEdit(marks: marks, label: "Auto")
+    }
+
+    /// Commit edit marks as one undoable, persisted move.
+    ///
+    /// Every batch edit path goes through here, so undo depth, the durable receipt,
+    /// the selection and the final order behave identically no matter what produced
+    /// the marks. Cull is never in a mark, and the order snapshot is restored after
+    /// the mutation, so neither can move as a side effect of developing.
+    @discardableResult
+    func commitBatchEdit(marks: [BatchEditMutationCommand.Mark], label: String) -> Int {
         guard !marks.isEmpty else { return 0 }
 
         let commandStartedAt = Date()
         let selectionSnapshot = selectedAssetIDs
         let orderSnapshot = shoot?.finalSetOrder.assetIDs ?? []
-        let command = BatchEditMutationCommand(marks: marks, label: "Auto")
+        let command = BatchEditMutationCommand(marks: marks, label: label)
         guard command.apply(to: &assets) else { return 0 }
         if var shoot {
             shoot.finalSetOrder.assetIDs = orderSnapshot

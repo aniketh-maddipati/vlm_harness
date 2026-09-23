@@ -208,11 +208,18 @@ nonisolated enum DevelopRenderGraph {
         let bounds = image.extent.integral
 
         // Highlights / Shadows — CIHighlightShadowAdjust, documented approximation
-        // (not Lightroom Highlights/Shadows; validated visually in the lab).
+        // (not Lightroom Highlights/Shadows). The filter's own ranges, read from its
+        // attributes: highlight amount 0…1 with 1 untouched and lower darkening
+        // (recovering) highlights; shadow amount −1…1 with 0 untouched and positive
+        // lifting. Lightroom's negative Highlights is recovery and maps onto the
+        // highlight amount; its positive side has no counterpart in this filter and
+        // leaves the image alone. Measured against hand edits in docs/DEVELOP_EVAL.md —
+        // the previous mapping sent 1 + shadows/100 (maximum lift from shadows = 0) and
+        // 1 − highlights/100 (recovery clamped to a no-op).
         if look.highlights != 0 || look.shadows != 0, let f = CIFilter(name: "CIHighlightShadowAdjust") {
             f.setValue(result, forKey: kCIInputImageKey)
-            f.setValue(min(max(1 - look.highlights / 100.0, 0), 1), forKey: "inputHighlightAmount")
-            f.setValue(min(max(1 + look.shadows / 100.0, 0), 2), forKey: "inputShadowAmount")
+            f.setValue(min(max(1 + look.highlights / 100.0, 0), 1), forKey: "inputHighlightAmount")
+            f.setValue(min(max(look.shadows / 100.0, -1), 1), forKey: "inputShadowAmount")
             result = f.outputImage ?? result
         }
 

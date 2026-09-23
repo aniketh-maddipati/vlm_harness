@@ -218,6 +218,8 @@ extension P0SessionModel {
             return "as shot · nudge anything and it becomes yours · A for auto"
         case .auto:
             return "auto from the histogram · nudge to make it yours"
+        case .model:
+            return "auto from the model · bounded by the engine · nudge to make it yours"
         case .sidecar:
             return "from \(focusFileStem(for: asset)).xmp · the sidecar is the truth · nudges ripple to the group as deltas"
         case .autoHand, .hand:
