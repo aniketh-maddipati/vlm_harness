@@ -72,6 +72,8 @@ enum P0EditLiveRunner {
         }
         report["fixtureDir"] = folder.path
 
+        UITestSupport.stateDirectoryOverride = outDir.appendingPathComponent("catalog", isDirectory: true)
+        report["uiSurface"] = "ElasticFocusView"
         let session = P0SessionModel()
         // Prefer existing catalog when present — still validates rediscovery/persistence.
         if let recent = (try? ShootStore.listRecentShoots())?.first(where: {
@@ -161,14 +163,13 @@ enum P0EditLiveRunner {
             ("vibrance", { $0.vibrance = 20 }),
             ("saturation", { $0.saturation = -10 }),
             ("sharpness", { $0.sharpness = 40 }),
-            ("luminanceNR", { $0.luminanceNR = 20 }),
         ]
         for (name, mutate) in controlProbes {
             let before = session.recipe(for: landscape.id)
             session.beginEditGesture(for: landscape.id)
             session.scrubEdit(mutate)
             await wait(0.05)
-            session.endEditGesture()
+            finishDrawerGesture(session, control: name)
             await wait(0.05)
             let after = session.recipe(for: landscape.id)
             note(
@@ -179,9 +180,44 @@ enum P0EditLiveRunner {
         }
         captureEditor(session: session, size: CGSize(width: 1280, height: 800), name: "editor-after-controls", to: outDir)
 
+        // Measure edit-to-publication on the mounted production editor. The
+        // separate Metal metric measures draw-to-GPU completion, not RAW decode.
+        let latencyWindow = makeEditorWindow(session: session, size: CGSize(width: 1280, height: 800))
+        await wait(1)
+        var editLatency: [[String: Any]] = []
+        for control in ["exposure", "whiteBalance", "look"] {
+            session.beginEditGesture(for: landscape.id)
+            for index in 0..<6 {
+                let prior = session.displayedCIImage(for: landscape.id)
+                let counters = DevelopRenderCounters.snapshot()
+                let start = CFAbsoluteTimeGetCurrent()
+                session.scrubEdit {
+                    let step = Double(index % 3)
+                    if control == "exposure" { $0.exposure = -0.4 + step * 0.4 }
+                    else if control == "whiteBalance" { $0.temperature = 3900 + step * 900; $0.tint = 12 }
+                    else { $0.contrast = 10 + step * 10 }
+                }
+                let deadline = Date().addingTimeInterval(5)
+                while Date() < deadline, session.displayedCIImage(for: landscape.id) === prior {
+                    await wait(0.005)
+                }
+                let replaced = session.displayedCIImage(for: landscape.id) !== prior
+                editLatency.append(["control": control, "repeat": index >= 3,
+                    "published": replaced, "milliseconds": (CFAbsoluteTimeGetCurrent() - start) * 1000,
+                    "materializations": DevelopRenderCounters.snapshot().interactiveMaterializations - counters.interactiveMaterializations])
+                note("\(control) latest pixels published", replaced)
+                await wait(0.05)
+            }
+            finishDrawerGesture(session, control: control)
+            await wait(0.4)
+        }
+        latencyWindow.close()
+        report["editToPublication"] = editLatency
+
         // 3. Rapid Exposure scrub (10 s FULL; 60 s fixed-hardware nightly)
         // Keep a real Metal-backed editor mounted so p0.edit.draw_ms measures
-        // slider-to-pixels rather than scheduler graph construction.
+        // GPU draw completion separately from edit-to-publication above.
+        for control in ["exposure", "whiteBalance"] {
         let liveEditorWindow = makeEditorWindow(
             session: session,
             size: CGSize(width: 1280, height: 800)
@@ -191,6 +227,7 @@ enum P0EditLiveRunner {
         let scrubDuration = Double(
             ProcessInfo.processInfo.environment["LUMINA_RENDER_STRESS_SECONDS"] ?? ""
         ) ?? 10
+        let scrubCountersBefore = DevelopRenderCounters.snapshot()
         let scrubStart = CFAbsoluteTimeGetCurrent()
         var blankSeen = false
         var scrubSamples: [Double] = []
@@ -198,7 +235,10 @@ enum P0EditLiveRunner {
         while CFAbsoluteTimeGetCurrent() - scrubStart < scrubDuration {
             let t0 = CFAbsoluteTimeGetCurrent()
             let v = sin((CFAbsoluteTimeGetCurrent() - scrubStart) * 3.2) * 1.2
-            session.scrubEdit { $0.exposure = v }
+            session.scrubEdit {
+                if control == "exposure" { $0.exposure = v }
+                else { $0.temperature = 5000 + v * 1000; $0.tint = 12 }
+            }
             await wait(0.016)
             if session.displayedCIImage(for: landscape.id) == nil {
                 blankSeen = true
@@ -212,12 +252,13 @@ enum P0EditLiveRunner {
         if !drawCaptureEnded {
             LatencyMetrics.endCapture(key: "p0.edit.draw_ms")
         }
-        session.endEditGesture()
+        finishDrawerGesture(session, control: control)
         liveEditorWindow.close()
         scrubSamples.sort()
         let scrubP95 = percentile(scrubSamples, 0.95)
         let drawReading = LatencyMetrics.reading(for: "p0.edit.draw_ms")
-        report["rapidScrub"] = [
+        report[control == "exposure" ? "rapidScrub" : "whiteBalanceScrub"] = [
+            "interactiveMaterializations": DevelopRenderCounters.snapshot().interactiveMaterializations - scrubCountersBefore.interactiveMaterializations,
             "durationSec": scrubDuration,
             "samples": scrubSamples.count,
             "p50Ms": percentile(scrubSamples, 0.50),
@@ -235,7 +276,7 @@ enum P0EditLiveRunner {
             } ?? ["sampleCount": 0],
         ]
         note(
-            "Rapid Exposure scrub without blank canvas",
+            "Rapid \(control) scrub without blank canvas",
             !blankSeen,
             String(format: "%.0fs · p95=%.1fms n=%d", scrubDuration, scrubP95, scrubSamples.count)
         )
@@ -255,6 +296,35 @@ enum P0EditLiveRunner {
                 )
             } ?? "no draw samples"
         )
+
+        }
+
+        // Current product versions are shot/auto/yours, not the removed
+        // four-variant tray. Exercise shot/yours without invoking Auto Develop.
+        if session.developDrawerOpen { session.toggleDevelopDrawer() }
+        let handRecipe = session.recipe(for: landscape.id)
+        let versionWindow = makeEditorWindow(session: session, size: CGSize(width: 1280, height: 800))
+        await wait(0.5)
+        var versionSamples: [[String: Any]] = []
+        for index in 0..<8 {
+            let target = index.isMultiple(of: 2) ? 1 : 3
+            let previous = session.displayedCIImage(for: landscape.id)
+            let counters = DevelopRenderCounters.snapshot()
+            let start = CFAbsoluteTimeGetCurrent()
+            session.pickVersion(target, for: landscape.id)
+            let deadline = Date().addingTimeInterval(5)
+            while Date() < deadline, session.displayedCIImage(for: landscape.id) === previous {
+                await wait(0.005)
+            }
+            versionSamples.append(["version": target,
+                "milliseconds": (CFAbsoluteTimeGetCurrent() - start) * 1000,
+                "published": session.displayedCIImage(for: landscape.id) !== previous,
+                "materializations": DevelopRenderCounters.snapshot().interactiveMaterializations - counters.interactiveMaterializations])
+            await wait(0.4)
+        }
+        note("Version switching preserves hand edits", session.recipe(for: landscape.id).valueFingerprint == handRecipe.valueFingerprint)
+        report["versionSwitching"] = versionSamples
+        versionWindow.close()
 
         // 4. Before press-and-hold (does not mutate)
         let recipeBeforeB = session.recipe(for: landscape.id)
@@ -374,6 +444,10 @@ enum P0EditLiveRunner {
             "geometryStable": geometryStable,
             "authoritativeReachedDrawable": authoritativeReachedDrawable,
             "fidelityRanks": fidelityRanks,
+            "fidelityNondecreasing": zip(fidelityRanks, fidelityRanks.dropFirst()).allSatisfy { $0.0 <= $0.1 },
+            "interactiveSampled": fidelityRanks.contains(1),
+            "aspectRatios": aspectRatios,
+            "metalFrames": metalFrames.map { [Double($0.minX), Double($0.minY), Double($0.width), Double($0.height)] },
             "metalFrameSamples": metalFrames.count,
             "authoritativeLongEdge": authoritativeEdge,
             "targetLongEdge": session.inspectionSettledLongEdge,
@@ -525,6 +599,15 @@ enum P0EditLiveRunner {
     }
 
     // MARK: - Helpers
+
+    private static func finishDrawerGesture(_ session: P0SessionModel, control: String) {
+        let id = control == "whiteBalance" ? "temperature" : control == "look" ? "contrast" : control
+        guard let slider = ElasticDevelopControl.exposed.first(where: { $0.id == id }) else {
+            preconditionFailure("The live test must use an exposed drawer control")
+        }
+        session.endDevelopGesture(slider.keyPath, range: slider.range)
+    }
+
 
     private static func wait(_ seconds: Double) async {
         try? await Task.sleep(nanoseconds: UInt64(max(seconds, 0) * 1_000_000_000))

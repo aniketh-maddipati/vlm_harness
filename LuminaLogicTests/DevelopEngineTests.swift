@@ -254,14 +254,16 @@ final class DevelopEngineTests: XCTestCase {
         XCTAssertGreaterThan(luma(adjusted), luma(gray) + 0.1)
     }
 
-    func testPreparedRawSessionInteractivePinIsInApply() throws {
+    func testPreparedRawSessionBakesIntentOnBothTiers() throws {
         let sessionText = try String(
             contentsOf: repoRoot().appendingPathComponent("Lumina/Develop/PreparedRawSession.swift"),
             encoding: .utf8
         )
         XCTAssertTrue(sessionText.contains("pinnedInteractiveDecode"))
         XCTAssertTrue(sessionText.contains("finishRawStage"))
-        XCTAssertTrue(sessionText.contains("applyExposureAndWhiteBalance"))
+        XCTAssertFalse(sessionText.contains("DevelopRenderGraph.applyExposureAndWhiteBalance"))
+        XCTAssertTrue(sessionText.contains("let decode = intent"))
+        XCTAssertTrue(sessionText.contains("let decodeIntent = intent"))
         XCTAssertTrue(sessionText.contains("tier == .interactive"))
     }
 
