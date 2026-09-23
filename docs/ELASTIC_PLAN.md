@@ -821,6 +821,13 @@ coverage artifacts; `PreparedRawSession.materializeInteractiveStage` reads
   end, Esc, focus with the version column, hold-⇥ set strip, hold-␣ before, 30 taps,
   held-⇥ arrow spam, Esc ×3. Run on the tree before P1's items 8–9 were merged; those two
   are proven by `ElasticDevelopTests` and the runner's `editor-drawer` capture only.
+  **Second guarded pass on the final tree** (`~/lumina-wt/ui-reconcile-proof/p1-live-final/`,
+  27 screenshots, user watching, zero guard aborts): hold-⇥ in focus hides the version
+  column and the peek takes the width; hold-␣ before keeps the column, as item 9 specifies;
+  `E` opens the develop drawer (sliders, crop, straighten, profile, match-to-set) with the
+  column gone; Esc returns to a clean table. One thing seen: ⌘Z inside the flags peek with
+  no picks to undo undid the previous journaled keep from P0's capture on the same catalog
+  (set 17 → 16) — the CP2 journal working across relaunch, not a merge effect.
   The launch trap: with pid 64132 (`com.lumina.app`, a `--workbench` instance from Xcode
   DerivedData, not any stream's) up, a second instance of that bundle id gets no main
   window; a copy re-signed as `com.lumina.app.reconcile` gets one on roughly one launch

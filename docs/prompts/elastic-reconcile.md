@@ -357,3 +357,9 @@ pass needs to know — especially anything here that turned out to be wrong._
   at `8b939bb`, PR **#101** against `elastic-v4/fixture-generator`, description = the
   Reconciliation record. P2's #100 is superseded by it. Anything a stream commits after
   its final tip (P0 d2b2824 · P1 68ccbc1 · P2 4ca6d2e) is a new merge onto this branch.
+- 2026-09-22 · second guarded key pass, on the final tree's build re-signed as
+  `com.lumina.app.reconcile`, at the user's go: items 8–9 seen under real keys (column hides
+  on hold-⇥ and on E, stays on hold-␣). Window on the first launch this time. Screenshots in
+  `~/lumina-wt/ui-reconcile-proof/p1-live-final/`; addendum in the plan's Reconciliation
+  record. ⌘Z with nothing to undo in the peek undid P0's last journaled keep (17 → 16 in the
+  set) — journal behaviour, noted, not fixed here.
