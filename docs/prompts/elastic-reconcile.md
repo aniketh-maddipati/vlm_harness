@@ -353,3 +353,7 @@ pass needs to know — especially anything here that turned out to be wrong._
   ms, floor 369 resident. Artifacts in `~/lumina-wt/ui-reconcile-proof/*-final/`. Every
   checklist item is ticked; gate on the final tree is green (381 / 2 skipped / 0 failures ·
   FAST 41/41 · xcode_compile OK). **Nothing pushed, no PR opened** — both wait for the user.
+- 2026-09-22 · pushed and PR opened, both at the user's word: `origin/elastic-v4/ui-reconcile`
+  at `8b939bb`, PR **#101** against `elastic-v4/fixture-generator`, description = the
+  Reconciliation record. P2's #100 is superseded by it. Anything a stream commits after
+  its final tip (P0 d2b2824 · P1 68ccbc1 · P2 4ca6d2e) is a new merge onto this branch.
