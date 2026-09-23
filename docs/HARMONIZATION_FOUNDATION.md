@@ -328,9 +328,11 @@ is the 6–8-file phone adapter audit, followed by verified paired-scene determi
 Foundation checkpoint `4b8035d` is locally committed and tested. This does not complete
 the harmonization product. The separately authorized documentation-only UI report
 commit `59dbaf4` is first in the current integration queue, pending its required gates.
-After that, this foundation may be considered independently if the owner authorizes
-publication/merge and its own two-round cache-free checkpoint and applicable CI pass.
-No such publication/merge authorization has been given for this branch.
+The owner subsequently authorized publication/merge of this independently scoped
+foundation after the UI report. Integration still requires review against fetched main,
+its own two-round cache-free checkpoint and applicable CI on the final head. Exact
+integration results and the merge commit are recorded in the PR rather than inferred
+from the earlier checkpoint tests.
 
 Parent-owned instrumentation `2da4659` is independent groundwork. Its whole-product
 baseline and presentation correlation remain incomplete; it is neither a dependency
