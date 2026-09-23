@@ -4,13 +4,21 @@ Documentation snapshot: 2026-09-23. Baseline source **`a6923588dfe3824f3b84556bb
 
 ## Current diagnostic addendum
 
-Prompt 0 implementation and assertion audit: [0-baseline-handoff](0-baseline-handoff.md).
-The bounded selected-image trace and truthful callback/reload labels are implemented;
-UX02 remains PARTIAL until current native and complete assertion coverage are verified.
-No P-row receives acceptance from instrumentation plumbing or the inherited trace.
-Current verification, durable photograph PNGs, invalid-video evidence and ownership
-release are recorded in the handoff. The candidate still reproduces the Canvas
-quarter-turn fallback defect; graph parity cannot clear UX03.
+Prompt 0 foundation reviewed: code `0725f80c2c7614e52b69d26112696ac008c472c9`,
+final documentation `9c77ced2109bc00113e6c507633ec56b60df7cbf`.
+Two clean build-stability rounds passed, each with 518 logic tests, five skipped,
+zero failures. Current RAW graph/export proof passed 45/45 cases, worst stage
+ΔE 0.9074209238 and worst export ΔE 0.8945394194 (limit 1.5 per case).
+[Verification evidence](/private/tmp/lumina-ui-ux-evidence/p0-implementation/verification.json).
+The root inspected the patch and genuine PNGs showing the persistent 270°
+Canvas selection failure. New bounded tracing distinguishes fallback from
+rendered identity; only two of 18 native callbacks had valid presentation time.
+M0 remains PARTIAL, all P acceptance rows remain UNMEASURED; video and vet are
+BLOCKED. Prompt 1 is explicitly released against the reviewed predecessor to
+correct UX03–06. This is not a production merge or a performance acceptance.
+
+
+P1 candidate code `ceb1c10baa68a2821270f7f1f1923cc899b72d8a` is integrated on the command-center branch for continued verification. Native correction is BLOCKED; this is not acceptance or a production merge. See [global report](LUMINA_GLOBAL_REPORT.md) for current attributed results.
 
 An isolated standalone Release build at the baseline SHA completed. Bundle
 `com.lumina.uiuxp0`, PID 31412, binary SHA-256
