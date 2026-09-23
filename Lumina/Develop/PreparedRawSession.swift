@@ -122,11 +122,10 @@ actor PreparedRawSession {
     /// Reduced scale is applied through `CIRAWFilter.scaleFactor` so the decoder
     /// never produces a full-size image only to throw pixels away.
     ///
-    /// Interactive caches a GPU-materialized pinned decode (camera WB, 0 EV)
-    /// and applies exposure / WB as Core Image post-ops so slider ticks stay
-    /// cache-valid without re-running demosaic at draw time.
-    /// Authoritative still bakes the live intent onto `CIRAWFilter` and keeps
-    /// the lazy graph — settled / export evaluate once at their destination.
+    /// Both tiers bake the live intent onto CIRAWFilter. Interactive materializes
+    /// a GPU texture; authoritative keeps its lazy graph. Exposure/WB edits now
+    /// invalidate the RAW stage, trading the old cheap but inaccurate post-op for
+    /// measured preview/export agreement. Look-only edits still reuse the stage.
     func rawStageImage(
         intent: RawIntent,
         targetLongEdge: Int?,
@@ -140,9 +139,9 @@ actor PreparedRawSession {
         return (finishRawStage(surface.image, intent: intent, tier: tier), surface.cacheHit)
     }
 
-    /// Texture-backed interactive demosaic without exposure / WB post-ops.
-    /// Four variant branches share this surface; a lazy `CIRAWFilter` graph is
-    /// rejected so four Metal draws cannot re-walk demosaic independently.
+    /// Texture-backed interactive RAW intent. Variants with identical RAW intents
+    /// share a surface; distinct WB/exposure intents need distinct baked surfaces.
+    /// The historical method name remains for callers; this is no longer an as-shot pin.
     func interactivePinnedSource(
         intent: RawIntent,
         targetLongEdge: Int?
@@ -187,7 +186,7 @@ actor PreparedRawSession {
         prepareIfNeeded()
 
         let scale = scaleFactor(for: targetLongEdge)
-        let decodeIntent = tier == .interactive ? intent.pinnedInteractiveDecode : intent
+        let decodeIntent = intent
         let key = [
             decodeIntent.fingerprint,
             String(format: "%.4f", scale),
@@ -305,10 +304,11 @@ actor PreparedRawSession {
     /// `exposure`, `neutralTemperature` / `neutralTint` (or camera as-shot),
     /// `luminanceNoiseReductionAmount`, `sharpnessAmount`, `scaleFactor`.
     ///
-    /// Interactive pins exposure to 0 and WB to camera as-shot so the demosaic
-    /// stays cache-stable; NR, sharpen, and scale still write through.
+    /// Both tiers bake RAW controls. The former pinnedInteractiveDecode post-op
+    /// approximation failed live Sony preview/export agreement. Look-only edits
+    /// still reuse the decode; exposure/WB now invalidate it deliberately.
     private func apply(intent: RawIntent, to filter: CIRAWFilter, tier: Tier, scale: Double) {
-        let decode = tier == .interactive ? intent.pinnedInteractiveDecode : intent
+        let decode = intent
         filter.exposure = Float(decode.exposureEV)
 
         if decode.isAsShotWhiteBalance {
@@ -332,11 +332,10 @@ actor PreparedRawSession {
         filter.scaleFactor = Float(scale)
     }
 
-    /// Interactive: cheap CI post-ops on the pinned decode. Authoritative: the
-    /// image already carries baked RAW-domain exposure / WB.
+    /// Both tiers already carry baked RAW-domain exposure and WB.
     private func finishRawStage(_ image: CIImage, intent: RawIntent, tier: Tier) -> CIImage {
-        guard tier == .interactive else { return image }
-        return DevelopRenderGraph.applyExposureAndWhiteBalance(intent, to: image)
+        // Both tiers now bake the same RAW intent; no second WB/exposure operation.
+        return image
     }
 
     /// Evaluate the lazy CIRAWFilter graph once into a texture-backed CIImage.
