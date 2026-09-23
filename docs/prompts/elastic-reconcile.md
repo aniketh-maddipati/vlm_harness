@@ -293,3 +293,36 @@ pass needs to know — especially anything here that turned out to be wrong._
   type across the actor line · **the flip:** `PreparedRawSession.swift:374` reads
   `destination.isFlipped = false` with P0's comment, and `testEveryTierPresentsTheSameWayUp`
   passed in the merged gate (3.48 s, real RAW fixtures). Nothing needed changing.
+- 2026-09-22 · item 6 · Each stream's proof re-run on the merged tree (`2e80788`, tree of
+  `d92bcb3`); artifacts in `~/lumina-wt/ui-reconcile-proof/` (outside the repo).
+  **P0:** `PhotoRenderProofTests` 8/8, `PreviewOrientationTests` 7/7, `ColdOpenStatusTests`
+  4/4 in the merged gate, `testEveryTierPresentsTheSameWayUp` passed in 3.48 s on real RAW
+  fixtures. Live capture `--p0-edit-live` on `card-elastic-v4/frames`: **30/32** — the same
+  two failures as P0's branch and the base (`Quality promotion keeps geometry stable`,
+  `Authoritative preview reaches drawable target` 2212/2560), and the denominator is 32
+  not 31 because P1's `Peek cycles similar → set` check now runs there and passes. So this
+  is P0's 29/31 plus one. Two foreign Lumina instances were up during the run.
+  **P2:** `--p0-scroll-live` on the 403-frame stress card, warm, unfilmed, run only after
+  P2's own concurrent run had exited: glide 469 steps / 5.0 s, tick p95 **2.90 ms** (P2's
+  item-3 record: 0.82–1.18), flick 90 steps tick p95 **10.13 ms** (P2: 9.9–11.3), return
+  185 steps p95 **9.03 ms** (P2: 9.45); **wells 0/469, 0/90, 0/185** on every pass, soft
+  (floor) tiles 91 / 144 / 0 (P2: 91 / 148 / 0), floor 369 resident at 63.9 MB 1.5 s after
+  mount. The runner exits 1 on the flick and return frame-budget checks (8.33 ms), exactly
+  as P2's own record does; that residue is row wrap-layout, P0's item, not a merge effect.
+  **P1:** the live key-driven pass, 27 screenshots, real key events through System Events in
+  the real Debug app: hold-⇥ similar → ↓ set (17 frames, cursor) → ↓ flags (10 groups
+  inferred, sharpness measured live), G and ⌘Z inside flags, release, tap-to-pin, ⇥ cycles
+  set → flags → past the end closes, Esc, Return opens the photograph (upright, version
+  column showing `1 shot` only), hold-⇥ in focus, set strip `1 of 17 in the set`, hold-␣
+  before (`everything as shot`), Esc home, 30 ⇥ taps, held-⇥ arrow spam, Esc ×3 → clean
+  table. `G` took 0 picks because every candidate was already in the set from P0's capture
+  on the same catalog, which is the "proposes, never overrules" rule, not a miss.
+  **The launch trap, measured:** while pid 64132 (`com.lumina.app`, Xcode DerivedData
+  `--workbench`, launched 14:08:40 by launchd, not any stream's) is up, every second
+  instance of that bundle id comes up with only menu-bar windows. A copy of the merged
+  build re-signed ad hoc as `com.lumina.app.reconcile` gets its main window — but only on
+  about one launch in three, whatever the launch mode, so the driver retries its own
+  launch until a window exists. Every key press is guarded by a frontmost-pid check and
+  the driver aborts otherwise; it fired zero times. The user stopped an earlier unguarded
+  run; nothing foreign was touched or killed at any point. **P1 items 8–9 (f280b9e) are not
+  in this tree yet**, so the E drawer shot shows nothing; re-merge follows.
