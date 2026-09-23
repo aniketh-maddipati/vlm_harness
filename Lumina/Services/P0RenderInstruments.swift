@@ -148,6 +148,12 @@ final class P0RenderInstruments {
     }
 
     @objc private func frameTick(_ sender: CADisplayLink) {
+        LatencyMetrics.beginCapture(key: "p0.display.target_interval")
+        LatencyMetrics.record("p0.display.target_interval", milliseconds: (sender.targetTimestamp - sender.timestamp) * 1000)
+        if let last = lastFrameTimestamp {
+            LatencyMetrics.beginCapture(key: "p0.display.callback_interval")
+            LatencyMetrics.record("p0.display.callback_interval", milliseconds: (sender.timestamp - last) * 1000)
+        }
         presentFrame(at: sender.timestamp)
     }
 

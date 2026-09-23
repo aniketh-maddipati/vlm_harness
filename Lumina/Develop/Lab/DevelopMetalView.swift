@@ -102,6 +102,21 @@ struct DevelopMetalView: NSViewRepresentable {
             guard let drawable = view.currentDrawable,
                   let commandQueue else { return }
 
+            // A completion handler measures GPU work, not display. This opt-in
+            // acknowledgement uses the drawable's host presentation time. A zero
+            // timestamp means skipped/unpresented and must not become a latency.
+            if DevelopPresentationMeasurement.enabled {
+                let drawStarted = CACurrentMediaTime()
+                let blank = image == nil
+                drawable.addPresentedHandler { presented in
+                    DevelopPresentationMeasurement.record(
+                        startedAt: drawStarted,
+                        presentedAt: presented.presentedTime,
+                        blank: blank
+                    )
+                }
+            }
+
             let drawableSize = view.drawableSize
             guard drawableSize.width > 1, drawableSize.height > 1 else { return }
 
@@ -180,7 +195,7 @@ struct DevelopMetalView: NSViewRepresentable {
             Self.signposter.endInterval("draw", drawState)
             // Record GPU completion, not command encoding. The signpost above
             // still brackets the requested Core Image startTask pair; this
-            // metric is the honest slider-to-pixels cost.
+            // metric measures draw-to-GPU-completion, not slider-to-pixels.
             DevelopRenderCounters.recordMetalPresent()
             commandBuffer.addCompletedHandler { _ in
                 LatencyMetrics.record(

@@ -26,6 +26,8 @@ actor ShootStore {
         let root: URL
         if let override = UITestSupport.stateDirectoryOverride {
             root = override
+        } else if let isolated = ProductPerformanceRecording.stateRoot {
+            root = isolated
         } else {
             root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         }
