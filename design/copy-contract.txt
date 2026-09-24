@@ -109,3 +109,53 @@
 # A1: unsupported-body facts-chip; D35 table-keeps-working.
 # Lint note: CopyContract.swift static literals must still appear above; scene/excluded
 #     Adapt variants and STAGED headers remain for D19 / ring chrome until a later ruling.
+
+## ORDERED EXPORT (D34 amendment, 2026-09-24)
+
+[P] Export settings
+[P] JPEG · sRGB
+[P] TIFF · ProPhoto RGB
+[P] Full size
+[P] Cancel
+[P] Retry / Resume
+[P] Reveal
+[P] Keeps export in set order. Crop and edits are included. GPS is omitted.
+[P] {written} of {total} written · {failed} failed · {cancelled} cancelled
+[P] Stopping after the current photograph…
+[P] Export cancelled before starting.
+
+## CHRONOLOGY (CHRON-01, 2026-09-24)
+
+[P] {capture month} {capture day} · {capture hour}:{capture minute}
+[P] Undated
+# In-flow chapter headings and chronological filmstrip boundaries only.
+# Manual set order carries no chronology labels. Fixed left metadata column retired.
+
+## AUTO FEEDBACK (AUTO-01, 2026-09-24)
+
+[P] Applying adjustments
+[P] Applying adjustments · {scope}
+[P] {n} adjusted
+[P] {n} unchanged
+[P] {n} unmeasured
+[P] {n} protected
+[P] {n} skipped
+# Completion counts describe in-memory recipe application only, not file durability or render completion.
+
+## EXPORT PRESENTATION (EXPORT-UX-01, 2026-09-24)
+
+[P] Choose destination
+[P] Export {n} kept photos into a new subfolder here.
+[P] Show in Finder
+[P] New export · {format} · {size} · {JPEG quality}% quality
+[P] Retry / Resume uses the original job’s frozen settings.
+[P] {n} remaining
+# TIFF omits quality; interruption appends its reason after whole-plan counts.
+
+## PER-PHOTO AUTO (VERSION-ASYNC-01, 2026-09-24)
+
+[P] Applying adjustments to this photo…
+[P] Applying…
+[P] applying…
+[P] Adjustments applied to this photo
+[P] Adjustments unavailable · no measurements

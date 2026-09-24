@@ -14,10 +14,9 @@ Lumina/Views/UncertainAndClusterViews.swift:276 Button without a named Lumina*St
 Lumina/Views/UncertainAndClusterViews.swift:280 Button without a named Lumina*Style
 #
 # owned-by-D35 — buttons inside .alert{} failure modals. The fix is NOT a button style:
-# the modal itself violates D35 ("never an error page or modal"). Removing the alert in
-# favour of a facts-chip clears these two rows. See P0OpenView.swift:38 / ContentView.swift:250.
+# the modal itself violates D35 ("never an error page or modal"). P0OpenView alert cleared
+# via P0OpenFeedback facts-chip; ContentView legacy alert row remains.
 Lumina/ContentView.swift:255 Button without a named Lumina*Style
-Lumina/Views/P0/P0OpenView.swift:42 Button without a named Lumina*Style
 #
 # owned-by-polish — D47: tap target with no visible affordance and no >=44pt hit area
 Lumina/Views/Workspace/TreatmentStageView.swift:778 tap gesture on undecorated Text

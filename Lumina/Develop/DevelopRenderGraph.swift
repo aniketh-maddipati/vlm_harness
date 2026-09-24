@@ -34,7 +34,7 @@ nonisolated enum DevelopRenderGraph {
 
     // MARK: - Public entry
 
-    static func render(_ request: RawRenderRequest) async -> DevelopRenderResult {
+    static func render(_ request: RawRenderRequest, exportSettings: P0ExportSettings? = nil) async -> DevelopRenderResult {
         DevelopRenderCounters.recordGraphRender()
         let start = CFAbsoluteTimeGetCurrent()
         var usedProxy = false
@@ -89,6 +89,9 @@ nonisolated enum DevelopRenderGraph {
             image = applyRetouch(request.recipe.retouch, to: image)
         }
         image = applyGeometry(request.recipe, to: image)
+        if let exportSettings {
+            image = maybeDownsample(image, longEdge: exportSettings.longEdge)
+        }
 
         if request.quality == .oneToOne {
             let rect = request.region.pixelRect(in: image.extent)
@@ -103,10 +106,15 @@ nonisolated enum DevelopRenderGraph {
         var cg: CGImage?
         var colorSpaceName = "linear-working (deferred display conversion)"
         if !request.forDisplay {
-            let space = request.quality == .export
+            let jpeg = exportSettings?.format == .jpeg
+            let space = jpeg ? DevelopColorPolicy.exportJPEGColorSpace : (request.quality == .export
                 ? DevelopColorPolicy.exportTIFFColorSpace
-                : DevelopColorPolicy.workingColorSpace
-            cg = exportContext.createCGImage(image, from: bounds, format: .RGBA16, colorSpace: space)
+                : DevelopColorPolicy.workingColorSpace)
+            if jpeg {
+                // JPEG has no alpha; flatten uncovered straighten/transparent pixels.
+                image = image.composited(over: CIImage(color: .black).cropped(to: bounds))
+            }
+            cg = exportContext.createCGImage(image, from: bounds, format: jpeg ? .RGBA8 : .RGBA16, colorSpace: space)
             colorSpaceName = DevelopColorPolicy.describeColorSpace(space)
         } else if request.quality == .settled || request.quality == .oneToOne {
             // Small settled bitmap for histogram / harness use.
@@ -143,10 +151,12 @@ nonisolated enum DevelopRenderGraph {
     ) async -> CIImage? {
         switch request.source {
         case .originalRAW, .rawPyramid:
-            let session = await PreparedRawSessionRegistry.shared.session(
-                for: request.photoID,
-                rawURL: request.rawURL
-            )
+            let session: PreparedRawSession
+            if request.quality == .export {
+                session = PreparedRawSession(assetID: request.photoID, rawURL: request.rawURL)
+            } else {
+                session = await PreparedRawSessionRegistry.shared.session(for: request.photoID, rawURL: request.rawURL)
+            }
             let tier: PreparedRawSession.Tier = request.quality == .interactive ? .interactive : .authoritative
             let target = (request.longEdgeCap ?? 0) > 0 ? request.longEdgeCap : nil
             if let staged = await session.rawStageImage(
@@ -156,6 +166,15 @@ nonisolated enum DevelopRenderGraph {
             ) {
                 rawStageCacheHit = staged.cacheHit
                 return OrientedDisplayImage.aligning(staged.image, toFile: request.rawURL)
+            }
+            if request.quality == .export {
+                // Preserve the authoritative decoder whenever supported. For a
+                // processed original without it, use the preview fallback's
+                // exposure/WB operators and reject RAW-only controls it cannot honor.
+                guard request.recipe.rawIntent.sharpness == 0,
+                      request.recipe.rawIntent.luminanceNR == 0,
+                      let original = processedOriginal(at: request.rawURL) else { return nil }
+                return applyExposureAndWhiteBalance(request.recipe.rawIntent, to: original)
             }
             // ImageIO rendered fallback — honest proxy fidelity, not RAW developing.
             if let rendered = PreviewExtractor.renderedFallback(
@@ -424,8 +443,60 @@ nonisolated enum DevelopRenderGraph {
         return CGImageDestinationFinalize(dest)
     }
 
+    /// Decode only supported processed original containers, never RAW thumbnails.
+    private static func processedOriginal(at url: URL) -> CIImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let identifier = CGImageSourceGetType(source),
+              let type = UTType(identifier as String), !type.conforms(to: .rawImage),
+              [UTType.jpeg, .png, .heic, .heif, .tiff].contains(where: { type.conforms(to: $0) }),
+              let pixels = CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)
+        else { return nil }
+        let metadata = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        let orientation = (metadata?[kCGImagePropertyOrientation] as? NSNumber)?.uint32Value ?? 1
+        return normalizeOrigin(CIImage(cgImage: pixels).oriented(forExifOrientation: Int32(orientation)))
+    }
+
+    static func exportJPEGData(cgImage: CGImage, quality: Double) -> Data? {
+        encodedExport(cgImage: cgImage, type: .jpeg, properties: [
+            kCGImageDestinationLossyCompressionQuality: quality,
+            kCGImagePropertyOrientation: 1,
+        ])
+    }
+
+    static func exportTIFFData(cgImage: CGImage) -> Data? {
+        encodedExport(cgImage: cgImage, type: .tiff, properties: [
+            kCGImagePropertyOrientation: 1,
+            kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFCompression: 8],
+        ])
+    }
+
+    private static func encodedExport(cgImage: CGImage, type: UTType, properties: [CFString: Any]) -> Data? {
+        let bytes = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(bytes, type.identifier as CFString, 1, nil) else { return nil }
+        // Fresh metadata: orientation is baked, GPS omitted, output ICC embedded.
+        CGImageDestinationAddImage(destination, cgImage, properties as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return bytes as Data
+    }
+
+    static func validateExport(bytes: Data, bitmap: CGImage, settings: P0ExportSettings) -> Bool {
+        guard let source = CGImageSourceCreateWithData(bytes as CFData, nil),
+              let decoded = CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary),
+              decoded.width == bitmap.width, decoded.height == bitmap.height,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else { return false }
+        if settings.format == .jpeg {
+            return CGImageSourceGetType(source) as String? == UTType.jpeg.identifier
+                && decoded.bitsPerComponent == 8
+                && decoded.colorSpace?.name == DevelopColorPolicy.exportJPEGColorSpace.name
+                && (decoded.alphaInfo == .none || decoded.alphaInfo == .noneSkipFirst || decoded.alphaInfo == .noneSkipLast)
+                && properties[kCGImagePropertyGPSDictionary] == nil
+                && (properties[kCGImagePropertyOrientation] as? Int ?? 1) == 1
+        }
+        return decoded.bitsPerComponent == 16
+    }
+
     /// Full-resolution authoritative export render → 16-bit ProPhoto CGImage.
-    static func renderExportBitmap(rawURL: URL, photoID: UUID, recipe: EditRecipe) async -> CGImage? {
+    static func renderExportBitmap(rawURL: URL, photoID: UUID, recipe: EditRecipe, settings: P0ExportSettings = P0ExportSettings(format: .tiff)) async -> CGImage? {
         let request = RawRenderRequest(
             generation: 0,
             photoID: photoID,
@@ -436,6 +507,7 @@ nonisolated enum DevelopRenderGraph {
             longEdgeCap: 0,
             forDisplay: false
         )
-        return await render(request).cgImage
+        let result = await render(request, exportSettings: settings)
+        return result.usedProxyFallback ? nil : result.cgImage
     }
 }

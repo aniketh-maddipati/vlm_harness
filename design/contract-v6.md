@@ -154,6 +154,13 @@ Citations: `D#`, `R-*`.
 - **rejected:** “1:1 · full RAW” chips; toast celebrations; second positive truth channels.
 - **history / socket:** Touches D20, D41, SPIKE A, CP6.
 
+### D34 amendment — Ordered kept-set JPEG export (2026-09-24)
+
+- **decision:** Keep is the final curated set. Export freezes valid unique IDs from `FinalSetOrder`, then appends omitted keeps in capture order (missing dates last, discovery order for ties). This supersedes D34's capture-order-only export, following the user's explicit sequencing request; it adds no second shortlist or reorder surface.
+- **output:** One remembered recipe, default full-size sRGB 8-bit JPEG at 95% quality; optional long-edge reduction without enlargement, with 16-bit ProPhoto TIFF retained. Committed crop and edits pass through the production graph. Originals and recipes stay unchanged. GPS is omitted. No publishing-service assumptions.
+- **receipts:** Each run owns a fresh folder and immutable plan. Ordinal filenames never overwrite existing outputs. Written, failed, cancelled and remaining counts account for the whole plan. Cancel stops new photographs; current publication may finish. Retry/Resume is explicit and preserves completed outputs, names, recipes and known source hashes. Destination failures interrupt the run. A missing destination must be reopened by the user; never choose another folder silently. Recovery covers process interruption, not power loss.
+- **surface:** Inline remembered settings, Cancel, Retry / Resume and Reveal accompany the set shelf. `⌥⌘E changes the recipe.` remains the settings shortcut. Receipts name the actual run folder. This is a general curated-photo workflow, with no narrative roles or required counts.
+
 ### D44 — ⌥⌘E recipe re-entry *(R-8.1)*
 
 - **decision:** `⌥⌘E` reopens Export with the recipe pre-filled. Frozen copy: `⌥⌘E changes the recipe.`
@@ -403,3 +410,19 @@ Spinners; skeletons; progress bars; modals/NSAlert in failure paths; hover handl
 - ITEM 4 — operator still chooses distribution copy home (a / b / c).  
 - `AUDIT-HIFI.md` still records old “crop latch re-scopes A/X” PASS — regenerate on next audit run (artifact drift, not agent-rules).  
 - `seal-v6.2` tag after human review + seal verification (not this session).
+
+## CHRON-01 — chronology on the scrolling axis (2026-09-24)
+
+The user's direction supersedes the fixed left moment metadata column: vertical table moments use compact in-flow capture-date/time headings above full-width photographs. Open bursts wrap within the available photo width. Chronological horizontal strips mark actual chapter boundaries on that axis; manual set order has no temporal markers. Existing chapter/burst membership, IDs, capture timestamps, order, selection, and viewport reveal behavior remain authoritative. Undated chapters stay explicitly undated. Existing Elastic typography, spacing, and surface tokens are reused; no new numeric tokens.
+
+## AUTO-01 — owned Auto feedback (2026-09-24)
+
+Auto freezes its existing set-or-all scope on activation, prevents duplicate activation, and shows a button-local pulsing dot only while measurement and the in-memory recipe commit are outstanding. Reduce Motion uses a static dot. No fabricated percentage, delay, shortcut, or saving/render-ready claim. Completion reports adjusted, unchanged, unmeasured, protected, and skipped counts; unavailable measurements do not invent a reason. Shoot transitions invalidate stale measurement writes and commits. Recipe algorithm, hand protection, cull/order/selection, one undo, and independent persistence errors remain unchanged. Existing spacing and symbol motion are reused.
+
+## EXPORT-UX-01 — counts and remembered settings (2026-09-24)
+
+Interruption retains whole-plan written/failed/cancelled/remaining counts and the interruption reason; first failure and actual output folder remain visible. Known completed jobs hide Retry / Resume; restored jobs whose completion is unknown can still be inspected by Resume. Current new-export format, size and JPEG quality remain visible alongside receipts (TIFF has no quality). Resume explicitly uses the saved job's frozen settings. The destination chooser explains that kept photos go into a new subfolder, and Show in Finder remains available for a completed result. No renderer, job schema or stored settings semantics change.
+
+## VERSION-ASYNC-01 — per-photo Auto command ownership (2026-09-24)
+
+Per-photo Auto owns its pending measurement task and displays applying/unmeasured feedback. A newer version choice, focus, edit, undo, or shoot context invalidates it. Source and base-recipe identity must still match before application. Flush the active gesture before caching the hand version. This amendment does not add preview pixels, alter the rail layout, create an unauthored Yours version, or expand warming. Completion describes in-memory application only.
