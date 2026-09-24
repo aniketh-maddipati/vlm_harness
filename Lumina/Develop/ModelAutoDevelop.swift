@@ -59,7 +59,7 @@ nonisolated struct ModelToneProposal: Equatable, Sendable {
 ///
 /// The model sees the photograph; the engine decides what it is allowed to do.
 /// Its proposal starts from the deterministic `AutoDevelop` recipe — which already
-/// carries the camera's native white balance, the horizon straighten and the inert
+/// preserves the starting white-balance intent, the horizon straighten and the inert
 /// controls pinned at 0 — and each tone value the model suggests is clamped into an
 /// *auto band*: far narrower than the sliders, because a first pass should correct
 /// a frame, not restyle it. When the model is unreachable, slow, or says nothing
@@ -98,12 +98,9 @@ nonisolated enum ModelAutoDevelop {
             if let value = proposal.shadows { recipe.shadows = clamp(value, Band.shadows).rounded() }
             if let value = proposal.vibrance { recipe.vibrance = clamp(value, Band.vibrance).rounded() }
             if let value = proposal.saturation { recipe.saturation = clamp(value, Band.saturation).rounded() }
-            if let value = proposal.temperatureShift {
-                recipe.temperature = base.temperature + clamp(value, Band.temperatureShift).rounded()
-            }
-            if let value = proposal.tintShift {
-                recipe.tint = base.tint + clamp(value, Band.tintShift).rounded()
-            }
+            // Tone Auto preserves both WB components, including the as-shot
+            // sentinel. Model WB shifts cannot resolve that sentinel into a
+            // complete camera pair, and must not overwrite a manual pair either.
             // Never, whatever the model says: the engine is not honest about these.
             recipe.whites = 0
             recipe.blacks = 0
