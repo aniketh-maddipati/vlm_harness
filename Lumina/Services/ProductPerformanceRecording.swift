@@ -24,35 +24,30 @@ nonisolated final class ProductPerformanceRecording: @unchecked Sendable {
         timer.schedule(deadline: .now(), repeating: 2)
         timer.setEventHandler { [started] in
             let keys = LatencyMetrics.recordedKeys()
-            let rows: [[String: Any]] = keys.compactMap { key in
+            let rows: [ProductPerformanceSnapshot.Metric] = keys.compactMap { key in
                 guard let reading = LatencyMetrics.reading(for: key) else { return nil }
-                return ["key": key, "p50": reading.p50, "p95": reading.p95,
-                        "p99": reading.p99, "max": LatencyMetrics.percentile(key, 1) ?? 0,
-                        "samples": reading.window.sampleCount,
-                        "totalRecorded": reading.window.totalRecorded,
-                        "coverage": reading.window.coverage.rawValue,
-                        "mode": reading.window.mode.rawValue,
-                        "capturedValues": LatencyMetrics.capturedSamples(for: key)]
+                return ProductPerformanceSnapshot.Metric(
+                    key: key, p50: reading.p50, p95: reading.p95,
+                    p99: reading.p99, max: LatencyMetrics.percentile(key, 1) ?? 0,
+                    samples: reading.window.sampleCount,
+                    totalRecorded: reading.window.totalRecorded,
+                    coverage: reading.window.coverage.rawValue,
+                    mode: reading.window.mode.rawValue,
+                    capturedValues: LatencyMetrics.capturedSamples(for: key)
+                )
             }
             let counters = DevelopRenderCounters.snapshot()
-            let payload: [String: Any] = [
-                "schemaVersion": 1, "pid": ProcessInfo.processInfo.processIdentifier,
-                "startedAt": ISO8601DateFormatter().string(from: started),
-                "snapshotAt": ISO8601DateFormatter().string(from: Date()),
-                "elapsedSeconds": Date().timeIntervalSince(started),
-                "snapshotNote": "Live snapshot; coverage ends at this flush, not process exit. Keys are sampled sequentially.",
-                "metrics": rows,
-                "renderCounters": ["materializations": counters.interactiveMaterializations,
-                    "preparedSessions": counters.preparedSessionCreated,
-                    "preparedSessionHits": counters.preparedSessionHits,
-                    "graphRenders": counters.graphRenders,
-                    "gpuUploads": counters.gpuUploads,
-                    "presentSubmissions": counters.metalPresents,
-                    "cancellations": counters.cancellations]
-            ]
+            let payload = ProductPerformanceSnapshot(
+                pid: Int(ProcessInfo.processInfo.processIdentifier),
+                startedAt: ISO8601DateFormatter().string(from: started),
+                snapshotAt: ISO8601DateFormatter().string(from: Date()),
+                elapsedSeconds: Date().timeIntervalSince(started),
+                metrics: rows,
+                counters: counters
+            )
             do {
                 try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
-                let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+                let data = try payload.encoded()
                 try data.write(to: output.appendingPathComponent("live-metrics.json"), options: .atomic)
             } catch {
                 // A missing file is an explicit recording failure, never an empty pass.
