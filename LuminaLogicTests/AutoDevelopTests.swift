@@ -123,16 +123,104 @@ final class AutoDevelopTests: XCTestCase {
         XCTAssertEqual(clipped.shadows, 60, accuracy: 1e-9, "shadow lift is capped at +60")
     }
 
-    func testNativeWhiteBalanceIsAdoptedOnlyWhenKnown() {
-        let base = EditRecipe(temperature: 4_800)
-        let withNative = AutoDevelop.recipe(
-            for: makeAsset(recipe: base),
-            stats: evenStats(nativeTemperature: 7_100)
-        )
-        XCTAssertEqual(withNative.temperature, 7_100, accuracy: 1e-9)
+    /// Auto deliberately no longer adopts native Kelvin over a partial/manual pair.
+    /// Expected effective pairs use the existing RAW intent contract; native tint is
+    /// supplied by the decoder, never fabricated in ImageStats.
+    func testAutoPreservesCompleteWhiteBalanceAndEffectiveIntent() throws {
+        let bases: [(Double, Double, Bool)] = [
+            (6500, 0, true), (4800, 12, false), (4800, 0, false),
+            (6500, 12, false), (6499, -0.01, true), (6501, 0.01, true),
+            (6498.999, 0, false), (6501.001, 0, false),
+            (6500, -0.01001, false), (6500, 0.01001, false)
+        ]
+        for (temperature, tint, asShot) in bases {
+            for native in [5200.0, 6499.0, 6500.0, 6501.0] {
+                for nativeTint in [-8.0, 12.0] {
+                    let base = EditRecipe(temperature: temperature, tint: tint)
+                    let stats = evenStats(nativeTemperature: native)
+                    let first = AutoDevelop.recipe(for: makeAsset(recipe: base), stats: stats)
+                    let second = AutoDevelop.recipe(for: makeAsset(recipe: first), stats: stats)
+                    XCTAssertEqual(first.temperature, temperature)
+                    XCTAssertEqual(first.tint, tint)
+                    XCTAssertEqual(first.rawIntent.isAsShotWhiteBalance, asShot)
+                    let effectiveTemperature = first.rawIntent.isAsShotWhiteBalance ? native : first.temperature
+                    let effectiveTint = first.rawIntent.isAsShotWhiteBalance ? nativeTint : first.tint
+                    XCTAssertEqual(effectiveTemperature, asShot ? native : temperature)
+                    XCTAssertEqual(effectiveTint, asShot ? nativeTint : tint)
+                    XCTAssertEqual(second.valueFingerprint, first.valueFingerprint)
+                    let persisted = try JSONDecoder().decode(EditRecipe.self, from: JSONEncoder().encode(first))
+                    XCTAssertEqual(persisted.rawIntent, first.rawIntent)
+                }
+            }
+        }
+        let fresh = AutoDevelop.recipe(for: makeAsset(), stats: evenStats(nativeTemperature: 5200))
+        XCTAssertTrue(fresh.rawIntent.isAsShotWhiteBalance)
+    }
 
-        let withoutNative = AutoDevelop.recipe(for: makeAsset(recipe: base), stats: evenStats())
-        XCTAssertEqual(withoutNative.temperature, 4_800, accuracy: 1e-9, "unknown native WB leaves temperature alone")
+    func testMissingNativeContextAndLegacyRecipesPreserveExistingIntent() throws {
+        // Missing fields and explicit near-sentinel legacy values keep their existing
+        // interpretation; this patch does not claim to recover old edit provenance.
+        for json in ["{}", "{\"temperature\":4800,\"tint\":12}",
+                     "{\"temperature\":6500,\"tint\":0}", "{\"temperature\":0,\"tint\":12}"] {
+            let base = try JSONDecoder().decode(EditRecipe.self, from: Data(json.utf8))
+            let result = AutoDevelop.recipe(for: makeAsset(recipe: base), stats: evenStats())
+            XCTAssertEqual(result.temperature, base.temperature)
+            XCTAssertEqual(result.tint, base.tint)
+            XCTAssertEqual(result.rawIntent.isAsShotWhiteBalance, base.rawIntent.isAsShotWhiteBalance)
+        }
+    }
+
+    func testWhiteBalanceCorrectionLeavesAllOtherAutoFieldsAtFrozenBaseline() throws {
+        let base = EditRecipe(exposure: -0.7, temperature: 4800, tint: 12,
+            contrast: 17, highlights: -7, shadows: 4, whites: 30, blacks: -20,
+            texture: 9, clarity: 11, dehaze: 15, vibrance: 19, saturation: -6,
+            sharpness: 45, luminanceNR: 22, crop: .init(x: 0.1, y: 0.2, width: 0.7, height: 0.6),
+            straightenDegrees: 90, sourceNeighbors: ["preserved"], confidence: 0.8,
+            cameraProfile: "Adobe Color")
+        let stats = evenStats(mean: 0.31, low: 0.02, high: 0.011, nativeTemperature: 5200, horizonAngle: 1.4)
+        let result = AutoDevelop.recipe(for: makeAsset(recipe: base), stats: stats)
+        // Frozen pre-patch Auto outcome, except WB: +.45 EV, -33 H, +40 S,
+        // vibrance8, straighten91.4, inert controls0; every other field inherited.
+        let expected = base.updating {
+            $0.exposure = 0.45; $0.highlights = -33; $0.shadows = 40
+            $0.vibrance = 8; $0.straightenDegrees = 91.4
+            $0.whites = 0; $0.blacks = 0; $0.dehaze = 0
+        }
+        XCTAssertEqual(result.valueFingerprint, expected.valueFingerprint)
+        XCTAssertEqual(result.id, base.id)
+        XCTAssertEqual(result.schemaVersion, base.schemaVersion)
+        XCTAssertEqual(result.sourceNeighbors, base.sourceNeighbors)
+        XCTAssertEqual(result.confidence, base.confidence)
+        XCTAssertEqual(result.cropAspect, base.cropAspect)
+    }
+
+    func testHeaderAndVersionAutoPreserveFreshAndManualWhiteBalance() throws {
+        for base in [EditRecipe.neutral, EditRecipe(temperature: 4800, tint: 12),
+                     EditRecipe(temperature: 4800), EditRecipe(tint: -8)] {
+            let stats = evenStats(mean: 0.31, nativeTemperature: 5200)
+            let source: RecipeSource = base == .neutral ? .shot : .hand
+            let header = P0SessionModel(), version = P0SessionModel()
+            let asset = makeAsset(recipe: base, source: source, stats: stats)
+            header.assets = [asset]; version.assets = [asset]
+            XCTAssertEqual(header.applyAuto(to: [asset.id], force: true), 1)
+            version.pickVersion(2, for: asset.id)
+            let a = try XCTUnwrap(header.assets[0].recipe)
+            let b = try XCTUnwrap(version.assets[0].recipe)
+            XCTAssertEqual(a.valueFingerprint, b.valueFingerprint)
+            XCTAssertEqual(a.temperature, base.temperature)
+            XCTAssertEqual(a.tint, base.tint)
+            XCTAssertEqual(a.rawIntent.isAsShotWhiteBalance, base.rawIntent.isAsShotWhiteBalance)
+            XCTAssertEqual(header.applyAuto(to: [asset.id], force: true), 0)
+            version.pickVersion(2, for: asset.id)
+            XCTAssertEqual(version.assets[0].recipe?.valueFingerprint, b.valueFingerprint)
+            header.undoLast()
+            // Undo stores a neutral recipe as nil; compare the effective recipe.
+            XCTAssertEqual(header.recipe(for: asset.id).valueFingerprint, base.valueFingerprint)
+            if source == .hand {
+                version.pickVersion(3, for: asset.id)
+                XCTAssertEqual(version.assets[0].recipe?.valueFingerprint, base.valueFingerprint)
+            }
+        }
     }
 
     func testHorizonOnlyStraightensSmallTiltsAndKeepsQuarterTurns() {

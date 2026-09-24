@@ -35,9 +35,9 @@ nonisolated struct AutoDevelop {
             recipe.highlights = highlights(clipFraction: stats.highlightClipFraction)
             recipe.shadows = shadows(clipFraction: stats.shadowClipFraction)
             recipe.vibrance = autoVibrance
-            if let nativeTemperature = stats.nativeTemperature {
-                recipe.temperature = nativeTemperature
-            }
+            // Tone Auto preserves the complete starting WB intent. The neutral
+            // sentinel resolves camera temperature AND tint in the RAW decoder;
+            // adopting only stats.nativeTemperature would create a hybrid pair.
             recipe.straightenDegrees = straightenDegrees(
                 base: base.straightenDegrees,
                 horizonAngle: stats.horizonAngle

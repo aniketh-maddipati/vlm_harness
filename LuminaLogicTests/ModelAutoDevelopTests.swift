@@ -56,8 +56,8 @@ final class ModelAutoDevelopTests: XCTestCase {
         XCTAssertEqual(out.shadows, Band.shadows.upperBound)
         XCTAssertEqual(out.vibrance, Band.vibrance.upperBound)
         XCTAssertEqual(out.saturation, Band.saturation.upperBound)
-        XCTAssertEqual(out.temperature, 5_200 + Band.temperatureShift.upperBound)
-        XCTAssertEqual(out.tint, 4 + Band.tintShift.upperBound)
+        XCTAssertEqual(out.temperature, 5_200)
+        XCTAssertEqual(out.tint, 4)
     }
 
     func testBandsAreNarrowerThanTheSliders() {
@@ -68,14 +68,15 @@ final class ModelAutoDevelopTests: XCTestCase {
         XCTAssertLessThan(Band.temperatureShift.upperBound, 10_000)
     }
 
-    func testWhiteBalanceIsAShiftFromTheBaseNotAnAbsolute() {
-        // Live finding: without the camera value the model guessed 8000 K absolute.
-        // Asking for a shift means 8000 can only ever move the base by the band.
-        let base = EditRecipe(temperature: 5_200)
-        let out = ModelAutoDevelop.bound(ModelToneProposal(temperatureShift: 8_000), onto: base)
-        XCTAssertEqual(out.temperature, 5_200 + Band.temperatureShift.upperBound)
-        let cooler = ModelAutoDevelop.bound(ModelToneProposal(temperatureShift: -300), onto: base)
-        XCTAssertEqual(cooler.temperature, 4_900)
+    func testToneAutoIgnoresWhiteBalanceShiftsForAsShotAndManualPairs() {
+        for base in [EditRecipe.neutral, EditRecipe(temperature: 5200, tint: -8)] {
+            for shift in [-8000.0, 0, 8000] {
+                let out = ModelAutoDevelop.bound(ModelToneProposal(temperatureShift: shift, tintShift: 15), onto: base)
+                XCTAssertEqual(out.temperature, base.temperature)
+                XCTAssertEqual(out.tint, base.tint)
+                XCTAssertEqual(out.rawIntent.isAsShotWhiteBalance, base.rawIntent.isAsShotWhiteBalance)
+            }
+        }
     }
 
     func testExposureIsQuantizedToTheAutoStep() {
@@ -159,11 +160,41 @@ final class ModelAutoDevelopTests: XCTestCase {
         XCTAssertNil(result.fallbackReason)
         XCTAssertEqual(result.recipe.contrast, Band.contrast.upperBound, "75 clamped to the band")
         XCTAssertEqual(result.recipe.highlights, Band.highlights.upperBound, "30 clamped: the live case")
-        XCTAssertEqual(result.recipe.temperature, 4_800)
+        XCTAssertTrue(result.recipe.rawIntent.isAsShotWhiteBalance, "tone Auto retains camera WB instead of applying a model shift")
         let body = try XCTUnwrap(transport.lastBody)
         let messages = try XCTUnwrap(body["messages"] as? [[String: Any]])
         let content = try XCTUnwrap(messages[1]["content"] as? [[String: Any]])
         XCTAssertEqual(content.count, 2, "auto sends the downscaled preview")
+    }
+
+    func testPublicToneProposalPreservesWholeWhiteBalanceAndNonWBBehavior() async throws {
+        let path = try S.writeTinyJPEG()
+        for base in [EditRecipe.neutral, EditRecipe(temperature: 4800, tint: 12),
+                     EditRecipe(temperature: 4800), EditRecipe(tint: -8)] {
+            for native in [Double?](arrayLiteral: 5200, 6500, nil) {
+                var asset = measuredAsset(previewPath: path)
+                asset.recipe = base
+                let stats = S.stats(mean: 0.3, nativeTemperature: native)
+                let response = proposalJSON(exposure: 0.35, contrast: 11, highlights: -25,
+                    shadows: 18, vibrance: 9, saturation: -3, temperatureShift: -200, tintShift: 8)
+                let result = await ModelAutoDevelop.proposal(for: asset, stats: stats,
+                    client: client(FakeModelTransport(content: response)))
+                XCTAssertEqual(result.source, .model)
+                XCTAssertNil(result.fallbackReason)
+                XCTAssertEqual(result.recipe.temperature, base.temperature)
+                XCTAssertEqual(result.recipe.tint, base.tint)
+                XCTAssertEqual(result.recipe.rawIntent.isAsShotWhiteBalance, base.rawIntent.isAsShotWhiteBalance)
+                var expected = AutoDevelop.recipe(for: asset, stats: stats)
+                expected.exposure = (0.35 / AutoDevelop.exposureStep).rounded() * AutoDevelop.exposureStep
+                expected.contrast = 11; expected.highlights = -25; expected.shadows = 18
+                expected.vibrance = 9; expected.saturation = -3
+                XCTAssertEqual(result.recipe, expected)
+                asset.recipe = result.recipe
+                let repeated = await ModelAutoDevelop.proposal(for: asset, stats: stats,
+                    client: client(FakeModelTransport(content: response)))
+                XCTAssertEqual(repeated.recipe, result.recipe)
+            }
+        }
     }
 
     func testUnreachableModelFallsBackToDeterministicPerFrame() async throws {
