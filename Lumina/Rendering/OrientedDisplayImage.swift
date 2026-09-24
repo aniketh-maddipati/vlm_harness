@@ -191,6 +191,7 @@ nonisolated enum OrientedDisplayImage {
         var layoutSize: CGSize
         let identity: DevelopSelectedImageIdentity?
         var generation: UInt64? = nil
+        var preGeometryExtent: CGRect? = nil
     }
 
     static func select(
@@ -205,7 +206,7 @@ nonisolated enum OrientedDisplayImage {
         if var candidate = promoted,
            candidate.assetID == assetID,
            candidate.recipe?.valueFingerprint == recipe.valueFingerprint,
-           stablePresent(promoted: candidate.image, fallback: browse?.image, recipe: recipe) === candidate.image {
+           matchesGeometry(candidate: candidate, fallback: browse?.image, recipe: recipe) {
             if let candidateGeneration = candidate.generation, let previousGeneration = previous?.generation,
                candidateGeneration < previousGeneration {
                 return previous
@@ -218,6 +219,23 @@ nonisolated enum OrientedDisplayImage {
             return candidate
         }
         return previous ?? browse
+    }
+
+    private static func matchesGeometry(candidate: DisplayFrame, fallback: CIImage?, recipe: EditRecipe) -> Bool {
+        guard let reference = candidate.preGeometryExtent else {
+            return stablePresent(promoted: candidate.image, fallback: fallback, recipe: recipe) === candidate.image
+        }
+        guard validExtent(reference), validExtent(candidate.image.extent) else { return false }
+        let source = CIImage(color: .clear).cropped(to: reference)
+        let expected = DevelopRenderGraph.applyGeometry(recipe, to: source).extent
+        guard validExtent(expected) else { return false }
+        return candidate.image.extent.integral == expected.integral
+    }
+
+    private static func validExtent(_ extent: CGRect) -> Bool {
+        extent.origin.x.isFinite && extent.origin.y.isFinite
+            && extent.width.isFinite && extent.height.isFinite
+            && extent.width > 0 && extent.height > 0
     }
 
     static func stablePresent(promoted: CIImage?, fallback: CIImage?, recipe: EditRecipe = .neutral) -> CIImage? {
