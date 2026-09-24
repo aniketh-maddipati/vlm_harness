@@ -14,6 +14,7 @@ actor DevelopPresentationCache {
         let ciImage: CIImage
         let cgImage: CGImage?
         let fidelity: DevelopFidelityState
+        let preGeometryExtent: CGRect?
         let byteEstimate: Int
         var lastAccess: CFAbsoluteTime
         let speculative: Bool
@@ -42,7 +43,8 @@ actor DevelopPresentationCache {
         return entry
     }
 
-    func put(key: String, ciImage: CIImage, cgImage: CGImage?, fidelity: DevelopFidelityState, speculative: Bool = false) {
+    func put(key: String, ciImage: CIImage, cgImage: CGImage?, fidelity: DevelopFidelityState,
+             preGeometryExtent: CGRect? = nil, speculative: Bool = false) {
         // RGBAh estimate: 8 bytes/pixel for the lazy CI recipe's realized size,
         // plus the bitmap when present.
         let extent = ciImage.extent
@@ -54,6 +56,7 @@ actor DevelopPresentationCache {
             ciImage: ciImage,
             cgImage: cgImage,
             fidelity: fidelity,
+            preGeometryExtent: preGeometryExtent,
             byteEstimate: bytes,
             lastAccess: CFAbsoluteTimeGetCurrent(),
             speculative: speculative
@@ -229,7 +232,7 @@ final class DevelopRenderScheduler {
     private static let signposter = OSSignposter(subsystem: "app.lumina.develop", category: "render")
 
     /// Before/After cached surfaces — switch without re-render.
-    private var beforeSurface: [UUID: CIImage] = [:]
+    private var beforeSurface: [UUID: (image: CIImage, preGeometryExtent: CGRect?)] = [:]
     private var afterSurface: [UUID: CIImage] = [:]
     private var beforeBitmap: [UUID: CGImage] = [:]
 
@@ -443,7 +446,7 @@ final class DevelopRenderScheduler {
         let before = await DevelopRenderGraph.render(beforeReq)
         let after = await DevelopRenderGraph.render(afterReq)
         if let img = before.ciImage {
-            beforeSurface[photoID] = img
+            beforeSurface[photoID] = (image: img, preGeometryExtent: before.preGeometryExtent)
             beforeBitmap[photoID] = before.cgImage
         }
         if let img = after.ciImage { afterSurface[photoID] = img }
@@ -475,7 +478,9 @@ final class DevelopRenderScheduler {
     }
 
     /// Instant Before/After using cached surfaces.
-    func beforeImage(for photoID: UUID) -> CIImage? { beforeSurface[photoID] }
+    func beforeImage(for photoID: UUID) -> CIImage? { beforeSurface[photoID]?.image }
+
+    func beforePreGeometryExtent(for photoID: UUID) -> CGRect? { beforeSurface[photoID]?.preGeometryExtent }
     func beforeBitmap(for photoID: UUID) -> CGImage? { beforeBitmap[photoID] }
     func afterImage(for photoID: UUID) -> CIImage? { afterSurface[photoID] ?? presented[photoID]?.ciImage }
 
@@ -538,6 +543,7 @@ final class DevelopRenderScheduler {
         if let cached = await cache.get(key) {
             Self.signposter.emitEvent("cacheHit", id: signpostID)
             let result = DevelopRenderResult(
+                preGeometryExtent: cached.preGeometryExtent,
                 requestID: request.id,
                 generation: generation,
                 photoID: photoID,
@@ -643,6 +649,7 @@ final class DevelopRenderScheduler {
                 ciImage: image,
                 cgImage: rendered.cgImage,
                 fidelity: rendered.fidelity,
+                preGeometryExtent: rendered.preGeometryExtent,
                 speculative: speculative
             )
             if !speculative {
