@@ -4,6 +4,15 @@ One line per session: claim → finding → fix → instrument reading. Read thi
 
 ---
 
+## 2026-09-23 — Auto tone preserves white balance (`codex/verified-auto-wb-main`)
+
+**Finding:** Deterministic Auto could replace the as-shot temperature sentinel without its matching tint; model-backed tone Auto could also shift the photographer's white balance.
+**Fix:** Both Auto paths preserve the complete base temperature/tint pair, including as-shot and manual settings. Tone adjustments remain unchanged. Existing saved explicit pairs are preserved, not retrospectively repaired.
+**Verification:** Product commit `3121a54` on `a692358`: FAST 41/41; focused 39/39; full logic 514 passed, six fixture-gated skips, zero failures. RAW preview/export parity passed one XCTest with 24 stage and 21 export comparisons (maximum Delta E 0.907421 and 0.894539 respectively). Two unchanged clean-build rounds subsequently passed; each ran 520 logic tests (514 passed, six skipped), Debug, shipping/Playground Release and F11.1/F11.2 checks.
+**Limits:** The first clean attempt lost its test runner during the cold-open test (513 passed, six skipped, one failure). That same binary passed all four isolated cold-open tests, then both complete clean rounds passed; the initial runner exit remains unexplained and its evidence is retained. Vet was blocked by missing credentials. The optional five-photo candidate audit was not rerun on this integration. Native UI acceptance, Lightroom visual parity and a speed improvement are not established. Auto button/background-ingest experience changes are separate queued work.
+
+---
+
 ## 2026-09-22 — Pointer travel is not selection (`cursor/pointer-travel-only-87da`)
 **Claim:** Pointer/tap navigation changes focus only; photographer decisions remain explicit typed decision commands (`P` `X` `⏎` `⇧⏎` `A`).
 **Finding:** Live chapter-table plates already called `setFocus`, but filmstrip/collection pointer still had a second verb: `selectClick` wrote `selectedAssetIDs` (plain click = `[id]`; ⌘ = toggle; ⇧ = range). `ContactSheetCollection` `didSelectItemsAt` + `allowsMultipleSelection = true` + `selectionIndexPaths` were AppKit selection as product state. Inspect strip still painted a selection ring from `marks.selected`. That is hidden persistent selection — shelved by D29, forbidden by Law 1.
