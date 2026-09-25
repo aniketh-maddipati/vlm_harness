@@ -28,4 +28,26 @@ final class ElasticChronologyTests: XCTestCase {
         XCTAssertEqual(marks[id]?.startedAt, nil)
         XCTAssertEqual(marks[id]?.id, chapter.id)
     }
+    func testNavigationTracksLeadingChapterThroughGapsAndReverseScrolling() {
+        let first = CGRect(x: 0, y: -180, width: 600, height: 250)
+        let second = CGRect(x: 0, y: 70, width: 600, height: 200)
+        XCTAssertEqual(ElasticChronology.activeChapter(frames: ["a": first, "b": second]), "a")
+        XCTAssertEqual(ElasticChronology.activeChapter(frames: [
+            "a": first.offsetBy(dx: 0, dy: -80), "b": second.offsetBy(dx: 0, dy: -80)
+        ]), "b")
+        XCTAssertEqual(ElasticChronology.activeChapter(frames: ["a": first, "b": second]), "a")
+        XCTAssertEqual(ElasticChronology.activeChapter(frames: ["a": CGRect(x: 0, y: 20, width: 600, height: 200)]), "a")
+        XCTAssertNil(ElasticChronology.activeChapter(frames: [:]))
+    }
+
+    func testChronologyMarkerDoesNotMoveFocusOrSelection() {
+        let session = P0SessionModel()
+        let id = UUID()
+        session.focusedAssetID = id
+        session.selectedAssetIDs = [id]
+        session.chronologyViewportChapterID = "visible-chapter"
+        XCTAssertEqual(session.focusedAssetID, id)
+        XCTAssertEqual(session.selectedAssetIDs, [id])
+        XCTAssertEqual(session.uiTestSnapshot().chronologyViewportChapterID, "visible-chapter")
+    }
 }
