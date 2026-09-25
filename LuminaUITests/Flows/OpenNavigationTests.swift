@@ -76,6 +76,7 @@ extension ContactSheetRobot {
             return ProbeSnapshot(
                 route: "time", shootName: nil, fixture: nil, seed: "0",
                 assetCount: 0, visibleCount: 0, selectionCount: 0, keptCount: 0,
+                exportIsRunning: false, exportSettingsVisible: false, exportCanResume: false, exportPlanned: 0, exportWritten: 0, exportFailed: 0, exportCancelled: 0,
                 rejectedCount: 0, unreviewedCount: 0, editedCount: 0, densityColumns: 0,
                 filter: "", canUndo: false, focusedAssetID: nil, focusedVisible: false,
                 focusedAvailability: nil, focusedCull: nil, focusedRecipeFingerprint: nil,

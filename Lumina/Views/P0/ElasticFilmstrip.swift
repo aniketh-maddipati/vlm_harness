@@ -2,43 +2,62 @@ import SwiftUI
 
 struct ElasticFilmstrip: View {
     @Bindable var session: P0SessionModel
+    @State private var viewportSpace = UUID()
+    @State private var viewportSnapshot = ElasticViewportSnapshot()
+    @State private var revealRequest: ElasticViewportReveal.Request?
 
     var body: some View {
-        ScrollViewReader { proxy in
+        let boundaries = ElasticChronology.boundaries(
+            orderedIDs: session.stripAssetIDs, chapters: session.chapters,
+            chronological: session.peek != .set
+        )
+        return GeometryReader { viewport in
+          ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: ElasticLayout.filmstripGap) {
-                    Text(session.stripLabel)
-                        .font(ElasticType.mono(ElasticLayout.stripLabelSize))
-                        .lineSpacing(ElasticType.lineSpacing(
-                            size: ElasticLayout.stripLabelSize,
-                            lineHeight: ElasticLayout.stripLabelLineHeight
-                        ))
-                        .foregroundStyle(
-                            LuminaTokens.Elastic.shellAlt
-                                .opacity(ElasticLayout.stripLabelOpacity)
-                        )
-                        .frame(width: ElasticLayout.stripLabelWidth, alignment: .leading)
+                    if session.peek == .set {
+                        chronologyLabel(session.stripLabel)
+                    }
 
                     ForEach(session.stripAssetIDs, id: \.self) { id in
                         if let asset = session.asset(id) {
+                            if let chapter = boundaries[id] {
+                                chronologyLabel(ElasticChronology.label(for: chapter))
+                                    .padding(.leading, ElasticLayout.filmstripMomentGap)
+                            }
                             tile(asset)
-                                .id(asset.id)
-                                .padding(
-                                    .trailing,
-                                    session.peek != .set && session.startsNewMoment(after: asset.id)
-                                        ? ElasticLayout.filmstripMomentGap
-                                        : 0
-                                )
                         }
                     }
                 }
+                .background(ElasticScrollInterruption { revealRequest = nil })
                 .padding(.horizontal, ElasticLayout.tableGutter)
                 .frame(height: ElasticLayout.filmstripHeight)
             }
-            .onChange(of: session.focusedAssetID) { _, id in
-                guard let id else { return }
-                proxy.scrollTo(id, anchor: .center)
+            .coordinateSpace(name: viewportSpace)
+            .environment(\.elasticViewportSpace, viewportSpace)
+            .onPreferenceChange(ElasticViewportFrames.self) { snapshot in
+                viewportSnapshot = snapshot
+                resolveReveal(snapshot: snapshot, viewport: viewport.size, proxy: proxy)
             }
+            .onAppear {
+                requestReveal()
+                resolveReveal(snapshot: viewportSnapshot, viewport: viewport.size, proxy: proxy)
+            }
+            .onChange(of: session.focusedAssetID) { _, _ in
+                // Wait for the focused tile's new dimensions, not its previous small box.
+                requestReveal()
+                resolveReveal(snapshot: viewportSnapshot, viewport: viewport.size, proxy: proxy)
+            }
+            .onChange(of: session.stripAssetIDs) { _, _ in
+                requestReveal()
+                resolveReveal(snapshot: viewportSnapshot, viewport: viewport.size, proxy: proxy)
+            }
+            .onChange(of: viewport.size) { _, size in
+                requestReveal()
+                resolveReveal(snapshot: viewportSnapshot, viewport: size, proxy: proxy)
+            }
+            .onDisappear { revealRequest = nil }
+          }
         }
         .frame(height: ElasticLayout.filmstripHeight)
         .background(
@@ -49,6 +68,34 @@ struct ElasticFilmstrip: View {
         #if DEBUG
         .workbenchHot()
         #endif
+    }
+
+    private func chronologyLabel(_ label: String) -> some View {
+        Text(label)
+            .font(ElasticType.mono(ElasticLayout.stripLabelSize))
+            .foregroundStyle(LuminaTokens.Elastic.shellAlt.opacity(ElasticLayout.stripLabelOpacity))
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func requestReveal() {
+        guard let id = session.focusedAssetID, session.stripAssetIDs.contains(id) else {
+            revealRequest = nil
+            return
+        }
+        revealRequest = ElasticViewportReveal.Request(
+            id: id, expectedSize: ElasticLayout.filmstripFocusedTile
+        )
+    }
+
+    private func resolveReveal(snapshot: ElasticViewportSnapshot, viewport: CGSize, proxy: ScrollViewProxy) {
+        guard var request = revealRequest else { return }
+        switch request.resolve(frames: snapshot.tiles, viewport: CGRect(origin: .zero, size: viewport), realizedContainers: snapshot.containers) {
+        case .wait: break
+        case .finished: revealRequest = nil
+        case .reveal(let id, _):
+            revealRequest = nil
+            proxy.scrollTo(id)
+        }
     }
 
     private func tile(_ asset: AssetRecord) -> some View {
@@ -64,6 +111,7 @@ struct ElasticFilmstrip: View {
             }
         }
         .frame(width: size.width, height: size.height)
+        .modifier(ElasticViewportTile(id: asset.id))
         .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.tileRadius, style: .continuous))
         .elasticMarked(radius: ElasticLayout.tileRadius, ringed: ringed, inSet: inSet)
         .opacity(asset.cull == .reject ? ElasticLayout.outOpacity : 1)

@@ -336,6 +336,8 @@ extension P0SessionModel {
     /// shoot order, becomes the selection and the cursor goes to the frame.
     func clickFrame(_ id: UUID, shift: Bool, command: Bool) {
         guard assetIndex(id) != nil else { return }
+        autoReceipt = nil
+        versionAutoStatus = nil
         if command {
             if selectionAnchorID == nil { selectionAnchorID = focusedAssetID }
             workspaceState.toggleSelection(id)

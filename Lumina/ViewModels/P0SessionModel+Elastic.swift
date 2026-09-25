@@ -36,6 +36,12 @@ extension P0SessionModel {
     var elasticHeadline: String {
         if showingBefore { return "before · everything as shot · release ␣" }
         let selected = selectedAssetIDs.count
+        if selected == 0, peek == nil {
+            if let run = autoRun { return "Applying adjustments · \(run.scope)" }
+            if let receipt = autoReceipt { return receipt.label }
+            if versionAutoAssetID != nil { return "Applying adjustments to this photo…" }
+            if let versionAutoStatus { return versionAutoStatus }
+        }
         if route == .focus, let id = focusedAssetID {
             if selected > 0 {
                 return "\(selected) selected · P · X · 1 2 3 apply to all · Esc clears"
@@ -69,10 +75,11 @@ extension P0SessionModel {
     }
 
     /// Auto is live while anything it would touch is still as shot.
-    var autoButtonEnabled: Bool { autoButtonSubLabel != "nothing as shot" }
+    var autoButtonEnabled: Bool { autoRun == nil && versionAutoAssetID == nil && autoButtonSubLabel != "nothing as shot" }
 
     /// `the set · n` when a set exists, else `all · n`, else `nothing as shot`.
     var autoButtonSubLabel: String {
+        if let run = autoRun { return run.scope }
         let setIDs = finalSetAssetIDs
         if !setIDs.isEmpty {
             let count = setIDs.filter { asShot($0) }.count
@@ -86,15 +93,53 @@ extension P0SessionModel {
         asset(id)?.recipeSource == .shot
     }
 
-    /// `A` on the table: the set when there is one, otherwise everything.
-    func applyAutoToTable() {
+    /// The set when there is one, otherwise everything. Selection does not change scope.
+    func applyAutoToTable(measure: (@MainActor (AssetRecord) async -> ImageStats?)? = nil) {
+        guard autoButtonEnabled else { return }
         let setIDs = finalSetAssetIDs
         let targets = setIDs.isEmpty ? assets.map(\.id) : setIDs
-        Task { [weak self] in
+        let run = P0AutoRun(id: UUID(), shootID: shoot?.id, contextID: autoContextID,
+                            targetIDs: targets, scope: autoButtonSubLabel,
+                            sources: Dictionary(uniqueKeysWithValues: targets.compactMap { id in
+                                asset(id).map { (id, P0AutoSource($0)) }
+                            }), recipeFingerprints: Dictionary(uniqueKeysWithValues: targets.compactMap { id in
+                                asset(id).map { (id, ($0.recipe ?? .neutral).valueFingerprint) }
+                            }))
+        autoReceipt = nil
+        autoRun = run
+        autoTask = Task { [weak self] in
             guard let self else { return }
-            await self.ensureImageStats(for: targets)
-            self.applyAuto(to: targets)
+            await self.ensureImageStats(for: targets, measure: measure)
+            guard !Task.isCancelled, self.autoRun?.id == run.id,
+                  self.autoContextID == run.contextID, self.shoot?.id == run.shootID else { return }
+            self.flushPendingEditIfNeeded()
+            let valid = targets.filter { id in
+                self.asset(id).map(P0AutoSource.init) == run.sources[id]
+                    && run.sources[id] != nil
+            }
+            let eligible = valid.filter { id in
+                self.asset(id)?.recipeSource == .shot
+                    && self.recipe(for: id).valueFingerprint == run.recipeFingerprints[id]
+            }
+            let protected = valid.count - eligible.count
+            let unmeasured = eligible.filter { self.asset($0)?.imageStats == nil }.count
+            let changed = self.applyAuto(to: eligible)
+            self.autoReceipt = P0AutoReceipt(adjusted: changed,
+                unchanged: valid.count - protected - unmeasured - changed,
+                unmeasured: unmeasured, protected: protected, skipped: targets.count - valid.count)
+            self.autoRun = nil
+            self.autoTask = nil
         }
+    }
+
+    /// A cancelled decode may finish, but its results cannot touch the next context.
+    func cancelAutoWork() {
+        cancelVersionAuto()
+        autoContextID = UUID()
+        autoTask?.cancel()
+        autoTask = nil
+        autoRun = nil
+        autoReceipt = nil
     }
 
     // MARK: - Moments
@@ -185,17 +230,14 @@ extension P0SessionModel {
     /// `Export`, then `✓ written` once the set is on disk.
     var elasticExportLabel: String {
         if isExporting { return "Exporting…" }
-        return exportStatusLine?.hasPrefix("Exported") == true ? "✓ written" : "Export"
+        return exportSummary?.allCompleted == true ? "✓ written" : "Export"
     }
 
     /// The receipt band under the shelf, once an export has landed.
     var elasticExportReceipt: (written: String, folder: String)? {
-        guard let line = exportStatusLine, line.hasPrefix("Exported") else { return nil }
-        let count = line.dropFirst("Exported ".count)
-        let folder = IngestPreferences.lastExportFolderPath.map {
-            ($0 as NSString).abbreviatingWithTildeInPath
-        } ?? ""
-        return ("✓ \(count) written", folder)
+        guard let summary = exportSummary else { return nil }
+        let folder = (summary.root.path as NSString).abbreviatingWithTildeInPath
+        return ("\(summary.completed) of \(summary.total) written", folder)
     }
 
     // MARK: - Focus route
@@ -296,43 +338,81 @@ extension P0SessionModel {
     ///
     /// Switching away from a hand recipe caches it first, so `3` can always return
     /// to it. Auto is only derived when the frame has been measured.
-    func pickVersion(_ index: Int, for assetID: UUID) {
-        guard let asset = assets.first(where: { $0.id == assetID }) else { return }
-        cacheHandRecipeIfNeeded(for: asset)
+    func pickVersion(_ index: Int, for assetID: UUID,
+                     measure: (@MainActor (AssetRecord) async -> ImageStats?)? = nil) {
+        guard (1...3).contains(index) else { return }
+        if index == 2, autoRun != nil || versionAutoAssetID == assetID { return }
+        cancelVersionAuto()
+        let pendingHand = isEditGestureActive && gestureAssetID == assetID
+            && workingRecipe?.valueFingerprint != gestureBaselineRecipe?.valueFingerprint
+            ? workingRecipe : nil
+        flushPendingEditIfNeeded()
+        guard let asset = asset(assetID) else { return }
+        cacheHandRecipeIfNeeded(for: asset, pendingHand: pendingHand)
 
         switch index {
         case 1:
             applyVersion(.neutral, source: .shot, to: assetID)
         case 2:
-            guard let stats = asset.imageStats else {
-                Task { [weak self] in
-                    guard let self else { return }
-                    await self.ensureImageStats(for: [assetID])
-                    guard let measured = self.assets.first(where: { $0.id == assetID })?.imageStats,
-                          let fresh = self.assets.first(where: { $0.id == assetID }) else { return }
-                    self.applyVersion(
-                        AutoDevelop.recipe(for: fresh, stats: measured),
-                        source: .auto,
-                        to: assetID
-                    )
-                }
+            if let stats = asset.imageStats {
+                applyVersion(AutoDevelop.recipe(for: asset, stats: stats), source: .auto, to: assetID)
+                versionAutoStatus = "Adjustments applied to this photo"
                 return
             }
-            applyVersion(AutoDevelop.recipe(for: asset, stats: stats), source: .auto, to: assetID)
+            let requestID = UUID()
+            let context = autoContextID
+            let shootID = shoot?.id
+            let focusID = focusedAssetID
+            let identity = P0AutoSource(asset)
+            let recipe = (asset.recipe ?? .neutral).valueFingerprint
+            let source = asset.recipeSource
+            versionAutoRequestID = requestID
+            versionAutoAssetID = assetID
+            versionAutoTask = Task { [weak self] in
+                guard let self else { return }
+                await self.ensureImageStats(for: [assetID], measure: measure)
+                guard !Task.isCancelled, self.versionAutoRequestID == requestID else { return }
+                guard self.autoContextID == context, self.shoot?.id == shootID,
+                      self.focusedAssetID == focusID, let fresh = self.asset(assetID),
+                      P0AutoSource(fresh) == identity,
+                      (fresh.recipe ?? .neutral).valueFingerprint == recipe,
+                      fresh.recipeSource == source else {
+                    self.cancelVersionAuto()
+                    return
+                }
+                self.clearVersionAutoState()
+                guard let stats = fresh.imageStats else {
+                    self.versionAutoStatus = "Adjustments unavailable · no measurements"
+                    return
+                }
+                self.applyVersion(AutoDevelop.recipe(for: fresh, stats: stats), source: .auto, to: assetID)
+                self.versionAutoStatus = "Adjustments applied to this photo"
+            }
         case 3:
-            guard let hand = asset.handRecipe else { return }
+            guard let hand = self.asset(assetID)?.handRecipe else { return }
             applyVersion(hand, source: .hand, to: assetID)
-        default:
-            return
+        default: break
         }
     }
 
+    func cancelVersionAuto() {
+        versionAutoTask?.cancel()
+        clearVersionAutoState()
+    }
+
+    private func clearVersionAutoState() {
+        versionAutoTask = nil
+        versionAutoRequestID = nil
+        versionAutoAssetID = nil
+        versionAutoStatus = nil
+    }
+
     /// Keep the hand recipe before a version switch can overwrite it.
-    private func cacheHandRecipeIfNeeded(for asset: AssetRecord) {
+    private func cacheHandRecipeIfNeeded(for asset: AssetRecord, pendingHand: EditRecipe?) {
         let isHandAuthored = asset.recipeSource == .hand
             || asset.recipeSource == .autoHand
             || asset.recipeSource == .sidecar
-        guard isHandAuthored, let current = asset.recipe else { return }
+        guard let current = pendingHand ?? (isHandAuthored ? asset.recipe : nil) else { return }
         guard let index = assets.firstIndex(where: { $0.id == asset.id }) else { return }
         assets[index].handRecipe = current
         if var shoot {

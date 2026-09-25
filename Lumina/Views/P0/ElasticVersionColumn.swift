@@ -39,6 +39,7 @@ struct ElasticVersionColumn: View {
 
     private func versionTile(_ index: Int, word: String) -> some View {
         let active = session.versionIndex(for: asset) == index
+        let busy = index == 2 && session.versionAutoAssetID == asset.id
         // `yours` stays legible but unfinished until there is a hand recipe to go back to.
         let unauthored = index == 3 && asset.handRecipe == nil
 
@@ -59,9 +60,19 @@ struct ElasticVersionColumn: View {
                 versionBadge(index, word: word)
                     .padding(ElasticLayout.versionBadgeInset)
             }
+            .overlay(alignment: .bottom) {
+                if busy {
+                    Text("Applying…")
+                        .font(ElasticType.mono(ElasticLayout.versionBadgeTextSize))
+                        .foregroundStyle(LuminaTokens.Elastic.shell)
+                        .padding(ElasticLayout.versionBadgeInset)
+                }
+            }
             .elasticMarked(radius: ElasticLayout.tileRadius, ringed: active, inSet: false)
         }
         .buttonStyle(LuminaElasticButtonStyle())
+        .disabled(index == 2 && (session.autoRun != nil || session.versionAutoAssetID != nil))
+        .accessibilityValue(busy ? "Applying adjustments" : "")
         .accessibilityIdentifier(P0AccessibilityID.elasticVersion(index))
     }
 

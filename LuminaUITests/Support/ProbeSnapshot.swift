@@ -13,6 +13,13 @@ struct ProbeSnapshot: Codable, Equatable {
     var visibleCount: Int
     var selectionCount: Int
     var keptCount: Int
+    var exportIsRunning: Bool
+    var exportSettingsVisible: Bool
+    var exportCanResume: Bool
+    var exportPlanned: Int
+    var exportWritten: Int
+    var exportFailed: Int
+    var exportCancelled: Int
     var rejectedCount: Int
     var unreviewedCount: Int
     var editedCount: Int

@@ -80,7 +80,14 @@ struct ContactSheetItem: Identifiable, Equatable {
 @MainActor
 @Observable
 final class P0SessionModel {
-    var route: P0Route = .open
+    var route: P0Route = .open {
+        didSet {
+            if route != oldValue {
+                autoReceipt = nil
+                cancelVersionAuto()
+            }
+        }
+    }
     var shoot: ShootRecord?
     var assets: [AssetRecord] = [] {
         didSet {
@@ -127,13 +134,25 @@ final class P0SessionModel {
     var workspaceState = WorkspaceState()
     var focusedAssetID: UUID? {
         get { workspaceState.focusedAssetID }
-        set { workspaceState.focus(newValue) }
+        set {
+            if newValue != focusedAssetID {
+                autoReceipt = nil
+                cancelVersionAuto()
+            }
+            workspaceState.focus(newValue)
+        }
     }
     /// Time-rail chapter currently on the board. Nil until a shoot has photographs.
     var activeChapterID: String?
     var selectedAssetIDs: [UUID] {
         get { workspaceState.selectedAssetIDs }
-        set { workspaceState.select(newValue) }
+        set {
+            if newValue != selectedAssetIDs {
+                autoReceipt = nil
+                versionAutoStatus = nil
+            }
+            workspaceState.select(newValue)
+        }
     }
     var densityColumns: Int = 6
     /// Density is a lean. Rest state packs to leftover height.
@@ -148,7 +167,14 @@ final class P0SessionModel {
     /// The set peek walks the set instead of the shoot. Backing state for `peek == .set`.
     var walkingKeptRail: Bool = false
     /// Hold-⇥ peek: similar → set → flags. Nil when nothing is held or pinned.
-    var peek: ElasticPeek?
+    var peek: ElasticPeek? {
+        didSet {
+            if peek != oldValue {
+                autoReceipt = nil
+                versionAutoStatus = nil
+            }
+        }
+    }
     /// `E` — the develop drawer beside the photograph. Backing state; the drawer
     /// itself lands with checkpoint 05.
     var developDrawerOpen = false
@@ -199,7 +225,14 @@ final class P0SessionModel {
     private(set) var gestureAssetID: UUID?
     private(set) var isEditGestureActive = false
     /// Press-and-hold Before — never mutates recipe or undo.
-    var showingBefore = false
+    var showingBefore = false {
+        didSet {
+            if showingBefore != oldValue {
+                autoReceipt = nil
+                versionAutoStatus = nil
+            }
+        }
+    }
     var expandedAdjustmentSection: P0AdjustmentSection? = .light
     var rawCapabilities: PreparedRawSession.Capabilities?
     var rawNativeTemperature: Double?
@@ -208,6 +241,21 @@ final class P0SessionModel {
     var fidelityNotice: String?
     private(set) var isExporting = false
     private(set) var exportStatusLine: String?
+    private(set) var exportSummary: P0ExportJobStore.Summary?
+    var exportSettings = IngestPreferences.exportSettings {
+        didSet { if exportSettings.isValid { IngestPreferences.exportSettings = exportSettings } }
+    }
+    var exportSettingsVisible = false
+    var exportControlsFocused = false {
+        didSet {
+            guard exportControlsFocused else { return }
+            closePeek()
+            setShowingBefore(false)
+            setHoldingClipping(false)
+        }
+    }
+    private var exportTask: Task<Void, Never>?
+    private var exportJobID: UUID?
     private(set) var editMetricsLine: String = ""
     /// Drawable-native authoritative preview target. Full resolution remains
     /// reserved for 1:1 ROI and export.
@@ -242,7 +290,8 @@ final class P0SessionModel {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
-        panel.prompt = "Export"
+        panel.prompt = "Choose destination"
+        panel.message = "Export \(exportCount) kept photos into a new subfolder here."
         if let path = IngestPreferences.lastExportFolderPath {
             panel.directoryURL = URL(fileURLWithPath: path)
         }
@@ -253,34 +302,99 @@ final class P0SessionModel {
 
     func exportKept(to folder: URL) {
         guard let shoot, exportCount > 0, !isExporting else { return }
-        let snapshot = assets
-        let shootName = shoot.name
-        let destination = folder
-        let count = exportCount
+        flushPendingEditIfNeeded()
+        do {
+            let plan = try P0ExportPlan.make(shootID: shoot.id, assets: assets, order: shoot.finalSetOrder.assetIDs, settings: exportSettings)
+            beginExport(jobID: plan.id, shootID: plan.shootID) { progress in
+                try await P0AuthoritativeExportService.export(plan: plan, to: folder, progress: progress)
+            }
+        } catch { exportStatusLine = error.localizedDescription }
+    }
+
+    var canResumeExport: Bool {
+        guard !isExporting, let shoot, let locator = IngestPreferences.lastExportJob else { return false }
+        return locator.shootID == shoot.id
+            && P0ExportPresentation.shouldOfferResume(knownSummary: exportSummary, jobID: locator.jobID)
+    }
+
+    func resumeExport() {
+        guard canResumeExport, let locator = IngestPreferences.lastExportJob else { return }
+        var root = locator.root
+        if !FileManager.default.fileExists(atPath: root.path) {
+            let panel = NSOpenPanel()
+            panel.canChooseDirectories = true
+            panel.canChooseFiles = false
+            panel.message = "Reconnect the destination and choose this export's folder."
+            panel.prompt = "Open export folder"
+            guard panel.runModal() == .OK, let chosen = panel.url else { return }
+            root = chosen
+        }
+        let destination = root
+        beginExport(jobID: locator.jobID, shootID: locator.shootID) { progress in
+            try await P0AuthoritativeExportService.resume(root: destination, expectedJobID: locator.jobID, expectedShootID: locator.shootID, progress: progress)
+        }
+    }
+
+    /// Every shoot transition detaches UI state before releasing source access.
+    func detachExport() {
+        exportTask?.cancel()
+        exportTask = nil
+        exportJobID = nil
+        isExporting = false
+        exportSummary = nil
+        exportStatusLine = nil
+        exportControlsFocused = false
+        exportSettingsVisible = false
+    }
+
+    func cancelExport() {
+        exportTask?.cancel()
+        exportStatusLine = CopyContract.exportStopping
+    }
+
+    func revealExport() {
+        guard let root = exportSummary?.root ?? IngestPreferences.lastExportJob?.root else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([root])
+    }
+
+    private func beginExport(jobID: UUID, shootID: UUID,
+        work: @escaping @Sendable (@escaping @Sendable (P0ExportJobStore.Summary) async -> Void) async throws -> P0ExportJobStore.Summary) {
         isExporting = true
-        exportStatusLine = "Exporting \(count)…"
-        developScheduler.enqueueExport {
-            do {
-                let outcome = try await P0AuthoritativeExportService.export(
-                    shootName: shootName,
-                    assets: snapshot,
-                    to: destination
-                )
-                await MainActor.run { [weak self] in
-                    guard let self else { return }
-                    self.isExporting = false
-                    self.exportStatusLine = "Exported \(outcome.urls.count)"
-                    NSWorkspace.shared.activateFileViewerSelecting([outcome.root])
-                }
-            } catch {
-                await MainActor.run { [weak self] in
-                    guard let self else { return }
-                    self.isExporting = false
-                    self.exportStatusLine = nil
-                    self.userFacingError = error.localizedDescription
-                }
+        exportJobID = jobID
+        exportSummary = nil
+        exportStatusLine = "Exporting…"
+        let progress: @Sendable (P0ExportJobStore.Summary) async -> Void = { [weak self] summary in
+            await MainActor.run {
+                guard let self, self.shoot?.id == shootID, self.exportJobID == jobID,
+                      summary.jobID == jobID, summary.shootID == shootID else { return }
+                self.exportSummary = summary
+                IngestPreferences.lastExportJob = .init(root: summary.root, jobID: summary.jobID, shootID: summary.shootID)
+                self.exportStatusLine = CopyContract.exportProgress(written: summary.completed, total: summary.total)
             }
         }
+        exportTask = developScheduler.enqueueExport({ [weak self] in
+            do {
+                let summary = try await work(progress)
+                await progress(summary)
+                await MainActor.run {
+                    guard let self, self.shoot?.id == shootID, self.exportJobID == jobID else { return }
+                    self.isExporting = false
+                    self.exportStatusLine = P0ExportPresentation.receipt(summary)
+                }
+            } catch {
+                await MainActor.run {
+                    guard let self, self.shoot?.id == shootID, self.exportJobID == jobID else { return }
+                    self.isExporting = false
+                    self.exportStatusLine = error.localizedDescription
+                }
+            }
+        }, onCancelled: { [weak self] in
+            await MainActor.run {
+                guard let self, self.shoot?.id == shootID, self.exportJobID == jobID else { return }
+                self.isExporting = false
+                self.exportStatusLine = CopyContract.exportCancelled
+            }
+        })
     }
 
     var keptOrderMode: Bool { shoot?.workspace.keptOrderMode ?? false }
@@ -442,7 +556,9 @@ final class P0SessionModel {
     /// last path component. Generated cards all keep their frames in a folder
     /// called `frames`; without a name they would share one catalog.
     func openFolder(_ url: URL, shootName: String? = nil) {
+        cancelAutoWork()
         preparationTask?.cancel()
+        detachExport()
         releaseFolderAccess()
         userFacingError = nil
         inspectingAssetID = nil
@@ -471,7 +587,9 @@ final class P0SessionModel {
     /// Open an existing shoot by name (used by Recent, and by the DEBUG UI-test auto-open path,
     /// which must not depend on the recent-shoots list being populated yet).
     func openShoot(named name: String) {
+        cancelAutoWork()
         preparationTask?.cancel()
+        detachExport()
         releaseFolderAccess()
         userFacingError = nil
         inspectingAssetID = nil
@@ -529,6 +647,8 @@ final class P0SessionModel {
     }
 
     func undoLast() {
+        cancelVersionAuto()
+        autoReceipt = nil
         flushPendingEditIfNeeded()
         guard let entry = undoCoordinator.pop() else { return }
         switch entry {
@@ -706,19 +826,47 @@ final class P0SessionModel {
         }
     }
 
+    /// An owned Auto operation. Scope is frozen before the first suspension.
+    var versionAutoAssetID: UUID?
+    var versionAutoStatus: String?
+    @ObservationIgnored var versionAutoTask: Task<Void, Never>?
+    @ObservationIgnored var versionAutoRequestID: UUID?
+
+    var autoRun: P0AutoRun?
+    var autoReceipt: P0AutoReceipt?
+    @ObservationIgnored var autoTask: Task<Void, Never>?
+    @ObservationIgnored var autoContextID = UUID()
+
     // MARK: - Auto
 
     /// Measure and cache `ImageStats` for any of `ids` that lack them.
     ///
     /// Measuring is idempotent and never touches recipe, cull, or undo — a frame
     /// whose original is offline is simply left unmeasured, and auto skips it.
-    func ensureImageStats(for ids: [UUID]) async {
+    func ensureImageStats(
+        for ids: [UUID],
+        measure: (@MainActor (AssetRecord) async -> ImageStats?)? = nil
+    ) async {
+        let context = autoContextID
+        let shootID = shoot?.id
         for id in ids {
-            guard let asset = assets.first(where: { $0.id == id }), asset.imageStats == nil else { continue }
-            guard let rawURL = resolveRenderURLs(for: id)?.rawURL else { continue }
-            let session = await PreparedRawSessionRegistry.shared.session(for: id, rawURL: rawURL)
-            guard let stats = await session.imageStats() else { continue }
-            guard let index = assets.firstIndex(where: { $0.id == id }) else { continue }
+            guard !Task.isCancelled, autoContextID == context, shoot?.id == shootID else { return }
+            guard let asset = asset(id), asset.imageStats == nil else { continue }
+            let identity = P0AutoSource(asset)
+            let stats: ImageStats?
+            if let measure {
+                stats = await measure(asset)
+            } else {
+                guard let rawURL = resolveRenderURLs(for: id)?.rawURL else { continue }
+                let prepared = await PreparedRawSessionRegistry.shared.session(for: id, rawURL: rawURL)
+                guard !Task.isCancelled, autoContextID == context, shoot?.id == shootID,
+                      self.asset(id).map(P0AutoSource.init) == identity,
+                      resolveRenderURLs(for: id)?.rawURL == rawURL else { return }
+                stats = await prepared.imageStats()
+            }
+            guard !Task.isCancelled, autoContextID == context, shoot?.id == shootID else { return }
+            guard let index = assetIndex(id), P0AutoSource(assets[index]) == identity,
+                  let stats else { continue }
             assets[index].imageStats = stats
             if var shoot {
                 shoot.assets = assets
@@ -791,6 +939,8 @@ final class P0SessionModel {
     // MARK: - Edit (single-photo)
 
     func beginEditGesture(for assetID: UUID? = nil) {
+        cancelVersionAuto()
+        autoReceipt = nil
         let id = assetID ?? inspectingAssetID ?? focusedAssetID
         guard let id else { return }
         if isEditGestureActive, gestureAssetID == id { return }
@@ -975,6 +1125,8 @@ final class P0SessionModel {
 
     /// Commit an instantaneous edit (reset, crop preset, rotate) as one undo command.
     func applyEditMutation(_ mutate: (inout EditRecipe) -> Void, assetID: UUID? = nil) {
+        cancelVersionAuto()
+        autoReceipt = nil
         flushPendingEditIfNeeded()
         let id = assetID ?? inspectingAssetID ?? focusedAssetID
         guard let id else { return }
@@ -1851,11 +2003,13 @@ final class P0SessionModel {
     }
 
     func goHome() {
+        cancelAutoWork()
         flushPendingEditIfNeeded()
         preparationTask?.cancel()
         capabilityTask?.cancel()
         prewarmTask?.cancel()
         persistRestoreNow()
+        detachExport()
         releaseFolderAccess()
         releaseDevelopScheduler()
         shoot = nil

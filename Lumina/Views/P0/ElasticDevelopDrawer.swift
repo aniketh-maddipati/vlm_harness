@@ -175,10 +175,12 @@ struct ElasticDevelopDrawer: View {
                 session.pickVersion(2, for: asset.id)
             } label: {
                 HStack(spacing: ElasticLayout.chipGap) {
-                    Text("auto")
+                    Text(session.versionAutoAssetID == asset.id ? "applying…" : "auto")
                     Text("A").opacity(ElasticLayout.drawerMutedOpacity)
                 }
             }
+            .disabled(session.autoRun != nil || session.versionAutoAssetID != nil)
+            .accessibilityValue(session.versionAutoAssetID == asset.id ? "Applying adjustments" : "")
             actionButton(primary: true) {
                 session.matchToCursor()
             } label: {

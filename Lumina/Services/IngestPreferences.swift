@@ -40,6 +40,25 @@ enum IngestPreferences {
         set { defaults.set(newValue, forKey: Keys.lastExport) }
     }
 
+    static var exportSettings: P0ExportSettings {
+        get {
+            guard let data = defaults.data(forKey: "lumina.export.settings"),
+                  let value = try? JSONDecoder().decode(P0ExportSettings.self, from: data), value.isValid else { return P0ExportSettings() }
+            return value
+        }
+        set { defaults.set(try? JSONEncoder().encode(newValue), forKey: "lumina.export.settings") }
+    }
+
+    struct ExportLocator: Codable {
+        let root: URL
+        let jobID: UUID
+        let shootID: UUID
+    }
+    static var lastExportJob: ExportLocator? {
+        get { defaults.data(forKey: "lumina.export.lastJob").flatMap { try? JSONDecoder().decode(ExportLocator.self, from: $0) } }
+        set { defaults.set(try? JSONEncoder().encode(newValue), forKey: "lumina.export.lastJob") }
+    }
+
     /// Preferred emerging-set share of Workbench content width (0…1). Default 0.38.
     static var workbenchSetFraction: Double {
         get {
