@@ -63,6 +63,11 @@ nonisolated struct ProductPerformanceSnapshot: Encodable {
     let selectedImageTrace: JSONValue?
     let renderCounters: [String: Int]
 
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, pid, startedAt, snapshotAt, elapsedSeconds
+        case snapshotNote, metrics, selectedImageTrace, renderCounters
+    }
+
     init(pid: Int, startedAt: String, snapshotAt: String, elapsedSeconds: Double,
          metrics: [Metric], counters: DevelopRenderCounters.Snapshot,
          selectedImageTrace: JSONValue? = nil) {
@@ -81,6 +86,19 @@ nonisolated struct ProductPerformanceSnapshot: Encodable {
             "presentSubmissions": counters.metalPresents,
             "cancellations": counters.cancellations
         ]
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(pid, forKey: .pid)
+        try container.encode(startedAt, forKey: .startedAt)
+        try container.encode(snapshotAt, forKey: .snapshotAt)
+        try container.encode(elapsedSeconds, forKey: .elapsedSeconds)
+        try container.encode(snapshotNote, forKey: .snapshotNote)
+        try container.encode(metrics, forKey: .metrics)
+        try container.encodeIfPresent(selectedImageTrace, forKey: .selectedImageTrace)
+        try container.encode(renderCounters, forKey: .renderCounters)
     }
 
     func encoded() throws -> Data {
