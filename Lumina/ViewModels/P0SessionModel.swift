@@ -449,13 +449,15 @@ final class P0SessionModel {
         if showingBefore, let image = developSchedulerStorage?.beforeImage(for: assetID) {
             return OrientedDisplayImage.DisplayFrame(assetID: assetID, image: image, recipe: .neutral,
                 layoutSize: image.extent.size, identity: displayedImageIdentity(for: assetID, selected: image),
-                preGeometryExtent: developSchedulerStorage?.beforePreGeometryExtent(for: assetID))
+                preGeometryExtent: developSchedulerStorage?.beforePreGeometryExtent(for: assetID),
+                rawStageBacking: developSchedulerStorage?.beforeStageBacking(for: assetID) ?? .unattributed)
         }
         guard let result = developSchedulerStorage?.presented[assetID],
               result.photoID == assetID, let image = result.ciImage else { return nil }
         return OrientedDisplayImage.DisplayFrame(assetID: result.photoID, image: image,
             recipe: result.displayRecipe, layoutSize: image.extent.size, identity: result.measurementIdentity,
-            generation: result.generation, preGeometryExtent: result.preGeometryExtent)
+            generation: result.generation, preGeometryExtent: result.preGeometryExtent,
+            rawStageBacking: result.rawStageBacking)
     }
 
     /// Live develop fidelity for a photograph, if the scheduler has started.

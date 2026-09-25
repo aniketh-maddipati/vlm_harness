@@ -50,10 +50,15 @@ final class RenderInstrumentSLATests: XCTestCase {
         XCTAssertEqual(LatencyMetrics.navigationSLAms / declared, 6.0, accuracy: 0.01)
     }
 
-    func testDeclaredKeysAreExactlyRenderKeysPlusEditDraw() {
+    /// Exhaustiveness pin. W0 widened this deliberately: the four
+    /// `DevelopDrawInstruments` keys joined the mapping. The pin that matters —
+    /// `testExistingP0KeysKeepTheirHistoricalBudget` — is untouched below.
+    func testDeclaredKeysAreExactlyRenderKeysPlusEditDrawPlusDevelopDrawKeys() {
         XCTAssertEqual(
             LatencyMetrics.declaredSLAKeys,
-            (P0RenderInstruments.Key.all + [LatencyMetrics.editDrawKey]).sorted()
+            (P0RenderInstruments.Key.all
+                + [LatencyMetrics.editDrawKey]
+                + DevelopDrawInstruments.Key.all).sorted()
         )
     }
 
