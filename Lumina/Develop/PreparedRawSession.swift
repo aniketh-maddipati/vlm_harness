@@ -130,13 +130,17 @@ actor PreparedRawSession {
         intent: RawIntent,
         targetLongEdge: Int?,
         tier: Tier
-    ) -> (image: CIImage, cacheHit: Bool)? {
+    ) -> (image: CIImage, cacheHit: Bool, backing: DevelopRawStageBacking)? {
         guard let surface = rawStageSurface(
             intent: intent,
             targetLongEdge: targetLongEdge,
             tier: tier
         ) else { return nil }
-        return (finishRawStage(surface.image, intent: intent, tier: tier), surface.cacheHit)
+        return (
+            finishRawStage(surface.image, intent: intent, tier: tier),
+            surface.cacheHit,
+            surface.backing
+        )
     }
 
     /// Texture-backed interactive RAW intent. Variants with identical RAW intents
@@ -176,6 +180,13 @@ actor PreparedRawSession {
         let image: CIImage
         let cacheHit: Bool
         let texture: MTLTexture?
+
+        /// Derived from the surface itself, not from the tier it was asked for:
+        /// `materializeInteractiveStage` can fail (no Metal device, render error)
+        /// and the interactive tier then caches the lazy graph like the
+        /// authoritative one does. Reading the tier would mislabel that draw as
+        /// cheap; reading the texture cannot.
+        var backing: DevelopRawStageBacking { texture == nil ? .lazyGraph : .materialized }
     }
 
     private func rawStageSurface(

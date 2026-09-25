@@ -261,6 +261,13 @@ extension P0SessionModel {
         asset(id)?.cull == .keep
     }
 
+    /// On only when every one of these frames is already in the set.
+    /// An empty list is off — there is nothing to take out.
+    func setToggleIsOn(_ ids: [UUID]) -> Bool {
+        let known = ids.filter { asset($0) != nil }
+        return !known.isEmpty && known.allSatisfy(isInFinalSet)
+    }
+
     /// `Export`, then `✓ written` once the set is on disk.
     var elasticExportLabel: String {
         if isExporting { return "Exporting…" }

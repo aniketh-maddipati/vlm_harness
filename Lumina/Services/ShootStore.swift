@@ -132,21 +132,100 @@ actor ShootStore {
         var summaries: [RecentShootSummary] = []
         for dir in contents where dir.hasDirectoryPath {
             let name = dir.lastPathComponent
+            if OpenShootArrangement.isHarnessName(name) { continue }
             guard let shoot = try? loadShoot(id: name) else { continue }
             let mod = (try? dir.resourceValues(forKeys: [.contentModificationDateKey]))
                 .flatMap(\.contentModificationDate) ?? shoot.createdAt
+            let captured = shoot.assets.compactMap(\.capturedAt).sorted()
             summaries.append(
                 RecentShootSummary(
                     id: shoot.id,
                     name: shoot.name,
                     assetCount: shoot.assets.count,
                     keepCount: shoot.assets.filter { $0.cull == .keep }.count,
+                    markedCount: shoot.assets.filter { $0.cull != .undecided }.count,
                     lastOpenedAt: mod,
-                    rawFolderPath: shoot.rawFolder?.originalPath
+                    rawFolderPath: shoot.rawFolder?.originalPath,
+                    stillPaths: stillPaths(for: shoot, directory: dir),
+                    coverPath: coverPath(for: shoot),
+                    capturedFrom: captured.first,
+                    capturedTo: captured.last
                 )
             )
         }
         return summaries.sorted { $0.lastOpenedAt > $1.lastOpenedAt }
+    }
+
+    /// Up to four frames, spread across the shoot. Kept frames win inside each stretch.
+    nonisolated static func stillPaths(for shoot: ShootRecord, directory: URL, limit: Int = 4) -> [String] {
+        var candidates: [OpenShootArrangement.StillCandidate] = []
+        for asset in shoot.assets {
+            guard let path = asset.thumbPath ?? asset.gridThumbPath ?? asset.proxyPath,
+                  FileManager.default.fileExists(atPath: path) else { continue }
+            candidates.append(
+                OpenShootArrangement.StillCandidate(
+                    path: path,
+                    capturedAt: asset.capturedAt,
+                    isKeep: asset.cull == .keep,
+                    quality: asset.compositeQuality
+                )
+            )
+        }
+        if candidates.isEmpty {
+            candidates = cachedJPEGCandidates(in: directory)
+        }
+        return OpenShootArrangement.sampleStills(candidates, limit: limit)
+    }
+
+    /// Cover for the plate ground. Appeal here is the stored score (sharpness and exposure),
+    /// with a keep winning a tie. A flat score falls back to a frame from the middle of the shoot.
+    nonisolated static func coverPath(for shoot: ShootRecord) -> String? {
+        let ready = shoot.assets.filter { asset in
+            guard let path = asset.thumbPath ?? asset.gridThumbPath ?? asset.proxyPath else { return false }
+            return FileManager.default.fileExists(atPath: path)
+        }
+        guard !ready.isEmpty else { return nil }
+        let scored = ready.filter { $0.aesthetic > 0 && $0.aesthetic != 0.5 }
+        let pool = scored.isEmpty ? ready : scored
+        let ordered = pool.sorted { lhs, rhs in
+            switch (lhs.capturedAt, rhs.capturedAt) {
+            case let (l?, r?) where l != r: return l < r
+            default: return lhs.id.uuidString < rhs.id.uuidString
+            }
+        }
+        if scored.isEmpty {
+            let path = ordered[ordered.count / 2].thumbPath
+                ?? ordered[ordered.count / 2].gridThumbPath
+                ?? ordered[ordered.count / 2].proxyPath
+            return path
+        }
+        let best = pool.max { lhs, rhs in
+            if lhs.aesthetic != rhs.aesthetic { return lhs.aesthetic < rhs.aesthetic }
+            if (lhs.cull == .keep) != (rhs.cull == .keep) { return rhs.cull == .keep }
+            return lhs.compositeQuality < rhs.compositeQuality
+        }
+        return best?.thumbPath ?? best?.gridThumbPath ?? best?.proxyPath
+    }
+
+    nonisolated private static func cachedJPEGCandidates(in directory: URL) -> [OpenShootArrangement.StillCandidate] {
+        let cache = directory.appendingPathComponent("cache", isDirectory: true)
+        guard let tiers = try? FileManager.default.contentsOfDirectory(
+            at: cache,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+        var files: [URL] = []
+        for tier in tiers where tier.hasDirectoryPath {
+            guard let found = try? FileManager.default.contentsOfDirectory(
+                at: tier,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            ) else { continue }
+            files.append(contentsOf: found.filter { $0.pathExtension.lowercased() == "jpg" })
+        }
+        return files.sorted { $0.lastPathComponent < $1.lastPathComponent }.map {
+            OpenShootArrangement.StillCandidate(path: $0.path, capturedAt: nil, isKeep: false, quality: 0)
+        }
     }
 
     nonisolated static func createOrOpenShoot(from folderURL: URL, name: String? = nil) throws -> ShootRecord {

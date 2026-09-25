@@ -110,6 +110,7 @@ struct ElasticFocusView: View {
                 DevelopMetalView(
                     image: image,
                     measurementIdentity: selection?.identity,
+                    rawStageBacking: selection?.rawStageBacking ?? .unattributed,
                     zoom: focusZoom.zoom,
                     panOffset: focusZoom.pan
                 )

@@ -12,6 +12,7 @@ struct ElasticTableView: View {
     @State private var viewportSnapshot = ElasticViewportSnapshot()
     @State private var returnAnchor: ElasticViewportReveal.Anchor?
     @State private var revealRequest: ElasticViewportReveal.Request?
+    @State private var marqueeRect: CGRect?
 
     var body: some View {
         Group {
@@ -82,6 +83,29 @@ struct ElasticTableView: View {
                     .background(ElasticScrollInterruption { revealRequest = nil })
                     .padding(.horizontal, ElasticLayout.tableGutter)
                     .padding(.vertical, ElasticLayout.tablePaddingTop)
+                    .background {
+                        ElasticMarqueeGesture(
+                            session: session,
+                            space: viewportSpace,
+                            frames: viewportSnapshot.tiles,
+                            rect: $marqueeRect
+                        )
+                    }
+                }
+                .overlay {
+                    if let marqueeRect {
+                        Rectangle()
+                            .strokeBorder(
+                                LuminaTokens.Elastic.ink,
+                                style: StrokeStyle(
+                                    lineWidth: ElasticLayout.shelfDropRingWidth,
+                                    dash: ElasticLayout.shelfDropRingDash
+                                )
+                            )
+                            .frame(width: marqueeRect.width, height: marqueeRect.height)
+                            .position(x: marqueeRect.midX, y: marqueeRect.midY)
+                            .allowsHitTesting(false)
+                    }
                 }
                 .coordinateSpace(name: viewportSpace)
                 .environment(\.elasticViewportSpace, viewportSpace)
@@ -240,6 +264,7 @@ struct ElasticFrameGroup: View {
             }
             .overlay(alignment: .topTrailing) {
                 HStack(spacing: ElasticLayout.badgePaddingH) {
+                    setButton
                     phoneButton
                     badge("fold", fill: LuminaTokens.Elastic.ink, ink: LuminaTokens.Elastic.shell)
                 }
@@ -266,14 +291,23 @@ struct ElasticFrameGroup: View {
             card(width: width, height: height, offset: ElasticLayout.stackMiddle,
                  opacity: ElasticLayout.stackMiddleOpacity)
             if let id = leaderID {
-                ElasticFrameTile(session: session, assetID: id, width: width, showsPhoneButton: false)
+                ElasticFrameTile(
+                    session: session,
+                    assetID: id,
+                    width: width,
+                    showsSetButton: false,
+                    showsPhoneButton: false
+                )
             }
         }
         .padding(.trailing, ElasticLayout.stackPadding)
         .overlay(alignment: .topLeading) {
-            phoneButton
-                .padding(.top, ElasticLayout.badgeTop)
-                .padding(.leading, ElasticLayout.markInset)
+            HStack(spacing: ElasticLayout.badgePaddingH) {
+                setButton
+                phoneButton
+            }
+            .padding(.top, ElasticLayout.badgeTop)
+            .padding(.leading, ElasticLayout.markInset)
         }
         .overlay(alignment: .topTrailing) {
             badge("×\(burst.frameCount)", fill: LuminaTokens.Elastic.shell, ink: LuminaTokens.Elastic.ink)
@@ -305,6 +339,13 @@ struct ElasticFrameGroup: View {
         .buttonStyle(LuminaElasticButtonStyle())
     }
 
+    /// One control for the whole burst. On only when every frame is already in.
+    private var setButton: some View {
+        ElasticSetButton(on: session.setToggleIsOn(burst.assetIDs)) {
+            session.classifySet(burst.assetIDs)
+        }
+    }
+
     /// One control for the whole run. Filled only when every frame is a phone.
     private var phoneButton: some View {
         let on = !burst.assetIDs.isEmpty && burst.assetIDs.allSatisfy(session.isPhoneFrame)
@@ -319,6 +360,7 @@ struct ElasticFrameTile: View {
     @Bindable var session: P0SessionModel
     let assetID: UUID
     let width: CGFloat
+    var showsSetButton = true
     var showsPhoneButton = true
 
     private var asset: AssetRecord? {
@@ -344,15 +386,21 @@ struct ElasticFrameTile: View {
         .modifier(ElasticViewportTile(id: assetID))
         .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.tileRadius, style: .continuous))
         .overlay(alignment: .topLeading) {
-            if asset?.isUnsupportedVideo != true {
-                if let mark = inSet ? "✓" : cull == .reject ? "✕" : nil {
-                    Text(mark)
-                        .font(.system(size: ElasticLayout.markTextSize, weight: .bold))
-                        .foregroundStyle(LuminaTokens.Elastic.shell)
-                        .frame(width: ElasticLayout.markSize, height: ElasticLayout.markSize)
-                        .background(LuminaTokens.Elastic.ink, in: Circle())
-                        .padding(ElasticLayout.markInset)
+            if showsSetButton {
+                ElasticSetButton(on: inSet) {
+                    session.classifySet([assetID])
                 }
+                .padding(ElasticLayout.markInset)
+            }
+        }
+        .overlay(alignment: showsSetButton ? .topTrailing : .topLeading) {
+            if cull == .reject {
+                Text("✕")
+                    .font(.system(size: ElasticLayout.markTextSize, weight: .bold))
+                    .foregroundStyle(LuminaTokens.Elastic.shell)
+                    .frame(width: ElasticLayout.markSize, height: ElasticLayout.markSize)
+                    .background(LuminaTokens.Elastic.ink, in: Circle())
+                    .padding(ElasticLayout.markInset)
             }
         }
         .overlay(alignment: .bottomTrailing) {
