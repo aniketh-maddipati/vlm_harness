@@ -144,6 +144,30 @@ struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 }
             }
 
+            if unmodified, chars == "]", !event.isARepeat {
+                session.flipPage()
+                return nil
+            }
+
+            if event.keyCode == P0VirtualKey.pageUp || event.keyCode == P0VirtualKey.pageDown {
+                let step = event.keyCode == P0VirtualKey.pageDown ? 1 : -1
+                if session.stitchOpen {
+                    session.stepStitchFocus(step)
+                    armTravel(event)
+                    return nil
+                }
+                if session.route == .focus {
+                    session.stepFramePage(step)
+                    armTravel(event)
+                    return nil
+                }
+                if session.route == .time {
+                    session.requestMomentPage(step: step)
+                    armTravel(event)
+                    return nil
+                }
+            }
+
             switch event.keyCode {
             case 123:
                 session.moveFocus(dx: -1, dy: 0, columns: session.densityColumns)

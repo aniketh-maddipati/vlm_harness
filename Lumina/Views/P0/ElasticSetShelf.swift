@@ -29,7 +29,12 @@ struct ElasticSetShelf: View {
             }
             .frame(maxWidth: .infinity)
 
-            exportButton
+            ElasticOperationButton(title: "stitch", on: false) {
+                session.openStitch()
+            }
+            .accessibilityIdentifier(P0AccessibilityID.elasticStitch)
+
+            ElasticExportButton(session: session)
         }
         .padding(.horizontal, ElasticLayout.chromeGutter)
         .frame(height: ElasticLayout.setShelfHeight)
@@ -81,7 +86,13 @@ struct ElasticSetShelf: View {
         }
     }
 
-    private var exportButton: some View {
+}
+
+/// The one export verb. Same costume on the shelf and on stitch.
+struct ElasticExportButton: View {
+    @Bindable var session: P0SessionModel
+
+    var body: some View {
         Button {
             session.chooseAndExportKept()
         } label: {
@@ -108,7 +119,7 @@ struct ElasticSetShelf: View {
             )
         }
         .buttonStyle(LuminaElasticButtonStyle())
-        .disabled(session.isExporting)
+        .disabled(session.isExporting || session.finalSetAssetIDs.isEmpty)
     }
 }
 

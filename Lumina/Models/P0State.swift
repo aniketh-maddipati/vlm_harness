@@ -692,6 +692,8 @@ struct RecentShootSummary: Codable, Hashable, Sendable, Identifiable {
     var keepCount: Int
     /// Keeps, cuts, and holds. Zero means the shoot is still open.
     var markedCount: Int = 0
+    /// Frames whose recipe is no longer as shot.
+    var editedCount: Int = 0
     var lastOpenedAt: Date
     var rawFolderPath: String?
     /// A spread of previews. Kept frames first, sampled across the shoot.

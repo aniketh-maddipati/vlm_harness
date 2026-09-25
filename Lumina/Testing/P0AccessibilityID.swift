@@ -45,6 +45,9 @@ enum P0AccessibilityID {
     static let elasticVersionPrefix = "p0.elastic.version." // + 1 / 2 / 3
     static let elasticDevelopDrawer = "p0.elastic.develop"
     static func elasticVersion(_ index: Int) -> String { elasticVersionPrefix + String(index) }
+    static let elasticStitch = "p0.elastic.stitch"
+    static let elasticStitchEarlier = "p0.elastic.stitch.earlier"
+    static let elasticStitchLater = "p0.elastic.stitch.later"
 
     // Toolbar / counts / controls
     static let toolbar = "p0.toolbar"
