@@ -213,9 +213,9 @@ extension P0SessionModel {
         return true
     }
 
-    /// The phone button. On only when every frame is already a phone. That press
-    /// takes the category off. Otherwise the press marks every frame as phone,
-    /// so a phone run leaves the camera stack.
+    /// The burst-scale `phone` operation. On only when every frame is already a
+    /// phone. That press takes the category off. Otherwise the press marks every
+    /// frame as phone, so a phone run leaves the camera stack.
     @discardableResult
     func classifyPhone(_ ids: [UUID]) -> Int {
         var seen: Set<UUID> = []
@@ -261,11 +261,32 @@ extension P0SessionModel {
         asset(id)?.cull == .keep
     }
 
+    /// Lead is the first frame of the focused burst; trail is the last.
+    /// A singleton has neither — there is no sequence to mark.
+    func sequenceMark(for id: UUID) -> ElasticSequenceMark? {
+        guard let focus = focusedAssetID else { return nil }
+        for chapter in chapters {
+            for burst in chapter.bursts where burst.frameCount > 1 && burst.assetIDs.contains(focus) {
+                let covers = burst.frames.map(\.coverID)
+                if covers.first == id { return .lead }
+                if covers.last == id { return .trail }
+            }
+        }
+        return nil
+    }
+
     /// On only when every one of these frames is already in the set.
     /// An empty list is off — there is nothing to take out.
     func setToggleIsOn(_ ids: [UUID]) -> Bool {
         let known = ids.filter { asset($0) != nil }
         return !known.isEmpty && known.allSatisfy(isInFinalSet)
+    }
+
+    /// On only when every one of these frames is already out.
+    /// An empty list is off — there is nothing to clear.
+    func outToggleIsOn(_ ids: [UUID]) -> Bool {
+        let known = ids.compactMap(asset)
+        return !known.isEmpty && known.allSatisfy { $0.cull == .reject }
     }
 
     /// `Export`, then `✓ written` once the set is on disk.

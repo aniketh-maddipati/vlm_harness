@@ -23,6 +23,7 @@ enum P0AXID {
     static func assetCell(_ id: String) -> String { contactCellPrefix + id }
     static let pointerCullKeep = "p0.pointerCull.keep"
     static let pointerCullReject = "p0.pointerCull.reject"
+    static let elasticOut = "p0.elastic.out"
 
     // Toolbar / counts / controls
     static let toolbar = "p0.toolbar"

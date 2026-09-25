@@ -18,12 +18,6 @@ struct ElasticSetShelf: View {
             .foregroundStyle(LuminaTokens.Elastic.muted)
             .frame(width: ElasticLayout.shelfLabelWidth, alignment: .leading)
 
-            if !session.assets.isEmpty {
-                ElasticSetButton(on: session.setToggleIsOn(session.assets.map(\.id))) {
-                    session.classifySet(session.assets.map(\.id))
-                }
-            }
-
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: ElasticLayout.shelfGap) {
                     ForEach(ids, id: \.self) { id in
@@ -70,19 +64,20 @@ struct ElasticSetShelf: View {
 
     private func shelfTile(_ id: UUID) -> some View {
         let asset = session.asset(id)
-        return ZStack {
-            LuminaTokens.Elastic.shelfThumbFill
-            if let path = asset?.gridThumbPath ?? asset?.thumbPath {
-                ChapterPlateImage(path: path)
-            }
-        }
-        .frame(width: ElasticLayout.shelfTile.width, height: ElasticLayout.shelfTile.height)
-        .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.shelfTileRadius, style: .continuous))
-        .elasticMarked(radius: ElasticLayout.shelfTileRadius, ringed: session.focusedAssetID == id, inSet: false)
-        .contentShape(Rectangle())
-        .onTapGesture {
+        return ElasticPlateButton {
             session.setFocus(id)
             session.openFocusedPhotograph()
+        } label: {
+            ZStack {
+                LuminaTokens.Elastic.shelfThumbFill
+                if let path = asset?.gridThumbPath ?? asset?.thumbPath {
+                    ChapterPlateImage(path: path)
+                }
+            }
+            .frame(width: ElasticLayout.shelfTile.width, height: ElasticLayout.shelfTile.height)
+            .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.shelfTileRadius, style: .continuous))
+            .elasticMarked(radius: ElasticLayout.shelfTileRadius, ringed: session.focusedAssetID == id, inSet: false)
+            .contentShape(Rectangle())
         }
     }
 

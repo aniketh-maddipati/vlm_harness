@@ -96,6 +96,24 @@ struct ElasticFocusView: View {
     }
 
     private var photograph: some View {
+        // The inspect plate is a settled button. Single press does not decide;
+        // double-press returns. Hold still opens before (Law 2). Pinch/scroll
+        // stay on FocusZoomMonitor (hitTest is nil).
+        ElasticPlateButton(onDoubleTap: {
+            session.closeInspection()
+        }) {
+            photographWell
+        }
+        .onLongPressGesture(minimumDuration: ElasticLayout.beforePressSeconds) {
+            session.setShowingBefore(true)
+        } onPressingChanged: { pressing in
+            if !pressing {
+                session.setShowingBefore(false)
+            }
+        }
+    }
+
+    private var photographWell: some View {
         GeometryReader { geometry in
             let selection = selectedFrame
             let image = selection?.image
@@ -195,18 +213,6 @@ struct ElasticFocusView: View {
             }
         }
         .contentShape(Rectangle())
-        // Double-click returns to the table. It is not a zoom.
-        .onTapGesture(count: 2) {
-            session.closeInspection()
-        }
-        // Pointer parity for hold-␣: press and hold the photograph for before.
-        .onLongPressGesture(minimumDuration: ElasticLayout.beforePressSeconds) {
-            session.setShowingBefore(true)
-        } onPressingChanged: { pressing in
-            if !pressing {
-                session.setShowingBefore(false)
-            }
-        }
     }
 
     private func zoomLimit(box: CGSize, backing: CGFloat) -> CGFloat {
@@ -297,6 +303,16 @@ struct ElasticFocusView: View {
             // `<span style="flex:1">` — an empty child, so the bar's own gap still
             // sits on both sides of it.
             Spacer(minLength: 0)
+
+            if session.peek == nil, asset.isUnsupportedVideo != true {
+                ElasticOperationButton(
+                    title: "out",
+                    on: session.outToggleIsOn([asset.id])
+                ) {
+                    session.classifyOut([asset.id])
+                }
+                .accessibilityIdentifier(P0AccessibilityID.pointerCullReject)
+            }
 
             ElasticHistogram(
                 bins: asset.imageStats?.luminanceBins ?? [],

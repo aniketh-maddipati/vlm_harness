@@ -43,7 +43,7 @@ struct ElasticVersionColumn: View {
         // `yours` stays legible but unfinished until there is a hand recipe to go back to.
         let unauthored = index == 3 && asset.handRecipe == nil
 
-        return Button {
+        return ElasticPlateButton {
             session.pickVersion(index, for: asset.id)
         } label: {
             ZStack {
@@ -70,7 +70,6 @@ struct ElasticVersionColumn: View {
             }
             .elasticMarked(radius: ElasticLayout.tileRadius, ringed: active, inSet: false)
         }
-        .buttonStyle(LuminaElasticButtonStyle())
         .disabled(index == 2 && (session.autoRun != nil || session.versionAutoAssetID != nil))
         .accessibilityValue(busy ? "Applying adjustments" : "")
         .accessibilityIdentifier(P0AccessibilityID.elasticVersion(index))

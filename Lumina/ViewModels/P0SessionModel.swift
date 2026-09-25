@@ -1767,7 +1767,13 @@ final class P0SessionModel {
     /// left alone — the peek proposes, it never overrules a mark.
     @discardableResult
     func takeInferredPicks() -> Int {
-        keepFrames(inferredGroups.flatMap(\.takeIDs), label: "Take the picks", burstID: "inferred-picks")
+        takePicks(inferredGroups.flatMap(\.takeIDs))
+    }
+
+    /// One group's `take` — the same command `G` uses, scoped to these frames.
+    @discardableResult
+    func takePicks(_ ids: [UUID]) -> Int {
+        keepFrames(ids, label: "Take the picks", burstID: "inferred-picks")
     }
 
     /// Frames dropped on the shelf join the set, as one command and one `⌘Z`. The
@@ -1779,9 +1785,9 @@ final class P0SessionModel {
         return added
     }
 
-    /// The "in set?" button. When every frame is already in, the press takes them
-    /// out — the same clear a second P would give — as one command. Otherwise the
-    /// press puts every frame in, including ones already marked out.
+    /// The burst-scale `set` operation. When every frame is already in, the press
+    /// takes them out — the same clear a second P would give — as one command.
+    /// Otherwise the press puts every frame in, including ones already marked out.
     @discardableResult
     func classifySet(_ ids: [UUID]) -> Int {
         var seen: Set<UUID> = []
@@ -1800,6 +1806,30 @@ final class P0SessionModel {
             },
             label: takingOut ? "Out of the set" : "In set",
             burstID: "set-button"
+        )
+    }
+
+    /// The burst-scale `out` operation. When every frame is already out, the press
+    /// clears them — the same clear a second X would give — as one command.
+    /// Otherwise the press marks every frame out, including ones already in the set.
+    @discardableResult
+    func classifyOut(_ ids: [UUID]) -> Int {
+        var seen: Set<UUID> = []
+        let known: [(index: Int, id: UUID)] = ids.compactMap { id in
+            guard seen.insert(id).inserted, let index = assets.firstIndex(where: { $0.id == id }) else { return nil }
+            return (index, id)
+        }
+        guard !known.isEmpty else { return 0 }
+        let clearing = known.allSatisfy { assets[$0.index].cull == .reject }
+        let after: CullDecision = clearing ? .undecided : .reject
+        return commitSetMarks(
+            known.compactMap { item in
+                let before = assets[item.index].cull
+                guard before != after else { return nil }
+                return (item.id, before, after)
+            },
+            label: clearing ? "Clear out" : "Out",
+            burstID: "out-button"
         )
     }
 

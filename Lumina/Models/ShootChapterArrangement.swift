@@ -113,12 +113,23 @@ struct CaptureName: Equatable, Sendable {
 }
 
 /// Chapters from scene-sized pauses; bursts from stem frames + confirmed runs.
+///
+/// The scene cut follows the shoot's own inter-burst rhythm, not a flat three-minute
+/// floor. Intra-burst gaps are ignored so a bursty portrait session does not collapse
+/// into one moment. A moment that still runs long is split at its largest breath.
 enum ShootChapterArrangement {
     static let burstGap: TimeInterval = 2
-    static let sceneGapFloor: TimeInterval = 3 * 60
+    /// Shortest pause that can open a new moment when the local rhythm is fast.
+    static let sceneGapFloor: TimeInterval = 45
     static let sceneGapCeiling: TimeInterval = 15 * 60
     /// A walk this long is always a new chapter, even when the median gap is large.
     static let sceneGapWalk: TimeInterval = 8 * 60
+    /// When there is no inter-burst rhythm yet (one run, or no dates).
+    static let defaultSceneGap: TimeInterval = 90
+    /// A moment is a few minutes of attention, not a whole ceremony.
+    static let momentSpanCeiling: TimeInterval = 3 * 60
+    /// A wrap row of bursts stays readable; past this the largest breath splits it.
+    static let momentBurstCeiling = 14
 
     static func arrange(_ assets: [AssetRecord]) -> [ShootChapter] {
         let frames = collapseStems(assets)
@@ -126,7 +137,7 @@ enum ShootChapterArrangement {
         let dated = frames.filter { $0.startedAt != nil }
         let undated = frames.filter { $0.startedAt == nil }
 
-        var chapters: [ShootChapter] = sceneGroups(dated).map(makeChapter)
+        var chapters: [ShootChapter] = momentGroups(bursts(from: dated)).map(makeChapter)
         if !undated.isEmpty {
             chapters.append(makeChapter(undated))
         }
@@ -208,11 +219,15 @@ enum ShootChapterArrangement {
     }
 
     private static func makeChapter(_ frames: [ShootFrame]) -> ShootChapter {
+        makeChapter(bursts(from: frames))
+    }
+
+    private static func makeChapter(_ bursts: [ShootBurst]) -> ShootChapter {
         ShootChapter(
-            id: frames[0].id,
-            startedAt: frames[0].startedAt,
-            assetIDs: frames.flatMap(\.assetIDs),
-            bursts: bursts(from: frames)
+            id: bursts[0].id,
+            startedAt: bursts[0].startedAt,
+            assetIDs: bursts.flatMap(\.assetIDs),
+            bursts: bursts
         )
     }
 
@@ -227,43 +242,85 @@ enum ShootChapterArrangement {
         }
     }
 
-    private static func sceneGroups(_ dated: [ShootFrame]) -> [[ShootFrame]] {
-        guard !dated.isEmpty else { return [] }
-        guard dated.count > 1 else { return [dated] }
-        let threshold = sceneThreshold(for: dated)
-        var groups: [[ShootFrame]] = []
-        var current: [ShootFrame] = [dated[0]]
-        for index in 1..<dated.count {
-            let previous = dated[index - 1]
-            let next = dated[index]
-            let gap: TimeInterval
-            if let start = previous.startedAt, let end = next.startedAt {
-                gap = end.timeIntervalSince(start)
+    /// Bursts that belong in one moment, then oversized moments are split at their
+    /// largest breath so a long run does not wrap as one pile.
+    private static func momentGroups(_ bursts: [ShootBurst]) -> [[ShootBurst]] {
+        guard !bursts.isEmpty else { return [] }
+        let threshold = sceneThreshold(gaps: interBurstGaps(bursts))
+        var groups: [[ShootBurst]] = []
+        var current: [ShootBurst] = [bursts[0]]
+        for index in 1..<bursts.count {
+            if gap(from: bursts[index - 1], to: bursts[index]) >= threshold {
+                groups.append(contentsOf: refineMoment(current))
+                current = [bursts[index]]
             } else {
-                gap = 0
-            }
-            if gap >= threshold {
-                groups.append(current)
-                current = [next]
-            } else {
-                current.append(next)
+                current.append(bursts[index])
             }
         }
-        groups.append(current)
+        groups.append(contentsOf: refineMoment(current))
         return groups
     }
 
-    static func sceneThreshold(for dated: [ShootFrame]) -> TimeInterval {
-        var gaps: [TimeInterval] = []
-        for index in 1..<dated.count {
-            if let start = dated[index - 1].startedAt, let end = dated[index].startedAt {
-                let gap = end.timeIntervalSince(start)
-                if gap > 0 { gaps.append(gap) }
+    private static func refineMoment(_ bursts: [ShootBurst]) -> [[ShootBurst]] {
+        guard bursts.count > 1 else { return [bursts] }
+        let local = interBurstGaps(bursts).sorted()
+        let localMedian = local.isEmpty ? 0 : local[local.count / 2]
+        // A slow walk is already a moment. Don't carve it into one-frame rows.
+        if localMedian >= sceneGapFloor { return [bursts] }
+        let overCount = bursts.count > momentBurstCeiling
+        let overSpan = momentSpan(bursts) > momentSpanCeiling
+        guard overCount || overSpan, let cut = bestCut(in: bursts) else { return [bursts] }
+        return refineMoment(Array(bursts[..<cut])) + refineMoment(Array(bursts[cut...]))
+    }
+
+    /// Prefer the largest pause; when pauses tie, cut near the middle so a flat
+    /// 3 s run becomes even rows instead of a 1 + N pile.
+    private static func bestCut(in bursts: [ShootBurst]) -> Int? {
+        let mid = bursts.count / 2
+        var bestIndex: Int?
+        var bestGap: TimeInterval = -1
+        var bestBalance = Int.max
+        for index in 1..<bursts.count {
+            let candidate = gap(from: bursts[index - 1], to: bursts[index])
+            let balance = abs(index - mid)
+            let larger = candidate > bestGap + 0.05
+            let tied = abs(candidate - bestGap) <= 0.05 && balance < bestBalance
+            if larger || tied {
+                bestGap = candidate
+                bestBalance = balance
+                bestIndex = index
             }
         }
-        guard !gaps.isEmpty else { return 12 * 60 }
-        gaps.sort()
-        let median = gaps[gaps.count / 2]
+        return bestIndex
+    }
+
+    private static func gap(from previous: ShootBurst, to next: ShootBurst) -> TimeInterval {
+        guard let start = previous.frames.last?.startedAt ?? previous.startedAt,
+              let end = next.startedAt else { return 0 }
+        return max(0, end.timeIntervalSince(start))
+    }
+
+    private static func momentSpan(_ bursts: [ShootBurst]) -> TimeInterval {
+        guard let start = bursts.first?.startedAt, let end = bursts.last?.startedAt else { return 0 }
+        return max(0, end.timeIntervalSince(start))
+    }
+
+    private static func interBurstGaps(_ bursts: [ShootBurst]) -> [TimeInterval] {
+        guard bursts.count > 1 else { return [] }
+        return (1..<bursts.count).compactMap { index in
+            let gap = gap(from: bursts[index - 1], to: bursts[index])
+            return gap > 0 ? gap : nil
+        }
+    }
+
+    static func sceneThreshold(for dated: [ShootFrame]) -> TimeInterval {
+        sceneThreshold(gaps: interBurstGaps(bursts(from: dated)))
+    }
+
+    static func sceneThreshold(gaps: [TimeInterval]) -> TimeInterval {
+        guard !gaps.isEmpty else { return defaultSceneGap }
+        let sorted = gaps.sorted()
+        let median = sorted[sorted.count / 2]
         let medianBased = min(max(median * 3, sceneGapFloor), sceneGapCeiling)
         return min(medianBased, sceneGapWalk)
     }

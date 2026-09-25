@@ -71,7 +71,7 @@ final class P0LogicTests: XCTestCase {
             focusedRecipeSource: "auto",
             focusedRenderFidelity: "interactive", focusedHasPresentedRAW: true,
             inspectionSettledLongEdge: 2560, presentationTraceEnabled: false, focusedOrientedIsPortrait: false,
-            focusedPresentedIsPortrait: false, pointerCullTargetsVisible: true,
+            focusedPresentedIsPortrait: false, pointerCullTargetsVisible: true, elasticOutVisible: true,
             inspectingAssetID: nil, selectedAssetIDs: ["a", "b"],
             missingOriginalCount: 0, previewReadyCount: 60, phaseDetail: "60 photos",
             scrollAnchor: 0, culls: ["a": "keep"], editedIDs: ["a"], visibleAssetIDs: ["a", "b"],
@@ -509,14 +509,39 @@ final class P0LogicTests: XCTestCase {
         )
     }
 
-    func testChapterArrangementTightSpacingIsOneChapter() {
+    func testChapterArrangementTightSpacingStaysSingletonBursts() {
         let assets = (0..<60).map { index in
             datedAsset(id: UUID(), offset: Double(index) * 3)
         }
         let chapters = ShootChapterArrangement.arrange(assets)
-        XCTAssertEqual(chapters.count, 1)
-        XCTAssertEqual(chapters[0].assetIDs.count, 60)
-        XCTAssertEqual(chapters[0].bursts.count, 60, "3s gaps stay singleton bursts")
+        XCTAssertEqual(chapters.flatMap(\.bursts).count, 60, "3s gaps stay singleton bursts")
+        XCTAssertGreaterThan(chapters.count, 1, "a long 3s run is more than one moment")
+        XCTAssertLessThanOrEqual(
+            chapters.map(\.bursts.count).max() ?? 0,
+            ShootChapterArrangement.momentBurstCeiling
+        )
+    }
+
+    func testChapterArrangementFollowsAFastPortraitRhythm() {
+        var offsets = (0..<8).map { Double($0) * 8 }
+        let afterPause = offsets[offsets.count - 1] + 90
+        offsets.append(contentsOf: (0..<6).map { afterPause + Double($0) * 8 })
+        let assets = offsets.map { datedAsset(id: UUID(), offset: $0) }
+        let chapters = ShootChapterArrangement.arrange(assets)
+        XCTAssertEqual(chapters.count, 2, "a 90 s pause splits a session that was shooting every 8 s")
+        XCTAssertEqual(chapters[0].assetIDs.count, 8)
+        XCTAssertEqual(chapters[1].assetIDs.count, 6)
+    }
+
+    func testChapterArrangementSplitsALongRunAtItsLargestBreath() {
+        var offsets = (0..<10).map { Double($0) * 4 }
+        let afterBreath = offsets[offsets.count - 1] + 25
+        offsets.append(contentsOf: (0..<10).map { afterBreath + Double($0) * 4 })
+        let assets = offsets.map { datedAsset(id: UUID(), offset: $0) }
+        let chapters = ShootChapterArrangement.arrange(assets)
+        XCTAssertEqual(chapters.count, 2, "twenty singles split at the 25 s breath, not as one pile")
+        XCTAssertEqual(chapters[0].assetIDs.count, 10)
+        XCTAssertEqual(chapters[1].assetIDs.count, 10)
     }
 
     func testChapterArrangementSplitsOnLongPause() {

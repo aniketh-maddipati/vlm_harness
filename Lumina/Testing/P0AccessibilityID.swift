@@ -33,6 +33,7 @@ enum P0AccessibilityID {
     /// D47 / A3 — persistent pointer cull targets on the focused frame only.
     static let pointerCullKeep = "p0.pointerCull.keep"
     static let pointerCullReject = "p0.pointerCull.reject"
+    static let elasticOut = "p0.elastic.out"
 
     // Elastic — time table / focus route
     static let elasticTable = "p0.elastic.table"
