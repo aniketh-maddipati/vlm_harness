@@ -60,6 +60,31 @@ nonisolated enum DevelopFidelityState: String, Codable, Hashable, Sendable {
     }
 }
 
+/// How the RAW stage underneath a displayed surface is backed.
+///
+/// This is a *measurement* fact, not a rendering choice: it records what
+/// `PreparedRawSession.rawStageSurface` actually produced for the surface the
+/// Metal view is about to walk, so a draw sample can be attributed instead of
+/// averaged. Nothing reads it to decide what to render.
+///
+/// The distinction is the whole reason the attribution exists. Core Image's
+/// intermediate cache absorbs an *identical* redraw of a lazy graph, so a lazy
+/// tier looks fine while nothing moves; change the geometry transform and the
+/// cache misses and the demosaic re-runs on the presentation path.
+nonisolated enum DevelopRawStageBacking: String, Codable, Hashable, Sendable {
+    /// The RAW stage was evaluated once into an `MTLTexture`
+    /// (`materializeInteractiveStage`). A draw walks a texture read.
+    case materialized
+    /// The RAW stage is still the lazy `CIRAWFilter.outputImage` graph. A draw
+    /// that misses the intermediate cache re-runs the demosaic.
+    case lazyGraph
+    /// Not a RAW stage at all (proxy / ImageIO fallback / browse JPEG), or a
+    /// surface that reached the view without attribution. Never sampled — an
+    /// unattributed draw is left out of both distributions rather than guessed
+    /// into one of them.
+    case unattributed
+}
+
 /// Source policy for a render request.
 nonisolated enum DevelopDecodeSource: String, Codable, Hashable, Sendable {
     /// Decode from original RAW (required for settled / 1:1 / export).
@@ -211,6 +236,10 @@ nonisolated struct DevelopRenderResult: @unchecked Sendable {
     var preGeometryExtent: CGRect? = nil
     var displayRecipe: EditRecipe? = nil
     var measurementIdentity: DevelopSelectedImageIdentity? = nil
+    /// How the RAW stage under `ciImage` is backed. Measurement attribution only;
+    /// no render decision reads it. Defaults to `.unattributed` so a surface that
+    /// never passed through the RAW stage is left out of the draw distributions.
+    var rawStageBacking: DevelopRawStageBacking = .unattributed
     let requestID: UUID
     let generation: UInt64
     let photoID: UUID

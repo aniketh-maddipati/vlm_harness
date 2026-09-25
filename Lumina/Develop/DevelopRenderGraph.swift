@@ -39,6 +39,8 @@ nonisolated enum DevelopRenderGraph {
         let start = CFAbsoluteTimeGetCurrent()
         var usedProxy = false
         var rawStageCacheHit = false
+        // Measurement attribution only — nothing below branches on it.
+        var rawStageBacking = DevelopRawStageBacking.unattributed
         var fidelity: DevelopFidelityState
 
         switch request.quality {
@@ -53,7 +55,8 @@ nonisolated enum DevelopRenderGraph {
             request,
             usedProxy: &usedProxy,
             fidelity: &fidelity,
-            rawStageCacheHit: &rawStageCacheHit
+            rawStageCacheHit: &rawStageCacheHit,
+            rawStageBacking: &rawStageBacking
         ) else {
             return DevelopRenderResult(
                 requestID: request.id,
@@ -126,6 +129,7 @@ nonisolated enum DevelopRenderGraph {
 
         return DevelopRenderResult(
             preGeometryExtent: preGeometryExtent,
+            rawStageBacking: rawStageBacking,
             requestID: request.id,
             generation: request.generation,
             photoID: request.photoID,
@@ -149,7 +153,8 @@ nonisolated enum DevelopRenderGraph {
         _ request: RawRenderRequest,
         usedProxy: inout Bool,
         fidelity: inout DevelopFidelityState,
-        rawStageCacheHit: inout Bool
+        rawStageCacheHit: inout Bool,
+        rawStageBacking: inout DevelopRawStageBacking
     ) async -> CIImage? {
         switch request.source {
         case .originalRAW, .rawPyramid:
@@ -167,6 +172,7 @@ nonisolated enum DevelopRenderGraph {
                 tier: tier
             ) {
                 rawStageCacheHit = staged.cacheHit
+                rawStageBacking = staged.backing
                 return OrientedDisplayImage.aligning(staged.image, toFile: request.rawURL)
             }
             if request.quality == .export {

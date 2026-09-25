@@ -15,6 +15,11 @@ actor DevelopPresentationCache {
         let cgImage: CGImage?
         let fidelity: DevelopFidelityState
         let preGeometryExtent: CGRect?
+        /// Carried through the cache so a cache-hit presentation attributes its
+        /// draws the same way the miss that produced it did. Without this a
+        /// re-presented settled surface would report `.unattributed` and drop
+        /// out of the draw distributions exactly where pan/zoom lives.
+        let rawStageBacking: DevelopRawStageBacking
         let byteEstimate: Int
         var lastAccess: CFAbsoluteTime
         let speculative: Bool
@@ -44,7 +49,8 @@ actor DevelopPresentationCache {
     }
 
     func put(key: String, ciImage: CIImage, cgImage: CGImage?, fidelity: DevelopFidelityState,
-             preGeometryExtent: CGRect? = nil, speculative: Bool = false) {
+             preGeometryExtent: CGRect? = nil, rawStageBacking: DevelopRawStageBacking = .unattributed,
+             speculative: Bool = false) {
         // RGBAh estimate: 8 bytes/pixel for the lazy CI recipe's realized size,
         // plus the bitmap when present.
         let extent = ciImage.extent
@@ -57,6 +63,7 @@ actor DevelopPresentationCache {
             cgImage: cgImage,
             fidelity: fidelity,
             preGeometryExtent: preGeometryExtent,
+            rawStageBacking: rawStageBacking,
             byteEstimate: bytes,
             lastAccess: CFAbsoluteTimeGetCurrent(),
             speculative: speculative
@@ -232,7 +239,7 @@ final class DevelopRenderScheduler {
     private static let signposter = OSSignposter(subsystem: "app.lumina.develop", category: "render")
 
     /// Before/After cached surfaces — switch without re-render.
-    private var beforeSurface: [UUID: (image: CIImage, preGeometryExtent: CGRect?)] = [:]
+    private var beforeSurface: [UUID: (image: CIImage, preGeometryExtent: CGRect?, backing: DevelopRawStageBacking)] = [:]
     private var afterSurface: [UUID: CIImage] = [:]
     private var beforeBitmap: [UUID: CGImage] = [:]
 
@@ -319,6 +326,31 @@ final class DevelopRenderScheduler {
                 longEdgeCap: settledLongEdge
             )
             guard !Task.isCancelled, self.visiblePhotoID == photoID else { return }
+            // NOT A LATENCY — do not quote this key as "time to settled pixels".
+            //
+            // What one sample contains: the cache lookup, the render-lane wait,
+            // `CIRAWFilter` property application, CI graph *construction*, and the
+            // `CIContext.createCGImage` call for the settled histogram bitmap.
+            //
+            // What it does not contain: the demosaic. The authoritative tier stays
+            // the lazy `CIRAWFilter.outputImage` graph (`PreparedRawSession`
+            // caches it rather than materializing it), and `createCGImage` on a
+            // full-scale RAW graph returns a deferred image — measured at 0.3 ms
+            // against 183.6 ms p50 to actually rasterize the same graph
+            // (`~/LuminaEvidence/render-latency-research-20260924/
+            // 03-raw-deferred-vs-forced-24mp.txt`). So a small number here means
+            // the graph was built, not that the photograph is on screen.
+            //
+            // Where the missing cost does land: `DevelopMetalView.draw(in:)`, and
+            // it is recorded there as `DevelopDrawInstruments.Key.drawLazy` /
+            // `drawWalkLazy`. Read those beside this one.
+            //
+            // Left recording exactly as it was on purpose. Making this key true
+            // would mean either forcing rasterization of the authoritative stage
+            // (a render-behaviour change — workstream W1, explicitly out of scope
+            // for a measurement-only change) or resolving it against a presented
+            // drawable, which exists only under `--p0-instruments` and would
+            // silently redefine a key that already has a 50 ms budget and history.
             LatencyMetrics.record(
                 "p0.edit.promote_settled_ms",
                 milliseconds: (CFAbsoluteTimeGetCurrent() - promotionStart) * 1000
@@ -446,7 +478,11 @@ final class DevelopRenderScheduler {
         let before = await DevelopRenderGraph.render(beforeReq)
         let after = await DevelopRenderGraph.render(afterReq)
         if let img = before.ciImage {
-            beforeSurface[photoID] = (image: img, preGeometryExtent: before.preGeometryExtent)
+            beforeSurface[photoID] = (
+                image: img,
+                preGeometryExtent: before.preGeometryExtent,
+                backing: before.rawStageBacking
+            )
             beforeBitmap[photoID] = before.cgImage
         }
         if let img = after.ciImage { afterSurface[photoID] = img }
@@ -485,6 +521,17 @@ final class DevelopRenderScheduler {
     func afterImage(for photoID: UUID) -> CIImage? { afterSurface[photoID] ?? presented[photoID]?.ciImage }
 
     func presentedCIImage(for photoID: UUID) -> CIImage? { presented[photoID]?.ciImage }
+
+    /// RAW-stage attribution for the surface currently presented — measurement only.
+    /// `.unattributed` when nothing has been presented for this photograph yet.
+    func presentedStageBacking(for photoID: UUID) -> DevelopRawStageBacking {
+        presented[photoID]?.rawStageBacking ?? .unattributed
+    }
+
+    /// RAW-stage attribution for the cached Before surface — measurement only.
+    func beforeStageBacking(for photoID: UUID) -> DevelopRawStageBacking {
+        beforeSurface[photoID]?.backing ?? .unattributed
+    }
     func presentedImage(for photoID: UUID) -> CGImage? { presented[photoID]?.cgImage }
 
     // MARK: - Export lane
@@ -549,6 +596,7 @@ final class DevelopRenderScheduler {
             Self.signposter.emitEvent("cacheHit", id: signpostID)
             let result = DevelopRenderResult(
                 preGeometryExtent: cached.preGeometryExtent,
+                rawStageBacking: cached.rawStageBacking,
                 requestID: request.id,
                 generation: generation,
                 photoID: photoID,
@@ -655,6 +703,7 @@ final class DevelopRenderScheduler {
                 cgImage: rendered.cgImage,
                 fidelity: rendered.fidelity,
                 preGeometryExtent: rendered.preGeometryExtent,
+                rawStageBacking: rendered.rawStageBacking,
                 speculative: speculative
             )
             if !speculative {
