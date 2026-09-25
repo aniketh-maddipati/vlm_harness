@@ -219,6 +219,13 @@ enum ElasticLayout {
     static let setOutlineWidth: CGFloat = 2
     /// `outline-offset: -1.5px` on a 2 px outline centres the stroke 0.5 px inside.
     static let setOutlineInset: CGFloat = focusRingHaloWidth - setOutlineWidth / 2
+    /// Lead / trail of the focused burst — second-order stroke, never color alone.
+    static let sequenceOutlineWidth = HiFiTokens.Ring.secondOrderWidth
+    static let sequenceOutlineOpacity = HiFiTokens.Ring.secondOrderOpacity
+    static let sequenceOutlineInset = setOutlineInset
+    static let sequenceChipSize = HiFiTokens.Typography.chipSize
+    static let sequenceChipPaddingH = HiFiTokens.Gap.spacingXs
+    static let sequenceChipPaddingV = HiFiTokens.Ring.haloWidth
 
     // MARK: - Motion (`born` fade durations, ease-out)
 

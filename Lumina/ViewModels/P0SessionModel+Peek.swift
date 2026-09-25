@@ -355,4 +355,15 @@ extension P0SessionModel {
         selectionAnchorID = id
         selectedAssetIDs = []
     }
+
+    /// Whole-plate click on the table. Unfocused plates travel. A second press on
+    /// the focused plate is the D47 keep door — same grammar as `P`, including
+    /// same-mark-clears and advance. ⇧ and ⌘ still only move the cursor / range.
+    func clickTablePlate(_ id: UUID, shift: Bool, command: Bool) {
+        if !shift && !command && focusedAssetID == id {
+            pointerMarkKeep()
+            return
+        }
+        clickFrame(id, shift: shift, command: command)
+    }
 }

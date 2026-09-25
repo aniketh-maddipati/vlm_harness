@@ -60,7 +60,7 @@ private struct ElasticPeekTile: View {
     var body: some View {
         let asset = session.asset(item.id)
         VStack(alignment: .leading, spacing: ElasticLayout.peekCaptionGap) {
-            Button {
+            ElasticPlateButton {
                 session.pickInPeek(item.id)
             } label: {
                 ZStack {
@@ -79,9 +79,19 @@ private struct ElasticPeekTile: View {
                     )
                     .padding(ElasticLayout.peekKeyBadgeInset)
                 }
-                .elasticMarked(radius: ElasticLayout.peekTileRadius, ringed: item.ringed, inSet: item.outlined)
+                .overlay(alignment: .topTrailing) {
+                    if let sequence = session.sequenceMark(for: item.id) {
+                        ElasticSequenceChip(mark: sequence)
+                            .padding(ElasticLayout.peekKeyBadgeInset)
+                    }
+                }
+                .elasticMarked(
+                    radius: ElasticLayout.peekTileRadius,
+                    ringed: item.ringed,
+                    inSet: item.outlined,
+                    sequence: session.sequenceMark(for: item.id)
+                )
             }
-            .buttonStyle(LuminaElasticButtonStyle())
 
             ElasticPeekCaption(item: item)
                 .frame(width: width)
@@ -157,7 +167,7 @@ struct ElasticRelatedRow: View {
     private func column(_ item: ElasticPeekItem, width: CGFloat) -> some View {
         let asset = session.asset(item.id)
         return VStack(alignment: .leading, spacing: ElasticLayout.relatedColumnGap) {
-            Button {
+            ElasticPlateButton {
                 session.pickInPeek(item.id)
             } label: {
                 ZStack {
@@ -176,9 +186,19 @@ struct ElasticRelatedRow: View {
                     )
                     .padding(ElasticLayout.peekKeyBadgeInset)
                 }
-                .elasticMarked(radius: ElasticLayout.peekTileRadius, ringed: item.ringed, inSet: item.outlined)
+                .overlay(alignment: .topTrailing) {
+                    if let sequence = session.sequenceMark(for: item.id) {
+                        ElasticSequenceChip(mark: sequence)
+                            .padding(ElasticLayout.peekKeyBadgeInset)
+                    }
+                }
+                .elasticMarked(
+                    radius: ElasticLayout.peekTileRadius,
+                    ringed: item.ringed,
+                    inSet: item.outlined,
+                    sequence: session.sequenceMark(for: item.id)
+                )
             }
-            .buttonStyle(LuminaElasticButtonStyle())
 
             ElasticPeekCaption(item: item)
                 .padding(.horizontal, ElasticLayout.relatedCaptionPaddingH)
@@ -248,6 +268,14 @@ private struct ElasticGroupRow: View {
                     .opacity(ElasticLayout.groupsReasonOpacity)
                 Text(group.takeLine)
                     .opacity(ElasticLayout.groupsTakeOpacity)
+                if !group.takeIDs.isEmpty {
+                    ElasticOperationButton(
+                        title: "take",
+                        on: group.takeIDs.allSatisfy(session.isInFinalSet)
+                    ) {
+                        session.takePicks(group.takeIDs)
+                    }
+                }
             }
             .font(ElasticType.mono(ElasticLayout.groupsTextSize))
             .foregroundStyle(LuminaTokens.Elastic.shellAlt)
@@ -276,9 +304,12 @@ private struct ElasticGroupRow: View {
         let asset = session.asset(id)
         let taken = group.takeIDs.contains(id)
         let ringed = session.focusedAssetID == id || session.selectedAssetIDs.contains(id)
-        return Button {
+        return ElasticPlateButton {
             let flags = NSEvent.modifierFlags
             session.clickFrame(id, shift: flags.contains(.shift), command: flags.contains(.command))
+        } onDoubleTap: {
+            session.setFocus(id)
+            session.openFocusedPhotograph()
         } label: {
             ZStack {
                 LuminaTokens.Elastic.deep
@@ -302,14 +333,14 @@ private struct ElasticGroupRow: View {
                         .padding(ElasticLayout.groupsTagInset)
                 }
             }
-            .elasticMarked(radius: ElasticLayout.groupsFrameRadius, ringed: ringed, inSet: session.isInFinalSet(id))
+            .elasticMarked(
+                radius: ElasticLayout.groupsFrameRadius,
+                ringed: ringed,
+                inSet: session.isInFinalSet(id),
+                sequence: session.sequenceMark(for: id)
+            )
             .opacity(taken || group.takeIDs.isEmpty ? 1 : ElasticLayout.groupsUntakenOpacity)
         }
-        .buttonStyle(LuminaElasticButtonStyle())
-        .simultaneousGesture(TapGesture(count: 2).onEnded {
-            session.setFocus(id)
-            session.openFocusedPhotograph()
-        })
         .draggable(ElasticDragPayload.encode(
             ElasticDragPayload.ids(forDragging: id, selection: session.selectedAssetIDs)
         ))

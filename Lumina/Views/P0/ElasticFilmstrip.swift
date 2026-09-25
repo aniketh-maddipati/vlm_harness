@@ -102,22 +102,37 @@ struct ElasticFilmstrip: View {
         let focused = session.focusedAssetID == asset.id
         let ringed = focused || session.selectedAssetIDs.contains(asset.id)
         let inSet = session.isInFinalSet(asset.id)
+        let sequence = session.sequenceMark(for: asset.id)
         let size = focused ? ElasticLayout.filmstripFocusedTile : ElasticLayout.filmstripTile
 
-        return ZStack {
-            LuminaTokens.Elastic.deep
-            if let path = asset.gridThumbPath ?? asset.thumbPath {
-                ChapterPlateImage(path: path)
+        return ElasticPlateButton {
+            session.setFocus(asset.id)
+        } label: {
+            ZStack {
+                LuminaTokens.Elastic.deep
+                if let path = asset.gridThumbPath ?? asset.thumbPath {
+                    ChapterPlateImage(path: path)
+                }
             }
+            .frame(width: size.width, height: size.height)
+            .modifier(ElasticViewportTile(id: asset.id))
+            .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.tileRadius, style: .continuous))
+            .overlay(alignment: .topLeading) {
+                if let sequence {
+                    ElasticSequenceChip(mark: sequence)
+                        .padding(ElasticLayout.markInset)
+                }
+            }
+            .elasticMarked(
+                radius: ElasticLayout.tileRadius,
+                ringed: ringed,
+                inSet: inSet,
+                sequence: sequence
+            )
+            .opacity(asset.cull == .reject ? ElasticLayout.outOpacity : 1)
+            .contentShape(Rectangle())
         }
-        .frame(width: size.width, height: size.height)
-        .modifier(ElasticViewportTile(id: asset.id))
-        .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.tileRadius, style: .continuous))
-        .elasticMarked(radius: ElasticLayout.tileRadius, ringed: ringed, inSet: inSet)
-        .opacity(asset.cull == .reject ? ElasticLayout.outOpacity : 1)
-        .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier(P0AccessibilityID.elasticTile(asset.id))
-        .onTapGesture { session.setFocus(asset.id) }
     }
 }
