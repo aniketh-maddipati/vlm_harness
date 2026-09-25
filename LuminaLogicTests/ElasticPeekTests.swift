@@ -13,7 +13,8 @@ final class ElasticPeekTests: XCTestCase {
         _ id: UUID,
         offset: TimeInterval,
         cull: CullDecision = .undecided,
-        ext: String = "ARW"
+        ext: String = "ARW",
+        sensedIsPhone: Bool? = nil
     ) -> AssetRecord {
         AssetRecord(
             id: id,
@@ -26,7 +27,8 @@ final class ElasticPeekTests: XCTestCase {
             ),
             filename: "asset-\(id.uuidString).\(ext)",
             cull: cull,
-            capturedAt: Date(timeIntervalSince1970: 1_700_000_000 + offset)
+            capturedAt: Date(timeIntervalSince1970: 1_700_000_000 + offset),
+            sensedIsPhone: sensedIsPhone
         )
     }
 
@@ -43,7 +45,7 @@ final class ElasticPeekTests: XCTestCase {
             asset(ids[2], offset: 10, cull: .keep),
             asset(ids[3], offset: 10.5, cull: .keep),
             asset(ids[4], offset: 40),
-            asset(ids[5], offset: 50, ext: "HEIC"),
+            asset(ids[5], offset: 50, ext: "HEIC", sensedIsPhone: true),
             asset(ids[6], offset: 3600, cull: .keep),
         ]
         session.route = .time

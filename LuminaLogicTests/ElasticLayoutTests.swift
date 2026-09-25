@@ -65,7 +65,11 @@ final class ElasticLayoutTests: XCTestCase {
         filename: String = "DSC0001.ARW",
         capturedAt: Date? = nil,
         source: RecipeSource = .shot,
-        cull: CullDecision = .undecided
+        cull: CullDecision = .undecided,
+        sensedIsPhone: Bool? = nil,
+        manualIsPhone: Bool? = nil,
+        captureMake: String? = nil,
+        captureModel: String? = nil
     ) -> AssetRecord {
         AssetRecord(
             id: id,
@@ -79,7 +83,24 @@ final class ElasticLayoutTests: XCTestCase {
             filename: filename,
             cull: cull,
             capturedAt: capturedAt,
-            recipeSource: source
+            recipeSource: source,
+            captureMake: captureMake,
+            captureModel: captureModel,
+            sensedIsPhone: sensedIsPhone,
+            manualIsPhone: manualIsPhone
+        )
+    }
+
+    private func makePhoneAsset(
+        filename: String,
+        capturedAt: Date?
+    ) -> AssetRecord {
+        makeAsset(
+            filename: filename,
+            capturedAt: capturedAt,
+            sensedIsPhone: true,
+            captureMake: "apple",
+            captureModel: "iphone 16 pro"
         )
     }
 
@@ -110,7 +131,7 @@ final class ElasticLayoutTests: XCTestCase {
         let session = P0SessionModel()
         session.assets = [
             makeAsset(filename: "a.ARW", capturedAt: Date(timeIntervalSince1970: 3_000_000)),
-            makeAsset(filename: "b.HEIC", capturedAt: Date(timeIntervalSince1970: 3_000_001)),
+            makePhoneAsset(filename: "b.HEIC", capturedAt: Date(timeIntervalSince1970: 3_000_001)),
         ]
         let chapter = session.chapters.first
         XCTAssertNotNil(chapter)
@@ -119,6 +140,40 @@ final class ElasticLayoutTests: XCTestCase {
             session.momentCountLine(chapter!).contains("phone"),
             "the span line counts frames and bursts; the mix line counts bodies"
         )
+    }
+
+    func testManualPhoneMarkSharesTheSensedTag() {
+        let session = P0SessionModel()
+        let cameraJPEG = makeAsset(
+            filename: "IMG_0001.JPG",
+            capturedAt: Date(timeIntervalSince1970: 3_000_100),
+            sensedIsPhone: false,
+            captureMake: "sony",
+            captureModel: "ilce-7m4"
+        )
+        session.assets = [cameraJPEG]
+        XCTAssertFalse(session.isPhoneFrame(cameraJPEG.id))
+        XCTAssertTrue(session.toggleManualPhoneBody(cameraJPEG.id))
+        XCTAssertTrue(session.isPhoneFrame(cameraJPEG.id), "hand mark uses the same phone tag")
+        XCTAssertEqual(session.momentMixLine(session.chapters[0]), "1 phone")
+        XCTAssertTrue(session.toggleManualPhoneBody(cameraJPEG.id))
+        XCTAssertFalse(session.isPhoneFrame(cameraJPEG.id), "toggling again clears back to sensed")
+    }
+
+    func testClassifyPhoneMarksTheRunAndTheNextPressClearsIt() {
+        let session = P0SessionModel()
+        let camera = makeAsset(filename: "a.ARW", capturedAt: Date(timeIntervalSince1970: 3_000_000))
+        let phone = makePhoneAsset(filename: "b.HEIC", capturedAt: Date(timeIntervalSince1970: 3_000_000.4))
+        session.assets = [camera, phone]
+        XCTAssertEqual(session.chapters[0].bursts.count, 2, "a phone frame does not join the camera burst")
+
+        XCTAssertEqual(session.classifyPhone([camera.id]), 1)
+        XCTAssertTrue(session.isPhoneFrame(camera.id))
+        XCTAssertEqual(session.chapters[0].bursts.count, 1, "marked phone, they are one run")
+
+        XCTAssertEqual(session.classifyPhone([camera.id, phone.id]), 2)
+        XCTAssertFalse(session.isPhoneFrame(camera.id))
+        XCTAssertFalse(session.isPhoneFrame(phone.id))
     }
 
     func testLightWordTracksTheHour() {

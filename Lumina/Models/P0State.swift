@@ -118,6 +118,14 @@ nonisolated struct SourceReference: Codable, Hashable, Sendable, Identifiable {
 
 // MARK: - Asset
 
+/// What kind of original this row represents on the table.
+/// Unsupported video lands as a locked presence row so the sequence has no hole;
+/// playback and Develop stay locked until a ruling un-shelves them.
+nonisolated enum AssetMediaKind: String, Codable, Hashable, Sendable {
+    case photograph
+    case unsupportedVideo
+}
+
 /// Durable per-photograph catalog record. Missing originals do not delete this.
 nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
@@ -170,6 +178,32 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
     /// safe to drop and recompute from the original at any time.
     var imageStats: ImageStats?
 
+    /// TIFF Make from the original, when metadata prep could read it.
+    var captureMake: String?
+    /// TIFF Model from the original, when metadata prep could read it.
+    var captureModel: String?
+    /// Sensed phone-body classification. Nil until metadata (or a quick path probe) runs.
+    var sensedIsPhone: Bool?
+    /// Hand override for the phone tag. When set, wins over sensing. Same glyph /
+    /// mix-line treatment as a sensed phone — one tag, not two systems.
+    var manualIsPhone: Bool?
+    /// Photograph vs locked unsupported-video presence row.
+    var mediaKind: AssetMediaKind
+
+    /// Single phone treatment: hand mark and sensing resolve here. Develop Auto,
+    /// moment mix, and the glyph all read this — never a parallel phone flag.
+    var isPhoneBody: Bool {
+        guard mediaKind == .photograph else { return false }
+        if let manualIsPhone { return manualIsPhone }
+        if let sensedIsPhone { return sensedIsPhone }
+        return PhoneBodySensing.isPhone(
+            .init(make: captureMake, model: captureModel, filename: filename, path: source.originalPath)
+        )
+    }
+
+    /// Locked beta presence — not a photograph. Develop and inspect stay closed.
+    var isUnsupportedVideo: Bool { mediaKind == .unsupportedVideo }
+
     private enum CodingKeys: String, CodingKey {
         case id, sourceKey, source, filename, cull, recipe, capturedAt, fileSize,
              thumbPath, gridThumbPath, proxyPath, previewOrigin, previewLongEdge,
@@ -177,11 +211,12 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
              faceDetected, cullScore, cullConfidence, editConfidence, tasteMatch,
              proposedTier, userDecidedAt, settledAt, isFlagged, isBurstHero, isClusterHero,
              uncertaintyKind, whyUncertain, whyAction, burstID, clusterID, clusterLabel,
-             embedding, recipeSource, handRecipe, imageStats
+             embedding, recipeSource, handRecipe, imageStats,
+             captureMake, captureModel, sensedIsPhone, manualIsPhone, mediaKind
     }
 
-    /// Tolerant decode: `recipeSource` and `handRecipe` post-date every on-disk catalog
-    /// written before them, so both fall back to their fresh-record defaults when absent.
+    /// Tolerant decode: `recipeSource`, `handRecipe`, and phone-body fields post-date
+    /// earlier on-disk catalogs, so they fall back when absent.
     /// Every other field has always been part of the schema and decodes as required.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -224,6 +259,11 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
         recipeSource = try c.decodeIfPresent(RecipeSource.self, forKey: .recipeSource) ?? .shot
         handRecipe = try c.decodeIfPresent(EditRecipe.self, forKey: .handRecipe)
         imageStats = try c.decodeIfPresent(ImageStats.self, forKey: .imageStats)
+        captureMake = try c.decodeIfPresent(String.self, forKey: .captureMake)
+        captureModel = try c.decodeIfPresent(String.self, forKey: .captureModel)
+        sensedIsPhone = try c.decodeIfPresent(Bool.self, forKey: .sensedIsPhone)
+        manualIsPhone = try c.decodeIfPresent(Bool.self, forKey: .manualIsPhone)
+        mediaKind = try c.decodeIfPresent(AssetMediaKind.self, forKey: .mediaKind) ?? .photograph
     }
 
     init(
@@ -265,7 +305,12 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
         embedding: [Float]? = nil,
         recipeSource: RecipeSource = .shot,
         handRecipe: EditRecipe? = nil,
-        imageStats: ImageStats? = nil
+        imageStats: ImageStats? = nil,
+        captureMake: String? = nil,
+        captureModel: String? = nil,
+        sensedIsPhone: Bool? = nil,
+        manualIsPhone: Bool? = nil,
+        mediaKind: AssetMediaKind = .photograph
     ) {
         self.id = id
         self.sourceKey = sourceKey
@@ -306,6 +351,11 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
         self.recipeSource = recipeSource
         self.handRecipe = handRecipe
         self.imageStats = imageStats
+        self.captureMake = captureMake
+        self.captureModel = captureModel
+        self.sensedIsPhone = sensedIsPhone
+        self.manualIsPhone = manualIsPhone
+        self.mediaKind = mediaKind
     }
 }
 

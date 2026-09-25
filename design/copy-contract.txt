@@ -88,6 +88,7 @@
 [○][PL] Latest-wins: ⌘E re-renders dirty frames only; the header counts what is current.
 [○][P] ⌘E re-renders
 [●][P] body not yet supported
+[●][P] video · not opened yet
 
 ## EXPORT
 
@@ -100,7 +101,8 @@
 # D43: no positive full-truth chip — absence remains the third FIDELITY string.
 # D42: clipping is hold grammar; no new clipping chip string was named by the ruling.
 # D55: share sheet is a destination field on the ONE recipe — field labels OPEN.
-# D56: videos copied, counted, not shown; ✓ covers them — no table chip invented.
+# D56: videos counted; beta lands locked presence rows for sequence continuity
+#     (playback/Develop locked). Full video open remains shelved. Count chrome OPEN.
 # D59 / D60: verbatim lines sealed above from v5 D10 / D11 (re-seal resolution 3).
 # A5: banner "Adapt → N  ⏎ · Esc"; receipt "Adapted → N · ⌘Z"; provenance "← 8288".
 #     Word "Adapt" verbatim in banner; remainder compressed. Sync/copy settings banned.

@@ -4,6 +4,9 @@ import UniformTypeIdentifiers
 
 struct PhotoDiscoveryResult: Sendable {
     var importable: [URL]
+    /// Video files kept in shoot order as locked presence rows — not skipped holes.
+    /// Playback and Develop stay locked (beta); the table still shows an honest row.
+    var lockedVideos: [URL]
     var skipped: [IngestSkippedFile]
     var discoveredCount: Int
 }
@@ -35,6 +38,10 @@ enum MediaFormats {
 
     static var utTypes: [UTType] {
         [.image, .jpeg, .heic, .png, .tiff, .gif, .webP, .rawImage]
+    }
+
+    static func isVideo(_ url: URL) -> Bool {
+        videoExtensions.contains(url.pathExtension.uppercased())
     }
 
     static func isImportable(_ url: URL) -> Bool {
@@ -72,6 +79,7 @@ enum MediaFormats {
     /// Recursive discovery with dedup and skip accounting.
     static func discoverPhotos(at root: URL, maxDepth: Int = 10) -> PhotoDiscoveryResult {
         var importable: [URL] = []
+        var lockedVideos: [URL] = []
         var skipped: [IngestSkippedFile] = []
         var seenKeys = Set<String>()
         var discoveredCount = 0
@@ -118,7 +126,13 @@ enum MediaFormats {
                 if ext.lowercased() == "icloud" { continue }
 
                 if videoExtensions.contains(ext) {
-                    skipped.append(IngestSkippedFile(path: entry.path, reason: .video))
+                    guard let key = dedupKey(for: entry) else { continue }
+                    if seenKeys.contains(key) {
+                        skipped.append(IngestSkippedFile(path: entry.path, reason: .duplicate))
+                        continue
+                    }
+                    seenKeys.insert(key)
+                    lockedVideos.append(entry)
                     continue
                 }
                 if isSidecar(entry) {
@@ -145,16 +159,23 @@ enum MediaFormats {
         } else if isImportable(root) {
             discoveredCount = 1
             importable = [root]
+        } else if isVideo(root) {
+            discoveredCount = 1
+            lockedVideos = [root]
         }
 
         importable.sort {
             $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending
         }
+        lockedVideos.sort {
+            $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending
+        }
 
         return PhotoDiscoveryResult(
             importable: importable,
+            lockedVideos: lockedVideos,
             skipped: skipped,
-            discoveredCount: max(discoveredCount, importable.count + skipped.count)
+            discoveredCount: max(discoveredCount, importable.count + lockedVideos.count + skipped.count)
         )
     }
 

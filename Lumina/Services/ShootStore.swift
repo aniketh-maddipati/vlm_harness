@@ -336,6 +336,22 @@ actor ShootStore {
             merged.assets[index].recipe = live.recipe
             merged.assets[index].userDecidedAt = live.userDecidedAt
             merged.assets[index].isFlagged = live.isFlagged
+            merged.assets[index].manualIsPhone = live.manualIsPhone
+            // Keep a fresher sensed body when preparation just read Make/Model;
+            // otherwise preserve whatever the live catalog already knew.
+            if merged.assets[index].sensedIsPhone == nil {
+                merged.assets[index].sensedIsPhone = live.sensedIsPhone
+            }
+            if merged.assets[index].captureMake == nil {
+                merged.assets[index].captureMake = live.captureMake
+            }
+            if merged.assets[index].captureModel == nil {
+                merged.assets[index].captureModel = live.captureModel
+            }
+            // Presence kind is durable — don't let a stale rediscovery flip a video row.
+            if live.mediaKind == .unsupportedVideo {
+                merged.assets[index].mediaKind = .unsupportedVideo
+            }
         }
         merged.finalSetOrder = disk.finalSetOrder
         merged.workspace = disk.workspace

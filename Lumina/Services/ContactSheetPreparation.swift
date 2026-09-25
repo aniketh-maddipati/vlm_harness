@@ -9,6 +9,7 @@ struct ContactSheetPreparationStatus: Equatable, Sendable {
     var previewReadyCount: Int = 0
     var metadataReadyCount: Int = 0
     var unsupportedCount: Int = 0
+    var videoPresenceCount: Int = 0
     var skippedDuplicateCount: Int = 0
     var missingOriginalCount: Int = 0
     var phaseDetail: String = "Idle"
@@ -35,6 +36,9 @@ struct ContactSheetPreparationStatus: Equatable, Sendable {
             parts.append("dates…")
         } else if metadataReadyCount > 0, metadataReadyCount < assetCount {
             parts.append("dates \(metadataReadyCount)/\(assetCount)")
+        }
+        if videoPresenceCount > 0 {
+            parts.append("\(videoPresenceCount) video")
         }
         if unsupportedCount > 0 {
             parts.append("\(unsupportedCount) unsupported")
@@ -256,7 +260,8 @@ nonisolated enum ContactSheetPreparation {
 
         let discovery = MediaFormats.discoverPhotos(at: folderURL)
         status.discoveredCount = discovery.discoveredCount
-        status.unsupportedCount = discovery.skipped.filter { $0.reason == .unsupported || $0.reason == .video }.count
+        status.unsupportedCount = discovery.skipped.filter { $0.reason == .unsupported }.count
+        status.videoPresenceCount = discovery.lockedVideos.count
         status.skippedDuplicateCount = discovery.skipped.filter { $0.reason == .duplicate }.count
 
         let existingByKey = Dictionary(uniqueKeysWithValues: shoot.assets.map { ($0.sourceKey, $0.id) })
@@ -264,9 +269,11 @@ nonisolated enum ContactSheetPreparation {
         let previewDir = try ShootStore.cacheDirectory(for: shoot.name, tier: "preview")
 
         // Stable asset records first — no previews required to open the sheet.
+        // Locked videos land in the same sequence so the table has no hole.
         var records: [AssetRecord] = []
-        records.reserveCapacity(discovery.importable.count)
-        for url in discovery.importable {
+        records.reserveCapacity(discovery.importable.count + discovery.lockedVideos.count)
+
+        func appendRecord(url: URL, mediaKind: AssetMediaKind) {
             let relative = AssetIdentity.relativePath(file: url, root: folderURL)
             let volume = AssetIdentity.volumeIdentifier(for: url)
             let size = AssetIdentity.fileSize(of: url)
@@ -285,9 +292,17 @@ nonisolated enum ContactSheetPreparation {
                     source: source,
                     filename: url.lastPathComponent,
                     cull: .undecided,
-                    fileSize: size
+                    fileSize: size,
+                    mediaKind: mediaKind
                 )
             )
+        }
+
+        for url in discovery.importable {
+            appendRecord(url: url, mediaKind: .photograph)
+        }
+        for url in discovery.lockedVideos {
+            appendRecord(url: url, mediaKind: .unsupportedVideo)
         }
 
         // Chronological placeholder: filename sort until EXIF arrives.
@@ -361,6 +376,12 @@ nonisolated enum ContactSheetPreparation {
                         let rawURL = URL(fileURLWithPath: asset.source.originalPath)
                         let exists = FileManager.default.fileExists(atPath: rawURL.path)
                         updated.source.availability = exists ? .available : .missing
+
+                        // Locked video rows keep sequence continuity but do not
+                        // pretend a photograph preview or Develop path exists.
+                        if asset.mediaKind == .unsupportedVideo {
+                            return (index, updated)
+                        }
 
                         let previewURL = preview.appendingPathComponent(AssetIdentity.cacheStem(for: asset.id) + ".jpg")
                         let gridURL = grid.appendingPathComponent(AssetIdentity.cacheStem(for: asset.id) + ".jpg")
@@ -471,6 +492,24 @@ nonisolated enum ContactSheetPreparation {
             let name = shoot.assets[i].filename
             if let date = dates[path] ?? dates[name] {
                 shoot.assets[i].capturedAt = date
+            } else if shoot.assets[i].isUnsupportedVideo {
+                // Video rarely has DateTimeOriginal via ImageIO; mtime keeps order.
+                let url = URL(fileURLWithPath: path)
+                if let mtime = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate {
+                    shoot.assets[i].capturedAt = mtime
+                }
+            }
+            guard shoot.assets[i].mediaKind == .photograph else { continue }
+            let evidence = PhoneBodySensing.evidence(atPath: path, filename: name)
+            shoot.assets[i].captureMake = evidence.make
+            shoot.assets[i].captureModel = evidence.model
+            switch PhoneBodySensing.classify(evidence) {
+            case .phone:
+                shoot.assets[i].sensedIsPhone = true
+            case .camera:
+                shoot.assets[i].sensedIsPhone = false
+            case .unknown:
+                shoot.assets[i].sensedIsPhone = nil
             }
         }
 
@@ -513,6 +552,9 @@ nonisolated enum ContactSheetPreparation {
     }
 
     static func aspectRatio(for asset: AssetRecord) -> CGFloat {
+        if asset.isUnsupportedVideo {
+            return 16.0 / 9.0
+        }
         if let path = asset.gridThumbPath ?? asset.thumbPath,
            let (w, h) = jpegPixelSize(at: path), w > 0, h > 0 {
             return CGFloat(w) / CGFloat(h)
