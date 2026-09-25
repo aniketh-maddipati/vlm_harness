@@ -152,6 +152,17 @@ enum LuminaTokens {
         // All durations from design/tokens.yaml §motion via HiFiTokens — LuminaSpring only path.
         static let control = LuminaSpringAnimation.animation(
             durationMs: Double(HiFiTokens.Motion.travelMs), curve: .easeOut)
+        /// Click depression. Ease-in-out so the first frames do not jump.
+        static let pressIn = LuminaSpringAnimation.animation(
+            durationMs: Double(HiFiTokens.Motion.chromeFadeOutMs), curve: .easeInOut)
+        /// Release settle — same duration, so the click reads after the pointer lifts.
+        static let pressRelease = LuminaSpringAnimation.animation(
+            durationMs: Double(HiFiTokens.Motion.chromeFadeOutMs), curve: .easeOut)
+
+        static func press(_ isPressed: Bool, reduceMotion: Bool) -> Animation? {
+            guard !reduceMotion else { return nil }
+            return isPressed ? pressIn : pressRelease
+        }
         static let photo = LuminaSpringAnimation.animation(
             durationMs: Double(HiFiTokens.Motion.photoFocusMs), curve: .interactive)
         static let selection = LuminaSpringAnimation.animation(

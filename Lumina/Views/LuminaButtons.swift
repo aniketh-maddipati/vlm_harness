@@ -14,7 +14,7 @@ struct LuminaPlatePressStyle: ButtonStyle {
             configuration.label
                 .contentShape(Rectangle())
                 .opacity(configuration.isPressed ? 0.82 : 1)
-                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: configuration.isPressed)
+                .animation(LuminaTokens.Motion.press(configuration.isPressed, reduceMotion: reduceMotion), value: configuration.isPressed)
         }
     }
 }
@@ -37,7 +37,7 @@ struct LuminaPressStyle: ButtonStyle {
                 .contentShape(Rectangle())
                 .scaleEffect(configuration.isPressed && !reduceMotion ? pressedScale : 1)
                 .opacity(configuration.isPressed ? 0.78 : 1)
-                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: configuration.isPressed)
+                .animation(LuminaTokens.Motion.press(configuration.isPressed, reduceMotion: reduceMotion), value: configuration.isPressed)
         }
     }
 }
@@ -71,7 +71,7 @@ struct LuminaPrimaryButtonStyle: ButtonStyle {
                         )
                 }
                 .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
-                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: configuration.isPressed)
+                .animation(LuminaTokens.Motion.press(configuration.isPressed, reduceMotion: reduceMotion), value: configuration.isPressed)
         }
     }
 }
@@ -94,7 +94,7 @@ struct LuminaGhostButtonStyle: ButtonStyle {
                 .frame(minHeight: LuminaTokens.HitTarget.minimum)
                 .contentShape(Rectangle())
                 .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
-                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: configuration.isPressed)
+                .animation(LuminaTokens.Motion.press(configuration.isPressed, reduceMotion: reduceMotion), value: configuration.isPressed)
         }
     }
 }
@@ -199,7 +199,7 @@ struct LuminaQuietButtonStyle: ButtonStyle {
                         .fill(Color.primary.opacity(configuration.isPressed ? 0.10 : 0))
                         .padding(-4)
                 )
-                .animation(reduceMotion ? nil : LuminaTokens.Motion.control, value: configuration.isPressed)
+                .animation(LuminaTokens.Motion.press(configuration.isPressed, reduceMotion: reduceMotion), value: configuration.isPressed)
         }
     }
 }

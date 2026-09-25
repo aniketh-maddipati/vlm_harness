@@ -151,10 +151,22 @@ struct WorkbenchShelf: View {
 
 private struct WorkbenchShelfButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .opacity(configuration.isPressed ? 0.82 : 1)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(LuminaTokens.Motion.control, value: configuration.isPressed)
+        WorkbenchShelfPressBody(configuration: configuration)
+    }
+
+    private struct WorkbenchShelfPressBody: View {
+        let configuration: Configuration
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .opacity(configuration.isPressed ? 0.82 : 1)
+                .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+                .animation(
+                    LuminaTokens.Motion.press(configuration.isPressed, reduceMotion: reduceMotion),
+                    value: configuration.isPressed
+                )
+        }
     }
 }
 

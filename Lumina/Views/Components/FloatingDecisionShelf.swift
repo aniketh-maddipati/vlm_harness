@@ -104,10 +104,22 @@ struct FloatingDecisionShelf: View {
 
 private struct FloatingShelfButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .opacity(configuration.isPressed ? 0.78 : 1)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(LuminaTokens.Motion.control, value: configuration.isPressed)
+        FloatingShelfPressBody(configuration: configuration)
+    }
+
+    private struct FloatingShelfPressBody: View {
+        let configuration: Configuration
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .opacity(configuration.isPressed ? 0.78 : 1)
+                .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
+                .animation(
+                    LuminaTokens.Motion.press(configuration.isPressed, reduceMotion: reduceMotion),
+                    value: configuration.isPressed
+                )
+        }
     }
 }
 

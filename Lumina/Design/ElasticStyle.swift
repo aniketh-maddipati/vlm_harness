@@ -70,11 +70,25 @@ extension View {
     }
 }
 
-/// The Elastic button costume: the label is the whole target and nothing changes on
-/// press or hover (§5 "No hover styles. Nothing changes on hover anywhere.").
+/// The Elastic button costume: the label is the whole target. No hover, no scale.
+/// A slow opacity settle is the only press cue (§5 still bans hover).
 struct LuminaElasticButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .contentShape(Rectangle())
+        ElasticPressBody(configuration: configuration)
+    }
+
+    private struct ElasticPressBody: View {
+        let configuration: Configuration
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .contentShape(Rectangle())
+                .opacity(configuration.isPressed ? 0.72 : 1)
+                .animation(
+                    LuminaTokens.Motion.press(configuration.isPressed, reduceMotion: reduceMotion),
+                    value: configuration.isPressed
+                )
+        }
     }
 }
