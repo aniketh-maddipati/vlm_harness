@@ -41,7 +41,14 @@ nonisolated enum ExifToolService {
             args.append(folder.path)
         }
 
-        guard let data = try? runData(arguments: args),
+        // Read stdout regardless of exit status. exiftool exits 1 when *any* input is
+        // unreadable, having already written perfectly good JSON for every other file —
+        // so one zero-byte stub on a card used to throw away the capture dates of the
+        // entire shoot. Measured on a 381-frame folder holding one empty ARW: 58 KB of
+        // valid JSON, exit 1, and a chronology rebuilt from file copy times (42 chapters
+        // instead of 35). Status is therefore not a reason to discard output; only
+        // unparseable output is.
+        guard let data = runDataIgnoringStatus(arguments: args),
               let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
             return fileModificationDates(files: files, folder: folder)
         }
@@ -57,7 +64,38 @@ nonisolated enum ExifToolService {
         if result.isEmpty {
             return fileModificationDates(files: files, folder: folder)
         }
+
+        // Backfill only the files exiftool could not date. The fallback is per file,
+        // never per shoot: a frame with no readable EXIF still gets its modification
+        // time, and its neighbours keep the time the shutter actually fired. An
+        // EXIF-derived entry is never overwritten.
+        if let files {
+            for url in files where result[url.path] == nil {
+                guard let mtime = try? url.resourceValues(
+                    forKeys: [.contentModificationDateKey]
+                ).contentModificationDate else { continue }
+                result[url.path] = mtime
+                if result[url.lastPathComponent] == nil {
+                    result[url.lastPathComponent] = mtime
+                }
+            }
+        }
         return result
+    }
+
+    /// stdout of `exiftool`, keeping it even when the process exits non-zero.
+    ///
+    /// `runData` throws on a non-zero status, which is right for `-b -PreviewImage`
+    /// (a failed extraction has no usable bytes) and wrong for `-json` over a batch
+    /// (one bad input does not invalidate the rest). Returns nil only when the tool
+    /// could not be launched at all.
+    private static func runDataIgnoringStatus(arguments: [String]) -> Data? {
+        guard let exifToolPath = resolvedPath() else { return nil }
+        guard let (data, _) = try? captureOutput(
+            executable: URL(fileURLWithPath: exifToolPath),
+            arguments: arguments
+        ) else { return nil }
+        return data.isEmpty ? nil : data
     }
 
     private static func fileModificationDates(files: [URL]?, folder: URL) -> [String: Date] {
