@@ -63,6 +63,18 @@ final class ElasticEscLadderTests: XCTestCase {
         XCTAssertFalse(P0EscLadder.hasTransientDepth(session: session))
     }
 
+    func testStitchUnwindsAfterTheFocusRoute() {
+        let (session, a, _) = focused()
+        session.openStitch()
+        XCTAssertTrue(session.stitchOpen)
+        XCTAssertEqual(session.route, .time)
+
+        XCTAssertTrue(P0EscLadder.handle(session: session))
+        XCTAssertFalse(session.stitchOpen)
+        XCTAssertEqual(session.focusedAssetID, a)
+        XCTAssertFalse(P0EscLadder.handle(session: session), "the table is still the end")
+    }
+
     func testTheSetPeekClosesWithoutMovingTheCursor() {
         let (session, a, _) = focused()
         session.openPeek(.set)

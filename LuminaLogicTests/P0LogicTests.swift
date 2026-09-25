@@ -82,7 +82,8 @@ final class P0LogicTests: XCTestCase {
             elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
             chronologyViewportChapterID: "chapter-a",
             chapterTableMounted: true, inspectPeripheryDimOpacity: 1,
-            focusedIsPhone: false, focusedIsUnsupportedVideo: false, unsupportedVideoCount: 0
+            focusedIsPhone: false, focusedIsUnsupportedVideo: false, unsupportedVideoCount: 0,
+            page: "chron"
         )
         let json = snapshot.jsonString()
         let decoded = try? JSONDecoder().decode(ProbeSnapshot.self, from: Data(json.utf8))

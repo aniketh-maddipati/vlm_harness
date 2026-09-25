@@ -106,6 +106,11 @@ struct ElasticTableView: View {
                 .onChange(of: session.focusedAssetID) { _, id in
                     requestReveal(id: id, position: nil, viewport: viewport.size, proxy: proxy)
                 }
+                .onChange(of: session.momentPageRequest) { _, id in
+                    guard let id else { return }
+                    proxy.scrollTo(id, anchor: .top)
+                    session.momentPageRequest = nil
+                }
                 .onAppear {
                     requestReveal(
                         id: returnAnchor?.id ?? session.focusedAssetID,

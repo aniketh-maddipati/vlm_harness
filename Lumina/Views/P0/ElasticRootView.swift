@@ -16,16 +16,21 @@ struct ElasticRootView: View {
         VStack(spacing: 0) {
             ElasticHeader(session: session)
 
-            if !session.finalSetAssetIDs.isEmpty {
+            if session.page == .stitch {
+                ElasticStitchView(session: session)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .layoutPriority(1)
+            } else if !session.finalSetAssetIDs.isEmpty {
                 ElasticSetShelf(session: session)
                     .elasticBorn(ElasticLayout.bornTableMs)
             }
 
-            if !session.finalSetAssetIDs.isEmpty || session.exportStatusLine != nil || session.canResumeExport || session.exportSettingsVisible {
+            if session.page != .stitch,
+               !session.finalSetAssetIDs.isEmpty || session.exportStatusLine != nil || session.canResumeExport || session.exportSettingsVisible {
                 P0ExportControls(session: session)
             }
 
-            if session.route == .focus,
+            if session.page != .stitch, session.route == .focus,
                let id = session.focusedAssetID,
                let asset = session.assets.first(where: { $0.id == id }) {
                 ElasticFocusView(session: session, asset: asset)
@@ -45,10 +50,10 @@ struct ElasticRootView: View {
                 // nothing instead of holding its 92.
                 .frame(
                     maxWidth: .infinity,
-                    minHeight: session.route == .focus ? ElasticLayout.filmstripHeight : nil,
-                    maxHeight: session.route == .focus
-                        ? ElasticLayout.filmstripHeight
-                        : .infinity
+                    minHeight: session.page == .scroll ? ElasticLayout.filmstripHeight : nil,
+                    maxHeight: session.page == .chron
+                        ? .infinity
+                        : (session.page == .scroll ? ElasticLayout.filmstripHeight : 0)
                 )
                 .accessibilityIdentifier(P0AccessibilityID.elasticTable)
                 // Only the table reports realized plates: the shelf and the
@@ -67,6 +72,14 @@ struct ElasticRootView: View {
             ),
             value: session.route
         )
+        .animation(
+            LuminaSpringAnimation.transform(
+                reduceMotion: effectiveReduceMotion,
+                durationMs: Double(HiFiTokens.Motion.routeTransitionMs),
+                curve: .easeOut
+            ),
+            value: session.page
+        )
         #if DEBUG
         .workbenchHot()
         #endif
@@ -80,10 +93,48 @@ struct ElasticHeader: View {
 
     var body: some View {
         HStack(spacing: ElasticLayout.headerGap) {
-            Text("Lumina")
-                .font(ElasticType.serif(ElasticLayout.wordmarkSize))
-                .foregroundStyle(LuminaTokens.Elastic.ink)
-                .fixedSize()
+            Button {
+                session.goHome()
+            } label: {
+                Text("Lumina")
+                    .font(ElasticType.serif(ElasticLayout.wordmarkSize))
+                    .foregroundStyle(LuminaTokens.Elastic.ink)
+                    .fixedSize()
+                    .frame(minHeight: ElasticLayout.pageControlHit)
+            }
+            .buttonStyle(LuminaElasticButtonStyle())
+            .accessibilityIdentifier(P0AccessibilityID.homeButton)
+            .accessibilityLabel("Open")
+
+            pageFlip
+
+            if session.page == .stitch {
+                Button {
+                    session.closeStitch()
+                } label: {
+                    Text("table")
+                        .font(ElasticType.sans(ElasticLayout.headerTextSize, weight: .medium))
+                        .foregroundStyle(LuminaTokens.Elastic.ink)
+                        .frame(minWidth: ElasticLayout.pageControlHit, minHeight: ElasticLayout.pageControlHit)
+                }
+                .buttonStyle(LuminaElasticButtonStyle())
+                .accessibilityIdentifier(P0AccessibilityID.gridReturn)
+                .accessibilityLabel("Table")
+            } else if session.route == .focus {
+                Button {
+                    session.closeInspection()
+                } label: {
+                    Text("table")
+                        .font(ElasticType.sans(ElasticLayout.headerTextSize, weight: .medium))
+                        .foregroundStyle(LuminaTokens.Elastic.ink)
+                        .frame(minWidth: ElasticLayout.pageControlHit, minHeight: ElasticLayout.pageControlHit)
+                }
+                .buttonStyle(LuminaElasticButtonStyle())
+                .accessibilityIdentifier(P0AccessibilityID.gridReturn)
+                .accessibilityLabel("Table")
+
+                framePager
+            }
 
             Text(session.elasticSessionLabel)
                 .font(ElasticType.mono(ElasticLayout.headerTextSize))
@@ -105,6 +156,60 @@ struct ElasticHeader: View {
         .frame(maxWidth: .infinity)
         .background(LuminaTokens.Elastic.shell)
         .overlay(alignment: .bottom) { ElasticHairline() }
+    }
+
+    private var pageFlip: some View {
+        Button {
+            session.flipPage()
+        } label: {
+            HStack(spacing: ElasticLayout.shelfGap) {
+                Text(session.page.title)
+                    .font(ElasticType.sans(ElasticLayout.headerTextSize, weight: .medium))
+                Text("]")
+                    .font(ElasticType.mono(ElasticLayout.keyPillSize, weight: .semibold))
+                    .padding(.horizontal, ElasticLayout.keyPillPaddingH)
+                    .padding(.vertical, ElasticLayout.keyPillPaddingV)
+                    .background(
+                        LuminaTokens.Elastic.ink.opacity(ElasticLayout.keyPillOpacity),
+                        in: RoundedRectangle(cornerRadius: ElasticLayout.keyPillRadius, style: .continuous)
+                    )
+            }
+            .foregroundStyle(LuminaTokens.Elastic.ink)
+            .frame(minHeight: ElasticLayout.pageControlHit)
+        }
+        .buttonStyle(LuminaElasticButtonStyle())
+        .accessibilityLabel(session.page.title)
+        .accessibilityHint("Next page")
+    }
+
+    /// Prev / next frame on the open photograph. Travel only.
+    private var framePager: some View {
+        let page = session.framePage
+        return HStack(spacing: ElasticLayout.shelfGap) {
+            frameStep("prev", step: -1, enabled: page.canRetreat)
+            if !page.label.isEmpty {
+                Text(page.label)
+                    .font(ElasticType.mono(ElasticLayout.headerTextSize))
+                    .foregroundStyle(LuminaTokens.Elastic.muted)
+                    .fixedSize()
+                    .accessibilityLabel("Frame \(page.label)")
+            }
+            frameStep("next", step: 1, enabled: page.canAdvance)
+        }
+    }
+
+    private func frameStep(_ title: String, step: Int, enabled: Bool) -> some View {
+        Button {
+            session.stepFramePage(step)
+        } label: {
+            Text(title)
+                .font(ElasticType.sans(ElasticLayout.badgeTextSize, weight: .medium))
+                .foregroundStyle(enabled ? LuminaTokens.Elastic.ink : LuminaTokens.Elastic.muted)
+                .frame(minWidth: ElasticLayout.pageControlHit, minHeight: ElasticLayout.pageControlHit)
+        }
+        .buttonStyle(LuminaElasticButtonStyle())
+        .disabled(!enabled)
+        .accessibilityLabel(step < 0 ? "Previous frame" : "Next frame")
     }
 
     private var autoButton: some View {

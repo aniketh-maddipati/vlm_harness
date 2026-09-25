@@ -74,6 +74,129 @@ extension P0SessionModel {
         return "\(shoot.name.lowercased()) · \(formatter.string(from: day).lowercased())"
     }
 
+    // MARK: - Pages
+
+    var page: ElasticSurface {
+        if route == .open { return .open }
+        if stitchOpen { return .stitch }
+        if route == .focus { return .scroll }
+        return .chron
+    }
+
+    /// One step: Open → Chron → Scroll → Stitch → Open. Does not write a cull.
+    func flipPage() {
+        switch page.flipped() {
+        case .open:
+            goHome()
+        case .chron:
+            closeStitch()
+            if route == .open {
+                openArrangedResume()
+                return
+            }
+            if route == .focus { closeInspection() }
+        case .scroll:
+            closeStitch()
+            if route == .open {
+                pendingPage = .scroll
+                openArrangedResume()
+                return
+            }
+            openFocusedPhotograph()
+        case .stitch:
+            openStitch()
+        }
+    }
+
+    /// The kept set as a sequence. Does not write a cull or a recipe.
+    func openStitch() {
+        if route == .open {
+            pendingPage = .stitch
+            openArrangedResume()
+            return
+        }
+        if route == .focus { closeInspection() }
+        stitchOpen = true
+        let ids = finalSetAssetIDs
+        if let focus = focusedAssetID, ids.contains(focus) { return }
+        if let first = ids.first { setFocus(first) }
+    }
+
+    func closeStitch() {
+        stitchOpen = false
+    }
+
+    private func openArrangedResume() {
+        let arranged = OpenShootArrangement.arrange(recentShoots, resumeName: lastOpenedShootName)
+        if let resume = arranged.resume {
+            openRecent(resume)
+        }
+    }
+
+    /// The moment crossing the table. Reads the viewport marker, then the cursor's chapter.
+    var momentPage: ElasticPages.Index {
+        pageIndex(in: chapters.map(\.id), current: chronologyViewportChapterID ?? activeChapterID)
+    }
+
+    /// The frame the focus route is on, in strip order.
+    var framePage: ElasticPages.Index {
+        pageIndex(in: stripAssetIDs.map(\.uuidString), current: focusedAssetID?.uuidString)
+    }
+
+    /// The focused keep in set order. Lead is 1; trail is the last.
+    var stitchPage: ElasticPages.Index {
+        pageIndex(in: finalSetAssetIDs.map(\.uuidString), current: focusedAssetID?.uuidString)
+    }
+
+    /// Travel one keep on stitch. Does not write a cull, a recipe, or a selection.
+    func stepStitchFocus(_ step: Int) {
+        guard stitchOpen, step != 0 else { return }
+        let ids = finalSetAssetIDs
+        guard let next = neighborID(in: ids.map(\.uuidString), current: focusedAssetID?.uuidString, step: step),
+              let id = UUID(uuidString: next) else {
+            return
+        }
+        setFocus(id)
+    }
+
+    /// First and last of the kept set — not burst lead/trail, and never a singleton.
+    func stitchSequenceMark(for id: UUID) -> ElasticSequenceMark? {
+        let ids = finalSetAssetIDs
+        guard ids.count > 1 else { return nil }
+        if ids.first == id { return .lead }
+        if ids.last == id { return .trail }
+        return nil
+    }
+
+    /// Ask the table to reveal the neighboring moment. Focus and selection stay put.
+    func requestMomentPage(step: Int) {
+        let ids = chapters.map(\.id)
+        guard let next = neighborID(in: ids, current: chronologyViewportChapterID ?? activeChapterID, step: step) else {
+            return
+        }
+        momentPageRequest = next
+    }
+
+    /// Travel one frame on the open photograph. Does not write a cull or a selection.
+    func stepFramePage(_ step: Int) {
+        guard route == .focus, step != 0 else { return }
+        moveFocus(dx: step, dy: 0, columns: 1)
+    }
+
+    private func pageIndex(in ids: [String], current: String?) -> ElasticPages.Index {
+        guard !ids.isEmpty else { return ElasticPages.Index(position: 0, count: 0) }
+        let index = current.flatMap { ids.firstIndex(of: $0) } ?? 0
+        return ElasticPages.Index(position: index + 1, count: ids.count)
+    }
+
+    private func neighborID(in ids: [String], current: String?, step: Int) -> String? {
+        let index = current.flatMap { ids.firstIndex(of: $0) } ?? 0
+        guard let next = ElasticPages.Index.neighbor(current: index, count: ids.count, step: step) else {
+            return nil
+        }
+        return ids[next]
+    }
+
     /// Auto is live while anything it would touch is still as shot.
     var autoButtonEnabled: Bool { autoRun == nil && versionAutoAssetID == nil && autoButtonSubLabel != "nothing as shot" }
 

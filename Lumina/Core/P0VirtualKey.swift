@@ -7,4 +7,6 @@ enum P0VirtualKey {
     static let space: UInt16 = 49
     static let rightCommand: UInt16 = 54
     static let leftCommand: UInt16 = 55
+    static let pageUp: UInt16 = 116
+    static let pageDown: UInt16 = 121
 }

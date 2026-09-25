@@ -10,6 +10,12 @@ enum OpenShootArrangement {
         var smaller: [RecentShootSummary]
     }
 
+    /// Edited frames against frames still as shot.
+    static func editProgress(edited: Int, total: Int) -> (edited: Int, asShot: Int) {
+        let edited = min(max(edited, 0), max(total, 0))
+        return (edited, max(0, total - edited))
+    }
+
     /// Below this, a shoot never reads as a "set" no matter the rest of the list.
     static let setFloor = 24
 

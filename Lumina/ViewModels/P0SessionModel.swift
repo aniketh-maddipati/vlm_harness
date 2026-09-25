@@ -147,6 +147,12 @@ final class P0SessionModel {
     var activeChapterID: String?
     /// Viewport navigation marker; independent of selection and keyboard focus.
     var chronologyViewportChapterID: String?
+    /// One-shot scroll target for a moment page. The table consumes it. It does not move focus.
+    var momentPageRequest: String?
+    /// Stitch is its own page. The table stays mounted underneath.
+    var stitchOpen = false
+    /// Page to land on after an open from the desk finishes.
+    var pendingPage: ElasticSurface?
     var selectedAssetIDs: [UUID] {
         get { workspaceState.selectedAssetIDs }
         set {
@@ -642,6 +648,7 @@ final class P0SessionModel {
         releaseFolderAccess()
         userFacingError = nil
         inspectingAssetID = nil
+        stitchOpen = false
         workspaceState.clear()
         showingBefore = false
         clearGestureState()
@@ -711,6 +718,8 @@ final class P0SessionModel {
         case .chapterKeep(let command):
             applyChapterKeepUndo(command)
             installCullGrammarFromSession()
+        case .setOrder(let command):
+            applySetOrderUndo(command)
         }
     }
 
@@ -1607,6 +1616,11 @@ final class P0SessionModel {
     }
 
     func moveFocus(dx: Int, dy: Int, columns _: Int) {
+        if stitchOpen {
+            stepStitchFocus(dx != 0 ? dx : dy)
+            return
+        }
+
         if walkingKeptRail, dx != 0 {
             walkKeptRail(dx)
             return
@@ -1833,6 +1847,39 @@ final class P0SessionModel {
         )
     }
 
+    /// Move a kept frame earlier (−1) or later (+1) in `FinalSetOrder`. The first
+    /// move freezes chronological keeps into a custom order. Cull stays put.
+    @discardableResult
+    func moveInSet(_ id: UUID, by delta: Int) -> Bool {
+        guard delta != 0, isInFinalSet(id) else { return false }
+        var order = finalSetAssetIDs
+        guard let index = order.firstIndex(of: id) else { return false }
+        let next = index + delta
+        guard order.indices.contains(next) else { return false }
+        order.swapAt(index, next)
+        let before = shoot?.finalSetOrder.assetIDs ?? []
+        guard order != before else { return false }
+
+        let command = SetOrderCommand(
+            before: before,
+            after: order,
+            focusBefore: focusedAssetID,
+            label: delta < 0 ? "Earlier in the set" : "Later in the set"
+        )
+        var finalOrder = shoot?.finalSetOrder ?? FinalSetOrder()
+        guard command.apply(to: &finalOrder) else { return false }
+        if var shoot {
+            shoot.finalSetOrder = finalOrder
+            self.shoot = shoot
+        } else {
+            return false
+        }
+        setFocus(id)
+        undoCoordinator.push(command)
+        persistRestoreNow()
+        return true
+    }
+
     /// Frames the marquee crossed, in shoot order. The cursor stays where it was.
     func selectMarquee(_ ids: [UUID]) {
         var seen: Set<UUID> = []
@@ -2001,6 +2048,19 @@ final class P0SessionModel {
             self.inferredMeasurements.sharpness.merge(measured.sharpness) { _, new in new }
             self.inferredMeasurements.embeddings.merge(measured.embeddings) { _, new in new }
         }
+    }
+
+    private func applySetOrderUndo(_ command: SetOrderCommand) {
+        var finalOrder = shoot?.finalSetOrder ?? FinalSetOrder()
+        guard command.revert(in: &finalOrder) else { return }
+        if var shoot {
+            shoot.finalSetOrder = finalOrder
+            self.shoot = shoot
+        }
+        if let focus = command.focusBefore {
+            setFocus(focus)
+        }
+        persistRestoreNow()
     }
 
     private func applyChapterKeepUndo(_ command: ChapterKeepCommand) {
@@ -2221,6 +2281,9 @@ final class P0SessionModel {
         workspaceState.clear()
         activeChapterID = nil
         chronologyViewportChapterID = nil
+        momentPageRequest = nil
+        stitchOpen = false
+        pendingPage = nil
         inspectingAssetID = nil
         densityLeaned = false
         developDrawerOpen = false
@@ -2267,6 +2330,12 @@ final class P0SessionModel {
             restoreWorkspace(from: shoot.workspace)
             reconcileActiveChapter()
             route = .time
+            if pendingPage == .scroll {
+                openFocusedPhotograph()
+            } else if pendingPage == .stitch {
+                stitchOpen = true
+            }
+            pendingPage = nil
         case .assetsReplaced(let assets, let status):
             self.assets = assets
             self.shoot?.assets = assets

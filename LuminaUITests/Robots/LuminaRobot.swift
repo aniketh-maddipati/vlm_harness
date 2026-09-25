@@ -44,7 +44,8 @@ struct LuminaRobot {
                 elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
                 chronologyViewportChapterID: nil,
                 chapterTableMounted: false, inspectPeripheryDimOpacity: 1,
-                focusedIsPhone: nil, focusedIsUnsupportedVideo: nil, unsupportedVideoCount: 0
+                focusedIsPhone: nil, focusedIsUnsupportedVideo: nil, unsupportedVideoCount: 0,
+                page: "open"
             )
         }
         return snapshot
@@ -74,7 +75,8 @@ struct LuminaRobot {
                 elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
                 chronologyViewportChapterID: nil,
                 chapterTableMounted: false, inspectPeripheryDimOpacity: 1,
-                focusedIsPhone: nil, focusedIsUnsupportedVideo: nil, unsupportedVideoCount: 0
+                focusedIsPhone: nil, focusedIsUnsupportedVideo: nil, unsupportedVideoCount: 0,
+                page: "open"
             )
         }
         return snapshot

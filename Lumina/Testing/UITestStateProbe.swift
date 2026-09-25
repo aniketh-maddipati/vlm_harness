@@ -101,6 +101,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedIsUnsupportedVideo: Bool? = nil
     /// How many locked video presence rows are in the shoot.
     var unsupportedVideoCount: Int = 0
+    /// Open, Chron, Scroll, or Stitch.
+    var page: String = "open"
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -224,7 +226,8 @@ extension P0SessionModel {
                 : ElasticCanvasLayout.peripheryDimOpacity,
             focusedIsPhone: focused.map(\.isPhoneBody),
             focusedIsUnsupportedVideo: focused.map(\.isUnsupportedVideo),
-            unsupportedVideoCount: assets.filter(\.isUnsupportedVideo).count
+            unsupportedVideoCount: assets.filter(\.isUnsupportedVideo).count,
+            page: page.rawValue
         )
     }
 }

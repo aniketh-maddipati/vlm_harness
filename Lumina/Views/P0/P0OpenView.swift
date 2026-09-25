@@ -67,6 +67,21 @@ struct P0OpenView: View {
                 .font(LuminaTokens.Typeface.brand(28))
                 .foregroundStyle(LuminaTokens.Ink.primary)
             Spacer()
+            Button {
+                session.flipPage()
+            } label: {
+                HStack(spacing: LuminaTokens.Spacing.xs) {
+                    Text(session.page.title)
+                        .font(LuminaTokens.Typeface.meta(13, weight: .medium))
+                    Text("]")
+                        .font(LuminaTokens.Typeface.meta(13, weight: .semibold))
+                }
+                .foregroundStyle(LuminaTokens.Ink.primary)
+                .frame(minHeight: HiFiTokens.Hit.minimum)
+            }
+            .buttonStyle(LuminaOpenPlatePressStyle())
+            .accessibilityLabel(session.page.title)
+            .accessibilityHint("Next page")
         }
         .padding(.horizontal, LuminaTokens.Spacing.xxl)
         .frame(height: LuminaTokens.HitTarget.header)
@@ -281,8 +296,9 @@ private struct OpenShootPlate: View {
     }
 
     private var plateBody: some View {
-        VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
+            VStack(alignment: .leading, spacing: LuminaTokens.Spacing.sm) {
             StillStrip(paths: Array(shoot.stillPaths.prefix(stillCount)), height: stillHeight)
+            progressCounts
             VStack(alignment: .leading, spacing: LuminaTokens.Spacing.xs) {
                     Text(OpenShootArrangement.plateTitle(
                         name: shoot.name,
@@ -297,17 +313,6 @@ private struct OpenShootPlate: View {
                             .font(LuminaTokens.Typeface.meta(12))
                             .foregroundStyle(LuminaTokens.Ink.tertiary)
                             .lineLimit(1)
-                    }
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(progressLine)
-                            .font(LuminaTokens.Typeface.meta(weight == .resume || weight == .lead ? 13 : 12))
-                            .foregroundStyle(LuminaTokens.Ink.secondary)
-                            .lineLimit(1)
-                        Spacer(minLength: 8)
-                        Text("\(shoot.assetCount)")
-                            .font(countFont)
-                            .foregroundStyle(weight == .smaller ? LuminaTokens.Ink.tertiary : LuminaTokens.Ink.primary)
-                            .monospacedDigit()
                     }
                     if let dateLine {
                         Text(dateLine)
@@ -361,18 +366,35 @@ private struct OpenShootPlate: View {
         return shoot.name
     }
 
-    /// Where the work stands. The date is a separate caption.
-    private var progressLine: String {
-        var parts: [String] = []
-        if weight == .resume { parts.append("as you left it") }
-        if shoot.keepCount > 0 {
-            parts.append("\(shoot.keepCount) kept")
-        } else if shoot.markedCount == 0 {
-            parts.append("still open")
-        } else {
-            parts.append("none kept")
+    private var editProgress: (edited: Int, asShot: Int) {
+        OpenShootArrangement.editProgress(edited: shoot.editedCount, total: shoot.assetCount)
+    }
+
+    /// The two counts a set is judged by, ahead of the title.
+    private var progressCounts: some View {
+        HStack(alignment: .firstTextBaseline, spacing: LuminaTokens.Spacing.md) {
+            countPair(editProgress.edited, "edited")
+            countPair(editProgress.asShot, "as shot")
         }
-        return parts.joined(separator: " · ")
+        .accessibilityElement(children: .combine)
+    }
+
+    private func countPair(_ count: Int, _ word: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: LuminaTokens.Spacing.xs) {
+            Text("\(count)")
+                .font(countFont)
+                .foregroundStyle(LuminaTokens.Ink.primary)
+                .monospacedDigit()
+            Text(word)
+                .font(LuminaTokens.Typeface.meta(weight == .smaller ? 12 : 13, weight: .medium))
+                .foregroundStyle(LuminaTokens.Ink.secondary)
+        }
+    }
+
+    /// Kept, for the accessibility value. The plate leads with edited / as shot.
+    private var progressLine: String {
+        let progress = editProgress
+        return "\(progress.edited) edited, \(progress.asShot) as shot"
     }
 
     /// Omitted when the title is already that date.

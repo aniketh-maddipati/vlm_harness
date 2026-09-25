@@ -8,6 +8,7 @@ import Foundation
 /// 2. **Drawer** — the develop drawer closes.
 /// 3. **Selection** — a selection clears.
 /// 4. **Route** — the focus route returns to the time table, same cursor.
+/// 5. **Stitch** — the sequence page returns to the table.
 ///
 /// Nothing else answers to Esc: an open burst folds by its badge, a held key
 /// releases with the key, and the table itself has nowhere further out to go.
@@ -32,6 +33,11 @@ enum P0EscLadder {
 
         if session.route == .focus {
             session.closeInspection()
+            return true
+        }
+
+        if session.stitchOpen {
+            session.closeStitch()
             return true
         }
 

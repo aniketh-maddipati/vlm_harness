@@ -85,6 +85,7 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedIsPhone: Bool? = nil
     var focusedIsUnsupportedVideo: Bool? = nil
     var unsupportedVideoCount: Int = 0
+    var page: String = "open"
 
     /// Convenience: the Nth visible asset ID (nil when out of range).
     func visibleID(at index: Int) -> String? {
