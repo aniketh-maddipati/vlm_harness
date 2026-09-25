@@ -46,6 +46,9 @@ struct ElasticFilmstrip: View {
                 ? LuminaTokens.Elastic.warmAccent.opacity(ElasticLayout.stripSetFillOpacity)
                 : LuminaTokens.Elastic.shadowInk.opacity(ElasticLayout.filmstripFillOpacity)
         )
+        #if DEBUG
+        .workbenchHot()
+        #endif
     }
 
     private func tile(_ asset: AssetRecord) -> some View {

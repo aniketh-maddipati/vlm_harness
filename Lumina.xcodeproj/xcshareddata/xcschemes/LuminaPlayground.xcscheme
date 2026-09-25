@@ -54,15 +54,31 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "--card card-clean-500"
+            argument = "--card"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "--surface table"
+            argument = "card-clean-500"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--surface"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "table"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--row"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "--row 1 --focused"
+            argument = "1"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--focused"
             isEnabled = "NO">
          </CommandLineArgument>
       </CommandLineArguments>

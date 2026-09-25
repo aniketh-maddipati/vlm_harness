@@ -45,6 +45,9 @@ struct ElasticDevelopDrawer: View {
             in: RoundedRectangle(cornerRadius: ElasticLayout.drawerRadius, style: .continuous)
         )
         .accessibilityIdentifier(P0AccessibilityID.elasticDevelopDrawer)
+        #if DEBUG
+        .workbenchHot()
+        #endif
     }
 
     // MARK: - Rows
