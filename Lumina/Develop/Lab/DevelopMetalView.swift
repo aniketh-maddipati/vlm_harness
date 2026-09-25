@@ -212,7 +212,7 @@ struct DevelopMetalView: NSViewRepresentable {
             // The backing is read once, here, so the walk sample and the completion
             // sample of one draw are attributed to the same surface even if
             // `updateNSView` publishes a new one while the GPU is still working.
-            let backing = rawStageBacking
+            let stageBacking = rawStageBacking
 
             let signpostID = Self.signposter.makeSignpostID()
             let drawState = Self.signposter.beginInterval("draw", id: signpostID)
@@ -229,7 +229,7 @@ struct DevelopMetalView: NSViewRepresentable {
             // stalled main thread. Off unless `--p0-instruments`; observes only.
             DevelopDrawInstruments.recordWalk(
                 milliseconds: (CFAbsoluteTimeGetCurrent() - started) * 1000,
-                backing: backing
+                backing: stageBacking
             )
             Self.signposter.endInterval("draw", drawState)
             // Record GPU completion, not command encoding. The signpost above
@@ -244,7 +244,7 @@ struct DevelopMetalView: NSViewRepresentable {
                 LatencyMetrics.record(LatencyMetrics.editDrawKey, milliseconds: elapsedMs)
                 // The same sample, attributed by RAW-stage backing so the lazy and
                 // materialized populations `editDrawKey` merges can be read apart.
-                DevelopDrawInstruments.recordDraw(milliseconds: elapsedMs, backing: backing)
+                DevelopDrawInstruments.recordDraw(milliseconds: elapsedMs, backing: stageBacking)
             }
             commandBuffer.present(drawable)
             DevelopPresentationTrace.shared.record("present-submitted", identity: selectedIdentity,

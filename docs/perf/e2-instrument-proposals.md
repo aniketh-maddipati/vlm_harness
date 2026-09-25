@@ -90,3 +90,112 @@ E2 Window 1. This PR ships the stopwatch, not a reading.
 
 If Window 1's data supports them, these constants become tokens in a later, deliberate
 tokens-hash change — never as a side effect of a measurement session.
+
+---
+
+# W0 develop-draw attribution — PROPOSED
+
+**Branch:** `perf/w0-render-instruments` · **Date:** 2026-09-24 · **Status:** proposals, not tokens.
+
+Measurement only. After this change the app renders the same pixels, in the same order, at the
+same times; every key below observes work `DevelopMetalView.draw(in:)` already does. Forcing
+rasterization of the authoritative stage is a render-behaviour change and belongs to **W1**.
+
+## The defect this instrument makes visible
+
+`PreparedRawSession.rawStageSurface` materializes the **interactive** RAW tier into an
+`MTLTexture` and deliberately leaves the **authoritative** tier as the lazy
+`CIRAWFilter.outputImage`. `DevelopMetalView.draw(in:)` then walks whatever `CIImage` it was
+handed, so for a settled frame that walk **is the RAW demosaic**, on the presentation path.
+
+`LatencyMetrics.editDrawKey` (`p0.edit.draw_ms`) already brackets that draw from just before the
+`startTask` pair to the command buffer's completion handler, so the demosaic is genuinely inside
+the number. What it cannot do is hold the two populations apart — cheap materialized draws and
+expensive lazy ones land in one distribution, and the cheap ones outnumber the expensive ones
+during a scrub. `DevelopDrawInstrumentTests.testMixedKeyHidesTheLazyPopulationThatTheSplitKeysReveal`
+is that claim as arithmetic: with 100 draws at 4 ms and 5 at 90 ms, the mixed key's p50 **and**
+p95 both report 4 ms and the key never breaches its own 50 ms budget.
+
+## The four keys
+
+| Key | What one sample is | Declared budget | Basis |
+|---|---|---|---|
+| `p0.develop.draw_walk_lazy_ms` | CPU wall time of the `startTask(toClear:)` + `startTask(toRender:to:)` pair for a draw whose RAW stage is a lazy `CIRAWFilter` graph | **8.33 ms** PROPOSED | Deliberately loose — the walk is a *part* of the draw, so the whole's budget can only under-report breaches. It runs on the thread driving `draw(in:)`, so a large value is a main-thread stall. |
+| `p0.develop.draw_walk_materialized_ms` | The same, for a draw whose RAW stage is a materialized `MTLTexture` | **8.33 ms** PROPOSED | As above. |
+| `p0.develop.draw_lazy_ms` | The same interval extended to GPU completion — directly comparable to `p0.edit.draw_ms`, except attributed | **8.33 ms** PROPOSED | The frame key's claim: a draw slower than one display interval cannot keep up with a pan. |
+| `p0.develop.draw_materialized_ms` | The same, materialized | **8.33 ms** PROPOSED | As above. |
+
+All four reuse `LatencyMetrics.frameBudget120HzMs` rather than inventing a fifth constant.
+They are declared by **exact key** in `declaredSLAms`, like the E2 four. `p0.edit.draw_ms` keeps
+its name and its historical 50 ms budget, unchanged.
+
+Subtracting walk from total gives GPU time without a second clock — that subtraction is what
+distinguishes "the graph was re-walked" from "the GPU was busy".
+
+## The attribution rule
+
+`DevelopRawStageBacking` is read from the surface itself (`RawStageSurface.texture != nil`), not
+from the tier that was requested: `materializeInteractiveStage` can fail, and the interactive
+tier then caches a lazy graph like the authoritative one. Reading the tier would mislabel that
+draw as cheap.
+
+`.unattributed` surfaces — proxy, ImageIO fallback, browse JPEG, Develop Lab frames — record
+**nothing**. The count of unattributed draws is recoverable as
+`window(for: "p0.edit.draw_ms").totalRecorded` minus the two attributed totals.
+
+## How a W1 delta gets proven from these
+
+W1 materializes the authoritative stage, after which settled draws stop producing `lazyGraph`
+samples entirely — the *same* key cannot be compared across the change. The comparison is:
+
+- **Before:** `draw_lazy_ms` (settled pan/zoom) against `draw_materialized_ms` (interactive)
+  **in the same run** — same host, same instrument, same session. The gap between them is the
+  cost W1 removes, with the materialized key as the contemporaneous control.
+- **After:** settled pan/zoom lands in `draw_materialized_ms`; `draw_lazy_ms` should have no
+  samples. The materialized key must not have regressed against its before value — that is what
+  rules out "the host got faster".
+
+## Off by default
+
+`DevelopDrawInstruments.isEnabled` reads the same `--p0-instruments` launch argument as
+`P0RenderInstruments` and `DevelopPresentationMeasurement`. An ordinary run pays one `Bool` read
+per draw. Keys promote themselves out of the 512-sample ring on first sample, because a pan is
+thousands of draws and the ring would report only its tail.
+
+## `p0.edit.promote_settled_ms` — NOT A LATENCY
+
+Left recording byte-for-byte as it was, with a comment at the recording site in
+`DevelopRenderScheduler.openPhotograph` stating precisely what it does and does not measure.
+One sample contains the cache lookup, the lane wait, `CIRAWFilter` property application, CI graph
+*construction*, and the `createCGImage` call for the settled histogram bitmap. It does **not**
+contain the demosaic: `createCGImage` on a full-scale RAW graph returns a deferred image in
+0.3 ms against 183.6 ms p50 to rasterize the same graph
+(`~/LuminaEvidence/render-latency-research-20260924/03-raw-deferred-vs-forced-24mp.txt`).
+A small number there means the graph was built, not that the photograph is on screen.
+
+Making it true requires either forcing rasterization (W1's behaviour change) or resolving it
+against a presented drawable, which exists only under `--p0-instruments` and would redefine a key
+that already has a budget and a history. Both are out of scope for a measurement-only change.
+
+## What is measured here, and what is not
+
+**Measured by these tests:** the key names, the declared budgets, the attribution rule including
+the unattributed exclusion, the off-by-default guarantee, ring promotion, and the mixed-key
+defect as arithmetic.
+
+**UNMEASURED, by construction:**
+
+- Every number these four keys will report. No run of this instrument exists yet. This change
+  ships the stopwatch, not a reading.
+- The walk/GPU split for a lazy draw. The magnitudes quoted from
+  `04-lazy-redraw.txt` (288.7 ms first draw; 6.4–6.8 ms identical redraws; 93.6–181.8 ms after a
+  pan; 3.7–5.3 ms materialized) come from a standalone bench using the **blocking**
+  `CIContext.render(toBitmap:)`, not this app's asynchronous `startTask` + command-buffer path.
+  They are the reason these keys exist; they are not this app's numbers.
+- Develop Lab draws (`DevelopLabView`) stay `.unattributed` — the lab is a harness surface, not
+  the product path.
+
+## Promotion
+
+Same rule as the E2 block above: if a real Window supports them, these constants become tokens in
+a later, deliberate tokens-hash change — never as a side effect of a measurement session.
