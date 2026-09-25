@@ -13,6 +13,13 @@ struct ProbeSnapshot: Codable, Equatable {
     var visibleCount: Int
     var selectionCount: Int
     var keptCount: Int
+    var exportIsRunning: Bool
+    var exportSettingsVisible: Bool
+    var exportCanResume: Bool
+    var exportPlanned: Int
+    var exportWritten: Int
+    var exportFailed: Int
+    var exportCancelled: Int
     var rejectedCount: Int
     var unreviewedCount: Int
     var editedCount: Int
@@ -132,6 +139,13 @@ extension P0SessionModel {
             visibleCount: visible.count,
             selectionCount: selectionCount,
             keptCount: keptCount,
+            exportIsRunning: isExporting,
+            exportSettingsVisible: exportSettingsVisible,
+            exportCanResume: canResumeExport,
+            exportPlanned: exportSummary?.total ?? 0,
+            exportWritten: exportSummary?.completed ?? 0,
+            exportFailed: exportSummary?.failed ?? 0,
+            exportCancelled: exportSummary?.cancelled ?? 0,
             rejectedCount: rejected,
             unreviewedCount: unreviewed,
             editedCount: editedIDs.count,

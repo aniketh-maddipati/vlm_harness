@@ -8,12 +8,16 @@ import SwiftUI
 /// the photographer already said, and every mutation goes through the session.
 struct ElasticTableView: View {
     @Bindable var session: P0SessionModel
+    @State private var viewportSpace = UUID()
+    @State private var viewportSnapshot = ElasticViewportSnapshot()
+    @State private var returnAnchor: ElasticViewportReveal.Anchor?
+    @State private var revealRequest: ElasticViewportReveal.Request?
 
     var body: some View {
         Group {
             if session.route == .focus {
-                // Same table, compressed. Focus is a latch on this surface, not a
-                // different screen — the mount survives so scroll and cursor do too.
+                // The scroll content is replaced by a strip; returnAnchor lives
+                // here so the table can restore a visible photo when it returns.
                 ElasticFilmstrip(session: session)
             } else {
                 VStack(spacing: 0) {
@@ -33,7 +37,8 @@ struct ElasticTableView: View {
     // MARK: - Moments
 
     private var momentScroll: some View {
-        ScrollViewReader { proxy in
+        GeometryReader { viewport in
+          ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(session.chapters.enumerated()), id: \.element.id) { index, chapter in
@@ -45,17 +50,42 @@ struct ElasticTableView: View {
                             ElasticMomentRow(session: session, chapter: chapter)
                         }
                         .id(chapter.id)
+                        .preference(key: ElasticViewportFrames.self,
+                                    value: ElasticViewportSnapshot(containers: [chapter.id]))
                     }
                 }
+                .background(ElasticScrollInterruption { revealRequest = nil })
                 .padding(.horizontal, ElasticLayout.tableGutter)
                 .padding(.vertical, ElasticLayout.tablePaddingTop)
             }
-            .onChange(of: session.focusedAssetID) { _, id in
-                guard let id,
-                      let chapter = ShootChapterArrangement.chapter(containing: id, in: session.chapters)
-                else { return }
-                proxy.scrollTo(chapter.id, anchor: .center)
+            .coordinateSpace(name: viewportSpace)
+            .environment(\.elasticViewportSpace, viewportSpace)
+            .onPreferenceChange(ElasticViewportFrames.self) { snapshot in
+                viewportSnapshot = snapshot
+                let wasRevealing = revealRequest != nil
+                resolveReveal(snapshot: snapshot, viewport: viewport.size, proxy: proxy)
+                if !wasRevealing, session.route == .time,
+                   let anchor = ElasticViewportReveal.anchor(
+                    frames: snapshot.tiles, viewport: CGRect(origin: .zero, size: viewport.size)
+                   ) {
+                    // Keep the last valid viewport before the table is dismantled.
+                    returnAnchor = anchor
+                }
             }
+            .onChange(of: session.focusedAssetID) { _, id in
+                requestReveal(id: id, position: nil, viewport: viewport.size, proxy: proxy)
+            }
+            .onAppear {
+                requestReveal(
+                    id: returnAnchor?.id ?? session.focusedAssetID,
+                    position: returnAnchor?.position, viewport: viewport.size, proxy: proxy
+                )
+            }
+            .onDisappear {
+                revealRequest = nil
+                viewportSnapshot = ElasticViewportSnapshot()
+            }
+          }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // `position: absolute; bottom: 0` — the peek sits over the foot of the table
@@ -64,6 +94,53 @@ struct ElasticTableView: View {
             if session.tablePeekVisible {
                 ElasticPeekBar(session: session)
                     .elasticBorn(ElasticLayout.bornPeekMs)
+            }
+        }
+    }
+
+    /// Resolve to the exact representative this table renders, including collapsed bursts.
+    private func renderedTarget(for id: UUID) -> (photo: UUID, chapter: String)? {
+        for chapter in session.chapters {
+            guard let burst = chapter.bursts.first(where: { $0.assetIDs.contains(id) }) else { continue }
+            let open = burst.frameCount > 1
+                && (session.leanedBurstID == burst.id || session.peek == .flags)
+            if open, let frame = burst.frames.first(where: { $0.assetIDs.contains(id) }) {
+                return (frame.coverID, chapter.id)
+            }
+            if let cover = burst.preferredCoverID(in: session.assets) ?? burst.coverID {
+                return (cover, chapter.id)
+            }
+        }
+        return nil
+    }
+
+    private func requestReveal(id: UUID?, position: CGFloat?, viewport: CGSize, proxy: ScrollViewProxy) {
+        guard let id, let target = renderedTarget(for: id) else {
+            revealRequest = nil
+            return
+        }
+        revealRequest = ElasticViewportReveal.Request(id: target.photo, position: position)
+        if viewportSnapshot.tiles[target.photo] != nil {
+            resolveReveal(snapshot: viewportSnapshot, viewport: viewport, proxy: proxy)
+        } else {
+            // The lazy chapter is a known scroll target even before its tiles exist.
+            // Resolve only when that chapter contributes its layout; native scrolling cancels.
+            revealRequest?.containerID = target.chapter
+            proxy.scrollTo(target.chapter)
+        }
+    }
+
+    private func resolveReveal(snapshot: ElasticViewportSnapshot, viewport: CGSize, proxy: ScrollViewProxy) {
+        guard var request = revealRequest else { return }
+        switch request.resolve(frames: snapshot.tiles, viewport: CGRect(origin: .zero, size: viewport), realizedContainers: snapshot.containers) {
+        case .wait: break
+        case .finished: revealRequest = nil
+        case .reveal(let id, let position):
+            revealRequest = nil
+            if let position {
+                proxy.scrollTo(id, anchor: UnitPoint(x: UnitPoint.center.x, y: position))
+            } else {
+                proxy.scrollTo(id)
             }
         }
     }
@@ -87,14 +164,17 @@ struct ElasticTableView: View {
     }
 }
 
-/// One moment: a card with when it started, what the light was doing, and its frames.
+/// Chronology follows vertical scrolling; every moment gives its width to photographs.
 struct ElasticMomentRow: View {
     @Bindable var session: P0SessionModel
     let chapter: ShootChapter
 
     var body: some View {
-        HStack(alignment: .top, spacing: ElasticLayout.momentGap) {
-            column
+        VStack(alignment: .leading, spacing: ElasticLayout.groupRowGap) {
+            Text(ElasticChronology.label(for: chapter))
+                .font(ElasticType.mono(ElasticLayout.momentTextSize, weight: .medium))
+                .foregroundStyle(LuminaTokens.Elastic.shellAlt)
+                .frame(maxWidth: .infinity, alignment: .leading)
             ElasticWrapLayout(
                 horizontalSpacing: ElasticLayout.groupGap,
                 verticalSpacing: ElasticLayout.groupRowGap
@@ -107,33 +187,9 @@ struct ElasticMomentRow: View {
         }
         .padding(.vertical, ElasticLayout.momentPaddingV)
         .padding(.horizontal, ElasticLayout.momentPaddingH)
-        .background(
-            HiFiTokens.SwimLane.fill,
-            in: RoundedRectangle(cornerRadius: ElasticLayout.momentRadius, style: .continuous)
-        )
     }
 
-    private var column: some View {
-        let size = ElasticLayout.momentTextSize
-        let secondary = LuminaTokens.Elastic.shellAlt.opacity(ElasticLayout.momentSecondaryOpacity)
-        let mix = session.momentMixLine(chapter)
-        return VStack(alignment: .leading, spacing: ElasticType.lineSpacing(
-            size: size, lineHeight: ElasticLayout.momentLineHeight
-        )) {
-            Text(session.momentTimeLabel(chapter))
-                .font(ElasticType.mono(ElasticLayout.momentTimeSize, weight: .medium))
-            Text(session.momentLightWord(chapter)).foregroundStyle(secondary)
-            Text(session.momentCountLine(chapter)).foregroundStyle(secondary)
-            if !mix.isEmpty {
-                Text(mix).foregroundStyle(secondary)
-            }
-        }
-        .font(ElasticType.mono(size))
-        .foregroundStyle(LuminaTokens.Elastic.shellAlt)
-        .lineLimit(1)
-        .padding(.top, ElasticLayout.momentColumnTop)
-        .frame(width: ElasticLayout.momentColumnWidth, alignment: .leading)
-    }
+
 }
 
 /// One burst (or a single frame). Collapsed: the leader with two cards behind it and
@@ -148,7 +204,10 @@ struct ElasticFrameGroup: View {
 
     var body: some View {
         if isOpen {
-            HStack(spacing: ElasticLayout.frameGap) {
+            ElasticWrapLayout(
+                horizontalSpacing: ElasticLayout.frameGap,
+                verticalSpacing: ElasticLayout.groupRowGap
+            ) {
                 ForEach(burst.frames) { frame in
                     ElasticFrameTile(session: session, assetID: frame.coverID, width: ElasticLayout.tileInOpenBurst)
                 }
@@ -237,6 +296,7 @@ struct ElasticFrameTile: View {
             }
         }
         .frame(width: width, height: height)
+        .modifier(ElasticViewportTile(id: assetID))
         .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.tileRadius, style: .continuous))
         .overlay(alignment: .topLeading) {
             if let mark = inSet ? "✓" : cull == .reject ? "✕" : nil {

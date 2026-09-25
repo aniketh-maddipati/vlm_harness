@@ -483,12 +483,17 @@ final class DevelopRenderScheduler {
     // MARK: - Export lane
 
     /// Serialized, independent of interactive work.
-    func enqueueExport(_ work: @escaping @Sendable () async -> Void) {
+    @discardableResult
+    func enqueueExport(_ work: @escaping @Sendable () async -> Void,
+                       onCancelled: @escaping @Sendable () async -> Void = {}) -> Task<Void, Never> {
         let previous = exportQueue
-        exportQueue = Task(priority: .utility) {
+        let task = Task(priority: .utility) {
             await previous?.value
+            guard !Task.isCancelled else { await onCancelled(); return }
             await work()
         }
+        exportQueue = task
+        return task
     }
 
     // MARK: - Core render

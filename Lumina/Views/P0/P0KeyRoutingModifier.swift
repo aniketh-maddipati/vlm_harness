@@ -21,7 +21,7 @@ extension View {
     }
 }
 
-private struct P0KeyRoutingRepresentable: NSViewRepresentable {
+struct P0KeyRoutingRepresentable: NSViewRepresentable {
     var session: P0SessionModel
 
     func makeNSView(context: Context) -> P0KeyRoutingView {
@@ -95,13 +95,17 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             resignObserver = nil
         }
 
-        private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
+        func handleKeyDown(_ event: NSEvent) -> NSEvent? {
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             let command = flags.contains(.command)
             let shift = flags.contains(.shift)
             let unmodified = flags.intersection([.command, .shift, .option, .control]).isEmpty
             let chars = event.charactersIgnoringModifiers ?? ""
             let lower = chars.lowercased()
+
+            // Native export controls own ordinary navigation/activation keys.
+            // Export command chords deliberately retain the app route below.
+            if session.exportControlsFocused && !(command && !shift && lower == "e") { return event }
 
             if event.keyCode == 53 {
                 if P0EscLadder.handle(session: session) {
@@ -205,10 +209,10 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
 
             if command,
                !shift,
-               !event.modifierFlags.contains(.option),
                lower == "e" {
                 if event.isARepeat { return nil }
-                session.chooseAndExportKept()
+                if event.modifierFlags.contains(.option) { session.exportSettingsVisible = true }
+                else { session.chooseAndExportKept() }
                 return nil
             }
 
@@ -270,7 +274,8 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
             P0RenderInstruments.shared.arm(P0RenderInstruments.Key.zoomGesture, event: event)
         }
 
-        private func handleKeyUp(_ event: NSEvent) -> NSEvent? {
+        func handleKeyUp(_ event: NSEvent) -> NSEvent? {
+            if session.exportControlsFocused && !event.modifierFlags.contains(.command) { return event }
             let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
             if event.keyCode == P0VirtualKey.tab {
                 session.releasePeekKey()
@@ -289,7 +294,7 @@ private struct P0KeyRoutingRepresentable: NSViewRepresentable {
     }
 }
 
-private final class P0KeyRoutingView: NSView {
+final class P0KeyRoutingView: NSView {
     weak var coordinator: P0KeyRoutingRepresentable.Coordinator?
 
     override func viewDidMoveToWindow() {

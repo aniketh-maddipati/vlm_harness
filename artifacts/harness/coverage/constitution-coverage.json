@@ -648,9 +648,10 @@
     {
       "id": "D34",
       "kind": "D",
-      "title": "Export = receipts, not a task.",
+      "title": "### D34 amendment \u2014 Ordered kept-set JPEG export",
       "sources": [
-        "v5"
+        "v5",
+        "v6"
       ],
       "lint": [],
       "logic": [],

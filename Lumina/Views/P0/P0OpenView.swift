@@ -20,6 +20,11 @@ struct P0OpenView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: LuminaTokens.Spacing.xxl) {
                         hero
+                        if let error = session.userFacingError {
+                            P0OpenFeedback(message: error) {
+                                session.chooseFolder()
+                            }
+                        }
                         if arrangement.resume != nil || !arrangement.largerSets.isEmpty || !arrangement.smaller.isEmpty {
                             shoots
                         }
@@ -44,14 +49,6 @@ struct P0OpenView: View {
         #if DEBUG
         .workbenchHot()
         #endif
-        .alert("Could not open", isPresented: Binding(
-            get: { session.userFacingError != nil },
-            set: { if !$0 { session.userFacingError = nil } }
-        )) {
-            Button("OK", role: .cancel) { session.userFacingError = nil }
-        } message: {
-            Text(session.userFacingError ?? "")
-        }
     }
 
     private var header: some View {
@@ -83,27 +80,23 @@ struct P0OpenView: View {
                 .foregroundStyle(LuminaTokens.Ink.tertiary)
 
             Button(action: { session.chooseFolder() }) {
-                VStack(spacing: 8) {
-                    Text("Open a folder")
-                        .font(LuminaTokens.Typeface.editorial(22))
-                        .foregroundStyle(LuminaTokens.Ink.primary)
-                    Text("or drop one on this window")
-                        .font(LuminaTokens.Typeface.meta(13))
-                        .foregroundStyle(LuminaTokens.Ink.tertiary)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 120)
-                .background(LuminaTokens.Surface.porcelain)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(LuminaTokens.Ink.primary.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [6, 5]))
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                Text("Open a folder")
+                    .font(LuminaTokens.Typeface.editorial(22))
+                    .foregroundStyle(LuminaTokens.Ink.primary)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 120)
+                    .background(LuminaTokens.Surface.porcelain)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(LuminaTokens.Ink.primary.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [6, 5]))
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(LuminaQuietButtonStyle())
             .accessibilityIdentifier(P0AccessibilityID.openChooseFolder)
             .accessibilityLabel("Open a folder")
+            .accessibilityHint(CopyContract.dropPhotographsOrFolder)
         }
         .padding(.top, LuminaTokens.Spacing.md)
     }
@@ -177,11 +170,14 @@ struct P0OpenView: View {
             RoundedRectangle(cornerRadius: LuminaTokens.Radius.panel, style: .continuous)
                 .strokeBorder(LuminaTokens.Ink.primary.opacity(0.45), lineWidth: 1.5)
                 .padding(18)
-            Text("Release to open")
+            Text(CopyContract.dropPhotographsOrFolder)
                 .font(LuminaTokens.Typeface.title(28))
                 .foregroundStyle(LuminaTokens.Ink.primary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, LuminaTokens.Spacing.xxl)
         }
         .allowsHitTesting(false)
+        .accessibilityLabel(CopyContract.dropPhotographsOrFolder)
     }
 }
 

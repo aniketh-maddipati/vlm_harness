@@ -3,6 +3,19 @@ import Foundation
 /// Hi-fi user-visible copy — every string here must appear in `design/copy-contract.txt`.
 enum CopyContract {
 
+    // MARK: - Ordered export (D34 amendment)
+
+    static let exportSettings = "Export settings"
+    static let exportPolicy = "Keeps export in set order. Crop and edits are included. GPS is omitted."
+    static let exportStopping = "Stopping after the current photograph…"
+    static let exportCancelled = "Export cancelled before starting."
+    static func exportProgress(written: Int, total: Int) -> String {
+        "\(written) of \(total) written"
+    }
+    static func exportReceipt(written: Int, total: Int, failed: Int, cancelled: Int) -> String {
+        "\(written) of \(total) written · \(failed) failed · \(cancelled) cancelled"
+    }
+
     // MARK: - Staged & receipt
 
     static let adaptedIndependently = "adapted — each RAW rendered independently"
@@ -46,6 +59,8 @@ enum CopyContract {
     // MARK: - Open
 
     static let nothingLeavesMac = "nothing leaves this computer"
+    /// Opens the folder chooser (NSOpenPanel via `chooseFolder()`).
+    static let pointAtFolder = "Point at a folder ⏎"
     static let dropPhotographsOrFolder = "drop photographs or a folder anywhere"
     static let groupingVisibleMotion = "grouping happens in front of you, in visible motion"
     static let copiesAutomatically = "copies automatically · safe to eject when ✓ appears"

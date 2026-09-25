@@ -21,9 +21,8 @@ struct ElasticRootView: View {
                     .elasticBorn(ElasticLayout.bornTableMs)
             }
 
-            if let receipt = session.elasticExportReceipt {
-                ElasticExportReceipt(written: receipt.written, folder: receipt.folder)
-                    .elasticBorn(ElasticLayout.bornTableMs)
+            if !session.finalSetAssetIDs.isEmpty || session.exportStatusLine != nil || session.canResumeExport || session.exportSettingsVisible {
+                P0ExportControls(session: session)
             }
 
             if session.route == .focus,
@@ -77,6 +76,7 @@ struct ElasticRootView: View {
 /// Wordmark · session · headline · Auto (§3.1).
 struct ElasticHeader: View {
     @Bindable var session: P0SessionModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: ElasticLayout.headerGap) {
@@ -109,10 +109,17 @@ struct ElasticHeader: View {
 
     private var autoButton: some View {
         let enabled = session.autoButtonEnabled
+        let busy = session.autoRun != nil
         return Button {
             session.applyAutoToTable()
         } label: {
             HStack(spacing: ElasticLayout.autoGap) {
+                Image(systemName: "circle.fill")
+                    .font(ElasticType.sans(ElasticLayout.autoGap))
+                    .symbolEffect(.pulse, options: .repeating,
+                                  isActive: busy && !reduceMotion && !UITestSupport.reduceMotionForced)
+                    .opacity(busy ? 1 : 0)
+                    .accessibilityHidden(true)
                 Text("Auto")
                     .font(ElasticType.sans(ElasticLayout.autoTextSize, weight: .medium))
                 Text(session.autoButtonSubLabel)
@@ -121,17 +128,19 @@ struct ElasticHeader: View {
             }
             .lineLimit(1)
             .fixedSize()
-            .foregroundStyle(enabled ? LuminaTokens.Elastic.shell : LuminaTokens.Elastic.muted)
+            .foregroundStyle(enabled || busy ? LuminaTokens.Elastic.shell : LuminaTokens.Elastic.muted)
             .padding(.horizontal, ElasticLayout.autoPadding)
             .frame(height: ElasticLayout.autoHeight)
             .background(
-                enabled
+                enabled || busy
                     ? LuminaTokens.Elastic.ink
                     : LuminaTokens.Elastic.ink.opacity(ElasticLayout.autoDisabledOpacity)
             )
             .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.autoRadius, style: .continuous))
         }
         .buttonStyle(LuminaElasticButtonStyle())
+        .disabled(!enabled)
+        .accessibilityValue(busy ? "Applying adjustments" : session.autoReceipt?.label ?? session.autoButtonSubLabel)
         .accessibilityIdentifier(P0AccessibilityID.elasticAutoButton)
     }
 }

@@ -63,7 +63,8 @@ final class P0LogicTests: XCTestCase {
     func testProbeSnapshotRoundTrips() {
         let snapshot = ProbeSnapshot(
             route: "time", shootName: "mixed-60", fixture: "mixed-60", seed: "84721",
-            assetCount: 60, visibleCount: 60, selectionCount: 2, keptCount: 18, rejectedCount: 9,
+            assetCount: 60, visibleCount: 60, selectionCount: 2, keptCount: 18,
+                exportIsRunning: false, exportSettingsVisible: false, exportCanResume: false, exportPlanned: 0, exportWritten: 0, exportFailed: 0, exportCancelled: 0, rejectedCount: 9,
             unreviewedCount: 33, editedCount: 12, densityColumns: 6, filter: "All", canUndo: true,
             focusedAssetID: "abc", focusedVisible: true, focusedAvailability: "available",
             focusedCull: "keep", focusedRecipeFingerprint: "fp-abc",
