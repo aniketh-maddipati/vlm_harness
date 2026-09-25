@@ -66,7 +66,10 @@ struct LiveDevelopView: View {
                             maxPixelSize: 2048
                         )
                     }
-                    DevelopMetalView(image: scheduler.presentedCIImage(for: photoID))
+                    DevelopMetalView(
+                        image: scheduler.presentedCIImage(for: photoID),
+                        rawStageBacking: scheduler.presentedStageBacking(for: photoID)
+                    )
                         .allowsHitTesting(false)
                 }
                 .task(id: scrubKey) { scrub() }

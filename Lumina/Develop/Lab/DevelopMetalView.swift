@@ -13,6 +13,10 @@ import SwiftUI
 struct DevelopMetalView: NSViewRepresentable {
     var image: CIImage?
     var measurementIdentity: DevelopSelectedImageIdentity? = nil
+    /// How the RAW stage under `image` is backed. Measurement attribution only —
+    /// nothing in `draw(in:)` branches on it, and an unattributed surface simply
+    /// produces no `DevelopDrawInstruments` sample.
+    var rawStageBacking: DevelopRawStageBacking = .unattributed
     var zoom: CGFloat = 1
     var panOffset: CGSize = .zero
     var onDrawableSizeChange: ((CGSize) -> Void)?
@@ -47,6 +51,7 @@ struct DevelopMetalView: NSViewRepresentable {
     func updateNSView(_ view: MTKView, context: Context) {
         context.coordinator.image = image
         context.coordinator.measurementIdentity = measurementIdentity
+        context.coordinator.rawStageBacking = rawStageBacking
         context.coordinator.zoom = zoom
         context.coordinator.panOffset = panOffset
         context.coordinator.onDrawableSizeChange = onDrawableSizeChange
@@ -70,6 +75,7 @@ struct DevelopMetalView: NSViewRepresentable {
 
         var image: CIImage?
         var measurementIdentity: DevelopSelectedImageIdentity?
+        var rawStageBacking: DevelopRawStageBacking = .unattributed
         var zoom: CGFloat = 1
         var panOffset: CGSize = .zero
         var onDrawableSizeChange: ((CGSize) -> Void)?
@@ -203,6 +209,11 @@ struct DevelopMetalView: NSViewRepresentable {
             // be EXIF-baked / origin-normalized (`OrientedDisplayImage`).
             destination.isFlipped = true
 
+            // The backing is read once, here, so the walk sample and the completion
+            // sample of one draw are attributed to the same surface even if
+            // `updateNSView` publishes a new one while the GPU is still working.
+            let backing = rawStageBacking
+
             let signpostID = Self.signposter.makeSignpostID()
             let drawState = Self.signposter.beginInterval("draw", id: signpostID)
             let started = CFAbsoluteTimeGetCurrent()
@@ -213,6 +224,13 @@ struct DevelopMetalView: NSViewRepresentable {
                 Self.signposter.endInterval("draw", drawState)
                 return
             }
+            // The CPU cost of the graph walk / encode, separated from GPU completion.
+            // This runs on the thread driving `draw(in:)`, so a large value here is a
+            // stalled main thread. Off unless `--p0-instruments`; observes only.
+            DevelopDrawInstruments.recordWalk(
+                milliseconds: (CFAbsoluteTimeGetCurrent() - started) * 1000,
+                backing: backing
+            )
             Self.signposter.endInterval("draw", drawState)
             // Record GPU completion, not command encoding. The signpost above
             // still brackets the requested Core Image startTask pair; this
@@ -221,10 +239,12 @@ struct DevelopMetalView: NSViewRepresentable {
             commandBuffer.addCompletedHandler { completed in
                 DevelopPresentationTrace.shared.record("gpu-completed", identity: selectedIdentity,
                     values: ["drawID": drawID, "status": completed.status.rawValue])
-                LatencyMetrics.record(
-                    LatencyMetrics.editDrawKey,
-                    milliseconds: (CFAbsoluteTimeGetCurrent() - started) * 1000
-                )
+                // Unchanged: the historical mixed-tier key, same bracket, same budget.
+                let elapsedMs = (CFAbsoluteTimeGetCurrent() - started) * 1000
+                LatencyMetrics.record(LatencyMetrics.editDrawKey, milliseconds: elapsedMs)
+                // The same sample, attributed by RAW-stage backing so the lazy and
+                // materialized populations `editDrawKey` merges can be read apart.
+                DevelopDrawInstruments.recordDraw(milliseconds: elapsedMs, backing: backing)
             }
             commandBuffer.present(drawable)
             DevelopPresentationTrace.shared.record("present-submitted", identity: selectedIdentity,

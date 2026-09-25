@@ -45,6 +45,27 @@ final class MetalBrowseNSView: NSView {
         metalLayer.isOpaque = true
         metalLayer.displaySyncEnabled = false
         metalLayer.presentsWithTransaction = false
+        // Make the display tag explicit rather than inherited. Measured: setting
+        // `pixelFormat` to a non-`_srgb` format already leaves `colorspace`
+        // defaulted to sRGB, so this layer was never actually untagged — but
+        // that default is undocumented and is derived from the pixel format, so
+        // it would silently follow a future change to
+        // `ImagePixelFormat.metalPixelFormat` instead of following the pixels.
+        //
+        // The pixels are the authority here, not the display.
+        // `MetalPreviewPool.copyIntoPixelBuffer` colour-matches every decoded
+        // CGImage into `ImagePixelFormat.workingColorSpace` and the fragment
+        // shader is a passthrough, so the drawable holds sRGB-encoded values;
+        // Core Animation converts them to the display from this tag. Reading
+        // the blit's own constant is what keeps tag and pixels from drifting.
+        //
+        // Deliberately NOT the screen's colour space. `DevelopMetalView` tags
+        // with the display space because its `CIRenderDestination` renders into
+        // that space — tag and content still agree there. Tagging this layer
+        // with a P3 screen space would claim sRGB numbers are P3 and suppress
+        // the conversion, which is the over-saturation it would look like a fix
+        // for.
+        metalLayer.colorspace = ImagePixelFormat.workingColorSpace
         buildPipeline()
         NotificationCenter.default.addObserver(
             self,
