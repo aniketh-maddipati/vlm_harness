@@ -170,29 +170,3 @@ struct P0EditSlider: View {
         }
     }
 }
-
-/// Large rail section header — easy to hit without precision aiming.
-struct P0RailSectionHeader: View {
-    let title: String
-    let expanded: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Text(title)
-                    .font(LuminaTokens.Typeface.navigation(16, weight: .semibold))
-                    .foregroundStyle(LuminaTokens.Ink.primary)
-                Spacer(minLength: 8)
-                Image(systemName: expanded ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(LuminaTokens.Ink.tertiary)
-                    .frame(width: 28, height: 28)
-            }
-            .padding(.horizontal, 4)
-            .frame(minHeight: LuminaTokens.HitTarget.minimum)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}

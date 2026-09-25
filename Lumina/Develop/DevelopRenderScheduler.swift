@@ -14,6 +14,7 @@ actor DevelopPresentationCache {
         let ciImage: CIImage
         let cgImage: CGImage?
         let fidelity: DevelopFidelityState
+        let preGeometryExtent: CGRect?
         let byteEstimate: Int
         var lastAccess: CFAbsoluteTime
         let speculative: Bool
@@ -42,7 +43,8 @@ actor DevelopPresentationCache {
         return entry
     }
 
-    func put(key: String, ciImage: CIImage, cgImage: CGImage?, fidelity: DevelopFidelityState, speculative: Bool = false) {
+    func put(key: String, ciImage: CIImage, cgImage: CGImage?, fidelity: DevelopFidelityState,
+             preGeometryExtent: CGRect? = nil, speculative: Bool = false) {
         // RGBAh estimate: 8 bytes/pixel for the lazy CI recipe's realized size,
         // plus the bitmap when present.
         let extent = ciImage.extent
@@ -54,6 +56,7 @@ actor DevelopPresentationCache {
             ciImage: ciImage,
             cgImage: cgImage,
             fidelity: fidelity,
+            preGeometryExtent: preGeometryExtent,
             byteEstimate: bytes,
             lastAccess: CFAbsoluteTimeGetCurrent(),
             speculative: speculative
@@ -224,11 +227,12 @@ final class DevelopRenderScheduler {
     private var exportQueue: Task<Void, Never>?
     private var memoryPressureSource: DispatchSourceMemoryPressure?
     private var visiblePhotoID: UUID?
+    private var visibleRequestID: UUID?
 
     private static let signposter = OSSignposter(subsystem: "app.lumina.develop", category: "render")
 
     /// Before/After cached surfaces — switch without re-render.
-    private var beforeSurface: [UUID: CIImage] = [:]
+    private var beforeSurface: [UUID: (image: CIImage, preGeometryExtent: CGRect?)] = [:]
     private var afterSurface: [UUID: CIImage] = [:]
     private var beforeBitmap: [UUID: CGImage] = [:]
 
@@ -237,6 +241,7 @@ final class DevelopRenderScheduler {
     }
 
     func cancelAll() {
+        visibleRequestID = nil
         for (_, task) in inflight { task.cancel() }
         for (_, task) in settleTasks { task.cancel() }
         for (_, task) in speculativeTasks { task.cancel() }
@@ -441,7 +446,7 @@ final class DevelopRenderScheduler {
         let before = await DevelopRenderGraph.render(beforeReq)
         let after = await DevelopRenderGraph.render(afterReq)
         if let img = before.ciImage {
-            beforeSurface[photoID] = img
+            beforeSurface[photoID] = (image: img, preGeometryExtent: before.preGeometryExtent)
             beforeBitmap[photoID] = before.cgImage
         }
         if let img = after.ciImage { afterSurface[photoID] = img }
@@ -473,7 +478,9 @@ final class DevelopRenderScheduler {
     }
 
     /// Instant Before/After using cached surfaces.
-    func beforeImage(for photoID: UUID) -> CIImage? { beforeSurface[photoID] }
+    func beforeImage(for photoID: UUID) -> CIImage? { beforeSurface[photoID]?.image }
+
+    func beforePreGeometryExtent(for photoID: UUID) -> CGRect? { beforeSurface[photoID]?.preGeometryExtent }
     func beforeBitmap(for photoID: UUID) -> CGImage? { beforeBitmap[photoID] }
     func afterImage(for photoID: UUID) -> CIImage? { afterSurface[photoID] ?? presented[photoID]?.ciImage }
 
@@ -513,6 +520,11 @@ final class DevelopRenderScheduler {
         defer { Self.signposter.endInterval("request", requestState) }
 
         let queuedAt = CFAbsoluteTimeGetCurrent()
+        let selectionRequestID = UUID()
+        if !speculative { visibleRequestID = selectionRequestID }
+        let measurementRequestedAt = CACurrentMediaTime()
+        let measurementInput = DevelopPresentationMeasurement.enabled
+            ? DevelopPresentationTrace.shared.inputIdentity(asset: photoID, recipe: recipe.valueFingerprint) : nil
         // Speculative cache fills live in a separate generation domain and
         // can never supersede a visible request for the same photograph.
         let generation: UInt64
@@ -536,6 +548,7 @@ final class DevelopRenderScheduler {
         if let cached = await cache.get(key) {
             Self.signposter.emitEvent("cacheHit", id: signpostID)
             let result = DevelopRenderResult(
+                preGeometryExtent: cached.preGeometryExtent,
                 requestID: request.id,
                 generation: generation,
                 photoID: photoID,
@@ -555,11 +568,24 @@ final class DevelopRenderScheduler {
                !Task.isCancelled,
                visiblePhotoID == photoID,
                await gate.isCurrent(generation, for: photoID) {
-                present(result)
+                guard visibleRequestID == selectionRequestID, !Task.isCancelled else { return }
+                present(result, recipe: recipe, requestedAt: measurementRequestedAt, input: measurementInput)
             }
             return
         }
         Self.signposter.emitEvent("cacheMiss", id: signpostID)
+
+        #if DEBUG
+        if !speculative, quality == .settled, DevelopPresentationMeasurement.enabled,
+           let configured = ProcessInfo.processInfo.environment["LUMINA_DISPLAY_TEST_SETTLED_DELAY_MS"],
+           let milliseconds = UInt64(configured), milliseconds > 0 {
+            let boundedDelay = min(milliseconds, 5000)
+            DevelopPresentationTrace.shared.record("authoritative-delay", values: [
+                "requestID": request.id.uuidString, "milliseconds": boundedDelay])
+            try? await Task.sleep(nanoseconds: boundedDelay * 1_000_000)
+            guard !Task.isCancelled, visibleRequestID == selectionRequestID else { return }
+        }
+        #endif
 
         let lane = speculative ? speculativeRenderGate : visibleRenderGate
         guard await lane.acquire() else {
@@ -567,6 +593,8 @@ final class DevelopRenderScheduler {
             return
         }
         let queueDelayMs = (CFAbsoluteTimeGetCurrent() - queuedAt) * 1000
+        DevelopPresentationTrace.shared.record("render-start", values: ["requestID": request.id.uuidString,
+            "queueMilliseconds": queueDelayMs, "speculative": speculative])
         Self.signposter.emitEvent("queueDelay", id: signpostID, "\(queueDelayMs, format: .fixed(precision: 1))ms")
 
         // Superseded before starting? Skip the evaluation entirely.
@@ -582,6 +610,7 @@ final class DevelopRenderScheduler {
         // include evaluation because they materialize a CGImage.
         let evalState = Self.signposter.beginInterval("evaluate", id: signpostID)
         let rendered = await DevelopRenderGraph.render(request)
+        DevelopPresentationTrace.shared.record("render-return", values: ["requestID": request.id.uuidString])
         Self.signposter.endInterval("evaluate", evalState)
         await lane.release()
 
@@ -625,28 +654,47 @@ final class DevelopRenderScheduler {
                 ciImage: image,
                 cgImage: rendered.cgImage,
                 fidelity: rendered.fidelity,
+                preGeometryExtent: rendered.preGeometryExtent,
                 speculative: speculative
             )
+            if !speculative {
+                guard !Task.isCancelled, visibleRequestID == selectionRequestID,
+                      visiblePhotoID == photoID else { return }
+            }
             if quality == .settled {
                 afterSurface[photoID] = image
                 Self.signposter.emitEvent("settlement", id: signpostID)
             }
         }
-        guard !speculative, visiblePhotoID == photoID else {
+        guard !speculative, !Task.isCancelled, visiblePhotoID == photoID,
+              visibleRequestID == selectionRequestID else {
             Self.signposter.emitEvent("cachedSpeculative", id: signpostID)
             return
         }
-        present(rendered)
+        present(rendered, recipe: recipe, requestedAt: measurementRequestedAt, input: measurementInput)
         Self.signposter.emitEvent("presented", id: signpostID)
     }
 
-    private func present(_ result: DevelopRenderResult) {
+    private func present(_ result: DevelopRenderResult, recipe: EditRecipe,
+                         requestedAt: Double, input: (id: UUID, time: Double)?) {
         let previousGen = presented[result.photoID]?.generation
         guard RenderGenerationOrdering.shouldPresent(candidate: result.generation, presented: previousGen) else {
             metrics.record(result: result, stale: true)
             return
         }
-        presented[result.photoID] = result
+        var publication = result
+        publication.displayRecipe = recipe
+        if DevelopPresentationMeasurement.enabled {
+            publication.measurementIdentity = DevelopSelectedImageIdentity(
+                assetID: result.photoID, recipeFingerprint: recipe.valueFingerprint,
+                requestID: result.requestID, generation: result.generation,
+                tier: result.quality.rawValue,
+                provenance: result.usedProxyFallback ? "render-proxy-fallback" : "render",
+                inputID: input?.id, inputAt: input?.time, requestedAt: requestedAt,
+                publishedAt: CACurrentMediaTime())
+            DevelopPresentationTrace.shared.record("publication", identity: publication.measurementIdentity)
+        }
+        presented[result.photoID] = publication
         fidelityByPhoto[result.photoID] = result.fidelity
         metrics.record(result: result, stale: false)
         LatencyMetrics.record(

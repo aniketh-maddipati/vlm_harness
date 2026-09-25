@@ -70,7 +70,7 @@ final class P0LogicTests: XCTestCase {
             focusedCull: "keep", focusedRecipeFingerprint: "fp-abc",
             focusedRecipeSource: "auto",
             focusedRenderFidelity: "interactive", focusedHasPresentedRAW: true,
-            inspectionSettledLongEdge: 2560, focusedOrientedIsPortrait: false,
+            inspectionSettledLongEdge: 2560, presentationTraceEnabled: false, focusedOrientedIsPortrait: false,
             focusedPresentedIsPortrait: false, pointerCullTargetsVisible: true,
             inspectingAssetID: nil, selectedAssetIDs: ["a", "b"],
             missingOriginalCount: 0, previewReadyCount: 60, phaseDetail: "60 photos",

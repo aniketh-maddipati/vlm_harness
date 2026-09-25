@@ -17,6 +17,8 @@ struct ElasticFocusView: View {
 
     @State private var fallbackImage: CIImage?
     @State private var fallbackAssetID: UUID?
+    @State private var retainedFrame: OrientedDisplayImage.DisplayFrame?
+    @State private var retainedSince = ProcessInfo.processInfo.systemUptime
     @State private var captureFacts = ElasticCaptureFacts.unknown
 
     init(session: P0SessionModel, asset: AssetRecord) {
@@ -37,6 +39,7 @@ struct ElasticFocusView: View {
             Task { await BrowsePixelService.shared.clearFocusedPin() }
         }
         .onChange(of: asset.id) { _, _ in
+            retainedFrame = nil
             fallbackAssetID = asset.id
             fallbackImage = Self.immediateBrowseImage(for: asset)
         }
@@ -86,16 +89,17 @@ struct ElasticFocusView: View {
 
     private var photograph: some View {
         GeometryReader { geometry in
-            let image = presentedImage
+            let selection = selectedFrame
+            let image = selection?.image
             // With no pixels yet the leaf keeps the whole well, so its own clear
             // path runs instead of leaving the last photograph resident.
-            let box = image.map { Self.fit($0.extent.size, in: geometry.size) } ?? geometry.size
+            let box = selection.map { Self.fit($0.layoutSize, in: geometry.size) } ?? geometry.size
 
             ZStack {
                 // One permanent Metal leaf owns this click. The clicked JPEG,
                 // interactive RAW, and settled RAW replace pixels in place; no
                 // promotion remounts or moves the photograph.
-                DevelopMetalView(image: image)
+                DevelopMetalView(image: image, measurementIdentity: selection?.identity)
                     .frame(width: box.width, height: box.height)
                     .clipShape(
                         RoundedRectangle(cornerRadius: ElasticLayout.photoRadius, style: .continuous)
@@ -122,6 +126,21 @@ struct ElasticFocusView: View {
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
+            .onChange(of: image, initial: true) { _, _ in
+                DevelopPresentationTrace.shared.record("canvas-selected-frame", identity: selection?.identity,
+                    values: ["requestedRecipeFingerprint": requestedRecipe.valueFingerprint,
+                             "previousFrameAgeMs": (ProcessInfo.processInfo.systemUptime - retainedSince) * 1000,
+                             "boxWidth": box.width, "boxHeight": box.height,
+                             "matchesRequest": selection?.recipe?.valueFingerprint == requestedRecipe.valueFingerprint])
+                retainedFrame = selection
+                retainedSince = ProcessInfo.processInfo.systemUptime
+            }
+            .onChange(of: requestedRecipe.valueFingerprint, initial: true) { _, _ in
+                DevelopPresentationTrace.shared.record("canvas-selection", identity: selection?.identity,
+                    values: ["requestedRecipeFingerprint": requestedRecipe.valueFingerprint,
+                             "selectedFrameAgeMs": (ProcessInfo.processInfo.systemUptime - retainedSince) * 1000,
+                             "matchesRequest": selection?.recipe?.valueFingerprint == requestedRecipe.valueFingerprint])
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
@@ -137,10 +156,19 @@ struct ElasticFocusView: View {
         }
     }
 
-    private var presentedImage: CIImage? {
-        let promoted = session.displayedCIImage(for: asset.id)
-        let fallback = fallbackAssetID == asset.id ? fallbackImage : nil
-        return OrientedDisplayImage.stablePresent(promoted: promoted, fallback: fallback)
+    private var requestedRecipe: EditRecipe {
+        session.showingBefore ? .neutral : session.recipe(for: asset.id)
+    }
+
+    private var selectedFrame: OrientedDisplayImage.DisplayFrame? {
+        let fallback = fallbackImage.flatMap { image -> OrientedDisplayImage.DisplayFrame? in
+            guard let fallbackAssetID else { return nil }
+            return OrientedDisplayImage.DisplayFrame(assetID: fallbackAssetID, image: image, recipe: nil,
+                layoutSize: image.extent.size,
+                identity: session.displayedImageIdentity(for: fallbackAssetID, selected: image))
+        }
+        return OrientedDisplayImage.select(assetID: asset.id, recipe: requestedRecipe,
+            promoted: session.displayFrame(for: asset.id), fallback: fallback, retained: retainedFrame)
     }
 
     /// `object-fit: contain` — the picture's own box inside the space it is given.
@@ -162,6 +190,7 @@ struct ElasticFocusView: View {
             .filter { !$0.isEmpty }
         await BrowsePixelService.shared.pinFocused(paths: paths)
 
+        guard !Task.isCancelled, asset.id == requestedID else { return }
         fallbackAssetID = requestedID
         let started = CFAbsoluteTimeGetCurrent()
         for path in paths {
@@ -208,7 +237,8 @@ struct ElasticFocusView: View {
                 clipsHighlights: session.showsHighlightClipTick(for: asset)
             )
             Text(session.histogramReadout(for: asset))
-            Text(session.focusStateWord(for: asset))
+            Text(selectedFrame?.recipe?.valueFingerprint == requestedRecipe.valueFingerprint
+                 ? session.focusStateWord(for: asset) : CopyContract.staleRender)
                 // Held `before` is the one thing the bar says in the warm accent.
                 .foregroundStyle(
                     session.showingBefore

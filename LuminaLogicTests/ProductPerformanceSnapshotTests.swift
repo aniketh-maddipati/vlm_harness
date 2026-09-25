@@ -69,5 +69,23 @@ final class ProductPerformanceSnapshotTests: XCTestCase {
             metrics: [], counters: .init())
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: snapshot.encoded()) as? [String: Any])
         XCTAssertEqual((object["metrics"] as? [Any])?.count, 0)
+        XCTAssertNil(object["selectedImageTrace"], "absent instrumentation must not change the legacy wire payload")
+    }
+
+    func testSelectedImageTraceEncodesAsStructuredJSON() throws {
+        let trace = try ProductPerformanceSnapshot.JSONValue(any: [
+            "runID": "run-1", "capacity": 512,
+            "events": [["stage": "presented", "at": 1.25]]
+        ])
+        let snapshot = ProductPerformanceSnapshot(
+            pid: 123, startedAt: "start", snapshotAt: "end", elapsedSeconds: 1,
+            metrics: [], counters: .init(), selectedImageTrace: trace)
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: snapshot.encoded()) as? [String: Any]
+        )
+        let encodedTrace = try XCTUnwrap(object["selectedImageTrace"] as? [String: Any])
+        XCTAssertEqual(encodedTrace["runID"] as? String, "run-1")
+        XCTAssertEqual((encodedTrace["capacity"] as? NSNumber)?.intValue, 512)
+        XCTAssertEqual((encodedTrace["events"] as? [[String: Any]])?.first?["stage"] as? String, "presented")
     }
 }

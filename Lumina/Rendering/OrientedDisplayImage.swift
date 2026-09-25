@@ -184,15 +184,72 @@ nonisolated enum OrientedDisplayImage {
     /// Only ever used to bake an orientation into a preview being written to disk.
     private static let bakingContext = CIContext(options: [.useSoftwareRenderer: false])
 
-    /// Keep the oriented browse frame on screen when a RAW promotion arrives
-    /// in the opposite aspect (sensor-space demosaic). Quality may sharpen;
-    /// the photograph may not rotate or stretch for a frame.
-    static func stablePresent(promoted: CIImage?, fallback: CIImage?) -> CIImage? {
+    struct DisplayFrame {
+        let assetID: UUID
+        let image: CIImage
+        let recipe: EditRecipe?
+        var layoutSize: CGSize
+        let identity: DevelopSelectedImageIdentity?
+        var generation: UInt64? = nil
+        var preGeometryExtent: CGRect? = nil
+    }
+
+    static func select(
+        assetID: UUID,
+        recipe: EditRecipe,
+        promoted: DisplayFrame?,
+        fallback: DisplayFrame?,
+        retained: DisplayFrame?
+    ) -> DisplayFrame? {
+        let browse = fallback.flatMap { $0.assetID == assetID ? $0 : nil }
+        let previous = retained.flatMap { $0.assetID == assetID ? $0 : nil }
+        if var candidate = promoted,
+           candidate.assetID == assetID,
+           candidate.recipe?.valueFingerprint == recipe.valueFingerprint,
+           matchesGeometry(candidate: candidate, fallback: browse?.image, recipe: recipe) {
+            if let candidateGeneration = candidate.generation, let previousGeneration = previous?.generation,
+               candidateGeneration < previousGeneration {
+                return previous
+            }
+            if let previous, previous.recipe?.geometryIntent == recipe.geometryIntent {
+                candidate.layoutSize = previous.layoutSize
+            } else if let browse {
+                candidate.layoutSize = DevelopRenderGraph.applyGeometry(recipe, to: browse.image).extent.size
+            }
+            return candidate
+        }
+        return previous ?? browse
+    }
+
+    private static func matchesGeometry(candidate: DisplayFrame, fallback: CIImage?, recipe: EditRecipe) -> Bool {
+        guard let reference = candidate.preGeometryExtent else {
+            return stablePresent(promoted: candidate.image, fallback: fallback, recipe: recipe) === candidate.image
+        }
+        guard validExtent(reference), validExtent(candidate.image.extent) else { return false }
+        let source = CIImage(color: .clear).cropped(to: reference)
+        let expected = DevelopRenderGraph.applyGeometry(recipe, to: source).extent
+        guard validExtent(expected) else { return false }
+        return candidate.image.extent.integral == expected.integral
+    }
+
+    private static func validExtent(_ extent: CGRect) -> Bool {
+        extent.origin.x.isFinite && extent.origin.y.isFinite
+            && extent.width.isFinite && extent.height.isFinite
+            && extent.width > 0 && extent.height > 0
+    }
+
+    static func stablePresent(promoted: CIImage?, fallback: CIImage?, recipe: EditRecipe = .neutral) -> CIImage? {
         guard let promoted else { return fallback }
         guard let fallback else { return promoted }
-        let promotedPortrait = promoted.extent.width + 1 < promoted.extent.height
-        let fallbackPortrait = fallback.extent.width + 1 < fallback.extent.height
-        if promotedPortrait != fallbackPortrait {
+        let expected = DevelopRenderGraph.applyGeometry(recipe, to: fallback).extent.size
+        let actual = promoted.extent.size
+        guard expected.width > 0, expected.height > 0, actual.width > 0, actual.height > 0 else {
+            return fallback
+        }
+        let scale = max(actual.width, actual.height) / max(expected.width, expected.height)
+        let roundingTolerance = 2 * max(1, scale)
+        if abs(actual.width - expected.width * scale) > roundingTolerance
+            || abs(actual.height - expected.height * scale) > roundingTolerance {
             return fallback
         }
         return promoted

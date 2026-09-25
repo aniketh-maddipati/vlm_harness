@@ -88,6 +88,7 @@ nonisolated enum DevelopRenderGraph {
             image = applyLook(request.recipe.lookIntent, to: image)
             image = applyRetouch(request.recipe.retouch, to: image)
         }
+        let preGeometryExtent = request.quality == .oneToOne ? nil : image.extent
         image = applyGeometry(request.recipe, to: image)
         if let exportSettings {
             image = maybeDownsample(image, longEdge: exportSettings.longEdge)
@@ -124,6 +125,7 @@ nonisolated enum DevelopRenderGraph {
         }
 
         return DevelopRenderResult(
+            preGeometryExtent: preGeometryExtent,
             requestID: request.id,
             generation: request.generation,
             photoID: request.photoID,

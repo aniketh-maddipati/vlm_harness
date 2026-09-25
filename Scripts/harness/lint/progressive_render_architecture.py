@@ -12,7 +12,8 @@ REQUIREMENTS: dict[str, tuple[str, ...]] = {
         "DevelopMetalView(",
         "immediateBrowseImage",
         "BrowsePixelService.shared.pinFocused",
-        "OrientedDisplayImage.stablePresent",
+        "OrientedDisplayImage.select",
+        "session.displayFrame(for: asset.id)",
         "OrientedDisplayImage.ciImage",
     ),
     "Lumina/Rendering/OrientedDisplayImage.swift": (
