@@ -339,7 +339,7 @@ private struct OpenShootPlate: View {
 
     private var minHeight: CGFloat {
         switch weight {
-        case .resume: 220
+        case .resume: HiFiTokens.Layout.openResumePlateMinHeight
         case .lead: 188
         case .larger: HiFiTokens.Layout.recentShootLargerHeight
         case .smaller: 120
