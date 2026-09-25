@@ -38,6 +38,21 @@
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES">
+      <PreActions>
+         <ExecutionAction ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent title = "Prepare Playground hot reload"
+               scriptText = "bash &quot;$SRCROOT/Scripts/playground.sh&quot; prepare-hot&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "A60000010000000000000006"
+                     BuildableName = "LuminaPlayground.app"
+                     BlueprintName = "LuminaPlayground"
+                     ReferencedContainer = "container:Lumina.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PreActions>
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference

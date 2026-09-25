@@ -434,3 +434,7 @@ The user's direction supersedes CHRON-01's headings beside photographs: capture-
 ## AUTO-02 — tone does not rotate (2026-09-24)
 
 Tone Auto preserves the full existing straighten angle, quarter turns, crop and white balance. Horizon detection must not silently change composition or clear a manual fine angle. Existing rotations are retained, not reset by this change; rotation and straighten remain explicit controls.
+
+## AUTO-03 — conservative deterministic tone (2026-09-24)
+
+Following the user's overexposure report, positive Auto exposure is capped at +0.35 EV and vetoed when measured highlights lack headroom. Default highlight and shadow shifts are zero; measured shadow lift is capped at +20. Tone Auto preserves geometry and WB, keeps existing ownership/undo/hand protection, and does not silently rewrite saved recipes. `docs/AUTO_ALGORITHM_MANIFESTO.md` specifies the thresholds, measurement limitations and outstanding native acceptance. Numerical tests alone do not establish visual acceptance.

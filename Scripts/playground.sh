@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # LuminaPlayground — build, run, and see compile errors from the terminal.
-# Hot reload still needs InjectionIII pointed at this repo + save in Xcode/editor.
+# Startup selects this project in InjectionIII; Debug builds include injection support.
 #
 # Usage (from repo root):
 #   bash Scripts/playground.sh          # build + run (open screen)
@@ -18,6 +18,7 @@ APP="$DERIVED/Build/Products/Debug/LuminaPlayground.app"
 BIN="$APP/Contents/MacOS/LuminaPlayground"
 SCHEME="LuminaPlayground"
 INJECTION="/Applications/InjectionIII.app"
+EVIDENCE="${LUMINA_DEV_EVIDENCE:-$HOME/LuminaEvidence/dev-startup}"
 
 usage() {
   sed -n '2,12p' "$0" | sed 's/^# \?//'
@@ -42,15 +43,10 @@ ensure_injection() {
     echo "  Install: open https://github.com/johnno1962/InjectionIII/releases/latest"
     return
   fi
-  # Downloads copy does not match Inject's bundlePath (/Applications/…).
-  pgrep -f 'Downloads/InjectionIII.app' >/dev/null 2>&1 && killall InjectionIII 2>/dev/null || true
-  if ! pgrep -qf '/Applications/InjectionIII.app' >/dev/null 2>&1; then
-    echo "playground: starting InjectionIII from /Applications…"
-    open "$INJECTION"
-    sleep 1
-  fi
-  echo "playground: InjectionIII → File → Open Project… → $ROOT"
-  echo "playground: hot reload = Run once from Xcode (⌘R), then save files (⌘S). Watch debug console."
+  echo "playground: selecting $ROOT in InjectionIII…"
+  open -a "$INJECTION" "$ROOT/Lumina.xcodeproj"
+  echo "playground: save Swift view edits in this checkout to inject; rebuild for structural changes."
+
 }
 
 build_playground() {
@@ -58,7 +54,9 @@ build_playground() {
   echo "=== building $SCHEME (Debug) ==="
   echo "derived data: $DERIVED"
   set +e
-  log="$(mktemp)"
+  mkdir -p "$EVIDENCE"
+  local log="$EVIDENCE/build-$(date +%Y%m%d-%H%M%S)-$$.log"
+  echo "build log: $log"
   xcodebuild \
     -project Lumina.xcodeproj \
     -scheme "$SCHEME" \
@@ -75,10 +73,8 @@ build_playground() {
     echo ""
     echo "=== compile errors ===" >&2
     echo "$errors" >&2
-    rm -f "$log"
     exit 1
   fi
-  rm -f "$log"
 
   if [[ $code -ne 0 ]]; then
     echo "playground: xcodebuild failed (exit $code) — open Lumina.xcodeproj and check Issue navigator (⌘5)" >&2
@@ -88,7 +84,16 @@ build_playground() {
     echo "playground: build succeeded but $BIN missing" >&2
     exit 1
   fi
+  {
+    echo "source=$ROOT"
+    echo "commit=$(git rev-parse HEAD)"
+    echo "branch=$(git branch --show-current)"
+    echo "built=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "log=$log"
+    git status --short
+  } > "$DERIVED/dev-build.txt"
   echo "playground: build OK → $APP"
+  cat "$DERIVED/dev-build.txt"
 }
 
 run_playground() {
@@ -97,10 +102,13 @@ run_playground() {
     exit 1
   fi
 
-  # Quit other Lumina processes so the right window is obvious.
-  pgrep -x Lumina >/dev/null 2>&1 && killall Lumina 2>/dev/null || true
-  pgrep -x LuminaPlayground >/dev/null 2>&1 && killall LuminaPlayground 2>/dev/null || true
-  sleep 0.3
+  # Never terminate another agent's or the user's photo session.
+  if pgrep -x Lumina >/dev/null 2>&1 || pgrep -x LuminaPlayground >/dev/null 2>&1; then
+    echo "playground: a Lumina session is running; quit it normally before launching the new build." >&2
+    echo "new build: $APP" >&2
+    return 2
+  fi
+  ensure_injection
 
   local -a args=("$@")
   if [[ ${#args[@]} -eq 0 ]]; then
@@ -113,7 +121,7 @@ run_playground() {
   open "$APP" --args "${args[@]}"
   echo ""
   echo "Look for: menu bar «Lumina Playground» + «Playground» badge top-right."
-  echo "Edit Swift → save → pixels update (~1s). No relaunch."
+  echo "Save a Swift view edit and verify InjectionIII reports success; structural changes need a rebuild."
   echo "Inject / save errors: Xcode debug console (bottom) while app is running."
   echo "Full project errors:  bash Scripts/playground.sh build"
 }
@@ -134,12 +142,15 @@ case "$cmd" in
   build|check)
     build_playground
     ;;
+  prepare-hot)
+    ensure_macos
+    ensure_injection
+    ;;
   run)
     run_playground "$@"
     ;;
   photos|grid|workbench)
     build_playground
-    ensure_injection
     run_playground --workbench --card card-clean-500
     ;;
   open|xcode)
@@ -147,7 +158,6 @@ case "$cmd" in
     ;;
   start|"")
     build_playground
-    ensure_injection
     run_playground --no-workbench
     ;;
   *)

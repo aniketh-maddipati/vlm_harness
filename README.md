@@ -62,7 +62,7 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 brew install exiftool
 ```
 
-4. Open the project. Scheme `Lumina`. Command-R.
+4. Open the project. For UI development select `LuminaPlayground`, then Command-R; its launch action prepares InjectionIII for this checkout. Use `Lumina` for the ordinary app without injection.
 
 ```bash
 open Lumina.xcodeproj
@@ -82,13 +82,12 @@ xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
 open .derivedData/Build/Products/Debug/Lumina.app
 ```
 
-5. Playground, optional. Hot reload needs InjectionIII in `/Applications`.
+5. For daily UI development, use the Playground startup command. Install InjectionIII in `/Applications` first for hot reload.
 
 ```bash
-xcodebuild -project Lumina.xcodeproj -scheme LuminaPlayground -resolvePackageDependencies
-xcodebuild -project Lumina.xcodeproj -scheme LuminaPlayground -configuration Debug \
-  -destination 'platform=macOS,arch=arm64' \
-  -derivedDataPath .derivedData \
-  build
-open .derivedData/Build/Products/Debug/LuminaPlayground.app
+bash Scripts/playground.sh          # build, select this project in InjectionIII, launch
+bash Scripts/playground.sh photos   # same startup with card-clean-500
+bash Scripts/playground.sh build    # compile only; no GUI actions
 ```
+
+Startup opens the exact app built from this checkout and refuses to launch over an existing Lumina session. Quit that session normally first. Build logs survive under `~/LuminaEvidence/dev-startup`; the DerivedData directory contains `dev-build.txt` with its source path and revision. Ordinary `Lumina` builds do not inject. Save a Swift view change and check InjectionIII's result; type/layout schema changes, new files and build-setting changes require rebuilding. A successful build alone does not prove that a save was injected.

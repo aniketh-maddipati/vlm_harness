@@ -59,7 +59,7 @@ nonisolated struct ModelToneProposal: Equatable, Sendable {
 ///
 /// The model sees the photograph; the engine decides what it is allowed to do.
 /// Its proposal starts from the deterministic `AutoDevelop` recipe — which already
-/// preserves the starting white-balance intent, the horizon straighten and the inert
+/// preserves the starting white-balance intent, existing geometry and the inert
 /// controls pinned at 0 — and each tone value the model suggests is clamped into an
 /// *auto band*: far narrower than the sliders, because a first pass should correct
 /// a frame, not restyle it. When the model is unreachable, slow, or says nothing
