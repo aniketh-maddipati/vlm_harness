@@ -1,7 +1,7 @@
 // HiFiTokens.generated.swift
 // GENERATED from design/tokens.yaml — do not edit by hand.
 // Re-run: python3 Scripts/harness/codegen/tokens_codegen.py
-// tokens-hash: 4a9172850f98ae82e5417f8791879280ee775c21fd2e8549efbf6830b3c14185
+// tokens-hash: 28463ac5d5b844bfee88f8173806d729464c3f9f2389ba7d4c88f1b81db3ee3b
 // version: 6.4-a7-cleanup
 // contract: design/contract-v6.md
 
@@ -142,6 +142,7 @@ enum HiFiTokens {
         static let chromeSpacingLg: CGFloat = 20.0 // cite: WG-chrome
         static let recentShootCornerRadius: CGFloat = 10.0 // cite: WG-chrome
         static let recentShootLargerHeight: CGFloat = 140.0 // cite: WG-chrome
+        static let openResumePlateMinHeight: CGFloat = 220.0 // cite: D49 — Continue (resume) plate min height on the open desk — as-built from the open-desk build session, preserved unchanged. D49 rules layout quantized and token-owned; it does not rule this height. Un-ratified — owed a constitution session.
         static let chapterDotActiveSize: CGFloat = 11.0 // cite: WG-chrome
         static let chapterDotActiveTop: CGFloat = 16.0 // cite: WG-chrome
         static let chapterDotRestTop: CGFloat = 18.0 // cite: WG-chrome

@@ -183,7 +183,7 @@ struct P0OpenView: View {
                 .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
                 .contentShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
         }
-        .buttonStyle(OpenPlatePressStyle())
+        .buttonStyle(LuminaOpenPlatePressStyle())
         .accessibilityIdentifier(P0AccessibilityID.openChooseFolder)
         .accessibilityLabel("Open a folder")
         .accessibilityHint(CopyContract.dropPhotographsOrFolder)
@@ -269,7 +269,7 @@ private struct OpenShootPlate: View {
                 )
             )
         }
-        .buttonStyle(OpenPlatePressStyle())
+        .buttonStyle(LuminaOpenPlatePressStyle())
         .accessibilityIdentifier(P0AccessibilityID.recentShoot(shoot.name))
         .accessibilityLabel(OpenShootArrangement.plateTitle(
             name: shoot.name,
@@ -339,7 +339,7 @@ private struct OpenShootPlate: View {
 
     private var minHeight: CGFloat {
         switch weight {
-        case .resume: 220
+        case .resume: HiFiTokens.Layout.openResumePlateMinHeight
         case .lead: 188
         case .larger: HiFiTokens.Layout.recentShootLargerHeight
         case .smaller: 120
@@ -393,8 +393,8 @@ private struct OpenShootPlate: View {
         switch weight {
         case .resume: 112
         case .lead: 84
-        case .larger: 64
-        case .smaller: 48
+        case .larger: HiFiTokens.Elastic.filmstripFocusedHeight
+        case .smaller: HiFiTokens.Elastic.filmstripTileHeight
         }
     }
 }
@@ -427,12 +427,12 @@ private struct StillStrip: View {
 }
 
 /// Press settles the block with a veil. The photographs stay at full strength.
-private struct OpenPlatePressStyle: ButtonStyle {
+private struct LuminaOpenPlatePressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        OpenPlatePressBody(configuration: configuration)
+        LuminaOpenPlatePressBody(configuration: configuration)
     }
 
-    private struct OpenPlatePressBody: View {
+    private struct LuminaOpenPlatePressBody: View {
         let configuration: Configuration
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
 

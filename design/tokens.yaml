@@ -450,6 +450,13 @@ layout:
     unit: pt
     type: pt
     cite: [WG-chrome]
+  # --- Open desk plates (TOKEN OWED — as-built height preserved from a hand-typed call site) ---
+  open_resume_plate_min_height:
+    value: 220
+    unit: pt
+    type: pt
+    cite: [D49]
+    notes: Continue (resume) plate min height on the open desk — as-built from the open-desk build session, preserved unchanged. D49 rules layout quantized and token-owned; it does not rule this height. Un-ratified — owed a constitution session.
   chapter_dot_active_size:
     value: 11
     unit: pt
