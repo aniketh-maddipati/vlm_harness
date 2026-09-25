@@ -65,6 +65,9 @@ struct ElasticFilmstrip: View {
                 ? LuminaTokens.Elastic.warmAccent.opacity(ElasticLayout.stripSetFillOpacity)
                 : LuminaTokens.Elastic.shadowInk.opacity(ElasticLayout.filmstripFillOpacity)
         )
+        #if DEBUG
+        .workbenchHot()
+        #endif
     }
 
     private func chronologyLabel(_ label: String) -> some View {

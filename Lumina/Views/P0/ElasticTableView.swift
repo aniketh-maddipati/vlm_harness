@@ -32,6 +32,9 @@ struct ElasticTableView: View {
             }
         }
         .background(LuminaTokens.Elastic.matte)
+        #if DEBUG
+        .workbenchHot()
+        #endif
     }
 
     // MARK: - Moments
