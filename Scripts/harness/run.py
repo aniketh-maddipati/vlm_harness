@@ -145,6 +145,10 @@ def lane_fast() -> tuple[list[dict], list[str]]:
             [py, str(HARNESS / "tests" / "test_f07_spring_physics.py")],
         ),
         (
+            "focus_zoom",
+            [py, str(HARNESS / "tests" / "test_focus_zoom.py")],
+        ),
+        (
             "cp2_journal_kill_fuzz",
             [py, str(HARNESS / "cp2" / "journal_kill_fuzz.py")],
         ),

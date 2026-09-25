@@ -22,9 +22,28 @@ final class ContactSheetTests: XCTestCase {
 
         let discovery = MediaFormats.discoverPhotos(at: root)
         XCTAssertEqual(discovery.importable.count, 3)
+        XCTAssertEqual(discovery.lockedVideos.count, 1, "video lands as locked presence, not a skip hole")
+        XCTAssertEqual(discovery.lockedVideos.first?.pathExtension.uppercased(), "MOV")
+        XCTAssertFalse(discovery.skipped.contains(where: { $0.reason == .video }))
         XCTAssertTrue(discovery.skipped.contains(where: { $0.reason == .unsupported }))
-        XCTAssertTrue(discovery.skipped.contains(where: { $0.reason == .video }))
         XCTAssertTrue(discovery.skipped.contains(where: { $0.reason == .sidecar }))
+    }
+
+    func testLockedVideoPreservesFilenameSequenceWithPhotographs() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("p0-vid-\(UUID().uuidString)", isDirectory: true)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+
+        try Data([0x01]).write(to: root.appendingPathComponent("IMG_0001.JPG"))
+        try Data([0x02]).write(to: root.appendingPathComponent("IMG_0002.MOV"))
+        try Data([0x03]).write(to: root.appendingPathComponent("IMG_0003.JPG"))
+
+        let discovery = MediaFormats.discoverPhotos(at: root)
+        let names = (discovery.importable + discovery.lockedVideos)
+            .map(\.lastPathComponent)
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        XCTAssertEqual(names, ["IMG_0001.JPG", "IMG_0002.MOV", "IMG_0003.JPG"])
     }
 
     func testDuplicateSuppressionOnRediscovery() throws {

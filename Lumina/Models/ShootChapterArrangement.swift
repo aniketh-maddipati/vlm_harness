@@ -9,6 +9,9 @@ struct ShootFrame: Identifiable, Equatable, Sendable {
     var startedAt: Date?
     var sequence: Int?
     var prefix: String
+    /// True when every member of this exposure is a phone body. A camera run
+    /// and a phone run never share a stack, even inside the burst gap.
+    var phoneBody: Bool = false
 }
 
 struct ShootBurst: Identifiable, Equatable, Sendable {
@@ -159,7 +162,8 @@ enum ShootChapterArrangement {
                 assetIDs: members.map(\.id),
                 startedAt: members.compactMap(\.capturedAt).min(),
                 sequence: name.sequence,
-                prefix: name.prefix
+                prefix: name.prefix,
+                phoneBody: members.allSatisfy(\.isPhoneBody)
             )
         }
     }
@@ -191,6 +195,7 @@ enum ShootChapterArrangement {
     }
 
     private static func sameBurst(_ previous: ShootFrame, _ next: ShootFrame) -> Bool {
+        if previous.phoneBody != next.phoneBody { return false }
         if let start = previous.startedAt, let end = next.startedAt {
             return end.timeIntervalSince(start) <= burstGap
         }

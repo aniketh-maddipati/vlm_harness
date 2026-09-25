@@ -43,7 +43,8 @@ struct LuminaRobot {
                 graphRenders: 0, gpuUploads: 0, variantRenders: 0, metalPresents: 0,
                 elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
                 chronologyViewportChapterID: nil,
-                chapterTableMounted: false, inspectPeripheryDimOpacity: 1
+                chapterTableMounted: false, inspectPeripheryDimOpacity: 1,
+                focusedIsPhone: nil, focusedIsUnsupportedVideo: nil, unsupportedVideoCount: 0
             )
         }
         return snapshot
@@ -72,7 +73,8 @@ struct LuminaRobot {
                 graphRenders: 0, gpuUploads: 0, variantRenders: 0, metalPresents: 0,
                 elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
                 chronologyViewportChapterID: nil,
-                chapterTableMounted: false, inspectPeripheryDimOpacity: 1
+                chapterTableMounted: false, inspectPeripheryDimOpacity: 1,
+                focusedIsPhone: nil, focusedIsUnsupportedVideo: nil, unsupportedVideoCount: 0
             )
         }
         return snapshot

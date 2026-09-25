@@ -186,10 +186,11 @@ extension P0SessionModel {
             : "\(frames) \(frameWord)"
     }
 
-    /// `5 camera · 2 phone` — the moment's mix line.
+    /// `5 camera · 2 phone` — the moment's mix line. Locked video rows stay out.
     func momentMixLine(_ chapter: ShootChapter) -> String {
-        let phones = chapter.assetIDs.filter { isPhoneFrame($0) }.count
-        let cameras = chapter.assetIDs.count - phones
+        let photos = chapter.assetIDs.compactMap { asset($0) }.filter { !$0.isUnsupportedVideo }
+        let phones = photos.filter(\.isPhoneBody).count
+        let cameras = photos.count - phones
         return [
             cameras > 0 ? "\(cameras) camera" : nil,
             phones > 0 ? "\(phones) phone" : nil,
@@ -198,12 +199,45 @@ extension P0SessionModel {
         .joined(separator: " · ")
     }
 
-    /// Phone frames carry no RAW original.
+    /// Phone frames share one tag — sensed Make/Model or a hand mark both land here.
     func isPhoneFrame(_ id: UUID) -> Bool {
+        asset(id)?.isPhoneBody ?? false
+    }
+
+    /// Hand phone mark. Same glyph and mix-line treatment as sensing; clears back
+    /// to sensed when the photographer marks the same state again.
+    @discardableResult
+    func setManualPhoneBody(_ id: UUID, isPhone: Bool?) -> Bool {
+        guard let index = assetIndex(id) else { return false }
+        assets[index].manualIsPhone = isPhone
+        return true
+    }
+
+    /// The phone button. On only when every frame is already a phone. That press
+    /// takes the category off. Otherwise the press marks every frame as phone,
+    /// so a phone run leaves the camera stack.
+    @discardableResult
+    func classifyPhone(_ ids: [UUID]) -> Int {
+        var seen: Set<UUID> = []
+        let known = ids.filter { seen.insert($0).inserted && asset($0) != nil }
+        guard !known.isEmpty else { return 0 }
+        let takingOff = known.allSatisfy(isPhoneFrame)
+        for id in known {
+            setManualPhoneBody(id, isPhone: takingOff ? false : true)
+        }
+        return known.count
+    }
+
+    /// Toggle hand phone mark: unmarked → phone → clear (back to sensed).
+    @discardableResult
+    func toggleManualPhoneBody(_ id: UUID) -> Bool {
         guard let asset = asset(id) else { return false }
-        let rawExtensions: Set<String> = ["arw", "cr2", "cr3", "nef", "raf", "dng", "orf", "rw2"]
-        let ext = (asset.filename as NSString).pathExtension.lowercased()
-        return !rawExtensions.contains(ext)
+        let next: Bool? = switch asset.manualIsPhone {
+        case .none: true
+        case .some(true): nil
+        case .some(false): true
+        }
+        return setManualPhoneBody(id, isPhone: next)
     }
 
     // MARK: - Bursts
@@ -225,6 +259,13 @@ extension P0SessionModel {
 
     func isInFinalSet(_ id: UUID) -> Bool {
         asset(id)?.cull == .keep
+    }
+
+    /// On only when every one of these frames is already in the set.
+    /// An empty list is off — there is nothing to take out.
+    func setToggleIsOn(_ ids: [UUID]) -> Bool {
+        let known = ids.filter { asset($0) != nil }
+        return !known.isEmpty && known.allSatisfy(isInFinalSet)
     }
 
     /// `Export`, then `✓ written` once the set is on disk.

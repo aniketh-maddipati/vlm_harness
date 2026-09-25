@@ -93,6 +93,12 @@ struct ProbeSnapshot: Codable, Equatable {
     var chapterTableMounted: Bool = false
     /// D27 — dim applied to inspect periphery plates; 1 at rest on the table.
     var inspectPeripheryDimOpacity: Double = 1
+    /// Focused row wears the shared phone tag (sensed or hand mark).
+    var focusedIsPhone: Bool? = nil
+    /// Focused row is a locked unsupported-video presence (Develop closed).
+    var focusedIsUnsupportedVideo: Bool? = nil
+    /// How many locked video presence rows are in the shoot.
+    var unsupportedVideoCount: Int = 0
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -212,7 +218,10 @@ extension P0SessionModel {
             chapterTableMounted: self.route == .time || self.route == .focus,
             inspectPeripheryDimOpacity: inspectingAssetID == nil
                 ? 1
-                : ElasticCanvasLayout.peripheryDimOpacity
+                : ElasticCanvasLayout.peripheryDimOpacity,
+            focusedIsPhone: focused.map(\.isPhoneBody),
+            focusedIsUnsupportedVideo: focused.map(\.isUnsupportedVideo),
+            unsupportedVideoCount: assets.filter(\.isUnsupportedVideo).count
         )
     }
 }

@@ -80,6 +80,9 @@ struct ProbeSnapshot: Codable, Equatable {
     var chronologyViewportChapterID: String? = nil
     var chapterTableMounted: Bool = false
     var inspectPeripheryDimOpacity: Double = 1
+    var focusedIsPhone: Bool? = nil
+    var focusedIsUnsupportedVideo: Bool? = nil
+    var unsupportedVideoCount: Int = 0
 
     /// Convenience: the Nth visible asset ID (nil when out of range).
     func visibleID(at index: Int) -> String? {
