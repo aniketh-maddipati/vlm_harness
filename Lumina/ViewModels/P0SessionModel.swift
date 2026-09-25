@@ -1779,6 +1779,40 @@ final class P0SessionModel {
         return added
     }
 
+    /// The "in set?" button. When every frame is already in, the press takes them
+    /// out — the same clear a second P would give — as one command. Otherwise the
+    /// press puts every frame in, including ones already marked out.
+    @discardableResult
+    func classifySet(_ ids: [UUID]) -> Int {
+        var seen: Set<UUID> = []
+        let known: [(index: Int, id: UUID)] = ids.compactMap { id in
+            guard seen.insert(id).inserted, let index = assets.firstIndex(where: { $0.id == id }) else { return nil }
+            return (index, id)
+        }
+        guard !known.isEmpty else { return 0 }
+        let takingOut = known.allSatisfy { assets[$0.index].cull == .keep }
+        let after: CullDecision = takingOut ? .undecided : .keep
+        return commitSetMarks(
+            known.compactMap { item in
+                let before = assets[item.index].cull
+                guard before != after else { return nil }
+                return (item.id, before, after)
+            },
+            label: takingOut ? "Out of the set" : "In set",
+            burstID: "set-button"
+        )
+    }
+
+    /// Frames the marquee crossed, in shoot order. The cursor stays where it was.
+    func selectMarquee(_ ids: [UUID]) {
+        var seen: Set<UUID> = []
+        let ordered = assets.map(\.id).filter { ids.contains($0) && seen.insert($0).inserted }
+        selectedAssetIDs = ordered
+        if let first = ordered.first {
+            selectionAnchorID = first
+        }
+    }
+
     /// Keep several frames at once. Frames already kept or already out are left
     /// alone — a batch proposes, it never overrules a mark. Returns how many changed.
     @discardableResult
@@ -1806,6 +1840,68 @@ final class P0SessionModel {
         finalOrder.reconcileKeptMembership(
             keptIDsInChronologicalOrder: assets.compactMap {
                 ($0.cull == .keep || taken.contains($0.id)) ? $0.id : nil
+            }
+        )
+        let command = ChapterKeepCommand(
+            createdAt: committedAt,
+            marks: marks,
+            finalOrderBefore: orderBefore,
+            finalOrderAfter: finalOrder.assetIDs,
+            chapterBefore: activeChapterID,
+            focusBefore: focusedAssetID,
+            burstID: burstID,
+            label: label
+        )
+        guard command.apply(to: &assets, finalOrder: &finalOrder) else { return 0 }
+        if var shoot {
+            shoot.finalSetOrder = finalOrder
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+        undoCoordinator.push(command)
+        let persistenceCommands = marks.map { mark in
+            CullMutationCommand(
+                createdAt: committedAt,
+                assetID: mark.assetID,
+                before: mark.before,
+                after: mark.after,
+                userDecidedAtBefore: mark.userDecidedAtBefore,
+                userDecidedAtAfter: mark.userDecidedAtAfter,
+                finalOrderBefore: orderBefore,
+                finalOrderAfter: finalOrder.assetIDs
+            )
+        }
+        recordCommandToMemory(startedAt: commandStartedAt)
+        enqueueCullPersistence(persistenceCommands, commandStartedAt: commandStartedAt)
+        return marks.count
+    }
+
+    /// One set command, either direction. `marks` are only the frames that change.
+    @discardableResult
+    private func commitSetMarks(
+        _ changes: [(id: UUID, before: CullDecision, after: CullDecision)],
+        label: String,
+        burstID: String
+    ) -> Int {
+        guard !changes.isEmpty else { return 0 }
+        let commandStartedAt = Date()
+        let committedAt = Date()
+        let marks = changes.map { change in
+            ChapterKeepCommand.Mark(
+                assetID: change.id,
+                before: change.before,
+                after: change.after,
+                userDecidedAtBefore: assets.first { $0.id == change.id }?.userDecidedAt,
+                userDecidedAtAfter: change.after == .undecided ? nil : committedAt
+            )
+        }
+        let changing = Dictionary(uniqueKeysWithValues: marks.map { ($0.assetID, $0.after) })
+        let orderBefore = shoot?.finalSetOrder.assetIDs ?? []
+        var finalOrder = shoot?.finalSetOrder ?? FinalSetOrder()
+        finalOrder.reconcileKeptMembership(
+            keptIDsInChronologicalOrder: assets.compactMap { asset in
+                let cull = changing[asset.id] ?? asset.cull
+                return cull == .keep ? asset.id : nil
             }
         )
         let command = ChapterKeepCommand(
