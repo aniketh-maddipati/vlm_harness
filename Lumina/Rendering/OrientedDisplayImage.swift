@@ -192,6 +192,9 @@ nonisolated enum OrientedDisplayImage {
         let identity: DevelopSelectedImageIdentity?
         var generation: UInt64? = nil
         var preGeometryExtent: CGRect? = nil
+        /// RAW-stage attribution for `image`. Measurement only — `select` never
+        /// reads it, so frame selection is byte-for-byte what it was.
+        var rawStageBacking: DevelopRawStageBacking = .unattributed
     }
 
     static func select(

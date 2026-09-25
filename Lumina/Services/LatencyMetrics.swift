@@ -61,6 +61,25 @@ nonisolated enum LatencyMetrics {
     /// PROPOSED.
     static let gestureToPixelsSLAms: Double = 50
 
+    // MARK: - PROPOSED thresholds (W0 develop-draw attribution)
+    //
+    // The four `DevelopDrawInstruments` keys are judged against `frameBudget120HzMs`,
+    // reusing the one physically grounded constant above rather than inventing a fifth
+    // number. The argument, stated so it can be disagreed with:
+    //
+    // - For `draw_lazy_ms` / `draw_materialized_ms` (walk + GPU completion) it is the
+    //   same claim the frame key makes: a draw slower than one display interval cannot
+    //   keep up with a pan, whatever anyone intends.
+    // - For `draw_walk_lazy_ms` / `draw_walk_materialized_ms` it is deliberately loose.
+    //   The walk is a *part* of the draw, so giving the part the whole's budget can only
+    //   under-report breaches, never invent them. It says "if the CPU encode alone
+    //   exceeds a display interval the frame is already lost" — and because the walk
+    //   runs on the thread driving `draw(in:)`, that is a main-thread stall.
+    //
+    // PROPOSED like the block above: invented, not tokens, and deliberately absent from
+    // `design/tokens.yaml` so the tokens hash does not move.
+    // `docs/perf/e2-instrument-proposals.md` carries the same declaration.
+
     // MARK: - Window declaration
 
     /// What a reported percentile actually covers.
@@ -286,6 +305,13 @@ nonisolated enum LatencyMetrics {
         // Preserve the historical 50 ms budget, now by declaration rather
         // than accidental p0.* fallback.
         editDrawKey: navigationSLAms,
+        // W0 develop-draw attribution. `editDrawKey` above is untouched — these
+        // split the same draws by RAW-stage backing; see the PROPOSED block above
+        // for why all four take the frame budget.
+        DevelopDrawInstruments.Key.drawLazy: frameBudget120HzMs,
+        DevelopDrawInstruments.Key.drawMaterialized: frameBudget120HzMs,
+        DevelopDrawInstruments.Key.drawWalkLazy: frameBudget120HzMs,
+        DevelopDrawInstruments.Key.drawWalkMaterialized: frameBudget120HzMs,
     ]
 
     /// The budget a key is judged against, used by the SLO-breach signpost in `record`.
