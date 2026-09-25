@@ -21,6 +21,7 @@
         { "id": "unit_trace", "kind": "orchestration" },
         { "id": "unit_invariants", "kind": "orchestration" },
         { "id": "spring_physics_f07", "kind": "orchestration", "notes": "F07.4–F07.6 dead-stop, retarget continuity, reduced-motion + trajectory golden (SPIKE B seal)" },
+        { "id": "focus_zoom", "kind": "orchestration", "notes": "Focused pinch: wiring stays on the photograph, placement math holds the finger, table density pinch stays" },
         { "id": "cp2_journal_kill_fuzz", "kind": "orchestration", "notes": "CP2 D35 — SIGKILL mid JSONL append; committed prefix survives" },
         { "id": "cp2_lr_round_trip", "kind": "orchestration", "notes": "CP2 D36 — jpeg-sidecar-pair foreign XMP preserved through merge" },
         { "id": "f06_data_safety_bounded", "kind": "orchestration", "notes": "F06 T1 bounded — kill-fuzz, journal RT, X-FS, D13, §2 hostile schedules" },

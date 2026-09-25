@@ -20,6 +20,10 @@ struct ElasticFocusView: View {
     @State private var retainedFrame: OrientedDisplayImage.DisplayFrame?
     @State private var retainedSince = ProcessInfo.processInfo.systemUptime
     @State private var captureFacts = ElasticCaptureFacts.unknown
+    @State private var focusZoom = FocusZoom()
+    @State private var placedExtent: CGSize = .zero
+    @State private var glide = CGSize.zero
+    @State private var glidePages = true
 
     init(session: P0SessionModel, asset: AssetRecord) {
         self.session = session
@@ -42,6 +46,10 @@ struct ElasticFocusView: View {
             retainedFrame = nil
             fallbackAssetID = asset.id
             fallbackImage = Self.immediateBrowseImage(for: asset)
+            focusZoom = FocusZoom()
+            placedExtent = .zero
+            glide = .zero
+            glidePages = true
         }
         .task(id: asset.id) {
             await loadStableFallback()
@@ -102,7 +110,9 @@ struct ElasticFocusView: View {
                 DevelopMetalView(
                     image: image,
                     measurementIdentity: selection?.identity,
-                    rawStageBacking: selection?.rawStageBacking ?? .unattributed
+                    rawStageBacking: selection?.rawStageBacking ?? .unattributed,
+                    zoom: focusZoom.zoom,
+                    panOffset: focusZoom.pan
                 )
                     .frame(width: box.width, height: box.height)
                     .clipShape(
@@ -138,6 +148,11 @@ struct ElasticFocusView: View {
                              "matchesRequest": selection?.recipe?.valueFingerprint == requestedRecipe.valueFingerprint])
                 retainedFrame = selection
                 retainedSince = ProcessInfo.processInfo.systemUptime
+                let extent = image?.extent.size ?? .zero
+                if placedExtent.width > 1, extent.width > 1 {
+                    focusZoom.rebase(from: placedExtent, to: extent)
+                }
+                placedExtent = extent
             }
             .onChange(of: requestedRecipe.valueFingerprint, initial: true) { _, _ in
                 DevelopPresentationTrace.shared.record("canvas-selection", identity: selection?.identity,
@@ -145,8 +160,42 @@ struct ElasticFocusView: View {
                              "selectedFrameAgeMs": (ProcessInfo.processInfo.systemUptime - retainedSince) * 1000,
                              "matchesRequest": selection?.recipe?.valueFingerprint == requestedRecipe.valueFingerprint])
             }
+            .overlay {
+                FocusZoomMonitor(
+                    enabled: session.peek == nil,
+                    well: geometry.size,
+                    photo: box,
+                    onMagnify: { delta, point, ended, backing in
+                        let limit = zoomLimit(box: box, backing: backing)
+                        focusZoom.magnify(by: delta, at: point, in: box, maxZoom: limit, rubber: true)
+                        if ended { settleZoom(in: box, backing: backing) }
+                    },
+                    onScroll: { dx, dy, began, ended, backing in
+                        if began {
+                            glide = .zero
+                            glidePages = true
+                        }
+                        if focusZoom.zoom > FocusZoom.fit {
+                            focusZoom.pan(by: CGSize(width: dx, height: -dy), in: box, rubber: true)
+                        } else {
+                            glide.width += dx
+                            glide.height += dy
+                            if glidePages, let step = FocusZoom.page(dx: glide.width, dy: glide.height, zoom: focusZoom.zoom) {
+                                glidePages = false
+                                session.moveFocus(dx: step, dy: 0, columns: 1)
+                            }
+                        }
+                        if ended { settleZoom(in: box, backing: backing) }
+                    },
+                    onSmartZoom: { point, backing in
+                        let limit = zoomLimit(box: box, backing: backing)
+                        focusZoom.toggleSmart(at: point, in: box, maxZoom: limit)
+                    }
+                )
+            }
         }
         .contentShape(Rectangle())
+        // Double-click returns to the table. It is not a zoom.
         .onTapGesture(count: 2) {
             session.closeInspection()
         }
@@ -157,6 +206,21 @@ struct ElasticFocusView: View {
             if !pressing {
                 session.setShowingBefore(false)
             }
+        }
+    }
+
+    private func zoomLimit(box: CGSize, backing: CGFloat) -> CGFloat {
+        FocusZoom.maximum(
+            sensor: session.renderedPixelSize(for: asset.id),
+            box: box,
+            backingScale: backing
+        )
+    }
+
+    private func settleZoom(in box: CGSize, backing: CGFloat) {
+        let limit = zoomLimit(box: box, backing: backing)
+        withAnimation(LuminaTokens.Motion.travel) {
+            focusZoom.settle(in: box, maxZoom: limit)
         }
     }
 

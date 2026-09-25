@@ -2083,6 +2083,8 @@ final class P0SessionModel {
     func openFocusedPhotograph() {
         let measurementInputAt = CACurrentMediaTime()
         guard let id = focusedAssetID ?? selectedAssetIDs.first else { return }
+        // Locked video presence — travel/focus still work; inspect/Develop stay closed.
+        if asset(id)?.isUnsupportedVideo == true { return }
         if DevelopPresentationMeasurement.enabled {
             DevelopPresentationTrace.shared.input(asset: id, recipe: recipe(for: id).valueFingerprint,
                 startedAt: measurementInputAt, action: "open-canvas")

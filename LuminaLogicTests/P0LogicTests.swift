@@ -81,7 +81,8 @@ final class P0LogicTests: XCTestCase {
             graphRenders: 0, gpuUploads: 0, variantRenders: 0, metalPresents: 0,
             elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
             chronologyViewportChapterID: "chapter-a",
-            chapterTableMounted: true, inspectPeripheryDimOpacity: 1
+            chapterTableMounted: true, inspectPeripheryDimOpacity: 1,
+            focusedIsPhone: false, focusedIsUnsupportedVideo: false, unsupportedVideoCount: 0
         )
         let json = snapshot.jsonString()
         let decoded = try? JSONDecoder().decode(ProbeSnapshot.self, from: Data(json.utf8))
@@ -540,6 +541,38 @@ final class P0LogicTests: XCTestCase {
         XCTAssertEqual(bursts.count, 1)
         XCTAssertEqual(bursts[0].assetIDs, ids)
         XCTAssertEqual(bursts[0].frameCount, 5)
+    }
+
+    func testPhoneRunLeavesTheCameraBurst() {
+        let camera = [UUID(), UUID()]
+        let phone = [UUID(), UUID()]
+        let assets = [
+            datedAsset(id: camera[0], offset: 0),
+            datedAsset(id: camera[1], offset: 0.4),
+            phoneAsset(id: phone[0], offset: 0.8),
+            phoneAsset(id: phone[1], offset: 1.2),
+        ]
+        let bursts = ShootChapterArrangement.bursts(in: assets)
+        XCTAssertEqual(bursts.map(\.assetIDs), [camera, phone])
+        XCTAssertFalse(bursts[0].frames[0].phoneBody)
+        XCTAssertTrue(bursts[1].frames[0].phoneBody)
+    }
+
+    private func phoneAsset(id: UUID, offset: TimeInterval) -> AssetRecord {
+        AssetRecord(
+            id: id,
+            sourceKey: "k-\(id.uuidString)",
+            source: SourceReference(
+                originalPath: "/x/\(id.uuidString).HEIC",
+                relativePath: "\(id.uuidString).HEIC",
+                volumeID: "VOL",
+                availability: .available
+            ),
+            filename: "\(id.uuidString).HEIC",
+            capturedAt: Date(timeIntervalSince1970: 1_700_000_000 + offset),
+            captureMake: "Apple",
+            captureModel: "iPhone 15 Pro"
+        )
     }
 
     func testCaptureNamePairsRawAndJpegAndStripsVersionSuffix() {

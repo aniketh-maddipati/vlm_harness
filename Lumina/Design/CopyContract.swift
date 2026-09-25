@@ -112,6 +112,11 @@ enum CopyContract {
 
     static let staleRenderBody = "Latest-wins: ⌘E re-renders dirty frames only; the header counts what is current."
     static let staleRenderAction = "⌘E re-renders"
+
+    /// A1 / unsupported body — table keeps working (D35).
+    static let bodyNotYetSupported = "body not yet supported"
+    /// Locked video presence row — sequence continuity without unlocking playback.
+    static let videoNotOpenedYet = "video · not opened yet"
 }
 
 // MARK: - Snapshot builder (ONE count source for A1)

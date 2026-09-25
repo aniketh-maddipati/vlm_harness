@@ -68,6 +68,8 @@ Schedules the D46 / R-A.1 gate:
 4. Tier 1 / **Develop** ships only when it **beats** that benchmark.
 5. Target vehicle: **wave two** or **v1.1**.
 6. **Do not begin** taste-model work before the eval set exists.
+7. **Photographer's own shoots may be fitted; the benchmark may not.** Labels derived from Aniketh's own Lightroom edits (not tester edits — see the consent line in §6) may be used for training, on the past-shoots-train / future-shoots-test split; the mehendi set (2026-05-19) moves permanently to **test** and is never fitted. `[● D1 — ID pending]`
+8. **A ship claim needs two held-out events, not one.** A clustered interval over a single shoot-event has no width. Until a second future shoot is edited and sealed, A02+ may report a held-out number but may not clear the §4.4 ship gate. `[● D1 — ID pending]`
 
 ---
 
