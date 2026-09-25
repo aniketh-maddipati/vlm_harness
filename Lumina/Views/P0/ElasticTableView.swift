@@ -39,54 +39,82 @@ struct ElasticTableView: View {
 
     // MARK: - Moments
 
+    private var showsChronologyBar: Bool {
+        session.peek != .set && !session.chapters.isEmpty
+    }
+
     private var momentScroll: some View {
         GeometryReader { viewport in
           ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(session.chapters.enumerated()), id: \.element.id) { index, chapter in
-                        let interval = index > 0 ? session.gapInterval(after: index - 1) : nil
-                        VStack(alignment: .leading, spacing: 0) {
-                            if index > 0 {
-                                gap(interval)
+            VStack(spacing: 0) {
+                if showsChronologyBar {
+                    // CHRON-02 — pinned markers; click reveals chapter without moving focus.
+                    ElasticChronologyBar(
+                        chapters: session.chapters,
+                        activeID: session.chronologyViewportChapterID,
+                        navigate: { id in proxy.scrollTo(id, anchor: .top) }
+                    )
+                }
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(session.chapters.enumerated()), id: \.element.id) { index, chapter in
+                            let interval = index > 0 ? session.gapInterval(after: index - 1) : nil
+                            VStack(alignment: .leading, spacing: 0) {
+                                if index > 0 {
+                                    gap(interval)
+                                }
+                                ElasticMomentRow(session: session, chapter: chapter)
                             }
-                            ElasticMomentRow(session: session, chapter: chapter)
+                            .id(chapter.id)
+                            .background {
+                                GeometryReader { geo in
+                                    Color.clear.preference(
+                                        key: ElasticViewportFrames.self,
+                                        value: ElasticViewportSnapshot(
+                                            containers: [chapter.id],
+                                            chapters: [chapter.id: geo.frame(in: .named(viewportSpace))]
+                                        )
+                                    )
+                                }
+                            }
                         }
-                        .id(chapter.id)
-                        .preference(key: ElasticViewportFrames.self,
-                                    value: ElasticViewportSnapshot(containers: [chapter.id]))
+                    }
+                    .background(ElasticScrollInterruption { revealRequest = nil })
+                    .padding(.horizontal, ElasticLayout.tableGutter)
+                    .padding(.vertical, ElasticLayout.tablePaddingTop)
+                }
+                .coordinateSpace(name: viewportSpace)
+                .environment(\.elasticViewportSpace, viewportSpace)
+                .onPreferenceChange(ElasticViewportFrames.self) { snapshot in
+                    viewportSnapshot = snapshot
+                    let wasRevealing = revealRequest != nil
+                    resolveReveal(snapshot: snapshot, viewport: viewport.size, proxy: proxy)
+                    if !wasRevealing, session.route == .time,
+                       let anchor = ElasticViewportReveal.anchor(
+                        frames: snapshot.tiles, viewport: CGRect(origin: .zero, size: viewport.size)
+                       ) {
+                        // Keep the last valid viewport before the table is dismantled.
+                        returnAnchor = anchor
+                    }
+                    // Marker tracks the leading chapter; never writes focus or selection.
+                    let next = ElasticChronology.activeChapter(frames: snapshot.chapters)
+                    if session.chronologyViewportChapterID != next {
+                        session.chronologyViewportChapterID = next
                     }
                 }
-                .background(ElasticScrollInterruption { revealRequest = nil })
-                .padding(.horizontal, ElasticLayout.tableGutter)
-                .padding(.vertical, ElasticLayout.tablePaddingTop)
-            }
-            .coordinateSpace(name: viewportSpace)
-            .environment(\.elasticViewportSpace, viewportSpace)
-            .onPreferenceChange(ElasticViewportFrames.self) { snapshot in
-                viewportSnapshot = snapshot
-                let wasRevealing = revealRequest != nil
-                resolveReveal(snapshot: snapshot, viewport: viewport.size, proxy: proxy)
-                if !wasRevealing, session.route == .time,
-                   let anchor = ElasticViewportReveal.anchor(
-                    frames: snapshot.tiles, viewport: CGRect(origin: .zero, size: viewport.size)
-                   ) {
-                    // Keep the last valid viewport before the table is dismantled.
-                    returnAnchor = anchor
+                .onChange(of: session.focusedAssetID) { _, id in
+                    requestReveal(id: id, position: nil, viewport: viewport.size, proxy: proxy)
                 }
-            }
-            .onChange(of: session.focusedAssetID) { _, id in
-                requestReveal(id: id, position: nil, viewport: viewport.size, proxy: proxy)
-            }
-            .onAppear {
-                requestReveal(
-                    id: returnAnchor?.id ?? session.focusedAssetID,
-                    position: returnAnchor?.position, viewport: viewport.size, proxy: proxy
-                )
-            }
-            .onDisappear {
-                revealRequest = nil
-                viewportSnapshot = ElasticViewportSnapshot()
+                .onAppear {
+                    requestReveal(
+                        id: returnAnchor?.id ?? session.focusedAssetID,
+                        position: returnAnchor?.position, viewport: viewport.size, proxy: proxy
+                    )
+                }
+                .onDisappear {
+                    revealRequest = nil
+                    viewportSnapshot = ElasticViewportSnapshot()
+                }
             }
           }
         }
@@ -173,21 +201,16 @@ struct ElasticMomentRow: View {
     let chapter: ShootChapter
 
     var body: some View {
-        VStack(alignment: .leading, spacing: ElasticLayout.groupRowGap) {
-            Text(ElasticChronology.label(for: chapter))
-                .font(ElasticType.mono(ElasticLayout.momentTextSize, weight: .medium))
-                .foregroundStyle(LuminaTokens.Elastic.shellAlt)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            ElasticWrapLayout(
-                horizontalSpacing: ElasticLayout.groupGap,
-                verticalSpacing: ElasticLayout.groupRowGap
-            ) {
-                ForEach(chapter.bursts) { burst in
-                    ElasticFrameGroup(session: session, burst: burst)
-                }
+        // CHRON-02 — date/time lives in the pinned bar, not on each photograph band.
+        ElasticWrapLayout(
+            horizontalSpacing: ElasticLayout.groupGap,
+            verticalSpacing: ElasticLayout.groupRowGap
+        ) {
+            ForEach(chapter.bursts) { burst in
+                ElasticFrameGroup(session: session, burst: burst)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, ElasticLayout.momentPaddingV)
         .padding(.horizontal, ElasticLayout.momentPaddingH)
     }

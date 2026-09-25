@@ -23,11 +23,8 @@ nonisolated struct AutoDevelop {
     static let defaultHighlights = -20.0
     static let defaultShadows = 15.0
     static let autoVibrance = 8.0
-    /// Beyond this the tilt is assumed intentional and left alone.
-    static let horizonCorrectionLimit = 4.0
 
-    /// Auto recipe for one asset. Geometry beyond straighten, crop, profile and
-    /// aspect are carried through from whatever the asset already had.
+    /// Tone Auto preserves crop, rotation, profile, and white-balance intent.
     static func recipe(for asset: AssetRecord, stats: ImageStats) -> EditRecipe {
         let base = asset.recipe ?? .neutral
         return base.updating { recipe in
@@ -38,10 +35,7 @@ nonisolated struct AutoDevelop {
             // Tone Auto preserves the complete starting WB intent. The neutral
             // sentinel resolves camera temperature AND tint in the RAW decoder;
             // adopting only stats.nativeTemperature would create a hybrid pair.
-            recipe.straightenDegrees = straightenDegrees(
-                base: base.straightenDegrees,
-                horizonAngle: stats.horizonAngle
-            )
+            // Geometry is an explicit photographer choice, not part of tone Auto.
             // Inert in the render graph — an auto pass must not pretend otherwise.
             recipe.whites = 0
             recipe.blacks = 0
@@ -69,14 +63,4 @@ nonisolated struct AutoDevelop {
         return min(60, clipFraction * 2000)
     }
 
-    /// Straighten replaces only the fine remainder. Any quarter turns the
-    /// photographer already applied survive — `straightenDegrees` carries both
-    /// (see `docs/ELASTIC_PLAN.md` §4 on deriving orientation rather than forking it).
-    static func straightenDegrees(base: Double, horizonAngle: Double?) -> Double {
-        let quarterTurns = (base / 90.0).rounded()
-        guard let horizonAngle, abs(horizonAngle) < horizonCorrectionLimit else {
-            return quarterTurns * 90
-        }
-        return quarterTurns * 90 + horizonAngle
-    }
 }

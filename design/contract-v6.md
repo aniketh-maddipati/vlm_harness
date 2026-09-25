@@ -426,3 +426,11 @@ Interruption retains whole-plan written/failed/cancelled/remaining counts and th
 ## VERSION-ASYNC-01 — per-photo Auto command ownership (2026-09-24)
 
 Per-photo Auto owns its pending measurement task and displays applying/unmeasured feedback. A newer version choice, focus, edit, undo, or shoot context invalidates it. Source and base-recipe identity must still match before application. Flush the active gesture before caching the hand version. This amendment does not add preview pixels, alter the rail layout, create an unauthored Yours version, or expand warming. Completion describes in-memory application only.
+
+## CHRON-02 — pinned chronology navigation (2026-09-24)
+
+The user's direction supersedes CHRON-01's headings beside photographs: capture-date/time markers live in a pinned navigation bar. Every chapter has a marker; the chapter crossing the table viewport's leading edge is highlighted. Clicking a marker reveals that chapter without changing focus, selection, recipes or order. Native scrolling remains continuous, with no forced snapping. Existing duration-derived gaps remain in the photo surface without repeated date/time labels. Scroll geometry is transient bookkeeping, not a per-pixel observable table update. Manual set order does not gain temporal markers.
+
+## AUTO-02 — tone does not rotate (2026-09-24)
+
+Tone Auto preserves the full existing straighten angle, quarter turns, crop and white balance. Horizon detection must not silently change composition or clear a manual fine angle. Existing rotations are retained, not reset by this change; rotation and straighten remain explicit controls.
