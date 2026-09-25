@@ -41,18 +41,19 @@ struct ElasticTableView: View {
     // MARK: - Moments
 
     private var showsChronologyBar: Bool {
-        session.peek != .set && !session.chapters.isEmpty
+        !session.chapters.isEmpty
     }
 
     private var momentScroll: some View {
         GeometryReader { viewport in
           ScrollViewReader { proxy in
-            VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 0) {
                 if showsChronologyBar {
-                    // CHRON-02 — pinned markers; click reveals chapter without moving focus.
+                    // CHRON-02 — vertical progress axis; click reveals chapter without moving focus.
                     ElasticChronologyBar(
                         chapters: session.chapters,
                         activeID: session.chronologyViewportChapterID,
+                        orientation: .vertical,
                         navigate: { id in proxy.scrollTo(id, anchor: .top) }
                     )
                 }
@@ -263,13 +264,9 @@ struct ElasticFrameGroup: View {
                 }
             }
             .overlay(alignment: .topTrailing) {
-                HStack(spacing: ElasticLayout.badgePaddingH) {
-                    setButton
-                    phoneButton
-                    badge("fold", fill: LuminaTokens.Elastic.ink, ink: LuminaTokens.Elastic.shell)
-                }
-                .padding(.top, ElasticLayout.badgeTop)
-                .padding(.trailing, ElasticLayout.badgeInsideOpen)
+                badge("fold", fill: LuminaTokens.Elastic.ink, ink: LuminaTokens.Elastic.shell)
+                    .padding(.top, ElasticLayout.badgeTop)
+                    .padding(.trailing, ElasticLayout.badgeInsideOpen)
             }
         } else if isBurst {
             stacked
@@ -291,24 +288,10 @@ struct ElasticFrameGroup: View {
             card(width: width, height: height, offset: ElasticLayout.stackMiddle,
                  opacity: ElasticLayout.stackMiddleOpacity)
             if let id = leaderID {
-                ElasticFrameTile(
-                    session: session,
-                    assetID: id,
-                    width: width,
-                    showsSetButton: false,
-                    showsPhoneButton: false
-                )
+                ElasticFrameTile(session: session, assetID: id, width: width)
             }
         }
         .padding(.trailing, ElasticLayout.stackPadding)
-        .overlay(alignment: .topLeading) {
-            HStack(spacing: ElasticLayout.badgePaddingH) {
-                setButton
-                phoneButton
-            }
-            .padding(.top, ElasticLayout.badgeTop)
-            .padding(.leading, ElasticLayout.markInset)
-        }
         .overlay(alignment: .topTrailing) {
             badge("×\(burst.frameCount)", fill: LuminaTokens.Elastic.shell, ink: LuminaTokens.Elastic.ink)
                 .padding(.top, ElasticLayout.badgeTop)
@@ -339,29 +322,14 @@ struct ElasticFrameGroup: View {
         .buttonStyle(LuminaElasticButtonStyle())
     }
 
-    /// One control for the whole burst. On only when every frame is already in.
-    private var setButton: some View {
-        ElasticSetButton(on: session.setToggleIsOn(burst.assetIDs)) {
-            session.classifySet(burst.assetIDs)
-        }
-    }
-
-    /// One control for the whole run. Filled only when every frame is a phone.
-    private var phoneButton: some View {
-        let on = !burst.assetIDs.isEmpty && burst.assetIDs.allSatisfy(session.isPhoneFrame)
-        return ElasticPhoneButton(on: on) {
-            session.classifyPhone(burst.assetIDs)
-        }
-    }
 }
 
 /// One frame on the table, carrying only marks the photographer made (§3.4, §4).
+/// Set membership and phone marks are keyboard-only (`S` / `H`) — no action buttons on the picture.
 struct ElasticFrameTile: View {
     @Bindable var session: P0SessionModel
     let assetID: UUID
     let width: CGFloat
-    var showsSetButton = true
-    var showsPhoneButton = true
 
     private var asset: AssetRecord? {
         session.asset(assetID)
@@ -386,14 +354,6 @@ struct ElasticFrameTile: View {
         .modifier(ElasticViewportTile(id: assetID))
         .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.tileRadius, style: .continuous))
         .overlay(alignment: .topLeading) {
-            if showsSetButton {
-                ElasticSetButton(on: inSet) {
-                    session.classifySet([assetID])
-                }
-                .padding(ElasticLayout.markInset)
-            }
-        }
-        .overlay(alignment: showsSetButton ? .topTrailing : .topLeading) {
             if cull == .reject {
                 Text("✕")
                     .font(.system(size: ElasticLayout.markTextSize, weight: .bold))
@@ -401,14 +361,6 @@ struct ElasticFrameTile: View {
                     .frame(width: ElasticLayout.markSize, height: ElasticLayout.markSize)
                     .background(LuminaTokens.Elastic.ink, in: Circle())
                     .padding(ElasticLayout.markInset)
-            }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if showsPhoneButton {
-                ElasticPhoneButton(on: session.isPhoneFrame(assetID)) {
-                    session.classifyPhone([assetID])
-                }
-                .padding(ElasticLayout.markInset)
             }
         }
         .overlay(alignment: .bottomLeading) {
@@ -441,29 +393,7 @@ struct ElasticFrameTile: View {
     }
 }
 
-/// "phone?" — same press settle as the other buttons. Filled when the frame is a phone.
-struct ElasticPhoneButton: View {
-    let on: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(on ? "phone" : "phone?")
-                .font(ElasticType.sans(ElasticLayout.badgeTextSize, weight: .medium))
-                .foregroundStyle(on ? LuminaTokens.Elastic.shell : LuminaTokens.Elastic.ink)
-                .padding(.horizontal, ElasticLayout.badgePaddingH)
-                .frame(minHeight: ElasticLayout.badgeHeight, maxHeight: ElasticLayout.badgeHeight)
-                .background(
-                    on ? LuminaTokens.Elastic.ink : LuminaTokens.Elastic.shell,
-                    in: RoundedRectangle(cornerRadius: ElasticLayout.badgeRadius, style: .continuous)
-                )
-        }
-        .buttonStyle(LuminaElasticButtonStyle())
-        .accessibilityLabel(on ? "phone" : "phone?")
-    }
-}
-
-/// Kept for the warm phone mark on surfaces that are not the table button.
+/// Kept for the warm phone mark on surfaces that are not action controls.
 struct ElasticPhoneGlyph: View {
     var body: some View {
         RoundedRectangle(cornerRadius: ElasticLayout.phoneGlyphRadius, style: .continuous)

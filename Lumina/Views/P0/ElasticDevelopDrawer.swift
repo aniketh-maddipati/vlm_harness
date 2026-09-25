@@ -1,44 +1,41 @@
 import AppKit
 import SwiftUI
 
-/// The develop drawer (`E`), beside the photograph: nine honest sliders, the crop
-/// ratios and a quarter turn, straighten, the camera profile, the match chips, and
-/// auto · match · reset. Everything it does goes through the session's one batch,
-/// so a nudge ripples to the group and one ⌘Z brings it all back.
+/// Sticky always-on Develop rail beside the photograph. Lightroom-shaped
+/// Tone / Color / Detail / Crop, histogram on top, sliders, staged looks, and
+/// quiet A / reset. The photograph keeps the rest of the band.
 struct ElasticDevelopDrawer: View {
     @Bindable var session: P0SessionModel
     let asset: AssetRecord
 
     private var recipe: EditRecipe { session.recipe(for: asset.id) }
+    private var group: P0AdjustmentSection { session.expandedAdjustmentSection ?? .light }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: ElasticLayout.drawerGap) {
+            VStack(alignment: .leading, spacing: ElasticLayout.drawerGapChat4) {
+                comparisonHistogram
                 titleRow
-                ForEach(ElasticDevelopControl.exposed) { control in
-                    sliderRow(control)
+                if session.variationColumnVisible {
+                    ElasticVariationColumn(session: session)
                 }
-                sectionLabel("crop", detail: session.cropSummary(for: recipe))
-                ratioRow
-                straightenRow
-                profileRow
-                sectionLabel("match", detail: session.matchScopeLine(for: asset.id))
-                matchChips
-                actionRow
+                groupHeader
+                groupBody
                 Text(session.developSourceLine(for: asset))
                     .font(ElasticType.mono(ElasticLayout.drawerSourceSize))
                     .lineSpacing(ElasticType.lineSpacing(
-                        size: ElasticLayout.drawerSourceSize, lineHeight: ElasticLayout.drawerSourceLineHeight
+                        size: ElasticLayout.drawerSourceSize,
+                        lineHeight: ElasticLayout.drawerSourceLineHeight
                     ))
                     .opacity(ElasticLayout.drawerMutedOpacity)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.vertical, ElasticLayout.drawerPaddingV)
-            .padding(.horizontal, ElasticLayout.drawerPaddingH)
+            .padding(.vertical, ElasticLayout.drawerPaddingVChat4)
+            .padding(.horizontal, ElasticLayout.drawerPaddingHChat4)
         }
         .font(ElasticType.mono(ElasticLayout.drawerTextSize))
         .foregroundStyle(LuminaTokens.Elastic.shellAlt)
-        .frame(width: ElasticLayout.drawerWidth)
+        .frame(width: ElasticLayout.developRailWidth)
         .frame(maxHeight: .infinity)
         .background(
             LuminaTokens.Elastic.ink.opacity(ElasticLayout.drawerFillOpacity),
@@ -54,7 +51,7 @@ struct ElasticDevelopDrawer: View {
 
     private var titleRow: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(session.versionLabel(for: asset))
+            Text(CopyContract.developSpineLabel)
                 .font(ElasticType.mono(ElasticLayout.drawerTitleSize, weight: .semibold))
             Spacer(minLength: 0)
             Text(session.drawerScopeLine(for: asset.id))
@@ -62,6 +59,53 @@ struct ElasticDevelopDrawer: View {
                 .opacity(ElasticLayout.drawerScopeOpacity)
         }
         .lineLimit(1)
+    }
+
+    private var groupHeader: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(groupDisplayName(group))
+                .fontWeight(.semibold)
+            Spacer(minLength: 0)
+            Text(CopyContract.developGroupCycleKeys)
+                .opacity(ElasticLayout.drawerMutedOpacity)
+        }
+        .padding(.top, ElasticLayout.drawerSectionTopChat4)
+    }
+
+    private var comparisonHistogram: some View {
+        ElasticHistogram(
+            bins: asset.imageStats?.luminanceBins ?? [],
+            shift: session.histogramBinShift(for: asset),
+            shotShift: 0,
+            autoShift: session.autoHistogramShift(for: asset),
+            clipsShadows: session.showsShadowClipTick(for: asset),
+            clipsHighlights: session.showsHighlightClipTick(for: asset),
+            fillsWidth: true
+        )
+    }
+
+    @ViewBuilder
+    private var groupBody: some View {
+        switch group {
+        case .light, .color, .detail:
+            ForEach(ElasticDevelopControl.exposed.filter { $0.group == group }) { control in
+                sliderRow(control)
+            }
+        case .crop:
+            sectionLabel("crop", detail: session.cropSummary(for: recipe))
+            ratioRow
+            straightenRow
+            profileRow
+        }
+    }
+
+    private func groupDisplayName(_ section: P0AdjustmentSection) -> String {
+        switch section {
+        case .light: return CopyContract.developGroupTone
+        case .color: return CopyContract.developGroupColor
+        case .detail: return CopyContract.developGroupDetail
+        case .crop: return CopyContract.developGroupCrop
+        }
     }
 
     private func sectionLabel(_ name: String, detail: String) -> some View {
@@ -87,6 +131,7 @@ struct ElasticDevelopDrawer: View {
             onScrub: { next in session.scrubEdit { $0[keyPath: control.keyPath] = next } },
             onEnd: { session.endDevelopGesture(control.keyPath, range: control.range) }
         )
+        .frame(minHeight: ElasticLayout.drawerSliderHeightChat4)
     }
 
     private var ratioRow: some View {
@@ -102,7 +147,7 @@ struct ElasticDevelopDrawer: View {
             } label: {
                 HStack(spacing: ElasticLayout.chipGap) {
                     Text("↻ \(Int(ElasticLayout.quarterTurnDegrees))°")
-                    Text("R").opacity(ElasticLayout.drawerMutedOpacity)
+                    keyPill(CopyContract.developRotateKey)
                 }
                 .modifier(ChipCostume(on: false))
             }
@@ -133,6 +178,7 @@ struct ElasticDevelopDrawer: View {
                 )
             }
         )
+        .frame(minHeight: ElasticLayout.drawerSliderHeightChat4)
     }
 
     private var profileRow: some View {
@@ -159,51 +205,18 @@ struct ElasticDevelopDrawer: View {
         .padding(.top, ElasticLayout.drawerSectionTop)
     }
 
-    private var matchChips: some View {
-        FlowChips {
-            ForEach(ElasticMatchGroup.allCases, id: \.self) { group in
-                chip(group.rawValue, on: session.matchGroups.contains(group)) {
-                    session.toggleMatchGroup(group)
-                }
-            }
-        }
-    }
-
-    private var actionRow: some View {
-        HStack(spacing: ElasticLayout.drawerButtonGap) {
-            actionButton(primary: false) {
-                session.pickVersion(2, for: asset.id)
-            } label: {
-                HStack(spacing: ElasticLayout.chipGap) {
-                    Text(session.versionAutoAssetID == asset.id ? "applying…" : "auto")
-                    Text("A").opacity(ElasticLayout.drawerMutedOpacity)
-                }
-            }
-            .disabled(session.autoRun != nil || session.versionAutoAssetID != nil)
-            .accessibilityValue(session.versionAutoAssetID == asset.id ? "Applying adjustments" : "")
-            actionButton(primary: true) {
-                session.matchToCursor()
-            } label: {
-                HStack(spacing: ElasticLayout.chipGap) {
-                    Text("match").fontWeight(.semibold)
-                    Text("M").opacity(ElasticLayout.drawerMutedOpacity)
-                }
-            }
-            Button {
-                session.pickVersion(1, for: asset.id)
-            } label: {
-                Text("reset")
-                    .opacity(ElasticLayout.drawerScopeOpacity)
-                    .padding(.horizontal, ElasticLayout.drawerResetPaddingH)
-                    .frame(height: ElasticLayout.drawerButtonHeight)
-            }
-            .buttonStyle(LuminaElasticButtonStyle())
-        }
-        .font(ElasticType.mono(ElasticLayout.headerTextSize))
-        .padding(.top, ElasticLayout.drawerSectionTop)
-    }
-
     // MARK: - Pieces
+
+    private func keyPill(_ text: String) -> some View {
+        Text(text)
+            .font(ElasticType.mono(ElasticLayout.keyPillSize, weight: .semibold))
+            .padding(.horizontal, ElasticLayout.keyPillPaddingH)
+            .padding(.vertical, ElasticLayout.keyPillPaddingV)
+            .background(
+                LuminaTokens.Elastic.shell.opacity(ElasticLayout.keyPillOpacity),
+                in: RoundedRectangle(cornerRadius: ElasticLayout.keyPillRadius, style: .continuous)
+            )
+    }
 
     private func chip(_ text: String, on: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -234,7 +247,7 @@ struct ElasticDevelopDrawer: View {
 }
 
 /// `height 24; padding 0 8; radius 6` — warm when on, shell over the drawer when off.
-private struct ChipCostume: ViewModifier {
+struct ChipCostume: ViewModifier {
     let on: Bool
 
     func body(content: Content) -> some View {
@@ -252,7 +265,7 @@ private struct ChipCostume: ViewModifier {
 }
 
 /// `display:flex; gap:4px; flex-wrap:wrap` for chips.
-private struct FlowChips<Content: View>: View {
+struct FlowChips<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {

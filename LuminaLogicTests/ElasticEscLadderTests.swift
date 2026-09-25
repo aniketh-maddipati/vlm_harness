@@ -1,7 +1,7 @@
 import XCTest
 @testable import Lumina
 
-/// The Esc ladder as the design orders it: peek → drawer → selection → route.
+/// The Esc ladder as the design orders it: note → peek → looks → drawer → selection → route.
 /// Each Esc unwinds exactly one step; the table itself has nowhere further to go.
 @MainActor
 final class ElasticEscLadderTests: XCTestCase {
@@ -33,30 +33,51 @@ final class ElasticEscLadderTests: XCTestCase {
 
     func testEveryStepInOrderOneEscEach() {
         let (session, a, b) = focused()
+        session.assets[0].imageStats = ImageStats(
+            luminanceBins: Array(repeating: 32, count: ImageStats.binCount),
+            shadowClipFraction: 0,
+            highlightClipFraction: 0,
+            mean: 0.31
+        )
+        session.stageAutoVariations(for: a)
         session.developDrawerOpen = true
         session.selectedAssetIDs = [a, b]
+        session.noteFloaterOpen = true
         session.openPeek(.related, at: 0)
         session.releasePeekKey(at: 0.05)
         XCTAssertTrue(session.peekPinned)
         XCTAssertTrue(P0EscLadder.hasTransientDepth(session: session))
 
         XCTAssertTrue(P0EscLadder.handle(session: session))
-        XCTAssertNil(session.peek, "1 · peek")
+        XCTAssertFalse(session.noteFloaterOpen, "1 · note floater")
+        XCTAssertTrue(session.peek != nil)
+        XCTAssertTrue(session.hasStagedAutoVariations)
+        XCTAssertTrue(session.developDrawerOpen)
+
+        XCTAssertTrue(P0EscLadder.handle(session: session))
+        XCTAssertNil(session.peek, "2 · peek")
+        XCTAssertTrue(session.hasStagedAutoVariations)
         XCTAssertTrue(session.developDrawerOpen)
         XCTAssertEqual(session.selectedAssetIDs.count, 2)
         XCTAssertEqual(session.route, .focus)
 
         XCTAssertTrue(P0EscLadder.handle(session: session))
-        XCTAssertFalse(session.developDrawerOpen, "2 · drawer")
+        XCTAssertFalse(session.hasStagedAutoVariations, "3 · unapplied looks")
+        XCTAssertTrue(session.developDrawerOpen)
         XCTAssertEqual(session.selectedAssetIDs.count, 2)
         XCTAssertEqual(session.route, .focus)
 
         XCTAssertTrue(P0EscLadder.handle(session: session))
-        XCTAssertTrue(session.selectedAssetIDs.isEmpty, "3 · selection")
+        XCTAssertFalse(session.developDrawerOpen, "4 · leftover drawer flag")
+        XCTAssertEqual(session.selectedAssetIDs.count, 2)
         XCTAssertEqual(session.route, .focus)
 
         XCTAssertTrue(P0EscLadder.handle(session: session))
-        XCTAssertEqual(session.route, .time, "4 · route")
+        XCTAssertTrue(session.selectedAssetIDs.isEmpty, "5 · selection")
+        XCTAssertEqual(session.route, .focus)
+
+        XCTAssertTrue(P0EscLadder.handle(session: session))
+        XCTAssertEqual(session.route, .time, "6 · route")
         XCTAssertEqual(session.focusedAssetID, a, "the cursor stays where it was")
 
         XCTAssertFalse(P0EscLadder.handle(session: session), "the table is the end of the ladder")

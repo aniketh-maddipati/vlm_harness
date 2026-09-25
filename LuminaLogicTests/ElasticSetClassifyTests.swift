@@ -115,4 +115,72 @@ final class ElasticSetClassifyTests: XCTestCase {
             []
         )
     }
+
+    func testSetToggleLeavesRecipeAlone() {
+        let id = UUID()
+        var record = asset(id, offset: 0)
+        var recipe = EditRecipe.neutral
+        recipe.exposure = 0.42
+        recipe.contrast = 12
+        record.recipe = recipe
+        record.recipeSource = .hand
+        let fingerprint = recipe.valueFingerprint
+        let session = session([record])
+
+        XCTAssertEqual(session.toggleSetMembershipFromKeyboard(), 1)
+        XCTAssertTrue(session.isInFinalSet(id))
+        XCTAssertEqual(session.asset(id)?.recipe?.valueFingerprint, fingerprint)
+        XCTAssertEqual(session.asset(id)?.recipeSource, .hand)
+
+        XCTAssertEqual(session.toggleSetMembershipFromKeyboard(), 1)
+        XCTAssertFalse(session.isInFinalSet(id))
+        XCTAssertEqual(session.asset(id)?.recipe?.valueFingerprint, fingerprint)
+        XCTAssertEqual(session.asset(id)?.recipeSource, .hand)
+    }
+
+    func testKeyboardSetUsesSelectionWhenPresent() {
+        let ids = [UUID(), UUID(), UUID()]
+        let session = session(ids.enumerated().map { asset($1, offset: Double($0) * 10) })
+        session.focusedAssetID = ids[0]
+        session.selectedAssetIDs = [ids[1], ids[2]]
+
+        XCTAssertEqual(session.keyboardMarkTargets(), [ids[1], ids[2]])
+        XCTAssertEqual(session.toggleSetMembershipFromKeyboard(), 2)
+        XCTAssertFalse(session.isInFinalSet(ids[0]))
+        XCTAssertTrue(session.isInFinalSet(ids[1]))
+        XCTAssertTrue(session.isInFinalSet(ids[2]))
+        XCTAssertEqual(session.asset(ids[1])?.recipe, nil)
+    }
+
+    func testChromeRegionCycles() {
+        let session = session([asset(UUID(), offset: 0)])
+        XCTAssertEqual(session.chromeRegion, .table)
+        session.cycleChromeRegion()
+        XCTAssertEqual(session.chromeRegion, .developSpine)
+        session.cycleChromeRegion()
+        XCTAssertEqual(session.chromeRegion, .setShelf)
+        session.cycleChromeRegion()
+        XCTAssertEqual(session.chromeRegion, .table)
+    }
+
+    func testSelectAllPhotographs() {
+        let ids = [UUID(), UUID()]
+        let session = session(ids.enumerated().map { asset($1, offset: Double($0) * 10) })
+        session.focusedAssetID = ids[0]
+        session.selectAllPhotographs()
+        XCTAssertEqual(session.selectedAssetIDs, ids)
+        XCTAssertEqual(session.selectionAnchorID, ids[0])
+    }
+
+    func testExtendSelectionUsesAnchorRange() {
+        let ids = (0..<4).map { _ in UUID() }
+        let session = session(ids.enumerated().map { asset($1, offset: Double($0) * 10) })
+        session.focusedAssetID = ids[0]
+        session.selectionAnchorID = ids[0]
+        session.extendSelection(dx: 1, dy: 0)
+        XCTAssertEqual(session.focusedAssetID, ids[1])
+        XCTAssertEqual(session.selectedAssetIDs, [ids[0], ids[1]])
+        session.extendSelection(dx: 1, dy: 0)
+        XCTAssertEqual(session.selectedAssetIDs, [ids[0], ids[1], ids[2]])
+    }
 }

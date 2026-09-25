@@ -189,6 +189,8 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
     var manualIsPhone: Bool?
     /// Photograph vs locked unsupported-video presence row.
     var mediaKind: AssetMediaKind
+    /// Optional photographer note. Nil when absent so older shoots decode cleanly.
+    var note: String?
 
     /// Single phone treatment: hand mark and sensing resolve here. Develop Auto,
     /// moment mix, and the glyph all read this — never a parallel phone flag.
@@ -212,11 +214,12 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
              proposedTier, userDecidedAt, settledAt, isFlagged, isBurstHero, isClusterHero,
              uncertaintyKind, whyUncertain, whyAction, burstID, clusterID, clusterLabel,
              embedding, recipeSource, handRecipe, imageStats,
-             captureMake, captureModel, sensedIsPhone, manualIsPhone, mediaKind
+             captureMake, captureModel, sensedIsPhone, manualIsPhone, mediaKind,
+             note
     }
 
-    /// Tolerant decode: `recipeSource`, `handRecipe`, and phone-body fields post-date
-    /// earlier on-disk catalogs, so they fall back when absent.
+    /// Tolerant decode: `recipeSource`, `handRecipe`, phone-body fields, and `note`
+    /// post-date earlier on-disk catalogs, so they fall back when absent.
     /// Every other field has always been part of the schema and decodes as required.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -264,6 +267,7 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
         sensedIsPhone = try c.decodeIfPresent(Bool.self, forKey: .sensedIsPhone)
         manualIsPhone = try c.decodeIfPresent(Bool.self, forKey: .manualIsPhone)
         mediaKind = try c.decodeIfPresent(AssetMediaKind.self, forKey: .mediaKind) ?? .photograph
+        note = try c.decodeIfPresent(String.self, forKey: .note)
     }
 
     init(
@@ -310,7 +314,8 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
         captureModel: String? = nil,
         sensedIsPhone: Bool? = nil,
         manualIsPhone: Bool? = nil,
-        mediaKind: AssetMediaKind = .photograph
+        mediaKind: AssetMediaKind = .photograph,
+        note: String? = nil
     ) {
         self.id = id
         self.sourceKey = sourceKey
@@ -356,6 +361,7 @@ nonisolated struct AssetRecord: Identifiable, Codable, Hashable, Sendable {
         self.sensedIsPhone = sensedIsPhone
         self.manualIsPhone = manualIsPhone
         self.mediaKind = mediaKind
+        self.note = note
     }
 }
 

@@ -2,10 +2,11 @@ import SwiftUI
 
 /// The Elastic shell: one continuous surface with two routes.
 ///
-/// Top to bottom: header, the set shelf (once there is a set), the export receipt
-/// (once one lands), then the table or the photograph. The table stays mounted under
-/// focus — it compresses to the strip — so returning is a scale change rather than a
-/// rebuild, and the cursor never moves as a side effect of the transition.
+/// Top to bottom: header, the set shelf (always — empty still names the handful),
+/// the export receipt (once one lands), then the table or the photograph. The table
+/// stays mounted under focus — it compresses to the strip — so returning is a scale
+/// change rather than a rebuild, and the cursor never moves as a side effect of the
+/// transition.
 struct ElasticRootView: View {
     @Bindable var session: P0SessionModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -16,10 +17,8 @@ struct ElasticRootView: View {
         VStack(spacing: 0) {
             ElasticHeader(session: session)
 
-            if !session.finalSetAssetIDs.isEmpty {
-                ElasticSetShelf(session: session)
-                    .elasticBorn(ElasticLayout.bornTableMs)
-            }
+            ElasticSetShelf(session: session)
+                .elasticBorn(ElasticLayout.bornTableMs)
 
             if !session.finalSetAssetIDs.isEmpty || session.exportStatusLine != nil || session.canResumeExport || session.exportSettingsVisible {
                 P0ExportControls(session: session)
@@ -42,12 +41,12 @@ struct ElasticRootView: View {
             ElasticTableView(session: session)
                 // Pinned rather than capped: the focus view claims the rest of the
                 // stack, so a bare `maxHeight` would let the strip be squeezed to
-                // nothing instead of holding its 92.
+                // nothing instead of holding its band (tiles + optional chron axis).
                 .frame(
                     maxWidth: .infinity,
-                    minHeight: session.route == .focus ? ElasticLayout.filmstripHeight : nil,
+                    minHeight: session.route == .focus ? ElasticLayout.focusFilmstripBandHeight : nil,
                     maxHeight: session.route == .focus
-                        ? ElasticLayout.filmstripHeight
+                        ? ElasticLayout.focusFilmstripBandHeight
                         : .infinity
                 )
                 .accessibilityIdentifier(P0AccessibilityID.elasticTable)

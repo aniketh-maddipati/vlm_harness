@@ -178,14 +178,25 @@ final class P0SessionModel {
             }
         }
     }
-    /// `E` — the develop drawer beside the photograph. Backing state; the drawer
-    /// itself lands with checkpoint 05.
+    /// Leftover open-flag for lab / older tests. The inspect rail is always on;
+    /// the UI does not collapse from this flag.
     var developDrawerOpen = false
+    /// `N` — fading note floater near the focused photograph. Session-only chrome;
+    /// the note text itself lives on `AssetRecord.note`.
+    var noteFloaterOpen = false
     /// Where a ⇧-click range starts: the last plain click, or the cursor when there
     /// has been none (README `anchor`). Session-only.
     var selectionAnchorID: UUID?
-    /// Which groups `M` carries from the cursor (README `sync{}`). Session-only.
-    var matchGroups: Set<ElasticMatchGroup> = ElasticMatchGroup.defaultOn
+    /// ⌃⇥ cycles which surface owns travel: set shelf → table/filmstrip → Develop spine.
+    /// Session-only chrome focus; does not change route or marks.
+    var chromeRegion: P0ChromeRegion = .table
+    /// Staged Auto looks for the focused photograph. Nil asset means nothing staged.
+    var stagedAutoVariations: [AutoVariation] = []
+    var stagedAutoAssetID: UUID?
+    var acceptedAutoVariationID: String?
+    /// Recipe and provenance from before this stage, so same-mark-clears can restore.
+    var stagedAutoBaselineRecipe: EditRecipe?
+    var stagedAutoBaselineSource: RecipeSource?
     /// A short tap on ⇥ pins the peek; the next ⇥ cycles it and past the end closes.
     var peekPinned = false
     /// When ⇥ opened the peek — tap versus hold is decided on release.
@@ -1031,10 +1042,60 @@ final class P0SessionModel {
 
     // MARK: - Develop drawer
 
-    /// `E` in the focus route.
+    /// Leftover for lab / older tests. The inspect rail does not read this flag.
     func toggleDevelopDrawer() {
         guard route == .focus else { return }
         developDrawerOpen.toggle()
+        if developDrawerOpen, expandedAdjustmentSection == nil {
+            expandedAdjustmentSection = .light
+        }
+    }
+
+    /// Leftover for lab / older tests. The inspect rail is already open.
+    func openDevelopDrawer() {
+        guard route == .focus else { return }
+        developDrawerOpen = true
+        if expandedAdjustmentSection == nil {
+            expandedAdjustmentSection = .light
+        }
+    }
+
+    /// `[` / `]` — one Develop group on screen at a time (Tone → Color → Detail → Crop).
+    func cycleDevelopGroup(by delta: Int) {
+        guard route == .focus else { return }
+        let order = P0AdjustmentSection.allCases
+        let current = expandedAdjustmentSection ?? .light
+        guard let index = order.firstIndex(of: current) else {
+            expandedAdjustmentSection = .light
+            return
+        }
+        let next = ((index + delta) % order.count + order.count) % order.count
+        expandedAdjustmentSection = order[next]
+    }
+
+    /// `N` — fade the note floater near the focused photograph.
+    func toggleNoteFloater() {
+        guard route != .open else { return }
+        noteFloaterOpen.toggle()
+    }
+
+    func dismissNoteFloater() {
+        noteFloaterOpen = false
+    }
+
+    /// Persist a photographer note on the asset through the shoot write path
+    /// (same `shoot.assets` + debounced save used for set-order restore).
+    func setNote(_ text: String?, for id: UUID) {
+        guard let index = assetIndex(id) else { return }
+        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stored = (trimmed?.isEmpty == false) ? trimmed : nil
+        guard assets[index].note != stored else { return }
+        assets[index].note = stored
+        if var shoot {
+            shoot.assets = assets
+            self.shoot = shoot
+        }
+        schedulePersistRestore()
     }
 
     /// Where a nudge ripples: the selection when there is one, else the cursor's
@@ -1099,48 +1160,6 @@ final class P0SessionModel {
     /// `R` — a quarter turn clockwise.
     func rotateFocusedPhotograph() {
         applyDevelopEdit(label: "Rotate") { $0.straightenDegrees += 90 }
-    }
-
-    /// `M` — carry the checked groups from the cursor to the frames it stands for:
-    /// the selection, else the set when the cursor is in it, else its moment.
-    @discardableResult
-    func matchToCursor() -> Int {
-        flushPendingEditIfNeeded()
-        guard let id = inspectingAssetID ?? focusedAssetID else { return 0 }
-        let source = recipe(for: id)
-        var marks: [BatchEditMutationCommand.Mark] = []
-        for target in matchTargetIDs(for: id) {
-            let before = recipe(for: target)
-            let after = before.updating { recipe in
-                for group in matchGroups {
-                    group.copy(from: source, to: &recipe)
-                }
-            }
-            guard before.valueFingerprint != after.valueFingerprint,
-                  let asset = assets.first(where: { $0.id == target }) else { continue }
-            marks.append(BatchEditMutationCommand.Mark(
-                assetID: target, before: before, after: after,
-                sourceBefore: asset.recipeSource, sourceAfter: .hand
-            ))
-        }
-        guard !marks.isEmpty else { return 0 }
-        commitDevelopBatch(marks, label: "Match")
-        return marks.count
-    }
-
-    /// The prototype's `syncIds`, without the cursor.
-    func matchTargetIDs(for id: UUID) -> [UUID] {
-        let targets: [UUID]
-        if !selectedAssetIDs.isEmpty {
-            targets = selectedAssetIDs
-        } else if peek == .set || isInFinalSet(id) {
-            targets = finalSetAssetIDs
-        } else if let chapter = ShootChapterArrangement.chapter(containing: id, in: chapters) {
-            targets = chapter.assetIDs
-        } else {
-            targets = []
-        }
-        return targets.filter { $0 != id }
     }
 
     /// A hand edit on a frame: an auto frame becomes auto + your hand, anything
@@ -2105,6 +2124,8 @@ final class P0SessionModel {
     func closeInspection() {
         flushPendingEditIfNeeded()
         closePeek()
+        dismissNoteFloater()
+        dismissStagedAutoVariations()
         showingBefore = false
         pendingScrollRestore = true
         inspectionWarmTask?.cancel()
@@ -2194,8 +2215,9 @@ final class P0SessionModel {
         inspectingAssetID = nil
         densityLeaned = false
         developDrawerOpen = false
+        noteFloaterOpen = false
         selectionAnchorID = nil
-        matchGroups = ElasticMatchGroup.defaultOn
+        dismissStagedAutoVariations()
         holdingClipping = false
         lookGlancing = false
         glanceBurstIDs = []

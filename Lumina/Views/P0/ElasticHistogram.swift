@@ -3,14 +3,30 @@ import SwiftUI
 struct ElasticHistogram: View {
     let bins: [Int]
     let shift: Int
+    var shotShift: Int? = nil
+    var autoShift: Int? = nil
     let clipsShadows: Bool
     let clipsHighlights: Bool
+    var fillsWidth = false
 
     var body: some View {
         Canvas { context, size in
             let scaleX = size.width / ElasticLayout.histogramViewWidth
             let scaleY = size.height / ElasticLayout.histogramViewHeight
 
+            if let shotShift, let path = Self.path(bins: bins, shift: shotShift) {
+                context.fill(
+                    path.applying(CGAffineTransform(scaleX: scaleX, y: scaleY)),
+                    with: .color(LuminaTokens.Elastic.shellAlt.opacity(ElasticLayout.histogramShotOpacity))
+                )
+            }
+            if let autoShift, let path = Self.path(bins: bins, shift: autoShift) {
+                context.stroke(
+                    path.applying(CGAffineTransform(scaleX: scaleX, y: scaleY)),
+                    with: .color(LuminaTokens.Elastic.warmAccent.opacity(ElasticLayout.histogramAutoOpacity)),
+                    lineWidth: ElasticLayout.hairline
+                )
+            }
             if let path = Self.path(bins: bins, shift: shift) {
                 context.fill(
                     path.applying(CGAffineTransform(scaleX: scaleX, y: scaleY)),
@@ -31,7 +47,13 @@ struct ElasticHistogram: View {
                 )
             }
         }
-        .frame(width: ElasticLayout.histogramSize.width, height: ElasticLayout.histogramSize.height)
+        .frame(
+            minWidth: fillsWidth ? 0 : ElasticLayout.histogramSize.width,
+            idealWidth: ElasticLayout.histogramSize.width,
+            maxWidth: fillsWidth ? .infinity : ElasticLayout.histogramSize.width,
+            minHeight: ElasticLayout.histogramSize.height,
+            maxHeight: ElasticLayout.histogramSize.height
+        )
         .accessibilityHidden(true)
     }
 

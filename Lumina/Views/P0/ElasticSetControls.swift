@@ -2,24 +2,79 @@ import SwiftUI
 
 /// "in set?" — the same press settle as the other buttons. Filled when it is on.
 /// A second press takes the frames out, the way a second P clears a mark.
+/// Wears an `S` key pill — set membership is also keyboard-first.
 struct ElasticSetButton: View {
     let on: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(on ? "in set" : "in set?")
-                .font(ElasticType.sans(ElasticLayout.badgeTextSize, weight: .medium))
-                .foregroundStyle(on ? LuminaTokens.Elastic.shell : LuminaTokens.Elastic.ink)
-                .padding(.horizontal, ElasticLayout.badgePaddingH)
-                .frame(minHeight: ElasticLayout.badgeHeight, maxHeight: ElasticLayout.badgeHeight)
-                .background(
-                    on ? LuminaTokens.Elastic.ink : LuminaTokens.Elastic.shell,
-                    in: RoundedRectangle(cornerRadius: ElasticLayout.badgeRadius, style: .continuous)
+            HStack(spacing: ElasticLayout.exportGap) {
+                Text(on ? CopyContract.inSetOn : CopyContract.inSetOff)
+                    .font(ElasticType.sans(ElasticLayout.badgeTextSize, weight: .medium))
+                ElasticControlKeyPill(
+                    text: CopyContract.setMembershipKey,
+                    onFilledControl: on
                 )
+            }
+            .foregroundStyle(on ? LuminaTokens.Elastic.shell : LuminaTokens.Elastic.ink)
+            .padding(.horizontal, ElasticLayout.badgePaddingH)
+            .frame(minHeight: ElasticLayout.badgeHeight, maxHeight: ElasticLayout.badgeHeight)
+            .background(
+                on ? LuminaTokens.Elastic.ink : LuminaTokens.Elastic.shell,
+                in: RoundedRectangle(cornerRadius: ElasticLayout.badgeRadius, style: .continuous)
+            )
         }
         .buttonStyle(LuminaElasticButtonStyle())
-        .accessibilityLabel(on ? "in set" : "in set?")
+        .accessibilityLabel(on ? CopyContract.inSetOn : CopyContract.inSetOff)
+    }
+}
+
+/// "phone?" — same press settle. Filled when the frame is a phone. Wears an `H` pill.
+struct ElasticPhoneButton: View {
+    let on: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: ElasticLayout.exportGap) {
+                Text(on ? CopyContract.phoneOn : CopyContract.phoneOff)
+                    .font(ElasticType.sans(ElasticLayout.badgeTextSize, weight: .medium))
+                ElasticControlKeyPill(
+                    text: CopyContract.phoneMarkKey,
+                    onFilledControl: on
+                )
+            }
+            .foregroundStyle(on ? LuminaTokens.Elastic.shell : LuminaTokens.Elastic.ink)
+            .padding(.horizontal, ElasticLayout.badgePaddingH)
+            .frame(minHeight: ElasticLayout.badgeHeight, maxHeight: ElasticLayout.badgeHeight)
+            .background(
+                on ? LuminaTokens.Elastic.ink : LuminaTokens.Elastic.shell,
+                in: RoundedRectangle(cornerRadius: ElasticLayout.badgeRadius, style: .continuous)
+            )
+        }
+        .buttonStyle(LuminaElasticButtonStyle())
+        .accessibilityLabel(on ? CopyContract.phoneOn : CopyContract.phoneOff)
+    }
+}
+
+/// Key pill on a light or filled control — same settle as the export `⌘E` chip.
+struct ElasticControlKeyPill: View {
+    let text: String
+    /// When the parent control is filled (ink background), the pill inverts.
+    var onFilledControl = false
+
+    var body: some View {
+        Text(text)
+            .font(ElasticType.mono(ElasticLayout.keyPillSize, weight: .semibold))
+            .padding(.horizontal, ElasticLayout.keyPillPaddingH)
+            .padding(.vertical, ElasticLayout.keyPillPaddingV)
+            .background(
+                (onFilledControl ? LuminaTokens.Elastic.shell : LuminaTokens.Elastic.ink)
+                    .opacity(ElasticLayout.keyPillOpacity),
+                in: RoundedRectangle(cornerRadius: ElasticLayout.keyPillRadius, style: .continuous)
+            )
+            .allowsHitTesting(false)
     }
 }
 

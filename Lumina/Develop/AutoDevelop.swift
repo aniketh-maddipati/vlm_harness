@@ -28,6 +28,11 @@ nonisolated struct AutoDevelop {
     static let defaultShadows = 0.0
     static let autoVibrance = 8.0
 
+    /// Deterministic forks of tone Auto. Same stats always yield the same three looks.
+    static let liftShadowBump = 15.0
+    static let liftExposureSteps = 2.0
+    static let punchContrast = 12.0
+
     /// Tone Auto preserves crop, rotation, profile, and white-balance intent.
     static func recipe(for asset: AssetRecord, stats: ImageStats) -> EditRecipe {
         let base = asset.recipe ?? .neutral
@@ -92,4 +97,28 @@ nonisolated struct AutoDevelop {
         return min(shadowLiftLimit, clipFraction * 1000)
     }
 
+    /// Three staged looks: conservative tone, a shadow lift, and a contrast punch.
+    static func variations(for asset: AssetRecord, stats: ImageStats) -> [AutoVariation] {
+        let tone = recipe(for: asset, stats: stats)
+        let lift = tone.updating { recipe in
+            recipe.shadows = min(recipe.shadows + liftShadowBump, shadowLiftLimit)
+            recipe.exposure = min(recipe.exposure + exposureStep * liftExposureSteps, brighteningLimit)
+        }
+        let punch = tone.updating { recipe in
+            recipe.contrast = min(recipe.contrast + punchContrast, 100)
+            recipe.vibrance = min(recipe.vibrance + autoVibrance, 100)
+        }
+        return [
+            AutoVariation(id: "tone", recipe: tone),
+            AutoVariation(id: "lift", recipe: lift),
+            AutoVariation(id: "punch", recipe: punch),
+        ]
+    }
+
+}
+
+/// One Auto look the inspect rail can stage. The word is chosen by copy, not here.
+nonisolated struct AutoVariation: Identifiable, Equatable, Sendable {
+    var id: String
+    var recipe: EditRecipe
 }
