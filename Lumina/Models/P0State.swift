@@ -640,6 +640,14 @@ struct RecentShootSummary: Codable, Hashable, Sendable, Identifiable {
     var name: String
     var assetCount: Int
     var keepCount: Int
+    /// Keeps, cuts, and holds. Zero means the shoot is still open.
+    var markedCount: Int = 0
     var lastOpenedAt: Date
     var rawFolderPath: String?
+    /// A spread of previews. Kept frames first, sampled across the shoot.
+    var stillPaths: [String] = []
+    /// The frame used as the plate ground. Highest stored appeal score, not the first file.
+    var coverPath: String? = nil
+    var capturedFrom: Date? = nil
+    var capturedTo: Date? = nil
 }
