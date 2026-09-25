@@ -80,6 +80,7 @@ final class P0LogicTests: XCTestCase {
             preparedSessionCreated: 0, preparedSessionHits: 0, interactiveMaterializations: 0,
             graphRenders: 0, gpuUploads: 0, variantRenders: 0, metalPresents: 0,
             elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
+            chronologyViewportChapterID: "chapter-a",
             chapterTableMounted: true, inspectPeripheryDimOpacity: 1
         )
         let json = snapshot.jsonString()

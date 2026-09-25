@@ -144,6 +144,8 @@ final class P0SessionModel {
     }
     /// Time-rail chapter currently on the board. Nil until a shoot has photographs.
     var activeChapterID: String?
+    /// Viewport navigation marker; independent of selection and keyboard focus.
+    var chronologyViewportChapterID: String?
     var selectedAssetIDs: [UUID] {
         get { workspaceState.selectedAssetIDs }
         set {
@@ -2017,6 +2019,7 @@ final class P0SessionModel {
         status = ContactSheetPreparationStatus()
         workspaceState.clear()
         activeChapterID = nil
+        chronologyViewportChapterID = nil
         inspectingAssetID = nil
         densityLeaned = false
         developDrawerOpen = false

@@ -76,6 +76,7 @@ struct ProbeSnapshot: Codable, Equatable {
     var elasticStripTrackHeight: Int = 90
     var elasticStripNearLongEdge: Int = 210
     var elasticStripFarLongEdge: Int = 64
+    var chronologyViewportChapterID: String? = nil
     var chapterTableMounted: Bool = false
     var inspectPeripheryDimOpacity: Double = 1
 

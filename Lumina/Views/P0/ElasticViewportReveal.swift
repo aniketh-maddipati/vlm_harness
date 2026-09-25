@@ -63,6 +63,7 @@ nonisolated enum ElasticViewportReveal {
 struct ElasticViewportSnapshot: Equatable {
     var tiles: [UUID: CGRect] = [:]
     var containers: Set<String> = []
+    var chapters: [String: CGRect] = [:]
 }
 
 struct ElasticViewportFrames: PreferenceKey {
@@ -71,6 +72,7 @@ struct ElasticViewportFrames: PreferenceKey {
         let next = nextValue()
         value.tiles.merge(next.tiles, uniquingKeysWith: { _, latest in latest })
         value.containers.formUnion(next.containers)
+        value.chapters.merge(next.chapters, uniquingKeysWith: { _, latest in latest })
     }
 }
 

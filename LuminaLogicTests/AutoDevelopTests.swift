@@ -180,10 +180,10 @@ final class AutoDevelopTests: XCTestCase {
         let stats = evenStats(mean: 0.31, low: 0.02, high: 0.011, nativeTemperature: 5200, horizonAngle: 1.4)
         let result = AutoDevelop.recipe(for: makeAsset(recipe: base), stats: stats)
         // Frozen pre-patch Auto outcome, except WB: +.45 EV, -33 H, +40 S,
-        // vibrance8, straighten91.4, inert controls0; every other field inherited.
+        // vibrance8, preserved rotation, inert controls0; every other field inherited.
         let expected = base.updating {
             $0.exposure = 0.45; $0.highlights = -33; $0.shadows = 40
-            $0.vibrance = 8; $0.straightenDegrees = 91.4
+            $0.vibrance = 8
             $0.whites = 0; $0.blacks = 0; $0.dehaze = 0
         }
         XCTAssertEqual(result.valueFingerprint, expected.valueFingerprint)
@@ -223,19 +223,18 @@ final class AutoDevelopTests: XCTestCase {
         }
     }
 
-    func testHorizonOnlyStraightensSmallTiltsAndKeepsQuarterTurns() {
-        let rotated = EditRecipe(straightenDegrees: 90)
-        let corrected = AutoDevelop.recipe(
-            for: makeAsset(recipe: rotated),
-            stats: evenStats(horizonAngle: 1.75)
-        )
-        XCTAssertEqual(corrected.straightenDegrees, 91.75, accuracy: 1e-9, "quarter turn survives the straighten")
-
-        let leftAlone = AutoDevelop.recipe(
-            for: makeAsset(recipe: rotated),
-            stats: evenStats(horizonAngle: 12)
-        )
-        XCTAssertEqual(leftAlone.straightenDegrees, 90, accuracy: 1e-9, "a big tilt is assumed intentional")
+    func testToneAutoPreservesGeometryForAnyHorizonMeasurement() {
+        for angle in [-91.5, -2.25, 0, 1.7, 90, 181.3] {
+            for horizon: Double? in [nil, 0, 1.75, 12] {
+                let base = EditRecipe(crop: .init(x: 0.1, y: 0.2, width: 0.7, height: 0.6),
+                                      straightenDegrees: angle)
+                let result = AutoDevelop.recipe(for: makeAsset(recipe: base),
+                                                stats: evenStats(horizonAngle: horizon))
+                XCTAssertEqual(result.straightenDegrees, angle)
+                XCTAssertEqual(result.crop, base.crop)
+                XCTAssertEqual(result.cropAspect, base.cropAspect)
+            }
+        }
     }
 
     // MARK: - applyAuto

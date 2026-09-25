@@ -86,6 +86,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var elasticStripTrackHeight: Int = 90
     var elasticStripNearLongEdge: Int = 210
     var elasticStripFarLongEdge: Int = 64
+    /// CHRON-02 — chapter crossing the table viewport's leading edge (navigation marker only).
+    var chronologyViewportChapterID: String? = nil
     /// D26 — chapter table stays mounted under inspect (latch, not a replacement route).
     var chapterTableMounted: Bool = false
     /// D27 — dim applied to inspect periphery plates; 1 at rest on the table.
@@ -204,6 +206,7 @@ extension P0SessionModel {
             elasticStripTrackHeight: Int(ElasticCanvasLayout.stripTrackHeight.rounded()),
             elasticStripNearLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 1).rounded()),
             elasticStripFarLongEdge: Int(ElasticCanvasLayout.peripheryLongEdge(distanceFromFocus: 4).rounded()),
+            chronologyViewportChapterID: chronologyViewportChapterID,
             chapterTableMounted: self.route == .time || self.route == .focus,
             inspectPeripheryDimOpacity: inspectingAssetID == nil
                 ? 1
