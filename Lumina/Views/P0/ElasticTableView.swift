@@ -187,10 +187,6 @@ struct ElasticMomentRow: View {
         }
         .padding(.vertical, ElasticLayout.momentPaddingV)
         .padding(.horizontal, ElasticLayout.momentPaddingH)
-        .background(
-            HiFiTokens.SwimLane.fill,
-            in: RoundedRectangle(cornerRadius: ElasticLayout.momentRadius, style: .continuous)
-        )
     }
 
 

@@ -10,18 +10,19 @@ enum P0OpenPresentation {
         var actionTitle: String
     }
 
-    /// Chooser recovery label — contract OPEN line; matches `session.chooseFolder()`.
-    static let chooserActionTitle = CopyContract.pointAtFolder
+    /// Chooser recovery label — existing CopyContract action that opens `chooseFolder()`.
+    static let chooserActionTitle = CopyContract.pointedFolderMovedAction
 
     /// One sentence naming the failure, one recovery action that opens the chooser.
     static func failureFeedback(for message: String) -> FailureFeedback {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
         let lower = text.lowercased()
+        let fact = sanitizedFact(text)
 
         if lower.contains("disk full") || lower.contains("no space") {
             return FailureFeedback(
                 headline: CopyContract.diskFullHeadline,
-                detail: text,
+                detail: fact.isEmpty ? text : fact,
                 actionTitle: chooserActionTitle
             )
         }
@@ -29,7 +30,7 @@ enum P0OpenPresentation {
         if lower.contains("ejected") {
             return FailureFeedback(
                 headline: CopyContract.cardEjectedEarlyHeadline,
-                detail: text,
+                detail: fact.isEmpty ? text : fact,
                 actionTitle: chooserActionTitle
             )
         }
@@ -41,13 +42,13 @@ enum P0OpenPresentation {
         {
             return FailureFeedback(
                 headline: CopyContract.pointedFolderMoved,
-                detail: text.isEmpty ? CopyContract.pointedFolderMovedBody : text,
-                actionTitle: CopyContract.pointedFolderMovedAction
+                detail: fact.isEmpty ? CopyContract.pointedFolderMovedBody : fact,
+                actionTitle: chooserActionTitle
             )
         }
 
         // No useful text — open-path fallback from the failure table (not idle drop copy).
-        if text.isEmpty {
+        if fact.isEmpty {
             return FailureFeedback(
                 headline: CopyContract.pointedFolderMoved,
                 detail: CopyContract.pointedFolderMovedBody,
@@ -55,12 +56,17 @@ enum P0OpenPresentation {
             )
         }
 
-        // Preserve the actual session message (including empty-drop / “import…” strings).
-        // Drop instructions stay on the idle hero — never as a failure stand-in.
+        // Preserve the fact (banned “import” wording stripped). Drop instructions stay idle-only.
         return FailureFeedback(
-            headline: text,
+            headline: fact,
             detail: "",
             actionTitle: chooserActionTitle
         )
+    }
+
+    /// Normalize only the known empty-drop fact; preserve arbitrary diagnostics and paths.
+    /// Matching is case-sensitive because this is the session's literal message.
+    static func sanitizedFact(_ message: String) -> String {
+        message == "No importable photos in drop." ? "No photos in drop." : message
     }
 }

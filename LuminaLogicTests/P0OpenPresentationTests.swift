@@ -3,8 +3,8 @@ import XCTest
 
 final class P0OpenPresentationTests: XCTestCase {
 
-    func testChooserActionIsPointAtFolderNotRetryVerbs() {
-        XCTAssertEqual(P0OpenPresentation.chooserActionTitle, CopyContract.pointAtFolder)
+    func testChooserActionMatchesPointAtItAgainNotRetryVerbs() {
+        XCTAssertEqual(P0OpenPresentation.chooserActionTitle, CopyContract.pointedFolderMovedAction)
         XCTAssertNotEqual(P0OpenPresentation.chooserActionTitle, CopyContract.diskFullAction)
         XCTAssertNotEqual(P0OpenPresentation.chooserActionTitle, CopyContract.cardEjectedEarlyAction)
     }
@@ -14,7 +14,7 @@ final class P0OpenPresentationTests: XCTestCase {
         let feedback = P0OpenPresentation.failureFeedback(for: message)
         XCTAssertEqual(feedback.headline, CopyContract.diskFullHeadline)
         XCTAssertEqual(feedback.detail, message)
-        XCTAssertEqual(feedback.actionTitle, CopyContract.pointAtFolder)
+        XCTAssertEqual(feedback.actionTitle, CopyContract.pointedFolderMovedAction)
         XCTAssertNotEqual(feedback.actionTitle, CopyContract.diskFullAction)
     }
 
@@ -23,7 +23,7 @@ final class P0OpenPresentationTests: XCTestCase {
         let feedback = P0OpenPresentation.failureFeedback(for: message)
         XCTAssertEqual(feedback.headline, CopyContract.cardEjectedEarlyHeadline)
         XCTAssertEqual(feedback.detail, message)
-        XCTAssertEqual(feedback.actionTitle, CopyContract.pointAtFolder)
+        XCTAssertEqual(feedback.actionTitle, CopyContract.pointedFolderMovedAction)
         XCTAssertNotEqual(feedback.actionTitle, CopyContract.cardEjectedEarlyAction)
     }
 
@@ -31,22 +31,23 @@ final class P0OpenPresentationTests: XCTestCase {
         let feedback = P0OpenPresentation.failureFeedback(for: "   ")
         XCTAssertEqual(feedback.headline, CopyContract.pointedFolderMoved)
         XCTAssertEqual(feedback.detail, CopyContract.pointedFolderMovedBody)
-        XCTAssertEqual(feedback.actionTitle, CopyContract.pointAtFolder)
+        XCTAssertEqual(feedback.actionTitle, CopyContract.pointedFolderMovedAction)
         XCTAssertNotEqual(feedback.headline, CopyContract.dropPhotographsOrFolder)
         XCTAssertNotEqual(feedback.detail, CopyContract.dropPhotographsOrFolder)
     }
 
-    func testImportableDropMessageIsPreservedNotReplacedWithDropCopy() {
+    func testImportableDropMessageStripsBannedWordingKeepsFact() {
         let message = "No importable photos in drop."
         let feedback = P0OpenPresentation.failureFeedback(for: message)
-        XCTAssertEqual(feedback.headline, message)
+        XCTAssertEqual(feedback.headline, "No photos in drop.")
         XCTAssertEqual(feedback.detail, "")
-        XCTAssertEqual(feedback.actionTitle, CopyContract.pointAtFolder)
+        XCTAssertEqual(feedback.actionTitle, CopyContract.pointedFolderMovedAction)
+        XCTAssertFalse(feedback.headline.lowercased().contains("import"))
         XCTAssertNotEqual(feedback.headline, CopyContract.dropPhotographsOrFolder)
         XCTAssertNotEqual(feedback.detail, CopyContract.dropPhotographsOrFolder)
     }
 
-    func testPointedFolderMovedMapsToContract() {
+    func testPointedFolderMovedPreservesMessageAndChooserAction() {
         let message = "The folder you pointed at is no longer where it was."
         let feedback = P0OpenPresentation.failureFeedback(for: message)
         XCTAssertEqual(feedback.headline, CopyContract.pointedFolderMoved)
@@ -59,7 +60,29 @@ final class P0OpenPresentationTests: XCTestCase {
         let feedback = P0OpenPresentation.failureFeedback(for: message)
         XCTAssertEqual(feedback.headline, message)
         XCTAssertEqual(feedback.detail, "")
-        XCTAssertEqual(feedback.actionTitle, CopyContract.pointAtFolder)
+        XCTAssertEqual(feedback.actionTitle, CopyContract.pointedFolderMovedAction)
         XCTAssertNotEqual(feedback.detail, CopyContract.dropPhotographsOrFolder)
     }
+
+    func testSanitizedFactRemovesImportTokensOnly() {
+        XCTAssertEqual(
+            P0OpenPresentation.sanitizedFact("No importable photos in drop."),
+            "No photos in drop."
+        )
+        XCTAssertEqual(
+            P0OpenPresentation.sanitizedFact("Shoot decode failed: corrupt header"),
+            "Shoot decode failed: corrupt header"
+        )
+    }
+    func testSanitizedFactPreservesArbitraryWordsPathsAndCase() {
+        for message in [
+            "An important photograph failed to decode",
+            "Unable to read /Photos/import/important.CR3",
+            "NO IMPORTABLE PHOTOS IN DROP."
+        ] {
+            XCTAssertEqual(P0OpenPresentation.sanitizedFact(message), message)
+            XCTAssertEqual(P0OpenPresentation.failureFeedback(for: message).headline, message)
+        }
+    }
+
 }

@@ -413,7 +413,7 @@ Spinners; skeletons; progress bars; modals/NSAlert in failure paths; hover handl
 
 ## CHRON-01 — chronology on the scrolling axis (2026-09-24)
 
-The user's direction supersedes the fixed left moment metadata column: vertical table moments use compact in-flow capture-date/time headings above full-width photographs. Open bursts wrap within the available photo width. Chronological horizontal strips mark actual chapter boundaries on that axis; manual set order has no temporal markers. Existing chapter/burst membership, IDs, capture timestamps, order, selection, and viewport reveal behavior remain authoritative. Undated chapters stay explicitly undated. Existing Elastic typography, spacing, and surface tokens are reused; no new numeric tokens.
+The user's direction supersedes the fixed left moment metadata column: vertical table moments use compact in-flow capture-date/time headings above full-width photographs. Chapter bands have no swim-lane plate or rounded card fill; the shared table surface continues behind headings and photographs. Open bursts wrap within the available photo width. Chronological horizontal strips mark actual chapter boundaries on that axis; manual set order has no temporal markers. Existing chapter/burst membership, IDs, capture timestamps, order, selection, and viewport reveal behavior remain authoritative. Undated chapters stay explicitly undated. Existing Elastic typography, spacing, and surface tokens are reused; no new numeric tokens.
 
 ## AUTO-01 — owned Auto feedback (2026-09-24)
 
