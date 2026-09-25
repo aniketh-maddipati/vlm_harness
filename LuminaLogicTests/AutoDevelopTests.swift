@@ -79,21 +79,43 @@ final class AutoDevelopTests: XCTestCase {
         )
     }
 
-    /// The clamp is asymmetric in practice: `(0.46 − mean) × 3` spans −1.62…+1.38,
-    /// so only the darkening side ever reaches ±`exposureLimit`. A pure-black frame
-    /// tops out at +1.40 because the formula, not the clamp, is the binding constraint.
-    /// Documented rather than "fixed" — tuning the coefficients is the L4 loop's job.
-    func testExposureClampsHardFrames() {
-        XCTAssertEqual(AutoDevelop.exposure(mean: 1.0), -AutoDevelop.exposureLimit, accuracy: 1e-9)
-        XCTAssertEqual(AutoDevelop.exposure(mean: 0.0), 1.40, accuracy: 1e-9)
-        XCTAssertLessThanOrEqual(AutoDevelop.exposure(mean: 0.0), AutoDevelop.exposureLimit)
+    func testExposureIsConservativelyBounded() {
+        XCTAssertEqual(AutoDevelop.exposure(mean: 1.0), -1.0, accuracy: 1e-9)
+        XCTAssertEqual(AutoDevelop.exposure(mean: 0.0), 0.35, accuracy: 1e-9)
+        for invalid in [Double.nan, .infinity, -0.1, 1.1] {
+            XCTAssertEqual(AutoDevelop.exposure(mean: invalid), 0)
+        }
+    }
+
+    func testDarkSceneWithBrightHighlightsDoesNotGetGlobalExposureLift() {
+        var stats = evenStats(mean: 0.15, high: 0.02)
+        stats.luminanceBins = Array(repeating: 0, count: ImageStats.binCount)
+        stats.luminanceBins[3] = 900
+        stats.luminanceBins[31] = 100
+        XCTAssertEqual(AutoDevelop.recipe(for: makeAsset(), stats: stats).exposure, 0)
+        stats.highlightClipFraction = 0
+        // Bright but not clipped still needs protection.
+        stats.luminanceBins[31] = 0
+        stats.luminanceBins[27] = 100
+        XCTAssertEqual(AutoDevelop.recipe(for: makeAsset(), stats: stats).exposure, 0)
+        stats.luminanceBins[27] = 0
+        stats.luminanceBins[12] = 100
+        XCTAssertEqual(AutoDevelop.recipe(for: makeAsset(), stats: stats).exposure, 0.35, accuracy: 1e-9)
+    }
+
+    func testMissingOrInvalidHistogramCannotAuthorizeBrightening() {
+        for bins in [[], Array(repeating: 0, count: ImageStats.binCount), [-1]] {
+            var stats = evenStats(mean: 0.1)
+            stats.luminanceBins = bins
+            XCTAssertEqual(AutoDevelop.exposure(stats: stats), 0)
+        }
     }
 
     // MARK: - Identity stats
 
     /// "Near-identity" means: no exposure move and no white-balance move. It does
     /// not mean `.neutral` — a frame that is not clipping still receives the
-    /// documented default curve (highlights −20 / shadows +15 / vibrance 8).
+    /// neutral highlight/shadow settings and vibrance 8.
     func testIdentityStatsProduceNearIdentityRecipe() {
         let asset = makeAsset()
         let recipe = AutoDevelop.recipe(for: asset, stats: evenStats())
@@ -120,7 +142,7 @@ final class AutoDevelopTests: XCTestCase {
             stats: evenStats(mean: 0.5, low: 0.4, high: 0.4)
         )
         XCTAssertEqual(clipped.highlights, -80, accuracy: 1e-9, "highlight recovery is capped at −80")
-        XCTAssertEqual(clipped.shadows, 60, accuracy: 1e-9, "shadow lift is capped at +60")
+        XCTAssertEqual(clipped.shadows, 20, accuracy: 1e-9, "shadow lift is capped at +20")
     }
 
     /// Auto deliberately no longer adopts native Kelvin over a partial/manual pair.
@@ -179,10 +201,10 @@ final class AutoDevelopTests: XCTestCase {
             cameraProfile: "Adobe Color")
         let stats = evenStats(mean: 0.31, low: 0.02, high: 0.011, nativeTemperature: 5200, horizonAngle: 1.4)
         let result = AutoDevelop.recipe(for: makeAsset(recipe: base), stats: stats)
-        // Frozen pre-patch Auto outcome, except WB: +.45 EV, -33 H, +40 S,
+        // Conservative Auto: no lift with clipped highlights, -33 H, +20 S,
         // vibrance8, preserved rotation, inert controls0; every other field inherited.
         let expected = base.updating {
-            $0.exposure = 0.45; $0.highlights = -33; $0.shadows = 40
+            $0.exposure = 0; $0.highlights = -33; $0.shadows = 20
             $0.vibrance = 8
             $0.whites = 0; $0.blacks = 0; $0.dehaze = 0
         }
