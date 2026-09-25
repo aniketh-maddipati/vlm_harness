@@ -137,6 +137,7 @@ def build(root: Path, out_dir: Path, limit: int | None, do_hash: bool) -> dict:
             raw_serials += 1
 
     rows: list[dict] = []
+    identity_rows: list[dict] = []
     rule_counts: Counter = Counter()
     ambiguous: list[dict] = []
     unmatched: list[dict] = []
@@ -213,6 +214,11 @@ def build(root: Path, out_dir: Path, limit: int | None, do_hash: bool) -> dict:
         )
         if frame["untouched"]:
             identity += 1
+            identity_rows.append(frame)
+            # An identity recipe is not a label. It IS, however, the cleanest possible
+            # measurement of the decoder gap: the photographer accepted Lightroom's
+            # default rendering, so any difference from Lumina's neutral render is
+            # pipeline, not taste.
             continue
 
         if frame["originalDocumentID"]:
@@ -261,6 +267,9 @@ def build(root: Path, out_dir: Path, limit: int | None, do_hash: bool) -> dict:
     (out_dir / "unmatched.json").write_text(
         json.dumps({"ambiguous": ambiguous[:500], "unmatched": unmatched[:500]}, indent=2), encoding="utf-8")
     (out_dir / "virtual-copy-groups.json").write_text(json.dumps(multi, indent=2, sort_keys=True), encoding="utf-8")
+    with (out_dir / "identity-frames.jsonl").open("w", encoding="utf-8") as fh:
+        for r in identity_rows:
+            fh.write(json.dumps(r, sort_keys=True) + "\n")
     return coverage
 
 
