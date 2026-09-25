@@ -131,6 +131,7 @@ final class P0SessionModel {
     }
     var status = ContactSheetPreparationStatus()
     var recentShoots: [RecentShootSummary] = []
+    var lastOpenedShootName: String?
     var workspaceState = WorkspaceState()
     var focusedAssetID: UUID? {
         get { workspaceState.focusedAssetID }
@@ -565,8 +566,24 @@ final class P0SessionModel {
         developSchedulerStorage = nil
     }
 
+    private var recentListGeneration = 0
+
+    /// Lists off the main thread. A newer refresh drops an older result, so a
+    /// long scan of leftover folders cannot paint over the desk you just opened.
     func refreshRecent() {
-        recentShoots = (try? ShootStore.listRecentShoots()) ?? []
+        recentListGeneration += 1
+        let generation = recentListGeneration
+        Task { @MainActor in
+            let listed = await Task.detached(priority: .userInitiated) {
+                (try? ShootStore.listRecentShoots()) ?? []
+            }.value
+            let openedName = await Task.detached(priority: .userInitiated) {
+                ShootStore.lastOpenedShootName()
+            }.value
+            guard generation == recentListGeneration else { return }
+            recentShoots = listed
+            lastOpenedShootName = openedName
+        }
     }
 
     // MARK: - Open

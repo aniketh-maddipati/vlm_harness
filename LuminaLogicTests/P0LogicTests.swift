@@ -384,40 +384,103 @@ final class P0LogicTests: XCTestCase {
 
     // MARK: - Open-surface shoot ranking
 
-    func testOpenShootArrangementResumeAndImpact() {
+    func testOpenShootArrangementResumeAndImpact() throws {
         let now = Date()
+        let scratchURL = try makeShootFolder(named: "scratch")
+        let weddingURL = try makeShootFolder(named: "wedding")
+        let portraitsURL = try makeShootFolder(named: "portraits")
         let tiny = RecentShootSummary(
             id: UUID(), name: "scratch", assetCount: 6, keepCount: 0,
-            lastOpenedAt: now, rawFolderPath: nil
+            lastOpenedAt: now, rawFolderPath: scratchURL.path
         )
         let wedding = RecentShootSummary(
             id: UUID(), name: "wedding", assetCount: 420, keepCount: 18,
-            lastOpenedAt: now.addingTimeInterval(-3600), rawFolderPath: nil
+            lastOpenedAt: now.addingTimeInterval(-3600), rawFolderPath: weddingURL.path
         )
         let portraits = RecentShootSummary(
             id: UUID(), name: "portraits", assetCount: 180, keepCount: 4,
-            lastOpenedAt: now.addingTimeInterval(-7200), rawFolderPath: nil
+            lastOpenedAt: now.addingTimeInterval(-7200), rawFolderPath: portraitsURL.path
         )
-        let arranged = OpenShootArrangement.arrange([tiny, wedding, portraits])
+        let arranged = OpenShootArrangement.arrange([tiny, wedding, portraits], resumeName: "scratch")
         XCTAssertEqual(arranged.resume?.name, "scratch")
         XCTAssertEqual(arranged.largerSets.map(\.name), ["wedding", "portraits"])
-        XCTAssertTrue(arranged.smaller.isEmpty)
+        XCTAssertTrue(arranged.smaller.isEmpty, "a small shoot with no keeps stays off the quieter row")
     }
 
-    func testOpenShootArrangementAllSmallStaySmall() {
+    func testOpenShootArrangementQuieterNeedsAKeep() throws {
         let now = Date()
+        let firstURL = try makeShootFolder(named: "a")
+        let secondURL = try makeShootFolder(named: "b")
         let first = RecentShootSummary(
-            id: UUID(), name: "a", assetCount: 4, keepCount: 0,
-            lastOpenedAt: now, rawFolderPath: nil
+            id: UUID(), name: "a", assetCount: 4, keepCount: 2,
+            lastOpenedAt: now, rawFolderPath: firstURL.path
         )
         let second = RecentShootSummary(
             id: UUID(), name: "b", assetCount: 8, keepCount: 0,
-            lastOpenedAt: now.addingTimeInterval(-10), rawFolderPath: nil
+            lastOpenedAt: now.addingTimeInterval(-10), rawFolderPath: secondURL.path
         )
-        let arranged = OpenShootArrangement.arrange([first, second])
+        let arranged = OpenShootArrangement.arrange([first, second], resumeName: "a")
         XCTAssertEqual(arranged.resume?.name, "a")
         XCTAssertTrue(arranged.largerSets.isEmpty)
-        XCTAssertEqual(arranged.smaller.map(\.name), ["b"])
+        XCTAssertTrue(arranged.smaller.isEmpty)
+    }
+
+    func testOpenShootArrangementDropsHarnessAndCollapsesTheSameFolder() throws {
+        let now = Date()
+        let folder = try makeShootFolder(named: "valley")
+        let older = RecentShootSummary(
+            id: UUID(), name: "death_valley", assetCount: 39, keepCount: 10,
+            lastOpenedAt: now.addingTimeInterval(-100), rawFolderPath: folder.path
+        )
+        let newerEmpty = RecentShootSummary(
+            id: UUID(), name: "death_valley_again", assetCount: 39, keepCount: 0,
+            lastOpenedAt: now, rawFolderPath: folder.path
+        )
+        let harness = RecentShootSummary(
+            id: UUID(), name: "cold-open-\(UUID().uuidString)", assetCount: 27, keepCount: 1,
+            lastOpenedAt: now, rawFolderPath: folder.path
+        )
+        let arranged = OpenShootArrangement.arrange([older, newerEmpty, harness])
+        XCTAssertEqual(arranged.resume?.name, "death_valley")
+        XCTAssertTrue(arranged.largerSets.isEmpty)
+        XCTAssertTrue(arranged.smaller.isEmpty)
+    }
+
+    private func makeShootFolder(named name: String) throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("lumina-open-desk-\(name)-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: url) }
+        return url
+    }
+
+    func testOpenShootArrangementSamplesAcrossTheShootAndRenamesOpaqueFolders() {
+        let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+        var frames: [OpenShootArrangement.StillCandidate] = []
+        for index in 0..<8 {
+            let kept = index == 1 || index == 6
+            let quality = index == 0 ? 0.99 : 0.2
+            frames.append(
+                OpenShootArrangement.StillCandidate(
+                    path: "f\(index)",
+                    capturedAt: t0.addingTimeInterval(Double(index) * 60),
+                    isKeep: kept,
+                    quality: quality
+                )
+            )
+        }
+        let sampled = OpenShootArrangement.sampleStills(frames, limit: 4)
+        XCTAssertFalse(sampled.contains("f0"), "the first frame is not the preview when a later keep is stronger")
+        XCTAssertEqual(sampled.first, "f1")
+        XCTAssertEqual(sampled.last, "f6")
+        XCTAssertEqual(
+            OpenShootArrangement.plateTitle(name: "100MSDCF", from: t0, to: t0),
+            OpenShootArrangement.dateSpan(from: t0, to: t0)
+        )
+        XCTAssertEqual(
+            OpenShootArrangement.plateTitle(name: "jeevana_bridal_shower", from: t0, to: t0),
+            "jeevana_bridal_shower"
+        )
     }
 
     func testOpenShootArrangementEmpty() {
