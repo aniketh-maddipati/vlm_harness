@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Developer ID export for direct distribution (F15).
+	     NOT app-store: that lane needs F2 sandbox + F8 privacy manifest + F9
+	     bookmark migration, none of which ship yet. See
+	     docs/release/MACOS_RELEASE_READINESS_AUDIT.md §4. -->
+	<key>method</key>
+	<string>developer-id</string>
+
+	<!-- Xcode uploads to Apple's notary service during export and staples the
+	     ticket to the exported .app. f11_signature.py treats a signed-but-
+	     unstapled artifact as FAIL, so this must stay true. -->
+	<key>destination</key>
+	<string>export</string>
+
+	<!-- Manual signing keeps the identity explicit and reproducible in CI.
+	     teamID is injected by package_release.sh from LUMINA_TEAM_ID so the
+	     team identifier is not committed to the repository. -->
+	<key>signingStyle</key>
+	<string>manual</string>
+
+	<key>stripSwiftSymbols</key>
+	<true/>
+
+	<!-- No bitcode on macOS; explicit for clarity. -->
+	<key>uploadSymbols</key>
+	<false/>
+</dict>
+</plist>
