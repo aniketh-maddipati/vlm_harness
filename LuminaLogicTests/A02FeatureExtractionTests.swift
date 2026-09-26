@@ -15,15 +15,36 @@ import XCTest
 /// which decodes at `RawIntent.neutral` on the interactive tier, so the measurement
 /// describes the photograph rather than any recipe already on it.
 ///
-/// Fixture-gated: needs labels.jsonl from T1 and the RAW volume mounted.
-///   LUMINA_A02_LABELS  labels.jsonl  (default ~/LuminaEvidence/export-labels-01/labels.jsonl)
+/// Opt-in only — this is a batch research dump, not a contract. It decodes one RAW
+/// per labelled frame (measured 0.29 s/frame; 482 frames ≈ 140 s clean, and more on a
+/// loaded machine), so it cannot live in the default run: the Fast plan caps a test at
+/// three minutes and `executionTimeAllowance` below is clamped by that cap, not obeyed
+/// over it. Holding the app host's run loop for minutes also leaves it open to a stray
+/// `quit` Apple Event aimed at `com.lumina.app`, which terminates the host mid-test.
+///
+/// So the labels path is the gate, as in `DevelopEvalHarnessTests` and
+/// `HarmonizationRenderHarnessTests`: unset means skip, never fail.
+///
+///   LUMINA_A02_LABELS  labels.jsonl from T1 — REQUIRED, no default
 ///   LUMINA_A02_OUT     output folder (default ~/LuminaEvidence/a02-regression)
+///
+/// Needs the RAW volume the labels name to be mounted. Run it on its own, with the
+/// plan's timeout off and the values passed through to the test runner:
+///
+///   TEST_RUNNER_LUMINA_A02_LABELS=~/LuminaEvidence/export-labels-01/labels.jsonl \
+///   xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
+///     -derivedDataPath DD -destination 'platform=macOS,arch=arm64' \
+///     -test-timeouts-enabled NO \
+///     -only-testing:LuminaLogicTests/A02FeatureExtractionTests test-without-building
 @MainActor
 final class A02FeatureExtractionTests: XCTestCase {
 
     private static let controls = ["exposure", "contrast", "highlights", "shadows",
                                    "vibrance", "saturation"]
 
+    /// Asks for the room in case a plan with a higher cap is used. The Fast plan's
+    /// `maximumTestExecutionTimeAllowance` (180 s) clamps this, so the opt-in run
+    /// passes `-test-timeouts-enabled NO` on the command line instead.
     override func setUp() {
         super.setUp()
         executionTimeAllowance = 4 * 60 * 60
@@ -31,10 +52,16 @@ final class A02FeatureExtractionTests: XCTestCase {
 
     func testDumpStatsAndIncumbentProposals() async throws {
         let env = ProcessInfo.processInfo.environment
-        let labelsURL = URL(fileURLWithPath: env["LUMINA_A02_LABELS"]
-            ?? NSString(string: "~/LuminaEvidence/export-labels-01/labels.jsonl").expandingTildeInPath)
-        let outDir = URL(fileURLWithPath: env["LUMINA_A02_OUT"]
-            ?? NSString(string: "~/LuminaEvidence/a02-regression").expandingTildeInPath,
+        guard let labelsPath = env["LUMINA_A02_LABELS"] else {
+            throw XCTSkip("""
+                A02 feature dump is opt-in: set LUMINA_A02_LABELS to a T1 labels.jsonl. \
+                It decodes one RAW per label (~0.29 s each), so it overruns the Fast plan's \
+                180 s per-test cap — run it alone with -test-timeouts-enabled NO.
+                """)
+        }
+        let labelsURL = URL(fileURLWithPath: NSString(string: labelsPath).expandingTildeInPath)
+        let outDir = URL(fileURLWithPath: NSString(string: env["LUMINA_A02_OUT"]
+            ?? "~/LuminaEvidence/a02-regression").expandingTildeInPath,
             isDirectory: true)
 
         guard let text = try? String(contentsOf: labelsURL, encoding: .utf8) else {
