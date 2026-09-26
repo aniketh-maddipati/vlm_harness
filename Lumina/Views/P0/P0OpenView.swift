@@ -199,6 +199,7 @@ struct P0OpenView: View {
                 .contentShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
         }
         .buttonStyle(LuminaOpenPlatePressStyle())
+        .help("Open a folder")
         .accessibilityIdentifier(P0AccessibilityID.openChooseFolder)
         .accessibilityLabel("Open a folder")
         .accessibilityHint(CopyContract.dropPhotographsOrFolder)
@@ -285,6 +286,15 @@ private struct OpenShootPlate: View {
             )
         }
         .buttonStyle(LuminaOpenPlatePressStyle())
+        // Resolve a pointer double-click before opening a different surface, so
+        // its second click cannot land on a photograph. Native Button keyboard
+        // and accessibility activation still use the action directly.
+        .highPriorityGesture(
+            TapGesture(count: 2)
+                .exclusively(before: TapGesture())
+                .onEnded { _ in action() }
+        )
+        .help("Opens this shoot")
         .accessibilityIdentifier(P0AccessibilityID.recentShoot(shoot.name))
         .accessibilityLabel(OpenShootArrangement.plateTitle(
             name: shoot.name,

@@ -370,14 +370,16 @@ extension P0SessionModel {
         selectedAssetIDs = []
     }
 
-    /// Whole-plate click on the table. Unfocused plates travel. A second press on
-    /// the focused plate is the D47 keep door — same grammar as `P`, including
-    /// same-mark-clears and advance. ⇧ and ⌘ still only move the cursor / range.
+    /// Photo clicks change transient selection only. Keep remains an explicit
+    /// command outside the image; opening a photo never changes the kept set.
     func clickTablePlate(_ id: UUID, shift: Bool, command: Bool) {
-        if !shift && !command && focusedAssetID == id {
-            pointerMarkKeep()
+        guard assetIndex(id) != nil else { return }
+        if shift || command {
+            clickFrame(id, shift: shift, command: command)
             return
         }
-        clickFrame(id, shift: shift, command: command)
+        let wasSelected = selectedAssetIDs.contains(id)
+        clickFrame(id, shift: false, command: false)
+        selectedAssetIDs = wasSelected ? [] : [id]
     }
 }

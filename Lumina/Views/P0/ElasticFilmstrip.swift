@@ -108,9 +108,8 @@ struct ElasticFilmstrip: View {
 
     private func tile(_ asset: AssetRecord) -> some View {
         let focused = session.focusedAssetID == asset.id
-        let ringed = focused || session.selectedAssetIDs.contains(asset.id)
+        let ringed = session.selectedAssetIDs.contains(asset.id)
         let inSet = session.isInFinalSet(asset.id)
-        let sequence = session.sequenceMark(for: asset.id)
         let size = focused ? ElasticLayout.filmstripFocusedTile : ElasticLayout.filmstripTile
 
         return ElasticPlateButton {
@@ -125,17 +124,10 @@ struct ElasticFilmstrip: View {
             .frame(width: size.width, height: size.height)
             .modifier(ElasticViewportTile(id: asset.id))
             .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.tileRadius, style: .continuous))
-            .overlay(alignment: .topLeading) {
-                if let sequence {
-                    ElasticSequenceChip(mark: sequence)
-                        .padding(ElasticLayout.markInset)
-                }
-            }
             .elasticMarked(
                 radius: ElasticLayout.tileRadius,
                 ringed: ringed,
-                inSet: inSet,
-                sequence: sequence
+                inSet: inSet
             )
             .opacity(asset.cull == .reject ? ElasticLayout.outOpacity : 1)
             .contentShape(Rectangle())
@@ -146,5 +138,7 @@ struct ElasticFilmstrip: View {
         ))
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier(P0AccessibilityID.elasticTile(asset.id))
+        .accessibilityLabel(asset.filename)
+        .accessibilityAddTraits(session.selectedAssetIDs.contains(asset.id) ? .isSelected : [])
     }
 }

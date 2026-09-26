@@ -1,9 +1,7 @@
 import XCTest
 @testable import Lumina
 
-/// Plate clicks travel; a second press on the focused plate is P. Reject is the
-/// burst `out` button or keyboard X — never a plate click. Lead and trail are
-/// the ends of the burst the cursor is in — facts, not buttons.
+/// Plate selection is transient; pointer and keyboard culling remain explicit.
 @MainActor
 final class ElasticTablePointerTests: XCTestCase {
 
@@ -68,31 +66,56 @@ final class ElasticTablePointerTests: XCTestCase {
         XCTAssertNil(session.sequenceMark(for: other))
     }
 
-    func testAClickOnAnotherPlateOnlyMovesTheCursor() {
+    func testAClickOnAnotherPlateSelectsWithoutChangingCull() {
         let ids = [UUID(), UUID()]
         let session = session(ids.enumerated().map { asset($1, offset: Double($0) * 10) })
         session.focusedAssetID = ids[0]
 
         session.clickTablePlate(ids[1], shift: false, command: false)
         XCTAssertEqual(session.focusedAssetID, ids[1])
+        XCTAssertEqual(session.selectedAssetIDs, [ids[1]])
         XCTAssertEqual(session.asset(ids[0])?.cull, .undecided)
         XCTAssertEqual(session.asset(ids[1])?.cull, .undecided)
     }
 
-    func testASecondPressOnTheFocusedPlateKeepsAndClears() {
+    func testRepeatedClicksToggleSelectionWithoutChangingKeptSetOrAdvancing() {
         let ids = [UUID(), UUID()]
+        let session = session([
+            asset(ids[0], offset: 0, cull: .keep),
+            asset(ids[1], offset: 10),
+        ])
+        let keptBefore = session.finalSetAssetIDs
+
+        session.clickTablePlate(ids[0], shift: false, command: false)
+        XCTAssertEqual(session.selectedAssetIDs, [ids[0]])
+        XCTAssertEqual(session.focusedAssetID, ids[0])
+        XCTAssertEqual(session.finalSetAssetIDs, keptBefore)
+
+        session.clickTablePlate(ids[0], shift: false, command: false)
+        XCTAssertTrue(session.selectedAssetIDs.isEmpty)
+        XCTAssertEqual(session.focusedAssetID, ids[0])
+        XCTAssertEqual(session.finalSetAssetIDs, keptBefore)
+        XCTAssertEqual(session.asset(ids[0])?.cull, .keep)
+    }
+
+    func testSelectionModifiersRemainNonDestructive() {
+        let ids = (0..<3).map { _ in UUID() }
         let session = session(ids.enumerated().map { asset($1, offset: Double($0) * 10) })
-        session.focusedAssetID = ids[0]
-
         session.clickTablePlate(ids[0], shift: false, command: false)
-        XCTAssertTrue(session.isInFinalSet(ids[0]))
-        XCTAssertEqual(session.focusedAssetID, ids[1], "keep on the plate advances like P")
+        session.clickTablePlate(ids[2], shift: true, command: false)
+        XCTAssertEqual(session.selectedAssetIDs, ids)
+        session.clickTablePlate(ids[1], shift: false, command: true)
+        XCTAssertEqual(session.selectedAssetIDs, [ids[0], ids[2]])
+        XCTAssertTrue(session.finalSetAssetIDs.isEmpty)
+    }
 
-        session.focusedAssetID = ids[0]
-        session.clickTablePlate(ids[0], shift: false, command: false)
-        XCTAssertFalse(session.isInFinalSet(ids[0]))
-        XCTAssertEqual(session.asset(ids[0])?.cull, .undecided)
-        XCTAssertEqual(session.focusedAssetID, ids[0], "same-mark-clears stays put")
+    func testUnknownPlateDoesNotChangeSelection() {
+        let id = UUID()
+        let session = session([asset(id, offset: 0)])
+        session.clickTablePlate(id, shift: false, command: false)
+        session.clickTablePlate(UUID(), shift: false, command: false)
+        XCTAssertEqual(session.selectedAssetIDs, [id])
+        XCTAssertEqual(session.focusedAssetID, id)
     }
 
     func testAPlateClickNeverRejects() {
@@ -104,6 +127,19 @@ final class ElasticTablePointerTests: XCTestCase {
         session.clickTablePlate(ids[1], shift: false, command: false)
         XCTAssertNotEqual(session.asset(ids[0])?.cull, .reject)
         XCTAssertNotEqual(session.asset(ids[1])?.cull, .reject)
+    }
+
+    func testOffPhotoCommandProbeFollowsSelectionRatherThanFocus() {
+        let id = UUID()
+        let session = session([asset(id, offset: 0)])
+        XCTAssertFalse(session.uiTestSnapshot().pointerCullTargetsVisible)
+        XCTAssertFalse(session.uiTestSnapshot().elasticOutVisible)
+        session.clickTablePlate(id, shift: false, command: false)
+        XCTAssertTrue(session.uiTestSnapshot().pointerCullTargetsVisible)
+        XCTAssertTrue(session.uiTestSnapshot().elasticOutVisible)
+        session.clickTablePlate(id, shift: false, command: false)
+        XCTAssertFalse(session.uiTestSnapshot().pointerCullTargetsVisible)
+        XCTAssertFalse(session.uiTestSnapshot().elasticOutVisible)
     }
 
     func testKeyboardXStillRejectsAndClears() {

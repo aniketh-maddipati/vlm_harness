@@ -304,8 +304,7 @@ private struct ElasticGroupRow: View {
         let asset = session.asset(id)
         let taken = group.takeIDs.contains(id)
         let ringed = session.focusedAssetID == id || session.selectedAssetIDs.contains(id)
-        return ElasticPlateButton {
-            let flags = NSEvent.modifierFlags
+        return ElasticPlateButton { flags in
             session.clickFrame(id, shift: flags.contains(.shift), command: flags.contains(.command))
         } onDoubleTap: {
             session.setFocus(id)

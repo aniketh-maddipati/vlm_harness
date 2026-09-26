@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Elastic v4 surface grammar — type stacks, the cursor ring, the in-set outline,
@@ -6,15 +7,8 @@ import SwiftUI
 /// Three families only: serif for the wordmark and overlay titles, sans for buttons
 /// with words, mono for everything else. No hover, no press scale, fade-only births.
 ///
-/// Pointer law, one way:
-/// - A plate is the whole target, and it is a settled button. Unfocused press travels.
-///   Focused press is P. There is no ✓/P overlay — the plate is the keep door.
-/// - Facts (lead / trail, phone glyph, in-set outline, reject ✕) never ask.
-/// - Word buttons are for operations larger than one frame: Auto, Export, the burst
-///   `set` / `phone` / `out`, the group's `take`. Fold / ×N lean the stack; they do
-///   not decide. `out` is the pointer reject door — a travel click cannot reject.
-/// - Keyboard X still rejects (same-mark-clears). Pointer reject is the settled
-///   burst `out`, never a chip on the photograph.
+/// Photo clicks select transiently; double-click opens. Keep/Phone/Reject live
+/// outside image pixels, with keyboard accelerators retaining their commands.
 @MainActor
 enum ElasticType {
     /// `ui-monospace, Menlo, monospace` — metadata, captions, badges, bars.
@@ -96,18 +90,23 @@ extension View {
 /// The Elastic button costume: the label is the whole target. No hover, no scale.
 /// A slow opacity settle is the only press cue (§5 still bans hover).
 struct LuminaElasticButtonStyle: ButtonStyle {
+    var onPress: (() -> Void)? = nil
     func makeBody(configuration: Configuration) -> some View {
-        ElasticPressBody(configuration: configuration)
+        ElasticPressBody(configuration: configuration, onPress: onPress)
     }
 
     private struct ElasticPressBody: View {
         let configuration: Configuration
+        let onPress: (() -> Void)?
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
         var body: some View {
             configuration.label
                 .contentShape(Rectangle())
                 .opacity(configuration.isPressed ? 0.72 : 1)
+                .onChange(of: configuration.isPressed) { _, pressed in
+                    if pressed { onPress?() }
+                }
                 .animation(
                     LuminaTokens.Motion.press(configuration.isPressed, reduceMotion: reduceMotion),
                     value: configuration.isPressed
@@ -116,10 +115,12 @@ struct LuminaElasticButtonStyle: ButtonStyle {
     }
 }
 
-/// A photograph plate that is itself a settled button. Double-tap is exclusive so
-/// a second press does not also fire the single-press action.
+/// Native button activation remains available to keyboard and accessibility.
+/// Pointer singles wait for double-click discrimination so opening never also selects.
 struct ElasticPlateButton<Label: View>: View {
     let action: () -> Void
+    var modifierAction: ((NSEvent.ModifierFlags) -> Void)? = nil
+    @State private var pressedModifiers: NSEvent.ModifierFlags?
     var onDoubleTap: (() -> Void)?
     @ViewBuilder var label: () -> Label
 
@@ -133,14 +134,46 @@ struct ElasticPlateButton<Label: View>: View {
         self.label = label
     }
 
+    init(
+        action: @escaping (NSEvent.ModifierFlags) -> Void,
+        onDoubleTap: (() -> Void)? = nil,
+        @ViewBuilder label: @escaping () -> Label
+    ) {
+        self.action = {}
+        self.modifierAction = action
+        self.onDoubleTap = onDoubleTap
+        self.label = label
+    }
+
+    private func activate() {
+        let modifiers = pressedModifiers ?? NSEvent.modifierFlags
+        pressedModifiers = nil
+        if let modifierAction { modifierAction(modifiers) } else { action() }
+    }
+
     var body: some View {
         if let onDoubleTap {
-            Button(action: action, label: label)
-                .buttonStyle(LuminaElasticButtonStyle())
-                .highPriorityGesture(TapGesture(count: 2).onEnded(onDoubleTap))
+            Button(action: activate, label: label)
+                .buttonStyle(LuminaElasticButtonStyle(onPress: {
+                    pressedModifiers = NSEvent.modifierFlags
+                }))
+                .highPriorityGesture(
+                    TapGesture(count: 2)
+                        .exclusively(before: TapGesture())
+                        .onEnded { result in
+                            switch result {
+                            case .first:
+                                pressedModifiers = nil
+                                onDoubleTap()
+                            case .second: activate()
+                            }
+                        }
+                )
         } else {
-            Button(action: action, label: label)
-                .buttonStyle(LuminaElasticButtonStyle())
+            Button(action: activate, label: label)
+                .buttonStyle(LuminaElasticButtonStyle(onPress: {
+                    pressedModifiers = NSEvent.modifierFlags
+                }))
         }
     }
 }

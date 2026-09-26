@@ -224,3 +224,10 @@
 # punch looks; a pick applies that recipe and puts the photograph in the set. Same
 # pick again clears (out of the set, re-stage). Esc cancels unapplied looks. [ ]
 # cycles Tone / Color / Detail / Crop.
+
+## PHOTO-SELECT-01 — off-photo burst commands (2026-09-26)
+
+[P] Keep
+[P] Phone
+[P] Reject
+[P] Focused

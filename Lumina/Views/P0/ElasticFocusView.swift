@@ -345,7 +345,7 @@ struct ElasticFocusView: View {
 
             if session.peek == nil, asset.isUnsupportedVideo != true {
                 ElasticOperationButton(
-                    title: "out",
+                    title: "Reject",
                     on: session.outToggleIsOn([asset.id])
                 ) {
                     session.classifyOut([asset.id])
