@@ -233,4 +233,5 @@ struct ElasticChronologyBar: View {
         .accessibilityIdentifier("p0.chronology.\(node.chapterID)")
         .id(node.chapterID)
     }
+
 }

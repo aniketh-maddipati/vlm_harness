@@ -48,7 +48,11 @@ final class ElasticLayoutTests: XCTestCase {
         XCTAssertGreaterThan(ElasticLayout.filmstripHeight, ElasticLayout.filmstripFocusedTile.height)
         XCTAssertEqual(ElasticLayout.filmstripMomentGap, 20)
         XCTAssertEqual(ElasticLayout.versionColumnWidth, 144)
-        XCTAssertEqual(ElasticLayout.developDrawerWidth, 256)
+        // Widened 256 -> 320 and derived from a token rather than a literal, so the
+        // editing pane gives the sliders more travel. The rail is the same width.
+        XCTAssertEqual(ElasticLayout.developDrawerWidth, 320)
+        XCTAssertEqual(ElasticLayout.developDrawerWidth, HiFiTokens.Layout.minWindowWidth / 4)
+        XCTAssertEqual(ElasticLayout.developRailWidth, ElasticLayout.developDrawerWidth)
     }
 
     func testOutOpacityIsTheExistingRejectDimLaw() {

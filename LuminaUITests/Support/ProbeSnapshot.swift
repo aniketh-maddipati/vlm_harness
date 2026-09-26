@@ -45,6 +45,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedPresentedIsPortrait: Bool? = nil
     /// D47/A3 — pointer cull mark targets visible on the focused contact-sheet frame.
     var pointerCullTargetsVisible: Bool
+    /// Elastic pointer reject — settled `out` on the focused run (table or inspect).
+    var elasticOutVisible: Bool = false
     var inspectingAssetID: String?
     /// Persistent selection membership. Pointer travel must not write this (Law 1 / D29).
     var selectedAssetIDs: [String]
@@ -83,6 +85,7 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedIsPhone: Bool? = nil
     var focusedIsUnsupportedVideo: Bool? = nil
     var unsupportedVideoCount: Int = 0
+    var page: String = "open"
 
     /// Convenience: the Nth visible asset ID (nil when out of range).
     func visibleID(at index: Int) -> String? {

@@ -17,6 +17,8 @@ enum ElasticLayout {
     /// Table / focus / strip / peek gutter.
     static let tableGutter = HiFiTokens.Gap.workspaceMargin
     static let headerHeight = HiFiTokens.Elastic.headerHeight
+    /// Prev / next page. The contract minimum, so the control is a settled target.
+    static let pageControlHit = HiFiTokens.Hit.minimum
     static let headerGap = HiFiTokens.Gap.spacingMd
     static let hairline: CGFloat = 1
     static let hairlineOpacity: Double = 0.08
@@ -33,6 +35,16 @@ enum ElasticLayout {
     static let autoGap: CGFloat = 8
     static let autoDisabledOpacity: Double = 0.08
     static let subLabelOpacity: Double = 0.7
+
+    // MARK: - Stitch
+
+    /// Kept-set spine. Same plate as the table so the walk stays one costume.
+    static let stitchPlate = tile
+    static let stitchPlateAspect = tileAspect
+    static let stitchPlateRadius = tileRadius
+    static let stitchGap = frameGap
+    static let stitchOrdinalSize = shelfLabelSize
+    static let stitchBarHeight = setShelfHeight
 
     // MARK: - Set shelf
 
@@ -228,6 +240,13 @@ enum ElasticLayout {
     static let setOutlineWidth: CGFloat = 2
     /// `outline-offset: -1.5px` on a 2 px outline centres the stroke 0.5 px inside.
     static let setOutlineInset: CGFloat = focusRingHaloWidth - setOutlineWidth / 2
+    /// Lead / trail of the focused burst — second-order stroke, never color alone.
+    static let sequenceOutlineWidth = HiFiTokens.Ring.secondOrderWidth
+    static let sequenceOutlineOpacity = HiFiTokens.Ring.secondOrderOpacity
+    static let sequenceOutlineInset = setOutlineInset
+    static let sequenceChipSize = HiFiTokens.Typography.chipSize
+    static let sequenceChipPaddingH = HiFiTokens.Gap.spacingXs
+    static let sequenceChipPaddingV = HiFiTokens.Ring.haloWidth
 
     // MARK: - Motion (`born` fade durations, ease-out)
 

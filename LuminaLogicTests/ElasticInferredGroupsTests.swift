@@ -230,6 +230,17 @@ final class ElasticInferredGroupsTests: XCTestCase {
         XCTAssertEqual(session.takeInferredPicks(), 2, "and G can take them again")
     }
 
+    func testTakeOnOneGroupLeavesTheOthers() {
+        let (session, ids) = seeded()
+        session.inferredMeasurements.sharpness = [ids[0]: 0.3, ids[1]: 0.9, ids[2]: 0.4]
+        session.openPeek(.flags)
+        let first = session.inferredGroups[0].takeIDs
+        XCTAssertEqual(session.takePicks(first), 1)
+        XCTAssertTrue(session.isInFinalSet(ids[1]))
+        XCTAssertFalse(session.isInFinalSet(ids[3]))
+        XCTAssertEqual(session.undoCoordinator.undoLabel, "Undo Take the picks")
+    }
+
     func testGWithNothingToTakeIsANoOp() {
         let (session, ids) = seeded()
         for id in ids where session.asset(id)?.cull == .undecided {

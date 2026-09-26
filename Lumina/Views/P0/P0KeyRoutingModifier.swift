@@ -157,7 +157,8 @@ struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 }
             }
 
-            // ⇧ + arrows — extend selection from the anchor (Chat-2). Swallow repeat.
+            // ⇧ + arrows — extend selection from the anchor. Must precede the plain
+            // arrow switch below, or shift-arrow would travel instead of extending.
             if shift, !command, [123, 124, 125, 126].contains(event.keyCode) {
                 if event.isARepeat { return nil }
                 let dx: Int
@@ -170,6 +171,30 @@ struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 }
                 session.extendSelection(dx: dx, dy: dy)
                 return nil
+            }
+
+            if unmodified, chars == "]", !event.isARepeat {
+                session.flipPage()
+                return nil
+            }
+
+            if event.keyCode == P0VirtualKey.pageUp || event.keyCode == P0VirtualKey.pageDown {
+                let step = event.keyCode == P0VirtualKey.pageDown ? 1 : -1
+                if session.stitchOpen {
+                    session.stepStitchFocus(step)
+                    armTravel(event)
+                    return nil
+                }
+                if session.route == .focus {
+                    session.stepFramePage(step)
+                    armTravel(event)
+                    return nil
+                }
+                if session.route == .time {
+                    session.requestMomentPage(step: step)
+                    armTravel(event)
+                    return nil
+                }
             }
 
             switch event.keyCode {

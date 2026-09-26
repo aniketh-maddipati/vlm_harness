@@ -2,8 +2,8 @@ import CoreGraphics
 import XCTest
 @testable import Lumina
 
-/// "in set?" puts frames in, and a second press takes them out as one command.
-/// A drag rectangle selects; dropping that selection on the shelf still joins the set.
+/// The burst-scale `set` operation puts frames in, and a second press takes them
+/// out as one command. A selection dropped on the shelf still joins the set.
 @MainActor
 final class ElasticSetClassifyTests: XCTestCase {
 
@@ -106,6 +106,35 @@ final class ElasticSetClassifyTests: XCTestCase {
         XCTAssertEqual(added, 2)
         XCTAssertEqual(session.finalSetAssetIDs, [ids[0], ids[2]])
         XCTAssertTrue(session.selectedAssetIDs.isEmpty)
+    }
+
+    func testOutMarksTheRunAndASecondPressClears() {
+        let ids = (0..<2).map { _ in UUID() }
+        let session = session(ids.enumerated().map { asset($1, offset: Double($0) * 0.4) })
+        XCTAssertFalse(session.outToggleIsOn(ids))
+
+        XCTAssertEqual(session.classifyOut(ids), 2)
+        XCTAssertTrue(session.outToggleIsOn(ids))
+        XCTAssertEqual(session.asset(ids[0])?.cull, .reject)
+        XCTAssertEqual(session.asset(ids[1])?.cull, .reject)
+        XCTAssertEqual(session.undoCoordinator.undoLabel, "Undo Out")
+        XCTAssertEqual(session.focusedAssetID, ids[0], "out does not move the cursor")
+
+        XCTAssertEqual(session.classifyOut(ids), 2)
+        XCTAssertFalse(session.outToggleIsOn(ids))
+        XCTAssertEqual(session.asset(ids[0])?.cull, .undecided)
+        XCTAssertEqual(session.undoCoordinator.undoLabel, "Undo Clear out")
+    }
+
+    func testOutTakesKeptFramesOutOfTheSet() {
+        let ids = [UUID(), UUID()]
+        let session = session([
+            asset(ids[0], offset: 0, cull: .keep),
+            asset(ids[1], offset: 0.4),
+        ])
+        XCTAssertEqual(session.classifyOut(ids), 2)
+        XCTAssertTrue(session.finalSetAssetIDs.isEmpty)
+        XCTAssertTrue(session.outToggleIsOn(ids))
     }
 
     func testAPointIsNotAMarquee() {

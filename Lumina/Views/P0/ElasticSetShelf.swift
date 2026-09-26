@@ -46,7 +46,12 @@ struct ElasticSetShelf: View {
                 .frame(maxWidth: .infinity)
             }
 
-            exportButton
+            ElasticOperationButton(title: "stitch", on: false) {
+                session.openStitch()
+            }
+            .accessibilityIdentifier(P0AccessibilityID.elasticStitch)
+
+            ElasticExportButton(session: session)
         }
         .padding(.horizontal, ElasticLayout.chromeGutter)
         .frame(height: ElasticLayout.setShelfHeightV2)
@@ -97,7 +102,12 @@ struct ElasticSetShelf: View {
         let edited = recipeDiffersFromShot(asset)
         let note = asset?.note?.trimmingCharacters(in: .whitespacesAndNewlines)
         return VStack(alignment: .leading, spacing: ElasticLayout.shelfNoteGap) {
-            ZStack(alignment: .bottomLeading) {
+            // Settled plate, not a bare tap: click travels, double-click opens.
+            ElasticPlateButton {
+                session.setFocus(id)
+                session.openFocusedPhotograph()
+            } label: {
+                ZStack(alignment: .bottomLeading) {
                 LuminaTokens.Elastic.shelfThumbFill
                 if let path = asset?.gridThumbPath ?? asset?.thumbPath {
                     ChapterPlateImage(path: path)
@@ -124,10 +134,7 @@ struct ElasticSetShelf: View {
             .scaleEffect(landingIDs.contains(id) ? ElasticLayout.shelfLandScale : 1)
             .animation(LuminaTokens.Motion.develop, value: landingIDs.contains(id))
             .elasticBorn(ElasticLayout.bornTableMs)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                session.setFocus(id)
-                session.openFocusedPhotograph()
+                .contentShape(Rectangle())
             }
 
             if let note, !note.isEmpty {
@@ -147,7 +154,13 @@ struct ElasticSetShelf: View {
         asset?.recipe?.hasSettings == true
     }
 
-    private var exportButton: some View {
+}
+
+/// The one export verb. Same costume on the shelf and on stitch.
+struct ElasticExportButton: View {
+    @Bindable var session: P0SessionModel
+
+    var body: some View {
         Button {
             session.chooseAndExportKept()
         } label: {
@@ -174,6 +187,6 @@ struct ElasticSetShelf: View {
             )
         }
         .buttonStyle(LuminaElasticButtonStyle())
-        .disabled(session.isExporting)
+        .disabled(session.isExporting || session.finalSetAssetIDs.isEmpty)
     }
 }

@@ -34,7 +34,7 @@ struct LuminaRobot {
                 focusedRecipeSource: nil,
                 focusedRenderFidelity: nil, focusedHasPresentedRAW: false,
                 inspectionSettledLongEdge: nil, presentationTraceEnabled: nil, focusedOrientedIsPortrait: nil,
-                focusedPresentedIsPortrait: nil, pointerCullTargetsVisible: false, inspectingAssetID: nil,
+                focusedPresentedIsPortrait: nil, pointerCullTargetsVisible: false, elasticOutVisible: false, inspectingAssetID: nil,
                 selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
                 phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
                 missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier",
@@ -44,7 +44,8 @@ struct LuminaRobot {
                 elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
                 chronologyViewportChapterID: nil,
                 chapterTableMounted: false, inspectPeripheryDimOpacity: 1,
-                focusedIsPhone: nil, focusedIsUnsupportedVideo: nil, unsupportedVideoCount: 0
+                focusedIsPhone: nil, focusedIsUnsupportedVideo: nil, unsupportedVideoCount: 0,
+                page: "open"
             )
         }
         return snapshot
@@ -64,7 +65,7 @@ struct LuminaRobot {
                 focusedRecipeSource: nil,
                 focusedRenderFidelity: nil, focusedHasPresentedRAW: false,
                 inspectionSettledLongEdge: nil, presentationTraceEnabled: nil, focusedOrientedIsPortrait: nil,
-                focusedPresentedIsPortrait: nil, pointerCullTargetsVisible: false, inspectingAssetID: nil,
+                focusedPresentedIsPortrait: nil, pointerCullTargetsVisible: false, elasticOutVisible: false, inspectingAssetID: nil,
                 selectedAssetIDs: [], missingOriginalCount: 0, previewReadyCount: 0,
                 phaseDetail: "", scrollAnchor: 0, culls: [:], editedIDs: [], visibleAssetIDs: [],
                 missingAssetIDs: [], reduceMotionActive: false, keyRoutingOwner: "P0KeyRoutingModifier",
@@ -74,7 +75,8 @@ struct LuminaRobot {
                 elasticStripTrackHeight: 90, elasticStripNearLongEdge: 210, elasticStripFarLongEdge: 64,
                 chronologyViewportChapterID: nil,
                 chapterTableMounted: false, inspectPeripheryDimOpacity: 1,
-                focusedIsPhone: nil, focusedIsUnsupportedVideo: nil, unsupportedVideoCount: 0
+                focusedIsPhone: nil, focusedIsUnsupportedVideo: nil, unsupportedVideoCount: 0,
+                page: "open"
             )
         }
         return snapshot

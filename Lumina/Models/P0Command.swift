@@ -314,12 +314,53 @@ struct BatchEditMutationCommand: Equatable, Sendable {
     }
 }
 
+/// One move in the kept set. Cull and recipe stay put; only `FinalSetOrder` changes.
+struct SetOrderCommand: Equatable, Sendable {
+    let id: UUID
+    let createdAt: Date
+    let before: [UUID]
+    let after: [UUID]
+    let focusBefore: UUID?
+    let label: String
+
+    init(
+        id: UUID = UUID(),
+        createdAt: Date = Date(),
+        before: [UUID],
+        after: [UUID],
+        focusBefore: UUID?,
+        label: String
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.before = before
+        self.after = after
+        self.focusBefore = focusBefore
+        self.label = label
+    }
+
+    @discardableResult
+    func apply(to finalOrder: inout FinalSetOrder) -> Bool {
+        guard before != after else { return false }
+        finalOrder.assetIDs = after
+        return true
+    }
+
+    @discardableResult
+    func revert(in finalOrder: inout FinalSetOrder) -> Bool {
+        guard before != after else { return false }
+        finalOrder.assetIDs = before
+        return true
+    }
+}
+
 /// Heterogeneous undo entry on the shared P0 command stack.
 enum P0UndoEntry: Equatable, Sendable {
     case cull(CullMutationCommand)
     case edit(EditMutationCommand)
     case batchEdit(BatchEditMutationCommand)
     case chapterKeep(ChapterKeepCommand)
+    case setOrder(SetOrderCommand)
 
     var label: String {
         switch self {
@@ -327,6 +368,7 @@ enum P0UndoEntry: Equatable, Sendable {
         case .edit(let command): return command.label
         case .batchEdit(let command): return command.label
         case .chapterKeep(let command): return command.label
+        case .setOrder(let command): return command.label
         }
     }
 }
@@ -356,6 +398,10 @@ final class P0UndoCoordinator {
 
     func push(_ command: ChapterKeepCommand) {
         append(.chapterKeep(command))
+    }
+
+    func push(_ command: SetOrderCommand) {
+        append(.setOrder(command))
     }
 
     func pop() -> P0UndoEntry? {

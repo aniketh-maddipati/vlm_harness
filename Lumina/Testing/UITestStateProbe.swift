@@ -50,6 +50,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedPresentedIsPortrait: Bool? = nil
     /// D47/A3 — pointer cull mark targets visible on the focused contact-sheet frame.
     var pointerCullTargetsVisible: Bool
+    /// Elastic pointer reject — settled `out` on the focused run (table or inspect).
+    var elasticOutVisible: Bool = false
     var inspectingAssetID: String?
     /// Persistent selection membership. Pointer travel must not write this (Law 1 / D29).
     var selectedAssetIDs: [String]
@@ -99,6 +101,8 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedIsUnsupportedVideo: Bool? = nil
     /// How many locked video presence rows are in the shoot.
     var unsupportedVideoCount: Int = 0
+    /// Open, Chron, Scroll, or Stitch.
+    var page: String = "open"
 
     func jsonString() -> String {
         let encoder = JSONEncoder()
@@ -188,7 +192,8 @@ extension P0SessionModel {
                 }
                 return extent.width + 1 < extent.height
             },
-            pointerCullTargetsVisible: route == "time" && inspectingAssetID == nil && focusedAssetID != nil,
+            pointerCullTargetsVisible: false,
+            elasticOutVisible: focusedAssetID != nil && (route == "time" || route == "focus"),
             inspectingAssetID: inspectingAssetID?.uuidString,
             selectedAssetIDs: selectedAssetIDs.map(\.uuidString).sorted(),
             missingOriginalCount: status.missingOriginalCount,
@@ -221,7 +226,8 @@ extension P0SessionModel {
                 : ElasticCanvasLayout.peripheryDimOpacity,
             focusedIsPhone: focused.map(\.isPhoneBody),
             focusedIsUnsupportedVideo: focused.map(\.isUnsupportedVideo),
-            unsupportedVideoCount: assets.filter(\.isUnsupportedVideo).count
+            unsupportedVideoCount: assets.filter(\.isUnsupportedVideo).count,
+            page: page.rawValue
         )
     }
 }

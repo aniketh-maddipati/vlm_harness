@@ -144,6 +144,7 @@ actor ShootStore {
                     assetCount: shoot.assets.count,
                     keepCount: shoot.assets.filter { $0.cull == .keep }.count,
                     markedCount: shoot.assets.filter { $0.cull != .undecided }.count,
+                    editedCount: shoot.assets.filter { $0.recipeSource != .shot }.count,
                     lastOpenedAt: mod,
                     rawFolderPath: shoot.rawFolder?.originalPath,
                     stillPaths: stillPaths(for: shoot, directory: dir),

@@ -41,7 +41,7 @@ def require_wiring() -> None:
         "zoom: focusZoom.zoom",
         "panOffset: focusZoom.pan",
         "session.closeInspection()",
-        "onTapGesture(count: 2)",
+        "onDoubleTap:",
         "focusZoom.magnify(",
         "focusZoom.rebase(",
         "FocusZoom.page(",
