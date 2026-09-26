@@ -46,7 +46,11 @@ ensure_injection() {
   echo "playground: selecting $ROOT in InjectionIII…"
   open -a "$INJECTION" "$ROOT/Lumina.xcodeproj"
   echo "playground: save Swift view edits in this checkout to inject; rebuild for structural changes."
+}
 
+# Cursor on the leading half; the app takes the trailing half (--dev-split).
+park_prompt_window() {
+  bash "$ROOT/Scripts/dev_split_peer.sh" || true
 }
 
 build_playground() {
@@ -109,10 +113,14 @@ run_playground() {
     return 2
   fi
   ensure_injection
+  park_prompt_window
 
   local -a args=("$@")
   if [[ ${#args[@]} -eq 0 ]]; then
     args=(--no-workbench)
+  fi
+  if [[ " ${args[*]} " != *" --dev-split "* ]]; then
+    args+=(--dev-split)
   fi
 
   echo "=== running Lumina Playground ==="
@@ -145,6 +153,7 @@ case "$cmd" in
   prepare-hot)
     ensure_macos
     ensure_injection
+    park_prompt_window
     ;;
   run)
     run_playground "$@"

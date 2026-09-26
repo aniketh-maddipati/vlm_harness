@@ -31,6 +31,7 @@ struct LuminaApp: App {
     }
 
     var body: some Scene {
+        let minimum = launchWindowMinimum()
         WindowGroup {
             Group {
                 #if DEBUG
@@ -43,13 +44,19 @@ struct LuminaApp: App {
                 P0RootView()
                 #endif
             }
-            .frame(minWidth: EditRailLayout.minWindowWidth, minHeight: EditRailLayout.minWindowHeight)
+            .frame(minWidth: minimum.width, minHeight: minimum.height)
             .luminaWorkspaceAppearance()
             .background {
                 if P0RenderInstruments.launchRequested {
                     ProductPerformanceDisplayProbe()
                 }
             }
+            #if DEBUG
+            .background {
+                DevSplitWindowAnchor()
+                    .frame(width: 0, height: 0)
+            }
+            #endif
         }
         .commands {
             CommandGroup(replacing: .newItem) {
@@ -79,6 +86,16 @@ struct LuminaApp: App {
             }
         }
     }
+}
+
+/// Product minimum, unless this playground launch asked to share the screen.
+private func launchWindowMinimum() -> CGSize {
+    #if DEBUG
+    if let frame = DevSplitPlacement.liveTrailingFrame() {
+        return CGSize(width: frame.width, height: EditRailLayout.minWindowHeight)
+    }
+    #endif
+    return CGSize(width: EditRailLayout.minWindowWidth, height: EditRailLayout.minWindowHeight)
 }
 
 extension Notification.Name {
