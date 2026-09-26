@@ -290,7 +290,7 @@ final class ElasticPeekTests: XCTestCase {
     // MARK: - Layout
 
     func testPeekNumbersMatchTheDesign() {
-        XCTAssertEqual(ElasticLayout.peekSetTile, 150)
+        XCTAssertEqual(ElasticLayout.peekSetTile, ElasticLayout.tile)
         XCTAssertEqual(ElasticLayout.peekRelatedTile, 170)
         XCTAssertEqual(ElasticLayout.peekCursorTile, 220)
         XCTAssertEqual(ElasticLayout.peekPaddingTop, 12)

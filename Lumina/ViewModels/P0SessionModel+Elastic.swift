@@ -1,5 +1,13 @@
 import Foundation
 
+/// ⌃⇥ cycles which surface owns keyboard travel (Chat-2). Session-only.
+enum P0ChromeRegion: Int, CaseIterable, Equatable {
+    case setShelf
+    /// Table on the time route; filmstrip when a photograph is open.
+    case table
+    case developSpine
+}
+
 /// Derived copy and grouping for the Elastic time route.
 ///
 /// Everything here reads existing canonical state — chapters, cull, recipe source,
@@ -41,6 +49,7 @@ extension P0SessionModel {
             if let receipt = autoReceipt { return receipt.label }
             if versionAutoAssetID != nil { return "Applying adjustments to this photo…" }
             if let versionAutoStatus { return versionAutoStatus }
+            if variationColumnVisible { return CopyContract.developLooksHint }
         }
         if route == .focus, let id = focusedAssetID {
             if selected > 0 {
@@ -405,6 +414,56 @@ extension P0SessionModel {
         return !known.isEmpty && known.allSatisfy(isInFinalSet)
     }
 
+    /// Selection when present, else the focused frame — targets for `S` / `H`.
+    func keyboardMarkTargets() -> [UUID] {
+        if !selectedAssetIDs.isEmpty { return selectedAssetIDs }
+        if let focusedAssetID { return [focusedAssetID] }
+        return []
+    }
+
+    /// `S` — toggle set membership via `classifySet`. Recipe is untouched.
+    @discardableResult
+    func toggleSetMembershipFromKeyboard() -> Int {
+        classifySet(keyboardMarkTargets())
+    }
+
+    /// `H` — toggle phone mark via `classifyPhone`.
+    @discardableResult
+    func togglePhoneFromKeyboard() -> Int {
+        classifyPhone(keyboardMarkTargets())
+    }
+
+    /// `⌘A` — every photograph in the shoot.
+    func selectAllPhotographs() {
+        selectedAssetIDs = assets.map(\.id)
+        if selectionAnchorID == nil {
+            selectionAnchorID = focusedAssetID ?? assets.first?.id
+        }
+    }
+
+    /// `⇧` + arrows — move focus, then select the range from the anchor to the cursor.
+    func extendSelection(dx: Int, dy: Int) {
+        if selectionAnchorID == nil {
+            selectionAnchorID = focusedAssetID
+        }
+        moveFocus(dx: dx, dy: dy, columns: densityColumns)
+        guard let focus = focusedAssetID else { return }
+        let anchor = selectionAnchorID ?? focus
+        guard let from = assetIndex(anchor), let to = assetIndex(focus) else { return }
+        let range = min(from, to)...max(from, to)
+        selectedAssetIDs = assets[range].map(\.id)
+    }
+
+    /// `⌃⇥` — cycle set shelf → table/filmstrip → Develop spine.
+    func cycleChromeRegion() {
+        let order = P0ChromeRegion.allCases
+        guard let index = order.firstIndex(of: chromeRegion) else {
+            chromeRegion = .table
+            return
+        }
+        chromeRegion = order[(index + 1) % order.count]
+    }
+
     /// On only when every one of these frames is already out.
     /// An empty list is off — there is nothing to clear.
     func outToggleIsOn(_ ids: [UUID]) -> Bool {
@@ -502,10 +561,25 @@ extension P0SessionModel {
     /// the shape stays honest about the capture and still tracks the edit. Held
     /// `before` shows the measurement unshifted, because that is what before means.
     func histogramBinShift(for asset: AssetRecord) -> Int {
-        guard !showingBefore, let recipe = asset.recipe, recipe.hasSettings else { return 0 }
+        guard !showingBefore else { return 0 }
+        return histogramBinShift(recipe: asset.recipe)
+    }
+
+    func histogramBinShift(recipe: EditRecipe?) -> Int {
+        guard let recipe, recipe.hasSettings else { return 0 }
         let moved = recipe.exposure * Self.histogramExposureBins
             + recipe.shadows * Self.histogramShadowBins
         return Int(moved.rounded())
+    }
+
+    /// Shot (unshifted), tone Auto if measured, and the current edit. One histogram,
+    /// three outlines — the photograph itself is the current version.
+    func autoHistogramShift(for asset: AssetRecord) -> Int? {
+        guard let stats = asset.imageStats else { return nil }
+        var probe = asset
+        probe.recipe = .neutral
+        probe.recipeSource = .shot
+        return histogramBinShift(recipe: AutoDevelop.recipe(for: probe, stats: stats))
     }
 
     /// One stop of exposure walks the histogram four bins; shadows barely move it.

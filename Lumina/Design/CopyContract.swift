@@ -117,7 +117,44 @@ enum CopyContract {
     static let bodyNotYetSupported = "body not yet supported"
     /// Locked video presence row — sequence continuity without unlocking playback.
     static let videoNotOpenedYet = "video · not opened yet"
+
+    // MARK: - Chat-2 keyboard set / phone
+
+    static let inSetOff = "in set?"
+    static let inSetOn = "in set"
+    static let phoneOff = "phone?"
+    static let phoneOn = "phone"
+    static let setMembershipKey = "S"
+    static let phoneMarkKey = "H"
+
+    // MARK: - Set shelf
+
+    static let setShelfLabel = "set"
+    static let setShelfExposureLine = "the handful for exposure"
+    static let setShelfEditedFact = "edited"
+    static let addToSet = "add"
+
+    // MARK: - Chat-4 note + Develop rail
+
+    static let developSpineLabel = "Develop"
+    static let developGroupTone = "Tone"
+    static let developGroupColor = "Color"
+    static let developGroupDetail = "Detail"
+    static let developGroupCrop = "Crop"
+    static let developGroupCycleKeys = "[ ]"
+    static let developAutoKey = "A"
+    static let developRotateKey = "R"
+    static let developVariationTone = "tone"
+    static let developVariationLift = "lift"
+    static let developVariationPunch = "punch"
+    static let developReset = "reset"
+    static let developResetKey = "1"
+    static let developApplying = "applying…"
+    static let developLooksHint = "looks · pick one · Esc cancels"
+    static let noteFloaterLabel = "note"
+    static let noteFloaterPlaceholder = "a note for this photograph"
 }
+
 
 // MARK: - Snapshot builder (ONE count source for A1)
 

@@ -347,7 +347,7 @@ private struct OpenShootPlate: View {
         case .resume: HiFiTokens.Layout.openResumePlateMinHeight
         case .lead: 188
         case .larger: HiFiTokens.Layout.recentShootLargerHeight
-        case .smaller: 120
+        case .smaller: HiFiTokens.Layout.openCardMinTarget
         }
     }
 

@@ -41,18 +41,19 @@ struct ElasticTableView: View {
     // MARK: - Moments
 
     private var showsChronologyBar: Bool {
-        session.peek != .set && !session.chapters.isEmpty
+        !session.chapters.isEmpty
     }
 
     private var momentScroll: some View {
         GeometryReader { viewport in
           ScrollViewReader { proxy in
-            VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 0) {
                 if showsChronologyBar {
-                    // CHRON-02 — pinned markers; click reveals chapter without moving focus.
+                    // CHRON-02 — vertical progress axis; click reveals chapter without moving focus.
                     ElasticChronologyBar(
                         chapters: session.chapters,
                         activeID: session.chronologyViewportChapterID,
+                        orientation: .vertical,
                         navigate: { id in proxy.scrollTo(id, anchor: .top) }
                     )
                 }

@@ -74,6 +74,20 @@ extension P0SessionModel {
         walkingKeptRail = false
     }
 
+    /// Open the set as a pinned peek on the table so the handful is visible, then
+    /// a photograph can be opened for further edits. Empty set is a no-op.
+    func revealSet() {
+        guard !finalSetAssetIDs.isEmpty else { return }
+        if route == .focus {
+            closeInspection()
+        }
+        if peek != .set {
+            peekOpenedAt = CFAbsoluteTimeGetCurrent()
+            applyPeek(.set)
+        }
+        peekPinned = true
+    }
+
     /// `⇥` came back up. A tap pins; a hold returns.
     func releasePeekKey(at now: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()) {
         guard peek != nil, !peekPinned else { return }
@@ -247,7 +261,7 @@ extension P0SessionModel {
                 facts: isCursor ? "cursor" : "",
                 isCursor: isCursor,
                 ringed: isCursor,
-                outlined: false
+                outlined: true
             )
         }
     }

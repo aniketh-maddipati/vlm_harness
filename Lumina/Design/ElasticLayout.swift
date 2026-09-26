@@ -162,9 +162,9 @@ enum ElasticLayout {
 
     // MARK: - Focus route
 
-    static let photoPaddingTop = HiFiTokens.Gap.spacingLg
-    static let photoPaddingBottom: CGFloat = 12
-    static let photoRowGap = HiFiTokens.Gap.spacingMd
+    static let photoPaddingTop = HiFiTokens.Gap.spacingXs
+    static let photoPaddingBottom = HiFiTokens.Gap.spacingXs
+    static let photoRowGap = HiFiTokens.Gap.spacingSm
     static let photoRadius = HiFiTokens.Grid.photoRadiusLarge
     static let photoShadowY = HiFiTokens.Elastic.photoShadowY
     /// CSS blur is a diameter; SwiftUI's shadow radius is half of it.
@@ -188,6 +188,8 @@ enum ElasticLayout {
     static let histogramSize = CGSize(width: HiFiTokens.Elastic.histogramWidth, height: 30)
     static let histogramViewHeight = HiFiTokens.Elastic.histogramViewHeight
     static let histogramFillOpacity: Double = 0.75
+    static let histogramShotOpacity = drawerMutedOpacity
+    static let histogramAutoOpacity = momentSecondaryOpacity
     static let clipTickWidth = HiFiTokens.Elastic.clipTickWidth
 
     /// SVG user space: `viewBox="0 0 64 20"` drawn into a 96×30 box. One bin every
@@ -202,15 +204,20 @@ enum ElasticLayout {
     /// The right tick sits flush inside the viewBox, the left one flush outside 0.
     static let clipTickRight = histogramViewWidth - clipTickWidth
 
-    static let filmstripHeight: CGFloat = 92
+    /// Focused strip tile uses the open-burst photograph width; neighbours stay at the
+    /// former focused size so the cursor is clearly larger.
     static let filmstripFocusedTile = CGSize(
+        width: tileInOpenBurst,
+        height: tileInOpenBurst / tileAspect
+    )
+    static let filmstripTile = CGSize(
         width: HiFiTokens.Elastic.filmstripFocusedWidth,
         height: HiFiTokens.Elastic.filmstripFocusedHeight
     )
-    static let filmstripTile = CGSize(
-        width: 72,
-        height: HiFiTokens.Elastic.filmstripTileHeight
-    )
+    static let filmstripHeight = filmstripFocusedTile.height
+        + HiFiTokens.Gap.spacingXs
+        + focusRingWidth
+        + focusRingHaloWidth
     static let filmstripMomentGap = HiFiTokens.Grid.sceneGap
     static let filmstripGap = HiFiTokens.Grid.burstGap
     static let filmstripFillOpacity = HiFiTokens.Elastic.stripFillOpacity
@@ -218,7 +225,9 @@ enum ElasticLayout {
     static let stripLabelSize = HiFiTokens.Typography.chipSize
     static let stripLabelLineHeight = HiFiTokens.Elastic.stripLabelLineHeight
     static let stripLabelOpacity: Double = 0.8
-    static let developDrawerWidth: CGFloat = 256
+    /// Always-on inspect rail — a quarter of the min window, wide enough for Lightroom sliders.
+    static let developDrawerWidth = HiFiTokens.Layout.minWindowWidth / 4
+    static let developRailWidth = developDrawerWidth
 
     // MARK: - Marks
 
@@ -263,7 +272,7 @@ enum ElasticLayout {
     static let peekFillOpacity: Double = 0.94
     static let peekRuleOpacity: Double = 0.15
     /// Tiles: 150 in the set peek; in similar, 170 for a neighbour and 220 for the cursor.
-    static let peekSetTile: CGFloat = 150
+    static let peekSetTile = tile
     static let peekRelatedTile: CGFloat = 170
     static let peekCursorTile = HiFiTokens.Elastic.peekCursorTileWidth
     static let peekTileRadius = HiFiTokens.Grid.photoRadiusLarge
@@ -296,6 +305,10 @@ enum ElasticLayout {
     static let shelfDropRingWidth: CGFloat = 2
     static let shelfDropRingInset: CGFloat = 2
     static let shelfDropRingDash: [CGFloat] = [6, 4]
+    /// How far a just-landed shelf tile grows before it settles.
+    static var shelfLandScale: CGFloat {
+        1 + HiFiTokens.Ring.selectionFocusWidth / HiFiTokens.Elastic.filmstripTileHeight
+    }
 
     // MARK: - Develop drawer (`data-screen-label="Develop"`)
 
@@ -373,7 +386,10 @@ enum ElasticLayout {
     static let groupsReasonOpacity: Double = 0.9
     static let groupsTakeOpacity: Double = 0.65
     /// Frames in a row: `96×64`, radius 3, 3 apart; untaken ones at half strength.
-    static let groupsFrame = filmstripFocusedTile
+    static let groupsFrame = CGSize(
+        width: HiFiTokens.Elastic.filmstripFocusedWidth,
+        height: HiFiTokens.Elastic.filmstripFocusedHeight
+    )
     static let groupsFrameGap = HiFiTokens.Grid.burstGap
     static let groupsFrameRadius = HiFiTokens.Grid.photoRadiusThumb
     static let groupsUntakenOpacity = HiFiTokens.Elastic.groupsUntakenOpacity
@@ -391,4 +407,117 @@ enum ElasticLayout {
     static let flagChipPaddingH = HiFiTokens.Gap.spacingXs
     static let flagChipPaddingV: CGFloat = 2
     static let flagChipRadius: CGFloat = 4
+
+    // MARK: Chat-3 set shelf
+
+    /// Larger than the 72×48 filmstrip thumb — the shelf is the only exposure set.
+    static let shelfTileV2 = CGSize(
+        width: HiFiTokens.Elastic.filmstripFocusedWidth,
+        height: HiFiTokens.Elastic.filmstripFocusedHeight
+    )
+    /// Quiet note line under a set-shelf tile (Chat-4); height includes this so notes are not clipped.
+    static let shelfNoteGap: CGFloat = 4
+    static let shelfNoteSize: CGFloat = 10.5
+    static let shelfNoteOpacity: Double = 0.7
+    /// Same vertical padding as the old 64 pt band, around the larger tiles, plus
+    /// room for the quiet note line under a shelf thumb.
+    static let setShelfHeightV2 =
+        HiFiTokens.Elastic.filmstripFocusedHeight
+        + (HiFiTokens.Elastic.setShelfHeight - HiFiTokens.Elastic.filmstripTileHeight)
+        + shelfNoteGap
+        + shelfNoteSize * systemLineHeight
+    static let shelfExposureLineSize: CGFloat = 13
+    static let shelfExposureLineOpacity: Double = 0.85
+    static let shelfEditedFactSize = HiFiTokens.Elastic.groupsTagTextSize
+    static let shelfEditedFactPaddingH: CGFloat = 5
+    static let shelfEditedFactPaddingV: CGFloat = 1
+    static let shelfEditedFactRadius: CGFloat = 3
+    static let shelfEditedFactOpacity: Double = 0.85
+    static let shelfEditedFactInset: CGFloat = 4
+
+    // MARK: - Keyboard set chrome
+    // Set/phone action buttons left the photograph tiles; key pills reuse the
+    // existing export key-pill metrics (`keyPillSize` / padding / radius / opacity).
+    // Region cycle and selection chords introduce no new layout numbers.
+
+    /// Focus-route table band: filmstrip tiles plus the horizontal chron axis when shown.
+    static var focusFilmstripBandHeight: CGFloat {
+        filmstripHeight + ChronAxis.horizontalBreadth
+    }
+
+    // MARK: - Chron axis
+
+    /// Progress-bar chronology navigator (CHRON-02 / Chat 1). Numbers live here so Views stay literal-free.
+    enum ChronAxis {
+        /// Vertical track breadth beside the table scroll.
+        static let verticalBreadth: CGFloat = 88
+        /// Horizontal track height (pinned bar / filmstrip band).
+        static let horizontalBreadth = HiFiTokens.Hit.minimum
+        static let trackThickness: CGFloat = 2
+        static let trackInset = HiFiTokens.Gap.spacingXs
+        static let trackOpacity: Double = 0.35
+        static let progressOpacity = HiFiTokens.Motion.developReveal
+        static let nodeSize: CGFloat = 8
+        static let nodeActiveSize: CGFloat = 12
+        static let tickMinorLength = nodeSize
+        static let tickMajorLength = nodeActiveSize
+        static let tickWidth = trackThickness
+        /// Floor between nodes in points; converted to axis units via `referenceAxisLength`.
+        static let minNodeGap = HiFiTokens.Gap.workspaceMargin
+        /// Default axis length used to turn `minNodeGap` into a unit fraction in layout math/tests.
+        static let referenceAxisLength: CGFloat = 400
+        static let labelSize = HiFiTokens.Typography.exifSize
+        static let labelGap = HiFiTokens.Gap.spacingXs
+        static let verticalLabelWidth = HiFiTokens.Elastic.stripLabelWidth
+        static let endPadding = HiFiTokens.Gap.spacingMd
+        static let labelOpacity = momentSecondaryOpacity
+        static let labelMinScale: CGFloat = 0.75
+        /// Span under this → second-level labels and order spacing.
+        static let shortWindowSeconds: TimeInterval = 3 * 60
+        /// One minute / one hour as axis windows. `shortWindowSeconds` is three minutes.
+        static let minuteSeconds: TimeInterval = shortWindowSeconds / 3
+        static let hourSeconds: TimeInterval = minuteSeconds * 60
+        static let daySeconds: TimeInterval = hourSeconds * TimeInterval(HiFiTokens.Gap.spacingLg)
+        /// Tick steps: ten-second, five-minute. `spacingSm` is 10; 5 is an excluded small index.
+        static let secondTick: TimeInterval = TimeInterval(HiFiTokens.Gap.spacingSm)
+        static let minuteTick: TimeInterval = minuteSeconds * 5
+        static let scaleMin: CGFloat = 0.75
+        static let scaleMax: CGFloat = 4
+        /// Unit length of one viewport along the axis (positions are in these units).
+        static let unitLength: CGFloat = 1
+
+        /// Minimum node separation in viewport-length units.
+        static var floorGap: CGFloat { minNodeGap / referenceAxisLength }
+    }
+
+    // MARK: Chat-4 note floater + sticky Develop
+
+    /// Narrow always-on Develop spine; expands to the calmer drawer width.
+    static let developSpineWidth = ChronAxis.verticalBreadth
+    static let developSpineGap = chipRadius
+    static let developSpinePaddingH = HiFiTokens.Gap.spacingSm
+    static let developSpinePaddingV = drawerPaddingV
+    /// Calmer expanded drawer — photo-focus motion duration reused as width points.
+    static let drawerWidthChat4 = CGFloat(HiFiTokens.Motion.photoFocusMs)
+    static let drawerPaddingVChat4 = HiFiTokens.Layout.chapterDotRestTop
+    static let drawerPaddingHChat4 = HiFiTokens.Gap.spacingMd
+    static let drawerGapChat4 = HiFiTokens.Gap.spacingSm
+    static let drawerSectionTopChat4 = drawerPaddingV
+    static let drawerSliderHeightChat4 = HiFiTokens.Layout.thumbAdjusting
+    static let drawerRowMinHeightChat4 = HiFiTokens.Gap.workspaceMargin
+
+    /// Fading note near the photograph — not stuck to the frame.
+    static let noteFloaterWidth = CGFloat(HiFiTokens.Motion.routeTransitionMs)
+    static let noteFloaterPadding = drawerPaddingV
+    static let noteFloaterGap = chipRadius
+    static let noteFloaterRadius = drawerRadius
+    static let noteFloaterFillOpacity: Double = 0.92
+    static let noteFloaterLabelSize = HiFiTokens.Typography.chipSize
+    static let noteFloaterTextSize = drawerTitleSize
+    static let noteFloaterInsetTop = autoHeight
+    static let noteFloaterInsetTrailing = HiFiTokens.Gap.workspaceMargin
+    static let noteFloaterSwipeMinimum = HiFiTokens.Elastic.markSize
+    static let noteFloaterSwipeDismiss = HiFiTokens.Elastic.filmstripTileHeight
+    static let bornNoteFloaterMs = HiFiTokens.Motion.travelMs
 }
+
