@@ -24,14 +24,15 @@ Lumina/Design/StagingCopyContext.swift A1Invariant
 # owned-by-CP7 — PropagationRing helper
 Lumina/Design/StagingCopyContext.swift PropagationRing
 # owned-by-CP4 — legacy component — retire or wire on P0
-Lumina/Views/Components/FloatingDecisionShelf.swift FloatingDecisionShelf
-Lumina/Views/Components/FloatingDecisionShelf.swift FloatingShelfButtonStyle
 # owned-by-CP8 — Law 3 facts chip — wire on P0 failure paths (W7)
 Lumina/Views/Components/RecoveryFactsChip.swift RecoveryFactsChip
 # owned-by-CP4 — legacy component — retire or wire on P0
 Lumina/Views/Components/StablePhotoView.swift StableThumbView
-Lumina/Views/Components/SwimLaneContainer.swift DockedChipLaneDropModifier
-Lumina/Views/Components/WorkspaceChrome.swift AttemptFilmstrip
-Lumina/Views/Components/WorkspaceChrome.swift GroupRelationshipCaption
-Lumina/Views/Components/WorkspaceChrome.swift LensSwitcher
-Lumina/Views/Components/WorkspaceChrome.swift LuminaCard
+# owned-by-CP4 — stranded when the legacy shell was deleted — retire or wire on P0
+Lumina/Design/LuminaHaptics.swift LuminaHaptics
+Lumina/Design/StagingCopyContext.swift StagingCopySnapshot
+Lumina/Design/TableLayout.swift TableLayout
+Lumina/Views/Components/StablePhotoView.swift SpineActiveStage
+Lumina/Views/Components/StablePhotoView.swift StablePhotoView
+Lumina/Core/PropagationState.swift PropagationState
+Lumina/Core/TablePhotographSelection.swift TablePhotographSelection

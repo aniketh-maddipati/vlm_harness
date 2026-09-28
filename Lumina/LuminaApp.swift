@@ -17,7 +17,6 @@ struct LuminaApp: App {
             ProductPerformanceRecording.shared.start()
         }
         #if !LUMINA_SHIPPING_APP
-        WorkbenchCapture.runIfRequested()
         // Headless harnesses exit inside the runner.
         _ = RawHarnessRunner.runIfRequested()
         _ = RamTierHarnessRunner.runIfRequested()
@@ -100,6 +99,8 @@ private func launchWindowMinimum() -> CGSize {
 
 extension Notification.Name {
     static let luminaImportRAW = Notification.Name("luminaImportRAW")
+    static let luminaShowShortcuts = Notification.Name("lumina.showShortcuts")
+    static let luminaGoHome = Notification.Name("lumina.goHome")
     static let luminaImportJPG = Notification.Name("luminaImportJPG")
     static let luminaSetLensAttempts = Notification.Name("lumina.setLensAttempts")
     static let luminaSetLensLight = Notification.Name("lumina.setLensLight")

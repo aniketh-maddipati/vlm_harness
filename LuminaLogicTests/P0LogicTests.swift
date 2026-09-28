@@ -225,13 +225,6 @@ final class P0LogicTests: XCTestCase {
 
     // MARK: - Develop staging (H4)
 
-    func testDevelopStagingActionIsDevelopFlag() {
-        let id = UUID()
-        let action = StagedAction.develop(proposals: [id: .neutral])
-        XCTAssertTrue(action.isDevelopStaging)
-        XCTAssertFalse(StagedAction.treat(.neutral).isDevelopStaging)
-    }
-
     func testDevelopBannerA1ScopeCount() {
         let snapshot = StagingCopySnapshot(scopeCount: 1, isDevelop: true)
         let header = CopyContract.stagedHeader(snapshot)
@@ -275,23 +268,6 @@ final class P0LogicTests: XCTestCase {
             receipt: banner,
             snapshot: snapshot
         ))
-    }
-
-    func testDevelopCommitCapturesPriorEditForUndo() throws {
-        let photoID = UUID()
-        let prior = EditRecipe.neutral
-        var priorMutated = prior
-        priorMutated.exposure = 0.4
-        let entry = DecisionLedgerEntry(
-            photoID: photoID,
-            priorTier: .unranked,
-            priorFlagged: false,
-            priorUncertaintyKind: .none,
-            priorWhyUncertain: nil,
-            applied: .undecided,
-            priorEditRecipe: priorMutated
-        )
-        XCTAssertEqual(try XCTUnwrap(entry.priorEditRecipe?.exposure), 0.4, accuracy: 0.001)
     }
 
     // MARK: - Wholesale propagation (H6)

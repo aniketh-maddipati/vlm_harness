@@ -166,52 +166,8 @@ enum CopyContractBuilder {
         return formatter
     }()
 
-    static func referenceFrameNumber(from filename: String?) -> String {
-        guard let filename else { return "8288" }
-        let digits = filename.filter(\.isNumber)
-        if digits.count >= 4 { return String(digits.suffix(4)) }
-        return digits.isEmpty ? "8288" : digits
-    }
-
     static func laneTimestamp(from date: Date?) -> String {
         guard let date else { return "18:17" }
         return laneTimeFormatter.string(from: date)
-    }
-
-    static func snapshot(
-        from selection: WorkbenchSelection,
-        presentation: WorkspacePresentation,
-        model: ProjectViewModel,
-        excludedCount: Int? = nil,
-        ring: PropagationRing? = nil,
-        isDevelop: Bool = false
-    ) -> StagingCopySnapshot? {
-        if let propagation = selection.propagation, selection.staged?.isTreatStaging == true {
-            let scope = propagation.resolvedScope(presentation: presentation, model: model)
-            guard !scope.memberIDs.isEmpty else { return nil }
-            let group = presentation.groups.first { $0.id == propagation.referenceGroupID }
-            let rowIndex = (presentation.groups.firstIndex { $0.id == propagation.referenceGroupID }).map { $0 + 1 } ?? 1
-            return StagingCopySnapshot(
-                scopeCount: scope.memberIDs.count,
-                excludedCount: excludedCount ?? scope.excludedCount,
-                rowIndex: rowIndex,
-                laneTimestamp: laneTimestamp(from: group?.timeStart),
-                referenceFrameNumber: propagation.referenceFrame,
-                ring: ring ?? propagation.ring,
-                isDevelop: false
-            )
-        }
-        guard !selection.ids.isEmpty else { return nil }
-        let group = presentation.selectedGroup
-        let rowIndex = (presentation.groups.firstIndex { $0.id == group?.id }).map { $0 + 1 } ?? 1
-        return StagingCopySnapshot(
-            scopeCount: selection.count,
-            excludedCount: excludedCount ?? 0,
-            rowIndex: rowIndex,
-            laneTimestamp: laneTimestamp(from: group?.timeStart),
-            referenceFrameNumber: referenceFrameNumber(from: group?.representative?.filename),
-            ring: ring ?? .row,
-            isDevelop: isDevelop
-        )
     }
 }

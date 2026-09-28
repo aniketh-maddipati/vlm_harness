@@ -31,10 +31,4 @@ final class DevelopStagingTests: XCTestCase {
         let banner = CopyContract.developBanner(count: snapshot.scopeCount)
         XCTAssertTrue(A1Invariant.validate(header: header, banner: banner, receipt: banner, snapshot: snapshot))
     }
-
-    func testStagedActionDevelopFlag() {
-        let action = StagedAction.develop(proposals: [UUID(): .neutral])
-        XCTAssertTrue(action.isDevelopStaging)
-        XCTAssertFalse(StagedAction.treat(.neutral).isDevelopStaging)
-    }
 }

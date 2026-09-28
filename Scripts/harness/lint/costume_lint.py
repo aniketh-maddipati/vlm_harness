@@ -34,9 +34,7 @@ EXCLUDED_DIRS = {"Testing", "Workbench"}
 
 # ---------------------------------------------------------------------------
 # Clause 2 — workbench symbols that may never appear outside #if DEBUG.
-# Exact names only: the tree already has unrelated legacy "Workbench*" types
-# (WorkbenchCapture, WorkbenchShelf, WorkbenchSelection) fenced by
-# #if !LUMINA_SHIPPING_APP, and they are not this session's to police.
+# Exact names only, so unrelated "Workbench*" names elsewhere never match.
 # ---------------------------------------------------------------------------
 WORKBENCH_SYMBOLS = (
     "Inject",
