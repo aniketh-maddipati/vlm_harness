@@ -186,7 +186,6 @@ final class ProgressiveRenderingArchitectureTests: XCTestCase {
             "Lumina/Views/Components/StablePhotoView.swift",
             "Lumina/Views/ProgressivePhotoWall.swift",
             "Lumina/Views/MetalBrowseCanvas.swift",
-            "Lumina/ViewModels/ProjectViewModel.swift",
         ] {
             let interactiveSource = try source(path)
             XCTAssertTrue(

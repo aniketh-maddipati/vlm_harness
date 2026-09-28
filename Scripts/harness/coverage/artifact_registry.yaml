@@ -48,7 +48,6 @@ entries:
     logic:
       - CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn
       - CullGrammarTests.testD11D13_shiftReturnKeyDownWithoutReleaseDoesNotCommit
-      - CommandChordTests.testHeldReturnCannotDoubleCommit
     lint:
       - grammar_oracle_parity
       - grammar_oracle_unit
@@ -56,7 +55,6 @@ entries:
   D13:
     logic:
       - CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn
-      - CommandChordTests.testHeldReturnCannotDoubleCommit
       - ShootDecisionJournalTests.testD13_stagingSurfaceAbsentFromJournalAPI
       - P0JournalIntegrationTests.testD13_editGestureStagingNotJournaledUntilCommit
       - ShootCrashRecoveryTests.testD13_stagedScopeGoneAfterCrashRecovery
@@ -191,7 +189,6 @@ entries:
   D60:
     logic:
       - CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn
-      - CommandChordTests.testHeldReturnCannotDoubleCommit
     lint:
       - copy_contract_diff
       - contract_v6_presence

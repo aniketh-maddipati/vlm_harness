@@ -12,8 +12,8 @@ import ImageIO
 /// targets from neutral — callers convert to offsets against the base recipe.
 ///
 /// Not the Elastic engine: `AutoDevelop` (Lumina/Develop) owns the deterministic,
-/// stats-in/recipe-out pass that `RecipeSource.auto` refers to. This type stays
-/// only while `LuminaShellModel` and `Views/Workspace/*` still compile.
+/// stats-in/recipe-out pass that `RecipeSource.auto` refers to. This type backs
+/// `VisionAssist` and `DevelopProposalEngine`.
 nonisolated enum HistogramAutoTone {
     struct Suggestion: Sendable {
         var exposure: Double      // stops

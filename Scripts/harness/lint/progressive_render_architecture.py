@@ -125,9 +125,6 @@ FORBIDDEN: dict[str, tuple[str, ...]] = {
     "Lumina/Views/MetalBrowseCanvas.swift": (
         "MetalPreviewPool.shared.scheduleUpload",
     ),
-    "Lumina/ViewModels/ProjectViewModel.swift": (
-        "PhotoImageCache.shared",
-    ),
 }
 
 

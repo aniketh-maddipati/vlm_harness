@@ -258,8 +258,7 @@
       ],
       "logic": [
         "CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn",
-        "CullGrammarTests.testD11D13_shiftReturnKeyDownWithoutReleaseDoesNotCommit",
-        "CommandChordTests.testHeldReturnCannotDoubleCommit"
+        "CullGrammarTests.testD11D13_shiftReturnKeyDownWithoutReleaseDoesNotCommit"
       ],
       "flow": [],
       "golden": [],
@@ -296,7 +295,6 @@
       ],
       "logic": [
         "CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn",
-        "CommandChordTests.testHeldReturnCannotDoubleCommit",
         "ShootDecisionJournalTests.testD13_stagingSurfaceAbsentFromJournalAPI",
         "P0JournalIntegrationTests.testD13_editGestureStagingNotJournaledUntilCommit",
         "ShootCrashRecoveryTests.testD13_stagedScopeGoneAfterCrashRecovery"
@@ -1105,8 +1103,7 @@
         "seed_script_schema"
       ],
       "logic": [
-        "CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn",
-        "CommandChordTests.testHeldReturnCannotDoubleCommit"
+        "CullGrammarTests.testD11D13_releaseNeverCommitsHeldReturn"
       ],
       "flow": [],
       "golden": [],

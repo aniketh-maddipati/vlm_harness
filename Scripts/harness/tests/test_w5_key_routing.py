@@ -8,7 +8,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 OWNER = ROOT / "Lumina" / "Views" / "P0" / "P0KeyRoutingModifier.swift"
-LEGACY = ROOT / "Lumina" / "Views" / "Workspace" / "CommandHandlingModifier.swift"
 LADDER = ROOT / "Lumina" / "Views" / "P0" / "P0EscLadder.swift"
 P0_VIEWS = ROOT / "Lumina" / "Views" / "P0"
 
@@ -18,10 +17,9 @@ class KeyRoutingTests(unittest.TestCase):
         text = OWNER.read_text(encoding="utf-8")
         self.assertIn("Sole owner of P0 live-path", text)
 
-    def test_legacy_owner_not_p0_live_path(self) -> None:
-        text = LEGACY.read_text(encoding="utf-8")
-        self.assertIn("not on the P0 live path", text)
-        self.assertNotIn("Sole owner of workspace", text)
+    def test_legacy_key_owner_is_deleted(self) -> None:
+        legacy = ROOT / "Lumina" / "Views" / "Workspace" / "CommandHandlingModifier.swift"
+        self.assertFalse(legacy.exists(), "the legacy workspace key owner came back")
 
     def test_p0_views_have_no_on_key_press(self) -> None:
         hits: list[str] = []
