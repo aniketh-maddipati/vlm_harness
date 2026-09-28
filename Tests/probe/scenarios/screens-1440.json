@@ -155,7 +155,7 @@
   {
    "do": "key",
    "k": "2",
-   "settleMs": 600
+   "settleMs": 1500
   },
   {
    "do": "snap",

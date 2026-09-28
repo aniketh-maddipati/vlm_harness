@@ -81,6 +81,13 @@ function exportPlan(target,shoot,items){
   if(target==='jpg'||target==='both') items.forEach(it=>out.push({path:jpg+it.file.replace(/\.[^.]+$/,'')+'.jpg',kind:'jpg'}));
   return out; }
 
-const LuminaCore={parseHead,measure,crc32,zip,mergeXmp,freshXmp,hasDevelop,buildShoot,exportPlan};
+// The look of an edit. Prototype applies this as a CSS filter; the app must apply the SAME maths
+// to the RAW render (default settings) for 100% view and JPEG export, so export = what Edit showed.
+// brightness(b) = multiply RGB by b · contrast(c) = (x-0.5)*c+0.5 · sepia/hue-rotate = CSS Filter Effects spec matrices.
+// Input: {Exposure, Contrast, Highlights, Shadows, Temp}. Output: CSS filter string.
+function editFilter(r){ if(!r) return 'none'; const E=r.Exposure||0,C=r.Contrast||0,Hi=r.Highlights||0,Sh=r.Shadows||0,T=r.Temp??6500, f=[];
+    const b=Math.pow(2,E*0.6+Sh*0.002+Hi*0.0008), c=1+C/100-Sh*0.002; f.push('brightness('+(b*(1+(r._e||0))).toFixed(3)+')','contrast('+c.toFixed(3)+')');
+    const dT=(T-6500)/1500; f.push(dT>0?'sepia('+Math.min(0.5,dT*0.45).toFixed(3)+')':'hue-rotate('+(dT*18).toFixed(1)+'deg)'); if(r._b) f.push('blur('+r._b+'px)'); return f.join(' '); }
+const LuminaCore={editFilter,parseHead,measure,crc32,zip,mergeXmp,freshXmp,hasDevelop,buildShoot,exportPlan};
 g.LuminaCore=LuminaCore; if(typeof module!=='undefined'&&module.exports) module.exports=LuminaCore;
 })(typeof window!=='undefined'?window:globalThis);

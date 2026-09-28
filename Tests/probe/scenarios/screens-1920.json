@@ -1,10 +1,10 @@
 {
  "page": "Lumina Sets v3.dc.html",
  "size": [
-  924,
-  540
+  1920,
+  1080
  ],
- "scale": 1,
+ "scale": 2,
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
  "steps": [
@@ -155,7 +155,7 @@
   {
    "do": "key",
    "k": "2",
-   "settleMs": 600
+   "settleMs": 1500
   },
   {
    "do": "snap",

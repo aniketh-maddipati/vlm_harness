@@ -29,13 +29,13 @@ status=0
 run() { "$PROBE" run "$@" --out "$OUT" ${extra[@]+"${extra[@]}"} || status=1; }
 
 reference() {
-  run "$S/screens-924.json" "$S/screens-1440.json" "$S/smoke.json" "$S/keys-open-return.json"
+  run "$S/screens-1920.json" "$S/screens-1440.json" "$S/smoke.json" "$S/keys-open-return.json"
   local manifest=Tests/probe/reference/manifest.json now="$OUT/manifest.json"
   python3 - "$OUT" "$now" <<'EOF'
 import hashlib, json, os, platform, subprocess, sys
 out, dest = sys.argv[1], sys.argv[2]
 files = {}
-for suite in ("screens-924", "screens-1440"):
+for suite in ("screens-1920", "screens-1440"):
     d = os.path.join(out, suite)
     for f in sorted(os.listdir(d)):
         if f.endswith(".png") or f.endswith(".state.json"):
