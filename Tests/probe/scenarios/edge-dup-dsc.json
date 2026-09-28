@@ -1,0 +1,42 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1280,
+  800
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Duplicate DSC numbers \u2192 never overwritten (both photos kept, distinct sidecar paths)",
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_FIXTURE_ROOT}/dup-dsc",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().state.realInfo)"
+  },
+  {
+   "do": "js",
+   "src": "const d=__probe.logic().data;return d.M.map(m=>m.groups.map(g=>g.kind[0]+g.frames.length).join(' ')).join(' | ')"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "snap",
+   "name": "loaded"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.realInfo.n",
+   "equals": 2
+  },
+  {
+   "do": "expect",
+   "js": "const d=__probe.logic().data;const x=Object.values(d.byId).map(p=>p.xpath); return new Set(x).size===x.length"
+  }
+ ]
+}

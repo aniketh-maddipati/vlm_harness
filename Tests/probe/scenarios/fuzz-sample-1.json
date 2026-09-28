@@ -1,0 +1,37 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1280,
+  800
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "budgets": {
+  "webPeakMB": 1500
+ },
+ "steps": [
+  {
+   "do": "key",
+   "k": "1",
+   "settleMs": 400
+  },
+  {
+   "do": "fuzz",
+   "seed": 1,
+   "count": 1500,
+   "gapMs": [
+    0,
+    25
+   ],
+   "checkEvery": 20,
+   "mouseRate": 0.08
+  },
+  {
+   "do": "snap",
+   "name": "end"
+  },
+  {
+   "do": "state",
+   "name": "end"
+  }
+ ]
+}

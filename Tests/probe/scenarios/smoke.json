@@ -1,0 +1,59 @@
+{
+  "page": "Lumina Sets v3.dc.html",
+  "size": [
+    924,
+    540
+  ],
+  "clock": "2026-09-08T14:30:00",
+  "steps": [
+    {
+      "do": "wait",
+      "ms": 1500
+    },
+    {
+      "do": "snap",
+      "name": "open"
+    },
+    {
+      "do": "key",
+      "k": "1"
+    },
+    {
+      "do": "expect",
+      "js": "return __probe.logic().state.view",
+      "equals": "cull"
+    },
+    {
+      "do": "wait",
+      "ms": 800
+    },
+    {
+      "do": "snap",
+      "name": "cull"
+    },
+    {
+      "do": "key",
+      "k": "ArrowDown"
+    },
+    {
+      "do": "key",
+      "k": "r"
+    },
+    {
+      "do": "state",
+      "name": "after-r"
+    },
+    {
+      "do": "key",
+      "k": "3"
+    },
+    {
+      "do": "wait",
+      "ms": 800
+    },
+    {
+      "do": "snap",
+      "name": "export"
+    }
+  ]
+}

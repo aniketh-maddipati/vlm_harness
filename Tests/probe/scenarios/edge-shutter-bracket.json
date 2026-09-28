@@ -1,0 +1,80 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1280,
+  800
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Shutter-only bracket (no EV comp) \u2192 split/merge fixes it",
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_FIXTURE_ROOT}/shutter-bracket",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().state.realInfo)"
+  },
+  {
+   "do": "js",
+   "src": "const d=__probe.logic().data;return d.M.map(m=>m.groups.map(g=>g.kind[0]+g.frames.length).join(' ')).join(' | ')"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "snap",
+   "name": "loaded"
+  },
+  {
+   "do": "expect",
+   "js": "const d=__probe.logic().data;return Object.values(d.G).map(g=>g.kind+g.frames.length)",
+   "equals": [
+    "burst3"
+   ]
+  },
+  {
+   "do": "key",
+   "k": "1",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "b",
+   "settleMs": 500
+  },
+  {
+   "do": "expect",
+   "js": "const d=__probe.logic().data;return Object.keys(d.G).length",
+   "equals": 2
+  },
+  {
+   "do": "key",
+   "k": "B",
+   "settleMs": 500
+  },
+  {
+   "do": "expect",
+   "js": "const d=__probe.logic().data;return Object.keys(d.G).length",
+   "equals": 1
+  }
+ ]
+}
