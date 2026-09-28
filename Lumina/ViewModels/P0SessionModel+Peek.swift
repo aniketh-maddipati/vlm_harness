@@ -74,6 +74,20 @@ extension P0SessionModel {
         walkingKeptRail = false
     }
 
+    /// Open the set as a pinned peek on the table so the handful is visible, then
+    /// a photograph can be opened for further edits. Empty set is a no-op.
+    func revealSet() {
+        guard !finalSetAssetIDs.isEmpty else { return }
+        if route == .focus {
+            closeInspection()
+        }
+        if peek != .set {
+            peekOpenedAt = CFAbsoluteTimeGetCurrent()
+            applyPeek(.set)
+        }
+        peekPinned = true
+    }
+
     /// `⇥` came back up. A tap pins; a hold returns.
     func releasePeekKey(at now: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()) {
         guard peek != nil, !peekPinned else { return }
@@ -247,7 +261,7 @@ extension P0SessionModel {
                 facts: isCursor ? "cursor" : "",
                 isCursor: isCursor,
                 ringed: isCursor,
-                outlined: false
+                outlined: true
             )
         }
     }
@@ -356,14 +370,16 @@ extension P0SessionModel {
         selectedAssetIDs = []
     }
 
-    /// Whole-plate click on the table. Unfocused plates travel. A second press on
-    /// the focused plate is the D47 keep door — same grammar as `P`, including
-    /// same-mark-clears and advance. ⇧ and ⌘ still only move the cursor / range.
+    /// Photo clicks change transient selection only. Keep remains an explicit
+    /// command outside the image; opening a photo never changes the kept set.
     func clickTablePlate(_ id: UUID, shift: Bool, command: Bool) {
-        if !shift && !command && focusedAssetID == id {
-            pointerMarkKeep()
+        guard assetIndex(id) != nil else { return }
+        if shift || command {
+            clickFrame(id, shift: shift, command: command)
             return
         }
-        clickFrame(id, shift: shift, command: command)
+        let wasSelected = selectedAssetIDs.contains(id)
+        clickFrame(id, shift: false, command: false)
+        selectedAssetIDs = wasSelected ? [] : [id]
     }
 }

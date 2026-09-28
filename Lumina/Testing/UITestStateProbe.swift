@@ -48,12 +48,12 @@ struct ProbeSnapshot: Codable, Equatable {
     var focusedOrientedIsPortrait: Bool? = nil
     /// Currently presented CIImage aspect class. Must match `focusedOrientedIsPortrait` when both set.
     var focusedPresentedIsPortrait: Bool? = nil
-    /// D47/A3 — pointer cull mark targets visible on the focused contact-sheet frame.
+    /// PHOTO-SELECT-01 — off-photo burst commands available for table selection.
     var pointerCullTargetsVisible: Bool
-    /// Elastic pointer reject — settled `out` on the focused run (table or inspect).
+    /// Off-photo Reject command available for a selected burst or inspected photo.
     var elasticOutVisible: Bool = false
     var inspectingAssetID: String?
-    /// Persistent selection membership. Pointer travel must not write this (Law 1 / D29).
+    /// Transient photo selection, separate from persistent kept-set membership.
     var selectedAssetIDs: [String]
     var missingOriginalCount: Int
     var previewReadyCount: Int
@@ -192,8 +192,9 @@ extension P0SessionModel {
                 }
                 return extent.width + 1 < extent.height
             },
-            pointerCullTargetsVisible: false,
-            elasticOutVisible: focusedAssetID != nil && (route == "time" || route == "focus"),
+            pointerCullTargetsVisible: route == "time" && !selectedAssetIDs.isEmpty && page != .stitch,
+            elasticOutVisible: (route == "time" && !selectedAssetIDs.isEmpty && page != .stitch)
+                || (route == "focus" && peek == nil && focused != nil && focused?.isUnsupportedVideo != true),
             inspectingAssetID: inspectingAssetID?.uuidString,
             selectedAssetIDs: selectedAssetIDs.map(\.uuidString).sorted(),
             missingOriginalCount: status.missingOriginalCount,

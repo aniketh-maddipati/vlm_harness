@@ -1,43 +1,8 @@
 import Foundation
 
-/// `M` carries these from the cursor (README `sync{}`; the word itself is banned in
-/// copy, so the surface says *match*). Light, colour and profile travel by default.
-nonisolated enum ElasticMatchGroup: String, CaseIterable, Sendable {
-    case light
-    case color
-    case detail
-    case crop
-    case profile
-
-    static let defaultOn: Set<ElasticMatchGroup> = [.light, .color, .profile]
-
-    /// Copy this group's fields from `source` into `recipe`.
-    func copy(from source: EditRecipe, to recipe: inout EditRecipe) {
-        switch self {
-        case .light:
-            recipe.exposure = source.exposure
-            recipe.contrast = source.contrast
-            recipe.highlights = source.highlights
-            recipe.shadows = source.shadows
-        case .color:
-            recipe.temperature = source.temperature
-            recipe.tint = source.tint
-            recipe.vibrance = source.vibrance
-            recipe.saturation = source.saturation
-        case .detail:
-            recipe.sharpness = source.sharpness
-        case .crop:
-            recipe.crop = source.crop
-            recipe.cropAspect = source.cropAspect
-            recipe.straightenDegrees = source.straightenDegrees
-        case .profile:
-            recipe.cameraProfile = source.cameraProfile
-        }
-    }
-}
-
-/// One exposed slider in the drawer. Whites, Blacks and Dehaze stay in the schema
-/// and the XMP but are not here — the engine renders them inert.
+/// One exposed slider in the always-on Develop rail. Whites, Blacks, Dehaze,
+/// Texture and Clarity stay in the schema and the XMP but are not here — the
+/// engine renders them inert.
 nonisolated struct ElasticDevelopControl: Identifiable, Sendable {
     let id: String
     let name: String
@@ -66,7 +31,19 @@ nonisolated struct ElasticDevelopControl: Identifiable, Sendable {
               range: -ElasticLayout.toneRange...ElasticLayout.toneRange, step: 1, zero: 0),
         .init(id: "sharpness", name: "Sharpness", keyPath: \.sharpness,
               range: 0...ElasticLayout.sharpnessMax, step: 1, zero: 0),
+        .init(id: "luminanceNR", name: "Luminance", keyPath: \.luminanceNR,
+              range: 0...ElasticLayout.sharpnessMax, step: 1, zero: 0),
     ]
+
+    /// Tone / Color / Detail grouping for the sticky Develop spine.
+    var group: P0AdjustmentSection {
+        switch id {
+        case "exposure", "contrast", "highlights", "shadows": return .light
+        case "temperature", "tint", "vibrance", "saturation": return .color
+        case "sharpness", "luminanceNR": return .detail
+        default: return .light
+        }
+    }
 
     /// `+0.35` · `6500K` · `+12` — the prototype's `fmtV`.
     func label(_ value: Double) -> String {
@@ -130,10 +107,166 @@ nonisolated enum ElasticCropRatio: String, CaseIterable, Sendable {
 
 @MainActor
 extension P0SessionModel {
-    /// `variantsCol: s.develop || s.hold ? 'none' : 'flex'` — the three versions step
-    /// aside while the drawer is open or a peek is held.
-    var versionColumnVisible: Bool {
-        !developDrawerOpen && peek == nil
+    /// Shot / Auto / yours tiles are gone. Staged looks use `variationColumnVisible`.
+    var versionColumnVisible: Bool { false }
+
+    /// Staged looks sit on the rail until Esc dismisses them or the photograph leaves.
+    var variationColumnVisible: Bool {
+        peek == nil
+            && stagedAutoAssetID == focusedAssetID
+            && !stagedAutoVariations.isEmpty
+    }
+
+    var hasStagedAutoVariations: Bool {
+        stagedAutoAssetID != nil && !stagedAutoVariations.isEmpty
+    }
+
+    /// Highlighted means still staged. The accepted look is the quiet one.
+    func isAutoVariationHighlighted(_ id: String) -> Bool {
+        acceptedAutoVariationID != id
+    }
+
+    func variationLabel(for id: String) -> String {
+        switch id {
+        case "tone": return CopyContract.developVariationTone
+        case "lift": return CopyContract.developVariationLift
+        case "punch": return CopyContract.developVariationPunch
+        default: return id
+        }
+    }
+
+    /// `A` in inspect — stage the three deterministic looks. Nothing is written yet.
+    func stageAutoVariations(
+        for assetID: UUID,
+        measure: (@MainActor (AssetRecord) async -> ImageStats?)? = nil
+    ) {
+        guard route == .focus else { return }
+        if autoRun != nil || versionAutoAssetID == assetID { return }
+        cancelVersionAuto()
+        flushPendingEditIfNeeded()
+        guard let asset = asset(assetID) else { return }
+
+        if let stats = asset.imageStats {
+            installStagedVariations(AutoDevelop.variations(for: asset, stats: stats), assetID: assetID)
+            return
+        }
+
+        let requestID = UUID()
+        let context = autoContextID
+        let shootID = shoot?.id
+        let focusID = focusedAssetID
+        let identity = P0AutoSource(asset)
+        let recipe = (asset.recipe ?? .neutral).valueFingerprint
+        let source = asset.recipeSource
+        versionAutoRequestID = requestID
+        versionAutoAssetID = assetID
+        versionAutoTask = Task { [weak self] in
+            guard let self else { return }
+            await self.ensureImageStats(for: [assetID], measure: measure)
+            guard !Task.isCancelled, self.versionAutoRequestID == requestID else { return }
+            guard self.autoContextID == context, self.shoot?.id == shootID,
+                  self.focusedAssetID == focusID, let fresh = self.asset(assetID),
+                  P0AutoSource(fresh) == identity,
+                  (fresh.recipe ?? .neutral).valueFingerprint == recipe,
+                  fresh.recipeSource == source else {
+                self.cancelVersionAuto()
+                return
+            }
+            self.versionAutoTask = nil
+            self.versionAutoRequestID = nil
+            self.versionAutoAssetID = nil
+            guard let stats = fresh.imageStats else {
+                self.versionAutoStatus = "Adjustments unavailable · no measurements"
+                return
+            }
+            self.installStagedVariations(AutoDevelop.variations(for: fresh, stats: stats), assetID: assetID)
+        }
+    }
+
+    func pickStagedVariation(at index: Int) {
+        guard stagedAutoVariations.indices.contains(index) else { return }
+        pickStagedVariation(stagedAutoVariations[index].id)
+    }
+
+    /// Apply that look and put the photograph in the set. The same look again
+    /// clears — out of the set, recipe restored, looks re-staged.
+    func pickStagedVariation(_ id: String) {
+        guard let assetID = stagedAutoAssetID,
+              let variation = stagedAutoVariations.first(where: { $0.id == id }) else { return }
+        if acceptedAutoVariationID == id {
+            revertAcceptedVariation(assetID)
+            acceptedAutoVariationID = nil
+            return
+        }
+        applyStagedVariation(variation, to: assetID)
+        if asset(assetID)?.cull != .keep {
+            classifySet([assetID])
+        }
+        acceptedAutoVariationID = id
+    }
+
+    /// Esc — unapplied looks vanish and write nothing. An accepted look stays.
+    func dismissStagedAutoVariations() {
+        stagedAutoVariations = []
+        stagedAutoAssetID = nil
+        acceptedAutoVariationID = nil
+        stagedAutoBaselineRecipe = nil
+        stagedAutoBaselineSource = nil
+        cancelVersionAuto()
+    }
+
+    private func installStagedVariations(_ variations: [AutoVariation], assetID: UUID) {
+        stagedAutoVariations = variations
+        stagedAutoAssetID = assetID
+        acceptedAutoVariationID = nil
+        stagedAutoBaselineRecipe = recipe(for: assetID)
+        stagedAutoBaselineSource = asset(assetID)?.recipeSource ?? .shot
+        versionAutoStatus = nil
+    }
+
+    private func applyStagedVariation(_ variation: AutoVariation, to assetID: UUID) {
+        guard let current = asset(assetID) else { return }
+        let before = recipe(for: assetID)
+        guard before.valueFingerprint != variation.recipe.valueFingerprint
+                || current.recipeSource != .auto else {
+            return
+        }
+        _ = commitBatchEdit(
+            marks: [
+                BatchEditMutationCommand.Mark(
+                    assetID: assetID,
+                    before: before,
+                    after: variation.recipe,
+                    sourceBefore: current.recipeSource,
+                    sourceAfter: .auto
+                )
+            ],
+            label: "Develop"
+        )
+    }
+
+    private func revertAcceptedVariation(_ assetID: UUID) {
+        guard let current = asset(assetID) else { return }
+        let after = stagedAutoBaselineRecipe ?? .neutral
+        let sourceAfter = stagedAutoBaselineSource ?? .shot
+        let before = recipe(for: assetID)
+        if before.valueFingerprint != after.valueFingerprint || current.recipeSource != sourceAfter {
+            _ = commitBatchEdit(
+                marks: [
+                    BatchEditMutationCommand.Mark(
+                        assetID: assetID,
+                        before: before,
+                        after: after,
+                        sourceBefore: current.recipeSource,
+                        sourceAfter: sourceAfter
+                    )
+                ],
+                label: "Develop"
+            )
+        }
+        if asset(assetID)?.cull == .keep {
+            classifySet([assetID])
+        }
     }
 
     /// `crs:CameraProfile` values the drawer offers, the prototype's four.
@@ -156,14 +289,6 @@ extension P0SessionModel {
 
     func setCameraProfile(_ profile: String) {
         applyDevelopEdit(label: "Profile") { $0.cameraProfile = profile }
-    }
-
-    func toggleMatchGroup(_ group: ElasticMatchGroup) {
-        if matchGroups.contains(group) {
-            matchGroups.remove(group)
-        } else {
-            matchGroups.insert(group)
-        }
     }
 
     // MARK: - Copy
@@ -195,20 +320,6 @@ extension P0SessionModel {
     /// `+1.5°`, always signed.
     static func angleLabel(_ degrees: Double) -> String {
         String(format: "%+.1f°", degrees)
-    }
-
-    /// `to the set · 4` — where `M` would carry the cursor's groups.
-    func matchScopeLine(for id: UUID) -> String {
-        let count = matchTargetIDs(for: id).count
-        let where_: String
-        if !selectedAssetIDs.isEmpty {
-            where_ = "\(selectedAssetIDs.count) selected"
-        } else if peek == .set || isInFinalSet(id) {
-            where_ = "the set"
-        } else {
-            where_ = "the moment"
-        }
-        return "to \(where_) · \(count)"
     }
 
     /// The drawer's last line: where this version came from and what a nudge does.

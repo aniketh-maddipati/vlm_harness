@@ -41,12 +41,18 @@ final class ElasticLayoutTests: XCTestCase {
     func testTileAndFilmstripSizesMatchTheDesign() {
         XCTAssertEqual(ElasticLayout.tile, 168)
         XCTAssertEqual(ElasticLayout.tileInOpenBurst, 128)
-        XCTAssertEqual(ElasticLayout.filmstripHeight, 92)
-        XCTAssertEqual(ElasticLayout.filmstripFocusedTile, CGSize(width: 96, height: 64))
-        XCTAssertEqual(ElasticLayout.filmstripTile, CGSize(width: 72, height: 48))
+        XCTAssertEqual(ElasticLayout.filmstripFocusedTile.width, ElasticLayout.tileInOpenBurst)
+        XCTAssertEqual(ElasticLayout.filmstripFocusedTile.height, ElasticLayout.tileInOpenBurst / ElasticLayout.tileAspect, accuracy: 1e-9)
+        XCTAssertEqual(ElasticLayout.filmstripTile, CGSize(width: 96, height: 64))
+        XCTAssertGreaterThan(ElasticLayout.filmstripFocusedTile.height, ElasticLayout.filmstripTile.height)
+        XCTAssertGreaterThan(ElasticLayout.filmstripHeight, ElasticLayout.filmstripFocusedTile.height)
         XCTAssertEqual(ElasticLayout.filmstripMomentGap, 20)
         XCTAssertEqual(ElasticLayout.versionColumnWidth, 144)
-        XCTAssertEqual(ElasticLayout.developDrawerWidth, 256)
+        // Widened 256 -> 320 and derived from a token rather than a literal, so the
+        // editing pane gives the sliders more travel. The rail is the same width.
+        XCTAssertEqual(ElasticLayout.developDrawerWidth, 320)
+        XCTAssertEqual(ElasticLayout.developDrawerWidth, HiFiTokens.Layout.minWindowWidth / 4)
+        XCTAssertEqual(ElasticLayout.developRailWidth, ElasticLayout.developDrawerWidth)
     }
 
     func testOutOpacityIsTheExistingRejectDimLaw() {

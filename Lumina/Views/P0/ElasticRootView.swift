@@ -2,10 +2,11 @@ import SwiftUI
 
 /// The Elastic shell: one continuous surface with two routes.
 ///
-/// Top to bottom: header, the set shelf (once there is a set), the export receipt
-/// (once one lands), then the table or the photograph. The table stays mounted under
-/// focus — it compresses to the strip — so returning is a scale change rather than a
-/// rebuild, and the cursor never moves as a side effect of the transition.
+/// Top to bottom: header, the set shelf (always — empty still names the handful),
+/// the export receipt (once one lands), then the table or the photograph. The table
+/// stays mounted under focus — it compresses to the strip — so returning is a scale
+/// change rather than a rebuild, and the cursor never moves as a side effect of the
+/// transition.
 struct ElasticRootView: View {
     @Bindable var session: P0SessionModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -16,11 +17,14 @@ struct ElasticRootView: View {
         VStack(spacing: 0) {
             ElasticHeader(session: session)
 
+            // Stitch takes the whole page. Otherwise the shelf is ALWAYS present —
+            // an empty set still names the handful, so the destination is visible
+            // before anything has been sent to it.
             if session.page == .stitch {
                 ElasticStitchView(session: session)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .layoutPriority(1)
-            } else if !session.finalSetAssetIDs.isEmpty {
+            } else {
                 ElasticSetShelf(session: session)
                     .elasticBorn(ElasticLayout.bornTableMs)
             }
@@ -47,9 +51,11 @@ struct ElasticRootView: View {
             ElasticTableView(session: session)
                 // Pinned rather than capped: the focus view claims the rest of the
                 // stack, so a bare `maxHeight` would let the strip be squeezed to
-                // nothing instead of holding its 92.
+                // nothing instead of holding its band (tiles + optional chron axis).
                 .frame(
                     maxWidth: .infinity,
+                    // Page-aware, not route-aware: stitch must collapse the strip to
+                    // 0 rather than let it claim infinity behind the stitch page.
                     minHeight: session.page == .scroll ? ElasticLayout.filmstripHeight : nil,
                     maxHeight: session.page == .chron
                         ? .infinity

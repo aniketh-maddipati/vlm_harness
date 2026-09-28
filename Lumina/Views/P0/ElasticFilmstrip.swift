@@ -6,75 +6,83 @@ struct ElasticFilmstrip: View {
     @State private var viewportSnapshot = ElasticViewportSnapshot()
     @State private var revealRequest: ElasticViewportReveal.Request?
 
-    var body: some View {
-        let boundaries = ElasticChronology.boundaries(
-            orderedIDs: session.stripAssetIDs, chapters: session.chapters,
-            chronological: session.peek != .set
-        )
-        return GeometryReader { viewport in
-          ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: ElasticLayout.filmstripGap) {
-                    if session.peek == .set {
-                        chronologyLabel(session.stripLabel)
-                    }
+    private var showsChronAxis: Bool {
+        !session.chapters.isEmpty
+    }
 
-                    ForEach(session.stripAssetIDs, id: \.self) { id in
-                        if let asset = session.asset(id) {
-                            if let chapter = boundaries[id] {
-                                chronologyLabel(ElasticChronology.label(for: chapter))
-                                    .padding(.leading, ElasticLayout.filmstripMomentGap)
+    private var focusedChapterID: String? {
+        guard let id = session.focusedAssetID else { return session.chronologyViewportChapterID }
+        return session.chapters.first(where: { $0.assetIDs.contains(id) })?.id
+            ?? session.chronologyViewportChapterID
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            VStack(spacing: 0) {
+                if showsChronAxis {
+                    // CHRON-02 — horizontal progress axis; click reveals without moving focus.
+                    ElasticChronologyBar(
+                        chapters: session.chapters,
+                        activeID: focusedChapterID,
+                        orientation: .horizontal,
+                        navigate: { chapterID in
+                            if let assetID = session.chapters.first(where: { $0.id == chapterID })?.assetIDs.first {
+                                proxy.scrollTo(assetID)
                             }
-                            tile(asset)
                         }
-                    }
+                    )
                 }
-                .background(ElasticScrollInterruption { revealRequest = nil })
-                .padding(.horizontal, ElasticLayout.tableGutter)
+                GeometryReader { viewport in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: ElasticLayout.filmstripGap) {
+                            ForEach(session.stripAssetIDs, id: \.self) { id in
+                                if let asset = session.asset(id) {
+                                    tile(asset)
+                                }
+                            }
+                        }
+                        .background(ElasticScrollInterruption { revealRequest = nil })
+                        .padding(.horizontal, ElasticLayout.tableGutter)
+                        .frame(height: ElasticLayout.filmstripHeight)
+                    }
+                    .coordinateSpace(name: viewportSpace)
+                    .environment(\.elasticViewportSpace, viewportSpace)
+                    .onPreferenceChange(ElasticViewportFrames.self) { snapshot in
+                        viewportSnapshot = snapshot
+                        resolveReveal(snapshot: snapshot, viewport: viewport.size, proxy: proxy)
+                    }
+                    .onAppear {
+                        requestReveal()
+                        resolveReveal(snapshot: viewportSnapshot, viewport: viewport.size, proxy: proxy)
+                    }
+                    .onChange(of: session.focusedAssetID) { _, _ in
+                        // Wait for the focused tile's new dimensions, not its previous small box.
+                        requestReveal()
+                        resolveReveal(snapshot: viewportSnapshot, viewport: viewport.size, proxy: proxy)
+                    }
+                    .onChange(of: session.stripAssetIDs) { _, _ in
+                        requestReveal()
+                        resolveReveal(snapshot: viewportSnapshot, viewport: viewport.size, proxy: proxy)
+                    }
+                    .onChange(of: viewport.size) { _, size in
+                        requestReveal()
+                        resolveReveal(snapshot: viewportSnapshot, viewport: size, proxy: proxy)
+                    }
+                    .onDisappear { revealRequest = nil }
+                }
                 .frame(height: ElasticLayout.filmstripHeight)
             }
-            .coordinateSpace(name: viewportSpace)
-            .environment(\.elasticViewportSpace, viewportSpace)
-            .onPreferenceChange(ElasticViewportFrames.self) { snapshot in
-                viewportSnapshot = snapshot
-                resolveReveal(snapshot: snapshot, viewport: viewport.size, proxy: proxy)
-            }
-            .onAppear {
-                requestReveal()
-                resolveReveal(snapshot: viewportSnapshot, viewport: viewport.size, proxy: proxy)
-            }
-            .onChange(of: session.focusedAssetID) { _, _ in
-                // Wait for the focused tile's new dimensions, not its previous small box.
-                requestReveal()
-                resolveReveal(snapshot: viewportSnapshot, viewport: viewport.size, proxy: proxy)
-            }
-            .onChange(of: session.stripAssetIDs) { _, _ in
-                requestReveal()
-                resolveReveal(snapshot: viewportSnapshot, viewport: viewport.size, proxy: proxy)
-            }
-            .onChange(of: viewport.size) { _, size in
-                requestReveal()
-                resolveReveal(snapshot: viewportSnapshot, viewport: size, proxy: proxy)
-            }
-            .onDisappear { revealRequest = nil }
-          }
         }
-        .frame(height: ElasticLayout.filmstripHeight)
-        .background(
-            session.peek == .set
-                ? LuminaTokens.Elastic.warmAccent.opacity(ElasticLayout.stripSetFillOpacity)
-                : LuminaTokens.Elastic.shadowInk.opacity(ElasticLayout.filmstripFillOpacity)
+        .frame(
+            height: showsChronAxis
+                ? ElasticLayout.filmstripHeight + ElasticLayout.ChronAxis.horizontalBreadth
+                : ElasticLayout.filmstripHeight
         )
+        // Always the shoot wash — set membership lives on the top shelf; peek is ElasticPeekBar.
+        .background(LuminaTokens.Elastic.shadowInk.opacity(ElasticLayout.filmstripFillOpacity))
         #if DEBUG
         .workbenchHot()
         #endif
-    }
-
-    private func chronologyLabel(_ label: String) -> some View {
-        Text(label)
-            .font(ElasticType.mono(ElasticLayout.stripLabelSize))
-            .foregroundStyle(LuminaTokens.Elastic.shellAlt.opacity(ElasticLayout.stripLabelOpacity))
-            .fixedSize(horizontal: true, vertical: false)
     }
 
     private func requestReveal() {
@@ -100,9 +108,8 @@ struct ElasticFilmstrip: View {
 
     private func tile(_ asset: AssetRecord) -> some View {
         let focused = session.focusedAssetID == asset.id
-        let ringed = focused || session.selectedAssetIDs.contains(asset.id)
+        let ringed = session.selectedAssetIDs.contains(asset.id)
         let inSet = session.isInFinalSet(asset.id)
-        let sequence = session.sequenceMark(for: asset.id)
         let size = focused ? ElasticLayout.filmstripFocusedTile : ElasticLayout.filmstripTile
 
         return ElasticPlateButton {
@@ -117,22 +124,21 @@ struct ElasticFilmstrip: View {
             .frame(width: size.width, height: size.height)
             .modifier(ElasticViewportTile(id: asset.id))
             .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.tileRadius, style: .continuous))
-            .overlay(alignment: .topLeading) {
-                if let sequence {
-                    ElasticSequenceChip(mark: sequence)
-                        .padding(ElasticLayout.markInset)
-                }
-            }
             .elasticMarked(
                 radius: ElasticLayout.tileRadius,
                 ringed: ringed,
-                inSet: inSet,
-                sequence: sequence
+                inSet: inSet
             )
             .opacity(asset.cull == .reject ? ElasticLayout.outOpacity : 1)
             .contentShape(Rectangle())
         }
+        // Drag from the strip, same payload the table and peek already use.
+        .draggable(ElasticDragPayload.encode(
+            ElasticDragPayload.ids(forDragging: asset.id, selection: session.selectedAssetIDs)
+        ))
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier(P0AccessibilityID.elasticTile(asset.id))
+        .accessibilityLabel(asset.filename)
+        .accessibilityAddTraits(session.selectedAssetIDs.contains(asset.id) ? .isSelected : [])
     }
 }

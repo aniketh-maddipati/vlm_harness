@@ -161,3 +161,73 @@
 [P] applying…
 [P] Adjustments applied to this photo
 [P] Adjustments unavailable · no measurements
+
+## KEYBOARD SET (CHAT-2, 2026-09-25)
+
+[P] in set?
+[P] in set
+[P] phone?
+[P] phone
+[P] S
+[P] H
+# Photographs carry no set/phone action buttons — S toggles final-set membership
+# (focused frame or selection); H toggles the phone mark on the same target.
+# Remaining set/phone controls wear key pills. Recipe is untouched by set toggle.
+# ⌃⇥ cycles chrome regions: set shelf / table-or-filmstrip / Develop spine.
+# ⇧+arrows extend selection; ⌘A selects all; Esc clears (existing ladder).
+
+## CHAT-3 SET SHELF
+
+[P] set
+[P] the handful for exposure
+[P] edited
+[P] add
+# Top shelf is the only exposure set. Empty shelf still shows the exposure line.
+# Quiet "edited" fact on a shelf tile only when the recipe differs from shot.
+# Bottom filmstrip stays the shoot; walking the set is the temporary peek.
+
+## CHRON AXIS (CHAT-1 / CHRON-02, 2026-09-25)
+
+[P] Undated
+[P] {capture month} {capture day} · {capture hour}:{capture minute}
+[P] {capture hour}:{capture minute}:{capture second}
+[P] chronology
+# Progress-bar chronology axis (track + nodes + times). Vertical beside the table;
+# horizontal on the filmstrip. Pinch on the axis scales time only. Short timing
+# windows use second-level labels and order spacing with a floor gap. Undated
+# chapters sit at the end. Manual set order draws no temporal markers. Clicking
+# a node reveals that chapter without changing focus, selection, recipes, or order.
+
+## CHAT-4 — Note floater + sticky Develop (2026-09-25)
+
+[P] Develop
+[P] Tone
+[P] Color
+[P] Detail
+[P] Crop
+[P] [ ]
+[P] A
+[P] R
+[P] tone
+[P] lift
+[P] punch
+[P] reset
+[P] 1
+[P] applying…
+[P] looks · pick one · Esc cancels
+[P] note
+[P] a note for this photograph
+# N fades a note floater near the focused photograph (not pinned to the frame).
+# Esc dismisses the floater, then unapplied Develop looks, then a leftover drawer flag.
+# Two-finger swipe down dismisses the note. Quiet note line under set-shelf tiles.
+# Sticky Develop rail is always on in focus — no E, no collapse. A stages tone / lift /
+# punch looks; a pick applies that recipe and puts the photograph in the set. Same
+# pick again clears (out of the set, re-stage). Esc cancels unapplied looks. [ ]
+# cycles Tone / Color / Detail / Crop.
+
+## PHOTO-SELECT-01 — off-photo burst commands (2026-09-26)
+
+[P] Keep
+[P] Phone
+[P] Reject
+[P] Focused

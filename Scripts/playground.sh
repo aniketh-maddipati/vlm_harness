@@ -44,7 +44,9 @@ ensure_injection() {
     return
   fi
   echo "playground: selecting $ROOT in InjectionIII…"
-  open -a "$INJECTION" "$ROOT/Lumina.xcodeproj"
+  # InjectionIII watches the source directory. Passing the .xcodeproj makes it
+  # show a chooser warning and leaves hot reload pointed at no usable tree.
+  open -a "$INJECTION" "$ROOT"
   echo "playground: save Swift view edits in this checkout to inject; rebuild for structural changes."
 }
 

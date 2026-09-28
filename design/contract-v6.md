@@ -438,3 +438,12 @@ Tone Auto preserves the full existing straighten angle, quarter turns, crop and 
 ## AUTO-03 — conservative deterministic tone (2026-09-24)
 
 Following the user's overexposure report, positive Auto exposure is capped at +0.35 EV and vetoed when measured highlights lack headroom. Default highlight and shadow shifts are zero; measured shadow lift is capped at +20. Tone Auto preserves geometry and WB, keeps existing ownership/undo/hand protection, and does not silently rewrite saved recipes. `docs/AUTO_ALGORITHM_MANIFESTO.md` specifies the thresholds, measurement limitations and outstanding native acceptance. Numerical tests alone do not establish visual acceptance.
+
+
+## PHOTO-SELECT-01 — unobstructed photos and vertical moments (2026-09-26)
+
+The user's explicit UI direction supersedes D47's on-photo mark targets and CHRON-02's pinned horizontal chronology for the vertical table. A plain photo click selects or deselects transiently; it never keeps, rejects, advances, or changes set order. Shift-range and Command-toggle are enabled for transient selection (a narrow D29/D38 amendment); two-up remains shelved. Double-click opens without also applying a single-click command. Native buttons retain keyboard and accessibility activation; selected photos expose the selected accessibility trait. A focus cursor alone does not imply selection.
+
+Photographs carry no set/phone/out/fold controls or decorative status icon overlays. Persistent pointer commands for the selected burst live below the photo pixels, with Keep, Phone and Reject preserving existing burst scope and same-mark-clears semantics. Burst expansion remains available outside the image. Keyboard accelerators and Stitch order remain unchanged. The kept-set shelf is horizontal above the table even while empty; empty exports remain disabled.
+
+Capture-date/time headings run vertically with the scroll, above full-width moment rows, with a compact bullet and generous existing-token spacing. No fixed metadata gutter, new gesture architecture, renderer, persistence or schema change. This bounded visual change is expressly authorized now; pinch and performance claims still require their separate baseline and approval. Open cards arbitrate single/double clicks before navigation to avoid a second click falling into the newly opened table; native keyboard/accessibility activation stays direct. Hover-only controls remain forbidden; existing press feedback and descriptive help remain available.

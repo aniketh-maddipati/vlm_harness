@@ -114,6 +114,19 @@ struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return event
             }
 
+            // Note floater owns typing while open; Esc already handled above.
+            if session.noteFloaterOpen { return event }
+
+            // ⌃⇥ — cycle chrome regions (Chat-2). Plain ⇥ stays the peek.
+            if event.keyCode == P0VirtualKey.tab,
+               flags.contains(.control),
+               !command,
+               session.route != .open {
+                if event.isARepeat { return nil }
+                session.cycleChromeRegion()
+                return nil
+            }
+
             // ⇥ — the one peek. Hold: similar; a pinned peek cycles on ⇥ and closes past
             // the end. Release is decided in `handleKeyUp`. ⌘⇥ belongs to the system.
             if event.keyCode == P0VirtualKey.tab, !command, session.route != .open {
@@ -142,6 +155,22 @@ struct P0KeyRoutingRepresentable: NSViewRepresentable {
                     session.jumpInPeek(to: number)
                     return nil
                 }
+            }
+
+            // ⇧ + arrows — extend selection from the anchor. Must precede the plain
+            // arrow switch below, or shift-arrow would travel instead of extending.
+            if shift, !command, [123, 124, 125, 126].contains(event.keyCode) {
+                if event.isARepeat { return nil }
+                let dx: Int
+                let dy: Int
+                switch event.keyCode {
+                case 123: dx = -1; dy = 0
+                case 124: dx = 1; dy = 0
+                case 126: dx = 0; dy = -1
+                default: dx = 0; dy = 1
+                }
+                session.extendSelection(dx: dx, dy: dy)
+                return nil
             }
 
             if unmodified, chars == "]", !event.isARepeat {
@@ -225,6 +254,28 @@ struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return nil
             }
 
+            // Chat-2: S toggles set membership (focused frame or selection). Recipe untouched.
+            if unmodified, lower == "s", session.route != .open {
+                if event.isARepeat { return nil }
+                session.toggleSetMembershipFromKeyboard()
+                armMark(event)
+                return nil
+            }
+
+            // Chat-2: H toggles phone mark on the same target.
+            if unmodified, lower == "h", session.route != .open {
+                if event.isARepeat { return nil }
+                session.togglePhoneFromKeyboard()
+                return nil
+            }
+
+            // Chat-2: ⌘A selects every photograph.
+            if command, !shift, lower == "a", session.route != .open {
+                if event.isARepeat { return nil }
+                session.selectAllPhotographs()
+                return nil
+            }
+
             if command && !shift && lower == "z" {
                 if event.isARepeat { return nil }
                 session.undoLast()
@@ -256,14 +307,40 @@ struct P0KeyRoutingRepresentable: NSViewRepresentable {
                 return nil
             }
 
-            // Develop, in the focus route: E opens the drawer, R turns, M matches.
-            if unmodified, session.route == .focus, ["e", "r", "m"].contains(lower) {
+            // Develop, in the focus route: A stages looks; R turns. The rail is always on.
+            if unmodified, session.route == .focus, lower == "a" {
                 if event.isARepeat { return nil }
-                switch lower {
-                case "e": session.toggleDevelopDrawer()
-                case "r": session.rotateFocusedPhotograph()
-                default: session.matchToCursor()
+                if let id = session.focusedAssetID {
+                    session.stageAutoVariations(for: id)
                 }
+                return nil
+            }
+
+            if unmodified, session.route == .focus, session.hasStagedAutoVariations,
+               chars.count == 1, let number = Int(chars), (1...3).contains(number) {
+                if event.isARepeat { return nil }
+                session.pickStagedVariation(at: number - 1)
+                return nil
+            }
+
+            if unmodified, session.route == .focus, lower == "r" {
+                if event.isARepeat { return nil }
+                session.rotateFocusedPhotograph()
+                return nil
+            }
+
+            // Chat-4: [ ] cycle Develop groups on the always-on rail.
+            if unmodified, session.route == .focus,
+               chars == "[" || chars == "]" {
+                if event.isARepeat { return nil }
+                session.cycleDevelopGroup(by: chars == "]" ? 1 : -1)
+                return nil
+            }
+
+            // MARK: Chat-4 — note floater (below Chat-2 blocks)
+            if unmodified, lower == "n", session.route == .focus {
+                if event.isARepeat { return nil }
+                session.toggleNoteFloater()
                 return nil
             }
 
@@ -301,6 +378,11 @@ struct P0KeyRoutingRepresentable: NSViewRepresentable {
         func handleKeyUp(_ event: NSEvent) -> NSEvent? {
             if session.exportControlsFocused && !event.modifierFlags.contains(.command) { return event }
             let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            // ⌃⇥ region cycle — do not treat the release as peek pin/hold.
+            if event.keyCode == P0VirtualKey.tab, flags.contains(.control) {
+                return nil
+            }
             if event.keyCode == P0VirtualKey.tab {
                 session.releasePeekKey()
                 return nil

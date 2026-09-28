@@ -74,5 +74,26 @@ final class ElasticShelfDropTests: XCTestCase {
     func testDropRingNumbersMatchTheDesign() {
         XCTAssertEqual(ElasticLayout.shelfDropRingWidth, 2)
         XCTAssertEqual(ElasticLayout.shelfDropRingInset, 2)
+        XCTAssertGreaterThan(ElasticLayout.shelfLandScale, 1)
+    }
+
+    func testOpeningAFrameIsTravelTheShelfDropIsTheKeep() {
+        let a = UUID(), b = UUID()
+        let session = P0SessionModel()
+        session.assets = [asset(a, offset: 0), asset(b, offset: 10)]
+        session.route = .time
+        session.focusedAssetID = a
+        session.reconcileActiveChapter()
+
+        session.setFocus(b)
+        session.openFocusedPhotograph()
+        XCTAssertEqual(session.route, .focus)
+        XCTAssertEqual(session.focusedAssetID, b)
+        XCTAssertEqual(session.asset(b)?.cull, .undecided, "the inspect well never writes a mark")
+        XCTAssertTrue(session.finalSetAssetIDs.isEmpty)
+
+        XCTAssertEqual(session.dropOnShelf([b]), 1)
+        XCTAssertEqual(session.asset(b)?.cull, .keep)
+        XCTAssertEqual(session.finalSetAssetIDs, [b])
     }
 }

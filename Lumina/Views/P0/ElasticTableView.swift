@@ -3,10 +3,8 @@ import SwiftUI
 
 /// The time route — moments as rows, separated by how long the shooting stopped.
 ///
-/// Bursts stack with their leader on top and a count badge on the stack edge; the
-/// badge opens the stack in place. Pointer on a plate travels. A second press on
-/// the focused plate is P. Lead and trail of that burst are facts.
-/// `set`, `phone`, and `out` sit on the burst — operations larger than one frame.
+/// Capture headings scroll above the photographs. Burst controls live in captions,
+/// outside the image, and actions appear only for bursts containing a selection.
 struct ElasticTableView: View {
     @Bindable var session: P0SessionModel
     @State private var viewportSpace = UUID()
@@ -41,18 +39,19 @@ struct ElasticTableView: View {
     // MARK: - Moments
 
     private var showsChronologyBar: Bool {
-        session.peek != .set && !session.chapters.isEmpty
+        !session.chapters.isEmpty
     }
 
     private var momentScroll: some View {
         GeometryReader { viewport in
           ScrollViewReader { proxy in
-            VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 0) {
                 if showsChronologyBar {
-                    // CHRON-02 — pinned markers; click reveals chapter without moving focus.
+                    // The elastic time axis stays beside the clean, full-width moment rows.
                     ElasticChronologyBar(
                         chapters: session.chapters,
                         activeID: session.chronologyViewportChapterID,
+                        orientation: .vertical,
                         navigate: { id in proxy.scrollTo(id, anchor: .top) }
                     )
                 }
@@ -207,25 +206,36 @@ struct ElasticMomentRow: View {
     let chapter: ShootChapter
 
     var body: some View {
-        // CHRON-02 — date/time lives in the pinned bar, not on each photograph band.
-        ElasticWrapLayout(
-            horizontalSpacing: ElasticLayout.groupGap,
-            verticalSpacing: ElasticLayout.groupRowGap
-        ) {
-            ForEach(chapter.bursts) { burst in
-                ElasticFrameGroup(session: session, burst: burst)
+        VStack(alignment: .leading, spacing: ElasticLayout.momentGap) {
+            if session.peek != .set {
+                HStack(spacing: ElasticLayout.chipGap) {
+                    Text("•")
+                        .accessibilityHidden(true)
+                    Text(ElasticChronology.label(for: chapter))
+                }
+                .font(ElasticType.mono(ElasticLayout.momentTimeSize))
+                .foregroundStyle(LuminaTokens.Elastic.paper)
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("p0.chronology.\(chapter.id)")
             }
+            ElasticWrapLayout(
+                horizontalSpacing: ElasticLayout.groupGap,
+                verticalSpacing: ElasticLayout.groupRowGap
+            ) {
+                ForEach(chapter.bursts) { burst in
+                    ElasticFrameGroup(session: session, burst: burst)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, ElasticLayout.momentPaddingV)
         .padding(.horizontal, ElasticLayout.momentPaddingH)
     }
-
-
 }
 
-/// One burst (or a single frame). Collapsed: the leader with two cards behind it and
-/// a `×N` badge hanging off the stack edge. Open: every frame at 128, `fold` badge.
+/// One burst (or a single frame). The count/fold caption remains available;
+/// selecting a photo reveals actions for its burst below the photographs.
 struct ElasticFrameGroup: View {
     @Bindable var session: P0SessionModel
     let burst: ShootBurst
@@ -234,32 +244,29 @@ struct ElasticFrameGroup: View {
     /// The flags peek (`shiftTable`) opens every burst at once; otherwise a stack opens by its badge.
     private var isOpen: Bool { isBurst && (session.leanedBurstID == burst.id || session.peek == .flags) }
 
+    private var hasSelection: Bool {
+        burst.assetIDs.contains { session.selectedAssetIDs.contains($0) }
+    }
+
     var body: some View {
-        if isOpen {
-            ElasticWrapLayout(
-                horizontalSpacing: ElasticLayout.frameGap,
-                verticalSpacing: ElasticLayout.groupRowGap
-            ) {
-                ForEach(burst.frames) { frame in
-                    ElasticFrameTile(session: session, assetID: frame.coverID, width: ElasticLayout.tileInOpenBurst)
+        VStack(alignment: .leading, spacing: ElasticLayout.frameGap) {
+            if isOpen {
+                ElasticWrapLayout(
+                    horizontalSpacing: ElasticLayout.frameGap,
+                    verticalSpacing: ElasticLayout.groupRowGap
+                ) {
+                    ForEach(burst.frames) { frame in
+                        ElasticFrameTile(session: session, assetID: frame.coverID, width: ElasticLayout.tileInOpenBurst)
+                    }
                 }
+            } else if isBurst {
+                stacked
+            } else if let id = leaderID {
+                ElasticFrameTile(session: session, assetID: id, width: ElasticLayout.tile)
             }
-            .overlay(alignment: .topTrailing) {
-                burstOperations(
-                    fold: ("fold", LuminaTokens.Elastic.ink, LuminaTokens.Elastic.shell)
-                )
-                .padding(.top, ElasticLayout.badgeTop)
-                .padding(.trailing, ElasticLayout.badgeInsideOpen)
+            if hasSelection || isBurst {
+                caption
             }
-        } else if isBurst {
-            stacked
-        } else if let id = leaderID {
-            ElasticFrameTile(session: session, assetID: id, width: ElasticLayout.tile)
-                .overlay(alignment: .topTrailing) {
-                    outButton
-                        .padding(.top, ElasticLayout.badgeTop)
-                        .padding(.trailing, ElasticLayout.badgeOutsideStack)
-                }
         }
     }
 
@@ -280,13 +287,6 @@ struct ElasticFrameGroup: View {
             }
         }
         .padding(.trailing, ElasticLayout.stackPadding)
-        .overlay(alignment: .topTrailing) {
-            burstOperations(
-                fold: ("×\(burst.frameCount)", LuminaTokens.Elastic.shell, LuminaTokens.Elastic.ink)
-            )
-            .padding(.top, ElasticLayout.badgeTop)
-            .padding(.trailing, ElasticLayout.badgeOutsideStack)
-        }
     }
 
     /// A card behind the leader: `left: dx; top: dy; right: 0 (of the leader)`.
@@ -297,56 +297,51 @@ struct ElasticFrameGroup: View {
             .offset(x: offset.width, y: offset.height)
     }
 
-    private func badge(_ text: String, fill: Color, ink: Color) -> some View {
-        Button {
-            session.toggleBurstOpen(burst.id)
-        } label: {
-            Text(text)
-                .font(ElasticType.mono(ElasticLayout.badgeTextSize, weight: .semibold))
-                .foregroundStyle(ink)
-                .padding(.horizontal, ElasticLayout.badgePaddingH)
-                .frame(minWidth: ElasticLayout.badgeMinWidth, minHeight: ElasticLayout.badgeHeight,
-                       maxHeight: ElasticLayout.badgeHeight)
-                .background(fill, in: RoundedRectangle(cornerRadius: ElasticLayout.badgeRadius, style: .continuous))
-        }
-        .buttonStyle(LuminaElasticButtonStyle())
-    }
-
-    /// `set`, `phone`, and `out` act on the whole run. Fold / ×N only opens or closes it.
-    private func burstOperations(fold: (String, Color, Color)) -> some View {
-        HStack(spacing: ElasticLayout.badgePaddingH) {
-            ElasticOperationButton(
-                title: "set",
-                on: session.setToggleIsOn(burst.assetIDs)
-            ) {
-                session.classifySet(burst.assetIDs)
-            }
-            ElasticOperationButton(
-                title: "phone",
-                on: !burst.assetIDs.isEmpty && burst.assetIDs.allSatisfy(session.isPhoneFrame)
-            ) {
-                session.classifyPhone(burst.assetIDs)
-            }
-            outButton
-            badge(fold.0, fill: fold.1, ink: fold.2)
-        }
-    }
-
-    /// Pointer reject — a settled word, never a chip on the photograph. A travel
-    /// click cannot land here. Keyboard X still rejects the focused frame.
-    private var outButton: some View {
-        let holdsCursor = session.focusedAssetID.map { burst.assetIDs.contains($0) } ?? false
-        return ElasticOperationButton(
-            title: "out",
-            on: session.outToggleIsOn(burst.assetIDs)
+    /// Actions retain whole-burst scope, including when a single member is selected.
+    private var caption: some View {
+        ElasticWrapLayout(
+            horizontalSpacing: ElasticLayout.badgePaddingH,
+            verticalSpacing: ElasticLayout.frameGap
         ) {
-            session.classifyOut(burst.assetIDs)
+            if hasSelection {
+                ElasticOperationButton(
+                    title: "Keep",
+                    on: session.setToggleIsOn(burst.assetIDs)
+                ) {
+                    session.classifySet(burst.assetIDs)
+                }
+                ElasticOperationButton(
+                    title: "Phone",
+                    on: !burst.assetIDs.isEmpty && burst.assetIDs.allSatisfy(session.isPhoneFrame)
+                ) {
+                    session.classifyPhone(burst.assetIDs)
+                }
+                ElasticOperationButton(
+                    title: "Reject",
+                    on: session.outToggleIsOn(burst.assetIDs)
+                ) {
+                    session.classifyOut(burst.assetIDs)
+                }
+                .accessibilityIdentifier(
+                    session.focusedAssetID.map { burst.assetIDs.contains($0) } == true
+                        ? P0AccessibilityID.pointerCullReject
+                        : "p0.burst.reject.\(burst.id)"
+                )
+            }
+            if isBurst {
+                ElasticOperationButton(
+                    title: isOpen ? "fold" : "×\(burst.frameCount)",
+                    on: isOpen
+                ) {
+                    session.toggleBurstOpen(burst.id)
+                }
+            }
         }
-        .accessibilityIdentifier(holdsCursor ? P0AccessibilityID.pointerCullReject : P0AccessibilityID.elasticOut)
+        .frame(maxWidth: isOpen ? nil : ElasticLayout.tile + ElasticLayout.stackPadding, alignment: .leading)
     }
 }
 
-/// One frame on the table. The plate travels; the focused plate keeps.
+/// One frame on the table. Selection and kept-set membership have distinct marks.
 struct ElasticFrameTile: View {
     @Bindable var session: P0SessionModel
     let assetID: UUID
@@ -357,22 +352,22 @@ struct ElasticFrameTile: View {
     }
 
     private var focused: Bool { session.focusedAssetID == assetID }
-    private var ringed: Bool { focused || session.selectedAssetIDs.contains(assetID) }
+    private var selected: Bool { session.selectedAssetIDs.contains(assetID) }
     private var inSet: Bool { session.isInFinalSet(assetID) }
-    private var sequence: ElasticSequenceMark? { session.sequenceMark(for: assetID) }
-    private var isPhone: Bool { session.isPhoneFrame(assetID) }
     private var cull: CullDecision { asset?.cull ?? .undecided }
     private var height: CGFloat { width / ElasticLayout.tileAspect }
 
     var body: some View {
-        plate
-        .frame(width: width, height: height)
-        .elasticMarked(
-            radius: ElasticLayout.tileRadius,
-            ringed: ringed,
-            inSet: inSet,
-            sequence: sequence
-        )
+        VStack(alignment: .leading, spacing: ElasticLayout.frameGap) {
+            plate
+                .frame(width: width, height: height)
+                .elasticMarked(radius: ElasticLayout.tileRadius, ringed: selected, inSet: inSet)
+            Text("Focused")
+                .font(ElasticType.mono(ElasticLayout.badgeTextSize))
+                .foregroundStyle(LuminaTokens.Elastic.paper)
+                .opacity(focused ? 1 : 0)
+                .accessibilityHidden(true)
+        }
         .opacity(cull == .reject && asset?.isUnsupportedVideo != true ? ElasticLayout.outOpacity : 1)
         .draggable(ElasticDragPayload.encode(
             ElasticDragPayload.ids(forDragging: assetID, selection: session.selectedAssetIDs)
@@ -380,8 +375,7 @@ struct ElasticFrameTile: View {
     }
 
     private var plate: some View {
-        ElasticPlateButton {
-            let flags = NSEvent.modifierFlags
+        ElasticPlateButton { flags in
             session.clickTablePlate(assetID, shift: flags.contains(.shift), command: flags.contains(.command))
         } onDoubleTap: {
             session.setFocus(assetID)
@@ -398,26 +392,6 @@ struct ElasticFrameTile: View {
             .frame(width: width, height: height)
             .modifier(ElasticViewportTile(id: assetID))
             .clipShape(RoundedRectangle(cornerRadius: ElasticLayout.tileRadius, style: .continuous))
-            .overlay(alignment: .topLeading) {
-                if let sequence {
-                    ElasticSequenceChip(mark: sequence)
-                        .padding(ElasticLayout.markInset)
-                }
-            }
-            .overlay(alignment: .topTrailing) {
-                if !focused, cull == .reject {
-                    Text("✕")
-                        .font(.system(size: ElasticLayout.markTextSize, weight: .bold))
-                        .foregroundStyle(LuminaTokens.Elastic.shell)
-                        .frame(width: ElasticLayout.markSize, height: ElasticLayout.markSize)
-                        .background(LuminaTokens.Elastic.ink, in: Circle())
-                        .padding(ElasticLayout.markInset)
-                        .allowsHitTesting(false)
-                } else if isPhone {
-                    ElasticPhoneGlyph(isOn: true)
-                        .padding(ElasticLayout.markInset)
-                }
-            }
             .overlay(alignment: .bottomLeading) {
                 if asset?.isUnsupportedVideo == true {
                     ElasticFlagChip(text: CopyContract.videoNotOpenedYet)
@@ -431,25 +405,7 @@ struct ElasticFrameTile: View {
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier(P0AccessibilityID.elasticTile(assetID))
         .accessibilityLabel(asset?.isUnsupportedVideo == true ? CopyContract.videoNotOpenedYet : "photograph")
-    }
-}
-
-/// Warm phone mark. A fact. The burst `phone` operation is what writes the run.
-struct ElasticPhoneGlyph: View {
-    var isOn: Bool = true
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: ElasticLayout.phoneGlyphRadius, style: .continuous)
-            .fill(isOn ? LuminaTokens.Elastic.warmAccent : LuminaTokens.Elastic.shell)
-            .overlay {
-                RoundedRectangle(cornerRadius: ElasticLayout.phoneGlyphRadius, style: .continuous)
-                    .strokeBorder(LuminaTokens.Elastic.ink, lineWidth: ElasticLayout.phoneGlyphStroke)
-            }
-            .frame(
-                width: ElasticLayout.phoneGlyph.width + 2 * ElasticLayout.phoneGlyphStroke,
-                height: ElasticLayout.phoneGlyph.height + 2 * ElasticLayout.phoneGlyphStroke
-            )
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityValue(focused ? "Focused" : "")
     }
 }

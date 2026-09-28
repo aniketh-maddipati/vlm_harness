@@ -3,8 +3,8 @@ import CoreImage
 import ImageIO
 import SwiftUI
 
-/// The focus route — one photograph on the matte, its three versions beside it,
-/// and the frame's own facts along the bottom.
+/// The focus route — one photograph on the matte, the always-on Develop rail
+/// beside it, and the frame's own facts along the bottom.
 ///
 /// Pixels come through the one permanent Metal leaf; this view owns layout, marks
 /// and copy only. The photograph is sized to its own aspect-fit box rather than
@@ -24,6 +24,7 @@ struct ElasticFocusView: View {
     @State private var placedExtent: CGSize = .zero
     @State private var glide = CGSize.zero
     @State private var glidePages = true
+    @State private var canvasDropTargeted = false
 
     init(session: P0SessionModel, asset: AssetRecord) {
         self.session = session
@@ -33,10 +34,20 @@ struct ElasticFocusView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            photographBand
-            statusBar
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 0) {
+                photographBand
+                statusBar
+            }
+            if session.noteFloaterOpen {
+                ElasticNoteFloater(session: session, asset: asset)
+                    .padding(.top, ElasticLayout.noteFloaterInsetTop)
+                    .padding(.trailing, ElasticLayout.noteFloaterInsetTrailing)
+                    .elasticBorn(ElasticLayout.bornNoteFloaterMs)
+                    .transition(.opacity)
+            }
         }
+        .animation(LuminaTokens.Motion.travel, value: session.noteFloaterOpen)
         .background(LuminaTokens.Elastic.matte)
         .onDisappear {
             session.flushPendingEditIfNeeded()
@@ -62,8 +73,8 @@ struct ElasticFocusView: View {
 
     // MARK: - Photograph
 
-    /// `padding: 24px 28px 12px` — the photograph and the version column share one
-    /// centred row inside it. While similar is held the row yields the band to the
+    /// `padding: 24px 28px 12px` — the photograph and the always-on Develop rail
+    /// share one centred row. While similar is held the row yields the band to the
     /// neighbours; it stays mounted underneath, so the Metal leaf is never rebuilt.
     private var photographBand: some View {
         let showingRelated = session.peek == .related
@@ -71,14 +82,10 @@ struct ElasticFocusView: View {
             HStack(spacing: ElasticLayout.photoRowGap) {
                 photograph
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                // `develop: s.develop && !s.hold` — a held peek puts the drawer away.
-                if session.developDrawerOpen, session.peek == nil {
+                // Sticky Develop rail — always on in focus; peeks put it away.
+                if session.peek == nil {
                     ElasticDevelopDrawer(session: session, asset: asset)
                         .elasticBorn(ElasticLayout.bornDrawerMs)
-                }
-                // `variantsCol: none` while developing or holding.
-                if session.versionColumnVisible {
-                    ElasticVersionColumn(session: session, asset: asset)
                 }
             }
             .opacity(showingRelated ? 0 : 1)
@@ -213,6 +220,38 @@ struct ElasticFocusView: View {
             }
         }
         .contentShape(Rectangle())
+        // Drop a photograph onto the canvas to open it. The double-tap-to-return
+        // and hold-for-before gestures live on the inspect plate (see `photograph`),
+        // not here — duplicating them would put competing recognizers on nested views.
+        .overlay {
+            if canvasDropTargeted {
+                RoundedRectangle(cornerRadius: ElasticLayout.photoRadius, style: .continuous)
+                    .inset(by: ElasticLayout.shelfDropRingInset)
+                    .strokeBorder(
+                        LuminaTokens.Elastic.shellAlt,
+                        style: StrokeStyle(
+                            lineWidth: ElasticLayout.shelfDropRingWidth,
+                            dash: ElasticLayout.shelfDropRingDash
+                        )
+                    )
+                    .allowsHitTesting(false)
+            }
+        }
+        .animation(LuminaTokens.Motion.selection, value: canvasDropTargeted)
+        .dropDestination(for: String.self) { payloads, _ in
+            openDroppedPhotograph(payloads)
+        } isTargeted: { targeted in
+            canvasDropTargeted = targeted
+        }
+    }
+
+    /// Drop on the inspect well travels: focus + open. Never writes cull, recipe, or selection.
+    private func openDroppedPhotograph(_ payloads: [String]) -> Bool {
+        let ids = payloads.flatMap(ElasticDragPayload.decode)
+        guard let id = ids.first, session.asset(id) != nil else { return false }
+        session.setFocus(id)
+        session.openFocusedPhotograph()
+        return true
     }
 
     private func zoomLimit(box: CGSize, backing: CGFloat) -> CGFloat {
@@ -306,7 +345,7 @@ struct ElasticFocusView: View {
 
             if session.peek == nil, asset.isUnsupportedVideo != true {
                 ElasticOperationButton(
-                    title: "out",
+                    title: "Reject",
                     on: session.outToggleIsOn([asset.id])
                 ) {
                     session.classifyOut([asset.id])
@@ -317,6 +356,8 @@ struct ElasticFocusView: View {
             ElasticHistogram(
                 bins: asset.imageStats?.luminanceBins ?? [],
                 shift: session.histogramBinShift(for: asset),
+                shotShift: 0,
+                autoShift: session.autoHistogramShift(for: asset),
                 clipsShadows: session.showsShadowClipTick(for: asset),
                 clipsHighlights: session.showsHighlightClipTick(for: asset)
             )
@@ -339,6 +380,52 @@ struct ElasticFocusView: View {
         .padding(.bottom, ElasticLayout.statusPaddingBottom)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(LuminaTokens.Elastic.matte)
+    }
+}
+
+/// Fading note near the focused photograph — not pinned to the frame. Typing
+/// writes `AssetRecord.note`; Esc / two-finger swipe down dismisses.
+private struct ElasticNoteFloater: View {
+    @Bindable var session: P0SessionModel
+    let asset: AssetRecord
+    @FocusState private var focused: Bool
+    @State private var draft: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ElasticLayout.noteFloaterGap) {
+            Text(CopyContract.noteFloaterLabel)
+                .font(ElasticType.mono(ElasticLayout.noteFloaterLabelSize))
+                .opacity(ElasticLayout.drawerMutedOpacity)
+            TextField(CopyContract.noteFloaterPlaceholder, text: $draft, axis: .vertical)
+                .font(ElasticType.sans(ElasticLayout.noteFloaterTextSize))
+                .foregroundStyle(LuminaTokens.Elastic.shellAlt)
+                .lineLimit(2...6)
+                .focused($focused)
+                .onChange(of: draft) { _, next in
+                    session.setNote(next, for: asset.id)
+                }
+        }
+        .padding(ElasticLayout.noteFloaterPadding)
+        .frame(width: ElasticLayout.noteFloaterWidth, alignment: .leading)
+        .background(
+            LuminaTokens.Elastic.ink.opacity(ElasticLayout.noteFloaterFillOpacity),
+            in: RoundedRectangle(cornerRadius: ElasticLayout.noteFloaterRadius, style: .continuous)
+        )
+        .gesture(
+            DragGesture(minimumDistance: ElasticLayout.noteFloaterSwipeMinimum)
+                .onEnded { value in
+                    if value.translation.height > ElasticLayout.noteFloaterSwipeDismiss {
+                        session.dismissNoteFloater()
+                    }
+                }
+        )
+        .onAppear {
+            draft = asset.note ?? ""
+            focused = true
+        }
+        .onChange(of: asset.id) { _, _ in
+            draft = session.asset(asset.id)?.note ?? ""
+        }
     }
 }
 

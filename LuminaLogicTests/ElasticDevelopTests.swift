@@ -1,8 +1,8 @@
 import XCTest
 @testable import Lumina
 
-/// Checkpoint 05 — the develop drawer: `E`, a nudge that ripples to the group, the
-/// ratios, `R`, straighten, the profile, and `M`.
+/// Checkpoint 05 — the always-on Develop rail: a nudge that ripples to the group,
+/// the ratios, `R`, straighten, the profile, and staged A looks.
 @MainActor
 final class ElasticDevelopTests: XCTestCase {
 
@@ -51,33 +51,27 @@ final class ElasticDevelopTests: XCTestCase {
         XCTAssertFalse(session.elasticHeaderLine.contains("1 auto"), session.elasticHeaderLine)
     }
 
-    func testVersionColumnHidesWhileTheDrawerOrAHoldIsUp() {
+    func testVersionTilesStayOffThePhotograph() {
         let (session, _) = seeded()
-        XCTAssertTrue(session.versionColumnVisible)
+        XCTAssertFalse(session.versionColumnVisible)
         session.toggleDevelopDrawer()
-        XCTAssertFalse(session.versionColumnVisible, "drawer")
-        session.toggleDevelopDrawer()
-        XCTAssertTrue(session.versionColumnVisible)
+        XCTAssertFalse(session.versionColumnVisible)
         session.openPeek(.related)
-        XCTAssertFalse(session.versionColumnVisible, "held peek")
-        session.cyclePeek(by: 1)
-        XCTAssertFalse(session.versionColumnVisible, "any peek")
+        XCTAssertFalse(session.versionColumnVisible)
         session.closePeek()
-        XCTAssertTrue(session.versionColumnVisible)
         session.setShowingBefore(true)
-        XCTAssertTrue(session.versionColumnVisible, "before is not a hold in the prototype's sense — the versions stay")
+        XCTAssertFalse(session.versionColumnVisible)
     }
 
-    func testEOpensTheDrawerOnlyInFocus() {
+    func testGroupCycleWorksOnTheAlwaysOnRail() {
         let (session, _) = seeded()
         session.route = .time
-        session.toggleDevelopDrawer()
-        XCTAssertFalse(session.developDrawerOpen, "the table has no drawer")
+        session.cycleDevelopGroup(by: 1)
+        XCTAssertEqual(session.expandedAdjustmentSection, .light, "the table has no rail")
         session.route = .focus
-        session.toggleDevelopDrawer()
-        XCTAssertTrue(session.developDrawerOpen)
-        session.toggleDevelopDrawer()
-        XCTAssertFalse(session.developDrawerOpen)
+        session.expandedAdjustmentSection = .light
+        session.cycleDevelopGroup(by: 1)
+        XCTAssertEqual(session.expandedAdjustmentSection, .color)
     }
 
     func testScopeIsSelectionThenBurstThenTheFrameAlone() {
@@ -178,41 +172,131 @@ final class ElasticDevelopTests: XCTestCase {
         XCTAssertEqual(session.undoCoordinator.undoLabel, "Undo Profile", "an unchanged pick pushes nothing new")
     }
 
-    func testMatchCarriesOnlyTheCheckedGroupsToTheRightFrames() {
-        let (session, ids) = seeded()
-        session.assets[0].recipe = EditRecipe(exposure: 1, temperature: 5000, sharpness: 40, crop: .init(x: 0, y: 0.1, width: 1, height: 0.8), cameraProfile: "Adobe Color")
-        session.assets[0].recipeSource = .hand
-        XCTAssertEqual(session.matchGroups, [.light, .color, .profile])
-        XCTAssertEqual(session.matchTargetIDs(for: ids[0]), [ids[1], ids[2], ids[3]], "the moment, without the cursor")
-        XCTAssertEqual(session.matchScopeLine(for: ids[0]), "to the moment · 3")
-
-        XCTAssertEqual(session.matchToCursor(), 3)
-        let mate = session.recipe(for: ids[1])
-        XCTAssertEqual(mate.exposure, 1)
-        XCTAssertEqual(mate.temperature, 5000)
-        XCTAssertEqual(mate.cameraProfile, "Adobe Color")
-        XCTAssertEqual(mate.sharpness, 0, "detail was not checked")
-        XCTAssertNil(mate.crop, "crop was not checked")
-        XCTAssertEqual(session.asset(ids[1])?.recipeSource, .hand)
-        XCTAssertEqual(session.recipe(for: ids[4]).exposure, 0, "another moment is untouched")
-        XCTAssertEqual(session.undoCoordinator.undoLabel, "Undo Match")
-
-        session.toggleMatchGroup(.crop)
-        session.toggleMatchGroup(.light)
-        XCTAssertEqual(session.matchGroups, [.color, .profile, .crop])
-        session.selectedAssetIDs = [ids[4]]
-        XCTAssertEqual(session.matchTargetIDs(for: ids[0]), [ids[4]])
-        XCTAssertEqual(session.matchScopeLine(for: ids[0]), "to 1 selected · 1")
-        XCTAssertEqual(session.matchToCursor(), 1)
-        XCTAssertEqual(session.recipe(for: ids[4]).crop?.height ?? 0, 0.8, accuracy: 1e-9)
-        XCTAssertEqual(session.recipe(for: ids[4]).exposure, 0, "light was unchecked this time")
+    private func evenStats(mean: Double = 0.31) -> ImageStats {
+        ImageStats(
+            luminanceBins: Array(repeating: 32, count: ImageStats.binCount),
+            shadowClipFraction: 0,
+            highlightClipFraction: 0,
+            mean: mean
+        )
     }
 
-    func testMatchTargetsTheSetWhenTheCursorIsInIt() {
+    func testAStagesDeterministicLooksWithoutWriting() {
         let (session, ids) = seeded()
-        session.assets[0].cull = .keep
-        XCTAssertEqual(session.matchTargetIDs(for: ids[0]), [ids[3]])
-        XCTAssertEqual(session.matchScopeLine(for: ids[0]), "to the set · 1")
+        session.assets[0].imageStats = evenStats()
+        let before = session.recipe(for: ids[0])
+        session.stageAutoVariations(for: ids[0])
+        XCTAssertTrue(session.hasStagedAutoVariations)
+        XCTAssertTrue(session.variationColumnVisible)
+        XCTAssertEqual(session.stagedAutoVariations.map(\.id), ["tone", "lift", "punch"])
+        XCTAssertEqual(session.variationLabel(for: "tone"), CopyContract.developVariationTone)
+        XCTAssertEqual(session.variationLabel(for: "lift"), CopyContract.developVariationLift)
+        XCTAssertEqual(session.variationLabel(for: "punch"), CopyContract.developVariationPunch)
+        XCTAssertTrue(session.stagedAutoVariations.allSatisfy { session.isAutoVariationHighlighted($0.id) })
+        XCTAssertEqual(session.recipe(for: ids[0]).valueFingerprint, before.valueFingerprint)
+        XCTAssertEqual(session.asset(ids[0])?.cull, .undecided)
+        XCTAssertEqual(session.asset(ids[0])?.recipeSource, .shot)
+        XCTAssertEqual(session.elasticHeadline, CopyContract.developLooksHint)
+
+        let again = AutoDevelop.variations(for: session.assets[0], stats: evenStats())
+        XCTAssertEqual(
+            session.stagedAutoVariations.map(\.recipe.valueFingerprint),
+            again.map(\.recipe.valueFingerprint),
+            "the same measurements always fork the same three looks"
+        )
+        XCTAssertGreaterThan(again[1].recipe.shadows, again[0].recipe.shadows)
+        XCTAssertGreaterThan(again[2].recipe.contrast, again[0].recipe.contrast)
+        XCTAssertEqual(again[0].recipe.whites, 0)
+        XCTAssertEqual(again[0].recipe.blacks, 0)
+        XCTAssertEqual(again[0].recipe.dehaze, 0)
+    }
+
+    func testPickingALookAppliesItAndPutsThePhotographInTheSet() {
+        let (session, ids) = seeded()
+        session.assets[0].imageStats = evenStats()
+        session.stageAutoVariations(for: ids[0])
+        let tone = session.stagedAutoVariations[0]
+        session.pickStagedVariation("tone")
+        XCTAssertEqual(session.acceptedAutoVariationID, "tone")
+        XCTAssertFalse(session.isAutoVariationHighlighted("tone"))
+        XCTAssertTrue(session.isAutoVariationHighlighted("lift"))
+        XCTAssertEqual(session.recipe(for: ids[0]).valueFingerprint, tone.recipe.valueFingerprint)
+        XCTAssertEqual(session.asset(ids[0])?.recipeSource, .auto)
+        XCTAssertEqual(session.asset(ids[0])?.cull, .keep)
+        XCTAssertTrue(session.isInFinalSet(ids[0]))
+        XCTAssertTrue(session.hasStagedAutoVariations, "accepted looks stay until Esc")
+    }
+
+    func testSameLookAgainClearsTheSetAndRestages() {
+        let (session, ids) = seeded()
+        session.assets[0].imageStats = evenStats()
+        let before = session.recipe(for: ids[0])
+        session.stageAutoVariations(for: ids[0])
+        session.pickStagedVariation("lift")
+        XCTAssertEqual(session.asset(ids[0])?.cull, .keep)
+        session.pickStagedVariation("lift")
+        XCTAssertNil(session.acceptedAutoVariationID)
+        XCTAssertTrue(session.stagedAutoVariations.allSatisfy { session.isAutoVariationHighlighted($0.id) })
+        XCTAssertEqual(session.recipe(for: ids[0]).valueFingerprint, before.valueFingerprint)
+        XCTAssertEqual(session.asset(ids[0])?.recipeSource, .shot)
+        XCTAssertEqual(session.asset(ids[0])?.cull, .undecided)
+        XCTAssertTrue(session.hasStagedAutoVariations)
+    }
+
+    func testEscCancelsUnappliedLooksAndKeepsAnAcceptedLook() {
+        let (session, ids) = seeded()
+        session.assets[0].imageStats = evenStats()
+        let before = session.recipe(for: ids[0])
+        session.stageAutoVariations(for: ids[0])
+        XCTAssertTrue(P0EscLadder.handle(session: session))
+        XCTAssertFalse(session.hasStagedAutoVariations)
+        XCTAssertEqual(session.recipe(for: ids[0]).valueFingerprint, before.valueFingerprint)
+        XCTAssertEqual(session.asset(ids[0])?.cull, .undecided)
+        XCTAssertEqual(session.route, .focus)
+
+        session.stageAutoVariations(for: ids[0])
+        session.pickStagedVariation("punch")
+        let accepted = session.recipe(for: ids[0])
+        XCTAssertTrue(P0EscLadder.handle(session: session))
+        XCTAssertFalse(session.hasStagedAutoVariations)
+        XCTAssertEqual(session.recipe(for: ids[0]).valueFingerprint, accepted.valueFingerprint)
+        XCTAssertEqual(session.asset(ids[0])?.cull, .keep)
+        XCTAssertEqual(session.route, .focus)
+    }
+
+    func testADoesNotStageOnTheTable() {
+        let (session, ids) = seeded()
+        session.assets[0].imageStats = evenStats()
+        session.route = .time
+        session.stageAutoVariations(for: ids[0])
+        XCTAssertFalse(session.hasStagedAutoVariations)
+    }
+
+    func testHistogramSeparatesShotAutoAndTheCurrentEdit() {
+        let (session, ids) = seeded()
+        session.assets[0].imageStats = ImageStats(
+            luminanceBins: Array(repeating: 32, count: ImageStats.binCount),
+            mean: 0.25
+        )
+        XCTAssertEqual(session.histogramBinShift(for: session.assets[0]), 0)
+        XCTAssertNotNil(session.autoHistogramShift(for: session.assets[0]))
+        session.assets[0].recipe = EditRecipe(exposure: 1)
+        XCTAssertNotEqual(session.histogramBinShift(for: session.assets[0]), 0)
+        XCTAssertNotEqual(
+            session.histogramBinShift(for: session.assets[0]),
+            session.autoHistogramShift(for: session.assets[0])
+        )
+        _ = ids
+    }
+
+    func testRevealSetPinsTheSetOnTheTable() {
+        let (session, ids) = seeded()
+        XCTAssertEqual(session.route, .focus)
+        session.revealSet()
+        XCTAssertEqual(session.peek, .set)
+        XCTAssertTrue(session.peekPinned)
+        XCTAssertEqual(session.route, .time)
+        XCTAssertTrue(session.finalSetAssetIDs.contains(ids[3]))
     }
 
     func testCopyLinesAndControls() {
@@ -223,13 +307,14 @@ final class ElasticDevelopTests: XCTestCase {
         XCTAssertTrue(session.developSourceLine(for: session.assets[0]).hasSuffix(".xmp · the sidecar is the truth · nudges ripple to the group as deltas"))
         _ = ids
         XCTAssertEqual(ElasticDevelopControl.exposed.map(\.name),
-                       ["Exposure", "Contrast", "Highlights", "Shadows", "Temp", "Tint", "Vibrance", "Saturation", "Sharpness"],
+                       ["Exposure", "Contrast", "Highlights", "Shadows", "Temp", "Tint", "Vibrance", "Saturation", "Sharpness", "Luminance"],
                        "whites, blacks and dehaze are not shown")
         let exposure = ElasticDevelopControl.exposed[0]
         XCTAssertEqual(exposure.label(0.5), "+0.50")
         XCTAssertEqual(ElasticDevelopControl.exposed[4].label(6500), "6500K")
         XCTAssertEqual(ElasticDevelopControl.exposed[1].label(-12), "-12")
-        XCTAssertEqual(ElasticLayout.drawerWidth, 256)
+        XCTAssertEqual(ElasticLayout.drawerWidth, HiFiTokens.Layout.minWindowWidth / 4)
+        XCTAssertEqual(ElasticLayout.developRailWidth, ElasticLayout.drawerWidth)
         XCTAssertEqual(ElasticLayout.straightenRange, 10)
         XCTAssertEqual(ElasticLayout.straightenStep, 0.1, accuracy: 1e-9)
     }
