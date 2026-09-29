@@ -177,6 +177,7 @@
     missing: () => { const l = current || findLogic(); return l ? missing(l) : ['page not found']; },
     shootId: () => shootId,
     card(present, info) {
+      if (cfg.parity) return;              // test-only: keep the design's sample card state for pixel parity
       window.lumina.card = present ? (info || {}) : null;
       const l = window.__lumina.logic();
       if (!present && l && l.state.realLoad) cardPulledWhileReading = true;
