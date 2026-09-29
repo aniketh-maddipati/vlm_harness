@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./lumina-core.js"></script>
+<style>
+body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#EFECE6}a:hover{color:#B8B3AB}
+textarea::placeholder,input::placeholder{color:#6F6C66}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:scale(0.985)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes slide{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100vh;position:relative;user-select:none;background:#1E1D1B;color:#EFECE6;overflow:hidden">
+  <div style="flex:none;height:52px;padding:0 20px;display:flex;align-items:center;gap:18px;background:#262523;border-bottom:1px solid rgba(239,236,230,0.08)">
+    <div style="font-family:'Iowan Old Style',Georgia,serif;font-size:21px">Lumina</div>
+    <div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:4px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;white-space:nowrap;overflow:hidden">
+      <sc-for list="{{ steps }}" as="st" hint-placeholder-count="5">
+        <span style="color:#57534D;padding:0 2px">{{ st.arrow }}</span>
+        <div onClick="{{ st.go }}" style="height:30px;padding:0 12px;display:flex;align-items:center;gap:8px;border-radius:8px;cursor:pointer;background:{{ st.bg }};color:{{ st.fg }};font-weight:600;transition:background 140ms ease-out, color 140ms ease-out">{{ st.t }}<span style="font-weight:400;opacity:0.7">{{ st.n }}</span></div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ copyTxt }}" hint-placeholder-val="{{ false }}"><span onClick="{{ toOpen }}" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:{{ copyTxtC }};white-space:nowrap;cursor:pointer">{{ copyTxt }}</span></sc-if>
+    <span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#6F6C66;white-space:nowrap">{{ savedTxt }}</span>
+  </div>
+  <sc-if value="{{ ctxOn }}" hint-placeholder-val="{{ true }}">
+    <div data-screen-label="Context bar" style="flex:none;height:34px;display:flex;align-items:center;gap:16px;padding:0 20px;background:{{ ctxBg }};color:{{ ctxFg }};border-bottom:1px solid rgba(239,236,230,0.06);font-family:ui-monospace,Menlo,monospace;font-size:12.5px;white-space:nowrap;overflow:hidden;transition:background 120ms ease-out, color 120ms ease-out">
+      <span style="flex:none;font-weight:800">{{ ctxLead }}</span>
+      <div style="flex:1;min-width:0;display:flex;align-items:center;gap:16px;overflow:hidden;mask-image:linear-gradient(90deg,#000 88%,transparent)">
+        <sc-for list="{{ ctxKeys }}" as="hk" hint-placeholder-count="5">
+        <span style="flex:none;display:flex;align-items:center;gap:6px"><span style="min-width:18px;height:18px;padding:0 5px;border-radius:4px;background:{{ ctxChip }};font-weight:700;display:grid;place-items:center">{{ hk.k }}</span>{{ hk.t }}</span>
+      </sc-for>
+      </div>
+      
+      <sc-if value="{{ selN }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ clearSel }}" style="flex:none;padding:3px 9px;border-radius:999px;background:rgba(30,29,27,0.14);cursor:pointer;font-weight:700" style-hover="background:rgba(30,29,27,0.24)">clear · esc</div>
+      </sc-if>
+      <span style="flex:none;opacity:0.6">? all · H hide</span>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isImport }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="0 Open" style="flex:1;min-height:0;position:relative;overflow-y:auto;overflow-x:hidden;animation:rise 160ms ease-out">
+      <div onClick="{{ simCard }}" style="position:absolute;right:16px;top:12px;z-index:2;font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:3px 9px;border-radius:999px;border:1px dashed rgba(239,236,230,0.25);color:#9A958D;cursor:pointer" style-hover="color:#EFECE6">prototype · {{ simTxt }}</div>
+      <div style="max-width:720px;margin:0 auto;padding:48px 28px 32px;display:flex;flex-direction:column;gap:28px">
+        <sc-if value="{{ cardIn }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:14px;padding:18px 20px;border-radius:14px;background:#2A2927;animation:fade 140ms ease-out">
+            <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+              <span style="width:7px;height:7px;border-radius:50%;background:{{ cardDot }};align-self:center"></span>
+              <span style="font-family:'Iowan Old Style',Georgia,serif;font-size:24px;color:#EFECE6">Sony α7 III card</span>
+              <span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#9A958D">{{ cardMeta }}</span>
+            </div>
+            <div onClick="{{ copyGo }}" style="position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:10px;background:{{ copyBg }};color:{{ copyFg }};cursor:pointer" style-hover="filter:brightness(1.05)">
+              <div style="position:absolute;left:0;top:0;bottom:0;width:{{ copyPct }};background:rgba(30,29,27,0.12);transition:width 240ms linear"></div>
+              <span style="position:relative;font-size:16px;font-weight:800">{{ copyT }}</span>
+              <span style="flex:1"></span>
+              <span style="position:relative;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;white-space:nowrap">{{ copySub }}</span>
+            </div>
+            <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#6F6C66;line-height:1.6">{{ copyNote }}</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ cardOut }}" hint-placeholder-val="{{ false }}">
+          <div style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#6F6C66">Insert a card to copy it · or open a shoot below</div>
+        </sc-if>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <input ref="{{ libRef }}" value="{{ libQ }}" onChange="{{ libType }}" onKeyDown="{{ libKey }}" placeholder="Find a shoot — date, place…" style="font-family:'Iowan Old Style',Georgia,serif;font-size:20px;color:#EFECE6;background:transparent;border:0;border-bottom:1px solid rgba(239,236,230,0.14);padding:8px 2px;outline:none">
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <sc-for list="{{ shoots }}" as="sh" hint-placeholder-count="0">
+              <div onClick="{{ sh.open }}" onMouseEnter="{{ sh.hover }}" style="display:flex;align-items:center;gap:14px;padding:8px 10px;border-radius:8px;background:{{ sh.bg }};cursor:pointer;transition:background 100ms ease-out">
+                <div style="flex:none;width:60px;aspect-ratio:3/2;border-radius:3px;overflow:hidden;background:#3C3836"><div style="width:100%;height:100%;background-image:url({{ sh.src }});background-size:cover;background-position:center"></div></div>
+                <span style="flex:1;min-width:0;font-family:'Iowan Old Style',Georgia,serif;font-size:16px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ sh.title }}</span>
+                <span style="flex:none;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#9A958D;white-space:nowrap">{{ sh.meta }}</span>
+                <span style="flex:none;width:52px;text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#FFD27A">{{ sh.go }}</span>
+              </div>
+            </sc-for>
+            <sc-if value="{{ noShoots }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#9A958D">No shoot matches · ⌘O to choose a folder</div>
+            </sc-if>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#6F6C66">
+            <div onClick="{{ openFolder }}" style="padding:6px 12px;border-radius:8px;background:rgba(239,236,230,0.08);color:#EFECE6;font-weight:700;cursor:pointer" style-hover="background:rgba(239,236,230,0.14)">⌘O open a folder of ARWs</div>
+            <span>{{ realLine }}</span>
+            <sc-if value="{{ hasGold }}" hint-placeholder-val="{{ false }}"><span onClick="{{ saveGolden }}" style="color:#B8B3AB;cursor:pointer;text-decoration:underline">save test data</span></sc-if>
+          </div>
+          <input ref="{{ dirRef }}" type="file" multiple="" onChange="{{ onDir }}" style="display:none">
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isCull }}" hint-placeholder-val="{{ true }}">
+    <div data-screen-label="1 Cull" ref="{{ scrollRef }}" onScroll="{{ onCullScroll }}" onWheel="{{ onCullWheel }}" onMouseDown="{{ boxDown }}" onDragOver="{{ allowDrop }}" onDrop="{{ dropRows }}" style="flex:1;min-height:0;overflow:auto;padding:22px 28px 60px 0;animation:rise 160ms ease-out">
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+        <div data-row="{{ r.id }}" style="display:flex;padding-bottom:18px">
+          <div onClick="{{ r.focus }}" onDoubleClick="{{ r.autoRow }}" title="click: focus row · double-click: auto for this row" style="flex:none;width:100px;position:relative;cursor:pointer">
+            <div style="position:absolute;left:82px;top:0;bottom:0;width:1px;background:#4A4743"></div>
+            <div style="position:absolute;left:82px;top:22px;width:9px;height:9px;margin:-4.5px 0 0 -4px;border-radius:50%;background:#EFECE6;box-shadow:{{ r.nodeRing }};transition:box-shadow 140ms ease-out"></div>
+            <div style="position:absolute;left:0;top:14px;width:72px;text-align:right;font-family:ui-monospace,Menlo,monospace;line-height:1.45;white-space:nowrap">
+              <div style="font-size:12px;color:{{ r.timeColor }}">{{ r.time }}</div>
+              <div style="font-size:12px;color:#FFECCD;font-weight:600">{{ r.autoTag }}</div>
+            </div>
+          </div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;padding:10px 14px 14px;border-radius:10px;background:#2A2927;border:1px solid {{ r.borderColor }};transition:border-color 140ms ease-out">
+            <div data-node="{{ r.id }}" data-photo="1" onClick="{{ r.focus }}" style="display:flex;align-items:center;gap:12px;margin:0 -8px;padding:5px 8px;border-radius:6px;background:{{ r.headBg }};font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:{{ r.headColor }};cursor:pointer;transition:background 120ms ease-out, color 120ms ease-out">
+              <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.summary }}</span>
+              <sc-if value="{{ r.look }}" hint-placeholder-val="{{ false }}">
+                <span style="flex:none;padding:2px 8px;border-radius:5px;border:1px dashed rgba(255,210,122,0.7);color:#FFD27A">{{ r.look }}</span>
+              </sc-if>
+              <span style="flex:1"></span>
+              <span style="flex:none;color:#9A958D;white-space:nowrap">{{ r.hint }}</span>
+            </div>
+            <sc-for list="{{ r.subs }}" as="sb" hint-placeholder-count="2">
+              <div style="display:flex;gap:10px;align-items:flex-start">
+                <div data-photo="1" onClick="{{ sb.focus }}" style="flex:none;width:72px;padding-top:6px;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.5;color:{{ sb.labelColor }};cursor:pointer">
+                  <div style="font-weight:700">{{ sb.label }}</div>
+                  <div>{{ sb.meta }}</div>
+                  <div style="color:#FFD27A">{{ sb.look }}</div>
+                </div>
+                <div style="flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:8px;padding:6px;border-radius:7px;background:{{ sb.bg }};outline:{{ sb.outline }};outline-offset:-1px;transition:outline-color 120ms ease-out">
+                  <sc-for list="{{ sb.frames }}" as="p" hint-placeholder-count="3">
+                  <div data-tile="{{ p.id }}" data-photo="1" onMouseDown="{{ p.down }}" onClick="{{ p.click }}" style="flex:none;position:relative;width:{{ tileW }}px;aspect-ratio:3/2;border-radius:3px;background:#3C3836;box-shadow:{{ p.ring }};transform:{{ p.lift }};opacity:{{ p.dim }};transition:transform 120ms ease-out, box-shadow 120ms ease-out, opacity 140ms ease-out;cursor:pointer;z-index:{{ p.z }};outline:{{ p.selOutline }};outline-offset:3px">
+                    <div style="width:100%;height:100%;border-radius:3px;filter:{{ p.filter }};transition:filter 160ms ease-out;pointer-events:none;background-image:url({{ p.src }});background-size:{{ p.fit }};background-position:center;background-repeat:no-repeat"></div>
+                    <sc-if value="{{ p.portrait }}" hint-placeholder-val="{{ false }}"><div title="portrait · exports upright" style="position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);aspect-ratio:2/3;border:1px dashed rgba(239,236,230,0.55);border-radius:2px;pointer-events:none"></div></sc-if>
+                    <sc-if value="{{ p.kept }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;left:6px;top:6px;width:18px;height:18px;border-radius:50%;background:#FFECCD;color:#1E1D1B;font-size:12px;font-weight:800;display:grid;place-items:center;animation:pop 140ms ease-out">✓</div>
+                    </sc-if>
+                    <sc-if value="{{ p.likely }}" hint-placeholder-val="{{ false }}">
+                      <div title="not suggested · not the sharpest clean frame" style="position:absolute;right:7px;top:7px;width:9px;height:9px;border-radius:50%;background:#8C877F;box-shadow:0 0 0 2px rgba(20,19,18,0.7)"></div>
+                    </sc-if>
+                    <sc-if value="{{ p.likelyBig }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;inset:0;border-radius:3px;box-shadow:inset 0 0 0 2px #8C877F;pointer-events:none"></div>
+                      <div style="position:absolute;right:6px;top:6px;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;padding:2px 7px;border-radius:5px;background:#8C877F;color:#1E1D1B">out?</div>
+                    </sc-if>
+                    
+                    <sc-if value="{{ p.badge }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute;right:6px;bottom:6px;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;padding:2px 6px;border-radius:5px;background:{{ p.badgeBg }};color:{{ p.badgeColor }}">{{ p.badge }}</div>
+                    </sc-if>
+                  </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isEdit }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="2 Edit" style="flex:1;min-height:0;display:flex;animation:rise 160ms ease-out">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:16px 20px 0;gap:12px">
+        <div data-screen-label="Open row" ref="{{ openRef }}" style="flex:0 0 58%;min-height:0;display:flex;flex-direction:column;gap:8px">
+          <div style="flex:none;display:flex;gap:12px;align-items:baseline;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#9A958D;white-space:nowrap">
+            <span style="color:#EFECE6">{{ openRow.time }}</span><span>{{ openRow.n }}</span><span style="flex:1"></span><sc-if value="{{ openRow.look }}" hint-placeholder-val="{{ false }}"><span onClick="{{ openRow.apply }}" style="padding:2px 8px;border-radius:5px;border:1px dashed rgba(255,210,122,0.8);color:#FFD27A;font-weight:700;cursor:pointer">previewing {{ openRow.look }} · ⇧A apply</span></sc-if><span style="color:#FFECCD;font-weight:600">{{ big.auto }}</span>
+          </div>
+          <div data-photo="1" onDoubleClick="{{ autoToggle }}" title="double-click: auto" style="flex:1;min-height:0;position:relative;cursor:pointer;border-radius:6px;background:#161514;overflow:hidden;display:grid;place-items:center">
+            <div style="position:absolute;inset:0;background-image:url({{ big.src }});background-size:contain;background-position:center;background-repeat:no-repeat;filter:{{ big.filter }};transition:filter 160ms ease-out;animation:fade 120ms ease-out"></div>
+            <div style="position:absolute;left:10px;bottom:10px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;padding:4px 9px;border-radius:6px;background:rgba(20,19,18,0.8);color:#EFECE6">{{ big.pos }}</div>
+            <div style="position:absolute;right:10px;bottom:10px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;padding:4px 9px;border-radius:6px;background:rgba(20,19,18,0.8);color:#FFECCD">{{ scopeLabel }}</div>
+          </div>
+        </div>
+        <div data-screen-label="Edit rows" ref="{{ editRef }}" style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:4px 0 40px">
+          <sc-for list="{{ editRows }}" as="er" hint-placeholder-count="3">
+            <div style="display:flex;gap:14px;align-items:center">
+              <div onClick="{{ er.focus }}" onDoubleClick="{{ er.autoRow }}" title="click: edit whole row · double-click: auto" style="flex:none;width:84px;text-align:right;font-family:ui-monospace,Menlo,monospace;line-height:1.45;cursor:pointer">
+                <div style="font-size:12px;color:{{ er.timeColor }}">{{ er.time }}</div>
+                <div style="font-size:12px;color:#9A958D">{{ er.n }}</div>
+                <div style="font-size:12px;color:#FFECCD;font-weight:600">{{ er.autoTag }}</div>
+                <sc-if value="{{ er.look }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ er.apply }}" style="margin-top:3px;display:inline-block;font-size:12px;font-weight:700;padding:2px 6px;border-radius:5px;border:1px dashed rgba(255,210,122,0.8);color:#FFD27A;cursor:pointer" style-hover="background:rgba(255,210,122,0.14)">{{ er.look }}</div>
+                </sc-if>
+              </div>
+              <div style="flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:10px;padding:6px;border-radius:9px;background:{{ er.bg }};border:1px solid {{ er.border }};transition:border-color 140ms ease-out, background 140ms ease-out">
+                <sc-for list="{{ er.subs }}" as="es" hint-placeholder-count="2">
+                  <div style="display:flex;gap:6px;padding:4px;border-radius:6px;background:{{ es.bg }};outline:{{ es.outline }};outline-offset:-1px;transition:outline-color 120ms ease-out">
+                    <sc-for list="{{ es.tiles }}" as="et" hint-placeholder-count="2">
+                      <div data-edit="{{ et.id }}" data-photo="1" onClick="{{ et.click }}" onDoubleClick="{{ et.dbl }}" style="flex:none;position:relative;width:84px;aspect-ratio:3/2;border-radius:2px;overflow:hidden;background:#3C3836;box-shadow:{{ et.ring }};outline:{{ et.scope }};outline-offset:2px;transition:outline-color 140ms ease-out;cursor:pointer">
+                        <div style="width:100%;height:100%;filter:{{ et.filter }};pointer-events:none;background-image:url({{ et.src }});background-size:{{ et.fit }};background-position:center;background-repeat:no-repeat"></div>
+                    <sc-if value="{{ et.portrait }}" hint-placeholder-val="{{ false }}"><div title="portrait · exports upright" style="position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);aspect-ratio:2/3;border:1px dashed rgba(239,236,230,0.55);border-radius:2px;pointer-events:none"></div></sc-if>
+                        <sc-if value="{{ et.fin }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#FFD27A;color:#1E1D1B;font-size:10px;font-weight:900;display:grid;place-items:center">★</div></sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="flex:none;width:280px;margin:20px 20px 12px 0;padding:8px;border-radius:10px;background:#2A2927;display:flex;flex-direction:column;gap:2px;font-family:ui-monospace,Menlo,monospace;box-sizing:border-box;overflow:auto">
+        <div style="display:flex;gap:2px;padding:3px;margin:0 2px 8px;border-radius:8px;background:rgba(239,236,230,0.06)">
+          <sc-for list="{{ scopes }}" as="sc" hint-placeholder-count="3">
+            <div onClick="{{ sc.pick }}" style="flex:1;text-align:center;padding:6px 0;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;background:{{ sc.bg }};color:{{ sc.fg }};transition:background 120ms ease-out, color 120ms ease-out">{{ sc.t }}</div>
+          </sc-for>
+        </div>
+        <div style="margin:-4px 4px 8px;font-size:12px;color:#6F6C66;text-align:center">↑↓ rows · ← → photos · esc back out</div>
+        <div onClick="{{ autoToggle }}" style="display:flex;align-items:center;gap:10px;margin:0 2px 8px;padding:9px 10px;border-radius:8px;cursor:pointer;background:{{ autoBtn.bg }};color:{{ autoBtn.fg }};font-size:12px;font-weight:700;transition:background 140ms ease-out, color 140ms ease-out" style-hover="filter:brightness(1.12)">
+          <span style="flex:1">{{ autoBtn.t }}</span><span style="font-weight:400;opacity:0.75">A · dbl-click</span>
+        </div>
+
+        <sc-for list="{{ params }}" as="pr" hint-placeholder-count="5">
+          <div onPointerDown="{{ pr.down }}" onDoubleClick="{{ pr.zero }}" style="display:flex;flex-direction:column;gap:8px;padding:10px 10px 12px;border-radius:8px;background:{{ pr.bg }};transition:background 120ms ease-out;cursor:ew-resize;touch-action:none">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span style="flex:1;font-size:12px;color:{{ pr.fg }}">{{ pr.name }}</span>
+              <span style="font-size:12px;font-weight:{{ pr.weight }};color:{{ pr.fg }}">{{ pr.val }}</span>
+            </div>
+            <div data-track="1" style="position:relative;height:26px;margin:0 13px">
+              <div style="position:absolute;left:-13px;right:-13px;top:10px;height:6px;border-radius:3px;background:rgba(239,236,230,0.14)"></div>
+              <div style="position:absolute;left:{{ pr.z }}%;top:5px;width:2px;height:16px;margin-left:-1px;background:rgba(239,236,230,0.35)"></div>
+              <div style="position:absolute;top:10px;height:6px;border-radius:3px;left:{{ pr.l }}%;width:{{ pr.w }}%;background:{{ pr.bar }}"></div>
+              <div style="position:absolute;top:0;left:{{ pr.p }}%;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:{{ pr.knob }};box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+
+  <sc-if value="{{ isWrite }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="4 Write" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;animation:rise 160ms ease-out">
+      <div style="max-width:780px;margin:0 auto;padding:24px 28px 120px;display:flex;flex-direction:column;gap:28px;user-select:text">
+        <div style="display:flex;align-items:center;gap:10px;font-family:ui-monospace,Menlo,monospace;font-size:12px"><span onClick="{{ backExport }}" style="color:#B8B3AB;cursor:pointer" style-hover="color:#EFECE6">← export  ⌘[</span><span style="padding:1px 7px;border-radius:5px;border:1px dashed rgba(239,236,230,0.3);color:#9A958D">beta</span><span style="color:#6F6C66">optional · doesn't change keeps or export</span></div>
+        <div data-screen-label="Cover" style="position:relative;width:calc(100vw - 16px);margin-left:calc(50% - 50vw + 8px);margin-top:-44px;aspect-ratio:21/9;max-height:72vh;overflow:hidden;background:#2A2927">
+          <div data-photo="1" onClick="{{ cover.click }}" style="position:absolute;inset:0;width:100%;height:100%;filter:{{ cover.filter }};transition:filter 160ms ease-out;cursor:pointer;background-image:url({{ cover.src }});background-size:cover;background-position:center"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,{{ cover.dim }}), rgba(0,0,0,{{ cover.dimTop }}));pointer-events:none;transition:background 160ms ease-out"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;padding:0 max(28px, calc(50% - 362px)) 36px;display:flex;flex-direction:column;gap:8px">
+            <input value="{{ essay.title }}" onChange="{{ onTitle }}" placeholder="Title — the place, plainly" style="font-family:'Iowan Old Style',Georgia,serif;font-size:44px;line-height:1.1;color:#FFFFFF;background:transparent;border:0;outline:none;padding:0;text-shadow:0 2px 14px rgba(0,0,0,0.45)">
+            <input value="{{ essay.sub }}" onChange="{{ onSub }}" placeholder="Three things, lightly — e.g. salt flats, long shadows, &amp; one wrong turn" style="font-family:'Iowan Old Style',Georgia,serif;font-size:19px;font-style:italic;color:#F2EFE9;background:transparent;border:0;outline:none;padding:0;text-shadow:0 2px 10px rgba(0,0,0,0.45)">
+          </div>
+          <div onClick="{{ cover.toggle }}" style="position:absolute;right:16px;top:14px;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#EFECE6;padding:4px 9px;border-radius:6px;background:rgba(20,19,18,0.6);cursor:pointer">{{ cover.label }}</div>
+        </div>
+        <textarea value="{{ essay.body }}" onChange="{{ onBody }}" rows="6" placeholder="The story, before the photos. Where two things meet · how the day moved · the places, in order · the light at the end · what it left you with." style="font-family:'Iowan Old Style',Georgia,serif;font-size:18px;line-height:1.65;color:#D9D5CE;background:transparent;border:0;outline:none;resize:none;padding:0;field-sizing:content"></textarea>
+        <sc-for list="{{ blocks }}" as="bk" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:10px;animation:fade 140ms ease-out">
+            <input value="{{ bk.head }}" onChange="{{ bk.onHead }}" placeholder="Heading (optional)" style="font-family:'Iowan Old Style',Georgia,serif;font-size:22px;color:#EFECE6;background:transparent;border:0;outline:none;padding:0">
+            <div style="display:grid;grid-template-columns:{{ bk.cols }};gap:10px;width:{{ bk.w }};margin-left:{{ bk.mx }};transition:width 160ms ease-out">
+              <sc-for list="{{ bk.items }}" as="ep" hint-placeholder-count="1">
+                <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+                  <div data-photo="1" onClick="{{ ep.click }}" style="width:100%;aspect-ratio:3/2;filter:{{ ep.filter }};box-shadow:{{ ep.ring }};transition:box-shadow 120ms ease-out, filter 160ms ease-out;cursor:pointer;background-image:url({{ ep.src }});background-size:cover;background-position:center"></div>
+                  <textarea value="{{ ep.cap }}" onChange="{{ ep.onCap }}" rows="1" placeholder="{{ ep.hint }}" style="margin:0 {{ bk.capPad }};font-family:'Iowan Old Style',Georgia,serif;font-size:15px;line-height:1.5;color:#B8B3AB;background:transparent;border:0;outline:none;resize:none;padding:0;field-sizing:content"></textarea>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;justify-content:center;align-items:center;gap:4px;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#6F6C66">
+              <span style="padding:3px 4px;color:#9A958D">{{ bk.layoutLabel }}</span>
+              <sc-if value="{{ bk.canJoin }}" hint-placeholder-val="{{ true }}">
+                <div onClick="{{ bk.join }}" style="margin-left:8px;padding:3px 8px;border-radius:5px;cursor:pointer" style-hover="color:#EFECE6;background:rgba(239,236,230,0.08)">+ next photo beside it</div>
+              </sc-if>
+              <sc-if value="{{ bk.canSplit }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ bk.split }}" style="margin-left:8px;padding:3px 8px;border-radius:5px;cursor:pointer" style-hover="color:#EFECE6;background:rgba(239,236,230,0.08)">split apart</div>
+              </sc-if>
+              <sc-if value="{{ bk.single }}" hint-placeholder-val="{{ true }}">
+                <div onClick="{{ bk.toggleWide }}" style="margin-left:8px;padding:3px 8px;border-radius:5px;cursor:pointer" style-hover="color:#EFECE6;background:rgba(239,236,230,0.08)">{{ bk.wideLabel }}</div>
+              </sc-if>
+              <sc-if value="{{ bk.noText }}" hint-placeholder-val="{{ true }}">
+                <div onClick="{{ bk.addText }}" style="margin-left:8px;padding:3px 8px;border-radius:5px;cursor:pointer" style-hover="color:#EFECE6;background:rgba(239,236,230,0.08)">+ text</div>
+              </sc-if>
+            </div>
+            <sc-if value="{{ bk.hasText }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:18px;display:flex;flex-direction:column;gap:8px;animation:fade 140ms ease-out">
+                <input value="{{ bk.thead }}" onChange="{{ bk.onThead }}" placeholder="Heading (optional)" style="font-family:'Iowan Old Style',Georgia,serif;font-size:22px;color:#EFECE6;background:transparent;border:0;outline:none;padding:0">
+                <textarea data-text="{{ bk.key }}" value="{{ bk.text }}" onChange="{{ bk.onText }}" onBlur="{{ bk.blurText }}" rows="2" placeholder="Pick the story back up — what happened next, what you learned." style="font-family:'Iowan Old Style',Georgia,serif;font-size:18px;line-height:1.65;color:#D9D5CE;background:transparent;border:0;outline:none;resize:none;padding:0;field-sizing:content"></textarea>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <input value="{{ essay.foot }}" onChange="{{ onFoot }}" placeholder="Footnote" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#9A958D;background:transparent;border:0;outline:none;padding:0">
+        <sc-if value="{{ noFinal }}" hint-placeholder-val="{{ false }}">
+          <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#9A958D">mark selects with P in Edit first</div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isExport }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="3 Export" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
+      <div style="max-width:720px;margin:0 auto;padding:40px 28px 40px;display:flex;flex-direction:column;gap:22px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#B8B3AB">
+        <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+          <span style="font-family:'Iowan Old Style',Georgia,serif;font-size:28px;color:#EFECE6">Export</span>
+          <span>{{ ex.counts }}</span>
+        </div>
+        <sc-if value="{{ ex.hasLast }}" hint-placeholder-val="{{ false }}"><div style="color:#9ED7B0">{{ ex.lastT }}</div></sc-if>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="color:#6F6C66">photos</span>
+          <sc-for list="{{ ex.whats }}" as="w" hint-placeholder-count="2">
+            <div onClick="{{ w.pick }}" style="padding:4px 11px;border-radius:999px;background:{{ w.bg }};color:{{ w.fg }};font-weight:700;cursor:pointer">{{ w.t }}</div>
+          </sc-for>
+        </div>
+        <div onClick="{{ ex.go }}" style="display:flex;align-items:center;gap:14px;padding:18px 20px;border-radius:12px;background:{{ ex.btnBg }};color:{{ ex.btnFg }};cursor:pointer" style-hover="filter:brightness(1.05)">
+          <span style="font-size:18px;font-weight:800;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif">{{ ex.btn }}</span>
+          <span style="flex:1"></span>
+          <span style="white-space:nowrap;font-weight:700">⏎</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:#6F6C66">
+          <span>{{ ex.btnSub }}</span>
+          <span style="flex:1"></span>
+          <span style="display:none"></span><span onClick="{{ ex.toggleOther }}" style="color:#B8B3AB;cursor:pointer" style-hover="color:#EFECE6">{{ ex.otherT }}</span>
+        </div>
+        <sc-if value="{{ ex.warnSave }}" hint-placeholder-val="{{ false }}"><div style="color:#FFD27A;line-height:1.6">{{ ex.warnT }}</div></sc-if>
+        <sc-if value="{{ ex.otherOn }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:10px;background:#2A2927">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <sc-for list="{{ ex.targets }}" as="tg" hint-placeholder-count="3">
+                <div onClick="{{ tg.pick }}" style="padding:4px 11px;border-radius:999px;background:{{ tg.bg }};color:{{ tg.fg }};font-weight:700;cursor:pointer">{{ tg.t }}</div>
+              </sc-for>
+            </div>
+            <span style="color:#9A958D;line-height:1.6">{{ ex.detail }}</span>
+            <sc-if value="{{ ex.isXmp }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="color:#6F6C66;margin-right:4px">selects label</span>
+                <sc-for list="{{ ex.labs }}" as="lb" hint-placeholder-count="6"><div onClick="{{ lb.pick }}" style="padding:3px 10px;border-radius:999px;background:{{ lb.bg }};color:{{ lb.fg }};font-weight:700;cursor:pointer">{{ lb.t }}</div></sc-for>
+              </div>
+              <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <sc-for list="{{ ex.toggles }}" as="tq" hint-placeholder-count="2"><span onClick="{{ tq.pick }}" style="color:{{ tq.c }};cursor:pointer">{{ tq.t }}</span></sc-for>
+              </div>
+            </sc-if>
+            <span style="color:#6F6C66">{{ ex.whereT }}</span>
+            <sc-if value="{{ ex.isJpg }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <sc-for list="{{ ex.sizes }}" as="sz" hint-placeholder-count="3">
+                  <div onClick="{{ sz.pick }}" style="padding:3px 10px;border-radius:999px;background:{{ sz.bg }};color:{{ sz.fg }};font-weight:700;cursor:pointer">{{ sz.t }}</div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ ex.result }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:12px;background:rgba(158,215,176,0.08);border:1px solid rgba(158,215,176,0.25);line-height:1.6">
+            <sc-for list="{{ ex.result }}" as="rl" hint-placeholder-count="0">
+              <span style="color:{{ rl.c }}">{{ rl.t }}</span>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ ex.isReal }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;color:#6F6C66"><span>{{ ex.stateT }}</span><span onClick="{{ ex.forget }}" style="color:#EFECE6;cursor:pointer;font-weight:700" style-hover="text-decoration:underline">Forget this folder</span></div>
+        </sc-if>
+        <sc-if value="{{ ex.cleanShow }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ ex.clean }}" style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;cursor:pointer;color:{{ ex.cleanFg }}" style-hover="color:#EFECE6"><span>{{ ex.cleanT }}</span><span style="color:#6F6C66">never your RAWs or .xmp</span></div>
+        </sc-if>
+        <div onClick="{{ ex.story }}" style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding-top:6px;border-top:1px solid rgba(239,236,230,0.06);cursor:pointer" style-hover="color:#EFECE6">
+          <span style="padding:1px 7px;border-radius:5px;border:1px dashed rgba(239,236,230,0.3);color:#9A958D">beta</span>
+          <span style="color:#EFECE6">Write an Exposure story</span><span style="color:#6F6C66">optional · cover, captions, text blocks · {{ ex.storyN }}</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showStrip }}" hint-placeholder-val="{{ true }}">
+    <div data-screen-label="Kept" ref="{{ keptRef }}" onDragOver="{{ overKept }}" onDragLeave="{{ leaveKept }}" onDrop="{{ dropKept }}" style="flex:none;height:{{ keptH }}px;display:flex;align-items:center;gap:6px;padding:0 20px;background:{{ keptBg }};transition:height 140ms ease-out, background 120ms ease-out;border-top:1px solid rgba(239,236,230,0.08);overflow-x:auto">
+      <div style="flex:none;width:56px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.5;color:#9A958D">kept<br><span style="color:#EFECE6;font-weight:600">{{ keptN }}</span></div>
+      <sc-if value="{{ keptEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#6F6C66">R, click twice, or drag here</div>
+      </sc-if>
+      <sc-for list="{{ keptStrip }}" as="sp" hint-placeholder-count="0">
+        <div data-kept="{{ sp.id }}" draggable="true" onDragStart="{{ sp.drag }}" onClick="{{ sp.click }}" style="flex:none;width:78px;aspect-ratio:3/2;border-radius:3px;overflow:hidden;background:#3C3836;box-shadow:{{ sp.ring }};transition:box-shadow 120ms ease-out;cursor:grab;animation:pop 140ms ease-out">
+          <div style="width:100%;height:100%;filter:{{ sp.filter }};pointer-events:none;background-image:url({{ sp.src }});background-size:cover;background-position:center;background-repeat:no-repeat"></div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ panel }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Touch-up" style="position:absolute;right:14px;top:66px;bottom:14px;width:290px;z-index:12;padding:10px 8px;border-radius:12px;background:rgba(38,37,35,0.97);border:1px solid rgba(239,236,230,0.1);box-shadow:0 24px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:2px;font-family:ui-monospace,Menlo,monospace;box-sizing:border-box;overflow:auto;animation:slide 140ms ease-out">
+      <div style="display:flex;gap:10px;align-items:center;padding:2px 8px 10px">
+        <div style="flex:none;width:54px;aspect-ratio:3/2;border-radius:2px;background-image:url({{ big.src }});background-size:cover;background-position:center;filter:{{ big.filter }}"></div>
+        <span style="flex:1;font-size:12.5px;color:#B8B3AB">{{ big.time }}</span>
+        <span style="font-size:12px;color:#FFECCD;font-weight:600">{{ big.auto }}</span>
+      </div>
+      <sc-for list="{{ params }}" as="pr" hint-placeholder-count="5">
+        <div onPointerDown="{{ pr.down }}" onDoubleClick="{{ pr.zero }}" style="display:flex;flex-direction:column;gap:8px;padding:10px 10px 12px;border-radius:8px;background:{{ pr.bg }};transition:background 120ms ease-out;cursor:ew-resize;touch-action:none">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="flex:1;font-size:12px;color:{{ pr.fg }}">{{ pr.name }}</span>
+            <span style="font-size:12px;font-weight:{{ pr.weight }};color:{{ pr.fg }}">{{ pr.val }}</span>
+          </div>
+          <div data-track="1" style="position:relative;height:26px;margin:0 13px">
+            <div style="position:absolute;left:-13px;right:-13px;top:10px;height:6px;border-radius:3px;background:rgba(239,236,230,0.14)"></div>
+            <div style="position:absolute;left:{{ pr.z }}%;top:5px;width:2px;height:16px;margin-left:-1px;background:rgba(239,236,230,0.35)"></div>
+            <div style="position:absolute;top:10px;height:6px;border-radius:3px;left:{{ pr.l }}%;width:{{ pr.w }}%;background:{{ pr.bar }}"></div>
+            <div style="position:absolute;top:0;left:{{ pr.p }}%;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:{{ pr.knob }};box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ large }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Large" style="position:absolute;left:0;right:0;top:52px;bottom:0;z-index:13;background:rgba(15,14,13,0.96);display:grid;grid-template-rows:minmax(0,1fr);grid-template-columns:minmax(0,1fr);place-items:center;padding:20px;box-sizing:border-box;animation:fade 90ms ease-out">
+      <div style="width:100%;height:100%;background-image:url({{ big.zsrc }});background-size:contain;background-position:center;background-repeat:no-repeat;filter:{{ big.filter }};animation:pop 120ms ease-out"></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ inBurst }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Burst" style="position:absolute;left:0;right:0;top:52px;bottom:0;z-index:14;background:#141312;display:flex;flex-direction:column;gap:14px;padding:18px 24px;box-sizing:border-box;animation:fade 90ms ease-out">
+      <div style="flex:none;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#9A958D">{{ bTitle }}</div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));grid-auto-rows:minmax(0,1fr);gap:16px;overflow:auto;animation:pop 120ms ease-out">
+        <sc-for list="{{ bFrames }}" as="b" hint-placeholder-count="3">
+          <div onClick="{{ b.click }}" onDoubleClick="{{ b.dbl }}" style="min-height:0;display:flex;flex-direction:column;gap:8px;cursor:pointer;opacity:{{ b.dim }};transition:opacity 140ms ease-out">
+            <div style="flex:1;min-height:140px;position:relative;border-radius:4px;overflow:hidden;background:#2A2927;box-shadow:{{ b.ring }};transition:box-shadow 120ms ease-out">
+              <div style="position:absolute;inset:0;background-image:url({{ b.bg }});background-size:{{ b.size }};background-position:{{ b.pos }};background-repeat:no-repeat;filter:{{ b.filter }}"></div>
+            </div>
+            <div style="flex:none;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:{{ b.labelColor }}">{{ b.label }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ zoom }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="100%" style="position:absolute;left:0;right:0;top:52px;bottom:0;z-index:15;background:#141312;animation:fade 80ms ease-out">
+      <div style="position:absolute;inset:0;background-image:url({{ zm.src }});background-size:260%;background-position:{{ zm.pos }};background-repeat:no-repeat;filter:{{ zm.filter }}"></div>
+      <div style="position:absolute;left:20px;top:16px;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;padding:5px 10px;border-radius:6px;background:rgba(20,19,18,0.8);color:{{ zm.color }}">{{ zm.label }}</div>
+    </div>
+  </sc-if>
+
+  
+  <sc-if value="{{ ghost }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:{{ ghost.x }}px;top:{{ ghost.y }}px;z-index:40;width:96px;aspect-ratio:3/2;margin:10px 0 0 10px;border-radius:4px;overflow:hidden;box-shadow:0 10px 28px rgba(0,0,0,0.55);opacity:0.92;pointer-events:none">
+      <div style="width:100%;height:100%;background-image:url({{ ghost.src }});background-size:cover;background-position:center;background-repeat:no-repeat"></div>
+      <div style="position:absolute;right:4px;top:4px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#FFD27A;color:#1E1D1B;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:800;display:grid;place-items:center">{{ ghost.n }}</div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ box }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:{{ box.x }}px;top:{{ box.y }}px;width:{{ box.w }}px;height:{{ box.h }}px;z-index:14;border:1px solid rgba(255,210,122,0.9);background:rgba(255,210,122,0.1);border-radius:3px;pointer-events:none"></div>
+  </sc-if>
+  
+  <sc-if value="{{ peekPill }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:50%;top:100px;transform:translateX(-50%);z-index:30;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:999px;background:#FFD27A;color:#1E1D1B;box-shadow:0 6px 20px rgba(0,0,0,0.4);animation:fade 80ms ease-out;pointer-events:none">{{ peekPill }}</div>
+  </sc-if>
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;right:0;top:66px;display:flex;justify-content:center;pointer-events:none;z-index:16">
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#1E1D1B;background:rgba(239,236,230,0.94);padding:7px 13px;border-radius:9px;animation:rise 140ms ease-out">{{ toast }}</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ applyPrompt }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:25;background:rgba(0,0,0,0.5);display:grid;place-items:center;animation:fade 100ms ease-out">
+      <div style="width:min(420px,90vw);background:#262523;border-radius:14px;padding:22px 24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);font-family:ui-monospace,Menlo,monospace">
+        <div style="font-family:'Iowan Old Style',Georgia,serif;font-size:21px;color:#EFECE6">{{ applyPrompt.title }}</div>
+        <div style="font-size:12px;line-height:1.6;color:#B8B3AB">{{ applyPrompt.list }}</div>
+        <div style="display:flex;gap:8px;font-size:12px">
+          <div onClick="{{ applyPrompt.yes }}" style="flex:1;text-align:center;padding:9px 0;border-radius:8px;background:#FFD27A;color:#1E1D1B;font-weight:700;cursor:pointer">⏎ apply all</div>
+          <div onClick="{{ applyPrompt.no }}" style="flex:1;text-align:center;padding:9px 0;border-radius:8px;background:rgba(239,236,230,0.08);color:#EFECE6;font-weight:600;cursor:pointer">esc keep as previews</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ glance }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeGlance }}" style="position:absolute;inset:0;z-index:20;background:rgba(0,0,0,0.55);display:grid;place-items:center;animation:fade 100ms ease-out">
+      <div style="background:#262523;border-radius:14px;padding:20px 24px;display:grid;grid-template-columns:auto auto;gap:7px 16px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;box-shadow:0 30px 60px rgba(0,0,0,0.4);animation:pop 120ms ease-out">
+        <sc-for list="{{ keys }}" as="kk" hint-placeholder-count="10">
+          <span style="padding:2px 7px;border-radius:5px;background:#EFECE6;color:#1E1D1B;font-weight:600;text-align:center">{{ kk.k }}</span><span style="color:#B8B3AB;align-self:center">{{ kk.t }}</span>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;comfortable&quot;,&quot;compact&quot;],&quot;default&quot;:&quot;auto&quot;,&quot;tsType&quot;:&quot;'auto'|'comfortable'|'compact'&quot;}}">
+class Component extends DCLogic {
+  static P = [['Exposure',0.1,-3,3,0],['Contrast',5,-100,100,0],['Highlights',5,-100,100,0],['Shadows',5,-100,100,0],['Temp',100,2000,12000,6500]];
+  static STEPS = [['import','open'],['cull','cull'],['edit','edit'],['export','export']];
+  static HINTS = ['What and where. "Granite boulders, north trailhead"','What happens, and how big. "The flat runs for miles"','Something only you saw','The light. "Last sun on the ridge"','One line for both'];
+  static KEY = 'lumina-sets-v3';
+  static SRC = [
+    {id:'sd1',kind:'SD card',name:'EOS_DIGITAL',cam:'Canon EOS R6 Mark II',size:'64 GB · 41 GB used',fresh:true,days:[
+      {id:'d1',date:'Fri Sep 26',range:'06:48 – 21:16',n:412,gb:18.4,files:824,seed:0},
+      {id:'d2',date:'Thu Sep 25',range:'16:02 – 19:40',n:138,gb:6.1,files:276,seed:8},
+      {id:'d3',date:'Sun Sep 21',range:'09:10 – 12:55',n:96,gb:4.2,files:192,seed:16,imported:true}]},
+    {id:'sd2',kind:'SD card',name:'Untitled',cam:'Sony α7 III',size:'128 GB · 9 GB used',days:[
+      {id:'d4',date:'Sat Sep 20',range:'17:22 – 18:05',n:58,gb:3.3,files:58,seed:24,imported:true}]},
+    {id:'inbox',kind:'Folder',name:'~/Pictures/Inbox',cam:'phone + scans',size:'remembered',days:[
+      {id:'d5',date:'Mon Sep 22',range:'various',n:24,gb:0.4,files:24,seed:32}]}];
+  impSrc(){ return Component.SRC.find(x=>x.id===this.state.imp.src)||Component.SRC[0]; }
+  impSet(p){ this.setState(s=>({imp:{...s.imp,...(typeof p==='function'?p(s.imp):p)}})); }
+  impOn(d){ const o=this.state.imp.off; return !d.imported&&!o[d.id]; }
+  impStart(resume){ return this.setView('cull'); }
+  impStartOld(resume){ const im=this.state.imp; if(im.phase==='done'||(im.phase==='copying'&&!resume)) return this.setView('cull');
+    if(resume) this.impSet({phase:'copying'}); else this.impSet({phase:'copying',done:im.phase==='paused'?im.done:0,total:550}); clearInterval(this._impT);
+    this._impT=setInterval(()=>{ const m=this.state.imp; if(!m.card) return; const n=Math.min(m.total,m.done+2); this.impSet({done:n}); if(n>=m.total){ clearInterval(this._impT); this.impSet({phase:'done'}); this.say(m.total+' photos copied and checked · safe to format in camera'); } },250);
+    if(!resume) this.setView('cull'); }
+  impKey(e,k,sh){ const im=this.state.imp;
+    if(e.code==='KeyC'){ this.simCard(); return true; }
+    if(k==='Tab'){ e.preventDefault(); if(!e.repeat) this.setView('cull'); return true; }
+    if(k==='Enter'&&im.card){ e.preventDefault(); this.impStart(); return true; }
+    if(k.length===1||k==='ArrowUp'||k==='ArrowDown'){ const el=this.libRef.current; if(el) el.focus(); return false; }
+    return false; }
+  simCard(){ const im=this.state.imp; if(im.phase==='copying'){ clearInterval(this._impT); this.impSet({card:false,phase:'paused'}); return this.say('card removed · '+im.done+' copied and checked · the rest resumes when it is back'); }
+    if(!im.card){ this.impSet({card:true}); if(im.phase==='paused'){ this.say('card back · resuming'); setTimeout(()=>this.impStart(true),300); } else this.say('Sony α7 III card inserted'); return; }
+    this.impSet({card:false}); }
+  static SHOOTS = [
+    {t:'Princeton',d:'Feb 8, 2026',cam:'Sony α7 III',n:218,src:'Lightroom',where:'collection · Princeton 2026',seed:40},
+    {t:'Trailhead, early',d:'Sep 21, 2026',cam:'Sony α7 III',n:96,src:'Library',where:'opened from card',seed:16},
+    {t:'Hudson Valley',d:'Aug 30, 2026',cam:'Sony α7 III',n:341,src:'Folder',where:'/Volumes/T7/Photos/2026-08-30',seed:48},
+    {t:'Studio test',d:'Aug 12, 2026',cam:'Sony α7 III',n:44,src:'Lightroom',where:'last import',seed:56},
+    {t:'Hudson Valley · picks',d:'Aug 30, 2026',cam:'Sony α7 III',n:64,src:'Photo Mechanic',where:'tagged in Photo Mechanic · ratings kept',seed:72},
+    {t:'Montreal',d:'Jul 4, 2026',cam:'Sony α7 III',n:512,src:'Lightroom',where:'collection · Travel',seed:64},
+    {t:'Sat Sep 20',d:'Sep 20, 2026',cam:'Sony α7 III',n:58,src:'Library',where:'opened from card',seed:24}];
+  libList(){ const q=(this.state.imp.q||'').toLowerCase().trim().split(/\s+/).filter(Boolean); return Component.SHOOTS.filter(x=>{ const hay=(x.t+' '+x.d+' '+x.cam+' '+x.src+' '+x.where).toLowerCase(); return q.every(w=>hay.includes(w)); }); }
+  libOpen(x){ this.say('opened '+x.t+' · '+x.n+' photos'); this.setView('cull'); }
+  openFolder(){ let el=this.dirRef.current; if(!el||!el.isConnected){ el=this._dirEl; if(!el){ el=document.createElement('input'); el.type='file'; el.style.display='none'; document.body.appendChild(el); el.addEventListener('change',e=>this.onDir(e)); this._dirEl=el; } }
+    el.multiple=true; el.webkitdirectory=true; el.setAttribute('webkitdirectory',''); el.setAttribute('directory',''); el.value=''; el.click(); }
+  static parseHead(u8,size){ return LuminaCore.parseHead(u8,size); }
+  static measure(bmp){ return LuminaCore.measure(bmp); }
+  async onDir(e){ const allF=[...(e.target.files||[])], xmpMap={}; await Promise.all(allF.filter(f=>/\.xmp$/i.test(f.name)).map(async f=>{ try{ const tx=await f.text(); xmpMap[((f.webkitRelativePath||f.name).replace(/\.[^.\/]+$/,'')).toLowerCase()]={tx,path:f.webkitRelativePath||f.name}; }catch(_){} }));
+    const files=allF.filter(f=>/\.arw$/i.test(f.name)).sort((a,b)=>(a.webkitRelativePath||a.name).localeCompare(b.webkitRelativePath||b.name)); if(!files.length) return this.say('no ARW files in that folder');
+    const t0=performance.now(), out=[]; let done=0, i=0; this._gold=[]; this.setState({realLoad:{done:0,total:files.length,t0}});
+    const one=async f=>{ try{ const head=new Uint8Array(await f.slice(0,Math.min(262144,f.size)).arrayBuffer()); const m=Component.parseHead(head,f.size)||{}; if(!m.preview) throw new Error('no preview');
+        const [po,pl]=m.preview, pb=po+pl<=head.length?head.slice(po,po+pl):await f.slice(po,po+pl).arrayBuffer(); let blob=new Blob([pb],{type:'image/jpeg'}); const ori=m.orient||1;
+        if(ori===3||ori===6||ori===8){ const b0=await createImageBitmap(blob,{imageOrientation:'none'}), sw=ori!==3, c=document.createElement('canvas'); c.width=sw?b0.height:b0.width; c.height=sw?b0.width:b0.height; const x=c.getContext('2d'); x.translate(c.width/2,c.height/2); x.rotate(ori===6?Math.PI/2:ori===8?-Math.PI/2:Math.PI); x.drawImage(b0,-b0.width/2,-b0.height/2); b0.close(); blob=await new Promise(res=>c.toBlob(res,'image/jpeg',0.92)); }
+        const sm=await createImageBitmap(blob,{resizeWidth:360,resizeQuality:'medium'}), portrait=sm.height>sm.width, me=Component.measure(sm); sm.close();
+        const tb=await new Promise(res=>me.canvas.toBlob(res,'image/jpeg',0.82));
+        (this._gold||(this._gold=[])).push({file:f.name,size:f.size,parsed:{date:m.date||null,exp:m.exp??null,fl:m.fl??null,ev:m.ev??null,iso:m.iso??null,orient:m.orient||1,preview:m.preview}});
+        const xk=((f.webkitRelativePath||f.name).replace(/\.[^.\/]+$/,'')).toLowerCase(), xo=xmpMap[xk]||null, xt=xo&&xo.tx, xpath=xo?xo.path:(f.webkitRelativePath||f.name).replace(/\.[^.\/]+$/,'')+'.xmp', lrEd=LuminaCore.hasDevelop(xt);
+        out.push({fileObj:f,xpath,xmp:xt,lrEd,portrait,orient:ori,name:f.name,path:f.webkitRelativePath||f.name,date:m.date||'',exp:m.exp,fl:m.fl,ev:m.ev,iso:m.iso,lum:me.lum,focus:me.focus,clip:me.clip,src:URL.createObjectURL(tb),lg:URL.createObjectURL(blob)}); }
+      catch(err){ out.push({name:f.name,path:f.webkitRelativePath||f.name,err:err.message}); } done++; if(done%8===0||done===files.length) this.setState({realLoad:{done,total:files.length,t0}}); };
+    await Promise.all(Array.from({length:4},async()=>{ while(i<files.length){ const f=files[i++]; await one(f); } }));
+    const ok=out.filter(p=>!p.err), secs=((performance.now()-t0)/1000).toFixed(1); if(!ok.length){ this.setState({realLoad:null}); return this.say('couldn\'t read previews from those files'); }
+    (this.real||[]).forEach(p=>{ URL.revokeObjectURL(p.src); URL.revokeObjectURL(p.lg); }); this.real=ok; this.data=this.build({});
+    this.setState({realLoad:null,realInfo:{xmpN:ok.filter(p=>p.xmp).length,lrN:ok.filter(p=>p.lrEd).length,n:ok.length,bad:out.length-ok.length,secs,name:(files[0].webkitRelativePath||'').split('/')[0]||'folder'},marks:{},auto:{},rA:{},rO:{},final:{},caps:{},cuts:{},pending:{},sel:{},undo:[],cur:this.data.order[0],node:'m0',lvl:'node'});
+    this.say(ok.length+' photos ready in '+secs+' s'+(out.length-ok.length?' · '+(out.length-ok.length)+' unreadable':'')); this.setView('cull'); }
+  buildReal(list,cuts){ return LuminaCore.buildShoot(list,cuts); }
+  static crc32(u8){ return LuminaCore.crc32(u8); }
+  static zip(files){ return LuminaCore.zip(files); }
+  static mergeXmp(src,rating,label){ return LuminaCore.mergeXmp(src,rating,label); }
+  xmpFor(id,out){ const s=this.state, ex=s.ex||{}, p=this.data.byId[id], fin=!!s.final[id], lab=fin&&(ex.lab||'Green')!=='None'?(ex.lab||'Green'):'', rating=out?-1:fin?(ex.rf||5):(ex.rk||3);
+    if(p&&p.xmp) return Component.mergeXmp(p.xmp,rating,lab);
+    const withEd=ex.withEd!=null?ex.withEd:!(this.real&&s.realInfo&&!s.realInfo.xmpN), edited=!out&&withEd&&!!(s.auto[id]||s.rO[id]||s.rA[id]), r=edited?this.rec(id,!!s.auto[id])||{}:null;
+    return LuminaCore.freshXmp(rating,lab,r); }
+  async renderJpg(id,px){ const p=this.data.byId[id], bmp=await createImageBitmap(await (await fetch(p.lg)).blob()), sc=px==='2048'?Math.min(1,2048/bmp.width):1, c=document.createElement('canvas'); c.width=Math.round(bmp.width*sc); c.height=Math.round(bmp.height*sc); const x=c.getContext('2d'), fl=this.cssR(this.eff(id)); if(fl&&fl!=='none') x.filter=fl; x.drawImage(bmp,0,0,c.width,c.height); bmp.close(); const bl=await new Promise(r=>c.toBlob(r,'image/jpeg',0.9)); return new Uint8Array(await bl.arrayBuffer()); }
+  forget(){ (this.real||[]).forEach(p=>{ URL.revokeObjectURL(p.src); URL.revokeObjectURL(p.lg); }); this.real=null; this._gold=null; this.data=this.build({}); this.setState({realInfo:null,lastEx:null,ex:{},marks:{},auto:{},rA:{},rO:{},final:{},caps:{},cuts:{},pending:{},sel:{},undo:[],cur:this.data.order[0],node:'m0',lvl:'node'}); this.say('folder closed · nothing kept'); this.setView('import',true); }
+  saveGolden(){ if(!this.real||!this._gold) return; const d=this.data, g=this._gold.slice().sort((a,b)=>a.file.localeCompare(b.file));
+    const shoot={rows:d.M.map(m=>({time:m.time,groups:m.groups.map(x=>({kind:x.kind,files:x.frames.map(f=>f.file)}))})),flags:Object.values(d.byId).map(p=>({file:p.file,soft:!!p.soft,blown:p.blown,shake:p.shake,rank:p.rank})),keep:Object.keys(d.sugKeep).map(id=>d.byId[id].file)};
+    const measures=Object.values(d.byId).map(p=>({file:p.file,lum:+p.h.toFixed(4),focus:+p.focus.toFixed(2),clip:p.clip}));
+    const inputs=this.real.map(p=>({name:p.name,path:p.path,date:p.date,exp:p.exp,fl:p.fl,ev:p.ev,lum:p.lum,focus:p.focus,clip:p.clip,src:'',lg:''}));
+    this.download('lumina-golden.json',new Blob([JSON.stringify({made:new Date().toISOString(),folder:(this.state.realInfo||{}).name,parseHead:g,measure:measures,buildShoot:{input:inputs,expect:shoot}},null,1)],{type:'application/json'})); this.say('test data saved · lumina-golden.json'); }
+  async writeInto(files,label){ if(window.self!==window.top||!window.showDirectoryPicker) return null;
+    try{ const root=await window.showDirectoryPicker({mode:'readwrite',id:'lumina-'+label}); let n=0,bak=0;
+      for(const f of files){ const parts=f.name.split('/'); let d=root; for(const seg of parts.slice(0,-1)) d=await d.getDirectoryHandle(seg,{create:true}); const nm=parts[parts.length-1];
+        try{ const old=await d.getFileHandle(nm); const prev=await (await old.getFile()).arrayBuffer(); const bh=await d.getFileHandle(nm+'.lumina-bak',{create:true}), bw=await bh.createWritable(); await bw.write(prev); await bw.close(); bak++; }catch(_){}
+        const fh=await d.getFileHandle(nm,{create:true}), w=await fh.createWritable(); await w.write(f.data); await w.close(); n++; }
+      return {n,bak,folder:root.name}; }catch(e){ if(e&&e.name==='AbortError') return {aborted:true}; return null; } }
+  exSet(p){ this.setState(s=>({ex:{...(s.ex||{}),...p}})); }
+  async runExport(){ const s=this.state, ex=s.ex||{}, tg0=ex.target||'lr', tg=tg0==='c1'?'lr':tg0, ids=(ex.what==='finals'?this.finals():this.kept()); if(!ids.length) return this.say(ex.what==='finals'?'no selects yet · P in Edit marks a select':'no keepers yet');
+    const B=this.data.byId, base=id=>(B[id].file||('DSC'+String(5000+B[id].n).padStart(5,'0')+'.ARW')).replace(/\.[^.]+$/,''), edited=ids.filter(id=>s.auto[id]||s.rO[id]||s.rA[id]).length, fin=ids.filter(id=>s.final[id]).length, dir='~/Pictures/Lumina/'+((s.realInfo&&s.realInfo.name)||'2026-09-26');
+    const G='#9ED7B0', W='#EFECE6', D='#9A958D'; let res;
+    const B0=this.data.byId, merged=ids.filter(id=>B0[id].xmp).length, lrE=ids.filter(id=>B0[id].lrEd).length;
+    let wr=null; const outs=ex.rej?this.data.order.filter(id=>s.marks[id]!=='keep'):[];
+    if(tg==='lr'){ if(this.real){ const enc=new TextEncoder(), rel=p=>{ const q=(p.xpath||base(p.id)+'.xmp').split('/'); return q.length>1?q.slice(1).join('/'):q[0]; }, files=[...ids.map(id=>({name:rel(B[id]),data:enc.encode(this.xmpFor(id))})),...outs.map(id=>({name:rel(B[id]),data:enc.encode(this.xmpFor(id,true))}))];
+        wr=await this.writeInto(files,'xmp'); if(wr&&wr.aborted) return; if(!wr) this.download('lumina-xmp.zip',Component.zip(files)); }
+      const lab=(ex.lab||'Green'); this.setState({lastEx:{t:new Date().toTimeString().slice(0,5),what:'.xmp for Lightroom',where:wr?wr.folder+' (next to the RAWs)':this.real?'Downloads / lumina-xmp.zip':'next to the RAWs'}}); res=[[G,'✓ '+(ids.length+outs.length)+' .xmp sidecars '+(wr?'written into '+wr.folder+(wr.bak?' · '+wr.bak+' previous files kept as .lumina-bak':''):this.real?'downloaded as lumina-xmp.zip':'written next to the RAWs in '+dir)],...(outs.length?[[W,outs.length+' rejects marked −1 so Lightroom can hide them']]:[]),...(merged?[[W,merged+' merged into your .xmp · only stars and label changed'+(lrE?' · '+lrE+' Lightroom edits kept':'')]]:[]),[W,(ids.length-fin)+' keepers → '+(ex.rk||3)+'★ · '+fin+' selects → '+(ex.rf||5)+'★'+(lab!=='None'?' + '+lab+' label':'')+' · '+edited+' with edits'],[D,wr?'Undo: delete the new .xmp and remove ".lumina-bak" from the old name.':this.real?(merged?'Unzip into the folder with your ARWs and replace. Names match, and your old settings are kept inside.':'Unzip into the folder with your ARWs. Subfolders are kept.'):'Existing .xmp from other apps were merged, not replaced.'],...(tg0==='c1'?[[D,'Capture One: Settings → Image → Metadata → prefer XMP sidecar, then import the folder.']]:[[D,'Lightroom Classic: File → Import → Add → that folder. Already imported? Select all → Metadata → Read Metadata from Files. This replaces ratings set in Lightroom.']])]; }
+    else { const px=ex.size||'full', wantRaw=tg==='raw'||tg==='both', wantJpg=tg==='jpg'||tg==='both', shoot=((s.realInfo&&s.realInfo.name)||'Lumina export')+(ex.what==='finals'?' selects':'');
+      if(this.real){ if(wantRaw&&(window.self!==window.top||!window.showDirectoryPicker)){ this.exSet({result:[{c:'#FFD27A',t:'RAW copies need a folder you pick. Open this page in its own Chrome tab.'}]}); return; }
+        const files=[], enc=new TextEncoder(), rawDir=tg==='both'?shoot+'/RAW/':shoot+'/', jpgDir=tg==='both'?shoot+'/JPEG/':shoot+'/';
+        if(wantRaw) for(const id of ids){ const p=B[id]; files.push({name:rawDir+p.file,data:p.fileObj}); files.push({name:rawDir+(p.xpath||'x.xmp').split('/').pop(),data:enc.encode(this.xmpFor(id))}); }
+        if(wantJpg){ this.say('rendering '+ids.length+' JPEGs…'); for(const id of ids) files.push({name:jpgDir+base(id)+'.jpg',data:await this.renderJpg(id,px)}); }
+        wr=await this.writeInto(files,tg); if(wr&&wr.aborted) return; if(!wr){ if(wantRaw) return; this.download('lumina-jpg.zip',Component.zip(files)); } }
+      const where=wr?wr.folder+' / '+shoot:this.real?'Downloads / lumina-jpg.zip':'~/Pictures/Lumina Exports / '+shoot;
+      res=[[G,'✓ '+[wantRaw?ids.length+' RAW + .xmp':'',wantJpg?ids.length+' JPEG':''].filter(Boolean).join(' · ')+' → '+where],
+        ...(tg==='both'?[[W,shoot+'/RAW  ·  '+shoot+'/JPEG']]:[]),
+        [W,'Originals untouched'+(wantJpg?' · JPEG '+(px==='full'?'full size':px+' px')+' sRGB, '+edited+' with edits':'')],
+        ...(wantJpg&&this.real?[[D,'JPEGs come from the 1616 px preview inside each ARW. The Mac app will render from the RAW.']]:[])];
+      this.setState({lastEx:{t:new Date().toTimeString().slice(0,5),where,what:[wantRaw?'RAW':'',wantJpg?'JPEG':''].filter(Boolean).join(' + ')}}); }
+    this.exSet({result:res.map(([c,t])=>({c,t})),cleaned:false}); this.say('export done'); }
+  download(name,blob){ const u=URL.createObjectURL(blob), a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); }
+  expVals(){ const s=this.state, ex=s.ex||{}, K=this.kept(), FN=this.finals(), what=ex.what||'keeps', tg=ex.target||'lr', ids=what==='finals'?FN:K, lrN=ids.filter(id=>this.data.byId[id].lrEd).length, warnSave=!!(this.real&&s.realInfo&&!s.realInfo.xmpN), n=this.data.order.length, edited=K.filter(id=>s.auto[id]||s.rO[id]||s.rA[id]).length;
+    const T=[['lr','1','Lightroom / Capture One','RAW stays put · ratings + edits in .xmp','One .xmp next to each RAW: keep '+(ex.rk||3)+'★, select '+(ex.rf||5)+'★ + colour label. Green, Red etc. work in Lightroom\'s default set. Never written into the RAW. An existing .xmp from another app is merged, not replaced.'],
+      ['raw','2','RAW files','copies of the ARWs + .xmp to a folder','For another drive or another person. Originals are never moved.'],
+      ['jpg','3','JPEG','rendered with edits · sRGB','For sharing or Exposure. Exposure takes full size.']];
+    const pill=(on)=>({bg:on?'#EFECE6':'rgba(239,236,230,0.08)',fg:on?'#1E1D1B':'#B8B3AB'}), cache=Math.round(n*0.71), thumbs=Math.round(n*0.05*10)/10;
+    return { counts:K.length+' keepers · '+FN.length+' selects · '+edited+' edited'+(edited?'':' · editing is optional'),
+      whats:[['keeps','Keepers · '+K.length],['finals','Selects only · '+FN.length]].map(([k,t])=>({t,...pill(what===k),pick:()=>this.exSet({what:k,result:null})})),
+      targets:[['lr','Lightroom'],['c1','Capture One'],['both','RAW + JPEG'],['raw','RAW'],['jpg','JPEG']].map(([k,t])=>({t,...pill(tg===k),pick:()=>this.exSet({target:k,result:null})})), detail:({lr:T[0][4],c1:'Same .xmp sidecars. In Capture One: Settings → Image → Metadata → prefer XMP sidecar, then import the folder.',raw:T[1][4],jpg:T[2][4],both:'One folder named after the shoot, with RAW/ (ARW + .xmp) and JPEG/ inside. Originals are copied, never moved.'})[tg], isJpg:tg==='jpg'||tg==='both', isXmp:tg==='lr'||tg==='c1', otherOn:!!ex.other, otherT:ex.other?'close':'Options…',
+      labs:['Green','Red','Yellow','Blue','Purple','None'].map(k=>({t:k,...pill((ex.lab||'Green')===k),pick:()=>this.exSet({lab:k,result:null})})),
+      toggles:[['withEd','Include Lumina edits',ex.withEd!=null?ex.withEd:!(this.real&&s.realInfo&&!s.realInfo.xmpN)],['rej','Mark rejects in Lightroom',!!ex.rej]].map(([k,t2,on])=>({t:(on?'✓ ':'○ ')+t2,c:on?'#EFECE6':'#9A958D',pick:()=>this.exSet({[k]:!on,result:null})})),
+      whereT:window.self!==window.top?'saves as a zip (open in its own tab to write straight into a folder you pick)':'you pick the folder · existing files kept as .lumina-bak', toggleOther:()=>this.exSet({other:!ex.other}),
+      sizes:[['full','Full size'],['2048','2048 px']].map(([k,t])=>({t,...pill((ex.size||'full')===k),pick:()=>this.exSet({size:k})})),
+      btn:(tg==='lr'?'Send ':'Export ')+ids.length+' '+(what==='finals'?'selects':'keepers')+(tg==='lr'?' to Lightroom':tg==='c1'?' to Capture One':tg==='raw'?' as RAW copies':tg==='both'?' as RAW + JPEG':' as JPEG'), btnSub:tg==='lr'||tg==='c1'?(lrN?'ratings only for '+lrN+' already edited in Lightroom · their edits are kept':'RAWs stay put · ratings'+(edited?' + edits':'')+' travel in .xmp'):tg==='raw'?'copies ARW + .xmp into a folder you pick':tg==='both'?'one shoot folder · RAW/ and JPEG/ inside':'rendered with edits · sRGB', btnBg:ids.length?'#FFD27A':'rgba(239,236,230,0.08)', btnFg:ids.length?'#1E1D1B':'#6F6C66', go:()=>this.runExport(),
+      result:ex.result||null, lastT:s.lastEx?'Last export '+s.lastEx.t+' · '+s.lastEx.what+' → '+s.lastEx.where:'', hasLast:!!s.lastEx, isReal:!!this.real, forget:()=>this.forget(), stateT:this.real?'Nothing saved to disk. Keepers and previews live in this tab only.':'', warnSave, warnT:'No .xmp files here. Edited in Lightroom? Select all → Metadata → Save Metadata to Files (⌘S), then reopen this folder.',
+      junk:[['Preview cache',cache+' MB'],['Grid thumbnails',thumbs+' MB'],['This shoot\'s Lumina database','2 MB']].map(([t,v])=>({t,v:ex.cleaned?'removed':v,c:ex.cleaned?'#6F6C66':'#B8B3AB'})),
+      cleanShow:!!ex.result&&!this.real, cleanT:ex.cleaned?'✓ Lumina\'s working files removed':'Remove Lumina\'s working files ('+(cache+thumbs+2).toFixed(0)+' MB)', cleanFg:ex.cleaned?'#9ED7B0':'#EFECE6', clean:()=>{ if(!ex.cleaned){ this.exSet({cleaned:true}); this.say('working files removed'); } },
+      story:()=>this.setView('write'), storyN:FN.length?FN.length+' selects ready':'uses your selects' }; }
+  impVals(){ const s=this.state, im=s.imp, copying=im.phase==='copying', paused=im.phase==='paused', done=im.phase==='done', lq=this.libList().slice(0,6), lf=Math.min(im.lf||0,Math.max(0,lq.length-1)), left=Math.max(1,Math.round(((im.total||550)-(im.done||0))/8)), foc=typeof document!=='undefined'&&document.activeElement===this.libRef.current;
+    const gone=paused&&!im.card;
+    return { cardIn:!!im.card||paused, cardOut:!im.card&&!paused, simTxt:im.card?'C pull card':'C insert card', simCard:()=>this.simCard(), cardDot:gone?'#FFB4A2':done?'#9ED7B0':'#FFD27A',
+      cardMeta:'721 photos · 11.3 GB',
+      copyT:gone?'Card removed':'⏎ Cull this card', copySub:gone?'re-insert to keep going':'reads previews · nothing copied',
+      copyBg:gone?'rgba(255,180,162,0.14)':done?'rgba(158,215,176,0.16)':'#FFD27A', copyFg:gone?'#FFB4A2':done?'#9ED7B0':'#1E1D1B', copyPct:copying||paused?Math.round(100*im.done/(im.total||550))+'%':'0%', copyGo:()=>{ if(gone) return this.say('re-insert the card to resume'); this.impStart(paused); },
+      copyNote:'Read-only. Nothing is copied until you export.',
+      libQ:im.q||'', libRef:this.libRef, libType:e=>{ const q=e.target.value; this.impSet({q,lf:0}); },
+      libKey:e=>{ const k=e.key; if(k==='ArrowDown'||k==='ArrowUp'){ e.preventDefault(); this.impSet({lf:Math.max(0,Math.min(lq.length-1,lf+(k==='ArrowDown'?1:-1)))}); } else if(k==='Enter'&&lq[lf]){ e.preventDefault(); this.libOpen(lq[lf]); } else if(k==='Escape'){ e.target.blur(); this.forceUpdate(); } else if(k==='Tab'){ e.preventDefault(); this.setView('cull'); } },
+      shoots:lq.map((x,i)=>({ title:x.t, meta:x.d+' · '+x.n, src:'https://picsum.photos/seed/luminaimp'+x.seed+'/160/107', bg:i===lf&&foc?'#2E2D2A':'transparent', go:i===lf&&foc?'⏎ open':'', open:()=>this.libOpen(x), hover:()=>{ if((this.state.imp.lf||0)!==i) this.impSet({lf:i}); } })), noShoots:!lq.length,
+      chooseFolder:()=>this.openFolder(), openFolder:()=>this.openFolder(), hasGold:!!this.real, saveGolden:()=>this.saveGolden(), dirRef:this.dirRef, onDir:e=>this.onDir(e),
+      realLine:s.realLoad?'reading '+s.realLoad.done+' / '+s.realLoad.total+' · '+(s.realLoad.done/Math.max(0.1,(performance.now()-s.realLoad.t0)/1000)).toFixed(0)+' photos/s':s.realInfo?'loaded '+s.realInfo.name+' · '+s.realInfo.n+' photos in '+s.realInfo.secs+' s'+(s.realInfo.lrN?' · '+s.realInfo.lrN+' already edited in Lightroom':'')+(s.realInfo.bad?' · '+s.realInfo.bad+' unreadable':''):'read-only · your files are never changed, moved or uploaded' }; }
+  static LOOKS = {};
+  static LK = ['auto'];
+  scrollRef = React.createRef(); libRef = React.createRef(); dirRef = React.createRef(); real=null; editRef = React.createRef(); openRef = React.createRef(); keptRef = React.createRef();
+  data = this.build();
+  state = { imp:{src:'sd1',off:{},focus:0,phase:'idle',done:0,backup:true,eject:true,card:true,mode:'card',days:false,q:'',lf:0}, view:'import', cur:'f0', lvl:'node', node:'m0', large:false, burst:null, zoom:false, peek:false, auto:{}, rA:{}, rO:{}, marks:{}, final:{}, caps:{}, pairs:{}, texts:{}, title:'', sub:'', body:'', foot:'Photos shot February 8.', param:0, undo:[], glance:false, toast:null, dragOver:false, saved:false, exported:false, ...this.load() };
+  load(){ try{ const o=JSON.parse(localStorage.getItem(Component.KEY))||{}; if(o.pending) o.pending=Object.fromEntries(Object.entries(o.pending).filter(([,v])=>v==='auto')); if(o.intro&&!o.body) o.body=o.intro; return o; }catch(e){ return {}; } }
+  build(cuts={}){ if(this.real) return this.buildReal(this.real,cuts);
+    const seeds=[186,187,190,191,192,195,200,203,204,211,264,267,270,274,276,288,294,297,298,302,303,304,305,307,309,310,311,314,315,316,317,319,320,321,322,323,330,332,335,338];
+    const light=h=>h<11?'morning':h<15?'midday':h<18?'afternoon':'evening';
+    const spec=[['06:48',[3,1]],['08:12',[1,1,3]],['10:41',[4,1,1]],['12:20',[1,'b3',1]],['14:02',[5,1]],['16:31',[1,2,3]],['19:14',[4,'b5']],['21:16',[1,1,1]]];
+    const NAMES=['Trailhead, first light','Boardwalk as the mist lifts','Granite boulders','Lunch by the water','Long shadows on the flats','Ridge in the afternoon wind','Sunset, then the second light','Camp at blue hour'];
+    const SPLIT={0:2,4:3}, MERGE={1:1,7:1};
+    const M=[], G={}, byId={}; let n=0;
+    spec.forEach(([t,bs],mi)=>{ const hh=+t.slice(0,2); let mm=+t.slice(3); const fr=[];
+      bs.forEach(b0=>{ const bk=typeof b0==='string', b=bk?+b0.slice(1):b0, bseed=seeds[n%seeds.length], EV=b===5?[-2,-1,0,1,2]:[-1,0,1];
+        const alt=seeds[(seeds.indexOf(bseed)+9)%seeds.length];
+        for(let j=0;j<b;j++){ const idx=fr.length, hs=bk?88:b>1?[82,12,66,6,91][(j+n)%5]:(n*61+mi*23+7)%100, seed=MERGE[mi]===idx?fr[idx-1].seed:(SPLIT[mi]!=null&&b>1&&idx>=SPLIT[mi])?alt:b>1?bseed:seeds[n%seeds.length], W=MERGE[mi]===idx?1010:b>1&&!bk?960+j*36:960, H=b>1&&!bk?640+(j%2)*18:640;
+          const p={id:'f'+n,n,mi,src:'https://picsum.photos/seed/lumina'+seed+'/'+W+'/'+H,zsrc:'https://picsum.photos/seed/lumina'+seed+'/'+Math.round(W*2.5)+'/'+Math.round(H*2.5),ev:bk?EV[j]*0.42:b>1?[0,0.06,-0.05,0.1,-0.08][j%5]:0,time:String(hh).padStart(2,'0')+':'+String(Math.min(59,mm)).padStart(2,'0'),hh,light:light(hh),h:((n*37+mi*11)%97)/97,sharp:bk?80+j:hs<24?10+hs:52+(hs*7)%47,fx:30+(n*17)%40,fy:28+(n*29)%36,start:j===0,bk,evs:bk?EV[j]:null,seed,sug:MERGE[mi]===idx?'merge':SPLIT[mi]===idx?'split':null};
+          p.soft=p.sharp<45; p.slight=!p.soft&&p.sharp<66; p.bl=bk?0:p.sharp<45?+(0.9+(45-p.sharp)/14).toFixed(2):p.slight?0.6:0; p.blown=!p.soft&&!bk&&(n*43+11)%100<12; p.clip=p.blown?+(2+((n*13)%50)/10).toFixed(1):0; if(p.blown) p.ev+=0.32; p.shake=!bk&&b===1&&!p.soft&&!p.blown&&(n*29+5)%100<16; if(p.shake){ p.bl=1.3; p.ss='1/'+[8,15,20][n%3]; p.fl=[35,50,85][n%3]; } byId[p.id]=p; fr.push(p); n++; }
+        mm+=3; });
+      const gs=[]; fr.forEach((p,i)=>{ const st=i===0?true:(cuts[p.id]!=null?cuts[p.id]:p.start); if(st) gs.push([]); gs[gs.length-1].push(p); });
+      let groups=gs.map(g=>{ const kind=g.length<2?'single':g.every(f=>f.bk)?'bracket':'burst', ranked=kind==='bracket'?[...g]:[...g].sort((a,b)=>b.sharp-a.sharp);
+        ranked.forEach((f,r)=>{ f.rank=r+1; f.bn=g.length; f.kind=kind; }); const gid='g'+g[0].n; g.forEach(f=>f.gid=gid); return G[gid]={gid,frames:g,ranked,kind}; });
+      const subs=[]; groups.forEach(g=>{ if(g.kind==='single'){ const L=subs[subs.length-1]; if(L&&L.kind==='singles') L.frames.push(g.frames[0]); else subs.push({kind:'singles',frames:[g.frames[0]]}); } else subs.push({kind:g.kind,gid:g.gid,frames:g.frames}); });
+      subs.forEach(sb=>{ sb.id=sb.gid||('r'+sb.frames[0].id); sb.ids=sb.frames.map(f=>f.id); });
+      groups=[...groups.filter(g=>g.frames.length>1||!g.frames[0].soft),...groups.filter(g=>g.frames.length===1&&g.frames[0].soft)];
+      M.push({mi,id:'m'+mi,time:t,light:light(hh),groups,fr,subs}); });
+    const R=M.map(m=>({id:m.id,m,groups:m.groups.map(x=>x.frames.length<2?{frames:x.frames}:{burst:true,bracket:x.kind==='bracket',frames:x.frames})}));
+    R.forEach(r=>r.ids=r.m.subs.flatMap(x=>x.ids));
+    const N=[], sub={}, sugKeep={}; R.forEach(r=>{ N.push({id:r.id,type:'moment',mi:r.m.mi,ids:r.ids}); r.m.subs.forEach(sb=>{ N.push({id:sb.id,type:'sub',mi:r.m.mi,ids:sb.ids,kind:sb.kind}); sb.ids.forEach(i=>sub[i]=sb.id); }); });
+    Object.values(G).forEach(g=>{ if(g.kind==='bracket') g.frames.forEach(f=>sugKeep[f.id]=true); else if(g.kind==='burst'){ const k=g.ranked.find(f=>!f.blown&&!f.shake&&!f.soft)||g.ranked[0]; sugKeep[k.id]=true; } else { const f=g.frames[0]; if(!f.soft&&!f.blown&&!f.shake) sugKeep[f.id]=true; } });
+    return {M,G,R,byId,N,sub,sugKeep,order:R.flatMap(r=>r.ids)};
+  }
+  tileW(){ const d=this.props.density??'auto'; if(d==='compact') return 150; if(d==='comfortable') return 190; const w=(this.state.cullW||1100)-100-28-28-82-12-2, n=Math.max(2,Math.round((w+8)/(176+8))); return Math.max(140,Math.min(240,Math.floor((w-8*(n-1))/n))); }
+  componentDidMount(){ this._ps={...this.state}; if(this.dirRef.current){ this.dirRef.current.setAttribute('webkitdirectory',''); } if(this.state.cuts&&Object.keys(this.state.cuts).length){ this.data=this.build(this.state.cuts); this.forceUpdate(); } this._ro=new ResizeObserver(()=>{ const el=this.scrollRef.current; if(el){ const w=Math.round(el.clientWidth); if(Math.abs(w-(this.state.cullW||0))>4) this.setState({cullW:w}); } }); setTimeout(()=>{ if(this.scrollRef.current) this._ro.observe(this.scrollRef.current); },0);  this._md=e=>{ const t=e.target; if(this.state.view==='cull'&&t.closest&&!t.closest('[data-photo]')&&!t.closest('[data-screen-label="Kept"]')){ if(!this.state.blur) this.setState({blur:true}); } if(!this.state.panel) return; if(t.closest&&(t.closest('[data-screen-label="Touch-up"]')||t.closest('[data-photo]'))) return; this.setState({panel:false}); }; window.addEventListener('mousedown',this._md); this._k=e=>this.onKey(e); this._u=e=>this.onKeyUp(e); window.addEventListener('keydown',this._k); window.addEventListener('keyup',this._u); }
+  componentWillUnmount(){ clearInterval(this._impT); this._ro&&this._ro.disconnect();  window.removeEventListener('mousedown',this._md); window.removeEventListener('keydown',this._k); window.removeEventListener('keyup',this._u); clearTimeout(this.tt); clearTimeout(this._aT); clearTimeout(this._sv); }
+  componentDidUpdate(pp,ps){ const prev=ps||this._ps||{}; this._ps={...this.state}; this._cdu(pp,prev); }
+  _cdu(pp,ps){ const s=this.state; if((s.cuts||{})!==(ps.cuts||{})&&s.cuts!==ps.cuts){ this.data=this.build(s.cuts||{}); if(s.burst&&!this.data.G[s.burst]) this.setState({burst:null}); else this.forceUpdate(); } if(s.view==='cull'&&ps.view!=='cull'&&this._ro) setTimeout(()=>{ if(this.scrollRef.current){ this._ro.disconnect(); this._ro.observe(this.scrollRef.current); } },0);
+    if(s.cur!==this._pc||s.view!==this._pvw){ this._pc=s.cur; this._pvw=s.view; requestAnimationFrame(()=>this.follow()); const l=this.list(), i=l.indexOf(s.cur); [s.cur,l[i+1]].forEach(id=>{ const f=this.data.byId[id]; if(f){ const im=new Image(); im.src=f.zsrc; } }); }
+    const keys=['pending','cuts','rowNames','dismiss','auto','rA','rO','marks','final','caps','pairs','texts','gsize','wide','heads','theads','overlay','title','sub','body','foot'];
+    if(!this.real&&keys.some(k=>ps[k]!==s[k])){ clearTimeout(this._sv); this._sv=setTimeout(()=>{ try{ const o={}; keys.forEach(k=>o[k]=this.state[k]); localStorage.setItem(Component.KEY,JSON.stringify(o)); this.setState({saved:true}); }catch(e){} },400); } }
+  say(t){ clearTimeout(this.tt); this.setState({toast:t}); this.tt=setTimeout(()=>this.setState({toast:null}),1300); }
+  f(){ return this.data.byId[this.state.cur]; }
+  kept(){ return this.data.order.filter(id=>this.state.marks[id]==='keep'); }
+  finals(){ return this.kept().filter(id=>this.state.final[id]); }
+  list(){ const v=this.state.view; return v==='cull'||v==='import'||v==='export'?this.data.order:v==='edit'?(this.state.finalsOnly?this.finals():this.kept()):this.finals(); }
+  go(id){ if(id&&id!==this.state.cur) this._selT=Date.now(); if(id) this.setState({cur:id,blur:false,node:this.data.sub[id],lvl:'photo'}); }
+  isNF(){ const s=this.state; return s.lvl==='node'&&this.data.N.some(x=>x.id===s.node); }
+  curNode(){ return this.isNF()?this.state.node:this.data.sub[this.state.cur]; }
+  vis(nd){ const s=this.state; return s.view==='edit'?nd.ids.filter(id=>s.marks[id]==='keep'&&(!s.finalsOnly||s.final[id])):nd.ids; }
+  widen(){ const nd=this.nodeObj(); if(!this.isNF()) return this.focusNode(nd); if(nd.type==='sub') return this.focusNode(this.data.N.find(x=>x.id==='m'+nd.mi)); this.say('already the whole row'); }
+  arrowLR(dir){ const nd=this.nodeObj(), N=this.data.N; if(this.isNF()){ if(nd.type==='moment'){ if(dir>0) this.focusNode(N.find(x=>x.type==='sub'&&x.mi===nd.mi&&this.vis(x).length)); return; } if(dir>0) return this.go(this.vis(nd)[0]); return this.focusNode(N.find(x=>x.id==='m'+nd.mi)); }
+    const ids=this.vis(nd), i=ids.indexOf(this.state.cur); if(dir<0){ if(i<=0) return this.focusNode(nd); return this.go(ids[i-1]); } if(i<ids.length-1) this.go(ids[i+1]); }
+  nodeObj(){ const id=this.curNode(); return this.data.N.find(x=>x.id===id)||{ids:[]}; }
+  focusNode(t){ if(!t) return; const ids=this.vis(t); if(!ids.length) return; this.setState({node:t.id,lvl:'node',cur:ids.includes(this.state.cur)?this.state.cur:ids[0],blur:false}); }
+  nodeStep(d){ const N=this.data.N.filter(x=>this.vis(x).length), i=N.findIndex(x=>x.id===this.curNode()); this.focusNode(N[i+d]); }
+  advance(nd){ const N=this.data.N; let j=N.findIndex(x=>x.id===nd.id)+1; if(nd.type==='moment') while(N[j]&&N[j].type!=='moment') j++; setTimeout(()=>this.focusNode(N[j]),80); }
+  acceptNode(nd){ const ids=nd.ids, sk=this.data.sugKeep, k=ids.filter(i=>sk[i]).length; this.setState(s=>{ const mk={...s.marks}; ids.forEach(id=>mk[id]=sk[id]?'keep':'out'); return {...this.push(),marks:mk}; }); this.say('accepted · '+k+' kept, '+(ids.length-k)+' rejected · Q undo'); this.advance(nd); }
+  outNode(nd){ const ids=nd.ids; this.setState(s=>{ const mk={...s.marks}; ids.forEach(id=>mk[id]='out'); return {...this.push(),marks:mk}; }); this.say('all '+ids.length+' rejected · Q undo'); this.advance(nd); }
+  lookNode(){ return this.state.view==='edit'?'m'+this.f().mi:this.curNode(); }
+  setLook(id,lk){ const n=this.data.N.find(x=>x.id===id); this.setState(s=>{ const p={...(s.pending||{})}; if(lk) p[id]=lk; else delete p[id]; return {...this.push(),pending:p}; }); this.say(lk?'showing Auto · '+(n?n.ids.length:0)+' photos · apply in Edit':'preview off'); }
+  cycleLook(clear){ const id=this.lookNode(), cur=(this.state.pending||{})[id], L=Component.LK; this.setLook(id,clear||cur?null:'auto'); }
+  lookOf(id){ const s=this.state; if(s.view!=='cull'&&s.view!=='edit') return null; const p=s.pending||{}; const lk=p[this.data.sub[id]]||p['m'+this.data.byId[id].mi]; return lk==='auto'?lk:null; }
+  applyAll(){ const p=this.state.pending||{}, keys=Object.keys(p); if(!keys.length) return; const ord=k=>this.data.N.findIndex(x=>x.id===k);
+    this.setState(st=>{ const a={...st.auto}, o={...st.rO}; keys.sort((x,y)=>ord(x)-ord(y)).forEach(k=>{ const lk=p[k], nd=this.data.N.find(x=>x.id===k); if(!nd) return; nd.ids.forEach(id=>{ if(lk==='auto') a[id]=true; else { a[id]=false; o[id]={...Component.LOOKS[lk]}; } }); }); return {...this.push(),auto:a,rO:o,pending:{}}; });
+    this.say('applied '+keys.length+' previewed look'+(keys.length>1?'s':'')+' · Q undo'); }
+  applyMoment(mi){ const s=this.state, p=s.pending||{}, R=this.data.R[mi], keys=[R.id,...R.m.subs.map(x=>x.id)].filter(k=>p[k]); if(!keys.length) return this.say('nothing to apply · preview looks with V in Cull'); let n=0;
+    this.setState(st=>{ const a={...st.auto}, o={...st.rO}, pe={...(st.pending||{})}; keys.forEach(k=>{ const lk=pe[k], nd=this.data.N.find(x=>x.id===k); nd.ids.forEach(id=>{ n++; if(lk==='auto') a[id]=true; else { a[id]=false; o[id]={...Component.LOOKS[lk]}; } }); delete pe[k]; }); return {...this.push(),auto:a,rO:o,pending:pe}; });
+    this.say('applied · '+[...new Set(keys.map(k=>p[k]))].join(' + ')+' · Q undo'); }
+  step(d){ const l=this.list(), i=l.indexOf(this.state.cur); this.go(l[Math.max(0,Math.min(l.length-1,i<0?0:i+d))]); }
+  setView(v,force){ const s=this.state; if(v===s.view) return; if(!force&&s.view==='cull'&&v!=='cull'&&Object.keys(s.pending||{}).length) return this.setState({applyPrompt:v});
+    const el=s.view==='cull'?this.scrollRef.current:s.view==='edit'?this.editRef.current:null, mem={...(s.mem||{}),[s.view]:{cur:s.cur,node:s.node,lvl:s.lvl,top:el?el.scrollTop:null}}, m=mem[v];
+    const restore=m?{cur:m.cur,node:m.node,lvl:m.lvl}:v==='cull'?{lvl:'node',node:'m'+((this.data.byId[s.cur]||{}).mi||0)}:{};
+    this._progT=Date.now(); this.setState({view:v,large:false,burst:null,panel:false,mem,...restore}, ()=>{ const l=this.list(), c=this.state.cur;
+      if(l.length&&!l.includes(c)){ const o=this.data.order, i=o.indexOf(c); let best=l[0],bd=1e9; l.forEach(id=>{ const d=Math.abs(o.indexOf(id)-i); if(d<bd){ bd=d; best=id; } }); this.setState({cur:best,lvl:'photo',node:this.data.sub[best]}); }
+      if(m&&m.top!=null) requestAnimationFrame(()=>{ const e2=v==='cull'?this.scrollRef.current:v==='edit'?this.editRef.current:null; if(e2){ this._progT=Date.now(); this._noFollow=true; e2.scrollTop=m.top; } }); }); }
+  curRow(){ return this.data.R.findIndex(r=>r.ids.includes(this.state.cur)); }
+  row(d){ const t=this.data.R[this.curRow()+d]; if(t) this.go(t.ids[0]); }
+  nextSoft(){ const all=this.data.order, s=this.state, i=all.indexOf(s.cur); for(let d=1;d<=all.length;d++){ const id=all[(i+d)%all.length]; if(this.data.byId[id].soft&&!s.marks[id]) return this.go(id); } }
+  autoOf(f){ return {Exposure:+((0.5-f.h)*1.1).toFixed(2),Contrast:8,Highlights:-20,Shadows:15,Temp:f.hh>=18?5800:f.hh<9?7000:6500}; }
+  rec(id,on){ const s=this.state; return on?{...this.autoOf(this.data.byId[id]),...(s.rA[id]||{})}:(s.rO[id]||null); }
+  eff(id){ const s=this.state; let on=!!s.auto[id]; if(s.peek&&id===s.cur) on=!on; const p=this.data.byId[id]; const lk=!(s.peek&&id===s.cur)&&this.lookOf(id); if(lk) return {...(lk==='auto'?this.autoOf(p):Component.LOOKS[lk]),_b:p.bl,_e:p.ev}; return {...(this.rec(id,on)||{}),_b:p.bl,_e:p.ev}; }
+  rk(){ return this.state.auto[this.state.cur]?'rA':'rO'; }
+  val(i){ const [k,,,,def]=Component.P[i], s=this.state, r=this.rec(s.cur,!!s.auto[s.cur]); return r&&r[k]!=null?r[k]:def; }
+  snap(){ const s=this.state; return {auto:s.auto,rA:s.rA,rO:s.rO,marks:s.marks,final:s.final,cuts:s.cuts||{},pending:s.pending||{}}; }
+  push(merge){ return merge?{}:{undo:[...this.state.undo.slice(-80),this.snap()]}; }
+  scopeIds(){ const s=this.state, c=s.cur; if(s.view==='edit'){ const sl=Object.keys(s.sel||{}).filter(id=>s.marks[id]==='keep'); if(sl.length) return sl; } if(s.view!=='edit'||!this.isNF()) return [c]; const ids=this.vis(this.nodeObj()); return ids.length?ids:[c]; }
+  write(patch,merge){ const ids=this.scopeIds(); this.setState(s=>{ const o={...this.push(merge)}; ids.forEach(id=>{ const key=s.auto[id]?'rA':'rO'; o[key]={...(o[key]||s[key]),[id]:{...((o[key]||s[key])[id]||{}),...patch}}; }); return o; }); }
+  setVal(i,v,merge){ const [k,step,min,max]=Component.P[i]; v=Math.max(min,Math.min(max,+(Math.round(v/step)*step).toFixed(2))); if(merge&&this.val(i)===v) return; this.write({[k]:v},merge); this.setState({param:i}); }
+  nudge(sign,big){ const i=this.state.param, [k,step]=Component.P[i], id=this.state.cur, now=Date.now(); const merge=this._ln&&this._ln.id===id&&this._ln.k===k&&now-this._ln.t<600; this._ln={id,k,t:now}; this.setVal(i,this.val(i)+sign*step*(big?5:1),merge); }
+  zero(i){ const [k]=Component.P[i], ids=this.scopeIds(); this.setState(s=>{ const o={...this.push()}; ids.forEach(id=>{ const key=s.auto[id]?'rA':'rO', m={...(o[key]||s[key])}, r={...(m[id]||{})}; delete r[k]; m[id]=r; o[key]=m; }); return o; }); }
+  dragSlider(i,e){ if(e.button!==0) return; e.preventDefault(); const tr=e.currentTarget.querySelector('[data-track]').getBoundingClientRect(), [,,min,max,def]=Component.P[i]; let first=true;
+    const upd=ev=>{ const p=Math.max(0,Math.min(1,(ev.clientX-tr.left)/tr.width)); let v=min+p*(max-min); if(Math.abs(v-def)<(max-min)*0.02) v=def; this.setVal(i,v,!first); first=false; };
+    const up=()=>{ window.removeEventListener('pointermove',upd); window.removeEventListener('pointerup',up); }; upd(e); window.addEventListener('pointermove',upd); window.addEventListener('pointerup',up); }
+  toggleAuto(){ const ids=this.scopeIds(), on=!this.state.auto[this.state.cur]; this.setState(s=>{ const a={...s.auto}; ids.forEach(id=>a[id]=on); return {...this.push(),auto:a}; }); if(ids.length>1) this.say((on?'auto on · ':'auto off · ')+ids.length+' photos'); }
+  autoRow(ri){ const r=this.data.R[ri]; const on=!r.ids.every(id=>this.state.auto[id]); this.setState(s=>{ const a={...s.auto}; r.ids.forEach(id=>a[id]=on); return {...this.push(),auto:a}; }); this.say((on?'auto on · ':'auto off · ')+r.m.light+' · '+r.ids.length); }
+  autoIds(ids,label){ if(!ids.length) return; const on=!ids.every(id=>this.state.auto[id]); this.setState(s=>{ const a={...s.auto}; ids.forEach(id=>a[id]=on); return {...this.push(),auto:a}; }); this.say((on?'auto on · ':'auto off · ')+label+' · '+ids.length); }
+  copyTo(ids){ const s=this.state, c=s.cur, on=!!s.auto[c], key=on?'rA':'rO', rc={...(s[key][c]||{})}; this.setState(st=>{ const a={...st.auto}, m={...st[key]}; ids.forEach(id=>{ a[id]=on; m[id]={...rc}; }); return {...this.push(),auto:a,[key]:m,flash:null}; }); this.say('copied to '+ids.length+' in this row · Q undo'); }
+  setMark(id,m){ this.setState(s=>({...this.push(),marks:{...s.marks,[id]:m}})); }
+  mark(m){ const id=this.state.cur, was=this.state.marks[id]; this.setMark(id,was===m?null:m); if(was!==m) setTimeout(()=>this.step(1),80); }
+  toggleFinal(id=this.state.cur){ this.setState(s=>({...this.push(),final:{...s.final,[id]:!s.final[id]}})); }
+  undo(){ const s=this.state; if(!s.undo.length) return; this.setState({...s.undo[s.undo.length-1],undo:s.undo.slice(0,-1)}); this._ln=null; this.say('undone'); }
+  setCuts(c,msg){ this.setState(s=>({...this.push(),cuts:c})); this.say(msg); }
+  split(id){ const s=this.state, f=id?this.data.byId[id]:this.f(), g=this.data.G[f.gid]; if(g.frames.length<2) return this.say('single photo · nothing to split'); if(g.frames[0].id===f.id) return this.say('already the start of this group'); this.setCuts({...(s.cuts||{}),[f.id]:true},'split · new group starts here · Q undo'); }
+  merge(id){ const s=this.state, f=id?this.data.byId[id]:this.f(), g=this.data.G[f.gid], row=this.data.M[f.mi]; if(row.fr[0].id===g.frames[0].id) return this.say('first group in this row · nothing before'); this.setCuts({...(s.cuts||{}),[g.frames[0].id]:false},'merged with previous group · Q undo'); }
+  keepAll(){ const ids=this.data.G[this.state.burst].frames.map(f=>f.id); this.setState(s=>{ const mk={...s.marks}; ids.forEach(x=>mk[x]='keep'); return {...this.push(),marks:mk,burst:null}; }); this.say('kept all '+ids.length+' · bracket'); }
+  selStep(d){ const l=this.list(), c=this.state.cur, i=l.indexOf(c), n=l[i+d]; const sl={...(this.state.sel||{}),[c]:true}; if(n) sl[n]=true; this.setState({sel:sl}); if(n) this.go(n); }
+  selGroupStep(d){ const s=this.state, subs=this.data.N.filter(x=>x.type==='sub'&&this.vis(x).length), i=subs.findIndex(x=>x.id===this.data.sub[s.cur]), has=Object.keys(s.sel||{}).length, tg=has?subs[i+d]:subs[i]; if(!tg) return; const sl={...(s.sel||{})}; if(has&&subs[i]) this.vis(subs[i]).forEach(id=>sl[id]=true); this.vis(tg).forEach(id=>sl[id]=true); this.setState({sel:sl}); if(has) this.go(this.vis(tg)[0]); }
+  tileDown(e,id){ if(e.button!==0||e.altKey) return; e.stopPropagation(); const sx=e.clientX, sy=e.clientY; this._td={id,started:false};
+    const mv=ev=>{ const d=this._td; if(!d) return; if(!d.started){ if(Math.hypot(ev.clientX-sx,ev.clientY-sy)<12) return; const sl=this.state.sel||{}; d.ids=sl[id]&&Object.keys(sl).length>1?Object.keys(sl):[id]; d.started=true; }
+      const k=this.keptRef.current, q=k&&k.getBoundingClientRect(), over=!!q&&ev.clientY>=q.top-40; this.setState({ghost:{x:ev.clientX,y:ev.clientY,src:this.data.byId[id].src,n:d.ids.length,over}}); };
+    const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); const d=this._td; this._td=null; if(!d||!d.started) return; this._supClick=true; setTimeout(()=>{ this._supClick=false; },0); const g=this.state.ghost; this.setState({ghost:null}); if(g&&g.over){ this.setState(s=>{ const mk={...s.marks}; d.ids.forEach(x=>mk[x]='keep'); return {...this.push(),marks:mk}; }); this.say('kept '+d.ids.length+' · Q undo'); } };
+    this._tdCancel=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); this._td=null; this.setState({ghost:null}); this.say('drag cancelled'); };
+    window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up); }
+  cullScrolled(){ if(this._bx||this._td||Date.now()-(this._progT||0)<700) return; cancelAnimationFrame(this._csr); this._csr=requestAnimationFrame(()=>{ const el=this.scrollRef.current; if(!el) return; const top=el.getBoundingClientRect().top, line=top+el.clientHeight*0.3; let pick=null;
+    el.querySelectorAll('[data-row]').forEach(n=>{ const q=n.getBoundingClientRect(); if(q.top<=line&&q.bottom>line) pick=n.dataset.row; });
+    if(!pick){ const first=[...el.querySelectorAll('[data-row]')].find(n=>n.getBoundingClientRect().bottom>top); pick=first&&first.dataset.row; }
+    const s=this.state, curRow='m'+(this.data.byId[s.cur]||{}).mi; if(pick&&pick!==curRow){ const nd=this.data.N.find(x=>x.id===pick); if(nd){ this._noFollow=true; this.setState({node:nd.id,lvl:'node',cur:nd.ids[0],blur:false}); } } }); }
+  markSel(m){ const ids=Object.keys(this.state.sel||{}); this.setState(s=>{ const mk={...s.marks}; ids.forEach(id=>mk[id]=m); return {...this.push(),marks:mk}; }); this.say((m==='keep'?'kept ':'rejected · ')+ids.length+' · still selected · esc clears'); }
+  autoSel(){ const ids=Object.keys(this.state.sel||{}), on=!ids.every(id=>this.state.auto[id]); this.setState(s=>{ const a={...s.auto}; ids.forEach(id=>a[id]=on); return {...this.push(),auto:a}; }); this.say((on?'auto on · ':'auto off · ')+ids.length); }
+  boxDown(e){ const el=this.scrollRef.current; if(e.button!==0||!el||(e.target.closest&&e.target.closest('[data-tile]')&&!e.altKey)||(e.target.closest&&e.target.closest('input,textarea'))) return; const rc=el.getBoundingClientRect(); if(e.clientX>rc.right-14) return; e.preventDefault();
+    const add=e.shiftKey||e.metaKey||e.ctrlKey; this._bx={sx:e.clientX,sy:e.clientY+el.scrollTop,cx:e.clientX,cy:e.clientY,base:add?{...(this.state.sel||{})}:{},moved:false};
+    const mv=ev=>{ if(!this._bx) return; this._bx.cx=ev.clientX; this._bx.cy=ev.clientY; this.boxUpdate(); };
+    const up=()=>{ window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); cancelAnimationFrame(this._bxr); const b=this._bx; this._bx=null; this.setState({box:null}); if(b&&!b.moved&&!add&&Object.keys(this.state.sel||{}).length) this.setState({sel:{}}); };
+    window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
+    const loop=()=>{ const b=this._bx; if(!b) return; const q=el.getBoundingClientRect(), d=b.cy>q.bottom-40?Math.min(22,(b.cy-q.bottom+40)/2):b.cy<q.top+40?-Math.min(22,(q.top+40-b.cy)/2):0; if(d&&b.moved){ el.scrollTop+=d; this.boxUpdate(); } this._bxr=requestAnimationFrame(loop); }; this._bxr=requestAnimationFrame(loop); }
+  boxUpdate(){ const b=this._bx, el=this.scrollRef.current; if(!b||!el) return; const sy=b.sy-el.scrollTop, x1=Math.min(b.sx,b.cx), x2=Math.max(b.sx,b.cx), y1=Math.min(sy,b.cy), y2=Math.max(sy,b.cy);
+    if(!b.moved&&x2-x1<5&&y2-y1<5) return; b.moved=true; const rc=el.getBoundingClientRect(), sel={...b.base};
+    el.querySelectorAll('[data-tile]').forEach(n=>{ const q=n.getBoundingClientRect(); if(q.right>x1&&q.left<x2&&q.bottom>y1&&q.top<y2) sel[n.dataset.tile]=true; });
+    const t1=Math.max(y1,rc.top), t2=Math.min(y2,rc.bottom); this.setState({sel,box:{x:Math.round(x1),y:Math.round(t1),w:Math.round(x2-x1),h:Math.round(Math.max(0,t2-t1))}}); }
+  openBurst(){ const f=this.f(); if(f&&f.bn>1) this.setState({burst:f.gid}); }
+  pickBest(){ const ids=this.data.G[this.state.burst].ranked.map(f=>f.id), id=this.state.cur; this.setState(s=>{ const mk={...s.marks}; ids.forEach(x=>mk[x]=x===id?'keep':'out'); return {...this.push(),marks:mk,burst:null}; });
+    const o=this.data.order, last=Math.max(...ids.map(x=>o.indexOf(x))); setTimeout(()=>this.go(o[last+1]),80); }
+  onKeyUp(e){ if(e.code==='KeyG') this.setState({zoom:false}); if(e.code==='KeyL') this.setState({showLikely:false}); if(e.code==='Space'){ if(this._spT&&Date.now()-this._spT>250) this.setState({large:false}); this._spT=0; }
+    if(e.code==='KeyA'&&this._aDown){ clearTimeout(this._aT); this._aDown=false; if(this.state.peek) this.setState({peek:false}); else if(this.state.view==='cull'){ const id=this.curNode(); this.setLook(id,(this.state.pending||{})[id]==='auto'?null:'auto'); } else this.toggleAuto(); } }
+  onKey(e){ if(this._td&&this._td.started&&e.key==='Escape'){ e.preventDefault(); return this._tdCancel(); } if(e.code==='KeyX'){ const o=e; e=new Proxy(o,{get:(x,p)=>p==='code'?'KeyE':p==='key'?'e':(typeof x[p]==='function'?x[p].bind(x):x[p])}); } const s=this.state, k=e.key, sh=e.shiftKey, v=s.view, ae=document.activeElement, typing=ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA');
+    if(typing){ if(k==='Escape') ae.blur(); return; }
+    if(e.code==='Space'||(k==='ArrowUp'||k==='ArrowDown')&&(s.view==='cull'||s.view==='edit')) e.preventDefault();
+    if(k==='Escape'&&s.large) return this.setState({large:false});
+    if(k==='Escape'&&Object.keys(s.sel||{}).length) return this.setState({sel:{}});
+    if(s.blur&&!e.metaKey) this.setState({blur:false});
+    if(s.glance){ if(k==='Escape'||k==='?') this.setState({glance:false}); return; }
+    if(s.applyPrompt){ e.preventDefault(); if(e.repeat) return; const to=s.applyPrompt; if(k==='Enter'){ this.applyAll(); this.setState({applyPrompt:null}); return this.setView(to,true); } if(k==='Escape'){ this.setState({applyPrompt:null}); return this.setView(to,true); } if(k==='Tab'||e.code==='KeyQ'){ return this.setState({applyPrompt:null}); } return; }
+    if(k==='Tab'&&(v==='cull'||v==='edit')&&!s.burst){ e.preventDefault(); if(e.repeat) return; return this.setView(v==='cull'?'edit':'cull'); }
+    if((e.metaKey||e.ctrlKey)&&(e.code==='BracketLeft'||e.code==='BracketRight')){ e.preventDefault(); if(e.repeat) return; if(v==='write'&&e.code==='BracketLeft') return this.setView('export'); const S=Component.STEPS.map(x=>x[0]), i=Math.max(0,S.indexOf(v==='write'?'export':v)), n=S[Math.max(0,Math.min(S.length-1,i+(e.code==='BracketRight'?1:-1)))]; return this.setView(n); }
+    if((e.metaKey||e.ctrlKey)&&e.code==='KeyO'){ e.preventDefault(); return this.openFolder(); } if((e.metaKey||e.ctrlKey)&&e.code==='KeyZ'){ e.preventDefault(); return this.undo(); } if(e.metaKey||e.ctrlKey) return;
+    if(k>='1'&&k<='3'&&!e.repeat){ return this.setView(Component.STEPS[+k][0]); }
+    if(k==='0'||(e.code==='KeyI'&&s.view!=='import')){ return this.setView('import'); }
+    if(s.view==='import'&&this.impKey(e,k,sh)) return;
+    if(s.view==='export'){ if(k==='Enter'){ e.preventDefault(); return this.runExport(); } if(k==='ArrowUp'||k==='ArrowDown'){ e.preventDefault(); const L=['lr','c1','both','raw','jpg'], i=L.indexOf((s.ex||{}).target||'lr'); return this.exSet({target:L[Math.max(0,Math.min(4,i+(k==='ArrowDown'?1:-1)))],result:null,other:true}); } if(e.code==='KeyW'){ return this.setView('write'); } }
+    const nav=k==='ArrowRight'||k==='ArrowLeft'||e.code==='KeyF'||e.code==='KeyD', dir=k==='ArrowRight'||e.code==='KeyF'?1:-1;
+    if(s.burst){ const ids=this.data.G[s.burst].ranked.map(f=>f.id), i=ids.indexOf(s.cur);
+      if(nav){ e.preventDefault(); return this.go(ids[Math.max(0,Math.min(ids.length-1,i+dir))]); } if(e.repeat) return;
+      if(k==='Escape'||e.code==='KeyW') return this.setState({burst:null}); if(k==='Enter'&&this.data.G[s.burst].kind==='bracket') return this.keepAll(); if(e.code==='KeyR'||k==='Enter') return this.pickBest();
+      if(e.code==='KeyE') return this.setMark(s.cur,s.marks[s.cur]==='out'?null:'out'); if(e.code==='KeyG') return this.setState({zoom:true});
+    if(e.code==='KeyL'&&v==='cull') return this.setState({showLikely:true}); if(e.code==='KeyQ') return this.undo(); return; }
+    if(s.panel&&v==='write'){
+      if((e.code==='KeyT'&&!e.repeat)||k==='Escape'){ e.preventDefault(); return this.setState({panel:false}); }
+      if(k==='ArrowDown'||k==='ArrowUp'){ e.preventDefault(); return this.setState(st=>({param:(st.param+(k==='ArrowUp'?4:1))%5})); }
+      if(e.code==='BracketRight'||e.code==='BracketLeft'){ e.preventDefault(); return this.nudge(e.code==='BracketRight'?1:-1,sh); }
+      if(k==='Backspace'||k==='Delete'){ e.preventDefault(); return this.zero(s.param); }
+      if(e.code==='KeyA'){ if(e.repeat) return; this._aDown=true; clearTimeout(this._aT); this._aT=setTimeout(()=>{ if(this._aDown) this.setState({peek:true}); },200); return; }
+      if(v==='write'&&nav){ e.preventDefault(); return this.step(dir); }
+    } else if(v==='write'&&e.code==='KeyT'&&!e.repeat){ e.preventDefault(); return this.setState({panel:true}); }
+    if(v==='write'||v==='export'){ if(k==='?') this.setState({glance:true}); return; }
+    if((v==='cull'||v==='edit')&&sh&&(k==='ArrowLeft'||k==='ArrowRight'||k==='ArrowUp'||k==='ArrowDown')){ e.preventDefault(); return k==='ArrowLeft'||k==='ArrowRight'?this.selStep(k==='ArrowRight'?1:-1):this.selGroupStep(k==='ArrowDown'?1:-1); }
+    if((v==='cull'||v==='edit')&&(k==='ArrowLeft'||k==='ArrowRight')){ e.preventDefault(); return this.arrowLR(k==='ArrowRight'?1:-1); }
+    if(nav){ e.preventDefault(); return this.step(dir); }
+    if((v==='cull'||v==='edit')&&(k==='ArrowDown'||k==='ArrowUp')){ e.preventDefault(); return this.nodeStep(k==='ArrowDown'?1:-1); }
+    if(v==='edit'&&(e.code==='BracketRight'||e.code==='BracketLeft')){ e.preventDefault(); return this.nudge(e.code==='BracketRight'?1:-1,sh); }
+    if(v==='edit'&&(e.code==='Comma'||e.code==='Period')){ e.preventDefault(); const d=e.code==='Comma'?4:1; return this.setState(st=>({param:(st.param+d)%5})); }
+    if(v==='edit'&&(k==='Backspace'||k==='Delete')){ e.preventDefault(); return this.zero(s.param); }
+    if(e.repeat) return;
+    if(k==='?'){ e.preventDefault(); return this.setState({glance:true}); }
+    if(e.code==='Space'){ e.preventDefault(); if(this.state.large){ this._spT=0; return this.setState({large:false}); } this._spT=Date.now(); return this.setState({large:true}); }
+    if(e.code==='KeyG') return this.setState({zoom:true});
+    if(e.code==='KeyL'&&v==='cull') return this.setState({showLikely:true});
+    if(e.code==='KeyQ') return this.undo();
+    const selIds=Object.keys(s.sel||{}); if(v==='edit'&&selIds.length&&e.code==='KeyA'&&!sh) return this.toggleAuto(); if(v==='cull'&&selIds.length){ if(e.code==='KeyR') return this.markSel('keep'); if(e.code==='KeyE') return this.markSel('out'); if(e.code==='KeyA') return this.autoSel(); }
+    if(v==='edit'&&sh&&e.code==='KeyA') return this.applyMoment(this.f().mi);
+    if(e.code==='KeyA'){ this._aDown=true; clearTimeout(this._aT); this._aT=setTimeout(()=>{ if(this._aDown) this.setState({peek:true}); },200); return; }
+    if(v==='cull'){ const nd=sh&&!this.isNF()?this.data.N.find(x=>x.id===this.data.sub[s.cur]):this.nodeObj(), nf=sh||this.isNF(); if(e.code==='KeyR') return nf?this.acceptNode(nd):this.mark('keep'); if(e.code==='KeyE') return nf?this.outNode(nd):this.mark('out'); if(e.code==='KeyV') return this.cycleLook(sh); if(e.code==='KeyS') return this.nextSoft(); if(e.code==='KeyW') return this.openBurst(); if(e.code==='KeyB') return sh?this.merge():this.split(); if(e.code==='KeyH'){ this.setState({hideHints:!s.hideHints}); return this.say(s.hideHints?'hints on':'hints hidden · H to show'); } if(k==='Enter') return this.setView('edit'); }
+    if(v==='edit'&&e.code==='KeyP'){ if(sh){ this.setState({finalsOnly:!s.finalsOnly}); return this.say(s.finalsOnly?'showing all keepers':'showing selects only'); } const ids=Object.keys(s.sel||{}).length?Object.keys(s.sel):[s.cur], on=!ids.every(id=>s.final[id]); this.setState(st=>{ const f={...st.final}; ids.forEach(id=>{ if(on) f[id]=true; else delete f[id]; }); return {...this.push(),final:f}; }); return this.say((on?'select':'not a select')+(ids.length>1?' · '+ids.length:'')); }
+    if(v==='edit'&&e.code==='KeyV') return this.cycleLook(sh);
+    if((v==='edit'||v==='cull')&&k==='Escape') return this.widen();
+    if(v==='edit'&&(k==='='||e.code==='Equal')){ const r=this.data.R[this.curRow()]; return this.copyTo(r.ids.filter(id=>s.marks[id]==='keep')); }
+    if(v==='edit'){ if(e.code==='KeyE'){ this.setMark(s.cur,null); return this.step(1); } if(k==='Enter') return this.setView('export'); }
+  }
+  follow(){ if(this._noFollow){ this._noFollow=false; return; } this._progT=Date.now(); const s=this.state, id=s.cur, band=(el,n,b,axis)=>{ if(!el||!n) return; const er=el.getBoundingClientRect(), nr=n.getBoundingClientRect();
+      if(axis==='y'){ if(nr.top<er.top+b) el.scrollBy({top:nr.top-er.top-b,behavior:'smooth'}); else if(nr.bottom>er.bottom-b) el.scrollBy({top:nr.bottom-er.bottom+b,behavior:'smooth'}); }
+      else { if(nr.left<er.left+b) el.scrollBy({left:nr.left-er.left-b,behavior:'smooth'}); else if(nr.right>er.right-b) el.scrollBy({left:nr.right-er.right+b,behavior:'smooth'}); } };
+    if(s.view==='cull') band(this.scrollRef.current,document.querySelector('[data-tile="'+id+'"]'),60,'y');
+    if(s.view==='edit'){ band(this.editRef.current,document.querySelector('[data-edit="'+id+'"]'),30,'y'); band(this.openRef.current&&this.openRef.current.children[1],document.querySelector('[data-open="'+id+'"]'),40,'x'); }
+    band(this.keptRef.current,document.querySelector('[data-kept="'+id+'"]'),40,'x'); }
+  cssR(r){ return LuminaCore.editFilter(r); }
+  renderVals(){ const o=this._rv0(); if(o.isCull&&!o.selN) o.ctxKeys=o.hintKeys; return o; }
+  _rv0(){
+    const s=this.state, {R,byId,G}=this.data, v=s.view, c=this.f()||byId.f0, cri=this.curRow(), K=this.kept(), FN=this.finals();
+    const ring=on=>on?'0 0 0 3px #EFECE6, 0 0 0 5px #1E1D1B, 0 10px 24px rgba(0,0,0,0.45)':'0 0 0 0 transparent';
+    const drag=id=>e=>{ e.dataTransfer.setData('text/plain',id); e.dataTransfer.effectAllowed='move'; this.go(id); };
+    const nodeId=this.curNode(), nObj=this.data.N.find(x=>x.id===nodeId)||{}, isNF=this.isNF(), headFocus=isNF&&nObj.type==='moment', subFocus=isNF&&nObj.type==='sub', SK=this.data.sugKeep, PE=s.pending||{};
+    const tile=f=>{ const m=s.marks[f.id], on2=f.id===s.cur&&!isNF, pk=s.peek&&f.id===s.cur, sk=!!SK[f.id], flag=f.shake?'shake':f.soft?'soft':f.blown?'blown':'';
+      const badge=pk?(s.auto[f.id]?'ORIGINAL':'AUTO'):m||!on2?'':f.kind==='bracket'?'EV '+(f.evs>0?'+':f.evs<0?'−':'±')+Math.abs(f.evs):flag||(f.kind==='burst'&&sk?'sharpest':'');
+      return { id:f.id, src:f.src, portrait:!!f.portrait, fit:f.portrait?'contain':'cover', filter:this.cssR(this.eff(f.id)), ring:pk?'0 0 0 2px #1E1D1B, 0 0 0 5px #FFD27A':ring(on2&&!s.blur), lift:pk?'translateY(-4px) scale(1.12)':on2&&!s.blur?'translateY(-3px) scale(1.03)':'none', z:on2?2:1, dim:1, likely:!m&&!sk, likelyBig:!m&&!sk&&!!s.showLikely, outTag:m==='out', kept:m==='keep', badge,
+        badgeColor:pk?'#1E1D1B':f.kind==='bracket'?'#B4CCFF':badge==='sharpest'?'#EFECE6':'#FFB4A2', badgeBg:pk?'#FFD27A':'rgba(20,19,18,0.82)', selOutline:(s.sel||{})[f.id]?'2px solid #FFD27A':'2px solid transparent', drag:drag(f.id), down:e=>this.tileDown(e,f.id),
+        click:e=>{ if(this._supClick){ this._supClick=false; return; } if(e&&(e.metaKey||e.ctrlKey||e.shiftKey)){ const sl={...(this.state.sel||{})}; if(sl[f.id]) delete sl[f.id]; else sl[f.id]=true; return this.setState({sel:sl}); } if(Object.keys(s.sel||{}).length) this.setState({sel:{}}); if(f.id===s.cur&&!isNF){ this.setMark(f.id,m==='keep'?null:'keep'); this.say(m==='keep'?'unkept':'kept'); } else this.go(f.id); } }; };
+    const rows=R.map((r,ri)=>{ const on=ri===cri, mf=headFocus&&nodeId===r.id, allAuto=r.ids.every(id=>s.auto[id]), likely=r.ids.filter(id=>!SK[id]).length, kc=r.ids.filter(id=>s.marks[id]==='keep').length, gc=new Set(r.ids.map(id=>byId[id].gid)).size;
+      return { id:r.id, time:r.m.time, light:r.m.light, autoTag:allAuto?'auto':'', timeColor:on?'#EFECE6':'#9A958D', nodeRing:on?'0 0 0 3px #1E1D1B, 0 0 0 4.5px #EFECE6':'0 0 0 0 transparent', borderColor:mf?'rgba(239,236,230,0.55)':on?'rgba(239,236,230,0.14)':'transparent', autoRow:()=>this.autoRow(ri),
+        summary:(()=>{ const left=r.ids.filter(id=>!s.marks[id]).length; return left?left+' to review':'✓ done'; })(), headBg:mf?'rgba(239,236,230,0.1)':'transparent', headColor:mf?'#EFECE6':'#9A958D', look:PE[r.id]?'preview · '+PE[r.id]:'', hint:mf?'R keep suggested · X reject all · V show Auto · → open':'',
+        focus:()=>this.focusNode(this.data.N.find(x=>x.id===r.id)),
+        subs:r.m.subs.map(sb=>{ const fo=subFocus&&nodeId===sb.id; return { label:sb.kind, meta:sb.ids.length+(sb.kind==='singles'?'':' frames'), look:PE[sb.id]?'· '+PE[sb.id]:'', labelColor:fo?'#EFECE6':'#6F6C66', bg:sb.kind==='bracket'?'rgba(150,190,255,0.06)':sb.kind==='burst'?'rgba(239,236,230,0.05)':'transparent', outline:fo?'1px solid rgba(239,236,230,0.4)':sb.kind==='bracket'?'1px dashed rgba(150,190,255,0.45)':'1px solid transparent', focus:()=>this.focusNode(this.data.N.find(x=>x.id===sb.id)), frames:sb.frames.map(tile) }; }) }; });
+    const aOn=!!s.auto[c.id], base=aOn?this.autoOf(c):null;
+    const params=Component.P.map(([k,step,min,max,def],i)=>{ const val=this.val(i), on=i===s.param, span=max-min, p=(val-min)/span*100, zref=base?base[k]:def, z=(zref-min)/span*100;
+      return { name:k, val:k==='Exposure'?(val>=0?'+':'')+val.toFixed(2):k==='Temp'?val+'K':(val>=0?'+':'')+val, l:Math.min(p,z), w:Math.max(1,Math.abs(p-z)), z, p,
+        bar:on?'#FFECCD':'rgba(239,236,230,0.6)', bg:on?'rgba(255,236,205,0.1)':'transparent', fg:on?'#FFECCD':'#EFECE6', weight:val!==zref?700:400, knob:on?'#FFECCD':'#EFECE6', down:e=>this.dragSlider(i,e), zero:()=>this.zero(i) }; });
+    const counts={import:'',cull:this.data.order.length,edit:s.finalsOnly?FN.length+'★':K.length,write:FN.filter(id=>(s.caps[id]||'').trim()).length+'/'+FN.length,export:''};
+    const cv=v==='write'?'export':v, steps=Component.STEPS.map(([id,t],i)=>({ arrow:i?'→':'', t:id==='export'&&v==='write'?'export · story':t, n:counts[id], bg:cv===id?'#EFECE6':'transparent', fg:cv===id?'#1E1D1B':'#B8B3AB', go:()=>this.setView(id) }));
+    const bId=s.burst;
+    const K2=v==='edit'?[['↑ ↓','rows, then groups · edits apply to the focus'],['⇧ arrows','select photos or groups'],['← →','photos in a group'],['esc','back out: photo → group → row'],['D F','previous / next photo'],[', .','choose slider'],['[ ]','nudge · ⇧ ×5'],['⌫','reset slider'],['=','copy edit to row'],['A','Auto · hold to compare'],['V','show Auto'],['⇧A','apply shown Auto'],['dbl-click photo','Auto for the focus'],['dbl-click time','Auto for row'],['P','select'],['⇧P','selects only'],['E','remove from keepers'],['Tab','back to cull'],['⏎','export']]
+      :v==='export'?[['⏎','send'],['↑ ↓','other targets'],['W','Exposure story (beta)'],['⌘[','back to edit']]
+      :[['D F','previous / next photo'],['↑ ↓','next / previous row, then groups'],['← →','photos in a group · ← at start: back to group'],['esc','back out'],['R','keep · on a row: keep suggested'],['⇧R','keep suggested for this row'],['X','reject'],['⇧X','reject whole row'],['click ×2','keep / unkeep'],['S','next soft photo'],['L hold','show not suggested'],['V','show Auto on row / group'],['A','Auto · hold to compare'],['dbl-click time','Auto for row'],['drag box','select · start off a photo · ⌥ over photos'],['⇧ ← →','extend selection'],['⇧ ↑ ↓','extend by group'],['⌘ click','add / remove one'],['W','compare burst / bracket'],['B','split group here'],['⇧B','merge with previous'],['␣','large · tap stays, hold peeks'],['G hold','100%'],['H','hide hints'],['Q','undo'],['Tab','edit'],['⏎','edit keepers']];
+    const editRows=R.map((r,ri)=>{ const ids=r.ids.filter(id=>s.marks[id]==='keep'&&(!s.finalsOnly||s.final[id])), on=ri===cri, lks=[r.id,...r.m.subs.map(x=>x.id)].filter(k=>PE[k]).map(k=>PE[k]); return { ids, look:lks.length?'apply '+[...new Set(lks)].join(' + '):'', apply:()=>this.applyMoment(ri), time:r.m.time, light:r.m.light, n:ids.length, autoTag:ids.length&&ids.every(id=>s.auto[id])?'auto':'', timeColor:on||(headFocus&&nodeId===r.id)?'#EFECE6':'#9A958D', border:headFocus&&nodeId===r.id?'rgba(239,236,230,0.6)':on?'rgba(239,236,230,0.16)':'transparent', focus:()=>this.focusNode(this.data.N.find(x=>x.id===r.id)),
+      autoRow:()=>this.autoIds(ids,r.m.light+' row'), copy:()=>this.copyTo(ids),
+      subs:r.m.subs.map(sb=>{ const kid=sb.ids.filter(id=>s.marks[id]==='keep'&&(!s.finalsOnly||s.final[id])), fo=subFocus&&nodeId===sb.id; return { n:kid.length, bg:sb.kind==='singles'?'transparent':'rgba(239,236,230,0.05)', outline:fo?'1px solid rgba(239,236,230,0.55)':sb.kind==='bracket'?'1px dashed rgba(150,190,255,0.45)':'1px solid transparent', tiles:kid.map(id=>({ id, fin:!!s.final[id], portrait:!!byId[id].portrait, fit:byId[id].portrait?'contain':'cover', src:byId[id].src, filter:this.cssR(this.eff(id)), ring:ring(id===s.cur&&!isNF), click:e=>{ if(e&&(e.metaKey||e.ctrlKey||e.shiftKey)){ const sl={...(this.state.sel||{})}; if(sl[id]) delete sl[id]; else sl[id]=true; return this.setState({sel:sl}); } if(Object.keys(this.state.sel||{}).length) this.setState({sel:{}}); this.go(id); } })) }; }).filter(x=>x.n) }; }).filter(x=>x.n);
+    const selK=Object.keys(s.sel||{}).filter(id=>s.marks[id]==='keep'), sIds=v==='edit'?this.scopeIds():[], sc=v==='edit'&&selK.length?'selection':!isNF?'photo':headFocus?'row':'group';
+    const openR=R[cri]||R[0], openIds=openR?openR.ids.filter(id=>s.marks[id]==='keep'):[];
+    const openRow={ look:openR?[...new Set([openR.id,...openR.m.subs.map(x=>x.id)].filter(k=>PE[k]).map(k=>PE[k]))].join(' + '):'', apply:()=>this.applyMoment(cri), time:openR?openR.m.time:'', light:openR?openR.m.light:'', n:openIds.length,
+      tiles:openIds.map(id=>({ id, src:byId[id].src, filter:this.cssR(this.eff(id)), ring:ring(id===s.cur), scope:sIds.length>1&&sIds.includes(id)?'2px solid rgba(255,236,205,0.6)':'2px solid transparent', click:()=>this.go(id) })) };
+    const scopes=['photo','group','row'].map(t=>({ t:t==='photo'?'this photo':t, bg:t===sc?'#EFECE6':'transparent', fg:t===sc?'#1E1D1B':'#B8B3AB', pick:()=>t==='photo'?this.go(s.cur):this.focusNode(this.data.N.find(x=>x.id===(t==='row'?'m'+c.mi:this.data.sub[s.cur]))) }));
+    editRows.forEach(er=>er.subs.forEach(es=>es.tiles.forEach(tl=>{ tl.dbl=()=>{ this.go(tl.id); setTimeout(()=>this.toggleAuto(),0); }; tl.scope=sIds.length>1&&sIds.includes(tl.id)?'2px solid rgba(255,236,205,0.6)':'2px solid transparent'; })));
+    editRows.forEach(er=>{ er.bg=er.ids.includes(s.cur)?'#34322F':'#2A2927'; });
+    return { applyPrompt:s.applyPrompt?(()=>{ const to=s.applyPrompt, P=s.pending||{}, ks=Object.keys(P); return { title:ks.length+' previewed look'+(ks.length>1?'s':''), list:ks.map(k=>{ const nd=this.data.N.find(x=>x.id===k); return nd?(nd.type==='moment'?R[nd.mi].m.time+' row':R[nd.mi].m.time+' '+nd.kind)+' · '+P[k]:''; }).filter(Boolean).join('  ·  '), yes:()=>{ this.applyAll(); this.setState({applyPrompt:null}); this.setView(to,true); }, no:()=>{ this.setState({applyPrompt:null}); this.setView(to,true); } }; })():null, editRows, openRow, autoToggle:()=>this.toggleAuto(), autoBtn:(()=>{ const on=!!s.auto[s.cur], n=sIds.length; return { t:(on?'Auto on':'Auto')+(n>1?' · '+n+' photos':''), bg:on?'#FFECCD':'rgba(239,236,230,0.08)', fg:on?'#1E1D1B':'#EFECE6' }; })(), scopeLabel:v==='edit'?'applies to: '+(sc==='selection'?'selection · '+sIds.length:sc==='photo'?'this photo':sc==='row'?'whole row · '+sIds.length:'this '+(nObj.kind==='singles'?'run of singles':nObj.kind)+' · '+sIds.length):'', scopes, copyTxt:s.imp.phase==='copying'?'copying '+s.imp.done+' / '+s.imp.total:s.imp.phase==='paused'?'card removed · '+s.imp.done+' safe':s.imp.phase==='done'&&v!=='import'?'✓ all copied':'', copyTxtC:s.imp.phase==='paused'?'#FFB4A2':s.imp.phase==='done'?'#9ED7B0':'#FFD27A', toOpen:()=>this.setView('import'), ex:v==='export'?this.expVals():{}, backExport:()=>this.setView('export'), isImport:v==='import', ...(v==='import'?this.impVals():{}), isCull:v==='cull', isEdit:v==='edit', isWrite:v==='write', isExport:v==='export', showStrip:v==='cull', steps, rows, params, tileW:this.tileW(),
+      keptN:K.length, keptEmpty:!K.length, keptBg:s.ghost&&s.ghost.over?'#4A4231':s.dragOver||s.ghost?'#34322F':'#232220', keptH:s.ghost?124:78,
+      keptStrip:K.map(id=>({ id, src:byId[id].src, filter:this.cssR(this.eff(id)), ring:id===s.cur?'0 0 0 2px #1E1D1B, 0 0 0 4px #EFECE6':'0 0 0 0 transparent', drag:drag(id), click:()=>this.go(id) })),
+      essay:{ title:s.title, sub:s.sub, body:s.body, foot:s.foot, titleOr:s.title||'Untitled' }, noFinal:!FN.length,
+      cover:(()=>{ const id=FN[0], on=s.overlay!==false; return { src:id?byId[id].src:'', filter:id?this.cssR(this.eff(id)):'none', dim:on?0.62:0.25, dimTop:on?0.12:0, label:on?'overlay on':'overlay off', toggle:()=>this.setState({overlay:!on}), click:()=>{ if(id) this.setState(st=>({cur:id,panel:!(st.panel&&st.cur===id)})); } }; })(),
+      blocks:(()=>{ const out=[], tx=s.texts||{}, gs=s.gsize||{}, pr=s.pairs||{}, wd=s.wide||{}, hd=s.heads||{}, th=s.theads||{}, rest=FN.slice(1);
+        for(let i=0;i<rest.length;){ const id=rest[i], left=rest.length-i, n=Math.min(gs[id]||(pr[id]?2:1),left,3), ids=rest.slice(i,i+n), single=n===1, wide=single&&wd[id]!==false, bi=out.length, hasText=tx[id]!=null;
+          out.push({ key:id, cols:single?'1fr':'repeat('+n+',minmax(0,1fr))', w:wide?'calc(100vw - 16px)':'100%', mx:wide?'calc(50% - 50vw + 8px)':'0', capPad:wide?'max(28px, calc(50vw - 398px))':'0',
+            single, wideLabel:wide?'full width':'column width', toggleWide:()=>this.setState(st=>({wide:{...(st.wide||{}),[id]:!wide}})),
+            layoutLabel:n===1?'1 photo':n+' side by side', canJoin:n<3&&n<left, canSplit:n>1,
+            join:()=>{ const nx=rest[i+n]; this.setState(st=>({gsize:{...(st.gsize||{}),[id]:n+1},pairs:{...(st.pairs||{}),[id]:false},flash:nx})); clearTimeout(this._fl); this._fl=setTimeout(()=>this.setState({flash:null}),700); this.say('joined'); },
+            split:()=>{ this.setState(st=>({gsize:{...(st.gsize||{}),[id]:1},pairs:{...(st.pairs||{}),[id]:false},flash:ids[1]})); clearTimeout(this._fl); this._fl=setTimeout(()=>this.setState({flash:null}),700); this.say('split'); },
+            head:hd[id]||'', onHead:e=>{ const val=e.target.value; this.setState(st=>({heads:{...(st.heads||{}),[id]:val}})); },
+            items:ids.map((pid,j)=>({ src:byId[pid].src, filter:this.cssR(this.eff(pid)), ring:(s.panel&&pid===s.cur)||s.flash===pid?'0 0 0 3px #FFECCD':'0 0 0 0 transparent', click:()=>this.setState(st=>({cur:pid,panel:!(st.panel&&st.cur===pid)})),
+              cap:s.caps[pid]||'', hint:j?'optional':(n>1?Component.HINTS[4]:Component.HINTS[bi%4]), onCap:e=>{ const val=e.target.value; this.setState(st=>({caps:{...st.caps,[pid]:val}})); } })),
+            hasText, noText:!hasText, text:tx[id]||'', thead:th[id]||'', onThead:e=>{ const val=e.target.value; this.setState(st=>({theads:{...(st.theads||{}),[id]:val}})); },
+            addText:()=>{ this.setState(st=>({texts:{...(st.texts||{}),[id]:''}})); requestAnimationFrame(()=>{ const el=document.querySelector('[data-text="'+id+'"]'); if(el) el.focus(); }); },
+            onText:e=>{ const val=e.target.value; this.setState(st=>({texts:{...(st.texts||{}),[id]:val}})); },
+            blurText:e=>{ if(!e.target.value.trim()&&!((this.state.theads||{})[id]||'').trim()) this.setState(st=>{ const t={...(st.texts||{})}; delete t[id]; return {texts:t}; }); } });
+          i+=n; } return out; })(),
+      onTitle:e=>this.setState({title:e.target.value}), onSub:e=>this.setState({sub:e.target.value}), onBody:e=>this.setState({body:e.target.value}), onFoot:e=>this.setState({foot:e.target.value}),
+      exportSummary:'cover + '+Math.max(0,FN.length-1)+' photos in blocks · '+FN.filter(id=>(s.caps[id]||'').trim()).length+' captions · '+((s.body||'').trim()?'story written':'no story yet'), exportLabel:s.exported?'Exported ✓':'Export essay',
+      doExport:()=>{ this.setState({exported:true}); this.say('exported · '+FN.length+' photos'); },
+      big:{ src:c.lg||c.src, zsrc:c.zsrc, filter:this.cssR(this.eff(c.id)), time:c.time, pos:v==='edit'?(K.indexOf(c.id)+1)+' / '+K.length:'', auto:s.peek?'showing '+(aOn?'original':'auto'):aOn?'auto':'' },
+      selN:v==='cull'||v==='edit'?Object.keys(s.sel||{}).length:0, selHelp:v==='edit'?'sliders · A · V apply to these':'R keep · X reject · A Auto · Tab edit these', box:v==='cull'?s.box:null, boxDown:e=>this.boxDown(e), onCullWheel:()=>{ this._userScrollT=Date.now(); }, onCullScroll:()=>this.cullScrolled(), clearSel:()=>this.setState({sel:{}}), ctxOn:(v==='cull'||v==='edit'||v==='import'||v==='export')&&(!s.hideHints||Object.keys(s.sel||{}).length>0), ctxBg:Object.keys(s.sel||{}).length&&(v==='cull'||v==='edit')?'#FFD27A':'#232220', ctxFg:Object.keys(s.sel||{}).length&&(v==='cull'||v==='edit')?'#1E1D1B':'#B8B3AB', ctxChip:Object.keys(s.sel||{}).length&&(v==='cull'||v==='edit')?'rgba(30,29,27,0.14)':'rgba(239,236,230,0.12)',
+      ctxLead:(()=>{ const n=Object.keys(s.sel||{}).length; if(n&&(v==='cull'||v==='edit')) return n+' selected'; if(v==='import') return 'open'; if(v==='export') return 'export'; if(v==='write') return 'story · beta'; if(v==='edit') return 'applies to: '+(!isNF?'this photo':headFocus?'whole row':(nObj.kind==='singles'?'singles':nObj.kind)); return headFocus?R[nObj.mi].m.time+' row':subFocus?nObj.kind+' · '+nObj.ids.length:'photo'; })(),
+      ctxKeys:(()=>{ const n=Object.keys(s.sel||{}).length; let L; if(n&&v==='cull') L=[['R','keep'],['X','reject'],['A','auto'],['Tab','edit these']]; else if(n&&v==='edit') L=[[', .','slider'],['[ ]','nudge'],['A','auto']]; else if(v==='export') L=[['⏎','send'],['↑↓','other targets'],['W','Exposure story (beta)'],['⌘[','back']]; else if(v==='edit') L=[['P','select'],['⇧P','selects only'],['↑↓','rows'],['← →','photos'],['esc','back out'],[', .','slider'],['[ ]','nudge'],['A','auto'],['⇧A','apply preview'],['Tab','cull']]; else if(v==='import') L=s.imp.card?[['⏎','cull this card'],['type','find a shoot'],['C','pull / insert card'],['Tab','cull']]:[['type','find'],['↑ ↓','pick'],['⏎','open in place'],['Tab','cull']]; else L=null; return L?L.map(([k,t])=>({k,t})):null; })()||[],
+      hintBar:v==='cull'&&!Object.keys(s.sel||{}).length&&!s.hideHints&&!s.large&&!s.zoom&&!bId&&!s.peek&&!s.glance, hintKeys:(isNF?[['R','keep suggested'],['L hold','show not suggested'],['X','reject all'],['↑↓','rows'],['→','open'],['V','show Auto'],['Tab','edit']]:[['R','keep'],['X','reject'],['← →','photos'],['esc','back to row'],['␣','large'],['A hold','Auto'],['V','show Auto']]).map(([k,t])=>({k,t})), peekPill:s.peek?(s.auto[s.cur]?'showing original · release A':'showing Auto · release A'):'', inBurst:!!bId, bTitle:bId&&G[bId].kind==='bracket'?'bracket · '+G[bId].frames.length+' exposures, in order · ⏎ keep all · R keep only this · X reject · esc':bId?'burst · '+G[bId].frames.length+' frames, sharpest first · R keep this one · X reject · G hold 100% · esc':'',
+      bFrames:bId?G[bId].ranked.map(f=>{ const on=f.id===s.cur, m=s.marks[f.id]; return { bg:s.zoom?f.zsrc:f.src, size:s.zoom?'300%':'contain', pos:s.zoom?c.fx+'% '+c.fy+'%':'center', filter:this.cssR(this.eff(f.id)), ring:on?'0 0 0 3px #EFECE6':'0 0 0 0 transparent', dim:m==='out'?0.35:1,
+        label:(f.kind==='bracket'?'EV '+(f.evs>0?'+':f.evs<0?'−':'±')+Math.abs(f.evs):'#'+f.rank+' · focus '+f.sharp+(f.rank===1?' · sharpest':'')+(f.soft?' · soft':f.slight?' · slightly soft':''))+(f.blown?' · blown '+f.clip+'%':'')+(m==='keep'?' · kept':m==='out'?' · rejected':''), labelColor:on?'#EFECE6':'#9A958D', click:()=>this.go(f.id), dbl:()=>{ this.go(f.id); setTimeout(()=>this.pickBest(),0); } }; }):[],
+      panel:!!s.panel&&v==='write', large:s.large&&!bId, zoom:s.zoom&&!bId, zm:{ src:c.zsrc, filter:this.cssR(this.eff(c.id)), pos:c.fx+'% '+c.fy+'%', label:c.soft?'soft':'sharp', color:c.soft?'#FFB4A2':'#EFECE6' },
+      savedTxt:s.saved?'saved':'', toast:s.toast, glance:s.glance, keys:K2.map(([k,t])=>({k,t})), closeGlance:()=>this.setState({glance:false}),
+      scrollRef:this.scrollRef, editRef:this.editRef, openRef:this.openRef, keptRef:this.keptRef,
+      allowDrop:e=>e.preventDefault(), dropRows:e=>{ e.preventDefault(); const id=e.dataTransfer.getData('text/plain'); if(id&&s.marks[id]==='keep') this.setMark(id,null); },
+      overKept:e=>{ e.preventDefault(); if(!this.state.dragOver) this.setState({dragOver:true}); }, leaveKept:()=>this.setState({dragOver:false}),
+      dropKept:e=>{ const _sid=e.dataTransfer.getData('text/plain'), _sl=Object.keys(this.state.sel||{}); if(_sl.length>1&&this.state.sel[_sid]){ e.preventDefault(); this.setState({dragOver:false}); return this.markSel('keep'); } e.preventDefault(); e.stopPropagation(); const id=e.dataTransfer.getData('text/plain'); this.setState({dragOver:false}); if(id&&this.state.marks[id]!=='keep') this.setMark(id,'keep'); } };
+  }
+}
+</script>
+</body>
+</html>

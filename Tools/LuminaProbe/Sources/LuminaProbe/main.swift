@@ -50,6 +50,11 @@ case "run":
     let scenarios = args.map { URL(fileURLWithPath: $0) }
     guard !scenarios.isEmpty else { print(usage); exit(2) }
 
+    // The probe is an invisible background app. Without this, App Nap throttles its timers, and once
+    // the display idles WebKit throttles the page process: a 500 ms wait stretched to 4 minutes.
+    let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .latencyCritical, .idleSystemSleepDisabled, .idleDisplaySleepDisabled],
+                                                         reason: "lumina-probe run")
+    _ = activity
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)          // no Dock icon, never takes focus from the user
     Task { @MainActor in

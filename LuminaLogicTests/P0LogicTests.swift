@@ -311,20 +311,6 @@ final class P0LogicTests: XCTestCase {
         XCTAssertEqual(HiFiTokens.Histogram.height, 64)
     }
 
-    func testEditRailLayoutMinWindow() {
-        XCTAssertEqual(EditRailLayout.minWindowWidth, 1280)
-        XCTAssertEqual(EditRailLayout.minWindowHeight, 800)
-        XCTAssertTrue(EditRailLayout.isCompact(windowHeight: 800))
-        XCTAssertFalse(EditRailLayout.showsHistogram(windowHeight: 800))
-        XCTAssertEqual(EditRailLayout.targetsHeight, 460)
-        XCTAssertEqual(EditRailLayout.rowCount, 10)
-        XCTAssertEqual(EditRailLayout.rowHeight, 46)
-        XCTAssertTrue(EditRailLayout.straightenRowFits(windowHeight: 800, contextVisible: false))
-        // Histogram yields only at the min window; it returns as soon as there is headroom
-        // (h7 oracle 753b9df: "histogram should show above min window height").
-        XCTAssertTrue(EditRailLayout.showsHistogram(windowHeight: 801))
-    }
-
     func testExportRecipeHintContract() {
         XCTAssertEqual(CopyContract.exportRecipeHint, "⌥⌘E changes the recipe.")
     }

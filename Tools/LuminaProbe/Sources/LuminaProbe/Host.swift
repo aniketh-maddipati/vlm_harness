@@ -9,7 +9,10 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
 
     let window: NSWindow
     let webView: WKWebView
-    let scheme: ProbeSchemeHandler
+    let scheme: SetsSchemeHandler
+    /// App mode: the app's own bridge + plumbing.js. Prototype mode: nil, the page as designed.
+    let bridge: SetsBridge?
+    var chooser: ProbeChooser { chooserRef! }
     let outDir: URL
     let started = Date()
 
@@ -18,29 +21,39 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
     private(set) var downloads: [String] = []
     private(set) var dialogs: [String] = []
     private(set) var webProcessCrashed = false
-    var pendingOpenPanel: [URL]?
+    var pendingOpenPanel: [URL]? {
+        get { chooser.sources.first.map { [$0] } }
+        set { chooser.sources = newValue ?? [] }
+    }
     var confirmAnswer = false
     var echo = false
     private var navDone: CheckedContinuation<Void, Error>?
 
-    init(size: CGSize, pageRoot: URL, vendorRoot: URL, outDir: URL, config: [String: Any]) throws {
-        self.outDir = outDir
-        scheme = ProbeSchemeHandler(pageRoot: pageRoot, vendorRoot: vendorRoot)
-
-        let conf = WKWebViewConfiguration()
-        conf.websiteDataStore = .nonPersistent()           // no localStorage carried between runs
-        conf.setURLSchemeHandler(scheme, forURLScheme: ProbeSchemeHandler.scheme)
-        let ucc = conf.userContentController
+    static func make(size: CGSize, pageRoot: URL, vendorRoot: URL, plumbing: URL?, supportDir: URL,
+                     outDir: URL, config: [String: Any]) async throws -> ProbeHost {
         let cfgJSON = String(data: try JSONSerialization.data(withJSONObject: config), encoding: .utf8)!
-        ucc.addUserScript(WKUserScript(source: "window.__probeConfig=\(cfgJSON);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        guard let jsURL = Bundle.module.url(forResource: "probe", withExtension: "js") else {
-            throw ProbeError("probe.js missing from bundle")
+        guard let jsURL = Bundle.module.url(forResource: "probe", withExtension: "js") else { throw ProbeError("probe.js missing from bundle") }
+        let probeJS = try String(contentsOf: jsURL, encoding: .utf8)
+        let chooserHolder = ProbeChooser()
+        var bridge: SetsBridge?
+        var plumbingJS = ""
+        if let plumbing {
+            plumbingJS = try String(contentsOf: plumbing, encoding: .utf8)
+            bridge = SetsBridge(chooser: chooserHolder, supportDir: supportDir)
         }
-        ucc.addUserScript(WKUserScript(source: try String(contentsOf: jsURL, encoding: .utf8), injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        let (wv, scheme) = try await SetsWebView.make(pageRoot: pageRoot, vendorRoot: vendorRoot, plumbing: plumbingJS, bridge: bridge,
+                                                      standInPhotos: true, extraScripts: ["window.__probeConfig=\(cfgJSON);", probeJS],
+                                                      frame: CGRect(origin: .zero, size: size))
+        return ProbeHost(webView: wv, scheme: scheme, bridge: bridge, chooser: chooserHolder, size: size, outDir: outDir)
+    }
 
-        webView = WKWebView(frame: CGRect(origin: .zero, size: size), configuration: conf)
-        // The window sits offscreen; without this WebKit treats it as occluded and stops
-        // painting and throttles rAF. SPI, test tool only.
+    private init(webView: WKWebView, scheme: SetsSchemeHandler, bridge: SetsBridge?, chooser: ProbeChooser, size: CGSize, outDir: URL) {
+        self.webView = webView
+        self.scheme = scheme
+        self.bridge = bridge
+        self.outDir = outDir
+        // The window sits where the user can't see it; without this WebKit treats it as occluded
+        // and stops painting and throttles rAF. SPI, test tool only.
         let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
         if webView.responds(to: occlusion) {
             webView.perform(occlusion, with: nil)          // nil → NO
@@ -55,7 +68,8 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         window.ignoresMouseEvents = true
         window.level = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue - 1)
         super.init()
-        ucc.add(self, name: "probe")
+        self.chooserRef = chooser
+        webView.configuration.userContentController.add(self, name: "probe")
         webView.navigationDelegate = self
         webView.uiDelegate = self
         window.contentView = webView
@@ -63,22 +77,10 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         window.orderFrontRegardless()
         window.makeKey()
         window.makeFirstResponder(webView)
-        try blockNetwork()
+        bridge?.onEvent = { [weak self] in self?.log("bridge", $0) }
     }
 
-    /// Anything http(s) is refused. The page must run from bundled files only.
-    private func blockNetwork() throws {
-        let rules = #"[{"trigger":{"url-filter":"^https?://"},"action":{"type":"block"}}]"#
-        var compiled: WKContentRuleList?
-        var failure: Error?
-        let done = DispatchSemaphore(value: 0)
-        WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "lumina-probe-offline", encodedContentRuleList: rules) { list, err in
-            compiled = list; failure = err; done.signal()
-        }
-        while done.wait(timeout: .now()) == .timedOut { RunLoop.main.run(until: Date().addingTimeInterval(0.01)) }
-        if let failure { throw failure }
-        if let compiled { webView.configuration.userContentController.add(compiled) }
-    }
+    private var chooserRef: ProbeChooser?
 
     func log(_ kind: String, _ text: String) {
         let e = Event(t: Date().timeIntervalSince(started), kind: kind, text: text)
@@ -92,7 +94,7 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
     // MARK: Loading
 
     func load(_ page: String) async throws {
-        let url = URL(string: "\(ProbeSchemeHandler.scheme)://app/\(page.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)")!
+        let url = URL(string: "\(SetsSchemeHandler.scheme)://app/\(page.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)")!
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
             navDone = c
             webView.load(URLRequest(url: url))
@@ -145,8 +147,12 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
         log("openpanel", "dirs=\(parameters.allowsDirectories) multi=\(parameters.allowsMultipleSelection) → \(pendingOpenPanel?.map(\.path) ?? ["cancel"])")
-        completionHandler(pendingOpenPanel)
-        pendingOpenPanel = nil
+        if let bridge {
+            Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
+        } else {
+            completionHandler(pendingOpenPanel)
+            pendingOpenPanel = nil
+        }
     }
 
     func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
@@ -163,7 +169,7 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences) async -> (WKNavigationActionPolicy, WKWebpagePreferences) {
         if action.shouldPerformDownload { return (.download, preferences) }
-        if let scheme = action.request.url?.scheme, !["lumina-ref", "about", "blob", "data"].contains(scheme) {
+        if let scheme = action.request.url?.scheme, ![SetsSchemeHandler.scheme, "about", "blob", "data"].contains(scheme) {
             fail("navigation to \(action.request.url!.absoluteString) blocked")
             return (.cancel, preferences)
         }
@@ -249,4 +255,25 @@ final class ProbeWindow: NSWindow {
 struct ProbeError: Error, CustomStringConvertible {
     let description: String
     init(_ d: String) { description = d }
+}
+
+/// Scripted answers for the bridge's folder pickers. Each pick consumes the next queued URL; an
+/// empty queue means the user pressed Cancel. Refusals are recorded for assertions.
+@MainActor
+final class ProbeChooser: SetsChooser {
+    var sources: [URL] = []
+    var destinations: [URL] = []
+    private(set) var refusals: [String] = []
+    private(set) var asked: [String] = []
+
+    func chooseSource(allowsDirectories: Bool) async -> URL? {
+        asked.append("source")
+        return sources.isEmpty ? nil : sources.removeFirst()
+    }
+
+    func chooseDestination(label: String, suggested: URL?, refusal: String?) async -> URL? {
+        asked.append("destination:\(label)")
+        if let refusal { refusals.append(refusal) }
+        return destinations.isEmpty ? nil : destinations.removeFirst()
+    }
 }

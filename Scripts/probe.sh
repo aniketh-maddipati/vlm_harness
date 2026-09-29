@@ -6,6 +6,8 @@
 #   bash Scripts/probe.sh fuzz                   seeded key/mouse storms on the sample shoot
 #   bash Scripts/probe.sh edge                   camera-data edge cases   (needs LUMINA_FIXTURE_ROOT)
 #   bash Scripts/probe.sh card                   721-photo stress + scroll pacing (needs LUMINA_CARD_DIR)
+#   bash Scripts/probe.sh app                    the app's own bridge: exports, refusals, .lumina-bak, ΔE look parity
+#                                                (needs LUMINA_FIXTURE_ROOT)
 #   bash Scripts/probe.sh all [--require-all]    everything; --require-all turns a SKIP into a failure
 #
 # Build fixtures once: LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Tests/probe/forge_fixtures.sh
@@ -68,7 +70,8 @@ case "$suite" in
   fuzz)      run "$S"/fuzz-sample-*.json ;;
   edge)      run "$S"/edge-*.json ;;
   card)      run "$S/card-stress.json" "$S/golden-card.json" ;;
-  all)       reference; run "$S"/fuzz-sample-*.json "$S"/edge-*.json "$S/card-stress.json" ;;
+  app)       run "$S/app-export.json" "$S/look-parity.json" ;;
+  all)       reference; run "$S"/fuzz-sample-*.json "$S"/edge-*.json "$S/app-export.json" "$S/look-parity.json" "$S/card-stress.json" ;;
   *)         sed -n '2,13p' "$0"; exit 2 ;;
 esac
 echo "evidence: $OUT"

@@ -19,14 +19,14 @@ Fault injection never touches a real card. "Card" below means a disk image built
 | F1 ★ | Card pulled mid-copy (Export RAW) | Export to a folder while the source image is detached with `hdiutil detach -force` at a random point. Check: no file is marked done without a verified checksum, and resume works on re-attach with the same volume UUID. | P2 |
 | F2 | Card pulled mid-read (culling) | Detach during `openFolder` load and during Cull. Check for "Card removed · re-insert to keep going", no crash, state kept, resume on re-attach. | P2 |
 | F3 ★ | Destination disk full | Export to a 64 MB image. Check: the size check runs before start, it stops cleanly with a count, and there are no partial files. | P2 |
-| F4 | Destination = card or inside source | Point Export at the source image and at a subfolder of it. Check: blocked before any write. | P2 |
-| F5 ★ | Duplicate DSC numbers | `dup-dsc` fixture. Page check: both kept, distinct sidecar paths. Bridge check: second export of same names doesn't overwrite, and the checksum is compared. | page **pass** · P2 |
+| F4 | Destination = card or inside source | `app-export`: picking the source folder is refused and asked again, nothing written into it. Card-volume refusal: unit-tested rule (`SetsFileOpsTests`); disk-image run still to add. | **pass** (source) · card image P2 |
+| F5 ★ | Duplicate DSC numbers | `dup-dsc` (page: both kept, distinct sidecar paths). Bridge: a different file with the same name gets `-2`, the same file is recognised by SHA-256 and skipped (`SetsFileOpsTests`, `app-export` re-send). | **pass** |
 | F6 ★ | Existing .XMP / .xmp / both | Fixtures with upper, lower and both. Check: merged into the right one, no duplicate, `.lumina-bak` written. | P2 |
 | F7 | Read-only / locked card | `hdiutil attach -readonly`. Check: reads fine, and zero write attempts (bridge write log empty). | P2 |
 | F8 | Network drive, iCloud not downloaded | SMB share to localhost, plus `brctl evict` on files in a test iCloud folder. Check: clear message, no hang (probe hang watchdog 5 s). | P2 |
 | F9 ★ | Lightroom writing .xmp during export | A writer process rewrites the target .xmp in a loop during export. Check: atomic write, re-check before write, no torn file. The real-Lightroom run is **manual**. | P2 |
 | F10 ★ | Crash / quit mid-export | `kill -9` the app at a random point in export, then relaunch. Check: the list shows done vs not done, and no half-written sidecars (every .xmp parses). | P2 |
-| F11 | .lumina-bak before every overwrite | Asserted in F6, F9 and F10: every replaced file has a byte-identical `.lumina-bak`. | P2 |
+| F11 | .lumina-bak before every overwrite | `app-export` (changed re-export → exactly one `.lumina-bak`) and `SetsFileOpsTests` (old bytes kept, identical bytes not rewritten, no temp files left). | **pass** |
 
 ## Camera data (these run in the page's own JS today, via `Tests/probe/forge_fixtures.sh`)
 
@@ -70,6 +70,11 @@ Fault injection never touches a real card. "Card" below means a disk image built
 | P2 | Same folder twice / two windows | Launch the app twice, open the same folder. Check: one session, or blocked. | P2 |
 | P3 | Non-Sony files skipped quietly | `edge-junk-in-folder` (CR3, txt, `.DS_Store`, `._` stubs) | pass (WebKit skips dotfiles; the native lister must too) |
 | P4 | VoiceOver, larger text, reduced motion | AX tree audit of the WKWebView (every control has a role and label). Reduced motion and VoiceOver are **manual**: the harness never changes system settings. | manual + P2 |
+
+## Export look
+| # | Case | Scenario | Status |
+|---|---|---|---|
+| X1 | JPEG export looks like Edit (ANSWERS §3) | `look-parity`: 5 recipes through `LuminaCore.editFilter`, WebKit CSS vs the app's Core Image. Mean ΔE 0.40–0.62 (gate < 1). p95 0.79–1.12, max about 2.4, from WebKit's 8-bit fixed-point filter path. | **pass** |
 
 ## Always on, every scenario
 - Any `console.error`, uncaught error, render error, web-process crash, or page silent for more than 5 s fails the run.

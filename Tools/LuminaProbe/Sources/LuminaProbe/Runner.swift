@@ -50,22 +50,19 @@ final class Runner {
         do {
             let size = (spec["size"] as? [Double]) ?? [1280, 800]
             scale = (spec["scale"] as? Double) ?? 1
-            var config: [String: Any] = [
-                "resources": [
-                    "https://unpkg.com/react@18.3.1/umd/react.production.min.js": "\(ProbeSchemeHandler.scheme)://vendor/react.production.min.js",
-                    "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js": "\(ProbeSchemeHandler.scheme)://vendor/react-dom.production.min.js",
-                    "https://unpkg.com/@babel/standalone@7.29.0/babel.min.js": "\(ProbeSchemeHandler.scheme)://vendor/babel.min.js",
-                ],
-            ]
+            var config: [String: Any] = [:]
             if let clock = spec["clock"] as? String {
                 let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"; f.timeZone = .current
                 guard let d = f.date(from: clock) else { throw ProbeError("bad clock \(clock)") }
                 config["clockBase"] = d.timeIntervalSince1970 * 1000
             }
-            host = try ProbeHost(size: CGSize(width: size[0], height: size[1]),
-                                 pageRoot: path("pageRoot", default: "design/handoff/lumina-cull"),
-                                 vendorRoot: path("vendorRoot", default: "design/handoff/vendor"),
-                                 outDir: outDir, config: config)
+            let app = (spec["mode"] as? String) == "app"
+            host = try await ProbeHost.make(size: CGSize(width: size[0], height: size[1]),
+                                            pageRoot: path("pageRoot", default: app ? "Lumina/Sets/Web" : "design/handoff/lumina-cull"),
+                                            vendorRoot: path("vendorRoot", default: app ? "Lumina/Sets/Web" : "design/handoff/vendor"),
+                                            plumbing: app ? path("plumbing", default: "Lumina/Sets/Web/plumbing.js") : nil,
+                                            supportDir: outDir.appendingPathComponent("support", isDirectory: true),
+                                            outDir: outDir, config: config)
             host.echo = echo
             sampler.start(interval: ((spec["sampleMs"] as? Double) ?? 250) / 1000) { [host] in
                 [(getpid(), "probe"), (host!.webProcessID, "web")]
@@ -196,6 +193,36 @@ final class Runner {
                               timeout: (s["timeoutMs"] as? Double ?? 900_000) / 1000, what: "folder loaded")
             let info = try await host.js("return JSON.stringify(__probe.logic().state.realInfo)")
             return info.map { "\($0)" }
+        case "destinations":
+            host.chooser.destinations = try strs(s, "paths").map { URL(fileURLWithPath: $0) }
+        case "copyTree":
+            let from = URL(fileURLWithPath: try str(s, "from")), to = URL(fileURLWithPath: try str(s, "to"))
+            try? FileManager.default.removeItem(at: to)
+            try FileManager.default.createDirectory(at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: from, to: to)
+        case "mkdir":
+            try FileManager.default.createDirectory(at: URL(fileURLWithPath: try str(s, "path")), withIntermediateDirectories: true)
+        case "writeFile":
+            let url = URL(fileURLWithPath: try str(s, "path"))
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data(try str(s, "text").utf8).write(to: url)
+        case "fs":
+            return try fsExpect(s)
+        case "refusals":
+            let n = host.chooser.refusals.count
+            if let want = s["count"] as? Int, want != n { throw ProbeError("expected \(want) refused destinations, got \(n): \(host.chooser.refusals)") }
+            return host.chooser.refusals.joined(separator: " | ")
+        case "lookParity":
+            let rows = try await LookParity.run(host: host, image: URL(fileURLWithPath: try str(s, "image")),
+                                                recipes: s["recipes"] as? [[String: Double]] ?? [], width: s["width"] as? Int ?? 600, outDir: outDir)
+            let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try enc.encode(rows).write(to: outDir.appendingPathComponent("look-parity.json"))
+            let cap = s["maxMeanDE"] as? Double ?? 1
+            let space = s["space"] as? String ?? "sRGB"
+            let bad = rows.filter { $0.space == space && $0.meanDE >= cap }
+            let lines = rows.map { "\($0.space) \($0.css): ΔE mean \(String(format: "%.2f", $0.meanDE)) p95 \(String(format: "%.2f", $0.p95DE)) max \(String(format: "%.2f", $0.maxDE))" }
+            if !bad.isEmpty { throw ProbeError("mean ΔE ≥ \(cap) in \(space):\n  " + lines.joined(separator: "\n  ")) }
+            return "\n  " + lines.joined(separator: "\n  ")
         case "confirm":
             host.confirmAnswer = s["answer"] as? Bool ?? false
         case "fuzz":
@@ -206,6 +233,35 @@ final class Runner {
             throw ProbeError("unknown step '\(op)'")
         }
         return nil
+    }
+
+    // MARK: Files
+
+    /// {path, exists?, count?(files under a dir matching `glob`), same?(byte-equal to another file),
+    ///  contains?, notContains?}
+    private func fsExpect(_ s: [String: Any]) throws -> String {
+        let url = URL(fileURLWithPath: try str(s, "path"))
+        let fm = FileManager.default
+        if let want = s["exists"] as? Bool, fm.fileExists(atPath: url.path) != want {
+            throw ProbeError("\(url.path) \(want ? "missing" : "should not exist")")
+        }
+        if let want = s["count"] as? Int {
+            let glob = s["glob"] as? String ?? "*"
+            let rx = try NSRegularExpression(pattern: "^" + NSRegularExpression.escapedPattern(for: glob).replacingOccurrences(of: "\\*", with: ".*") + "$")
+            let all = (fm.enumerator(atPath: url.path)?.allObjects as? [String]) ?? []
+            let hits = all.filter { rx.firstMatch(in: ($0 as NSString).lastPathComponent, range: NSRange(location: 0, length: ($0 as NSString).lastPathComponent.utf16.count)) != nil }
+            guard hits.count == want else { throw ProbeError("\(url.lastPathComponent)/\(glob): expected \(want), found \(hits.count) \(hits.sorted().prefix(12))") }
+            return "\(hits.count) × \(glob)"
+        }
+        if let other = s["same"] as? String {
+            guard try Data(contentsOf: url) == Data(contentsOf: URL(fileURLWithPath: try str(s, "same"))) else { throw ProbeError("\(url.lastPathComponent) differs from \(other)") }
+        }
+        if s["contains"] != nil || s["notContains"] != nil {
+            let text = try String(contentsOf: url, encoding: .utf8)
+            if let c = s["contains"] as? String, !text.contains(c) { throw ProbeError("\(url.lastPathComponent) lacks '\(c)'") }
+            if let c = s["notContains"] as? String, text.contains(c) { throw ProbeError("\(url.lastPathComponent) has '\(c)'") }
+        }
+        return "ok"
     }
 
     // MARK: Fuzzer
@@ -351,10 +407,16 @@ final class Runner {
         return CGPoint(x: a[0], y: a[1])
     }
 
-    /// `${VAR}` expands from the environment. An unset variable skips the scenario — reported as
+    private func strs(_ s: [String: Any], _ k: String) throws -> [String] {
+        guard let a = s[k] as? [String] else { throw ProbeError("step needs '\(k)' list") }
+        return try a.map { try str(["v": $0], "v") }
+    }
+
+    /// `${OUT}` is this scenario's output folder. `${VAR}` expands from the environment. An unset variable skips the scenario — reported as
     /// SKIP, never as a pass.
     private func str(_ s: [String: Any], _ k: String) throws -> String {
         guard var v = s[k] as? String else { throw ProbeError("step needs '\(k)'") }
+        v = v.replacingOccurrences(of: "${OUT}", with: outDir.path)
         while let r = v.range(of: #"\$\{[A-Z0-9_]+\}"#, options: .regularExpression) {
             let name = String(v[r].dropFirst(2).dropLast())
             guard let value = ProcessInfo.processInfo.environment[name], !value.isEmpty else { throw ProbeSkip(reason: "\(name) is not set") }

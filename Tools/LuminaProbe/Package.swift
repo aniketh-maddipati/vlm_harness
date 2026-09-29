@@ -5,6 +5,9 @@ import PackageDescription
 // the way Playwright drives a browser: real key and mouse events, screenshots with photo
 // masks, state dumps, folder picker and downloads, a seeded key fuzzer, crash/hang/resource
 // watchdogs. Kept outside Lumina.xcodeproj so it builds with `swift build` alone.
+//
+// Sources/LuminaProbe/SetsCore is a symlink to the app's own bridge (Lumina/Sets/Core), compiled
+// in: app-mode scenarios exercise the exact native code the app ships.
 let package = Package(
     name: "LuminaProbe",
     platforms: [.macOS(.v14)],
