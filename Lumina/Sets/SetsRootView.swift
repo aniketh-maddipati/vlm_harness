@@ -23,6 +23,22 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     private(set) var webView: WKWebView?
     private var observers: [NSObjectProtocol] = []
 
+    /// The design's sample shoot is debug fixture data (ADDENDUM §1) and should never ship. But the
+    /// page can't render zero photos yet (it reads the current photo on every screen), so it stays on
+    /// until the design adds empty states; then flip the default to off. LUMINA_SAMPLE=0 tries it
+    /// now (Tests/probe/scenarios/app-empty-start.json is the acceptance test).
+    static var showsSample: Bool {
+        ProcessInfo.processInfo.environment["LUMINA_SAMPLE"] != "0"
+    }
+
+    static var isDebug: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }
+
     static var supportDir: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Lumina", isDirectory: true)
     }
@@ -34,7 +50,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         Task { @MainActor in
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
-                                                         standInPhotos: true, frame: host.bounds)
+                                                         standInPhotos: true, config: ["sample": Self.showsSample, "debug": Self.isDebug], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self

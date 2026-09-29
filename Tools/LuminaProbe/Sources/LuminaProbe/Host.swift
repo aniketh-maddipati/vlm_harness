@@ -30,7 +30,7 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
     private var navDone: CheckedContinuation<Void, Error>?
 
     static func make(size: CGSize, pageRoot: URL, vendorRoot: URL, plumbing: URL?, supportDir: URL,
-                     outDir: URL, config: [String: Any]) async throws -> ProbeHost {
+                     outDir: URL, config: [String: Any], appConfig: [String: Any] = [:]) async throws -> ProbeHost {
         let cfgJSON = String(data: try JSONSerialization.data(withJSONObject: config), encoding: .utf8)!
         guard let jsURL = Bundle.module.url(forResource: "probe", withExtension: "js") else { throw ProbeError("probe.js missing from bundle") }
         let probeJS = try String(contentsOf: jsURL, encoding: .utf8)
@@ -42,7 +42,7 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
             bridge = SetsBridge(chooser: chooserHolder, supportDir: supportDir)
         }
         let (wv, scheme) = try await SetsWebView.make(pageRoot: pageRoot, vendorRoot: vendorRoot, plumbing: plumbingJS, bridge: bridge,
-                                                      standInPhotos: true, extraScripts: ["window.__probeConfig=\(cfgJSON);", probeJS],
+                                                      standInPhotos: true, config: appConfig, extraScripts: ["window.__probeConfig=\(cfgJSON);", probeJS],
                                                       frame: CGRect(origin: .zero, size: size))
         return ProbeHost(webView: wv, scheme: scheme, bridge: bridge, chooser: chooserHolder, size: size, outDir: outDir)
     }
@@ -220,7 +220,15 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         guard let ev = NSEvent.mouseEvent(with: type, location: loc, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
                                           windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: clicks,
                                           pressure: type == .leftMouseUp ? 0 : 1) else { return }
-        window.sendEvent(ev)
+        // Straight to the web view: NSWindow.sendEvent drops mouse events for a window that isn't
+        // under the pointer / ignores mouse events.
+        switch type {
+        case .leftMouseDown: webView.mouseDown(with: ev)
+        case .leftMouseUp: webView.mouseUp(with: ev)
+        case .leftMouseDragged: webView.mouseDragged(with: ev)
+        case .mouseMoved: webView.mouseMoved(with: ev)
+        default: window.sendEvent(ev)
+        }
     }
 
     func scrollWheel(at p: CGPoint, dy: Int32) {

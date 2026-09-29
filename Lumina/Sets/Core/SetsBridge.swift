@@ -21,12 +21,15 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// Opened folders by name — the page knows files by `webkitRelativePath` ("<folder>/<file>").
     private(set) var roots: [String: URL] = [:]
     private var pendingSource: URL?
+    private var lastOpened: URL?
+    let shoots: SetsShootStore
     private(set) var ready = false
     var onEvent: ((String) -> Void)?
 
     init(chooser: SetsChooser, supportDir: URL) {
         self.chooser = chooser
         self.supportDir = supportDir
+        self.shoots = SetsShootStore(supportDir: supportDir)
         super.init()
         cards.onChange = { [weak self] card, removed in self?.cardChanged(card, removed: removed) }
     }
@@ -43,6 +46,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         if let pending = pendingSource { url = pending; pendingSource = nil } else { url = await chooser.chooseSource(allowsDirectories: allowsDirectories) }
         guard let url else { return nil }
         roots[url.lastPathComponent] = url
+        lastOpened = url
         rememberBookmark(url)
         onEvent?("opened \(url.path)")
         return [url]
@@ -72,9 +76,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     // MARK: Cards
 
     private func cardChanged(_ card: SetsCardWatcher.Card?, removed: SetsCardWatcher.Card?) {
-        let js = card != nil ? "window.__lumina && __lumina.card(true)" : "window.__lumina && (__lumina.card(false), __lumina.say('Card removed · re-insert to keep going'))"
+        let js = card != nil ? "window.__lumina && __lumina.card(true, \(cardJSON(card!)))" : "window.__lumina && (__lumina.card(false), __lumina.say('Card removed · re-insert to keep going'))"
         if ready { webView?.evaluateJavaScript(js, completionHandler: nil) }
         onEvent?(card.map { "card in \($0.uuid)" } ?? "card out \(removed?.uuid ?? "?")")
+    }
+
+    private func cardJSON(_ c: SetsCardWatcher.Card) -> String {
+        let o: [String: Any] = ["name": c.name, "photos": c.arwCount, "bytes": c.bytes, "sony": c.sony, "uuid": c.uuid]
+        return (try? JSONSerialization.data(withJSONObject: o)).flatMap { String(data: $0, encoding: .utf8) } ?? "null"
     }
 
     // MARK: Page → native
@@ -83,19 +92,69 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         guard let body = message.body as? [String: Any], let op = body["op"] as? String else { return (nil, "bad message") }
         switch op {
         case "ready":
+            if let gaps = body["missing"] as? [String], !gaps.isEmpty {
+                // A design sync removed or renamed something the plumbing needs.
+                onEvent?("plumbing contract broken: \(gaps.joined(separator: ", "))")
+                NSLog("Lumina plumbing contract broken: %@", gaps.joined(separator: ", "))
+                return (false, nil)
+            }
             ready = true
-            webView?.evaluateJavaScript("window.__lumina && __lumina.card(\(cards.current != nil))", completionHandler: nil)
+            webView?.evaluateJavaScript("window.__lumina && __lumina.card(\(cards.current != nil), \(cards.current.map(cardJSON) ?? "null"))", completionHandler: nil)
             onEvent?("ready")
             return (true, nil)
         case "cullCard":
             guard let card = cards.current, let dcim = card.folders.first?.deletingLastPathComponent() else { return (false, nil) }
             open(dcim)
             return (true, nil)
+        case "shootOpened":
+            // The page finished reading a folder: remember it and hand back its saved session.
+            guard let url = lastOpened ?? roots[body["name"] as? String ?? ""] else { return (nil, nil) }
+            let id = SetsShootStore.id(for: url)
+            let shoot = SetsShootStore.Shoot(id: id, title: url.lastPathComponent == "DCIM" ? (cards.current?.name ?? "Card") : url.lastPathComponent,
+                                             path: url.path, volumeUUID: SetsFileOps.volumeID(url), photos: body["n"] as? Int ?? 0,
+                                             firstCapture: body["date"] as? String ?? "", opened: Date(),
+                                             bookmark: try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil))
+            try? shoots.upsert(shoot)
+            onEvent?("shoot \(id) \(url.path)")
+            let session = shoots.session(id).flatMap { String(data: $0, encoding: .utf8) }
+            return (["id": id, "session": session ?? NSNull()] as [String: Any], nil)
+        case "saveSession":
+            guard let id = body["id"] as? String, let json = body["json"] as? String else { return (false, nil) }
+            do { try shoots.saveSession(id, Data(json.utf8)); return (true, nil) } catch { return (false, "\(error)") }
+        case "recents":
+            return (shoots.index().map { recent($0) }, nil)
+        case "reopen":
+            guard let id = body["id"] as? String, let shoot = shoots.index().first(where: { $0.id == id }) else { return (false, nil) }
+            var stale = false
+            let url = shoot.bookmark.flatMap { try? URL(resolvingBookmarkData: $0, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) }
+                ?? URL(fileURLWithPath: shoot.path)
+            guard FileManager.default.fileExists(atPath: url.path) else { return (false, nil) }      // card out / folder gone
+            _ = url.startAccessingSecurityScopedResource()
+            open(url)
+            return (true, nil)
+        case "workingFiles":
+            guard let id = body["id"] as? String else { return (0, nil) }
+            return (shoots.bytes(id), nil)
+        case "removeShoot":
+            guard let id = body["id"] as? String else { return (false, nil) }
+            try? shoots.remove(id)
+            return (true, nil)
         case "writeInto":
             return (await writeInto(label: body["label"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? []), nil)
         default:
             return (nil, "unknown op \(op)")
         }
+    }
+
+    /// A recent shoot in the page's own SHOOTS shape: t, d, cam, n, src, where, seed (+ id).
+    private func recent(_ s: SetsShootStore.Shoot) -> [String: Any] {
+        var d = ""
+        let parts = s.firstCapture.split(separator: " ").first?.split(separator: ":").compactMap { Int($0) } ?? []
+        if parts.count == 3, let date = Calendar(identifier: .gregorian).date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2])) {
+            let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "MMM d, yyyy"; d = f.string(from: date)
+        }
+        let onCard = s.path.hasPrefix("/Volumes/") && s.path.contains("/DCIM")
+        return ["id": s.id, "t": s.title, "d": d, "cam": "", "n": s.photos, "src": onCard ? "Card" : "Folder", "where": s.path, "seed": 0]
     }
 
     private func writeInto(label: String, files: [[String: Any]]) async -> [String: Any] {
@@ -141,7 +200,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
 @MainActor
 enum SetsWebView {
     static func make(pageRoot: URL, vendorRoot: URL, plumbing: String, bridge: SetsBridge?, standInPhotos: Bool,
-                     extraScripts: [String] = [], frame: CGRect = .zero) async throws -> (WKWebView, SetsSchemeHandler) {
+                     config: [String: Any] = [:], extraScripts: [String] = [], frame: CGRect = .zero) async throws -> (WKWebView, SetsSchemeHandler) {
         let conf = WKWebViewConfiguration()
         conf.websiteDataStore = .nonPersistent()
         let scheme = SetsSchemeHandler(pageRoot: pageRoot, vendorRoot: vendorRoot, standInPhotos: standInPhotos)
@@ -150,6 +209,8 @@ enum SetsWebView {
         let res = String(data: try JSONSerialization.data(withJSONObject: SetsSchemeHandler.resources), encoding: .utf8)!
         ucc.addUserScript(WKUserScript(source: "window.__resources=Object.assign(window.__resources||{},\(res));", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         for s in extraScripts { ucc.addUserScript(WKUserScript(source: s, injectionTime: .atDocumentStart, forMainFrameOnly: true)) }
+        let cfg = String(data: try JSONSerialization.data(withJSONObject: config), encoding: .utf8)!
+        ucc.addUserScript(WKUserScript(source: "window.__luminaConfig=\(cfg);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         if bridge != nil { ucc.addUserScript(WKUserScript(source: plumbing, injectionTime: .atDocumentStart, forMainFrameOnly: true)) }
         bridge?.install(in: conf)
         let rules = #"[{"trigger":{"url-filter":"^https?://"},"action":{"type":"block"}}]"#

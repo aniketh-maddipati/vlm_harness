@@ -22,7 +22,7 @@
 
   // Errors and console. Anything at error level fails the run.
   const fmt = a => a.map(x => {
-    if (x instanceof Error) return (x.stack || x.message);
+    if (x instanceof Error) return x.name + ': ' + x.message + (x.stack ? '\n' + x.stack : '');
     if (typeof x === 'object') { try { return JSON.stringify(x); } catch (_) { return String(x); } }
     return String(x);
   }).join(' ');
@@ -53,7 +53,7 @@
       return null;
     },
     logic() { const h = P.host(); return h && h.logic; },
-    ready() { const l = P.logic(); return !!(l && l.data && document.querySelector('[data-screen-label]')); },
+    ready() { const l = P.logic(); return !!(l && l.data && document.querySelector('[data-screen-label]') && (!window.__lumina || (window.__lumina.ready && window.__lumina.ready()))); },
     // JSON-safe copy of the page state: functions, DOM nodes and refs dropped.
     state() {
       const h = P.host(); if (!h) return null;

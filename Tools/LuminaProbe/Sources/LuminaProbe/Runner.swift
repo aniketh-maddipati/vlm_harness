@@ -61,8 +61,8 @@ final class Runner {
                                             pageRoot: path("pageRoot", default: app ? "Lumina/Sets/Web" : "design/handoff/lumina-cull"),
                                             vendorRoot: path("vendorRoot", default: app ? "Lumina/Sets/Web" : "design/handoff/vendor"),
                                             plumbing: app ? path("plumbing", default: "Lumina/Sets/Web/plumbing.js") : nil,
-                                            supportDir: outDir.appendingPathComponent("support", isDirectory: true),
-                                            outDir: outDir, config: config)
+                                            supportDir: path("supportDir", default: outDir.appendingPathComponent("support", isDirectory: true).path),
+                                            outDir: outDir, config: config, appConfig: spec["app"] as? [String: Any] ?? [:])
             host.echo = echo
             sampler.start(interval: ((spec["sampleMs"] as? Double) ?? 250) / 1000) { [host] in
                 [(getpid(), "probe"), (host!.webProcessID, "web")]
@@ -193,6 +193,20 @@ final class Runner {
                               timeout: (s["timeoutMs"] as? Double ?? 900_000) / 1000, what: "folder loaded")
             let info = try await host.js("return JSON.stringify(__probe.logic().state.realInfo)")
             return info.map { "\($0)" }
+        case "nativeOpen":
+            // The app's own path: bridge.open(url) (menu ⌘O, recents, "Cull this card").
+            guard let bridge = host.bridge else { throw ProbeError("nativeOpen needs app mode") }
+            bridge.open(URL(fileURLWithPath: try str(s, "path")))
+            try await waitFor("const l=__probe.logic(); return !!(l.real && !l.state.realLoad)", timeout: (s["timeoutMs"] as? Double ?? 60000) / 1000, what: "folder loaded via bridge.open")
+        case "menuOpen":
+            // File ▸ Open: the menu calls __lumina.openFolder() through evaluateJavaScript.
+            host.pendingOpenPanel = [URL(fileURLWithPath: try str(s, "path"))]
+            host.webView.evaluateJavaScript("window.__lumina && __lumina.openFolder()", completionHandler: nil)
+            try await waitFor("const l=__probe.logic(); return !!(l.real && !l.state.realLoad)", timeout: (s["timeoutMs"] as? Double ?? 60000) / 1000, what: "folder loaded via menu")
+        case "reload":
+            try await host.load((spec["page"] as? String) ?? "Lumina Sets v3.dc.html")
+            try await waitFor("return window.__probe && __probe.ready()", timeout: 30, what: "page ready after reload")
+            try await settle(s["settleMs"] as? Double ?? 600)
         case "destinations":
             host.chooser.destinations = try strs(s, "paths").map { URL(fileURLWithPath: $0) }
         case "copyTree":
@@ -394,6 +408,13 @@ final class Runner {
     }
 
     private func point(_ s: [String: Any]) async throws -> CGPoint {
+        if let text = s["text"] as? String {
+            // The innermost visible element whose own text is exactly `text`.
+            let t = text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
+            let js = "const want='\(t)'; let best=null; for (const el of document.querySelectorAll('body *')) { if ((el.textContent||'').trim()!==want) continue; const r=el.getBoundingClientRect(); if (r.width<1||r.height<1) continue; if (!best||r.width*r.height<best.w*best.h) best={x:r.left,y:r.top,w:r.width,h:r.height}; } return best;"
+            guard let r = try await host.js(js) as? [String: Double] else { throw ProbeError("no visible element with text '\(text)'") }
+            return CGPoint(x: r["x"]! + r["w"]! / 2, y: r["y"]! + r["h"]! / 2)
+        }
         if let sel = s["sel"] as? String {
             let escaped = sel.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
             guard let r = try await host.js("return __probe.rect('\(escaped)')") as? [String: Double] else { throw ProbeError("no element \(sel)") }

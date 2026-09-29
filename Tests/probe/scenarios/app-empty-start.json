@@ -1,0 +1,137 @@
+{
+ "mode": "app",
+ "app": {
+  "sample": false
+ },
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "steps": [
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "expect",
+   "js": "return window.__lumina.missing()",
+   "equals": []
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().data.order.length",
+   "equals": 0
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().constructor.SHOOTS.length",
+   "equals": 0
+  },
+  {
+   "do": "snap",
+   "name": "open-empty"
+  },
+  {
+   "do": "key",
+   "k": "c",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "1",
+   "settleMs": 500
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "cull"
+  },
+  {
+   "do": "snap",
+   "name": "cull-empty"
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "x",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": " ",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "2",
+   "settleMs": 500
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "edit"
+  },
+  {
+   "do": "snap",
+   "name": "edit-empty"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "]",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 500
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "export"
+  },
+  {
+   "do": "snap",
+   "name": "export-empty"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 600
+  },
+  {
+   "do": "key",
+   "k": "0",
+   "settleMs": 300
+  },
+  {
+   "do": "fuzz",
+   "seed": 21,
+   "count": 800,
+   "gapMs": [
+    0,
+    20
+   ],
+   "checkEvery": 20,
+   "mouseRate": 0.06
+  }
+ ],
+ "checklist": "Acceptance test for the design's empty states (DESIGN-ASKS #1). Expected to FAIL until the page renders 0 photos."
+}

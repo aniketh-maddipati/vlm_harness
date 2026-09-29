@@ -6,7 +6,8 @@
 #   bash Scripts/probe.sh fuzz                   seeded key/mouse storms on the sample shoot
 #   bash Scripts/probe.sh edge                   camera-data edge cases   (needs LUMINA_FIXTURE_ROOT)
 #   bash Scripts/probe.sh card                   721-photo stress + scroll pacing (needs LUMINA_CARD_DIR)
-#   bash Scripts/probe.sh app                    the app's own bridge: exports, refusals, .lumina-bak, ΔE look parity
+#   bash Scripts/probe.sh contract               plumbing.js still fits the page (run by sets_sync_design.sh)
+#   bash Scripts/probe.sh app                    the app's own bridge: exports, refusals, .lumina-bak, sessions, ΔE
 #                                                (needs LUMINA_FIXTURE_ROOT)
 #   bash Scripts/probe.sh all [--require-all]    everything; --require-all turns a SKIP into a failure
 #
@@ -67,11 +68,14 @@ EOF
 
 case "$suite" in
   reference) reference ;;
+  sync)      echo "use: bash Scripts/sets_sync_design.sh <handoff.zip>"; exit 2 ;;
   fuzz)      run "$S"/fuzz-sample-*.json ;;
   edge)      run "$S"/edge-*.json ;;
   card)      run "$S/card-stress.json" "$S/golden-card.json" ;;
-  app)       run "$S/app-export.json" "$S/look-parity.json" ;;
-  all)       reference; run "$S"/fuzz-sample-*.json "$S"/edge-*.json "$S/app-export.json" "$S/look-parity.json" "$S/card-stress.json" ;;
+  app)       run "$S/app-plumbing-contract.json" "$S/app-export.json" "$S/app-session.json" "$S/look-parity.json" ;;
+  contract)  run "$S/app-plumbing-contract.json" ;;
+  empty)     run "$S/app-empty-start.json" ;;     # acceptance test for DESIGN-ASKS #2; fails until v7
+  all)       reference; run "$S"/fuzz-sample-*.json "$S"/edge-*.json "$S/app-plumbing-contract.json" "$S/app-export.json" "$S/app-session.json" "$S/look-parity.json" "$S/card-stress.json" ;;
   *)         sed -n '2,13p' "$0"; exit 2 ;;
 esac
 echo "evidence: $OUT"
