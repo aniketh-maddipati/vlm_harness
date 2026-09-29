@@ -1,5 +1,8 @@
 # Design asks for the next handoff (v7)
 
+Status: open. Paste the prompt below into Claude Design, download the new handoff zip, then run
+`bash Scripts/sets_sync_design.sh "<zip>"` (add `--record` once you've approved the new look).
+
 The Mac app ships `Lumina Sets v3.dc.html` byte for byte. Anything visible has to change in the
 design, then sync here with `bash Scripts/sets_sync_design.sh <zip>`. The prompt below can be pasted
 into Claude Design as it is. Every item was found by the probe harness against v6 (2026-09-28).
@@ -50,12 +53,19 @@ into Claude Design as it is. Every item was found by the probe harness against v
 > - **Two bodies in one folder:** the checklist says sort by body serial, then time, then file number. `parseHead` doesn't read the serial (EXIF 0xA431).
 > - **Wrong clock / time zone:** add "shift shoot time", with UI and keys.
 >
-> **8. Window chrome.** The Mac window has a standard title bar, so the page area is 1440×856 in a 1440×900 window. Tell us whether you want a full-bleed page. If so, the top bar needs about 80 px clear on the left for the red, yellow and green window buttons.
+> **8. Scrolling speed in Cull (60 fps at 721+ photos).** Measured in the app on a real 721-ARW card: Cull scrolls at p95 26–28 ms per frame (about 30 fps; the target is 16.7 ms), and the page holds about 0.9–1.1 GB. The cause is in the page: while you scroll, `cullScrolled` runs a scroll-follow computation every animation frame, and its `setState` re-renders every row and tile. Please:
+> - render only the rows near the viewport (keep rows above and below as fixed-height spacers, so the scrollbar and positions don't jump);
+> - skip the scroll-follow `setState` when the focused row hasn't changed.
+>
+> The look must stay the same: the app checks every screen pixel for pixel. (CSS `content-visibility` was tried from the app side. It cut memory about 15%, but it changed text anti-aliasing on the badges, so it's out.)
+>
+> **9. Window chrome.** The Mac window has a standard title bar, so the page area is 1440×856 in a 1440×900 window. Tell us whether you want a full-bleed page. If so, the top bar needs about 80 px clear on the left for the red, yellow and green window buttons.
 
 ---
 
 ## How each ask is checked once the new handoff lands
 - **1, 3, 6:** probe `app-*` scenarios read `window.lumina`, and `plumbing.js` stops patching `SHOOTS` once the page reads the contract.
+- **8:** `LUMINA_CARD_DIR=… bash Scripts/probe.sh card` paces Cull and Edit scrolling on a real card, failing above p95 17.5 ms.
 - **2:** `Tests/probe/scenarios/app-empty-start.json` (fails today, is expected to pass on v7). The app then switches its sample default off (`SetsRootView.showsSample`).
 - **4, 5:** the sync script's wording and demo-layer audit.
 - **7:** `node lumina-core.test.mjs` plus `Tests/probe/scenarios/edge-*.json`.

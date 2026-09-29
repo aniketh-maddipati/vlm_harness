@@ -1,128 +1,79 @@
 # AGENTS.md
 
-Guidance for AI agents and cloud developers working on **Lumina**, a native macOS photo culling app (Swift / SwiftUI / Xcode).
+Guidance for AI agents and developers working on **Lumina**, a native macOS photo culling app for
+Sony ARW shooters.
 
-## Platform constraint (critical)
+## The rule
 
-Lumina **cannot be built or run on Linux**. Cloud Agent VMs are Ubuntu-based and do not provide Xcode, the macOS SDK, or Apple frameworks (AppKit, SwiftUI, Vision, Metal, Core Image).
+**The design is the product.** Lumina's UI is the Claude Design page in `design/handoff/lumina-cull/`
+(`Lumina Sets v3.dc.html` + `support.js` + `lumina-core.js`). The app ships those files
+**byte for byte** inside a native window. Nobody edits the UI in this repo.
 
-| Capability | Linux cloud agent | macOS dev machine |
-|---|---|---|
-| `xcodebuild` / run `Lumina.app` | No | Yes |
-| `Scripts/regression.sh` (full) | No (needs xcodebuild + Swift ImageIO) | Yes |
-| Static lint (`Scripts/harness/lint/*.sh`) | Yes | Yes |
-| `exiftool` CLI (metadata) | Yes (`/usr/bin/exiftool` via apt) | Yes (`brew install exiftool`) |
+- Something visible is wrong or missing (layout, copy, keys, empty states)? It goes into
+  `design/handoff/DESIGN-ASKS.md` as a ready-to-paste Claude Design prompt. It never gets patched here.
+- A new handoff arrives as a zip. Sync it with `bash Scripts/sets_sync_design.sh "<zip>"`. That runs the
+  fixtures, audits the wording and demo layer, installs the files, checks the plumbing contract,
+  compares every screen pixel for pixel, and runs the robustness suites. It never commits. Add
+  `--record` once the new look is approved.
+- Authority order: `design/handoff/lumina-cull` (the prototype wins; `ADDENDUM-remove.md` and
+  `ANSWERS-*.md` refine it) → `Lumina/Sets` (plumbing) → tests.
 
-For end-to-end verification (build, headless audit, GUI), use a **local Apple Silicon Mac** with macOS 14+ and Xcode 16.4+.
+## What the app is
 
-## Cursor Cloud specific instructions
+| Path | What it does |
+|---|---|
+| `Lumina/LuminaApp.swift` | One window, File ▸ Open (⌘O), Edit ▸ Undo (⌘Z) |
+| `Lumina/Sets/SetsRootView.swift` | The WKWebView, the native folder pickers, downloads |
+| `Lumina/Sets/Web/` | The design's files, copied unchanged by `Scripts/sets_sync_ui.sh`, plus `plumbing.js` |
+| `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder`, `writeInto`, `renderJpg`, `impStart`, …) for native calls and provides `window.lumina` (the data contract) |
+| `Lumina/Sets/Core/` | The native bridge: `SetsFileOps` (`.lumina-bak`, atomic writes, SHA-256 copies, destination refusal), `SetsExport` (+ crash journal), `SetsEditLook` (the Edit look's CSS matrices in Core Image, RAW → JPEG), `SetsCardWatcher`, `SetsShootStore` (per-shoot sessions), `SetsSchemeHandler` (`lumina://`, no network) |
+| `design/handoff/vendor/` | React / Babel pinned to the SRI hashes in `support.js` (see `VENDOR.md`) |
 
-### What the Linux install script provides
+Trust rules, from the ROADMAP; the tests enforce them:
+- never write to the card or change originals;
+- copy, never move, and verify every copy;
+- keep a `.lumina-bak` before replacing any file;
+- nothing leaves the Mac, and the page has no network access.
 
-The `.cursor/environment.json` `install` script installs **`libimage-exiftool-perl`** only. There are no npm, pip, Cargo, or SPM dependencies in this repo.
-
-### Lint / test / build (macOS required for logic tests)
-
-On a Mac with Xcode 16.4+ and exiftool:
-
-```bash
-# Static contract lint (runs on Linux too)
-bash Scripts/harness/lint/banned_words.sh
-bash Scripts/harness/lint/copy_contract_diff.sh
-bash Scripts/harness/lint/contract_structure.sh
-
-# Build
-xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug build
-
-# Logic tests (real types via @testable import Lumina)
-xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
-  -destination 'platform=macOS' -only-testing:LuminaLogicTests test
-
-# Full regression (lint + build + logic tests + headless E2E + SLA check)
-bash Scripts/regression.sh [RAW_FOLDER] [JPG_FOLDER]
-
-# Required cache-free checkpoint before PR/merge (runs twice)
-bash Scripts/build_stability.sh
-```
-
-Pass your own shoot folders: `bash Scripts/regression.sh pre-commit /path/to/raws /path/to/jpgs`. Or set `LUMINA_RAW_DIR` / `LUMINA_JPG_DIR`. If those are unset, the media audit is skipped.
-
-### Headless E2E audit
-
-`Scripts/e2e_audit.swift` runs outside the GUI and checks extract/taste/timing signals. It requires **macOS Swift** (Foundation, ImageIO, CoreGraphics) and probes the same exiftool paths as the app (`/opt/homebrew/bin/exiftool`, `/usr/local/bin/exiftool`, `/usr/bin/exiftool`). Install with:
+## Checks
 
 ```bash
-brew install exiftool
+# Design logic fixtures
+(cd design/handoff/lumina-cull && node lumina-core.test.mjs)
+
+# Build + logic tests (SetsFileOpsTests, SetsPageBytesTests)
+xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug -derivedDataPath DD \
+  -destination 'platform=macOS,arch=arm64' -only-testing:LuminaLogicTests test
+
+# Probe: drives the real page + bridge in WKWebView (Tools/LuminaProbe). Evidence → ~/LuminaEvidence/probe
+bash Scripts/probe.sh reference     # every screen, prototype and app, byte-compared to Tests/probe/reference/manifest.json
+bash Scripts/probe.sh contract      # plumbing.js still fits the page
+bash Scripts/probe.sh fuzz          # seeded key + mouse storms
+LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # export, sessions, ΔE look parity
+LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh fault   # disk images: card pulled, disk full, locked
+LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh edge    # camera-data cases (design gaps show as FAIL)
+LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh card         # 721-photo stress + scroll pacing
 ```
 
-### Cloud agents (Linux)
+Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh`. It only reads the card.
+`Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 
-Cloud agents run `python3 Scripts/harness/run.py fast` (or `bash Scripts/regression.sh pre-commit`) for static contract checks. All logic tests require macOS + Xcode (`xcodebuild test -only-testing:LuminaLogicTests`).
+CI (`.github/workflows/lumina.yml`) runs the fixtures, the byte-for-byte page check, the wording
+audit, the build + logic tests, and a probe build.
 
-Do **not** expect `xcodebuild` or `swift Scripts/e2e_audit.swift` to succeed on Linux.
+## Rules that bite
 
-### MainActor default isolation (render data plane)
+- **Don't edit `Lumina/Sets/Web/*.html|support.js|lumina-core.js|vendor`.** Change the design, then sync. `SetsPageBytesTests` and CI fail on drift.
+- **`plumbing.js` supplies behaviour and data, never UI.** If the page can't show something, that's a design ask.
+- **Pixel parity is 0 px.** App-mode screens (`screens-*-app`) must match the prototype reference byte for byte. CSS tricks that change anti-aliasing are out; content-visibility was tried and rejected.
+- **The probe never touches a real card.** Fault tests use disk images, and the probe's card watcher only accepts its own images.
+- **ExFAT volume labels are at most 11 characters.** `hdiutil` reports a longer one as "Operation not permitted".
+- **Probe runs need an awake display.** The probe holds the display awake itself. If runs stall for minutes, macOS is throttling the page process.
+- **Personal data stays out of the repo:** golden data, fixtures and evidence live in `~/LuminaEvidence`.
+- **macOS only** (Xcode 16.4+, Apple silicon, macOS 14+). Linux agents can run the node fixtures and `design_audit.py`, nothing else.
 
-The Xcode project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` with `SWIFT_VERSION = 5.0`. In practice, unmarked helpers are still treated as **nonisolated** when they touch explicitly `@MainActor` types — mark UI/session helpers **`@MainActor`** explicitly (`P0EscLadder`, `CopyContractBuilder`, `TableLayout`, `ProbeV2Launch`, `PropagationState` model-touching extension, etc.).
+## History
 
-Types touched from the render/export path (`DevelopRenderGraph`, `RawRenderRequest`, `P0AuthoritativeExportService`, detached decode in `PhotoImageCache` / `BrowsePixelService`) must be explicitly **`nonisolated`** — including **`nonisolated extension EditRecipe`** for intent slices. Actor nested types (`PreparedRawSession.Tier`) and actor statics must not be read synchronously from that plane; hoist constants to `RawDecodeBackendRegistry` instead. `CIContext.startTask(toRender:from:to:at:)` requires the `at:` argument.
-
-**Before pushing render/develop changes:**
-
-```bash
-# Linux + Mac — static gate (includes render_data_plane_isolation)
-python3 Scripts/harness/run.py fast
-
-# Mac only — required proof (also runs on CI push/PR via rendering.yml compile-logic)
-python3 Scripts/harness/lint/xcode_compile.py --project-root . --derived-data DD
-xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
-  -derivedDataPath DD -destination 'platform=macOS,arch=arm64' \
-  -only-testing:LuminaLogicTests test-without-building
-```
-
-Hosted CI: `.github/workflows/rendering.yml` runs `fast` + `compile-logic` on every matching **push** / **pull_request** (PR merge gate). `build-stability` and `render-live` run on **main** / schedule / dispatch only — not on every PR. A green `fast` lane alone is not sufficient when Swift types change.
-
-### Footprint / lightweight Release
-
-- Release builds define `LUMINA_SHIPPING_APP`, excluding headless harness runners from the shipping binary.
-- macOS footprint baseline: `bash Scripts/harness/release/footprint_baseline.sh`
-- Register: `design/strategy/footprint-register.md`
-
-### Rules that bite
-
-These are enforced by lints in `Scripts/harness/lint/`, not by review. They have each cost
-someone a rebuild.
-
-- **Authority order:** `contract-v6` → `tokens.yaml` → `copy-contract` → code → tests. When code and
-  contract disagree, the code is what changes.
-- **Magic numbers** (`magic_numbers.py`): scans Views, Design and Shell. It skips any line mentioning
-  `HiFiTokens` or `LuminaTokens` — do not exploit that to smuggle a literal past it. Route numbers
-  through a layout type. Only add a yaml token for a value that is already forbidden, and never grow
-  the allowlist.
-- **Costumes** (`costume_lint.py`): every `Button` needs a `Lumina*Style`; no bare `Text` or `Image`
-  gets an `.onTapGesture`.
-- **Banned outright:** `onHover`, `ProgressView`, `.alert`, anything network, and the word "sync" in
-  user-facing copy.
-- **Probe fields are a five-site mirror** (`probe_mirror.py`, `probe_contract.py`): adding one field
-  means touching five files, and the lints reveal them two at a time.
-- **Artifacts** (`repo_artifact_bloat.py`): a new `artifacts/` directory is untracked run evidence
-  until declared. `artifacts/p0-edit/` is 107MB of history for files nothing reads.
-- **Never `pkill -x Lumina`.** Project files use synchronized folders, so new files are picked up
-  without touching the pbxproj.
-
-### Key directories
-
-- `Lumina/` — SwiftUI app (Views, ViewModels, Services, Models)
-- `LuminaLogicTests/` — XCTest logic contracts (`@testable import Lumina`)
-- `Lumina.xcodeproj/` — Xcode project (single target `Lumina`)
-- `Scripts/regression.sh` — lint + build + logic tests + E2E runner
-- `Scripts/harness/lint/` — banned-word, copy-contract, and structure checks (FAST lane manifest ids)
-- `Scripts/e2e_audit.swift` — headless macOS audit script
-- `README.md` — collaborator setup (clone, exiftool, `open Lumina.xcodeproj`)
-- `design/hifi-v5.html` — standalone hi-fi stills (visual chrome reference; `file://` works)
-- `design/play.html` — standalone browser mock of open / table / edit / crop / export / failure flows
-- `BUILD_LOG.md` — build history and verification notes
-
-### External dependency
-
-- **[exiftool](https://exiftool.org)** — RAW preview extraction, EXIF dates, Lightroom XMP parsing (required on macOS for full app behavior)
+Everything before the Sets rebuild (the P0/Elastic SwiftUI UI, its harness and lints, the Swift
+`CullCore` port, AutoDevelop) was removed in the Phase 6 cleanup and lives in git history before it.
+Auto for the beta is `lumina-core`'s own; the Swift AutoDevelop is parked, to be revisited after beta.

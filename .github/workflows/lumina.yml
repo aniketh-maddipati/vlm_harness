@@ -1,0 +1,42 @@
+name: Lumina
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  design:
+    name: design handoff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: lumina-core fixtures
+        working-directory: design/handoff/lumina-cull
+        run: node lumina-core.test.mjs
+      - name: app ships the design byte for byte
+        run: |
+          set -e
+          for f in "Lumina Sets v3.dc.html" support.js lumina-core.js; do
+            cmp "design/handoff/lumina-cull/$f" "Lumina/Sets/Web/$f"
+          done
+          for f in design/handoff/vendor/*.js; do cmp "$f" "Lumina/Sets/Web/$(basename "$f")"; done
+      - name: wording + demo-layer audit (report only)
+        run: python3 Tests/probe/design_audit.py "design/handoff/lumina-cull/Lumina Sets v3.dc.html"
+
+  app:
+    name: build + tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: build and test
+        run: |
+          xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
+            -derivedDataPath DD -destination 'platform=macOS,arch=arm64' \
+            -only-testing:LuminaLogicTests test
+      - name: probe builds
+        run: swift build --package-path Tools/LuminaProbe
