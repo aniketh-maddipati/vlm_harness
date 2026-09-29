@@ -46,7 +46,7 @@ xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug -derive
   -destination 'platform=macOS,arch=arm64' -only-testing:LuminaLogicTests test
 
 # Probe: drives the real page + bridge in WKWebView (Tools/LuminaProbe). Evidence → ~/LuminaEvidence/probe
-bash Scripts/probe.sh reference     # every screen, byte-compared to Tests/probe/reference/manifest.json
+bash Scripts/probe.sh reference     # every screen, prototype and app, byte-compared to Tests/probe/reference/manifest.json
 bash Scripts/probe.sh contract      # plumbing.js still fits the page
 bash Scripts/probe.sh fuzz          # seeded key + mouse storms
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # export, sessions, ΔE look parity

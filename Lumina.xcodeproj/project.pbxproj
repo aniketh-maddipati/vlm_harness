@@ -50,11 +50,6 @@
 			path = LuminaLogicTests;
 			sourceTree = "<group>";
 		};
-		A40000010000000000000002 /* DesignTokens */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = DesignTokens;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,7 +89,6 @@
 			isa = PBXGroup;
 			children = (
 				A10000010000000000000002 /* Lumina */,
-				A40000010000000000000002 /* DesignTokens */,
 				A20000010000000000000002 /* LuminaUITests */,
 				A30000010000000000000002 /* LuminaLogicTests */,
 				A10000010000000000000005 /* Products */,
@@ -130,7 +124,6 @@
 			);
 			fileSystemSynchronizedGroups = (
 				A10000010000000000000002 /* Lumina */,
-				A40000010000000000000002 /* DesignTokens */,
 			);
 			name = Lumina;
 			packageProductDependencies = (
@@ -200,7 +193,6 @@
 			);
 			fileSystemSynchronizedGroups = (
 				A10000010000000000000002 /* Lumina */,
-				A40000010000000000000002 /* DesignTokens */,
 			);
 			name = LuminaPlayground;
 			packageProductDependencies = (
@@ -303,11 +295,10 @@
 			);
 			name = "Embed Build Manifest";
 			outputPaths = (
-				"$(SRCROOT)/Lumina/Resources/LuminaBuildManifest.json",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export MARKETING_VERSION=\"${MARKETING_VERSION}\"\nexport CURRENT_PROJECT_VERSION=\"${CURRENT_PROJECT_VERSION}\"\nexport CONFIGURATION=\"${CONFIGURATION}\"\npython3 \"${SRCROOT}/Scripts/harness/release/write_build_manifest.py\"\nDEST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"${DEST}\"\ncp \"${SRCROOT}/Lumina/Resources/LuminaBuildManifest.json\" \"${DEST}/\"\n";
+			shellScript = "\"${SRCROOT}/Scripts/write_build_manifest.sh\"\n";
 		};
 		A60000010000000000000010 /* Copy Injection Bundle */ = {
 			isa = PBXShellScriptBuildPhase;

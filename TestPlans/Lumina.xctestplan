@@ -1,0 +1,37 @@
+{
+  "configurations" : [
+    {
+      "id" : "5E75A1C0-0000-4000-8000-000000000001",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Lumina.xcodeproj",
+      "identifier" : "A10000010000000000000006",
+      "name" : "Lumina"
+    },
+    "testTimeoutsEnabled" : true,
+    "maximumTestExecutionTimeAllowance" : 300
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Lumina.xcodeproj",
+        "identifier" : "A30000010000000000000006",
+        "name" : "LuminaLogicTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Lumina.xcodeproj",
+        "identifier" : "A20000010000000000000006",
+        "name" : "LuminaUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

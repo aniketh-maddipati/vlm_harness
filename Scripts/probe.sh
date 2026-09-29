@@ -33,7 +33,8 @@ status=0
 run() { "$PROBE" run "$@" --out "$OUT" ${extra[@]+"${extra[@]}"} || status=1; }
 
 reference() {
-  run "$S/screens-1920.json" "$S/screens-1440.json" "$S/smoke.json" "$S/keys-open-return.json"
+  run "$S/screens-1920.json" "$S/screens-1440.json" "$S/smoke.json" "$S/keys-open-return.json" \
+      "$S/screens-1920-app.json" "$S/screens-1440-app.json"
   local manifest=Tests/probe/reference/manifest.json now="$OUT/manifest.json"
   python3 - "$OUT" "$now" <<'EOF'
 import hashlib, json, os, platform, subprocess, sys
@@ -60,7 +61,19 @@ bad = [k for k in ref["files"] if ref["files"][k] != now["files"].get(k)]
 missing = [k for k in ref["files"] if k not in now["files"]]
 for k in bad: print(f"DIFF  {k}")
 print(f"reference: {len(ref['files']) - len(bad)} / {len(ref['files'])} identical" + (f", {len(missing)} missing" if missing else ""))
-sys.exit(1 if bad else 0)
+# The shipped app (page + plumbing.js) must render exactly what the design renders.
+import hashlib, os
+app_bad, app_n = [], 0
+for size in ("1440", "1920"):
+    d = os.path.join(out, f"screens-{size}-app")
+    for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+        if f.endswith(".png") or f.endswith(".state.json"):
+            app_n += 1
+            if ref["files"].get(f"screens-{size}/{f}") != hashlib.sha256(open(os.path.join(d, f), "rb").read()).hexdigest():
+                app_bad.append(f"screens-{size}-app/{f}")
+for k in app_bad: print(f"APP≠DESIGN  {k}")
+print(f"app vs design: {app_n - len(app_bad)} / {app_n} identical")
+sys.exit(1 if bad or app_bad else 0)
 EOF
   else
     echo "no reference manifest yet — run with --record"
