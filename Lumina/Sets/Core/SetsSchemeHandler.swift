@@ -6,6 +6,9 @@ import WebKit
 ///
 /// - `lumina://app/<file>`     the design's page files, byte-identical
 /// - `lumina://vendor/<file>`  React / Babel (support.js asks for them via `window.__resources`)
+/// - `lumina://app/media/{head,preview}?p=<folder/file>&o=&l=&ori=`  the opened folder's
+///   photos, read natively by byte range (SetsIngest). Same origin as the page, so it can measure
+///   them on a canvas. Never a whole RAW, never the network.
 /// - `lumina://photo/seed/<seed>/<w>/<h>`  stand-in photos for the design's sample shoot (the
 ///   page's picsum URLs are pointed here). Debug fixture data only; off once the sample goes.
 nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
@@ -24,14 +27,18 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     let pageRoot: URL
     let vendorRoot: URL
     let standInPhotos: Bool
+    /// The opened folders' reader. Nil in the prototype (the page reads its own files there).
+    let ingest: SetsIngest?
     private let lock = NSLock()
     private var _served: [String] = []
+    private var stopped: Set<ObjectIdentifier> = []
     var served: [String] { lock.withLock { _served } }
 
-    init(pageRoot: URL, vendorRoot: URL, standInPhotos: Bool) {
+    init(pageRoot: URL, vendorRoot: URL, standInPhotos: Bool, ingest: SetsIngest? = nil) {
         self.pageRoot = pageRoot
         self.vendorRoot = vendorRoot
         self.standInPhotos = standInPhotos
+        self.ingest = ingest
     }
 
     static var pageURL: URL {
@@ -41,8 +48,11 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
         guard let url = task.request.url, let host = url.host else { return fail(task) }
         let path = String((url.path.removingPercentEncoding ?? url.path).dropFirst())
-        lock.withLock { _served.append(url.absoluteString) }
+        let isMedia = host == "app" && path.hasPrefix("media/")
+        if !isMedia { lock.withLock { _served.append(url.absoluteString) } }
         switch host {
+        case "app" where isMedia:
+            media(task, url, String(path.dropFirst("media/".count)))
         case "app":
             guard Self.pageFiles.contains(path), var data = try? Data(contentsOf: pageRoot.appendingPathComponent(path)) else { return fail(task) }
             if standInPhotos, path == Self.pageFile, let text = String(data: data, encoding: .utf8) {
@@ -62,7 +72,46 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
         }
     }
 
-    func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
+    func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {
+        lock.withLock { _ = stopped.insert(ObjectIdentifier(task)) }
+    }
+
+    /// Photo bytes, read off the main thread on the ingest's bounded queue. Errors carry a status
+    /// the page can tell apart: 404 not in an opened folder, 410 the card went away, 422 unreadable.
+    private func media(_ task: WKURLSchemeTask, _ url: URL, _ kind: String) {
+        guard let ingest else { return fail(task) }
+        let q = Dictionary(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.compactMap { i in i.value.map { (i.name, $0) } } ?? [],
+                           uniquingKeysWith: { a, _ in a })
+        guard let rel = q["p"] else { return status(task, url, 404, "no file") }
+        let preview = SetsIngest.Preview(rel: rel, offset: Int(q["o"] ?? "") ?? 0, length: Int(q["l"] ?? "") ?? 0, orientation: Int(q["ori"] ?? "") ?? 1)
+        let work: () throws -> Data
+        switch kind {
+        case "head": work = { try ingest.head(rel) }
+        case "preview": work = { try ingest.preview(preview) }
+        default: return status(task, url, 404, "unknown media \(kind)")
+        }
+        ingest.enqueue(work) { [weak self] r in
+            guard let self, !self.lock.withLock({ self.stopped.remove(ObjectIdentifier(task)) != nil }) else { return }
+            switch r {
+            case .success(let data):
+                self.respond(task, url, data, kind == "head" ? "application/octet-stream" : "image/jpeg")
+            case .failure(let e as SetsIngest.Failure):
+                self.status(task, url, e.kind == .gone ? 410 : e.kind == .notFound ? 404 : 422, e.description)
+            case .failure(let e):
+                self.status(task, url, 422, "\(e)")
+            }
+        }
+    }
+
+    /// An HTTP error the page's fetch() can read (a failed task would look like a network error).
+    private func status(_ task: WKURLSchemeTask, _ url: URL, _ code: Int, _ text: String) {
+        let body = Data(text.utf8)
+        let response = HTTPURLResponse(url: url, statusCode: code, httpVersion: "HTTP/1.1",
+                                       headerFields: ["Content-Type": "text/plain; charset=utf-8", "Content-Length": "\(body.count)"])!
+        task.didReceive(response)
+        task.didReceive(body)
+        task.didFinish()
+    }
 
     private func respond(_ task: WKURLSchemeTask, _ url: URL, _ data: Data, _ mime: String) {
         let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1",

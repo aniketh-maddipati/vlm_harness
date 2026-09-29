@@ -37,9 +37,32 @@ nonisolated struct SetsExportJob {
         }
     }
 
+    /// Out of space, however Foundation phrases it (ENOSPC, or Cocoa's "not enough space").
+    static func isDiskFull(_ error: Error) -> Bool {
+        var e: NSError? = error as NSError
+        while let n = e {
+            if (n.domain == NSPOSIXErrorDomain && n.code == Int(ENOSPC)) || (n.domain == NSCocoaErrorDomain && n.code == NSFileWriteOutOfSpaceError) { return true }
+            e = n.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        return false
+    }
+
+    /// Where an item really lands, or why it may not: its name must stay inside the destination,
+    /// and its folder — symlinks followed — must not be a source folder or on the card.
+    static func landing(_ name: String, in destination: URL, sources: [URL]) -> Swift.Result<URL, SetsFileOps.Failure> {
+        let base = destination.standardizedFileURL
+        let dst = base.appendingPathComponent(name).standardizedFileURL
+        guard dst.path.hasPrefix(base.path + "/") else { return .failure(.init("\(name): outside the export folder")) }
+        var parent = dst.deletingLastPathComponent()
+        while !FileManager.default.fileExists(atPath: parent.path), parent.path != "/" { parent.deleteLastPathComponent() }
+        if let why = SetsFileOps.refusal(destination: parent.resolvingSymlinksInPath(), sources: sources) { return .failure(.init(why)) }
+        return .success(dst)
+    }
+
     /// Runs the job. `progress` gets (done, total). A failure stops the job cleanly: files already
-    /// written stay (each one verified), the journal says which ones.
-    func run(journal: SetsExportJournal?, progress: (Int, Int) -> Void = { _, _ in }) -> Result {
+    /// written stay (each one verified), the journal says which ones. `sources`: the folders being
+    /// culled (and the card), which no item may land in, even through a symlink.
+    func run(journal: SetsExportJournal?, sources: [URL] = [], progress: (Int, Int) -> Void = { _, _ in }) -> Result {
         var r = Result(folder: destination.path)
         let needed = bytesNeeded(), margin = max(Int64(1 << 20), needed / 20)
         if let free = SetsFileOps.freeBytes(at: destination), free < needed + margin {
@@ -48,8 +71,8 @@ nonisolated struct SetsExportJob {
         }
         journal?.begin(label: label, destination: destination, names: items.map(\.name))
         for (i, item) in items.enumerated() {
-            let dst = destination.appendingPathComponent(item.name)
             do {
+                let dst = try Self.landing(item.name, in: destination, sources: sources).get()
                 switch item {
                 case .bytes(_, let data):
                     if try SetsFileOps.write(data, to: dst).backedUp { r.bak += 1 }
@@ -66,6 +89,8 @@ nonisolated struct SetsExportJob {
                     r.failed.append("the card was removed · re-insert it and export again")
                 } else if case .jpeg(_, let src, _, _) = item, !FileManager.default.fileExists(atPath: src.path) {
                     r.failed.append("the card was removed · re-insert it and export again")
+                } else if Self.isDiskFull(error) {
+                    r.failed.append("\(destination.lastPathComponent) is full · every file written before this one is complete and checked")
                 } else {
                     r.failed.append("\(item.name): \(error)")
                 }
@@ -91,6 +116,9 @@ nonisolated final class SetsExportJournal {
         var ok: Bool?
         var planned: [String]
         var done: [String]
+        /// Set by `recover` on the launch after a crash: the leftovers were cleaned up.
+        var recovered: Date?
+        var tempsRemoved: Int?
     }
 
     let url: URL
@@ -115,6 +143,52 @@ nonisolated final class SetsExportJournal {
         guard let entry else { return }
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = .prettyPrinted
         if let data = try? enc.encode(entry) { try? SetsFileOps.replaceOwn(data, at: url) }
+    }
+
+    /// On launch: every export a crash or kill cut short gets its half-written temp files removed
+    /// from the destination (only Lumina's own `.<planned name>.lumina-tmp-*`, nothing else), and
+    /// is marked recovered. Finished files stay: each was verified before it was renamed into place.
+    /// The journal keeps saying what was done and what wasn't. Returns the recovered exports.
+    @discardableResult
+    static func recover(in directory: URL) -> [Entry] {
+        let fm = FileManager.default
+        // A journal write cut short leaves its own temp file.
+        for f in (try? fm.contentsOfDirectory(atPath: directory.path)) ?? [] where f.hasPrefix(".export-") && f.contains(".lumina-tmp-") {
+            try? fm.removeItem(at: directory.appendingPathComponent(f))
+        }
+        let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
+        let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = .prettyPrinted
+        var out: [Entry] = []
+        for url in (try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        where url.pathExtension == "json" && url.lastPathComponent.hasPrefix("export-") {
+            guard var e = try? dec.decode(Entry.self, from: Data(contentsOf: url)), e.ok != true, e.recovered == nil else { continue }
+            let dest = URL(fileURLWithPath: e.destination)
+            var removed = 0
+            var dirs: Set<String> = []
+            for name in e.planned { dirs.insert(dest.appendingPathComponent(name).deletingLastPathComponent().path) }
+            let planned = Set(e.planned.map { dest.appendingPathComponent($0).lastPathComponent })
+            for d in dirs {
+                for f in (try? fm.contentsOfDirectory(atPath: d)) ?? [] where f.hasPrefix(".") && f.contains(".lumina-tmp-") {
+                    // ".<name>.lumina-tmp-XXXXXXXX", where <name> is a planned file or its .lumina-bak
+                    let base = String(f.dropFirst()).components(separatedBy: ".lumina-tmp-")[0]
+                    let owner = base.hasSuffix(SetsFileOps.backupSuffix) ? String(base.dropLast(SetsFileOps.backupSuffix.count)) : base
+                    guard planned.contains(owner) || planned.contains(where: { isNumberedCopy(owner, of: $0) }) else { continue }
+                    if (try? fm.removeItem(atPath: (d as NSString).appendingPathComponent(f))) != nil { removed += 1 }
+                }
+            }
+            e.recovered = Date(); e.tempsRemoved = removed
+            if let data = try? enc.encode(e) { try? SetsFileOps.replaceOwn(data, at: url) }
+            out.append(e)
+        }
+        return out.sorted { $0.started > $1.started }
+    }
+
+    /// "DSC00001-2.ARW" is the numbered copy `copyVerified` makes of "DSC00001.ARW" on a name clash.
+    private static func isNumberedCopy(_ name: String, of planned: String) -> Bool {
+        let stem = (planned as NSString).deletingPathExtension, ext = (planned as NSString).pathExtension
+        guard name.hasPrefix(stem + "-"), name.hasSuffix(ext.isEmpty ? "" : "." + ext) else { return false }
+        let mid = name.dropFirst(stem.count + 1).dropLast(ext.isEmpty ? 0 : ext.count + 1)
+        return !mid.isEmpty && mid.allSatisfy(\.isNumber)
     }
 
     /// Exports that never finished, newest first.

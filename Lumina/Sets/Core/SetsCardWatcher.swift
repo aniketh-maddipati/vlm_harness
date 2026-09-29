@@ -16,6 +16,8 @@ final class SetsCardWatcher {
     }
 
     var onChange: ((Card?, _ removed: Card?) -> Void)?
+    /// A volume is about to go (Finder eject): let go of it now so the eject isn't refused as busy.
+    var onWillUnmount: ((URL) -> Void)?
     /// Which volumes may count as cards. The app accepts all; the probe only its own test images,
     /// so a real card that happens to be mounted is never read by a test.
     var accepts: (URL) -> Bool = { _ in true }
@@ -28,6 +30,10 @@ final class SetsCardWatcher {
         tokens.append(nc.addObserver(forName: NSWorkspace.didMountNotification, object: nil, queue: .main) { [weak self] n in
             let url = n.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL
             MainActor.assumeIsolated { self?.mounted(url) }
+        })
+        tokens.append(nc.addObserver(forName: NSWorkspace.willUnmountNotification, object: nil, queue: .main) { [weak self] n in
+            let url = n.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL
+            MainActor.assumeIsolated { if let url, let self, self.accepts(url) { self.onWillUnmount?(url) } }
         })
         tokens.append(nc.addObserver(forName: NSWorkspace.didUnmountNotification, object: nil, queue: .main) { [weak self] n in
             let url = n.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL
@@ -52,7 +58,7 @@ final class SetsCardWatcher {
     }
 
     private func unmounted(_ url: URL?) {
-        guard let url, let cur = current, cur.volume.standardizedFileURL.path == url.standardizedFileURL.path else { return }
+        guard let url, let cur = current, SetsIngest.plainPath(cur.volume) == SetsIngest.plainPath(url) else { return }
         current = nil
         onChange?(nil, cur)
     }

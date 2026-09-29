@@ -1,0 +1,18 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1280,
+  800
+ ],
+ "stopOnFailure": true,
+ "checklist": "Gate 8 / F10: kill -9 mid-export (RAW copies + .xmp, half replacing an older sidecar) at seeded points; the app's launch recovery leaves only verified files, untouched old sidecars and .lumina-bak copies, no torn .xmp, no temp files; exporting again completes",
+ "steps": [
+  {
+   "do": "killExport",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "count": 6,
+   "kills": 24,
+   "seed": 8
+  }
+ ]
+}

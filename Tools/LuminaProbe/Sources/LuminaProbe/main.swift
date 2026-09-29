@@ -7,6 +7,10 @@ lumina-probe — drive the Lumina page in WKWebView
       Runs each scenario in a fresh window and web process. Exit 1 if any fails.
       Paths inside scenarios resolve against the current directory (run from the repo root).
 
+  lumina-probe export-worker <plan.json>
+      Runs one export with the app's own SetsExportJob + journal, then exits. The kill-mid-handoff
+      step (killExport) starts it and SIGKILLs it part way.
+
   lumina-probe diff <a.png> <b.png> [--masks a.masks.json] [--scale 1] [--out diff.png]
       Exact pixel diff, photo rects masked. Exit 1 on any differing pixel.
 """
@@ -25,6 +29,20 @@ guard let command = args.first else { print(usage); exit(2) }
 args.removeFirst()
 
 switch command {
+case "export-worker":
+    guard let path = args.first, let data = FileManager.default.contents(atPath: path),
+          let plan = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let dest = plan["destination"] as? String, let jdir = plan["journalDir"] as? String,
+          let items = plan["items"] as? [[String: String]] else { print("bad plan"); exit(2) }
+    let job = SetsExportJob(label: plan["label"] as? String ?? "lr", destination: URL(fileURLWithPath: dest), items: items.compactMap { i in
+        guard let name = i["name"] else { return nil }
+        if let src = i["copy"] { return .copy(name: name, source: URL(fileURLWithPath: src)) }
+        return .bytes(name: name, data: Data((i["text"] ?? "").utf8))
+    })
+    let r = job.run(journal: SetsExportJournal(directory: URL(fileURLWithPath: jdir)))
+    print("\(r.n) written, \(r.bak) bak, \(r.failed.count) failed")
+    exit(r.failed.isEmpty ? 0 : 1)
+
 case "diff":
     let masksPath = option("--masks"), scale = Double(option("--scale") ?? "1") ?? 1, out = option("--out")
     guard args.count == 2 else { print(usage); exit(2) }

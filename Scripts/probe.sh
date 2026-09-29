@@ -3,12 +3,16 @@
 #
 #   bash Scripts/probe.sh reference [--record]   21 screens × 2 sizes + state dumps, byte-compared to
 #                                                Tests/probe/reference/manifest.json (--record rewrites it)
-#   bash Scripts/probe.sh fuzz                   seeded key/mouse storms on the sample shoot
+#   bash Scripts/probe.sh fuzz                   seeded key/mouse storms on the sample shoot, and on a card
+#                                                image read natively and pulled at random (needs LUMINA_FIXTURE_ROOT)
 #   bash Scripts/probe.sh edge                   camera-data edge cases   (needs LUMINA_FIXTURE_ROOT)
+#   bash Scripts/probe.sh ingest                 the same edge cases read by the app's native reader
 #   bash Scripts/probe.sh card                   721-photo stress + scroll pacing (needs LUMINA_CARD_DIR)
-#   bash Scripts/probe.sh fault                  card pulled mid-read / mid-export, disk full, locked card (disk images)
+#   bash Scripts/probe.sh fault                  card pulled mid-read / mid-export, disk full, locked card (disk images),
+#                                                kill -9 mid-export + relaunch recovery
 #   bash Scripts/probe.sh contract               plumbing.js still fits the page (run by sets_sync_design.sh)
-#   bash Scripts/probe.sh app                    the app's own bridge: exports, refusals, .lumina-bak, sessions, ΔE
+#   bash Scripts/probe.sh app                    the app's own bridge: exports, refusals, .lumina-bak, sessions, ΔE,
+#                                                Lightroom .xmp merge (lr-sidecar fixture)
 #                                                (needs LUMINA_FIXTURE_ROOT)
 #   bash Scripts/probe.sh all [--require-all]    everything; --require-all turns a SKIP into a failure
 #
@@ -83,14 +87,16 @@ EOF
 case "$suite" in
   reference) reference ;;
   sync)      echo "use: bash Scripts/sets_sync_design.sh <handoff.zip>"; exit 2 ;;
-  fuzz)      run "$S"/fuzz-sample-*.json ;;
+  fuzz)      run "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" ;;
   edge)      run "$S"/edge-*.json ;;
+  ingest)    LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
   card)      run "$S/card-stress.json" "$S/golden-card.json" ;;
-  app)       run "$S/app-plumbing-contract.json" "$S/app-export.json" "$S/app-session.json" "$S/look-parity.json" ;;
+  app)       run "$S/app-plumbing-contract.json" "$S/app-export.json" "$S/app-session.json" "$S/look-parity.json" "$S/app-xmp-lightroom.json" ;;
   contract)  run "$S/app-plumbing-contract.json" ;;
   fault)     run "$S"/fault-*.json ;;           # disk images: card pulled mid-read / mid-export, disk full, locked card
   empty)     run "$S/app-empty-start.json" ;;     # acceptance test for DESIGN-ASKS #2; fails until v7
-  all)       reference; run "$S"/fuzz-sample-*.json "$S"/edge-*.json "$S/app-plumbing-contract.json" "$S/app-export.json" "$S/app-session.json" "$S/look-parity.json" "$S"/fault-*.json "$S/card-stress.json" ;;
+  all)       reference; run "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" "$S"/edge-*.json "$S/app-plumbing-contract.json" "$S/app-export.json" "$S/app-session.json" "$S/look-parity.json" "$S/app-xmp-lightroom.json" "$S"/fault-*.json "$S/card-stress.json"
+             LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
   *)         sed -n '2,13p' "$0"; exit 2 ;;
 esac
 echo "evidence: $OUT"

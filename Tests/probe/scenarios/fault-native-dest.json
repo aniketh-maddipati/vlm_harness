@@ -1,0 +1,77 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1280,
+  800
+ ],
+ "stopOnFailure": false,
+ "checklist": "Mac layer only (design-independent): F4 a card image as export destination is refused, directly, in a folder outside DCIM, and through a symlink on the Mac; F3b the disk fills up mid-copy after the up-front check passed: clean stop, no partial or temp file, what was written is verified",
+ "steps": [
+  {
+   "do": "diskImage",
+   "name": "LTDEST",
+   "sizeMB": 400,
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "count": 3
+  },
+  {
+   "do": "mkdir",
+   "path": "${DISKS}/LTDEST/Exports"
+  },
+  {
+   "do": "nativeExport",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "count": 2,
+   "dest": "${DISKS}/LTDEST/Exports",
+   "sources": [
+    "${DISKS}/LTDEST/DCIM/100MSDCF"
+   ],
+   "n": 0,
+   "failedContains": "isn't on the card"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTDEST/Exports",
+   "glob": "*",
+   "count": 0
+  },
+  {
+   "do": "mkdir",
+   "path": "${OUT}/mac"
+  },
+  {
+   "do": "nativeExport",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "count": 2,
+   "dest": "${OUT}/mac",
+   "sources": [
+    "${DISKS}/LTDEST/DCIM/100MSDCF"
+   ],
+   "n": 3
+  },
+  {
+   "do": "diskImage",
+   "name": "LTFILL",
+   "sizeMB": 120
+  },
+  {
+   "do": "nativeExport",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "count": 3,
+   "dest": "${DISKS}/LTFILL/export",
+   "sources": [],
+   "fill": {
+    "path": "${DISKS}/LTFILL/filler.bin",
+    "mb": 110,
+    "afterMs": 30
+   },
+   "failedContains": "is full · every file written before this one is complete and checked"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTFILL/export",
+   "glob": "*lumina-tmp*",
+   "count": 0
+  }
+ ]
+}

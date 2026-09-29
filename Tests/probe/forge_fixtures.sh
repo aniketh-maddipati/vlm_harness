@@ -84,5 +84,32 @@ d=$(fresh shutter-bracket); i=0
 for ss in 1/250 1/60 1/15; do f="$d/DSC0060$i.ARW"; put "${SRC[$i]}" "$f"; stamp "$f" "2026:09:08 13:00:00"
   ex "-ExposureTime=$ss" -ExposureCompensation=0 "$f"; i=$((i+1)); done
 
-echo "fixtures in $ROOT:"; for c in two-bodies dup-dsc orientation corrupt-preview junk-in-folder burst-10fps tz-jump shutter-bracket; do
+# lr-sidecar: real Lightroom XMP next to its RAWs (checklist F6, gate 7). Needs Lightroom exports of
+# RAWs you have: LUMINA_LR_EXPORT_DIR (JPEGs Lightroom exported, carrying crs:RawFileName) and
+# LUMINA_LR_RAW_DIR (the matching ARWs). The XMP packet Lightroom embedded in each export is saved
+# as the sidecar, wrapper stripped, bytes otherwise as Lightroom wrote them:
+#   first  → DSC….xmp (lower case), second → DSC….XMP (upper case, and given a 2★ Red rating so
+#   the merge has something to replace), third → no sidecar.
+if [[ -n "${LUMINA_LR_EXPORT_DIR:-}" && -n "${LUMINA_LR_RAW_DIR:-}" ]]; then
+  d=$(fresh lr-sidecar); n=0
+  for jpg in $(ls "$LUMINA_LR_EXPORT_DIR" | grep -i '\.jpg$' | sort); do
+    raw=$("$EXIF" -s3 -RawFileName "$LUMINA_LR_EXPORT_DIR/$jpg"); stem="${raw%.*}"
+    [[ -n "$raw" && -f "$LUMINA_LR_RAW_DIR/$raw" ]] || continue
+    "$EXIF" -xmp -b "$LUMINA_LR_EXPORT_DIR/$jpg" | grep -q 'crs:ProcessVersion' || continue
+    cp -c "$LUMINA_LR_RAW_DIR/$raw" "$d/$raw" 2>/dev/null || cp "$LUMINA_LR_RAW_DIR/$raw" "$d/$raw"
+    case $n in
+      0) "$EXIF" -xmp -b "$LUMINA_LR_EXPORT_DIR/$jpg" | sed -e '/^<?xpacket/d' -e '/^ *$/d' > "$d/$stem.xmp" ;;
+      1) # Rating and label added the way Lightroom writes them (attributes after CreatorTool);
+         # exiftool would re-serialise the whole file and it would no longer be Lightroom's bytes.
+         "$EXIF" -xmp -b "$LUMINA_LR_EXPORT_DIR/$jpg" | sed -e '/^<?xpacket/d' -e '/^ *$/d' \
+           -e 's|^\( *\)xmp:CreatorTool=\(.*\)$|\1xmp:CreatorTool=\2\
+\1xmp:Rating="2"\
+\1xmp:Label="Red"|' > "$d/$stem.XMP" ;;
+    esac
+    n=$((n+1)); [[ $n == 3 ]] && break
+  done
+  mkdir -p "$d.orig" && rm -f "$d.orig"/* && cp "$d"/*.[xX][mM][pP] "$d.orig/"   # pristine sidecars to compare against
+fi
+
+echo "fixtures in $ROOT:"; for c in two-bodies dup-dsc orientation corrupt-preview junk-in-folder burst-10fps tz-jump shutter-bracket lr-sidecar; do
   printf '  %-16s %s files\n' "$c" "$(find "$ROOT/$c" -type f | wc -l | tr -d ' ')"; done
