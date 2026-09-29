@@ -1,0 +1,29 @@
+{
+ "page": "Lumina Sets v5.dc.html",
+ "query": "selftest",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "The design's own self-test (lumina-selftest.js, ADDENDUM-1 §6) passes in WKWebView: every behaviour check, key-to-frame median under 50 ms, large view under 100 ms",
+ "steps": [
+  {
+   "do": "waitFor",
+   "js": "return Array.isArray(window.luminaTestResults)",
+   "timeoutMs": 180000,
+   "what": "self-test finished"
+  },
+  {
+   "do": "dump",
+   "name": "selftest",
+   "js": "return window.luminaTestResults"
+  },
+  {
+   "do": "expect",
+   "js": "return window.luminaTestResults.filter(r => !r.ok).map(r => r.n + ' · ' + r.d)",
+   "equals": []
+  }
+ ]
+}

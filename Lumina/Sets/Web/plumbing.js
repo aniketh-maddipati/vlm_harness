@@ -111,7 +111,18 @@
     try { saveNow(); } finally { setTimeout(saveLoop, 2000); }
   };
   const viewLoop = () => {
-    try { const l = current, v = l && l.state.view; if (v !== lastView) { lastView = v; saveNow(); } } finally { setTimeout(viewLoop, 150); }
+    try {
+      const l = current, v = l && l.state.view;
+      if (v !== lastView) {
+        lastView = v; saveNow();
+        // Save shows "Remove Lumina's working files (size)" once it knows the size; in the app the
+        // page only asks after a save. Give it the size when Save opens.
+        if (v === 'export' && typeof l.exSet === 'function') {
+          if (cfg.parity) { if (typeof l.cacheBytes === 'function') l.exSet({ wf: l.cacheBytes() }); }
+          else if (shootId) window.lumina.workingFiles().then(b => { if (current === l && l.state.view === 'export') l.exSet({ wf: b }); }).catch(() => {});
+        }
+      }
+    } finally { setTimeout(viewLoop, 150); }
   };
 
   // The data contract the design reads. Absent in the browser prototype; present in the app.
@@ -138,7 +149,7 @@
     const list = await native('recents', {});
     if (!Array.isArray(list)) return;
     window.lumina.shoots = list;
-    logic.constructor.SHOOTS = list;
+    logic.constructor.SHOOTS = cfg.parity ? list.concat((window.LuminaV4 && LuminaV4.SHOOTS) || []) : list;
     logic.forceUpdate && logic.forceUpdate();
   };
 
@@ -320,7 +331,7 @@
     window.lumina.card = P.length ? { name: 'SONY-A7M4', photos: P.length, bytes: P.reduce((a, p) => a + (p.bytes || 0), 0), sony: true, path: '/Volumes/Untitled',
       model: [...new Set(P.map(p => p.model).filter(Boolean))].join(' + '), range: t[0] + ' → ' + t[t.length - 1].slice(11) } : null;
     logic.constructor.SHOOTS = (window.LuminaV4 && LuminaV4.SHOOTS) || [];
-    logic.setState({ cur: d.order[0] || null });
+    logic.setState({ cur: d.order[0] || null, imp: Object.assign({}, logic.state.imp, { card: true }) });
   };
 
   const findLogic = () => {
@@ -392,6 +403,8 @@
     },
     access(denied, what) { window.luminaAccess(!!denied, what || ''); },
     command(name) { return typeof window.luminaCommand === 'function' ? window.luminaCommand(name) : false; },
+    // View ▸ Zoom 100%: Z is a hold key in the page; the menu toggles it through the page's gesture hook.
+    zoom() { const l = window.__lumina.logic(); if (l && typeof window.luminaGesture === 'function') window.luminaGesture('hold', { key: 'z', down: !l.state.zoom }); },
     // Quit asks when there are keepers not yet saved (MENUS.md): their count, or 0.
     unsaved() {
       const l = window.__lumina.logic();

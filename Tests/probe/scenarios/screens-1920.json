@@ -6,7 +6,9 @@
  ],
  "scale": 2,
  "clock": "2026-09-08T14:30:00",
+ "storageWrites": false,
  "stopOnFailure": false,
+ "checklist": "Every v5 screen at 1920x1080. The -app twin runs the same steps through plumbing.js (parity mode: the design's sample shoot and card) and must match pixel for pixel",
  "steps": [
   {
    "do": "wait",
@@ -17,9 +19,14 @@
    "name": "00-open"
   },
   {
+   "do": "state",
+   "name": "00-open"
+  },
+  {
    "do": "key",
-   "k": "1",
-   "settleMs": 600
+   "k": "2",
+   "settleMs": 800,
+   "cmd": true
   },
   {
    "do": "expect",
@@ -28,11 +35,11 @@
   },
   {
    "do": "snap",
-   "name": "01-cull-row"
+   "name": "01-cull"
   },
   {
    "do": "state",
-   "name": "01-cull-row"
+   "name": "01-cull"
   },
   {
    "do": "key",
@@ -41,102 +48,82 @@
   },
   {
    "do": "snap",
-   "name": "02-cull-group"
+   "name": "02-cull-next"
   },
   {
    "do": "key",
-   "k": "ArrowRight",
-   "settleMs": 400
+   "k": "ArrowDown",
+   "settleMs": 1000
   },
   {
    "do": "snap",
-   "name": "03-cull-photo"
-  },
-  {
-   "do": "state",
-   "name": "03-cull-photo"
+   "name": "03-cull-row-seen"
   },
   {
    "do": "key",
-   "k": "r",
-   "settleMs": 1600
+   "k": "p",
+   "settleMs": 700
   },
   {
    "do": "snap",
    "name": "04-cull-kept"
   },
   {
+   "do": "state",
+   "name": "04-cull-kept"
+  },
+  {
    "do": "key",
    "k": "ArrowRight",
-   "settleMs": 200
+   "settleMs": 300
   },
   {
    "do": "key",
-   "k": "x",
-   "settleMs": 1600
+   "k": "f",
+   "settleMs": 700
   },
   {
    "do": "snap",
-   "name": "05-cull-rejected"
-  },
-  {
-   "do": "hold",
-   "k": "l",
-   "ms": 400,
-   "snap": "06-cull-flag-hold"
+   "name": "05-cull-flagged"
   },
   {
    "do": "key",
    "k": " ",
-   "settleMs": 600
+   "settleMs": 700
   },
   {
    "do": "snap",
-   "name": "07-large"
+   "name": "06-large"
   },
   {
    "do": "hold",
-   "k": "g",
-   "ms": 600,
-   "snap": "08-zoom-100"
-  },
-  {
-   "do": "key",
-   "k": " ",
-   "settleMs": 600
-  },
-  {
-   "do": "key",
-   "k": "ArrowLeft",
-   "settleMs": 200
-  },
-  {
-   "do": "key",
-   "k": "ArrowLeft",
-   "settleMs": 200
-  },
-  {
-   "do": "key",
-   "k": "w",
-   "settleMs": 600
-  },
-  {
-   "do": "snap",
-   "name": "09-compare"
+   "k": "z",
+   "ms": 700,
+   "snap": "07-zoom-100"
   },
   {
    "do": "key",
    "k": "Escape",
-   "settleMs": 400
+   "settleMs": 500
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 1000,
+   "alt": true
+  },
+  {
+   "do": "snap",
+   "name": "08-cull-skip"
   },
   {
    "do": "key",
    "k": "?",
-   "settleMs": 500
+   "settleMs": 600
   },
   {
    "do": "snap",
-   "name": "10-all-keys"
+   "name": "09-shortcuts"
   },
   {
    "do": "key",
@@ -145,76 +132,41 @@
   },
   {
    "do": "key",
-   "k": "v",
-   "settleMs": 600
+   "k": ",",
+   "settleMs": 600,
+   "cmd": true
   },
   {
    "do": "snap",
-   "name": "11-cull-show-auto"
-  },
-  {
-   "do": "key",
-   "k": "2",
-   "settleMs": 1500
-  },
-  {
-   "do": "snap",
-   "name": "12-unapplied-prompt"
+   "name": "10-settings"
   },
   {
    "do": "key",
    "k": "Escape",
-   "settleMs": 800
+   "settleMs": 400
   },
   {
-   "do": "expect",
-   "js": "return __probe.logic().state.view",
-   "equals": "edit"
+   "do": "js",
+   "src": "window.luminaCommand('faq')"
   },
   {
    "do": "wait",
-   "ms": 1200
+   "ms": 600
   },
   {
    "do": "snap",
-   "name": "13-edit"
+   "name": "11-faq"
   },
   {
    "do": "key",
-   "k": "p",
-   "settleMs": 1600
-  },
-  {
-   "do": "snap",
-   "name": "14-edit-select"
-  },
-  {
-   "do": "key",
-   "k": "]",
-   "settleMs": 1600
-  },
-  {
-   "do": "snap",
-   "name": "15-edit-nudge"
-  },
-  {
-   "do": "key",
-   "k": "P",
-   "settleMs": 1600
-  },
-  {
-   "do": "snap",
-   "name": "16-edit-selects-only"
-  },
-  {
-   "do": "key",
-   "k": "P",
-   "settleMs": 1600
+   "k": "Escape",
+   "settleMs": 400
   },
   {
    "do": "key",
    "k": "3",
-   "settleMs": 800
+   "settleMs": 1000,
+   "cmd": true
   },
   {
    "do": "expect",
@@ -222,48 +174,23 @@
    "equals": "export"
   },
   {
-   "do": "wait",
-   "ms": 800
-  },
-  {
    "do": "snap",
-   "name": "17-export"
+   "name": "12-save"
   },
   {
    "do": "key",
-   "k": "ArrowDown",
-   "settleMs": 300
+   "k": "1",
+   "settleMs": 800,
+   "cmd": true
   },
   {
-   "do": "key",
-   "k": "ArrowUp",
-   "settleMs": 800
-  },
-  {
-   "do": "snap",
-   "name": "18-export-options"
-  },
-  {
-   "do": "key",
-   "k": "Enter",
-   "settleMs": 2500
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "import"
   },
   {
    "do": "snap",
-   "name": "19-export-result"
-  },
-  {
-   "do": "state",
-   "name": "19-export-result"
-  },
-  {
-   "do": "key",
-   "k": "w",
-   "settleMs": 1000
-  },
-  {
-   "do": "snap",
-   "name": "20-story"
+   "name": "13-open-again"
   }
  ]
 }

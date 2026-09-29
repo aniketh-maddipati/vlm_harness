@@ -28,6 +28,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     let shoots: SetsShootStore
     private(set) var ready = false
     var onEvent: ((String) -> Void)?
+    /// The recent-shoots list changed (File ▸ Open Recent).
+    var onShootsChanged: (() -> Void)?
 
     init(chooser: SetsChooser, supportDir: URL) {
         self.chooser = chooser
@@ -159,6 +161,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                                              firstCapture: body["date"] as? String ?? "", opened: Date(),
                                              bookmark: try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil))
             try? shoots.upsert(shoot)
+            onShootsChanged?()
             onEvent?("shoot \(id) \(url.path)")
             let session = shoots.session(id).flatMap { String(data: $0, encoding: .utf8) }
             return (["id": id, "session": session ?? NSNull()] as [String: Any], nil)
@@ -174,20 +177,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "recents":
             return (shoots.index().map { recent($0) }, nil)
         case "reopen":
-            guard let id = body["id"] as? String, let shoot = shoots.index().first(where: { $0.id == id }) else { return (false, nil) }
-            var stale = false
-            let url = shoot.bookmark.flatMap { try? URL(resolvingBookmarkData: $0, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) }
-                ?? URL(fileURLWithPath: shoot.path)
-            guard FileManager.default.fileExists(atPath: url.path) else { return (false, nil) }      // card out / folder gone
-            _ = url.startAccessingSecurityScopedResource()
-            open(url)
-            return (true, nil)
+            return (reopen(id: body["id"] as? String ?? ""), nil)
         case "workingFiles":
             guard let id = body["id"] as? String else { return (0, nil) }
             return (shoots.bytes(id), nil)
         case "removeShoot":
             guard let id = body["id"] as? String else { return (false, nil) }
             try? shoots.remove(id)
+            onShootsChanged?()
             return (true, nil)
         case "writeInto":
             return (await writeInto(label: body["label"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? []), nil)
@@ -221,6 +218,19 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         default:
             return (nil, "unknown op \(op)")
         }
+    }
+
+    /// Opens a recent shoot again (its security-scoped bookmark, else its path). False when the card
+    /// is out or the folder moved.
+    func reopen(id: String) -> Bool {
+        guard let shoot = shoots.index().first(where: { $0.id == id }) else { return false }
+        var stale = false
+        let url = shoot.bookmark.flatMap { try? URL(resolvingBookmarkData: $0, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) }
+            ?? URL(fileURLWithPath: shoot.path)
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }      // card out / folder gone
+        _ = url.startAccessingSecurityScopedResource()
+        open(url)
+        return true
     }
 
     /// A recent shoot in the page's own SHOOTS shape: d, n, dec, kp, last, where (+ id, which the
