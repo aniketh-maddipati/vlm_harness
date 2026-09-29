@@ -66,20 +66,24 @@ final class BrowsePixelGridQueueTests: XCTestCase {
     }
 
     func testACancelledWaiterWithdrawsItsRequest() async throws {
-        let paths = try (0..<6).map { try writeJPEG(named: "c\($0)") }
+        let aheadCount = 30
+        let paths = try (0...aheadCount).map { try writeJPEG(named: "c\($0)") }
         let service = BrowsePixelService(floorBudgetBytes: 0, gridDecodeWidth: 1)
         await service.setScrollOrder(paths: paths)
         await service.setViewportCenter(index: 0)
 
-        // Five tiles ahead of the farthest one in a width-1 queue, so the
-        // farthest cannot have started when its tile disappears.
-        let ahead = (0..<5).map { index in Task { await service.image(path: paths[index], tier: .grid) } }
-        let farthest = Task { await service.image(path: paths[5], tier: .grid) }
-        // Let the waiter register before cancelling it.
+        // Thirty tiles ahead of the farthest one in a width-1 queue, so the
+        // farthest cannot have started when its tile disappears, even on a
+        // fast machine where each decode takes a millisecond or two.
+        let ahead = (0..<aheadCount).map { index in Task { await service.image(path: paths[index], tier: .grid) } }
+        let farthest = Task { await service.image(path: paths[aheadCount], tier: .grid) }
+        // Let the waiter register before cancelling it. Registered = still
+        // queued or already started (finished decodes leave `gridActive`).
         var registered = false
-        for _ in 0..<200 where !registered {
+        let deadline = Date().addingTimeInterval(5)
+        while !registered, Date() < deadline {
             let d = await service.diagnostics()
-            registered = d.gridQueued + d.gridActive >= 6
+            registered = d.gridQueued + d.gridStarted >= aheadCount + 1
             if !registered { try? await Task.sleep(nanoseconds: 1_000_000) }
         }
         XCTAssertTrue(registered)
@@ -91,7 +95,7 @@ final class BrowsePixelGridQueueTests: XCTestCase {
         let d = await service.diagnostics()
         XCTAssertNil(cancelledResult)
         XCTAssertEqual(d.gridCancelled, 1)
-        XCTAssertFalse(service.isResident(path: paths[5], tier: .grid), "never decoded")
+        XCTAssertFalse(service.isResident(path: paths[aheadCount], tier: .grid), "never decoded")
         XCTAssertTrue(service.isResident(path: paths[0], tier: .grid))
     }
 

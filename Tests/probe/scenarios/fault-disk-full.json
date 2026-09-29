@@ -1,0 +1,158 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": true,
+ "checklist": "F3 destination disk full \u2192 checked before start, nothing written; small exports still fit",
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/two-bodies",
+   "to": "${OUT}/shoot/two-bodies"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/two-bodies",
+   "timeoutMs": 60000
+  },
+  {
+   "do": "key",
+   "k": "1",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 100
+  },
+  {
+   "do": "expect",
+   "js": "return Object.values(__probe.logic().state.marks).filter(m=>m==='keep').length",
+   "equals": 6
+  },
+  {
+   "do": "diskImage",
+   "name": "LTSMALL",
+   "sizeMB": 40,
+   "fs": "APFS"
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 400
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 300
+  },
+  {
+   "do": "expect",
+   "js": "return (__probe.logic().state.ex||{}).target",
+   "equals": "both"
+  },
+  {
+   "do": "destinations",
+   "paths": [
+    "${DISKS}/LTSMALL"
+   ]
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 2500
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "Not enough space"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTSMALL",
+   "glob": "*.ARW",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTSMALL",
+   "glob": "*.lumina-tmp*",
+   "count": 0
+  },
+  {
+   "do": "snap",
+   "name": "refused-full"
+  },
+  {
+   "do": "key",
+   "k": "ArrowUp",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "ArrowUp",
+   "settleMs": 300
+  },
+  {
+   "do": "destinations",
+   "paths": [
+    "${DISKS}/LTSMALL"
+   ]
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 2500
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTSMALL",
+   "glob": "*.xmp",
+   "count": 6
+  }
+ ]
+}

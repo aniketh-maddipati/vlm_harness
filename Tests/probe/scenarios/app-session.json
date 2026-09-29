@@ -1,0 +1,141 @@
+{
+ "mode": "app",
+ "app": {
+  "sample": true
+ },
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/two-bodies",
+   "to": "${OUT}/shoot/two-bodies"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/two-bodies",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "expect",
+   "js": "return !!window.__lumina.shootId()"
+  },
+  {
+   "do": "key",
+   "k": "1",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "x",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 150
+  },
+  {
+   "do": "expect",
+   "js": "return Object.values(__probe.logic().state.marks).filter(m=>m==='keep').length",
+   "equals": 3
+  },
+  {
+   "do": "key",
+   "k": "2",
+   "settleMs": 500
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 300
+  },
+  {
+   "do": "wait",
+   "ms": 1500
+  },
+  {
+   "do": "reload"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().real",
+   "equals": null
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().constructor.SHOOTS.filter(x=>x.id).map(x=>x.t)",
+   "equals": [
+    "two-bodies"
+   ]
+  },
+  {
+   "do": "key",
+   "k": "0",
+   "settleMs": 400
+  },
+  {
+   "do": "snap",
+   "name": "open-recents"
+  },
+  {
+   "do": "click",
+   "text": "two-bodies",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && Object.keys(l.state.marks).length)",
+   "timeoutMs": 60000,
+   "what": "reopened with decisions"
+  },
+  {
+   "do": "expect",
+   "js": "return Object.values(__probe.logic().state.marks).filter(m=>m==='keep').length",
+   "equals": 3
+  },
+  {
+   "do": "expect",
+   "js": "return Object.values(__probe.logic().state.marks).filter(m=>m==='out').length",
+   "equals": 1
+  },
+  {
+   "do": "expect",
+   "js": "return Object.keys(__probe.logic().state.final).length",
+   "equals": 1
+  },
+  {
+   "do": "state",
+   "name": "restored"
+  },
+  {
+   "do": "snap",
+   "name": "restored"
+  }
+ ]
+}

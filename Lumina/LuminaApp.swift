@@ -30,71 +30,28 @@ struct LuminaApp: App {
     }
 
     var body: some Scene {
-        let minimum = launchWindowMinimum()
         WindowGroup {
-            Group {
-                #if DEBUG
-                if DevelopLabLauncher.shouldPresentLab {
-                    DevelopLabView()
-                } else {
-                    P0RootView()
-                }
-                #else
-                P0RootView()
-                #endif
-            }
-            .frame(minWidth: minimum.width, minHeight: minimum.height)
-            .luminaWorkspaceAppearance()
-            .background {
-                if P0RenderInstruments.launchRequested {
-                    ProductPerformanceDisplayProbe()
-                }
-            }
-            #if DEBUG
-            .background {
-                DevSplitWindowAnchor()
-                    .frame(width: 0, height: 0)
-            }
-            #endif
+            // The design's page, shipped unchanged inside a native window (design/handoff/lumina-cull/BUILD-exact.md).
+            SetsRootView()
+                .frame(minWidth: SetsWindowSize.minimum.width, minHeight: SetsWindowSize.minimum.height)
+                .ignoresSafeArea()
         }
+        .defaultSize(SetsWindowSize.initial)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("Open Shoot…") {
+                Button("Open Folder…") {
                     NotificationCenter.default.post(name: .luminaImportRAW, object: nil)
                 }
                 .keyboardShortcut("o", modifiers: .command)
             }
-
-            CommandMenu("View") {
-                Button("Home") {
-                    NotificationCenter.default.post(name: .luminaGoHome, object: nil)
+            CommandGroup(replacing: .undoRedo) {
+                Button("Undo") {
+                    NotificationCenter.default.post(name: .luminaSetsUndo, object: nil)
                 }
-                .keyboardShortcut("h", modifiers: [.command, .shift])
-
-                Button("Keyboard Shortcuts…") {
-                    NotificationCenter.default.post(name: .luminaShowShortcuts, object: nil)
-                }
-                .keyboardShortcut("/", modifiers: .command)
-            }
-
-            CommandMenu("Shoot") {
-                Button("Open Shoot…") {
-                    NotificationCenter.default.post(name: .luminaImportRAW, object: nil)
-                }
-                .keyboardShortcut("o", modifiers: .command)
+                .keyboardShortcut("z", modifiers: .command)
             }
         }
     }
-}
-
-/// Product minimum, unless this playground launch asked to share the screen.
-private func launchWindowMinimum() -> CGSize {
-    #if DEBUG
-    if let frame = DevSplitPlacement.liveTrailingFrame() {
-        return CGSize(width: frame.width, height: EditRailLayout.minWindowHeight)
-    }
-    #endif
-    return CGSize(width: EditRailLayout.minWindowWidth, height: EditRailLayout.minWindowHeight)
 }
 
 extension Notification.Name {

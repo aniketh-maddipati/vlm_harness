@@ -1,0 +1,274 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1920,
+  1080
+ ],
+ "scale": 2,
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "steps": [
+  {
+   "do": "wait",
+   "ms": 1200
+  },
+  {
+   "do": "snap",
+   "name": "00-open"
+  },
+  {
+   "do": "key",
+   "k": "1",
+   "settleMs": 600
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "cull"
+  },
+  {
+   "do": "snap",
+   "name": "01-cull-row"
+  },
+  {
+   "do": "state",
+   "name": "01-cull-row"
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 400
+  },
+  {
+   "do": "snap",
+   "name": "02-cull-group"
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 400
+  },
+  {
+   "do": "snap",
+   "name": "03-cull-photo"
+  },
+  {
+   "do": "state",
+   "name": "03-cull-photo"
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 1600
+  },
+  {
+   "do": "snap",
+   "name": "04-cull-kept"
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "x",
+   "settleMs": 1600
+  },
+  {
+   "do": "snap",
+   "name": "05-cull-rejected"
+  },
+  {
+   "do": "hold",
+   "k": "l",
+   "ms": 400,
+   "snap": "06-cull-flag-hold"
+  },
+  {
+   "do": "key",
+   "k": " ",
+   "settleMs": 600
+  },
+  {
+   "do": "snap",
+   "name": "07-large"
+  },
+  {
+   "do": "hold",
+   "k": "g",
+   "ms": 600,
+   "snap": "08-zoom-100"
+  },
+  {
+   "do": "key",
+   "k": " ",
+   "settleMs": 600
+  },
+  {
+   "do": "key",
+   "k": "ArrowLeft",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowLeft",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "w",
+   "settleMs": 600
+  },
+  {
+   "do": "snap",
+   "name": "09-compare"
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 400
+  },
+  {
+   "do": "key",
+   "k": "?",
+   "settleMs": 500
+  },
+  {
+   "do": "snap",
+   "name": "10-all-keys"
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 400
+  },
+  {
+   "do": "key",
+   "k": "v",
+   "settleMs": 600
+  },
+  {
+   "do": "snap",
+   "name": "11-cull-show-auto"
+  },
+  {
+   "do": "key",
+   "k": "2",
+   "settleMs": 1500
+  },
+  {
+   "do": "snap",
+   "name": "12-unapplied-prompt"
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 800
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "edit"
+  },
+  {
+   "do": "wait",
+   "ms": 1200
+  },
+  {
+   "do": "snap",
+   "name": "13-edit"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 1600
+  },
+  {
+   "do": "snap",
+   "name": "14-edit-select"
+  },
+  {
+   "do": "key",
+   "k": "]",
+   "settleMs": 1600
+  },
+  {
+   "do": "snap",
+   "name": "15-edit-nudge"
+  },
+  {
+   "do": "key",
+   "k": "P",
+   "settleMs": 1600
+  },
+  {
+   "do": "snap",
+   "name": "16-edit-selects-only"
+  },
+  {
+   "do": "key",
+   "k": "P",
+   "settleMs": 1600
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 800
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "export"
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "snap",
+   "name": "17-export"
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "ArrowUp",
+   "settleMs": 800
+  },
+  {
+   "do": "snap",
+   "name": "18-export-options"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 2500
+  },
+  {
+   "do": "snap",
+   "name": "19-export-result"
+  },
+  {
+   "do": "state",
+   "name": "19-export-result"
+  },
+  {
+   "do": "key",
+   "k": "w",
+   "settleMs": 1000
+  },
+  {
+   "do": "snap",
+   "name": "20-story"
+  }
+ ],
+ "mode": "app",
+ "app": {
+  "sample": true,
+  "parity": true
+ }
+}

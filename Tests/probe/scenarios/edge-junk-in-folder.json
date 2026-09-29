@@ -1,0 +1,43 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1280,
+  800
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "ARW + JPEG pairs \u2192 one photo; non-Sony files skipped quietly (incl. macOS ._ stubs)",
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_FIXTURE_ROOT}/junk-in-folder",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().state.realInfo)"
+  },
+  {
+   "do": "js",
+   "src": "const d=__probe.logic().data;return d.M.map(m=>m.groups.map(g=>g.kind[0]+g.frames.length).join(' ')).join(' | ')"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "snap",
+   "name": "loaded"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.realInfo.n",
+   "equals": 2
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.realInfo.bad",
+   "equals": 0
+  }
+ ]
+}

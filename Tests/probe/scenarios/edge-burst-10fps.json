@@ -1,0 +1,37 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1280,
+  800
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "10 fps burst inside one second \u2192 grouped as one burst (and nothing else in it)",
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_FIXTURE_ROOT}/burst-10fps",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().state.realInfo)"
+  },
+  {
+   "do": "js",
+   "src": "const d=__probe.logic().data;return d.M.map(m=>m.groups.map(g=>g.kind[0]+g.frames.length).join(' ')).join(' | ')"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "snap",
+   "name": "loaded"
+  },
+  {
+   "do": "expect",
+   "js": "const d=__probe.logic().data;return Object.values(d.G).some(g=>g.kind==='burst'&&g.frames.length===10&&g.frames.every(f=>/DSC0040\\d/.test(f.file)))"
+  }
+ ]
+}

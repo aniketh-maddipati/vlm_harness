@@ -1,0 +1,45 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1280,
+  800
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Two bodies in one folder \u2192 sorted by serial, then time, then file number",
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_FIXTURE_ROOT}/two-bodies",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().state.realInfo)"
+  },
+  {
+   "do": "js",
+   "src": "const d=__probe.logic().data;return d.M.map(m=>m.groups.map(g=>g.kind[0]+g.frames.length).join(' ')).join(' | ')"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "snap",
+   "name": "loaded"
+  },
+  {
+   "do": "expect",
+   "js": "const d=__probe.logic().data;return d.order.map(id=>d.byId[id].file)",
+   "equals": [
+    "A_DSC00001.ARW",
+    "A_DSC00002.ARW",
+    "A_DSC00003.ARW",
+    "B_DSC00001.ARW",
+    "B_DSC00002.ARW",
+    "B_DSC00003.ARW"
+   ]
+  }
+ ]
+}

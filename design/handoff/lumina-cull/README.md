@@ -1,5 +1,7 @@
 # Handoff: Lumina — Sony cull → edit → export (macOS)
 
+> **Build path: `BUILD-exact.md`.** The HTML is the UI, shipped inside a native shell. Ignore the "rebuild in SwiftUI" steps below. **Then read `ADDENDUM-remove.md`.** It lists what not to port and the final wording; it overrides this README.
+
 ## Overview
 Lumina is a fast culling app for Sony α shooters. Open a card or folder of ARWs, cull by time rows and bursts with the keyboard, optionally touch up, then hand off to Lightroom / Capture One (XMP sidecars) or export RAW + JPEG into a shoot folder. It never writes to the card or changes originals.
 

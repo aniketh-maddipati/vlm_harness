@@ -1,0 +1,15 @@
+{
+  "mode": "app",
+  "page": "Lumina Sets v3.dc.html",
+  "size": [1440, 900],
+  "checklist": "Every page member plumbing.js relies on still exists after a design sync",
+  "steps": [
+    {"do": "expect", "js": "return window.__lumina.missing()", "equals": []},
+    {"do": "expect", "js": "return window.__lumina.ready()", "equals": true},
+    {"do": "expect", "js": "return !!(window.lumina && window.lumina.app)", "equals": true},
+    {"do": "expect", "js": "return typeof window.showDirectoryPicker", "equals": "function"},
+    {"do": "expect", "js": "return __probe.logic().writeInto.toString().includes('native')"},
+    {"do": "expect", "js": "return typeof LuminaCore.editFilter", "equals": "function"},
+    {"do": "expect", "js": "return typeof LuminaCore.buildShoot", "equals": "function"}
+  ]
+}

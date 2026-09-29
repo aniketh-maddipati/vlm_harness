@@ -1,0 +1,42 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1280,
+  800
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Wrong clock / time-zone change mid-trip \u2192 rows split sensibly; shift shoot time works",
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_FIXTURE_ROOT}/tz-jump",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().state.realInfo)"
+  },
+  {
+   "do": "js",
+   "src": "const d=__probe.logic().data;return d.M.map(m=>m.groups.map(g=>g.kind[0]+g.frames.length).join(' ')).join(' | ')"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "snap",
+   "name": "loaded"
+  },
+  {
+   "do": "expect",
+   "js": "const d=__probe.logic().data;return d.M.length",
+   "equals": 2
+  },
+  {
+   "do": "expect",
+   "js": "return typeof __probe.logic().shiftTime==='function'||/shift/i.test(document.body.innerText)"
+  }
+ ]
+}

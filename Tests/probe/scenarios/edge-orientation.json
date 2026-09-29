@@ -1,0 +1,49 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1280,
+  800
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Orientation 1, 3, 6, 8 and missing \u2192 upright",
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_FIXTURE_ROOT}/orientation",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().state.realInfo)"
+  },
+  {
+   "do": "js",
+   "src": "const d=__probe.logic().data;return d.M.map(m=>m.groups.map(g=>g.kind[0]+g.frames.length).join(' ')).join(' | ')"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "snap",
+   "name": "loaded"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.realInfo.n",
+   "equals": 5
+  },
+  {
+   "do": "expect",
+   "js": "const d=__probe.logic().data;return d.order.map(id=>d.byId[id]).map(p=>p.file+':'+(p.portrait?'P':'L'))",
+   "equals": [
+    "DSC00100.ARW:L",
+    "DSC00101.ARW:L",
+    "DSC00102.ARW:P",
+    "DSC00103.ARW:P",
+    "DSC00104.ARW:L"
+   ]
+  }
+ ]
+}

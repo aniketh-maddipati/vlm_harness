@@ -1,0 +1,15 @@
+{
+  "page": "Lumina Sets v3.dc.html",
+  "size": [1280, 800],
+  "clock": "2026-09-08T14:30:00",
+  "stopOnFailure": false,
+  "steps": [
+    {"do": "key", "k": "1", "settleMs": 400},
+    {"do": "expect", "js": "return __probe.logic().state.view", "equals": "cull"},
+    {"do": "key", "k": "0", "settleMs": 600},
+    {"do": "expect", "js": "return __probe.logic().state.view", "equals": "import"},
+    {"do": "expect", "js": "const a=document.activeElement; return a ? a.tagName + (a.placeholder ? ':' + a.placeholder : '') : 'none'", "equals": "BODY"},
+    {"do": "key", "k": "1", "settleMs": 400},
+    {"do": "expect", "js": "return __probe.logic().state.view", "equals": "cull"}
+  ]
+}

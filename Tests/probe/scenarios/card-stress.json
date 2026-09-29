@@ -1,0 +1,99 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T21:00:00",
+ "sampleMs": 200,
+ "budgets": {
+  "webPeakMB": 2500
+ },
+ "stopOnFailure": false,
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_CARD_DIR}",
+   "timeoutMs": 600000
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "wheel",
+   "sel": "[data-screen-label=\"1 Cull\"]",
+   "dy": 60,
+   "frames": 300,
+   "name": "cull-scroll-down",
+   "p95Ms": 17.5
+  },
+  {
+   "do": "wheel",
+   "sel": "[data-screen-label=\"1 Cull\"]",
+   "dy": -120,
+   "frames": 150,
+   "name": "cull-scroll-up",
+   "p95Ms": 17.5
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "times": 150,
+   "gapMs": 8,
+   "settleMs": 500
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.data.byId[l.state.cur]!=null"
+  },
+  {
+   "do": "fuzz",
+   "seed": 11,
+   "count": 3000,
+   "gapMs": [
+    0,
+    15
+   ],
+   "checkEvery": 25,
+   "mouseRate": 0.05
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "1",
+   "settleMs": 400
+  },
+  {
+   "do": "key",
+   "k": "2",
+   "settleMs": 600
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 800
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "edit"
+  },
+  {
+   "do": "wheel",
+   "sel": "[data-screen-label=\"Edit rows\"]",
+   "dy": 60,
+   "frames": 200,
+   "name": "edit-scroll",
+   "p95Ms": 17.5
+  },
+  {
+   "do": "state",
+   "name": "end"
+  }
+ ]
+}
