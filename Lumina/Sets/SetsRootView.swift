@@ -45,6 +45,13 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     func attach(to host: NSView) {
         bridge = SetsBridge(chooser: self, supportDir: Self.supportDir)
+        // An export cut short last time (crash, kill, power): clear its temp files, keep its journal.
+        let exports = Self.supportDir.appendingPathComponent("exports", isDirectory: true)
+        Task.detached(priority: .utility) {
+            for e in SetsExportJournal.recover(in: exports) {
+                NSLog("Lumina: export %@ was cut short: %d of %d done, %d temp files removed", e.id, e.done.count, e.planned.count, e.tempsRemoved ?? 0)
+            }
+        }
         let res = Bundle.main.resourceURL!
         let plumbing = (try? String(contentsOf: res.appendingPathComponent("plumbing.js"), encoding: .utf8)) ?? ""
         Task { @MainActor in

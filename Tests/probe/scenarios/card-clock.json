@@ -1,0 +1,45 @@
+{
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T21:00:00",
+ "sampleMs": 100,
+ "stopOnFailure": true,
+ "checklist": "Clock a real card read (run in both modes: LUMINA_PROBE_MODE=app for the native read): time to listing, to first photo, total; web memory; every photo's measures dumped for parity",
+ "steps": [
+  {
+   "do": "js",
+   "src": "window.__clk={start:performance.now()}; const tick=()=>{ const l=__probe.logic(), r=l&&l.state.realLoad; if(r){ if(__clk.listed==null) __clk.listed=r.t0-__clk.start; if(r.done>0&&__clk.first==null) __clk.first=performance.now()-r.t0; } if(__clk.first==null) setTimeout(tick,5); }; tick(); return true"
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_CARD_DIR}",
+   "via": "js",
+   "timeoutMs": 600000
+  },
+  {
+   "do": "js",
+   "src": "const i=__probe.logic().state.realInfo; return JSON.stringify({listedMs:Math.round(__clk.listed),firstMs:Math.round(__clk.first),secs:+i.secs,n:i.n,bad:i.bad})"
+  },
+  {
+   "do": "dump",
+   "name": "clock",
+   "js": "const i=__probe.logic().state.realInfo; return JSON.stringify({listedMs:__clk.listed,firstMs:__clk.first,secs:+i.secs,n:i.n,bad:i.bad})"
+  },
+  {
+   "do": "dump",
+   "name": "photos",
+   "js": "const d=__probe.logic().data; return JSON.stringify(d.order.map(id=>d.byId[id]).map(p=>({file:p.file,time:p.time,h:p.h,focus:p.focus,clip:p.clip,portrait:p.portrait,sharp:p.sharp,kind:p.kind,rank:p.rank,soft:!!p.soft,slight:!!p.slight,blown:p.blown,shake:p.shake,sug:p.sug})))"
+  },
+  {
+   "do": "js",
+   "src": "return window.__lumina ? JSON.stringify(await window.__lumina.nativeStats()) : 'page read'"
+  },
+  {
+   "do": "wait",
+   "ms": 1500
+  }
+ ]
+}

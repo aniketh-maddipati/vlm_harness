@@ -26,7 +26,7 @@ Sony ARW shooters.
 | `Lumina/Sets/SetsRootView.swift` | The WKWebView, the native folder pickers, downloads |
 | `Lumina/Sets/Web/` | The design's files, copied unchanged by `Scripts/sets_sync_ui.sh`, plus `plumbing.js` |
 | `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder`, `writeInto`, `renderJpg`, `impStart`, …) for native calls and provides `window.lumina` (the data contract) |
-| `Lumina/Sets/Core/` | The native bridge: `SetsFileOps` (`.lumina-bak`, atomic writes, SHA-256 copies, destination refusal), `SetsExport` (+ crash journal), `SetsEditLook` (the Edit look's CSS matrices in Core Image, RAW → JPEG), `SetsCardWatcher`, `SetsShootStore` (per-shoot sessions), `SetsSchemeHandler` (`lumina://`, no network) |
+| `Lumina/Sets/Core/` | The native bridge: `SetsIngest` (reads opened folders: listing, 256 KB heads, byte-range previews, prefetch, stops when the card goes), `SetsFileOps` (`.lumina-bak`, atomic writes, SHA-256 copies, destination refusal), `SetsExport` (+ crash journal), `SetsEditLook` (the Edit look's CSS matrices in Core Image, RAW → JPEG), `SetsCardWatcher`, `SetsShootStore` (per-shoot sessions), `SetsSchemeHandler` (`lumina://`, no network) |
 | `design/handoff/vendor/` | React / Babel pinned to the SRI hashes in `support.js` (see `VENDOR.md`) |
 
 Trust rules, from the ROADMAP; the tests enforce them:
@@ -52,6 +52,7 @@ bash Scripts/probe.sh fuzz          # seeded key + mouse storms
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # export, sessions, ΔE look parity
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh fault   # disk images: card pulled, disk full, locked
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh edge    # camera-data cases (design gaps show as FAIL)
+LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh ingest  # the same cases through the native reader
 LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh card         # 721-photo stress + scroll pacing
 ```
 
@@ -65,6 +66,7 @@ audit, the build + logic tests, and a probe build.
 
 - **Don't edit `Lumina/Sets/Web/*.html|support.js|lumina-core.js|vendor`.** Change the design, then sync. `SetsPageBytesTests` and CI fail on drift.
 - **`plumbing.js` supplies behaviour and data, never UI.** If the page can't show something, that's a design ask.
+- **The native read repeats the page's `onDir`.** `probe.sh contract` fails (`__lumina.drift()`) when a sync changes `onDir`: review the read in `plumbing.js`, then update `ONDIR`. Parity with the page's own read is checked with `card-clock.json` in both modes.
 - **Pixel parity is 0 px.** App-mode screens (`screens-*-app`) must match the prototype reference byte for byte. CSS tricks that change anti-aliasing are out; content-visibility was tried and rejected.
 - **The probe never touches a real card.** Fault tests use disk images, and the probe's card watcher only accepts its own images.
 - **ExFAT volume labels are at most 11 characters.** `hdiutil` reports a longer one as "Operation not permitted".

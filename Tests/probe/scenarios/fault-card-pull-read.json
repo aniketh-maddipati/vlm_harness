@@ -7,7 +7,7 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": true,
- "checklist": "F2 card pulled mid-read \u2192 'card removed', nothing crashes, resumes on re-insert",
+ "checklist": "F2 card pulled mid-read → readers stop at once (nothing opened after), the page keeps and says what it read, previews of read photos still show; re-insert revives them and ⏎ reads all 200",
  "steps": [
   {
    "do": "startCards"
@@ -66,6 +66,24 @@
    "src": "return JSON.stringify(__probe.logic().state.realInfo)+' toast='+__probe.logic().state.toast"
   },
   {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "stopped reading DCIM"
+  },
+  {
+   "do": "expect",
+   "js": "const r=window.lumina.read; return r && r.stopped==='card removed' && r.total===200 && r.read===__probe.logic().state.realInfo.n && r.read+r.unreadable===200"
+  },
+  {
+   "do": "expect",
+   "js": "const s=await window.__lumina.nativeStats(); return s.gone.includes('DCIM') && s.opensAfterGone===0 && s.inFlight===0"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return (await fetch(l.data.byId[l.state.cur].lg)).status",
+   "equals": 200
+  },
+  {
    "do": "snap",
    "name": "card-pulled"
   },
@@ -98,6 +116,15 @@
    "js": "return !!window.lumina.card",
    "timeoutMs": 10000,
    "what": "card back"
+  },
+  {
+   "do": "expect",
+   "js": "const s=await window.__lumina.nativeStats(); return s.gone",
+   "equals": []
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(), ids=l.data.order; let ok=0; for (const id of ids) ok += (await fetch(l.data.byId[id].lg)).status===200; return ok===ids.length"
   },
   {
    "do": "key",

@@ -57,7 +57,9 @@ final class Runner {
                 guard let d = f.date(from: clock) else { throw ProbeError("bad clock \(clock)") }
                 config["clockBase"] = d.timeIntervalSince1970 * 1000
             }
-            let app = (spec["mode"] as? String) == "app"
+            // LUMINA_PROBE_MODE=app runs a prototype scenario through the app's plumbing (e.g. the
+            // camera edge cases through the native read, to compare with the page's own read).
+            let app = (ProcessInfo.processInfo.environment["LUMINA_PROBE_MODE"] ?? spec["mode"] as? String) == "app"
             host = try await ProbeHost.make(size: CGSize(width: size[0], height: size[1]),
                                             pageRoot: path("pageRoot", default: app ? "Lumina/Sets/Web" : "design/handoff/lumina-cull"),
                                             vendorRoot: path("vendorRoot", default: app ? "Lumina/Sets/Web" : "design/handoff/vendor"),
@@ -184,6 +186,11 @@ final class Runner {
             try await snap(try str(s, "name"))
         case "state":
             try await dumpState(try str(s, "name"))
+        case "dump":
+            // Any JSON the page can compute, saved as <name>.json (e.g. every photo's measures).
+            let r = try await host.js(try str(s, "js"), timeout: (s["timeoutMs"] as? Double ?? 30000) / 1000)
+            let text = try (r as? String) ?? String(data: try JSONSerialization.data(withJSONObject: r ?? NSNull(), options: [.prettyPrinted, .sortedKeys, .fragmentsAllowed]), encoding: .utf8)!
+            try text.write(to: outDir.appendingPathComponent("\(try str(s, "name")).json"), atomically: true, encoding: .utf8)
         case "compare":
             return try await compare(s)
         case "openFolder":
@@ -202,6 +209,7 @@ final class Runner {
             if s["readonly"] as? Bool ?? false { try disks.detach(name: try str(s, "name")); try await settle(300); try disks.attach(name: try str(s, "name"), readonly: true) }
             return m.path
         case "attach":
+            if s["ifPulled"] as? Bool ?? false, disks.mounted.contains(try str(s, "name")) { return "already in" }
             return try disks.attach(name: try str(s, "name"), readonly: s["readonly"] as? Bool ?? false).path
         case "detach":
             let name = try str(s, "name")
@@ -254,6 +262,11 @@ final class Runner {
             try? FileManager.default.removeItem(at: to)
             try FileManager.default.createDirectory(at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
             try FileManager.default.copyItem(at: from, to: to)
+        case "move":
+            // What Finder does: rename or move a file. Only this run's own copies, never anything else.
+            try FileManager.default.moveItem(at: try own(str(s, "from")), to: try own(str(s, "to")))
+        case "remove":
+            try FileManager.default.removeItem(at: try own(str(s, "path")))
         case "mkdir":
             try FileManager.default.createDirectory(at: URL(fileURLWithPath: try str(s, "path")), withIntermediateDirectories: true)
         case "writeFile":
@@ -262,6 +275,12 @@ final class Runner {
             try Data(try str(s, "text").utf8).write(to: url)
         case "fs":
             return try fsExpect(s)
+        case "xmpMerged":
+            return try await xmpMerged(s)
+        case "killExport":
+            return try await killExport(s)
+        case "nativeExport":
+            return try await nativeExport(s)
         case "refusals":
             let n = host.chooser.refusals.count
             if let want = s["count"] as? Int, want != n { throw ProbeError("expected \(want) refused destinations, got \(n): \(host.chooser.refusals)") }
@@ -318,10 +337,204 @@ final class Runner {
         return "ok"
     }
 
+    /// Lightroom hand-off (checklist F6 / L2). `dir`: where the sidecars were written. `originals`:
+    /// the sidecars as Lightroom wrote them. `expectJs`: the page's own answer, `{file: {rating,
+    /// label}}` (label null = leave what was there). Each written sidecar must parse, carry that
+    /// rating and label, and — with rating and label taken out — be byte-identical to Lightroom's.
+    private func xmpMerged(_ s: [String: Any]) async throws -> String {
+        let dir = URL(fileURLWithPath: try str(s, "dir")), orig = URL(fileURLWithPath: try str(s, "originals"))
+        guard let want = try await host.js(try str(s, "expectJs")) as? [String: [String: Any]], !want.isEmpty else { throw ProbeError("expectJs gave no files") }
+        let strip = { (t: String) -> String in
+            var t = t
+            for rx in [#"\s*xmp:(Rating|Label)="[^"]*""#, #"\s*<xmp:(Rating|Label)>[^<]*</xmp:(Rating|Label)>"#, #"\s*xmlns:xmp="http://ns.adobe.com/xap/1.0/""#] {
+                t = t.replacingOccurrences(of: rx, with: "", options: .regularExpression)
+            }
+            return t
+        }
+        let field = { (t: String, name: String) -> String? in
+            for rx in ["xmp:\(name)=\"([^\"]*)\"", "<xmp:\(name)>([^<]*)</xmp:\(name)>"] {
+                if let m = t.range(of: rx, options: .regularExpression) {
+                    let hit = String(t[m]); return hit.replacingOccurrences(of: rx, with: "$1", options: .regularExpression)
+                }
+            }
+            return nil
+        }
+        var lines: [String] = []
+        for (file, w) in want.sorted(by: { $0.key < $1.key }) {
+            let url = dir.appendingPathComponent(file)
+            guard let data = try? Data(contentsOf: url), let text = String(data: data, encoding: .utf8) else { throw ProbeError("\(file) was not written") }
+            let parser = XMLParser(data: data)
+            guard parser.parse() else { throw ProbeError("\(file) doesn't parse: \(parser.parserError.map { "\($0)" } ?? "?")") }
+            let rating = field(text, "Rating"), label = field(text, "Label")
+            if let r = w["rating"] as? String, rating != r { throw ProbeError("\(file): rating \(rating ?? "none"), want \(r)") }
+            let o = orig.appendingPathComponent(file)
+            var note = "\(file): \(rating ?? "-")★ \(label ?? "")"
+            if let od = try? Data(contentsOf: o), let ot = String(data: od, encoding: .utf8) {
+                let wantLabel = (w["label"] as? String) ?? field(ot, "Label")
+                if label != wantLabel { throw ProbeError("\(file): label \(label ?? "none"), want \(wantLabel ?? "none")") }
+                guard strip(text) == strip(ot) else {
+                    let a = strip(ot).components(separatedBy: "\n"), b = strip(text).components(separatedBy: "\n")
+                    let i = (0..<min(a.count, b.count)).first { a[$0] != b[$0] } ?? min(a.count, b.count)
+                    throw ProbeError("\(file): more than rating/label changed, first at line \(i + 1): \(a.indices.contains(i) ? a[i] : "∅") → \(b.indices.contains(i) ? b[i] : "∅")")
+                }
+                let crs = ot.components(separatedBy: "crs:").count - 1
+                note += " · \(crs) crs: settings kept byte for byte"
+            } else if let l = w["label"] as? String, label != l {
+                throw ProbeError("\(file): label \(label ?? "none"), want \(l)")
+            }
+            // A second reader: exiftool, when installed, must read the same stars.
+            if let exif = ["/opt/homebrew/bin/exiftool", "/usr/local/bin/exiftool"].first(where: { FileManager.default.isExecutableFile(atPath: $0) }) {
+                let p = Process(), out = Pipe()
+                p.executableURL = URL(fileURLWithPath: exif); p.arguments = ["-s3", "-XMP:Rating", url.path]; p.standardOutput = out
+                try p.run(); p.waitUntilExit()
+                let got = String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                if got != rating { throw ProbeError("\(file): exiftool reads rating \(got ?? "nil"), file says \(rating ?? "nil")") }
+                note += " · exiftool agrees"
+            }
+            lines.append(note)
+        }
+        return "\n  " + lines.joined(separator: "\n  ")
+    }
+
+    /// Kill mid-handoff (checklist F10, gate 8). A real process runs the app's export (RAW copies +
+    /// .xmp sidecars, half of them replacing an older sidecar) and is SIGKILLed at seeded points:
+    /// before the first file, inside a file, between files. After each kill the app's launch recovery
+    /// runs, then the destination must hold only: finished files (verified bytes), untouched old
+    /// sidecars, and .lumina-bak copies of the old bytes. Every .xmp must parse. Then the export is
+    /// run again and must complete with every file right.
+    private func killExport(_ s: [String: Any]) async throws -> String {
+        let fm = FileManager.default
+        let from = URL(fileURLWithPath: try str(s, "from"))
+        let raws = try fm.contentsOfDirectory(at: from, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension.lowercased() == "arw" && !$0.lastPathComponent.hasPrefix("._") }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }.prefix(s["count"] as? Int ?? 6)
+        guard !raws.isEmpty else { throw ProbeError("no ARWs in \(from.path)") }
+        let xmp = { (r: Int, who: String) in
+            "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" xmp:Rating=\"\(r)\" xmp:CreatorTool=\"\(who)\"/></rdf:RDF></x:xmpmeta>\n"
+        }
+        var items: [[String: String]] = [], want: [String: Data] = [:], old: [String: Data] = [:]
+        for (i, raw) in raws.enumerated() {
+            let stem = raw.deletingPathExtension().lastPathComponent
+            items.append(["name": "RAW/\(raw.lastPathComponent)", "copy": raw.path])
+            want["RAW/\(raw.lastPathComponent)"] = try Data(contentsOf: raw)
+            items.append(["name": "\(stem).xmp", "text": xmp(3 + i % 3, "Lumina")])
+            want["\(stem).xmp"] = Data(xmp(3 + i % 3, "Lumina").utf8)
+            if i % 2 == 0 { old["\(stem).xmp"] = Data(xmp(1, "Adobe Lightroom").utf8) }
+        }
+        let worker = Bundle.main.executableURL!
+        var rng = SplitMix(seed: UInt64(s["seed"] as? Int ?? 8))
+        let kills = s["kills"] as? Int ?? 16
+        var phases: [String: Int] = [:], leftovers = 0, recoveredTemps = 0
+
+        func allFiles(_ d: URL) -> [String] { (fm.enumerator(atPath: d.path)?.allObjects as? [String] ?? []).filter { !$0.hasSuffix("/") && !((try? fm.attributesOfItem(atPath: d.appendingPathComponent($0).path)[.type] as? FileAttributeType) == .typeDirectory) } }
+        func runWorker(_ plan: URL) throws -> Process {
+            let p = Process(); p.executableURL = worker; p.arguments = ["export-worker", plan.path]
+            p.standardOutput = FileHandle.nullDevice; try p.run(); return p
+        }
+        func journal(_ dir: URL) -> SetsExportJournal.Entry? {
+            let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
+            return (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil))?.filter { $0.pathExtension == "json" }
+                .sorted { $0.lastPathComponent > $1.lastPathComponent }.first.flatMap { try? dec.decode(SetsExportJournal.Entry.self, from: Data(contentsOf: $0)) }
+        }
+        /// What may be in the destination, and each file's bytes must be one of the allowed states.
+        func verify(_ dest: URL, done: Set<String>, complete: Bool, _ tag: String) throws {
+            for f in allFiles(dest) {
+                let data = try Data(contentsOf: dest.appendingPathComponent(f))
+                if f.hasSuffix(".xmp") && !XMLParser(data: data).parse() { throw ProbeError("\(tag): \(f) is torn (doesn't parse)") }
+                if f.hasSuffix(SetsFileOps.backupSuffix) {
+                    let owner = String(f.dropLast(SetsFileOps.backupSuffix.count))
+                    guard let o = old[owner], o == data else { throw ProbeError("\(tag): \(f) isn't the old \(owner)") }
+                } else if let w = want[f] {
+                    if data == w { continue }
+                    if complete || done.contains(f) { throw ProbeError("\(tag): \(f) is marked done but its bytes are wrong") }
+                    guard old[f] == data else { throw ProbeError("\(tag): \(f) is neither the old file nor the new one (\(data.count) bytes)") }
+                } else {
+                    throw ProbeError("\(tag): stray file \(f) left in the destination")
+                }
+            }
+            for name in done where !fm.fileExists(atPath: dest.appendingPathComponent(name).path) { throw ProbeError("\(tag): journal says \(name) is done, it isn't there") }
+            if complete { for name in want.keys where !fm.fileExists(atPath: dest.appendingPathComponent(name).path) { throw ProbeError("\(tag): \(name) missing after the export finished") } }
+        }
+
+        for n in 0..<kills {
+            let base = outDir.appendingPathComponent("kill/\(n)"), dest = base.appendingPathComponent("dest"), jdir = base.appendingPathComponent("journal")
+            try? fm.removeItem(at: base)
+            try fm.createDirectory(at: dest, withIntermediateDirectories: true)
+            for (name, data) in old { try data.write(to: dest.appendingPathComponent(name)) }
+            let plan = base.appendingPathComponent("plan.json")
+            try JSONSerialization.data(withJSONObject: ["destination": dest.path, "journalDir": jdir.path, "items": items, "label": "lr"]).write(to: plan)
+            // Kill once the journal shows k files done, then a little later: lands before, inside or between files.
+            let k = Int(rng.next() % UInt64(items.count)), extra = rng.unit() * 60
+            let p = try runWorker(plan)
+            let t0 = Date()
+            while p.isRunning, (journal(jdir)?.done.count ?? -1) < k, Date().timeIntervalSince(t0) < 60 { try await settle(1) }
+            try await settle(extra)
+            let killed = p.isRunning
+            if killed { kill(p.processIdentifier, SIGKILL) }
+            p.waitUntilExit()
+            let temps = allFiles(dest).filter { $0.contains(".lumina-tmp-") }.count
+            leftovers += temps
+            let before = journal(jdir)
+            let phase = !killed ? "finished before the kill" : temps > 0 ? "inside a file" : (before?.done.count ?? 0) == 0 ? "before the first file" : "between files"
+            phases[phase, default: 0] += 1
+            // Next launch.
+            let rec = SetsExportJournal.recover(in: jdir)
+            recoveredTemps += rec.reduce(0) { $0 + ($1.tempsRemoved ?? 0) }
+            let entry = journal(jdir)
+            if killed, entry?.ok != true, entry?.recovered == nil { throw ProbeError("kill \(n): journal not marked recovered") }
+            try verify(dest, done: Set(entry?.done ?? []), complete: entry?.ok == true, "kill \(n) (\(phase), k=\(k))")
+            // Export again: must finish, with every file right and the old sidecars kept once.
+            let again = try runWorker(plan); again.waitUntilExit()
+            guard again.terminationStatus == 0, journal(jdir)?.ok == true else { throw ProbeError("kill \(n): export again failed") }
+            try verify(dest, done: Set(want.keys), complete: true, "kill \(n) re-export")
+            for name in old.keys where !fm.fileExists(atPath: dest.appendingPathComponent(name + SetsFileOps.backupSuffix).path) { throw ProbeError("kill \(n): \(name).lumina-bak missing") }
+            try? fm.removeItem(at: dest.appendingPathComponent("RAW"))       // keep the evidence folder small
+        }
+        if recoveredTemps != leftovers { throw ProbeError("\(leftovers) temp files left by kills, recovery removed \(recoveredTemps)") }
+        return "\(kills) kills · " + phases.sorted { $0.key < $1.key }.map { "\($0.value) \($0.key)" }.joined(separator: ", ") + " · \(leftovers) temp files left by kills, all removed on relaunch"
+    }
+
+    /// The app's export job run directly, no page: `from` (ARWs to copy, first `count`), `dest`,
+    /// `sources` (folders being culled). `fill: {path, mb, afterMs}` writes a filler file while it
+    /// runs (the disk fills up mid-copy). Expect with `n` and `failedContains`.
+    private func nativeExport(_ s: [String: Any]) async throws -> String {
+        let from = URL(fileURLWithPath: try str(s, "from")), dest = URL(fileURLWithPath: try str(s, "dest"))
+        let raws = try FileManager.default.contentsOfDirectory(at: from, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension.lowercased() == "arw" && !$0.lastPathComponent.hasPrefix("._") }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }.prefix(s["count"] as? Int ?? 3)
+        var items: [SetsExportJob.Item] = raws.map { .copy(name: "RAW/\($0.lastPathComponent)", source: $0) }
+        items.append(.bytes(name: "note.xmp", data: Data("<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"/>".utf8)))
+        let sources = try (s["sources"] as? [String] ?? []).map { try str(["v": $0], "v") }.map { URL(fileURLWithPath: $0) }
+        let job = SetsExportJob(label: "both", destination: dest, items: items)
+        let jdir = outDir.appendingPathComponent("journal-\(UUID().uuidString.prefix(6))")
+        let task = Task.detached { job.run(journal: SetsExportJournal(directory: jdir), sources: sources) }
+        if let fill = s["fill"] as? [String: Any] {
+            try await settle(fill["afterMs"] as? Double ?? 20)
+            let url = URL(fileURLWithPath: try str(fill, "path"))
+            let mb = fill["mb"] as? Int ?? 50
+            FileManager.default.createFile(atPath: url.path, contents: nil)
+            let h = try FileHandle(forWritingTo: url)
+            for _ in 0..<mb { if (try? h.write(contentsOf: Data(count: 1 << 20))) == nil { break } }
+            try? h.close()
+        }
+        let r = await task.value
+        let note = "\(r.n) written · failed: \(r.failed.joined(separator: " | "))"
+        if let n = s["n"] as? Int, n != r.n { throw ProbeError("expected \(n) written, got \(note)") }
+        if let c = s["failedContains"] as? String, !r.failed.joined().contains(c) { throw ProbeError("expected a failure containing '\(c)', got \(note)") }
+        // Whatever was written is complete and verified; nothing half-written anywhere under dest.
+        for case let f as String in FileManager.default.enumerator(atPath: dest.path) ?? NSEnumerator() {
+            if f.contains(".lumina-tmp-") { throw ProbeError("temp file left: \(f)") }
+            if f.hasPrefix("RAW/"), let src = raws.first(where: { $0.lastPathComponent == (f as NSString).lastPathComponent }),
+               try SetsFileOps.sha256(file: dest.appendingPathComponent(f)) != SetsFileOps.sha256(file: src) { throw ProbeError("\(f) differs from its original") }
+        }
+        return note
+    }
+
     // MARK: Fuzzer
 
     /// Seeded key/mouse storm. Replays exactly from the seed; the last 60 inputs are kept in the
-    /// report so a failure can be turned into a scenario.
+    /// report so a failure can be turned into a scenario. `chaos: {disk, rate}` also pulls and
+    /// re-inserts that disk image at random (app mode: a card yanked mid-read, mid-cull, mid-export).
     private func fuzz(_ s: [String: Any]) async throws -> String {
         var rng = SplitMix(seed: UInt64(s["seed"] as? Int ?? 1))
         let count = s["count"] as? Int ?? 1000
@@ -330,12 +543,19 @@ final class Runner {
         let exclude = Set(s["exclude"] as? [String] ?? [])
         let keys = (s["keys"] as? [String] ?? Keys.pageKeys).filter { !exclude.contains($0) }
         let mouseRate = s["mouseRate"] as? Double ?? 0.08
+        let chaos = s["chaos"] as? [String: Any]
+        let chaosDisk = chaos?["disk"] as? String, chaosRate = chaos?["rate"] as? Double ?? 0
         let size = host.webView.bounds.size
         var trail: [String] = []
+        var pulls = 0
         for n in 0..<count {
             let roll = rng.unit()
             var input: String
-            if roll < mouseRate {
+            if let disk = chaosDisk, rng.unit() < chaosRate {
+                if disks.mounted.contains(disk) { try disks.detach(name: disk); input = "PULL \(disk)"; pulls += 1 }
+                else { try disks.attach(name: disk, readonly: false); input = "INSERT \(disk)" }
+                host.log("disk", input)
+            } else if roll < mouseRate {
                 let p = CGPoint(x: rng.unit() * size.width, y: rng.unit() * size.height)
                 if rng.unit() < 0.25 {
                     let q = CGPoint(x: rng.unit() * size.width, y: rng.unit() * size.height)
@@ -377,7 +597,7 @@ final class Runner {
             }
         }
         let st = try await host.js("const s=__probe.logic().state; return s.view+' · '+Object.keys(s.marks||{}).length+' marked · undo '+(s.undo||[]).length")
-        return "\(count) inputs survived · \(st ?? "")"
+        return "\(count) inputs survived\(chaosDisk != nil ? " · \(pulls) card pulls" : "") · \(st ?? "")"
     }
 
     // MARK: Helpers
@@ -466,6 +686,14 @@ final class Runner {
     private func pt(_ v: Any?) throws -> CGPoint {
         guard let a = v as? [Double], a.count == 2 else { throw ProbeError("point must be [x, y]") }
         return CGPoint(x: a[0], y: a[1])
+    }
+
+    /// A path inside this scenario's output folder, or an error: file-changing steps can't reach
+    /// a real card or the user's folders.
+    private func own(_ path: String) throws -> URL {
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+        guard SetsIngest.plainPath(url).hasPrefix(SetsIngest.plainPath(outDir) + "/") else { throw ProbeError("\(path) is outside this run's folder: refused") }
+        return url
     }
 
     private func strs(_ s: [String: Any], _ k: String) throws -> [String] {

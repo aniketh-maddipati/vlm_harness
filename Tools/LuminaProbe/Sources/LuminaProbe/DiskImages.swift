@@ -7,6 +7,7 @@ import Foundation
 final class DiskImages {
     struct Image { let dmg: URL; var mount: URL; var device: String? }
     private(set) var images: [String: Image] = [:]
+    private(set) var mounted: Set<String> = []
     let root: URL
 
     init(root: URL) { self.root = root }
@@ -51,6 +52,7 @@ final class DiskImages {
         let out = try hdiutil(args)
         let device = out.split(separator: "\n").first.map { String($0.split(separator: "\t").first ?? "").trimmingCharacters(in: .whitespaces) }
         images[name] = Image(dmg: image, mount: mount, device: device)
+        mounted.insert(name)
         return mount
     }
 
@@ -58,6 +60,7 @@ final class DiskImages {
     func detach(name: String) throws {
         guard let img = images[name] else { throw ProbeError("no image \(name)") }
         try hdiutil(["detach", img.device ?? img.mount.path, "-force"])
+        mounted.remove(name)
     }
 
     func detachAll() {

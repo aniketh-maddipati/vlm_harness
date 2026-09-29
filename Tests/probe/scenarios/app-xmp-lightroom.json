@@ -1,0 +1,189 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Gate 7 / F6 / L2: real Lightroom 9.3.1 sidecars (.xmp and .XMP, one with 2★ Red) next to their RAWs. Export for Lightroom merges: only stars and label change, every crs: setting byte-identical, exiftool reads the stars; into a folder holding Lightroom's files, each old file is kept as .lumina-bak; the source sidecars and RAWs never change.",
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/lr-sidecar",
+   "to": "${OUT}/shoot/lr"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/lr",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "expect",
+   "js": "const i=__probe.logic().state.realInfo; return [i.n,i.xmpN,i.lrN,i.bad]",
+   "equals": [
+    3,
+    2,
+    2,
+    0
+   ]
+  },
+  {
+   "do": "key",
+   "k": "1",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "times": 3,
+   "gapMs": 150,
+   "settleMs": 150
+  },
+  {
+   "do": "expect",
+   "js": "return Object.values(__probe.logic().state.marks).filter(m=>m==='keep').length",
+   "equals": 3
+  },
+  {
+   "do": "key",
+   "k": "2",
+   "settleMs": 500
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 300
+  },
+  {
+   "do": "expect",
+   "js": "return Object.keys(__probe.logic().state.final).length",
+   "equals": 1
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 500
+  },
+  {
+   "do": "expect",
+   "js": "return (__probe.logic().state.ex||{}).target||'lr'",
+   "equals": "lr"
+  },
+  {
+   "do": "destinations",
+   "paths": [
+    "${OUT}/xmp-dest"
+   ]
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 2500
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/xmp-dest",
+   "glob": "*.xmp",
+   "count": 2
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/xmp-dest",
+   "glob": "*.XMP",
+   "count": 1
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/xmp-dest",
+   "glob": "*.lumina-bak",
+   "count": 0
+  },
+  {
+   "do": "xmpMerged",
+   "dir": "${OUT}/xmp-dest",
+   "originals": "${LUMINA_FIXTURE_ROOT}/lr-sidecar.orig",
+   "expectJs": "const l=__probe.logic(), s=l.state, ex=s.ex||{}, o={}; for (const id of l.data.order) { const p=l.data.byId[id], fin=!!s.final[id]; if (s.marks[id]!=='keep' && !fin) continue; o[(p.xpath||'').split('/').pop()]={rating:String(fin?(ex.rf||5):(ex.rk||3)), label: fin && (ex.lab||'Green')!=='None' ? (ex.lab||'Green') : null}; } return o;"
+  },
+  {
+   "do": "snap",
+   "name": "lr-result"
+  },
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/lr-sidecar.orig",
+   "to": "${OUT}/lr-folder"
+  },
+  {
+   "do": "destinations",
+   "paths": [
+    "${OUT}/lr-folder"
+   ]
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 2500
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/lr-folder",
+   "glob": "*.lumina-bak",
+   "count": 2
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/lr-folder/DSC08186.xmp.lumina-bak",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar.orig/DSC08186.xmp"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/lr-folder/DSC08187.XMP.lumina-bak",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar.orig/DSC08187.XMP"
+  },
+  {
+   "do": "xmpMerged",
+   "dir": "${OUT}/lr-folder",
+   "originals": "${LUMINA_FIXTURE_ROOT}/lr-sidecar.orig",
+   "expectJs": "const l=__probe.logic(), s=l.state, ex=s.ex||{}, o={}; for (const id of l.data.order) { const p=l.data.byId[id], fin=!!s.final[id]; if (s.marks[id]!=='keep' && !fin) continue; o[(p.xpath||'').split('/').pop()]={rating:String(fin?(ex.rf||5):(ex.rk||3)), label: fin && (ex.lab||'Green')!=='None' ? (ex.lab||'Green') : null}; } return o;"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/lr-folder",
+   "glob": "*lumina-tmp*",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08186.xmp",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar.orig/DSC08186.xmp"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08187.XMP",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar.orig/DSC08187.XMP"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08186.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar/DSC08186.ARW"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr",
+   "glob": "*",
+   "count": 5
+  }
+ ]
+}

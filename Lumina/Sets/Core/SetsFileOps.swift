@@ -2,7 +2,8 @@ import CryptoKit
 import Foundation
 
 /// Every write Lumina makes goes through here. Rules (ROADMAP trust list, README export contract):
-/// - a file being replaced is first kept as `<name>.lumina-bak`;
+/// - a file being replaced is first kept as `<name>.lumina-bak`; an existing `.lumina-bak` is never
+///   replaced, so it stays the file as it was before Lumina first wrote there;
 /// - new bytes land atomically (temp file in the same folder, then rename) and are read back and
 ///   checksummed before the write counts as done;
 /// - copies never move and never overwrite a different file: a name clash with different content
@@ -36,7 +37,9 @@ nonisolated enum SetsFileOps {
 
     // MARK: Write
 
-    /// Writes `data` to `url`. An existing file is first kept as `url.lumina-bak`.
+    /// Writes `data` to `url`. An existing file is first kept as `url.lumina-bak`, unless a backup
+    /// is already there: that one is the original (e.g. Lightroom's sidecar before Lumina's first
+    /// export) and a later export must not replace it with Lumina's own earlier output.
     @discardableResult
     static func write(_ data: Data, to url: URL) throws -> WriteResult {
         let fm = FileManager.default
@@ -45,8 +48,10 @@ nonisolated enum SetsFileOps {
         if fm.fileExists(atPath: url.path) {
             let old = try Data(contentsOf: url)
             if old == data { return WriteResult(backedUp: false) }            // nothing to change
-            try atomicWrite(old, to: backupURL(for: url))
-            backedUp = true
+            if !fm.fileExists(atPath: backupURL(for: url).path) {
+                try atomicWrite(old, to: backupURL(for: url))
+                backedUp = true
+            }
         }
         try atomicWrite(data, to: url)
         return WriteResult(backedUp: backedUp)
@@ -89,8 +94,8 @@ nonisolated enum SetsFileOps {
     /// Copies `src` to `dst` (never moves). Streams with a running SHA-256, then re-reads the copy.
     static func copyVerified(_ src: URL, to dst: URL) throws -> CopyOutcome {
         let fm = FileManager.default
+        let srcHash = try sha256(file: src)                  // first: a missing original creates nothing
         try fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let srcHash = try sha256(file: src)
         var target = dst
         var renamed = false
         var n = 2

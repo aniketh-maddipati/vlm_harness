@@ -98,6 +98,38 @@
       for (const [id, m] of Object.entries(s.marks || {})) if (m !== 'keep' && m !== 'out' && m !== null) { v.push('bad mark ' + id + '=' + m); break; }
       if (!Array.isArray(s.undo)) v.push('undo is not a list');
       if (d.order.length !== new Set(d.order).size) v.push('duplicate ids in order');
+      if (window.__lumina && window.__lumina.inspect) return P.appInvariants(v);
+      return v;
+    },
+    // App mode: the page's state surface (__lumina.inspect) and the Mac's reader must agree.
+    async appInvariants(v) {
+      const i = window.__lumina.inspect();
+      if (i.real) {
+        if (i.lgHeld) v.push(i.lgHeld + ' large previews held by the page (must be lumina:// URLs)');
+        if (i.zsrcOff) v.push(i.zsrcOff + ' photos zoom a different image than their large view');
+        if (i.srcNotBlob) v.push(i.srcNotBlob + ' grid thumbnails not held by the page');
+        if (i.dupPaths) v.push(i.dupPaths + ' photos share a file path');
+        if (i.order !== i.real) v.push('shoot has ' + i.order + ' photos but ' + i.real + ' were read');
+      }
+      if (i.reading) {
+        const r = i.reading;
+        if (r.done < 0 || r.done > r.total) v.push('read progress ' + r.done + ' / ' + r.total);
+        if (i.realLoad && i.realLoad.total !== r.total) v.push('page shows ' + i.realLoad.total + ' to read, the listing has ' + r.total);
+      }
+      const lr = i.lastRead, info = i.realInfo;
+      if (!i.reading && lr && info && info.name === lr.name && lr.read) {
+        if (info.n !== lr.read) v.push('page says ' + info.n + ' photos, the read kept ' + lr.read);
+        if (info.n + info.bad !== lr.total) v.push(info.n + ' read + ' + info.bad + ' unreadable ≠ ' + lr.total + ' listed');
+        if (lr.stopped && !lr.read) v.push('stopped read left photos behind');
+      }
+      if (lr && window.lumina.read && window.lumina.read.total !== lr.total) v.push('lumina.read disagrees with the last read');
+      const n = await window.__lumina.nativeStats();
+      if (n) {
+        if (n.opensAfterGone) v.push(n.opensAfterGone + ' files opened after their card was pulled');
+        if (n.maxInFlight > n.workers + 2) v.push(n.maxInFlight + ' reads at once (limit ' + n.workers + ' + 2 prefetch)');
+        if (n.largestRead > (16 << 20)) v.push('a ' + (n.largestRead >> 20) + ' MB read: ingest must never read a whole RAW');
+        if (!i.reading && i.card === null && i.lastRead && n.gone.length === 0 && i.lastRead.stopped) v.push('read stopped for a pulled card, but the reader never marked it gone');
+      }
       return v;
     },
     framesStart() { frames.on = true; frames.gaps = []; frames.last = 0; },

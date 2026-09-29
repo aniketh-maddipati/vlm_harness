@@ -1,0 +1,112 @@
+{
+ "mode": "app",
+ "app": {
+  "sample": true
+ },
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "checklist": "Gate 5: seeded key/mouse storm over a real card read natively, with the card pulled and re-inserted at random; the page's state surface and the Mac's reader are checked every 20 inputs",
+ "budgets": {
+  "webPeakMB": 1500
+ },
+ "steps": [
+  {
+   "do": "startCards"
+  },
+  {
+   "do": "diskImage",
+   "name": "LTFUZZ",
+   "sizeMB": 200,
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "trimBytes": 1400000,
+   "count": 80
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!(window.lumina.card && window.lumina.card.photos===80)",
+   "timeoutMs": 10000,
+   "what": "card noticed"
+  },
+  {
+   "do": "key",
+   "k": "0",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 50
+  },
+  {
+   "do": "fuzz",
+   "seed": 7,
+   "count": 2000,
+   "gapMs": [
+    0,
+    20
+   ],
+   "checkEvery": 20,
+   "mouseRate": 0.05,
+   "chaos": {
+    "disk": "LTFUZZ",
+    "rate": 0.006
+   }
+  },
+  {
+   "do": "attach",
+   "name": "LTFUZZ",
+   "ifPulled": true
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!window.lumina.card && !window.__lumina.inspect().reading",
+   "timeoutMs": 30000,
+   "what": "card in, no read running"
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "0",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 100
+  },
+  {
+   "do": "waitFor",
+   "js": "const i=window.__lumina.inspect(); return !i.reading && i.real===80",
+   "timeoutMs": 60000,
+   "what": "full read after the storm"
+  },
+  {
+   "do": "invariants"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.realInfo.bad",
+   "equals": 0
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(await window.__lumina.nativeStats())"
+  },
+  {
+   "do": "snap",
+   "name": "end"
+  },
+  {
+   "do": "state",
+   "name": "end"
+  }
+ ]
+}
