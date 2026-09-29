@@ -63,6 +63,8 @@ into Claude Design as it is. Every item was found by the probe harness against v
 
 >
 > **10. Exposure story image quality.** The story cover and photo blocks use `byId[id].src`, the 360 px grid thumbnail (JPEG 0.82), so they look grainy when shown large: the cover is about 1400 px wide. Use `byId[id].lg` (the 1616 px embedded preview, which the Large view already uses) for the story cover and blocks, and keep `src` for grid tiles only. Later the app can supply a full-resolution render the same way.
+>
+> **11. One sidecar per RAW when both `DSC….xmp` and `DSC….XMP` exist** (possible on a case-sensitive disk). `onDir` keeps whichever file finishes reading last (a race). Use the lower-case `.xmp` (Adobe's name, and the name new sidecars get); otherwise the first by name. Never read or write the other one.
 ---
 
 ## How each ask is checked once the new handoff lands
@@ -71,3 +73,4 @@ into Claude Design as it is. Every item was found by the probe harness against v
 - **2:** `Tests/probe/scenarios/app-empty-start.json` (fails today, is expected to pass on v7). The app then switches its sample default off (`SetsRootView.showsSample`).
 - **4, 5:** the sync script's wording and demo-layer audit.
 - **7:** `node lumina-core.test.mjs` plus `Tests/probe/scenarios/edge-*.json`.
+- **11:** `app-xmp-both` (the app already applies the rule in its native read); run it with `LUMINA_PROBE_MODE=page` to check the page's own read.

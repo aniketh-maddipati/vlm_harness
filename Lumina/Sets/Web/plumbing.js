@@ -137,7 +137,14 @@
     };
     const ingest = async L => {
       const C = logic.constructor, xmpMap = {};
-      for (const x of L.xmp || []) xmpMap[x.rel.replace(/\.[^.\/]+$/, '').toLowerCase()] = { tx: x.text, path: x.rel };
+      // One sidecar per RAW. On a case-sensitive disk both DSC.xmp and DSC.XMP can exist: the
+      // lower-case .xmp wins (Adobe's name, and the one the page gives new sidecars), else the first
+      // by name, never whichever was listed last. The other file is never read or written.
+      const sidecars = (L.xmp || []).slice().sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+      for (const x of sidecars) {
+        const k = x.rel.replace(/\.[^.\/]+$/, '').toLowerCase(), had = xmpMap[k];
+        if (!had || (/\.xmp$/.test(x.rel) && !/\.xmp$/.test(had.path))) xmpMap[k] = { tx: x.text, path: x.rel };
+      }
       const files = (L.files || []).slice().sort((a, b) => a.rel.localeCompare(b.rel));
       if (!files.length) return logic.say('no ARW files in that folder');
       const run = reading = { name: L.name, total: files.length, done: 0, gone: false };

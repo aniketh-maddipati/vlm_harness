@@ -109,7 +109,17 @@ if [[ -n "${LUMINA_LR_EXPORT_DIR:-}" && -n "${LUMINA_LR_RAW_DIR:-}" ]]; then
     n=$((n+1)); [[ $n == 3 ]] && break
   done
   mkdir -p "$d.orig" && rm -f "$d.orig"/* && cp "$d"/*.[xX][mM][pP] "$d.orig/"   # pristine sidecars to compare against
+  # lr-sidecar-both: one RAW with both DSC….xmp (Lightroom's) and DSC….XMP (the same packet at 1★
+  # Yellow, as another app might leave it). A case-insensitive disk can't hold both names, so the
+  # upper-case one is stored as DSC….upper.XMP; app-xmp-both renames it on a case-sensitive image.
+  first=$(ls "$d" | grep '\.xmp$' | head -1); stem="${first%.*}"
+  b=$(fresh lr-sidecar-both)
+  cp -c "$d/$stem.ARW" "$b/" 2>/dev/null || cp "$d/$stem.ARW" "$b/"
+  cp "$d/$stem.xmp" "$b/$stem.xmp"
+  sed 's|^\( *\)xmp:CreatorTool=\(.*\)$|\1xmp:CreatorTool=\2\
+\1xmp:Rating="1"\
+\1xmp:Label="Yellow"|' "$d/$stem.xmp" > "$b/$stem.upper.XMP"
 fi
 
-echo "fixtures in $ROOT:"; for c in two-bodies dup-dsc orientation corrupt-preview junk-in-folder burst-10fps tz-jump shutter-bracket lr-sidecar; do
+echo "fixtures in $ROOT:"; for c in two-bodies dup-dsc orientation corrupt-preview junk-in-folder burst-10fps tz-jump shutter-bracket lr-sidecar lr-sidecar-both; do
   printf '  %-16s %s files\n' "$c" "$(find "$ROOT/$c" -type f | wc -l | tr -d ' ')"; done

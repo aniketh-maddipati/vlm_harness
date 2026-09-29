@@ -12,7 +12,8 @@
 #                                                kill -9 mid-export + relaunch recovery
 #   bash Scripts/probe.sh contract               plumbing.js still fits the page (run by sets_sync_design.sh)
 #   bash Scripts/probe.sh app                    the app's own bridge: exports, refusals, .lumina-bak, sessions, ΔE,
-#                                                Lightroom .xmp merge (lr-sidecar fixture), files renamed mid-cull
+#                                                Lightroom .xmp merge (lr-sidecar fixtures, incl. .xmp + .XMP on a
+#                                                case-sensitive disk), files renamed mid-cull
 #                                                (needs LUMINA_FIXTURE_ROOT)
 #   bash Scripts/probe.sh all [--require-all]    everything; --require-all turns a SKIP into a failure
 #
@@ -91,11 +92,11 @@ case "$suite" in
   edge)      run "$S"/edge-*.json ;;
   ingest)    LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
   card)      run "$S/card-stress.json" "$S/golden-card.json" ;;
-  app)       run "$S/app-plumbing-contract.json" "$S/app-export.json" "$S/app-session.json" "$S/look-parity.json" "$S/app-xmp-lightroom.json" "$S/app-rename-mid-cull.json" ;;
+  app)       run "$S/app-plumbing-contract.json" "$S/app-export.json" "$S/app-session.json" "$S/look-parity.json" "$S/app-xmp-lightroom.json" "$S/app-rename-mid-cull.json" "$S/app-xmp-both.json" ;;
   contract)  run "$S/app-plumbing-contract.json" ;;
   fault)     run "$S"/fault-*.json ;;           # disk images: card pulled mid-read / mid-export, disk full, locked card
   empty)     run "$S/app-empty-start.json" ;;     # acceptance test for DESIGN-ASKS #2; fails until v7
-  all)       reference; run "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" "$S"/edge-*.json "$S/app-plumbing-contract.json" "$S/app-export.json" "$S/app-session.json" "$S/look-parity.json" "$S/app-xmp-lightroom.json" "$S/app-rename-mid-cull.json" "$S"/fault-*.json "$S/card-stress.json"
+  all)       reference; run "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" "$S"/edge-*.json "$S/app-plumbing-contract.json" "$S/app-export.json" "$S/app-session.json" "$S/look-parity.json" "$S/app-xmp-lightroom.json" "$S/app-rename-mid-cull.json" "$S/app-xmp-both.json" "$S"/fault-*.json "$S/card-stress.json"
              LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
   *)         sed -n '2,13p' "$0"; exit 2 ;;
 esac
