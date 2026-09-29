@@ -70,7 +70,7 @@ final class Runner {
             sampler.start(interval: ((spec["sampleMs"] as? Double) ?? 250) / 1000) { [host] in
                 [(getpid(), "probe"), (host!.webProcessID, "web")]
             }
-            try await host.load((spec["page"] as? String) ?? "Lumina Sets v3.dc.html")
+            try await host.load((spec["page"] as? String) ?? "Lumina Sets v5.dc.html")
             try await waitFor("return window.__probe && __probe.ready()", timeout: 30, what: "page ready")
 
             for (i, step) in ((spec["steps"] as? [[String: Any]]) ?? []).enumerated() {
@@ -245,7 +245,7 @@ final class Runner {
             host.webView.evaluateJavaScript("window.__lumina && __lumina.openFolder()", completionHandler: nil)
             try await waitFor("const l=__probe.logic(); return !!(l.real && !l.state.realLoad)", timeout: (s["timeoutMs"] as? Double ?? 60000) / 1000, what: "folder loaded via menu")
         case "reload":
-            try await host.load((spec["page"] as? String) ?? "Lumina Sets v3.dc.html")
+            try await host.load((spec["page"] as? String) ?? "Lumina Sets v5.dc.html")
             try await waitFor("return window.__probe && __probe.ready()", timeout: 30, what: "page ready after reload")
             try await settle(s["settleMs"] as? Double ?? 600)
         case "logged":

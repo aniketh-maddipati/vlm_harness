@@ -8,9 +8,12 @@ final class SetsPageBytesTests: XCTestCase {
     func testBundledPageMatchesTheDesign() throws {
         let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let pairs: [(String, String)] = [
-            ("design/handoff/lumina-cull/Lumina Sets v3.dc.html", "Lumina/Sets/Web/Lumina Sets v3.dc.html"),
+            // Same list as Scripts/page_files.sh
+            ("design/handoff/lumina-cull/Lumina Sets v5.dc.html", "Lumina/Sets/Web/Lumina Sets v5.dc.html"),
             ("design/handoff/lumina-cull/support.js", "Lumina/Sets/Web/support.js"),
-            ("design/handoff/lumina-cull/lumina-core.js", "Lumina/Sets/Web/lumina-core.js"),
+            ("design/handoff/lumina-cull/lumina-core-v4.js", "Lumina/Sets/Web/lumina-core-v4.js"),
+            ("design/handoff/lumina-cull/lumina-v4-data.js", "Lumina/Sets/Web/lumina-v4-data.js"),
+            ("design/handoff/lumina-cull/lumina-selftest.js", "Lumina/Sets/Web/lumina-selftest.js"),
             ("design/handoff/vendor/react.production.min.js", "Lumina/Sets/Web/react.production.min.js"),
             ("design/handoff/vendor/react-dom.production.min.js", "Lumina/Sets/Web/react-dom.production.min.js"),
             ("design/handoff/vendor/babel.min.js", "Lumina/Sets/Web/babel.min.js"),

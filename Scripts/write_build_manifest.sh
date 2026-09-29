@@ -3,7 +3,7 @@
 # it ships, as LuminaBuild.json in the app's Resources.
 set -eu
 ROOT="${SRCROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-PAGE="$ROOT/design/handoff/lumina-cull/Lumina Sets v3.dc.html"
+PAGE="$ROOT/design/handoff/lumina-cull/Lumina Sets v5.dc.html"
 sha() { shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1; }
 GIT_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
 DEST="${TARGET_BUILD_DIR:-$ROOT/build}/${UNLOCALIZED_RESOURCES_FOLDER_PATH:-}"
@@ -15,7 +15,7 @@ cat > "$DEST/LuminaBuild.json" <<EOF
   "configuration": "${CONFIGURATION:-}",
   "git_sha": "$GIT_SHA",
   "design_page_sha256": "$(sha "$PAGE")",
-  "lumina_core_sha256": "$(sha "$ROOT/design/handoff/lumina-cull/lumina-core.js")",
+  "lumina_core_sha256": "$(sha "$ROOT/design/handoff/lumina-cull/lumina-core-v4.js")",
   "built_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF
