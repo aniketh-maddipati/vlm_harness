@@ -100,7 +100,8 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         let parts = rel.split(separator: "/", maxSplits: 1).map(String.init)
         guard parts.count == 2, let root = root(named: parts[0]) else { return nil }
         let url = root.appendingPathComponent(parts[1]).standardizedFileURL
-        guard url.path.hasPrefix(root.standardizedFileURL.path + "/") else { return nil }
+        // Compared as plain paths: a file that no longer exists keeps a /private prefix its folder loses.
+        guard Self.plainPath(url).hasPrefix(Self.plainPath(root) + "/") else { return nil }
         return url
     }
 

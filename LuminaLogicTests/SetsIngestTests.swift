@@ -101,6 +101,15 @@ final class SetsIngestTests: XCTestCase {
         XCTAssertThrowsError(try ingest.head("shoot/../outside.ARW"))
     }
 
+    /// A file that was renamed or deleted still resolves (so an export can say what happened),
+    /// even under /private/tmp where its existing folder's path loses the /private prefix.
+    func testAMissingFileStillResolvesInsideItsFolder() throws {
+        let ingest = SetsIngest(workers: 1)
+        ingest.register(root)
+        XCTAssertNotNil(ingest.resolve("shoot/100MSDCF/GONE.ARW"))
+        XCTAssertNil(ingest.resolve("shoot/100MSDCF/../../GONE.ARW"))
+    }
+
     func testAPulledCardStopsEveryReadWithoutOpeningFiles() throws {
         try put("100MSDCF/DSC00001.ARW", Data(count: 1000))
         let ingest = SetsIngest(workers: 1)

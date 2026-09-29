@@ -67,7 +67,7 @@ final class SetsTrustTests: XCTestCase {
         let src = dir.appendingPathComponent("card"), dest = dir.appendingPathComponent("export")
         try fm.createDirectory(at: src, withIntermediateDirectories: true)
         try Data(count: 2 << 20).write(to: src.appendingPathComponent("A.ARW"))
-        let missing = src.appendingPathComponent("B.ARW")                  // listed, then gone
+        let missing = dir.appendingPathComponent("pulled/DCIM/B.ARW")      // listed, then the card went, folder and all
         let job = SetsExportJob(label: "both", destination: dest, items: [.copy(name: "RAW/A.ARW", source: src.appendingPathComponent("A.ARW")),
                                                                          .copy(name: "RAW/B.ARW", source: missing)])
         let jdir = dir.appendingPathComponent("journal")
@@ -77,6 +77,21 @@ final class SetsTrustTests: XCTestCase {
         XCTAssertFalse(fm.fileExists(atPath: dest.appendingPathComponent("RAW/B.ARW").path))
         XCTAssertEqual(leftovers(dest), [])
         XCTAssertEqual(SetsExportJournal.unfinished(in: jdir).first?.done, ["RAW/A.ARW"])
+    }
+
+    /// An original renamed or deleted in Finder mid-cull (its folder still there) is reported as
+    /// that, not as a pulled card; nothing partial is left.
+    func testARenamedOriginalIsNotReportedAsAPulledCard() throws {
+        let src = dir.appendingPathComponent("shoot"), dest = dir.appendingPathComponent("export")
+        try fm.createDirectory(at: src, withIntermediateDirectories: true)
+        try Data(count: 1 << 20).write(to: src.appendingPathComponent("A.ARW"))
+        try fm.moveItem(at: src.appendingPathComponent("A.ARW"), to: src.appendingPathComponent("A-renamed.ARW"))
+        let job = SetsExportJob(label: "both", destination: dest, items: [.copy(name: "RAW/A.ARW", source: src.appendingPathComponent("A.ARW"))])
+        let r = job.run(journal: nil, sources: [src])
+        XCTAssertEqual(r.n, 0)
+        XCTAssertEqual(r.failed.first, "A.ARW is no longer in shoot · moved, renamed or deleted? Open the folder again and export")
+        XCTAssertFalse(fm.fileExists(atPath: dest.path), "not even an empty folder is left")
+        XCTAssertEqual(try Data(contentsOf: src.appendingPathComponent("A-renamed.ARW")).count, 1 << 20, "the renamed original is untouched")
     }
 
     /// Kill -9 mid-write leaves `.name.lumina-tmp-*`; the next launch removes exactly those, and

@@ -94,8 +94,8 @@ nonisolated enum SetsFileOps {
     /// Copies `src` to `dst` (never moves). Streams with a running SHA-256, then re-reads the copy.
     static func copyVerified(_ src: URL, to dst: URL) throws -> CopyOutcome {
         let fm = FileManager.default
+        let srcHash = try sha256(file: src)                  // first: a missing original creates nothing
         try fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let srcHash = try sha256(file: src)
         var target = dst
         var renamed = false
         var n = 2

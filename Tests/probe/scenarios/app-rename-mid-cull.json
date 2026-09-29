@@ -1,0 +1,195 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "M4 file renamed / deleted in Finder while culling: culling and large view keep working with invariants on every step; the read preview still shows, the original is not read again; a RAW export of the renamed file stops with the true reason (not 'card removed'), nothing written; other files still export; the renamed original is untouched; reopening keeps decisions whose files still exist and shows the renamed file as a new, undecided photo",
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/two-bodies",
+   "to": "${OUT}/shoot/tb"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/tb",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "key",
+   "k": "1",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "times": 2,
+   "gapMs": 150,
+   "settleMs": 150
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return Object.entries(l.state.marks).filter(e=>e[1]==='keep').map(e=>l.data.byId[e[0]].file).sort()",
+   "equals": [
+    "A_DSC00001.ARW",
+    "B_DSC00001.ARW"
+   ]
+  },
+  {
+   "do": "move",
+   "from": "${OUT}/shoot/tb/A_DSC00001.ARW",
+   "to": "${OUT}/shoot/tb/A_DSC00001-renamed.ARW"
+  },
+  {
+   "do": "remove",
+   "path": "${OUT}/shoot/tb/B_DSC00001.ARW"
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 150
+  },
+  {
+   "do": "expect",
+   "js": "return Object.values(__probe.logic().state.marks).filter(m=>m==='keep').length",
+   "equals": 3
+  },
+  {
+   "do": "key",
+   "k": "ArrowLeft",
+   "times": 3,
+   "gapMs": 150,
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": " ",
+   "settleMs": 700
+  },
+  {
+   "do": "snap",
+   "name": "large-after-rename"
+  },
+  {
+   "do": "key",
+   "k": " ",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "times": 5,
+   "gapMs": 80,
+   "settleMs": 150
+  },
+  {
+   "do": "invariants"
+  },
+  {
+   "do": "expect",
+   "js": "const p=Object.values(__probe.logic().data.byId).find(p=>p.file==='A_DSC00001.ARW'); return (await fetch(p.lg)).status",
+   "equals": 200
+  },
+  {
+   "do": "expect",
+   "js": "return (await fetch('/media/head?p=tb/A_DSC00001.ARW')).status",
+   "equals": 404
+  },
+  {
+   "do": "destinations",
+   "paths": [
+    "${OUT}/raw-dest"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(), p=Object.values(l.data.byId).find(p=>p.file==='A_DSC00001.ARW'); const r=await l.writeInto([{name:'RAW/'+p.file,data:p.fileObj}],'both'); return r.say||('written '+r.n)",
+   "equals": "A_DSC00001.ARW is no longer in tb · moved, renamed or deleted? Open the folder again and export"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/raw-dest",
+   "glob": "*",
+   "count": 0
+  },
+  {
+   "do": "destinations",
+   "paths": [
+    "${OUT}/raw-dest"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(), p=Object.values(l.data.byId).find(p=>p.file==='A_DSC00002.ARW'); const r=await l.writeInto([{name:'RAW/'+p.file,data:p.fileObj}],'both'); return r.say||('written '+r.n)",
+   "equals": "written 1"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/raw-dest/RAW/A_DSC00002.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/two-bodies/A_DSC00002.ARW"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/tb/A_DSC00001-renamed.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/two-bodies/A_DSC00001.ARW"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/tb",
+   "glob": "*",
+   "count": 5
+  },
+  {
+   "do": "wait",
+   "ms": 1500
+  },
+  {
+   "do": "reload"
+  },
+  {
+   "do": "key",
+   "k": "0",
+   "settleMs": 400
+  },
+  {
+   "do": "click",
+   "text": "tb",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.real.length===5)",
+   "timeoutMs": 60000,
+   "what": "reopened after the rename"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return Object.entries(l.state.marks).filter(e=>e[1]==='keep').map(e=>l.data.byId[e[0]].file).sort()",
+   "equals": [
+    "A_DSC00002.ARW"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(), p=Object.values(l.data.byId).find(p=>p.file==='A_DSC00001-renamed.ARW'); return !!p && !l.state.marks[p.id]"
+  },
+  {
+   "do": "snap",
+   "name": "reopened"
+  }
+ ]
+}

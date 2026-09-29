@@ -12,6 +12,11 @@ nonisolated struct SetsExportJob {
         var name: String {
             switch self { case .bytes(let n, _), .copy(let n, _), .jpeg(let n, _, _, _): return n }
         }
+
+        /// The original a copy or JPEG is made from.
+        var source: URL? {
+            switch self { case .bytes: return nil; case .copy(_, let s), .jpeg(_, let s, _, _): return s }
+        }
     }
 
     struct Result: Codable, Equatable {
@@ -35,6 +40,14 @@ nonisolated struct SetsExportJob {
             case .jpeg: return sum + 12 << 20
             }
         }
+    }
+
+    /// An original that isn't there any more: its folder gone too means the card was pulled;
+    /// the folder still there means the file itself was moved, renamed or deleted (Finder).
+    static func missing(_ src: URL) -> String {
+        let folder = src.deletingLastPathComponent()
+        guard FileManager.default.fileExists(atPath: folder.path) else { return "the card was removed · re-insert it and export again" }
+        return "\(src.lastPathComponent) is no longer in \(folder.lastPathComponent) · moved, renamed or deleted? Open the folder again and export"
     }
 
     /// Out of space, however Foundation phrases it (ENOSPC, or Cocoa's "not enough space").
@@ -85,10 +98,8 @@ nonisolated struct SetsExportJob {
                 r.n += 1
                 journal?.done(item.name)
             } catch {
-                if case .copy(_, let src) = item, !FileManager.default.fileExists(atPath: src.path) {
-                    r.failed.append("the card was removed · re-insert it and export again")
-                } else if case .jpeg(_, let src, _, _) = item, !FileManager.default.fileExists(atPath: src.path) {
-                    r.failed.append("the card was removed · re-insert it and export again")
+                if let src = item.source, !FileManager.default.fileExists(atPath: src.path) {
+                    r.failed.append(Self.missing(src))
                 } else if Self.isDiskFull(error) {
                     r.failed.append("\(destination.lastPathComponent) is full · every file written before this one is complete and checked")
                 } else {

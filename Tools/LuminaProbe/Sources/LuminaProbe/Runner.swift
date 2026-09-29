@@ -262,6 +262,11 @@ final class Runner {
             try? FileManager.default.removeItem(at: to)
             try FileManager.default.createDirectory(at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
             try FileManager.default.copyItem(at: from, to: to)
+        case "move":
+            // What Finder does: rename or move a file. Only this run's own copies, never anything else.
+            try FileManager.default.moveItem(at: try own(str(s, "from")), to: try own(str(s, "to")))
+        case "remove":
+            try FileManager.default.removeItem(at: try own(str(s, "path")))
         case "mkdir":
             try FileManager.default.createDirectory(at: URL(fileURLWithPath: try str(s, "path")), withIntermediateDirectories: true)
         case "writeFile":
@@ -681,6 +686,14 @@ final class Runner {
     private func pt(_ v: Any?) throws -> CGPoint {
         guard let a = v as? [Double], a.count == 2 else { throw ProbeError("point must be [x, y]") }
         return CGPoint(x: a[0], y: a[1])
+    }
+
+    /// A path inside this scenario's output folder, or an error: file-changing steps can't reach
+    /// a real card or the user's folders.
+    private func own(_ path: String) throws -> URL {
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+        guard SetsIngest.plainPath(url).hasPrefix(SetsIngest.plainPath(outDir) + "/") else { throw ProbeError("\(path) is outside this run's folder: refused") }
+        return url
     }
 
     private func strs(_ s: [String: Any], _ k: String) throws -> [String] {
