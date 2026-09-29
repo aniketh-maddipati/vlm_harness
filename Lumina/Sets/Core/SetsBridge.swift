@@ -158,6 +158,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     }
 
     private func writeInto(label: String, files: [[String: Any]]) async -> [String: Any] {
+        onEvent?("writeInto \(label): \(files.count) files")
         var items: [SetsExportJob.Item] = []
         var sources: [URL] = Array(roots.values)
         for f in files {
@@ -188,7 +189,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "Lumina export")
         let result = await Task.detached(priority: .userInitiated) { job.run(journal: journal) }.value
         ProcessInfo.processInfo.endActivity(activity)
-        onEvent?("export \(label) → \(dest!.path): \(result.n) written, \(result.bak) bak, \(result.failed.count) failed")
+        onEvent?("export \(label) → \(dest!.path): \(result.n) written, \(result.bak) bak, \(result.failed.count) failed\(result.failed.first.map { " — " + $0 } ?? "")")
         if let first = result.failed.first {
             return ["aborted": true, "say": result.n > 0 ? "export stopped after \(result.n) · \(first)" : first]
         }

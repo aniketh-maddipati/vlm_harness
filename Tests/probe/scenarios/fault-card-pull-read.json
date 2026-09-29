@@ -1,0 +1,123 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": true,
+ "checklist": "F2 card pulled mid-read \u2192 'card removed', nothing crashes, resumes on re-insert",
+ "steps": [
+  {
+   "do": "startCards"
+  },
+  {
+   "do": "diskImage",
+   "name": "LTCARD",
+   "sizeMB": 400,
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "trimBytes": 1400000,
+   "count": 200
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!(window.lumina.card && window.lumina.card.photos===200)",
+   "timeoutMs": 10000,
+   "what": "card noticed"
+  },
+  {
+   "do": "key",
+   "k": "0",
+   "settleMs": 300
+  },
+  {
+   "do": "snap",
+   "name": "card-in"
+  },
+  {
+   "do": "detach",
+   "name": "LTCARD",
+   "afterMs": 250
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 100
+  },
+  {
+   "do": "waitFor",
+   "js": "return window.lumina.card===null",
+   "timeoutMs": 10000,
+   "what": "card removal noticed"
+  },
+  {
+   "do": "waitFor",
+   "js": "return !__probe.logic().state.realLoad",
+   "timeoutMs": 60000,
+   "what": "read settles after the pull"
+  },
+  {
+   "do": "expect",
+   "js": "return /Card removed/.test(__probe.logic().state.toast||'')"
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().state.realInfo)+' toast='+__probe.logic().state.toast"
+  },
+  {
+   "do": "snap",
+   "name": "card-pulled"
+  },
+  {
+   "do": "key",
+   "k": "1",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "0",
+   "settleMs": 300
+  },
+  {
+   "do": "attach",
+   "name": "LTCARD"
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!window.lumina.card",
+   "timeoutMs": 10000,
+   "what": "card back"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 100
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad) && l.real.length===200",
+   "timeoutMs": 60000,
+   "what": "full read after re-insert"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.realInfo.bad",
+   "equals": 0
+  },
+  {
+   "do": "snap",
+   "name": "card-back"
+  }
+ ]
+}

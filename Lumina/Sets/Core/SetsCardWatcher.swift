@@ -16,6 +16,10 @@ final class SetsCardWatcher {
     }
 
     var onChange: ((Card?, _ removed: Card?) -> Void)?
+    /// Which volumes may count as cards. The app accepts all; the probe only its own test images,
+    /// so a real card that happens to be mounted is never read by a test.
+    var accepts: (URL) -> Bool = { _ in true }
+    var onLog: ((String) -> Void)?
     private(set) var current: Card?
     private var tokens: [NSObjectProtocol] = []
 
@@ -31,7 +35,7 @@ final class SetsCardWatcher {
         })
         // A card already in the slot at launch counts as inserted.
         for v in FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: nil, options: [.skipHiddenVolumes]) ?? [] {
-            if let card = Self.inspect(v) { current = card; onChange?(card, nil); break }
+            if accepts(v), let card = Self.inspect(v) { current = card; onChange?(card, nil); break }
         }
     }
 
@@ -41,7 +45,8 @@ final class SetsCardWatcher {
     }
 
     private func mounted(_ url: URL?) {
-        guard let url, let card = Self.inspect(url) else { return }
+        onLog?("mount \(url?.path ?? "?") accepted=\(url.map(accepts) ?? false) card=\(url.flatMap(Self.inspect) != nil)")
+        guard let url, accepts(url), let card = Self.inspect(url) else { return }
         current = card
         onChange?(card, nil)
     }

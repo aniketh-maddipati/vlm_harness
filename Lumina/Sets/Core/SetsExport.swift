@@ -41,8 +41,9 @@ nonisolated struct SetsExportJob {
     /// written stay (each one verified), the journal says which ones.
     func run(journal: SetsExportJournal?, progress: (Int, Int) -> Void = { _, _ in }) -> Result {
         var r = Result(folder: destination.path)
-        if let free = SetsFileOps.freeBytes(at: destination), free < bytesNeeded() + (64 << 20) {
-            r.failed.append("Not enough space in \(destination.lastPathComponent): needs \(ByteCountFormatter.string(fromByteCount: bytesNeeded(), countStyle: .file)), \(ByteCountFormatter.string(fromByteCount: free, countStyle: .file)) free. Nothing was written.")
+        let needed = bytesNeeded(), margin = max(Int64(1 << 20), needed / 20)
+        if let free = SetsFileOps.freeBytes(at: destination), free < needed + margin {
+            r.failed.append("Not enough space in \(destination.lastPathComponent): needs \(ByteCountFormatter.string(fromByteCount: needed, countStyle: .file)), \(ByteCountFormatter.string(fromByteCount: free, countStyle: .file)) free. Nothing was written.")
             return r
         }
         journal?.begin(label: label, destination: destination, names: items.map(\.name))
@@ -61,7 +62,13 @@ nonisolated struct SetsExportJob {
                 r.n += 1
                 journal?.done(item.name)
             } catch {
-                r.failed.append("\(item.name): \(error)")
+                if case .copy(_, let src) = item, !FileManager.default.fileExists(atPath: src.path) {
+                    r.failed.append("the card was removed · re-insert it and export again")
+                } else if case .jpeg(_, let src, _, _) = item, !FileManager.default.fileExists(atPath: src.path) {
+                    r.failed.append("the card was removed · re-insert it and export again")
+                } else {
+                    r.failed.append("\(item.name): \(error)")
+                }
                 journal?.finish(ok: false)
                 return r
             }

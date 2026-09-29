@@ -1,0 +1,269 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v3.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": true,
+ "checklist": "F1 card pulled mid-export \u2192 stops cleanly, nothing half-written, verified files stay",
+ "steps": [
+  {
+   "do": "startCards"
+  },
+  {
+   "do": "diskImage",
+   "name": "LTCARD2",
+   "sizeMB": 600,
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "count": 36
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!(window.lumina.card && window.lumina.card.photos===36)",
+   "timeoutMs": 15000,
+   "what": "card noticed"
+  },
+  {
+   "do": "key",
+   "k": "0",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 100
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad)",
+   "timeoutMs": 60000,
+   "what": "card read"
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "1",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "r",
+   "settleMs": 80
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 80
+  },
+  {
+   "do": "expect",
+   "js": "return Object.values(__probe.logic().state.marks).filter(m=>m==='keep').length>=10"
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 400
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 300
+  },
+  {
+   "do": "destinations",
+   "paths": [
+    "${OUT}/export"
+   ]
+  },
+  {
+   "do": "detach",
+   "name": "LTCARD2",
+   "afterMs": 900
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 200
+  },
+  {
+   "do": "waitFor",
+   "js": "const t=__probe.logic().state.toast||''; return /export stopped|export done/.test(t) || !!(__probe.logic().state.ex||{}).result",
+   "timeoutMs": 180000,
+   "what": "export ends"
+  },
+  {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "js",
+   "src": "return 'toast='+__probe.logic().state.toast"
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": " failed \u2014 "
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "card was removed"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/export",
+   "glob": "*.lumina-tmp*",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/export/DCIM/RAW/DSC00001.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/src/DSC00001.ARW"
+  },
+  {
+   "do": "snap",
+   "name": "export-after-pull"
+  }
+ ]
+}

@@ -10,19 +10,19 @@ Status (2026-09-28, handoff v6):
 - **P2** / **P3**: needs the native bridge (Phase 2) or the demo layer removed (Phase 3). The injection method is fixed below.
 - **manual**: needs a third-party app or a human.
 
-Fault injection never touches a real card. "Card" below means a disk image built from forged fixtures (`hdiutil create -fs ExFAT`, attached as `/Volumes/LUMINA_TEST_*`).
+Fault injection never touches a real card. "Card" below means a disk image built from forged fixtures (`hdiutil create -fs ExFAT`, attached under the run's output folder), and in the probe the card watcher only accepts those images, so a real card that happens to be mounted is ignored. Run: `LUMINA_FIXTURE_ROOT=… bash Scripts/probe.sh fault`.
 
 ## Files
 
 | # | Case | How the harness breaks it | Status |
 |---|---|---|---|
-| F1 ★ | Card pulled mid-copy (Export RAW) | Export to a folder while the source image is detached with `hdiutil detach -force` at a random point. Check: no file is marked done without a verified checksum, and resume works on re-attach with the same volume UUID. | P2 |
-| F2 | Card pulled mid-read (culling) | Detach during `openFolder` load and during Cull. Check for "Card removed · re-insert to keep going", no crash, state kept, resume on re-attach. | P2 |
-| F3 ★ | Destination disk full | Export to a 64 MB image. Check: the size check runs before start, it stops cleanly with a count, and there are no partial files. | P2 |
+| F1 ★ | Card pulled mid-copy (Export RAW) | `fault-card-pull-export`: 36-photo card image pulled mid RAW + JPEG export. Stops after 33 verified files, says "the card was removed · re-insert it and export again", journal `ok=false` with the done list, no temp files, copies byte-identical to originals. | **pass** |
+| F2 | Card pulled mid-read (culling) | `fault-card-pull-read`: 200-photo card image pulled while "⏎ Cull this card" reads it. No crash, "Card removed · re-insert to keep going", re-insert and ⏎ reads all 200 with 0 unreadable. | **pass** |
+| F3 ★ | Destination disk full | `fault-disk-full`: RAW + JPEG to a 40 MB disk is refused before any write ("Not enough space…"), no files, no temp files; a small XMP export to the same disk still works. | **pass** |
 | F4 | Destination = card or inside source | `app-export`: picking the source folder is refused and asked again, nothing written into it. Card-volume refusal: unit-tested rule (`SetsFileOpsTests`); disk-image run still to add. | **pass** (source) · card image P2 |
 | F5 ★ | Duplicate DSC numbers | `dup-dsc` (page: both kept, distinct sidecar paths). Bridge: a different file with the same name gets `-2`, the same file is recognised by SHA-256 and skipped (`SetsFileOpsTests`, `app-export` re-send). | **pass** |
 | F6 ★ | Existing .XMP / .xmp / both | Fixtures with upper, lower and both. Check: merged into the right one, no duplicate, `.lumina-bak` written. | P2 |
-| F7 | Read-only / locked card | `hdiutil attach -readonly`. Check: reads fine, and zero write attempts (bridge write log empty). | P2 |
+| F7 | Read-only / locked card | `fault-readonly-card`: read-only card image reads all 12; choosing it as the export destination is refused and asked again. | **pass** |
 | F8 | Network drive, iCloud not downloaded | SMB share to localhost, plus `brctl evict` on files in a test iCloud folder. Check: clear message, no hang (probe hang watchdog 5 s). | P2 |
 | F9 ★ | Lightroom writing .xmp during export | A writer process rewrites the target .xmp in a loop during export. Check: atomic write, re-check before write, no torn file. The real-Lightroom run is **manual**. | P2 |
 | F10 ★ | Crash / quit mid-export | `kill -9` the app at a random point in export, then relaunch. Check: the list shows done vs not done, and no half-written sidecars (every .xmp parses). | P2 |

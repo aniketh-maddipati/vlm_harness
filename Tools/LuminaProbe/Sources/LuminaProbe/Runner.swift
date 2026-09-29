@@ -29,6 +29,7 @@ final class Runner {
     private var failures: [String] = []
     private var frames: [String: [String: Double]] = [:]
     private var scale: Double = 1
+    private lazy var disks = DiskImages(root: outDir.appendingPathComponent("disks", isDirectory: true))
     private(set) var skipped: String?
 
     init(scenario: URL, outDir: URL) throws {
@@ -99,6 +100,7 @@ final class Runner {
             failures.append("setup: \(error)")
         }
         sampler.stop()
+        disks.detachAll()
         try? await checkBudgets()
         return finish(seconds: Date().timeIntervalSince(t0))
     }
@@ -193,6 +195,37 @@ final class Runner {
                               timeout: (s["timeoutMs"] as? Double ?? 900_000) / 1000, what: "folder loaded")
             let info = try await host.js("return JSON.stringify(__probe.logic().state.realInfo)")
             return info.map { "\($0)" }
+        case "diskImage":
+            let from = (s["from"] as? String).map { _ in URL(fileURLWithPath: (try? str(s, "from")) ?? "") }
+            let m = try disks.create(name: try str(s, "name"), sizeMB: s["sizeMB"] as? Int ?? 64, fs: s["fs"] as? String ?? "ExFAT",
+                                     from: from, trimBytes: s["trimBytes"] as? Int, repeatTo: s["count"] as? Int)
+            if s["readonly"] as? Bool ?? false { try disks.detach(name: try str(s, "name")); try await settle(300); try disks.attach(name: try str(s, "name"), readonly: true) }
+            return m.path
+        case "attach":
+            return try disks.attach(name: try str(s, "name"), readonly: s["readonly"] as? Bool ?? false).path
+        case "detach":
+            let name = try str(s, "name")
+            if let after = s["afterMs"] as? Double {
+                // Pull it while the next steps run (mid-read / mid-export).
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: UInt64(after * 1_000_000))
+                    do { try self.disks.detach(name: name); self.host.log("disk", "pulled \(name)") } catch { self.host.log("disk", "pull failed: \(error)") }
+                }
+            } else {
+                try disks.detach(name: name)
+            }
+        case "startCards":
+            guard let bridge = host.bridge else { throw ProbeError("startCards needs app mode") }
+            // Only this run's own disk images count as cards: never the user's real card.
+            let norm = { (u: URL) -> String in
+                let p = u.standardizedFileURL.path
+                return p.hasPrefix("/private/") ? String(p.dropFirst("/private".count)) : p
+            }
+            let mine = norm(outDir.appendingPathComponent("disks"))
+            bridge.cards.accepts = { norm($0).hasPrefix(mine + "/") }
+            bridge.cards.onLog = { [host] in host?.log("cards", $0) }
+            host.log("cards", "accepting under \(mine)")
+            bridge.cards.start()
         case "nativeOpen":
             // The app's own path: bridge.open(url) (menu ⌘O, recents, "Cull this card").
             guard let bridge = host.bridge else { throw ProbeError("nativeOpen needs app mode") }
@@ -207,6 +240,13 @@ final class Runner {
             try await host.load((spec["page"] as? String) ?? "Lumina Sets v3.dc.html")
             try await waitFor("return window.__probe && __probe.ready()", timeout: 30, what: "page ready after reload")
             try await settle(s["settleMs"] as? Double ?? 600)
+        case "logged":
+            // Something the page or bridge reported, e.g. a toast that has already faded.
+            let kind = s["kind"] as? String, match = try str(s, "match")
+            guard let e = host.events.last(where: { (kind == nil || $0.kind == kind) && $0.text.contains(match) }) else {
+                throw ProbeError("nothing logged matching '\(match)'")
+            }
+            return String(e.text.prefix(160))
         case "destinations":
             host.chooser.destinations = try strs(s, "paths").map { URL(fileURLWithPath: $0) }
         case "copyTree":
@@ -438,6 +478,7 @@ final class Runner {
     private func str(_ s: [String: Any], _ k: String) throws -> String {
         guard var v = s[k] as? String else { throw ProbeError("step needs '\(k)'") }
         v = v.replacingOccurrences(of: "${OUT}", with: outDir.path)
+        v = v.replacingOccurrences(of: "${DISKS}", with: outDir.appendingPathComponent("disks/vol").path)
         while let r = v.range(of: #"\$\{[A-Z0-9_]+\}"#, options: .regularExpression) {
             let name = String(v[r].dropFirst(2).dropLast())
             guard let value = ProcessInfo.processInfo.environment[name], !value.isEmpty else { throw ProbeSkip(reason: "\(name) is not set") }

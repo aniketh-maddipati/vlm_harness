@@ -28,7 +28,7 @@
   // Decisions saved per shoot, keyed by file path so they survive files being added.
   const BY_ID = ['marks', 'final', 'auto', 'rA', 'rO', 'caps', 'cuts', 'texts'];
   const SCALAR = ['title', 'sub', 'body', 'foot', 'lastEx', 'ex'];
-  let shootId = null, lastSaved = '';
+  let shootId = null, lastSaved = '', cardPulledWhileReading = false;
   // Path inside the opened folder ("sub/DSC00001.ARW"): stable across reopen and new files.
   const keyOf = p => { const r = (p && p.fileObj && p.fileObj.webkitRelativePath) || ''; return r ? r.split('/').slice(1).join('/') : (p && p.file) || ''; };
   const pathOf = (logic, id) => keyOf(logic.data && logic.data.byId[id]);
@@ -88,7 +88,10 @@
     // Reading a folder: after the page has built the shoot, remember it and bring its decisions back.
     const onDir = logic.onDir.bind(logic);
     logic.onDir = async e => {
+      cardPulledWhileReading = false;
       await onDir(e);
+      // The page counts files lost to a pulled card as "unreadable"; say what happened, in its words.
+      if (cardPulledWhileReading) logic.say('Card removed · re-insert to keep going');
       if (!logic.real) return;
       const first = logic.real.map(p => p.date).filter(Boolean).sort()[0] || '';
       const r = await native('shootOpened', { name: (logic.state.realInfo || {}).name, n: logic.real.length, date: first });
@@ -173,7 +176,12 @@
     ready: () => !!(current && current.__luminaPlumbed),
     missing: () => { const l = current || findLogic(); return l ? missing(l) : ['page not found']; },
     shootId: () => shootId,
-    card(present, info) { window.lumina.card = present ? (info || {}) : null; const l = window.__lumina.logic(); if (l) l.impSet({ card: !!present }); },
+    card(present, info) {
+      window.lumina.card = present ? (info || {}) : null;
+      const l = window.__lumina.logic();
+      if (!present && l && l.state.realLoad) cardPulledWhileReading = true;
+      if (l) l.impSet({ card: !!present });
+    },
     say(t) { const l = window.__lumina.logic(); if (l) l.say(t); },
     openFolder() { const l = window.__lumina.logic(); if (l) l.openFolder(); },
     undo() {
