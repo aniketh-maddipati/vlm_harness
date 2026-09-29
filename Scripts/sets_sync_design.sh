@@ -11,6 +11,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 SRC="${1:?give the handoff .zip or folder}"; shift || true
 RECORD=0; for a in "$@"; do [[ $a == --record ]] && RECORD=1; done
+source Scripts/page_files.sh
 DEST=design/handoff/lumina-cull
 STAMP=$(date +%Y%m%d-%H%M%S)
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
@@ -19,18 +20,22 @@ fail=0; step() { printf '\n== %s\n' "$*"; }
 
 step "1. unpack"
 if [[ -d $SRC ]]; then cp -R "$SRC" "$WORK/in"; else unzip -q "$SRC" -d "$WORK/in" || { echo "can't unzip $SRC"; exit 2; }; fi
-NEW="$(dirname "$(find "$WORK/in" -name 'Lumina Sets v3.dc.html' -not -path '*/__MACOSX/*' | head -1)")"
-[[ -f "$NEW/Lumina Sets v3.dc.html" && -f "$NEW/lumina-core.js" && -f "$NEW/support.js" ]] || { echo "no Lumina Sets page in $SRC"; exit 2; }
+FOUND="$(find "$WORK/in" -name 'Lumina Sets *.dc.html' -not -path '*/__MACOSX/*' | head -1)"
+[[ -n $FOUND ]] || { echo "no Lumina Sets page in $SRC"; exit 2; }
+NEW="$(dirname "$FOUND")"
+for f in "${PAGE_FILES[@]}" "$CORE_TEST"; do
+  [[ -f "$NEW/$f" ]] || { echo "the handoff has no $f (page is $(basename "$FOUND")): a rename. Update Scripts/page_files.sh, SetsSchemeHandler.pageFiles, SetsPageBytesTests and the scenarios' \"page\", then rerun"; exit 2; }
+done
 find "$NEW" -name '._*' -delete
 
 step "2. what changed"
 diff -rq "$DEST" "$NEW" | sed "s#$NEW#new#; s#$DEST#current#" || true
-for f in "Lumina Sets v3.dc.html" lumina-core.js; do
+for f in "$PAGE" "$CORE"; do
   [[ -f "$DEST/$f" ]] && ! cmp -s "$DEST/$f" "$NEW/$f" && echo "  $f: $(diff "$DEST/$f" "$NEW/$f" | grep -c '^[<>]') lines differ"
 done
 
-step "3. logic fixtures (node lumina-core.test.mjs)"
-(cd "$NEW" && node lumina-core.test.mjs) || { echo "FIXTURES FAIL — not installing"; exit 1; }
+step "3. logic fixtures (node $CORE_TEST)"
+(cd "$NEW" && node "$CORE_TEST" | tee "$WORK/fixtures.txt" && ! grep -q '^FAIL' "$WORK/fixtures.txt") || { echo "FIXTURES FAIL — not installing"; exit 1; }
 
 step "4. support.js runtime pins"
 for key in REACT_SRI REACT_DOM_SRI BABEL_SRI; do
@@ -39,7 +44,7 @@ for key in REACT_SRI REACT_DOM_SRI BABEL_SRI; do
 done
 
 step "5. wording + demo-layer audit (report only; fixes go to the design)"
-python3 Tests/probe/design_audit.py "$NEW/Lumina Sets v3.dc.html"
+python3 Tests/probe/design_audit.py "$NEW/$PAGE"
 
 step "6. install"
 rsync -a --delete --exclude '._*' "$NEW/" "$DEST/"

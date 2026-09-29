@@ -13,9 +13,10 @@ import WebKit
 ///   page's picsum URLs are pointed here). Debug fixture data only; off once the sample goes.
 nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "lumina"
-    static let pageFile = "Lumina Sets v3.dc.html"
+    static let pageFile = "Lumina Sets v5.dc.html"
     static let vendorFiles = ["react.production.min.js", "react-dom.production.min.js", "babel.min.js"]
-    static let pageFiles = [pageFile, "support.js", "lumina-core.js"]
+    /// Same list as Scripts/page_files.sh. The self-test only loads with `?selftest` (the probe).
+    static let pageFiles = [pageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-selftest.js"]
 
     /// support.js's CDN URLs → local. Passed to the page as `window.__resources`.
     static let resources: [String: String] = [

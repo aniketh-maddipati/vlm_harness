@@ -22,6 +22,7 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+source Scripts/page_files.sh; export PAGE
 
 suite="${1:-all}"; shift || true
 record=0; extra=()
@@ -50,7 +51,7 @@ for suite in ("screens-1920", "screens-1440"):
     for f in sorted(os.listdir(d)):
         if f.endswith(".png") or f.endswith(".state.json"):
             files[f"{suite}/{f}"] = hashlib.sha256(open(os.path.join(d, f), "rb").read()).hexdigest()
-page = hashlib.sha256(open("design/handoff/lumina-cull/Lumina Sets v3.dc.html", "rb").read()).hexdigest()
+page = hashlib.sha256(open("design/handoff/lumina-cull/" + os.environ["PAGE"], "rb").read()).hexdigest()
 osv = subprocess.run(["sw_vers", "-productVersion"], capture_output=True, text=True).stdout.strip()
 json.dump({"page_sha256": page, "macos": osv, "arch": platform.machine(), "files": files}, open(dest, "w"), indent=1, sort_keys=True)
 EOF
