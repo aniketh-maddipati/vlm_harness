@@ -11,8 +11,9 @@
  "steps": [
   {
    "do": "key",
-   "k": "1",
-   "settleMs": 400
+   "k": "2",
+   "settleMs": 400,
+   "cmd": true
   },
   {
    "do": "fuzz",

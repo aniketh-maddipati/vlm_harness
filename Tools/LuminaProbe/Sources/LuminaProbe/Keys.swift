@@ -56,10 +56,11 @@ enum Keys {
         return nil
     }
 
-    /// Every key the Sets prototype handles, for the fuzzer. Modifiers are added at random.
+    /// Every key the v5 page handles (GRAMMAR.md), plus the keys it answers with a hint (X U L G 1–5),
+    /// for the fuzzer. Modifiers (⌘ ⇧ ⌥) are added at random.
     static let pageKeys: [String] = [
         "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape", "Tab", " ", "Backspace",
-        "1", "2", "3", "4", "0", "=", "?", "[", "]", ",", ".",
-        "a", "b", "c", "d", "e", "f", "g", "h", "i", "l", "o", "p", "q", "r", "s", "t", "v", "w", "x", "z",
+        "1", "2", "3", "4", "5", "0", "=", "-", "?", ",",
+        "a", "c", "f", "g", "h", "l", "o", "p", "q", "r", "t", "u", "x", "z",
     ]
 }

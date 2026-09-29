@@ -314,10 +314,6 @@
     // Key C simulated a card in the prototype; the app has real mount notices.
     if (typeof logic.simCard === 'function') logic.simCard = () => {};
 
-    // The page can't draw Cull or Save with zero photos: stay on Open until a folder is read.
-    const setView = logic.setView.bind(logic);
-    logic.setView = (v, force) => (v !== 'import' && !logic.data.order.length) ? undefined : setView(v, force);
-
     if (cfg.parity) parity(logic);
     loadRecents(logic);
   };

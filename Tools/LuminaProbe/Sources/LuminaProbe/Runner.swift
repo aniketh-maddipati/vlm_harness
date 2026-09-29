@@ -571,16 +571,18 @@ final class Runner {
             } else {
                 let k = keys[Int(rng.next() % UInt64(keys.count))]
                 let shift = rng.unit() < 0.18
-                let cmd = ["z", "[", "]"].contains(k) && rng.unit() < 0.3
-                input = (cmd ? "⌘" : "") + (shift ? "⇧" : "") + k
-                if ["g", "l", " ", "a"].contains(k) && rng.unit() < 0.3 {
-                    // held key: down, some time, up (G 100%, L flag, Space large, A auto)
+                // v5: ⌘1–3 steps, ⌘A keep row, ⌘R Finder, ⌘Z undo; ⌥←→ skip a stack.
+                let cmd = ["z", "1", "2", "3", "a", "r"].contains(k) && rng.unit() < 0.3
+                let alt = ["ArrowLeft", "ArrowRight"].contains(k) && rng.unit() < 0.2
+                input = (cmd ? "⌘" : "") + (alt ? "⌥" : "") + (shift ? "⇧" : "") + k
+                if ["z", " ", "ArrowLeft", "ArrowRight"].contains(k) && !cmd && rng.unit() < 0.3 {
+                    // held key: down, some time, up (Z 100%, Space large, arrows repeat)
                     try host.key(k, shift: shift, up: false)
                     try await settle(rng.unit() * 400)
                     try host.key(k, shift: shift, down: false)
                     input += " (held)"
                 } else {
-                    try host.key(k, shift: shift, cmd: cmd)
+                    try host.key(k, shift: shift, cmd: cmd, alt: alt)
                 }
             }
             trail.append(input)
