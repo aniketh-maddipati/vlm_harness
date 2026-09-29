@@ -61,6 +61,8 @@ into Claude Design as it is. Every item was found by the probe harness against v
 >
 > **9. Window chrome.** The Mac window has a standard title bar, so the page area is 1440×856 in a 1440×900 window. Tell us whether you want a full-bleed page. If so, the top bar needs about 80 px clear on the left for the red, yellow and green window buttons.
 
+>
+> **10. Exposure story image quality.** The story cover and photo blocks use `byId[id].src`, the 360 px grid thumbnail (JPEG 0.82), so they look grainy when shown large: the cover is about 1400 px wide. Use `byId[id].lg` (the 1616 px embedded preview, which the Large view already uses) for the story cover and blocks, and keep `src` for grid tiles only. Later the app can supply a full-resolution render the same way.
 ---
 
 ## How each ask is checked once the new handoff lands
