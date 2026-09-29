@@ -1,50 +1,78 @@
 {
-  "mode": "app",
-  "page": "Lumina Sets v5.dc.html",
-  "size": [
-    1440,
-    900
-  ],
-  "checklist": "Every page member plumbing.js relies on still exists after a design sync, and the page's onDir is still the one the native read repeats",
-  "steps": [
-    {
-      "do": "expect",
-      "js": "return window.__lumina.missing()",
-      "equals": []
-    },
-    {
-      "do": "expect",
-      "js": "return window.__lumina.drift()",
-      "equals": []
-    },
-    {
-      "do": "expect",
-      "js": "return window.__lumina.ready()",
-      "equals": true
-    },
-    {
-      "do": "expect",
-      "js": "return !!(window.lumina && window.lumina.app)",
-      "equals": true
-    },
-    {
-      "do": "expect",
-      "js": "return typeof window.showDirectoryPicker",
-      "equals": "function"
-    },
-    {
-      "do": "expect",
-      "js": "return __probe.logic().writeInto.toString().includes('native')"
-    },
-    {
-      "do": "expect",
-      "js": "return typeof LuminaCore.editFilter",
-      "equals": "function"
-    },
-    {
-      "do": "expect",
-      "js": "return typeof LuminaCore.buildShoot",
-      "equals": "function"
-    }
-  ]
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "checklist": "Every page member and hook plumbing.js relies on still exists after a design sync, and the page's onDir + readOne are still the ones the native read repeats",
+ "stopOnFailure": false,
+ "steps": [
+  {
+   "do": "expect",
+   "js": "return window.__lumina.missing()",
+   "equals": []
+  },
+  {
+   "do": "expect",
+   "js": "return window.__lumina.drift()",
+   "equals": []
+  },
+  {
+   "do": "expect",
+   "js": "return window.__lumina.ready()",
+   "equals": true
+  },
+  {
+   "do": "expect",
+   "js": "return !!(window.lumina && window.lumina.app)",
+   "equals": true
+  },
+  {
+   "do": "expect",
+   "js": "return ['reveal','setPrefs','openSettings','checkAccess','reopen','workingFiles','removeWorkingFiles'].filter(k => typeof window.lumina[k] !== 'function')",
+   "equals": []
+  },
+  {
+   "do": "expect",
+   "js": "return [typeof window.lumina.readingCard, typeof window.lumina.willPromptAccess]",
+   "equals": [
+    "boolean",
+    "boolean"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "return ['luminaCommand','luminaCardGone','luminaAccess','luminaState','luminaGesture'].filter(k => typeof window[k] !== 'function')",
+   "equals": []
+  },
+  {
+   "do": "expect",
+   "js": "return ['open','save','finder','undo','keepRow','keep','flag','keepStack','flagStack','openStack','closeStack','stepOpen','stepCull','stepSave','large','unseen','smaller','larger','keyBar','shortcuts','settings'].filter(n => { const s = __probe.logic().state; const r = window.luminaCommand(n); if (n === 'settings' && s) window.luminaCommand('settings'); if (n === 'shortcuts') __probe.logic().setState({glance:false}); return r !== true; })",
+   "equals": []
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().writeInto.toString().includes('writeSidecars')"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().openFolder.toString().includes('native')"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "import"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().data.order.length",
+   "equals": 0
+  },
+  {
+   "do": "expect",
+   "js": "return typeof LuminaCore.parseHead === 'function' && typeof LuminaCore.measure === 'function' && typeof LuminaCore.buildShoot === 'function'",
+   "equals": true
+  }
+ ]
 }

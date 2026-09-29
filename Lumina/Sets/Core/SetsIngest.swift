@@ -153,16 +153,32 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         var name: String
         var files: [(rel: String, size: Int)] = []
         var xmp: [(rel: String, text: String)] = []
+        /// Every other file's path (JPEG, HEIF, other RAWs, videos…): names only, never read. The
+        /// page's intake() counts them for its import notes and the no-ARW message.
+        var others: [String] = []
+        /// On a card or removable volume: the page keeps Save off (SAFETY.md 4).
+        var onCard = false
 
         var dictionary: [String: Any] {
-            ["name": name, "files": files.map { ["rel": $0.rel, "size": $0.size] }, "xmp": xmp.map { ["rel": $0.rel, "text": $0.text] }]
+            ["name": name, "files": files.map { ["rel": $0.rel, "size": $0.size] }, "xmp": xmp.map { ["rel": $0.rel, "text": $0.text] },
+             "others": others, "onCard": onCard]
+        }
+    }
+
+    /// macOS refused to list the folder (Privacy & Security → Files and Folders, SAFETY.md 5).
+    static func accessDenied(_ root: URL) -> Bool {
+        do { _ = try FileManager.default.contentsOfDirectory(atPath: root.path); return false } catch {
+            let ns = error as NSError, under = ns.userInfo[NSUnderlyingErrorKey] as? NSError
+            return ns.code == NSFileReadNoPermissionError || [Int(EPERM), Int(EACCES)].contains(under?.code ?? 0)
         }
     }
 
     /// Every ARW under `root` (and its .xmp sidecars, read now: they're small), the way WebKit's
-    /// folder input lists it: recursive, hidden files and AppleDouble `._` stubs skipped.
+    /// folder input lists it: recursive, hidden files and AppleDouble `._` stubs skipped. Other
+    /// files are listed by name only. Lumina's own `.lumina-bak` files are left out.
     static func list(_ root: URL) -> Listing {
         var out = Listing(name: root.lastPathComponent)
+        out.onCard = SetsFileOps.isCard(root)
         let base = root.standardizedFileURL.path
         let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey]
         guard let e = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return out }
@@ -170,11 +186,13 @@ nonisolated final class SetsIngest: @unchecked Sendable {
             let name = url.lastPathComponent
             guard !name.hasPrefix("._") else { continue }
             let ext = url.pathExtension.lowercased()
-            guard ext == "arw" || ext == "xmp" else { continue }
+            guard !name.hasSuffix(SetsFileOps.backupSuffix) else { continue }
             guard let v = try? url.resourceValues(forKeys: Set(keys)), v.isRegularFile == true else { continue }
             let inside = String(url.standardizedFileURL.path.dropFirst(base.count + 1))
             let rel = out.name + "/" + inside
-            if ext == "arw" {
+            if ext != "arw" && ext != "xmp" {
+                out.others.append(rel)
+            } else if ext == "arw" {
                 out.files.append((rel, v.fileSize ?? 0))
             } else if let data = try? Data(contentsOf: url), let text = String(data: data, encoding: .utf8) {
                 out.xmp.append((rel, text))

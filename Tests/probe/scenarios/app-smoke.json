@@ -1,0 +1,224 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "checklist": "The app reads a folder natively, keeps, saves sidecars into the folder (with .lumina-bak), and reopens with its decisions",
+ "stopOnFailure": false,
+ "steps": [
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "import"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().data.order.length",
+   "equals": 0
+  },
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/two-bodies",
+   "to": "${OUT}/shoot/two-bodies"
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/shoot/two-bodies/NOTES.txt",
+   "text": "not a photo"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/two-bodies",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "cull"
+  },
+  {
+   "do": "expect",
+   "js": "return !!window.__lumina.shootId()"
+  },
+  {
+   "do": "expect",
+   "js": "return window.lumina.readingCard",
+   "equals": false
+  },
+  {
+   "do": "expect",
+   "js": "const i = __lumina.inspect(); return [i.lgHeld, i.srcNotBlob, i.dupPaths, i.zsrcOff]",
+   "equals": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "return (__probe.logic().state.notes || []).length > 0"
+  },
+  {
+   "do": "snap",
+   "name": "cull"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().kept().length",
+   "equals": 2
+  },
+  {
+   "do": "expect",
+   "js": "return __lumina.unsaved()",
+   "equals": 2
+  },
+  {
+   "do": "wait",
+   "ms": 2300
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "cmd": true,
+   "settleMs": 1000
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "export"
+  },
+  {
+   "do": "snap",
+   "name": "save"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "cmd": true,
+   "settleMs": 1500
+  },
+  {
+   "do": "waitFor",
+   "js": "const r = __probe.logic().state.ex.result; return !!r",
+   "what": "save result"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.ex.result.t",
+   "equals": "2 saved"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.ex.result.where.endsWith('/shoot/two-bodies')"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/two-bodies",
+   "count": 2,
+   "glob": "*.xmp"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/two-bodies",
+   "count": 0,
+   "glob": "*.lumina-tmp-*"
+  },
+  {
+   "do": "expect",
+   "js": "return __lumina.unsaved()",
+   "equals": 0
+  },
+  {
+   "do": "snap",
+   "name": "saved"
+  },
+  {
+   "do": "js",
+   "src": "__lumina.closeShoot()"
+  },
+  {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "import"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().recents().length",
+   "equals": 1
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().recents()[0].kp",
+   "equals": 2
+  },
+  {
+   "do": "snap",
+   "name": "open-recent"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.kept().length === 2)",
+   "timeoutMs": 60000,
+   "what": "reopened with 2 keepers"
+  },
+  {
+   "do": "expect",
+   "js": "return __lumina.unsaved()",
+   "equals": 0
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "cmd": true,
+   "settleMs": 1000
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "cmd": true,
+   "settleMs": 1500
+  },
+  {
+   "do": "waitFor",
+   "js": "const r = __probe.logic().state.ex.result; return !!r",
+   "what": "second save"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/two-bodies",
+   "count": 2,
+   "glob": "*.xmp.lumina-bak"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

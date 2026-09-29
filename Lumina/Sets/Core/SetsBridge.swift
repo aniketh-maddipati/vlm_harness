@@ -23,6 +23,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     let ingest = SetsIngest()
     private var pendingSource: URL?
     private var lastOpened: URL?
+    /// The folder macOS last refused to list (SAFETY.md 5): checkAccess and reopen use it.
+    private var deniedFolder: URL?
     let shoots: SetsShootStore
     private(set) var ready = false
     var onEvent: ((String) -> Void)?
@@ -80,13 +82,25 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         let stopped = removed.map { ingest.markGone(volume: $0.volume) } ?? []
         if let card, !ingest.revive(volume: card.volume).isEmpty { onEvent?("card back: its folders read again") }
         let names = (try? JSONSerialization.data(withJSONObject: stopped)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
-        let js = card != nil ? "window.__lumina && __lumina.card(true, \(cardJSON(card!)))" : "window.__lumina && __lumina.cardGone(\(names))"
+        // Whether the open shoot lives on the volume that came or went (SAFETY.md 3).
+        let ours = { (volume: URL) -> Bool in
+            guard let open = self.lastOpened else { return false }
+            let v = SetsIngest.plainPath(volume), o = SetsIngest.plainPath(open)
+            return o == v || o.hasPrefix(v + "/")
+        }
+        var js: String
+        if let card {
+            js = "window.__lumina && __lumina.card(true, \(cardJSON(card)))"
+            if ours(card.volume) { js += "; window.__lumina && __lumina.cardBack()" }
+        } else {
+            js = "window.__lumina && __lumina.cardGone(\(names), \(removed.map { ours($0.volume) } ?? false))"
+        }
         if ready { webView?.evaluateJavaScript(js, completionHandler: nil) }
         onEvent?(card.map { "card in \($0.uuid)" } ?? "card out \(removed?.uuid ?? "?")" + (stopped.isEmpty ? "" : " · stopped reading \(stopped.joined(separator: ", "))"))
     }
 
     private func cardJSON(_ c: SetsCardWatcher.Card) -> String {
-        let o: [String: Any] = ["name": c.name, "photos": c.arwCount, "bytes": c.bytes, "sony": c.sony, "uuid": c.uuid]
+        let o: [String: Any] = ["name": c.name, "photos": c.arwCount, "bytes": c.bytes, "sony": c.sony, "uuid": c.uuid, "path": c.volume.path]
         return (try? JSONSerialization.data(withJSONObject: o)).flatMap { String(data: $0, encoding: .utf8) } ?? "null"
     }
 
@@ -113,9 +127,15 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "openFolder":
             // Native ingest: pick (or take the pending folder), then list it before reading anything.
             guard let url = await openPanel(allowsDirectories: true)?.first else { return (NSNull(), nil) }
+            if SetsIngest.accessDenied(url) {
+                deniedFolder = url
+                onEvent?("access denied \(url.path)")
+                return (["denied": Self.volumeName(url)], nil)
+            }
+            deniedFolder = nil
             let t0 = Date()
             let listing = await Task.detached(priority: .userInitiated) { SetsIngest.list(url) }.value
-            onEvent?("listed \(listing.files.count) ARW + \(listing.xmp.count) xmp in \(Int(Date().timeIntervalSince(t0) * 1000)) ms · \(ingest.workers) readers")
+            onEvent?("listed \(listing.files.count) ARW + \(listing.xmp.count) xmp + \(listing.others.count) other\(listing.onCard ? " (card)" : "") in \(Int(Date().timeIntervalSince(t0) * 1000)) ms · \(ingest.workers) readers")
             var d = listing.dictionary
             d["workers"] = ingest.workers
             return (d, nil)
@@ -144,7 +164,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (["id": id, "session": session ?? NSNull()] as [String: Any], nil)
         case "saveSession":
             guard let id = body["id"] as? String, let json = body["json"] as? String else { return (false, nil) }
-            do { try shoots.saveSession(id, Data(json.utf8)); return (true, nil) } catch { return (false, "\(error)") }
+            do {
+                try shoots.saveSession(id, Data(json.utf8))
+                if let sum = body["summary"] as? [String: Any] {
+                    try shoots.saveSummary(id, photos: sum["n"] as? Int, seen: sum["dec"] as? Int, keepers: sum["kp"] as? Int, last: sum["last"] as? String)
+                }
+                return (true, nil)
+            } catch { return (false, "\(error)") }
         case "recents":
             return (shoots.index().map { recent($0) }, nil)
         case "reopen":
@@ -165,20 +191,110 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (true, nil)
         case "writeInto":
             return (await writeInto(label: body["label"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? []), nil)
+        case "writeSidecars":
+            return (await writeSidecars(root: body["root"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? []), nil)
+        case "reveal":
+            guard let url = revealURL(body["path"] as? String ?? "") else { return (false, nil) }
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+            onEvent?("reveal \(url.path)")
+            return (true, nil)
+        case "setPrefs":
+            guard let prefs = body["prefs"] as? [String: Any] else { return (false, nil) }
+            Self.savePrefs(prefs)
+            return (true, nil)
+        case "openSettings":
+            // Privacy & Security → Files and Folders. Opening System Settings is the user's own click.
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") { NSWorkspace.shared.open(url) }
+            return (true, nil)
+        case "checkAccess":
+            return (deniedFolder.map { !SetsIngest.accessDenied($0) } ?? true, nil)
+        case "reopenDenied":
+            guard let url = deniedFolder else { return (false, nil) }
+            deniedFolder = nil
+            open(url)
+            return (true, nil)
+        case "reopenCurrent":
+            // The card with the open shoot came back after a read it cut short: read it again.
+            guard let url = lastOpened, FileManager.default.fileExists(atPath: url.path) else { return (false, nil) }
+            open(url)
+            return (true, nil)
         default:
             return (nil, "unknown op \(op)")
         }
     }
 
-    /// A recent shoot in the page's own SHOOTS shape: t, d, cam, n, src, where, seed (+ id).
+    /// A recent shoot in the page's own SHOOTS shape: d, n, dec, kp, last, where (+ id, which the
+    /// plumbing's libOpen reopens natively).
     private func recent(_ s: SetsShootStore.Shoot) -> [String: Any] {
-        var d = ""
-        let parts = s.firstCapture.split(separator: " ").first?.split(separator: ":").compactMap { Int($0) } ?? []
-        if parts.count == 3, let date = Calendar(identifier: .gregorian).date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2])) {
-            let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "MMM d, yyyy"; d = f.string(from: date)
+        let day = s.firstCapture.split(separator: " ").first.map { $0.replacingOccurrences(of: ":", with: "-") } ?? ""
+        return ["id": s.id, "d": day.isEmpty ? s.title : day, "n": s.photos, "dec": s.seen ?? 0, "kp": s.keepers ?? 0, "last": s.last ?? "", "where": s.path]
+    }
+
+    /// Show in Finder: an absolute path, a page path ("<folder>/sub/DSC.ARW"), or an opened folder's name.
+    private func revealURL(_ path: String) -> URL? {
+        let url: URL?
+        if path.hasPrefix("/") { url = URL(fileURLWithPath: path) }
+        else if path.contains("/") { url = resolve(path) }
+        else { url = ingest.root(named: path) ?? lastOpened }
+        guard let url, FileManager.default.fileExists(atPath: url.path) else { return lastOpened }
+        return url
+    }
+
+    /// The volume's name for the access banner: "SONY-A7M4", or the folder's name on the startup disk.
+    static func volumeName(_ url: URL) -> String {
+        let v = try? url.resourceValues(forKeys: [.volumeNameKey, .volumeIsRootFileSystemKey])
+        if v?.volumeIsRootFileSystem == true { return url.lastPathComponent }
+        return v?.volumeName ?? url.lastPathComponent
+    }
+
+    // MARK: Settings (MENUS.md): stored per user
+
+    static let prefsKey = "lumina-prefs"
+
+    static var prefs: [String: Any]? {
+        guard let text = UserDefaults.standard.string(forKey: prefsKey), let data = text.data(using: .utf8) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    static func savePrefs(_ prefs: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: prefs, options: [.sortedKeys]), let text = String(data: data, encoding: .utf8) else { return }
+        UserDefaults.standard.set(text, forKey: prefsKey)
+    }
+
+    // MARK: Save (SAFETY.md 1)
+
+    /// Save writes one .xmp sidecar per keeper INTO the shoot folder (`root`, an opened folder's
+    /// name), next to its RAW. Every file goes through SetsFileOps.writeSidecar; nothing is retried
+    /// silently. Refused wholesale when the folder is on a card.
+    private func writeSidecars(root name: String, files: [[String: Any]]) async -> [String: Any]? {
+        guard let root = ingest.root(named: name) ?? lastOpened.flatMap({ $0.lastPathComponent == name ? $0 : nil }) else {
+            onEvent?("writeSidecars: \(name) is not an opened folder")
+            return nil
         }
-        let onCard = s.path.hasPrefix("/Volumes/") && s.path.contains("/DCIM")
-        return ["id": s.id, "t": s.title, "d": d, "cam": "", "n": s.photos, "src": onCard ? "Card" : "Folder", "where": s.path, "seed": 0]
+        onEvent?("writeSidecars \(files.count) → \(root.path)")
+        let items: [(String, Data?)] = files.map { ($0["name"] as? String ?? "", ($0["b64"] as? String).flatMap { Data(base64Encoded: $0) }) }
+        let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "Lumina save")
+        let (n, bak, errors) = await Task.detached(priority: .userInitiated) { () -> (Int, Int, [[String: String]]) in
+            var n = 0, bak = 0, errors: [[String: String]] = []
+            let onCard = SetsFileOps.isCard(root)
+            for (rel, data) in items {
+                let stem = ((rel as NSString).lastPathComponent as NSString).deletingPathExtension
+                guard let data else { errors.append(["name": stem, "reason": "failed"]); continue }
+                if onCard { errors.append(["name": stem, "reason": "on the card"]); continue }
+                do {
+                    if try SetsFileOps.writeSidecar(data, rel: rel, root: root).backedUp { bak += 1 }
+                    n += 1
+                } catch let e as SetsFileOps.SidecarError {
+                    errors.append(["name": e.name, "reason": e.reason])
+                } catch {
+                    errors.append(["name": stem, "reason": SetsFileOps.reason(error)])
+                }
+            }
+            return (n, bak, errors)
+        }.value
+        ProcessInfo.processInfo.endActivity(activity)
+        onEvent?("sidecars → \(root.path): \(n) written, \(bak) bak, \(errors.count) failed\(errors.first.map { " — \($0["name"] ?? "") · \($0["reason"] ?? "")" } ?? "")")
+        return ["n": n, "bak": bak, "folder": root.lastPathComponent, "path": root.path, "errors": errors]
     }
 
     private func writeInto(label: String, files: [[String: Any]]) async -> [String: Any] {

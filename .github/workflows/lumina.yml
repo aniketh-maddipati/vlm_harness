@@ -30,6 +30,19 @@ jobs:
       - name: wording + demo-layer audit (report only)
         run: source Scripts/page_files.sh && python3 Tests/probe/design_audit.py "design/handoff/lumina-cull/$PAGE"
 
+  plumbing:
+    name: plumbing.js on the page (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: playwright
+        run: npm i -g playwright@1.56.1 && npx playwright install --with-deps chromium
+      - name: plumbing harness
+        run: NODE_PATH="$(npm root -g)" node Tests/web/plumbing-harness.mjs
+
   app:
     name: build + tests
     runs-on: macos-15

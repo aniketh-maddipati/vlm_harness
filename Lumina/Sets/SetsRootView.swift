@@ -23,14 +23,6 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     private(set) var webView: WKWebView?
     private var observers: [NSObjectProtocol] = []
 
-    /// The design's sample shoot is debug fixture data (ADDENDUM §1) and should never ship. But the
-    /// page can't render zero photos yet (it reads the current photo on every screen), so it stays on
-    /// until the design adds empty states; then flip the default to off. LUMINA_SAMPLE=0 tries it
-    /// now (Tests/probe/scenarios/app-empty-start.json is the acceptance test).
-    static var showsSample: Bool {
-        ProcessInfo.processInfo.environment["LUMINA_SAMPLE"] != "0"
-    }
-
     static var isDebug: Bool {
         #if DEBUG
         return true
@@ -57,7 +49,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         Task { @MainActor in
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
-                                                         standInPhotos: true, config: ["sample": Self.showsSample, "debug": Self.isDebug], frame: host.bounds)
+                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs ?? NSNull()], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self
@@ -147,10 +139,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     }
 }
 
-/// Window sizes: opens at the reference size (1440×900, ANSWERS-phase0 §1).
+/// Window sizes: opens at the reference size (1440×900, PARITY.md); minimum 1024×700 (ADDENDUM-1 §4).
 enum SetsWindowSize {
     static let initial = CGSize(width: 1440, height: 900)
-    static let minimum = CGSize(width: 1024, height: 640)
+    static let minimum = CGSize(width: 1024, height: 700)
 }
 
 extension Notification.Name {

@@ -15,6 +15,11 @@ nonisolated struct SetsShootStore {
         var firstCapture: String      // "YYYY:MM:DD HH:MM:SS" from EXIF, may be empty
         var opened: Date
         var bookmark: Data?
+        /// For the Open screen's recent cards (the page's own recents shape): rows seen, keepers,
+        /// the last photo. Updated with every saved session; absent in older indexes.
+        var seen: Int?
+        var keepers: Int?
+        var last: String?
     }
 
     let root: URL
@@ -38,7 +43,12 @@ nonisolated struct SetsShootStore {
     }
 
     func upsert(_ shoot: Shoot) throws {
-        var list = index().filter { $0.id != shoot.id }
+        let all = index()
+        var shoot = shoot
+        if let old = all.first(where: { $0.id == shoot.id }) {
+            shoot.seen = shoot.seen ?? old.seen; shoot.keepers = shoot.keepers ?? old.keepers; shoot.last = shoot.last ?? old.last
+        }
+        var list = all.filter { $0.id != shoot.id }
         list.insert(shoot, at: 0)
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         try SetsFileOps.replaceOwn(try enc.encode(list), at: root.appendingPathComponent("index.json"))
@@ -50,6 +60,24 @@ nonisolated struct SetsShootStore {
 
     func saveSession(_ id: String, _ json: Data) throws {
         try SetsFileOps.replaceOwn(json, at: root.appendingPathComponent(id).appendingPathComponent("session.json"))
+    }
+
+    /// The numbers the Open screen shows for a shoot. Written only when they change.
+    func saveSummary(_ id: String, photos: Int?, seen: Int?, keepers: Int?, last: String?) throws {
+        var list = index()
+        guard let i = list.firstIndex(where: { $0.id == id }) else { return }
+        let before = list[i]
+        if let photos { list[i].photos = photos }
+        list[i].seen = seen ?? list[i].seen
+        list[i].keepers = keepers ?? list[i].keepers
+        list[i].last = last ?? list[i].last
+        guard list[i] != before else { return }
+        try write(list)
+    }
+
+    private func write(_ list: [Shoot]) throws {
+        let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try SetsFileOps.replaceOwn(try enc.encode(list), at: root.appendingPathComponent("index.json"))
     }
 
     /// "Remove Lumina's working files" for one shoot: its session and index entry. Never RAWs or .xmp.
