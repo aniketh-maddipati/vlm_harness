@@ -51,7 +51,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         Task { @MainActor in
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
-                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs ?? NSNull()], frame: host.bounds)
+                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull()], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self
