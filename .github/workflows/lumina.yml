@@ -79,3 +79,30 @@ jobs:
             -only-testing:LuminaLogicTests test
       - name: probe builds
         run: swift build --package-path Tools/LuminaProbe
+
+  probe:
+    name: probe in WKWebView (no fixtures)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: contract, selftest, smoke, fuzz
+        env:
+          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe
+        run: |
+          status=0
+          for s in contract selftest smoke fuzz; do echo "::group::probe $s"; bash Scripts/probe.sh $s || status=1; echo "::endgroup::"; done
+          exit $status
+      - name: screens, app vs design at 0 px (records a fresh reference, then compares)
+        env:
+          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe-ref
+        run: bash Scripts/probe.sh reference --record && LUMINA_PROBE_OUT="${{ runner.temp }}/probe-cmp" bash Scripts/probe.sh reference
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-evidence
+          path: |
+            ${{ runner.temp }}/probe*/**/report.json
+            ${{ runner.temp }}/probe*/**/*.png
+            ${{ runner.temp }}/probe*/manifest.json
+          retention-days: 7
