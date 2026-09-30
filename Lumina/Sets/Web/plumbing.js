@@ -484,16 +484,20 @@
   //   window.luminaHistogram({seq, r, g, b, clipHi, clipLo})   256 bins, rest renders only
   //   window.luminaFacts({canvas, raw9, decoder, note})    the facts line's app part
   //   window.luminaEditStats(stats)                        the addendum: stats.facts.source 'raw9-region' for the flag words
-  //   window.luminaEditImage(url, seq, tier)               image path helper: a blob URL of the newest render (the probe's)
+  //   window.luminaEditImage(url, seq, tier)               image path helper: the URL of the newest render that loaded (the probe's)
   // `lumina.edit.*` below is the superset the probe and the harness drive; the page needs only the four calls above.
   const hook = (name, ...a) => { try { return typeof window[name] === 'function' ? window[name](...a) : undefined; } catch (_) { return undefined; } };
-  const wall = () => (performance.timeOrigin || 0) + performance.now();
+  // The page's monotonic clock (ms). The Mac measures its offset to its own clock from the message
+  // transit times, so a look event and the frame that shows it are timed on one base.
+  const pageNow = () => performance.now();
   const dpr = () => Math.max(1, window.devicePixelRatio || 1);
   const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?' + new URLSearchParams(q).toString();
-  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0 };
+  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null };
   // The image path's latest-wins renderer (addendum §7): one fetch in flight, the newest look
   // waits, a quarter-size render while dragging, the full one at rest (drag end, key, 120 ms idle).
   const img = { pending: null, inFlight: false, shown: 0, tier: null, url: null, fetches: 0, superseded: 0, restTimer: 0, last: null };
+  // The embedded JPEG's byte range (o, l, ori) rides along so the Mac can stand it in when the RAW can't be developed.
+  const withPreview = q => { const p = ed.preview; if (p && +p.l > 0) { q.o = p.o; q.l = p.l; q.ori = p.ori || 1; } return q; };
   const imgSubmit = (tier, key) => {
     if (!ed.rel || !ed.rect) return;
     ed.seq++;
@@ -502,21 +506,18 @@
     if (tier === 'small') img.restTimer = setTimeout(() => { if (ed.rel && img.tier !== 'base') imgSubmit('base'); }, 120);
     imgRender();
   };
+  // Loaded through an <img>, not fetch(): lumina://render is another host than the page's
+  // lumina://app, so a fetch would need CORS; an image load doesn't, and it decodes off the main
+  // thread. A superseded request (409) fails the load and counts as superseded.
   const imgRender = async () => {
     if (img.inFlight || !img.pending || !ed.rel || !ed.rect) return;
     const p = img.pending; img.pending = null; img.inFlight = true; img.fetches++;
     const px = Math.max(64, Math.round(Math.max(ed.rect.w, ed.rect.h) * dpr()));
     const q = { look: p.look, px, seq: p.seq, tier: p.tier }; if (ed.decoder != null) q.decoder = ed.decoder;
-    try {
-      const r = await fetch(renderURL(ed.rel, q));
-      if (r.status === 409) img.superseded++;
-      else if (r.ok && p.seq > img.shown) {
-        const u = URL.createObjectURL(await r.blob()), old = img.url;
-        img.url = u; img.shown = p.seq; img.tier = p.tier; img.last = p;
-        hook('luminaEditImage', u, p.seq, p.tier);
-        if (old) setTimeout(() => URL.revokeObjectURL(old), 1000);
-      }
-    } catch (_) {}
+    const url = renderURL(ed.rel, withPreview(q));
+    const ok = await new Promise(res => { const im = new Image(); im.decoding = 'async'; im.onload = () => res(true); im.onerror = () => res(false); im.src = url; });
+    if (!ok) img.superseded++;
+    else if (p.seq > img.shown) { img.url = url; img.shown = p.seq; img.tier = p.tier; img.last = p; hook('luminaEditImage', url, p.seq, p.tier); }
     img.inFlight = false;
     if (img.pending) imgRender();
   };
@@ -545,7 +546,7 @@
       const [id, p] = photoAt(l, rel); if (!p) return null;
       const o = l.data.order, k = o.indexOf(id), nb = d => { const q = l.data.byId[o[k + d]]; return q ? [q.path, previewOf(q.lg)] : [null, null]; };
       const [prev, prevPreview] = nb(-1), [next, nextPreview] = nb(1);
-      ed.rel = rel; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = false; ed.roi = null;
+      ed.rel = rel; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = false; ed.roi = null; ed.preview = previewOf(p.lg);
       img.shown = 0; img.tier = null; img.pending = null; ed.seq = 0;
       const r = await native('canvasEnter', { rel, look: ed.look, model: ed.model, preview: previewOf(p.lg), prev, prevPreview, next, nextPreview });
       if (r && typeof r === 'object') { ed.header = Object.assign({}, ed.header || {}, r); ed.path = r.canvas || 'image'; ed.decoder = r.decoderCanvas != null ? r.decoderCanvas : null; }
@@ -569,7 +570,7 @@
       ed.look = look; lastChange = performance.now(); scheduleSave();
       if (o.roi !== undefined) ed.roi = o.roi;
       if (!ed.rel) return 0;
-      if (ed.path === 'native') { const seq = o.seq != null ? o.seq : ++ed.seq; ed.seq = Math.max(ed.seq, seq); native('canvasLook', { look, drag: !!o.drag && !o.key, key: !!o.key, roi: ed.roi, t: wall(), seq }).catch(() => {}); return seq; }
+      if (ed.path === 'native') { const seq = o.seq != null ? o.seq : ++ed.seq; ed.seq = Math.max(ed.seq, seq); native('canvasLook', { look, drag: !!o.drag && !o.key, key: !!o.key, roi: ed.roi, t: pageNow(), seq }).catch(() => {}); return seq; }
       imgSubmit(o.drag && !o.key ? 'small' : 'base', o.key); return ed.seq;
     },
     // Prompt 1 §3: the page's one preview call. Native path: the look goes to the canvas and null
@@ -583,7 +584,7 @@
       const q = { look: ed.look, px: Math.max(64, Math.round(px || (ed.rect ? Math.max(ed.rect.w, ed.rect.h) * dpr() : 1024))), seq: seq != null ? seq : ++ed.seq, tier: ed.dragging ? 'small' : 'base' };
       if (ed.decoder != null) q.decoder = ed.decoder;
       ed.seq = Math.max(ed.seq, q.seq);
-      return renderURL(rel, q);
+      return renderURL(rel, withPreview(q));
     },
     canvasRect(r) { edit.layout(r, !!r); },
     drag(what) { if (what === 'start') edit.dragStart(); else edit.dragEnd(); },

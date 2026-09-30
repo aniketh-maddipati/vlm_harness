@@ -144,7 +144,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(bridge.canvas.entered[0] && bridge.canvas.entered[0].rel === rel0 && bridge.canvas.entered[0].model === 'ILCE-7M4' && bridge.canvas.entered[0].next && bridge.canvas.entered[0].preview && +bridge.canvas.entered[0].preview.l > 0,
     'edit: canvasEnter carries the photo, its body, its preview range and its neighbours', bridge.canvas.entered[0]);
   ok(bridge.canvas.layouts[0] && bridge.canvas.layouts[0].w === 900 && bridge.canvas.layouts[0].visible === true && bridge.canvas.layouts[0].dpr >= 1, 'edit: canvasLayout carries the rect, visibility and dpr', bridge.canvas.layouts[0]);
-  ok(hooks.images.length === 1 && hooks.images[0].tier === 'base' && /^blob:/.test(hooks.images[0].url), 'edit (image path): entering renders one full-quality image and hands the blob URL to luminaEditImage', hooks.images);
+  ok(hooks.images.length === 1 && hooks.images[0].tier === 'base' && /\/render\/2026-09-01\/DSC01001\.ARW\?/.test(hooks.images[0].url), 'edit (image path): entering loads one full-quality image (an <img>, no CORS) and hands its URL to luminaEditImage', hooks.images);
   ok(bridge.renders.length >= 1 && bridge.renders[0].look === 'ev:+0.50' && bridge.renders[0].px === 900 && bridge.renders[0].decoder === 8, 'edit (image path): the render asks for the look at the canvas size with the canvas decoder', bridge.renders[0]);
   // A 2 s drag: 60 looks at ~25 ms, renders slower than that (60 ms): only the newest value is fetched,
   // at the small tier, one at a time; drag end brings one full-quality render of the last value.

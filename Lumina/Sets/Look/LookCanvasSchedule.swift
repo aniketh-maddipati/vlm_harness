@@ -38,7 +38,10 @@ nonisolated struct LookCanvasSchedule: Sendable {
         let roi: ROI?
         /// Rest renders compute the histogram and the clipping overlay too.
         var stats: Bool { tier == .base }
+        /// When the look arrived, on the schedule's clock (ms).
         let submittedAt: Double
+        /// When the page emitted the look, on the page's clock (ms); 0 when unknown.
+        let pageAt: Double
     }
 
     struct Stats: Codable, Equatable, Sendable {
@@ -55,7 +58,7 @@ nonisolated struct LookCanvasSchedule: Sendable {
     var idleMs: Double = 120
 
     private(set) var dragging = false
-    private(set) var latest: (look: String, seq: Int, at: Double, roi: ROI?, pageSeq: Int)?
+    private(set) var latest: (look: String, seq: Int, at: Double, roi: ROI?, pageSeq: Int, pageAt: Double)?
     private(set) var inFlight: Int?
     private(set) var presented = Int.min
     private(set) var presentedTier: Tier?
@@ -72,11 +75,11 @@ nonisolated struct LookCanvasSchedule: Sendable {
 
     /// A new look value. Returns the page-facing sequence number it was given.
     @discardableResult
-    mutating func submit(_ look: String, at now: Double, roi: ROI? = nil, pageSeq: Int = 0) -> Int {
+    mutating func submit(_ look: String, at now: Double, roi: ROI? = nil, pageSeq: Int = 0, pageAt: Double = 0) -> Int {
         lookSeq += 1
         // The previous newest never started: it is replaced, not rendered.
         if let l = latest, l.seq > (lastStarted?.lookSeq ?? Int.min) { stats.coalesced += 1 }
-        latest = (look, lookSeq, now, roi, pageSeq)
+        latest = (look, lookSeq, now, roi, pageSeq, pageAt)
         stats.submitted += 1
         return lookSeq
     }
@@ -87,8 +90,8 @@ nonisolated struct LookCanvasSchedule: Sendable {
     mutating func dragEnd(at now: Double) { dragging = false; restWanted = true }
 
     /// A key changed the value: a full-quality render now, whatever the drag state.
-    mutating func keystroke(_ look: String, at now: Double, roi: ROI? = nil, pageSeq: Int = 0) -> Int {
-        let s = submit(look, at: now, roi: roi, pageSeq: pageSeq)
+    mutating func keystroke(_ look: String, at now: Double, roi: ROI? = nil, pageSeq: Int = 0, pageAt: Double = 0) -> Int {
+        let s = submit(look, at: now, roi: roi, pageSeq: pageSeq, pageAt: pageAt)
         restWanted = true
         return s
     }
@@ -114,7 +117,7 @@ nonisolated struct LookCanvasSchedule: Sendable {
         lastStarted = (l.seq, tier)
         stats.started += 1
         if tier == .small { stats.small += 1 } else { stats.base += 1 }
-        return Request(look: l.look, seq: renderSeq, lookSeq: l.seq, pageSeq: l.pageSeq, tier: tier, roi: tier == .small ? l.roi : nil, submittedAt: l.at)
+        return Request(look: l.look, seq: renderSeq, lookSeq: l.seq, pageSeq: l.pageSeq, tier: tier, roi: tier == .small ? l.roi : nil, submittedAt: l.at, pageAt: l.pageAt)
     }
 
     /// A render finished. True when the overlay should present it (it is newer than the last presented).

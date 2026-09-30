@@ -49,6 +49,10 @@ final class LookCanvasController: NSObject {
         var region = false
         var regionDecoder = 0
         var refining = false
+        /// The loupe's region could not be refined (not a RAW, or every decoder version failed): the
+        /// scenario waits on `region || regionFailed`.
+        var regionFailed = false
+        var regionError = ""
         var facts = ""
         var decoderFallbacks: [String] = []
         var slowed = false
@@ -201,10 +205,17 @@ final class LookCanvasController: NSObject {
             ensureBases()
         } else { current?.look = parsed }
         zoom = roi
-        let seq = key ? schedule.keystroke(text, at: t ?? now(), pageSeq: pageSeq) : schedule.submit(text, at: t ?? now(), roi: roi, pageSeq: pageSeq)
+        // The page's clock → ours: the smallest arrival − emit gap seen is the offset within a message's transit.
+        let arrived = now()
+        if let t, t > 0 { clockOffset = min(clockOffset, arrived - t) }
+        let seq = key ? schedule.keystroke(text, at: arrived, pageSeq: pageSeq, pageAt: t ?? 0) : schedule.submit(text, at: arrived, roi: roi, pageSeq: pageSeq, pageAt: t ?? 0)
         kick()
         return seq
     }
+
+    /// Our clock (ms, `CACurrentMediaTime`) minus the page's (`performance.now()`), estimated from
+    /// message transit: the true offset is at most this.
+    private var clockOffset = Double.greatestFiniteMagnitude
 
     /// A render reached the screen: the page's `seq` for the look it shows (`luminaPresented`).
     var onPresented: ((Int) -> Void)?
@@ -217,8 +228,15 @@ final class LookCanvasController: NSObject {
     func loupe(on: Bool, roi: LookCanvasSchedule.ROI?) {
         loupe = (on, roi)
         loupeStillTimer?.invalidate(); loupeStillTimer = nil
-        guard on, let roi, let c = current, let decoder = c.regionDecoder ?? c.decoder else {
+        stats.regionFailed = false; stats.regionError = ""
+        guard on, let roi, let c = current else {
             if !on { region = nil; regionSeq += 1; stats.region = false; stats.refining = false; setFacts(); kickRest() }
+            return
+        }
+        // No RAW decoder for this file (the embedded JPEG stands in, or the body offers none): nothing to refine.
+        guard let decoder = c.regionDecoder ?? c.decoder ?? LookPipeline.supportedDecoderVersions(url: c.url).max(), c.entry?.source != "jpeg" else {
+            stats.regionFailed = true; stats.regionError = "not a RAW Core Image decodes: no region refinement"
+            setFacts()
             return
         }
         let delay = LookRawPolicy.regionDelayMs(thermalState: LookDecoderProbe.thermalLevel(ProcessInfo.processInfo.thermalState), lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
@@ -270,6 +288,8 @@ final class LookCanvasController: NSObject {
                     self.refine(rel: rel, url: url, decoder: prev, roi: roi)
                 } else {
                     self.stats.region = false
+                    self.stats.regionFailed = true
+                    self.stats.regionError = "\(e)"
                     self.setFacts()
                 }
             }
@@ -303,6 +323,8 @@ final class LookCanvasController: NSObject {
 
     var currentEntry: LookBases.Entry? { current?.entry }
     var currentPreview: LookBases.PreviewFallback? { current?.preview }
+    /// The look `renderToImage` renders (the newest the canvas was given).
+    var currentLook: String { current?.look.format() ?? "" }
 
     // MARK: Bases
 
@@ -393,21 +415,19 @@ final class LookCanvasController: NSObject {
             schedule.failed(r); rendering = false
             return
         }
-        let submitted = r.submittedAt
         let wasDragEnd = dragEndAt
+        // The frame's time on our clock: the GPU end time when the command buffer completes, replaced
+        // by the drawable's presented time when the window really presents (it is 0 when it doesn't,
+        // e.g. the probe's transparent window). Latency = frame − the look's page time + the clock offset.
         drawable.addPresentedHandler { [weak self] d in
             let presented = d.presentedTime
+            guard presented > 0 else { return }
             DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    guard let self else { return }
-                    let wall = Date().timeIntervalSince1970 * 1000 - (CACurrentMediaTime() - presented) * 1000
-                    if submitted > 1e12 { self.latencies.append(wall - submitted); if self.latencies.count > 4000 { self.latencies.removeFirst(2000) } }
-                    if r.tier == .base, let de = wasDragEnd, presented >= de { self.stats.lastRestMs = (presented - de) * 1000; self.dragEndAt = nil }
-                    if r.seq > self.lastPresentedSeq { self.lastPresentedSeq = r.seq; if r.pageSeq > 0 { self.onPresented?(r.pageSeq) } }
-                }
+                MainActor.assumeIsolated { self?.frameShown(r, at: presented, dragEnd: wasDragEnd, presented: true) }
             }
         }
-        cb.addCompletedHandler { [weak self] _ in
+        cb.addCompletedHandler { [weak self] buffer in
+            let end = buffer.gpuEndTime > 0 ? buffer.gpuEndTime : CACurrentMediaTime()
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     guard let self else { return }
@@ -416,12 +436,30 @@ final class LookCanvasController: NSObject {
                     self.stats.lastRenderMs = (CACurrentMediaTime() - t0) * 1000
                     self.stats.lastRestTier = r.tier.rawValue
                     _ = self.schedule.finished(r)
+                    self.frameShown(r, at: end, dragEnd: wasDragEnd, presented: false)
                     if r.stats { self.restStats(image, region: region, seq: r.pageSeq) }
                 }
             }
         }
         cb.present(drawable)
         cb.commit()
+    }
+
+    private var sampleIndex: [Int: Int] = [:]        // render seq → its latency sample's index
+
+    /// A render's frame time (seconds on our clock): records the latency sample (once per render,
+    /// the presented time overriding the GPU end time), the rest render's delay after drag end, and
+    /// tells the page which look is on screen.
+    private func frameShown(_ r: LookCanvasSchedule.Request, at frame: CFTimeInterval, dragEnd: CFTimeInterval?, presented: Bool) {
+        let frameMs = frame * 1000
+        if r.pageAt > 0, clockOffset < Double.greatestFiniteMagnitude {
+            let latency = frameMs - (r.pageAt + clockOffset)
+            if let i = sampleIndex[r.seq], i < latencies.count { latencies[i] = latency }
+            else { latencies.append(latency); sampleIndex[r.seq] = latencies.count - 1 }
+            if latencies.count > 4000 { latencies.removeFirst(2000); sampleIndex = [:] }
+        }
+        if r.tier == .base, let de = dragEnd, frame >= de { stats.lastRestMs = (frame - de) * 1000; dragEndAt = nil }
+        if r.seq > lastPresentedSeq { lastPresentedSeq = r.seq; if r.pageSeq > 0 { onPresented?(r.pageSeq) } }
     }
 
     /// Histogram and clipping, on rest renders only (§3): one CIAreaHistogram pass, 256 bins
@@ -479,5 +517,6 @@ final class LookCanvasController: NSObject {
         return s.width > 1 && s.height > 1 ? s : CGSize(width: 1024, height: 768)
     }
 
-    private func now() -> Double { Date().timeIntervalSince1970 * 1000 }
+    /// The schedule's clock: `CACurrentMediaTime` in ms, the base Metal's GPU and presented times use.
+    private func now() -> Double { CACurrentMediaTime() * 1000 }
 }

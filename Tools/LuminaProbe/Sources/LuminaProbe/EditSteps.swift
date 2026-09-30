@@ -76,7 +76,8 @@ enum EditSteps {
         guard let bridge = host.bridge, let canvas = bridge.canvas else { throw ProbeError("editParity needs app mode") }
         guard let entry = canvas.currentEntry, let preview = canvas.renderToImage() else { throw ProbeError("editParity: no bases on the canvas yet") }
         guard let st = try await host.js("return lumina.edit.state()") as? [String: Any], let rel = st["rel"] as? String, let url = bridge.resolve(rel) else { throw ProbeError("editParity: nothing on the canvas") }
-        let look = st["look"] as? String ?? ""
+        // The look the canvas holds (on the image path the page's newest look goes to lumina://render, not the canvas).
+        let look = canvas.currentLook
         let px = Int(max(entry.baseSize.width, entry.baseSize.height))
         let export: CGImage
         let pipe = try SetsLookExport.pipeline()

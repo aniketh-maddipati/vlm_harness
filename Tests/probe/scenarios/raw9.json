@@ -53,13 +53,13 @@
   },
   {
    "do": "waitFor",
-   "js": "return lumina.edit.stats().then(s=>s.path==='image'||s.region===true||(s.facts&&s.facts.raw9Present===false&&!s.bases.onGPU))",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'||s.region===true||s.regionFailed===true)",
    "timeoutMs": 60000,
-   "what": "the loupe's region rendered (native canvas)"
+   "what": "the loupe's region rendered, or reported as not a RAW (native canvas)"
   },
   {
    "do": "js",
-   "src": "return lumina.edit.stats().then(s=>JSON.stringify({path:s.path,region:s.region,decoder:s.regionDecoder,refining:s.refining,facts:s.facts&&s.facts.text,tiles:s.tiles,fallbacks:s.decoderFallbacks,slowed:s.slowed}))"
+   "src": "return lumina.edit.stats().then(s=>JSON.stringify({path:s.path,region:s.region,regionFailed:s.regionFailed,regionError:s.regionError,decoder:s.regionDecoder,refining:s.refining,facts:s.facts&&s.facts.text,tiles:s.tiles,fallbacks:s.decoderFallbacks,slowed:s.slowed}))"
   },
   {
    "do": "dump",

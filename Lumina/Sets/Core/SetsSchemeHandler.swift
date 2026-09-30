@@ -142,8 +142,11 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
         var px = min(8192, max(64, Int(q["px"] ?? "") ?? 1024))
         if q["tier"] == "small" { px = max(64, px / 4) }
         let decoder = Int(q["decoder"] ?? "")
+        // `o`, `l`, `ori`: the embedded JPEG's range (the page's parseHead), the stand-in when the RAW can't be developed.
+        var preview: LookBases.PreviewFallback?
+        if let o = Int(q["o"] ?? ""), let l = Int(q["l"] ?? ""), o > 0, l > 0 { preview = LookBases.PreviewFallback(offset: o, length: l, orientation: Int(q["ori"] ?? "") ?? 1) }
         renderer.requested(rel: rel, seq: seq)
-        renderer.enqueue({ try renderer.renderJPEG(url: file, rel: rel, look: look, px: px, seq: seq, decoder: decoder) }) { [weak self] r in
+        renderer.enqueue({ try renderer.renderJPEG(url: file, rel: rel, look: look, px: px, seq: seq, decoder: decoder, preview: preview) }) { [weak self] r in
             guard let self, !self.lock.withLock({ self.stopped.remove(ObjectIdentifier(task)) != nil }) else { return }
             switch r {
             case .success(let data):
