@@ -74,16 +74,6 @@
   // Last scroll in the page (any scroller), for pacing the grid's refresh while a folder is read.
   let scrollT = 0;
   document.addEventListener('scroll', () => { scrollT = performance.now(); }, { capture: true, passive: true });
-  const scrolling = () => performance.now() - scrollT < 250;
-  // While the reader scrolls, the page's per-photo measuring (decode, focus, dHash: main-thread work)
-  // runs at most one photo per frame, right after a frame, so the scroll keeps its frames. Not
-  // scrolling: no wait. The results are the same, only when they're computed moves.
-  let gate = Promise.resolve();
-  const turn = () => {
-    if (!scrolling()) return Promise.resolve();
-    const p = gate.then(() => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))));
-    gate = p; return p;
-  };
   // Path inside the opened folder ("sub/DSC00001.ARW"): stable across reopen and new files.
   const keyOf = p => { const r = (p && p.fileObj && p.fileObj.webkitRelativePath) || (p && p.path) || ''; return r ? r.split('/').slice(1).join('/') : (p && p.file) || ''; };
   const pathOf = (logic, id) => keyOf(logic.data && logic.data.byId[id]);
@@ -233,7 +223,7 @@
         if (!blob) throw 0;
         const ori = m.orient || 1;
         if (ori === 3 || ori === 6 || ori === 8) { const b0 = await createImageBitmap(blob, { imageOrientation: 'none' }), sw = ori !== 3, c = document.createElement('canvas'); c.width = sw ? b0.height : b0.width; c.height = sw ? b0.width : b0.height; const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(ori === 6 ? Math.PI / 2 : ori === 8 ? -Math.PI / 2 : Math.PI); x.drawImage(b0, -b0.width / 2, -b0.height / 2); b0.close(); blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.92)); }
-        const sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' }); await turn(); portrait = sm.height > sm.width; me = LuminaCore.measure(sm); sm.close();
+        const sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' }); portrait = sm.height > sm.width; me = LuminaCore.measure(sm); sm.close();
         // Measures above come from the page's exact 360 px bitmap. The tile shows a sharper picture:
         // the Mac's, else one made in a worker, else the page's own.
         tb = (nt && await nt) || await gridThumb(blob) || await new Promise(res => me.canvas.toBlob(res, 'image/jpeg', 0.82));
@@ -297,18 +287,11 @@
       readMoved = false;
       logic._gold = []; logic._failed = []; logic.real = [];
       logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
-      // Rows appear as the contiguous prefix grows: every 400 ms, as in the page. While the reader is
-      // scrolling, the grid isn't rebuilt under the moving scroll: new rows wait until the scroll
-      // pauses (at most 3 s), then arrive at once (plumbing's pacing).
-      let settleT = 0;
+      // Rows appear as the contiguous prefix grows: every 400 ms, as in the page; every 1.5 s while
+      // the reader is scrolling, so the grid isn't rebuilt under a moving scroll (plumbing's pacing).
       const grow = force => {
         while (pre < files.length && res[pre] !== undefined) pre++;
-        const now = performance.now();
-        if (!force && pre >= 48 && scrolling() && now - lastB < 3000) {
-          if (!settleT) settleT = setTimeout(function again() { settleT = scrolling() ? setTimeout(again, 120) : 0; if (!settleT && reading === run) grow(false); }, 120);
-          return;
-        }
-        if (!force && (pre < 48 || now - lastB < 400)) return; lastB = now;
+        const now = performance.now(); if (!force && (pre < 48 || now - lastB < (now - scrollT < 300 ? 1500 : 400))) return; lastB = now;
         logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null;
         if (!shown) { shown = true; firstCur = logic.data.order[0]; logic.setState({ cur: firstCur }); logic.setView('cull', true); } else logic.forceUpdate();
       };
