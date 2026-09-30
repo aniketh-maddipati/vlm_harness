@@ -69,6 +69,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             let c = LookCanvasController(pipeline: pipe, host: host)
             c.onFacts = { [weak self] facts in self?.push("__lumina.editFacts(\(Self.json(facts)))") }
             c.onStats = { [weak self] stats in self?.push("__lumina.editStats(\(Self.json(stats)))") }
+            c.onPresented = { [weak self] seq in self?.push("__lumina.editPresented(\(seq))") }
             c.onDecoderFallback = { [weak self] rel, from, to in self?.onEvent?("raw \(from) failed for \(rel): using raw \(to)") }
             canvas = c
             onEvent?("canvas: \(c.path.rawValue)")
@@ -302,7 +303,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (["path": c.path.rawValue], nil)
         case "canvasLook":
             guard let c = canvas, let look = body["look"] as? String else { return (0, nil) }
-            let seq = c.look(look, drag: body["drag"] as? Bool ?? false, key: body["key"] as? Bool ?? false, roi: roi(body["roi"]), at: body["t"] as? Double)
+            let seq = c.look(look, drag: body["drag"] as? Bool ?? false, key: body["key"] as? Bool ?? false, roi: roi(body["roi"]), at: body["t"] as? Double,
+                             pageSeq: body["seq"] as? Int ?? Int(body["seq"] as? Double ?? 0))
             return (seq, nil)
         case "canvasDrag":
             if body["start"] as? Bool ?? false { canvas?.dragStart() } else { canvas?.dragEnd() }

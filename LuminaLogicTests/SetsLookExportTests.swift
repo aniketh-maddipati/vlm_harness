@@ -27,9 +27,9 @@ final class SetsLookExportTests: XCTestCase {
         var r = SetsExportJob.Result()
         XCTAssertEqual(r.decoderSummary, "")
         r.decoders = ["raw 9", "raw 9"]
-        XCTAssertEqual(r.decoderSummary, "raw 9")
+        XCTAssertEqual(r.decoderSummary, "RAW 9")
         r.decoders.append("raw 8 (raw 9 failed: x)"); r.fallbacks.append("DSC00003.ARW")
-        XCTAssertEqual(r.decoderSummary, "raw 8 + raw 9 · 1 file fell back")
+        XCTAssertEqual(r.decoderSummary, "RAW 8 + RAW 9 · 1 file fell back")
     }
 
     /// A non-RAW (PNG) renders with no decoder and no fallback; a `nr` key in the look is accepted.

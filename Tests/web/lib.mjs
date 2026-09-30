@@ -179,6 +179,12 @@ export class Bridge {
       case 'canvasDrag': this.canvas.drags.push(msg.start); return true;
       case 'canvasLoupe': this.canvas.loupes.push(msg); return true;
       case 'canvasStats': this.canvas.statsCalls++; if (msg.reset) this.canvas.resets++; return { path: this.canvas.path, facts: this.header, latencyMs: [], schedule: {}, bases: {}, tiles: {} };
+      case 'writeInto': {
+        // The Edit step's JPEGs (label 'jpeg'): what SetsBridge.writeInto answers after SetsExportJob ran the look items.
+        if (msg.label !== 'jpeg') return null;
+        this.jpegItems = msg.files;
+        return { n: msg.files.length, bak: 0, folder: '/tmp/export', decoder: 'RAW 8', decoders: msg.files.map(() => 'raw 8'), fallbacks: [], renderMs: msg.files.map(() => 120) };
+      }
       case 'saveSession': { this.sessions[msg.id] = msg.json; const s = this.index.find(x => x.id === msg.id); if (s) Object.assign(s, msg.summary || {}); this.saves = (this.saves || 0) + 1; return true; }
       case 'prefetch': return (msg.items || []).length;
       case 'ingestStats': return { workers: 4, inFlight: 0, maxInFlight: 4, heads: 0, previews: 0, largestRead: 0, opensAfterGone: 0, failures: 0, gone: [...this.gone] };

@@ -36,9 +36,10 @@ nonisolated struct SetsExportJob {
         var fallbacks: [String] = []
         var renderMs: [Double] = []
 
-        /// One line for the export's result block: "raw 9" or "raw 9 · 1 file fell back to raw 8".
+        /// One line for the export's result block (Prompt 1 §7's `decoder`): "RAW 9", or
+        /// "RAW 8 + RAW 9 · 1 file fell back".
         var decoderSummary: String {
-            let used = decoders.map { $0.components(separatedBy: " (")[0] }
+            let used = decoders.map { $0.components(separatedBy: " (")[0].replacingOccurrences(of: "raw ", with: "RAW ") }
             guard let first = used.first else { return "" }
             var s = Set(used).count == 1 ? first : Set(used).sorted().joined(separator: " + ")
             if !fallbacks.isEmpty { s += " · \(fallbacks.count) file\(fallbacks.count == 1 ? "" : "s") fell back" }

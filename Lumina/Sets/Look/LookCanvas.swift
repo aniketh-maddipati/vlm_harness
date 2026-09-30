@@ -82,6 +82,7 @@ final class LookCanvasController: NSObject {
     private var fallbackVersions: [String: Int] = [:]       // rel → the version to use after a RAW 9 failure
     private var rendering = false
     private var flightSeq = 0
+    private var lastPresentedSeq = 0
     private var facts = ""
 
     /// Facts for the page's facts line ("canvas: native", "raw 9 · region", "refining…").
@@ -190,7 +191,7 @@ final class LookCanvasController: NSObject {
 
     /// A slider value. `t` is the page's wall clock for the event (ms since the epoch) so the
     /// latency to the presented frame can be measured across the two processes.
-    func look(_ text: String, drag: Bool, key: Bool, roi: LookCanvasSchedule.ROI?, at t: Double?) -> Int {
+    func look(_ text: String, drag: Bool, key: Bool, roi: LookCanvasSchedule.ROI?, at t: Double?, pageSeq: Int = 0) -> Int {
         guard var c = current else { return 0 }
         let parsed = (try? Look.parse(text)) ?? c.look
         let base = LookBases.Key(rel: c.rel, decoder: c.decoder, look: parsed, canvas: canvasPixels())
@@ -200,10 +201,13 @@ final class LookCanvasController: NSObject {
             ensureBases()
         } else { current?.look = parsed }
         zoom = roi
-        let seq = key ? schedule.keystroke(text, at: t ?? now()) : schedule.submit(text, at: t ?? now(), roi: roi)
+        let seq = key ? schedule.keystroke(text, at: t ?? now(), pageSeq: pageSeq) : schedule.submit(text, at: t ?? now(), roi: roi, pageSeq: pageSeq)
         kick()
         return seq
     }
+
+    /// A render reached the screen: the page's `seq` for the look it shows (`luminaPresented`).
+    var onPresented: ((Int) -> Void)?
 
     func dragStart() { dragging = true; dragEndAt = nil; schedule.dragStart(at: now()); kick() }
     func dragEnd() { dragging = false; dragEndAt = CACurrentMediaTime(); schedule.dragEnd(at: now()); kick() }
@@ -399,6 +403,7 @@ final class LookCanvasController: NSObject {
                     let wall = Date().timeIntervalSince1970 * 1000 - (CACurrentMediaTime() - presented) * 1000
                     if submitted > 1e12 { self.latencies.append(wall - submitted); if self.latencies.count > 4000 { self.latencies.removeFirst(2000) } }
                     if r.tier == .base, let de = wasDragEnd, presented >= de { self.stats.lastRestMs = (presented - de) * 1000; self.dragEndAt = nil }
+                    if r.seq > self.lastPresentedSeq { self.lastPresentedSeq = r.seq; if r.pageSeq > 0 { self.onPresented?(r.pageSeq) } }
                 }
             }
         }
@@ -411,7 +416,7 @@ final class LookCanvasController: NSObject {
                     self.stats.lastRenderMs = (CACurrentMediaTime() - t0) * 1000
                     self.stats.lastRestTier = r.tier.rawValue
                     _ = self.schedule.finished(r)
-                    if r.stats { self.restStats(image, region: region) }
+                    if r.stats { self.restStats(image, region: region, seq: r.pageSeq) }
                 }
             }
         }
@@ -419,17 +424,19 @@ final class LookCanvasController: NSObject {
         cb.commit()
     }
 
-    /// Histogram and clipping, on rest renders only (§3): one CIAreaHistogram pass, 64 bins.
-    private func restStats(_ image: CIImage, region: LookRegionTiles.Region?) {
+    /// Histogram and clipping, on rest renders only (§3): one CIAreaHistogram pass, 256 bins
+    /// (Prompt 1's `luminaHistogram`).
+    private func restStats(_ image: CIImage, region: LookRegionTiles.Region?, seq: Int) {
         let extent = image.extent
         guard !extent.isEmpty, !extent.isInfinite else { return }
-        let hist = image.applyingFilter("CIAreaHistogram", parameters: [kCIInputExtentKey: CIVector(cgRect: extent), "inputCount": 64, "inputScale": 1.0])
-        var px = [Float](repeating: 0, count: 64 * 4)
-        pipeline.context.render(hist, toBitmap: &px, rowBytes: 64 * 16, bounds: CGRect(x: 0, y: 0, width: 64, height: 1), format: .RGBAf, colorSpace: nil)
+        let bins = 256
+        let hist = image.applyingFilter("CIAreaHistogram", parameters: [kCIInputExtentKey: CIVector(cgRect: extent), "inputCount": bins, "inputScale": 1.0])
+        var px = [Float](repeating: 0, count: bins * 4)
+        pipeline.context.render(hist, toBitmap: &px, rowBytes: bins * 16, bounds: CGRect(x: 0, y: 0, width: bins, height: 1), format: .RGBAf, colorSpace: nil)
         var r: [Double] = [], g: [Double] = [], b: [Double] = []
-        for i in 0..<64 { r.append(Double(px[4 * i])); g.append(Double(px[4 * i + 1])); b.append(Double(px[4 * i + 2])) }
+        for i in 0..<bins { r.append(Double(px[4 * i])); g.append(Double(px[4 * i + 1])); b.append(Double(px[4 * i + 2])) }
         let total = max(1e-9, r.reduce(0, +))
-        var out: [String: Any] = ["histogram": ["r": r, "g": g, "b": b], "clipHi": (r[63] + g[63] + b[63]) / (3 * total), "clipLo": (r[0] + g[0] + b[0]) / (3 * total), "source": region == nil ? "jpeg" : "raw9-region"]
+        var out: [String: Any] = ["seq": seq, "histogram": ["r": r, "g": g, "b": b], "clipHi": (r[bins - 1] + g[bins - 1] + b[bins - 1]) / (3 * total), "clipLo": (r[0] + g[0] + b[0]) / (3 * total), "source": region == nil ? "jpeg" : "raw9-region"]
         if let region { out["facts"] = ["sharpness": region.facts.sharpness, "clipHi": region.facts.clipHi, "clipLo": region.facts.clipLo, "source": region.facts.source] }
         onStats?(out)
     }
