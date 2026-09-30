@@ -11,6 +11,8 @@ not exercised here). Suites:
   selftest   the design's ?selftest (25 checks + timing)
   flow       open a folder, read, keep, save sidecars into the folder, .lumina-bak, reopen, card, access
   screens    screens-1440 / 1920: prototype vs app parity mode, every snapshot and state dump compared
+  scroll     fast scrolling in Cull over a few hundred synthetic ARWs: frame pacing, blank tiles, thumbnail
+             upscale ratio, web-process memory (reported, not gated: no GPU here; the Mac's is probe.sh scroll)
 
   xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py [suite …] [--out DIR]
 
@@ -90,7 +92,7 @@ def offline_filter():
 class Page:
     """One offscreen WebKitGTK view. app=True: plumbing.js + the lumina message handler."""
 
-    def __init__(self, app, size=(1440, 900), query='', clock=None, parity=False, storage_writes=True):
+    def __init__(self, app, size=(1440, 900), query='', clock=None, parity=False, storage_writes=True, probe=False):
         ucm = WebKit2.UserContentManager()
         add = lambda src: ucm.add_script(WebKit2.UserScript.new(src, WebKit2.UserContentInjectedFrames.TOP_FRAME, WebKit2.UserScriptInjectionTime.START, None, None))
         if clock:
@@ -98,6 +100,8 @@ class Page:
             add('(() => { const R = Date, t0 = R.now(), b = %d; const now = () => b + (R.now() - t0); class D extends R { constructor(...a) { if (a.length === 0) super(now()); else super(...a); } static now() { return now(); } } window.Date = D; })();' % base)
         if not storage_writes:
             add("Storage.prototype.setItem = function () { throw new DOMException('storage writes off', 'QuotaExceededError'); };")
+        if probe:   # the Mac probe's own page helpers (tile meter, frame pacing); its message posts no-op here
+            add(open(os.path.join(ROOT, 'Tools/LuminaProbe/Sources/LuminaProbe/probe.js'), encoding='utf-8').read())
         add('window.__resources = Object.assign(window.__resources || {}, %s);' % json.dumps(ctl('resources')))
         add('window.__errors = []; addEventListener("error", e => __errors.push(String(e.message) + (e.filename ? " @ " + e.filename + ":" + e.lineno : ""))); addEventListener("unhandledrejection", e => __errors.push("rejection: " + String(e.reason && e.reason.message || e.reason) + " " + String(e.reason && e.reason.stack || "").split("\\n").slice(0, 3).join(" | ")));')
         if app:
@@ -363,59 +367,89 @@ def screens():
             ok(same, '%s/%s.state.json identical' % (name, k), keys)
 
 
-SCROLL = r"""
-const L = () => __lumina.logic(), res = {};
-const dir = await C('bigshoot', { name: 'big', n: %(n)d });
-const t0 = performance.now(); await C('pick', { path: dir }); __lumina.openFolder();
-await until(() => L().real && L().real.length && !L().state.realLoad && L().state.realInfo, 300000);
-res.photos = L().real.length; res.readSecs = +((performance.now() - t0) / 1000).toFixed(1);
-L().setState({ tsz: 2 }); await W(800);                               // the largest tiles: the worst case for sharpness
-const el = L().scrollRef.current, cssW = el.clientWidth;
-const tiles = () => { const vr = el.getBoundingClientRect(); return [...document.querySelectorAll('[data-tile] img')].filter(im => { const r = im.getBoundingClientRect(); return r.width > 0 && r.bottom > vr.top && r.top < vr.bottom; }); };
-const shown = im => im.complete && im.naturalWidth > 0 && +getComputedStyle(im).opacity > 0.99;
-// thumbnail pixels per displayed pixel on a Retina (2×) screen; < 1 means the thumbnail is stretched
-const up = () => { const t = tiles().filter(im => im.naturalWidth); const v = t.map(im => im.naturalWidth / (im.clientWidth * 2)).sort((a, b) => a - b); return v.length ? { min: +v[0].toFixed(2), median: +v[v.length >> 1].toFixed(2), tileCss: Math.round(t[0].clientWidth), thumbPx: t[0].naturalWidth } : null; };
-res.upscale = up(); res.dpr = devicePixelRatio;
-const sizes = await Promise.all(L().real.slice(0, 40).map(p => fetch(p.src).then(r => r.blob()).then(b => b.size)));
-res.thumbKB = +(sizes.reduce((a, b) => a + b, 0) / sizes.length / 1024).toFixed(1);
-res.thumbMBper1000 = +(res.thumbKB * 1000 / 1024).toFixed(0);
-const run = async (pxPerFrame, ms) => {
-  el.scrollTop = 0; await W(600);
-  const gaps = [], blanks = []; let last = performance.now(), tEnd = last + ms;
-  await new Promise(done => { const f = now => { gaps.push(now - last); last = now; el.scrollTop += pxPerFrame;
-    const t = tiles(); blanks.push(t.length ? t.filter(im => !shown(im)).length / t.length : 0);
-    if (now < tEnd && el.scrollTop + el.clientHeight < el.scrollHeight - 2) requestAnimationFrame(f); else done(); }; requestAnimationFrame(f); });
-  const s0 = performance.now(); let settle = null;
-  while (performance.now() - s0 < 5000) { const t = tiles(); if (t.length && t.every(shown)) { settle = Math.round(performance.now() - s0); break; } await W(16); }
-  gaps.sort((a, b) => a - b); blanks.sort((a, b) => a - b);
-  const pct = (a, p) => a[Math.min(a.length - 1, Math.floor(p * a.length))];
-  return { pxPerFrame, frames: gaps.length, frameP50: +pct(gaps, 0.5).toFixed(1), frameP95: +pct(gaps, 0.95).toFixed(1), over33: gaps.filter(g => g > 33.4).length,
-    blankMean: +(blanks.reduce((a, b) => a + b, 0) / blanks.length * 100).toFixed(1), blankP95: +(pct(blanks, 0.95) * 100).toFixed(1), settleMs: settle };
-};
-res.slow = await run(15, 2500);    // a trackpad glide
-res.fast = await run(90, 2500);    // a hard flick
-res.fling = await run(220, 2000);  // faster than anyone reads
-res.errors = window.__errors;
-return res;
-"""
+def web_rss_mb():
+    """Resident memory of this run's WebKit web processes (children of this process), in MB."""
+    tot = 0
+    for pid in os.listdir('/proc'):
+        if not pid.isdigit():
+            continue
+        try:
+            st = open('/proc/%s/stat' % pid).read().split(') ')[-1].split()
+            if int(st[1]) != os.getpid() or 'WebKitWebProces' not in open('/proc/%s/comm' % pid).read():
+                continue
+            for line in open('/proc/%s/status' % pid):
+                if line.startswith('VmRSS:'):
+                    tot += int(line.split()[1]) / 1024
+        except (OSError, ValueError, IndexError):
+            pass
+    return round(tot)
+
+
+SCROLL_N = int(os.environ.get('LUMINA_SCROLL_N', '400'))
 
 
 def scroll():
-    ctl('reset')
-    n = int(os.environ.get('LUMINA_SCROLL_N', '400'))
-    p = Page(app=True, size=(1440, 900))
-    ok(ready(p, True), 'scroll: page ready')
-    r = p.js(SCROLL % {'n': n}, timeout=900)
-    json.dump(r, open(os.path.join(OUT, 'scroll.json'), 'w'), indent=1)
-    print('     %d photos read in %.1f s · thumbnail %s px for a %s px tile (%.1f KB each, ~%d MB per 1,000)' % (
-        r['photos'], r['readSecs'], (r['upscale'] or {}).get('thumbPx'), (r['upscale'] or {}).get('tileCss'), r['thumbKB'], r['thumbMBper1000']))
-    print('     upscale on Retina (thumb px / displayed px, want ≥ 1): %s' % json.dumps(r['upscale']))
-    for k in ('slow', 'fast', 'fling'):
-        x = r[k]
-        print('     %-5s %3d px/frame: frames p50 %5.1f ms p95 %5.1f ms, %d over 33 ms · blank/fading tiles mean %4.1f%% p95 %4.1f%% · all shown %s ms after stop' % (
-            k, x['pxPerFrame'], x['frameP50'], x['frameP95'], x['over33'], x['blankMean'], x['blankP95'], x['settleMs']))
-    ok(not r['errors'], 'scroll: no page errors', r['errors'])
-    p.close()
+    shoot = ctl('bigshoot', name='scroll-%d' % SCROLL_N, n=SCROLL_N)
+    rows = []
+    sizes = [z for z in ((1440, 900), (2560, 1440)) if str(z[0]) in os.environ.get('LUMINA_SCROLL_SIZES', '1440,2560')]
+    for size in sizes:
+        ctl('reset')
+        p = Page(app=True, size=size, probe=True)
+        ok(ready(p, True), 'scroll %dx%d: page ready' % size)
+        ctl('pick', path=shoot)
+        t0 = time.time()
+        p.js('__lumina.openFolder(); return true')
+        if size == (1440, 900):
+            # While the folder is still being read (the user's recording): move, keep, scroll; then the read ends.
+            ok(spin(lambda: p.js('const l = __lumina.logic(); return !!(l.real && l.real.length && l.state.view === "cull" && l.state.realLoad)'), 300), 'scroll: rows shown while reading')
+            p.js('__probe.watchReadEnd(); K("ArrowDown"); await W(120); K("ArrowDown"); await W(120); K("ArrowDown"); await W(120); K("p"); await W(200); return true')
+            for name, frames, dy in (('read-glide', 150, 40), ('read-flick', 90, 150)):
+                p.js('__probe.framesStart(); __probe.tilesStart(); return true')
+                p.js('return __probe.scrollFrames(%d, %d)' % (frames, dy), timeout=120)
+                f, t = p.js('return __probe.framesStop()'), p.js('return __probe.tilesStop()')
+                still = p.js('return !!__lumina.logic().state.realLoad')
+                print('     %-26s p95 %5.1f ms · blank %5.1f%% of tiles (%5.1f%% of frames, worst %5.1f%%)%s' % (
+                    name, f['p95'], t['blankPct'], t['blankFramesPct'], t['worstBlankPct'], '' if still else ' (read had finished)'), flush=True)
+                rows.append(dict(name=name, p95=round(f['p95'], 1), blankPct=t['blankPct'], blankFramesPct=t['blankFramesPct'], worstBlankPct=t['worstBlankPct'], duringRead=still))
+        ok(spin(lambda: p.js('const l = __lumina.logic(); return !!(l.real && l.real.length && !l.state.realLoad && l.state.realInfo)'), 600),
+           'scroll %dx%d: %d photos read' % (size + (SCROLL_N,)))
+        if size == (1440, 900):
+            spin(lambda: p.js('return !!__probe.readEnd()'), 10)
+            re_ = p.js('return __probe.readEnd()') or {}
+            print('     read end: cursor %s → %s, scrolled by the app %s px' % ((re_.get('before') or {}).get('cur'), (re_.get('after') or {}).get('cur'), re_.get('appScroll')), flush=True)
+            ok(re_ and re_.get('ok') is True, 'scroll: no jump when the read ends', re_)
+            ok(p.js('return __lumina.logic().kept().length') == 1, 'scroll: the keep made while reading survives')
+            rows.append(dict(name='read-end', **re_))
+        read_s = time.time() - t0
+        info = p.js('return __lumina.logic().state.realInfo')
+        blobs = p.js('return Promise.all(__lumina.logic().real.slice(0, 40).map(q => fetch(q.src).then(r => r.blob()).then(b => b.size))).then(a => Math.round(a.reduce((x, y) => x + y, 0) / a.length / 1024))')
+        dims = p.js('const im = new Image(); im.src = __lumina.logic().real[0].src; return im.decode().then(() => [im.naturalWidth, im.naturalHeight])')
+        for tsz in (1, 2):
+            p.js('__lumina.logic().setState({ tsz: %d }); const el = document.querySelector(\'[data-screen-label="1 Cull"]\'); el.scrollTop = 0; return true' % tsz)
+            wait(1500)
+            for dy in (60, 150, -150):   # -150: the 150 pass with plumbing's warm-ahead off (A/B)
+                warm = dy > 0; dy = abs(dy)
+                p.js('return __lumina.warmAhead ? __lumina.warmAhead(%s) : null' % ('true' if warm else 'false'))
+                p.js('__probe.framesStart(); __probe.tilesStart(); return true')
+                p.js('return __probe.scrollFrames(120, %d)' % dy, timeout=120)
+                f = p.js('return __probe.framesStop()')
+                t = p.js('return __probe.tilesStop()')
+                name = '%dx%d-tile%d-dy%d%s' % (size + (t['tile'], dy, '' if warm else '-nowarm'))
+                p.js('return __probe.scrollFrames(8, %d)' % dy)
+                p.snap(os.path.join(OUT, 'scroll-' + name + '.png'))
+                p.js('document.querySelector(\'[data-screen-label="1 Cull"]\').scrollTop = 0; return true')
+                wait(1200)
+                row = dict(name=name, p95=round(f['p95'], 1), over33=f['over33'], blankPct=t['blankPct'], blankFramesPct=t['blankFramesPct'],
+                           worstBlankPct=t['worstBlankPct'], upMin=t['upscaleMin'], upMed=t['upscaleMedian'], dpr=t['dpr'])
+                rows.append(row)
+                print('     %-26s p95 %5.1f ms · %3d > 33 ms · blank %5.1f%% of tiles (%5.1f%% of frames, worst %5.1f%%) · upscale min %.2f median %.2f (dpr %s)' % (
+                    name, row['p95'], row['over33'], row['blankPct'], row['blankFramesPct'], row['worstBlankPct'], row['upMin'], row['upMed'], row['dpr']), flush=True)
+        mem = web_rss_mb()
+        print('     %dx%d: read %.1f s (page says %s s) · thumbnail %s px, %s KB mean · web process RSS %d MB' % (size + (read_s, info.get('secs'), dims, blobs, mem)), flush=True)
+        rows.append(dict(name='%dx%d' % size, readS=round(read_s, 1), thumb=dims, thumbKB=blobs, webRssMB=mem))
+        ok(p.js('return window.__errors') == [], 'scroll %dx%d: no page errors' % size, p.js('return window.__errors'))
+        p.close()
+    json.dump(rows, open(os.path.join(OUT, 'scroll.json'), 'w'), indent=1)
 
 
 if __name__ == '__main__':

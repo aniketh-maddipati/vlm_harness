@@ -6,7 +6,7 @@ import WebKit
 ///
 /// - `lumina://app/<file>`     the design's page files, byte-identical
 /// - `lumina://vendor/<file>`  React / Babel (support.js asks for them via `window.__resources`)
-/// - `lumina://app/media/{head,preview}?p=<folder/file>&o=&l=&ori=`  the opened folder's
+/// - `lumina://app/media/{head,preview,thumb}?p=<folder/file>&o=&l=&ori=`  the opened folder's
 ///   photos, read natively by byte range (SetsIngest). Same origin as the page, so it can measure
 ///   them on a canvas. Never a whole RAW, never the network.
 /// - `lumina://photo/seed/<seed>/<w>/<h>`  stand-in photos for the design's sample shoot (the
@@ -89,6 +89,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
         switch kind {
         case "head": work = { try ingest.head(rel) }
         case "preview": work = { try ingest.preview(preview) }
+        case "thumb": work = { try ingest.thumb(preview) }
         default: return status(task, url, 404, "unknown media \(kind)")
         }
         ingest.enqueue(work) { [weak self] r in

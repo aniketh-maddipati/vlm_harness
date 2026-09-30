@@ -2,13 +2,13 @@
  "mode": "app",
  "page": "Lumina Sets v5.dc.html",
  "size": [
-  1440,
-  900
+  2560,
+  1440
  ],
  "clock": "2026-09-08T14:30:00",
  "sampleMs": 100,
  "stopOnFailure": false,
- "checklist": "Fast scrolling in Cull on a real shoot (1440 \u00d7 900): frame pacing, % of on-screen tiles not yet showing their thumbnail (sampled every frame), thumbnail upscale ratio (image px per device px; < 1 = magnified), mid-scroll snapshots, web-process memory. Folder: LUMINA_SCROLL_DIR (probe.sh scroll sets it). tile216-dy150-nowarm: the same pass with plumbing's warm-ahead decoding off (A/B)",
+ "checklist": "Fast scrolling in Cull on a real shoot (2560 \u00d7 1440): frame pacing, % of on-screen tiles not yet showing their thumbnail (sampled every frame), thumbnail upscale ratio (image px per device px; < 1 = magnified), mid-scroll snapshots, web-process memory. Folder: LUMINA_SCROLL_DIR (probe.sh scroll sets it). tile216-dy150-nowarm: the same pass with plumbing's warm-ahead decoding off (A/B)",
  "budgets": {
   "webPeakMB": 1500
  },

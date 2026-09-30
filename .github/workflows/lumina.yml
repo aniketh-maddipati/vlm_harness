@@ -97,6 +97,17 @@ jobs:
         env:
           LUMINA_PROBE_OUT: ${{ runner.temp }}/probe-ref
         run: bash Scripts/probe.sh reference --record && LUMINA_PROBE_OUT="${{ runner.temp }}/probe-cmp" bash Scripts/probe.sh reference
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: scroll on a 775-photo synthetic card (read while culling, then fast scroll; real WKWebView + native reader)
+        env:
+          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe-scroll
+          LUMINA_SCROLL_DIR: ${{ runner.temp }}/scroll-775/100MSDCF
+        run: |
+          npm i -g playwright@1.56.1 && npx playwright install chromium
+          NODE_PATH="$(npm root -g)" node Tests/web/make-shoot.mjs "$LUMINA_SCROLL_DIR" 775
+          bash Scripts/probe.sh scroll
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -105,4 +116,6 @@ jobs:
             ${{ runner.temp }}/probe*/**/report.json
             ${{ runner.temp }}/probe*/**/*.png
             ${{ runner.temp }}/probe*/manifest.json
+            ${{ runner.temp }}/probe*/**/read-end.json
+            ${{ runner.temp }}/probe*/**/thumb.json
           retention-days: 7

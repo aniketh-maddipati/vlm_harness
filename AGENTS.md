@@ -27,7 +27,7 @@ window. Nobody edits the UI in this repo.
 | `Lumina/LuminaApp.swift` | One window and the menu bar from MENUS.md: every item calls `window.luminaCommand(name)`; Quit asks about unsaved keepers |
 | `Lumina/Sets/SetsRootView.swift` | The WKWebView, the native folder pickers, downloads |
 | `Lumina/Sets/Web/` | The design's files, copied unchanged by `Scripts/sets_sync_ui.sh`, plus `plumbing.js` |
-| `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, …), persists sessions, and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`) |
+| `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, …), persists sessions, makes the grid thumbnails (720 × 480; measures stay on the page's 360 px bitmap) and decodes them ahead of a scroll (design ask 7), keeps the reader's place and decisions when a read they culled during ends (design ask 8), and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`) |
 | `Lumina/Sets/Core/` | The native bridge: `SetsIngest` (reads opened folders: listing, 256 KB heads, byte-range previews, prefetch, stops when the card goes), `SetsFileOps` (`writeSidecar`: v5's Save, one `.xmp` into the shoot folder with `.lumina-bak`, atomic, read back, refused on a card; SHA-256 copies), `SetsExport` (+ crash journal; v3's RAW/JPEG export, unused by v5), `SetsEditLook` (v3's Edit look, unused by v5), `SetsCardWatcher`, `SetsShootStore` (per-shoot sessions), `SetsSchemeHandler` (`lumina://`, no network) |
 | `design/handoff/vendor/` | React / Babel pinned to the SRI hashes in `support.js` (see `VENDOR.md`) |
 
@@ -48,6 +48,8 @@ node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, 
 node Tests/web/parity.mjs                    # screens-* in prototype vs app parity mode, every snapshot diffed
 # WebKit sandbox (WebKitGTK + JavaScriptCore, real script-message handler): contract, selftest, app flow, screens
 xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py   # apt: gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb
+# Fast scrolling over 400 synthetic ARWs at a Retina pixel ratio (numbers reported, not gated)
+GDK_SCALE=2 xvfb-run -a -s "-screen 0 5200x3000x24" /usr/bin/python3.12 Tests/web/webkit.py scroll
 # The Foundation-only Swift (SetsFileOps, SetsShootStore, SetsExport, SetsIngest) + its tests, Swift 6.1 in Docker
 bash Tests/linux-swift/run.sh
 
@@ -61,6 +63,7 @@ bash Scripts/probe.sh contract      # plumbing.js still fits the page
 bash Scripts/probe.sh smoke         # page runs, ?selftest passes, app reads / keeps / saves sidecars / reopens
 bash Scripts/probe.sh selftest      # the design's own ?selftest (25 checks + timing)
 bash Scripts/probe.sh fuzz          # seeded key + mouse storms
+LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh scroll  # fast Cull scrolling: frames, blank tiles, thumbnail upscale, memory
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # contract + app-smoke (sidecars, .lumina-bak, sessions)
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh fault   # native writes: kill -9 mid-write, disk full mid-copy
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh edge    # camera-data cases (design gaps show as FAIL)

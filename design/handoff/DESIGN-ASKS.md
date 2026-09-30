@@ -49,6 +49,37 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 >
 > **6. Tab focus order** (CHANGES-v4-beta "Known, left as-is"). Still no rule. The proposal stands:
 > Tab moves through buttons; letters act only while the grid has focus.
+>
+> **7. Fast scrolling in Cull.** Scrolling fast shows tiles popping in and soft thumbnails. Please:
+> (a) **Thumbnail size.** `readOne` keeps the 360 px measuring bitmap as the tile image (JPEG 0.82),
+> but the largest tile is 216 × 1.5 = 324 × 216 CSS px, i.e. 648 × 432 on a Retina screen: up to
+> 1.8× magnified. Keep measuring on the 360 px bitmap (so keeps, stacks and sharpest don't
+> change) and give `src` a separate image covering 720 × 480 (never upscaled, resized at high
+> quality, JPEG 0.9). The app does this today: the Mac makes it (`/media/thumb`) and `plumbing.js`
+> uses it. In the browser, make it in `readOne` the same way (the app keeps supplying its own).
+> (b) **No fade for a ready image.** Tile `<img>`s start at `opacity:0` and fade in over 180 ms on
+> `onLoad`, and use `loading="lazy"`. On a fast scroll every newly mounted row blinks, even when its
+> thumbnail is already decoded. Drop `loading="lazy"` (rows are already windowed at ±700 px), and show
+> an image that is `complete` on mount at full opacity; keep the fade only for thumbnails that
+> arrive while you look (during a read).
+> (c) **Render window follows the scroll.** `onScroll` mounts rows within ±700 px of the viewport.
+> Make it lean with the scroll direction (e.g. 700 px behind, 2 viewports ahead) so a fling lands
+> on rows that are already mounted.
+>
+> **8. Culling while a card is still being read.** Rows appear while a card reads, and people start
+> culling straight away (a user's recording: a 775-photo card at ~45 photos/s, scrolled and kept
+> during the read). Please:
+> (a) **Don't jump when the read ends.** `onDir` ends with `cur: order[0]` and `land()`, which
+> smooth-scrolls from wherever the reader is back to the first photo — about 2 s of blank, moving
+> grid across hundreds of rows, and the reader loses their place. If the reader has moved, kept or
+> scrolled during the read, keep `cur` and the scroll position as they are. The app does this in
+> `plumbing.js` today.
+> (b) **Keep decisions made during the read.** When the card has a saved session, the restore
+> replaces them; merge instead (decisions made during this read win). The app does this today.
+> (c) **Calmer growth.** Every refresh rebuilds and re-renders the whole grid; rows re-split as bursts
+> become stacks, row heights animate (180 ms) and each new tile fades in. While the reader is
+> scrolling, add rows less often (the app waits 1.5 s instead of 400 ms), don't animate row heights
+> for rows that are off screen, and don't fade in tiles for rows that were already on screen.
 
 ## How each ask is checked once the new handoff lands
 
@@ -57,3 +88,9 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 - 3: `__lumina.unsaved()` in `plumbing.js` becomes a call to `window.luminaUnsaved`; the contract scenario checks it exists.
 - 4, 5: by eye.
 - 6: a probe Tab walk scenario.
+- 8: `probe.sh scroll` (`scroll-read`: read-end.json shows no cursor move and under 200 px scrolled by the app; the keep
+  made while reading survives), `Tests/web/plumbing-harness.mjs` (during read / reopen during read). Then drop
+  plumbing's `readMoved` / `stay` handling and its refresh pacing in `grow`, and review ONDIR.
+- 7: `probe.sh scroll` (`scroll-fast`, `scroll-fast-2560`: blank-tile % and upscale min per tile size) and the WebKitGTK
+  sandbox's `scroll` suite; `card-clock.json` measures unchanged in both modes. Then drop plumbing's warm-ahead
+  block (c) and review its `readOne` repeat (a) against the new ONDIR.

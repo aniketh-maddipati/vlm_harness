@@ -11,6 +11,8 @@ import UniformTypeIdentifiers
 ///   held by the page: it reads it once to make and measure its grid thumbnail (its own
 ///   createImageBitmap resize, so `lumina-core`'s measure sees the prototype's exact pixels) and
 ///   keeps only a URL for the large view;
+/// - the grid thumbnail is made here too (`thumb`: upright, covering 720 × 480, a 0.9 JPEG), off the
+///   page's main thread; the page's 360 px measuring bitmap stays its own;
 /// - previews around the cursor are prefetched into an NSCache;
 /// - reads bypass the buffer cache (F_NOCACHE) and run `workers` at a time, tied to the cores;
 /// - when a card goes away every read for it stops at once and reports `gone`.
@@ -40,6 +42,7 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         var maxInFlight = 0
         var heads = 0
         var previews = 0
+        var thumbs = 0
         var cacheHits = 0
         var prefetched = 0
         var bytesRead: Int64 = 0
@@ -51,7 +54,7 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         var gone: [String] = []
 
         var dictionary: [String: Any] {
-            ["workers": workers, "inFlight": inFlight, "maxInFlight": maxInFlight, "heads": heads, "previews": previews, "cacheHits": cacheHits, "prefetched": prefetched, "bytesRead": bytesRead, "largestRead": largestRead,
+            ["workers": workers, "inFlight": inFlight, "maxInFlight": maxInFlight, "heads": heads, "previews": previews, "thumbs": thumbs, "cacheHits": cacheHits, "prefetched": prefetched, "bytesRead": bytesRead, "largestRead": largestRead,
              "opensAfterGone": opensAfterGone, "failures": failures, "gone": gone]
         }
     }
@@ -228,6 +231,16 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         return out
     }
 
+    /// The grid thumbnail: the embedded preview upright, resized once by ImageIO to cover the largest
+    /// tile on a Retina screen (see `thumbnail`), saved as a 0.9 JPEG. The page reads the preview
+    /// (as stored) just before, so the bytes usually come from the cache, not the card.
+    func thumb(_ p: Preview) throws -> Data {
+        let jpeg = try previewBytes(p, cache: true)
+        guard let out = Self.thumbnail(jpeg: jpeg, orientation: p.orientation) else { throw Failure(.bad, "preview doesn't decode") }
+        lock.withLock { stats.thumbs += 1 }
+        return out
+    }
+
     /// Warms the cache with the previews around the cursor. A new call replaces the last one.
     func prefetch(_ list: [Preview]) {
         prefetchQueue.cancelAllOperations()
@@ -324,9 +337,33 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         return CGImageDestinationFinalize(dest) ? data as Data : nil
     }
 
+    /// The largest tile is 216 × 1.5 = 324 × 216 CSS px (ADDENDUM-1 §4), 648 × 432 on a Retina screen.
+    static let thumbBox = (w: 720, h: 480)
+
+    /// A JPEG resized to cover `thumbBox` once upright (landscape tiles crop to fill, portrait ones fit
+    /// the height), never upscaled, turned for EXIF orientation 3 / 6 / 8, saved at `quality`.
+    static func thumbnail(jpeg: Data, orientation: Int, quality: Double = 0.9) -> Data? {
+        guard let src = CGImageSourceCreateWithData(jpeg as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              CGImageSourceGetCount(src) > 0,
+              let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [String: Any],
+              let w = (props[kCGImagePropertyPixelWidth as String] as? NSNumber)?.intValue,
+              let h = (props[kCGImagePropertyPixelHeight as String] as? NSNumber)?.intValue, w > 0, h > 0 else { return nil }
+        let swap = orientation == 6 || orientation == 8
+        let (uw, uh) = swap ? (Double(h), Double(w)) : (Double(w), Double(h))
+        let s = min(1, uh > uw ? Double(thumbBox.h) / uh : max(Double(thumbBox.w) / uw, Double(thumbBox.h) / uh))
+        let opts: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: false,
+                                     kCGImageSourceShouldCacheImmediately: true, kCGImageSourceThumbnailMaxPixelSize: Int((Double(max(w, h)) * s).rounded())]
+        guard let small = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
+        let image = [3, 6, 8].contains(orientation) ? turn(small, orientation) : small
+        return image.flatMap { encode($0, .jpeg, quality: quality) }
+    }
+
     /// Turns a JPEG upright for EXIF orientation 3 / 6 / 8 (exact quarter turns) and saves it again.
     static func upright(jpeg: Data, orientation: Int, quality: Double) -> Data? {
-        guard let image = decode(jpeg) else { return nil }
+        decode(jpeg).flatMap { turn($0, orientation) }.flatMap { encode($0, .jpeg, quality: quality) }
+    }
+
+    private static func turn(_ image: CGImage, _ orientation: Int) -> CGImage? {
         let swap = orientation == 6 || orientation == 8
         let (w, h) = swap ? (image.height, image.width) : (image.width, image.height)
         guard let ctx = context(w, h) else { return nil }
@@ -335,6 +372,6 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         ctx.translateBy(x: CGFloat(w) / 2, y: CGFloat(h) / 2)
         ctx.rotate(by: angle)
         ctx.draw(image, in: CGRect(x: -CGFloat(image.width) / 2, y: -CGFloat(image.height) / 2, width: CGFloat(image.width), height: CGFloat(image.height)))
-        return ctx.makeImage().flatMap { encode($0, .jpeg, quality: quality) }
+        return ctx.makeImage()
     }
 }

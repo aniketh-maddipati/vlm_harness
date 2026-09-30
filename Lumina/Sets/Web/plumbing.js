@@ -34,6 +34,9 @@
   const previewOf = lg => {
     try { const u = new URL(lg); return u.pathname === '/media/preview' ? Object.fromEntries(u.searchParams) : null; } catch (_) { return null; }
   };
+  // Grid thumbnail made by the Mac (/media/thumb, SetsIngest.thumb: covers 720 × 480, never upscaled,
+  // JPEG 0.9, off the page's thread). The in-page fallback is gridThumb, below.
+  const nativeTile = pq => get(media('thumb', pq)).then(r => r.blob()).catch(() => null);
   // Stands in for the File the page keeps per photo: the same name and relative path, no bytes.
   const fileRef = rel => ({ name: rel.split('/').pop(), webkitRelativePath: rel, __luminaRel: rel });
   let reading = null, lastRead = null;
@@ -67,7 +70,10 @@
   // the last successful Save, so Quit knows whether keepers are unsaved.
   const BY_ID = ['marks', 'flags', 'stars', 'cuts'];
   const SCALAR = ['seen', 'tsz', 'regions', 'lastEx'];
-  let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false;
+  let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, readMoved = false;
+  // Last scroll in the page (any scroller), for pacing the grid's refresh while a folder is read.
+  let scrollT = 0;
+  document.addEventListener('scroll', () => { scrollT = performance.now(); }, { capture: true, passive: true });
   // Path inside the opened folder ("sub/DSC00001.ARW"): stable across reopen and new files.
   const keyOf = p => { const r = (p && p.fileObj && p.fileObj.webkitRelativePath) || (p && p.path) || ''; return r ? r.split('/').slice(1).join('/') : (p && p.file) || ''; };
   const pathOf = (logic, id) => keyOf(logic.data && logic.data.byId[id]);
@@ -87,16 +93,18 @@
   // For the Open screen's recent cards: the same numbers the prototype's persist() keeps.
   const summary = logic => ({ n: logic.data.order.length, dec: logic.data.order.filter(id => !logic.undec(id)).length,
     kp: logic.kept().length, last: LuminaV4.fmt.base((logic.data.byId[logic.state.cur] || {}).file) || '' });
-  const restore = (logic, saved) => {
+  // `live`: the reader moved or decided while the folder was being read. Those decisions win over
+  // the saved ones and the cursor stays where it is (nothing jumps when the read ends).
+  const restore = (logic, saved, live) => {
     base = saved; savedKeepers = typeof saved.saved === 'string' ? saved.saved : null;
     const idOf = {}; for (const [id, p] of Object.entries(logic.data.byId)) idOf[keyOf(p)] = id;
     const st = {};
-    for (const k of BY_ID) { const m = {}; for (const [p, v] of Object.entries(saved[k] || {})) if (idOf[p]) m[idOf[p]] = v; st[k] = m; }
+    for (const k of BY_ID) { const m = {}; for (const [p, v] of Object.entries(saved[k] || {})) if (idOf[p]) m[idOf[p]] = v; st[k] = live ? Object.assign(m, logic.state[k] || {}) : m; }
     st.marks = logic.constructor.clean(st.marks);
     for (const k of SCALAR) if (saved[k] !== undefined) st[k] = saved[k];
     if (Object.keys(st.cuts || {}).length) logic.data = logic.build(st.cuts);
     const cur = saved.cur && idOf[saved.cur];
-    if (cur && logic.data.byId[cur]) st.cur = cur;
+    if (cur && logic.data.byId[cur] && !live) st.cur = cur;
     logic.setState(st);
   };
   const saveNow = () => {
@@ -166,8 +174,9 @@
       const first = logic.real.map(p => p.date).filter(Boolean).sort()[0] || '';
       const r = await native('shootOpened', { name: info.name, n: logic.real.length, date: first });
       shootId = r && r.id; lastSaved = ''; base = null; savedKeepers = null;
-      if (r && r.session) { try { restore(logic, JSON.parse(r.session)); } catch (_) {} }
-      lastSaved = JSON.stringify(snapshot(logic));
+      if (r && r.session) { try { restore(logic, JSON.parse(r.session), readMoved); } catch (_) {} }
+      // Decisions made while the folder was read aren't in the session yet: the next save sends them.
+      lastSaved = readMoved ? '' : JSON.stringify(snapshot(logic));
       loadRecents(logic);
     };
 
@@ -195,13 +204,14 @@
       const rel = f.rel, name = rel.split('/').pop();
       const head = new Uint8Array(await (await get(media('head', { p: rel }))).arrayBuffer());
       const m = LuminaCore.parseHead(head, f.size); if (!m) throw new Error('unreadable');
-      let blob = null, pq = null;
+      let blob = null, pq = null, nt = null;
       if (m.preview) {
         const [po, pl] = m.preview;
         if (po + pl <= f.size) {
           pq = { p: rel, o: po, l: pl, ori: m.orient || 1 };
           // As stored (ori 1): the page's own canvas turns it, below.
           blob = await (await get(media('preview', Object.assign({}, pq, { ori: 1 })))).blob();
+          nt = nativeTile(pq);                               // made by the Mac while the page measures
         }
       }
       const xk = rel.replace(/\.[^.\/]+$/, '').toLowerCase(), xo = xmpMap[xk] || null, xpath = xo ? xo.path : rel.replace(/\.[^.\/]+$/, '') + '.xmp';
@@ -213,11 +223,10 @@
         if (!blob) throw 0;
         const ori = m.orient || 1;
         if (ori === 3 || ori === 6 || ori === 8) { const b0 = await createImageBitmap(blob, { imageOrientation: 'none' }), sw = ori !== 3, c = document.createElement('canvas'); c.width = sw ? b0.height : b0.width; c.height = sw ? b0.width : b0.height; const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(ori === 6 ? Math.PI / 2 : ori === 8 ? -Math.PI / 2 : Math.PI); x.drawImage(b0, -b0.width / 2, -b0.height / 2); b0.close(); blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.92)); }
-        // What the tile shows: the same picture at the size of the largest tile on this screen, so it
-        // isn't stretched on Retina, made alongside. Measuring stays on the page's own 360 px bitmap.
-        const sharp = gridThumb(blob);
-        const sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' }); portrait = sm.height > sm.width; me = LuminaCore.measure(sm); sm.close(); tb = await new Promise(res => me.canvas.toBlob(res, 'image/jpeg', 0.82));
-        tb = (await sharp) || tb;
+        const sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' }); portrait = sm.height > sm.width; me = LuminaCore.measure(sm); sm.close();
+        // Measures above come from the page's exact 360 px bitmap. The tile shows a sharper picture:
+        // the Mac's, else one made in a worker, else the page's own.
+        tb = (nt && await nt) || await gridThumb(blob) || await new Promise(res => me.canvas.toBlob(res, 'image/jpeg', 0.82));
       } catch (_) { me = null; }
       logic._gold.push({ file: name, size: f.size, parsed: Object.assign(Object.fromEntries(Object.entries(m).filter(([k]) => !/^_/.test(k))), { dhash: me ? me.dhash : null }) });
       if (!me) return Object.assign(baseP, { nopv: true, portrait: false, lum: null, focus: 0, clip: 0, dhash: null, src: '', lg: '' });
@@ -274,15 +283,17 @@
       }
       (logic.real || []).forEach(p => { p.src && URL.revokeObjectURL(p.src); /^blob:/.test(p.lg || '') && URL.revokeObjectURL(p.lg); });
       const run = reading = { name: L.name, total: files.length, done: 0, gone: false };
-      const t0 = performance.now(), res = new Array(files.length); let done = 0, i = 0, pre = 0, shown = false, lastB = 0;
+      const t0 = performance.now(), res = new Array(files.length); let done = 0, i = 0, pre = 0, shown = false, lastB = 0, firstCur = null;
+      readMoved = false;
       logic._gold = []; logic._failed = []; logic.real = [];
       logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
-      // Rows appear as the contiguous prefix grows.
+      // Rows appear as the contiguous prefix grows: every 400 ms, as in the page; every 1.5 s while
+      // the reader is scrolling, so the grid isn't rebuilt under a moving scroll (plumbing's pacing).
       const grow = force => {
         while (pre < files.length && res[pre] !== undefined) pre++;
-        const now = performance.now(); if (!force && (pre < 48 || now - lastB < 400)) return; lastB = now;
+        const now = performance.now(); if (!force && (pre < 48 || now - lastB < (now - scrollT < 300 ? 1500 : 400))) return; lastB = now;
         logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null;
-        if (!shown) { shown = true; logic.setState({ cur: logic.data.order[0] }); logic.setView('cull', true); } else logic.forceUpdate();
+        if (!shown) { shown = true; firstCur = logic.data.order[0]; logic.setState({ cur: firstCur }); logic.setView('cull', true); } else logic.forceUpdate();
       };
       const one = async (f, k) => {
         try { res[k] = await readOne(f, xmpMap); }
@@ -299,11 +310,18 @@
       lastRead = { name: L.name, total: files.length, read: ok.length, unreadable: files.length - ok.length, stopped: run.gone ? 'card removed' : null, secs: +((performance.now() - t0) / 1000).toFixed(1) };
       window.lumina.read = Object.assign({}, lastRead);
       if (!ok.length) { logic.real = null; logic.data = logic.build({}); logic.setState({ realLoad: null }); return logic.say(run.gone ? 'Card removed · re-insert to keep going' : '0 photos · ' + files.length + ' unreadable'); }
+      // The page ends a read on the first photo and scrolls to it (land). When the reader has already
+      // moved (cursor, keeps, or scrolled), plumbing keeps them where they are instead: same photo,
+      // same scroll, no fly-back across the shoot. Design ask 8 asks the page for the same.
+      const sc = logic.scrollRef && logic.scrollRef.current, was = logic.state.cur, wasKey = shown && was && logic.data.byId[was] ? keyOf(logic.data.byId[was]) : null;
+      readMoved = shown && (was !== firstCur || Object.keys(logic.state.marks || {}).length > 0 || !!(sc && sc.scrollTop > 40));
       logic.real = ok; logic.data = logic.build({});
+      let stay = null;
+      if (readMoved && wasKey) for (const [id, p] of Object.entries(logic.data.byId)) if (keyOf(p) === wasKey) { stay = id; break; }
       const G = Object.values(logic.data.G), first = ok.map(p => p.date).filter(Boolean).sort()[0] || '';
       const info = { name: L.name, n: ok.length, rows: logic.data.R.length, stacks: G.filter(g => g.kind !== 'single').length, bad: logic._failed.length, secs: lastRead.secs.toFixed(1), date: first.slice(0, 10).replace(/:/g, '-') };
-      logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, cur: logic.data.order[0] });
-      logic._landT = Date.now(); logic.setView('cull', true); setTimeout(() => logic.land(), 0);
+      logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, cur: stay || logic.data.order[0] });
+      logic._landT = Date.now(); logic.setView('cull', true); if (!stay) setTimeout(() => logic.land(), 0);
       if (run.gone) logic.say('Card removed · ' + ok.length + ' of ' + files.length + ' read · re-insert to keep going');
     };
 
@@ -311,7 +329,7 @@
     // Files and the page reads them itself.
     const onDir = logic.onDir.bind(logic);
     logic.onDir = async e => {
-      cardPulledWhileReading = false;
+      cardPulledWhileReading = false; readMoved = false;
       window.lumina.readingCard = false;
       await onDir(e);
       if (cardPulledWhileReading) logic.say('Card removed · re-insert to keep going');
@@ -384,26 +402,6 @@
   saveLoop();
   viewLoop();
 
-  // Grid thumbnails ahead of the scroll are decoded before their rows mount (the page's tiles are
-  // lazy <img>s that fade in once loaded), so a fast scroll lands on pictures, not on empty tiles.
-  const decoded = new Map();
-  let lastTop = 0;
-  const decodeAhead = () => {
-    const l = current, el = l && l.scrollRef && l.scrollRef.current;
-    if (!el || !l.real || reading) return;
-    const top = el.scrollTop, down = top >= lastTop; lastTop = top;
-    const vr = el.getBoundingClientRect(), span = vr.height * 2;
-    for (const im of el.querySelectorAll('[data-tile] img')) {
-      const r = im.getBoundingClientRect();
-      const ahead = down ? r.top >= vr.bottom && r.top < vr.bottom + span : r.bottom <= vr.top && r.bottom > vr.top - span;
-      if (!ahead || !im.src || decoded.has(im.src)) continue;
-      const pre = new Image(); pre.decoding = 'async'; pre.src = im.src; if (pre.decode) pre.decode().catch(() => {});
-      decoded.set(im.src, pre);
-      if (decoded.size > 240) decoded.delete(decoded.keys().next().value);
-    }
-  };
-  let decodeT = 0;
-  document.addEventListener('scroll', () => { if (!decodeT) decodeT = setTimeout(() => { decodeT = 0; decodeAhead(); }, 60); }, true);
 
   // Previews around the cursor are read ahead into the Mac's cache (never into the page).
   let lastCur = null;
@@ -419,6 +417,38 @@
     } finally { setTimeout(prefetchLoop, 120); }
   };
   prefetchLoop();
+
+  // Grid thumbnails ahead of a scroll are decoded before the page mounts their rows (it renders
+  // ±700 px around the viewport), so a fast scroll finds them ready. WebKit shares a decoded image
+  // between elements with the same URL; the Images here only hold it (at most WARM_MAX × 720 × 480
+  // × 4 bytes, ~165 MB). Two viewports ahead, 700 px behind.
+  const warm = new Map();                       // tile blob URL → decoding Image, oldest first
+  const WARM_MAX = 120;
+  let warmReal = null, warmTop = null, warmRaf = 0, warmOn = cfg.warmAhead !== false;
+  const warmAhead = () => {
+    warmRaf = 0;
+    if (!warmOn) return;
+    const l = current, el = document.querySelector('[data-screen-label="1 Cull"]');
+    if (!l || !l.real || !el || typeof l.layout !== 'function' || l.state.view !== 'cull') return;
+    if (warmReal !== l._gold) { warm.clear(); warmReal = l._gold; }      // a new read (its thumbnails are new URLs)
+    const top = el.scrollTop, dir = warmTop == null || top >= warmTop ? 1 : -1, span = el.clientHeight * 2 + 700;
+    warmTop = top;
+    const lo = dir > 0 ? top - 700 : top - span, hi = dir > 0 ? top + el.clientHeight + span : top + el.clientHeight + 700;
+    const L = l.layout(), byId = l.data.byId, want = [];
+    for (const r of L.rows) {
+      if (r.y + r.h < lo || r.y > hi) continue;
+      for (const c of r.cells) { const p = byId[c.id]; if (p && p.src) want.push({ src: p.src, d: Math.abs(r.y - top) }); }
+    }
+    want.sort((a, b) => a.d - b.d);
+    for (const { src } of want) {
+      const im = warm.get(src);
+      if (im) { warm.delete(src); warm.set(src, im); continue; }
+      const n = new Image(); n.decoding = 'async'; n.src = src; if (n.decode) n.decode().catch(() => {});
+      warm.set(src, n);
+    }
+    while (warm.size > WARM_MAX) warm.delete(warm.keys().next().value);
+  };
+  document.addEventListener('scroll', () => { if (!warmRaf) warmRaf = requestAnimationFrame(warmAhead); }, { capture: true, passive: true });
 
   // Native → page. Only the page's own actions and hooks are used.
   window.__lumina = {
@@ -492,6 +522,8 @@
       };
     },
     nativeStats: () => native('ingestStats', {}),
+    // Probe A/B: decode thumbnails ahead of a scroll or not. Returns how many are held.
+    warmAhead(on) { if (on != null) { warmOn = !!on; if (!warmOn) warm.clear(); } return warm.size; },
     say(t) { const l = window.__lumina.logic(); if (l) l.say(t); },
     openFolder() { const l = window.__lumina.logic(); if (l) l.openFolder(true); },
     undo() {

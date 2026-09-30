@@ -9,7 +9,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { pw, ROOT, WEB, makeJpegs, makeShoot, Bridge, open } from './lib.mjs';
+import { pw, ROOT, WEB, makeJpegs, makeShoot, makeBigShoot, Bridge, open } from './lib.mjs';
 
 const hashOnly = process.argv.includes('--hash');
 let fails = 0;
@@ -77,6 +77,23 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   const p7 = await page.evaluate(() => { const l = __lumina.logic(); const p = Object.values(l.data.byId).find(p => p.file === 'DSC01007.ARW' || p.name === 'DSC01007.ARW'); return p && { portrait: p.portrait, lg: p.lg, model: p.model, xpath: p.xpath, path: p.path }; });
   ok(p7 && p7.portrait === true && /\/media\/preview\?/.test(p7.lg), 'read: orientation 6 → portrait, large view by URL', p7);
   ok(p7 && p7.model === 'ILCE-7M4' && p7.path === '2026-09-01/DSC01007.ARW', 'read: v5 fields (model, path)', p7);
+  // Grid thumbnails: sharper than the page's 360 px bitmap (never upscaled), while every measure
+  // still comes from that bitmap, redone here exactly as the page's readOne does it.
+  const th = await page.evaluate(async () => {
+    const l = __lumina.logic(), out = [];
+    for (const p of l.real.filter(q => !q.portrait).slice(0, 4)) {
+      const q = new URL(p.lg).searchParams, blob = await (await fetch(p.lg.replace(/ori=\d/, 'ori=1'))).blob();
+      const sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' }), me = LuminaCore.measure(sm); sm.close();
+      const full = await createImageBitmap(blob), im = new Image(); im.src = p.src; await im.decode();
+      out.push({ same: me.dhash === p.dhash && me.focus === p.focus && me.lum === p.lum && me.clip === p.clip, w: im.naturalWidth, full: full.width, ori: q.get('ori'),
+        want: Math.min(full.width, 720, Math.max(360, Math.ceil(324 * (window.devicePixelRatio || 1)))) }); full.close();
+    }
+    return out;
+  });
+  ok(th.length && th.every(t => t.same), 'thumbs: measures identical to the page\'s 360 px bitmap', th);
+  // No native thumbnail here (the stand-in has no ImageIO): the in-page fallback, sized for the largest
+  // tile on this screen (324 CSS px × devicePixelRatio, 360–720), never upscaled.
+  ok(th.length && th.every(t => t.w === t.want), 'thumbs: fallback tile image sized for the largest tile, never upscaled', th);
   ok(bridge.calls.includes('shootOpened'), 'session: shootOpened sent');
   ok(await page.evaluate(() => window.lumina.readingCard === false), 'card: readingCard false for a folder');
 
@@ -145,6 +162,35 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   bridge.denied = null;
   await page.evaluate(() => __lumina.logic().accRetry()); await page.waitForTimeout(200);
   ok(await page.evaluate(() => !__lumina.logic().state.acc), 'access: checkAccess → banner cleared');
+
+  // Moving and keeping while a folder is still being read: nothing jumps when the read ends, and on a
+  // reopen the decisions made during the read are kept alongside the saved ones.
+  const slow = path.join(tmp, '2026-09-02');
+  makeBigShoot(slow, jpegs, 160);
+  const during = async (label, moves) => {
+    bridge.delayMs = 25; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
+    await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 30000 });
+    for (const k of moves) { await key(page, k); await page.waitForTimeout(120); }
+    await key(page, 'p'); await page.waitForTimeout(150);
+    const mid = await page.evaluate(() => { const l = __lumina.logic(), p = l.data.byId[l.state.cur], el = l.scrollRef.current;
+      return { cur: p && p.path, kept: l.kept().map(id => l.data.byId[id].path), still: !!l.state.realLoad, top: el.scrollTop }; });
+    await loaded(page); await page.waitForTimeout(600);
+    const end = await page.evaluate(() => { const l = __lumina.logic(), p = l.data.byId[l.state.cur], el = l.scrollRef.current;
+      return { cur: p && p.path, kept: l.kept().map(id => l.data.byId[id].path), top: el.scrollTop, n: l.real.length }; });
+    bridge.delayMs = 0;
+    ok(mid.still && mid.kept.length === 1, label + ': kept a photo while the folder was still being read', mid);
+    ok(end.n === 160 && end.cur === mid.cur, label + ': the read ends on the reader\'s photo, not the first', { mid, end });
+    ok(Math.abs(end.top - mid.top) < 400, label + ': no scroll jump when the read ends', { mid: mid.top, end: end.top });
+    return { mid, end };
+  };
+  const first = await during('during read', ['ArrowDown', 'ArrowDown', 'ArrowRight']);
+  ok(first.end.kept.length === 1, 'during read: the keep survives the end of the read', first.end.kept);
+  await page.waitForTimeout(2300);            // autosave
+  const saved2 = bridge.sessions['id-2026-09-02'] && JSON.parse(bridge.sessions['id-2026-09-02']);
+  ok(saved2 && Object.keys(saved2.marks).length === 1, 'during read: the keep made while reading is saved', saved2 && saved2.marks);
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  const again = await during('reopen during read', ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowRight']);
+  ok(again.end.kept.length === 2 && again.end.kept.includes(first.end.kept[0]), 'reopen during read: the saved keep and the new one both kept', { first: first.end.kept, again: again.end.kept });
 
   ok(errors.length === 0, 'no page errors', errors);
   await ctx.close();
