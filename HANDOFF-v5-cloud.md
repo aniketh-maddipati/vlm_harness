@@ -131,13 +131,18 @@ What to look for:
 - **Every Swift file parses** under Swift 6.1 (`swiftc -parse`): the app, the tests and the probe.
 - **CI:** two new jobs, `webkit` (WebKitGTK sandbox) and `swift-linux`.
 
-## Not verified (needs the Mac)
+### macOS CI (GitHub `macos-15` runner, run #22 on `ea36904`: all 6 jobs green)
 
-- **Swift that only builds on the Mac:** everything that imports AppKit / WebKit / Core Image has been parsed but not type-checked: `LuminaApp.swift` (the `Commands`, the Quit delegate), `SetsRootView`, `SetsBridge` (incl. `writeSidecars`' `Task.detached`), `SetsSchemeHandler`, `SetsCardWatcher`, the probe. `SetsIngestTests` and `SetsPageBytesTests` need ImageIO and the app bundle.
-- **WKWebView specifics:** Cocoa key events (the sandbox dispatches DOM key events), the `lumina://` scheme handler, and 0 px parity at the probe's 2× scale with macOS fonts (the sandbox compares at 1× with Linux fonts).
-- **Scenarios:** the fuzzer with the new modifiers, and `app-smoke` on the real `two-bodies` fixture. It assumes Save writes exactly 2 `.xmp`; if the fixture already holds sidecars, adjust the counts.
+- **build + tests:** xcodebuild compiles the whole app (menu bar, Quit delegate, `SetsBridge`, `writeSidecars`). LuminaLogicTests: **36 / 36**, including all 7 `SetsSidecarTests` (the locked-file test too) and `SetsIngestTests` / `SetsPageBytesTests`.
+- **probe in WKWebView (no fixtures):** `probe.sh contract`, `selftest`, `smoke` and `fuzz` pass in real WKWebView with Cocoa key events. `reference --record` then `reference` passes: the app twins match the design at 0 px at the probe's 2× scale. The fixture scenarios (`app-smoke`) skip there. Evidence is uploaded as the `probe-evidence` artifact.
+
+## Not verified (needs your Mac)
+
+- **Scenarios with personal fixtures:** `app-smoke` on the real `two-bodies` fixture (it assumes Save writes exactly 2 `.xmp`; if the fixture already holds sidecars, adjust the counts), and `probe.sh app`, `fault`, `edge`, `ingest`, `card`.
+- **Recording the v5 reference in the repo:** CI records a fresh one on each run; `bash Scripts/probe.sh reference --record` on your Mac commits the reference for your macOS and fonts.
 - **Real-disk behaviour:** a TCC denial, a real card eject and remount, disk full or a read-only volume during Save.
-- **Real macOS menu behaviour:** ⌘W closing the shoot rather than the window, and the plain-key menu items.
+- **Real macOS menu behaviour:** ⌘W closing the shoot rather than the window, the plain-key menu items, and the Quit prompt.
+- **Sample photos in the app:** v5 moved the design's sample photos into `lumina-v4-data.js`, and `SetsSchemeHandler` swaps them for stand-ins only inside the page HTML, so in the app and the probe they're blocked (identically in both modes). Harmless; a follow-up.
 
 ## Decisions the spec didn't cover
 
