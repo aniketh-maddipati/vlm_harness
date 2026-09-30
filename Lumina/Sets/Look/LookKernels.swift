@@ -131,6 +131,17 @@ nonisolated final class LookKernels: @unchecked Sendable {
         float g = exp2(k.x * lk_smooth(k.y, k.z, r));
         return float4(s.rgb * g, s.a);
     }
+
+    // Argument echo (tests only): what each parameter slot receives, in the layouts the stages use.
+    [[ stitchable ]] float4 lookEcho442(coreimage::sample_t s, float4 a, float4 b, float2 c) {
+        return float4(s.r + 1000.0f * a.x + 1000000.0f * b.x, a.y + 1000.0f * b.y + 1000000.0f * c.x, a.z + 1000.0f * b.z + 1000000.0f * c.y, a.w + 1000.0f * b.w);
+    }
+    [[ stitchable ]] float4 lookEcho44(coreimage::sample_t s, float4 a, float4 b) {
+        return float4(s.r + 1000.0f * a.x + 1000000.0f * b.x, a.y + 1000.0f * b.y, a.z + 1000.0f * b.z, a.w + 1000.0f * b.w);
+    }
+    [[ stitchable ]] float4 lookEcho424(coreimage::sample_t s, float4 a, float2 b, float4 c) {
+        return float4(s.r + 1000.0f * a.x + 1000000.0f * c.x, a.y + 1000.0f * b.x + 1000000.0f * c.y, a.z + 1000.0f * b.y + 1000000.0f * c.z, a.w + 1000.0f * c.w);
+    }
     """
 
     struct CompileError: Error, CustomStringConvertible { let description: String }
@@ -141,7 +152,8 @@ nonisolated final class LookKernels: @unchecked Sendable {
         let list = try CIKernel.kernels(withMetalString: Self.source)
         var d: [String: CIKernel] = [:]
         for k in list { d[k.name] = k }
-        for name in ["lookLuma", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette"] where d[name] == nil {
+        for name in ["lookLuma", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette",
+                     "lookEcho442", "lookEcho44", "lookEcho424"] where d[name] == nil {
             throw CompileError(description: "kernel \(name) missing after compile; got \(d.keys.sorted())")
         }
         byName = d

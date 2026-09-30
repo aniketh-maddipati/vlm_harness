@@ -34,7 +34,44 @@ final class LookPipelineTests: XCTestCase {
 
     func testKernelsCompile() throws {
         let k = try LookKernels.shared()
-        XCTAssertEqual(k.byName.count, 8, "\(k.byName.keys.sorted())")
+        XCTAssertEqual(k.byName.count, 11, "\(k.byName.keys.sorted())")
+    }
+
+    /// Every argument slot receives what `apply` passed, in each layout the stages use. Values are
+    /// small integers with distinct magnitudes per slot so a mix-up is readable in the output.
+    func testKernelArgumentsArriveInOrder() throws {
+        let dev = pipe.flat(.gray(0.5), size: 8)
+        let extent = dev.image.extent
+        func echo(_ name: String, _ args: [Any]) -> [Double] {
+            let out = pipe.kernels.apply(name, extent: extent, [dev.image] + args)!
+            var px = [Float](repeating: 0, count: 4)
+            pipe.context.render(out, toBitmap: &px, rowBytes: 16, bounds: CGRect(x: 4, y: 4, width: 1, height: 1), format: .RGBAf, colorSpace: pipe.workingSpace)
+            return px.map { Double($0) }
+        }
+        let a = CIVector(x: 1, y: 2, z: 3, w: 4), b = CIVector(x: 5, y: 6, z: 7, w: 8), c2 = CIVector(x: 9, y: 10)
+        let e442 = echo("lookEcho442", [a, b, c2])
+        print("LookPipelineTests: echo442 (s, f4, f4, f2) = \(e442)")
+        XCTAssertEqual(e442[0], 0.5 + 1000 * 1 + 1000000 * 5, accuracy: 1)
+        XCTAssertEqual(e442[1], 2 + 1000 * 6 + 1000000 * 9, accuracy: 1)
+        XCTAssertEqual(e442[2], 3 + 1000 * 7 + 1000000 * 10, accuracy: 1)
+        XCTAssertEqual(e442[3], 4 + 1000 * 8, accuracy: 1)
+        let e44 = echo("lookEcho44", [a, b])
+        print("LookPipelineTests: echo44 (s, f4, f4) = \(e44)")
+        XCTAssertEqual(e44[0], 0.5 + 1000 * 1 + 1000000 * 5, accuracy: 1)
+        XCTAssertEqual(e44[1], 2 + 1000 * 6, accuracy: 1)
+        XCTAssertEqual(e44[2], 3 + 1000 * 7, accuracy: 1)
+        XCTAssertEqual(e44[3], 4 + 1000 * 8, accuracy: 1)
+        let e424 = echo("lookEcho424", [a, c2, b])
+        print("LookPipelineTests: echo424 (s, f4, f2, f4) = \(e424)")
+        XCTAssertEqual(e424[0], 0.5 + 1000 * 1 + 1000000 * 5, accuracy: 1)
+        XCTAssertEqual(e424[1], 2 + 1000 * 9 + 1000000 * 6, accuracy: 1)
+        XCTAssertEqual(e424[2], 3 + 1000 * 10 + 1000000 * 7, accuracy: 1)
+        XCTAssertEqual(e424[3], 4 + 1000 * 8, accuracy: 1)
+        // The pre kernel on a flat grey with unit gains and no whites/blacks must be the identity.
+        let same = pipe.kernels.apply("lookPre", extent: extent, [dev.image, CIVector(x: 1, y: 1, z: 1, w: 1), CIVector(x: 0, y: 0, z: 0, w: 0), CIVector(x: 1 / 2.2, y: 2.2)])!
+        let p = pipe.pixel(same, x: 4, y: 4)
+        print("LookPipelineTests: lookPre identity on 0.5 = \(p)")
+        XCTAssertEqual(p.g, 0.5, accuracy: 0.003)
     }
 
     func testNeutralLookIsTheDevelopedImage() {
