@@ -5,8 +5,8 @@ never enter the repo (they hold photo content).
 
     python3 Tools/parity/showcase.py /Volumes/CARD/DCIM/101MSDCF/DSC01234.ARW --out ~/LuminaEvidence/showcase
         → <out>/DSC01234-sheet.png            base + 12 sliders × 3 positions, labelled
-          <out>/DSC01234-exposure.gif         ev −2 … +2, 21 frames
-          <out>/DSC01234-shadows.gif          sh −100 … +100, 21 frames
+          <out>/DSC01234-exposure.gif         ev -2 … +2, 21 frames
+          <out>/DSC01234-shadows.gif          sh -100 … +100, 21 frames
           <out>/DSC01234-tour.gif             one pass through every slider
 
 Needs the Mac (lumina-render is Core Image): `make render` first, or pass --render-bin.
@@ -26,19 +26,19 @@ import lookmath  # noqa: E402
 
 SHEET = [  # (label, look string)
     ("base", ""),
-    ("ev −2", "ev:-2"), ("ev +1", "ev:+1"), ("ev +2", "ev:+2"),
+    ("ev -2", "ev:-2"), ("ev +1", "ev:+1"), ("ev +2", "ev:+2"),
     ("wb 3200 K", "wb:3200/0"), ("wb 5500 K", "wb:5500/0"), ("wb 9000 K", "wb:9000/0"),
-    ("tint −60", "wb:5500/-60"), ("tint +60", "wb:5500/+60"),
-    ("contrast −80", "con:-80"), ("contrast +40", "con:+40"), ("contrast +80", "con:+80"),
-    ("highlights −100", "hl:-100"), ("highlights +60", "hl:+60"),
-    ("shadows −60", "sh:-60"), ("shadows +100", "sh:+100"),
-    ("whites −60", "wh:-60"), ("whites +60", "wh:+60"),
-    ("blacks −60", "bl:-60"), ("blacks +60", "bl:+60"),
-    ("vibrance −100", "vib:-100"), ("vibrance +80", "vib:+80"),
-    ("saturation −100", "sat:-100"), ("saturation +60", "sat:+60"),
-    ("clarity −80", "clr:-80"), ("clarity +80", "clr:+80"),
+    ("tint -60", "wb:5500/-60"), ("tint +60", "wb:5500/+60"),
+    ("contrast -80", "con:-80"), ("contrast +40", "con:+40"), ("contrast +80", "con:+80"),
+    ("highlights -100", "hl:-100"), ("highlights +60", "hl:+60"),
+    ("shadows -60", "sh:-60"), ("shadows +100", "sh:+100"),
+    ("whites -60", "wh:-60"), ("whites +60", "wh:+60"),
+    ("blacks -60", "bl:-60"), ("blacks +60", "bl:+60"),
+    ("vibrance -100", "vib:-100"), ("vibrance +80", "vib:+80"),
+    ("saturation -100", "sat:-100"), ("saturation +60", "sat:+60"),
+    ("clarity -80", "clr:-80"), ("clarity +80", "clr:+80"),
     ("sharpen 150", "shp:150"),
-    ("vignette −100", "vig:-100"), ("B&W", "bw:1"),
+    ("vignette -100", "vig:-100"), ("B&W", "bw:1"),
     ("roadmap example", "ev:+0.70 con:+12 hl:-40 sh:+25 bl:-8 vib:+10 clr:+15 shp:30"),
 ]
 SWEEPS = {
