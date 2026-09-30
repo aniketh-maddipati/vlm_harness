@@ -491,7 +491,10 @@
   // transit times, so a look event and the frame that shows it are timed on one base.
   const pageNow = () => performance.now();
   const dpr = () => Math.max(1, window.devicePixelRatio || 1);
-  const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?' + new URLSearchParams(q).toString();
+  // Encoded with encodeURIComponent, not URLSearchParams: the latter writes a space as '+', which the
+  // Mac's URLComponents leaves as '+' (the sign in 'ev:+0.30'), so a two-key look would arrive as one token.
+  const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?'
+    + Object.keys(q).filter(k => q[k] != null).map(k => k + '=' + encodeURIComponent(q[k])).join('&');
   const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null };
   // The image path's latest-wins renderer (addendum §7): one fetch in flight, the newest look
   // waits, a quarter-size render while dragging, the full one at rest (drag end, key, 120 ms idle).

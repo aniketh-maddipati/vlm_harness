@@ -140,6 +140,8 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   const pv = await page.evaluate(rel => { const a = lumina.preview(rel, 'ev:+0.20', 1800, 7); lumina.drag('start'); const b = lumina.preview(rel, 'ev:+0.25', 1800, 8); lumina.drag('end'); return [a, b]; }, rel0);
   ok(pv[0] && /\/render\/2026-09-01\/DSC01001\.ARW\?/.test(pv[0]) && /look=ev%3A%2B0.20/.test(pv[0]) && /px=1800/.test(pv[0]) && /seq=7/.test(pv[0]) && /tier=base/.test(pv[0]) && /decoder=8/.test(pv[0]), 'edit: lumina.preview returns the lumina://render URL at rest (tier=base)', pv[0]);
   ok(pv[1] && /seq=8/.test(pv[1]) && /tier=small/.test(pv[1]), 'edit: lumina.preview returns the quarter tier while a slider drags', pv[1]);
+  const pv2 = await page.evaluate(rel => lumina.preview(rel, 'ev:+0.30 con:+10', 900, 9), rel0);
+  ok(pv2 && /look=ev%3A%2B0.30%20con%3A%2B10/.test(pv2) && !/\+/.test(pv2.split('?')[1]) && /&o=\d+&l=\d+&ori=/.test(pv2), 'edit: a two-key look is encoded with %20 (never +) and the preview range rides along', pv2);
   await page.waitForTimeout(700);
   ok(bridge.canvas.entered[0] && bridge.canvas.entered[0].rel === rel0 && bridge.canvas.entered[0].model === 'ILCE-7M4' && bridge.canvas.entered[0].next && bridge.canvas.entered[0].preview && +bridge.canvas.entered[0].preview.l > 0,
     'edit: canvasEnter carries the photo, its body, its preview range and its neighbours', bridge.canvas.entered[0]);
