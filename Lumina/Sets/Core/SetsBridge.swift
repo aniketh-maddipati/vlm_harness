@@ -41,6 +41,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// The body of the photo on the Edit canvas ("?" when the page read no model), so a decoder
     /// map that lands after `canvasEnter` reaches it.
     private var canvasModel: String?
+    /// ⌘R: Finder, with the file selected. The probe swaps this out so a fuzz run never brings
+    /// Finder forward on the desktop of whoever is using the Mac.
+    var reveal: (URL) -> Void = { NSWorkspace.shared.activateFileViewerSelecting([$0]) }
 
     init(chooser: SetsChooser, supportDir: URL) {
         self.chooser = chooser
@@ -359,7 +362,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (await writeSidecars(root: body["root"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? []), nil)
         case "reveal":
             guard let url = revealURL(body["path"] as? String ?? "") else { return (false, nil) }
-            NSWorkspace.shared.activateFileViewerSelecting([url])
+            reveal(url)
             onEvent?("reveal \(url.path)")
             return (true, nil)
         case "setPrefs":
