@@ -85,6 +85,26 @@ final class SetsIngestTests: XCTestCase {
         XCTAssertEqual(ingest.snapshot.bytesRead, before)
     }
 
+    func testThumbCoversTheLargestRetinaTileUprightAndIsNeverUpscaled() throws {
+        let big = jpeg(1616, 1080), small = jpeg(640, 427)
+        var raw = Data(count: 1000); raw.append(big); raw.append(small); raw.append(Data(count: 5000))
+        try put("100MSDCF/DSC00001.ARW", raw)
+        let ingest = SetsIngest(workers: 2)
+        ingest.register(root)
+        let rel = "shoot/100MSDCF/DSC00001.ARW"
+        // The page reads the preview as stored first; the thumbnail then comes from the cache.
+        _ = try ingest.preview(.init(rel: rel, offset: 1000, length: big.count, orientation: 1))
+        let before = ingest.snapshot.bytesRead
+        let t1 = try ingest.thumb(.init(rel: rel, offset: 1000, length: big.count, orientation: 1))
+        XCTAssertEqual(ingest.snapshot.bytesRead, before, "no second read off the card")
+        XCTAssertTrue(size(t1).0 == 720 && (480...482).contains(size(t1).1), "landscape covers 720 × 480: \(size(t1))")
+        let t6 = try ingest.thumb(.init(rel: rel, offset: 1000, length: big.count, orientation: 6))
+        XCTAssertTrue((320...322).contains(size(t6).0) && size(t6).1 == 480, "portrait fits 480 high, upright: \(size(t6))")
+        let ts = try ingest.thumb(.init(rel: rel, offset: 1000 + big.count, length: small.count, orientation: 1))
+        XCTAssertTrue(size(ts) == (640, 427), "a small preview is kept at its size: \(size(ts))")
+        XCTAssertEqual(ingest.snapshot.thumbs, 3)
+    }
+
     func testAPreviewPastTheEndOfTheFileIsRefused() throws {
         try put("100MSDCF/CUT.ARW", Data(count: 4096))
         let ingest = SetsIngest(workers: 1)

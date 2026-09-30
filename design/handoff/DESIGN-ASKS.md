@@ -49,6 +49,22 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 >
 > **6. Tab focus order** (CHANGES-v4-beta "Known, left as-is"). Still no rule. The proposal stands:
 > Tab moves through buttons; letters act only while the grid has focus.
+>
+> **7. Fast scrolling in Cull.** Scrolling fast shows tiles popping in and soft thumbnails. Please:
+> (a) **Thumbnail size.** `readOne` keeps the 360 px measuring bitmap as the tile image (JPEG 0.82),
+> but the largest tile is 216 × 1.5 = 324 × 216 CSS px, i.e. 648 × 432 on a Retina screen: up to
+> 1.8× magnified. Keep measuring on the 360 px bitmap (so keeps, stacks and sharpest don't
+> change) and give `src` a separate image covering 720 × 480 (never upscaled, resized at high
+> quality, JPEG 0.9). The app does this today: the Mac makes it (`/media/thumb`) and `plumbing.js`
+> uses it. In the browser, make it in `readOne` the same way (the app keeps supplying its own).
+> (b) **No fade for a ready image.** Tile `<img>`s start at `opacity:0` and fade in over 180 ms on
+> `onLoad`, and use `loading="lazy"`. On a fast scroll every newly mounted row blinks, even when its
+> thumbnail is already decoded. Drop `loading="lazy"` (rows are already windowed at ±700 px), and show
+> an image that is `complete` on mount at full opacity; keep the fade only for thumbnails that
+> arrive while you look (during a read).
+> (c) **Render window follows the scroll.** `onScroll` mounts rows within ±700 px of the viewport.
+> Make it lean with the scroll direction (e.g. 700 px behind, 2 viewports ahead) so a fling lands
+> on rows that are already mounted.
 
 ## How each ask is checked once the new handoff lands
 
@@ -57,3 +73,6 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 - 3: `__lumina.unsaved()` in `plumbing.js` becomes a call to `window.luminaUnsaved`; the contract scenario checks it exists.
 - 4, 5: by eye.
 - 6: a probe Tab walk scenario.
+- 7: `probe.sh scroll` (`scroll-fast`, `scroll-fast-2560`: blank-tile % and upscale min per tile size) and the WebKitGTK
+  sandbox's `scroll` suite; `card-clock.json` measures unchanged in both modes. Then drop plumbing's warm-ahead
+  block (c) and review its `readOne` repeat (a) against the new ONDIR.

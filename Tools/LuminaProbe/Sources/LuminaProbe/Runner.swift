@@ -164,11 +164,27 @@ final class Runner {
             let p = try await point(s)
             let frames = s["frames"] as? Int ?? 120
             let dy = Int32(s["dy"] as? Int ?? 40)
-            _ = try await host.js("__probe.framesStart()")
-            for _ in 0..<frames { host.scrollWheel(at: p, dy: dy); try await settle(16) }
+            let name = s["name"] as? String ?? "wheel"
+            // tiles: also sample Cull's tiles every frame (blank on screen, thumbnail upscale ratio).
+            // snapAt: frame numbers to snapshot mid-scroll (<name>-f<n>.png; the snapshot pauses the wheel).
+            let tiles = s["tiles"] as? Bool ?? false, snapAt = Set(s["snapAt"] as? [Int] ?? [])
+            _ = try await host.js("__probe.framesStart()" + (tiles ? "; __probe.tilesStart()" : ""))
+            for f in 0..<frames {
+                host.scrollWheel(at: p, dy: dy); try await settle(16)
+                if snapAt.contains(f) { try await snap("\(name)-f\(f)") }
+            }
             let r = try await host.js("return __probe.framesStop()") as? [String: Double] ?? [:]
-            frames_(s["name"] as? String ?? "wheel", r, budget: s["p95Ms"] as? Double)
-            return "p95 \(r["p95"] ?? 0) ms, \(Int(r["over33"] ?? 0)) frames > 33 ms"
+            frames_(name, r, budget: s["p95Ms"] as? Double)
+            var note = "p95 \(r["p95"] ?? 0) ms, \(Int(r["over33"] ?? 0)) frames > 33 ms"
+            if tiles {
+                let t = try await host.js("return __probe.tilesStop()") as? [String: Double] ?? [:]
+                self.frames["\(name).tiles"] = t
+                note += String(format: " · blank %.1f%% of on-screen tiles (%.1f%% of frames, worst %.1f%%) · upscale min %.2f median %.2f (tile %.0f px, dpr %.0f)",
+                               t["blankPct"] ?? 0, t["blankFramesPct"] ?? 0, t["worstBlankPct"] ?? 0, t["upscaleMin"] ?? 0, t["upscaleMedian"] ?? 0, t["tile"] ?? 0, t["dpr"] ?? 0)
+                if let cap = s["maxBlankPct"] as? Double, (t["blankPct"] ?? 0) > cap { failures.append("tiles \(name): \(t["blankPct"] ?? 0)% blank > \(cap)%") }
+                if let floor = s["minUpscale"] as? Double, (t["upscaleMin"] ?? 0) < floor { failures.append("tiles \(name): thumbnails magnified, upscale min \(t["upscaleMin"] ?? 0) < \(floor)") }
+            }
+            return note
         case "wait":
             try await settle(s["ms"] as? Double ?? 100)
         case "waitFor":
@@ -748,7 +764,7 @@ final class Runner {
         print("\(pass ? "PASS" : "FAIL")  \(name)  \(String(format: "%.1f", seconds))s  \(steps.count) steps")
         for s in steps where s.note != nil { print("   \(s.ok ? "·" : "✗") #\(s.i) \(s.op): \(s.note!)") }
         for s in sampler.summary() { print("   \(s.who): peak \(Int(s.peakMB)) MB, cpu mean \(Int(s.meanCPU))% peak \(Int(s.peakCPU))%") }
-        for (k, r) in frames { print("   frames \(k): p50 \(r["p50"] ?? 0) p95 \(r["p95"] ?? 0) max \(r["max"] ?? 0) ms") }
+        for (k, r) in frames where !k.hasSuffix(".tiles") { print("   frames \(k): p50 \(r["p50"] ?? 0) p95 \(r["p95"] ?? 0) max \(r["max"] ?? 0) ms") }
         for f in failures { print("   FAIL \(f)") }
         return pass
     }

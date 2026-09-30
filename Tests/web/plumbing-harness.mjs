@@ -77,6 +77,20 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   const p7 = await page.evaluate(() => { const l = __lumina.logic(); const p = Object.values(l.data.byId).find(p => p.file === 'DSC01007.ARW' || p.name === 'DSC01007.ARW'); return p && { portrait: p.portrait, lg: p.lg, model: p.model, xpath: p.xpath, path: p.path }; });
   ok(p7 && p7.portrait === true && /\/media\/preview\?/.test(p7.lg), 'read: orientation 6 → portrait, large view by URL', p7);
   ok(p7 && p7.model === 'ILCE-7M4' && p7.path === '2026-09-01/DSC01007.ARW', 'read: v5 fields (model, path)', p7);
+  // Grid thumbnails: sharper than the page's 360 px bitmap (never upscaled), while every measure
+  // still comes from that bitmap, redone here exactly as the page's readOne does it.
+  const th = await page.evaluate(async () => {
+    const l = __lumina.logic(), out = [];
+    for (const p of l.real.filter(q => !q.portrait).slice(0, 4)) {
+      const q = new URL(p.lg).searchParams, blob = await (await fetch(p.lg.replace(/ori=\d/, 'ori=1'))).blob();
+      const sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' }), me = LuminaCore.measure(sm); sm.close();
+      const full = await createImageBitmap(blob), im = new Image(); im.src = p.src; await im.decode();
+      out.push({ same: me.dhash === p.dhash && me.focus === p.focus && me.lum === p.lum && me.clip === p.clip, w: im.naturalWidth, full: full.width, ori: q.get('ori') }); full.close();
+    }
+    return out;
+  });
+  ok(th.length && th.every(t => t.same), 'thumbs: measures identical to the page\'s 360 px bitmap', th);
+  ok(th.length && th.every(t => t.w === Math.min(720, t.full) && t.w > 360), 'thumbs: tile image min(720, preview) wide, never upscaled', th);
   ok(bridge.calls.includes('shootOpened'), 'session: shootOpened sent');
   ok(await page.evaluate(() => window.lumina.readingCard === false), 'card: readingCard false for a folder');
 

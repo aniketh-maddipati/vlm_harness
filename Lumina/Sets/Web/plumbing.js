@@ -34,6 +34,24 @@
   const previewOf = lg => {
     try { const u = new URL(lg); return u.pathname === '/media/preview' ? Object.fromEntries(u.searchParams) : null; } catch (_) { return null; }
   };
+  // Grid thumbnail. The page's own is its 360 px measuring bitmap at JPEG 0.82; its largest tile is
+  // 216 × 1.5 = 324 × 216 CSS px (ADDENDUM-1 §4), 648 × 432 on a Retina screen, so that one is
+  // magnified up to 1.8×. This one covers 720 × 480 (never upscaled): made by the Mac
+  // (/media/thumb, SetsIngest.thumb, off the page's thread), else here, resized once at high quality.
+  const TILE_W = 720, TILE_H = 480;
+  const nativeTile = pq => get(media('thumb', pq)).then(r => r.blob()).catch(() => null);
+  const tileOf = async blob => {
+    try {
+      const full = await createImageBitmap(blob), w = full.width, h = full.height;
+      const s = Math.min(1, h > w ? TILE_H / h : Math.max(TILE_W / w, TILE_H / h));
+      const W = Math.max(1, Math.round(w * s)), H = Math.max(1, Math.round(h * s));
+      const bm = s < 1 ? await createImageBitmap(full, { resizeWidth: W, resizeHeight: H, resizeQuality: 'high' }) : full;
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(bm, 0, 0, W, H);
+      if (bm !== full) bm.close(); full.close();
+      return await new Promise(res => c.toBlob(res, 'image/jpeg', 0.9));
+    } catch (_) { return null; }
+  };
   // Stands in for the File the page keeps per photo: the same name and relative path, no bytes.
   const fileRef = rel => ({ name: rel.split('/').pop(), webkitRelativePath: rel, __luminaRel: rel });
   let reading = null, lastRead = null;
@@ -195,13 +213,14 @@
       const rel = f.rel, name = rel.split('/').pop();
       const head = new Uint8Array(await (await get(media('head', { p: rel }))).arrayBuffer());
       const m = LuminaCore.parseHead(head, f.size); if (!m) throw new Error('unreadable');
-      let blob = null, pq = null;
+      let blob = null, pq = null, nt = null;
       if (m.preview) {
         const [po, pl] = m.preview;
         if (po + pl <= f.size) {
           pq = { p: rel, o: po, l: pl, ori: m.orient || 1 };
           // As stored (ori 1): the page's own canvas turns it, below.
           blob = await (await get(media('preview', Object.assign({}, pq, { ori: 1 })))).blob();
+          nt = nativeTile(pq);                               // made by the Mac while the page measures
         }
       }
       const xk = rel.replace(/\.[^.\/]+$/, '').toLowerCase(), xo = xmpMap[xk] || null, xpath = xo ? xo.path : rel.replace(/\.[^.\/]+$/, '') + '.xmp';
@@ -213,7 +232,9 @@
         if (!blob) throw 0;
         const ori = m.orient || 1;
         if (ori === 3 || ori === 6 || ori === 8) { const b0 = await createImageBitmap(blob, { imageOrientation: 'none' }), sw = ori !== 3, c = document.createElement('canvas'); c.width = sw ? b0.height : b0.width; c.height = sw ? b0.width : b0.height; const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(ori === 6 ? Math.PI / 2 : ori === 8 ? -Math.PI / 2 : Math.PI); x.drawImage(b0, -b0.width / 2, -b0.height / 2); b0.close(); blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.92)); }
-        const sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' }); portrait = sm.height > sm.width; me = LuminaCore.measure(sm); sm.close(); tb = await new Promise(res => me.canvas.toBlob(res, 'image/jpeg', 0.82));
+        const sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' }); portrait = sm.height > sm.width; me = LuminaCore.measure(sm); sm.close();
+        // Measures above come from the page's exact 360 px bitmap. The tile shows a sharper image.
+        tb = (nt && await nt) || await tileOf(blob) || await new Promise(res => me.canvas.toBlob(res, 'image/jpeg', 0.82));
       } catch (_) { me = null; }
       logic._gold.push({ file: name, size: f.size, parsed: Object.assign(Object.fromEntries(Object.entries(m).filter(([k]) => !/^_/.test(k))), { dhash: me ? me.dhash : null }) });
       if (!me) return Object.assign(baseP, { nopv: true, portrait: false, lum: null, focus: 0, clip: 0, dhash: null, src: '', lg: '' });
@@ -367,6 +388,38 @@
   };
   prefetchLoop();
 
+  // Grid thumbnails ahead of a scroll are decoded before the page mounts their rows (it renders
+  // ±700 px around the viewport), so a fast scroll finds them ready. WebKit shares a decoded image
+  // between elements with the same URL; the Images here only hold it (at most WARM_MAX × 720 × 480
+  // × 4 bytes, ~165 MB). Two viewports ahead, 700 px behind.
+  const warm = new Map();                       // tile blob URL → decoding Image, oldest first
+  const WARM_MAX = 120;
+  let warmReal = null, warmTop = null, warmRaf = 0, warmOn = cfg.warmAhead !== false;
+  const warmAhead = () => {
+    warmRaf = 0;
+    if (!warmOn) return;
+    const l = current, el = document.querySelector('[data-screen-label="1 Cull"]');
+    if (!l || !l.real || reading || !el || typeof l.layout !== 'function' || l.state.view !== 'cull') return;
+    if (warmReal !== l.real) { warm.clear(); warmReal = l.real; }
+    const top = el.scrollTop, dir = warmTop == null || top >= warmTop ? 1 : -1, span = el.clientHeight * 2 + 700;
+    warmTop = top;
+    const lo = dir > 0 ? top - 700 : top - span, hi = dir > 0 ? top + el.clientHeight + span : top + el.clientHeight + 700;
+    const L = l.layout(), byId = l.data.byId, want = [];
+    for (const r of L.rows) {
+      if (r.y + r.h < lo || r.y > hi) continue;
+      for (const c of r.cells) { const p = byId[c.id]; if (p && p.src) want.push({ src: p.src, d: Math.abs(r.y - top) }); }
+    }
+    want.sort((a, b) => a.d - b.d);
+    for (const { src } of want) {
+      const im = warm.get(src);
+      if (im) { warm.delete(src); warm.set(src, im); continue; }
+      const n = new Image(); n.decoding = 'async'; n.src = src; if (n.decode) n.decode().catch(() => {});
+      warm.set(src, n);
+    }
+    while (warm.size > WARM_MAX) warm.delete(warm.keys().next().value);
+  };
+  document.addEventListener('scroll', () => { if (!warmRaf) warmRaf = requestAnimationFrame(warmAhead); }, { capture: true, passive: true });
+
   // Native → page. Only the page's own actions and hooks are used.
   window.__lumina = {
     logic: () => current || findLogic(),
@@ -439,6 +492,8 @@
       };
     },
     nativeStats: () => native('ingestStats', {}),
+    // Probe A/B: decode thumbnails ahead of a scroll or not. Returns how many are held.
+    warmAhead(on) { if (on != null) { warmOn = !!on; if (!warmOn) warm.clear(); } return warm.size; },
     say(t) { const l = window.__lumina.logic(); if (l) l.say(t); },
     openFolder() { const l = window.__lumina.logic(); if (l) l.openFolder(true); },
     undo() {

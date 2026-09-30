@@ -5,9 +5,10 @@
 //
 //   node Tests/web/webkit-server.mjs <port> <workdir>
 import http from 'http';
+import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot } from './lib.mjs';
+import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot, makeDetailJpegs, makeBigShoot } from './lib.mjs';
 
 const port = +(process.argv[2] || 8765), work = path.resolve(process.argv[3] || '/tmp/lumina-webkit');
 fs.mkdirSync(work, { recursive: true });
@@ -24,6 +25,18 @@ if (!fs.existsSync(jpegDir) || fs.readdirSync(jpegDir).length < 12) {
 }
 const jpegs = fs.readdirSync(jpegDir).sort((a, b) => parseInt(a) - parseInt(b)).map(f => fs.readFileSync(path.join(jpegDir, f)));
 
+// SetsIngest.thumb's stand-in: one GdkPixbuf helper process, requests answered in order.
+const helper = spawn('/usr/bin/python3.12', [path.join(path.dirname(new URL(import.meta.url).pathname), 'thumb-helper.py')], { stdio: ['pipe', 'pipe', 'inherit'] });
+const waiting = []; let pending = Buffer.alloc(0);
+helper.stdout.on('data', d => {
+  pending = Buffer.concat([pending, d]);
+  while (pending.length >= 8) {
+    const n = Number(pending.readBigUInt64BE(0)); if (pending.length < 8 + n) break;
+    const b = pending.subarray(8, 8 + n); pending = pending.subarray(8 + n); waiting.shift()(n ? Buffer.from(b) : null);
+  }
+});
+const thumb = (f, q) => new Promise(res => { waiting.push(res); helper.stdin.write(JSON.stringify({ f, o: q.o, l: q.l, ori: q.ori || 1 }) + '\n'); });
+
 const body = req => new Promise(res => { let d = ''; req.on('data', c => d += c); req.on('end', () => res(d)); });
 const json = (res, v, code = 200) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(v === undefined ? null : v)); };
 
@@ -34,6 +47,17 @@ const ctl = async (op, a) => {
     case 'shoot': {   // { name, others: [], sidecars: {} } → folder path
       const dir = path.join(work, 'shoots', a.name);
       makeShoot(dir, jpegs, { others: a.others || [], sidecars: a.sidecars || {} });
+      return dir;
+    }
+    case 'bigShoot': {   // { name, n } → a folder of n ARWs with camera-sized previews (the scroll suite)
+      const dir = path.join(work, 'shoots', a.name), big = path.join(work, 'jpegs-1616');
+      if (!fs.existsSync(big) || fs.readdirSync(big).length < 16) {
+        fs.mkdirSync(big, { recursive: true });
+        const b = await pw.chromium.launch();
+        (await makeDetailJpegs(b, 16)).forEach((j, i) => fs.writeFileSync(path.join(big, i + '.jpg'), j));
+        await b.close();
+      }
+      makeBigShoot(dir, fs.readdirSync(big).sort((x, y) => parseInt(x) - parseInt(y)).map(f => fs.readFileSync(path.join(big, f))), a.n || 400);
       return dir;
     }
     case 'folder': { const dir = path.join(work, 'shoots', a.name); fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true }); for (const n of a.files || []) fs.writeFileSync(path.join(dir, n), 'x'); return dir; }
@@ -57,6 +81,12 @@ http.createServer(async (req, res) => {
       const q = Object.fromEntries(u.searchParams), f = bridge.resolve(q.p || ''), [n] = (q.p || '').split('/');
       if (bridge.gone.has(n)) { res.writeHead(410); return res.end('card removed'); }
       if (!f || !fs.existsSync(f)) { res.writeHead(404); return res.end('not in an opened folder'); }
+      if (p === 'media/thumb') {
+        const t = await thumb(f, q);
+        if (!t) { res.writeHead(422); return res.end('preview doesn\'t decode'); }
+        res.writeHead(200, { 'content-type': 'image/jpeg' }); return res.end(t);
+      }
+      if (p !== 'media/head' && p !== 'media/preview') { res.writeHead(404); return res.end('unknown media'); }
       const b = fs.readFileSync(f), out = p === 'media/head' ? b.subarray(0, 262144) : b.subarray(+q.o, +q.o + +q.l);
       res.writeHead(200, { 'content-type': p === 'media/head' ? 'application/octet-stream' : 'image/jpeg' }); return res.end(out);
     }
@@ -66,3 +96,4 @@ http.createServer(async (req, res) => {
     res.end(fs.readFileSync(file));
   } catch (e) { json(res, { error: String(e) }, 500); }
 }).listen(port, '127.0.0.1', () => console.log('ready ' + ORIGIN));
+process.on('SIGTERM', () => { helper.kill(); process.exit(0); });

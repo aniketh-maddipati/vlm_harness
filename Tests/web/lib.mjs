@@ -203,6 +203,8 @@ export async function open(browser, bridge, { prefs, app = true, size = [1440, 9
       const [n] = (q.p || '').split('/');
       if (bridge && bridge.gone.has(n)) return route.fulfill({ status: 410, body: 'card removed' });
       if (!f || !fs.existsSync(f)) return route.fulfill({ status: 404, body: 'not in an opened folder' });
+      // No /media/thumb here (no ImageIO stand-in): plumbing makes the tile in the page instead.
+      if (p !== 'media/head' && p !== 'media/preview') return route.fulfill({ status: 404, body: 'unknown media' });
       const b = fs.readFileSync(f);
       const body = p === 'media/head' ? b.subarray(0, 262144) : b.subarray(+q.o, +q.o + +q.l);
       return route.fulfill({ status: 200, body, contentType: p === 'media/head' ? 'application/octet-stream' : 'image/jpeg' });

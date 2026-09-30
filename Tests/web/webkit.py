@@ -11,6 +11,8 @@ not exercised here). Suites:
   selftest   the design's ?selftest (25 checks + timing)
   flow       open a folder, read, keep, save sidecars into the folder, .lumina-bak, reopen, card, access
   screens    screens-1440 / 1920: prototype vs app parity mode, every snapshot and state dump compared
+  scroll     fast scrolling in Cull over a few hundred synthetic ARWs: frame pacing, blank tiles, thumbnail
+             upscale ratio, web-process memory (reported, not gated: no GPU here; the Mac's is probe.sh scroll)
 
   xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py [suite …] [--out DIR]
 
@@ -90,7 +92,7 @@ def offline_filter():
 class Page:
     """One offscreen WebKitGTK view. app=True: plumbing.js + the lumina message handler."""
 
-    def __init__(self, app, size=(1440, 900), query='', clock=None, parity=False, storage_writes=True):
+    def __init__(self, app, size=(1440, 900), query='', clock=None, parity=False, storage_writes=True, probe=False):
         ucm = WebKit2.UserContentManager()
         add = lambda src: ucm.add_script(WebKit2.UserScript.new(src, WebKit2.UserContentInjectedFrames.TOP_FRAME, WebKit2.UserScriptInjectionTime.START, None, None))
         if clock:
@@ -98,6 +100,8 @@ class Page:
             add('(() => { const R = Date, t0 = R.now(), b = %d; const now = () => b + (R.now() - t0); class D extends R { constructor(...a) { if (a.length === 0) super(now()); else super(...a); } static now() { return now(); } } window.Date = D; })();' % base)
         if not storage_writes:
             add("Storage.prototype.setItem = function () { throw new DOMException('storage writes off', 'QuotaExceededError'); };")
+        if probe:   # the Mac probe's own page helpers (tile meter, frame pacing); its message posts no-op here
+            add(open(os.path.join(ROOT, 'Tools/LuminaProbe/Sources/LuminaProbe/probe.js'), encoding='utf-8').read())
         add('window.__resources = Object.assign(window.__resources || {}, %s);' % json.dumps(ctl('resources')))
         add('window.__errors = []; addEventListener("error", e => __errors.push(String(e.message) + (e.filename ? " @ " + e.filename + ":" + e.lineno : ""))); addEventListener("unhandledrejection", e => __errors.push("rejection: " + String(e.reason && e.reason.message || e.reason) + " " + String(e.reason && e.reason.stack || "").split("\\n").slice(0, 3).join(" | ")));')
         if app:
@@ -363,6 +367,71 @@ def screens():
             ok(same, '%s/%s.state.json identical' % (name, k), keys)
 
 
+def web_rss_mb():
+    """Resident memory of this run's WebKit web processes (children of this process), in MB."""
+    tot = 0
+    for pid in os.listdir('/proc'):
+        if not pid.isdigit():
+            continue
+        try:
+            st = open('/proc/%s/stat' % pid).read().split(') ')[-1].split()
+            if int(st[1]) != os.getpid() or 'WebKitWebProces' not in open('/proc/%s/comm' % pid).read():
+                continue
+            for line in open('/proc/%s/status' % pid):
+                if line.startswith('VmRSS:'):
+                    tot += int(line.split()[1]) / 1024
+        except (OSError, ValueError, IndexError):
+            pass
+    return round(tot)
+
+
+SCROLL_N = int(os.environ.get('LUMINA_SCROLL_N', '400'))
+
+
+def scroll():
+    shoot = ctl('bigShoot', name='scroll-%d' % SCROLL_N, n=SCROLL_N)
+    rows = []
+    for size in ((1440, 900), (2560, 1440)):
+        ctl('reset')
+        p = Page(app=True, size=size, probe=True)
+        ok(ready(p, True), 'scroll %dx%d: page ready' % size)
+        ctl('pick', path=shoot)
+        t0 = time.time()
+        p.js('__lumina.openFolder(); return true')
+        ok(spin(lambda: p.js('const l = __lumina.logic(); return !!(l.real && l.real.length && !l.state.realLoad && l.state.realInfo)'), 600),
+           'scroll %dx%d: %d photos read' % (size + (SCROLL_N,)))
+        read_s = time.time() - t0
+        info = p.js('return __lumina.logic().state.realInfo')
+        blobs = p.js('return Promise.all(__lumina.logic().real.slice(0, 40).map(q => fetch(q.src).then(r => r.blob()).then(b => b.size))).then(a => Math.round(a.reduce((x, y) => x + y, 0) / a.length / 1024))')
+        dims = p.js('const im = new Image(); im.src = __lumina.logic().real[0].src; return im.decode().then(() => [im.naturalWidth, im.naturalHeight])')
+        for tsz in (1, 2):
+            p.js('__lumina.logic().setState({ tsz: %d }); const el = document.querySelector(\'[data-screen-label="1 Cull"]\'); el.scrollTop = 0; return true' % tsz)
+            wait(1500)
+            for dy in (60, 150, -150):   # -150: the 150 pass with plumbing's warm-ahead off (A/B)
+                warm = dy > 0; dy = abs(dy)
+                p.js('return __lumina.warmAhead(%s)' % ('true' if warm else 'false'))
+                p.js('__probe.framesStart(); __probe.tilesStart(); return true')
+                p.js('return __probe.scrollFrames(120, %d)' % dy, timeout=120)
+                f = p.js('return __probe.framesStop()')
+                t = p.js('return __probe.tilesStop()')
+                name = '%dx%d-tile%d-dy%d%s' % (size + (t['tile'], dy, '' if warm else '-nowarm'))
+                p.js('return __probe.scrollFrames(8, %d)' % dy)
+                p.snap(os.path.join(OUT, 'scroll-' + name + '.png'))
+                p.js('document.querySelector(\'[data-screen-label="1 Cull"]\').scrollTop = 0; return true')
+                wait(1200)
+                row = dict(name=name, p95=round(f['p95'], 1), over33=f['over33'], blankPct=t['blankPct'], blankFramesPct=t['blankFramesPct'],
+                           worstBlankPct=t['worstBlankPct'], upMin=t['upscaleMin'], upMed=t['upscaleMedian'], dpr=t['dpr'])
+                rows.append(row)
+                print('     %-26s p95 %5.1f ms · %3d > 33 ms · blank %5.1f%% of tiles (%5.1f%% of frames, worst %5.1f%%) · upscale min %.2f median %.2f (dpr %s)' % (
+                    name, row['p95'], row['over33'], row['blankPct'], row['blankFramesPct'], row['worstBlankPct'], row['upMin'], row['upMed'], row['dpr']), flush=True)
+        mem = web_rss_mb()
+        print('     %dx%d: read %.1f s (page says %s s) · thumbnail %s px, %s KB mean · web process RSS %d MB' % (size + (read_s, info.get('secs'), dims, blobs, mem)), flush=True)
+        rows.append(dict(name='%dx%d' % size, readS=round(read_s, 1), thumb=dims, thumbKB=blobs, webRssMB=mem))
+        ok(p.js('return window.__errors') == [], 'scroll %dx%d: no page errors' % size, p.js('return window.__errors'))
+        p.close()
+    json.dump(rows, open(os.path.join(OUT, 'scroll.json'), 'w'), indent=1)
+
+
 if __name__ == '__main__':
     server = subprocess.Popen(['node', os.path.join(ROOT, 'Tests/web/webkit-server.mjs'), str(PORT), os.path.join(OUT, 'work')], stdout=subprocess.PIPE, text=True)
     line = server.stdout.readline()
@@ -371,7 +440,7 @@ if __name__ == '__main__':
     try:
         for s in suites:
             print('— ' + s, flush=True)
-            {'contract': contract, 'selftest': selftest, 'flow': flow, 'screens': screens}[s]()
+            {'contract': contract, 'selftest': selftest, 'flow': flow, 'screens': screens, 'scroll': scroll}[s]()
     finally:
         server.terminate()
     print(('%d FAIL' % len(FAILS)) if FAILS else 'all ok', '· evidence in', OUT)
