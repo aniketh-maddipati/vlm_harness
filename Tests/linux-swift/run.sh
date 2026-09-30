@@ -15,6 +15,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
 B="$HERE/Build"; rm -rf "$B"; mkdir -p "$B/Lumina" "$B/Tests"
 for f in SetsFileOps SetsShootStore SetsExport SetsIngest; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
 for f in LookString LookRules LookMath; do cp "$ROOT/Lumina/Sets/Look/$f.swift" "$B/Lumina/"; done
+cp "$ROOT/Lumina/Sets/Look/rules-v1.json" "$B/rules-v1.json"     # LookMathTests read it via LUMINA_RULES (only this folder is mounted)
 # swift-corelibs-foundation's FileManager.replaceItemAt fails on Linux and deletes the original
 # (checked with swift 6.1). Darwin's is correct. In this copy only, the replace is the POSIX rename
 # it stands for (atomic, same folder), so the rest of the write path runs as written.
@@ -66,7 +67,7 @@ for ln in lines:
 open(sys.argv[2], 'w').write('\n'.join(keep))
 PY
 done
-docker run --rm -v "$HERE:/work" -w /work swift:6.1-noble bash -c '
+docker run --rm -v "$HERE:/work" -w /work -e LUMINA_RULES=/work/Build/rules-v1.json swift:6.1-noble bash -c '
   swift build --build-tests > build.log 2>&1 || { grep -E "error" build.log | sort -u; exit 1; }
   swift test > test.log 2>&1; s=$?
   grep -E "error:|failed \(|Executed .* tests" test.log | sort -u | tail -40

@@ -1,10 +1,12 @@
 import XCTest
 @testable import Lumina
 
-/// Where the tests find the shipped rules: `rules-v1.json` next to the Look sources, found by
-/// walking up from this file (the Linux sandbox copies the tests two folders deeper).
+/// Where the tests find the shipped rules: `LUMINA_RULES` when set (the Linux sandbox runs in a
+/// container that only mounts Tests/linux-swift), else `rules-v1.json` next to the Look sources,
+/// found by walking up from this file.
 enum LookTestRules {
     static func url() -> URL {
+        if let p = ProcessInfo.processInfo.environment["LUMINA_RULES"], !p.isEmpty { return URL(fileURLWithPath: p) }
         var dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         for _ in 0..<8 {
             let candidate = dir.appendingPathComponent("Lumina/Sets/Look/rules-v1.json")

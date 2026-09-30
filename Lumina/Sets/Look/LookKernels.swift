@@ -2,9 +2,10 @@ import CoreImage
 import Foundation
 
 /// The stage kernels, as Metal source compiled at first use with `CIKernel.kernels(withMetalString:)`
-/// (macOS 14+). Source strings, not a `.ci.metal` file, so the app target, the `lumina-render`
-/// SwiftPM tool and the probe all build the same kernels with no compiler flags. Each function
-/// repeats a `LookMath` formula; `LookPipelineTests` checks the two agree on flat patches.
+/// (macOS 14+; it takes `[[ stitchable ]]` kernels only). Source strings, not a `.ci.metal` file,
+/// so the app target, the `lumina-render` SwiftPM tool and the probe all build the same kernels
+/// with no compiler flags. Each function repeats a `LookMath` formula; `LookPipelineTests`
+/// checks the two agree on flat patches.
 ///
 /// Colour kernels only (one output pixel from the same pixel of each input); the blurs that feed
 /// `lookTone`, `lookClarity` and `lookSharpen` are Core Image's own `CIGaussianBlur`.
@@ -27,11 +28,8 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return p < m ? m * pow(p / m, a) : 1.0f - (1.0f - m) * pow((1.0f - p) / (1.0f - m), a);
     }
 
-    extern "C" {
-    namespace coreimage {
-
     // luma (linear), or perceptual luma when invGamma > 0: the images the blurs work on
-    float4 lookLuma(sample_t s, float4 lum, float invGamma) {
+    [[ stitchable ]] float4 lookLuma(coreimage::sample_t s, float4 lum, float invGamma) {
         float y = dot(s.rgb, lum.rgb);
         if (invGamma > 0.0f) y = lk_perc(y, invGamma);
         return float4(y, y, y, 1.0f);
@@ -39,7 +37,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
 
     // exposure + whiteBalance + whitesBlacks. wb = per-channel gains (already × exposure gain);
     // wbk = (whitesAmt, blacksAmt, whitesPower, blacksPower); gam = (invGamma, gamma)
-    float4 lookPre(sample_t s, float4 wb, float4 wbk, float2 gam) {
+    [[ stitchable ]] float4 lookPre(coreimage::sample_t s, float4 wb, float4 wbk, float2 gam) {
         float3 c = s.rgb * wb.rgb;
         if (wbk.x != 0.0f || wbk.y != 0.0f) {
             float3 p = pow(max(float3(0.0f), c), float3(gam.x));
@@ -51,7 +49,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     }
 
     // tone: base = blurred linear luma. sh = (shadowsAmt, lo, hi, 0), hl = (highlightsAmt, lo, hi, detailGain)
-    float4 lookTone(sample_t s, sample_t base, float4 sh, float4 hl, float2 gam, float4 lum) {
+    [[ stitchable ]] float4 lookTone(coreimage::sample_t s, coreimage::sample_t base, float4 sh, float4 hl, float2 gam, float4 lum) {
         float bp = lk_perc(base.r, gam.x);
         float g = exp2(sh.x * (1.0f - lk_smooth(sh.y, sh.z, bp)) + hl.x * lk_smooth(hl.y, hl.z, bp));
         if (fabs(hl.w - 1.0f) > 1e-9f) {
@@ -62,7 +60,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     }
 
     // contrast: k = (midpoint, slope a, lumaMix, 0)
-    float4 lookContrast(sample_t s, float4 k, float2 gam, float4 lum) {
+    [[ stitchable ]] float4 lookContrast(coreimage::sample_t s, float4 k, float2 gam, float4 lum) {
         float3 per = float3(lk_lin(lk_curve(lk_perc(s.r, gam.x), k.x, k.y), gam.y),
                             lk_lin(lk_curve(lk_perc(s.g, gam.x), k.x, k.y), gam.y),
                             lk_lin(lk_curve(lk_perc(s.b, gam.x), k.x, k.y), gam.y));
@@ -73,7 +71,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     }
 
     // colour: k1 = (satFactor, vibranceAmt, chromaMax, protectOn), k2 = (skinHue, skinWidth, skinProtect, bw)
-    float4 lookColour(sample_t s, float4 k1, float4 k2) {
+    [[ stitchable ]] float4 lookColour(coreimage::sample_t s, float4 k1, float4 k2) {
         float3 c = s.rgb;
         float l = lk_cbrt(0.4122214708f * c.r + 0.5363325363f * c.g + 0.0514459929f * c.b);
         float m = lk_cbrt(0.2119034982f * c.r + 0.6806995451f * c.g + 0.1073969566f * c.b);
@@ -107,7 +105,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     }
 
     // clarity: base = blurred perceptual luma. k = (amount, midtonePower, 0, 0)
-    float4 lookClarity(sample_t s, sample_t base, float4 k, float2 gam, float4 lum) {
+    [[ stitchable ]] float4 lookClarity(coreimage::sample_t s, coreimage::sample_t base, float4 k, float2 gam, float4 lum) {
         float y = dot(s.rgb, lum.rgb);
         float q = lk_perc(y, gam.x);
         float mid = 1.0f - pow(fabs(2.0f * clamp(q, 0.0f, 1.0f) - 1.0f), k.y);
@@ -117,7 +115,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     }
 
     // sharpen: blur = blurred perceptual luma. k = (amount, threshold, 0, 0)
-    float4 lookSharpen(sample_t s, sample_t blur, float4 k, float2 gam, float4 lum) {
+    [[ stitchable ]] float4 lookSharpen(coreimage::sample_t s, coreimage::sample_t blur, float4 k, float2 gam, float4 lum) {
         float y = dot(s.rgb, lum.rgb);
         float q = lk_perc(y, gam.x);
         float hp = q - blur.r;
@@ -128,13 +126,10 @@ nonisolated final class LookKernels: @unchecked Sendable {
     }
 
     // vignette: k = (amountStops, edge0, edge1, invHalfDiagonal), c = centre in pixels
-    float4 lookVignette(sample_t s, float4 k, float2 c, destination dest) {
+    [[ stitchable ]] float4 lookVignette(coreimage::sample_t s, float4 k, float2 c, coreimage::destination dest) {
         float r = length(dest.coord() - c) * k.w;
         float g = exp2(k.x * lk_smooth(k.y, k.z, r));
         return float4(s.rgb * g, s.a);
-    }
-
-    }
     }
     """
 
