@@ -30,6 +30,10 @@ nonisolated struct Look: Equatable, Sendable {
     /// Black and white: chroma to zero in the colour stage. Optional key `bw:1`.
     var bw: Bool = false
     var crop: Crop?
+    /// Detail ▸ luminance noise reduction, 0 … 100, the RAW stage's
+    /// `luminanceNoiseReductionAmount` (RAW 9 §6). Nil = the decoder's default. A develop
+    /// parameter, not a look stage: it changes the `base`, not the graph on top of it.
+    var nr: Double?
 
     struct WhiteBalance: Equatable, Sendable {
         var kelvin: Double
@@ -59,15 +63,17 @@ nonisolated struct Look: Equatable, Sendable {
     ]
     static let kelvinRange = Range(min: 2000, max: 50000, step: 1)
     static let tintRange = Range(min: -150, max: 150, step: 1)
+    static let nrRange = Range(min: 0, max: 100, step: 1)
     /// Canonical key order; also the order `format` writes.
-    static let keys = ["ev", "wb", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "bw", "crop"]
+    static let keys = ["ev", "wb", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "nr", "bw", "crop"]
     /// The plain numeric sliders, key → field.
     static let sliders: [String: WritableKeyPath<Look, Double>] = [
         "ev": \.ev, "con": \.contrast, "hl": \.highlights, "sh": \.shadows, "wh": \.whites, "bl": \.blacks,
         "vib": \.vibrance, "sat": \.saturation, "clr": \.clarity, "shp": \.sharpen, "vig": \.vignette,
     ]
 
-    /// True when every slider is at reset: the render is the RAW stage alone (plus crop).
+    /// True when every slider is at reset: the render is the RAW stage alone (plus crop and the
+    /// develop's own noise reduction, `nr`, which lives in the RAW stage).
     var isNeutral: Bool {
         ev == 0 && wb == nil && contrast == 0 && highlights == 0 && shadows == 0 && whites == 0 && blacks == 0
             && vibrance == 0 && saturation == 0 && clarity == 0 && sharpen == 0 && vignette == 0 && !bw
@@ -103,6 +109,8 @@ nonisolated struct Look: Equatable, Sendable {
             switch key {
             case "bw":
                 look.bw = raw == "1" || raw == "true"
+            case "nr":
+                look.nr = clamp(try number(raw, "nr"), nrRange)
             case "wb":
                 let parts = raw.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
                 guard parts.count == 2 else { throw ParseError(description: "wb wants kelvin/tint, got '\(raw)'") }
@@ -130,7 +138,7 @@ nonisolated struct Look: Equatable, Sendable {
     // MARK: Format
 
     /// Canonical text. Reset values are written too (the page can diff two looks by eye); `wb`,
-    /// `bw` and `crop` only when set.
+    /// `nr`, `bw` and `crop` only when set.
     func format() -> String {
         func signed(_ v: Double, _ decimals: Int) -> String {
             let r = (v * pow(10, Double(decimals))).rounded() / pow(10, Double(decimals))
@@ -143,6 +151,7 @@ nonisolated struct Look: Equatable, Sendable {
                 "wh:\(signed(whites, 0))", "bl:\(signed(blacks, 0))", "vib:\(signed(vibrance, 0))",
                 "sat:\(signed(saturation, 0))", "clr:\(signed(clarity, 0))", "shp:\(Int(sharpen.rounded()))",
                 "vig:\(signed(vignette, 0))"]
+        if let nr { out.append("nr:\(Int(nr.rounded()))") }
         if bw { out.append("bw:1") }
         if let c = crop {
             let f = { (v: Double) in String(format: "%.4f", v) }

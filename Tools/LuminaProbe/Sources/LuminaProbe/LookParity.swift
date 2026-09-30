@@ -55,16 +55,30 @@ enum LookParity {
 
     /// CIEDE2000 over all pixels.
     static func deltaE(_ a: CGImage, _ b: CGImage) -> (mean: Double, p95: Double, max: Double) {
-        let pa = Pixels.rgba(a), pb = Pixels.rgba(b)
+        let s = stats(a, b)
+        return (s.mean, s.p95, s.max)
+    }
+
+    struct DE: Encodable { let mean: Double; let median: Double; let p95: Double; let max: Double; let pixels: Int }
+
+    /// CIEDE2000 over the common area of two sRGB images (a pixel of size difference from
+    /// rounding is tolerated: the smaller size is compared), with the median too.
+    static func stats(_ a: CGImage, _ b: CGImage) -> DE {
+        let w = min(a.width, b.width), h = min(a.height, b.height)
+        guard w > 0, h > 0, let ca = a.cropping(to: CGRect(x: 0, y: 0, width: w, height: h)), let cb = b.cropping(to: CGRect(x: 0, y: 0, width: w, height: h)) else {
+            return DE(mean: 100, median: 100, p95: 100, max: 100, pixels: 0)
+        }
+        let pa = Pixels.rgba(ca), pb = Pixels.rgba(cb)
         var d: [Double] = []
         d.reserveCapacity(pa.count / 4)
         var i = 0
-        while i < pa.count {
+        while i + 3 < pa.count, i + 3 < pb.count {
             d.append(de2000(lab(pa[i], pa[i + 1], pa[i + 2]), lab(pb[i], pb[i + 1], pb[i + 2])))
             i += 4
         }
+        guard !d.isEmpty else { return DE(mean: 100, median: 100, p95: 100, max: 100, pixels: 0) }
         d.sort()
-        return (d.reduce(0, +) / Double(d.count), d[Int(Double(d.count - 1) * 0.95)], d.last ?? 0)
+        return DE(mean: d.reduce(0, +) / Double(d.count), median: d[d.count / 2], p95: d[Int(Double(d.count - 1) * 0.95)], max: d.last ?? 0, pixels: d.count)
     }
 
     static func lab(_ r8: UInt8, _ g8: UInt8, _ b8: UInt8) -> (Double, Double, Double) {

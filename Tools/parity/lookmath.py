@@ -61,7 +61,7 @@ def linear(p, rules):
 def parse_look(s):
     """The look string → dict (the twelve sliders + bw). Mirrors Look.parse, without clamping."""
     look = {"ev": 0.0, "wb": None, "con": 0.0, "hl": 0.0, "sh": 0.0, "wh": 0.0, "bl": 0.0, "vib": 0.0, "sat": 0.0,
-            "clr": 0.0, "shp": 0.0, "vig": 0.0, "bw": False, "crop": None}
+            "clr": 0.0, "shp": 0.0, "vig": 0.0, "bw": False, "crop": None, "nr": None}
     s = (s or "").strip()
     if s in ("", "none"):
         return look
@@ -72,6 +72,9 @@ def parse_look(s):
             look["wb"] = (float(kv), float(tint))
         elif key == "bw":
             look["bw"] = raw in ("1", "true")
+        elif key == "nr":
+            # Detail ▸ luminance noise reduction: a develop (RAW stage) parameter, not a look stage.
+            look["nr"] = min(100.0, max(0.0, float(raw)))
         elif key == "crop":
             box, _, rot = raw.partition("/")
             x, y, w, h = (float(v) for v in box.split(","))
@@ -114,6 +117,8 @@ def format_look(look):
         out.append(f"{key}:{signed(look[key], 0)}")
     out.append(f"shp:{int(round(look['shp']))}")
     out.append(f"vig:{signed(look['vig'], 0)}")
+    if look.get("nr") is not None:
+        out.append(f"nr:{int(round(look['nr']))}")
     if look.get("bw"):
         out.append("bw:1")
     if look.get("crop"):

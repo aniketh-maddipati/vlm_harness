@@ -59,10 +59,10 @@ nonisolated final class LookRenderer: @unchecked Sendable {
 
     // MARK: the developed cache
 
-    private static func key(_ rel: String, _ px: Int) -> String { "\(rel)|\(px)" }
+    private static func key(_ rel: String, _ px: Int, _ decoder: Int?, _ nr: Double?) -> String { "\(rel)|\(px)|\(decoder ?? 0)|\(nr.map { Int($0.rounded()) } ?? -1)" }
 
-    func developed(url: URL, rel: String, px: Int) throws -> LookPipeline.Developed {
-        let key = Self.key(rel, px)
+    func developed(url: URL, rel: String, px: Int, decoder: Int? = nil, nr: Double? = nil, preview: LookBases.PreviewFallback? = nil) throws -> LookPipeline.Developed {
+        let key = Self.key(rel, px, decoder, nr)
         let hit: Entry? = lock.withLock { () -> Entry? in
             guard let e = cache[key] else { return nil }
             order.removeAll { $0 == key }; order.append(key); _stats.cacheHits += 1
@@ -70,7 +70,14 @@ nonisolated final class LookRenderer: @unchecked Sendable {
         }
         if let hit { return hit.dev }
         let t0 = Date()
-        let raw = try LookPipeline.developAny(url: url, longEdge: px, rules: pipeline.rules)
+        let raw: LookPipeline.Developed
+        do {
+            raw = try LookPipeline.developAny(url: url, longEdge: px, rules: pipeline.rules, decoderVersion: decoder, nr: nr)
+        } catch {
+            // The RAW can't be developed: its embedded JPEG stands in when the page gave its range (as the canvas's bases do).
+            guard let p = preview else { throw error }
+            raw = try LookPipeline.developPreview(url: url, offset: p.offset, length: p.length, orientation: p.orientation, longEdge: px)
+        }
         let (dev, bytes) = try pipeline.rasterised(raw)
         lock.withLock {
             _stats.developed += 1
@@ -98,11 +105,12 @@ nonisolated final class LookRenderer: @unchecked Sendable {
     // MARK: rendering
 
     /// The preview JPEG. Throws `Stale` when a newer request for `rel` arrived before this one
-    /// rendered (checked before the develop and again before the encode).
-    func renderJPEG(url: URL, rel: String, look: String, px: Int, seq: Int, quality: Double = 0.9) throws -> Data {
+    /// rendered (checked before the develop and again before the encode). `decoder` is the
+    /// canvas tier's version (the image fallback path renders what the native canvas would).
+    func renderJPEG(url: URL, rel: String, look: String, px: Int, seq: Int, quality: Double = 0.9, decoder: Int? = nil, preview: LookBases.PreviewFallback? = nil) throws -> Data {
         if isStale(rel: rel, seq: seq) { lock.withLock { _stats.stale += 1 }; throw Stale() }
         let parsed = try Look.parse(look)
-        let dev = try developed(url: url, rel: rel, px: px)
+        let dev = try developed(url: url, rel: rel, px: px, decoder: decoder, nr: parsed.nr, preview: preview)
         if isStale(rel: rel, seq: seq) { lock.withLock { _stats.stale += 1 }; throw Stale() }
         let t0 = Date()
         let out = pipeline.apply(parsed, to: dev)

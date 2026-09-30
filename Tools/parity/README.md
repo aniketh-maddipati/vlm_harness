@@ -95,9 +95,15 @@ make parity                    # everything in refs.json → report
 make parity STAGE=exposure     # one stage's sliders (plus base)
 make parity SLIDER=Highlights  # one slider
 make parity LIMIT=5            # first five images, a quick look
+make parity DECODER=9          # one RAW decoder version (RAW 9 §7: once per version `lumina-render info` lists; label -raw9)
 make parity-check              # lumina-render ramp + lookmath.py --check: Metal ≡ Swift ≡ numpy
 make parity-test               # the Python tests (also run on Linux CI)
 ```
+
+The parity criteria are judged per decoder version: run `make parity` once per version
+`lumina-render info <arw>` lists under `decoders` (RAW 9 only on macOS 27) and keep both reports.
+The Edit canvas's own preview-vs-export check (`probe.sh edit`, median ΔE ≤ 0.5) and the RAW 9
+region-tiles-vs-export check per version (`probe.sh raw9`) live in the probe, not here.
 
 `make parity` prints the report and leaves `Tools/parity/report/<date>-<label>/report.md` +
 `summary.json` (numbers only, commit them) and `~/LuminaEvidence/parity/report/<date>-<label>/`

@@ -256,6 +256,34 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 - Export: `app-smoke` saves keepers + JPEGs; the JPEG bytes equal `lumina-render render --look <same string>` for the same file (`SetsLookExport` and `lumina-render` share `LookPipeline`).
 - Screens: the four Edit screens join `screens-1440` / `screens-1920` and the app twins at 0 px.
 
+## Addendum to Prompt 1 — the native canvas and RAW 9 (paste after Prompt 1)
+
+> The app now draws the Edit picture itself (a Metal view laid over the canvas box; §3's
+> `window.lumina.preview` returns `null` there) and refines the 100 % region with Apple's RAW 9
+> decoder where the Mac has it. Everything in §3 stands; four small additions:
+>
+> **A. The canvas box.** `window.lumina.canvasRect({x, y, w, h, dpr})` is the canvas *box* (the
+> surround's inner rect); the app letterboxes the photo inside it at its aspect, exactly where your
+> own `<img>` would sit. Keep the box transparent in the app (`luminaFacts.canvas === 'native'`)
+> and draw the surround, hairline, chips and crop handles over it as before.
+>
+> **B. The update-shoot offer.** When `luminaFacts.note` is `decoder 8 pinned · update shoot`, the
+> words "update shoot" are a link: on click call `window.lumina.edit.updateDecoder()`, which moves
+> the shoot's pinned decoder to the newest one and re-renders (the facts update through
+> `luminaFacts`). Until then the shoot keeps rendering with the version it was opened with, on purpose.
+>
+> **C. Facts from the model.** Besides `luminaHistogram`, define `window.luminaEditStats(stats)`:
+> after a rest render `stats.source` is `'jpeg'` or `'raw9-region'`, and while the 100 % region has
+> been refined `stats.facts = {sharpness, clipHi, clipLo, source: 'raw9-region'}`. When
+> `stats.facts.source === 'raw9-region'`, prefer its sharpness and clipping to the embedded JPEG's
+> for that tile's flag words (`soft`, `clipped`) in the filmstrip and Cull, and show `raw 9 · region`
+> next to them in the facts line. `stats.histogram` carries the same bins as `luminaHistogram`.
+>
+> **D. Noise.** As §4 says, Luminance NR goes into the look string as `nr:35`; it re-develops the
+> base, so treat it as a keystroke slider (commit on release, no per-frame preview). While
+> `luminaFacts.raw9` is true hide Colour NR, Detail and Moiré (RAW 9 ignores them); show them when
+> it is false.
+
 ## How each ask is checked once the new handoff lands
 
 - 1: `Tests/web/plumbing-harness.mjs` and `probe.sh smoke` (`app-smoke`: the Save screen shows the row before any save). Remove the `wf` block in `plumbing.js`'s view loop.
@@ -269,3 +297,10 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 - 7: `probe.sh scroll` (`scroll-fast`, `scroll-fast-2560`: blank-tile % and upscale min per tile size) and the WebKitGTK
   sandbox's `scroll` suite; `card-clock.json` measures unchanged in both modes. Then drop plumbing's warm-ahead
   block (c) and review its `readOne` repeat (a) against the new ONDIR.
+- Prompt 1 §3 + the addendum: `Tests/web/plumbing-harness.mjs` (the `edit:` checks: `lumina.preview` / `canvasRect` /
+  `drag` / `roi`, `luminaPresented` / `luminaHistogram` / `luminaFacts`, latest wins on the image path, the 500 ms
+  session debounce, the shoot header), `probe.sh edit` and `probe.sh raw9` (`edit-canvas`, `raw9`: today they drive
+  `lumina.edit` themselves with the canvas forced up, `lumina.edit.layout(rect, true, {force: true})`, because the
+  page has no Edit step; once it does, they switch to `stepEdit` and the page's own `canvasRect`). The contract
+  scenario then lists `luminaPresented`, `luminaHistogram`, `luminaFacts` among the hooks. Drop plumbing's
+  `pollRect` fallback.

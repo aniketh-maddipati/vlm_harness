@@ -17,6 +17,12 @@
 #                                                1440×900 and 2560×1440: frame pacing, blank tiles, thumbnail
 #                                                upscale, memory. Folder: LUMINA_SCROLL_DIR, else LUMINA_CARD_DIR (only read), else
 #                                                408 APFS clones of LUMINA_FIXTURE_ROOT/src, 20 s apart (built once)
+#   bash Scripts/probe.sh edit                   the Edit canvas (addendum §8): 2 s drags on exposure and shadows, look-event-to-
+#                                                presented-frame latency (p95 ≤ LUMINA_EDIT_P95, default 16 ms), dropped frames,
+#                                                rest render, bases resident, canvas vs export ΔE; native first, then the image
+#                                                fallback path (LUMINA_CANVAS=image). Folder: LUMINA_EDIT_DIR, else as scroll
+#   bash Scripts/probe.sh raw9                   RAW 9 (§8): decoder map, time to first tile / full region, export time + memory
+#                                                per decoder version, the forced per-file fallback, tiles vs export ΔE per version
 #   bash Scripts/probe.sh v3                     the scenarios still written for the v3 page (see V3 below): expected to fail
 #   bash Scripts/probe.sh all [--require-all]    everything v5; --require-all turns a SKIP into a failure
 #
@@ -37,9 +43,12 @@ OUT="${LUMINA_PROBE_OUT:-$HOME/LuminaEvidence/probe/$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "$OUT"
 S=Tests/probe/scenarios
 export LUMINA_FIXTURE_ROOT="${LUMINA_FIXTURE_ROOT:-}"
+# The probe is a SwiftPM tool with no bundle: the look rules come from the checkout (LookRules.bundled reads LUMINA_RULES).
+export LUMINA_RULES="${LUMINA_RULES:-$ROOT/Lumina/Sets/Look/rules-v1.json}"
 status=0
 
 run() { "$PROBE" run "$@" --out "$OUT" ${extra[@]+"${extra[@]}"} || status=1; }
+run_out() { local o=$1; shift; mkdir -p "$o"; "$PROBE" run "$@" --out "$o" ${extra[@]+"${extra[@]}"} || status=1; }
 
 reference() {
   run "$S/screens-1920.json" "$S/screens-1440.json" "$S/smoke.json" "$S/keys-open-return.json" \
@@ -122,6 +131,14 @@ scrolldir() {
   export LUMINA_SCROLL_DIR="$d"
 }
 
+# A folder of real ARWs for the Edit canvas and RAW 9 suites: LUMINA_EDIT_DIR, else the scroll folder.
+editdir() {
+  [[ -n ${LUMINA_EDIT_DIR:-} ]] && return
+  scrolldir
+  [[ -n ${LUMINA_SCROLL_DIR:-} ]] && export LUMINA_EDIT_DIR="$LUMINA_SCROLL_DIR"
+  return 0
+}
+
 case "$suite" in
   reference) reference ;;
   sync)      echo "use: bash Scripts/sets_sync_design.sh <handoff.zip>"; exit 2 ;;
@@ -135,6 +152,10 @@ case "$suite" in
   contract)  run "$S/app-plumbing-contract.json" ;;
   fault)     run "$S/fault-kill-mid-handoff.json" "$S/fault-native-dest.json" ;;   # native only: kill -9 mid-write, disk full mid-copy
   scroll)    scrolldir; run "$S/scroll-read.json" "$S/scroll-fast.json" "$S/scroll-fast-2560.json" ;;
+  edit)      editdir; run "$S/edit-canvas.json"
+             echo "— image fallback path (LUMINA_CANVAS=image) —"
+             LUMINA_CANVAS=image run_out "$OUT/image-path" "$S/edit-canvas.json" ;;
+  raw9)      editdir; run "$S/raw9.json" ;;
   v3)        run $(v3files) ;;                  # scenario paths have no spaces
   all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S"/edge-*.json "$S/app-plumbing-contract.json" "$S/app-smoke.json" \
                "$S/fault-kill-mid-handoff.json" "$S/fault-native-dest.json"

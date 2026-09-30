@@ -3,6 +3,8 @@ import Foundation
 /// Per-shoot memory in Application Support (README "What the prototype environment does for you":
 /// session memory → per-shoot database, removable). One folder per shoot:
 ///   shoots/<id>/session.json   the page's decisions, keyed by file path (not by position)
+///   shoots/<id>/Lumina.json    the shoot header: the RAW decoder map per body and the pinned
+///                              decoder version (LookShootHeader, RAW 9 §1 and §7)
 ///   shoots/index.json          recent shoots for the Open screen, newest first
 /// Only Lumina's own files live here; RAWs and sidecars are never touched.
 nonisolated struct SetsShootStore {
@@ -60,6 +62,17 @@ nonisolated struct SetsShootStore {
 
     func saveSession(_ id: String, _ json: Data) throws {
         try SetsFileOps.replaceOwn(json, at: root.appendingPathComponent(id).appendingPathComponent("session.json"))
+    }
+
+    /// The shoot header (`Lumina.json`), or an empty one.
+    func header(_ id: String) -> LookShootHeader {
+        guard let data = try? Data(contentsOf: root.appendingPathComponent(id).appendingPathComponent(LookShootHeader.fileName)),
+              let h = try? LookShootHeader.decode(data) else { return LookShootHeader() }
+        return h
+    }
+
+    func saveHeader(_ id: String, _ header: LookShootHeader) throws {
+        try SetsFileOps.replaceOwn(try header.encoded(), at: root.appendingPathComponent(id).appendingPathComponent(LookShootHeader.fileName))
     }
 
     /// The numbers the Open screen shows for a shoot. Written only when they change.
