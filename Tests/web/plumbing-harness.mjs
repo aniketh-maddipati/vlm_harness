@@ -110,6 +110,13 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(saved && typeof saved.cur === 'string' && saved.seen && Object.keys(saved.seen).length >= 1, 'session: cur + seen saved', saved && { cur: saved.cur, seen: saved.seen });
   ok(bridge.index[0] && bridge.index[0].kp === keptN, 'session: recents summary (kp) sent', bridge.index[0]);
   ok((await page.evaluate(() => __lumina.unsaved())) === keptN, 'quit: unsaved keepers counted');
+  // Looks (the Edit step, roadmap "Rendering contract"): `look` per photo by path, `rowLook` per row, in the session, never in XMP.
+  await page.evaluate(() => { const l = __lumina.logic(); l.setState({ look: { [l.state.cur]: 'ev:+0.50 con:+12' }, rowLook: { r1: 'wb:5200/+3' } }); });
+  await page.waitForTimeout(2300);
+  const savedLook = bridge.sessions[sid] && JSON.parse(bridge.sessions[sid]);
+  ok(savedLook && savedLook.look && Object.entries(savedLook.look).some(([k, v]) => /DSC0\d+\.ARW$/.test(k) && v === 'ev:+0.50 con:+12'), 'session: look saved per photo by path', savedLook && savedLook.look);
+  ok(savedLook && savedLook.rowLook && savedLook.rowLook.r1 === 'wb:5200/+3', 'session: rowLook saved per row', savedLook && savedLook.rowLook);
+  await page.evaluate(() => { const l = __lumina.logic(); l.setState({ look: {}, rowLook: {} }); });
 
   // Save → sidecars INTO the folder
   const before2 = fs.readFileSync(path.join(shoot, 'DSC01002.xmp'), 'utf8');

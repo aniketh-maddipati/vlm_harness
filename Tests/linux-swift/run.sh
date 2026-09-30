@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 # Linux sandbox for the app's Foundation-only Swift: compiles Lumina/Sets/Core/{SetsFileOps,
-# SetsShootStore,SetsExport,SetsIngest}.swift unchanged with Swift 6.1 (Docker image swift:6.1-noble)
-# and runs the logic tests that don't need Core Image / ImageIO / AppKit:
-#   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests (minus its Edit-look tests).
+# SetsShootStore,SetsExport,SetsIngest}.swift and Lumina/Sets/Look/{LookString,LookRules,LookMath}.swift
+# unchanged with Swift 6.1 (Docker image swift:6.1-noble) and runs the logic tests that don't need
+# Core Image / ImageIO / AppKit:
+#   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests (minus its Edit-look tests),
+#   LookStringTests, LookMathTests (the look grammar and the stage maths on synthetic ramps).
 # Not covered here (Mac only): SetsBridge, SetsSchemeHandler, SetsCardWatcher (AppKit/WebKit),
-# SetsEditLook (Core Image), SetsIngestTests and SetsPageBytesTests (ImageIO, bundle).
+# SetsEditLook, SetsLookExport, LookPipeline/LookKernels/LookRenderer (Core Image, Metal),
+# SetsIngestTests, SetsPageBytesTests and LookPipelineTests (ImageIO, bundle, Core Image).
 #
 #   bash Tests/linux-swift/run.sh            # needs docker; pulls swift:6.1-noble once
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
 B="$HERE/Build"; rm -rf "$B"; mkdir -p "$B/Lumina" "$B/Tests"
 for f in SetsFileOps SetsShootStore SetsExport SetsIngest; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
+for f in LookString LookRules LookMath; do cp "$ROOT/Lumina/Sets/Look/$f.swift" "$B/Lumina/"; done
 # swift-corelibs-foundation's FileManager.replaceItemAt fails on Linux and deletes the original
 # (checked with swift 6.1). Darwin's is correct. In this copy only, the replace is the POSIX rename
 # it stands for (atomic, same folder), so the rest of the write path runs as written.
@@ -23,15 +27,17 @@ for f in glob.glob(sys.argv[1] + '/*.swift'):
 PY
 cat > "$B/Lumina/LinuxStubs.swift" <<'SWIFT'
 import Foundation
-// SetsExport's JPEG path renders with Core Image (SetsEditLook, Mac only). v5 doesn't use it.
+// SetsExport's render paths use Core Image (SetsEditLook for v3's CSS look, SetsLookExport for the
+// Edit step's look string through LookPipeline), Mac only.
 enum SetsEditLook { static func renderJPEG(raw url: URL, css: String, px: String) throws -> Data { throw SetsFileOps.Failure("no Core Image on Linux") } }
+enum SetsLookExport { static func render(raw url: URL, look: String, px: Int?, format: String) throws -> Data { throw SetsFileOps.Failure("no Core Image on Linux") } }
 // Darwin-only: F_NOCACHE (bypass the buffer cache) becomes F_GETFD, a no-op; the "important usage"
 // capacity falls back to the plain available capacity, as the app's code already does when it's 0.
 let F_NOCACHE = F_GETFD
 extension URLResourceKey { static let volumeAvailableCapacityForImportantUsageKey = URLResourceKey(rawValue: "NSURLVolumeAvailableCapacityForImportantUsageKey") }
 extension URLResourceValues { var volumeAvailableCapacityForImportantUsage: Int64? { nil } }
 SWIFT
-cp "$ROOT/LuminaLogicTests/SetsTrustTests.swift" "$B/Tests/"
+cp "$ROOT/LuminaLogicTests/SetsTrustTests.swift" "$ROOT/LuminaLogicTests/LookStringTests.swift" "$ROOT/LuminaLogicTests/LookMathTests.swift" "$B/Tests/"
 # SetsFileOpsTests without its Core Image tests (the Edit look); SetsSidecarTests without the locked-file
 # test (Linux has no user-immutable flag for FileManager to set).
 for t in SetsFileOpsTests SetsSidecarTests; do

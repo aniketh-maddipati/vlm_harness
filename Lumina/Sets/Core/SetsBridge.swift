@@ -321,6 +321,11 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             } else if let j = f["jpg"] as? [String: Any], let rel = j["src"] as? String {
                 guard let src = resolve(rel) else { return ["aborted": true, "say": "export stopped · can't find \(rel)"] }
                 items.append(.jpeg(name: name, source: src, css: j["css"] as? String ?? "none", px: j["px"] as? String ?? "full"))
+            } else if let l = f["look"] as? [String: Any], let rel = l["src"] as? String {
+                // The Edit step's render: {name, look: {src, look: "<look string>", px?}} → LookPipeline at full size.
+                guard let src = resolve(rel) else { return ["aborted": true, "say": "export stopped · can't find \(rel)"] }
+                let px = (l["px"] as? Int) ?? Int(l["px"] as? String ?? "")
+                items.append(.look(name: name, source: src, look: l["look"] as? String ?? "", px: px.flatMap { $0 > 0 ? $0 : nil }))
             }
         }
         // Pick the destination; refuse the card and the source folder, and ask again.

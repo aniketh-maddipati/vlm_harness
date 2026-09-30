@@ -67,9 +67,11 @@
 
   // Decisions saved per shoot (SAFETY.md 2), keyed by file path so they survive files being added.
   // Rows seen are keyed by row id; the stack regions for Z by stack. `saved` is the keeper list of
-  // the last successful Save, so Quit knows whether keepers are unsaved.
-  const BY_ID = ['marks', 'flags', 'stars', 'cuts'];
-  const SCALAR = ['seen', 'tsz', 'regions', 'lastEx'];
+  // the last successful Save, so Quit knows whether keepers are unsaved. The Edit step's look
+  // strings (roadmap "Rendering contract") live here too: `look` per photo, by path, and `rowLook`
+  // per row, by row id like `seen`. Never in XMP: the sidecars the page builds carry ratings only.
+  const BY_ID = ['marks', 'flags', 'stars', 'cuts', 'look'];
+  const SCALAR = ['seen', 'tsz', 'regions', 'lastEx', 'rowLook'];
   let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, readMoved = false;
   // Last scroll in the page (any scroller), for pacing the grid's refresh while a folder is read.
   let scrollT = 0;

@@ -7,15 +7,19 @@ nonisolated struct SetsExportJob {
     enum Item {
         case bytes(name: String, data: Data)
         case copy(name: String, source: URL)
+        /// v3's Edit look (a CSS filter string). Unused by v5.
         case jpeg(name: String, source: URL, css: String, px: String)
+        /// The Edit step's look string rendered through LookPipeline (SetsLookExport). `px` nil =
+        /// full size; the format follows the name's extension (jpg, tif, png).
+        case look(name: String, source: URL, look: String, px: Int?)
 
         var name: String {
-            switch self { case .bytes(let n, _), .copy(let n, _), .jpeg(let n, _, _, _): return n }
+            switch self { case .bytes(let n, _), .copy(let n, _), .jpeg(let n, _, _, _), .look(let n, _, _, _): return n }
         }
 
-        /// The original a copy or JPEG is made from.
+        /// The original a copy or render is made from.
         var source: URL? {
-            switch self { case .bytes: return nil; case .copy(_, let s), .jpeg(_, let s, _, _): return s }
+            switch self { case .bytes: return nil; case .copy(_, let s), .jpeg(_, let s, _, _), .look(_, let s, _, _): return s }
         }
     }
 
@@ -31,13 +35,15 @@ nonisolated struct SetsExportJob {
     let destination: URL
     let items: [Item]
 
-    /// Rough bytes needed: copies at source size, JPEGs at a generous 12 MB, XMPs as-is.
+    /// Rough bytes needed: copies at source size, JPEGs at a generous 12 MB (a 16-bit TIFF at
+    /// 160 MB), XMPs as-is.
     func bytesNeeded() -> Int64 {
         items.reduce(Int64(0)) { sum, item in
             switch item {
             case .bytes(_, let d): return sum + Int64(d.count)
             case .copy(_, let src): return sum + Int64((try? src.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
             case .jpeg: return sum + 12 << 20
+            case .look(let name, _, _, _): return sum + ((name as NSString).pathExtension.lowercased().hasPrefix("tif") ? 160 << 20 : 12 << 20)
             }
         }
     }
@@ -94,6 +100,9 @@ nonisolated struct SetsExportJob {
                 case .jpeg(_, let src, let css, let px):
                     let jpg = try SetsEditLook.renderJPEG(raw: src, css: css, px: px)
                     if try SetsFileOps.write(jpg, to: dst).backedUp { r.bak += 1 }
+                case .look(let name, let src, let look, let px):
+                    let data = try SetsLookExport.render(raw: src, look: look, px: px, format: (name as NSString).pathExtension)
+                    if try SetsFileOps.write(data, to: dst).backedUp { r.bak += 1 }
                 }
                 r.n += 1
                 journal?.done(item.name)

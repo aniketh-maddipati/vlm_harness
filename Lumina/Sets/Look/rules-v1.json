@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "about": "Fitted coefficients for LookPipeline's stages. Read by the app (bundle), lumina-render and Tools/parity/lookmath.py. Tools/parity/loop.sh edits `coefficients` and sets `locked` when a stage meets the parity criteria; a human edits everything else. The criteria live in Tools/parity/criteria.json and are never changed by the loop.",
+  "workingSpace": "extendedLinearSRGB",
+  "perceptualGamma": 2.2,
+  "luma": [0.2126, 0.7152, 0.0722],
+  "order": ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "colour", "clarity", "sharpen", "vignette", "outputTransform"],
+  "stages": {
+    "rawDevelop": {
+      "locked": false,
+      "form": "CIRAWFilter, Apple's default profile, no auto; scaleFactor for size; draft mode below draftBelowPx",
+      "coefficients": { "boostAmount": 1.0, "draftBelowPx": 0 }
+    },
+    "exposure": {
+      "locked": false,
+      "form": "linear gain 2^(ev * stopsPerUnit)",
+      "coefficients": { "stopsPerUnit": 1.0 }
+    },
+    "whiteBalance": {
+      "locked": false,
+      "form": "per-channel gains from the mired difference to as-shot: r *= 2^(dM*redPerMired), b *= 2^(-dM*bluePerMired), g *= 2^(-dTint*greenPerTint); divided by their luma when preserveLuma is 1",
+      "coefficients": { "redPerMired": 0.0025, "bluePerMired": 0.0025, "greenPerTint": 0.004, "preserveLuma": 1 }
+    },
+    "whitesBlacks": {
+      "locked": false,
+      "form": "per channel in perceptual p = x^(1/gamma): p -= (-blacks*blacksPerUnit) * (1-p)^blacksPower; p += whites*whitesPerUnit * p^whitesPower",
+      "coefficients": { "blacksPerUnit": 0.002, "blacksPower": 2.0, "whitesPerUnit": 0.003, "whitesPower": 2.0 }
+    },
+    "tone": {
+      "locked": false,
+      "form": "base = gaussian blur of luma (radiusFraction of the long edge), bp = perceptual(base); gain = 2^(shadows*shadowsStopsPerUnit*(1-smoothstep(shadowsLo,shadowsHi,bp))) * 2^(highlights*highlightsStopsPerUnit*smoothstep(highlightsLo,highlightsHi,bp)); out = pixel * gain * (luma/base)^(detailGain-1)",
+      "coefficients": { "radiusFraction": 0.03, "shadowsStopsPerUnit": 0.01, "shadowsLo": 0.0, "shadowsHi": 0.6, "highlightsStopsPerUnit": 0.01, "highlightsLo": 0.4, "highlightsHi": 1.0, "detailGain": 1.0 }
+    },
+    "contrast": {
+      "locked": false,
+      "form": "two-sided power curve in perceptual space around midpoint with slope a = 2^(contrast*slopePerUnit): below m: m*(p/m)^a, above: 1-(1-m)*((1-p)/(1-m))^a; applied per channel and on luma, mixed by lumaMix",
+      "coefficients": { "midpoint": 0.46, "slopePerUnit": 0.006, "lumaMix": 0.5 }
+    },
+    "colour": {
+      "locked": false,
+      "form": "Oklab chroma: C *= max(0, 1+saturation*saturationPerUnit) * (1 + vibrance*vibrancePerUnit*(1-min(1,C/vibranceChromaMax))*(1-skinProtect*skin(h))) ; skin(h) = exp(-((h-skinHue)/skinWidth)^2), only for vibrance > 0; bw sets C = 0",
+      "coefficients": { "saturationPerUnit": 0.01, "vibrancePerUnit": 0.01, "vibranceChromaMax": 0.25, "skinHue": 50.0, "skinWidth": 25.0, "skinProtect": 0.7 }
+    },
+    "clarity": {
+      "locked": false,
+      "form": "q = perceptual(luma), base = gaussian blur of q (radiusFraction of the long edge); q += clarity*amountPerUnit*(q-base)*(1-|2q-1|^midtonePower); rgb scaled by the luma ratio",
+      "coefficients": { "radiusFraction": 0.02, "amountPerUnit": 0.01, "midtonePower": 2.0 }
+    },
+    "sharpen": {
+      "locked": false,
+      "form": "unsharp mask with threshold in perceptual luma: hp = q - blur(q, radiusPx * px/refPx); q += sharpen*amountPerUnit*hp*smoothstep(threshold, 2*threshold, |hp|)",
+      "coefficients": { "radiusPx": 1.0, "refPx": 2048, "amountPerUnit": 0.01, "threshold": 0.01 }
+    },
+    "vignette": {
+      "locked": false,
+      "form": "gain 2^(vignette*stopsPerUnit*smoothstep(midpoint-feather/2, midpoint+feather/2, r)) with r = distance from the centre over the half diagonal",
+      "coefficients": { "stopsPerUnit": 0.02, "midpoint": 0.5, "feather": 0.5 }
+    },
+    "outputTransform": {
+      "locked": false,
+      "form": "clamp to 0..1, convert working space to the output space (sRGB preview / export, ProPhoto RGB for parity TIFFs)",
+      "coefficients": {}
+    }
+  }
+}
