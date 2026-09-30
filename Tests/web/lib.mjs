@@ -79,6 +79,40 @@ export function makeShoot(dir, jpegs, { others = [], sidecars = {} } = {}) {
   for (const [n, t] of Object.entries(sidecars)) fs.writeFileSync(path.join(dir, n), t);
 }
 
+// A camera-sized preview (1616×1080, as an α7's embedded JPEG) full of fine detail (hairlines, text,
+// foliage-like noise), so a soft or over-compressed thumbnail is measurable.
+export async function makeBigJpegs(browser, n) {
+  const p = await browser.newPage();
+  const out = await p.evaluate(async n => {
+    const r = [];
+    for (let i = 0; i < n; i++) {
+      const W = 1616, H = 1080, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+      const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, `hsl(${(i * 47) % 360},45%,72%)`); g.addColorStop(1, `hsl(${(i * 47 + 120) % 360},35%,28%)`);
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      let s = i * 9301 + 49297; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+      for (let k = 0; k < 900; k++) { x.strokeStyle = `hsla(${(rnd() * 360) | 0},40%,${(rnd() * 60 + 10) | 0}%,0.9)`; x.lineWidth = rnd() * 2 + 0.5; const px = rnd() * W, py = H * 0.45 + rnd() * H * 0.55; x.beginPath(); x.moveTo(px, py); x.lineTo(px + (rnd() - 0.5) * 18, py - rnd() * 140); x.stroke(); }
+      x.fillStyle = '#fff'; x.font = '22px sans-serif'; for (let k = 0; k < 14; k++) x.fillText('DSC0' + (1000 + i) + ' · 1/250 · f/8 · ISO 400 · 35 mm', 40, 60 + k * 30);
+      for (let k = 0; k < 60; k++) { x.fillStyle = k % 2 ? '#000' : '#fff'; x.fillRect(W - 300 + k * 4, 40, 2, 200); }
+      r.push(c.toDataURL('image/jpeg', 0.9).split(',')[1]);
+    }
+    return r;
+  }, n);
+  await p.close();
+  return out.map(b => Buffer.from(b, 'base64'));
+}
+
+// n ARWs on one day: bursts of 5 one second apart, 2 min between bursts, a new row every 40 frames.
+export function makeBigShoot(dir, jpegs, n) {
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  let t = 9 * 3600;
+  for (let i = 0; i < n; i++) {
+    t += i % 40 === 0 && i ? 20 * 60 : i % 5 === 0 ? 120 : 1;
+    const hh = String(Math.floor(t / 3600)).padStart(2, '0'), mm = String(Math.floor(t / 60) % 60).padStart(2, '0'), ss = String(t % 60).padStart(2, '0');
+    fs.writeFileSync(path.join(dir, 'DSC' + String(10001 + i).padStart(5, '0') + '.ARW'), tiff({ date: `2026:09:01 ${hh}:${mm}:${ss}`, jpeg: jpegs[i % jpegs.length], orient: i % 23 === 7 ? 6 : 1, pad: 4096 + jpegs[i % jpegs.length].length + 16 }));
+  }
+}
+
 // ——— the Swift bridge, in Node (what SetsBridge answers)
 export function list(root) {
   const name = path.basename(root), out = { name, files: [], xmp: [], others: [], workers: 4, onCard: false };

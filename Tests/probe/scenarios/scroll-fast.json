@@ -1,0 +1,105 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Fast scrolling in Cull on a real card, largest tiles: frame pacing (p95 ≤ 17.5 ms), share of on-screen tiles still blank or fading while scrolling, and thumbnail sharpness (thumbnail pixels per displayed device pixel, want ≥ 1). Evidence: scroll-* frames, tiles-*.json, thumbs.json, mid-scroll snapshots.",
+ "budgets": {
+  "webPeakMB": 1500
+ },
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_CARD_DIR}",
+   "timeoutMs": 900000
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "cull"
+  },
+  {
+   "do": "js",
+   "src": "__probe.logic().setState({ tsz: 2 }); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 1200
+  },
+  {
+   "do": "js",
+   "src": "const L = __probe.logic(), el = L.scrollRef.current, S = window.__scrollStats = { blanks: [], ups: [] }; const shown = im => im.complete && im.naturalWidth > 0 && +getComputedStyle(im).opacity > 0.99; const f = () => { if (!window.__scrollStats) return; const vr = el.getBoundingClientRect(); const t = [...el.querySelectorAll('[data-tile] img')].filter(im => { const r = im.getBoundingClientRect(); return r.width > 0 && r.bottom > vr.top && r.top < vr.bottom; }); if (t.length) { S.blanks.push(t.filter(im => !shown(im)).length / t.length); t.filter(im => im.naturalWidth).forEach(im => S.ups.push(im.naturalWidth / (im.clientWidth * devicePixelRatio))); } requestAnimationFrame(f); }; requestAnimationFrame(f); return true;"
+  },
+  {
+   "do": "wheel",
+   "sel": "[data-screen-label=\"1 Cull\"]",
+   "dy": 40,
+   "frames": 240,
+   "name": "scroll-glide",
+   "p95Ms": 17.5
+  },
+  {
+   "do": "snap",
+   "name": "mid-glide"
+  },
+  {
+   "do": "dump",
+   "name": "tiles-glide",
+   "js": "const S = window.__scrollStats; window.__scrollStats = null; const b = S.blanks.slice().sort((a, c) => a - c), u = S.ups.slice().sort((a, c) => a - c); const p = (a, q) => a.length ? a[Math.min(a.length - 1, Math.floor(q * a.length))] : null; return { frames: b.length, blankMeanPct: +(100 * b.reduce((a, c) => a + c, 0) / Math.max(1, b.length)).toFixed(1), blankP95Pct: +(100 * (p(b, 0.95) || 0)).toFixed(1), upscaleMin: u.length ? +u[0].toFixed(2) : null, upscaleMedian: u.length ? +p(u, 0.5).toFixed(2) : null, dpr: devicePixelRatio };"
+  },
+  {
+   "do": "js",
+   "src": "const L = __probe.logic(), el = L.scrollRef.current, S = window.__scrollStats = { blanks: [], ups: [] }; const shown = im => im.complete && im.naturalWidth > 0 && +getComputedStyle(im).opacity > 0.99; const f = () => { if (!window.__scrollStats) return; const vr = el.getBoundingClientRect(); const t = [...el.querySelectorAll('[data-tile] img')].filter(im => { const r = im.getBoundingClientRect(); return r.width > 0 && r.bottom > vr.top && r.top < vr.bottom; }); if (t.length) { S.blanks.push(t.filter(im => !shown(im)).length / t.length); t.filter(im => im.naturalWidth).forEach(im => S.ups.push(im.naturalWidth / (im.clientWidth * devicePixelRatio))); } requestAnimationFrame(f); }; requestAnimationFrame(f); return true;"
+  },
+  {
+   "do": "wheel",
+   "sel": "[data-screen-label=\"1 Cull\"]",
+   "dy": 160,
+   "frames": 180,
+   "name": "scroll-flick",
+   "p95Ms": 17.5
+  },
+  {
+   "do": "snap",
+   "name": "mid-flick"
+  },
+  {
+   "do": "dump",
+   "name": "tiles-flick",
+   "js": "const S = window.__scrollStats; window.__scrollStats = null; const b = S.blanks.slice().sort((a, c) => a - c), u = S.ups.slice().sort((a, c) => a - c); const p = (a, q) => a.length ? a[Math.min(a.length - 1, Math.floor(q * a.length))] : null; return { frames: b.length, blankMeanPct: +(100 * b.reduce((a, c) => a + c, 0) / Math.max(1, b.length)).toFixed(1), blankP95Pct: +(100 * (p(b, 0.95) || 0)).toFixed(1), upscaleMin: u.length ? +u[0].toFixed(2) : null, upscaleMedian: u.length ? +p(u, 0.5).toFixed(2) : null, dpr: devicePixelRatio };"
+  },
+  {
+   "do": "js",
+   "src": "const L = __probe.logic(), el = L.scrollRef.current, S = window.__scrollStats = { blanks: [], ups: [] }; const shown = im => im.complete && im.naturalWidth > 0 && +getComputedStyle(im).opacity > 0.99; const f = () => { if (!window.__scrollStats) return; const vr = el.getBoundingClientRect(); const t = [...el.querySelectorAll('[data-tile] img')].filter(im => { const r = im.getBoundingClientRect(); return r.width > 0 && r.bottom > vr.top && r.top < vr.bottom; }); if (t.length) { S.blanks.push(t.filter(im => !shown(im)).length / t.length); t.filter(im => im.naturalWidth).forEach(im => S.ups.push(im.naturalWidth / (im.clientWidth * devicePixelRatio))); } requestAnimationFrame(f); }; requestAnimationFrame(f); return true;"
+  },
+  {
+   "do": "wheel",
+   "sel": "[data-screen-label=\"1 Cull\"]",
+   "dy": -400,
+   "frames": 120,
+   "name": "scroll-fling",
+   "p95Ms": 17.5
+  },
+  {
+   "do": "snap",
+   "name": "mid-fling"
+  },
+  {
+   "do": "dump",
+   "name": "tiles-fling",
+   "js": "const S = window.__scrollStats; window.__scrollStats = null; const b = S.blanks.slice().sort((a, c) => a - c), u = S.ups.slice().sort((a, c) => a - c); const p = (a, q) => a.length ? a[Math.min(a.length - 1, Math.floor(q * a.length))] : null; return { frames: b.length, blankMeanPct: +(100 * b.reduce((a, c) => a + c, 0) / Math.max(1, b.length)).toFixed(1), blankP95Pct: +(100 * (p(b, 0.95) || 0)).toFixed(1), upscaleMin: u.length ? +u[0].toFixed(2) : null, upscaleMedian: u.length ? +p(u, 0.5).toFixed(2) : null, dpr: devicePixelRatio };"
+  },
+  {
+   "do": "dump",
+   "name": "thumbs",
+   "js": "const l = __probe.logic(); return Promise.all(l.real.slice(0, 40).map(p => fetch(p.src).then(r => r.blob()).then(b => b.size))).then(s => ({ photos: l.real.length, readSecs: (l.state.realInfo || {}).secs, thumbKB: +(s.reduce((a, c) => a + c, 0) / s.length / 1024).toFixed(1) }))"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

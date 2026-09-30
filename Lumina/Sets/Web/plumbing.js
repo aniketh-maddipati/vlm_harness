@@ -213,12 +213,44 @@
         if (!blob) throw 0;
         const ori = m.orient || 1;
         if (ori === 3 || ori === 6 || ori === 8) { const b0 = await createImageBitmap(blob, { imageOrientation: 'none' }), sw = ori !== 3, c = document.createElement('canvas'); c.width = sw ? b0.height : b0.width; c.height = sw ? b0.width : b0.height; const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(ori === 6 ? Math.PI / 2 : ori === 8 ? -Math.PI / 2 : Math.PI); x.drawImage(b0, -b0.width / 2, -b0.height / 2); b0.close(); blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.92)); }
+        // What the tile shows: the same picture at the size of the largest tile on this screen, so it
+        // isn't stretched on Retina, made alongside. Measuring stays on the page's own 360 px bitmap.
+        const sharp = gridThumb(blob);
         const sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' }); portrait = sm.height > sm.width; me = LuminaCore.measure(sm); sm.close(); tb = await new Promise(res => me.canvas.toBlob(res, 'image/jpeg', 0.82));
+        tb = (await sharp) || tb;
       } catch (_) { me = null; }
       logic._gold.push({ file: name, size: f.size, parsed: Object.assign(Object.fromEntries(Object.entries(m).filter(([k]) => !/^_/.test(k))), { dhash: me ? me.dhash : null }) });
       if (!me) return Object.assign(baseP, { nopv: true, portrait: false, lum: null, focus: 0, clip: 0, dhash: null, src: '', lg: '' });
       // The large view gets the Mac's upright preview by URL: never held by the page.
       return Object.assign(baseP, { portrait, dhash: me.dhash, lum: me.lum, focus: me.focus, clip: me.clip, src: URL.createObjectURL(tb), lg: media('preview', pq) });
+    };
+
+    // Grid thumbnails (data, not UI). The page makes them 360 px wide at JPEG 0.82 for its own measure
+    // step; its largest tile is 216 CSS px × up to 1.5 (ADDENDUM-1 §4), so on a Retina screen a 360 px
+    // thumbnail is stretched ~1.8× and its JPEG blocks show. The tile's picture is made at the largest
+    // tile's device width instead (never below 360), at 0.9.
+    const THUMB_W = Math.min(720, Math.max(360, Math.ceil(216 * 1.5 * Math.max(1, window.devicePixelRatio || 1))));
+    // Made off the page's thread (Web Workers with OffscreenCanvas), so reading a folder doesn't wait on
+    // it; in-page when workers can't (older WebKit).
+    const thumbPool = (() => {
+      if (typeof Worker !== 'function' || typeof OffscreenCanvas !== 'function') return null;
+      try {
+        const src = 'onmessage = async e => { const { id, blob, w } = e.data; try { const bm = await createImageBitmap(blob, { resizeWidth: w, resizeQuality: "high" });' +
+          ' const c = new OffscreenCanvas(bm.width, bm.height); c.getContext("2d").drawImage(bm, 0, 0); bm.close();' +
+          ' postMessage({ id, blob: await c.convertToBlob({ type: "image/jpeg", quality: 0.9 }) }); } catch (_) { postMessage({ id, blob: null }); } };';
+        const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+        const ws = Array.from({ length: 2 }, () => new Worker(url)), wait = new Map(); let n = 0;
+        ws.forEach(w => { w.onmessage = e => { const f = wait.get(e.data.id); wait.delete(e.data.id); f && f(e.data.blob); }; });
+        return blob => new Promise(res => { const id = ++n; wait.set(id, res); ws[id % ws.length].postMessage({ id, blob, w: THUMB_W }); });
+      } catch (_) { return null; }
+    })();
+    const gridThumb = async blob => {
+      try {
+        if (thumbPool) return await thumbPool(blob);
+        const bm = await createImageBitmap(blob, { resizeWidth: THUMB_W, resizeQuality: 'high' });
+        const c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height; c.getContext('2d').drawImage(bm, 0, 0); bm.close();
+        return await new Promise(res => c.toBlob(res, 'image/jpeg', 0.9));
+      } catch (_) { return null; }
     };
 
     // The page's onDir, step for step, over the native listing.
@@ -351,6 +383,27 @@
   watch();
   saveLoop();
   viewLoop();
+
+  // Grid thumbnails ahead of the scroll are decoded before their rows mount (the page's tiles are
+  // lazy <img>s that fade in once loaded), so a fast scroll lands on pictures, not on empty tiles.
+  const decoded = new Map();
+  let lastTop = 0;
+  const decodeAhead = () => {
+    const l = current, el = l && l.scrollRef && l.scrollRef.current;
+    if (!el || !l.real || reading) return;
+    const top = el.scrollTop, down = top >= lastTop; lastTop = top;
+    const vr = el.getBoundingClientRect(), span = vr.height * 2;
+    for (const im of el.querySelectorAll('[data-tile] img')) {
+      const r = im.getBoundingClientRect();
+      const ahead = down ? r.top >= vr.bottom && r.top < vr.bottom + span : r.bottom <= vr.top && r.bottom > vr.top - span;
+      if (!ahead || !im.src || decoded.has(im.src)) continue;
+      const pre = new Image(); pre.decoding = 'async'; pre.src = im.src; if (pre.decode) pre.decode().catch(() => {});
+      decoded.set(im.src, pre);
+      if (decoded.size > 240) decoded.delete(decoded.keys().next().value);
+    }
+  };
+  let decodeT = 0;
+  document.addEventListener('scroll', () => { if (!decodeT) decodeT = setTimeout(() => { decodeT = 0; decodeAhead(); }, 60); }, true);
 
   // Previews around the cursor are read ahead into the Mac's cache (never into the page).
   let lastCur = null;
