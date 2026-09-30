@@ -18,6 +18,7 @@ artifacts/**/handoff/*.arw
 
 # Local xcodebuild derived data (compile_check / tree-compiles use ./DD)
 /DD/
+/DD-install/
 /.derivedData/
 /build/
 
