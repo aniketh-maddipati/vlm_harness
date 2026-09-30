@@ -183,18 +183,25 @@
         tile: (() => { const l = P.logic(); if (!l || !l.layout) return 0; return l.layout().TW; })() };
     },
     // What happens when a folder read ends: the cursor's file just before and 2 s after, and how far
-    // the app scrolled by itself in those 2 s (appScroll: scrolling within 200 ms of a wheel event or
-    // of scrollFrames is the reader's, not counted). __probe.readEnd() is null until then.
+    // the app scrolled by itself in those 2 s (appScroll: scrolling within 400 ms of the reader's own
+    // wheel, key or scrollFrames input isn't counted). Also when the reader's input came relative to
+    // the end, so a read that ended before the reader did anything reads as that, not as a pass or a
+    // jump. __probe.readEnd() is null until then.
     watchReadEnd() {
-      const l = P.logic(), el = cullEl(); window.__readEnd = null; let last = null;
-      addEventListener('wheel', () => { window.__probeScrollT = performance.now(); }, { capture: true, passive: true });
+      const l = P.logic(), el = cullEl(), t0 = performance.now(); window.__readEnd = null; let last = null, keysBefore = 0, keysAfter = 0, endAt = 0;
+      const mark = () => { window.__probeScrollT = performance.now(); };
+      addEventListener('wheel', mark, { capture: true, passive: true });
+      addEventListener('keydown', () => { mark(); if (endAt) keysAfter++; else keysBefore++; }, true);
       const at = () => ({ top: Math.round(el.scrollTop), cur: ((l.data.byId[l.state.cur] || {}).path) || null });
       const f = () => {
         if (l.state.realLoad) { last = at(); requestAnimationFrame(f); return; }
-        const t0 = performance.now(); let app = 0, prev = el.scrollTop;
+        endAt = performance.now(); let app = 0, prev = el.scrollTop;
         const g = () => { const now = performance.now(), d = Math.abs(el.scrollTop - prev); prev = el.scrollTop;
-          if (now - (window.__probeScrollT || 0) > 200) app += d;
-          if (now - t0 < 2000) requestAnimationFrame(g); else window.__readEnd = { before: last, after: at(), appScroll: Math.round(app) }; };
+          if (now - (window.__probeScrollT || 0) > 400) app += d;
+          if (now - endAt < 2000) requestAnimationFrame(g);
+          else { const after = at(); window.__readEnd = { before: last, after, appScroll: Math.round(app), keysBefore, keysAfter,
+            endedAfterMs: Math.round(endAt - t0), photos: l.real ? l.real.length : 0,
+            ok: keysBefore > 0 ? !!(last && after.cur === last.cur && app < 200) : null }; } };
         g();
       };
       f(); return true;

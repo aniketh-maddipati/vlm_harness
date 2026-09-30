@@ -417,7 +417,7 @@ def scroll():
             spin(lambda: p.js('return !!__probe.readEnd()'), 10)
             re_ = p.js('return __probe.readEnd()') or {}
             print('     read end: cursor %s → %s, scrolled by the app %s px' % ((re_.get('before') or {}).get('cur'), (re_.get('after') or {}).get('cur'), re_.get('appScroll')), flush=True)
-            ok(re_ and re_['after']['cur'] == re_['before']['cur'] and re_['appScroll'] < 200, 'scroll: no jump when the read ends', re_)
+            ok(re_ and re_.get('ok') is True, 'scroll: no jump when the read ends', re_)
             ok(p.js('return __lumina.logic().kept().length') == 1, 'scroll: the keep made while reading survives')
             rows.append(dict(name='read-end', **re_))
         read_s = time.time() - t0

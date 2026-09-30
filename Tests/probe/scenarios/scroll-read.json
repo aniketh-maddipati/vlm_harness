@@ -8,7 +8,7 @@
  "clock": "2026-09-08T14:30:00",
  "sampleMs": 100,
  "stopOnFailure": false,
- "checklist": "Scrolling Cull while a folder is still being read (the user's recording, 2026-09-29): blank / fading tiles and frame pacing while rows arrive, mid-read snapshots, and when the read ends the cursor stays on the reader's photo with no scroll jump (read-end.json: before / after / appScroll) and the keep made while reading survives. Folder: LUMINA_SCROLL_DIR (probe.sh scroll sets it)",
+ "checklist": "Scrolling Cull while a folder is still being read (the user's recording, 2026-09-29): blank / fading tiles and frame pacing while rows arrive, mid-read snapshots, and when the read ends the cursor stays on the reader's photo with no scroll jump (read-end.json: before / after / appScroll) and the keep made while reading survives. Needs a read longer than the moves (~5 s, a few hundred photos). Folder: LUMINA_SCROLL_DIR (probe.sh scroll sets it)",
  "budgets": {
   "webPeakMB": 1500
  },
@@ -80,8 +80,12 @@
    "js": "return __probe.readEnd()"
   },
   {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.readEnd())"
+  },
+  {
    "do": "expect",
-   "js": "const r=__probe.readEnd(); return r.after.cur===r.before.cur && r.appScroll<200"
+   "js": "const r=__probe.readEnd(); if (r.ok === null) throw new Error('the read ended ' + r.endedAfterMs + ' ms after the first rows showed, before the moves: nothing to judge (use a bigger folder: LUMINA_SCROLL_DIR)'); return r.ok"
   },
   {
    "do": "expect",
