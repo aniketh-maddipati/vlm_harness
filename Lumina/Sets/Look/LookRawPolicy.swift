@@ -48,7 +48,7 @@ nonisolated struct LookShootHeader: Codable, Equatable, Sendable {
     var newest: Int? { bodies.values.compactMap(\.newest).max() }
 
     /// Any body has RAW 9 and the pin allows it.
-    var raw9Active: Bool { bodies.values.contains(\.raw9) && (decoderVersion ?? 0) >= 9 }
+    var raw9Active: Bool { bodies.values.contains(where: \.raw9) && (decoderVersion ?? 0) >= 9 }
 
     func encoded() throws -> Data {
         let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys]; enc.dateEncodingStrategy = .iso8601
@@ -124,8 +124,8 @@ nonisolated enum LookRawPolicy {
         let x0 = max(0, Int((roi.x * Double(w)).rounded(.down)) / tile - 1), x1 = min(cols - 1, Int(((roi.x + roi.w) * Double(w)).rounded(.up)) / tile + 1)
         let y0 = max(0, Int((roi.y * Double(h)).rounded(.down)) / tile - 1), y1 = min(rows - 1, Int(((roi.y + roi.h) * Double(h)).rounded(.up)) / tile + 1)
         guard x1 >= x0, y1 >= y0 else { return [] }
-        var out: [(Int, Int)] = []
-        for r in y0...y1 { for c in x0...x1 { out.append((c, r)) } }
+        var out: [(col: Int, row: Int)] = []
+        for r in y0...y1 { for c in x0...x1 { out.append((col: c, row: r)) } }
         return out
     }
 

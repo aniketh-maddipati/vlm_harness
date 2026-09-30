@@ -104,7 +104,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// the pin and whether an update is on offer.
     func editFacts() -> [String: Any] {
         let orNull = { (v: Int?) -> Any in v.map { $0 as Any } ?? NSNull() }
-        var out: [String: Any] = ["canvas": canvas?.path.rawValue ?? "image", "raw9": header.raw9Active, "raw9Present": header.bodies.values.contains(\.raw9),
+        var out: [String: Any] = ["canvas": canvas?.path.rawValue ?? "image", "raw9": header.raw9Active, "raw9Present": header.bodies.values.contains(where: \.raw9),
                                   "decoder": orNull(header.decoderVersion), "newest": orNull(header.newest), "offerUpdate": header.offersUpdate,
                                   "slowed": LookDecoderProbe.slowed,
                                   "bodies": header.bodies.mapValues { ["supported": $0.supported, "raw9": $0.raw9, "fastest": orNull($0.fastest), "developMs": $0.developMs] as [String: Any] }]
