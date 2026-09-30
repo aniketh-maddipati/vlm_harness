@@ -191,6 +191,17 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return k
     }
 
+    /// One shared set per process.
+    nonisolated(unsafe) private static var _shared: LookKernels?
+    private static let sharedLock = NSLock()
+    static func shared() throws -> LookKernels {
+        sharedLock.lock(); defer { sharedLock.unlock() }
+        if let k = _shared { return k }
+        let k = try LookKernels()
+        _shared = k
+        return k
+    }
+
     /// Runs a colour kernel over `extent`. Inputs map 1:1, so the region of interest is the output rect.
     func apply(_ name: String, extent: CGRect, _ args: [Any]) -> CIImage? {
         (try? kernel(name))?.apply(extent: extent, roiCallback: { _, r in r }, arguments: args)
