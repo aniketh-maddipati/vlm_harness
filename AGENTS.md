@@ -28,7 +28,9 @@ window. Nobody edits the UI in this repo.
 | `Lumina/Sets/SetsRootView.swift` | The WKWebView, the native folder pickers, downloads |
 | `Lumina/Sets/Web/` | The design's files, copied unchanged by `Scripts/sets_sync_ui.sh`, plus `plumbing.js` |
 | `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, …), persists sessions, makes the grid thumbnails (720 × 480; measures stay on the page's 360 px bitmap) and decodes them ahead of a scroll (design ask 7), keeps the reader's place and decisions when a read they culled during ends (design ask 8), and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`) |
-| `Lumina/Sets/Core/` | The native bridge: `SetsIngest` (reads opened folders: listing, 256 KB heads, byte-range previews, prefetch, stops when the card goes), `SetsFileOps` (`writeSidecar`: v5's Save, one `.xmp` into the shoot folder with `.lumina-bak`, atomic, read back, refused on a card; SHA-256 copies), `SetsExport` (+ crash journal; v3's RAW/JPEG export, unused by v5), `SetsEditLook` (v3's Edit look, unused by v5), `SetsCardWatcher`, `SetsShootStore` (per-shoot sessions), `SetsSchemeHandler` (`lumina://`, no network) |
+| `Lumina/Sets/Core/` | The native bridge: `SetsIngest` (reads opened folders: listing, 256 KB heads, byte-range previews, prefetch, stops when the card goes), `SetsFileOps` (`writeSidecar`: v5's Save, one `.xmp` into the shoot folder with `.lumina-bak`, atomic, read back, refused on a card; SHA-256 copies), `SetsExport` (+ crash journal; RAW copies, v3's CSS-look JPEGs, and the Edit step's `look` renders through `SetsLookExport`), `SetsEditLook` (v3's Edit look, unused by v5), `SetsCardWatcher`, `SetsShootStore` (per-shoot sessions), `SetsSchemeHandler` (`lumina://`, no network; `lumina://render/<rel>?look=&px=&seq=` is the Edit preview) |
+| `Lumina/Sets/Look/` | The Edit look pipeline (roadmap Prompt 2): `LookString` (the look string, the Edit step's only state), `LookRules` + `rules-v1.json` (stage order, working space, fitted coefficients, `locked` flags), `LookMath` (every stage's maths in scalar form), `LookKernels` (the same maths as Metal, compiled at first use), `LookPipeline` (the one Core Image graph previews, export and `lumina-render` share), `LookRenderer` (developed RAW cached per (rel, px) under a byte cap, sequence numbers drop stale requests). Also compiled into the probe and `Tools/parity/lumina-render` through symlinks |
+| `Tools/parity/` | The Lightroom parity harness: the sweep plug-in, `import_refs.py`, `lumina-render`, `delta_e.py`, `parity.py` (`make parity`), `fit.py`, `loop.sh`, `criteria.json`, `golden.json`. See its README and "Parity" below |
 | `design/handoff/vendor/` | React / Babel pinned to the SRI hashes in `support.js` (see `VENDOR.md`) |
 
 Trust rules, from the ROADMAP; the tests enforce them:
@@ -50,12 +52,19 @@ node Tests/web/parity.mjs                    # screens-* in prototype vs app par
 xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py   # apt: gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb
 # Fast scrolling over 400 synthetic ARWs at a Retina pixel ratio (numbers reported, not gated)
 GDK_SCALE=2 xvfb-run -a -s "-screen 0 5200x3000x24" /usr/bin/python3.12 Tests/web/webkit.py scroll
-# The Foundation-only Swift (SetsFileOps, SetsShootStore, SetsExport, SetsIngest) + its tests, Swift 6.1 in Docker
+# The Foundation-only Swift (SetsFileOps, SetsShootStore, SetsExport, SetsIngest, LookString/LookRules/LookMath) + its tests, Swift 6.1 in Docker
 bash Tests/linux-swift/run.sh
+# The parity tools' own tests (ΔE2000, the numpy mirror of LookMath, refs indexing, the report), Linux too
+make parity-test
 
-# Build + logic tests (SetsFileOpsTests, SetsSidecarTests, SetsPageBytesTests, …)
+# Build + logic tests (SetsFileOpsTests, SetsSidecarTests, SetsPageBytesTests, LookStringTests, LookMathTests,
+# LookPipelineTests: every stage monotonic + grey-preserving on synthetic ramps, the Metal graph equal to LookMath, …)
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug -derivedDataPath DD \
   -destination 'platform=macOS,arch=arm64' -only-testing:LuminaLogicTests test
+
+# Lightroom parity (Tools/parity/README.md): renders + ΔE report, the three copies of the stage maths agree
+make parity                # needs refs.json from the Lightroom sweep and the golden ARWs in ~/LuminaEvidence/parity
+make parity-check          # lumina-render ramp → lookmath.py --check (Metal ≡ Swift ≡ numpy on flat patches)
 
 # Probe: drives the real page + bridge in WKWebView (Tools/LuminaProbe). Evidence → ~/LuminaEvidence/probe
 bash Scripts/probe.sh reference     # every screen, prototype and app, byte-compared to Tests/probe/reference/manifest.json
@@ -92,6 +101,34 @@ audit, the Chromium plumbing harness, the WebKitGTK sandbox, the Linux Swift tes
 - **Probe runs need an awake display.** The probe holds the display awake itself. If runs stall for minutes, macOS is throttling the page process.
 - **Personal data stays out of the repo:** golden data, fixtures and evidence live in `~/LuminaEvidence`.
 - **macOS only** (Xcode 16.4+, Apple silicon, macOS 14+). Linux agents can run the node fixtures, `design_audit.py`, `Tests/web` (Chromium and the WebKitGTK sandbox: plumbing.js against the real page, not Cocoa or WKWebView) and `Tests/linux-swift` (the Foundation-only Swift; on Linux `FileManager.replaceItemAt` is broken, so the sandbox copy uses `rename(2)`).
+
+## Parity (the Edit look vs Lightroom Classic)
+
+The Edit step ships behind the `friends` flag until `Tools/parity/criteria.json` holds on the golden
+set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5.0). The full procedure is
+`Tools/parity/README.md`; the rules that bite:
+
+- **The look string is the only Edit state** (`ev:+0.70 wb:5200/+3 con:+12 … crop:x,y,w,h/r`,
+  `Lumina/Sets/Look/LookString.swift`). Previews are `lumina://render/<rel>?look=&px=&seq=`, exports
+  go through `SetsExport` `.look` items, sessions keep `look` per photo and `rowLook` per row. Looks
+  are **never written to XMP**; handoff stays ratings only.
+- **One maths, three copies.** A stage's transfer function lives in `LookMath.swift` (reference),
+  `LookKernels.swift` (Metal, what renders) and `Tools/parity/lookmath.py` (numpy, what `fit.py`
+  optimises). Change all three together; `LookPipelineTests` and `make parity-check` fail otherwise.
+  Every stage stays monotonic on a grey ramp and keeps grey grey (white balance excepted); the ramp
+  tests enforce it, so a coefficient the fit proposes can't break it silently.
+- **Coefficients live in `rules-v1.json`, forms live in code.** `loop.sh` / `fit.py` edit only
+  `coefficients` and `locked`. A locked stage is not touched to compensate for another.
+- **Criteria are edited only by a human.** `criteria.json` and `golden.json` never change inside the
+  loop. Changing the golden set means a new sweep and every stage unlocked.
+- **Add a golden image:** copy the ARW to `~/LuminaEvidence/parity/golden/`, run
+  `python3 Tools/parity/golden.py add <arw> --tag <category>`, re-run the Lightroom sweep for it (the
+  plug-in skips files that exist), `python3 Tools/parity/import_refs.py ~/LuminaEvidence/parity/refs`.
+- **Re-run a stage:** `make parity STAGE=<id>` (report in `Tools/parity/report/<date>-<id>/`, heatmaps
+  in `~/LuminaEvidence/parity/report/`); `bash Tools/parity/loop.sh <id>` to fit, verify and lock.
+- **Photos stay out of the repo:** references, renders and heatmaps live in `~/LuminaEvidence/parity`;
+  only `golden.json` (metadata), `rules-v1.json` and the numbers-only reports are committed.
+- **Structure only from RapidRAW / darktable** (AGPL/GPL): ideas, cited in a comment, never code.
 
 ## History
 

@@ -1,0 +1,9 @@
+{
+  "about": "Parity criteria from the roadmap. Edited only by a human; Tools/parity/loop.sh reads them and never writes them.",
+  "singles": { "median": 2.0, "p95": 4.0, "positions": 10, "images": 50 },
+  "combos": { "median": 3.0, "p95": 5.0, "perImage": 20, "sliders": 3 },
+  "lockedRegressionMedian": 0.2,
+  "maxIterationsPerStage": 12,
+  "defaultRender": { "blindPreferenceMin": 0.45 },
+  "speed": { "sliderToPixelP95Ms": 50, "exportVsLightroomMin": 1.5, "machine": "M1 8 GB" }
+}

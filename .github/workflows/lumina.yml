@@ -64,8 +64,23 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests
+      - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests, LookStringTests, LookMathTests
         run: bash Tests/linux-swift/run.sh
+
+  parity:
+    name: parity tools (ΔE, numpy mirror, refs, report)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: requirements
+        run: python3 -m pip install -q -r Tools/parity/requirements.txt
+      - name: delta_e selftest + Tools/parity/tests
+        run: make parity-test
+      - name: rules-v1.json is valid JSON in canonical stage order
+        run: python3 -c "import json;r=json.load(open('Lumina/Sets/Look/rules-v1.json'));assert r['order'][0]=='rawDevelop' and r['order'][-1]=='outputTransform';print(len(r['stages']),'stages')"
 
   app:
     name: build + tests
@@ -79,6 +94,12 @@ jobs:
             -only-testing:LuminaLogicTests test
       - name: probe builds
         run: swift build --package-path Tools/LuminaProbe
+      - name: lumina-render builds and its graph matches LookMath and the numpy mirror
+        run: |
+          swift build -c release --package-path Tools/parity/lumina-render
+          Tools/parity/lumina-render/.build/release/lumina-render ramp --out "${{ runner.temp }}/ramp.json"
+          python3 -m pip install -q -r Tools/parity/requirements.txt
+          python3 Tools/parity/lookmath.py --check "${{ runner.temp }}/ramp.json"
 
   probe:
     name: probe in WKWebView (no fixtures)

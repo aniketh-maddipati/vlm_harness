@@ -1,0 +1,61 @@
+# Lumina: the parity harness (Tools/parity/README.md). Everything else stays in Scripts/ and Tests/.
+#
+#   make render            build lumina-render (release)
+#   make parity            Lightroom references vs Lumina renders → report (needs the Mac)
+#   make parity STAGE=tone | SLIDER=Highlights | LIMIT=5 | RULES=path | LABEL=name | KINDS=base,single
+#   make parity-combos     the three-slider combinations only
+#   make parity-check      Metal ≡ Swift ≡ numpy on flat patches (lumina-render ramp + lookmath.py --check)
+#   make parity-test       the Python tests (Linux too)
+#   make parity-loop       Tools/parity/loop.sh (every unlocked stage)
+
+PARITY   := Tools/parity
+RENDER   := $(PARITY)/lumina-render/.build/release/lumina-render
+PY       ?= python3
+REFS     ?= ~/LuminaEvidence/parity/refs.json
+EVIDENCE ?= ~/LuminaEvidence/parity
+STAGE    ?=
+SLIDER   ?=
+LIMIT    ?=
+RULES    ?=
+LABEL    ?=
+KINDS    ?= base,single,combo
+PX       ?= 2048
+
+PARITY_ARGS := --refs $(REFS) --render-dir $(EVIDENCE)/render --evidence $(EVIDENCE)/report --render-bin $(RENDER) --px $(PX) --kinds $(KINDS)
+ifneq ($(STAGE),)
+PARITY_ARGS += --stage $(STAGE)
+endif
+ifneq ($(SLIDER),)
+PARITY_ARGS += --slider $(SLIDER)
+endif
+ifneq ($(LIMIT),)
+PARITY_ARGS += --limit $(LIMIT)
+endif
+ifneq ($(RULES),)
+PARITY_ARGS += --rules $(RULES)
+endif
+ifneq ($(LABEL),)
+PARITY_ARGS += --label $(LABEL)
+endif
+
+.PHONY: render parity parity-combos parity-check parity-test parity-loop
+
+render:
+	swift build -c release --package-path $(PARITY)/lumina-render
+
+parity: render
+	$(PY) $(PARITY)/parity.py $(PARITY_ARGS)
+
+parity-combos: render
+	$(PY) $(PARITY)/parity.py $(PARITY_ARGS) --kinds combo --label combos
+
+parity-check: render
+	$(RENDER) ramp --out $(EVIDENCE)/render/ramp.json $(if $(RULES),--rules $(RULES),)
+	$(PY) $(PARITY)/lookmath.py --check $(EVIDENCE)/render/ramp.json
+
+parity-test:
+	$(PY) $(PARITY)/delta_e.py --selftest
+	$(PY) -m unittest discover -s $(PARITY)/tests
+
+parity-loop: render
+	bash $(PARITY)/loop.sh $(STAGE)
