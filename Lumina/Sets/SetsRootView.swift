@@ -15,8 +15,8 @@ struct SetsRootView: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
-/// Owns the bridge and the web view; answers the page's folder input and downloads; takes the
-/// menu bar's items (LuminaApp.swift) to the page.
+/// Owns the bridge and the web view (and, through the bridge, the Edit canvas overlay); answers
+/// the page's folder input and downloads; takes the menu bar's items (LuminaApp.swift) to the page.
 @MainActor
 final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, WKDownloadDelegate, SetsChooser {
     private(set) var bridge: SetsBridge!
@@ -57,6 +57,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 wv.navigationDelegate = self
                 host.addSubview(wv)
                 webView = wv
+                // The Edit canvas: the one native view over the page (AGENTS.md), above the web view.
+                bridge.attachCanvas(host: host)
                 wv.load(URLRequest(url: SetsSchemeHandler.pageURL))
                 host.window?.makeFirstResponder(wv)
                 bridge.cards.start()

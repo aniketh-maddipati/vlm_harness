@@ -319,6 +319,17 @@ final class Runner {
             let lines = rows.map { "\($0.space) \($0.css): ΔE mean \(String(format: "%.2f", $0.meanDE)) p95 \(String(format: "%.2f", $0.p95DE)) max \(String(format: "%.2f", $0.maxDE))" }
             if !bad.isEmpty { throw ProbeError("mean ΔE ≥ \(cap) in \(space):\n  " + lines.joined(separator: "\n  ")) }
             return "\n  " + lines.joined(separator: "\n  ")
+        case "editDrag", "editParity", "raw9":
+            // The Edit canvas and RAW 9 measures (EditSteps.swift). Gates apply unless LUMINA_EDIT_GATE=0.
+            let o: EditSteps.Outcome
+            switch op {
+            case "editDrag": o = try await EditSteps.drag(host: host, s)
+            case "editParity": o = try await EditSteps.parity(host: host, s, outDir: outDir)
+            default: o = try await EditSteps.raw9(host: host, s, folder: URL(fileURLWithPath: try str(s, "folder")), outDir: outDir)
+            }
+            failures.append(contentsOf: o.failures)
+            for (k, v) in o.frames { frames[k] = v }
+            return o.note
         case "confirm":
             host.confirmAnswer = s["answer"] as? Bool ?? false
         case "fuzz":

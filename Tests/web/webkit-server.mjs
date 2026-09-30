@@ -68,7 +68,7 @@ const ctl = async (op, a) => {
     case 'gone': if (a.on) bridge.gone.add(a.name); else bridge.gone.delete(a.name); return true;
     case 'ls': return fs.existsSync(a.path) ? fs.readdirSync(a.path).sort() : null;
     case 'read': return fs.existsSync(a.path) ? fs.readFileSync(a.path, 'utf8') : null;
-    case 'state': return { calls: bridge.calls, sessions: bridge.sessions, index: bridge.index, prefs: bridge.prefs, revealed: bridge.revealed, kicked: bridge.kicked || 0, readyMsg: bridge.readyMsg || null };
+    case 'state': return { calls: bridge.calls, sessions: bridge.sessions, index: bridge.index, prefs: bridge.prefs, revealed: bridge.revealed, kicked: bridge.kicked || 0, readyMsg: bridge.readyMsg || null, canvas: bridge.canvas, renders: bridge.renders, bodies: bridge.bodies || null };
     case 'takeKick': { const k = bridge.kicked || 0; bridge.kicked = 0; return k; }
     default: throw new Error('unknown ctl ' + op);
   }
@@ -79,6 +79,13 @@ http.createServer(async (req, res) => {
     const u = new URL(req.url, ORIGIN), p = decodeURIComponent(u.pathname.slice(1));
     if (req.method === 'POST' && p === 'native') return json(res, await bridge.handle(JSON.parse(await body(req))));
     if (req.method === 'POST' && p === 'ctl') { const m = JSON.parse(await body(req)); return json(res, await ctl(m.op, m)); }
+    if (p.startsWith('render/')) {
+      // The Edit preview (image path): what lumina://render answers.
+      const rel = p.slice(7), q = Object.fromEntries(u.searchParams);
+      if (!bridge.resolve(rel)) { res.writeHead(404); return res.end('not in an opened folder'); }
+      const r = await bridge.render(rel, q);
+      res.writeHead(r.status, { 'content-type': r.contentType || 'text/plain' }); return res.end(r.body);
+    }
     if (p.startsWith('media/')) {
       const q = Object.fromEntries(u.searchParams), f = bridge.resolve(q.p || ''), [n] = (q.p || '').split('/');
       if (bridge.gone.has(n)) { res.writeHead(410); return res.end('card removed'); }

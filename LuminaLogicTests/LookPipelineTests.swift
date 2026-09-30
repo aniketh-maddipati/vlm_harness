@@ -175,6 +175,78 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertGreaterThan(jpg.count, 500)
     }
 
+    /// A file's embedded JPEG (its byte range), upright and scaled: the canvas's stand-in when
+    /// the RAW can't be developed.
+    func testPreviewFallbackDevelopsTheEmbeddedJPEG() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("look-preview-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let jpeg = try pipe.jpeg(pipe.ramp(steps: 64, columnWidth: 4, height: 128).image)      // 256 × 128
+        let prefix = Data(repeating: 0x42, count: 4096)
+        let file = dir.appendingPathComponent("fake.ARW")
+        try (prefix + jpeg + Data(repeating: 0, count: 100)).write(to: file)
+        let dev = try LookPipeline.developPreview(url: file, offset: prefix.count, length: jpeg.count, orientation: 1, longEdge: 128)
+        XCTAssertEqual(dev.extent, CGRect(x: 0, y: 0, width: 128, height: 64))
+        let turned = try LookPipeline.developPreview(url: file, offset: prefix.count, length: jpeg.count, orientation: 6, longEdge: nil)
+        XCTAssertEqual(turned.extent.size, CGSize(width: 128, height: 256), "orientation 6 turns the frame upright")
+        XCTAssertThrowsError(try LookPipeline.developPreview(url: file, offset: 0, length: 100, orientation: 1, longEdge: nil))
+        XCTAssertThrowsError(try LookPipeline.develop(url: file, longEdge: 128, rules: rules), "the fake ARW is no RAW")
+        XCTAssertEqual(LookPipeline.supportedDecoderVersions(url: file), [])
+    }
+
+    /// The canvas's bases from a PNG: `base` fits the canvas plus its 15 % margin, `small` is a
+    /// quarter on each edge, both the right way up (the texture read-back flip is measured, not
+    /// assumed), cached by key, pinned, and at most `maxPhotos` photos resident.
+    func testBasesBuildUprightTexturesAndCacheByKey() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("look-bases-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        // 300 × 200, a vertical gradient: bright at the top, dark at the bottom, plus a horizontal ramp in red.
+        let w = 300, h = 200
+        var data = [Float](repeating: 1, count: w * h * 4)
+        for y in 0..<h { for x in 0..<w { let i = 4 * (y * w + x); data[i] = Float(x) / Float(w); data[i + 1] = 1 - Float(y) / Float(h); data[i + 2] = 0.5; data[i + 3] = 1 } }
+        let bytes = data.withUnsafeBufferPointer { Data(buffer: $0) }
+        let img = CIImage(bitmapData: bytes, bytesPerRow: w * 16, size: CGSize(width: w, height: h), format: .RGBAf, colorSpace: pipe.workingSpace)
+        let png = try pipe.png(img)
+        var urls: [URL] = []
+        for i in 0..<4 { let u = dir.appendingPathComponent("p\(i).png"); try png.write(to: u); urls.append(u) }
+
+        let bases = LookBases(pipeline: pipe, byteCap: 64 << 20, maxPhotos: 3)
+        let canvas = CGSize(width: 200, height: 200)
+        let key = LookBases.Key(rel: "s/p0.png", decoder: nil, look: Look(), canvas: canvas)
+        let e = try bases.build(key, url: urls[0], look: Look(), preview: nil)
+        print("LookPipelineTests: bases on GPU = \(e.onGPU), flips on readback = \(bases.stats.flipsOnReadback), \(e.baseSize) / \(e.smallSize), \(e.developMs) ms")
+        // Fits 230 × 230 (the canvas plus 15 %): 230 × 153.
+        XCTAssertEqual(e.baseSize.width, 230, accuracy: 1); XCTAssertEqual(e.baseSize.height, 153, accuracy: 1.5)
+        XCTAssertEqual(e.smallSize.width, (e.baseSize.width / 4).rounded(.down), accuracy: 1)
+        XCTAssertEqual(e.source, "image", "a PNG is an image file, not a RAW")
+        let bw = Int(e.baseSize.width), bh = Int(e.baseSize.height)
+        // Upright: the top row (Core Image y = height − 1) is bright green, the bottom dark; red grows to the right.
+        let top = pipe.pixel(e.base, x: bw / 2, y: bh - 2), bottom = pipe.pixel(e.base, x: bw / 2, y: 1)
+        XCTAssertGreaterThan(top.g, 0.8, "top row bright: \(top)"); XCTAssertLessThan(bottom.g, 0.2, "bottom row dark: \(bottom)")
+        XCTAssertLessThan(pipe.pixel(e.base, x: 2, y: bh / 2).r, pipe.pixel(e.base, x: bw - 3, y: bh / 2).r)
+        let sw = Int(e.smallSize.width), sh = Int(e.smallSize.height)
+        XCTAssertGreaterThan(pipe.pixel(e.small, x: sw / 2, y: sh - 1).g, 0.7); XCTAssertLessThan(pipe.pixel(e.small, x: sw / 2, y: 0).g, 0.3)
+        XCTAssertEqual(Double(e.bytes), Double((bw * bh + sw * sh) * 8), accuracy: Double(bh * 256), "two half-float rasters")
+        // Cached by key; a different canvas size is a different key.
+        XCTAssertNotNil(bases.entry(key)); XCTAssertEqual(bases.stats.hits, 1)
+        XCTAssertNil(bases.entry(LookBases.Key(rel: "s/p0.png", decoder: nil, look: Look(), canvas: CGSize(width: 100, height: 100))))
+        var cropped = Look(); cropped.crop = Look.Crop(x: 0.25, y: 0, w: 0.5, h: 1)
+        let c = try bases.build(LookBases.Key(rel: "s/p0.png", decoder: nil, look: cropped, canvas: canvas), url: urls[0], look: cropped, preview: nil)
+        XCTAssertEqual(c.baseSize.width / c.baseSize.height, 0.75, accuracy: 0.02, "the crop is baked into the base")
+        // At most 3 photos resident; the pinned one stays.
+        bases.pin(key)
+        for i in 1..<4 { _ = try bases.build(LookBases.Key(rel: "s/p\(i).png", decoder: nil, look: Look(), canvas: canvas), url: urls[i], look: Look(), preview: nil) }
+        let st = bases.stats
+        XCTAssertLessThanOrEqual(st.residentPhotos, 3, "\(st)")
+        XCTAssertNotNil(bases.entry(key), "the pinned photo is never evicted")
+        XCTAssertGreaterThanOrEqual(st.evicted, 1)
+        bases.dropPrefetched()
+        XCTAssertEqual(bases.stats.residentPhotos, 1)
+        XCTAssertNotNil(bases.entry(key))
+        XCTAssertThrowsError(try bases.build(LookBases.Key(rel: "s/missing.png", decoder: nil, look: Look(), canvas: canvas), url: dir.appendingPathComponent("missing.png"), look: Look(), preview: nil))
+    }
+
     func testRendererCachesDevelopsAndDropsStaleRequests() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("look-renderer-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

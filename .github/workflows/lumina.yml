@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests, LookStringTests, LookMathTests
+      - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests, LookStringTests, LookMathTests, LookCanvasTests
         run: bash Tests/linux-swift/run.sh
 
   parity:
@@ -129,6 +129,15 @@ jobs:
           npm i -g playwright@1.56.1 && npx playwright install chromium
           NODE_PATH="$(npm root -g)" node Tests/web/make-shoot.mjs "$LUMINA_SCROLL_DIR" 775
           bash Scripts/probe.sh scroll
+      - name: Edit canvas (native + image path) and RAW 9 steps on the synthetic shoot (bases from the embedded JPEG; latency reported, not gated on the runner)
+        env:
+          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe-edit
+          LUMINA_EDIT_DIR: ${{ runner.temp }}/scroll-775/100MSDCF
+          LUMINA_EDIT_GATE: "0"
+        run: |
+          status=0
+          for s in edit raw9; do echo "::group::probe $s"; bash Scripts/probe.sh $s || status=1; echo "::endgroup::"; done
+          exit $status
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -139,4 +148,8 @@ jobs:
             ${{ runner.temp }}/probe*/manifest.json
             ${{ runner.temp }}/probe*/**/read-end.json
             ${{ runner.temp }}/probe*/**/thumb.json
+            ${{ runner.temp }}/probe*/**/canvas.json
+            ${{ runner.temp }}/probe*/**/parity.json
+            ${{ runner.temp }}/probe*/**/raw9.json
+            ${{ runner.temp }}/probe*/**/canvas-after-loupe.json
           retention-days: 7

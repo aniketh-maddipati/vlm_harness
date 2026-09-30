@@ -5,16 +5,17 @@ let usage = """
 lumina-render — render an ARW through the app's LookPipeline (Tools/parity)
 
   lumina-render render <image> [--look "<look string>"] [--px 2048] [--space prophoto|srgb|p3]
-                       [--out file.tif|.jpg|.png] [--rules rules-v1.json] [--json]
+                       [--out file.tif|.jpg|.png] [--rules rules-v1.json] [--decoder 8] [--json]
       One render. A 16-bit TIFF unless --out ends in .jpg / .png. Prints develop and render
       times (and JSON with --json). <image> may be any RAW Core Image reads, or a JPEG/TIFF/PNG.
+      --decoder picks a RAW decoder version (RAW 9: `make parity DECODER=9`, once per version present).
 
-  lumina-render batch <jobs.json> [--rules rules-v1.json]
-      Many renders, one process: [{"image", "look", "px", "out", "space"}]. Each (image, px) is
-      developed once. Prints one JSON line per job with timings; exit 1 if any job failed.
+  lumina-render batch <jobs.json> [--rules rules-v1.json] [--decoder 8]
+      Many renders, one process: [{"image", "look", "px", "out", "space", "decoder"?}]. Each
+      (image, px, decoder) is developed once. Prints one JSON line per job with timings; exit 1 if any job failed.
 
   lumina-render info <image>
-      As-shot white balance, native size, develop time.
+      As-shot white balance, native size, develop time, the RAW decoder versions this Mac offers.
 
   lumina-render ramp [--look "<look string>"] [--rules rules-v1.json] [--out ramp.json]
       The graph on flat patches (a grey ramp and test colours) next to LookMath's scalar chain,
@@ -77,12 +78,13 @@ do {
         let lookText = option("--look") ?? "", px = Int(option("--px") ?? "2048") ?? 2048
         let space = LookPipeline.OutputSpace(rawValue: option("--space") ?? "prophoto") ?? .prophoto
         let outPath = option("--out"), rulesPath = option("--rules"), wantJSON = flag("--json")
+        let decoder = option("--decoder").flatMap(Int.init)
         guard let imagePath = args.first else { fail(usage, code: 2) }
         let rules = try loadRules(rulesPath)
         let pipe = try LookPipeline(rules: rules)
         let look = try Look.parse(lookText)
         let t0 = Date()
-        let dev = try LookPipeline.developAny(url: URL(fileURLWithPath: imagePath), longEdge: px, rules: rules)
+        let dev = try LookPipeline.developAny(url: URL(fileURLWithPath: imagePath), longEdge: px, rules: rules, decoderVersion: decoder, nr: look.nr)
         let (raster, bytes) = try pipe.rasterised(dev)
         let developMs = ms(t0)
         let t1 = Date()
@@ -92,12 +94,14 @@ do {
         let renderMs = ms(t1)
         let info: [String: Any] = ["image": imagePath, "out": out.path, "look": look.format(), "px": px, "space": space.rawValue,
                                    "width": Int(img.extent.width), "height": Int(img.extent.height), "bytes": data.count, "rasterBytes": bytes,
-                                   "asShot": ["kelvin": dev.asShot.kelvin, "tint": dev.asShot.tint], "developMs": developMs, "renderMs": renderMs]
+                                   "asShot": ["kelvin": dev.asShot.kelvin, "tint": dev.asShot.tint], "developMs": developMs, "renderMs": renderMs,
+                                   "decoder": decoder ?? 0]
         if wantJSON { print(json(info)) }
         else { print("\(out.lastPathComponent): \(Int(img.extent.width))×\(Int(img.extent.height)) \(space.rawValue) · develop \(developMs) ms · render+encode \(renderMs) ms · as shot \(Int(dev.asShot.kelvin)) K \(Int(dev.asShot.tint))") }
 
     case "batch":
         let rulesPath = option("--rules")
+        let decoderAll = option("--decoder").flatMap(Int.init)
         guard let plan = args.first, let data = FileManager.default.contents(atPath: plan),
               let jobs = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { fail("batch wants a JSON array of jobs", code: 2) }
         let rules = try loadRules(rulesPath)
@@ -108,13 +112,15 @@ do {
             let image = job["image"] as? String ?? "", lookText = job["look"] as? String ?? "", px = job["px"] as? Int ?? 2048
             let space = LookPipeline.OutputSpace(rawValue: job["space"] as? String ?? "prophoto") ?? .prophoto
             let out = job["out"] as? String ?? ((image as NSString).deletingPathExtension + ".lumina.tif")
-            var line: [String: Any] = ["image": image, "look": lookText, "px": px, "out": out]
+            let decoder = (job["decoder"] as? Int) ?? decoderAll
+            var line: [String: Any] = ["image": image, "look": lookText, "px": px, "out": out, "decoder": decoder ?? 0]
             do {
-                let key = "\(image)|\(px)"
+                let parsedLook = try Look.parse(lookText)
+                let key = "\(image)|\(px)|\(decoder ?? 0)|\(parsedLook.nr ?? -1)"
                 var developMs = 0
                 if developed[key] == nil {
                     let t0 = Date()
-                    let dev = try LookPipeline.developAny(url: URL(fileURLWithPath: image), longEdge: px, rules: rules)
+                    let dev = try LookPipeline.developAny(url: URL(fileURLWithPath: image), longEdge: px, rules: rules, decoderVersion: decoder, nr: parsedLook.nr)
                     developed[key] = try pipe.rasterised(dev)
                     developMs = ms(t0)
                     // One developed image per size at a time: the sweep walks image by image.
@@ -122,7 +128,7 @@ do {
                 }
                 let (dev, _) = developed[key]!
                 let t1 = Date()
-                let img = pipe.apply(try Look.parse(lookText), to: dev)
+                let img = pipe.apply(parsedLook, to: dev)
                 _ = try encode(pipe, img, to: URL(fileURLWithPath: out), space: space)
                 line["ok"] = true; line["developMs"] = developMs; line["renderMs"] = ms(t1)
                 line["asShot"] = ["kelvin": dev.asShot.kelvin, "tint": dev.asShot.tint]
@@ -140,9 +146,10 @@ do {
         let rules = try loadRules(option("--rules"))
         let t0 = Date()
         let dev = try LookPipeline.developAny(url: URL(fileURLWithPath: imagePath), longEdge: nil, rules: rules)
+        let url = URL(fileURLWithPath: imagePath)
         let info: [String: Any] = ["image": imagePath, "width": Int(dev.extent.width), "height": Int(dev.extent.height),
                                    "asShot": ["kelvin": dev.asShot.kelvin, "tint": dev.asShot.tint], "developMs": ms(t0),
-                                   "raw": LookPipeline.isRAW(URL(fileURLWithPath: imagePath))]
+                                   "raw": LookPipeline.isRAW(url), "decoders": LookPipeline.supportedDecoderVersions(url: url)]
         print(json(info))
 
     case "ramp":

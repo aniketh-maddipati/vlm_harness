@@ -11,10 +11,12 @@ import WebKit
 ///   them on a canvas. Never a whole RAW, never the network.
 /// - `lumina://photo/seed/<seed>/<w>/<h>`  stand-in photos for the design's sample shoot (the
 ///   page's picsum URLs are pointed here). Debug fixture data only; off once the sample goes.
-/// - `lumina://render/<folder/file>?look=<look string>&px=<long edge>&seq=<n>`  the Edit step's
-///   preview: the RAW through LookPipeline (LookRenderer: developed once per (file, px), the look
-///   per request, one render at a time). A request overtaken by a newer `seq` for the same file
-///   answers 409 without rendering; a bad look string 400; a file outside the opened folders 404.
+/// - `lumina://render/<folder/file>?look=<look string>&px=<long edge>&seq=<n>[&tier=small][&decoder=8]`
+///   the Edit step's preview when the native canvas isn't available (the image fallback path):
+///   the RAW through LookPipeline (LookRenderer: developed once per (file, px, decoder), the look
+///   per request, one render at a time). `tier=small` renders a quarter of `px` on each edge (the
+///   drag tier). A request overtaken by a newer `seq` for the same file answers 409 without
+///   rendering; a bad look string 400; a file outside the opened folders 404.
 nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "lumina"
     static let pageFile = "Lumina Sets v5.dc.html"
@@ -135,9 +137,13 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
         guard !rel.isEmpty, let file = ingest.resolve(rel) else { return status(task, url, 404, "not in an opened folder") }
         guard let renderer = lookRenderer() else { return status(task, url, 503, "no look pipeline (rules-v1.json missing)") }
         let look = q["look"] ?? "", seq = Int(q["seq"] ?? "") ?? 0
-        let px = min(8192, max(64, Int(q["px"] ?? "") ?? 1024))
+        // `tier=small` is the image fallback path's drag tier (addendum §7): a quarter of the
+        // asked size on each edge, the same rule the native canvas's `small` texture follows.
+        var px = min(8192, max(64, Int(q["px"] ?? "") ?? 1024))
+        if q["tier"] == "small" { px = max(64, px / 4) }
+        let decoder = Int(q["decoder"] ?? "")
         renderer.requested(rel: rel, seq: seq)
-        renderer.enqueue({ try renderer.renderJPEG(url: file, rel: rel, look: look, px: px, seq: seq) }) { [weak self] r in
+        renderer.enqueue({ try renderer.renderJPEG(url: file, rel: rel, look: look, px: px, seq: seq, decoder: decoder) }) { [weak self] r in
             guard let self, !self.lock.withLock({ self.stopped.remove(ObjectIdentifier(task)) != nil }) else { return }
             switch r {
             case .success(let data):

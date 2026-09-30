@@ -118,6 +118,69 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(savedLook && savedLook.rowLook && savedLook.rowLook.r1 === 'wb:5200/+3', 'session: rowLook saved per row', savedLook && savedLook.rowLook);
   await page.evaluate(() => { const l = __lumina.logic(); l.setState({ look: {}, rowLook: {} }); });
 
+  // The Edit canvas (addendum §2–7, RAW 9 §1): window.lumina.edit on the image path (no Metal here),
+  // lumina://render with latest wins and two tiers, the 500 ms save debounce, the shoot header.
+  ok(bridge.bodies && bridge.bodies['ILCE-7M4'] === '2026-09-01/DSC01001.ARW', 'edit: shootOpened names one RAW per body for the decoder map', bridge.bodies);
+  bridge.renderJpeg = jpegs[0];
+  const rel0 = await page.evaluate(() => __lumina.logic().real[0].path);
+  const hooks = await page.evaluate(async rel => {
+    window.__editImages = []; window.__editFacts = [];
+    window.luminaEditImage = (u, seq, tier) => window.__editImages.push({ seq, tier, url: u });
+    window.luminaEditFacts = (t, f) => window.__editFacts.push(t);
+    const f = await lumina.edit.enter(rel, 'ev:+0.50');
+    lumina.edit.layout({ x: 300, y: 80, w: 900, h: 600 }, true);
+    await new Promise(r => setTimeout(r, 400));
+    return { facts: f, state: lumina.edit.state(), images: window.__editImages.slice(), factsSeen: window.__editFacts.slice() };
+  }, rel0);
+  ok(hooks.facts && hooks.facts.canvas === 'image' && /^canvas: image · raw 9: no/.test(hooks.facts.text), 'edit: facts say canvas: image and raw 9: no', hooks.facts);
+  ok(bridge.canvas.entered[0] && bridge.canvas.entered[0].rel === rel0 && bridge.canvas.entered[0].model === 'ILCE-7M4' && bridge.canvas.entered[0].next && bridge.canvas.entered[0].preview && +bridge.canvas.entered[0].preview.l > 0,
+    'edit: canvasEnter carries the photo, its body, its preview range and its neighbours', bridge.canvas.entered[0]);
+  ok(bridge.canvas.layouts[0] && bridge.canvas.layouts[0].w === 900 && bridge.canvas.layouts[0].visible === true && bridge.canvas.layouts[0].dpr >= 1, 'edit: canvasLayout carries the rect, visibility and dpr', bridge.canvas.layouts[0]);
+  ok(hooks.images.length === 1 && hooks.images[0].tier === 'base' && /^blob:/.test(hooks.images[0].url), 'edit (image path): entering renders one full-quality image and hands the blob URL to luminaEditImage', hooks.images);
+  ok(bridge.renders.length >= 1 && bridge.renders[0].look === 'ev:+0.50' && bridge.renders[0].px === 900 && bridge.renders[0].decoder === 8, 'edit (image path): the render asks for the look at the canvas size with the canvas decoder', bridge.renders[0]);
+  // A 2 s drag: 60 looks at ~25 ms, renders slower than that (60 ms): only the newest value is fetched,
+  // at the small tier, one at a time; drag end brings one full-quality render of the last value.
+  bridge.renders = []; bridge.renderDelayMs = 60;
+  await page.waitForTimeout(2300);            // let the 2 s autosave flush what came before
+  const savesBefore = bridge.saves || 0;
+  const drag = await page.evaluate(async () => {
+    window.__editImages = [];
+    lumina.edit.dragStart();
+    const l = __lumina.logic();
+    for (let i = 1; i <= 60; i++) {
+      const look = 'ev:' + (i / 100).toFixed(2);
+      l.setState({ look: Object.assign({}, l.state.look, { [l.state.cur]: look }) });      // as the page's slider does
+      lumina.edit.look(look, { drag: true }); await new Promise(r => setTimeout(r, 25));
+    }
+    const mid = lumina.edit.state();
+    lumina.edit.dragEnd();
+    await new Promise(r => setTimeout(r, 500));
+    return { mid, end: lumina.edit.state(), images: window.__editImages.slice() };
+  });
+  const dragRenders = bridge.renders.filter(r => r.tier === 'small'), restRenders = bridge.renders.filter(r => r.tier === 'base');
+  ok(dragRenders.length >= 8 && dragRenders.length <= 45, 'edit (image path): a 2 s drag of 60 values renders the newest value at most once per render, at the small tier', { small: dragRenders.length, total: bridge.renders.length });
+  ok(dragRenders.every(r => r.px === Math.round(900)), 'edit (image path): small tier renders ask the canvas size with tier=small (the Mac quarters it)', dragRenders.slice(0, 2));
+  ok(restRenders.length >= 1 && restRenders[restRenders.length - 1].look === 'ev:0.60', 'edit (image path): drag end renders the final value at full quality', restRenders);
+  ok(drag.end.image.tier === 'base' && drag.end.image.shown === drag.end.seq && !drag.end.image.inFlight && !drag.end.image.pending, 'edit (image path): the last shown image is the newest seq at the base tier, nothing left in flight', drag.end.image);
+  ok(drag.images.length && drag.images.every((im, i) => i === 0 || im.seq > drag.images[i - 1].seq), 'edit (image path): images reach the page in increasing seq only (latest wins)', drag.images.map(i => i.seq));
+  ok(bridge.renders.every((r, i) => i === 0 || r.t >= bridge.renders[i - 1].t + 55), 'edit (image path): renders never overlap (one in flight)', bridge.renders.slice(0, 3).map(r => r.t));
+  ok(drag.mid.dragging === true && drag.end.dragging === false && bridge.canvas.drags.join() === 'true,false', 'edit: dragStart / dragEnd reach the Mac', bridge.canvas.drags);
+  ok((bridge.saves || 0) === savesBefore, 'edit: no session write during the drag (500 ms debounce)', { before: savesBefore, after: bridge.saves });
+  await page.waitForTimeout(2600);
+  ok((bridge.saves || 0) > savesBefore, 'edit: the session is written after the drag settles', { before: savesBefore, after: bridge.saves });
+  // Keystroke: a full-quality render at once, no small tier. Loupe: reaches the Mac with its region.
+  bridge.renders = []; bridge.renderDelayMs = 0;
+  await page.evaluate(async () => { lumina.edit.look('ev:+1.00', { key: true }); lumina.edit.loupe(true, { x: 0.25, y: 0.25, w: 0.5, h: 0.5 }); await new Promise(r => setTimeout(r, 200)); });
+  ok(bridge.renders.length === 1 && bridge.renders[0].tier === 'base' && bridge.renders[0].look === 'ev:+1.00', 'edit (image path): a keystroke renders once at full quality', bridge.renders);
+  ok(bridge.canvas.loupes[0] && bridge.canvas.loupes[0].on === true && bridge.canvas.loupes[0].roi.w === 0.5, 'edit: loupe on with its region reaches the Mac (RAW 9 region)', bridge.canvas.loupes[0]);
+  const upd = await page.evaluate(async () => { const f = await lumina.edit.updateDecoder(); const s = await lumina.edit.stats(true); return { f, s }; });
+  ok(upd.f.decoder === 8 && bridge.canvas.updates === 1 && bridge.canvas.resets === 1 && upd.s.path === 'image', 'edit: updateDecoder pins the newest; stats(reset) reaches the Mac', upd);
+  await page.evaluate(() => { __lumina.editFacts('canvas: image · raw 8 · region'); });
+  ok(await page.evaluate(() => /raw 8 · region$/.test(lumina.edit.facts().text)), 'edit: the Mac\'s facts (region, refining) join the facts line', await page.evaluate(() => lumina.edit.facts().text));
+  await page.evaluate(() => { lumina.edit.leave(); delete window.luminaEditImage; delete window.luminaEditFacts; });
+  ok(bridge.canvas.entered.some(e => e.leave) && (await page.evaluate(() => lumina.edit.state().rel)) === null && bridge.canvas.layouts[bridge.canvas.layouts.length - 1].visible === false, 'edit: leave hides the canvas and tells the Mac');
+  ok((await page.evaluate(() => { try { lumina.edit.look('ev:+0.10', { drag: true }); lumina.edit.dragEnd(); return true; } catch (e) { return String(e); } })) === true, 'edit: calls after leave are harmless no-ops');
+
   // Save → sidecars INTO the folder
   const before2 = fs.readFileSync(path.join(shoot, 'DSC01002.xmp'), 'utf8');
   await page.evaluate(() => __lumina.command('stepSave')); await page.waitForTimeout(300);

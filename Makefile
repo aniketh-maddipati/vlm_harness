@@ -2,7 +2,7 @@
 #
 #   make render            build lumina-render (release)
 #   make parity            Lightroom references vs Lumina renders → report (needs the Mac)
-#   make parity STAGE=tone | SLIDER=Highlights | LIMIT=5 | RULES=path | LABEL=name | KINDS=base,single
+#   make parity STAGE=tone | SLIDER=Highlights | LIMIT=5 | RULES=path | LABEL=name | KINDS=base,single | DECODER=9
 #   make parity-combos     the three-slider combinations only
 #   make parity-check      Metal ≡ Swift ≡ numpy on flat patches (lumina-render ramp + lookmath.py --check)
 #   make parity-test       the Python tests (Linux too)
@@ -18,6 +18,7 @@ SLIDER   ?=
 LIMIT    ?=
 RULES    ?=
 LABEL    ?=
+DECODER  ?=
 KINDS    ?= base,single,combo
 PX       ?= 2048
 
@@ -36,6 +37,9 @@ PARITY_ARGS += --rules $(RULES)
 endif
 ifneq ($(LABEL),)
 PARITY_ARGS += --label $(LABEL)
+endif
+ifneq ($(DECODER),)
+PARITY_ARGS += --decoder $(DECODER)
 endif
 
 .PHONY: render parity parity-combos parity-check parity-test parity-loop

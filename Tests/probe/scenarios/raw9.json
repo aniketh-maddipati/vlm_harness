@@ -1,0 +1,77 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "sampleMs": 100,
+ "stopOnFailure": false,
+ "checklist": "RAW 9 (§8) on the first ARWs of LUMINA_EDIT_DIR: the decoder map per body (supported versions, raw 9 present, fastest), time-to-first-tile and time-to-full-region for a 1024×768-class loupe region at 100 % (targets: first tile ≤ 250 ms, full ≤ 1.2 s on the dev Mac; the M1 numbers are recorded via probe_remote.sh), export time and phys_footprint per file for the older version vs the newest, the per-file fallback forced with a version this Mac lacks, and region tiles vs the export graph at the same region for every decoder version present (ΔE median ≤ 0.5). The loupe through the page's plumbing (lumina.edit.loupe) is also driven on the native canvas so the facts line shows `raw N · region`. RAW 9 itself needs macOS 27: elsewhere this measures raw 8 (and 7) the same way.",
+ "budgets": {
+  "probePeakMB": 4000
+ },
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_EDIT_DIR}",
+   "via": "js",
+   "timeoutMs": 900000
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const p=l.real[0]; return lumina.edit.enter(p.path, '').then(f=>JSON.stringify(f))"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.layout({x:280,y:60,w:880,h:640}, true, {force:true}); return true"
+  },
+  {
+   "do": "waitFor",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'?!!lumina.edit.state().image.shown:(s.bases&&s.bases.resident>0))",
+   "timeoutMs": 90000,
+   "what": "bases built (or the first image shown)"
+  },
+  {
+   "do": "raw9",
+   "folder": "${LUMINA_EDIT_DIR}",
+   "count": 2,
+   "roi": {
+    "x": 0.4,
+    "y": 0.4,
+    "w": 0.2,
+    "h": 0.2
+   },
+   "firstTileMs": 250,
+   "fullMs": 1200,
+   "maxMedianDE": 0.5
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.loupe(true, {x:0.4,y:0.4,w:0.2,h:0.2}); return true"
+  },
+  {
+   "do": "waitFor",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'||s.region===true||(s.facts&&s.facts.raw9Present===false&&!s.bases.onGPU))",
+   "timeoutMs": 60000,
+   "what": "the loupe's region rendered (native canvas)"
+  },
+  {
+   "do": "js",
+   "src": "return lumina.edit.stats().then(s=>JSON.stringify({path:s.path,region:s.region,decoder:s.regionDecoder,refining:s.refining,facts:s.facts&&s.facts.text,tiles:s.tiles,fallbacks:s.decoderFallbacks,slowed:s.slowed}))"
+  },
+  {
+   "do": "dump",
+   "name": "canvas-after-loupe",
+   "js": "return lumina.edit.stats()"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.loupe(false); lumina.edit.leave(); return true"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

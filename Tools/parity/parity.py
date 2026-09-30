@@ -150,7 +150,8 @@ def aggregate(results, criteria):
 def report_md(agg, results, criteria, meta, heatmap_dir=None):
     L = []
     L.append(f"# Parity report — {meta['label']}\n")
-    L.append(f"{meta['date']} · rules `{meta['rules']}` · {len(results)} pairs · {meta.get('images', '?')} images · px {meta.get('px')} · space {meta.get('space')}\n")
+    L.append(f"{meta['date']} · rules `{meta['rules']}` · {len(results)} pairs · {meta.get('images', '?')} images · px {meta.get('px')} · space {meta.get('space')}"
+             + (f" · RAW decoder {meta['decoder']}" if meta.get('decoder') else "") + "\n")
     if meta.get("stage"):
         L.append(f"Stage under test: **{meta['stage']}**\n")
     crit = criteria["singles"]
@@ -220,6 +221,8 @@ def run(a):
         return 2
     date = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     label = a.label or (a.stage or a.slider or "all")
+    if a.decoder:
+        label += f"-raw{a.decoder}"
     render_dir = expand(a.render_dir)
     evidence = os.path.join(expand(a.evidence), f"{date}-{label}")
     report_dir = os.path.join(expand(a.report), f"{date}-{label}")
@@ -242,7 +245,10 @@ def run(a):
         look = lr_to_look(r["settings"], r.get("asShot", {}), apple)
         text = lookmath.format_look(look)
         out = os.path.join(render_dir, label, r["id"] + ".lumina.tif")
-        jobs.append({"image": arw, "look": text, "px": a.px, "out": out, "space": space})
+        job = {"image": arw, "look": text, "px": a.px, "out": out, "space": space}
+        if a.decoder:
+            job["decoder"] = a.decoder
+        jobs.append(job)
         pairs.append((r, out, text))
     with open(cache_path, "w") as f:
         json.dump(cache, f, indent=1, sort_keys=True)
@@ -287,7 +293,7 @@ def run(a):
     render_ms = [t["renderMs"] for t in timings if t.get("ok")]
     develop_ms = [t["developMs"] for t in timings if t.get("ok") and t.get("developMs")]
     meta = {"label": label, "date": date, "rules": a.rules or "Lumina/Sets/Look/rules-v1.json", "images": len({r["stem"] for r, _, _ in pairs}),
-            "px": a.px, "space": space, "stage": a.stage, "slider": a.slider,
+            "px": a.px, "space": space, "stage": a.stage, "slider": a.slider, "decoder": a.decoder,
             "renderMs": {"median": float(np.median(render_ms)) if render_ms else None, "p95": float(np.percentile(render_ms, 95)) if render_ms else None},
             "developMs": {"median": float(np.median(develop_ms)) if develop_ms else None}}
     heat_dir = os.path.join(evidence, "heatmaps")
@@ -330,6 +336,7 @@ def main(argv):
     ap.add_argument("--limit", type=int, help="first N images only (a quick look)")
     ap.add_argument("--reuse", action="store_true", help="keep renders that already exist")
     ap.add_argument("--label")
+    ap.add_argument("--decoder", type=int, help="RAW decoder version for every render (RAW 9 §7: run once per version present; the label gains -rawN)")
     return run(ap.parse_args(argv))
 
 

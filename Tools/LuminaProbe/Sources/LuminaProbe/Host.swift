@@ -72,12 +72,18 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         webView.configuration.userContentController.add(self, name: "probe")
         webView.navigationDelegate = self
         webView.uiDelegate = self
-        window.contentView = webView
+        // As in the app: the web view fills a host view and the Edit canvas overlay sits above it.
+        let host = NSView(frame: CGRect(origin: .zero, size: size))
+        webView.frame = host.bounds
+        webView.autoresizingMask = [.width, .height]
+        host.addSubview(webView)
+        window.contentView = host
         window.isReleasedWhenClosed = false
         window.orderFrontRegardless()
         window.makeKey()
         window.makeFirstResponder(webView)
         bridge?.onEvent = { [weak self] in self?.log("bridge", $0) }
+        bridge?.attachCanvas(host: host)
     }
 
     private var chooserRef: ProbeChooser?

@@ -2,6 +2,7 @@ import CoreGraphics
 import CoreImage
 import Foundation
 import ImageIO
+import Metal
 
 /// One Core Image graph for every render: preview (`lumina://render`), export (`SetsExport`) and
 /// the parity tool (`lumina-render`). Linear working space, the stages of `LookRules.order`, one
@@ -43,10 +44,14 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     let workingSpace: CGColorSpace
     let context: CIContext
     let kernels: LookKernels
+    /// The Metal device the context renders on (nil with the software renderer): the Edit canvas
+    /// makes its base textures and drawables on the same one.
+    let device: MTLDevice?
 
     /// `cacheIntermediates: false` and a memory target are what export uses (roadmap §7); previews
-    /// keep the defaults.
-    init(rules: LookRules, cacheIntermediates: Bool = true, memoryLimitMB: Int = 0, softwareRenderer: Bool = false) throws {
+    /// keep the defaults. `device` pins the context to one Metal device (the canvas shares it
+    /// with its textures); nil takes the system default.
+    init(rules: LookRules, cacheIntermediates: Bool = true, memoryLimitMB: Int = 0, softwareRenderer: Bool = false, device: MTLDevice? = nil) throws {
         try rules.validate()
         self.rules = rules
         guard let ws = Self.colorSpace(named: rules.workingSpace) else { throw Failure("unknown working space \(rules.workingSpace)") }
@@ -59,8 +64,39 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         ]
         if memoryLimitMB > 0 { opts[CIContextOption(rawValue: "kCIContextMemoryTarget")] = memoryLimitMB << 20 }
         if softwareRenderer { opts[.useSoftwareRenderer] = true }
-        context = CIContext(options: opts)
+        if softwareRenderer {
+            context = CIContext(options: opts)
+            self.device = nil
+        } else if let dev = device ?? MTLCreateSystemDefaultDevice() {
+            context = CIContext(mtlDevice: dev, options: opts)
+            self.device = dev
+        } else {
+            context = CIContext(options: opts)
+            self.device = nil
+        }
         kernels = try LookKernels.shared()
+    }
+
+    // MARK: decoder versions (RAW 9)
+
+    /// The integer in a `CIRAWDecoderVersion` ("8" → 8). Nil for `.versionNone`.
+    static func decoderNumber(_ v: CIRAWDecoderVersion) -> Int? { Int(v.rawValue.filter(\.isNumber)) }
+
+    /// Every decoder version Core Image offers for this file, ascending. Empty when the file is
+    /// not a RAW Core Image reads.
+    static func supportedDecoderVersions(url: URL) -> [Int] {
+        guard let raw = CIRAWFilter(imageURL: url) else { return [] }
+        return raw.supportedDecoderVersions.compactMap(decoderNumber).sorted()
+    }
+
+    /// The upright size of the RAW (`nativeSize` with the EXIF turn applied), without decoding.
+    static func nativeSize(url: URL) -> CGSize? {
+        guard let raw = CIRAWFilter(imageURL: url) else { return nil }
+        let n = raw.nativeSize
+        switch raw.orientation {
+        case .left, .right, .leftMirrored, .rightMirrored: return CGSize(width: n.height, height: n.width)
+        default: return n
+        }
     }
 
     /// `rules.workingSpace` → a linear CGColorSpace. Oklab (the colour stage) assumes sRGB
@@ -79,8 +115,17 @@ nonisolated final class LookPipeline: @unchecked Sendable {
 
     /// CIRAWFilter with Apple's default profile and no auto adjustments. `longEdge` scales the
     /// decode itself (`scaleFactor`), so a 1024 px preview never demosaics 24 MP.
-    static func develop(url: URL, longEdge px: Int?, rules: LookRules) throws -> Developed {
+    /// `decoderVersion` picks one of `supportedDecoderVersions` (RAW 9 tiers; nil = Core Image's
+    /// default), `nr` is the look's Detail ▸ luminance noise reduction (0 … 100).
+    static func develop(url: URL, longEdge px: Int?, rules: LookRules, decoderVersion: Int? = nil, nr: Double? = nil) throws -> Developed {
         guard let raw = CIRAWFilter(imageURL: url) else { throw Failure("not a RAW Core Image can read: \(url.lastPathComponent)") }
+        if let want = decoderVersion {
+            guard let v = raw.supportedDecoderVersions.first(where: { decoderNumber($0) == want }) else {
+                throw Failure("\(url.lastPathComponent): decoder version \(want) is not supported here (have \(raw.supportedDecoderVersions.compactMap(decoderNumber).sorted()))")
+            }
+            raw.decoderVersion = v
+        }
+        if let nr { raw.luminanceNoiseReductionAmount = Float(min(1, max(0, nr / 100))) }
         let native = raw.nativeSize
         let long = max(native.width, native.height)
         if let px, px > 0, long > 0, CGFloat(px) < long { raw.scaleFactor = Float(CGFloat(px) / long) }
@@ -92,6 +137,19 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         return Developed(image: Self.atOrigin(out), asShot: asShot)
     }
 
+    /// A photo's embedded JPEG (its byte range in the RAW, as the page's `parseHead` found it),
+    /// turned upright, scaled to `longEdge`: the canvas's stand-in when the RAW itself can't be
+    /// developed (a corrupt file with a good preview, or the synthetic ARWs the CI probe uses).
+    static func developPreview(url: URL, offset: Int, length: Int, orientation: Int, longEdge px: Int?) throws -> Developed {
+        guard offset >= 0, length > 0, length <= 64 << 20 else { throw Failure("no preview range in \(url.lastPathComponent)") }
+        let h = try FileHandle(forReadingFrom: url)
+        defer { try? h.close() }
+        try h.seek(toOffset: UInt64(offset))
+        guard let data = try h.read(upToCount: length), data.count == length, var img = CIImage(data: data) else { throw Failure("preview doesn't decode: \(url.lastPathComponent)") }
+        if let o = CGImagePropertyOrientation(rawValue: UInt32(max(1, min(8, orientation)))), o != .up { img = img.oriented(o) }
+        return Developed(image: Self.scaled(Self.atOrigin(img), longEdge: px), asShot: Look.WhiteBalance(kelvin: 5500, tint: 0))
+    }
+
     /// Any image ImageIO reads (JPEG, TIFF, PNG): for tests, the A/B page and fixtures without
     /// RAWs. Orientation applied, scaled to `longEdge` with Lanczos. As-shot is taken as D55 / 0.
     static func developImage(url: URL, longEdge px: Int?) throws -> Developed {
@@ -100,8 +158,8 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     }
 
     /// A RAW when Core Image reads it as one, else any image ImageIO reads.
-    static func developAny(url: URL, longEdge px: Int?, rules: LookRules) throws -> Developed {
-        if isRAW(url) { return try develop(url: url, longEdge: px, rules: rules) }
+    static func developAny(url: URL, longEdge px: Int?, rules: LookRules, decoderVersion: Int? = nil, nr: Double? = nil) throws -> Developed {
+        if isRAW(url) { return try develop(url: url, longEdge: px, rules: rules, decoderVersion: decoderVersion, nr: nr) }
         return try developImage(url: url, longEdge: px)
     }
 
@@ -128,9 +186,9 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// The graph for one look on one developed image. Cheap to build; the work happens when the
     /// result is rendered. Stages at their reset value are left out, so a neutral look is the
     /// developed image (plus crop).
-    func apply(_ look: Look, to dev: Developed) -> CIImage {
+    func apply(_ look: Look, to dev: Developed, crop: Bool = true) -> CIImage {
         var img = dev.image
-        if let c = look.crop { img = cropped(img, c) }
+        if crop, let c = look.crop { img = cropped(img, c) }
         let extent = img.extent
         let longEdge = max(extent.width, extent.height)
         let gam = CIVector(x: 1 / rules.perceptualGamma, y: rules.perceptualGamma)
@@ -207,6 +265,10 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         }
         return img
     }
+
+    /// The crop and straighten alone (the canvas bakes them into its `base`, then applies the
+    /// look with `crop: false`).
+    func geometry(_ img: CIImage, _ c: Look.Crop?) -> CIImage { c.map { cropped(img, $0) } ?? img }
 
     /// Straighten about the centre, then the box as fractions of the frame (y from the top).
     private func cropped(_ img: CIImage, _ c: Look.Crop) -> CIImage {

@@ -81,6 +81,49 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 > scrolling, add rows less often (the app waits 1.5 s instead of 400 ms), don't animate row heights
 > for rows that are off screen, and don't fade in tiles for rows that were already on screen.
 
+> **9. The Edit step's canvas is native.** The Mac draws the Edit picture itself, in a Metal view
+> laid exactly over your canvas rect (no `<img>` on the slider path); the page keeps drawing the
+> filmstrip, sliders, facts line and histogram. Please, in the Edit step:
+> (a) **Report the canvas rect.** Expose `window.luminaEditRect()` → `{x, y, w, h}` of the canvas
+> in CSS px from the page's top-left (or `null` when Edit isn't showing), and call
+> `lumina.edit.layout(rect, visible)` on layout and on resize. Leave the canvas area empty (a
+> transparent or dark box) so the native view shows through.
+> (b) **Tell the Mac what the sliders do.** On entering Edit for a photo call
+> `lumina.edit.enter(p.path, lookString)` (and `lumina.edit.leave()` on leaving); on every slider
+> value call `lumina.edit.look(lookString, {drag: true})` while the thumb is held and
+> `lumina.edit.look(lookString, {key: true})` for a keystroke; call `lumina.edit.dragStart()` /
+> `lumina.edit.dragEnd()` around a drag. The Mac keeps only the newest value, renders a quarter-size
+> picture while dragging and the full one at rest. When the view is zoomed, pass the visible region
+> as `{roi: {x, y, w, h}}` in fractions of the frame.
+> (c) **Image fallback.** Without Metal the Mac hands you pictures instead: set
+> `window.luminaEditImage(url, seq, tier)` and show `url` in your Edit `<img>` (revoke nothing; the
+> Mac does). `lumina.edit.facts().canvas` is `'native'` or `'image'`.
+> (d) **The facts line.** Set `window.luminaEditFacts(text, facts)` and show `text` at the end of
+> the facts line: `canvas: native · raw 9: yes`, then `raw 9 · region` while the loupe refines,
+> `refining…` when its first tile is slow, `raw 9 · slowed by thermal state` when the Mac is hot,
+> and `raw 9 available · update the shoot?` when a newer decoder is present (a click calls
+> `lumina.edit.updateDecoder()`). `facts.raw9` tells you whether RAW 9 is active.
+> (e) **Histogram, clipping and the model's facts.** Set `window.luminaEditStats(stats)`:
+> `stats.histogram` = `{r, g, b}` of 64 bins, `stats.clipHi` / `clipLo` fractions, and, when the
+> loupe has refined a region, `stats.facts = {sharpness, clipHi, clipLo, source: 'raw9-region'}`.
+> Draw the histogram and the clipping overlay from these only (they arrive after full-quality
+> renders, never mid-drag), and when `facts.source === 'raw9-region'` prefer its sharpness and
+> clipping to the JPEG's for that tile's flag words (`soft`, `clipped`) and show `raw 9 · region`
+> next to them.
+> (f) **The loupe.** While G is held at 100 %, call `lumina.edit.loupe(true, roi)` with the
+> visible region (and `lumina.edit.loupe(false)` on release): the Mac refines that region with
+> RAW 9 and replaces the picture there.
+>
+> **10. Detail ▸ noise reduction.** One slider, *Luminance noise reduction* 0 … 100, written into
+> the look string as `nr:35` (a develop parameter: the Mac re-develops the base when it changes, so
+> a drag on it is slower than the other sliders; treat it as a keystroke slider). While
+> `lumina.edit.facts().raw9` is true, hide *Colour noise reduction*, *Detail* and *Moiré* (RAW 9
+> ignores them); show them when it is false.
+>
+> **11. Export's result block.** Show `result.decoder` when it is set (`raw 9`, or
+> `raw 8 + raw 9 · 1 file fell back`, or `raw 9 · slowed by thermal state`) as one line under the
+> counts.
+
 ## How each ask is checked once the new handoff lands
 
 - 1: `Tests/web/plumbing-harness.mjs` and `probe.sh smoke` (`app-smoke`: the Save screen shows the row before any save). Remove the `wf` block in `plumbing.js`'s view loop.
@@ -94,3 +137,8 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 - 7: `probe.sh scroll` (`scroll-fast`, `scroll-fast-2560`: blank-tile % and upscale min per tile size) and the WebKitGTK
   sandbox's `scroll` suite; `card-clock.json` measures unchanged in both modes. Then drop plumbing's warm-ahead
   block (c) and review its `readOne` repeat (a) against the new ONDIR.
+- 9–11: `Tests/web/plumbing-harness.mjs` (the `edit:` checks, image path), `probe.sh edit` and `probe.sh raw9`
+  (`edit-canvas`, `raw9`: today they force the canvas up with `lumina.edit.layout(rect, true, {force: true})`
+  because the page has no Edit step; once it does, replace that with the page's own step change and
+  `luminaEditRect`), and the contract scenario gains `luminaEditRect`, `luminaEditImage`, `luminaEditFacts`,
+  `luminaEditStats` in its hook list. Then drop plumbing's `pollRect` fallback.

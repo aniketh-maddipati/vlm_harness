@@ -66,6 +66,7 @@
   const drift = logic => { const h = readHash(logic); return h === ONDIR ? [] : ['onDir/readOne changed (fnv ' + h + '): review the native read in plumbing.js'] };
 
   // Decisions saved per shoot (SAFETY.md 2), keyed by file path so they survive files being added.
+  // (The Edit canvas API, `window.lumina.edit`, is further down; `edit` is hoisted for the loops above.)
   // Rows seen are keyed by row id; the stack regions for Z by stack. `saved` is the keeper list of
   // the last successful Save, so Quit knows whether keepers are unsaved. The Edit step's look
   // strings (roadmap "Rendering contract") live here too: `look` per photo, by path, and `rowLook`
@@ -109,11 +110,20 @@
     if (cur && logic.data.byId[cur] && !live) st.cur = cur;
     logic.setState(st);
   };
+  // Session writes debounce at 500 ms after the last Edit change (addendum §6): a slider drag
+  // never writes mid-drag; the look lands half a second after the thumb stops.
+  const SAVE_DEBOUNCE = 500;
+  let lastChange = 0, saveTimer = 0;
   const saveNow = () => {
     const l = current;
     if (!(l && l.real && shootId && !reading && !l.state.realLoad)) return;
+    if (performance.now() - lastChange < SAVE_DEBOUNCE) { scheduleSave(); return; }
     const json = JSON.stringify(snapshot(l));
     if (json !== lastSaved) { lastSaved = json; base = JSON.parse(json); native('saveSession', { id: shootId, json, summary: summary(l) }); }
+  };
+  const scheduleSave = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { saveTimer = 0; saveNow(); }, Math.max(1, SAVE_DEBOUNCE - (performance.now() - lastChange) + 1));
   };
   // Every 2 s and on every view change (SAFETY.md 2).
   let lastView = null;
@@ -125,6 +135,9 @@
       const l = current, v = l && l.state.view;
       if (v !== lastView) {
         lastView = v; saveNow();
+        // The Edit canvas overlay shows only while Edit is the active step.
+        if (v !== 'edit' && edit.state().visible && !edit.state().force) edit.layout(null, false);
+        if (v === 'edit') edit.pollRect();
         // Save shows "Remove Lumina's working files (size)" once it knows the size; in the app the
         // page only asks after a save. Give it the size when Save opens.
         if (v === 'export' && typeof l.exSet === 'function') {
@@ -174,8 +187,11 @@
       if (!logic.real || !logic.real.length) return;
       const info = logic.state.realInfo || {};
       const first = logic.real.map(p => p.date).filter(Boolean).sort()[0] || '';
-      const r = await native('shootOpened', { name: info.name, n: logic.real.length, date: first });
+      // One RAW per body: the Mac measures each body's decoder map once (RAW 9 §1) for the shoot header.
+      const bodies = {}; for (const p of logic.real) { const m = p.model || '?', k = keyOf(p); if (m && k && !bodies[m]) bodies[m] = (info.name || '') + '/' + k; }
+      const r = await native('shootOpened', { name: info.name, n: logic.real.length, date: first, bodies });
       shootId = r && r.id; lastSaved = ''; base = null; savedKeepers = null;
+      edit.header(r && r.header);
       if (r && r.session) { try { restore(logic, JSON.parse(r.session), readMoved); } catch (_) {} }
       // Decisions made while the folder was read aren't in the session yet: the next save sends them.
       lastSaved = readMoved ? '' : JSON.stringify(snapshot(logic));
@@ -400,10 +416,6 @@
     if (l && l !== current) { current = l; patch(l); if (!missing(l).length) native('ready', {}); }
     setTimeout(watch, current ? 1000 : 30);
   };
-  watch();
-  saveLoop();
-  viewLoop();
-
 
   // Previews around the cursor are read ahead into the Mac's cache (never into the page).
   let lastCur = null;
@@ -452,8 +464,131 @@
   };
   document.addEventListener('scroll', () => { if (!warmRaf) warmRaf = requestAnimationFrame(warmAhead); }, { capture: true, passive: true });
 
+  // ——— The Edit canvas (roadmap addendum, RAW 9). Behaviour and data only: the page draws the
+  // filmstrip, sliders and facts; the Mac draws the pixels, either natively (an MTKView over the
+  // page's canvas rect: `canvas: native`) or, without Metal, through lumina://render images the
+  // page shows in its own <img> (`canvas: image`). The page calls `lumina.edit.*` and may set the
+  // hooks below (DESIGN-ASKS.md); everything degrades to no-ops when a hook is absent.
+  //   window.luminaEditRect()            → {x, y, w, h} of the canvas in CSS px, or null (polled while Edit shows)
+  //   window.luminaEditImage(url, seq, tier)   image path: show this blob URL in the Edit <img>
+  //   window.luminaEditFacts(text, facts)      the facts line: "canvas: native · raw 9: yes · raw 9 · region"
+  //   window.luminaEditStats(stats)            after a rest render: histogram, clipping, region facts
+  const hook = (name, ...a) => { try { return typeof window[name] === 'function' ? window[name](...a) : undefined; } catch (_) { return undefined; } };
+  const wall = () => (performance.timeOrigin || 0) + performance.now();
+  const dpr = () => Math.max(1, window.devicePixelRatio || 1);
+  const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?' + new URLSearchParams(q).toString();
+  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0 };
+  // The image path's latest-wins renderer (addendum §7): one fetch in flight, the newest look
+  // waits, a quarter-size render while dragging, the full one at rest (drag end, key, 120 ms idle).
+  const img = { pending: null, inFlight: false, shown: 0, tier: null, url: null, fetches: 0, superseded: 0, restTimer: 0, last: null };
+  const imgSubmit = (tier, key) => {
+    if (!ed.rel || !ed.rect) return;
+    ed.seq++;
+    img.pending = { look: ed.look, seq: ed.seq, tier, key: !!key };
+    clearTimeout(img.restTimer); img.restTimer = 0;
+    if (tier === 'small') img.restTimer = setTimeout(() => { if (ed.rel && img.tier !== 'base') imgSubmit('base'); }, 120);
+    imgRender();
+  };
+  const imgRender = async () => {
+    if (img.inFlight || !img.pending || !ed.rel || !ed.rect) return;
+    const p = img.pending; img.pending = null; img.inFlight = true; img.fetches++;
+    const px = Math.max(64, Math.round(Math.max(ed.rect.w, ed.rect.h) * dpr()));
+    const q = { look: p.look, px, seq: p.seq, tier: p.tier }; if (ed.decoder != null) q.decoder = ed.decoder;
+    try {
+      const r = await fetch(renderURL(ed.rel, q));
+      if (r.status === 409) img.superseded++;
+      else if (r.ok && p.seq > img.shown) {
+        const u = URL.createObjectURL(await r.blob()), old = img.url;
+        img.url = u; img.shown = p.seq; img.tier = p.tier; img.last = p;
+        hook('luminaEditImage', u, p.seq, p.tier);
+        if (old) setTimeout(() => URL.revokeObjectURL(old), 1000);
+      }
+    } catch (_) {}
+    img.inFlight = false;
+    if (img.pending) imgRender();
+  };
+  const factsText = () => {
+    const h = ed.header || {}, parts = ['canvas: ' + ed.path];
+    if (h.raw9Present != null) parts.push('raw 9: ' + (h.raw9 ? 'yes' : h.raw9Present ? 'pinned to raw ' + h.decoder : 'no'));
+    if (h.offerUpdate) parts.push('raw ' + h.newest + ' available · update the shoot?');
+    if (ed.native) { const n = ed.native.replace(/^canvas: (native|image)( · )?/, ''); if (n) parts.push(n); }
+    return parts.join(' · ');
+  };
+  const pushFacts = () => { const t = factsText(); if (t !== ed.factsText) { ed.factsText = t; hook('luminaEditFacts', t, edit.facts()); } };
+  const photoAt = (l, rel) => { for (const [id, p] of Object.entries(l.data.byId)) if ((l.state.realInfo && l.state.realInfo.name || '') + '/' + keyOf(p) === rel || p.path === rel) return [id, p]; return [null, null]; };
+  const edit = {
+    // Entering Edit for a photo (its path, "<folder>/DSC.ARW"): the Mac builds its bases now and its
+    // neighbours' in the background. `look` is the photo's look string.
+    async enter(rel, look) {
+      const l = current; if (!l || !l.data) return null;
+      const [id, p] = photoAt(l, rel); if (!p) return null;
+      const o = l.data.order, k = o.indexOf(id), nb = d => { const q = l.data.byId[o[k + d]]; return q ? [q.path, previewOf(q.lg)] : [null, null]; };
+      const [prev, prevPreview] = nb(-1), [next, nextPreview] = nb(1);
+      ed.rel = rel; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = false; ed.roi = null;
+      img.shown = 0; img.tier = null; img.pending = null; ed.seq = 0;
+      const r = await native('canvasEnter', { rel, look: ed.look, model: ed.model, preview: previewOf(p.lg), prev, prevPreview, next, nextPreview });
+      if (r && typeof r === 'object') { ed.header = Object.assign({}, ed.header || {}, r); ed.path = r.canvas || 'image'; ed.decoder = r.decoderCanvas != null ? r.decoderCanvas : null; }
+      pushFacts();
+      if (ed.path === 'image') imgSubmit('base', true);
+      return edit.facts();
+    },
+    leave() { ed.rel = null; ed.loupe = false; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
+    // The canvas rect in CSS px from the page's top-left, on layout and resize; `visible` = Edit shows.
+    // {force: true} (the probe) keeps the canvas up whatever the page's view is.
+    layout(rect, visible, o) {
+      ed.force = !!(o && o.force) && !!visible;
+      ed.rect = rect && rect.w > 0 && rect.h > 0 ? { x: rect.x, y: rect.y, w: rect.w, h: rect.h } : null; ed.visible = !!visible && !!ed.rect;
+      native('canvasLayout', Object.assign({ visible: ed.visible, dpr: dpr() }, ed.rect || { x: 0, y: 0, w: 0, h: 0 })).then(r => { if (r && r.path) { ed.path = r.path; pushFacts(); } }).catch(() => {});
+      if (ed.path === 'image' && ed.visible && ed.rel && !img.shown) imgSubmit('base', true);
+    },
+    // A slider value, as often as the slider emits. {drag: true} while the thumb is held, {key: true}
+    // for a keystroke, roi: the visible region {x, y, w, h} in fractions of the frame when zoomed.
+    look(look, o) {
+      o = o || {};
+      ed.look = look; lastChange = performance.now(); scheduleSave();
+      if (o.roi !== undefined) ed.roi = o.roi;
+      if (!ed.rel) return 0;
+      if (ed.path === 'native') { native('canvasLook', { look, drag: !!o.drag && !o.key, key: !!o.key, roi: ed.roi, t: wall() }).catch(() => {}); return ++ed.seq; }
+      imgSubmit(o.drag && !o.key ? 'small' : 'base', o.key); return ed.seq;
+    },
+    dragStart() { ed.dragging = true; lastChange = performance.now(); if (ed.rel) native('canvasDrag', { start: true }); },
+    dragEnd() { ed.dragging = false; lastChange = performance.now(); scheduleSave(); if (!ed.rel) return; native('canvasDrag', { start: false }); if (ed.path === 'image') { clearTimeout(img.restTimer); imgSubmit('base'); } },
+    // 100 % with G held: RAW 9 on the visible region (RAW 9 §2).
+    loupe(on, roi) { ed.loupe = !!on; if (roi) ed.roi = roi; if (ed.rel) native('canvasLoupe', { on: !!on, roi: ed.roi }); },
+    // The facts line's inputs: the canvas path, raw 9 yes/no, the pin, the offer.
+    facts() { return Object.assign({ text: factsText(), canvas: ed.path, rel: ed.rel }, ed.header || {}); },
+    // The Mac's numbers (the probe reads them): latency, dropped frames, bases resident, tiles, …
+    stats(reset) { return native('canvasStats', { reset: !!reset }); },
+    // The facts line's offer: pin the shoot to the newest decoder (RAW 9 §7).
+    updateDecoder() { return native('decoderUpdate', {}).then(h => { edit.header(h); return edit.facts(); }); },
+    header(h) { if (h && typeof h === 'object') { ed.header = Object.assign({}, ed.header || {}, h); if (h.canvas) ed.path = h.canvas; } pushFacts(); },
+    // The page reports its rect itself (layout), or exposes luminaEditRect(): polled while Edit shows.
+    pollRect() {
+      clearTimeout(ed.rectTimer);
+      const l = current; if (!l || l.state.view !== 'edit' || typeof window.luminaEditRect !== 'function') return;
+      const r = window.luminaEditRect();
+      const same = ed.rect && r && ed.rect.x === r.x && ed.rect.y === r.y && ed.rect.w === r.w && ed.rect.h === r.h;
+      if (!same || !ed.visible) edit.layout(r, !!r);
+      ed.rectTimer = setTimeout(edit.pollRect, 250);
+    },
+    get image() { return img.url; },
+    state() { return { rel: ed.rel, look: ed.look, path: ed.path, rect: ed.rect, visible: ed.visible, force: !!ed.force, dragging: ed.dragging, seq: ed.seq, loupe: ed.loupe, roi: ed.roi,
+      image: { shown: img.shown, tier: img.tier, fetches: img.fetches, superseded: img.superseded, inFlight: img.inFlight, pending: !!img.pending, url: img.url }, facts: ed.factsText, header: ed.header }; },
+  };
+  window.lumina.edit = edit;
+  window.addEventListener('resize', () => { if (ed.visible || (current && current.state.view === 'edit')) edit.pollRect(); });
+
+  watch();
+  saveLoop();
+  viewLoop();
+
   // Native → page. Only the page's own actions and hooks are used.
   window.__lumina = {
+    // The Edit canvas talking back: the facts line, rest-render stats, the shoot header.
+    editFacts(text) { ed.native = text || ''; pushFacts(); },
+    editStats(stats) { hook('luminaEditStats', stats); },
+    editHeader(h) { edit.header(h); },
+    edit: () => edit.state(),
     logic: () => current || findLogic(),
     ready: () => !!(current && current.__luminaPlumbed && !missing(current).length),
     missing: () => { const l = current || findLogic(); return l ? missing(l) : ['page not found']; },
