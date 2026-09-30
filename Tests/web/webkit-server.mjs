@@ -7,7 +7,7 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
-import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot } from './lib.mjs';
+import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot, makeBigJpegs, makeBigShoot } from './lib.mjs';
 
 const port = +(process.argv[2] || 8765), work = path.resolve(process.argv[3] || '/tmp/lumina-webkit');
 fs.mkdirSync(work, { recursive: true });
@@ -34,6 +34,19 @@ const ctl = async (op, a) => {
     case 'shoot': {   // { name, others: [], sidecars: {} } → folder path
       const dir = path.join(work, 'shoots', a.name);
       makeShoot(dir, jpegs, { others: a.others || [], sidecars: a.sidecars || {} });
+      return dir;
+    }
+    case 'bigshoot': {   // { name, n } → folder of n camera-sized synthetic ARWs
+      const bj = path.join(work, 'jpegs-big');
+      if (!fs.existsSync(bj) || fs.readdirSync(bj).length < 24) {
+        fs.mkdirSync(bj, { recursive: true });
+        const b = await pw.chromium.launch();
+        (await makeBigJpegs(b, 24)).forEach((j, i) => fs.writeFileSync(path.join(bj, i + '.jpg'), j));
+        await b.close();
+      }
+      const big = fs.readdirSync(bj).sort((a, b) => parseInt(a) - parseInt(b)).map(f => fs.readFileSync(path.join(bj, f)));
+      const dir = path.join(work, 'shoots', a.name);
+      makeBigShoot(dir, big, a.n || 400);
       return dir;
     }
     case 'folder': { const dir = path.join(work, 'shoots', a.name); fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true }); for (const n of a.files || []) fs.writeFileSync(path.join(dir, n), 'x'); return dir; }

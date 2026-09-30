@@ -32,7 +32,7 @@ PORT = int(os.environ.get('LUMINA_WEBKIT_PORT', '8765'))
 ORIGIN = f'http://127.0.0.1:{PORT}'
 args = sys.argv[1:]
 OUT = args[args.index('--out') + 1] if '--out' in args else os.path.join(os.environ.get('LUMINA_HARNESS_TMP', '/tmp'), 'lumina-webkit')
-suites = [a for i, a in enumerate(args) if not a.startswith('--') and (i == 0 or args[i - 1] != '--out')] or ['contract', 'selftest', 'flow', 'screens']
+suites = [a for i, a in enumerate(args) if not a.startswith('--') and (i == 0 or args[i - 1] != '--out')] or ['contract', 'selftest', 'flow', 'screens']   # 'scroll' runs only when named
 os.makedirs(OUT, exist_ok=True)
 FAILS = []
 
@@ -363,6 +363,61 @@ def screens():
             ok(same, '%s/%s.state.json identical' % (name, k), keys)
 
 
+SCROLL = r"""
+const L = () => __lumina.logic(), res = {};
+const dir = await C('bigshoot', { name: 'big', n: %(n)d });
+const t0 = performance.now(); await C('pick', { path: dir }); __lumina.openFolder();
+await until(() => L().real && L().real.length && !L().state.realLoad && L().state.realInfo, 300000);
+res.photos = L().real.length; res.readSecs = +((performance.now() - t0) / 1000).toFixed(1);
+L().setState({ tsz: 2 }); await W(800);                               // the largest tiles: the worst case for sharpness
+const el = L().scrollRef.current, cssW = el.clientWidth;
+const tiles = () => { const vr = el.getBoundingClientRect(); return [...document.querySelectorAll('[data-tile] img')].filter(im => { const r = im.getBoundingClientRect(); return r.width > 0 && r.bottom > vr.top && r.top < vr.bottom; }); };
+const shown = im => im.complete && im.naturalWidth > 0 && +getComputedStyle(im).opacity > 0.99;
+// thumbnail pixels per displayed pixel on a Retina (2×) screen; < 1 means the thumbnail is stretched
+const up = () => { const t = tiles().filter(im => im.naturalWidth); const v = t.map(im => im.naturalWidth / (im.clientWidth * 2)).sort((a, b) => a - b); return v.length ? { min: +v[0].toFixed(2), median: +v[v.length >> 1].toFixed(2), tileCss: Math.round(t[0].clientWidth), thumbPx: t[0].naturalWidth } : null; };
+res.upscale = up(); res.dpr = devicePixelRatio;
+const sizes = await Promise.all(L().real.slice(0, 40).map(p => fetch(p.src).then(r => r.blob()).then(b => b.size)));
+res.thumbKB = +(sizes.reduce((a, b) => a + b, 0) / sizes.length / 1024).toFixed(1);
+res.thumbMBper1000 = +(res.thumbKB * 1000 / 1024).toFixed(0);
+const run = async (pxPerFrame, ms) => {
+  el.scrollTop = 0; await W(600);
+  const gaps = [], blanks = []; let last = performance.now(), tEnd = last + ms;
+  await new Promise(done => { const f = now => { gaps.push(now - last); last = now; el.scrollTop += pxPerFrame;
+    const t = tiles(); blanks.push(t.length ? t.filter(im => !shown(im)).length / t.length : 0);
+    if (now < tEnd && el.scrollTop + el.clientHeight < el.scrollHeight - 2) requestAnimationFrame(f); else done(); }; requestAnimationFrame(f); });
+  const s0 = performance.now(); let settle = null;
+  while (performance.now() - s0 < 5000) { const t = tiles(); if (t.length && t.every(shown)) { settle = Math.round(performance.now() - s0); break; } await W(16); }
+  gaps.sort((a, b) => a - b); blanks.sort((a, b) => a - b);
+  const pct = (a, p) => a[Math.min(a.length - 1, Math.floor(p * a.length))];
+  return { pxPerFrame, frames: gaps.length, frameP50: +pct(gaps, 0.5).toFixed(1), frameP95: +pct(gaps, 0.95).toFixed(1), over33: gaps.filter(g => g > 33.4).length,
+    blankMean: +(blanks.reduce((a, b) => a + b, 0) / blanks.length * 100).toFixed(1), blankP95: +(pct(blanks, 0.95) * 100).toFixed(1), settleMs: settle };
+};
+res.slow = await run(15, 2500);    // a trackpad glide
+res.fast = await run(90, 2500);    // a hard flick
+res.fling = await run(220, 2000);  // faster than anyone reads
+res.errors = window.__errors;
+return res;
+"""
+
+
+def scroll():
+    ctl('reset')
+    n = int(os.environ.get('LUMINA_SCROLL_N', '400'))
+    p = Page(app=True, size=(1440, 900))
+    ok(ready(p, True), 'scroll: page ready')
+    r = p.js(SCROLL % {'n': n}, timeout=900)
+    json.dump(r, open(os.path.join(OUT, 'scroll.json'), 'w'), indent=1)
+    print('     %d photos read in %.1f s · thumbnail %s px for a %s px tile (%.1f KB each, ~%d MB per 1,000)' % (
+        r['photos'], r['readSecs'], (r['upscale'] or {}).get('thumbPx'), (r['upscale'] or {}).get('tileCss'), r['thumbKB'], r['thumbMBper1000']))
+    print('     upscale on Retina (thumb px / displayed px, want ≥ 1): %s' % json.dumps(r['upscale']))
+    for k in ('slow', 'fast', 'fling'):
+        x = r[k]
+        print('     %-5s %3d px/frame: frames p50 %5.1f ms p95 %5.1f ms, %d over 33 ms · blank/fading tiles mean %4.1f%% p95 %4.1f%% · all shown %s ms after stop' % (
+            k, x['pxPerFrame'], x['frameP50'], x['frameP95'], x['over33'], x['blankMean'], x['blankP95'], x['settleMs']))
+    ok(not r['errors'], 'scroll: no page errors', r['errors'])
+    p.close()
+
+
 if __name__ == '__main__':
     server = subprocess.Popen(['node', os.path.join(ROOT, 'Tests/web/webkit-server.mjs'), str(PORT), os.path.join(OUT, 'work')], stdout=subprocess.PIPE, text=True)
     line = server.stdout.readline()
@@ -371,7 +426,7 @@ if __name__ == '__main__':
     try:
         for s in suites:
             print('— ' + s, flush=True)
-            {'contract': contract, 'selftest': selftest, 'flow': flow, 'screens': screens}[s]()
+            {'contract': contract, 'selftest': selftest, 'flow': flow, 'screens': screens, 'scroll': scroll}[s]()
     finally:
         server.terminate()
     print(('%d FAIL' % len(FAILS)) if FAILS else 'all ok', '· evidence in', OUT)

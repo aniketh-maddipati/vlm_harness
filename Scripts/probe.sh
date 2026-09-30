@@ -5,6 +5,7 @@
 #                                                Tests/probe/reference/manifest.json (--record rewrites it)
 #   bash Scripts/probe.sh smoke                  the v5 page runs, its ?selftest passes, plumbing fits, and the app reads,
 #                                                keeps, saves sidecars into the folder, reopens (app-smoke needs LUMINA_FIXTURE_ROOT)
+#   bash Scripts/probe.sh scroll                 fast scroll in Cull on a real card: frame pacing, blank tiles, thumbnail sharpness (needs LUMINA_CARD_DIR)
 #   bash Scripts/probe.sh selftest               the design's own ?selftest (25 checks, key and large-view timing)
 #   bash Scripts/probe.sh contract               plumbing.js still fits the page (run by sets_sync_design.sh)
 #   bash Scripts/probe.sh fuzz                   seeded key/mouse storms on the sample shoot
@@ -97,6 +98,7 @@ case "$suite" in
   sync)      echo "use: bash Scripts/sets_sync_design.sh <handoff.zip>"; exit 2 ;;
   smoke)     run "$S/smoke.json" "$S/keys-open-return.json" "$S/selftest.json" "$S/app-plumbing-contract.json" "$S/app-smoke.json" ;;
   selftest)  run "$S/selftest.json" ;;
+  scroll)    run "$S/scroll-fast.json" ;;                 # fast scroll on a real card: frames, blank tiles, thumbnail sharpness (needs LUMINA_CARD_DIR)
   fuzz)      run "$S"/fuzz-sample-*.json ;;
   edge)      run "$S"/edge-*.json ;;
   ingest)    LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
