@@ -16,7 +16,7 @@
 #   bash Scripts/probe.sh scroll                 scrolling Cull while a folder reads (no jump when it ends), then fast scrolling at
 #                                                1440×900 and 2560×1440: frame pacing, blank tiles, thumbnail
 #                                                upscale, memory. Folder: LUMINA_SCROLL_DIR, else LUMINA_CARD_DIR (only read), else
-#                                                408 APFS clones of LUMINA_FIXTURE_ROOT/src in 5-frame bursts (built once)
+#                                                408 APFS clones of LUMINA_FIXTURE_ROOT/src, 20 s apart (built once)
 #   bash Scripts/probe.sh v3                     the scenarios still written for the v3 page (see V3 below): expected to fail
 #   bash Scripts/probe.sh all [--require-all]    everything v5; --require-all turns a SKIP into a failure
 #
@@ -96,14 +96,13 @@ V3=(app-export app-session app-xmp-lightroom app-xmp-both app-rename-mid-cull lo
     card-stress card-stress-app fault-card-pull-export fault-card-pull-read fault-disk-full fault-readonly-card fuzz-app-card)
 v3files() { for n in "${V3[@]}"; do echo "$S/$n.json"; done; }
 
-# A folder big enough to scroll. The fixtures hold 12 real frames: 408 clones (APFS, no extra space)
-# restamped as 5-frame bursts, 1 s apart, 2 min between bursts, cycling through the frames: real
-# stacks (a burst is one frame five times) as well as single tiles and rows.
+# A folder big enough to scroll. The fixtures hold 12 real frames: clone them (APFS, no extra space)
+# 34 times and restamp every clone 20 s apart, so each is its own tile rather than one big stack.
 scrolldir() {
   [[ -n ${LUMINA_SCROLL_DIR:-} ]] && return
   if [[ -n ${LUMINA_CARD_DIR:-} ]]; then export LUMINA_SCROLL_DIR="$LUMINA_CARD_DIR"; return; fi
   [[ -n $LUMINA_FIXTURE_ROOT && -d $LUMINA_FIXTURE_ROOT/src ]] || return 0      # unset: the scenarios SKIP
-  local d="$LUMINA_FIXTURE_ROOT/scroll-408-bursts"
+  local d="$LUMINA_FIXTURE_ROOT/scroll-408"
   if [[ ! -f $d/.done ]]; then
     local exif; exif="$(command -v exiftool || ls /opt/homebrew/bin/exiftool /usr/local/bin/exiftool 2>/dev/null | head -1)"
     [[ -x $exif ]] || { echo "scroll: exiftool not found (needed once to build $d)" >&2; return 0; }
@@ -111,12 +110,13 @@ scrolldir() {
     local src=("$LUMINA_FIXTURE_ROOT"/src/*.[aA][rR][wW]) args="$d/.args" i=0 t0 t
     t0=$(date -j -f "%Y-%m-%d %H:%M:%S" "2026-09-01 09:00:00" +%s)
     : > "$args"
-    for i in $(seq 0 407); do
-      local n f; n=$(printf "DSC%05d.ARW" $((10001 + i))); f="${src[$(( (i / 5) % ${#src[@]} ))]}"
+    for rep in $(seq 1 34); do for f in "${src[@]}"; do
+      local n; n=$(printf "DSC%05d.ARW" $((10001 + i)))
       cp -c "$f" "$d/$n" 2>/dev/null || cp "$f" "$d/$n"
-      t=$(date -r $((t0 + (i / 5) * 120 + i % 5)) "+%Y:%m:%d %H:%M:%S")
+      t=$(date -r $((t0 + i * 20)) "+%Y:%m:%d %H:%M:%S")
       printf -- "-overwrite_original\n-DateTimeOriginal=%s\n-CreateDate=%s\n%s\n-execute\n" "$t" "$t" "$d/$n" >> "$args"
-    done
+      i=$((i + 1))
+    done; done
     "$exif" -q -q -@ "$args" && rm -f "$args" && touch "$d/.done"
   fi
   export LUMINA_SCROLL_DIR="$d"
