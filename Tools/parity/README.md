@@ -34,9 +34,12 @@ golden ARWs (~/LuminaEvidence/parity/golden)       golden.json (metadata only, c
 ## One-time setup on the Mac
 
 ```bash
-python3 -m pip install -r Tools/parity/requirements.txt
+python3 -m venv ~/LuminaEvidence/parity/venv && source ~/LuminaEvidence/parity/venv/bin/activate   # Homebrew's python refuses system-wide installs
+pip install -r Tools/parity/requirements.txt
 mkdir -p ~/LuminaEvidence/parity/{golden,refs,render,report}
 ```
+
+Every `python3 …` and `make …` below assumes that venv is active (or pass `PY=~/LuminaEvidence/parity/venv/bin/python` to make).
 
 ### 1. The golden set (50 ARWs)
 

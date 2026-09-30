@@ -98,8 +98,8 @@ jobs:
         run: |
           swift build -c release --package-path Tools/parity/lumina-render
           Tools/parity/lumina-render/.build/release/lumina-render ramp --out "${{ runner.temp }}/ramp.json"
-          python3 -m pip install -q -r Tools/parity/requirements.txt
-          python3 Tools/parity/lookmath.py --check "${{ runner.temp }}/ramp.json"
+          python3 -m venv "${{ runner.temp }}/venv" && "${{ runner.temp }}/venv/bin/pip" install -q -r Tools/parity/requirements.txt
+          "${{ runner.temp }}/venv/bin/python" Tools/parity/lookmath.py --check "${{ runner.temp }}/ramp.json"
 
   probe:
     name: probe in WKWebView (no fixtures)
