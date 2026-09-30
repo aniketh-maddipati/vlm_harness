@@ -102,7 +102,7 @@ EOF
 # export to a picked folder). They need rewriting for v5 before they mean anything; see
 # Tests/probe/EDGE-CASES.md. `probe.sh v3` runs them anyway.
 V3=(app-export app-session app-xmp-lightroom app-xmp-both app-rename-mid-cull look-parity app-empty-start
-    card-stress card-stress-app fault-card-pull-export fault-card-pull-read fault-disk-full fault-readonly-card fuzz-app-card)
+    card-stress card-stress-app fault-card-pull-export fault-card-pull-read fault-disk-full fuzz-app-card)
 v3files() { for n in "${V3[@]}"; do echo "$S/$n.json"; done; }
 
 # A folder big enough to scroll. The fixtures hold 12 real frames: clone them (APFS, no extra space)
@@ -150,7 +150,7 @@ case "$suite" in
   card)      run "$S/golden-card.json" "$S/card-clock.json" ;;
   app)       run "$S/app-plumbing-contract.json" "$S/app-smoke.json" ;;
   contract)  run "$S/app-plumbing-contract.json" ;;
-  fault)     run "$S/fault-kill-mid-handoff.json" "$S/fault-native-dest.json" ;;   # native only: kill -9 mid-write, disk full mid-copy
+  fault)     run "$S/fault-kill-mid-handoff.json" "$S/fault-native-dest.json" "$S/fault-readonly-card.json" ;;   # native only: kill -9 mid-write, disk full mid-copy
   scroll)    scrolldir; run "$S/scroll-read.json" "$S/scroll-fast.json" "$S/scroll-fast-2560.json" ;;
   edit)      editdir; run "$S/edit-canvas.json"
              echo "— image fallback path (LUMINA_CANVAS=image) —"
