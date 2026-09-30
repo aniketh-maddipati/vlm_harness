@@ -72,6 +72,9 @@ LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh card         # 
 bash Scripts/probe.sh v3            # scenarios still written for the v3 page: expected to fail until rewritten
 ```
 
+Day-to-day app: `bash Scripts/install_app.sh` builds this checkout (Release) into `/Applications/Lumina.app`,
+the copy the Dock and Spotlight open, and removes older builds from Launch Services.
+
 Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh`. It only reads the card.
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 

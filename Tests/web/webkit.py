@@ -34,7 +34,7 @@ PORT = int(os.environ.get('LUMINA_WEBKIT_PORT', '8765'))
 ORIGIN = f'http://127.0.0.1:{PORT}'
 args = sys.argv[1:]
 OUT = args[args.index('--out') + 1] if '--out' in args else os.path.join(os.environ.get('LUMINA_HARNESS_TMP', '/tmp'), 'lumina-webkit')
-suites = [a for i, a in enumerate(args) if not a.startswith('--') and (i == 0 or args[i - 1] != '--out')] or ['contract', 'selftest', 'flow', 'screens']
+suites = [a for i, a in enumerate(args) if not a.startswith('--') and (i == 0 or args[i - 1] != '--out')] or ['contract', 'selftest', 'flow', 'screens']   # 'scroll' runs only when named
 os.makedirs(OUT, exist_ok=True)
 FAILS = []
 
@@ -389,7 +389,7 @@ SCROLL_N = int(os.environ.get('LUMINA_SCROLL_N', '400'))
 
 
 def scroll():
-    shoot = ctl('bigShoot', name='scroll-%d' % SCROLL_N, n=SCROLL_N)
+    shoot = ctl('bigshoot', name='scroll-%d' % SCROLL_N, n=SCROLL_N)
     rows = []
     for size in ((1440, 900), (2560, 1440)):
         ctl('reset')

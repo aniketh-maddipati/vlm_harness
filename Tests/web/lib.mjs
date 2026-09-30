@@ -66,42 +66,6 @@ export async function makeJpegs(browser, n) {
   return out.map(b => Buffer.from(b, 'base64'));
 }
 
-// Camera-sized previews (a Sony A7 IV embeds 1616 × 1080) with fine detail, so softness and JPEG
-// artefacts in the grid thumbnails can be measured.
-export async function makeDetailJpegs(browser, n, w = 1616, h = 1080) {
-  const p = await browser.newPage();
-  const out = await p.evaluate(async ([n, w, h]) => {
-    const r = [];
-    for (let i = 0; i < n; i++) {
-      const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
-      const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, `hsl(${(i * 37) % 360},45%,35%)`); g.addColorStop(1, `hsl(${(i * 37 + 140) % 360},45%,60%)`);
-      x.fillStyle = g; x.fillRect(0, 0, w, h);
-      x.strokeStyle = 'rgba(255,255,255,0.8)'; x.lineWidth = 1;
-      for (let k = 0; k < 90; k++) { x.beginPath(); x.moveTo((k * 97 + i * 13) % w, 0); x.lineTo((k * 53 + i * 29) % w, h); x.stroke(); }
-      for (let k = 0; k < 80; k++) { x.fillStyle = `hsl(${(i * 13 + k * 29) % 360},70%,${(k * 7) % 100}%)`; x.beginPath(); x.arc((k * 131 + i * 17) % w, (k * 71) % h, 8 + (k % 7) * 9, 0, 7); x.fill(); }
-      x.font = '28px sans-serif'; x.fillStyle = '#fff'; for (let k = 0; k < 12; k++) x.fillText('DSC ' + i + ' · 1/250 f/2.8 ISO 400', 40, 80 + k * 80);
-      const d = x.getImageData(0, 0, w, h), a = d.data; let s = i * 9973 + 1;
-      for (let j = 0; j < a.length; j += 4) { s = (s * 1103515245 + 12345) & 0x7fffffff; const v = (s % 25) - 12; a[j] += v; a[j + 1] += v; a[j + 2] += v; }
-      x.putImageData(d, 0, 0);
-      r.push(c.toDataURL('image/jpeg', 0.9).split(',')[1]);
-    }
-    return r;
-  }, [n, w, h]);
-  await p.close();
-  return out.map(b => Buffer.from(b, 'base64'));
-}
-
-// `n` ARWs, one every 20 s (no bursts, so no stacks: every frame is its own tile), one portrait in 7.
-export function makeBigShoot(dir, jpegs, n) {
-  fs.rmSync(dir, { recursive: true, force: true });
-  fs.mkdirSync(dir, { recursive: true });
-  const t0 = Date.UTC(2026, 8, 1, 9, 0, 0);
-  for (let i = 0; i < n; i++) {
-    const t = new Date(t0 + i * 20000).toISOString(), date = t.slice(0, 10).replace(/-/g, ':') + ' ' + t.slice(11, 19);
-    fs.writeFileSync(path.join(dir, 'DSC' + String(10001 + i).padStart(5, '0') + '.ARW'), tiff({ date, jpeg: jpegs[i % jpegs.length], orient: i % 7 === 3 ? 6 : 1, pad: 0 }));
-  }
-}
-
 export function makeShoot(dir, jpegs, { others = [], sidecars = {} } = {}) {
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(path.join(dir, 'sub'), { recursive: true });
@@ -113,6 +77,40 @@ export function makeShoot(dir, jpegs, { others = [], sidecars = {} } = {}) {
   });
   for (const o of others) fs.writeFileSync(path.join(dir, o), 'x');
   for (const [n, t] of Object.entries(sidecars)) fs.writeFileSync(path.join(dir, n), t);
+}
+
+// A camera-sized preview (1616×1080, as an α7's embedded JPEG) full of fine detail (hairlines, text,
+// foliage-like noise), so a soft or over-compressed thumbnail is measurable.
+export async function makeBigJpegs(browser, n) {
+  const p = await browser.newPage();
+  const out = await p.evaluate(async n => {
+    const r = [];
+    for (let i = 0; i < n; i++) {
+      const W = 1616, H = 1080, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+      const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, `hsl(${(i * 47) % 360},45%,72%)`); g.addColorStop(1, `hsl(${(i * 47 + 120) % 360},35%,28%)`);
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      let s = i * 9301 + 49297; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+      for (let k = 0; k < 900; k++) { x.strokeStyle = `hsla(${(rnd() * 360) | 0},40%,${(rnd() * 60 + 10) | 0}%,0.9)`; x.lineWidth = rnd() * 2 + 0.5; const px = rnd() * W, py = H * 0.45 + rnd() * H * 0.55; x.beginPath(); x.moveTo(px, py); x.lineTo(px + (rnd() - 0.5) * 18, py - rnd() * 140); x.stroke(); }
+      x.fillStyle = '#fff'; x.font = '22px sans-serif'; for (let k = 0; k < 14; k++) x.fillText('DSC0' + (1000 + i) + ' · 1/250 · f/8 · ISO 400 · 35 mm', 40, 60 + k * 30);
+      for (let k = 0; k < 60; k++) { x.fillStyle = k % 2 ? '#000' : '#fff'; x.fillRect(W - 300 + k * 4, 40, 2, 200); }
+      r.push(c.toDataURL('image/jpeg', 0.9).split(',')[1]);
+    }
+    return r;
+  }, n);
+  await p.close();
+  return out.map(b => Buffer.from(b, 'base64'));
+}
+
+// n ARWs on one day: bursts of 5 one second apart, 2 min between bursts, a new row every 40 frames.
+export function makeBigShoot(dir, jpegs, n) {
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  let t = 9 * 3600;
+  for (let i = 0; i < n; i++) {
+    t += i % 40 === 0 && i ? 20 * 60 : i % 5 === 0 ? 120 : 1;
+    const hh = String(Math.floor(t / 3600)).padStart(2, '0'), mm = String(Math.floor(t / 60) % 60).padStart(2, '0'), ss = String(t % 60).padStart(2, '0');
+    fs.writeFileSync(path.join(dir, 'DSC' + String(10001 + i).padStart(5, '0') + '.ARW'), tiff({ date: `2026:09:01 ${hh}:${mm}:${ss}`, jpeg: jpegs[i % jpegs.length], orient: i % 23 === 7 ? 6 : 1, pad: 4096 + jpegs[i % jpegs.length].length + 16 }));
+  }
 }
 
 // ——— the Swift bridge, in Node (what SetsBridge answers)

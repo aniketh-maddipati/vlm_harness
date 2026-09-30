@@ -8,7 +8,7 @@ import http from 'http';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot, makeDetailJpegs, makeBigShoot } from './lib.mjs';
+import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot, makeBigJpegs, makeBigShoot } from './lib.mjs';
 
 const port = +(process.argv[2] || 8765), work = path.resolve(process.argv[3] || '/tmp/lumina-webkit');
 fs.mkdirSync(work, { recursive: true });
@@ -49,15 +49,17 @@ const ctl = async (op, a) => {
       makeShoot(dir, jpegs, { others: a.others || [], sidecars: a.sidecars || {} });
       return dir;
     }
-    case 'bigShoot': {   // { name, n } → a folder of n ARWs with camera-sized previews (the scroll suite)
-      const dir = path.join(work, 'shoots', a.name), big = path.join(work, 'jpegs-1616');
-      if (!fs.existsSync(big) || fs.readdirSync(big).length < 16) {
-        fs.mkdirSync(big, { recursive: true });
+    case 'bigshoot': {   // { name, n } → folder of n camera-sized synthetic ARWs
+      const bj = path.join(work, 'jpegs-big');
+      if (!fs.existsSync(bj) || fs.readdirSync(bj).length < 24) {
+        fs.mkdirSync(bj, { recursive: true });
         const b = await pw.chromium.launch();
-        (await makeDetailJpegs(b, 16)).forEach((j, i) => fs.writeFileSync(path.join(big, i + '.jpg'), j));
+        (await makeBigJpegs(b, 24)).forEach((j, i) => fs.writeFileSync(path.join(bj, i + '.jpg'), j));
         await b.close();
       }
-      makeBigShoot(dir, fs.readdirSync(big).sort((x, y) => parseInt(x) - parseInt(y)).map(f => fs.readFileSync(path.join(big, f))), a.n || 400);
+      const big = fs.readdirSync(bj).sort((a, b) => parseInt(a) - parseInt(b)).map(f => fs.readFileSync(path.join(bj, f)));
+      const dir = path.join(work, 'shoots', a.name);
+      makeBigShoot(dir, big, a.n || 400);
       return dir;
     }
     case 'folder': { const dir = path.join(work, 'shoots', a.name); fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true }); for (const n of a.files || []) fs.writeFileSync(path.join(dir, n), 'x'); return dir; }
