@@ -1,0 +1,182 @@
+import XCTest
+@testable import Lumina
+
+/// Where the tests find the shipped rules: `LUMINA_RULES` when set (the Linux sandbox runs in a
+/// container that only mounts Tests/linux-swift), else `rules-v1.json` next to the Look sources,
+/// found by walking up from this file.
+enum LookTestRules {
+    static func url() -> URL {
+        if let p = ProcessInfo.processInfo.environment["LUMINA_RULES"], !p.isEmpty { return URL(fileURLWithPath: p) }
+        var dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        for _ in 0..<8 {
+            let candidate = dir.appendingPathComponent("Lumina/Sets/Look/rules-v1.json")
+            if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+            dir.deleteLastPathComponent()
+        }
+        return URL(fileURLWithPath: "Lumina/Sets/Look/rules-v1.json")
+    }
+
+    static func load() throws -> LookRules { try LookRules.load(from: url()) }
+}
+
+/// Every stage's transfer function, in scalar form, on a synthetic grey ramp: monotonic in
+/// luminance, grey in → grey out for every slider except white balance, identity at reset, and the
+/// sign each slider must have. The same properties are checked through the real graph in
+/// `LookPipelineTests`; here they also run on Linux (Tests/linux-swift).
+final class LookMathTests: XCTestCase {
+    var rules: LookRules!
+    let asShot = Look.WhiteBalance(kelvin: 5500, tint: 0)
+    /// Linear grey values, 0 to a little over white (the working space is extended).
+    let ramp: [Double] = (0...60).map { Double($0) / 50 }
+
+    override func setUpWithError() throws { rules = try LookTestRules.load() }
+
+    private func luma(_ c: LookMath.RGB) -> Double { LookMath.luma(c, rules) }
+
+    private func run(_ look: Look, _ v: Double) -> LookMath.RGB {
+        LookMath.flat(.gray(v), look: look, asShot: asShot, rules: rules)
+    }
+
+    /// The twelve sliders at a spread of positions, as `Look.single` names them.
+    private var sweep: [(String, Double)] {
+        var out: [(String, Double)] = []
+        for s in ["Contrast", "Highlights", "Shadows", "Whites", "Blacks", "Vibrance", "Saturation", "Clarity"] {
+            for v in [-100.0, -50, -10, 10, 50, 100] { out.append((s, v)) }
+        }
+        for v in [-5.0, -2, -0.5, 0.5, 2, 5] { out.append(("Exposure", v)) }
+        for v in [2000.0, 3200, 4500, 6500, 9000, 50000] { out.append(("Temperature", v)) }
+        for v in [-150.0, -40, 40, 150] { out.append(("Tint", v)) }
+        for v in [10.0, 50, 150] { out.append(("Sharpness", v)) }
+        return out
+    }
+
+    func testRulesFileLoadsAndIsCanonical() throws {
+        XCTAssertEqual(rules.order, LookRules.canonicalOrder)
+        XCTAssertEqual(rules.lookStages.count, 9)
+        for s in rules.lookStages { XCTAssertNotNil(rules.stages[s], s) }
+        XCTAssertNoThrow(try rules.validate())
+        var bad = rules!; bad.order = ["exposure", "rawDevelop", "outputTransform"]
+        XCTAssertThrowsError(try bad.validate())
+        XCTAssertEqual(try LookRules.load(json: try rules.encoded()), rules, "rules survive a re-encode (the loop rewrites the file)")
+    }
+
+    func testResetIsIdentity() {
+        for v in ramp {
+            let out = run(Look(), v)
+            XCTAssertEqual(out.r, v, accuracy: 1e-12); XCTAssertEqual(out.g, v, accuracy: 1e-12); XCTAssertEqual(out.b, v, accuracy: 1e-12)
+        }
+    }
+
+    func testEverySliderIsMonotonicOnAGreyRamp() {
+        for (slider, value) in sweep {
+            let look = Look.single(slider, value, asShot: asShot)!
+            var last = -1.0
+            for v in ramp {
+                let y = luma(run(look, v))
+                XCTAssertGreaterThanOrEqual(y, last - 1e-9, "\(slider) \(value) at grey \(v): \(y) < \(last)")
+                XCTAssertTrue(y.isFinite && y >= 0, "\(slider) \(value) at grey \(v): \(y)")
+                last = y
+            }
+        }
+    }
+
+    func testGreyStaysGreyUnderEverySliderExceptWhiteBalance() {
+        for (slider, value) in sweep where slider != "Temperature" && slider != "Tint" {
+            let look = Look.single(slider, value, asShot: asShot)!
+            for v in ramp {
+                let out = run(look, v)
+                XCTAssertTrue(out.isNeutral, "\(slider) \(value) at grey \(v): \(out)")
+            }
+        }
+        for v in [0.05, 0.18, 0.5, 0.9] {
+            XCTAssertFalse(run(Look.single("Temperature", 8000, asShot: asShot)!, v).isNeutral)
+            XCTAssertFalse(run(Look.single("Tint", 60, asShot: asShot)!, v).isNeutral)
+        }
+    }
+
+    func testExposureIsStops() {
+        XCTAssertEqual(luma(run(Look.single("Exposure", 1, asShot: asShot)!, 0.18)), 0.36, accuracy: 1e-9)
+        XCTAssertEqual(luma(run(Look.single("Exposure", -2, asShot: asShot)!, 0.4)), 0.1, accuracy: 1e-9)
+    }
+
+    func testWhiteBalanceSigns() {
+        // Higher Kelvin = warmer render (more red than blue); positive tint = magenta (less green).
+        let warm = run(Look.single("Temperature", 8000, asShot: asShot)!, 0.5)
+        let cool = run(Look.single("Temperature", 3500, asShot: asShot)!, 0.5)
+        XCTAssertGreaterThan(warm.r / warm.b, 1); XCTAssertLessThan(cool.r / cool.b, 1)
+        let magenta = run(Look.single("Tint", 50, asShot: asShot)!, 0.5), green = run(Look.single("Tint", -50, asShot: asShot)!, 0.5)
+        XCTAssertLessThan(magenta.g, magenta.r); XCTAssertGreaterThan(green.g, green.r)
+        // As shot is identity, and the luma of a grey is kept.
+        let same = run(Look.single("Temperature", asShot.kelvin, asShot: asShot)!, 0.5)
+        XCTAssertEqual(same.r, 0.5, accuracy: 1e-9); XCTAssertEqual(same.b, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(luma(warm), 0.5, accuracy: 1e-9)
+    }
+
+    func testToneShapedSlidersPushTheRightWay() {
+        let dark = 0.02, light = 0.7
+        // Contrast +: darks darker, lights lighter; −: the reverse. The midpoint holds.
+        let m = LookMath.linear(rules.k("contrast", "midpoint", 0.46), rules)
+        XCTAssertLessThan(luma(run(Look.single("Contrast", 60, asShot: asShot)!, dark)), dark)
+        XCTAssertGreaterThan(luma(run(Look.single("Contrast", 60, asShot: asShot)!, light)), light)
+        XCTAssertGreaterThan(luma(run(Look.single("Contrast", -60, asShot: asShot)!, dark)), dark)
+        XCTAssertEqual(luma(run(Look.single("Contrast", 80, asShot: asShot)!, m)), m, accuracy: 1e-6)
+        // Shadows + lifts the darks more than the lights; highlights − lowers the lights, not the darks.
+        let sh = Look.single("Shadows", 80, asShot: asShot)!
+        XCTAssertGreaterThan(luma(run(sh, dark)) / dark, luma(run(sh, light)) / light)
+        XCTAssertGreaterThan(luma(run(sh, dark)), dark)
+        let hl = Look.single("Highlights", -80, asShot: asShot)!
+        XCTAssertLessThan(luma(run(hl, light)), light)
+        XCTAssertEqual(luma(run(hl, dark)), dark, accuracy: 1e-9)
+        // Whites + raises the lights, blacks − lowers the darks; each leaves the other end alone.
+        XCTAssertGreaterThan(luma(run(Look.single("Whites", 80, asShot: asShot)!, light)), light)
+        XCTAssertEqual(luma(run(Look.single("Whites", 80, asShot: asShot)!, 0)), 0, accuracy: 1e-9)
+        XCTAssertLessThan(luma(run(Look.single("Blacks", -80, asShot: asShot)!, dark)), dark)
+        XCTAssertEqual(luma(run(Look.single("Blacks", -80, asShot: asShot)!, 1)), 1, accuracy: 1e-9)
+        XCTAssertGreaterThan(luma(run(Look.single("Blacks", 80, asShot: asShot)!, dark)), dark)
+    }
+
+    func testColourStage() {
+        let red = LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), skin = LookMath.RGB(r: 0.6, g: 0.35, b: 0.25)
+        func chroma(_ c: LookMath.RGB) -> Double { let l = LookMath.toOklab(c); return hypot(l.a, l.b) }
+        let desat = LookMath.flat(red, look: Look.single("Saturation", -100, asShot: asShot)!, asShot: asShot, rules: rules)
+        XCTAssertTrue(desat.isNeutral, "saturation −100 is grey: \(desat)")
+        let more = LookMath.flat(red, look: Look.single("Saturation", 30, asShot: asShot)!, asShot: asShot, rules: rules)
+        XCTAssertGreaterThan(chroma(more), chroma(red))
+        // Vibrance protects skin and already-saturated colours: red gains less than skin, relative to saturation.
+        let vibRed = LookMath.flat(red, look: Look.single("Vibrance", 80, asShot: asShot)!, asShot: asShot, rules: rules)
+        let vibSkin = LookMath.flat(skin, look: Look.single("Vibrance", 80, asShot: asShot)!, asShot: asShot, rules: rules)
+        let satSkin = LookMath.flat(skin, look: Look.single("Saturation", 80, asShot: asShot)!, asShot: asShot, rules: rules)
+        XCTAssertGreaterThan(chroma(vibRed), chroma(red) * 0.99)
+        XCTAssertLessThan(chroma(vibSkin) / chroma(skin), chroma(satSkin) / chroma(skin), "vibrance is gentler on skin than saturation")
+        // Lightness survives a chroma change (Oklab L is untouched).
+        XCTAssertEqual(LookMath.toOklab(more).L, LookMath.toOklab(red).L, accuracy: 1e-6)
+        // Round trip of the Oklab matrices.
+        let back = LookMath.fromOklab(LookMath.toOklab(skin).L, LookMath.toOklab(skin).a, LookMath.toOklab(skin).b)
+        XCTAssertEqual(back.r, skin.r, accuracy: 1e-6); XCTAssertEqual(back.g, skin.g, accuracy: 1e-6); XCTAssertEqual(back.b, skin.b, accuracy: 1e-6)
+        var bw = Look(); bw.bw = true
+        XCTAssertTrue(LookMath.flat(skin, look: bw, asShot: asShot, rules: rules).isNeutral)
+    }
+
+    func testVignetteGain() {
+        var dark = Look(); dark.vignette = -100
+        XCTAssertEqual(LookMath.vignetteGain(r: 0, vignette: -100, rules), 1, accuracy: 1e-12)
+        XCTAssertLessThan(LookMath.vignetteGain(r: 1, vignette: -100, rules), 1)
+        XCTAssertGreaterThan(LookMath.vignetteGain(r: 1, vignette: 60, rules), 1)
+        XCTAssertLessThan(LookMath.vignetteGain(r: 1, vignette: -100, rules), LookMath.vignetteGain(r: 0.6, vignette: -100, rules))
+        let corner = LookMath.flat(.gray(0.5), look: dark, asShot: asShot, rules: rules, vignetteR: 1)
+        XCTAssertTrue(corner.isNeutral); XCTAssertLessThan(corner.r, 0.5)
+    }
+
+    func testLocalStagesAreIdentityOnAFlatPatch() {
+        // Clarity and sharpen act on (pixel − base); on a flat patch that is zero.
+        for q in [0.0, 0.2, 0.5, 0.9] {
+            XCTAssertEqual(LookMath.clarity(q, base: q, clarity: 100, rules), q, accuracy: 1e-12)
+            XCTAssertEqual(LookMath.sharpen(q, blur: q, amount: 150, rules), q, accuracy: 1e-12)
+        }
+        // And they push the right way on an edge: a pixel above its base goes up.
+        XCTAssertGreaterThan(LookMath.clarity(0.55, base: 0.45, clarity: 60, rules), 0.55)
+        XCTAssertLessThan(LookMath.clarity(0.55, base: 0.45, clarity: -60, rules), 0.55)
+        XCTAssertGreaterThan(LookMath.sharpen(0.55, blur: 0.50, amount: 100, rules), 0.55)
+        XCTAssertEqual(LookMath.sharpen(0.5001, blur: 0.5, amount: 100, rules), 0.5001, accuracy: 1e-9, "below the threshold nothing sharpens")
+    }
+}

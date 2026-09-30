@@ -1,0 +1,99 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "sampleMs": 100,
+ "stopOnFailure": false,
+ "checklist": "The Edit canvas (roadmap addendum §8): a 2 s drag on exposure and on shadows at 120 values/s through lumina.edit, latency from the look event to the presented frame (p95 ≤ 16 ms on the dev Mac, ≤ 33 ms on the M1 via probe_remote.sh: LUMINA_EDIT_P95), dropped frames during the drag = 0, the rest render after drag end ≤ 120 ms, bases for at most 3 photos and ≤ 300 MB, canvas vs export ΔE median ≤ 0.5. The page has no Edit step yet, so the probe drives lumina.edit itself with the canvas forced up. Folder: LUMINA_EDIT_DIR (probe.sh edit sets it). Run twice: native, and LUMINA_CANVAS=image for the fallback path (reported, not gated).",
+ "budgets": {
+  "probePeakMB": 3000
+ },
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_EDIT_DIR}",
+   "via": "js",
+   "timeoutMs": 900000
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const p=l.real[Math.min(1,l.real.length-1)]; window.__editRel=p.path; return lumina.edit.enter(p.path, 'ev:+0.30 con:+10').then(f=>JSON.stringify(f))"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.layout({x:280,y:60,w:880,h:640}, true, {force:true}); return JSON.stringify(lumina.edit.state().rect)"
+  },
+  {
+   "do": "waitFor",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'?!!lumina.edit.state().image.shown:(s.bases&&s.bases.resident>0))",
+   "timeoutMs": 90000,
+   "what": "bases built (or the first image shown)"
+  },
+  {
+   "do": "wait",
+   "ms": 400
+  },
+  {
+   "do": "js",
+   "src": "return lumina.edit.stats().then(s=>JSON.stringify({path:s.path,facts:s.facts&&s.facts.text,source:s.bases&&s.bases.lastSource,buildMs:s.bases&&s.bases.lastBuildMs,onGPU:s.bases&&s.bases.onGPU,flips:s.bases&&s.bases.flipsOnReadback,canvas:s.canvas}))"
+  },
+  {
+   "do": "editDrag",
+   "slider": "ev",
+   "from": -1,
+   "to": 1,
+   "ms": 2000,
+   "hz": 120,
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "editDrag",
+   "slider": "sh",
+   "from": -60,
+   "to": 60,
+   "ms": 2000,
+   "hz": 120,
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "editParity",
+   "maxMedianDE": 0.5
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const p=l.real[Math.min(2,l.real.length-1)]; const t0=performance.now(); return lumina.edit.enter(p.path).then(()=>lumina.edit.stats()).then(s=>JSON.stringify({switchMs:Math.round(performance.now()-t0),prefetched:s.bases&&s.bases.prefetched,hits:s.bases&&s.bases.hits,resident:s.bases&&s.bases.residentPhotos,mb:s.bases&&Math.round(s.bases.bytes/1048576)}))"
+  },
+  {
+   "do": "expect",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'||s.bases.residentPhotos<=3)"
+  },
+  {
+   "do": "expect",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'||s.bases.bytes<=300*1048576)"
+  },
+  {
+   "do": "expect",
+   "js": "return lumina.edit.facts().text.startsWith('canvas: ')"
+  },
+  {
+   "do": "dump",
+   "name": "canvas",
+   "js": "return lumina.edit.stats()"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.leave(); return lumina.edit.state().visible===false"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

@@ -1,0 +1,130 @@
+import json
+import os
+import sys
+import tempfile
+import unittest
+
+import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, ".."))
+import lookmath as lm  # noqa: E402
+
+RULES = os.path.join(HERE, "..", "..", "..", "Lumina", "Sets", "Look", "rules-v1.json")
+AS_SHOT = (5500.0, 0.0)
+
+
+class LookMathMirrorTests(unittest.TestCase):
+    """The same properties LookMathTests.swift checks, on the numpy copy."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(RULES) as f:
+            cls.rules = json.load(f)
+        cls.ramp = np.stack([np.linspace(0, 1.2, 61)] * 3, axis=-1)
+
+    def sweep(self):
+        for s in lm.LR_SLIDERS:
+            vals = {"Exposure": [-5, -2, -0.5, 0.5, 2, 5], "Temperature": [2000, 3200, 4500, 6500, 9000, 50000],
+                    "Tint": [-150, -40, 40, 150], "Sharpness": [10, 50, 150]}.get(s, [-100, -50, -10, 10, 50, 100])
+            for v in vals:
+                yield s, v
+
+    def test_rules_file_names_every_stage(self):
+        self.assertEqual(self.rules["order"], ["rawDevelop"] + lm.STAGES + ["outputTransform"])
+        for s in lm.STAGES:
+            self.assertIn(s, self.rules["stages"])
+        self.assertAlmostEqual(sum(self.rules["luma"]), 1.0, places=3)
+
+    def test_reset_is_identity(self):
+        np.testing.assert_allclose(lm.flat(self.ramp, lm.parse_look(""), AS_SHOT, self.rules), self.ramp, atol=1e-12)
+
+    def test_monotonic_and_neutral(self):
+        for s, v in self.sweep():
+            out = lm.flat(self.ramp, lm.single(s, v, AS_SHOT), AS_SHOT, self.rules)
+            y = lm.luma(out, self.rules)
+            self.assertTrue(np.all(np.diff(y) >= -1e-9), f"{s} {v} not monotonic")
+            self.assertTrue(np.all(np.isfinite(out)) and np.all(out >= 0), f"{s} {v} out of range")
+            if s not in ("Temperature", "Tint"):
+                self.assertTrue(np.all(np.abs(out[:, 0] - out[:, 1]) <= 1e-3 * np.maximum(1, out[:, 1])), f"{s} {v} tinted a grey")
+
+    def test_signs(self):
+        r = self.rules
+        g = lambda look, v: float(lm.luma(lm.flat(np.array([v, v, v]), look, AS_SHOT, r), r))
+        self.assertAlmostEqual(g(lm.single("Exposure", 1), 0.18), 0.36)
+        self.assertLess(g(lm.single("Contrast", 60), 0.02), 0.02)
+        self.assertGreater(g(lm.single("Contrast", 60), 0.7), 0.7)
+        self.assertGreater(g(lm.single("Shadows", 80), 0.02) / 0.02, g(lm.single("Shadows", 80), 0.7) / 0.7)
+        self.assertLess(g(lm.single("Highlights", -80), 0.7), 0.7)
+        self.assertAlmostEqual(g(lm.single("Highlights", -80), 0.02), 0.02)
+        self.assertGreater(g(lm.single("Whites", 80), 0.7), 0.7)
+        self.assertLess(g(lm.single("Blacks", -80), 0.02), 0.02)
+        warm = lm.flat(np.array([0.5, 0.5, 0.5]), lm.single("Temperature", 8000, AS_SHOT), AS_SHOT, r)
+        self.assertGreater(warm[0] / warm[2], 1)
+        self.assertAlmostEqual(float(lm.luma(warm, r)), 0.5)
+        mag = lm.flat(np.array([0.5, 0.5, 0.5]), lm.single("Tint", 50, AS_SHOT), AS_SHOT, r)
+        self.assertLess(mag[1], mag[0])
+
+    def test_colour(self):
+        r = self.rules
+        red, skin = np.array([0.5, 0.2, 0.2]), np.array([0.6, 0.35, 0.25])
+        chroma = lambda c: float(np.hypot(*lm.to_oklab(c)[1:]))
+        grey = lm.flat(red, lm.single("Saturation", -100), AS_SHOT, r)
+        self.assertLess(np.ptp(grey), 1e-3)
+        self.assertGreater(chroma(lm.flat(red, lm.single("Saturation", 30), AS_SHOT, r)), chroma(red))
+        vib = chroma(lm.flat(skin, lm.single("Vibrance", 80), AS_SHOT, r)) / chroma(skin)
+        sat = chroma(lm.flat(skin, lm.single("Saturation", 80), AS_SHOT, r)) / chroma(skin)
+        self.assertLess(vib, sat)
+        np.testing.assert_allclose(lm.from_oklab(lm.to_oklab(skin)), skin, atol=1e-6)
+        bw = lm.parse_look("bw:1")
+        self.assertLess(np.ptp(lm.flat(skin, bw, AS_SHOT, r)), 1e-3)
+
+    def test_vignette_and_local_stages(self):
+        r = self.rules
+        self.assertAlmostEqual(lm.vignette_gain(0.0, -100, r), 1.0)
+        self.assertLess(lm.vignette_gain(1.0, -100, r), 1.0)
+        self.assertGreater(lm.vignette_gain(1.0, 60, r), 1.0)
+        for q in (0.0, 0.2, 0.5, 0.9):
+            self.assertAlmostEqual(float(lm.clarity(np.array(q), np.array(q), 100, r)), q)
+            self.assertAlmostEqual(float(lm.sharpen(np.array(q), np.array(q), 150, r)), q)
+        self.assertGreater(float(lm.clarity(np.array(0.55), np.array(0.45), 60, r)), 0.55)
+        self.assertGreater(float(lm.sharpen(np.array(0.55), np.array(0.50), 100, r)), 0.55)
+        self.assertAlmostEqual(float(lm.sharpen(np.array(0.5001), np.array(0.5), 100, r)), 0.5001)
+
+    def test_look_string_round_trip(self):
+        s = "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0"
+        self.assertEqual(lm.format_look(lm.parse_look(s)), s)
+        self.assertEqual(lm.format_look(lm.parse_look("")), "ev:0.00 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:0")
+        c = lm.parse_look("crop:0.1,0.2,0.5,0.6/-1.5 bw:1")
+        self.assertEqual(c["crop"], (0.1, 0.2, 0.5, 0.6, -1.5))
+        self.assertTrue(lm.format_look(c).endswith("bw:1 crop:0.1000,0.2000,0.5000,0.6000/-1.50"))
+        with self.assertRaises(ValueError):
+            lm.parse_look("exposure:1")
+
+    def test_apply_image_matches_flat_on_a_flat_patch(self):
+        r = self.rules
+        look = lm.parse_look("ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0")
+        img = np.zeros((40, 60, 3)) + np.array([0.6, 0.35, 0.25])
+        out = lm.apply_image(img, look, AS_SHOT, r)
+        want = lm.flat(np.array([0.6, 0.35, 0.25]), look, AS_SHOT, r)
+        np.testing.assert_allclose(out[20, 30], want, atol=1e-6)
+
+    def test_check_against_a_consistent_dump(self):
+        r = self.rules
+        look = "ev:-0.50 con:+30 sat:+20 wh:+20 bl:-10 hl:-30 sh:+30"
+        patches = []
+        for c in ([0.1, 0.1, 0.1], [0.5, 0.2, 0.2], [0.9, 0.9, 0.9]):
+            v = lm.flat(np.array(c), lm.parse_look(look), AS_SHOT, r)
+            patches.append({"in": c, "graph": list(v + 0.001), "math": list(v)})
+        dump = {"look": look, "asShot": {"kelvin": AS_SHOT[0], "tint": AS_SHOT[1]}, "rules": {s: r["stages"][s]["coefficients"] for s in r["stages"]},
+                "perceptualGamma": r["perceptualGamma"], "order": r["order"], "patches": patches}
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(dump, f)
+        worst, rows = lm.check(f.name)
+        os.unlink(f.name)
+        self.assertLess(worst, 0.002)
+        self.assertEqual(len(rows), 3)
+
+
+if __name__ == "__main__":
+    unittest.main()

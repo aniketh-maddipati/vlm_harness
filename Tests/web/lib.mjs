@@ -130,7 +130,23 @@ export function list(root) {
 }
 
 export class Bridge {
-  constructor(parent) { this.parent = parent; this.roots = {}; this.pending = null; this.calls = []; this.sessions = {}; this.index = []; this.prefs = null; this.revealed = []; this.gone = new Set(); this.denied = null; }
+  constructor(parent) {
+    this.parent = parent; this.roots = {}; this.pending = null; this.calls = []; this.sessions = {}; this.index = []; this.prefs = null; this.revealed = []; this.gone = new Set(); this.denied = null;
+    // The Edit canvas (no Metal here: the image path). What SetsBridge answers, and the renders lumina://render served.
+    this.canvas = { path: 'image', entered: [], layouts: [], looks: [], drags: [], loupes: [], statsCalls: 0, resets: 0, updates: 0 };
+    this.header = { canvas: 'image', raw9: false, raw9Present: false, decoder: 8, newest: 8, offerUpdate: false, slowed: false, bodies: { 'ILCE-7M4': { supported: [7, 8], raw9: false, fastest: 8, developMs: { 7: 30, 8: 20 } } } };
+    this.renders = []; this.renderDelayMs = 0; this.renderJpeg = null; this.renderSeq = {};
+  }
+  // lumina://render/<rel>?look=&px=&seq=&tier=: what SetsSchemeHandler + LookRenderer answer. 409 when a
+  // newer seq for the same file was already asked for; else a JPEG (this.renderJpeg, any bytes will do).
+  async render(rel, q) {
+    const seq = +q.seq || 0, newest = this.renderSeq[rel] || 0;
+    this.renderSeq[rel] = Math.max(newest, seq);
+    this.renders.push({ rel, look: q.look, px: +q.px, seq, tier: q.tier || 'base', decoder: q.decoder != null ? +q.decoder : null, t: Date.now() });
+    if (this.renderDelayMs) await new Promise(r => setTimeout(r, this.renderDelayMs));
+    if (this.renderSeq[rel] > seq) return { status: 409, body: 'superseded by a newer request' };
+    return { status: 200, body: this.renderJpeg || Buffer.from([0xff, 0xd8, 0xff, 0xd9]), contentType: 'image/jpeg' };
+  }
   // What bridge.open(url) does natively: the page opens the pending folder. Playwright evaluates it
   // directly; the WebKit sandbox (webkit-server.mjs) lets the page pick it up.
   kick() { if (this.page) this.page.evaluate('__lumina.openFolder()'); else this.kicked = (this.kicked || 0) + 1; }
@@ -151,7 +167,23 @@ export class Bridge {
       case 'shootOpened': {
         const id = 'id-' + path.basename(this.current);
         this.index = [{ id, path: this.current, n: msg.n, d: (msg.date || '').slice(0, 10).replace(/:/g, '-') }].concat(this.index.filter(s => s.id !== id));
-        return { id, session: this.sessions[id] || null };
+        this.bodies = msg.bodies || null;
+        return { id, session: this.sessions[id] || null, header: this.header };
+      }
+      case 'shootHeader': return this.header;
+      case 'decoderUpdate': this.canvas.updates++; this.header = Object.assign({}, this.header, { decoder: this.header.newest, offerUpdate: false }); return this.header;
+      case 'canvasEnter': this.canvas.entered.push(msg); return Object.assign({ decoderCanvas: 8, decoderRegion: 8 }, this.header);
+      case 'canvasLeave': this.canvas.entered.push({ leave: true }); return true;
+      case 'canvasLayout': this.canvas.layouts.push(msg); return { path: this.canvas.path };
+      case 'canvasLook': this.canvas.looks.push(msg); return this.canvas.looks.length;
+      case 'canvasDrag': this.canvas.drags.push(msg.start); return true;
+      case 'canvasLoupe': this.canvas.loupes.push(msg); return true;
+      case 'canvasStats': this.canvas.statsCalls++; if (msg.reset) this.canvas.resets++; return { path: this.canvas.path, facts: this.header, latencyMs: [], schedule: {}, bases: {}, tiles: {} };
+      case 'writeInto': {
+        // The Edit step's JPEGs (label 'jpeg'): what SetsBridge.writeInto answers after SetsExportJob ran the look items.
+        if (msg.label !== 'jpeg') return null;
+        this.jpegItems = msg.files;
+        return { n: msg.files.length, bak: 0, folder: '/tmp/export', decoder: 'RAW 8', decoders: msg.files.map(() => 'raw 8'), fallbacks: [], renderMs: msg.files.map(() => 120) };
       }
       case 'saveSession': { this.sessions[msg.id] = msg.json; const s = this.index.find(x => x.id === msg.id); if (s) Object.assign(s, msg.summary || {}); this.saves = (this.saves || 0) + 1; return true; }
       case 'prefetch': return (msg.items || []).length;
@@ -196,6 +228,13 @@ export async function open(browser, bridge, { prefs, app = true, size = [1440, 9
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
   await ctx.route(ORIGIN + '/**', async route => {
     const u = new URL(route.request().url()), p = decodeURIComponent(u.pathname.slice(1));
+    if (p.startsWith('render/')) {
+      // The Edit preview (image path): what lumina://render answers.
+      const rel = p.slice(7), q = Object.fromEntries(u.searchParams);
+      if (!bridge || !bridge.resolve(rel)) return route.fulfill({ status: 404, body: 'not in an opened folder' });
+      const r = await bridge.render(rel, q);
+      return route.fulfill({ status: r.status, body: r.body, contentType: r.contentType || 'text/plain' });
+    }
     if (p.startsWith('media/')) {
       if (bridge && bridge.delayMs) await new Promise(r => setTimeout(r, bridge.delayMs));   // a slow card
       const q = Object.fromEntries(u.searchParams), f = bridge && bridge.resolve(q.p || '');

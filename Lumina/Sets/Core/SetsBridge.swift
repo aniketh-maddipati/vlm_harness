@@ -30,6 +30,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     var onEvent: ((String) -> Void)?
     /// The recent-shoots list changed (File ▸ Open Recent).
     var onShootsChanged: (() -> Void)?
+    /// The Edit canvas (addendum §2): native pixels over the page's canvas rect, or the image
+    /// fallback path when there is no Metal device. Made by `attachCanvas` once the web view is up.
+    private(set) var canvas: LookCanvasController?
+    private var canvasError: String?
+    /// The open shoot's id and header (`Lumina.json`): the decoder map per body and the pin.
+    private(set) var shootId: String?
+    private(set) var header = LookShootHeader()
+    private var probing: Set<String> = []
 
     init(chooser: SetsChooser, supportDir: URL) {
         self.chooser = chooser
@@ -46,6 +54,95 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
 
     func install(in conf: WKWebViewConfiguration) {
         conf.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "lumina")
+    }
+
+    // MARK: The Edit canvas
+
+    /// Lays the canvas overlay into `host` (above the web view). Nil host, no rules file or no
+    /// Metal device → the image path, which plumbing drives through `lumina://render`.
+    func attachCanvas(host: NSView?) {
+        guard canvas == nil else { return }
+        // LUMINA_CANVAS=image forces the image path (the probe measures both).
+        let host = ProcessInfo.processInfo.environment["LUMINA_CANVAS"] == "image" ? nil : host
+        do {
+            let pipe = try LookPipeline(rules: LookRules.bundled())
+            let c = LookCanvasController(pipeline: pipe, host: host)
+            c.onFacts = { [weak self] facts in self?.push("__lumina.editFacts(\(Self.json(facts)))") }
+            c.onStats = { [weak self] stats in self?.push("__lumina.editStats(\(Self.json(stats)))") }
+            c.onPresented = { [weak self] seq in self?.push("__lumina.editPresented(\(seq))") }
+            c.onDecoderFallback = { [weak self] rel, from, to in self?.onEvent?("raw \(from) failed for \(rel): using raw \(to)") }
+            canvas = c
+            onEvent?("canvas: \(c.path.rawValue)")
+        } catch {
+            canvasError = "\(error)"
+            onEvent?("canvas: image (\(error))")
+        }
+    }
+
+    private func push(_ js: String) {
+        guard ready else { return }
+        webView?.evaluateJavaScript("window.__lumina && \(js)", completionHandler: nil)
+    }
+
+    static func json(_ v: Any) -> String {
+        (try? JSONSerialization.data(withJSONObject: v, options: [.fragmentsAllowed])).flatMap { String(data: $0, encoding: .utf8) } ?? "null"
+    }
+
+    private func preview(_ d: Any?) -> LookBases.PreviewFallback? {
+        guard let p = d as? [String: Any] else { return nil }
+        let o = Int(p["o"] as? String ?? "") ?? p["o"] as? Int ?? 0, l = Int(p["l"] as? String ?? "") ?? p["l"] as? Int ?? 0
+        guard o > 0, l > 0 else { return nil }
+        return LookBases.PreviewFallback(offset: o, length: l, orientation: Int(p["ori"] as? String ?? "") ?? p["ori"] as? Int ?? 1)
+    }
+
+    private func roi(_ d: Any?) -> LookCanvasSchedule.ROI? {
+        guard let r = d as? [String: Any], let x = r["x"] as? Double, let y = r["y"] as? Double, let w = r["w"] as? Double, let h = r["h"] as? Double, w > 0, h > 0 else { return nil }
+        return LookCanvasSchedule.ROI(x: x, y: y, w: w, h: h)
+    }
+
+    /// What the page's facts line and the probe read: the canvas path, the shoot's decoder map,
+    /// the pin and whether an update is on offer.
+    func editFacts() -> [String: Any] {
+        let orNull = { (v: Int?) -> Any in v.map { $0 as Any } ?? NSNull() }
+        var out: [String: Any] = ["canvas": canvas?.path.rawValue ?? "image", "raw9": header.raw9Active, "raw9Present": header.bodies.values.contains(where: \.raw9),
+                                  "decoder": orNull(header.decoderVersion), "newest": orNull(header.newest), "offerUpdate": header.offersUpdate,
+                                  "slowed": LookDecoderProbe.slowed,
+                                  "bodies": header.bodies.mapValues { ["supported": $0.supported, "raw9": $0.raw9, "fastest": orNull($0.fastest), "developMs": $0.developMs] as [String: Any] }]
+        if let e = canvasError { out["canvasError"] = e }
+        return out
+    }
+
+    /// The decoder versions for one body: the canvas tier and the region / export tier.
+    private func decoders(for model: String?) -> (canvas: Int?, region: Int?) {
+        let body = model.flatMap { header.bodies[$0] }
+        return (LookRawPolicy.version(for: .canvas, body: body, pinned: header.decoderVersion), LookRawPolicy.version(for: .region, body: body, pinned: header.decoderVersion))
+    }
+
+    /// Measures the decoder map for bodies not yet in the header, at `.utility`, one RAW per
+    /// body; then pins the shoot (first open only) and tells the page.
+    private func probeBodies(_ bodies: [String: String]) {
+        guard let id = shootId else { return }
+        let todo = bodies.filter { header.bodies[$0.key] == nil && !probing.contains($0.key) }.compactMap { m, rel in ingest.resolve(rel).map { (m, $0) } }
+        guard !todo.isEmpty else { return }
+        for (m, _) in todo { probing.insert(m) }
+        let rules = canvas?.pipeline.rules ?? (try? LookRules.bundled()) ?? LookRules()
+        Task.detached(priority: .utility) { [weak self] in
+            var found: [(String, LookDecoderInfo)] = []
+            for (m, url) in todo { found.append((m, LookDecoderProbe.probe(url: url, rules: rules))) }
+            let done = found
+            await MainActor.run {
+                guard let self, self.shootId == id else { return }
+                for (m, info) in done { self.header.bodies[m] = info; self.probing.remove(m) }
+                if self.header.decoderVersion == nil, let pin = LookRawPolicy.pin(for: self.header.bodies) {
+                    self.header.decoderVersion = pin
+                    self.header.pinnedAt = Date()
+                    self.header.pinnedOn = ProcessInfo.processInfo.operatingSystemVersionString
+                }
+                try? self.shoots.saveHeader(id, self.header)
+                self.onEvent?("decoders: " + done.map { "\($0.0) \($0.1.supported) raw9=\($0.1.raw9) fastest=\($0.1.fastest ?? 0)" }.joined(separator: "; ") + " · pinned \(self.header.decoderVersion ?? 0)")
+                self.push("__lumina.editHeader(\(Self.json(self.editFacts())))")
+            }
+        }
     }
 
     // MARK: Opening folders
@@ -164,7 +261,62 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             onShootsChanged?()
             onEvent?("shoot \(id) \(url.path)")
             let session = shoots.session(id).flatMap { String(data: $0, encoding: .utf8) }
-            return (["id": id, "session": session ?? NSNull()] as [String: Any], nil)
+            // The shoot header: the decoder map per body (measured once, at .utility) and the pin.
+            shootId = id
+            header = shoots.header(id)
+            canvas?.leave()
+            if let bodies = body["bodies"] as? [String: String] { probeBodies(bodies) }
+            return (["id": id, "session": session ?? NSNull(), "header": editFacts()] as [String: Any], nil)
+        case "shootHeader":
+            return (editFacts(), nil)
+        case "decoderUpdate":
+            // The facts line's offer: move the pin to the newest decoder any body offers (§7).
+            guard let id = shootId, let newest = header.newest else { return (false, nil) }
+            header.decoderVersion = newest
+            header.pinnedAt = Date()
+            header.pinnedOn = ProcessInfo.processInfo.operatingSystemVersionString
+            try? shoots.saveHeader(id, header)
+            canvas?.tiles.drop()
+            onEvent?("decoder pinned to \(newest)")
+            return (editFacts(), nil)
+        case "canvasEnter":
+            // Entering Edit for a photo: bases for it now, its neighbours' at .utility.
+            guard let rel = body["rel"] as? String, let url = resolve(rel) else { return (nil, "not in an opened folder") }
+            let model = body["model"] as? String
+            let d = decoders(for: model)
+            let neighbours: [LookCanvasController.Neighbour] = ["prev", "next"].compactMap { k in
+                guard let r = body[k] as? String, let u = resolve(r) else { return nil }
+                return LookCanvasController.Neighbour(rel: r, url: u, preview: preview(body[k + "Preview"]))
+            }
+            canvas?.enter(rel: rel, url: url, look: body["look"] as? String ?? "", decoder: d.canvas, regionDecoder: d.region, preview: preview(body["preview"]), neighbours: neighbours)
+            var out = editFacts()
+            out["decoderCanvas"] = d.canvas.map { $0 as Any } ?? NSNull(); out["decoderRegion"] = d.region.map { $0 as Any } ?? NSNull()
+            return (out, nil)
+        case "canvasLeave":
+            canvas?.leave()
+            return (true, nil)
+        case "canvasLayout":
+            // The page's canvas rect (CSS px, from the web view's top-left) and whether Edit shows.
+            guard let c = canvas else { return (["path": "image"], nil) }
+            let x = body["x"] as? Double ?? 0, y = body["y"] as? Double ?? 0, w = body["w"] as? Double ?? 0, h = body["h"] as? Double ?? 0
+            c.layout(rect: CGRect(x: x, y: y, width: w, height: h), visible: body["visible"] as? Bool ?? false, dpr: CGFloat(body["dpr"] as? Double ?? 1))
+            return (["path": c.path.rawValue], nil)
+        case "canvasLook":
+            guard let c = canvas, let look = body["look"] as? String else { return (0, nil) }
+            let seq = c.look(look, drag: body["drag"] as? Bool ?? false, key: body["key"] as? Bool ?? false, roi: roi(body["roi"]), at: body["t"] as? Double,
+                             pageSeq: body["seq"] as? Int ?? Int(body["seq"] as? Double ?? 0))
+            return (seq, nil)
+        case "canvasDrag":
+            if body["start"] as? Bool ?? false { canvas?.dragStart() } else { canvas?.dragEnd() }
+            return (true, nil)
+        case "canvasLoupe":
+            canvas?.loupe(on: body["on"] as? Bool ?? false, roi: roi(body["roi"]))
+            return (true, nil)
+        case "canvasStats":
+            var out = canvas?.snapshot() ?? ["path": "image"]
+            out["facts"] = editFacts()
+            if body["reset"] as? Bool ?? false { canvas?.resetMeasures() }
+            return (out, nil)
         case "saveSession":
             guard let id = body["id"] as? String, let json = body["json"] as? String else { return (false, nil) }
             do {
@@ -321,6 +473,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             } else if let j = f["jpg"] as? [String: Any], let rel = j["src"] as? String {
                 guard let src = resolve(rel) else { return ["aborted": true, "say": "export stopped · can't find \(rel)"] }
                 items.append(.jpeg(name: name, source: src, css: j["css"] as? String ?? "none", px: j["px"] as? String ?? "full"))
+            } else if let l = f["look"] as? [String: Any], let rel = l["src"] as? String {
+                // The Edit step's render: {name, look: {src, look: "<look string>", px?, model?}} → LookPipeline
+                // at full size, with the decoder the shoot pins for that body (RAW 9 when it has it).
+                guard let src = resolve(rel) else { return ["aborted": true, "say": "export stopped · can't find \(rel)"] }
+                let px = (l["px"] as? Int) ?? Int(l["px"] as? String ?? "")
+                let decoder = LookRawPolicy.version(for: .export, body: (l["model"] as? String).flatMap { header.bodies[$0] }, pinned: header.decoderVersion)
+                items.append(.look(name: name, source: src, look: l["look"] as? String ?? "", px: px.flatMap { $0 > 0 ? $0 : nil }, decoder: decoder))
             }
         }
         // Pick the destination; refuse the card and the source folder, and ask again.
@@ -337,13 +496,23 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         let journal = SetsExportJournal(directory: supportDir.appendingPathComponent("exports", isDirectory: true))
         // Keep the export at full speed when Lumina is in the background (App Nap) and the Mac awake.
         let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "Lumina export")
-        let result = await Task.detached(priority: .userInitiated) { [sources] in job.run(journal: journal, sources: sources) }.value
+        // Look renders run at .utility (RAW 9 §4); copies and sidecars stay .userInitiated.
+        let hasLooks = items.contains { if case .look = $0 { return true } else { return false } }
+        let result = await Task.detached(priority: hasLooks ? .utility : .userInitiated) { [sources] in job.run(journal: journal, sources: sources) }.value
         ProcessInfo.processInfo.endActivity(activity)
-        onEvent?("export \(label) → \(dest!.path): \(result.n) written, \(result.bak) bak, \(result.failed.count) failed\(result.failed.first.map { " — " + $0 } ?? "")")
+        onEvent?("export \(label) → \(dest!.path): \(result.n) written, \(result.bak) bak, \(result.failed.count) failed\(result.failed.first.map { " — " + $0 } ?? "")\(result.decoders.isEmpty ? "" : " · " + result.decoderSummary)")
         if let first = result.failed.first {
             return ["aborted": true, "say": result.n > 0 ? "export stopped after \(result.n) · \(first)" : first]
         }
-        return ["n": result.n, "bak": result.bak, "folder": result.folder]
+        var out: [String: Any] = ["n": result.n, "bak": result.bak, "folder": result.folder]
+        if !result.decoders.isEmpty {
+            // The result block names the decoder used (§2) and, when slowed, says so (§4).
+            out["decoder"] = result.decoderSummary + (LookDecoderProbe.slowed ? " · slowed by thermal state" : "")
+            out["decoders"] = result.decoders
+            out["fallbacks"] = result.fallbacks
+            out["renderMs"] = result.renderMs
+        }
+        return out
     }
 }
 

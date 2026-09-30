@@ -1,0 +1,6 @@
+{
+ "about": "Metadata only: the ARWs live under `root` on the photographer's Mac, never in the repo. Add with `python3 Tools/parity/golden.py add <arw> --tag <category>`; the roadmap wants 50 covering card, backlit, blown-sky, iso12800, tungsten, mixed, snow, foliage, under2, over2, highkey.",
+ "images": [],
+ "root": "~/LuminaEvidence/parity/golden",
+ "version": 1
+}

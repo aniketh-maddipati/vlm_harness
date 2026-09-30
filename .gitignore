@@ -66,3 +66,8 @@ artifacts/p0-edit-live/
 # Same class, written to a named outdir instead of the default one.
 artifacts/elastic-proof/
 actionlint
+
+# Parity harness (Tools/parity): fit.py candidates and loop.sh's rollback copy (.build/ and __pycache__/ are above).
+# References, renders and heatmaps never come here: they live in ~/LuminaEvidence/parity.
+*.candidate.json
+rules-v1.json.before

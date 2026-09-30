@@ -64,8 +64,23 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests
+      - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests, LookStringTests, LookMathTests, LookCanvasTests
         run: bash Tests/linux-swift/run.sh
+
+  parity:
+    name: parity tools (ΔE, numpy mirror, refs, report)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: requirements
+        run: python3 -m pip install -q -r Tools/parity/requirements.txt
+      - name: delta_e selftest + Tools/parity/tests
+        run: make parity-test
+      - name: rules-v1.json is valid JSON in canonical stage order
+        run: python3 -c "import json;r=json.load(open('Lumina/Sets/Look/rules-v1.json'));assert r['order'][0]=='rawDevelop' and r['order'][-1]=='outputTransform';print(len(r['stages']),'stages')"
 
   app:
     name: build + tests
@@ -79,6 +94,12 @@ jobs:
             -only-testing:LuminaLogicTests test
       - name: probe builds
         run: swift build --package-path Tools/LuminaProbe
+      - name: lumina-render builds and its graph matches LookMath and the numpy mirror
+        run: |
+          swift build -c release --package-path Tools/parity/lumina-render
+          Tools/parity/lumina-render/.build/release/lumina-render ramp --out "${{ runner.temp }}/ramp.json"
+          python3 -m venv "${{ runner.temp }}/venv" && "${{ runner.temp }}/venv/bin/pip" install -q -r Tools/parity/requirements.txt
+          "${{ runner.temp }}/venv/bin/python" Tools/parity/lookmath.py --check "${{ runner.temp }}/ramp.json"
 
   probe:
     name: probe in WKWebView (no fixtures)
@@ -108,6 +129,15 @@ jobs:
           npm i -g playwright@1.56.1 && npx playwright install chromium
           NODE_PATH="$(npm root -g)" node Tests/web/make-shoot.mjs "$LUMINA_SCROLL_DIR" 775
           bash Scripts/probe.sh scroll
+      - name: Edit canvas (native + image path) and RAW 9 steps on the synthetic shoot (bases from the embedded JPEG; latency reported, not gated on the runner)
+        env:
+          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe-edit
+          LUMINA_EDIT_DIR: ${{ runner.temp }}/scroll-775/100MSDCF
+          LUMINA_EDIT_GATE: "0"
+        run: |
+          status=0
+          for s in edit raw9; do echo "::group::probe $s"; bash Scripts/probe.sh $s || status=1; echo "::endgroup::"; done
+          exit $status
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -118,4 +148,8 @@ jobs:
             ${{ runner.temp }}/probe*/manifest.json
             ${{ runner.temp }}/probe*/**/read-end.json
             ${{ runner.temp }}/probe*/**/thumb.json
+            ${{ runner.temp }}/probe*/**/canvas.json
+            ${{ runner.temp }}/probe*/**/parity.json
+            ${{ runner.temp }}/probe*/**/raw9.json
+            ${{ runner.temp }}/probe*/**/canvas-after-loupe.json
           retention-days: 7

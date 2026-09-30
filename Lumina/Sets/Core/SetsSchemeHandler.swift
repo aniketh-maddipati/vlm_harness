@@ -11,6 +11,12 @@ import WebKit
 ///   them on a canvas. Never a whole RAW, never the network.
 /// - `lumina://photo/seed/<seed>/<w>/<h>`  stand-in photos for the design's sample shoot (the
 ///   page's picsum URLs are pointed here). Debug fixture data only; off once the sample goes.
+/// - `lumina://render/<folder/file>?look=<look string>&px=<long edge>&seq=<n>[&tier=small][&decoder=8]`
+///   the Edit step's preview when the native canvas isn't available (the image fallback path):
+///   the RAW through LookPipeline (LookRenderer: developed once per (file, px, decoder), the look
+///   per request, one render at a time). `tier=small` renders a quarter of `px` on each edge (the
+///   drag tier). A request overtaken by a newer `seq` for the same file answers 409 without
+///   rendering; a bad look string 400; a file outside the opened folders 404.
 nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "lumina"
     static let pageFile = "Lumina Sets v5.dc.html"
@@ -34,6 +40,11 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     private var _served: [String] = []
     private var stopped: Set<ObjectIdentifier> = []
     var served: [String] { lock.withLock { _served } }
+    /// Made on the first render request (compiles the Metal kernels), nil when the rules file is
+    /// missing from the bundle (the probe without LUMINA_RULES).
+    private var _renderer: LookRenderer?
+    private var rendererTried = false
+    var renderStats: LookRenderer.Stats? { lock.withLock { _renderer?.stats } }
 
     init(pageRoot: URL, vendorRoot: URL, standInPhotos: Bool, ingest: SetsIngest? = nil) {
         self.pageRoot = pageRoot
@@ -49,11 +60,13 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
         guard let url = task.request.url, let host = url.host else { return fail(task) }
         let path = String((url.path.removingPercentEncoding ?? url.path).dropFirst())
-        let isMedia = host == "app" && path.hasPrefix("media/")
+        let isMedia = (host == "app" && path.hasPrefix("media/")) || host == "render"
         if !isMedia { lock.withLock { _served.append(url.absoluteString) } }
         switch host {
         case "app" where isMedia:
             media(task, url, String(path.dropFirst("media/".count)))
+        case "render":
+            render(task, url, path)
         case "app":
             guard Self.pageFiles.contains(path), var data = try? Data(contentsOf: pageRoot.appendingPathComponent(path)) else { return fail(task) }
             if standInPhotos, path == Self.pageFile, let text = String(data: data, encoding: .utf8) {
@@ -101,6 +114,49 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
                 self.status(task, url, e.kind == .gone ? 410 : e.kind == .notFound ? 404 : 422, e.description)
             case .failure(let e):
                 self.status(task, url, 422, "\(e)")
+            }
+        }
+    }
+
+    private func lookRenderer() -> LookRenderer? {
+        lock.withLock {
+            if !rendererTried {
+                rendererTried = true
+                _renderer = try? LookRenderer(rules: LookRules.bundled())
+            }
+            return _renderer
+        }
+    }
+
+    /// The Edit preview. Rendered on the renderer's own serial queue; the page's `seq` decides
+    /// which requests still matter.
+    private func render(_ task: WKURLSchemeTask, _ url: URL, _ rel: String) {
+        guard let ingest else { return fail(task) }
+        let q = Dictionary(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.compactMap { i in i.value.map { (i.name, $0) } } ?? [],
+                           uniquingKeysWith: { a, _ in a })
+        guard !rel.isEmpty, let file = ingest.resolve(rel) else { return status(task, url, 404, "not in an opened folder") }
+        guard let renderer = lookRenderer() else { return status(task, url, 503, "no look pipeline (rules-v1.json missing)") }
+        let look = q["look"] ?? "", seq = Int(q["seq"] ?? "") ?? 0
+        // `tier=small` is the image fallback path's drag tier (addendum §7): a quarter of the
+        // asked size on each edge, the same rule the native canvas's `small` texture follows.
+        var px = min(8192, max(64, Int(q["px"] ?? "") ?? 1024))
+        if q["tier"] == "small" { px = max(64, px / 4) }
+        let decoder = Int(q["decoder"] ?? "")
+        // `o`, `l`, `ori`: the embedded JPEG's range (the page's parseHead), the stand-in when the RAW can't be developed.
+        var preview: LookBases.PreviewFallback?
+        if let o = Int(q["o"] ?? ""), let l = Int(q["l"] ?? ""), o > 0, l > 0 { preview = LookBases.PreviewFallback(offset: o, length: l, orientation: Int(q["ori"] ?? "") ?? 1) }
+        renderer.requested(rel: rel, seq: seq)
+        renderer.enqueue({ try renderer.renderJPEG(url: file, rel: rel, look: look, px: px, seq: seq, decoder: decoder, preview: preview) }) { [weak self] r in
+            guard let self, !self.lock.withLock({ self.stopped.remove(ObjectIdentifier(task)) != nil }) else { return }
+            switch r {
+            case .success(let data):
+                self.respond(task, url, data, "image/jpeg")
+            case .failure(is LookRenderer.Stale):
+                self.status(task, url, 409, "superseded by a newer request")
+            case .failure(let e as Look.ParseError):
+                self.status(task, url, 400, e.description)
+            case .failure(let e):
+                self.status(task, url, FileManager.default.fileExists(atPath: file.path) ? 422 : 410, "\(e)")
             }
         }
     }
