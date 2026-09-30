@@ -83,7 +83,7 @@ jobs:
   probe:
     name: probe in WKWebView (no fixtures)
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
       - name: contract, selftest, smoke, fuzz
@@ -107,6 +107,14 @@ jobs:
         run: |
           npm i -g playwright@1.56.1 && npx playwright install chromium
           NODE_PATH="$(npm root -g)" node Tests/web/make-shoot.mjs "$LUMINA_SCROLL_DIR" 775
+          bash Scripts/probe.sh scroll
+      - name: scroll on real Sony ARWs (public CC0 samples from raw.pixls.us, 408 copies in bursts)
+        env:
+          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe-scroll-raw
+          LUMINA_FIXTURE_ROOT: ${{ runner.temp }}/public-arws
+        run: |
+          brew list exiftool >/dev/null 2>&1 || brew install -q exiftool
+          bash Tests/probe/fetch_public_arws.sh "$LUMINA_FIXTURE_ROOT" 12
           bash Scripts/probe.sh scroll
       - uses: actions/upload-artifact@v4
         if: always()
