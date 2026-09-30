@@ -34,7 +34,7 @@ open DD/Build/Products/Debug/Lumina.app
 ```
 
 What to look for:
-- **contract:** if `drift` fails, it prints `onDir/readOne changed (fnv N)`. WebKit's `Function.toString` should match Chromium's, since the same Babel output is used. If it doesn't, set `ONDIR = N` in `plumbing.js`. Nothing else needs to change.
+- **contract:** ONDIR was measured under JavaScriptCore (WebKitGTK) and matches, so `drift` should pass. If it prints `onDir/readOne changed (fnv N)`, set `ONDIR = N` in `plumbing.js`. Nothing else needs to change.
 - **reference:** `--record` replaces the v3 manifest, so look over the new PNGs in `~/LuminaEvidence/probe/<stamp>/screens-1440` before trusting them. The row header's "seen" fade can differ by a few hundred px between runs. If `03-cull-row-seen` or `08-cull-skip` flake, raise their `settleMs`.
 - **By hand:**
   - Menu bar: every item works. ⌘W closes the shoot, not the window.
@@ -111,19 +111,33 @@ What to look for:
 - `node Tests/web/parity.mjs`: every snapshot and state dump in `screens-1440` and `screens-1920` matches between prototype and app parity mode.
 - The page's `?selftest` in Chromium: 25 of 25. → frame median 15.6 ms, large view 16.3 ms.
 
+### Sandbox (2026-09-30): WebKit and Swift on Linux
+
+- **`Tests/web/webkit.py` on WebKitGTK 2.52** (the WebKit engine and JavaScriptCore; no Cocoa). `plumbing.js` is injected at document start, and a real `lumina` script-message handler with replies answers, the channel WKWebView uses. `Tests/web/webkit-server.mjs` plays SetsBridge. Under Xvfb:
+  - **contract:** every expression in `app-plumbing-contract.json` passes. **ONDIR under JavaScriptCore is 3373286225**, the value in `plumbing.js`.
+  - **selftest:** all behaviour checks pass. Timing under Xvfb without a GPU: → median 49 ms, large view 58 ms (reported only; ADDENDUM-1 §6 measures timing in the app).
+  - **flow:** 29 checks pass:
+    - the no-ARW note, and a read of 12 synthetic ARWs (notes, portrait, measures from the WebKit canvas)
+    - P, autosave within 2 s, the unsaved count
+    - ⌘3 ⌘⏎ → 2 sidecars in the folder, 3★; working-files size on Save; ⌘R
+    - close, reopen with 2 keepers; save again → `.lumina-bak`
+    - card gone / back, `readingCard`, access denied → allowed, menu Zoom
+    - no page errors
+  - **screens:** `screens-1440` and `screens-1920`, prototype vs app parity mode: all 34 snapshots and state dumps are identical. The two "seen" steps needed `settleMs` 1800: both modes are still fading at 1.0 s and settled by 1.6 s.
+- **`Tests/linux-swift/run.sh`, Swift 6.1 (Docker `swift:6.1-noble`).**
+  - **Setup:** the app's `SetsFileOps`, `SetsShootStore`, `SetsExport` and `SetsIngest` compile unchanged against small stand-ins for CryptoKit (a real SHA-256), CoreGraphics / ImageIO / UTType (decode stubs) and `SetsEditLook`.
+  - **Result:** 21 of 21 tests pass: `SetsSidecarTests` (6), `SetsTrustTests` (9), and `SetsFileOpsTests` (6, without its 3 Core Image tests).
+  - **Linux only:** swift-corelibs-foundation's `FileManager.replaceItemAt` fails on Linux *and deletes the original file*, so the sandbox copy uses `rename(2)` instead. Darwin's is correct; the app code is unchanged. `testLockedSidecarIsLocked` is skipped: Linux has no user-immutable flag.
+- **Every Swift file parses** under Swift 6.1 (`swiftc -parse`): the app, the tests and the probe.
+- **CI:** two new jobs, `webkit` (WebKitGTK sandbox) and `swift-linux`.
+
 ## Not verified (needs the Mac)
 
-- **Unbuilt Swift:** none of the Swift has been compiled; the diff was only read by eye. Risky spots:
-  - The new `Commands` in `LuminaApp.swift`: `CommandGroup(replacing: .saveItem)` for ⌘W, `CommandGroup(before: .toolbar)` for the View items, `@ObservedObject` in `Commands`.
-  - `NSApplicationDelegate` Quit flow.
-  - `Task.detached` in `writeSidecars`.
-- **Nothing in WKWebView yet:** no probe suite has run. In particular:
-  - ONDIR under WebKit.
-  - Pixel parity at 0 px.
-  - The fuzzer with the new modifiers.
-  - `app-smoke` on the real `two-bodies` fixture. It assumes Save writes exactly 2 `.xmp`; if the fixture already holds sidecars, adjust the counts.
+- **Swift that only builds on the Mac:** everything that imports AppKit / WebKit / Core Image has been parsed but not type-checked: `LuminaApp.swift` (the `Commands`, the Quit delegate), `SetsRootView`, `SetsBridge` (incl. `writeSidecars`' `Task.detached`), `SetsSchemeHandler`, `SetsCardWatcher`, the probe. `SetsIngestTests` and `SetsPageBytesTests` need ImageIO and the app bundle.
+- **WKWebView specifics:** Cocoa key events (the sandbox dispatches DOM key events), the `lumina://` scheme handler, and 0 px parity at the probe's 2× scale with macOS fonts (the sandbox compares at 1× with Linux fonts).
+- **Scenarios:** the fuzzer with the new modifiers, and `app-smoke` on the real `two-bodies` fixture. It assumes Save writes exactly 2 `.xmp`; if the fixture already holds sidecars, adjust the counts.
 - **Real-disk behaviour:** a TCC denial, a real card eject and remount, disk full or a read-only volume during Save.
-- **CI:** the new Chromium job installs Playwright from npm on the runner.
+- **Real macOS menu behaviour:** ⌘W closing the shoot rather than the window, and the plain-key menu items.
 
 ## Decisions the spec didn't cover
 

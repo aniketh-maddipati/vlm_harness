@@ -46,6 +46,10 @@ Trust rules, from the ROADMAP; the tests enforce them:
 # Linux too: the real page in headless Chromium with plumbing.js and a Node stand-in for SetsBridge
 node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, sidecars, card, access
 node Tests/web/parity.mjs                    # screens-* in prototype vs app parity mode, every snapshot diffed
+# WebKit sandbox (WebKitGTK + JavaScriptCore, real script-message handler): contract, selftest, app flow, screens
+xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py   # apt: gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb
+# The Foundation-only Swift (SetsFileOps, SetsShootStore, SetsExport, SetsIngest) + its tests, Swift 6.1 in Docker
+bash Tests/linux-swift/run.sh
 
 # Build + logic tests (SetsFileOpsTests, SetsSidecarTests, SetsPageBytesTests, …)
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug -derivedDataPath DD \
@@ -69,7 +73,7 @@ Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 
 CI (`.github/workflows/lumina.yml`) runs the fixtures, the byte-for-byte page check, the wording
-audit, the Chromium plumbing harness, the build + logic tests, and a probe build.
+audit, the Chromium plumbing harness, the WebKitGTK sandbox, the Linux Swift tests, the build + logic tests, and a probe build.
 
 ## Rules that bite
 
@@ -81,7 +85,7 @@ audit, the Chromium plumbing harness, the build + logic tests, and a probe build
 - **ExFAT volume labels are at most 11 characters.** `hdiutil` reports a longer one as "Operation not permitted".
 - **Probe runs need an awake display.** The probe holds the display awake itself. If runs stall for minutes, macOS is throttling the page process.
 - **Personal data stays out of the repo:** golden data, fixtures and evidence live in `~/LuminaEvidence`.
-- **macOS only** (Xcode 16.4+, Apple silicon, macOS 14+). Linux agents can run the node fixtures, `design_audit.py`, and `Tests/web` (Playwright + Chromium): that checks plumbing.js against the real page, not Swift or WebKit.
+- **macOS only** (Xcode 16.4+, Apple silicon, macOS 14+). Linux agents can run the node fixtures, `design_audit.py`, `Tests/web` (Chromium and the WebKitGTK sandbox: plumbing.js against the real page, not Cocoa or WKWebView) and `Tests/linux-swift` (the Foundation-only Swift; on Linux `FileManager.replaceItemAt` is broken, so the sandbox copy uses `rename(2)`).
 
 ## History
 

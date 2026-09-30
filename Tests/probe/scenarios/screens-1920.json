@@ -53,7 +53,7 @@
   {
    "do": "key",
    "k": "ArrowDown",
-   "settleMs": 1000
+   "settleMs": 1800
   },
   {
    "do": "snap",
@@ -109,7 +109,7 @@
   {
    "do": "key",
    "k": "ArrowRight",
-   "settleMs": 1000,
+   "settleMs": 1800,
    "alt": true
   },
   {

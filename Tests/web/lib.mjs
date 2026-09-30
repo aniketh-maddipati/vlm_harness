@@ -97,6 +97,9 @@ export function list(root) {
 
 export class Bridge {
   constructor(parent) { this.parent = parent; this.roots = {}; this.pending = null; this.calls = []; this.sessions = {}; this.index = []; this.prefs = null; this.revealed = []; this.gone = new Set(); this.denied = null; }
+  // What bridge.open(url) does natively: the page opens the pending folder. Playwright evaluates it
+  // directly; the WebKit sandbox (webkit-server.mjs) lets the page pick it up.
+  kick() { if (this.page) this.page.evaluate('__lumina.openFolder()'); else this.kicked = (this.kicked || 0) + 1; }
   resolve(rel) {
     const [n, ...rest] = rel.split('/'); const r = this.roots[n]; if (!r || !rest.length) return null;
     const p = path.resolve(r, rest.join('/')); return p.startsWith(r + path.sep) ? p : null;
@@ -124,8 +127,8 @@ export class Bridge {
       case 'cullCard': return false;
       case 'workingFiles': return 1234;
       case 'removeShoot': delete this.sessions[msg.id]; this.index = this.index.filter(s => s.id !== msg.id); return true;
-      case 'reopen': { const s = this.index.find(x => x.id === msg.id); if (!s) return false; this.pending = s.path; this.page.evaluate('__lumina.openFolder()'); return true; }
-      case 'reopenCurrent': this.pending = this.current; this.page.evaluate('__lumina.openFolder()'); return true;
+      case 'reopen': { const s = this.index.find(x => x.id === msg.id); if (!s) return false; this.pending = s.path; this.kick(); return true; }
+      case 'reopenCurrent': this.pending = this.current; this.kick(); return true;
       case 'openSettings': this.settingsOpened = msg.what; return true;
       case 'checkAccess': return this.denied == null;
       case 'reopenDenied': return true;

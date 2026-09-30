@@ -43,6 +43,30 @@ jobs:
       - name: plumbing harness
         run: NODE_PATH="$(npm root -g)" node Tests/web/plumbing-harness.mjs
 
+  webkit:
+    name: page + plumbing in WebKit (WebKitGTK sandbox)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: WebKitGTK, Xvfb, playwright (fixture JPEGs)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb
+          npm i -g playwright@1.56.1 && npx playwright install --with-deps chromium
+      - name: contract, selftest, app flow, screens (prototype vs app)
+        run: NODE_PATH="$(npm root -g)" xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3 Tests/web/webkit.py
+
+  swift-linux:
+    name: native file code on Linux (Swift 6.1)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests
+        run: bash Tests/linux-swift/run.sh
+
   app:
     name: build + tests
     runs-on: macos-15
