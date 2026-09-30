@@ -190,8 +190,12 @@ final class LookPipelineTests: XCTestCase {
         let turned = try LookPipeline.developPreview(url: file, offset: prefix.count, length: jpeg.count, orientation: 6, longEdge: nil)
         XCTAssertEqual(turned.extent.size, CGSize(width: 128, height: 256), "orientation 6 turns the frame upright")
         XCTAssertThrowsError(try LookPipeline.developPreview(url: file, offset: 0, length: 100, orientation: 1, longEdge: nil))
-        XCTAssertThrowsError(try LookPipeline.develop(url: file, longEdge: 128, rules: rules), "the fake ARW is no RAW")
-        XCTAssertEqual(LookPipeline.supportedDecoderVersions(url: file), [])
+        // CIRAWFilter may or may not accept a fake ARW (macOS 15 opens it as an image); either way
+        // the develop must throw or yield a real image, never an empty one.
+        if let dev = try? LookPipeline.develop(url: file, longEdge: 128, rules: rules) {
+            XCTAssertFalse(dev.extent.isEmpty); XCTAssertFalse(dev.extent.isInfinite)
+            print("LookPipelineTests: CIRAWFilter accepted the fake ARW: \(dev.extent.size), decoders \(LookPipeline.supportedDecoderVersions(url: file))")
+        }
     }
 
     /// The canvas's bases from a PNG: `base` fits the canvas plus its 15 % margin, `small` is a

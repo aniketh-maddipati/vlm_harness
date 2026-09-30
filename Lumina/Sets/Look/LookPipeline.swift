@@ -132,7 +132,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         let draftBelow = rules.k("rawDevelop", "draftBelowPx", 0)
         if let px, draftBelow > 0, Double(px) <= draftBelow { raw.isDraftModeEnabled = true }
         raw.boostAmount = Float(rules.k("rawDevelop", "boostAmount", 1))
-        guard let out = raw.outputImage else { throw Failure("couldn't decode \(url.lastPathComponent)") }
+        guard let out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite else { throw Failure("couldn't decode \(url.lastPathComponent)") }
         let asShot = Look.WhiteBalance(kelvin: Double(raw.neutralTemperature), tint: Double(raw.neutralTint))
         return Developed(image: Self.atOrigin(out), asShot: asShot)
     }

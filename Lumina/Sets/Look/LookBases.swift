@@ -176,9 +176,11 @@ nonisolated final class LookBases: @unchecked Sendable {
             _stats.lastSource = source
             let gone = cache.set(key, entry, bytes: bytes)
             _stats.evicted += gone.count
-            // At most `maxPhotos` photos resident (the current one and its neighbours).
+            // At most `maxPhotos` photos resident (the current one and its neighbours): the least
+            // recently used photo goes, every size of it, never the pinned photo's entries.
+            let pinnedRels = Set(cache.pinned.map(\.rel))
             var rels = Set(cache.keys.map(\.rel))
-            while rels.count > maxPhotos, let old = cache.keys.first(where: { !cache.pinned.contains($0) && $0.rel != key.rel }) {
+            while rels.count > maxPhotos, let old = cache.keys.first(where: { !pinnedRels.contains($0.rel) && $0.rel != key.rel }) {
                 _ = cache.removeAll { $0.rel == old.rel }
                 _stats.evicted += 1
                 rels = Set(cache.keys.map(\.rel))
