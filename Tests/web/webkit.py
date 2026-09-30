@@ -391,15 +391,35 @@ SCROLL_N = int(os.environ.get('LUMINA_SCROLL_N', '400'))
 def scroll():
     shoot = ctl('bigshoot', name='scroll-%d' % SCROLL_N, n=SCROLL_N)
     rows = []
-    for size in ((1440, 900), (2560, 1440)):
+    sizes = [z for z in ((1440, 900), (2560, 1440)) if str(z[0]) in os.environ.get('LUMINA_SCROLL_SIZES', '1440,2560')]
+    for size in sizes:
         ctl('reset')
         p = Page(app=True, size=size, probe=True)
         ok(ready(p, True), 'scroll %dx%d: page ready' % size)
         ctl('pick', path=shoot)
         t0 = time.time()
         p.js('__lumina.openFolder(); return true')
+        if size == (1440, 900):
+            # While the folder is still being read (the user's recording): move, keep, scroll; then the read ends.
+            ok(spin(lambda: p.js('const l = __lumina.logic(); return !!(l.real && l.real.length && l.state.view === "cull" && l.state.realLoad)'), 300), 'scroll: rows shown while reading')
+            p.js('__probe.watchReadEnd(); K("ArrowDown"); await W(120); K("ArrowDown"); await W(120); K("ArrowDown"); await W(120); K("p"); await W(200); return true')
+            for name, frames, dy in (('read-glide', 150, 40), ('read-flick', 90, 150)):
+                p.js('__probe.framesStart(); __probe.tilesStart(); return true')
+                p.js('return __probe.scrollFrames(%d, %d)' % (frames, dy), timeout=120)
+                f, t = p.js('return __probe.framesStop()'), p.js('return __probe.tilesStop()')
+                still = p.js('return !!__lumina.logic().state.realLoad')
+                print('     %-26s p95 %5.1f ms · blank %5.1f%% of tiles (%5.1f%% of frames, worst %5.1f%%)%s' % (
+                    name, f['p95'], t['blankPct'], t['blankFramesPct'], t['worstBlankPct'], '' if still else ' (read had finished)'), flush=True)
+                rows.append(dict(name=name, p95=round(f['p95'], 1), blankPct=t['blankPct'], blankFramesPct=t['blankFramesPct'], worstBlankPct=t['worstBlankPct'], duringRead=still))
         ok(spin(lambda: p.js('const l = __lumina.logic(); return !!(l.real && l.real.length && !l.state.realLoad && l.state.realInfo)'), 600),
            'scroll %dx%d: %d photos read' % (size + (SCROLL_N,)))
+        if size == (1440, 900):
+            spin(lambda: p.js('return !!__probe.readEnd()'), 10)
+            re_ = p.js('return __probe.readEnd()') or {}
+            print('     read end: cursor %s → %s, scrolled by the app %s px' % ((re_.get('before') or {}).get('cur'), (re_.get('after') or {}).get('cur'), re_.get('appScroll')), flush=True)
+            ok(re_ and re_['after']['cur'] == re_['before']['cur'] and re_['appScroll'] < 200, 'scroll: no jump when the read ends', re_)
+            ok(p.js('return __lumina.logic().kept().length') == 1, 'scroll: the keep made while reading survives')
+            rows.append(dict(name='read-end', **re_))
         read_s = time.time() - t0
         info = p.js('return __lumina.logic().state.realInfo')
         blobs = p.js('return Promise.all(__lumina.logic().real.slice(0, 40).map(q => fetch(q.src).then(r => r.blob()).then(b => b.size))).then(a => Math.round(a.reduce((x, y) => x + y, 0) / a.length / 1024))')
@@ -409,7 +429,7 @@ def scroll():
             wait(1500)
             for dy in (60, 150, -150):   # -150: the 150 pass with plumbing's warm-ahead off (A/B)
                 warm = dy > 0; dy = abs(dy)
-                p.js('return __lumina.warmAhead(%s)' % ('true' if warm else 'false'))
+                p.js('return __lumina.warmAhead ? __lumina.warmAhead(%s) : null' % ('true' if warm else 'false'))
                 p.js('__probe.framesStart(); __probe.tilesStart(); return true')
                 p.js('return __probe.scrollFrames(120, %d)' % dy, timeout=120)
                 f = p.js('return __probe.framesStop()')

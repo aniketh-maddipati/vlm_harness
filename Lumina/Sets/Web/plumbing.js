@@ -70,7 +70,10 @@
   // the last successful Save, so Quit knows whether keepers are unsaved.
   const BY_ID = ['marks', 'flags', 'stars', 'cuts'];
   const SCALAR = ['seen', 'tsz', 'regions', 'lastEx'];
-  let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false;
+  let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, readMoved = false;
+  // Last scroll in the page (any scroller), for pacing the grid's refresh while a folder is read.
+  let scrollT = 0;
+  document.addEventListener('scroll', () => { scrollT = performance.now(); }, { capture: true, passive: true });
   // Path inside the opened folder ("sub/DSC00001.ARW"): stable across reopen and new files.
   const keyOf = p => { const r = (p && p.fileObj && p.fileObj.webkitRelativePath) || (p && p.path) || ''; return r ? r.split('/').slice(1).join('/') : (p && p.file) || ''; };
   const pathOf = (logic, id) => keyOf(logic.data && logic.data.byId[id]);
@@ -90,16 +93,18 @@
   // For the Open screen's recent cards: the same numbers the prototype's persist() keeps.
   const summary = logic => ({ n: logic.data.order.length, dec: logic.data.order.filter(id => !logic.undec(id)).length,
     kp: logic.kept().length, last: LuminaV4.fmt.base((logic.data.byId[logic.state.cur] || {}).file) || '' });
-  const restore = (logic, saved) => {
+  // `live`: the reader moved or decided while the folder was being read. Those decisions win over
+  // the saved ones and the cursor stays where it is (nothing jumps when the read ends).
+  const restore = (logic, saved, live) => {
     base = saved; savedKeepers = typeof saved.saved === 'string' ? saved.saved : null;
     const idOf = {}; for (const [id, p] of Object.entries(logic.data.byId)) idOf[keyOf(p)] = id;
     const st = {};
-    for (const k of BY_ID) { const m = {}; for (const [p, v] of Object.entries(saved[k] || {})) if (idOf[p]) m[idOf[p]] = v; st[k] = m; }
+    for (const k of BY_ID) { const m = {}; for (const [p, v] of Object.entries(saved[k] || {})) if (idOf[p]) m[idOf[p]] = v; st[k] = live ? Object.assign(m, logic.state[k] || {}) : m; }
     st.marks = logic.constructor.clean(st.marks);
     for (const k of SCALAR) if (saved[k] !== undefined) st[k] = saved[k];
     if (Object.keys(st.cuts || {}).length) logic.data = logic.build(st.cuts);
     const cur = saved.cur && idOf[saved.cur];
-    if (cur && logic.data.byId[cur]) st.cur = cur;
+    if (cur && logic.data.byId[cur] && !live) st.cur = cur;
     logic.setState(st);
   };
   const saveNow = () => {
@@ -169,8 +174,9 @@
       const first = logic.real.map(p => p.date).filter(Boolean).sort()[0] || '';
       const r = await native('shootOpened', { name: info.name, n: logic.real.length, date: first });
       shootId = r && r.id; lastSaved = ''; base = null; savedKeepers = null;
-      if (r && r.session) { try { restore(logic, JSON.parse(r.session)); } catch (_) {} }
-      lastSaved = JSON.stringify(snapshot(logic));
+      if (r && r.session) { try { restore(logic, JSON.parse(r.session), readMoved); } catch (_) {} }
+      // Decisions made while the folder was read aren't in the session yet: the next save sends them.
+      lastSaved = readMoved ? '' : JSON.stringify(snapshot(logic));
       loadRecents(logic);
     };
 
@@ -277,15 +283,17 @@
       }
       (logic.real || []).forEach(p => { p.src && URL.revokeObjectURL(p.src); /^blob:/.test(p.lg || '') && URL.revokeObjectURL(p.lg); });
       const run = reading = { name: L.name, total: files.length, done: 0, gone: false };
-      const t0 = performance.now(), res = new Array(files.length); let done = 0, i = 0, pre = 0, shown = false, lastB = 0;
+      const t0 = performance.now(), res = new Array(files.length); let done = 0, i = 0, pre = 0, shown = false, lastB = 0, firstCur = null;
+      readMoved = false;
       logic._gold = []; logic._failed = []; logic.real = [];
       logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
-      // Rows appear as the contiguous prefix grows.
+      // Rows appear as the contiguous prefix grows: every 400 ms, as in the page; every 1.5 s while
+      // the reader is scrolling, so the grid isn't rebuilt under a moving scroll (plumbing's pacing).
       const grow = force => {
         while (pre < files.length && res[pre] !== undefined) pre++;
-        const now = performance.now(); if (!force && (pre < 48 || now - lastB < 400)) return; lastB = now;
+        const now = performance.now(); if (!force && (pre < 48 || now - lastB < (now - scrollT < 300 ? 1500 : 400))) return; lastB = now;
         logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null;
-        if (!shown) { shown = true; logic.setState({ cur: logic.data.order[0] }); logic.setView('cull', true); } else logic.forceUpdate();
+        if (!shown) { shown = true; firstCur = logic.data.order[0]; logic.setState({ cur: firstCur }); logic.setView('cull', true); } else logic.forceUpdate();
       };
       const one = async (f, k) => {
         try { res[k] = await readOne(f, xmpMap); }
@@ -302,11 +310,18 @@
       lastRead = { name: L.name, total: files.length, read: ok.length, unreadable: files.length - ok.length, stopped: run.gone ? 'card removed' : null, secs: +((performance.now() - t0) / 1000).toFixed(1) };
       window.lumina.read = Object.assign({}, lastRead);
       if (!ok.length) { logic.real = null; logic.data = logic.build({}); logic.setState({ realLoad: null }); return logic.say(run.gone ? 'Card removed · re-insert to keep going' : '0 photos · ' + files.length + ' unreadable'); }
+      // The page ends a read on the first photo and scrolls to it (land). When the reader has already
+      // moved (cursor, keeps, or scrolled), plumbing keeps them where they are instead: same photo,
+      // same scroll, no fly-back across the shoot. Design ask 8 asks the page for the same.
+      const sc = logic.scrollRef && logic.scrollRef.current, was = logic.state.cur, wasKey = shown && was && logic.data.byId[was] ? keyOf(logic.data.byId[was]) : null;
+      readMoved = shown && (was !== firstCur || Object.keys(logic.state.marks || {}).length > 0 || !!(sc && sc.scrollTop > 40));
       logic.real = ok; logic.data = logic.build({});
+      let stay = null;
+      if (readMoved && wasKey) for (const [id, p] of Object.entries(logic.data.byId)) if (keyOf(p) === wasKey) { stay = id; break; }
       const G = Object.values(logic.data.G), first = ok.map(p => p.date).filter(Boolean).sort()[0] || '';
       const info = { name: L.name, n: ok.length, rows: logic.data.R.length, stacks: G.filter(g => g.kind !== 'single').length, bad: logic._failed.length, secs: lastRead.secs.toFixed(1), date: first.slice(0, 10).replace(/:/g, '-') };
-      logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, cur: logic.data.order[0] });
-      logic._landT = Date.now(); logic.setView('cull', true); setTimeout(() => logic.land(), 0);
+      logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, cur: stay || logic.data.order[0] });
+      logic._landT = Date.now(); logic.setView('cull', true); if (!stay) setTimeout(() => logic.land(), 0);
       if (run.gone) logic.say('Card removed · ' + ok.length + ' of ' + files.length + ' read · re-insert to keep going');
     };
 
@@ -314,7 +329,7 @@
     // Files and the page reads them itself.
     const onDir = logic.onDir.bind(logic);
     logic.onDir = async e => {
-      cardPulledWhileReading = false;
+      cardPulledWhileReading = false; readMoved = false;
       window.lumina.readingCard = false;
       await onDir(e);
       if (cardPulledWhileReading) logic.say('Card removed · re-insert to keep going');
@@ -414,8 +429,8 @@
     warmRaf = 0;
     if (!warmOn) return;
     const l = current, el = document.querySelector('[data-screen-label="1 Cull"]');
-    if (!l || !l.real || reading || !el || typeof l.layout !== 'function' || l.state.view !== 'cull') return;
-    if (warmReal !== l.real) { warm.clear(); warmReal = l.real; }
+    if (!l || !l.real || !el || typeof l.layout !== 'function' || l.state.view !== 'cull') return;
+    if (warmReal !== l._gold) { warm.clear(); warmReal = l._gold; }      // a new read (its thumbnails are new URLs)
     const top = el.scrollTop, dir = warmTop == null || top >= warmTop ? 1 : -1, span = el.clientHeight * 2 + 700;
     warmTop = top;
     const lo = dir > 0 ? top - 700 : top - span, hi = dir > 0 ? top + el.clientHeight + span : top + el.clientHeight + 700;

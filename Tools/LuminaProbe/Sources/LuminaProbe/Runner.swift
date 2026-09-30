@@ -215,6 +215,12 @@ final class Runner {
             guard FileManager.default.fileExists(atPath: url.path) else { throw ProbeError("no such folder \(url.path)") }
             host.pendingOpenPanel = [url]
             if (s["via"] as? String ?? "key") == "key" { try host.key("o", cmd: true) } else { _ = try await host.js("__probe.logic().openFolder()") }
+            // until: "shown" returns once Cull shows its first rows, while the folder is still being read.
+            if s["until"] as? String == "shown" {
+                try await waitFor("const l=__probe.logic(); return !!(l.real && l.real.length && l.state.view === 'cull' && l.state.realLoad)",
+                                  timeout: (s["timeoutMs"] as? Double ?? 300_000) / 1000, what: "first rows shown")
+                return "shown while reading"
+            }
             try await waitFor("const l=__probe.logic(); return !!(l.real && !l.state.realLoad)",
                               timeout: (s["timeoutMs"] as? Double ?? 900_000) / 1000, what: "folder loaded")
             let info = try await host.js("return JSON.stringify(__probe.logic().state.realInfo)")

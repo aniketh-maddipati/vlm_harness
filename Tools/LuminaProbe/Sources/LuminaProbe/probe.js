@@ -182,10 +182,28 @@
         worstBlankPct: +(100 * tiles.worst).toFixed(1), upscaleMin: q(0), upscaleP10: q(0.1), upscaleMedian: q(0.5), dpr: window.devicePixelRatio || 1,
         tile: (() => { const l = P.logic(); if (!l || !l.layout) return 0; return l.layout().TW; })() };
     },
+    // What happens when a folder read ends: the cursor's file just before and 2 s after, and how far
+    // the app scrolled by itself in those 2 s (appScroll: scrolling within 200 ms of a wheel event or
+    // of scrollFrames is the reader's, not counted). __probe.readEnd() is null until then.
+    watchReadEnd() {
+      const l = P.logic(), el = cullEl(); window.__readEnd = null; let last = null;
+      addEventListener('wheel', () => { window.__probeScrollT = performance.now(); }, { capture: true, passive: true });
+      const at = () => ({ top: Math.round(el.scrollTop), cur: ((l.data.byId[l.state.cur] || {}).path) || null });
+      const f = () => {
+        if (l.state.realLoad) { last = at(); requestAnimationFrame(f); return; }
+        const t0 = performance.now(); let app = 0, prev = el.scrollTop;
+        const g = () => { const now = performance.now(), d = Math.abs(el.scrollTop - prev); prev = el.scrollTop;
+          if (now - (window.__probeScrollT || 0) > 200) app += d;
+          if (now - t0 < 2000) requestAnimationFrame(g); else window.__readEnd = { before: last, after: at(), appScroll: Math.round(app) }; };
+        g();
+      };
+      f(); return true;
+    },
+    readEnd() { return window.__readEnd || null; },
     // Scroll Cull by `dy` CSS px per frame for `frames` frames (sandboxes without native wheel events).
     async scrollFrames(frames, dy) {
       const el = cullEl(); if (!el) return false;
-      for (let i = 0; i < frames; i++) { el.scrollTop += dy; await new Promise(r => requestAnimationFrame(r)); }
+      for (let i = 0; i < frames; i++) { el.scrollTop += dy; window.__probeScrollT = performance.now(); await new Promise(r => requestAnimationFrame(r)); }
       return true;
     },
   };

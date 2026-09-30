@@ -1,0 +1,99 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1728,
+  1080
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "sampleMs": 100,
+ "stopOnFailure": false,
+ "checklist": "Scrolling Cull while a folder is still being read (the user's recording, 2026-09-29): blank / fading tiles and frame pacing while rows arrive, mid-read snapshots, and when the read ends the cursor stays on the reader's photo with no scroll jump (read-end.json: before / after / appScroll) and the keep made while reading survives. Folder: LUMINA_SCROLL_DIR (probe.sh scroll sets it)",
+ "budgets": {
+  "webPeakMB": 1500
+ },
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_SCROLL_DIR}",
+   "via": "js",
+   "until": "shown",
+   "timeoutMs": 300000
+  },
+  {
+   "do": "js",
+   "src": "return __probe.watchReadEnd()"
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "times": 3,
+   "gapMs": 120
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "wheel",
+   "name": "read-glide",
+   "sel": "[data-screen-label=\"1 Cull\"]",
+   "frames": 150,
+   "dy": 40,
+   "tiles": true,
+   "snapAt": [
+    50,
+    100
+   ]
+  },
+  {
+   "do": "wheel",
+   "name": "read-flick",
+   "sel": "[data-screen-label=\"1 Cull\"]",
+   "frames": 90,
+   "dy": 150,
+   "tiles": true,
+   "snapAt": [
+    45
+   ]
+  },
+  {
+   "do": "waitFor",
+   "js": "return !__probe.logic().state.realLoad",
+   "timeoutMs": 900000,
+   "what": "read finished"
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!__probe.readEnd()",
+   "timeoutMs": 10000,
+   "what": "read end watched"
+  },
+  {
+   "do": "snap",
+   "name": "after-read"
+  },
+  {
+   "do": "dump",
+   "name": "read-end",
+   "js": "return __probe.readEnd()"
+  },
+  {
+   "do": "expect",
+   "js": "const r=__probe.readEnd(); return r.after.cur===r.before.cur && r.appScroll<200"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().kept().length>=1"
+  },
+  {
+   "do": "wheel",
+   "name": "after-read-flick",
+   "sel": "[data-screen-label=\"1 Cull\"]",
+   "frames": 90,
+   "dy": 150,
+   "tiles": true
+  }
+ ]
+}

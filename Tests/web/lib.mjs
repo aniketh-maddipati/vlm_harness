@@ -197,6 +197,7 @@ export async function open(browser, bridge, { prefs, app = true, size = [1440, 9
   await ctx.route(ORIGIN + '/**', async route => {
     const u = new URL(route.request().url()), p = decodeURIComponent(u.pathname.slice(1));
     if (p.startsWith('media/')) {
+      if (bridge && bridge.delayMs) await new Promise(r => setTimeout(r, bridge.delayMs));   // a slow card
       const q = Object.fromEntries(u.searchParams), f = bridge && bridge.resolve(q.p || '');
       const [n] = (q.p || '').split('/');
       if (bridge && bridge.gone.has(n)) return route.fulfill({ status: 410, body: 'card removed' });

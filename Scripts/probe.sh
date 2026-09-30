@@ -13,7 +13,8 @@
 #   bash Scripts/probe.sh card                   golden card + camera-clock parity, page vs native read (needs LUMINA_CARD_DIR)
 #   bash Scripts/probe.sh app                    contract + app-smoke: native read, sidecars, .lumina-bak, sessions (needs LUMINA_FIXTURE_ROOT)
 #   bash Scripts/probe.sh fault                  native writes: kill -9 mid-write + relaunch recovery, disk full mid-copy (disk images)
-#   bash Scripts/probe.sh scroll                 fast scrolling in Cull at 1440×900 and 2560×1440: frame pacing, blank tiles, thumbnail
+#   bash Scripts/probe.sh scroll                 scrolling Cull while a folder reads (no jump when it ends), then fast scrolling at
+#                                                1440×900 and 2560×1440: frame pacing, blank tiles, thumbnail
 #                                                upscale, memory. Folder: LUMINA_SCROLL_DIR, else LUMINA_CARD_DIR (only read), else
 #                                                408 APFS clones of LUMINA_FIXTURE_ROOT/src, 20 s apart (built once)
 #   bash Scripts/probe.sh v3                     the scenarios still written for the v3 page (see V3 below): expected to fail
@@ -133,12 +134,12 @@ case "$suite" in
   app)       run "$S/app-plumbing-contract.json" "$S/app-smoke.json" ;;
   contract)  run "$S/app-plumbing-contract.json" ;;
   fault)     run "$S/fault-kill-mid-handoff.json" "$S/fault-native-dest.json" ;;   # native only: kill -9 mid-write, disk full mid-copy
-  scroll)    scrolldir; run "$S/scroll-fast.json" "$S/scroll-fast-2560.json" ;;
+  scroll)    scrolldir; run "$S/scroll-read.json" "$S/scroll-fast.json" "$S/scroll-fast-2560.json" ;;
   v3)        run $(v3files) ;;                  # scenario paths have no spaces
   all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S"/edge-*.json "$S/app-plumbing-contract.json" "$S/app-smoke.json" \
                "$S/fault-kill-mid-handoff.json" "$S/fault-native-dest.json"
              LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
-  *)         sed -n '2,18p' "$0"; exit 2 ;;
+  *)         sed -n '2,21p' "$0"; exit 2 ;;
 esac
 echo "evidence: $OUT"
 exit $status
