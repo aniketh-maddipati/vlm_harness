@@ -139,6 +139,7 @@ the guard.
 | `criteria.json` | the roadmap's numbers; humans only |
 | `lr_sweep.lrdevplugin/` | the Lightroom plug-in |
 | `default_ab.md`, `ab.html` | the blind A/B of the default render (Phase E) |
+| `showcase.py` | one ARW through every slider as a labelled contact sheet + sweep GIFs, for PR comments (photo content: never committed) |
 | `tests/` | `python3 -m unittest discover -s Tools/parity/tests` |
 | `report/` | committed reports (numbers only) |
 
