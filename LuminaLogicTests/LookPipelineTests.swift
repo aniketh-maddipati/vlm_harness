@@ -34,7 +34,9 @@ final class LookPipelineTests: XCTestCase {
 
     func testKernelsCompile() throws {
         let k = try LookKernels.shared()
-        XCTAssertEqual(k.byName.count, 11, "\(k.byName.keys.sorted())")
+        XCTAssertEqual(Set(k.byName.keys).intersection(LookKernels.stageNames).count, 8, "\(k.byName.keys.sorted())")
+        XCTAssertEqual(try k.kernel("lookEcho44").name, "lookEcho44", "test kernels compile on demand")
+        XCTAssertThrowsError(try k.kernel("lookNope"))
     }
 
     /// Every argument slot receives what `apply` passed, in each layout the stages use. Values are

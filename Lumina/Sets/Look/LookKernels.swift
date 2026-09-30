@@ -146,52 +146,53 @@ nonisolated final class LookKernels: @unchecked Sendable {
 
     struct CompileError: Error, CustomStringConvertible { let description: String }
 
-    let byName: [String: CIKernel]
+    /// The stage kernels, compiled when the pipeline is made.
+    static let stageNames = ["lookLuma", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette"]
 
-    static let names = ["lookLuma", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette",
-                        "lookEcho442", "lookEcho44", "lookEcho424"]
+    private let header: String
+    private let blocks: [String: String]             // function name → its source block
+    private let lock = NSLock()
+    private var compiled: [String: CIKernel] = [:]
+    var byName: [String: CIKernel] { lock.withLock { compiled } }
 
     /// One compile per kernel: the helpers plus a single `[[ stitchable ]]` function. Compiling
     /// the whole source at once (macOS 15.x) hands back kernels whose names and code are mixed up
     /// between functions with the same parameter list (`LookPipelineTests.
     /// testKernelArgumentsArriveInOrder` caught `lookPre` running the echo kernel's code), so each
     /// `kernels(withMetalString:)` call here can only ever return the one function it was given.
+    /// The stage kernels compile here; the echo kernels (tests) compile on first use.
     init() throws {
         let marker = "[[ stitchable ]]"
         guard let first = Self.source.range(of: marker) else { throw CompileError(description: "no kernels in the source") }
-        let header = String(Self.source[..<first.lowerBound])
+        header = String(Self.source[..<first.lowerBound])
         var rest = String(Self.source[first.lowerBound...])
-        var blocks: [String] = []
+        var list: [String] = []
         while let next = rest.range(of: marker, options: [], range: rest.index(after: rest.startIndex)..<rest.endIndex) {
-            blocks.append(String(rest[..<next.lowerBound]))
+            list.append(String(rest[..<next.lowerBound]))
             rest = String(rest[next.lowerBound...])
         }
-        blocks.append(rest)
-        var d: [String: CIKernel] = [:]
-        for block in blocks {
-            let list = try CIKernel.kernels(withMetalString: header + block)
-            guard list.count == 1, let k = list.first else { throw CompileError(description: "expected one kernel per block, got \(list.map(\.name))") }
-            d[k.name] = k
+        list.append(rest)
+        var named: [String: String] = [:]
+        for block in list {
+            guard let open = block.range(of: "("), let space = block[..<open.lowerBound].lastIndex(of: " ") else { throw CompileError(description: "unreadable kernel block") }
+            named[String(block[block.index(after: space)..<open.lowerBound])] = block
         }
-        for name in Self.names where d[name] == nil {
-            throw CompileError(description: "kernel \(name) missing after compile; got \(d.keys.sorted())")
-        }
-        byName = d
+        blocks = named
+        for name in Self.stageNames { _ = try kernel(name) }
     }
 
-    /// One shared compile per process.
-    nonisolated(unsafe) private static var _shared: LookKernels?
-    private static let lock = NSLock()
-    static func shared() throws -> LookKernels {
-        lock.lock(); defer { lock.unlock() }
-        if let k = _shared { return k }
-        let k = try LookKernels()
-        _shared = k
+    /// The compiled kernel, compiling its block on first use.
+    func kernel(_ name: String) throws -> CIKernel {
+        if let k = lock.withLock({ compiled[name] }) { return k }
+        guard let block = blocks[name] else { throw CompileError(description: "no kernel named \(name); have \(blocks.keys.sorted())") }
+        let list = try CIKernel.kernels(withMetalString: header + block)
+        guard list.count == 1, let k = list.first, k.name == name else { throw CompileError(description: "\(name): expected one kernel, got \(list.map(\.name))") }
+        lock.withLock { compiled[name] = k }
         return k
     }
 
     /// Runs a colour kernel over `extent`. Inputs map 1:1, so the region of interest is the output rect.
     func apply(_ name: String, extent: CGRect, _ args: [Any]) -> CIImage? {
-        byName[name]?.apply(extent: extent, roiCallback: { _, r in r }, arguments: args)
+        (try? kernel(name))?.apply(extent: extent, roiCallback: { _, r in r }, arguments: args)
     }
 }
