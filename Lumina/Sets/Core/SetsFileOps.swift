@@ -18,6 +18,11 @@ nonisolated enum SetsFileOps {
         init(_ d: String) { description = d }
     }
 
+    /// Whether a file sits on a locked (immutable) file: Finder's "Locked". Writes refuse it.
+    static func isLocked(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isUserImmutableKey]))?.isUserImmutable == true
+    }
+
     static let backupSuffix = ".lumina-bak"
     private static let chunk = 4 << 20
 
@@ -87,6 +92,71 @@ nonisolated enum SetsFileOps {
         } else {
             try FileManager.default.moveItem(at: tmp, to: url)
         }
+    }
+
+    // MARK: Sidecars (SAFETY.md 1)
+
+    /// Why one sidecar wasn't written, in the page's words ("DSC03311 · locked").
+    struct SidecarError: Error, Equatable {
+        let name: String
+        let reason: String
+    }
+
+    /// Writes one .xmp sidecar INTO the shoot folder, next to its RAW: `rel` is the path inside
+    /// `root` ("sub/DSC03311.xmp"). Only a `.xmp` name that stays inside `root` is accepted, so
+    /// nothing else in the folder (a RAW above all) can be written. An existing sidecar is kept as
+    /// `.lumina-bak` first; the new bytes land atomically (temp file in the same folder, fsync,
+    /// rename) and the file is read back and compared after the rename. Refused on a card.
+    @discardableResult
+    static func writeSidecar(_ data: Data, rel: String, root: URL) throws -> WriteResult {
+        let name = (rel as NSString).lastPathComponent
+        let base = (name as NSString).deletingPathExtension
+        guard !rel.hasPrefix("/"), !rel.split(separator: "/", omittingEmptySubsequences: false).contains(where: { $0 == ".." || $0 == "." || $0.isEmpty }),
+              (rel as NSString).pathExtension.lowercased() == "xmp" else { throw SidecarError(name: base, reason: "refused") }
+        let url = root.appendingPathComponent(rel).standardizedFileURL
+        let parent = url.deletingLastPathComponent()
+        guard FileManager.default.fileExists(atPath: parent.path) else { throw SidecarError(name: base, reason: "missing") }
+        // Compared with symlinks resolved on the folder (which exists), so a linked subfolder can't
+        // lead out of the shoot; the sidecar itself must not be a link.
+        let rootPath = root.standardizedFileURL.resolvingSymlinksInPath().path
+        let parentPath = parent.resolvingSymlinksInPath().path
+        guard parentPath == rootPath || parentPath.hasPrefix(rootPath + "/") else { throw SidecarError(name: base, reason: "refused") }
+        if (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true { throw SidecarError(name: base, reason: "refused") }
+        if isCard(root) { throw SidecarError(name: base, reason: "on the card") }
+        if isLocked(url) { throw SidecarError(name: base, reason: "locked") }
+        do {
+            let r = try write(data, to: url)
+            guard (try? Data(contentsOf: url)) == data else { throw SidecarError(name: base, reason: "verify failed") }
+            return r
+        } catch let e as SidecarError {
+            throw e
+        } catch {
+            throw SidecarError(name: base, reason: reason(error))
+        }
+    }
+
+    /// A write error in two or three words.
+    static func reason(_ error: Error) -> String {
+        let ns = error as NSError
+        let posix = (ns.userInfo[NSUnderlyingErrorKey] as? NSError).flatMap { $0.domain == NSPOSIXErrorDomain ? Int32($0.code) : nil }
+            ?? (ns.domain == NSPOSIXErrorDomain ? Int32(ns.code) : nil)
+        switch posix {
+        case ENOSPC, EDQUOT: return "disk full"
+        case EROFS: return "read-only"
+        case EACCES, EPERM: return "locked"
+        case ENOENT: return "missing"
+        default: break
+        }
+        if ns.domain == NSCocoaErrorDomain {
+            switch ns.code {
+            case NSFileWriteOutOfSpaceError: return "disk full"
+            case NSFileWriteVolumeReadOnlyError: return "read-only"
+            case NSFileWriteNoPermissionError, NSFileReadNoPermissionError: return "locked"
+            case NSFileNoSuchFileError, NSFileReadNoSuchFileError: return "missing"
+            default: break
+            }
+        }
+        return "failed"
     }
 
     // MARK: Copy

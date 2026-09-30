@@ -93,8 +93,10 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
 
     // MARK: Loading
 
-    func load(_ page: String) async throws {
-        let url = URL(string: "\(SetsSchemeHandler.scheme)://app/\(page.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)")!
+    /// `query`: the page's own flags, e.g. "selftest" or "n=1000" (README of the handoff).
+    func load(_ page: String, query: String? = nil) async throws {
+        let q = query.flatMap { $0.isEmpty ? nil : "?" + ($0.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "") } ?? ""
+        let url = URL(string: "\(SetsSchemeHandler.scheme)://app/\(page.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)\(q)")!
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
             navDone = c
             webView.load(URLRequest(url: url))

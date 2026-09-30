@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Linux sandbox for the app's Foundation-only Swift: compiles Lumina/Sets/Core/{SetsFileOps,
+# SetsShootStore,SetsExport,SetsIngest}.swift unchanged with Swift 6.1 (Docker image swift:6.1-noble)
+# and runs the logic tests that don't need Core Image / ImageIO / AppKit:
+#   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests (minus its Edit-look tests).
+# Not covered here (Mac only): SetsBridge, SetsSchemeHandler, SetsCardWatcher (AppKit/WebKit),
+# SetsEditLook (Core Image), SetsIngestTests and SetsPageBytesTests (ImageIO, bundle).
+#
+#   bash Tests/linux-swift/run.sh            # needs docker; pulls swift:6.1-noble once
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
+B="$HERE/Build"; rm -rf "$B"; mkdir -p "$B/Lumina" "$B/Tests"
+for f in SetsFileOps SetsShootStore SetsExport SetsIngest; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
+# swift-corelibs-foundation's FileManager.replaceItemAt fails on Linux and deletes the original
+# (checked with swift 6.1). Darwin's is correct. In this copy only, the replace is the POSIX rename
+# it stands for (atomic, same folder), so the rest of the write path runs as written.
+python3 - "$B/Lumina" <<'PY'
+import glob, sys
+for f in glob.glob(sys.argv[1] + '/*.swift'):
+    s = open(f).read()
+    t = s.replace('_ = try FileManager.default.replaceItemAt(url, withItemAt: tmp)', 'guard rename(tmp.path, url.path) == 0 else { throw Failure("rename failed: \\(String(cString: strerror(errno)))") }')
+    if t != s: open(f, 'w').write(t); print('linux: replaceItemAt → rename(2) in', f.split('/')[-1])
+PY
+cat > "$B/Lumina/LinuxStubs.swift" <<'SWIFT'
+import Foundation
+// SetsExport's JPEG path renders with Core Image (SetsEditLook, Mac only). v5 doesn't use it.
+enum SetsEditLook { static func renderJPEG(raw url: URL, css: String, px: String) throws -> Data { throw SetsFileOps.Failure("no Core Image on Linux") } }
+// Darwin-only: F_NOCACHE (bypass the buffer cache) becomes F_GETFD, a no-op; the "important usage"
+// capacity falls back to the plain available capacity, as the app's code already does when it's 0.
+let F_NOCACHE = F_GETFD
+extension URLResourceKey { static let volumeAvailableCapacityForImportantUsageKey = URLResourceKey(rawValue: "NSURLVolumeAvailableCapacityForImportantUsageKey") }
+extension URLResourceValues { var volumeAvailableCapacityForImportantUsage: Int64? { nil } }
+SWIFT
+cp "$ROOT/LuminaLogicTests/SetsTrustTests.swift" "$B/Tests/"
+# SetsFileOpsTests without its Core Image tests (the Edit look); SetsSidecarTests without the locked-file
+# test (Linux has no user-immutable flag for FileManager to set).
+for t in SetsFileOpsTests SetsSidecarTests; do
+python3 - "$ROOT/LuminaLogicTests/$t.swift" "$B/Tests/$t.swift" <<'PY'
+import re, sys
+src = open(sys.argv[1]).read().replace('import CoreImage\n', '')
+out, i = [], 0
+for m in re.finditer(r'\n    func test\w+\(\)[^{]*\{', src):
+    pass
+lines, keep, depth, buf, drop = src.split('\n'), [], 0, [], False
+for ln in lines:
+    if depth == 0 and re.match(r'    func test\w+\(', ln):
+        buf, drop = [ln], False
+        depth = ln.count('{') - ln.count('}')
+        if depth == 0: keep.extend(buf); buf = []
+        continue
+    if buf:
+        buf.append(ln); depth += ln.count('{') - ln.count('}')
+        if depth == 0:
+            body = '\n'.join(buf)
+            if not re.search(r'SetsEditLook|CIImage|CIContext|CGColorSpace|\.immutable: true', body): keep.extend(buf)
+            else: print('linux: skipped', re.search(r'func (test\w+)', buf[0]).group(1))
+            buf = []
+        continue
+    keep.append(ln)
+open(sys.argv[2], 'w').write('\n'.join(keep))
+PY
+done
+docker run --rm -v "$HERE:/work" -w /work swift:6.1-noble bash -c '
+  swift build --build-tests > build.log 2>&1 || { grep -E "error" build.log | sort -u; exit 1; }
+  swift test > test.log 2>&1; s=$?
+  grep -E "error:|failed \(|Executed .* tests" test.log | sort -u | tail -40
+  exit $s'

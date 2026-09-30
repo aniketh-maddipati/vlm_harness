@@ -1,76 +1,59 @@
-# Design asks for the next handoff (v7)
+# Design asks for the next handoff (after v5)
 
 Status: open. Paste the prompt below into Claude Design, download the new handoff zip, then run
 `bash Scripts/sets_sync_design.sh "<zip>"` (add `--record` once you've approved the new look).
 
-The Mac app ships `Lumina Sets v3.dc.html` byte for byte. Anything visible has to change in the
-design, then sync here with `bash Scripts/sets_sync_design.sh <zip>`. The prompt below can be pasted
-into Claude Design as it is. Every item was found by the probe harness against v6 (2026-09-28).
+The Mac app ships `Lumina Sets v5.dc.html` byte for byte. Anything visible has to change in the
+design and then be synced here. These asks were found while fitting `plumbing.js` to v5
+(2026-09-29), by `Tests/web/plumbing-harness.mjs` and `Tests/web/parity.mjs`. The WKWebView probe
+runs are still to come.
+
+**Answered by v5** (the v3-era asks 1–8, 10): the `window.lumina` contract, no sample data in
+the app, empty states for Open, Cull and Save, data from `lumina.card` on the card panel, the demo layer gone
+in the app, working files in Save, the body serial and `SequenceNumber` read by `parseHead`,
+missing previews kept as photos (`nopv`), and rows drawn only near the viewport. The Edit step and
+its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved to #2 below.
 
 ---
 
 ## Prompt to paste into Claude Design
 
-> Update `Lumina Sets v3.dc.html` and `lumina-core.js` for the Mac app. Keep the look, keys and
-> wording otherwise unchanged. Keep the sample shoot for when the page runs in a browser.
+> Update `Lumina Sets v5.dc.html` for the Mac app. Keep the look, keys and wording otherwise
+> unchanged, and keep the browser behaviour as it is.
 >
-> **1. App data contract.** When `window.lumina` exists, the page is running inside the Mac app. Read real data from it and don't show sample data. When it doesn't exist, keep today's sample behaviour so the prototype still works in a browser. Fields:
-> - `lumina.app` (true)
-> - `lumina.debug` (bool)
-> - `lumina.card`: `{ name, photos, bytes, sony }`, or `null` when no card is in
-> - `lumina.shoots`: recent shoots as `[{ id, t, d, cam, n, src, where }]`, the same shape as `SHOOTS`
-> - `lumina.open(id)`: reopen a recent shoot
-> - `lumina.persisted` (true): decisions are saved per shoot
-> - `lumina.workingFiles()`: Promise resolving to the byte count of Lumina's own files for the open shoot
-> - `lumina.removeWorkingFiles()`: removes those files
+> **1. Working files size when Save opens.** In the app, Save shows "Remove Lumina's working
+> files (N MB)" only after a save, because `s.ex.wf` is set only in `runExport`. Call
+> `lumina.workingFiles()` when the Save step opens (and after "Remove"), and show the row as soon
+> as the size is known. The app does this for you today from `plumbing.js`; with it in the page,
+> that code can go.
 >
-> **2. Empty shoot.** Inside the app, the page starts with 0 photos until a folder or card is opened. Today every screen reads the current photo (`c = this.f()`), which throws `TypeError: c.id` with 0 photos. Design empty states for Open, Cull, Edit and Export, and make keys that need a photo do nothing.
+> **2. One sidecar per RAW when both `DSC….xmp` and `DSC….XMP` exist** (possible on a
+> case-sensitive disk). `onDir` keeps whichever file finishes reading last, which is a race. Use the
+> lower-case `.xmp` (Adobe's name, and the one new sidecars get), otherwise the first by name.
+> Never read or write the other one. The app's native read already does this.
 >
-> **3. Card panel from data.** Replace the hard-coded "Sony α7 III card" and "721 photos · 11.3 GB" with `lumina.card` (name, photo count, size). For a non-Sony card, show a quiet line: "Only Sony cards are supported in this beta". With no card, don't say "copy": the beta reads in place. Replace "Insert a card to copy it · or open a shoot below".
+> **3. Unsaved keepers, from the page.** Quit asks when keepers aren't saved (MENUS.md). The app
+> works this out itself (the kept list against the last successful save). Please expose
+> `window.luminaUnsaved()` → the number of keepers whose sidecars aren't written, so the rule lives
+> with the Save screen's own "saved" state (today `ex.result` resets on any keeper change but is
+> lost on reopen).
 >
-> **4. Remove the demo layer when `lumina.app` is true:**
-> - the "prototype · C pull card" chip
-> - "C pull / insert card" in the Open key bar
-> - the key C handler and `simCard`
-> - `impStartOld`
-> - `localStorage` load and save
-> - the X→E `Proxy` in `onKey`
-> - zip downloads and the strings "downloaded as lumina-xmp.zip", "Unzip into the folder…" and "Open this page in its own Chrome tab"
-> - the JPEG note "JPEGs come from the 1616 px preview inside each ARW. The Mac app will render from the RAW."
-> - "save test data": show it only when `lumina.debug` is true
+> **4. Window chrome (was ask 9).** The Mac window has a standard title bar, so the page area is
+> about 28 px shorter than the window (1440 × 872 in 1440 × 900). Tell us whether you want a full-bleed page. If so, the top bar
+> needs about 80 px clear on the left for the window buttons.
 >
-> **5. Wording (ADDENDUM §4):**
-> - The L-hold badge "out?" should become "not suggested", or "reject?" if you prefer.
-> - "previewing {look} · ⇧A apply" should become "showing Auto · ⇧A apply".
-> - The story line "doesn't change keeps or export" should become "doesn't change keepers or export".
-> - Replace "Nothing saved to disk. Keepers and previews live in this tab only." when `lumina.persisted` is true, e.g. "Saved for this shoot · reopen it from Open".
+> **5. Menu shortcuts for plain keys.** The menu bar shows ⌘ shortcuts natively. Plain keys
+> (P, F, ⇧P, ⇧F, ⏎, esc, Space, Z, ⇧U, −, +, H, ?) can't be bound in a Mac menu without taking the
+> key away from the page (hold-to-show and key repeat stop working), so the app writes them into the
+> item title ("Keep  P"). If you want a different wording in the menu, list it in MENUS.md.
 >
-> **6. Working files after export.** Show "Remove Lumina's working files (N MB)" for real shoots too. Take the size from `lumina.workingFiles()` and call `lumina.removeWorkingFiles()`. Today it only appears for the sample (`cleanShow: !this.real`), with made-up sizes.
->
-> **7. `lumina-core.js`: grouping checklist gaps,** each with a fixture in `lumina-core.fixtures.json`:
-> - **Bursts:** the α7 III records whole seconds only. A frame 1 s after a burst currently joins it (a 10-frame burst becomes 11). Decide the rule, and read the Sony `SequenceNumber` when it's present.
-> - **Unreadable previews:** a missing, tiny or corrupt preview is currently dropped as "unreadable", with no placeholder, and it can't be exported. Keep it as a photo with a placeholder and a flag.
-> - **Two bodies in one folder:** the checklist says sort by body serial, then time, then file number. `parseHead` doesn't read the serial (EXIF 0xA431).
-> - **Wrong clock / time zone:** add "shift shoot time", with UI and keys.
->
-> **8. Scrolling speed in Cull (60 fps at 721+ photos).** Measured in the app on a real 721-ARW card: Cull scrolls at p95 26–28 ms per frame (about 30 fps; the target is 16.7 ms), and the page holds about 0.9–1.1 GB. The cause is in the page: while you scroll, `cullScrolled` runs a scroll-follow computation every animation frame, and its `setState` re-renders every row and tile. Please:
-> - render only the rows near the viewport (keep rows above and below as fixed-height spacers, so the scrollbar and positions don't jump);
-> - skip the scroll-follow `setState` when the focused row hasn't changed.
->
-> The look must stay the same: the app checks every screen pixel for pixel. (CSS `content-visibility` was tried from the app side. It cut memory about 15%, but it changed text anti-aliasing on the badges, so it's out.)
->
-> **9. Window chrome.** The Mac window has a standard title bar, so the page area is 1440×856 in a 1440×900 window. Tell us whether you want a full-bleed page. If so, the top bar needs about 80 px clear on the left for the red, yellow and green window buttons.
-
->
-> **10. Exposure story image quality.** The story cover and photo blocks use `byId[id].src`, the 360 px grid thumbnail (JPEG 0.82), so they look grainy when shown large: the cover is about 1400 px wide. Use `byId[id].lg` (the 1616 px embedded preview, which the Large view already uses) for the story cover and blocks, and keep `src` for grid tiles only. Later the app can supply a full-resolution render the same way.
->
-> **11. One sidecar per RAW when both `DSC….xmp` and `DSC….XMP` exist** (possible on a case-sensitive disk). `onDir` keeps whichever file finishes reading last (a race). Use the lower-case `.xmp` (Adobe's name, and the name new sidecars get); otherwise the first by name. Never read or write the other one.
----
+> **6. Tab focus order** (CHANGES-v4-beta "Known, left as-is"). Still no rule. The proposal stands:
+> Tab moves through buttons; letters act only while the grid has focus.
 
 ## How each ask is checked once the new handoff lands
-- **1, 3, 6:** probe `app-*` scenarios read `window.lumina`, and `plumbing.js` stops patching `SHOOTS` once the page reads the contract.
-- **8:** `LUMINA_CARD_DIR=… bash Scripts/probe.sh card` paces Cull and Edit scrolling on a real card, failing above p95 17.5 ms.
-- **2:** `Tests/probe/scenarios/app-empty-start.json` (fails today, is expected to pass on v7). The app then switches its sample default off (`SetsRootView.showsSample`).
-- **4, 5:** the sync script's wording and demo-layer audit.
-- **7:** `node lumina-core.test.mjs` plus `Tests/probe/scenarios/edge-*.json`.
-- **11:** `app-xmp-both` (the app already applies the rule in its native read); run it with `LUMINA_PROBE_MODE=page` to check the page's own read.
+
+- 1: `Tests/web/plumbing-harness.mjs` and `probe.sh smoke` (`app-smoke`: the Save screen shows the row before any save). Remove the `wf` block in `plumbing.js`'s view loop.
+- 2: `probe.sh edge` with a case-sensitive fixture (the v3 `app-xmp-both` scenario, rewritten for v5).
+- 3: `__lumina.unsaved()` in `plumbing.js` becomes a call to `window.luminaUnsaved`; the contract scenario checks it exists.
+- 4, 5: by eye.
+- 6: a probe Tab walk scenario.

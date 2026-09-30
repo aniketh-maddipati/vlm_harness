@@ -6,7 +6,7 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
- "checklist": "Shutter-only bracket (no EV comp) \u2192 split/merge fixes it",
+ "checklist": "Shutter-only bracket (no EV comp) → split/merge fixes it",
  "steps": [
   {
    "do": "openFolder",
@@ -38,8 +38,9 @@
   },
   {
    "do": "key",
-   "k": "1",
-   "settleMs": 300
+   "k": "2",
+   "settleMs": 300,
+   "cmd": true
   },
   {
    "do": "key",

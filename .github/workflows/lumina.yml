@@ -30,6 +30,43 @@ jobs:
       - name: wording + demo-layer audit (report only)
         run: source Scripts/page_files.sh && python3 Tests/probe/design_audit.py "design/handoff/lumina-cull/$PAGE"
 
+  plumbing:
+    name: plumbing.js on the page (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: playwright
+        run: npm i -g playwright@1.56.1 && npx playwright install --with-deps chromium
+      - name: plumbing harness
+        run: NODE_PATH="$(npm root -g)" node Tests/web/plumbing-harness.mjs
+
+  webkit:
+    name: page + plumbing in WebKit (WebKitGTK sandbox)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: WebKitGTK, Xvfb, playwright (fixture JPEGs)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb
+          npm i -g playwright@1.56.1 && npx playwright install --with-deps chromium
+      - name: contract, selftest, app flow, screens (prototype vs app)
+        run: NODE_PATH="$(npm root -g)" xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3 Tests/web/webkit.py
+
+  swift-linux:
+    name: native file code on Linux (Swift 6.1)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests
+        run: bash Tests/linux-swift/run.sh
+
   app:
     name: build + tests
     runs-on: macos-15
@@ -42,3 +79,30 @@ jobs:
             -only-testing:LuminaLogicTests test
       - name: probe builds
         run: swift build --package-path Tools/LuminaProbe
+
+  probe:
+    name: probe in WKWebView (no fixtures)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: contract, selftest, smoke, fuzz
+        env:
+          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe
+        run: |
+          status=0
+          for s in contract selftest smoke fuzz; do echo "::group::probe $s"; bash Scripts/probe.sh $s || status=1; echo "::endgroup::"; done
+          exit $status
+      - name: screens, app vs design at 0 px (records a fresh reference, then compares)
+        env:
+          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe-ref
+        run: bash Scripts/probe.sh reference --record && LUMINA_PROBE_OUT="${{ runner.temp }}/probe-cmp" bash Scripts/probe.sh reference
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-evidence
+          path: |
+            ${{ runner.temp }}/probe*/**/report.json
+            ${{ runner.temp }}/probe*/**/*.png
+            ${{ runner.temp }}/probe*/manifest.json
+          retention-days: 7

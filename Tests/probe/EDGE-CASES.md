@@ -3,7 +3,25 @@
 Every item gets an automated probe scenario unless it's marked **manual**. Run with
 `bash Scripts/probe.sh <suite>` (see the script header). ★ = minimum before Reddit.
 
-Status (2026-09-29, handoff v6, native ingest):
+## v5 (2026-09-29): what changed and what still holds
+
+v5 saves one thing: a `.xmp` sidecar per keeper, written **into the shoot folder** next to its RAW (SAFETY.md 1). There is no RAW/JPEG export, no Edit step, no destination picker. So:
+
+| Case | v5 check | Status |
+|---|---|---|
+| Sidecar written next to the RAW, atomic, read back | `SetsSidecarTests` (next to the RAW, RAW untouched, no temp files), `app-smoke` (2 keepers → 2 `.xmp`, no `.lumina-tmp-*`), `Tests/web/plumbing-harness.mjs` | written; **Mac run pending** |
+| `.lumina-bak` before replacing a sidecar (F6, F11) | `SetsSidecarTests.testExistingSidecarKeptAsLuminaBak` (kept once, never replaced by Lumina's own), `app-smoke` second save → 2 `.xmp.lumina-bak` | written; **Mac run pending** |
+| Only `.xmp` inside the folder; never a RAW; no `../`, no link out (F4) | `SetsSidecarTests.testOnlyXmpInsideTheFolder`, `testLinkedFolderCannotLeadOut` | written; **Mac run pending** |
+| No writes to a card (SAFETY.md 4) | `lumina.readingCard` from the listing (`onCard`): the page's Save shows "copy to disk first". Natively every file is refused "on the card" too. | written; needs a card-image scenario |
+| Per-file errors: locked, read-only, disk full, missing (F3, F7) | `SetsFileOps.reason`, `SetsSidecarTests.testLockedSidecarIsLocked`. Disk full / read-only volume need disk-image scenarios (rewrite of `fault-disk-full`, `fault-readonly-card`). | partly written |
+| Card pulled mid-read / remount (F2, SAFETY.md 3) | `__lumina.cardGone(stopped, ours)` → `luminaCardGone(true)`; remount → `luminaCardGone(false)` and a read cut short is read again; decisions for unread files are kept in the session. Chromium harness covers the page side; `fault-card-pull-read` needs its v5 rewrite. | page side **pass** (Chromium) |
+| Access denied (SAFETY.md 5) | listing refused → `luminaAccess(true, volume)`; `checkAccess`, `openSettings('files')`, `reopen`. Chromium harness. A TCC denial on the Mac is **manual**. | page side **pass** (Chromium) |
+| Autosave every 2 s + on view change, cursor restored (SAFETY.md 2) | Chromium harness: marks by path, seen, cursor, reopen restores; `app-smoke` reopen keeps 2 keepers. | page side **pass** (Chromium) |
+| Quit with unsaved keepers | `__lumina.unsaved()` (harness) + the Quit alert (**manual**). | page side **pass** |
+
+**Scenarios still written for v3** (bare 1/2/3 steps, R/X keys, Edit, RAW/JPEG export): `app-export`, `app-session`, `app-xmp-lightroom`, `app-xmp-both`, `app-rename-mid-cull`, `look-parity`, `app-empty-start`, `card-stress`, `card-stress-app`, `fault-card-pull-export`, `fault-card-pull-read`, `fault-disk-full`, `fault-readonly-card`, `fuzz-app-card`. They're out of the default suites (`probe.sh v3` runs them) until they're rewritten for v5. The rows below that cite them describe v3 results. `look-parity` (X1) no longer applies: v5 has no JPEG export.
+
+Status (2026-09-29, handoff v6, native ingest; before v5):
 - **pass**: scenario runs green today.
 - **gap**: scenario runs and fails because the page falls short of the checklist. The fix goes to design first, because the HTML and `lumina-core.js` ship unchanged.
 - **red**: perf budget scenario, failing until Phase 4.

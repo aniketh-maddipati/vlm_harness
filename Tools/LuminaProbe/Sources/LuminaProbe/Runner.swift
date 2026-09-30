@@ -52,6 +52,7 @@ final class Runner {
             let size = (spec["size"] as? [Double]) ?? [1280, 800]
             scale = (spec["scale"] as? Double) ?? 1
             var config: [String: Any] = [:]
+            if spec["storageWrites"] as? Bool == false { config["noStorageWrites"] = true }
             if let clock = spec["clock"] as? String {
                 let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"; f.timeZone = .current
                 guard let d = f.date(from: clock) else { throw ProbeError("bad clock \(clock)") }
@@ -70,7 +71,7 @@ final class Runner {
             sampler.start(interval: ((spec["sampleMs"] as? Double) ?? 250) / 1000) { [host] in
                 [(getpid(), "probe"), (host!.webProcessID, "web")]
             }
-            try await host.load((spec["page"] as? String) ?? "Lumina Sets v5.dc.html")
+            try await host.load((spec["page"] as? String) ?? "Lumina Sets v5.dc.html", query: spec["query"] as? String)
             try await waitFor("return window.__probe && __probe.ready()", timeout: 30, what: "page ready")
 
             for (i, step) in ((spec["steps"] as? [[String: Any]]) ?? []).enumerated() {
@@ -245,7 +246,7 @@ final class Runner {
             host.webView.evaluateJavaScript("window.__lumina && __lumina.openFolder()", completionHandler: nil)
             try await waitFor("const l=__probe.logic(); return !!(l.real && !l.state.realLoad)", timeout: (s["timeoutMs"] as? Double ?? 60000) / 1000, what: "folder loaded via menu")
         case "reload":
-            try await host.load((spec["page"] as? String) ?? "Lumina Sets v5.dc.html")
+            try await host.load((spec["page"] as? String) ?? "Lumina Sets v5.dc.html", query: spec["query"] as? String)
             try await waitFor("return window.__probe && __probe.ready()", timeout: 30, what: "page ready after reload")
             try await settle(s["settleMs"] as? Double ?? 600)
         case "logged":
@@ -570,16 +571,18 @@ final class Runner {
             } else {
                 let k = keys[Int(rng.next() % UInt64(keys.count))]
                 let shift = rng.unit() < 0.18
-                let cmd = ["z", "[", "]"].contains(k) && rng.unit() < 0.3
-                input = (cmd ? "⌘" : "") + (shift ? "⇧" : "") + k
-                if ["g", "l", " ", "a"].contains(k) && rng.unit() < 0.3 {
-                    // held key: down, some time, up (G 100%, L flag, Space large, A auto)
+                // v5: ⌘1–3 steps, ⌘A keep row, ⌘R Finder, ⌘Z undo; ⌥←→ skip a stack.
+                let cmd = ["z", "1", "2", "3", "a", "r"].contains(k) && rng.unit() < 0.3
+                let alt = ["ArrowLeft", "ArrowRight"].contains(k) && rng.unit() < 0.2
+                input = (cmd ? "⌘" : "") + (alt ? "⌥" : "") + (shift ? "⇧" : "") + k
+                if ["z", " ", "ArrowLeft", "ArrowRight"].contains(k) && !cmd && rng.unit() < 0.3 {
+                    // held key: down, some time, up (Z 100%, Space large, arrows repeat)
                     try host.key(k, shift: shift, up: false)
                     try await settle(rng.unit() * 400)
                     try host.key(k, shift: shift, down: false)
                     input += " (held)"
                 } else {
-                    try host.key(k, shift: shift, cmd: cmd)
+                    try host.key(k, shift: shift, cmd: cmd, alt: alt)
                 }
             }
             trail.append(input)

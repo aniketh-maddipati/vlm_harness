@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
 # Lumina probe suites — drive the page in WKWebView and try to break it.
 #
-#   bash Scripts/probe.sh reference [--record]   21 screens × 2 sizes + state dumps, byte-compared to
+#   bash Scripts/probe.sh reference [--record]   every v5 screen × 2 sizes (+ app twins) and state dumps, byte-compared to
 #                                                Tests/probe/reference/manifest.json (--record rewrites it)
-#   bash Scripts/probe.sh fuzz                   seeded key/mouse storms on the sample shoot, and on a card
-#                                                image read natively and pulled at random (needs LUMINA_FIXTURE_ROOT)
+#   bash Scripts/probe.sh smoke                  the v5 page runs, its ?selftest passes, plumbing fits, and the app reads,
+#                                                keeps, saves sidecars into the folder, reopens (app-smoke needs LUMINA_FIXTURE_ROOT)
+#   bash Scripts/probe.sh selftest               the design's own ?selftest (25 checks, key and large-view timing)
+#   bash Scripts/probe.sh contract               plumbing.js still fits the page (run by sets_sync_design.sh)
+#   bash Scripts/probe.sh fuzz                   seeded key/mouse storms on the sample shoot
 #   bash Scripts/probe.sh edge                   camera-data edge cases   (needs LUMINA_FIXTURE_ROOT)
 #   bash Scripts/probe.sh ingest                 the same edge cases read by the app's native reader
-#   bash Scripts/probe.sh card                   721-photo stress + scroll pacing (needs LUMINA_CARD_DIR)
-#   bash Scripts/probe.sh fault                  card pulled mid-read / mid-export, disk full, locked card (disk images),
-#                                                kill -9 mid-export + relaunch recovery
-#   bash Scripts/probe.sh contract               plumbing.js still fits the page (run by sets_sync_design.sh)
-#   bash Scripts/probe.sh app                    the app's own bridge: exports, refusals, .lumina-bak, sessions, ΔE,
-#                                                Lightroom .xmp merge (lr-sidecar fixtures, incl. .xmp + .XMP on a
-#                                                case-sensitive disk), files renamed mid-cull
-#                                                (needs LUMINA_FIXTURE_ROOT)
-#   bash Scripts/probe.sh all [--require-all]    everything; --require-all turns a SKIP into a failure
+#   bash Scripts/probe.sh card                   golden card + camera-clock parity, page vs native read (needs LUMINA_CARD_DIR)
+#   bash Scripts/probe.sh app                    contract + app-smoke: native read, sidecars, .lumina-bak, sessions (needs LUMINA_FIXTURE_ROOT)
+#   bash Scripts/probe.sh fault                  native writes: kill -9 mid-write + relaunch recovery, disk full mid-copy (disk images)
+#   bash Scripts/probe.sh v3                     the scenarios still written for the v3 page (see V3 below): expected to fail
+#   bash Scripts/probe.sh all [--require-all]    everything v5; --require-all turns a SKIP into a failure
 #
 # Build fixtures once: LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Tests/probe/forge_fixtures.sh
 # Evidence goes to ~/LuminaEvidence/probe/<stamp> (not /tmp: it gets swept).
@@ -86,20 +85,30 @@ EOF
   fi
 }
 
+# Scenarios still written for the v3 page (bare 1/2/3 steps, R/X keys, the Edit step, RAW/JPEG
+# export to a picked folder). They need rewriting for v5 before they mean anything; see
+# Tests/probe/EDGE-CASES.md. `probe.sh v3` runs them anyway.
+V3=(app-export app-session app-xmp-lightroom app-xmp-both app-rename-mid-cull look-parity app-empty-start
+    card-stress card-stress-app fault-card-pull-export fault-card-pull-read fault-disk-full fault-readonly-card fuzz-app-card)
+v3files() { for n in "${V3[@]}"; do echo "$S/$n.json"; done; }
+
 case "$suite" in
   reference) reference ;;
   sync)      echo "use: bash Scripts/sets_sync_design.sh <handoff.zip>"; exit 2 ;;
-  fuzz)      run "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" ;;
+  smoke)     run "$S/smoke.json" "$S/keys-open-return.json" "$S/selftest.json" "$S/app-plumbing-contract.json" "$S/app-smoke.json" ;;
+  selftest)  run "$S/selftest.json" ;;
+  fuzz)      run "$S"/fuzz-sample-*.json ;;
   edge)      run "$S"/edge-*.json ;;
   ingest)    LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
-  card)      run "$S/card-stress.json" "$S/golden-card.json" ;;
-  app)       run "$S/app-plumbing-contract.json" "$S/app-export.json" "$S/app-session.json" "$S/look-parity.json" "$S/app-xmp-lightroom.json" "$S/app-rename-mid-cull.json" "$S/app-xmp-both.json" ;;
+  card)      run "$S/golden-card.json" "$S/card-clock.json" ;;
+  app)       run "$S/app-plumbing-contract.json" "$S/app-smoke.json" ;;
   contract)  run "$S/app-plumbing-contract.json" ;;
-  fault)     run "$S"/fault-*.json ;;           # disk images: card pulled mid-read / mid-export, disk full, locked card
-  empty)     run "$S/app-empty-start.json" ;;     # acceptance test for DESIGN-ASKS #2; fails until v7
-  all)       reference; run "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" "$S"/edge-*.json "$S/app-plumbing-contract.json" "$S/app-export.json" "$S/app-session.json" "$S/look-parity.json" "$S/app-xmp-lightroom.json" "$S/app-rename-mid-cull.json" "$S/app-xmp-both.json" "$S"/fault-*.json "$S/card-stress.json"
+  fault)     run "$S/fault-kill-mid-handoff.json" "$S/fault-native-dest.json" ;;   # native only: kill -9 mid-write, disk full mid-copy
+  v3)        run $(v3files) ;;                  # scenario paths have no spaces
+  all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S"/edge-*.json "$S/app-plumbing-contract.json" "$S/app-smoke.json" \
+               "$S/fault-kill-mid-handoff.json" "$S/fault-native-dest.json"
              LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
-  *)         sed -n '2,13p' "$0"; exit 2 ;;
+  *)         sed -n '2,15p' "$0"; exit 2 ;;
 esac
 echo "evidence: $OUT"
 exit $status
