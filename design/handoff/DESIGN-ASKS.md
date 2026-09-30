@@ -81,6 +81,181 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 > scrolling, add rows less often (the app waits 1.5 s instead of 400 ms), don't animate row heights
 > for rows that are off screen, and don't fade in tiles for rows that were already on screen.
 
+## Prompt 1 — the Edit step (paste into Claude Design)
+
+> Update `Lumina Sets v5.dc.html` (+ `support.js`, `lumina-core-v4.js`, `lumina-v4-data.js`,
+> `lumina-selftest.js`, PARITY.md, GRAMMAR.md, MENUS.md, CHANGES) to add the **Edit** step between Cull
+> and Save. Keep every existing screen, key, token and wording exactly as it is; the app ships these
+> files byte for byte and compares every screen at 0 px, so change only what this prompt names.
+> Read PARITY.md and GRAMMAR.md first and stay inside their tokens (colours, radii, motion, type).
+>
+> ### 1. Where Edit lives
+> - Segmented control: **Open · Cull · Edit · Save**, four segments of 88 × 24 (the control widens by
+>   one segment, stays centred). ⌘1 ⌘2 ⌘3 ⌘4 in that order; `window.luminaCommand('stepEdit')`
+>   opens it; MENUS.md View gains "Edit ⌘3" and Save moves to ⌘4. Tab moves Cull → Edit → Save.
+> - Edit opens on the current photo (the cursor's photo; a closed stack opens at its sharpest
+>   frame). Empty state when the shoot has no photos: "Nothing to edit yet", one sentence, gold
+>   "Back to Cull ⌘2". Edit works on any photo, kept or not; a "keepers only" toggle in the filmstrip
+>   (off by default) narrows the strip.
+> - Layout at 1440 × 872 (the app's page area; also lay it out at 1920 × 1052): left, the **canvas**
+>   (photo at its aspect on the loupe surround `#3A3835`, 20 padding, same hairline + shadow as the
+>   large view, a "100%" chip top-right while Z is held); right, a **panel** 300 wide (raised `#2A2927`)
+>   with the slider groups; bottom, the **filmstrip** 92 high (the current row's frames, 48 × 32
+>   tiles, current 66 × 44 with the ring, same rules as the large view's nav strip); under the canvas,
+>   one **facts line** 12.5 tertiary. Key bar and toolbar unchanged.
+>
+> ### 2. The look string is the only edit state
+> Every edit of a photo is one string, and the string is the contract with the Mac (the app renders
+> it natively; the design's own approximation is only for the browser prototype):
+>
+> ```
+> ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0 [bw:1] [crop:x,y,w,h/r]
+> ```
+> - Keys and ranges: `ev` −5.00…+5.00 step 0.05 · `wb` Kelvin 2000…50000 on a log scale / tint
+>   −150…+150 · `con hl sh wh bl vib sat clr vig` −100…+100 step 1 · `shp` 0…150 · `bw:1` black and
+>   white · `crop:x,y,w,h/r` fractions of the frame (0…1, y from the top) and a straighten angle in
+>   degrees (±45). A missing key is its reset value; `wb` missing means "as shot"; `crop` missing means
+>   the whole frame. Canonical text: this key order, `ev` with two decimals and a sign, integers with a
+>   sign (`0` unsigned), `shp` unsigned, `wb` as `K/tint`. `""` is the neutral look.
+> - `LuminaCore` gains `look.parse(s) → object`, `look.format(o) → canonical string`, `look.clamp`,
+>   `look.isNeutral`, `look.merge(base, over)` (per-key override), and `look.fromAuto(photo)`: the
+>   existing Auto (V / A keys) expressed as a look string (exposure, contrast, highlights, shadows,
+>   white balance) so Auto and manual edits are the same thing. Add fixtures for all of them to
+>   `lumina-core-v4.fixtures.json` and cases to `lumina-core-v4.test.mjs`.
+> - State: `state.look` = `{ [photoId]: lookString }` and `state.rowLook` = `{ [rowId]: lookString }`.
+>   A photo's effective look is `merge(rowLook[row], look[photo])`. "Apply to row" (⇧A) copies the
+>   photo's look into `rowLook` and clears the photos' overrides in that row; "Reset" clears the
+>   photo's override; "Reset all" clears both. Looks are **never written to XMP sidecars**: Save stays
+>   ratings only. The app persists `look` and `rowLook` in its session; in the browser keep them in
+>   the same localStorage session object the other decisions use.
+>
+> ### 3. Preview: the Mac renders, the page presents
+> - The page never renders pixels itself in the app. It asks the app for previews through one call:
+>   `const url = window.lumina.preview(rel, look, px, seq)`; when it returns a URL, set it as the
+>   canvas image's `src` (double-buffer: two stacked `<img>`s, swap on `decode()`, never show a blank
+>   frame); when it returns `null`, the app is presenting the pixels itself on a native canvas
+>   overlay and the page draws only the frame chrome (surround, hairline, chips, facts) and keeps the
+>   canvas area transparent. `rel` is the photo's path inside the shoot (`realInfo.name + '/' +
+>   file`, the same value `media` requests use), `px` the long edge in device pixels, `seq` an
+>   increasing integer per request.
+> - **Latest wins.** While a slider moves, the page keeps only the newest look string and asks at most
+>   once per animation frame (`requestAnimationFrame`, never `setTimeout`). A response older than the
+>   last presented `seq` is ignored (the app answers HTTP 409 for superseded requests; treat a 409 or
+>   an `onerror` as "ignore"). Never queue.
+> - Tell the app what the canvas is doing, through plumbing-provided calls (all optional; guard with
+>   `typeof … === 'function'` so the browser prototype runs without them):
+>   - `window.lumina.canvasRect({x, y, w, h, dpr})` on Edit open, layout, resize, scroll and zoom, in
+>     CSS px relative to the viewport; `window.lumina.canvasRect(null)` whenever Edit is not the active
+>     step or a large view / sheet covers the canvas.
+>   - `window.lumina.drag('start')` on pointer-down / key-repeat start on any slider,
+>     `window.lumina.drag('end')` on release / key up.
+>   - `window.lumina.roi({x, y, w, h})` in normalised frame coordinates while Z (100 %) is held and
+>     when the region pans; `window.lumina.roi(null)` when zoom ends.
+> - Hooks the app calls on the page (define them on `window` when Edit mounts, remove on unmount):
+>   - `window.luminaPresented(seq)`: the app has put this request on screen. Use it to clear the
+>     "rendering…" state; show that word (12.5 tertiary, in the facts line) only if the newest request
+>     has not been presented within 120 ms.
+>   - `window.luminaHistogram({seq, r, g, b, clipHi, clipLo})`: 256-bin arrays and clipped-pixel
+>     fractions, computed by the app on rest renders only. Draw the histogram 300 × 72 at the top of
+>     the panel (RGB overlaid, `#EFECE6` at 0.5 alpha per channel, luma in tertiary), and, when the
+>     clipping toggle is on (J), tint clipped highlights `#FFB4A2` and shadows `#9ED7B0` on the
+>     canvas via a stacked `<canvas>` that the app fills; the page draws only the toggle state.
+>   - `window.luminaFacts({canvas: 'native' | 'image', raw9: true | false, decoder: '8' | '9',
+>     note: string | null})`: appended to the facts line as `canvas: native · raw 9: yes` plus the
+>     note (e.g. `raw 9 · region`, `refining…`, `raw 9 · slowed by thermal state`, `decoder 8 pinned ·
+>     update shoot`). The facts line reads: `DSC03311 · ILCE-7M4 · 35 mm · 1/250 · f/2.8 · ISO 400 ·
+>     5200 K as shot` then the app's part.
+> - Browser prototype: with no `window.lumina.preview`, approximate the look on the embedded JPEG
+>   with CSS filters (`brightness`, `contrast`, `saturate`, `sepia` / `hue-rotate` for WB, a subtle
+>   `drop-shadow`-free vignette via a radial gradient overlay) through `LuminaCore.look.cssFilter(look)`;
+>   label the facts line `canvas: css` so nobody mistakes it for the real render.
+>
+> ### 4. Sliders and the panel
+> Groups, top to bottom, each collapsible (header 26 high, chevron rotates 90°, state remembered):
+> - **Light**: Exposure (stops, ±5, step 0.05, shown `+0.70`), White balance (Temperature
+>   2000–50000 K on a log slider with a `K` suffix and an "as shot" reset dot; Tint ±150), Contrast,
+>   Highlights, Shadows, Whites, Blacks.
+> - **Colour**: Vibrance, Saturation, B&W (toggle; when on, Vibrance and Saturation grey out).
+> - **Presence**: Clarity, Sharpening (0–150), Noise (Luminance NR 0–100, sent as `nr:`; hide the row
+>   when `luminaFacts.raw9` is true and show it when false; keep the key out of the look string when 0).
+> - **Effects**: Vignette (±100).
+> - **Crop & straighten**: a crop button that shows handles on the canvas (thirds grid while
+>   dragging), aspect presets (free · 3:2 · 4:5 · 1:1 · 16:9), a straighten slider ±45° with a
+>   level grid, "Done" / "Reset crop".
+> - Slider anatomy: label 12.5 left, value 12.5 tabular right (editable on click: type a number, ⏎
+>   commits, esc cancels), track 4 high full width, `rgba(239,236,230,0.16)`, fill from the zero
+>   point in `#B8B3AB` (gold `#FFD27A` while dragging or focused), thumb 14 circle with the same
+>   hairline as buttons. Bipolar sliders have a centre notch. Double-click the label = reset that
+>   slider; ⌥-click = reset the group; the value flashes 160 ms on reset.
+> - Keyboard: a slider takes focus with Tab; ← → nudge one step, ⇧ ten steps, ⌥ a tenth (`ev`
+>   only), Home/End to the ends, ⌫ resets. Focused slider name in the key bar. The whole panel is
+>   reachable by keyboard; ARIA `role="slider"` with `aria-valuenow/min/max/valuetext` on each.
+> - Interaction quality (this is the part the app measures, so please be exact):
+>   - A drag updates *only* the slider's own DOM (value text, fill, thumb via `transform`) and the
+>     look string; nothing else re-renders during a drag. Commit to React state on release, or at
+>     most once per animation frame while dragging, never per pointer event.
+>   - Emit `window.lumina.preview` at most once per frame, with the newest values (coalesce).
+>   - No layout reads inside the pointer-move handler; cache the track rect on pointer-down.
+>   - `pointer-events` capture on the thumb so fast drags don't drop out; touch and trackpad fine.
+>   - Thumb and fill animate only on keyboard steps (120 ms), never during a drag; reduced motion off.
+>   - No `content-visibility`, no filters on the canvas frame (the app compares screens at 0 px).
+>
+> ### 5. Keys in Edit (add to GRAMMAR.md and the ? sheet under "Edit")
+> ```
+> ← →         previous / next photo in the strip (⇧ stays inside the stack, as in Cull)
+> ↑ ↓         previous / next row
+> P R F       keep / un-keep / flag the photo shown (as everywhere)
+> \ hold      before / after (neutral look while held; the fill dims)
+> ⇧A          apply this photo's look to the whole row
+> ⌘⇧C ⌘⇧V    copy / paste the look
+> ⌫ (on a slider)  reset it · ⌥⌫ reset all sliders of this photo
+> V           Auto look (LuminaCore.look.fromAuto), A hold compares as today
+> J           clipping overlay on / off
+> C           crop mode · ⏎ done · esc cancel
+> Z hold      100 % at the region under the cursor · drag pans · same region across the stack
+> Space       large view of the canvas without the panel (toggle), same as Cull's large view
+> Tab         next step (Save)
+> ```
+> Q / ⌘Z undo covers every look change as one step per slider release.
+>
+> ### 6. Filmstrip, facts and status
+> - Strip: current row's frames (stack frames when a stack is open), tile states as in Cull (kept ✓,
+>   flag chip, sharpest ring); a photo with a look shows a 6 px gold dot bottom-right; a row with a
+>   `rowLook` shows the dot on the row label at the strip's left ("09:25 · row look").
+> - Facts line as in §3. While the app is rendering past 120 ms: `rendering…` at the right end.
+> - Footer messages (1.2 s, sentence case): "Look applied to 37 photos", "Look copied", "Reset",
+>   "Auto: +0.35 ev, −18 highlights".
+>
+> ### 7. Export with the look (Save step)
+> - Save gains one row under the sidecar line: a checkbox "Also export JPEGs with the look" and, when
+>   on, a size segmented control "2048 px · Full size" and a folder line ("JPEG/ next to the
+>   sidecars"). The button reads "⌘⏎ Save 88 keepers + JPEGs".
+> - The files list passed to `writeInto(files, 'xmp')` is unchanged; JPEGs go through a second call
+>   `writeInto(files, 'jpeg')` where each file is `{ name: 'JPEG/DSC03311.jpg', look: { src: rel,
+>   look: lookString, px: 2048 | null } }` (`null` = full size). The app renders them natively through
+>   the same pipeline as the preview; in the browser, skip the JPEG call and say "JPEG export needs
+>   the app". Sidecars stay ratings only; the look string is never in XMP.
+> - The result block gains "88 JPEGs · JPEG/" and lists the decoder the app names in
+>   `writeInto`'s result (`decoder: 'RAW 9'`), e.g. "rendered with RAW 9".
+>
+> ### 8. Selftest, docs, parity
+> - `?selftest` gains: look parse ⇄ format round trip on the roadmap example; latest-wins (100 slider
+>   events in one frame produce one preview request); a 409 never replaces a newer presented image;
+>   Edit's keys; the filmstrip follows ← →.
+> - PARITY.md gains an "Edit" section in the same checklist style (measure everything at 1440 × 900).
+>   CHANGES notes the new step; MENUS.md the new items and ⌘3/⌘4 shift; README's step list.
+> - `onDir` and `readOne` must not change (the app checks their hash); `writeInto('xmp')` payloads
+>   must not change.
+> - Add Edit screens to the screen list the app captures (`screens-1440`, `screens-1920`): Edit on a
+>   photo with a look, Edit with the panel scrolled to Effects, crop mode, the empty state.
+
+### How Prompt 1 is checked once its handoff lands
+
+- The look grammar: `LookStringTests` (Swift) and `lumina-core-v4.test.mjs` (page) must agree on the roadmap example and on clamping; `Tests/web/plumbing-harness.mjs` round-trips `look` / `rowLook` through the session.
+- Preview contract: `app-plumbing-contract` checks `window.lumina.preview`, `canvasRect`, `drag`, `roi` are called with the shapes above and that `luminaPresented` / `luminaHistogram` / `luminaFacts` exist while Edit is mounted; `probe.sh edit` measures the slider path (see the canvas addendum).
+- Export: `app-smoke` saves keepers + JPEGs; the JPEG bytes equal `lumina-render render --look <same string>` for the same file (`SetsLookExport` and `lumina-render` share `LookPipeline`).
+- Screens: the four Edit screens join `screens-1440` / `screens-1920` and the app twins at 0 px.
+
 ## How each ask is checked once the new handoff lands
 
 - 1: `Tests/web/plumbing-harness.mjs` and `probe.sh smoke` (`app-smoke`: the Save screen shows the row before any save). Remove the `wf` block in `plumbing.js`'s view loop.
