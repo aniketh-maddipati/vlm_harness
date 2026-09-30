@@ -40,8 +40,40 @@
 
   // Frame pacing: every rAF gap is recorded while a window is open.
   const frames = { on: false, gaps: [], last: 0 };
-  const tick = t => { if (frames.on) { if (frames.last) frames.gaps.push(t - frames.last); frames.last = t; } requestAnimationFrame(tick); };
+  const tick = t => { if (frames.on) { if (frames.last) frames.gaps.push(t - frames.last); frames.last = t; } if (tiles.on) tileSample(); requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
+
+  // Cull tiles while scrolling, sampled every frame: how many on-screen tiles the layout expects,
+  // how many show a loaded, fully faded-in thumbnail, and each shown thumbnail's upscale ratio
+  // (image px per device px: < 1 means the thumbnail is magnified on screen).
+  const tiles = { on: false, n: 0, expect: 0, blank: 0, blankFrames: 0, worst: 0, ratios: [] };
+  const cullEl = () => document.querySelector('[data-screen-label="1 Cull"]');
+  const tileSample = () => {
+    const l = P.logic(), el = cullEl();
+    if (!l || !el || !l.layout || l.state.view !== 'cull') return;
+    const L = l.layout(), top = el.scrollTop, bot = top + el.clientHeight, byId = l.data.byId;
+    let expect = 0;
+    for (let i = 0; i < L.cells.length; i++) {
+      const y = l.cellY(i), c = L.cells[i];
+      if (y == null || y + L.TH < top || y > bot) continue;
+      const f = byId[c.id]; if (f && f.src && !f.nopv) expect++;
+    }
+    const vr = el.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    let ready = 0;
+    for (const im of el.querySelectorAll('img')) {
+      const r = im.getBoundingClientRect();
+      if (r.bottom < vr.top || r.top > vr.bottom || r.width < 8) continue;
+      if (!(im.complete && im.naturalWidth > 0 && parseFloat(getComputedStyle(im).opacity) > 0.99)) continue;
+      ready++;
+      const fit = getComputedStyle(im).objectFit, sx = r.width / im.naturalWidth, sy = r.height / im.naturalHeight;
+      const s = fit === 'cover' ? Math.max(sx, sy) : Math.min(sx, sy);
+      if (tiles.ratios.length < 20000) tiles.ratios.push(1 / (s * dpr));
+    }
+    const blank = Math.max(0, expect - ready);
+    tiles.n++; tiles.expect += expect; tiles.blank += blank;
+    if (blank) tiles.blankFrames++;
+    if (expect) tiles.worst = Math.max(tiles.worst, blank / expect);
+  };
 
   const fiberKey = el => Object.keys(el).find(k => k.startsWith('__reactFiber$'));
   const P = {
@@ -142,6 +174,19 @@
       frames.on = false; const g = frames.gaps.slice().sort((a, b) => a - b);
       const pct = p => g.length ? g[Math.min(g.length - 1, Math.floor(p * g.length))] : 0;
       return { frames: g.length, p50: pct(0.5), p95: pct(0.95), p99: pct(0.99), max: g.length ? g[g.length - 1] : 0, over33: g.filter(x => x > 33.4).length };
+    },
+    tilesStart() { Object.assign(tiles, { on: true, n: 0, expect: 0, blank: 0, blankFrames: 0, worst: 0, ratios: [] }); },
+    tilesStop() {
+      tiles.on = false; const r = tiles.ratios.slice().sort((a, b) => a - b), q = p => r.length ? +r[Math.min(r.length - 1, Math.floor(p * r.length))].toFixed(3) : 0;
+      return { samples: tiles.n, blankPct: tiles.expect ? +(100 * tiles.blank / tiles.expect).toFixed(2) : 0, blankFramesPct: tiles.n ? +(100 * tiles.blankFrames / tiles.n).toFixed(1) : 0,
+        worstBlankPct: +(100 * tiles.worst).toFixed(1), upscaleMin: q(0), upscaleP10: q(0.1), upscaleMedian: q(0.5), dpr: window.devicePixelRatio || 1,
+        tile: (() => { const l = P.logic(); if (!l || !l.layout) return 0; return l.layout().TW; })() };
+    },
+    // Scroll Cull by `dy` CSS px per frame for `frames` frames (sandboxes without native wheel events).
+    async scrollFrames(frames, dy) {
+      const el = cullEl(); if (!el) return false;
+      for (let i = 0; i < frames; i++) { el.scrollTop += dy; await new Promise(r => requestAnimationFrame(r)); }
+      return true;
     },
   };
   window.__probe = P;
