@@ -70,6 +70,23 @@ def wait(ms):
         time.sleep(0.002)
 
 
+_FILTER = {}
+
+
+def offline_filter():
+    """The app's own content rule (SetsWebView.make: `^https?://` blocked), compiled by WebKit's content
+    blocker, so the page gets no network here either. The page's sample photos (picsum.photos in
+    lumina-v4-data.js) fail to load in both modes, as in the app."""
+    if 'f' not in _FILTER:
+        # Content-rule regexes have no lookahead: block every http(s) host with a letter in it, which
+        # leaves only this sandbox's own server (127.0.0.1) reachable.
+        rules = '[{"trigger":{"url-filter":"^https?://[^/:]*[a-z]"},"action":{"type":"block"}}]'
+        store = WebKit2.UserContentFilterStore.new(os.path.join(OUT, 'filters'))
+        store.save('lumina-offline', GLib.Bytes.new(rules.encode()), None, lambda st, r: _FILTER.setdefault('f', st.save_finish(r)))
+        spin(lambda: 'f' in _FILTER, 30)
+    return _FILTER['f']
+
+
 class Page:
     """One offscreen WebKitGTK view. app=True: plumbing.js + the lumina message handler."""
 
@@ -90,6 +107,7 @@ class Page:
             add(open(os.path.join(WEB, 'plumbing.js'), encoding='utf-8').read())
             # bridge.open(url) on the Mac evaluates __lumina.openFolder(); here the page picks it up.
             add("setInterval(() => { if (!window.__lumina) return; fetch('/ctl', {method: 'POST', body: JSON.stringify({op: 'takeKick'})}).then(r => r.json()).then(k => { if (k) __lumina.openFolder(); }); }, 150);")
+        ucm.add_filter(offline_filter())
         self.view = WebKit2.WebView.new_with_user_content_manager(ucm)
         s = self.view.get_settings()
         s.set_enable_developer_extras(True)
