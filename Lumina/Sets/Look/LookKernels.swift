@@ -148,12 +148,32 @@ nonisolated final class LookKernels: @unchecked Sendable {
 
     let byName: [String: CIKernel]
 
+    static let names = ["lookLuma", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette",
+                        "lookEcho442", "lookEcho44", "lookEcho424"]
+
+    /// One compile per kernel: the helpers plus a single `[[ stitchable ]]` function. Compiling
+    /// the whole source at once (macOS 15.x) hands back kernels whose names and code are mixed up
+    /// between functions with the same parameter list (`LookPipelineTests.
+    /// testKernelArgumentsArriveInOrder` caught `lookPre` running the echo kernel's code), so each
+    /// `kernels(withMetalString:)` call here can only ever return the one function it was given.
     init() throws {
-        let list = try CIKernel.kernels(withMetalString: Self.source)
+        let marker = "[[ stitchable ]]"
+        guard let first = Self.source.range(of: marker) else { throw CompileError(description: "no kernels in the source") }
+        let header = String(Self.source[..<first.lowerBound])
+        var rest = String(Self.source[first.lowerBound...])
+        var blocks: [String] = []
+        while let next = rest.range(of: marker, options: [], range: rest.index(after: rest.startIndex)..<rest.endIndex) {
+            blocks.append(String(rest[..<next.lowerBound]))
+            rest = String(rest[next.lowerBound...])
+        }
+        blocks.append(rest)
         var d: [String: CIKernel] = [:]
-        for k in list { d[k.name] = k }
-        for name in ["lookLuma", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette",
-                     "lookEcho442", "lookEcho44", "lookEcho424"] where d[name] == nil {
+        for block in blocks {
+            let list = try CIKernel.kernels(withMetalString: header + block)
+            guard list.count == 1, let k = list.first else { throw CompileError(description: "expected one kernel per block, got \(list.map(\.name))") }
+            d[k.name] = k
+        }
+        for name in Self.names where d[name] == nil {
             throw CompileError(description: "kernel \(name) missing after compile; got \(d.keys.sorted())")
         }
         byName = d
