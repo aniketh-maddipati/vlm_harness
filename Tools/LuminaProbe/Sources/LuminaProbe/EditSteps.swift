@@ -55,8 +55,8 @@ enum EditSteps {
         let bases = r["bases"] as? [String: Any] ?? [:]
         let looks = r["looks"] as? Int ?? 0
         let n = native ? (r["latencyMs"] as? [Double])?.count ?? 0 : (r["pageLatency"] as? [String: Any])?["n"] as? Int ?? 0
-        var o = Outcome(note: String(format: "%@ · %d looks · latency p50 %.1f p95 %.1f max %.1f ms (%d samples) · dropped %d · rest %.0f ms · renders small %d base %d coalesced %d · bases %d photos %.0f MB",
-                                     path, looks, p50, p95, mx, n, dropped, rest, sched["small"] as? Int ?? 0, sched["base"] as? Int ?? 0, sched["coalesced"] as? Int ?? 0,
+        var o = Outcome(note: String(format: "%@ · %d looks · latency p50 %.1f p95 %.1f max %.1f ms (%d samples) · dropped %d%@ · rest %.0f ms · renders small %d base %d coalesced %d · bases %d photos %.0f MB",
+                                     path, looks, p50, p95, mx, n, dropped, native ? " (missed vsyncs \(r["missedVsyncs"] as? Int ?? 0), busy \(r["busyTicks"] as? Int ?? 0))" : "", rest, sched["small"] as? Int ?? 0, sched["base"] as? Int ?? 0, sched["coalesced"] as? Int ?? 0,
                                      bases["residentPhotos"] as? Int ?? 0, Double(bases["bytes"] as? Int ?? 0) / 1_048_576))
         o.frames["edit-\(key)"] = ["p50": p50, "p95": p95, "max": mx, "dropped": Double(dropped), "rest": rest, "looks": Double(looks), "samples": Double(n), "native": native ? 1 : 0]
         guard gate, native else { return o }
@@ -140,13 +140,13 @@ enum EditSteps {
         var regions: [[String: Any]] = []
         for v in [newest] + (older.map { [$0] } ?? []) {
             canvas.tiles.drop()
-            let region = try await regionRender(canvas.tiles, rel: rel, url: first, decoder: v, roi: roi, seq: v)
+            let region = try await regionRender(canvas.tiles, rel: rel, url: first, decoder: v, roi: roi)
             regions.append(["decoder": v, "firstTileMs": region.firstTileMs, "fullMs": region.totalMs, "tiles": region.tiles, "fromCache": region.fromCache,
                             "rect": [Int(region.rect.minX), Int(region.rect.minY), Int(region.rect.width), Int(region.rect.height)],
                             "facts": ["sharpness": region.facts.sharpness, "clipHi": region.facts.clipHi, "clipLo": region.facts.clipLo, "source": region.facts.source]])
             lines.append(String(format: "raw %d region %d tiles: first tile %.0f ms, full %.0f ms · sharpness %.4f clip hi %.4f lo %.4f", v, region.tiles, region.firstTileMs, region.totalMs, region.facts.sharpness, region.facts.clipHi, region.facts.clipLo))
             // Panning reuses tiles: the same region again is all cache hits.
-            let again = try await regionRender(canvas.tiles, rel: rel, url: first, decoder: v, roi: roi, seq: v + 100)
+            let again = try await regionRender(canvas.tiles, rel: rel, url: first, decoder: v, roi: roi)
             if again.fromCache != again.tiles { o.failures.append("raw9: the second pass over the same region rendered \(again.tiles - again.fromCache) tiles again") }
             if v == newest, gate {
                 if let cap = s["firstTileMs"] as? Double, region.firstTileMs > cap { o.failures.append("raw9: first tile \(Int(region.firstTileMs)) ms > \(Int(cap)) ms") }
@@ -190,7 +190,7 @@ enum EditSteps {
         let cap = s["maxMedianDE"] as? Double ?? 0.5
         let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
         for v in info.supported {
-            let region = try await regionRender(canvas.tiles, rel: rel, url: first, decoder: v, roi: roi, seq: 1000 + v)
+            let region = try await regionRender(canvas.tiles, rel: rel, url: first, decoder: v, roi: roi)
             let pipe = canvas.pipeline
             let tilesImg = pipe.apply(Look(), to: LookPipeline.Developed(image: region.image, asShot: region.asShot), crop: false)
             let dev = try LookPipeline.develop(url: first, longEdge: nil, rules: pipe.rules, decoderVersion: v)
@@ -210,9 +210,9 @@ enum EditSteps {
         return o
     }
 
-    private static func regionRender(_ tiles: LookRegionTiles, rel: String, url: URL, decoder: Int, roi: LookCanvasSchedule.ROI, seq: Int) async throws -> LookRegionTiles.Region {
+    private static func regionRender(_ tiles: LookRegionTiles, rel: String, url: URL, decoder: Int, roi: LookCanvasSchedule.ROI) async throws -> LookRegionTiles.Region {
         try await withCheckedThrowingContinuation { c in
-            tiles.region(rel: rel, url: url, decoder: decoder, nr: nil, roi: roi, seq: seq, first: { _ in }, done: { c.resume(with: $0) })
+            tiles.region(rel: rel, url: url, decoder: decoder, nr: nil, roi: roi, seq: tiles.nextSeq(), first: { _ in }, done: { c.resume(with: $0) })
         }
     }
 

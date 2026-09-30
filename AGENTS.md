@@ -149,6 +149,15 @@ set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5
   presented). Histogram and clipping are computed on rest renders only. Session writes debounce at
   500 ms after the last change. Bases are keyed by (rel, decoder version, crop, rotation, canvas size,
   `nr`), pinned for the photo on the canvas, at most 3 photos and 300 MB resident, LRU-evicted.
+  Bases, prefetch, region tiles and the rest histogram render on their own CIContext (same Metal
+  device), never on the drawable's; the neighbours' prefetch waits until the current photo's base
+  is on screen and holds during a drag or a loupe refinement. "Dropped" in `probe.sh edit` counts
+  missed presents: refreshes that passed while a look had been waiting since before them, i.e.
+  vsyncs skipped between display-link ticks (≥ 1.75 frames apart) with a look waiting, plus ticks
+  where a waiting look sat behind a render still in flight. A ProMotion panel stretching a frame
+  with nothing new to show is its cadence, not a miss (traced as an idle gap). `lumina.edit.stats().trace` (`LookTrace`) ties a miss to what ran then.
+  Region requests take their numbers from `LookRegionTiles.nextSeq()`, so callers can't starve
+  each other.
 
 ## RAW 9
 

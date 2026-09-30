@@ -194,10 +194,17 @@ nonisolated final class LookBases: @unchecked Sendable {
         let started: Bool = lock.withLock { building.insert(key).inserted }
         guard started else { return }
         buildQueue.addOperation { [self] in
-            let r = Result { try self.build(key, url: url, look: look, preview: preview) }
+            let r = Result { try LookTrace.span("base build \(key.rel.split(separator: "/").last ?? "")") { try self.build(key, url: url, look: look, preview: preview) } }
             lock.withLock { _ = building.remove(key) }
             DispatchQueue.main.async { done(r) }
         }
+    }
+
+    /// Holds the neighbours' builds that haven't started (the canvas holds them while someone
+    /// waits on it); a build already running finishes.
+    var prefetchPaused: Bool {
+        get { prefetchQueue.isSuspended }
+        set { if prefetchQueue.isSuspended != newValue { prefetchQueue.isSuspended = newValue } }
     }
 
     /// The neighbours' bases, one at a time at `.utility`. A new call replaces the queue.
@@ -207,7 +214,7 @@ nonisolated final class LookBases: @unchecked Sendable {
             prefetchQueue.addOperation { [weak self] in
                 guard let self else { return }
                 guard self.lock.withLock({ self.cache.peek(i.key) == nil }) else { return }
-                if (try? self.build(i.key, url: i.url, look: i.look, preview: i.preview)) != nil { self.lock.withLock { self._stats.prefetched += 1 } }
+                if (try? LookTrace.span("prefetch \(i.key.rel.split(separator: "/").last ?? "")") { try self.build(i.key, url: i.url, look: i.look, preview: i.preview) }) != nil { self.lock.withLock { self._stats.prefetched += 1 } }
             }
         }
     }

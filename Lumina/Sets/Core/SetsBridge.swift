@@ -38,6 +38,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     private(set) var shootId: String?
     private(set) var header = LookShootHeader()
     private var probing: Set<String> = []
+    /// The body of the photo on the Edit canvas ("?" when the page read no model), so a decoder
+    /// map that lands after `canvasEnter` reaches it.
+    private var canvasModel: String?
 
     init(chooser: SetsChooser, supportDir: URL) {
         self.chooser = chooser
@@ -139,6 +142,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                     self.header.pinnedOn = ProcessInfo.processInfo.operatingSystemVersionString
                 }
                 try? self.shoots.saveHeader(id, self.header)
+                if let m = self.canvasModel, done.contains(where: { $0.0 == m }) {
+                    let d = self.decoders(for: m)
+                    self.canvas?.setDecoders(decoder: d.canvas, regionDecoder: d.region)
+                }
                 self.onEvent?("decoders: " + done.map { "\($0.0) \($0.1.supported) raw9=\($0.1.raw9) fastest=\($0.1.fastest ?? 0)" }.joined(separator: "; ") + " · pinned \(self.header.decoderVersion ?? 0)")
                 self.push("__lumina.editHeader(\(Self.json(self.editFacts())))")
             }
@@ -282,7 +289,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "canvasEnter":
             // Entering Edit for a photo: bases for it now, its neighbours' at .utility.
             guard let rel = body["rel"] as? String, let url = resolve(rel) else { return (nil, "not in an opened folder") }
-            let model = body["model"] as? String
+            // The page keys a body without a model "?" in shootOpened; the same here.
+            let model = body["model"] as? String ?? "?"
+            // The body's decoder map is measured right after the shoot opens: wait for it (briefly)
+            // rather than build this photo's bases twice. A map that lands later still reaches the
+            // canvas (probeBodies → setDecoders).
+            let deadline = Date().addingTimeInterval(2)
+            while probing.contains(model), Date() < deadline { try? await Task.sleep(nanoseconds: 20_000_000) }
+            canvasModel = model
             let d = decoders(for: model)
             let neighbours: [LookCanvasController.Neighbour] = ["prev", "next"].compactMap { k in
                 guard let r = body[k] as? String, let u = resolve(r) else { return nil }
@@ -293,6 +307,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             out["decoderCanvas"] = d.canvas.map { $0 as Any } ?? NSNull(); out["decoderRegion"] = d.region.map { $0 as Any } ?? NSNull()
             return (out, nil)
         case "canvasLeave":
+            canvasModel = nil
             canvas?.leave()
             return (true, nil)
         case "canvasLayout":

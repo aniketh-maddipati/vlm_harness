@@ -95,9 +95,17 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
 
     func forget(rel: String) { lock.withLock { _ = cache.removeAll { $0.rel == rel }; developed = developed.filter { !$0.key.hasPrefix(rel + "|") } } }
 
-    /// Renders the region on the tile queue. `seq` supersedes older requests (a pan, a new
-    /// photo); `first` fires on the main thread when the first tile is ready, `done` with the
-    /// composite. Failures name the decoder so the caller can fall back one version.
+    /// A request number newer than every one handed out, which supersedes them all: queued or
+    /// running regions with an older number stop at their next tile. Every caller (the canvas,
+    /// the probe) takes its numbers here, so one caller's numbering can't starve another's.
+    func nextSeq() -> Int { lock.withLock { latest += 1; return latest } }
+
+    /// Stops the queued and running regions (leaving Edit, another photo, the loupe off).
+    func cancel() { _ = nextSeq() }
+
+    /// Renders the region on the tile queue. `seq` (from `nextSeq`) supersedes older requests (a
+    /// pan, a new photo); `first` fires on the main thread when the first tile is ready, `done`
+    /// with the composite. Failures name the decoder so the caller can fall back one version.
     func region(rel: String, url: URL, decoder: Int, nr: Double?, roi: LookCanvasSchedule.ROI, seq: Int,
                 first: @escaping (Double) -> Void, done: @escaping (Result<Region, Error>) -> Void) {
         lock.withLock { latest = max(latest, seq) }

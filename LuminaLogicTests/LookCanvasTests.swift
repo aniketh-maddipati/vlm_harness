@@ -69,6 +69,25 @@ final class LookCanvasTests: XCTestCase {
         XCTAssertEqual(s.stats.coalesced, 58)
     }
 
+    /// `pending`: a newer look waits that no render has started (the canvas counts a tick with a
+    /// render still in flight and a look pending as a missed present).
+    func testPendingMeansANewerLookNoRenderHasStarted() {
+        var s = S()
+        XCTAssertFalse(s.pending)
+        s.dragStart(at: 0)
+        s.submit("ev:+0.10", at: 1)
+        XCTAssertTrue(s.pending)
+        let a = try! XCTUnwrap(s.tick(at: 2))
+        XCTAssertFalse(s.pending, "started")
+        s.submit("ev:+0.20", at: 3)
+        XCTAssertTrue(s.pending, "a newer look arrived while the render is in flight")
+        XCTAssertNil(s.tick(at: 4))
+        _ = s.finished(a)
+        let b = try! XCTUnwrap(s.tick(at: 5))
+        XCTAssertEqual(b.look, "ev:+0.20")
+        XCTAssertFalse(s.pending)
+    }
+
     func testSequenceNumbersGateWhatIsPresented() {
         var s = S()
         _ = s.keystroke("ev:+1", at: 0)

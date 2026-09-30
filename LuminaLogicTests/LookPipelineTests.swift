@@ -251,6 +251,52 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertThrowsError(try bases.build(LookBases.Key(rel: "s/missing.png", decoder: nil, look: Look(), canvas: canvas), url: dir.appendingPathComponent("missing.png"), look: Look(), preview: nil))
     }
 
+    /// The canvas holds the neighbours' builds while someone waits on it (a drag, the loupe, the
+    /// current photo not yet on screen): a paused prefetch starts nothing until released.
+    func testPausedPrefetchStartsNothingUntilReleased() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("look-prefetch-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("ramp.png")
+        try pipe.png(pipe.ramp(steps: 64, columnWidth: 2, height: 64).image).write(to: file)
+        let bases = LookBases(pipeline: pipe, byteCap: 64 << 20, maxPhotos: 3)
+        let key = LookBases.Key(rel: "s/ramp.png", decoder: nil, look: Look(), canvas: CGSize(width: 100, height: 100))
+        bases.prefetchPaused = true
+        bases.prefetch([(key: key, url: file, look: Look(), preview: nil)])
+        Thread.sleep(forTimeInterval: 0.3)
+        XCTAssertEqual(bases.stats.prefetched, 0, "held while paused")
+        XCTAssertEqual(bases.stats.built, 0)
+        bases.prefetchPaused = false
+        let deadline = Date().addingTimeInterval(10)
+        while bases.stats.prefetched == 0, Date() < deadline { Thread.sleep(forTimeInterval: 0.02) }
+        XCTAssertEqual(bases.stats.prefetched, 1, "released: the neighbour builds")
+    }
+
+    /// Region requests are numbered by the tile queue: whoever asks last supersedes everyone, so
+    /// one caller's numbering (the probe's) can't leave another's (the canvas's loupe) stale forever.
+    func testRegionTilesNumberRequestsAndCancelOlderOnes() throws {
+        let tiles = LookRegionTiles(pipeline: pipe)
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent("no-such-\(UUID().uuidString).ARW")
+        let roi = LookCanvasSchedule.ROI(x: 0.4, y: 0.4, w: 0.2, h: 0.2)
+        let run = { (seq: Int) -> Result<LookRegionTiles.Region, Error> in
+            let done = self.expectation(description: "region \(seq)")
+            var out: Result<LookRegionTiles.Region, Error>!
+            tiles.region(rel: "s/x.ARW", url: missing, decoder: 8, nr: nil, roi: roi, seq: seq, first: { _ in }, done: { out = $0; done.fulfill() })
+            self.wait(for: [done], timeout: 10)
+            return out
+        }
+        let older = tiles.nextSeq(), newer = tiles.nextSeq()
+        XCTAssertGreaterThan(newer, older)
+        guard case .failure(let e) = run(older) else { return XCTFail("a superseded request rendered") }
+        XCTAssertTrue(e is LookRegionTiles.Cancelled, "\(e)")
+        // The newest request runs (and fails on the missing file, not as superseded).
+        guard case .failure(let f) = run(newer) else { return XCTFail("a missing file rendered") }
+        XCTAssertFalse(f is LookRegionTiles.Cancelled, "\(f)")
+        tiles.cancel()
+        guard case .failure(let g) = run(newer) else { return XCTFail() }
+        XCTAssertTrue(g is LookRegionTiles.Cancelled, "cancel() stops requests already numbered")
+    }
+
     func testRendererCachesDevelopsAndDropsStaleRequests() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("look-renderer-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
