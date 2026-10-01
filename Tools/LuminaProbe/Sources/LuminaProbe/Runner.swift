@@ -215,6 +215,11 @@ final class Runner {
             guard FileManager.default.fileExists(atPath: url.path) else { throw ProbeError("no such folder \(url.path)") }
             host.pendingOpenPanel = [url]
             if (s["via"] as? String ?? "key") == "key" { try host.key("o", cmd: true) } else { _ = try await host.js("__probe.logic().openFolder()") }
+            // In the browser v5 first shows its "before you open" sheet (state.pre) and opens the folder
+            // input only once that is confirmed. Enter confirms it, and being a real key event it also
+            // gives the page the user activation a file input needs. The app never shows the sheet.
+            try await settle(120)
+            if truthy(try? await host.js("return !!__probe.logic().state.pre", timeout: 5)) { try host.key("Enter"); try await settle(120) }
             // until: "shown" returns once Cull shows its first rows, while the folder is still being read.
             if s["until"] as? String == "shown" {
                 try await waitFor("const l=__probe.logic(); return !!(l.real && l.real.length && l.state.view === 'cull' && l.state.realLoad)",
