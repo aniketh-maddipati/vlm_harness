@@ -19,6 +19,8 @@ jobs:
         run: |
           source Scripts/page_files.sh
           cd design/handoff/lumina-cull && node "$CORE_TEST" | tee /tmp/fixtures.txt && ! grep -q '^FAIL' /tmp/fixtures.txt
+      - name: culling eval scoring (synthetic data) + the readOne guard
+        run: node --test Tools/culleval/tests/culleval.test.mjs
       - name: app ships the design byte for byte
         run: |
           set -e
