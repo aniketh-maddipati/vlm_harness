@@ -21,6 +21,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// Reads the opened folders for the page (listing, heads, previews). It also holds the opened
     /// folders by name: the page knows files as "<folder>/<file>".
     let ingest = SetsIngest()
+    /// How alike two photos' previews are, for the page's retake stacks (`lumina.near`).
+    private(set) lazy var near = SetsNear(ingest: ingest)
     private var pendingSource: URL?
     private var lastOpened: URL?
     /// The open folder's shoot id and volume, taken while it was being opened. Both come from the
@@ -103,6 +105,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         let o = Int(p["o"] as? String ?? "") ?? p["o"] as? Int ?? 0, l = Int(p["l"] as? String ?? "") ?? p["l"] as? Int ?? 0
         guard o > 0, l > 0 else { return nil }
         return LookBases.PreviewFallback(offset: o, length: l, orientation: Int(p["ori"] as? String ?? "") ?? p["ori"] as? Int ?? 1)
+    }
+
+    /// A photo's embedded preview as the page names it: `{p, o, l, ori}` (numbers or strings).
+    static func ingestPreview(_ d: Any?) -> SetsIngest.Preview? {
+        guard let i = d as? [String: Any], let rel = i["p"] as? String else { return nil }
+        return SetsIngest.Preview(rel: rel, offset: Int(i["o"] as? String ?? "") ?? i["o"] as? Int ?? 0,
+                                  length: Int(i["l"] as? String ?? "") ?? i["l"] as? Int ?? 0,
+                                  orientation: Int(i["ori"] as? String ?? "") ?? i["ori"] as? Int ?? 1)
     }
 
     private func roi(_ d: Any?) -> LookCanvasSchedule.ROI? {
@@ -260,14 +270,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             d["workers"] = ingest.workers
             return (d, nil)
         case "prefetch":
-            let items = (body["items"] as? [[String: Any]] ?? []).compactMap { i -> SetsIngest.Preview? in
-                guard let rel = i["p"] as? String else { return nil }
-                return SetsIngest.Preview(rel: rel, offset: Int(i["o"] as? String ?? "") ?? i["o"] as? Int ?? 0,
-                                          length: Int(i["l"] as? String ?? "") ?? i["l"] as? Int ?? 0,
-                                          orientation: Int(i["ori"] as? String ?? "") ?? i["ori"] as? Int ?? 1)
-            }
+            let items = (body["items"] as? [[String: Any]] ?? []).compactMap(Self.ingestPreview)
             ingest.prefetch(items)
             return (items.count, nil)
+        case "near":
+            // How alike two photos are (Prompt 2 C): the page stacks retakes on it. Null when either
+            // preview can't be measured; the page then keeps its own rule.
+            guard let a = Self.ingestPreview(body["a"]), let b = Self.ingestPreview(body["b"]), let d = await near.distance(a, b) else { return (NSNull(), nil) }
+            return (d, nil)
         case "ingestStats":
             return (ingest.snapshot.dictionary, nil)
         case "shootOpened":
@@ -560,6 +570,9 @@ enum SetsWebView {
         let res = String(data: try JSONSerialization.data(withJSONObject: SetsSchemeHandler.resources), encoding: .utf8)!
         ucc.addUserScript(WKUserScript(source: "window.__resources=Object.assign(window.__resources||{},\(res));", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         for s in extraScripts { ucc.addUserScript(WKUserScript(source: s, injectionTime: .atDocumentStart, forMainFrameOnly: true)) }
+        // The retake threshold belongs to the Mac's measure (SetsNear), so it reaches the page from here.
+        var config = config
+        if bridge != nil, config["nearLimit"] == nil, let limit = SetsNear.limit { config["nearLimit"] = limit }
         let cfg = String(data: try JSONSerialization.data(withJSONObject: config), encoding: .utf8)!
         ucc.addUserScript(WKUserScript(source: "window.__luminaConfig=\(cfg);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         if bridge != nil { ucc.addUserScript(WKUserScript(source: plumbing, injectionTime: .atDocumentStart, forMainFrameOnly: true)) }

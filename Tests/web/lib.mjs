@@ -187,6 +187,13 @@ export class Bridge {
       }
       case 'saveSession': { this.sessions[msg.id] = msg.json; const s = this.index.find(x => x.id === msg.id); if (s) Object.assign(s, msg.summary || {}); this.saves = (this.saves || 0) + 1; return true; }
       case 'prefetch': return (msg.items || []).length;
+      // SetsNear: the distance between two photos' previews, null when either can't be measured
+      // (card out, no preview range). Here: 0 for the same photo, else a fixed 0.25.
+      case 'near': {
+        (this.nears = this.nears || []).push({ a: msg.a, b: msg.b });
+        const okP = q => q && q.p && +q.o > 0 && +q.l > 0 && this.resolve(q.p) && !this.gone.has(q.p.split('/')[0]);
+        return okP(msg.a) && okP(msg.b) ? (msg.a.p === msg.b.p ? 0 : 0.25) : null;
+      }
       case 'ingestStats': return { workers: 4, inFlight: 0, maxInFlight: 4, heads: 0, previews: 0, largestRead: 0, opensAfterGone: 0, failures: 0, gone: [...this.gone] };
       case 'setPrefs': this.prefs = msg.prefs; return true;
       case 'reveal': this.revealed.push(msg.path); return true;
@@ -260,7 +267,7 @@ export async function open(browser, bridge, { prefs, app = true, size = [1440, 9
   await page.addInitScript(`window.__resources=Object.assign(window.__resources||{},${JSON.stringify(VENDOR)});`);
   if (app) {
     await page.exposeFunction('__nativeCall', msg => bridge.handle(msg));
-    await page.addInitScript(`window.__luminaConfig=${JSON.stringify({ debug: false, prefs: prefs || null, parity })};`);
+    await page.addInitScript(`window.__luminaConfig=${JSON.stringify({ debug: false, prefs: prefs || null, parity, nearLimit: 0.35 })};`);
     await page.addInitScript(`window.webkit={messageHandlers:{lumina:{postMessage:m=>window.__nativeCall(m)}}};`);
     await page.addInitScript(fs.readFileSync(path.join(WEB, 'plumbing.js'), 'utf8'));
   }

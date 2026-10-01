@@ -107,7 +107,7 @@ class Page:
         if app:
             ucm.register_script_message_handler_with_reply('lumina', None)
             ucm.connect('script-message-with-reply-received::lumina', self._native)
-            add('window.__luminaConfig = %s;' % json.dumps({'debug': False, 'prefs': {'rating': 3, 'adv': True, 'tsz': 1, 'enter': True}, 'parity': parity}))
+            add('window.__luminaConfig = %s;' % json.dumps({'debug': False, 'prefs': {'rating': 3, 'adv': True, 'tsz': 1, 'enter': True}, 'parity': parity, 'nearLimit': 0.35}))
             add(open(os.path.join(WEB, 'plumbing.js'), encoding='utf-8').read())
             # bridge.open(url) on the Mac evaluates __lumina.openFolder(); here the page picks it up.
             add("setInterval(() => { if (!window.__lumina) return; fetch('/ctl', {method: 'POST', body: JSON.stringify({op: 'takeKick'})}).then(r => r.json()).then(k => { if (k) __lumina.openFolder(); }); }, 150);")
