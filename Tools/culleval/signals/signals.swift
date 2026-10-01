@@ -4,7 +4,7 @@
 // smile / blink detector, and Laplacian-variance sharpness on the whole frame, the centre, the
 // salient box and the largest face. Nothing leaves the Mac; the output is numbers per photo.
 //
-//   swiftc -O Tools/culling-eval/signals.swift -o /tmp/signals
+//   swiftc -O Tools/culleval/signals/signals.swift -o /tmp/signals
 //   /tmp/signals <list.txt: one "id<TAB>absolute path" per line> <out.jsonl> [workers]
 import CoreImage
 import Foundation

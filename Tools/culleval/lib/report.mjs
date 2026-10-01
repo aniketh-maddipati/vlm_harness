@@ -1,8 +1,8 @@
 // The report as Markdown. Numbers only above "## Worst"; file names appear only below it, and the
 // report is written outside the repo.
-const pct = x => (x == null ? '–' : (100 * x).toFixed(0) + ' %');
+export const pct = x => (x == null ? '–' : (100 * x).toFixed(0) + ' %');
 const f2 = x => (x == null ? '–' : x.toFixed(2));
-const table = (head, rows) => ['| ' + head.join(' | ') + ' |', '|' + head.map(() => '---').join('|') + '|', ...rows.map(r => '| ' + r.join(' | ') + ' |')].join('\n');
+export const table = (head, rows) => ['| ' + head.join(' | ') + ' |', '|' + head.map(() => '---').join('|') + '|', ...rows.map(r => '| ' + r.join(' | ') + ' |')].join('\n');
 
 const LEVEL = { drive: 'camera bursts (drive mode)', repeat: 'bursts by hand (same framing, seconds apart)', scene: 'tries at one picture (same framing, close in time)' };
 

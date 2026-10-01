@@ -386,7 +386,7 @@ Numbers: `make culleval`.
 
 ## Prompt 2, second part — what Cull says about a frame (paste after Prompt 2)
 
-A second eval, `Tools/culling-eval` (2026-10-01), follows up Prompt 2's "Not asked yet". It runs
+A second eval, through the app (2026-10-01; now `Tools/culleval/culleval-app.mjs` and `Tools/culleval/signals`), follows up Prompt 2's "Not asked yet". It runs
 `lumina-core` through the real app (the page and the native reader in the probe) on 1,854 photos
 over 12 shooting days, scored against the 444 of them that were finished and exported from
 Lightroom (a "pick": stricter than a keep), and it measures candidate signals on the Mac (Apple
@@ -476,10 +476,10 @@ and 56 % of the runs that hold a pick hold exactly one: the same picture as C, o
   toward the other shoots'. A sync that changes `readOne` fails `make culleval-test` until `Tools/culleval/lib/measure.mjs` is reviewed.
 - Prompt 2, second part (E, F, H): the culling eval through the app, on the Mac (it needs shoots with traceable
   exports; labels and photos stay in `~/LuminaEvidence/culling-eval`).
-  `LUMINA_CULL_DIR=<shoot> lumina-probe run Tools/culling-eval/dump-decisions.json` dumps what the page decided;
-  `python3 Tools/culling-eval/score.py --exports exports.csv … decisions.json` gives each word's false alarms on picks
+  `LUMINA_CULL_DIR=<shoot> lumina-probe run Tools/culleval/dump-decisions.json` dumps what the page decided;
+  `node Tools/culleval/culleval-app.mjs --exports exports.csv … decisions.json` gives each word's false alarms on picks
   and its picked-if-said rate. After the handoff: `soft` on no more than about 2 % of photos and 1 % of picks, no
-  `shake` or `slight` in the dump. `python3 -m unittest discover -s Tools/culling-eval/tests` covers the scorers.
+  `shake` or `slight` in the dump. `make culleval-test` covers the scorers.
 - Prompt 2, second part (G): `plumbing.js` gains `lumina.measures` (Vision's face capture quality from the embedded
-  preview, the measure `Tools/culling-eval/signals.swift` takes); the contract scenario lists it, and
-  `python3 Tools/culling-eval/rank_signals.py` re-scores "top-1 is a pick" for stacks ranked by it.
+  preview, the measure `Tools/culleval/signals/signals.swift` takes); the contract scenario lists it, and
+  `python3 Tools/culleval/signals/rank_signals.py` re-scores "top-1 is a pick" for stacks ranked by it.

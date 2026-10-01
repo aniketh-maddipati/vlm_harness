@@ -11,6 +11,7 @@
 # The culling eval (Tools/culleval/README.md):
 #   make culleval          grouping + auto keeps vs what was shot and kept → ~/LuminaEvidence/culleval/report
 #   make culleval-test     its scoring tests (Linux too)
+#   make culleval-app      the same keeps question through the app: DUMPS="<run>/dump-decisions/decisions.json …" EXPORTS=exports.csv [OUT=report.md]
 
 PARITY   := Tools/parity
 RENDER   := $(PARITY)/lumina-render/.build/release/lumina-render
@@ -74,10 +75,14 @@ parity-test:
 parity-loop: render
 	bash $(PARITY)/loop.sh $(STAGE)
 
-.PHONY: culleval culleval-test
+.PHONY: culleval culleval-test culleval-app
 
 culleval:
 	node Tools/culleval/culleval.mjs $(if $(CONFIG),--config $(CONFIG)) $(if $(ALLOW_MISSING),--allow-missing)
 
 culleval-test:
 	node --test Tools/culleval/tests/culleval.test.mjs
+	python3 -m unittest discover -s Tools/culleval/signals
+
+culleval-app:
+	node Tools/culleval/culleval-app.mjs --exports $(EXPORTS) $(if $(OUT),--out $(OUT)) $(DUMPS)
