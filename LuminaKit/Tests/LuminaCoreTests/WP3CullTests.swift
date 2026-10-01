@@ -201,11 +201,13 @@ final class WP3CullKeyTests: XCTestCase {
 
     func test_movingIsSaved_soARelaunchLandsOnThePhotoYouWereLookingAt() throws {
         let h = culling()
-        h.key("r"); h.key("right"); h.key("right")
+        // The store coalesces writes to one per 250 ms (WP-8), so each move is on disk within that.
+        h.key("r"); h.key("right"); h.key("right"); h.wait(0.3)
         XCTAssertEqual(try h.store.load(shootKey: h.model.shoot.key)?.cur, ids[3])
-        h.key("down"); XCTAssertEqual(try h.store.load(shootKey: h.model.shoot.key)?.cur, h.state.cur)
-        h.key("u"); XCTAssertEqual(try h.store.load(shootKey: h.model.shoot.key)?.cur, h.state.cur)
-        h.model.select(ids[9]); XCTAssertEqual(try h.store.load(shootKey: h.model.shoot.key)?.cur, ids[9])
+        h.key("down"); h.wait(0.3); XCTAssertEqual(try h.store.load(shootKey: h.model.shoot.key)?.cur, h.state.cur)
+        h.key("u"); h.wait(0.3); XCTAssertEqual(try h.store.load(shootKey: h.model.shoot.key)?.cur, h.state.cur)
+        h.model.select(ids[9]); h.model.flushPersistence()   // quitting flushes
+        XCTAssertEqual(try h.store.load(shootKey: h.model.shoot.key)?.cur, ids[9])
         // A second launch on the same store comes back to it, decisions included.
         let again = Harness(store: h.store)
         XCTAssertEqual(again.model.cullCur, ids[9]); XCTAssertEqual(again.state.keep, [ids[0]: true])
