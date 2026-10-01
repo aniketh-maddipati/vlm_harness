@@ -77,12 +77,25 @@ final class DiskImages {
         for _ in 0..<50 where attachedDevice(img.dmg) != nil { Thread.sleep(forTimeInterval: 0.1) }
     }
 
-    func detachAll() {
+    /// Detaches every image. `removeImages`: also delete the .dmg files and their empty mount
+    /// points. A passing run has no use for them and they are tens of megabytes each (a day of
+    /// fault runs left 10 GB behind); a failing run keeps them for a look at what was on the card.
+    func detachAll(removeImages: Bool = false) {
         for img in images.values {
             _ = try? hdiutil(["detach", img.device ?? img.mount.path, "-force"])
             // Attached under another device after a busy re-insert: never leave an image behind.
             if let held = attachedDevice(img.dmg) { _ = try? hdiutil(["detach", held, "-force"]) }
         }
+        mounted.removeAll()
+        guard removeImages else { return }
+        // rmdir(2), never a recursive delete: if a detach failed the mount point still holds the
+        // image's files, and those must not be walked.
+        for img in images.values {
+            try? FileManager.default.removeItem(at: img.dmg)          // a file
+            rmdir(img.mount.path)
+        }
+        rmdir(root.appendingPathComponent("vol").path)
+        rmdir(root.path)
     }
 
     /// The whole-disk device this image is attached as right now ("/dev/disk6"), if it is.

@@ -146,6 +146,11 @@ set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5
 - **rawDevelop undoes lens shading with the camera's own numbers** (`LookLensShading`: Sony's
   `VignettingCorrParams`, applied in the decoder's linear space; coefficient `lensShading`).
   Lightroom's lens profile does the same from Adobe's tables; Core Image's decoder leaves it in.
+- **rawDevelop ends with the base match** (`LookMath.baseMatch`, kernel `lookBase`): a two-number
+  midtone curve on luma and a colour mix whose rows sum to 1 (a grey stays grey), fitted on base
+  exports so the untouched render is Lightroom's Adobe Color. Every slider stage sits on this base:
+  when it changes, refit the stages, and adopt a stage's refit only if the held-out set agrees
+  (a fit that helps the sweep and hurts the held-out set overfitted; that has happened twice).
 - **Exposure is a scene gain seen through a sigmoid tone curve** (`LookMath.exposure`: per channel
   G·y / (1 + (G − 1)·y/white), G = 2^(ev · stopsPerUnit)), the form Lightroom's sweep shows:
   shadows and midtones move ~1.6 stops per unit, highlights roll off and lose saturation.

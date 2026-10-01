@@ -103,8 +103,8 @@ final class Runner {
             failures.append("setup: \(error)")
         }
         sampler.stop()
-        disks.detachAll()
         try? await checkBudgets()
+        disks.detachAll(removeImages: failures.isEmpty)
         return finish(seconds: Date().timeIntervalSince(t0))
     }
 
