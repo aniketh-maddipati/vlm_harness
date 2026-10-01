@@ -82,7 +82,10 @@ final class WP5EditTests: XCTestCase {
         XCTAssertEqual(m.revision, r0 + 1, "a long drag is written while it goes")
         XCTAssertEqual(try store.load(shootKey: m.shoot.key)?.looks[cur]?["sh"], 40)
         m.sliderDragMoved(by: 0.05); m.sliderDragEnded()
-        XCTAssertEqual(try store.load(shootKey: m.shoot.key)?.looks[cur]?["sh"], 50, "the end of a drag writes at once")
+        // The end of a drag announces at once; the store coalesces writes to one per 250 ms (WP-8).
+        XCTAssertEqual(m.revision, r0 + 2, "the end of a drag is announced at once")
+        h.wait(0.3)
+        XCTAssertEqual(try store.load(shootKey: m.shoot.key)?.looks[cur]?["sh"], 50, "the end of a drag is written within the store's interval")
     }
 
     func test_R08_outInEdit_undoInCull_doesNotRevive() {
