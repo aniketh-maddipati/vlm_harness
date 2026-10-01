@@ -7,15 +7,23 @@
 #   bash Scripts/probe.sh reference [--record]   every v5 screen × 2 sizes (+ app twins) and state dumps, byte-compared to
 #                                                Tests/probe/reference/manifest.json (--record rewrites it)
 #   bash Scripts/probe.sh smoke                  the v5 page runs, its ?selftest passes, plumbing fits, and the app reads,
-#                                                keeps, saves sidecars into the folder, reopens (app-smoke needs LUMINA_FIXTURE_ROOT)
+#                                                keeps, saves sidecars into the folder, reopens (app-smoke needs LUMINA_FIXTURE_ROOT);
+#                                                the empty app survives a key storm
 #   bash Scripts/probe.sh selftest               the design's own ?selftest (25 checks, key and large-view timing)
 #   bash Scripts/probe.sh contract               plumbing.js still fits the page (run by sets_sync_design.sh)
-#   bash Scripts/probe.sh fuzz                   seeded key/mouse storms on the sample shoot
+#   bash Scripts/probe.sh fuzz                   seeded key/mouse storms on the sample shoot, and over a card image read natively
+#                                                and pulled / re-inserted at random (fuzz-app-card needs LUMINA_FIXTURE_ROOT)
 #   bash Scripts/probe.sh edge                   camera-data edge cases   (needs LUMINA_FIXTURE_ROOT)
 #   bash Scripts/probe.sh ingest                 the same edge cases read by the app's native reader
 #   bash Scripts/probe.sh card                   golden card + camera-clock parity, page vs native read (needs LUMINA_CARD_DIR)
-#   bash Scripts/probe.sh app                    contract + app-smoke: native read, sidecars, .lumina-bak, sessions (needs LUMINA_FIXTURE_ROOT)
-#   bash Scripts/probe.sh fault                  native writes: kill -9 mid-write + relaunch recovery, disk full mid-copy (disk images)
+#   bash Scripts/probe.sh stress                 a whole card: Cull scroll frame budget, fast row moves, a 3,000-input storm, memory;
+#                                                the page's read, then the native read (needs LUMINA_CARD_DIR, only read)
+#   bash Scripts/probe.sh app                    contract + the app on folders: read, sidecars, .lumina-bak, Lightroom's sidecars
+#                                                merged in place, sessions across a relaunch, the empty app (needs LUMINA_FIXTURE_ROOT)
+#   bash Scripts/probe.sh fault                  disk images (they show in Finder for a moment): kill -9 mid-write + relaunch recovery,
+#                                                disk full mid-copy, a read-only card, a card pulled while its keepers wait on Save,
+#                                                .xmp and .XMP side by side on a case-sensitive disk
+#   bash Scripts/probe.sh open                   v5 scenarios that fail today on a known app bug (see OPEN below): expected to fail
 #   bash Scripts/probe.sh scroll                 scrolling Cull while a folder reads (no jump when it ends), then fast scrolling at
 #                                                1440×900 and 2560×1440: frame pacing, blank tiles, thumbnail
 #                                                upscale, memory. Folder: LUMINA_SCROLL_DIR, else LUMINA_CARD_DIR (only read), else
@@ -26,7 +34,6 @@
 #                                                fallback path (LUMINA_CANVAS=image). Folder: LUMINA_EDIT_DIR, else as scroll
 #   bash Scripts/probe.sh raw9                   RAW 9 (§8): decoder map, time to first tile / full region, export time + memory
 #                                                per decoder version, the forced per-file fallback, tiles vs export ΔE per version
-#   bash Scripts/probe.sh v3                     the scenarios still written for the v3 page (see V3 below): expected to fail
 #   bash Scripts/probe.sh all [--require-all]    everything v5; --require-all turns a SKIP into a failure
 #
 # Build fixtures once: LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Tests/probe/forge_fixtures.sh
@@ -122,12 +129,16 @@ sys.exit(1 if bad or n == 0 else 0)
 EOF
 }
 
-# Scenarios still written for the v3 page (bare 1/2/3 steps, R/X keys, the Edit step, RAW/JPEG
-# export to a picked folder). They need rewriting for v5 before they mean anything; see
-# Tests/probe/EDGE-CASES.md. `probe.sh v3` runs them anyway.
-V3=(app-export app-session app-xmp-lightroom app-xmp-both app-rename-mid-cull look-parity app-empty-start
-    card-stress card-stress-app fault-card-pull-export fault-card-pull-read fault-disk-full fuzz-app-card)
-v3files() { for n in "${V3[@]}"; do echo "$S/$n.json"; done; }
+# Suites by what they need: APP opens copies of the fixture folders; FAULT mounts small disk images.
+APP=(app-plumbing-contract app-smoke app-session app-xmp-lightroom app-empty-start)
+FAULT=(fault-kill-mid-handoff fault-native-dest fault-readonly-card fault-card-pull-cull app-xmp-both)
+# Written for v5 and failing today on an app bug (Tests/probe/EDGE-CASES.md, "Open bugs"); each
+# asserts the behaviour SAFETY.md asks for. When its bug is fixed, move it to the suite named here.
+#   app-rename-mid-cull    → APP    Save writes a sidecar for a keeper whose RAW was renamed or deleted, and says "saved"
+#   fault-card-pull-read   → FAULT  a keep made while a half-read card is out is lost when the card comes back
+#   fault-disk-full        → FAULT  a sidecar on a full disk fails as "failed", not "disk full"
+OPEN=(app-rename-mid-cull fault-card-pull-read fault-disk-full)
+paths() { for n in "$@"; do echo "$S/$n.json"; done; }      # scenario paths have no spaces
 
 # A folder big enough to scroll. The fixtures hold 12 real frames: clone them (APFS, no extra space)
 # 34 times and restamp every clone 20 s apart, so each is its own tile rather than one big stack.
@@ -168,25 +179,27 @@ case "$suite" in
   screens)   screens ;;
   scenarios) scrolldir; editdir; files=(); for n in ${extra[@]+"${extra[@]}"}; do files+=("$S/$n.json"); done; extra=(); run "${files[@]}" ;;
   sync)      echo "use: bash Scripts/sets_sync_design.sh <handoff.zip>"; exit 2 ;;
-  smoke)     run "$S/smoke.json" "$S/keys-open-return.json" "$S/selftest.json" "$S/app-plumbing-contract.json" "$S/app-smoke.json" ;;
+  smoke)     run "$S/smoke.json" "$S/keys-open-return.json" "$S/selftest.json" "$S/app-plumbing-contract.json" "$S/app-smoke.json" "$S/app-empty-start.json" ;;
   selftest)  run "$S/selftest.json" ;;
-  fuzz)      run "$S"/fuzz-sample-*.json ;;
+  fuzz)      run "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" ;;
   edge)      run "$S"/edge-*.json ;;
   ingest)    LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
   card)      run "$S/golden-card.json" "$S/card-clock.json" ;;
-  app)       run "$S/app-plumbing-contract.json" "$S/app-smoke.json" ;;
+  stress)    run "$S/card-stress.json"
+             echo "— native read (LUMINA_PROBE_MODE=app) —"
+             LUMINA_PROBE_MODE=app run_out "$OUT/app" "$S/card-stress.json" ;;
+  app)       run $(paths "${APP[@]}") ;;
   contract)  run "$S/app-plumbing-contract.json" ;;
-  fault)     run "$S/fault-kill-mid-handoff.json" "$S/fault-native-dest.json" "$S/fault-readonly-card.json" ;;   # native only: kill -9 mid-write, disk full mid-copy
+  fault)     run $(paths "${FAULT[@]}") ;;
+  open)      run $(paths "${OPEN[@]}") ;;
   scroll)    scrolldir; run "$S/scroll-read.json" "$S/scroll-fast.json" "$S/scroll-fast-2560.json" ;;
   edit)      editdir; run "$S/edit-canvas.json"
              echo "— image fallback path (LUMINA_CANVAS=image) —"
              LUMINA_CANVAS=image run_out "$OUT/image-path" "$S/edit-canvas.json" ;;
   raw9)      editdir; run "$S/raw9.json" ;;
-  v3)        run $(v3files) ;;                  # scenario paths have no spaces
-  all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S"/edge-*.json "$S/app-plumbing-contract.json" "$S/app-smoke.json" \
-               "$S/fault-kill-mid-handoff.json" "$S/fault-native-dest.json"
+  all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" "$S"/edge-*.json $(paths "${APP[@]}") $(paths "${FAULT[@]}")
              LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
-  *)         sed -n '2,21p' "$0"; exit 2 ;;
+  *)         sed -n '2,37p' "$0"; exit 2 ;;
 esac
 echo "evidence: $OUT"
 exit $status

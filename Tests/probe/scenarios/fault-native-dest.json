@@ -57,7 +57,8 @@
   {
    "do": "nativeExport",
    "from": "${LUMINA_FIXTURE_ROOT}/src",
-   "count": 3,
+   "count": 8,
+   "why": "8 RAWs (94 MB) just fit the 120 MB disk, so the up-front check passes and the filler only needs 25 MB to beat the copy; with 3 RAWs the copy finished first on a fast disk",
    "dest": "${DISKS}/LTFILL/export",
    "sources": [],
    "fill": {

@@ -49,7 +49,19 @@ final class DiskImages {
         // Not -nobrowse: a hidden volume wouldn't raise the mount notice a real card does.
         var args = ["attach", image.path, "-mountpoint", mount.path, "-noverify", "-noautofsck"]
         if readonly { args.append("-readonly") }
-        let out = try hdiutil(args)
+        // Right after a forced detach the device can still be held: hdiutil answers "Resource busy",
+        // and can leave the image attached without our mount point (the system then mounts it under
+        // /Volumes, and every later attach is busy too). A re-inserted card lets go of that
+        // half-attached image and tries again, for up to 15 s.
+        var out = "", tries = 0
+        while true {
+            do { out = try hdiutil(args); break } catch {
+                tries += 1
+                guard "\(error)".contains("Resource busy"), tries < 30 else { throw error }
+                if let held = attachedDevice(image) { _ = try? hdiutil(["detach", held, "-force"]) }
+                Thread.sleep(forTimeInterval: 0.5)
+            }
+        }
         let device = out.split(separator: "\n").first.map { String($0.split(separator: "\t").first ?? "").trimmingCharacters(in: .whitespaces) }
         images[name] = Image(dmg: image, mount: mount, device: device)
         mounted.insert(name)
@@ -61,10 +73,28 @@ final class DiskImages {
         guard let img = images[name] else { throw ProbeError("no image \(name)") }
         try hdiutil(["detach", img.device ?? img.mount.path, "-force"])
         mounted.remove(name)
+        // The pull is over when the image is no longer attached (so a re-insert finds the device free).
+        for _ in 0..<50 where attachedDevice(img.dmg) != nil { Thread.sleep(forTimeInterval: 0.1) }
     }
 
     func detachAll() {
-        for img in images.values { _ = try? hdiutil(["detach", img.device ?? img.mount.path, "-force"]) }
+        for img in images.values {
+            _ = try? hdiutil(["detach", img.device ?? img.mount.path, "-force"])
+            // Attached under another device after a busy re-insert: never leave an image behind.
+            if let held = attachedDevice(img.dmg) { _ = try? hdiutil(["detach", held, "-force"]) }
+        }
+    }
+
+    /// The whole-disk device this image is attached as right now ("/dev/disk6"), if it is.
+    private func attachedDevice(_ dmg: URL) -> String? {
+        guard let text = try? hdiutil(["info", "-plist"]), let plist = try? PropertyListSerialization.propertyList(from: Data(text.utf8), format: nil) as? [String: Any],
+              let all = plist["images"] as? [[String: Any]] else { return nil }
+        let want = dmg.resolvingSymlinksInPath().path
+        for image in all where (image["image-path"] as? String).map({ URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }) == want {
+            let devs = (image["system-entities"] as? [[String: Any]] ?? []).compactMap { $0["dev-entry"] as? String }
+            return devs.min { $0.count < $1.count }
+        }
+        return nil
     }
 
     @discardableResult
