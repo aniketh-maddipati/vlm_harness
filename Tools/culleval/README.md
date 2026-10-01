@@ -51,6 +51,9 @@ rows (nobody has marked scenes), so rows are only checked for cutting through a 
 - `sidecars`: kept = `.xmp` next to the RAW with `xmp:Rating` ≥ 1 (what Lumina's Save writes).
 - `session`: a saved Lumina `session.json`; kept = its keeps, counted only in rows marked seen.
 
+A shoot whose exports folder or session file is not there is scored for grouping only and says so
+in the truth table; a missing folder is never read as "nothing kept".
+
 `complete: false` marks a shoot whose frames or keeps are known to be partial; the headline pools
 the complete ones and shows the rest beside them. `dates` / `datesExclude` pick days out of a
 folder, `from` / `to` (`"2026-02-08 14:00:00"`) a stretch of capture time within them. A frame that appears twice in a folder (a card copy) is counted once, by shutter count.

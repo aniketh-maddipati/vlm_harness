@@ -10,7 +10,7 @@ export function markdown(rep, local = {}) {
   const S = rep.shoots.filter(s => !s.skipped), K = S.filter(s => s.picks), out = [];
   out.push('# Lumina culling eval', '', rep.when + ' · core ' + rep.core + (rep.readOneDrift ? ' · readOne changed, review lib/measure.mjs' : '') + ' · bursts by hand ≤ ' + rep.gaps.repeatGap + ' s · tries ≤ ' + rep.gaps.sceneGap + ' s', '');
   out.push('## Truth', '', table(['shoot', 'frames', 'of shot', 'days', 'keeps known for', 'kept', 'keep rate', 'truth', 'note'],
-    S.map(s => [s.id, s.frames, s.shot ?? '–', s.days, s.truth ? s.truth.frames : '–', s.truth ? s.truth.kept : '–', s.truth ? pct(s.truth.kept / s.truth.frames) : '–', s.truth ? s.truth.source + (s.truth.exports != null ? ' (' + s.truth.exports + ', ' + s.truth.edited + ' edited)' : '') + (s.complete ? '' : ' · partial') : 'grouping only', s.note])), '',
+    S.map(s => [s.id, s.frames, s.shot ?? '–', s.days, s.truth ? s.truth.frames : '–', s.truth ? s.truth.kept : '–', s.truth ? pct(s.truth.kept / s.truth.frames) : '–', s.truth ? s.truth.source + (s.truth.exports != null ? ' (' + s.truth.exports + ', ' + s.truth.edited + ' edited)' : '') + (s.complete ? '' : ' · partial') : s.truthMissing ? 'grouping only · ' + s.truthMissing : 'grouping only', s.note])), '',
     '"of shot" is the camera\'s shutter count from the first to the last frame: how many frames were taken in that span. Exports that carry no edits at all are a batch export, not a selection; do not use them as keeps.', '');
   for (const s of rep.shoots.filter(s => s.skipped)) out.push('- skipped ' + s.id + ': ' + s.skipped);
 

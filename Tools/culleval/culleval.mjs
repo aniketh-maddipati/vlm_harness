@@ -88,8 +88,11 @@ async function shoot(sh) {
 
   // Keeps: exports, sidecars, or a saved Lumina session.
   let kept = null, scope = ids, source = null;
-  if (sh.exports) {
-    const jpgs = sh.exports.map(home).filter(d => fs.existsSync(d)).flatMap(d => walk(d, /\.jpe?g$/i)), je = exif(jpgs);
+  // A truth source that is not there is no truth: never read a missing folder as "nothing kept".
+  const gone = [...(sh.exports || []), ...(sh.session ? [sh.session] : [])].map(home).filter(d => !fs.existsSync(d));
+  if (gone.length) r.truthMissing = (sh.exports ? 'exports folder' : 'session') + ' not found';
+  if (sh.exports && !gone.length) {
+    const jpgs = sh.exports.map(home).flatMap(d => walk(d, /\.jpe?g$/i)), je = exif(jpgs);
     const exps = jpgs.map(f => { const e = je.get(f); return { name: name(f), raw: e.RawFileName, date: e.DateTimeOriginal, exp: e.ExposureTime, fnum: e.FNumber, iso: e.ISO, fl: e.FocalLength, edited: EDITS.some(k => +e[k]) || e.HasCrop === true || e.HasCrop === 'True' }; }).filter(e => inShoot(e.date));
     const m = matchExports(frames, exps);
     kept = m.kept; scope = ids.filter(id => !m.ambiguous.has(id)); source = 'exports';
@@ -98,7 +101,7 @@ async function shoot(sh) {
   } else if (sh.sidecars) {
     kept = new Set(ids.filter(f => { try { const m = /xmp:Rating\s*=\s*"(\d+)"|<xmp:Rating>(\d+)</.exec(fs.readFileSync(f.replace(/\.[^.]+$/, '.xmp'), 'utf8')); return m && +(m[1] ?? m[2]) >= 1; } catch (_) { return false; } }));
     source = 'sidecars'; r.truth = { source };
-  } else if (sh.session && fs.existsSync(home(sh.session))) {
+  } else if (sh.session && !gone.length) {
     // A saved session: keeps are its marks, and only rows the photographer has seen count as decided.
     const s = JSON.parse(fs.readFileSync(home(sh.session), 'utf8')), rel = f => path.relative(dir, f);
     kept = new Set(ids.filter(f => s.marks && s.marks[rel(f)] === 'keep'));
