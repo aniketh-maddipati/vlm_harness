@@ -136,9 +136,13 @@ def exposure_gain(ev, rules):
 def exposure(x, ev, rules):
     """LookMath.exposure per channel: a scene gain seen through a sigmoid tone curve,
     y' = w·G·t / (1 + (G − 1)·t) with t = x / w; the tangent continues it below 0 and above w."""
-    g = exposure_gain(ev, rules)
-    w = max(0.05, k(rules, "exposure", "white", 1.0))
+    return through_curve(x, exposure_gain(ev, rules), max(0.05, k(rules, "exposure", "white", 1.0)))
+
+
+def through_curve(x, g, w):
+    """A gain `g` (a number, or an array that broadcasts against x) through the tone curve."""
     x = np.asarray(x, dtype=np.float64)
+    g = np.asarray(g, dtype=np.float64)
     t = np.clip(x / w, 0.0, 1.0)
     mid = w * g * t / (1 + (g - 1) * t)
     return np.where(x <= 0, x * g, np.where(x >= w, w + (x - w) / g, mid))
@@ -150,9 +154,9 @@ def white_balance_gains(target, as_shot, rules):
         return np.ones(3)
     dm = 1e6 / max(1000.0, as_shot[0]) - 1e6 / max(1000.0, target[0])
     dt = target[1] - as_shot[1]
-    g = np.array([2.0 ** (dm * k(rules, "whiteBalance", "redPerMired", 0.0025)),
+    g = np.array([2.0 ** (dm * k(rules, "whiteBalance", "redPerMired", 0.0025) + dt * k(rules, "whiteBalance", "redPerTint", 0.0)),
                   2.0 ** (-dt * k(rules, "whiteBalance", "greenPerTint", 0.004)),
-                  2.0 ** (-dm * k(rules, "whiteBalance", "bluePerMired", 0.0025))])
+                  2.0 ** (-dm * k(rules, "whiteBalance", "bluePerMired", 0.0025) + dt * k(rules, "whiteBalance", "bluePerTint", 0.0))])
     if k(rules, "whiteBalance", "preserveLuma", 1) >= 0.5:
         g = g / float(np.dot(g, luma_weights(rules)))
     return g
@@ -293,7 +297,9 @@ def flat(rgb, look, as_shot, rules, vignette_r=0.0):
             if look["ev"] != 0:
                 c = exposure(c, look["ev"], rules)
         elif stage == "whiteBalance":
-            c = c * white_balance_gains(look["wb"], as_shot, rules)
+            if look["wb"] is not None:
+                # scene gains through the tone curve, per channel (LookMath.flat)
+                c = through_curve(c, white_balance_gains(look["wb"], as_shot, rules), max(0.05, k(rules, "whiteBalance", "white", 1.0)))
         elif stage == "whitesBlacks":
             if look["wh"] != 0 or look["bl"] != 0:
                 c = linear(whites_blacks(perceptual(c, rules), look["wh"], look["bl"], rules), rules)

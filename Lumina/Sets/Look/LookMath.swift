@@ -108,15 +108,19 @@ nonisolated enum LookMath {
         guard let target else { return .gray(1) }
         let dM = 1e6 / max(1000, asShot.kelvin) - 1e6 / max(1000, target.kelvin)     // mired, + = warmer
         let dT = target.tint - asShot.tint
-        var g = RGB(r: exp2(dM * rules.k("whiteBalance", "redPerMired", 0.0025)),
+        // Temperature moves red and blue against each other and leaves green (as Lightroom does);
+        // tint moves green one way and red and blue the other, each by its own amount.
+        var g = RGB(r: exp2(dM * rules.k("whiteBalance", "redPerMired", 0.0025) + dT * rules.k("whiteBalance", "redPerTint", 0)),
                     g: exp2(-dT * rules.k("whiteBalance", "greenPerTint", 0.004)),
-                    b: exp2(-dM * rules.k("whiteBalance", "bluePerMired", 0.0025)))
+                    b: exp2(-dM * rules.k("whiteBalance", "bluePerMired", 0.0025) + dT * rules.k("whiteBalance", "bluePerTint", 0)))
         if rules.k("whiteBalance", "preserveLuma", 1) >= 0.5 {
             let y = luma(g, rules)
             g = RGB(r: g.r / y, g: g.g / y, b: g.b / y)
         }
         return g
     }
+
+    static func whiteBalanceWhite(_ rules: LookRules) -> Double { max(0.05, rules.k("whiteBalance", "white", 1)) }
 
     // MARK: whitesBlacks (perceptual, per channel)
 
@@ -262,8 +266,11 @@ nonisolated enum LookMath {
                 let g = exposureGain(look.ev, rules), w = exposureWhite(rules)
                 c = RGB(r: exposure(c.r, gain: g, white: w), g: exposure(c.g, gain: g, white: w), b: exposure(c.b, gain: g, white: w))
             case "whiteBalance":
-                let g = whiteBalanceGains(look.wb, asShot: asShot, rules)
-                c = RGB(r: c.r * g.r, g: c.g * g.g, b: c.b * g.b)
+                guard look.wb != nil else { continue }
+                // Like exposure, the gains are on the scene: each channel goes through the tone curve,
+                // so a cast is full strength in the shadows and fades toward white.
+                let g = whiteBalanceGains(look.wb, asShot: asShot, rules), w = whiteBalanceWhite(rules)
+                c = RGB(r: exposure(c.r, gain: g.r, white: w), g: exposure(c.g, gain: g.g, white: w), b: exposure(c.b, gain: g.b, white: w))
             case "whitesBlacks":
                 guard look.whites != 0 || look.blacks != 0 else { continue }
                 c = RGB(r: linear(whitesBlacks(perceptual(c.r, rules), whites: look.whites, blacks: look.blacks, rules), rules),

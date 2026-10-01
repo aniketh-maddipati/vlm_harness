@@ -258,7 +258,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             case "whiteBalance":
                 guard look.wb != nil else { continue }
                 let g = LookMath.whiteBalanceGains(look.wb, asShot: dev.asShot, r)
-                pass("lookPre", [img, CIVector(x: g.r, y: g.g, z: g.b, w: 1), zero, gam])
+                pass("lookWhiteBalance", [img, CIVector(x: g.r, y: g.g, z: g.b, w: 1), CIVector(x: LookMath.whiteBalanceWhite(r), y: 0)])
             case "whitesBlacks":
                 guard look.whites != 0 || look.blacks != 0 else { continue }
                 let wbk = CIVector(x: look.whites * r.k("whitesBlacks", "whitesPerUnit", 0.003),

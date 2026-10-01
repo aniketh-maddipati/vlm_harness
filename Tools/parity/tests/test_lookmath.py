@@ -69,7 +69,14 @@ class LookMathMirrorTests(unittest.TestCase):
         self.assertLess(g(lm.single("Blacks", -80), 0.02), 0.02)
         warm = lm.flat(np.array([0.5, 0.5, 0.5]), lm.single("Temperature", 8000, AS_SHOT), AS_SHOT, r)
         self.assertGreater(warm[0] / warm[2], 1)
-        self.assertAlmostEqual(float(lm.luma(warm, r)), 0.5)
+        # Temperature holds green (Lightroom does); the cast fades toward white through the tone curve.
+        if lm.k(r, "whiteBalance", "preserveLuma", 1) < 0.5:
+            self.assertAlmostEqual(float(warm[1]), 0.5)
+        else:
+            self.assertAlmostEqual(float(lm.luma(warm, r)), 0.5)
+        shift = lambda v: float(np.log2(lm.flat(np.array([v, v, v]), lm.single("Temperature", 8000, AS_SHOT), AS_SHOT, r)[0] / v))
+        self.assertGreater(shift(0.02), shift(0.5))
+        self.assertGreater(shift(0.5), shift(0.95))
         mag = lm.flat(np.array([0.5, 0.5, 0.5]), lm.single("Tint", 50, AS_SHOT), AS_SHOT, r)
         self.assertLess(mag[1], mag[0])
 
