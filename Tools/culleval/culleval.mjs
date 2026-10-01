@@ -53,11 +53,13 @@ async function shoot(sh) {
   const dir = home(sh.raws);
   if (!fs.existsSync(dir)) return { id: sh.id, skipped: 'folder not found' };
   const all = walk(dir, /\.arw$/i), ex = exif(all), seen = new Set();
+  // dates / datesExclude pick days; from / to ("2026-02-08 14:00:00") pick a stretch of capture time.
+  const stamp = d => (d || '').replace(/^(\d{4}):(\d{2}):/, '$1-$2-');
+  const inShoot = d => !(sh.dates && !sh.dates.includes(day(d))) && !(sh.datesExclude && sh.datesExclude.includes(day(d))) && !(sh.from && stamp(d) < sh.from) && !(sh.to && stamp(d) > sh.to);
   // The frames of this shoot: its dates, each real frame once (a card copy can hold a frame twice).
   const files = all.filter(f => {
-    const e = ex.get(f), d = day(e.DateTimeOriginal);
-    if (sh.dates && !sh.dates.includes(d)) return false;
-    if (sh.datesExclude && sh.datesExclude.includes(d)) return false;
+    const e = ex.get(f);
+    if (!inShoot(e.DateTimeOriginal)) return false;
     const k = e.ShutterCount != null ? 's' + e.ShutterCount : f; if (seen.has(k)) return false; seen.add(k); return true;
   });
   if (!files.length) return { id: sh.id, skipped: 'no frames' };
@@ -88,7 +90,7 @@ async function shoot(sh) {
   let kept = null, scope = ids, source = null;
   if (sh.exports) {
     const jpgs = sh.exports.map(home).filter(d => fs.existsSync(d)).flatMap(d => walk(d, /\.jpe?g$/i)), je = exif(jpgs);
-    const exps = jpgs.map(f => { const e = je.get(f); return { name: name(f), raw: e.RawFileName, date: e.DateTimeOriginal, exp: e.ExposureTime, fnum: e.FNumber, iso: e.ISO, fl: e.FocalLength, edited: EDITS.some(k => +e[k]) || e.HasCrop === true || e.HasCrop === 'True' }; }).filter(e => !sh.dates || sh.dates.includes(day(e.date)));
+    const exps = jpgs.map(f => { const e = je.get(f); return { name: name(f), raw: e.RawFileName, date: e.DateTimeOriginal, exp: e.ExposureTime, fnum: e.FNumber, iso: e.ISO, fl: e.FocalLength, edited: EDITS.some(k => +e[k]) || e.HasCrop === true || e.HasCrop === 'True' }; }).filter(e => inShoot(e.date));
     const m = matchExports(frames, exps);
     kept = m.kept; scope = ids.filter(id => !m.ambiguous.has(id)); source = 'exports';
     r.truth = { source, exports: exps.length, edited: exps.filter(e => e.edited).length, matchedByName: m.rule.name, matchedByTime: m.rule.time, exportsWithoutRaw: m.unmatched.length, ambiguous: m.ambiguous.size };

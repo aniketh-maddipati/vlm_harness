@@ -53,7 +53,7 @@ rows (nobody has marked scenes), so rows are only checked for cutting through a 
 
 `complete: false` marks a shoot whose frames or keeps are known to be partial; the headline pools
 the complete ones and shows the rest beside them. `dates` / `datesExclude` pick days out of a
-folder. A frame that appears twice in a folder (a card copy) is counted once, by shutter count.
+folder, `from` / `to` (`"2026-02-08 14:00:00"`) a stretch of capture time within them. A frame that appears twice in a folder (a card copy) is counted once, by shutter count.
 
 ## Metrics (`lib/score.mjs`)
 

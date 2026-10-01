@@ -286,14 +286,14 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 
 ## Prompt 2 — culling logic, from the culling eval (paste into Claude Design)
 
-Found by `Tools/culleval` (2026-09-30) on 2,680 real α7 III frames from this Mac: 21 camera bursts
-(79 frames shot in a drive mode), 255 bursts by hand, four small shoots with known keeps. The
+Found by `Tools/culleval` (2026-09-30) on 3,152 real α7 III frames: 21 camera bursts (79 frames
+shot in a drive mode), 326 bursts by hand, five shoots with known keeps (506 frames, 122 kept). The
 measures ran in headless Chromium on the page's own 360 px bitmap. Numbers: `make culleval`.
 
 > Update `lumina-core-v4.js` (and its fixtures). No visible change is asked for; keep the page's
 > look, keys and wording as they are.
 >
-> **A. `sonyMN` reads nothing from a real ARW.** On all 2,680 frames `releaseMode2`, `seqImage`,
+> **A. `sonyMN` reads nothing from a real ARW.** On all 3,152 frames `releaseMode2`, `seqImage`,
 > `seqLength` and `focusMode` came back null, so real camera bursts fall through to the dHash rule
 > and are split: 1 of 21 came out as one stack (pair recall 11 %). With the camera's sequence
 > numbers filled in, the same `buildShoot` gets 17 of 21 (pair recall 88 %). Two causes:
@@ -313,7 +313,7 @@ measures ran in headless Chromium on the page's own 360 px bitmap. Numbers: `mak
 >
 > **B. The dHash is too noisy to carry the stack rule.** `measure` makes the 9 × 8 hash with one
 > `drawImage(bmp,0,0,9,8)` from the 360 px bitmap, which samples a few pixels per cell instead of
-> averaging the cell. Measured distances between consecutive frames (64 bits):
+> averaging the cell. Measured distances between consecutive frames (64 bits, on 2,680 of the frames):
 > inside a camera burst: median 17, only 21 % ≤ 6 (the stack threshold), 8 % ≥ 28 (the "always
 > split" threshold); same framing ≤ 2 s apart by hand: median 21, 8 % ≤ 6, 20 % ≥ 28; frames more
 > than 5 minutes apart: median 30. So the hash barely separates a burst from a new scene.
@@ -323,18 +323,20 @@ measures ran in headless Chromium on the page's own 360 px bitmap. Numbers: `mak
 > `Tools/culleval` re-measures this after the sync.
 >
 > **C. Bursts by hand are left as singles.** This photographer shoots single frames and repeats:
-> 255 runs of the same framing ≤ 2 s apart against 21 camera bursts. Lumina stacks 8 % of those
+> 326 runs of the same framing ≤ 2 s apart against 21 camera bursts. Lumina stacks 7 % of those
 > pairs (it is never wrong when it does: precision 100 %). The cost shows in the keeps: the
-> suggested keeps are nearly every clean single, so against real keeps they score precision 14 %
-> at a 10 % keep rate (recall 82 %) — little better than keeping everything. In all 17 runs of
-> tries that held a keeper, Lumina showed the tries as separate photos. After B, please stack
+> suggested keeps are nearly every clean single, so against real keeps they score precision 30 %
+> at a 24 % keep rate (recall 88 %) — little better than keeping everything. In all 58 runs of
+> tries that held a keeper, Lumina showed the tries as separate photos; in the largest shoot 63 of
+> the 108 frames suggested and then rejected were one of several tries where another try was kept. After B, please stack
 > frames with the same lens, focal length and orientation that follow within 2 s when their hashes
-> agree, and consider a wider window (the photographer's tries are mostly 3–10 s apart: 655 such
+> agree, and consider a wider window (the photographer's tries are mostly 3–10 s apart: at least 655 such
 > pairs) shown as a looser group, not a burst.
 >
-> **Not asked yet (too few keeps to judge, 14 groups):** "sharpest" as the frame to keep agreed
-> with the photographer in 5 of 14 groups with one keeper (36 %; picking at random scores 39 %).
-> `blown` (more than 2 % clipped) flagged 26 of 120 frames of a desert shoot, 2 of its 13 keepers.
+> **Not asked yet (still a small sample, 36 groups):** "sharpest" as the frame to keep agreed
+> with the photographer in 15 of 36 groups with one keeper (42 %; picking at random scores 36 %).
+> The flags are mostly right (91 % of flagged frames were rejected), but `blown` (more than 2 %
+> clipped) flagged 26 of 120 frames of a desert shoot, 2 of its 13 keepers.
 
 ## How each ask is checked once the new handoff lands
 
