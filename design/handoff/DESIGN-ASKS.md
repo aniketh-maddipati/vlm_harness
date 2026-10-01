@@ -286,18 +286,18 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 
 ## Prompt 2 — culling logic, from the culling eval (paste into Claude Design)
 
-Found by `Tools/culleval` (2026-09-30) on 4,002 real α7 III frames: 64 camera bursts (305 frames
-shot in a drive mode), 467 bursts by hand, six shoots with known keeps (1,356 frames, 496 kept;
-four of them complete). The measures ran in headless Chromium on the page's own 360 px bitmap.
+Found by `Tools/culleval` (2026-09-30) on 4,035 real α7 III frames: 66 camera bursts (310 frames
+shot in a drive mode), 471 bursts by hand, six shoots with known keeps (1,389 frames, 498 kept;
+five of them complete). The measures ran in headless Chromium on the page's own 360 px bitmap.
 Numbers: `make culleval`.
 
 > Update `lumina-core-v4.js` (and its fixtures). No visible change is asked for; keep the page's
 > look, keys and wording as they are.
 >
-> **A. `sonyMN` reads nothing from a real ARW.** On all 4,002 frames `releaseMode2`, `seqImage`,
+> **A. `sonyMN` reads nothing from a real ARW.** On all 4,035 frames `releaseMode2`, `seqImage`,
 > `seqLength` and `focusMode` came back null, so real camera bursts fall through to the dHash rule
-> and are split: 10 of 64 came out as one stack (pair recall 12 %). With the camera's sequence
-> numbers filled in, the same `buildShoot` gets 60 of 64 (pair recall 96 %). Two causes:
+> and are split: 11 of 66 came out as one stack (pair recall 13 %). With the camera's sequence
+> numbers filled in, the same `buildShoot` gets 61 of 66 (pair recall 95 %). Two causes:
 > (1) `sonyMN` returns unless the MakerNote starts with `SONY` and reads its IFD at +12. That
 > header exists in Sony JPEGs; in an ARW the MakerNote (0x927C) starts directly with the IFD
 > (entry count at the MakerNote offset; value offsets from the TIFF start, as you already read
@@ -314,7 +314,7 @@ Numbers: `make culleval`.
 >
 > **B. The dHash is too noisy to carry the stack rule.** `measure` makes the 9 × 8 hash with one
 > `drawImage(bmp,0,0,9,8)` from the 360 px bitmap, which samples a few pixels per cell instead of
-> averaging the cell. Measured distances between consecutive frames (64 bits):
+> averaging the cell. Measured distances between consecutive frames (64 bits, on 4,002 of the frames):
 > inside a camera burst: median 12, only 20 % ≤ 6 (the stack threshold), 2 % ≥ 28 (the "always
 > split" threshold); same framing ≤ 2 s apart by hand: median 21, 9 % ≤ 6, 23 % ≥ 28; frames more
 > than 5 minutes apart: median 30. So the hash barely separates a burst from a new scene.
@@ -324,9 +324,9 @@ Numbers: `make culleval`.
 > `Tools/culleval` re-measures this after the sync.
 >
 > **C. Bursts by hand are left as singles.** This photographer mostly shoots single frames and
-> repeats: 467 runs of the same framing ≤ 2 s apart against 64 camera bursts. Lumina stacks 7 % of
+> repeats: 471 runs of the same framing ≤ 2 s apart against 66 camera bursts. Lumina stacks 7 % of
 > those pairs (it is never wrong when it does: precision 100 %). In 178 of 179 runs of tries that
-> held a keeper, Lumina showed the tries as separate photos, and 191 of the 551 frames it suggested
+> held a keeper, Lumina showed the tries as separate photos, and 191 of the 553 frames it suggested
 > and the photographer rejected were one of several tries where another try was kept. After B,
 > please stack frames with the same lens, focal length and orientation that follow within 2 s when
 > their hashes agree, and consider a wider window (the photographer's tries are mostly 3–10 s
@@ -337,8 +337,8 @@ Numbers: `make culleval`.
 > flagged 296 of 509 frames, 173 of them among the photographer's 309 keepers: flagged frames were
 > kept as often as unflagged ones, so there the flag says nothing, and because a blown single is
 > never suggested, the suggested keeps found only 37 % of the real keeps (95 % and 89 % on the
-> two shoots where `blown` is rare). Of 214 keepers that were not suggested, 181 were flagged
-> blown and 34 soft. On a desert shoot it flagged 26 of 120 frames. Please make the flag relative
+> two shoots where `blown` is rare). Of 216 keepers that were not suggested, 181 were flagged
+> blown and 34 soft. On a desert shoot it flagged 26 of 125 frames. Please make the flag relative
 > to the shoot (a frame that clips much more than its neighbours in the same row, or the top few
 > percent of the shoot) rather than a fixed 2 %, and keep a flagged single among the suggested keeps
 > unless a cleaner frame of the same stack exists.
@@ -347,7 +347,8 @@ Numbers: `make culleval`.
 > of tries with one keeper (41 %; picking at random scores 37 %), and in none of the 8 groups of six
 > or more. In Lumina's own stacks it agreed in 6 of 9. Sharpness alone is close to a coin toss
 > between near-identical tries; what would do better (faces, eyes, expression) is a product
-> decision, not a fix.
+> decision, not a fix. `shake` (exposure longer than 2 / focal length) flagged 49 of 80 frames of
+> an evening shoot, all 3 of its keepers among them; three keepers are too few to ask on.
 
 ## How each ask is checked once the new handoff lands
 
@@ -370,7 +371,7 @@ Numbers: `make culleval`.
   scenario then lists `luminaPresented`, `luminaHistogram`, `luminaFacts` among the hooks. Drop plumbing's
   `pollRect` fallback.
 - Prompt 2: `make culleval` on the same shoots (`~/LuminaEvidence/culleval/shoots.json`). A: "the page read drive data on N frames"
-  equals exiftool's count and the camera-burst row reaches the what-if row (60 of 64 exact, recall 96 %). B and C: the
+  equals exiftool's count and the camera-burst row reaches the what-if row (61 of 66 exact, recall 95 %). B and C: the
   dHash distances inside bursts drop and pair recall for bursts by hand rises with precision held; best-of-stack and keep
   precision are re-read. D: the bright-event shoot's "flagged blown" count falls and its suggested-keeps recall rises
   toward the other shoots'. A sync that changes `readOne` fails `make culleval-test` until `Tools/culleval/lib/measure.mjs` is reviewed.
