@@ -224,7 +224,7 @@ enum EditSteps {
         for v in info.supported {
             let region = try await regionRender(canvas.tiles, rel: rel, url: first, decoder: v, roi: roi)
             let pipe = canvas.pipeline
-            let tilesImg = pipe.apply(Look(), to: LookPipeline.Developed(image: region.image, asShot: region.asShot), crop: false)
+            let tilesImg = pipe.apply(Look(), to: LookPipeline.Developed(image: region.image, asShot: region.asShot, anchor: region.anchor), crop: false)
             let dev = try LookPipeline.develop(url: first, longEdge: nil, rules: pipe.rules, decoderVersion: v)
             let exportImg = pipe.apply(Look(), to: dev)
             guard let a = pipe.context.createCGImage(pipe.clamped(tilesImg), from: region.rect, format: .RGBA8, colorSpace: srgb),

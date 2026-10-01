@@ -94,6 +94,51 @@ final class LookMathTests: XCTestCase {
         }
     }
 
+    /// Highlights and Shadows read each pixel against the photo (its anchor), as Lightroom does: a
+    /// 0.4 pixel is a highlight in a night scene and a midtone in a bright one, and each slider's
+    /// strength follows the photo's tonal spread and its share of bright pixels.
+    func testToneIsRelativeToThePhoto() {
+        typealias A = LookMath.ToneAnchor
+        func out(_ slider: String, _ v: Double, _ px: Double, _ anchor: A) -> Double {
+            luma(LookMath.flat(.gray(px), look: Look.single(slider, v, asShot: asShot)!, asShot: asShot, rules: rules, anchor: anchor))
+        }
+        let night = out("Highlights", -100, 0.4, A(mean: 0.005)), bright = out("Highlights", -100, 0.4, A(mean: 0.4))
+        XCTAssertLessThan(night, bright, "pulled harder where 0.4 is the brightest thing in the frame")
+        XCTAssertLessThan(bright, 0.4)
+        XCTAssertGreaterThan(out("Shadows", 100, 0.1, A(mean: 0.4)), out("Shadows", 100, 0.1, A(mean: 0.02)), "0.1 is a shadow in a bright photo")
+        // The reference anchor is what a flat patch gets by default.
+        XCTAssertEqual(out("Shadows", 50, 0.1, .reference), luma(run(Look.single("Shadows", 50, asShot: asShot)!, 0.1)), accuracy: 1e-12)
+        // Strength follows the photo: Shadows lifts more where much of the frame is bright, Highlights
+        // pulls more in a wider photo; a missing statistic sits at the rules' centre (factor 1).
+        let centre = LookMath.toneNormalisers(anchor: .reference, rules)
+        XCTAssertEqual(centre.shadowsGain, 1, accuracy: 0.02)
+        let c = { (n: String, d: Double) in self.rules.k("tone", n, d) }
+        let atCentre = LookMath.toneNormalisers(anchor: A(mean: exp2(c("meanCentre", log2(0.18))), spread: c("spreadCentre", 1.5), bright: c("brightCentre", 0.2)), rules)
+        XCTAssertEqual(atCentre.shadowsGain, 1, accuracy: 1e-9); XCTAssertEqual(atCentre.highlightsGain, 1, accuracy: 1e-9)
+        if c("shadowsBright", 0) > 0 {
+            XCTAssertGreaterThan(LookMath.toneNormalisers(anchor: A(mean: 0.18, spread: nil, bright: 0.6), rules).shadowsGain, 1)
+            XCTAssertGreaterThan(out("Shadows", 100, 0.02, A(mean: 0.18, spread: nil, bright: 0.6)), out("Shadows", 100, 0.02, A(mean: 0.18, spread: nil, bright: 0.02)))
+        }
+        if c("highlightsSpread", 0) > 0 { XCTAssertGreaterThan(LookMath.toneNormalisers(anchor: A(mean: 0.18, spread: 3, bright: nil), rules).highlightsGain, 1) }
+        // However extreme the photo, a strength stays within [0.25, 4].
+        let wild = LookMath.toneNormalisers(anchor: A(mean: 0.001, spread: 9, bright: 1), rules)
+        XCTAssertLessThanOrEqual(wild.shadowsGain, 4); XCTAssertLessThanOrEqual(wild.highlightsGain, 4); XCTAssertGreaterThanOrEqual(wild.highlightsGain, 0.25)
+        // Monotonic on a ramp for extreme anchors too.
+        for a in [A(mean: 0.003, spread: 3, bright: 0.0), A(mean: 0.6, spread: 0.5, bright: 0.9), .reference] {
+            for (slider, v) in [("Highlights", -100.0), ("Highlights", 100), ("Shadows", 100), ("Shadows", -100)] {
+                var last = -1.0
+                for i in 0...240 { let y = out(slider, v, Double(i) / 200, a); XCTAssertGreaterThanOrEqual(y, last - 1e-9, "\(slider) \(v) anchor \(a) at \(i)"); last = y }
+            }
+        }
+        // The anchor itself, from pixels: log-mean, spread in stops, share above L* 80.
+        let flat = LookMath.toneAnchor(pixels: [0.18, 0.18, 0.18, 1, 0.18, 0.18, 0.18, 1], luma: rules.luma)
+        XCTAssertEqual(flat.mean, 0.18, accuracy: 1e-6); XCTAssertEqual(flat.spread ?? -1, 0, accuracy: 1e-6); XCTAssertEqual(flat.bright ?? -1, 0, accuracy: 1e-12)
+        let two = LookMath.toneAnchor(pixels: [0.1, 0.1, 0.1, 1, 0.8, 0.8, 0.8, 1], luma: rules.luma)
+        XCTAssertEqual(two.mean, (0.1 * 0.8).squareRoot(), accuracy: 1e-6); XCTAssertEqual(two.spread ?? -1, 1.5, accuracy: 1e-6); XCTAssertEqual(two.bright ?? -1, 0.5, accuracy: 1e-12)
+        XCTAssertEqual(LookMath.toneAnchor(pixels: [0, 0, 0, 1], luma: rules.luma).mean, 1e-3, accuracy: 1e-12)
+        XCTAssertEqual(LookMath.toneAnchor(pixels: [], luma: rules.luma), .reference)
+    }
+
     /// rawDevelop's base match: nothing at all with zero coefficients; otherwise a grey stays the
     /// same grey the curve gives it (rows of the mix sum to 1), the curve is the identity at 0 and
     /// from 1 up, and it never folds back.
@@ -201,13 +246,15 @@ final class LookMathTests: XCTestCase {
         XCTAssertGreaterThan(luma(run(Look.single("Contrast", 60, asShot: asShot)!, light)), light)
         XCTAssertGreaterThan(luma(run(Look.single("Contrast", -60, asShot: asShot)!, dark)), dark)
         XCTAssertEqual(luma(run(Look.single("Contrast", 80, asShot: asShot)!, m)), m, accuracy: 1e-6)
-        // Shadows + lifts the darks more than the lights; highlights − lowers the lights, not the darks.
+        // Shadows + lifts the darks more than the lights; highlights − lowers the lights far more than
+        // the darks (Lightroom's own −100 moves a dark grey by half a stop: it does reach them).
         let sh = Look.single("Shadows", 80, asShot: asShot)!
         XCTAssertGreaterThan(luma(run(sh, dark)) / dark, luma(run(sh, light)) / light)
         XCTAssertGreaterThan(luma(run(sh, dark)), dark)
         let hl = Look.single("Highlights", -80, asShot: asShot)!
         XCTAssertLessThan(luma(run(hl, light)), light)
-        XCTAssertEqual(luma(run(hl, dark)), dark, accuracy: 1e-9)
+        XCTAssertLessThan(luma(run(hl, light)) / light, luma(run(hl, dark)) / dark)
+        XCTAssertLessThanOrEqual(luma(run(hl, dark)), dark)
         // Whites + raises the lights, blacks − lowers the darks; each leaves the other end alone.
         XCTAssertGreaterThan(luma(run(Look.single("Whites", 80, asShot: asShot)!, light)), light)
         XCTAssertEqual(luma(run(Look.single("Whites", 80, asShot: asShot)!, 0)), 0, accuracy: 1e-9)

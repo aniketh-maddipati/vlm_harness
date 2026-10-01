@@ -28,8 +28,8 @@
     },
     "tone": {
       "locked": false,
-      "form": "base = gaussian blur of luma (radiusFraction of the long edge), bp = perceptual(base); gain = 2^(shadows*shadowsStopsPerUnit*(1-smoothstep(shadowsLo,shadowsHi,bp))) * 2^(highlights*highlightsStopsPerUnit*smoothstep(highlightsLo,highlightsHi,bp)); out = pixel * gain * (luma/base)^(detailGain-1)",
-      "coefficients": { "radiusFraction": 0.01983, "shadowsStopsPerUnit": 0.010856, "shadowsLo": 0.0, "shadowsHi": 0.896632, "highlightsStopsPerUnit": 0.005394, "highlightsLo": 0.226437, "highlightsHi": 1.0, "detailGain": 0.952408 }
+      "form": "a local exposure through the tone curve, relative to the photo. base = gaussian blur of luma (radiusFraction of the long edge). The photo's anchor (256 px develop): mean A = 2^mean(log2 luma), pushed through exposure; spread = std of log2 luma; bright = share of pixels above L* 80. ps = perceptual(base*(0.18/A)^shadowsAdapt), ph = perceptual(base*(0.18/A)^highlightsAdapt); G = 2^(shadows*shadowsStopsPerUnit*exp(shadowsBright*(bright-brightCentre) + shadowsSpread*(spread-spreadCentre))*exp(-ps/shadowsTau) + highlights*highlightsStopsPerUnit*exp(highlightsMean*(log2 A-meanCentre) + highlightsSpread*(spread-spreadCentre))*min(1, ph/highlightsKnee)), each strength factor kept in [0.25, 4]; detail (luma/base)^(detailGain-1) re-applied; then per channel G*y / (1 + (G-1)*y/white) as in exposure",
+      "coefficients": { "radiusFraction": 0.002, "shadowsStopsPerUnit": 0.021292, "shadowsTau": 0.38354, "shadowsAdapt": 0.614784, "shadowsBright": 2.056639, "shadowsSpread": 0.323945, "highlightsStopsPerUnit": 0.027309, "highlightsKnee": 3.911585, "highlightsAdapt": 0.74109, "highlightsMean": 0.030175, "highlightsSpread": 0.228943, "white": 1.111285, "detailGain": 1.0, "meanCentre": -2.38471, "spreadCentre": 1.487163, "brightCentre": 0.203023 }
     },
     "contrast": {
       "locked": false,

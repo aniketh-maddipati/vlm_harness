@@ -415,7 +415,7 @@ final class LookCanvasController: NSObject {
     /// export at the same size). Nil until the bases exist.
     func renderToImage() -> CGImage? {
         guard let c = current, let e = c.entry else { return nil }
-        let img = pipeline.apply(c.look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot), crop: false)
+        let img = pipeline.apply(c.look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot, anchor: e.anchor), crop: false)
         return pipeline.context.createCGImage(pipeline.clamped(img), from: img.extent.integral, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
     }
 
@@ -507,7 +507,7 @@ final class LookCanvasController: NSObject {
     private func compose(_ look: Look, tier: LookCanvasSchedule.Tier, roi: LookCanvasSchedule.ROI?, entry: LookBases.Entry, size: CGSize) -> (placed: CIImage, image: CIImage, region: LookRegionTiles.Region?) {
         let src: CIImage, srcSize: CGSize
         if tier == .small { src = entry.small; srcSize = entry.smallSize } else { src = entry.base; srcSize = entry.baseSize }
-        var image = pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: entry.asShot), crop: false)
+        var image = pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: entry.asShot, anchor: entry.anchor), crop: false)
         // Where the photo goes: fit the canvas (contain), or the zoomed region filling it.
         let dw = size.width, dh = size.height
         var visible = CGRect(origin: .zero, size: srcSize)
@@ -519,7 +519,7 @@ final class LookCanvasController: NSObject {
         var region: LookRegionTiles.Region?
         if tier == .base, let reg = self.region, reg.rel == current?.rel, let z = zoom, reg.roi == z {
             region = reg
-            let regionImage = pipeline.apply(look, to: LookPipeline.Developed(image: reg.image, asShot: reg.asShot), crop: false)
+            let regionImage = pipeline.apply(look, to: LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor), crop: false)
             let vis = CGRect(x: z.x * reg.photoSize.width, y: (1 - z.y - z.h) * reg.photoSize.height, width: z.w * reg.photoSize.width, height: z.h * reg.photoSize.height)
             image = regionImage.cropped(to: vis.intersection(reg.rect))
             visible = vis

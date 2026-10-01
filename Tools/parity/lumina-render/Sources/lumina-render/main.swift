@@ -137,7 +137,7 @@ do {
                         let dev = try LookPipeline.developAny(url: URL(fileURLWithPath: image), longEdge: px, rules: rules, decoderVersion: decoder, nr: parsedLook.nr)
                         let (raster, bytes, w, h, rowBytes) = try pipe.rasterisedBitmap(dev)
                         developed[key] = raster
-                        if let disk, let diskKey { disk.store(diskKey, bitmap: bytes, width: w, height: h, rowBytes: rowBytes, asShot: dev.asShot) }
+                        if let disk, let diskKey { disk.store(diskKey, bitmap: bytes, width: w, height: h, rowBytes: rowBytes, asShot: dev.asShot, anchor: dev.anchor) }
                         source = "decode"
                     }
                     developMs = ms(t0)

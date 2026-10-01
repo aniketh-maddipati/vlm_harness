@@ -172,12 +172,46 @@ def whites_blacks(p, whites, blacks, rules):
     return np.maximum(0.0, q)
 
 
-def tone_gain(base_p, highlights, shadows, rules):
-    s = shadows * k(rules, "tone", "shadowsStopsPerUnit", 0.01) * (
-        1.0 - smoothstep(k(rules, "tone", "shadowsLo", 0.0), k(rules, "tone", "shadowsHi", 0.6), base_p))
-    h = highlights * k(rules, "tone", "highlightsStopsPerUnit", 0.01) * smoothstep(
-        k(rules, "tone", "highlightsLo", 0.4), k(rules, "tone", "highlightsHi", 1.0), base_p)
+TONE_REFERENCE = 0.18
+BRIGHT_Y = 0.5668          # relative luminance of L* 80
+REFERENCE_ANCHOR = {"mean": TONE_REFERENCE, "spread": None, "bright": None}
+
+
+def tone_anchor(img, rules):
+    """LookMath.toneAnchor: what the tone stage reads a photo against. mean = 2^(mean(log2(max(luma,
+    1e-4)))) in [0.001, 4], spread = the standard deviation of log2 luma, bright = the share of
+    pixels above L* 80."""
+    y = luma(np.asarray(img, dtype=np.float64), rules)
+    l = np.log2(np.maximum(1e-4, y))
+    return {"mean": float(min(4.0, max(1e-3, 2.0 ** l.mean()))), "spread": float(l.std()), "bright": float((y > BRIGHT_Y).mean())}
+
+
+def tone_normalisers(anchor, rules):
+    """(shadows mask scale, highlights mask scale, shadows strength, highlights strength)."""
+    t = lambda n, d: k(rules, "tone", n, d)
+    mean = min(4.0, max(1e-3, anchor["mean"])); ratio = TONE_REFERENCE / mean
+    spread_c = t("spreadCentre", 1.5); d_spread = (anchor["spread"] if anchor.get("spread") is not None else spread_c) - spread_c
+    bright_c = t("brightCentre", 0.2); d_bright = (anchor["bright"] if anchor.get("bright") is not None else bright_c) - bright_c
+    d_mean = np.log2(mean) - t("meanCentre", float(np.log2(TONE_REFERENCE)))
+    clamp = lambda x: float(min(4.0, max(0.25, x)))
+    return (ratio ** t("shadowsAdapt", 0.0), ratio ** t("highlightsAdapt", 0.0),
+            clamp(np.exp(t("shadowsBright", 0.0) * d_bright + t("shadowsSpread", 0.0) * d_spread)),
+            clamp(np.exp(t("highlightsMean", 0.0) * d_mean + t("highlightsSpread", 0.0) * d_spread)))
+
+
+def tone_gain(base, anchor, highlights, shadows, rules):
+    """LookMath.toneGain: a local scene gain from the base's luma, read relative to the photo.
+    Shadows decay as exp(−p / shadowsTau); Highlights grow linearly up to highlightsKnee."""
+    ns, nh, gs, gh = tone_normalisers(anchor, rules)
+    base = np.asarray(base, dtype=np.float64)
+    ps, ph = perceptual(base * ns, rules), perceptual(base * nh, rules)
+    s = shadows * k(rules, "tone", "shadowsStopsPerUnit", 0.01) * gs * np.exp(-ps / max(0.01, k(rules, "tone", "shadowsTau", 0.2)))
+    h = highlights * k(rules, "tone", "highlightsStopsPerUnit", 0.01) * gh * np.minimum(1.0, ph / max(0.01, k(rules, "tone", "highlightsKnee", 0.7)))
     return 2.0 ** (s + h)
+
+
+def tone_white(rules):
+    return max(0.05, k(rules, "tone", "white", 1.0))
 
 
 def tone_detail(y, base, rules):
@@ -288,14 +322,16 @@ def apply_luma_ratio(rgb, y_new, y_old):
 
 # ---- the chain ----------------------------------------------------------------------------------
 
-def flat(rgb, look, as_shot, rules, vignette_r=0.0):
+def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None):
     """Every stage on colours (..., 3) where blur(x) == x (LookMath.flat)."""
     c = np.array(rgb, dtype=np.float64)
+    anchor = dict(anchor or REFERENCE_ANCHOR)
     order = [s for s in rules.get("order", ["rawDevelop"] + STAGES + ["outputTransform"]) if s in STAGES]
     for stage in order:
         if stage == "exposure":
             if look["ev"] != 0:
                 c = exposure(c, look["ev"], rules)
+                anchor["mean"] = float(exposure(anchor["mean"], look["ev"], rules))
         elif stage == "whiteBalance":
             if look["wb"] is not None:
                 # scene gains through the tone curve, per channel (LookMath.flat)
@@ -306,8 +342,8 @@ def flat(rgb, look, as_shot, rules, vignette_r=0.0):
         elif stage == "tone":
             if look["hl"] != 0 or look["sh"] != 0:
                 y = luma(c, rules)
-                g = tone_gain(perceptual(y, rules), look["hl"], look["sh"], rules) * tone_detail(y, y, rules)
-                c = c * g[..., None]
+                g = tone_gain(y, anchor, look["hl"], look["sh"], rules)
+                c = through_curve(c * tone_detail(y, y, rules)[..., None], g[..., None], tone_white(rules))
         elif stage == "contrast":
             c = contrast(c, look["con"], rules)
         elif stage == "colour":
@@ -324,6 +360,7 @@ def apply_image(img, look, as_shot, rules, sigma_scale=None):
     from scipy.ndimage import gaussian_filter
     c = np.array(img, dtype=np.float64)
     long_edge = max(c.shape[0], c.shape[1])
+    anchor = tone_anchor(c, rules)            # of the developed frame, before any stage
     order = [s for s in rules.get("order", ["rawDevelop"] + STAGES + ["outputTransform"]) if s in STAGES]
     for stage in order:
         if stage in ("exposure", "whiteBalance", "whitesBlacks", "contrast", "colour"):
@@ -331,11 +368,13 @@ def apply_image(img, look, as_shot, rules, sigma_scale=None):
             sub = {"stages": rules["stages"], "order": ["rawDevelop", stage, "outputTransform"],
                    "perceptualGamma": gamma(rules), "luma": list(luma_weights(rules))}
             c = flat(c, one, as_shot, sub)
+            if stage == "exposure" and look["ev"] != 0:
+                anchor["mean"] = float(exposure(anchor["mean"], look["ev"], rules))
         elif stage == "tone" and (look["hl"] != 0 or look["sh"] != 0):
             y = luma(c, rules)
             base = gaussian_filter(y, k(rules, "tone", "radiusFraction", 0.03) * long_edge, mode="nearest")
-            g = tone_gain(perceptual(base, rules), look["hl"], look["sh"], rules) * tone_detail(y, base, rules)
-            c = c * g[..., None]
+            g = tone_gain(base, anchor, look["hl"], look["sh"], rules)
+            c = through_curve(c * tone_detail(y, base, rules)[..., None], g[..., None], tone_white(rules))
         elif stage == "clarity" and look["clr"] != 0:
             y = luma(c, rules)
             q = perceptual(y, rules)
