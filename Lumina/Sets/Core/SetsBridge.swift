@@ -226,14 +226,20 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "openFolder":
             // Native ingest: pick (or take the pending folder), then list it before reading anything.
             guard let url = await openPanel(allowsDirectories: true)?.first else { return (NSNull(), nil) }
-            if SetsIngest.accessDenied(url) {
+            // The access check lists the folder too. On a disk that was just mounted, or is asleep, that
+            // first directory read can take many seconds (13.9 s measured on a USB exFAT disk), so it runs
+            // off the main thread with the listing, and the time reported covers both.
+            let t0 = Date()
+            let (denied, listing) = await Task.detached(priority: .userInitiated) { () -> (Bool, SetsIngest.Listing) in
+                if SetsIngest.accessDenied(url) { return (true, SetsIngest.Listing(name: url.lastPathComponent)) }
+                return (false, SetsIngest.list(url))
+            }.value
+            if denied {
                 deniedFolder = url
                 onEvent?("access denied \(url.path)")
                 return (["denied": Self.volumeName(url)], nil)
             }
             deniedFolder = nil
-            let t0 = Date()
-            let listing = await Task.detached(priority: .userInitiated) { SetsIngest.list(url) }.value
             onEvent?("listed \(listing.files.count) ARW + \(listing.xmp.count) xmp + \(listing.others.count) other\(listing.onCard ? " (card)" : "") in \(Int(Date().timeIntervalSince(t0) * 1000)) ms · \(ingest.workers) readers")
             var d = listing.dictionary
             d["workers"] = ingest.workers
@@ -356,7 +362,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") { NSWorkspace.shared.open(url) }
             return (true, nil)
         case "checkAccess":
-            return (deniedFolder.map { !SetsIngest.accessDenied($0) } ?? true, nil)
+            guard let folder = deniedFolder else { return (true, nil) }
+            return (await Task.detached(priority: .userInitiated) { !SetsIngest.accessDenied(folder) }.value, nil)
         case "reopenDenied":
             guard let url = deniedFolder else { return (false, nil) }
             deniedFolder = nil

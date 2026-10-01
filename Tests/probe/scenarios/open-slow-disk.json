@@ -1,0 +1,43 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "A disk whose first directory read is slow (just mounted, asleep; LUMINA_SLOW_DIR_MS stands in for it) must not freeze the app while a folder opens: the access check and the listing run off the main thread. The page asks the app something (lumina.checkAccess) 1.5 s into the open, on its own clock (the probe's runner shares the app's main thread, so it can't time this itself); the answer must come back within a second, not when the slow read ends.",
+ "steps": [
+  {
+   "do": "js",
+   "src": "window.__ping = null; setTimeout(() => { const t = performance.now(); window.lumina.checkAccess().then(() => { window.__ping = Math.round(performance.now() - t); }); }, 1500); return true"
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}",
+   "via": "js",
+   "until": "started"
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && l.real.length && !l.state.realLoad)",
+   "timeoutMs": 180000,
+   "what": "the folder read after the slow listing"
+  },
+  {
+   "do": "js",
+   "src": "return 'app answered in ' + window.__ping + ' ms while the folder was being listed'"
+  },
+  {
+   "do": "expect",
+   "js": "return window.__ping != null && window.__ping < 1000",
+   "why": "the main thread was free during the slow directory read"
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "listed "
+  }
+ ]
+}

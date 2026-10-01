@@ -216,6 +216,8 @@ final class Runner {
             host.pendingOpenPanel = [url]
             if (s["via"] as? String ?? "key") == "key" { try host.key("o", cmd: true) } else { _ = try await host.js("__probe.logic().openFolder()") }
             // until: "shown" returns once Cull shows its first rows, while the folder is still being read.
+            // until: "started" returns as soon as the open is asked for (the scenario watches what happens next).
+            if s["until"] as? String == "started" { return "asked" }
             if s["until"] as? String == "shown" {
                 try await waitFor("const l=__probe.logic(); return !!(l.real && l.real.length && l.state.view === 'cull' && l.state.realLoad)",
                                   timeout: (s["timeoutMs"] as? Double ?? 300_000) / 1000, what: "first rows shown")
