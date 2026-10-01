@@ -7,12 +7,12 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
- "checklist": "F6 'both': on a case-sensitive volume a RAW has DSC.xmp (Lightroom's) and DSC.XMP (1★ Yellow). The lower-case .xmp is read, every time; in a folder holding both (a second case-sensitive disk: the source's disk is removable, so it counts as the card and is refused), only .xmp is merged (stars change, the rest byte-identical) and kept as .lumina-bak; .XMP is never touched, in the destination or the source",
+ "checklist": "F6 'both' (v5): on a case-sensitive volume a RAW has DSC.xmp (Lightroom's) and DSC.XMP (1★ Yellow). The lower-case .xmp is the one read, every time, and the one Save plans to write: Lightroom's settings with only the rating changed. The volume is a disk image, which the app takes for removable media: ⌘↩ writes nothing and lists the keeper as 'on the card'. The same bytes through the app's write (below the card check) land in .xmp only, with Lightroom's .xmp kept as .lumina-bak; .XMP is never touched and never backed up.",
  "steps": [
   {
    "do": "diskImage",
    "name": "LTCASE",
-   "sizeMB": 200,
+   "sizeMB": 120,
    "fs": "Case-sensitive APFS"
   },
   {
@@ -38,11 +38,15 @@
   },
   {
    "do": "expect",
-   "js": "const p=__probe.logic().real[0]; return [p.xpath, /xmp:Rating=/.test(p.xmp||'')]",
+   "js": "const l=__probe.logic(), p=l.real[0]; return [l.real.length, p.xpath, !!p.lrEd, /xmp:Rating=/.test(p.xmp||''), /xmp:Label=/.test(p.xmp||'')]",
    "equals": [
+    1,
     "shoot/DSC08186.xmp",
+    true,
+    false,
     false
-   ]
+   ],
+   "why": "the lower-case .xmp (Lightroom's, unrated) is the sidecar; the 1★ Yellow .XMP is not read"
   },
   {
    "do": "openFolder",
@@ -51,11 +55,15 @@
   },
   {
    "do": "expect",
-   "js": "const p=__probe.logic().real[0]; return [p.xpath, /xmp:Rating=/.test(p.xmp||'')]",
+   "js": "const l=__probe.logic(), p=l.real[0]; return [l.real.length, p.xpath, !!p.lrEd, /xmp:Rating=/.test(p.xmp||''), /xmp:Label=/.test(p.xmp||'')]",
    "equals": [
+    1,
     "shoot/DSC08186.xmp",
+    true,
+    false,
     false
-   ]
+   ],
+   "why": "the lower-case .xmp (Lightroom's, unrated) is the sidecar; the 1★ Yellow .XMP is not read"
   },
   {
    "do": "openFolder",
@@ -64,104 +72,86 @@
   },
   {
    "do": "expect",
-   "js": "const p=__probe.logic().real[0]; return [p.xpath, /xmp:Rating=/.test(p.xmp||'')]",
+   "js": "const l=__probe.logic(), p=l.real[0]; return [l.real.length, p.xpath, !!p.lrEd, /xmp:Rating=/.test(p.xmp||''), /xmp:Label=/.test(p.xmp||'')]",
    "equals": [
+    1,
     "shoot/DSC08186.xmp",
+    true,
+    false,
     false
+   ],
+   "why": "the lower-case .xmp (Lightroom's, unrated) is the sidecar; the 1★ Yellow .XMP is not read"
+  },
+  {
+   "do": "expect",
+   "js": "return (__probe.logic().state.notes||[]).map(n=>n.t)",
+   "equals": [
+    "1 already have a .xmp sidecar · 1 with Lightroom edits · only the rating will be updated"
+   ]
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC08186.ARW"
    ]
   },
   {
    "do": "expect",
-   "js": "return __probe.logic().state.realInfo.xmpN",
-   "equals": 1
-  },
-  {
-   "do": "key",
-   "k": "1",
-   "settleMs": 300
-  },
-  {
-   "do": "key",
-   "k": "ArrowRight",
-   "settleMs": 150
-  },
-  {
-   "do": "key",
-   "k": "ArrowRight",
-   "settleMs": 150
-  },
-  {
-   "do": "key",
-   "k": "r",
-   "settleMs": 150
-  },
-  {
-   "do": "expect",
-   "js": "return Object.values(__probe.logic().state.marks).filter(m=>m==='keep').length",
-   "equals": 1
-  },
-  {
-   "do": "diskImage",
-   "name": "LTCASED",
-   "sizeMB": 100,
-   "fs": "Case-sensitive APFS"
-  },
-  {
-   "do": "copyTree",
-   "from": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both",
-   "to": "${DISKS}/LTCASED/lr-folder"
-  },
-  {
-   "do": "move",
-   "from": "${DISKS}/LTCASED/lr-folder/DSC08186.upper.XMP",
-   "to": "${DISKS}/LTCASED/lr-folder/DSC08186.XMP"
-  },
-  {
-   "do": "remove",
-   "path": "${DISKS}/LTCASED/lr-folder/DSC08186.ARW"
+   "js": "const l=__probe.logic(), p=l.real[0], x=l.xmpFor(l.kept()[0]), strip=t=>t.replace(/\\s*xmp:Rating=\"[^\"]*\"/,'').replace(/\\s*xmlns:xmp=\"http:\\/\\/ns.adobe.com\\/xap\\/1.0\\/\"/,''); return [/xmp:Rating=\"3\"/.test(x), strip(x)===strip(p.xmp), /xmp:Label=/.test(x)]",
+   "equals": [
+    true,
+    true,
+    false
+   ],
+   "why": "what Save will write: the .xmp's own text with the rating set"
   },
   {
    "do": "key",
    "k": "3",
-   "settleMs": 500
+   "settleMs": 1000,
+   "cmd": true
   },
   {
-   "do": "destinations",
-   "paths": [
-    "${DISKS}/LTCASED/lr-folder"
-   ]
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "export"
+  },
+  {
+   "do": "js",
+   "src": "window.__lastSave = __probe.logic().state.ex.result || null; return true"
   },
   {
    "do": "key",
    "k": "Enter",
-   "settleMs": 2500
+   "settleMs": 1500,
+   "cmd": true
   },
   {
-   "do": "fs",
-   "path": "${DISKS}/LTCASED/lr-folder",
-   "glob": "DSC08186.*",
-   "count": 3
+   "do": "waitFor",
+   "js": "const r = __probe.logic().state.ex.result; return !!r && r !== window.__lastSave",
+   "what": "save result"
   },
   {
-   "do": "fs",
-   "path": "${DISKS}/LTCASED/lr-folder/DSC08186.xmp.lumina-bak",
-   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both/DSC08186.xmp"
+   "do": "expect",
+   "js": "const r=__probe.logic().state.ex.result; return [r.t, r.bad, r.errs.map(e=>e.name+' · '+e.reason)]",
+   "equals": [
+    "0 saved · 1 failed",
+    true,
+    [
+     "DSC08186 · on the card"
+    ]
+   ],
+   "why": "a removable volume is never written (SAFETY.md 4): the keeper is listed with the reason"
   },
   {
-   "do": "fs",
-   "path": "${DISKS}/LTCASED/lr-folder/DSC08186.XMP",
-   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both/DSC08186.upper.XMP"
-  },
-  {
-   "do": "fs",
-   "path": "${DISKS}/LTCASED/lr-folder/DSC08186.XMP.lumina-bak",
-   "exists": false
-  },
-  {
-   "do": "xmpMerged",
-   "dir": "${DISKS}/LTCASED/lr-folder",
-   "originals": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both",
-   "expectJs": "const l=__probe.logic(), s=l.state, ex=s.ex||{}, o={}; for (const id of l.data.order) { const p=l.data.byId[id], fin=!!s.final[id]; if (s.marks[id]!=='keep' && !fin) continue; o[(p.xpath||'').split('/').pop()]={rating:String(fin?(ex.rf||5):(ex.rk||3)), label: fin && (ex.lab||'Green')!=='None' ? (ex.lab||'Green') : null}; } return o;"
+   "do": "snap",
+   "name": "refused"
   },
   {
    "do": "fs",
@@ -171,7 +161,24 @@
   {
    "do": "fs",
    "path": "${DISKS}/LTCASE/shoot/DSC08186.XMP",
-   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both/DSC08186.upper.XMP"
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both/DSC08186.upper.XMP",
+   "why": ".XMP is never touched"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot/DSC08186.XMP.lumina-bak",
+   "exists": false
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot/DSC08186.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both/DSC08186.ARW"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot",
+   "glob": "*lumina-tmp*",
+   "count": 0
   },
   {
    "do": "fs",
@@ -180,10 +187,98 @@
    "count": 3
   },
   {
+   "do": "nativeSidecar",
+   "root": "${DISKS}/LTCASE/shoot",
+   "rel": "DSC08186.xmp",
+   "js": "const l=__probe.logic(); return l.xmpFor(l.kept()[0])",
+   "guard": false,
+   "backedUp": true,
+   "why": "the page's bytes through the app's write, below the card check"
+  },
+  {
    "do": "fs",
-   "path": "${DISKS}/LTCASED/lr-folder",
+   "path": "${DISKS}/LTCASE/shoot",
+   "glob": "DSC08186.*",
+   "count": 4
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot/DSC08186.xmp.lumina-bak",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both/DSC08186.xmp",
+   "why": "the backup is Lightroom's .xmp"
+  },
+  {
+   "do": "xmpMerged",
+   "dir": "${DISKS}/LTCASE/shoot",
+   "originals": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both",
+   "expectJs": "const l=__probe.logic(), o={}; for (const id of l.kept()) { const p=l.data.byId[id]; o[p.xpath.split('/').pop()]={rating:String((l.state.prefs||{}).rating||3), label:null}; } return o;"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot/DSC08186.XMP",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both/DSC08186.upper.XMP",
+   "why": ".XMP is never touched"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot/DSC08186.XMP.lumina-bak",
+   "exists": false
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot/DSC08186.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both/DSC08186.ARW"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot",
    "glob": "*lumina-tmp*",
    "count": 0
+  },
+  {
+   "do": "nativeSidecar",
+   "root": "${DISKS}/LTCASE/shoot",
+   "rel": "DSC08186.xmp",
+   "js": "const l=__probe.logic(); return l.xmpFor(l.kept()[0])",
+   "guard": false,
+   "backedUp": false,
+   "why": "the same bytes again: nothing to back up"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot/DSC08186.xmp.lumina-bak",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both/DSC08186.xmp"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot",
+   "glob": "DSC08186.*",
+   "count": 4
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot/DSC08186.XMP",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both/DSC08186.upper.XMP",
+   "why": ".XMP is never touched"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot/DSC08186.XMP.lumina-bak",
+   "exists": false
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot/DSC08186.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar-both/DSC08186.ARW"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCASE/shoot",
+   "glob": "*lumina-tmp*",
+   "count": 0
+  },
+  {
+   "do": "invariants"
   }
  ]
 }

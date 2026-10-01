@@ -20,11 +20,6 @@ import sys
 
 import numpy as np
 
-try:
-    from scipy.ndimage import median_filter
-except ImportError:  # pragma: no cover
-    median_filter = None
-
 # ---- colour ----------------------------------------------------------------------------------
 
 D50 = np.array([0.9642, 1.0, 0.8249])
@@ -192,10 +187,23 @@ def align(ref, ren):
     return out
 
 
+# Paeth's 19-exchange sorting network for the median of nine (element 4 ends up the median).
+_MED9 = [(1, 2), (4, 5), (7, 8), (0, 1), (3, 4), (6, 7), (1, 2), (4, 5), (7, 8), (0, 3), (5, 8), (4, 7),
+         (3, 6), (1, 4), (2, 5), (4, 7), (4, 2), (6, 4), (4, 2)]
+
+
 def median3(rgb):
-    if median_filter is None:
-        return rgb
-    return np.stack([median_filter(rgb[..., c], size=3, mode="nearest") for c in range(3)], axis=-1)
+    """3 × 3 median per channel, edges replicated: the same values as scipy's
+    median_filter(size=3, mode="nearest"), computed with a min/max sorting network over the nine
+    shifted planes (about 10× faster; tests/test_personal.py checks they agree)."""
+    h, w = rgb.shape[:2]
+    pad = np.pad(rgb, ((1, 1), (1, 1), (0, 0)), mode="edge")
+    p = [pad[dy:dy + h, dx:dx + w] for dy in range(3) for dx in range(3)]
+    for a, b in _MED9:
+        lo = np.minimum(p[a], p[b])
+        p[b] = np.maximum(p[a], p[b])
+        p[a] = lo
+    return p[4]
 
 
 # ---- the measurement ---------------------------------------------------------------------------

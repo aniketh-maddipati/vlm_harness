@@ -99,6 +99,12 @@ nonisolated struct LookCanvasSchedule: Sendable {
     // MARK: The display link
 
     /// Called once per display refresh. Nil when nothing needs rendering or a render is in flight.
+    /// A newer look is waiting that no render has started yet.
+    var pending: Bool {
+        guard let l = latest else { return false }
+        return lastStarted.map { l.seq > $0.lookSeq } ?? true
+    }
+
     mutating func tick(at now: Double) -> Request? {
         guard inFlight == nil, let l = latest else { return nil }
         let unstarted = lastStarted.map { l.seq > $0.lookSeq } ?? true

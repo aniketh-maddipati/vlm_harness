@@ -207,6 +207,12 @@ def report_md(agg, results, criteria, meta, heatmap_dir=None):
 
 
 def run(a):
+    # The evidence folders may be symlinks to an external drive: say so when it is unplugged,
+    # rather than failing inside open() or makedirs.
+    from lr_cc_sweep import unplugged
+    for why in filter(None, (unplugged(p) for p in (a.refs, a.render_dir, a.evidence, a.report))):
+        print(why, file=sys.stderr)
+        return 2
     refs_path = expand(a.refs)
     with open(refs_path) as f:
         refs_doc = json.load(f)

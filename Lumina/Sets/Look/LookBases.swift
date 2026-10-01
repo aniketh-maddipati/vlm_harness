@@ -46,6 +46,8 @@ nonisolated final class LookBases: @unchecked Sendable {
         let base: CIImage
         let small: CIImage
         let asShot: Look.WhiteBalance
+        /// The photo's tone anchor (`LookPipeline.Developed.anchor`).
+        let anchor: LookMath.ToneAnchor
         let baseSize: CGSize
         let smallSize: CGSize
         /// The photo's upright size after the crop, in the RAW's own pixels (the region tiles map to it).
@@ -152,7 +154,7 @@ nonisolated final class LookBases: @unchecked Sendable {
             source = "jpeg"
             dev = try LookPipeline.developPreview(url: url, offset: p.offset, length: p.length, orientation: p.orientation, longEdge: nil)
             let c = Self.croppedSize(dev.extent.size, look.crop)
-            dev = LookPipeline.Developed(image: LookPipeline.scaled(dev.image, longEdge: Int((max(dev.extent.width, dev.extent.height) * min(canvas.width / max(1, c.width), canvas.height / max(1, c.height))).rounded(.up))), asShot: dev.asShot)
+            dev = LookPipeline.Developed(image: LookPipeline.scaled(dev.image, longEdge: Int((max(dev.extent.width, dev.extent.height) * min(canvas.width / max(1, c.width), canvas.height / max(1, c.height))).rounded(.up))), asShot: dev.asShot, anchor: dev.anchor)
         }
         let photoSize = Self.croppedSize(native ?? dev.extent.size, look.crop)
         // Crop and straighten are baked in; the look runs with crop: false on top.
@@ -167,7 +169,7 @@ nonisolated final class LookBases: @unchecked Sendable {
         let smallRect = CGRect(x: 0, y: 0, width: max(1, (baseRect.width / 4).rounded(.down)), height: max(1, (baseRect.height / 4).rounded(.down)))
         let smallImg = LookPipeline.atOrigin(img.applyingFilter("CILanczosScaleTransform", parameters: [kCIInputScaleKey: smallRect.width / baseRect.width, kCIInputAspectRatioKey: 1])).cropped(to: smallRect)
         let (base, small, textures, bytes) = try rasterise(img, baseRect, smallImg, smallRect)
-        let entry = Entry(base: base, small: small, asShot: dev.asShot, baseSize: baseRect.size, smallSize: smallRect.size, photoSize: photoSize,
+        let entry = Entry(base: base, small: small, asShot: dev.asShot, anchor: dev.anchor, baseSize: baseRect.size, smallSize: smallRect.size, photoSize: photoSize,
                           bytes: bytes, source: source, decoder: source == "raw" ? key.decoder : nil, developMs: Date().timeIntervalSince(t0) * 1000,
                           onGPU: !textures.isEmpty, textures: textures)
         lock.withLock {
@@ -194,10 +196,17 @@ nonisolated final class LookBases: @unchecked Sendable {
         let started: Bool = lock.withLock { building.insert(key).inserted }
         guard started else { return }
         buildQueue.addOperation { [self] in
-            let r = Result { try self.build(key, url: url, look: look, preview: preview) }
+            let r = Result { try LookTrace.span("base build \(key.rel.split(separator: "/").last ?? "")") { try self.build(key, url: url, look: look, preview: preview) } }
             lock.withLock { _ = building.remove(key) }
             DispatchQueue.main.async { done(r) }
         }
+    }
+
+    /// Holds the neighbours' builds that haven't started (the canvas holds them while someone
+    /// waits on it); a build already running finishes.
+    var prefetchPaused: Bool {
+        get { prefetchQueue.isSuspended }
+        set { if prefetchQueue.isSuspended != newValue { prefetchQueue.isSuspended = newValue } }
     }
 
     /// The neighbours' bases, one at a time at `.utility`. A new call replaces the queue.
@@ -207,7 +216,7 @@ nonisolated final class LookBases: @unchecked Sendable {
             prefetchQueue.addOperation { [weak self] in
                 guard let self else { return }
                 guard self.lock.withLock({ self.cache.peek(i.key) == nil }) else { return }
-                if (try? self.build(i.key, url: i.url, look: i.look, preview: i.preview)) != nil { self.lock.withLock { self._stats.prefetched += 1 } }
+                if (try? LookTrace.span("prefetch \(i.key.rel.split(separator: "/").last ?? "")") { try self.build(i.key, url: i.url, look: i.look, preview: i.preview) }) != nil { self.lock.withLock { self._stats.prefetched += 1 } }
             }
         }
     }
@@ -224,8 +233,8 @@ nonisolated final class LookBases: @unchecked Sendable {
                 // The texture path failed (an odd device state): fall back to bitmaps for this photo.
             }
         }
-        let (b, bb) = try pipeline.rasterised(LookPipeline.Developed(image: img, asShot: Look.WhiteBalance(kelvin: 0, tint: 0)))
-        let (s, sb) = try pipeline.rasterised(LookPipeline.Developed(image: small, asShot: Look.WhiteBalance(kelvin: 0, tint: 0)))
+        let (b, bb) = try pipeline.rasterised(LookPipeline.Developed(image: img, asShot: Look.WhiteBalance(kelvin: 0, tint: 0), anchor: .reference))
+        let (s, sb) = try pipeline.rasterised(LookPipeline.Developed(image: small, asShot: Look.WhiteBalance(kelvin: 0, tint: 0), anchor: .reference))
         return (b.image, s.image, [], bb + sb)
     }
 
