@@ -284,6 +284,58 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 > `luminaFacts.raw9` is true hide Colour NR, Detail and Moiré (RAW 9 ignores them); show them when
 > it is false.
 
+## Prompt 2 — culling logic, from the culling eval (paste into Claude Design)
+
+Found by `Tools/culleval` (2026-09-30) on 2,680 real α7 III frames from this Mac: 21 camera bursts
+(79 frames shot in a drive mode), 255 bursts by hand, four small shoots with known keeps. The
+measures ran in headless Chromium on the page's own 360 px bitmap. Numbers: `make culleval`.
+
+> Update `lumina-core-v4.js` (and its fixtures). No visible change is asked for; keep the page's
+> look, keys and wording as they are.
+>
+> **A. `sonyMN` reads nothing from a real ARW.** On all 2,680 frames `releaseMode2`, `seqImage`,
+> `seqLength` and `focusMode` came back null, so real camera bursts fall through to the dHash rule
+> and are split: 1 of 21 came out as one stack (pair recall 11 %). With the camera's sequence
+> numbers filled in, the same `buildShoot` gets 17 of 21 (pair recall 88 %). Two causes:
+> (1) `sonyMN` returns unless the MakerNote starts with `SONY` and reads its IFD at +12. That
+> header exists in Sony JPEGs; in an ARW the MakerNote (0x927C) starts directly with the IFD
+> (entry count at the MakerNote offset; value offsets from the TIFF start, as you already read
+> them). Accept both: +12 after a `SONY` header, +0 otherwise.
+> (2) The 0x9400 layout check `[0x23,0x24,0x26,0x28,0x31,0x32,0x33].includes(d[0])` tests the
+> deciphered byte. The layout byte is the first byte as stored (α7 III: stored 0x26, deciphered
+> 0xd7), so test `u8[p]` before deciphering.
+> Then make the two sources agree: the 0x9400 SequenceImageNumber (offset 0x12) counts from 0
+> (exiftool adds 1), the plain 0xB04A SequenceNumber counts from 1 with 0 for a single frame.
+> Expected on an α7 III: a single frame → `seqImage` null, `releaseMode2` 0, `seqLength` 1; the
+> third frame of a five-frame burst → `seqImage` 3, `releaseMode2` 1, `seqLength` 5.
+> Please add a `parseHead` fixture with real MakerNote bytes (both layouts); today's stack
+> fixtures start from already-parsed numbers, which is how this went unseen.
+>
+> **B. The dHash is too noisy to carry the stack rule.** `measure` makes the 9 × 8 hash with one
+> `drawImage(bmp,0,0,9,8)` from the 360 px bitmap, which samples a few pixels per cell instead of
+> averaging the cell. Measured distances between consecutive frames (64 bits):
+> inside a camera burst: median 17, only 21 % ≤ 6 (the stack threshold), 8 % ≥ 28 (the "always
+> split" threshold); same framing ≤ 2 s apart by hand: median 21, 8 % ≤ 6, 20 % ≥ 28; frames more
+> than 5 minutes apart: median 30. So the hash barely separates a burst from a new scene.
+> Please average each cell (box means over the luminance array `g` that `measure` already has, or
+> halve the bitmap step by step down to 9 × 8), then set the two thresholds from real frames, and
+> do not let "dHash ≥ 28 always splits" cut frames whose sequence numbers say they are one burst.
+> `Tools/culleval` re-measures this after the sync.
+>
+> **C. Bursts by hand are left as singles.** This photographer shoots single frames and repeats:
+> 255 runs of the same framing ≤ 2 s apart against 21 camera bursts. Lumina stacks 8 % of those
+> pairs (it is never wrong when it does: precision 100 %). The cost shows in the keeps: the
+> suggested keeps are nearly every clean single, so against real keeps they score precision 14 %
+> at a 10 % keep rate (recall 82 %) — little better than keeping everything. In all 17 runs of
+> tries that held a keeper, Lumina showed the tries as separate photos. After B, please stack
+> frames with the same lens, focal length and orientation that follow within 2 s when their hashes
+> agree, and consider a wider window (the photographer's tries are mostly 3–10 s apart: 655 such
+> pairs) shown as a looser group, not a burst.
+>
+> **Not asked yet (too few keeps to judge, 14 groups):** "sharpest" as the frame to keep agreed
+> with the photographer in 5 of 14 groups with one keeper (36 %; picking at random scores 39 %).
+> `blown` (more than 2 % clipped) flagged 26 of 120 frames of a desert shoot, 2 of its 13 keepers.
+
 ## How each ask is checked once the new handoff lands
 
 - 1: `Tests/web/plumbing-harness.mjs` and `probe.sh smoke` (`app-smoke`: the Save screen shows the row before any save). Remove the `wf` block in `plumbing.js`'s view loop.
@@ -304,3 +356,7 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
   page has no Edit step; once it does, they switch to `stepEdit` and the page's own `canvasRect`). The contract
   scenario then lists `luminaPresented`, `luminaHistogram`, `luminaFacts` among the hooks. Drop plumbing's
   `pollRect` fallback.
+- Prompt 2: `make culleval` on the same shoots (`~/LuminaEvidence/culleval/shoots.json`). A: "the page read drive data on N frames"
+  equals exiftool's count and the camera-burst row reaches the what-if row (17 of 21 exact, recall 88 %). B and C: the
+  dHash distances inside bursts drop and pair recall for bursts by hand rises with precision held; best-of-stack and keep
+  precision are re-read. A sync that changes `readOne` fails `make culleval-test` until `Tools/culleval/lib/measure.mjs` is reviewed.
