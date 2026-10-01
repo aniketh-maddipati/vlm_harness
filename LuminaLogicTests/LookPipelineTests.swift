@@ -86,6 +86,30 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertEqual(outRow[255].r, 1.2, accuracy: 3e-3, "the working space keeps values above white")
     }
 
+    /// The graph holds a stage exactly when `Look.runs` says so: the warm-up plan (`LookWarmPlan`)
+    /// names the programs Core Image will compile by it.
+    func testTheGraphHoldsAStageExactlyWhenTheLookRunsIt() throws {
+        let dev = pipe.ramp(steps: 16, columnWidth: 4, height: 8)
+        XCTAssertTrue(pipe.apply(Look(), to: dev) === dev.image, "no stage: the developed image itself")
+        for stage in rules.lookStages {
+            let on = Look().toggling(stage)
+            XCTAssertEqual(rules.lookStages.filter(on.runs), [stage])
+            XCTAssertFalse(pipe.apply(on, to: dev) === dev.image, "\(stage) switched on left the graph empty")
+            XCTAssertTrue(pipe.apply(on.toggling(stage), to: dev) === dev.image, "\(stage) switched off again")
+        }
+        // Sliders written at their reset value add nothing.
+        XCTAssertTrue(pipe.apply(try Look.parse("ev:0 con:0 sh:0 hl:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:0 nr:20"), to: dev) === dev.image)
+        // A switched-on stage changes the picture (the warm-up's value is not a no-op).
+        // (A tinted shadow tone: vibrance leaves a grey alone, shadows leave the highlights alone;
+        // clarity and sharpen need an edge and the vignette a corner.)
+        let tinted = pipe.ramp(steps: 16, columnWidth: 4, height: 8, tint: LookMath.RGB(r: 1, g: 0.8, b: 0.6))
+        let before = pipe.pixel(tinted.image, x: 10, y: 4)
+        for stage in rules.lookStages where stage != "clarity" && stage != "sharpen" && stage != "vignette" {
+            let out = pipe.pixel(pipe.apply(Look().toggling(stage), to: tinted), x: 10, y: 4)
+            XCTAssertGreaterThan(abs(out.r - before.r) + abs(out.g - before.g) + abs(out.b - before.b), 1e-4, stage)
+        }
+    }
+
     func testEverySliderIsMonotonicAndGreyOnARamp() {
         // A smooth ramp (one step per pixel) so the blur-based stages see a continuous base;
         // the outer 3σ of the widest blur (tone: 0.03 × 512 px) is left out at both ends.

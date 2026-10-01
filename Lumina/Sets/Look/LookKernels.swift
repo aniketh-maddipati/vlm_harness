@@ -220,12 +220,25 @@ nonisolated final class LookKernels: @unchecked Sendable {
         for name in Self.stageNames { _ = try kernel(name) }
     }
 
+    /// `LUMINA_KERNEL_SALT` (the probe's cold run, never set in the app): every kernel function is
+    /// compiled under a salted name, so neither Core Image's nor Metal's on-disk cache has seen its
+    /// programs, as on the first launch after an update that changed a kernel. The maths is unchanged.
+    static let salt: String? = {
+        let s = (ProcessInfo.processInfo.environment["LUMINA_KERNEL_SALT"] ?? "").filter { $0.isASCII && ($0.isLetter || $0.isNumber) }
+        return s.isEmpty ? nil : s
+    }()
+
     /// The compiled kernel, compiling its block on first use.
     func kernel(_ name: String) throws -> CIKernel {
         if let k = lock.withLock({ compiled[name] }) { return k }
-        guard let block = blocks[name] else { throw CompileError(description: "no kernel named \(name); have \(blocks.keys.sorted())") }
+        guard var block = blocks[name] else { throw CompileError(description: "no kernel named \(name); have \(blocks.keys.sorted())") }
+        var function = name
+        if let salt = Self.salt {
+            function = "\(name)_\(salt)"
+            block = block.replacingOccurrences(of: " \(name)(", with: " \(function)(")
+        }
         let list = try CIKernel.kernels(withMetalString: header + block)
-        guard list.count == 1, let k = list.first, k.name == name else { throw CompileError(description: "\(name): expected one kernel, got \(list.map(\.name))") }
+        guard list.count == 1, let k = list.first, k.name == function else { throw CompileError(description: "\(name): expected one kernel, got \(list.map(\.name))") }
         lock.withLock { compiled[name] = k }
         return k
     }

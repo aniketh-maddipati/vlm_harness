@@ -228,8 +228,9 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     // MARK: the look stages
 
     /// The graph for one look on one developed image. Cheap to build; the work happens when the
-    /// result is rendered. Stages at their reset value are left out, so a neutral look is the
-    /// developed image (plus crop).
+    /// result is rendered. Stages at their reset value are left out (`Look.runs`), so a neutral
+    /// look is the developed image (plus crop). Core Image fuses the stages that run into one
+    /// program per set of stages, compiled the first time it renders (`LookWarmPlan`).
     func apply(_ look: Look, to dev: Developed, crop: Bool = true) -> CIImage {
         var img = dev.image
         if crop, let c = look.crop { img = cropped(img, c) }
@@ -251,35 +252,29 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             return src.clampedToExtent().applyingGaussianBlur(sigma: sigma).cropped(to: extent)
         }
 
-        for stage in r.lookStages {
+        for stage in r.lookStages where look.runs(stage) {
             switch stage {
             case "exposure":
-                guard look.ev != 0 else { continue }
                 pass("lookExposure", [img, CIVector(x: LookMath.exposureGain(look.ev, r), y: LookMath.exposureWhite(r))])
             case "whiteBalance":
-                guard look.wb != nil else { continue }
                 let g = LookMath.whiteBalanceGains(look.wb, asShot: dev.asShot, r)
                 pass("lookWhiteBalance", [img, CIVector(x: g.r, y: g.g, z: g.b, w: 1), CIVector(x: LookMath.whiteBalanceWhite(r), y: 0)])
             case "whitesBlacks":
-                guard look.whites != 0 || look.blacks != 0 else { continue }
                 let wbk = CIVector(x: look.whites * r.k("whitesBlacks", "whitesPerUnit", 0.003),
                                    y: -look.blacks * r.k("whitesBlacks", "blacksPerUnit", 0.002),
                                    z: r.k("whitesBlacks", "whitesPower", 2), w: r.k("whitesBlacks", "blacksPower", 2))
                 pass("lookPre", [img, ones, wbk, gam])
             case "tone":
-                guard look.highlights != 0 || look.shadows != 0 else { continue }
                 let base = blur(luma(perceptual: false), sigma: r.k("tone", "radiusFraction", 0.03) * longEdge)
                 let sh = CIVector(x: look.shadows * r.k("tone", "shadowsStopsPerUnit", 0.01), y: r.k("tone", "shadowsLo", 0), z: r.k("tone", "shadowsHi", 0.6), w: 0)
                 let hl = CIVector(x: look.highlights * r.k("tone", "highlightsStopsPerUnit", 0.01), y: r.k("tone", "highlightsLo", 0.4), z: r.k("tone", "highlightsHi", 1), w: r.k("tone", "detailGain", 1))
                 pass("lookTone", [img, base, sh, hl, gam, lum])
             case "contrast":
-                guard look.contrast != 0 else { continue }
                 let k = CIVector(x: min(0.95, max(0.05, r.k("contrast", "midpoint", 0.46))),
                                  y: exp2(look.contrast * r.k("contrast", "slopePerUnit", 0.006)),
                                  z: min(1, max(0, r.k("contrast", "lumaMix", 0.5))), w: 0)
                 pass("lookContrast", [img, k, gam, lum])
             case "colour":
-                guard look.vibrance != 0 || look.saturation != 0 || look.bw else { continue }
                 let k1 = CIVector(x: max(0, 1 + look.saturation * r.k("colour", "saturationPerUnit", 0.01)),
                                   y: look.vibrance * r.k("colour", "vibrancePerUnit", 0.01),
                                   z: max(1e-6, r.k("colour", "vibranceChromaMax", 0.25)), w: look.vibrance > 0 ? 1 : 0)
@@ -287,17 +282,14 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                                   z: r.k("colour", "skinProtect", 0.7), w: look.bw ? 1 : 0)
                 pass("lookColour", [img, k1, k2])
             case "clarity":
-                guard look.clarity != 0 else { continue }
                 let base = blur(luma(perceptual: true), sigma: r.k("clarity", "radiusFraction", 0.02) * longEdge)
                 let k = CIVector(x: look.clarity * r.k("clarity", "amountPerUnit", 0.01), y: r.k("clarity", "midtonePower", 2), z: 0, w: 0)
                 pass("lookClarity", [img, base, k, gam, lum])
             case "sharpen":
-                guard look.sharpen != 0 else { continue }
                 let base = blur(luma(perceptual: true), sigma: LookMath.sharpenRadius(longEdge: longEdge, r))
                 let k = CIVector(x: look.sharpen * r.k("sharpen", "amountPerUnit", 0.01), y: max(1e-6, r.k("sharpen", "threshold", 0.01)), z: 0, w: 0)
                 pass("lookSharpen", [img, base, k, gam, lum])
             case "vignette":
-                guard look.vignette != 0 else { continue }
                 let m = r.k("vignette", "midpoint", 0.5), f = r.k("vignette", "feather", 0.5)
                 let halfDiag = hypot(extent.width, extent.height) / 2
                 let k = CIVector(x: look.vignette * r.k("vignette", "stopsPerUnit", 0.02), y: m - f / 2, z: m + f / 2, w: halfDiag > 0 ? 1 / halfDiag : 0)
