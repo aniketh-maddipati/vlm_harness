@@ -54,15 +54,17 @@ enum ImportWalker {
         for url in urls {
             guard let v = try? url.resourceValues(forKeys: Set(keys)) else { unreadable = true; continue }
             if v.isDirectory == true {
-                let name = folderName(url), base = url.path.hasSuffix("/") ? url.path : url.path + "/"
+                let name = folderName(url)
                 roots.append(FolderRoot(path: url.path, name: name, isFolder: true)); folders.append(name)
                 guard let walk = fm.enumerator(at: url, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles, .skipsPackageDescendants], errorHandler: { _, _ in true })
                 else { unreadable = true; continue }
+                // The walk may spell the folder differently from how it was given (/var is /private/var).
+                let bases = spellings(of: url)
                 for case let f as URL in walk {
                     guard let fv = try? f.resourceValues(forKeys: Set(keys)), fv.isRegularFile == true else { continue }
-                    let inside = f.path.hasPrefix(base) ? String(f.path.dropFirst(base.count))
-                        : f.pathComponents.dropFirst(url.pathComponents.count).joined(separator: "/")
-                    add(f, rel: name + "/" + (inside.isEmpty ? f.lastPathComponent : inside), fv)
+                    let path = f.path
+                    let inside = bases.first { path.hasPrefix($0) }.map { String(path.dropFirst($0.count)) } ?? f.lastPathComponent
+                    add(f, rel: name + "/" + inside, fv)
                 }
             } else if v.isRegularFile == true {
                 roots.append(FolderRoot(path: url.path, name: url.lastPathComponent, isFolder: false))
@@ -72,6 +74,13 @@ enum ImportWalker {
         // One folder names the import; otherwise the first file's folder; loose files have no name.
         let name = folders.count == 1 ? folders[0] : out.first.flatMap { $0.rel.contains("/") ? $0.rel.split(separator: "/").first.map(String.init) : nil } ?? looseName
         return (out, name, roots, unreadable)
+    }
+
+    /// The ways a folder's path can be written, each ending in "/", longest first.
+    static func spellings(of url: URL) -> [String] {
+        var paths = [url.path, url.resolvingSymlinksInPath().path, url.standardizedFileURL.path, "/private" + url.path]
+        if let real = url.withUnsafeFileSystemRepresentation({ $0.flatMap { realpath($0, nil) } }) { paths.append(String(cString: real)); free(real) }
+        return Array(Set(paths.map { $0.hasSuffix("/") ? $0 : $0 + "/" })).sorted { $0.count > $1.count }
     }
 
     static func folderName(_ url: URL) -> String {
