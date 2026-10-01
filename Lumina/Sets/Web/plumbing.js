@@ -207,6 +207,10 @@
         if (!skip) return openFolder0(false);                // the page's own sheet; it calls back with force
       }
       if (reading) return;                                   // one read at a time
+      // The read below starts from empty decisions and brings them back from the session: write
+      // the open shoot's now, or what was decided since the last 2 s autosave is lost (a card
+      // re-inserted right after a keep, the same folder opened again).
+      saveNow();
       const L = await native('openFolder', {});
       if (!L) return;                                        // cancelled
       if (L.denied != null) { window.luminaAccess(true, L.denied); return; }

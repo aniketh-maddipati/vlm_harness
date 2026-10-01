@@ -1,8 +1,5 @@
 {
  "mode": "app",
- "app": {
-  "sample": true
- },
  "page": "Lumina Sets v5.dc.html",
  "size": [
   1440,
@@ -10,132 +7,332 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
+ "checklist": "SAFETY.md 2 (v5): keeps (P), a flag (F), seen rows and the cursor are saved by the 2 s autosave, keyed by file path; after a relaunch the Open screen lists the shoot, ⏎ reopens it with every decision and the cursor's row; unsaved keepers are still counted (Quit asks). After ⌘↩ and another relaunch the keepers count as saved, and the sidecars are untouched by the reopen.",
  "steps": [
   {
    "do": "copyTree",
-   "from": "${LUMINA_FIXTURE_ROOT}/two-bodies",
-   "to": "${OUT}/shoot/two-bodies"
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "to": "${OUT}/shoot/src"
   },
   {
    "do": "openFolder",
-   "path": "${OUT}/shoot/two-bodies",
+   "path": "${OUT}/shoot/src",
    "timeoutMs": 120000
   },
   {
    "do": "expect",
-   "js": "return !!window.__lumina.shootId()"
-  },
-  {
-   "do": "key",
-   "k": "1",
-   "settleMs": 300
-  },
-  {
-   "do": "key",
-   "k": "ArrowRight",
-   "settleMs": 150
-  },
-  {
-   "do": "key",
-   "k": "ArrowRight",
-   "settleMs": 150
-  },
-  {
-   "do": "key",
-   "k": "r",
-   "settleMs": 150
-  },
-  {
-   "do": "key",
-   "k": "r",
-   "settleMs": 150
-  },
-  {
-   "do": "key",
-   "k": "x",
-   "settleMs": 150
-  },
-  {
-   "do": "key",
-   "k": "r",
-   "settleMs": 150
-  },
-  {
-   "do": "expect",
-   "js": "return Object.values(__probe.logic().state.marks).filter(m=>m==='keep').length",
-   "equals": 3
-  },
-  {
-   "do": "key",
-   "k": "2",
-   "settleMs": 500
-  },
-  {
-   "do": "key",
-   "k": "p",
-   "settleMs": 300
-  },
-  {
-   "do": "wait",
-   "ms": 1500
-  },
-  {
-   "do": "reload"
-  },
-  {
-   "do": "expect",
-   "js": "return __probe.logic().real",
-   "equals": null
-  },
-  {
-   "do": "expect",
-   "js": "return __probe.logic().constructor.SHOOTS.filter(x=>x.id).map(x=>x.t)",
+   "js": "const l=__probe.logic(); return [l.state.realInfo.n, l.data.R.length, !!window.__lumina.shootId()]",
    "equals": [
-    "two-bodies"
+    12,
+    4,
+    true
    ]
   },
   {
    "do": "key",
-   "k": "0",
-   "settleMs": 400
+   "k": "p",
+   "settleMs": 200
   },
   {
-   "do": "snap",
-   "name": "open-recents"
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
   },
   {
-   "do": "click",
-   "text": "two-bodies",
+   "do": "key",
+   "k": "f",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 200
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00008.ARW"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return Object.keys(l.state.flags).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00002.ARW"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.data.R.filter(r=>(l.state.seen||{})[r.id]).map(r=>l.data.byId[r.ids[0]].file)",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00007.ARW"
+   ],
+   "why": "rows 1 and 2 were left, so they are seen"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.data.byId[l.state.cur].file",
+   "equals": "DSC00010.ARW",
+   "why": "the cursor is back in the row it was in (row 3)"
+  },
+  {
+   "do": "expect",
+   "js": "return __lumina.unsaved()",
+   "equals": 2
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "the 2 s autosave"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/support/shoots",
+   "glob": "session.json",
+   "count": 1
+  },
+  {
+   "do": "reload",
+   "why": "a relaunch: the page starts over, the Mac's shoot store is what's left"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return [l.state.view, !!l.real, l.data.order.length]",
+   "equals": [
+    "import",
+    false,
+    0
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().recents().map(x=>[x.n, x.kp])",
+   "equals": [
+    [
+     12,
+     2
+    ]
+   ],
+   "why": "the Open screen lists the shoot with its photo and keeper counts"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
    "settleMs": 300
   },
   {
    "do": "waitFor",
-   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && Object.keys(l.state.marks).length)",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && l.kept().length === 2)",
    "timeoutMs": 60000,
-   "what": "reopened with decisions"
+   "what": "reopened with its decisions"
+  },
+  {
+   "do": "wait",
+   "ms": 800,
+   "why": "the page lands on the cursor's row after the decisions are back"
   },
   {
    "do": "expect",
-   "js": "return Object.values(__probe.logic().state.marks).filter(m=>m==='keep').length",
-   "equals": 3
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00008.ARW"
+   ]
   },
   {
    "do": "expect",
-   "js": "return Object.values(__probe.logic().state.marks).filter(m=>m==='out').length",
-   "equals": 1
+   "js": "const l=__probe.logic(); return Object.keys(l.state.flags).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00002.ARW"
+   ]
   },
   {
    "do": "expect",
-   "js": "return Object.keys(__probe.logic().state.final).length",
-   "equals": 1
+   "js": "const l=__probe.logic(); return l.data.R.filter(r=>(l.state.seen||{})[r.id]).map(r=>l.data.byId[r.ids[0]].file)",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00007.ARW"
+   ],
+   "why": "rows 1 and 2 were left, so they are seen"
   },
   {
-   "do": "state",
-   "name": "restored"
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.data.byId[l.state.cur].file",
+   "equals": "DSC00010.ARW",
+   "why": "the cursor is back in the row it was in (row 3)"
+  },
+  {
+   "do": "expect",
+   "js": "return __lumina.unsaved()",
+   "equals": 2,
+   "why": "never saved: Quit still asks about 2 keepers"
   },
   {
    "do": "snap",
    "name": "restored"
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 1000,
+   "cmd": true
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "export"
+  },
+  {
+   "do": "js",
+   "src": "window.__lastSave = __probe.logic().state.ex.result || null; return true"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 1500,
+   "cmd": true
+  },
+  {
+   "do": "waitFor",
+   "js": "const r = __probe.logic().state.ex.result; return !!r && r !== window.__lastSave",
+   "what": "save result"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.ex.result.t",
+   "equals": "2 saved"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src",
+   "glob": "*.xmp",
+   "count": 2
+  },
+  {
+   "do": "expect",
+   "js": "return __lumina.unsaved()",
+   "equals": 0
+  },
+  {
+   "do": "wait",
+   "ms": 800,
+   "why": "the session is written right after a save"
+  },
+  {
+   "do": "reload",
+   "why": "a relaunch: the page starts over, the Mac's shoot store is what's left"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return [l.state.view, !!l.real, l.data.order.length]",
+   "equals": [
+    "import",
+    false,
+    0
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().recents().map(x=>[x.n, x.kp])",
+   "equals": [
+    [
+     12,
+     2
+    ]
+   ],
+   "why": "the Open screen lists the shoot with its photo and keeper counts"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && l.kept().length === 2)",
+   "timeoutMs": 60000,
+   "what": "reopened with its decisions"
+  },
+  {
+   "do": "wait",
+   "ms": 800,
+   "why": "the page lands on the cursor's row after the decisions are back"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00008.ARW"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return Object.keys(l.state.flags).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00002.ARW"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.data.R.filter(r=>(l.state.seen||{})[r.id]).map(r=>l.data.byId[r.ids[0]].file)",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00007.ARW"
+   ],
+   "why": "rows 1 and 2 were left, so they are seen"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.data.byId[l.state.cur].file",
+   "equals": "DSC00010.ARW",
+   "why": "the cursor is back in the row it was in (row 3)"
+  },
+  {
+   "do": "expect",
+   "js": "return __lumina.unsaved()",
+   "equals": 0,
+   "why": "the saved keeper list survives the relaunch"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src",
+   "glob": "*.xmp",
+   "count": 2
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src",
+   "glob": "*.lumina-bak",
+   "count": 0,
+   "why": "reopening writes nothing into the shoot folder"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src/DSC00008.xmp",
+   "contains": "xmp:Rating=\"3\""
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src/DSC00002.xmp",
+   "exists": false,
+   "why": "a flagged photo is not saved"
+  },
+  {
+   "do": "invariants"
   }
  ]
 }
