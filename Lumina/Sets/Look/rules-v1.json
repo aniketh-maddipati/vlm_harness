@@ -24,12 +24,12 @@
     "whitesBlacks": {
       "locked": false,
       "form": "per channel in perceptual p = x^(1/gamma): p -= (-blacks*blacksPerUnit) * (1-p)^blacksPower; p += whites*whitesPerUnit * p^whitesPower",
-      "coefficients": { "blacksPerUnit": 0.002, "blacksPower": 2.0, "whitesPerUnit": 0.003, "whitesPower": 2.0 }
+      "coefficients": { "blacksPerUnit": 0.000957, "blacksPower": 1.000079, "whitesPerUnit": 0.001885, "whitesPower": 1.000055 }
     },
     "tone": {
       "locked": false,
       "form": "base = gaussian blur of luma (radiusFraction of the long edge), bp = perceptual(base); gain = 2^(shadows*shadowsStopsPerUnit*(1-smoothstep(shadowsLo,shadowsHi,bp))) * 2^(highlights*highlightsStopsPerUnit*smoothstep(highlightsLo,highlightsHi,bp)); out = pixel * gain * (luma/base)^(detailGain-1)",
-      "coefficients": { "radiusFraction": 0.03, "shadowsStopsPerUnit": 0.01, "shadowsLo": 0.0, "shadowsHi": 0.6, "highlightsStopsPerUnit": 0.01, "highlightsLo": 0.4, "highlightsHi": 1.0, "detailGain": 1.0 }
+      "coefficients": { "radiusFraction": 0.018864, "shadowsStopsPerUnit": 0.009166, "shadowsLo": 0.0, "shadowsHi": 0.971352, "highlightsStopsPerUnit": 0.009647, "highlightsLo": 0.200021, "highlightsHi": 1.0, "detailGain": 1.023764 }
     },
     "contrast": {
       "locked": false,
@@ -39,7 +39,7 @@
     "colour": {
       "locked": false,
       "form": "Oklab chroma: C *= max(0, 1+saturation*saturationPerUnit) * (1 + vibrance*vibrancePerUnit*(1-min(1,C/vibranceChromaMax))*(1-skinProtect*skin(h))) ; skin(h) = exp(-((h-skinHue)/skinWidth)^2), only for vibrance > 0; bw sets C = 0",
-      "coefficients": { "saturationPerUnit": 0.01, "vibrancePerUnit": 0.01, "vibranceChromaMax": 0.25, "skinHue": 50.0, "skinWidth": 25.0, "skinProtect": 0.7 }
+      "coefficients": { "saturationPerUnit": 0.010109, "vibrancePerUnit": 0.013065, "vibranceChromaMax": 0.392404, "skinHue": 33.187112, "skinWidth": 89.999063, "skinProtect": 0.999491 }
     },
     "clarity": {
       "locked": false,
