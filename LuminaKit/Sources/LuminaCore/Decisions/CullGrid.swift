@@ -43,6 +43,8 @@ public struct CullGrid: Sendable {
         public var kind: Kind
         /// Index into `Shoot.scenes` (−1 for the copy line).
         public var scene: Int
+        /// The row's number within its scene (−1 for a header or the copy line).
+        public var row: Int
         public var y: CGFloat
         public var height: CGFloat
         public var tiles: [Tile]
@@ -55,32 +57,89 @@ public struct CullGrid: Sendable {
     public private(set) var config: Config
     /// Photos on screen, per scene index (for the header's counts).
     public private(set) var sceneIDs: [Int: [String]] = [:]
+    /// The ones among them Lumina suggests keeping (the "Keep n suggested" chip counts the undecided ones).
+    public private(set) var sceneSuggested: [Int: [String]] = [:]
     private var itemOfPhoto: [String: Int] = [:]
 
+    /// How many photos (from the start of the shoot) this grid shows.
+    public private(set) var visible = 0
+
     public init(shoot: Shoot, visible: Int, config: Config) {
-        self.config = config
-        var y = config.top, first = true
-        for scene in shoot.scenes {
-            // What has been copied so far; photos arrive in shoot order.
+        self.config = config; self.visible = visible
+        for (s, scene) in shoot.scenes.enumerated() {
+            // What has been copied so far.
             let members = scene.ids.compactMap { id -> (Int, String)? in shoot.position(id).flatMap { $0 < visible ? ($0, id) : nil } }
-            guard !members.isEmpty else { continue }
-            sceneIDs[scene.index] = members.map(\.1)
-            if !first { y += config.sceneGap }
-            first = false
-            items.append(Item(id: "h\(scene.index)", kind: .header, scene: scene.index, y: y, height: config.headerHeight, tiles: [], last: false))
-            y += config.headerHeight + config.headerGap
-            let rows = CullLayout.rows(aspects: members.map { CGFloat(shoot.photos[$0.0].aspect) }, width: config.width,
-                                       targetHeight: config.tileHeight, gap: config.gap)
-            for (r, row) in rows.enumerated() {
-                let tiles = row.tiles.map { Tile(photo: members[$0.index].0, id: members[$0.index].1, width: $0.width, contain: $0.contain) }
-                for t in tiles { itemOfPhoto[t.id] = items.count }
-                items.append(Item(id: "r\(scene.index).\(r)", kind: .row, scene: scene.index, y: y, height: row.height, tiles: tiles, last: row.last))
-                y += row.height + (r == rows.count - 1 ? 0 : config.gap)
-            }
+            if !members.isEmpty { add(members, to: s, shoot: shoot) }
         }
+        finish()
+    }
+
+    /// The same grid with more photos copied, without laying the whole shoot out again: rows
+    /// that are already full stay as they are, and only the last row and what follows it is
+    /// built. For a shoot whose scenes follow each other in photo order (`Shoot` from a card or
+    /// an import); returns false, leaving the grid as it was, when that can't be done.
+    public mutating func extend(shoot: Shoot, visible more: Int) -> Bool {
+        guard more >= visible else { return false }
+        guard more > visible else { return true }
+        guard let lastRow = items.last(where: { $0.kind == .row }), shoot.scenes.indices.contains(lastRow.scene),
+              let old = sceneIDs[lastRow.scene], !old.isEmpty else { return false }
+        let s = lastRow.scene, scene = shoot.scenes[s]
+        // The photos shown must be the first ones of the scene, and the new ones the next.
+        guard scene.ids.count >= old.count, scene.ids[old.count - 1] == old.last else { return false }
+        var fresh: [(Int, String)] = []
+        for id in scene.ids[old.count...] { guard let p = shoot.position(id), p < more else { break }; fresh.append((p, id)) }
+        var later: [(Int, [(Int, String)])] = []
+        for n in (s + 1)..<max(s + 1, shoot.scenes.count) {
+            var members: [(Int, String)] = []
+            for id in shoot.scenes[n].ids { guard let p = shoot.position(id), p < more else { break }; members.append((p, id)) }
+            if members.isEmpty { break }
+            later.append((n, members))
+        }
+        guard fresh.count + later.reduce(0, { $0 + $1.1.count }) == more - visible else { return false }
+
+        if items.last?.kind == .copyLine { items.removeLast() }
+        if !fresh.isEmpty {
+            // Take the scene's last row back and lay it out again with the new photos behind it.
+            items.removeLast()
+            add(lastRow.tiles.map { ($0.photo, $0.id) } + fresh, to: s, shoot: shoot, continuing: lastRow)
+        }
+        for (n, members) in later { add(members, to: n, shoot: shoot) }
+        visible = more
+        finish()
+        return true
+    }
+
+    /// Bottom edge of the last header or row.
+    private var cursor: CGFloat { items.last.map { $0.y + $0.height } ?? config.top }
+
+    private mutating func add(_ members: [(Int, String)], to s: Int, shoot: Shoot, continuing row: Item? = nil) {
+        var y: CGFloat, number = 0
+        if let row {
+            y = row.y; number = row.row
+            sceneIDs[s, default: []] += members.dropFirst(row.tiles.count).map(\.1)
+            sceneSuggested[s, default: []] += members.dropFirst(row.tiles.count).filter { shoot.photos[$0.0].suggested }.map(\.1)
+        } else {
+            y = items.isEmpty ? config.top : cursor + config.sceneGap
+            sceneIDs[s] = members.map(\.1)
+            sceneSuggested[s] = members.filter { shoot.photos[$0.0].suggested }.map(\.1)
+            items.append(Item(id: "h\(s)", kind: .header, scene: s, row: -1, y: y, height: config.headerHeight, tiles: [], last: false))
+            y += config.headerHeight + config.headerGap
+        }
+        let rows = CullLayout.rows(aspects: members.map { CGFloat(shoot.photos[$0.0].aspect) }, width: config.width,
+                                   targetHeight: config.tileHeight, gap: config.gap)
+        for (r, row) in rows.enumerated() {
+            let tiles = row.tiles.map { Tile(photo: members[$0.index].0, id: members[$0.index].1, width: $0.width, contain: $0.contain) }
+            for t in tiles { itemOfPhoto[t.id] = items.count }
+            items.append(Item(id: "r\(s).\(number + r)", kind: .row, scene: s, row: number + r, y: y, height: row.height, tiles: tiles, last: row.last))
+            y += row.height + config.gap
+        }
+    }
+
+    private mutating func finish() {
+        var y = cursor
         if config.copyLine > 0, !items.isEmpty {
             y += config.sceneGap
-            items.append(Item(id: "copy", kind: .copyLine, scene: -1, y: y, height: config.copyLine, tiles: [], last: false))
+            items.append(Item(id: "copy", kind: .copyLine, scene: -1, row: -1, y: y, height: config.copyLine, tiles: [], last: false))
             y += config.copyLine
         }
         contentHeight = items.isEmpty ? 0 : y + config.bottom
@@ -114,6 +173,7 @@ public struct CullGrid: Sendable {
         else { return nil }
         // A row taller than the space keeps its top in view.
         target = min(target, top - min(edge, max(0, viewport - item.height) / 2))
+        if target <= config.top { target = 0 }                      // the first rows: all the way to the top
         target = clamp(0, target, max(0, contentHeight - viewport))
         return abs(target - offset) < 0.5 ? nil : target
     }
