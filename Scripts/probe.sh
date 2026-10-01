@@ -23,6 +23,8 @@
 #                                                fallback path (LUMINA_CANVAS=image). Folder: LUMINA_EDIT_DIR, else as scroll
 #   bash Scripts/probe.sh raw9                   RAW 9 (§8): decoder map, time to first tile / full region, export time + memory
 #                                                per decoder version, the forced per-file fallback, tiles vs export ΔE per version
+#   bash Scripts/probe.sh readspeed              how fast a folder reads: Open → first rows, first thumbnail, first screen full,
+#                                                100 / 500 / 1000 / 2000 photos, done; photos per second. Folder: LUMINA_READ_DIR, else as scroll
 #   bash Scripts/probe.sh v3                     the scenarios still written for the v3 page (see V3 below): expected to fail
 #   bash Scripts/probe.sh all [--require-all]    everything v5; --require-all turns a SKIP into a failure
 #
@@ -156,6 +158,8 @@ case "$suite" in
              echo "— image fallback path (LUMINA_CANVAS=image) —"
              LUMINA_CANVAS=image run_out "$OUT/image-path" "$S/edit-canvas.json" ;;
   raw9)      editdir; run "$S/raw9.json" ;;
+  readspeed) [[ -n ${LUMINA_READ_DIR:-} ]] || { scrolldir; export LUMINA_READ_DIR="${LUMINA_SCROLL_DIR:-}"; }
+             run "$S/read-speed.json" ;;
   v3)        run $(v3files) ;;                  # scenario paths have no spaces
   all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S"/edge-*.json "$S/app-plumbing-contract.json" "$S/app-smoke.json" \
                "$S/fault-kill-mid-handoff.json" "$S/fault-native-dest.json"
