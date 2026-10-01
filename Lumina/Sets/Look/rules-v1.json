@@ -8,28 +8,28 @@
   "stages": {
     "rawDevelop": {
       "locked": false,
-      "form": "CIRAWFilter, Apple's default profile, no auto; scaleFactor for size; draft mode below draftBelowPx",
-      "coefficients": { "boostAmount": 1.0, "draftBelowPx": 0 }
+      "form": "CIRAWFilter, Apple's default profile, no auto; scaleFactor for size; draft mode below draftBelowPx; lensShading undoes the lens's corner falloff in linear space with the camera's own VignettingCorrParams, scaled in stops (LookLensShading: 1 is the camera's partial correction; Lightroom's lens profile is 1.3-2.2x that on the sweep); then the base match to Lightroom's Adobe Color (LookMath.baseMatch): a luma midtone curve p + baseLift*p*(1-p) + baseS*p*(1-p)*(p-0.5) in perceptual space, and a colour mix with off-diagonals baseRG … baseBG whose rows sum to 1; last, colour fades toward the pixel's luma near white (baseHiDesat above perceptual baseHiFrom) and in the deepest shadows (baseLoDesat below baseLoBelow)",
+      "coefficients": { "boostAmount": 1.0, "draftBelowPx": 0, "lensShading": 1.6, "baseRG": 0.13533, "baseRB": -0.00287, "baseGR": -0.00067, "baseGB": 0.13514, "baseBR": 0.0025, "baseBG": 0.01245, "baseLift": 0.03303, "baseS": 0.30271, "baseHiDesat": 0.6218, "baseHiFrom": 0.9251, "baseLoDesat": 0.5062, "baseLoBelow": 0.1964 }
     },
     "exposure": {
       "locked": false,
-      "form": "linear gain 2^(ev * stopsPerUnit)",
-      "coefficients": { "stopsPerUnit": 1.0 }
+      "form": "a scene gain through a sigmoid tone curve, per channel: G·y / (1 + (G − 1)·y/white) with G = 2^(ev * stopsPerUnit); tangent continuation above white and below 0",
+      "coefficients": { "stopsPerUnit": 1.622202, "white": 1.095133 }
     },
     "whiteBalance": {
       "locked": false,
-      "form": "per-channel gains from the mired difference to as-shot: r *= 2^(dM*redPerMired), b *= 2^(-dM*bluePerMired), g *= 2^(-dTint*greenPerTint); divided by their luma when preserveLuma is 1",
-      "coefficients": { "redPerMired": 0.0025, "bluePerMired": 0.0025, "greenPerTint": 0.004, "preserveLuma": 1 }
+      "form": "per-channel scene gains from the mired and tint differences to as-shot, each channel through the tone curve as in exposure (G*y / (1 + (G-1)*y/white)): r: 2^(dM*redPerMired + dTint*redPerTint), g: 2^(-dTint*greenPerTint), b: 2^(-dM*bluePerMired + dTint*bluePerTint); divided by their luma first when preserveLuma is 1",
+      "coefficients": { "redPerMired": 0.011567, "bluePerMired": 0.012011, "greenPerTint": 0.002048, "redPerTint": 0.010088, "bluePerTint": 0.014052, "white": 1.085448, "preserveLuma": 0 }
     },
     "whitesBlacks": {
       "locked": false,
       "form": "per channel in perceptual p = x^(1/gamma): p -= (-blacks*blacksPerUnit) * (1-p)^blacksPower; p += whites*whitesPerUnit * p^whitesPower",
-      "coefficients": { "blacksPerUnit": 0.002, "blacksPower": 2.0, "whitesPerUnit": 0.003, "whitesPower": 2.0 }
+      "coefficients": { "blacksPerUnit": 0.000957, "blacksPower": 1.000079, "whitesPerUnit": 0.001885, "whitesPower": 1.000055 }
     },
     "tone": {
       "locked": false,
-      "form": "base = gaussian blur of luma (radiusFraction of the long edge), bp = perceptual(base); gain = 2^(shadows*shadowsStopsPerUnit*(1-smoothstep(shadowsLo,shadowsHi,bp))) * 2^(highlights*highlightsStopsPerUnit*smoothstep(highlightsLo,highlightsHi,bp)); out = pixel * gain * (luma/base)^(detailGain-1)",
-      "coefficients": { "radiusFraction": 0.03, "shadowsStopsPerUnit": 0.01, "shadowsLo": 0.0, "shadowsHi": 0.6, "highlightsStopsPerUnit": 0.01, "highlightsLo": 0.4, "highlightsHi": 1.0, "detailGain": 1.0 }
+      "form": "a local exposure through the tone curve, relative to the photo. base = gaussian blur of luma (radiusFraction of the long edge). The photo's anchor (256 px develop): mean A = 2^mean(log2 luma), pushed through exposure; spread = std of log2 luma; bright = share of pixels above L* 80. ps = perceptual(base*(0.18/A)^shadowsAdapt), ph = perceptual(base*(0.18/A)^highlightsAdapt); G = 2^(shadows*shadowsStopsPerUnit*exp(shadowsBright*(bright-brightCentre) + shadowsSpread*(spread-spreadCentre))*exp(-ps/shadowsTau) + highlights*highlightsStopsPerUnit*exp(highlightsMean*(log2 A-meanCentre) + highlightsSpread*(spread-spreadCentre))*min(1, ph/highlightsKnee)), each strength factor kept in [0.25, 4]; detail (luma/base)^(detailGain-1) re-applied; then per channel G*y / (1 + (G-1)*y/white) as in exposure",
+      "coefficients": { "radiusFraction": 0.002, "shadowsStopsPerUnit": 0.021292, "shadowsTau": 0.38354, "shadowsAdapt": 0.614784, "shadowsBright": 2.056639, "shadowsSpread": 0.323945, "highlightsStopsPerUnit": 0.027309, "highlightsKnee": 3.911585, "highlightsAdapt": 0.74109, "highlightsMean": 0.030175, "highlightsSpread": 0.228943, "white": 1.111285, "detailGain": 1.0, "meanCentre": -2.38471, "spreadCentre": 1.487163, "brightCentre": 0.203023 }
     },
     "contrast": {
       "locked": false,
@@ -39,7 +39,7 @@
     "colour": {
       "locked": false,
       "form": "Oklab chroma: C *= max(0, 1+saturation*saturationPerUnit) * (1 + vibrance*vibrancePerUnit*(1-min(1,C/vibranceChromaMax))*(1-skinProtect*skin(h))) ; skin(h) = exp(-((h-skinHue)/skinWidth)^2), only for vibrance > 0; bw sets C = 0",
-      "coefficients": { "saturationPerUnit": 0.01, "vibrancePerUnit": 0.01, "vibranceChromaMax": 0.25, "skinHue": 50.0, "skinWidth": 25.0, "skinProtect": 0.7 }
+      "coefficients": { "saturationPerUnit": 0.010109, "vibrancePerUnit": 0.013065, "vibranceChromaMax": 0.392404, "skinHue": 33.187112, "skinWidth": 89.999063, "skinProtect": 0.999491 }
     },
     "clarity": {
       "locked": false,

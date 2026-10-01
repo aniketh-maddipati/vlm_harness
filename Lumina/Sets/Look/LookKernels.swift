@@ -21,6 +21,12 @@ nonisolated final class LookKernels: @unchecked Sendable {
         float t = clamp((x - e0) / (e1 - e0), 0.0f, 1.0f);
         return t * t * (3.0f - 2.0f * t);
     }
+    static float lk_exposure(float x, float g, float w) {
+        if (x <= 0.0f) return x * g;
+        if (x >= w) return w + (x - w) / g;
+        float t = x / w;
+        return w * g * t / (1.0f + (g - 1.0f) * t);
+    }
     static float lk_cbrt(float x) { return x < 0.0f ? -pow(-x, 1.0f / 3.0f) : pow(x, 1.0f / 3.0f); }
     static float lk_curve(float p, float m, float a) {
         if (p <= 0.0f) return 0.0f;
@@ -35,7 +41,40 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(y, y, y, 1.0f);
     }
 
-    // exposure + whiteBalance + whitesBlacks. wb = per-channel gains (already × exposure gain);
+    // rawDevelop's base match (LookMath.baseMatch): a midtone curve on luma, then a colour mix.
+    // r0, r1, r2 = the mix's rows; k = (lift, s, invGamma, gamma); d = (hiDesat, hiFrom, loDesat, loBelow)
+    [[ stitchable ]] float4 lookBase(coreimage::sample_t s, float4 r0, float4 r1, float4 r2, float4 k, float4 lum, float4 d) {
+        float y = dot(s.rgb, lum.rgb);
+        float g = 1.0f;
+        if (y > 1e-6f) {
+            float p = lk_perc(y, k.z);
+            float pc = clamp(p, 0.0f, 1.0f);
+            g = lk_lin(p + k.x * p * (1.0f - pc) + k.y * p * (1.0f - pc) * (pc - 0.5f), k.w) / y;
+        }
+        float3 t = s.rgb * g;
+        float3 m = float3(dot(t, r0.rgb), dot(t, r1.rgb), dot(t, r2.rgb));
+        if (d.x != 0.0f || d.z != 0.0f) {
+            float ym = dot(m, lum.rgb);
+            float pc = clamp(lk_perc(ym, k.z), 0.0f, 1.0f);
+            float hi = clamp((pc - d.y) / max(1e-3f, 1.0f - d.y), 0.0f, 1.0f);
+            float lo = clamp((d.w - pc) / max(1e-3f, d.w), 0.0f, 1.0f);
+            float keep = clamp(1.0f - d.x * hi * hi - d.z * lo * lo, 0.0f, 1.0f);
+            m = float3(ym) + (m - float3(ym)) * keep;
+        }
+        return float4(m, s.a);
+    }
+
+    // exposure: a scene gain seen through a sigmoid tone curve (LookMath.exposure). k = (gain G, white w)
+    [[ stitchable ]] float4 lookExposure(coreimage::sample_t s, float2 k) {
+        return float4(lk_exposure(s.r, k.x, k.y), lk_exposure(s.g, k.x, k.y), lk_exposure(s.b, k.x, k.y), s.a);
+    }
+
+    // whiteBalance: per-channel scene gains through the tone curve. g = the gains, k = (white, 0)
+    [[ stitchable ]] float4 lookWhiteBalance(coreimage::sample_t s, float4 g, float2 k) {
+        return float4(lk_exposure(s.r, g.r, k.x), lk_exposure(s.g, g.g, k.x), lk_exposure(s.b, g.b, k.x), s.a);
+    }
+
+    // whitesBlacks (wb = ones). wb = per-channel gains;
     // wbk = (whitesAmt, blacksAmt, whitesPower, blacksPower); gam = (invGamma, gamma)
     [[ stitchable ]] float4 lookPre(coreimage::sample_t s, float4 wb, float4 wbk, float2 gam) {
         float3 c = s.rgb * wb.rgb;
@@ -48,15 +87,19 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(c, s.a);
     }
 
-    // tone: base = blurred linear luma. sh = (shadowsAmt, lo, hi, 0), hl = (highlightsAmt, lo, hi, detailGain)
+    // tone: a local exposure through the tone curve (LookMath.toneGain + exposure). base = blurred
+    // linear luma. sh = (shadowsStops, tau, shadows normaliser, highlights normaliser) with the
+    // normalisers from the photo's anchor; hl = (highlightsStops, knee, white, detailGain)
     [[ stitchable ]] float4 lookTone(coreimage::sample_t s, coreimage::sample_t base, float4 sh, float4 hl, float2 gam, float4 lum) {
-        float bp = lk_perc(base.r, gam.x);
-        float g = exp2(sh.x * (1.0f - lk_smooth(sh.y, sh.z, bp)) + hl.x * lk_smooth(hl.y, hl.z, bp));
+        float ps = lk_perc(base.r * sh.z, gam.x);
+        float ph = lk_perc(base.r * sh.w, gam.x);
+        float g = exp2(sh.x * exp(-ps / max(0.01f, sh.y)) + hl.x * min(1.0f, ph / max(0.01f, hl.y)));
+        float d = 1.0f;
         if (fabs(hl.w - 1.0f) > 1e-9f) {
             float y = dot(s.rgb, lum.rgb);
-            g *= pow(max(1e-6f, y) / max(1e-6f, base.r), hl.w - 1.0f);
+            d = pow(max(1e-6f, y) / max(1e-6f, base.r), hl.w - 1.0f);
         }
-        return float4(s.rgb * g, s.a);
+        return float4(lk_exposure(s.r * d, g, hl.z), lk_exposure(s.g * d, g, hl.z), lk_exposure(s.b * d, g, hl.z), s.a);
     }
 
     // contrast: k = (midpoint, slope a, lumaMix, 0)
@@ -147,7 +190,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     struct CompileError: Error, CustomStringConvertible { let description: String }
 
     /// The stage kernels, compiled when the pipeline is made.
-    static let stageNames = ["lookLuma", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette"]
+    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette"]
 
     private let header: String
     private let blocks: [String: String]             // function name → its source block
@@ -181,12 +224,25 @@ nonisolated final class LookKernels: @unchecked Sendable {
         for name in Self.stageNames { _ = try kernel(name) }
     }
 
+    /// `LUMINA_KERNEL_SALT` (the probe's cold run, never set in the app): every kernel function is
+    /// compiled under a salted name, so neither Core Image's nor Metal's on-disk cache has seen its
+    /// programs, as on the first launch after an update that changed a kernel. The maths is unchanged.
+    static let salt: String? = {
+        let s = (ProcessInfo.processInfo.environment["LUMINA_KERNEL_SALT"] ?? "").filter { $0.isASCII && ($0.isLetter || $0.isNumber) }
+        return s.isEmpty ? nil : s
+    }()
+
     /// The compiled kernel, compiling its block on first use.
     func kernel(_ name: String) throws -> CIKernel {
         if let k = lock.withLock({ compiled[name] }) { return k }
-        guard let block = blocks[name] else { throw CompileError(description: "no kernel named \(name); have \(blocks.keys.sorted())") }
+        guard var block = blocks[name] else { throw CompileError(description: "no kernel named \(name); have \(blocks.keys.sorted())") }
+        var function = name
+        if let salt = Self.salt {
+            function = "\(name)_\(salt)"
+            block = block.replacingOccurrences(of: " \(name)(", with: " \(function)(")
+        }
         let list = try CIKernel.kernels(withMetalString: header + block)
-        guard list.count == 1, let k = list.first, k.name == name else { throw CompileError(description: "\(name): expected one kernel, got \(list.map(\.name))") }
+        guard list.count == 1, let k = list.first, k.name == function else { throw CompileError(description: "\(name): expected one kernel, got \(list.map(\.name))") }
         lock.withLock { compiled[name] = k }
         return k
     }

@@ -69,6 +69,25 @@ final class LookCanvasTests: XCTestCase {
         XCTAssertEqual(s.stats.coalesced, 58)
     }
 
+    /// `pending`: a newer look waits that no render has started (the canvas counts a tick with a
+    /// render still in flight and a look pending as a missed present).
+    func testPendingMeansANewerLookNoRenderHasStarted() {
+        var s = S()
+        XCTAssertFalse(s.pending)
+        s.dragStart(at: 0)
+        s.submit("ev:+0.10", at: 1)
+        XCTAssertTrue(s.pending)
+        let a = try! XCTUnwrap(s.tick(at: 2))
+        XCTAssertFalse(s.pending, "started")
+        s.submit("ev:+0.20", at: 3)
+        XCTAssertTrue(s.pending, "a newer look arrived while the render is in flight")
+        XCTAssertNil(s.tick(at: 4))
+        _ = s.finished(a)
+        let b = try! XCTUnwrap(s.tick(at: 5))
+        XCTAssertEqual(b.look, "ev:+0.20")
+        XCTAssertFalse(s.pending)
+    }
+
     func testSequenceNumbersGateWhatIsPresented() {
         var s = S()
         _ = s.keystroke("ev:+1", at: 0)
@@ -191,5 +210,101 @@ final class LookCanvasTests: XCTestCase {
         let edge = LookRawPolicy.tiles(covering: LookCanvasSchedule.ROI(x: 0, y: 0, w: 0.05, h: 0.05), width: 6000, height: 4000)
         XCTAssertEqual(Set(edge.map(\.col)), Set(0...1)); XCTAssertEqual(Set(edge.map(\.row)), Set(0...1))
         XCTAssertTrue(LookRawPolicy.tiles(covering: roi, width: 0, height: 0).isEmpty)
+    }
+
+    // MARK: The warm-up plan (LookWarmPlan)
+
+    private let stages = LookRules().lookStages
+
+    func testEverySliderSwitchesExactlyOneStage() throws {
+        XCTAssertEqual(LookWarmPlan.signature(Look(), stages: stages), "none")
+        var seen: Set<String> = []
+        for (key, field) in Look.sliders {
+            var l = Look(); l[keyPath: field] = key == "shp" ? 30 : 10
+            let on = stages.filter(l.runs)
+            XCTAssertEqual(on.count, 1, "\(key) runs \(on)")
+            seen.formUnion(on)
+        }
+        var wb = Look(); wb.wb = Look.WhiteBalance(kelvin: 5200, tint: 3)
+        XCTAssertEqual(stages.filter(wb.runs), ["whiteBalance"])
+        var bw = Look(); bw.bw = true
+        XCTAssertEqual(stages.filter(bw.runs), ["colour"])
+        XCTAssertEqual(seen.union(["whiteBalance"]), Set(stages), "every stage has a slider that switches it on")
+        // nr and crop belong to the base (the RAW stage, the geometry), not to a look stage.
+        XCTAssertEqual(LookWarmPlan.signature(try Look.parse("nr:40 crop:0.1,0.1,0.5,0.5/2"), stages: stages), "none")
+        XCTAssertEqual(LookWarmPlan.signature(try Look.parse("vig:-20 ev:+0.30 con:+10"), stages: stages), "exposure+contrast+vignette", "in the order the stages run")
+    }
+
+    func testTogglingSwitchesOneStageAndLeavesTheRest() throws {
+        let look = try Look.parse("ev:+0.30 con:+10 sat:-20 bw:1 bl:-5")
+        for stage in stages {
+            let t = look.toggling(stage)
+            XCTAssertNotEqual(t.runs(stage), look.runs(stage), stage)
+            for other in stages where other != stage { XCTAssertEqual(t.runs(other), look.runs(other), "\(stage) touched \(other)") }
+            XCTAssertEqual(LookWarmPlan.signature(t.toggling(stage), stages: stages), LookWarmPlan.signature(look, stages: stages))
+            XCTAssertEqual(t.crop, look.crop); XCTAssertEqual(t.nr, look.nr)
+        }
+        XCTAssertEqual(look.toggling("no such stage"), look)
+    }
+
+    func testWarmPlanCoversEverySetOneSliderCanReach() throws {
+        let look = try Look.parse("ev:+0.30 con:+10")
+        let around = LookWarmPlan.looks(around: look, stages: stages).map { LookWarmPlan.signature($0, stages: stages) }
+        XCTAssertEqual(around.count, stages.count + 1)
+        XCTAssertEqual(Set(around).count, around.count)
+        XCTAssertEqual(around.first, "exposure+contrast", "the look on the canvas comes first")
+        XCTAssertTrue(around.contains("contrast"), "exposure dragged through 0")
+        XCTAssertTrue(around.contains("exposure"))
+        XCTAssertTrue(around.contains("exposure+tone+contrast"), "the first drag on shadows")
+        XCTAssertTrue(around.contains("exposure+contrast+vignette"))
+        // Any single slider change from the look lands on a warmed set.
+        for (key, field) in Look.sliders {
+            for v in [0.0, key == "shp" ? 40 : -15] {
+                var l = look; l[keyPath: field] = v
+                XCTAssertTrue(around.contains(LookWarmPlan.signature(l, stages: stages)), "\(key) = \(v)")
+            }
+        }
+    }
+
+    func testWarmPlanOrdersSmallFirstAndNeverRepeats() throws {
+        var plan = LookWarmPlan()
+        let look = try Look.parse("ev:+0.30 con:+10"), env = "2024x1472/506x368>1760x1280|P3|fit"
+        var jobs = plan.jobs(around: look, stages: stages, env: env)
+        XCTAssertEqual(jobs.count, 2 * (stages.count + 1))
+        XCTAssertEqual(jobs.prefix(stages.count + 1).map(\.tier), Array(repeating: .small, count: stages.count + 1), "what a drag renders comes first")
+        XCTAssertEqual(jobs.first?.stages, "exposure+contrast")
+        XCTAssertEqual(Set(jobs.map(\.key)).count, jobs.count)
+        // The drawable rendered the look from base itself (entering Edit): not warmed again.
+        let own = plan.rendering(look, tier: .base, stages: stages, env: env)
+        XCTAssertTrue(own.first); XCTAssertFalse(own.warmed); XCTAssertEqual(own.stages, "exposure+contrast")
+        XCTAssertFalse(plan.rendering(look, tier: .base, stages: stages, env: env).first)
+        XCTAssertEqual(plan.jobs(around: look, stages: stages, env: env).count, jobs.count - 1)
+        while let job = plan.next(around: look, stages: stages, env: env) { plan.finished(job, ms: 12) }
+        XCTAssertEqual(plan.stats.warmed, jobs.count - 1)
+        XCTAssertEqual(plan.stats.ms, 12 * Double(jobs.count - 1)); XCTAssertEqual(plan.stats.maxMs, 12)
+        // The first frame of a drag on shadows: a set the drawable has not rendered, already warmed.
+        var dragged = look; dragged.shadows = -30
+        let first = plan.rendering(dragged, tier: .small, stages: stages, env: env)
+        XCTAssertTrue(first.first); XCTAssertTrue(first.warmed); XCTAssertEqual(first.stages, "exposure+tone+contrast")
+        // At rest on the new look the plan owes only what the new set adds, both tiers.
+        jobs = plan.jobs(around: dragged, stages: stages, env: env)
+        XCTAssertEqual(jobs.count, 2 * (stages.count - 1), "the look itself and the look without tone are done")
+        XCTAssertFalse(jobs.contains { $0.stages == "exposure+contrast" || $0.stages == "exposure+tone+contrast" })
+        // Another canvas size (or display, or zoom) is another set of programs.
+        XCTAssertEqual(plan.jobs(around: look, stages: stages, env: "other").count, 2 * (stages.count + 1))
+        // Two stages away (a pasted look) is not covered until the canvas rests on it.
+        var pasted = look; pasted.clarity = 20; pasted.vignette = -10
+        let far = plan.rendering(pasted, tier: .small, stages: stages, env: env)
+        XCTAssertTrue(far.first); XCTAssertFalse(far.warmed)
+    }
+
+    func testWarmPlanDisabledOwesNothingButStillCountsFirstRenders() throws {
+        var plan = LookWarmPlan(enabled: false)
+        let look = try Look.parse("ev:+0.30")
+        XCTAssertTrue(plan.jobs(around: look, stages: stages, env: "e").isEmpty)
+        XCTAssertNil(plan.next(around: look, stages: stages, env: "e"))
+        let r = plan.rendering(look, tier: .small, stages: stages, env: "e")
+        XCTAssertTrue(r.first); XCTAssertFalse(r.warmed)
+        XCTAssertFalse(plan.stats.enabled)
     }
 }

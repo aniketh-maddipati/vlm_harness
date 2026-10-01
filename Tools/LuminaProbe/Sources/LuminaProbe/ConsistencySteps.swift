@@ -101,7 +101,7 @@ enum ConsistencySteps {
                     let look = try Look.parse(text)
                     let key = LookBases.Key(rel: rel, decoder: canvasDecoder, look: look, canvas: size)
                     let e = try bases.build(key, url: url, look: look, preview: nil)
-                    guard let shown = cg(pipe.apply(look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot), crop: false)) else { throw ProbeError("canvas render failed") }
+                    guard let shown = cg(pipe.apply(look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot, anchor: e.anchor), crop: false)) else { throw ProbeError("canvas render failed") }
                     func add(_ pair: String, _ other: CGImage?) {
                         guard let other else { o.failures.append("editConsistency: \(name) · \(lookName) · \(pair): render failed"); return }
                         if abs(shown.width - other.width) > 2 || abs(shown.height - other.height) > 2 {
@@ -121,7 +121,7 @@ enum ConsistencySteps {
                         add("sameSize", decode(sameData))
                     }
                     // The drag preview (a quarter on each edge), shown stretched over the canvas.
-                    if let small = cg(pipe.apply(look, to: LookPipeline.Developed(image: e.small, asShot: e.asShot), crop: false)) {
+                    if let small = cg(pipe.apply(look, to: LookPipeline.Developed(image: e.small, asShot: e.asShot, anchor: e.anchor), crop: false)) {
                         let up = CIImage(cgImage: small).transformed(by: CGAffineTransform(scaleX: CGFloat(shown.width) / CGFloat(small.width), y: CGFloat(shown.height) / CGFloat(small.height)))
                         add("drag", pipe.context.createCGImage(up, from: CGRect(x: 0, y: 0, width: shown.width, height: shown.height), format: .RGBA8, colorSpace: srgb))
                     }
@@ -129,7 +129,7 @@ enum ConsistencySteps {
                     if let older, older != exportDecoder, lookName == "neutral" || lookName.hasPrefix("combo"), let full {
                         let k2 = LookBases.Key(rel: rel, decoder: older, look: look, canvas: size)
                         let e2 = try bases.build(k2, url: url, look: look, preview: nil)
-                        if let behind = cg(pipe.apply(look, to: LookPipeline.Developed(image: e2.base, asShot: e2.asShot), crop: false)), let exp = scaled(full, to: behind) {
+                        if let behind = cg(pipe.apply(look, to: LookPipeline.Developed(image: e2.base, asShot: e2.asShot, anchor: e2.anchor), crop: false)), let exp = scaled(full, to: behind) {
                             let de = stats(behind, exp, step: step)
                             rows.append(Row(photo: name, look: lookName, pair: "decoder", median: de.median, mean: de.mean, p95: de.p95, max: de.max, pixels: de.pixels))
                         }

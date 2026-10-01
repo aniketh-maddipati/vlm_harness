@@ -284,10 +284,92 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 > `luminaFacts.raw9` is true hide Colour NR, Detail and Moiré (RAW 9 ignores them); show them when
 > it is false.
 
+> **9. Save stays off for anything `lumina.readingCard` covers.** `onCard()` is
+> `lumina.card && lumina.readingCard`, so the "copy to disk first" state needs a card in the panel.
+> Two cases fall through, and in both the Save step shows the normal "Save N keepers" button, ⌘⏎
+> runs, and the result reads "0 saved · N failed" with every keeper listed as "on the card":
+> (a) the shoot is on a removable volume that is not a camera card (a USB stick or SD card without a
+> DCIM folder): `lumina.readingCard` is true, `lumina.card` is null;
+> (b) the card was pulled after its shoot was read: `luminaCardGone(true)` has been called,
+> `lumina.card` is null, `lumina.readingCard` is still true.
+> Please make `onCard()` true whenever `lumina.readingCard` is true (SAFETY.md 4: "Save stays disabled
+> with the copy-first message" for any mounted removable volume). For (b), while `gone` is set, say
+> that the card is out instead (the Cull notice's wording is fine). Nothing is written in either case
+> today; this is only about what Save offers.
+
+## Prompt 2 — culling logic, from the culling eval (paste into Claude Design)
+
+Found by `Tools/culleval` (2026-09-30) on 4,938 real α7 III frames: 80 camera bursts (341 frames
+shot in a drive mode), 500 bursts by hand, six shoots with known keeps (1,468 frames, 546 kept;
+five of them complete). The measures ran in headless Chromium on the page's own 360 px bitmap.
+Numbers: `make culleval`.
+
+> Update `lumina-core-v4.js` (and its fixtures). No visible change is asked for; keep the page's
+> look, keys and wording as they are.
+>
+> **A. `sonyMN` reads nothing from a real ARW.** On all 4,938 frames `releaseMode2`, `seqImage`,
+> `seqLength` and `focusMode` came back null, so real camera bursts fall through to the dHash rule
+> and are split: 15 of 80 came out as one stack (pair recall 14 %). With the camera's sequence
+> numbers filled in, the same `buildShoot` gets 74 of 80 (pair recall 95 %). Two causes:
+> (1) `sonyMN` returns unless the MakerNote starts with `SONY` and reads its IFD at +12. That
+> header exists in Sony JPEGs; in an ARW the MakerNote (0x927C) starts directly with the IFD
+> (entry count at the MakerNote offset; value offsets from the TIFF start, as you already read
+> them). Accept both: +12 after a `SONY` header, +0 otherwise.
+> (2) The 0x9400 layout check `[0x23,0x24,0x26,0x28,0x31,0x32,0x33].includes(d[0])` tests the
+> deciphered byte. The layout byte is the first byte as stored (α7 III: stored 0x26, deciphered
+> 0xd7), so test `u8[p]` before deciphering.
+> Then make the two sources agree: the 0x9400 SequenceImageNumber (offset 0x12) counts from 0
+> (exiftool adds 1), the plain 0xB04A SequenceNumber counts from 1 with 0 for a single frame.
+> Expected on an α7 III: a single frame → `seqImage` null, `releaseMode2` 0, `seqLength` 1; the
+> third frame of a five-frame burst → `seqImage` 3, `releaseMode2` 1, `seqLength` 5.
+> Please add a `parseHead` fixture with real MakerNote bytes (both layouts); today's stack
+> fixtures start from already-parsed numbers, which is how this went unseen.
+>
+> **B. The dHash is too noisy to carry the stack rule.** `measure` makes the 9 × 8 hash with one
+> `drawImage(bmp,0,0,9,8)` from the 360 px bitmap, which samples a few pixels per cell instead of
+> averaging the cell. Measured distances between consecutive frames (64 bits, on 4,002 of the frames):
+> inside a camera burst: median 12, only 20 % ≤ 6 (the stack threshold), 2 % ≥ 28 (the "always
+> split" threshold); same framing ≤ 2 s apart by hand: median 21, 9 % ≤ 6, 23 % ≥ 28; frames more
+> than 5 minutes apart: median 30. So the hash barely separates a burst from a new scene.
+> Please average each cell (box means over the luminance array `g` that `measure` already has, or
+> halve the bitmap step by step down to 9 × 8), then set the two thresholds from real frames, and
+> do not let "dHash ≥ 28 always splits" cut frames whose sequence numbers say they are one burst.
+> `Tools/culleval` re-measures this after the sync.
+>
+> **C. Bursts by hand are left as singles.** This photographer mostly shoots single frames and
+> repeats: 500 runs of the same framing ≤ 2 s apart against 80 camera bursts. Lumina stacks 7 % of
+> those pairs (it is never wrong when it does: precision 100 %). In 197 of 199 runs of tries that
+> held a keeper, Lumina showed the tries as separate photos, and 229 of the 582 frames it suggested
+> and the photographer rejected were one of several tries where another try was kept. After B,
+> please stack frames with the same lens, focal length and orientation that follow within 2 s when
+> their hashes agree, and consider a wider window (the photographer's tries are mostly 3–10 s
+> apart: 1,204 such pairs) shown as a looser group, not a burst.
+>
+> **D. `blown` fires on bright scenes, and it removes keepers from the suggested keeps.** The rule
+> is "more than 2 % of pixels at 250 or above in all three channels". On a bright indoor event it
+> flagged 296 of 509 frames, 173 of them among the photographer's 309 keepers: flagged frames were
+> kept as often as unflagged ones, so there the flag says nothing, and because a blown single is
+> never suggested, the suggested keeps found only 37 % of the real keeps (95 % and 89 % on the
+> two shoots where `blown` is rare). Of 223 keepers that were not suggested, 186 were flagged
+> blown and 35 soft. On a desert shoot it flagged 27 of 204 frames, 7 of its 61 keepers. Please make the flag relative
+> to the shoot (a frame that clips much more than its neighbours in the same row, or the top few
+> percent of the shoot) rather than a fixed 2 %, and keep a flagged single among the suggested keeps
+> unless a cleaner frame of the same stack exists.
+>
+> **Not asked yet:** "sharpest" as the frame to keep agreed with the photographer in 37 of 94 groups
+> of tries with one keeper (39 %; picking at random scores 37 %), and in none of the 10 groups of six
+> or more. In Lumina's own stacks it agreed in 6 of 10. Sharpness alone is close to a coin toss
+> between near-identical tries; what would do better (faces, eyes, expression) is a product
+> decision, not a fix. `shake` (exposure longer than 2 / focal length) flagged 49 of 80 frames of
+> an evening shoot, all 3 of its keepers among them; three keepers are too few to ask on.
+
 ## How each ask is checked once the new handoff lands
 
 - 1: `Tests/web/plumbing-harness.mjs` and `probe.sh smoke` (`app-smoke`: the Save screen shows the row before any save). Remove the `wf` block in `plumbing.js`'s view loop.
-- 2: `probe.sh edge` with a case-sensitive fixture (the v3 `app-xmp-both` scenario, rewritten for v5).
+- 2: `probe.sh fault` (`app-xmp-both`, app mode: the lower-case `.xmp` is read on three opens in a row). For the page's own read,
+  run it with `"mode"` removed: today it can pick either file.
+- 9: `app-xmp-both` and `fault-card-pull-cull` (`probe.sh fault`): both assert today's "0 saved · 1 failed · … on the card" after ⌘⏎;
+  once the page keeps Save off, they assert the "copy to disk first" notice instead and that ⌘⏎ makes no save call.
 - 3: `__lumina.unsaved()` in `plumbing.js` becomes a call to `window.luminaUnsaved`; the contract scenario checks it exists.
 - 4, 5: by eye.
 - 6: a probe Tab walk scenario.
@@ -304,3 +386,8 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
   page has no Edit step; once it does, they switch to `stepEdit` and the page's own `canvasRect`). The contract
   scenario then lists `luminaPresented`, `luminaHistogram`, `luminaFacts` among the hooks. Drop plumbing's
   `pollRect` fallback.
+- Prompt 2: `make culleval` on the same shoots (`~/LuminaEvidence/culleval/shoots.json`). A: "the page read drive data on N frames"
+  equals exiftool's count and the camera-burst row reaches the what-if row (74 of 80 exact, recall 95 %). B and C: the
+  dHash distances inside bursts drop and pair recall for bursts by hand rises with precision held; best-of-stack and keep
+  precision are re-read. D: the bright-event shoot's "flagged blown" count falls and its suggested-keeps recall rises
+  toward the other shoots'. A sync that changes `readOne` fails `make culleval-test` until `Tools/culleval/lib/measure.mjs` is reviewed.
