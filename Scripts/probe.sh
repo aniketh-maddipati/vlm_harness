@@ -19,11 +19,11 @@
 #   bash Scripts/probe.sh stress                 a whole card: Cull scroll frame budget, fast row moves, a 3,000-input storm, memory;
 #                                                the page's read, then the native read (needs LUMINA_CARD_DIR, only read)
 #   bash Scripts/probe.sh app                    contract + the app on folders: read, sidecars, .lumina-bak, Lightroom's sidecars
-#                                                merged in place, sessions across a relaunch, the empty app (needs LUMINA_FIXTURE_ROOT)
+#                                                merged in place, sessions across a relaunch, keepers renamed / deleted mid-cull,
+#                                                the empty app (needs LUMINA_FIXTURE_ROOT)
 #   bash Scripts/probe.sh fault                  disk images (they show in Finder for a moment): kill -9 mid-write + relaunch recovery,
-#                                                disk full mid-copy, a read-only card, a card pulled while its keepers wait on Save,
-#                                                .xmp and .XMP side by side on a case-sensitive disk
-#   bash Scripts/probe.sh open                   v5 scenarios that fail today on a known app bug (see OPEN below): expected to fail
+#                                                disk full mid-copy and for a sidecar, a read-only card, a card pulled mid-read and
+#                                                while its keepers wait on Save, .xmp and .XMP side by side on a case-sensitive disk
 #   bash Scripts/probe.sh scroll                 scrolling Cull while a folder reads (no jump when it ends), then fast scrolling at
 #                                                1440×900 and 2560×1440: frame pacing, blank tiles, thumbnail
 #                                                upscale, memory. Folder: LUMINA_SCROLL_DIR, else LUMINA_CARD_DIR (only read), else
@@ -130,14 +130,8 @@ EOF
 }
 
 # Suites by what they need: APP opens copies of the fixture folders; FAULT mounts small disk images.
-APP=(app-plumbing-contract app-smoke app-session app-xmp-lightroom app-empty-start)
-FAULT=(fault-kill-mid-handoff fault-native-dest fault-readonly-card fault-card-pull-cull app-xmp-both)
-# Written for v5 and failing today on an app bug (Tests/probe/EDGE-CASES.md, "Open bugs"); each
-# asserts the behaviour SAFETY.md asks for. When its bug is fixed, move it to the suite named here.
-#   app-rename-mid-cull    → APP    Save writes a sidecar for a keeper whose RAW was renamed or deleted, and says "saved"
-#   fault-card-pull-read   → FAULT  a keep made while a half-read card is out is lost when the card comes back
-#   fault-disk-full        → FAULT  a sidecar on a full disk fails as "failed", not "disk full"
-OPEN=(app-rename-mid-cull fault-card-pull-read fault-disk-full)
+APP=(app-plumbing-contract app-smoke app-session app-xmp-lightroom app-rename-mid-cull app-empty-start)
+FAULT=(fault-kill-mid-handoff fault-native-dest fault-disk-full fault-readonly-card fault-card-pull-read fault-card-pull-cull app-xmp-both)
 paths() { for n in "$@"; do echo "$S/$n.json"; done; }      # scenario paths have no spaces
 
 # A folder big enough to scroll. The fixtures hold 12 real frames: clone them (APFS, no extra space)
@@ -191,7 +185,6 @@ case "$suite" in
   app)       run $(paths "${APP[@]}") ;;
   contract)  run "$S/app-plumbing-contract.json" ;;
   fault)     run $(paths "${FAULT[@]}") ;;
-  open)      run $(paths "${OPEN[@]}") ;;
   scroll)    scrolldir; run "$S/scroll-read.json" "$S/scroll-fast.json" "$S/scroll-fast-2560.json" ;;
   edit)      editdir; run "$S/edit-canvas.json"
              echo "— image fallback path (LUMINA_CANVAS=image) —"

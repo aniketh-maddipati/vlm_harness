@@ -49,6 +49,11 @@
    "js": "const l=__probe.logic(); return l.data.byId[l.state.cur]!=null"
   },
   {
+   "do": "js",
+   "src": "const l=__probe.logic(); l.writeInto = async () => ({ aborted: true }); return true",
+   "why": "the storm can click Save. On a card the Mac refuses the write; on a folder that isn't one it would put sidecars into LUMINA_CARD_DIR, which this suite only reads"
+  },
+  {
    "do": "fuzz",
    "seed": 11,
    "count": 3000,

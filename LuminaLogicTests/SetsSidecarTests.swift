@@ -27,6 +27,7 @@ final class SetsSidecarTests: XCTestCase {
 
     func testExistingSidecarKeptAsLuminaBak() throws {
         let url = dir.appendingPathComponent("DSC00002.xmp")
+        try Data("raw".utf8).write(to: dir.appendingPathComponent("DSC00002.ARW"))
         try Data("lightroom edits".utf8).write(to: url)
         XCTAssertTrue(try SetsFileOps.writeSidecar(Data("rated".utf8), rel: "DSC00002.xmp", root: dir).backedUp)
         XCTAssertEqual(try String(contentsOf: url.appendingPathExtension("lumina-bak"), encoding: .utf8), "lightroom edits")
@@ -47,6 +48,23 @@ final class SetsSidecarTests: XCTestCase {
         XCTAssertThrowsError(try SetsFileOps.writeSidecar(Data("x".utf8), rel: "gone/DSC00001.xmp", root: dir)) { e in
             XCTAssertEqual(e as? SetsFileOps.SidecarError, SetsFileOps.SidecarError(name: "DSC00001", reason: "missing"))
         }
+    }
+
+    /// SAFETY.md 6: a keeper whose RAW was renamed, moved or deleted since the read gets no sidecar.
+    func testNoSidecarWithoutItsRaw() throws {
+        try Data("raw".utf8).write(to: dir.appendingPathComponent("DSC00003-renamed.ARW"))
+        try Data("old".utf8).write(to: dir.appendingPathComponent("DSC00004.xmp"))
+        for name in ["DSC00003", "DSC00004"] {
+            XCTAssertThrowsError(try SetsFileOps.writeSidecar(Data("x".utf8), rel: name + ".xmp", root: dir), name) { e in
+                XCTAssertEqual(e as? SetsFileOps.SidecarError, SetsFileOps.SidecarError(name: name, reason: "missing"))
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("DSC00003.xmp").path))
+        XCTAssertEqual(try String(contentsOf: dir.appendingPathComponent("DSC00004.xmp"), encoding: .utf8), "old")
+        XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: dir.path)), ["sub", "DSC00003-renamed.ARW", "DSC00004.xmp"])
+        // The extension's case doesn't matter; the name does.
+        try Data("raw".utf8).write(to: dir.appendingPathComponent("DSC00005.arw"))
+        XCTAssertNoThrow(try SetsFileOps.writeSidecar(Data("x".utf8), rel: "DSC00005.XMP", root: dir))
     }
 
     func testLinkedFolderCannotLeadOut() throws {

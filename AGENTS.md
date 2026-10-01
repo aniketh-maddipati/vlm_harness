@@ -85,9 +85,8 @@ bash Scripts/probe.sh smoke         # page runs, ?selftest passes, app reads / k
 bash Scripts/probe.sh selftest      # the design's own ?selftest (25 checks + timing)
 bash Scripts/probe.sh fuzz          # seeded key + mouse storms (with LUMINA_FIXTURE_ROOT: also over a card image pulled at random)
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh scroll  # fast Cull scrolling: frames, blank tiles, thumbnail upscale, memory
-LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # contract + the app on folders: sidecars, .lumina-bak, Lightroom's sidecars merged, sessions across a relaunch, the empty app
-LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh fault   # disk images: kill -9 mid-write, disk full mid-copy, read-only card, card pulled on Save, .xmp + .XMP on a case-sensitive disk
-LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh open    # v5 scenarios failing on a known app bug (EDGE-CASES.md "Open bugs"): expected to fail
+LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # contract + the app on folders: sidecars, .lumina-bak, Lightroom's sidecars merged, sessions across a relaunch, keepers renamed mid-cull, the empty app
+LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh fault   # disk images: kill -9 mid-write, disk full mid-copy and for a sidecar, read-only card, card pulled mid-read and on Save, .xmp + .XMP on a case-sensitive disk
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh edge    # camera-data cases (design gaps show as FAIL)
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh ingest  # the same cases through the native reader
 LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh card         # golden card + page vs native read
