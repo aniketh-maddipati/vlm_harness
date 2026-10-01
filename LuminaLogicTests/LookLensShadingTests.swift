@@ -68,7 +68,10 @@ final class LookLensShadingTests: XCTestCase {
         let s = LookLensShading(knots: [0, 2000, 4000, 8000])
         let full = s.gain(at: 1)
         XCTAssertEqual(s.gain(at: 1, amount: 0), 1, accuracy: 1e-12)
-        XCTAssertEqual(s.gain(at: 1, amount: 0.5), 1 + (full - 1) / 2, accuracy: 1e-12)
-        XCTAssertEqual(s.gain(at: 1, amount: 3), full, accuracy: 1e-12, "clamped to the camera's own")
+        // The amount scales the correction in stops: half the stops, or more than the camera's own.
+        XCTAssertEqual(log2(s.gain(at: 1, amount: 0.5)), log2(full) / 2, accuracy: 1e-12)
+        XCTAssertEqual(log2(s.gain(at: 1, amount: 1.5)), log2(full) * 1.5, accuracy: 1e-12)
+        XCTAssertEqual(s.gain(at: 1, amount: 9), s.gain(at: 1, amount: 3), accuracy: 1e-12, "kept within 3×")
+        XCTAssertEqual(s.gain(at: 0, amount: 2), 1, accuracy: 1e-12, "the centre never moves")
     }
 }

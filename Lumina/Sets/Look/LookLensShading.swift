@@ -29,7 +29,9 @@ nonisolated struct LookLensShading: Equatable, Sendable {
     static func position(_ i: Int, of n: Int) -> Double { n > 1 ? (Double(i) + 0.5) / Double(n - 1) : 0 }
 
     /// The gain at `r` (0 centre … 1 corner), linear between knots, flat outside them; `amount`
-    /// scales the correction (0 none … 1 the camera's own).
+    /// scales the correction in stops (0 none, 1 the camera's own, above 1 more). The body's own
+    /// correction is partial by design: against Lightroom's lens profile on the sweep it is
+    /// 1.3–2.2× short, so the rules may ask for more than 1 (kept within [0, 3]).
     func gain(at r: Double, amount: Double = 1) -> Double {
         let g = gains
         guard let first = g.first, let last = g.last else { return 1 }
@@ -42,7 +44,7 @@ nonisolated struct LookLensShading: Equatable, Sendable {
                 break
             }
         }
-        return 1 + (out - 1) * min(1, max(0, amount))
+        return pow(out, min(3, max(0, amount)))
     }
 
     /// True when the camera recorded any falloff at all.
