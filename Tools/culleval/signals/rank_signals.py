@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Which signal tells the picked frame from the ones passed over, inside a row?
 
-    python3 Tools/culling-eval/rank_signals.py --exports exports.csv --signals signals.jsonl \
-        --out signals-report.md runs/<pool>/dump-decisions/decisions.json
+    python3 Tools/culleval/signals/rank_signals.py --signals signals.jsonl --out signals-report.md labeled.json
+
+`labeled.json` is what `Tools/culleval/culleval-app.mjs --out` writes: the photos of the probe's
+dumps on days with a pick, each with its `pool` and whether it was picked.
 
 Each candidate (signals.swift's Vision / sharpness numbers, lumina-core's own `focus`, and
 shooting-order cues from the capture times) is scored the way the choice is made: inside a
@@ -23,12 +25,8 @@ import argparse
 import collections
 import json
 import math
-import os
 import random
 import sys
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import score  # noqa: E402
 
 # name → (key, direction): +1 when more should mean "pick".
 SIGNALS = collections.OrderedDict([
@@ -200,27 +198,21 @@ def table(photos, by, rng):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("decisions", nargs="+")
-    ap.add_argument("--exports", required=True)
+    ap.add_argument("labeled", nargs="+")
     ap.add_argument("--signals", required=True)
     ap.add_argument("--out")
     ap.add_argument("--run-gap", type=float, default=4.0)
     ap.add_argument("--seed", type=int, default=7)
     a = ap.parse_args(argv)
     rng = random.Random(a.seed)
-    picks = score.load_picks(a.exports)
     sig = {}
     with open(a.signals) as f:
         for line in f:
             r = json.loads(line)
             sig[r.pop("id")] = r
     photos = []
-    for path in a.decisions:
-        name = os.path.basename(os.path.dirname(os.path.dirname(os.path.abspath(path))))
-        P = json.load(open(path))["photos"]
-        for p in P:
-            p["pool"] = name
-        photos += score.label(P, picks)
+    for path in a.labeled:
+        photos += json.load(open(path))["photos"]
     have = 0
     for p in photos:
         s = sig.get(p["path"])

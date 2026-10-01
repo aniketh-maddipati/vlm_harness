@@ -44,16 +44,20 @@ export function matchExports(raws, exports) {
   const stem = s => String(s || '').replace(/\.[^.]+$/, '').toLowerCase();
   const byStem = new Map(), byDate = new Map();
   for (const r of raws) {
-    byStem.set(stem(r.name), r);
+    if (!byStem.has(stem(r.name))) byStem.set(stem(r.name), []);
+    byStem.get(stem(r.name)).push(r);
     if (!byDate.has(r.date)) byDate.set(r.date, []);
     byDate.get(r.date).push(r);
   }
   const near = (a, b) => a == null || b == null || Math.abs(a - b) <= 1e-6 + 0.02 * Math.max(Math.abs(a), Math.abs(b));
   const kept = new Set(), ambiguous = new Set(), unmatched = [], rule = { name: 0, time: 0 };
   for (const e of exports) {
-    const n = byStem.get(stem(e.raw));
-    if (n && (!e.date || n.date === e.date)) { kept.add(n.id); rule.name++; continue; }
+    // File numbers repeat across cards and days: of the RAWs with that name, the one shot at that time.
+    const n = (byStem.get(stem(e.raw)) || []).find(r => !e.date || r.date === e.date);
+    if (n) { kept.add(n.id); rule.name++; continue; }
     let c = byDate.get(e.date) || [];
+    // Lightroom names a derived file after its source (DSC01234-Enhanced-NR.dng, -Pano, -2): that RAW, if it is among them.
+    if (c.length > 1) { const x = c.filter(r => stem(e.raw).startsWith(stem(r.name))); if (x.length) c = x; }
     if (c.length > 1) { const x = c.filter(r => near(r.exp, e.exp) && near(r.fnum, e.fnum) && near(r.iso, e.iso) && near(r.fl, e.fl)); if (x.length) c = x; }
     if (c.length === 1) { kept.add(c[0].id); rule.time++; }
     else if (c.length > 1) c.forEach(r => ambiguous.add(r.id));
