@@ -138,7 +138,9 @@ set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5
 - **Two kinds of Lightroom data, two uses.** The *sweep* (one slider from a neutral base) is the
   development set the fit may use. Lightroom Classic's plug-in makes it; Lightroom CC has none, so
   `Tools/parity/lr_cc_sweep.py presets` writes click-to-apply presets and `… ingest <exports>`
-  names the JPEG exports from their embedded XMP. Someone's *own edits* (`make parity-personal`,
+  names the JPEG exports from their embedded XMP (`presets --sweep 2` adds white balance and ten
+  seeded three-slider combos; the ingest also writes `<stem>__asshot.json` and the combos' JSON).
+  Someone's *own edits* (`make parity-personal`,
   JPEG exports with "All metadata" + their RAWs) are a held-out acceptance set: measured, never
   fitted (ruled 2026-09-30). Both live in `~/LuminaEvidence`, never in the repo.
 - **rawDevelop undoes lens shading with the camera's own numbers** (`LookLensShading`: Sony's

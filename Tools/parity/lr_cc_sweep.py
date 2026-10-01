@@ -17,6 +17,22 @@ slider that differs from the base says which sweep position it is. Exports need 
 The positions are a subset of lr_sweep.lrdevplugin's (the Classic plug-in): the sliders the
 first personal-set eval implicates (Exposure, Blacks, Contrast, Whites) at more positions, the
 rest at a few, plus the base with lens profile corrections on (the border ΔL* question).
+
+Sweep 2 (`presets --sweep 2`, group "Lumina sweep 2", ~/LuminaEvidence/parity/sweep2) is white
+balance and three-slider combos:
+
+    python3 Tools/parity/lr_cc_sweep.py presets --sweep 2
+    python3 Tools/parity/lr_cc_sweep.py ingest ~/LuminaEvidence/parity/sweep2/exports --refs ~/LuminaEvidence/parity/sweep2/refs
+        → also <stem>__Temperature__<K>.jpg, <stem>__Tint__<v>.jpg, <stem>__combo<NN>.jpg + .json
+          ({"settings": …}) and <stem>__asshot.json (Lightroom's as-shot Temperature / Tint, which
+          every As Shot export carries; parity.py turns absolute Kelvin into a delta with it).
+
+A Temperature preset sets only Temperature (white balance Custom) and a Tint preset only Tint,
+so the other one stays as shot per photo, as the Classic plug-in does it. That holds when the
+preset is clicked on a photo whose white balance is as shot, which the click order arranges (the
+Base and the combos without white balance reset it). The ingest checks it against the as-shot
+values and names an export where an earlier white-balance preset was still applied. Combos that
+move white balance set both Temperature and Tint, so they don't depend on what came before.
 """
 import argparse
 import hashlib
@@ -53,7 +69,82 @@ BASE = {
 }
 LENS = {"LensProfileEnable": 1, "LensProfileSetup": "LensDefaults"}
 SLIDER_KEYS = {key for _, key, _ in SWEEP}
+LABELS = {key: label for label, key, _ in SWEEP}
 GROUP = "Lumina sweep"
+
+# Sweep 2. White balance: absolute Kelvin / Tint, four of the plug-in's ten positions each.
+WB_SWEEP = [
+    ("Temperature", "Temperature", [3200, 4000, 6500, 10000]),
+    ("Tint", "Tint", [-60, -20, 20, 60]),
+]
+GROUP2 = "Lumina sweep 2"
+
+# Combos: three sliders each, moderate values (sign random, magnitude lo … hi in steps). Seeded,
+# so the table is the same on every run: the ingest matches exports against it. Changing the seed,
+# the ranges or the counts after presets were imported into Lightroom orphans those exports.
+COMBO_SEED = 20260930
+COMBOS = 10
+WB_COMBOS = 3       # the last ones: Temperature + Tint + one other slider
+COMBO_TONE = [      # (label, key, lo, hi, step); every one appears in three combos
+    ("Exposure", "Exposure2012", 0.3, 1.0, 0.05),
+    ("Contrast", "Contrast2012", 10, 40, 5),
+    ("Highlights", "Highlights2012", 20, 60, 5),
+    ("Shadows", "Shadows2012", 20, 60, 5),
+    ("Whites", "Whites2012", 10, 40, 5),
+    ("Blacks", "Blacks2012", 10, 40, 5),
+    ("Vibrance", "Vibrance", 10, 40, 5),
+    ("Saturation", "Saturation", 10, 30, 5),
+]
+COMBO_KELVIN = (3800, 8000, 50)   # uniform in mired between the two
+COMBO_TINT = (10, 35, 5)
+
+
+def lcg(seed):
+    """Sweep.lua's generator: the same numbers on every Python."""
+    state = [seed]
+
+    def rnd():
+        state[0] = (state[0] * 1103515245 + 12345) % 2147483648
+        return state[0] / 2147483648
+    return rnd
+
+
+def combos():
+    """[{label: value}], three sliders each, in combo order (combo01 first)."""
+    rnd = lcg(COMBO_SEED)
+
+    def pick(lo, hi, step):
+        v = round((lo + rnd() * (hi - lo)) / step) * step
+        return round(v if rnd() < 0.5 else -v, 2)
+
+    slots = len(COMBO_TONE) * 3
+    assert slots == WB_COMBOS + 3 * (COMBOS - WB_COMBOS)
+    while True:   # each tone slider three times over the table, never twice in one combo
+        deck = [t for t in COMBO_TONE for _ in range(3)]
+        for i in range(slots - 1, 0, -1):
+            j = int(rnd() * (i + 1))
+            deck[i], deck[j] = deck[j], deck[i]
+        plain = [deck[i:i + 3] for i in range(0, slots - WB_COMBOS, 3)]
+        if all(len({t[0] for t in c}) == 3 for c in plain):
+            break
+    out = [{label: pick(lo, hi, step) for label, _, lo, hi, step in c} for c in plain]
+    for label, _, lo, hi, step in deck[slots - WB_COMBOS:]:
+        klo, khi, kstep = COMBO_KELVIN
+        mired = 1e6 / khi + rnd() * (1e6 / klo - 1e6 / khi)
+        out.append({label: pick(lo, hi, step), "Temperature": int(round(1e6 / mired / kstep) * kstep), "Tint": pick(*COMBO_TINT)})
+    return out
+
+
+COMBO_KEYS = {label: key for label, key, _, _, _ in COMBO_TONE}
+COMBO_KEYS.update(Temperature="Temperature", Tint="Tint")
+
+
+def combo_settings(combo):
+    """The preset for one combo: the base plus its sliders, white balance Custom if it moves it."""
+    s = {**BASE, **{COMBO_KEYS[label]: v for label, v in combo.items()}}
+    if "Temperature" in combo:
+        s["WhiteBalance"] = "Custom"
+    return s
 
 
 def fmt(key, v):
@@ -61,6 +152,8 @@ def fmt(key, v):
         return v
     if key == "Exposure2012":
         return f"{v:+.2f}"
+    if key == "Temperature":
+        return str(int(v))
     return f"{int(v):+d}" if v else "0"
 
 
@@ -80,7 +173,26 @@ def presets():
     return out
 
 
-def preset_xmp(num, name, settings):
+def presets2():
+    """Sweep 2 in click order: the base, Temperature, the combos without white balance (they put
+    white balance back to as shot), Tint, the combos with white balance."""
+    table = combos()
+    out = [("Base", dict(BASE))]
+    wb = {label: [(f"{label} {fmt(key, v)}", {**BASE, "WhiteBalance": "Custom", key: v}) for v in values]
+          for label, key, values in WB_SWEEP}
+    named = [(f"Combo {n:02d}", combo_settings(c)) for n, c in enumerate(table, 1)]
+    out += wb["Temperature"] + named[:COMBOS - WB_COMBOS] + wb["Tint"] + named[COMBOS - WB_COMBOS:]
+    return [(f"2-{n:02d}", name, settings) for n, (name, settings) in enumerate(out, 1)]
+
+
+def describe(name, settings):
+    moved = [f"{LABELS.get(k, k)} {fmt(k, v)}" for k, v in settings.items() if BASE.get(k, 0) != v and k != "WhiteBalance"]
+    if name.startswith("Combo"):
+        return "Lumina parity sweep: " + ", ".join(moved) + " from the neutral base."
+    return "Lumina parity sweep: one slider from the neutral base."
+
+
+def preset_xmp(num, name, settings, group=GROUP):
     uid = hashlib.md5(f"lumina-sweep/{num}/{name}".encode()).hexdigest().upper()
     attrs = "\n".join(f'   crs:{k}="{fmt(k, v)}"' for k, v in settings.items())
     title = f"{num} {name}"
@@ -109,27 +221,29 @@ def preset_xmp(num, name, settings):
    <crs:Name><rdf:Alt><rdf:li xml:lang="x-default">{title}</rdf:li></rdf:Alt></crs:Name>
    <crs:ShortName><rdf:Alt><rdf:li xml:lang="x-default"/></rdf:Alt></crs:ShortName>
    <crs:SortName><rdf:Alt><rdf:li xml:lang="x-default"/></rdf:Alt></crs:SortName>
-   <crs:Group><rdf:Alt><rdf:li xml:lang="x-default">{GROUP}</rdf:li></rdf:Alt></crs:Group>
-   <crs:Description><rdf:Alt><rdf:li xml:lang="x-default">Lumina parity sweep: one slider from the neutral base.</rdf:li></rdf:Alt></crs:Description>
+   <crs:Group><rdf:Alt><rdf:li xml:lang="x-default">{group}</rdf:li></rdf:Alt></crs:Group>
+   <crs:Description><rdf:Alt><rdf:li xml:lang="x-default">{describe(name, settings)}</rdf:li></rdf:Alt></crs:Description>
   </rdf:Description>
  </rdf:RDF>
 </x:xmpmeta>
 """
 
 
-def write_presets(out):
+def write_presets(out, sweep=1):
+    group, table, zname = ((GROUP, presets(), "Lumina-sweep-presets.zip") if sweep == 1
+                           else (GROUP2, presets2(), "Lumina-sweep2-presets.zip"))
     d = os.path.join(out, "presets")
     os.makedirs(d, exist_ok=True)
     files = []
-    for num, name, settings in presets():
+    for num, name, settings in table:
         path = os.path.join(d, f"{num} {name}.xmp")
         with open(path, "w", encoding="utf-8") as f:
-            f.write(preset_xmp(num, name, settings))
+            f.write(preset_xmp(num, name, settings, group))
         files.append(path)
-    z = os.path.join(out, "Lumina-sweep-presets.zip")
+    z = os.path.join(out, zname)
     with zipfile.ZipFile(z, "w", zipfile.ZIP_DEFLATED) as zf:
         for p in files:
-            zf.write(p, os.path.join(GROUP, os.path.basename(p)))
+            zf.write(p, os.path.join(group, os.path.basename(p)))
     return files, z
 
 
@@ -161,28 +275,96 @@ def num(s):
         return None
 
 
-def classify(crs):
-    """('base' | 'baseLens' | (slider, value)) or (None, why)."""
+def as_shot_of(crs):
+    """(Temperature, Tint) an As Shot export carries, or None."""
+    if crs.get("WhiteBalance", "As Shot") != "As Shot":
+        return None
+    t, tint = num(crs.get("Temperature")), num(crs.get("Tint"))
+    return (t, tint) if t is not None and tint is not None else None
+
+
+def same(a, b):
+    return set(a) == set(b) and all(abs(a[k] - b[k]) < 1e-6 for k in a)
+
+
+def classify(crs, as_shot=None, table=None):
+    """('base' | 'baseLens' | (slider, value) | ('combo', n)) or (None, why). `as_shot` is the
+    photo's (Temperature, Tint) from one of its As Shot exports; `table` is combos()."""
+    table = combos() if table is None else table
     lens = num(crs.get("LensProfileEnable")) == 1
     moved = [(k, num(crs.get(k))) for k in SLIDER_KEYS if num(crs.get(k)) not in (None, 0)]
+    tone = {LABELS[k]: v for k, v in moved}
     for k in ("Texture", "Clarity2012", "Dehaze"):
         if num(crs.get(k)) not in (None, 0):
             return None, f"{k} is {crs.get(k)} (the sweep keeps it 0)"
-    if lens and moved:
+    mode = crs.get("WhiteBalance", "As Shot")
+    if mode not in ("As Shot", "Custom"):
+        return None, f"white balance is {mode} (the sweep keeps it As Shot, or Custom from a preset)"
+    if lens and (moved or mode == "Custom"):
         return None, "lens corrections on together with a slider"
+    if mode == "Custom":
+        return classify_wb(crs, tone, as_shot, table)
     if not moved:
         return ("baseLens" if lens else "base"), None
     if len(moved) > 1:
-        return None, "more than one slider moved: " + ", ".join(f"{k}={v:g}" for k, v in moved)
+        for n, c in enumerate(table, 1):
+            if "Temperature" not in c and same(c, tone):
+                return ("combo", n), None
+        return None, "more than one slider moved: " + ", ".join(f"{k}={v:g}" for k, v in moved) + " (not one of the combos)"
     key, v = moved[0]
-    label = next(l for l, k, _ in SWEEP if k == key)
-    return (label, v), None
+    return (LABELS[key], v), None
 
 
-def ingest(exports, refs):
+def classify_wb(crs, tone, as_shot, table):
+    """An export with white balance Custom: a combo with white balance, or Temperature / Tint
+    alone with the other one as shot."""
+    t, tint = num(crs.get("Temperature")), num(crs.get("Tint"))
+    if t is None or tint is None:
+        return None, "white balance Custom without Temperature / Tint in the file"
+    here = {**tone, "Temperature": t, "Tint": tint}
+    for n, c in enumerate(table, 1):
+        if "Temperature" in c and same(c, here):
+            return ("combo", n), None
+    wb = f"Temperature {t:g}, Tint {tint:+g}"
+    if tone:
+        return None, f"{wb} with " + ", ".join(f"{k} {v:g}" for k, v in sorted(tone.items())) + ": not one of the combos"
+    if as_shot is None:
+        return None, f"{wb}, but no As Shot export of this photo says what its as-shot values are: export the Base preset too"
+    t0, tint0 = as_shot
+    positions = {label: values for label, _, values in WB_SWEEP}
+    hits = []
+    if tint == tint0 and t in positions["Temperature"]:
+        hits.append(("Temperature", t))
+    if t == t0 and tint in positions["Tint"]:
+        hits.append(("Tint", tint))
+    if len(hits) == 1:
+        return hits[0], None
+    if hits:
+        return None, f"{wb} is both a Temperature and a Tint position for this photo (as shot {t0:g} / {tint0:+g})"
+    if t != t0 and tint != tint0 and (t in positions["Temperature"] or tint in positions["Tint"]):
+        return None, (f"{wb}, but this photo is {t0:g} / {tint0:+g} as shot: an earlier white-balance preset was still applied. "
+                      "Click the Base preset, then this preset again, and re-export")
+    return None, f"{wb} is not a sweep position (as shot {t0:g} / {tint0:+g})"
+
+
+def wanted_for(sweep, table):
+    if sweep == 1:
+        return {("base",), ("baseLens",)} | {(l, float(v)) for l, _, vs in SWEEP for v in vs}
+    return ({("base",)} | {(l, float(v)) for l, _, vs in WB_SWEEP for v in vs}
+            | {("combo", n) for n in range(1, len(table) + 1)})
+
+
+def number(v):
+    return int(v) if float(v).is_integer() else v
+
+
+def ingest(exports, refs, sweep=None):
+    """`sweep`: 1 or 2 says which preset set to expect (for the missing list); None works it out
+    from what is there. An export from either set is recognised either way."""
     os.makedirs(refs, exist_ok=True)
-    wanted = {("base",), ("baseLens",)} | {(l, float(v)) for l, _, vs in SWEEP for v in vs}
-    found, problems = {}, []
+    table = combos()
+    wanted = {1: wanted_for(1, table), 2: wanted_for(2, table)}
+    found, problems, files = {}, [], []
     for root, _, names in os.walk(exports):
         for n in sorted(names):
             if not n.lower().endswith((".jpg", ".jpeg")):
@@ -192,55 +374,95 @@ def ingest(exports, refs):
             if crs is None or "RawFileName" not in crs:
                 problems.append({"file": n, "why": "no Camera Raw settings in the file: export with Metadata ▸ All metadata"})
                 continue
-            stem = os.path.splitext(crs["RawFileName"])[0]
-            kind, why = classify(crs)
-            if kind is None:
-                problems.append({"file": n, "raw": crs["RawFileName"], "why": why})
+            files.append((n, path, crs, os.path.splitext(crs["RawFileName"])[0]))
+
+    # Lightroom's as-shot white balance per photo, from the exports that kept it as shot.
+    as_shot, profiles = {}, {}
+    for n, _, crs, stem in files:
+        v = as_shot_of(crs)
+        if v is None:
+            continue
+        if stem in as_shot and as_shot[stem] != v:
+            problems.append({"file": n, "raw": crs["RawFileName"], "why": f"as-shot white balance {v[0]:g} / {v[1]:+g} differs from "
+                             f"{as_shot[stem][0]:g} / {as_shot[stem][1]:+g} in another export of this photo (kept the first)"})
+            continue
+        if stem not in as_shot:
+            as_shot[stem] = v
+            profiles[stem] = {"profile": crs.get("LookName") or crs.get("CameraProfile") or "", "processVersion": crs.get("ProcessVersion", "")}
+
+    for n, path, crs, stem in files:
+        kind, why = classify(crs, as_shot.get(stem), table)
+        if kind is None:
+            problems.append({"file": n, "raw": crs["RawFileName"], "why": why})
+            continue
+        profile = crs.get("LookName") or crs.get("CameraProfile") or ""
+        if profile and profile not in ("Adobe Color", "Adobe Standard"):
+            problems.append({"file": n, "raw": crs["RawFileName"], "why": f"profile {profile} (expected Adobe Color)"})
+        side = None
+        if isinstance(kind, tuple) and kind[0] == "combo":
+            dest, key = f"{stem}__combo{kind[1]:02d}.jpg", (stem,) + kind
+            side = {"settings": {k: number(v) for k, v in table[kind[1] - 1].items()}}
+            if stem in as_shot:
+                side["asShot"] = as_shot_record(as_shot[stem], profiles[stem])
+        elif isinstance(kind, tuple):
+            slider, v = kind
+            if (slider, float(v)) not in wanted[1] | wanted[2]:
+                problems.append({"file": n, "raw": crs["RawFileName"], "why": f"{slider} {v:g} is not a sweep position"})
                 continue
-            profile = crs.get("LookName") or crs.get("CameraProfile") or ""
-            if profile and profile not in ("Adobe Color", "Adobe Standard"):
-                problems.append({"file": n, "raw": crs["RawFileName"], "why": f"profile {profile} (expected Adobe Color)"})
-            if isinstance(kind, tuple):
-                slider, v = kind
-                if (slider, float(v)) not in wanted:
-                    problems.append({"file": n, "raw": crs["RawFileName"], "why": f"{slider} {v:g} is not a sweep position"})
-                    continue
-                dest, key = f"{stem}__{slider}__{value_name(v)}.jpg", (stem, slider, float(v))
-            else:
-                dest, key = f"{stem}__{kind}.jpg", (stem, kind)
-            if key in found:
-                problems.append({"file": n, "raw": crs["RawFileName"], "why": f"duplicate of {found[key]} (kept the first)"})
-                continue
-            shutil.copyfile(path, os.path.join(refs, dest))
-            found[key] = n
+            dest, key = f"{stem}__{slider}__{value_name(v)}.jpg", (stem, slider, float(v))
+        else:
+            dest, key = f"{stem}__{kind}.jpg", (stem, kind)
+        if key in found:
+            problems.append({"file": n, "raw": crs["RawFileName"], "why": f"duplicate of {found[key]} (kept the first)"})
+            continue
+        shutil.copyfile(path, os.path.join(refs, dest))
+        if side:
+            with open(os.path.join(refs, os.path.splitext(dest)[0] + ".json"), "w") as f:
+                json.dump(side, f, indent=1, sort_keys=True)
+        found[key] = n
     stems = sorted({k[0] for k in found})
-    missing = {s: [" ".join(str(x) for x in w) for w in sorted(wanted, key=str)
+    for s in stems:
+        if s in as_shot:   # what import_refs attaches to every ref of the photo as "asShot"
+            with open(os.path.join(refs, f"{s}__asshot.json"), "w") as f:
+                json.dump(as_shot_record(as_shot[s], profiles[s]), f, indent=1, sort_keys=True)
+    if sweep is None:
+        sweep = 2 if any(k[1:] in wanted[2] - wanted[1] for k in found) else 1
+    missing = {s: [" ".join(str(x) for x in w) for w in sorted(wanted[sweep], key=str)
                    if (s,) + w not in found] for s in stems}
-    report = {"exports": exports, "refs": refs, "photos": stems, "refs_written": len(found),
-              "expected_per_photo": len(wanted), "missing": {s: m for s, m in missing.items() if m}, "problems": problems}
+    report = {"exports": exports, "refs": refs, "sweep": sweep, "photos": stems, "refs_written": len(found),
+              "expected_per_photo": len(wanted[sweep]), "missing": {s: m for s, m in missing.items() if m}, "problems": problems,
+              "asShot": {s: as_shot_record(as_shot[s], profiles[s]) for s in stems if s in as_shot}}
     with open(os.path.join(refs, "sweep-ingest.json"), "w") as f:
         json.dump(report, f, indent=1)
     return report
+
+
+def as_shot_record(v, extra):
+    """<stem>__asshot.json as Sweep.lua writes it (the keys parity.py reads: Temperature, Tint)."""
+    return {"Temperature": number(v[0]), "Tint": number(v[1]), **{k: x for k, x in extra.items() if x}}
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("presets")
-    p.add_argument("--out", default=os.path.expanduser("~/LuminaEvidence/parity/sweep"))
+    p.add_argument("--sweep", type=int, choices=(1, 2), default=1, help="1: the single sliders; 2: white balance + combos")
+    p.add_argument("--out", help="default: ~/LuminaEvidence/parity/sweep, or …/sweep2 for --sweep 2")
     i = sub.add_parser("ingest")
     i.add_argument("exports")
     i.add_argument("--refs", default=os.path.expanduser("~/LuminaEvidence/parity/refs"))
+    i.add_argument("--sweep", type=int, choices=(1, 2), help="which preset set to expect (default: worked out from the exports)")
     a = ap.parse_args(argv)
     if a.cmd == "presets":
-        files, z = write_presets(a.out)
+        out = os.path.expanduser(a.out or ("~/LuminaEvidence/parity/sweep" if a.sweep == 1 else "~/LuminaEvidence/parity/sweep2"))
+        files, z = write_presets(out, a.sweep)
         print(f"{len(files)} presets → {os.path.dirname(files[0])}\nimport this in Lightroom: {z}")
     else:
         exports = os.path.expanduser(a.exports)
         if not os.path.isdir(exports):
             print(f"no folder {exports}: export from Lightroom into it first (see the presets step)")
             return 2
-        r = ingest(exports, os.path.expanduser(a.refs))
+        r = ingest(exports, os.path.expanduser(a.refs), a.sweep)
         if r["refs_written"] == 0 and not r["problems"]:
             print(f"no JPEG exports under {exports}")
             return 2
