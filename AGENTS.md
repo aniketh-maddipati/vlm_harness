@@ -78,6 +78,8 @@ make parity-check          # lumina-render ramp → lookmath.py --check (Metal �
 
 # Probe: drives the real page + bridge in WKWebView (Tools/LuminaProbe). Evidence → ~/LuminaEvidence/probe
 bash Scripts/probe.sh reference     # every screen, prototype and app, byte-compared to Tests/probe/reference/manifest.json
+bash Scripts/probe.sh screens       # every screen rendered once, the app twins equal to the prototype (what CI runs)
+bash Scripts/probe.sh scenarios fuzz-sample-2 scroll-read   # just these scenarios
 bash Scripts/probe.sh contract      # plumbing.js still fits the page
 bash Scripts/probe.sh smoke         # page runs, ?selftest passes, app reads / keeps / saves sidecars / reopens
 bash Scripts/probe.sh selftest      # the design's own ?selftest (25 checks + timing)
@@ -101,7 +103,8 @@ Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 
 CI (`.github/workflows/lumina.yml`) runs the fixtures, the byte-for-byte page check, the wording
-audit, the Chromium plumbing harness, the WebKitGTK sandbox, the Linux Swift tests, the build + logic tests, and a probe build.
+audit, the Chromium plumbing harness, the WebKitGTK sandbox, the Linux Swift tests, the build + logic tests, and the
+probe in four parallel macOS shards (smoke + screens, fuzz, fuzz + scroll, scroll 2560 + edit + raw9).
 
 ## Rules that bite
 

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Lumina probe suites — drive the page in WKWebView and try to break it.
 #
+#   bash Scripts/probe.sh screens                every v5 screen × 2 sizes, prototype and app, rendered once: the app twins must
+#                                                equal the prototype byte for byte (CI: no committed reference needed)
+#   bash Scripts/probe.sh scenarios NAME…        just these scenarios (Tests/probe/scenarios/NAME.json), e.g. fuzz-sample-2
 #   bash Scripts/probe.sh reference [--record]   every v5 screen × 2 sizes (+ app twins) and state dumps, byte-compared to
 #                                                Tests/probe/reference/manifest.json (--record rewrites it)
 #   bash Scripts/probe.sh smoke                  the v5 page runs, its ?selftest passes, plumbing fits, and the app reads,
@@ -98,6 +101,27 @@ EOF
   fi
 }
 
+# The app twins against the prototype screens from the same run (no manifest): one render of each.
+screens() {
+  run "$S/screens-1920.json" "$S/screens-1440.json" "$S/screens-1920-app.json" "$S/screens-1440-app.json"
+  python3 - "$OUT" <<'EOF' || status=1
+import hashlib, os, sys
+out = sys.argv[1]
+sha = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest()
+bad, n = [], 0
+for size in ("1440", "1920"):
+    app, proto = os.path.join(out, f"screens-{size}-app"), os.path.join(out, f"screens-{size}")
+    for f in sorted(os.listdir(app)) if os.path.isdir(app) else []:
+        if not (f.endswith(".png") or f.endswith(".state.json")): continue
+        n += 1
+        p = os.path.join(proto, f)
+        if not os.path.exists(p) or sha(p) != sha(os.path.join(app, f)): bad.append(f"screens-{size}-app/{f}")
+for b in bad: print(f"APP≠DESIGN  {b}")
+print(f"app vs design: {n - len(bad)} / {n} identical")
+sys.exit(1 if bad or n == 0 else 0)
+EOF
+}
+
 # Scenarios still written for the v3 page (bare 1/2/3 steps, R/X keys, the Edit step, RAW/JPEG
 # export to a picked folder). They need rewriting for v5 before they mean anything; see
 # Tests/probe/EDGE-CASES.md. `probe.sh v3` runs them anyway.
@@ -141,6 +165,8 @@ editdir() {
 
 case "$suite" in
   reference) reference ;;
+  screens)   screens ;;
+  scenarios) scrolldir; editdir; files=(); for n in ${extra[@]+"${extra[@]}"}; do files+=("$S/$n.json"); done; extra=(); run "${files[@]}" ;;
   sync)      echo "use: bash Scripts/sets_sync_design.sh <handoff.zip>"; exit 2 ;;
   smoke)     run "$S/smoke.json" "$S/keys-open-return.json" "$S/selftest.json" "$S/app-plumbing-contract.json" "$S/app-smoke.json" ;;
   selftest)  run "$S/selftest.json" ;;
