@@ -48,6 +48,10 @@ rows (nobody has marked scenes), so rows are only checked for cutting through a 
   capture time to the second, then exposure. Frames that can't be told apart are left out.
   **A batch export is not a selection**: the truth table shows how many exports carry edits; a
   folder of unedited exports of consecutive frames says nothing about keeps.
+- `keeps`: saved keep lists, read like exports (alone or beside `exports`). Every run writes the
+  keep list of each shoot whose exports folders are present to `~/LuminaEvidence/culleval/keeps/<id>.json`
+  (export name, its RAW, capture time, exposure, whether it was edited; no pixels). When an exports
+  folder is archived or deleted, name that file under `keeps` and the shoot scores as before.
 - `sidecars`: kept = `.xmp` next to the RAW with `xmp:Rating` ≥ 1 (what Lumina's Save writes).
 - `session`: a saved Lumina `session.json`; kept = its keeps, counted only in rows marked seen.
 

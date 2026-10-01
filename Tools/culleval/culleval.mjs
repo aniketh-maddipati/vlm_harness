@@ -89,14 +89,19 @@ async function shoot(sh) {
   // Keeps: exports, sidecars, or a saved Lumina session.
   let kept = null, scope = ids, source = null;
   // A truth source that is not there is no truth: never read a missing folder as "nothing kept".
-  const gone = [...(sh.exports || []), ...(sh.session ? [sh.session] : [])].map(home).filter(d => !fs.existsSync(d));
-  if (gone.length) r.truthMissing = (sh.exports ? 'exports folder' : 'session') + ' not found';
-  if (sh.exports && !gone.length) {
-    const jpgs = sh.exports.map(home).flatMap(d => walk(d, /\.jpe?g$/i)), je = exif(jpgs);
-    const exps = jpgs.map(f => { const e = je.get(f); return { name: name(f), raw: e.RawFileName, date: e.DateTimeOriginal, exp: e.ExposureTime, fnum: e.FNumber, iso: e.ISO, fl: e.FocalLength, edited: EDITS.some(k => +e[k]) || e.HasCrop === true || e.HasCrop === 'True' }; }).filter(e => inShoot(e.date));
+  const gone = [...(sh.exports || []), ...(sh.keeps || []), ...(sh.session ? [sh.session] : [])].map(home).filter(d => !fs.existsSync(d));
+  if (gone.length) r.truthMissing = (sh.session ? 'session' : (sh.exports || []).some(d => gone.includes(home(d))) ? 'exports folder' : 'keeps list') + ' not found';
+  if ((sh.exports || sh.keeps) && !gone.length) {
+    const jpgs = (sh.exports || []).map(home).flatMap(d => walk(d, /\.jpe?g$/i)), je = exif(jpgs);
+    const found = jpgs.map(f => { const e = je.get(f); return { name: name(f), raw: e.RawFileName, date: e.DateTimeOriginal, exp: e.ExposureTime, fnum: e.FNumber, iso: e.ISO, fl: e.FocalLength, edited: EDITS.some(k => +e[k]) || e.HasCrop === true || e.HasCrop === 'True' }; });
+    // The keep list of the exports that are here is saved on every run (names and settings, no pixels), so
+    // the truth outlives the JPEGs: name the saved file under "keeps" once an exports folder is gone.
+    if (found.length) { fs.mkdirSync(path.join(OUT, 'keeps'), { recursive: true }); fs.writeFileSync(path.join(OUT, 'keeps', sh.id + '.json'), JSON.stringify({ shoot: sh.id, saved: new Date().toISOString(), from: sh.exports, exports: found }, null, 1)); }
+    const listed = (sh.keeps || []).flatMap(f => JSON.parse(fs.readFileSync(home(f), 'utf8')).exports);
+    const exps = [...found, ...listed].filter(e => inShoot(e.date));
     const m = matchExports(frames, exps);
     kept = m.kept; scope = ids.filter(id => !m.ambiguous.has(id)); source = 'exports';
-    r.truth = { source, exports: exps.length, edited: exps.filter(e => e.edited).length, matchedByName: m.rule.name, matchedByTime: m.rule.time, exportsWithoutRaw: m.unmatched.length, ambiguous: m.ambiguous.size };
+    r.truth = { source, exports: exps.length, fromKeepsList: listed.filter(e => inShoot(e.date)).length, edited: exps.filter(e => e.edited).length, matchedByName: m.rule.name, matchedByTime: m.rule.time, exportsWithoutRaw: m.unmatched.length, ambiguous: m.ambiguous.size };
     r.local.exportsWithoutRaw = m.unmatched;
   } else if (sh.sidecars) {
     kept = new Set(ids.filter(f => { try { const m = /xmp:Rating\s*=\s*"(\d+)"|<xmp:Rating>(\d+)</.exec(fs.readFileSync(f.replace(/\.[^.]+$/, '.xmp'), 'utf8')); return m && +(m[1] ?? m[2]) >= 1; } catch (_) { return false; } }));
@@ -158,7 +163,7 @@ async function shoot(sh) {
 // ——— all shoots, pooled numbers, the report
 // Everything the config names must be there. A drive that is not mounted would otherwise give a
 // report over fewer shoots that looks complete. --allow-missing scores what is there and says what is not.
-const missing = config.shoots.flatMap(sh => [sh.raws, ...(sh.exports || []), ...(sh.session ? [sh.session] : [])].map(home).filter(d => !fs.existsSync(d)).map(d => ({ id: sh.id, path: d })));
+const missing = config.shoots.flatMap(sh => [sh.raws, ...(sh.exports || []), ...(sh.keeps || []), ...(sh.session ? [sh.session] : [])].map(home).filter(d => !fs.existsSync(d)).map(d => ({ id: sh.id, path: d })));
 if (missing.length) {
   const vols = [...new Set(missing.map(m => /^\/Volumes\/[^/]+/.exec(m.path)?.[0]).filter(v => v && !fs.existsSync(v)))];
   log('culleval: ' + missing.length + ' path' + (missing.length > 1 ? 's' : '') + ' named in ' + CONFIG + ' not found:');
