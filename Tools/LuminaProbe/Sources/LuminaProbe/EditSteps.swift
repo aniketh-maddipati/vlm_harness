@@ -17,12 +17,36 @@ enum EditSteps {
     /// A 2 s drag on one slider at `hz` values per second through `lumina.edit.look`, then the
     /// Mac's numbers. Native path: latency is look event (page clock) → drawable presented;
     /// image path: look event → `luminaEditImage` shown, measured in the page.
+    ///
+    /// `merge: true` drags the way the page does: every value is the look on the canvas with this
+    /// one slider changed (without it the look is the slider alone), and the drag ends exactly on
+    /// `to`. `waitWarmMs` first waits for the canvas's warm-up to go idle, as a person reaching
+    /// for a slider does. `maxFirstMs` gates the main-thread time of the drag's first render of
+    /// each set of stages the drawable had not rendered before (where a program compiled on the
+    /// main thread shows, whether or not a display refresh happened to be missed);
+    /// `expectFirst: true` fails the step when the drag rendered no new set (it tested nothing).
     static func drag(host: ProbeHost, _ s: [String: Any]) async throws -> Outcome {
         let key = s["slider"] as? String ?? "ev"
         let from = s["from"] as? Double ?? -1, to = s["to"] as? Double ?? 1
         let ms = s["ms"] as? Double ?? 2000, hz = s["hz"] as? Double ?? 120
+        let merge = s["merge"] as? Bool ?? false
+        var warmNote = ""
+        if let wait = s["waitWarmMs"] as? Double, host.bridge?.canvas?.path == .native {
+            let t0 = Date()
+            var w: [String: Any] = [:]
+            repeat {
+                w = (host.bridge?.canvas?.snapshot()["warm"] as? [String: Any]) ?? [:]
+                if !(w["enabled"] as? Bool ?? false) || ((w["pending"] as? Int ?? 0) == 0 && !(w["running"] as? Bool ?? false)) { break }
+                try await Task.sleep(nanoseconds: 10_000_000)
+            } while Date().timeIntervalSince(t0) * 1000 < wait
+            warmNote = String(format: " · warm-up %@: %d renders, %.0f ms in the background (max %.1f), %d still owed after %.0f ms", (w["enabled"] as? Bool ?? false) ? "on" : "off",
+                              w["warmed"] as? Int ?? 0, w["ms"] as? Double ?? 0, w["maxMs"] as? Double ?? 0, w["pending"] as? Int ?? 0, Date().timeIntervalSince(t0) * 1000)
+        }
+        // The look on the canvas without this slider: each value is appended to it.
+        let others = merge ? (host.bridge?.canvas?.currentLook ?? "").split(separator: " ").filter { !$0.hasPrefix(key + ":") }.joined(separator: " ") : ""
         let js = """
-        const key = '\(key)', from = \(from), to = \(to), ms = \(ms), hz = \(hz);
+        const key = '\(key)', from = \(from), to = \(to), ms = \(ms), hz = \(hz), others = '\(others)', merge = \(merge);
+        const lookAt = v => (others ? others + ' ' : '') + key + ':' + v.toFixed(2);
         await lumina.edit.stats(true);
         const sent = [], shown = []; const prevHook = window.luminaEditImage;
         window.luminaEditImage = (u, seq, tier) => { shown.push({ seq, tier, t: performance.now() }); if (prevHook) prevHook(u, seq, tier); };
@@ -30,9 +54,10 @@ enum EditSteps {
         const t0 = performance.now(); let n = 0;
         while (performance.now() - t0 < ms) {
           const f = (performance.now() - t0) / ms, v = from + (to - from) * f;
-          const seq = lumina.edit.look(key + ':' + v.toFixed(2), { drag: true }); sent.push({ seq, t: performance.now() }); n++;
+          const seq = lumina.edit.look(lookAt(v), { drag: true }); sent.push({ seq, t: performance.now() }); n++;
           await new Promise(r => setTimeout(r, 1000 / hz));
         }
+        if (merge) { const seq = lumina.edit.look(lookAt(to), { drag: true }); sent.push({ seq, t: performance.now() }); n++; await new Promise(r => setTimeout(r, 1000 / hz)); }
         const tEnd = performance.now(); lumina.edit.dragEnd();
         await new Promise(r => setTimeout(r, 700));
         window.luminaEditImage = prevHook;
@@ -55,11 +80,18 @@ enum EditSteps {
         let bases = r["bases"] as? [String: Any] ?? [:]
         let looks = r["looks"] as? Int ?? 0
         let n = native ? (r["latencyMs"] as? [Double])?.count ?? 0 : (r["pageLatency"] as? [String: Any])?["n"] as? Int ?? 0
+        // The drawable's first render of each set of stages during this drag (main-thread ms).
+        let firsts = (r["firstRenders"] as? [[String: Any]] ?? []).filter { $0["drag"] as? Bool ?? false }
+        let firstMax = firsts.compactMap { $0["ms"] as? Double }.max() ?? 0
+        let firstNote = firsts.isEmpty ? "" : " · first renders of a new set of stages: " + firsts.map { String(format: "%@ %@ %.1f ms%@", $0["stages"] as? String ?? "?", $0["tier"] as? String ?? "", $0["ms"] as? Double ?? 0, ($0["warmed"] as? Bool ?? false) ? "" : " (not warmed)") }.joined(separator: ", ")
         var o = Outcome(note: String(format: "%@ · %d looks · latency p50 %.1f p95 %.1f max %.1f ms (%d samples) · dropped %d%@ · rest %.0f ms · renders small %d base %d coalesced %d · bases %d photos %.0f MB",
                                      path, looks, p50, p95, mx, n, dropped, native ? " (missed vsyncs \(r["missedVsyncs"] as? Int ?? 0), busy \(r["busyTicks"] as? Int ?? 0))" : "", rest, sched["small"] as? Int ?? 0, sched["base"] as? Int ?? 0, sched["coalesced"] as? Int ?? 0,
-                                     bases["residentPhotos"] as? Int ?? 0, Double(bases["bytes"] as? Int ?? 0) / 1_048_576))
-        o.frames["edit-\(key)"] = ["p50": p50, "p95": p95, "max": mx, "dropped": Double(dropped), "rest": rest, "looks": Double(looks), "samples": Double(n), "native": native ? 1 : 0]
+                                     bases["residentPhotos"] as? Int ?? 0, Double(bases["bytes"] as? Int ?? 0) / 1_048_576) + firstNote + warmNote)
+        o.frames["edit-\(key)"] = ["p50": p50, "p95": p95, "max": mx, "dropped": Double(dropped), "rest": rest, "looks": Double(looks), "samples": Double(n), "native": native ? 1 : 0,
+                                   "firstRenders": Double(firsts.count), "firstMaxMs": firstMax]
         guard gate, native else { return o }
+        if let cap = s["maxFirstMs"] as? Double, firstMax > cap { o.failures.append("editDrag \(key): the first render of a new set of stages took \(String(format: "%.1f", firstMax)) ms on the main thread > \(cap) ms") }
+        if s["expectFirst"] as? Bool ?? false, firsts.isEmpty { o.failures.append("editDrag \(key): the drag rendered no set of stages the canvas had not rendered before (nothing was tested)") }
         let p95Cap = ProcessInfo.processInfo.environment["LUMINA_EDIT_P95"].flatMap(Double.init) ?? s["p95Ms"] as? Double
         if let cap = p95Cap, p95 > cap { o.failures.append("editDrag \(key): latency p95 \(String(format: "%.1f", p95)) ms > \(cap) ms") }
         if n == 0 { o.failures.append("editDrag \(key): no presented frames were measured") }

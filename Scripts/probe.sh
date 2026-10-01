@@ -30,8 +30,14 @@
 #                                                408 APFS clones of LUMINA_FIXTURE_ROOT/src, 20 s apart (built once)
 #   bash Scripts/probe.sh edit                   the Edit canvas (addendum §8): 2 s drags on exposure and shadows, look-event-to-
 #                                                presented-frame latency (p95 ≤ LUMINA_EDIT_P95, default 16 ms), dropped frames,
-#                                                rest render, bases resident, canvas vs export ΔE; native first, then the image
-#                                                fallback path (LUMINA_CANVAS=image). Folder: LUMINA_EDIT_DIR, else as scroll
+#                                                rest render, bases resident, canvas vs export ΔE; native first, then with
+#                                                nothing compiled (edit-cold), then the image fallback path (LUMINA_CANVAS=image).
+#                                                Folder: LUMINA_EDIT_DIR, else as scroll
+#   bash Scripts/probe.sh edit-cold              the Edit canvas as on the first launch after an update that changed a kernel: every
+#                                                stage program compiled under a salted name (LUMINA_KERNEL_SALT, new per run), first
+#                                                drags on stages the canvas has not rendered, gated like edit plus the first render
+#                                                of each new set of stages ≤ 8 ms on the main thread. LUMINA_CANVAS_WARM=0 = no
+#                                                warm-up (the "before" measure; the gate fails)
 #   bash Scripts/probe.sh raw9                   RAW 9 (§8): decoder map, time to first tile / full region, export time + memory
 #                                                per decoder version, the forced per-file fallback, tiles vs export ΔE per version
 #   bash Scripts/probe.sh all [--require-all]    everything v5; --require-all turns a SKIP into a failure
@@ -187,12 +193,15 @@ case "$suite" in
   fault)     run $(paths "${FAULT[@]}") ;;
   scroll)    scrolldir; run "$S/scroll-read.json" "$S/scroll-fast.json" "$S/scroll-fast-2560.json" ;;
   edit)      editdir; run "$S/edit-canvas.json"
+             echo "— nothing compiled (LUMINA_KERNEL_SALT): first drags on stages the canvas has not rendered —"
+             LUMINA_KERNEL_SALT="${LUMINA_KERNEL_SALT:-p$(date +%s)}" run_out "$OUT/cold" "$S/edit-cold.json"
              echo "— image fallback path (LUMINA_CANVAS=image) —"
              LUMINA_CANVAS=image run_out "$OUT/image-path" "$S/edit-canvas.json" ;;
+  edit-cold) editdir; LUMINA_KERNEL_SALT="${LUMINA_KERNEL_SALT:-p$(date +%s)}" run "$S/edit-cold.json" ;;
   raw9)      editdir; run "$S/raw9.json" ;;
   all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" "$S"/edge-*.json $(paths "${APP[@]}") $(paths "${FAULT[@]}")
              LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
-  *)         sed -n '2,37p' "$0"; exit 2 ;;
+  *)         sed -n '2,43p' "$0"; exit 2 ;;
 esac
 echo "evidence: $OUT"
 exit $status

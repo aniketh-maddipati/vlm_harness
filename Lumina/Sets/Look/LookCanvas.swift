@@ -43,7 +43,9 @@ final class LookCanvasController: NSObject {
         /// Refreshes skipped between two display-link ticks (their vsync timestamps at least 1.75
         /// frames apart) while a look had been waiting since before the skipped refresh. A ProMotion
         /// panel stretching a frame (12.5 or 20.8 ms at a 120 Hz link) with nothing new to show is
-        /// the display's cadence, not a miss; those gaps are traced as idle, not counted.
+        /// the display's cadence, not a miss; those gaps are traced as idle, not counted. A look
+        /// the page emitted before a skipped refresh but that arrived only after the gap (the main
+        /// thread was held, so the message waited too) counts the refreshes after it was emitted.
         var missedVsyncs = 0
         /// Ticks where a newer look was waiting but the previous render was still in flight.
         var busyTicks = 0
@@ -63,6 +65,10 @@ final class LookCanvasController: NSObject {
         var facts = ""
         var decoderFallbacks: [String] = []
         var slowed = false
+        /// The stage graphs compiled ahead of the user (`LookWarmPlan`), and the drawable's first
+        /// render of each set of stages since the last reset: its time on the main thread.
+        var warm = LookWarmPlan.Stats()
+        var firstRenders: [LookWarmPlan.FirstRender] = []
         /// The last events on the canvas clock (`LookTrace`): what ran around a dropped frame.
         var trace: [LookTrace.Event] = []
     }
@@ -73,6 +79,14 @@ final class LookCanvasController: NSObject {
     let pipeline: LookPipeline
     /// Background renders (bases, tiles, rest statistics); the drawable renders on `pipeline`.
     let work: LookPipeline
+    /// The warm-up renders (`LookWarmPlan`) have a context of their own: compiled programs are
+    /// shared across contexts on the device, and a warm-up must wait for neither a neighbour's
+    /// RAW develop on `work` nor a frame on `pipeline`.
+    let warm: LookPipeline
+    private var warmPlan: LookWarmPlan
+    private var warmRunning = false
+    private var warmTarget: MTLTexture?
+    private let warmQueue = DispatchQueue(label: "lumina.look.warm", qos: .utility)
     private let statsQueue = DispatchQueue(label: "lumina.look.reststats", qos: .utility)
     private var neighbours: [(key: LookBases.Key, url: URL, look: Look, preview: LookBases.PreviewFallback?)] = []
     private var prefetchIssued = false
@@ -83,6 +97,7 @@ final class LookCanvasController: NSObject {
     private let device: MTLDevice?
     private let commandQueue: MTLCommandQueue?
     private var displaySpace: CGColorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+    private var displaySpaceName = "sRGB"
     private var link: CADisplayLink?
     private var schedule = LookCanvasSchedule()
     private var stats = Stats()
@@ -105,8 +120,10 @@ final class LookCanvasController: NSObject {
     /// race to the display link, which would hold the next look back a frame), else from that hop.
     private var inFlightFinish: ((CFTimeInterval) -> Void)?
     private var renderStartedAt: CFTimeInterval = 0
-    /// When the oldest look no render has started yet arrived (ms, `now()`), nil when none waits.
+    /// When the page emitted the oldest look no render has started yet (ms, `now()`), nil when none waits.
     private var waitingSince: Double?
+    /// The last gap between two ticks that had no look waiting when it was seen (ms, `now()`).
+    private var idleGap: (start: Double, end: Double, frame: Double, skipped: Int)?
     private let gpuDone = GPUDone()
     private var flightSeq = 0
     private var lastPresentedSeq = 0
@@ -128,6 +145,9 @@ final class LookCanvasController: NSObject {
         // neighbour's full RAW develop must never hold up the drawable's render on the main thread.
         let work = (pipeline.device != nil ? try? LookPipeline(rules: pipeline.rules, device: pipeline.device) : nil) ?? pipeline
         self.work = work
+        warm = (pipeline.device != nil && host != nil ? try? LookPipeline(rules: pipeline.rules, device: pipeline.device) : nil) ?? work
+        // LUMINA_CANVAS_WARM=0 (the probe's "before" measure) leaves every program to its first frame.
+        warmPlan = LookWarmPlan(enabled: ProcessInfo.processInfo.environment["LUMINA_CANVAS_WARM"] != "0")
         bases = LookBases(pipeline: work)
         tiles = LookRegionTiles(pipeline: work)
         device = pipeline.device
@@ -217,6 +237,7 @@ final class LookCanvasController: NSObject {
         supersedeRegion()
         loupe = (false, nil)
         bases.pin(nil)
+        warmTarget = nil
         view?.isHidden = true
         stats.visible = false
         stopLink()
@@ -263,7 +284,20 @@ final class LookCanvasController: NSObject {
         // The page's clock → ours: the smallest arrival − emit gap seen is the offset within a message's transit.
         let arrived = now()
         if let t, t > 0 { clockOffset = min(clockOffset, arrived - t) }
-        if !schedule.pending { waitingSince = arrived }
+        // When the page emitted it, on our clock (never earlier than the truth: the offset includes
+        // the fastest transit seen). A main thread that sat through refreshes delivers the looks
+        // emitted meanwhile only afterwards; they were waiting all the same.
+        let emitted = t.flatMap { $0 > 0 && clockOffset < Double.greatestFiniteMagnitude ? min(arrived, $0 + clockOffset) : nil } ?? arrived
+        if let g = idleGap {
+            idleGap = nil
+            // The skipped refreshes that came after the look was emitted.
+            let missed = dragging ? (1...g.skipped).filter { g.start + Double($0) * g.frame >= emitted }.count : 0
+            if missed > 0 {
+                stats.missedVsyncs += missed; stats.droppedFrames += missed
+                LookTrace.mark("missed vsync ×\(missed), a look emitted \(Int((g.end - emitted).rounded())) ms before the gap ended arrived after it (main thread held)", ms: g.end - g.start, at: g.start)
+            }
+        }
+        if !schedule.pending { waitingSince = emitted }
         let seq = key ? schedule.keystroke(text, at: arrived, pageSeq: pageSeq, pageAt: t ?? 0) : schedule.submit(text, at: arrived, roi: roi, pageSeq: pageSeq, pageAt: t ?? 0)
         kick()
         return seq
@@ -276,7 +310,7 @@ final class LookCanvasController: NSObject {
     /// A render reached the screen: the page's `seq` for the look it shows (`luminaPresented`).
     var onPresented: ((Int) -> Void)?
 
-    func dragStart() { LookTrace.mark("dragStart"); dragging = true; dragEndAt = nil; updatePrefetch(); schedule.dragStart(at: now()); kick() }
+    func dragStart() { LookTrace.mark("dragStart"); dragging = true; dragEndAt = nil; idleGap = nil; updatePrefetch(); schedule.dragStart(at: now()); kick() }
     func dragEnd() { LookTrace.mark("dragEnd"); dragging = false; dragEndAt = CACurrentMediaTime(); schedule.dragEnd(at: now()); kick() }
 
     /// 100 % with G held: RAW 9 on the visible region (RAW 9 §2). Waits for stillness when the
@@ -366,13 +400,16 @@ final class LookCanvasController: NSObject {
         stats.latencyMs = Array(latencies.suffix(600).reversed())
         stats.latencyP50 = q(0.5); stats.latencyP95 = q(0.95); stats.latencyMax = sorted.last ?? 0
         stats.facts = facts
+        stats.warm = warmPlan.stats
+        stats.warm.running = warmRunning
+        if path == .native, let c = current, let entry = c.entry { stats.warm.pending = warmPlan.jobs(around: c.look, stages: pipeline.rules.lookStages, env: warmEnv(entry)).count }
         stats.trace = LookTrace.events
         guard let data = try? JSONEncoder().encode(stats), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
         return obj
     }
 
     /// The probe's latency measure starts fresh per drag.
-    func resetMeasures() { latencies = []; stats.droppedFrames = 0; stats.missedVsyncs = 0; stats.busyTicks = 0; stats.ticks = 0; stats.renders = 0; stats.renderErrors = 0 }
+    func resetMeasures() { latencies = []; stats.droppedFrames = 0; stats.missedVsyncs = 0; stats.busyTicks = 0; stats.ticks = 0; stats.renders = 0; stats.renderErrors = 0; stats.firstRenders = [] }
 
     /// The current look rendered from `base` into a bitmap (the parity probe compares it with the
     /// export at the same size). Nil until the bases exist.
@@ -437,6 +474,8 @@ final class LookCanvasController: NSObject {
                     LookTrace.mark("missed vsync ×\(skipped), a look waiting \(Int((t * 1000 - w).rounded())) ms", ms: (t - lastTick) * 1000, at: lastTick * 1000)
                 } else {
                     LookTrace.mark("idle gap (no look waiting)", ms: (t - lastTick) * 1000, at: lastTick * 1000)
+                    // Unless the next look to arrive turns out to have been emitted before the gap's first refresh (`look`).
+                    idleGap = (lastTick * 1000, t * 1000, l.duration * 1000, skipped)
                 }
             }
         }
@@ -447,31 +486,38 @@ final class LookCanvasController: NSObject {
         }
         lastTick = t
         guard !rendering, let c = current, let entry = c.entry, let view, !view.isHidden, let request = schedule.tick(at: now()) else { return }
-        LookTrace.span("render \(request.tier.rawValue)") { render(request, entry: entry, look: c.look, view: view) }
+        let look = (try? Look.parse(request.look)) ?? c.look
+        let seen = warmPlan.rendering(look, tier: request.tier, stages: pipeline.rules.lookStages, env: warmEnv(entry))
+        let t0 = LookTrace.now()
+        render(request, entry: entry, look: look, view: view)
+        let ms = LookTrace.now() - t0
+        LookTrace.mark("render \(request.tier.rawValue)", ms: ms, at: t0)
+        if seen.first {
+            // The first frame of a set of stages is where a program compiled on the main thread would show.
+            LookTrace.mark("first \(request.tier.rawValue) render of \(seen.stages) (\(seen.warmed ? "warmed" : "not warmed"))", ms: ms, at: t0)
+            stats.firstRenders.append(LookWarmPlan.FirstRender(stages: seen.stages, tier: request.tier.rawValue, ms: (ms * 100).rounded() / 100, warmed: seen.warmed, drag: dragging))
+            if stats.firstRenders.count > 128 { stats.firstRenders.removeFirst(64) }
+        }
     }
 
-    private func render(_ r: LookCanvasSchedule.Request, entry: LookBases.Entry, look parsedLook: Look, view: LookCanvasView) {
-        guard let queue = commandQueue, let layer = view.layer as? CAMetalLayer, let drawable = layer.nextDrawable() else {
-            schedule.failed(r); return
-        }
-        rendering = true
-        renderStartedAt = CACurrentMediaTime()
-        flightSeq = r.seq
-        let t0 = CACurrentMediaTime()
-        let look = (try? Look.parse(r.look)) ?? parsedLook
+    /// The picture for one render: the look's stages on `small` or `base`, fitted into a drawable
+    /// of `size` (contain), or the zoomed region filling it. The drawable's render and the warm-up
+    /// both build it here, so they compile the same programs. `image` is the look before placing
+    /// (the rest statistics read it); `region` the loupe's RAW 9 region when it was used.
+    private func compose(_ look: Look, tier: LookCanvasSchedule.Tier, roi: LookCanvasSchedule.ROI?, entry: LookBases.Entry, size: CGSize) -> (placed: CIImage, image: CIImage, region: LookRegionTiles.Region?) {
         let src: CIImage, srcSize: CGSize
-        if r.tier == .small { src = entry.small; srcSize = entry.smallSize } else { src = entry.base; srcSize = entry.baseSize }
+        if tier == .small { src = entry.small; srcSize = entry.smallSize } else { src = entry.base; srcSize = entry.baseSize }
         var image = pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: entry.asShot), crop: false)
         // Where the photo goes: fit the canvas (contain), or the zoomed region filling it.
-        let dw = CGFloat(drawable.texture.width), dh = CGFloat(drawable.texture.height)
+        let dw = size.width, dh = size.height
         var visible = CGRect(origin: .zero, size: srcSize)
-        if let z = zoom ?? (r.roi), !z.isWhole {
+        if let z = zoom ?? roi, !z.isWhole {
             visible = CGRect(x: z.x * srcSize.width, y: (1 - z.y - z.h) * srcSize.height, width: z.w * srcSize.width, height: z.h * srcSize.height)
-            if r.tier == .small, let roi = r.roi, !roi.isWhole { image = image.cropped(to: visible) }
+            if tier == .small, let roi, !roi.isWhole { image = image.cropped(to: visible) }
         }
         // The loupe's RAW 9 region, when it covers the visible part, replaces the base there.
         var region: LookRegionTiles.Region?
-        if r.tier == .base, let reg = self.region, reg.rel == current?.rel, let z = zoom, reg.roi == z {
+        if tier == .base, let reg = self.region, reg.rel == current?.rel, let z = zoom, reg.roi == z {
             region = reg
             let regionImage = pipeline.apply(look, to: LookPipeline.Developed(image: reg.image, asShot: reg.asShot), crop: false)
             let vis = CGRect(x: z.x * reg.photoSize.width, y: (1 - z.y - z.h) * reg.photoSize.height, width: z.w * reg.photoSize.width, height: z.h * reg.photoSize.height)
@@ -481,7 +527,22 @@ final class LookCanvasController: NSObject {
         let s = min(dw / max(1, visible.width), dh / max(1, visible.height))
         let out = image.transformed(by: CGAffineTransform(translationX: -visible.minX, y: -visible.minY).concatenating(CGAffineTransform(scaleX: s, y: s)))
         let ox = ((dw - visible.width * s) / 2).rounded(), oy = ((dh - visible.height * s) / 2).rounded()
-        let placed = pipeline.clamped(out).transformed(by: CGAffineTransform(translationX: ox, y: oy))
+        return (pipeline.clamped(out).transformed(by: CGAffineTransform(translationX: ox, y: oy)), image, region)
+    }
+
+    private func render(_ r: LookCanvasSchedule.Request, entry: LookBases.Entry, look: Look, view: LookCanvasView) {
+        let waited = LookTrace.now()
+        guard let queue = commandQueue, let layer = view.layer as? CAMetalLayer, let drawable = layer.nextDrawable() else {
+            schedule.failed(r); return
+        }
+        // Both drawables still queued for a refresh: the wait is the display's, not the look's.
+        if LookTrace.now() - waited > 2 { LookTrace.mark("nextDrawable waited", ms: LookTrace.now() - waited, at: waited) }
+        rendering = true
+        renderStartedAt = CACurrentMediaTime()
+        flightSeq = r.seq
+        let t0 = CACurrentMediaTime()
+        let dw = CGFloat(drawable.texture.width), dh = CGFloat(drawable.texture.height)
+        let (placed, image, region) = compose(look, tier: r.tier, roi: r.roi, entry: entry, size: CGSize(width: dw, height: dh))
         guard let cb = queue.makeCommandBuffer() else { schedule.failed(r); rendering = false; return }
         let dest = CIRenderDestination(mtlTexture: drawable.texture, commandBuffer: cb)
         dest.colorSpace = displaySpace
@@ -594,6 +655,63 @@ final class LookCanvasController: NSObject {
             LookTrace.mark("prefetch released")
             bases.prefetch(neighbours)
         }
+        updateWarm(hold: hold)
+    }
+
+    // MARK: Warm-up (LookWarmPlan)
+
+    /// What the canvas's programs depend on besides the set of stages: the two source sizes (the
+    /// blurs' radii follow them), the drawable's size, the display's colour space, zoomed or not.
+    private func warmEnv(_ entry: LookBases.Entry) -> String {
+        let d = view?.drawableSize ?? .zero
+        let zoomed = zoom.map { !$0.isWhole } ?? false
+        return "\(Int(entry.baseSize.width))x\(Int(entry.baseSize.height))/\(Int(entry.smallSize.width))x\(Int(entry.smallSize.height))>\(Int(d.width))x\(Int(d.height))|\(displaySpaceName)|\(zoomed ? (region != nil ? "region" : "zoom") : "fit")"
+    }
+
+    /// One warm-up render at a time, on its own queue and context, into an offscreen texture of
+    /// the drawable's size and format: the look on the canvas and each stage switched, both tiers.
+    /// Held under the same conditions as the neighbours' prefetch (never during a drag; a render
+    /// already running finishes, about as long as one frame's GPU time).
+    private func updateWarm(hold: Bool) {
+        guard path == .native, !hold, !warmRunning, let c = current, let entry = c.entry, let view, let device else { return }
+        let size = view.drawableSize
+        guard size.width > 1, size.height > 1, let job = warmPlan.next(around: c.look, stages: pipeline.rules.lookStages, env: warmEnv(entry)) else {
+            warmTarget = nil                    // nothing owed: the offscreen texture goes
+            return
+        }
+        if warmTarget?.width != Int(size.width) || warmTarget?.height != Int(size.height) {
+            let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: view.colorPixelFormat, width: Int(size.width), height: Int(size.height), mipmapped: false)
+            desc.usage = [.shaderRead, .shaderWrite, .renderTarget]
+            desc.storageMode = .private
+            warmTarget = device.makeTexture(descriptor: desc)
+        }
+        guard let target = warmTarget else { return }
+        let placed = compose(job.look, tier: job.tier, roi: job.tier == .small ? zoom : nil, entry: entry, size: size).placed
+        warmRunning = true
+        let context = warm.context, space = displaySpace
+        warmQueue.async { [weak self] in
+            let t0 = LookTrace.now()
+            Self.warmRender(placed, into: target, context: context, space: space)
+            let ms = LookTrace.now() - t0
+            LookTrace.mark("warm \(job.stages) \(job.tier.rawValue)", ms: ms, at: t0)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.warmRunning = false
+                    self.warmPlan.finished(job, ms: ms)
+                    self.updatePrefetch()
+                }
+            }
+        }
+    }
+
+    /// The same destination settings as the drawable's (`render`), so the output transform fused
+    /// into the last program is the same one.
+    nonisolated private static func warmRender(_ image: CIImage, into target: MTLTexture, context: CIContext, space: CGColorSpace) {
+        let dest = CIRenderDestination(mtlTexture: target, commandBuffer: nil)
+        dest.colorSpace = space
+        dest.alphaMode = .premultiplied
+        _ = try? context.startTask(toRender: image, from: CGRect(x: 0, y: 0, width: target.width, height: target.height), to: dest, at: .zero).waitUntilCompleted()
     }
 
     /// A new region number from the tile queue (which also stops the older requests there).
@@ -614,6 +732,7 @@ final class LookCanvasController: NSObject {
     private func updateDisplaySpace() {
         let space = view?.window?.screen?.colorSpace?.cgColorSpace ?? NSScreen.main?.colorSpace?.cgColorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
         displaySpace = space
+        displaySpaceName = (space.name as String?) ?? "icc-\(CFHash(space))"
         (view?.layer as? CAMetalLayer)?.colorspace = space
     }
 

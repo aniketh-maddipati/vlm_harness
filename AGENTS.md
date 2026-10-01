@@ -29,7 +29,7 @@ window. Nobody edits the UI in this repo.
 | `Lumina/Sets/Web/` | The design's files, copied unchanged by `Scripts/sets_sync_ui.sh`, plus `plumbing.js` |
 | `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, …, and the Edit step's `preview` / `canvasRect` / `drag` / `roi` from DESIGN-ASKS Prompt 1 §3, plus `edit`, the superset the probe drives), persists sessions (writes debounce 500 ms after the last Edit change), makes the grid thumbnails (720 × 480; measures stay on the page's 360 px bitmap) and decodes them ahead of a scroll (design ask 7), keeps the reader's place and decisions when a read they culled during ends (design ask 8), and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`, `luminaPresented`, `luminaHistogram`, `luminaFacts`, `luminaEditStats`) |
 | `Lumina/Sets/Core/` | The native bridge: `SetsIngest` (reads opened folders: listing, 256 KB heads, byte-range previews, prefetch, stops when the card goes), `SetsFileOps` (`writeSidecar`: v5's Save, one `.xmp` into the shoot folder with `.lumina-bak`, atomic, read back, refused on a card; SHA-256 copies), `SetsExport` (+ crash journal; RAW copies, v3's CSS-look JPEGs, and the Edit step's `look` renders through `SetsLookExport`, which names the RAW decoder used and falls back per file), `SetsEditLook` (v3's Edit look, unused by v5), `SetsCardWatcher`, `SetsShootStore` (per-shoot sessions and the `Lumina.json` header), `SetsSchemeHandler` (`lumina://`, no network; `lumina://render/<rel>?look=&px=&seq=[&tier=small]` is the Edit preview on the image fallback path), `SetsBridge` (the page's ops, the canvas ops `canvasEnter/Layout/Look/Drag/Loupe/Stats`, the decoder map) |
-| `Lumina/Sets/Look/` | The Edit look pipeline (roadmap Prompt 2): `LookString` (the look string, the Edit step's only state), `LookRules` + `rules-v1.json` (stage order, working space, fitted coefficients, `locked` flags), `LookMath` (every stage's maths in scalar form), `LookKernels` (the same maths as Metal, compiled at first use), `LookPipeline` (the one Core Image graph previews, export and `lumina-render` share; `develop` takes the decoder version and `nr`), `LookRenderer` (developed RAW cached per (rel, px, decoder) under a byte cap, sequence numbers drop stale requests). The Edit canvas (addendum): `LookCanvasSchedule` (two tiers, latest wins, sequence numbers; Foundation only), `LookByteCache` (byte-capped LRU), `LookBases` (`base` + `small` rgba16Float textures per photo, prefetch), `LookRegionTiles` (RAW 9 512 px tiles for the loupe), `LookCanvas` (the MTKView overlay, CIRenderDestination, display link), `LookRawPolicy` + `LookDecoderProbe` (the RAW tiers, the pin rule, the capability map). Also compiled into the probe and `Tools/parity/lumina-render` through symlinks |
+| `Lumina/Sets/Look/` | The Edit look pipeline (roadmap Prompt 2): `LookString` (the look string, the Edit step's only state), `LookRules` + `rules-v1.json` (stage order, working space, fitted coefficients, `locked` flags), `LookMath` (every stage's maths in scalar form), `LookKernels` (the same maths as Metal, compiled at first use), `LookPipeline` (the one Core Image graph previews, export and `lumina-render` share; `develop` takes the decoder version and `nr`), `LookRenderer` (developed RAW cached per (rel, px, decoder) under a byte cap, sequence numbers drop stale requests). The Edit canvas (addendum): `LookCanvasSchedule` (two tiers, latest wins, sequence numbers; Foundation only), `LookWarmPlan` (which stage graphs to compile ahead of a drag; Foundation only), `LookByteCache` (byte-capped LRU), `LookBases` (`base` + `small` rgba16Float textures per photo, prefetch), `LookRegionTiles` (RAW 9 512 px tiles for the loupe), `LookCanvas` (the MTKView overlay, CIRenderDestination, display link), `LookRawPolicy` + `LookDecoderProbe` (the RAW tiers, the pin rule, the capability map). Also compiled into the probe and `Tools/parity/lumina-render` through symlinks |
 | `Tools/parity/` | The Lightroom parity harness: the sweep plug-in, `import_refs.py`, `lumina-render`, `delta_e.py`, `parity.py` (`make parity`), `fit.py`, `loop.sh`, `criteria.json`, `golden.json`. See its README and "Parity" below |
 | `Tools/culleval/` | The culling eval: the page's own `lumina-core` run on real shoots, scored against camera bursts and the photographer's keeps (`make culleval`, report in `~/LuminaEvidence/culleval`; `make culleval-test` on Linux). Measures only. See its README |
 | `design/handoff/vendor/` | React / Babel pinned to the SRI hashes in `support.js` (see `VENDOR.md`) |
@@ -97,7 +97,8 @@ LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh edge    # ca
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh ingest  # the same cases through the native reader
 LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh card         # golden card + page vs native read
 LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh stress       # a whole card: scroll frame budget, 3,000-input storm, memory; page read, then native read
-LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh edit           # Edit canvas: 2 s drags, latency p95 ≤ 16 ms (LUMINA_EDIT_P95), 0 dropped, rest ≤ 120 ms, ≤ 3 photos / 300 MB, canvas vs export ΔE; then the image path
+LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh edit           # Edit canvas: 2 s drags, latency p95 ≤ 16 ms (LUMINA_EDIT_P95), 0 dropped, rest ≤ 120 ms, ≤ 3 photos / 300 MB, canvas vs export ΔE; then with nothing compiled (edit-cold); then the image path
+LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh edit-cold      # the first launch after a kernel change (LUMINA_KERNEL_SALT, new per run): first drags on stages the canvas has not rendered, gated like edit + first render of a new set of stages ≤ 8 ms on the main thread; LUMINA_CANVAS_WARM=0 = no warm-up (fails, the "before" measure)
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh raw9           # RAW 9: decoder map, first tile / full region, export time + memory per version, forced fallback, tiles vs export ΔE
 LUMINA_REMOTE=user@m1.local bash Scripts/probe_remote.sh edit               # the same on the M1 8 GB over ssh (p95 ≤ 33 ms), evidence pulled back
 ```
@@ -183,9 +184,30 @@ set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5
   missed presents: refreshes that passed while a look had been waiting since before them, i.e.
   vsyncs skipped between display-link ticks (≥ 1.75 frames apart) with a look waiting, plus ticks
   where a waiting look sat behind a render still in flight. A ProMotion panel stretching a frame
-  with nothing new to show is its cadence, not a miss (traced as an idle gap). `lumina.edit.stats().trace` (`LookTrace`) ties a miss to what ran then.
+  with nothing new to show is its cadence, not a miss (traced as an idle gap). A look the page
+  emitted before a skipped refresh but that arrived only after the gap (the main thread was held,
+  so its message waited too) counts the refreshes after it was emitted. `lumina.edit.stats().trace` (`LookTrace`) ties a miss to what ran then.
   Region requests take their numbers from `LookRegionTiles.nextSeq()`, so callers can't starve
   each other.
+
+- **Stage programs are compiled before the drag that needs them (`LookWarmPlan`).** `LookPipeline.apply`
+  leaves a stage at reset out of the graph (`Look.runs`), and Core Image fuses the stages that run
+  into one Metal program per *set* of stages, compiled on the rendering thread the first time the set
+  renders: 11 to 47 ms on the main thread with Metal's on-disk cache cold (the first launch after an
+  update that changed a kernel, or a set never rendered on this Mac), about 1 ms after. Measured: the
+  cost is per set of stages, not per kernel or slider value; compiled programs are shared by every
+  CIContext on the device; a 16 px corner of the graph does not warm the blur stages; an intermediate
+  between stages does not make programs independent of the set and costs 1 to 3 ms per `base` frame.
+  So once the photo's base is on screen and the canvas is idle (the prefetch's condition), the
+  controller renders, on its own queue and its own CIContext, into an offscreen texture of the
+  drawable's size and format, the look on the canvas and that look with each stage switched (on if
+  at reset, off if it runs): every set one slider can reach, both tiers, `small` first. It repeats
+  when the look at rest runs another set, holds during a drag, and never touches the drawable's
+  context. The canvas's graph is built in one place (`LookCanvasController.compose`) for both. A look
+  two stages away (a pasted look) compiles on its first frame as before. `stats().warm` and
+  `stats().firstRenders` (the main-thread time of the drawable's first render of each set) report it;
+  `LUMINA_CANVAS_WARM=0` turns it off and `LUMINA_KERNEL_SALT=<word>` compiles every kernel under a
+  salted name so nothing is cached (both for `probe.sh edit-cold`, never set in the app).
 
 ## RAW 9
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Linux sandbox for the app's Foundation-only Swift: compiles Lumina/Sets/Core/{SetsFileOps,
 # SetsShootStore,SetsExport,SetsIngest}.swift and Lumina/Sets/Look/{LookString,LookRules,LookMath,
-# LookCanvasSchedule,LookByteCache,LookRawPolicy,LookLensShading}.swift unchanged with Swift 6.1 (Docker image
+# LookCanvasSchedule,LookWarmPlan,LookByteCache,LookRawPolicy,LookLensShading}.swift unchanged with Swift 6.1 (Docker image
 # swift:6.1-noble) and runs the logic tests that don't need Core Image / ImageIO / AppKit:
 #   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests (minus its Edit-look tests),
 #   LookStringTests, LookMathTests (the look grammar and the stage maths on synthetic ramps),
-#   LookCanvasTests (the canvas schedule, the byte cache, the RAW tiers and the pin rule).
+#   LookCanvasTests (the canvas schedule, the warm-up plan, the byte cache, the RAW tiers and the pin rule).
 # Not covered here (Mac only): SetsBridge, SetsSchemeHandler, SetsCardWatcher (AppKit/WebKit),
 # SetsEditLook, SetsLookExport, LookPipeline/LookKernels/LookRenderer (Core Image, Metal),
 # SetsIngestTests, SetsPageBytesTests and LookPipelineTests (ImageIO, bundle, Core Image).
@@ -15,7 +15,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
 B="$HERE/Build"; rm -rf "$B"; mkdir -p "$B/Lumina" "$B/Tests"
 for f in SetsFileOps SetsShootStore SetsExport SetsIngest; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
-for f in LookString LookRules LookMath LookCanvasSchedule LookByteCache LookRawPolicy LookLensShading; do cp "$ROOT/Lumina/Sets/Look/$f.swift" "$B/Lumina/"; done
+for f in LookString LookRules LookMath LookCanvasSchedule LookWarmPlan LookByteCache LookRawPolicy LookLensShading; do cp "$ROOT/Lumina/Sets/Look/$f.swift" "$B/Lumina/"; done
 cp "$ROOT/Lumina/Sets/Look/rules-v1.json" "$B/rules-v1.json"     # LookMathTests read it via LUMINA_RULES (only this folder is mounted)
 # swift-corelibs-foundation's FileManager.replaceItemAt fails on Linux and deletes the original
 # (checked with swift 6.1). Darwin's is correct. In this copy only, the replace is the POSIX rename
