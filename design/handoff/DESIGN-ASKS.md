@@ -284,6 +284,70 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 > `luminaFacts.raw9` is true hide Colour NR, Detail and Moiré (RAW 9 ignores them); show them when
 > it is false.
 
+## Prompt 2 — what Cull says about a frame (paste into Claude Design)
+
+Found by the culling eval (`Tools/culling-eval`, 2026-10-01): `lumina-core`'s decisions for 1,854
+real photos over 12 shooting days, scored against the 444 of them the photographer finished and
+exported from Lightroom (a "pick"). One photographer, one body (ILCE-7M3): the numbers say which
+way to move, not how far. The full reports stay on the Mac (`~/LuminaEvidence/culling-eval`).
+
+What the eval found, in the page's own words:
+
+| What Cull says today | Rule in `lumina-core-v4.js` | Photos | Picks carrying it | Picked if said / if not |
+|---|---|---:|---:|---:|
+| `soft` (single frames) | sharpness in the bottom 12 % **of the shoot** | 14 % | 43 (10 %) | 16 % / 25 % |
+| `shake` | exposure longer than 2 / focal length | 6 % | 27 (6 %) | 23 % / 24 % |
+| `blown` | more than 2 % of pixels white | 13 % | 45 (10 %) | 19 % / 25 % |
+| `dark` | mean luma under 0.08 | 0.4 % | 0 | 0 % / 24 % |
+| `sharpest`, rank 1–3 | sharpness, inside a burst | 19 bursts in 1,854 photos; 4 hold a pick: too few to judge |
+
+Inside a row, the sharpest frame was a pick 38 % of the time against 42 % by chance: whole-frame
+sharpness does not find the frame that gets picked. 439 of the 444 picks are single frames, not
+burst frames, and 42 % of all photos sit in a run of retakes (frames at most 4 s apart, 2.7 frames
+on average) that the page shows as loose singles.
+
+> Update `Lumina Sets v5.dc.html` and `lumina-core-v4.js` for the Mac app. Keep the look, keys
+> and wording otherwise unchanged. These change what Cull *says* about a frame, never what it
+> hides: no frame is removed, dimmed or skipped because of them.
+>
+> **1. `soft` on a single frame is judged against its own retakes, not the whole shoot.** Today
+> a single frame is `soft` when its sharpness is in the bottom 12 % of the folder
+> (`f.soft = f.sharp < 12`), so 12 % of every shoot is called soft however good it is, and one
+> pick in ten carries the word. Use the rule bursts already use, on the frame's run of retakes
+> (ask 3): `soft` when `focus < 0.45 ×` the sharpest frame of its run. A frame with no retakes
+> gets no `soft` word: there is nothing to compare it with. On the eval this says `soft` on 2 %
+> of photos instead of 14 %, on 4 picks instead of 43, and a frame it names is picked 11 % of
+> the time against 24 % (today: 16 % against 25 %). Drop `slight` (`f.sharp < 25`) from the data:
+> the page never shows it and it predicts nothing (picked 27 % against 23 %).
+>
+> **2. Remove the `shake` word.** `exp > 2 / focal length` ignores stabilisation, and frames it
+> names are picked as often as the rest (23 % against 24 %). Keep the shutter speed in the facts
+> line, where it is a fact rather than a verdict. (`blown` and `dark` stay as they are: no
+> threshold tested did better than today's.)
+>
+> **3. Retakes are a stack.** A stack today is a camera burst or a bracket (drive mode, sequence
+> numbers). Most choices are made among frames shot one at a time: consecutive single frames at
+> most 4 s apart whose `dhash` is close (the distance `peakOf` already uses) are the same picture
+> taken again. Group those as a stack too, kind `retake`, with the same keys and behaviour as a
+> burst (open, rank, keep one, `⌥←→` skips it), and the header counting them as it counts bursts.
+> Keep the manual stack / unstack cuts working on them. The eval's time-only version of this
+> finds 286 runs covering 42 % of the photos (camera bursts cover 2 %); 56 % of the runs that hold
+> a pick hold exactly one.
+>
+> **4. When there are faces, rank by the faces.** Sharpness on the whole frame does not find the
+> pick inside a row (52 % of pick-against-passed-over pairs, a coin); the quality of the faces does
+> better where there are any (63 %, interval 54–71 %, on the 33 rows with faces). The page can't
+> measure faces, so take it from the app: `window.lumina.measures(path)` resolves to
+> `{faceQ: 0…1 | null, faces: n}` (null without faces, and always null in the browser). Where
+> every frame of a stack has a `faceQ`, rank the stack by it and say `best faces` where the page
+> says `sharpest` today (`kept best faces of N`); otherwise rank by sharpness as now. This is an
+> ordering and a word, nothing else: a modest signal on one photographer's shoots.
+>
+> **5. `sugKeep` stays off the screen.** `buildShoot` returns suggested keeps that the page does
+> not show. Leave it that way for now: on the eval it proposes 69 % of the photos and still
+> leaves out 24 % of the picks, because it drops every single frame that carries a flag word.
+> If suggestions are ever shown, they must not be built from the flag words.
+
 ## How each ask is checked once the new handoff lands
 
 - 1: `Tests/web/plumbing-harness.mjs` and `probe.sh smoke` (`app-smoke`: the Save screen shows the row before any save). Remove the `wf` block in `plumbing.js`'s view loop.
@@ -304,3 +368,12 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
   page has no Edit step; once it does, they switch to `stepEdit` and the page's own `canvasRect`). The contract
   scenario then lists `luminaPresented`, `luminaHistogram`, `luminaFacts` among the hooks. Drop plumbing's
   `pollRect` fallback.
+- Prompt 2 (1–3, 5): the culling eval, on the Mac (it needs shoots with traceable exports; labels and photos stay in
+  `~/LuminaEvidence/culling-eval`). `LUMINA_CULL_DIR=<shoot> lumina-probe run Tools/culling-eval/dump-decisions.json`
+  dumps what the page decided; `python3 Tools/culling-eval/score.py --exports exports.csv … decisions.json` gives each
+  word's false alarms on picks and its picked-if-said rate. After the handoff: `soft` on no more than about 2 % of
+  photos and 1 % of picks, no `shake` or `slight` in the dump, and `retake` stacks in the dump's `kind` (add it to the
+  scorer's burst table). `python3 -m unittest discover -s Tools/culling-eval/tests` covers the scorers.
+- Prompt 2 (4): `plumbing.js` gains `lumina.measures` (Vision's face capture quality from the embedded preview, the
+  measure `Tools/culling-eval/signals.swift` takes); the contract scenario lists it, and
+  `python3 Tools/culling-eval/rank_signals.py` re-scores "top-1 is a pick" for stacks ranked by it.
