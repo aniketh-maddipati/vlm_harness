@@ -1,0 +1,35 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [1440, 900],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Read speed of LUMINA_READ_DIR through the real page and native reader: time from Open to the read starting (listing), to Cull showing its first rows, to the first thumbnail on screen, to the first screen full of thumbnails, to 100 / 500 / 1000 / 2000 photos read, and to the read finishing; photos per second overall and after the first rows. Reported, not gated: the numbers depend on the medium (internal SSD, USB disk, SD card) and on whether the files are in the OS cache.",
+ "steps": [
+  {
+   "do": "js",
+   "src": "const R = window.__rs = { t0: performance.now(), at: {}, series: [], total: 0 }; const mark = (k, t) => { if (R.at[k] == null) R.at[k] = +(t - R.t0).toFixed(1); }; let lastS = 0; R.timer = setInterval(() => { const l = __probe.logic(), t = performance.now(); if (!l) return; const rl = l.state.realLoad, done = rl ? rl.done : (l.state.realInfo ? R.total : 0); if (rl) { mark('reading', t); R.total = rl.total; } if (l.real && l.real.length && l.state.view === 'cull') { mark('shown', t); const el = document.querySelector('[data-screen-label=\"1 Cull\"]'); if (el && (R.at.firstThumb == null || R.at.screenFull == null)) { const vr = el.getBoundingClientRect(); let ready = 0, wait = 0; for (const im of el.querySelectorAll('img')) { const r = im.getBoundingClientRect(); if (r.bottom < vr.top || r.top > vr.bottom || r.width < 8) continue; if (im.complete && im.naturalWidth > 0 && parseFloat(getComputedStyle(im).opacity) > 0.99) ready++; else wait++; } if (ready) mark('firstThumb', t); if (ready >= 6 && !wait) mark('screenFull', t); } } for (const n of [100, 500, 1000, 2000, 3000]) if (done >= n) mark('read' + n, t); if (R.at.reading != null && !rl && l.state.realInfo) { mark('finished', t); clearInterval(R.timer); } if (t - lastS >= 250) { lastS = t; R.series.push([+(t - R.t0).toFixed(0), done]); } }, 16); return true"
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}",
+   "via": "js",
+   "timeoutMs": 1800000
+  },
+  {
+   "do": "waitFor",
+   "js": "return window.__rs.at.finished != null",
+   "timeoutMs": 20000,
+   "what": "the sampler saw the read finish"
+  },
+  {
+   "do": "js",
+   "src": "const R = window.__rs, a = R.at, info = __probe.logic().state.realInfo || {}, n = info.n || R.total, s = v => v == null ? null : +(v / 1000).toFixed(2); const after = a.shown != null && a.finished > a.shown ? +((n - 48) / ((a.finished - a.shown) / 1000)).toFixed(0) : null; return JSON.stringify({ photos: n, rows: info.rows, listS: s(a.reading), firstRowsS: s(a.shown), firstThumbS: s(a.firstThumb), screenFullS: s(a.screenFull), read100S: s(a.read100), read500S: s(a.read500), read1000S: s(a.read1000), read2000S: s(a.read2000), finishedS: s(a.finished), perSecond: +(n / (a.finished / 1000)).toFixed(0), perSecondAfterFirstRows: after })"
+  },
+  {
+   "do": "dump",
+   "name": "read-speed",
+   "js": "const R = window.__rs; return { at: R.at, total: R.total, series: R.series, info: __probe.logic().state.realInfo }"
+  }
+ ]
+}
