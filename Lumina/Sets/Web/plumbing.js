@@ -240,8 +240,18 @@
       try {
         if (!blob) throw 0;
         const ori = m.orient || 1;
-        if (ori === 3 || ori === 6 || ori === 8) { const b0 = await createImageBitmap(blob, { imageOrientation: 'none' }), sw = ori !== 3, c = document.createElement('canvas'); c.width = sw ? b0.height : b0.width; c.height = sw ? b0.width : b0.height; const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(ori === 6 ? Math.PI / 2 : ori === 8 ? -Math.PI / 2 : Math.PI); x.drawImage(b0, -b0.width / 2, -b0.height / 2); b0.close(); blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.92)); }
-        const sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' }); portrait = sm.height > sm.width; me = LuminaCore.measure(sm); sm.close();
+        // The page's 360 px measuring bitmap: the same two calls as the page (turn upright, then
+        // createImageBitmap at 360, 'medium'), made in a worker when there is one. In the page they
+        // decode the whole embedded JPEG on its main thread, which is what a read waits on; the
+        // bitmap comes back by transfer and the measures run here on the same pixels.
+        const made = measurePool ? await measurePool(blob, ori) : null;
+        let sm = made && made.sm;
+        if (sm) { if (made.blob) blob = made.blob; }
+        else {
+          if (ori === 3 || ori === 6 || ori === 8) { const b0 = await createImageBitmap(blob, { imageOrientation: 'none' }), sw = ori !== 3, c = document.createElement('canvas'); c.width = sw ? b0.height : b0.width; c.height = sw ? b0.width : b0.height; const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(ori === 6 ? Math.PI / 2 : ori === 8 ? -Math.PI / 2 : Math.PI); x.drawImage(b0, -b0.width / 2, -b0.height / 2); b0.close(); blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.92)); }
+          sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' });
+        }
+        portrait = sm.height > sm.width; me = LuminaCore.measure(sm); sm.close();
         // Measures above come from the page's exact 360 px bitmap. The tile shows a sharper picture:
         // the Mac's, else one made in a worker, else the page's own.
         tb = (nt && await nt) || await gridThumb(blob) || await new Promise(res => me.canvas.toBlob(res, 'image/jpeg', 0.82));
@@ -269,6 +279,28 @@
         const ws = Array.from({ length: 2 }, () => new Worker(url)), wait = new Map(); let n = 0;
         ws.forEach(w => { w.onmessage = e => { const f = wait.get(e.data.id); wait.delete(e.data.id); f && f(e.data.blob); }; });
         return blob => new Promise(res => { const id = ++n; wait.set(id, res); ws[id % ws.length].postMessage({ id, blob, w: THUMB_W }); });
+      } catch (_) { return null; }
+    })();
+    // The measuring bitmap, off the page's thread (see readOne). The worker runs the page's own
+    // steps: an orientation of 3 / 6 / 8 is turned on a canvas and re-encoded at 0.92 exactly as the
+    // page does, then createImageBitmap(…, { resizeWidth: 360, resizeQuality: 'medium' }). It answers
+    // { sm, blob } (blob: the turned JPEG, when it turned one), or { sm: null } and the page does it.
+    // `measureWorker: false` in the app config keeps everything on the page (the probe compares the two).
+    const measurePool = (() => {
+      if (cfg.measureWorker === false || typeof Worker !== 'function' || typeof OffscreenCanvas !== 'function') return null;
+      try {
+        const src = 'onmessage = async e => { const { id, blob, ori } = e.data; try { let b = blob;' +
+          ' if (ori === 3 || ori === 6 || ori === 8) { const b0 = await createImageBitmap(blob, { imageOrientation: "none" }), sw = ori !== 3,' +
+          ' c = new OffscreenCanvas(sw ? b0.height : b0.width, sw ? b0.width : b0.height), x = c.getContext("2d");' +
+          ' x.translate(c.width / 2, c.height / 2); x.rotate(ori === 6 ? Math.PI / 2 : ori === 8 ? -Math.PI / 2 : Math.PI);' +
+          ' x.drawImage(b0, -b0.width / 2, -b0.height / 2); b0.close(); b = await c.convertToBlob({ type: "image/jpeg", quality: 0.92 }); }' +
+          ' const sm = await createImageBitmap(b, { resizeWidth: 360, resizeQuality: "medium" });' +
+          ' postMessage({ id, sm, blob: b === blob ? null : b }, [sm]); } catch (_) { postMessage({ id, sm: null, blob: null }); } };';
+        const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+        const size = Math.max(2, Math.min(4, (navigator.hardwareConcurrency || 4) - 2));
+        const ws = Array.from({ length: size }, () => new Worker(url)), wait = new Map(); let n = 0;
+        ws.forEach(w => { w.onmessage = e => { const f = wait.get(e.data.id); wait.delete(e.data.id); f && f(e.data); }; w.onerror = () => {}; });
+        return (blob, ori) => new Promise(res => { const id = ++n; wait.set(id, res); ws[id % ws.length].postMessage({ id, blob, ori }); });
       } catch (_) { return null; }
     })();
     const gridThumb = async blob => {
