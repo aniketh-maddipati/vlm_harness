@@ -108,7 +108,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     }
 
     /// A photo's embedded preview as the page names it: `{p, o, l, ori}` (numbers or strings).
-    static func ingestPreview(_ d: Any?) -> SetsIngest.Preview? {
+    nonisolated static func ingestPreview(_ d: Any?) -> SetsIngest.Preview? {
         guard let i = d as? [String: Any], let rel = i["p"] as? String else { return nil }
         return SetsIngest.Preview(rel: rel, offset: Int(i["o"] as? String ?? "") ?? i["o"] as? Int ?? 0,
                                   length: Int(i["l"] as? String ?? "") ?? i["l"] as? Int ?? 0,

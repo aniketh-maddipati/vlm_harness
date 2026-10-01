@@ -177,7 +177,9 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     }
     const mid = lumina.edit.state();
     lumina.edit.dragEnd();
-    await new Promise(r => setTimeout(r, 500));
+    // Shorter than the 500 ms debounce: the save that follows a drag must not land before the
+    // "no session write during the drag" check below reads the count (the rest render needs ~250 ms).
+    await new Promise(r => setTimeout(r, 400));
     return { mid, end: lumina.edit.state(), images: window.__editImages.slice() };
   });
   const dragRenders = bridge.renders.filter(r => r.tier === 'small'), restRenders = bridge.renders.filter(r => r.tier === 'base');
