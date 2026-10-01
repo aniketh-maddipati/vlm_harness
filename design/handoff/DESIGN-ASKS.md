@@ -357,14 +357,48 @@ Numbers: `make culleval`.
 > do not let "dHash ≥ 28 always splits" cut frames whose sequence numbers say they are one burst.
 > `Tools/culleval` re-measures this after the sync.
 >
-> **C. Bursts by hand are left as singles.** This photographer mostly shoots single frames and
-> repeats: 500 runs of the same framing ≤ 2 s apart against 80 camera bursts. Lumina stacks 7 % of
-> those pairs (it is never wrong when it does: precision 100 %). In 197 of 199 runs of tries that
+> **C. Retakes are left as singles (revised 2026-10-01 from hand labels, see below).** This
+> photographer mostly shoots single frames and repeats: 500 runs of the same framing ≤ 2 s apart
+> against 80 camera bursts. Lumina stacks 7 % of those pairs. In 197 of 199 runs of tries that
 > held a keeper, Lumina showed the tries as separate photos, and 229 of the 582 frames it suggested
-> and the photographer rejected were one of several tries where another try was kept. After B,
-> please stack frames with the same lens, focal length and orientation that follow within 2 s when
-> their hashes agree, and consider a wider window (the photographer's tries are mostly 3–10 s
-> apart: 1,204 such pairs) shown as a looser group, not a burst.
+> and the photographer rejected were one of several tries where another try was kept.
+> The first version of this ask proposed "within 2 s, same lens, hashes agree". The photographer
+> has since marked 277 consecutive pairs by eye ("would you put these two in one stack and choose
+> between them?"), and time turns out to be a weak sign of a retake: the two frames are the same
+> picture in 83 % of pairs at most 2 s apart, 63 % at 2–10 s, 43 % at 10–60 s and 11 % beyond.
+> Against those labels:
+>
+> | Stack two consecutive frames when | Right when it stacks | Retakes it finds |
+> |---|---:|---:|
+> | ≤ 2 s, same lens / focal length / orientation, dHash ≤ 20 (the first version of this ask) | 95 % | 14 % |
+> | ≤ 4 s, nothing else | 78 % | 43 % |
+> | ≤ 60 s, dHash ≤ 20 | 87 % | 40 % |
+> | ≤ 60 s, dHash ≤ 24 | 84 % | 58 % |
+> | ≤ 60 s, the app's distance ≤ 0.35 | 95 % (90–98) | 57 % (49–65) |
+>
+> No dHash threshold reaches the last row, so the measure has to come from the app. Please:
+> (1) **Take a distance from the app.** `window.lumina.near(pathA, pathB)` resolves to a number
+> (0 = the same image, about 1 = unrelated) or `null` (in the browser, and until the app has
+> measured both frames: it measures behind the read, so a value can arrive after the photo is on
+> screen). Call it for each photo and the photo before it in capture order and keep the answer on
+> the later frame's record (`near`), where `buildShoot` can read it like `dhash`.
+> `window.lumina.nearLimit` is the threshold (0.35 today). It comes from the app because it
+> belongs to the app's measure, which can change with macOS; please don't write the number into
+> the page.
+> (2) **The rule.** Two consecutive frames at most 60 s apart with the same lens, focal length
+> (±5 %) and orientation are one stack when `near ≤ nearLimit`. Where `near` is `null`, fall back
+> to the dHash rule you have after B. Camera bursts (A) stay stacked by their sequence numbers
+> whatever the distance says. No 2 s or 4 s limit: it would leave out more than half the retakes.
+> (3) **One kind of stack.** A stack of retakes behaves as a burst does (open, rank, keep one,
+> `⌥←→` skips it, B splits and ⇧B merges, manual cuts win over the rule). If you want the badge
+> or header to say which kind it is, the wording is yours.
+> (4) **Calm arrival.** `near` values arrive while rows are already on screen. Regroup with the
+> same pacing ask 8 (c) asks for, and never regroup the row the cursor is in while a key is held.
+> Known limit, nothing asked: when one of the two frames is a miss (blurred, a blink, something
+> in the way) the distance grows, and the rule stacks 8 of the 23 such pairs the photographer
+> marked as the same picture (35 %, against 57 % overall). The missed frame is the one most likely
+> to be left beside its stack. That is open on the app side; B (split) and ⇧B (merge) cover it
+> by hand meanwhile.
 >
 > **D. `blown` fires on bright scenes, and it removes keepers from the suggested keeps.** The rule
 > is "more than 2 % of pixels at 250 or above in all three channels". On a bright indoor event it
@@ -474,6 +508,15 @@ and 56 % of the runs that hold a pick hold exactly one: the same picture as C, o
   dHash distances inside bursts drop and pair recall for bursts by hand rises with precision held; best-of-stack and keep
   precision are re-read. D: the bright-event shoot's "flagged blown" count falls and its suggested-keeps recall rises
   toward the other shoots'. A sync that changes `readOne` fails `make culleval-test` until `Tools/culleval/lib/measure.mjs` is reviewed.
+- Prompt 2 C (revised): the numbers are from 277 hand-marked consecutive pairs (300 drawn across nine shoots by time
+  gap and distance, 20 marked unsure, 3 not marked; one photographer, one body; the threshold was chosen on the same
+  pairs, so read 95 % / 57 % as the best case). The app's distance is Vision's image feature print (revision 2) on the
+  embedded preview at 512 px, about 23 ms a frame on all cores. Labels, pairs and scripts stay on the Mac
+  (`~/LuminaEvidence/culleval/labels`: `label.py` is the marking sheet, `score_labels.py` the scorer, `report.md` the
+  tables); they are not in `Tools/culleval` yet. Still to build on the app side: the measure behind the read in the
+  bridge, `lumina.near` / `lumina.nearLimit` in `plumbing.js`, both listed by the contract scenario. After the handoff:
+  dump the page's stacks through the app (`Tools/culleval/dump-decisions.json`) and score them against the same labels;
+  expect about 95 % of stacked pairs marked the same picture and more than half of the marked retakes stacked.
 - Prompt 2, second part (E, F, H): the culling eval through the app, on the Mac (it needs shoots with traceable
   exports; labels and photos stay in `~/LuminaEvidence/culling-eval`).
   `LUMINA_CULL_DIR=<shoot> lumina-probe run Tools/culleval/dump-decisions.json` dumps what the page decided;
