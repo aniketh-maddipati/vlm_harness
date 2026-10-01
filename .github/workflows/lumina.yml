@@ -130,7 +130,6 @@ jobs:
             shoot: true
             run: bash Scripts/probe.sh scenarios scroll-fast-2560; s1=$?; bash Scripts/probe.sh edit; s2=$?; bash Scripts/probe.sh raw9; s3=$?; exit $((s1 | s2 | s3))
     env:
-      LUMINA_PROBE_OUT: ${{ runner.temp }}/probe
       LUMINA_EDIT_GATE: "0"     # latency is reported, not gated, on a shared runner
     steps:
       - uses: actions/checkout@v4
@@ -157,6 +156,8 @@ jobs:
           echo "LUMINA_EDIT_DIR=${{ runner.temp }}/scroll-775/100MSDCF" >> "$GITHUB_ENV"
       - name: ${{ matrix.shard }}
         shell: bash {0}       # no -e: every suite in the shard runs; the exit code combines them
+        env:
+          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe
         run: ${{ matrix.run }}
       - uses: actions/upload-artifact@v4
         if: always()
