@@ -8,6 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		A70000010000000000000004 /* Inject in Frameworks */ = {isa = PBXBuildFile; productRef = A70000010000000000000003 /* Inject */; };
+		A80000010000000000000011 /* LuminaCore in Frameworks */ = {isa = PBXBuildFile; productRef = A80000010000000000000003 /* LuminaCore */; };
+		A80000010000000000000012 /* LuminaUI in Frameworks */ = {isa = PBXBuildFile; productRef = A80000010000000000000004 /* LuminaUI */; };
+		A80000010000000000000013 /* LuminaCore in Frameworks */ = {isa = PBXBuildFile; productRef = A80000010000000000000005 /* LuminaCore */; };
+		A80000010000000000000014 /* LuminaUI in Frameworks */ = {isa = PBXBuildFile; productRef = A80000010000000000000006 /* LuminaUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +61,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A80000010000000000000011 /* LuminaCore in Frameworks */,
+				A80000010000000000000012 /* LuminaUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -79,6 +85,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A70000010000000000000004 /* Inject in Frameworks */,
+				A80000010000000000000013 /* LuminaCore in Frameworks */,
+				A80000010000000000000014 /* LuminaUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -127,6 +135,8 @@
 			);
 			name = Lumina;
 			packageProductDependencies = (
+				A80000010000000000000003 /* LuminaCore */,
+				A80000010000000000000004 /* LuminaUI */,
 			);
 			productName = Lumina;
 			productReference = A10000010000000000000001 /* Lumina.app */;
@@ -197,6 +207,8 @@
 			name = LuminaPlayground;
 			packageProductDependencies = (
 				A70000010000000000000003 /* Inject */,
+				A80000010000000000000005 /* LuminaCore */,
+				A80000010000000000000006 /* LuminaUI */,
 			);
 			productName = LuminaPlayground;
 			productReference = A60000010000000000000001 /* LuminaPlayground.app */;
@@ -239,6 +251,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A70000010000000000000002 /* XCRemoteSwiftPackageReference "Inject" */,
+				A80000010000000000000002 /* XCLocalSwiftPackageReference "LuminaKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A10000010000000000000005 /* Products */;
@@ -662,6 +675,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		A80000010000000000000002 /* XCLocalSwiftPackageReference "LuminaKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = LuminaKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		A70000010000000000000002 /* XCRemoteSwiftPackageReference "Inject" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -678,6 +698,22 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A70000010000000000000002 /* XCRemoteSwiftPackageReference "Inject" */;
 			productName = Inject;
+		};
+		A80000010000000000000003 /* LuminaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LuminaCore;
+		};
+		A80000010000000000000004 /* LuminaUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LuminaUI;
+		};
+		A80000010000000000000005 /* LuminaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LuminaCore;
+		};
+		A80000010000000000000006 /* LuminaUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LuminaUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

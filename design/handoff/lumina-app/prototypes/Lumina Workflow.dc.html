@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#EFECE6}a:hover{color:#B8B3AB}
+@keyframes rise{from{opacity:0}to{opacity:1}}
+@keyframes pop{0%{transform:scale(0.4);opacity:0}60%{transform:scale(1.18);opacity:1}100%{transform:scale(1)}}
+@keyframes slide{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:1ms !important;transition-duration:1ms !important}}
+</style>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100vh;min-height:420px;background:#1E1D1B;color:#EFECE6;user-select:none;position:relative;overflow:hidden;font-variant-numeric:tabular-nums">
+
+  <sc-if value="{{ isEdit }}" hint-placeholder-val="{{ false }}">
+    <dc-import name="Lumina Edit v19" store-key="{{ eKey }}" strict-keep="{{ true }}" match-scene="{{ matchScene }}" hint-size="100%,100%"></dc-import>
+  </sc-if>
+
+  <sc-if value="{{ hostHead }}" hint-placeholder-val="{{ true }}">
+  <div style="flex:none;height:{{ topH }}px;padding:0 {{ topPad }}px;display:flex;align-items:center;gap:18px;background:#262523;border-bottom:1px solid rgba(239,236,230,0.08)">
+    <sc-if value="{{ logoOn }}" hint-placeholder-val="{{ true }}"><div style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:21px">Lumina</div></sc-if>
+    <div style="flex:1;min-width:0;display:flex;justify-content:center">
+      <div role="tablist" aria-label="steps" style="position:relative;display:grid;grid-template-columns:repeat(4,{{ tabW }}px);padding:2px;border-radius:7px;background:rgba(239,236,230,0.08);box-shadow:inset 0 0 0 0.5px rgba(239,236,230,0.12);font-size:13px;white-space:nowrap">
+        <div style="position:absolute;left:2px;top:2px;bottom:2px;width:{{ tabW }}px;border-radius:5px;background:#5B5854;box-shadow:0 0.5px 1px rgba(0,0,0,0.4);transform:translateX({{ tabX }}px);transition:transform 160ms ease-out"></div>
+        <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="4">
+          <div role="tab" title="{{ tb.tip }}" onClick="{{ tb.go }}" style-active="transform:scale(0.97)" style="position:relative;height:24px;display:flex;align-items:center;justify-content:center;gap:5px;color:{{ tb.fg }};font-weight:{{ tb.fw }};cursor:pointer">{{ tb.t }}<sc-if value="{{ tabK }}" hint-placeholder-val="{{ true }}"><span style="font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:11px;font-weight:400;color:#96918A">{{ tb.k }}</span></sc-if></div>
+        </sc-for>
+      </div>
+    </div>
+    <sc-if value="{{ metaOn }}" hint-placeholder-val="{{ true }}"><div style="flex:none;display:flex;align-items:baseline;gap:12px;font-size:12px;color:#96918A;white-space:nowrap"><span style="color:#B8B3AB">{{ shootT }}</span><span style="display:inline-block;min-width:118px;text-align:right;color:{{ copyC }}">{{ copyT }}</span></div></sc-if>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isOpen }}" hint-placeholder-val="{{ true }}">
+  <div data-screen-label="1 Open" style="flex:1;min-height:0;overflow-y:auto;display:flex;justify-content:center;padding:56px 24px;animation:rise 160ms ease-out">
+    <div style="width:100%;max-width:600px;height:max-content;flex:none;display:flex;flex-direction:column;gap:28px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:28px">Open a shoot</div>
+        <div style="font-size:13px;line-height:1.5;color:#B8B3AB;text-wrap:pretty">Lumina reads the card and never writes to it. Copies go to ~/Pictures/Lumina and are checked before you see them.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;padding:20px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08)">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:4px">
+            <div style="font-size:15px;font-weight:600">SD card · Untitled</div>
+            <div style="font-size:13px;color:#B8B3AB">{{ cardSub }}</div>
+          </div>
+          <div role="button" tabIndex="0" onClick="{{ copyGo }}" style-active="transform:scale(0.97)" style="height:36px;padding:0 18px;border-radius:9px;display:flex;align-items:center;gap:10px;background:#EFECE6;color:#1E1D1B;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:#FFFFFF">{{ cardBtn }}<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;font-weight:400;opacity:0.6">⏎</span></div>
+        </div>
+        <sc-if value="{{ copyBarOn }}" hint-placeholder-val="{{ false }}">
+          <div style="height:3px;border-radius:2px;background:rgba(239,236,230,0.1);overflow:hidden"><div style="height:100%;width:{{ copyPct }}%;background:#FFD27A;transition:width 80ms linear"></div></div>
+        </sc-if>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div role="button" tabIndex="0" onClick="{{ openFolder }}" style-active="transform:scale(0.97)" style="height:32px;padding:0 14px;border-radius:8px;display:flex;align-items:center;gap:10px;background:rgba(239,236,230,0.08);color:#EFECE6;font-size:13px;cursor:pointer" style-hover="background:rgba(239,236,230,0.16)">Open folder…<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#96918A">⌘O</span></div>
+          <div role="button" tabIndex="0" onClick="{{ openFiles }}" style-active="transform:scale(0.97)" style="height:32px;padding:0 14px;border-radius:8px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;font-size:13px;cursor:pointer" style-hover="background:rgba(239,236,230,0.16)">Choose photos…</div>
+          <div style="font-size:12.5px;color:#96918A">or drop photos or a folder anywhere</div>
+        </div>
+        <input ref="{{ dirRef }}" type="file" multiple="{{ true }}" onChange="{{ pickChange }}" aria-label="choose a folder" style="display:none"></input>
+        <input ref="{{ fileRef }}" type="file" multiple="{{ true }}" accept="image/*,.heic,.heif,.dng,.cr2,.cr3,.nef,.arw,.raf,.orf,.rw2" onChange="{{ pickChange }}" aria-label="choose photos" style="display:none"></input>
+        <sc-if value="{{ impBusy }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12.5px;color:#FFD27A">{{ impProg }}</div><div style="height:3px;border-radius:2px;background:rgba(239,236,230,0.1);overflow:hidden"><div style="height:100%;width:{{ impPct }}%;background:#FFD27A;transition:width 80ms linear"></div></div></div>
+        </sc-if>
+        <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="font-size:12.5px;line-height:1.5;color:{{ impMsgC }};text-wrap:pretty;word-break:break-word">{{ impMsg }}</div></sc-if>
+      </div>
+      <sc-if value="{{ locRecentOn }}" hint-placeholder-val="{{ false }}">
+        <div role="button" tabIndex="0" onClick="{{ openFolder }}" style-active="transform:scale(0.97)" style="display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:9px;background:rgba(239,236,230,0.04);cursor:pointer;min-width:0" style-hover="background:rgba(239,236,230,0.09)">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ locT }}</div><div style="font-size:12px;color:#96918A;text-wrap:pretty">{{ locSub }}</div></div>
+          <div style="flex:none;font-size:12.5px;color:#B8B3AB">Choose folder</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasRecent }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:12px;color:#96918A">Recent</div>
+          <div role="button" tabIndex="0" onClick="{{ resume }}" style-active="transform:scale(0.97)" style="display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:9px;background:rgba(239,236,230,0.04);cursor:pointer" style-hover="background:rgba(239,236,230,0.09)">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ recentT }}</div><div style="font-size:12px;color:#96918A">{{ resumeSub }}</div></div>
+            <div style="font-size:12.5px;color:#B8B3AB">{{ resumeT }}</div>
+          </div>
+          <div role="button" tabIndex="0" onClick="{{ startOver }}" style-active="transform:scale(0.97)" style="align-self:flex-start;font-size:12px;color:#96918A;cursor:pointer;padding:4px 0" style-hover="color:#EFECE6">{{ soT }}</div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isCull }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="2 Cull" style="flex:1;min-height:0;display:grid;grid-template-columns:{{ cullCols }};animation:rise 160ms ease-out">
+    <div ref="{{ scrollRef }}" style="min-width:0;min-height:0;overflow-y:auto;padding:16px 20px 24px;display:flex;flex-direction:column;gap:20px">
+      <sc-if value="{{ cullEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="margin:48px auto;display:flex;flex-direction:column;align-items:center;gap:12px;font-size:13px;color:#B8B3AB">Nothing open yet.<div role="button" tabIndex="0" onClick="{{ toOpen }}" style-active="transform:scale(0.97)" style="height:32px;padding:0 14px;border-radius:8px;display:flex;align-items:center;background:rgba(239,236,230,0.1);color:#EFECE6;cursor:pointer">Open a shoot</div></div>
+      </sc-if>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:baseline;gap:12px;font-size:12.5px;min-height:24px">
+            <span style="font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.hm }}</span><span style="flex:none;color:#96918A">{{ r.cnt }}</span>
+            <sc-if value="{{ r.sugOn }}" hint-placeholder-val="{{ false }}"><div role="button" tabIndex="0" onClick="{{ r.sug }}" title="Keep the photos Lumina marked with a ring. Undecided photos only." style-active="transform:scale(0.97)" style="margin-left:auto;height:24px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="background:rgba(239,236,230,0.16)">{{ r.sugT }}</div></sc-if>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <sc-for list="{{ r.tiles }}" as="t" hint-placeholder-count="8">
+              <div data-tile="{{ t.id }}" onClick="{{ t.go }}" style="position:relative;flex:none;width:{{ t.w }}px;height:{{ tileH }}px;box-sizing:border-box;padding:{{ t.pad }};border:{{ t.bd }};border-radius:3px;overflow:hidden;background:#161514;cursor:pointer;outline:{{ t.ol }};outline-offset:2px;opacity:{{ t.op }};transition:opacity 120ms ease-out">
+                <img src="{{ t.src }}" alt="" loading="lazy" decoding="async" fetchpriority="low" draggable="false" onLoad="{{ tileLoad }}" style="opacity:0;transition:opacity 120ms ease-out, filter 120ms ease-out;width:100%;height:100%;object-fit:{{ t.fit }};display:block;border-radius:2px;filter:{{ t.f }};pointer-events:none"></img>
+                <sc-if value="{{ t.kept }}" hint-placeholder-val="{{ false }}"><div style="animation:pop 200ms ease-out;position:absolute;left:5px;top:5px;width:16px;height:16px;border-radius:50%;background:#FFD27A;color:#1E1D1B;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center">✓</div></sc-if>
+                <sc-if value="{{ t.sug }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:6px;top:6px;width:10px;height:10px;border-radius:50%;box-shadow:inset 0 0 0 1.5px #FFD27A,0 0 2px rgba(0,0,0,0.6)"></div></sc-if>
+                <sc-if value="{{ t.burst }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(239,236,230,0.5)"></div></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+      <sc-if value="{{ copying }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:#96918A">{{ copyLine }}</div></sc-if>
+    </div>
+    <sc-if value="{{ pvOn }}" hint-placeholder-val="{{ true }}">
+      <div style="min-width:0;min-height:0;display:flex;flex-direction:column;gap:12px;padding:16px 20px 16px 4px">
+        <div style="flex:1;min-height:0;position:relative;border-radius:3px;background:#161514;overflow:hidden">
+          <sc-if value="{{ pvSrc }}" hint-placeholder-val="{{ false }}"><img src="{{ pvSrc }}" alt="" draggable="false" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;filter:{{ pvF }}"></img></sc-if>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:10px;font-size:12.5px;flex-wrap:wrap"><span style="font-weight:600;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pvFile }}</span><span style="color:#96918A">{{ pvMeta }}</span><span style="margin-left:auto;color:{{ pvStC }}">{{ pvSt }}</span></div>
+        <div style="display:flex;gap:6px">
+          <div role="button" tabIndex="0" onClick="{{ doKeep }}" style-active="transform:scale(0.97)" style="flex:1;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:10px;background:{{ kBg }};color:{{ kFg }};font-size:13px;font-weight:600;cursor:pointer">Keep<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;font-weight:400;opacity:0.6">R</span></div>
+          <div role="button" tabIndex="0" onClick="{{ doOut }}" style-active="transform:scale(0.97)" style="flex:1;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:10px;background:{{ oBg }};color:#EFECE6;font-size:13px;font-weight:600;cursor:pointer">Out<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;font-weight:400;opacity:0.6">X</span></div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  <div style="flex:none;min-height:56px;padding:8px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:#262523;border-top:1px solid rgba(239,236,230,0.08)">
+    <div style="display:flex;flex-direction:column;gap:5px;min-width:150px">
+      <div style="font-size:12.5px"><span style="font-weight:600">{{ decT }}</span><span style="color:#96918A"> decided</span></div>
+      <div style="width:150px;height:3px;border-radius:2px;background:rgba(239,236,230,0.1);overflow:hidden"><div style="height:100%;width:{{ decPct }}%;background:#EFECE6"></div></div>
+    </div>
+    <div style="flex:1;min-width:0;font-size:12px;color:#96918A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cullMsg }}</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div role="button" tabIndex="0" onClick="{{ toEdit }}" title="Optional. Nothing changes unless you move a setting." style-active="transform:scale(0.97)" style="height:34px;padding:0 14px;border-radius:9px;display:flex;align-items:center;gap:8px;background:rgba(239,236,230,0.08);color:#EFECE6;font-size:13px;cursor:pointer" style-hover="background:rgba(239,236,230,0.16)">{{ editCta }}<span style="font-size:11.5px;color:#96918A">optional</span></div>
+      <div role="button" tabIndex="0" onClick="{{ toSave }}" style-active="transform:scale(0.97)" style="height:34px;padding:0 16px;border-radius:9px;display:flex;align-items:center;gap:8px;background:#EFECE6;color:#1E1D1B;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:#FFFFFF">{{ saveCta }}</div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isSave }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="4 Save" style="flex:1;min-height:0;overflow-y:auto;display:flex;justify-content:center;padding:44px 24px 56px;animation:rise 160ms ease-out">
+    <div style="width:100%;max-width:640px;height:max-content;flex:none;display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:28px">Save</div>
+        <div style="font-size:13px;line-height:1.5;color:#B8B3AB;text-wrap:pretty">Originals are never changed. You can save again any time.</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="font-size:15px;font-weight:600">{{ sumT }}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12.5px;color:#96918A">{{ behindT }}<sc-if value="{{ undOn }}" hint-placeholder-val="{{ false }}"><span role="button" tabIndex="0" onClick="{{ toCull }}" style-active="transform:scale(0.97)" style="color:#EFECE6;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Finish culling</span></sc-if></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:12px;color:#96918A">Save for</div>
+        <div role="radiogroup" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:3px;border-radius:10px;background:rgba(239,236,230,0.07);gap:2px">
+          <sc-for list="{{ fmtSeg }}" as="o" hint-placeholder-count="3"><div role="radio" aria-checked="{{ o.on }}" tabIndex="0" onClick="{{ o.pick }}" style-active="transform:scale(0.97)" style="height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:{{ o.fw }};background:{{ o.bg }};color:{{ o.fg }};cursor:pointer;white-space:nowrap;overflow:hidden;transition:background 120ms ease-out" style-hover="color:#EFECE6">{{ o.t }}</div></sc-for>
+        </div>
+        <div style="font-size:12.5px;line-height:1.5;color:#B8B3AB;text-wrap:pretty">{{ fmtDesc }}</div>
+        <div style="display:flex;align-items:baseline;gap:10px;font-size:12px;color:#96918A;min-width:0"><span style="font-family:ui-monospace,Menlo,monospace;color:#B8B3AB;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">{{ dest }}</span><span role="button" tabIndex="0" onClick="{{ changeDest }}" style-active="transform:scale(0.97)" style="flex:none;color:#96918A;cursor:pointer" style-hover="color:#EFECE6">Change…</span></div>
+      </div>
+
+      <sc-if value="{{ hasEdits }}" hint-placeholder-val="{{ false }}">
+        <div role="checkbox" aria-checked="{{ edChk }}" tabIndex="0" onClick="{{ edToggle }}" style-active="transform:scale(0.97)" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;background:#262523;cursor:pointer" style-hover="background:#2C2B29">
+          <div style="flex:none;width:30px;height:18px;border-radius:9px;background:{{ edTrack }};position:relative;transition:background 120ms ease-out"><div style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#EFECE6;transform:translateX({{ edKnob }}px);transition:transform 140ms ease-out"></div></div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><div style="font-size:13px">{{ edT }}</div><div style="font-size:12px;color:#96918A">{{ edSub }}</div></div>
+          <div role="button" tabIndex="0" onClick="{{ toEditStop }}" style-active="transform:scale(0.97)" style="flex:none;font-size:12px;color:#96918A;cursor:pointer" style-hover="color:#EFECE6">Review</div>
+        </div>
+      </sc-if>
+
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div role="button" tabIndex="0" aria-disabled="{{ saveDis }}" onClick="{{ doSave }}" style-active="transform:scale(0.97)" style="height:40px;padding:0 22px;border-radius:10px;display:flex;align-items:center;gap:10px;background:{{ sBg }};color:{{ sFg }};font-size:14px;font-weight:600;cursor:{{ sCur }}">{{ saveBtnT }}<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;font-weight:400;opacity:0.6">⏎</span></div>
+        <div style="font-size:12.5px;color:#96918A">{{ saveNote }}</div>
+      </div>
+
+      <sc-if value="{{ savedOn }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:slide 180ms ease-out;display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:12px;background:rgba(255,210,122,0.08);box-shadow:inset 0 0 0 1px rgba(255,210,122,0.25)">
+          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><div style="font-size:13.5px;font-weight:600;color:#FFD27A">{{ savedT }}</div><div role="button" onClick="{{ finder }}" style-active="transform:scale(0.97)" style="margin-left:auto;font-size:12.5px;color:#EFECE6;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Show in Finder</div></div>
+          <div style="font-size:12.5px;color:#B8B3AB">{{ savedHint }}</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:#B8B3AB">{{ toast }}</div></sc-if>
+    </div>
+  </div>
+  </sc-if>
+  <sc-if value="{{ dropOn }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:10px;z-index:50;border-radius:14px;border:2px dashed rgba(255,210,122,0.7);background:rgba(22,21,20,0.86);display:flex;align-items:center;justify-content:center;pointer-events:none;animation:rise 120ms ease-out"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:0 24px"><div style="font-size:18px;font-weight:600">Drop to add photos</div><div style="font-size:13px;color:#B8B3AB">Photos or whole folders. Anything that isn’t a photo is skipped.</div></div></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;matchScene&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Edit&quot;},&quot;autoAdvance&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Cull&quot;}}">
+class Component extends DCLogic {
+  static FK = 'lumina.flow.v1';
+  static EK = 'lumina.flow.edit.v1';
+  static STEPS = [['open','Open'],['cull','Cull'],['edit','Edit'],['save','Save']];
+  static LK = 'lumina.local.v1';
+  static X = {img:/\.(jpe?g|jpe|jfif|png|webp|avif|gif|bmp|heic|heif|tiff?)$/i, raw:/\.(cr2|cr3|crw|nef|nrw|arw|srf|sr2|dng|raf|orf|rw2|pef|srw|3fr|erf|kdc|mrw|x3f|iiq|rwl)$/i, vid:/\.(mp4|mov|avi|mkv|m4v|mts|m2ts|3gp|webm|wmv|mpg|mpeg)$/i, side:/\.(xmp|thm|lrv|aae|dop|pp3|on1|cos|lrcat|ds_store)$/i, arch:/\.(zip|rar|7z|tar|gz|tgz)$/i};
+  dirRef = React.createRef(); fileRef = React.createRef();
+  hash(s){ let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))|0; return (h>>>0).toString(36); }
+  kindOf(f,name){ const X=Component.X; if(/^\._|^\.|^(thumbs\.db|desktop\.ini|icon\r?)$/i.test(name)) return 'sys'; if(X.side.test(name)) return 'side'; if(!f.size) return 'empty'; if(X.raw.test(name)) return 'raw'; if(X.vid.test(name)||/^video\//.test(f.type)) return 'video'; if(X.arch.test(name)) return 'archive'; if(X.img.test(name)||/^image\//.test(f.type)||!/\.[a-z0-9]{1,5}$/i.test(name)) return 'probe'; return 'other'; }
+  async exif(f){ try{ if(!/jpe?g|jfif|jpe$/i.test(f.type+' '+f.name)) return null; const b=new DataView(await f.slice(0,131072).arrayBuffer()); if(b.getUint16(0)!==0xFFD8) return null; let o=2; while(o+4<b.byteLength){ const m=b.getUint16(o), L=b.getUint16(o+2); if(m===0xFFE1&&b.getUint32(o+4)===0x45786966){ const t=o+10, le=b.getUint16(t)===0x4949, u16=x=>b.getUint16(x,le), u32=x=>b.getUint32(x,le), out={};
+      const str=(x,n)=>{ let s=''; for(let i=0;i<n&&x+i<b.byteLength;i++){ const c=b.getUint8(x+i); if(!c) break; s+=String.fromCharCode(c); } return s.trim(); }, rat=x=>{ const d=u32(x+4); return d?u32(x)/d:0; };
+      const ifd=(p,fn)=>{ if(t+p+2>b.byteLength) return; const n=u16(t+p); for(let i=0;i<n;i++){ const e=t+p+2+i*12; if(e+12>b.byteLength) return; const tag=u16(e), ty=u16(e+2), cnt=u32(e+4), vo=cnt*([0,1,1,2,4,8,1,1,2,4,8,4,8][ty]||1)>4?t+u32(e+8):e+8; fn(tag,ty,cnt,vo); } };
+      let sub=0; ifd(u32(t+4),(tag,ty,cnt,vo)=>{ if(tag===0x10F) out.make=str(vo,cnt); if(tag===0x110) out.model=str(vo,cnt); if(tag===0x8769) sub=u32(vo); });
+      if(sub) ifd(sub,(tag,ty,cnt,vo)=>{ if(tag===0x9003) out.dt=str(vo,cnt); if(tag===0x829D) out.ap=rat(vo); if(tag===0x829A) out.ex=rat(vo); if(tag===0x8827) out.iso=u16(vo); if(tag===0x920A) out.fl=rat(vo); if(tag===0xA434) out.lens=str(vo,cnt); });
+      const m2=/^(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/.exec(out.dt||''); if(m2) out.t=new Date(+m2[1],+m2[2]-1,+m2[3],+m2[4],+m2[5],+m2[6]).getTime(); return out; } if((m&0xFF00)!==0xFF00||m===0xFFDA) break; o+=2+L; } return null; }catch(_){ return null; } }
+  async probe(f){ const u=URL.createObjectURL(f); try{ const im=new Image(); im.decoding='async'; im.src=u; await Promise.race([im.decode(),new Promise((_,rj)=>setTimeout(()=>rj(new Error('slow')),12000))]); const W=im.naturalWidth, H=im.naturalHeight; if(!W||!H) throw new Error('empty'); const k=Math.min(1,480/Math.max(W,H)), c=document.createElement('canvas'); c.width=Math.max(1,Math.round(W*k)); c.height=Math.max(1,Math.round(H*k)); c.getContext('2d').drawImage(im,0,0,c.width,c.height); const b=await new Promise(r=>c.toBlob(r,'image/jpeg',0.82)); return {w:W,h:H,th:b?URL.createObjectURL(b):''}; }catch(_){ return null; } finally { URL.revokeObjectURL(u); } }
+  importItems(items,name){ this._iq=(this._iq||Promise.resolve()).then(()=>this._import(items||[],name)).catch(e=>{ this.setState({imp:null,impMsg:{t:'Something went wrong reading those files. Nothing was changed.',bad:true}}); console.warn(e); }); return this._iq; }
+  async _import(items,name){ const seen=new Set((this._local||[]).map(x=>x.key)), C={}, cand=[], add=k=>C[k]=(C[k]||0)+1;
+    if(!items.length){ this.setState({impMsg:{t:'That folder is empty. Lumina opens JPEG, PNG, WebP, HEIC and AVIF photos.',bad:true}}); return; }
+    items.forEach(it=>{ const f=it.file, nm=(f.name||'').trim(), rel=it.rel||nm, k=this.kindOf(f,nm); if(k!=='probe'){ add(k); return; } const key=rel+'|'+f.size+'|'+f.lastModified; if(seen.has(key)){ add('dupe'); return; } seen.add(key); cand.push({f,nm,rel,key}); });
+    const acc=[]; let done=0; this.setState({imp:{n:0,t:cand.length}});
+    const work=async()=>{ while(cand.length){ const c=cand.shift(), r=await this.probe(c.f); done++; if(r){ const x=await this.exif(c.f); acc.push({...c,...r,ex:x,obj:URL.createObjectURL(c.f),lm:(x&&x.t)||c.f.lastModified||Date.now()}); } else add(/\.(heic|heif)$/i.test(c.nm)?'heic':'damaged'); if(done%8===0&&!this._dead) this.setState({imp:{n:done,t:done+cand.length}}); } };
+    await Promise.all([0,1,2,3,4,5].map(work)); if(this._dead) return;
+    const nm=name||((items[0].rel||'').split('/').length>1?items[0].rel.split('/')[0]:'Dropped photos');
+    const skip=[[C.dupe,'already in this shoot'],[C.raw,'RAW (the browser can’t read RAW; open these in the Lumina app)'],[C.heic,'HEIC this browser can’t read (try Safari, or export as JPEG)'],[C.video,'video'+(C.video>1?'s':'')],[C.archive,'zip/archive (unzip it first)'],[C.damaged,'damaged or not really a photo'],[C.empty,'empty (0 bytes)'],[C.other,'not a photo']].filter(x=>x[0]).map(x=>x[0]+' '+x[1]);
+    if(!acc.length){ this.setState({imp:null,impMsg:{t:(skip.length?'No photos added. Skipped '+skip.join(' · ')+'.':'No photos found there.')+' Lumina opens JPEG, PNG, WebP, HEIC and AVIF.',bad:true}}); if(this.state.step!=='open') this.say('No photos added. Open has the details.'); return; }
+    this._local=[...(this._local||[]),...acc]; this.useLocal(nm);
+    const msg='Added '+acc.length+' photo'+(acc.length>1?'s':'')+' from '+nm+'.'+(skip.length?' Skipped '+skip.join(' · ')+'.':'');
+    const st=this.state.step; this.setState({imp:null,impMsg:{t:msg,bad:false},copied:this.data.P.length,cur:this.state.cur&&this.data.byId[this.state.cur]?this.state.cur:this.data.byId['L'+this.hash(acc[0].key)]?'L'+this.hash(acc[0].key):this.data.P[0].id},()=>{ this.persistF(); if(st==='open') this.setStep('cull'); else this.say(msg+(st==='edit'?' They show in Cull now, and in Edit next time you open it.':'')); }); }
+  buildLocal(nm){ const L=[...this._local].sort((a,b)=>a.lm-b.lm||a.rel.localeCompare(b.rel)), P=[],R=[],byId={},G={}; let ri=-1, last=null, lastDir=null, gn=1, g=null;
+    const t2=ms=>{ const d=new Date(ms); return [d.getHours(),d.getMinutes(),d.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':'); }, dir=r=>{ const a=r.split('/'); return a.length>1?a[a.length-2]:nm; };
+    L.forEach(x=>{ const dd=dir(x.rel); if(!last||x.lm-last.lm>30*60000||dd!==lastDir){ ri++; R.push({id:'r'+ri,ri,hm:t2(x.lm).slice(0,5),title:dd,ids:[]}); g=null; }
+      const ar=x.w/x.h, burst=last&&ri===R.length-1&&x.lm-last.lm<=2000&&Math.abs(ar-last.w/last.h)<0.01&&R[ri].ids.length;
+      const prevId=R[ri].ids[R[ri].ids.length-1]; if(burst&&!(g&&g.ids.length>=8)){ if(!g){ if(byId[prevId].gid){ g=null; } else { g={id:'g'+gn,num:gn,ids:[prevId]}; G[g.id]=g; gn++; byId[prevId].gid=g.id; } } } else g=null;
+      const id='L'+this.hash(x.key), X=x.ex||{}, cam=[X.make,X.model&&X.make&&X.model.toLowerCase().startsWith(X.make.toLowerCase())?X.model.slice(X.make.length).trim():X.model].filter(Boolean).join(' '), p={id,file:x.nm,ri,gid:g?g.id:null,obj:x.obj,th:x.th,ar:ar||1.5,body:cam,lens:X.lens||cam,fl:X.fl?Math.round(X.fl):'',ap:X.ap?'f/'+(+X.ap.toFixed(1)):'',sh:X.ex?(X.ex>=1?X.ex.toFixed(1).replace(/\.0$/,'')+'s':'1/'+Math.round(1/X.ex)):'',iso:X.iso||'',time:t2(x.lm),wbShot:5500,h:0.5,kept:false,seed:P.length,bw:false};
+      if(byId[id]) return; P.push(p); byId[id]=p; R[ri].ids.push(id); if(g&&!g.ids.includes(id)) g.ids.push(id); last=x; lastDir=dd; });
+    const RR=R.filter(r=>r.ids.length); RR.forEach((r,i)=>{ r.ri=i; r.id='r'+i; r.ids.forEach(id=>byId[id].ri=i); });
+    return {P,R:RR,byId,G,name:'local',local:true,label:'Folder · '+nm,span:RR.length?RR[0].hm+'–'+P[P.length-1].time.slice(0,5):''}; }
+  useLocal(nm){ const was=!!(this.data&&this.data.local); this.data=this.buildLocal(nm); this._locName=nm; window.luminaShoot=()=>this.data; Component.FK='lumina.flow.v1.local'; Component.EK='lumina.flow.edit.v1.local'; try{ localStorage.setItem(Component.LK,JSON.stringify({name:nm,n:this.data.P.length})); }catch(_){}
+    if(!was){ let f=null; try{ f=JSON.parse(localStorage.getItem(Component.FK)||'null'); }catch(_){} const e=this.readE(); this._e=e; this.setState({keep:e.keep||{},undo:[],redo:[],saved:(f&&f.saved)||null,fmt:(f&&f.fmt)||'xmp',withEdits:!f||f.withEdits!==false}); } }
+  useDemo(){ if(!(this.data&&this.data.local)) return; window.luminaShoot=this._dsFn||undefined; this.data=this.build(); Component.FK=this._fk0; Component.EK=this._ek0; this.keys(); let f=null; try{ f=JSON.parse(localStorage.getItem(Component.FK)||'null'); }catch(_){} const e=this.readE(); this._e=e; this.setState({copied:(f&&f.copied)||0,cur:(f&&f.cur)||null,keep:e.keep||{},undo:[],redo:[],saved:(f&&f.saved)||null}); }
+  async walk(entry,out,path){ if(entry.isFile){ const f=await new Promise(r=>entry.file(r,()=>r(null))); if(f) out.push({file:f,rel:(path?path+'/':'')+f.name}); return; } if(entry.isDirectory){ const rd=entry.createReader(); let batch; do{ batch=await new Promise(r=>rd.readEntries(r,()=>r([]))); for(const e of batch) await this.walk(e,out,(path?path+'/':'')+entry.name); }while(batch.length); } }
+  async onDrop(e){ const dt=e.dataTransfer; if(!dt) return; const items=[...(dt.items||[])].filter(i=>i.kind==='file'); const ents=items.map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean); let out=[], name=null;
+    if(ents.length){ for(const en of ents) await this.walk(en,out,''); const dirs=ents.filter(x=>x.isDirectory); if(dirs.length===1) name=dirs[0].name; } else out=[...(dt.files||[])].map(f=>({file:f,rel:f.name}));
+    if(!out.length&&!ents.length&&!(dt.files||[]).length) return this.say('Only photos and folders can be dropped here.');
+    this.importItems(out,name); }
+  state = { step:'open', copied:0, cur:null, keep:{}, undo:[], redo:[], fmt:'xmp', withEdits:true, saved:null, toast:'', w:window.innerWidth, h:window.innerHeight };
+  scrollRef = React.createRef();
+  data = this.build();
+  build(){
+    const DS=window.luminaShoot&&window.luminaShoot(); if(DS) return DS;
+    const SN=(()=>{ try{ return +new URLSearchParams(location.search).get('shoot')||0; }catch(_){ return 0; } })(), sf=SN>117?SN/117:1, rows=[['09:12:40',14],['11:40:02',9],['14:02:07',52],['16:31:15',18],['19:14:33',24]].map(([t,c])=>[t,Math.round(c*sf)]), lenses=[['FE 85mm F1.4 GM',85,'f/2'],['FE 24-70mm F2.8 GM II',35,'f/4'],['FE 35mm F1.4 GM',35,'f/2.8']], sh=['1/250','1/500','1/1000','1/125','1/60'], iso=[100,200,400,800,1600];
+    const P=[], R=[], byId={}, G={}; let n=3260, gn=27;
+    rows.forEach(([t,cnt],ri)=>{ const ids=[]; let k=0;
+      while(k<cnt){ const h=(n*31+ri*7)%11, burst=h<3&&cnt-k>=3?Math.min(cnt-k,3+(h+n)%4):1, gid=burst>1?'g'+gn:null; if(gid){ G[gid]={id:gid,num:gn,ids:[]}; gn++; }
+        for(let j=0;j<burst;j++){ const hh=+t.slice(0,2), mm=+t.slice(3,5), s0=+t.slice(6,8)+k, L=lenses[(ri+(gid?0:k))%3], id='DSC0'+n;
+          const p={id,file:id,ri,gid,lens:L[0],fl:L[1],ap:L[2],sh:sh[(n+ri)%5],iso:iso[(n*3+ri)%5],time:String(hh).padStart(2,'0')+':'+String(mm+Math.floor(s0/60)).padStart(2,'0')+':'+String(s0%60).padStart(2,'0'),kept:gid?j<((n%3)?1:2):(n*13)%10<6,seed:180+(n%160),ar:gid?1.5:[3,2/3,2/3,2/3,0.4][n%23]||1.5,bw:!gid&&n%19===0};
+          P.push(p); byId[id]=p; ids.push(id); if(gid) G[gid].ids.push(id); n++; k++; } }
+      R.push({id:'r'+ri,ri,hm:t.slice(0,5),ids}); });
+    return {P,R,byId,G};
+  }
+  src(p,M){ if(p.obj) return M<=500&&p.th?p.th:p.obj; if(p.url){ const d=Math.min(3,window.devicePixelRatio||1); M=Math.min(3000,Math.round(M*Math.max(1,d)/1.5/40)*40); } const A=p.ar, w=A>=1?M:Math.round(M*A), h=A>=1?Math.round(M/A):M; if(p.url) return 'https://images.unsplash.com/'+p.url+'?w='+w+'&h='+h+'&fit=crop&q=70&auto=format'; return 'https://picsum.photos/seed/lumina'+p.seed+'/'+w+'/'+h+(p.bw?'?grayscale':''); }
+  readE(){ try{ return JSON.parse(localStorage.getItem(Component.EK)||'null')||{}; }catch(_){ return {}; } }
+  writeE(patch){ const b={looks:{},tags:{},keep:{},done:{},vers:{},...this.readE(),...patch}; try{ localStorage.setItem(Component.EK,JSON.stringify(b)); }catch(_){ this.say('Couldn’t save on this computer. Keep this window open.'); } this._e=b; }
+  persistF(){ const s=this.state; try{ localStorage.setItem(Component.FK,JSON.stringify({step:s.step,copied:s.copied,cur:s.cur,fmt:s.fmt,withEdits:s.withEdits,saved:s.saved})); }catch(_){} }
+  wantDS(){ try{ return /^unsplash/.test(new URLSearchParams(location.search).get('shoot')||''); }catch(_){ return false; } }
+  keys(){ const n=this.data.name; if(n){ Component.FK='lumina.flow.v1.'+n; Component.EK='lumina.flow.edit.v1.'+n; } }
+  componentDidMount(){ this._fk0=Component.FK; this._ek0=Component.EK; this._dsFn=window.luminaShoot;
+    let dc=0; const hasF=e=>{ const t=e.dataTransfer&&e.dataTransfer.types; return !!t&&[...t].includes('Files'); };
+    this._dg=e=>{ if(!hasF(e)) return; e.preventDefault(); if(e.type==='dragenter'){ dc++; if(!this.state.dropOn) this.setState({dropOn:true}); } if(e.type==='dragleave'){ dc=Math.max(0,dc-1); if(!dc) this.setState({dropOn:false}); } if(e.type==='dragover') e.dataTransfer.dropEffect='copy'; };
+    this._dp=e=>{ e.preventDefault(); dc=0; this.setState({dropOn:false}); if(hasF(e)||(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length)) this.onDrop(e); };
+    ['dragenter','dragover','dragleave'].forEach(t=>window.addEventListener(t,this._dg)); window.addEventListener('drop',this._dp);
+    window.luminaImport=(list,name)=>this.importItems([...(list||[])].map(x=>x&&x.file?x:{file:x,rel:x.webkitRelativePath||x.name}),name); window.luminaFlow=()=>{ const s=this.state; return {step:s.step,cur:s.cur,keep:s.keep,copied:s.copied,fmt:s.fmt,withEdits:s.withEdits,saved:s.saved}; }; window.luminaImportState=()=>({busy:!!this.state.imp,msg:this.state.impMsg&&this.state.impMsg.t,n:this.data.P.length,local:!!this.data.local,step:this.state.step});
+    if(this.wantDS()&&!window.luminaShoot){ const sc=document.createElement('script'); sc.src='data/lumina-shoot-unsplash.js'; sc.onload=()=>{ if(this._dead) return; this.data=this.build(); this.keys(); this.forceUpdate(); this.mount0(); }; sc.onerror=()=>{ this.mount0(); this.say('Couldn’t load the photo set. Showing the demo shoot.'); }; document.head.appendChild(sc); return; } this.keys(); this.mount0(); }
+  mount0(){
+    let f=null; try{ f=JSON.parse(localStorage.getItem(Component.FK)||'null'); }catch(_){}
+    const e=this.readE(); this._e=e;
+    if(f) this.setState({step:f.step||'open',copied:f.copied||0,cur:f.cur||null,fmt:f.fmt||'xmp',withEdits:f.withEdits!==false,saved:f.saved||null,keep:e.keep||{}},()=>{ if(this.state.copied>0&&this.state.copied<this.data.P.length) this.startCopy(); });
+    this._k=ev=>this.onKey(ev); window.addEventListener('keydown',this._k);
+    this._rs=()=>this.setState({w:window.innerWidth,h:window.innerHeight}); window.addEventListener('resize',this._rs);
+    this._step=ev=>{ const v=ev.detail&&ev.detail.view; if(v) this.setStep(v); }; window.addEventListener('lumina:step',this._step);
+  }
+  componentWillUnmount(){ this._dead=true; ['dragenter','dragover','dragleave'].forEach(t=>window.removeEventListener(t,this._dg)); window.removeEventListener('drop',this._dp); (this._local||[]).forEach(x=>{ try{ URL.revokeObjectURL(x.obj); x.th&&URL.revokeObjectURL(x.th); }catch(_){} }); clearTimeout(this._soT); window.removeEventListener('keydown',this._k); window.removeEventListener('resize',this._rs); window.removeEventListener('lumina:step',this._step); clearInterval(this._ci); clearTimeout(this._tt); }
+  componentDidUpdate(){ const s=this.state, ps=this._ps||{}; this._ps={cur:s.cur,step:s.step}; if(s.step==='cull'&&(s.cur!==ps.cur||ps.step!=='cull')) this.follow(); }
+  follow(){ const el=this.scrollRef.current, cur=this.state.cur; if(!el||!cur) return; const t=el.querySelector('[data-tile="'+cur+'"]'); if(!t) return; const a=t.getBoundingClientRect(), b=el.getBoundingClientRect(); if(a.top<b.top+8) el.scrollTop-=b.top+8-a.top+24; else if(a.bottom>b.bottom-8) el.scrollTop+=a.bottom-b.bottom+8+24; }
+  say(t){ if(this._dead) return; this.setState({toast:t}); clearTimeout(this._tt); this._tt=setTimeout(()=>{ if(!this._dead) this.setState({toast:''}); },3200); }
+  setStep(v){ const s=this.state; if(v===s.step) return;
+    this._stepT=Date.now(); if(s.step==='edit'){ return this.setState({step:v},()=>{ const e=this.readE(); this._e=e; const nk=e.keep||{}, changed=JSON.stringify(nk)!==JSON.stringify(this.state.keep); this.setState(changed?{keep:nk,undo:[],redo:[]}:{keep:nk},()=>this.persistF()); }); }
+    if(v==='edit'){ const keep=s.keep, kp=this.data.P.filter(p=>keep[p.id]===true), e=this.readE(); const cur=e.cur&&keep[e.cur]===true?e.cur:((keep[s.cur]===true&&s.cur)||(kp[0]&&kp[0].id)||null); this.writeE({keep,cur}); }
+    this._e=this.readE(); this.setState({step:v,toast:''},()=>this.persistF()); }
+  startCopy(){ clearInterval(this._ci); const T=this.data.P.length, t0=Date.now(), base=this.state.copied; this._ci=setInterval(()=>{ if(this._dead) return clearInterval(this._ci); const prev=this.state.copied, nx=Math.min(T,Math.max(prev,base+Math.floor((Date.now()-t0)/45)*3)); if(nx===prev) return; this.setState(st=>({copied:nx,cur:st.cur||this.data.P[0].id}),()=>{ if(nx>=T){ clearInterval(this._ci); this.persistF(); } else if(Math.floor(nx/15)!==Math.floor(prev/15)) this.persistF(); }); },45); }
+  copyGo(){ if(this.data.local) this.useDemo(); const s=this.state; setTimeout(()=>{ if(this.state.copied===0) this.startCopy(); this.setStep('cull'); },0); }
+  pick(which){ const el=(which==='dir'?this.dirRef:this.fileRef).current; if(!el) return; if(which==='dir'){ el.webkitdirectory=true; el.setAttribute('webkitdirectory',''); } el.value=''; el.click(); }
+  pickChange(e){ const el=e.currentTarget, fs=[...(el.files||[])]; const dir=el===this.dirRef.current; const items=fs.map(f=>({file:f,rel:f.webkitRelativePath||f.name})); const name=dir&&items[0]?items[0].rel.split('/')[0]:null; if(!fs.length) return; this.importItems(items,name); el.value=''; }
+  startOver(){ if(!this.state.soArm){ clearTimeout(this._soT); this.setState({soArm:true}); this._soT=setTimeout(()=>{ if(!this._dead) this.setState({soArm:false}); },4000); return; } clearTimeout(this._soT); this.setState({soArm:false}); clearInterval(this._ci); try{ localStorage.removeItem(Component.FK); localStorage.removeItem(Component.EK); }catch(_){} this._e={}; this.setState({step:'open',copied:0,cur:null,keep:{},undo:[],redo:[],saved:null,withEdits:true,toast:''}); }
+  vis(){ return this.data.P.slice(0,this.state.copied); }
+  mark(v,id){ const s=this.state, c=id||s.cur; if(!c) return; const keep={...s.keep,[c]:v}; this.writeE({keep}); const V=this.vis(), i=V.findIndex(p=>p.id===c), nx=!id&&(this.props.autoAdvance??true)&&V[i+1]?V[i+1].id:s.cur;
+    this.setState({keep,cur:nx,undo:[...s.undo.slice(-200),{keep:s.keep,cur:s.cur}],redo:[]},()=>this.persistF()); this.say((v?'Kept ':'Out · ')+c+' · ⌘Z undoes'); }
+  keepSug(ri){ const s=this.state, ids=this.data.R[ri].ids.filter(id=>this.vis().some(p=>p.id===id)&&s.keep[id]==null&&this.data.byId[id].kept); if(!ids.length) return; const keep={...s.keep}; ids.forEach(id=>keep[id]=true); this.writeE({keep}); this.setState({keep,undo:[...s.undo.slice(-200),{keep:s.keep,cur:s.cur}],redo:[]}); this.say('Kept '+ids.length+' suggested · ⌘Z undoes'); }
+  undo(){ const s=this.state, u=s.undo; if(!u.length) return this.say('Nothing to undo'); const e=u[u.length-1]; this.writeE({keep:e.keep}); this.setState({keep:e.keep,cur:e.cur,undo:u.slice(0,-1),redo:[...(s.redo||[]),{keep:s.keep,cur:s.cur}]},()=>this.persistF()); this.say('Undone · ⇧⌘Z redoes'); }
+  redo(){ const s=this.state, r=s.redo||[]; if(!r.length) return this.say('Nothing to redo'); const e=r[r.length-1]; this.writeE({keep:e.keep}); this.setState({keep:e.keep,cur:e.cur,redo:r.slice(0,-1),undo:[...s.undo,{keep:s.keep,cur:s.cur}]},()=>this.persistF()); this.say('Redone'); }
+  move(d){ const V=this.vis(), i=V.findIndex(p=>p.id===this.state.cur), j=Math.max(0,Math.min(V.length-1,(i<0?0:i)+d)); if(V[j]) this.setState({cur:V[j].id},()=>this.persistF()); }
+  moveRow(d){ const V=this.vis(), c=this.data.byId[this.state.cur]; if(!c) return this.move(0); const q=d>0?V.find(p=>p.ri>c.ri):[...V].reverse().find(p=>p.ri<c.ri); if(!q) return; const first=V.find(p=>p.ri===q.ri); this.setState({cur:first.id},()=>this.persistF()); }
+  nextUnd(){ const V=this.vis(), s=this.state, i=V.findIndex(p=>p.id===s.cur), q=[...V.slice(i+1),...V.slice(0,i+1)].find(p=>s.keep[p.id]==null); if(!q) return this.say('Everything is decided'); this.setState({cur:q.id},()=>this.persistF()); }
+  keyOf(p,keep){ if(!p.gid) return p.id; const k=this.data.G[p.gid].ids.filter(id=>keep[id]===true); return k.length>1&&k.includes(p.id)?p.gid:p.id; }
+  edits(){ const e=this._e||{}, keep=this.state.keep, L=e.looks||{}, D=e.done||{}, kept=this.data.P.filter(p=>keep[p.id]===true);
+    const ed=kept.filter(p=>{ const l=L[this.keyOf(p,keep)]; return l&&Object.keys(l).length>0; }); return {kept,ed,notDone:ed.filter(p=>!D[this.keyOf(p,keep)])}; }
+  sig(){ const {kept,ed}=this.edits(), L=(this._e||{}).looks||{}, s=this.state; return [s.fmt,s.withEdits?1:0,kept.map(p=>p.id).join(','),s.withEdits?ed.map(p=>p.id+JSON.stringify(L[this.keyOf(p,s.keep)])).join('|'):''].join('#'); }
+  doSave(){ const s=this.state, {kept,ed}=this.edits(); if(!kept.length) return this.say('Keep at least one photo in Cull first.'); const sg=this.sig(); if(s.saved&&s.saved.sig===sg) return this.say('Already saved. Nothing changed since.');
+    const d=new Date(), at=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    this.setState({saved:{sig:sg,n:kept.length,ne:s.withEdits?ed.length:0,fmt:s.fmt,at,again:!!s.saved}},()=>this.persistF()); }
+  onKey(e){ const s=this.state, cmd=e.metaKey||e.ctrlKey, c=e.code; let prevEnter=this._lastEnter||0; if(e.key==='Enter'&&!cmd) this._lastEnter=Date.now();
+    if(cmd&&/^Digit[1-4]$/.test(c)){ if(s.step==='edit'&&c==='Digit2') return; e.preventDefault(); if(!e.repeat) this.setStep(Component.STEPS[+c.slice(5)-1][0]); return; }
+    if(s.step==='edit') return;
+    if(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName||'')) return;
+    if(cmd&&c==='KeyO'){ e.preventDefault(); return this.pick('dir'); }
+    if(cmd&&c==='KeyS'){ e.preventDefault(); if(e.repeat) return; return s.step==='save'?this.doSave():this.setStep('save'); }
+    if(cmd&&s.step==='cull'&&(c==='KeyZ'||c==='KeyY')){ e.preventDefault(); return c==='KeyY'||e.shiftKey?this.redo():this.undo(); }
+    if(cmd||e.altKey) return;
+    const k=e.key;
+    if(k==='Enter'&&(e.repeat||Date.now()-(this._stepT||0)<450)){ e.preventDefault(); return; }
+    if(s.step==='open'&&k==='Enter'){ e.preventDefault(); return this.copyGo(); }
+    if(s.step==='save'&&k==='Enter'){ e.preventDefault(); if(Date.now()-(this._stepT||0)<1500||Date.now()-prevEnter<1000) return this.say('Paused so ⏎ doesn’t save by accident. Click Save or press ⌘S.'); return this.doSave(); }
+    if(s.step!=='cull') return;
+    if(k==='ArrowRight'||k==='ArrowLeft'){ e.preventDefault(); return this.move(k==='ArrowRight'?1:-1); }
+    if(k==='ArrowDown'||k==='ArrowUp'){ e.preventDefault(); return this.moveRow(k==='ArrowDown'?1:-1); }
+    if(e.repeat) return;
+    if(k==='r'||k==='R'){ e.preventDefault(); return this.mark(true); }
+    if(k==='x'||k==='X'){ e.preventDefault(); return this.mark(false); }
+    if(k==='u'||k==='U'){ e.preventDefault(); return this.nextUnd(); }
+  }
+  renderVals(){
+    const s=this.state, D=this.data, T=D.P.length, keep=s.keep, V=this.vis(), step=s.step, C=Component;
+    const nKept=D.P.filter(p=>keep[p.id]===true).length, nOut=D.P.filter(p=>keep[p.id]===false).length, nUnd=T-nKept-nOut;
+    const {ed,notDone}=this.edits(), nEd=ed.length;
+    const tabW=s.w<560?60:s.w<760?72:88, idx=C.STEPS.findIndex(x=>x[0]===step);
+    const tabs=C.STEPS.map(([id,t],i)=>({t,k:'⌘'+(i+1),fg:id===step?'#EFECE6':'#96918A',fw:id===step?700:400,go:()=>this.setStep(id),tip:id==='edit'?'Optional · nothing changes unless you move a setting':id==='save'?'Available any time · ⌘4':''}));
+    const copying=s.copied>0&&s.copied<T, tileH=s.h<800?80:100, c=D.byId[s.cur], cKeep=c?keep[c.id]:undefined;
+    const VS=new Set(V), rows=D.R.map(r=>{ const ps=r.ids.map(id=>D.byId[id]).filter(p=>VS.has(p)); if(!ps.length) return null; const dec=ps.filter(p=>keep[p.id]!=null).length, sugN=ps.filter(p=>keep[p.id]==null&&p.kept).length;
+      return {hm:r.title?r.hm+' · '+r.title:r.hm,cnt:ps.length+' photos'+(dec?' · '+dec+' decided':''),sugOn:sugN>0,sugT:'Keep '+sugN+' suggested',sug:()=>this.keepSug(r.ri),
+        tiles:ps.map(p=>{ const kv=keep[p.id], on=p.id===s.cur, vt=p.ar<1; return {id:p.id,w:Math.round(tileH*(vt?1.5:Math.min(p.ar,1.8))),fit:vt?'contain':'cover',pad:'0',bd:vt?'1.5px dotted rgba(239,236,230,0.45)':'0',src:this.src(p,240),ol:on?'2px solid #EFECE6':'2px solid transparent',op:kv===false?0.3:1,f:kv===false?'grayscale(1)':'none',kept:kv===true,sug:kv==null&&p.kept,burst:!!p.gid,go:()=>this.setState({cur:p.id})}; })}; }).filter(Boolean);
+    const savedNow=s.saved&&s.saved.sig===this.sig(), FM={xmp:'Lightroom / Capture One',folder:'Folder of RAW files',jpeg:'JPEGs'};
+    const fmtSub={xmp:'A small .xmp file next to each RAW: keepers as 3★'+(s.withEdits&&nEd?', edits as develop settings':'')+'. The RAW is untouched.',folder:'Copies of your keepers'+(s.withEdits&&nEd?', with an .xmp for edited ones':'')+'. Nothing else.',jpeg:'Full-size sRGB JPEGs. '+(s.withEdits&&nEd?'Edits baked in; the rest as shot.':'All as shot.')};
+    const opt=(on,pick,t,sub)=>({on:on?'true':'false',pick,t,sub,bg:on?'rgba(239,236,230,0.08)':'transparent',bd:on?'rgba(239,236,230,0.35)':'rgba(239,236,230,0.1)',ring:on?4:1.5});
+    const sv=s.saved;
+    return {
+      eKey:Component.EK, cardSub:(D.label||'ILCE-7M4')+' · '+T.toLocaleString()+' photos · '+D.R.length+' scenes · '+(D.span||'09:12–19:14'), isEdit:step==='edit', hostHead:step!=='edit', isOpen:step==='open', isCull:step==='cull', isSave:step==='save', matchScene:this.props.matchScene??false,
+      topH:s.h<760?38:s.h<900?42:48, topPad:s.w<700?10:20, logoOn:s.w>=700, metaOn:s.w>=900, tabW, tabX:idx*tabW, tabs, tileLoad:e=>{ e.currentTarget.style.opacity='1'; }, tabK:s.w>=760,
+      shootT:s.copied?nKept+' keepers · '+D.R.length+' scenes':'No shoot open', copyT:copying?'Copying '+s.copied+'/'+T:s.copied?'All '+T+' copied and checked':'', copyC:copying?'#FFD27A':'#96918A',
+      cardBtn:s.copied>=T?'Continue culling':copying?'Copying… start culling':'Copy & start culling', copyGo:()=>this.copyGo(), copyBarOn:s.copied>0, copyPct:Math.round(s.copied/T*100),
+      openFolder:()=>this.pick('dir'), openFiles:()=>this.pick('files'), pickChange:e=>this.pickChange(e), dirRef:this.dirRef, fileRef:this.fileRef, dropOn:!!s.dropOn,
+      impBusy:!!s.imp, impProg:s.imp?'Checking '+s.imp.n+' of '+s.imp.t+' files…':'', impPct:s.imp&&s.imp.t?Math.round(s.imp.n/s.imp.t*100):0, impMsgOn:!s.imp&&!!s.impMsg, impMsg:s.impMsg?s.impMsg.t:'', impMsgC:s.impMsg&&s.impMsg.bad?'#F0A39E':'#B8B3AB',
+      ...(()=>{ let m=null; try{ m=JSON.parse(localStorage.getItem(Component.LK)||'null'); }catch(_){} const on=!!m&&!D.local; return {locRecentOn:on,locT:m?'Folder · '+m.name:'',locSub:m?m.n+' photos · choose the folder again to see them. Your decisions are kept.':''}; })(),
+      recentT:D.local?'Today · '+(this._locName||'Folder'):'Today · Untitled', soT:s.soArm?'Click again to clear '+(nKept+nOut)+' decisions'+(D.local?' for this folder':''):D.local?'Start over (clears decisions for this folder)':'Start over (clears this demo shoot)', hasRecent:s.copied>0, resume:()=>this.setStep(nKept&&!nUnd?'save':'cull'), resumeSub:T+' photos · '+(nKept+nOut)+' decided'+(nEd?' · '+nEd+' edited':''), resumeT:sv?'Saved '+sv.at:nUnd?'Resume culling':'Ready to save', startOver:()=>this.startOver(),
+      cullCols:s.w>=900?'minmax(0,1fr) minmax(300px,38%)':'minmax(0,1fr)', pvOn:s.w>=900&&!!c, cullEmpty:!V.length, rows, tileH, copying, copyLine:'Copying '+s.copied+' of '+T+'. Photos appear here once they’re checked.', toOpen:()=>this.setStep('open'),
+      pvSrc:c?this.src(c,900):'', pvF:cKeep===false?'grayscale(1) brightness(0.7)':'none', pvFile:c?c.file:'', pvMeta:c?[c.body||'',c.time,[c.fl&&c.fl!=='—'?c.fl+'mm':'',c.ap,c.sh].filter(v=>v&&!/—/.test(v)).join(' '),c.iso&&c.iso!=='—'?'ISO '+c.iso:''].filter(Boolean).join(' · '):'', pvSt:cKeep===true?'Kept':cKeep===false?'Out':c&&c.kept?'Undecided · suggested keep':'Undecided', pvStC:cKeep===true?'#FFD27A':'#96918A',
+      doKeep:()=>this.mark(true), doOut:()=>this.mark(false), kBg:cKeep===true?'#FFD27A':'rgba(239,236,230,0.1)', kFg:cKeep===true?'#1E1D1B':'#EFECE6', oBg:cKeep===false?'rgba(239,236,230,0.28)':'rgba(239,236,230,0.1)',
+      decT:(nKept+nOut)+'/'+T, decPct:Math.round((nKept+nOut)/T*100), cullMsg:s.toast||'R keep · X out · ← → photos · ↑ ↓ scenes · U next undecided · ⌘Z undo · ⇧⌘Z redo · ⌘3 Edit · ⌘4 Save',
+      toEdit:()=>this.setStep('edit'), toSave:()=>this.setStep('save'), toCull:()=>this.setStep('cull'), editCta:nKept?'Edit '+nKept+' keepers':'Edit', saveCta:nKept?'Save '+nKept+' keepers →':'Save →',
+      nKept, nOut, nUnd, undOn:nUnd>0,
+      sumT:nKept?nKept+' keeper'+(nKept>1?'s':'')+' ready to save':'No keepers yet', behindT:[nOut?nOut+' out':'',nUnd?nUnd+' undecided':''].filter(Boolean).join(' · ')+((nOut||nUnd)?' · not saved':''),
+      fmtSeg:[['xmp','Lightroom'],['folder','Folder'],['jpeg','JPEG']].map(([id,l])=>{ const on=s.fmt===id; return {t:l,on:on?'true':'false',fw:on?700:400,bg:on?'#5B5854':'transparent',fg:on?'#EFECE6':'#B8B3AB',pick:()=>this.setState({fmt:id},()=>this.persistF())}; }), fmtDesc:fmtSub[s.fmt]+(s.fmt==='xmp'?' Works with Capture One too.':''),
+      edChk:s.withEdits?'true':'false', edToggle:()=>this.setState({withEdits:!s.withEdits},()=>this.persistF()), edTrack:s.withEdits?'#FFD27A':'rgba(239,236,230,0.2)', edKnob:s.withEdits?12:0, edT:'Include my edits', edSub:s.withEdits?nEd+' edited, '+(nKept-nEd)+' as shot':'All as shot · edits stay in Lumina', toEditStop:e=>{ e.stopPropagation(); this.setStep('edit'); },
+      noEdits:nEd===0, hasEdits:nEd>0, edLead:nEd?nEd+' keeper'+(nEd>1?'s':'')+' edited by you':'none', edLink:nEd?'Review in Edit':'Edit keepers (optional)',
+      edOpts:[opt(s.withEdits,()=>this.setState({withEdits:true},()=>this.persistF()),'Include my edits','The '+nEd+' edited photo'+(nEd>1?'s go':' goes')+' out with your settings. The rest as shot.'),opt(!s.withEdits,()=>this.setState({withEdits:false},()=>this.persistF()),'Leave edits out','Everything saves as shot. Your edits stay in Lumina for later.')],
+      edFiles:[...ed.slice(0,10).map(p=>p.file),...(ed.length>10?['+'+(ed.length-10)+' more']:[])], notDoneOn:false, notDoneT:notDone.length+' of these aren’t marked done in Edit. They’re included as they are now.',
+      fmts:['xmp','folder','jpeg'].map(id=>opt(s.fmt===id,()=>this.setState({fmt:id},()=>this.persistF()),FM[id],fmtSub[id])),
+      dest:s.fmt==='xmp'?'next to the RAWs in ~/Pictures/Lumina/2026-09-30':'~/Pictures/Lumina/2026-09-30 Untitled/'+(s.fmt==='jpeg'?'JPEG':'Keepers'), changeDest:()=>this.say('In the app this opens a folder picker.'),
+      saveDis:!nKept||savedNow?'true':'false', sBg:!nKept||savedNow?'rgba(239,236,230,0.1)':'#EFECE6', sFg:!nKept||savedNow?'#96918A':'#1E1D1B', sCur:!nKept||savedNow?'default':'pointer',
+      saveBtnT:!nKept?'Nothing to save yet':savedNow?'✓ Saved':sv?'Save again · '+nKept+' photos':'Save '+nKept+' photos', saveNote:!nKept?'Keep photos in Cull first.':savedNow?'Up to date.':sv?'Changed since '+sv.at+'. Only what changed is rewritten.':'',
+      savedOn:!!sv, savedT:sv?(sv.again?'Saved again · ':'Saved · ')+sv.n+' photos'+(sv.ne?', '+sv.ne+' with edits':', as shot')+' · '+sv.at:'', finder:()=>this.say('In the app this reveals the folder in Finder.'),
+      savedHint:sv?(sv.fmt==='xmp'?'In Lightroom: Import → Add, or Metadata → Read Metadata from Files.':sv.fmt==='jpeg'?'JPEGs are ready to share or upload.':'Copies are checked against the originals.'):'',
+      toastOn:!!s.toast, toast:s.toast, doSave:()=>this.doSave()
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -20,6 +20,28 @@ window. Nobody edits the UI in this repo.
   PARITY → GRAMMAR → the page → CHANGES / SAFETY / MENUS) → `Lumina/Sets` (plumbing) → tests.
   The handoff's own `plumbing.js` is an older reference; the app's is `Lumina/Sets/Web/plumbing.js`.
 
+## The native rebuild (in progress, behind a switch)
+
+A second handoff, `design/handoff/lumina-app/` (README, LAYOUT_SIZING, KEYMAP, BEHAVIOR_SPEC,
+ACCESSIBILITY_CONTRACT, WORKSTREAMS, TEST_PLAN, the prototypes, and `parity/`: tokens.json, recorded
+traces, the demo shoot, the golden capture script), asks for the UI to be **rebuilt natively** in
+SwiftUI. That work lives in `LuminaKit/` (a local Swift package: `LuminaCore` + `LuminaUI`) and
+`Lumina/Native/`, and it is the one place UI is written in this repo. `LuminaKit/README.md` has the
+file ownership per work package, the contract, and the headless checks (`swift test`,
+`swift run lumina-snap`). For that code the authority is `design/handoff/lumina-app`, and its
+prototypes are a reference, not shipped files.
+
+Until the native UI passes its gates (TEST_PLAN.md), the app's default is still the Claude Design
+page below, and every rule in this file still holds for `design/handoff/lumina-cull`, `Lumina/Sets`
+and the probe. The native UI shows only with `-LuminaUITest YES`, `-LuminaNative YES` or
+`LUMINA_NATIVE=1`. The design's XCUITests are in `LuminaUITests/Native`; they take over the screen,
+so run them one at a time and never from parallel agents.
+
+```bash
+(cd LuminaKit && swift build && swift test)          # contracts, rules, parity traces, headless
+python3 Scripts/gen_tokens.py --check                # Tokens.generated.swift matches parity/tokens.json
+```
+
 ## What the app is
 
 | Path | What it does |

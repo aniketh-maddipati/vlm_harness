@@ -10,9 +10,15 @@ struct LuminaApp: App {
 
     var body: some Scene {
         WindowGroup {
-            SetsRootView()
-                .frame(minWidth: SetsWindowSize.minimum.width, minHeight: SetsWindowSize.minimum.height)
-                .ignoresSafeArea()
+            // The native rebuild (LuminaKit, design/handoff/lumina-app) runs behind a switch until
+            // it reaches parity; the Claude Design page stays the default. See Lumina/Native.
+            if NativeUI.enabled {
+                NativeRootView()
+            } else {
+                SetsRootView()
+                    .frame(minWidth: SetsWindowSize.minimum.width, minHeight: SetsWindowSize.minimum.height)
+                    .ignoresSafeArea()
+            }
         }
         .defaultSize(SetsWindowSize.initial)
         .commands { LuminaCommands(menu: menu) }

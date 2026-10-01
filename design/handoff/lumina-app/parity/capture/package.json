@@ -1,0 +1,8 @@
+{
+  "name": "lumina-parity-capture",
+  "private": true,
+  "type": "module",
+  "scripts": { "goldens": "node capture-goldens.mjs", "traces": "node record-traces.mjs" },
+  "dependencies": { "playwright": "^1.47.0" },
+  "postinstall": "npx playwright install chromium"
+}

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#EFECE6}a:hover{color:#B8B3AB}
+</style>
+</helmet>
+<div style="display:grid;grid-template-columns:minmax(320px,400px) minmax(0,1fr);height:100vh;min-height:560px">
+  <div style="display:flex;flex-direction:column;gap:14px;padding:22px 20px;background:#262523;border-right:1px solid rgba(239,236,230,0.08);overflow-y:auto;min-height:0">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:24px">Stress tests</div>
+      <div style="font-size:12.5px;line-height:1.5;color:#B8B3AB;text-wrap:pretty">Drives the real workflow on the right: keys, layout at five sizes, every button, loading failures, storage failures, import resume, export, two windows at once, and load. Your saved shoot is backed up first and restored when the run ends.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div role="button" tabIndex="0" aria-disabled="{{ runDis }}" onClick="{{ run }}" style-active="transform:scale(0.97)" style="height:34px;padding:0 16px;border-radius:9px;display:flex;align-items:center;background:{{ runBg }};color:{{ runFg }};font-size:13px;font-weight:700;cursor:pointer">{{ runT }}</div>
+      <div style="font-size:12.5px;color:{{ sumC }}">{{ sumT }}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <sc-for list="{{ tests }}" as="r" hint-placeholder-count="10">
+        <sc-if value="{{ r.head }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 10px 4px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#96918A">{{ r.group }}</div></sc-if>
+        <div style="display:grid;grid-template-columns:18px minmax(0,1fr);column-gap:10px;row-gap:2px;padding:8px 10px;border-radius:8px;background:{{ r.bg }}">
+          <div style="grid-row:1 / span 2;width:14px;height:14px;margin-top:2px;border-radius:50%;background:{{ r.dot }};box-shadow:inset 0 0 0 1.5px {{ r.ring }}"></div>
+          <div style="font-size:13px;color:#EFECE6">{{ r.name }}</div>
+          <div style="font-size:12px;line-height:1.45;color:{{ r.dc }};text-wrap:pretty;word-break:break-word">{{ r.detail }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="min-width:0;min-height:0;padding:16px;display:flex;flex-direction:column;gap:8px">
+    <div style="font-size:12px;color:#96918A">{{ nowT }}</div>
+    <div style="flex:1;min-height:0;overflow:auto;border-radius:10px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08)">
+      <iframe ref="{{ frameRef }}" title="workflow under test" style="display:block;width:1100px;height:760px;border:0;background:#161514"></iframe>
+      <iframe ref="{{ frame2Ref }}" title="second window" style="display:block;width:1100px;height:0;border:0"></iframe>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  static FK='lumina.flow.v1'; static EK='lumina.flow.edit.v1';
+  static TESTS=[
+    ['Keys & state','enter','⏎ mash on Open','Six fast ⏎ presses (some held) start culling, never reach Save.'],
+    ['Keys & state','mark','Fast keep + undo / redo','10 R plus 10 held repeats → 10 keeps; 10 × ⌘Z → 0; 3 × ⇧⌘Z → 3.'],
+    ['Keys & state','simul','Keep and out in the same instant','R and X fired together 20 times: every decision is a clean keep or out.'],
+    ['Keys & state','spam','Step switching spam','40 random ⌘1–4 presses 15ms apart; final step matches the last press.'],
+    ['Keys & state','vrace','Variation vs photo switch','Hold V, pick +, let go, switch photo inside 120ms: new photo untouched.'],
+    ['Keys & state','blur','Leave window while holding V','Variations grid closes when the window loses focus.'],
+    ['Keys & state','flush','Edit then leave within 50ms','An edit made just before ⌘2 is in saved data.'],
+    ['Keys & state','outUndo','Out in Edit, ⌘Z in Cull','Undo in Cull doesn’t bring back a photo taken out in Edit.'],
+    ['Keys & state','enterLast','Held ⏎ on the last photo','Lands on Save, doesn’t save.'],
+    ['Layout','layout','Five window sizes × four steps','No sideways scroll, no clipped buttons, Edit photo visible.'],
+    ['Layout','zoomresize','Resize while zoomed','Photo stays visible and zoom stays sane.'],
+    ['Labels','labels','Every control is labelled','Each button, tab, radio and slider has text, aria-label or title.'],
+    ['Labels','tokens','No broken copy','No “undefined”, “NaN”, “{{” or “[object” on any screen.'],
+    ['Buttons','buttons','Click every safe button','Every non-destructive button in Cull, Edit and Save clicked twice fast; no errors, app stays up.'],
+    ['Animation','anim','Nothing stuck mid-animation','After settling, the main photo is fully visible and nothing loops except loading spinners.'],
+    ['Loading','imgfail','Photo fails to load','Edit says so instead of showing a blank frame.'],
+    ['Loading','quota','Storage full','Edit warns that it couldn’t save.'],
+    ['Import','resume','Reload mid-copy','Copy picks up where it stopped and finishes; count only goes up.'],
+    ['Export','export','Save, save again, change format','Saves once; repeat is a no-op; a format change re-enables Save.'],
+    ['Connectors','twowin','Two windows at once','An edit in one window warns the other.'],
+    ['Load','loadEdit','300 photo switches in Edit','95th-percentile key handling under 50ms.'],
+    ['Load','loadCull','Mark the whole shoot','Every photo decided by keyboard at full speed, counts exact.'],
+    ['Load','zoomstorm','Pinch storm','200 random pinch events; zoom stays between ¼× and 8×.'],
+    ['Errors','errors','No script errors','No uncaught errors across the whole run.']];
+  state={res:{},running:false,now:'Idle'};
+  frameRef=React.createRef(); frame2Ref=React.createRef();
+  componentDidMount(){ const c=localStorage.getItem('luminaStress.crumb'), bk=localStorage.getItem('luminaStress.backup'); if(bk){ try{ this._bk=JSON.parse(bk); this.restore(); }catch(_){} } if(c){ this.setState({now:'Last run froze during: '+c+'. Your saved shoot was restored.'}); localStorage.removeItem('luminaStress.crumb'); } }
+  componentWillUnmount(){ this.restore(); }
+  crumb(t){ try{ localStorage.setItem('luminaStress.crumb',t); }catch(_){} }
+  set(id,ok,detail){ this.setState(s=>({res:{...s.res,[id]:{ok,detail}}})); }
+  wait(ms){ if(!document.hidden) return new Promise(r=>setTimeout(r,ms)); this._bg=true; const end=performance.now()+(ms>=200?ms+1100:ms); return new Promise(r=>{ const ch=new MessageChannel(); ch.port1.onmessage=()=>{ if(performance.now()>=end){ ch.port1.close(); r(); } else ch.port2.postMessage(0); }; ch.port2.postMessage(0); }); }
+  W(){ return this.frameRef.current&&this.frameRef.current.contentWindow; }
+  D(){ const w=this.W(); return w&&w.document; }
+  ls(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(_){ return null; } }
+  key(code,key,o={}){ const w=o.w||this.W(); if(!w) return; const init={code,key,bubbles:true,cancelable:true,metaKey:!!o.meta,shiftKey:!!o.shift,altKey:!!o.alt,repeat:!!o.repeat}; (w.document.activeElement||w.document.body).dispatchEvent(new w.KeyboardEvent(o.up?'keyup':'keydown',init)); }
+  backup(){ this._bk={}; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('lumina.')) this._bk[k]=localStorage.getItem(k); } localStorage.setItem('luminaStress.backup',JSON.stringify(this._bk)); }
+  restore(){ if(!this._bk) return; const now=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('lumina.')) now.push(k); } now.forEach(k=>localStorage.removeItem(k)); Object.entries(this._bk).forEach(([k,v])=>localStorage.setItem(k,v)); this._bk=null; localStorage.removeItem('luminaStress.backup'); }
+  clearLumina(){ const ks=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('lumina.')) ks.push(k); } ks.forEach(k=>localStorage.removeItem(k)); localStorage.setItem('lumina.edit.intro.v1','1'); }
+  url(){ const u=new URL('Lumina Workflow.dc.html',window.location.href); u.search=window.location.search; return u.href; }
+  load(ref){ const f=(ref||this.frameRef).current; return new Promise(res=>{ let done=false; f.onload=async()=>{ const w=f.contentWindow; let href=''; try{ href=w.location.href; }catch(_){} if(!/Lumina%20Workflow|Lumina Workflow/.test(href)||done) return; done=true; f.onload=null; this._errs=this._errs||[]; w.addEventListener('error',e=>this._errs.push(String(e.message||e))); const ce=w.console.error.bind(w.console); w.console.error=(...a)=>{ const m=a.map(String).join(' '); if(!/pvSrc|Warning:/.test(m)) this._errs.push(m); ce(...a); }; const ok=await this.waitFor(()=>{ try{ return !!w.document.querySelector('[role="tablist"]'); }catch(_){ return false; } },10000); if(!ok) this._errs.push('Workflow never finished loading'); await this.wait(400); res(); }; if(f.src===this.url()&&f.contentWindow){ try{ f.contentWindow.location.reload(); }catch(_){ f.src=this.url(); } } else f.src=this.url(); }); }
+  step(){ return (this.ls(Component.FK)||{}).step; }
+  keepVals(){ return (this.ls(Component.EK)||{}).keep||{}; }
+  keeps(){ return Object.values(this.keepVals()).filter(v=>v===true).length; }
+  cur(){ const w=this.W(); try{ return w.luminaState&&w.luminaState().cur; }catch(_){ return null; } }
+  async waitFor(fn,ms=3000){ const t0=Date.now(); while(Date.now()-t0<ms){ if(fn()) return true; await this.wait(40); } return false; }
+  async go(n,ms=700){ this.key('Digit'+n,String(n),{meta:true}); await this.wait(ms); }
+  async size(w,h){ const f=this.frameRef.current; f.style.width=w+'px'; f.style.height=h+'px'; try{ f.contentWindow.dispatchEvent(new f.contentWindow.Event('resize')); }catch(_){} await this.wait(500); }
+  visible(el){ const r=el.getBoundingClientRect(); return r.width>0&&r.height>0&&el.offsetParent!==null; }
+  ctrls(){ const d=this.D(); return [...d.querySelectorAll('[role="button"],[role="tab"],[role="radio"],[role="slider"],[role="checkbox"],[role="menuitem"]')].filter(e=>this.visible(e)); }
+  photoBox(){ const d=this.D(), im=d&&d.querySelector('[data-lumina-img]'); if(!im||!im.parentElement) return null; const r=im.parentElement.getBoundingClientRect(); return [Math.round(r.width),Math.round(r.height)]; }
+  async run(){ if(this.state.running) return; this.setState({running:true,bg:false,res:{},now:'Backing up your saved shoot…'}); this.backup(); this._errs=[]; this._bg=false;
+    const T=async(id,fn)=>{ const t=Component.TESTS.find(x=>x[1]===id); this.setState({now:t[0]+' · '+t[2]}); this.crumb(t[2]); let to; try{ await Promise.race([fn(),new Promise((_,rj)=>{ to=setTimeout(()=>rj(new Error('timed out after 40s')),40000); })]); }catch(e){ this.set(id,false,'Crashed: '+(e&&e.message||e)); } clearTimeout(to); };
+    try{
+      this.clearLumina(); await this.load(); await this.size(1100,760);
+      await T('enter',async()=>{ for(let i=0;i<6;i++){ this.key('Enter','Enter',{repeat:i>1&&i<5}); await this.wait(30); } await this.wait(500); const st=this.step(); this.set('enter',st==='cull','Ended on '+(st||'none')+'.'); });
+      await this.waitFor(()=>((this.ls(Component.FK)||{}).copied||0)>=60,6000);
+      await T('mark',async()=>{ for(let i=0;i<10;i++){ this.key('KeyR','r'); await this.wait(40); this.key('KeyR','r',{repeat:true}); await this.wait(10); } await this.wait(200); const a=this.keeps(); for(let i=0;i<10;i++){ this.key('KeyZ','z',{meta:true}); await this.wait(30); } await this.wait(200); const b=this.keeps(); for(let i=0;i<3;i++){ this.key('KeyZ','z',{meta:true,shift:true}); await this.wait(30); } await this.wait(200); const c=this.keeps(); this.set('mark',a===10&&b===0&&c===3,'Keeps after marking '+a+', after undo '+b+', after redo '+c+'.'); });
+      await T('simul',async()=>{ for(let i=0;i<20;i++){ this.key('KeyR','r'); this.key('KeyX','x'); await this.wait(25); } await this.wait(300); const K=this.keepVals(), bad=Object.entries(K).filter(([,v])=>v!==true&&v!==false&&v!=null); this.set('simul',bad.length===0,bad.length?bad.length+' photos with a broken decision.':Object.values(K).filter(v=>v!=null).length+' clean decisions.'); });
+      for(let i=0;i<6;i++){ this.key('KeyR','r'); await this.wait(40); } await this.wait(200);
+      await T('spam',async()=>{ let last=1; for(let i=0;i<40;i++){ last=1+Math.floor(Math.random()*4); this.key('Digit'+last,String(last),{meta:true}); await this.wait(15); } await this.wait(900); const want=['open','cull','edit','save'][last-1], got=this.step(); this.set('spam',got===want,'Last press '+want+', ended on '+got+'.'); });
+      await this.go(3,1200);
+      await T('vrace',async()=>{ const w=this.W(), c0=this.cur(); this.key('KeyV','v'); await this.wait(120); if(!this.D().querySelector('[data-lumina="spectrum"]')){ this.key('KeyV','v',{up:true}); return this.set('vrace',false,'Harness: variations grid didn’t open.'); } await this.wait(230); this.key('ArrowRight','ArrowRight'); await this.wait(60); this.key('KeyV','v',{up:true}); await this.wait(20); if(!w.luminaEdit||!w.luminaEdit.go) return this.set('vrace',false,'Harness: no photo-switch hook.'); w.luminaEdit.go(1); await this.wait(10); const c1=this.cur(), l0=JSON.stringify(w.luminaState().look||{}); await this.wait(700); const l1=JSON.stringify(w.luminaState().look||{}), touched=l1!==l0; this.set('vrace',!!c1&&c1!==c0&&!touched,c1===c0?'Photo didn’t switch.':touched?'Variation landed on '+c1+' after the switch.':'Switched '+c0+' → '+c1+'; new photo untouched.'); });
+      await T('blur',async()=>{ const w=this.W(); this.key('KeyV','v'); await this.wait(200); const open=!!this.D().querySelector('[data-lumina="spectrum"]'); w.dispatchEvent(new w.Event('blur')); await this.wait(250); const still=!!this.D().querySelector('[data-lumina="spectrum"]'); this.key('KeyV','v',{up:true}); this.set('blur',open&&!still,!open?'Harness: grid didn’t open.':still?'Grid stayed open after blur.':'Grid closed on blur.'); });
+      await T('flush',async()=>{ const c=this.cur(), w=this.W(); await this.wait(400); const before=JSON.stringify((w.luminaState().look)||{}); for(let i=0;i<3;i++){ this.key('Period','.'); await this.wait(15); } const after=JSON.stringify((w.luminaState().look)||{}); this.key('Digit2','2',{meta:true}); await this.wait(400); const LL=((this.ls(Component.EK)||{}).looks||{}), hit=Object.keys(LL).some(k=>JSON.stringify(LL[k])===after); if(after===before) return this.set('flush',false,'Harness: the nudge changed nothing.'); this.set('flush',hit,hit?'Nudge on '+c+' was saved.':'Edit on '+c+' was lost.'); });
+      await T('outUndo',async()=>{ await this.go(3,1000); const c=this.cur(); this.key('KeyX','x'); await this.wait(150); await this.go(2,500); this.key('KeyZ','z',{meta:true}); await this.wait(300); const k=this.keepVals()[c]; this.set('outUndo',k===false,c+' is '+(k===false?'still out.':k===true?'back in, wrongly.':'undecided.')); });
+      await T('enterLast',async()=>{ await this.go(3,1000); for(let i=0;i<40;i++){ this.key('ArrowRight','ArrowRight'); await this.wait(20); } await this.wait(300); this.key('Enter','Enter'); for(let i=0;i<5;i++){ await this.wait(30); this.key('Enter','Enter',{repeat:true}); } await this.wait(120); this.key('Enter','Enter'); await this.wait(600); const f=this.ls(Component.FK)||{}; this.set('enterLast',f.step==='save'&&!f.saved,'On '+f.step+(f.saved?', and it saved.':', nothing saved.')); });
+      await T('layout',async()=>{ const bad=[]; for(const [W,H] of [[1440,900],[1100,760],[860,600],[700,560],[480,800]]){ await this.size(W,H); for(const n of [1,2,3,4]){ await this.go(n,n===3?1100:450); const d=this.D(), de=d.documentElement, tag=W+'×'+H+' '+['Open','Cull','Edit','Save'][n-1]; if(de.scrollWidth>de.clientWidth+1) bad.push(tag+': sideways scroll'); const cl=this.ctrls().filter(e=>e.getAttribute('role')!=='slider'&&e.scrollWidth>e.clientWidth+2).map(e=>(e.innerText||e.getAttribute('aria-label')||'?').trim().split('\n')[0].slice(0,18)); if(cl.length) bad.push(tag+': clipped '+[...new Set(cl)].slice(0,3).join(', ')); if(n===3){ const b=this.photoBox(); if(!b||b[0]<40||b[1]<40) bad.push(tag+': photo '+(b?b.join('×'):'missing')); } } } await this.size(1100,760); this.set('layout',!bad.length,bad.length?bad.length+' issue(s): '+bad.slice(0,5).join(' · '):'All 20 combinations clean.'); });
+      await T('zoomresize',async()=>{ await this.go(3,1100); this.key('KeyZ','z'); await this.wait(300); await this.size(800,600); await this.size(1300,820); await this.size(1100,760); const b=this.photoBox(); this.key('Digit0','0',{meta:true}); await this.wait(200); this.set('zoomresize',!!b&&b[0]>=40,b?'Photo '+b.join('×')+' after three resizes while zoomed.':'Photo missing.'); });
+      await T('labels',async()=>{ const bad=[]; for(const n of [1,2,3,4]){ await this.go(n,n===3?1100:450); this.ctrls().forEach(e=>{ const t=(e.innerText||'').trim()||e.getAttribute('aria-label')||e.getAttribute('title'); if(!t) bad.push(['Open','Cull','Edit','Save'][n-1]+': '+(e.outerHTML.slice(0,40))); }); } this.set('labels',!bad.length,bad.length?bad.length+' unlabelled: '+bad.slice(0,3).join(' | '):'All controls labelled.'); });
+      await T('tokens',async()=>{ const bad=[]; for(const n of [1,2,3,4]){ await this.go(n,n===3?1100:450); const tx=this.D().body.innerText; ['undefined','NaN','{{','[object'].forEach(k=>{ if(tx.includes(k)) bad.push(['Open','Cull','Edit','Save'][n-1]+' shows “'+k+'”'); }); } this.set('tokens',!bad.length,bad.length?bad.join(' · '):'Clean on all four screens.'); });
+      await T('buttons',async()=>{ const e0=this._errs.length, skip=/start over|^save|saved|out\b|reject|open folder|copy &|continue|change…|finder|show in/i; let n=0; for(const st of [2,3,4]){ await this.go(st,st===3?1100:500); const list=this.ctrls().filter(e=>e.getAttribute('role')==='button'&&!skip.test((e.innerText||e.getAttribute('aria-label')||'').trim())); for(const b of list.slice(0,40)){ if(!b.isConnected) continue; this.crumb('Click every safe button → '+['','','Cull','Edit','Save'][st]+': “'+((b.innerText||b.getAttribute('aria-label')||b.getAttribute('title')||'?').trim().split('\n')[0].slice(0,30))+'”'); b.click(); b.click(); n++; await this.wait(25); this.key('Escape','Escape'); } await this.wait(200); if(this.step()!==['open','cull','edit','save'][st-1]) await this.go(st,600); } const alive=!!this.D().querySelector('[role="tablist"]'), ne=this._errs.length-e0; this.set('buttons',alive&&ne===0,n+' buttons double-clicked · '+ne+' new errors · app '+(alive?'up':'down')+'.'); });
+      await T('anim',async()=>{ await this.go(3,1500); await this.wait(800); const d=this.D(), im=d.querySelector('[data-lumina-img]'), op=im?+this.W().getComputedStyle(im).opacity:0, inf=(d.getAnimations?d.getAnimations():[]).filter(a=>a.effect&&a.effect.getTiming&&a.effect.getTiming().iterations===Infinity&&!/spin/.test(a.animationName||'')); this.set('anim',op===1&&inf.length===0,'Main photo opacity '+op+' · '+inf.length+' endless animations.'); });
+      await T('imgfail',async()=>{ const w=this.W(), RealImage=w.Image; w.Image=function(){ const im=new RealImage(); setTimeout(()=>{ im.onerror&&im.onerror(new w.Event('error')); },30); Object.defineProperty(im,'src',{set(){},get(){ return ''; }}); return im; }; w.luminaEdit.go(1); await this.wait(900); const tx=this.D().body.innerText, ok=/didn’t load|couldn’t load|retry/i.test(tx); w.Image=RealImage; w.luminaEdit.go(-1); await this.wait(400); this.set('imgfail',ok,ok?'Edit reported the failed photo.':'No message: the frame just looks empty.'); });
+      await T('quota',async()=>{ const w=this.W(), P=w.Storage.prototype, real=P.setItem; P.setItem=function(k){ if(String(k).startsWith('lumina.')) throw new w.DOMException('full','QuotaExceededError'); return real.apply(this,arguments); }; for(let i=0;i<2;i++){ this.key('Period','.'); await this.wait(30); } await this.wait(700); const tx=this.D().body.innerText; P.setItem=real; const ok=/couldn’t save|keep this window open/i.test(tx); for(let i=0;i<2;i++){ this.key('Comma',','); await this.wait(30); } await this.wait(400); this.set('quota',ok,ok?'Warning shown while storage was full.':'No warning: edits were silently not saved.'); });
+      await T('resume',async()=>{ this.clearLumina(); await this.load(); this.key('Enter','Enter'); const got=await this.waitFor(()=>{ const c=(this.ls(Component.FK)||{}).copied||0; return c>=20&&c<100; },4000); const c1=(this.ls(Component.FK)||{}).copied||0; await this.load(); const seen=[]; const fin=await this.waitFor(()=>{ const c=(this.ls(Component.FK)||{}).copied||0; seen.push(c); return c>=117; },9000); const mono=seen.every((v,i)=>!i||v>=seen[i-1]); this.set('resume',got&&fin&&mono&&seen[0]>=c1,'Reloaded at '+c1+', resumed at '+(seen[0]||0)+', finished '+(fin?'yes':'no')+(mono?'':', count went backwards')+'.'); });
+      for(let i=0;i<5;i++){ this.key('KeyR','r'); await this.wait(40); }
+      await T('export',async()=>{ await this.go(4,600); const d=this.D(), btn=()=>[...d.querySelectorAll('[role="button"]')].find(b=>/^(save \d|save again)/i.test((b.innerText||'').trim())); const b1=btn(); if(!b1) return this.set('export',false,'No Save button found.'); b1.click(); await this.wait(300); const s1=(this.ls(Component.FK)||{}).saved; this.key('KeyS','s',{meta:true}); await this.wait(300); const s2=(this.ls(Component.FK)||{}).saved; const jp=[...d.querySelectorAll('[role="radio"]')].find(r=>/jpeg/i.test(r.innerText)); jp&&jp.click(); await this.wait(250); const b2=btn(), again=b2&&/again/i.test(b2.innerText); b2&&b2.click(); await this.wait(300); const s3=(this.ls(Component.FK)||{}).saved; const ok=!!s1&&s2&&s2.sig===s1.sig&&again&&s3&&s3.again&&s3.fmt==='jpeg'; this.set('export',!!ok,'First save '+(s1?'ok':'missing')+' · repeat '+(s2&&s1&&s2.sig===s1.sig?'no-op':'changed')+' · format change '+(again?'re-enabled':'stayed disabled')+' · second save '+(s3&&s3.again?'ok':'missing')+'.'); });
+      await T('twowin',async()=>{ await this.go(3,1100); const f2=this.frame2Ref.current; f2.style.height='600px'; await this.load(this.frame2Ref); const w2=f2.contentWindow; await this.wait(1200); for(let i=0;i<2;i++){ this.key('Period','.'); await this.wait(30); } await this.wait(900); const tx=w2.document.body.innerText, ok=/another window/i.test(tx); f2.src='about:blank'; f2.style.height='0px'; this.set('twowin',ok,ok?'Second window warned about the other one.':'Second window showed no warning.'); });
+      await T('loadEdit',async()=>{ await this.go(3,1000); const w=this.W(), ts=[]; for(let i=0;i<300;i++){ const t0=w.performance.now(); this.key(i%3===2?'ArrowLeft':'ArrowRight',i%3===2?'ArrowLeft':'ArrowRight'); ts.push(w.performance.now()-t0); if(i%20===0) await this.wait(0); } await this.wait(500); ts.sort((a,b)=>a-b); const p50=ts[150], p95=ts[285]; this.set('loadEdit',p95<50,'Median '+p50.toFixed(1)+'ms · 95th '+p95.toFixed(1)+'ms per key.'); });
+      await T('loadCull',async()=>{ await this.go(2,600); for(let i=0;i<130;i++){ this.key('ArrowLeft','ArrowLeft'); } await this.wait(200); for(let i=0;i<130;i++){ this.key(i%2?'KeyX':'KeyR',i%2?'x':'r'); await this.wait(4); } await this.wait(500); const K=this.keepVals(), dec=Object.values(K).filter(v=>v!=null).length; this.set('loadCull',dec===117,dec+' of 117 decided.'); });
+      await T('zoomstorm',async()=>{ await this.go(3,1100); const w=this.W(), cv=this.D().querySelector('[data-lumina="canvas"]'); const r=cv.getBoundingClientRect(); for(let i=0;i<200;i++){ cv.dispatchEvent(new w.WheelEvent('wheel',{deltaY:(Math.random()-0.5)*80,ctrlKey:true,clientX:r.left+Math.random()*r.width,clientY:r.top+Math.random()*r.height,bubbles:true,cancelable:true})); if(i%25===0) await this.wait(0); } await this.wait(300); const wr=this.D().querySelector('[data-lumina-img]').parentElement.parentElement, m=(wr.style.transform||'').match(/scale\(([\d.]+)\)/), z=m?+m[1]:1; this.key('Digit0','0',{meta:true}); await this.wait(200); this.set('zoomstorm',z>=0.25&&z<=8,'Zoom ended at '+z.toFixed(2)+'×.'); });
+      await this.wait(300); const E=this._errs||[]; this.set('errors',E.length===0,E.length?E.length+' error(s): '+[...new Set(E)].slice(0,3).join(' | ').slice(0,220):'None.');
+    } finally { this.setState({now:'Restoring your saved shoot…'}); [this.frameRef,this.frame2Ref].forEach(r=>{ if(r.current) r.current.src='about:blank'; }); await this.wait(200); this.restore(); localStorage.removeItem('luminaStress.crumb'); this.setState({running:false,bg:this._bg,now:this._bg?'Done, but this tab was in the background, so the browser slowed its timers. Timing-based failures may be false; rerun with this tab in front.':'Done. Your saved shoot is restored.'}); }
+  }
+  renderVals(){ const s=this.state, R=s.res, n=Object.keys(R).length, bad=Object.values(R).filter(r=>!r.ok).length;
+    return { frameRef:this.frameRef, frame2Ref:this.frame2Ref, run:()=>this.run(), runDis:s.running?'true':'false', runBg:s.running?'rgba(239,236,230,0.1)':'#EFECE6', runFg:s.running?'#96918A':'#1E1D1B', runT:s.running?'Running…':n?'Run again':'Run all tests',
+      sumT:!n?Component.TESTS.length+' tests · about 90s · keep this tab in front':(bad?bad+' of '+n+' failed':n+' passed')+(s.bg&&n?' · ran in background':''), sumC:bad?'#F0A39E':n?'#B8E3A0':'#96918A', nowT:s.now,
+      tests:Component.TESTS.map(([group,id,name,desc],i,A)=>{ const r=R[id], st=!r?'idle':r.ok?'pass':'fail'; return {group,head:i===0||A[i-1][0]!==group,name,detail:r?r.detail:desc,dc:st==='fail'?'#F0A39E':st==='pass'?'#B8B3AB':'#96918A',dot:st==='pass'?'#7FC46B':st==='fail'?'#E5534B':'transparent',ring:st==='idle'?'rgba(239,236,230,0.3)':'transparent',bg:st==='fail'?'rgba(229,83,75,0.08)':'transparent'}; }) };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#EFECE6}a:hover{color:#B8B3AB}
+</style>
+</helmet>
+<div style="display:grid;grid-template-columns:minmax(320px,420px) minmax(0,1fr);height:100vh;min-height:560px">
+  <div style="display:flex;flex-direction:column;gap:14px;padding:22px 20px;background:#262523;border-right:1px solid rgba(239,236,230,0.08);overflow-y:auto;min-height:0">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:24px">Controls &amp; load</div>
+      <div style="font-size:12.5px;line-height:1.5;color:#B8B3AB;text-wrap:pretty">Two suites. Controls checks that a key or click never means two things, never acts on the wrong layer, and never does something you didn’t see coming. Load runs a big shoot (the demo scaled up, or real Unsplash photos) through copy, cull, edit and save. Your saved shoot is backed up and restored. Keep this tab in front.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div role="button" tabIndex="0" aria-disabled="{{ runDis }}" onClick="{{ runC }}" style-active="transform:scale(0.97)" style="height:34px;padding:0 14px;border-radius:9px;display:flex;align-items:center;background:{{ runBg }};color:{{ runFg }};font-size:13px;font-weight:700;cursor:pointer">Run controls</div>
+      <div role="button" tabIndex="0" aria-disabled="{{ runDis }}" onClick="{{ runL }}" style-active="transform:scale(0.97)" style="height:34px;padding:0 14px;border-radius:9px;display:flex;align-items:center;background:rgba(239,236,230,0.1);color:{{ runFg2 }};font-size:13px;font-weight:600;cursor:pointer">Run load</div>
+      <div style="font-size:12.5px;color:{{ sumC }}">{{ sumT }}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#96918A">Load shoot</div>
+      <div role="radiogroup" aria-label="Load shoot" style="display:flex;gap:4px;flex-wrap:wrap">
+        <sc-for list="{{ sets }}" as="o" hint-placeholder-count="3">
+          <div role="radio" tabIndex="0" aria-checked="{{ o.on }}" onClick="{{ o.go }}" style="height:28px;padding:0 10px;border-radius:7px;display:flex;align-items:center;font-size:12.5px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.t }}</div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <sc-for list="{{ tests }}" as="r" hint-placeholder-count="10">
+        <sc-if value="{{ r.head }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 10px 4px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#96918A">{{ r.group }}</div></sc-if>
+        <div style="display:grid;grid-template-columns:18px minmax(0,1fr);column-gap:10px;row-gap:2px;padding:8px 10px;border-radius:8px;background:{{ r.bg }}">
+          <div style="grid-row:1 / span 2;width:14px;height:14px;margin-top:2px;border-radius:50%;background:{{ r.dot }};box-shadow:inset 0 0 0 1.5px {{ r.ring }}"></div>
+          <div style="font-size:13px;color:#EFECE6">{{ r.name }}</div>
+          <div style="font-size:12px;line-height:1.45;color:{{ r.dc }};text-wrap:pretty;word-break:break-word">{{ r.detail }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="min-width:0;min-height:0;padding:16px;display:flex;flex-direction:column;gap:8px">
+    <div style="font-size:12px;color:#96918A;text-wrap:pretty">{{ nowT }}</div>
+    <div style="flex:1;min-height:0;overflow:auto;border-radius:10px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08)">
+      <iframe ref="{{ frameRef }}" title="workflow under test" style="display:block;width:1100px;height:760px;border:0;background:#161514"></iframe>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  static FK='lumina.flow.v1'; static EK='lumina.flow.edit.v1'; static SETS=[['demo','Demo ×13',1500],['unsplash-1000','Unsplash 1,000',1000],['unsplash','Unsplash 5,000',5000]];
+  fk(){ return Component.FK+(this._big&&this._ds!=='demo'?'.unsplash-'+this.bigN():''); } ek(){ return Component.EK+(this._big&&this._ds!=='demo'?'.unsplash-'+this.bigN():''); }
+  bigN(){ return (Component.SETS.find(x=>x[0]===(this.state.ds||'demo'))||Component.SETS[0])[2]; }
+  static TESTS=[
+    ['Controls','rEdit','R in Edit doesn’t rotate','R means Keep in Cull. In Edit it must not silently turn the photo.'],
+    ['Controls','xSame','X means Out everywhere','X in Cull and X in Edit both take the photo out, and ⌘Z brings it back in each.'],
+    ['Controls','tGone','T does nothing','The old T picker is gone; only V opens variations.'],
+    ['Controls','typing','Typing a value is safe','R, X, Z, V and arrows typed into a number field don’t keep, reject, zoom or switch photo.'],
+    ['Controls','help','Help blocks the photo','With the key list open, X / R / arrows do nothing; esc closes only the list.'],
+    ['Controls','crop','Crop owns the keyboard','While cropping, X, A, 0 and , . don’t act on the photo underneath; esc cancels.'],
+    ['Controls','spec','Variations own the keyboard','With variations open, X / R / A don’t reach the photo.'],
+    ['Controls','esc','Esc backs out one layer','Focus mode and zoom: first esc leaves focus, second returns to fit.'],
+    ['Controls','undoScope','⌘Z undoes the right thing','⌘Z in Edit undoes the edit, not a Cull decision.'],
+    ['Controls','enterRhythm','⏎ rhythm never saves','Tapping ⏎ every 550ms through the last photo lands on Save without saving; a deliberate ⏎ after a pause does.'],
+    ['Controls','cmdS','⌘S is predictable','⌘S in Edit opens Save without saving; ⌘S on Save saves.'],
+    ['Controls','hints','Hints match behaviour','No help text or tooltip mentions T or R-to-rotate.'],
+    ['Controls','cErrors','No script errors','No uncaught errors during the controls run.'],
+    ['Load','ingest','Copy the whole shoot','Finishes, count exact, never goes backwards.'],
+    ['Load','ingestKeys','Cull while copying','Arrows and R stay under 100ms (95th) while the copy runs.'],
+    ['Load','cullAll','Decide every photo','Full-speed R/X across the shoot; counts exact.'],
+    ['Load','editBig','Switch photos in a big Edit','100 switches; 95th under 60ms.'],
+    ['Load','editMany','Edit 300 photos','Nudge and ⏎ through 300; every edit saved; storage under 2 MB.'],
+    ['Load','exportBig','Save the big shoot','Save under 500ms; repeat is a no-op; format change re-enables.'],
+    ['Load','reloadBig','Reopen the big shoot','Ready in under 4s with every decision and edit intact.'],
+    ['Load','lErrors','No script errors','No uncaught errors during the load run.']];
+  state={res:{},running:false,now:'Idle'};
+  frameRef=React.createRef();
+  componentDidMount(){ const c=localStorage.getItem('luminaStress.crumb'), bk=localStorage.getItem('luminaStress.backup'); if(bk){ try{ this._bk=JSON.parse(bk); this.restore(); }catch(_){} } if(c){ this.setState({now:'Last run froze during: '+c+'. Your saved shoot was restored.'}); localStorage.removeItem('luminaStress.crumb'); } }
+  componentWillUnmount(){ this.restore(); }
+  lim(){ return this._big?Math.max(60000,this.bigN()*30+20000):60000; }
+  crumb(t){ try{ localStorage.setItem('luminaStress.crumb',t); }catch(_){} }
+  set(id,ok,detail){ this.setState(s=>({res:{...s.res,[id]:{ok,detail}}})); }
+  wait(ms,exact){ if(!document.hidden) return new Promise(r=>setTimeout(r,ms)); this._bg=true; const end=performance.now()+(ms>=200&&!exact?ms+1100:ms); return new Promise(r=>{ const ch=new MessageChannel(); ch.port1.onmessage=()=>{ if(performance.now()>=end){ ch.port1.close(); r(); } else ch.port2.postMessage(0); }; ch.port2.postMessage(0); }); }
+  tick(){ const w=this.W(); return new Promise(r=>{ const ch=new w.MessageChannel(); ch.port1.onmessage=()=>r(); ch.port2.postMessage(0); }); }
+  W(){ return this.frameRef.current&&this.frameRef.current.contentWindow; }
+  D(){ const w=this.W(); return w&&w.document; }
+  ls(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(_){ return null; } }
+  key(code,key,o={}){ const w=this.W(); if(!w) return; const init={code,key,bubbles:true,cancelable:true,metaKey:!!o.meta,shiftKey:!!o.shift,altKey:!!o.alt,repeat:!!o.repeat}; (w.document.activeElement||w.document.body).dispatchEvent(new w.KeyboardEvent(o.up?'keyup':'keydown',init)); }
+  backup(){ this._bk={}; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('lumina.')) this._bk[k]=localStorage.getItem(k); } localStorage.setItem('luminaStress.backup',JSON.stringify(this._bk)); }
+  restore(){ if(!this._bk) return; const now=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('lumina.')) now.push(k); } now.forEach(k=>localStorage.removeItem(k)); Object.entries(this._bk).forEach(([k,v])=>localStorage.setItem(k,v)); this._bk=null; localStorage.removeItem('luminaStress.backup'); }
+  clearLumina(){ const ks=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('lumina.')) ks.push(k); } ks.forEach(k=>localStorage.removeItem(k)); localStorage.setItem('lumina.edit.intro.v1','1'); }
+  url(big){ const u=new URL('Lumina Workflow.dc.html',window.location.href); u.search=window.location.search; if(big) u.searchParams.set('shoot',this._ds==='demo'?String(this.bigN()):this._ds); return u.href; }
+  load(big){ const f=this.frameRef.current, url=this.url(big); return new Promise(res=>{ let done=false; f.onload=async()=>{ const w=f.contentWindow; let href=''; try{ href=w.location.href; }catch(_){} if(!/Lumina%20Workflow|Lumina Workflow/.test(href)||done) return; done=true; f.onload=null; w.addEventListener('error',e=>this._errs.push(String(e.message||e))); const ce=w.console.error.bind(w.console); w.console.error=(...a)=>{ const m=a.map(String).join(' '); if(!/pvSrc|Warning:/.test(m)) this._errs.push(m); ce(...a); }; const ok=await this.waitFor(()=>{ try{ return !!w.document.querySelector('[role="tablist"]'); }catch(_){ return false; } },15000); this._loadMs=performance.now()-this._ls0; if(!ok) this._errs.push('Workflow never finished loading'); await this.wait(400); res(); }; f.src='about:blank'; setTimeout(()=>{ this._ls0=performance.now(); f.src=url; },30); }); }
+  step(){ return (this.ls(this.fk())||{}).step; }
+  E(){ return this.ls(this.ek())||{}; }
+  keepVals(){ return this.E().keep||{}; }
+  cur(){ const w=this.W(); try{ return w.luminaState&&w.luminaState().cur; }catch(_){ return null; } }
+  look(){ const w=this.W(); try{ return JSON.stringify((w.luminaState().look)||{}); }catch(_){ return ''; } }
+  txt(){ const d=this.D(); return d?d.body.innerText:''; }
+  spec(){ return !!this.D().querySelector('[data-lumina="spectrum"]'); }
+  zoom(){ const im=this.D().querySelector('[data-lumina-img]'); const wr=im&&im.parentElement&&im.parentElement.parentElement, m=wr&&(wr.style.transform||'').match(/scale\(([\d.]+)\)/); return m?+m[1]:1; }
+  sliders(){ return [...this.D().querySelectorAll('[role="slider"]')].filter(e=>e.getBoundingClientRect().width>0).length; }
+  async waitFor(fn,ms=3000){ const t0=Date.now(); while(Date.now()-t0<ms){ if(fn()) return true; await this.wait(40); } return false; }
+  async go(n,ms=700){ this.key('Digit'+n,String(n),{meta:true}); await this.wait(ms); }
+  pct(a,p){ const s=[...a].sort((x,y)=>x-y); return s[Math.min(s.length-1,Math.floor(s.length*p))]||0; }
+  async timed(fn){ const w=this.W(), t0=w.performance.now(); fn(); await this.tick(); return w.performance.now()-t0; }
+  T(id,fn){ let q=null; try{ q=new URLSearchParams(location.search).get('only'); }catch(_){} if(q&&!q.split(',').includes(id)&&!['ingest','ingestKeys'].includes(id)) return Promise.resolve(); const t=Component.TESTS.find(x=>x[1]===id); if(this._ok===false&&['cullAll','editBig','editMany','exportBig','reloadBig'].includes(id)){ this.set(id,false,'Skipped: the copy didn’t finish.'); return Promise.resolve(); } this.setState({now:t[0]+' · '+t[2]}); this.crumb(t[0]+' · '+t[2]); let to; return Promise.race([fn(),new Promise((_,rj)=>{ to=setTimeout(()=>rj(new Error('timed out after '+Math.round(this.lim()/1000)+'s')),this.lim()); })]).catch(e=>this.set(id,false,'Crashed: '+(e&&e.message||e))).finally(()=>clearTimeout(to)); }
+  async start(fn){ if(this.state.running) return; this.setState({running:true,bg:false,res:{},now:'Backing up your saved shoot…'}); this.backup(); this._errs=[]; this._bg=false;
+    try{ await fn(); } finally { this.setState({now:'Restoring your saved shoot…'}); if(this.frameRef.current) this.frameRef.current.src='about:blank'; await this.wait(200); this.restore(); localStorage.removeItem('luminaStress.crumb'); this.setState({running:false,bg:this._bg,now:this._bg?'Done, but this tab was in the background, so timings may be off. Rerun with this tab in front.':'Done. Your saved shoot is restored.'}); } }
+  async prep(big){ this._ok=undefined; this._big=!!big; this._ds=this.state.ds||'demo'; this.clearLumina(); await this.load(big); this.key('Enter','Enter'); }
+  runControls(){ return this.start(async()=>{ const T=(i,f)=>this.T(i,f);
+    await this.prep(false); await this.waitFor(()=>((this.ls(this.fk())||{}).copied||0)>=117,9000); await this.wait(300);
+    for(let i=0;i<30;i++){ this.key('KeyR','r'); await this.wait(30); } await this.wait(300);
+    await T('xSame',async()=>{ await this.go(2,500); const c=(this.ls(this.fk())||{}).cur; this.key('KeyX','x'); await this.wait(300); const a=this.keepVals()[c]; this.key('KeyZ','z',{meta:true}); await this.wait(300); const a2=this.keepVals()[c]; await this.go(3,1200); const e=this.cur(); const e0=this.keepVals()[e]; this.key('KeyX','x'); await this.wait(700); const b=this.keepVals()[e]; this.key('KeyZ','z',{meta:true}); await this.wait(700); const b2=this.keepVals()[e]; const ok=a===false&&a2!==false&&b===false&&b2===e0; this.set('xSame',ok,'Cull: X → '+a+', ⌘Z → '+a2+' · Edit: X → '+b+', ⌘Z → '+b2+'.'); });
+    await T('rEdit',async()=>{ const l0=this.look(), c=this.cur(); this.key('KeyR','r'); await this.wait(400); const l1=this.look(), msg=/R keeps photos in Cull/.test(this.txt()); this.set('rEdit',l0===l1&&this.cur()===c,(l0===l1?'Photo untouched':'Photo changed')+(msg?' · explains what R does.':' · no explanation shown.')); });
+    await T('tGone',async()=>{ this.key('KeyT','t'); await this.wait(300); const o=this.spec(); if(o) this.key('Escape','Escape'); await this.wait(150); this.set('tGone',!o,o?'T still opens the old picker.':'T does nothing.'); });
+    await T('typing',async()=>{ const d=this.D(), sp=[...d.querySelectorAll('span')].find(s=>/EV$/.test((s.innerText||'').trim())&&s.children.length===0); if(!sp) return this.set('typing',false,'Harness: no value to click.'); sp.click(); await this.wait(250); const inp=d.querySelector('input'); if(!inp) return this.set('typing',false,'Harness: number field didn’t open.'); inp.focus(); const c=this.cur(), z=this.zoom(), K=JSON.stringify(this.keepVals()); for(const [cd,k] of [['KeyR','r'],['KeyX','x'],['KeyZ','z'],['KeyV','v'],['ArrowRight','ArrowRight'],['Digit0','0']]){ this.key(cd,k); await this.wait(30); this.key(cd,k,{up:true}); } await this.wait(400); const bad=[]; if(this.cur()!==c) bad.push('photo switched'); if(this.zoom()!==z) bad.push('zoomed'); if(this.spec()) bad.push('variations opened'); if(JSON.stringify(this.keepVals())!==K) bad.push('keep changed'); this.key('Escape','Escape'); await this.wait(150); inp.isConnected&&inp.blur(); await this.wait(200); this.set('typing',!bad.length,bad.length?'While typing: '+bad.join(', ')+'.':'Six shortcut keys typed into the field; nothing leaked.'); });
+    await T('help',async()=>{ this.key('Slash','?',{shift:true}); await this.wait(300); const open=/Trackpad/.test(this.txt()); const c=this.cur(), K=JSON.stringify(this.keepVals()), l=this.look(); for(const [cd,k] of [['KeyX','x'],['KeyR','r'],['ArrowRight','ArrowRight'],['Period','.']]){ this.key(cd,k); await this.wait(40); } await this.wait(400); const leaked=this.cur()!==c||JSON.stringify(this.keepVals())!==K||this.look()!==l; this.key('Escape','Escape'); await this.wait(300); const closed=!/Trackpad/.test(this.txt()); this.set('help',open&&!leaked&&closed&&this.cur()===c,!open?'Harness: help didn’t open.':leaked?'Keys reached the photo through the help list.':!closed?'Esc didn’t close help.':'Help held the keyboard; esc closed only it.'); });
+    await T('crop',async()=>{ const c=this.cur(), l=this.look(), K=this.keepVals()[c]; this.key('KeyC','c'); await this.wait(350); const t1=this.txt(); for(const [cd,k] of [['KeyX','x'],['KeyA','a'],['Digit0','0'],['Period','.'],['Comma',',']]){ this.key(cd,k); await this.wait(40); } await this.wait(400); const k2=this.keepVals()[c], cur2=this.cur(); this.key('Escape','Escape'); await this.wait(400); const l2=this.look(); const bad=[]; if(k2!==K) bad.push('X took it out'); if(cur2!==c) bad.push('photo switched'); if(l2!==l) bad.push('edit changed under the crop'); this.set('crop',!bad.length,bad.length?'During crop: '+bad.join(', ')+'.':'Five stray keys swallowed; esc cancelled cleanly.'); });
+    await T('spec',async()=>{ const c=this.cur(), l=this.look(), K=this.keepVals()[c]; this.key('KeyV','v'); await this.wait(350); const o=this.spec(); for(const [cd,k] of [['KeyX','x'],['KeyR','r'],['KeyA','a']]){ this.key(cd,k); await this.wait(40); } this.key('Escape','Escape'); await this.wait(60); this.key('KeyV','v',{up:true}); await this.wait(500); const bad=[]; if(this.keepVals()[c]!==K) bad.push('keep changed'); if(this.look()!==l) bad.push('edit changed'); if(this.cur()!==c) bad.push('photo switched'); if(this.spec()) bad.push('grid stuck open'); this.set('spec',o&&!bad.length,!o?'Harness: variations didn’t open.':bad.length?bad.join(', ')+'.':'Grid held the keyboard; esc closed it, nothing applied.'); });
+    await T('esc',async()=>{ this.key('KeyZ','z'); await this.wait(300); this.key('KeyH','h'); await this.wait(300); const z0=this.zoom(), s0=this.sliders(); this.key('Escape','Escape'); await this.wait(300); const z1=this.zoom(), s1=this.sliders(); this.key('Escape','Escape'); await this.wait(300); const z2=this.zoom(); const ok=z0>1&&s0===0&&s1>0&&z1>1&&z2===1; this.set('esc',ok,'Zoom '+z0.toFixed(2)+'×, controls '+(s0?'shown':'hidden')+' → esc → '+z1.toFixed(2)+'×, controls '+(s1?'shown':'hidden')+' → esc → '+z2.toFixed(2)+'×.'); });
+    await T('undoScope',async()=>{ const c=this.cur(), K=this.keepVals()[c], l0=this.look(); this.key('Period','.'); await this.wait(250); const l1=this.look(); this.key('KeyZ','z',{meta:true}); await this.wait(400); const l2=this.look(), K2=this.keepVals()[c]; this.set('undoScope',l1!==l0&&l2===l0&&K2===K,l1===l0?'Harness: nudge did nothing.':l2!==l0?'⌘Z didn’t undo the edit.':K2!==K?'⌘Z changed the Cull decision.':'Edit undone; Cull decision untouched.'); });
+    await T('enterRhythm',async()=>{ await this.go(3,1100); for(let i=0;i<60;i++){ this.key('ArrowRight','ArrowRight'); await this.wait(10); } await this.wait(300); let reached=false; for(let i=0;i<8;i++){ this.key('Enter','Enter'); await this.wait(550,true); if(this.step()==='save') reached=true; } const f1=this.ls(this.fk())||{}; await this.wait(1300); this.key('Enter','Enter'); await this.wait(400); const f2=this.ls(this.fk())||{}; this.set('enterRhythm',reached&&!f1.saved&&!!f2.saved,!reached?'Never reached Save.':f1.saved?'The ⏎ rhythm saved.':!f2.saved?'A deliberate ⏎ after a pause didn’t save.':'Rhythm landed on Save without saving; a paused ⏎ saved.'); });
+    await T('cmdS',async()=>{ await this.go(3,1100); this.key('Period','.'); await this.wait(300); this.key('KeyS','s',{meta:true}); await this.wait(600); const f1=this.ls(this.fk())||{}, before=f1.saved&&f1.saved.sig; const s1=f1.step; this.key('KeyS','s',{meta:true}); await this.wait(500); const f2=this.ls(this.fk())||{}; const ok=s1==='save'&&f2.saved&&f2.saved.sig!==before; this.set('cmdS',!!ok,'⌘S in Edit → '+s1+(f1.saved&&f1.saved.sig!==before?' and saved':', not saved')+' · ⌘S on Save → '+(f2.saved&&f2.saved.sig!==before?'saved.':'nothing.')); });
+    await T('hints',async()=>{ await this.go(3,1100); this.key('Slash','?',{shift:true}); await this.wait(300); const d=this.D(), tx=this.txt()+' '+[...d.querySelectorAll('[title],[aria-label]')].map(e=>(e.getAttribute('title')||'')+' '+(e.getAttribute('aria-label')||'')).join(' '); this.key('Escape','Escape'); const bad=[]; if(/\bT\b[^a-z]{0,4}(tr|again|picker)/i.test(tx)||/T tries/.test(tx)) bad.push('mentions T'); if(/(^|\n)R( · ⇧R)?\s*\n\s*turn 90/.test(tx)) bad.push('lists R as rotate'); this.set('hints',!bad.length,bad.length?'Help '+bad.join(' and ')+'.':'Help and tooltips match the keys.'); });
+    await this.wait(300); const E=this._errs; this.set('cErrors',!E.length,E.length?E.length+' error(s): '+[...new Set(E)].slice(0,3).join(' | ').slice(0,220):'None.'); }); }
+  runLoad(){ return this.start(async()=>{ this._ds=this.state.ds||'demo'; this._big=true; const T=(i,f)=>this.T(i,f), N=()=>((this.ls(this.fk())||{}).copied||0);
+    await this.prep(true); const t0=performance.now();
+    await T('ingestKeys',async()=>{ await this.waitFor(()=>N()>=30,5000); const ts=[]; for(let i=0;i<60;i++){ ts.push(await this.timed(()=>this.key(i%4===3?'KeyR':'ArrowRight',i%4===3?'r':'ArrowRight'))); await this.wait(30); } const p=this.pct(ts,0.95); this.set('ingestKeys',p<100,'While copying ('+N()+' so far): median '+this.pct(ts,0.5).toFixed(0)+'ms · 95th '+p.toFixed(0)+'ms.'); });
+    await T('ingest',async()=>{ const seen=[]; const fin=await this.waitFor(()=>{ seen.push(N()); return /All \d[\d,]* copied/.test(this.txt()); },Math.max(55000,this.bigN()*22+15000)); const tot=N(), mono=seen.every((v,i)=>!i||v>=seen[i-1]); this._T=tot; this._ok=fin&&tot>=this.bigN()-5; this.set('ingest',fin&&mono&&tot>=this.bigN()-5,(fin?'Copied '+tot+' in '+((performance.now()-t0)/1000).toFixed(1)+'s':'Stopped at '+tot)+(mono?'':' · count went backwards')+'.'); });
+    await T('cullAll',async()=>{ await this.go(2,600); for(let i=0;i<this._T+5;i++) this.key('ArrowLeft','ArrowLeft'); await this.wait(300); const t=performance.now(); for(let i=0;i<this._T;i++){ this.key(i%2?'KeyX':'KeyR',i%2?'x':'r'); if(i%10===0) await this.wait(0); } await this.wait(800); const K=this.keepVals(), dec=Object.values(K).filter(v=>v!=null).length; this.set('cullAll',dec===this._T,dec+' of '+this._T+' decided in '+((performance.now()-t)/1000).toFixed(1)+'s.'); });
+    await T('editBig',async()=>{ await this.go(3,2000); const ts=[]; for(let i=0;i<100;i++){ ts.push(await this.timed(()=>this.key(i%5===4?'ArrowLeft':'ArrowRight',i%5===4?'ArrowLeft':'ArrowRight'))); } const p=this.pct(ts,0.95); this.set('editBig',p<60,'Median '+this.pct(ts,0.5).toFixed(0)+'ms · 95th '+p.toFixed(0)+'ms per switch.'); });
+    await T('editMany',async()=>{ const ts=[], vis=new Set(); for(let i=0;i<300;i++){ vis.add(this.cur()); this.key('Period','.'); ts.push(await this.timed(()=>this.key('Enter','Enter'))); if(i%25===0) await this.wait(0); } await this.wait(1200); const L=this.E().looks||{}, n=Object.values(L).filter(o=>o&&Object.keys(o).length).length, kb=Math.round((localStorage.getItem(this.ek())||'').length*2/1024); this._vis=vis.size; this.set('editMany',n>0&&kb<2048,vis.size+' photos edited ('+n+' saved looks; bursts share one) · storage '+kb+' KB · 95th per step '+this.pct(ts,0.95).toFixed(0)+'ms.'); });
+    await T('exportBig',async()=>{ await this.go(4,800); const d=this.D(), btn=()=>[...d.querySelectorAll('[role="button"]')].find(b=>/^(save \d|save again)/i.test((b.innerText||'').trim())); const b1=btn(); if(!b1) return this.set('exportBig',false,'No Save button found.'); const w=this.W(), t=w.performance.now(); b1.click(); await this.tick(); const ms=w.performance.now()-t; await this.wait(300); const s1=(this.ls(this.fk())||{}).saved; this.key('KeyS','s',{meta:true}); await this.wait(300); const s2=(this.ls(this.fk())||{}).saved; const jp=[...d.querySelectorAll('[role="radio"]')].find(r=>/jpeg/i.test(r.innerText)); jp&&jp.click(); await this.wait(300); const b2=btn(), again=b2&&/again/i.test(b2.innerText); const ok=!!s1&&ms<500&&s2&&s2.sig===s1.sig&&again&&s1.ne>=(this._vis||0)-5; this.set('exportBig',!!ok,'Saved '+(s1?s1.n+' photos ('+s1.ne+' edited of '+(this._vis||0)+' touched)':'nothing')+' in '+ms.toFixed(0)+'ms · repeat '+(s2&&s1&&s2.sig===s1.sig?'no-op':'changed')+' · format change '+(again?'re-enabled':'stayed disabled')+'.'); });
+    await T('reloadBig',async()=>{ const K0=JSON.stringify(this.keepVals()), L0=JSON.stringify(this.E().looks||{}); await this.load(true); const ms=this._loadMs; await this.wait(600); const same=JSON.stringify(this.keepVals())===K0&&JSON.stringify(this.E().looks||{})===L0; this.set('reloadBig',ms<4000&&same,'Ready in '+(ms/1000).toFixed(1)+'s · decisions and edits '+(same?'intact':'changed')+'.'); });
+    await this.wait(300); const E=this._errs; this.set('lErrors',!E.length,E.length?E.length+' error(s): '+[...new Set(E)].slice(0,3).join(' | ').slice(0,220):'None.'); }); }
+  renderVals(){ const s=this.state, R=s.res, n=Object.keys(R).length, bad=Object.values(R).filter(r=>!r.ok).length;
+    return { sets:Component.SETS.map(([id,lab])=>{ const on=(s.ds||'demo')===id; return {t:lab,on:on?'true':'false',bg:on?'rgba(239,236,230,0.16)':'transparent',fg:on?'#EFECE6':'#96918A',go:()=>{ if(!this.state.running) this.setState({ds:id}); }}; }), frameRef:this.frameRef, runC:()=>this.runControls(), runL:()=>this.runLoad(), runDis:s.running?'true':'false', runBg:s.running?'rgba(239,236,230,0.1)':'#EFECE6', runFg:s.running?'#96918A':'#1E1D1B', runFg2:s.running?'#96918A':'#EFECE6',
+      sumT:s.running?'Running…':!n?'Controls ≈ 60s · Load ≈ '+Math.max(2,Math.round(this.bigN()/700))+' min':(bad?bad+' of '+n+' failed':n+' passed')+(s.bg?' · ran in background':''), sumC:bad?'#F0A39E':n?'#B8E3A0':'#96918A', nowT:s.now,
+      tests:Component.TESTS.map(([group,id,name,desc],i,A)=>{ const r=R[id], st=!r?'idle':r.ok?'pass':'fail'; return {group,head:i===0||A[i-1][0]!==group,name,detail:r?r.detail:desc,dc:st==='fail'?'#F0A39E':st==='pass'?'#B8B3AB':'#96918A',dot:st==='pass'?'#7FC46B':st==='fail'?'#E5534B':'transparent',ring:st==='idle'?'rgba(239,236,230,0.3)':'transparent',bg:st==='fail'?'rgba(229,83,75,0.08)':'transparent'}; }) };
+  }
+}
+</script>
+</body>
+</html>

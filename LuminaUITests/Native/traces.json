@@ -1,0 +1,901 @@
+{
+ "recordedFrom": "design_handoff_lumina_app/prototypes (Lumina Workflow + Edit v19), demo shoot demo-shoot-117.json, window 1100×760",
+ "recordedAt": "2026-10-01T21:37:39.819Z",
+ "compare": {
+  "exact": [
+   "step",
+   "cur",
+   "kept",
+   "out",
+   "dec",
+   "overlay",
+   "saved.n",
+   "saved.ne",
+   "saved.fmt",
+   "saved.again"
+  ],
+  "numeric": {
+   "look.*": 0.001,
+   "zoom": 0.05
+  },
+  "ignore": [
+   "enter-guards: cur while copying (null until the first photo arrives)"
+  ]
+ },
+ "setups": {
+  "fresh": "clean store, Open step",
+  "copied": "⏎ on Open, wait until all 117 copied (Cull, cur = first photo)",
+  "kept6": "copied, then R ×6 (DSC03260–DSC03265 kept, cur DSC03266)"
+ },
+ "actionGrammar": "\"r\" = key; \"Meta+z\" = ⌘Z; \"Shift+.\" = ⇧.; \"wait:ms\"; \"v-hold\"/\"v-up\" = hold/release V; \"click:save\" = save.button; \"click:fmt-jpeg\" = save.format.jpeg. Settle after each action: 1300ms after ⌘3, 600ms after other ⌘digit, 120ms after Enter, 220ms otherwise.",
+ "flows": {
+  "cull-basics": {
+   "setup": "copied",
+   "steps": [
+    {
+     "a": "(start)",
+     "step": "cull",
+     "cur": "DSC03260",
+     "kept": 0,
+     "out": 0
+    },
+    {
+     "a": "r",
+     "step": "cull",
+     "cur": "DSC03261",
+     "kept": 1,
+     "out": 0
+    },
+    {
+     "a": "r",
+     "step": "cull",
+     "cur": "DSC03262",
+     "kept": 2,
+     "out": 0
+    },
+    {
+     "a": "r",
+     "step": "cull",
+     "cur": "DSC03263",
+     "kept": 3,
+     "out": 0
+    },
+    {
+     "a": "x",
+     "step": "cull",
+     "cur": "DSC03264",
+     "kept": 3,
+     "out": 1
+    },
+    {
+     "a": "ArrowLeft",
+     "step": "cull",
+     "cur": "DSC03263",
+     "kept": 3,
+     "out": 1,
+     "dec": false
+    },
+    {
+     "a": "r",
+     "step": "cull",
+     "cur": "DSC03264",
+     "kept": 4,
+     "out": 0
+    },
+    {
+     "a": "Meta+z",
+     "step": "cull",
+     "cur": "DSC03263",
+     "kept": 3,
+     "out": 1,
+     "dec": false
+    },
+    {
+     "a": "Meta+z",
+     "step": "cull",
+     "cur": "DSC03263",
+     "kept": 3,
+     "out": 0
+    },
+    {
+     "a": "Meta+Shift+z",
+     "step": "cull",
+     "cur": "DSC03263",
+     "kept": 3,
+     "out": 1,
+     "dec": false
+    },
+    {
+     "a": "u",
+     "step": "cull",
+     "cur": "DSC03264",
+     "kept": 3,
+     "out": 1
+    },
+    {
+     "a": "ArrowDown",
+     "step": "cull",
+     "cur": "DSC03274",
+     "kept": 3,
+     "out": 1
+    },
+    {
+     "a": "r",
+     "step": "cull",
+     "cur": "DSC03275",
+     "kept": 4,
+     "out": 1
+    },
+    {
+     "a": "ArrowUp",
+     "step": "cull",
+     "cur": "DSC03260",
+     "kept": 4,
+     "out": 1,
+     "dec": true
+    },
+    {
+     "a": "x",
+     "step": "cull",
+     "cur": "DSC03261",
+     "kept": 3,
+     "out": 2,
+     "dec": true
+    },
+    {
+     "a": "ArrowRight",
+     "step": "cull",
+     "cur": "DSC03262",
+     "kept": 3,
+     "out": 2,
+     "dec": true
+    },
+    {
+     "a": "ArrowRight",
+     "step": "cull",
+     "cur": "DSC03263",
+     "kept": 3,
+     "out": 2,
+     "dec": false
+    },
+    {
+     "a": "Meta+z",
+     "step": "cull",
+     "cur": "DSC03260",
+     "kept": 4,
+     "out": 1,
+     "dec": true
+    }
+   ]
+  },
+  "step-switching": {
+   "setup": "kept6",
+   "steps": [
+    {
+     "a": "(start)",
+     "step": "cull",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    },
+    {
+     "a": "Meta+1",
+     "step": "open",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    },
+    {
+     "a": "Meta+2",
+     "step": "cull",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    },
+    {
+     "a": "Meta+3",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "Meta+4",
+     "step": "save",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    },
+    {
+     "a": "Meta+2",
+     "step": "cull",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    },
+    {
+     "a": "Meta+4",
+     "step": "save",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    },
+    {
+     "a": "Meta+3",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "Meta+1",
+     "step": "open",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    },
+    {
+     "a": "Meta+2",
+     "step": "cull",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    }
+   ]
+  },
+  "enter-guards": {
+   "setup": "fresh",
+   "steps": [
+    {
+     "a": "(start)",
+     "step": "open",
+     "cur": null,
+     "kept": 0,
+     "out": 0
+    },
+    {
+     "a": "Enter",
+     "step": "cull",
+     "cur": null,
+     "kept": 0,
+     "out": 0
+    },
+    {
+     "a": "Enter",
+     "step": "cull",
+     "cur": null,
+     "kept": 0,
+     "out": 0
+    },
+    {
+     "a": "Enter",
+     "step": "cull",
+     "cur": null,
+     "kept": 0,
+     "out": 0
+    },
+    {
+     "a": "Enter",
+     "step": "cull",
+     "cur": null,
+     "kept": 0,
+     "out": 0
+    },
+    {
+     "a": "Enter",
+     "step": "cull",
+     "cur": null,
+     "kept": 0,
+     "out": 0
+    },
+    {
+     "a": "Enter",
+     "step": "cull",
+     "cur": null,
+     "kept": 0,
+     "out": 0
+    },
+    {
+     "a": "wait:2500",
+     "step": "cull",
+     "cur": "DSC03260",
+     "kept": 0,
+     "out": 0
+    },
+    {
+     "a": "r",
+     "step": "cull",
+     "cur": "DSC03261",
+     "kept": 1,
+     "out": 0
+    },
+    {
+     "a": "r",
+     "step": "cull",
+     "cur": "DSC03262",
+     "kept": 2,
+     "out": 0
+    },
+    {
+     "a": "r",
+     "step": "cull",
+     "cur": "DSC03263",
+     "kept": 3,
+     "out": 0
+    },
+    {
+     "a": "r",
+     "step": "cull",
+     "cur": "DSC03264",
+     "kept": 4,
+     "out": 0
+    },
+    {
+     "a": "Meta+3",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 4,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "Enter",
+     "step": "edit",
+     "cur": "DSC03261",
+     "kept": 4,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "Enter",
+     "step": "edit",
+     "cur": "DSC03262",
+     "kept": 4,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "Enter",
+     "step": "edit",
+     "cur": "DSC03263",
+     "kept": 4,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "Enter",
+     "step": "save",
+     "cur": "DSC03264",
+     "kept": 4,
+     "out": 0
+    },
+    {
+     "a": "Enter",
+     "step": "save",
+     "cur": "DSC03264",
+     "kept": 4,
+     "out": 0
+    },
+    {
+     "a": "Enter",
+     "step": "save",
+     "cur": "DSC03264",
+     "kept": 4,
+     "out": 0
+    },
+    {
+     "a": "wait:1700",
+     "step": "save",
+     "cur": "DSC03264",
+     "kept": 4,
+     "out": 0
+    },
+    {
+     "a": "Enter",
+     "step": "save",
+     "cur": "DSC03264",
+     "kept": 4,
+     "out": 0,
+     "saved": {
+      "n": 4,
+      "ne": 0,
+      "fmt": "xmp",
+      "again": false
+     }
+    }
+   ]
+  },
+  "edit-basics": {
+   "setup": "kept6",
+   "steps": [
+    {
+     "a": "(start)",
+     "step": "cull",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    },
+    {
+     "a": "Meta+3",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": ".",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.05
+     }
+    },
+    {
+     "a": ".",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.1
+     }
+    },
+    {
+     "a": ".",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.15
+     }
+    },
+    {
+     "a": "BracketRight",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.15
+     }
+    },
+    {
+     "a": ".",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.15,
+      "wb": 5300
+     }
+    },
+    {
+     "a": "Meta+z",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.15
+     }
+    },
+    {
+     "a": "ArrowRight",
+     "step": "edit",
+     "cur": "DSC03261",
+     "kept": 6,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "ArrowLeft",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.15
+     }
+    },
+    {
+     "a": "Shift+.",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.15,
+      "wb": 5720
+     }
+    },
+    {
+     "a": "0",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.15
+     }
+    },
+    {
+     "a": "x",
+     "step": "edit",
+     "cur": "DSC03261",
+     "kept": 5,
+     "out": 1,
+     "dec": true
+    },
+    {
+     "a": "Meta+z",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.15
+     }
+    },
+    {
+     "a": "Equal",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.15
+     }
+    },
+    {
+     "a": "Meta+2",
+     "step": "cull",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    },
+    {
+     "a": "Meta+3",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.15
+     }
+    }
+   ]
+  },
+  "edit-conflicts": {
+   "setup": "kept6",
+   "steps": [
+    {
+     "a": "(start)",
+     "step": "cull",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    },
+    {
+     "a": "Meta+3",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "r",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "t",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "c",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "overlay": "crop"
+    },
+    {
+     "a": "x",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "overlay": "crop"
+    },
+    {
+     "a": "a",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "overlay": "crop"
+    },
+    {
+     "a": "0",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "overlay": "crop"
+    },
+    {
+     "a": "Escape",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "Shift+Slash",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "overlay": "help"
+    },
+    {
+     "a": "x",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "overlay": "help"
+    },
+    {
+     "a": "ArrowRight",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "overlay": "help"
+    },
+    {
+     "a": "Escape",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "z",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "zoom": 3
+    },
+    {
+     "a": "h",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "overlay": "focus",
+     "zoom": 3
+    },
+    {
+     "a": "Escape",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "zoom": 3
+    },
+    {
+     "a": "Escape",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "v-hold",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "overlay": "variations"
+    },
+    {
+     "a": "x",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "overlay": "variations"
+    },
+    {
+     "a": "Escape",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true
+    },
+    {
+     "a": "v-up",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true
+    }
+   ]
+  },
+  "save-flow": {
+   "setup": "kept6",
+   "steps": [
+    {
+     "a": "(start)",
+     "step": "cull",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    },
+    {
+     "a": "Meta+4",
+     "step": "save",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0
+    },
+    {
+     "a": "click:save",
+     "step": "save",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0,
+     "saved": {
+      "n": 6,
+      "ne": 0,
+      "fmt": "xmp",
+      "again": false
+     }
+    },
+    {
+     "a": "Meta+s",
+     "step": "save",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0,
+     "saved": {
+      "n": 6,
+      "ne": 0,
+      "fmt": "xmp",
+      "again": false
+     }
+    },
+    {
+     "a": "click:fmt-jpeg",
+     "step": "save",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0,
+     "saved": {
+      "n": 6,
+      "ne": 0,
+      "fmt": "xmp",
+      "again": false
+     }
+    },
+    {
+     "a": "click:save",
+     "step": "save",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0,
+     "saved": {
+      "n": 6,
+      "ne": 0,
+      "fmt": "jpeg",
+      "again": true
+     }
+    },
+    {
+     "a": "Meta+3",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "saved": {
+      "n": 6,
+      "ne": 0,
+      "fmt": "jpeg",
+      "again": true
+     }
+    },
+    {
+     "a": ".",
+     "step": "edit",
+     "cur": "DSC03260",
+     "kept": 6,
+     "out": 0,
+     "dec": true,
+     "look": {
+      "ev": 0.05
+     },
+     "saved": {
+      "n": 6,
+      "ne": 0,
+      "fmt": "jpeg",
+      "again": true
+     }
+    },
+    {
+     "a": "Meta+s",
+     "step": "save",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0,
+     "saved": {
+      "n": 6,
+      "ne": 0,
+      "fmt": "jpeg",
+      "again": true
+     }
+    },
+    {
+     "a": "Meta+s",
+     "step": "save",
+     "cur": "DSC03266",
+     "kept": 6,
+     "out": 0,
+     "saved": {
+      "n": 6,
+      "ne": 1,
+      "fmt": "jpeg",
+      "again": true
+     }
+    }
+   ]
+  }
+ }
+}
