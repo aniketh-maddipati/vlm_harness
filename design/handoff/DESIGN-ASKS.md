@@ -80,6 +80,27 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 > become stacks, row heights animate (180 ms) and each new tile fades in. While the reader is
 > scrolling, add rows less often (the app waits 1.5 s instead of 400 ms), don't animate row heights
 > for rows that are off screen, and don't fade in tiles for rows that were already on screen.
+>
+> **10. Say so while a folder opens.** Between choosing a folder and the first photo being read the
+> page shows nothing: no word, no progress. That wait is the disk listing the folder, and it is
+> not always short. Measured in the app (`probe.sh readspeed`, 2026-10-01): under 0.1 s on the
+> internal disk, 0.4–3.6 s on a USB disk, and **13.9 s the first time a folder is opened after
+> that disk is mounted** (the same wait a freshly inserted card or a sleeping disk gives). For
+> those seconds the app looks as if the click did nothing. Please:
+> (a) **An opening state.** Define `window.luminaOpening(info)`: the app calls it with
+> `{name, onCard}` the moment a folder is chosen (picker, drop, Open Recent, "Cull this card"),
+> and with `null` when the listing arrives, access is refused, or the open is cancelled. While it
+> is set, Open says what is happening in the place the read's progress appears a moment later,
+> e.g. `Opening <name>…`, so the two read as one sequence. In the browser nothing calls it (the
+> folder input answers at once).
+> (b) **Not for fast opens.** Show it only once the wait has lasted about 400 ms, so an open on
+> the internal disk doesn't flash a word.
+> (c) **A long wait says why.** After about 3 s add a second, quieter line, e.g. `the disk is
+> waking up`, so 14 s doesn't read as a hang. No spinner that implies progress: there is no
+> count until the listing returns.
+> (d) **Keys stay alive.** `Esc` leaves the opening state (the app drops the listing's result
+> when it arrives) and `⌘O` can choose another folder; today nothing can be done until the
+> listing returns.
 
 ## Prompt 1 — the Edit step (paste into Claude Design)
 
@@ -430,6 +451,11 @@ and 56 % of the runs that hold a pick hold exactly one: the same picture as C, o
 - 3: `__lumina.unsaved()` in `plumbing.js` becomes a call to `window.luminaUnsaved`; the contract scenario checks it exists.
 - 4, 5: by eye.
 - 6: a probe Tab walk scenario.
+- 10: `probe.sh slowdisk` (`open-slow-disk.json`, `LUMINA_SLOW_DIR_MS=12000`): `luminaOpening` is among the hooks the
+  contract scenario lists; the scenario then expects `Opening <name>…` on screen 1 s into the open and gone when the
+  rows appear, and `Esc` during the wait returns to Open with no rows. `plumbing.js` calls the hook around
+  `native('openFolder')` (the bridge sends the name before it lists), and `probe.sh readspeed` adds "opening shown" to
+  its timeline.
 - 8: `probe.sh scroll` (`scroll-read`: read-end.json shows no cursor move and under 200 px scrolled by the app; the keep
   made while reading survives), `Tests/web/plumbing-harness.mjs` (during read / reopen during read). Then drop
   plumbing's `readMoved` / `stay` handling and its refresh pacing in `grow`, and review ONDIR.

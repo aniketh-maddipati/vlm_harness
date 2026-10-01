@@ -44,6 +44,8 @@
 #                                                pinned decoder), per stage of the look, on 12 distinct real ARWs of LUMINA_EDIT_DIR
 #   bash Scripts/probe.sh readspeed              how fast a folder reads: Open → first rows, first thumbnail, first screen full,
 #                                                100 / 500 / 1000 / 2000 photos, done; photos per second. Folder: LUMINA_READ_DIR, else as scroll
+#   bash Scripts/probe.sh slowdisk               a disk whose first directory read takes 12 s (LUMINA_SLOW_DIR_MS): the app still answers
+#                                                the page while the folder is listed. Folder: LUMINA_READ_DIR, else as scroll
 #   bash Scripts/probe.sh all [--require-all]    everything v5; --require-all turns a SKIP into a failure
 #
 # Build fixtures once: LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Tests/probe/forge_fixtures.sh
@@ -206,6 +208,8 @@ case "$suite" in
   consistency) editdir; run "$S/edit-consistency.json" ;;
   readspeed) [[ -n ${LUMINA_READ_DIR:-} ]] || { scrolldir; export LUMINA_READ_DIR="${LUMINA_SCROLL_DIR:-}"; }
              run "$S/read-speed.json" ;;
+  slowdisk)  [[ -n ${LUMINA_READ_DIR:-} ]] || { scrolldir; export LUMINA_READ_DIR="${LUMINA_SCROLL_DIR:-}"; }
+             LUMINA_SLOW_DIR_MS="${LUMINA_SLOW_DIR_MS:-12000}" run "$S/open-slow-disk.json" ;;
   all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" "$S"/edge-*.json $(paths "${APP[@]}") $(paths "${FAULT[@]}")
              LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
   *)         sed -n '2,43p' "$0"; exit 2 ;;

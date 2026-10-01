@@ -93,6 +93,7 @@ bash Scripts/probe.sh fuzz          # seeded key + mouse storms (with LUMINA_FIX
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh scroll  # fast Cull scrolling: frames, blank tiles, thumbnail upscale, memory
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # contract + the app on folders: sidecars, .lumina-bak, Lightroom's sidecars merged, sessions across a relaunch, keepers renamed mid-cull, the empty app
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh fault   # disk images: kill -9 mid-write, disk full mid-copy and for a sidecar, read-only card, card pulled mid-read and on Save, .xmp + .XMP on a case-sensitive disk
+LUMINA_READ_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh slowdisk        # a disk whose first directory read takes 12 s (LUMINA_SLOW_DIR_MS): the app still answers the page while the folder is listed
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh edge    # camera-data cases (design gaps show as FAIL)
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh ingest  # the same cases through the native reader
 LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh card         # golden card + page vs native read

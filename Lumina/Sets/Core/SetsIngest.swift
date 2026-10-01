@@ -170,6 +170,9 @@ nonisolated final class SetsIngest: @unchecked Sendable {
 
     /// macOS refused to list the folder (Privacy & Security → Files and Folders, SAFETY.md 5).
     static func accessDenied(_ root: URL) -> Bool {
+        // Probe only (`open-slow-disk.json`): stands in for a disk whose first directory read is slow
+        // (just mounted, asleep), so the test can check the caller is not the main thread.
+        if let ms = ProcessInfo.processInfo.environment["LUMINA_SLOW_DIR_MS"].flatMap(Double.init), ms > 0 { Thread.sleep(forTimeInterval: ms / 1000) }
         do { _ = try FileManager.default.contentsOfDirectory(atPath: root.path); return false } catch {
             let ns = error as NSError, under = ns.userInfo[NSUnderlyingErrorKey] as? NSError
             return ns.code == NSFileReadNoPermissionError || [Int(EPERM), Int(EACCES)].contains(under?.code ?? 0)
