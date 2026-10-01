@@ -8,13 +8,13 @@
   "stages": {
     "rawDevelop": {
       "locked": false,
-      "form": "CIRAWFilter, Apple's default profile, no auto; scaleFactor for size; draft mode below draftBelowPx",
-      "coefficients": { "boostAmount": 1.0, "draftBelowPx": 0 }
+      "form": "CIRAWFilter, Apple's default profile, no auto; scaleFactor for size; draft mode below draftBelowPx; lensShading (0 … 1) undoes the lens's corner falloff in linear space with the camera's own VignettingCorrParams (LookLensShading)",
+      "coefficients": { "boostAmount": 1.0, "draftBelowPx": 0, "lensShading": 1.0 }
     },
     "exposure": {
       "locked": false,
-      "form": "linear gain 2^(ev * stopsPerUnit)",
-      "coefficients": { "stopsPerUnit": 1.0 }
+      "form": "a scene gain through a sigmoid tone curve, per channel: G·y / (1 + (G − 1)·y/white) with G = 2^(ev * stopsPerUnit); tangent continuation above white and below 0",
+      "coefficients": { "stopsPerUnit": 1.6032, "white": 1.1018 }
     },
     "whiteBalance": {
       "locked": false,

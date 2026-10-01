@@ -40,9 +40,26 @@ nonisolated enum LookMath {
 
     // MARK: exposure
 
+    /// Lightroom's Exposure is a gain on the scene, before its film-like tone curve; this stage
+    /// runs after the decoder's. For a sigmoid tone curve y = xᶜ / (xᶜ + sᶜ) a scene gain g becomes
+    /// y′ = G·y / (1 + (G − 1)·y) with G = gᶜ on the toned value, whatever s is: shadows and
+    /// midtones move c stops per unit, highlights roll off toward `white` (and, per channel, lose
+    /// saturation as they do). `stopsPerUnit` is c; measured on Lightroom's sweep it is ≈ 1.75.
     static func exposureGain(_ ev: Double, _ rules: LookRules) -> Double {
         exp2(ev * rules.k("exposure", "stopsPerUnit", 1))
     }
+
+    /// One channel through the exposure stage: `gain` from `exposureGain`, `white` the value the
+    /// roll-off approaches. Above `white` (the decoder's headroom) and below 0 it continues along
+    /// its tangent, so it stays monotonic and is the identity at gain 1.
+    static func exposure(_ x: Double, gain g: Double, white w: Double) -> Double {
+        if x <= 0 { return x * g }
+        if x >= w { return w + (x - w) / g }
+        let t = x / w
+        return w * g * t / (1 + (g - 1) * t)
+    }
+
+    static func exposureWhite(_ rules: LookRules) -> Double { max(0.05, rules.k("exposure", "white", 1)) }
 
     // MARK: whiteBalance
 
@@ -202,8 +219,9 @@ nonisolated enum LookMath {
         for stage in rules.lookStages {
             switch stage {
             case "exposure":
-                let g = exposureGain(look.ev, rules)
-                c = RGB(r: c.r * g, g: c.g * g, b: c.b * g)
+                guard look.ev != 0 else { continue }
+                let g = exposureGain(look.ev, rules), w = exposureWhite(rules)
+                c = RGB(r: exposure(c.r, gain: g, white: w), g: exposure(c.g, gain: g, white: w), b: exposure(c.b, gain: g, white: w))
             case "whiteBalance":
                 let g = whiteBalanceGains(look.wb, asShot: asShot, rules)
                 c = RGB(r: c.r * g.r, g: c.g * g.g, b: c.b * g.b)

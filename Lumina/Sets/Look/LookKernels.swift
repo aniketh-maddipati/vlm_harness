@@ -21,6 +21,12 @@ nonisolated final class LookKernels: @unchecked Sendable {
         float t = clamp((x - e0) / (e1 - e0), 0.0f, 1.0f);
         return t * t * (3.0f - 2.0f * t);
     }
+    static float lk_exposure(float x, float g, float w) {
+        if (x <= 0.0f) return x * g;
+        if (x >= w) return w + (x - w) / g;
+        float t = x / w;
+        return w * g * t / (1.0f + (g - 1.0f) * t);
+    }
     static float lk_cbrt(float x) { return x < 0.0f ? -pow(-x, 1.0f / 3.0f) : pow(x, 1.0f / 3.0f); }
     static float lk_curve(float p, float m, float a) {
         if (p <= 0.0f) return 0.0f;
@@ -35,7 +41,12 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(y, y, y, 1.0f);
     }
 
-    // exposure + whiteBalance + whitesBlacks. wb = per-channel gains (already × exposure gain);
+    // exposure: a scene gain seen through a sigmoid tone curve (LookMath.exposure). k = (gain G, white w)
+    [[ stitchable ]] float4 lookExposure(coreimage::sample_t s, float2 k) {
+        return float4(lk_exposure(s.r, k.x, k.y), lk_exposure(s.g, k.x, k.y), lk_exposure(s.b, k.x, k.y), s.a);
+    }
+
+    // whiteBalance + whitesBlacks. wb = per-channel gains;
     // wbk = (whitesAmt, blacksAmt, whitesPower, blacksPower); gam = (invGamma, gamma)
     [[ stitchable ]] float4 lookPre(coreimage::sample_t s, float4 wb, float4 wbk, float2 gam) {
         float3 c = s.rgb * wb.rgb;
@@ -147,7 +158,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     struct CompileError: Error, CustomStringConvertible { let description: String }
 
     /// The stage kernels, compiled when the pipeline is made.
-    static let stageNames = ["lookLuma", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette"]
+    static let stageNames = ["lookLuma", "lookExposure", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette"]
 
     private let header: String
     private let blocks: [String: String]             // function name → its source block

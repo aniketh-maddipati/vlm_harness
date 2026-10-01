@@ -133,6 +133,17 @@ def exposure_gain(ev, rules):
     return 2.0 ** (ev * k(rules, "exposure", "stopsPerUnit", 1.0))
 
 
+def exposure(x, ev, rules):
+    """LookMath.exposure per channel: a scene gain seen through a sigmoid tone curve,
+    y' = w·G·t / (1 + (G − 1)·t) with t = x / w; the tangent continues it below 0 and above w."""
+    g = exposure_gain(ev, rules)
+    w = max(0.05, k(rules, "exposure", "white", 1.0))
+    x = np.asarray(x, dtype=np.float64)
+    t = np.clip(x / w, 0.0, 1.0)
+    mid = w * g * t / (1 + (g - 1) * t)
+    return np.where(x <= 0, x * g, np.where(x >= w, w + (x - w) / g, mid))
+
+
 def white_balance_gains(target, as_shot, rules):
     """Per-channel gains (3,) taking as_shot=(kelvin, tint) to target. Identity for None."""
     if target is None:
@@ -279,7 +290,8 @@ def flat(rgb, look, as_shot, rules, vignette_r=0.0):
     order = [s for s in rules.get("order", ["rawDevelop"] + STAGES + ["outputTransform"]) if s in STAGES]
     for stage in order:
         if stage == "exposure":
-            c = c * exposure_gain(look["ev"], rules)
+            if look["ev"] != 0:
+                c = exposure(c, look["ev"], rules)
         elif stage == "whiteBalance":
             c = c * white_balance_gains(look["wb"], as_shot, rules)
         elif stage == "whitesBlacks":

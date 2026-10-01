@@ -34,7 +34,7 @@ final class LookPipelineTests: XCTestCase {
 
     func testKernelsCompile() throws {
         let k = try LookKernels.shared()
-        XCTAssertEqual(Set(k.byName.keys).intersection(LookKernels.stageNames).count, 8, "\(k.byName.keys.sorted())")
+        XCTAssertEqual(Set(k.byName.keys).intersection(LookKernels.stageNames).count, LookKernels.stageNames.count, "\(k.byName.keys.sorted())")
         XCTAssertEqual(try k.kernel("lookEcho44").name, "lookEcho44", "test kernels compile on demand")
         XCTAssertThrowsError(try k.kernel("lookNope"))
     }
@@ -249,6 +249,22 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertEqual(bases.stats.residentPhotos, 1)
         XCTAssertNotNil(bases.entry(key))
         XCTAssertThrowsError(try bases.build(LookBases.Key(rel: "s/missing.png", decoder: nil, look: Look(), canvas: canvas), url: dir.appendingPathComponent("missing.png"), look: Look(), preview: nil))
+    }
+
+    /// The lens-shading gain as an image: 1 at the centre, the camera's corner gain at the corners,
+    /// the same in every quadrant.
+    func testShadingGainImageIsRadialAndCoversTheFrame() throws {
+        let s = LookLensShading(knots: [0, 48, 416, 1024, 1808, 2656, 3552, 4496, 5456, 6432, 7424, 8400, 9376, 10336, 11264, 12160])
+        let extent = CGRect(x: 0, y: 0, width: 600, height: 400)
+        let g = try XCTUnwrap(LookPipeline.shadingGain(s, amount: 1, extent: extent))
+        XCTAssertEqual(g.extent, extent)
+        XCTAssertEqual(pipe.pixel(g, x: 300, y: 200).g, 1, accuracy: 0.01)
+        let corner = pipe.pixel(g, x: 1, y: 1).g
+        XCTAssertEqual(corner, s.gain(at: 1), accuracy: 0.03)
+        for (x, y) in [(598, 1), (1, 398), (598, 398)] { XCTAssertEqual(pipe.pixel(g, x: x, y: y).g, corner, accuracy: 0.01) }
+        XCTAssertGreaterThan(pipe.pixel(g, x: 500, y: 200).g, pipe.pixel(g, x: 400, y: 200).g)
+        XCTAssertEqual(pipe.pixel(try XCTUnwrap(LookPipeline.shadingGain(s, amount: 0, extent: extent)), x: 1, y: 1).g, 1, accuracy: 1e-4)
+        XCTAssertNil(LookPipeline.shadingGain(s, amount: 1, extent: .infinite))
     }
 
     /// The canvas holds the neighbours' builds while someone waits on it (a drag, the loupe, the

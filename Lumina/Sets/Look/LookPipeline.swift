@@ -132,9 +132,38 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         let draftBelow = rules.k("rawDevelop", "draftBelowPx", 0)
         if let px, draftBelow > 0, Double(px) <= draftBelow { raw.isDraftModeEnabled = true }
         raw.boostAmount = Float(rules.k("rawDevelop", "boostAmount", 1))
+        // The lens's corner shading, undone with the camera's own numbers, in the decoder's linear
+        // space (before its tone curve), as Lightroom's lens profile does. 0 leaves the shading in.
+        let shading = rules.k("rawDevelop", "lensShading", 0)
+        if shading > 0, let s = LookLensShading.read(url: url), s.corrects {
+            raw.linearSpaceFilter = LookShadingFilter(shading: s, amount: shading)
+        }
         guard let out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite else { throw Failure("couldn't decode \(url.lastPathComponent)") }
         let asShot = Look.WhiteBalance(kelvin: Double(raw.neutralTemperature), tint: Double(raw.neutralTint))
         return Developed(image: Self.atOrigin(out), asShot: asShot)
+    }
+
+    /// The radial gain of `LookLensShading` as an image over `extent` (the centre of the frame is
+    /// the centre of the lens): a small float map, scaled up smoothly.
+    static func shadingGain(_ s: LookLensShading, amount: Double, extent: CGRect) -> CIImage? {
+        guard extent.width > 1, extent.height > 1, !extent.isInfinite else { return nil }
+        let w = 96, h = max(2, Int((96 * extent.height / extent.width).rounded()))
+        var px = [Float](repeating: 1, count: w * h * 4)
+        let cx = Double(w) / 2, cy = Double(h) / 2, half = (cx * cx + cy * cy).squareRoot()
+        for y in 0..<h {
+            for x in 0..<w {
+                let dx = Double(x) + 0.5 - cx, dy = Double(y) + 0.5 - cy
+                let g = Float(s.gain(at: (dx * dx + dy * dy).squareRoot() / half, amount: amount))
+                let i = 4 * (y * w + x)
+                px[i] = g; px[i + 1] = g; px[i + 2] = g
+            }
+        }
+        let data = px.withUnsafeBufferPointer { Data(buffer: $0) }
+        let map = CIImage(bitmapData: data, bytesPerRow: w * 16, size: CGSize(width: w, height: h), format: .RGBAf, colorSpace: nil)
+        return map.clampedToExtent()
+            .transformed(by: CGAffineTransform(scaleX: extent.width / CGFloat(w), y: extent.height / CGFloat(h)))
+            .transformed(by: CGAffineTransform(translationX: extent.minX, y: extent.minY))
+            .cropped(to: extent)
     }
 
     /// A photo's embedded JPEG (its byte range in the RAW, as the page's `parseHead` found it),
@@ -211,8 +240,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             switch stage {
             case "exposure":
                 guard look.ev != 0 else { continue }
-                let g = LookMath.exposureGain(look.ev, r)
-                pass("lookPre", [img, CIVector(x: g, y: g, z: g, w: 1), zero, gam])
+                pass("lookExposure", [img, CIVector(x: LookMath.exposureGain(look.ev, r), y: LookMath.exposureWhite(r))])
             case "whiteBalance":
                 guard look.wb != nil else { continue }
                 let g = LookMath.whiteBalanceGains(look.wb, asShot: dev.asShot, r)
@@ -346,5 +374,26 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         let bytes = data.withUnsafeBufferPointer { Data(buffer: $0) }
         let img = CIImage(bitmapData: bytes, bytesPerRow: w * 16, size: CGSize(width: w, height: height), format: .RGBAf, colorSpace: workingSpace)
         return Developed(image: img, asShot: Look.WhiteBalance(kelvin: 5500, tint: 0))
+    }
+}
+
+/// `CIRAWFilter.linearSpaceFilter` for the lens shading: the frame times the radial gain.
+nonisolated final class LookShadingFilter: CIFilter {
+    @objc dynamic var inputImage: CIImage?
+    private let shading: LookLensShading
+    private let amount: Double
+
+    init(shading: LookLensShading, amount: Double) {
+        self.shading = shading
+        self.amount = amount
+        super.init()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override var outputImage: CIImage? {
+        guard let img = inputImage else { return nil }
+        guard let gain = LookPipeline.shadingGain(shading, amount: amount, extent: img.extent) else { return img }
+        return gain.applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: img.extent)
     }
 }

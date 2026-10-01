@@ -42,7 +42,7 @@ ifneq ($(DECODER),)
 PARITY_ARGS += --decoder $(DECODER)
 endif
 
-.PHONY: render parity parity-combos parity-check parity-test parity-loop
+.PHONY: render parity parity-combos parity-check parity-personal parity-test parity-loop
 
 render:
 	swift build -c release --package-path $(PARITY)/lumina-render

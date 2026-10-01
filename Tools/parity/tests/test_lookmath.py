@@ -51,7 +51,15 @@ class LookMathMirrorTests(unittest.TestCase):
     def test_signs(self):
         r = self.rules
         g = lambda look, v: float(lm.luma(lm.flat(np.array([v, v, v]), look, AS_SHOT, r), r))
-        self.assertAlmostEqual(g(lm.single("Exposure", 1), 0.18), 0.36)
+        # Exposure: a scene gain through a sigmoid tone curve. Shadows take the full gain,
+        # highlights roll off, +1 then -1 is nothing.
+        G = lm.exposure_gain(1, r)
+        self.assertAlmostEqual(g(lm.single("Exposure", 1), 1e-5) / 1e-5, G, places=2)
+        self.assertGreater(g(lm.single("Exposure", 1), 0.18) / 0.18, g(lm.single("Exposure", 1), 0.8) / 0.8)
+        for x in (-0.02, 0.0, 0.18, 0.6, 1.4):
+            self.assertAlmostEqual(float(lm.exposure(lm.exposure(x, 1, r), -1, r)), x)
+        ys = lm.exposure(np.linspace(-0.2, 4, 400), -2, r)
+        self.assertTrue(np.all(np.diff(ys) > 0))
         self.assertLess(g(lm.single("Contrast", 60), 0.02), 0.02)
         self.assertGreater(g(lm.single("Contrast", 60), 0.7), 0.7)
         self.assertGreater(g(lm.single("Shadows", 80), 0.02) / 0.02, g(lm.single("Shadows", 80), 0.7) / 0.7)

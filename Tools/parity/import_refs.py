@@ -23,7 +23,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-NAME = re.compile(r"^(?P<stem>.+?)__(?:(?P<base>base)|(?P<slider>[A-Za-z][A-Za-z0-9]*)__(?P<value>-?\d+(?:\.\d+)?)|combo(?P<combo>\d+))\.(?:tif|tiff)$|^(?P<estem>.+?)__edit(?P<edit>\d+)\.(?:tif|tiff|jpg|jpeg)$", re.I)
+NAME = re.compile(r"^(?P<stem>.+?)__(?:(?P<base>base)|(?P<slider>[A-Za-z][A-Za-z0-9]*)__(?P<value>-?\d+(?:\.\d+)?)|combo(?P<combo>\d+))\.(?:tif|tiff|jpg|jpeg)$|^(?P<estem>.+?)__edit(?P<edit>\d+)\.(?:tif|tiff|jpg|jpeg)$", re.I)
 SLIDER_ALIASES = {"exposure2012": "Exposure", "contrast2012": "Contrast", "highlights2012": "Highlights", "shadows2012": "Shadows",
                   "whites2012": "Whites", "blacks2012": "Blacks", "clarity2012": "Clarity", "sharpening": "Sharpness"}
 

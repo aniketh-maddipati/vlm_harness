@@ -44,3 +44,17 @@ class ImportRefsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class JpegSweepTests(unittest.TestCase):
+    def test_the_lightroom_cc_sweep_is_jpeg_under_the_same_names(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as d:
+            for n in ["DSC05860__base.jpg", "DSC05860__Exposure__-0.5.jpg", "DSC05860__Blacks__25.jpg", "DSC05860__baseLens.jpg"]:
+                Image.new("RGB", (6, 4), (128, 128, 128)).save(os.path.join(d, n))
+            data = import_refs.index(d)
+            self.assertEqual(data["counts"], {"images": 1, "base": 1, "singles": 2, "combos": 0})
+            self.assertEqual(data["ignored"], ["DSC05860__baseLens.jpg"], "the lens-profile base is not a slider position")
+            single = next(r for r in data["refs"] if r.get("slider") == "Exposure")
+            self.assertEqual(single["value"], -0.5)
+            self.assertEqual(single["space"], "srgb")

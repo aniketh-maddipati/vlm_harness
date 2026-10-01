@@ -31,7 +31,7 @@ from parity import expand, lr_to_look  # noqa: E402
 
 # Coefficients the fit may move, per stage (the rest are structural or booleans).
 FREE = {
-    "exposure": ["stopsPerUnit"],
+    "exposure": ["stopsPerUnit", "white"],
     "whiteBalance": ["redPerMired", "bluePerMired", "greenPerTint"],
     "whitesBlacks": ["blacksPerUnit", "blacksPower", "whitesPerUnit", "whitesPower"],
     "tone": ["shadowsStopsPerUnit", "shadowsHi", "highlightsStopsPerUnit", "highlightsLo", "detailGain", "radiusFraction"],

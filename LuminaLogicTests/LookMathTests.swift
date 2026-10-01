@@ -94,9 +94,34 @@ final class LookMathTests: XCTestCase {
         }
     }
 
-    func testExposureIsStops() {
-        XCTAssertEqual(luma(run(Look.single("Exposure", 1, asShot: asShot)!, 0.18)), 0.36, accuracy: 1e-9)
-        XCTAssertEqual(luma(run(Look.single("Exposure", -2, asShot: asShot)!, 0.4)), 0.1, accuracy: 1e-9)
+    /// Exposure is a scene gain seen through a sigmoid tone curve (the form Lightroom's sweep
+    /// shows): deep shadows move by the full gain, highlights roll off toward `white`, the stage
+    /// composes (+1 then −1 is nothing) and stays monotonic above `white` and below 0.
+    func testExposureIsASceneGainThroughTheToneCurve() {
+        let w = LookMath.exposureWhite(rules)
+        let up = LookMath.exposureGain(1, rules), down = LookMath.exposureGain(-1, rules)
+        XCTAssertEqual(up, exp2(rules.k("exposure", "stopsPerUnit", 1)), accuracy: 1e-12)
+        XCTAssertEqual(up * down, 1, accuracy: 1e-12)
+        // Deep shadows: the full gain. Highlights: less, never past white from below it.
+        XCTAssertEqual(LookMath.exposure(1e-5, gain: up, white: w) / 1e-5, up, accuracy: 1e-3)
+        let mid = LookMath.exposure(0.18, gain: up, white: w), high = LookMath.exposure(0.8, gain: up, white: w)
+        XCTAssertGreaterThan(mid / 0.18, high / 0.8, "highlights move less than midtones")
+        XCTAssertLessThan(high, w)
+        XCTAssertEqual(LookMath.exposure(w, gain: up, white: w), w, accuracy: 1e-12)
+        // It composes, so +1 then −1 gives the pixel back, in range and in the headroom.
+        for x in [-0.02, 0.0, 0.01, 0.18, 0.6, 0.99, w, 1.4, 3.0] {
+            XCTAssertEqual(LookMath.exposure(LookMath.exposure(x, gain: up, white: w), gain: down, white: w), x, accuracy: 1e-9, "\(x)")
+            XCTAssertEqual(LookMath.exposure(x, gain: 1, white: w), x, accuracy: 1e-12, "identity at 0 EV")
+        }
+        // Monotonic through 0 and white for brightening and darkening.
+        for g in [down * down, down, up, up * up] {
+            var last = -Double.infinity
+            for i in -20...400 { let y = LookMath.exposure(Double(i) / 100, gain: g, white: w); XCTAssertGreaterThan(y, last, "gain \(g) at \(i)"); last = y }
+        }
+        // Through the chain: brighter, grey stays grey.
+        let c = run(Look.single("Exposure", 1, asShot: asShot)!, 0.18)
+        XCTAssertGreaterThan(luma(c), 0.18); XCTAssertTrue(c.isNeutral)
+        XCTAssertLessThan(luma(run(Look.single("Exposure", -2, asShot: asShot)!, 0.4)), 0.4)
     }
 
     func testWhiteBalanceSigns() {
