@@ -184,6 +184,14 @@ set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5
   export, the two-sided power curve reproduces its Contrast ±25 / ±50 at 0.86 / 2.81, the same as
   a scene-referred or a two-lobe form (leave-one-photo-out 0.91 / 3.88 for all three), per channel
   (`lumaMix` 0). What is left of Contrast's error in a render comes from the base it is applied to.
+- **Vibrance waits for photos of people.** On Lightroom's own base (5 sweep photos) Vibrance +50
+  adds 5–11 % chroma to skin-orange hues, 25–45 % to yellows and greens, ~40 % to blues; Lumina's
+  fitted protection is too wide (yellows get 18 %) and −50 is too strong. A refit (narrow
+  protection, a separate negative strength) took the sweep's Vibrance +50 frames from 2.08 / 4.84
+  to 1.79 / 4.02, but the held-out set got worse (2.31 / 7.81 → 2.33 / 7.83, skin redder): its
+  untouched base is already furthest from Lightroom on skin (2.66 against 1.73 overall), and the
+  sweep has almost no skin (2 % of pixels). Not adopted; base and vibrance need a development
+  set with people before either is refitted.
 - **Exposure is a scene gain seen through a sigmoid tone curve** (`LookMath.exposure`: per channel
   G·y / (1 + (G − 1)·y/white), G = 2^(ev · stopsPerUnit)), the form Lightroom's sweep shows:
   shadows and midtones move ~1.6 stops per unit, highlights roll off and lose saturation.
