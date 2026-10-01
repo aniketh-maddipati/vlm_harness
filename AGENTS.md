@@ -171,6 +171,17 @@ set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5
   base, tile region and export so the tiers stay identical). On 156 photos Lightroom moves the
   same pixel value by +3 to +58 L* at Shadows +100 depending on the photo; those three numbers
   explain most of it. A synthetic image or flat patch gets `ToneAnchor.reference`.
+  Measured on all six positions (±50 included, 156 photos): Lightroom is linear in the slider
+  (fitted powers 0.97 / 1.09), and one brightness curve per photo explains its Shadows almost
+  entirely (0.14 stops rms left, 0.47 with this model); a blurred base adds nothing, so
+  `radiusFraction` stays near 0. What is missing is predicting that curve from the photo. Reading
+  the Shadows mask against the photo's bright end (95th percentile of luma) took the unseen half
+  from 1.59 / 5.43 to 1.45 / 5.04 but made the held-out set worse (2.32 / 7.82 → 2.35 / 7.91), so
+  it was not adopted: one album of landscapes does not decide it.
+- **Contrast's form is right; only its numbers were fitted.** Applied to Lightroom's own base
+  export, the two-sided power curve reproduces its Contrast ±25 / ±50 at 0.86 / 2.81, the same as
+  a scene-referred or a two-lobe form (leave-one-photo-out 0.91 / 3.88 for all three), per channel
+  (`lumaMix` 0). What is left of Contrast's error in a render comes from the base it is applied to.
 - **Exposure is a scene gain seen through a sigmoid tone curve** (`LookMath.exposure`: per channel
   G·y / (1 + (G − 1)·y/white), G = 2^(ev · stopsPerUnit)), the form Lightroom's sweep shows:
   shadows and midtones move ~1.6 stops per unit, highlights roll off and lose saturation.
