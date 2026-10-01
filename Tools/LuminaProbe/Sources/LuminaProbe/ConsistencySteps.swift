@@ -52,10 +52,20 @@ enum ConsistencySteps {
         var sizes: Set<Int> = []
         let distinct = all.filter { sizes.insert((try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0).inserted }
         let count = min(distinct.count, s["count"] as? Int ?? 12)
-        let raws = (0..<count).map { distinct[min(distinct.count - 1, $0 * distinct.count / count + distinct.count / (2 * count))] }
-        let size = (s["canvas"] as? [Double]).flatMap { $0.count == 2 ? CGSize(width: $0[0], height: $0[1]) : nil } ?? CGSize(width: 1760, height: 1280)
+        var raws: [URL] = []
+        for i in 0..<count {
+            let at: Int = i * distinct.count / count + distinct.count / (2 * count)
+            raws.append(distinct[min(distinct.count - 1, at)])
+        }
+        let names: [String] = raws.map { $0.lastPathComponent }
+        var size = CGSize(width: 1760, height: 1280)
+        if let c = s["canvas"] as? [Double], c.count == 2 { size = CGSize(width: c[0], height: c[1]) }
         let step = max(1, s["sampleStep"] as? Int ?? 2)
-        let looks: [(name: String, look: String)] = (s["looks"] as? [[String: String]])?.compactMap { d in d["look"].map { (d["name"] ?? $0, $0) } } ?? defaultLooks
+        var looks: [(name: String, look: String)] = defaultLooks
+        if let given = s["looks"] as? [[String: String]] {
+            looks = []
+            for d in given { if let l = d["look"] { looks.append((name: d["name"] ?? l, look: l)) } }
+        }
         let pipe = canvas.pipeline
         let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
         var o = EditSteps.Outcome(note: "")
@@ -142,16 +152,26 @@ enum ConsistencySteps {
         for (lookName, text) in looks {
             var entry: [String: Any] = ["look": lookName, "string": text]
             for pair in ["full", "sameSize", "drag", "decoder"] {
-                let a = agg(rows.filter { $0.look == lookName && $0.pair == pair })
+                let a: [String: Double] = agg(rows.filter { $0.look == lookName && $0.pair == pair })
                 if !a.isEmpty { entry[pair] = a }
             }
             summary.append(entry)
         }
-        let overall = Dictionary(uniqueKeysWithValues: ["full", "sameSize", "drag", "decoder"].map { pair in (pair, agg(rows.filter { $0.pair == pair })) })
-        let report: [String: Any] = ["folder": folder.path, "photos": raws.map(\.lastPathComponent), "canvas": [Int(size.width), Int(size.height)], "sampleStep": step,
-                                     "decoders": decoders, "os": ProcessInfo.processInfo.operatingSystemVersionString,
-                                     "summary": summary, "overall": overall,
-                                     "rows": (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(rows))) ?? []]
+        let pairs: [String] = ["full", "sameSize", "drag", "decoder"]
+        var overall: [String: [String: Double]] = [:]
+        for pair in pairs { overall[pair] = agg(rows.filter { $0.pair == pair }) }
+        let canvasPx: [Int] = [Int(size.width), Int(size.height)]
+        let rowsJSON: Any = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(rows))) ?? [Any]()
+        var report: [String: Any] = [:]
+        report["folder"] = folder.path
+        report["photos"] = names
+        report["canvas"] = canvasPx
+        report["sampleStep"] = step
+        report["decoders"] = decoders
+        report["os"] = ProcessInfo.processInfo.operatingSystemVersionString
+        report["summary"] = summary
+        report["overall"] = overall
+        report["rows"] = rowsJSON
         try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(to: outDir.appendingPathComponent("consistency.json"))
 
         // Gates, when the scenario sets them: the worst photo of any look, canvas vs full-size export.
@@ -162,18 +182,24 @@ enum ConsistencySteps {
         if EditSteps.gate, let cap = s["maxP95DE"] as? Double {
             for r in full where r.p95 > cap { o.failures.append(String(format: "editConsistency: %@ · %@: ΔE p95 %.2f > %.2f", r.photo, r.look, r.p95, cap)) }
         }
-        var lines = [String(format: "%d photos × %d looks at %d×%d · decoders %@", raws.count, looks.count, Int(size.width), Int(size.height),
-                            Set(decoders.values.map { "canvas raw \($0["canvas"] ?? 0), export raw \($0["export"] ?? 0)" }).sorted().joined(separator: "; "))]
-        for pair in ["full", "sameSize", "drag", "decoder"] {
-            if let a = overall[pair], !a.isEmpty {
-                lines.append(String(format: "%@: ΔE median %.2f (worst photo·look %.2f) · p95 %.2f (worst %.2f)", pair, a["median"]!, a["worstMedian"]!, a["p95"]!, a["worstP95"]!))
-            }
+        var used: Set<String> = []
+        for d in decoders.values { used.insert("canvas raw \(d["canvas"] ?? 0), export raw \(d["export"] ?? 0)") }
+        let usedText: String = used.sorted().joined(separator: "; ")
+        var lines: [String] = ["\(raws.count) photos × \(looks.count) looks at \(canvasPx[0])×\(canvasPx[1]) · decoders \(usedText)"]
+        for pair in pairs {
+            guard let a = overall[pair], !a.isEmpty else { continue }
+            let med: Double = a["median"] ?? 0, wm: Double = a["worstMedian"] ?? 0, p: Double = a["p95"] ?? 0, wp: Double = a["worstP95"] ?? 0
+            lines.append(String(format: "%@: ΔE median %.2f (worst photo·look %.2f) · p95 %.2f (worst %.2f)", pair, med, wm, p, wp))
         }
-        let worst = summary.compactMap { e -> (String, Double, Double)? in
-            guard let f = e["full"] as? [String: Double] else { return nil }
-            return (e["look"] as? String ?? "", f["median"] ?? 0, f["p95"] ?? 0)
-        }.sorted { $0.2 > $1.2 }.prefix(6)
-        lines.append("largest canvas-vs-export differences (median over photos): " + worst.map { String(format: "%@ %.2f / p95 %.2f", $0.0, $0.1, $0.2) }.joined(separator: " · "))
+        var worst: [(look: String, median: Double, p95: Double)] = []
+        for e in summary {
+            guard let f = e["full"] as? [String: Double] else { continue }
+            worst.append((look: e["look"] as? String ?? "", median: f["median"] ?? 0, p95: f["p95"] ?? 0))
+        }
+        worst.sort { $0.p95 > $1.p95 }
+        var worstText: [String] = []
+        for w in worst.prefix(6) { worstText.append(String(format: "%@ %.2f / p95 %.2f", w.look, w.median, w.p95)) }
+        lines.append("largest canvas-vs-export differences (median over photos): " + worstText.joined(separator: " · "))
         o.note = "\n  " + lines.joined(separator: "\n  ")
         return o
     }
