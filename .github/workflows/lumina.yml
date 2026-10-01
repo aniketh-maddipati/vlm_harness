@@ -57,7 +57,9 @@ jobs:
       # most runs don't download them at all. Both apt installs of the job use the same settings.
       - name: "apt: retries, timeouts, a package cache"
         run: |
-          sudo mkdir -p /var/cache/lumina-apt/partial && sudo chmod -R 777 /var/cache/lumina-apt
+          # Owned by the runner: actions/cache restores as that user and tar must be able to set the
+          # directory's times and mode (a root-owned directory made the restore fail with exit code 2).
+          sudo mkdir -p /var/cache/lumina-apt/partial && sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt && chmod -R 777 /var/cache/lumina-apt
           printf '%s\n' 'Acquire::Retries "3";' 'Acquire::http::Timeout "20";' 'Acquire::https::Timeout "20";' \
             'APT::Keep-Downloaded-Packages "true";' 'Dir::Cache::Archives "/var/cache/lumina-apt";' | sudo tee /etc/apt/apt.conf.d/80-lumina-ci
       - uses: actions/cache@v4
@@ -69,7 +71,7 @@ jobs:
         run: npm i -g playwright@1.56.1 && npx playwright install --with-deps chromium
       - name: "apt: leave the cache readable"
         if: always()
-        run: sudo rm -f /var/cache/lumina-apt/lock; sudo chmod -R a+rwX /var/cache/lumina-apt
+        run: sudo rm -f /var/cache/lumina-apt/lock; sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt; chmod -R a+rwX /var/cache/lumina-apt
       - name: plumbing harness
         run: NODE_PATH="$(npm root -g)" node Tests/web/plumbing-harness.mjs
 
@@ -87,7 +89,9 @@ jobs:
       # most runs don't download them at all. Both apt installs of the job use the same settings.
       - name: "apt: retries, timeouts, a package cache"
         run: |
-          sudo mkdir -p /var/cache/lumina-apt/partial && sudo chmod -R 777 /var/cache/lumina-apt
+          # Owned by the runner: actions/cache restores as that user and tar must be able to set the
+          # directory's times and mode (a root-owned directory made the restore fail with exit code 2).
+          sudo mkdir -p /var/cache/lumina-apt/partial && sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt && chmod -R 777 /var/cache/lumina-apt
           printf '%s\n' 'Acquire::Retries "3";' 'Acquire::http::Timeout "20";' 'Acquire::https::Timeout "20";' \
             'APT::Keep-Downloaded-Packages "true";' 'Dir::Cache::Archives "/var/cache/lumina-apt";' | sudo tee /etc/apt/apt.conf.d/80-lumina-ci
       - uses: actions/cache@v4
@@ -106,7 +110,7 @@ jobs:
           npm i -g playwright@1.56.1 && npx playwright install --with-deps chromium
       - name: "apt: leave the cache readable"
         if: always()
-        run: sudo rm -f /var/cache/lumina-apt/lock; sudo chmod -R a+rwX /var/cache/lumina-apt
+        run: sudo rm -f /var/cache/lumina-apt/lock; sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt; chmod -R a+rwX /var/cache/lumina-apt
       - name: contract, selftest, app flow, screens (prototype vs app)
         run: NODE_PATH="$(npm root -g)" xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3 Tests/web/webkit.py
 
