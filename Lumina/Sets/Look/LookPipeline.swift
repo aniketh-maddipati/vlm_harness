@@ -152,7 +152,8 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         let args: [Any] = [img, CIVector(x: w[0][0], y: w[0][1], z: w[0][2], w: 0), CIVector(x: w[1][0], y: w[1][1], z: w[1][2], w: 0),
                            CIVector(x: w[2][0], y: w[2][1], z: w[2][2], w: 0),
                            CIVector(x: m.lift, y: m.s, z: 1 / rules.perceptualGamma, w: rules.perceptualGamma),
-                           CIVector(x: lum[0], y: lum[1], z: lum[2], w: 0)]
+                           CIVector(x: lum[0], y: lum[1], z: lum[2], w: 0),
+                           CIVector(x: m.hiDesat, y: m.hiFrom, z: m.loDesat, w: m.loBelow)]
         guard let out = try LookKernels.shared().apply("lookBase", extent: img.extent, args) else { throw Failure("base match failed") }
         return out
     }

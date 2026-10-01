@@ -44,18 +44,30 @@ nonisolated enum LookMath {
     /// exports: a midtone curve on luma in perceptual space (hue kept), then a colour mix whose
     /// rows sum to 1, so a grey stays the same grey. Coefficients in `rawDevelop`: `baseLift`,
     /// `baseS` (the curve) and `baseRG`, `baseRB`, `baseGR`, `baseGB`, `baseBR`, `baseBG` (the
-    /// off-diagonal mix; the diagonal is what makes each row 1). All 0 is the identity.
+    /// off-diagonal mix; the diagonal is what makes each row 1). Last, colour fades toward the
+    /// pixel's own luma near white (`baseHiDesat` above perceptual `baseHiFrom`) and in the deepest
+    /// shadows (`baseLoDesat` below `baseLoBelow`), as Lightroom's rendering does; the luma itself
+    /// does not move. All 0 is the identity.
     struct BaseMatch: Equatable, Sendable {
         var lift = 0.0, s = 0.0
         var rg = 0.0, rb = 0.0, gr = 0.0, gb = 0.0, br = 0.0, bg = 0.0
-        var isIdentity: Bool { self == BaseMatch() }
-
+        var hiDesat = 0.0, hiFrom = 0.9, loDesat = 0.0, loBelow = 0.2
         init() {}
         init(_ rules: LookRules) {
             let k = { (n: String) in rules.k("rawDevelop", n, 0) }
             lift = k("baseLift"); s = k("baseS")
             rg = k("baseRG"); rb = k("baseRB"); gr = k("baseGR"); gb = k("baseGB"); br = k("baseBR"); bg = k("baseBG")
+            hiDesat = k("baseHiDesat"); hiFrom = rules.k("rawDevelop", "baseHiFrom", 0.9)
+            loDesat = k("baseLoDesat"); loBelow = rules.k("rawDevelop", "baseLoBelow", 0.2)
         }
+
+        /// How much of a pixel's colour is kept at perceptual luma `p` (1 = all of it).
+        func chromaKept(_ p: Double) -> Double {
+            let pc = min(1, max(0, p))
+            let hi = min(1, max(0, (pc - hiFrom) / max(1e-3, 1 - hiFrom))), lo = min(1, max(0, (loBelow - pc) / max(1e-3, loBelow)))
+            return min(1, max(0, 1 - hiDesat * hi * hi - loDesat * lo * lo))
+        }
+        var isIdentity: Bool { lift == 0 && s == 0 && rg == 0 && rb == 0 && gr == 0 && gb == 0 && br == 0 && bg == 0 && hiDesat == 0 && loDesat == 0 }
 
         /// Rows of the mix: out.r = rows[0] · (r, g, b), …
         var rows: [[Double]] { [[1 - rg - rb, rg, rb], [gr, 1 - gr - gb, gb], [br, bg, 1 - br - bg]] }
@@ -72,9 +84,12 @@ nonisolated enum LookMath {
         let y = luma(c, rules)
         let g = y > 1e-6 ? baseCurve(y, m, rules) / y : 1
         let t = RGB(r: c.r * g, g: c.g * g, b: c.b * g), w = m.rows
-        return RGB(r: w[0][0] * t.r + w[0][1] * t.g + w[0][2] * t.b,
-                   g: w[1][0] * t.r + w[1][1] * t.g + w[1][2] * t.b,
-                   b: w[2][0] * t.r + w[2][1] * t.g + w[2][2] * t.b)
+        let mixed = RGB(r: w[0][0] * t.r + w[0][1] * t.g + w[0][2] * t.b,
+                        g: w[1][0] * t.r + w[1][1] * t.g + w[1][2] * t.b,
+                        b: w[2][0] * t.r + w[2][1] * t.g + w[2][2] * t.b)
+        guard m.hiDesat != 0 || m.loDesat != 0 else { return mixed }
+        let ym = luma(mixed, rules), keep = m.chromaKept(perceptual(ym, rules))
+        return RGB(r: ym + (mixed.r - ym) * keep, g: ym + (mixed.g - ym) * keep, b: ym + (mixed.b - ym) * keep)
     }
 
     // MARK: exposure

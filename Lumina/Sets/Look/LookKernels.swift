@@ -42,8 +42,8 @@ nonisolated final class LookKernels: @unchecked Sendable {
     }
 
     // rawDevelop's base match (LookMath.baseMatch): a midtone curve on luma, then a colour mix.
-    // r0, r1, r2 = the mix's rows; k = (lift, s, invGamma, gamma)
-    [[ stitchable ]] float4 lookBase(coreimage::sample_t s, float4 r0, float4 r1, float4 r2, float4 k, float4 lum) {
+    // r0, r1, r2 = the mix's rows; k = (lift, s, invGamma, gamma); d = (hiDesat, hiFrom, loDesat, loBelow)
+    [[ stitchable ]] float4 lookBase(coreimage::sample_t s, float4 r0, float4 r1, float4 r2, float4 k, float4 lum, float4 d) {
         float y = dot(s.rgb, lum.rgb);
         float g = 1.0f;
         if (y > 1e-6f) {
@@ -52,7 +52,16 @@ nonisolated final class LookKernels: @unchecked Sendable {
             g = lk_lin(p + k.x * p * (1.0f - pc) + k.y * p * (1.0f - pc) * (pc - 0.5f), k.w) / y;
         }
         float3 t = s.rgb * g;
-        return float4(dot(t, r0.rgb), dot(t, r1.rgb), dot(t, r2.rgb), s.a);
+        float3 m = float3(dot(t, r0.rgb), dot(t, r1.rgb), dot(t, r2.rgb));
+        if (d.x != 0.0f || d.z != 0.0f) {
+            float ym = dot(m, lum.rgb);
+            float pc = clamp(lk_perc(ym, k.z), 0.0f, 1.0f);
+            float hi = clamp((pc - d.y) / max(1e-3f, 1.0f - d.y), 0.0f, 1.0f);
+            float lo = clamp((d.w - pc) / max(1e-3f, d.w), 0.0f, 1.0f);
+            float keep = clamp(1.0f - d.x * hi * hi - d.z * lo * lo, 0.0f, 1.0f);
+            m = float3(ym) + (m - float3(ym)) * keep;
+        }
+        return float4(m, s.a);
     }
 
     // exposure: a scene gain seen through a sigmoid tone curve (LookMath.exposure). k = (gain G, white w)

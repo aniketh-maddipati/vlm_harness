@@ -118,6 +118,22 @@ final class LookMathTests: XCTestCase {
             guard !m.isIdentity else { continue }
             XCTAssertNotEqual(LookMath.baseMatch(c, m, rules), c)
         }
+        // The fade toward luma near white and in the deepest shadows: the colour shrinks, the luma
+        // does not move, the midtones keep all of their colour.
+        var fade = LookMath.BaseMatch(); fade.hiDesat = 0.6; fade.hiFrom = 0.9; fade.loDesat = 0.5; fade.loBelow = 0.2
+        XCTAssertFalse(fade.isIdentity)
+        XCTAssertEqual(fade.chromaKept(0.5), 1, accuracy: 1e-12)
+        XCTAssertEqual(fade.chromaKept(1.0), 0.4, accuracy: 1e-12); XCTAssertEqual(fade.chromaKept(0.0), 0.5, accuracy: 1e-12)
+        XCTAssertEqual(fade.chromaKept(0.95), 1 - 0.6 * 0.25, accuracy: 1e-12)
+        for colour in [LookMath.RGB(r: 0.95, g: 0.85, b: 0.8), LookMath.RGB(r: 0.004, g: 0.002, b: 0.006), LookMath.RGB(r: 0.3, g: 0.2, b: 0.1)] {
+            let out = LookMath.baseMatch(colour, fade, rules)
+            XCTAssertEqual(luma(out), luma(colour), accuracy: 1e-12, "luma kept")
+            let spreadIn = max(colour.r, colour.g, colour.b) - min(colour.r, colour.g, colour.b), spreadOut = max(out.r, out.g, out.b) - min(out.r, out.g, out.b)
+            XCTAssertLessThanOrEqual(spreadOut, spreadIn + 1e-12)
+        }
+        let mid = LookMath.baseMatch(LookMath.RGB(r: 0.3, g: 0.2, b: 0.1), fade, rules)
+        XCTAssertEqual(mid.r, 0.3, accuracy: 1e-12, "midtones untouched"); XCTAssertEqual(mid.g, 0.2, accuracy: 1e-12); XCTAssertEqual(mid.b, 0.1, accuracy: 1e-12)
+        XCTAssertTrue(LookMath.baseMatch(.gray(0.97), fade, rules).isNeutral)
     }
 
     /// Exposure is a scene gain seen through a sigmoid tone curve (the form Lightroom's sweep
