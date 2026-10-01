@@ -321,12 +321,13 @@ final class Runner {
             return try await nativeSidecar(s)
         case "fillDisk":
             return try fillDisk(URL(fileURLWithPath: try str(s, "path")))
-        case "editDrag", "editParity", "raw9":
+        case "editDrag", "editParity", "raw9", "editConsistency":
             // The Edit canvas and RAW 9 measures (EditSteps.swift). Gates apply unless LUMINA_EDIT_GATE=0.
             let o: EditSteps.Outcome
             switch op {
             case "editDrag": o = try await EditSteps.drag(host: host, s)
             case "editParity": o = try await EditSteps.parity(host: host, s, outDir: outDir)
+            case "editConsistency": o = try await ConsistencySteps.run(host: host, s, folder: URL(fileURLWithPath: try str(s, "folder")), outDir: outDir)
             default: o = try await EditSteps.raw9(host: host, s, folder: URL(fileURLWithPath: try str(s, "folder")), outDir: outDir)
             }
             failures.append(contentsOf: o.failures)

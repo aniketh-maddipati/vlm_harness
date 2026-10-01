@@ -40,6 +40,8 @@
 #                                                warm-up (the "before" measure; the gate fails)
 #   bash Scripts/probe.sh raw9                   RAW 9 (§8): decoder map, time to first tile / full region, export time + memory
 #                                                per decoder version, the forced per-file fallback, tiles vs export ΔE per version
+#   bash Scripts/probe.sh consistency            canvas vs export: ΔE between what the Edit canvas shows and what Export writes (full size,
+#                                                pinned decoder), per stage of the look, on 12 distinct real ARWs of LUMINA_EDIT_DIR
 #   bash Scripts/probe.sh all [--require-all]    everything v5; --require-all turns a SKIP into a failure
 #
 # Build fixtures once: LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Tests/probe/forge_fixtures.sh
@@ -199,6 +201,7 @@ case "$suite" in
              LUMINA_CANVAS=image run_out "$OUT/image-path" "$S/edit-canvas.json" ;;
   edit-cold) editdir; LUMINA_KERNEL_SALT="${LUMINA_KERNEL_SALT:-p$(date +%s)}" run "$S/edit-cold.json" ;;
   raw9)      editdir; run "$S/raw9.json" ;;
+  consistency) editdir; run "$S/edit-consistency.json" ;;
   all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" "$S"/edge-*.json $(paths "${APP[@]}") $(paths "${FAULT[@]}")
              LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
   *)         sed -n '2,43p' "$0"; exit 2 ;;
