@@ -10,9 +10,15 @@ lumina-render — render an ARW through the app's LookPipeline (Tools/parity)
       times (and JSON with --json). <image> may be any RAW Core Image reads, or a JPEG/TIFF/PNG.
       --decoder picks a RAW decoder version (RAW 9: `make parity DECODER=9`, once per version present).
 
-  lumina-render batch <jobs.json> [--rules rules-v1.json] [--decoder 8]
+  lumina-render batch <jobs.json> [--rules rules-v1.json] [--decoder 8] [--cache dir | --no-cache]
       Many renders, one process: [{"image", "look", "px", "out", "space", "decoder"?}]. Each
       (image, px, decoder) is developed once. Prints one JSON line per job with timings; exit 1 if any job failed.
+      --cache (or $LUMINA_RENDER_CACHE) keeps each develop on disk across runs, keyed by file, size,
+      decoder, nr, the rawDevelop coefficients and the macOS version; each line's "develop" says
+      decode / disk / memory.
+
+  lumina-render asshot <image>...
+      As-shot white balance, upright size and EXIF orientation from the RAW's metadata, no decode.
 
   lumina-render info <image>
       As-shot white balance, native size, develop time, the RAW decoder versions this Mac offers.
@@ -102,11 +108,14 @@ do {
     case "batch":
         let rulesPath = option("--rules")
         let decoderAll = option("--decoder").flatMap(Int.init)
+        let cacheDir = option("--cache") ?? ProcessInfo.processInfo.environment["LUMINA_RENDER_CACHE"]
+        let noCache = flag("--no-cache")
         guard let plan = args.first, let data = FileManager.default.contents(atPath: plan),
               let jobs = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { fail("batch wants a JSON array of jobs", code: 2) }
         let rules = try loadRules(rulesPath)
         let pipe = try LookPipeline(rules: rules)
-        var developed: [String: (LookPipeline.Developed, Int)] = [:]
+        let disk = try (noCache ? nil : cacheDir).flatMap { try DevelopCache(dir: URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath)) }
+        var developed: [String: LookPipeline.Developed] = [:]
         var failed = 0
         for job in jobs {
             let image = job["image"] as? String ?? "", lookText = job["look"] as? String ?? "", px = job["px"] as? Int ?? 2048
@@ -117,20 +126,29 @@ do {
             do {
                 let parsedLook = try Look.parse(lookText)
                 let key = "\(image)|\(px)|\(decoder ?? 0)|\(parsedLook.nr ?? -1)"
-                var developMs = 0
+                var developMs = 0, source = "memory"
                 if developed[key] == nil {
                     let t0 = Date()
-                    let dev = try LookPipeline.developAny(url: URL(fileURLWithPath: image), longEdge: px, rules: rules, decoderVersion: decoder, nr: parsedLook.nr)
-                    developed[key] = try pipe.rasterised(dev)
+                    let diskKey = disk.map { _ in DevelopCache.key(image: image, px: px, decoder: decoder, nr: parsedLook.nr, rules: rules) }
+                    if let disk, let diskKey, let hit = disk.load(diskKey, workingSpace: pipe.workingSpace) {
+                        developed[key] = hit
+                        source = "disk"
+                    } else {
+                        let dev = try LookPipeline.developAny(url: URL(fileURLWithPath: image), longEdge: px, rules: rules, decoderVersion: decoder, nr: parsedLook.nr)
+                        let (raster, bytes, w, h, rowBytes) = try pipe.rasterisedBitmap(dev)
+                        developed[key] = raster
+                        if let disk, let diskKey { disk.store(diskKey, bitmap: bytes, width: w, height: h, rowBytes: rowBytes, asShot: dev.asShot) }
+                        source = "decode"
+                    }
                     developMs = ms(t0)
                     // One developed image per size at a time: the sweep walks image by image.
                     if developed.count > 2 { for k in developed.keys where k != key { developed[k] = nil } }
                 }
-                let (dev, _) = developed[key]!
+                let dev = developed[key]!
                 let t1 = Date()
                 let img = pipe.apply(parsedLook, to: dev)
                 _ = try encode(pipe, img, to: URL(fileURLWithPath: out), space: space)
-                line["ok"] = true; line["developMs"] = developMs; line["renderMs"] = ms(t1)
+                line["ok"] = true; line["developMs"] = developMs; line["renderMs"] = ms(t1); line["develop"] = source
                 line["asShot"] = ["kelvin": dev.asShot.kelvin, "tint": dev.asShot.tint]
                 line["width"] = Int(img.extent.width); line["height"] = Int(img.extent.height)
             } catch {
@@ -138,8 +156,27 @@ do {
                 line["ok"] = false; line["error"] = "\(error)"
             }
             print(json(line))
+            fflush(stdout)
         }
         exit(failed == 0 ? 0 : 1)
+
+    case "asshot":
+        // Metadata only: CIRAWFilter's neutral temperature / tint, upright size and orientation, no decode.
+        guard !args.isEmpty else { fail(usage, code: 2) }
+        for imagePath in args {
+            let url = URL(fileURLWithPath: imagePath)
+            var line: [String: Any] = ["image": imagePath]
+            if LookPipeline.isRAW(url), let raw = CIRAWFilter(imageURL: url) {
+                let size = LookPipeline.nativeSize(url: url) ?? .zero
+                line["ok"] = true
+                line["asShot"] = ["kelvin": Double(raw.neutralTemperature), "tint": Double(raw.neutralTint)]
+                line["width"] = Int(size.width); line["height"] = Int(size.height)
+                line["orientation"] = Int(raw.orientation.rawValue)
+            } else {
+                line["ok"] = false; line["error"] = "not a RAW Core Image reads"
+            }
+            print(json(line))
+        }
 
     case "info":
         guard let imagePath = args.first else { fail(usage, code: 2) }

@@ -57,6 +57,12 @@ parity-check: render
 	$(RENDER) ramp --out $(EVIDENCE)/render/ramp.json $(if $(RULES),--rules $(RULES),)
 	$(PY) $(PARITY)/lookmath.py --check $(EVIDENCE)/render/ramp.json
 
+# Lumina vs your own Lightroom exports (JPEGs with "All metadata" + their RAWs). Measures only.
+#   make parity-personal EXPORTS=~/edits RAWS=~/raws [SET=~/LuminaEvidence/parity-personal] [ABLATE=1]
+parity-personal:
+	swift build -c release --package-path $(PARITY)/lumina-render
+	$(PY) $(PARITY)/parity_personal.py $(if $(SET),--root $(SET)) $(if $(EXPORTS),--exports $(EXPORTS)) $(if $(RAWS),--raws $(RAWS)) $(if $(ABLATE),--ablate)
+
 parity-test:
 	$(PY) $(PARITY)/delta_e.py --selftest
 	$(PY) -m unittest discover -s $(PARITY)/tests
