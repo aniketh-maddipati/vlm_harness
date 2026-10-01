@@ -46,6 +46,7 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let rect: CGRect             // the tiles' union, full-frame pixels
         let image: CIImage           // the composite, origin at rect.origin
         let asShot: Look.WhiteBalance
+        let anchor: LookMath.ToneAnchor           // the photo's tone anchor, the same one its bases carry
         let tiles: Int
         let fromCache: Int
         let firstTileMs: Double
@@ -95,9 +96,17 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
 
     func forget(rel: String) { lock.withLock { _ = cache.removeAll { $0.rel == rel }; developed = developed.filter { !$0.key.hasPrefix(rel + "|") } } }
 
-    /// Renders the region on the tile queue. `seq` supersedes older requests (a pan, a new
-    /// photo); `first` fires on the main thread when the first tile is ready, `done` with the
-    /// composite. Failures name the decoder so the caller can fall back one version.
+    /// A request number newer than every one handed out, which supersedes them all: queued or
+    /// running regions with an older number stop at their next tile. Every caller (the canvas,
+    /// the probe) takes its numbers here, so one caller's numbering can't starve another's.
+    func nextSeq() -> Int { lock.withLock { latest += 1; return latest } }
+
+    /// Stops the queued and running regions (leaving Edit, another photo, the loupe off).
+    func cancel() { _ = nextSeq() }
+
+    /// Renders the region on the tile queue. `seq` (from `nextSeq`) supersedes older requests (a
+    /// pan, a new photo); `first` fires on the main thread when the first tile is ready, `done`
+    /// with the composite. Failures name the decoder so the caller can fall back one version.
     func region(rel: String, url: URL, decoder: Int, nr: Double?, roi: LookCanvasSchedule.ROI, seq: Int,
                 first: @escaping (Double) -> Void, done: @escaping (Result<Region, Error>) -> Void) {
         lock.withLock { latest = max(latest, seq) }
@@ -150,7 +159,7 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let facts = facts(composite, rect: rect)
         let total = Date().timeIntervalSince(t0) * 1000
         lock.withLock { _stats.regions += 1; _stats.cacheHits += hits; _stats.lastRegionMs = total; _stats.lastDecoder = decoder }
-        return Region(rel: rel, decoder: decoder, roi: roi, photoSize: size, rect: rect, image: composite, asShot: dev.asShot,
+        return Region(rel: rel, decoder: decoder, roi: roi, photoSize: size, rect: rect, image: composite, asShot: dev.asShot, anchor: dev.anchor,
                       tiles: tiles.count, fromCache: hits, firstTileMs: firstMs, totalMs: total, facts: facts)
     }
 

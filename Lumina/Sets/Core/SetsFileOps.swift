@@ -76,9 +76,9 @@ nonisolated enum SetsFileOps {
         let dir = url.deletingLastPathComponent()
         let tmp = dir.appendingPathComponent(".\(url.lastPathComponent).lumina-tmp-\(UUID().uuidString.prefix(8))")
         defer { try? FileManager.default.removeItem(at: tmp) }
-        guard FileManager.default.createFile(atPath: tmp.path, contents: nil) else {
-            throw Failure("can't write in \(dir.path)")
-        }
+        // Not createFile: it only answers false, and the reason (disk full, read-only, no permission)
+        // has to reach the result list.
+        try Data().write(to: tmp, options: .withoutOverwriting)
         let h = try FileHandle(forWritingTo: tmp)
         do {
             try h.write(contentsOf: data)
@@ -106,7 +106,8 @@ nonisolated enum SetsFileOps {
     /// `root` ("sub/DSC03311.xmp"). Only a `.xmp` name that stays inside `root` is accepted, so
     /// nothing else in the folder (a RAW above all) can be written. An existing sidecar is kept as
     /// `.lumina-bak` first; the new bytes land atomically (temp file in the same folder, fsync,
-    /// rename) and the file is read back and compared after the rename. Refused on a card.
+    /// rename) and the file is read back and compared after the rename. Refused on a card, and
+    /// "missing" when its RAW is no longer beside it (renamed, moved or deleted since the read).
     @discardableResult
     static func writeSidecar(_ data: Data, rel: String, root: URL) throws -> WriteResult {
         let name = (rel as NSString).lastPathComponent
@@ -124,6 +125,7 @@ nonisolated enum SetsFileOps {
         if (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true { throw SidecarError(name: base, reason: "refused") }
         if isCard(root) { throw SidecarError(name: base, reason: "on the card") }
         if isLocked(url) { throw SidecarError(name: base, reason: "locked") }
+        guard hasRaw(named: base, in: parent) else { throw SidecarError(name: base, reason: "missing") }
         do {
             let r = try write(data, to: url)
             guard (try? Data(contentsOf: url)) == data else { throw SidecarError(name: base, reason: "verify failed") }
@@ -132,6 +134,16 @@ nonisolated enum SetsFileOps {
             throw e
         } catch {
             throw SidecarError(name: base, reason: reason(error))
+        }
+    }
+
+    /// Whether `folder` holds an ARW called `stem` (any case of the extension). A sidecar without
+    /// its RAW is read by nothing, and saying "saved" for it would be wrong (SAFETY.md 6).
+    static func hasRaw(named stem: String, in folder: URL) -> Bool {
+        let fm = FileManager.default
+        for ext in ["ARW", "arw"] where fm.fileExists(atPath: folder.appendingPathComponent(stem + "." + ext).path) { return true }
+        return ((try? fm.contentsOfDirectory(atPath: folder.path)) ?? []).contains {
+            ($0 as NSString).pathExtension.lowercased() == "arw" && ($0 as NSString).deletingPathExtension == stem
         }
     }
 
@@ -178,7 +190,7 @@ nonisolated enum SetsFileOps {
         }
         let tmp = target.deletingLastPathComponent().appendingPathComponent(".\(target.lastPathComponent).lumina-tmp-\(UUID().uuidString.prefix(8))")
         defer { try? fm.removeItem(at: tmp) }
-        guard fm.createFile(atPath: tmp.path, contents: nil) else { throw Failure("can't write in \(target.deletingLastPathComponent().path)") }
+        try Data().write(to: tmp, options: .withoutOverwriting)       // throws with the reason (disk full, read-only, …)
         let r = try FileHandle(forReadingFrom: src), w = try FileHandle(forWritingTo: tmp)
         var hasher = SHA256()
         do {

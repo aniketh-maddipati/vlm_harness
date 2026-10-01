@@ -73,7 +73,7 @@
   },
   {
    "do": "key",
-   "k": "ArrowDown",
+   "k": "ArrowRight",
    "settleMs": 200
   },
   {
@@ -195,6 +195,21 @@
    "equals": 0
   },
   {
+   "do": "writeFile",
+   "path": "${OUT}/shoot/two-bodies/A_DSC00001.xmp",
+   "text": "<?xpacket begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n  <rdf:Description rdf:about=\"\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" xmp:Rating=\"5\" xmp:Label=\"edited in Lightroom\"/>\n </rdf:RDF>\n</x:xmpmeta>\n<?xpacket end=\"w\"?>\n",
+   "why": "Lightroom edits the sidecars between two Lumina saves"
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/shoot/two-bodies/B_DSC00001.xmp",
+   "text": "<?xpacket begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n  <rdf:Description rdf:about=\"\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" xmp:Rating=\"5\" xmp:Label=\"edited in Lightroom\"/>\n </rdf:RDF>\n</x:xmpmeta>\n<?xpacket end=\"w\"?>\n"
+  },
+  {
+   "do": "js",
+   "src": "window.__firstSave = __probe.logic().state.ex.result; return true"
+  },
+  {
    "do": "key",
    "k": "3",
    "cmd": true,
@@ -208,7 +223,7 @@
   },
   {
    "do": "waitFor",
-   "js": "const r = __probe.logic().state.ex.result; return !!r",
+   "js": "const r = __probe.logic().state.ex.result; return !!r && r !== window.__firstSave",
    "what": "second save"
   },
   {
@@ -216,6 +231,17 @@
    "path": "${OUT}/shoot/two-bodies",
    "count": 2,
    "glob": "*.xmp.lumina-bak"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/two-bodies/A_DSC00001.xmp.lumina-bak",
+   "contains": "edited in Lightroom",
+   "why": "the backup is Lightroom's version, not Lumina's first save"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/two-bodies/A_DSC00001.xmp",
+   "contains": "xmp:Rating=\"3\""
   },
   {
    "do": "invariants"

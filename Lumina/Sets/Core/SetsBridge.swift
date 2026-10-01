@@ -23,6 +23,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     let ingest = SetsIngest()
     private var pendingSource: URL?
     private var lastOpened: URL?
+    /// The open folder's shoot id and volume, taken while it was being opened. Both come from the
+    /// volume's UUID, which is gone once a card is pulled: asked again then, the same card would
+    /// be another shoot and the decisions made while it was out would be filed under that one.
+    private var lastOpenedKey: (id: String, volume: String?)?
     /// The folder macOS last refused to list (SAFETY.md 5): checkAccess and reopen use it.
     private var deniedFolder: URL?
     let shoots: SetsShootStore
@@ -38,6 +42,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     private(set) var shootId: String?
     private(set) var header = LookShootHeader()
     private var probing: Set<String> = []
+    /// The body of the photo on the Edit canvas ("?" when the page read no model), so a decoder
+    /// map that lands after `canvasEnter` reaches it.
+    private var canvasModel: String?
+    /// ⌘R: Finder, with the file selected. The probe swaps this out so a fuzz run never brings
+    /// Finder forward on the desktop of whoever is using the Mac.
+    var reveal: (URL) -> Void = { NSWorkspace.shared.activateFileViewerSelecting([$0]) }
 
     init(chooser: SetsChooser, supportDir: URL) {
         self.chooser = chooser
@@ -139,6 +149,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                     self.header.pinnedOn = ProcessInfo.processInfo.operatingSystemVersionString
                 }
                 try? self.shoots.saveHeader(id, self.header)
+                if let m = self.canvasModel, done.contains(where: { $0.0 == m }) {
+                    let d = self.decoders(for: m)
+                    self.canvas?.setDecoders(decoder: d.canvas, regionDecoder: d.region)
+                }
                 self.onEvent?("decoders: " + done.map { "\($0.0) \($0.1.supported) raw9=\($0.1.raw9) fastest=\($0.1.fastest ?? 0)" }.joined(separator: "; ") + " · pinned \(self.header.decoderVersion ?? 0)")
                 self.push("__lumina.editHeader(\(Self.json(self.editFacts())))")
             }
@@ -154,6 +168,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         guard let url else { return nil }
         ingest.register(url)
         lastOpened = url
+        lastOpenedKey = (SetsShootStore.id(for: url), SetsFileOps.volumeID(url))
         rememberBookmark(url)
         onEvent?("opened \(url.path)")
         return [url]
@@ -258,9 +273,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "shootOpened":
             // The page finished reading a folder: remember it and hand back its saved session.
             guard let url = lastOpened ?? ingest.root(named: body["name"] as? String ?? "") else { return (nil, nil) }
-            let id = SetsShootStore.id(for: url)
+            let key = url == lastOpened ? lastOpenedKey : nil
+            let id = key?.id ?? SetsShootStore.id(for: url)
             let shoot = SetsShootStore.Shoot(id: id, title: url.lastPathComponent == "DCIM" ? (cards.current?.name ?? "Card") : url.lastPathComponent,
-                                             path: url.path, volumeUUID: SetsFileOps.volumeID(url), photos: body["n"] as? Int ?? 0,
+                                             path: url.path, volumeUUID: key?.volume ?? SetsFileOps.volumeID(url), photos: body["n"] as? Int ?? 0,
                                              firstCapture: body["date"] as? String ?? "", opened: Date(),
                                              bookmark: try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil))
             try? shoots.upsert(shoot)
@@ -288,7 +304,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "canvasEnter":
             // Entering Edit for a photo: bases for it now, its neighbours' at .utility.
             guard let rel = body["rel"] as? String, let url = resolve(rel) else { return (nil, "not in an opened folder") }
-            let model = body["model"] as? String
+            // The page keys a body without a model "?" in shootOpened; the same here.
+            let model = body["model"] as? String ?? "?"
+            // The body's decoder map is measured right after the shoot opens: wait for it (briefly)
+            // rather than build this photo's bases twice. A map that lands later still reaches the
+            // canvas (probeBodies → setDecoders).
+            let deadline = Date().addingTimeInterval(2)
+            while probing.contains(model), Date() < deadline { try? await Task.sleep(nanoseconds: 20_000_000) }
+            canvasModel = model
             let d = decoders(for: model)
             let neighbours: [LookCanvasController.Neighbour] = ["prev", "next"].compactMap { k in
                 guard let r = body[k] as? String, let u = resolve(r) else { return nil }
@@ -299,6 +322,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             out["decoderCanvas"] = d.canvas.map { $0 as Any } ?? NSNull(); out["decoderRegion"] = d.region.map { $0 as Any } ?? NSNull()
             return (out, nil)
         case "canvasLeave":
+            canvasModel = nil
             canvas?.leave()
             return (true, nil)
         case "canvasLayout":
@@ -350,7 +374,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (await writeSidecars(root: body["root"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? []), nil)
         case "reveal":
             guard let url = revealURL(body["path"] as? String ?? "") else { return (false, nil) }
-            NSWorkspace.shared.activateFileViewerSelecting([url])
+            reveal(url)
             onEvent?("reveal \(url.path)")
             return (true, nil)
         case "setPrefs":

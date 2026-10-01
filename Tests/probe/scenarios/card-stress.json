@@ -10,6 +10,7 @@
   "webPeakMB": 2500
  },
  "stopOnFailure": false,
+ "checklist": "M1 (v5): a whole card (LUMINA_CARD_DIR, only read). Cull scrolls down and back within the frame budget (p95 ≤ 17.5 ms), 150 fast row moves leave the cursor on a photo, a 3,000-input storm holds every invariant, ⌘3 and ⌘2 still switch steps, and the web process stays under 2.5 GB. `probe.sh stress` runs it twice: the page's own read, then the app's native read.",
  "steps": [
   {
    "do": "openFolder",
@@ -48,6 +49,11 @@
    "js": "const l=__probe.logic(); return l.data.byId[l.state.cur]!=null"
   },
   {
+   "do": "js",
+   "src": "const l=__probe.logic(); l.writeInto = async () => ({ aborted: true }); return true",
+   "why": "the storm can click Save. On a card the Mac refuses the write; on a folder that isn't one it would put sidecars into LUMINA_CARD_DIR, which this suite only reads"
+  },
+  {
    "do": "fuzz",
    "seed": 11,
    "count": 3000,
@@ -65,31 +71,41 @@
   },
   {
    "do": "key",
-   "k": "1",
-   "settleMs": 400
-  },
-  {
-   "do": "key",
-   "k": "2",
-   "settleMs": 600
-  },
-  {
-   "do": "key",
    "k": "Escape",
-   "settleMs": 800
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 900,
+   "cmd": true
   },
   {
    "do": "expect",
    "js": "return __probe.logic().state.view",
-   "equals": "edit"
+   "equals": "export"
+  },
+  {
+   "do": "key",
+   "k": "2",
+   "settleMs": 900,
+   "cmd": true
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "cull"
   },
   {
    "do": "wheel",
-   "sel": "[data-screen-label=\"Edit rows\"]",
+   "sel": "[data-screen-label=\"1 Cull\"]",
    "dy": 60,
    "frames": 200,
-   "name": "edit-scroll",
+   "name": "cull-scroll-after",
    "p95Ms": 17.5
+  },
+  {
+   "do": "invariants"
   },
   {
    "do": "state",

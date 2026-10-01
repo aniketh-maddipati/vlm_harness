@@ -6,6 +6,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A newer run on the same branch or PR replaces the older one (the macOS runners queue up
+# otherwise: several sessions pushing in a row turned a 5-minute run into 17). Runs on main finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   design:
     name: design handoff
@@ -19,6 +25,8 @@ jobs:
         run: |
           source Scripts/page_files.sh
           cd design/handoff/lumina-cull && node "$CORE_TEST" | tee /tmp/fixtures.txt && ! grep -q '^FAIL' /tmp/fixtures.txt
+      - name: culling eval scoring (synthetic data) + the readOne guard
+        run: node --test Tools/culleval/tests/culleval.test.mjs
       - name: app ships the design byte for byte
         run: |
           set -e
@@ -38,6 +46,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.56.1-${{ runner.os }}-chromium
       - name: playwright
         run: npm i -g playwright@1.56.1 && npx playwright install --with-deps chromium
       - name: plumbing harness
@@ -92,8 +104,10 @@ jobs:
           xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
             -derivedDataPath DD -destination 'platform=macOS,arch=arm64' \
             -only-testing:LuminaLogicTests test
-      - name: probe builds
-        run: swift build --package-path Tools/LuminaProbe
+      - uses: actions/cache@v4
+        with:
+          path: Tools/parity/lumina-render/.build
+          key: lumina-render-${{ runner.os }}-${{ hashFiles('Tools/parity/lumina-render/Package.swift', 'Tools/parity/lumina-render/Sources/**/*.swift', 'Lumina/Sets/Look/*.swift') }}
       - name: lumina-render builds and its graph matches LookMath and the numpy mirror
         run: |
           swift build -c release --package-path Tools/parity/lumina-render
@@ -102,46 +116,61 @@ jobs:
           "${{ runner.temp }}/venv/bin/python" Tools/parity/lookmath.py --check "${{ runner.temp }}/ramp.json"
 
   probe:
-    name: probe in WKWebView (no fixtures)
+    # Four shards in parallel (macOS minutes are free on this public repo); each one builds the
+    # probe once (cached) and runs its suites. `smoke` already holds contract + selftest, and
+    # `screens` renders every screen once and compares the app twins with the prototype in the
+    # same run (the committed reference is for local runs).
+    name: probe (${{ matrix.shard }})
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: smoke + screens
+            run: bash Scripts/probe.sh smoke; s1=$?; bash Scripts/probe.sh screens; s2=$?; exit $((s1 | s2))
+          - shard: fuzz 1-2
+            run: bash Scripts/probe.sh scenarios fuzz-sample-1 fuzz-sample-2
+          - shard: fuzz 3 + scroll
+            shoot: true
+            run: bash Scripts/probe.sh scenarios fuzz-sample-3 scroll-read scroll-fast
+          - shard: scroll 2560 + edit + raw9
+            shoot: true
+            run: bash Scripts/probe.sh scenarios scroll-fast-2560; s1=$?; bash Scripts/probe.sh edit; s2=$?; bash Scripts/probe.sh raw9; s3=$?; exit $((s1 | s2 | s3))
+    env:
+      LUMINA_EDIT_GATE: "0"     # latency is reported, not gated, on a shared runner
     steps:
       - uses: actions/checkout@v4
-      - name: contract, selftest, smoke, fuzz
-        env:
-          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe
-        run: |
-          status=0
-          for s in contract selftest smoke fuzz; do echo "::group::probe $s"; bash Scripts/probe.sh $s || status=1; echo "::endgroup::"; done
-          exit $status
-      - name: screens, app vs design at 0 px (records a fresh reference, then compares)
-        env:
-          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe-ref
-        run: bash Scripts/probe.sh reference --record && LUMINA_PROBE_OUT="${{ runner.temp }}/probe-cmp" bash Scripts/probe.sh reference
+      - uses: actions/cache@v4
+        with:
+          path: Tools/LuminaProbe/.build
+          key: probe-${{ runner.os }}-${{ hashFiles('Tools/LuminaProbe/Package.swift', 'Tools/LuminaProbe/Sources/LuminaProbe/*.swift', 'Tools/LuminaProbe/Sources/LuminaProbe/*.js', 'Lumina/Sets/Core/*.swift', 'Lumina/Sets/Look/*.swift') }}
+          restore-keys: probe-${{ runner.os }}-
       - uses: actions/setup-node@v4
+        if: matrix.shoot
         with:
           node-version: 20
-      - name: scroll on a 775-photo synthetic card (read while culling, then fast scroll; real WKWebView + native reader)
-        env:
-          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe-scroll
-          LUMINA_SCROLL_DIR: ${{ runner.temp }}/scroll-775/100MSDCF
+      - uses: actions/cache@v4
+        if: matrix.shoot
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.56.1-${{ runner.os }}-chromium
+      - name: a 775-photo synthetic card (scroll, Edit, RAW 9)
+        if: matrix.shoot
         run: |
           npm i -g playwright@1.56.1 && npx playwright install chromium
-          NODE_PATH="$(npm root -g)" node Tests/web/make-shoot.mjs "$LUMINA_SCROLL_DIR" 775
-          bash Scripts/probe.sh scroll
-      - name: Edit canvas (native + image path) and RAW 9 steps on the synthetic shoot (bases from the embedded JPEG; latency reported, not gated on the runner)
+          NODE_PATH="$(npm root -g)" node Tests/web/make-shoot.mjs "${{ runner.temp }}/scroll-775/100MSDCF" 775
+          echo "LUMINA_SCROLL_DIR=${{ runner.temp }}/scroll-775/100MSDCF" >> "$GITHUB_ENV"
+          echo "LUMINA_EDIT_DIR=${{ runner.temp }}/scroll-775/100MSDCF" >> "$GITHUB_ENV"
+      - name: ${{ matrix.shard }}
+        shell: bash {0}       # no -e: every suite in the shard runs; the exit code combines them
         env:
-          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe-edit
-          LUMINA_EDIT_DIR: ${{ runner.temp }}/scroll-775/100MSDCF
-          LUMINA_EDIT_GATE: "0"
-        run: |
-          status=0
-          for s in edit raw9; do echo "::group::probe $s"; bash Scripts/probe.sh $s || status=1; echo "::endgroup::"; done
-          exit $status
+          LUMINA_PROBE_OUT: ${{ runner.temp }}/probe
+        run: ${{ matrix.run }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: probe-evidence
+          name: probe-evidence-${{ matrix.shard }}
           path: |
             ${{ runner.temp }}/probe*/**/report.json
             ${{ runner.temp }}/probe*/**/*.png

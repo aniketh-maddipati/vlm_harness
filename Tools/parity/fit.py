@@ -31,19 +31,24 @@ from parity import expand, lr_to_look  # noqa: E402
 
 # Coefficients the fit may move, per stage (the rest are structural or booleans).
 FREE = {
-    "exposure": ["stopsPerUnit"],
-    "whiteBalance": ["redPerMired", "bluePerMired", "greenPerTint"],
+    "exposure": ["stopsPerUnit", "white"],
+    "whiteBalance": ["redPerMired", "bluePerMired", "greenPerTint", "redPerTint", "bluePerTint", "white"],
     "whitesBlacks": ["blacksPerUnit", "blacksPower", "whitesPerUnit", "whitesPower"],
-    "tone": ["shadowsStopsPerUnit", "shadowsHi", "highlightsStopsPerUnit", "highlightsLo", "detailGain", "radiusFraction"],
+    "tone": ["shadowsStopsPerUnit", "shadowsTau", "shadowsAdapt", "shadowsBright", "shadowsSpread",
+             "highlightsStopsPerUnit", "highlightsKnee", "highlightsAdapt", "highlightsMean", "highlightsSpread", "white"],
     "contrast": ["midpoint", "slopePerUnit", "lumaMix"],
     "colour": ["saturationPerUnit", "vibrancePerUnit", "vibranceChromaMax", "skinHue", "skinWidth", "skinProtect"],
     "clarity": ["amountPerUnit", "midtonePower", "radiusFraction"],
     "sharpen": ["amountPerUnit", "threshold", "radiusPx"],
     "vignette": ["stopsPerUnit", "midpoint", "feather"],
 }
+# The bounds hold the invariants the ramp tests enforce, so the fit can't propose what they would
+# reject: a whites / blacks exponent below 1 folds the curve back at the end it bends (not
+# monotonic). The tone masks keep a sane width, and `white` stays at or above display white.
 BOUNDS = {"midpoint": (0.05, 0.95), "lumaMix": (0.0, 1.0), "skinProtect": (0.0, 1.0), "feather": (0.05, 1.5), "radiusFraction": (0.002, 0.2),
-          "shadowsHi": (0.2, 1.0), "highlightsLo": (0.0, 0.8), "detailGain": (0.5, 2.0), "threshold": (0.0005, 0.1), "radiusPx": (0.3, 4.0),
-          "blacksPower": (0.5, 6.0), "whitesPower": (0.5, 6.0), "midtonePower": (0.5, 6.0), "skinWidth": (5.0, 90.0)}
+          "shadowsTau": (0.05, 1.5), "highlightsKnee": (0.2, 4.0), "shadowsAdapt": (0.0, 1.5), "highlightsAdapt": (0.0, 1.5),
+          "shadowsBright": (-6.0, 6.0), "shadowsSpread": (-3.0, 3.0), "highlightsMean": (-3.0, 3.0), "highlightsSpread": (-3.0, 3.0), "white": (1.0, 4.0), "detailGain": (0.5, 2.0), "threshold": (0.0005, 0.1), "radiusPx": (0.3, 4.0),
+          "blacksPower": (1.0, 6.0), "whitesPower": (1.0, 6.0), "midtonePower": (0.5, 6.0), "skinWidth": (5.0, 90.0)}
 
 
 def load_pair(ref_path, render_path, px):
@@ -74,12 +79,21 @@ def lab_from_working(lin):
     return delta_e.xyz_to_lab(np.clip(lin, 0, 1) @ delta_e.SRGB_TO_XYZ.T, delta_e.D65)
 
 
+PENALTY = 1e6      # an out-of-bounds candidate scores at least this
+
+
+def out_of_bounds(names, values):
+    """The coefficients outside their bounds, as (name, value, lo, hi)."""
+    return [(n, float(v), *BOUNDS[n]) for n, v in zip(names, values) if n in BOUNDS and not (BOUNDS[n][0] <= v <= BOUNDS[n][1])]
+
+
 def objective(values, names, stage, rules, pairs, crit_p95):
     r = json.loads(json.dumps(rules))
     for n, v in zip(names, values):
         lo, hi = BOUNDS.get(n, (-np.inf, np.inf))
         if not (lo <= v <= hi):
-            return 1e6 + abs(v) * 1e3
+            # Out of bounds: a large objective, in the same (objective, median, p95) shape.
+            return PENALTY + abs(v) * 1e3, float("inf"), float("inf")
         r["stages"][stage]["coefficients"][n] = float(v)
     r["order"] = ["rawDevelop", stage, "outputTransform"]
     des = []
@@ -143,6 +157,13 @@ def main(argv):
     names = [n for n in FREE[a.stage] if n in rules["stages"][a.stage]["coefficients"]]
     x0 = np.array([rules["stages"][a.stage]["coefficients"][n] for n in names], dtype=float)
     crit = criteria["singles"]["p95"]
+    bad = out_of_bounds(names, x0)
+    if bad:
+        # Starting outside the bounds, every candidate near the start scores the penalty and the
+        # search is meaningless; say which coefficient to fix rather than fit noise.
+        for n, v, lo, hi in bad:
+            print(f"{a.stage}.{n} = {v:g} is outside the fit's bounds [{lo:g}, {hi:g}]: fix the rules or the bounds first", file=sys.stderr)
+        return 2
     f0, med0, p950 = objective(x0, names, a.stage, rules, pairs, crit)
     print(f"{a.stage}: {len(pairs)} pairs at {a.px} px · start objective {f0:.3f} (median {med0:.2f}, p95 {p950:.2f}) · fitting {names}")
     simplex = [x0.copy()]
@@ -161,7 +182,7 @@ def main(argv):
         out["stages"][a.stage]["coefficients"][n] = float(round(float(v), 6))
     note = {"stage": a.stage, "pairs": len(pairs), "px": a.px, "before": {"objective": f0, "median": med0, "p95": p950},
             "after": {"objective": f1, "median": med1, "p95": p951}, "changed": {n: [float(v0), float(v1)] for n, v0, v1 in zip(names, x0, res.x)}}
-    if f1 >= f0:
+    if f1 >= f0 or f1 >= PENALTY:
         print("no improvement on the fit set; nothing written")
         return 1
     if a.apply:

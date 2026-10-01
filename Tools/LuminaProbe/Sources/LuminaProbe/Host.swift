@@ -40,6 +40,7 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         if let plumbing {
             plumbingJS = try String(contentsOf: plumbing, encoding: .utf8)
             bridge = SetsBridge(chooser: chooserHolder, supportDir: supportDir)
+            bridge?.reveal = { _ in }       // logged by the bridge; Finder never comes forward during a run
         }
         let (wv, scheme) = try await SetsWebView.make(pageRoot: pageRoot, vendorRoot: vendorRoot, plumbing: plumbingJS, bridge: bridge,
                                                       standInPhotos: true, config: appConfig, extraScripts: ["window.__probeConfig=\(cfgJSON);", probeJS],
