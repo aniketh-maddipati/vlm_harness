@@ -43,6 +43,10 @@ struct DevelopCache {
               let w = meta["width"] as? Int, let h = meta["height"] as? Int, let rowBytes = meta["rowBytes"] as? Int,
               let kelvin = meta["kelvin"] as? Double, let tint = meta["tint"] as? Double,
               let bytes = try? Data(contentsOf: p.bin, options: .alwaysMapped), bytes.count == rowBytes * h else { return nil }
+        // Mark the entry used: the caller prunes what a run did not touch (`prune_develop_cache`).
+        let now: [FileAttributeKey: Any] = [.modificationDate: Date()]
+        try? FileManager.default.setAttributes(now, ofItemAtPath: p.meta.path)
+        try? FileManager.default.setAttributes(now, ofItemAtPath: p.bin.path)
         let img = CIImage(bitmapData: bytes, bytesPerRow: rowBytes, size: CGSize(width: w, height: h), format: .RGBAh, colorSpace: workingSpace)
         return LookPipeline.Developed(image: img, asShot: Look.WhiteBalance(kelvin: kelvin, tint: tint))
     }

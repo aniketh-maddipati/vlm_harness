@@ -334,5 +334,34 @@ class AggregateTests(unittest.TestCase):
         self.assertIn("| as-shot | 3 |", md)
 
 
+class HousekeepingTests(unittest.TestCase):
+    def test_the_develop_cache_keeps_only_what_the_run_used(self):
+        import time
+        with tempfile.TemporaryDirectory() as d:
+            old, used = os.path.join(d, "old.rgbah"), os.path.join(d, "used.rgbah")
+            for path in (old, used):
+                with open(path, "wb") as f:
+                    f.write(b"x" * 1000)
+            start = time.time()
+            os.utime(old, (start - 60, start - 60))        # another rules variant, an earlier run
+            os.utime(used, (start + 1, start + 1))         # touched by this render
+            self.assertEqual(pp.prune_develop_cache(d, start), 1000)
+            self.assertEqual(os.listdir(d), ["used.rgbah"])
+            self.assertEqual(pp.prune_develop_cache(os.path.join(d, "missing"), start), 0)
+
+    def test_heatmaps_stay_for_the_newest_reports_only_and_numbers_always(self):
+        with tempfile.TemporaryDirectory() as d:
+            for run in ("20260930-1-a", "20260930-2-b", "20260930-3-c"):
+                os.makedirs(os.path.join(d, run, "heatmaps"))
+                open(os.path.join(d, run, "report.md"), "w").write("numbers")
+                open(os.path.join(d, run, "heatmaps", "f.png"), "w").write("x")
+            open(os.path.join(d, "latest.json"), "w").write("{}")
+            pp.prune_heatmaps(d, 2)
+            self.assertFalse(os.path.exists(os.path.join(d, "20260930-1-a", "heatmaps")))
+            self.assertTrue(os.path.exists(os.path.join(d, "20260930-2-b", "heatmaps")))
+            self.assertTrue(os.path.exists(os.path.join(d, "20260930-3-c", "heatmaps")))
+            self.assertTrue(all(os.path.exists(os.path.join(d, r, "report.md")) for r in os.listdir(d) if r != "latest.json"))
+
+
 if __name__ == "__main__":
     unittest.main()

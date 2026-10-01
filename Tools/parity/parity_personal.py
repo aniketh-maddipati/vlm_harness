@@ -26,6 +26,7 @@ import datetime as dt
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -49,6 +50,33 @@ KEY_SLIDER = {"ev": "Exposure", "wb": "WhiteBalance", "con": "Contrast", "hl": "
 
 def expand(p):
     return os.path.abspath(os.path.expanduser(p))
+
+
+def prune_develop_cache(cache_dir, since):
+    """Keep only the develops the last render used. The cache is keyed by the rawDevelop
+    coefficients, so every rules variant tried leaves a full copy of every developed RAW behind
+    (a scan of four lens strengths was 7 GB); lumina-render touches the entries it reads or
+    writes, anything older than the run's start goes. Returns the bytes freed."""
+    freed = 0
+    if not os.path.isdir(cache_dir):
+        return 0
+    for name in os.listdir(cache_dir):
+        path = os.path.join(cache_dir, name)
+        try:
+            if os.path.isfile(path) and os.path.getmtime(path) < since - 1:
+                freed += os.path.getsize(path)
+                os.remove(path)
+        except OSError:
+            pass
+    return freed
+
+
+def prune_heatmaps(report_root, keep):
+    """Heatmaps are per-pixel pictures of every frame, per run: keep them for the newest `keep`
+    reports only. The reports' numbers (report.md, summary.json) always stay."""
+    runs = sorted(d for d in os.listdir(report_root) if os.path.isdir(os.path.join(report_root, d))) if os.path.isdir(report_root) else []
+    for d in runs[:-keep] if keep > 0 else runs:
+        shutil.rmtree(os.path.join(report_root, d, "heatmaps"), ignore_errors=True)
 
 
 def personal_root():
@@ -487,11 +515,17 @@ def run(a):
         plan = os.path.join(render_dir, "jobs.json")
         with open(plan, "w") as f:
             json.dump([j for j, _, _ in jobs], f)
-        cmd = [a.render_bin, "batch", plan, "--cache", os.path.join(root, "cache", "develop")] + (["--rules", rules_path] if a.rules else [])
+        develop_cache = os.path.join(root, "cache", "develop")
+        cmd = [a.render_bin, "batch", plan, "--cache", develop_cache] + (["--rules", rules_path] if a.rules else [])
         if a.no_develop_cache:
             cmd.append("--no-cache")
         print(f"rendering {len(jobs)} looks …", file=sys.stderr)
+        render_started = time.time()
         p = subprocess.run(cmd, capture_output=True, text=True)
+        if p.returncode == 0 and not a.keep_cache:
+            freed = prune_develop_cache(develop_cache, render_started)
+            if freed:
+                print(f"develop cache: dropped {freed / 1e9:.1f} GB of entries this run did not use", file=sys.stderr)
         for line in p.stdout.splitlines():
             try:
                 lines.append(json.loads(line))
@@ -564,6 +598,7 @@ def run(a):
                              for i, d in abls.items()}}
     with open(os.path.join(evidence, "summary.json"), "w") as f:
         json.dump(summary, f, indent=1, sort_keys=True, default=float)
+    prune_heatmaps(os.path.join(root, "report"), a.keep_heatmaps)
     with open(os.path.join(root, "report", "latest.json"), "w") as f:
         json.dump({"report": os.path.join(evidence, "report.md"), "date": date, "label": label}, f, indent=1)
     head = md.split("## Mean ΔE by")[0]
@@ -586,6 +621,8 @@ def main(argv):
     ap.add_argument("--ablate", action="store_true", help="also render each look without each of its sliders (per-stage evidence; ~6× the renders)")
     ap.add_argument("--force-render", action="store_true", help="render even when look, size, rules and binary are unchanged")
     ap.add_argument("--no-develop-cache", action="store_true", help="decode every RAW again (timing the cold path)")
+    ap.add_argument("--keep-cache", action="store_true", help="keep develop-cache entries this run did not use (other rules variants)")
+    ap.add_argument("--keep-heatmaps", type=int, default=2, help="reports whose heatmaps are kept (newest first); the numbers always stay")
     ap.add_argument("--bucket", choices=BUCKETS)
     ap.add_argument("--limit", type=int)
     ap.add_argument("--label")
