@@ -6,6 +6,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A newer run on the same branch or PR replaces the older one (the macOS runners queue up
+# otherwise: several sessions pushing in a row turned a 5-minute run into 17). Runs on main finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   design:
     name: design handoff
