@@ -19,6 +19,7 @@ Esc during a drag cancels the drag (README "Slider row"). The key table sends Es
 leave zoom or Before).
 **Ask:** first line of `editEscape()`: `if cancelSliderDrag() { return }` (the function exists and
 returns false when nothing is dragged).
+**Done** (integration): `editEscape()` now starts with it; the `heldKeys` watcher in `EditControls` is left as a no-op fallback.
 
 ## 3. White picker: the canvas calls `pickWhite(at:)` (WP-4)
 `W` toggles `edit.pickingWhite`. While it is on, a click on the photo should call

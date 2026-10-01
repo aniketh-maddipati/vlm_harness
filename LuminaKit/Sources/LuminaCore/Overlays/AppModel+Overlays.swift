@@ -213,6 +213,8 @@ public extension AppModel {
     /// → picker (R-25). So that three presses always reach normal, a press never leaves more
     /// than two layers open: with four or more up at once, the innermost tools go with it.
     func editEscape() {
+        // Esc during a slider drag cancels the drag and nothing else (WP5.md #2).
+        if cancelSliderDrag() { return }
         var open = escapeLayers
         guard !open.isEmpty else { return }
         escapeClose(open.removeFirst(), quiet: false)

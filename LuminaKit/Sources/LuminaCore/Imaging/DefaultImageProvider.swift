@@ -139,6 +139,12 @@ public final class DefaultImageProvider: ImageProvider, PixelSizing, @unchecked 
     private func decode(_ photo: Photo, px: Int) throws -> CGImage {
         switch photo.source {
         case .demo(let seed, let bw):
+            // The prototype's picsum picture when this Mac has it cached (DemoPhotos), else the generated one.
+            if let url = DemoPhotos.url(seed: seed, aspect: photo.aspect, bw: bw), let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+               let img = CGImageSourceCreateThumbnailAtIndex(src, 0, [kCGImageSourceThumbnailMaxPixelSize: px, kCGImageSourceCreateThumbnailWithTransform: true,
+                                                                     kCGImageSourceShouldCacheImmediately: true, kCGImageSourceCreateThumbnailFromImageAlways: true] as CFDictionary) {
+                return img
+            }
             return Self.demo(seed: seed, bw: bw, aspect: photo.aspect, maxPixel: px)
         case .file(let url):
             guard let src = CGImageSourceCreateWithURL(url as CFURL, nil), CGImageSourceGetCount(src) > 0 else { throw ImageError.cannotOpen(photo.file) }
