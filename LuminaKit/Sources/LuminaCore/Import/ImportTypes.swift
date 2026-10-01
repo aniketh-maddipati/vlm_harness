@@ -26,7 +26,8 @@ public struct EXIF: Equatable, Sendable {
 
 /// One file on its way into a shoot.
 public struct ImportItem: Equatable, Sendable {
-    /// Path relative to the imported folder ("Day 1/a.jpg").
+    /// Path from the imported folder down, the folder's own name first ("Trip/Day 1/a.jpg"); a
+    /// loose file is just its name. The last folder in it is the scene's title.
     public var rel: String
     public var url: URL?
     public var shot: Date?
@@ -51,27 +52,24 @@ public enum ImportClassifier {
 
     /// By name and size only. The extension is a hint: `.photo` and `.raw` still have to decode.
     public static func classify(name: String, size: Int64) -> ImportKind {
-        let lower = name.lowercased(), ext = (lower as NSString).pathExtension
-        if system.contains(lower) || lower.hasPrefix("._") || lower.hasPrefix(".") { return .system }
+        let lower = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        // An extension is one to five letters or digits; anything else ("holiday.final version") is
+        // no extension at all, and the file is tried as a photo.
+        let tail = lower.split(separator: ".", omittingEmptySubsequences: false).last.map(String.init) ?? ""
+        let ext = lower.contains(".") && (1...5).contains(tail.count) && tail.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) ? tail : ""
+        if system.contains(lower) || lower.hasPrefix(".") || lower == "icon\r" { return .system }
         if sidecars.contains(ext) { return .sidecar }
-        if videos.contains(ext) { return .video }
-        if archives.contains(ext) { return .archive }
         if size == 0 { return .empty }
         if raws.contains(ext) { return .raw }
+        if videos.contains(ext) { return .video }
+        if archives.contains(ext) { return .archive }
         if photos.contains(ext) || ext.isEmpty { return .photo }
         return .other
     }
 
-    /// Nil when the file won't decode as an image, whatever its name says (R-10).
-    public static func decodes(url: URL) -> ImageInfo? {
-        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil), CGImageSourceGetCount(src) > 0,
-              let p = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
-              let w = p[kCGImagePropertyPixelWidth] as? Double, let h = p[kCGImagePropertyPixelHeight] as? Double, w > 0, h > 0,
-              CGImageSourceCreateThumbnailAtIndex(src, 0, [kCGImageSourceThumbnailMaxPixelSize: 16, kCGImageSourceCreateThumbnailFromImageAlways: true] as CFDictionary) != nil
-        else { return nil }
-        let o = (p[kCGImagePropertyOrientation] as? Int) ?? 1
-        return ImageInfo(pixelSize: o >= 5 ? CGSize(width: h, height: w) : CGSize(width: w, height: h))
-    }
+    /// Nil when the file won't decode as an image, whatever its name says (R-10). RAW goes
+    /// through ImageIO like everything else: bytes that only carry a RAW extension are nil.
+    public static func decodes(url: URL) -> ImageInfo? { ImageProbe.probe(url)?.info }
 }
 
 public struct ImportSummary: Equatable, Sendable {
@@ -83,6 +81,8 @@ public struct ImportSummary: Equatable, Sendable {
     public init(added: Int, folder: String? = nil, skipped: [SkipReason: Int] = [:], emptyFolder: Bool = false) {
         self.added = added; self.folder = folder; self.skipped = skipped; self.emptyFolder = emptyFolder
     }
+    /// Reading the files failed (a folder that went away mid-import).
+    public static let wentWrong = "Something went wrong reading those files. Nothing was changed."
     public static let opens = "Lumina opens JPEG, PNG, WebP, HEIC, AVIF and RAW."
 
     public var message: String {
@@ -94,24 +94,7 @@ public struct ImportSummary: Equatable, Sendable {
             (.duplicate, { "\($0) already in this shoot" })]
         let parts = order.compactMap { r, f in skipped[r].flatMap { $0 > 0 ? f($0) : nil } }
         let skip = parts.isEmpty ? "" : " Skipped " + parts.joined(separator: " · ") + "."
-        if added == 0 { return "No photos added." + skip + " " + Self.opens }
+        if added == 0 { return (parts.isEmpty ? "No photos found there." : "No photos added." + skip) + " " + Self.opens }
         return "Added \(added) photo\(added == 1 ? "" : "s")" + (folder.map { " from \($0)" } ?? "") + "." + skip
-    }
-}
-
-public enum EXIFReader {
-    /// WP-2: capture time, camera, lens, exposure (R-16). Nil when the file has no metadata.
-    public static func read(url: URL) -> EXIF? { nil }
-}
-
-public enum SceneGrouper {
-    /// WP-2: scenes by subfolder and 30-minute gaps; bursts ≤ 2 s apart, same aspect, at most 8 (R-15).
-    public static func group(_ items: [ImportItem], name: String = "Folder") -> Shoot {
-        let photos = items.enumerated().map { i, it in
-            Photo(id: "L\(i)", file: (it.rel as NSString).lastPathComponent, scene: 0, aspect: it.aspect, shot: it.shot,
-                  source: it.url.map { .file($0) } ?? .demo(seed: i, bw: false), rel: it.rel, size: it.size, modified: it.modified)
-        }
-        let scene = PhotoScene(id: "r0", index: 0, hm: "", ids: photos.map(\.id))
-        return Shoot(photos: photos, scenes: photos.isEmpty ? [] : [scene], bursts: [], name: name, local: true, key: "folder-\(name)")
     }
 }
