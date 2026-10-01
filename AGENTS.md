@@ -37,6 +37,12 @@ and the probe. The native UI shows only with `-LuminaUITest YES`, `-LuminaNative
 `LUMINA_NATIVE=1`. The design's XCUITests are in `LuminaUITests/Native`; they take over the screen,
 so run them one at a time and never from parallel agents.
 
+**The native Save writes edits to XMP** (ruled 2026-10-01, the handoff's README §4): a sidecar carries
+the keepers' 3★ and the edit as Lightroom develop settings (`LuminaCore/Export/XMPSidecar.swift`),
+merged into an existing sidecar, never clobbering it. "Looks are never written to XMP" under Parity
+below describes the Sets page's handoff only. The trust rules are unchanged: sidecars only, into the
+shoot folder, `.lumina-bak` first, atomic, read back, refused on a card.
+
 ```bash
 (cd LuminaKit && swift build && swift test)          # contracts, rules, parity traces, headless
 python3 Scripts/gen_tokens.py --check                # Tokens.generated.swift matches parity/tokens.json
