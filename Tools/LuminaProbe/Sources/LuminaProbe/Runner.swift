@@ -103,8 +103,8 @@ final class Runner {
             failures.append("setup: \(error)")
         }
         sampler.stop()
-        disks.detachAll()
         try? await checkBudgets()
+        disks.detachAll(removeImages: failures.isEmpty)
         return finish(seconds: Date().timeIntervalSince(t0))
     }
 
@@ -214,6 +214,10 @@ final class Runner {
             let url = URL(fileURLWithPath: try str(s, "path"))
             guard FileManager.default.fileExists(atPath: url.path) else { throw ProbeError("no such folder \(url.path)") }
             host.pendingOpenPanel = [url]
+            // A second open in one scenario: the shoot already loaded must not count as this read's end.
+            // In the browser the page first shows its "macOS will ask for access" sheet; its own
+            // "don't show again" flag skips it (the app never shows it: plumbing opens the folder itself).
+            _ = try await host.js("try { localStorage.setItem('lumina-v4-pre-ok', '1') } catch (_) {} window.__probeOpened = __probe.logic().state.realInfo || null")
             if (s["via"] as? String ?? "key") == "key" { try host.key("o", cmd: true) } else { _ = try await host.js("__probe.logic().openFolder()") }
             // until: "shown" returns once Cull shows its first rows, while the folder is still being read.
             if s["until"] as? String == "shown" {
@@ -221,7 +225,7 @@ final class Runner {
                                   timeout: (s["timeoutMs"] as? Double ?? 300_000) / 1000, what: "first rows shown")
                 return "shown while reading"
             }
-            try await waitFor("const l=__probe.logic(); return !!(l.real && !l.state.realLoad)",
+            try await waitFor("const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && l.state.realInfo !== window.__probeOpened)",
                               timeout: (s["timeoutMs"] as? Double ?? 900_000) / 1000, what: "folder loaded")
             let info = try await host.js("return JSON.stringify(__probe.logic().state.realInfo)")
             return info.map { "\($0)" }
@@ -308,17 +312,10 @@ final class Runner {
             let n = host.chooser.refusals.count
             if let want = s["count"] as? Int, want != n { throw ProbeError("expected \(want) refused destinations, got \(n): \(host.chooser.refusals)") }
             return host.chooser.refusals.joined(separator: " | ")
-        case "lookParity":
-            let rows = try await LookParity.run(host: host, image: URL(fileURLWithPath: try str(s, "image")),
-                                                recipes: s["recipes"] as? [[String: Double]] ?? [], width: s["width"] as? Int ?? 600, outDir: outDir)
-            let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try enc.encode(rows).write(to: outDir.appendingPathComponent("look-parity.json"))
-            let cap = s["maxMeanDE"] as? Double ?? 1
-            let space = s["space"] as? String ?? "sRGB"
-            let bad = rows.filter { $0.space == space && $0.meanDE >= cap }
-            let lines = rows.map { "\($0.space) \($0.css): ΔE mean \(String(format: "%.2f", $0.meanDE)) p95 \(String(format: "%.2f", $0.p95DE)) max \(String(format: "%.2f", $0.maxDE))" }
-            if !bad.isEmpty { throw ProbeError("mean ΔE ≥ \(cap) in \(space):\n  " + lines.joined(separator: "\n  ")) }
-            return "\n  " + lines.joined(separator: "\n  ")
+        case "nativeSidecar":
+            return try await nativeSidecar(s)
+        case "fillDisk":
+            return try fillDisk(URL(fileURLWithPath: try str(s, "path")))
         case "editDrag", "editParity", "raw9":
             // The Edit canvas and RAW 9 measures (EditSteps.swift). Gates apply unless LUMINA_EDIT_GATE=0.
             let o: EditSteps.Outcome
@@ -562,6 +559,43 @@ final class Runner {
                try SetsFileOps.sha256(file: dest.appendingPathComponent(f)) != SetsFileOps.sha256(file: src) { throw ProbeError("\(f) differs from its original") }
         }
         return note
+    }
+
+    /// One sidecar through the app's own write, no page: `root` (the shoot folder), `rel` (the name
+    /// inside it), and the bytes: `text`, or `js` (what the page would save, e.g. its xmpFor).
+    /// `guard: false` skips writeSidecar's checks and calls the write below them (backup, temp
+    /// file, rename, read back): the probe's disks are images, which the app takes for cards and
+    /// refuses, so this is the only way to see that write on a case-sensitive or a full disk.
+    /// Expect with `reason` (the page's word for the failure; absent = it must succeed) and `backedUp`.
+    private func nativeSidecar(_ s: [String: Any]) async throws -> String {
+        let root = URL(fileURLWithPath: try str(s, "root")), rel = try str(s, "rel")
+        let text: String
+        if s["js"] != nil {
+            guard let t = try await host.js(try str(s, "js")) as? String, !t.isEmpty else { throw ProbeError("js gave no sidecar text") }
+            text = t
+        } else { text = try str(s, "text") }
+        let data = Data(text.utf8), guarded = s["guard"] as? Bool ?? true
+        var got: String?, backedUp = false
+        do {
+            backedUp = try (guarded ? SetsFileOps.writeSidecar(data, rel: rel, root: root) : SetsFileOps.write(data, to: try own(root.appendingPathComponent(rel).path))).backedUp
+        } catch let e as SetsFileOps.SidecarError { got = e.reason } catch { got = SetsFileOps.reason(error) }
+        let note = "\(rel): " + (got.map { "refused · \($0)" } ?? "written\(backedUp ? " · old file kept as .lumina-bak" : "")")
+        if got != s["reason"] as? String { throw ProbeError("expected \((s["reason"] as? String).map { "'\($0)'" } ?? "a write"), got \(note)") }
+        if let want = s["backedUp"] as? Bool, want != backedUp { throw ProbeError("expected backedUp \(want): \(note)") }
+        return note
+    }
+
+    /// Fills this run's own disk image to the last byte: `path` is a filler file on it.
+    private func fillDisk(_ path: URL) throws -> String {
+        let url = try own(path.path)
+        FileManager.default.createFile(atPath: url.path, contents: nil)
+        let h = try FileHandle(forWritingTo: url)
+        defer { try? h.close() }
+        var written = 0
+        for block in [1 << 20, 1 << 12, 1 << 9] {
+            while (try? h.write(contentsOf: Data(count: block))) != nil, (try? h.synchronize()) != nil { written += block; if written > (4 << 30) { throw ProbeError("fillDisk: 4 GB written and \(url.path) still takes more") } }
+        }
+        return "\(written >> 10) KB until full"
     }
 
     // MARK: Fuzzer

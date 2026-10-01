@@ -7,7 +7,7 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": true,
- "checklist": "F7 read-only / locked card \u2192 reads fine, never tries to write (card refused as destination)",
+ "checklist": "F7 read-only / locked card (v5): the card reads fine; Save on a card is replaced by 'copy to disk first' with the page's notice, ⌘↩ writes nothing to the card (no .xmp, no temp files).",
  "steps": [
   {
    "do": "startCards"
@@ -50,50 +50,45 @@
   },
   {
    "do": "key",
-   "k": "1",
-   "settleMs": 300
+   "k": "p",
+   "settleMs": 200
   },
   {
-   "do": "key",
-   "k": "ArrowRight",
-   "settleMs": 100
-  },
-  {
-   "do": "key",
-   "k": "ArrowRight",
-   "settleMs": 100
-  },
-  {
-   "do": "key",
-   "k": "r",
-   "settleMs": 100
+   "do": "expect",
+   "js": "return __probe.logic().kept().length",
+   "equals": 1
   },
   {
    "do": "key",
    "k": "3",
-   "settleMs": 400
+   "cmd": true,
+   "settleMs": 1000
   },
   {
-   "do": "destinations",
-   "paths": [
-    "${DISKS}/LTLOCKED/DCIM",
-    "${OUT}/xmp"
-   ]
+   "do": "expect",
+   "js": "return document.body.innerText.includes(\"Sidecars can't be written to a card\")",
+   "why": "on a card the page offers 'copy to disk first' instead of Save"
   },
   {
    "do": "key",
    "k": "Enter",
-   "settleMs": 2500
-  },
-  {
-   "do": "refusals",
-   "count": 1
+   "cmd": true,
+   "settleMs": 1500
   },
   {
    "do": "fs",
-   "path": "${OUT}/xmp",
+   "path": "${DISKS}/LTLOCKED/DCIM",
    "glob": "*.xmp",
-   "count": 1
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTLOCKED/DCIM",
+   "glob": "*.lumina-tmp*",
+   "count": 0
+  },
+  {
+   "do": "invariants"
   }
  ]
 }
