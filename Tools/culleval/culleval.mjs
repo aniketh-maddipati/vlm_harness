@@ -4,7 +4,7 @@
 // design's own lumina-core, loaded unchanged. See README.md.
 //
 //   node Tools/culleval/culleval.mjs [--config ~/LuminaEvidence/culleval/shoots.json] [--out ~/LuminaEvidence/culleval]
-//                                    [--repeat-gap 2] [--scene-gap 10] [--jobs 4] [--exiftool /usr/local/bin/exiftool]
+//                                    [--repeat-gap 2] [--scene-gap 10] [--jobs 4] [--exiftool /usr/local/bin/exiftool] [--allow-missing]
 //
 // Everything it reads about photos and everything it writes stays under --out (never in the repo).
 import fs from 'node:fs';
@@ -156,6 +156,17 @@ async function shoot(sh) {
 }
 
 // ——— all shoots, pooled numbers, the report
+// Everything the config names must be there. A drive that is not mounted would otherwise give a
+// report over fewer shoots that looks complete. --allow-missing scores what is there and says what is not.
+const missing = config.shoots.flatMap(sh => [sh.raws, ...(sh.exports || []), ...(sh.session ? [sh.session] : [])].map(home).filter(d => !fs.existsSync(d)).map(d => ({ id: sh.id, path: d })));
+if (missing.length) {
+  const vols = [...new Set(missing.map(m => /^\/Volumes\/[^/]+/.exec(m.path)?.[0]).filter(v => v && !fs.existsSync(v)))];
+  log('culleval: ' + missing.length + ' path' + (missing.length > 1 ? 's' : '') + ' named in ' + CONFIG + ' not found:');
+  for (const m of missing) log('  ' + m.id + ': ' + m.path);
+  if (vols.length) log('not mounted: ' + vols.join(', ') + ' — mount ' + (vols.length > 1 ? 'them' : 'it') + ' and run again.');
+  if (!process.argv.includes('--allow-missing')) { log('Nothing was scored. To score only the shoots that are there: --allow-missing (make culleval ALLOW_MISSING=1).'); process.exit(3); }
+  log('--allow-missing: scoring the rest; the report lists what was left out.');
+}
 const shoots = []; for (const sh of config.shoots) { const r = await shoot(sh); shoots.push(r); if (r.skipped) log('skipped ' + sh.id + ': ' + r.skipped); }
 const done = shoots.filter(s => !s.skipped), withKeeps = done.filter(s => s.picks), full = withKeeps.filter(s => s.complete);
 const sumBest = (list, k) => { const s = { oneKeeper: 0, agree: 0, chanceSum: 0, groups: 0 }; for (const x of list) { const b = x.bestOf[k]; s.groups += b.groups; s.oneKeeper += b.oneKeeper; s.agree += b.agree; s.chanceSum += (b.chance || 0) * b.oneKeeper; } return { groups: s.groups, oneKeeper: s.oneKeeper, agree: s.agree, agreement: s.oneKeeper ? s.agree / s.oneKeeper : null, chance: s.oneKeeper ? s.chanceSum / s.oneKeeper : null }; };

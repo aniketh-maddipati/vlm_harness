@@ -51,8 +51,12 @@ rows (nobody has marked scenes), so rows are only checked for cutting through a 
 - `sidecars`: kept = `.xmp` next to the RAW with `xmp:Rating` ≥ 1 (what Lumina's Save writes).
 - `session`: a saved Lumina `session.json`; kept = its keeps, counted only in rows marked seen.
 
-A shoot whose exports folder or session file is not there is scored for grouping only and says so
-in the truth table; a missing folder is never read as "nothing kept".
+If a folder the config names is not there (a drive that is not mounted, an exports folder that
+moved), the run stops with exit code 3 and lists the paths: nothing is scored, so a short report can't
+pass for a full one. `make culleval ALLOW_MISSING=1` scores what is there; a shoot without its RAW
+folder is listed as skipped, one without its exports or session is scored for grouping only, and a
+missing folder is never read as "nothing kept". The reader skips dot files, so the `._*` AppleDouble
+stubs macOS writes on exFAT drives are not counted.
 
 `complete: false` marks a shoot whose frames or keeps are known to be partial; the headline pools
 the complete ones and shows the rest beside them. `dates` / `datesExclude` pick days out of a

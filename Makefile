@@ -77,7 +77,7 @@ parity-loop: render
 .PHONY: culleval culleval-test
 
 culleval:
-	node Tools/culleval/culleval.mjs $(if $(CONFIG),--config $(CONFIG))
+	node Tools/culleval/culleval.mjs $(if $(CONFIG),--config $(CONFIG)) $(if $(ALLOW_MISSING),--allow-missing)
 
 culleval-test:
 	node --test Tools/culleval/tests/culleval.test.mjs
