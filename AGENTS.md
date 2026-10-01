@@ -87,19 +87,19 @@ bash Scripts/probe.sh reference     # every screen, prototype and app, byte-comp
 bash Scripts/probe.sh screens       # every screen rendered once, the app twins equal to the prototype (what CI runs)
 bash Scripts/probe.sh scenarios fuzz-sample-2 scroll-read   # just these scenarios
 bash Scripts/probe.sh contract      # plumbing.js still fits the page
-bash Scripts/probe.sh smoke         # page runs, ?selftest passes, app reads / keeps / saves sidecars / reopens
+bash Scripts/probe.sh smoke         # page runs, ?selftest passes, app reads / keeps / saves sidecars / reopens, the empty app
 bash Scripts/probe.sh selftest      # the design's own ?selftest (25 checks + timing)
-bash Scripts/probe.sh fuzz          # seeded key + mouse storms
+bash Scripts/probe.sh fuzz          # seeded key + mouse storms (with LUMINA_FIXTURE_ROOT: also over a card image pulled at random)
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh scroll  # fast Cull scrolling: frames, blank tiles, thumbnail upscale, memory
-LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # contract + app-smoke (sidecars, .lumina-bak, sessions)
-LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh fault   # native writes: kill -9 mid-write, disk full mid-copy
+LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # contract + the app on folders: sidecars, .lumina-bak, Lightroom's sidecars merged, sessions across a relaunch, keepers renamed mid-cull, the empty app
+LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh fault   # disk images: kill -9 mid-write, disk full mid-copy and for a sidecar, read-only card, card pulled mid-read and on Save, .xmp + .XMP on a case-sensitive disk
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh edge    # camera-data cases (design gaps show as FAIL)
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh ingest  # the same cases through the native reader
 LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh card         # golden card + page vs native read
+LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh stress       # a whole card: scroll frame budget, 3,000-input storm, memory; page read, then native read
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh edit           # Edit canvas: 2 s drags, latency p95 ≤ 16 ms (LUMINA_EDIT_P95), 0 dropped, rest ≤ 120 ms, ≤ 3 photos / 300 MB, canvas vs export ΔE; then the image path
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh raw9           # RAW 9: decoder map, first tile / full region, export time + memory per version, forced fallback, tiles vs export ΔE
 LUMINA_REMOTE=user@m1.local bash Scripts/probe_remote.sh edit               # the same on the M1 8 GB over ssh (p95 ≤ 33 ms), evidence pulled back
-bash Scripts/probe.sh v3            # scenarios still written for the v3 page: expected to fail until rewritten
 ```
 
 Day-to-day app: `bash Scripts/install_app.sh` builds this checkout (Release) into `/Applications/Lumina.app`,
@@ -119,6 +119,8 @@ probe in four parallel macOS shards (smoke + screens, fuzz, fuzz + scroll, scrol
 - **The native read repeats the page's `onDir` and `readOne`.** `probe.sh contract` fails (`__lumina.drift()`) when a sync changes either: review the read in `plumbing.js`, then update `ONDIR` (`node Tests/web/plumbing-harness.mjs --hash` prints it). Parity with the page's own read is checked with `card-clock.json` in both modes.
 - **Pixel parity is 0 px.** App-mode screens (`screens-*-app`, plumbing's test-only parity mode: the design's sample shoot and card) must match the prototype reference byte for byte. Both twins run with `"storageWrites": false`, because the page's "saved" label is browser-only. CSS tricks that change anti-aliasing are out; content-visibility was tried and rejected.
 - **The probe never touches a real card.** Fault tests use disk images, and the probe's card watcher only accepts its own images.
+- **A disk image is a card to the app** (`volumeIsRemovable`), with or without DCIM: Save on one is refused "on the card". A scenario that needs the write itself on an image (case-sensitive, full) uses the probe's `nativeSidecar` step with `"guard": false`.
+- **The probe refuses the page's `dragstart`.** A synthetic drag over a tile would start a real system drag: a drag image on the user's screen and a session that follows the real pointer.
 - **ExFAT volume labels are at most 11 characters.** `hdiutil` reports a longer one as "Operation not permitted".
 - **Probe runs need an awake display.** The probe holds the display awake itself. If runs stall for minutes, macOS is throttling the page process.
 - **Personal data stays out of the repo:** golden data, fixtures and evidence live in `~/LuminaEvidence`.
@@ -150,6 +152,11 @@ set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5
 - **rawDevelop undoes lens shading with the camera's own numbers** (`LookLensShading`: Sony's
   `VignettingCorrParams`, applied in the decoder's linear space; coefficient `lensShading`).
   Lightroom's lens profile does the same from Adobe's tables; Core Image's decoder leaves it in.
+- **rawDevelop ends with the base match** (`LookMath.baseMatch`, kernel `lookBase`): a two-number
+  midtone curve on luma and a colour mix whose rows sum to 1 (a grey stays grey), fitted on base
+  exports so the untouched render is Lightroom's Adobe Color. Every slider stage sits on this base:
+  when it changes, refit the stages, and adopt a stage's refit only if the held-out set agrees
+  (a fit that helps the sweep and hurts the held-out set overfitted; that has happened twice).
 - **Exposure is a scene gain seen through a sigmoid tone curve** (`LookMath.exposure`: per channel
   G·y / (1 + (G − 1)·y/white), G = 2^(ev · stopsPerUnit)), the form Lightroom's sweep shows:
   shadows and midtones move ~1.6 stops per unit, highlights roll off and lose saturation.

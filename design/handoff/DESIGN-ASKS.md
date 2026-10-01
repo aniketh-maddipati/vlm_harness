@@ -284,6 +284,19 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 > `luminaFacts.raw9` is true hide Colour NR, Detail and Moiré (RAW 9 ignores them); show them when
 > it is false.
 
+> **9. Save stays off for anything `lumina.readingCard` covers.** `onCard()` is
+> `lumina.card && lumina.readingCard`, so the "copy to disk first" state needs a card in the panel.
+> Two cases fall through, and in both the Save step shows the normal "Save N keepers" button, ⌘⏎
+> runs, and the result reads "0 saved · N failed" with every keeper listed as "on the card":
+> (a) the shoot is on a removable volume that is not a camera card (a USB stick or SD card without a
+> DCIM folder): `lumina.readingCard` is true, `lumina.card` is null;
+> (b) the card was pulled after its shoot was read: `luminaCardGone(true)` has been called,
+> `lumina.card` is null, `lumina.readingCard` is still true.
+> Please make `onCard()` true whenever `lumina.readingCard` is true (SAFETY.md 4: "Save stays disabled
+> with the copy-first message" for any mounted removable volume). For (b), while `gone` is set, say
+> that the card is out instead (the Cull notice's wording is fine). Nothing is written in either case
+> today; this is only about what Save offers.
+
 ## Prompt 2 — culling logic, from the culling eval (paste into Claude Design)
 
 Found by `Tools/culleval` (2026-09-30) on 4,938 real α7 III frames: 80 camera bursts (341 frames
@@ -353,7 +366,10 @@ Numbers: `make culleval`.
 ## How each ask is checked once the new handoff lands
 
 - 1: `Tests/web/plumbing-harness.mjs` and `probe.sh smoke` (`app-smoke`: the Save screen shows the row before any save). Remove the `wf` block in `plumbing.js`'s view loop.
-- 2: `probe.sh edge` with a case-sensitive fixture (the v3 `app-xmp-both` scenario, rewritten for v5).
+- 2: `probe.sh fault` (`app-xmp-both`, app mode: the lower-case `.xmp` is read on three opens in a row). For the page's own read,
+  run it with `"mode"` removed: today it can pick either file.
+- 9: `app-xmp-both` and `fault-card-pull-cull` (`probe.sh fault`): both assert today's "0 saved · 1 failed · … on the card" after ⌘⏎;
+  once the page keeps Save off, they assert the "copy to disk first" notice instead and that ⌘⏎ makes no save call.
 - 3: `__lumina.unsaved()` in `plumbing.js` becomes a call to `window.luminaUnsaved`; the contract scenario checks it exists.
 - 4, 5: by eye.
 - 6: a probe Tab walk scenario.

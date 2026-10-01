@@ -94,6 +94,32 @@ final class LookMathTests: XCTestCase {
         }
     }
 
+    /// rawDevelop's base match: nothing at all with zero coefficients; otherwise a grey stays the
+    /// same grey the curve gives it (rows of the mix sum to 1), the curve is the identity at 0 and
+    /// from 1 up, and it never folds back.
+    func testBaseMatchKeepsGreysNeutralAndIsMonotonic() {
+        let c = LookMath.RGB(r: 0.6, g: 0.35, b: 0.25)
+        XCTAssertTrue(LookMath.BaseMatch().isIdentity)
+        XCTAssertEqual(LookMath.baseMatch(c, LookMath.BaseMatch(), rules), c)
+        for m in [{ var m = LookMath.BaseMatch(); m.lift = 0.033; m.s = 0.30; m.rg = 0.135; m.rb = -0.003; m.gb = 0.135; m.br = 0.0025; m.bg = 0.012; return m }(),
+                  LookMath.BaseMatch(rules)] {
+            for row in m.rows { XCTAssertEqual(row.reduce(0, +), 1, accuracy: 1e-12) }
+            XCTAssertEqual(LookMath.baseCurve(0, m, rules), 0, accuracy: 1e-12)
+            for y in [1.0, 1.3, 4.0] { XCTAssertEqual(LookMath.baseCurve(y, m, rules), y, accuracy: 1e-9, "identity in the headroom") }
+            var last = -1.0
+            for i in 0...240 {
+                let v = Double(i) / 200
+                let out = LookMath.baseMatch(.gray(v), m, rules)
+                XCTAssertTrue(out.isNeutral, "grey \(v) → \(out)")
+                XCTAssertEqual(out.g, LookMath.baseCurve(v, m, rules), accuracy: 1e-9)
+                XCTAssertGreaterThan(out.g, last, "monotonic at \(v)")
+                last = out.g
+            }
+            guard !m.isIdentity else { continue }
+            XCTAssertNotEqual(LookMath.baseMatch(c, m, rules), c)
+        }
+    }
+
     /// Exposure is a scene gain seen through a sigmoid tone curve (the form Lightroom's sweep
     /// shows): deep shadows move by the full gain, highlights roll off toward `white`, the stage
     /// composes (+1 then −1 is nothing) and stays monotonic above `white` and below 0.

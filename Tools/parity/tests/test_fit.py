@@ -36,6 +36,13 @@ class ObjectiveTests(unittest.TestCase):
         self.assertEqual(len(out), 3)
         self.assertGreater(out[0], 1e5)
 
+    def test_a_start_outside_the_bounds_is_named(self):
+        names = ["midpoint", "slopePerUnit", "lumaMix"]
+        self.assertEqual(fit.out_of_bounds(names, [0.46, 0.006, 0.5]), [])
+        bad = fit.out_of_bounds(names, [0.99, 0.006, -0.1])
+        self.assertEqual([b[0] for b in bad], ["midpoint", "lumaMix"])
+        self.assertGreaterEqual(fit.objective([0.99, 0.006, 0.5], names, "contrast", self.rules, self.pairs, 4.0)[0], fit.PENALTY)
+
 
 if __name__ == "__main__":
     unittest.main()

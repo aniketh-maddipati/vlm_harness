@@ -140,7 +140,21 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         }
         guard let out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite else { throw Failure("couldn't decode \(url.lastPathComponent)") }
         let asShot = Look.WhiteBalance(kelvin: Double(raw.neutralTemperature), tint: Double(raw.neutralTint))
-        return Developed(image: Self.atOrigin(out), asShot: asShot)
+        return Developed(image: try baseMatched(Self.atOrigin(out), rules: rules), asShot: asShot)
+    }
+
+    /// The decoder's rendering brought to Lightroom's default (`LookMath.baseMatch`), as the last
+    /// step of rawDevelop: every base, tile and export starts from the same matched picture.
+    static func baseMatched(_ img: CIImage, rules: LookRules) throws -> CIImage {
+        let m = LookMath.BaseMatch(rules)
+        guard !m.isIdentity else { return img }
+        let w = m.rows, lum = rules.luma
+        let args: [Any] = [img, CIVector(x: w[0][0], y: w[0][1], z: w[0][2], w: 0), CIVector(x: w[1][0], y: w[1][1], z: w[1][2], w: 0),
+                           CIVector(x: w[2][0], y: w[2][1], z: w[2][2], w: 0),
+                           CIVector(x: m.lift, y: m.s, z: 1 / rules.perceptualGamma, w: rules.perceptualGamma),
+                           CIVector(x: lum[0], y: lum[1], z: lum[2], w: 0)]
+        guard let out = try LookKernels.shared().apply("lookBase", extent: img.extent, args) else { throw Failure("base match failed") }
+        return out
     }
 
     /// The radial gain of `LookLensShading` as an image over `extent` (the centre of the frame is
