@@ -8,13 +8,13 @@
   "stages": {
     "rawDevelop": {
       "locked": false,
-      "form": "CIRAWFilter, Apple's default profile, no auto; scaleFactor for size; draft mode below draftBelowPx; lensShading (0 … 1) undoes the lens's corner falloff in linear space with the camera's own VignettingCorrParams (LookLensShading)",
-      "coefficients": { "boostAmount": 1.0, "draftBelowPx": 0, "lensShading": 1.0 }
+      "form": "CIRAWFilter, Apple's default profile, no auto; scaleFactor for size; draft mode below draftBelowPx; lensShading (0 … 1) undoes the lens's corner falloff in linear space with the camera's own VignettingCorrParams (LookLensShading); then the base match to Lightroom's Adobe Color (LookMath.baseMatch): a luma midtone curve p + baseLift*p*(1-p) + baseS*p*(1-p)*(p-0.5) in perceptual space, and a colour mix with off-diagonals baseRG … baseBG whose rows sum to 1",
+      "coefficients": { "boostAmount": 1.0, "draftBelowPx": 0, "lensShading": 1.0, "baseRG": 0.13533, "baseRB": -0.00287, "baseGR": -0.00067, "baseGB": 0.13514, "baseBR": 0.0025, "baseBG": 0.01245, "baseLift": 0.03303, "baseS": 0.30271 }
     },
     "exposure": {
       "locked": false,
       "form": "a scene gain through a sigmoid tone curve, per channel: G·y / (1 + (G − 1)·y/white) with G = 2^(ev * stopsPerUnit); tangent continuation above white and below 0",
-      "coefficients": { "stopsPerUnit": 1.6032, "white": 1.1018 }
+      "coefficients": { "stopsPerUnit": 1.622202, "white": 1.095133 }
     },
     "whiteBalance": {
       "locked": false,
@@ -24,12 +24,12 @@
     "whitesBlacks": {
       "locked": false,
       "form": "per channel in perceptual p = x^(1/gamma): p -= (-blacks*blacksPerUnit) * (1-p)^blacksPower; p += whites*whitesPerUnit * p^whitesPower",
-      "coefficients": { "blacksPerUnit": 0.002, "blacksPower": 2.0, "whitesPerUnit": 0.003, "whitesPower": 2.0 }
+      "coefficients": { "blacksPerUnit": 0.000957, "blacksPower": 1.000079, "whitesPerUnit": 0.001885, "whitesPower": 1.000055 }
     },
     "tone": {
       "locked": false,
       "form": "base = gaussian blur of luma (radiusFraction of the long edge), bp = perceptual(base); gain = 2^(shadows*shadowsStopsPerUnit*(1-smoothstep(shadowsLo,shadowsHi,bp))) * 2^(highlights*highlightsStopsPerUnit*smoothstep(highlightsLo,highlightsHi,bp)); out = pixel * gain * (luma/base)^(detailGain-1)",
-      "coefficients": { "radiusFraction": 0.03, "shadowsStopsPerUnit": 0.01, "shadowsLo": 0.0, "shadowsHi": 0.6, "highlightsStopsPerUnit": 0.01, "highlightsLo": 0.4, "highlightsHi": 1.0, "detailGain": 1.0 }
+      "coefficients": { "radiusFraction": 0.01983, "shadowsStopsPerUnit": 0.010856, "shadowsLo": 0.0, "shadowsHi": 0.896632, "highlightsStopsPerUnit": 0.005394, "highlightsLo": 0.226437, "highlightsHi": 1.0, "detailGain": 0.952408 }
     },
     "contrast": {
       "locked": false,
@@ -39,7 +39,7 @@
     "colour": {
       "locked": false,
       "form": "Oklab chroma: C *= max(0, 1+saturation*saturationPerUnit) * (1 + vibrance*vibrancePerUnit*(1-min(1,C/vibranceChromaMax))*(1-skinProtect*skin(h))) ; skin(h) = exp(-((h-skinHue)/skinWidth)^2), only for vibrance > 0; bw sets C = 0",
-      "coefficients": { "saturationPerUnit": 0.01, "vibrancePerUnit": 0.01, "vibranceChromaMax": 0.25, "skinHue": 50.0, "skinWidth": 25.0, "skinProtect": 0.7 }
+      "coefficients": { "saturationPerUnit": 0.010109, "vibrancePerUnit": 0.013065, "vibranceChromaMax": 0.392404, "skinHue": 33.187112, "skinWidth": 89.999063, "skinProtect": 0.999491 }
     },
     "clarity": {
       "locked": false,

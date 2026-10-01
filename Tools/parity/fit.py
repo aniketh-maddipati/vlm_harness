@@ -41,9 +41,12 @@ FREE = {
     "sharpen": ["amountPerUnit", "threshold", "radiusPx"],
     "vignette": ["stopsPerUnit", "midpoint", "feather"],
 }
+# The bounds hold the invariants the ramp tests enforce, so the fit can't propose what they would
+# reject: a whites / blacks exponent below 1 folds the curve back at the end it bends (not
+# monotonic), and highlightsLo below 0.2 lets Highlights reach the deep shadows.
 BOUNDS = {"midpoint": (0.05, 0.95), "lumaMix": (0.0, 1.0), "skinProtect": (0.0, 1.0), "feather": (0.05, 1.5), "radiusFraction": (0.002, 0.2),
-          "shadowsHi": (0.2, 1.0), "highlightsLo": (0.0, 0.8), "detailGain": (0.5, 2.0), "threshold": (0.0005, 0.1), "radiusPx": (0.3, 4.0),
-          "blacksPower": (0.5, 6.0), "whitesPower": (0.5, 6.0), "midtonePower": (0.5, 6.0), "skinWidth": (5.0, 90.0)}
+          "shadowsHi": (0.2, 1.0), "highlightsLo": (0.2, 0.8), "detailGain": (0.5, 2.0), "threshold": (0.0005, 0.1), "radiusPx": (0.3, 4.0),
+          "blacksPower": (1.0, 6.0), "whitesPower": (1.0, 6.0), "midtonePower": (0.5, 6.0), "skinWidth": (5.0, 90.0)}
 
 
 def load_pair(ref_path, render_path, px):
@@ -79,7 +82,8 @@ def objective(values, names, stage, rules, pairs, crit_p95):
     for n, v in zip(names, values):
         lo, hi = BOUNDS.get(n, (-np.inf, np.inf))
         if not (lo <= v <= hi):
-            return 1e6 + abs(v) * 1e3
+            # Out of bounds: a large objective, in the same (objective, median, p95) shape.
+            return 1e6 + abs(v) * 1e3, float("inf"), float("inf")
         r["stages"][stage]["coefficients"][n] = float(v)
     r["order"] = ["rawDevelop", stage, "outputTransform"]
     des = []
