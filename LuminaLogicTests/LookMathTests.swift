@@ -157,10 +157,34 @@ final class LookMathTests: XCTestCase {
         XCTAssertGreaterThan(warm.r / warm.b, 1); XCTAssertLessThan(cool.r / cool.b, 1)
         let magenta = run(Look.single("Tint", 50, asShot: asShot)!, 0.5), green = run(Look.single("Tint", -50, asShot: asShot)!, 0.5)
         XCTAssertLessThan(magenta.g, magenta.r); XCTAssertGreaterThan(green.g, green.r)
-        // As shot is identity, and the luma of a grey is kept.
+        // As shot is identity, and the luma of a grey barely moves (the gains are divided by their
+        // luma; the roll-off toward white leaves a few percent).
         let same = run(Look.single("Temperature", asShot.kelvin, asShot: asShot)!, 0.5)
         XCTAssertEqual(same.r, 0.5, accuracy: 1e-9); XCTAssertEqual(same.b, 0.5, accuracy: 1e-9)
-        XCTAssertEqual(luma(warm), 0.5, accuracy: 1e-9)
+        XCTAssertEqual(luma(warm), 0.5, accuracy: 0.05)
+    }
+
+    func testWhiteBalanceIsASceneGainThroughTheToneCurve() {
+        // Lightroom balances the scene before its tone curve: the shift is full in the shadows,
+        // fades toward white, and white stays white.
+        let w = LookMath.whiteBalanceWhite(rules)
+        for look in [Look.single("Temperature", 3200, asShot: asShot)!, Look.single("Temperature", 10000, asShot: asShot)!,
+                     Look.single("Tint", 60, asShot: asShot)!, Look.single("Tint", -60, asShot: asShot)!] {
+            let g = LookMath.whiteBalanceGains(look.wb, asShot: asShot, rules)
+            let white = run(look, w)
+            XCTAssertEqual(white.r, w, accuracy: 1e-9); XCTAssertEqual(white.g, w, accuracy: 1e-9); XCTAssertEqual(white.b, w, accuracy: 1e-9)
+            func shift(_ x: Double) -> Double { let c = run(look, x); return abs(log2(c.r / c.g)) + abs(log2(c.b / c.g)) }
+            let full = abs(log2(g.r / g.g)) + abs(log2(g.b / g.g))
+            XCTAssertEqual(shift(0.001), full, accuracy: full * 0.01)
+            XCTAssertGreaterThan(shift(0.05), shift(0.3)); XCTAssertGreaterThan(shift(0.3), shift(0.8))
+            // Every channel stays monotonic on a grey ramp, through white and into the headroom.
+            var last = run(look, -0.05)
+            for i in 0...240 {
+                let c = run(look, -0.04 + Double(i) * 0.005)
+                XCTAssertGreaterThan(c.r, last.r); XCTAssertGreaterThan(c.g, last.g); XCTAssertGreaterThan(c.b, last.b)
+                last = c
+            }
+        }
     }
 
     func testToneShapedSlidersPushTheRightWay() {

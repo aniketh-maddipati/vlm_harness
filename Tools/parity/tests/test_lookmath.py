@@ -69,7 +69,21 @@ class LookMathMirrorTests(unittest.TestCase):
         self.assertLess(g(lm.single("Blacks", -80), 0.02), 0.02)
         warm = lm.flat(np.array([0.5, 0.5, 0.5]), lm.single("Temperature", 8000, AS_SHOT), AS_SHOT, r)
         self.assertGreater(warm[0] / warm[2], 1)
-        self.assertAlmostEqual(float(lm.luma(warm, r)), 0.5)
+        self.assertAlmostEqual(float(lm.luma(warm, r)), 0.5, delta=0.05)   # gains / their luma, then the roll-off
+        # White balance is a scene gain through the tone curve: full in the shadows, fading toward
+        # white, which stays white; every channel monotonic on a grey ramp.
+        w = max(0.05, lm.k(r, "whiteBalance", "white", lm.k(r, "exposure", "white", 1.0)))
+        for look in (lm.single("Temperature", 3200, AS_SHOT), lm.single("Temperature", 10000, AS_SHOT), lm.single("Tint", 60, AS_SHOT)):
+            gains = lm.white_balance_gains(look["wb"], AS_SHOT, r)
+            np.testing.assert_allclose(lm.flat(np.array([w, w, w]), look, AS_SHOT, r), [w, w, w])
+            np.testing.assert_allclose(lm.flat(np.array([1e-5] * 3), look, AS_SHOT, r) / 1e-5, gains, rtol=1e-3)
+            shift = [float(np.abs(np.log2(c[0] / c[1])) + np.abs(np.log2(c[2] / c[1])))
+                     for c in (lm.flat(np.array([x] * 3), look, AS_SHOT, r) for x in (0.05, 0.3, 0.8))]
+            self.assertGreater(shift[0], shift[1])
+            self.assertGreater(shift[1], shift[2])
+            ramp = np.linspace(-0.05, 1.3, 300)
+            out = lm.flat(np.stack([ramp] * 3, axis=-1), look, AS_SHOT, r)
+            self.assertTrue(np.all(np.diff(out, axis=0) > 0))
         mag = lm.flat(np.array([0.5, 0.5, 0.5]), lm.single("Tint", 50, AS_SHOT), AS_SHOT, r)
         self.assertLess(mag[1], mag[0])
 

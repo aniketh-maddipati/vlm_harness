@@ -60,7 +60,12 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(lk_exposure(s.r, k.x, k.y), lk_exposure(s.g, k.x, k.y), lk_exposure(s.b, k.x, k.y), s.a);
     }
 
-    // whiteBalance + whitesBlacks. wb = per-channel gains;
+    // whiteBalance: per-channel scene gains through the sigmoid (LookMath.whiteBalance). g = gains, w = white
+    [[ stitchable ]] float4 lookWhiteBalance(coreimage::sample_t s, float4 g, float w) {
+        return float4(lk_exposure(s.r, g.r, w), lk_exposure(s.g, g.g, w), lk_exposure(s.b, g.b, w), s.a);
+    }
+
+    // whitesBlacks (wb = per-channel multipliers, ones in the graph);
     // wbk = (whitesAmt, blacksAmt, whitesPower, blacksPower); gam = (invGamma, gamma)
     [[ stitchable ]] float4 lookPre(coreimage::sample_t s, float4 wb, float4 wbk, float2 gam) {
         float3 c = s.rgb * wb.rgb;
@@ -172,7 +177,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     struct CompileError: Error, CustomStringConvertible { let description: String }
 
     /// The stage kernels, compiled when the pipeline is made.
-    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette"]
+    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette"]
 
     private let header: String
     private let blocks: [String: String]             // function name → its source block
