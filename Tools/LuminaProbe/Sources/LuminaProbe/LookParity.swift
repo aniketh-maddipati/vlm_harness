@@ -1,64 +1,10 @@
 import AppKit
 import CoreImage
 
-/// ANSWERS-phase0 §3 fixture: the same edit rendered by WebKit (CSS filter from
-/// LuminaCore.editFilter) and by SetsEditLook (Core Image) must agree within ΔE < 1.
+/// CIEDE2000 between two renders (the Edit canvas against its export, RAW 9 tiles against the
+/// export: EditSteps). v3's CSS-look fixture that lived here went with the v3 page.
 @MainActor
 enum LookParity {
-    struct Row: Encodable { let recipe: String; let css: String; let space: String; let meanDE: Double; let p95DE: Double; let maxDE: Double }
-
-    static func run(host: ProbeHost, image: URL, recipes: [[String: Double]], width: Int, outDir: URL) async throws -> [Row] {
-        // Source scaled once, losslessly, to exactly width × h so neither side resamples.
-        guard let src = CIImage(contentsOf: image) else { throw ProbeError("can't read \(image.path)") }
-        let s = Double(width) / src.extent.width
-        let scaled = src.transformed(by: CGAffineTransform(scaleX: s, y: s))
-        let w = width, h = Int((src.extent.height * s).rounded(.down))
-        let rect = CGRect(x: 0, y: 0, width: w, height: h)
-        let ctx = CIContext()
-        let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
-        guard let png = ctx.pngRepresentation(of: scaled.cropped(to: rect), format: .RGBA8, colorSpace: srgb) else { throw ProbeError("png") }
-        guard let base = ctx.createCGImage(CIImage(data: png)!, from: rect, format: .RGBA8, colorSpace: srgb) else { throw ProbeError("base") }
-        try Pixels.writePNG(base, to: outDir.appendingPathComponent("look-base.png"))
-        let dpr = (try await host.js("return window.devicePixelRatio") as? Double) ?? 2
-        var rows: [Row] = []
-        for (i, r) in recipes.enumerated() {
-            let rj = String(data: try JSONSerialization.data(withJSONObject: r, options: .sortedKeys), encoding: .utf8)!
-            guard let css = try await host.js("return LuminaCore.editFilter(\(rj))") as? String else { throw ProbeError("editFilter") }
-            // WebKit side: a fixed overlay, 1 image px = 1 device px.
-            try await host.js("""
-              let el=document.getElementById('__look'); if(!el){ el=document.createElement('img'); el.id='__look'; document.body.appendChild(el); }
-              el.style.cssText='position:fixed;left:0;top:0;z-index:2147483647;image-rendering:pixelated;width:\(Double(w) / dpr)px;height:\(Double(h) / dpr)px;filter:\(css)';
-              el.src='data:image/png;base64,\(png.base64EncodedString())';
-              await el.decode(); await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-            """, timeout: 20)
-            let shot = try await host.snapshot(scale: dpr)
-            guard let web = shot.cropping(to: CGRect(x: 0, y: 0, width: w, height: h)) else { throw ProbeError("crop") }
-            try Pixels.writePNG(web, to: outDir.appendingPathComponent("look-\(i)-webkit.png"))
-            for space in [SetsEditLook.Space.sRGB, .linear] {
-                let out = SetsEditLook.apply(try SetsEditLook.parse(css), to: CIImage(cgImage: base), space: space)
-                guard let native = ctx.createCGImage(out, from: rect, format: .RGBA8, colorSpace: srgb) else { throw ProbeError("render") }
-                if space == .sRGB { try Pixels.writePNG(native, to: outDir.appendingPathComponent("look-\(i)-native.png")) }
-                let de = deltaE(web, native)
-                rows.append(Row(recipe: rj, css: css, space: space == .sRGB ? "sRGB" : "linear", meanDE: de.mean, p95DE: de.p95, maxDE: de.max))
-            }
-        }
-        // Noise floor: the same image with no filter through both paths.
-        try await host.js("const el=document.getElementById('__look'); el.style.filter='none'; await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));")
-        let shot = try await host.snapshot(scale: dpr)
-        if let web = shot.cropping(to: rect) {
-            let de = deltaE(web, base)
-            rows.append(Row(recipe: "none", css: "none", space: "floor", meanDE: de.mean, p95DE: de.p95, maxDE: de.max))
-        }
-        try await host.js("document.getElementById('__look')?.remove()")
-        return rows
-    }
-
-    /// CIEDE2000 over all pixels.
-    static func deltaE(_ a: CGImage, _ b: CGImage) -> (mean: Double, p95: Double, max: Double) {
-        let s = stats(a, b)
-        return (s.mean, s.p95, s.max)
-    }
-
     struct DE: Encodable { let mean: Double; let median: Double; let p95: Double; let max: Double; let pixels: Int }
 
     /// CIEDE2000 over the common area of two sRGB images (a pixel of size difference from

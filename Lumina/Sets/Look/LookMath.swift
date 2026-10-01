@@ -102,19 +102,17 @@ nonisolated enum LookMath {
 
     // MARK: whiteBalance
 
-    /// Per-channel scene gains taking the as-shot balance to `target`. Identity when `target` is
+    /// Per-channel multipliers taking the as-shot balance to `target`. Identity when `target` is
     /// nil. Higher Kelvin in the look = the scene was bluer = warm the render (Lightroom's sign).
-    /// Lightroom balances the scene before its tone curve, so the shift it leaves in the picture
-    /// is full in the shadows and fades toward white, which stays white (measured on the CC sweep:
-    /// the red/blue shift per mired at L* > 75 is about 0.6 of the shadows'). Each channel
-    /// therefore goes through `exposure`'s sigmoid with its own gain and `whiteBalanceWhite`.
     static func whiteBalanceGains(_ target: Look.WhiteBalance?, asShot: Look.WhiteBalance, _ rules: LookRules) -> RGB {
         guard let target else { return .gray(1) }
         let dM = 1e6 / max(1000, asShot.kelvin) - 1e6 / max(1000, target.kelvin)     // mired, + = warmer
         let dT = target.tint - asShot.tint
-        var g = RGB(r: exp2(dM * rules.k("whiteBalance", "redPerMired", 0.0025)),
+        // Temperature moves red and blue against each other and leaves green (as Lightroom does);
+        // tint moves green one way and red and blue the other, each by its own amount.
+        var g = RGB(r: exp2(dM * rules.k("whiteBalance", "redPerMired", 0.0025) + dT * rules.k("whiteBalance", "redPerTint", 0)),
                     g: exp2(-dT * rules.k("whiteBalance", "greenPerTint", 0.004)),
-                    b: exp2(-dM * rules.k("whiteBalance", "bluePerMired", 0.0025)))
+                    b: exp2(-dM * rules.k("whiteBalance", "bluePerMired", 0.0025) + dT * rules.k("whiteBalance", "bluePerTint", 0)))
         if rules.k("whiteBalance", "preserveLuma", 1) >= 0.5 {
             let y = luma(g, rules)
             g = RGB(r: g.r / y, g: g.g / y, b: g.b / y)
@@ -122,12 +120,7 @@ nonisolated enum LookMath {
         return g
     }
 
-    static func whiteBalanceWhite(_ rules: LookRules) -> Double { max(0.05, rules.k("whiteBalance", "white", exposureWhite(rules))) }
-
-    /// One colour through the white balance stage.
-    static func whiteBalance(_ c: RGB, gains g: RGB, white w: Double) -> RGB {
-        RGB(r: exposure(c.r, gain: g.r, white: w), g: exposure(c.g, gain: g.g, white: w), b: exposure(c.b, gain: g.b, white: w))
-    }
+    static func whiteBalanceWhite(_ rules: LookRules) -> Double { max(0.05, rules.k("whiteBalance", "white", 1)) }
 
     // MARK: whitesBlacks (perceptual, per channel)
 
@@ -274,7 +267,10 @@ nonisolated enum LookMath {
                 c = RGB(r: exposure(c.r, gain: g, white: w), g: exposure(c.g, gain: g, white: w), b: exposure(c.b, gain: g, white: w))
             case "whiteBalance":
                 guard look.wb != nil else { continue }
-                c = whiteBalance(c, gains: whiteBalanceGains(look.wb, asShot: asShot, rules), white: whiteBalanceWhite(rules))
+                // Like exposure, the gains are on the scene: each channel goes through the tone curve,
+                // so a cast is full strength in the shadows and fades toward white.
+                let g = whiteBalanceGains(look.wb, asShot: asShot, rules), w = whiteBalanceWhite(rules)
+                c = RGB(r: exposure(c.r, gain: g.r, white: w), g: exposure(c.g, gain: g.g, white: w), b: exposure(c.b, gain: g.b, white: w))
             case "whitesBlacks":
                 guard look.whites != 0 || look.blacks != 0 else { continue }
                 c = RGB(r: linear(whitesBlacks(perceptual(c.r, rules), whites: look.whites, blacks: look.blacks, rules), rules),

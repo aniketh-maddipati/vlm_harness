@@ -236,7 +236,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         let longEdge = max(extent.width, extent.height)
         let gam = CIVector(x: 1 / rules.perceptualGamma, y: rules.perceptualGamma)
         let lum = CIVector(x: rules.luma[0], y: rules.luma[1], z: rules.luma[2], w: 0)
-        let ones = CIVector(x: 1, y: 1, z: 1, w: 1)
+        let ones = CIVector(x: 1, y: 1, z: 1, w: 1), zero = CIVector(x: 0, y: 0, z: 0, w: 0)
         let r = rules
 
         func pass(_ name: String, _ args: [Any]) {
@@ -258,7 +258,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             case "whiteBalance":
                 guard look.wb != nil else { continue }
                 let g = LookMath.whiteBalanceGains(look.wb, asShot: dev.asShot, r)
-                pass("lookWhiteBalance", [img, CIVector(x: g.r, y: g.g, z: g.b, w: 1), LookMath.whiteBalanceWhite(r)])
+                pass("lookWhiteBalance", [img, CIVector(x: g.r, y: g.g, z: g.b, w: 1), CIVector(x: LookMath.whiteBalanceWhite(r), y: 0)])
             case "whitesBlacks":
                 guard look.whites != 0 || look.blacks != 0 else { continue }
                 let wbk = CIVector(x: look.whites * r.k("whitesBlacks", "whitesPerUnit", 0.003),

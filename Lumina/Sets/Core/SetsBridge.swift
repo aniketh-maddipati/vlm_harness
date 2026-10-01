@@ -23,6 +23,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     let ingest = SetsIngest()
     private var pendingSource: URL?
     private var lastOpened: URL?
+    /// The open folder's shoot id and volume, taken while it was being opened. Both come from the
+    /// volume's UUID, which is gone once a card is pulled: asked again then, the same card would
+    /// be another shoot and the decisions made while it was out would be filed under that one.
+    private var lastOpenedKey: (id: String, volume: String?)?
     /// The folder macOS last refused to list (SAFETY.md 5): checkAccess and reopen use it.
     private var deniedFolder: URL?
     let shoots: SetsShootStore
@@ -164,6 +168,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         guard let url else { return nil }
         ingest.register(url)
         lastOpened = url
+        lastOpenedKey = (SetsShootStore.id(for: url), SetsFileOps.volumeID(url))
         rememberBookmark(url)
         onEvent?("opened \(url.path)")
         return [url]
@@ -262,9 +267,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "shootOpened":
             // The page finished reading a folder: remember it and hand back its saved session.
             guard let url = lastOpened ?? ingest.root(named: body["name"] as? String ?? "") else { return (nil, nil) }
-            let id = SetsShootStore.id(for: url)
+            let key = url == lastOpened ? lastOpenedKey : nil
+            let id = key?.id ?? SetsShootStore.id(for: url)
             let shoot = SetsShootStore.Shoot(id: id, title: url.lastPathComponent == "DCIM" ? (cards.current?.name ?? "Card") : url.lastPathComponent,
-                                             path: url.path, volumeUUID: SetsFileOps.volumeID(url), photos: body["n"] as? Int ?? 0,
+                                             path: url.path, volumeUUID: key?.volume ?? SetsFileOps.volumeID(url), photos: body["n"] as? Int ?? 0,
                                              firstCapture: body["date"] as? String ?? "", opened: Date(),
                                              bookmark: try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil))
             try? shoots.upsert(shoot)

@@ -1,18 +1,16 @@
 {
  "mode": "app",
- "app": {
-  "sample": true
- },
  "page": "Lumina Sets v5.dc.html",
  "size": [
   1440,
   900
  ],
  "clock": "2026-09-08T14:30:00",
- "checklist": "Gate 5: seeded key/mouse storm over a real card read natively, with the card pulled and re-inserted at random; the page's state surface and the Mac's reader are checked every 20 inputs",
  "budgets": {
   "webPeakMB": 1500
  },
+ "stopOnFailure": true,
+ "checklist": "Gate 5 (v5): a seeded key/mouse storm over a card read natively, with the card pulled and re-inserted at random (mid-read, mid-cull, on Save); the page's state surface and the Mac's reader are checked every 20 inputs. Afterwards the card is in, ⌘1 ⏎ reads all 80 with none unreadable, and nothing was ever written to the card.",
  "steps": [
   {
    "do": "startCards"
@@ -30,11 +28,6 @@
    "js": "return !!(window.lumina.card && window.lumina.card.photos===80)",
    "timeoutMs": 10000,
    "what": "card noticed"
-  },
-  {
-   "do": "key",
-   "k": "0",
-   "settleMs": 300
   },
   {
    "do": "key",
@@ -74,8 +67,19 @@
   },
   {
    "do": "key",
-   "k": "0",
-   "settleMs": 300
+   "k": "Escape",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "1",
+   "settleMs": 400,
+   "cmd": true
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "import"
   },
   {
    "do": "key",
@@ -84,7 +88,7 @@
   },
   {
    "do": "waitFor",
-   "js": "const i=window.__lumina.inspect(); return !i.reading && i.real===80",
+   "js": "const i=window.__lumina.inspect(); return !i.reading && i.real===80 && !i.realLoad && !!i.realInfo",
    "timeoutMs": 60000,
    "what": "full read after the storm"
   },
@@ -99,6 +103,25 @@
   {
    "do": "js",
    "src": "return JSON.stringify(await window.__lumina.nativeStats())"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTFUZZ",
+   "glob": "*.xmp",
+   "count": 0,
+   "why": "no sidecar on the card, whatever the storm pressed"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTFUZZ",
+   "glob": "*lumina-*",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTFUZZ",
+   "glob": "*.ARW",
+   "count": 80
   },
   {
    "do": "snap",

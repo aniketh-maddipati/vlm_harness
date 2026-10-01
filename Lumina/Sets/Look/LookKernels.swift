@@ -60,12 +60,12 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(lk_exposure(s.r, k.x, k.y), lk_exposure(s.g, k.x, k.y), lk_exposure(s.b, k.x, k.y), s.a);
     }
 
-    // whiteBalance: per-channel scene gains through the sigmoid (LookMath.whiteBalance). g = gains, w = white
-    [[ stitchable ]] float4 lookWhiteBalance(coreimage::sample_t s, float4 g, float w) {
-        return float4(lk_exposure(s.r, g.r, w), lk_exposure(s.g, g.g, w), lk_exposure(s.b, g.b, w), s.a);
+    // whiteBalance: per-channel scene gains through the tone curve. g = the gains, k = (white, 0)
+    [[ stitchable ]] float4 lookWhiteBalance(coreimage::sample_t s, float4 g, float2 k) {
+        return float4(lk_exposure(s.r, g.r, k.x), lk_exposure(s.g, g.g, k.x), lk_exposure(s.b, g.b, k.x), s.a);
     }
 
-    // whitesBlacks (wb = per-channel multipliers, ones in the graph);
+    // whitesBlacks (wb = ones). wb = per-channel gains;
     // wbk = (whitesAmt, blacksAmt, whitesPower, blacksPower); gam = (invGamma, gamma)
     [[ stitchable ]] float4 lookPre(coreimage::sample_t s, float4 wb, float4 wbk, float2 gam) {
         float3 c = s.rgb * wb.rgb;

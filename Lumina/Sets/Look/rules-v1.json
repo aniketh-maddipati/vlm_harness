@@ -18,8 +18,8 @@
     },
     "whiteBalance": {
       "locked": false,
-      "form": "per-channel scene gains from the mired difference to as-shot: gR = 2^(dM*redPerMired), gB = 2^(-dM*bluePerMired), gG = 2^(-dTint*greenPerTint), divided by their luma when preserveLuma is 1; each channel then goes through exposure's sigmoid with its own gain: g·y / (1 + (g − 1)·y/white), tangent continuation above white and below 0, so the shift is full in the shadows and fades toward white",
-      "coefficients": { "redPerMired": 0.011201, "bluePerMired": 0.012021, "greenPerTint": 0.014095, "white": 1.0807, "preserveLuma": 1 }
+      "form": "per-channel scene gains from the mired and tint differences to as-shot, each channel through the tone curve as in exposure (G*y / (1 + (G-1)*y/white)): r: 2^(dM*redPerMired + dTint*redPerTint), g: 2^(-dTint*greenPerTint), b: 2^(-dM*bluePerMired + dTint*bluePerTint); divided by their luma first when preserveLuma is 1",
+      "coefficients": { "redPerMired": 0.011567, "bluePerMired": 0.012011, "greenPerTint": 0.002048, "redPerTint": 0.010088, "bluePerTint": 0.014052, "white": 1.085448, "preserveLuma": 0 }
     },
     "whitesBlacks": {
       "locked": false,
