@@ -339,8 +339,22 @@ class CommandTests(unittest.TestCase):
             with open(os.path.join(refs, "A__asshot.json"), "w") as f:
                 json.dump({"Temperature": 5550, "Tint": -5}, f)
             self.assertEqual(sweep.main(["presets", "--sweep", "3", "--refs", refs]), 0)
-            self.assertEqual(len(os.listdir(os.path.join(d, "s2", "wb", "presets"))), 8)
-            self.assertTrue(os.path.exists(os.path.join(d, "s2", "wb", "Lumina-sweep3-wb-presets.zip")))
+            self.assertEqual(len(os.listdir(os.path.join(d, "sweep3", "presets"))), 8)
+            self.assertTrue(os.path.exists(os.path.join(d, "sweep3", "Lumina-sweep3-wb-presets.zip")))
+
+    def test_two_export_folders_are_read_as_one(self):
+        # The white balance exports sit in their own folder; their as-shot values come from the other.
+        with tempfile.TemporaryDirectory() as d:
+            two, three, refs = os.path.join(d, "sweep2"), os.path.join(d, "sweep3"), os.path.join(d, "refs")
+            os.makedirs(two)
+            os.makedirs(three)
+            fake_export(os.path.join(two, "A.jpg"), "A.ARW", **AS_SHOT)
+            fake_export(os.path.join(three, "A.jpg"), "A.ARW", **custom(Temperature=3200))
+            self.assertEqual(sweep.main(["ingest", two, three, "--refs", refs]), 1)   # the rest is missing
+            self.assertTrue(os.path.exists(os.path.join(refs, "A__base.jpg")))
+            self.assertTrue(os.path.exists(os.path.join(refs, "A__Temperature__3200.jpg")))
+            self.assertEqual(json.loads(read(os.path.join(refs, "sweep-ingest.json")))["problems"], [])
+            self.assertEqual(sweep.main(["ingest", two, os.path.join(d, "nope"), "--refs", refs]), 2)
 
 if __name__ == "__main__":
     unittest.main()

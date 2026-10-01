@@ -20,7 +20,8 @@ rest at a few, plus the base with lens profile corrections on (the border ΔL* q
 
 Sweep 2 (`presets --sweep 2`, group "Lumina sweep 2", ~/LuminaEvidence/parity/sweep2) is the base
 and ten three-slider combos; sweep 3 (`presets --sweep 3`, group "Lumina sweep 3 WB") is white
-balance, Temperature and Tint alone. Both export into the same folder:
+balance, Temperature and Tint alone, in ~/LuminaEvidence/parity/sweep3. The ingest takes both
+export folders at once (the white balance exports need the as-shot values the others carry):
 
     python3 Tools/parity/lr_cc_sweep.py presets --sweep 2
     python3 Tools/parity/lr_cc_sweep.py ingest ~/LuminaEvidence/parity/sweep2/exports --refs ~/LuminaEvidence/parity/sweep2/refs
@@ -28,9 +29,10 @@ balance, Temperature and Tint alone. Both export into the same folder:
           as-shot Temperature / Tint, which every As Shot export carries; parity.py turns absolute
           Kelvin into a delta with it).
     python3 Tools/parity/lr_cc_sweep.py presets --sweep 3 [--refs ~/LuminaEvidence/parity/sweep2/refs]
-        → <refs>/../wb/presets + Lumina-sweep3-wb-presets.zip, made from the <stem>__asshot.json
-          files; after exporting, the same ingest adds <stem>__Temperature__<K>.jpg and
-          <stem>__Tint__<v>.jpg.
+        → <refs>/../../sweep3/presets + Lumina-sweep3-wb-presets.zip, made from the
+          <stem>__asshot.json files.
+    python3 Tools/parity/lr_cc_sweep.py ingest ~/LuminaEvidence/parity/sweep2/exports ~/LuminaEvidence/parity/sweep3/exports --refs ~/LuminaEvidence/parity/sweep2/refs
+        → adds <stem>__Temperature__<K>.jpg and <stem>__Tint__<v>.jpg.
 
 White balance presets are per photo. Lightroom CC ignores a preset that sets only Temperature or
 only Tint (measured 2026-09-30: every photo comes out at Custom 5500 / +10, whatever the preset
@@ -396,12 +398,15 @@ def number(v):
 
 def ingest(exports, refs, sweep=None):
     """`sweep`: 1 or 2 says which preset set to expect (for the missing list); None works it out
-    from what is there. An export from either set is recognised either way."""
+    from what is there. An export from either set is recognised either way. `exports` is a folder
+    or a list of folders, read as one."""
+    folders = [exports] if isinstance(exports, str) else list(exports)
+    exports = folders[0] if len(folders) == 1 else folders
     os.makedirs(refs, exist_ok=True)
     table = combos()
     wanted = {1: wanted_for(1, table), 2: wanted_for(2, table)}
     found, problems, files = {}, [], []
-    for root, _, names in os.walk(exports):
+    for root, names in ((r, ns) for folder in folders for r, _, ns in os.walk(folder)):
         for n in sorted(names):
             if not n.lower().endswith((".jpg", ".jpeg")):
                 continue
@@ -483,11 +488,11 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("presets")
     p.add_argument("--sweep", type=int, choices=(1, 2, 3), default=1, help="1: the single sliders; 2: base + combos; 3: white balance, per photo")
-    p.add_argument("--out", help="default: ~/LuminaEvidence/parity/sweep, …/sweep2 for --sweep 2, <refs>/../wb for --sweep 3")
+    p.add_argument("--out", help="default: ~/LuminaEvidence/parity/sweep, …/sweep2 for --sweep 2, <refs>/../../sweep3 for --sweep 3")
     p.add_argument("--refs", default=os.path.expanduser("~/LuminaEvidence/parity/sweep2/refs"),
                    help="--sweep 3: the refs folder whose <stem>__asshot.json files say each photo's as-shot white balance")
     i = sub.add_parser("ingest")
-    i.add_argument("exports")
+    i.add_argument("exports", nargs="+", help="one or more folders of JPEG exports, read as one")
     i.add_argument("--refs", default=os.path.expanduser("~/LuminaEvidence/parity/refs"))
     i.add_argument("--sweep", type=int, choices=(1, 2), help="which preset set to expect (default: worked out from the exports)")
     a = ap.parse_args(argv)
@@ -499,19 +504,20 @@ def main(argv=None):
             if not as_shot:
                 print(f"no <stem>__asshot.json under {refs}: export the Base preset and run ingest first")
                 return 2
-            out = os.path.expanduser(a.out) if a.out else os.path.join(os.path.dirname(os.path.abspath(refs)), "wb")
+            out = os.path.expanduser(a.out) if a.out else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(refs))), "sweep3")
         else:
             out = os.path.expanduser(a.out or ("~/LuminaEvidence/parity/sweep" if a.sweep == 1 else "~/LuminaEvidence/parity/sweep2"))
         files, z = write_presets(out, a.sweep, as_shot)
         print(f"{len(files)} presets → {os.path.dirname(files[0])}\nimport this in Lightroom: {z}")
     else:
-        exports = os.path.expanduser(a.exports)
-        if not os.path.isdir(exports):
-            print(f"no folder {exports}: export from Lightroom into it first (see the presets step)")
-            return 2
+        exports = [os.path.expanduser(e) for e in a.exports]
+        for e in exports:
+            if not os.path.isdir(e):
+                print(f"no folder {e}: export from Lightroom into it first (see the presets step)")
+                return 2
         r = ingest(exports, os.path.expanduser(a.refs), a.sweep)
         if r["refs_written"] == 0 and not r["problems"]:
-            print(f"no JPEG exports under {exports}")
+            print(f"no JPEG exports under {', '.join(exports)}")
             return 2
         print(f"{r['refs_written']} refs for {len(r['photos'])} photos ({r['expected_per_photo']} expected each) → {r['refs']}")
         for s, m in r["missing"].items():
