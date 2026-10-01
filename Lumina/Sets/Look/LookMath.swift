@@ -38,6 +38,45 @@ nonisolated enum LookMath {
     static func perceptual(_ x: Double, _ rules: LookRules) -> Double { pow(max(0, x), 1 / rules.perceptualGamma) }
     static func linear(_ p: Double, _ rules: LookRules) -> Double { pow(max(0, p), rules.perceptualGamma) }
 
+    // MARK: rawDevelop: the base rendering
+
+    /// The decoder's default rendering brought to Lightroom's (Adobe Color), fitted on base
+    /// exports: a midtone curve on luma in perceptual space (hue kept), then a colour mix whose
+    /// rows sum to 1, so a grey stays the same grey. Coefficients in `rawDevelop`: `baseLift`,
+    /// `baseS` (the curve) and `baseRG`, `baseRB`, `baseGR`, `baseGB`, `baseBR`, `baseBG` (the
+    /// off-diagonal mix; the diagonal is what makes each row 1). All 0 is the identity.
+    struct BaseMatch: Equatable, Sendable {
+        var lift = 0.0, s = 0.0
+        var rg = 0.0, rb = 0.0, gr = 0.0, gb = 0.0, br = 0.0, bg = 0.0
+        var isIdentity: Bool { self == BaseMatch() }
+
+        init() {}
+        init(_ rules: LookRules) {
+            let k = { (n: String) in rules.k("rawDevelop", n, 0) }
+            lift = k("baseLift"); s = k("baseS")
+            rg = k("baseRG"); rb = k("baseRB"); gr = k("baseGR"); gb = k("baseGB"); br = k("baseBR"); bg = k("baseBG")
+        }
+
+        /// Rows of the mix: out.r = rows[0] · (r, g, b), …
+        var rows: [[Double]] { [[1 - rg - rb, rg, rb], [gr, 1 - gr - gb, gb], [br, bg, 1 - br - bg]] }
+    }
+
+    /// The base curve on one luma value (linear in, linear out): identity at 0 and from 1 up.
+    static func baseCurve(_ y: Double, _ m: BaseMatch, _ rules: LookRules) -> Double {
+        let p = perceptual(y, rules), pc = min(1, max(0, p))
+        return linear(p + m.lift * p * (1 - pc) + m.s * p * (1 - pc) * (pc - 0.5), rules)
+    }
+
+    static func baseMatch(_ c: RGB, _ m: BaseMatch, _ rules: LookRules) -> RGB {
+        guard !m.isIdentity else { return c }
+        let y = luma(c, rules)
+        let g = y > 1e-6 ? baseCurve(y, m, rules) / y : 1
+        let t = RGB(r: c.r * g, g: c.g * g, b: c.b * g), w = m.rows
+        return RGB(r: w[0][0] * t.r + w[0][1] * t.g + w[0][2] * t.b,
+                   g: w[1][0] * t.r + w[1][1] * t.g + w[1][2] * t.b,
+                   b: w[2][0] * t.r + w[2][1] * t.g + w[2][2] * t.b)
+    }
+
     // MARK: exposure
 
     /// Lightroom's Exposure is a gain on the scene, before its film-like tone curve; this stage

@@ -41,6 +41,20 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(y, y, y, 1.0f);
     }
 
+    // rawDevelop's base match (LookMath.baseMatch): a midtone curve on luma, then a colour mix.
+    // r0, r1, r2 = the mix's rows; k = (lift, s, invGamma, gamma)
+    [[ stitchable ]] float4 lookBase(coreimage::sample_t s, float4 r0, float4 r1, float4 r2, float4 k, float4 lum) {
+        float y = dot(s.rgb, lum.rgb);
+        float g = 1.0f;
+        if (y > 1e-6f) {
+            float p = lk_perc(y, k.z);
+            float pc = clamp(p, 0.0f, 1.0f);
+            g = lk_lin(p + k.x * p * (1.0f - pc) + k.y * p * (1.0f - pc) * (pc - 0.5f), k.w) / y;
+        }
+        float3 t = s.rgb * g;
+        return float4(dot(t, r0.rgb), dot(t, r1.rgb), dot(t, r2.rgb), s.a);
+    }
+
     // exposure: a scene gain seen through a sigmoid tone curve (LookMath.exposure). k = (gain G, white w)
     [[ stitchable ]] float4 lookExposure(coreimage::sample_t s, float2 k) {
         return float4(lk_exposure(s.r, k.x, k.y), lk_exposure(s.g, k.x, k.y), lk_exposure(s.b, k.x, k.y), s.a);
@@ -158,7 +172,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     struct CompileError: Error, CustomStringConvertible { let description: String }
 
     /// The stage kernels, compiled when the pipeline is made.
-    static let stageNames = ["lookLuma", "lookExposure", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette"]
+    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette"]
 
     private let header: String
     private let blocks: [String: String]             // function name → its source block

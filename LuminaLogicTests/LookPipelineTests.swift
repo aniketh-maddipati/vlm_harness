@@ -108,6 +108,26 @@ final class LookPipelineTests: XCTestCase {
         }
     }
 
+    /// rawDevelop's base match on the GPU equals `LookMath.baseMatch` (and is skipped at zero).
+    func testBaseMatchKernelEqualsLookMath() throws {
+        var r = rules!
+        XCTAssertNotNil(r.stages["rawDevelop"])
+        for (k, v) in ["baseLift": 0.033, "baseS": 0.30, "baseRG": 0.135, "baseRB": -0.003, "baseGR": -0.001, "baseGB": 0.135, "baseBR": 0.0025, "baseBG": 0.012] {
+            r.stages["rawDevelop"]?.coefficients[k] = v
+        }
+        let m = LookMath.BaseMatch(r)
+        for c in [LookMath.RGB.gray(0.02), .gray(0.18), .gray(0.9), .gray(1.2), LookMath.RGB(r: 0.5, g: 0.2, b: 0.2),
+                  LookMath.RGB(r: 0.15, g: 0.2, b: 0.6), LookMath.RGB(r: 0.7, g: 0.6, b: 0.1)] {
+            let got = pipe.pixel(try LookPipeline.baseMatched(pipe.flat(c, size: 16).image, rules: r), x: 8, y: 8)
+            let want = LookMath.baseMatch(c, m, r)
+            for (g, w) in [(got.r, want.r), (got.g, want.g), (got.b, want.b)] { XCTAssertEqual(g, w, accuracy: max(0.003, 0.01 * abs(w)), "\(c): \(got) vs \(want)") }
+        }
+        var off = r
+        for k in ["baseLift", "baseS", "baseRG", "baseRB", "baseGR", "baseGB", "baseBR", "baseBG"] { off.stages["rawDevelop"]?.coefficients[k] = 0 }
+        let img = pipe.flat(.gray(0.4), size: 16).image
+        XCTAssertTrue(try LookPipeline.baseMatched(img, rules: off) === img, "zero coefficients: the image itself, no pass")
+    }
+
     func testFlatPatchesMatchLookMath() {
         let colours: [LookMath.RGB] = [.gray(0.02), .gray(0.18), .gray(0.5), .gray(0.9), .gray(1.1),
                                        LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), LookMath.RGB(r: 0.2, g: 0.5, b: 0.2), LookMath.RGB(r: 0.15, g: 0.2, b: 0.6),
