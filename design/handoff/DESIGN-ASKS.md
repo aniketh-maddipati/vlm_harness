@@ -374,7 +374,7 @@ Numbers: `make culleval`.
 > | ≤ 4 s, nothing else | 78 % | 43 % |
 > | ≤ 60 s, dHash ≤ 20 | 87 % | 40 % |
 > | ≤ 60 s, dHash ≤ 24 | 84 % | 58 % |
-> | ≤ 60 s, the app's distance ≤ 0.35 | 95 % (90–98) | 57 % (49–65) |
+> | ≤ 60 s, same lens / focal length / orientation, the app's distance ≤ 0.35 | 93 % (88–97) | 59 % (51–67) |
 >
 > No dHash threshold reaches the last row, so the measure has to come from the app. Please:
 > (1) **Take a distance from the app.** `window.lumina.near(pathA, pathB)` resolves to a number
@@ -395,8 +395,8 @@ Numbers: `make culleval`.
 > (4) **Calm arrival.** `near` values arrive while rows are already on screen. Regroup with the
 > same pacing ask 8 (c) asks for, and never regroup the row the cursor is in while a key is held.
 > Known limit, nothing asked: when one of the two frames is a miss (blurred, a blink, something
-> in the way) the distance grows, and the rule stacks 8 of the 23 such pairs the photographer
-> marked as the same picture (35 %, against 57 % overall). The missed frame is the one most likely
+> in the way) the distance grows, and the rule stacks 9 of the 23 such pairs the photographer
+> marked as the same picture (39 %, against 59 % overall). The missed frame is the one most likely
 > to be left beside its stack. That is open on the app side; B (split) and ⇧B (merge) cover it
 > by hand meanwhile.
 >
@@ -510,13 +510,14 @@ and 56 % of the runs that hold a pick hold exactly one: the same picture as C, o
   toward the other shoots'. A sync that changes `readOne` fails `make culleval-test` until `Tools/culleval/lib/measure.mjs` is reviewed.
 - Prompt 2 C (revised): the numbers are from 277 hand-marked consecutive pairs (300 drawn across nine shoots by time
   gap and distance, 20 marked unsure, 3 not marked; one photographer, one body; the threshold was chosen on the same
-  pairs, so read 95 % / 57 % as the best case). The app's distance is Vision's image feature print (revision 2) on the
-  embedded preview at 512 px, about 23 ms a frame on all cores. Labels, pairs and scripts stay on the Mac
+  pairs, so read 93 % / 59 % as the best case). The app's distance is Vision's image feature print (revision 2) on the
+  embedded preview at 512 px, about 24 ms a photo; the last row of C's table is scored with the app's own code
+  (`SetsNear`) on those pairs (a first run through ImageIO's thumbnail of the RAW gave 95 % / 57 %: the same within the intervals). Labels, pairs and scripts stay on the Mac
   (`~/LuminaEvidence/culleval/labels`: `label.py` is the marking sheet, `score_labels.py` the scorer, `report.md` the
-  tables); they are not in `Tools/culleval` yet. Still to build on the app side: the measure behind the read in the
+  tables); they are not in `Tools/culleval` yet. The app side is PR 164: `SetsNear` behind the
   bridge, `lumina.near` / `lumina.nearLimit` in `plumbing.js`, both listed by the contract scenario. After the handoff:
   dump the page's stacks through the app (`Tools/culleval/dump-decisions.json`) and score them against the same labels;
-  expect about 95 % of stacked pairs marked the same picture and more than half of the marked retakes stacked.
+  expect about 93 % of stacked pairs marked the same picture and more than half of the marked retakes stacked.
 - Prompt 2, second part (E, F, H): the culling eval through the app, on the Mac (it needs shoots with traceable
   exports; labels and photos stay in `~/LuminaEvidence/culling-eval`).
   `LUMINA_CULL_DIR=<shoot> lumina-probe run Tools/culleval/dump-decisions.json` dumps what the page decided;
