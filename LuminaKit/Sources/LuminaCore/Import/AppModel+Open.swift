@@ -177,7 +177,7 @@ public extension AppModel {
             if step == batch.step, let s = stored?.step, s != step { go(s) } else { changed() }
             return
         }
-        let message = ImportSummary(added: o.accepted.count, folder: o.name, skipped: o.skipped).message
+        let message = ImportSummary(added: o.accepted.count, folder: Self.isolated(o.name), skipped: o.skipped).message
         imports.message = message
         // From Open the photos are the next thing to look at; anywhere else the drop adds and stays (R-17).
         if step == .open { go(.cull) } else {

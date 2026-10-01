@@ -11,7 +11,7 @@ public extension AppModel {
 
     /// "{camera} · {N} photos · {S} scenes · {first}–{last}"; a part the shoot doesn't have is left out.
     var openCardDetails: String {
-        [shoot.label, "\(Self.grouped(total)) photos", "\(shoot.scenes.count) scenes", shoot.span].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+        [shoot.local ? "Folder · \(Self.isolated(shoot.name))" : shoot.label, "\(Self.grouped(total)) photos", "\(shoot.scenes.count) scenes", shoot.span].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     /// The card button's three labels.
@@ -34,7 +34,7 @@ public extension AppModel {
 
     /// Recent shows once something has been opened: copied from the card, or imported.
     var openShowsRecent: Bool { !shoot.isEmpty && copied > 0 }
-    var openRecentTitle: String { "Today · \(shoot.name)" }
+    var openRecentTitle: String { "Today · \(Self.isolated(shoot.name))" }
     var openRecentDetails: String {
         var parts = ["\(Self.grouped(total)) photos", "\(Self.grouped(decisions.keptCount + decisions.outCount)) decided"]
         let edited = edits.looks.isEmpty ? 0 : keptIDs.filter { edits.isEdited($0, decisions: decisions) }.count
@@ -56,8 +56,15 @@ public extension AppModel {
 
     /// The folder row: an imported folder that is not on screen (after a relaunch, or behind the card).
     var openShowsReopen: Bool { !shoot.local && open.reopenName != nil }
-    var openReopenTitle: String { "Folder · \(open.reopenName ?? "")" }
+    var openReopenTitle: String { "Folder · \(Self.isolated(open.reopenName ?? ""))" }
     var openReopenDetails: String { "\(Self.grouped(open.reopenCount)) photos · choose the folder again to see them. Your decisions are kept." }
+
+    /// A file or folder name inside a sentence. A name with right-to-left text is wrapped in
+    /// direction isolates, so it can't reorder the numbers and words around it (R-1B). Plain names
+    /// are returned as they are.
+    internal static func isolated(_ name: String) -> String {
+        name.unicodeScalars.allSatisfy { $0.value < 0x0590 } ? name : "\u{2068}\(name)\u{2069}"
+    }
 
     /// 1000 → "1,000", the same on every Mac.
     internal static func grouped(_ n: Int) -> String {
