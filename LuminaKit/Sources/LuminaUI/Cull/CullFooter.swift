@@ -29,8 +29,8 @@ struct CullFooter: View {
         let n = model.decisions.keptCount + model.decisions.outCount, total = model.total
         let share = total > 0 ? (Double(n) / Double(total) * 100).rounded() / 100 : 0
         return VStack(alignment: .leading, spacing: 5.scaled(s)) {
-            (Text("\(n)/\(total)").fontWeight(.semibold).foregroundColor(LuminaColor.textPrimary)
-                + Text(" decided").foregroundColor(LuminaColor.textTertiary))
+            (Text(verbatim: "\(n)/\(total)").fontWeight(.semibold).foregroundColor(LuminaColor.textPrimary)
+                + Text(verbatim: " decided").foregroundColor(LuminaColor.textTertiary))
                 .font(LuminaFont.caption(s)).lineLimit(1).fixedSize()
             ZStack(alignment: .leading) {
                 Capsule().fill(LuminaColor.fill10)

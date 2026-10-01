@@ -160,7 +160,8 @@ private struct CullGridContent: View {
                         CullSceneHeader(scene: item.scene, ids: grid.sceneIDs[item.scene] ?? [], suggested: grid.sceneSuggested[item.scene] ?? [], width: grid.config.width)
                     case .row:
                         HStack(spacing: grid.config.gap) {
-                            ForEach(item.tiles, id: \.id) { t in
+                            // A row laid out for a shoot that has just been replaced draws nothing rather than the wrong photo.
+                            ForEach(item.tiles.filter { $0.photo < photos.count && photos[$0.photo].id == $0.id }, id: \.id) { t in
                                 let p = photos[t.photo], k = keep[t.id]
                                 CullTile(photo: p, width: t.width, height: item.height, contain: t.contain,
                                          state: k == true ? .kept : k == false ? .out : p.suggested ? .suggested : .undecided,
