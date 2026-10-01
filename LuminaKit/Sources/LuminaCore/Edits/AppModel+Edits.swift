@@ -243,7 +243,7 @@ extension AppModel {
     }
 
     /// One nudge of `key`, and the toast that says where it landed.
-    func nudgeSetting(_ key: String, _ d: Int, coarse: Bool, coalesce: Bool = false) {
+    public func nudgeSetting(_ key: String, _ d: Int, coarse: Bool, coalesce: Bool = false) {
         guard let s = EditSetting.byKey[key] else { return }
         let n = coarse ? 5.0 : 1.0, v = value(key)
         setValue(key, s.log ? v * pow(1 + 0.02 * n, Double(d)) : v + s.step * n * Double(d), coalesce: coalesce)

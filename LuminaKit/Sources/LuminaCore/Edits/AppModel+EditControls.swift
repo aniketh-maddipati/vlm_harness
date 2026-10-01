@@ -146,7 +146,7 @@ public extension AppModel {
     @discardableResult func beginTyping(_ key: String) -> String {
         guard editCur != nil, EditSetting.byKey[key] != nil else { return "" }
         if editControls.drag != nil { endDrag(cancel: false, announce: false) }
-        edit.typingKey = key; edit.activeKey = key
+        edit.typingKey = key; edit.activeKey = key; editControls.keyboardChoosing = false
         return EditFormat.editable(key, value(key))
     }
 
