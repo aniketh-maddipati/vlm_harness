@@ -37,11 +37,12 @@ public struct VariationSpec: Equatable, Sendable {
 
     public var rows: Int { (cells.count + columns - 1) / max(1, columns) }
 
-    /// The highlighted cell after an arrow key. Rows only exist in the 3 × 3 grid.
+    /// The highlighted cell after an arrow key. Rows only exist in the 3 × 3 grid; two or three
+    /// cells are one line (drawn stacked in a tall canvas), so ↑ ↓ walk it like ← →.
     public func moved(from index: Int, dx: Int, dy: Int) -> Int {
         guard !cells.isEmpty else { return 0 }
         let i = clamp(0, index, cells.count - 1)
-        guard kind == .grid else { return clamp(0, i + dx, cells.count - 1) }
+        guard kind == .grid else { return clamp(0, i + dx + dy, cells.count - 1) }
         let r = clamp(0, i / columns + dy, rows - 1), c = clamp(0, i % columns + dx, columns - 1)
         return min(cells.count - 1, r * columns + c)
     }
