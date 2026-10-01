@@ -46,6 +46,7 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let rect: CGRect             // the tiles' union, full-frame pixels
         let image: CIImage           // the composite, origin at rect.origin
         let asShot: Look.WhiteBalance
+        let anchor: LookMath.ToneAnchor           // the photo's tone anchor, the same one its bases carry
         let tiles: Int
         let fromCache: Int
         let firstTileMs: Double
@@ -158,7 +159,7 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let facts = facts(composite, rect: rect)
         let total = Date().timeIntervalSince(t0) * 1000
         lock.withLock { _stats.regions += 1; _stats.cacheHits += hits; _stats.lastRegionMs = total; _stats.lastDecoder = decoder }
-        return Region(rel: rel, decoder: decoder, roi: roi, photoSize: size, rect: rect, image: composite, asShot: dev.asShot,
+        return Region(rel: rel, decoder: decoder, roi: roi, photoSize: size, rect: rect, image: composite, asShot: dev.asShot, anchor: dev.anchor,
                       tiles: tiles.count, fromCache: hits, firstTileMs: firstMs, totalMs: total, facts: facts)
     }
 

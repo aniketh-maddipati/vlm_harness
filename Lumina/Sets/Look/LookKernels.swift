@@ -87,15 +87,19 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(c, s.a);
     }
 
-    // tone: base = blurred linear luma. sh = (shadowsAmt, lo, hi, 0), hl = (highlightsAmt, lo, hi, detailGain)
+    // tone: a local exposure through the tone curve (LookMath.toneGain + exposure). base = blurred
+    // linear luma. sh = (shadowsStops, tau, shadows normaliser, highlights normaliser) with the
+    // normalisers from the photo's anchor; hl = (highlightsStops, knee, white, detailGain)
     [[ stitchable ]] float4 lookTone(coreimage::sample_t s, coreimage::sample_t base, float4 sh, float4 hl, float2 gam, float4 lum) {
-        float bp = lk_perc(base.r, gam.x);
-        float g = exp2(sh.x * (1.0f - lk_smooth(sh.y, sh.z, bp)) + hl.x * lk_smooth(hl.y, hl.z, bp));
+        float ps = lk_perc(base.r * sh.z, gam.x);
+        float ph = lk_perc(base.r * sh.w, gam.x);
+        float g = exp2(sh.x * exp(-ps / max(0.01f, sh.y)) + hl.x * min(1.0f, ph / max(0.01f, hl.y)));
+        float d = 1.0f;
         if (fabs(hl.w - 1.0f) > 1e-9f) {
             float y = dot(s.rgb, lum.rgb);
-            g *= pow(max(1e-6f, y) / max(1e-6f, base.r), hl.w - 1.0f);
+            d = pow(max(1e-6f, y) / max(1e-6f, base.r), hl.w - 1.0f);
         }
-        return float4(s.rgb * g, s.a);
+        return float4(lk_exposure(s.r * d, g, hl.z), lk_exposure(s.g * d, g, hl.z), lk_exposure(s.b * d, g, hl.z), s.a);
     }
 
     // contrast: k = (midpoint, slope a, lumaMix, 0)

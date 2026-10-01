@@ -64,7 +64,10 @@ class LookMathMirrorTests(unittest.TestCase):
         self.assertGreater(g(lm.single("Contrast", 60), 0.7), 0.7)
         self.assertGreater(g(lm.single("Shadows", 80), 0.02) / 0.02, g(lm.single("Shadows", 80), 0.7) / 0.7)
         self.assertLess(g(lm.single("Highlights", -80), 0.7), 0.7)
-        self.assertAlmostEqual(g(lm.single("Highlights", -80), 0.02), 0.02)
+        # Highlights − lowers the lights much more than the darks (Lightroom's own −100 moves a dark
+        # grey by half a stop, so "never touches the darks" was the wrong invariant).
+        self.assertLess(g(lm.single("Highlights", -80), 0.7) / 0.7, g(lm.single("Highlights", -80), 0.02) / 0.02)
+        self.assertLessEqual(g(lm.single("Highlights", -80), 0.02), 0.02)
         self.assertGreater(g(lm.single("Whites", 80), 0.7), 0.7)
         self.assertLess(g(lm.single("Blacks", -80), 0.02), 0.02)
         warm = lm.flat(np.array([0.5, 0.5, 0.5]), lm.single("Temperature", 8000, AS_SHOT), AS_SHOT, r)
@@ -121,8 +124,34 @@ class LookMathMirrorTests(unittest.TestCase):
         look = lm.parse_look("ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0")
         img = np.zeros((40, 60, 3)) + np.array([0.6, 0.35, 0.25])
         out = lm.apply_image(img, look, AS_SHOT, r)
-        want = lm.flat(np.array([0.6, 0.35, 0.25]), look, AS_SHOT, r)
+        # A flat patch is its own photo: its tone anchor is its own luma.
+        want = lm.flat(np.array([0.6, 0.35, 0.25]), look, AS_SHOT, r, anchor=lm.tone_anchor(img, r))
         np.testing.assert_allclose(out[20, 30], want, atol=1e-6)
+
+    def test_tone_is_relative_to_the_photo(self):
+        # Lightroom's Highlights −100 pulls a 0.4 pixel ~4 stops in a night scene and ~0.2 in a bright
+        # one: the same pixel value, read against the photo's own brightness.
+        r = self.rules
+        hl = lm.single("Highlights", -100)
+        px = np.array([0.4, 0.4, 0.4])
+        dark = float(lm.luma(lm.flat(px, hl, AS_SHOT, r, anchor={'mean': 0.005}), r))
+        bright = float(lm.luma(lm.flat(px, hl, AS_SHOT, r, anchor={'mean': 0.4}), r))
+        self.assertLess(dark, bright)
+        self.assertLess(bright, 0.4)
+        sh = lm.single("Shadows", 100)
+        px = np.array([0.1, 0.1, 0.1])
+        self.assertGreater(float(lm.luma(lm.flat(px, sh, AS_SHOT, r, anchor={'mean': 0.4}), r)), float(lm.luma(lm.flat(px, sh, AS_SHOT, r, anchor={'mean': 0.02}), r)))
+        flat = lm.tone_anchor(np.zeros((4, 4, 3)) + 0.18, r)
+        self.assertAlmostEqual(flat["mean"], 0.18); self.assertAlmostEqual(flat["spread"], 0.0); self.assertEqual(flat["bright"], 0.0)
+        self.assertEqual(lm.tone_anchor(np.zeros((4, 4, 3)), r)["mean"], 1e-3)
+        two = lm.tone_anchor(np.array([[[0.1] * 3, [0.8] * 3]]), r)
+        self.assertAlmostEqual(two["mean"], (0.1 * 0.8) ** 0.5); self.assertAlmostEqual(two["spread"], 1.5); self.assertEqual(two["bright"], 0.5)
+        # strengths: at the rules' centre the factor is 1; kept within [0.25, 4]
+        t = lambda n, d: lm.k(r, "tone", n, d)
+        centre = {"mean": 2.0 ** t("meanCentre", np.log2(0.18)), "spread": t("spreadCentre", 1.5), "bright": t("brightCentre", 0.2)}
+        self.assertAlmostEqual(lm.tone_normalisers(centre, r)[2], 1.0); self.assertAlmostEqual(lm.tone_normalisers(centre, r)[3], 1.0)
+        wild = lm.tone_normalisers({"mean": 0.001, "spread": 9.0, "bright": 1.0}, r)
+        self.assertLessEqual(wild[2], 4.0); self.assertLessEqual(wild[3], 4.0)
 
     def test_check_against_a_consistent_dump(self):
         r = self.rules

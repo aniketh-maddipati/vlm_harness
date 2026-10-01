@@ -150,14 +150,73 @@ nonisolated enum LookMath {
 
     // MARK: tone (highlights / shadows on a base)
 
-    /// Multiplicative gain from the base's perceptual luma.
-    static func toneGain(baseP: Double, highlights: Double, shadows: Double, _ rules: LookRules) -> Double {
-        let s = shadows * rules.k("tone", "shadowsStopsPerUnit", 0.01)
-            * (1 - smoothstep(rules.k("tone", "shadowsLo", 0), rules.k("tone", "shadowsHi", 0.6), baseP))
-        let h = highlights * rules.k("tone", "highlightsStopsPerUnit", 0.01)
-            * smoothstep(rules.k("tone", "highlightsLo", 0.4), rules.k("tone", "highlightsHi", 1), baseP)
+    /// What Highlights and Shadows read a photo against (`LookPipeline.toneAnchor` measures it on
+    /// a 256 px develop): the log-mean luma, how wide the tones spread (the standard deviation of
+    /// log2 luma, in stops) and the share of bright pixels (L* above 80). Across 156 photos these
+    /// explain most of how differently Lightroom treats the same pixel value from photo to photo:
+    /// Highlights pulls harder in darker and wider photos, Shadows lifts harder where much of the
+    /// frame is bright.
+    struct ToneAnchor: Equatable, Sendable {
+        var mean: Double
+        /// nil: at the rules' centre (no effect), as for synthetic images and flat patches.
+        var spread: Double?
+        var bright: Double?
+        static let reference = ToneAnchor(mean: toneReference, spread: nil, bright: nil)
+        init(mean: Double, spread: Double? = nil, bright: Double? = nil) { self.mean = mean; self.spread = spread; self.bright = bright }
+    }
+
+    /// Mid grey: the anchor mean at which the masks are the absolute ones.
+    static let toneReference = 0.18
+    /// Relative luminance of L* 80.
+    static let brightY = 0.5668
+
+    /// A photo's tone anchor from its pixels (RGBA floats, linear). The mean is
+    /// exp(mean(ln(max(luma, 1e-4)))), kept inside [0.001, 4].
+    static func toneAnchor(pixels px: [Float], luma: [Double]) -> ToneAnchor {
+        let n = px.count / 4
+        guard n > 0 else { return .reference }
+        var sum = 0.0, sum2 = 0.0, bright = 0
+        for i in 0..<n {
+            let y = luma[0] * Double(px[4 * i]) + luma[1] * Double(px[4 * i + 1]) + luma[2] * Double(px[4 * i + 2])
+            let l = log2(max(1e-4, y.isFinite ? y : 0))
+            sum += l; sum2 += l * l
+            if y > brightY { bright += 1 }
+        }
+        let m = sum / Double(n)
+        return ToneAnchor(mean: min(4, max(1e-3, exp2(m))), spread: max(0, sum2 / Double(n) - m * m).squareRoot(), bright: Double(bright) / Double(n))
+    }
+
+    /// How a photo shifts the tone stage: where the masks sit ((reference / mean)^adapt) and how
+    /// strong each slider is (exp of the photo's distance from the rules' centres).
+    static func toneNormalisers(anchor: ToneAnchor, _ rules: LookRules) -> (shadows: Double, highlights: Double, shadowsGain: Double, highlightsGain: Double) {
+        let k = { (n: String, d: Double) in rules.k("tone", n, d) }
+        let mean = min(4, max(1e-3, anchor.mean)), ratio = toneReference / mean
+        let spreadC = k("spreadCentre", 1.5), dSpread = (anchor.spread ?? spreadC) - spreadC
+        let dBright = (anchor.bright ?? k("brightCentre", 0.2)) - k("brightCentre", 0.2)
+        let dMean = log2(mean) - k("meanCentre", log2(toneReference))
+        let clamp = { (x: Double) in min(4, max(0.25, x)) }
+        return (pow(ratio, k("shadowsAdapt", 0)), pow(ratio, k("highlightsAdapt", 0)),
+                clamp(exp(k("shadowsBright", 0) * dBright + k("shadowsSpread", 0) * dSpread)),
+                clamp(exp(k("highlightsMean", 0) * dMean + k("highlightsSpread", 0) * dSpread)))
+    }
+
+    /// Highlights and Shadows are a local exposure: a scene gain from the base's luma, applied
+    /// through the tone curve like `exposure` (per channel, rolling off toward `white`). In
+    /// Lightroom both act relative to the photo: the same pixel value is a highlight in a night
+    /// scene (−100 pulls it 4 stops) and a midtone in a bright one (0.2 stops). So the masks read
+    /// the base's luma scaled by the photo's anchor and each slider's strength follows the photo
+    /// (`toneNormalisers`). Shadows: strongest in the deepest tones, decaying as
+    /// exp(−p / shadowsTau). Highlights: growing linearly with p up to `highlightsKnee`; through
+    /// the tone curve that moves the upper midtones most and leaves white where it is.
+    static func toneGain(base: Double, anchor: ToneAnchor, highlights: Double, shadows: Double, _ rules: LookRules) -> Double {
+        let n = toneNormalisers(anchor: anchor, rules)
+        let ps = perceptual(base * n.shadows, rules), ph = perceptual(base * n.highlights, rules)
+        let s = shadows * rules.k("tone", "shadowsStopsPerUnit", 0.01) * n.shadowsGain * exp(-ps / max(0.01, rules.k("tone", "shadowsTau", 0.2)))
+        let h = highlights * rules.k("tone", "highlightsStopsPerUnit", 0.01) * n.highlightsGain * min(1, ph / max(0.01, rules.k("tone", "highlightsKnee", 0.7)))
         return exp2(s + h)
     }
+
+    static func toneWhite(_ rules: LookRules) -> Double { max(0.05, rules.k("tone", "white", 1)) }
 
     /// Detail re-applied with a gain: (luma / base)^(detailGain − 1). 1 on a flat patch.
     static func toneDetail(luma y: Double, base: Double, _ rules: LookRules) -> Double {
@@ -272,13 +331,15 @@ nonisolated enum LookMath {
     /// Every stage on one colour, where blur(x) == x (a flat patch) and the pixel is at the frame's
     /// centre (vignette gain 1 unless `r` says otherwise). This is what the pipeline tests and the
     /// Python mirror compare against.
-    static func flat(_ input: RGB, look: Look, asShot: Look.WhiteBalance, rules: LookRules, vignetteR r: Double = 0) -> RGB {
+    static func flat(_ input: RGB, look: Look, asShot: Look.WhiteBalance, rules: LookRules, vignetteR r: Double = 0, anchor: ToneAnchor = .reference) -> RGB {
         var c = input
+        var anchor = anchor
         for stage in rules.lookStages {
             switch stage {
             case "exposure":
                 guard look.ev != 0 else { continue }
                 let g = exposureGain(look.ev, rules), w = exposureWhite(rules)
+                anchor.mean = exposure(anchor.mean, gain: g, white: w)          // the photo is that much brighter for the tone masks
                 c = RGB(r: exposure(c.r, gain: g, white: w), g: exposure(c.g, gain: g, white: w), b: exposure(c.b, gain: g, white: w))
             case "whiteBalance":
                 guard look.wb != nil else { continue }
@@ -294,8 +355,9 @@ nonisolated enum LookMath {
             case "tone":
                 guard look.highlights != 0 || look.shadows != 0 else { continue }
                 let y = luma(c, rules)
-                let g = toneGain(baseP: perceptual(y, rules), highlights: look.highlights, shadows: look.shadows, rules) * toneDetail(luma: y, base: y, rules)
-                c = RGB(r: c.r * g, g: c.g * g, b: c.b * g)
+                let g = toneGain(base: y, anchor: anchor, highlights: look.highlights, shadows: look.shadows, rules)
+                let d = toneDetail(luma: y, base: y, rules), w = toneWhite(rules)
+                c = RGB(r: exposure(c.r * d, gain: g, white: w), g: exposure(c.g * d, gain: g, white: w), b: exposure(c.b * d, gain: g, white: w))
             case "contrast":
                 c = contrast(c, contrast: look.contrast, rules)
             case "colour":

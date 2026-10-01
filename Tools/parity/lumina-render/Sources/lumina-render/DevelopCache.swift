@@ -13,7 +13,7 @@ import Foundation
 /// the OS). Anything else that changes the develop (a change to `LookPipeline.develop` itself)
 /// needs `--no-cache` or a bump of `version`.
 struct DevelopCache {
-    static let version = 1
+    static let version = 3      // 3: the meta carries the tone anchor (mean, spread, bright share)
     let dir: URL
 
     init(dir: URL) throws {
@@ -41,22 +41,23 @@ struct DevelopCache {
         guard let metaData = try? Data(contentsOf: p.meta),
               let meta = try? JSONSerialization.jsonObject(with: metaData) as? [String: Any],
               let w = meta["width"] as? Int, let h = meta["height"] as? Int, let rowBytes = meta["rowBytes"] as? Int,
-              let kelvin = meta["kelvin"] as? Double, let tint = meta["tint"] as? Double,
+              let kelvin = meta["kelvin"] as? Double, let tint = meta["tint"] as? Double, let anchor = meta["anchor"] as? [Double], anchor.count == 3,
               let bytes = try? Data(contentsOf: p.bin, options: .alwaysMapped), bytes.count == rowBytes * h else { return nil }
         // Mark the entry used: the caller prunes what a run did not touch (`prune_develop_cache`).
         let now: [FileAttributeKey: Any] = [.modificationDate: Date()]
         try? FileManager.default.setAttributes(now, ofItemAtPath: p.meta.path)
         try? FileManager.default.setAttributes(now, ofItemAtPath: p.bin.path)
         let img = CIImage(bitmapData: bytes, bytesPerRow: rowBytes, size: CGSize(width: w, height: h), format: .RGBAh, colorSpace: workingSpace)
-        return LookPipeline.Developed(image: img, asShot: Look.WhiteBalance(kelvin: kelvin, tint: tint))
+        return LookPipeline.Developed(image: img, asShot: Look.WhiteBalance(kelvin: kelvin, tint: tint),
+                                      anchor: LookMath.ToneAnchor(mean: anchor[0], spread: anchor[1] < 0 ? nil : anchor[1], bright: anchor[2] < 0 ? nil : anchor[2]))
     }
 
     /// Writes the bitmap first and the metadata last, so a half-written entry is never read.
-    func store(_ key: String, bitmap: Data, width: Int, height: Int, rowBytes: Int, asShot: Look.WhiteBalance) {
+    func store(_ key: String, bitmap: Data, width: Int, height: Int, rowBytes: Int, asShot: Look.WhiteBalance, anchor: LookMath.ToneAnchor) {
         let p = paths(key)
         do {
             try bitmap.write(to: p.bin, options: .atomic)
-            let meta: [String: Any] = ["width": width, "height": height, "rowBytes": rowBytes, "kelvin": asShot.kelvin, "tint": asShot.tint, "version": Self.version]
+            let meta: [String: Any] = ["width": width, "height": height, "rowBytes": rowBytes, "kelvin": asShot.kelvin, "tint": asShot.tint, "anchor": [anchor.mean, anchor.spread ?? -1, anchor.bright ?? -1], "version": Self.version]
             try JSONSerialization.data(withJSONObject: meta).write(to: p.meta, options: .atomic)
         } catch {
             FileHandle.standardError.write(Data("lumina-render: develop cache write failed: \(error)\n".utf8))
@@ -76,6 +77,6 @@ extension LookPipeline {
             context.render(dev.image, toBitmap: buf.baseAddress!, rowBytes: rowBytes, bounds: e, format: .RGBAh, colorSpace: workingSpace)
         }
         let img = CIImage(bitmapData: data, bytesPerRow: rowBytes, size: CGSize(width: w, height: h), format: .RGBAh, colorSpace: workingSpace)
-        return (Developed(image: img, asShot: dev.asShot), data, w, h, rowBytes)
+        return (Developed(image: img, asShot: dev.asShot, anchor: dev.anchor), data, w, h, rowBytes)
     }
 }

@@ -36,6 +36,9 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     struct Developed: @unchecked Sendable {
         let image: CIImage
         let asShot: Look.WhiteBalance
+        /// The photo's tone anchor (log-mean luma of the whole developed frame): Highlights and
+        /// Shadows act relative to it. The same number for every size, tier and crop of a photo.
+        let anchor: LookMath.ToneAnchor
         var extent: CGRect { image.extent }
         var longEdge: CGFloat { max(image.extent.width, image.extent.height) }
     }
@@ -140,7 +143,55 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         }
         guard let out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite else { throw Failure("couldn't decode \(url.lastPathComponent)") }
         let asShot = Look.WhiteBalance(kelvin: Double(raw.neutralTemperature), tint: Double(raw.neutralTint))
-        return Developed(image: try baseMatched(Self.atOrigin(out), rules: rules), asShot: asShot)
+        return Developed(image: try baseMatched(Self.atOrigin(out), rules: rules), asShot: asShot, anchor: toneAnchor(raw: url, rules: rules))
+    }
+
+    // MARK: the tone anchor
+
+    nonisolated(unsafe) private static var anchors: [String: LookMath.ToneAnchor] = [:]
+    nonisolated(unsafe) private static var anchorContexts: [String: CIContext] = [:]
+    private static let anchorLock = NSLock()
+    static let anchorPx = 256
+    /// For images developed without rules (a JPEG, the embedded preview): the rules' own defaults.
+    static let defaultWorkingSpace = "extendedLinearSRGB"
+    static let defaultLuma = [0.2126, 0.7152, 0.0722]
+
+    /// A RAW's tone anchor: the log-mean luma of its whole frame, developed small (256 px, the
+    /// default decoder, the same shading and base match) and measured once per file and rules. The
+    /// canvas, the loupe's tiles and the export all get this one number, whatever their size or
+    /// decoder, so Highlights and Shadows render the same in all three.
+    static func toneAnchor(raw url: URL, rules: LookRules) -> LookMath.ToneAnchor {
+        let coefficients = (rules.stages["rawDevelop"]?.coefficients ?? [:]).sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+        let stamp = (try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])).map { "\($0.contentModificationDate?.timeIntervalSince1970 ?? 0)|\($0.fileSize ?? 0)" } ?? ""
+        let key = "raw|\(url.path)|\(stamp)|\(coefficients)|\(rules.workingSpace)"
+        if let a = anchorLock.withLock({ anchors[key] }) { return a }
+        guard let raw = CIRAWFilter(imageURL: url) else { return .reference }
+        let long = max(raw.nativeSize.width, raw.nativeSize.height)
+        if long > CGFloat(anchorPx) { raw.scaleFactor = Float(CGFloat(anchorPx) / long) }
+        raw.boostAmount = Float(rules.k("rawDevelop", "boostAmount", 1))
+        let shading = rules.k("rawDevelop", "lensShading", 0)
+        if shading > 0, let s = LookLensShading.read(url: url), s.corrects { raw.linearSpaceFilter = LookShadingFilter(shading: s, amount: shading) }
+        guard let out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite, let img = try? baseMatched(atOrigin(out), rules: rules) else { return .reference }
+        return toneAnchor(of: img, key: key, workingSpace: rules.workingSpace, luma: rules.luma)
+    }
+
+    /// The log-mean luma of `img` (scaled to at most 256 px), remembered under `key`.
+    static func toneAnchor(of img: CIImage, key: String, workingSpace: String, luma: [Double]) -> LookMath.ToneAnchor {
+        if let a = anchorLock.withLock({ anchors[key] }) { return a }
+        let small = atOrigin(scaled(img, longEdge: anchorPx))
+        let w = Int(small.extent.width.rounded(.down)), h = Int(small.extent.height.rounded(.down))
+        guard w > 0, h > 0, !small.extent.isInfinite, let space = colorSpace(named: workingSpace) else { return .reference }
+        let ctx: CIContext = anchorLock.withLock {
+            if let c = anchorContexts[workingSpace] { return c }
+            let c = CIContext(options: [.workingColorSpace: space, .workingFormat: CIFormat.RGBAh.rawValue, .cacheIntermediates: false, .name: "LookPipeline.anchor"])
+            anchorContexts[workingSpace] = c
+            return c
+        }
+        var px = [Float](repeating: 0, count: w * h * 4)
+        ctx.render(small, toBitmap: &px, rowBytes: w * 16, bounds: CGRect(x: 0, y: 0, width: w, height: h), format: .RGBAf, colorSpace: space)
+        let a = LookMath.toneAnchor(pixels: px, luma: luma)
+        anchorLock.withLock { anchors[key] = a; if anchors.count > 4096 { anchors.removeAll(); anchors[key] = a } }
+        return a
     }
 
     /// The decoder's rendering brought to Lightroom's default (`LookMath.baseMatch`), as the last
@@ -191,14 +242,18 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         try h.seek(toOffset: UInt64(offset))
         guard let data = try h.read(upToCount: length), data.count == length, var img = CIImage(data: data) else { throw Failure("preview doesn't decode: \(url.lastPathComponent)") }
         if let o = CGImagePropertyOrientation(rawValue: UInt32(max(1, min(8, orientation)))), o != .up { img = img.oriented(o) }
-        return Developed(image: Self.scaled(Self.atOrigin(img), longEdge: px), asShot: Look.WhiteBalance(kelvin: 5500, tint: 0))
+        let upright = Self.atOrigin(img)
+        return Developed(image: Self.scaled(upright, longEdge: px), asShot: Look.WhiteBalance(kelvin: 5500, tint: 0),
+                         anchor: toneAnchor(of: upright, key: "preview|\(url.path)|\(offset)|\(length)", workingSpace: defaultWorkingSpace, luma: defaultLuma))
     }
 
     /// Any image ImageIO reads (JPEG, TIFF, PNG): for tests, the A/B page and fixtures without
     /// RAWs. Orientation applied, scaled to `longEdge` with Lanczos. As-shot is taken as D55 / 0.
     static func developImage(url: URL, longEdge px: Int?) throws -> Developed {
         guard let img = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else { throw Failure("can't read \(url.lastPathComponent)") }
-        return Developed(image: Self.scaled(Self.atOrigin(img), longEdge: px), asShot: Look.WhiteBalance(kelvin: 5500, tint: 0))
+        let upright = Self.atOrigin(img)
+        return Developed(image: Self.scaled(upright, longEdge: px), asShot: Look.WhiteBalance(kelvin: 5500, tint: 0),
+                         anchor: toneAnchor(of: upright, key: "image|\(url.path)", workingSpace: defaultWorkingSpace, luma: defaultLuma))
     }
 
     /// A RAW when Core Image reads it as one, else any image ImageIO reads.
@@ -239,6 +294,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         let lum = CIVector(x: rules.luma[0], y: rules.luma[1], z: rules.luma[2], w: 0)
         let ones = CIVector(x: 1, y: 1, z: 1, w: 1), zero = CIVector(x: 0, y: 0, z: 0, w: 0)
         let r = rules
+        var anchor = dev.anchor
 
         func pass(_ name: String, _ args: [Any]) {
             if let out = kernels.apply(name, extent: extent, args) { img = out }
@@ -255,7 +311,9 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             switch stage {
             case "exposure":
                 guard look.ev != 0 else { continue }
-                pass("lookExposure", [img, CIVector(x: LookMath.exposureGain(look.ev, r), y: LookMath.exposureWhite(r))])
+                let g = LookMath.exposureGain(look.ev, r), w = LookMath.exposureWhite(r)
+                pass("lookExposure", [img, CIVector(x: g, y: w)])
+                anchor.mean = LookMath.exposure(anchor.mean, gain: g, white: w)
             case "whiteBalance":
                 guard look.wb != nil else { continue }
                 let g = LookMath.whiteBalanceGains(look.wb, asShot: dev.asShot, r)
@@ -269,8 +327,9 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             case "tone":
                 guard look.highlights != 0 || look.shadows != 0 else { continue }
                 let base = blur(luma(perceptual: false), sigma: r.k("tone", "radiusFraction", 0.03) * longEdge)
-                let sh = CIVector(x: look.shadows * r.k("tone", "shadowsStopsPerUnit", 0.01), y: r.k("tone", "shadowsLo", 0), z: r.k("tone", "shadowsHi", 0.6), w: 0)
-                let hl = CIVector(x: look.highlights * r.k("tone", "highlightsStopsPerUnit", 0.01), y: r.k("tone", "highlightsLo", 0.4), z: r.k("tone", "highlightsHi", 1), w: r.k("tone", "detailGain", 1))
+                let n = LookMath.toneNormalisers(anchor: anchor, r)
+                let sh = CIVector(x: look.shadows * r.k("tone", "shadowsStopsPerUnit", 0.01) * n.shadowsGain, y: r.k("tone", "shadowsTau", 0.2), z: n.shadows, w: n.highlights)
+                let hl = CIVector(x: look.highlights * r.k("tone", "highlightsStopsPerUnit", 0.01) * n.highlightsGain, y: r.k("tone", "highlightsKnee", 0.7), z: LookMath.toneWhite(r), w: r.k("tone", "detailGain", 1))
                 pass("lookTone", [img, base, sh, hl, gam, lum])
             case "contrast":
                 guard look.contrast != 0 else { continue }
@@ -352,7 +411,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     func rasterised(_ dev: Developed) throws -> (Developed, Int) {
         let e = dev.extent.integral
         guard let cg = context.createCGImage(dev.image, from: e, format: .RGBAh, colorSpace: workingSpace) else { throw Failure("rasterise failed") }
-        return (Developed(image: CIImage(cgImage: cg), asShot: dev.asShot), cg.bytesPerRow * cg.height)
+        return (Developed(image: CIImage(cgImage: cg), asShot: dev.asShot, anchor: dev.anchor), cg.bytesPerRow * cg.height)
     }
 
     // MARK: reading pixels (tests, the ramp dump)
@@ -371,7 +430,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// A flat patch in the working space.
     func flat(_ c: LookMath.RGB, size: Int = 64) -> Developed {
         let color = CIColor(red: c.r, green: c.g, blue: c.b, alpha: 1, colorSpace: workingSpace) ?? CIColor(red: c.r, green: c.g, blue: c.b)
-        return Developed(image: CIImage(color: color).cropped(to: CGRect(x: 0, y: 0, width: size, height: size)), asShot: Look.WhiteBalance(kelvin: 5500, tint: 0))
+        return Developed(image: CIImage(color: color).cropped(to: CGRect(x: 0, y: 0, width: size, height: size)), asShot: Look.WhiteBalance(kelvin: 5500, tint: 0), anchor: .reference)
     }
 
     /// A horizontal ramp of `steps` columns, each `columnWidth` px wide, from `lo` to `hi` in
@@ -388,7 +447,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         }
         let bytes = data.withUnsafeBufferPointer { Data(buffer: $0) }
         let img = CIImage(bitmapData: bytes, bytesPerRow: w * 16, size: CGSize(width: w, height: height), format: .RGBAf, colorSpace: workingSpace)
-        return Developed(image: img, asShot: Look.WhiteBalance(kelvin: 5500, tint: 0))
+        return Developed(image: img, asShot: Look.WhiteBalance(kelvin: 5500, tint: 0), anchor: .reference)
     }
 }
 

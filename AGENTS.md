@@ -163,6 +163,13 @@ set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5
 - **White balance uses the same curve**: per-channel scene gains (Temperature moves red and blue and
   holds green, as Lightroom does; Tint has its own red and blue strengths), each channel through the
   tone curve, so a cast is full strength in the shadows and fades toward white.
+- **Highlights and Shadows are relative to the photo.** Tone is a local exposure through the same
+  curve, with masks and strengths read from the photo's anchor (`LookMath.ToneAnchor`: log-mean
+  luma, spread of log2 luma, share of pixels above L* 80; measured once per file on a 256 px
+  develop by `LookPipeline.toneAnchor`, pushed through exposure, and carried by every `Developed`,
+  base, tile region and export so the tiers stay identical). On 156 photos Lightroom moves the
+  same pixel value by +3 to +58 L* at Shadows +100 depending on the photo; those three numbers
+  explain most of it. A synthetic image or flat patch gets `ToneAnchor.reference`.
 - **Exposure is a scene gain seen through a sigmoid tone curve** (`LookMath.exposure`: per channel
   G·y / (1 + (G − 1)·y/white), G = 2^(ev · stopsPerUnit)), the form Lightroom's sweep shows:
   shadows and midtones move ~1.6 stops per unit, highlights roll off and lose saturation.
