@@ -22,7 +22,8 @@ const layoutOnly = (size, state) => size.id === '2560x1440' || state.startsWith(
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png' };
 const server = http.createServer(async (req, res) => {
   try { const p = join(PROTO, decodeURIComponent(new URL(req.url, 'http://x').pathname));
-    res.writeHead(200, { 'content-type': MIME[extname(p)] || 'application/octet-stream' }); res.end(await readFile(p)); }
+    const body = await readFile(p);   // read first: a missing file must answer 404, not throw after the 200 header
+    res.writeHead(200, { 'content-type': MIME[extname(p)] || 'application/octet-stream' }); res.end(body); }
   catch { res.writeHead(404); res.end(); }
 }).listen(0);
 const BASE = `http://127.0.0.1:${server.address().port}/`;
