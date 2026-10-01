@@ -16,6 +16,7 @@ jobs:
   design:
     name: design handoff
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -41,6 +42,7 @@ jobs:
   plumbing:
     name: plumbing.js on the page (Chromium)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,30 +52,72 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-1.56.1-${{ runner.os }}-chromium
+      # The Ubuntu mirror stalls now and then (a run on 2026-10-01 fetched at 130 kB/s and took ten
+      # minutes; another hung). Stalled downloads time out and retry, and the packages are cached, so
+      # most runs don't download them at all. Both apt installs of the job use the same settings.
+      - name: "apt: retries, timeouts, a package cache"
+        run: |
+          # Owned by the runner: actions/cache restores as that user and tar must be able to set the
+          # directory's times and mode (a root-owned directory made the restore fail with exit code 2).
+          sudo mkdir -p /var/cache/lumina-apt/partial && sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt && chmod -R 777 /var/cache/lumina-apt
+          printf '%s\n' 'Acquire::Retries "3";' 'Acquire::http::Timeout "20";' 'Acquire::https::Timeout "20";' \
+            'APT::Keep-Downloaded-Packages "true";' 'Dir::Cache::Archives "/var/cache/lumina-apt";' | sudo tee /etc/apt/apt.conf.d/80-lumina-ci
+      - uses: actions/cache@v4
+        with:
+          path: /var/cache/lumina-apt
+          key: apt-plumbing-${{ runner.os }}-${{ hashFiles('.github/workflows/lumina.yml') }}
+          restore-keys: apt-plumbing-${{ runner.os }}-
       - name: playwright
         run: npm i -g playwright@1.56.1 && npx playwright install --with-deps chromium
+      - name: "apt: leave the cache readable"
+        if: always()
+        run: sudo rm -f /var/cache/lumina-apt/lock; sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt; chmod -R a+rwX /var/cache/lumina-apt
       - name: plumbing harness
         run: NODE_PATH="$(npm root -g)" node Tests/web/plumbing-harness.mjs
 
   webkit:
     name: page + plumbing in WebKit (WebKitGTK sandbox)
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # The Ubuntu mirror stalls now and then (a run on 2026-10-01 fetched at 130 kB/s and took ten
+      # minutes; another hung). Stalled downloads time out and retry, and the packages are cached, so
+      # most runs don't download them at all. Both apt installs of the job use the same settings.
+      - name: "apt: retries, timeouts, a package cache"
+        run: |
+          # Owned by the runner: actions/cache restores as that user and tar must be able to set the
+          # directory's times and mode (a root-owned directory made the restore fail with exit code 2).
+          sudo mkdir -p /var/cache/lumina-apt/partial && sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt && chmod -R 777 /var/cache/lumina-apt
+          printf '%s\n' 'Acquire::Retries "3";' 'Acquire::http::Timeout "20";' 'Acquire::https::Timeout "20";' \
+            'APT::Keep-Downloaded-Packages "true";' 'Dir::Cache::Archives "/var/cache/lumina-apt";' | sudo tee /etc/apt/apt.conf.d/80-lumina-ci
+      - uses: actions/cache@v4
+        with:
+          path: /var/cache/lumina-apt
+          key: apt-webkit-${{ runner.os }}-${{ hashFiles('.github/workflows/lumina.yml') }}
+          restore-keys: apt-webkit-${{ runner.os }}-
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.56.1-${{ runner.os }}-chromium
       - name: WebKitGTK, Xvfb, playwright (fixture JPEGs)
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb
           npm i -g playwright@1.56.1 && npx playwright install --with-deps chromium
+      - name: "apt: leave the cache readable"
+        if: always()
+        run: sudo rm -f /var/cache/lumina-apt/lock; sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt; chmod -R a+rwX /var/cache/lumina-apt
       - name: contract, selftest, app flow, screens (prototype vs app)
         run: NODE_PATH="$(npm root -g)" xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3 Tests/web/webkit.py
 
   swift-linux:
     name: native file code on Linux (Swift 6.1)
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests, LookStringTests, LookMathTests, LookCanvasTests
@@ -82,6 +126,7 @@ jobs:
   parity:
     name: parity tools (ΔE, numpy mirror, refs, report)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -97,6 +142,7 @@ jobs:
   app:
     name: build + tests
     runs-on: macos-15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: build and test
