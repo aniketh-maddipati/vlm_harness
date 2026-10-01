@@ -97,6 +97,7 @@ COMBOS = [
     {"Contrast": -15, "Temperature": 5400, "Tint": -15},
 ]
 AS_SHOT = {"Temperature": 5550, "Tint": -5}
+SHOTS = {"A": (5550, -5), "B": (4950, -4), "C": (5400, -4)}   # three photos; B and C share the as-shot Tint
 
 
 def read(path, mode="r"):
@@ -124,38 +125,59 @@ class Sweep2PresetTests(unittest.TestCase):
                 seen[k] = seen.get(k, 0) + 1
         self.assertEqual(seen, {**{label: 3 for label, *_ in sweep.COMBO_TONE}, "Temperature": 3, "Tint": 3})
 
-    def test_sweep_2_is_a_short_separate_set_in_click_order(self):
+    def test_sweep_2_is_the_base_and_the_combos_in_their_own_group(self):
         ps = sweep.presets2()
-        self.assertEqual(len(ps), 1 + 4 + 4 + 10)
-        self.assertEqual([p[0] for p in ps], [f"2-{i:02d}" for i in range(1, len(ps) + 1)])
+        self.assertEqual([p[0] for p in ps], [f"2-{i:02d}" for i in range(1, 12)])
         self.assertEqual(ps[0][1:], ("Base", sweep.BASE))
-        names = [p[1] for p in ps]
-        self.assertEqual(names[1:5], ["Temperature 3200", "Temperature 4000", "Temperature 6500", "Temperature 10000"])
-        self.assertEqual(names[12:16], ["Tint -60", "Tint -20", "Tint +20", "Tint +60"])
-        # A Tint preset leaves Temperature alone, so the preset before the first one resets white balance.
-        self.assertEqual(ps[11][2]["WhiteBalance"], "As Shot")
-        one = [re.search(r'crs:UUID="(\w+)"', sweep.preset_xmp(*p)).group(1) for p in sweep.presets()]
-        two = [re.search(r'crs:UUID="(\w+)"', sweep.preset_xmp(*p, group=sweep.GROUP2)).group(1) for p in ps]
-        self.assertEqual(len(set(one + two)), len(one) + len(two))
-
-    def test_white_balance_presets_are_custom_and_set_one_number_over_the_base(self):
-        ps = {p[1]: p for p in sweep.presets2()}
-        x = sweep.preset_xmp(*ps["Temperature 6500"], group=sweep.GROUP2)
-        self.assertIn('crs:WhiteBalance="Custom"', x)
-        self.assertIn('crs:Temperature="6500"', x)
-        self.assertNotIn("crs:Tint=", x)
-        self.assertIn(">Lumina sweep 2<", x)
-        self.assertIn(">2-04 Temperature 6500<", x)
-        x = sweep.preset_xmp(*ps["Tint -20"], group=sweep.GROUP2)
-        self.assertIn('crs:WhiteBalance="Custom"', x)
-        self.assertIn('crs:Tint="-20"', x)
-        self.assertNotIn("crs:Temperature=", x)
-        for _, _, settings in ps.values():
+        self.assertEqual([p[1] for p in ps[1:]], [f"Combo {n:02d}" for n in range(1, 11)])
+        three = sweep.presets3(SHOTS)
+        ids = [[re.search(r'crs:UUID="(\w+)"', sweep.preset_xmp(*p, group=g)).group(1) for p in table]
+               for table, g in ((sweep.presets(), sweep.GROUP), (ps, sweep.GROUP2), (three, sweep.GROUP3))]
+        self.assertEqual(len(set(sum(ids, []))), sum(len(i) for i in ids))
+        for _, _, settings in ps + three:
             rest = {k: v for k, v in settings.items() if k in sweep.BASE and k not in sweep.SLIDER_KEYS and k != "WhiteBalance"}
             self.assertEqual(rest, {k: v for k, v in sweep.BASE.items() if k in rest})
             self.assertNotIn("CameraProfile", settings)
             self.assertEqual(settings["LensProfileEnable"], 0)
             self.assertEqual(settings["Sharpness"], 0)
+
+    def test_white_balance_presets_are_per_photo_and_always_carry_both_numbers(self):
+        # Lightroom CC ignores a Custom preset with only one of the two (it lands on 5500 / +10).
+        ps = sweep.presets3(SHOTS)
+        self.assertEqual(ps, sweep.presets3(dict(reversed(list(SHOTS.items())))))
+        self.assertEqual([p[0] for p in ps], [f"3-{i:02d}" for i in range(1, len(ps) + 1)])
+        # Temperature: one preset per as-shot Tint (B and C share -4); Tint: one per as-shot Temperature.
+        self.assertEqual(len(ps), 4 * 2 + 4 * 3)
+        self.assertEqual([p[1] for p in ps[:4]], ["Temperature 3200 for A", "Temperature 3200 for B + C",
+                                                  "Temperature 4000 for A", "Temperature 4000 for B + C"])
+        self.assertEqual([p[1] for p in ps[8:11]], ["Tint -60 for A", "Tint -60 for B", "Tint -60 for C"])
+        for _, name, settings in ps:
+            self.assertEqual(settings["WhiteBalance"], "Custom")
+            self.assertIn("Temperature", settings)
+            self.assertIn("Tint", settings)
+        by = {p[1]: p for p in ps}
+        self.assertEqual((by["Temperature 6500 for B + C"][2]["Temperature"], by["Temperature 6500 for B + C"][2]["Tint"]), (6500, -4))
+        self.assertEqual((by["Tint +20 for C"][2]["Temperature"], by["Tint +20 for C"][2]["Tint"]), (5400, 20))
+        x = sweep.preset_xmp(*by["Temperature 6500 for A"], group=sweep.GROUP3)
+        for want in ('crs:WhiteBalance="Custom"', 'crs:Temperature="6500"', 'crs:Tint="-5"', ">Lumina sweep 3 WB<", 'crs:Contrast2012="0"'):
+            self.assertIn(want, x)
+
+    def test_the_per_photo_presets_ingest_as_singles_for_their_own_photos(self):
+        with tempfile.TemporaryDirectory() as d:
+            ex, refs = os.path.join(d, "exports"), os.path.join(d, "refs")
+            os.makedirs(ex)
+            n = 0
+            for stem, (t, tint) in SHOTS.items():
+                fake_export(os.path.join(ex, f"{stem}.jpg"), f"{stem}.ARW", Temperature=t, Tint=tint)
+            for _, name, settings in sweep.presets3(SHOTS):
+                for stem in name.split(" for ")[1].split(" + "):
+                    n += 1
+                    fake_export(os.path.join(ex, f"x{n}.jpg"), f"{stem}.ARW", **settings)
+            r = sweep.ingest(ex, refs)
+            self.assertEqual(r["problems"], [])
+            self.assertEqual(r["refs_written"], 3 * 9)
+            self.assertEqual(r["missing"], {s: [f"combo {i}" for i in (1, 10, 2, 3, 4, 5, 6, 7, 8, 9)] for s in SHOTS})
+            self.assertEqual(sweep.read_as_shot(refs), SHOTS)
 
     def test_combo_presets_carry_their_three_sliders(self):
         ps = {p[1]: p for p in sweep.presets2()}
@@ -170,15 +192,22 @@ class Sweep2PresetTests(unittest.TestCase):
     def test_presets_are_written_as_a_zip_under_their_own_group(self):
         import zipfile
         with tempfile.TemporaryDirectory() as d:
-            files, z = sweep.write_presets(d, sweep=2)
-            self.assertEqual(len(files), 19)
-            self.assertEqual(os.path.basename(z), "Lumina-sweep2-presets.zip")
-            with zipfile.ZipFile(z) as zf:
-                names = zf.namelist()
-            self.assertEqual(len(names), 19)
-            self.assertTrue(all(n.startswith("Lumina sweep 2/2-") and n.endswith(".xmp") for n in names))
-            again, _ = sweep.write_presets(os.path.join(d, "again"), sweep=2)
-            self.assertEqual([read(f) for f in files], [read(f) for f in again])
+            for n, count, zname, group in ((2, 11, "Lumina-sweep2-presets.zip", "Lumina sweep 2/2-"),
+                                           (3, 20, "Lumina-sweep3-wb-presets.zip", "Lumina sweep 3 WB/3-")):
+                out = os.path.join(d, str(n))
+                os.makedirs(os.path.join(out, "presets"))
+                with open(os.path.join(out, "presets", "9-99 stale.xmp"), "w") as f:
+                    f.write("an earlier table's preset")
+                files, z = sweep.write_presets(out, sweep=n, as_shot=SHOTS)
+                self.assertEqual(len(files), count)
+                self.assertEqual(sorted(os.listdir(os.path.join(out, "presets"))), sorted(os.path.basename(f) for f in files))
+                self.assertEqual(os.path.basename(z), zname)
+                with zipfile.ZipFile(z) as zf:
+                    names = zf.namelist()
+                self.assertEqual(len(names), count)
+                self.assertTrue(all(x.startswith(group) and x.endswith(".xmp") for x in names))
+                again, _ = sweep.write_presets(os.path.join(d, "again"), sweep=n, as_shot=SHOTS)
+                self.assertEqual([read(f) for f in files], [read(f) for f in again])
 
 
 class Sweep2IngestTests(unittest.TestCase):
@@ -243,7 +272,8 @@ class Sweep2IngestTests(unittest.TestCase):
             ex, refs = os.path.join(d, "exports"), os.path.join(d, "refs")
             os.makedirs(ex)
             fake_export(os.path.join(ex, "base.jpg"), "A.ARW", **AS_SHOT)
-            fake_export(os.path.join(ex, "carried.jpg"), "A.ARW", **custom(Temperature=6500, Tint=60))   # Tint +60 still applied
+            fake_export(os.path.join(ex, "carried.jpg"), "A.ARW", **custom(Temperature=6500, Tint=7))   # another photo's preset
+            fake_export(os.path.join(ex, "default.jpg"), "A.ARW", **custom(Temperature=5500, Tint=10))   # a one-number preset
             fake_export(os.path.join(ex, "offgrid.jpg"), "A.ARW", **custom(Temperature=5000))
             fake_export(os.path.join(ex, "nearcombo.jpg"), "A.ARW", **custom(Shadows2012=35, Temperature=4350, Tint=25))
             fake_export(os.path.join(ex, "nearcombo2.jpg"), "A.ARW", Whites2012=-15, Exposure2012=0.45, Contrast2012=25, **AS_SHOT)
@@ -255,8 +285,9 @@ class Sweep2IngestTests(unittest.TestCase):
             fake_export(os.path.join(ex, "dup2.jpg"), "A.ARW", **custom(Tint=20))
             r = sweep.ingest(ex, refs)
             whys = {p["file"]: p["why"] for p in r["problems"]}
-            self.assertIn("earlier white-balance preset was still applied", whys["carried.jpg"])
+            self.assertIn("another photo's white-balance preset", whys["carried.jpg"])
             self.assertIn("5550 / -5 as shot", whys["carried.jpg"])
+            self.assertIn("default Custom white balance", whys["default.jpg"])
             self.assertIn("not a sweep position", whys["offgrid.jpg"])
             self.assertIn("not one of the combos", whys["nearcombo.jpg"])
             self.assertIn("not one of the combos", whys["nearcombo2.jpg"])
@@ -265,7 +296,7 @@ class Sweep2IngestTests(unittest.TestCase):
             self.assertIn("lens corrections", whys["lens.jpg"])
             self.assertIn("export the Base preset too", whys["orphan.jpg"])
             self.assertIn("duplicate", whys["dup2.jpg"])
-            self.assertEqual(len(whys), 9)
+            self.assertEqual(len(whys), 10)
             self.assertEqual(sorted(os.listdir(refs)), ["A__Tint__20.jpg", "A__asshot.json", "A__base.jpg", "sweep-ingest.json"])
 
     def test_a_position_equal_to_the_as_shot_value_is_still_that_position(self):
@@ -296,12 +327,20 @@ class CommandTests(unittest.TestCase):
             os.makedirs(os.path.join(d, "empty"))
             self.assertEqual(sweep.main(["ingest", os.path.join(d, "empty"), "--refs", os.path.join(d, "refs")]), 2)
 
-    def test_presets_sweep_2_writes_its_own_zip(self):
+    def test_presets_sweep_2_and_3_write_their_own_zips(self):
         with tempfile.TemporaryDirectory() as d:
-            self.assertEqual(sweep.main(["presets", "--sweep", "2", "--out", d]), 0)
-            self.assertEqual(len(os.listdir(os.path.join(d, "presets"))), 19)
-            self.assertTrue(os.path.exists(os.path.join(d, "Lumina-sweep2-presets.zip")))
-
+            self.assertEqual(sweep.main(["presets", "--sweep", "2", "--out", os.path.join(d, "s2")]), 0)
+            self.assertEqual(len(os.listdir(os.path.join(d, "s2", "presets"))), 11)
+            self.assertTrue(os.path.exists(os.path.join(d, "s2", "Lumina-sweep2-presets.zip")))
+            # Sweep 3 needs the as-shot values an ingest wrote, and says so without them.
+            refs = os.path.join(d, "s2", "refs")
+            self.assertEqual(sweep.main(["presets", "--sweep", "3", "--refs", refs]), 2)
+            os.makedirs(refs)
+            with open(os.path.join(refs, "A__asshot.json"), "w") as f:
+                json.dump({"Temperature": 5550, "Tint": -5}, f)
+            self.assertEqual(sweep.main(["presets", "--sweep", "3", "--refs", refs]), 0)
+            self.assertEqual(len(os.listdir(os.path.join(d, "s2", "wb", "presets"))), 8)
+            self.assertTrue(os.path.exists(os.path.join(d, "s2", "wb", "Lumina-sweep3-wb-presets.zip")))
 
 if __name__ == "__main__":
     unittest.main()

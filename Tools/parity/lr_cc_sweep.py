@@ -18,21 +18,27 @@ The positions are a subset of lr_sweep.lrdevplugin's (the Classic plug-in): the 
 first personal-set eval implicates (Exposure, Blacks, Contrast, Whites) at more positions, the
 rest at a few, plus the base with lens profile corrections on (the border ΔL* question).
 
-Sweep 2 (`presets --sweep 2`, group "Lumina sweep 2", ~/LuminaEvidence/parity/sweep2) is white
-balance and three-slider combos:
+Sweep 2 (`presets --sweep 2`, group "Lumina sweep 2", ~/LuminaEvidence/parity/sweep2) is the base
+and ten three-slider combos; sweep 3 (`presets --sweep 3`, group "Lumina sweep 3 WB") is white
+balance, Temperature and Tint alone. Both export into the same folder:
 
     python3 Tools/parity/lr_cc_sweep.py presets --sweep 2
     python3 Tools/parity/lr_cc_sweep.py ingest ~/LuminaEvidence/parity/sweep2/exports --refs ~/LuminaEvidence/parity/sweep2/refs
-        → also <stem>__Temperature__<K>.jpg, <stem>__Tint__<v>.jpg, <stem>__combo<NN>.jpg + .json
-          ({"settings": …}) and <stem>__asshot.json (Lightroom's as-shot Temperature / Tint, which
-          every As Shot export carries; parity.py turns absolute Kelvin into a delta with it).
+        → also <stem>__combo<NN>.jpg + .json ({"settings": …}) and <stem>__asshot.json (Lightroom's
+          as-shot Temperature / Tint, which every As Shot export carries; parity.py turns absolute
+          Kelvin into a delta with it).
+    python3 Tools/parity/lr_cc_sweep.py presets --sweep 3 [--refs ~/LuminaEvidence/parity/sweep2/refs]
+        → <refs>/../wb/presets + Lumina-sweep3-wb-presets.zip, made from the <stem>__asshot.json
+          files; after exporting, the same ingest adds <stem>__Temperature__<K>.jpg and
+          <stem>__Tint__<v>.jpg.
 
-A Temperature preset sets only Temperature (white balance Custom) and a Tint preset only Tint,
-so the other one stays as shot per photo, as the Classic plug-in does it. That holds when the
-preset is clicked on a photo whose white balance is as shot, which the click order arranges (the
-Base and the combos without white balance reset it). The ingest checks it against the as-shot
-values and names an export where an earlier white-balance preset was still applied. Combos that
-move white balance set both Temperature and Tint, so they don't depend on what came before.
+White balance presets are per photo. Lightroom CC ignores a preset that sets only Temperature or
+only Tint (measured 2026-09-30: every photo comes out at Custom 5500 / +10, whatever the preset
+said), so a Temperature preset must also carry the photo's as-shot Tint, and a Tint preset its
+as-shot Temperature, which is what the Classic plug-in does per photo. Photos that share the
+as-shot value share a preset; each preset names the photos it is for, and the ingest checks every
+export against the as-shot values, so a preset clicked on the wrong photo is named, not ingested.
+Combos that move white balance set both numbers and are the same for every photo.
 """
 import argparse
 import hashlib
@@ -72,12 +78,13 @@ SLIDER_KEYS = {key for _, key, _ in SWEEP}
 LABELS = {key: label for label, key, _ in SWEEP}
 GROUP = "Lumina sweep"
 
-# Sweep 2. White balance: absolute Kelvin / Tint, four of the plug-in's ten positions each.
+# Sweep 3. White balance: absolute Kelvin / Tint, four of the plug-in's ten positions each.
 WB_SWEEP = [
     ("Temperature", "Temperature", [3200, 4000, 6500, 10000]),
     ("Tint", "Tint", [-60, -20, 20, 60]),
 ]
 GROUP2 = "Lumina sweep 2"
+GROUP3 = "Lumina sweep 3 WB"
 
 # Combos: three sliders each, moderate values (sign random, magnitude lo … hi in steps). Seeded,
 # so the table is the same on every run: the ingest matches exports against it. Changing the seed,
@@ -174,21 +181,43 @@ def presets():
 
 
 def presets2():
-    """Sweep 2 in click order: the base, Temperature, the combos without white balance (they put
-    white balance back to as shot), Tint, the combos with white balance."""
-    table = combos()
-    out = [("Base", dict(BASE))]
-    wb = {label: [(f"{label} {fmt(key, v)}", {**BASE, "WhiteBalance": "Custom", key: v}) for v in values]
-          for label, key, values in WB_SWEEP}
-    named = [(f"Combo {n:02d}", combo_settings(c)) for n, c in enumerate(table, 1)]
-    out += wb["Temperature"] + named[:COMBOS - WB_COMBOS] + wb["Tint"] + named[COMBOS - WB_COMBOS:]
+    """Sweep 2 in click order: the base, then the combos."""
+    out = [("Base", dict(BASE))] + [(f"Combo {n:02d}", combo_settings(c)) for n, c in enumerate(combos(), 1)]
     return [(f"2-{n:02d}", name, settings) for n, (name, settings) in enumerate(out, 1)]
+
+
+def presets3(as_shot):
+    """Sweep 3, white balance, from {stem: (Temperature, Tint)} as shot. One round per position:
+    a preset per group of photos that share the other as-shot value, which the preset keeps."""
+    out = []
+    for label, key, values in WB_SWEEP:
+        other, idx = ("Tint", 1) if label == "Temperature" else ("Temperature", 0)
+        groups = {}
+        for stem in sorted(as_shot):
+            groups.setdefault(as_shot[stem][idx], []).append(stem)
+        for v in values:
+            for keep, stems in sorted(groups.items(), key=lambda g: g[1]):
+                out.append((f"{label} {fmt(key, v)} for {' + '.join(stems)}", {**BASE, "WhiteBalance": "Custom", key: v, other: keep}))
+    return [(f"3-{n:02d}", name, settings) for n, (name, settings) in enumerate(out, 1)]
+
+
+def read_as_shot(refs):
+    """{stem: (Temperature, Tint)} from the <stem>__asshot.json files an ingest wrote."""
+    out = {}
+    for n in sorted(os.listdir(refs)) if os.path.isdir(refs) else []:
+        if n.endswith("__asshot.json"):
+            with open(os.path.join(refs, n)) as f:
+                d = json.load(f)
+            out[n[: -len("__asshot.json")]] = (d["Temperature"], d["Tint"])
+    return out
 
 
 def describe(name, settings):
     moved = [f"{LABELS.get(k, k)} {fmt(k, v)}" for k, v in settings.items() if BASE.get(k, 0) != v and k != "WhiteBalance"]
     if name.startswith("Combo"):
         return "Lumina parity sweep: " + ", ".join(moved) + " from the neutral base."
+    if settings.get("WhiteBalance") == "Custom":
+        return "Lumina parity sweep: one white-balance slider from the neutral base, the other at these photos' as-shot value."
     return "Lumina parity sweep: one slider from the neutral base."
 
 
@@ -229,11 +258,15 @@ def preset_xmp(num, name, settings, group=GROUP):
 """
 
 
-def write_presets(out, sweep=1):
-    group, table, zname = ((GROUP, presets(), "Lumina-sweep-presets.zip") if sweep == 1
-                           else (GROUP2, presets2(), "Lumina-sweep2-presets.zip"))
+def write_presets(out, sweep=1, as_shot=None):
+    group, table, zname = {1: lambda: (GROUP, presets(), "Lumina-sweep-presets.zip"),
+                           2: lambda: (GROUP2, presets2(), "Lumina-sweep2-presets.zip"),
+                           3: lambda: (GROUP3, presets3(as_shot), "Lumina-sweep3-wb-presets.zip")}[sweep]()
     d = os.path.join(out, "presets")
     os.makedirs(d, exist_ok=True)
+    for stale in os.listdir(d):   # an earlier table's presets (other photos, other numbering)
+        if stale.endswith(".xmp"):
+            os.remove(os.path.join(d, stale))
     files = []
     for num, name, settings in table:
         path = os.path.join(d, f"{num} {name}.xmp")
@@ -341,9 +374,12 @@ def classify_wb(crs, tone, as_shot, table):
         return hits[0], None
     if hits:
         return None, f"{wb} is both a Temperature and a Tint position for this photo (as shot {t0:g} / {tint0:+g})"
-    if t != t0 and tint != tint0 and (t in positions["Temperature"] or tint in positions["Tint"]):
-        return None, (f"{wb}, but this photo is {t0:g} / {tint0:+g} as shot: an earlier white-balance preset was still applied. "
-                      "Click the Base preset, then this preset again, and re-export")
+    if (t, tint) == (5500, 10):
+        return None, (f"{wb} is Lightroom's default Custom white balance: the preset set only Temperature or only Tint, "
+                      "and Lightroom ignores that. Use the per-photo presets (presets --sweep 3)")
+    if t in positions["Temperature"] or tint in positions["Tint"]:
+        return None, (f"{wb}, but this photo is {t0:g} / {tint0:+g} as shot: that is another photo's white-balance preset. "
+                      "Click this photo's own preset and re-export")
     return None, f"{wb} is not a sweep position (as shot {t0:g} / {tint0:+g})"
 
 
@@ -446,16 +482,27 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("presets")
-    p.add_argument("--sweep", type=int, choices=(1, 2), default=1, help="1: the single sliders; 2: white balance + combos")
-    p.add_argument("--out", help="default: ~/LuminaEvidence/parity/sweep, or …/sweep2 for --sweep 2")
+    p.add_argument("--sweep", type=int, choices=(1, 2, 3), default=1, help="1: the single sliders; 2: base + combos; 3: white balance, per photo")
+    p.add_argument("--out", help="default: ~/LuminaEvidence/parity/sweep, …/sweep2 for --sweep 2, <refs>/../wb for --sweep 3")
+    p.add_argument("--refs", default=os.path.expanduser("~/LuminaEvidence/parity/sweep2/refs"),
+                   help="--sweep 3: the refs folder whose <stem>__asshot.json files say each photo's as-shot white balance")
     i = sub.add_parser("ingest")
     i.add_argument("exports")
     i.add_argument("--refs", default=os.path.expanduser("~/LuminaEvidence/parity/refs"))
     i.add_argument("--sweep", type=int, choices=(1, 2), help="which preset set to expect (default: worked out from the exports)")
     a = ap.parse_args(argv)
     if a.cmd == "presets":
-        out = os.path.expanduser(a.out or ("~/LuminaEvidence/parity/sweep" if a.sweep == 1 else "~/LuminaEvidence/parity/sweep2"))
-        files, z = write_presets(out, a.sweep)
+        as_shot = None
+        if a.sweep == 3:
+            refs = os.path.expanduser(a.refs)
+            as_shot = read_as_shot(refs)
+            if not as_shot:
+                print(f"no <stem>__asshot.json under {refs}: export the Base preset and run ingest first")
+                return 2
+            out = os.path.expanduser(a.out) if a.out else os.path.join(os.path.dirname(os.path.abspath(refs)), "wb")
+        else:
+            out = os.path.expanduser(a.out or ("~/LuminaEvidence/parity/sweep" if a.sweep == 1 else "~/LuminaEvidence/parity/sweep2"))
+        files, z = write_presets(out, a.sweep, as_shot)
         print(f"{len(files)} presets → {os.path.dirname(files[0])}\nimport this in Lightroom: {z}")
     else:
         exports = os.path.expanduser(a.exports)
