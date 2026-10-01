@@ -1,10 +1,13 @@
 {
  "mode": "app",
  "page": "Lumina Sets v5.dc.html",
- "size": [1440, 900],
+ "size": [
+  1440,
+  900
+ ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
- "checklist": "Canvas vs export consistency on real ARWs in LUMINA_EDIT_DIR: for 12 distinct photos spread over the folder and every stage of the look (each alone at a moderate and a strong value, crop and straighten, two combos), ΔE2000 between what the Edit canvas shows (the canvas tier's decoder, developed at canvas size) and what Export writes (the pinned decoder at full size, scaled to the canvas). Also the control at the same size, a canvas one decoder version behind the export (the RAW 8 canvas / RAW 9 export case, rehearsed with the versions this Mac has), and the quarter-size drag preview against the picture at rest. Reported; gated only when maxMedianDE / maxP95DE are set.",
+ "checklist": "Canvas vs export consistency on real ARWs in LUMINA_EDIT_DIR: for 12 distinct photos spread over the folder and every stage of the look (each alone at a moderate and a strong value, crop and straighten, two combos), ΔE2000 between what the Edit canvas shows (the canvas tier's decoder, developed at canvas size) and what Export writes (the pinned decoder at full size, scaled to the canvas). Also the control at the same size, a canvas one decoder version behind the export (the RAW 8 canvas / RAW 9 export case, rehearsed with the versions this Mac has), and the quarter-size drag preview against the picture at rest. Gate: for every photo and look the median ΔE between canvas and full-size export is at most 1.0 (a visible shift in colour or tone); the p95 (fine detail: sharpening, demosaic at two sizes) is reported, not gated.",
  "budgets": {
   "probePeakMB": 6000
  },
@@ -13,8 +16,12 @@
    "do": "editConsistency",
    "folder": "${LUMINA_EDIT_DIR}",
    "count": 12,
-   "canvas": [1760, 1280],
-   "sampleStep": 2
+   "canvas": [
+    1760,
+    1280
+   ],
+   "sampleStep": 2,
+   "maxMedianDE": 1.0
   }
  ]
 }

@@ -90,6 +90,7 @@ LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh ingest  # th
 LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh card         # golden card + page vs native read
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh edit           # Edit canvas: 2 s drags, latency p95 ≤ 16 ms (LUMINA_EDIT_P95), 0 dropped, rest ≤ 120 ms, ≤ 3 photos / 300 MB, canvas vs export ΔE; then the image path
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh raw9           # RAW 9: decoder map, first tile / full region, export time + memory per version, forced fallback, tiles vs export ΔE
+LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh consistency    # canvas vs full-size export per stage of the look on 12 distinct ARWs: median ΔE ≤ 1.0 for every photo and look (p95 reported); also a canvas one decoder behind the export, and the drag preview
 LUMINA_REMOTE=user@m1.local bash Scripts/probe_remote.sh edit               # the same on the M1 8 GB over ssh (p95 ≤ 33 ms), evidence pulled back
 bash Scripts/probe.sh v3            # scenarios still written for the v3 page: expected to fail until rewritten
 ```
