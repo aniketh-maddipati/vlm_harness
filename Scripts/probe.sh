@@ -23,6 +23,8 @@
 #                                                fallback path (LUMINA_CANVAS=image). Folder: LUMINA_EDIT_DIR, else as scroll
 #   bash Scripts/probe.sh raw9                   RAW 9 (§8): decoder map, time to first tile / full region, export time + memory
 #                                                per decoder version, the forced per-file fallback, tiles vs export ΔE per version
+#   bash Scripts/probe.sh consistency            canvas vs export: ΔE between what the Edit canvas shows and what Export writes (full size,
+#                                                pinned decoder), per stage of the look, on 12 distinct real ARWs of LUMINA_EDIT_DIR
 #   bash Scripts/probe.sh v3                     the scenarios still written for the v3 page (see V3 below): expected to fail
 #   bash Scripts/probe.sh all [--require-all]    everything v5; --require-all turns a SKIP into a failure
 #
@@ -156,6 +158,7 @@ case "$suite" in
              echo "— image fallback path (LUMINA_CANVAS=image) —"
              LUMINA_CANVAS=image run_out "$OUT/image-path" "$S/edit-canvas.json" ;;
   raw9)      editdir; run "$S/raw9.json" ;;
+  consistency) editdir; run "$S/edit-consistency.json" ;;
   v3)        run $(v3files) ;;                  # scenario paths have no spaces
   all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S"/edge-*.json "$S/app-plumbing-contract.json" "$S/app-smoke.json" \
                "$S/fault-kill-mid-handoff.json" "$S/fault-native-dest.json"
