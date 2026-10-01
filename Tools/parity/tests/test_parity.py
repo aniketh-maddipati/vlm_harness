@@ -98,8 +98,8 @@ class SelectionAndAggregationTests(unittest.TestCase):
             # A stand-in renderer: `info` prints an as-shot, `batch` writes the ramp scaled by 2^ev (an exact exposure stage).
             fake = os.path.join(d, "fake-render.py")
             with open(fake, "w") as f:
-                f.write("""#!/usr/bin/env python3
-import json, sys, os, numpy as np, tifffile
+                # The interpreter running the tests (with numpy), not whatever `python3` is first on PATH.
+                f.write(f"#!{sys.executable}\n" + """import json, sys, os, numpy as np, tifffile
 cmd = sys.argv[1]
 if cmd == 'info':
     print(json.dumps({"asShot": {"kelvin": 5400, "tint": 1}})); sys.exit(0)

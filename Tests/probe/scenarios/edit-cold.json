@@ -1,0 +1,102 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "sampleMs": 100,
+ "stopOnFailure": false,
+ "checklist": "The Edit canvas with nothing compiled (probe.sh edit runs this with LUMINA_KERNEL_SALT set, so neither Core Image nor Metal's on-disk cache has seen the stage programs: the first launch after an update that changed a kernel). Drags the way the page does (the whole look, one slider changing) on sliders whose stage the canvas has not rendered: vibrance (a colour kernel), shadows (a blur stage), then exposure down to exactly 0 (a stage leaving the graph). Each drag waits for the warm-up to go idle first, as a person reaching for a slider does, and is gated like the other drags (p95 ≤ 16 ms, 0 dropped, rest ≤ 120 ms) plus: the main-thread time of the first render of each new set of stages ≤ 8 ms, and the drag must have rendered one. LUMINA_CANVAS_WARM=0 turns the warm-up off (the 'before' measure: the first-render gate then fails). Folder: LUMINA_EDIT_DIR.",
+ "budgets": {
+  "probePeakMB": 3000
+ },
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_EDIT_DIR}",
+   "via": "js",
+   "timeoutMs": 900000
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const p=l.real[Math.min(1,l.real.length-1)]; window.__editRel=p.path; return lumina.edit.enter(p.path, 'ev:+0.30 con:+10').then(f=>JSON.stringify(f))"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.layout({x:280,y:60,w:880,h:640}, true, {force:true}); return JSON.stringify(lumina.edit.state().rect)"
+  },
+  {
+   "do": "waitFor",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'?!!lumina.edit.state().image.shown:(s.bases&&s.bases.resident>0&&s.renders>0))",
+   "timeoutMs": 90000,
+   "what": "bases built and the first frame shown (or the first image shown)"
+  },
+  {
+   "do": "editDrag",
+   "slider": "vib",
+   "from": -40,
+   "to": 40,
+   "ms": 1000,
+   "hz": 120,
+   "merge": true,
+   "waitWarmMs": 8000,
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120,
+   "maxFirstMs": 8,
+   "expectFirst": true
+  },
+  {
+   "do": "editDrag",
+   "slider": "sh",
+   "from": -60,
+   "to": 60,
+   "ms": 1000,
+   "hz": 120,
+   "merge": true,
+   "waitWarmMs": 8000,
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120,
+   "maxFirstMs": 8,
+   "expectFirst": true
+  },
+  {
+   "do": "editDrag",
+   "slider": "ev",
+   "from": 0.6,
+   "to": 0,
+   "ms": 1000,
+   "hz": 120,
+   "merge": true,
+   "waitWarmMs": 8000,
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120,
+   "maxFirstMs": 8,
+   "expectFirst": true
+  },
+  {
+   "do": "editParity",
+   "maxMedianDE": 0.5
+  },
+  {
+   "do": "expect",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'||(s.bases.residentPhotos<=3&&s.bases.bytes<=300*1048576))"
+  },
+  {
+   "do": "dump",
+   "name": "canvas",
+   "js": "return lumina.edit.stats()"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.leave(); return lumina.edit.state().visible===false"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

@@ -25,6 +25,13 @@
   // Vendored React / Babel through support.js's own hook; page bytes stay unchanged.
   if (cfg.resources) window.__resources = Object.assign(window.__resources || {}, cfg.resources);
 
+  // No system drags. A tile is draggable (GRAMMAR "Drop"), so a synthetic mouse drag over one makes
+  // WebKit start a real drag session: macOS draws its drag image on the user's screen, writes the
+  // drag pasteboard, and tracks the real pointer (not the probe's events), so the session can sit
+  // open for minutes. The drag is refused before the page sees it; the page's own mouse-driven
+  // drags (marquee, paint, row boundary, stack edge) are unaffected.
+  window.addEventListener('dragstart', e => { e.preventDefault(); e.stopImmediatePropagation(); post('drag', { refused: (e.target && e.target.getAttribute && e.target.getAttribute('data-lumina')) || 'element' }); }, true);
+
   // Errors and console. Anything at error level fails the run.
   const fmt = a => a.map(x => {
     if (x instanceof Error) return x.name + ': ' + x.message + (x.stack ? '\n' + x.stack : '');

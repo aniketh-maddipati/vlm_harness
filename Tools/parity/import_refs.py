@@ -8,8 +8,11 @@ Expected names, as lr_sweep.lrdevplugin writes them:
     <stem>__<Slider>__<value>.tif          one slider, e.g. DSC01234__Exposure__-2.5.tif
     <stem>__combo<NN>.tif + .json          three sliders at once; the JSON holds the settings
     <stem>__asshot.json                    Lightroom's as-shot Temperature / Tint and the profile
+    <stem>__edit<NN>.jpg|.tif + .json      one of your own Lightroom edits (import_lr_edits.py): the
+                                           JSON holds its settings, look string, bucket and features
 Anything else is listed under "ignored". Each entry records size, bit depth and the colour space
-read from the TIFF's ICC profile, so delta_e.py converts to the right Lab white.
+read from the image's ICC profile (TIFF, or an 8-bit sRGB JPEG for edits), so delta_e.py converts
+to the right Lab white.
 """
 import argparse
 import json
@@ -20,7 +23,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-NAME = re.compile(r"^(?P<stem>.+?)__(?:(?P<base>base)|(?P<slider>[A-Za-z][A-Za-z0-9]*)__(?P<value>-?\d+(?:\.\d+)?)|combo(?P<combo>\d+))\.(?:tif|tiff)$", re.I)
+NAME = re.compile(r"^(?P<stem>.+?)__(?:(?P<base>base)|(?P<slider>[A-Za-z][A-Za-z0-9]*)__(?P<value>-?\d+(?:\.\d+)?)|combo(?P<combo>\d+))\.(?:tif|tiff|jpg|jpeg)$|^(?P<estem>.+?)__edit(?P<edit>\d+)\.(?:tif|tiff|jpg|jpeg)$", re.I)
 SLIDER_ALIASES = {"exposure2012": "Exposure", "contrast2012": "Contrast", "highlights2012": "Highlights", "shadows2012": "Shadows",
                   "whites2012": "Whites", "blacks2012": "Blacks", "clarity2012": "Clarity", "sharpening": "Sharpness"}
 
@@ -40,6 +43,19 @@ def tiff_info(path):
         return int(page.imagewidth), int(page.imagelength), int(page.bitspersample if isinstance(page.bitspersample, int) else page.bitspersample[0]), space
 
 
+def image_info(path):
+    """(width, height, bits, space): TIFF through tiff_info, anything else (the JPEG exports of
+    import_lr_edits.py) through Pillow."""
+    if path.lower().endswith((".tif", ".tiff")):
+        return tiff_info(path)
+    from PIL import Image
+    from delta_e import space_from_icc
+    with Image.open(path) as im:
+        icc = im.info.get("icc_profile")
+        bits = 16 if im.mode in ("I;16", "I;16B", "RGB;16") else 8
+        return int(im.width), int(im.height), bits, (space_from_icc(icc) if icc else "srgb")
+
+
 def index(folder, read_info=True):
     refs, ignored, asshot = [], [], {}
     for name in sorted(os.listdir(folder)):
@@ -54,8 +70,14 @@ def index(folder, read_info=True):
             if not name.lower().endswith(".json") and not name.startswith("."):
                 ignored.append(name)
             continue
-        entry = {"stem": m.group("stem"), "file": name, "path": path}
-        if m.group("base"):
+        entry = {"stem": m.group("stem") or m.group("estem"), "file": name, "path": path}
+        if m.group("edit"):
+            side = os.path.splitext(path)[0] + ".json"
+            d = json.load(open(side)) if os.path.exists(side) else {}
+            extra = {k: v for k, v in d.items() if k not in ("stem", "file", "path", "id", "kind")}
+            extra["settings"] = {canonical_slider(k): v for k, v in d.get("settings", {}).items()}
+            entry.update(kind="edit", edit=int(m.group("edit")), **extra)
+        elif m.group("base"):
             entry.update(kind="base", settings={})
         elif m.group("slider"):
             slider = canonical_slider(m.group("slider"))
@@ -70,7 +92,7 @@ def index(folder, read_info=True):
             entry.update(kind="combo", combo=int(m.group("combo")), settings=settings)
         if read_info:
             try:
-                w, h, bits, space = tiff_info(path)
+                w, h, bits, space = image_info(path)
                 entry.update(width=w, height=h, bits=bits, space=space)
             except Exception as e:  # a half-written export
                 entry["error"] = str(e)
@@ -89,7 +111,8 @@ def index(folder, read_info=True):
         "folder": os.path.abspath(folder),
         "images": stems,
         "counts": {"images": len(stems), "base": sum(r["kind"] == "base" for r in refs), "singles": sum(r["kind"] == "single" for r in refs),
-                   "combos": sum(r["kind"] == "combo" for r in refs)},
+                   "combos": sum(r["kind"] == "combo" for r in refs),
+                   **({"edits": sum(r["kind"] == "edit" for r in refs)} if any(r["kind"] == "edit" for r in refs) else {})},
         "sliders": {s: sorted(v) for s, v in sorted(by_slider.items())},
         "spaces": sorted({str(r.get("space")) for r in refs}),
         "refs": refs,
@@ -109,8 +132,8 @@ def main(argv):
         json.dump(data, f, indent=1, sort_keys=True)
     c = data["counts"]
     print(f"{out}: {c['images']} images · {c['base']} base · {c['singles']} singles · {c['combos']} combos · spaces {data['spaces']}"
-          + (f" · ignored {len(data['ignored'])}" if data["ignored"] else ""))
-    missing_base = [s for s in data["images"] if not any(r["kind"] == "base" and r["stem"] == s for r in data["refs"])]
+          + (f" · {c['edits']} edits" if c.get("edits") else "") + (f" · ignored {len(data['ignored'])}" if data["ignored"] else ""))
+    missing_base = [s for s in data["images"] if not any(r["kind"] in ("base", "edit") and r["stem"] == s for r in data["refs"])]
     if missing_base:
         print("no __base.tif for: " + ", ".join(missing_base))
     for s, vals in data["sliders"].items():

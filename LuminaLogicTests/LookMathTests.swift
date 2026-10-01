@@ -94,9 +94,121 @@ final class LookMathTests: XCTestCase {
         }
     }
 
-    func testExposureIsStops() {
-        XCTAssertEqual(luma(run(Look.single("Exposure", 1, asShot: asShot)!, 0.18)), 0.36, accuracy: 1e-9)
-        XCTAssertEqual(luma(run(Look.single("Exposure", -2, asShot: asShot)!, 0.4)), 0.1, accuracy: 1e-9)
+    /// Highlights and Shadows read each pixel against the photo (its anchor), as Lightroom does: a
+    /// 0.4 pixel is a highlight in a night scene and a midtone in a bright one, and each slider's
+    /// strength follows the photo's tonal spread and its share of bright pixels.
+    func testToneIsRelativeToThePhoto() {
+        typealias A = LookMath.ToneAnchor
+        func out(_ slider: String, _ v: Double, _ px: Double, _ anchor: A) -> Double {
+            luma(LookMath.flat(.gray(px), look: Look.single(slider, v, asShot: asShot)!, asShot: asShot, rules: rules, anchor: anchor))
+        }
+        let night = out("Highlights", -100, 0.4, A(mean: 0.005)), bright = out("Highlights", -100, 0.4, A(mean: 0.4))
+        XCTAssertLessThan(night, bright, "pulled harder where 0.4 is the brightest thing in the frame")
+        XCTAssertLessThan(bright, 0.4)
+        XCTAssertGreaterThan(out("Shadows", 100, 0.1, A(mean: 0.4)), out("Shadows", 100, 0.1, A(mean: 0.02)), "0.1 is a shadow in a bright photo")
+        // The reference anchor is what a flat patch gets by default.
+        XCTAssertEqual(out("Shadows", 50, 0.1, .reference), luma(run(Look.single("Shadows", 50, asShot: asShot)!, 0.1)), accuracy: 1e-12)
+        // Strength follows the photo: Shadows lifts more where much of the frame is bright, Highlights
+        // pulls more in a wider photo; a missing statistic sits at the rules' centre (factor 1).
+        let centre = LookMath.toneNormalisers(anchor: .reference, rules)
+        XCTAssertEqual(centre.shadowsGain, 1, accuracy: 0.02)
+        let c = { (n: String, d: Double) in self.rules.k("tone", n, d) }
+        let atCentre = LookMath.toneNormalisers(anchor: A(mean: exp2(c("meanCentre", log2(0.18))), spread: c("spreadCentre", 1.5), bright: c("brightCentre", 0.2)), rules)
+        XCTAssertEqual(atCentre.shadowsGain, 1, accuracy: 1e-9); XCTAssertEqual(atCentre.highlightsGain, 1, accuracy: 1e-9)
+        if c("shadowsBright", 0) > 0 {
+            XCTAssertGreaterThan(LookMath.toneNormalisers(anchor: A(mean: 0.18, spread: nil, bright: 0.6), rules).shadowsGain, 1)
+            XCTAssertGreaterThan(out("Shadows", 100, 0.02, A(mean: 0.18, spread: nil, bright: 0.6)), out("Shadows", 100, 0.02, A(mean: 0.18, spread: nil, bright: 0.02)))
+        }
+        if c("highlightsSpread", 0) > 0 { XCTAssertGreaterThan(LookMath.toneNormalisers(anchor: A(mean: 0.18, spread: 3, bright: nil), rules).highlightsGain, 1) }
+        // However extreme the photo, a strength stays within [0.25, 4].
+        let wild = LookMath.toneNormalisers(anchor: A(mean: 0.001, spread: 9, bright: 1), rules)
+        XCTAssertLessThanOrEqual(wild.shadowsGain, 4); XCTAssertLessThanOrEqual(wild.highlightsGain, 4); XCTAssertGreaterThanOrEqual(wild.highlightsGain, 0.25)
+        // Monotonic on a ramp for extreme anchors too.
+        for a in [A(mean: 0.003, spread: 3, bright: 0.0), A(mean: 0.6, spread: 0.5, bright: 0.9), .reference] {
+            for (slider, v) in [("Highlights", -100.0), ("Highlights", 100), ("Shadows", 100), ("Shadows", -100)] {
+                var last = -1.0
+                for i in 0...240 { let y = out(slider, v, Double(i) / 200, a); XCTAssertGreaterThanOrEqual(y, last - 1e-9, "\(slider) \(v) anchor \(a) at \(i)"); last = y }
+            }
+        }
+        // The anchor itself, from pixels: log-mean, spread in stops, share above L* 80.
+        let flat = LookMath.toneAnchor(pixels: [0.18, 0.18, 0.18, 1, 0.18, 0.18, 0.18, 1], luma: rules.luma)
+        XCTAssertEqual(flat.mean, 0.18, accuracy: 1e-6); XCTAssertEqual(flat.spread ?? -1, 0, accuracy: 1e-6); XCTAssertEqual(flat.bright ?? -1, 0, accuracy: 1e-12)
+        let two = LookMath.toneAnchor(pixels: [0.1, 0.1, 0.1, 1, 0.8, 0.8, 0.8, 1], luma: rules.luma)
+        XCTAssertEqual(two.mean, (0.1 * 0.8).squareRoot(), accuracy: 1e-6); XCTAssertEqual(two.spread ?? -1, 1.5, accuracy: 1e-6); XCTAssertEqual(two.bright ?? -1, 0.5, accuracy: 1e-12)
+        XCTAssertEqual(LookMath.toneAnchor(pixels: [0, 0, 0, 1], luma: rules.luma).mean, 1e-3, accuracy: 1e-12)
+        XCTAssertEqual(LookMath.toneAnchor(pixels: [], luma: rules.luma), .reference)
+    }
+
+    /// rawDevelop's base match: nothing at all with zero coefficients; otherwise a grey stays the
+    /// same grey the curve gives it (rows of the mix sum to 1), the curve is the identity at 0 and
+    /// from 1 up, and it never folds back.
+    func testBaseMatchKeepsGreysNeutralAndIsMonotonic() {
+        let c = LookMath.RGB(r: 0.6, g: 0.35, b: 0.25)
+        XCTAssertTrue(LookMath.BaseMatch().isIdentity)
+        XCTAssertEqual(LookMath.baseMatch(c, LookMath.BaseMatch(), rules), c)
+        for m in [{ var m = LookMath.BaseMatch(); m.lift = 0.033; m.s = 0.30; m.rg = 0.135; m.rb = -0.003; m.gb = 0.135; m.br = 0.0025; m.bg = 0.012; return m }(),
+                  LookMath.BaseMatch(rules)] {
+            for row in m.rows { XCTAssertEqual(row.reduce(0, +), 1, accuracy: 1e-12) }
+            XCTAssertEqual(LookMath.baseCurve(0, m, rules), 0, accuracy: 1e-12)
+            for y in [1.0, 1.3, 4.0] { XCTAssertEqual(LookMath.baseCurve(y, m, rules), y, accuracy: 1e-9, "identity in the headroom") }
+            var last = -1.0
+            for i in 0...240 {
+                let v = Double(i) / 200
+                let out = LookMath.baseMatch(.gray(v), m, rules)
+                XCTAssertTrue(out.isNeutral, "grey \(v) → \(out)")
+                XCTAssertEqual(out.g, LookMath.baseCurve(v, m, rules), accuracy: 1e-9)
+                XCTAssertGreaterThan(out.g, last, "monotonic at \(v)")
+                last = out.g
+            }
+            guard !m.isIdentity else { continue }
+            XCTAssertNotEqual(LookMath.baseMatch(c, m, rules), c)
+        }
+        // The fade toward luma near white and in the deepest shadows: the colour shrinks, the luma
+        // does not move, the midtones keep all of their colour.
+        var fade = LookMath.BaseMatch(); fade.hiDesat = 0.6; fade.hiFrom = 0.9; fade.loDesat = 0.5; fade.loBelow = 0.2
+        XCTAssertFalse(fade.isIdentity)
+        XCTAssertEqual(fade.chromaKept(0.5), 1, accuracy: 1e-12)
+        XCTAssertEqual(fade.chromaKept(1.0), 0.4, accuracy: 1e-12); XCTAssertEqual(fade.chromaKept(0.0), 0.5, accuracy: 1e-12)
+        XCTAssertEqual(fade.chromaKept(0.95), 1 - 0.6 * 0.25, accuracy: 1e-12)
+        for colour in [LookMath.RGB(r: 0.95, g: 0.85, b: 0.8), LookMath.RGB(r: 0.004, g: 0.002, b: 0.006), LookMath.RGB(r: 0.3, g: 0.2, b: 0.1)] {
+            let out = LookMath.baseMatch(colour, fade, rules)
+            XCTAssertEqual(luma(out), luma(colour), accuracy: 1e-12, "luma kept")
+            let spreadIn = max(colour.r, colour.g, colour.b) - min(colour.r, colour.g, colour.b), spreadOut = max(out.r, out.g, out.b) - min(out.r, out.g, out.b)
+            XCTAssertLessThanOrEqual(spreadOut, spreadIn + 1e-12)
+        }
+        let mid = LookMath.baseMatch(LookMath.RGB(r: 0.3, g: 0.2, b: 0.1), fade, rules)
+        XCTAssertEqual(mid.r, 0.3, accuracy: 1e-12, "midtones untouched"); XCTAssertEqual(mid.g, 0.2, accuracy: 1e-12); XCTAssertEqual(mid.b, 0.1, accuracy: 1e-12)
+        XCTAssertTrue(LookMath.baseMatch(.gray(0.97), fade, rules).isNeutral)
+    }
+
+    /// Exposure is a scene gain seen through a sigmoid tone curve (the form Lightroom's sweep
+    /// shows): deep shadows move by the full gain, highlights roll off toward `white`, the stage
+    /// composes (+1 then −1 is nothing) and stays monotonic above `white` and below 0.
+    func testExposureIsASceneGainThroughTheToneCurve() {
+        let w = LookMath.exposureWhite(rules)
+        let up = LookMath.exposureGain(1, rules), down = LookMath.exposureGain(-1, rules)
+        XCTAssertEqual(up, exp2(rules.k("exposure", "stopsPerUnit", 1)), accuracy: 1e-12)
+        XCTAssertEqual(up * down, 1, accuracy: 1e-12)
+        // Deep shadows: the full gain. Highlights: less, never past white from below it.
+        XCTAssertEqual(LookMath.exposure(1e-5, gain: up, white: w) / 1e-5, up, accuracy: 1e-3)
+        let mid = LookMath.exposure(0.18, gain: up, white: w), high = LookMath.exposure(0.8, gain: up, white: w)
+        XCTAssertGreaterThan(mid / 0.18, high / 0.8, "highlights move less than midtones")
+        XCTAssertLessThan(high, w)
+        XCTAssertEqual(LookMath.exposure(w, gain: up, white: w), w, accuracy: 1e-12)
+        // It composes, so +1 then −1 gives the pixel back, in range and in the headroom.
+        for x in [-0.02, 0.0, 0.01, 0.18, 0.6, 0.99, w, 1.4, 3.0] {
+            XCTAssertEqual(LookMath.exposure(LookMath.exposure(x, gain: up, white: w), gain: down, white: w), x, accuracy: 1e-9, "\(x)")
+            XCTAssertEqual(LookMath.exposure(x, gain: 1, white: w), x, accuracy: 1e-12, "identity at 0 EV")
+        }
+        // Monotonic through 0 and white for brightening and darkening.
+        for g in [down * down, down, up, up * up] {
+            var last = -Double.infinity
+            for i in -20...400 { let y = LookMath.exposure(Double(i) / 100, gain: g, white: w); XCTAssertGreaterThan(y, last, "gain \(g) at \(i)"); last = y }
+        }
+        // Through the chain: brighter, grey stays grey.
+        let c = run(Look.single("Exposure", 1, asShot: asShot)!, 0.18)
+        XCTAssertGreaterThan(luma(c), 0.18); XCTAssertTrue(c.isNeutral)
+        XCTAssertLessThan(luma(run(Look.single("Exposure", -2, asShot: asShot)!, 0.4)), 0.4)
     }
 
     func testWhiteBalanceSigns() {
@@ -106,10 +218,24 @@ final class LookMathTests: XCTestCase {
         XCTAssertGreaterThan(warm.r / warm.b, 1); XCTAssertLessThan(cool.r / cool.b, 1)
         let magenta = run(Look.single("Tint", 50, asShot: asShot)!, 0.5), green = run(Look.single("Tint", -50, asShot: asShot)!, 0.5)
         XCTAssertLessThan(magenta.g, magenta.r); XCTAssertGreaterThan(green.g, green.r)
-        // As shot is identity, and the luma of a grey is kept.
+        // As shot is identity.
         let same = run(Look.single("Temperature", asShot.kelvin, asShot: asShot)!, 0.5)
         XCTAssertEqual(same.r, 0.5, accuracy: 1e-9); XCTAssertEqual(same.b, 0.5, accuracy: 1e-9)
-        XCTAssertEqual(luma(warm), 0.5, accuracy: 1e-9)
+        // Temperature holds green where it is (Lightroom's sweep: green moves ~0.05 stops while
+        // red and blue move ~1.3), unless the rules ask for the luma to be kept instead.
+        if rules.k("whiteBalance", "preserveLuma", 1) < 0.5 {
+            XCTAssertEqual(warm.g, 0.5, accuracy: 1e-9); XCTAssertEqual(cool.g, 0.5, accuracy: 1e-9)
+        } else {
+            XCTAssertEqual(luma(warm), 0.5, accuracy: 1e-9)
+        }
+        // The gains go through the tone curve: a cast is strongest in the shadows and fades toward
+        // white (the sweep: ±1.3 stops at dark greys, ±0.3–0.6 near white).
+        func redShift(_ v: Double) -> Double { let c = run(Look.single("Temperature", 8000, asShot: asShot)!, v); return log2(c.r / v) }
+        XCTAssertGreaterThan(redShift(0.02), redShift(0.5)); XCTAssertGreaterThan(redShift(0.5), redShift(0.95))
+        XCTAssertGreaterThan(redShift(0.95), 0)
+        let w = LookMath.whiteBalanceWhite(rules)
+        let white = run(Look.single("Temperature", 8000, asShot: asShot)!, w)
+        XCTAssertEqual(white.r, w, accuracy: 1e-9, "white stays white"); XCTAssertEqual(white.b, w, accuracy: 1e-9)
     }
 
     func testToneShapedSlidersPushTheRightWay() {
@@ -120,13 +246,15 @@ final class LookMathTests: XCTestCase {
         XCTAssertGreaterThan(luma(run(Look.single("Contrast", 60, asShot: asShot)!, light)), light)
         XCTAssertGreaterThan(luma(run(Look.single("Contrast", -60, asShot: asShot)!, dark)), dark)
         XCTAssertEqual(luma(run(Look.single("Contrast", 80, asShot: asShot)!, m)), m, accuracy: 1e-6)
-        // Shadows + lifts the darks more than the lights; highlights − lowers the lights, not the darks.
+        // Shadows + lifts the darks more than the lights; highlights − lowers the lights far more than
+        // the darks (Lightroom's own −100 moves a dark grey by half a stop: it does reach them).
         let sh = Look.single("Shadows", 80, asShot: asShot)!
         XCTAssertGreaterThan(luma(run(sh, dark)) / dark, luma(run(sh, light)) / light)
         XCTAssertGreaterThan(luma(run(sh, dark)), dark)
         let hl = Look.single("Highlights", -80, asShot: asShot)!
         XCTAssertLessThan(luma(run(hl, light)), light)
-        XCTAssertEqual(luma(run(hl, dark)), dark, accuracy: 1e-9)
+        XCTAssertLessThan(luma(run(hl, light)) / light, luma(run(hl, dark)) / dark)
+        XCTAssertLessThanOrEqual(luma(run(hl, dark)), dark)
         // Whites + raises the lights, blacks − lowers the darks; each leaves the other end alone.
         XCTAssertGreaterThan(luma(run(Look.single("Whites", 80, asShot: asShot)!, light)), light)
         XCTAssertEqual(luma(run(Look.single("Whites", 80, asShot: asShot)!, 0)), 0, accuracy: 1e-9)

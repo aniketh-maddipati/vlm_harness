@@ -205,6 +205,9 @@ export class Bridge {
         for (const f of msg.files) {
           const dest = path.resolve(root, f.name);
           if (!dest.startsWith(root + path.sep) || !/\.xmp$/i.test(dest)) { errors.push({ name: path.basename(f.name), reason: 'refused' }); continue; }
+          // No sidecar for a RAW that is no longer beside it (renamed, moved or deleted since the read).
+          const stem = path.basename(dest).replace(/\.[^.]+$/, '');
+          if (!fs.readdirSync(path.dirname(dest)).some(n => /\.arw$/i.test(n) && n.replace(/\.[^.]+$/, '') === stem)) { errors.push({ name: stem, reason: 'missing' }); continue; }
           const data = Buffer.from(f.b64, 'base64');
           if (fs.existsSync(dest)) { if (!fs.existsSync(dest + '.lumina-bak')) { fs.copyFileSync(dest, dest + '.lumina-bak'); bak++; } }
           fs.writeFileSync(dest + '.tmp', data); fs.renameSync(dest + '.tmp', dest);

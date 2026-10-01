@@ -1,0 +1,254 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": true,
+ "checklist": "F1 / SAFETY.md 3 and 4 (v5; was the card pulled mid-export, which v5 can't do: it never copies from a card): the card is pulled after it was read, while its keepers wait on Save. State is kept (photos, keepers), Cull says the card is gone, the previews already read still show, and culling goes on; ⌘↩ with the card out writes nothing anywhere and lists each keeper with its reason; re-inserting clears the notice without a second read and without losing a decision; nothing is ever written to the card.",
+ "steps": [
+  {
+   "do": "startCards"
+  },
+  {
+   "do": "diskImage",
+   "name": "LTPULL",
+   "sizeMB": 64,
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "trimBytes": 1400000,
+   "count": 12
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!(window.lumina.card && window.lumina.card.photos===12)",
+   "timeoutMs": 15000,
+   "what": "card noticed"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 100
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo)",
+   "timeoutMs": 60000,
+   "what": "card read"
+  },
+  {
+   "do": "expect",
+   "js": "return [__probe.logic().state.realInfo.n, window.lumina.readingCard]",
+   "equals": [
+    12,
+    true
+   ]
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW"
+   ]
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 1000,
+   "cmd": true
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "export"
+  },
+  {
+   "do": "expect",
+   "js": "return document.body.innerText.includes(\"Sidecars can't be written to a card\")",
+   "why": "on a card Save is 'copy to disk first'"
+  },
+  {
+   "do": "detach",
+   "name": "LTPULL"
+  },
+  {
+   "do": "waitFor",
+   "js": "return window.lumina.card===null",
+   "timeoutMs": 10000,
+   "what": "card removal noticed"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(), s=l.state; return [s.view, !!s.gone, l.kept().length, l.real.length]",
+   "equals": [
+    "export",
+    true,
+    1,
+    12
+   ],
+   "why": "state is kept"
+  },
+  {
+   "do": "snap",
+   "name": "save-card-out"
+  },
+  {
+   "do": "js",
+   "src": "window.__lastSave = __probe.logic().state.ex.result || null; return true"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 1500,
+   "cmd": true
+  },
+  {
+   "do": "waitFor",
+   "js": "const r = __probe.logic().state.ex.result; return !!r && r !== window.__lastSave",
+   "what": "save with the card out"
+  },
+  {
+   "do": "expect",
+   "js": "const r=__probe.logic().state.ex.result, e=r.errs[0]||{}; return [r.t, r.bad, r.errs.length, e.name, ['on the card', 'missing'].includes(e.reason)]",
+   "equals": [
+    "0 saved · 1 failed",
+    true,
+    1,
+    "DSC00001",
+    true
+   ],
+   "why": "nothing is saved and the keeper is listed with its reason"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTPULL",
+   "glob": "*",
+   "count": 0,
+   "why": "nothing lands in the empty mount point the card left behind"
+  },
+  {
+   "do": "key",
+   "k": "2",
+   "settleMs": 600,
+   "cmd": true
+  },
+  {
+   "do": "expect",
+   "js": "return !!document.querySelector('[data-lumina=\"card-gone\"]')",
+   "why": "Cull says the card is gone"
+  },
+  {
+   "do": "snap",
+   "name": "cull-card-out"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(), ids=l.data.order; let ok=0; for (const id of ids) ok += (await fetch(l.data.byId[id].lg)).status===200; return [ids.length, ok]",
+   "equals": [
+    12,
+    12
+   ],
+   "why": "previews read before the pull still show"
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00002.ARW"
+   ],
+   "why": "culling goes on with the card out"
+  },
+  {
+   "do": "attach",
+   "name": "LTPULL"
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!window.lumina.card",
+   "timeoutMs": 10000,
+   "what": "card back"
+  },
+  {
+   "do": "wait",
+   "ms": 1500
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return [!!l.state.gone, l.real.length, !!l.state.realLoad]",
+   "equals": [
+    false,
+    12,
+    false
+   ],
+   "why": "the notice clears; a read that was complete is not read again"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00002.ARW"
+   ],
+   "why": "no decision is lost over the pull"
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 1000,
+   "cmd": true
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "export"
+  },
+  {
+   "do": "expect",
+   "js": "return document.body.innerText.includes(\"Sidecars can't be written to a card\")"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 1500,
+   "cmd": true
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTPULL",
+   "glob": "*.xmp",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTPULL",
+   "glob": "*lumina-*",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTPULL",
+   "glob": "*.ARW",
+   "count": 12
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

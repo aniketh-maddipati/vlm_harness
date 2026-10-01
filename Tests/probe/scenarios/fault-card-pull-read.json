@@ -7,7 +7,7 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": true,
- "checklist": "F2 card pulled mid-read → readers stop at once (nothing opened after), the page keeps and says what it read, previews of read photos still show; re-insert revives them and ⏎ reads all 200",
+ "checklist": "F2 / SAFETY.md 3 (v5): the card is pulled while '⏎ Cull this card' reads it natively. The readers stop at once (nothing opened after the pull, nothing in flight), the page keeps and says what it read, Cull shows the card-gone notice, previews of read photos still show and can be kept; re-inserting clears the notice and reads the whole card again by itself (all 200, none unreadable) with the keep made while the card was out still there; nothing is written to the card.",
  "steps": [
   {
    "do": "startCards"
@@ -25,11 +25,6 @@
    "js": "return !!(window.lumina.card && window.lumina.card.photos===200)",
    "timeoutMs": 10000,
    "what": "card noticed"
-  },
-  {
-   "do": "key",
-   "k": "0",
-   "settleMs": 300
   },
   {
    "do": "snap",
@@ -72,11 +67,24 @@
   },
   {
    "do": "expect",
-   "js": "const r=window.lumina.read; return r && r.stopped==='card removed' && r.total===200 && r.read===__probe.logic().state.realInfo.n && r.read+r.unreadable===200"
+   "js": "const r=window.lumina.read, n=__probe.logic().state.realInfo.n; return !!r && r.stopped==='card removed' && r.total===200 && r.read===n && r.read+r.unreadable===200 && n>0 && n<200"
   },
   {
    "do": "expect",
    "js": "const s=await window.__lumina.nativeStats(); return s.gone.includes('DCIM') && s.opensAfterGone===0 && s.inFlight===0"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return [l.state.view, !!l.state.gone]",
+   "equals": [
+    "cull",
+    true
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "return !!document.querySelector('[data-lumina=\"card-gone\"]')",
+   "why": "Cull says the card is gone"
   },
   {
    "do": "expect",
@@ -89,23 +97,14 @@
   },
   {
    "do": "key",
-   "k": "1",
-   "settleMs": 300
+   "k": "p",
+   "settleMs": 200
   },
   {
-   "do": "key",
-   "k": "ArrowDown",
-   "settleMs": 100
-  },
-  {
-   "do": "key",
-   "k": "r",
-   "settleMs": 100
-  },
-  {
-   "do": "key",
-   "k": "0",
-   "settleMs": 300
+   "do": "expect",
+   "js": "const l=__probe.logic(); window.__kept = l.kept().map(id=>l.data.byId[id].file); return window.__kept.length",
+   "equals": 1,
+   "why": "a photo read before the pull can be kept with the card out"
   },
   {
    "do": "attach",
@@ -118,33 +117,56 @@
    "what": "card back"
   },
   {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo) && l.real.length===200",
+   "timeoutMs": 60000,
+   "what": "the whole card read again after re-insert, by itself"
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
    "do": "expect",
    "js": "const s=await window.__lumina.nativeStats(); return s.gone",
    "equals": []
   },
   {
    "do": "expect",
-   "js": "const l=__probe.logic(), ids=l.data.order; let ok=0; for (const id of ids) ok += (await fetch(l.data.byId[id].lg)).status===200; return ok===ids.length"
-  },
-  {
-   "do": "key",
-   "k": "Enter",
-   "settleMs": 100
-  },
-  {
-   "do": "waitFor",
-   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad) && l.real.length===200",
-   "timeoutMs": 60000,
-   "what": "full read after re-insert"
+   "js": "const l=__probe.logic(); return [l.state.realInfo.bad, !!l.state.gone, window.lumina.read.stopped]",
+   "equals": [
+    0,
+    false,
+    null
+   ]
   },
   {
    "do": "expect",
-   "js": "return __probe.logic().state.realInfo.bad",
-   "equals": 0
+   "js": "const l=__probe.logic(), ids=l.data.order; let ok=0; for (const id of ids) ok += (await fetch(l.data.byId[id].lg)).status===200; return ok===ids.length"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return JSON.stringify(l.kept().map(id=>l.data.byId[id].file)) === JSON.stringify(window.__kept)",
+   "why": "the keep made while the card was out survives the second read"
   },
   {
    "do": "snap",
    "name": "card-back"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCARD",
+   "glob": "*.xmp",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTCARD",
+   "glob": "*lumina-*",
+   "count": 0
+  },
+  {
+   "do": "invariants"
   }
  ]
 }

@@ -34,7 +34,7 @@ final class LookPipelineTests: XCTestCase {
 
     func testKernelsCompile() throws {
         let k = try LookKernels.shared()
-        XCTAssertEqual(Set(k.byName.keys).intersection(LookKernels.stageNames).count, 8, "\(k.byName.keys.sorted())")
+        XCTAssertEqual(Set(k.byName.keys).intersection(LookKernels.stageNames).count, LookKernels.stageNames.count, "\(k.byName.keys.sorted())")
         XCTAssertEqual(try k.kernel("lookEcho44").name, "lookEcho44", "test kernels compile on demand")
         XCTAssertThrowsError(try k.kernel("lookNope"))
     }
@@ -86,6 +86,30 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertEqual(outRow[255].r, 1.2, accuracy: 3e-3, "the working space keeps values above white")
     }
 
+    /// The graph holds a stage exactly when `Look.runs` says so: the warm-up plan (`LookWarmPlan`)
+    /// names the programs Core Image will compile by it.
+    func testTheGraphHoldsAStageExactlyWhenTheLookRunsIt() throws {
+        let dev = pipe.ramp(steps: 16, columnWidth: 4, height: 8)
+        XCTAssertTrue(pipe.apply(Look(), to: dev) === dev.image, "no stage: the developed image itself")
+        for stage in rules.lookStages {
+            let on = Look().toggling(stage)
+            XCTAssertEqual(rules.lookStages.filter(on.runs), [stage])
+            XCTAssertFalse(pipe.apply(on, to: dev) === dev.image, "\(stage) switched on left the graph empty")
+            XCTAssertTrue(pipe.apply(on.toggling(stage), to: dev) === dev.image, "\(stage) switched off again")
+        }
+        // Sliders written at their reset value add nothing.
+        XCTAssertTrue(pipe.apply(try Look.parse("ev:0 con:0 sh:0 hl:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:0 nr:20"), to: dev) === dev.image)
+        // A switched-on stage changes the picture (the warm-up's value is not a no-op).
+        // (A tinted shadow tone: vibrance leaves a grey alone, shadows leave the highlights alone;
+        // clarity and sharpen need an edge and the vignette a corner.)
+        let tinted = pipe.ramp(steps: 16, columnWidth: 4, height: 8, tint: LookMath.RGB(r: 1, g: 0.8, b: 0.6))
+        let before = pipe.pixel(tinted.image, x: 10, y: 4)
+        for stage in rules.lookStages where stage != "clarity" && stage != "sharpen" && stage != "vignette" {
+            let out = pipe.pixel(pipe.apply(Look().toggling(stage), to: tinted), x: 10, y: 4)
+            XCTAssertGreaterThan(abs(out.r - before.r) + abs(out.g - before.g) + abs(out.b - before.b), 1e-4, stage)
+        }
+    }
+
     func testEverySliderIsMonotonicAndGreyOnARamp() {
         // A smooth ramp (one step per pixel) so the blur-based stages see a continuous base;
         // the outer 3σ of the widest blur (tone: 0.03 × 512 px) is left out at both ends.
@@ -106,6 +130,28 @@ final class LookPipelineTests: XCTestCase {
             }
             XCTAssertGreaterThan(last, 0.05, "\(slider) \(value) flattened the ramp")
         }
+    }
+
+    /// rawDevelop's base match on the GPU equals `LookMath.baseMatch` (and is skipped at zero).
+    func testBaseMatchKernelEqualsLookMath() throws {
+        var r = rules!
+        XCTAssertNotNil(r.stages["rawDevelop"])
+        for (k, v) in ["baseLift": 0.033, "baseS": 0.30, "baseRG": 0.135, "baseRB": -0.003, "baseGR": -0.001, "baseGB": 0.135, "baseBR": 0.0025, "baseBG": 0.012,
+                       "baseHiDesat": 0.6, "baseHiFrom": 0.9, "baseLoDesat": 0.5, "baseLoBelow": 0.2] {
+            r.stages["rawDevelop"]?.coefficients[k] = v
+        }
+        let m = LookMath.BaseMatch(r)
+        for c in [LookMath.RGB.gray(0.02), .gray(0.18), .gray(0.9), .gray(1.2), LookMath.RGB(r: 0.5, g: 0.2, b: 0.2),
+                  LookMath.RGB(r: 0.15, g: 0.2, b: 0.6), LookMath.RGB(r: 0.7, g: 0.6, b: 0.1),
+                  LookMath.RGB(r: 0.95, g: 0.85, b: 0.8), LookMath.RGB(r: 0.004, g: 0.002, b: 0.006)] {
+            let got = pipe.pixel(try LookPipeline.baseMatched(pipe.flat(c, size: 16).image, rules: r), x: 8, y: 8)
+            let want = LookMath.baseMatch(c, m, r)
+            for (g, w) in [(got.r, want.r), (got.g, want.g), (got.b, want.b)] { XCTAssertEqual(g, w, accuracy: max(0.003, 0.01 * abs(w)), "\(c): \(got) vs \(want)") }
+        }
+        var off = r
+        for k in ["baseLift", "baseS", "baseRG", "baseRB", "baseGR", "baseGB", "baseBR", "baseBG", "baseHiDesat", "baseLoDesat"] { off.stages["rawDevelop"]?.coefficients[k] = 0 }
+        let img = pipe.flat(.gray(0.4), size: 16).image
+        XCTAssertTrue(try LookPipeline.baseMatched(img, rules: off) === img, "zero coefficients: the image itself, no pass")
     }
 
     func testFlatPatchesMatchLookMath() {
@@ -249,6 +295,68 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertEqual(bases.stats.residentPhotos, 1)
         XCTAssertNotNil(bases.entry(key))
         XCTAssertThrowsError(try bases.build(LookBases.Key(rel: "s/missing.png", decoder: nil, look: Look(), canvas: canvas), url: dir.appendingPathComponent("missing.png"), look: Look(), preview: nil))
+    }
+
+    /// The lens-shading gain as an image: 1 at the centre, the camera's corner gain at the corners,
+    /// the same in every quadrant.
+    func testShadingGainImageIsRadialAndCoversTheFrame() throws {
+        let s = LookLensShading(knots: [0, 48, 416, 1024, 1808, 2656, 3552, 4496, 5456, 6432, 7424, 8400, 9376, 10336, 11264, 12160])
+        let extent = CGRect(x: 0, y: 0, width: 600, height: 400)
+        let g = try XCTUnwrap(LookPipeline.shadingGain(s, amount: 1, extent: extent))
+        XCTAssertEqual(g.extent, extent)
+        XCTAssertEqual(pipe.pixel(g, x: 300, y: 200).g, 1, accuracy: 0.01)
+        let corner = pipe.pixel(g, x: 1, y: 1).g
+        XCTAssertEqual(corner, s.gain(at: 1), accuracy: 0.03)
+        for (x, y) in [(598, 1), (1, 398), (598, 398)] { XCTAssertEqual(pipe.pixel(g, x: x, y: y).g, corner, accuracy: 0.01) }
+        XCTAssertGreaterThan(pipe.pixel(g, x: 500, y: 200).g, pipe.pixel(g, x: 400, y: 200).g)
+        XCTAssertEqual(pipe.pixel(try XCTUnwrap(LookPipeline.shadingGain(s, amount: 0, extent: extent)), x: 1, y: 1).g, 1, accuracy: 1e-4)
+        XCTAssertNil(LookPipeline.shadingGain(s, amount: 1, extent: .infinite))
+    }
+
+    /// The canvas holds the neighbours' builds while someone waits on it (a drag, the loupe, the
+    /// current photo not yet on screen): a paused prefetch starts nothing until released.
+    func testPausedPrefetchStartsNothingUntilReleased() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("look-prefetch-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("ramp.png")
+        try pipe.png(pipe.ramp(steps: 64, columnWidth: 2, height: 64).image).write(to: file)
+        let bases = LookBases(pipeline: pipe, byteCap: 64 << 20, maxPhotos: 3)
+        let key = LookBases.Key(rel: "s/ramp.png", decoder: nil, look: Look(), canvas: CGSize(width: 100, height: 100))
+        bases.prefetchPaused = true
+        bases.prefetch([(key: key, url: file, look: Look(), preview: nil)])
+        Thread.sleep(forTimeInterval: 0.3)
+        XCTAssertEqual(bases.stats.prefetched, 0, "held while paused")
+        XCTAssertEqual(bases.stats.built, 0)
+        bases.prefetchPaused = false
+        let deadline = Date().addingTimeInterval(10)
+        while bases.stats.prefetched == 0, Date() < deadline { Thread.sleep(forTimeInterval: 0.02) }
+        XCTAssertEqual(bases.stats.prefetched, 1, "released: the neighbour builds")
+    }
+
+    /// Region requests are numbered by the tile queue: whoever asks last supersedes everyone, so
+    /// one caller's numbering (the probe's) can't leave another's (the canvas's loupe) stale forever.
+    func testRegionTilesNumberRequestsAndCancelOlderOnes() throws {
+        let tiles = LookRegionTiles(pipeline: pipe)
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent("no-such-\(UUID().uuidString).ARW")
+        let roi = LookCanvasSchedule.ROI(x: 0.4, y: 0.4, w: 0.2, h: 0.2)
+        let run = { (seq: Int) -> Result<LookRegionTiles.Region, Error> in
+            let done = self.expectation(description: "region \(seq)")
+            var out: Result<LookRegionTiles.Region, Error>!
+            tiles.region(rel: "s/x.ARW", url: missing, decoder: 8, nr: nil, roi: roi, seq: seq, first: { _ in }, done: { out = $0; done.fulfill() })
+            self.wait(for: [done], timeout: 10)
+            return out
+        }
+        let older = tiles.nextSeq(), newer = tiles.nextSeq()
+        XCTAssertGreaterThan(newer, older)
+        guard case .failure(let e) = run(older) else { return XCTFail("a superseded request rendered") }
+        XCTAssertTrue(e is LookRegionTiles.Cancelled, "\(e)")
+        // The newest request runs (and fails on the missing file, not as superseded).
+        guard case .failure(let f) = run(newer) else { return XCTFail("a missing file rendered") }
+        XCTAssertFalse(f is LookRegionTiles.Cancelled, "\(f)")
+        tiles.cancel()
+        guard case .failure(let g) = run(newer) else { return XCTFail() }
+        XCTAssertTrue(g is LookRegionTiles.Cancelled, "cancel() stops requests already numbered")
     }
 
     func testRendererCachesDevelopsAndDropsStaleRequests() throws {
