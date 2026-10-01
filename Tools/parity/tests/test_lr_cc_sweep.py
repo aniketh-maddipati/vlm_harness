@@ -356,5 +356,26 @@ class CommandTests(unittest.TestCase):
             self.assertEqual(json.loads(read(os.path.join(refs, "sweep-ingest.json")))["problems"], [])
             self.assertEqual(sweep.main(["ingest", two, os.path.join(d, "nope"), "--refs", refs]), 2)
 
+    def test_a_sweep_folder_on_an_unplugged_drive_is_named_and_not_recreated(self):
+        import contextlib
+        import io
+        with tempfile.TemporaryDirectory() as d:
+            os.symlink(os.path.join(d, "drive", "sweep2"), os.path.join(d, "sweep2"))   # the drive is not there
+            link = os.path.join(d, "sweep2")
+            for argv in (["ingest", os.path.join(link, "exports"), "--refs", os.path.join(link, "refs")],
+                         ["presets", "--sweep", "2", "--out", link],
+                         ["presets", "--sweep", "3", "--refs", os.path.join(link, "refs")]):
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    self.assertEqual(sweep.main(argv), 2)
+                self.assertIn("plug the drive in", out.getvalue())
+                self.assertIn(link, out.getvalue())
+            self.assertTrue(os.path.islink(link))
+            self.assertFalse(os.path.exists(os.path.join(d, "drive")))
+            # A link whose target is there is just a folder.
+            os.makedirs(os.path.join(d, "drive", "sweep2", "exports"))
+            self.assertIsNone(sweep.unplugged(os.path.join(link, "exports")))
+
+
 if __name__ == "__main__":
     unittest.main()

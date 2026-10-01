@@ -483,6 +483,21 @@ def as_shot_record(v, extra):
     return {"Temperature": number(v[0]), "Tint": number(v[1]), **{k: x for k, x in extra.items() if x}}
 
 
+def unplugged(path):
+    """Why `path` can't be used, when one of its folders is a symlink whose target is missing (the
+    sweep folders may live on an external drive behind a symlink), else None. Without this a run
+    with the drive unplugged reads as "no exports" or dies inside makedirs."""
+    p = os.path.abspath(os.path.expanduser(path))
+    parts = []
+    while p != os.path.dirname(p):
+        parts.append(p)
+        p = os.path.dirname(p)
+    for p in reversed(parts):
+        if os.path.islink(p) and not os.path.exists(p):
+            return f"{p} is a link to {os.readlink(p)}, which is not there: plug the drive in (nothing was read or written)"
+    return None
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -496,6 +511,10 @@ def main(argv=None):
     i.add_argument("--refs", default=os.path.expanduser("~/LuminaEvidence/parity/refs"))
     i.add_argument("--sweep", type=int, choices=(1, 2), help="which preset set to expect (default: worked out from the exports)")
     a = ap.parse_args(argv)
+    paths = [a.out, a.refs if a.sweep == 3 else None] if a.cmd == "presets" else list(a.exports) + [a.refs]
+    for why in filter(None, (unplugged(p) for p in paths if p)):
+        print(why)
+        return 2
     if a.cmd == "presets":
         as_shot = None
         if a.sweep == 3:
