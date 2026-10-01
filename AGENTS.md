@@ -132,9 +132,11 @@ probe in four parallel macOS shards (smoke + screens, fuzz, fuzz + scroll, scrol
 
 ## Parity (the Edit look vs Lightroom Classic)
 
-The Edit step ships behind the `friends` flag until `Tools/parity/criteria.json` holds on the golden
-set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5.0). The full procedure is
-`Tools/parity/README.md`; the rules that bite:
+The Edit step ships with the app (ruled 2026-10-01). `Tools/parity/criteria.json` (singles: per-slider
+median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5.0 on the golden set) is a tracked target, not a
+release gate: the numbers are reported, and nothing shipped says Edit matches Lightroom until they
+hold. A change to the look is still adopted only if the held-out set does not get worse. The full
+procedure is `Tools/parity/README.md`; the rules that bite:
 
 - **The look string is the only Edit state** (`ev:+0.70 wb:5200/+3 con:+12 … crop:x,y,w,h/r`,
   `Lumina/Sets/Look/LookString.swift`). Previews are `lumina://render/<rel>?look=&px=&seq=`, exports
