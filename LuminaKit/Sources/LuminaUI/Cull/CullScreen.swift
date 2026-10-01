@@ -1,35 +1,45 @@
 import SwiftUI
 import LuminaCore
 
-// WP-3. Cull (README §2). WP-0 stub: an unjustified grid and the footer's two buttons.
+// WP-3. Cull (README §2, LAYOUT_SIZING §5): the justified grid, the preview column from 900
+// wide, and the footer. Keys arrive through `KeyRouter`; nothing here reads the keyboard.
 
 public struct CullScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.luminaScale) private var s
     public init() {}
+
     public var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 6)], spacing: 6) {
-                    ForEach(model.visiblePhotos) { p in
-                        PhotoThumb(p, maxPoint: 150).frame(height: 100).clipShape(RoundedRectangle(cornerRadius: LuminaRadius.tile))
-                            .overlay(RoundedRectangle(cornerRadius: LuminaRadius.tile).stroke(LuminaColor.textPrimary, lineWidth: model.cullCur == p.id ? 2 : 0))
-                            .opacity(model.decisions.keep[p.id] == false ? 0.4 : 1)
-                            .onTapGesture { model.select(p.id) }
-                            .accessibilityElement().accessibilityIdentifier(AccessibilityID.Cull.tile(p.id))
-                            .accessibilityValue(model.decisions.keep[p.id] == true ? "kept" : model.decisions.keep[p.id] == false ? "out" : "undecided")
+        GeometryReader { geo in
+            let bp = Breakpoints(CGSize(width: geo.size.width, height: model.windowSize.height))
+            VStack(spacing: 0) {
+                if model.visiblePhotos.isEmpty {
+                    empty
+                } else {
+                    HStack(spacing: 0) {
+                        CullGridView()
+                        if bp.cullHasPreview, let current = model.shoot.photo(model.cullCur) {
+                            CullPreview(photo: current).frame(width: bp.cullPreviewWidth.rounded())
+                        }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .padding(16)
+                CullFooter()
             }
-            .accessibilityIdentifier(AccessibilityID.Cull.grid)
-            HStack {
-                Text("\(model.decisions.keptCount + model.decisions.outCount)/\(model.total) decided").font(LuminaFont.small(s))
-                Spacer()
-                Button("Save \(model.decisions.keptCount) keepers →") { model.go(.save) }.buttonStyle(LuminaPrimaryButtonStyle(height: LuminaHeight.footerButton))
-                    .accessibilityIdentifier(AccessibilityID.Cull.toSave)
-            }
-            .padding(.horizontal, 20).frame(minHeight: 56.scaled(s)).background(LuminaColor.bgPanel)
         }
+    }
+
+    /// Nothing copied or imported yet.
+    private var empty: some View {
+        ScrollView(.vertical) {
+            VStack(spacing: 12.scaled(s)) {
+                Text(CullCopy.empty).font(LuminaFont.body(s)).foregroundStyle(LuminaColor.textSecondary)
+                Button(CullCopy.openShoot) { model.go(.open) }.buttonStyle(.luminaSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, (16 + 48).scaled(s)).padding(.horizontal, 20.scaled(s)).padding(.bottom, 24.scaled(s))
+        }
+        .accessibilityIdentifier(AccessibilityID.Cull.grid)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
