@@ -1,0 +1,17 @@
+{
+  "shoots": [
+    { "id": "wedding", "raws": "~/Pictures/wedding/RAW", "exports": ["~/Pictures/wedding/final"],
+      "complete": true, "note": "every frame shot; kept = has a finished export" },
+    { "id": "trip-day-2", "raws": "~/Pictures/card-copy", "dates": ["2026-02-08"], "exports": ["~/Pictures/trip-final"],
+      "complete": false, "note": "one day of a card copy that holds many" },
+    { "id": "archived-exports", "raws": "~/Pictures/portraits-2025", "keeps": ["~/LuminaEvidence/culleval/keeps/portraits-2025.json"],
+      "note": "the exports folder is gone; kept = the keep list culleval saved while it was there" },
+    { "id": "rated-in-lumina", "raws": "~/Pictures/portraits", "sidecars": true,
+      "note": "kept = an .xmp next to the RAW with xmp:Rating ≥ 1" },
+    { "id": "lumina-session", "raws": "/Volumes/Untitled/DCIM",
+      "session": "~/Library/Application Support/Lumina/shoots/<id>/session.json",
+      "complete": false, "note": "kept = the session's keeps; only rows marked seen count as decided" },
+    { "id": "everything-else", "raws": "~/Pictures/card-copy", "datesExclude": ["2026-02-08"],
+      "note": "no keeps known: grouping only" }
+  ]
+}
