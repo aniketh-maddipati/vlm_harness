@@ -81,7 +81,7 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 > scrolling, add rows less often (the app waits 1.5 s instead of 400 ms), don't animate row heights
 > for rows that are off screen, and don't fade in tiles for rows that were already on screen.
 >
-> **9. Say so while a folder opens.** Between choosing a folder and the first photo being read the
+> **10. Say so while a folder opens.** Between choosing a folder and the first photo being read the
 > page shows nothing: no word, no progress. That wait is the disk listing the folder, and it is
 > not always short. Measured in the app (`probe.sh readspeed`, 2026-10-01): under 0.1 s on the
 > internal disk, 0.4–3.6 s on a USB disk, and **13.9 s the first time a folder is opened after
@@ -312,7 +312,7 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 - 3: `__lumina.unsaved()` in `plumbing.js` becomes a call to `window.luminaUnsaved`; the contract scenario checks it exists.
 - 4, 5: by eye.
 - 6: a probe Tab walk scenario.
-- 9: `probe.sh slowdisk` (`open-slow-disk.json`, `LUMINA_SLOW_DIR_MS=12000`): `luminaOpening` is among the hooks the
+- 10: `probe.sh slowdisk` (`open-slow-disk.json`, `LUMINA_SLOW_DIR_MS=12000`): `luminaOpening` is among the hooks the
   contract scenario lists; the scenario then expects `Opening <name>…` on screen 1 s into the open and gone when the
   rows appear, and `Esc` during the wait returns to Open with no rows. `plumbing.js` calls the hook around
   `native('openFolder')` (the bridge sends the name before it lists), and `probe.sh readspeed` adds "opening shown" to
