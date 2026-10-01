@@ -1,0 +1,12 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [1440, 900],
+ "clock": "2026-09-08T14:30:00",
+ "checklist": "Culling eval: open LUMINA_CULL_DIR through the real page and native reader, then dump what lumina-core decided for every photo (row, stack, kind, rank, peak, soft / slight / blown / shake / dark, suggested keep). Nothing is kept or saved; the folder is only read.",
+ "steps": [
+  { "do": "openFolder", "path": "${LUMINA_CULL_DIR}", "via": "js", "timeoutMs": 1800000 },
+  { "do": "dump", "name": "decisions", "timeoutMs": 120000,
+    "js": "const l=__probe.logic(), d=l.data, info=l.state.realInfo||{}; const f=p=>({id:p.id,path:p.path,n:p.n,row:p.mi,gid:p.gid||null,kind:p.kind||null,bn:p.bn||1,rank:p.rank||1,peak:!!p.peak,soft:!!p.soft,slight:!!p.slight,blown:!!p.blown,shake:!!p.shake,dark:!!p.dark,nopv:!!p.nopv,sharp:p.sharp,focus:p.focus,lum:p.h,date:p.date10,sec:p.sec,model:p.model,iso:p.iso,exp:p.exp,lrEd:!!p.lrEd,sug:!!(d.sugKeep&&d.sugKeep[p.id])}); return {info, rows:d.M.length, stacks:Object.values(d.G).filter(g=>g.frames.length>1).length, hasSugKeep:!!d.sugKeep, photos:d.order.map(id=>f(d.byId[id]))}" }
+ ]
+}
