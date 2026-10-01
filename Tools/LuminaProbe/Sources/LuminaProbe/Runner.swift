@@ -219,6 +219,11 @@ final class Runner {
             // "don't show again" flag skips it (the app never shows it: plumbing opens the folder itself).
             _ = try await host.js("try { localStorage.setItem('lumina-v4-pre-ok', '1') } catch (_) {} window.__probeOpened = __probe.logic().state.realInfo || null")
             if (s["via"] as? String ?? "key") == "key" { try host.key("o", cmd: true) } else { _ = try await host.js("__probe.logic().openFolder()") }
+            // In the browser v5 first shows its "before you open" sheet (state.pre) and opens the folder
+            // input only once that is confirmed. Enter confirms it, and being a real key event it also
+            // gives the page the user activation a file input needs. The app never shows the sheet.
+            try await settle(120)
+            if truthy(try? await host.js("return !!__probe.logic().state.pre", timeout: 5)) { try host.key("Enter"); try await settle(120) }
             // until: "shown" returns once Cull shows its first rows, while the folder is still being read.
             if s["until"] as? String == "shown" {
                 try await waitFor("const l=__probe.logic(); return !!(l.real && l.real.length && l.state.view === 'cull' && l.state.realLoad)",
@@ -316,12 +321,13 @@ final class Runner {
             return try await nativeSidecar(s)
         case "fillDisk":
             return try fillDisk(URL(fileURLWithPath: try str(s, "path")))
-        case "editDrag", "editParity", "raw9":
+        case "editDrag", "editParity", "raw9", "editConsistency":
             // The Edit canvas and RAW 9 measures (EditSteps.swift). Gates apply unless LUMINA_EDIT_GATE=0.
             let o: EditSteps.Outcome
             switch op {
             case "editDrag": o = try await EditSteps.drag(host: host, s)
             case "editParity": o = try await EditSteps.parity(host: host, s, outDir: outDir)
+            case "editConsistency": o = try await ConsistencySteps.run(host: host, s, folder: URL(fileURLWithPath: try str(s, "folder")), outDir: outDir)
             default: o = try await EditSteps.raw9(host: host, s, folder: URL(fileURLWithPath: try str(s, "folder")), outDir: outDir)
             }
             failures.append(contentsOf: o.failures)
