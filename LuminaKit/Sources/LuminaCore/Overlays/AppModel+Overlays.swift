@@ -117,13 +117,15 @@ public extension AppModel {
               spec.cells.indices.contains(edit.variationIndex) else { variationsDismiss(); return }
         let cell = spec.cells[edit.variationIndex]
         variationsDismiss()
-        // One undo step: the first changed setting opens it, the rest fold into it.
-        let look = currentLook
-        var n = 0
+        // One undo step: every changed setting goes in one commit (a cell of the white-balance
+        // grid changes two).
+        var look = currentLook, n = 0
         for key in cell.values.keys.sorted() {
             guard let v = cell.values[key], v != look[key] ?? EditSetting.byKey[key]?.def ?? 0 else { continue }
-            setValue(key, v, coalesce: n > 0); n += 1
+            let s = EditSetting.byKey[key], r = s.map { SliderScale.round($0, v) } ?? v
+            look[key] = r == s?.def ? nil : r; n += 1
         }
+        if n > 0 { commitLook(look) }
         guard !cell.isNow, n > 0 else { say(OverlayCopy.variationsKept); return }
         switch spec.kind {
         case .grid: say("Temperature \(Variations.format("wb", value("wb"))) · tint \(Variations.signed(value("tint")))")
