@@ -32,6 +32,14 @@ nonisolated enum SetsEarlierSessions {
         realHome.appendingPathComponent("Library/Application Support/Lumina", isDirectory: true)
     }
 
-    /// The logic tests are hosted in the app: a launch under XCTest never asks.
-    static var underTest: Bool { ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil }
+    /// The logic tests are hosted in the app: a launch under XCTest never asks. The tests run in
+    /// the Debug app only, and the Release binary reads nothing from the environment (S4:
+    /// `release_preflight.sh` fails on it), so Release never looks.
+    static var underTest: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        #else
+        return false
+        #endif
+    }
 }
