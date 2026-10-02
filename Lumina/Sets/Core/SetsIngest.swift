@@ -257,7 +257,7 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         var depth = 12
         /// A sidecar is read whole and handed to the page as text. Lightroom's, with a full develop
         /// history, is tens of KB: 1 MB is far past any real one. Larger ones are not read at all.
-        var sidecarBytes = 1 << 20
+        var sidecarBytes = SetsFileOps.sidecarMaxBytes
     }
 
     /// macOS refused to list the folder (Privacy & Security → Files and Folders, SAFETY.md 5).

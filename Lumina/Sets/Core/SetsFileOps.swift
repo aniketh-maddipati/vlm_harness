@@ -106,6 +106,16 @@ nonisolated enum SetsFileOps {
     static let sidecarChanged = "changed on disk"
     /// The base of a sidecar that isn't there.
     static let noSidecar = "none"
+    /// The largest sidecar Lumina reads or replaces. The listing skips bigger ones without reading
+    /// them (`SetsIngest.Limits`); Save leaves them as they are and says so, rather than reading a
+    /// file of any size to merge into it.
+    static let sidecarMaxBytes = 1 << 20
+    static let sidecarTooBig = "over 1 MB"
+
+    /// Whether the sidecar at `url` is over `sidecarMaxBytes`, from its size alone.
+    private static func tooBig(_ url: URL) -> Bool {
+        ((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0) > sidecarMaxBytes
+    }
 
     /// What a merge is based on: the SHA-256 of the sidecar's bytes as they are on disk now, or
     /// `noSidecar` when there is no file.
@@ -140,6 +150,7 @@ nonisolated enum SetsFileOps {
     static func readSidecar(rel: String, root: URL) throws -> (text: String?, base: String) {
         let (url, _, stem) = try sidecarURL(rel: rel, root: root)
         guard FileManager.default.fileExists(atPath: url.path) else { return (nil, noSidecar) }
+        if tooBig(url) { throw SidecarError(name: stem, reason: sidecarTooBig) }
         do {
             let data = try Data(contentsOf: url)
             return (String(data: data, encoding: .utf8), sha256(data))
@@ -166,6 +177,7 @@ nonisolated enum SetsFileOps {
         if isCard(root) { throw SidecarError(name: stem, reason: "on the card") }
         if isLocked(url) { throw SidecarError(name: stem, reason: "locked") }
         guard hasRaw(named: stem, in: parent) else { throw SidecarError(name: stem, reason: "missing") }
+        if tooBig(url) { throw SidecarError(name: stem, reason: sidecarTooBig) }
         do {
             // A file that already holds these bytes has nothing to lose, whatever they were merged from.
             if let base, try sidecarBase(url) != base, (try? Data(contentsOf: url)) != data {
