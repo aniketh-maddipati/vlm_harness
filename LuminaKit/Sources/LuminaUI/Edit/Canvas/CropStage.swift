@@ -334,12 +334,13 @@ struct CropToolbar: View {
                 Button("Portrait ↔ landscape") { model.cropSwapRatio() }
             } label: {
                 // One Text (a menu label keeps only its first view): the caret 10pt at 0.7 (prototype).
-                (Text("Ratio \(model.edit.cropRatio)  ").font(LuminaFont.small(s, .semibold))
+                (Text("Ratio \(model.edit.cropRatio)   ").font(LuminaFont.small(s, .semibold))
                  + Text("▾").font(LuminaFont.ui(10, .regular, s)).foregroundColor(LuminaColor.textPrimary.opacity(0.7)))
                     .foregroundStyle(LuminaColor.textPrimary)
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-            .padding(.horizontal, 9.scaled(s)).frame(height: LuminaHeight.chip.scaled(s))
+            // 9pt sides in the prototype; the borderless menu adds ~3.5pt of its own each side.
+            .padding(.horizontal, 5.5.scaled(s)).frame(height: LuminaHeight.chip.scaled(s))
             .background(RoundedRectangle(cornerRadius: LuminaRadius.pill.scaled(s), style: .continuous).fill(LuminaColor.fill07))
             .accessibilityIdentifier(AccessibilityID.Edit.cropRatio)
             .accessibilityLabel("Ratio \(model.edit.cropRatio)")
