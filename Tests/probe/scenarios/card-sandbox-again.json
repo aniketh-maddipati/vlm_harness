@@ -1,0 +1,135 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": true,
+ "checklist": "R1c / T10: the same card a second time needs no panel. First insert, 'Cull this card', the panel's pick (scripted); then a relaunch (the panel's grant is gone), the card out and back in: the app reads it through the bookmark it kept for the card's volume UUID (grant 'bookmark'), the banner has the count, and Enter culls it with no panel (no answer is queued, so a panel would be a Cancel and the read would never come).",
+ "steps": [
+  {
+   "do": "startCards"
+  },
+  {
+   "do": "diskImage",
+   "name": "LTFIRST",
+   "sizeMB": 64,
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "trimBytes": 1400000,
+   "count": 12
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!(window.lumina.card || window.lumina.cardPending)",
+   "timeoutMs": 15000,
+   "what": "card noticed"
+  },
+  {
+   "do": "js",
+   "src": "const c=window.lumina.card, p=window.lumina.cardPending; return c ? 'known before any pick (not sandboxed): '+c.photos+' ARW' : 'pending: '+JSON.stringify(p)"
+  },
+  {
+   "do": "expect",
+   "js": "const c=window.lumina.card, p=window.lumina.cardPending; return c ? (c.known===true && c.photos===12 && !p) : (p.known===false && p.photos===null && p.sony===null && p.name==='LTFIRST')",
+   "why": "sandboxed, the first insert is noticed without reading the card: a name and no count; unsandboxed it is read as before"
+  },
+  {
+   "do": "sources",
+   "paths": [
+    "${DISKS}/LTFIRST/DCIM"
+   ]
+  },
+  {
+   "do": "js",
+   "src": "__probe.logic().impStart(); return true"
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo)",
+   "timeoutMs": 60000,
+   "what": "card read"
+  },
+  {
+   "do": "expect",
+   "js": "const c=window.lumina.card; return [__probe.logic().state.realInfo.n, window.lumina.readingCard, c.photos, c.sony, c.known, window.lumina.cardPending]",
+   "equals": [
+    12,
+    true,
+    12,
+    true,
+    true,
+    null
+   ],
+   "why": "after the pick the page has the whole card"
+  },
+  {
+   "do": "reload",
+   "settleMs": 800
+  },
+  {
+   "do": "detach",
+   "name": "LTFIRST"
+  },
+  {
+   "do": "waitFor",
+   "js": "return window.lumina.card===null && window.lumina.cardPending===null",
+   "timeoutMs": 10000,
+   "what": "card removal noticed"
+  },
+  {
+   "do": "attach",
+   "name": "LTFIRST"
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!(window.lumina.card && window.lumina.card.known)",
+   "timeoutMs": 15000,
+   "what": "card noticed again, known"
+  },
+  {
+   "do": "expect",
+   "js": "const c=window.lumina.card; return [c.photos, c.sony, ['bookmark','open'].includes(c.grant), window.lumina.cardPending]",
+   "equals": [
+    12,
+    true,
+    true,
+    null
+   ],
+   "why": "sandboxed: read through the kept bookmark (grant 'bookmark'); unsandboxed: read as before ('open')"
+  },
+  {
+   "do": "js",
+   "src": "return 'grant: '+window.lumina.card.grant"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 100
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo)",
+   "timeoutMs": 60000,
+   "what": "card read with no panel"
+  },
+  {
+   "do": "expect",
+   "js": "return [__probe.logic().state.realInfo.n, window.lumina.readingCard]",
+   "equals": [
+    12,
+    true
+   ]
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTFIRST",
+   "glob": "*.xmp",
+   "count": 0
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

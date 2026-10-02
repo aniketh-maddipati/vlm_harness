@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The entitlements while the app's UI is the design page in a WKWebView (LUMINA_UI=sets).
+	     Same as Lumina.entitlements plus one key. -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<key>com.apple.security.files.bookmarks.app-scope</key>
+	<true/>
+	<!-- Measured 2026-10-01 (macOS 26.5, docs/release/THREAT-MODEL.md "Sandbox findings"): in a
+	     sandboxed app without this key WebKit's Networking process crashes in a loop and the
+	     page never loads, even though every URL is lumina://. With it the system no longer
+	     enforces "nothing leaves the Mac"; the app does (content rules, navigation policy, S1). -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+</dict>
+</plist>

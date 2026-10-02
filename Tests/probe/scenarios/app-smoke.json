@@ -63,6 +63,17 @@
    "js": "return (__probe.logic().state.notes || []).length > 0"
   },
   {
+   "do": "expect",
+   "js": "const P = __probe.logic().real, d = await window.lumina.near(P[0].path, P[1].path); return [typeof d, d > 0 && d < 2, await window.lumina.near(P[0].path, P[0].path), await window.lumina.near(P[0].path, 'two-bodies/NOPE.ARW')]",
+   "equals": [
+    "number",
+    true,
+    0,
+    null
+   ],
+   "what": "lumina.near: the Mac's distance between two photos' previews; 0 for a photo and itself; null for one that was not read"
+  },
+  {
    "do": "snap",
    "name": "cull"
   },

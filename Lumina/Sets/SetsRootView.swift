@@ -82,7 +82,11 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         if !bridge.reopen(id: id) { webView?.evaluateJavaScript("window.__lumina && __lumina.say('not available · card out or folder moved')", completionHandler: nil) }
     }
 
-    func closeShoot() { webView?.evaluateJavaScript("window.__lumina && __lumina.closeShoot()", completionHandler: nil) }
+    /// The page saves and forgets the shoot; then its folder's access is stopped (SetsAccess).
+    func closeShoot() {
+        guard let webView else { bridge.closeShoot(); return }
+        webView.evaluateJavaScript("window.__lumina && __lumina.closeShoot()") { [weak self] _, _ in self?.bridge.closeShoot() }
+    }
 
     /// File ▸ Remove Working Files…: Lumina's own session files for the open shoot. Never photos or sidecars.
     func confirmRemoveWorkingFiles() {
@@ -95,12 +99,24 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         webView?.evaluateJavaScript("window.__lumina && __lumina.removeWorkingFiles()", completionHandler: nil)
     }
 
-    /// Keepers whose sidecars aren't written yet (Quit asks). 0 when the page doesn't answer.
+    /// How long Quit waits for the page before going ahead without its answer.
+    static let unsavedKeepersTimeout: TimeInterval = 2
+
+    /// False when there is no page to ask: no web view yet, or it stopped and was not reloaded.
+    var pageCanAnswer: Bool { webView != nil && !pageStopped }
+
+    /// Keepers whose sidecars aren't written yet (Quit asks). 0 when the page doesn't answer
+    /// within 2 seconds (hung or dead). `done` is called exactly once, whichever comes first.
     func unsavedKeepers(_ done: @escaping @MainActor (Int) -> Void) {
-        guard let webView else { return done(0) }
-        webView.evaluateJavaScript("window.__lumina ? __lumina.unsaved() : 0") { value, _ in
-            MainActor.assumeIsolated { done((value as? NSNumber)?.intValue ?? 0) }
-        }
+        guard let webView, !pageStopped else { return done(0) }
+        SetsFirstAnswer<Int>.ask(timeout: Self.unsavedKeepersTimeout, fallback: 0, schedule: { after, fire in
+            // Common modes: while Quit waits (.terminateLater) the app runs its loop in the modal panel mode.
+            RunLoop.main.add(Timer(timeInterval: after, repeats: false) { _ in MainActor.assumeIsolated { fire() } }, forMode: .common)
+        }, question: { answer in
+            webView.evaluateJavaScript("window.__lumina ? __lumina.unsaved() : 0") { value, _ in
+                MainActor.assumeIsolated { answer((value as? NSNumber)?.intValue ?? 0) }
+            }
+        }, done: done)
     }
 
     func refreshRecents() {
@@ -128,6 +144,18 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         panel.prompt = "Export here"
         panel.message = refusal ?? (label == "xmp" ? "Choose the folder for the .xmp sidecars." : "Choose where the export goes.")
         panel.directoryURL = suggested
+        return await run(panel)
+    }
+
+    func chooseCard(name: String, at: URL, refusal: String?) async -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Cull This Card"
+        panel.message = refusal ?? "Choose the card \(name) to let Lumina read it. Lumina only reads it, and remembers this card."
+        panel.directoryURL = at
         return await run(panel)
     }
 
@@ -174,9 +202,48 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         return dest
     }
 
+    // MARK: The page stopped (crash or memory)
+
+    private var reloadPolicy = SetsReloadPolicy()
+    /// The page stopped and was not reloaded: the alert is up, or was answered with Quit.
+    private(set) var pageStopped = false
+
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        // The page died (crash or memory). Reload so the window never stays blank.
-        webView.load(URLRequest(url: SetsSchemeHandler.pageURL))
+        guard !pageStopped else { return }
+        switch reloadPolicy.pageStopped() {
+        case .reload:
+            // Reload so the window never stays blank.
+            webView.load(URLRequest(url: SetsSchemeHandler.pageURL))
+        case .ask:
+            // It keeps stopping (a file that kills the page would loop forever): ask, once.
+            NSLog("Lumina: the page stopped again after %d reloads in %.0f s; not reloading", reloadPolicy.limit, reloadPolicy.window)
+            pageStopped = true
+            askAboutStoppedPage(webView)
+        }
+    }
+
+    /// Decisions are already on disk (the bridge's `saveSession`), so both answers are safe.
+    private func askAboutStoppedPage(_ webView: WKWebView) {
+        let alert = NSAlert()
+        alert.messageText = SetsPageStoppedAlert.message
+        alert.informativeText = SetsPageStoppedAlert.detail(limit: reloadPolicy.limit)
+        alert.addButton(withTitle: SetsPageStoppedAlert.tryAgain)
+        alert.addButton(withTitle: SetsPageStoppedAlert.quit)
+        let answered: (NSApplication.ModalResponse) -> Void = { [weak self, weak webView] response in
+            MainActor.assumeIsolated {
+                guard response == .alertFirstButtonReturn else { NSApp.terminate(nil); return }
+                guard let self else { return }
+                self.reloadPolicy.reset()
+                self.pageStopped = false
+                webView?.load(URLRequest(url: SetsSchemeHandler.pageURL))
+            }
+        }
+        // Not a modal loop inside WebKit's callback: a sheet on the window, or the next turn of the loop.
+        if let window = webView.window {
+            alert.beginSheetModal(for: window, completionHandler: answered)
+        } else {
+            DispatchQueue.main.async { answered(alert.runModal()) }
+        }
     }
 }
 

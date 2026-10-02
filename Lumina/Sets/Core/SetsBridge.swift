@@ -8,6 +8,16 @@ protocol SetsChooser: AnyObject {
     func chooseSource(allowsDirectories: Bool) async -> URL?
     /// Export needs a destination. `refusal` is set when the previous pick was refused.
     func chooseDestination(label: String, suggested: URL?, refusal: String?) async -> URL?
+    /// "Cull this card" in the App Sandbox, the first time for this card (T10): the folder panel,
+    /// opened `at` the card's DCIM (or its root), asking for the card named `name`. `refusal` is
+    /// set when the previous pick was not on that card.
+    func chooseCard(name: String, at: URL, refusal: String?) async -> URL?
+}
+
+extension SetsChooser {
+    /// A chooser with no panel of its own for cards (the probe's scripted one) answers from its
+    /// source queue.
+    func chooseCard(name: String, at: URL, refusal: String?) async -> URL? { await chooseSource(allowsDirectories: true) }
 }
 
 /// Native side of the page's plumbing (see Web/plumbing.js). Owns the folders the user opened,
@@ -21,12 +31,21 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// Reads the opened folders for the page (listing, heads, previews). It also holds the opened
     /// folders by name: the page knows files as "<folder>/<file>".
     let ingest = SetsIngest()
+    /// How alike two photos' previews are, for the page's retake stacks (`lumina.near`).
+    private(set) lazy var near = SetsNear(ingest: ingest)
     private var pendingSource: URL?
+    /// The recent shoot `pendingSource` reopens: the folder keeps that shoot's id wherever its
+    /// bookmark found it (renamed or moved), instead of becoming a second shoot.
+    private var pendingShoot: String?
     private var lastOpened: URL?
-    /// The open folder's shoot id and volume, taken while it was being opened. Both come from the
-    /// volume's UUID, which is gone once a card is pulled: asked again then, the same card would
-    /// be another shoot and the decisions made while it was out would be filed under that one.
-    private var lastOpenedKey: (id: String, volume: String?)?
+    /// The open folder's shoot id, volume and place (`SetsShootStore.id(for:)`), taken while it was
+    /// being opened. All come from the volume's UUID, which is gone once a card is pulled: asked
+    /// again then, the same card would be another shoot and the decisions made while it was out
+    /// would be filed under that one. `bookmark` is made then too, while the grant is fresh; nil
+    /// for a reopen (the index keeps the one it came through).
+    private var lastOpenedKey: (id: String, volume: String?, place: String, bookmark: Data?)?
+    /// Security-scoped access: the only caller of start / stop (T9).
+    let access: SetsAccess
     /// The folder macOS last refused to list (SAFETY.md 5): checkAccess and reopen use it.
     private var deniedFolder: URL?
     let shoots: SetsShootStore
@@ -49,12 +68,19 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// Finder forward on the desktop of whoever is using the Mac.
     var reveal: (URL) -> Void = { NSWorkspace.shared.activateFileViewerSelecting([$0]) }
 
-    init(chooser: SetsChooser, supportDir: URL) {
+    init(chooser: SetsChooser, supportDir: URL, access: SetsAccess? = nil) {
         self.chooser = chooser
         self.supportDir = supportDir
         self.shoots = SetsShootStore(supportDir: supportDir)
+        self.access = access ?? SetsAccess()
         super.init()
+        SetsAccess.removeLegacyBookmarks(supportDir: supportDir)
+        self.access.onLog = { [weak self] in self?.onEvent?("access: \($0)") }
         cards.onChange = { [weak self] card, removed in self?.cardChanged(card, removed: removed) }
+        // A card the sandbox will not let the app list (T10): the grant kept for it, if any; and
+        // its hold let go when it goes.
+        cards.grant = { [weak self] uuid, volume in self?.cardGrant(uuid: uuid, volume: volume) }
+        cards.release = { [weak self] uuid in self?.access.releaseCard(uuid) }
         cards.onWillUnmount = { [weak self] volume in
             guard let self else { return }
             let stopped = self.ingest.markGone(volume: volume)
@@ -103,6 +129,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         let o = Int(p["o"] as? String ?? "") ?? p["o"] as? Int ?? 0, l = Int(p["l"] as? String ?? "") ?? p["l"] as? Int ?? 0
         guard o > 0, l > 0 else { return nil }
         return LookBases.PreviewFallback(offset: o, length: l, orientation: Int(p["ori"] as? String ?? "") ?? p["ori"] as? Int ?? 1)
+    }
+
+    /// A photo's embedded preview as the page names it: `{p, o, l, ori}` (numbers or strings).
+    nonisolated static func ingestPreview(_ d: Any?) -> SetsIngest.Preview? {
+        guard let i = d as? [String: Any], let rel = i["p"] as? String else { return nil }
+        return SetsIngest.Preview(rel: rel, offset: Int(i["o"] as? String ?? "") ?? i["o"] as? Int ?? 0,
+                                  length: Int(i["l"] as? String ?? "") ?? i["l"] as? Int ?? 0,
+                                  orientation: Int(i["ori"] as? String ?? "") ?? i["ori"] as? Int ?? 1)
     }
 
     private func roi(_ d: Any?) -> LookCanvasSchedule.ROI? {
@@ -164,30 +198,41 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// Called from the web view's UI delegate for the page's folder input.
     func openPanel(allowsDirectories: Bool) async -> [URL]? {
         let url: URL?
-        if let pending = pendingSource { url = pending; pendingSource = nil } else { url = await chooser.chooseSource(allowsDirectories: allowsDirectories) }
+        let reopening: String?
+        if let pending = pendingSource { url = pending; reopening = pendingShoot; pendingSource = nil; pendingShoot = nil }
+        else { url = await chooser.chooseSource(allowsDirectories: allowsDirectories); reopening = nil }
         guard let url else { return nil }
+        // The open shoot is this folder now. A reopen already started its access (scoped); a
+        // panel's pick needs none, and the shoot open before is let go either way.
+        access.openShoot(url, scoped: false)
         ingest.register(url)
         lastOpened = url
-        lastOpenedKey = (SetsShootStore.id(for: url), SetsFileOps.volumeID(url))
-        rememberBookmark(url)
-        onEvent?("opened \(url.path)")
+        let place = SetsShootStore.id(for: url), volume = SetsFileOps.volumeID(url)
+        // A recent's own id; else the shoot that is at this place; else a recent renamed or moved
+        // here since (its bookmark follows it); else a new shoot.
+        let id = reopening ?? shoots.index().first(where: { $0.currentPlace == place })?.id
+            ?? access.movedShoot(to: url, volume: volume, in: shoots)?.id ?? shoots.shootID(at: place)
+        // The bookmark the index keeps, made while the grant is fresh. The only one: there is no
+        // second copy elsewhere.
+        lastOpenedKey = (id, volume, place, reopening == nil ? try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) : nil)
+        onEvent?("opened \(url.path)")      // exactly this: the probe's sandbox checks read the path from it
+        if id != place { onEvent?("shoot \(id) is at a new place \(place)" + (reopening == nil ? " (picked)" : " (reopened)")) }
         return [url]
     }
 
-    /// Opens a folder in the page as if the user picked it (menu, "Cull this card").
-    func open(_ url: URL) {
+    /// Opens a folder in the page as if the user picked it (menu, "Cull this card", a recent).
+    /// `shoot`: the recent shoot this is, whatever its folder is called now.
+    func open(_ url: URL, shoot: String? = nil) {
         pendingSource = url
+        pendingShoot = shoot
         webView?.evaluateJavaScript("window.__lumina && __lumina.openFolder()", completionHandler: nil)
     }
 
-    func resolve(_ rel: String) -> URL? { ingest.resolve(rel) }      // no ../ escapes
+    /// No shoot is open any more (File ▸ Close Shoot, or the page started over): its folder's
+    /// access is stopped.
+    func closeShoot() { access.closeShoot() }
 
-    private func rememberBookmark(_ url: URL) {
-        guard let data = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
-                ?? url.bookmarkData() else { return }
-        let dir = supportDir.appendingPathComponent("bookmarks", isDirectory: true)
-        try? SetsFileOps.replaceOwn(data, at: dir.appendingPathComponent(SetsFileOps.sha256(Data(url.path.utf8)).prefix(16) + ".bookmark"))
-    }
+    func resolve(_ rel: String) -> URL? { ingest.resolve(rel) }      // no ../ escapes
 
     // MARK: Cards
 
@@ -213,9 +258,77 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         onEvent?(card.map { "card in \($0.uuid)" } ?? "card out \(removed?.uuid ?? "?")" + (stopped.isEmpty ? "" : " · stopped reading \(stopped.joined(separator: ", "))"))
     }
 
-    private func cardJSON(_ c: SetsCardWatcher.Card) -> String {
-        let o: [String: Any] = ["name": c.name, "photos": c.arwCount, "bytes": c.bytes, "sony": c.sony, "uuid": c.uuid, "path": c.volume.path]
+    /// The page's card: `{name, photos, bytes, sony, uuid, path}` as before, plus `known` and
+    /// `grant`. A card the app may not read yet (sandbox, first time) has `known: false` and
+    /// `photos`, `bytes`, `sony` null: they cannot be known before the user picks it.
+    func cardJSON(_ c: SetsCardWatcher.Card) -> String {
+        let none = NSNull()
+        let o: [String: Any] = ["name": c.name, "photos": c.known ? c.arwCount : none, "bytes": c.known ? c.bytes : none, "sony": c.known ? c.sony : none,
+                                "uuid": c.uuid, "path": c.volume.path, "known": c.known, "grant": c.grant ?? none]
         return (try? JSONSerialization.data(withJSONObject: o)).flatMap { String(data: $0, encoding: .utf8) } ?? "null"
+    }
+
+    private var cardGrants: SetsCardGrants { SetsCardGrants(supportDir: supportDir) }
+
+    /// A grant kept for this card, its access started and held while it is in: the bookmark made
+    /// when it was picked for "Cull this card" (`cards.json`, by volume UUID), else a recent shoot
+    /// opened at the card's root or DCIM (File ▸ Open on the card; its bookmark is in the index).
+    /// How it was found, or nil.
+    private func cardGrant(uuid: String, volume: URL) -> String? {
+        if let data = cardGrants.bookmark(uuid) {
+            if let r = access.holdCard(uuid, bookmark: data) {
+                if r.stale, let renewed = access.makeBookmark(r.url) { try? cardGrants.save(uuid, bookmark: renewed, path: r.url.path) }
+                onEvent?("card \(uuid): granted by its bookmark (\(r.url.lastPathComponent))")
+                return "bookmark"
+            }
+        }
+        let v = SetsIngest.plainPath(volume)
+        for s in shoots.index() where s.volumeUUID == uuid {
+            guard let data = s.bookmark, let at = access.peek(data) else { continue }
+            let p = SetsIngest.plainPath(at)
+            guard p == v || p.lowercased() == v.lowercased() + "/dcim", access.holdCard(uuid, bookmark: data) != nil else { continue }
+            onEvent?("card \(uuid): granted by recent shoot \(s.id)")
+            return "recent"
+        }
+        return nil
+    }
+
+    /// Why a folder picked for "Cull this card" is refused (the panel asks again with it), or nil:
+    /// only the card's own root or its DCIM folder will do.
+    nonisolated static func cardPickRefusal(_ picked: URL, volume: URL, name: String) -> String? {
+        let p = SetsIngest.plainPath(picked), v = SetsIngest.plainPath(volume)
+        if p == v || p.lowercased() == v.lowercased() + "/dcim" { return nil }
+        if p.hasPrefix(v + "/") { return "Choose the card \(name) itself, or its DCIM folder." }
+        return "That folder is not on the card \(name). Choose the card."
+    }
+
+    /// "Cull this card": the card's DCIM folder, read in place. In the App Sandbox the first time
+    /// for a card, the panel opens on it first; the pick is held while the card is in and kept as a
+    /// bookmark by volume UUID, so the next time needs no panel. True when the page should not
+    /// fall back to its own action (opened, or the user cancelled the panel).
+    func cullCard() async -> Bool {
+        guard let card = cards.current else { return false }
+        if !card.known {
+            let dcim = card.volume.appendingPathComponent("DCIM")
+            let at = FileManager.default.fileExists(atPath: dcim.path) ? dcim : card.volume
+            var refusal: String?
+            while true {
+                onEvent?("card panel at \(at.path)" + (refusal == nil ? "" : " (again)"))
+                guard let picked = await chooser.chooseCard(name: card.name, at: at, refusal: refusal) else { onEvent?("card panel cancelled"); return true }
+                guard cards.current?.uuid == card.uuid else { onEvent?("card panel: the card went meanwhile"); return true }
+                if let why = Self.cardPickRefusal(picked, volume: card.volume, name: card.name) { refusal = why; onEvent?("refused card pick \(picked.path)"); continue }
+                access.holdCard(card.uuid, picked: picked)
+                if let data = access.makeBookmark(picked) {
+                    do { try cardGrants.save(card.uuid, bookmark: data, path: picked.path) } catch { onEvent?("card \(card.uuid): bookmark not saved (\(error))") }
+                } else { onEvent?("card \(card.uuid): no bookmark for \(picked.path)") }
+                onEvent?("card \(card.uuid): granted by panel (\(picked.lastPathComponent))")
+                guard cards.granted(card.uuid) else { access.releaseCard(card.uuid); return false }
+                break
+            }
+        }
+        guard let now = cards.current, now.known, let dcim = now.folders.first?.deletingLastPathComponent() else { return false }
+        open(dcim)
+        return true
     }
 
     // MARK: Page → native
@@ -231,13 +344,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 return (false, nil)
             }
             ready = true
+            // A page that starts (a launch, a reload after its process stopped) has no shoot open.
+            closeShoot()
             webView?.evaluateJavaScript("window.__lumina && __lumina.card(\(cards.current != nil), \(cards.current.map(cardJSON) ?? "null"))", completionHandler: nil)
             onEvent?("ready")
             return (true, nil)
         case "cullCard":
-            guard let card = cards.current, let dcim = card.folders.first?.deletingLastPathComponent() else { return (false, nil) }
-            open(dcim)
-            return (true, nil)
+            return (await cullCard(), nil)
         case "openFolder":
             // Native ingest: pick (or take the pending folder), then list it before reading anything.
             guard let url = await openPanel(allowsDirectories: true)?.first else { return (NSNull(), nil) }
@@ -260,25 +373,28 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             d["workers"] = ingest.workers
             return (d, nil)
         case "prefetch":
-            let items = (body["items"] as? [[String: Any]] ?? []).compactMap { i -> SetsIngest.Preview? in
-                guard let rel = i["p"] as? String else { return nil }
-                return SetsIngest.Preview(rel: rel, offset: Int(i["o"] as? String ?? "") ?? i["o"] as? Int ?? 0,
-                                          length: Int(i["l"] as? String ?? "") ?? i["l"] as? Int ?? 0,
-                                          orientation: Int(i["ori"] as? String ?? "") ?? i["ori"] as? Int ?? 1)
-            }
+            let items = (body["items"] as? [[String: Any]] ?? []).compactMap(Self.ingestPreview)
             ingest.prefetch(items)
             return (items.count, nil)
+        case "near":
+            // How alike two photos are (Prompt 2 C): the page stacks retakes on it. Null when either
+            // preview can't be measured; the page then keeps its own rule.
+            guard let a = Self.ingestPreview(body["a"]), let b = Self.ingestPreview(body["b"]), let d = await near.distance(a, b) else { return (NSNull(), nil) }
+            return (d, nil)
         case "ingestStats":
             return (ingest.snapshot.dictionary, nil)
         case "shootOpened":
             // The page finished reading a folder: remember it and hand back its saved session.
             guard let url = lastOpened ?? ingest.root(named: body["name"] as? String ?? "") else { return (nil, nil) }
             let key = url == lastOpened ? lastOpenedKey : nil
-            let id = key?.id ?? SetsShootStore.id(for: url)
+            let place = key?.place ?? SetsShootStore.id(for: url)
+            let id = key?.id ?? shoots.shootID(at: place)
+            // The bookmark made at open (nil for a reopen: upsert keeps the one it came through).
             let shoot = SetsShootStore.Shoot(id: id, title: url.lastPathComponent == "DCIM" ? (cards.current?.name ?? "Card") : url.lastPathComponent,
                                              path: url.path, volumeUUID: key?.volume ?? SetsFileOps.volumeID(url), photos: body["n"] as? Int ?? 0,
                                              firstCapture: body["date"] as? String ?? "", opened: Date(),
-                                             bookmark: try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil))
+                                             bookmark: key.map { $0.bookmark } ?? (try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)),
+                                             place: place)
             try? shoots.upsert(shoot)
             onShootsChanged?()
             onEvent?("shoot \(id) \(url.path)")
@@ -370,6 +486,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (true, nil)
         case "writeInto":
             return (await writeInto(label: body["label"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? []), nil)
+        case "readSidecars":
+            return (await readSidecars(root: body["root"] as? String ?? "", files: body["files"] as? [String] ?? []), nil)
         case "writeSidecars":
             return (await writeSidecars(root: body["root"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? []), nil)
         case "reveal":
@@ -403,16 +521,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         }
     }
 
-    /// Opens a recent shoot again (its security-scoped bookmark, else its path). False when the card
-    /// is out or the folder moved.
+    /// Opens a recent shoot again through its security-scoped bookmark (`SetsAccess.reopen`: access
+    /// started and held while it is the open shoot, a stale bookmark renewed). A folder renamed or
+    /// moved on its volume is followed and stays the same shoot. False when the bookmark cannot be
+    /// resolved or the folder is not there (card out, folder gone, a refusal): no fallback to the
+    /// stored path, which is for display only.
     func reopen(id: String) -> Bool {
-        guard let shoot = shoots.index().first(where: { $0.id == id }) else { return false }
-        var stale = false
-        let url = shoot.bookmark.flatMap { try? URL(resolvingBookmarkData: $0, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) }
-            ?? URL(fileURLWithPath: shoot.path)
-        guard FileManager.default.fileExists(atPath: url.path) else { return false }      // card out / folder gone
-        _ = url.startAccessingSecurityScopedResource()
-        open(url)
+        guard let shoot = shoots.index().first(where: { $0.id == id }), let url = access.reopen(shoot, store: shoots) else { return false }
+        open(url, shoot: shoot.id)
         return true
     }
 
@@ -456,26 +572,45 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
 
     // MARK: Save (SAFETY.md 1)
 
+    /// The sidecars Save is about to merge into, as they are on disk now: `{ name, text, base }`
+    /// per name inside the shoot folder (`text` null when there is no file; an entry with only its
+    /// name when it can't be read). The text the page holds is from the open, and another app
+    /// (Lightroom) may have written the file since; `base` goes back with the write.
+    private func readSidecars(root name: String, files: [String]) async -> [[String: Any]]? {
+        guard let root = ingest.root(named: name) ?? lastOpened.flatMap({ $0.lastPathComponent == name ? $0 : nil }) else {
+            onEvent?("readSidecars: \(name) is not an opened folder")
+            return nil
+        }
+        return await Task.detached(priority: .userInitiated) { () -> [[String: Any]] in
+            files.map { rel in
+                guard let s = try? SetsFileOps.readSidecar(rel: rel, root: root) else { return ["name": rel] }
+                return ["name": rel, "text": s.text ?? NSNull(), "base": s.base]
+            }
+        }.value
+    }
+
     /// Save writes one .xmp sidecar per keeper INTO the shoot folder (`root`, an opened folder's
     /// name), next to its RAW. Every file goes through SetsFileOps.writeSidecar; nothing is retried
-    /// silently. Refused wholesale when the folder is on a card.
+    /// silently. Refused wholesale when the folder is on a card. A file's `base` (from
+    /// `readSidecars`) is what its bytes were merged from: when the sidecar on disk is no longer
+    /// that, it is left alone and reported "changed on disk".
     private func writeSidecars(root name: String, files: [[String: Any]]) async -> [String: Any]? {
         guard let root = ingest.root(named: name) ?? lastOpened.flatMap({ $0.lastPathComponent == name ? $0 : nil }) else {
             onEvent?("writeSidecars: \(name) is not an opened folder")
             return nil
         }
         onEvent?("writeSidecars \(files.count) → \(root.path)")
-        let items: [(String, Data?)] = files.map { ($0["name"] as? String ?? "", ($0["b64"] as? String).flatMap { Data(base64Encoded: $0) }) }
+        let items: [(String, Data?, String?)] = files.map { ($0["name"] as? String ?? "", ($0["b64"] as? String).flatMap { Data(base64Encoded: $0) }, $0["base"] as? String) }
         let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "Lumina save")
         let (n, bak, errors) = await Task.detached(priority: .userInitiated) { () -> (Int, Int, [[String: String]]) in
             var n = 0, bak = 0, errors: [[String: String]] = []
             let onCard = SetsFileOps.isCard(root)
-            for (rel, data) in items {
+            for (rel, data, base) in items {
                 let stem = ((rel as NSString).lastPathComponent as NSString).deletingPathExtension
                 guard let data else { errors.append(["name": stem, "reason": "failed"]); continue }
                 if onCard { errors.append(["name": stem, "reason": "on the card"]); continue }
                 do {
-                    if try SetsFileOps.writeSidecar(data, rel: rel, root: root).backedUp { bak += 1 }
+                    if try SetsFileOps.writeSidecar(data, rel: rel, root: root, base: base).backedUp { bak += 1 }
                     n += 1
                 } catch let e as SetsFileOps.SidecarError {
                     errors.append(["name": e.name, "reason": e.reason])
@@ -560,6 +695,9 @@ enum SetsWebView {
         let res = String(data: try JSONSerialization.data(withJSONObject: SetsSchemeHandler.resources), encoding: .utf8)!
         ucc.addUserScript(WKUserScript(source: "window.__resources=Object.assign(window.__resources||{},\(res));", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         for s in extraScripts { ucc.addUserScript(WKUserScript(source: s, injectionTime: .atDocumentStart, forMainFrameOnly: true)) }
+        // The retake threshold belongs to the Mac's measure (SetsNear), so it reaches the page from here.
+        var config = config
+        if bridge != nil, config["nearLimit"] == nil, let limit = SetsNear.limit { config["nearLimit"] = limit }
         let cfg = String(data: try JSONSerialization.data(withJSONObject: config), encoding: .utf8)!
         ucc.addUserScript(WKUserScript(source: "window.__luminaConfig=\(cfg);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         if bridge != nil { ucc.addUserScript(WKUserScript(source: plumbing, injectionTime: .atDocumentStart, forMainFrameOnly: true)) }

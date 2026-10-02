@@ -1,0 +1,44 @@
+// What a build handed to other people adds to the project's Release configuration.
+// Passed on the command line by Scripts/release.sh (`xcodebuild -xcconfig Config/Release.xcconfig`),
+// so the project file, day-to-day builds and the probe are untouched until the sandbox work
+// (docs/release/TASKS.md, R1) lands. Only the Lumina target is built by the scheme's archive action.
+//
+// Machine- or person-specific values go in Config/Local.xcconfig (not committed).
+
+// The App Store record's bundle id. Sessions live in the sandbox container named after it, so it
+// must not change after the first TestFlight build (docs/release/APP-STORE.md, decisions).
+PRODUCT_BUNDLE_IDENTIFIER = com.lumina.app
+// The team of the Developer ID certificate on the release Mac. Public: it is in every signature.
+DEVELOPMENT_TEAM = QHB498M84T
+
+MARKETING_VERSION = 1.0.0
+// CURRENT_PROJECT_VERSION is set by Scripts/release.sh (the commit count: always rising).
+
+// SAFETY.md 7 and 8: App Sandbox, user-selected read-write, bookmarks, no network; hardened runtime.
+// Scripts/release.sh replaces this with Config/Lumina-Sets.entitlements (+ network.client) while
+// the UI is the design page in a WKWebView: WebKit does not start in a sandbox without it.
+CODE_SIGN_ENTITLEMENTS = Config/Lumina.entitlements
+ENABLE_HARDENED_RUNTIME = YES
+// A distribution build is never debuggable by another process.
+CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO
+
+// AGENTS.md: Apple silicon only. An arm64-only app needs LSMinimumSystemVersion 12 or later.
+ARCHS = arm64
+ONLY_ACTIVE_ARCH = NO
+MACOSX_DEPLOYMENT_TARGET = 14.0
+
+// Info.plist keys the store asks for.
+INFOPLIST_KEY_CFBundleDisplayName = Lumina
+INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.photography
+INFOPLIST_KEY_NSHumanReadableCopyright = © 2026 Aniketh Maddipati
+// Lumina's only cryptography is SHA-256 (copy and write verification): exempt.
+INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO
+
+// Symbols for crash reports stay out of the app and go to App Store Connect / the release folder.
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+STRIP_INSTALLED_PRODUCT = YES
+STRIP_SWIFT_SYMBOLS = YES
+DEAD_CODE_STRIPPING = YES
+SWIFT_COMPILATION_MODE = wholemodule
+
+#include? "Local.xcconfig"

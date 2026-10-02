@@ -357,14 +357,48 @@ Numbers: `make culleval`.
 > do not let "dHash ≥ 28 always splits" cut frames whose sequence numbers say they are one burst.
 > `Tools/culleval` re-measures this after the sync.
 >
-> **C. Bursts by hand are left as singles.** This photographer mostly shoots single frames and
-> repeats: 500 runs of the same framing ≤ 2 s apart against 80 camera bursts. Lumina stacks 7 % of
-> those pairs (it is never wrong when it does: precision 100 %). In 197 of 199 runs of tries that
+> **C. Retakes are left as singles (revised 2026-10-01 from hand labels, see below).** This
+> photographer mostly shoots single frames and repeats: 500 runs of the same framing ≤ 2 s apart
+> against 80 camera bursts. Lumina stacks 7 % of those pairs. In 197 of 199 runs of tries that
 > held a keeper, Lumina showed the tries as separate photos, and 229 of the 582 frames it suggested
-> and the photographer rejected were one of several tries where another try was kept. After B,
-> please stack frames with the same lens, focal length and orientation that follow within 2 s when
-> their hashes agree, and consider a wider window (the photographer's tries are mostly 3–10 s
-> apart: 1,204 such pairs) shown as a looser group, not a burst.
+> and the photographer rejected were one of several tries where another try was kept.
+> The first version of this ask proposed "within 2 s, same lens, hashes agree". The photographer
+> has since marked 277 consecutive pairs by eye ("would you put these two in one stack and choose
+> between them?"), and time turns out to be a weak sign of a retake: the two frames are the same
+> picture in 83 % of pairs at most 2 s apart, 63 % at 2–10 s, 43 % at 10–60 s and 11 % beyond.
+> Against those labels:
+>
+> | Stack two consecutive frames when | Right when it stacks | Retakes it finds |
+> |---|---:|---:|
+> | ≤ 2 s, same lens / focal length / orientation, dHash ≤ 20 (the first version of this ask) | 95 % | 14 % |
+> | ≤ 4 s, nothing else | 78 % | 43 % |
+> | ≤ 60 s, dHash ≤ 20 | 87 % | 40 % |
+> | ≤ 60 s, dHash ≤ 24 | 84 % | 58 % |
+> | ≤ 60 s, same lens / focal length / orientation, the app's distance ≤ 0.35 | 93 % (88–97) | 59 % (51–67) |
+>
+> No dHash threshold reaches the last row, so the measure has to come from the app. Please:
+> (1) **Take a distance from the app.** `window.lumina.near(pathA, pathB)` resolves to a number
+> (0 = the same image, about 1 = unrelated) or `null` (in the browser, and until the app has
+> measured both frames: it measures behind the read, so a value can arrive after the photo is on
+> screen). Call it for each photo and the photo before it in capture order and keep the answer on
+> the later frame's record (`near`), where `buildShoot` can read it like `dhash`.
+> `window.lumina.nearLimit` is the threshold (0.35 today). It comes from the app because it
+> belongs to the app's measure, which can change with macOS; please don't write the number into
+> the page.
+> (2) **The rule.** Two consecutive frames at most 60 s apart with the same lens, focal length
+> (±5 %) and orientation are one stack when `near ≤ nearLimit`. Where `near` is `null`, fall back
+> to the dHash rule you have after B. Camera bursts (A) stay stacked by their sequence numbers
+> whatever the distance says. No 2 s or 4 s limit: it would leave out more than half the retakes.
+> (3) **One kind of stack.** A stack of retakes behaves as a burst does (open, rank, keep one,
+> `⌥←→` skips it, B splits and ⇧B merges, manual cuts win over the rule). If you want the badge
+> or header to say which kind it is, the wording is yours.
+> (4) **Calm arrival.** `near` values arrive while rows are already on screen. Regroup with the
+> same pacing ask 8 (c) asks for, and never regroup the row the cursor is in while a key is held.
+> Known limit, nothing asked: when one of the two frames is a miss (blurred, a blink, something
+> in the way) the distance grows, and the rule stacks 9 of the 23 such pairs the photographer
+> marked as the same picture (39 %, against 59 % overall). The missed frame is the one most likely
+> to be left beside its stack. That is open on the app side; B (split) and ⇧B (merge) cover it
+> by hand meanwhile.
 >
 > **D. `blown` fires on bright scenes, and it removes keepers from the suggested keeps.** The rule
 > is "more than 2 % of pixels at 250 or above in all three channels". On a bright indoor event it
@@ -540,6 +574,16 @@ C4 (a 10 fps burst) needs nothing new: it is Prompt 2 A and B.
   dHash distances inside bursts drop and pair recall for bursts by hand rises with precision held; best-of-stack and keep
   precision are re-read. D: the bright-event shoot's "flagged blown" count falls and its suggested-keeps recall rises
   toward the other shoots'. A sync that changes `readOne` fails `make culleval-test` until `Tools/culleval/lib/measure.mjs` is reviewed.
+- Prompt 2 C (revised): the numbers are from 277 hand-marked consecutive pairs (300 drawn across nine shoots by time
+  gap and distance, 20 marked unsure, 3 not marked; one photographer, one body; the threshold was chosen on the same
+  pairs, so read 93 % / 59 % as the best case). The app's distance is Vision's image feature print (revision 2) on the
+  embedded preview at 512 px, about 24 ms a photo; the last row of C's table is scored with the app's own code
+  (`SetsNear`) on those pairs (a first run through ImageIO's thumbnail of the RAW gave 95 % / 57 %: the same within the intervals). Labels, pairs and scripts stay on the Mac
+  (`~/LuminaEvidence/culleval/labels`: `label.py` is the marking sheet, `score_labels.py` the scorer, `report.md` the
+  tables); they are not in `Tools/culleval` yet. The app side is PR 164: `SetsNear` behind the
+  bridge, `lumina.near` / `lumina.nearLimit` in `plumbing.js`, both listed by the contract scenario. After the handoff:
+  dump the page's stacks through the app (`Tools/culleval/dump-decisions.json`) and score them against the same labels;
+  expect about 93 % of stacked pairs marked the same picture and more than half of the marked retakes stacked.
 - Prompt 2, second part (E, F, H): the culling eval through the app, on the Mac (it needs shoots with traceable
   exports; labels and photos stay in `~/LuminaEvidence/culling-eval`).
   `LUMINA_CULL_DIR=<shoot> lumina-probe run Tools/culleval/dump-decisions.json` dumps what the page decided;
@@ -559,8 +603,133 @@ C4 (a 10 fps burst) needs nothing new: it is Prompt 2 A and B.
   bytes are unchanged). The session round trip of the shift joins `Tests/web/plumbing-harness.mjs`.
 - EDGE-CASES C4: re-forge `burst-10fps` (its twelve frames are twelve different pictures with no sequence numbers,
   so v5 shows twelve singles and the scenario no longer tests a burst), then re-read it after Prompt 2 A and B.
+- Prompt 5: `Tests/web/plumbing-harness.mjs` (the `stale sidecar:` checks: changed, made and deleted since the open; changed
+  during Save → the result line and the file untouched), `SetsSidecarTests` (the base check), and `probe.sh app` with
+  `app-xmp-changed-since-open` (real Lightroom sidecars swapped in after the read; add it to `APP` in `Scripts/probe.sh`).
+  A: the harness asserts the new wording. B: add the contract check for `lumina.sidecars`, an expect on the Save notes
+  before ⌘⏎, then drop the re-read and re-merge in `plumbing.js`'s `writeInto` (the base check on the Mac stays).
+  C: the scenario with `"mode"` removed.
 
-## Prompt 4 — Help ▸ Acknowledgements (paste into Claude Design)
+## Prompt 4 — when the page keeps stopping (paste into Claude Design)
+
+Found by the threat model (T7, 2026-10-01). When the page's process dies (a crash, or memory), the
+app reloads it. A file that kills the page every time would loop forever, so the app now reloads at
+most 3 times in a minute; on the next stop it stops reloading and shows a native alert, because the
+page is gone and cannot show anything:
+
+- Title: `Lumina keeps stopping`
+- Text: `It stopped again after reloading 3 times in a minute. Your decisions so far are saved.`
+- Buttons: `Try Again` (reloads once more, the count starts over) · `Quit`
+
+Quit also no longer waits for a page that doesn't answer: after 2 s it quits as if no keepers were
+unsaved. Decisions are saved by the app as they are made (`saveSession`), so neither path loses them.
+Both alerts are native, but their words are the design's, like the Quit alert's in MENUS.md.
+
+> In MENUS.md (or SAFETY.md), add the app's alerts with their exact wording: Quit with unsaved
+> keepers (as today), Remove Working Files (as today), and the new one above. Change its words if
+> you want them different; keep it to a title, one or two plain sentences and two buttons.
+> (1) **After a reload the page says so.** Today a reloaded page comes back on Open with no word.
+> When the app reloads after a stop, `window.lumina.restarted` will be `true` before your script
+> runs (plumbing.js adds it when this lands; no UI of its own): show one quiet footer line, e.g. `Lumina restarted ·
+> your decisions are kept`, gone on the next key, and reopen nothing by itself.
+> (2) **Optional, naming the file.** If you want the alert to name the photo being read when the
+> page stopped (`DSC03311.ARW`), say so in the wording; the app would then track the last file the
+> page asked for.
+
+Checked by `LuminaLogicTests/SetsPageRecoveryTests.swift` (the reload count and the wording the
+app ships today) and by hand: kill the page's process 4 times inside a minute and see the alert;
+Quit with the page hung and see the app quit after 2 s.
+
+## Prompt 5 — a sidecar another app changed after the open (paste into Claude Design)
+
+Found by reading the code (release threat model T4, 2026-10-01) and reproduced in
+`Tests/web/plumbing-harness.mjs`: the page keeps each sidecar's text from the read (`p.xmp`) and
+`xmpFor` merges the rating into that text at Save, however long ago the read was. Open a folder,
+edit a photo in Lightroom, press ⌘⏎ in Lumina: the sidecar got the text from the open back, with
+the new rating, and Lightroom's newer settings were gone.
+
+The app no longer does that. At Save, `plumbing.js` has the Mac read each sidecar again, puts the
+text on disk into `p.xmp` (and `p.lrEd`) where it differs, and lets the page's own `xmpFor` merge
+again; the Mac then refuses a file that changed once more in the instant before the write, leaves
+it untouched, and returns it in `errors` as `{ name, reason: 'changed on disk' }`. Three things
+stay with the page:
+
+> Update `Lumina Sets v5.dc.html` (and `SAFETY.md`). Keep the look, keys and wording otherwise
+> unchanged.
+>
+> **A. The result line for a sidecar that changed during Save.** The app can return a new reason
+> in the result list: today it reads `DSC03311 · changed on disk` (the app's word, in the list's
+> existing style). Decide the wording and add it to SAFETY.md 6's list of reasons (disk full,
+> read-only, locked, missing). The file was not written and is exactly as the other app left it;
+> pressing ⌘⏎ again reads it again and saves it. If the line should say that (`… · save again`),
+> say how; nothing is retried silently.
+>
+> **B. Save shows what is on disk now, not what was there at the open.** The Save step's own
+> facts come from `p.xmp` as read: the import note `N already have a .xmp sidecar · M with
+> Lightroom edits · only the rating will be updated`, the `was★ → now★` rows, `new sidecars` /
+> `existing sidecars` counts, the file tree's `merged` / `new`. After a long cull they can be
+> wrong before ⌘⏎ (a sidecar made, edited or deleted since) and the result is computed from the
+> counts taken before the write. When the Save step opens in the app, and again right before
+> `runExport` builds its files, call `await lumina.sidecars(names)` (new; the names `runExport`
+> gives its files) → `[{ name, text, base }]` (`text` null when there is no file), put each `text`
+> into `p.xmp`, recompute `p.lrEd` with `LuminaCore.hasDevelop`, and rebuild the notes and the
+> rows from that. Pass each file's `base` on in `writeInto(files, 'xmp')` as `{ name, data, base }`.
+> The app does the read and the merge for you today from `plumbing.js`; with it in the page that
+> code can go, and the screen is right before the write as well as after.
+>
+> **C. The browser has the same gap.** The page's own `writeInto` (`showDirectoryPicker`) writes
+> `f.data` over whatever is there. Before writing each file, read it through its handle; when its
+> text is not the `p.xmp` the merge used, merge the rating into the text just read
+> (`LuminaCore.mergeXmp`) and write that. The `.lumina-bak` copy stays as it is.
+
+## Prompt 9 — a card Lumina may not read yet (paste into Claude Design)
+
+Found by the threat model (T10, release task R1c, 2026-10-01). In the App Store build (the App
+Sandbox), Lumina may read a camera card only after the user has picked it once in the Mac's folder
+panel. So when a card goes in for the first time, the app knows its name but not how many photos
+are on it, how big they are, or whether it is a Sony card. After that one pick the app keeps a
+grant for that card (by its volume UUID, so under any mount name), and the next time the card goes
+in everything is known at once, as today. Builds outside the sandbox always know everything.
+
+What the page gets today. `window.lumina.card` is unchanged for a card the app can read: `{name,
+photos, bytes, sony, path, …}`, now also `known: true` and `grant` (`"open"`, `"bookmark"`, `"recent"` or
+`"panel"`, data only). A card it cannot read yet is **not** put in `lumina.card`, because v5's
+banner would read it as `no ARW found · 0 photos` with no button. It is in a new field instead:
+
+    window.lumina.cardPending = { name: "Untitled", path: "/Volumes/Untitled", uuid: "…",
+                                  photos: null, bytes: null, sony: null, known: false }
+
+and `lumina.card` stays `null` until the user picks the card. Until this lands, the sandboxed app
+shows no card banner on a first insert (⌘O on the card's DCIM still works, and the app remembers
+that grant too).
+
+> (1) **The banner for a card Lumina can't read yet.** When `window.lumina.cardPending` is set
+> (and `lumina.card` is null), show the card banner with what is known and the same button:
+> - line 1: `Untitled · /Volumes/Untitled` (name and path; no count and no size, they are not
+>   known: never `0`);
+> - line 2: `the Mac asks once which card to read · Lumina remembers this card`;
+> - the button `Cull This Card` (and ⏎ when the banner is selected on Open), calling `impStart()`
+>   as today. The app then shows the Mac's folder panel, opened on the card's `DCIM`, button
+>   `Cull This Card`, message `Choose the card Untitled to let Lumina read it. Lumina only reads
+>   it, and remembers this card.` A pick that is not on that card is refused and the panel asks
+>   again with `That folder is not on the card Untitled. Choose the card.` (a folder elsewhere) or
+>   `Choose the card Untitled itself, or its DCIM folder.` (a folder inside the card). Change
+>   these words if you want them different; the app will use yours.
+> - Cancel in the panel: nothing happens, the banner stays.
+> (2) **Right after the pick.** The app sends the whole card (`lumina.card` with the count,
+> `cardPending` back to null) and opens it straight away, as `Cull This Card` does today. If you
+> want a word that the card is now remembered, show it once, quietly, when `lumina.card.grant ===
+> "panel"` (for example a footer line `Untitled · Lumina will read this card without asking`).
+> `"bookmark"` and `"recent"` mean it was read through a remembered grant; no word is needed then.
+> (3) **Pulled before the pick.** `cardPending` goes back to null, as `card` does today.
+
+Checked by `LuminaLogicTests/SetsCardAccessTests.swift` (what the app sends before and after the
+grant, where the panel opens, the refusals, no panel the second time) and the probe's
+`card-sandbox-first` / `card-sandbox-again` (`bash Scripts/probe.sh sandbox scenarios
+card-sandbox-first card-sandbox-again`). Once this lands, those scenarios assert the banner's
+line 1 for a pending card and press ⏎ on it instead of calling `impStart()` directly.
+
+## Prompt 7 — Help ▸ Acknowledgements (paste into Claude Design)
 
 The app bundles React 18.3.1, React DOM 18.3.1 and @babel/standalone 7.29.0 (and the packages
 inside Babel). Their licences require the copyright and permission notices to ship with the
@@ -588,7 +757,7 @@ nothing in the app shows them. MENUS.md has no place for them, and the app's men
 > `https://unpkg.com/@babel/standalone@7.29.0/LICENSE`). If `lumina.notices()` fails, the same
 > list shows with the line `The full text ships inside Lumina.app (Contents/Resources/THIRD-PARTY-NOTICES.txt).`
 
-### How Prompt 4 is checked once its handoff lands
+### How Prompt 7 is checked once its handoff lands
 
 - `plumbing.js` gains `lumina.notices()`, returning `THIRD-PARTY-NOTICES.txt` from the bundle through the bridge
   (data, no UI); the contract scenario lists it, and `Tests/web/plumbing-harness.mjs` checks the sheet shows the
