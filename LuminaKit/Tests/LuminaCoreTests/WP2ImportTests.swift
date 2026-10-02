@@ -201,6 +201,7 @@ final class WP2ImportTests: XCTestCase {
         h.key("r"); h.key("r"); h.key("x")
         let keep = h.state.keep, cur = h.state.cur
         XCTAssertEqual(h.state.kept, 2)
+        h.model.flushPersistence()      // quitting flushes: the keys above fell inside the 250 ms coalescing
 
         // A relaunch: the card comes up first, then the folder opens by itself through its bookmark.
         let h2 = Harness(store: store)
@@ -215,6 +216,7 @@ final class WP2ImportTests: XCTestCase {
 
         // The folder is gone at the next launch (kept aside as a copy: a bookmark would follow a move).
         // Open offers it, and choosing it again restores the decisions.
+        h2.model.flushPersistence()
         let away = f.deletingLastPathComponent().appendingPathComponent("Elsewhere")
         try FileManager.default.copyItem(at: f, to: away); try FileManager.default.removeItem(at: f)
         let h3 = Harness(store: store)
@@ -322,7 +324,11 @@ final class WP2ImportTests: XCTestCase {
         h.startCulling()
         h.model.importURLs([big])
         var ms: [Double] = [], progress: [Int] = []
+        let deadline = Date().addingTimeInterval(60)
         while h.model.imports.busy {
+            if Date() > deadline {
+                return XCTFail("import still busy after 60 s: checked \(h.model.imports.checked) of \(h.model.imports.toCheck), \(ms.count) keys sent")
+            }
             let t = Date()
             try await Task.sleep(nanoseconds: 2_000_000)                 // let the import's own main-thread work in
             h.model.handle(KeyEvent(ms.count % 2 == 0 ? "right" : "left"))

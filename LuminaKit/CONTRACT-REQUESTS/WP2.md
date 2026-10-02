@@ -12,6 +12,8 @@ the card straight to Cull, the folder is not reopened until Open is seen.
 Ask: one line at the end of `AppModel.launch`, after `restore()` and the fixture import:
 `m.reopenLastFolder()`.
 
+**Done** (integration): `AppModel.launch` calls it last; `OpenScreen.onAppear` no longer does.
+
 ## 2. The folder memory lives in the store under the key `open.folder` (WP-8)
 
 WP-2 remembers the folder through `PersistenceStore` as one `Snapshot` with

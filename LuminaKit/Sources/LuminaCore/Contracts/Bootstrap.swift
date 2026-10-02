@@ -29,6 +29,9 @@ public extension AppModel {
         m.restore()
         if m.copying || (m.copied > 0 && m.copied < m.total && !m.shoot.local) { m.startCopy() }
         if let f = config.fixture { m.importURLs([f]) }
+        // R-19: the last session's folder opens again by itself (WP-2's FolderMemory). With a
+        // fixture import queued it is only offered on Open.
+        m.reopenLastFolder()
         return m
     }
 }

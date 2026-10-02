@@ -26,7 +26,6 @@ public struct OpenScreen: View {
         .luminaFileDrop()
         .onAppear {
             OpenPickers.install(model)
-            model.reopenLastFolder()
             OpenDebug.apply(model)
         }
     }

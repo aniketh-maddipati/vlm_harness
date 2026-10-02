@@ -168,6 +168,7 @@ public extension AppModel {
             adopt(local, from: stored)
         }
         open.hasRecent = true; open.reopenName = local.name; open.reopenCount = local.photos.count
+        if persistence.reopen?.shootKey == key { persistence.reopen = nil }
         FolderMemory.save(.init(name: local.name, count: local.photos.count, shootKey: key, roots: f.roots), to: services.persistence, writer: windowID)
 
         imports.added = o.accepted.count; imports.failed = false
@@ -209,7 +210,7 @@ public extension AppModel {
 
     // MARK: the folder to reopen (R-19)
 
-    /// Once per window, at launch: if the last session ended in an imported folder, open it again
+    /// Once per window, at launch (`AppModel.launch` calls it): if the last session ended in an imported folder, open it again
     /// through its bookmark, without asking, and put its decisions and step back. If the folder
     /// can't be reached, or the last session ended on the card, Open offers it as a row instead.
     func reopenLastFolder() {

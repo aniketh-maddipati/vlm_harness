@@ -46,6 +46,10 @@ itself needs WP-2's import.
 `if m.shoot.isEmpty, let url = m.resolveFolderToReopen() { m.importURLs([url]) }` — or leave it
 to WP-2's shell code; either way it must happen once, not in both places.
 
+**Done** (integration): one path, WP-2's. `AppModel.launch` calls `reopenLastFolder()` (FolderMemory,
+`open.folder`); WP-2's import clears `persistence.reopen` once that shoot is on screen. `rememberFolder`,
+`resolveFolderToReopen` and `setShootRestoring` stay as tested helpers; the app doesn't call them.
+
 ## 4. `LaunchConfig.memoryStore` (optional)
 
 **Need.** "Memory only when asked" has no field in `LaunchConfig`.
