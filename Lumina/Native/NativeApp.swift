@@ -6,7 +6,9 @@ import LuminaUI
 /// The switch for the native UI (LuminaKit). On with `-LuminaUITest YES` (the XCTests),
 /// `-LuminaNative YES`, or `LUMINA_NATIVE=1`; otherwise the app shows the Claude Design page.
 enum NativeUI {
-    static let config = LaunchConfig()
+    /// From this process's arguments and environment. Not `LaunchConfig()`: that is the empty
+    /// configuration (no UI-test switch, no card), which left the app on the Claude Design page.
+    static let config = LaunchConfig(arguments: ProcessInfo.processInfo.arguments, environment: ProcessInfo.processInfo.environment)
     static var enabled: Bool {
         config.uiTest || UserDefaults.standard.bool(forKey: "LuminaNative") || ProcessInfo.processInfo.environment["LUMINA_NATIVE"] == "1"
     }
