@@ -102,38 +102,82 @@ nonisolated enum SetsFileOps {
         let reason: String
     }
 
+    /// What Save says when a sidecar is no longer the file its merge was based on.
+    static let sidecarChanged = "changed on disk"
+    /// The base of a sidecar that isn't there.
+    static let noSidecar = "none"
+
+    /// What a merge is based on: the SHA-256 of the sidecar's bytes as they are on disk now, or
+    /// `noSidecar` when there is no file.
+    static func sidecarBase(_ url: URL) throws -> String {
+        guard FileManager.default.fileExists(atPath: url.path) else { return noSidecar }
+        return sha256(try Data(contentsOf: url))
+    }
+
+    /// Where `rel` ("sub/DSC03311.xmp") lands inside `root`. Only a `.xmp` name that stays inside
+    /// `root` is accepted, so nothing else in the folder (a RAW above all) can be read or written.
+    private static func sidecarURL(rel: String, root: URL) throws -> (url: URL, parent: URL, stem: String) {
+        let name = (rel as NSString).lastPathComponent
+        let stem = (name as NSString).deletingPathExtension
+        guard !rel.hasPrefix("/"), !rel.split(separator: "/", omittingEmptySubsequences: false).contains(where: { $0 == ".." || $0 == "." || $0.isEmpty }),
+              (rel as NSString).pathExtension.lowercased() == "xmp" else { throw SidecarError(name: stem, reason: "refused") }
+        let url = root.appendingPathComponent(rel).standardizedFileURL
+        let parent = url.deletingLastPathComponent()
+        guard FileManager.default.fileExists(atPath: parent.path) else { throw SidecarError(name: stem, reason: "missing") }
+        // Compared with symlinks resolved on the folder (which exists), so a linked subfolder can't
+        // lead out of the shoot; the sidecar itself must not be a link.
+        let rootPath = root.standardizedFileURL.resolvingSymlinksInPath().path
+        let parentPath = parent.resolvingSymlinksInPath().path
+        guard parentPath == rootPath || parentPath.hasPrefix(rootPath + "/") else { throw SidecarError(name: stem, reason: "refused") }
+        if (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true { throw SidecarError(name: stem, reason: "refused") }
+        return (url, parent, stem)
+    }
+
+    /// One sidecar as it is on disk now, for Save's merge: its text (nil when there is no file, or
+    /// when it isn't UTF-8, which the read at open skips too) and its base, from the same bytes.
+    /// Save reads this right before it merges: the text from the open can be hours old, and
+    /// another app (Lightroom) may have written the file since.
+    static func readSidecar(rel: String, root: URL) throws -> (text: String?, base: String) {
+        let (url, _, stem) = try sidecarURL(rel: rel, root: root)
+        guard FileManager.default.fileExists(atPath: url.path) else { return (nil, noSidecar) }
+        do {
+            let data = try Data(contentsOf: url)
+            return (String(data: data, encoding: .utf8), sha256(data))
+        } catch {
+            throw SidecarError(name: stem, reason: reason(error))
+        }
+    }
+
     /// Writes one .xmp sidecar INTO the shoot folder, next to its RAW: `rel` is the path inside
     /// `root` ("sub/DSC03311.xmp"). Only a `.xmp` name that stays inside `root` is accepted, so
     /// nothing else in the folder (a RAW above all) can be written. An existing sidecar is kept as
     /// `.lumina-bak` first; the new bytes land atomically (temp file in the same folder, fsync,
     /// rename) and the file is read back and compared after the rename. Refused on a card, and
     /// "missing" when its RAW is no longer beside it (renamed, moved or deleted since the read).
+    ///
+    /// `base` is what `data` was merged from (`sidecarBase`: the SHA-256 of the sidecar then, or
+    /// `noSidecar`). When the file on disk is no longer that, another app wrote it in between and
+    /// `data` carries its older settings: nothing is written and the error says "changed on disk".
+    /// The caller reads again and merges again. nil skips the check (a caller that merged nothing).
+    /// The check and the rename are not one step: what is left is the instant between them.
     @discardableResult
-    static func writeSidecar(_ data: Data, rel: String, root: URL) throws -> WriteResult {
-        let name = (rel as NSString).lastPathComponent
-        let base = (name as NSString).deletingPathExtension
-        guard !rel.hasPrefix("/"), !rel.split(separator: "/", omittingEmptySubsequences: false).contains(where: { $0 == ".." || $0 == "." || $0.isEmpty }),
-              (rel as NSString).pathExtension.lowercased() == "xmp" else { throw SidecarError(name: base, reason: "refused") }
-        let url = root.appendingPathComponent(rel).standardizedFileURL
-        let parent = url.deletingLastPathComponent()
-        guard FileManager.default.fileExists(atPath: parent.path) else { throw SidecarError(name: base, reason: "missing") }
-        // Compared with symlinks resolved on the folder (which exists), so a linked subfolder can't
-        // lead out of the shoot; the sidecar itself must not be a link.
-        let rootPath = root.standardizedFileURL.resolvingSymlinksInPath().path
-        let parentPath = parent.resolvingSymlinksInPath().path
-        guard parentPath == rootPath || parentPath.hasPrefix(rootPath + "/") else { throw SidecarError(name: base, reason: "refused") }
-        if (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true { throw SidecarError(name: base, reason: "refused") }
-        if isCard(root) { throw SidecarError(name: base, reason: "on the card") }
-        if isLocked(url) { throw SidecarError(name: base, reason: "locked") }
-        guard hasRaw(named: base, in: parent) else { throw SidecarError(name: base, reason: "missing") }
+    static func writeSidecar(_ data: Data, rel: String, root: URL, base: String? = nil) throws -> WriteResult {
+        let (url, parent, stem) = try sidecarURL(rel: rel, root: root)
+        if isCard(root) { throw SidecarError(name: stem, reason: "on the card") }
+        if isLocked(url) { throw SidecarError(name: stem, reason: "locked") }
+        guard hasRaw(named: stem, in: parent) else { throw SidecarError(name: stem, reason: "missing") }
         do {
+            // A file that already holds these bytes has nothing to lose, whatever they were merged from.
+            if let base, try sidecarBase(url) != base, (try? Data(contentsOf: url)) != data {
+                throw SidecarError(name: stem, reason: sidecarChanged)
+            }
             let r = try write(data, to: url)
-            guard (try? Data(contentsOf: url)) == data else { throw SidecarError(name: base, reason: "verify failed") }
+            guard (try? Data(contentsOf: url)) == data else { throw SidecarError(name: stem, reason: "verify failed") }
             return r
         } catch let e as SidecarError {
             throw e
         } catch {
-            throw SidecarError(name: base, reason: reason(error))
+            throw SidecarError(name: stem, reason: reason(error))
         }
     }
 
