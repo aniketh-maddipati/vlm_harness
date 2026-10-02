@@ -124,8 +124,10 @@ final class SetsIngestBoundsTests: XCTestCase {
         let entries = 20_000 + 200
         let projected = secs * Double(SetsIngest.Limits().entries) / Double(entries)
         print("SetsIngestBounds: walked \(entries) entries in \(String(format: "%.3f", secs)) s; the \(SetsIngest.Limits().entries) limit ≈ \(String(format: "%.2f", projected)) s")
-        // About 1.7 s on an M-series Mac; 3 s leaves room for a slower CI runner.
-        XCTAssertLessThan(projected, 3, "the default limit should stop a huge folder in about 2 s (projected \(projected) s)")
+        // About 1.7 s on an M-series Mac, 5.5 s measured on a GitHub macOS runner. Wall-clock time
+        // depends on the machine, so this only catches a walk that became far slower per entry
+        // (reading files, a stat per name); the printed figure is the measure.
+        XCTAssertLessThan(projected, 12, "the default limit should stop a huge folder in seconds (projected \(projected) s)")
     }
 
     // MARK: Cancelled
