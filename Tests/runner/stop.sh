@@ -23,10 +23,13 @@ if [ -n "$apps" ]; then found=1; [ "$CHECK" = 1 ] && say "running: test Lumina.a
 [ "$CHECK" = 1 ] || { sleep 1; for p in $PATTERNS; do pkill -KILL -f "$p" 2>/dev/null; done; [ -n "$apps" ] && kill -KILL $apps 2>/dev/null; }
 
 # The probe's disk images (image files under LuminaEvidence or named lumina*), nothing else.
-hdiutil info 2>/dev/null | awk '/^image-path/ {img=$0} /^\/dev\/disk[0-9]+[ \t]/ { if (tolower(img) ~ /luminaevidence|lumina/) print $1 }' | sort -u | while read -r dev; do
+# (Read through a here-string, not a pipe, so `found` is set in this shell, not a subshell.)
+devs="$(hdiutil info 2>/dev/null | awk '/^image-path/ {img=$0} /^\/dev\/disk[0-9]+[ \t]/ { if (tolower(img) ~ /luminaevidence|lumina/) print $1 }' | sort -u)"
+while read -r dev; do
+  [ -z "$dev" ] && continue
   found=1
   if [ "$CHECK" = 1 ]; then say "attached probe image: $dev"; else say "detaching probe image: $dev"; hdiutil detach "$dev" -force >/dev/null 2>&1; fi
-done
+done <<< "$devs"
 
 [ "$KEEP_LOCK" = 1 ] || [ "$CHECK" = 1 ] || rm -rf "$HOME/LuminaEvidence/runner/lock"
 [ "$found" = 0 ] && say "nothing running"
