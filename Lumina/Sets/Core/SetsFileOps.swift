@@ -87,7 +87,7 @@ nonisolated enum SetsFileOps {
 
     /// A new temp name for the file that will be called `name`.
     static func tempName(for name: String) -> String {
-        tempPrefix + tempTag(for: name) + "-" + UUID().uuidString.prefix(8)
+        tempPrefix + tempTag(for: name) + "-" + String(UUID().uuidString.prefix(8))
     }
 
     /// The tag in `file` when it is exactly a temp name as `tempName` makes them, else nil: a file
@@ -249,7 +249,10 @@ nonisolated enum SetsFileOps {
     /// A write error in two or three words.
     static func reason(_ error: Error) -> String {
         let ns = error as NSError
-        let posix = (ns.userInfo[NSUnderlyingErrorKey] as? NSError).flatMap { $0.domain == NSPOSIXErrorDomain ? Int32($0.code) : nil }
+        // The errno under a Cocoa error: an NSError on Darwin, a POSIXError value in swift-foundation (Linux).
+        let under = ns.userInfo[NSUnderlyingErrorKey]
+        let posix = (under as? NSError).flatMap { $0.domain == NSPOSIXErrorDomain ? Int32($0.code) : nil }
+            ?? (under as? POSIXError).map { $0.code.rawValue }
             ?? (ns.domain == NSPOSIXErrorDomain ? Int32(ns.code) : nil)
         switch posix {
         case ENAMETOOLONG: return nameTooLong
@@ -265,6 +268,8 @@ nonisolated enum SetsFileOps {
             case NSFileWriteVolumeReadOnlyError: return "read-only"
             case NSFileWriteNoPermissionError, NSFileReadNoPermissionError: return "locked"
             case NSFileNoSuchFileError, NSFileReadNoSuchFileError: return "missing"
+            // What Foundation makes of ENAMETOOLONG when the errno itself is not passed on.
+            case CocoaError.Code.fileWriteInvalidFileName.rawValue, CocoaError.Code.fileReadInvalidFileName.rawValue: return nameTooLong
             default: break
             }
         }
