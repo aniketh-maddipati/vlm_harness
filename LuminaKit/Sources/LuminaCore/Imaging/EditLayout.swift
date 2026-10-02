@@ -77,8 +77,11 @@ public enum EditLayout {
     /// Chrome is × `s`; the thumbnails are content. The canvas always keeps at least 64pt (R-50).
     public static func frames(area: CGSize, window: CGSize, scale s: CGFloat, focus: Bool, controlsHidden: Bool, controlsCollapsed: Bool) -> Frames {
         if focus {
-            return Frames(controls: .hidden, canvas: area, columnWidth: area.width, stripHeight: 0, stripRow: 0, stripLabels: false,
-                          stripLabelRow: 0, stripLabelGap: 0, factsRow: 0, toggleRow: 0, padTop: 0, padSide: 0, padBottom: 0, gap: 0, footer: 0)
+            // Only the photo, 10pt in from every edge (prototype `pad: big ? '10px'`).
+            let pad = LayoutScale.px(10, s)
+            let canvas = CGSize(width: max(1, area.width - 2 * pad), height: max(1, area.height - 2 * pad))
+            return Frames(controls: .hidden, canvas: canvas, columnWidth: area.width, stripHeight: 0, stripRow: 0, stripLabels: false,
+                          stripLabelRow: 0, stripLabelGap: 0, factsRow: 0, toggleRow: 0, padTop: pad, padSide: pad, padBottom: pad, gap: 0, footer: 0)
         }
         let bp = Breakpoints(window), below = bp.editControlsBelow && !controlsHidden
         let side = !bp.editControlsBelow && !controlsHidden

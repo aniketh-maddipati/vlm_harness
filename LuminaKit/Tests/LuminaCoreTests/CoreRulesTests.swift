@@ -168,6 +168,6 @@ final class LayoutMathTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(f(w, h).canvas.height, 64, "\(w)×\(h)")
         }
         let focus = EditLayout.frames(window: CGSize(width: 1100, height: 760), focus: true, controlsHidden: false, controlsCollapsed: false)
-        XCTAssertEqual(focus.canvas, CGSize(width: 1100, height: 760)); XCTAssertEqual(focus.footer, 0)
+        XCTAssertEqual(focus.canvas, CGSize(width: 1080, height: 740)); XCTAssertEqual(focus.footer, 0)
     }
 }

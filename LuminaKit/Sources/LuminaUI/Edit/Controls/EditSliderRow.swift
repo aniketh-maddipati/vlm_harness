@@ -87,9 +87,11 @@ struct EditSliderRow: View {
                 .accessibilityAdjustableAction { d in model.nudgeSetting(key, d == .increment ? 1 : -1, coarse: false) }
         }
         .frame(height: m.row)
-        .padding(.horizontal, m.rowInset)
+        // Text and track line up with the column's other rows; only the hover fill reaches
+        // `rowInset` into the column's padding (the list's ScrollView has room for it).
         .background(RoundedRectangle(cornerRadius: LuminaRadius.pill.scaled(s), style: .continuous)
-            .fill(dragging ? LuminaColor.fill07 : hover ? LuminaColor.fill04 : .clear))
+            .fill(dragging ? LuminaColor.fill07 : hover ? LuminaColor.fill04 : .clear)
+            .padding(.horizontal, -m.rowInset))
         .contentShape(Rectangle())
         .onHover { inside in
             hover = inside
