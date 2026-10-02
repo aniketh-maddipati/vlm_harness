@@ -60,10 +60,14 @@ struct KeyCap: View {
     @Environment(\.luminaScale) private var s
     let text: String
     var onGold = false
+    /// The intro cards' larger cap (18pt, 11pt text); every other cap is 16pt with 10.5pt text
+    /// and 4pt sides (prototype).
+    var large = false
     var body: some View {
-        Text(text).font(LuminaFont.mono(LuminaFontSize.hint, s))
+        Text(text).font(LuminaFont.mono(large ? LuminaFontSize.hint : 10.5, s))
             .foregroundStyle(onGold ? LuminaColor.textOnPrimary : LuminaColor.textSecondary)
-            .padding(.horizontal, 5.scaled(s)).frame(minWidth: 18.scaled(s), minHeight: 18.scaled(s))
+            .padding(.horizontal, (large ? 5 : 4).scaled(s))
+            .frame(minWidth: (large ? 18 : 16).scaled(s), minHeight: (large ? 18 : 16).scaled(s))
             .overlay(RoundedRectangle(cornerRadius: 4.scaled(s)).strokeBorder(onGold ? OverlayPalette.capOnGold : LuminaColor.fill22, lineWidth: 1))
             .accessibilityHidden(true)
     }

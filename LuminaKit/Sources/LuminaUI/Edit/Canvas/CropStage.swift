@@ -160,9 +160,10 @@ struct CropStage: View {
             .onEnded { _ in turnStart = nil }
     }
 
-    /// A handle's centre: its 18pt box starts 4pt outside the corner.
+    /// A handle's centre: its 18pt box starts on the frame's 1pt outline, outside the box
+    /// (prototype `left:-4px` inside a frame whose outline is drawn 1pt outside it).
     private func point(_ c: Corner, of r: CGRect) -> CGPoint {
-        let o = 9.scaled(s) - 4
+        let o = 9.scaled(s) - 2.5
         return switch c {
         case .tl: CGPoint(x: r.minX + o, y: r.minY + o)
         case .tr: CGPoint(x: r.maxX - o, y: r.minY + o)
@@ -333,7 +334,7 @@ struct CropToolbar: View {
                 Button("Portrait ↔ landscape") { model.cropSwapRatio() }
             } label: {
                 // One Text (a menu label keeps only its first view): the caret 10pt at 0.7 (prototype).
-                (Text("Ratio \(model.edit.cropRatio) ").font(LuminaFont.small(s, .semibold))
+                (Text("Ratio \(model.edit.cropRatio)  ").font(LuminaFont.small(s, .semibold))
                  + Text("▾").font(LuminaFont.ui(10, .regular, s)).foregroundColor(LuminaColor.textPrimary.opacity(0.7)))
                     .foregroundStyle(LuminaColor.textPrimary)
             }

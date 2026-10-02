@@ -49,7 +49,7 @@ struct IntroOverlay: View {
                             Text(card.text).font(LuminaFont.small(s)).foregroundStyle(LuminaColor.textSecondary).lineSpacing(3.scaled(s))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        KeyCap(text: card.key)
+                        KeyCap(text: card.key, large: true)
                     }
                     .fixedSize(horizontal: false, vertical: true)
                 }
