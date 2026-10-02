@@ -1,0 +1,197 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "R1b / T9: a shoot is culled and autosaved, the app relaunches (in a sandbox the panel's grant is gone), and the folder is renamed in Finder before Open Recent. The bookmark follows the folder: it reopens with every decision, as the same shoot (one recent, not two), and the recent then shows the new name. Saving writes the sidecars into the renamed folder. A relaunch after that reopens it again through the bookmark, whose access the first relaunch stopped.",
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "to": "${OUT}/shoot/src"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/src",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "f",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00008.ARW"
+   ]
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "the 2 s autosave"
+  },
+  {
+   "do": "reload",
+   "why": "a relaunch: the panel's grant is gone, the bookmark in the shoot index is what's left"
+  },
+  {
+   "do": "move",
+   "from": "${OUT}/shoot/src",
+   "to": "${OUT}/shoot/src-renamed",
+   "why": "renamed in Finder while the app was closed"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().recents().map(x=>[x.n, x.kp])",
+   "equals": [
+    [
+     12,
+     2
+    ]
+   ]
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && l.kept().length === 2)",
+   "timeoutMs": 60000,
+   "what": "the renamed folder reopened with its decisions"
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "/shoot/src-renamed",
+   "why": "the bookmark resolved to the folder's new name"
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "(reopened)",
+   "why": "the same shoot at a new place, not a second shoot"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return Object.keys(l.state.flags).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00002.ARW"
+   ]
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 1000,
+   "cmd": true
+  },
+  {
+   "do": "js",
+   "src": "window.__lastSave = __probe.logic().state.ex.result || null; return true"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 1500,
+   "cmd": true
+  },
+  {
+   "do": "waitFor",
+   "js": "const r = __probe.logic().state.ex.result; return !!r && r !== window.__lastSave",
+   "what": "save result"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.ex.result.t",
+   "equals": "2 saved"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src-renamed",
+   "glob": "*.xmp",
+   "count": 2,
+   "why": "the sidecars go into the folder under its new name"
+  },
+  {
+   "do": "wait",
+   "ms": 800,
+   "why": "the session is written right after a save"
+  },
+  {
+   "do": "reload",
+   "why": "a second relaunch"
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "access: stopped src-renamed (0 held)",
+   "why": "the page starting over closed the shoot: the bookmark's access was stopped, so the next reopen tests the bookmark again"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().recents().map(x=>[x.n, x.kp, String(x.where || '').endsWith('/shoot/src-renamed')])",
+   "equals": [
+    [
+     12,
+     2,
+     true
+    ]
+   ],
+   "why": "one recent, showing the new name"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && l.kept().length === 2)",
+   "timeoutMs": 60000,
+   "what": "reopened again"
+  },
+  {
+   "do": "expect",
+   "js": "return __lumina.unsaved()",
+   "equals": 0,
+   "why": "the save made in the renamed folder survives the relaunch"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src",
+   "exists": false,
+   "why": "nothing was recreated at the old name"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

@@ -16,12 +16,20 @@ nonisolated struct SetsShootStore {
         var photos: Int
         var firstCapture: String      // "YYYY:MM:DD HH:MM:SS" from EXIF, may be empty
         var opened: Date
+        /// The security-scoped bookmark: the only way back into the folder after a relaunch in the
+        /// App Sandbox (`SetsAccess.reopen`). `path` is kept for display only.
         var bookmark: Data?
         /// For the Open screen's recent cards (the page's own recents shape): rows seen, keepers,
         /// the last photo. Updated with every saved session; absent in older indexes.
         var seen: Int?
         var keepers: Int?
         var last: String?
+        /// `id(for:)` of where the folder is now, when it differs from `id`: the folder was renamed
+        /// or moved since it was first opened and the reopen followed it (its bookmark did). Nil
+        /// (older indexes, never moved) means the folder is where `id` says.
+        var place: String? = nil
+
+        var currentPlace: String { place ?? id }
     }
 
     let root: URL
@@ -58,12 +66,33 @@ nonisolated struct SetsShootStore {
         return list.sorted { $0.opened > $1.opened }
     }
 
+    /// The shoot for a folder at `place` (`id(for:)` of it): the one that is there now (opened
+    /// there, or followed there by a reopen), else a new one. A new shoot normally takes `place` as
+    /// its id; but when the shoot first opened at `place` has since moved away, the folder now at
+    /// its old place is another one and gets an id of its own, so the two never share a session.
+    func shootID(at place: String) -> String {
+        let all = index()
+        if let here = all.first(where: { $0.currentPlace == place }) { return here.id }
+        guard all.contains(where: { $0.id == place }) else { return place }
+        var n = 1
+        while true {
+            let c = String(SetsFileOps.sha256(Data("\(place)|\(n)".utf8)).prefix(16))
+            if !all.contains(where: { $0.id == c }), !FileManager.default.fileExists(atPath: root.appendingPathComponent(c).path) { return c }
+            n += 1
+        }
+    }
+
+    /// A shoot opened again: its fields replace the old entry's, except the Open screen's counts
+    /// and the bookmark, which stay when the new entry has none (a reopen keeps the bookmark it
+    /// came through; only a fresh grant or a renewal replaces it).
     func upsert(_ shoot: Shoot) throws {
         let all = index()
         var shoot = shoot
         if let old = all.first(where: { $0.id == shoot.id }) {
             shoot.seen = shoot.seen ?? old.seen; shoot.keepers = shoot.keepers ?? old.keepers; shoot.last = shoot.last ?? old.last
+            shoot.bookmark = shoot.bookmark ?? old.bookmark
         }
+        if shoot.place == shoot.id { shoot.place = nil }
         var list = all.filter { $0.id != shoot.id }
         list.insert(shoot, at: 0)
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -100,6 +129,18 @@ nonisolated struct SetsShootStore {
         list[i].keepers = keepers ?? list[i].keepers
         list[i].last = last ?? list[i].last
         guard list[i] != before else { return }
+        try write(list)
+    }
+
+    /// A stale bookmark resolved and made again (`SetsAccess.reopen`): the new one, and where the
+    /// folder is now, replace the old ones. Nothing else changes; an unknown id is ignored.
+    func renewBookmark(_ id: String, _ bookmark: Data, path: String, place: String) throws {
+        _ = try dir(id)
+        var list = index()
+        guard let i = list.firstIndex(where: { $0.id == id }) else { return }
+        list[i].bookmark = bookmark
+        list[i].path = path
+        list[i].place = place == id ? nil : place
         try write(list)
     }
 

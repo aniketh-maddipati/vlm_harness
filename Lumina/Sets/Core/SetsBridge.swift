@@ -24,11 +24,18 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// How alike two photos' previews are, for the page's retake stacks (`lumina.near`).
     private(set) lazy var near = SetsNear(ingest: ingest)
     private var pendingSource: URL?
+    /// The recent shoot `pendingSource` reopens: the folder keeps that shoot's id wherever its
+    /// bookmark found it (renamed or moved), instead of becoming a second shoot.
+    private var pendingShoot: String?
     private var lastOpened: URL?
-    /// The open folder's shoot id and volume, taken while it was being opened. Both come from the
-    /// volume's UUID, which is gone once a card is pulled: asked again then, the same card would
-    /// be another shoot and the decisions made while it was out would be filed under that one.
-    private var lastOpenedKey: (id: String, volume: String?)?
+    /// The open folder's shoot id, volume and place (`SetsShootStore.id(for:)`), taken while it was
+    /// being opened. All come from the volume's UUID, which is gone once a card is pulled: asked
+    /// again then, the same card would be another shoot and the decisions made while it was out
+    /// would be filed under that one. `bookmark` is made then too, while the grant is fresh; nil
+    /// for a reopen (the index keeps the one it came through).
+    private var lastOpenedKey: (id: String, volume: String?, place: String, bookmark: Data?)?
+    /// Security-scoped access: the only caller of start / stop (T9).
+    let access = SetsAccess()
     /// The folder macOS last refused to list (SAFETY.md 5): checkAccess and reopen use it.
     private var deniedFolder: URL?
     let shoots: SetsShootStore
@@ -56,6 +63,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         self.supportDir = supportDir
         self.shoots = SetsShootStore(supportDir: supportDir)
         super.init()
+        SetsAccess.removeLegacyBookmarks(supportDir: supportDir)
+        access.onLog = { [weak self] in self?.onEvent?("access: \($0)") }
         cards.onChange = { [weak self] card, removed in self?.cardChanged(card, removed: removed) }
         cards.onWillUnmount = { [weak self] volume in
             guard let self else { return }
@@ -174,30 +183,41 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// Called from the web view's UI delegate for the page's folder input.
     func openPanel(allowsDirectories: Bool) async -> [URL]? {
         let url: URL?
-        if let pending = pendingSource { url = pending; pendingSource = nil } else { url = await chooser.chooseSource(allowsDirectories: allowsDirectories) }
+        let reopening: String?
+        if let pending = pendingSource { url = pending; reopening = pendingShoot; pendingSource = nil; pendingShoot = nil }
+        else { url = await chooser.chooseSource(allowsDirectories: allowsDirectories); reopening = nil }
         guard let url else { return nil }
+        // The open shoot is this folder now. A reopen already started its access (scoped); a
+        // panel's pick needs none, and the shoot open before is let go either way.
+        access.openShoot(url, scoped: false)
         ingest.register(url)
         lastOpened = url
-        lastOpenedKey = (SetsShootStore.id(for: url), SetsFileOps.volumeID(url))
-        rememberBookmark(url)
-        onEvent?("opened \(url.path)")
+        let place = SetsShootStore.id(for: url), volume = SetsFileOps.volumeID(url)
+        // A recent's own id; else the shoot that is at this place; else a recent renamed or moved
+        // here since (its bookmark follows it); else a new shoot.
+        let id = reopening ?? shoots.index().first(where: { $0.currentPlace == place })?.id
+            ?? access.movedShoot(to: url, volume: volume, in: shoots)?.id ?? shoots.shootID(at: place)
+        // The bookmark the index keeps, made while the grant is fresh. The only one: there is no
+        // second copy elsewhere.
+        lastOpenedKey = (id, volume, place, reopening == nil ? try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) : nil)
+        onEvent?("opened \(url.path)")      // exactly this: the probe's sandbox checks read the path from it
+        if id != place { onEvent?("shoot \(id) is at a new place \(place)" + (reopening == nil ? " (picked)" : " (reopened)")) }
         return [url]
     }
 
-    /// Opens a folder in the page as if the user picked it (menu, "Cull this card").
-    func open(_ url: URL) {
+    /// Opens a folder in the page as if the user picked it (menu, "Cull this card", a recent).
+    /// `shoot`: the recent shoot this is, whatever its folder is called now.
+    func open(_ url: URL, shoot: String? = nil) {
         pendingSource = url
+        pendingShoot = shoot
         webView?.evaluateJavaScript("window.__lumina && __lumina.openFolder()", completionHandler: nil)
     }
 
-    func resolve(_ rel: String) -> URL? { ingest.resolve(rel) }      // no ../ escapes
+    /// No shoot is open any more (File ▸ Close Shoot, or the page started over): its folder's
+    /// access is stopped.
+    func closeShoot() { access.closeShoot() }
 
-    private func rememberBookmark(_ url: URL) {
-        guard let data = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
-                ?? url.bookmarkData() else { return }
-        let dir = supportDir.appendingPathComponent("bookmarks", isDirectory: true)
-        try? SetsFileOps.replaceOwn(data, at: dir.appendingPathComponent(SetsFileOps.sha256(Data(url.path.utf8)).prefix(16) + ".bookmark"))
-    }
+    func resolve(_ rel: String) -> URL? { ingest.resolve(rel) }      // no ../ escapes
 
     // MARK: Cards
 
@@ -241,6 +261,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 return (false, nil)
             }
             ready = true
+            // A page that starts (a launch, a reload after its process stopped) has no shoot open.
+            closeShoot()
             webView?.evaluateJavaScript("window.__lumina && __lumina.card(\(cards.current != nil), \(cards.current.map(cardJSON) ?? "null"))", completionHandler: nil)
             onEvent?("ready")
             return (true, nil)
@@ -284,11 +306,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // The page finished reading a folder: remember it and hand back its saved session.
             guard let url = lastOpened ?? ingest.root(named: body["name"] as? String ?? "") else { return (nil, nil) }
             let key = url == lastOpened ? lastOpenedKey : nil
-            let id = key?.id ?? SetsShootStore.id(for: url)
+            let place = key?.place ?? SetsShootStore.id(for: url)
+            let id = key?.id ?? shoots.shootID(at: place)
+            // The bookmark made at open (nil for a reopen: upsert keeps the one it came through).
             let shoot = SetsShootStore.Shoot(id: id, title: url.lastPathComponent == "DCIM" ? (cards.current?.name ?? "Card") : url.lastPathComponent,
                                              path: url.path, volumeUUID: key?.volume ?? SetsFileOps.volumeID(url), photos: body["n"] as? Int ?? 0,
                                              firstCapture: body["date"] as? String ?? "", opened: Date(),
-                                             bookmark: try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil))
+                                             bookmark: key.map { $0.bookmark } ?? (try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)),
+                                             place: place)
             try? shoots.upsert(shoot)
             onShootsChanged?()
             onEvent?("shoot \(id) \(url.path)")
@@ -415,16 +440,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         }
     }
 
-    /// Opens a recent shoot again (its security-scoped bookmark, else its path). False when the card
-    /// is out or the folder moved.
+    /// Opens a recent shoot again through its security-scoped bookmark (`SetsAccess.reopen`: access
+    /// started and held while it is the open shoot, a stale bookmark renewed). A folder renamed or
+    /// moved on its volume is followed and stays the same shoot. False when the bookmark cannot be
+    /// resolved or the folder is not there (card out, folder gone, a refusal): no fallback to the
+    /// stored path, which is for display only.
     func reopen(id: String) -> Bool {
-        guard let shoot = shoots.index().first(where: { $0.id == id }) else { return false }
-        var stale = false
-        let url = shoot.bookmark.flatMap { try? URL(resolvingBookmarkData: $0, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) }
-            ?? URL(fileURLWithPath: shoot.path)
-        guard FileManager.default.fileExists(atPath: url.path) else { return false }      // card out / folder gone
-        _ = url.startAccessingSecurityScopedResource()
-        open(url)
+        guard let shoot = shoots.index().first(where: { $0.id == id }), let url = access.reopen(shoot, store: shoots) else { return false }
+        open(url, shoot: shoot.id)
         return true
     }
 
