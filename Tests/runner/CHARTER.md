@@ -52,5 +52,5 @@ the two verdict lines.
 
 `bash Tests/runner/run.sh list` prints them. Today: `build`, `headless`, `uitest` (one test),
 `snap` (offscreen screenshots), `goldens` (every golden state rendered offscreen and diffed with
-the prototype's goldens at one size: `run.sh goldens 1100x760`), `look` (launch, screenshot, quit; sends no keys), `selftest`
+the prototype's goldens at one size: `run.sh goldens 1100x760`), `look` (launch, screenshot, quit; sends no keys), `testdata` (fetch the demo photos and the prototype goldens this Mac lacks), `selftest`
 (proves the limit and the cleanup work).
