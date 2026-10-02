@@ -114,15 +114,22 @@ final class SetsMenuModel: ObservableObject {
     }
 }
 
-/// Quit asks when there are keepers whose sidecars aren't written yet (MENUS.md).
+/// Quit asks when there are keepers whose sidecars aren't written yet (MENUS.md). A page that is
+/// hung or gone can't hold Quit up: `unsavedKeepers` answers 0 after 2 seconds, exactly once.
 @MainActor
 final class LuminaAppDelegate: NSObject, NSApplicationDelegate {
     private var asked = false
+    /// The question is out and Quit is waiting (`.terminateLater`): a second Quit doesn't ask again.
+    private var waiting = false
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if asked { return .terminateNow }
-        guard let c = SetsMenuModel.shared.controller else { return .terminateNow }
+        if waiting { return .terminateLater }
+        // No page to ask (not loaded yet, or it stopped and wasn't reloaded): nothing to wait for.
+        guard let c = SetsMenuModel.shared.controller, c.pageCanAnswer else { return .terminateNow }
+        waiting = true
         c.unsavedKeepers { n in
+            self.waiting = false
             guard n > 0 else { sender.reply(toApplicationShouldTerminate: true); return }
             let alert = NSAlert()
             alert.messageText = n == 1 ? "1 keeper isn't saved yet" : "\(n) keepers aren't saved yet"
