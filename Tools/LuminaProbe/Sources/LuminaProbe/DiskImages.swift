@@ -112,6 +112,11 @@ final class DiskImages {
 
     @discardableResult
     private func hdiutil(_ args: [String]) throws -> String {
+        // Sandboxed, hdiutil would inherit the probe's sandbox: the launcher runs it instead.
+        if let r = ProbeSandbox.runTool("/usr/bin/hdiutil", args) {
+            guard r.status == 0 else { throw ProbeError("hdiutil \(args.first ?? "") failed: \(r.err.trimmingCharacters(in: .whitespacesAndNewlines))") }
+            return r.out
+        }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
         p.arguments = args

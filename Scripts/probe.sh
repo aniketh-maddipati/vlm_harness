@@ -47,6 +47,13 @@
 #   bash Scripts/probe.sh slowdisk               a disk whose first directory read takes 12 s (LUMINA_SLOW_DIR_MS): the app still answers
 #                                                the page while the folder is listed. Folder: LUMINA_READ_DIR, else as scroll
 #   bash Scripts/probe.sh all [--require-all]    everything v5; --require-all turns a SKIP into a failure
+#   bash Scripts/probe.sh sandbox MODE [ARGS…]   any mode above inside the App Sandbox, with Config/Lumina-Sets.entitlements as the
+#                                                app ships them (e.g. sandbox smoke, sandbox contract, sandbox scenarios app-session).
+#                                                One process per scenario; after each, what the sandbox refused the app (access
+#                                                checks after every step, the bridge's own "access denied", any `Sandbox: … deny`
+#                                                line and Network Process crash in the log for its pid) goes to <scenario>/
+#                                                sandbox-denials.log, and a table prints PASS / FAIL / FAILED-BY-SANDBOX + denials.
+#                                                How the probe gets its files in a sandbox: Tools/LuminaProbe/…/Sandbox.swift
 #
 # Build fixtures once: LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Tests/probe/forge_fixtures.sh
 # Evidence goes to ~/LuminaEvidence/probe/<stamp> (not /tmp: it gets swept).
@@ -56,12 +63,14 @@ cd "$ROOT"
 source Scripts/page_files.sh; export PAGE
 
 suite="${1:-all}"; shift || true
+sandbox=0
+if [[ $suite == sandbox ]]; then sandbox=1; suite="${1:-smoke}"; shift || true; fi
 record=0; extra=()
 for a in "$@"; do [[ $a == --record ]] && record=1 || extra+=("$a"); done
 
 swift build -c release --package-path Tools/LuminaProbe >/dev/null || { echo "probe build failed" >&2; exit 2; }
 PROBE="Tools/LuminaProbe/.build/release/lumina-probe"
-OUT="${LUMINA_PROBE_OUT:-$HOME/LuminaEvidence/probe/$(date +%Y%m%d-%H%M%S)}"
+OUT="${LUMINA_PROBE_OUT:-$HOME/LuminaEvidence/probe/$(date +%Y%m%d-%H%M%S)$([[ $sandbox == 1 ]] && echo -sandbox)}"
 mkdir -p "$OUT"
 S=Tests/probe/scenarios
 export LUMINA_FIXTURE_ROOT="${LUMINA_FIXTURE_ROOT:-}"
@@ -69,8 +78,116 @@ export LUMINA_FIXTURE_ROOT="${LUMINA_FIXTURE_ROOT:-}"
 export LUMINA_RULES="${LUMINA_RULES:-$ROOT/Lumina/Sets/Look/rules-v1.json}"
 status=0
 
-run() { "$PROBE" run "$@" --out "$OUT" ${extra[@]+"${extra[@]}"} || status=1; }
-run_out() { local o=$1; shift; mkdir -p "$o"; "$PROBE" run "$@" --out "$o" ${extra[@]+"${extra[@]}"} || status=1; }
+# Sandbox mode: the same binary in a minimal app bundle (a sandboxed process needs a bundle id; its
+# own, so its container is not the app's), signed ad hoc with the app's entitlements, unchanged.
+# The unsandboxed probe launches it and hands it folder grants (Sandbox.swift says which and why).
+# LUMINA_SANDBOX_ENTITLEMENTS=<file> measures another set (e.g. without network.client); never for a verdict on what ships.
+ENT="${LUMINA_SANDBOX_ENTITLEMENTS:-Config/Lumina-Sets.entitlements}"
+if [[ $sandbox == 1 ]]; then
+  SBX=Tools/LuminaProbe/.build/sandbox/LuminaProbe.app
+  rm -rf "$SBX"; mkdir -p "$SBX/Contents/MacOS"
+  cp "$PROBE" "$SBX/Contents/MacOS/lumina-probe"
+  plutil -create xml1 "$SBX/Contents/Info.plist"
+  for kv in CFBundleIdentifier=com.lumina.probe.sandboxed CFBundleExecutable=lumina-probe CFBundleName=LuminaProbe CFBundlePackageType=APPL; do
+    plutil -insert "${kv%%=*}" -string "${kv#*=}" "$SBX/Contents/Info.plist"
+  done
+  plutil -insert LSUIElement -bool YES "$SBX/Contents/Info.plist"
+  codesign --force --sign - --entitlements "$ENT" "$SBX" 2>/dev/null || { echo "could not sign $SBX" >&2; exit 2; }
+  codesign -d --entitlements - --xml "$SBX" 2>/dev/null | grep -q com.apple.security.app-sandbox || { echo "$SBX is not sandboxed" >&2; exit 2; }
+  echo "sandboxed probe: $SBX, entitlements $ENT"
+fi
+
+# One scenario per sandboxed process, then what the sandbox refused it (sandbox_report).
+run_sandboxed() {
+  local o=$1 f name rc; shift
+  mkdir -p "$o"
+  for f in "$@"; do
+    [[ $f == *.json ]] || continue
+    name="$(basename "$f" .json)"
+    "$PROBE" sandbox-launch "$ROOT/$SBX/Contents/MacOS/lumina-probe" --info "$o/.launch-$name.json" -- run "$f" --out "$o" ${extra[@]+"${extra[@]}"}
+    rc=$?
+    sleep 1        # let logd take the last lines
+    sandbox_report "$o" "$name" "$rc" || status=1
+  done
+}
+
+# A scenario's verdict in the sandbox. Denials come from three places (Sandbox.swift explains why
+# the first is needed): the probe's access checks after each step and the bridge's own reports
+# (<scenario>/sandbox.json), and the unified log for the probe's pid: kernel `Sandbox: … deny`
+# lines and WebKit's `Network Process … crash`. Any denial = FAILED-BY-SANDBOX, whatever the steps
+# said. The web content process is sandboxed in every build; its log lines are kept, not counted.
+sandbox_report() {
+  python3 - "$@" <<'EOF'
+import json, os, subprocess, sys, time
+out, name, rc = sys.argv[1], sys.argv[2], int(sys.argv[3])
+d = os.path.join(out, name); os.makedirs(d, exist_ok=True)
+launch_tmp = os.path.join(out, f".launch-{name}.json")
+launch = json.load(open(launch_tmp)) if os.path.exists(launch_tmp) else {}
+if launch: os.replace(launch_tmp, os.path.join(d, "sandbox-launch.json"))
+load = lambda f: json.load(open(os.path.join(d, f))) if os.path.exists(os.path.join(d, f)) else {}
+report, sb = load("report.json"), load("sandbox.json")
+pid, web = launch.get("pid", 0), sb.get("webPid", 0)
+fmt = lambda t: time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t))
+log_lines, web_lines = [], []
+# What the sandbox leaves in the log for this pid (measured on macOS 26.5): kernel `Sandbox: lumina-probe(pid)
+# deny(1) …` lines (none for App Sandbox file denials there, but other operations may log), a framework
+# saying "Sandbox is preventing …", and WebKit's helpers dying or failing to start ("Application does not
+# have permission to communicate with network resources", `reason=Crash`, `Network Process … crash`).
+# Lines the live web content process forwards through the probe's log ("WebContent[<its pid>] …") are its
+# own sandbox at work, present in every build: kept apart, not counted.
+WEBKIT = ("reason=Crash", "failed to launch", "does not have permission to communicate")
+if pid:
+    pred = (f'(process == "kernel" AND eventMessage CONTAINS "Sandbox: " AND eventMessage CONTAINS " deny" AND '
+            f'(eventMessage CONTAINS "({pid})" OR eventMessage CONTAINS "({web})")) OR '
+            f'(processID == {pid} AND (eventMessage CONTAINS "Sandbox is preventing" OR eventMessage CONTAINS "reason=Crash" OR '
+            f'eventMessage CONTAINS "failed to launch" OR eventMessage CONTAINS "does not have permission to communicate" OR '
+            f'(eventMessage CONTAINS "Network Process" AND eventMessage CONTAINS "crash")))')
+    r = subprocess.run(["/usr/bin/log", "show", "--style", "compact", "--info", "--start", fmt(launch["start"] - 1),
+                        "--end", fmt(launch.get("end", time.time()) + 2), "--predicate", pred], capture_output=True, text=True)
+    for line in r.stdout.splitlines()[1:]:
+        if not line[:4].isdigit(): continue                # continuation of a multi-line entry
+        theirs = web and (f"WebContent[{web}]" in line or (f"({web})" in line and f"({pid})" not in line))
+        (web_lines if theirs else log_lines).append(line)
+checks = sb.get("denials", [])
+n = len(checks) + len(log_lines)
+crashes = sum(any(w in l for w in WEBKIT) or ("Network Process" in l and "crash" in l) for l in log_lines)
+with open(os.path.join(d, "sandbox-denials.log"), "w") as f:
+    f.write(f"# {name} · probe pid {pid} · web content pid {web} · container {sb.get('container', '?')}\n")
+    f.write(f"# grants the launcher issued: {len(launch.get('grants', []))} (sandbox-launch.json)\n\n")
+    f.write(f"## refused to the app ({len(checks)}): access checks after each step + the bridge's own reports\n")
+    for c in checks: f.write(f"#{c['step']} {c['op']}: {c['operation']} {c['path']} ({c['role']}) {c['detail']}\n")
+    f.write(f"\n## unified log, probe pid ({len(log_lines)}, of which {crashes} WebKit helper crashes or failed launches)\n")
+    f.writelines(l + "\n" for l in log_lines)
+    f.write(f"\n## unified log, web content pid (sandboxed in every build: kept, not counted) ({len(web_lines)})\n")
+    f.writelines(l + "\n" for l in web_lines)
+if report.get("skipped"): verdict = "SKIP"
+elif n: verdict = "FAILED-BY-SANDBOX"
+elif rc == 0 and report.get("pass"): verdict = "PASS"
+else: verdict = "FAIL"
+if not report and verdict != "FAILED-BY-SANDBOX": verdict = f"FAIL (no report, exit {rc})"
+steps = report.get("steps", [])
+row = [name, verdict, str(n), str(len(checks)), str(len(log_lines)), str(crashes),
+       f"{sum(s['ok'] for s in steps)}/{len(steps)}", str(len(report.get("failures", [])))]
+with open(os.path.join(out, "sandbox-results.tsv"), "a") as f: f.write("\t".join(row) + "\n")
+print(f"sandbox  {name}: {verdict} · {n} denials ({len(checks)} access, {len(log_lines)} log, {crashes} WebKit helper crashes) → {name}/sandbox-denials.log")
+for c in checks: print(f"   deny #{c['step']} {c['op']}: {c['operation']} {c['path']} ({c['role']})")
+for l in log_lines[:5]: print(f"   log  {l[:220]}")
+sys.exit(0 if verdict in ("PASS", "SKIP") else 1)
+EOF
+}
+
+sandbox_table() {
+  [[ -f $OUT/sandbox-results.tsv ]] || return 0
+  echo
+  echo "sandboxed run ($ENT):"
+  printf '  %-26s %-18s %7s %7s %5s %8s %7s %9s\n' scenario verdict denials access log webkit steps failures
+  while IFS=$'\t' read -r a b c d e f g h; do printf '  %-26s %-18s %7s %7s %5s %8s %7s %9s\n' "$a" "$b" "$c" "$d" "$e" "$f" "$g" "$h"; done < "$OUT/sandbox-results.tsv"
+}
+run() { if [[ $sandbox == 1 ]]; then run_sandboxed "$OUT" "$@"; else "$PROBE" run "$@" --out "$OUT" ${extra[@]+"${extra[@]}"} || status=1; fi; }
+run_out() {
+  local o=$1; shift; mkdir -p "$o"
+  if [[ $sandbox == 1 ]]; then run_sandboxed "$o" "$@"; else "$PROBE" run "$@" --out "$o" ${extra[@]+"${extra[@]}"} || status=1; fi
+}
 
 reference() {
   run "$S/screens-1920.json" "$S/screens-1440.json" "$S/smoke.json" "$S/keys-open-return.json" \
@@ -212,7 +329,8 @@ case "$suite" in
              LUMINA_SLOW_DIR_MS="${LUMINA_SLOW_DIR_MS:-12000}" run "$S/open-slow-disk.json" ;;
   all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" "$S"/edge-*.json $(paths "${APP[@]}") $(paths "${FAULT[@]}")
              LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
-  *)         sed -n '2,43p' "$0"; exit 2 ;;
+  *)         sed -n '2,57p' "$0"; exit 2 ;;
 esac
+sandbox_table
 echo "evidence: $OUT"
 exit $status

@@ -28,6 +28,7 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
     var confirmAnswer = false
     var echo = false
     private var navDone: CheckedContinuation<Void, Error>?
+    private var loadSeq = 0
 
     static func make(size: CGSize, pageRoot: URL, vendorRoot: URL, plumbing: URL?, supportDir: URL,
                      outDir: URL, config: [String: Any], appConfig: [String: Any] = [:]) async throws -> ProbeHost {
@@ -106,7 +107,17 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         let url = URL(string: "\(SetsSchemeHandler.scheme)://app/\(page.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)\(q)")!
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
             navDone = c
+            loadSeq += 1
+            let seq = loadSeq
             webView.load(URLRequest(url: url))
+            // A web process that cannot start (sandboxed without network.client) never finishes or
+            // fails the navigation: without this the run waits for the 30-minute deadline.
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 90_000_000_000)
+                guard let self, self.loadSeq == seq, let pending = self.navDone else { return }
+                self.navDone = nil
+                pending.resume(throwing: ProbeError("page did not load within 90 s\(self.webProcessCrashed ? " (web content process terminated)" : "")"))
+            }
         }
     }
 
@@ -159,6 +170,7 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
         if let bridge {
             Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
         } else {
+            pendingOpenPanel?.forEach { ProbeSandbox.userPicked($0) }      // the panel's grant; WebKit passes it on to the page
             completionHandler(pendingOpenPanel)
             pendingOpenPanel = nil
         }
@@ -190,9 +202,14 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
 
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String) async -> URL? {
         let dir = outDir.appendingPathComponent("downloads", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let dest = dir.appendingPathComponent(suggestedFilename)
-        try? FileManager.default.removeItem(at: dest)
+        ProbeSandbox.harness {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? FileManager.default.removeItem(at: dest)
+        }
+        // Sandboxed: as if a save panel had named the folder. (The app's own download handler,
+        // SetsRootView, writes to ~/Downloads without one; the probe's host is not that code.)
+        ProbeSandbox.userPicked(dir)
         downloads.append(dest.path)
         log("download", dest.path)
         return dest
@@ -285,12 +302,18 @@ final class ProbeChooser: SetsChooser {
 
     func chooseSource(allowsDirectories: Bool) async -> URL? {
         asked.append("source")
-        return sources.isEmpty ? nil : sources.removeFirst()
+        guard !sources.isEmpty else { return nil }
+        let url = sources.removeFirst()
+        ProbeSandbox.userPicked(url)        // what NSOpenPanel's answer carries in a sandbox
+        return url
     }
 
     func chooseDestination(label: String, suggested: URL?, refusal: String?) async -> URL? {
         asked.append("destination:\(label)")
         if let refusal { refusals.append(refusal) }
-        return destinations.isEmpty ? nil : destinations.removeFirst()
+        guard !destinations.isEmpty else { return nil }
+        let url = destinations.removeFirst()
+        ProbeSandbox.userPicked(url)
+        return url
     }
 }
