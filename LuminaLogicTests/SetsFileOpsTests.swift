@@ -1,9 +1,7 @@
-import CoreImage
 import XCTest
 @testable import Lumina
 
-/// Trust rules for every file Lumina writes (ROADMAP trust list, README export contract), and the
-/// Edit-look maths the RAW export shares with the page.
+/// Trust rules for every file Lumina writes (ROADMAP trust list, README export contract).
 final class SetsFileOpsTests: XCTestCase {
     private var dir: URL!
 
@@ -69,37 +67,5 @@ final class SetsFileOpsTests: XCTestCase {
         XCTAssertNotNil(SetsFileOps.refusal(destination: src, sources: [src]))
         XCTAssertNotNil(SetsFileOps.refusal(destination: src.appendingPathComponent("export"), sources: [src]))
         XCTAssertNil(SetsFileOps.refusal(destination: dir.appendingPathComponent("elsewhere"), sources: [src]))
-    }
-
-    // MARK: Edit look — the string LuminaCore.editFilter returns is the contract
-
-    func testParsesEditFilterOutput() throws {
-        XCTAssertEqual(try SetsEditLook.parse("none"), [])
-        XCTAssertEqual(try SetsEditLook.parse("brightness(1.123) contrast(0.970) sepia(0.150)"),
-                       [.brightness(1.123), .contrast(0.970), .sepia(0.150)])
-        XCTAssertEqual(try SetsEditLook.parse("brightness(1.000) contrast(1.000) hue-rotate(-5.4deg)"),
-                       [.brightness(1), .contrast(1), .hueRotate(degrees: -5.4)])
-        XCTAssertThrowsError(try SetsEditLook.parse("drop-shadow(1px 1px red)"))
-    }
-
-    func testMatricesFollowTheFilterEffectsSpec() {
-        // contrast(c): slope c, intercept 0.5 − 0.5c; hue-rotate(0) and sepia(0) are identity.
-        let c = SetsEditLook.matrix(.contrast(1.2))!
-        XCTAssertEqual(c.bias, -0.1, accuracy: 1e-12)
-        for (op, expect) in [(SetsEditLook.Op.hueRotate(degrees: 0), [1.0, 0, 0, 0, 1, 0, 0, 0, 1]),
-                             (.sepia(0), [1.0, 0, 0, 0, 1, 0, 0, 0, 1])] {
-            let m = SetsEditLook.matrix(op)!.m
-            for (a, b) in zip(m, expect) { XCTAssertEqual(a, b, accuracy: 1e-3) }
-        }
-    }
-
-    func testBrightnessDoublesAMidGreyInSRGBValues() throws {
-        let grey = CIImage(color: CIColor(red: 0.25, green: 0.25, blue: 0.25, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)!)
-            .cropped(to: CGRect(x: 0, y: 0, width: 1, height: 1))
-        let out = SetsEditLook.apply([.brightness(2)], to: grey)
-        var px = [Float](repeating: 0, count: 4)
-        SetsEditLook.context.render(out, toBitmap: &px, rowBytes: 16, bounds: out.extent, format: .RGBAf,
-                                    colorSpace: CGColorSpace(name: CGColorSpace.sRGB))
-        XCTAssertEqual(Double(px[0]), 0.5, accuracy: 0.004)
     }
 }

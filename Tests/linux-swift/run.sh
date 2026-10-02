@@ -3,12 +3,12 @@
 # SetsShootStore,SetsExport,SetsIngest}.swift and Lumina/Sets/Look/{LookString,LookRules,LookMath,
 # LookCanvasSchedule,LookWarmPlan,LookByteCache,LookRawPolicy,LookLensShading}.swift unchanged with Swift 6.1 (Docker image
 # swift:6.1-noble) and runs the logic tests that don't need Core Image / ImageIO / AppKit:
-#   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests (minus its Edit-look tests),
+#   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests,
 #   LookStringTests, LookMathTests (the look grammar and the stage maths on synthetic ramps),
 #   LookCanvasTests (the canvas schedule, the warm-up plan, the byte cache, the RAW tiers and the pin rule),
 #   SetsShootStoreTests (a shoot id from the page stays inside the store).
 # Not covered here (Mac only): SetsBridge, SetsSchemeHandler, SetsCardWatcher (AppKit/WebKit),
-# SetsEditLook, SetsLookExport, LookPipeline/LookKernels/LookRenderer (Core Image, Metal),
+# SetsLookExport, LookPipeline/LookKernels/LookRenderer (Core Image, Metal),
 # SetsIngestTests, SetsPageBytesTests and LookPipelineTests (ImageIO, bundle, Core Image).
 #
 #   bash Tests/linux-swift/run.sh            # needs docker; pulls swift:6.1-noble once
@@ -30,9 +30,8 @@ for f in glob.glob(sys.argv[1] + '/*.swift'):
 PY
 cat > "$B/Lumina/LinuxStubs.swift" <<'SWIFT'
 import Foundation
-// SetsExport's render paths use Core Image (SetsEditLook for v3's CSS look, SetsLookExport for the
-// Edit step's look string through LookPipeline), Mac only.
-enum SetsEditLook { static func renderJPEG(raw url: URL, css: String, px: String) throws -> Data { throw SetsFileOps.Failure("no Core Image on Linux") } }
+// SetsExport's render path uses Core Image (SetsLookExport: the Edit step's look string through
+// LookPipeline), Mac only.
 enum SetsLookExport {
     struct Outcome: Equatable { var decoder: Int?; var fellBackFrom: Int?; var reason: String?; var ms: Double = 0; var label: String { "" } }
     static func render(raw url: URL, look: String, px: Int?, format: String, decoder: Int?) throws -> (Data, Outcome) { throw SetsFileOps.Failure("no Core Image on Linux") }
@@ -46,7 +45,7 @@ SWIFT
 cp "$ROOT/LuminaLogicTests/SetsTrustTests.swift" "$ROOT/LuminaLogicTests/LookStringTests.swift" "$ROOT/LuminaLogicTests/LookMathTests.swift" \
    "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" \
    "$ROOT/LuminaLogicTests/SetsShootStoreTests.swift" "$B/Tests/"
-# SetsFileOpsTests without its Core Image tests (the Edit look); SetsSidecarTests without the locked-file
+# SetsFileOpsTests and SetsSidecarTests without any test that needs Core Image, or the locked-file
 # test (Linux has no user-immutable flag for FileManager to set).
 for t in SetsFileOpsTests SetsSidecarTests; do
 python3 - "$ROOT/LuminaLogicTests/$t.swift" "$B/Tests/$t.swift" <<'PY'
@@ -66,7 +65,7 @@ for ln in lines:
         buf.append(ln); depth += ln.count('{') - ln.count('}')
         if depth == 0:
             body = '\n'.join(buf)
-            if not re.search(r'SetsEditLook|CIImage|CIContext|CGColorSpace|\.immutable: true', body): keep.extend(buf)
+            if not re.search(r'CIImage|CIContext|CGColorSpace|\.immutable: true', body): keep.extend(buf)
             else: print('linux: skipped', re.search(r'func (test\w+)', buf[0]).group(1))
             buf = []
         continue

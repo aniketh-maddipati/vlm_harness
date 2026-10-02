@@ -37,10 +37,14 @@ nonisolated struct LookRules: Codable, Equatable, Sendable {
         return rules
     }
 
-    /// The copy in the app bundle, or `LUMINA_RULES` (a path) when set: the parity loop points the
-    /// app at a work-in-progress file without rebuilding.
+    /// The copy in the app bundle. In Debug builds and in the tools (the probe, which has no
+    /// bundle, and the parity loop; `LUMINA_TOOLS` in their Package.swift), `LUMINA_RULES` (a
+    /// path) when set: a work-in-progress file without rebuilding. The app's Release build reads
+    /// only its own bundle (S4): the look's coefficients never come from a path in the environment.
     static func bundled(bundle: Bundle = .main) throws -> LookRules {
+        #if DEBUG || LUMINA_TOOLS
         if let p = ProcessInfo.processInfo.environment["LUMINA_RULES"], !p.isEmpty { return try load(from: URL(fileURLWithPath: p)) }
+        #endif
         guard let url = bundle.url(forResource: "rules-v1", withExtension: "json") else { throw LoadError(description: "\(fileName) is not in the bundle") }
         return try load(from: url)
     }

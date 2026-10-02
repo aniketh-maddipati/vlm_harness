@@ -79,7 +79,13 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     private let prefetchQueue = OperationQueue()
 
     init(workers: Int? = nil) {
+        // A switch for the probe and Debug builds only (S4): the app's Release build has no such
+        // read, so it always takes the default below.
+        #if DEBUG || LUMINA_TOOLS
         let env = ProcessInfo.processInfo.environment["LUMINA_INGEST_WORKERS"].flatMap(Int.init)
+        #else
+        let env: Int? = nil
+        #endif
         self.workers = max(1, workers ?? env ?? min(8, max(2, ProcessInfo.processInfo.activeProcessorCount / 2)))
         stats.workers = self.workers
         readQueue.name = "lumina.ingest.read"
@@ -263,8 +269,11 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     /// macOS refused to list the folder (Privacy & Security → Files and Folders, SAFETY.md 5).
     static func accessDenied(_ root: URL) -> Bool {
         // Probe only (`open-slow-disk.json`): stands in for a disk whose first directory read is slow
-        // (just mounted, asleep), so the test can check the caller is not the main thread.
+        // (just mounted, asleep), so the test can check the caller is not the main thread. Not in
+        // the app's Release build (S4).
+        #if DEBUG || LUMINA_TOOLS
         if let ms = ProcessInfo.processInfo.environment["LUMINA_SLOW_DIR_MS"].flatMap(Double.init), ms > 0 { Thread.sleep(forTimeInterval: ms / 1000) }
+        #endif
         do { _ = try FileManager.default.contentsOfDirectory(atPath: root.path); return false } catch {
             let ns = error as NSError, under = ns.userInfo[NSUnderlyingErrorKey] as? NSError
             return ns.code == NSFileReadNoPermissionError || [Int(EPERM), Int(EACCES)].contains(under?.code ?? 0)

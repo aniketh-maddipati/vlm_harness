@@ -14,7 +14,8 @@ import XCTest
 /// refusals come back as refusals (false / null / 0 / an error), never as a success.
 ///
 /// Open findings are marked `XCTExpectFailure` with the task that fixes them, so the table stays
-/// green on main and goes on checking everything else. The numbers that used to stop the app
+/// green on main and goes on checking everything else. `reveal` (F8) was one until S4: it is an
+/// ordinary case now, with `testRevealOnlyInsideOpenedFoldersAndTheLastExport`. The numbers that used to stop the app
 /// process (Q4-hostile F1, F2: `Int(_:)` on a non-finite or huge double) are ordinary cases now:
 /// every number the page sends is read through `SetsNumber` (`docs/release/stress/Q4-hostile.md`).
 ///
@@ -204,13 +205,8 @@ final class SetsBridgeOpsTests: XCTestCase {
         print("SetsBridgeOpsTests: \(calls) calls, \(Self.fields.count) ops, \(values().count + numbers().count) hostile values per field")
         XCTAssertEqual(strays(), [], "a hostile path wrote outside the run's folder")
         XCTAssertEqual(snapshot(), before, "the shoot and the canaries are unchanged")
-        let known = violations.filter { $0.hasPrefix("reveal.") }
-        let rest = violations.filter { !$0.hasPrefix("reveal.") }
-        XCTAssertEqual(rest, [], "refusals answered as refusals")
-        // T8 / S4: `reveal` shows any absolute path that exists (and falls back to the open folder).
-        XCTExpectFailure("T8 · S4: reveal takes any absolute path", strict: false) {
-            XCTAssertEqual(known, [], "reveal stays inside the opened folders")
-        }
+        // Includes `reveal` (T8 · S4, Q4 finding F8): nothing outside the opened folder is shown.
+        XCTAssertEqual(violations, [], "refusals answered as refusals")
     }
 
     /// What a refusal looks like, per op, when `field` holds a hostile value. nil = fine.
@@ -226,7 +222,8 @@ final class SetsBridgeOpsTests: XCTestCase {
         case ("readSidecars", "root"), ("writeSidecars", "root"):
             return r != nil && !(r is NSNull) ? "answered for a root that is not an opened folder" : nil
         case ("reveal", "path"):
-            guard let url = revealed.popLast() else { return nil }
+            guard let url = revealed.popLast() else { return truthy ? "answered true and showed nothing" : nil }
+            if !truthy { return "showed \(url.path) and answered false" }
             return url.path == shoot.path || url.path.hasPrefix(shoot.path + "/") ? nil : "revealed \(url.path)"
         case ("canvasEnter", "rel"):
             return e == nil ? "entered a hostile rel" : nil
@@ -280,31 +277,131 @@ final class SetsBridgeOpsTests: XCTestCase {
     }
 
     /// Export with hostile names and sources: written only into the destination, or refused.
+    /// Since S4 an export takes sidecar bytes named `.xmp` and look renders named as images:
+    /// every other name, and v3's `src` (copy) and `jpg` (CSS look) items, write nothing.
     func testWriteIntoHostileFiles() async throws {
-        let (b, _) = try await bridge(canvas: false)
+        let (b, chooser) = try await bridge(canvas: false)
         let before = snapshot()
         let bytes = Data("x".utf8).base64EncodedString()
         let cases: [[String: Any]] = [
             ["name": "../\(marker).txt", "b64": bytes], ["name": "/tmp/\(marker).txt", "b64": bytes], ["name": "a/../../\(marker)", "b64": bytes],
-            ["name": "\(marker)\u{0}.txt", "b64": bytes], ["name": "sub/\(marker).txt", "b64": bytes], ["name": Self.tenMB, "b64": bytes],
+            ["name": "../\(marker).xmp", "b64": bytes], ["name": "/tmp/\(marker).xmp", "b64": bytes], ["name": "a/../../\(marker).xmp", "b64": bytes],
+            ["name": "\(marker)\u{0}.txt", "b64": bytes], ["name": "\(marker).txt\u{0}.xmp", "b64": bytes], ["name": "\(marker).xmp\u{0}.txt", "b64": bytes],
+            ["name": "sub/\(marker).txt", "b64": bytes], ["name": Self.tenMB, "b64": bytes], ["name": Self.tenMB + ".xmp", "b64": bytes],
             ["name": String(repeating: "é", count: 200), "b64": bytes], ["name": "\(marker).copy", "src": "../outside/secret.txt"],
-            ["name": "\(marker).copy", "src": outside.appendingPathComponent("secret.txt").path], ["name": "\(marker).jpg", "jpg": ["src": "/etc/hosts", "css": Self.tenMB]],
+            ["name": "\(marker).copy", "src": outside.appendingPathComponent("secret.txt").path], ["name": "\(marker).ARW", "src": "shoot/DSC00001.ARW"],
+            ["name": "\(marker).jpg", "jpg": ["src": "/etc/hosts", "css": Self.tenMB]], ["name": "\(marker).jpg", "jpg": ["src": "shoot/DSC00001.ARW", "css": "none"]],
             ["name": "\(marker).jpg", "look": ["src": "shoot/../outside/DSC09999.ARW", "look": "ev:+1", "px": -1]],
-            ["name": "\(marker).bin", "b64": 42], ["name": 7, "b64": bytes], ["name": "\(marker)-ok.txt", "b64": bytes],
+            ["name": "\(marker).sh", "look": ["src": "shoot/DSC00001.ARW", "look": "ev:+1"]], ["name": "\(marker)", "look": ["src": "shoot/DSC00001.ARW", "look": ""]],
+            ["name": "\(marker).bin", "b64": 42], ["name": 7, "b64": bytes], ["name": "\(marker)-ok.txt", "b64": bytes], ["name": "\(marker).xmp.app", "b64": bytes],
+            ["name": "\(marker)-ok.xmp", "b64": bytes], ["name": "sub/\(marker)-ok.XMP", "b64": bytes],
         ]
         var outcomes: [String] = []
         for c in cases {
+            chooser.destinationAsks = 0
             let (r, _) = await call(b, ["op": "writeInto", "label": Self.tenMB.prefix(1000) + "<img src=x onerror=alert(1)>", "files": [c]])
             outcomes.append(String(describing: (r as? [String: Any])?["say"] ?? (r as? [String: Any])?["n"] ?? r).prefix(120).description)
         }
         print("writeInto hostile:", outcomes)
         XCTAssertEqual(strays(), [], "an export name led out of the destination")
         XCTAssertEqual(snapshot(), before)
-        let leaked = fm.enumerator(atPath: dest.path)?.compactMap { $0 as? String }.filter { p in
+        let written = (fm.enumerator(atPath: dest.path)?.compactMap { $0 as? String } ?? []).filter { p in
+            (try? dest.appendingPathComponent(p).resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
+        }
+        let leaked = written.filter { p in
             let full = dest.appendingPathComponent(p)
             return (try? String(contentsOf: full, encoding: .utf8))?.contains(Self.canary) == true
-        } ?? []
+        }
         XCTAssertEqual(leaked, [], "a copy from outside the opened folders")
+        // On disk, as the file system names them: only the two sidecars, nothing with another extension.
+        XCTAssertEqual(written.sorted(), ["\(marker)-ok.xmp", "sub/\(marker)-ok.XMP"], "only .xmp bytes land in the destination")
+    }
+
+    /// S4 (threat model T8): what an export takes. Look renders named .jpg / .jpeg / .tif / .tiff /
+    /// .png and bytes named .xmp; v3's `src` and `jpg` items are refused before a folder is asked for.
+    func testWriteIntoTakesOnlyLookRendersAndSidecarBytes() async throws {
+        let (b, chooser) = try await bridge(canvas: false)
+        let before = snapshot()
+        let bytes = Data("<x:xmpmeta/>".utf8).base64EncodedString()
+        func export(_ file: [String: Any]) async -> [String: Any] {
+            ((await call(b, ["op": "writeInto", "label": "jpeg", "files": [file]])).0 as? [String: Any]) ?? [:]
+        }
+        // A source outside the opened folder: an image name gets as far as the path check
+        // ("can't find"), any other name stops at the name.
+        let outsideLook: [String: Any] = ["src": "shoot/../outside/DSC09999.ARW", "look": "ev:+0.30"]
+        for ext in ["jpg", "JPG", "jpeg", "tif", "tiff", "png"] {
+            let r = await export(["name": "JPEG/DSC00001.\(ext)", "look": outsideLook])
+            XCTAssertEqual(r["aborted"] as? Bool, true, ext)
+            XCTAssertTrue((r["say"] as? String ?? "").contains("can't find"), "\(ext): \(r)")
+        }
+        for name in ["DSC00001.xmp", "DSC00001.ARW", "DSC00001.txt", "DSC00001.jpg.sh", "DSC00001", "DSC00001.heic", "DSC00001.jpg\u{0}.sh"] {
+            let r = await export(["name": name, "look": ["src": "shoot/DSC00001.ARW", "look": "ev:+0.30"]])
+            XCTAssertEqual(r["say"] as? String, "export stopped · bad file name", name.debugDescription)
+        }
+        for name in ["DSC00001.jpg", "DSC00001.ARW", "DSC00001.txt", "DSC00001", "DSC00001.xmp.sh", "DSC00001.sh\u{0}.xmp"] {
+            let r = await export(["name": name, "b64": bytes])
+            XCTAssertEqual(r["say"] as? String, "export stopped · bad file name", name.debugDescription)
+        }
+        // v3's items: a RAW copied out, the CSS look. Not items any more, whatever they name.
+        for file in [["name": "RAW/DSC00001.ARW", "src": "shoot/DSC00001.ARW"], ["name": "DSC00001.jpg", "jpg": ["src": "shoot/DSC00001.ARW", "css": "none", "px": "full"]],
+                     ["name": "DSC00001.xmp"], ["name": "DSC00001.xmp", "b64": "!!!not base64"]] as [[String: Any]] {
+            let r = await export(file)
+            XCTAssertEqual(r["aborted"] as? Bool, true, "\(file)")
+            XCTAssertNil(r["n"], "\(file)")
+        }
+        XCTAssertEqual(chooser.destinationAsks, 0, "nothing refused got as far as the folder panel")
+        XCTAssertEqual(try fm.contentsOfDirectory(atPath: dest.path), [])
+        // Sidecar bytes still land, in the folder the user picks.
+        let ok = await export(["name": "DSC00001.xmp", "b64": bytes])
+        XCTAssertEqual(ok["n"] as? Int, 1, "\(ok)")
+        XCTAssertEqual(chooser.destinationAsks, 1)
+        XCTAssertEqual(try fm.contentsOfDirectory(atPath: dest.path), ["DSC00001.xmp"])
+        XCTAssertEqual(snapshot(), before)
+    }
+
+    /// S4 (Q4 finding F8): Show in Finder opens an opened folder, something inside one, or the
+    /// last export's folder. Any other path answers false and shows nothing; there is no
+    /// fallback to the open folder.
+    func testRevealOnlyInsideOpenedFoldersAndTheLastExport() async throws {
+        let (b, _) = try await bridge(canvas: false)
+        let sibling = root.appendingPathComponent("shoot2", isDirectory: true)       // "…/shoot" is a prefix of its path
+        try fm.createDirectory(at: sibling, withIntermediateDirectories: true)
+        try fm.createSymbolicLink(at: shoot.appendingPathComponent("link.txt"), withDestinationURL: outside.appendingPathComponent("secret.txt"))
+        func reveal(_ path: Any) async -> (ok: Bool, url: URL?) {
+            revealed = []
+            let (r, e) = await call(b, ["op": "reveal", "path": path])
+            XCTAssertNil(e)
+            return (r as? Bool == true, revealed.last)
+        }
+        let raw = shoot.appendingPathComponent("DSC00001.ARW")
+        for (path, want) in [("shoot", shoot!), ("shoot/DSC00001.ARW", raw), (shoot.path, shoot!), (shoot.path + "/", shoot!), (raw.path, raw)] as [(String, URL)] {
+            let r = await reveal(path)
+            XCTAssertTrue(r.ok, path)
+            XCTAssertEqual(r.url?.resolvingSymlinksInPath().path, want.path, path)
+        }
+        let refused: [Any] = ["", "nope", "DSC00001.ARW", "~/Pictures/shoot", "shoot/../outside/secret.txt", "../outside/secret.txt", "shoot/link.txt", "shoot/missing.ARW",
+                              outside.path, outside.appendingPathComponent("secret.txt").path, shoot.path + "/../outside/secret.txt", shoot.path + "/link.txt",
+                              shoot.path + "/missing.ARW", sibling.path, root.path, dest.path, support.path, "/", "/etc/hosts", "/Applications", NSHomeDirectory(),
+                              42, NSNull(), ["shoot"], Self.tenMB, "/" + Self.tenMB]
+        for path in refused {
+            let r = await reveal(path)
+            XCTAssertFalse(r.ok, "\(String(describing: path).prefix(120))")
+            XCTAssertNil(r.url, "\(String(describing: path).prefix(120))")
+        }
+        // After an export the folder the user picked for it, and what is in it; still nothing else.
+        let bytes = Data("<x:xmpmeta/>".utf8).base64EncodedString()
+        let (out, _) = await call(b, ["op": "writeInto", "label": "jpeg", "files": [["name": "DSC00001.xmp", "b64": bytes]]])
+        XCTAssertEqual((out as? [String: Any])?["n"] as? Int, 1)
+        for url in [dest!, dest.appendingPathComponent("DSC00001.xmp")] {
+            let r = await reveal(url.path)
+            XCTAssertTrue(r.ok, url.path)
+            XCTAssertEqual(r.url?.resolvingSymlinksInPath().path, url.path)
+        }
+        for path in [outside.path, root.path, support.path, dest.path + "/../outside/secret.txt", "/etc/hosts"] {
+            let r = await reveal(path)
+            XCTAssertFalse(r.ok, path)
+            XCTAssertNil(r.url, path)
+        }
     }
 
     /// Previews named by the page (prefetch, near, canvasEnter): offsets and lengths of every kind.

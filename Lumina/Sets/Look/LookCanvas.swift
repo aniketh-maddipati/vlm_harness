@@ -147,7 +147,12 @@ final class LookCanvasController: NSObject {
         self.work = work
         warm = (pipeline.device != nil && host != nil ? try? LookPipeline(rules: pipeline.rules, device: pipeline.device) : nil) ?? work
         // LUMINA_CANVAS_WARM=0 (the probe's "before" measure) leaves every program to its first frame.
+        // Debug builds and the probe only; the app's Release build always warms (S4).
+        #if DEBUG || LUMINA_TOOLS
         warmPlan = LookWarmPlan(enabled: ProcessInfo.processInfo.environment["LUMINA_CANVAS_WARM"] != "0")
+        #else
+        warmPlan = LookWarmPlan(enabled: true)
+        #endif
         bases = LookBases(pipeline: work)
         tiles = LookRegionTiles(pipeline: work)
         device = pipeline.device

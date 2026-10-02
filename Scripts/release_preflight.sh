@@ -97,9 +97,16 @@ ARCHS="$(lipo -archs "$BIN" 2>/dev/null)"
 [[ "$ARCHS" == arm64 ]] && ok "arm64" || fail "architectures '$ARCHS' (expected arm64 only)"
 [[ ! -d "$APP/Contents/Frameworks" ]] && ok "no embedded frameworks" || fail "embedded frameworks: $(ls "$APP/Contents/Frameworks" | tr '\n' ' ')"
 [[ ! -d "$APP/Contents/PlugIns" ]] && ok "no plug-ins" || fail "plug-ins in the bundle: $(ls "$APP/Contents/PlugIns" | tr '\n' ' ')"
-# Test switches read from the environment (AGENTS.md: "never set in the app") should not be in a release binary.
-HOOKS="$(strings - "$BIN" 2>/dev/null | grep -oE 'LUMINA_[A-Z_]{3,}' | sort -u | tr '\n' ' ')"
-[[ -z "$HOOKS" ]] && ok "no test switches in the binary" || warn S4 "test switches compiled in (TASKS S4): $HOOKS"
+# Test switches read from the environment (AGENTS.md: "never set in the app") must not be in a
+# release binary: in the sources they sit under `#if DEBUG || LUMINA_TOOLS` (Debug builds, the probe
+# and lumina-render), which the app's Release build does not define. Two checks, because the first
+# cannot see every name: Swift keeps a literal of 15 bytes or fewer in the code itself, not as text
+# (LUMINA_CANVAS and LUMINA_RULES never showed here). The second is the read itself: the app has no
+# other use for the process environment, so a Release binary does not name -[NSProcessInfo environment].
+TEXT="$(strings - "$BIN" 2>/dev/null)"
+HOOKS="$(grep -oE 'LUMINA_[A-Z_]{3,}' <<<"$TEXT" | sort -u | tr '\n' ' ')"
+[[ -z "$HOOKS" ]] && ok "no test switch named in the binary" || warn S4 "test switches compiled in (TASKS S4): $HOOKS"
+grep -qx 'environment' <<<"$TEXT" && warn S4 "the binary reads the process environment: a switch outside #if DEBUG || LUMINA_TOOLS? (TASKS S4)" || ok "the binary does not read the process environment (no switch can be set from outside)"
 otool -L "$BIN" 2>/dev/null | grep -qiE 'inject|xctest' && fail "links a test or injection library" || ok "links no test or injection library"
 
 echo "resources"
@@ -116,7 +123,17 @@ if [[ -f "$RES/LuminaBuild.json" ]]; then
   MSHA="$(/usr/bin/python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("git_sha",""), d.get("configuration",""))' "$RES/LuminaBuild.json")"
   [[ "$MSHA" == "$(git -C "$ROOT" rev-parse HEAD) Release" ]] && ok "build manifest: this commit, Release" || warn manifest "build manifest says '$MSHA' (not HEAD / Release)"
 else fail "LuminaBuild.json missing"; fi
-[[ -f "$RES/lumina-selftest.js" ]] && warn S4 "the design's self-test ships in the bundle; it loads only with ?selftest (TASKS S4)"
+# The design's self-test is one of the page files, which ship byte for byte (checked above), so the
+# file is in the bundle. What a release must not do is serve it: SetsSchemeHandler's list of served
+# page files leaves it out unless DEBUG or LUMINA_TOOLS is defined, and then the binary has no name
+# for it (18 bytes: it would show as text). `?selftest` then gets "not served".
+if grep -q 'lumina-selftest' <<<"$TEXT"; then
+  warn S4 "the binary serves the design's self-test with ?selftest (TASKS S4)"
+elif [[ -f "$RES/lumina-selftest.js" ]]; then
+  ok "the design's self-test is not served (in the bundle as a page file; the binary has no name for it)"
+else
+  ok "the design's self-test is not served (not in the bundle)"
+fi
 JUNK="$(find "$APP" \( -name .DS_Store -o -name '*.xctest' -o -name '*.dSYM' -o -name '*.swiftmodule' -o -name '*.map' -o -name '*.bundle' \) 2>/dev/null | head -5)"
 [[ -z "$JUNK" ]] && ok "no stray files" || fail "stray files: $JUNK"
 THIRD="$(find "$RES" -iname '*licen*' -o -iname '*acknowledg*' -o -iname '*notice*' 2>/dev/null | head -1)"

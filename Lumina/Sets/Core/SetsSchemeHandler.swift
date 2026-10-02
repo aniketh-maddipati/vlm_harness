@@ -21,8 +21,16 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "lumina"
     static let pageFile = "Lumina Sets v5.dc.html"
     static let vendorFiles = ["react.production.min.js", "react-dom.production.min.js", "babel.min.js"]
-    /// Same list as Scripts/page_files.sh. The self-test only loads with `?selftest` (the probe).
+    /// What `lumina://app/<file>` serves. Debug builds and the probe: the same list as
+    /// Scripts/page_files.sh, with the design's self-test, which the page asks for only with
+    /// `?selftest` (`probe.sh selftest`). The app's Release build does not serve the self-test
+    /// (S4): the file stays in the bundle, because the page files ship byte for byte, but the
+    /// binary has no name for it, so `?selftest` gets "not served" and the page runs as usual.
+    #if DEBUG || LUMINA_TOOLS
     static let pageFiles = [pageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-selftest.js"]
+    #else
+    static let pageFiles = [pageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js"]
+    #endif
 
     /// support.js's CDN URLs → local. Passed to the page as `window.__resources`.
     static let resources: [String: String] = [

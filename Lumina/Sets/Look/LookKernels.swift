@@ -227,10 +227,16 @@ nonisolated final class LookKernels: @unchecked Sendable {
     /// `LUMINA_KERNEL_SALT` (the probe's cold run, never set in the app): every kernel function is
     /// compiled under a salted name, so neither Core Image's nor Metal's on-disk cache has seen its
     /// programs, as on the first launch after an update that changed a kernel. The maths is unchanged.
+    /// Read in Debug builds and in the tools (the probe, lumina-render: `LUMINA_TOOLS` in their
+    /// Package.swift); the app's Release build has no salt and no read (S4).
+    #if DEBUG || LUMINA_TOOLS
     static let salt: String? = {
         let s = (ProcessInfo.processInfo.environment["LUMINA_KERNEL_SALT"] ?? "").filter { $0.isASCII && ($0.isLetter || $0.isNumber) }
         return s.isEmpty ? nil : s
     }()
+    #else
+    static let salt: String? = nil
+    #endif
 
     /// The compiled kernel, compiling its block on first use.
     func kernel(_ name: String) throws -> CIKernel {
