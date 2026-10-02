@@ -441,6 +441,72 @@ and 56 % of the runs that hold a pick hold exactly one: the same picture as C, o
 > suggested keeps today. Leave it that way: as built they propose 69 % of the photos and still
 > leave out 24 % of the picks.
 
+## Prompt 3 — photos Lumina can't show, and camera clocks (paste into Claude Design)
+
+Found by `probe.sh edge` and `ingest` on v5 (2026-10-01; the page's read and the app's read agree),
+on the forged fixtures of `Tests/probe/EDGE-CASES.md` C1, C2 and C5:
+
+- **Damaged files** (5 ARWs: one intact, one with its preview cut short, one with its preview
+  zeroed, one cut inside the header, one empty). Open says `4 photos · 2 rows · 0 stacks · 1
+  unreadable`. Two are grey tiles showing only the file number. The empty file has no tile. The
+  header-only file sits alone in a row labelled `00:00`, and the next row reads `496917 h gap`.
+  Import notes: `2 without an embedded preview`, `1 unreadable · see ? for the list`.
+- **Clock moved 9 hours back mid-trip** (6 ARWs): two rows, the later photos first. Nothing on the
+  page can shift a time.
+- **Two bodies, clocks one minute apart** (6 ARWs): one row, A B A B A B. The import note says
+  `2 bodies · … · check that the camera clocks match`, and that is all the photographer can do.
+
+A photographer who opens 500 photos and sees 497 stops trusting the app, so A comes first.
+C4 (a 10 fps burst) needs nothing new: it is Prompt 2 A and B.
+
+> Update `Lumina Sets v5.dc.html` and `lumina-core-v4.js` (and its fixtures). Keep the look, keys
+> and wording otherwise unchanged.
+>
+> **A. Every ARW in the folder gets a tile.**
+> (1) **No preview** (`nopv`, today a grey tile with the file number): add a second line under the
+> number, same type one step quieter: `no preview`. Large view shows the same grey frame at 3:2
+> with `DSC00204 · no preview in this file`. No flag words and never `sharpest`, as today.
+> (2) **Can't be read** (today `readOne` throws, `onDir` drops the file and counts it in
+> `_failed`): keep it as a photo, `{unread: true}`, with the same grey tile and the second line
+> `can't be read`. Large view: `DSC00203 · can't be read · 0 KB` (the file's size). This is only
+> for a file that was read and failed. Files not reached because the card was pulled stay as they
+> are today (they are read when the card returns).
+> (3) **Counted.** These tiles count as photos everywhere: the Open line, each row's `N photos`,
+> `rows to go`, the kept count. Open adds how many: `500 photos · 41 rows · 12 stacks · 3 without
+> a picture`. Import notes become `2 without an embedded preview · shown as grey tiles` and
+> `1 can't be read · shown as a grey tile` (the list in `?` stays).
+> (4) **Placed by file number when there is no capture time.** A photo without a date goes next
+> to the photo with the nearest lower file number, in that photo's row. Never a `00:00` row, and
+> never a gap label worked out from a missing time.
+> (5) **Keep and save as any photo.** P, R, F, ⌘A, undo and paint work on them. Each is a single:
+> never joined to a stack, never picked by "keep sharpest". A kept one is a keeper in Save and
+> gets its sidecar like the rest; if the write fails it is listed as `DSC00203 · reason`
+> (SAFETY.md 6).
+> (6) **Edge states.** A folder where no file can be read keeps today's Open message
+> (`0 photos · N unreadable`). A stack that loses a frame to (1) keeps its other frames.
+> `onDir` and `readOne` change here; the app's read repeats them and will be reviewed on sync.
+>
+> **B. Shift capture time.** For a camera clock that was wrong, a time zone that changed mid-trip,
+> and two bodies whose clocks disagree.
+> (1) **Where.** A command `shiftTime` (MENUS.md: Photo ▸ `Shift Capture Time…`), and an action
+> on the import note for more than one body: `2 bodies · ILCE-7M3 + ILCE-7M4 · check that the
+> camera clocks match` gains `shift a camera's time…`.
+> (2) **The sheet.** Title `Shift capture time`. Line 1, what to shift: `whole shoot` · one entry
+> per body (`ILCE-7M3 · …1111 · 212 photos`: model, last four of the serial, count) · `from this
+> photo on` (the photo under the cursor to the end of the shoot, for a clock changed mid-trip).
+> Line 2, by how much: a typed `+1:00:00` / `−0:01:10`, with `−1 h` and `+1 h` buttons. Line 3,
+> what it does, live: `41 rows → 38 rows`. Line 4, quiet: `Only changes how Lumina orders this
+> shoot. Your files and their capture times are not changed.` `⏎ shift · esc cancel`.
+> (3) **After.** Rows, stacks and the time axis are rebuilt from the shifted times. Footer:
+> `Shifted 212 photos by +1:00:00`. One undo step. A shifted row's header shows `time shifted` after
+> its count. The shift is part of the session (the app stores it with the other decisions) and
+> is never written to a sidecar or a RAW.
+> (4) **Edge states.** One body: no per-body entries. Photos without a serial are grouped by
+> model. A shift that would change nothing (`0:00:00`) leaves ⏎ off. No shoot open: the command
+> does nothing.
+> (5) **Two bodies stay sorted by time.** No change to the order rule: with matching clocks the
+> interleaved order is the order things happened. The row header's `2 bodies` stays.
+
 ## How each ask is checked once the new handoff lands
 
 - 1: `Tests/web/plumbing-harness.mjs` and `probe.sh smoke` (`app-smoke`: the Save screen shows the row before any save). Remove the `wf` block in `plumbing.js`'s view loop.
@@ -483,3 +549,13 @@ and 56 % of the runs that hold a pick hold exactly one: the same picture as C, o
 - Prompt 2, second part (G): `plumbing.js` gains `lumina.measures` (Vision's face capture quality from the embedded
   preview, the measure `Tools/culleval/signals/signals.swift` takes); the contract scenario lists it, and
   `python3 Tools/culleval/signals/rank_signals.py` re-scores "top-1 is a pick" for stacks ranked by it.
+- Prompt 3 A: `probe.sh edge` and `ingest` (`edge-corrupt-preview`, which already expects 5 photos from the 5-file
+  fixture; add: both grey-tile lines on screen, no `00:00` row, no gap label over 24 h, the Open line's `without a
+  picture` count, P on the unreadable tile then Save writes its `.xmp`). Review `plumbing.js`'s repeat of `readOne` /
+  `onDir` and update `ONDIR`.
+- Prompt 3 B: `edge-tz-jump` (it already expects `shiftTime` or the word "shift" on the page; add: `from this photo
+  on` +9:00:00 gives one row in file order) and `edge-two-bodies` (rewrite its expectation: today it asks for serial
+  order, which B(5) declines; instead, shifting body B by −0:01:00 changes the order as computed, and the files'
+  bytes are unchanged). The session round trip of the shift joins `Tests/web/plumbing-harness.mjs`.
+- EDGE-CASES C4: re-forge `burst-10fps` (its twelve frames are twelve different pictures with no sequence numbers,
+  so v5 shows twelve singles and the scenario no longer tests a burst), then re-read it after Prompt 2 A and B.
