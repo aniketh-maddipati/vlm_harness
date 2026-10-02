@@ -25,6 +25,17 @@ public enum AccessibilityID {
         public static let help = "edit.help", intro = "edit.intro", crop = "edit.crop", cropRatio = "edit.cropRatio", zoom = "edit.zoom"
         public static let prev = "edit.prev", next = "edit.next", save = "edit.save", out = "edit.out", undo = "edit.undo", redo = "edit.redo"
         public static let filmstrip = "edit.filmstrip", facts = "edit.facts", hint = "edit.hint", toast = "edit.toast", warning = "edit.warning"
+        // The histogram, the Curve graph and the footer (prototype `data-lumina` histogram / curve / footer).
+        public static let histogram = "edit.histogram", shadowsClipping = "edit.histogram.shadowsClipping", highlightsClipping = "edit.histogram.highlightsClipping"
+        public static let curve = "edit.curve", curveReadout = "edit.curve.readout"
+        public static let saveStatus = "edit.saveStatus", shortcuts = "edit.shortcuts"
+        public static func curvePoint(_ key: String) -> String { "edit.curve.point.\(key)" }
+        /// "Soft contrast" → `edit.curvePreset.softContrast`.
+        public static func curvePreset(_ name: String) -> String {
+            let words = name.split(separator: " ").map(String.init)
+            let camel = words.enumerated().map { $0.offset == 0 ? $0.element.lowercased() : $0.element.prefix(1).uppercased() + $0.element.dropFirst().lowercased() }
+            return "edit.curvePreset.\(camel.joined())"
+        }
         public static func section(_ s: String) -> String { "edit.section.\(s)" }
         public static func slider(_ key: String) -> String { "edit.slider.\(key)" }
         public static func value(_ key: String) -> String { "edit.value.\(key)" }

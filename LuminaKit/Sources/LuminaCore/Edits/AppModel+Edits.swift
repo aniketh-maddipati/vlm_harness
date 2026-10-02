@@ -90,7 +90,7 @@ public extension AppModel {
         edits.done.insert(edits.key(for: id, decisions: decisions))
         let kept = keptIDs
         if let i = kept.firstIndex(of: id), i + 1 < kept.count { showEditPhoto(kept[i + 1]) } else { go(.save) }
-        changed()
+        changed(); noteSaving()
     }
 
     /// X: Out, and on to the next keeper. Edit's ⌘Z brings it back; Cull's history is reset (R-08).
@@ -103,7 +103,7 @@ public extension AppModel {
         editControls.autoUndo = nil
         let rest = kept.filter { $0 != id }
         showEditPhoto(rest.isEmpty ? nil : rest[min(i, rest.count - 1)])
-        changed()
+        changed(); noteSaving()
         say("Rejected \(shoot.photo(id)?.file ?? id). ⌘Z brings it back.")
     }
 
@@ -120,7 +120,7 @@ public extension AppModel {
             if keptIDs.contains(e.photo) { showEditPhoto(e.photo) }
         }
         editControls.autoUndo = nil
-        changed()
+        changed(); noteSaving()
         say(editCur != from && editCur != nil ? "Undone on \(shoot.photo(editCur)?.file ?? ""). Moved there so you can see it." : "Undone")
     }
 
@@ -140,7 +140,7 @@ public extension AppModel {
             if keptIDs.contains(e.photo) { showEditPhoto(e.photo) }
         }
         editControls.autoUndo = nil
-        changed()
+        changed(); noteSaving()
         say(editCur != from && editCur != nil ? "Redone on \(shoot.photo(editCur)?.file ?? "")." : "Redone")
     }
 
@@ -231,6 +231,7 @@ extension AppModel {
     /// `changed()` now, or within 250 ms while a drag is still moving the value.
     func editChanged(coalesce: Bool) {
         let c = editControls
+        noteSaving()
         guard coalesce else { c.pendingWrite?.cancel(); c.pendingWrite = nil; c.dirty = false; changed(); return }
         c.dirty = true
         if c.pendingWrite == nil { c.pendingWrite = clock.after(0.25) { [weak self] in self?.writeEdits() } }

@@ -35,5 +35,13 @@ public final class EditControlState {
     @ObservationIgnored var dirty = false
     @ObservationIgnored var pendingWrite: ScheduledWork?
 
+    /// The footer says "Saving…": a change was made in the last 0.7 s or is still being written.
+    public internal(set) var saving = false
+    @ObservationIgnored var savingClear: ScheduledWork?
+    /// The last histogram measured for the Edit photo (nil until the provider has measured one).
+    public internal(set) var histogram: EditHistogram?
+    /// What the hint line says for something that isn't a slider (the clipping markers).
+    public internal(set) var hintNote: String?
+
     public init() {}
 }
