@@ -1,26 +1,25 @@
 import Foundation
 
-/// Executes the page's `writeInto(files, label)` natively. The page builds the file list (names,
-/// XMP bytes, which RAWs, which JPEG looks); this only decides *how* bytes land: backup first,
+/// Executes the page's `writeInto(files, label)` natively. The page builds the file list (names
+/// and which look each photo is rendered with; the job also takes bytes and verified copies);
+/// this only decides *how* bytes land: backup first,
 /// atomic, verified, never onto the card, with a journal so a crash mid-export is visible later.
 nonisolated struct SetsExportJob {
     enum Item {
         case bytes(name: String, data: Data)
         case copy(name: String, source: URL)
-        /// v3's Edit look (a CSS filter string). Unused by v5.
-        case jpeg(name: String, source: URL, css: String, px: String)
         /// The Edit step's look string rendered through LookPipeline (SetsLookExport). `px` nil =
         /// full size; the format follows the name's extension (jpg, tif, png). `decoder` is the
         /// RAW decoder version the shoot pins for this body (RAW 9 §2, §7), nil for Core Image's default.
         case look(name: String, source: URL, look: String, px: Int?, decoder: Int? = nil)
 
         var name: String {
-            switch self { case .bytes(let n, _), .copy(let n, _), .jpeg(let n, _, _, _), .look(let n, _, _, _, _): return n }
+            switch self { case .bytes(let n, _), .copy(let n, _), .look(let n, _, _, _, _): return n }
         }
 
         /// The original a copy or render is made from.
         var source: URL? {
-            switch self { case .bytes: return nil; case .copy(_, let s), .jpeg(_, let s, _, _), .look(_, let s, _, _, _): return s }
+            switch self { case .bytes: return nil; case .copy(_, let s), .look(_, let s, _, _, _): return s }
         }
     }
 
@@ -58,7 +57,6 @@ nonisolated struct SetsExportJob {
             switch item {
             case .bytes(_, let d): return sum + Int64(d.count)
             case .copy(_, let src): return sum + Int64((try? src.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
-            case .jpeg: return sum + 12 << 20
             case .look(let name, _, _, _, _): return sum + ((name as NSString).pathExtension.lowercased().hasPrefix("tif") ? 160 << 20 : 12 << 20)
             }
         }
@@ -113,9 +111,6 @@ nonisolated struct SetsExportJob {
                     if try SetsFileOps.write(data, to: dst).backedUp { r.bak += 1 }
                 case .copy(_, let src):
                     if case .renamed = try SetsFileOps.copyVerified(src, to: dst) { r.renamed += 1 }
-                case .jpeg(_, let src, let css, let px):
-                    let jpg = try SetsEditLook.renderJPEG(raw: src, css: css, px: px)
-                    if try SetsFileOps.write(jpg, to: dst).backedUp { r.bak += 1 }
                 case .look(let name, let src, let look, let px, let decoder):
                     let (data, outcome) = try SetsLookExport.render(raw: src, look: look, px: px, format: (name as NSString).pathExtension, decoder: decoder)
                     r.decoders.append(outcome.label)

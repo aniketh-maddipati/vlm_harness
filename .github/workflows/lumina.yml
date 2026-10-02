@@ -174,7 +174,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: release.sh local --strict
         env:
-          PREFLIGHT_ALLOW: D2,S4
+          PREFLIGHT_ALLOW: D2
         run: bash Scripts/release.sh local --strict
 
   probe:

@@ -9,7 +9,7 @@ mutates two fixture ARWs (see part 3); those stay in `~/LuminaEvidence/hostile`,
 
 | Part | Cases | Crash | Hang (> 5 s) | Memory spike | Wrong status / refusal | Write outside |
 |---|---:|---:|---:|---:|---:|---:|
-| 1 · Bridge op table (`SetsBridgeOpsTests`) | 1,303 table calls + 7 structured tests (~10,200 items) | **4 inputs** (F1, F2), fixed by Q4a | 0 | 0 | 2 open (F7, F8) | 0 |
+| 1 · Bridge op table (`SetsBridgeOpsTests`) | 1,303 table calls + 7 structured tests (~10,200 items) | **4 inputs** (F1, F2), fixed by Q4a | 0 | 0 | 1 open (F7); F8 fixed by S4 | 0 |
 | 2 · Head and preview-range fuzzer | 20,000 (2 seeds × 10,000) | 0 | 0 | 0 | 0 | n/a |
 | 3 · Decoder mutation (sandboxed helper) | 10,000 JPEG + 2,000 ARW | 0 | 0 | 0 | n/a | n/a |
 | 4 · XMP, names, volume labels (probe, app mode, plain + sandboxed) | 3 scenarios, 8 sidecars, 12 names, 5 labels | 0 | 0 | 0 | 3 (F3, F4, F5) | 0 |
@@ -28,7 +28,7 @@ DOM, in any run. Nothing was written outside the run's folder. No Apple decoder 
 | F5 | Medium (A2) | A sidecar that is not UTF-8 is dropped from the listing silently (neither in `xmp` nor `skippedXmp`), so the page thinks the photo has none and Save **replaces it with a fresh ratings-only sidecar**. Its old content (here a Latin-1 label and `crs:Exposure2012`) survives only in `.lumina-bak`; Lightroom, reading the new file, loses the develop settings. | `probe-2/hostile-xmp/`: `DSC00107.xmp` (350 B, rating only) vs `DSC00107.xmp.lumina-bak` (393 B, the original); bridge log `listed 8 ARW + 6 xmp` for 7 sidecars | Q4d |
 | F6 | Low (probe) | With #172, a sidecar over 1 MB counts as one "unreadable" in the page's import notes, and the probe's read invariant (read + unreadable = listed) then fails every step of any scenario with one. The page also says "1 unreadable" for a photo that read fine (Prompt 6 wording). | `probe-1/hostile-xmp/` (every step: `8 read + 1 unreadable ≠ 8 listed`) | Q4e |
 | F7 | Low (T5) | `shootOpened` stores `date` and `n` from the page in `index.json` at any size: a 10 MB date gives a 10.5 MB index, rewritten on every upsert and session summary. | `SetsBridgeOpsTests.testShootOpenedFieldsAreBounded` (expected failure, prints the size) | Q4f |
-| F8 | Low (T8, known) | `reveal` takes any absolute path that exists (here a canary outside the shoot). | `testEveryOpEveryFieldEveryHostileValue` (expected failure, names S4) | S4 (existing) |
+| F8 | Low (T8, known), **fixed** (S4) | `reveal` took any absolute path that exists (here a canary outside the shoot), and showed the open folder for anything it could not find. Now only an opened folder, a path inside one (no links), or the last export's folder and what is in it; anything else answers false and shows nothing. | `testEveryOpEveryFieldEveryHostileValue` (an ordinary case now), `testRevealOnlyInsideOpenedFoldersAndTheLastExport` | S4 |
 | F9 | Low (design) | `LuminaCore.mergeXmp` leaves a sidecar with no `<rdf:Description` unchanged: Save writes it back without a rating and reports it saved. Measured on the page's code only (`fuzz.mjs xmp`: `no-description`, `binary` → `ratingSet: false`), not end to end. | `~/LuminaEvidence/hostile/xmp.noindex/xmp-page.json` | Q4g |
 | F10 | Medium, **fixed** (Q4a, `8cbabf0`) | Found while sweeping the bridge's numbers for Q4a: `setPrefs` with a `NaN` or `Infinity` anywhere in `prefs` stops the test process. `JSONSerialization.data(withJSONObject:)` raises `NSInvalidArgumentException` ("Invalid number value (NaN) in JSON write") instead of throwing, through a Swift async frame (`SetsBridge.savePrefs`). The table never hit it: it fed `prefs` whole values, not a dictionary with a number inside. | `~/LuminaEvidence/hostile/bridge-crash/prefsNaN.ips` (SIGABRT in the test host, before the fix); `testSetPrefsRefusesNumbersJSONCannotHold` | Q4a |
 
@@ -94,6 +94,10 @@ reaches `SetsBridge.userContentController(_:didReceive:)` exactly as WebKit call
   (F1, F2); loupeInf survived (the synthetic RAW never gets a base, so the region code is not
   reached). Q4a removed the gate and the mode: the same inputs run in the normal pass (see "Q4a").
 - `setPrefs` writes the host app's defaults (`com.lumina.app`); the test puts the value back.
+- Since S4 (T8): `writeInto` takes look renders named `.jpg` / `.jpeg` / `.tif` / `.tiff` / `.png`
+  and bytes named `.xmp`, and no name with a NUL; v3's `src` (copy) and `jpg` (CSS look) items are
+  refused before a folder is asked for (`testWriteIntoHostileFiles`, now 27 cases, and
+  `testWriteIntoTakesOnlyLookRendersAndSidecarBytes`). `reveal` is F8 above.
 
 ### Q4a · numbers from the page (F1, F2, F10 fixed, `8cbabf0`)
 

@@ -38,6 +38,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// bookmark found it (renamed or moved), instead of becoming a second shoot.
     private var pendingShoot: String?
     private var lastOpened: URL?
+    /// The folder the user picked for the last export in this run: with the opened folders, the
+    /// only places Show in Finder opens (`revealURL`).
+    private var lastExport: URL?
     /// The open folder's shoot id, volume and place (`SetsShootStore.id(for:)`), taken while it was
     /// being opened. All come from the volume's UUID, which is gone once a card is pulled: asked
     /// again then, the same card would be another shoot and the decisions made while it was out
@@ -116,8 +119,11 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// Metal device → the image path, which plumbing drives through `lumina://render`.
     func attachCanvas(host: NSView?) {
         guard canvas == nil else { return }
-        // LUMINA_CANVAS=image forces the image path (the probe measures both).
+        // LUMINA_CANVAS=image forces the image path (the probe measures both). Debug builds and
+        // the probe only; the app's Release build has no such read (S4).
+        #if DEBUG || LUMINA_TOOLS
         let host = ProcessInfo.processInfo.environment["LUMINA_CANVAS"] == "image" ? nil : host
+        #endif
         do {
             let pipe = try LookPipeline(rules: LookRules.bundled())
             let c = LookCanvasController(pipeline: pipe, host: host)
@@ -582,14 +588,28 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         return ["id": s.id, "d": day.isEmpty ? s.title : day, "n": s.photos, "dec": s.seen ?? 0, "kp": s.keepers ?? 0, "last": s.last ?? "", "where": s.path]
     }
 
-    /// Show in Finder: an absolute path, a page path ("<folder>/sub/DSC.ARW"), or an opened folder's name.
+    /// Show in Finder, only for what the user already pointed the app at (threat model T8, Q4
+    /// finding F8): an opened folder's name, a page path inside one ("<folder>/sub/DSC.ARW", no
+    /// links, as every native read), or an absolute path that is, links resolved, an opened folder,
+    /// the folder of the last export, or something inside one of them (what Save and the export
+    /// hand back to the page as `path` / `folder`). Anything else is nil and the op answers false:
+    /// no other path, no fallback to the open folder.
     private func revealURL(_ path: String) -> URL? {
-        let url: URL?
-        if path.hasPrefix("/") { url = URL(fileURLWithPath: path) }
-        else if path.contains("/") { url = resolve(path) }
-        else { url = ingest.root(named: path) ?? lastOpened }
-        guard let url, FileManager.default.fileExists(atPath: url.path) else { return lastOpened }
-        return url
+        let fm = FileManager.default
+        guard !path.isEmpty else { return nil }
+        guard path.hasPrefix("/") else {
+            let url = path.contains("/") ? resolve(path) : ingest.root(named: path)
+            return url.flatMap { fm.fileExists(atPath: $0.path) ? $0 : nil }
+        }
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+        guard fm.fileExists(atPath: url.path) else { return nil }
+        let real = url.resolvingSymlinksInPath().path
+        let folders = ingest.rootURLs + [lastOpened, lastExport].compactMap { $0 }
+        let inside = folders.contains { folder in
+            let f = folder.standardizedFileURL.resolvingSymlinksInPath().path
+            return real == f || real.hasPrefix(f.hasSuffix("/") ? f : f + "/")
+        }
+        return inside ? url : nil
     }
 
     /// The volume's name for the access banner: "SONY-A7M4", or the folder's name on the startup disk.
@@ -673,27 +693,39 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         return ["n": n, "bak": bak, "folder": root.lastPathComponent, "path": root.path, "errors": errors]
     }
 
+    /// What an export may write, by the name's extension (threat model T8, S4): bytes the page
+    /// hands over are sidecars and nothing else; a look render is an image.
+    static let bytesExtensions: Set<String> = ["xmp"]
+    static let renderExtensions: Set<String> = ["jpg", "jpeg", "tif", "tiff", "png"]
+
+    /// The page's export into a folder the user picks. v5 sends one kind of item, the Edit step's
+    /// renders (plumbing's `writeInto(files, 'jpeg')`); Save goes through `writeSidecars`. Items:
+    /// `{name, look: {src, look, px?, model?}}`, the name ending in .jpg / .jpeg / .tif / .tiff /
+    /// .png, and `{name, b64}`, the name ending in .xmp. Anything else stops the export before a
+    /// folder is asked for: v3's `src` (a RAW copied out) and `jpg` (the CSS look) are gone.
     private func writeInto(label: String, files: [[String: Any]]) async -> [String: Any] {
         onEvent?("writeInto \(label): \(files.count) files")
         var items: [SetsExportJob.Item] = []
-        var sources: [URL] = ingest.rootURLs
+        let sources: [URL] = ingest.rootURLs
         for f in files {
-            guard let name = f["name"] as? String, !name.contains(".."), !name.hasPrefix("/") else { return ["aborted": true, "say": "export stopped · bad file name"] }
+            // No NUL either: the file system would end the name there, before the extension checked below.
+            guard let name = f["name"] as? String, !name.contains(".."), !name.hasPrefix("/"), !name.utf8.contains(0) else { return ["aborted": true, "say": "export stopped · bad file name"] }
+            let ext = (name as NSString).pathExtension.lowercased()
             if let b = f["b64"] as? String, let data = Data(base64Encoded: b) {
+                guard Self.bytesExtensions.contains(ext) else { return ["aborted": true, "say": "export stopped · bad file name"] }
                 items.append(.bytes(name: name, data: data))
-            } else if let rel = f["src"] as? String {
-                guard let src = resolve(rel) else { return ["aborted": true, "say": "export stopped · can't find \(rel)"] }
-                items.append(.copy(name: name, source: src)); sources.append(src.deletingLastPathComponent())
-            } else if let j = f["jpg"] as? [String: Any], let rel = j["src"] as? String {
-                guard let src = resolve(rel) else { return ["aborted": true, "say": "export stopped · can't find \(rel)"] }
-                items.append(.jpeg(name: name, source: src, css: j["css"] as? String ?? "none", px: j["px"] as? String ?? "full"))
             } else if let l = f["look"] as? [String: Any], let rel = l["src"] as? String {
                 // The Edit step's render: {name, look: {src, look: "<look string>", px?, model?}} → LookPipeline
                 // at full size, with the decoder the shoot pins for that body (RAW 9 when it has it).
+                guard Self.renderExtensions.contains(ext) else { return ["aborted": true, "say": "export stopped · bad file name"] }
                 guard let src = resolve(rel) else { return ["aborted": true, "say": "export stopped · can't find \(rel)"] }
                 let px = SetsNumber.exportEdge(l["px"])
                 let decoder = LookRawPolicy.version(for: .export, body: (l["model"] as? String).flatMap { header.bodies[$0] }, pinned: header.decoderVersion)
                 items.append(.look(name: name, source: src, look: l["look"] as? String ?? "", px: px, decoder: decoder))
+            } else {
+                // Not an item v5 has: nothing is written and no folder is asked for.
+                onEvent?("writeInto \(label): an item that is neither a look render nor sidecar bytes, nothing written")
+                return ["aborted": true]
             }
         }
         // Pick the destination; refuse the card and the source folder, and ask again.
@@ -706,6 +738,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             if let why = SetsFileOps.refusal(destination: picked, sources: sources) { refusal = why; onEvent?("refused \(picked.path)"); continue }
             dest = picked
         }
+        lastExport = dest       // what Show in Finder may open after this export (`revealURL`)
         let job = SetsExportJob(label: label, destination: dest!, items: items)
         let journal = SetsExportJournal(directory: supportDir.appendingPathComponent("exports", isDirectory: true))
         // Keep the export at full speed when Lumina is in the background (App Nap) and the Mac awake.
