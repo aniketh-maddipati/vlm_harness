@@ -1,0 +1,126 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "sampleMs": 250,
+ "stopOnFailure": false,
+ "budgets": {
+  "webPeakMB": 2500
+ },
+ "checklist": "Q1 scale (STRESS-MATRIX.md 1): one folder of LUMINA_READ_DIR's photos (forge_fixtures.sh scale: 5,000 or 10,000), cloned into the run's folder so Save can write. Open -> listing, first rows, first thumbnail, first screen full, read done; then 2,000 keepers, the 2 s autosave, the session's size (Lumina's working files for the shoot) and the page -> Mac call times (saveSession: session.json + the index summary, on the main thread); then Save (cmd-3, cmd-return): time to the result, 2,000 sidecars on disk. Memory peaks are in report.json (the sandboxed probe cannot read the web process). Web budget 2.5 GB as card-stress; times are reported, not gated (no budget in AGENTS.md).",
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_READ_DIR}",
+   "to": "${OUT}/shoot/scale"
+  },
+  {
+   "do": "js",
+   "src": "const P = Object.getPrototypeOf(window.webkit.messageHandlers.lumina); if (!P.__timed) { const post = P.postMessage; window.__ops = window.__ops || {}; P.postMessage = function (m) { const t = performance.now(), op = m && m.op; const done = () => { (window.__ops[op] = window.__ops[op] || []).push(+(performance.now() - t).toFixed(2)); }; const p = post.call(this, m); return p && p.then ? p.then(v => { done(); return v; }, e => { done(); throw e; }) : (done(), p); }; P.__timed = true; } return JSON.stringify({ timed: P.postMessage !== undefined && !!P.__timed, same: window.webkit.messageHandlers.lumina === window.webkit.messageHandlers.lumina })"
+  },
+  {
+   "do": "js",
+   "src": "const R = window.__rs = { t0: performance.now(), at: {}, series: [], total: 0 }; const mark = (k, t) => { if (R.at[k] == null) R.at[k] = +(t - R.t0).toFixed(1); }; let lastS = 0; R.timer = setInterval(() => { const l = __probe.logic(), t = performance.now(); if (!l) return; const rl = l.state.realLoad, done = rl ? rl.done : (l.state.realInfo ? R.total : 0); if (rl) { mark('reading', t); R.total = rl.total; } if (l.real && l.real.length && l.state.view === 'cull') { mark('shown', t); const el = document.querySelector('[data-screen-label=\"1 Cull\"]'); if (el && (R.at.firstThumb == null || R.at.screenFull == null)) { const vr = el.getBoundingClientRect(); let ready = 0, wait = 0; for (const im of el.querySelectorAll('img')) { const r = im.getBoundingClientRect(); if (r.bottom < vr.top || r.top > vr.bottom || r.width < 8) continue; if (im.complete && im.naturalWidth > 0 && parseFloat(getComputedStyle(im).opacity) > 0.99) ready++; else wait++; } if (ready) mark('firstThumb', t); if (ready >= 6 && !wait) mark('screenFull', t); } } for (const n of [100, 500, 1000, 2000, 5000, 10000]) if (done >= n) mark('read' + n, t); if (R.at.reading != null && !rl && l.state.realInfo) { mark('finished', t); clearInterval(R.timer); } if (t - lastS >= 250) { lastS = t; R.series.push([+(t - R.t0).toFixed(0), done]); } }, 16); return true"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/scale",
+   "via": "js",
+   "timeoutMs": 1800000
+  },
+  {
+   "do": "waitFor",
+   "js": "return window.__rs.at.finished != null",
+   "timeoutMs": 20000,
+   "what": "the sampler saw the read finish"
+  },
+  {
+   "do": "js",
+   "src": "const R = window.__rs, a = R.at, info = __probe.logic().state.realInfo || {}, n = info.n || R.total, s = v => v == null ? null : +(v / 1000).toFixed(2); return JSON.stringify({ photos: n, rows: info.rows, stacks: info.stacks, listS: s(a.reading), firstRowsS: s(a.shown), firstThumbS: s(a.firstThumb), screenFullS: s(a.screenFull), read1000S: s(a.read1000), read5000S: s(a.read5000), finishedS: s(a.finished), perSecond: +(n / (a.finished / 1000)).toFixed(0) })"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.realInfo.n >= 2000",
+   "why": "the folder has at least the 2,000 photos kept below"
+  },
+  {
+   "do": "js",
+   "src": "const l = __probe.logic(), marks = Object.assign({}, l.state.marks); for (const id of l.data.order.slice(0, 2000)) marks[id] = 'keep'; l.setState({ marks }); return l.kept().length",
+   "why": "2,000 keepers: the first 2,000 photos, as a long cull would leave them"
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "the 2 s autosave"
+  },
+  {
+   "do": "js",
+   "src": "return (async () => { const b = await window.lumina.workingFiles(); const q = (a, p) => { if (!a || !a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; }; const o = {}; for (const [k, v] of Object.entries(window.__ops || {})) o[k] = { n: v.length, p50: q(v, 0.5), p95: q(v, 0.95), max: Math.max(...v) }; return JSON.stringify({ sessionBytes: b, kept: __probe.logic().kept().length, ops: o }); })()",
+   "timeoutMs": 30000
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "cmd": true,
+   "settleMs": 1500
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "export"
+  },
+  {
+   "do": "js",
+   "src": "const l = __probe.logic(); window.__lastSave = l.state.ex.result || null; window.__save = { t0: performance.now() }; window.__saveTimer = setInterval(() => { const r = __probe.logic().state.ex.result; if (r && r !== window.__lastSave) { window.__save.ms = +(performance.now() - window.__save.t0).toFixed(0); window.__save.t = r.t; clearInterval(window.__saveTimer); } }, 16); return true"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "cmd": true,
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "return window.__save.ms != null",
+   "timeoutMs": 900000,
+   "what": "save result"
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(window.__save)"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.ex.result.t",
+   "equals": "2000 saved"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/scale",
+   "glob": "*.xmp",
+   "count": 2000
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "the session is written after the save"
+  },
+  {
+   "do": "js",
+   "src": "return (async () => { const b = await window.lumina.workingFiles(); const q = (a, p) => { if (!a || !a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; }; const o = {}; for (const [k, v] of Object.entries(window.__ops || {})) o[k] = { n: v.length, p50: q(v, 0.5), p95: q(v, 0.95), max: Math.max(...v) }; return JSON.stringify({ sessionBytes: b, ops: o }); })()",
+   "timeoutMs": 30000
+  },
+  {
+   "do": "dump",
+   "name": "scale",
+   "js": "return (async () => { const q = (a, p) => { if (!a || !a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; }; const o = {}; for (const [k, v] of Object.entries(window.__ops || {})) o[k] = { n: v.length, p50: q(v, 0.5), p95: q(v, 0.95), max: Math.max(...v) }; return { read: window.__rs.at, series: window.__rs.series, info: __probe.logic().state.realInfo, save: window.__save, sessionBytes: await window.lumina.workingFiles(), ops: o, raw: window.__ops }; })()"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

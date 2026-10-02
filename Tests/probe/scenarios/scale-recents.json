@@ -1,0 +1,769 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "sampleMs": 250,
+ "stopOnFailure": false,
+ "checklist": "Q1 scale (STRESS-MATRIX.md 1): 100 recent shoots (LUMINA_READ_DIR = forge_fixtures.sh scale's recents, s001...s100, three photos each). With 1 and then 100 shoots in the index: the Mac's recents call, the Open screen's render of the list, and the cost of the index.json rewrite on each session save that changes the Open screen's counts (saveSession: session.json + index read, decode, re-encode, atomic replace, on the main thread) and on each open (shootOpened: upsert). Reported, not gated.",
+ "steps": [
+  {
+   "do": "js",
+   "src": "const P = Object.getPrototypeOf(window.webkit.messageHandlers.lumina); if (!P.__timed) { const post = P.postMessage; window.__ops = window.__ops || {}; P.postMessage = function (m) { const t = performance.now(), op = m && m.op; const done = () => { (window.__ops[op] = window.__ops[op] || []).push(+(performance.now() - t).toFixed(2)); }; const p = post.call(this, m); return p && p.then ? p.then(v => { done(); return v; }, e => { done(); throw e; }) : (done(), p); }; P.__timed = true; } return JSON.stringify({ timed: P.postMessage !== undefined && !!P.__timed, same: window.webkit.messageHandlers.lumina === window.webkit.messageHandlers.lumina })"
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s001",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "the first autosave"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 100
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "a keeper more: the summary changes, so index.json is rewritten"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 100
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "a keeper more: the summary changes, so index.json is rewritten"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 100
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "a keeper more: the summary changes, so index.json is rewritten"
+  },
+  {
+   "do": "js",
+   "src": "const q = (a, p) => { if (!a || !a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; }; const o = {}; for (const [k, v] of Object.entries(window.__ops || {})) o[k] = { n: v.length, p50: q(v, 0.5), p95: q(v, 0.95), max: Math.max(...v) }; return JSON.stringify(o)"
+  },
+  {
+   "do": "dump",
+   "name": "ops-1",
+   "js": "return { raw: window.__ops }"
+  },
+  {
+   "do": "reload",
+   "why": "a relaunch with 1 recent shoot"
+  },
+  {
+   "do": "js",
+   "src": "return (async () => { const l = __probe.logic(), h = window.webkit.messageHandlers.lumina, t = []; let list; for (let i = 0; i < 5; i++) { const t0 = performance.now(); list = await h.postMessage({ op: 'recents' }); t.push(+(performance.now() - t0).toFixed(2)); } const t0 = performance.now(); l.constructor.SHOOTS = list; l.forceUpdate && l.forceUpdate(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); const render = +(performance.now() - t0).toFixed(1); return JSON.stringify({ shoots: list.length, view: l.state.view, recentsShown: l.recents().length, recentsCallMs: t, renderMs: render, sincePageStartMs: +t0.toFixed(0), recentsJSONBytes: JSON.stringify(list).length }); })()",
+   "timeoutMs": 30000
+  },
+  {
+   "do": "js",
+   "src": "const P = Object.getPrototypeOf(window.webkit.messageHandlers.lumina); if (!P.__timed) { const post = P.postMessage; window.__ops = window.__ops || {}; P.postMessage = function (m) { const t = performance.now(), op = m && m.op; const done = () => { (window.__ops[op] = window.__ops[op] || []).push(+(performance.now() - t).toFixed(2)); }; const p = post.call(this, m); return p && p.then ? p.then(v => { done(); return v; }, e => { done(); throw e; }) : (done(), p); }; P.__timed = true; } return JSON.stringify({ timed: P.postMessage !== undefined && !!P.__timed, same: window.webkit.messageHandlers.lumina === window.webkit.messageHandlers.lumina })"
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s002",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s003",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s004",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s005",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s006",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s007",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s008",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s009",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s010",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s011",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s012",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s013",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s014",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s015",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s016",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s017",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s018",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s019",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s020",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s021",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s022",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s023",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s024",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s025",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s026",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s027",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s028",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s029",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s030",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s031",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s032",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s033",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s034",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s035",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s036",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s037",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s038",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s039",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s040",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s041",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s042",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s043",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s044",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s045",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s046",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s047",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s048",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s049",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s050",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s051",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s052",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s053",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s054",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s055",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s056",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s057",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s058",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s059",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s060",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s061",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s062",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s063",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s064",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s065",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s066",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s067",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s068",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s069",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s070",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s071",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s072",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s073",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s074",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s075",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s076",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s077",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s078",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s079",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s080",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s081",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s082",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s083",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s084",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s085",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s086",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s087",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s088",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s089",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s090",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s091",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s092",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s093",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s094",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s095",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s096",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s097",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s098",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s099",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}/s100",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "wait",
+   "ms": 2600
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 100
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "a keeper more: the summary changes, so index.json is rewritten"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 100
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "a keeper more: the summary changes, so index.json is rewritten"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 100
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 100
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "a keeper more: the summary changes, so index.json is rewritten"
+  },
+  {
+   "do": "js",
+   "src": "const q = (a, p) => { if (!a || !a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; }; const o = {}; for (const [k, v] of Object.entries(window.__ops || {})) o[k] = { n: v.length, p50: q(v, 0.5), p95: q(v, 0.95), max: Math.max(...v) }; return JSON.stringify(o)"
+  },
+  {
+   "do": "dump",
+   "name": "ops-100",
+   "js": "return { raw: window.__ops }"
+  },
+  {
+   "do": "reload",
+   "why": "a relaunch with 100 recent shoots"
+  },
+  {
+   "do": "js",
+   "src": "return (async () => { const l = __probe.logic(), h = window.webkit.messageHandlers.lumina, t = []; let list; for (let i = 0; i < 5; i++) { const t0 = performance.now(); list = await h.postMessage({ op: 'recents' }); t.push(+(performance.now() - t0).toFixed(2)); } const t0 = performance.now(); l.constructor.SHOOTS = list; l.forceUpdate && l.forceUpdate(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); const render = +(performance.now() - t0).toFixed(1); return JSON.stringify({ shoots: list.length, view: l.state.view, recentsShown: l.recents().length, recentsCallMs: t, renderMs: render, sincePageStartMs: +t0.toFixed(0), recentsJSONBytes: JSON.stringify(list).length }); })()",
+   "timeoutMs": 30000
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().recents().length",
+   "equals": 100
+  },
+  {
+   "do": "snap",
+   "name": "open-100"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

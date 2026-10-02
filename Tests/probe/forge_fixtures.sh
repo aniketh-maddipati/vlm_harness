@@ -6,7 +6,115 @@
 # The card is only read (12 files copied off it). Every edit happens on copies under
 # $LUMINA_FIXTURE_ROOT (default ~/LuminaEvidence/fixtures), never in the repo: these are
 # the user's photos.
+#
+#   bash Tests/probe/forge_fixtures.sh scale [N…]
+#
+# Scale fixtures (release task Q1, STRESS-MATRIX.md 1), synthetic only: no card, no photos. Under
+# $LUMINA_SCALE_ROOT (default ~/LuminaEvidence/fixtures/scale):
+#   folder-N/      N ARWs in one folder, for each N given (default 5000 10000): bursts of 5 one
+#                  second apart, 2 min between bursts, a new row every 40 frames, across days
+#   tree-200/      200 subfolders × 10 ARWs, plus a chain 16 folders deep with one ARW per level
+#   junk-50000/    500 ARWs beside 50,000 files that are not ARWs (stubs, AppleDouble, sidecars of nothing)
+#   recents/s001…s100   100 three-photo shoots, for the Open screen's recents
+# Every ARW is a small TIFF (Make/Model, Orientation, DateTimeOriginal, exposure) around a camera-sized
+# 1616 × 1080 detailed JPEG preview (24 distinct ones, drawn here, encoded by sips). ~0.5 MB each:
+# check free space first (10,000 ≈ 5 GB). Delete the folders when done; keep this generator.
 set -euo pipefail
+
+if [[ ${1:-} == scale ]]; then
+  shift
+  SCALE="${LUMINA_SCALE_ROOT:-$HOME/LuminaEvidence/fixtures/scale}"
+  sizes=("$@"); [[ ${#sizes[@]} -gt 0 ]] || sizes=(5000 10000)
+  mkdir -p "$SCALE/jpegs"
+  # 24 previews: a gradient sky, grass-like strokes, hairlines and text-like bars, so a soft or
+  # over-compressed thumbnail shows. Drawn as BMP in Node, encoded to JPEG by sips (no npm packages).
+  if [[ $(ls "$SCALE/jpegs" 2>/dev/null | grep -c '\.jpg$') -lt 24 ]]; then
+    node - "$SCALE/jpegs" <<'EOF'
+const fs = require('fs'), path = require('path'), dir = process.argv[2], W = 1616, H = 1080;
+for (let i = 0; i < 24; i++) {
+  const px = Buffer.alloc(W * H * 3);
+  let s = i * 9301 + 49297; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+  const hue = (i * 47) % 360, base = [Math.cos(hue / 57.3), Math.cos((hue - 120) / 57.3), Math.cos((hue + 120) / 57.3)].map(c => 0.5 + 0.35 * c);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const o = (y * W + x) * 3, g = 1 - 0.7 * y / H, n = (rnd() - 0.5) * 14;
+    for (let c = 0; c < 3; c++) px[o + c] = Math.max(0, Math.min(255, base[c] * 255 * g + n));
+  }
+  for (let k = 0; k < 900; k++) {                       // strokes in the lower half
+    const x0 = rnd() * W, y0 = H * 0.45 + rnd() * H * 0.55, len = rnd() * 140, dx = (rnd() - 0.5) * 18, v = rnd() * 200;
+    for (let t = 0; t < len; t++) { const x = Math.round(x0 + dx * t / len), y = Math.round(y0 - t); if (x >= 0 && x < W && y >= 0 && y < H) { const o = (y * W + x) * 3; px[o] = v; px[o + 1] = 255 - v; px[o + 2] = v / 2; } }
+  }
+  for (let k = 0; k < 60; k++) for (let y = 40; y < 240; y++) for (let w = 0; w < 2; w++) { const o = (y * W + W - 300 + k * 4 + w) * 3; px.fill(k % 2 ? 0 : 255, o, o + 3); }
+  for (let r = 0; r < 14; r++) for (let x = 40; x < 640; x++) if ((x * 7 + r * 13 + i) % 11 < 6) for (let y = 60 + r * 30; y < 76 + r * 30; y++) { const o = (y * W + x) * 3; px.fill(255, o, o + 3); }
+  const bmp = Buffer.alloc(54 + W * H * 3);              // 24-bit BMP, bottom-up, BGR (W * 3 is a multiple of 4)
+  bmp.write('BM', 0); bmp.writeUInt32LE(bmp.length, 2); bmp.writeUInt32LE(54, 10); bmp.writeUInt32LE(40, 14);
+  bmp.writeInt32LE(W, 18); bmp.writeInt32LE(H, 22); bmp.writeUInt16LE(1, 26); bmp.writeUInt16LE(24, 28); bmp.writeUInt32LE(W * H * 3, 34);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const s0 = (y * W + x) * 3, d = 54 + ((H - 1 - y) * W + x) * 3; bmp[d] = px[s0 + 2]; bmp[d + 1] = px[s0 + 1]; bmp[d + 2] = px[s0]; }
+  fs.writeFileSync(path.join(dir, `p${String(i).padStart(2, '0')}.bmp`), bmp);
+}
+EOF
+    for b in "$SCALE"/jpegs/*.bmp; do sips -s format jpeg -s formatOptions 85 "$b" --out "${b%.bmp}.jpg" >/dev/null && rm -f "$b"; done
+  fi
+  # The ARWs. node <root> <spec…>; a spec is kind:dir:arg.
+  arws() {
+    node - "$SCALE" "$@" <<'EOF'
+const fs = require('fs'), path = require('path'), [root, ...specs] = process.argv.slice(2);
+const jpegs = fs.readdirSync(path.join(root, 'jpegs')).filter(f => f.endsWith('.jpg')).sort().map(f => fs.readFileSync(path.join(root, 'jpegs', f)));
+// The TIFF of Tests/web/lib.mjs tiff(): IFD0 Make/Model, Orientation, JPEG offset + length, Exif IFD; Exif: exposure, ISO, date, focal length.
+function tiff({ date, orient = 1, jpeg, model = 'ILCE-7M4' }) {
+  const buf = Buffer.alloc(4096 + jpeg.length + 16);
+  buf.write('II', 0); buf.writeUInt16LE(42, 2); buf.writeUInt32LE(8, 4);
+  const ifd0 = 8, n0 = 5, exif = ifd0 + 2 + n0 * 12 + 4, n1 = 4; let dp = exif + 2 + n1 * 12 + 4;
+  const put = s => { const o = dp; buf.write(s + '\0', o, 'latin1'); dp += s.length + 1; if (dp % 2) dp++; return o; };
+  const rat = ([a, b]) => { const o = dp; buf.writeUInt32LE(a, o); buf.writeUInt32LE(b, o + 4); dp += 8; return o; };
+  const ent = (base, i, tag, type, cnt, val) => { const e = base + 2 + i * 12; buf.writeUInt16LE(tag, e); buf.writeUInt16LE(type, e + 2); buf.writeUInt32LE(cnt, e + 4); if (type === 3 && cnt === 1) buf.writeUInt16LE(val, e + 8); else buf.writeUInt32LE(val, e + 8); };
+  const mo = put(model), dto = put(date), eo = rat([1, 250]), fo = rat([50, 1]);
+  buf.writeUInt16LE(n0, ifd0);
+  ent(ifd0, 0, 0x0110, 2, model.length + 1, mo); ent(ifd0, 1, 0x0112, 3, 1, orient);
+  ent(ifd0, 2, 0x0201, 4, 1, 4096); ent(ifd0, 3, 0x0202, 4, 1, jpeg.length); ent(ifd0, 4, 0x8769, 4, 1, exif);
+  buf.writeUInt16LE(n1, exif);
+  ent(exif, 0, 0x829A, 5, 1, eo); ent(exif, 1, 0x8827, 3, 1, 400); ent(exif, 2, 0x9003, 2, date.length + 1, dto); ent(exif, 3, 0x920A, 5, 1, fo);
+  jpeg.copy(buf, 4096);
+  return buf;
+}
+let clock = Date.UTC(2026, 8, 1, 9, 0, 0) / 1000, k = 0;     // one camera clock across every folder made in this run
+const stamp = t => new Date(t * 1000).toISOString().replace('T', ' ').slice(0, 19).replace(/-/g, ':');
+function shoot(dir, n, first = 10001) {
+  fs.mkdirSync(dir, { recursive: true });
+  for (let i = 0; i < n; i++, k++) {
+    clock += i % 40 === 0 && i ? 20 * 60 : i % 5 === 0 ? 120 : 1;
+    if (stamp(clock).slice(11) > '19:00:00') clock += 14 * 3600;   // the evening ends; the next day starts at 9
+    fs.writeFileSync(path.join(dir, 'DSC' + String(first + i).padStart(5, '0') + '.ARW'), tiff({ date: stamp(clock), jpeg: jpegs[k % jpegs.length], orient: k % 23 === 7 ? 6 : 1 }));
+  }
+}
+const fresh = d => { fs.rmSync(d, { recursive: true, force: true }); fs.mkdirSync(d, { recursive: true }); return d; };
+for (const spec of specs) {
+  const [kind, name, arg] = spec.split(':'), d = fresh(path.join(root, name));
+  if (kind === 'folder') shoot(d, +arg);
+  if (kind === 'tree') {
+    for (let s = 0; s < 200; s++) shoot(path.join(d, 'set' + String(s + 1).padStart(3, '0')), 10, 10001 + s * 10);
+    let deep = path.join(d, 'deep');
+    for (let l = 1; l <= 16; l++) { deep = path.join(deep, 'level' + String(l).padStart(2, '0')); shoot(deep, 1, 30000 + l); }
+  }
+  if (kind === 'junk') {
+    shoot(d, 500);
+    const ext = ['txt', 'dat', 'THM', 'MP4', 'XML', 'CR3', 'json', 'bin'];
+    for (let i = 0; i < 50000; i++) {
+      const n = i % 10 === 9 ? `._DSC9${String(i).padStart(5, '0')}.ARW` : `file${String(i).padStart(5, '0')}.${ext[i % ext.length]}`;
+      fs.writeFileSync(path.join(d, n), i % 10 === 9 ? Buffer.from([0, 5, 22, 7]) : 'x');
+    }
+  }
+  if (kind === 'recents') for (let s = 1; s <= +arg; s++) shoot(path.join(d, 's' + String(s).padStart(3, '0')), 3);
+  fs.writeFileSync(path.join(d, '.done'), new Date().toISOString());
+  console.log(`  ${name}`);
+}
+EOF
+  }
+  specs=(); for n in "${sizes[@]}"; do specs+=("folder:folder-$n:$n"); done
+  [[ -n ${LUMINA_SCALE_ONLY_FOLDERS:-} ]] || specs+=("tree:tree-200:" "junk:junk-50000:" "recents:recents:100")
+  echo "scale fixtures in $SCALE:"; arws "${specs[@]}"
+  du -sh "$SCALE" | sed 's/^/  total /'
+  exit 0
+fi
 
 SRC_DIR="${LUMINA_CARD_DIR:?set LUMINA_CARD_DIR to a folder of Sony ARWs}"
 ROOT="${LUMINA_FIXTURE_ROOT:-$HOME/LuminaEvidence/fixtures}"

@@ -1,0 +1,58 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "sampleMs": 250,
+ "stopOnFailure": false,
+ "budgets": {
+  "webPeakMB": 2500
+ },
+ "checklist": "Q1 scale (STRESS-MATRIX.md 1): a wide or deep tree, or a folder crowded with files that are not photos (LUMINA_READ_DIR: forge_fixtures.sh scale's tree-200 = 200 subfolders x 10 ARWs + a chain 16 folders deep with one ARW per level, 2,016 ARWs; junk-50000 = 500 ARWs beside 50,000 other files and AppleDouble stubs). Opened in place, only read. Listing time (openFolder, the Mac's call), first rows, read done, photos found, memory. Reported, not gated; the listing caps of S3 (100,000 entries, 12 levels, PR #172) were not on main when this was written.",
+ "steps": [
+  {
+   "do": "js",
+   "src": "const P = Object.getPrototypeOf(window.webkit.messageHandlers.lumina); if (!P.__timed) { const post = P.postMessage; window.__ops = window.__ops || {}; P.postMessage = function (m) { const t = performance.now(), op = m && m.op; const done = () => { (window.__ops[op] = window.__ops[op] || []).push(+(performance.now() - t).toFixed(2)); }; const p = post.call(this, m); return p && p.then ? p.then(v => { done(); return v; }, e => { done(); throw e; }) : (done(), p); }; P.__timed = true; } return JSON.stringify({ timed: P.postMessage !== undefined && !!P.__timed, same: window.webkit.messageHandlers.lumina === window.webkit.messageHandlers.lumina })"
+  },
+  {
+   "do": "js",
+   "src": "const R = window.__rs = { t0: performance.now(), at: {}, series: [], total: 0 }; const mark = (k, t) => { if (R.at[k] == null) R.at[k] = +(t - R.t0).toFixed(1); }; let lastS = 0; R.timer = setInterval(() => { const l = __probe.logic(), t = performance.now(); if (!l) return; const rl = l.state.realLoad, done = rl ? rl.done : (l.state.realInfo ? R.total : 0); if (rl) { mark('reading', t); R.total = rl.total; } if (l.real && l.real.length && l.state.view === 'cull') { mark('shown', t); const el = document.querySelector('[data-screen-label=\"1 Cull\"]'); if (el && (R.at.firstThumb == null || R.at.screenFull == null)) { const vr = el.getBoundingClientRect(); let ready = 0, wait = 0; for (const im of el.querySelectorAll('img')) { const r = im.getBoundingClientRect(); if (r.bottom < vr.top || r.top > vr.bottom || r.width < 8) continue; if (im.complete && im.naturalWidth > 0 && parseFloat(getComputedStyle(im).opacity) > 0.99) ready++; else wait++; } if (ready) mark('firstThumb', t); if (ready >= 6 && !wait) mark('screenFull', t); } } for (const n of [100, 500, 1000, 2000, 5000, 10000]) if (done >= n) mark('read' + n, t); if (R.at.reading != null && !rl && l.state.realInfo) { mark('finished', t); clearInterval(R.timer); } if (t - lastS >= 250) { lastS = t; R.series.push([+(t - R.t0).toFixed(0), done]); } }, 16); return true"
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_READ_DIR}",
+   "via": "js",
+   "timeoutMs": 1800000
+  },
+  {
+   "do": "waitFor",
+   "js": "return window.__rs.at.finished != null",
+   "timeoutMs": 20000,
+   "what": "the sampler saw the read finish"
+  },
+  {
+   "do": "js",
+   "src": "const R = window.__rs, a = R.at, info = __probe.logic().state.realInfo || {}, n = info.n || R.total, s = v => v == null ? null : +(v / 1000).toFixed(2); return JSON.stringify({ photos: n, rows: info.rows, stacks: info.stacks, listS: s(a.reading), firstRowsS: s(a.shown), firstThumbS: s(a.firstThumb), screenFullS: s(a.screenFull), read1000S: s(a.read1000), read5000S: s(a.read5000), finishedS: s(a.finished), perSecond: +(n / (a.finished / 1000)).toFixed(0) })"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.realInfo.n > 0"
+  },
+  {
+   "do": "js",
+   "src": "return (async () => { const q = (a, p) => { if (!a || !a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; }; const o = {}; for (const [k, v] of Object.entries(window.__ops || {})) o[k] = { n: v.length, p50: q(v, 0.5), p95: q(v, 0.95), max: Math.max(...v) }; return JSON.stringify({ ops: o, mac: await window.__lumina.nativeStats() }); })()",
+   "timeoutMs": 30000
+  },
+  {
+   "do": "dump",
+   "name": "scale",
+   "js": "return (async () => { const q = (a, p) => { if (!a || !a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; }; const o = {}; for (const [k, v] of Object.entries(window.__ops || {})) o[k] = { n: v.length, p50: q(v, 0.5), p95: q(v, 0.95), max: Math.max(...v) }; return { read: window.__rs.at, series: window.__rs.series, info: __probe.logic().state.realInfo, ops: o, raw: window.__ops }; })()"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}
