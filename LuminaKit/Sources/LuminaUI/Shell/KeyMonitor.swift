@@ -44,12 +44,32 @@ final class KeyMonitor {
         for name in [NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification, NSWindow.didBecomeKeyNotification] {
             on(name) { $0.refreshChrome() }
         }
+        on(NSWindow.didBecomeKeyNotification) { $0.releaseDebugField() }
 
         model.hooks.resize = { [weak w] size in if let w { WindowChrome.setContentSize(size, of: w) } }
         // The shell's own part of a blur (`debug.command` {"blur":true} calls `windowBlurred()` itself).
         model.hooks.blur = { [weak model] in model?.dropHover(false) }
         refreshChrome()
         if let size = model.config.window { WindowChrome.setContentSize(size, of: w) }
+        releaseDebugField()
+    }
+
+    /// AppKit gives a new window's first text field the keyboard. In UI-test builds that is the
+    /// hidden `debug.command` field, which then swallowed every key the tests typed. Only that
+    /// field is released, now and once SwiftUI has settled; a click on it (how the tests send a
+    /// command) still focuses it, and a real text field keeps the keyboard.
+    func releaseDebugField() {
+        func release() {
+            guard let w = window, let editor = w.firstResponder as? NSTextView,
+                  let field = editor.delegate as? NSTextField,
+                  // By its identifier, or by its size (the hook is laid out 1 x 1; AppKit reports
+                  // it a few points wide): SwiftUI doesn't always pass the identifier down.
+                  field.accessibilityIdentifier() == AccessibilityID.Debug.command || (model?.config.uiTest == true && field.frame.width <= 4)
+            else { return }
+            w.makeFirstResponder(nil)
+        }
+        release()
+        for delay in [0.05, 0.3] { DispatchQueue.main.asyncAfter(deadline: .now() + delay) { MainActor.assumeIsolated { release() } } }
     }
 
     /// Stop listening: the window closed or the shell went away.

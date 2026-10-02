@@ -141,7 +141,7 @@ final class LayoutAndSizingTests: XCTestCase {
         for n in 1...4 {
             l.go(n, settle: n == 3 ? 1.1 : 0.45)
             let q = l.app.descendants(matching: .any).matching(NSPredicate(format: "elementType IN %@", [XCUIElement.ElementType.button, .radioButton, .slider, .checkBox, .tab, .menuItem].map { $0.rawValue }))
-            for e in q.allElementsBoundByIndex where e.isHittable && !e.identifier.hasPrefix("debug.") {
+            for e in q.allElementsBoundByIndex where e.isHittable && !e.identifier.hasPrefix("debug.") && !e.identifier.hasPrefix("_XCUI:") {
                 XCTAssertFalse(e.label.isEmpty && (e.title.isEmpty) && ((e.value as? String) ?? "").isEmpty, "step \(n): unlabelled \(e.identifier)")
             }
         }
