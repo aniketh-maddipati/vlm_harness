@@ -59,7 +59,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
         guard let url = task.request.url, let host = url.host else { return fail(task) }
-        let path = String((url.path.removingPercentEncoding ?? url.path).dropFirst())
+        let path = Self.path(url)
         let isMedia = (host == "app" && path.hasPrefix("media/")) || host == "render"
         if !isMedia { lock.withLock { _served.append(url.absoluteString) } }
         switch host {
@@ -86,6 +86,27 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
         }
     }
 
+    /// The URL's path without its leading slash, percent-decoded once. Decoding twice would turn a
+    /// file named "50%41.ARW" (sent as "50%2541.ARW") into "50A.ARW".
+    static func path(_ url: URL) -> String {
+        String(url.path(percentEncoded: false).dropFirst())
+    }
+
+    /// The query as name → value (the first of a repeated name). A `+` is a space, as in
+    /// application/x-www-form-urlencoded (what URLSearchParams writes); plumbing.js sends
+    /// encodeURIComponent, where a space is %20 and a real `+` is %2B, so both read the same.
+    /// URLComponents.queryItems alone keeps `+` as a plus: a folder named "with space" was 404.
+    static func query(_ url: URL) -> [String: String] {
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedQueryItems ?? []
+        let decode = { (s: String) in s.replacingOccurrences(of: "+", with: " ").removingPercentEncoding }
+        var out: [String: String] = [:]
+        for i in items {
+            guard let name = decode(i.name), let raw = i.value, let value = decode(raw), out[name] == nil else { continue }
+            out[name] = value
+        }
+        return out
+    }
+
     func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {
         lock.withLock { _ = stopped.insert(ObjectIdentifier(task)) }
     }
@@ -94,8 +115,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     /// the page can tell apart: 404 not in an opened folder, 410 the card went away, 422 unreadable.
     private func media(_ task: WKURLSchemeTask, _ url: URL, _ kind: String) {
         guard let ingest else { return fail(task) }
-        let q = Dictionary(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.compactMap { i in i.value.map { (i.name, $0) } } ?? [],
-                           uniquingKeysWith: { a, _ in a })
+        let q = Self.query(url)
         guard let rel = q["p"] else { return status(task, url, 404, "no file") }
         let preview = SetsIngest.Preview(rel: rel, offset: Int(q["o"] ?? "") ?? 0, length: Int(q["l"] ?? "") ?? 0, orientation: Int(q["ori"] ?? "") ?? 1)
         let work: () throws -> Data
@@ -132,8 +152,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     /// which requests still matter.
     private func render(_ task: WKURLSchemeTask, _ url: URL, _ rel: String) {
         guard let ingest else { return fail(task) }
-        let q = Dictionary(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.compactMap { i in i.value.map { (i.name, $0) } } ?? [],
-                           uniquingKeysWith: { a, _ in a })
+        let q = Self.query(url)
         guard !rel.isEmpty, let file = ingest.resolve(rel) else { return status(task, url, 404, "not in an opened folder") }
         guard let renderer = lookRenderer() else { return status(task, url, 503, "no look pipeline (rules-v1.json missing)") }
         let look = q["look"] ?? "", seq = Int(q["seq"] ?? "") ?? 0

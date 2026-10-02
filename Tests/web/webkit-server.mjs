@@ -8,7 +8,7 @@ import http from 'http';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot, makeBigJpegs, makeBigShoot } from './lib.mjs';
+import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot, makeBigJpegs, makeBigShoot, strictQuery } from './lib.mjs';
 
 const port = +(process.argv[2] || 8765), work = path.resolve(process.argv[3] || '/tmp/lumina-webkit');
 fs.mkdirSync(work, { recursive: true });
@@ -81,13 +81,13 @@ http.createServer(async (req, res) => {
     if (req.method === 'POST' && p === 'ctl') { const m = JSON.parse(await body(req)); return json(res, await ctl(m.op, m)); }
     if (p.startsWith('render/')) {
       // The Edit preview (image path): what lumina://render answers.
-      const rel = p.slice(7), q = Object.fromEntries(u.searchParams);
+      const rel = p.slice(7), q = strictQuery(u);
       if (!bridge.resolve(rel)) { res.writeHead(404); return res.end('not in an opened folder'); }
       const r = await bridge.render(rel, q);
       res.writeHead(r.status, { 'content-type': r.contentType || 'text/plain' }); return res.end(r.body);
     }
     if (p.startsWith('media/')) {
-      const q = Object.fromEntries(u.searchParams), f = bridge.resolve(q.p || ''), [n] = (q.p || '').split('/');
+      const q = strictQuery(u), f = bridge.resolve(q.p || ''), [n] = (q.p || '').split('/');
       if (bridge.gone.has(n)) { res.writeHead(410); return res.end('card removed'); }
       if (!f || !fs.existsSync(f)) { res.writeHead(404); return res.end('not in an opened folder'); }
       if (p === 'media/thumb') {
