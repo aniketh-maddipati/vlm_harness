@@ -2,10 +2,10 @@ import SwiftUI
 import AppKit
 import LuminaCore
 
-// WP-5. The controls column (README §3): header, the histogram, tools, sections, sliders, the hint
-// line and the bottom bar with the save status. Its width and where it sits are the canvas's
-// (WP-4); it fills what it is given and scrolls its sliders inside. Every action is a model
-// function; nothing here reads the keyboard.
+// WP-5. The controls column (README §3): header, the histogram (while cropping, the Crop row),
+// tools, sections, sliders and the bottom bar; the hint and the save status are in the footer
+// (`EditFooter`). Its width and where it sits are the canvas's (WP-4); it fills what it is given
+// and scrolls its sliders inside. Every action is a model function; nothing here reads the keyboard.
 
 public struct EditControls: View {
     @Environment(AppModel.self) private var model
@@ -22,13 +22,13 @@ public struct EditControls: View {
             EditControlsHeader(m: m)
             if let w = model.edit.warning, !w.isEmpty { EditWarningLine(text: w) }
             if !collapsed {
-                if model.histogramShown { EditHistogramPanel() }
+                // While cropping, the histogram's place says so, with Cancel and Apply (prototype `cropOn` row).
+                if model.edit.overlay == .crop { EditCropRow() } else if model.histogramShown { EditHistogramPanel() }
                 EditToolsRow(m: m)
                 EditSectionTabs(m: m)
                 ScrollView(.vertical) { EditSliderList(m: m).padding(.horizontal, m.rowInset) }
                     .padding(.horizontal, -m.rowInset)
                     .frame(maxHeight: .infinity, alignment: .top)
-                EditHintLine()
             }
             EditBottomBar(m: m)
         }
@@ -93,23 +93,31 @@ struct EditWarningLine: View {
     }
 }
 
-/// `edit.hint`: what the slider under the pointer does. The space is always there, sized for the
-/// longest hint, so nothing moves when the pointer crosses the sliders.
-struct EditHintLine: View {
+/// "Cropping · Cancel · Apply ⏎" (prototype: the row over the tools while `cropOn`).
+struct EditCropRow: View {
     @Environment(AppModel.self) private var model
     @Environment(\.luminaScale) private var s
-    @Environment(\.accessibilityReduceMotion) private var reduce
     var body: some View {
-        // A slider's hint, or a clipping marker's words.
-        let text = model.editHintText
-        Text(EditFormat.hint("lum_magenta")).font(LuminaFont.small(s)).fixedSize(horizontal: false, vertical: true).hidden()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .overlay(alignment: .topLeading) {
-                Text(text).font(LuminaFont.small(s, id: AccessibilityID.Edit.hint)).foregroundStyle(LuminaColor.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .animation(LuminaMotion.panelFade(reduce), value: text.isEmpty)
+        HStack(spacing: 6.scaled(s)) {
+            Text("Cropping").font(LuminaFont.small(s, .bold)).foregroundStyle(LuminaColor.textPrimary).lineLimit(1).fixedSize()
+            Spacer(minLength: 0)
+            Button { model.cropCancel() } label: {
+                Text("Cancel").font(LuminaFont.small(s)).foregroundStyle(LuminaColor.textPrimary)
+                    .padding(.horizontal, 8.scaled(s)).frame(height: LuminaHeight.chip.scaled(s)).contentShape(Rectangle())
             }
-            .luminaStatus(AccessibilityID.Edit.hint, text)
+            .buttonStyle(.plain).help("Cancel the crop · esc")
+            Button { model.cropKeep() } label: {
+                HStack(spacing: 6.scaled(s)) { Text("Apply"); KeyCap(text: "⏎", onGold: true) }
+                    .font(LuminaFont.small(s, .bold)).foregroundStyle(LuminaColor.textOnPrimary)
+                    .padding(.horizontal, 8.scaled(s)).frame(height: LuminaHeight.chip.scaled(s))
+                    .background(RoundedRectangle(cornerRadius: 6.scaled(s), style: .continuous).fill(LuminaColor.accentGold))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).help("Apply the crop · ⏎")
+        }
+        .padding(.leading, 10.scaled(s)).padding(.trailing, 6.scaled(s)).padding(.vertical, 5.scaled(s))
+        .background(RoundedRectangle(cornerRadius: 8.scaled(s), style: .continuous).fill(LuminaColor.fill07))
+        .transition(.opacity)
     }
 }
 

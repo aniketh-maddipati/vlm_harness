@@ -1,9 +1,9 @@
 import SwiftUI
 import LuminaCore
 
-// WP-5. The bottom bar (README §3): ‹ Previous and Next → (gold, ⏎); Save {n} and ✕ Out;
-// then the save status ("Saving…" / "All changes saved") and All shortcuts ?. On the last photo
-// the gold moves from Next to Save.
+// WP-5. The bottom bar (README §3): ‹ Previous and Next → (gold); Save {n} and ⊗ Out. On the
+// last photo the gold moves from Next to Save. The save status and All shortcuts ? are in the
+// window-wide footer (`EditFooter`, prototype `data-lumina="footer"`).
 
 struct EditBottomBar: View {
     @Environment(AppModel.self) private var model
@@ -23,9 +23,9 @@ struct EditBottomBar: View {
 
                 Button { model.editNext() } label: {
                     HStack(spacing: 8.scaled(s)) {
-                        Text("Next →").font(LuminaFont.body(s, .bold)).lineLimit(1)
+                        Text("Next").font(LuminaFont.body(s, .bold)).lineLimit(1)
                         Spacer(minLength: 0)
-                        KeyHint("⏎", opacity: 0.7)
+                        Text("→").font(LuminaFont.mono(LuminaFontSize.hint, s)).accessibilityHidden(true)
                     }
                     .padding(.horizontal, 12.scaled(s)).frame(maxWidth: .infinity).frame(height: m.button)
                 }
@@ -47,7 +47,11 @@ struct EditBottomBar: View {
 
                 Button { model.editOut() } label: {
                     HStack(spacing: 7.scaled(s)) {
-                        Text("✕").font(LuminaFont.ui(LuminaFontSize.hint, .bold, s))
+                        // A ✕ in a 14pt ring (prototype: `box-shadow: inset 0 0 0 1.25px currentColor`).
+                        Text("✕").font(LuminaFont.ui(9, .bold, s))
+                            .frame(width: 14.scaled(s), height: 14.scaled(s))
+                            .overlay(Circle().strokeBorder(.foreground, lineWidth: 1.25))
+                            .accessibilityHidden(true)
                         Text("Out").font(LuminaFont.caption(s, .semibold)).lineLimit(1)
                     }
                     .padding(.horizontal, 8.scaled(s)).frame(maxWidth: .infinity).frame(height: m.button)
@@ -55,22 +59,6 @@ struct EditBottomBar: View {
                 .buttonStyle(EditBarButtonStyle(kind: .out))
                 .disabled(none)
                 .help("Out · X · drops it from your keepers · ⌘Z brings it back").accessibilityLabel("Out").accessibilityIdentifier(AccessibilityID.Edit.out)
-            }
-            // The footer (prototype `data-lumina="footer"` and `saveT`): where the edits stand, then help.
-            HStack(spacing: 8.scaled(s)) {
-                let status = model.editSaveStatus
-                Text(status).font(LuminaFont.small(s))
-                    .foregroundStyle(model.edit.warning == AppModel.storageWarning ? LuminaColor.errorText : LuminaColor.textTertiary)
-                    .lineLimit(1).truncationMode(.tail)
-                    .luminaStatus(AccessibilityID.Edit.saveStatus, status)
-                Spacer(minLength: 0)
-                Button { model.helpOpen() } label: {
-                    HStack(spacing: 6.scaled(s)) { Text("All shortcuts"); KeyHint("?", opacity: 0.8) }
-                }
-                .buttonStyle(LuminaLinkButtonStyle())
-                .fixedSize()
-                .help("Every key and gesture · ?").accessibilityLabel("All shortcuts")
-                .accessibilityIdentifier(AccessibilityID.Edit.shortcuts)
             }
         }
         .padding(.top, 6.scaled(s))

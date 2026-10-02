@@ -129,11 +129,10 @@ struct EditToolsRow: View {
 
     private func tool(_ title: String, key: String, on: Bool = false, id: String, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 6.scaled(s)) {
-                Text(title).font(LuminaFont.small(s, .semibold)).lineLimit(1)
-                KeyHint(key, opacity: on ? 0.7 : 0.55)
-            }
-            .padding(.horizontal, 4.scaled(s)).frame(maxWidth: .infinity).frame(height: m.tool)
+            // No key hint on the tools (prototype `tbar`: `kOn:false` at every size); the key is
+            // in the tooltip and in Help.
+            Text(title).font(LuminaFont.small(s, .semibold)).lineLimit(1)
+                .padding(.horizontal, 4.scaled(s)).frame(maxWidth: .infinity).frame(height: m.tool)
         }
         .buttonStyle(EditChipButtonStyle(on: on))
         .help(help)

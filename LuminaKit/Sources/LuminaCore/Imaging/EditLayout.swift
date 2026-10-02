@@ -22,10 +22,10 @@ public enum EditLayout {
     /// Zoom is clamped to ¼× of Fit … 2× of 1:1 (R-46). `oneToOne` is the factor that shows 1:1.
     public static func clampZoom(_ z: Double, oneToOne: Double) -> Double { clamp(0.25, z.isFinite ? z : 1, max(1, 2 * oneToOne)) }
 
-    /// Padding around the photo: 12pt, less only when the canvas is too small to leave 40pt of photo.
-    public static func padding(canvas: CGSize) -> CGFloat {
-        min(12, max(0, (min(canvas.width, canvas.height) - 40) / 2).rounded(.down))
-    }
+    /// Padding around the photo inside its canvas: none. The prototype's photo touches its canvas
+    /// (`ib`: k = min(CW / A, CH)); the margin around the canvas is the photo column's padding
+    /// (`Frames.padTop` …), so the photo still sits within 12pt of the column's edge (R-55).
+    public static func padding(canvas: CGSize) -> CGFloat { 0 }
 
     // MARK: Edit's frames
 
@@ -43,42 +43,71 @@ public enum EditLayout {
         public var columnWidth: CGFloat
         /// Thumbnail height; 0 = no filmstrip.
         public var stripHeight: CGFloat
-        /// Height of the filmstrip row with its padding.
+        /// Height of the filmstrip row: its scene labels (when shown), the thumbnails and the
+        /// 6pt under them (prototype `padding-bottom:6px`); 0 = no filmstrip.
         public var stripRow: CGFloat
-        /// The facts line shares the filmstrip's row (wide columns) instead of its own.
-        public var factsInline: Bool
-        /// Height of the facts row when it has its own; 0 otherwise.
+        /// The scene labels ("09:12 7") sit above the thumbnails (prototype `stripLbl`).
+        public var stripLabels: Bool
+        /// Height of the labels' line and of the gap under it; 0 when they are hidden.
+        public var stripLabelRow: CGFloat
+        public var stripLabelGap: CGFloat
+        /// Height of the facts line (prototype `factsOn`: windows 860 tall and up); 0 = hidden.
         public var factsRow: CGFloat
         /// Height of the "Hide ▾ / Show ▴" row; 0 when the controls are beside the photo.
         public var toggleRow: CGFloat
+        /// The photo column's padding (prototype `pad`) and the gap between canvas, filmstrip and
+        /// facts (`colGap`).
+        public var padTop: CGFloat
+        public var padSide: CGFloat
+        public var padBottom: CGFloat
+        public var gap: CGFloat
+        /// The window-wide footer under everything (prototype `data-lumina="footer"`, `footH`); 0 in focus.
+        public var footer: CGFloat
     }
 
-    /// How Edit divides `area` (the window under the top bar). Chrome is × `s`; the filmstrip
-    /// height is content and follows the window height. The facts line moves into the filmstrip's
-    /// row once the column is 1000pt × S wide: a row of its own there would take the canvas under
-    /// 70 % of a 1920 × 1080 window (R-55).
+    /// Filmstrip thumbnails (prototype `thumbH`): 56 on windows 1400 × 960 and up, 40 from 760
+    /// tall, 32 under. Content: not × S.
+    public static func stripThumbHeight(window: CGSize) -> CGFloat {
+        window.height >= 960 && window.width >= 1400 ? 56 : window.height >= 760 ? 40 : 32
+    }
+
+    /// How Edit divides `area` (the window under the top bar), as the prototype's grid does: the
+    /// photo column (padding, canvas, filmstrip with its scene labels, facts line) beside the
+    /// controls, or above them under 860 wide, and the footer across the whole width under both.
+    /// Chrome is × `s`; the thumbnails are content. The canvas always keeps at least 64pt (R-50).
     public static func frames(area: CGSize, window: CGSize, scale s: CGFloat, focus: Bool, controlsHidden: Bool, controlsCollapsed: Bool) -> Frames {
         if focus {
-            return Frames(controls: .hidden, canvas: area, columnWidth: area.width, stripHeight: 0, stripRow: 0, factsInline: false, factsRow: 0, toggleRow: 0)
+            return Frames(controls: .hidden, canvas: area, columnWidth: area.width, stripHeight: 0, stripRow: 0, stripLabels: false,
+                          stripLabelRow: 0, stripLabelGap: 0, factsRow: 0, toggleRow: 0, padTop: 0, padSide: 0, padBottom: 0, gap: 0, footer: 0)
         }
         let bp = Breakpoints(window), below = bp.editControlsBelow && !controlsHidden
         let side = !bp.editControlsBelow && !controlsHidden
+        let small = window.width < 1100 || window.height < 760
         let ctlW = side ? min(bp.editControlsWidth(s), max(0, area.width - 160)) : 0
         let colW = max(1, area.width - ctlW)
+        let footer = LayoutScale.px(window.height < 760 ? 26 : 34, s)
+        let padTop = LayoutScale.px(small ? 6 : clamp(8, 0.01 * window.width, 18), s)
+        let padSide = LayoutScale.px(small ? 8 : clamp(8, 0.012 * window.width, 20), s)
+        let padBottom = LayoutScale.px(small ? 6 : 8, s)
+        let gap = LayoutScale.px(small ? 6 : 10, s)
         let strip = window.width >= 560 && window.height >= 560
-        let stripH = strip ? bp.filmstripHeight.rounded() : 0
-        let stripRow = strip ? stripH + 2 * LayoutScale.px(4, s) : 0
-        let inline = strip && colW >= 1000 * s
-        let factsRow = inline ? 0 : LayoutScale.px(20, s)
+        let labels = strip && window.width >= 1100 && window.height >= 760
+        let stripH = strip ? stripThumbHeight(window: window) : 0
+        let labelRow = labels ? LayoutScale.px(15, s) : 0, labelGap = labels ? LayoutScale.px(5, s) : 0
+        let stripRow = strip ? labelRow + labelGap + stripH + LayoutScale.px(6, s) : 0
+        let factsRow = window.height >= 860 ? LayoutScale.px(15, s) : 0
         let toggle = below ? LayoutScale.px(30, s) : 0
+        // Everything in the photo column but the canvas.
+        let column = padTop + padBottom + (stripRow > 0 ? gap + stripRow : 0) + (factsRow > 0 ? gap + factsRow : 0)
         var ctlH: CGFloat = 0
         if below && !controlsCollapsed {
             let want = window.height < 760 ? 0.46 * window.height : max(300, 0.58 * window.height)
-            ctlH = max(0, min(want, area.height - toggle - stripRow - factsRow - 64)).rounded(.down)
+            ctlH = max(0, min(want, area.height - footer - toggle - column - 64)).rounded(.down)
         }
-        let canvas = CGSize(width: colW, height: max(1, area.height - stripRow - factsRow - toggle - ctlH))
+        let canvas = CGSize(width: max(1, colW - 2 * padSide), height: max(1, area.height - footer - column - toggle - ctlH))
         return Frames(controls: side ? .side(width: ctlW) : below ? .below(maxHeight: ctlH) : .hidden, canvas: canvas, columnWidth: colW,
-                      stripHeight: stripH, stripRow: stripRow, factsInline: inline, factsRow: factsRow, toggleRow: toggle)
+                      stripHeight: stripH, stripRow: stripRow, stripLabels: labels, stripLabelRow: labelRow, stripLabelGap: labelGap,
+                      factsRow: factsRow, toggleRow: toggle, padTop: padTop, padSide: padSide, padBottom: padBottom, gap: gap, footer: footer)
     }
 
     /// The same, from the window alone (headless: no view has measured anything yet).
@@ -86,6 +115,16 @@ public enum EditLayout {
         let s = LayoutScale.scale(for: window), top = focus ? 0 : LayoutScale.px(Breakpoints(window).topBarHeight, s)
         return frames(area: CGSize(width: window.width, height: max(1, window.height - top)), window: window, scale: s,
                       focus: focus, controlsHidden: controlsHidden, controlsCollapsed: controlsCollapsed)
+    }
+
+    /// While cropping, the whole turned frame sits under the crop toolbar at 84 % of the room
+    /// left (prototype `geo` in crop mode: top 48, 12 under, k × 0.84), centred, so the rotation
+    /// arcs outside its corners have room.
+    public static func cropFrameRect(aspect: CGFloat, canvas: CGSize, scale s: CGFloat) -> CGRect {
+        let a = aspect.isFinite && aspect > 0 ? aspect : 1.5
+        let top = 48 * s, bottom = 12 * s
+        let k = max(1, min(canvas.width / a, canvas.height - top - bottom) * 0.84)
+        return CGRect(x: (canvas.width - a * k) / 2, y: top + (canvas.height - top - k) / 2, width: a * k, height: k)
     }
 
     // MARK: sizes and zoom

@@ -2,13 +2,18 @@ import SwiftUI
 import LuminaCore
 
 // WP-4. Under the canvas (README §3 "Photo column"): the filmstrip of keepers, scene by scene,
-// each scene with "{done}/{n}", the current thumbnail centred; and the facts line. Only ±120
-// photos around the current one are drawn when there are more than 300 keepers.
+// each scene's label ("09:12  2/7", or "7" before any is done) above its thumbnails on windows
+// 1100 × 760 and up (prototype `stripLbl`), the current thumbnail centred; and the facts line.
+// Only ±120 photos around the current one are drawn when there are more than 300 keepers.
 
 struct EditFilmstrip: View {
     @Environment(AppModel.self) private var model
     @Environment(\.luminaScale) private var s
     let thumbHeight: CGFloat
+    /// Scene labels above the thumbnails, in a line `labelRow` high, `labelGap` above them.
+    var labels = false
+    var labelRow: CGFloat = 0
+    var labelGap: CGFloat = 0
     @State private var hovered: String?
 
     private struct SceneGroup: Identifiable { let id: Int; let hm: String; let ids: [String]; let done: Int; let count: Int }
@@ -30,19 +35,24 @@ struct EditFilmstrip: View {
     }
 
     private func strip(_ kept: [String]) -> some View {
-        let groups = groups(kept), labels = model.windowSize.width >= 1100 && model.windowSize.height >= 760
+        let groups = groups(kept), cur = model.editCur ?? ""
+        // The current thumbnail's ring is drawn outside it (prototype `0 0 0 2px #161514, 0 0 0
+        // 3.5px #FFD27A`): the content has 4pt around it that the scroll view reaches into.
+        let ring: CGFloat = 4
         return ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .center, spacing: 12.scaled(s)) {
+                LazyHStack(alignment: .top, spacing: 12.scaled(s)) {
                     ForEach(groups) { g in
-                        HStack(alignment: .center, spacing: 6.scaled(s)) {
+                        VStack(alignment: .leading, spacing: labels ? labelGap : 0) {
                             if labels {
-                                VStack(alignment: .leading, spacing: 1) {
+                                HStack(alignment: .firstTextBaseline, spacing: 6.scaled(s)) {
                                     Text(g.hm).font(LuminaFont.small(s, .bold))
-                                    Text("\(g.done)/\(g.count)").font(LuminaFont.mono(LuminaFontSize.hint, s)).foregroundStyle(LuminaColor.textTertiary)
+                                        .foregroundStyle(g.ids.contains(cur) ? LuminaColor.accentGold : LuminaColor.textSecondary)
+                                    Text(g.done > 0 ? "\(g.done)/\(g.count)" : "\(g.count)")
+                                        .font(LuminaFont.mono(LuminaFontSize.hint, s)).foregroundStyle(LuminaColor.textTertiary)
                                 }
-                                .foregroundStyle(g.ids.contains(model.editCur ?? "") ? LuminaColor.textPrimary : LuminaColor.textSecondary)
-                                .fixedSize()
+                                .lineLimit(1).fixedSize()
+                                .frame(height: labelRow, alignment: .leading)
                             }
                             HStack(spacing: 3) {
                                 ForEach(g.ids, id: \.self) { id in thumb(id).id(id) }
@@ -50,11 +60,11 @@ struct EditFilmstrip: View {
                         }
                     }
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, ring).padding(.vertical, ring)
             }
+            .padding(.horizontal, -ring).padding(.vertical, -ring)
             .onChange(of: model.editCur, initial: true) { _, cur in
                 guard let cur else { return }
-                // The first time at once, then smoothly.
                 proxy.scrollTo(cur, anchor: .center)
             }
         }
@@ -81,8 +91,9 @@ struct EditFilmstrip: View {
 
     private func thumb(_ id: String) -> some View {
         let p = model.shoot.photo(id), cur = id == model.editCur
+        // Prototype `t.w`: the photo's own proportions, at most 2.4 : 1.
         let a = CGFloat(p?.aspect ?? 1.5), h = thumbHeight
-        let w = min(h * 1.6, max(h * 0.75, h * a)).rounded()
+        let w = max(4, (h * min(2.4, a.isFinite && a > 0 ? a : 1.5)).rounded())
         let isDone = model.edits.done.contains(model.edits.key(for: id, decisions: model.decisions))
         return ZStack(alignment: .topTrailing) {
             if let p { PhotoThumb(p, maxPoint: max(w, h), cover: true) } else { LuminaColor.bgPanel }
@@ -94,9 +105,15 @@ struct EditFilmstrip: View {
         }
         .frame(width: w, height: h)
         .clipShape(RoundedRectangle(cornerRadius: LuminaRadius.thumbInner, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: LuminaRadius.thumbInner, style: .continuous)
-            .strokeBorder(cur ? LuminaColor.accentGold : .clear, lineWidth: 2))
-        .opacity(cur || hovered == id ? 1 : 0.6)
+        .overlay {
+            if cur {
+                RoundedRectangle(cornerRadius: LuminaRadius.thumbInner + 2, style: .continuous)
+                    .strokeBorder(LuminaColor.bgCanvas, lineWidth: 2).padding(-2)
+                RoundedRectangle(cornerRadius: LuminaRadius.thumbInner + 3.5, style: .continuous)
+                    .strokeBorder(LuminaColor.accentGold, lineWidth: 1.5).padding(-3.5)
+            }
+        }
+        .opacity(cur || hovered == id ? 1 : 0.72)
         .animation(.easeOut(duration: 0.1), value: hovered)
         .contentShape(Rectangle())
         .onHover { hovered = $0 ? id : (hovered == id ? nil : hovered) }
@@ -107,24 +124,25 @@ struct EditFilmstrip: View {
     }
 }
 
-/// "{lens} · {shutter} · f/{ap} · ISO {iso} · {fl} mm · {time}", then "{n} of {kept}".
+/// "{lens} · {shutter} · f/{ap} · ISO {iso} · {fl} mm · {time}", then "{n} of {kept}" at the
+/// right (prototype `data-lumina="facts"`; the line itself only from 1100 wide, `lineOn`).
 struct EditFactsLine: View {
     @Environment(AppModel.self) private var model
     @Environment(\.luminaScale) private var s
-    let compact: Bool
+    var showsLine = true
 
     var body: some View {
         if let p = model.shoot.photo(model.editCur) {
             let kept = model.keptIDs, i = kept.firstIndex(of: p.id).map { $0 + 1 }
             let facts = EditLayout.facts(p), line = facts.isEmpty ? p.file : facts
             let pos = i.map { "\($0) of \(kept.count)" } ?? ""
-            HStack(spacing: 14.scaled(s)) {
-                Text(line).lineLimit(1).truncationMode(.tail)
+            HStack(alignment: .firstTextBaseline, spacing: 14.scaled(s)) {
+                if showsLine { Text(line).lineLimit(1).truncationMode(.tail) }
                 Spacer(minLength: 0)
                 if !pos.isEmpty { Text(pos).foregroundStyle(LuminaColor.textTertiary).monospacedDigit().fixedSize() }
             }
             .font(LuminaFont.small(s, id: AccessibilityID.Edit.facts)).foregroundStyle(LuminaColor.textSecondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: compact ? .trailing : .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .luminaStatus(AccessibilityID.Edit.facts, pos.isEmpty ? line : "\(line) · \(pos)")
         } else {
             Color.clear

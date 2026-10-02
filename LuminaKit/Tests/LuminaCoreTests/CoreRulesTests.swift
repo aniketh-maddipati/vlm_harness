@@ -133,4 +133,41 @@ final class LayoutMathTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(min(r.width, r.height), 1)
         }
     }
+
+    /// Edit's frames are the prototype's (`Lumina Edit v19`: `pad`, `colGap`, `stripLbl`,
+    /// `thumbH`, `factsOn`, `footH`), measured on the golden capture at 1100 × 760: canvas
+    /// 13…835 × 53…642, photo 74…622 touching it across, filmstrip labels above 40pt thumbnails,
+    /// no facts line under 860 tall, a 34pt footer across the window.
+    func test_R55_editFrames_matchThePrototypeAt1100x760() {
+        let f = EditLayout.frames(window: CGSize(width: 1100, height: 760), focus: false, controlsHidden: false, controlsCollapsed: false)
+        XCTAssertEqual(f.controls, .side(width: 252))
+        XCTAssertEqual(f.canvas.width, 822, accuracy: 1); XCTAssertEqual(f.canvas.height, 589, accuracy: 1)
+        XCTAssertEqual(f.padTop, 11); XCTAssertEqual(f.padSide, 13); XCTAssertEqual(f.padBottom, 8); XCTAssertEqual(f.gap, 10)
+        XCTAssertTrue(f.stripLabels); XCTAssertEqual(f.stripHeight, 40); XCTAssertEqual(f.stripRow, 66)
+        XCTAssertEqual(f.factsRow, 0); XCTAssertEqual(f.footer, 34)
+        let photo = EditLayout.photoRect(aspect: 1.5, canvas: f.canvas, padding: EditLayout.padding(canvas: f.canvas))
+        XCTAssertEqual(photo.width, f.canvas.width, accuracy: 0.5, "the photo touches its canvas (no inner padding)")
+        XCTAssertEqual(photo.height, 548, accuracy: 1)
+        // While cropping the frame shrinks under the toolbar: 84 % of the room, centred below 48pt.
+        let crop = EditLayout.cropFrameRect(aspect: 1.5, canvas: f.canvas, scale: 1)
+        XCTAssertEqual(crop.minX, 78, accuracy: 2); XCTAssertEqual(crop.minY, 96, accuracy: 2)
+        XCTAssertEqual(crop.width, 666, accuracy: 2); XCTAssertEqual(crop.height, 444, accuracy: 2)
+    }
+
+    func test_editFrames_labelsFactsFooterAndFocus() {
+        func f(_ w: CGFloat, _ h: CGFloat) -> EditLayout.Frames {
+            EditLayout.frames(window: CGSize(width: w, height: h), focus: false, controlsHidden: false, controlsCollapsed: false)
+        }
+        XCTAssertFalse(f(1099, 760).stripLabels); XCTAssertFalse(f(1100, 759).stripLabels)
+        XCTAssertEqual(f(1100, 759).stripHeight, 32); XCTAssertEqual(f(1100, 759).footer, 26)
+        XCTAssertEqual(f(1100, 859).factsRow, 0); XCTAssertGreaterThan(f(1100, 860).factsRow, 0)
+        XCTAssertEqual(f(1400, 960).stripHeight, 56); XCTAssertEqual(f(1399, 960).stripHeight, 40)
+        XCTAssertEqual(f(559, 800).stripRow, 0); XCTAssertEqual(f(800, 559).stripRow, 0)
+        // The canvas keeps its 64pt (R-50) on the smallest shapes, controls under it and expanded.
+        for (w, h) in [(320.0, 480.0), (375, 812), (600, 300), (3000, 600)] {
+            XCTAssertGreaterThanOrEqual(f(w, h).canvas.height, 64, "\(w)×\(h)")
+        }
+        let focus = EditLayout.frames(window: CGSize(width: 1100, height: 760), focus: true, controlsHidden: false, controlsCollapsed: false)
+        XCTAssertEqual(focus.canvas, CGSize(width: 1100, height: 760)); XCTAssertEqual(focus.footer, 0)
+    }
 }

@@ -100,8 +100,11 @@ struct EditPhotoStage: View {
 
     var body: some View {
         let cropping = model.edit.overlay == .crop
-        let fit = EditLayout.photoRect(aspect: model.canvasAspect(photo), canvas: canvas, padding: EditLayout.padding(canvas: canvas))
-        let r = cropping ? fit : EditLayout.zoomedRect(fit: fit, zoom: model.edit.zoom, pan: model.edit.pan)
+        let aspect = CGFloat(model.canvasAspect(photo))
+        let fit = EditLayout.photoRect(aspect: aspect, canvas: canvas, padding: EditLayout.padding(canvas: canvas))
+        // While cropping, the whole frame sits smaller, under the crop toolbar, with room for the arcs.
+        let frame = cropping ? EditLayout.cropFrameRect(aspect: aspect, canvas: canvas, scale: s) : fit
+        let r = cropping ? frame : EditLayout.zoomedRect(fit: fit, zoom: model.edit.zoom, pan: model.edit.pan)
         ZStack(alignment: .topLeading) {
             Color.clear.contentShape(Rectangle())
                 .gesture(panGesture)
@@ -111,8 +114,8 @@ struct EditPhotoStage: View {
                 .frame(width: max(1, r.width), height: max(1, r.height))
                 .position(x: r.midX, y: r.midY)
                 .allowsHitTesting(false)
-            if cropping { CropStage(frame: fit) }
-            chips(cropping: cropping)
+            if cropping { CropStage(frame: frame) }
+            chips(cropping: cropping, photo: r)
         }
         .frame(width: canvas.width, height: canvas.height)
         .onContinuousHover(coordinateSpace: .local) { phase in
@@ -123,18 +126,29 @@ struct EditPhotoStage: View {
         }
     }
 
-    @ViewBuilder private func chips(cropping: Bool) -> some View {
+    @ViewBuilder private func chips(cropping: Bool, photo r: CGRect) -> some View {
         if model.edit.before && !cropping {
             CanvasChip(text: "Before", bold: true)
                 .padding(12.scaled(s)).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .allowsHitTesting(false)
         }
         if !cropping {
+            // 10pt in from the canvas's bottom-right corner (prototype `right:10px;bottom:10px`),
+            // pulled in to the photo when it doesn't reach that corner (at most 10pt below its
+            // bottom edge, as in the golden at 1100 × 760), so the dark pill sits on the picture:
+            // over the empty canvas its scrim, the canvas colour, wouldn't show.
+            let canvasRect = CGRect(origin: .zero, size: canvas), seen = r.intersection(canvasRect)
+            let photo = seen.isNull || seen.isEmpty ? canvasRect : seen
+            let inset = 10.scaled(s)
+            let right = min(canvas.width, photo.maxX) - inset
+            let bottom = min(canvas.height - inset, photo.maxY + inset)
             VStack(alignment: .trailing, spacing: 6.scaled(s)) {
                 if model.edit.loadingFullSize && model.edit.photo == .loading { LoadingChip() }
                 if canvas.width >= 300 { ZoomPicker() }
             }
-            .padding(10.scaled(s)).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .fixedSize()
+            .frame(width: max(0, right), height: max(0, bottom), alignment: .bottomTrailing)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 

@@ -1,12 +1,16 @@
 import SwiftUI
+import AppKit
 import LuminaCore
 
 // WP-4. Crop and straighten on the canvas (README §3 "Crop"; R-24): the whole turned and
-// straightened frame shows (`canvasLook`), the box over it with a rule-of-thirds grid, the
-// outside dimmed. Corners resize (held to the ratio unless Free), the inside moves, and in
-// Straighten mode a line drawn along the horizon levels the picture. The toolbar has the ratio
-// menu (with the portrait / landscape swap), the angle, Turn, Cancel and Done. Every change is a
-// model function, so it lands in Crop's own undo (⌘Z / Q inside Crop).
+// straightened frame shows (`canvasLook`), shrunk under the toolbar (`EditLayout.cropFrameRect`),
+// the box over it with a rule-of-thirds grid, the outside dimmed. Corners resize (held to the
+// ratio unless Free), the inside moves, a drag outside the box (the arcs at its corners show
+// where) turns the picture, and in Straighten mode a line drawn along the horizon levels it. A
+// crosshair through the frame's centre turns with the picture and reads the angle. The toolbar
+// has the ratio menu (with the portrait / landscape swap), Straighten with the angle, Turn,
+// Cancel and Apply. Every change is a model function, so it lands in Crop's own undo (⌘Z / Q
+// inside Crop).
 
 struct CropStage: View {
     @Environment(AppModel.self) private var model
@@ -17,6 +21,9 @@ struct CropStage: View {
     @State private var dragStart: CropBox?
     @State private var lineStart: CGPoint?
     @State private var lineEnd: CGPoint?
+    /// A turn being dragged: the angle it started from, the box's centre, the pointer's bearing.
+    @State private var turnStart: (angle: Double, centre: CGPoint, bearing: Double)?
+    @State private var hoverArc: Corner?
 
     private static let space = "lumina.cropStage"
     enum Corner: CaseIterable { case tl, tr, bl, br }
@@ -25,7 +32,12 @@ struct CropStage: View {
         let b = CropBox(model.edit.cropDraft)
         let box = CGRect(x: frame.minX + b.x * frame.width, y: frame.minY + b.y * frame.height,
                          width: b.w * frame.width, height: b.h * frame.height)
+        let arc = Self.arcSize(box)
         ZStack(alignment: .topLeading) {
+            // Outside the box, a drag turns the picture about the box's centre (prototype `cropDown`).
+            Color.clear.contentShape(Rectangle())
+                .gesture(turnGesture(box))
+
             // Outside the box: the canvas colour at 64 %. The canvas clips what reaches past it.
             Path { p in
                 p.addRect(CGRect(x: -4000, y: -4000, width: 8000, height: 8000))
@@ -39,6 +51,15 @@ struct CropStage: View {
                 .contentShape(Rectangle())
                 .gesture(moveGesture)
                 .position(x: box.midX, y: box.midY)
+
+            crosshair(b)
+
+            ForEach(Corner.allCases, id: \.self) { c in
+                CropTurnArc(corner: c, size: arc, lit: hoverArc == c || turnStart != nil)
+                    .frame(width: arc, height: arc)
+                    .position(corner(c, of: box))
+                    .allowsHitTesting(false)
+            }
 
             ForEach(Corner.allCases, id: \.self) { c in
                 CropHandle(corner: c)
@@ -55,7 +76,88 @@ struct CropStage: View {
                 .frame(maxWidth: .infinity, alignment: .top)
         }
         .coordinateSpace(.named(Self.space))
-        .animation(dragStart == nil ? LuminaMotion.cropBox(reduce) : nil, value: b)
+        // The stage's own coordinates are the named space's (it is set on this view).
+        .onContinuousHover(coordinateSpace: .local) { phase in
+            var lit: Corner?
+            if case .active(let p) = phase, !box.contains(p) {
+                lit = Corner.allCases.first { c in
+                    let q = corner(c, of: box)
+                    return hypot(p.x - q.x, p.y - q.y) <= arc / 2 + 6
+                }
+            }
+            if hoverArc != lit { hoverArc = lit }
+        }
+        .animation(dragStart == nil && turnStart == nil ? LuminaMotion.cropBox(reduce) : nil, value: b)
+    }
+
+    /// The arcs' size (prototype `arcS`): 17 % of the box's short side, 28…72.
+    static func arcSize(_ box: CGRect) -> CGFloat {
+        max(28, min(72, min(box.width, box.height) * 0.17)).rounded()
+    }
+
+    private func corner(_ c: Corner, of r: CGRect) -> CGPoint {
+        switch c {
+        case .tl: CGPoint(x: r.minX, y: r.minY)
+        case .tr: CGPoint(x: r.maxX, y: r.minY)
+        case .bl: CGPoint(x: r.minX, y: r.maxY)
+        case .br: CGPoint(x: r.maxX, y: r.maxY)
+        }
+    }
+
+    /// "0.0°" (prototype `sg(ang, 1)`), and how much of the photo a steep angle leaves.
+    static func angleText(_ b: CropBox, frame: CGRect) -> String {
+        let a = (b.angle * 10).rounded() / 10
+        var t = a == 0 ? "0.0°" : String(format: "%+.1f°", a).replacingOccurrences(of: "-", with: "−")
+        guard frame.height > 0, b.h > 0 else { return t }
+        let sc = CropBox.coverScale(angle: b.angle, aspect: Double(frame.width / frame.height) * b.w / b.h)
+        if sc > 1.3 { t += " · keeps \(Int((100 / (sc * sc)).rounded()))% of the photo" }
+        return t
+    }
+
+    /// Through the frame's centre: a faint level and plumb line, the same two dashed in gold
+    /// turned by the angle, and the angle beside them (prototype `axOn`).
+    private func crosshair(_ b: CropBox) -> some View {
+        let c = CGPoint(x: frame.midX, y: frame.midY), r: CGFloat = 4000
+        let cross = Path { p in
+            p.move(to: CGPoint(x: c.x - r, y: c.y)); p.addLine(to: CGPoint(x: c.x + r, y: c.y))
+            p.move(to: CGPoint(x: c.x, y: c.y - r)); p.addLine(to: CGPoint(x: c.x, y: c.y + r))
+        }
+        let turn = CGAffineTransform(translationX: c.x, y: c.y).rotated(by: CGFloat(b.angle * .pi / 180)).translatedBy(x: -c.x, y: -c.y)
+        return ZStack(alignment: .topLeading) {
+            cross.stroke(LuminaColor.textPrimary.opacity(0.2), lineWidth: 1)
+            cross.applying(turn).stroke(LuminaColor.accentGold, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            Color.clear.frame(width: 1, height: 1)
+                .overlay(alignment: .topLeading) {
+                    Text(Self.angleText(b, frame: frame))
+                        .font(LuminaFont.mono(11, s)).foregroundStyle(LuminaColor.accentGold)
+                        .lineLimit(1).fixedSize()
+                        .padding(.horizontal, 6).padding(.vertical, 1)
+                        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(LuminaColor.overlayChip))
+                        .offset(x: 10, y: -24)
+                }
+                .position(c)
+        }
+        .allowsHitTesting(false)
+    }
+
+    /// A drag outside the box turns the picture: the angle follows the pointer's bearing around
+    /// the box's centre (⇧ a quarter as fast), −45…45° (prototype `cropDown`, `c.ang`).
+    private func turnGesture(_ box: CGRect) -> some Gesture {
+        DragGesture(minimumDistance: 2, coordinateSpace: .named(Self.space))
+            .onChanged { v in
+                guard !model.edit.straightening else { return }
+                if turnStart == nil {
+                    let c = CGPoint(x: box.midX, y: box.midY)
+                    turnStart = (CropBox(model.edit.cropDraft).angle, c, Double(atan2(v.startLocation.y - c.y, v.startLocation.x - c.x)))
+                }
+                guard let t = turnStart else { return }
+                var da = (Double(atan2(v.location.y - t.centre.y, v.location.x - t.centre.x)) - t.bearing) * 180 / .pi
+                if da > 180 { da -= 360 }
+                if da < -180 { da += 360 }
+                let fine = NSEvent.modifierFlags.contains(.shift)
+                model.setCropAngle(t.angle + da * (fine ? 0.25 : 1))
+            }
+            .onEnded { _ in turnStart = nil }
     }
 
     private func point(_ c: Corner, of r: CGRect) -> CGPoint {
@@ -181,13 +283,41 @@ private struct CropHandle: View {
     }
 }
 
-/// Ratio ▾ · Straighten {angle} · Turn ↻ · Cancel esc · Done ⏎.
+/// A quarter-circle-and-a-half outside a corner of the box (prototype `data-rot`: a ring with
+/// two borders lit, 0.55 white, full white under the pointer): where a drag turns the picture.
+private struct CropTurnArc: View {
+    let corner: CropStage.Corner
+    let size: CGFloat
+    let lit: Bool
+    private var turn: Double {
+        switch corner {
+        case .tl: 0
+        case .tr: 90
+        case .br: 180
+        case .bl: 270
+        }
+    }
+
+    var body: some View {
+        // The ring's half that faces away from the box: centred on the corner's outward diagonal
+        // (screen angles, clockwise from 3 o'clock: top-left 225°, top-right 315°, …).
+        let line: CGFloat = size > 48 ? 3 : 2
+        Circle().trim(from: 0.375, to: 0.875)
+            .stroke(LuminaColor.textPrimary.opacity(lit ? 1 : 0.55), lineWidth: line)
+            .padding(line / 2)
+            .rotationEffect(.degrees(turn))
+            .animation(.easeOut(duration: 0.12), value: lit)
+    }
+}
+
+/// Ratio {name} ▾ · Straighten {angle} S · Turn ↻ · Cancel esc · Apply ⏎ (prototype crop toolbar).
 struct CropToolbar: View {
     @Environment(AppModel.self) private var model
     @Environment(\.luminaScale) private var s
 
     var body: some View {
-        let angle = CropBox(model.edit.cropDraft).angle
+        let b = CropBox(model.edit.cropDraft), straightening = model.edit.straightening
+        let angle = (b.angle * 10).rounded() / 10
         HStack(spacing: 4.scaled(s)) {
             Menu {
                 ForEach(CropBox.ratios, id: \.self) { name in
@@ -198,31 +328,40 @@ struct CropToolbar: View {
                 Divider()
                 Button("Portrait ↔ landscape") { model.cropSwapRatio() }
             } label: {
-                Text(model.edit.cropRatio).font(LuminaFont.small(s, .semibold))
+                HStack(spacing: 6.scaled(s)) {
+                    Text("Ratio \(model.edit.cropRatio)").font(LuminaFont.small(s, .semibold))
+                    Text("▾").font(LuminaFont.ui(10, .regular, s)).opacity(0.7)
+                }
+                .foregroundStyle(LuminaColor.textPrimary)
             }
-            .menuStyle(.borderlessButton).menuIndicator(.visible).fixedSize()
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             .padding(.horizontal, 9.scaled(s)).frame(height: LuminaHeight.chip.scaled(s))
-            .background(RoundedRectangle(cornerRadius: LuminaRadius.pill.scaled(s), style: .continuous).fill(LuminaColor.fill10))
+            .background(RoundedRectangle(cornerRadius: LuminaRadius.pill.scaled(s), style: .continuous).fill(LuminaColor.fill07))
             .accessibilityIdentifier(AccessibilityID.Edit.cropRatio)
             .accessibilityLabel("Ratio \(model.edit.cropRatio)")
 
-            toolButton(on: model.edit.straightening, action: { model.straighten() }) {
+            toolButton(fill: straightening ? LuminaColor.accentGold : LuminaColor.fill10, dark: straightening, action: { model.straighten() }) {
                 HStack(spacing: 6.scaled(s)) {
                     Text("Straighten")
-                    Text(String(format: "%+.1f°", angle)).font(LuminaFont.mono(LuminaFontSize.hint, s)).opacity(0.8)
-                    KeyHint("S")
+                    Text(angle == 0 ? "0.0°" : String(format: "%+.1f°", angle).replacingOccurrences(of: "-", with: "−"))
+                        .font(LuminaFont.mono(LuminaFontSize.small, s)).opacity(0.8)
+                    KeyCap(text: "S", onGold: straightening)
                 }
             }
-            Slider(value: Binding(get: { CropBox(model.edit.cropDraft).angle }, set: { model.setCropAngle($0) }), in: -45...45)
-                .controlSize(.mini).frame(width: 90.scaled(s))
-                .accessibilityLabel("Straighten angle")
-            toolButton(on: false, action: { model.cropRotate(1) }) {
-                HStack(spacing: 5.scaled(s)) { Text("Turn"); Text("↻").font(LuminaFont.ui(LuminaFontSize.title3, .bold, s)) }
+            .help("Straighten · S · draw along the horizon; or drag outside the frame to turn")
+            toolButton(fill: .clear, action: { model.cropRotate(1) }) {
+                HStack(spacing: 5.scaled(s)) { Text("Turn"); Text("↻").font(LuminaFont.ui(15, .bold, s)) }
             }
+            .help("Turn a quarter right · R")
             .accessibilityLabel("Turn right")
-            toolButton(on: false, action: { model.cropCancel() }) { HStack(spacing: 6.scaled(s)) { Text("Cancel"); KeyHint("esc") } }
-            Button { model.cropKeep() } label: { HStack(spacing: 6.scaled(s)) { Text("Done"); KeyHint("⏎") } }
-                .buttonStyle(LuminaPrimaryButtonStyle(height: LuminaHeight.chip, radius: LuminaRadius.pill, fontSize: LuminaFontSize.small, padding: 9))
+            toolButton(fill: .clear, weight: .regular, action: { model.cropCancel() }) {
+                HStack(spacing: 6.scaled(s)) { Text("Cancel"); KeyCap(text: "esc") }
+            }
+            .accessibilityLabel("Cancel")
+            toolButton(fill: LuminaColor.accentGold, dark: true, weight: .bold, action: { model.cropKeep() }) {
+                HStack(spacing: 6.scaled(s)) { Text("Apply"); KeyCap(text: "⏎", onGold: true) }
+            }
+            .accessibilityLabel("Apply")
         }
         .padding(4.scaled(s))
         .background(RoundedRectangle(cornerRadius: LuminaRadius.segmented.scaled(s), style: .continuous).fill(LuminaColor.overlayScrim))
@@ -231,13 +370,12 @@ struct CropToolbar: View {
         .accessibilityIdentifier(AccessibilityID.Edit.crop)
     }
 
-    private func toolButton<L: View>(on: Bool, action: @escaping () -> Void, @ViewBuilder label: () -> L) -> some View {
+    private func toolButton<L: View>(fill: Color, dark: Bool = false, weight: Font.Weight = .semibold, action: @escaping () -> Void, @ViewBuilder label: () -> L) -> some View {
         Button(action: action) {
-            label().font(LuminaFont.small(s, .semibold))
-                .foregroundStyle(on ? LuminaColor.textOnPrimary : LuminaColor.textPrimary)
+            label().font(LuminaFont.small(s, weight))
+                .foregroundStyle(dark ? LuminaColor.textOnPrimary : LuminaColor.textPrimary)
                 .padding(.horizontal, 8.scaled(s)).frame(height: LuminaHeight.chip.scaled(s))
-                .background(RoundedRectangle(cornerRadius: LuminaRadius.pill.scaled(s), style: .continuous)
-                    .fill(on ? LuminaColor.accentGold : LuminaColor.fill04))
+                .background(RoundedRectangle(cornerRadius: LuminaRadius.pill.scaled(s), style: .continuous).fill(fill))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
