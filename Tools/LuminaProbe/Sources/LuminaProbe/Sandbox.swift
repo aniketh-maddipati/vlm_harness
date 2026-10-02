@@ -96,6 +96,14 @@ enum ProbeSandbox {
         return (Int32(r["status"] as? Int ?? -1), r["out"] as? String ?? "", r["err"] as? String ?? "broker gave no answer")
     }
 
+    /// Q3 (LifeSteps.killWebContent): the sandbox does not let this process signal its own web
+    /// content process, so the launcher sends the SIGKILL (it checks the pid is a WebContent
+    /// process). Nil when the probe is not sandboxed (the caller kills it itself).
+    static func killWebContent(_ pid: pid_t) -> String? {
+        guard active else { return nil }
+        return ask(["op": "killWebContent", "pid": Int(pid)])["result"] as? String ?? "broker gave no answer"
+    }
+
     // MARK: Grants
 
     static let envDirectory = "LUMINA_PROBE_CWD"
@@ -283,6 +291,14 @@ enum SandboxLauncher {
                             answer = ["status": Int(p.terminationStatus), "out": String(data: o, encoding: .utf8) ?? "", "err": String(data: e, encoding: .utf8) ?? ""]
                         } catch { answer = ["status": -1, "err": "\(error)"] }
                     } else { answer = ["status": -1, "err": "not a tool the launcher runs"] }
+                case "killWebContent":
+                    // Only a WebKit WebContent process (the sandboxed probe names its own web view's).
+                    let target = pid_t(req["pid"] as? Int ?? 0)
+                    var buf = [CChar](repeating: 0, count: 4096)
+                    let path = target > 0 && proc_pidpath(target, &buf, UInt32(buf.count)) > 0 ? String(cString: buf) : ""
+                    if !path.hasSuffix("/com.apple.WebKit.WebContent") { answer["result"] = "refused: pid \(target) is not a WebContent process (\(path))" }
+                    else { answer["result"] = kill(target, SIGKILL) == 0 ? "killed" : "kill failed: \(String(cString: strerror(errno)))" }
+                    lock.lock(); grants.append(["t": Date().timeIntervalSince(started), "killWebContent": Int(target), "result": answer["result"] ?? ""]); lock.unlock()
                 default: break
                 }
                 var data = (try? JSONSerialization.data(withJSONObject: answer)) ?? Data("{}".utf8)

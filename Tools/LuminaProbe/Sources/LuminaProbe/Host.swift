@@ -109,7 +109,8 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
             navDone = c
             loadSeq += 1
             let seq = loadSeq
-            webView.load(URLRequest(url: url))
+            lastPage = URLRequest(url: url)
+            webView.load(lastPage)
             // A web process that cannot start (sandboxed without network.client) never finishes or
             // fails the navigation: without this the run waits for the 30-minute deadline.
             Task { @MainActor [weak self] in
@@ -125,9 +126,36 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { navDone?.resume(throwing: error); navDone = nil }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { navDone?.resume(throwing: error); navDone = nil }
 
+    /// Q3 (`recovery` step): answer a stopped page as SetsRootView does, with the app's own
+    /// SetsReloadPolicy (SetsPageRecovery.swift, compiled in): reload while it allows, then stop
+    /// and "ask" (logged; the probe shows no alert). Nil: a stopped page fails the run, as before.
+    var recovery: SetsReloadPolicy?
+    private(set) var pageStopped = false
+    /// Every stop the recovery handled: "reload" or "ask", in order.
+    private(set) var recoveries: [String] = []
+    private var lastPage = URLRequest(url: SetsSchemeHandler.pageURL)
+
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        if recovery != nil {
+            guard !pageStopped else { recoveries.append("ignored (stopped)"); return }
+            switch recovery!.pageStopped() {
+            case .reload:
+                recoveries.append("reload"); log("recovery", "page stopped → reload")
+                webView.load(lastPage)
+            case .ask:
+                pageStopped = true
+                recoveries.append("ask"); log("recovery", "page stopped → ask: \(SetsPageStoppedAlert.message) · \(SetsPageStoppedAlert.detail())")
+            }
+            return
+        }
         webProcessCrashed = true
         fail("web content process terminated (crash or jetsam)")
+    }
+
+    /// "Try Again" on the alert: the count starts over and the page loads.
+    func recoveryTryAgain() {
+        recovery?.reset(); pageStopped = false
+        webView.load(lastPage)
     }
 
     // MARK: JS

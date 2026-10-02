@@ -1,0 +1,18 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [1440, 900],
+ "stopOnFailure": false,
+ "checklist": "Q3 / S6 (STRESS-MATRIX 5, Quit with a hung page): Quit asks the page how many keepers are unsaved (LuminaAppDelegate → SetsRootView.unsavedKeepers) and gives up after 2 s. The probe asks this page the same question through the app's own SetsFirstAnswer with the app's 2 s timeout: answered at once while the page runs (2 unsaved keepers), and the fallback 0 after about 2 s while the page's main thread is held in a busy loop. Not covered here: the app delegate's .terminateLater / reply and the process actually exiting (a hand check in docs/release/stress/Q3-lifecycle.md).",
+ "steps": [
+  { "do": "copyTree", "from": "${LUMINA_FIXTURE_ROOT}/src", "to": "${OUT}/shoot/src" },
+  { "do": "openFolder", "path": "${OUT}/shoot/src", "timeoutMs": 120000 },
+  { "do": "key", "k": "p", "settleMs": 150 },
+  { "do": "key", "k": "ArrowDown", "settleMs": 150 },
+  { "do": "key", "k": "p", "settleMs": 150 },
+  { "do": "expect", "js": "return __lumina.unsaved()", "equals": 2 },
+  { "do": "quitHung", "expectAnswer": 2, "hangMs": 6000, "timeoutS": 2 },
+  { "do": "expect", "js": "return __probe.logic().kept().length", "equals": 2, "why": "the page carries on once the busy loop ends" },
+  { "do": "invariants" }
+ ]
+}

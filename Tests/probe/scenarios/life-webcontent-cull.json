@@ -1,0 +1,319 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "stopOnFailure": false,
+ "checklist": "Q3 / S6 (STRESS-MATRIX 5, WebContent killed during a cull): the probe's own web content process is SIGKILLed 5 times within a minute while culling. The probe answers each stop with the app's own SetsReloadPolicy (Host.swift repeats SetsRootView.webViewWebContentProcessDidTerminate; the policy is compiled in): stops 1-3 reload the page, stop 4 asks (the alert is logged, not shown) and nothing reloads on its own for 3 s, Try Again resets the count, stop 5 reloads. After each reload the shoot is reopened from the Open screen and every decision made more than 500 ms before the kill is back.",
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "to": "${OUT}/shoot/src"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/src",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "recovery",
+   "why": "the app's SetsReloadPolicy: 3 reloads a minute, then ask"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "f",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "b",
+   "settleMs": 150
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "well past any save"
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 150
+  },
+  {
+   "do": "wait",
+   "ms": 700,
+   "why": "a keep 700 ms before the crash: older than the 500 ms the session may lose"
+  },
+  {
+   "do": "dump",
+   "name": "before-kill-1",
+   "js": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})"
+  },
+  {
+   "do": "killWebContent",
+   "expect": "reload",
+   "why": "stop 1 of 3 in a minute: reload"
+  },
+  {
+   "do": "waitFor",
+   "js": "return __probe.logic().state.view === 'import' && __probe.logic().recents().length > 0",
+   "timeoutMs": 20000,
+   "what": "the Open screen with the shoot listed"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && __lumina.shootId())",
+   "timeoutMs": 60000,
+   "what": "reopened"
+  },
+  {
+   "do": "wait",
+   "ms": 400
+  },
+  {
+   "do": "expectDump",
+   "name": "before-kill-1",
+   "js": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})",
+   "why": "every decision older than 500 ms is back"
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 150
+  },
+  {
+   "do": "wait",
+   "ms": 700,
+   "why": "a keep 700 ms before the crash: older than the 500 ms the session may lose"
+  },
+  {
+   "do": "dump",
+   "name": "before-kill-2",
+   "js": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})"
+  },
+  {
+   "do": "killWebContent",
+   "expect": "reload",
+   "why": "stop 2 of 3 in a minute: reload"
+  },
+  {
+   "do": "waitFor",
+   "js": "return __probe.logic().state.view === 'import' && __probe.logic().recents().length > 0",
+   "timeoutMs": 20000,
+   "what": "the Open screen with the shoot listed"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && __lumina.shootId())",
+   "timeoutMs": 60000,
+   "what": "reopened"
+  },
+  {
+   "do": "wait",
+   "ms": 400
+  },
+  {
+   "do": "expectDump",
+   "name": "before-kill-2",
+   "js": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})",
+   "why": "every decision older than 500 ms is back"
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 150
+  },
+  {
+   "do": "wait",
+   "ms": 700,
+   "why": "a keep 700 ms before the crash: older than the 500 ms the session may lose"
+  },
+  {
+   "do": "dump",
+   "name": "before-kill-3",
+   "js": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})"
+  },
+  {
+   "do": "killWebContent",
+   "expect": "reload",
+   "why": "stop 3 of 3 in a minute: reload"
+  },
+  {
+   "do": "waitFor",
+   "js": "return __probe.logic().state.view === 'import' && __probe.logic().recents().length > 0",
+   "timeoutMs": 20000,
+   "what": "the Open screen with the shoot listed"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && __lumina.shootId())",
+   "timeoutMs": 60000,
+   "what": "reopened"
+  },
+  {
+   "do": "wait",
+   "ms": 400
+  },
+  {
+   "do": "expectDump",
+   "name": "before-kill-3",
+   "js": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})",
+   "why": "every decision older than 500 ms is back"
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 150
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 150
+  },
+  {
+   "do": "wait",
+   "ms": 700
+  },
+  {
+   "do": "dump",
+   "name": "before-kill-4",
+   "js": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})"
+  },
+  {
+   "do": "killWebContent",
+   "expect": "ask",
+   "quietMs": 3000,
+   "tryAgain": true,
+   "why": "stop 4 in a minute: no reload, the alert (logged), nothing reloads on its own; then Try Again"
+  },
+  {
+   "do": "waitFor",
+   "js": "return __probe.logic().state.view === 'import' && __probe.logic().recents().length > 0",
+   "timeoutMs": 20000,
+   "what": "the Open screen with the shoot listed"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && __lumina.shootId())",
+   "timeoutMs": 60000,
+   "what": "reopened"
+  },
+  {
+   "do": "wait",
+   "ms": 400
+  },
+  {
+   "do": "expectDump",
+   "name": "before-kill-4",
+   "js": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})"
+  },
+  {
+   "do": "killWebContent",
+   "expect": "reload",
+   "why": "stop 5: Try Again reset the count, so this one reloads"
+  },
+  {
+   "do": "waitFor",
+   "js": "return __probe.logic().state.view === 'import' && __probe.logic().recents().length > 0",
+   "timeoutMs": 20000,
+   "what": "the Open screen with the shoot listed"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && __lumina.shootId())",
+   "timeoutMs": 60000,
+   "what": "reopened"
+  },
+  {
+   "do": "wait",
+   "ms": 400
+  },
+  {
+   "do": "expectDump",
+   "name": "before-kill-4",
+   "js": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})"
+  },
+  {
+   "do": "logged",
+   "kind": "recovery",
+   "match": "ask: Lumina keeps stopping"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

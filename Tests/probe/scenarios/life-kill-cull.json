@@ -1,0 +1,100 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "stopOnFailure": true,
+ "checklist": "Q3 (STRESS-MATRIX 5, force quit at any moment): this file is the template of the kill-anywhere loop (Tests/probe/life_kill.py, run by `bash Scripts/probe.sh life`), which generates one scenario per launch from `life` (keys and weights, gaps, kill moment) and kills the probe process from outside. Run alone, it is the loop's sanity check without a kill: cull with the same keys, wait for the session, relaunch, and the decisions are back.",
+ "life": {
+  "actions": 40,
+  "gapMs": [
+   30,
+   400
+  ],
+  "killAfterS": [
+   0.2,
+   10
+  ],
+  "keys": [
+   [["p", false], 20],
+   [["r", false], 4],
+   [["u", false], 4],
+   [["f", false], 10],
+   [["f", true], 3],
+   [["ArrowRight", false], 20],
+   [["ArrowLeft", false], 8],
+   [["ArrowDown", false], 8],
+   [["ArrowUp", false], 5],
+   [["b", false], 6],
+   [["b", true], 4],
+   [["q", false], 5]
+  ]
+ },
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "to": "${OUT}/shoot/src"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/src",
+   "timeoutMs": 120000
+  },
+  { "do": "key", "k": "p", "settleMs": 120 },
+  { "do": "key", "k": "ArrowRight", "settleMs": 120 },
+  { "do": "key", "k": "f", "settleMs": 120 },
+  { "do": "key", "k": "ArrowRight", "settleMs": 120 },
+  { "do": "key", "k": "b", "settleMs": 120 },
+  { "do": "key", "k": "ArrowDown", "settleMs": 120 },
+  { "do": "key", "k": "p", "settleMs": 120 },
+  { "do": "key", "k": "q", "settleMs": 120 },
+  { "do": "key", "k": "ArrowRight", "settleMs": 120 },
+  { "do": "key", "k": "p", "settleMs": 120 },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; window.__q3 = JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()}); return window.__q3"
+  },
+  {
+   "do": "dump",
+   "name": "before",
+   "js": "return window.__q3"
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "the 2 s session loop"
+  },
+  {
+   "do": "reload",
+   "why": "a relaunch"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && __lumina.shootId())",
+   "timeoutMs": 60000,
+   "what": "reopened"
+  },
+  {
+   "do": "dump",
+   "name": "after",
+   "js": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(), s=l.state, nm=id=>l.data.byId[id].file; return JSON.stringify({k:l.kept().map(nm).sort(), f:Object.keys(s.flags).filter(id=>s.flags[id]).map(nm).sort(), c:Object.keys(s.cuts).map(nm).sort()})",
+   "equals": "{\"k\":[\"DSC00001.ARW\",\"DSC00008.ARW\"],\"f\":[\"DSC00002.ARW\"],\"c\":[\"DSC00003.ARW\"]}",
+   "why": "what the page held before the relaunch (dump `before`), recorded on main bcac1f9"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

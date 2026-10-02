@@ -297,7 +297,25 @@ editdir() {
   return 0
 }
 
+# Q3 lifecycle (docs/release/stress/Q3-lifecycle.md): `life` = the WebContent kills (cull, Save), Quit
+# with a hung page, a session fixture per released format, then the kill-anywhere loop
+# (Tests/probe/life_kill.py: LUMINA_LIFE_KILLS, default 200; LUMINA_LIFE_SEED, default 1; it SIGKILLs
+# only the probe processes it started). Needs LUMINA_FIXTURE_ROOT. `life quick` skips the loop.
+life() {
+  local fx tag
+  for fx in Tests/probe/fixtures/sessions/session-*.json; do
+    tag="$(basename "$fx" .json)"; tag="$(echo "${tag#session-}" | tr '[:lower:]-' '[:upper:]_')"
+    export "LUMINA_LIFE_SESSION_$tag=$(cat "$fx")"
+  done
+  local quick=0; [[ ${extra[0]:-} == quick ]] && { quick=1; extra=(); }
+  run "$S"/life-webcontent-*.json "$S/life-quit-hung.json" "$S"/life-session-*.json "$S/life-kill-cull.json"
+  [[ $quick == 1 ]] && return
+  python3 Tests/probe/life_kill.py --probe "$PROBE" --out "$OUT/kill" --kills "${LUMINA_LIFE_KILLS:-200}" --seed "${LUMINA_LIFE_SEED:-1}" \
+    $([[ $sandbox == 1 ]] && echo --sandbox "$ROOT/$SBX/Contents/MacOS/lumina-probe") || status=1
+}
+
 case "$suite" in
+  life)      life ;;
   reference) reference ;;
   screens)   screens ;;
   scenarios) scrolldir; editdir; files=(); for n in ${extra[@]+"${extra[@]}"}; do files+=("$S/$n.json"); done; extra=(); run "${files[@]}" ;;

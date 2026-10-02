@@ -1,0 +1,171 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "stopOnFailure": false,
+ "checklist": "Q3 (STRESS-MATRIX 5, update over a session): a session file as the released format writes it is opened by this build. Fixture: Tests/probe/fixtures/sessions/session-v2.json, written by main bcac1f9 (the page's snapshot, `v: 2`: three keepers of which two were saved, a flag, a split, three rows seen, the cursor), with the one absolute path (lastEx.where) replaced by a synthetic one. `bash Scripts/probe.sh life` puts the file in LUMINA_LIFE_SESSION_V2 (unset: SKIP). The scenario opens the fixture shoot, stores the fixture through the bridge's own saveSession (byte for byte), relaunches, reopens from the Open screen and checks every field came back; then it culls once more and checks the session this build writes is still v 2. One scenario per released session format: add session-<tag>.json and life-session-<tag>.json together.",
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "to": "${OUT}/shoot/src"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/src",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().kept().length",
+   "equals": 0,
+   "why": "a new shoot: nothing decided"
+  },
+  {
+   "do": "js",
+   "src": "const fx = ${LUMINA_LIFE_SESSION_V2}; return await window.webkit.messageHandlers.lumina.postMessage({op: 'saveSession', id: __lumina.shootId(), json: JSON.stringify(fx), summary: {n: 12, dec: 4, kp: 3, last: 'DSC00004'}})",
+   "why": "the fixture, through the app's own store write (SetsShootStore.saveSession)"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/support/shoots",
+   "glob": "session.json",
+   "count": 1
+  },
+  {
+   "do": "reload",
+   "why": "the new build starts: the page starts over, the store holds the old session"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().recents().map(x=>[x.n, x.kp])",
+   "equals": [
+    [
+     12,
+     3
+    ]
+   ]
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && l.kept().length === 3)",
+   "timeoutMs": 60000,
+   "what": "reopened with the fixture's decisions"
+  },
+  {
+   "do": "wait",
+   "ms": 800,
+   "why": "the page lands on the cursor's row"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00003.ARW",
+    "DSC00008.ARW"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return Object.keys(l.state.flags).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00002.ARW"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); const o={}; for (const [id,v] of Object.entries(l.state.cuts)) o[l.data.byId[id].file]=v; return o",
+   "equals": {
+    "DSC00002.ARW": "row"
+   }
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().data.R.length",
+   "equals": 5,
+   "why": "the split makes 4 rows 5"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); const m=l.data.M.find(m=>m.fr.some(f=>f.id===l.state.cur)); return m.fr.map(f=>f.file).includes('DSC00004.ARW')",
+   "equals": true,
+   "why": "the cursor is back in the row of the saved cursor (DSC00004): the page lands on that row's first photo"
+  },
+  {
+   "do": "expect",
+   "js": "return Object.keys(__probe.logic().state.seen).sort()",
+   "equals": [
+    "m0",
+    "m1",
+    "m2"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "return [__probe.logic().state.tsz, __probe.logic().state.lastEx && __probe.logic().state.lastEx.where]",
+   "equals": [
+    1,
+    "/Volumes/EXAMPLE/shoot/src"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "return __lumina.unsaved()",
+   "equals": 3,
+   "why": "the saved keeper list (1 and 8) is not the keepers now (1, 3, 8): Quit asks"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200,
+   "why": "a decision in the new build: keep the photo under the cursor"
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "the 2 s session loop"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/support/shoots",
+   "glob": "session.json",
+   "count": 1
+  },
+  {
+   "do": "reload"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && l.kept().length === 4)",
+   "timeoutMs": 60000,
+   "what": "reopened again"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return [l.kept().length, Object.keys(l.state.flags).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file), Object.keys(l.state.cuts).length]",
+   "equals": [
+    4,
+    [],
+    1
+   ],
+   "why": "the old decisions and the new keeper (keeping the flagged DSC00002 under the cursor clears its flag, as the page does)"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

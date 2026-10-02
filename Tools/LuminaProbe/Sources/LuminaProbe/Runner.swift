@@ -369,6 +369,8 @@ final class Runner {
             failures.append(contentsOf: o.failures)
             for (k, v) in o.frames { frames[k] = v }
             return o.note
+        case "recovery", "killWebContent", "quitHung", "expectDump", "sidecarsWhole":
+            return try await LifeSteps.run(op, s, host: host)        // Q3 lifecycle (LifeSteps.swift)
         case "confirm":
             host.confirmAnswer = s["answer"] as? Bool ?? false
         case "fuzz":
