@@ -16,7 +16,7 @@ final class LayoutAndSizingTests: XCTestCase {
     let steps = ["open", "cull", "edit", "save"]
     let mainAction = ["open": "open.card", "cull": "cull.toSave", "save": "save.button"]
 
-    func expectedScale(_ s: CGSize) -> Double { min(1.25, max(1.0, min(Double(s.width) / 1440, Double(s.height) / 900))) }
+    func expectedScale(_ s: CGSize) -> Double { min(1.5, max(1.0, min(Double(s.width) / 1280, Double(s.height) / 800))) }
 
     /// R-50, R-51
     func test_R50_everyWindowShape_noSidewaysScroll_tabsAndMainActionVisible() {
@@ -58,7 +58,7 @@ final class LayoutAndSizingTests: XCTestCase {
                 if step == "cull" { tabH[S] = l.el("step.cull").frame.height }
             }
         }
-        if let a = tabH[1.0], let b = tabH[1.25] { XCTAssertEqual(Double(b / a), 1.25, accuracy: 0.06, "R-54 chrome didn’t scale on a big window") }
+        if let a = tabH[1.0], let b = tabH[1.5] { XCTAssertEqual(Double(b / a), 1.5, accuracy: 0.06, "R-54 chrome didn’t scale on a big window") }
     }
 
     /// R-55: Edit photo fills its canvas.

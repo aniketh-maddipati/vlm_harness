@@ -5,9 +5,13 @@ import CoreGraphics
 // the tokens × scale; none hard-codes a point size.
 
 public enum LayoutScale {
-    /// S = clamp(1.0, min(width / 1440, height / 900), 1.25).
+    /// S = clamp(1.0, min(width / 1280, height / 800), 1.5). The handoff's rule
+    /// (LAYOUT_SIZING §3: from 1440x900, at most 1.25) left the chrome small and the screen empty
+    /// on today's displays; ruled 2026-10-02: grow from 1280x800, up to 1.5.
+    public static let base = CGSize(width: 1280, height: 800)
+    public static let maximum: CGFloat = 1.5
     public static func scale(for size: CGSize) -> CGFloat {
-        min(1.25, max(1.0, min(size.width / 1440, size.height / 900)))
+        min(maximum, max(1.0, min(size.width / base.width, size.height / base.height)))
     }
     /// Fonts round to 0.5pt, everything else to 1pt.
     public static func font(_ pt: CGFloat, _ s: CGFloat) -> CGFloat { (pt * s * 2).rounded() / 2 }

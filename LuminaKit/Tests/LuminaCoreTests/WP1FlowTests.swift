@@ -269,7 +269,7 @@ final class WP1FlowTests: XCTestCase {
 
     func test_R54_topBarScalesOnBigWindows() {
         let big = CGSize(width: 2560, height: 1440), b = TopBarLayout(window: big, scale: LayoutScale.scale(for: big))
-        XCTAssertEqual(b.height, 60); XCTAssertEqual(b.tabWidth, 110); XCTAssertEqual(b.tabHeight, 30); XCTAssertEqual(b.leading, 25)
+        XCTAssertEqual(b.height, 72); XCTAssertEqual(b.tabWidth, 132); XCTAssertEqual(b.tabHeight, 36); XCTAssertEqual(b.leading, 30)
         // R-59: no jumps on the way there.
         var prev: TopBarLayout?
         for w in stride(from: 1440.0, through: 2560, by: 20) {

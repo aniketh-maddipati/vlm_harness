@@ -43,6 +43,11 @@ merged into an existing sidecar, never clobbering it. "Looks are never written t
 below describes the Sets page's handoff only. The trust rules are unchanged: sidecars only, into the
 shoot folder, `.lumina-bak` first, atomic, read back, refused on a card.
 
+**The native UI scale is larger than the handoff's** (ruled 2026-10-02): S = clamp(1.0,
+min(w/1280, h/800), 1.5) instead of LAYOUT_SIZING §3's clamp(1.0, min(w/1440, h/900), 1.25), so
+chrome grows on today's displays instead of leaving them empty (`LayoutScale.scale`). Goldens
+captured at 1440×900 and above now differ by that scale; they are compared by eye there.
+
 ```bash
 (cd LuminaKit && swift build && swift test)          # contracts, rules, parity traces, headless
 python3 Scripts/gen_tokens.py --check                # Tokens.generated.swift matches parity/tokens.json

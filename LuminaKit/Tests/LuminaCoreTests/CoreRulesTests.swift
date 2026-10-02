@@ -113,8 +113,9 @@ final class KeyRouterTests: XCTestCase {
 final class LayoutMathTests: XCTestCase {
     func test_R54_scale() {
         XCTAssertEqual(LayoutScale.scale(for: CGSize(width: 1100, height: 760)), 1)
-        XCTAssertEqual(LayoutScale.scale(for: CGSize(width: 1440, height: 900)), 1)
-        XCTAssertEqual(LayoutScale.scale(for: CGSize(width: 2560, height: 1440)), 1.25)
+        XCTAssertEqual(LayoutScale.scale(for: CGSize(width: 1280, height: 800)), 1)
+        XCTAssertEqual(LayoutScale.scale(for: CGSize(width: 1440, height: 900)), 1.125)
+        XCTAssertEqual(LayoutScale.scale(for: CGSize(width: 2560, height: 1440)), 1.5)
         XCTAssertEqual(LayoutScale.scale(for: CGSize(width: 3000, height: 600)), 1, "short and wide: no scale-up")
     }
     func test_R56_justifiedRows() {
