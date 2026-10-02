@@ -86,6 +86,12 @@ Fault injection never touches a real card. "Card" below means a disk image built
 | C8 | Orientation 1, 3, 6, 8, missing | `edge-orientation` | pass (portrait flags); upright pixels checked in the pixel pass |
 | C9 | Shutter-only bracket → split/merge fixes it | `edge-shutter-bracket` | pass |
 
+**C1, C2, C4, C5 re-run on v5 (2026-10-01, `edge` and `ingest`, same result in both):** all four still fail, C4 and C5 differently from the rows above.
+- C1: two rows, no "shift shoot time". DESIGN-ASKS Prompt 3 B.
+- C2: one row, A B A B A B by time; the import note warns `2 bodies · … · check that the camera clocks match`. Prompt 3 B.
+- C4: twelve singles, no stack. The fixture's frames are twelve different pictures with no sequence numbers, so v5's rule (sequence numbers, else look-alike within 2 s) never stacks them: re-forge the fixture. Real bursts: Prompt 2 A and B.
+- C5: 4 of 5 shown. Two are grey tiles with the file number (`2 without an embedded preview`), the empty file is left out (`1 unreadable`), the header-only file sits in a `00:00` row. Prompt 3 A.
+
 ## Lightroom / Capture One: manual, with a scripted half
 
 | # | Case | Check | Status |

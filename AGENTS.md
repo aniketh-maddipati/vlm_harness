@@ -28,10 +28,10 @@ window. Nobody edits the UI in this repo.
 | `Lumina/Sets/SetsRootView.swift` | The WKWebView, the native folder pickers, downloads, and the Edit canvas overlay laid above the web view |
 | `Lumina/Sets/Web/` | The design's files, copied unchanged by `Scripts/sets_sync_ui.sh`, plus `plumbing.js` |
 | `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, …, and the Edit step's `preview` / `canvasRect` / `drag` / `roi` from DESIGN-ASKS Prompt 1 §3, plus `edit`, the superset the probe drives), persists sessions (writes debounce 500 ms after the last Edit change), makes the grid thumbnails (720 × 480; measures stay on the page's 360 px bitmap) and decodes them ahead of a scroll (design ask 7), keeps the reader's place and decisions when a read they culled during ends (design ask 8), and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`, `luminaPresented`, `luminaHistogram`, `luminaFacts`, `luminaEditStats`) |
-| `Lumina/Sets/Core/` | The native bridge: `SetsIngest` (reads opened folders: listing, 256 KB heads, byte-range previews, prefetch, stops when the card goes), `SetsFileOps` (`writeSidecar`: v5's Save, one `.xmp` into the shoot folder with `.lumina-bak`, atomic, read back, refused on a card; SHA-256 copies), `SetsExport` (+ crash journal; RAW copies, v3's CSS-look JPEGs, and the Edit step's `look` renders through `SetsLookExport`, which names the RAW decoder used and falls back per file), `SetsEditLook` (v3's Edit look, unused by v5), `SetsCardWatcher`, `SetsShootStore` (per-shoot sessions and the `Lumina.json` header), `SetsSchemeHandler` (`lumina://`, no network; `lumina://render/<rel>?look=&px=&seq=[&tier=small]` is the Edit preview on the image fallback path), `SetsBridge` (the page's ops, the canvas ops `canvasEnter/Layout/Look/Drag/Loupe/Stats`, the decoder map) |
+| `Lumina/Sets/Core/` | The native bridge: `SetsIngest` (reads opened folders: listing, 256 KB heads, byte-range previews that reuse the part the head already holds, prefetch, stops when the card goes), `SetsFileOps` (`writeSidecar`: v5's Save, one `.xmp` into the shoot folder with `.lumina-bak`, atomic, read back, refused on a card; SHA-256 copies), `SetsExport` (+ crash journal; RAW copies, v3's CSS-look JPEGs, and the Edit step's `look` renders through `SetsLookExport`, which names the RAW decoder used and falls back per file), `SetsEditLook` (v3's Edit look, unused by v5), `SetsCardWatcher`, `SetsShootStore` (per-shoot sessions and the `Lumina.json` header), `SetsSchemeHandler` (`lumina://`, no network; `lumina://render/<rel>?look=&px=&seq=[&tier=small]` is the Edit preview on the image fallback path), `SetsBridge` (the page's ops, the canvas ops `canvasEnter/Layout/Look/Drag/Loupe/Stats`, the decoder map) |
 | `Lumina/Sets/Look/` | The Edit look pipeline (roadmap Prompt 2): `LookString` (the look string, the Edit step's only state), `LookRules` + `rules-v1.json` (stage order, working space, fitted coefficients, `locked` flags), `LookMath` (every stage's maths in scalar form), `LookKernels` (the same maths as Metal, compiled at first use), `LookPipeline` (the one Core Image graph previews, export and `lumina-render` share; `develop` takes the decoder version and `nr`), `LookRenderer` (developed RAW cached per (rel, px, decoder) under a byte cap, sequence numbers drop stale requests). The Edit canvas (addendum): `LookCanvasSchedule` (two tiers, latest wins, sequence numbers; Foundation only), `LookWarmPlan` (which stage graphs to compile ahead of a drag; Foundation only), `LookByteCache` (byte-capped LRU), `LookBases` (`base` + `small` rgba16Float textures per photo, prefetch), `LookRegionTiles` (RAW 9 512 px tiles for the loupe), `LookCanvas` (the MTKView overlay, CIRenderDestination, display link), `LookRawPolicy` + `LookDecoderProbe` (the RAW tiers, the pin rule, the capability map). Also compiled into the probe and `Tools/parity/lumina-render` through symlinks |
 | `Tools/parity/` | The Lightroom parity harness: the sweep plug-in, `import_refs.py`, `lumina-render`, `delta_e.py`, `parity.py` (`make parity`), `fit.py`, `loop.sh`, `criteria.json`, `golden.json`. See its README and "Parity" below |
-| `Tools/culleval/` | The culling eval: the page's own `lumina-core` run on real shoots, scored against camera bursts and the photographer's keeps (`make culleval`, report in `~/LuminaEvidence/culleval`; `make culleval-test` on Linux). Measures only. See its README |
+| `Tools/culleval/` | The culling eval: the page's own `lumina-core` run on real shoots, scored against camera bursts and the photographer's keeps (`make culleval`, report in `~/LuminaEvidence/culleval`; `make culleval-test` on Linux), the same keeps question through the app (`culleval-app.mjs` on a probe dump, one matcher and one set of scores for both), and candidate ranking signals (`signals/`). Measures only. See its README |
 | `design/handoff/vendor/` | React / Babel pinned to the SRI hashes in `support.js` (see `VENDOR.md`) |
 
 **The Edit canvas is the one place native draws pixels over the page.** `LookCanvasView` (an
@@ -93,6 +93,7 @@ bash Scripts/probe.sh fuzz          # seeded key + mouse storms (with LUMINA_FIX
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh scroll  # fast Cull scrolling: frames, blank tiles, thumbnail upscale, memory
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # contract + the app on folders: sidecars, .lumina-bak, Lightroom's sidecars merged, sessions across a relaunch, keepers renamed mid-cull, the empty app
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh fault   # disk images: kill -9 mid-write, disk full mid-copy and for a sidecar, read-only card, card pulled mid-read and on Save, .xmp + .XMP on a case-sensitive disk
+LUMINA_READ_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh slowdisk        # a disk whose first directory read takes 12 s (LUMINA_SLOW_DIR_MS): the app still answers the page while the folder is listed
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh edge    # camera-data cases (design gaps show as FAIL)
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh ingest  # the same cases through the native reader
 LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh card         # golden card + page vs native read
@@ -131,9 +132,14 @@ probe in four parallel macOS shards (smoke + screens, fuzz, fuzz + scroll, scrol
 
 ## Parity (the Edit look vs Lightroom Classic)
 
-The Edit step ships behind the `friends` flag until `Tools/parity/criteria.json` holds on the golden
-set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5.0). The full procedure is
-`Tools/parity/README.md`; the rules that bite:
+The Edit step ships with the app (ruled 2026-10-01). `Tools/parity/criteria.json` (singles: per-slider
+median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5.0 on the golden set) is a tracked target, not a
+release gate: the numbers are reported, and nothing shipped says Edit matches Lightroom until they
+hold. A change to the look is adopted only if it improves the unseen halves of the development
+albums and the held-out set stays within a small tolerance (ruled 2026-10-01): per change at most
++0.05 median and +0.10 p95 ΔE2000 on the held-out set, and never more than +0.10 / +0.25 in total
+above the 2026-10-01 baseline (2.32 / 7.82). A change that needs more than that is rejected; the
+tolerance is the owner's to change. The full procedure is `Tools/parity/README.md`; the rules that bite:
 
 - **The look string is the only Edit state** (`ev:+0.70 wb:5200/+3 con:+12 … crop:x,y,w,h/r`,
   `Lumina/Sets/Look/LookString.swift`). Previews are `lumina://render/<rel>?look=&px=&seq=`, exports
@@ -161,37 +167,35 @@ set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5
 - **rawDevelop ends with the base match** (`LookMath.baseMatch`, kernel `lookBase`): a two-number
   midtone curve on luma and a colour mix whose rows sum to 1 (a grey stays grey), fitted on base
   exports so the untouched render is Lightroom's Adobe Color. Every slider stage sits on this base:
-  when it changes, refit the stages, and adopt a stage's refit only if the held-out set agrees
-  (a fit that helps the sweep and hurts the held-out set overfitted; that has happened twice).
+  when it changes, refit the stages, and adopt a stage's refit only if the held-out set agrees,
+  within the tolerance above (a fit that helps the sweep and hurts the held-out set overfitted;
+  that has happened twice).
 - **White balance uses the same curve**: per-channel scene gains (Temperature moves red and blue and
   holds green, as Lightroom does; Tint has its own red and blue strengths), each channel through the
   tone curve, so a cast is full strength in the shadows and fades toward white.
 - **Highlights and Shadows are relative to the photo.** Tone is a local exposure through the same
   curve, with masks and strengths read from the photo's anchor (`LookMath.ToneAnchor`: log-mean
-  luma, spread of log2 luma, share of pixels above L* 80; measured once per file on a 256 px
-  develop by `LookPipeline.toneAnchor`, pushed through exposure, and carried by every `Developed`,
-  base, tile region and export so the tiers stay identical). On 156 photos Lightroom moves the
-  same pixel value by +3 to +58 L* at Shadows +100 depending on the photo; those three numbers
-  explain most of it. A synthetic image or flat patch gets `ToneAnchor.reference`.
+  luma, spread of log2 luma, share of pixels above L* 80, and `high`, the 95th percentile of luma;
+  measured once per file on a 256 px develop by `LookPipeline.toneAnchor`, pushed through exposure,
+  and carried by every `Developed`, base, tile region and export so the tiers stay identical). On
+  156 photos Lightroom moves the same pixel value by +3 to +58 L* at Shadows +100 depending on the
+  photo; those numbers explain most of it. The Shadows mask is placed against the photo's bright
+  end (`shadowsHighAdapt`, `highCentre`), the Highlights mask against its mean: fitted on landscapes
+  and people together (2026-10-01), where the mean alone failed on dark, high-contrast photos.
+  A synthetic image or flat patch gets `ToneAnchor.reference`.
   Measured on all six positions (±50 included, 156 photos): Lightroom is linear in the slider
   (fitted powers 0.97 / 1.09), and one brightness curve per photo explains its Shadows almost
-  entirely (0.14 stops rms left, 0.47 with this model); a blurred base adds nothing, so
-  `radiusFraction` stays near 0. What is missing is predicting that curve from the photo. Reading
-  the Shadows mask against the photo's bright end (95th percentile of luma) took the unseen half
-  from 1.59 / 5.43 to 1.45 / 5.04 but made the held-out set worse (2.32 / 7.82 → 2.35 / 7.91), so
-  it was not adopted: one album of landscapes does not decide it.
+  entirely (0.14 stops rms left); a blurred base adds nothing, so `radiusFraction` stays near 0.
+  What is left is predicting that curve from the photo.
 - **Contrast's form is right; only its numbers were fitted.** Applied to Lightroom's own base
   export, the two-sided power curve reproduces its Contrast ±25 / ±50 at 0.86 / 2.81, the same as
   a scene-referred or a two-lobe form (leave-one-photo-out 0.91 / 3.88 for all three), per channel
   (`lumaMix` 0). What is left of Contrast's error in a render comes from the base it is applied to.
-- **Vibrance waits for photos of people.** On Lightroom's own base (5 sweep photos) Vibrance +50
-  adds 5–11 % chroma to skin-orange hues, 25–45 % to yellows and greens, ~40 % to blues; Lumina's
-  fitted protection is too wide (yellows get 18 %) and −50 is too strong. A refit (narrow
-  protection, a separate negative strength) took the sweep's Vibrance +50 frames from 2.08 / 4.84
-  to 1.79 / 4.02, but the held-out set got worse (2.31 / 7.81 → 2.33 / 7.83, skin redder): its
-  untouched base is already furthest from Lightroom on skin (2.66 against 1.73 overall), and the
-  sweep has almost no skin (2 % of pixels). Not adopted; base and vibrance need a development
-  set with people before either is refitted.
+- **Vibrance is not Saturation with a mask.** Measured on Lightroom's own exports: above 0 it adds
+  most to dull colours, still a share (`vibranceFloor`) to vivid ones, and about a fifth as much to
+  skin hues (a narrow band, `skinHue` / `skinWidth` / `skinProtect`); below 0 it takes colour away
+  on every hue, faster than it adds it (`vibranceDownPerUnit`). The stage is fitted on Lightroom's
+  base export → Lightroom's slider export, so it does not depend on Lumina's base.
 - **Exposure is a scene gain seen through a sigmoid tone curve** (`LookMath.exposure`: per channel
   G·y / (1 + (G − 1)·y/white), G = 2^(ev · stopsPerUnit)), the form Lightroom's sweep shows:
   shadows and midtones move ~1.6 stops per unit, highlights roll off and lose saturation.

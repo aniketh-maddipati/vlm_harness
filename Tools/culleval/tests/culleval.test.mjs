@@ -8,6 +8,7 @@ import { seconds, truthGroups, sameFraming, matchExports } from '../lib/truth.mj
 import { run, cutsFor, DESIGN } from '../lib/core.mjs';
 import { READONE, readOneHash } from '../lib/measure.mjs';
 import { markdown } from '../lib/report.mjs';
+import * as app from '../lib/app.mjs';
 
 const groups = (...gs) => { const m = new Map(); gs.forEach((g, i) => g.forEach(id => m.set(id, 'g' + i))); return m; };
 const ids = m => [...m.keys()];
@@ -125,6 +126,20 @@ test('matchExports: by name, by capture time for renamed files, virtual copies, 
   assert.deepEqual(m.rule, { name: 2, time: 2 });
 });
 
+test('matchExports: file numbers repeat across cards; a derived export goes to the RAW it is named after', () => {
+  const raws = [
+    { id: 'old', name: 'DSC00001.ARW', date: '2025:01:01 09:00:00' },
+    { id: 'new', name: 'DSC00001.ARW', date: '2026:01:01 10:00:00' },
+    { id: 'b1', name: 'DSC00002.ARW', date: '2026:01:01 10:00:07' },
+    { id: 'b2', name: 'DSC00003.ARW', date: '2026:01:01 10:00:07' },
+  ];
+  const m = matchExports(raws, [{ name: 'a.jpg', raw: 'DSC00001.ARW', date: '2025:01:01 09:00:00' }, { name: 'b.jpg', raw: 'DSC00001.ARW', date: '2026:01:01 10:00:00' },
+    { name: 'c.jpg', raw: 'DSC00003-Enhanced-NR.dng', date: '2026:01:01 10:00:07' }]);
+  assert.deepEqual([...m.kept].sort(), ['b2', 'new', 'old']);
+  assert.equal(m.ambiguous.size, 0);
+  assert.deepEqual(m.rule, { name: 2, time: 1 });
+});
+
 test('core: the page\'s own logic gives stacks, keeps and flags, keyed by path', () => {
   const fx = JSON.parse(fs.readFileSync(path.join(DESIGN, 'lumina-core-v4.fixtures.json'), 'utf8'));
   const c = run(fx.stacks.input), big = c.stacks.filter(s => s.ids.length > 1);
@@ -162,4 +177,42 @@ test('report: file names stay below the "Worst" heading', () => {
     { s: { worst: [{ kind: 'k', kept: 'DSC01234.ARW', lumina: 'DSC01235.ARW', detail: '' }], groupingWorst: [] } });
   const [above, below] = md.split('\n## Worst');
   assert.ok(!/DSC0123/.test(above)); assert.ok(/DSC01234\.ARW/.test(below)); assert.ok(/F1/.test(above));
+});
+
+// ——— through the app (lib/app.mjs): a probe dump against picks
+const shot = (n, o = {}) => ({ path: 'shoot/DSC' + String(n).padStart(5, '0') + '.ARW', date: '2026-05-19', sec: '10:00:' + String(n % 60).padStart(2, '0'), row: 0, gid: 'g' + n, kind: 'single', rank: 1, peak: false, sug: true, soft: false, slight: false, blown: false, shake: false, dark: false, ...o });
+
+test('app: a pick is an export that names the RAW at its capture second; only days with a pick are scored', () => {
+  const ex = app.exportsFromCsv('SourceFile,FileName,RawFileName,DateTimeOriginal\r\na/x.jpg,x.jpg,DSC00001.ARW,2026:05:19 10:00:01\n"a/y, z.jpg",y.jpg,,2026:05:19 10:00:02\na/w.jpg,w.jpg,DSC09999.ARW,2026:05:19 11:00:00\n');
+  assert.deepEqual(ex.map(e => [e.name, e.raw, e.date]), [['a/x.jpg', 'DSC00001.ARW', '2026:05:19 10:00:01'], ['a/w.jpg', 'DSC09999.ARW', '2026:05:19 11:00:00']], 'a camera JPEG names no RAW');
+  const photos = [shot(1), shot(1, { path: 'old/DSC00001.ARW', date: '2025-01-01' }), shot(2)];      // the same file number on another card
+  const l = app.label(photos, ex);
+  assert.deepEqual(photos.map(p => p.pick), [true, false, false]);
+  assert.equal(l.photos.length, 2);
+  assert.deepEqual(l.unmatched, ['a/w.jpg']);
+});
+
+test('app: recall of the suggested keeps, a flag\'s false alarms on picks, the pick of a burst against rank 1', () => {
+  const burst = [2, 1, 3, 4].map((rank, i) => shot(10 + i, { row: 1, gid: 'b', kind: 'burst', rank, sug: rank === 1, peak: i === 2, pick: rank === 1 }));
+  const photos = [shot(1, { pick: true }), shot(2, { soft: true, sug: false, pick: true }), shot(3, { sug: false, pick: false }), ...burst].map(p => ({ ...p, pool: 'a' }));
+  const s = app.score(photos);
+  assert.deepEqual([s.photos, s.picks, s.days], [7, 3, 1]);
+  assert.equal(s.suggested.recall, 2 / 3); assert.equal(s.suggested.precision, 1); assert.equal(s.suggested.keptIfNot, 1 / 5);
+  assert.deepEqual([s.flags.soft.auto, s.flags.soft.tp, s.flags.soft.precision, s.flags.soft.recall], [1, 1, 1, 1 / 3]);
+  assert.deepEqual([s.bursts.bursts, s.bursts.frames, s.bursts.withAPick, s.bursts.picksInBursts, s.bursts.picksSingle], [1, 4, 1, 1, 2]);
+  assert.deepEqual([s.bursts.rank1.oneKeeper, s.bursts.rank1.agree, s.bursts.rank1.chance], [1, 1, 0.25]);
+  assert.deepEqual([s.bursts.peak.oneKeeper, s.bursts.peak.agree], [1, 0]);
+  assert.deepEqual(s.rows, { rows: 2, withAPick: 2, meanSize: 3.5, meanPicksWhenAny: 1.5 });
+  // The same paths in another dump are other photos.
+  assert.equal(app.score([...photos, ...photos.map(p => ({ ...p, pool: 'b' }))]).bursts.bursts, 2);
+});
+
+test('app: the report names no files', () => {
+  const photos = [shot(1), shot(2, { sug: false })].map(p => ({ ...p, pool: 'pool-a' }));
+  const l = app.label(photos, [{ name: 'x.jpg', raw: 'DSC00001.ARW', date: '2026:05:19 10:00:01' }]), s = app.score(l.photos);
+  const md = app.markdown({ 'pool-a': s, empty: app.score([]) }, s, 1, 0);
+  assert.match(md, /\| pool-a \| 1 \| 2 \| 1 \| 50 % \| 1 \(50 %\) \| 100 % \|/);
+  assert.match(md, /\| empty \| 0 \| 0 \| 0 \|/);
+  assert.match(md, /not found in these folders: 1\./);
+  assert.doesNotMatch(md, /DSC0|\.ARW|\.jpg/);
 });

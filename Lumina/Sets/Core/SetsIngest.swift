@@ -7,6 +7,8 @@ import UniformTypeIdentifiers
 /// and measures with `lumina-core`; this only decides how bytes come off the disk:
 /// - the directory listing comes first, so the page knows the total before any photo is read;
 /// - each file gives a 256 KB head (EXIF + preview offsets) and nothing else up front;
+/// - a preview that starts inside the head (a Sony ARW's does, at about 130 KB) is not read from the
+///   card twice: the head is kept for a moment and the preview read starts where the head ended;
 /// - the embedded preview is read by byte range when asked, turned upright natively, and never
 ///   held by the page: it reads it once to make and measure its grid thumbnail (its own
 ///   createImageBitmap resize, so `lumina-core`'s measure sees the prototype's exact pixels) and
@@ -46,6 +48,8 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         var cacheHits = 0
         var prefetched = 0
         var bytesRead: Int64 = 0
+        /// Preview bytes taken from a head already read, instead of the card.
+        var bytesFromHead: Int64 = 0
         /// The longest single read. A head or a preview: never a whole RAW.
         var largestRead = 0
         /// Files opened on a root after it was marked gone: must stay 0.
@@ -54,7 +58,7 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         var gone: [String] = []
 
         var dictionary: [String: Any] {
-            ["workers": workers, "inFlight": inFlight, "maxInFlight": maxInFlight, "heads": heads, "previews": previews, "thumbs": thumbs, "cacheHits": cacheHits, "prefetched": prefetched, "bytesRead": bytesRead, "largestRead": largestRead,
+            ["workers": workers, "inFlight": inFlight, "maxInFlight": maxInFlight, "heads": heads, "previews": previews, "thumbs": thumbs, "cacheHits": cacheHits, "prefetched": prefetched, "bytesRead": bytesRead, "bytesFromHead": bytesFromHead, "largestRead": largestRead,
              "opensAfterGone": opensAfterGone, "failures": failures, "gone": gone]
         }
     }
@@ -67,6 +71,8 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     private var gone: Set<String> = []
     private var stats = Stats()
     private let previewCache = NSCache<NSString, NSData>()
+    /// Heads just read, by `rel`: the page asks for a file's preview right after its head.
+    private let headCache = NSCache<NSString, NSData>()
     private let readQueue = OperationQueue()
     private let prefetchQueue = OperationQueue()
 
@@ -81,6 +87,7 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         prefetchQueue.maxConcurrentOperationCount = 2
         prefetchQueue.qualityOfService = .utility
         previewCache.totalCostLimit = 96 << 20           // ~100 previews: the cursor window, and what was read before a pull
+        headCache.totalCostLimit = 24 << 20              // ~90 heads: far more than are between head and preview at once
     }
 
     // MARK: Roots
@@ -90,6 +97,7 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         lock.withLock {
             roots[url.lastPathComponent] = url
             gone.remove(url.lastPathComponent)
+            headCache.removeAllObjects()                 // another card can hold the same names
             stats.gone = gone.sorted()
         }
     }
@@ -119,7 +127,7 @@ nonisolated final class SetsIngest: @unchecked Sendable {
             stats.gone = gone.sorted()
             return hit
         }
-        if !names.isEmpty { prefetchQueue.cancelAllOperations() }
+        if !names.isEmpty { prefetchQueue.cancelAllOperations(); headCache.removeAllObjects() }
         return names
     }
 
@@ -170,6 +178,9 @@ nonisolated final class SetsIngest: @unchecked Sendable {
 
     /// macOS refused to list the folder (Privacy & Security → Files and Folders, SAFETY.md 5).
     static func accessDenied(_ root: URL) -> Bool {
+        // Probe only (`open-slow-disk.json`): stands in for a disk whose first directory read is slow
+        // (just mounted, asleep), so the test can check the caller is not the main thread.
+        if let ms = ProcessInfo.processInfo.environment["LUMINA_SLOW_DIR_MS"].flatMap(Double.init), ms > 0 { Thread.sleep(forTimeInterval: ms / 1000) }
         do { _ = try FileManager.default.contentsOfDirectory(atPath: root.path); return false } catch {
             let ns = error as NSError, under = ns.userInfo[NSUnderlyingErrorKey] as? NSError
             return ns.code == NSFileReadNoPermissionError || [Int(EPERM), Int(EACCES)].contains(under?.code ?? 0)
@@ -210,6 +221,7 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     func head(_ rel: String) throws -> Data {
         let data = try read(rel, offset: 0, length: Self.headBytes, allowShort: true)
         lock.withLock { stats.heads += 1 }
+        headCache.setObject(data as NSData, forKey: rel as NSString, cost: data.count)
         return data
     }
 
@@ -265,7 +277,17 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         let key = Self.key(p, upright: false) as NSString
         if let hit = previewCache.object(forKey: key) { lock.withLock { stats.cacheHits += 1 }; return hit as Data }
         guard p.offset > 0, p.length > 0, p.length <= 64 << 20 else { throw Failure(.bad, "no preview range") }
-        let data = try read(p.rel, offset: p.offset, length: p.length, allowShort: false)
+        // The start of the preview usually came with the head: only the rest is read from the card.
+        var data = Data()
+        if p.offset < Self.headBytes, let head = headCache.object(forKey: p.rel as NSString) as Data?, head.count > p.offset {
+            data = head.subdata(in: p.offset ..< min(head.count, p.offset + p.length))
+            lock.withLock { stats.bytesFromHead += Int64(data.count) }
+        }
+        if data.count < p.length {
+            data.append(try read(p.rel, offset: p.offset + data.count, length: p.length - data.count, allowShort: false))
+        } else if isGone(p.rel) {
+            throw Failure(.gone, "card removed")         // all of it was in the head: no read to notice the card went
+        }
         if cache { previewCache.setObject(data as NSData, forKey: key, cost: data.count) }
         return data
     }

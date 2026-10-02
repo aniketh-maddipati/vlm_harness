@@ -7,7 +7,8 @@ it finds goes into `design/handoff/DESIGN-ASKS.md`.
 
 ```bash
 make culleval          # every shoot in ~/LuminaEvidence/culleval/shoots.json → report (0.2 s once cached)
-make culleval-test     # the scoring tests, synthetic data, Linux too (CI runs them)
+make culleval-test     # the scoring tests, synthetic data, Linux too (CI runs the node ones)
+make culleval-app DUMPS="<run>/dump-decisions/decisions.json …" EXPORTS=exports.csv OUT=report.md   # the keeps question through the app, see below
 ```
 
 First run: copy `shoots.example.json` to `~/LuminaEvidence/culleval/shoots.json` and point it at your
@@ -82,6 +83,45 @@ folder, `from` / `to` (`"2026-02-08 14:00:00"`) a stretch of capture time within
 - **Where it goes wrong**: suggested-but-rejected and kept-but-not-suggested, split by cause; the
   ten worst per shoot by file name, in the local report only.
 
+## Through the app
+
+`make culleval` reads the photos itself, in headless Chromium. `culleval-app.mjs` asks the keeps
+question of what the real app decided: `dump-decisions.json` is a probe scenario in which the page
+and the native reader open a folder in WKWebView (read-only) and every photo's row, stack, rank,
+flags and suggested keep are dumped. The picks are matched by the same `matchExports` and scored by
+the same `picks` and `bestOf` as above (`lib/app.mjs` only adapts the dump), so the two can't drift.
+
+```bash
+LUMINA_CULL_DIR=<shoot> Tools/LuminaProbe/.build/release/lumina-probe run Tools/culleval/dump-decisions.json --out <run>
+exiftool -csv -FileName -RawFileName -DateTimeOriginal <exports…> > exports.csv
+node Tools/culleval/culleval-app.mjs --exports exports.csv --out report.md <run>/dump-decisions/decisions.json …
+```
+
+A pick here is a *final select* (a RAW a finished Lightroom export names), stricter than a culling
+keep, so precision against it is low by nature. What a culling aid must get right is the other
+direction: the report leads with recall on picks, each flag word's false alarms on picks, and, in
+bursts with exactly one pick, whether it is the frame ranked first. Only days with at least one
+pick are scored: a day never exported from is unlabeled, not "all rejected". Until DESIGN-ASKS
+Prompt 2 A lands the page reads no drive data from an ARW, so a dump holds almost no camera bursts
+and the burst lines say nothing yet.
+
+`--out report.md` also writes `report.json` and `labeled.json` (the scored photos, each with its
+dump's name and whether it was picked) beside it. Keep them under `~/LuminaEvidence/culling-eval`:
+`labeled.json` names files.
+
+## Candidate signals (`signals/`)
+
+Signals the page doesn't have. `signals.swift` measures each RAW's embedded preview on the Mac
+(Vision face capture quality, landmarks, saliency, aesthetics; sharpness by region), and
+`rank_signals.py` asks of each one, inside a row or a run of retakes: does it put the pick above the
+frames passed over? (pair accuracy with a bootstrap interval, top-1 against chance, and a combined
+model scored on held-out days). Numbers only.
+
+```bash
+swiftc -O Tools/culleval/signals/signals.swift -o signals && ./signals list.txt signals.jsonl
+python3 Tools/culleval/signals/rank_signals.py --signals signals.jsonl --out signals-report.md labeled.json
+```
+
 ## Files
 
 | | |
@@ -92,4 +132,6 @@ folder, `from` / `to` (`"2026-02-08 14:00:00"`) a stretch of capture time within
 | `lib/truth.mjs` | truth groups from camera metadata; exports matched to RAWs |
 | `lib/score.mjs` | the metrics (pure) |
 | `lib/report.mjs` | the Markdown report |
-| `tests/culleval.test.mjs` | scoring, truth, the core adapter and the `readOne` guard, on synthetic data |
+| `culleval-app.mjs`, `lib/app.mjs`, `dump-decisions.json` | the keeps question through the app: the probe scenario, the dump adapter and its report |
+| `signals/` | candidate signals measured on the Mac and how well each ranks the pick; `test_rank_signals.py` |
+| `tests/culleval.test.mjs` | scoring, truth, the core adapter, the dump adapter and the `readOne` guard, on synthetic data |

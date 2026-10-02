@@ -28,8 +28,8 @@
     },
     "tone": {
       "locked": false,
-      "form": "a local exposure through the tone curve, relative to the photo. base = gaussian blur of luma (radiusFraction of the long edge). The photo's anchor (256 px develop): mean A = 2^mean(log2 luma), pushed through exposure; spread = std of log2 luma; bright = share of pixels above L* 80. ps = perceptual(base*(0.18/A)^shadowsAdapt), ph = perceptual(base*(0.18/A)^highlightsAdapt); G = 2^(shadows*shadowsStopsPerUnit*exp(shadowsBright*(bright-brightCentre) + shadowsSpread*(spread-spreadCentre))*exp(-ps/shadowsTau) + highlights*highlightsStopsPerUnit*exp(highlightsMean*(log2 A-meanCentre) + highlightsSpread*(spread-spreadCentre))*min(1, ph/highlightsKnee)), each strength factor kept in [0.25, 4]; detail (luma/base)^(detailGain-1) re-applied; then per channel G*y / (1 + (G-1)*y/white) as in exposure",
-      "coefficients": { "radiusFraction": 0.002, "shadowsStopsPerUnit": 0.021292, "shadowsTau": 0.38354, "shadowsAdapt": 0.614784, "shadowsBright": 2.056639, "shadowsSpread": 0.323945, "highlightsStopsPerUnit": 0.027309, "highlightsKnee": 3.911585, "highlightsAdapt": 0.74109, "highlightsMean": 0.030175, "highlightsSpread": 0.228943, "white": 1.111285, "detailGain": 1.0, "meanCentre": -2.38471, "spreadCentre": 1.487163, "brightCentre": 0.203023 }
+      "form": "a local exposure through the tone curve, relative to the photo. base = gaussian blur of luma (radiusFraction of the long edge). The photo's anchor (256 px develop): mean A = 2^mean(log2 luma), pushed through exposure; spread = std of log2 luma; bright = share of pixels above L* 80. high H = the 95th percentile of luma, pushed through exposure like A. ps = perceptual(base*(0.18/A)^shadowsAdapt*2^(shadowsHighAdapt*(highCentre-log2 H))), ph = perceptual(base*(0.18/A)^highlightsAdapt*2^(highlightsHighAdapt*(highCentre-log2 H))); G = 2^(shadows*shadowsStopsPerUnit*exp(shadowsBright*(bright-brightCentre) + shadowsSpread*(spread-spreadCentre))*exp(-ps/shadowsTau) + highlights*highlightsStopsPerUnit*exp(highlightsMean*(log2 A-meanCentre) + highlightsSpread*(spread-spreadCentre))*min(1, ph/highlightsKnee)), each strength factor kept in [0.25, 4]; detail (luma/base)^(detailGain-1) re-applied; then per channel G*y / (1 + (G-1)*y/white) as in exposure",
+      "coefficients": { "radiusFraction": 0.002, "shadowsStopsPerUnit": 0.035777, "shadowsTau": 0.264622, "shadowsAdapt": 0, "shadowsHighAdapt": 2.449872, "shadowsBright": 1.327776, "shadowsSpread": 0.135483, "highlightsStopsPerUnit": 0.022627, "highlightsKnee": 3.506305, "highlightsAdapt": 0.872195, "highlightsMean": 0.031109, "highlightsSpread": 0.190714, "white": 1.3021, "detailGain": 1.0, "meanCentre": -2.38471, "spreadCentre": 1.487163, "brightCentre": 0.203023, "highCentre": -0.288506 }
     },
     "contrast": {
       "locked": false,
@@ -38,8 +38,8 @@
     },
     "colour": {
       "locked": false,
-      "form": "Oklab chroma: C *= max(0, 1+saturation*saturationPerUnit) * (1 + vibrance*vibrancePerUnit*(1-min(1,C/vibranceChromaMax))*(1-skinProtect*skin(h))) ; skin(h) = exp(-((h-skinHue)/skinWidth)^2), only for vibrance > 0; bw sets C = 0",
-      "coefficients": { "saturationPerUnit": 0.010109, "vibrancePerUnit": 0.013065, "vibranceChromaMax": 0.392404, "skinHue": 33.187112, "skinWidth": 89.999063, "skinProtect": 0.999491 }
+      "form": "Oklab chroma: C *= max(0, 1+saturation*saturationPerUnit) * max(0, 1 + vibrance*perUnit*(1-(1-vibranceFloor)*min(1,C/vibranceChromaMax))*(1-skinProtect*skin(h))) ; perUnit = vibrancePerUnit above 0, vibranceDownPerUnit below; skin(h) = exp(-((h-skinHue)/skinWidth)^2), only for vibrance > 0; bw sets C = 0",
+      "coefficients": { "saturationPerUnit": 0.010109, "vibrancePerUnit": 0.007578, "vibranceDownPerUnit": 0.011342, "vibranceChromaMax": 0.42859, "vibranceFloor": 0.22581, "skinHue": 31.391, "skinWidth": 38.983, "skinProtect": 0.83214 }
     },
     "clarity": {
       "locked": false,
