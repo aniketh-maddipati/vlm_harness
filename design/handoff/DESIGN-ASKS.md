@@ -507,6 +507,48 @@ C4 (a 10 fps burst) needs nothing new: it is Prompt 2 A and B.
 > (5) **Two bodies stay sorted by time.** No change to the order rule: with matching clocks the
 > interleaved order is the order things happened. The row header's `2 bodies` stays.
 
+## Prompt 4 — a sidecar another app changed after the open (paste into Claude Design)
+
+Found by reading the code (release threat model T4, 2026-10-01) and reproduced in
+`Tests/web/plumbing-harness.mjs`: the page keeps each sidecar's text from the read (`p.xmp`) and
+`xmpFor` merges the rating into that text at Save, however long ago the read was. Open a folder,
+edit a photo in Lightroom, press ⌘⏎ in Lumina: the sidecar got the text from the open back, with
+the new rating, and Lightroom's newer settings were gone.
+
+The app no longer does that. At Save, `plumbing.js` has the Mac read each sidecar again, puts the
+text on disk into `p.xmp` (and `p.lrEd`) where it differs, and lets the page's own `xmpFor` merge
+again; the Mac then refuses a file that changed once more in the instant before the write, leaves
+it untouched, and returns it in `errors` as `{ name, reason: 'changed on disk' }`. Three things
+stay with the page:
+
+> Update `Lumina Sets v5.dc.html` (and `SAFETY.md`). Keep the look, keys and wording otherwise
+> unchanged.
+>
+> **A. The result line for a sidecar that changed during Save.** The app can return a new reason
+> in the result list: today it reads `DSC03311 · changed on disk` (the app's word, in the list's
+> existing style). Decide the wording and add it to SAFETY.md 6's list of reasons (disk full,
+> read-only, locked, missing). The file was not written and is exactly as the other app left it;
+> pressing ⌘⏎ again reads it again and saves it. If the line should say that (`… · save again`),
+> say how; nothing is retried silently.
+>
+> **B. Save shows what is on disk now, not what was there at the open.** The Save step's own
+> facts come from `p.xmp` as read: the import note `N already have a .xmp sidecar · M with
+> Lightroom edits · only the rating will be updated`, the `was★ → now★` rows, `new sidecars` /
+> `existing sidecars` counts, the file tree's `merged` / `new`. After a long cull they can be
+> wrong before ⌘⏎ (a sidecar made, edited or deleted since) and the result is computed from the
+> counts taken before the write. When the Save step opens in the app, and again right before
+> `runExport` builds its files, call `await lumina.sidecars(names)` (new; the names `runExport`
+> gives its files) → `[{ name, text, base }]` (`text` null when there is no file), put each `text`
+> into `p.xmp`, recompute `p.lrEd` with `LuminaCore.hasDevelop`, and rebuild the notes and the
+> rows from that. Pass each file's `base` on in `writeInto(files, 'xmp')` as `{ name, data, base }`.
+> The app does the read and the merge for you today from `plumbing.js`; with it in the page that
+> code can go, and the screen is right before the write as well as after.
+>
+> **C. The browser has the same gap.** The page's own `writeInto` (`showDirectoryPicker`) writes
+> `f.data` over whatever is there. Before writing each file, read it through its handle; when its
+> text is not the `p.xmp` the merge used, merge the rating into the text just read
+> (`LuminaCore.mergeXmp`) and write that. The `.lumina-bak` copy stays as it is.
+
 ## How each ask is checked once the new handoff lands
 
 - 1: `Tests/web/plumbing-harness.mjs` and `probe.sh smoke` (`app-smoke`: the Save screen shows the row before any save). Remove the `wf` block in `plumbing.js`'s view loop.
@@ -559,3 +601,9 @@ C4 (a 10 fps burst) needs nothing new: it is Prompt 2 A and B.
   bytes are unchanged). The session round trip of the shift joins `Tests/web/plumbing-harness.mjs`.
 - EDGE-CASES C4: re-forge `burst-10fps` (its twelve frames are twelve different pictures with no sequence numbers,
   so v5 shows twelve singles and the scenario no longer tests a burst), then re-read it after Prompt 2 A and B.
+- Prompt 4: `Tests/web/plumbing-harness.mjs` (the `stale sidecar:` checks: changed, made and deleted since the open; changed
+  during Save → the result line and the file untouched), `SetsSidecarTests` (the base check), and `probe.sh app` with
+  `app-xmp-changed-since-open` (real Lightroom sidecars swapped in after the read; add it to `APP` in `Scripts/probe.sh`).
+  A: the harness asserts the new wording. B: add the contract check for `lumina.sidecars`, an expect on the Save notes
+  before ⌘⏎, then drop the re-read and re-merge in `plumbing.js`'s `writeInto` (the base check on the Mac stays).
+  C: the scenario with `"mode"` removed.

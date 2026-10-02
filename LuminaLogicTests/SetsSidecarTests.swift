@@ -97,4 +97,96 @@ final class SetsSidecarTests: XCTestCase {
         XCTAssertEqual(Set(l.others), [name + "/DSC00001.JPG", name + "/A.CR3", name + "/clip.MP4"])
         XCTAssertFalse(l.onCard)
     }
+
+    // MARK: A sidecar another app wrote between the open and Save (threat model T4)
+
+    /// The merge was based on the text read at open; Lightroom has saved newer settings since.
+    /// Nothing is written: not the old text, not a backup, not a temp file.
+    func testSidecarChangedSinceItsBaseIsLeftAlone() throws {
+        let url = dir.appendingPathComponent("DSC00006.xmp")
+        try Data("raw".utf8).write(to: dir.appendingPathComponent("DSC00006.ARW"))
+        try Data("exposure +0.10".utf8).write(to: url)
+        let atOpen = try SetsFileOps.readSidecar(rel: "DSC00006.xmp", root: dir)
+        XCTAssertEqual(atOpen.text, "exposure +0.10")
+        XCTAssertEqual(atOpen.base, SetsFileOps.sha256(Data("exposure +0.10".utf8)))
+        try Data("exposure +1.50".utf8).write(to: url)                       // the other app
+        XCTAssertThrowsError(try SetsFileOps.writeSidecar(Data("exposure +0.10 rated".utf8), rel: "DSC00006.xmp", root: dir, base: atOpen.base)) { e in
+            XCTAssertEqual(e as? SetsFileOps.SidecarError, SetsFileOps.SidecarError(name: "DSC00006", reason: "changed on disk"))
+        }
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "exposure +1.50")
+        XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: dir.path)), ["sub", "DSC00006.ARW", "DSC00006.xmp"])
+        // Read again, merged again: written, and the backup is the other app's newest file.
+        let now = try SetsFileOps.readSidecar(rel: "DSC00006.xmp", root: dir)
+        XCTAssertEqual(now.text, "exposure +1.50")
+        XCTAssertTrue(try SetsFileOps.writeSidecar(Data("exposure +1.50 rated".utf8), rel: "DSC00006.xmp", root: dir, base: now.base).backedUp)
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "exposure +1.50 rated")
+        XCTAssertEqual(try String(contentsOf: url.appendingPathExtension("lumina-bak"), encoding: .utf8), "exposure +1.50")
+    }
+
+    /// The same when Lumina has written this sidecar before: the backup still holds the first
+    /// version (it is never replaced), so a stale write would lose the newer settings for good.
+    func testStaleWriteAfterAnEarlierSaveIsLeftAlone() throws {
+        let url = dir.appendingPathComponent("DSC00007.xmp")
+        try Data("raw".utf8).write(to: dir.appendingPathComponent("DSC00007.ARW"))
+        try Data("v1".utf8).write(to: url)
+        let v1 = try SetsFileOps.readSidecar(rel: "DSC00007.xmp", root: dir).base
+        try SetsFileOps.writeSidecar(Data("v1 rated".utf8), rel: "DSC00007.xmp", root: dir, base: v1)
+        let rated = try SetsFileOps.readSidecar(rel: "DSC00007.xmp", root: dir).base
+        try Data("v2 from lightroom".utf8).write(to: url)
+        XCTAssertThrowsError(try SetsFileOps.writeSidecar(Data("v1 rated 4".utf8), rel: "DSC00007.xmp", root: dir, base: rated)) { e in
+            XCTAssertEqual((e as? SetsFileOps.SidecarError)?.reason, SetsFileOps.sidecarChanged)
+        }
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "v2 from lightroom")
+        XCTAssertEqual(try String(contentsOf: url.appendingPathExtension("lumina-bak"), encoding: .utf8), "v1")
+    }
+
+    /// "There was no sidecar" is a base too: one that appeared since is not replaced by a fresh
+    /// one, and one that was deleted since is not brought back from old text.
+    func testNoSidecarIsABase() throws {
+        try Data("raw".utf8).write(to: dir.appendingPathComponent("DSC00008.ARW"))
+        let none = try SetsFileOps.readSidecar(rel: "DSC00008.xmp", root: dir)
+        XCTAssertNil(none.text)
+        XCTAssertEqual(none.base, SetsFileOps.noSidecar)
+        let url = dir.appendingPathComponent("DSC00008.xmp")
+        try Data("made by lightroom".utf8).write(to: url)
+        XCTAssertThrowsError(try SetsFileOps.writeSidecar(Data("fresh".utf8), rel: "DSC00008.xmp", root: dir, base: none.base)) { e in
+            XCTAssertEqual((e as? SetsFileOps.SidecarError)?.reason, "changed on disk")
+        }
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "made by lightroom")
+        let made = try SetsFileOps.readSidecar(rel: "DSC00008.xmp", root: dir).base
+        try FileManager.default.removeItem(at: url)
+        XCTAssertThrowsError(try SetsFileOps.writeSidecar(Data("made by lightroom rated".utf8), rel: "DSC00008.xmp", root: dir, base: made)) { e in
+            XCTAssertEqual((e as? SetsFileOps.SidecarError)?.reason, "changed on disk")
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+        XCTAssertNoThrow(try SetsFileOps.writeSidecar(Data("fresh".utf8), rel: "DSC00008.xmp", root: dir, base: SetsFileOps.noSidecar))
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "fresh")
+    }
+
+    /// A file that already holds the bytes to write has nothing to lose: saving twice with nothing
+    /// changed stays a no-op whatever base comes with it. Without a base nothing is compared.
+    func testSameBytesAndNoBase() throws {
+        let url = dir.appendingPathComponent("DSC00009.xmp")
+        try Data("raw".utf8).write(to: dir.appendingPathComponent("DSC00009.ARW"))
+        try Data("rated".utf8).write(to: url)
+        XCTAssertFalse(try SetsFileOps.writeSidecar(Data("rated".utf8), rel: "DSC00009.xmp", root: dir, base: SetsFileOps.noSidecar).backedUp)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.appendingPathExtension("lumina-bak").path))
+        XCTAssertTrue(try SetsFileOps.writeSidecar(Data("unchecked".utf8), rel: "DSC00009.xmp", root: dir).backedUp)
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "unchecked")
+    }
+
+    /// The read at Save takes the same names the write does, and nothing else in the folder.
+    func testReadSidecarOnlyXmpInsideTheFolder() throws {
+        try Data("raw".utf8).write(to: dir.appendingPathComponent("DSC00001.ARW"))
+        for rel in ["DSC00001.ARW", "../escape.xmp", "/tmp/abs.xmp", "sub/../../x.xmp", "note.txt"] {
+            XCTAssertThrowsError(try SetsFileOps.readSidecar(rel: rel, root: dir), rel) { e in
+                XCTAssertEqual((e as? SetsFileOps.SidecarError)?.reason, "refused", rel)
+            }
+        }
+        // Not UTF-8: no text (the read at open skips it too), but still a base.
+        try Data([0xff, 0xfe, 0x00]).write(to: dir.appendingPathComponent("sub/DSC00002.XMP"))
+        let odd = try SetsFileOps.readSidecar(rel: "sub/DSC00002.XMP", root: dir)
+        XCTAssertNil(odd.text)
+        XCTAssertEqual(odd.base, SetsFileOps.sha256(Data([0xff, 0xfe, 0x00])))
+    }
 }

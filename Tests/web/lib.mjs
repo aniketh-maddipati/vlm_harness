@@ -2,6 +2,7 @@
 // scheme handler serves it, with plumbing.js and a Node stand-in for SetsBridge.
 import { createRequire } from 'module';
 import { execSync } from 'child_process';
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -129,6 +130,9 @@ export function list(root) {
   return out;
 }
 
+// SetsFileOps.sidecarBase: the SHA-256 of the file's bytes, or "none" when there is no file.
+const sidecarBase = file => fs.existsSync(file) ? crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex') : 'none';
+
 export class Bridge {
   constructor(parent) {
     this.parent = parent; this.roots = {}; this.pending = null; this.calls = []; this.sessions = {}; this.index = []; this.prefs = null; this.revealed = []; this.gone = new Set(); this.denied = null;
@@ -198,6 +202,15 @@ export class Bridge {
       case 'openSettings': this.settingsOpened = msg.what; return true;
       case 'checkAccess': return this.denied == null;
       case 'reopenDenied': return true;
+      case 'readSidecars': {
+        // Mirrors SetsFileOps.readSidecar: each sidecar as it is on disk now, and the base a write must match.
+        const root = this.roots[msg.root]; if (!root) return null;
+        return (msg.files || []).map(name => {
+          const dest = path.resolve(root, name);
+          if (!dest.startsWith(root + path.sep) || !/\.xmp$/i.test(dest)) return { name };
+          return { name, text: fs.existsSync(dest) ? fs.readFileSync(dest, 'utf8') : null, base: sidecarBase(dest) };
+        });
+      }
       case 'writeSidecars': {
         // Mirrors SetsFileOps.writeSidecar: into the shoot folder, .xmp only, .lumina-bak first, verify.
         const root = this.roots[msg.root]; if (!root) return null;
@@ -209,6 +222,9 @@ export class Bridge {
           const stem = path.basename(dest).replace(/\.[^.]+$/, '');
           if (!fs.readdirSync(path.dirname(dest)).some(n => /\.arw$/i.test(n) && n.replace(/\.[^.]+$/, '') === stem)) { errors.push({ name: stem, reason: 'missing' }); continue; }
           const data = Buffer.from(f.b64, 'base64');
+          if (this.beforeSidecar) this.beforeSidecar(dest);            // a test's chance to be the other app, writing at this instant
+          // The file must still be what the merge was based on (SetsFileOps.sidecarBase), else it is left alone.
+          if (f.base != null && sidecarBase(dest) !== f.base && !(fs.existsSync(dest) && fs.readFileSync(dest).equals(data))) { errors.push({ name: stem, reason: 'changed on disk' }); continue; }
           if (fs.existsSync(dest)) { if (!fs.existsSync(dest + '.lumina-bak')) { fs.copyFileSync(dest, dest + '.lumina-bak'); bak++; } }
           fs.writeFileSync(dest + '.tmp', data); fs.renameSync(dest + '.tmp', dest);
           if (!fs.readFileSync(dest).equals(data)) errors.push({ name: path.basename(f.name), reason: 'failed' }); else n++;
