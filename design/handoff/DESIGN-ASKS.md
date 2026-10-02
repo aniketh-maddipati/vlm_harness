@@ -682,6 +682,31 @@ stay with the page:
 > text is not the `p.xmp` the merge used, merge the rating into the text just read
 > (`LuminaCore.mergeXmp`) and write that. The `.lumina-bak` copy stays as it is.
 
+## Prompt 8 — an export that was cut short (paste into Claude Design)
+
+Found by release task R1d (2026-10-01). An export killed mid-way (crash, kill, power) leaves its
+finished files (each verified) and, at most, one half-written hidden temp file per file in flight
+(`.DSC00001.ARW.lumina-tmp-…`). On the next launch the app removes those temp files through a
+bookmark of the export folder it kept when the export began. That cannot always work: the folder was
+moved to a disk that isn't connected, or the export was made by an older Lumina that kept no
+bookmark. Then the temp files stay and the app tries again on every launch. Today none of this
+reaches the page; the app only logs it.
+
+> When the app starts and finds an export that was cut short, `window.lumina.cutShort` will be an
+> array before your script runs (plumbing.js adds it when this lands; no UI of its own), newest
+> first: `{label, folder, planned, done, cleaned}` — `label` the export's kind as the page sent it
+> (`lr`, `both`, `xmp`…), `folder` the export folder's name, `planned` / `done` counts, `cleaned`
+> `true` when the half-written files were removed, `false` when they could not be reached.
+> (1) Show it once, as a quiet footer line on Open, gone on the next key, e.g.
+> `last export stopped after 14 of 40 · Lightroom Exports · export again to finish` and, when
+> `cleaned` is false, `· reconnect Lightroom Exports so Lumina can tidy it`. Your words; keep it
+> one line, name the folder, and do not reopen or retry anything by itself.
+> (2) Exporting again into the same folder already finishes the job (the probe's
+> `fault-kill-mid-handoff` checks it); say so only if you want to.
+
+Checked by `LuminaLogicTests/SetsExportJournalSandboxTests.swift` (what recovery does and records)
+and, once the page shows it, by a probe scenario that kills an export and relaunches.
+
 ## Prompt 9 — a card Lumina may not read yet (paste into Claude Design)
 
 Found by the threat model (T10, release task R1c, 2026-10-01). In the App Store build (the App
