@@ -139,22 +139,20 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
 
     private func preview(_ d: Any?) -> LookBases.PreviewFallback? {
         guard let p = d as? [String: Any] else { return nil }
-        let o = Int(p["o"] as? String ?? "") ?? p["o"] as? Int ?? 0, l = Int(p["l"] as? String ?? "") ?? p["l"] as? Int ?? 0
+        let o = SetsNumber.fileRange(p["o"]), l = SetsNumber.fileRange(p["l"])
         guard o > 0, l > 0 else { return nil }
-        return LookBases.PreviewFallback(offset: o, length: l, orientation: Int(p["ori"] as? String ?? "") ?? p["ori"] as? Int ?? 1)
+        return LookBases.PreviewFallback(offset: o, length: l, orientation: SetsNumber.orientation(p["ori"]))
     }
 
     /// A photo's embedded preview as the page names it: `{p, o, l, ori}` (numbers or strings).
     nonisolated static func ingestPreview(_ d: Any?) -> SetsIngest.Preview? {
         guard let i = d as? [String: Any], let rel = i["p"] as? String else { return nil }
-        return SetsIngest.Preview(rel: rel, offset: Int(i["o"] as? String ?? "") ?? i["o"] as? Int ?? 0,
-                                  length: Int(i["l"] as? String ?? "") ?? i["l"] as? Int ?? 0,
-                                  orientation: Int(i["ori"] as? String ?? "") ?? i["ori"] as? Int ?? 1)
+        return SetsIngest.Preview(rel: rel, offset: SetsNumber.fileRange(i["o"]), length: SetsNumber.fileRange(i["l"]),
+                                  orientation: SetsNumber.orientation(i["ori"]))
     }
 
     private func roi(_ d: Any?) -> LookCanvasSchedule.ROI? {
-        guard let r = d as? [String: Any], let x = r["x"] as? Double, let y = r["y"] as? Double, let w = r["w"] as? Double, let h = r["h"] as? Double, w > 0, h > 0 else { return nil }
-        return LookCanvasSchedule.ROI(x: x, y: y, w: w, h: h)
+        SetsNumber.roi(d).map { LookCanvasSchedule.ROI(x: $0.x, y: $0.y, w: $0.w, h: $0.h) }
     }
 
     /// What the page's facts line and the probe read: the canvas path, the shoot's decoder map,
@@ -420,7 +418,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             let id = key?.id ?? shoots.shootID(at: place)
             // The bookmark made at open (nil for a reopen: upsert keeps the one it came through).
             let shoot = SetsShootStore.Shoot(id: id, title: url.lastPathComponent == "DCIM" ? (cards.current?.name ?? "Card") : url.lastPathComponent,
-                                             path: url.path, volumeUUID: key?.volume ?? SetsFileOps.volumeID(url), photos: body["n"] as? Int ?? 0,
+                                             path: url.path, volumeUUID: key?.volume ?? SetsFileOps.volumeID(url), photos: SetsNumber.count(body["n"]) ?? 0,
                                              firstCapture: body["date"] as? String ?? "", opened: Date(),
                                              bookmark: key.map { $0.bookmark } ?? (try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)),
                                              place: place)
@@ -473,13 +471,16 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "canvasLayout":
             // The page's canvas rect (CSS px, from the web view's top-left) and whether Edit shows.
             guard let c = canvas else { return (["path": "image"], nil) }
-            let x = body["x"] as? Double ?? 0, y = body["y"] as? Double ?? 0, w = body["w"] as? Double ?? 0, h = body["h"] as? Double ?? 0
-            c.layout(rect: CGRect(x: x, y: y, width: w, height: h), visible: body["visible"] as? Bool ?? false, dpr: CGFloat(body["dpr"] as? Double ?? 1))
+            // A rect that is not finite, or larger than any display (SetsNumber.canvasRect), is refused:
+            // the canvas hides and keeps its size (`.null` is the rect LookCanvasController.layable refuses).
+            let rect = SetsNumber.canvasRect(body)
+            if rect == nil { onEvent?("canvasLayout refused: not a rect") }
+            c.layout(rect: rect ?? .null, visible: rect != nil && (body["visible"] as? Bool ?? false), dpr: CGFloat(SetsNumber.dpr(body["dpr"])))
             return (["path": c.path.rawValue], nil)
         case "canvasLook":
             guard let c = canvas, let look = body["look"] as? String else { return (0, nil) }
-            let seq = c.look(look, drag: body["drag"] as? Bool ?? false, key: body["key"] as? Bool ?? false, roi: roi(body["roi"]), at: body["t"] as? Double,
-                             pageSeq: body["seq"] as? Int ?? Int(body["seq"] as? Double ?? 0))
+            let seq = c.look(look, drag: body["drag"] as? Bool ?? false, key: body["key"] as? Bool ?? false, roi: roi(body["roi"]), at: SetsNumber.pageClock(body["t"]),
+                             pageSeq: SetsNumber.seq(body["seq"]))
             return (seq, nil)
         case "canvasDrag":
             if body["start"] as? Bool ?? false { canvas?.dragStart() } else { canvas?.dragEnd() }
@@ -501,7 +502,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             do {
                 try shoots.saveSession(id, Data(json.utf8))
                 if let sum = body["summary"] as? [String: Any] {
-                    try shoots.saveSummary(id, photos: sum["n"] as? Int, seen: sum["dec"] as? Int, keepers: sum["kp"] as? Int, last: sum["last"] as? String)
+                    try shoots.saveSummary(id, photos: SetsNumber.count(sum["n"]), seen: SetsNumber.count(sum["dec"]), keepers: SetsNumber.count(sum["kp"]), last: sum["last"] as? String)
                 }
                 return (true, nil)
             } catch { return (false, "\(error)") }
@@ -530,8 +531,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (true, nil)
         case "setPrefs":
             guard let prefs = body["prefs"] as? [String: Any] else { return (false, nil) }
-            Self.savePrefs(prefs)
-            return (true, nil)
+            return (Self.savePrefs(prefs), nil)
         case "openSettings":
             // Privacy & Security → Files and Folders. Opening System Settings is the user's own click.
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") { NSWorkspace.shared.open(url) }
@@ -598,9 +598,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }
 
-    static func savePrefs(_ prefs: [String: Any]) {
-        guard let data = try? JSONSerialization.data(withJSONObject: prefs, options: [.sortedKeys]), let text = String(data: data, encoding: .utf8) else { return }
+    /// False, and nothing stored, when the settings hold a number JSON has no form for (NaN,
+    /// ±Infinity: the page can send either). `JSONSerialization` raises on one instead of throwing.
+    @discardableResult
+    static func savePrefs(_ prefs: [String: Any]) -> Bool {
+        guard JSONSerialization.isValidJSONObject(prefs),
+              let data = try? JSONSerialization.data(withJSONObject: prefs, options: [.sortedKeys]), let text = String(data: data, encoding: .utf8) else { return false }
         UserDefaults.standard.set(text, forKey: prefsKey)
+        return true
     }
 
     // MARK: Save (SAFETY.md 1)
@@ -676,9 +681,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 // The Edit step's render: {name, look: {src, look: "<look string>", px?, model?}} → LookPipeline
                 // at full size, with the decoder the shoot pins for that body (RAW 9 when it has it).
                 guard let src = resolve(rel) else { return ["aborted": true, "say": "export stopped · can't find \(rel)"] }
-                let px = (l["px"] as? Int) ?? Int(l["px"] as? String ?? "")
+                let px = SetsNumber.exportEdge(l["px"])
                 let decoder = LookRawPolicy.version(for: .export, body: (l["model"] as? String).flatMap { header.bodies[$0] }, pinned: header.decoderVersion)
-                items.append(.look(name: name, source: src, look: l["look"] as? String ?? "", px: px.flatMap { $0 > 0 ? $0 : nil }, decoder: decoder))
+                items.append(.look(name: name, source: src, look: l["look"] as? String ?? "", px: px, decoder: decoder))
             }
         }
         // Pick the destination; refuse the card and the source folder, and ask again.
