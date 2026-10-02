@@ -700,7 +700,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         for f in files {
             // No NUL either: the file system would end the name there, before the extension checked below.
             guard let name = f["name"] as? String, !name.contains(".."), !name.hasPrefix("/"), !name.utf8.contains(0) else { return ["aborted": true, "say": "export stopped · bad file name"] }
-            let ext =(name as NSString).pathExtension.lowercased()
+            let ext = (name as NSString).pathExtension.lowercased()
             if let b = f["b64"] as? String, let data = Data(base64Encoded: b) {
                 guard Self.bytesExtensions.contains(ext) else { return ["aborted": true, "say": "export stopped · bad file name"] }
                 items.append(.bytes(name: name, data: data))
