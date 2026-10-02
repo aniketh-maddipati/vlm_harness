@@ -314,6 +314,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 let g = LookMath.exposureGain(look.ev, r), w = LookMath.exposureWhite(r)
                 pass("lookExposure", [img, CIVector(x: g, y: w)])
                 anchor.mean = LookMath.exposure(anchor.mean, gain: g, white: w)
+                anchor.high = anchor.high.map { LookMath.exposure($0, gain: g, white: w) }
             case "whiteBalance":
                 let g = LookMath.whiteBalanceGains(look.wb, asShot: dev.asShot, r)
                 pass("lookWhiteBalance", [img, CIVector(x: g.r, y: g.g, z: g.b, w: 1), CIVector(x: LookMath.whiteBalanceWhite(r), y: 0)])
@@ -334,11 +335,13 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                                  z: min(1, max(0, r.k("contrast", "lumaMix", 0.5))), w: 0)
                 pass("lookContrast", [img, k, gam, lum])
             case "colour":
+                let up = r.k("colour", "vibrancePerUnit", 0.01)
                 let k1 = CIVector(x: max(0, 1 + look.saturation * r.k("colour", "saturationPerUnit", 0.01)),
-                                  y: look.vibrance * r.k("colour", "vibrancePerUnit", 0.01),
-                                  z: max(1e-6, r.k("colour", "vibranceChromaMax", 0.25)), w: look.vibrance > 0 ? 1 : 0)
+                                  y: look.vibrance * (look.vibrance > 0 ? up : r.k("colour", "vibranceDownPerUnit", up)),
+                                  z: max(1e-6, r.k("colour", "vibranceChromaMax", 0.25)),
+                                  w: 1 - min(1, max(0, r.k("colour", "vibranceFloor", 0))))
                 let k2 = CIVector(x: r.k("colour", "skinHue", 60), y: max(1e-6, r.k("colour", "skinWidth", 25)),
-                                  z: r.k("colour", "skinProtect", 0.7), w: look.bw ? 1 : 0)
+                                  z: look.vibrance > 0 ? r.k("colour", "skinProtect", 0.7) : 0, w: look.bw ? 1 : 0)
                 pass("lookColour", [img, k1, k2])
             case "clarity":
                 let base = blur(luma(perceptual: true), sigma: r.k("clarity", "radiusFraction", 0.02) * longEdge)
