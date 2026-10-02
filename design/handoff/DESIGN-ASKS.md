@@ -559,3 +559,33 @@ C4 (a 10 fps burst) needs nothing new: it is Prompt 2 A and B.
   bytes are unchanged). The session round trip of the shift joins `Tests/web/plumbing-harness.mjs`.
 - EDGE-CASES C4: re-forge `burst-10fps` (its twelve frames are twelve different pictures with no sequence numbers,
   so v5 shows twelve singles and the scenario no longer tests a burst), then re-read it after Prompt 2 A and B.
+
+## Prompt 4 — when the page keeps stopping (paste into Claude Design)
+
+Found by the threat model (T7, 2026-10-01). When the page's process dies (a crash, or memory), the
+app reloads it. A file that kills the page every time would loop forever, so the app now reloads at
+most 3 times in a minute; on the next stop it stops reloading and shows a native alert, because the
+page is gone and cannot show anything:
+
+- Title: `Lumina keeps stopping`
+- Text: `It stopped again after reloading 3 times in a minute. Your decisions so far are saved.`
+- Buttons: `Try Again` (reloads once more, the count starts over) · `Quit`
+
+Quit also no longer waits for a page that doesn't answer: after 2 s it quits as if no keepers were
+unsaved. Decisions are saved by the app as they are made (`saveSession`), so neither path loses them.
+Both alerts are native, but their words are the design's, like the Quit alert's in MENUS.md.
+
+> In MENUS.md (or SAFETY.md), add the app's alerts with their exact wording: Quit with unsaved
+> keepers (as today), Remove Working Files (as today), and the new one above. Change its words if
+> you want them different; keep it to a title, one or two plain sentences and two buttons.
+> (1) **After a reload the page says so.** Today a reloaded page comes back on Open with no word.
+> When the app reloads after a stop, `window.lumina.restarted` will be `true` before your script
+> runs (plumbing.js adds it when this lands; no UI of its own): show one quiet footer line, e.g. `Lumina restarted ·
+> your decisions are kept`, gone on the next key, and reopen nothing by itself.
+> (2) **Optional, naming the file.** If you want the alert to name the photo being read when the
+> page stopped (`DSC03311.ARW`), say so in the wording; the app would then track the last file the
+> page asked for.
+
+Checked by `LuminaLogicTests/SetsPageRecoveryTests.swift` (the reload count and the wording the
+app ships today) and by hand: kill the page's process 4 times inside a minute and see the alert;
+Quit with the page hung and see the app quit after 2 s.

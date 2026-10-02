@@ -5,7 +5,8 @@
 # swift:6.1-noble) and runs the logic tests that don't need Core Image / ImageIO / AppKit:
 #   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests (minus its Edit-look tests),
 #   LookStringTests, LookMathTests (the look grammar and the stage maths on synthetic ramps),
-#   LookCanvasTests (the canvas schedule, the warm-up plan, the byte cache, the RAW tiers and the pin rule).
+#   LookCanvasTests (the canvas schedule, the warm-up plan, the byte cache, the RAW tiers and the pin rule),
+#   SetsShootStoreTests (a shoot id from the page stays inside the store).
 # Not covered here (Mac only): SetsBridge, SetsSchemeHandler, SetsCardWatcher (AppKit/WebKit),
 # SetsEditLook, SetsLookExport, LookPipeline/LookKernels/LookRenderer (Core Image, Metal),
 # SetsIngestTests, SetsPageBytesTests and LookPipelineTests (ImageIO, bundle, Core Image).
@@ -43,7 +44,8 @@ extension URLResourceKey { static let volumeAvailableCapacityForImportantUsageKe
 extension URLResourceValues { var volumeAvailableCapacityForImportantUsage: Int64? { nil } }
 SWIFT
 cp "$ROOT/LuminaLogicTests/SetsTrustTests.swift" "$ROOT/LuminaLogicTests/LookStringTests.swift" "$ROOT/LuminaLogicTests/LookMathTests.swift" \
-   "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" "$B/Tests/"
+   "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" \
+   "$ROOT/LuminaLogicTests/SetsShootStoreTests.swift" "$B/Tests/"
 # SetsFileOpsTests without its Core Image tests (the Edit look); SetsSidecarTests without the locked-file
 # test (Linux has no user-immutable flag for FileManager to set).
 for t in SetsFileOpsTests SetsSidecarTests; do
