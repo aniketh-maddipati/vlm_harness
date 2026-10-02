@@ -160,12 +160,14 @@ struct CropStage: View {
             .onEnded { _ in turnStart = nil }
     }
 
+    /// A handle's centre: its 18pt box starts 4pt outside the corner.
     private func point(_ c: Corner, of r: CGRect) -> CGPoint {
+        let o = 9.scaled(s) - 4
         switch c {
-        case .tl: CGPoint(x: r.minX + 4, y: r.minY + 4)
-        case .tr: CGPoint(x: r.maxX - 4, y: r.minY + 4)
-        case .bl: CGPoint(x: r.minX + 4, y: r.maxY - 4)
-        case .br: CGPoint(x: r.maxX - 4, y: r.maxY - 4)
+        case .tl: CGPoint(x: r.minX + o, y: r.minY + o)
+        case .tr: CGPoint(x: r.maxX - o, y: r.minY + o)
+        case .bl: CGPoint(x: r.minX + o, y: r.maxY - o)
+        case .br: CGPoint(x: r.maxX - o, y: r.maxY - o)
         }
     }
 
@@ -266,7 +268,8 @@ private struct CropBoxView: View {
     }
 }
 
-/// A corner: two 3pt strokes, 18pt long.
+/// A corner (prototype `data-h`): an 18pt box 4pt outside the frame's corner, its two outer
+/// borders 3pt wide.
 private struct CropHandle: View {
     @Environment(\.luminaScale) private var s
     let corner: CropStage.Corner
@@ -274,11 +277,12 @@ private struct CropHandle: View {
         let len = 18.scaled(s)
         Path { p in
             let right = corner == .tr || corner == .br, bottom = corner == .bl || corner == .br
-            let x0: CGFloat = right ? len : 0, y0: CGFloat = bottom ? len : 0
+            // The stroke's centre line 1.5pt inside the box's edge, so the 3pt border lies within it.
+            let x0: CGFloat = right ? len - 1.5 : 1.5, y0: CGFloat = bottom ? len - 1.5 : 1.5
             p.move(to: CGPoint(x: right ? 0 : len, y: y0)); p.addLine(to: CGPoint(x: x0, y: y0))
             p.addLine(to: CGPoint(x: x0, y: bottom ? 0 : len))
         }
-        .stroke(LuminaColor.textPrimary, style: StrokeStyle(lineWidth: 3, lineCap: .square, lineJoin: .miter))
+        .stroke(LuminaColor.textPrimary, style: StrokeStyle(lineWidth: 3, lineCap: .butt, lineJoin: .miter))
         .frame(width: len, height: len)
     }
 }
@@ -328,7 +332,9 @@ struct CropToolbar: View {
                 Divider()
                 Button("Portrait ↔ landscape") { model.cropSwapRatio() }
             } label: {
-                Text("Ratio \(model.edit.cropRatio) ▾").font(LuminaFont.small(s, .semibold))
+                // One Text (a menu label keeps only its first view): the caret 10pt at 0.7 (prototype).
+                (Text("Ratio \(model.edit.cropRatio) ").font(LuminaFont.small(s, .semibold))
+                 + Text("▾").font(LuminaFont.ui(10, .regular, s)).foregroundColor(LuminaColor.textPrimary.opacity(0.7)))
                     .foregroundStyle(LuminaColor.textPrimary)
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
