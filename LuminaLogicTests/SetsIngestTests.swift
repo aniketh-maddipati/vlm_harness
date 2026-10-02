@@ -85,6 +85,38 @@ final class SetsIngestTests: XCTestCase {
         XCTAssertEqual(ingest.snapshot.bytesRead, before)
     }
 
+    func testAPreviewThatStartsInsideTheHeadIsNotReadFromTheCardTwice() throws {
+        // A Sony ARW: the preview starts at about 130 KB, so the 256 KB head already holds its start.
+        let raw = Data((0..<600_000).map { UInt8(($0 &* 31 &+ $0 / 7) % 251) })
+        try put("100MSDCF/DSC00001.ARW", raw)
+        let rel = "shoot/100MSDCF/DSC00001.ARW", head = SetsIngest.headBytes
+        let ingest = SetsIngest(workers: 2)
+        ingest.register(root)
+        _ = try ingest.head(rel)
+        let pv = try ingest.preview(.init(rel: rel, offset: 130_000, length: 400_000, orientation: 1))
+        XCTAssertEqual(pv, raw.subdata(in: 130_000..<530_000), "the same bytes as one read of the range")
+        XCTAssertEqual(ingest.snapshot.bytesRead, 530_000, "the file's first 530 KB, each byte once")
+        XCTAssertEqual(ingest.snapshot.bytesFromHead, Int64(head - 130_000))
+        // A preview that lies wholly inside the head costs no read at all.
+        let before = ingest.snapshot.bytesRead
+        XCTAssertEqual(try ingest.preview(.init(rel: rel, offset: 1000, length: 5000, orientation: 1)), raw.subdata(in: 1000..<6000))
+        XCTAssertEqual(ingest.snapshot.bytesRead, before)
+        // Without its head (another card under the same folder name, or long after the read): the whole range.
+        ingest.register(root)
+        XCTAssertEqual(try ingest.preview(.init(rel: rel, offset: 140_000, length: 300_000, orientation: 1)), raw.subdata(in: 140_000..<440_000))
+        XCTAssertEqual(ingest.snapshot.bytesRead, before + 300_000)
+    }
+
+    func testAPreviewInsideTheHeadOfAPulledCardIsRefused() throws {
+        try put("100MSDCF/DSC00001.ARW", Data(count: 300_000))
+        let rel = "shoot/100MSDCF/DSC00001.ARW"
+        let ingest = SetsIngest(workers: 1)
+        ingest.register(root)
+        _ = try ingest.head(rel)
+        XCTAssertFalse(ingest.markGone(volume: dir).isEmpty)
+        XCTAssertThrowsError(try ingest.preview(.init(rel: rel, offset: 1000, length: 5000, orientation: 1)))
+    }
+
     func testThumbCoversTheLargestRetinaTileUprightAndIsNeverUpscaled() throws {
         let big = jpeg(1616, 1080), small = jpeg(640, 427)
         var raw = Data(count: 1000); raw.append(big); raw.append(small); raw.append(Data(count: 5000))
