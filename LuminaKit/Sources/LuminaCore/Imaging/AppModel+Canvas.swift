@@ -95,7 +95,7 @@ public extension AppModel {
     /// range and the photo stays in the canvas (R-43).
     func canvasResized(_ size: CGSize, backingScale: CGFloat) {
         let c = canvas, old = edit.oneToOne
-        guard c.size != size || c.backingScale != backingScale else { refreshOneToOne(); return }
+        guard c.size != size || c.backingScale != backingScale else { refitZoom(); return }
         c.size = size; c.backingScale = max(1, backingScale)
         refreshOneToOne()
         if abs(edit.zoom - 1) > 0.001, old > 0 {
@@ -103,6 +103,16 @@ public extension AppModel {
             if abs(z - 1) < 0.02 { z = 1 }
             edit.zoom = z
         }
+        clampPan()
+    }
+
+    /// The Edit photo's crop changed under a zoomed canvas (⌘Z / ⇧⌘Z of a crop): 1:1 is measured
+    /// again, a zoom past the new 2× of 1:1 comes back into range (R-46), and the photo stays in
+    /// the canvas (R-43). Nothing moves when the zoom is still in range.
+    func refitZoom() {
+        refreshOneToOne()
+        let z = EditLayout.clampZoom(edit.zoom, oneToOne: edit.oneToOne)
+        if z != edit.zoom { edit.zoom = abs(z - 1) < 0.02 ? 1 : z }
         clampPan()
     }
 

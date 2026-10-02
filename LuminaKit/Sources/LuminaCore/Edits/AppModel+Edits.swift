@@ -119,6 +119,8 @@ public extension AppModel {
             retag(e.key)
             if keptIDs.contains(e.photo) { showEditPhoto(e.photo) }
         }
+        // An undone crop changes what 1:1 is on a canvas that may be zoomed (R-46).
+        refitZoom()
         editControls.autoUndo = nil
         changed()
         say(editCur != from && editCur != nil ? "Undone on \(shoot.photo(editCur)?.file ?? ""). Moved there so you can see it." : "Undone")
@@ -139,6 +141,7 @@ public extension AppModel {
             retag(e.key)
             if keptIDs.contains(e.photo) { showEditPhoto(e.photo) }
         }
+        refitZoom()
         editControls.autoUndo = nil
         changed()
         say(editCur != from && editCur != nil ? "Redone on \(shoot.photo(editCur)?.file ?? "")." : "Redone")
@@ -209,8 +212,11 @@ extension AppModel {
         let k = edits.key(for: id, decisions: decisions), clean = EditStore.clean(new)
         let c = editControls
         if c.autoUndo != nil { c.autoUndo = nil }
-        guard clean != (edits.looks[k] ?? [:]) else { return true }
+        let old = edits.looks[k] ?? [:]
+        guard clean != old else { return true }
         edits.setLook(clean, on: id, decisions: decisions, coalesce: coalesce)
+        // Reset all can take a crop away under a zoomed canvas: 1:1 and the pan limits move (R-43, R-46).
+        if cropOnly(clean) != cropOnly(old) { refitZoom() }
         let t: String? = clean.isEmpty ? nil : tag
         if edits.tags[k] != t { edits.tags[k] = t }
         let settings = settingsOnly(clean)
@@ -247,6 +253,8 @@ extension AppModel {
         guard let s = EditSetting.byKey[key] else { return }
         let n = coarse ? 5.0 : 1.0, v = value(key)
         setValue(key, s.log ? v * pow(1 + 0.02 * n, Double(d)) : v + s.step * n * Double(d), coalesce: coalesce)
+        // A photo that didn't load isn't edited: `commitLook` said why, and that stays the message (R-44).
+        guard edit.photo != .failed else { return }
         report(key)
     }
 

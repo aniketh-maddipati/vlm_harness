@@ -157,6 +157,7 @@ public extension AppModel {
         guard let s = EditSetting.byKey[key], editCur != nil else { return }
         guard let n = EditFormat.parse(text) else { say("Type a number, like \(EditFormat.value(key, value(key)))."); return }
         setValue(key, n)
+        guard edit.photo != .failed else { return }                  // not edited; `commitLook` said why (R-44)
         if n > s.max || n < s.min { say("\(EditFormat.label(key)): \(n > s.max ? "max" : "min") \(EditFormat.value(key, value(key))). Set to the limit.") }
         else { report(key) }
     }

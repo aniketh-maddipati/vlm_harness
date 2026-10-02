@@ -141,7 +141,14 @@ public extension AppModel {
         if edit.beforeHeld { edit.beforeHeld = false; edit.before = false }
         edit.overlay = .help
     }
-    func helpClose() { if edit.overlay == .help { edit.overlay = nil } }
+    func helpClose() {
+        guard edit.overlay == .help else { return }
+        edit.overlay = nil
+        // Closing Help is an Esc like any other (R-25): it never leaves more than two layers open,
+        // so focus + zoom + before + picker under Help still take at most three presses in all.
+        var open = escapeLayers
+        while open.count > 2 { escapeClose(open.removeLast(), quiet: true) }
+    }
 
     // MARK: First-run intro
 
