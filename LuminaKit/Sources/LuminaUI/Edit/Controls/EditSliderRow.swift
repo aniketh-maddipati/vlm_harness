@@ -67,7 +67,9 @@ struct EditSliderRow: View {
         let label = EditFormat.label(key), shown = EditFormat.value(key, v)
         let tone = chosen ? LuminaColor.accentGold : changed ? LuminaColor.textPrimary : LuminaColor.textTertiary
 
-        VStack(spacing: 0) {
+        // Prototype `grid-template-rows: auto 12px; row-gap: 5px; align-content: center`: the
+        // label line (18pt: the white picker's height), 5pt, the track, centred in the row as one block.
+        VStack(spacing: 5.scaled(s)) {
             HStack(spacing: 6.scaled(s)) {
                 if let c = EditFormat.colour(of: key).flatMap({ LuminaColor.swatch[$0] }) {
                     Circle().fill(c).frame(width: 8.scaled(s), height: 8.scaled(s))
@@ -78,7 +80,7 @@ struct EditSliderRow: View {
                 if key == "wb" { whitePicker }
                 if model.edit.typingKey == key { field(label) } else { number(shown, label: label, colour: dragging ? LuminaColor.primaryHover : tone) }
             }
-            .frame(height: m.hit)
+            .frame(height: 18.scaled(s))
             track(v: v, dragging: dragging, snapped: snapped, changed: changed, chosen: chosen)
                 .frame(height: 12.scaled(s))
                 .accessibilityElement(children: .ignore)
