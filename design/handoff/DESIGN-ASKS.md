@@ -831,3 +831,49 @@ nothing in the app shows them. MENUS.md has no place for them, and the app's men
   file's first and last lines.
 - `LuminaApp.swift` adds Help ▸ Acknowledgements calling `luminaCommand("acknowledgements")`, after MENUS.md says so.
 - `probe.sh screens` gains the sheet in prototype and app mode.
+
+## Prompt (number assigned at merge) — a sidecar Lumina can't read, and a name too long to save (paste into Claude Design)
+
+Found by the hostile-input stress run (Q4-F5 and Q4-F4, `docs/release/stress/Q4-hostile.md`,
+2026-10-01). A `.xmp` that is not UTF-8 text (Lightroom's settings saved in Latin-1 by an old
+tool, a UTF-16 sidecar, a damaged file) used to be left out of the app's listing: the page took the
+photo for one without a sidecar and Save wrote a fresh ratings-only sidecar over it. The other
+app's develop settings survived only in `.lumina-bak`.
+
+The app no longer does that. The listing names such a sidecar in `unreadableXmp: [rel]` (beside
+Prompt 6's `skippedXmp`), the photo opens with its sidecar's path and no text, and on Save the Mac
+leaves the file byte for byte as it is and returns it in `errors` as `{ name, reason: 'unreadable' }`.
+A file whose name the disk refuses comes back as `{ name, reason: 'name too long' }`. The page has
+no words for either, so `plumbing.js` adds the sidecar to `_failed` as
+`DSC00107.xmp · sidecar unreadable, not read` (in `?`, counted in `N unreadable`), and the result
+list shows the Mac's words in its existing style: `DSC00107 · unreadable`, `LLL…L · name too long`.
+
+> Update `Lumina Sets v5.dc.html` (and `SAFETY.md`). Keep the look, keys and wording otherwise
+> unchanged, and keep the browser behaviour as it is except where C says so.
+>
+> **A. A sidecar that is there but can't be read.** The listing can carry `unreadableXmp: [rel]`:
+> sidecars that exist but are not text Lumina can read. Their photos open as usual, without a
+> rating from the sidecar. Count them in the import notes as their own line, not as unreadable
+> photos (the photo itself reads fine), next to Prompt 6 B's line for sidecars over 1 MB:
+> `1 sidecar can't be read · it will be left as it is`, with the files in the `?` list as
+> `DSC00107.xmp · not readable as text`. In the Save step, before ⌘⏎, such a keeper's row says its
+> sidecar will not be written (`existing sidecar · can't be read · left as it is`) instead of
+> `new` or `merged`, and it is not counted in `new sidecars` / `existing sidecars`.
+>
+> **B. The result lines.** Two new reasons can come back in the result list; decide the wording
+> and add both to SAFETY.md 6's list of reasons (disk full, read-only, locked, missing, changed
+> on disk, over 1 MB):
+> - `unreadable`: the sidecar on disk is not text Lumina can merge a rating into. It was not
+>   written and is exactly as the other app left it. Suggested: `DSC00107 · sidecar can't be
+>   read · left as it is`. Saving again changes nothing until the other app writes the file again.
+> - `name too long`: the sidecar, or the `.lumina-bak` kept before replacing it, would have a
+>   name longer than the disk allows (a RAW name of about 245 bytes or more). Nothing was
+>   replaced. Suggested: `<name> · name too long for a sidecar` with the name shortened in the
+>   middle so the line still fits.
+>
+> **C. The browser has the same gap.** The page's own `onDir` reads every `.xmp` with
+> `file.text()`, which turns bytes that are not UTF-8 into replacement characters, and the page's
+> `writeInto` then writes that text back with the rating merged: the other app's label or
+> keywords are damaged for good. Read each sidecar's bytes and decode them with
+> `new TextDecoder('utf-8', { fatal: true })`; when that throws, treat the sidecar as in A and
+> never write it.

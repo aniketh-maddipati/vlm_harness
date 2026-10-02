@@ -361,9 +361,20 @@ final class SetsBridgeOpsTests: XCTestCase {
         print("index.json after a 10 MB date: \(size) bytes")
         let (recents, _) = await call(b, ["op": "recents"])
         XCTAssertEqual((recents as? [[String: Any]])?.count, 1)
-        XCTExpectFailure("T5 · open: shootOpened's date / photos go into index.json at any size", strict: false) {
-            XCTAssertLessThan(size, 1 << 20, "the recents index stays small whatever the page sends")
-        }
+        XCTAssertLessThan(size, 1 << 20, "the recents index stays small whatever the page sends")
+        XCTAssertEqual((recents as? [[String: Any]])?.first?["d"] as? String, String(repeating: "A", count: SetsShootStore.Cap.date), "the date is cut at the cap")
+        // The summary's `last` goes the same way, on every saved session.
+        let id = try XCTUnwrap(b.shootId)
+        let (saved, _) = await call(b, ["op": "saveSession", "id": id, "json": "{}", "summary": ["n": 2, "dec": 1, "kp": 1, "last": Self.tenMB]])
+        XCTAssertEqual(saved as? Bool, true)
+        let after = (try? index.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+        XCTAssertLessThan(after, 1 << 20, "a 10 MB `last` is cut too (index.json is \(after) bytes)")
+        XCTAssertEqual(SetsShootStore(supportDir: support).index().first?.last?.count, SetsShootStore.Cap.name)
+        // A 10 MB model name is not a body: never measured, never kept in the shoot's header.
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertTrue(b.header.bodies.keys.allSatisfy { $0.utf8.count <= SetsBridge.maxModelBytes }, "no body under a 10 MB name")
+        let header = support.appendingPathComponent("shoots/\(id)/\(LookShootHeader.fileName)")
+        XCTAssertLessThan((try? header.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0, 1 << 20)
     }
 
     // MARK: Inputs that stop the process
