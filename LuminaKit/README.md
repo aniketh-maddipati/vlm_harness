@@ -64,7 +64,15 @@ swift test                                   # CoreRulesTests + the parity trace
 swift test --filter ParityKitTests           # the six recorded flows, state checked after every action
 # Look at a screen: renders offscreen to a PNG. Keys run on a virtual clock.
 swift run lumina-snap --out /tmp/x.png --size 1100x760 --keys "return,wait:2500,r,r,x,cmd+3,wait:300,." --state
+# Golden parity without a window: the 28 states of parity/capture/capture-goldens.mjs (`GoldenStates`),
+# rendered and diffed with ~/LuminaEvidence/native-ui/goldens/<size>/<state>.png. One line per state.
+swift run lumina-snap --golden list                                  # the states and how each is compared
+swift run lumina-snap --golden edit-help,save-ready --size 1100x760 --out-dir /tmp/goldens
 ```
+
+Gated sizes are those where the native scale is still the prototype's (1100x760, 480x800); at
+1440x900 the native UI is S 1.125 (ruled 2026-10-02), so it is reported, not gated; Cull and
+2560x1440 are compared by eye. On the Mac: `bash Tests/runner/run.sh goldens 1100x760`.
 
 `Tests/LuminaCoreTests/Support.swift` has `Harness`: a model on a virtual clock driven by keys and
 read through the same `debug.state` JSON the UI tests use. Write the R-rules of your WP as headless
