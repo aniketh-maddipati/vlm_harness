@@ -380,6 +380,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (true, nil)
         case "writeInto":
             return (await writeInto(label: body["label"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? []), nil)
+        case "readSidecars":
+            return (await readSidecars(root: body["root"] as? String ?? "", files: body["files"] as? [String] ?? []), nil)
         case "writeSidecars":
             return (await writeSidecars(root: body["root"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? []), nil)
         case "reveal":
@@ -466,26 +468,45 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
 
     // MARK: Save (SAFETY.md 1)
 
+    /// The sidecars Save is about to merge into, as they are on disk now: `{ name, text, base }`
+    /// per name inside the shoot folder (`text` null when there is no file; an entry with only its
+    /// name when it can't be read). The text the page holds is from the open, and another app
+    /// (Lightroom) may have written the file since; `base` goes back with the write.
+    private func readSidecars(root name: String, files: [String]) async -> [[String: Any]]? {
+        guard let root = ingest.root(named: name) ?? lastOpened.flatMap({ $0.lastPathComponent == name ? $0 : nil }) else {
+            onEvent?("readSidecars: \(name) is not an opened folder")
+            return nil
+        }
+        return await Task.detached(priority: .userInitiated) { () -> [[String: Any]] in
+            files.map { rel in
+                guard let s = try? SetsFileOps.readSidecar(rel: rel, root: root) else { return ["name": rel] }
+                return ["name": rel, "text": s.text ?? NSNull(), "base": s.base]
+            }
+        }.value
+    }
+
     /// Save writes one .xmp sidecar per keeper INTO the shoot folder (`root`, an opened folder's
     /// name), next to its RAW. Every file goes through SetsFileOps.writeSidecar; nothing is retried
-    /// silently. Refused wholesale when the folder is on a card.
+    /// silently. Refused wholesale when the folder is on a card. A file's `base` (from
+    /// `readSidecars`) is what its bytes were merged from: when the sidecar on disk is no longer
+    /// that, it is left alone and reported "changed on disk".
     private func writeSidecars(root name: String, files: [[String: Any]]) async -> [String: Any]? {
         guard let root = ingest.root(named: name) ?? lastOpened.flatMap({ $0.lastPathComponent == name ? $0 : nil }) else {
             onEvent?("writeSidecars: \(name) is not an opened folder")
             return nil
         }
         onEvent?("writeSidecars \(files.count) → \(root.path)")
-        let items: [(String, Data?)] = files.map { ($0["name"] as? String ?? "", ($0["b64"] as? String).flatMap { Data(base64Encoded: $0) }) }
+        let items: [(String, Data?, String?)] = files.map { ($0["name"] as? String ?? "", ($0["b64"] as? String).flatMap { Data(base64Encoded: $0) }, $0["base"] as? String) }
         let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "Lumina save")
         let (n, bak, errors) = await Task.detached(priority: .userInitiated) { () -> (Int, Int, [[String: String]]) in
             var n = 0, bak = 0, errors: [[String: String]] = []
             let onCard = SetsFileOps.isCard(root)
-            for (rel, data) in items {
+            for (rel, data, base) in items {
                 let stem = ((rel as NSString).lastPathComponent as NSString).deletingPathExtension
                 guard let data else { errors.append(["name": stem, "reason": "failed"]); continue }
                 if onCard { errors.append(["name": stem, "reason": "on the card"]); continue }
                 do {
-                    if try SetsFileOps.writeSidecar(data, rel: rel, root: root).backedUp { bak += 1 }
+                    if try SetsFileOps.writeSidecar(data, rel: rel, root: root, base: base).backedUp { bak += 1 }
                     n += 1
                 } catch let e as SetsFileOps.SidecarError {
                     errors.append(["name": e.name, "reason": e.reason])

@@ -419,14 +419,31 @@
         return native('writeInto', { label: 'jpeg', files: list });
       }
       if (label !== 'xmp') return null;
+      // The page merged each rating into the sidecar text it holds from the open (xmpFor on p.xmp),
+      // which can be hours old: Lightroom may have written the file since. So the Mac reads every
+      // sidecar again now (text + base: the SHA-256 of those bytes, or "none"). Where the text differs
+      // from the page's, the photo gets the text on disk and the page's own xmpFor merges again. The
+      // base goes with the write: a file that is no longer its base (written in the instant between)
+      // is left as it is and comes back "changed on disk"; nothing is retried silently (SAFETY.md 6),
+      // the next Save reads again. The text from the open is never written over a newer file.
+      const root = info.name || '', enc = new TextEncoder(), byId = (logic.data && logic.data.byId) || {}, owner = {}, now = {};
+      // A file's photo, by the name the page's runExport gave the file (xpath without the folder's name).
+      for (const [id, p] of Object.entries(byId)) { const q = (p.xpath || (p.file || '').replace(/\.[^.]+$/, '') + '.xmp').split('/'); owner[q.length > 1 ? q.slice(1).join('/') : q[0]] = id; }
+      for (const s of (await native('readSidecars', { root, files: files.map(f => f.name) })) || []) now[s.name] = s;
       const list = [];
       for (const f of files) {
-        const d = f.data;
-        if (d instanceof Uint8Array) list.push({ name: f.name, b64: b64(d) });
-        else if (d instanceof Blob) list.push({ name: f.name, b64: b64(new Uint8Array(await d.arrayBuffer())) });
-        else if (typeof d === 'string') list.push({ name: f.name, b64: b64(new TextEncoder().encode(d)) });
+        const s = now[f.name], id = owner[f.name], p = id != null ? byId[id] : null, it = { name: f.name };
+        let d = f.data;
+        if (p && s && s.base != null) {
+          const tx = s.text == null ? null : s.text;
+          if ((p.xmp || null) !== (tx || null)) { p.xmp = tx; p.lrEd = LuminaCore.hasDevelop(tx); d = logic.xmpFor(id); }
+          it.base = s.base;
+        } else if (p) it.base = 'unread';                    // couldn't be read now: no file matches this, the write says why
+        // (No photo for the name: nothing the page merged from. Sent as it is, unchecked.)
+        const u = d instanceof Uint8Array ? d : d instanceof Blob ? new Uint8Array(await d.arrayBuffer()) : typeof d === 'string' ? enc.encode(d) : null;
+        if (u) { it.b64 = b64(u); list.push(it); }
       }
-      const r = await native('writeSidecars', { root: info.name || '', files: list });
+      const r = await native('writeSidecars', { root, files: list });
       if (r && !(r.errors || []).length && (r.n || 0) > 0) savedKeepers = keepersOf(logic);
       if (r) setTimeout(saveNow, 0);
       return r;
