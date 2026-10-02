@@ -29,6 +29,11 @@ import Foundation
 //             are per process, so app code running on another thread during those few
 //             milliseconds could slip through; the steps are sequential and it has not mattered.
 //
+// A real relaunch, where one is needed: a child this process spawns shares its sandbox (and the
+// grants consumed in it), so the export worker's destination grant stays visible here. The journal
+// recovery of a "next launch" therefore runs in a fresh process the launcher starts
+// (`launchFresh` → `recover-journal`), holding only the journal folder.
+//
 // The app's support folder (sessions, Lumina.json, the export journal) is inside the container,
 // as it is for the app; scenario paths under ${OUT}/support are redirected there, and the folder
 // is copied into the evidence when the scenario ends.
@@ -92,8 +97,33 @@ enum ProbeSandbox {
     /// launcher runs it. Nil when the probe is not sandboxed (the caller runs it itself).
     static func runTool(_ exe: String, _ args: [String]) -> (status: Int32, out: String, err: String)? {
         guard active else { return nil }
-        let r = ask(["op": "run", "exe": exe, "args": args])
+        let r = askServicingMainRunLoop(["op": "run", "exe": exe, "args": args])
         return (Int32(r["status"] as? Int ?? -1), r["out"] as? String ?? "", r["err"] as? String ?? "broker gave no answer")
+    }
+
+    /// `ask`, but on the main thread the run loop keeps turning while the launcher works, as it
+    /// does in `Process.waitUntilExit` (the unsandboxed probe's way to run hdiutil). Measured: a
+    /// `hdiutil detach -force` the launcher ran while the main thread sat in read(2) took 10.4 s
+    /// instead of under 2 (Disk Arbitration waits for this process's answer to the unmount until it
+    /// times out), and the bridge saw the card go only then, so a pull mid-read came too late.
+    /// Not while harness grants are held: the run loop would run app code (the card watcher's
+    /// mount notice) under them, and the app would see a card it may not read yet as readable.
+    private static func askServicingMainRunLoop(_ request: [String: Any]) -> [String: Any] {
+        lock.lock(); let harnessHeld = harnessDepth > 0; lock.unlock()
+        guard Thread.isMainThread, !harnessHeld else { return ask(request) }
+        final class Box: @unchecked Sendable { var answer: [String: Any]?; let lock = NSLock() }
+        let box = Box()
+        let payload = (try? JSONSerialization.data(withJSONObject: request)) ?? Data()
+        Thread.detachNewThread {
+            let req = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any] ?? [:]
+            let a = ask(req)
+            box.lock.lock(); box.answer = a; box.lock.unlock()
+        }
+        while true {
+            box.lock.lock(); let a = box.answer; box.lock.unlock()
+            if let a { return a }
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
+        }
     }
 
     // MARK: Grants
@@ -149,24 +179,6 @@ enum ProbeSandbox {
         return try await body()
     }
 
-    /// App code called from inside a harness scope (the journal recovery of a "next launch"):
-    /// the harness grants are put down for `body`, so it runs with what the app would have, plus
-    /// `holding` (folders that are inside the app's container but under ${OUT} in a scenario).
-    static func asApp<T>(holding: [(URL, Bool)] = [], _ body: () throws -> T) rethrows -> T {
-        guard active else { return try body() }
-        lock.lock()
-        let depth = harnessDepth
-        harnessHandles.forEach { _ = sandbox_extension_release($0) }
-        harnessHandles = []; harnessDepth = 0
-        lock.unlock()
-        let held = holding.compactMap { consume($0.0.path, write: $0.1, why: "container stand-in") }
-        defer {
-            held.forEach { _ = sandbox_extension_release($0) }
-            for _ in 0..<depth { enter() }
-        }
-        return try body()
-    }
-
     /// The user picked this folder in a panel: read-write until the next relaunch, as NSOpenPanel
     /// gives with `com.apple.security.files.user-selected.read-write`.
     static func userPicked(_ url: URL) {
@@ -195,6 +207,27 @@ enum ProbeSandbox {
         guard active else { return nil }
         let all = paths.compactMap { ask(["op": "grant", "path": $0.0.path, "write": $0.1, "why": "picked (worker)"])["token"] as? String }
         return (try? JSONSerialization.data(withJSONObject: all)).flatMap { String(data: $0, encoding: .utf8) }
+    }
+
+    /// A fresh sandboxed process, as the app's next launch: the launcher starts another
+    /// `lumina-probe sandbox-launch` of this same bundle with `args`. That process holds none of
+    /// this one's grants (extensions are per process), so whatever this run was given (the export
+    /// worker's destination) is out of its reach unless the app kept a bookmark. A child spawned
+    /// by this process would share its sandbox instead. Nil when not sandboxed.
+    static func launchFresh(_ args: [String], info: String? = nil) -> (status: Int32, out: String, err: String)? {
+        guard active else { return nil }
+        var req: [String: Any] = ["op": "launch", "args": args]
+        if let info { req["info"] = info }
+        let r = ask(req)
+        return (Int32(r["status"] as? Int ?? -1), r["out"] as? String ?? "", r["err"] as? String ?? "broker gave no answer")
+    }
+
+    /// One grant held for the rest of this process (a fresh process's stand-in for a folder that
+    /// is inside the app's container in the real app). False when the launcher issued none.
+    @discardableResult
+    static func hold(_ url: URL, write: Bool, why: String) -> Bool {
+        guard active else { return true }
+        return consume(url.path, write: write, why: why) != nil
     }
 
     static func adopt() {
@@ -226,6 +259,8 @@ enum ProbeSandbox {
 /// writes what happened to `--info` for probe.sh: pid, start, end, exit, grants.
 enum SandboxLauncher {
     private static let tools: Set<String> = ["/usr/bin/hdiutil", "/opt/homebrew/bin/exiftool", "/usr/local/bin/exiftool"]
+    /// What `ProbeSandbox.launchFresh` may start (main.swift).
+    private static let freshCommands: Set<String> = ["recover-journal"]
 
     static func run(exe: String, info: String?, args: [String]) -> Never {
         var fds: [Int32] = [0, 0]
@@ -287,6 +322,26 @@ enum SandboxLauncher {
                             answer = ["status": Int(p.terminationStatus), "out": String(data: o, encoding: .utf8) ?? "", "err": String(data: e, encoding: .utf8) ?? ""]
                         } catch { answer = ["status": -1, "err": "\(error)"] }
                     } else { answer = ["status": -1, "err": "not a tool the launcher runs"] }
+                case "launch":
+                    // A fresh sandboxed process of the same bundle, through this same launcher
+                    // (unsandboxed, so the child gets a sandbox of its own and none of the
+                    // asker's grants). Only the probe's own one-shot commands.
+                    let sub = req["args"] as? [String] ?? []
+                    if let first = sub.first, freshCommands.contains(first), let me = Bundle.main.executableURL {
+                        let p = Process(), out = Pipe(), err = Pipe()
+                        p.executableURL = me
+                        p.arguments = ["sandbox-launch", exe] + ((req["info"] as? String).map { ["--info", $0] } ?? []) + ["--"] + sub
+                        p.standardOutput = out; p.standardError = err
+                        do {
+                            try p.run()
+                            let o = out.fileHandleForReading.readDataToEndOfFile(), e = err.fileHandleForReading.readDataToEndOfFile()
+                            p.waitUntilExit()
+                            answer = ["status": Int(p.terminationStatus), "out": String(data: o, encoding: .utf8) ?? "", "err": String(data: e, encoding: .utf8) ?? ""]
+                        } catch { answer = ["status": -1, "err": "\(error)"] }
+                    } else { answer = ["status": -1, "err": "not a command the launcher starts fresh"] }
+                    lock.lock()
+                    grants.append(["t": Date().timeIntervalSince(started), "launch": sub, "status": answer["status"] ?? -1])
+                    lock.unlock()
                 default: break
                 }
                 var data = (try? JSONSerialization.data(withJSONObject: answer)) ?? Data("{}".utf8)

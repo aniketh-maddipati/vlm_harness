@@ -36,6 +36,8 @@ final class Runner {
     private var containerSupport: URL?
     private var denials: [ProbeSandbox.Denial] = []
     private var eventsChecked = 0, launchedAt = 0
+    /// The card the bridge knows and the launch (`launchedAt`) in which it became known.
+    private var knownCard: (uuid: String, launch: Int)?
 
     init(scenario: URL, outDir: URL) throws {
         scenarioURL = scenario
@@ -193,6 +195,8 @@ final class Runner {
                 self.frames["\(name).tiles"] = t
                 note += String(format: " · blank %.1f%% of on-screen tiles (%.1f%% of frames, worst %.1f%%) · upscale min %.2f median %.2f (tile %.0f px, dpr %.0f)",
                                t["blankPct"] ?? 0, t["blankFramesPct"] ?? 0, t["worstBlankPct"] ?? 0, t["upscaleMin"] ?? 0, t["upscaleMedian"] ?? 0, t["tile"] ?? 0, t["dpr"] ?? 0)
+                note += String(format: " · rows out of place %.1f%% (%.1f%% of frames, worst %.0f px)", t["rowsOffPct"] ?? 0, t["rowFramesPct"] ?? 0, t["rowWorstPx"] ?? 0)
+                if let cap = s["maxRowsOffPct"] as? Double, (t["rowsOffPct"] ?? 0) > cap { failures.append("rows \(name): \(t["rowsOffPct"] ?? 0)% of on-screen rows out of place > \(cap)%") }
                 if let cap = s["maxBlankPct"] as? Double, (t["blankPct"] ?? 0) > cap { failures.append("tiles \(name): \(t["blankPct"] ?? 0)% blank > \(cap)%") }
                 if let floor = s["minUpscale"] as? Double, (t["upscaleMin"] ?? 0) < floor { failures.append("tiles \(name): thumbnails magnified, upscale min \(t["upscaleMin"] ?? 0) < \(floor)") }
             }
@@ -267,14 +271,17 @@ final class Runner {
             return try ProbeSandbox.harness { try disks.attach(name: name, readonly: s["readonly"] as? Bool ?? false).path }
         case "detach":
             let name = try str(s, "name")
+            // Sandboxed: no harness grant around a pull. hdiutil runs in the launcher, and while it
+            // works the main run loop turns (Disk Arbitration's unmount waits for this process),
+            // so app code runs then and must have only what the app would have.
             if let after = s["afterMs"] as? Double {
                 // Pull it while the next steps run (mid-read / mid-export).
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: UInt64(after * 1_000_000))
-                    do { try ProbeSandbox.harness { try self.disks.detach(name: name) }; self.host.log("disk", "pulled \(name)") } catch { self.host.log("disk", "pull failed: \(error)") }
+                    do { try self.disks.detach(name: name); self.host.log("disk", "pulled \(name)") } catch { self.host.log("disk", "pull failed: \(error)") }
                 }
             } else {
-                try ProbeSandbox.harness { try disks.detach(name: name) }
+                try disks.detach(name: name)
             }
         case "startCards":
             guard let bridge = host.bridge else { throw ProbeError("startCards needs app mode") }
@@ -388,8 +395,7 @@ final class Runner {
 
     /// After each step, sandboxed runs only: is the app refused something it needs right now?
     /// The folder the bridge has open (read, and write unless it is a card: Save writes sidecars
-    /// into it), this run's card images once the watcher is on (it has to list DCIM to see a
-    /// card), the support folder. Plus what the bridge itself reported. Each is recorded once.
+    /// into it), a known card's granted folder, the support folder. Plus what the bridge itself reported. Each is recorded once.
     private func sandboxCheck(step: Int, op: String) {
         guard ProbeSandbox.active, let host else { return }
         var found: [ProbeSandbox.Denial] = []
@@ -405,10 +411,22 @@ final class Runner {
                 let url = URL(fileURLWithPath: path)
                 check("shoot folder", url, write: !SetsFileOps.isCard(url))
             }
-            if bridge.cards.current == nil {
-                for name in disks.mounted { if let m = disks.images[name]?.mount { check("card volume", m.appendingPathComponent("DCIM"), write: false) } }
-            } else if let card = bridge.cards.current {
-                check("card volume", card.volume, write: false)
+            // A card (R1c): nothing on the volume is the app's until the user grants it (a panel, or
+            // a bookmark from an earlier grant). While no card is known the app only has the
+            // volume's name and UUID, so nothing is checked. Once known: read access to the folder
+            // the grant covers (its root or DCIM, as held by the bridge; DCIM when the card was
+            // readable as it was, unsandboxed or already held).
+            // `reload` is a relaunch for the page and the grants but not for the bridge, which keeps
+            // the card it knew; a real relaunch starts with no card and the panel's grant gone. So
+            // a card counts from when it became known in this launch (re-noticed after the reload).
+            if let card = bridge.cards.current, card.known {
+                if knownCard?.uuid != card.uuid { knownCard = (card.uuid, launchedAt) }
+                if knownCard?.launch == launchedAt {
+                    let granted = bridge.access.cardFolder(card.uuid) ?? card.volume.appendingPathComponent("DCIM")
+                    check("card (granted folder)", granted, write: false)
+                }
+            } else {
+                knownCard = nil
             }
             check("support folder", bridge.supportDir, write: true)
         }
@@ -607,10 +625,29 @@ final class Runner {
             let phase = !killed ? "finished before the kill" : temps > 0 ? "inside a file" : (before?.done.count ?? 0) == 0 ? "before the first file" : "between files"
             phases[phase, default: 0] += 1
             // Next launch.
-            // Sandboxed: with the journal's folder only. The destination was the last process's
-            // grant, so recovery reaches it only through what the journal itself kept (R1d).
-            let rec = ProbeSandbox.asApp(holding: [(jdir, true)]) { SetsExportJournal.recover(in: jdir) }
-            recoveredTemps += rec.reduce(0) { $0 + ($1.tempsRemoved ?? 0) }
+            // Sandboxed: a fresh process started by the launcher (`recover-journal`), holding the
+            // journal's folder only. The worker's grant on the destination lives in this process's
+            // sandbox (the worker is our child and shares it), so recovery run here would still
+            // reach the destination by path; the fresh one reaches it only through what the
+            // journal itself kept (R1d's bookmark). It must be refused the destination by path,
+            // or the relaunch proves nothing.
+            if ProbeSandbox.active {
+                let r = await Task.detached { ProbeSandbox.launchFresh(["recover-journal", jdir.path]) }.value
+                guard let r, r.status == 0, let last = r.out.split(separator: "\n").last,
+                      let obj = (try? JSONSerialization.jsonObject(with: Data(last.utf8))) as? [String: Any] else {
+                    throw ProbeError("kill \(n): recovery in a fresh process failed (exit \(r?.status ?? -1)): \(r?.out ?? "") \(r?.err ?? "")")
+                }
+                guard obj["sandboxed"] as? Bool == true else { throw ProbeError("kill \(n): the fresh recovery process was not sandboxed") }
+                for d in obj["reach"] as? [[String: Any]] ?? [] where d["refusedByPath"] as? Bool != true {
+                    throw ProbeError("kill \(n): the fresh recovery process can reach \(d["path"] ?? "?") by path, so it is no relaunch")
+                }
+                let entries = obj["entries"] as? [[String: Any]] ?? []
+                recoveredTemps += entries.reduce(0) { $0 + ($1["tempsRemoved"] as? Int ?? 0) }
+                host.log("sandbox", "kill \(n): fresh recovery process \(String(last.prefix(1200)))")
+            } else {
+                let rec = SetsExportJournal.recover(in: jdir)
+                recoveredTemps += rec.reduce(0) { $0 + ($1.tempsRemoved ?? 0) }
+            }
             let entry = journal(jdir)
             if killed, entry?.ok != true, entry?.recovered == nil { throw ProbeError("kill \(n): journal not marked recovered") }
             try verify(dest, done: Set(entry?.done ?? []), complete: entry?.ok == true, "kill \(n) (\(phase), k=\(k))")

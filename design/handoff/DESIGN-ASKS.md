@@ -101,6 +101,26 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 > (d) **Keys stay alive.** `Esc` leaves the opening state (the app drops the listing's result
 > when it arrives) and `⌘O` can choose another folder; today nothing can be done until the
 > listing returns.
+>
+> **11. Cull rows wobble while scrolling.** `sc-for` keys its items by position, and `rows` is the
+> slice of the layout's rows around the viewport. Each time the first mounted row changes, every
+> row's element is handed the next row's content: its `height` animates 180 ms to that row's
+> height (so do the tiles' width and height), and its `<img>`s swap `src` in place. On a shoot whose
+> rows differ in height the grid shows clipped second lines, empty bands and the neighbour's photos
+> for a few frames, every time a row enters or leaves. Measured in the app on 408 photos
+> (`probe.sh scroll`, 1440 × 900 and 2560 × 1440): 50 to 85 % of the rows on screen are drawn at
+> another height or place than `layout()` gives them while scrolling, up to 224 px off. Please:
+> (a) **A row keeps its element.** Key the rows by `r.id` (and a row's tiles by the photo or stack
+> they show), so a row that stays mounted is not touched when the window moves, and only the rows
+> entering or leaving mount. The app does this today from `plumbing.js` (it gives the row items
+> their id as key); with it the same passes measure 0 %.
+> (b) **Height animates only for a reason.** Keep `transition:height` for what it is for (a stack
+> opening, the tile size changing), never for a row arriving.
+> (c) With (a), every row entering is a new element, so 7 (b) and (c) matter more: the app also
+> loads existing thumbnails at once, shows them without the fade unless a read is running and the
+> grid is at rest, and lets the mounted rows lead the scroll by 0.4 s of travel (at most two
+> viewports ahead, back to ±700 px at rest). Blank tiles on screen while scrolling: 4 to 15 %
+> before, 0 % after.
 
 ## Prompt 1 — the Edit step (paste into Claude Design)
 
@@ -559,6 +579,10 @@ C4 (a 10 fps burst) needs nothing new: it is Prompt 2 A and B.
 - 8: `probe.sh scroll` (`scroll-read`: read-end.json shows no cursor move and under 200 px scrolled by the app; the keep
   made while reading survives), `Tests/web/plumbing-harness.mjs` (during read / reopen during read). Then drop
   plumbing's `readMoved` / `stay` handling and its refresh pacing in `grow`, and review ONDIR.
+- 11: `probe.sh scroll` on a Mac (`rows out of place`, 0 % expected on every pass, reported and not gated: the CI runner
+  measures 1 to 26 % with either keying, not yet explained; `tile216-dy150-indexkeys` is the page's
+  own keying, for comparison). Then drop plumbing's `rowKeys`, `readyTile` and `lead` blocks and their `__lumina` switches,
+  and run the scroll scenarios once more: the numbers must hold without them.
 - 7: `probe.sh scroll` (`scroll-fast`, `scroll-fast-2560`: blank-tile % and upscale min per tile size) and the WebKitGTK
   sandbox's `scroll` suite; `card-clock.json` measures unchanged in both modes. Then drop plumbing's warm-ahead
   block (c) and review its `readOne` repeat (a) against the new ONDIR.

@@ -1,0 +1,247 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "budgets": {
+  "probePeakMB": 1500,
+  "webPeakMB": 2000
+ },
+ "checklist": "Q4 / stress matrix 7 (names): a folder whose file names are 255 bytes, emoji, an RTL override, '<img src=x onerror=alert(1)>', a newline, NFD 'Café' (one file with NFC on APFS), dots, quotes, percent escapes, 'javascript:'. Made by `bash Tests/probe/fuzz/run.sh fixtures`. Every photo reads with its preview; every name is shown as text and nothing in it runs (no alert, no <img src=x>, no markup in the DOM); ⌘↩ writes each keeper's .xmp beside its own RAW, with the RAW's exact name; the RAWs never change. Known failures until fixed: Q4-F3 (a name with a space is unreadable) and Q4-F4 (a sidecar name over 234 bytes can't be written), docs/release/stress/Q4-hostile.md.",
+ "steps": [
+  {
+   "do": "js",
+   "src": "window.__pwned = 0; window.alert = () => { window.__pwned++ }; window.confirm = window.prompt = window.alert; return true"
+  },
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/hostile-names",
+   "to": "${OUT}/shoot/names"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/names",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "dump",
+   "name": "names-read",
+   "js": "const l=__probe.logic(); return JSON.stringify({info:l.state.realInfo&&{n:l.state.realInfo.n,bad:l.state.realInfo.bad}, notes:(l.state.notes||[]).map(n=>n.t), photos:l.real.map(p=>({name:p.name,path:p.path,xpath:p.xpath,xmp:!!p.xmp,nopv:!!p.nopv}))})"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return [l.real.length, l.real.filter(p=>p.nopv).length]",
+   "equals": [
+    11,
+    0
+   ],
+   "what": "11 files on APFS (the NFD and NFC names are one file), every preview read. Fails today on the two names with a space (Q4-F3: plumbing's media() URLs write a space as '+')"
+  },
+  {
+   "do": "expect",
+   "js": "return [window.__pwned, document.querySelectorAll('img[src=\"x\"], svg[onload], [onerror]').length, document.body.innerHTML.includes('<img src=x onerror')]",
+   "equals": [
+    0,
+    0,
+    false
+   ],
+   "what": "a name is text: nothing in it ran or became an element"
+  },
+  {
+   "do": "snap",
+   "name": "names-cull"
+  },
+  {
+   "do": "key",
+   "k": "?",
+   "settleMs": 500
+  },
+  {
+   "do": "snap",
+   "name": "names-unreadable-list"
+  },
+  {
+   "do": "dump",
+   "name": "names-unreadable-list",
+   "js": "return document.body.innerText"
+  },
+  {
+   "do": "expect",
+   "js": "return [window.__pwned, document.querySelectorAll('img[src=\"x\"], svg[onload], [onerror]').length, document.body.innerHTML.includes('<img src=x onerror')]",
+   "equals": [
+    0,
+    0,
+    false
+   ],
+   "what": "the unreadable list names the markup file as text"
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 300
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); l.setState({ marks: Object.fromEntries(l.data.order.map(id => [id, 'keep'])) }); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 400
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().kept().length",
+   "equals": 11
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 600
+  },
+  {
+   "do": "snap",
+   "name": "names-large"
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 1000,
+   "cmd": true
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "export"
+  },
+  {
+   "do": "snap",
+   "name": "names-save"
+  },
+  {
+   "do": "js",
+   "src": "window.__lastSave = __probe.logic().state.ex.result || null; return true"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 1500,
+   "cmd": true
+  },
+  {
+   "do": "waitFor",
+   "js": "const r = __probe.logic().state.ex.result; return !!r && r !== window.__lastSave",
+   "what": "save result"
+  },
+  {
+   "do": "dump",
+   "name": "names-saved",
+   "js": "const r=__probe.logic().state.ex.result; return JSON.stringify({t:r.t, bad:r.bad, errs:r.errs, where:r.where})"
+  },
+  {
+   "do": "expect",
+   "js": "const r=__probe.logic().state.ex.result; return [r.t, r.bad, r.errs.length]",
+   "equals": [
+    "11 saved",
+    false,
+    0
+   ],
+   "what": "every keeper saved. Fails today on the space names (Q4-F3) and the 255-byte name (Q4-F4: the temp file's name is 21 bytes longer)"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/names",
+   "glob": "*.xmp",
+   "count": 11,
+   "why": "one sidecar per RAW, none anywhere else"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/names",
+   "glob": "*.lumina-bak",
+   "count": 1,
+   "why": "the markup name had a sidecar: kept as its backup"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/names/<img src=x onerror=alert(1)>.xmp",
+   "contains": "xmp:Rating=\"3\""
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/names/line\nbreak.xmp",
+   "contains": "xmp:Rating=\"3\""
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/names/📷 ceremony 🔥.xmp",
+   "contains": "xmp:Rating=\"3\""
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/names/‮gpj.xmp",
+   "contains": "xmp:Rating=\"3\""
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/names/Café.xmp",
+   "contains": "xmp:Rating=\"3\""
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/names/LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL.xmp",
+   "contains": "xmp:Rating=\"3\"",
+   "why": "a 255-byte RAW name gives a 255-byte sidecar name"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/names/javascript:alert(1).xmp",
+   "contains": "xmp:Rating=\"3\""
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/names/%2e%2e%2fescape.xmp",
+   "contains": "xmp:Rating=\"3\""
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/escape.xmp",
+   "exists": false,
+   "why": "'%2e%2e%2fescape' is a name, never ../escape"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/escape.xmp",
+   "exists": false
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/names/DSC00001.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/hostile-names/DSC00001.ARW"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/names/<img src=x onerror=alert(1)>.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/hostile-names/<img src=x onerror=alert(1)>.ARW"
+  },
+  {
+   "do": "expect",
+   "js": "return [window.__pwned, document.querySelectorAll('img[src=\"x\"], svg[onload], [onerror]').length]",
+   "equals": [
+    0,
+    0
+   ]
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

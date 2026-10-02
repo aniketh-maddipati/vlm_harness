@@ -1,0 +1,205 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Q4 / stress matrix 7 (volume labels): the card banner with labels holding quotes and markup, an empty one, an RTL override and a newline, 255 characters. The card is handed to the page exactly as SetsBridge does (`__lumina.card(true, cardJSON)`, JSON-encoded) instead of mounting a disk image, so nothing shows on the desktop. Each label shows as text; nothing in it runs.",
+ "steps": [
+  {
+   "do": "js",
+   "src": "window.__pwned = 0; window.alert = () => { window.__pwned++ }; window.confirm = window.prompt = window.alert; return true"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "import"
+  },
+  {
+   "do": "js",
+   "src": "__lumina.card(true, {\"name\": \"\\\"><img src=x onerror=alert(1)>\", \"photos\": 12, \"bytes\": 123456789, \"sony\": true, \"uuid\": \"HOSTILE-30\", \"path\": \"/Volumes/\\\"><svg onload=alert(1)>\", \"known\": true, \"grant\": null}); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "expect",
+   "js": "return !!window.lumina.card",
+   "equals": true
+  },
+  {
+   "do": "snap",
+   "name": "card-markup"
+  },
+  {
+   "do": "expect",
+   "js": "return [window.__pwned, document.querySelectorAll('img[src=\"x\"], svg[onload], [onerror]').length, document.body.innerHTML.includes('<img src=x onerror'), document.body.innerHTML.includes('<svg onload')]",
+   "equals": [
+    0,
+    0,
+    false,
+    false
+   ],
+   "what": "the label markup is shown as text"
+  },
+  {
+   "do": "js",
+   "src": "__lumina.card(false); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 300
+  },
+  {
+   "do": "js",
+   "src": "__lumina.card(true, {\"name\": \"SONY'\\\"`$[1]`\", \"photos\": 12, \"bytes\": 123456789, \"sony\": true, \"uuid\": \"HOSTILE-12\", \"path\": \"/Volumes/SONY'\\\"`\", \"known\": true, \"grant\": null}); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "expect",
+   "js": "return !!window.lumina.card",
+   "equals": true
+  },
+  {
+   "do": "snap",
+   "name": "card-quotes"
+  },
+  {
+   "do": "expect",
+   "js": "return [window.__pwned, document.querySelectorAll('img[src=\"x\"], svg[onload], [onerror]').length, document.body.innerHTML.includes('<img src=x onerror'), document.body.innerHTML.includes('<svg onload')]",
+   "equals": [
+    0,
+    0,
+    false,
+    false
+   ],
+   "what": "the label quotes is shown as text"
+  },
+  {
+   "do": "js",
+   "src": "__lumina.card(false); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 300
+  },
+  {
+   "do": "js",
+   "src": "__lumina.card(true, {\"name\": \"\", \"photos\": 12, \"bytes\": 123456789, \"sony\": true, \"uuid\": \"HOSTILE-0\", \"path\": \"/Volumes/\", \"known\": true, \"grant\": null}); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "expect",
+   "js": "return !!window.lumina.card",
+   "equals": true
+  },
+  {
+   "do": "snap",
+   "name": "card-empty"
+  },
+  {
+   "do": "expect",
+   "js": "return [window.__pwned, document.querySelectorAll('img[src=\"x\"], svg[onload], [onerror]').length, document.body.innerHTML.includes('<img src=x onerror'), document.body.innerHTML.includes('<svg onload')]",
+   "equals": [
+    0,
+    0,
+    false,
+    false
+   ],
+   "what": "the label empty is shown as text"
+  },
+  {
+   "do": "js",
+   "src": "__lumina.card(false); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 300
+  },
+  {
+   "do": "js",
+   "src": "__lumina.card(true, {\"name\": \"‮DRAC\\nline\", \"photos\": 12, \"bytes\": 123456789, \"sony\": true, \"uuid\": \"HOSTILE-10\", \"path\": \"/Volumes/‮DRAC\\nline\", \"known\": true, \"grant\": null}); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "expect",
+   "js": "return !!window.lumina.card",
+   "equals": true
+  },
+  {
+   "do": "snap",
+   "name": "card-rtl-newline"
+  },
+  {
+   "do": "expect",
+   "js": "return [window.__pwned, document.querySelectorAll('img[src=\"x\"], svg[onload], [onerror]').length, document.body.innerHTML.includes('<img src=x onerror'), document.body.innerHTML.includes('<svg onload')]",
+   "equals": [
+    0,
+    0,
+    false,
+    false
+   ],
+   "what": "the label rtl-newline is shown as text"
+  },
+  {
+   "do": "js",
+   "src": "__lumina.card(false); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 300
+  },
+  {
+   "do": "js",
+   "src": "__lumina.card(true, {\"name\": \"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN\", \"photos\": 12, \"bytes\": 123456789, \"sony\": true, \"uuid\": \"HOSTILE-255\", \"path\": \"/Volumes/NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN\", \"known\": true, \"grant\": null}); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "expect",
+   "js": "return !!window.lumina.card",
+   "equals": true
+  },
+  {
+   "do": "snap",
+   "name": "card-long"
+  },
+  {
+   "do": "expect",
+   "js": "return [window.__pwned, document.querySelectorAll('img[src=\"x\"], svg[onload], [onerror]').length, document.body.innerHTML.includes('<img src=x onerror'), document.body.innerHTML.includes('<svg onload')]",
+   "equals": [
+    0,
+    0,
+    false,
+    false
+   ],
+   "what": "the label long is shown as text"
+  },
+  {
+   "do": "js",
+   "src": "__lumina.card(false); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 300
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

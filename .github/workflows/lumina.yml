@@ -161,8 +161,24 @@ jobs:
           python3 -m venv "${{ runner.temp }}/venv" && "${{ runner.temp }}/venv/bin/pip" install -q -r Tools/parity/requirements.txt
           "${{ runner.temp }}/venv/bin/python" Tools/parity/lookmath.py --check "${{ runner.temp }}/ramp.json"
 
+  release:
+    # What ships (TASKS R3): the Release archive with Config/Release.xcconfig, sandboxed, hardened,
+    # signed ad hoc, then the preflight in strict mode. Strict fails on any WARN except the items
+    # still open in docs/release/TASKS.md, allowed by tag: D2 (network.client while the UI is the
+    # WebView: stands until the decision), S4 (test switches, the self-test in the bundle).
+    # When one of those lands, its tag comes off this list (R6, third-party notices, did with #173).
+    name: release build + preflight (strict)
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: release.sh local --strict
+        env:
+          PREFLIGHT_ALLOW: D2,S4
+        run: bash Scripts/release.sh local --strict
+
   probe:
-    # Four shards in parallel (macOS minutes are free on this public repo); each one builds the
+    # Five shards in parallel (macOS minutes are free on this public repo); each one builds the
     # probe once (cached) and runs its suites. `smoke` already holds contract + selftest, and
     # `screens` renders every screen once and compares the app twins with the prototype in the
     # same run (the committed reference is for local runs).
@@ -183,6 +199,9 @@ jobs:
           - shard: scroll 2560 + edit + raw9
             shoot: true
             run: bash Scripts/probe.sh scenarios scroll-fast-2560; s1=$?; bash Scripts/probe.sh edit; s2=$?; bash Scripts/probe.sh raw9; s3=$?; exit $((s1 | s2 | s3))
+          # The smoke suite inside the App Sandbox with the entitlements the app ships (R1a, R3).
+          - shard: sandbox smoke
+            run: bash Scripts/probe.sh sandbox smoke
     env:
       LUMINA_EDIT_GATE: "0"     # latency is reported, not gated, on a shared runner
       LUMINA_LONG: "1"          # the fuzz storms are long runs, started on purpose here
@@ -230,4 +249,7 @@ jobs:
             ${{ runner.temp }}/probe*/**/parity.json
             ${{ runner.temp }}/probe*/**/raw9.json
             ${{ runner.temp }}/probe*/**/canvas-after-loupe.json
+            ${{ runner.temp }}/probe*/**/sandbox*.json
+            ${{ runner.temp }}/probe*/**/sandbox-denials.log
+            ${{ runner.temp }}/probe*/sandbox-results.tsv
           retention-days: 7
