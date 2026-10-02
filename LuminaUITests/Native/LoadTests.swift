@@ -4,7 +4,9 @@ import XCTest
 /// Uses XCTest metrics so results land in Xcode's performance baselines.
 /// The app emits os_signpost intervals (subsystem "com.lumina", category "perf") named
 /// "PhotoSwitch", "CullKey", "Save", "Import"; tests measure those, not wall-clock key typing.
-final class LoadTests: XCTestCase {
+final class LoadTests: LuminaTestCase {
+    override class var limit: TimeInterval { 1800 }
+    override class var long: Bool { true }
     var l: Lumina!
     override func tearDown() { if let l { assertNoErrors(l); l.app.terminate() } }
     func signpost(_ name: String) -> XCTOSSignpostMetric { XCTOSSignpostMetric(subsystem: "com.lumina", category: "perf", name: name) }

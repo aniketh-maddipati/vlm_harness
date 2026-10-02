@@ -1,7 +1,8 @@
 import XCTest
 
 /// Port of "Lumina Newbie Test.dc.html": regression (wrong files, clumsy use, screens, flow).
-final class FirstTimerTests: XCTestCase {
+final class FirstTimerTests: LuminaTestCase {
+    override class var limit: TimeInterval { 300 }
     var l: Lumina!
     override func setUp() { continueAfterFailure = true; l = Lumina().launch() }
     override func tearDown() { assertNoErrors(l); l.app.terminate() }

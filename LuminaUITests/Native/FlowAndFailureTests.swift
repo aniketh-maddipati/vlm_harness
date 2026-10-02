@@ -1,7 +1,8 @@
 import XCTest
 
 /// Ports "Buttons", "Animation", "Loading", "Import/Export", "Connectors" from the stress suite.
-final class FlowAndFailureTests: XCTestCase {
+final class FlowAndFailureTests: LuminaTestCase {
+    override class var limit: TimeInterval { 180 }
     var l: Lumina!
     override func tearDown() { if let l { assertNoErrors(l); l.app.terminate() } }
 

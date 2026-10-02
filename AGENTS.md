@@ -34,8 +34,9 @@ prototypes are a reference, not shipped files.
 Until the native UI passes its gates (TEST_PLAN.md), the app's default is still the Claude Design
 page below, and every rule in this file still holds for `design/handoff/lumina-cull`, `Lumina/Sets`
 and the probe. The native UI shows only with `-LuminaUITest YES`, `-LuminaNative YES` or
-`LUMINA_NATIVE=1`. The design's XCUITests are in `LuminaUITests/Native`; they take over the screen,
-so run them one at a time and never from parallel agents.
+`LUMINA_NATIVE=1`. The design's XCUITests are in `LuminaUITests/Native`; they take over the screen
+and the keyboard and quit a running Lumina, so they run one at a time, never from parallel agents,
+and only through `Scripts/test.sh` (below).
 
 **The native Save writes edits to XMP** (ruled 2026-10-01, the handoff's README §4): a sidecar carries
 the keepers' 3★ and the edit as Lightroom develop settings (`LuminaCore/Export/XMPSidecar.swift`),
@@ -49,9 +50,30 @@ chrome grows on today's displays instead of leaving them empty (`LayoutScale.sca
 captured at 1440×900 and above now differ by that scale; they are compared by eye there.
 
 ```bash
-(cd LuminaKit && swift build && swift test)          # contracts, rules, parity traces, headless
+bash Scripts/test.sh kit                             # LuminaKit: contracts, rules, parity traces. Headless, ~5 s, limit 600 s
+bash Scripts/test.sh ui                              # UI smoke: one XCUITest (launch, cull, edit, resize while zoomed). Limit 180 s after the build
+bash Scripts/test.sh ui KeysAndStateTests            # a suite, or Suite/test. Limit 900 s (LUMINA_UI_LIMIT)
+LUMINA_LONG=1 bash Scripts/test.sh ui all            # every suite, all 13 window shapes, Load and Soak. Up to 3 h of the screen: only on purpose
+bash Scripts/stop_tests.sh                           # stops every test on this Mac, at any time (--dry-run lists)
 python3 Scripts/gen_tokens.py --check                # Tokens.generated.swift matches parity/tokens.json
 ```
+
+**UI tests end, run alone, and clean up.** `Scripts/test.sh` runs them under `Scripts/test_guard.py`:
+a wall-clock limit for the run (exit 124), the screen lock `~/LuminaEvidence/.screen.lock` (a second
+screen-owning run is refused, exit 75), and afterwards every process started from `DD` is stopped.
+Inside, every suite inherits `LuminaTestCase` (`LuminaUITests/Native/Support`):
+- each test has a limit (`limit`, 120 s unless the suite says otherwise): at the limit the app is
+  quit, the test fails naming the limit, and the runner exits 30 s later if it is still there;
+- a broken precondition (the app did not come to the front, the tabs never showed, the copy never
+  finished, `debug.state` unreadable) fails once and ends the test: `Lumina`'s helpers do nothing
+  from then on, so no later check waits for an app that is not there. New waits go through
+  `Lumina.preconditionFailed`, never a bare 60 s timeout;
+- a key is typed only while the app is in front (otherwise it would go to the user's windows);
+- no test runs while Lumina from /Applications is open (launching the test build would quit it);
+- the app a test launched is quit and its store and fixture folders removed, pass or fail.
+The default run of a loop is short (five window shapes of thirteen; `LayoutAndSizingTests.quickSizes`),
+`LUMINA_LONG=1` runs all of it, and Load and Soak are skipped without it. Run from Xcode, the
+tests take the screen lock themselves.
 
 ## What the app is
 

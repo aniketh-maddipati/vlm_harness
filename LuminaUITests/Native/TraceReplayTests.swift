@@ -2,7 +2,7 @@ import XCTest
 
 /// Replays traces/traces.json against the native app and compares state after EVERY action (not just the end).
 /// Copy traces.json into the UI-test bundle resources. Requires LUMINA_CARD=demo117 to reproduce demo-shoot-117.json ids exactly.
-final class TraceReplayTests: XCTestCase {
+final class TraceReplayTests: LuminaTestCase {
     struct File: Decodable { let flows: [String: Flow] }
     struct Flow: Decodable { let setup: String; let steps: [Step] }
     struct Step: Decodable {

@@ -1,7 +1,7 @@
 import XCTest
 
 /// Port of "Lumina Stress Test.dc.html": keys & state.
-final class KeysAndStateTests: XCTestCase {
+final class KeysAndStateTests: LuminaTestCase {
     var l: Lumina!
     override func setUp() { continueAfterFailure = false; l = Lumina().launch() }
     override func tearDown() { assertNoErrors(l); l.app.terminate() }

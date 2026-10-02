@@ -2,8 +2,9 @@ import XCTest
 
 /// The built app opens the Claude Design page in its window. The page's own behaviour is covered
 /// by the probe (Scripts/probe.sh); this only proves the shipped app launches into it.
-final class SetsLaunchUITests: XCTestCase {
+final class SetsLaunchUITests: LuminaTestCase {
     func testTheDesignPageLoads() {
+        continueAfterFailure = false        // each wait is a precondition of the next: no window, no web view
         let app = XCUIApplication()
         app.launchEnvironment["LUMINA_SAMPLE"] = "1"
         app.launch()

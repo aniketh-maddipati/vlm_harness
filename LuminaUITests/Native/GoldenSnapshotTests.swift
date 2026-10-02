@@ -9,7 +9,8 @@ import ImageIO
 ///                        Just attach the side-by-side for human review; the R-5x tests guard the rules.
 /// Always attaches golden | native | diff, so reviewers can see parity in the Xcode report even when it passes.
 /// Copy goldens/ into the UI-test bundle as a folder reference.
-final class GoldenSnapshotTests: XCTestCase {
+final class GoldenSnapshotTests: LuminaTestCase {
+    override class var limit: TimeInterval { 600 }
     struct Manifest: Decodable { struct Shot: Decodable { let file: String?; let state: String; let size: String; let viewport: [Int]?; let compare: String?; let error: String? }; let shots: [Shot] }
     lazy var root = Bundle(for: Self.self).url(forResource: "goldens", withExtension: nil)!
     lazy var manifest = try! JSONDecoder().decode(Manifest.self, from: Data(contentsOf: root.appendingPathComponent("manifest.json")))

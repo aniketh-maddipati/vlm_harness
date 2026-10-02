@@ -6,6 +6,8 @@ import UniformTypeIdentifiers
 /// Builds on-disk fixture folders for the import tests: real image files, not mocks.
 enum Fixtures {
     static let root = FileManager.default.temporaryDirectory.appendingPathComponent("lumina-fixtures")
+    /// After every test (LuminaTestCase): fixtures are built when asked for, never left behind.
+    static func removeAll() { try? FileManager.default.removeItem(at: root) }
 
     static func folder(_ name: String, _ build: (URL) throws -> Void) -> URL {
         let u = root.appendingPathComponent(name)

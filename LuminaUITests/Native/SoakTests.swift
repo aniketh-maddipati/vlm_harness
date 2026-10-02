@@ -2,7 +2,9 @@ import XCTest
 
 /// Port of the Newbie Test "Soak": repeat chaos, watch for pile-up, leaks and slowdowns (R-90…R-93).
 /// Rounds via env SOAK_ROUNDS (default 25). Run nightly or before a release, not on every PR.
-final class SoakTests: XCTestCase {
+final class SoakTests: LuminaTestCase {
+    override class var limit: TimeInterval { 3600 }
+    override class var long: Bool { true }
     func test_R90_R93_soak() {
         let rounds = Int(ProcessInfo.processInfo.environment["SOAK_ROUNDS"] ?? "25") ?? 25
         let l = Lumina().launch(); l.startCulling(waitAll: false); l.pause(1.2)

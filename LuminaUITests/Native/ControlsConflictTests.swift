@@ -1,7 +1,7 @@
 import XCTest
 
 /// Port of "Lumina Controls Test.dc.html", Controls suite: confusions and conflicts.
-final class ControlsConflictTests: XCTestCase {
+final class ControlsConflictTests: LuminaTestCase {
     var l: Lumina!
     override func setUp() { continueAfterFailure = false; l = Lumina().launch(); l.startCulling(); l.keepN(30); l.pause(0.3) }
     override func tearDown() { assertNoErrors(l); l.app.terminate() }

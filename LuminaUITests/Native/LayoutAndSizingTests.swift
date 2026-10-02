@@ -2,7 +2,8 @@ import XCTest
 
 /// Layout, sizing and fill (R-50…R-59), labels and copy (R-52, R-53). Ports "layout", "zoomresize",
 /// "labels", "tokens" and "stretch"/"resizeStorm" from the HTML suites, plus the native sizing rules.
-final class LayoutAndSizingTests: XCTestCase {
+final class LayoutAndSizingTests: LuminaTestCase {
+    override class var limit: TimeInterval { 300 }
     var l: Lumina!
     override func setUp() { continueAfterFailure = true; l = Lumina().launch(); l.startCulling(); l.keepN(6) }
     override func tearDown() { assertNoErrors(l); l.app.terminate() }
@@ -13,6 +14,12 @@ final class LayoutAndSizingTests: XCTestCase {
         .init(width: 1100, height: 760), .init(width: 1024, height: 1366), .init(width: 1440, height: 900),
         .init(width: 1920, height: 1080), .init(width: 2560, height: 1440), .init(width: 3000, height: 600),
         .init(width: 400, height: 1600)]
+    /// The shapes a default run walks: the smallest, the squat one, the default window, and two that
+    /// scale the chrome (S > 1). LUMINA_LONG=1 walks all thirteen.
+    static let quickSizes: [CGSize] = [
+        .init(width: 320, height: 480), .init(width: 600, height: 300), .init(width: 1100, height: 760),
+        .init(width: 1920, height: 1080), .init(width: 2560, height: 1440)]
+    static var sizes: [CGSize] { Lumina.long ? allSizes : quickSizes }
     let steps = ["open", "cull", "edit", "save"]
     let mainAction = ["open": "open.card", "cull": "cull.toSave", "save": "save.button"]
 
@@ -20,7 +27,7 @@ final class LayoutAndSizingTests: XCTestCase {
 
     /// R-50, R-51
     func test_R50_everyWindowShape_noSidewaysScroll_tabsAndMainActionVisible() {
-        for size in Self.allSizes {
+        for size in Self.sizes {
             l.resize(size.width, size.height)
             for (i, step) in steps.enumerated() {
                 l.go(i + 1, settle: step == "edit" ? 1.0 : 0.4)
@@ -40,7 +47,7 @@ final class LayoutAndSizingTests: XCTestCase {
     /// R-54: nothing small, and big windows scale chrome up.
     func test_R54_nothingSmall_andChromeScalesOnBigWindows() {
         var tabH: [Double: CGFloat] = [:]
-        for size in Self.allSizes {
+        for size in Self.sizes {
             l.resize(size.width, size.height)
             for (i, step) in steps.enumerated() {
                 l.go(i + 1, settle: step == "edit" ? 1.0 : 0.4)
@@ -63,7 +70,7 @@ final class LayoutAndSizingTests: XCTestCase {
 
     /// R-55: Edit photo fills its canvas.
     func test_R55_editPhotoFillsCanvas() {
-        for size in Self.allSizes where size.width >= 480 {
+        for size in Self.sizes where size.width >= 480 {
             l.resize(size.width, size.height); l.go(3, settle: 1.2)
             let c = l.el("edit.canvas").frame, p = l.el("edit.photo").frame, tag = "\(Int(size.width))×\(Int(size.height))"
             let gapX = (c.width - p.width) / 2, gapY = (c.height - p.height) / 2
@@ -79,7 +86,7 @@ final class LayoutAndSizingTests: XCTestCase {
 
     /// R-56: Cull rows are justified and tiles grow with the window.
     func test_R56_cullRowsJustified_tilesScaleWithWindow() {
-        for size in Self.allSizes where size.width >= 600 {
+        for size in Self.sizes where size.width >= 600 {
             l.resize(size.width, size.height); l.go(2, settle: 0.5)
             let m = l.metrics, grid = l.el("cull.grid").frame, tag = "\(Int(size.width))×\(Int(size.height))"
             for r in m.rows ?? [] where !r.last { XCTAssertEqual(r.width, r.gridWidth, accuracy: 2, "\(tag): scene \(r.scene) row ragged") }
@@ -89,7 +96,7 @@ final class LayoutAndSizingTests: XCTestCase {
 
     /// R-57, R-58: no dead bands on Open/Save; the Cull preview fills its column.
     func test_R57_R58_noDeadBands() {
-        for size in Self.allSizes where size.width >= 600 {
+        for size in Self.sizes where size.width >= 600 {
             l.resize(size.width, size.height)
             let W = l.window.frame, tag = "\(Int(size.width))×\(Int(size.height))"
             XCTAssertLessThanOrEqual(l.el("step.cull").frame.minY - W.minY, 28, "\(tag): toolbar/title gap above the tabs")
