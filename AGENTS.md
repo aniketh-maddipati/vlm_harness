@@ -84,6 +84,12 @@ Trust rules, from the ROADMAP; the tests enforce them:
 
 ## Checks
 
+**On the Mac, tests run only through the runner** (`Tests/runner/CHARTER.md`, ruled 2026-10-02):
+`bash Tests/runner/run.sh <template> [args]`, one run at a time, a hard time limit, a clean exit,
+`bash Tests/runner/stop.sh` as the kill switch. One session, the runner chat, runs them; every other
+session asks it instead of running xcodebuild test, swift test or the probe itself. The commands
+below are what the templates call.
+
 ```bash
 # Design logic fixtures
 (cd design/handoff/lumina-cull && node lumina-core-v4.test.mjs)
