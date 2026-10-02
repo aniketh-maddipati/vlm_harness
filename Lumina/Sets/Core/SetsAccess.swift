@@ -148,6 +148,45 @@ final class SetsAccess {
         return nil
     }
 
+    // MARK: Cards (T10, R1c)
+
+    /// Per card (volume UUID): the hold that keeps its folder reachable while it is in the slot.
+    private var cardHolds: [String: (token: Int, url: URL)] = [:]
+
+    /// A card's folder (its root or DCIM) is reachable for as long as the card is in: through its
+    /// bookmark (`scoped`, resolved and started here) or a panel's pick just now (not started: the
+    /// grant is the system's). A second call for the same card keeps the first hold. Nil when the
+    /// bookmark cannot be resolved or the folder is not there; nothing is held then.
+    func holdCard(_ uuid: String, bookmark: Data) -> (url: URL, stale: Bool)? {
+        if let h = cardHolds[uuid] { return (h.url, false) }
+        let r: (url: URL, stale: Bool)
+        do { r = try calls.resolve(bookmark) } catch { onLog?("card \(uuid): bookmark not resolved (\(error.localizedDescription))"); return nil }
+        let t = hold(r.url, scoped: true)
+        guard calls.exists(r.url) else { release(t); onLog?("card \(uuid): folder not there"); return nil }
+        cardHolds[uuid] = (t, r.url)
+        return r
+    }
+
+    func holdCard(_ uuid: String, picked url: URL) {
+        guard cardHolds[uuid] == nil else { return }
+        cardHolds[uuid] = (hold(url, scoped: false), url)
+    }
+
+    /// The card went: its hold is let go (stopped if this owner started it and nothing else, such
+    /// as the open shoot on it, still uses the folder).
+    func releaseCard(_ uuid: String) {
+        guard let h = cardHolds.removeValue(forKey: uuid) else { return }
+        release(h.token)
+    }
+
+    /// The folder a card's hold covers, if one is held.
+    func cardFolder(_ uuid: String) -> URL? { cardHolds[uuid]?.url }
+
+    /// A bookmark for a folder this process can reach now (a panel's pick), or what an earlier
+    /// bookmark resolves to without starting anything (to tell which volume it is on).
+    func makeBookmark(_ url: URL) -> Data? { try? calls.bookmark(url) }
+    func peek(_ bookmark: Data) -> URL? { try? calls.resolve(bookmark).url }
+
     /// Bookmarks written by earlier builds one per open to `bookmarks/`, never read: removed once.
     nonisolated static func removeLegacyBookmarks(supportDir: URL) {
         let dir = supportDir.appendingPathComponent("bookmarks", isDirectory: true)

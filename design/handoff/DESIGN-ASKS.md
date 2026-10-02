@@ -681,3 +681,50 @@ stay with the page:
 > `f.data` over whatever is there. Before writing each file, read it through its handle; when its
 > text is not the `p.xmp` the merge used, merge the rating into the text just read
 > (`LuminaCore.mergeXmp`) and write that. The `.lumina-bak` copy stays as it is.
+
+## Prompt 9 — a card Lumina may not read yet (paste into Claude Design)
+
+Found by the threat model (T10, release task R1c, 2026-10-01). In the App Store build (the App
+Sandbox), Lumina may read a camera card only after the user has picked it once in the Mac's folder
+panel. So when a card goes in for the first time, the app knows its name but not how many photos
+are on it, how big they are, or whether it is a Sony card. After that one pick the app keeps a
+grant for that card (by its volume UUID, so under any mount name), and the next time the card goes
+in everything is known at once, as today. Builds outside the sandbox always know everything.
+
+What the page gets today. `window.lumina.card` is unchanged for a card the app can read: `{name,
+photos, bytes, sony, path, …}`, now also `known: true` and `grant` (`"open"`, `"bookmark"`, `"recent"` or
+`"panel"`, data only). A card it cannot read yet is **not** put in `lumina.card`, because v5's
+banner would read it as `no ARW found · 0 photos` with no button. It is in a new field instead:
+
+    window.lumina.cardPending = { name: "Untitled", path: "/Volumes/Untitled", uuid: "…",
+                                  photos: null, bytes: null, sony: null, known: false }
+
+and `lumina.card` stays `null` until the user picks the card. Until this lands, the sandboxed app
+shows no card banner on a first insert (⌘O on the card's DCIM still works, and the app remembers
+that grant too).
+
+> (1) **The banner for a card Lumina can't read yet.** When `window.lumina.cardPending` is set
+> (and `lumina.card` is null), show the card banner with what is known and the same button:
+> - line 1: `Untitled · /Volumes/Untitled` (name and path; no count and no size, they are not
+>   known: never `0`);
+> - line 2: `the Mac asks once which card to read · Lumina remembers this card`;
+> - the button `Cull This Card` (and ⏎ when the banner is selected on Open), calling `impStart()`
+>   as today. The app then shows the Mac's folder panel, opened on the card's `DCIM`, button
+>   `Cull This Card`, message `Choose the card Untitled to let Lumina read it. Lumina only reads
+>   it, and remembers this card.` A pick that is not on that card is refused and the panel asks
+>   again with `That folder is not on the card Untitled. Choose the card.` (a folder elsewhere) or
+>   `Choose the card Untitled itself, or its DCIM folder.` (a folder inside the card). Change
+>   these words if you want them different; the app will use yours.
+> - Cancel in the panel: nothing happens, the banner stays.
+> (2) **Right after the pick.** The app sends the whole card (`lumina.card` with the count,
+> `cardPending` back to null) and opens it straight away, as `Cull This Card` does today. If you
+> want a word that the card is now remembered, show it once, quietly, when `lumina.card.grant ===
+> "panel"` (for example a footer line `Untitled · Lumina will read this card without asking`).
+> `"bookmark"` and `"recent"` mean it was read through a remembered grant; no word is needed then.
+> (3) **Pulled before the pick.** `cardPending` goes back to null, as `card` does today.
+
+Checked by `LuminaLogicTests/SetsCardAccessTests.swift` (what the app sends before and after the
+grant, where the panel opens, the refusals, no panel the second time) and the probe's
+`card-sandbox-first` / `card-sandbox-again` (`bash Scripts/probe.sh sandbox scenarios
+card-sandbox-first card-sandbox-again`). Once this lands, those scenarios assert the banner's
+line 1 for a pending card and press ⏎ on it instead of calling `impStart()` directly.
