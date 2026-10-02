@@ -854,3 +854,83 @@ nothing in the app shows them. MENUS.md has no place for them, and the app's men
   file's first and last lines.
 - `LuminaApp.swift` adds Help ▸ Acknowledgements calling `luminaCommand("acknowledgements")`, after MENUS.md says so.
 - `probe.sh screens` gains the sheet in prototype and app mode.
+
+## Prompt (number assigned at merge) — sessions from before the sandbox (paste into Claude Design)
+
+Found by release task R1e (2026-10-02). Until the app was sandboxed it kept its working files
+(recent shoots, the decisions per shoot) in `~/Library/Application Support/Lumina`. A sandboxed
+build keeps them in its own container and may not read the old folder, so after the update Open
+shows no recent shoots and the decisions of every earlier cull look gone. They are still on disk.
+The app now brings them over once the user has picked the old folder in a panel (the pick is the
+permission). It only reads that folder. A shoot culled further since the update keeps what it has
+now; nothing is replaced.
+
+On the first launch of a build whose own store is still empty, the app shows a native alert (a
+sheet on the window, because the page has no words for this yet):
+
+- Title: `Bring over your earlier sessions?`
+- Text: `Lumina now keeps its working files in a protected place of its own. If you used an
+  earlier version on this Mac, choose its folder and Lumina brings your decisions over. Photos and
+  sidecars stay where they are.`
+- Buttons: `Choose Folder…` · `Not Now` (never asked again by itself)
+
+`Choose Folder…` opens the Mac's folder panel on `~/Library/Application Support/Lumina`, button
+`Bring Over`, message `Choose the folder “Lumina” in Library ▸ Application Support. Lumina only
+reads it.` A pick without sessions is refused and the panel asks again with `No earlier sessions in
+that folder. Choose “Lumina” in Library ▸ Application Support of your home folder.` Cancel changes
+nothing. Afterwards the status line says one of (through `say`, stand-in wording):
+
+- `3 sessions brought over · open a folder to continue it` (`1 session brought over · open its folder to continue it`)
+- with `· 1 kept as it is here` (`· 2 kept as they are here`) for shoots culled further since the
+  update, and `· 2 skipped` for files that could not be read
+- `earlier sessions are already here` · `no earlier sessions found` · `earlier sessions not brought over · <reason>`
+
+A recent that came over cannot be reopened from the list yet: the Mac's permission for its folder
+was the old build's. Opening the folder once with ⌘O finds its decisions (the shoot is recognised
+by its folder) and the recent works from then on. Until then File ▸ Open Recent says
+`not available yet · open its folder once with ⌘O`, and the page's own recent cards say
+`not available · <path>` as for a card that is out.
+
+> Update `MENUS.md` and `Lumina Sets v5.dc.html` for the Mac app. Keep the look, keys and wording
+> otherwise unchanged.
+>
+> **A. The alert's words.** Add the alert above to the app's alerts in MENUS.md (with Quit, Remove
+> Working Files and the page-keeps-stopping alert of Prompt 4), with its panel's button, message
+> and refusal. Change the words if you want them different; the app will use yours. Keep it to a
+> title, two or three plain sentences and two buttons. Every user sees it once on a new Mac, also
+> one who never had an earlier version: say if it should read differently for them, or if you
+> would rather have no launch question at all and only the menu item of B.
+>
+> **B. A way back to it.** `Not Now` is final today: nothing in the menus opens the panel again.
+> In MENUS.md the File menu becomes `Open… ⌘O · Open Recent ▸ · Bring Over Earlier Sessions… ·
+> Close Shoot ⌘W · Save Keepers ⌘⏎ · Show in Finder ⌘R · Remove Working Files…`. Like Remove
+> Working Files…, the item is the app's own (it opens the folder panel directly; no
+> `luminaCommand` name). If Open should offer it too (a quiet link under the recents when there
+> are none: `Sessions from an earlier version? Bring them over…`), call
+> `lumina.bringOverEarlierSessions()`, which the app will provide; it resolves to
+> `{ sessions, recents, kept, skipped }` after the panel, or `null` on Cancel.
+>
+> **C. The result line.** Decide the wording of the status lines above (the counts are
+> `sessions`, `kept`, `skipped`). They show once, on Open, and go on the next key.
+>
+> **D. A recent that needs its folder opened once.** A recent can carry `needsFolder: true`
+> (it came over from the earlier version; the app will send it when this lands). Show its card as
+> the others, with its counts (`dec`, `kp`, `last` are the earlier session's), and one quiet line
+> in place of the usual hint: `open this folder once to continue · ⌘O`. ⏎ or a click on it opens
+> the folder panel (`openFolder`) instead of `libOpen`; when the picked folder is that shoot the
+> card becomes an ordinary recent, and when it is another folder that one opens as usual. Do not
+> say `not available`: nothing is missing, the Mac only needs to be asked once.
+
+### How this prompt is checked once its handoff lands
+
+- `LuminaLogicTests/SetsShootImportTests.swift` (Mac and Linux) holds the import today: a store in
+  the earlier format comes over byte for byte, the index without its bookmarks; a shoot in both
+  stores keeps what the new one has; links, invalid ids, oversized and unreadable sessions and a
+  damaged index are skipped and counted; the earlier folder is unchanged; a second import is a
+  no-op; the alert's words as shipped.
+- `LuminaApp.swift` adds File ▸ Bring Over Earlier Sessions… calling
+  `SetsWindowController.bringOverEarlierSessions()` after MENUS.md says so; `plumbing.js` adds
+  `lumina.bringOverEarlierSessions()` and `needsFolder` on recents (data, no UI), and the
+  contract scenario lists them.
+- By hand, once: install a sandboxed build over an unsandboxed one, see the alert, choose the
+  folder, open a folder culled before and find its decisions.
