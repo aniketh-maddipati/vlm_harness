@@ -145,16 +145,18 @@ click the first time and none after.
 - Sessions, paths and capture dates sit unencrypted in the container. Acceptable; "Remove Working Files" exists. Say so in the privacy text.
 
 ### T12 · Medium · Supply chain (A6)
-- The project still has the `LuminaPlayground` target with the `Inject` package (GitHub, 1.6.0),
-  `-interposable` and a build phase that copies InjectionIII's bundle. It is not in the Lumina
-  target (preflight checks the binary), but every clean build fetches third-party code for a dead
-  target. **Fix (S8):** remove the target and the package.
-- GitHub Actions are pinned by tag (`@v4`), not by commit. Pin by SHA.
+- **Closed (S8):** the `LuminaPlayground` target and the `Inject` package (GitHub, 1.6.0, with
+  `-interposable` and a build phase that copied InjectionIII's bundle) are removed, with the scheme
+  and `Package.resolved`. The project has three targets and no package: a clean build fetches nothing.
+- **Closed (S8):** GitHub Actions are pinned by commit, with the release in a comment
+  (`.github/workflows/lumina.yml`). Moving a pin is a reviewed change; nothing updates them by itself.
 - React and Babel are vendored, SRI-pinned in `support.js` and byte-checked by `SetsPageBytesTests`
   and now `release_preflight.sh`. Good.
 - A design zip is a code import: the page runs with the bridge. `sets_sync_design.sh` audits wording
-  and the demo layer; add a diff of every network call, `postMessage` op and `new Function` the
-  new page introduces, for a person to read.
+  and the demo layer. **Closed (S8), not yet run:** step 2b prints every line the new page files add
+  that names `fetch(`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`, `RTCPeerConnection`,
+  `EventSource`, `window.open`, `postMessage`, `messageHandlers`, `new Function`, `eval(`, `import(`
+  or a URL scheme, for a person to read. It reports and never fails the sync; the first real sync is its test.
 - Signing: the API key (`.p8`) and the notary profile stay outside the repo and off CI; releases
   are cut from one Mac by `Scripts/release.sh`, which refuses uncommitted changes.
 
