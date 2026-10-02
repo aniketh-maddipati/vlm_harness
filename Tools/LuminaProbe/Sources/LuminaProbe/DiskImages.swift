@@ -120,6 +120,8 @@ final class DiskImages {
             guard r.status == 0 else { throw ProbeError("hdiutil \(args.first ?? "") failed: \(r.err.trimmingCharacters(in: .whitespacesAndNewlines))") }
             return r.out
         }
+        // Whatever ends the run (deadline, signal, a lost parent), this image is detached then.
+        if args.first == "attach", args.count > 1 { ProbeGuard.noteImage(args[1]) }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
         p.arguments = args

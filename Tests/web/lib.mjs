@@ -12,6 +12,13 @@ const require = createRequire(import.meta.url);
 export let pw;
 try { pw = require('playwright'); } catch (_) { pw = require(path.join(execSync('npm root -g').toString().trim(), 'playwright')); }
 
+// Every harness run ends: at its limit (LUMINA_WEB_LIMIT seconds changes it) it fails loudly and
+// exits 124. Playwright closes the browsers it launched when the process exits, and on a signal.
+export function deadline(name, seconds) {
+  const s = +(process.env.LUMINA_WEB_LIMIT || seconds);
+  setTimeout(() => { console.error(`FAIL  ${name} reached its limit of ${s} s and was stopped`); process.exit(124); }, s * 1000).unref();
+}
+
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const WEB = path.join(ROOT, 'Lumina/Sets/Web');
 export const PAGE = 'Lumina Sets v5.dc.html';

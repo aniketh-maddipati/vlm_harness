@@ -9,7 +9,9 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { pw, ROOT, WEB, makeJpegs, makeShoot, makeBigShoot, Bridge, open } from './lib.mjs';
+import { pw, ROOT, WEB, makeJpegs, makeShoot, makeBigShoot, Bridge, open, deadline } from './lib.mjs';
+
+deadline('plumbing-harness.mjs', 300);
 
 const hashOnly = process.argv.includes('--hash');
 let fails = 0;

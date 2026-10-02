@@ -3,7 +3,9 @@
 //
 //   node Tests/web/make-shoot.mjs <dir> [n=775]
 import path from 'path';
-import { pw, makeBigJpegs, makeBigShoot } from './lib.mjs';
+import { pw, makeBigJpegs, makeBigShoot, deadline } from './lib.mjs';
+
+deadline('make-shoot.mjs', 300);
 
 const dir = path.resolve(process.argv[2] || 'scroll-shoot'), n = +(process.argv[3] || 775);
 const b = await pw.chromium.launch();

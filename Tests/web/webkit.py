@@ -18,7 +18,7 @@ not exercised here). Suites:
 
 Needs: gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb (apt), node + playwright (for the fixtures).
 """
-import json, os, subprocess, sys, time, urllib.request
+import json, os, signal, socket, subprocess, sys, time, urllib.request
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('WebKit2', '4.1')
@@ -30,7 +30,14 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 WEB = os.path.join(ROOT, 'Lumina/Sets/Web')
 SCEN = os.path.join(ROOT, 'Tests/probe/scenarios')
 PAGE = 'Lumina Sets v5.dc.html'
-PORT = int(os.environ.get('LUMINA_WEBKIT_PORT', '8765'))
+def free_port():
+    with socket.socket() as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+
+# A port of this run's own (LUMINA_WEBKIT_PORT fixes it): two runs never meet, none is left taken.
+PORT = int(os.environ.get('LUMINA_WEBKIT_PORT') or free_port())
 ORIGIN = f'http://127.0.0.1:{PORT}'
 args = sys.argv[1:]
 OUT = args[args.index('--out') + 1] if '--out' in args else os.path.join(os.environ.get('LUMINA_HARNESS_TMP', '/tmp'), 'lumina-webkit')
@@ -452,7 +459,17 @@ def scroll():
     json.dump(rows, open(os.path.join(OUT, 'scroll.json'), 'w'), indent=1)
 
 
+def stop(signum, _):
+    sys.exit('FAIL  webkit.py reached its limit of %d s and was stopped' % LIMIT if signum == signal.SIGALRM else 'stopped by signal %d' % signum)
+
+
 if __name__ == '__main__':
+    # The run ends: at its limit (LUMINA_WEB_LIMIT seconds), or on a signal; either way through
+    # the `finally` below, so the server never stays behind.
+    LIMIT = int(os.environ.get('LUMINA_WEB_LIMIT') or (1800 if 'scroll' in suites else 900))
+    for sig in (signal.SIGALRM, signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(sig, stop)
+    signal.alarm(LIMIT)
     server = subprocess.Popen(['node', os.path.join(ROOT, 'Tests/web/webkit-server.mjs'), str(PORT), os.path.join(OUT, 'work')], stdout=subprocess.PIPE, text=True)
     line = server.stdout.readline()
     if not line.startswith('ready'):
