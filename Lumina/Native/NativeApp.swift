@@ -3,14 +3,21 @@ import AppKit
 import LuminaCore
 import LuminaUI
 
-/// The switch for the native UI (LuminaKit). On with `-LuminaUITest YES` (the XCTests),
-/// `-LuminaNative YES`, or `LUMINA_NATIVE=1`; otherwise the app shows the Claude Design page.
+/// The switch for the native UI (LuminaKit). A release built with `LUMINA_UI=native`
+/// (`LUMINA_NATIVE_DEFAULT`) opens it by default, and `-LuminaClassic YES` (or the defaults key
+/// `LuminaClassic`) falls back to the Claude Design page. Other builds open the page unless
+/// `-LuminaUITest YES` (the XCTests), `-LuminaNative YES` or `LUMINA_NATIVE=1`.
 enum NativeUI {
     /// From this process's arguments and environment. Not `LaunchConfig()`: that is the empty
     /// configuration (no UI-test switch, no card), which left the app on the Claude Design page.
     static let config = LaunchConfig(arguments: ProcessInfo.processInfo.arguments, environment: ProcessInfo.processInfo.environment)
     static var enabled: Bool {
-        config.uiTest || UserDefaults.standard.bool(forKey: "LuminaNative") || ProcessInfo.processInfo.environment["LUMINA_NATIVE"] == "1"
+        if config.uiTest { return true }
+        #if LUMINA_NATIVE_DEFAULT
+        return !UserDefaults.standard.bool(forKey: "LuminaClassic")
+        #else
+        return UserDefaults.standard.bool(forKey: "LuminaNative") || ProcessInfo.processInfo.environment["LUMINA_NATIVE"] == "1"
+        #endif
     }
 }
 

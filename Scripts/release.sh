@@ -15,8 +15,9 @@
 #   NOTARY_PROFILE=<name>     a profile made with `xcrun notarytool store-credentials <name>`   (dmg)
 #   ASC_KEY_ID, ASC_ISSUER_ID an App Store Connect API key; the .p8 in ~/.appstoreconnect/private_keys  (store)
 #
-# LUMINA_UI=sets (default: the design page in a WKWebView, needs the network.client entitlement to
-# start in a sandbox) or LUMINA_UI=native (the SwiftUI app: no network entitlement at all).
+# LUMINA_UI=native (default: the SwiftUI app opens first; -LuminaClassic YES falls back to the page)
+# or LUMINA_UI=sets (the design page in a WKWebView, needs the network.client entitlement to start
+# in a sandbox).
 #
 # Output: build/release/<version>-<build>/ (ignored by git). VERSION=1.0.1 overrides the xcconfig.
 set -euo pipefail
@@ -57,13 +58,16 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 
 # The overrides go in a generated xcconfig that includes Config/Release.xcconfig: a setting given
 # on xcodebuild's command line loses to one in a -xcconfig file, a later line in the file wins.
-UI="${LUMINA_UI:-sets}"
+# Native is the release UI (ruled 2026-10-02): it opens by default (LUMINA_NATIVE_DEFAULT) and
+# `-LuminaClassic YES` falls back to the page. LUMINA_UI=sets builds the page-first app.
+UI="${LUMINA_UI:-native}"
 case "$UI" in
   sets) ENTITLEMENTS=Config/Lumina-Sets.entitlements ;;
   native) ENTITLEMENTS=Config/Lumina.entitlements ;;
   *) die "LUMINA_UI is sets or native" ;;
 esac
 SETTINGS=("MARKETING_VERSION = $VERSION" "CURRENT_PROJECT_VERSION = $BUILD" "CODE_SIGN_ENTITLEMENTS = $ENTITLEMENTS")
+[[ "$UI" == native ]] && SETTINGS+=('SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) LUMINA_NATIVE_DEFAULT')
 AUTH=()
 case "$MODE" in
   local)
