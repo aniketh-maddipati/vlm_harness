@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Runs a test command so that it ends, and stops every test on this Mac.
 
-  test_guard.py run --name NAME --limit SECONDS [--screen] [--quiet] [--sweep-under DIR]… -- COMMAND…
+  test_guard.py run --name NAME --limit SECONDS [--screen] [--quiet] [--sweep-under DIR]… [--remove-temp GLOB]… -- COMMAND…
       COMMAND runs in its own process group with a wall-clock limit. At the limit, on Ctrl-C, on
       SIGTERM / SIGHUP and when COMMAND ends, the whole group is stopped (TERM, then KILL), every
-      process started from a file under a --sweep-under DIR is stopped, and every disk image
-      whose file is under one is detached. Exit: COMMAND's own, 124 at the limit, 75 if refused.
+      process started from a file under a --sweep-under DIR is stopped, every disk image whose
+      file is under one is detached, and the folders in the temp folder that match a
+      --remove-temp GLOB (a name, no slashes) are removed. Exit: COMMAND's own, 124 at the
+      limit, 75 if refused.
       Refused when a run of the same NAME is alive, and, with --screen, when another run holds
       the screen (the probe's window and XCUITests take the keyboard: one at a time on a Mac).
       LUMINA_LOCK_WAIT=<s> waits that long for the screen instead of refusing at once.
@@ -162,6 +164,9 @@ def sweep(run, table=None):
     strays = [p for p, v in table.items() if roots and p not in group and any(v[3].startswith(r.rstrip("/") + "/") for r in roots)]
     left = end(group + strays) if group or strays else []
     images = detach_under(roots) if roots else []
+    for pattern in run.get("temps", []):
+        for d in glob.glob(os.path.join(tempfile.gettempdir(), pattern)):
+            if not os.path.ismount(d): shutil.rmtree(d, ignore_errors=True)
     return len(group) + len(strays), images, left
 
 
@@ -206,13 +211,14 @@ def cmd_run(argv):
     if "--" not in argv:
         sys.exit(__doc__)
     opts, command = argv[:argv.index("--")], argv[argv.index("--") + 1:]
-    name, limit, screen, roots, quiet = "test", 300.0, False, [], False
+    name, limit, screen, roots, quiet, temps = "test", 300.0, False, [], False, []
     i = 0
     while i < len(opts):
         o = opts[i]
         if o == "--name": name = opts[i + 1]; i += 1
         elif o == "--limit": limit = float(opts[i + 1]); i += 1
         elif o == "--sweep-under": roots.append(opts[i + 1]); i += 1
+        elif o == "--remove-temp" and "/" not in opts[i + 1]: temps.append(opts[i + 1]); i += 1
         elif o == "--screen": screen = True
         elif o == "--quiet": quiet = True
         else: sys.exit(f"test_guard: unknown option {o}")
@@ -240,7 +246,7 @@ def cmd_run(argv):
     t0 = time.time()
     child = subprocess.Popen(native(command), env=env, start_new_session=True)
     run = {"guard": os.getpid(), "pgid": child.pid, "name": name, "started": time.strftime("%H:%M:%S"), "limit": limit,
-           "cwd": os.getcwd(), "command": " ".join(command)[:400], "sweep": roots, "screen": screen,
+           "cwd": os.getcwd(), "command": " ".join(command)[:400], "sweep": roots, "temps": temps, "screen": screen,
            "leaderStarted": processes().get(child.pid, ("",) * 4)[2]}
     record = os.path.join(RUNS, f"{os.getpid()}.json")
     json.dump(run, open(record, "w"))
@@ -280,7 +286,7 @@ TESTS = re.compile(r"lumina-probe( |$)|Scripts/(probe|probe_remote|uitest|test)\
                    r"|xcodebuild\b.*Lumina|/xctest\b.*(Lumina|vlm_harness)|stitch-labels/label\.py|life_kill|q2drive")
 BUILD = re.compile(r"(^|/)(swift-build|swift-test|swift-frontend|swiftpm-testing-helper|xctest)( |$)")
 DRIVER = re.compile(r"^(\S*/)?(bash|sh|zsh|python[\d.]*|Python|node|perl|make|env|caffeinate|timeout|script|xcrun|swift|swift-run)( |$)")
-TEMP = ("lumina-store-*", "lumina-fixtures", "lumina-wp2-*", "lumina-harness-*", "lumina-webkit*", "lumina-guard-*")
+TEMP = ("lumina-store-*", "lumina-fixtures", "lumina-wp2-*", "lumina-wp8-*", "lumina-harness-*", "lumina-webkit*", "lumina-guard-*")
 
 
 def repo_roots():
