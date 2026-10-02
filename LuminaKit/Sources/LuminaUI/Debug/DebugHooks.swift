@@ -18,9 +18,11 @@ public struct DebugHooks: View {
         #if LUMINA_UITEST
         if model.config.uiTest {
             ZStack(alignment: .topLeading) {
-                Text(" ").frame(width: 1, height: 1).luminaStatus(AccessibilityID.Debug.state, model.debugStateJSON)
-                Text(" ").frame(width: 1, height: 1).luminaStatus(AccessibilityID.Debug.metrics, metrics)
-                Text(" ").frame(width: 1, height: 1).luminaStatus(AccessibilityID.Debug.memoryMB, memory)
+                // Not `Text`: on macOS a static text reports its own string (" ") as its value,
+                // over `accessibilityValue`, and the tests read that instead of the JSON.
+                Color.clear.frame(width: 1, height: 1).luminaStatus(AccessibilityID.Debug.state, model.debugStateJSON)
+                Color.clear.frame(width: 1, height: 1).luminaStatus(AccessibilityID.Debug.metrics, metrics)
+                Color.clear.frame(width: 1, height: 1).luminaStatus(AccessibilityID.Debug.memoryMB, memory)
                 TextField("", text: $command)
                     .textFieldStyle(.plain).frame(width: 1, height: 1)
                     .accessibilityIdentifier(AccessibilityID.Debug.command)
