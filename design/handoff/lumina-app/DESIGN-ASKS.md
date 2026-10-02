@@ -102,8 +102,12 @@ will write.
 >
 > **What it runs on.** A sample shoot that ships inside the app. It has the demo card's 117 photos, 5 scenes,
 > 19 bursts and 44 suggested keepers, with the same ids, times and camera details
-> (`parity/demo-shoot-117.json`, ILCE-7M4). The pixels are **bundled images**, never fetched,
-> because nothing leaves the Mac. The tutorial runs in **its own session**:
+> (`parity/demo-shoot-117.json`, ILCE-7M4). The pixels are **the photographer's own photos**
+> (Lumina's author's, ruled 2026-10-02), bundled into the app at build time, never fetched,
+> because nothing leaves the Mac. They are matched to the shoot's scenes and shapes (landscape /
+> portrait per id), downscaled to 2000 px on the long side, and stripped of location data. In the
+> prototype, draw them from the same picsum placeholders as now; the app swaps in the real files.
+> The tutorial runs in **its own session**:
 > - Its copy, decisions, edits and saves live in a practice folder in Lumina's app data.
 > - That folder is deleted when the tutorial ends.
 > - The user's own shoot, step, decisions and edits are untouched while it runs, and are back
@@ -378,10 +382,10 @@ will write.
 > - Anything that changes Open, Cull, Edit or Save for someone who has dismissed the tips.
 
 ### Decisions to confirm before pasting
-- **Sample images.** The demo card's images in the prototype are picsum URLs, and the Unsplash
-  set may not be redistributed (README › Assets). The tutorial needs 117 small images that can
-  ship inside the app, licensed for redistribution or generated. The rest of this prompt holds
-  either way.
+- **Sample images: decided (2026-10-02).** The tutorial uses the photographer's own photos. They
+  are kept outside the repo (AGENTS.md: personal data stays out) in
+  `~/LuminaEvidence/tutorial-photos/`, named after the demo shoot's ids, and copied into the app
+  bundle by the build; the prototype keeps its picsum placeholders.
 - **Help on every step.** This makes `?` global, which is a KEYMAP change (§4). It is the
   smallest way to make the tips and Questions "reachable again from Help" on Open, Cull and Save.
 
