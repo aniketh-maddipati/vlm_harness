@@ -9,6 +9,12 @@
 #
 # Run it after every `git pull` you want to use day to day. Xcode's own Run (⌘R) always builds
 # the checkout that's open in Xcode; see the note printed at the end.
+#
+# The app is sandboxed (the project signs Debug and Release with Config/Lumina-Sets.entitlements,
+# TASKS R3), so the installed copy is the one the probe and CI test. A sandboxed app keeps its data
+# in ~/Library/Containers/com.lumina.app/, not ~/Library/Application Support/Lumina: sessions saved
+# by an earlier, unsandboxed build are not seen by this one (moving them over is TASKS R1e, not
+# this script).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -29,6 +35,8 @@ xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Release -deri
   -destination 'platform=macOS,arch=arm64' build -quiet
 NEW=DD-install/Build/Products/Release/Lumina.app
 [[ -f "$NEW/Contents/Resources/$PAGE" ]] || { echo "built app doesn't contain $PAGE — not installing" >&2; exit 1; }
+codesign -d --entitlements - --xml "$NEW" 2>/dev/null | grep -q com.apple.security.app-sandbox \
+  || { echo "built app is not sandboxed (CODE_SIGN_ENTITLEMENTS in the project?) — not installing" >&2; exit 1; }
 
 echo "→ quitting Lumina"
 osascript -e 'tell application id "'"$ID"'" to quit' >/dev/null 2>&1 || true
@@ -50,7 +58,9 @@ copies | while read -r a; do
 done
 "$LSREG" -f /Applications/Lumina.app
 
-echo "✓ /Applications/Lumina.app = $(git rev-parse --short HEAD), page $(page_of /Applications/Lumina.app)"
+echo "✓ /Applications/Lumina.app = $(git rev-parse --short HEAD), page $(page_of /Applications/Lumina.app), sandboxed"
+echo "  Data: ~/Library/Containers/$ID/ (sandbox). Sessions from an earlier unsandboxed build stay in"
+echo "        ~/Library/Application Support/Lumina and are not seen by this one (TASKS R1e)."
 echo "  Dock: remove any old Lumina icon, then open /Applications/Lumina.app and choose Options ▸ Keep in Dock."
 echo "  Xcode: ⌘R runs the checkout open in Xcode. Check File ▸ Open Recent points at $ROOT/Lumina.xcodeproj,"
 echo "         then Product ▸ Clean Build Folder (⇧⌘K) once."
