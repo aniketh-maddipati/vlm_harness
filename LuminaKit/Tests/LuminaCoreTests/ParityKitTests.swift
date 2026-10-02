@@ -89,4 +89,37 @@ final class ParityKitTests: XCTestCase {
         let settle = a.contains("Meta+3") ? 1.3 : a.range(of: #"Meta\+\d"#, options: .regularExpression) != nil ? 0.6 : a == "Enter" ? 0.12 : 0.22
         h.key((mods + [names[k] ?? k]).joined(separator: "+"), settle: settle)
     }
+
+    // MARK: the golden states (`lumina-snap --golden`, Tests/runner/templates/goldens.sh)
+
+    /// `GoldenStates` has every state capture-goldens.mjs renders, by the same name, in its order.
+    func test_goldenStates_matchTheCaptureScript() throws {
+        let js = try String(contentsOf: parityDir.appendingPathComponent("capture/capture-goldens.mjs"), encoding: .utf8)
+        let block = js.components(separatedBy: "const STATES = {").last?.components(separatedBy: "\n};").first ?? ""
+        let names = try NSRegularExpression(pattern: #"^\s*'([a-z0-9-]+)':"#, options: .anchorsMatchLines)
+            .matches(in: block, range: NSRange(block.startIndex..., in: block))
+            .compactMap { Range($0.range(at: 1), in: block).map { String(block[$0]) } }
+        XCTAssertEqual(names.count, 28)
+        XCTAssertEqual(GoldenStates.all.map(\.name), names)
+    }
+
+    /// Every state's steps still reach it headless: what lumina-snap renders is the state, not a
+    /// screen on the way to it.
+    func test_goldenStates_land() {
+        for state in GoldenStates.all {
+            let d = GoldenDriver(state, window: CGSize(width: 1100, height: 760))
+            XCTAssertEqual(d.run(), [], state.name)
+        }
+        Faults.shared.clearAll()
+    }
+
+    /// Gated sizes are the ones where the native scale is still the prototype's (ruled 2026-10-02).
+    func test_goldenCompare_followsTheScaleRuling() {
+        func of(_ state: String, _ size: String) -> GoldenCompare { GoldenCompare.of(state: state, size: GoldenSize.named(size)!) }
+        XCTAssertEqual(of("edit-loaded", "1100x760"), .pixel)
+        XCTAssertEqual(of("edit-loaded", "480x800"), .pixel)
+        XCTAssertEqual(of("edit-loaded", "1440x900"), .scaled)
+        XCTAssertEqual(of("edit-loaded", "2560x1440"), .layout)
+        XCTAssertEqual(of("cull-mid", "1100x760"), .layout)
+    }
 }

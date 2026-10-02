@@ -69,5 +69,5 @@ SECS=$(( $(date +%s) - START ))
 if grep -q "^TIMEOUT" "$LOG"; then VERDICT="TIMEOUT"; CODE=124
 elif [ "$CODE" = 0 ]; then VERDICT="PASS"; else VERDICT="FAIL"; fi
 echo "$VERDICT in ${SECS}s ($NAME $*)" | tee "$RUN/verdict.txt"
-grep -E "error:|failed \(|passed \(|Executed [0-9]+ test|TIMEOUT|BUILD (SUCCEEDED|FAILED)|Build complete" "$LOG" | grep -v "^$" | tail -25
+grep -E "error:|failed \(|passed \(|Executed [0-9]+ test|TIMEOUT|BUILD (SUCCEEDED|FAILED)|Build complete|^(FAIL|ERR) |^goldens:" "$LOG" | grep -v "^$" | tail -25
 exit "$CODE"

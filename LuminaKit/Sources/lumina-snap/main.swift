@@ -12,15 +12,33 @@ import LuminaUI
 // Keys are KeyRouter names ("return", "escape", "left", "cmd+3", "shift+.", "down:v", "up:v");
 // "wait:<ms>" advances the virtual clock (the card copy finishes in about 1800 ms at the default rate).
 // --state prints debug.state after the keys.
+//
+// Golden parity, headless (the states of parity/capture/capture-goldens.mjs, `GoldenStates`):
+//
+//   swift run lumina-snap --golden <state|a,b,…|all|list> [--size 1100x760] [--goldens ~/LuminaEvidence/native-ui/goldens]
+//       [--out-dir /tmp/goldens/1100x760] [--scale <the golden's dpr>] [--settle <extra seconds>]
+//
+// renders each state, diffs it with <goldens>/<size>/<state>.png and prints one line per state and
+// a summary (see GoldenRun.swift). Bash: Tests/runner/run.sh goldens 1100x760.
 
 var args = Array(CommandLine.arguments.dropFirst())
 func opt(_ name: String) -> String? { args.firstIndex(of: name).flatMap { args.indices.contains($0 + 1) ? args[$0 + 1] : nil } }
-let size: CGSize = { let p = (opt("--size") ?? "1100x760").split(separator: "x").compactMap { Double($0) }; return CGSize(width: p[0], height: p[1]) }()
-let out = opt("--out") ?? "lumina-snap.png", scale = Double(opt("--scale") ?? "2") ?? 2, settle = Double(opt("--settle") ?? "0.6") ?? 0.6
+func expand(_ path: String) -> URL { URL(fileURLWithPath: (path as NSString).expandingTildeInPath) }
 
 MainActor.assumeIsolated {
     let app = NSApplication.shared
     app.setActivationPolicy(.prohibited)
+
+    if let spec = opt("--golden") {
+        let sizeID = opt("--size") ?? "1100x760"
+        let outDir = opt("--out-dir").map(expand) ?? FileManager.default.temporaryDirectory.appendingPathComponent("lumina-goldens/\(sizeID)")
+        exit(GoldenRun.main(spec: spec, sizeID: sizeID, goldens: opt("--goldens").map(expand) ?? GoldenRun.defaultGoldens, outDir: outDir,
+                            scale: opt("--scale").flatMap(Double.init), extraSettle: opt("--settle").flatMap(Double.init) ?? 0))
+    }
+
+    let size: CGSize = { let p = (opt("--size") ?? "1100x760").split(separator: "x").compactMap { Double($0) }; return CGSize(width: p[0], height: p[1]) }()
+    let out = opt("--out") ?? "lumina-snap.png", scale = Double(opt("--scale") ?? "2") ?? 2, settle = Double(opt("--settle") ?? "0.6") ?? 0.6
+
     var config = LaunchConfig(arguments: [], environment: ["LUMINA_CARD": opt("--card") ?? "demo117", "LUMINA_INTRO": opt("--intro") ?? "skip"])
     config.window = size
     if let f = opt("--fault").flatMap(Fault.init) { Faults.shared.inject(f) }
@@ -41,19 +59,10 @@ MainActor.assumeIsolated {
     }
     if args.contains("--state") { print(model.debugStateJSON) }
 
-    let host = NSHostingView(rootView: AppShell(model: model).frame(width: size.width, height: size.height))
-    let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
-    window.contentView = host
-    host.layoutSubtreeIfNeeded()
+    let screen = Offscreen(model: model, size: size)
     // Let image decodes and onAppear work land.
-    let end = Date().addingTimeInterval(settle)
-    while Date() < end { RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.02)); clock.advance(0.02) }
-    host.layoutSubtreeIfNeeded()
-
-    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width * scale), pixelsHigh: Int(size.height * scale), bitsPerSample: 8,
-                               samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
-    rep.size = size
-    host.cacheDisplay(in: host.bounds, to: rep)
-    do { try rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: out)); print("wrote \(out)") }
+    screen.settle(settle, clock: clock)
+    guard let image = screen.capture(scale: scale) else { FileHandle.standardError.write(Data("lumina-snap: nothing captured\n".utf8)); exit(1) }
+    do { try PNG.write(image, to: URL(fileURLWithPath: out)); print("wrote \(out)") }
     catch { FileHandle.standardError.write(Data("lumina-snap: \(error)\n".utf8)); exit(1) }
 }
