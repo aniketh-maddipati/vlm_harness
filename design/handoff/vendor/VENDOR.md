@@ -17,3 +17,12 @@ Re-check after any update:
 ```bash
 for f in design/handoff/vendor/*.js; do echo "$f sha384-$(openssl dgst -sha384 -binary "$f" | base64)"; done
 ```
+
+## Licence notices
+
+The app ships these files, so it ships their licences: `Lumina/Resources/THIRD-PARTY-NOTICES.txt`
+(copied into the app's Resources with no project edit). It holds React's and Babel's MIT texts, the
+banners left in the files, and the packages bundled inside `babel.min.js`, found through
+`babel.min.js.map` for the pinned version. **When a pin above changes, update that file in the same
+change**: new versions, licence texts fetched from that version's `LICENSE` on unpkg, and the
+bundled-package list redone from the new source map.
