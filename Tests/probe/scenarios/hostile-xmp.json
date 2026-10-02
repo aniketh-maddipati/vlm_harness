@@ -11,7 +11,7 @@
   "probePeakMB": 1200,
   "webPeakMB": 2000
  },
- "checklist": "Q4 / stress matrix 7 (XMP): sidecars beside 8 RAWs: Lightroom's, an entity bomb (&lol9;), an external entity (file:///etc/hosts), 10,000 nested elements, script text in fields and comments, a rating element holding markup, a Latin-1 (not UTF-8) one and a 500 MB sparse one. Made by `bash Tests/probe/fuzz/run.sh fixtures`. The 500 MB one is skipped unread (memory stays flat: budgets); nothing in any sidecar runs or expands; Save merges the rating as text, keeps each replaced file as .lumina-bak byte for byte, writes nothing but sidecars. What Save does with the Latin-1 and the 500 MB sidecar is dumped (xmp-saved.json) for the report. Steps run with \"invariants\": false: the probe's read-count invariant (read + unreadable = listed) counts the skipped sidecar as an unreadable photo (Q4-F6), which would fail every step.",
+ "checklist": "Q4 / stress matrix 7 (XMP): sidecars beside 8 RAWs: Lightroom's, an entity bomb (&lol9;), an external entity (file:///etc/hosts), 10,000 nested elements, script text in fields and comments, a rating element holding markup, a Latin-1 (not UTF-8) one and a 500 MB sparse one. Made by `bash Tests/probe/fuzz/run.sh fixtures`. The 500 MB one is skipped unread (memory stays flat: budgets); nothing in any sidecar runs or expands; Save merges the rating as text, keeps each replaced file as .lumina-bak byte for byte, writes nothing but sidecars. The two sidecars Lumina could not read are left exactly as they are and named in the result: the Latin-1 one \"unreadable\" (Q4-F5: it used to be replaced by a fresh ratings-only sidecar), the 500 MB one \"over 1 MB\". Steps run with \"invariants\": false: the probe's read-count invariant (read + unreadable = listed) counts a sidecar that was not read as an unreadable photo (Q4-F6), which would fail every step.",
  "steps": [
   {
    "do": "js",
@@ -51,7 +51,23 @@
     0,
     6
    ],
-   "what": "8 photos read; 6 sidecars as text: the Latin-1 one and the 500 MB one are not",
+   "what": "8 photos read; 6 sidecars as text: the Latin-1 one (named as unreadable) and the 500 MB one (skipped unread) are not",
+   "invariants": false
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return [l.state.realInfo.bad, (l._failed||[]).map(f=>f.name+' · '+f.reason).sort(), l.real.filter(p=>p.name==='DSC00107.ARW').map(p=>p.xpath.split('/').pop())]",
+   "equals": [
+    2,
+    [
+     "DSC00107.xmp · sidecar unreadable, not read",
+     "DSC00108.xmp · sidecar over 1 MB, not read"
+    ],
+    [
+     "DSC00107.xmp"
+    ]
+   ],
+   "what": "the Latin-1 sidecar is listed as there but unreadable (Q4-F5), beside the oversized one, and its photo keeps its path",
    "invariants": false
   },
   {
@@ -129,6 +145,20 @@
    "invariants": false
   },
   {
+   "do": "expect",
+   "js": "const r=__probe.logic().state.ex.result; return [r.t, r.bad, r.errs.map(e=>e.name+' · '+e.reason).sort()]",
+   "equals": [
+    "6 saved · 2 failed",
+    true,
+    [
+     "DSC00107 · unreadable",
+     "DSC00108 · over 1 MB"
+    ]
+   ],
+   "what": "Save writes the 6 sidecars it read and names the two it left alone, each with its reason",
+   "invariants": false
+  },
+  {
    "do": "logged",
    "kind": "bridge",
    "match": "sidecars →",
@@ -174,9 +204,16 @@
   },
   {
    "do": "fs",
-   "path": "${OUT}/shoot/xmp/DSC00107.xmp.lumina-bak",
+   "path": "${OUT}/shoot/xmp/DSC00107.xmp",
    "same": "${LUMINA_FIXTURE_ROOT}/hostile-xmp/DSC00107.xmp",
-   "why": "the Latin-1 sidecar, if replaced, is kept byte for byte",
+   "why": "the Latin-1 sidecar is never replaced: byte for byte the other app's (Q4-F5)",
+   "invariants": false
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/xmp/DSC00107.xmp.lumina-bak",
+   "exists": false,
+   "why": "nothing was replaced, so there is nothing to back up",
    "invariants": false
   },
   {

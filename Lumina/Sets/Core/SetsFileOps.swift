@@ -5,7 +5,8 @@ import Foundation
 /// - a file being replaced is first kept as `<name>.lumina-bak`; an existing `.lumina-bak` is never
 ///   replaced, so it stays the file as it was before Lumina first wrote there;
 /// - new bytes land atomically (temp file in the same folder, then rename) and are read back and
-///   checksummed before the write counts as done;
+///   checksummed before the write counts as done; the temp file's name has a fixed length
+///   (`tempName`), so it fits beside any name the folder can hold;
 /// - copies never move and never overwrite a different file: a name clash with different content
 ///   gets a numbered name, a clash with identical content is already done;
 /// - nothing is written onto the source card or inside the source folder.
@@ -72,9 +73,37 @@ nonisolated enum SetsFileOps {
         url.deletingLastPathComponent().appendingPathComponent(url.lastPathComponent + backupSuffix)
     }
 
+    // MARK: Temp names
+
+    /// Every temp file Lumina writes is `.lumina-tmp-<tag>-<8 hex>`, in the folder of the file it
+    /// becomes: 37 bytes whatever that file is called. (It used to be `.<name>.lumina-tmp-<8 hex>`,
+    /// 21 bytes longer than the name, so a name over 234 bytes could not be written at all.)
+    /// `<tag>` is `tempTag(for:)` of the final name, which is how the launch after a crash knows a
+    /// leftover is Lumina's and whose it was (`SetsExportJournal.recover`).
+    static let tempPrefix = ".lumina-tmp-"
+
+    /// 16 hex characters from the SHA-256 of a file name.
+    static func tempTag(for name: String) -> String { String(sha256(Data(name.utf8)).prefix(16)) }
+
+    /// A new temp name for the file that will be called `name`.
+    static func tempName(for name: String) -> String {
+        tempPrefix + tempTag(for: name) + "-" + String(UUID().uuidString.prefix(8))
+    }
+
+    /// The tag in `file` when it is exactly a temp name as `tempName` makes them, else nil: a file
+    /// that only looks similar (another length, other characters, anything after) is not Lumina's.
+    static func tempTag(of file: String) -> String? {
+        guard file.hasPrefix(tempPrefix) else { return nil }
+        let parts = file.dropFirst(tempPrefix.count).split(separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 2, parts[0].utf8.count == 16, parts[1].utf8.count == 8,
+              parts[0].utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
+              parts[1].utf8.allSatisfy({ (48...57).contains($0) || (65...70).contains($0) || (97...102).contains($0) }) else { return nil }
+        return String(parts[0])
+    }
+
     private static func atomicWrite(_ data: Data, to url: URL) throws {
         let dir = url.deletingLastPathComponent()
-        let tmp = dir.appendingPathComponent(".\(url.lastPathComponent).lumina-tmp-\(UUID().uuidString.prefix(8))")
+        let tmp = dir.appendingPathComponent(tempName(for: url.lastPathComponent))
         defer { try? FileManager.default.removeItem(at: tmp) }
         // Not createFile: it only answers false, and the reason (disk full, read-only, no permission)
         // has to reach the result list.
@@ -111,6 +140,12 @@ nonisolated enum SetsFileOps {
     /// file of any size to merge into it.
     static let sidecarMaxBytes = 1 << 20
     static let sidecarTooBig = "over 1 MB"
+    /// What Save says for a sidecar that is there but is not UTF-8 text (Latin-1, UTF-16, binary):
+    /// nothing can be merged into it, so it is left exactly as it is. The page's own word for a
+    /// file it can't read; the final wording is a design ask (DESIGN-ASKS, "a sidecar Lumina can't read").
+    static let sidecarUnreadable = "unreadable"
+    /// A file (or the `.lumina-bak` of the file it would replace) whose name the disk refuses as too long.
+    static let nameTooLong = "name too long"
 
     /// Whether the sidecar at `url` is over `sidecarMaxBytes`, from its size alone.
     private static func tooBig(_ url: URL) -> Bool {
@@ -144,7 +179,8 @@ nonisolated enum SetsFileOps {
     }
 
     /// One sidecar as it is on disk now, for Save's merge: its text (nil when there is no file, or
-    /// when it isn't UTF-8, which the read at open skips too) and its base, from the same bytes.
+    /// when it isn't UTF-8: the listing names that one in `unreadableXmp`, and `writeSidecar`
+    /// refuses to replace it) and its base, from the same bytes.
     /// Save reads this right before it merges: the text from the open can be hours old, and
     /// another app (Lightroom) may have written the file since.
     static func readSidecar(rel: String, root: URL) throws -> (text: String?, base: String) {
@@ -171,6 +207,10 @@ nonisolated enum SetsFileOps {
     /// `data` carries its older settings: nothing is written and the error says "changed on disk".
     /// The caller reads again and merges again. nil skips the check (a caller that merged nothing).
     /// The check and the rename are not one step: what is left is the instant between them.
+    ///
+    /// A sidecar on disk that is not UTF-8 text is never replaced, whatever `base` says: the page
+    /// could not read it, so `data` is a fresh ratings-only sidecar and the other app's settings
+    /// would survive only in the backup. It is left as it is and the error says "unreadable".
     @discardableResult
     static func writeSidecar(_ data: Data, rel: String, root: URL, base: String? = nil) throws -> WriteResult {
         let (url, parent, stem) = try sidecarURL(rel: rel, root: root)
@@ -178,6 +218,9 @@ nonisolated enum SetsFileOps {
         if isLocked(url) { throw SidecarError(name: stem, reason: "locked") }
         guard hasRaw(named: stem, in: parent) else { throw SidecarError(name: stem, reason: "missing") }
         if tooBig(url) { throw SidecarError(name: stem, reason: sidecarTooBig) }
+        if let old = try? Data(contentsOf: url), String(data: old, encoding: .utf8) == nil {
+            throw SidecarError(name: stem, reason: sidecarUnreadable)
+        }
         do {
             // A file that already holds these bytes has nothing to lose, whatever they were merged from.
             if let base, try sidecarBase(url) != base, (try? Data(contentsOf: url)) != data {
@@ -206,9 +249,13 @@ nonisolated enum SetsFileOps {
     /// A write error in two or three words.
     static func reason(_ error: Error) -> String {
         let ns = error as NSError
-        let posix = (ns.userInfo[NSUnderlyingErrorKey] as? NSError).flatMap { $0.domain == NSPOSIXErrorDomain ? Int32($0.code) : nil }
+        // The errno under a Cocoa error: an NSError on Darwin, a POSIXError value in swift-foundation (Linux).
+        let under = ns.userInfo[NSUnderlyingErrorKey]
+        let posix = (under as? NSError).flatMap { $0.domain == NSPOSIXErrorDomain ? Int32($0.code) : nil }
+            ?? (under as? POSIXError).map { $0.code.rawValue }
             ?? (ns.domain == NSPOSIXErrorDomain ? Int32(ns.code) : nil)
         switch posix {
+        case ENAMETOOLONG: return nameTooLong
         case ENOSPC, EDQUOT: return "disk full"
         case EROFS: return "read-only"
         case EACCES, EPERM: return "locked"
@@ -221,6 +268,8 @@ nonisolated enum SetsFileOps {
             case NSFileWriteVolumeReadOnlyError: return "read-only"
             case NSFileWriteNoPermissionError, NSFileReadNoPermissionError: return "locked"
             case NSFileNoSuchFileError, NSFileReadNoSuchFileError: return "missing"
+            // What Foundation makes of ENAMETOOLONG when the errno itself is not passed on.
+            case CocoaError.Code.fileWriteInvalidFileName.rawValue, CocoaError.Code.fileReadInvalidFileName.rawValue: return nameTooLong
             default: break
             }
         }
@@ -244,7 +293,9 @@ nonisolated enum SetsFileOps {
             renamed = true
             n += 1
         }
-        let tmp = target.deletingLastPathComponent().appendingPathComponent(".\(target.lastPathComponent).lumina-tmp-\(UUID().uuidString.prefix(8))")
+        // Tagged with the name asked for, not the numbered one it may land under: recovery knows the
+        // planned names only (`SetsExportJournal.recover`).
+        let tmp = target.deletingLastPathComponent().appendingPathComponent(tempName(for: dst.lastPathComponent))
         defer { try? fm.removeItem(at: tmp) }
         try Data().write(to: tmp, options: .withoutOverwriting)       // throws with the reason (disk full, read-only, …)
         let r = try FileHandle(forReadingFrom: src), w = try FileHandle(forWritingTo: tmp)

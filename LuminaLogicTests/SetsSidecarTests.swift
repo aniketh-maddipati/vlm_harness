@@ -183,11 +183,82 @@ final class SetsSidecarTests: XCTestCase {
                 XCTAssertEqual((e as? SetsFileOps.SidecarError)?.reason, "refused", rel)
             }
         }
-        // Not UTF-8: no text (the read at open skips it too), but still a base.
+        // Not UTF-8: no text (the listing names it as unreadable), but still a base.
         try Data([0xff, 0xfe, 0x00]).write(to: dir.appendingPathComponent("sub/DSC00002.XMP"))
         let odd = try SetsFileOps.readSidecar(rel: "sub/DSC00002.XMP", root: dir)
         XCTAssertNil(odd.text)
         XCTAssertEqual(odd.base, SetsFileOps.sha256(Data([0xff, 0xfe, 0x00])))
+    }
+
+    // MARK: A sidecar that is not UTF-8 (Q4-F5)
+
+    /// Lightroom's settings in Latin-1, a UTF-16 sidecar, plain binary: the listing can't hand
+    /// their text to the page, so it names them. They used to be left out, which told the page
+    /// "no sidecar" and let Save write a fresh ratings-only one over them.
+    func testListingNamesASidecarThatIsNotUTF8() throws {
+        let latin1 = Data("<x:xmpmeta crs:Exposure2012=\"+0.50\" xmp:Label=\"caf".utf8) + Data([0xe9]) + Data("\"/>".utf8)
+        let utf16 = Data([0xff, 0xfe]) + "<x:xmpmeta/>".data(using: .utf16LittleEndian)!
+        for n in ["DSC00001", "DSC00002", "DSC00003"] { try Data("raw".utf8).write(to: dir.appendingPathComponent(n + ".ARW")) }
+        try Data("<x:xmpmeta/>".utf8).write(to: dir.appendingPathComponent("DSC00001.xmp"))
+        try latin1.write(to: dir.appendingPathComponent("DSC00002.xmp"))
+        try utf16.write(to: dir.appendingPathComponent("sub/DSC00003.xmp"))
+        let l = SetsIngest.list(dir), name = dir.lastPathComponent
+        XCTAssertEqual(l.xmp.map(\.rel), [name + "/DSC00001.xmp"])
+        XCTAssertEqual(Set(l.unreadableXmp), [name + "/DSC00002.xmp", name + "/sub/DSC00003.xmp"])
+        XCTAssertEqual(l.skippedXmp, [], "not the over-1 MB list: that one says why in its own words")
+        XCTAssertEqual(Set(l.dictionary["unreadableXmp"] as? [String] ?? []), Set(l.unreadableXmp), "the page is told")
+    }
+
+    /// Save never replaces a sidecar it could not read, whatever base comes with the write: the
+    /// base Save reads now (the file's own hash), none, "unread", or no check at all. Nothing is
+    /// written: no new bytes, no backup, no temp file.
+    func testSidecarThatIsNotUTF8IsNeverReplaced() throws {
+        let url = dir.appendingPathComponent("DSC00011.xmp")
+        let latin1 = Data("<x:xmpmeta crs:Exposure2012=\"+0.50\" xmp:Label=\"caf".utf8) + Data([0xe9]) + Data("\"/>".utf8)
+        try Data("raw".utf8).write(to: dir.appendingPathComponent("DSC00011.ARW"))
+        try latin1.write(to: url)
+        let now = try SetsFileOps.readSidecar(rel: "DSC00011.xmp", root: dir)
+        XCTAssertNil(now.text)
+        XCTAssertEqual(now.base, SetsFileOps.sha256(latin1))
+        for base in [now.base, nil, "unread", SetsFileOps.noSidecar] as [String?] {
+            XCTAssertThrowsError(try SetsFileOps.writeSidecar(Data("<x:xmpmeta xmp:Rating=\"3\"/>".utf8), rel: "DSC00011.xmp", root: dir, base: base), base ?? "nil") { e in
+                XCTAssertEqual(e as? SetsFileOps.SidecarError, SetsFileOps.SidecarError(name: "DSC00011", reason: SetsFileOps.sidecarUnreadable))
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: url), latin1, "byte for byte the other app's")
+        XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: dir.path)), ["sub", "DSC00011.ARW", "DSC00011.xmp"])
+        // Once it is text again (the other app saved it as UTF-8), Save reads it and writes as usual.
+        try Data("<x:xmpmeta xmp:Label=\"café\"/>".utf8).write(to: url)
+        let fixed = try SetsFileOps.readSidecar(rel: "DSC00011.xmp", root: dir)
+        XCTAssertNotNil(fixed.text)
+        XCTAssertTrue(try SetsFileOps.writeSidecar(Data("<x:xmpmeta xmp:Label=\"café\" xmp:Rating=\"3\"/>".utf8), rel: "DSC00011.xmp", root: dir, base: fixed.base).backedUp)
+    }
+
+    // MARK: Long names (Q4-F4)
+
+    /// A RAW whose name fills the 255 bytes a file name may have gets its sidecar: the temp file's
+    /// name no longer grows with the sidecar's. Replacing it needs a `.lumina-bak`, whose name
+    /// can't exist on this disk: nothing is replaced, and the reason says why.
+    func testSidecarWithA255ByteNameIsWritten() throws {
+        let stem = String(repeating: "L", count: 251)
+        try Data("raw".utf8).write(to: dir.appendingPathComponent(stem + ".ARW"))
+        let rel = stem + ".xmp", url = dir.appendingPathComponent(rel)
+        XCTAssertEqual(rel.utf8.count, 255)
+        XCTAssertFalse(try SetsFileOps.writeSidecar(Data("rated 3".utf8), rel: rel, root: dir, base: SetsFileOps.noSidecar).backedUp)
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "rated 3")
+        // The same bytes again: nothing to do, nothing to back up.
+        XCTAssertNoThrow(try SetsFileOps.writeSidecar(Data("rated 3".utf8), rel: rel, root: dir, base: SetsFileOps.sha256(Data("rated 3".utf8))))
+        XCTAssertThrowsError(try SetsFileOps.writeSidecar(Data("rated 4".utf8), rel: rel, root: dir, base: SetsFileOps.sha256(Data("rated 3".utf8)))) { e in
+            XCTAssertEqual(e as? SetsFileOps.SidecarError, SetsFileOps.SidecarError(name: stem, reason: SetsFileOps.nameTooLong))
+        }
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "rated 3", "not replaced without its backup")
+        XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: dir.path)), ["sub", stem + ".ARW", rel], "no temp file left")
+        // 244 bytes is the longest sidecar name whose backup still fits: replaced as usual.
+        let fits = String(repeating: "M", count: 240)
+        try Data("raw".utf8).write(to: dir.appendingPathComponent(fits + ".ARW"))
+        try SetsFileOps.writeSidecar(Data("one".utf8), rel: fits + ".xmp", root: dir)
+        XCTAssertTrue(try SetsFileOps.writeSidecar(Data("two".utf8), rel: fits + ".xmp", root: dir).backedUp)
+        XCTAssertEqual((fits + ".xmp" + SetsFileOps.backupSuffix).utf8.count, 255)
     }
 
     /// A sidecar over 1 MB is not read at Save and not replaced: the listing skipped it, so the

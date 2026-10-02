@@ -224,8 +224,9 @@ nonisolated final class SetsExportJournal {
     }
 
     /// On launch: every export a crash or kill cut short gets its half-written temp files removed
-    /// from the destination (only Lumina's own `.<planned name>.lumina-tmp-*`, nothing else), and
-    /// is marked recovered. Finished files stay: each was verified before it was renamed into place.
+    /// from the destination and is marked recovered. Only Lumina's own: a temp name whose tag is a
+    /// planned file's or its `.lumina-bak`'s (`SetsFileOps.tempName`: `.lumina-tmp-<tag>-<8 hex>`),
+    /// or, left by an export an older Lumina was writing, `.<planned name>.lumina-tmp-*`; nothing else. Finished files stay: each was verified before it was renamed into place.
     /// The journal keeps saying what was done and what wasn't. Returns the recovered exports, and
     /// those it could not recover (`recoveryRefused` set).
     ///
@@ -238,7 +239,9 @@ nonisolated final class SetsExportJournal {
     static func recover(in directory: URL, access: Access = .system) -> [Entry] {
         let fm = FileManager.default
         // A journal write cut short leaves its own temp file.
-        for f in (try? fm.contentsOfDirectory(atPath: directory.path)) ?? [] where f.hasPrefix(".export-") && f.contains(".lumina-tmp-") {
+        // (`directory` holds journals only, so a temp name of Lumina's form in it is a journal's.)
+        for f in (try? fm.contentsOfDirectory(atPath: directory.path)) ?? []
+        where SetsFileOps.tempTag(of: f) != nil || (f.hasPrefix(".export-") && f.contains(".lumina-tmp-")) {
             try? fm.removeItem(at: directory.appendingPathComponent(f))
         }
         let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
@@ -263,12 +266,19 @@ nonisolated final class SetsExportJournal {
             var dirs: Set<String> = []
             for name in e.planned { dirs.insert(dest.appendingPathComponent(name).deletingLastPathComponent().path) }
             let planned = Set(e.planned.map { dest.appendingPathComponent($0).lastPathComponent })
+            // A temp file carries the tag of the planned name it was written for (a numbered copy
+            // keeps the tag of the name it was planned under), or of that name's .lumina-bak.
+            let tags = Set(planned.flatMap { [SetsFileOps.tempTag(for: $0), SetsFileOps.tempTag(for: $0 + SetsFileOps.backupSuffix)] })
             for d in dirs {
                 for f in (try? fm.contentsOfDirectory(atPath: d)) ?? [] where f.hasPrefix(".") && f.contains(".lumina-tmp-") {
-                    // ".<name>.lumina-tmp-XXXXXXXX", where <name> is a planned file or its .lumina-bak
-                    let base = String(f.dropFirst()).components(separatedBy: ".lumina-tmp-")[0]
-                    let owner = base.hasSuffix(SetsFileOps.backupSuffix) ? String(base.dropLast(SetsFileOps.backupSuffix.count)) : base
-                    guard planned.contains(owner) || planned.contains(where: { isNumberedCopy(owner, of: $0) }) else { continue }
+                    if let tag = SetsFileOps.tempTag(of: f) {
+                        guard tags.contains(tag) else { continue }
+                    } else {
+                        // An older Lumina's ".<name>.lumina-tmp-XXXXXXXX", where <name> is a planned file or its .lumina-bak
+                        let base = String(f.dropFirst()).components(separatedBy: ".lumina-tmp-")[0]
+                        let owner = base.hasSuffix(SetsFileOps.backupSuffix) ? String(base.dropLast(SetsFileOps.backupSuffix.count)) : base
+                        guard planned.contains(owner) || planned.contains(where: { isNumberedCopy(owner, of: $0) }) else { continue }
+                    }
                     if (try? fm.removeItem(atPath: (d as NSString).appendingPathComponent(f))) != nil { removed += 1 }
                 }
             }

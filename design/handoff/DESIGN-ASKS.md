@@ -748,6 +748,42 @@ has no words for any of it, so `plumbing.js` says stand-ins through `say` and th
   into `_failed`.
 - C: the harness's `saveSession` rejecting with "too big": the footer line once. Drop plumbing's `.catch` wording.
 
+## Prompt 7 — Help ▸ Acknowledgements (paste into Claude Design)
+
+The app bundles React 18.3.1, React DOM 18.3.1 and @babel/standalone 7.29.0 (and the packages
+inside Babel). Their licences require the copyright and permission notices to ship with the
+copies. They now do, as `Lumina/Resources/THIRD-PARTY-NOTICES.txt` in the app bundle (R6), but
+nothing in the app shows them. MENUS.md has no place for them, and the app's menus follow MENUS.md.
+
+> Update `MENUS.md` and `Lumina Sets v5.dc.html` for the Mac app. Keep the look, keys and
+> wording otherwise unchanged.
+>
+> **A. Help ▸ Acknowledgements.** In MENUS.md the Help menu becomes
+> `Lumina FAQ · Keyboard Shortcuts ? · Acknowledgements · Contact on X`, and `acknowledgements`
+> joins the command names for `window.luminaCommand`. About gains a quiet link
+> `Acknowledgements` next to the FAQ link that does the same.
+>
+> **B. The sheet.** `luminaCommand('acknowledgements')` opens a sheet titled
+> `Acknowledgements`, with one line under the title, same type one step quieter:
+> `Lumina uses open-source software. Their licences follow.` Below it, the text from
+> `await lumina.notices()` (a plain-text string the app reads from its bundle), shown exactly
+> as given: monospaced, line breaks kept, no reflow, selectable, in a pane that scrolls on its
+> own. `esc` or ⏎ closes it. It opens from any step and changes nothing in the shoot.
+>
+> **C. Edge states.** In the browser (no `window.lumina`, or no `notices`), the sheet lists the
+> three libraries the page loads, with their versions and their licence links
+> (`https://unpkg.com/react@18.3.1/LICENSE`, `https://unpkg.com/react-dom@18.3.1/LICENSE`,
+> `https://unpkg.com/@babel/standalone@7.29.0/LICENSE`). If `lumina.notices()` fails, the same
+> list shows with the line `The full text ships inside Lumina.app (Contents/Resources/THIRD-PARTY-NOTICES.txt).`
+
+### How Prompt 7 is checked once its handoff lands
+
+- `plumbing.js` gains `lumina.notices()`, returning `THIRD-PARTY-NOTICES.txt` from the bundle through the bridge
+  (data, no UI); the contract scenario lists it, and `Tests/web/plumbing-harness.mjs` checks the sheet shows the
+  file's first and last lines.
+- `LuminaApp.swift` adds Help ▸ Acknowledgements calling `luminaCommand("acknowledgements")`, after MENUS.md says so.
+- `probe.sh screens` gains the sheet in prototype and app mode.
+
 ## Prompt 8 — an export that was cut short (paste into Claude Design)
 
 Found by release task R1d (2026-10-01). An export killed mid-way (crash, kill, power) leaves its
@@ -820,38 +856,48 @@ grant, where the panel opens, the refusals, no panel the second time) and the pr
 card-sandbox-first card-sandbox-again`). Once this lands, those scenarios assert the banner's
 line 1 for a pending card and press ⏎ on it instead of calling `impStart()` directly.
 
-## Prompt 7 — Help ▸ Acknowledgements (paste into Claude Design)
+## Prompt 10 — a sidecar Lumina can't read, and a name too long to save (paste into Claude Design)
 
-The app bundles React 18.3.1, React DOM 18.3.1 and @babel/standalone 7.29.0 (and the packages
-inside Babel). Their licences require the copyright and permission notices to ship with the
-copies. They now do, as `Lumina/Resources/THIRD-PARTY-NOTICES.txt` in the app bundle (R6), but
-nothing in the app shows them. MENUS.md has no place for them, and the app's menus follow MENUS.md.
+Found by the hostile-input stress run (Q4-F5 and Q4-F4, `docs/release/stress/Q4-hostile.md`,
+2026-10-01). A `.xmp` that is not UTF-8 text (Lightroom's settings saved in Latin-1 by an old
+tool, a UTF-16 sidecar, a damaged file) used to be left out of the app's listing: the page took the
+photo for one without a sidecar and Save wrote a fresh ratings-only sidecar over it. The other
+app's develop settings survived only in `.lumina-bak`.
 
-> Update `MENUS.md` and `Lumina Sets v5.dc.html` for the Mac app. Keep the look, keys and
-> wording otherwise unchanged.
+The app no longer does that. The listing names such a sidecar in `unreadableXmp: [rel]` (beside
+Prompt 6's `skippedXmp`), the photo opens with its sidecar's path and no text, and on Save the Mac
+leaves the file byte for byte as it is and returns it in `errors` as `{ name, reason: 'unreadable' }`.
+A file whose name the disk refuses comes back as `{ name, reason: 'name too long' }`. The page has
+no words for either, so `plumbing.js` adds the sidecar to `_failed` as
+`DSC00107.xmp · sidecar unreadable, not read` (in `?`, counted in `N unreadable`), and the result
+list shows the Mac's words in its existing style: `DSC00107 · unreadable`, `LLL…L · name too long`.
+
+> Update `Lumina Sets v5.dc.html` (and `SAFETY.md`). Keep the look, keys and wording otherwise
+> unchanged, and keep the browser behaviour as it is except where C says so.
 >
-> **A. Help ▸ Acknowledgements.** In MENUS.md the Help menu becomes
-> `Lumina FAQ · Keyboard Shortcuts ? · Acknowledgements · Contact on X`, and `acknowledgements`
-> joins the command names for `window.luminaCommand`. About gains a quiet link
-> `Acknowledgements` next to the FAQ link that does the same.
+> **A. A sidecar that is there but can't be read.** The listing can carry `unreadableXmp: [rel]`:
+> sidecars that exist but are not text Lumina can read. Their photos open as usual, without a
+> rating from the sidecar. Count them in the import notes as their own line, not as unreadable
+> photos (the photo itself reads fine), next to Prompt 6 B's line for sidecars over 1 MB:
+> `1 sidecar can't be read · it will be left as it is`, with the files in the `?` list as
+> `DSC00107.xmp · not readable as text`. In the Save step, before ⌘⏎, such a keeper's row says its
+> sidecar will not be written (`existing sidecar · can't be read · left as it is`) instead of
+> `new` or `merged`, and it is not counted in `new sidecars` / `existing sidecars`.
 >
-> **B. The sheet.** `luminaCommand('acknowledgements')` opens a sheet titled
-> `Acknowledgements`, with one line under the title, same type one step quieter:
-> `Lumina uses open-source software. Their licences follow.` Below it, the text from
-> `await lumina.notices()` (a plain-text string the app reads from its bundle), shown exactly
-> as given: monospaced, line breaks kept, no reflow, selectable, in a pane that scrolls on its
-> own. `esc` or ⏎ closes it. It opens from any step and changes nothing in the shoot.
+> **B. The result lines.** Two new reasons can come back in the result list; decide the wording
+> and add both to SAFETY.md 6's list of reasons (disk full, read-only, locked, missing, changed
+> on disk, over 1 MB):
+> - `unreadable`: the sidecar on disk is not text Lumina can merge a rating into. It was not
+>   written and is exactly as the other app left it. Suggested: `DSC00107 · sidecar can't be
+>   read · left as it is`. Saving again changes nothing until the other app writes the file again.
+> - `name too long`: the sidecar, or the `.lumina-bak` kept before replacing it, would have a
+>   name longer than the disk allows (a RAW name of about 245 bytes or more). Nothing was
+>   replaced. Suggested: `<name> · name too long for a sidecar` with the name shortened in the
+>   middle so the line still fits.
 >
-> **C. Edge states.** In the browser (no `window.lumina`, or no `notices`), the sheet lists the
-> three libraries the page loads, with their versions and their licence links
-> (`https://unpkg.com/react@18.3.1/LICENSE`, `https://unpkg.com/react-dom@18.3.1/LICENSE`,
-> `https://unpkg.com/@babel/standalone@7.29.0/LICENSE`). If `lumina.notices()` fails, the same
-> list shows with the line `The full text ships inside Lumina.app (Contents/Resources/THIRD-PARTY-NOTICES.txt).`
-
-### How Prompt 7 is checked once its handoff lands
-
-- `plumbing.js` gains `lumina.notices()`, returning `THIRD-PARTY-NOTICES.txt` from the bundle through the bridge
-  (data, no UI); the contract scenario lists it, and `Tests/web/plumbing-harness.mjs` checks the sheet shows the
-  file's first and last lines.
-- `LuminaApp.swift` adds Help ▸ Acknowledgements calling `luminaCommand("acknowledgements")`, after MENUS.md says so.
-- `probe.sh screens` gains the sheet in prototype and app mode.
+> **C. The browser has the same gap.** The page's own `onDir` reads every `.xmp` with
+> `file.text()`, which turns bytes that are not UTF-8 into replacement characters, and the page's
+> `writeInto` then writes that text back with the rating merged: the other app's label or
+> keywords are damaged for good. Read each sidecar's bytes and decode them with
+> `new TextDecoder('utf-8', { fatal: true })`; when that throws, treat the sidecar as in A and
+> never write it.
