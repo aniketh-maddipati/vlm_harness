@@ -579,7 +579,8 @@ C4 (a 10 fps burst) needs nothing new: it is Prompt 2 A and B.
 - 8: `probe.sh scroll` (`scroll-read`: read-end.json shows no cursor move and under 200 px scrolled by the app; the keep
   made while reading survives), `Tests/web/plumbing-harness.mjs` (during read / reopen during read). Then drop
   plumbing's `readMoved` / `stay` handling and its refresh pacing in `grow`, and review ONDIR.
-- 11: `probe.sh scroll` (`rows out of place`, at most 2 % on every gated pass; `tile216-dy150-indexkeys` is the page's
+- 11: `probe.sh scroll` on a Mac (`rows out of place`, 0 % expected on every pass, reported and not gated: the CI runner
+  measures 1 to 26 % with either keying, not yet explained; `tile216-dy150-indexkeys` is the page's
   own keying, for comparison). Then drop plumbing's `rowKeys`, `readyTile` and `lead` blocks and their `__lumina` switches,
   and run the scroll scenarios once more: the numbers must hold without them.
 - 7: `probe.sh scroll` (`scroll-fast`, `scroll-fast-2560`: blank-tile % and upscale min per tile size) and the WebKitGTK
