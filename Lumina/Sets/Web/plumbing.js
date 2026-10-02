@@ -618,7 +618,7 @@
       if (!root) continue;
       if (root.tagName === 'IMG') readyTile(root); else for (const im of root.querySelectorAll('img')) readyTile(im);
     }
-  }).observe(document.documentElement, { childList: true, subtree: true });
+  }).observe(document, { childList: true, subtree: true });      // the document: at document start there may be no root element yet
 
   let leadOn = cfg.leadWindow !== false && !cfg.parity;
   const lead = logic => {
