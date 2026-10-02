@@ -28,6 +28,11 @@ enum ProbeGuard {
     static func takeScreen(_ name: String) {
         guard ProcessInfo.processInfo.environment[heldKey] == nil else { return }
         let dir = ProcessInfo.processInfo.environment["LUMINA_GUARD_DIR"] ?? NSHomeDirectory() + "/LuminaEvidence"
+        // The kill switch (Scripts/stop_tests.sh --off): nothing starts while it is there.
+        if FileManager.default.fileExists(atPath: dir + "/.tests-off") {
+            print("REFUSED  tests are switched off on this Mac (\(dir)/.tests-off). Only the user turns them back on: bash Scripts/stop_tests.sh --on")
+            exit(75)
+        }
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         let path = dir + "/.screen.lock"
         let fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC, 0o644)

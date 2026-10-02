@@ -118,7 +118,9 @@ if [[ -z ${LUMINA_PROBE_INNER:-} ]]; then
     exit 2
   fi
   GUARD=(python3 Scripts/test_guard.py run)
-  "${GUARD[@]}" --quiet --name "probe build $ROOT" --limit 900 -- swift build -c release --package-path Tools/LuminaProbe >/dev/null || { echo "probe build failed" >&2; exit 2; }
+  "${GUARD[@]}" --quiet --name "probe build $ROOT" --limit 900 -- swift build -c release --package-path Tools/LuminaProbe >/dev/null
+  rc=$?; [[ $rc == 75 ]] && exit 75          # refused: tests are switched off, or this build is already running
+  [[ $rc == 0 ]] || { echo "probe build failed" >&2; exit 2; }
   export LUMINA_PROBE_OUT="$OUT" LUMINA_PROBE_INNER=1 LUMINA_PROBE_LIMIT="$limit"
   [[ $sandbox == 1 ]] && set -- sandbox "$suite" "$@" || set -- "$suite" "$@"
   exec "${GUARD[@]}" --name probe --limit "$limit" --screen --sweep-under "$OUT" -- bash "$0" "$@"

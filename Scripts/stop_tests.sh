@@ -5,6 +5,10 @@
 #                                          that start them (parents first, so nothing respawns), test
 #                                          builds of the app, the probe's disk images, listening test
 #                                          servers, the tests' temp folders. Exit 1 if something is left.
+#   bash Scripts/stop_tests.sh --off       THE KILL SWITCH: stop everything and keep it stopped. While
+#                                          ~/LuminaEvidence/.tests-off exists no guarded run, probe or UI test
+#                                          starts (exit 75), in any checkout that has this harness
+#   bash Scripts/stop_tests.sh --on        tests may run again
 #   bash Scripts/stop_tests.sh --dry-run   only list what it would stop (also: Scripts/test_guard.py status)
 #
 # Never touched: /Applications/Lumina.app, real volumes (an image is chosen by where its file is,

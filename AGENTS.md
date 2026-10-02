@@ -150,6 +150,12 @@ harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift
   reported, not started again. No `while true`, no "wait until quiet, then run again".
 - **Quiet.** The probe's window is invisible, never active, and swallows keys the page did not take
   (no alert sound). Disk images are off unless asked for.
+- **The kill switch:** `bash Scripts/stop_tests.sh --off` stops everything and leaves
+  `~/LuminaEvidence/.tests-off`. While that file exists nothing test-related starts: the guard, the
+  probe and the UI tests refuse (exit 75). It is the user's: an agent never removes it, never works
+  around it, and never starts a test by another route; it says what it wanted to run and stops.
+  `--on` turns tests back on. `python3 Scripts/test_guard.py hook` is the same rule as a Claude Code
+  PreToolUse hook for Bash.
 - **Stop everything:** `bash Scripts/stop_tests.sh` (`--dry-run` lists; `python3 Scripts/test_guard.py
   status`). It freezes the drivers first, so nothing respawns, then stops probes, UI test runners,
   test builds of the app and listening test servers, detaches the probe's disk images (chosen by
