@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
 # Checks a built Lumina.app against what a release must be, without launching it. Reads only.
 #
-#   bash Scripts/release_preflight.sh <Lumina.app> [local|dmg|store] [--notarised] [--strict]
+#   bash Scripts/release_preflight.sh <Lumina.app> [local|dmg|store] [--notarised] [--strict] [--allow=D2,S4,…]
 #
-# FAIL: the build must not ship. WARN: a known open item (docs/release/TASKS.md names the task);
-# --strict turns every WARN into a FAIL, which is how the final release candidate is checked.
+# FAIL: the build must not ship. WARN: a known open item, tagged with the task or decision that
+# closes it (docs/release/TASKS.md, APP-STORE.md); --strict turns every WARN into a FAIL, which is
+# how the final release candidate is checked.
+# --allow=<tags> (or PREFLIGHT_ALLOW=<tags>, which passes through Scripts/release.sh) keeps the
+# WARNs of those open items as WARNs under --strict: CI runs strict with the items still open, so
+# any new WARN fails it. An item is allowed until its task lands, then its tag comes off the list
+# (an allowed tag with no WARN left is printed as stale). Never for a release candidate.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT/Scripts/page_files.sh"
 
-APP="${1:-}"; MODE=local; NOTARISED=0; STRICT=0
+APP="${1:-}"; MODE=local; NOTARISED=0; STRICT=0; ALLOW=",${PREFLIGHT_ALLOW:-},"; SEEN=","
 shift || true
 for a in "$@"; do
   case "$a" in
     local|dmg|store) MODE="$a" ;;
     --notarised) NOTARISED=1 ;;
     --strict) STRICT=1 ;;
+    --allow=*) ALLOW="$ALLOW${a#--allow=}," ;;
     *) echo "unknown option $a" >&2; exit 64 ;;
   esac
 done
@@ -24,7 +30,12 @@ done
 FAILS=0; WARNS=0
 ok()   { printf '  ok    %s\n' "$*"; }
 fail() { printf '  FAIL  %s\n' "$*"; FAILS=$((FAILS + 1)); }
-warn() { if (( STRICT )); then fail "$*"; else printf '  WARN  %s\n' "$*"; WARNS=$((WARNS + 1)); fi; }
+# warn <tag> <what>: the tag is the task or decision that closes the item.
+warn() {
+  local tag="$1"; shift; SEEN="$SEEN$tag,"
+  if (( STRICT )) && [[ "$ALLOW" != *",$tag,"* ]]; then fail "$* [$tag]"
+  else printf '  WARN  %s [%s%s]\n' "$*" "$tag" "$( (( STRICT )) && echo ', allowed')"; WARNS=$((WARNS + 1)); fi
+}
 check() { local what="$1"; shift; if "$@" >/dev/null 2>&1; then ok "$what"; else fail "$what"; fi; }
 
 PLIST="$APP/Contents/Info.plist"
@@ -64,7 +75,7 @@ ent() { /usr/bin/python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get(
 ALLOWED='com.apple.security.app-sandbox com.apple.security.files.user-selected.read-write com.apple.security.files.bookmarks.app-scope com.apple.application-identifier com.apple.developer.team-identifier'
 EXTRA="$(/usr/bin/python3 -c 'import json,sys; a=set(sys.argv[2].split()); print(" ".join(sorted(k for k,v in json.loads(sys.argv[1]).items() if k not in a and v not in (False,))))' "$ENT" "$ALLOWED")"
 if [[ "$EXTRA" == com.apple.security.network.client ]]; then
-  warn "network.client: WebKit needs it in a sandbox, so the system no longer keeps photos on the Mac; the app must (TASKS S1, D2)"
+  warn D2 "network.client: WebKit needs it in a sandbox, so the system no longer keeps photos on the Mac; the app must (TASKS S1, D2)"
 elif [[ -z "$EXTRA" ]]; then ok "no other entitlement (no network, no JIT, no library-validation exception)"
 else fail "entitlements outside the allowlist: $EXTRA"; fi
 
@@ -88,7 +99,7 @@ ARCHS="$(lipo -archs "$BIN" 2>/dev/null)"
 [[ ! -d "$APP/Contents/PlugIns" ]] && ok "no plug-ins" || fail "plug-ins in the bundle: $(ls "$APP/Contents/PlugIns" | tr '\n' ' ')"
 # Test switches read from the environment (AGENTS.md: "never set in the app") should not be in a release binary.
 HOOKS="$(strings - "$BIN" 2>/dev/null | grep -oE 'LUMINA_[A-Z_]{3,}' | sort -u | tr '\n' ' ')"
-[[ -z "$HOOKS" ]] && ok "no test switches in the binary" || warn "test switches compiled in (TASKS S4): $HOOKS"
+[[ -z "$HOOKS" ]] && ok "no test switches in the binary" || warn S4 "test switches compiled in (TASKS S4): $HOOKS"
 otool -L "$BIN" 2>/dev/null | grep -qiE 'inject|xctest' && fail "links a test or injection library" || ok "links no test or injection library"
 
 echo "resources"
@@ -103,16 +114,17 @@ done
 if [[ -f "$RES/PrivacyInfo.xcprivacy" ]] && plutil -lint "$RES/PrivacyInfo.xcprivacy" >/dev/null; then ok "privacy manifest"; else fail "PrivacyInfo.xcprivacy missing or invalid"; fi
 if [[ -f "$RES/LuminaBuild.json" ]]; then
   MSHA="$(/usr/bin/python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("git_sha",""), d.get("configuration",""))' "$RES/LuminaBuild.json")"
-  [[ "$MSHA" == "$(git -C "$ROOT" rev-parse HEAD) Release" ]] && ok "build manifest: this commit, Release" || warn "build manifest says '$MSHA' (not HEAD / Release)"
+  [[ "$MSHA" == "$(git -C "$ROOT" rev-parse HEAD) Release" ]] && ok "build manifest: this commit, Release" || warn manifest "build manifest says '$MSHA' (not HEAD / Release)"
 else fail "LuminaBuild.json missing"; fi
-[[ -f "$RES/lumina-selftest.js" ]] && warn "the design's self-test ships in the bundle; it loads only with ?selftest (TASKS S4)"
+[[ -f "$RES/lumina-selftest.js" ]] && warn S4 "the design's self-test ships in the bundle; it loads only with ?selftest (TASKS S4)"
 JUNK="$(find "$APP" \( -name .DS_Store -o -name '*.xctest' -o -name '*.dSYM' -o -name '*.swiftmodule' -o -name '*.map' -o -name '*.bundle' \) 2>/dev/null | head -5)"
 [[ -z "$JUNK" ]] && ok "no stray files" || fail "stray files: $JUNK"
 THIRD="$(find "$RES" -iname '*licen*' -o -iname '*acknowledg*' -o -iname '*notice*' 2>/dev/null | head -1)"
-[[ -n "$THIRD" ]] && ok "third-party notices" || warn "no third-party notices for React and Babel (MIT asks for the licence text; TASKS R6)"
+[[ -n "$THIRD" ]] && ok "third-party notices" || warn R6 "no third-party notices for React and Babel (MIT asks for the licence text; TASKS R6)"
 
 SIZE="$(du -sh "$APP" | cut -f1)"
 echo "size $SIZE"
+for t in ${ALLOW//,/ }; do [[ "$SEEN" == *",$t,"* ]] || echo "note: --allow=$t, but nothing is open under $t any more: take it off the list"; done
 echo
 if (( FAILS )); then echo "preflight: $FAILS failed, $WARNS warned"; exit 1; fi
 echo "preflight: passed, $WARNS warned"

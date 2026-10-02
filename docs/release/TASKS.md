@@ -1,18 +1,90 @@
 # Lumina 1.0: release tasks, in order
 
-2026-10-01. One task = one bounded worker = one branch = one PR. A worker edits only the files
-under **Owns**, proves the task with **Done when**, and stops there. Anything visible goes to
-`design/handoff/DESIGN-ASKS.md` as a prompt, never into the page (AGENTS.md). One merge owner; other
-workers verify read-only. Findings T1–T12 are in `THREAT-MODEL.md`; rows in `STRESS-MATRIX.md`.
+Updated 2026-10-02. The first list (2026-10-01) is kept at the end, with what landed.
 
 Rules for every worker:
-- Never touch `Lumina/Sets/Web/*` except `plumbing.js`; never `Lumina.xcodeproj` unless the task owns it (one such task at a time: R3, S8).
-- New Swift files go inside existing folders (synchronised groups pick them up; no project edit).
-- The probe must not take focus, open Finder, touch the clipboard or a real card.
-- Evidence to `~/LuminaEvidence/release/`, never the repo.
-- End with the task's check plus `xcodebuild … -only-testing:LuminaLogicTests test` and `bash Tests/linux-swift/run.sh` green.
+- One task = one branch = one PR. Edit only the files the task owns; one merge owner.
+- Never touch `Lumina/Sets/Web/*` except `plumbing.js`. Anything visible goes to `design/handoff/DESIGN-ASKS.md` as "Prompt (number assigned at merge) — …".
+- **Tests on this Mac run only when the user asked for that run**, through the guard (`Scripts/test_guard.py`, PR #184), bounded, one at a time, nothing left running at the end of a turn. A refusal is reported, never retried. No loops, no kill loops, no disk images, no screen-owning suites unasked. While `~/LuminaEvidence/.tests-off` exists, nothing runs here: the proof is CI on the PR.
+- Never run `gh pr merge --auto` on this repo: `main` has no required checks, so it merges at once.
+- CI builds Debug with the runner's older Xcode. Code must compile there and in Release with the local Xcode (the `SetsFirstAnswer` deinit broke Release for three merges).
+
+## Release exit
+
+| KPI | Target | Today |
+|---|---|---|
+| CI on `main`, including a Release build | all green | Debug only; the Release job is in #179 |
+| `release_preflight.sh --strict` | 0 FAIL, 0 WARN except D2 (network entitlement) | D2 and S4 ×2 expected (R6's is closed); not re-run since |
+| App-process crashes on the bridge-op table (1,303 calls) and 32,000 fuzz cases | 0 | 4 inputs crash (F1, F2) |
+| Denials in the sandboxed probe suites | 0 | 0 here; 1 log line on the CI runner (#179) |
+| Unasked test runs on this Mac | 0; every run under 600 s | guard in #184 |
+| Fresh install, macOS 14 / 15 / 26, store and dmg | 6 of 6 pass | not run |
 
 ## P0 · Blocks any build leaving this Mac
+
+1. **Test guard (#184).**
+   - KPI: nothing running at the end of a turn; a refusal is never retried.
+   - Steps: merge #184 when CI is green; every later task runs tests only through it.
+2. **Bridge crashes (Q4a: F1, F2 in `stress/Q4-hostile.md`).**
+   - KPI: the former crash inputs pass in the normal logic-test run.
+   - Steps: one finite, clamped number reader for every numeric field in `SetsBridge` and `SetsSchemeHandler`; a rect guard in `LookCanvas`; the gated crash cases become ordinary assertions.
+3. **Sidecar data safety (F5, F4, F7).**
+   - KPI: 0 sidecars replaced without a merge; `hostile-xmp` and `hostile-names` green.
+   - Steps: a sidecar that is not UTF-8 is listed as unreadable and never written over; temp names that fit any legal file name, with crash recovery still recognising them; caps on the strings stored in `index.json`.
+4. **Sandbox by default (#179, R3).**
+   - KPI: the CI release job green; tests run on the build that ships.
+   - Steps: find who asks for `file-issue-extension target:/` in `app-plumbing-contract` on the runner (one log line; all steps pass), fix or classify it with the reason written down; merge.
+5. **Card banner (DESIGN-ASKS Prompt 9).**
+   - KPI: first card insert shows a banner, one click grants access; second insert needs none.
+   - Steps: hand Prompts 4–9 to Claude Design; sync. Today a sandboxed first insert shows nothing (`lumina.cardPending`).
+6. **Sessions from before the sandbox (R1e).**
+   - KPI: a store written by `4421a7c` opens in the sandboxed build with its decisions.
+   - Steps: a one-time import through a folder panel on `~/Library/Application Support/Lumina`. Before anyone installs a sandboxed build over an unsandboxed one.
+7. **Account setup (the account holder).**
+   - KPI: `release.sh store --validate` accepted; the build shows in TestFlight.
+   - Steps: `APP-STORE.md` "Once" and decisions D1–D5.
+
+## P1 · Blocks the store submission
+
+8. **Network lockdown (S1; only if the WebView ships).**
+   - KPI: 0 requests reach a local listener over 8 channels (fetch, XHR, WebSocket, image, beacon, WebRTC, form, `window.open`).
+   - Steps: block-all content rules with an allowlist; a CSP response header; a navigation allowlist.
+9. **Nothing unused in the release binary (S4).**
+   - KPI: strict preflight shows no S4 warning.
+   - Steps: v3 ops and the six environment switches under `#if DEBUG`; Show in Finder only inside opened folders; the self-test not served in release.
+10. **Supply chain (S8).**
+    - KPI: a clean clone builds with 0 package fetches; 3 targets; every Action pinned by commit.
+    - Steps: remove `LuminaPlayground` and `Inject`; pin Actions; the design sync prints new network and bridge calls.
+11. **Stress, each run asked for, bounded, under the guard.**
+    - Scale (Q1, WIP on `claude/stress-scale`): 5,000 and 10,000 photos; budgets set from the first measurement; scroll p95 ≤ 17.5 ms (18.0 today).
+    - Storage (Q2, WIP on `claude/stress-storage`): every row of `STRESS-MATRIX.md` 2 and 4 has a scenario or a hand procedure; 0 data loss.
+    - Lifecycle (Q3, WIP on `claude/stress-lifecycle`): decisions equal after each kill, at most 500 ms of changes lost. The 200-kill loop only on an explicit go.
+    - Soak (Q5): 8 h, memory and file descriptors flat.
+    - Fresh machine (Q6): macOS 14, 15, 26 × store and dmg.
+12. **Hand checks for S6 (five minutes).**
+    - KPI: 3 of 3: kill the page's process 4 times in a minute (3 reloads, then the alert); Quit with the page hung (quits in about 2 s); Quit with unsaved keepers (the usual alert).
+
+## P2 · Before the public listing
+
+- The listing: copy, screenshots, privacy and support pages, review notes with sample ARWs (R5).
+- Diagnostics: private paths in logs (R7); navigation allowlist, a damaged `index.json` kept aside, a session format version (R8).
+- `DESIGN-ASKS.md` sections sorted 4–9; `open-folder-awkward-name` added to the probe's `app` suite.
+- Known gaps, accepted or to schedule: a huge folder is refused in about 2 s on a fast Mac and about 5 s on a slow one; a link swapped in between the path check and the open by render, canvas or export (S5); two licence texts marked MISSING (R6); F6 and F9 in `stress/Q4-hostile.md`.
+
+## Landed (2026-10-01 to 02)
+
+| Task | PR |
+|---|---|
+| Release scaffolding | #167 |
+| S2 shoot ids · S3 input bounds · S5 links · S6 reload limit, Quit timeout · S7 stale sidecars · S9 awkward names | #168 · #172 · #171 · #169 · #170 · #178 |
+| R1a sandboxed probe · R1b bookmarks · R1c card · R1d export recovery, downloads · probe follow-ups | #174 · #175 · #177 · #176 · #180 |
+| R6 licence notices · Release-build fix · Q4 hostile-input tests and report | #173 · #181 · #182 |
+
+---
+
+# The first list (2026-10-01), for reference
+
+## First list · P0 · Blocks any build leaving this Mac
 
 | ID | Task | Owns | Done when | Needs | Size |
 |---|---|---|---|---|---|
@@ -26,7 +98,7 @@ Rules for every worker:
 | **S1** | T3: the page cannot reach the network (only if D2 = WebView) | `SetsBridge.swift` (`SetsWebView.make`), `SetsSchemeHandler.swift` (response header), `SetsRootView.swift` (navigation policy), `Tests/probe/scenarios/offline-*` | A scenario that tries fetch, XHR, WebSocket, image, beacon, RTCPeerConnection, form post and `window.open` to a local listener: the listener sees nothing. `screens` parity still 0 px | R1a | M |
 | **S7** | T4: Save never writes a sidecar from stale text | `SetsFileOps.swift` (`writeSidecar` takes the base hash), `SetsBridge.swift` (`writeSidecars`), `plumbing.js` (Save), `SetsSidecarTests`, scenario `app-xmp-changed-since-open`; a design ask for the result line's wording | Lightroom's sidecar edited after open, then Save: Lightroom's settings survive and the rating is set, or the file is reported and untouched. Never the old text | — | M |
 
-## P1 · Blocks the store submission
+## First list · P1 · Blocks the store submission
 
 | ID | Task | Owns | Done when | Needs | Size |
 |---|---|---|---|---|---|
@@ -45,7 +117,7 @@ Rules for every worker:
 | **Q5** | Stress: memory, heat, soak (section 6) on this Mac and the M1 8 GB | `Scripts/probe.sh` (`soak`), `Scripts/probe_remote.sh` | 8 h: RSS, descriptors, GPU memory flat; memory-pressure and thermal runs behave as AGENTS.md says | R1a | M |
 | **Q6** | Fresh-machine pass per channel and per macOS (section 9), plus displays and input (section 8) | a checklist in `docs/release/`, by hand | macOS 14, 15, 26: install from TestFlight and from the dmg, first run, open, cull, Save; AZERTY and VoiceOver noted | R2 | M, human-in-loop |
 
-## P2 · Before the public listing
+## First list · P2 · Before the public listing
 
 | ID | Task | Owns | Done when | Size |
 |---|---|---|---|---|
@@ -54,7 +126,7 @@ Rules for every worker:
 | **R8** | T11 leftovers: navigation allowlist, damaged `index.json` kept aside, session format version field | `SetsRootView.swift`, `SetsShootStore.swift`, `plumbing.js` | Tests for each | S |
 | **R9** | `docs/RELEASE.md` (PR #166) updated: #3 points here; "Not tested yet" shrinks as Q1–Q6 land | `docs/RELEASE.md` | — | S |
 
-## Order and parallelism
+## First list · Order and parallelism
 
 ```
 now, in parallel:   D (human) · S2 · R1a · S7 · S3 · S5 · S6 · R6

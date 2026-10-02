@@ -12,9 +12,8 @@
 #   bash Tests/probe/fuzz/run.sh xmp                    the page's sidecar code (mergeXmp, hasDevelop) on hostile XMP
 #   bash Tests/probe/fuzz/run.sh fixtures               the folders Tests/probe/scenarios/hostile-*.json copy, into
 #                                                       $LUMINA_FIXTURE_ROOT (default ~/LuminaEvidence/fixtures)
-#   bash Tests/probe/fuzz/run.sh bridge                 LuminaLogicTests/SetsBridgeOpsTests (the op table)
-#   bash Tests/probe/fuzz/run.sh bridge-crash           the inputs that stop the app process, one test process each,
-#                                                       crash reports kept
+#   bash Tests/probe/fuzz/run.sh bridge                 LuminaLogicTests/SetsBridgeOpsTests (the op table; the numbers that
+#                                                       used to stop the app process, F1 and F2, are ordinary cases in it)
 #
 # Everything mutated lives under ~/LuminaEvidence/hostile/<run>.noindex (Spotlight skips a .noindex folder;
 # each also holds .metadata_never_index). Nothing is opened in Finder, Preview or Quick Look, and nothing
@@ -52,17 +51,6 @@ case "$mode" in
   xmp) node Tests/probe/fuzz/fuzz.mjs xmp --out "$EV/xmp.noindex" ;;
   fixtures) build; node Tests/probe/fuzz/fuzz.mjs fixtures --out "${LUMINA_FIXTURE_ROOT:-$HOME/LuminaEvidence/fixtures}" ;;
   bridge) bridge_test "" ;;
-  bridge-crash)
-    mkdir -p "$EV/bridge-crash"
-    for c in seqHuge seqInf seqNaN layoutInf loupeInf; do
-      t0=$(date +%s)
-      TEST_RUNNER_LUMINA_BRIDGE_CRASH_CASES=$c bridge_test /testCrashingInputs > "$EV/bridge-crash/$c.log" 2>&1 || true
-      if grep -q "survived" "$EV/bridge-crash/$c.log"; then echo "$c: survived"; continue; fi
-      sleep 2                                                   # the report lands a moment after the process
-      ips=$(ls -t "$HOME"/Library/Logs/DiagnosticReports/Lumina-*.ips 2>/dev/null | head -1 || true)
-      if [[ -n $ips && $(stat -f %m "$ips") -ge $t0 ]]; then cp "$ips" "$EV/bridge-crash/$c.ips"; else ips=""; fi
-      echo "$c: $(grep -m1 -o 'Fatal error: .*' "$EV/bridge-crash/$c.log" || echo 'stopped') ${ips:+· $EV/bridge-crash/$c.ips}"
-    done ;;
-  all) "$0" ingest; "$0" decode; "$0" xmp; "$0" bridge; "$0" bridge-crash ;;
-  *) sed -n 2,25p "$0"; exit 2 ;;
+  all) "$0" ingest; "$0" decode; "$0" xmp; "$0" bridge ;;
+  *) sed -n 2,24p "$0"; exit 2 ;;
 esac

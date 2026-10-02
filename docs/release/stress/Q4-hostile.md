@@ -2,14 +2,14 @@
 
 2026-10-01, at `5ed40ee` (main `bcac1f9` + PR #172, S3 input bounds), macOS 26.5.2, Apple silicon,
 24 GB. Stress matrix section 7; threat model T1, T5, T6, T8. This measures and adds tests; it fixes
-nothing. Every input is synthetic or a mutation of one, except the RAW decoder run, which also
+nothing. (Since then: F1, F2 and F10 are fixed by Q4a, `8cbabf0`; see "Q4a" below.) Every input is synthetic or a mutation of one, except the RAW decoder run, which also
 mutates two fixture ARWs (see part 3); those stay in `~/LuminaEvidence/hostile`, never in the repo.
 
 ## Summary
 
 | Part | Cases | Crash | Hang (> 5 s) | Memory spike | Wrong status / refusal | Write outside |
 |---|---:|---:|---:|---:|---:|---:|
-| 1 · Bridge op table (`SetsBridgeOpsTests`) | 1,303 table calls + 7 structured tests (~10,200 items) | **4 inputs** (F1, F2) | 0 | 0 | 2 open (F7, F8) | 0 |
+| 1 · Bridge op table (`SetsBridgeOpsTests`) | 1,303 table calls + 7 structured tests (~10,200 items) | **4 inputs** (F1, F2), fixed by Q4a | 0 | 0 | 2 open (F7, F8) | 0 |
 | 2 · Head and preview-range fuzzer | 20,000 (2 seeds × 10,000) | 0 | 0 | 0 | 0 | n/a |
 | 3 · Decoder mutation (sandboxed helper) | 10,000 JPEG + 2,000 ARW | 0 | 0 | 0 | n/a | n/a |
 | 4 · XMP, names, volume labels (probe, app mode, plain + sandboxed) | 3 scenarios, 8 sidecars, 12 names, 5 labels | 0 | 0 | 0 | 3 (F3, F4, F5) | 0 |
@@ -21,8 +21,8 @@ DOM, in any run. Nothing was written outside the run's folder. No Apple decoder 
 
 | # | Severity | What | Evidence | Proposed task |
 |---|---|---|---|---|
-| F1 | Medium | `canvasLook` with `seq` = `1e300`, `Infinity` or `NaN` stops the app: `Int(body["seq"] as? Double ?? 0)` traps (`SetsBridge.swift:482`). Needs a page that sends it (T3, or a page bug). | `~/LuminaEvidence/hostile/bridge-crash/seq{Huge,Inf,NaN}.{log,ips}`; `run.sh bridge-crash` | Q4a |
-| F2 | Medium | `canvasLayout` with `w`/`h` = `1e308` on the native canvas stops the app: `Int(px.width)` traps (`LookCanvas.swift:255`). | `bridge-crash/layoutInf.{log,ips}` | Q4a |
+| F1 | Medium, **fixed** (Q4a, `8cbabf0`) | `canvasLook` with `seq` = `1e300`, `Infinity` or `NaN` stops the app: `Int(body["seq"] as? Double ?? 0)` traps (`SetsBridge.swift:482`). Needs a page that sends it (T3, or a page bug). | `~/LuminaEvidence/hostile/bridge-crash/seq{Huge,Inf,NaN}.{log,ips}`; `run.sh bridge-crash` | Q4a |
+| F2 | Medium, **fixed** (Q4a, `8cbabf0`) | `canvasLayout` with `w`/`h` = `1e308` on the native canvas stops the app: `Int(px.width)` traps (`LookCanvas.swift:255`). | `bridge-crash/layoutInf.{log,ips}` | Q4a |
 | F3 | **High** (function) | A RAW whose name has a space is **unreadable** in the app: plumbing's `media()` builds `lumina://app/media/head?p=…` with `URLSearchParams`, which writes a space as `+`; `SetsSchemeHandler.media` reads `queryItems`, which keeps the `+`, so the file is "not in an opened folder" (404). `renderURL` already avoids this (`plumbing.js:582`). Renamed shoots ("Wedding 001.ARW") lose every photo. | `probe-2/hostile-names/names-read.json` (`n 9, bad 2`: `📷 ceremony 🔥.ARW`, `<img src=x onerror=alert(1)>.ARW`), `names-unreadable-list.png` | Q4b |
 | F4 | Low | A sidecar name over 234 bytes can't be written: the temp file `.<name>.lumina-tmp-XXXXXXXX` is 21 bytes longer and hits `ENAMETOOLONG`; the reason says only "failed". The same pattern is in the copy path (`SetsFileOps.swift:247`) and `.lumina-bak` adds 11. | `probe-2/hostile-names/names-saved.json` (`8 saved · 1 failed`, the 255-byte name) | Q4c |
 | F5 | Medium (A2) | A sidecar that is not UTF-8 is dropped from the listing silently (neither in `xmp` nor `skippedXmp`), so the page thinks the photo has none and Save **replaces it with a fresh ratings-only sidecar**. Its old content (here a Latin-1 label and `crs:Exposure2012`) survives only in `.lumina-bak`; Lightroom, reading the new file, loses the develop settings. | `probe-2/hostile-xmp/`: `DSC00107.xmp` (350 B, rating only) vs `DSC00107.xmp.lumina-bak` (393 B, the original); bridge log `listed 8 ARW + 6 xmp` for 7 sidecars | Q4d |
@@ -30,6 +30,7 @@ DOM, in any run. Nothing was written outside the run's folder. No Apple decoder 
 | F7 | Low (T5) | `shootOpened` stores `date` and `n` from the page in `index.json` at any size: a 10 MB date gives a 10.5 MB index, rewritten on every upsert and session summary. | `SetsBridgeOpsTests.testShootOpenedFieldsAreBounded` (expected failure, prints the size) | Q4f |
 | F8 | Low (T8, known) | `reveal` takes any absolute path that exists (here a canary outside the shoot). | `testEveryOpEveryFieldEveryHostileValue` (expected failure, names S4) | S4 (existing) |
 | F9 | Low (design) | `LuminaCore.mergeXmp` leaves a sidecar with no `<rdf:Description` unchanged: Save writes it back without a rating and reports it saved. Measured on the page's code only (`fuzz.mjs xmp`: `no-description`, `binary` → `ratingSet: false`), not end to end. | `~/LuminaEvidence/hostile/xmp.noindex/xmp-page.json` | Q4g |
+| F10 | Medium, **fixed** (Q4a, `8cbabf0`) | Found while sweeping the bridge's numbers for Q4a: `setPrefs` with a `NaN` or `Infinity` anywhere in `prefs` stops the test process. `JSONSerialization.data(withJSONObject:)` raises `NSInvalidArgumentException` ("Invalid number value (NaN) in JSON write") instead of throwing, through a Swift async frame (`SetsBridge.savePrefs`). The table never hit it: it fed `prefs` whole values, not a dictionary with a number inside. | `~/LuminaEvidence/hostile/bridge-crash/prefsNaN.ips` (SIGABRT in the test host, before the fix); `testSetPrefsRefusesNumbersJSONCannotHold` | Q4a |
 
 ### Fixed since (F4, F5, F7)
 
@@ -88,10 +89,51 @@ reaches `SetsBridge.userContentController(_:didReceive:)` exactly as WebKit call
 - **Holds:** the process survives; files outside the store and the export folder are byte-identical
   after every call; no file with the run's marker appears in the run's parent, `/tmp` or `~`;
   refusals come back as false / null / 0 / an error.
-- `testCrashingInputs` runs one trapping input per process, only with `LUMINA_BRIDGE_CRASH_CASES`
-  (`bash Tests/probe/fuzz/run.sh bridge-crash`): seqHuge, seqInf, seqNaN, layoutInf trap (F1, F2);
-  loupeInf survived (the synthetic RAW never gets a base, so the region code is not reached).
+- At the time of the run, `testCrashingInputs` ran one trapping input per process, only with
+  `LUMINA_BRIDGE_CRASH_CASES` (`run.sh bridge-crash`): seqHuge, seqInf, seqNaN, layoutInf trapped
+  (F1, F2); loupeInf survived (the synthetic RAW never gets a base, so the region code is not
+  reached). Q4a removed the gate and the mode: the same inputs run in the normal pass (see "Q4a").
 - `setPrefs` writes the host app's defaults (`com.lumina.app`); the test puts the value back.
+
+### Q4a · numbers from the page (F1, F2, F10 fixed, `8cbabf0`)
+
+Every number a bridge op or a `lumina://` query reads goes through `SetsNumber`
+(`Lumina/Sets/Core/SetsNumber.swift`): a number (never a boolean), finite, in the field's range;
+otherwise the field's default (what a missing field gets) or, where stated, the nearest end.
+
+| Field | Where | Range | Outside it |
+|---|---|---|---|
+| `o`, `l` (preview range) | `prefetch`, `near`, `canvasEnter` previews; `media/*` and `render` queries | 0 … 2^32 − 1 (an ARW is a TIFF: 32-bit offsets) | 0 → "no preview range" (422), as an unreadable value always was |
+| `ori` | the same | 0 … 65535 (EXIF SHORT) | 1 |
+| `seq` | `canvasLook`; `render` query | 0 … 2^53 − 1 (JS's largest exact integer), whole | 0 |
+| `t` | `canvasLook` | 0 … 1e13 ms | nil (latency from arrival) |
+| `x`, `y` | `canvasLayout` | ± 32,768 CSS px | the rect is refused: canvas hidden, size kept |
+| `w`, `h` | `canvasLayout` | 0 … 16,384 CSS px (twice an 8K display; Metal's texture edge) | the same |
+| `dpr` | `canvasLayout` | 0.5 … 8, clamped | not a number: 1 |
+| `roi.x`, `roi.y` | `canvasLook`, `canvasLoupe` | − 8 … 8 (fractions of the frame) | no region |
+| `roi.w`, `roi.h` | the same | 0 (exclusive) … 8 | no region |
+| `n` | `shootOpened` | 0 … 100,000 (`SetsIngest.Limits.entries`) | 0 |
+| `summary.n`, `.dec`, `.kp` | `saveSession` | 0 … 100,000 | the stored count stays |
+| `look.px` | `writeInto` | 1 … 65,536 (larger clamps: a develop never upscales) | nil, full size (as ≤ 0 always was) |
+| `px` | `render` query | 64 … 8192, clamped (as before) | 1024 |
+| `decoder` | `render` query | 1 … 99 | nil, the default decoder |
+| numbers inside `prefs` | `setPrefs` | whatever JSON holds | the settings are refused whole (false), nothing stored |
+
+`LookCanvasController.layout` holds on its own (`layable`): a rect or pixel ratio that is not
+finite, a negative size, an edge over 16,384 points, an origin past ± 32,768, a ratio outside
+0 (exclusive) … 16 hides the canvas and leaves the drawable alone; the drawable is never larger
+than 16,384 px on an edge. A real rect lays out exactly as before. The `photo` stand-in's width and
+height (prototype mode only) were already clamped to 1 … 6000 by `StandInPhoto`.
+
+Tests, all in the normal logic pass (`SetsBridgeOpsTests`, 12 tests): the table now feeds `seq`
+`Infinity`, `−Infinity`, `NaN`, `1e300` and `1e308` (1,308 calls); `testCanvasLookTakesAnySeqAndClock`
+(F1); `testHostileLayoutOnTheNativeCanvas` (F2: 10 rects through the bridge, 5 pixel ratios, 12
+rects straight into the controller, the loupe with non-finite regions, on a Metal view in a host
+view; without a Metal device only survival and the ratio are checked); `testNumbersFromThePageAreFiniteAndInRange`
+(the helper and every field's range); `testSessionSummaryCountsAreBounded`; `testSetPrefsRefusesNumbersJSONCannotHold` (F10).
+Not run end to end: the `lumina://` query numbers through a real `WKURLSchemeTask` (their parsing is
+the helper's, tested above), and a non-finite ROI reaching the region tiles (it no longer can: the
+bridge refuses it).
 
 ## Part 2 · Head and preview-range fuzzer
 
@@ -158,7 +200,7 @@ the RAW's form. A 255-byte RAW name lists and reads; only its sidecar fails (F4)
 
 | Task | What | Owns | Size |
 |---|---|---|---|
-| Q4a | Bridge numbers from the page through one helper that refuses non-finite and out-of-range values (`seq`, rect, `dpr`, `t`, ROI, `px`); `LookCanvasController.layout` clamps the drawable size. Move `seqHuge/Inf/NaN` and `layoutInf` from `testCrashingInputs` into the table. | `SetsBridge.swift`, `LookCanvas.swift`, the test | S |
+| Q4a (**done**, `8cbabf0`) | Bridge numbers from the page through one helper that refuses non-finite and out-of-range values (`seq`, rect, `dpr`, `t`, ROI, `px`); `LookCanvasController.layout` clamps the drawable size. Move `seqHuge/Inf/NaN` and `layoutInf` from `testCrashingInputs` into the table. | `SetsBridge.swift`, `LookCanvas.swift`, the test | S |
 | Q4b | `media()` in `plumbing.js` encodes with `encodeURIComponent`, as `renderURL` does; a case in `Tests/web/plumbing-harness.mjs` and a name with a space in `edge-junk-in-folder`; then `hostile-names` should pass but for F4. | `plumbing.js`, `Tests/web` | S |
 | Q4c | Temp and backup names that fit: a temp name that does not repeat the file's (`.lumina-tmp-<uuid>`), and the reason "name too long" when the sidecar or its backup can't be named. | `SetsFileOps.swift` | S |
 | Q4d | A sidecar that is not UTF-8 is listed as present-but-unreadable (with `skippedXmp`, or its own list) and Save leaves it alone with a reason, as for over-1 MB; never replaced by a fresh one. | `SetsIngest.swift`, `SetsFileOps.readSidecar` / `writeSidecar`, plumbing | S |
@@ -175,6 +217,7 @@ the RAW's form. A 255-byte RAW name lists and reads; only its sidecar fails (F4)
 - RAW 9 (absent here), the Edit render path (`LookPipeline`, `lumina://render`) and export on mutated
   RAWs: part 3 calls `CIRAWFilter` directly at 1/8 scale.
 - The loupe's region-tile code with a non-finite ROI (needs a decodable RAW on the native canvas).
+  Since Q4a the bridge refuses such a region before it reaches the canvas.
 - Key and mouse storms re-run sandboxed (matrix row "Key and mouse storms"): not part of Q4 as given.
 - The page parser ran in Node on the shipped `lumina-core-v4.js`, not inside Chromium or WebKit.
 
@@ -186,8 +229,7 @@ bash Tests/probe/fuzz/run.sh ingest 2 10000
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Tests/probe/fuzz/run.sh decode 1 5000 500
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Tests/probe/fuzz/run.sh decode 2 5000 1500
 bash Tests/probe/fuzz/run.sh xmp
-bash Tests/probe/fuzz/run.sh bridge                  # SetsBridgeOpsTests
-bash Tests/probe/fuzz/run.sh bridge-crash            # F1, F2: one test process per trapping input
+bash Tests/probe/fuzz/run.sh bridge                  # SetsBridgeOpsTests (F1, F2, F10 run here since Q4a)
 bash Tests/probe/fuzz/run.sh fixtures
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh scenarios hostile-card-label hostile-names hostile-xmp
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh sandbox scenarios hostile-card-label hostile-names hostile-xmp

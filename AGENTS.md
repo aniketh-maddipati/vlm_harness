@@ -74,6 +74,12 @@ make culleval-test
 # the bases upright on GPU textures; LookCanvasTests: the canvas schedule, byte cache, RAW tiers; SetsLookExportTests)
 xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug -derivedDataPath DD \
   -destination 'platform=macOS,arch=arm64' -only-testing:LuminaLogicTests test
+# The app is sandboxed in every configuration (CODE_SIGN_ENTITLEMENTS = Config/Lumina-Sets.entitlements, R3),
+# so the test host is too; Xcode adds its testing exceptions to a test build only. Check: codesign -d --entitlements - DD/Build/Products/Debug/Lumina.app
+
+# What ships (docs/release/APP-STORE.md): Release archive with Config/Release.xcconfig, sandboxed, ad hoc, then the preflight
+bash Scripts/release.sh local                                 # preflight passes; open items print WARN [task]
+PREFLIGHT_ALLOW=D2,S4 bash Scripts/release.sh local --strict   # what CI runs: any WARN outside the open items fails; drop a tag when its task lands
 
 # Lightroom parity (Tools/parity/README.md): renders + ΔE report, the three copies of the stage maths agree
 make parity                # needs refs.json from the Lightroom sweep and the golden ARWs in ~/LuminaEvidence/parity
@@ -88,6 +94,7 @@ bash Scripts/probe.sh screens       # every screen rendered once, the app twins 
 bash Scripts/probe.sh scenarios fuzz-sample-2 scroll-read   # just these scenarios
 bash Scripts/probe.sh contract      # plumbing.js still fits the page
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh sandbox smoke   # any mode inside the App Sandbox with Config/Lumina-Sets.entitlements as shipped: per scenario PASS / FAIL / FAILED-BY-SANDBOX + each denial (Sandbox.swift)
+bash Scripts/probe.sh sandbox smoke # the same without fixtures (what CI runs)
 bash Scripts/probe.sh smoke         # page runs, ?selftest passes, app reads / keeps / saves sidecars / reopens, the empty app
 bash Scripts/probe.sh selftest      # the design's own ?selftest (25 checks + timing)
 bash Scripts/probe.sh fuzz          # seeded key + mouse storms (with LUMINA_FIXTURE_ROOT: also over a card image pulled at random)
@@ -107,15 +114,18 @@ LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh consistency    # can
 LUMINA_REMOTE=user@m1.local bash Scripts/probe_remote.sh edit               # the same on the M1 8 GB over ssh (p95 ≤ 33 ms), evidence pulled back
 ```
 
-Day-to-day app: `bash Scripts/install_app.sh` builds this checkout (Release) into `/Applications/Lumina.app`,
-the copy the Dock and Spotlight open, and removes older builds from Launch Services.
+Day-to-day app: `bash Scripts/install_app.sh` builds this checkout (Release, sandboxed) into `/Applications/Lumina.app`,
+the copy the Dock and Spotlight open, and removes older builds from Launch Services. Its data lives in
+`~/Library/Containers/com.lumina.app/`; sessions an unsandboxed build left in `~/Library/Application Support/Lumina`
+are not seen (R1e).
 
 Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh`. It only reads the card.
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 
 CI (`.github/workflows/lumina.yml`) runs the fixtures, the byte-for-byte page check, the wording
-audit, the Chromium plumbing harness, the WebKitGTK sandbox, the Linux Swift tests, the build + logic tests, and the
-probe in four parallel macOS shards (smoke + screens, fuzz, fuzz + scroll, scroll 2560 + edit + raw9).
+audit, the Chromium plumbing harness, the WebKitGTK sandbox, the Linux Swift tests, the build + logic tests, the
+release build with the strict preflight, and the probe in five parallel macOS shards (smoke + screens, fuzz, fuzz + scroll,
+scroll 2560 + edit + raw9, sandbox smoke).
 
 ## Rules that bite
 
