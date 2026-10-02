@@ -1,0 +1,171 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "STRESS-MATRIX 2 'one pass per file system' on FAT32: a shoot folder (3 ARWs + a Lightroom sidecar for DSC00001) on an image. Read: 3 photos, the sidecar seen. Save: refused as 'on the card' by design (an image is removable media: AGENTS.md) and nothing is written. The write itself (writeSidecar's write below the card check, guard: false): replacing Lightroom's sidecar keeps a .lumina-bak, a new sidecar has none, no temp file. Export: 3 RAW copies + a sidecar into a folder on it, each verified (SHA-256). Needs the Q2 driver (docs/release/stress/Q2-storage.md, 'How these run'): the disk images are attached hidden (-nobrowse) by the driver, not by the probe's DiskImages (which show in Finder); the scenario asks for each mount / pull / re-insert with a signal file. Without LUMINA_Q2_DRIVER it SKIPs.",
+ "steps": [
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/mount-Q2FAT32",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/mount-Q2FAT32.done",
+   "contains": "ok "
+  },
+  {
+   "do": "openFolder",
+   "path": "${DISKS}/Q2FAT32/shoot",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(), i=l.state.realInfo; return [i.n, i.bad, l.real.filter(p=>!!p.xmp).map(p=>p.xpath)]",
+   "equals": [
+    3,
+    0,
+    [
+     "shoot/DSC00001.xmp"
+    ]
+   ]
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify({readingCard: window.lumina.readingCard, info: __probe.logic().state.realInfo})"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); return JSON.stringify(l.kept().map(id=>l.data.byId[id].file))"
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 1000,
+   "cmd": true
+  },
+  {
+   "do": "js",
+   "src": "window.__lastSave = __probe.logic().state.ex.result || null; return true"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 1500,
+   "cmd": true
+  },
+  {
+   "do": "js",
+   "src": "const r=__probe.logic().state.ex.result; return JSON.stringify(r || null) + ' \u00b7 card notice: ' + document.body.innerText.includes(\"Sidecars can't be written to a card\")"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2FAT32/shoot",
+   "glob": "*.xmp",
+   "count": 1,
+   "why": "Save writes nothing on removable media"
+  },
+  {
+   "do": "nativeSidecar",
+   "root": "${DISKS}/Q2FAT32/shoot",
+   "rel": "DSC00003.xmp",
+   "text": "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" xmp:Rating=\"3\" xmp:CreatorTool=\"Lumina\"/></rdf:RDF></x:xmpmeta>\n",
+   "reason": "on the card",
+   "why": "writeSidecar itself refuses removable media"
+  },
+  {
+   "do": "nativeSidecar",
+   "root": "${DISKS}/Q2FAT32/shoot",
+   "rel": "DSC00001.xmp",
+   "text": "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" xmp:Rating=\"3\" xmp:CreatorTool=\"Lumina\"/></rdf:RDF></x:xmpmeta>\n",
+   "guard": false,
+   "backedUp": true,
+   "why": "replacing Lightroom's sidecar"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2FAT32/shoot/DSC00001.xmp",
+   "contains": "xmp:Rating=\"3\""
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2FAT32/shoot/DSC00001.xmp.lumina-bak",
+   "contains": "xmp:Rating=\"1\""
+  },
+  {
+   "do": "nativeSidecar",
+   "root": "${DISKS}/Q2FAT32/shoot",
+   "rel": "DSC00002.xmp",
+   "text": "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" xmp:Rating=\"3\" xmp:CreatorTool=\"Lumina\"/></rdf:RDF></x:xmpmeta>\n",
+   "guard": false,
+   "backedUp": false,
+   "why": "a new sidecar"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2FAT32/shoot",
+   "glob": "*lumina-tmp*",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2FAT32/shoot",
+   "glob": "*.ARW",
+   "count": 3
+  },
+  {
+   "do": "nativeExport",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "count": 3,
+   "dest": "${DISKS}/Q2FAT32/export",
+   "sources": [],
+   "n": 4,
+   "why": "3 RAW copies + 1 sidecar, each verified"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2FAT32/export",
+   "glob": "*.ARW",
+   "count": 3
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2FAT32/export",
+   "glob": "*lumina-tmp*",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2FAT32/export/RAW/DSC00001.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/src/DSC00001.ARW"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

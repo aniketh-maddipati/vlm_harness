@@ -1,0 +1,128 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "STRESS-MATRIX 2 'Destination disappears mid-export': the destination is an external exFAT disk (an image) that is pulled mid-export while the Edit step's 12 look JPEGs are written to it through the page (writeInto 'jpeg', the only export v5 has). It stops and says so; the app stays up; the source shoot is untouched; after the disk is back, no temp file and no half file is left on it (or the journal says what to clean). Then the journal folder is listed for what a next launch would recover. Needs the Q2 driver (docs/release/stress/Q2-storage.md, 'How these run'): the disk images are attached hidden (-nobrowse) by the driver, not by the probe's DiskImages (which show in Finder); the scenario asks for each mount / pull / re-insert with a signal file. Without LUMINA_Q2_DRIVER it SKIPs.",
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "to": "${OUT}/shoot/src"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/src",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/mount-Q2DEST",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/mount-Q2DEST.done",
+   "contains": "ok "
+  },
+  {
+   "do": "mkdir",
+   "path": "${DISKS}/Q2DEST/export"
+  },
+  {
+   "do": "destinations",
+   "paths": [
+    "${DISKS}/Q2DEST/export"
+   ]
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/pull-Q2DEST",
+   "text": "driver=${LUMINA_Q2_DRIVER};delay=300"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const files=l.real.map(p=>({name: p.path.split('/').pop().replace(/\\.ARW$/i, '.jpg'), look: {src: p.path, look: 'ev:+0.30 con:+10', px: 3000}})); const t=performance.now(); const r=await l.writeInto(files, 'jpeg'); window.__q2r=r; return JSON.stringify({ms: Math.round(performance.now()-t), r})",
+   "timeoutMs": 300000,
+   "why": "the destination is pulled 0.3 s in (12 renders take \u22482.4 s)"
+  },
+  {
+   "do": "wait",
+   "ms": 2500
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/pull-Q2DEST.done",
+   "contains": "ok "
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "export jpeg"
+  },
+  {
+   "do": "expect",
+   "js": "const r=window.__q2r||{}; return r.aborted===true || (r.n||0) < 12",
+   "why": "never reports all 12 written"
+  },
+  {
+   "do": "expect",
+   "js": "const r=window.__q2r||{}; return !/Error Domain|NSFilePath|UserInfo/.test(r.say||'')",
+   "why": "the line the page shows says what happened in words, not an NSError dump with a path"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); return JSON.stringify({view: l.state.view, n: l.real ? l.real.length : null, info: l.state.realInfo, gone: !!l.state.gone, toast: l.state.toast || null, kept: l.kept().length})"
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/insert-Q2DEST",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/insert-Q2DEST.done",
+   "contains": "ok "
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2DEST/export",
+   "glob": "*lumina-tmp*",
+   "count": 0,
+   "why": "a pulled destination leaves no temp file behind (else: the journal must name it for the next launch)"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src",
+   "glob": "*.ARW",
+   "count": 12
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src",
+   "glob": "*lumina-*",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/support/exports",
+   "exists": true,
+   "why": "the journal of the JPEG export (evidence: support/exports)"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

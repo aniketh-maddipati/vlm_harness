@@ -1,0 +1,284 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "STRESS-MATRIX 2 'two cards named Untitled' / 'two card slots with the same file names': two exFAT cards both labelled UNTITLED, each with DSC00001\u20133.ARW (different photos). Card 1 in, a keep; pulled; card 2 in at the very same mount path (as /Volumes/UNTITLED would be), a flag. The shoots are told apart by volume UUID: card 2 does not get card 1's decisions, the Open screen lists two shoots, reopening card 1's shoot while card 2 is in never shows card 2's photos with card 1's decisions, and with card 1 back it reopens with its keep. Both in at once (UNTITLED and 'UNTITLED 1'): each is its own shoot again. Needs the Q2 driver (docs/release/stress/Q2-storage.md, 'How these run'): the disk images are attached hidden (-nobrowse) by the driver, not by the probe's DiskImages (which show in Finder); the scenario asks for each mount / pull / re-insert with a signal file. Without LUMINA_Q2_DRIVER it SKIPs.",
+ "steps": [
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/mount-TWIN1",
+   "text": "driver=${LUMINA_Q2_DRIVER};at=UNTITLED"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/mount-TWIN1.done",
+   "contains": "ok "
+  },
+  {
+   "do": "openFolder",
+   "path": "${DISKS}/UNTITLED/DCIM/100MSDCF",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.realInfo.n",
+   "equals": 3
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW"
+   ]
+  },
+  {
+   "do": "js",
+   "src": "const id=__lumina.shootId(); try { localStorage.setItem('q2-twin1', id) } catch (_) {} window.__twin1=id; return id"
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "the 2 s autosave"
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/pull-TWIN1",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 4000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/pull-TWIN1.done",
+   "contains": "ok "
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/mount-TWIN2",
+   "text": "driver=${LUMINA_Q2_DRIVER};at=UNTITLED"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/mount-TWIN2.done",
+   "contains": "ok "
+  },
+  {
+   "do": "openFolder",
+   "path": "${DISKS}/UNTITLED/DCIM/100MSDCF",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.realInfo.n",
+   "equals": 3
+  },
+  {
+   "do": "js",
+   "src": "const id=__lumina.shootId(); try { localStorage.setItem('q2-twin2', id) } catch (_) {} window.__twin2=id; return id + ' (card 1: ' + window.__twin1 + ')'"
+  },
+  {
+   "do": "expect",
+   "js": "return window.__twin2 !== window.__twin1",
+   "why": "another card at the same path with the same names is another shoot"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [],
+   "why": "card 1's keep is not applied to card 2's DSC00001"
+  },
+  {
+   "do": "key",
+   "k": "f",
+   "settleMs": 200
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return Object.keys(l.state.flags||{}).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW"
+   ]
+  },
+  {
+   "do": "wait",
+   "ms": 2600
+  },
+  {
+   "do": "reload",
+   "why": "relaunch with card 2 in"
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().recents().map(x=>({id: x.id, n: x.n, kp: x.kp, title: x.title, where: x.where})))"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().recents().length",
+   "equals": 2,
+   "why": "two shoots on the Open screen"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const a=localStorage.getItem('q2-twin1'); const x=l.recents().find(r=>r.id===a); l.libOpen(x); return !!x",
+   "why": "reopen card 1's shoot while card 2 is at its path"
+  },
+  {
+   "do": "wait",
+   "ms": 4000
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); return JSON.stringify({id: __lumina.shootId(), real: l.real ? l.real.length : null, kept: l.kept().map(id=>l.data.byId[id].file), toast: l.state.toast || null, view: l.state.view})"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return !(l.real && l.real.length && __lumina.shootId()===localStorage.getItem('q2-twin1') && l.kept().length)",
+   "why": "never card 2's photos under card 1's decisions"
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/pull-TWIN2",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 4000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/pull-TWIN2.done",
+   "contains": "ok "
+  },
+  {
+   "do": "reload"
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/insert-TWIN1",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/insert-TWIN1.done",
+   "contains": "ok "
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const a=localStorage.getItem('q2-twin1'); const x=l.recents().find(r=>r.id===a); l.libOpen(x); return !!x",
+   "why": "card 1 back at its path"
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo)",
+   "timeoutMs": 30000,
+   "what": "card 1's shoot reopened"
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "expect",
+   "js": "return __lumina.shootId() === localStorage.getItem('q2-twin1')"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW"
+   ],
+   "why": "card 1's keep is back"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return Object.keys(l.state.flags||{}).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file).sort()",
+   "equals": []
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/mount-TWIN2",
+   "text": "driver=${LUMINA_Q2_DRIVER};at=UNTITLED 1"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/mount-TWIN2.done",
+   "contains": "ok "
+  },
+  {
+   "do": "openFolder",
+   "path": "${DISKS}/UNTITLED 1/DCIM/100MSDCF",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "js",
+   "src": "return __lumina.shootId() + ' (card 2 was ' + localStorage.getItem('q2-twin2') + ')'"
+  },
+  {
+   "do": "expect",
+   "js": "return __lumina.shootId() === localStorage.getItem('q2-twin2')",
+   "why": "card 2 at another mount path is still card 2's shoot (identity by volume UUID, not path)"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return Object.keys(l.state.flags||{}).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": []
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/UNTITLED",
+   "glob": "*.xmp",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/UNTITLED 1",
+   "glob": "*.xmp",
+   "count": 0
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

@@ -1,0 +1,50 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "STRESS-MATRIX 2 'FAT32 4 GB limit': a 4.1 GB file (sparse, LUMINA_Q2_BIG) exported to a FAT32 disk with 5 GB free. The up-front space check passes; the copy cannot (FAT32 caps a file at 4 GiB \u2212 1). The export must stop with a reason a person understands, leave no temp or partial file, and not report it written. Needs the Q2 driver (docs/release/stress/Q2-storage.md, 'How these run'): the disk images are attached hidden (-nobrowse) by the driver, not by the probe's DiskImages (which show in Finder); the scenario asks for each mount / pull / re-insert with a signal file. Without LUMINA_Q2_DRIVER it SKIPs.",
+ "steps": [
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/mount-Q2FATBIG",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/mount-Q2FATBIG.done",
+   "contains": "ok "
+  },
+  {
+   "do": "nativeExport",
+   "from": "${LUMINA_Q2_BIG}",
+   "count": 1,
+   "dest": "${DISKS}/Q2FATBIG/export",
+   "sources": [],
+   "why": "the result line is the measure: written count and the reason"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2FATBIG/export",
+   "glob": "*lumina-tmp*",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2FATBIG/export/RAW/DSC09999.ARW",
+   "exists": false,
+   "why": "no partial 4 GiB file left as if it were the RAW"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

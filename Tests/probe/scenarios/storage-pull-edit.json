@@ -1,0 +1,236 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "sampleMs": 200,
+ "checklist": "STRESS-MATRIX 2: the card (exFAT image, 12 full ARWs) is pulled while the Edit canvas has a photo from it. The photo whose bases are already built keeps rendering; entering a photo whose RAW is gone, and the RAW 9 loupe on a region not yet tiled, fail cleanly (no crash, no hang, the canvas says something); Cull keeps working and decisions stay; nothing is written to the card. Re-inserted: entering the same photo builds its bases again. The probe forces the canvas up (the page has no Edit step yet), as edit-canvas.json does. Needs the Q2 driver (docs/release/stress/Q2-storage.md, 'How these run'): the disk images are attached hidden (-nobrowse) by the driver, not by the probe's DiskImages (which show in Finder); the scenario asks for each mount / pull / re-insert with a signal file. Without LUMINA_Q2_DRIVER it SKIPs.",
+ "steps": [
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/mount-Q2PULL",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/mount-Q2PULL.done",
+   "contains": "ok "
+  },
+  {
+   "do": "openFolder",
+   "path": "${DISKS}/Q2PULL/DCIM/100MSDCF",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return [l.state.realInfo.n, l.state.realInfo.bad]",
+   "equals": [
+    12,
+    0
+   ]
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify({readingCard: window.lumina.readingCard})"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "js",
+   "src": "window.__q2s = async () => { const s = await lumina.edit.stats(); const b = s.bases || {}; const pick = o => { const r = {}; for (const [k, v] of Object.entries(o || {})) if (v == null || typeof v !== 'object') r[k] = v; return r; }; return JSON.stringify({path: s.path, bases: pick(b), region: s.region, regionFailed: s.regionFailed, regionError: s.regionError, decoderFallbacks: s.decoderFallbacks, canvasError: (s.facts || {}).canvasError, facts: lumina.edit.facts().text}); }; return true"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const p=l.real[1]; window.__q2rel=p.path; return lumina.edit.enter(p.path, 'ev:+0.30 con:+10').then(f=>JSON.stringify(f))"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.layout({x:280,y:60,w:880,h:640}, true, {force:true}); return true"
+  },
+  {
+   "do": "waitFor",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'?!!lumina.edit.state().image.shown:(s.bases&&s.bases.resident>0))",
+   "timeoutMs": 90000,
+   "what": "bases built for a photo on the card"
+  },
+  {
+   "do": "js",
+   "src": "return __q2s()",
+   "why": "before the pull"
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/pull-Q2PULL",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 6000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/pull-Q2PULL.done",
+   "contains": "ok "
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.dragStart(); for (let i = 0; i <= 40; i++) lumina.edit.look('ev:' + (i / 20 - 1).toFixed(2) + ' con:+10', {drag: true}); lumina.edit.dragEnd(); return true",
+   "why": "sliders on the photo whose bases are built: no file read needed"
+  },
+  {
+   "do": "wait",
+   "ms": 1500
+  },
+  {
+   "do": "js",
+   "src": "return __q2s()",
+   "why": "after drags with the card out"
+  },
+  {
+   "do": "dump",
+   "name": "stats-after-drag",
+   "js": "return lumina.edit.stats()"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const p=l.real[6]; const t=performance.now(); return lumina.edit.enter(p.path, 'ev:+0.30').then(f=>JSON.stringify({ms: Math.round(performance.now()-t), facts: f && f.text}))",
+   "why": "a photo whose RAW is on the pulled card and whose bases were never built"
+  },
+  {
+   "do": "wait",
+   "ms": 4000
+  },
+  {
+   "do": "js",
+   "src": "return __q2s()",
+   "why": "entered a gone photo"
+  },
+  {
+   "do": "expect",
+   "js": "return !/Error Domain|NSFilePath|UserInfo/.test(lumina.edit.facts().text)",
+   "why": "the facts line says the photo's file is gone in words, not an NSError dump with a path"
+  },
+  {
+   "do": "dump",
+   "name": "stats-gone-photo",
+   "js": "return lumina.edit.stats()"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.loupe(true, {x:0.4,y:0.4,w:0.2,h:0.2}); return true",
+   "why": "RAW 9 region tiles need the RAW: the card is out"
+  },
+  {
+   "do": "wait",
+   "ms": 4000
+  },
+  {
+   "do": "js",
+   "src": "return __q2s()",
+   "why": "loupe with the card out"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.loupe(false); return true"
+  },
+  {
+   "do": "js",
+   "src": "return window.__lumina.nativeStats().then(s => JSON.stringify(s))"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); return JSON.stringify({view: l.state.view, n: l.real ? l.real.length : null, info: l.state.realInfo, gone: !!l.state.gone, toast: l.state.toast || null, kept: l.kept().length})"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.leave(); return lumina.edit.state().visible===false"
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().kept().length",
+   "equals": 2,
+   "why": "culling goes on with the card out"
+  },
+  {
+   "do": "snap",
+   "name": "after-pull"
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/insert-Q2PULL",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/insert-Q2PULL.done",
+   "contains": "ok "
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const p=l.real[6]; return lumina.edit.enter(p.path, 'ev:+0.30').then(f=>JSON.stringify(f && f.text))"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.layout({x:280,y:60,w:880,h:640}, true, {force:true}); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 6000
+  },
+  {
+   "do": "js",
+   "src": "return __q2s()",
+   "why": "re-inserted (no mount notice for a hidden image: the canvas reads the file again by itself, or not)"
+  },
+  {
+   "do": "dump",
+   "name": "stats-reinserted",
+   "js": "return lumina.edit.stats()"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.leave(); return true"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2PULL",
+   "glob": "*.xmp",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2PULL",
+   "glob": "*lumina-*",
+   "count": 0
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

@@ -1,0 +1,157 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "sampleMs": 200,
+ "checklist": "STRESS-MATRIX 2: the card is pulled while the Edit step's look renders (12 JPEGs at 3000 px, the page's writeInto 'jpeg' \u2192 SetsExport .look) read the RAWs from it into a folder on the Mac. The export stops and says so (never '12 written'); every JPEG left in the destination is whole and no temp file is left; nothing is written to the card. Re-inserted, the same export completes. Needs the Q2 driver (docs/release/stress/Q2-storage.md, 'How these run'): the disk images are attached hidden (-nobrowse) by the driver, not by the probe's DiskImages (which show in Finder); the scenario asks for each mount / pull / re-insert with a signal file. Without LUMINA_Q2_DRIVER it SKIPs.",
+ "steps": [
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/mount-Q2PULL",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/mount-Q2PULL.done",
+   "contains": "ok "
+  },
+  {
+   "do": "openFolder",
+   "path": "${DISKS}/Q2PULL/DCIM/100MSDCF",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.realInfo.n",
+   "equals": 12
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "mkdir",
+   "path": "${OUT}/export"
+  },
+  {
+   "do": "mkdir",
+   "path": "${OUT}/export2"
+  },
+  {
+   "do": "destinations",
+   "paths": [
+    "${OUT}/export",
+    "${OUT}/export2"
+   ]
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/pull-Q2PULL",
+   "text": "driver=${LUMINA_Q2_DRIVER};delay=1500"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const files=l.real.map(p=>({name: p.path.split('/').pop().replace(/\\.ARW$/i, '.jpg'), look: {src: p.path, look: 'ev:+0.30 con:+10', px: 3000}})); const t=performance.now(); const r=await l.writeInto(files, 'jpeg'); window.__q2r=r; return JSON.stringify({ms: Math.round(performance.now()-t), r})",
+   "timeoutMs": 300000,
+   "why": "the pull lands 1.5 s into the export"
+  },
+  {
+   "do": "wait",
+   "ms": 2500
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/pull-Q2PULL.done",
+   "contains": "ok "
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "export jpeg"
+  },
+  {
+   "do": "expect",
+   "js": "const r=window.__q2r||{}; return r.aborted===true || (r.n||0) < 12",
+   "why": "an export that lost its source never reports all 12 written"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/export",
+   "glob": "*lumina-tmp*",
+   "count": 0,
+   "why": "no temp file left on the Mac's side"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); return JSON.stringify({view: l.state.view, n: l.real ? l.real.length : null, info: l.state.realInfo, gone: !!l.state.gone, toast: l.state.toast || null, kept: l.kept().length})"
+  },
+  {
+   "do": "js",
+   "src": "return window.__lumina.nativeStats().then(s => JSON.stringify(s))"
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/insert-Q2PULL",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/insert-Q2PULL.done",
+   "contains": "ok "
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const files=l.real.map(p=>({name: p.path.split('/').pop().replace(/\\.ARW$/i, '.jpg'), look: {src: p.path, look: 'ev:+0.30 con:+10', px: 3000}})); const t=performance.now(); const r=await l.writeInto(files, 'jpeg'); window.__q2r=r; return JSON.stringify({ms: Math.round(performance.now()-t), r})",
+   "timeoutMs": 300000,
+   "why": "the card is back: the same export again, into export2"
+  },
+  {
+   "do": "expect",
+   "js": "const r=window.__q2r||{}; return r.n",
+   "equals": 12,
+   "why": "re-inserted, every render completes"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/export2",
+   "glob": "*.jpg",
+   "count": 12
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/export2",
+   "glob": "*lumina-tmp*",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2PULL",
+   "glob": "*.jpg",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2PULL",
+   "glob": "*lumina-*",
+   "count": 0
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

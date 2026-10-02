@@ -1,0 +1,120 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "STRESS-MATRIX 2 / AGENTS.md 'RAW 9 \u00b7 Capability map': the card is pulled while the shoot opens, i.e. while the page reads it and the bridge's decoder probe (probeBodies: supportedDecoderVersions + a 512 px proof per version, at .utility) runs on one RAW per body. Whatever the pull caught, the app stays up and the shoot header does not keep a map measured on a file that was gone: once the card is back and the folder is opened again, the body has a non-empty decoder list and the shoot is pinned. Timing of the pull relative to the read and the probe is in events.jsonl (bridge 'shoot \u2026' / 'decoders: \u2026'). Needs the Q2 driver (docs/release/stress/Q2-storage.md, 'How these run'): the disk images are attached hidden (-nobrowse) by the driver, not by the probe's DiskImages (which show in Finder); the scenario asks for each mount / pull / re-insert with a signal file. Without LUMINA_Q2_DRIVER it SKIPs.",
+ "steps": [
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/mount-Q2PULL",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/mount-Q2PULL.done",
+   "contains": "ok "
+  },
+  {
+   "do": "openFolder",
+   "path": "${DISKS}/Q2PULL/DCIM/100MSDCF",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/pull-Q2PULL",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 3000,
+   "why": "the pull lands ~0.1-0.3 s after the read ends, while the decoder probe (\u22480.5 s for two versions) runs"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/pull-Q2PULL.done",
+   "contains": "ok "
+  },
+  {
+   "do": "waitFor",
+   "js": "return !__probe.logic().state.realLoad",
+   "timeoutMs": 60000,
+   "what": "read settles after the pull"
+  },
+  {
+   "do": "wait",
+   "ms": 3000,
+   "why": "the decoder probe runs at .utility after shootOpened"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); return JSON.stringify({view: l.state.view, n: l.real ? l.real.length : null, info: l.state.realInfo, gone: !!l.state.gone, toast: l.state.toast || null, kept: l.kept().length})"
+  },
+  {
+   "do": "js",
+   "src": "return lumina.edit.stats().then(s => JSON.stringify(s.facts))",
+   "why": "the header as the pull left it"
+  },
+  {
+   "do": "js",
+   "src": "return window.__lumina.nativeStats().then(s => JSON.stringify(s))"
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/signal/insert-Q2PULL",
+   "text": "driver=${LUMINA_Q2_DRIVER}"
+  },
+  {
+   "do": "wait",
+   "ms": 3000
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/signal/insert-Q2PULL.done",
+   "contains": "ok "
+  },
+  {
+   "do": "openFolder",
+   "path": "${DISKS}/Q2PULL/DCIM/100MSDCF",
+   "via": "js",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "wait",
+   "ms": 4000,
+   "why": "a body not yet in the header is probed after this open"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); return JSON.stringify({view: l.state.view, n: l.real ? l.real.length : null, info: l.state.realInfo, gone: !!l.state.gone, toast: l.state.toast || null, kept: l.kept().length})"
+  },
+  {
+   "do": "js",
+   "src": "return lumina.edit.stats().then(s => JSON.stringify(s.facts))",
+   "why": "the header after the card came back and the folder was opened again"
+  },
+  {
+   "do": "expect",
+   "js": "return lumina.edit.stats().then(s => { const b = Object.values((s.facts||{}).bodies||{}); return b.length > 0 && b.every(x => (x.supported||[]).includes(8)) && s.facts.decoder >= 8 })",
+   "why": "the capability map is measured on a readable file (RAW 8 exists on every macOS Lumina supports) and the shoot is pinned to it, not to what a half-finished probe found"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/Q2PULL",
+   "glob": "*lumina-*",
+   "count": 0
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

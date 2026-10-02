@@ -1,0 +1,257 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "STRESS-MATRIX 4 'Finder renames, moves or deletes a keeper mid-cull' (rename and one delete: app-rename-mid-cull). Three keepers: DSC00001 moved into a subfolder of the shoot, DSC00008 moved out of the shoot (Finder drag to another folder), DSC00010 moved to a Trash stand-in while it is the photo on screen. Culling and the large view keep working; Save writes no sidecar for a RAW that is not where it was and lists each as missing; no sidecar lands next to a moved RAW by accident; moved RAWs are byte-identical; after a relaunch the decisions of files still in place are back. Needs the Q2 driver (docs/release/stress/Q2-storage.md, 'How these run'): the disk images are attached hidden (-nobrowse) by the driver, not by the probe's DiskImages (which show in Finder); the scenario asks for each mount / pull / re-insert with a signal file. Without LUMINA_Q2_DRIVER it SKIPs.",
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "to": "${OUT}/shoot/src"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/src",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "f",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); return JSON.stringify({kept: l.kept().map(id=>l.data.byId[id].file).sort(), cur: l.data.byId[l.state.cur].file})"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00008.ARW",
+    "DSC00010.ARW"
+   ]
+  },
+  {
+   "do": "mkdir",
+   "path": "${OUT}/shoot/src/picked"
+  },
+  {
+   "do": "mkdir",
+   "path": "${OUT}/elsewhere"
+  },
+  {
+   "do": "mkdir",
+   "path": "${OUT}/Trash"
+  },
+  {
+   "do": "move",
+   "from": "${OUT}/shoot/src/DSC00001.ARW",
+   "to": "${OUT}/shoot/src/picked/DSC00001.ARW"
+  },
+  {
+   "do": "move",
+   "from": "${OUT}/shoot/src/DSC00008.ARW",
+   "to": "${OUT}/elsewhere/DSC00008.ARW"
+  },
+  {
+   "do": "move",
+   "from": "${OUT}/shoot/src/DSC00010.ARW",
+   "to": "${OUT}/Trash/DSC00010.ARW",
+   "why": "the photo on screen goes to the Trash"
+  },
+  {
+   "do": "key",
+   "k": " ",
+   "settleMs": 700
+  },
+  {
+   "do": "snap",
+   "name": "large-after-move"
+  },
+  {
+   "do": "key",
+   "k": " ",
+   "settleMs": 300
+  },
+  {
+   "do": "key",
+   "k": "ArrowUp",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); return JSON.stringify(l.kept().map(id=>l.data.byId[id].file).sort())"
+  },
+  {
+   "do": "expect",
+   "js": "return [(await fetch('/media/head?p=src/DSC00001.ARW')).status, (await fetch('/media/head?p=src/DSC00008.ARW')).status, (await fetch('/media/head?p=src/DSC00010.ARW')).status]",
+   "equals": [
+    404,
+    404,
+    404
+   ]
+  },
+  {
+   "do": "invariants"
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 1000,
+   "cmd": true
+  },
+  {
+   "do": "js",
+   "src": "window.__lastSave = __probe.logic().state.ex.result || null; return true"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 1500,
+   "cmd": true
+  },
+  {
+   "do": "waitFor",
+   "js": "const r = __probe.logic().state.ex.result; return !!r && r !== window.__lastSave",
+   "what": "save result"
+  },
+  {
+   "do": "js",
+   "src": "const r=__probe.logic().state.ex.result; return JSON.stringify({t: r.t, bad: r.bad, errs: r.errs.map(e=>e.name+' \u00b7 '+e.reason)})"
+  },
+  {
+   "do": "expect",
+   "js": "const r=__probe.logic().state.ex.result; return r.errs.map(e=>e.name+' \u00b7 '+e.reason).sort()",
+   "equals": [
+    "DSC00001 \u00b7 missing",
+    "DSC00008 \u00b7 missing",
+    "DSC00010 \u00b7 missing"
+   ]
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src/DSC00001.xmp",
+   "exists": false
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src/picked",
+   "glob": "*.xmp",
+   "count": 0,
+   "why": "no sidecar follows the RAW into the subfolder unasked"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/elsewhere",
+   "glob": "*.xmp",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/Trash",
+   "glob": "*.xmp",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src/picked/DSC00001.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/src/DSC00001.ARW"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/elsewhere/DSC00008.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/src/DSC00008.ARW"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/Trash/DSC00010.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/src/DSC00010.ARW"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/src",
+   "glob": "*lumina-*",
+   "count": 0
+  },
+  {
+   "do": "wait",
+   "ms": 2600
+  },
+  {
+   "do": "reload"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo)",
+   "timeoutMs": 60000,
+   "what": "reopened"
+  },
+  {
+   "do": "wait",
+   "ms": 1000
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); return JSON.stringify({kept: l.kept().map(id=>l.data.byId[id].file), flags: Object.keys(l.state.flags||{}).filter(id=>l.state.flags[id]).length, toast: l.state.toast || null, unsaved: __lumina.unsaved()})"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); return JSON.stringify({n: l.real.length, files: l.real.map(p=>p.path).filter(p=>/picked/.test(p))})",
+   "why": "is the subfolder read as part of the shoot after the reopen?"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

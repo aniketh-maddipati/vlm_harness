@@ -1,0 +1,160 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "STRESS-MATRIX 2 'power loss mid-session-write' (T11, R8): shoots/index.json (the Open screen's recents) is damaged on disk: truncated, then zero bytes. Two shoots are open-and-culled first. On the next launch: no crash; are the recents lost (and kept aside or overwritten by the next open)? Opening a folder again by hand: does it find its own session (decisions back)? The other shoot's session stays on disk: is it reachable again?",
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "to": "${OUT}/shoot/a"
+  },
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/two-bodies",
+   "to": "${OUT}/shoot/b"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/a",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "wait",
+   "ms": 2600
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/b",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "wait",
+   "ms": 2600
+  },
+  {
+   "do": "reload"
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().recents().map(x=>({id: x.id, n: x.n, kp: x.kp, title: x.title, where: x.where})))"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().recents().length",
+   "equals": 2
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/support/shoots/index.json",
+   "contains": "\"id\""
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/support/shoots/index.json",
+   "text": "[\n  {\n    \"bookmark\" : \"Ym9va",
+   "why": "truncated mid-entry"
+  },
+  {
+   "do": "reload"
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().recents().map(x=>({id: x.id, n: x.n, kp: x.kp, title: x.title, where: x.where})))",
+   "why": "recents after a truncated index.json"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().recents().length",
+   "equals": 2,
+   "why": "R8: a damaged index.json is kept aside and the recents come back (from the shoots' own folders), not silently dropped"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/support/shoots",
+   "glob": "index.json*",
+   "count": 2,
+   "why": "R8: the damaged file kept aside"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/a",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "wait",
+   "ms": 1000
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); return JSON.stringify({kept: l.kept().map(id=>l.data.byId[id].file)})",
+   "why": "shoot a opened by hand: its session (keyed by place) found again?"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().kept().length",
+   "equals": 1
+  },
+  {
+   "do": "wait",
+   "ms": 2600
+  },
+  {
+   "do": "reload"
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().recents().map(x=>({id: x.id, n: x.n, kp: x.kp, title: x.title, where: x.where})))",
+   "why": "after the next open rewrote index.json"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/support/shoots",
+   "glob": "session.json",
+   "count": 2,
+   "why": "shoot b's session is still on disk"
+  },
+  {
+   "do": "writeFile",
+   "path": "${OUT}/support/shoots/index.json",
+   "text": "",
+   "why": "zero bytes"
+  },
+  {
+   "do": "reload"
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(__probe.logic().recents().map(x=>({id: x.id, n: x.n, kp: x.kp, title: x.title, where: x.where})))",
+   "why": "recents after a zero-byte index.json"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}
