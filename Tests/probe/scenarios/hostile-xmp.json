@@ -1,0 +1,205 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "budgets": {
+  "probePeakMB": 1200,
+  "webPeakMB": 2000
+ },
+ "checklist": "Q4 / stress matrix 7 (XMP): sidecars beside 8 RAWs: Lightroom's, an entity bomb (&lol9;), an external entity (file:///etc/hosts), 10,000 nested elements, script text in fields and comments, a rating element holding markup, a Latin-1 (not UTF-8) one and a 500 MB sparse one. Made by `bash Tests/probe/fuzz/run.sh fixtures`. The 500 MB one is skipped unread (memory stays flat: budgets); nothing in any sidecar runs or expands; Save merges the rating as text, keeps each replaced file as .lumina-bak byte for byte, writes nothing but sidecars. What Save does with the Latin-1 and the 500 MB sidecar is dumped (xmp-saved.json) for the report. Steps run with \"invariants\": false: the probe's read-count invariant (read + unreadable = listed) counts the skipped sidecar as an unreadable photo (Q4-F6), which would fail every step.",
+ "steps": [
+  {
+   "do": "js",
+   "src": "window.__pwned = 0; window.alert = () => { window.__pwned++ }; window.confirm = window.prompt = window.alert; return true",
+   "invariants": false
+  },
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/hostile-xmp",
+   "to": "${OUT}/shoot/xmp",
+   "invariants": false
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/xmp",
+   "timeoutMs": 120000,
+   "invariants": false
+  },
+  {
+   "do": "dump",
+   "name": "xmp-read",
+   "js": "const l=__probe.logic(); return JSON.stringify({info:l.state.realInfo&&{n:l.state.realInfo.n,bad:l.state.realInfo.bad}, notes:(l.state.notes||[]).map(n=>n.t), photos:l.real.map(p=>({name:p.name,xpath:p.xpath,xmp:p.xmp?p.xmp.length:null,lrEd:!!p.lrEd}))})",
+   "invariants": false
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "1 xmp over 1 MB skipped",
+   "why": "the 500 MB sidecar is named, never read (T5)",
+   "invariants": false
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return [l.real.length, l.real.filter(p=>p.nopv).length, l.real.filter(p=>p.xmp).length]",
+   "equals": [
+    8,
+    0,
+    6
+   ],
+   "what": "8 photos read; 6 sidecars as text: the Latin-1 one and the 500 MB one are not",
+   "invariants": false
+  },
+  {
+   "do": "expect",
+   "js": "return [window.__pwned, document.querySelectorAll('img[src=\"x\"], [onerror]').length, JSON.stringify(__probe.logic().real.map(p=>p.xmp||'')).includes('lollollol')]",
+   "equals": [
+    0,
+    0,
+    false
+   ],
+   "what": "script text in a sidecar is data: nothing ran, no entity was expanded",
+   "invariants": false
+  },
+  {
+   "do": "snap",
+   "name": "xmp-cull",
+   "invariants": false
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); l.setState({ marks: Object.fromEntries(l.data.order.map(id => [id, 'keep'])) }); return true",
+   "invariants": false
+  },
+  {
+   "do": "wait",
+   "ms": 400,
+   "invariants": false
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().kept().length",
+   "equals": 8,
+   "invariants": false
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 1000,
+   "cmd": true,
+   "invariants": false
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "export",
+   "invariants": false
+  },
+  {
+   "do": "snap",
+   "name": "xmp-save",
+   "invariants": false
+  },
+  {
+   "do": "js",
+   "src": "window.__lastSave = __probe.logic().state.ex.result || null; return true",
+   "invariants": false
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 1500,
+   "cmd": true,
+   "invariants": false
+  },
+  {
+   "do": "waitFor",
+   "js": "const r = __probe.logic().state.ex.result; return !!r && r !== window.__lastSave",
+   "what": "save result",
+   "invariants": false
+  },
+  {
+   "do": "dump",
+   "name": "xmp-saved",
+   "js": "const r=__probe.logic().state.ex.result; return JSON.stringify({t:r.t, bad:r.bad, errs:r.errs, where:r.where})",
+   "invariants": false
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "sidecars →",
+   "invariants": false
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/xmp/DSC00102.xmp",
+   "contains": "xmp:Rating=\"3\"",
+   "invariants": false
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/xmp/DSC00102.xmp",
+   "notContains": "lollollol",
+   "why": "the entity file is merged as text: &lol9; is never expanded",
+   "invariants": false
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/xmp/DSC00103.xmp",
+   "notContains": "localhost",
+   "why": "no external entity is fetched",
+   "invariants": false
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/xmp/DSC00104.xmp",
+   "contains": "xmp:Rating=\"3\"",
+   "invariants": false
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/xmp/DSC00105.xmp",
+   "contains": "xmp:Rating=\"3\"",
+   "invariants": false
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/xmp/DSC00101.xmp.lumina-bak",
+   "same": "${LUMINA_FIXTURE_ROOT}/hostile-xmp/DSC00101.xmp",
+   "invariants": false
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/xmp/DSC00107.xmp.lumina-bak",
+   "same": "${LUMINA_FIXTURE_ROOT}/hostile-xmp/DSC00107.xmp",
+   "why": "the Latin-1 sidecar, if replaced, is kept byte for byte",
+   "invariants": false
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/xmp",
+   "glob": "*.lumina-tmp*",
+   "count": 0,
+   "invariants": false
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/xmp/DSC00101.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/hostile-xmp/DSC00101.ARW",
+   "invariants": false
+  },
+  {
+   "do": "expect",
+   "js": "return [window.__pwned, document.querySelectorAll('img[src=\"x\"], [onerror]').length]",
+   "equals": [
+    0,
+    0
+   ],
+   "invariants": false
+  }
+ ]
+}
