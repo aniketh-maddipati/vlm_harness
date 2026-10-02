@@ -55,6 +55,7 @@ bash Scripts/test.sh ui                              # UI smoke: one XCUITest (l
 bash Scripts/test.sh ui KeysAndStateTests            # a suite, or Suite/test. Limit 900 s (LUMINA_UI_LIMIT)
 LUMINA_LONG=1 bash Scripts/test.sh ui all            # every suite, all 13 window shapes, Load and Soak. Up to 3 h of the screen: only on purpose
 bash Scripts/stop_tests.sh                           # stops every test on this Mac, at any time (--dry-run lists)
+bash Scripts/stop_tests.sh --off                     # the kill switch: stops everything and nothing starts again until --on (the user's; never an agent's to undo)
 python3 Scripts/gen_tokens.py --check                # Tokens.generated.swift matches parity/tokens.json
 ```
 

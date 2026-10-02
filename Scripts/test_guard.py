@@ -12,10 +12,17 @@
       the screen (the probe's window and XCUITests take the keyboard: one at a time on a Mac).
       LUMINA_LOCK_WAIT=<s> waits that long for the screen instead of refusing at once.
 
-  test_guard.py stop [--dry-run]       (Scripts/stop_tests.sh)
+  test_guard.py stop [--dry-run] [--off | --on]       (Scripts/stop_tests.sh)
       Stops everything test-related: guarded runs, probes, UI test runners, the drivers that
       start them (parents first, so nothing respawns), test builds of the app, the probe's disk
       images, listening test servers, and the tests' temp folders. Safe at any time.
+      --off is the kill switch: stops everything and leaves ~/LuminaEvidence/.tests-off, and
+      while that file exists no guarded run, probe or UI test starts (exit 75) and the Claude
+      Code hook (Scripts/hook_tests_off.py) refuses test commands. --on removes it.
+
+  test_guard.py hook
+      The Claude Code PreToolUse hook: with the switch off, denies a Bash command that would
+      start a test. Reads the hook's JSON on stdin.
 
   test_guard.py status
       What stop would stop, and who holds the screen.
@@ -28,6 +35,7 @@ import fcntl, glob, json, os, plistlib, re, shutil, signal, subprocess, sys, tem
 HOME = os.path.expanduser("~")
 STATE = os.environ.get("LUMINA_GUARD_DIR") or os.path.join(HOME, "LuminaEvidence")
 LOCK, RUNS = os.path.join(STATE, ".screen.lock"), os.path.join(STATE, ".runs")
+OFF = os.path.join(STATE, ".tests-off")     # the kill switch: while it exists nothing test-related starts
 HELD = "LUMINA_SCREEN_LOCK_HELD"          # set for the command: it and its children already own the screen
 REFUSED, TIMED_OUT = 75, 124
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -226,6 +234,9 @@ def cmd_run(argv):
     if not command or limit <= 0:
         sys.exit(__doc__)
     os.makedirs(RUNS, exist_ok=True)
+    if os.path.exists(OFF):
+        say(f"REFUSED  tests are switched off on this Mac ({OFF}, {open(OFF).read().strip()}). Only the user turns them back on: bash Scripts/stop_tests.sh --on")
+        return REFUSED
     reap()
     for _, run in run_files():
         if run["name"] == name:
@@ -350,7 +361,36 @@ def temp_dirs():
     return [d for pat in TEMP for base in {tempfile.gettempdir(), "/private/tmp"} for d in glob.glob(os.path.join(base, pat))]
 
 
+def cmd_hook():
+    """Claude Code PreToolUse hook for Bash: exit 2 (with the reason on stderr) blocks the call."""
+    if not os.path.exists(OFF):
+        return 0
+    try:
+        command = json.load(sys.stdin).get("tool_input", {}).get("command", "")
+    except Exception:
+        return 0
+    if "stop_tests.sh" in command or "test_guard.py stop" in command or "test_guard.py status" in command:
+        return 0
+    starts = re.compile(r"lumina-probe\s+(run|sandbox-launch)|Scripts/(probe|probe_remote|test|uitest)\.sh|Tests/probe/\S+\.(py|sh)|Tests/web/\S+\.(mjs|py)"
+                        r"|xcodebuild\b.*\btest|\bswift\s+test\b|test_guard\.py\s+run|life_kill|q2drive|hdiutil\s+(attach|create)|\bmake\s+(parity|culleval)")
+    if starts.search(command):
+        say(f"Tests are switched off on this Mac by the user ({OFF}). Do not start this, do not look for another way to run it, "
+            f"and do not remove the file: tell the user what you wanted to run and stop.")
+        return 2
+    return 0
+
+
 def cmd_stop(argv, status=False):
+    if "--on" in argv:
+        if os.path.exists(OFF): os.remove(OFF)
+        say("tests are on again")
+        return 0
+    if "--off" in argv:
+        os.makedirs(STATE, exist_ok=True)
+        open(OFF, "w").write("switched off " + time.strftime("%Y-%m-%d %H:%M:%S"))
+        say(f"tests are OFF: nothing starts until `bash Scripts/stop_tests.sh --on` ({OFF})")
+    elif os.path.exists(OFF):
+        say(f"tests are OFF ({open(OFF).read().strip()}); `bash Scripts/stop_tests.sh --on` turns them back on")
     dry = status or "--dry-run" in argv
     table, targets, drivers, servers, sessions = find()
     short = lambda pid: f"{pid:>6}  {table[pid][3][:150]}"
@@ -411,4 +451,5 @@ if __name__ == "__main__":
     if args[:1] == ["run"]: sys.exit(cmd_run(args[1:]))
     if args[:1] == ["stop"]: sys.exit(cmd_stop(args[1:]))
     if args[:1] == ["status"]: sys.exit(cmd_stop(args[1:], status=True))
+    if args[:1] == ["hook"]: sys.exit(cmd_hook())
     sys.exit(__doc__)

@@ -57,9 +57,13 @@ nonisolated enum TestGuard {
         if let mine = NSRunningApplication.runningApplications(withBundleIdentifier: appID).first(where: { !isTestBuild($0) }) {
             return "REFUSED: Lumina is open (\(mine.bundleURL?.path ?? "?")): a UI test would quit it and take its place. Quit it, then run the tests."
         }
-        guard ProcessInfo.processInfo.environment["LUMINA_SCREEN_LOCK_HELD"] == nil else { return nil }     // Scripts/test.sh holds it
         let home = String(cString: getpwuid(getuid()).pointee.pw_dir)
         let dir = ProcessInfo.processInfo.environment["LUMINA_GUARD_DIR"] ?? home + "/LuminaEvidence"
+        // The kill switch (Scripts/stop_tests.sh --off): nothing starts while it is there.
+        if FileManager.default.fileExists(atPath: dir + "/.tests-off") {
+            return "REFUSED: tests are switched off on this Mac (\(dir)/.tests-off). Only the user turns them back on: bash Scripts/stop_tests.sh --on"
+        }
+        guard ProcessInfo.processInfo.environment["LUMINA_SCREEN_LOCK_HELD"] == nil else { return nil }     // Scripts/test.sh holds it
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         let path = dir + "/.screen.lock"
         let fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC, 0o644)
