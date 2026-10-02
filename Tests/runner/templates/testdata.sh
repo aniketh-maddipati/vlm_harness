@@ -4,7 +4,12 @@
 # Test data only: picsum / Unsplash pictures are never bundled into the app (README › Assets).
 cd "$ROOT" || exit 2
 WHAT="${1:-all}"
-EV="$HOME/LuminaEvidence/native-ui"
+# Where the data goes: LUMINA_TESTDATA, else ~/LuminaEvidence/native-ui. A link to a drive that
+# isn't mounted is refused, never written through or replaced.
+EV="${LUMINA_TESTDATA:-$HOME/LuminaEvidence/native-ui}"
+if [ -L "$EV" ] && [ ! -e "$EV" ]; then
+  echo "$EV links to $(readlink "$EV"), which isn't there (drive unplugged?). Plug it in, or set LUMINA_TESTDATA=<local folder>."; exit 2
+fi
 if [ "$WHAT" = demo ] || [ "$WHAT" = all ]; then
   bash Scripts/fetch_demo_photos.sh "$EV/demo-photos" || exit 1
 fi
@@ -18,6 +23,9 @@ if [ "$WHAT" = goldens ] || [ "$WHAT" = all ]; then
     cd "$W/capture" || exit 2
     npm i --silent --no-audit --no-fund || exit 1
     PROTO="$ROOT/design/handoff/lumina-app/prototypes" node capture-goldens.mjs || exit 1
-    mkdir -p "$EV" && rm -rf "$EV/goldens" && mv "$W/goldens" "$EV/goldens" && echo "goldens → $EV/goldens"
+    # Never deletes: an old goldens folder is set aside next to it.
+    mkdir -p "$EV" || exit 1
+    [ -e "$EV/goldens" ] && mv "$EV/goldens" "$EV/goldens.old-$(date +%Y%m%d-%H%M%S)"
+    mv "$W/goldens" "$EV/goldens" && echo "goldens → $EV/goldens"
   fi
 fi

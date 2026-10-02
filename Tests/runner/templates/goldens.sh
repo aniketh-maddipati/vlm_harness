@@ -5,7 +5,7 @@
 # Another goldens folder: LUMINA_GOLDENS=/path/to/goldens (laid out <size>/<state>.png + manifest.json).
 cd "$ROOT/LuminaKit" || exit 2
 SIZE="${1:-1100x760}"; STATES="${2:-all}"
-GOLDENS="${LUMINA_GOLDENS:-$HOME/LuminaEvidence/native-ui/goldens}"
+GOLDENS="${LUMINA_GOLDENS:-${LUMINA_TESTDATA:-$HOME/LuminaEvidence/native-ui}/goldens}"
 case "$SIZE" in
   1100x760|480x800) ;;
   1440x900) echo "note: 1440x900 is informational: the native UI is S 1.125 there, the goldens S 1 (AGENTS.md, ruled 2026-10-02)" ;;
