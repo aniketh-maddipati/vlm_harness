@@ -95,6 +95,19 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   // tile on this screen (324 CSS px × devicePixelRatio, 360–720), never upscaled.
   ok(th.length && th.every(t => t.w === t.want), 'thumbs: fallback tile image sized for the largest tile, never upscaled', th);
   ok(bridge.calls.includes('shootOpened'), 'session: shootOpened sent');
+
+  // Retakes (DESIGN-ASKS Prompt 2 C): lumina.near(pathA, pathB) is the Mac's distance between two photos'
+  // previews, lumina.nearLimit its threshold. The page names photos by path; plumbing sends where each
+  // preview is, as the native read found it.
+  const near = await page.evaluate(async () => {
+    const P = __lumina.logic().real, a = P[0].path, b = P[1].path;
+    return { limit: lumina.nearLimit, ab: await lumina.near(a, b), aa: await lumina.near(a, a), unknown: await lumina.near(a, 'nowhere/DSC0.ARW'), none: await lumina.near(), a, b };
+  });
+  ok(near.limit === 0.35, 'near: lumina.nearLimit comes from the app config', near.limit);
+  ok(near.ab === 0.25 && near.aa === 0, 'near: lumina.near(pathA, pathB) resolves to the Mac\'s distance', near);
+  const sent = (bridge.nears || [])[0];
+  ok(sent && sent.a.p === near.a && sent.b.p === near.b && sent.a.o > 0 && sent.a.l > 0 && sent.a.ori >= 1, 'near: the Mac gets each preview\'s path, byte range and orientation', sent);
+  ok(near.unknown === null && near.none === null && (bridge.nears || []).length === 2, 'near: a path that was not read resolves to null without asking the Mac', { near, asked: (bridge.nears || []).length });
   ok(await page.evaluate(() => window.lumina.readingCard === false), 'card: readingCard false for a folder');
 
   // Decisions + autosave
@@ -169,7 +182,9 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   const savesInDrag = bridge.saves || 0;
   const drag = await page.evaluate(async (mid) => {
     lumina.edit.dragEnd();
-    await new Promise(r => setTimeout(r, 500));
+    // Shorter than the 500 ms debounce: the save that follows a drag must not land before the
+    // "no session write during the drag" check below reads the count (the rest render needs ~250 ms).
+    await new Promise(r => setTimeout(r, 400));
     return { mid, end: lumina.edit.state(), images: window.__editImages.slice() };
   }, mid);
   const dragRenders = bridge.renders.filter(r => r.tier === 'small'), restRenders = bridge.renders.filter(r => r.tier === 'base');
@@ -284,6 +299,51 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
   const again = await during('reopen during read', ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowRight']);
   ok(again.end.kept.length === 2 && again.end.kept.includes(first.end.kept[0]), 'reopen during read: the saved keep and the new one both kept', { first: first.end.kept, again: again.end.kept });
+
+  // T4: a sidecar another app rewrote between open and Save. Save merges the rating onto the text on
+  // disk NOW (the page's own xmpFor, on text re-read by the Mac), never onto the text from the open.
+  const lr = path.join(tmp, '2026-09-03');
+  const lrXmp = (crs, rating) => '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"' + (rating == null ? '' : ' xmp:Rating="' + rating + '"') + ' crs:HasSettings="True" ' + crs + '/></rdf:RDF></x:xmpmeta>\n';
+  const atOpen = { 'DSC01001.xmp': lrXmp('crs:Exposure2012="+0.10"', 1), 'DSC01003.xmp': lrXmp('crs:Exposure2012="+0.30"', 2), 'DSC01004.xmp': lrXmp('crs:Exposure2012="+0.40"', 0) };
+  makeShoot(lr, jpegs.slice(0, 4), { sidecars: atOpen });
+  const lrFile = n => path.join(lr, n), lrRead = n => fs.readFileSync(lrFile(n), 'utf8');
+  bridge.delayMs = 0; bridge.pending = lr; await page.evaluate(() => __lumina.openFolder());
+  await loaded(page); await page.waitForTimeout(300);
+  await page.evaluate(() => { const l = __lumina.logic(); l.setState({ marks: Object.fromEntries(l.data.order.map(id => [id, 'keep'])) }); });
+  ok((await page.evaluate(() => __lumina.logic().kept().length)) === 4, 'stale sidecar: 4 keepers');
+  // After the open, "Lightroom" saves new develop settings into one sidecar, makes one where there was
+  // none, and one is deleted. The fourth is untouched.
+  const newer1 = lrXmp('crs:Exposure2012="+1.50" crs:Contrast2012="+20"', 1), made2 = lrXmp('crs:Exposure2012="-0.70" crs:Shadows2012="+35"', null);
+  fs.writeFileSync(lrFile('DSC01001.xmp'), newer1); fs.writeFileSync(lrFile('DSC01002.xmp'), made2); fs.rmSync(lrFile('DSC01003.xmp'));
+  const save = async () => {
+    await page.evaluate(() => { const l = __lumina.logic(); l.exSet({ result: null }); return l.runExport(); });
+    await page.waitForFunction(() => { const r = __lumina.logic().state.ex; return r && r.result; }, null, { timeout: 5000 }).catch(() => {});
+    return page.evaluate(() => __lumina.logic().state.ex.result);
+  };
+  let sres = await save();
+  ok(sres && sres.t === '4 saved' && !sres.bad, 'stale sidecar: result "4 saved"', sres);
+  ok(lrRead('DSC01001.xmp') === newer1.replace('xmp:Rating="1"', 'xmp:Rating="3"'), 'stale sidecar: changed since the open → the other app\'s newer settings survive, only the rating differs', lrRead('DSC01001.xmp'));
+  ok(!/\+0\.10/.test(lrRead('DSC01001.xmp')), 'stale sidecar: the text from the open is never written back');
+  ok(fs.existsSync(lrFile('DSC01001.xmp.lumina-bak')) && lrRead('DSC01001.xmp.lumina-bak') === newer1, 'stale sidecar: .lumina-bak is the file as it was just before Lumina wrote');
+  ok(/crs:Exposure2012="-0\.70"/.test(lrRead('DSC01002.xmp')) && /crs:Shadows2012="\+35"/.test(lrRead('DSC01002.xmp')) && /xmp:Rating="3"/.test(lrRead('DSC01002.xmp')), 'stale sidecar: made since the open → merged, not replaced by a fresh one', lrRead('DSC01002.xmp'));
+  ok(fs.existsSync(lrFile('DSC01002.xmp.lumina-bak')) && lrRead('DSC01002.xmp.lumina-bak') === made2, 'stale sidecar: made since the open → kept as .lumina-bak');
+  ok(/xmp:Rating="3"/.test(lrRead('DSC01003.xmp')) && !/Exposure2012/.test(lrRead('DSC01003.xmp')), 'stale sidecar: deleted since the open → a fresh sidecar, the deleted text does not come back', lrRead('DSC01003.xmp'));
+  ok(lrRead('DSC01004.xmp') === atOpen['DSC01004.xmp'].replace('xmp:Rating="0"', 'xmp:Rating="3"'), 'stale sidecar: untouched since the open → merged as before', lrRead('DSC01004.xmp'));
+  ok(await page.evaluate(() => { const l = __lumina.logic(), p = Object.values(l.data.byId).find(p => p.file === 'DSC01002.ARW'); return p.lrEd === true && /Shadows2012/.test(p.xmp || ''); }), 'stale sidecar: the page\'s photo carries the text on disk');
+  ok(bridge.calls.includes('readSidecars') && bridge.calls.lastIndexOf('readSidecars') < bridge.calls.lastIndexOf('writeSidecars'), 'stale sidecar: the Mac reads the sidecars, then writes them');
+  // The other app writes again in the instant between plumbing's re-read and the Mac's write: the Mac
+  // leaves that file alone (it is no longer the base of the merge) and the result list says so.
+  // Nothing is retried silently; the next Save reads it again.
+  const racy = lrXmp('crs:Exposure2012="+2.00"', 1);
+  let races = 0; bridge.beforeSidecar = dest => { if (path.basename(dest) === 'DSC01004.xmp') { fs.writeFileSync(dest, racy); races++; } };
+  sres = await save();
+  ok(sres && sres.t === '3 saved · 1 failed' && sres.bad && JSON.stringify(sres.errs) === JSON.stringify([{ name: 'DSC01004', reason: 'changed on disk' }]), 'stale sidecar: changed during Save → "DSC01004 · changed on disk" in the result list', sres);
+  ok(races === 1 && lrRead('DSC01004.xmp') === racy, 'stale sidecar: changed during Save → the file is byte for byte the other app\'s', { races, text: lrRead('DSC01004.xmp') });
+  bridge.beforeSidecar = null;
+  sres = await save();
+  ok(sres && sres.t === '4 saved' && !sres.bad, 'stale sidecar: the next Save reads it again', sres);
+  ok(lrRead('DSC01004.xmp') === racy.replace('xmp:Rating="1"', 'xmp:Rating="3"'), 'stale sidecar: the next Save → the newest settings survive, rating set', lrRead('DSC01004.xmp'));
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
 
   ok(errors.length === 0, 'no page errors', errors);
   await ctx.close();

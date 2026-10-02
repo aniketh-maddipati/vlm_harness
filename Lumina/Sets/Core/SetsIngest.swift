@@ -68,6 +68,8 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     let workers: Int
     private let lock = NSLock()
     private var roots: [String: URL] = [:]
+    /// Each root's paths as `resolve` compares them and `read` opens below them, worked out at `register`.
+    private var rootPaths: [String: RootPath] = [:]
     private var gone: Set<String> = []
     private var stats = Stats()
     private let previewCache = NSCache<NSString, NSData>()
@@ -94,8 +96,10 @@ nonisolated final class SetsIngest: @unchecked Sendable {
 
     /// A folder the user opened, known to the page by its name ("<name>/<file>").
     func register(_ url: URL) {
+        let paths = RootPath(url)                        // one realpath here, not one per read
         lock.withLock {
             roots[url.lastPathComponent] = url
+            rootPaths[url.lastPathComponent] = paths
             gone.remove(url.lastPathComponent)
             headCache.removeAllObjects()                 // another card can hold the same names
             stats.gone = gone.sorted()
@@ -107,13 +111,60 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     func root(named name: String) -> URL? { lock.withLock { roots[name] } }
 
     /// `<root name>/<path inside it>` → file URL, refusing anything that climbs out of the root.
-    func resolve(_ rel: String) -> URL? {
+    /// The one gate for every native read of a photo (head, preview, thumbnail, the Edit render, the
+    /// canvas, export): `../` out of the root is refused, and so is ANY symbolic link below the root,
+    /// a linked folder on the way or the file itself, wherever it points, inside the shoot or out
+    /// (a camera never writes one, and refusing them all needs no second look at where one leads).
+    /// The root is the folder the user chose: it may itself be reached through a link.
+    /// A file that is no longer there still resolves, so the caller can say "gone" or "missing".
+    /// Hard links can't be told apart from the file itself: accepted.
+    func resolve(_ rel: String) -> URL? { locate(rel)?.url }
+
+    /// A root's two paths. `plain` is what `resolve` compares with; `real` has every link on the way
+    /// to the root resolved, so `read` can open below it with no link allowed anywhere in the path.
+    private struct RootPath {
+        let plain: String
+        var real: String?
+
+        init(_ url: URL) { plain = SetsIngest.plainPath(url); real = Self.realPath(url) }
+
+        /// nil while the folder isn't there (a card not in the reader yet): asked again when needed.
+        static func realPath(_ url: URL) -> String? {
+            guard let p = realpath(url.path, nil) else { return nil }
+            defer { free(p) }
+            return String(cString: p)
+        }
+    }
+
+    /// `resolve`, plus the same file below the root's real path (what `read` opens).
+    private func locate(_ rel: String) -> (url: URL, real: String)? {
         let parts = rel.split(separator: "/", maxSplits: 1).map(String.init)
-        guard parts.count == 2, let root = root(named: parts[0]) else { return nil }
+        guard parts.count == 2, let (root, known) = lock.withLock({ () -> (URL, RootPath)? in
+            guard let r = roots[parts[0]], let k = rootPaths[parts[0]] else { return nil }
+            return (r, k)
+        }) else { return nil }
         let url = root.appendingPathComponent(parts[1]).standardizedFileURL
         // Compared as plain paths: a file that no longer exists keeps a /private prefix its folder loses.
-        guard Self.plainPath(url).hasPrefix(Self.plainPath(root) + "/") else { return nil }
-        return url
+        let plain = Self.plainPath(url)
+        guard plain.hasPrefix(known.plain + "/") else { return nil }
+        var real = known.real
+        if real == nil, let now = RootPath.realPath(root) {     // the folder appeared since `register`
+            real = now
+            lock.withLock { if roots[parts[0]] == root { rootPaths[parts[0]]?.real = now } }
+        }
+        // One lstat per name below the root (two for a DCIM-style path), none for the root itself.
+        // It stops at the first name that isn't there: nothing below that can be a link, and a pulled
+        // card (the root itself missing) still gets its URL back, for `lost` to call it gone.
+        var path = real ?? root.standardizedFileURL.path
+        var checking = true
+        for part in plain.dropFirst(known.plain.count + 1).split(separator: "/") {
+            path += "/" + part
+            guard checking else { continue }
+            var st = stat()
+            guard lstat(path, &st) == 0 else { checking = false; continue }
+            if (st.st_mode & S_IFMT) == S_IFLNK { return nil }
+        }
+        return (url, path)
     }
 
     /// The volume went away (card pulled or ejected): every root on it stops reading now.
@@ -367,14 +418,21 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     /// One positioned read, uncached by the OS. A missing root means the card went away.
     private func read(_ rel: String, offset: Int, length: Int, allowShort: Bool) throws -> Data {
         if isGone(rel) { throw Failure(.gone, "card removed") }
-        guard let url = resolve(rel) else { throw Failure(.notFound, "not in an opened folder: \(rel)") }
+        guard let (url, real) = locate(rel) else { throw Failure(.notFound, "not in an opened folder: \(rel)") }
         lock.withLock {
             stats.inFlight += 1
             stats.maxInFlight = max(stats.maxInFlight, stats.inFlight)
             if gone.contains(String(rel.split(separator: "/").first ?? "")) { stats.opensAfterGone += 1 }
         }
         defer { lock.withLock { stats.inFlight -= 1 } }
-        let fd = open(url.path, O_RDONLY | O_NOFOLLOW)            // read-only; a symlink is never followed out
+        // Read-only, and no link is followed: `locate` has just checked, and the kernel checks again
+        // at the open, so a folder swapped for a link in between is refused too. Darwin refuses a
+        // link anywhere in the path (hence the root's real path); elsewhere only as the last name.
+        #if canImport(Darwin)
+        let fd = open(real, O_RDONLY | O_NOFOLLOW_ANY)
+        #else
+        let fd = open(real, O_RDONLY | O_NOFOLLOW)
+        #endif
         guard fd >= 0 else { throw lost(rel, url, errno) }
         defer { close(fd) }
         _ = fcntl(fd, F_NOCACHE, 1)

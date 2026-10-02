@@ -1,0 +1,343 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Threat model T4 (S7): sidecars another app writes between the open and Save. The shoot is app-xmp-lightroom's (DSC08186.xmp, DSC08187.XMP with 2★, DSC08190 without one). After the read, 'Lightroom' saves different develop settings into DSC08186.xmp (the real sidecar of DSC08187: Exposure -0.19 instead of +0.30), makes a sidecar for DSC08190 (the real one of DSC08186) and DSC08187.XMP is deleted. ⌘↩ then merges onto what is on disk NOW: the newer settings survive byte for byte with only the rating changed, the sidecar made since the open is merged (not replaced by a fresh one), the deleted one comes back fresh (not from the text read at open), each replaced file is kept as .lumina-bak exactly as the other app left it, and the RAWs never change. The text from the open is never written.",
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/lr-sidecar",
+   "to": "${OUT}/shoot/lr"
+  },
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/lr-sidecar.orig/DSC08187.XMP",
+   "to": "${OUT}/newer/DSC08186.xmp",
+   "why": "what the other app will write into DSC08186.xmp after the open: a real Lightroom sidecar with other settings"
+  },
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/lr-sidecar.orig/DSC08186.xmp",
+   "to": "${OUT}/newer/DSC08190.xmp",
+   "why": "what the other app will make for DSC08190, which has no sidecar at the open"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/newer/DSC08186.xmp",
+   "contains": "crs:Exposure2012=\"-0.19\""
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08186.xmp",
+   "contains": "crs:Exposure2012=\"+0.30\""
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/lr",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(), i=l.state.realInfo; return [i.n, i.bad, l.real.map(p=>[p.xpath, !!p.xmp, !!p.lrEd])]",
+   "equals": [
+    3,
+    0,
+    [
+     [
+      "lr/DSC08186.xmp",
+      true,
+      true
+     ],
+     [
+      "lr/DSC08187.XMP",
+      true,
+      true
+     ],
+     [
+      "lr/DSC08190.xmp",
+      false,
+      false
+     ]
+    ]
+   ]
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC08186.ARW",
+    "DSC08187.ARW",
+    "DSC08190.ARW"
+   ]
+  },
+  {
+   "do": "copyTree",
+   "from": "${OUT}/newer/DSC08186.xmp",
+   "to": "${OUT}/shoot/lr/DSC08186.xmp",
+   "why": "the other app saves newer develop settings after Lumina read the folder"
+  },
+  {
+   "do": "copyTree",
+   "from": "${OUT}/newer/DSC08190.xmp",
+   "to": "${OUT}/shoot/lr/DSC08190.xmp",
+   "why": "the other app makes a sidecar where there was none at the open"
+  },
+  {
+   "do": "remove",
+   "path": "${OUT}/shoot/lr/DSC08187.XMP",
+   "why": "and one sidecar is deleted"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.real.map(p=>[p.xpath, /Exposure2012=\"\\+0\\.30\"/.test(p.xmp||''), !!p.xmp])",
+   "equals": [
+    [
+     "lr/DSC08186.xmp",
+     true,
+     true
+    ],
+    [
+     "lr/DSC08187.XMP",
+     false,
+     true
+    ],
+    [
+     "lr/DSC08190.xmp",
+     false,
+     false
+    ]
+   ],
+   "why": "the page still holds the text from the open: +0.30 for DSC08186, a sidecar for DSC08187, none for DSC08190"
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 1000,
+   "cmd": true
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "export"
+  },
+  {
+   "do": "js",
+   "src": "window.__lastSave = __probe.logic().state.ex.result || null; return true"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 1500,
+   "cmd": true
+  },
+  {
+   "do": "waitFor",
+   "js": "const r = __probe.logic().state.ex.result; return !!r && r !== window.__lastSave",
+   "what": "save result"
+  },
+  {
+   "do": "expect",
+   "js": "const r=__probe.logic().state.ex.result; return [r.t, r.bad, r.errs.length, r.where.endsWith('/shoot/lr')]",
+   "equals": [
+    "3 saved",
+    false,
+    0,
+    true
+   ]
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "3 written, 2 bak, 0 failed"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08186.xmp",
+   "contains": "crs:Exposure2012=\"-0.19\"",
+   "why": "the settings the other app saved after the open survive"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08186.xmp",
+   "notContains": "crs:Exposure2012=\"+0.30\"",
+   "why": "the text read at open is never written back"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08186.xmp.lumina-bak",
+   "same": "${OUT}/newer/DSC08186.xmp",
+   "why": "the backup is the file as the other app last wrote it"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08190.xmp",
+   "contains": "crs:Exposure2012=\"+0.30\"",
+   "why": "a sidecar made since the open is merged, not replaced by a fresh one"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08190.xmp.lumina-bak",
+   "same": "${OUT}/newer/DSC08190.xmp"
+  },
+  {
+   "do": "xmpMerged",
+   "dir": "${OUT}/shoot/lr",
+   "originals": "${OUT}/newer",
+   "expectJs": "const l=__probe.logic(), o={}; for (const id of l.kept()) { const p=l.data.byId[id]; o[p.xpath.split('/').pop()]={rating:String((l.state.prefs||{}).rating||3), label:null}; } return o;",
+   "why": "against what the other app wrote after the open: only the rating changed, every crs: setting and the label are byte-identical; exiftool reads the same stars"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08187.XMP",
+   "contains": "xmp:Rating=\"3\"",
+   "why": "deleted since the open: a fresh sidecar under the same name"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08187.XMP",
+   "notContains": "crs:",
+   "why": "the deleted sidecar's settings do not come back from the text read at open"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08187.XMP.lumina-bak",
+   "exists": false
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.real.map(p=>[p.xpath, /Exposure2012=\"-0\\.19\"/.test(p.xmp||''), /Exposure2012=\"\\+0\\.30\"/.test(p.xmp||''), !!p.xmp, !!p.lrEd])",
+   "equals": [
+    [
+     "lr/DSC08186.xmp",
+     true,
+     false,
+     true,
+     true
+    ],
+    [
+     "lr/DSC08187.XMP",
+     false,
+     false,
+     false,
+     false
+    ],
+    [
+     "lr/DSC08190.xmp",
+     false,
+     true,
+     true,
+     true
+    ]
+   ],
+   "why": "the page's photos now carry the text that was on disk at Save"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr",
+   "glob": "*lumina-tmp*",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr",
+   "glob": "*.lumina-bak",
+   "count": 2
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr",
+   "glob": "*",
+   "count": 8,
+   "why": "3 RAWs, 3 sidecars, 2 backups; nothing else"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08186.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar/DSC08186.ARW"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08187.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar/DSC08187.ARW"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08190.ARW",
+   "same": "${LUMINA_FIXTURE_ROOT}/lr-sidecar/DSC08190.ARW"
+  },
+  {
+   "do": "snap",
+   "name": "saved"
+  },
+  {
+   "do": "js",
+   "src": "window.__lastSave = __probe.logic().state.ex.result || null; return true"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 1500,
+   "cmd": true
+  },
+  {
+   "do": "waitFor",
+   "js": "const r = __probe.logic().state.ex.result; return !!r && r !== window.__lastSave",
+   "what": "second save, nothing changed on disk since the first"
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "3 written, 0 bak, 0 failed",
+   "why": "no new backup: each one stays the other app's file"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08186.xmp.lumina-bak",
+   "same": "${OUT}/newer/DSC08186.xmp"
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr/DSC08186.xmp",
+   "contains": "crs:Exposure2012=\"-0.19\""
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/lr",
+   "glob": "*",
+   "count": 8
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}
