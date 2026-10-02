@@ -5,10 +5,12 @@ import XCTest
 final class Lumina {
     let app = XCUIApplication()
     let storeDir: URL
+    let copyRate: Int
     private(set) var launchedAt = Date()
 
     init(card: String = "demo117", fixture: URL? = nil, window: CGSize = CGSize(width: 1100, height: 760),
          faults: [String] = [], copyRate: Int = 66, keepStore: URL? = nil) {
+        self.copyRate = copyRate
         storeDir = keepStore ?? FileManager.default.temporaryDirectory.appendingPathComponent("lumina-store-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: storeDir, withIntermediateDirectories: true)
         app.launchArguments += ["-LuminaUITest", "YES", "-ApplePersistenceIgnoreState", "YES"]
@@ -95,7 +97,14 @@ final class Lumina {
     func waitCopied(_ n: Int, timeout: TimeInterval = 15) -> Bool { waitUntil(timeout) { state.copied >= n } }
 
     // MARK: common flows
-    func startCulling(waitAll: Bool = true) { enter(); if waitAll { XCTAssertTrue(waitCopied(state.total, timeout: 60), "copy never finished") } ; pause(0.3) }
+    func startCulling(waitAll: Bool = true) {
+        enter()
+        // Three times what the copy should take at this card's rate, at least 8 s: a copy that
+        // never started fails in seconds instead of a minute.
+        let limit = max(8, 3 * Double(state.total) / Double(max(1, copyRate)))
+        if waitAll { XCTAssertTrue(waitCopied(state.total, timeout: limit), "copy never finished") }
+        pause(0.3)
+    }
     func keepN(_ n: Int) { for _ in 0..<n { key("r"); pause(0.04) } }
     func importFixture(_ url: URL) { command("{\"drop\":[\"\(url.path)\"]}"); waitUntil(30) { !(state.import?.busy ?? false) } }
 
