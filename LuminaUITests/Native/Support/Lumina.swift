@@ -31,7 +31,13 @@ final class Lumina {
         app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix)).allElementsBoundByIndex
     }
     func exists(_ id: String, timeout: TimeInterval = 0) -> Bool { timeout > 0 ? el(id).waitForExistence(timeout: timeout) : el(id).exists }
-    func value(_ id: String) -> String { (el(id).value as? String) ?? el(id).label }
+    /// A status element's text: its value, or its label when the value is empty (`luminaStatus`
+    /// sets both; on macOS a group element reports an empty value, so the label carries it).
+    func value(_ id: String) -> String {
+        let e = el(id)
+        if let v = e.value as? String, !v.isEmpty { return v }
+        return e.label
+    }
     func click(_ id: String, times: Int = 1, file: StaticString = #filePath, line: UInt = #line) {
         let e = el(id); XCTAssertTrue(e.waitForExistence(timeout: 3), "missing \(id)", file: file, line: line)
         for _ in 0..<times { e.click() }
