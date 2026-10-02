@@ -11,7 +11,7 @@
   "probePeakMB": 1500,
   "webPeakMB": 2000
  },
- "checklist": "Q4 / stress matrix 7 (names): a folder whose file names are 255 bytes, emoji, an RTL override, '<img src=x onerror=alert(1)>', a newline, NFD 'Café' (one file with NFC on APFS), dots, quotes, percent escapes, 'javascript:'. Made by `bash Tests/probe/fuzz/run.sh fixtures`. Every photo reads with its preview; every name is shown as text and nothing in it runs (no alert, no <img src=x>, no markup in the DOM); ⌘↩ writes each keeper's .xmp beside its own RAW, with the RAW's exact name; the RAWs never change. Known failures until fixed: Q4-F3 (a name with a space is unreadable) and Q4-F4 (a sidecar name over 234 bytes can't be written), docs/release/stress/Q4-hostile.md.",
+ "checklist": "Q4 / stress matrix 7 (names): a folder whose file names are 255 bytes, emoji, an RTL override, '<img src=x onerror=alert(1)>', a newline, NFD 'Café' (one file with NFC on APFS), dots, quotes, percent escapes, 'javascript:'. Made by `bash Tests/probe/fuzz/run.sh fixtures`. Every photo reads with its preview; every name is shown as text and nothing in it runs (no alert, no <img src=x>, no markup in the DOM); ⌘↩ writes each keeper's .xmp beside its own RAW, with the RAW's exact name; the RAWs never change. Was red on Q4-F3 (a name with a space was unreadable, fixed by PR #178) and Q4-F4 (a sidecar name over 234 bytes could not be written: the temp file's name was 21 bytes longer), docs/release/stress/Q4-hostile.md.",
  "steps": [
   {
    "do": "js",
@@ -39,7 +39,7 @@
     11,
     0
    ],
-   "what": "11 files on APFS (the NFD and NFC names are one file), every preview read. Fails today on the two names with a space (Q4-F3: plumbing's media() URLs write a space as '+')"
+   "what": "11 files on APFS (the NFD and NFC names are one file), every preview read, the two names with a space too (Q4-F3)"
   },
   {
    "do": "expect",
@@ -154,14 +154,14 @@
     false,
     0
    ],
-   "what": "every keeper saved. Fails today on the space names (Q4-F3) and the 255-byte name (Q4-F4: the temp file's name is 21 bytes longer)"
+   "what": "every keeper saved: the names with a space (Q4-F3) and the 255-byte name, whose temp file no longer carries the name (Q4-F4)"
   },
   {
    "do": "fs",
    "path": "${OUT}/shoot/names",
    "glob": "*.xmp",
-   "count": 11,
-   "why": "one sidecar per RAW, none anywhere else"
+   "count": 10,
+   "why": "one sidecar per RAW, none anywhere else: 11 on disk, 10 counted here, because the probe's glob ('*' is '.*', which stops at a newline) cannot match 'line\\nbreak.xmp'. That one has its own step below, and the result above says 11 saved"
   },
   {
    "do": "fs",

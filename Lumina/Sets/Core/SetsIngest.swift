@@ -229,13 +229,17 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         /// Sidecars left unread because they are over `Limits.sidecarBytes`: their paths. The page
         /// counts them with its unreadable files.
         var skippedXmp: [String] = []
+        /// Sidecars that are there but are not UTF-8 text (Latin-1, UTF-16, binary): their paths.
+        /// The page gets no text for them, so it has to be told they exist: Save leaves them alone
+        /// (`SetsFileOps.sidecarUnreadable`) instead of writing a fresh sidecar over them.
+        var unreadableXmp: [String] = []
         /// Set when the listing stopped before the end. A stopped listing carries no files, so part
         /// of a folder never reaches the page looking like all of it.
         var stopped: Stop?
 
         var dictionary: [String: Any] {
             ["name": name, "files": files.map { ["rel": $0.rel, "size": $0.size] }, "xmp": xmp.map { ["rel": $0.rel, "text": $0.text] },
-             "others": others, "onCard": onCard, "skippedXmp": skippedXmp]
+             "others": others, "onCard": onCard, "skippedXmp": skippedXmp, "unreadableXmp": unreadableXmp]
         }
     }
 
@@ -283,6 +287,7 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     /// Every ARW under `root` (and its .xmp sidecars, read now: they're small), the way WebKit's
     /// folder input lists it: recursive, hidden files and AppleDouble `._` stubs skipped. Other
     /// files are listed by name only. Lumina's own `.lumina-bak` files are left out.
+    /// A sidecar that is not UTF-8 text is named in `unreadableXmp`, without its text.
     /// Bounded by `limits`: a sidecar over the size is not read and is named in `skippedXmp`; past
     /// the entry count or the depth the listing stops, empty, with `stopped` set. Cancellable:
     /// `isCancelled` (by default, the calling task's cancellation) is checked as it walks.
@@ -324,7 +329,9 @@ nonisolated final class SetsIngest: @unchecked Sendable {
                 out.skippedXmp.append(rel)                          // the size is enough: never read to find out
             } else {
                 switch readAtMost(url, limits.sidecarBytes) {
-                case .some(.some(let data)): if let text = String(data: data, encoding: .utf8) { out.xmp.append((rel, text)) }
+                case .some(.some(let data)):
+                    if let text = String(data: data, encoding: .utf8) { out.xmp.append((rel, text)) }
+                    else { out.unreadableXmp.append(rel) }          // there, but not text: named, so Save won't replace it
                 case .some(.none): out.skippedXmp.append(rel)       // grew past the limit after the listing saw it
                 case .none: break                                   // unreadable: left out, as before
                 }

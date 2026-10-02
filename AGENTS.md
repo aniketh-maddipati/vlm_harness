@@ -91,26 +91,26 @@ make culleval              # needs ~/LuminaEvidence/culleval/shoots.json, exifto
 # Probe: drives the real page + bridge in WKWebView (Tools/LuminaProbe). Evidence → ~/LuminaEvidence/probe
 bash Scripts/probe.sh reference     # every screen, prototype and app, byte-compared to Tests/probe/reference/manifest.json
 bash Scripts/probe.sh screens       # every screen rendered once, the app twins equal to the prototype (what CI runs)
-bash Scripts/probe.sh scenarios fuzz-sample-2 scroll-read   # just these scenarios
+LUMINA_LONG=1 bash Scripts/probe.sh scenarios fuzz-sample-2 scroll-read   # just these scenarios (LUMINA_LONG: a fuzz storm is a long run)
 bash Scripts/probe.sh contract      # plumbing.js still fits the page
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh sandbox smoke   # any mode inside the App Sandbox with Config/Lumina-Sets.entitlements as shipped: per scenario PASS / FAIL / FAILED-BY-SANDBOX + each denial (Sandbox.swift)
 bash Scripts/probe.sh sandbox smoke # the same without fixtures (what CI runs)
 bash Scripts/probe.sh smoke         # page runs, ?selftest passes, app reads / keeps / saves sidecars / reopens, the empty app
 bash Scripts/probe.sh selftest      # the design's own ?selftest (25 checks + timing)
-bash Scripts/probe.sh fuzz          # seeded key + mouse storms (with LUMINA_FIXTURE_ROOT: also over a card image pulled at random)
+LUMINA_LONG=1 bash Scripts/probe.sh fuzz          # seeded key + mouse storms (with LUMINA_FIXTURE_ROOT: also over a card image pulled at random)
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh scroll  # fast Cull scrolling: frames, blank tiles, thumbnail upscale, memory
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # contract + the app on folders: sidecars, .lumina-bak, Lightroom's sidecars merged, sessions across a relaunch, keepers renamed mid-cull, the empty app
-LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh fault   # disk images: kill -9 mid-write, disk full mid-copy and for a sidecar, read-only card, card pulled mid-read and on Save, .xmp + .XMP on a case-sensitive disk
+LUMINA_LONG=1 LUMINA_DISK_IMAGES=1 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh fault   # disk images: kill -9 mid-write, disk full mid-copy and for a sidecar, read-only card, card pulled mid-read and on Save, .xmp + .XMP on a case-sensitive disk
 LUMINA_READ_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh slowdisk        # a disk whose first directory read takes 12 s (LUMINA_SLOW_DIR_MS): the app still answers the page while the folder is listed
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh edge    # camera-data cases (design gaps show as FAIL)
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh ingest  # the same cases through the native reader
 LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh card         # golden card + page vs native read
-LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh stress       # a whole card: scroll frame budget, 3,000-input storm, memory; page read, then native read
+LUMINA_LONG=1 LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh stress       # a whole card: scroll frame budget, 3,000-input storm, memory; page read, then native read
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh edit           # Edit canvas: 2 s drags, latency p95 ≤ 16 ms (LUMINA_EDIT_P95), 0 dropped, rest ≤ 120 ms, ≤ 3 photos / 300 MB, canvas vs export ΔE; then with nothing compiled (edit-cold); then the image path
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh edit-cold      # the first launch after a kernel change (LUMINA_KERNEL_SALT, new per run): first drags on stages the canvas has not rendered, gated like edit + first render of a new set of stages ≤ 8 ms on the main thread; LUMINA_CANVAS_WARM=0 = no warm-up (fails, the "before" measure)
 LUMINA_READ_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh readspeed       # read speed: Open → first rows, first thumbnail, 100 / 500 / 1000 / 2000 photos, done; photos per second (reported, not gated)
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh raw9           # RAW 9: decoder map, first tile / full region, export time + memory per version, forced fallback, tiles vs export ΔE
-LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh consistency    # canvas vs full-size export per stage of the look on 12 distinct ARWs: median ΔE ≤ 1.0 for every photo and look (p95 reported); also a canvas one decoder behind the export, and the drag preview
+LUMINA_LONG=1 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh consistency    # canvas vs full-size export per stage of the look on 12 distinct ARWs: median ΔE ≤ 1.0 for every photo and look (p95 reported); also a canvas one decoder behind the export, and the drag preview
 LUMINA_REMOTE=user@m1.local bash Scripts/probe_remote.sh edit               # the same on the M1 8 GB over ssh (p95 ≤ 33 ms), evidence pulled back
 ```
 
@@ -127,12 +127,58 @@ audit, the Chromium plumbing harness, the WebKitGTK sandbox, the Linux Swift tes
 release build with the strict preflight, and the probe in five parallel macOS shards (smoke + screens, fuzz, fuzz + scroll,
 scroll 2560 + edit + raw9, sandbox smoke).
 
+## Running tests without disturbing the Mac
+
+The probe's window and a UI test take the screen and the keyboard, disk images show in Finder, and
+a loop that restarts its test never ends. So every run is bounded, alone, and cleans up; the
+harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift`), not the test.
+
+- **Default runs are short and end.** `bash Scripts/probe.sh smoke` takes under a minute. Every
+  suite has a wall-clock limit several times what it needs (120 to 600 s; `LUMINA_PROBE_LIMIT=<s>`
+  changes it) and every scenario one of its own (180 s, or the `"deadline"` in its JSON;
+  `LUMINA_SCENARIO_LIMIT=<s>` raises it). At a limit the run prints `FAIL … reached its limit`,
+  stops and exits 3 (the probe) or 124 (the guard). The Node and WebKitGTK harnesses in `Tests/web`
+  have theirs too (`LUMINA_WEB_LIMIT`).
+- **Long runs are asked for by name.** `LUMINA_LONG=1` for `fuzz`, `fault`, `stress`, `consistency`,
+  `all` and any scenario whose deadline is over 300 s; without it `probe.sh` says so and exits 2.
+  `LUMINA_DISK_IMAGES=1` for scenarios that mount disk images (`fault`, `fuzz-app-card`,
+  `card-sandbox-*`, `app-xmp-both`); without it they SKIP. Never start either for someone who did
+  not ask for that run.
+- **One screen-owning run at a time.** `~/LuminaEvidence/.screen.lock` (an `flock`, so a dead holder
+  never keeps it). `probe.sh` takes it through the guard, `lumina-probe run` takes it itself when
+  called directly, and a second run is refused at once with who holds it (exit 75;
+  `LUMINA_LOCK_WAIT=<s>` waits instead). Never from parallel agents; never retried in a loop.
+- **Nothing is left behind.** The guard runs the suite in its own process group and, however it
+  ends (finished, limit, Ctrl-C, SIGTERM, the terminal closed), stops the group and detaches the
+  disk images under the run's evidence folder. The probe does the same from inside: on its
+  deadline, on a signal, or when the process that started it is gone, it kills its export worker,
+  detaches the images it attached and exits. A guard that was itself killed -9 is cleaned up by
+  the next guarded run.
+- **No silent restarts.** A driver around the probe (a kill loop, a list of scenarios) runs under
+  `python3 Scripts/test_guard.py run --name <name> --limit <seconds> [--screen] -- <command>`: a
+  second copy with the same name is refused, the limit covers the whole loop, and a failed run is
+  reported, not started again. No `while true`, no "wait until quiet, then run again".
+- **Quiet.** The probe's window is invisible, never active, and swallows keys the page did not take
+  (no alert sound). Disk images are off unless asked for.
+- **The kill switch:** `bash Scripts/stop_tests.sh --off` stops everything and leaves
+  `~/LuminaEvidence/.tests-off`. While that file exists nothing test-related starts: the guard, the
+  probe and the UI tests refuse (exit 75). It is the user's: an agent never removes it, never works
+  around it, and never starts a test by another route; it says what it wanted to run and stops.
+  `--on` turns tests back on. `python3 Scripts/test_guard.py hook` is the same rule as a Claude Code
+  PreToolUse hook for Bash.
+- **Stop everything:** `bash Scripts/stop_tests.sh` (`--dry-run` lists; `python3 Scripts/test_guard.py
+  status`). It freezes the drivers first, so nothing respawns, then stops probes, UI test runners,
+  test builds of the app and listening test servers, detaches the probe's disk images (chosen by
+  where the image file is, never by a mount point: a real card cannot match) and removes the
+  tests' temp folders. It leaves `/Applications/Lumina.app` and `~/LuminaEvidence` alone and lists
+  the Claude sessions open in a checkout: those can start tests again and only you can close them.
+
 ## Rules that bite
 
 - **Don't edit `Lumina/Sets/Web/*.html|support.js|lumina-core-v4.js|lumina-v4-data.js|lumina-selftest.js|vendor`.** Change the design, then sync. `SetsPageBytesTests` and CI fail on drift.
 - **`plumbing.js` supplies behaviour and data, never UI.** If the page can't show something, that's a design ask.
 - **The native read repeats the page's `onDir` and `readOne`.** `probe.sh contract` fails (`__lumina.drift()`) when a sync changes either: review the read in `plumbing.js`, then update `ONDIR` (`node Tests/web/plumbing-harness.mjs --hash` prints it). Parity with the page's own read is checked with `card-clock.json` in both modes.
-- **Cull rows are keyed by row id, from `plumbing.js`.** The page's runtime keys list items by position, which hands every mounted row the next row's content each time the window moves (heights animating, images swapping: the scroll wobble). `probe.sh scroll` gates it (`rows out of place` ≤ 2 %) and keeps one pass with the page's own keying for comparison. A sync that renames `data-lumina="row"` / `data-id` turns the keying off silently; the gate catches it.
+- **Cull rows are keyed by row id, from `plumbing.js`.** The page's runtime keys list items by position, which hands every mounted row the next row's content each time the window moves (heights animating, images swapping: the scroll wobble). `probe.sh scroll` reports it (`rows out of place`: 0 % on a Mac against 65 to 80 % with the page's keying; not gated, the CI runner's 180 to 300 ms frames give 1 to 26 % either way) and keeps one pass with the page's own keying for comparison. A sync that renames `data-lumina="row"` / `data-id` turns the keying off silently: compare the two passes after a sync.
 - **Pixel parity is 0 px.** App-mode screens (`screens-*-app`, plumbing's test-only parity mode: the design's sample shoot and card) must match the prototype reference byte for byte. Both twins run with `"storageWrites": false`, because the page's "saved" label is browser-only. CSS tricks that change anti-aliasing are out; content-visibility was tried and rejected.
 - **The probe never touches a real card.** Fault tests use disk images, and the probe's card watcher only accepts its own images.
 - **A disk image is a card to the app** (`volumeIsRemovable`), with or without DCIM: Save on one is refused "on the card". A scenario that needs the write itself on an image (case-sensitive, full) uses the probe's `nativeSidecar` step with `"guard": false`.
