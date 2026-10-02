@@ -42,9 +42,9 @@ struct CullPreview: View {
     /// File name, shot details, and the decision on the right, wrapping as the prototype's line
     /// does (`flex-wrap`, gap 10 both ways): all on one line when it fits; else the state drops to
     /// a second line, right-aligned; else the details drop too. Nothing pushes the column wider.
-    /// The accessibility value keeps the camera (R-16), which the visible line leaves out.
+    /// The camera body shows too (README §2; ruled 2026-10-02: pros want to see the body).
     private func metaLine(_ keep: Bool?) -> some View {
-        let details = photo.cullShotDetails, gap = 10.scaled(s)
+        let details = photo.cullDetails, gap = 10.scaled(s)
         let file = Text(photo.file).font(LuminaFont.caption(s, .semibold)).foregroundStyle(LuminaColor.textPrimary).lineLimit(1).truncationMode(.middle)
         let meta = Text(details).font(LuminaFont.caption(s)).foregroundStyle(LuminaColor.textTertiary).lineLimit(1).truncationMode(.tail)
         let stateText = CullCopy.state(keep, suggested: photo.suggested)

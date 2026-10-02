@@ -66,6 +66,7 @@ Every rule has an ID. The tests in `XCTest/` reference these IDs in their names 
 - **R-53** No screen shows "undefined", "NaN", "{{", "[object", "nil" or "Optional(".
 - **R-54 (nothing small)** At every size: every text element is ≥ 11pt × S. Every button is ≥ 28pt high × S (tabs and chips ≥ 24); primary actions are ≥ 34. Slider rows are ≥ 28. S is the UI scale from LAYOUT_SIZING.md §3. At 2560×1440, chrome must measure 1.25× its 1440×900 size (±1pt).
 - **R-55 (Edit fills)** The Edit photo reaches the canvas edge on at least one axis (gap ≤ 12pt on each side of that axis). The canvas takes ≥ 70% of the window area at 1440×900 and above, and the whole window in focus mode.
+  *Lumina ruling 2026-10-02:* relaxed to ≥ 52% to follow the v19 prototype's Edit layout (about 57% at 1440×900, 54% at 1920×1080) with the larger native UI scale; the test checks 52%.
 - **R-56 (Cull fills)** In every scene, every row except the last fills the grid width to within 2pt. Tile height is ≥ 0.10 × grid height (up to 200). No portrait tile wastes more than 40% of its box.
 - **R-57 (no dead bands)** On Open and Save, empty space above the content is ≤ 72pt and never larger than the empty space below it. The content column is ≥ 46% of the window width up to 760×S. No top toolbar and no title gap: the top bar starts within 0–28pt of the window top (titlebar overlap).
 - **R-58 (preview fills)** The Cull preview photo (from 900 wide) touches the preview column on one axis (gap ≤ 4pt), and the column is ≥ 300pt and ≤ 50% of the width.

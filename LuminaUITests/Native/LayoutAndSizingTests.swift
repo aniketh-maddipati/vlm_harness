@@ -70,7 +70,7 @@ final class LayoutAndSizingTests: XCTestCase {
             XCTAssertTrue(min(gapX, gapY) <= 12.5, "\(tag): photo doesn’t reach the canvas on either axis (gaps \(gapX), \(gapY))")
             if size.width >= 1440 && size.height >= 900 {
                 let share = (c.width * c.height) / (l.window.frame.width * l.window.frame.height)
-                XCTAssertGreaterThanOrEqual(share, 0.70, "\(tag): canvas only \(Int(share * 100))% of the window")
+                XCTAssertGreaterThanOrEqual(share, 0.52, "\(tag): canvas only \(Int(share * 100))% of the window")
             }
         }
         l.key("h"); l.pause(0.3)
