@@ -510,8 +510,9 @@
 
   let current = null;
   const watch = () => {
+    rowKeys();
     const l = findLogic();
-    if (l && l !== current) { current = l; patch(l); if (!missing(l).length) native('ready', {}); }
+    if (l && l !== current) { current = l; patch(l); lead(l); if (!missing(l).length) native('ready', {}); }
     setTimeout(watch, current ? 1000 : 30);
   };
 
@@ -561,6 +562,90 @@
     while (warm.size > WARM_MAX) warm.delete(warm.keys().next().value);
   };
   document.addEventListener('scroll', () => { if (!warmRaf) warmRaf = requestAnimationFrame(warmAhead); }, { capture: true, passive: true });
+
+  // A Cull row keeps its own element while the grid scrolls. The page mounts the rows around the
+  // viewport as a list, and its runtime keys list items by position: each time the first mounted row
+  // changes, every row's element is handed the next row's photos, its height animates 180 ms to that
+  // row's height and its images swap under the reader (measured: 50 to 85 % of the rows on screen out
+  // of place while scrolling a shoot whose rows differ in height). Keyed by the row's id instead, the
+  // rows that stay are not touched and only the ones entering or leaving mount. Same elements, same
+  // styles; DESIGN-ASKS 11 asks the page for it.
+  let rowKeysOn = cfg.rowKeys !== false && !cfg.parity;
+  const rowKeys = () => {
+    const R = window.React;
+    if (!R || R.__luminaRowKeys || typeof R.createElement !== 'function') return;
+    const make = R.createElement, Frag = R.Fragment;
+    // A row item is a list item whose sc-if holds the row's element directly: that level and no other
+    // (keyed one level up, the list itself would be remounted every time its first row changes).
+    const rowId = kids => {
+      for (const c of kids) {
+        if (!c || c.type !== Frag || !c.props) continue;
+        const inner = c.props.children;
+        for (const e of Array.isArray(inner) ? inner : [inner]) {
+          if (e && e.props && e.props['data-lumina'] === 'row' && e.props['data-id'] != null) return e.props['data-id'];
+        }
+      }
+      return null;
+    };
+    R.createElement = function (type, props, kids) {
+      if (rowKeysOn && type === Frag && props && typeof props.key === 'number' && Array.isArray(kids)) {
+        const id = rowId(kids);
+        if (id != null) { const a = Array.prototype.slice.call(arguments); a[1] = Object.assign({}, props, { key: 'row:' + id }); return make.apply(this, a); }
+      }
+      return make.apply(this, arguments);
+    };
+    R.__luminaRowKeys = true;
+  };
+
+  // With rows keyed, a row entering the window is a new element, and the page starts every tile
+  // image at opacity 0, loads it lazily and fades it in over 180 ms: at scrolling speed the rows
+  // arrive on screen still blank. Two behaviours, both asked of the page in DESIGN-ASKS 7 (b), (c):
+  // a thumbnail that exists is loaded at once and shown the moment it has loaded (the fade stays for
+  // thumbnails that arrive while the reader looks on: a read in progress, the grid at rest); and the
+  // mounted rows lead the scroll by 0.4 s of travel, up to two viewports, 700 px behind as the page
+  // has it, and return to the page's own ±700 px when the scroll rests.
+  const CULL = '[data-screen-label="1 Cull"]';
+  let tilesOn = cfg.readyTiles !== false && !cfg.parity;
+  const readyTile = im => {
+    if (im.loading === 'lazy') im.loading = 'eager';
+    if (!(reading && performance.now() - scrollT > 300)) im.style.transition = 'none';
+  };
+  if (typeof MutationObserver === 'function') new MutationObserver(list => {
+    if (!tilesOn || !current || !current.real) return;
+    for (const m of list) for (const n of m.addedNodes) {
+      if (n.nodeType !== 1) continue;
+      const root = n.closest(CULL) ? n : n.querySelector(CULL);
+      if (!root) continue;
+      if (root.tagName === 'IMG') readyTile(root); else for (const im of root.querySelectorAll('img')) readyTile(im);
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true });
+
+  let leadOn = cfg.leadWindow !== false && !cfg.parity;
+  const lead = logic => {
+    if (logic.__luminaLead || typeof logic.onScroll !== 'function' || typeof logic.layout !== 'function' || !logic.scrollRef || !Array.isArray(logic.state.vr)) return;
+    logic.__luminaLead = true;
+    const own = logic.onScroll;
+    let lastTop = null, lastT = 0, rest = 0, held = 0, dir = 0;
+    logic.onScroll = function () {
+      if (!leadOn) return own.call(logic);
+      cancelAnimationFrame(logic._sr);
+      logic._sr = requestAnimationFrame(() => {
+        const el = logic.scrollRef.current; if (!el) return;
+        const now = performance.now(), y = el.scrollTop, dt = now - lastT, resting = lastTop == null || dt > 250;
+        const v = resting ? 0 : (y - lastTop) / Math.max(8, dt);                                             // px per ms
+        lastTop = y; lastT = now;
+        // The lead holds while the scroll keeps its direction (a frame without movement must not unmount
+        // rows the next one mounts again) and goes when the scroll turns or rests.
+        if (resting) { dir = 0; held = 0; } else if (v && Math.sign(v) !== dir) { dir = Math.sign(v); held = 0; }
+        const ahead = held = Math.max(Math.min(2 * el.clientHeight, Math.abs(v) * 400), held * 0.9);
+        const L = logic.layout(), top = y - 700 - (dir < 0 ? ahead : 0), bot = y + el.clientHeight + 700 + (dir > 0 ? ahead : 0);
+        let a = 0; while (a < L.rows.length - 1 && L.rows[a].y + L.rows[a].h < top) a++;
+        let b = a; while (b < L.rows.length - 1 && L.rows[b + 1].y < bot) b++;
+        const w = logic.state.vr; if (w[0] !== a || w[1] !== b) logic.setState({ vr: [a, b] });
+        clearTimeout(rest); if (ahead) rest = setTimeout(() => logic.onScroll(), 400);
+      });
+    };
+  };
 
   // ——— The Edit canvas (roadmap addendum, RAW 9). Behaviour and data only: the page draws the
   // filmstrip, sliders and facts; the Mac draws the pixels, either natively (an MTKView over the
@@ -807,6 +892,11 @@
     nativeStats: () => native('ingestStats', {}),
     // Probe A/B: decode thumbnails ahead of a scroll or not. Returns how many are held.
     warmAhead(on) { if (on != null) { warmOn = !!on; if (!warmOn) warm.clear(); } return warm.size; },
+    // Probe A/B: Cull rows keyed by row id (on) or by position, as the page's runtime keys them.
+    rowKeys(on) { if (on != null) { rowKeysOn = !!on; if (current) current.forceUpdate(); } return rowKeysOn && !!(window.React && window.React.__luminaRowKeys); },
+    // Probe A/B: thumbnails that exist shown without the fade, and the mounted rows leading the scroll.
+    readyTiles(on) { if (on != null) tilesOn = !!on; return tilesOn; },
+    leadWindow(on) { if (on != null) leadOn = !!on; return leadOn; },
     say(t) { const l = window.__lumina.logic(); if (l) l.say(t); },
     openFolder() { const l = window.__lumina.logic(); if (l) l.openFolder(true); },
     undo() {
