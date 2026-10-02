@@ -559,3 +559,39 @@ C4 (a 10 fps burst) needs nothing new: it is Prompt 2 A and B.
   bytes are unchanged). The session round trip of the shift joins `Tests/web/plumbing-harness.mjs`.
 - EDGE-CASES C4: re-forge `burst-10fps` (its twelve frames are twelve different pictures with no sequence numbers,
   so v5 shows twelve singles and the scenario no longer tests a burst), then re-read it after Prompt 2 A and B.
+
+## Prompt 4 — Help ▸ Acknowledgements (paste into Claude Design)
+
+The app bundles React 18.3.1, React DOM 18.3.1 and @babel/standalone 7.29.0 (and the packages
+inside Babel). Their licences require the copyright and permission notices to ship with the
+copies. They now do, as `Lumina/Resources/THIRD-PARTY-NOTICES.txt` in the app bundle (R6), but
+nothing in the app shows them. MENUS.md has no place for them, and the app's menus follow MENUS.md.
+
+> Update `MENUS.md` and `Lumina Sets v5.dc.html` for the Mac app. Keep the look, keys and
+> wording otherwise unchanged.
+>
+> **A. Help ▸ Acknowledgements.** In MENUS.md the Help menu becomes
+> `Lumina FAQ · Keyboard Shortcuts ? · Acknowledgements · Contact on X`, and `acknowledgements`
+> joins the command names for `window.luminaCommand`. About gains a quiet link
+> `Acknowledgements` next to the FAQ link that does the same.
+>
+> **B. The sheet.** `luminaCommand('acknowledgements')` opens a sheet titled
+> `Acknowledgements`, with one line under the title, same type one step quieter:
+> `Lumina uses open-source software. Their licences follow.` Below it, the text from
+> `await lumina.notices()` (a plain-text string the app reads from its bundle), shown exactly
+> as given: monospaced, line breaks kept, no reflow, selectable, in a pane that scrolls on its
+> own. `esc` or ⏎ closes it. It opens from any step and changes nothing in the shoot.
+>
+> **C. Edge states.** In the browser (no `window.lumina`, or no `notices`), the sheet lists the
+> three libraries the page loads, with their versions and their licence links
+> (`https://unpkg.com/react@18.3.1/LICENSE`, `https://unpkg.com/react-dom@18.3.1/LICENSE`,
+> `https://unpkg.com/@babel/standalone@7.29.0/LICENSE`). If `lumina.notices()` fails, the same
+> list shows with the line `The full text ships inside Lumina.app (Contents/Resources/THIRD-PARTY-NOTICES.txt).`
+
+### How Prompt 4 is checked once its handoff lands
+
+- `plumbing.js` gains `lumina.notices()`, returning `THIRD-PARTY-NOTICES.txt` from the bundle through the bridge
+  (data, no UI); the contract scenario lists it, and `Tests/web/plumbing-harness.mjs` checks the sheet shows the
+  file's first and last lines.
+- `LuminaApp.swift` adds Help ▸ Acknowledgements calling `luminaCommand("acknowledgements")`, after MENUS.md says so.
+- `probe.sh screens` gains the sheet in prototype and app mode.
