@@ -145,7 +145,16 @@ public final class AppModel {
     /// The latest message: `cull.message` in Cull, `edit.toast` in Edit.
     public var toast: Toast?
     /// Window content size in points (set by the shell).
-    public var windowSize = CGSize(width: 1100, height: 760)
+    public var windowSize = CGSize(width: 1100, height: 760) {
+        didSet {
+            // R-50: a window made short while editing collapses the controls, as opening Edit at
+            // that height does, so the photo keeps its room. Only on crossing the line: the user can
+            // open them again and a later resize that stays short leaves them be.
+            guard step == .edit, Breakpoints(windowSize).editControlsStartCollapsed,
+                  !Breakpoints(oldValue).editControlsStartCollapsed, !edit.controlsCollapsed else { return }
+            edit.controlsCollapsed = true
+        }
+    }
     /// Keys held through `debug.command` or the event monitor (for releaseAllKeys and blur).
     public var heldKeys: Set<String> = []
     /// Bumped by `changed()`; the persistence layer and the debug hook watch it.
