@@ -311,6 +311,9 @@ final class Runner {
             return String(e.text.prefix(160))
         case "destinations":
             host.chooser.destinations = try strs(s, "paths").map { URL(fileURLWithPath: $0) }
+        case "sources":
+            // The next folder panels' answers without opening anything (the card panel of "Cull this card").
+            host.chooser.sources = try strs(s, "paths").map { URL(fileURLWithPath: $0) }
         case "copyTree":
             let from = URL(fileURLWithPath: try str(s, "from")), to = URL(fileURLWithPath: try str(s, "to"))
             try ProbeSandbox.harness {
