@@ -37,7 +37,7 @@ FREE = {
     "tone": ["shadowsStopsPerUnit", "shadowsTau", "shadowsAdapt", "shadowsBright", "shadowsSpread",
              "highlightsStopsPerUnit", "highlightsKnee", "highlightsAdapt", "highlightsMean", "highlightsSpread", "white"],
     "contrast": ["midpoint", "slopePerUnit", "lumaMix"],
-    "colour": ["saturationPerUnit", "vibrancePerUnit", "vibranceChromaMax", "skinHue", "skinWidth", "skinProtect"],
+    "colour": ["saturationPerUnit", "vibrancePerUnit", "vibranceDownPerUnit", "vibranceChromaMax", "vibranceFloor", "skinHue", "skinWidth", "skinProtect"],
     "clarity": ["amountPerUnit", "midtonePower", "radiusFraction"],
     "sharpen": ["amountPerUnit", "threshold", "radiusPx"],
     "vignette": ["stopsPerUnit", "midpoint", "feather"],
@@ -45,7 +45,7 @@ FREE = {
 # The bounds hold the invariants the ramp tests enforce, so the fit can't propose what they would
 # reject: a whites / blacks exponent below 1 folds the curve back at the end it bends (not
 # monotonic). The tone masks keep a sane width, and `white` stays at or above display white.
-BOUNDS = {"midpoint": (0.05, 0.95), "lumaMix": (0.0, 1.0), "skinProtect": (0.0, 1.0), "feather": (0.05, 1.5), "radiusFraction": (0.002, 0.2),
+BOUNDS = {"midpoint": (0.05, 0.95), "lumaMix": (0.0, 1.0), "skinProtect": (0.0, 1.0), "vibranceFloor": (0.0, 1.0), "feather": (0.05, 1.5), "radiusFraction": (0.002, 0.2),
           "shadowsTau": (0.05, 1.5), "highlightsKnee": (0.2, 4.0), "shadowsAdapt": (0.0, 1.5), "highlightsAdapt": (0.0, 1.5),
           "shadowsBright": (-6.0, 6.0), "shadowsSpread": (-3.0, 3.0), "highlightsMean": (-3.0, 3.0), "highlightsSpread": (-3.0, 3.0), "white": (1.0, 4.0), "detailGain": (0.5, 2.0), "threshold": (0.0005, 0.1), "radiusPx": (0.3, 4.0),
           "blacksPower": (1.0, 6.0), "whitesPower": (1.0, 6.0), "midtonePower": (0.5, 6.0), "skinWidth": (5.0, 90.0)}

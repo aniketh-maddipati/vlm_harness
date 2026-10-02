@@ -18,7 +18,7 @@ struct SetsRootView: NSViewRepresentable {
 /// Owns the bridge and the web view (and, through the bridge, the Edit canvas overlay); answers
 /// the page's folder input and downloads; takes the menu bar's items (LuminaApp.swift) to the page.
 @MainActor
-final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, WKDownloadDelegate, SetsChooser {
+final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, WKDownloadDelegate, NSOpenSavePanelDelegate, SetsChooser {
     private(set) var bridge: SetsBridge!
     private(set) var webView: WKWebView?
 
@@ -40,10 +40,16 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         bridge.onShootsChanged = { [weak self] in self?.refreshRecents() }
         refreshRecents()
         // An export cut short last time (crash, kill, power): clear its temp files, keep its journal.
+        // The destination is reached through the journal's bookmark (the panel's grant died with
+        // the last process); when that fails the files stay and the journal says why.
         let exports = Self.supportDir.appendingPathComponent("exports", isDirectory: true)
         Task.detached(priority: .utility) {
             for e in SetsExportJournal.recover(in: exports) {
-                NSLog("Lumina: export %@ was cut short: %d of %d done, %d temp files removed", e.id, e.done.count, e.planned.count, e.tempsRemoved ?? 0)
+                if let why = e.recoveryRefused {
+                    NSLog("Lumina: export %@ was cut short: %d of %d done, temp files left: %@", e.id, e.done.count, e.planned.count, why)
+                } else {
+                    NSLog("Lumina: export %@ was cut short: %d of %d done, %d temp files removed", e.id, e.done.count, e.planned.count, e.tempsRemoved ?? 0)
+                }
             }
         }
         let res = Bundle.main.resourceURL!
@@ -82,7 +88,11 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         if !bridge.reopen(id: id) { webView?.evaluateJavaScript("window.__lumina && __lumina.say('not available · card out or folder moved')", completionHandler: nil) }
     }
 
-    func closeShoot() { webView?.evaluateJavaScript("window.__lumina && __lumina.closeShoot()", completionHandler: nil) }
+    /// The page saves and forgets the shoot; then its folder's access is stopped (SetsAccess).
+    func closeShoot() {
+        guard let webView else { bridge.closeShoot(); return }
+        webView.evaluateJavaScript("window.__lumina && __lumina.closeShoot()") { [weak self] _, _ in self?.bridge.closeShoot() }
+    }
 
     /// File ▸ Remove Working Files…: Lumina's own session files for the open shoot. Never photos or sidecars.
     func confirmRemoveWorkingFiles() {
@@ -95,12 +105,24 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         webView?.evaluateJavaScript("window.__lumina && __lumina.removeWorkingFiles()", completionHandler: nil)
     }
 
-    /// Keepers whose sidecars aren't written yet (Quit asks). 0 when the page doesn't answer.
+    /// How long Quit waits for the page before going ahead without its answer.
+    static let unsavedKeepersTimeout: TimeInterval = 2
+
+    /// False when there is no page to ask: no web view yet, or it stopped and was not reloaded.
+    var pageCanAnswer: Bool { webView != nil && !pageStopped }
+
+    /// Keepers whose sidecars aren't written yet (Quit asks). 0 when the page doesn't answer
+    /// within 2 seconds (hung or dead). `done` is called exactly once, whichever comes first.
     func unsavedKeepers(_ done: @escaping @MainActor (Int) -> Void) {
-        guard let webView else { return done(0) }
-        webView.evaluateJavaScript("window.__lumina ? __lumina.unsaved() : 0") { value, _ in
-            MainActor.assumeIsolated { done((value as? NSNumber)?.intValue ?? 0) }
-        }
+        guard let webView, !pageStopped else { return done(0) }
+        SetsFirstAnswer<Int>.ask(timeout: Self.unsavedKeepersTimeout, fallback: 0, schedule: { after, fire in
+            // Common modes: while Quit waits (.terminateLater) the app runs its loop in the modal panel mode.
+            RunLoop.main.add(Timer(timeInterval: after, repeats: false) { _ in MainActor.assumeIsolated { fire() } }, forMode: .common)
+        }, question: { answer in
+            webView.evaluateJavaScript("window.__lumina ? __lumina.unsaved() : 0") { value, _ in
+                MainActor.assumeIsolated { answer((value as? NSNumber)?.intValue ?? 0) }
+            }
+        }, done: done)
     }
 
     func refreshRecents() {
@@ -131,6 +153,18 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         return await run(panel)
     }
 
+    func chooseCard(name: String, at: URL, refusal: String?) async -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Cull This Card"
+        panel.message = refusal ?? "Choose the card \(name) to let Lumina read it. Lumina only reads it, and remembers this card."
+        panel.directoryURL = at
+        return await run(panel)
+    }
+
     private func run(_ panel: NSOpenPanel) async -> URL? {
         guard let window = webView?.window else { return panel.runModal() == .OK ? panel.url : nil }
         return await withCheckedContinuation { c in
@@ -145,7 +179,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
     }
 
-    // MARK: Navigation: only our own scheme; downloads land in ~/Downloads
+    // MARK: Navigation: only our own scheme; downloads go through a save panel
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences) async -> (WKNavigationActionPolicy, WKWebpagePreferences) {
         if action.shouldPerformDownload { return (.download, preferences) }
@@ -163,20 +197,81 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) { download.delegate = self }
     func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) { download.delegate = self }
 
+    /// The page's downloads (its debug "lumina-golden.json"; the browser-only xmp zip never runs in
+    /// the app) go where the user puts them in a save panel, never straight into ~/Downloads: the
+    /// sandboxed app has no Downloads entitlement, and the page doesn't get to pick a place (R1d,
+    /// THREAT-MODEL T11). The panel's grant covers exactly the file chosen. A file already there is
+    /// not replaced (no room for a .lumina-bak beside it in the sandbox): the panel asks for another name.
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String) async -> URL? {
-        let dir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
-        var dest = dir.appendingPathComponent(suggestedFilename)
-        var n = 2
-        while FileManager.default.fileExists(atPath: dest.path) {
-            let stem = (suggestedFilename as NSString).deletingPathExtension, ext = (suggestedFilename as NSString).pathExtension
-            dest = dir.appendingPathComponent("\(stem) \(n)" + (ext.isEmpty ? "" : ".\(ext)")); n += 1
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = Self.safeDownloadName(suggestedFilename)
+        panel.canCreateDirectories = true
+        panel.delegate = self
+        guard let window = webView?.window else { return panel.runModal() == .OK ? panel.url : nil }
+        return await withCheckedContinuation { c in
+            panel.beginSheetModal(for: window) { c.resume(returning: $0 == .OK ? panel.url : nil) }
         }
-        return dest
     }
 
+    /// The page's suggested name as one plain file name: no folders, no leading dot, no control
+    /// characters, at most 128 characters.
+    nonisolated static func safeDownloadName(_ suggested: String) -> String {
+        let last = suggested.split(whereSeparator: { $0 == "/" || $0 == "\\" }).last.map(String.init) ?? ""
+        var name = String(String.UnicodeScalarView(last.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) && $0 != ":" }))
+        while let f = name.first, f == "." || f.isWhitespace { name.removeFirst() }
+        name = String(name.prefix(128)).trimmingCharacters(in: .whitespaces)
+        return name.isEmpty ? "lumina-download" : name
+    }
+
+    /// The download's save panel: an existing file is refused (WKDownload would fail on it, and
+    /// replacing it would leave no .lumina-bak).
+    func panel(_ sender: Any, validate url: URL) throws {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteFileExistsError, userInfo: [NSFilePathErrorKey: url.path, NSURLErrorKey: url])
+    }
+
+    // MARK: The page stopped (crash or memory)
+
+    private var reloadPolicy = SetsReloadPolicy()
+    /// The page stopped and was not reloaded: the alert is up, or was answered with Quit.
+    private(set) var pageStopped = false
+
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        // The page died (crash or memory). Reload so the window never stays blank.
-        webView.load(URLRequest(url: SetsSchemeHandler.pageURL))
+        guard !pageStopped else { return }
+        switch reloadPolicy.pageStopped() {
+        case .reload:
+            // Reload so the window never stays blank.
+            webView.load(URLRequest(url: SetsSchemeHandler.pageURL))
+        case .ask:
+            // It keeps stopping (a file that kills the page would loop forever): ask, once.
+            NSLog("Lumina: the page stopped again after %d reloads in %.0f s; not reloading", reloadPolicy.limit, reloadPolicy.window)
+            pageStopped = true
+            askAboutStoppedPage(webView)
+        }
+    }
+
+    /// Decisions are already on disk (the bridge's `saveSession`), so both answers are safe.
+    private func askAboutStoppedPage(_ webView: WKWebView) {
+        let alert = NSAlert()
+        alert.messageText = SetsPageStoppedAlert.message
+        alert.informativeText = SetsPageStoppedAlert.detail(limit: reloadPolicy.limit)
+        alert.addButton(withTitle: SetsPageStoppedAlert.tryAgain)
+        alert.addButton(withTitle: SetsPageStoppedAlert.quit)
+        let answered: (NSApplication.ModalResponse) -> Void = { [weak self, weak webView] response in
+            MainActor.assumeIsolated {
+                guard response == .alertFirstButtonReturn else { NSApp.terminate(nil); return }
+                guard let self else { return }
+                self.reloadPolicy.reset()
+                self.pageStopped = false
+                webView?.load(URLRequest(url: SetsSchemeHandler.pageURL))
+            }
+        }
+        // Not a modal loop inside WebKit's callback: a sheet on the window, or the next turn of the loop.
+        if let window = webView.window {
+            alert.beginSheetModal(for: window, completionHandler: answered)
+        } else {
+            DispatchQueue.main.async { answered(alert.runModal()) }
+        }
     }
 }
 

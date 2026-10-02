@@ -11,10 +11,19 @@ lumina-probe — drive the Lumina page in WKWebView
       Runs one export with the app's own SetsExportJob + journal, then exits. The kill-mid-handoff
       step (killExport) starts it and SIGKILLs it part way.
 
+  lumina-probe sandbox-launch <sandboxed lumina-probe> [--info FILE] -- run <scenario.json>... [--out DIR]
+      Starts the sandboxed copy of the probe (Scripts/probe.sh sandbox builds and signs it) and stands
+      in for the powerbox: hands it the folder grants it asks for. See Sandbox.swift.
+
+  lumina-probe recover-journal <journal dir>
+      The app's export-journal recovery (next launch) in a process of its own; sandboxed, killExport
+      has the launcher start it fresh so it holds no grant on the export's destination.
+
   lumina-probe diff <a.png> <b.png> [--masks a.masks.json] [--scale 1] [--out diff.png]
       Exact pixel diff, photo rects masked. Exit 1 on any differing pixel.
 """
 
+ProbeSandbox.begin()        // sandboxed (Sandbox.swift): back to the checkout, or stop
 var args = Array(CommandLine.arguments.dropFirst())
 func option(_ name: String) -> String? {
     guard let i = args.firstIndex(of: name), i + 1 < args.count else { return nil }
@@ -29,7 +38,13 @@ guard let command = args.first else { print(usage); exit(2) }
 args.removeFirst()
 
 switch command {
+case "sandbox-launch":
+    let info = option("--info")
+    guard let exe = args.first, args.count > 2, args[1] == "--" else { print(usage); exit(2) }
+    SandboxLauncher.run(exe: exe, info: info, args: Array(args.dropFirst(2)))
+
 case "export-worker":
+    ProbeSandbox.adopt()        // sandboxed: the destination and sources the parent was granted
     guard let path = args.first, let data = FileManager.default.contents(atPath: path),
           let plan = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
           let dest = plan["destination"] as? String, let jdir = plan["journalDir"] as? String,
@@ -42,6 +57,28 @@ case "export-worker":
     let r = job.run(journal: SetsExportJournal(directory: URL(fileURLWithPath: jdir)))
     print("\(r.n) written, \(r.bak) bak, \(r.failed.count) failed")
     exit(r.failed.isEmpty ? 0 : 1)
+
+case "recover-journal":
+    // The app's launch recovery in a process of its own (killExport, sandboxed: started fresh by
+    // the launcher, ProbeSandbox.launchFresh). It holds the journal folder only (in the app that
+    // is its container); a destination is reachable only through what the journal kept. Prints
+    // one JSON line: each recovered entry (bookmark left out), and for each destination the
+    // journals name whether this process is refused it by path before recovery runs.
+    guard let dir = args.first else { print(usage); exit(2) }
+    let jdir = URL(fileURLWithPath: dir)
+    guard ProbeSandbox.hold(jdir, write: true, why: "container stand-in (fresh process)") else { print("{\"error\":\"no grant for the journal folder\"}"); exit(2) }
+    let files = ((try? FileManager.default.contentsOfDirectory(at: jdir, includingPropertiesForKeys: nil)) ?? []).filter { $0.pathExtension == "json" }
+    let dests = Set(files.compactMap { (try? JSONSerialization.jsonObject(with: Data(contentsOf: $0))) as? [String: Any] }.compactMap { $0["destination"] as? String })
+    let reach = dests.sorted().map { ["path": $0, "refusedByPath": !ProbeSandbox.refused($0, write: false).isEmpty] as [String: Any] }
+    let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601
+    let entries: [[String: Any]] = SetsExportJournal.recover(in: jdir).compactMap { e in
+        guard let data = try? enc.encode(e), var d = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        d["destinationBookmark"] = d["destinationBookmark"] == nil ? nil : "(kept)"
+        return d
+    }
+    let line: [String: Any] = ["pid": Int(getpid()), "sandboxed": ProbeSandbox.contained, "reach": reach, "entries": entries]
+    print(String(data: try! JSONSerialization.data(withJSONObject: line, options: .sortedKeys), encoding: .utf8)!)
+    exit(0)
 
 case "diff":
     let masksPath = option("--masks"), scale = Double(option("--scale") ?? "1") ?? 1, out = option("--out")
@@ -67,6 +104,7 @@ case "run":
     }
     let scenarios = args.map { URL(fileURLWithPath: $0) }
     guard !scenarios.isEmpty else { print(usage); exit(2) }
+    ProbeSandbox.start(outRoot: outRoot)
 
     // The probe is an invisible background app. Without this, App Nap throttles its timers, and once
     // the display idles WebKit throttles the page process: a 500 ms wait stretched to 4 minutes.
@@ -80,7 +118,7 @@ case "run":
         var skips: [String] = []
         for s in scenarios {
             let out = outRoot.appendingPathComponent(s.deletingPathExtension().lastPathComponent)
-            try? FileManager.default.removeItem(at: out)
+            ProbeSandbox.harness { try? FileManager.default.removeItem(at: out) }
             do {
                 let runner = try Runner(scenario: s, outDir: out)
                 let pass = await runner.run(echo: echo)

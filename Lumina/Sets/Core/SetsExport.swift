@@ -158,19 +158,58 @@ nonisolated final class SetsExportJournal {
         /// Set by `recover` on the launch after a crash: the leftovers were cleaned up.
         var recovered: Date?
         var tempsRemoved: Int?
+        /// A security-scoped bookmark of the destination, made when the export began (R1d). In the
+        /// App Sandbox the destination is reachable only while the panel's grant lasts, i.e. until
+        /// the app quits; after a crash this is the next launch's only way back to it. Absent in
+        /// journals written before it existed.
+        var destinationBookmark: Data?
+        /// Why `recover` could not clean up (no bookmark, a bookmark that no longer resolves, a
+        /// folder that refuses the listing): the temp files were left. Tried again on the next launch.
+        var recoveryRefused: String?
+    }
+
+    /// How the journal reaches the destination again after a relaunch: the bookmark calls, behind
+    /// closures so the tests can count start/stop. `system` is Foundation's security-scoped bookmark.
+    struct Access {
+        var bookmark: (URL) -> Data?
+        var resolve: (Data) -> URL?
+        /// True when access was started and must be stopped (Apple's rule: stop only what started).
+        var start: (URL) -> Bool
+        var stop: (URL) -> Void
+
+        static var system: Access {
+            #if canImport(Darwin)
+            return Access(bookmark: { url in
+                (try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil))
+                    ?? (try? url.bookmarkData())         // unsandboxed and refused a scope: a plain bookmark still finds the folder
+            }, resolve: { data in
+                var stale = false
+                return (try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &stale))
+                    ?? (try? URL(resolvingBookmarkData: data, options: [], relativeTo: nil, bookmarkDataIsStale: &stale))
+            }, start: { $0.startAccessingSecurityScopedResource() },
+               stop: { $0.stopAccessingSecurityScopedResource() })
+            #else
+            // No sandbox and no bookmarks in swift-corelibs-foundation (bookmarkData is unimplemented):
+            // the "bookmark" is the path itself, which is all access means there.
+            return Access(bookmark: { Data($0.path.utf8) }, resolve: { String(data: $0, encoding: .utf8).map { URL(fileURLWithPath: $0) } },
+                          start: { _ in false }, stop: { _ in })
+            #endif
+        }
     }
 
     let url: URL
+    private let access: Access
     private var entry: Entry?
 
-    init(directory: URL) {
+    init(directory: URL, access: Access = .system) {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         url = directory.appendingPathComponent("export-\(Int(Date().timeIntervalSince1970 * 1000)).json")
+        self.access = access
     }
 
     func begin(label: String, destination: URL, names: [String]) {
         entry = Entry(id: url.deletingPathExtension().lastPathComponent, label: label, destination: destination.path,
-                      started: Date(), planned: names, done: [])
+                      started: Date(), planned: names, done: [], destinationBookmark: access.bookmark(destination))
         save()
     }
 
@@ -187,9 +226,16 @@ nonisolated final class SetsExportJournal {
     /// On launch: every export a crash or kill cut short gets its half-written temp files removed
     /// from the destination (only Lumina's own `.<planned name>.lumina-tmp-*`, nothing else), and
     /// is marked recovered. Finished files stay: each was verified before it was renamed into place.
-    /// The journal keeps saying what was done and what wasn't. Returns the recovered exports.
+    /// The journal keeps saying what was done and what wasn't. Returns the recovered exports, and
+    /// those it could not recover (`recoveryRefused` set).
+    ///
+    /// The destination is reached through the bookmark the journal kept, inside a scoped access
+    /// stopped before the next entry; never through the stored path, which the sandbox refuses
+    /// after a relaunch. No bookmark, one that doesn't resolve, or a folder that refuses the
+    /// listing: nothing is touched, the entry says why and stays unrecovered, so the next launch
+    /// tries again (a disk plugged back in).
     @discardableResult
-    static func recover(in directory: URL) -> [Entry] {
+    static func recover(in directory: URL, access: Access = .system) -> [Entry] {
         let fm = FileManager.default
         // A journal write cut short leaves its own temp file.
         for f in (try? fm.contentsOfDirectory(atPath: directory.path)) ?? [] where f.hasPrefix(".export-") && f.contains(".lumina-tmp-") {
@@ -201,7 +247,18 @@ nonisolated final class SetsExportJournal {
         for url in (try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         where url.pathExtension == "json" && url.lastPathComponent.hasPrefix("export-") {
             guard var e = try? dec.decode(Entry.self, from: Data(contentsOf: url)), e.ok != true, e.recovered == nil else { continue }
-            let dest = URL(fileURLWithPath: e.destination)
+            func refuse(_ why: String) {
+                e.recoveryRefused = why
+                if let data = try? enc.encode(e) { try? SetsFileOps.replaceOwn(data, at: url) }
+                out.append(e)
+            }
+            guard let bookmark = e.destinationBookmark else { refuse("no bookmark of the destination (a journal from an older Lumina)"); continue }
+            guard let dest = access.resolve(bookmark) else { refuse("the destination's bookmark does not resolve (moved, deleted, or on a disk that isn't connected)"); continue }
+            let scoped = access.start(dest)
+            defer { if scoped { access.stop(dest) } }
+            do { _ = try fm.contentsOfDirectory(atPath: dest.path) } catch {
+                refuse("\(dest.lastPathComponent) can't be listed: \((error as NSError).localizedDescription)"); continue
+            }
             var removed = 0
             var dirs: Set<String> = []
             for name in e.planned { dirs.insert(dest.appendingPathComponent(name).deletingLastPathComponent().path) }
@@ -215,7 +272,7 @@ nonisolated final class SetsExportJournal {
                     if (try? fm.removeItem(atPath: (d as NSString).appendingPathComponent(f))) != nil { removed += 1 }
                 }
             }
-            e.recovered = Date(); e.tempsRemoved = removed
+            e.recovered = Date(); e.tempsRemoved = removed; e.recoveryRefused = nil
             if let data = try? enc.encode(e) { try? SetsFileOps.replaceOwn(data, at: url) }
             out.append(e)
         }

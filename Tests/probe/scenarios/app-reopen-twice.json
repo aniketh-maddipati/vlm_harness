@@ -1,0 +1,147 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "R1b / T9: Open Recent after a relaunch goes through the security-scoped bookmark every time, not through access left over from an earlier reopen in the same process: each page start closes the shoot and stops its access, so the second relaunch re-tests the bookmark. At most one folder is held. A recent whose folder was deleted is not available (no fallback to the stored path) and the Open screen stays.",
+ "steps": [
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "to": "${OUT}/shoot/src"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/src",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "f",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 200
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00008.ARW"
+   ]
+  },
+  {
+   "do": "wait",
+   "ms": 2600,
+   "why": "the 2 s autosave"
+  },
+  {
+   "do": "reload",
+   "why": "relaunch 1: the panel grant is gone"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && l.kept().length === 2)",
+   "timeoutMs": 60000,
+   "what": "reopened through the bookmark with its decisions"
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "access: started src (1 held)"
+  },
+  {
+   "do": "reload",
+   "why": "relaunch 2"
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "access: stopped src (0 held)",
+   "why": "the first reopen's access was stopped when the page started over, so this reopen goes through the bookmark again"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 300
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo && l.kept().length === 2)",
+   "timeoutMs": 60000,
+   "what": "reopened through the bookmark with its decisions"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW",
+    "DSC00008.ARW"
+   ]
+  },
+  {
+   "do": "reload",
+   "why": "relaunch 3"
+  },
+  {
+   "do": "remove",
+   "path": "${OUT}/shoot/src",
+   "why": "the folder deleted while the app was closed"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 800
+  },
+  {
+   "do": "logged",
+   "kind": "bridge",
+   "match": "access: reopen ",
+   "why": "no fallback to the stored path: the recent is not available"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return [l.state.view, !!l.real]",
+   "equals": [
+    "import",
+    false
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().recents().length",
+   "equals": 1,
+   "why": "the recent stays listed (the card may come back)"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

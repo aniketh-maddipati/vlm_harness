@@ -101,6 +101,26 @@ its story images are gone. Ask 9 (window chrome) is still open, and ask 11 moved
 > (d) **Keys stay alive.** `Esc` leaves the opening state (the app drops the listing's result
 > when it arrives) and `⌘O` can choose another folder; today nothing can be done until the
 > listing returns.
+>
+> **11. Cull rows wobble while scrolling.** `sc-for` keys its items by position, and `rows` is the
+> slice of the layout's rows around the viewport. Each time the first mounted row changes, every
+> row's element is handed the next row's content: its `height` animates 180 ms to that row's
+> height (so do the tiles' width and height), and its `<img>`s swap `src` in place. On a shoot whose
+> rows differ in height the grid shows clipped second lines, empty bands and the neighbour's photos
+> for a few frames, every time a row enters or leaves. Measured in the app on 408 photos
+> (`probe.sh scroll`, 1440 × 900 and 2560 × 1440): 50 to 85 % of the rows on screen are drawn at
+> another height or place than `layout()` gives them while scrolling, up to 224 px off. Please:
+> (a) **A row keeps its element.** Key the rows by `r.id` (and a row's tiles by the photo or stack
+> they show), so a row that stays mounted is not touched when the window moves, and only the rows
+> entering or leaving mount. The app does this today from `plumbing.js` (it gives the row items
+> their id as key); with it the same passes measure 0 %.
+> (b) **Height animates only for a reason.** Keep `transition:height` for what it is for (a stack
+> opening, the tile size changing), never for a row arriving.
+> (c) With (a), every row entering is a new element, so 7 (b) and (c) matter more: the app also
+> loads existing thumbnails at once, shows them without the fade unless a read is running and the
+> grid is at rest, and lets the mounted rows lead the scroll by 0.4 s of travel (at most two
+> viewports ahead, back to ±700 px at rest). Blank tiles on screen while scrolling: 4 to 15 %
+> before, 0 % after.
 
 ## Prompt 1 — the Edit step (paste into Claude Design)
 
@@ -357,14 +377,48 @@ Numbers: `make culleval`.
 > do not let "dHash ≥ 28 always splits" cut frames whose sequence numbers say they are one burst.
 > `Tools/culleval` re-measures this after the sync.
 >
-> **C. Bursts by hand are left as singles.** This photographer mostly shoots single frames and
-> repeats: 500 runs of the same framing ≤ 2 s apart against 80 camera bursts. Lumina stacks 7 % of
-> those pairs (it is never wrong when it does: precision 100 %). In 197 of 199 runs of tries that
+> **C. Retakes are left as singles (revised 2026-10-01 from hand labels, see below).** This
+> photographer mostly shoots single frames and repeats: 500 runs of the same framing ≤ 2 s apart
+> against 80 camera bursts. Lumina stacks 7 % of those pairs. In 197 of 199 runs of tries that
 > held a keeper, Lumina showed the tries as separate photos, and 229 of the 582 frames it suggested
-> and the photographer rejected were one of several tries where another try was kept. After B,
-> please stack frames with the same lens, focal length and orientation that follow within 2 s when
-> their hashes agree, and consider a wider window (the photographer's tries are mostly 3–10 s
-> apart: 1,204 such pairs) shown as a looser group, not a burst.
+> and the photographer rejected were one of several tries where another try was kept.
+> The first version of this ask proposed "within 2 s, same lens, hashes agree". The photographer
+> has since marked 277 consecutive pairs by eye ("would you put these two in one stack and choose
+> between them?"), and time turns out to be a weak sign of a retake: the two frames are the same
+> picture in 83 % of pairs at most 2 s apart, 63 % at 2–10 s, 43 % at 10–60 s and 11 % beyond.
+> Against those labels:
+>
+> | Stack two consecutive frames when | Right when it stacks | Retakes it finds |
+> |---|---:|---:|
+> | ≤ 2 s, same lens / focal length / orientation, dHash ≤ 20 (the first version of this ask) | 95 % | 14 % |
+> | ≤ 4 s, nothing else | 78 % | 43 % |
+> | ≤ 60 s, dHash ≤ 20 | 87 % | 40 % |
+> | ≤ 60 s, dHash ≤ 24 | 84 % | 58 % |
+> | ≤ 60 s, same lens / focal length / orientation, the app's distance ≤ 0.35 | 93 % (88–97) | 59 % (51–67) |
+>
+> No dHash threshold reaches the last row, so the measure has to come from the app. Please:
+> (1) **Take a distance from the app.** `window.lumina.near(pathA, pathB)` resolves to a number
+> (0 = the same image, about 1 = unrelated) or `null` (in the browser, and until the app has
+> measured both frames: it measures behind the read, so a value can arrive after the photo is on
+> screen). Call it for each photo and the photo before it in capture order and keep the answer on
+> the later frame's record (`near`), where `buildShoot` can read it like `dhash`.
+> `window.lumina.nearLimit` is the threshold (0.35 today). It comes from the app because it
+> belongs to the app's measure, which can change with macOS; please don't write the number into
+> the page.
+> (2) **The rule.** Two consecutive frames at most 60 s apart with the same lens, focal length
+> (±5 %) and orientation are one stack when `near ≤ nearLimit`. Where `near` is `null`, fall back
+> to the dHash rule you have after B. Camera bursts (A) stay stacked by their sequence numbers
+> whatever the distance says. No 2 s or 4 s limit: it would leave out more than half the retakes.
+> (3) **One kind of stack.** A stack of retakes behaves as a burst does (open, rank, keep one,
+> `⌥←→` skips it, B splits and ⇧B merges, manual cuts win over the rule). If you want the badge
+> or header to say which kind it is, the wording is yours.
+> (4) **Calm arrival.** `near` values arrive while rows are already on screen. Regroup with the
+> same pacing ask 8 (c) asks for, and never regroup the row the cursor is in while a key is held.
+> Known limit, nothing asked: when one of the two frames is a miss (blurred, a blink, something
+> in the way) the distance grows, and the rule stacks 9 of the 23 such pairs the photographer
+> marked as the same picture (39 %, against 59 % overall). The missed frame is the one most likely
+> to be left beside its stack. That is open on the app side; B (split) and ⇧B (merge) cover it
+> by hand meanwhile.
 >
 > **D. `blown` fires on bright scenes, and it removes keepers from the suggested keeps.** The rule
 > is "more than 2 % of pixels at 250 or above in all three channels". On a bright indoor event it
@@ -441,6 +495,72 @@ and 56 % of the runs that hold a pick hold exactly one: the same picture as C, o
 > suggested keeps today. Leave it that way: as built they propose 69 % of the photos and still
 > leave out 24 % of the picks.
 
+## Prompt 3 — photos Lumina can't show, and camera clocks (paste into Claude Design)
+
+Found by `probe.sh edge` and `ingest` on v5 (2026-10-01; the page's read and the app's read agree),
+on the forged fixtures of `Tests/probe/EDGE-CASES.md` C1, C2 and C5:
+
+- **Damaged files** (5 ARWs: one intact, one with its preview cut short, one with its preview
+  zeroed, one cut inside the header, one empty). Open says `4 photos · 2 rows · 0 stacks · 1
+  unreadable`. Two are grey tiles showing only the file number. The empty file has no tile. The
+  header-only file sits alone in a row labelled `00:00`, and the next row reads `496917 h gap`.
+  Import notes: `2 without an embedded preview`, `1 unreadable · see ? for the list`.
+- **Clock moved 9 hours back mid-trip** (6 ARWs): two rows, the later photos first. Nothing on the
+  page can shift a time.
+- **Two bodies, clocks one minute apart** (6 ARWs): one row, A B A B A B. The import note says
+  `2 bodies · … · check that the camera clocks match`, and that is all the photographer can do.
+
+A photographer who opens 500 photos and sees 497 stops trusting the app, so A comes first.
+C4 (a 10 fps burst) needs nothing new: it is Prompt 2 A and B.
+
+> Update `Lumina Sets v5.dc.html` and `lumina-core-v4.js` (and its fixtures). Keep the look, keys
+> and wording otherwise unchanged.
+>
+> **A. Every ARW in the folder gets a tile.**
+> (1) **No preview** (`nopv`, today a grey tile with the file number): add a second line under the
+> number, same type one step quieter: `no preview`. Large view shows the same grey frame at 3:2
+> with `DSC00204 · no preview in this file`. No flag words and never `sharpest`, as today.
+> (2) **Can't be read** (today `readOne` throws, `onDir` drops the file and counts it in
+> `_failed`): keep it as a photo, `{unread: true}`, with the same grey tile and the second line
+> `can't be read`. Large view: `DSC00203 · can't be read · 0 KB` (the file's size). This is only
+> for a file that was read and failed. Files not reached because the card was pulled stay as they
+> are today (they are read when the card returns).
+> (3) **Counted.** These tiles count as photos everywhere: the Open line, each row's `N photos`,
+> `rows to go`, the kept count. Open adds how many: `500 photos · 41 rows · 12 stacks · 3 without
+> a picture`. Import notes become `2 without an embedded preview · shown as grey tiles` and
+> `1 can't be read · shown as a grey tile` (the list in `?` stays).
+> (4) **Placed by file number when there is no capture time.** A photo without a date goes next
+> to the photo with the nearest lower file number, in that photo's row. Never a `00:00` row, and
+> never a gap label worked out from a missing time.
+> (5) **Keep and save as any photo.** P, R, F, ⌘A, undo and paint work on them. Each is a single:
+> never joined to a stack, never picked by "keep sharpest". A kept one is a keeper in Save and
+> gets its sidecar like the rest; if the write fails it is listed as `DSC00203 · reason`
+> (SAFETY.md 6).
+> (6) **Edge states.** A folder where no file can be read keeps today's Open message
+> (`0 photos · N unreadable`). A stack that loses a frame to (1) keeps its other frames.
+> `onDir` and `readOne` change here; the app's read repeats them and will be reviewed on sync.
+>
+> **B. Shift capture time.** For a camera clock that was wrong, a time zone that changed mid-trip,
+> and two bodies whose clocks disagree.
+> (1) **Where.** A command `shiftTime` (MENUS.md: Photo ▸ `Shift Capture Time…`), and an action
+> on the import note for more than one body: `2 bodies · ILCE-7M3 + ILCE-7M4 · check that the
+> camera clocks match` gains `shift a camera's time…`.
+> (2) **The sheet.** Title `Shift capture time`. Line 1, what to shift: `whole shoot` · one entry
+> per body (`ILCE-7M3 · …1111 · 212 photos`: model, last four of the serial, count) · `from this
+> photo on` (the photo under the cursor to the end of the shoot, for a clock changed mid-trip).
+> Line 2, by how much: a typed `+1:00:00` / `−0:01:10`, with `−1 h` and `+1 h` buttons. Line 3,
+> what it does, live: `41 rows → 38 rows`. Line 4, quiet: `Only changes how Lumina orders this
+> shoot. Your files and their capture times are not changed.` `⏎ shift · esc cancel`.
+> (3) **After.** Rows, stacks and the time axis are rebuilt from the shifted times. Footer:
+> `Shifted 212 photos by +1:00:00`. One undo step. A shifted row's header shows `time shifted` after
+> its count. The shift is part of the session (the app stores it with the other decisions) and
+> is never written to a sidecar or a RAW.
+> (4) **Edge states.** One body: no per-body entries. Photos without a serial are grouped by
+> model. A shift that would change nothing (`0:00:00`) leaves ⏎ off. No shoot open: the command
+> does nothing.
+> (5) **Two bodies stay sorted by time.** No change to the order rule: with matching clocks the
+> interleaved order is the order things happened. The row header's `2 bodies` stays.
+
 ## How each ask is checked once the new handoff lands
 
 - 1: `Tests/web/plumbing-harness.mjs` and `probe.sh smoke` (`app-smoke`: the Save screen shows the row before any save). Remove the `wf` block in `plumbing.js`'s view loop.
@@ -459,6 +579,9 @@ and 56 % of the runs that hold a pick hold exactly one: the same picture as C, o
 - 8: `probe.sh scroll` (`scroll-read`: read-end.json shows no cursor move and under 200 px scrolled by the app; the keep
   made while reading survives), `Tests/web/plumbing-harness.mjs` (during read / reopen during read). Then drop
   plumbing's `readMoved` / `stay` handling and its refresh pacing in `grow`, and review ONDIR.
+- 11: `probe.sh scroll` (`rows out of place`, at most 2 % on every gated pass; `tile216-dy150-indexkeys` is the page's
+  own keying, for comparison). Then drop plumbing's `rowKeys`, `readyTile` and `lead` blocks and their `__lumina` switches,
+  and run the scroll scenarios once more: the numbers must hold without them.
 - 7: `probe.sh scroll` (`scroll-fast`, `scroll-fast-2560`: blank-tile % and upscale min per tile size) and the WebKitGTK
   sandbox's `scroll` suite; `card-clock.json` measures unchanged in both modes. Then drop plumbing's warm-ahead
   block (c) and review its `readOne` repeat (a) against the new ONDIR.
@@ -474,6 +597,16 @@ and 56 % of the runs that hold a pick hold exactly one: the same picture as C, o
   dHash distances inside bursts drop and pair recall for bursts by hand rises with precision held; best-of-stack and keep
   precision are re-read. D: the bright-event shoot's "flagged blown" count falls and its suggested-keeps recall rises
   toward the other shoots'. A sync that changes `readOne` fails `make culleval-test` until `Tools/culleval/lib/measure.mjs` is reviewed.
+- Prompt 2 C (revised): the numbers are from 277 hand-marked consecutive pairs (300 drawn across nine shoots by time
+  gap and distance, 20 marked unsure, 3 not marked; one photographer, one body; the threshold was chosen on the same
+  pairs, so read 93 % / 59 % as the best case). The app's distance is Vision's image feature print (revision 2) on the
+  embedded preview at 512 px, about 24 ms a photo; the last row of C's table is scored with the app's own code
+  (`SetsNear`) on those pairs (a first run through ImageIO's thumbnail of the RAW gave 95 % / 57 %: the same within the intervals). Labels, pairs and scripts stay on the Mac
+  (`~/LuminaEvidence/culleval/labels`: `label.py` is the marking sheet, `score_labels.py` the scorer, `report.md` the
+  tables); they are not in `Tools/culleval` yet. The app side is PR 164: `SetsNear` behind the
+  bridge, `lumina.near` / `lumina.nearLimit` in `plumbing.js`, both listed by the contract scenario. After the handoff:
+  dump the page's stacks through the app (`Tools/culleval/dump-decisions.json`) and score them against the same labels;
+  expect about 93 % of stacked pairs marked the same picture and more than half of the marked retakes stacked.
 - Prompt 2, second part (E, F, H): the culling eval through the app, on the Mac (it needs shoots with traceable
   exports; labels and photos stay in `~/LuminaEvidence/culling-eval`).
   `LUMINA_CULL_DIR=<shoot> lumina-probe run Tools/culleval/dump-decisions.json` dumps what the page decided;
@@ -483,3 +616,241 @@ and 56 % of the runs that hold a pick hold exactly one: the same picture as C, o
 - Prompt 2, second part (G): `plumbing.js` gains `lumina.measures` (Vision's face capture quality from the embedded
   preview, the measure `Tools/culleval/signals/signals.swift` takes); the contract scenario lists it, and
   `python3 Tools/culleval/signals/rank_signals.py` re-scores "top-1 is a pick" for stacks ranked by it.
+- Prompt 3 A: `probe.sh edge` and `ingest` (`edge-corrupt-preview`, which already expects 5 photos from the 5-file
+  fixture; add: both grey-tile lines on screen, no `00:00` row, no gap label over 24 h, the Open line's `without a
+  picture` count, P on the unreadable tile then Save writes its `.xmp`). Review `plumbing.js`'s repeat of `readOne` /
+  `onDir` and update `ONDIR`.
+- Prompt 3 B: `edge-tz-jump` (it already expects `shiftTime` or the word "shift" on the page; add: `from this photo
+  on` +9:00:00 gives one row in file order) and `edge-two-bodies` (rewrite its expectation: today it asks for serial
+  order, which B(5) declines; instead, shifting body B by −0:01:00 changes the order as computed, and the files'
+  bytes are unchanged). The session round trip of the shift joins `Tests/web/plumbing-harness.mjs`.
+- EDGE-CASES C4: re-forge `burst-10fps` (its twelve frames are twelve different pictures with no sequence numbers,
+  so v5 shows twelve singles and the scenario no longer tests a burst), then re-read it after Prompt 2 A and B.
+- Prompt 5: `Tests/web/plumbing-harness.mjs` (the `stale sidecar:` checks: changed, made and deleted since the open; changed
+  during Save → the result line and the file untouched), `SetsSidecarTests` (the base check), and `probe.sh app` with
+  `app-xmp-changed-since-open` (real Lightroom sidecars swapped in after the read; add it to `APP` in `Scripts/probe.sh`).
+  A: the harness asserts the new wording. B: add the contract check for `lumina.sidecars`, an expect on the Save notes
+  before ⌘⏎, then drop the re-read and re-merge in `plumbing.js`'s `writeInto` (the base check on the Mac stays).
+  C: the scenario with `"mode"` removed.
+
+## Prompt 4 — when the page keeps stopping (paste into Claude Design)
+
+Found by the threat model (T7, 2026-10-01). When the page's process dies (a crash, or memory), the
+app reloads it. A file that kills the page every time would loop forever, so the app now reloads at
+most 3 times in a minute; on the next stop it stops reloading and shows a native alert, because the
+page is gone and cannot show anything:
+
+- Title: `Lumina keeps stopping`
+- Text: `It stopped again after reloading 3 times in a minute. Your decisions so far are saved.`
+- Buttons: `Try Again` (reloads once more, the count starts over) · `Quit`
+
+Quit also no longer waits for a page that doesn't answer: after 2 s it quits as if no keepers were
+unsaved. Decisions are saved by the app as they are made (`saveSession`), so neither path loses them.
+Both alerts are native, but their words are the design's, like the Quit alert's in MENUS.md.
+
+> In MENUS.md (or SAFETY.md), add the app's alerts with their exact wording: Quit with unsaved
+> keepers (as today), Remove Working Files (as today), and the new one above. Change its words if
+> you want them different; keep it to a title, one or two plain sentences and two buttons.
+> (1) **After a reload the page says so.** Today a reloaded page comes back on Open with no word.
+> When the app reloads after a stop, `window.lumina.restarted` will be `true` before your script
+> runs (plumbing.js adds it when this lands; no UI of its own): show one quiet footer line, e.g. `Lumina restarted ·
+> your decisions are kept`, gone on the next key, and reopen nothing by itself.
+> (2) **Optional, naming the file.** If you want the alert to name the photo being read when the
+> page stopped (`DSC03311.ARW`), say so in the wording; the app would then track the last file the
+> page asked for.
+
+Checked by `LuminaLogicTests/SetsPageRecoveryTests.swift` (the reload count and the wording the
+app ships today) and by hand: kill the page's process 4 times inside a minute and see the alert;
+Quit with the page hung and see the app quit after 2 s.
+
+## Prompt 5 — a sidecar another app changed after the open (paste into Claude Design)
+
+Found by reading the code (release threat model T4, 2026-10-01) and reproduced in
+`Tests/web/plumbing-harness.mjs`: the page keeps each sidecar's text from the read (`p.xmp`) and
+`xmpFor` merges the rating into that text at Save, however long ago the read was. Open a folder,
+edit a photo in Lightroom, press ⌘⏎ in Lumina: the sidecar got the text from the open back, with
+the new rating, and Lightroom's newer settings were gone.
+
+The app no longer does that. At Save, `plumbing.js` has the Mac read each sidecar again, puts the
+text on disk into `p.xmp` (and `p.lrEd`) where it differs, and lets the page's own `xmpFor` merge
+again; the Mac then refuses a file that changed once more in the instant before the write, leaves
+it untouched, and returns it in `errors` as `{ name, reason: 'changed on disk' }`. Three things
+stay with the page:
+
+> Update `Lumina Sets v5.dc.html` (and `SAFETY.md`). Keep the look, keys and wording otherwise
+> unchanged.
+>
+> **A. The result line for a sidecar that changed during Save.** The app can return a new reason
+> in the result list: today it reads `DSC03311 · changed on disk` (the app's word, in the list's
+> existing style). Decide the wording and add it to SAFETY.md 6's list of reasons (disk full,
+> read-only, locked, missing). The file was not written and is exactly as the other app left it;
+> pressing ⌘⏎ again reads it again and saves it. If the line should say that (`… · save again`),
+> say how; nothing is retried silently.
+>
+> **B. Save shows what is on disk now, not what was there at the open.** The Save step's own
+> facts come from `p.xmp` as read: the import note `N already have a .xmp sidecar · M with
+> Lightroom edits · only the rating will be updated`, the `was★ → now★` rows, `new sidecars` /
+> `existing sidecars` counts, the file tree's `merged` / `new`. After a long cull they can be
+> wrong before ⌘⏎ (a sidecar made, edited or deleted since) and the result is computed from the
+> counts taken before the write. When the Save step opens in the app, and again right before
+> `runExport` builds its files, call `await lumina.sidecars(names)` (new; the names `runExport`
+> gives its files) → `[{ name, text, base }]` (`text` null when there is no file), put each `text`
+> into `p.xmp`, recompute `p.lrEd` with `LuminaCore.hasDevelop`, and rebuild the notes and the
+> rows from that. Pass each file's `base` on in `writeInto(files, 'xmp')` as `{ name, data, base }`.
+> The app does the read and the merge for you today from `plumbing.js`; with it in the page that
+> code can go, and the screen is right before the write as well as after.
+>
+> **C. The browser has the same gap.** The page's own `writeInto` (`showDirectoryPicker`) writes
+> `f.data` over whatever is there. Before writing each file, read it through its handle; when its
+> text is not the `p.xmp` the merge used, merge the rating into the text just read
+> (`LuminaCore.mergeXmp`) and write that. The `.lumina-bak` copy stays as it is.
+
+## Prompt 6 — folders too big to be a shoot, oversized sidecars, sessions refused (paste into Claude Design)
+
+Found by the release threat model (T5, 2026-10-01). The Mac now bounds what a folder can make it
+read: a listing stops past 100,000 files and folders or 12 folder levels (opening `/`, a home folder
+or a whole disk), a sidecar over 1 MB is not read, and a session over 16 MB is not stored. The page
+has no words for any of it, so `plumbing.js` says stand-ins through `say` and the Open line
+(`openNote`), and adds skipped sidecars to `_failed`:
+`not available · <folder> · over 100000 files · open one shoot`,
+`not available · <folder> · folders over 12 deep · open one shoot`,
+`DSC00002.xmp · sidecar over 1 MB, not read` (in `?`, counted in `N unreadable`), and
+`decisions not saved · session too big`.
+
+> Update `Lumina Sets v5.dc.html`. Keep the look, keys and wording otherwise unchanged, and keep
+> the browser behaviour as it is.
+>
+> **A. A folder too big to be a shoot.** In the app, `openFolder` can come back as
+> `{ tooBig: { name, why: 'tooManyFiles' | 'tooDeep', files: 100000, depth: 12 } }` instead of a
+> listing: nothing was read. Stay on Open and say it where `no ARW found` is said today, in the
+> same voice, naming the folder and what to do: for example `Pictures is too big to be one shoot
+> · over 100,000 files · open the shoot's own folder` (or `· folders nested over 12 deep ·`).
+> No banner and no list: it is the photographer's pick that was wrong, not the app.
+>
+> **B. A sidecar Lumina didn't read.** The listing can carry `skippedXmp: [rel]`: sidecars over
+> 1 MB, left unread. Their photos open as if they had no sidecar. Count them in the import notes
+> as their own line, not as unreadable photos (the photo itself reads fine):
+> `1 sidecar over 1 MB not read · its rating isn't shown` with the files in the `?` list as
+> `DSC00002.xmp · over 1 MB, not read`. On Save, a keeper whose sidecar was not read should say
+> so in the result list rather than replace it silently (the Mac keeps a `.lumina-bak`).
+>
+> **C. Decisions not saved.** `lumina`'s session write can be refused (over 16 MB, or the disk).
+> Say it once per shoot in the footer, quiet but not hidden: `Decisions for this shoot can't be
+> saved · <reason>`, and keep culling.
+
+### How Prompt 6 is checked once its handoff lands
+
+- A: `LuminaLogicTests/SetsIngestBoundsTests` (the listing's refusal) and a `Tests/web/plumbing-harness.mjs`
+  case with the stand-in bridge returning `tooBig`: the Open line shows the page's own words. Drop plumbing's
+  `L.tooBig` stand-in.
+- B: the same harness with a `skippedXmp` entry: the import note line and the `?` entry. Drop plumbing's push
+  into `_failed`.
+- C: the harness's `saveSession` rejecting with "too big": the footer line once. Drop plumbing's `.catch` wording.
+
+## Prompt 8 — an export that was cut short (paste into Claude Design)
+
+Found by release task R1d (2026-10-01). An export killed mid-way (crash, kill, power) leaves its
+finished files (each verified) and, at most, one half-written hidden temp file per file in flight
+(`.DSC00001.ARW.lumina-tmp-…`). On the next launch the app removes those temp files through a
+bookmark of the export folder it kept when the export began. That cannot always work: the folder was
+moved to a disk that isn't connected, or the export was made by an older Lumina that kept no
+bookmark. Then the temp files stay and the app tries again on every launch. Today none of this
+reaches the page; the app only logs it.
+
+> When the app starts and finds an export that was cut short, `window.lumina.cutShort` will be an
+> array before your script runs (plumbing.js adds it when this lands; no UI of its own), newest
+> first: `{label, folder, planned, done, cleaned}` — `label` the export's kind as the page sent it
+> (`lr`, `both`, `xmp`…), `folder` the export folder's name, `planned` / `done` counts, `cleaned`
+> `true` when the half-written files were removed, `false` when they could not be reached.
+> (1) Show it once, as a quiet footer line on Open, gone on the next key, e.g.
+> `last export stopped after 14 of 40 · Lightroom Exports · export again to finish` and, when
+> `cleaned` is false, `· reconnect Lightroom Exports so Lumina can tidy it`. Your words; keep it
+> one line, name the folder, and do not reopen or retry anything by itself.
+> (2) Exporting again into the same folder already finishes the job (the probe's
+> `fault-kill-mid-handoff` checks it); say so only if you want to.
+
+Checked by `LuminaLogicTests/SetsExportJournalSandboxTests.swift` (what recovery does and records)
+and, once the page shows it, by a probe scenario that kills an export and relaunches.
+
+## Prompt 9 — a card Lumina may not read yet (paste into Claude Design)
+
+Found by the threat model (T10, release task R1c, 2026-10-01). In the App Store build (the App
+Sandbox), Lumina may read a camera card only after the user has picked it once in the Mac's folder
+panel. So when a card goes in for the first time, the app knows its name but not how many photos
+are on it, how big they are, or whether it is a Sony card. After that one pick the app keeps a
+grant for that card (by its volume UUID, so under any mount name), and the next time the card goes
+in everything is known at once, as today. Builds outside the sandbox always know everything.
+
+What the page gets today. `window.lumina.card` is unchanged for a card the app can read: `{name,
+photos, bytes, sony, path, …}`, now also `known: true` and `grant` (`"open"`, `"bookmark"`, `"recent"` or
+`"panel"`, data only). A card it cannot read yet is **not** put in `lumina.card`, because v5's
+banner would read it as `no ARW found · 0 photos` with no button. It is in a new field instead:
+
+    window.lumina.cardPending = { name: "Untitled", path: "/Volumes/Untitled", uuid: "…",
+                                  photos: null, bytes: null, sony: null, known: false }
+
+and `lumina.card` stays `null` until the user picks the card. Until this lands, the sandboxed app
+shows no card banner on a first insert (⌘O on the card's DCIM still works, and the app remembers
+that grant too).
+
+> (1) **The banner for a card Lumina can't read yet.** When `window.lumina.cardPending` is set
+> (and `lumina.card` is null), show the card banner with what is known and the same button:
+> - line 1: `Untitled · /Volumes/Untitled` (name and path; no count and no size, they are not
+>   known: never `0`);
+> - line 2: `the Mac asks once which card to read · Lumina remembers this card`;
+> - the button `Cull This Card` (and ⏎ when the banner is selected on Open), calling `impStart()`
+>   as today. The app then shows the Mac's folder panel, opened on the card's `DCIM`, button
+>   `Cull This Card`, message `Choose the card Untitled to let Lumina read it. Lumina only reads
+>   it, and remembers this card.` A pick that is not on that card is refused and the panel asks
+>   again with `That folder is not on the card Untitled. Choose the card.` (a folder elsewhere) or
+>   `Choose the card Untitled itself, or its DCIM folder.` (a folder inside the card). Change
+>   these words if you want them different; the app will use yours.
+> - Cancel in the panel: nothing happens, the banner stays.
+> (2) **Right after the pick.** The app sends the whole card (`lumina.card` with the count,
+> `cardPending` back to null) and opens it straight away, as `Cull This Card` does today. If you
+> want a word that the card is now remembered, show it once, quietly, when `lumina.card.grant ===
+> "panel"` (for example a footer line `Untitled · Lumina will read this card without asking`).
+> `"bookmark"` and `"recent"` mean it was read through a remembered grant; no word is needed then.
+> (3) **Pulled before the pick.** `cardPending` goes back to null, as `card` does today.
+
+Checked by `LuminaLogicTests/SetsCardAccessTests.swift` (what the app sends before and after the
+grant, where the panel opens, the refusals, no panel the second time) and the probe's
+`card-sandbox-first` / `card-sandbox-again` (`bash Scripts/probe.sh sandbox scenarios
+card-sandbox-first card-sandbox-again`). Once this lands, those scenarios assert the banner's
+line 1 for a pending card and press ⏎ on it instead of calling `impStart()` directly.
+
+## Prompt 7 — Help ▸ Acknowledgements (paste into Claude Design)
+
+The app bundles React 18.3.1, React DOM 18.3.1 and @babel/standalone 7.29.0 (and the packages
+inside Babel). Their licences require the copyright and permission notices to ship with the
+copies. They now do, as `Lumina/Resources/THIRD-PARTY-NOTICES.txt` in the app bundle (R6), but
+nothing in the app shows them. MENUS.md has no place for them, and the app's menus follow MENUS.md.
+
+> Update `MENUS.md` and `Lumina Sets v5.dc.html` for the Mac app. Keep the look, keys and
+> wording otherwise unchanged.
+>
+> **A. Help ▸ Acknowledgements.** In MENUS.md the Help menu becomes
+> `Lumina FAQ · Keyboard Shortcuts ? · Acknowledgements · Contact on X`, and `acknowledgements`
+> joins the command names for `window.luminaCommand`. About gains a quiet link
+> `Acknowledgements` next to the FAQ link that does the same.
+>
+> **B. The sheet.** `luminaCommand('acknowledgements')` opens a sheet titled
+> `Acknowledgements`, with one line under the title, same type one step quieter:
+> `Lumina uses open-source software. Their licences follow.` Below it, the text from
+> `await lumina.notices()` (a plain-text string the app reads from its bundle), shown exactly
+> as given: monospaced, line breaks kept, no reflow, selectable, in a pane that scrolls on its
+> own. `esc` or ⏎ closes it. It opens from any step and changes nothing in the shoot.
+>
+> **C. Edge states.** In the browser (no `window.lumina`, or no `notices`), the sheet lists the
+> three libraries the page loads, with their versions and their licence links
+> (`https://unpkg.com/react@18.3.1/LICENSE`, `https://unpkg.com/react-dom@18.3.1/LICENSE`,
+> `https://unpkg.com/@babel/standalone@7.29.0/LICENSE`). If `lumina.notices()` fails, the same
+> list shows with the line `The full text ships inside Lumina.app (Contents/Resources/THIRD-PARTY-NOTICES.txt).`
+
+### How Prompt 7 is checked once its handoff lands
+
+- `plumbing.js` gains `lumina.notices()`, returning `THIRD-PARTY-NOTICES.txt` from the bundle through the bridge
+  (data, no UI); the contract scenario lists it, and `Tests/web/plumbing-harness.mjs` checks the sheet shows the
+  file's first and last lines.
+- `LuminaApp.swift` adds Help ▸ Acknowledgements calling `luminaCommand("acknowledgements")`, after MENUS.md says so.
+- `probe.sh screens` gains the sheet in prototype and app mode.

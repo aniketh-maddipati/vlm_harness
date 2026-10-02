@@ -31,6 +31,13 @@ final class Runner {
     private var scale: Double = 1
     private lazy var disks = DiskImages(root: outDir.appendingPathComponent("disks", isDirectory: true))
     private(set) var skipped: String?
+    /// Sandbox mode (Sandbox.swift): the app's support folder, inside the container, and what
+    /// the sandbox refused the app, found after each step.
+    private var containerSupport: URL?
+    private var denials: [ProbeSandbox.Denial] = []
+    private var eventsChecked = 0, launchedAt = 0
+    /// The card the bridge knows and the launch (`launchedAt`) in which it became known.
+    private var knownCard: (uuid: String, launch: Int)?
 
     init(scenario: URL, outDir: URL) throws {
         scenarioURL = scenario
@@ -47,7 +54,13 @@ final class Runner {
 
     func run(echo: Bool) async -> Bool {
         let t0 = Date()
-        try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+        ProbeSandbox.harness { try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true) }
+        if ProbeSandbox.active, spec["supportDir"] == nil {
+            // The app keeps its sessions and journal in its container; so does the sandboxed probe.
+            let dir = ProbeSandbox.container("support/" + scenarioURL.deletingPathExtension().lastPathComponent)
+            try? FileManager.default.removeItem(at: dir)
+            containerSupport = dir
+        }
         do {
             let size = (spec["size"] as? [Double]) ?? [1280, 800]
             scale = (spec["scale"] as? Double) ?? 1
@@ -65,7 +78,7 @@ final class Runner {
                                             pageRoot: path("pageRoot", default: app ? "Lumina/Sets/Web" : "design/handoff/lumina-cull"),
                                             vendorRoot: path("vendorRoot", default: app ? "Lumina/Sets/Web" : "design/handoff/vendor"),
                                             plumbing: app ? path("plumbing", default: "Lumina/Sets/Web/plumbing.js") : nil,
-                                            supportDir: path("supportDir", default: outDir.appendingPathComponent("support", isDirectory: true).path),
+                                            supportDir: containerSupport ?? path("supportDir", default: outDir.appendingPathComponent("support", isDirectory: true).path),
                                             outDir: outDir, config: config, appConfig: spec["app"] as? [String: Any] ?? [:])
             host.echo = echo
             sampler.start(interval: ((spec["sampleMs"] as? Double) ?? 250) / 1000) { [host] in
@@ -82,6 +95,7 @@ final class Runner {
                 var ok = true
                 do {
                     note = try await perform(op, step)
+                    sandboxCheck(step: i, op: op)
                     try await checkAlive(strictInvariants: step["invariants"] as? Bool ?? true)
                 } catch let skip as ProbeSkip {
                     skipped = skip.reason
@@ -104,7 +118,7 @@ final class Runner {
         }
         sampler.stop()
         try? await checkBudgets()
-        disks.detachAll(removeImages: failures.isEmpty)
+        ProbeSandbox.harness { disks.detachAll(removeImages: failures.isEmpty) }
         return finish(seconds: Date().timeIntervalSince(t0))
     }
 
@@ -181,6 +195,8 @@ final class Runner {
                 self.frames["\(name).tiles"] = t
                 note += String(format: " · blank %.1f%% of on-screen tiles (%.1f%% of frames, worst %.1f%%) · upscale min %.2f median %.2f (tile %.0f px, dpr %.0f)",
                                t["blankPct"] ?? 0, t["blankFramesPct"] ?? 0, t["worstBlankPct"] ?? 0, t["upscaleMin"] ?? 0, t["upscaleMedian"] ?? 0, t["tile"] ?? 0, t["dpr"] ?? 0)
+                note += String(format: " · rows out of place %.1f%% (%.1f%% of frames, worst %.0f px)", t["rowsOffPct"] ?? 0, t["rowFramesPct"] ?? 0, t["rowWorstPx"] ?? 0)
+                if let cap = s["maxRowsOffPct"] as? Double, (t["rowsOffPct"] ?? 0) > cap { failures.append("rows \(name): \(t["rowsOffPct"] ?? 0)% of on-screen rows out of place > \(cap)%") }
                 if let cap = s["maxBlankPct"] as? Double, (t["blankPct"] ?? 0) > cap { failures.append("tiles \(name): \(t["blankPct"] ?? 0)% blank > \(cap)%") }
                 if let floor = s["minUpscale"] as? Double, (t["upscaleMin"] ?? 0) < floor { failures.append("tiles \(name): thumbnails magnified, upscale min \(t["upscaleMin"] ?? 0) < \(floor)") }
             }
@@ -207,12 +223,13 @@ final class Runner {
             // Any JSON the page can compute, saved as <name>.json (e.g. every photo's measures).
             let r = try await host.js(try str(s, "js"), timeout: (s["timeoutMs"] as? Double ?? 30000) / 1000)
             let text = try (r as? String) ?? String(data: try JSONSerialization.data(withJSONObject: r ?? NSNull(), options: [.prettyPrinted, .sortedKeys, .fragmentsAllowed]), encoding: .utf8)!
-            try text.write(to: outDir.appendingPathComponent("\(try str(s, "name")).json"), atomically: true, encoding: .utf8)
+            let to = outDir.appendingPathComponent("\(try str(s, "name")).json")
+            try ProbeSandbox.harness { try text.write(to: to, atomically: true, encoding: .utf8) }
         case "compare":
             return try await compare(s)
         case "openFolder":
             let url = URL(fileURLWithPath: try str(s, "path"))
-            guard FileManager.default.fileExists(atPath: url.path) else { throw ProbeError("no such folder \(url.path)") }
+            guard ProbeSandbox.harness({ FileManager.default.fileExists(atPath: url.path) }) else { throw ProbeError("no such folder \(url.path)") }
             host.pendingOpenPanel = [url]
             // A second open in one scenario: the shoot already loaded must not count as this read's end.
             // In the browser the page first shows its "macOS will ask for access" sheet; its own
@@ -238,15 +255,22 @@ final class Runner {
             return info.map { "\($0)" }
         case "diskImage":
             let from = (s["from"] as? String).map { _ in URL(fileURLWithPath: (try? str(s, "from")) ?? "") }
-            let m = try disks.create(name: try str(s, "name"), sizeMB: s["sizeMB"] as? Int ?? 64, fs: s["fs"] as? String ?? "ExFAT",
-                                     from: from, trimBytes: s["trimBytes"] as? Int, repeatTo: s["count"] as? Int)
-            if s["readonly"] as? Bool ?? false { try disks.detach(name: try str(s, "name")); try await settle(300); try disks.attach(name: try str(s, "name"), readonly: true) }
+            let name = try str(s, "name")
+            let m = try ProbeSandbox.harness {
+                try disks.create(name: name, sizeMB: s["sizeMB"] as? Int ?? 64, fs: s["fs"] as? String ?? "ExFAT",
+                                 from: from, trimBytes: s["trimBytes"] as? Int, repeatTo: s["count"] as? Int)
+            }
+            if s["readonly"] as? Bool ?? false { try disks.detach(name: name); try await settle(300); try ProbeSandbox.harness { _ = try disks.attach(name: name, readonly: true) } }
             return m.path
         case "attach":
             if s["ifPulled"] as? Bool ?? false, disks.mounted.contains(try str(s, "name")) { return "already in" }
-            return try disks.attach(name: try str(s, "name"), readonly: s["readonly"] as? Bool ?? false).path
+            let name = try str(s, "name")
+            return try ProbeSandbox.harness { try disks.attach(name: name, readonly: s["readonly"] as? Bool ?? false).path }
         case "detach":
             let name = try str(s, "name")
+            // Sandboxed: no harness grant around a pull. hdiutil runs in the launcher, and while it
+            // works the main run loop turns (Disk Arbitration's unmount waits for this process),
+            // so app code runs then and must have only what the app would have.
             if let after = s["afterMs"] as? Double {
                 // Pull it while the next steps run (mid-read / mid-export).
                 Task { @MainActor in
@@ -279,6 +303,9 @@ final class Runner {
             host.webView.evaluateJavaScript("window.__lumina && __lumina.openFolder()", completionHandler: nil)
             try await waitFor("const l=__probe.logic(); return !!(l.real && !l.state.realLoad)", timeout: (s["timeoutMs"] as? Double ?? 60000) / 1000, what: "folder loaded via menu")
         case "reload":
+            // The scenarios' relaunch. A new process holds none of the last one's panel grants.
+            for line in ProbeSandbox.relaunch() { host.log("sandbox", "relaunch: panel grant dropped · \(line)") }
+            launchedAt = host.events.count
             try await host.load((spec["page"] as? String) ?? "Lumina Sets v5.dc.html", query: spec["query"] as? String)
             try await waitFor("return window.__probe && __probe.ready()", timeout: 30, what: "page ready after reload")
             try await settle(s["settleMs"] as? Double ?? 600)
@@ -291,24 +318,34 @@ final class Runner {
             return String(e.text.prefix(160))
         case "destinations":
             host.chooser.destinations = try strs(s, "paths").map { URL(fileURLWithPath: $0) }
+        case "sources":
+            // The next folder panels' answers without opening anything (the card panel of "Cull this card").
+            host.chooser.sources = try strs(s, "paths").map { URL(fileURLWithPath: $0) }
         case "copyTree":
             let from = URL(fileURLWithPath: try str(s, "from")), to = URL(fileURLWithPath: try str(s, "to"))
-            try? FileManager.default.removeItem(at: to)
-            try FileManager.default.createDirectory(at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try FileManager.default.copyItem(at: from, to: to)
+            try ProbeSandbox.harness {
+                try? FileManager.default.removeItem(at: to)
+                try FileManager.default.createDirectory(at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try FileManager.default.copyItem(at: from, to: to)
+            }
         case "move":
             // What Finder does: rename or move a file. Only this run's own copies, never anything else.
-            try FileManager.default.moveItem(at: try own(str(s, "from")), to: try own(str(s, "to")))
+            let from = try own(str(s, "from")), to = try own(str(s, "to"))
+            try ProbeSandbox.harness { try FileManager.default.moveItem(at: from, to: to) }
         case "remove":
-            try FileManager.default.removeItem(at: try own(str(s, "path")))
+            let url = try own(str(s, "path"))
+            try ProbeSandbox.harness { try FileManager.default.removeItem(at: url) }
         case "mkdir":
-            try FileManager.default.createDirectory(at: URL(fileURLWithPath: try str(s, "path")), withIntermediateDirectories: true)
-        case "writeFile":
             let url = URL(fileURLWithPath: try str(s, "path"))
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try Data(try str(s, "text").utf8).write(to: url)
+            try ProbeSandbox.harness { try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true) }
+        case "writeFile":
+            let url = URL(fileURLWithPath: try str(s, "path")), text = try str(s, "text")
+            try ProbeSandbox.harness {
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try Data(text.utf8).write(to: url)
+            }
         case "fs":
-            return try fsExpect(s)
+            return try ProbeSandbox.harness { try fsExpect(s) }
         case "xmpMerged":
             return try await xmpMerged(s)
         case "killExport":
@@ -322,15 +359,19 @@ final class Runner {
         case "nativeSidecar":
             return try await nativeSidecar(s)
         case "fillDisk":
-            return try fillDisk(URL(fileURLWithPath: try str(s, "path")))
+            let url = URL(fileURLWithPath: try str(s, "path"))
+            return try ProbeSandbox.harness { try fillDisk(url) }
         case "editDrag", "editParity", "raw9", "editConsistency":
             // The Edit canvas and RAW 9 measures (EditSteps.swift). Gates apply unless LUMINA_EDIT_GATE=0.
-            let o: EditSteps.Outcome
-            switch op {
-            case "editDrag": o = try await EditSteps.drag(host: host, s)
-            case "editParity": o = try await EditSteps.parity(host: host, s, outDir: outDir)
-            case "editConsistency": o = try await ConsistencySteps.run(host: host, s, folder: URL(fileURLWithPath: try str(s, "folder")), outDir: outDir)
-            default: o = try await EditSteps.raw9(host: host, s, folder: URL(fileURLWithPath: try str(s, "folder")), outDir: outDir)
+            // Sandboxed: these measure the canvas, not file access, and write their images and
+            // reports as they go, so the harness grants are held for the whole step.
+            let o: EditSteps.Outcome = try await ProbeSandbox.harnessAsync {
+                switch op {
+                case "editDrag": return try await EditSteps.drag(host: host, s)
+                case "editParity": return try await EditSteps.parity(host: host, s, outDir: outDir)
+                case "editConsistency": return try await ConsistencySteps.run(host: host, s, folder: URL(fileURLWithPath: try str(s, "folder")), outDir: outDir)
+                default: return try await EditSteps.raw9(host: host, s, folder: URL(fileURLWithPath: try str(s, "folder")), outDir: outDir)
+                }
             }
             failures.append(contentsOf: o.failures)
             for (k, v) in o.frames { frames[k] = v }
@@ -345,6 +386,52 @@ final class Runner {
             throw ProbeError("unknown step '\(op)'")
         }
         return nil
+    }
+
+    // MARK: Sandbox
+
+    /// After each step, sandboxed runs only: is the app refused something it needs right now?
+    /// The folder the bridge has open (read, and write unless it is a card: Save writes sidecars
+    /// into it), a known card's granted folder, the support folder. Plus what the bridge itself reported. Each is recorded once.
+    private func sandboxCheck(step: Int, op: String) {
+        guard ProbeSandbox.active, let host else { return }
+        var found: [ProbeSandbox.Denial] = []
+        func check(_ role: String, _ url: URL, write: Bool) {
+            for r in ProbeSandbox.refused(url.path, write: write) {
+                found.append(.init(step: step, op: op, role: role, path: url.path, operation: r.operation, detail: r.detail))
+            }
+        }
+        if let bridge = host.bridge {
+            // "opened <path>" is the bridge taking a folder (a panel's answer, a reopen, a card).
+            let opened = host.events.dropFirst(launchedAt).last { $0.kind == "bridge" && $0.text.hasPrefix("opened ") }
+            if let path = opened.map({ String($0.text.dropFirst("opened ".count)) }) {
+                let url = URL(fileURLWithPath: path)
+                check("shoot folder", url, write: !SetsFileOps.isCard(url))
+            }
+            // A card (R1c): nothing on the volume is the app's until the user grants it (a panel, or
+            // a bookmark from an earlier grant). While no card is known the app only has the
+            // volume's name and UUID, so nothing is checked. Once known: read access to the folder
+            // the grant covers (its root or DCIM, as held by the bridge; DCIM when the card was
+            // readable as it was, unsandboxed or already held).
+            // `reload` is a relaunch for the page and the grants but not for the bridge, which keeps
+            // the card it knew; a real relaunch starts with no card and the panel's grant gone. So
+            // a card counts from when it became known in this launch (re-noticed after the reload).
+            if let card = bridge.cards.current, card.known {
+                if knownCard?.uuid != card.uuid { knownCard = (card.uuid, launchedAt) }
+                if knownCard?.launch == launchedAt {
+                    let granted = bridge.access.cardFolder(card.uuid) ?? card.volume.appendingPathComponent("DCIM")
+                    check("card (granted folder)", granted, write: false)
+                }
+            } else {
+                knownCard = nil
+            }
+            check("support folder", bridge.supportDir, write: true)
+        }
+        for e in host.events.dropFirst(eventsChecked) where e.kind == "bridge" && e.text.hasPrefix("access denied ") {
+            found.append(.init(step: step, op: op, role: "reported by the app", path: String(e.text.dropFirst("access denied ".count)), operation: "list folder", detail: "bridge: \(e.text)"))
+        }
+        eventsChecked = host.events.count
+        for d in found where !denials.contains(where: { $0.role == d.role && $0.path == d.path && $0.operation == d.operation }) { denials.append(d) }
     }
 
     // MARK: Files
@@ -399,7 +486,7 @@ final class Runner {
             return nil
         }
         var lines: [String] = []
-        for (file, w) in want.sorted(by: { $0.key < $1.key }) {
+        for (file, w) in want.sorted(by: { $0.key < $1.key }) { try ProbeSandbox.harness {
             let url = dir.appendingPathComponent(file)
             guard let data = try? Data(contentsOf: url), let text = String(data: data, encoding: .utf8) else { throw ProbeError("\(file) was not written") }
             let parser = XMLParser(data: data)
@@ -423,15 +510,20 @@ final class Runner {
             }
             // A second reader: exiftool, when installed, must read the same stars.
             if let exif = ["/opt/homebrew/bin/exiftool", "/usr/local/bin/exiftool"].first(where: { FileManager.default.isExecutableFile(atPath: $0) }) {
-                let p = Process(), out = Pipe()
-                p.executableURL = URL(fileURLWithPath: exif); p.arguments = ["-s3", "-XMP:Rating", url.path]; p.standardOutput = out
-                try p.run(); p.waitUntilExit()
-                let got = String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                var got: String?
+                if let r = ProbeSandbox.runTool(exif, ["-s3", "-XMP:Rating", url.path]) {       // sandboxed: the launcher runs it
+                    got = r.out.trimmingCharacters(in: .whitespacesAndNewlines)
+                } else {
+                    let p = Process(), out = Pipe()
+                    p.executableURL = URL(fileURLWithPath: exif); p.arguments = ["-s3", "-XMP:Rating", url.path]; p.standardOutput = out
+                    try p.run(); p.waitUntilExit()
+                    got = String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
                 if got != rating { throw ProbeError("\(file): exiftool reads rating \(got ?? "nil"), file says \(rating ?? "nil")") }
                 note += " · exiftool agrees"
             }
             lines.append(note)
-        }
+        } }
         return "\n  " + lines.joined(separator: "\n  ")
     }
 
@@ -444,7 +536,7 @@ final class Runner {
     private func killExport(_ s: [String: Any]) async throws -> String {
         let fm = FileManager.default
         let from = URL(fileURLWithPath: try str(s, "from"))
-        let raws = try fm.contentsOfDirectory(at: from, includingPropertiesForKeys: nil)
+        let raws = try ProbeSandbox.harness { try fm.contentsOfDirectory(at: from, includingPropertiesForKeys: nil) }
             .filter { $0.pathExtension.lowercased() == "arw" && !$0.lastPathComponent.hasPrefix("._") }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }.prefix(s["count"] as? Int ?? 6)
         guard !raws.isEmpty else { throw ProbeError("no ARWs in \(from.path)") }
@@ -455,7 +547,7 @@ final class Runner {
         for (i, raw) in raws.enumerated() {
             let stem = raw.deletingPathExtension().lastPathComponent
             items.append(["name": "RAW/\(raw.lastPathComponent)", "copy": raw.path])
-            want["RAW/\(raw.lastPathComponent)"] = try Data(contentsOf: raw)
+            want["RAW/\(raw.lastPathComponent)"] = try ProbeSandbox.harness { try Data(contentsOf: raw) }
             items.append(["name": "\(stem).xmp", "text": xmp(3 + i % 3, "Lumina")])
             want["\(stem).xmp"] = Data(xmp(3 + i % 3, "Lumina").utf8)
             if i % 2 == 0 { old["\(stem).xmp"] = Data(xmp(1, "Adobe Lightroom").utf8) }
@@ -466,8 +558,17 @@ final class Runner {
         var phases: [String: Int] = [:], leftovers = 0, recoveredTemps = 0
 
         func allFiles(_ d: URL) -> [String] { (fm.enumerator(atPath: d.path)?.allObjects as? [String] ?? []).filter { !$0.hasSuffix("/") && !((try? fm.attributesOfItem(atPath: d.appendingPathComponent($0).path)[.type] as? FileAttributeType) == .typeDirectory) } }
+        // Sandboxed: the worker is sandboxed in its own right. It gets what the app would hold
+        // while exporting: the destination a panel gave it, the shoot it reads, and its plan and
+        // journal (which the scenario keeps under ${OUT}; the app's are in its container).
         func runWorker(_ plan: URL) throws -> Process {
             let p = Process(); p.executableURL = worker; p.arguments = ["export-worker", plan.path]
+            if let tokens = ProbeSandbox.tokens(for: [(plan.deletingLastPathComponent(), true), (from, false)]) {
+                var env = ProcessInfo.processInfo.environment
+                env[ProbeSandbox.envBroker] = nil          // the broker's socket is the parent's alone
+                env[ProbeSandbox.envTokens] = tokens
+                p.environment = env
+            }
             p.standardOutput = FileHandle.nullDevice; try p.run(); return p
         }
         func journal(_ dir: URL) -> SetsExportJournal.Entry? {
@@ -495,6 +596,7 @@ final class Runner {
             if complete { for name in want.keys where !fm.fileExists(atPath: dest.appendingPathComponent(name).path) { throw ProbeError("\(tag): \(name) missing after the export finished") } }
         }
 
+        return try await ProbeSandbox.harnessAsync {
         for n in 0..<kills {
             let base = outDir.appendingPathComponent("kill/\(n)"), dest = base.appendingPathComponent("dest"), jdir = base.appendingPathComponent("journal")
             try? fm.removeItem(at: base)
@@ -517,8 +619,29 @@ final class Runner {
             let phase = !killed ? "finished before the kill" : temps > 0 ? "inside a file" : (before?.done.count ?? 0) == 0 ? "before the first file" : "between files"
             phases[phase, default: 0] += 1
             // Next launch.
-            let rec = SetsExportJournal.recover(in: jdir)
-            recoveredTemps += rec.reduce(0) { $0 + ($1.tempsRemoved ?? 0) }
+            // Sandboxed: a fresh process started by the launcher (`recover-journal`), holding the
+            // journal's folder only. The worker's grant on the destination lives in this process's
+            // sandbox (the worker is our child and shares it), so recovery run here would still
+            // reach the destination by path; the fresh one reaches it only through what the
+            // journal itself kept (R1d's bookmark). It must be refused the destination by path,
+            // or the relaunch proves nothing.
+            if ProbeSandbox.active {
+                let r = await Task.detached { ProbeSandbox.launchFresh(["recover-journal", jdir.path]) }.value
+                guard let r, r.status == 0, let last = r.out.split(separator: "\n").last,
+                      let obj = (try? JSONSerialization.jsonObject(with: Data(last.utf8))) as? [String: Any] else {
+                    throw ProbeError("kill \(n): recovery in a fresh process failed (exit \(r?.status ?? -1)): \(r?.out ?? "") \(r?.err ?? "")")
+                }
+                guard obj["sandboxed"] as? Bool == true else { throw ProbeError("kill \(n): the fresh recovery process was not sandboxed") }
+                for d in obj["reach"] as? [[String: Any]] ?? [] where d["refusedByPath"] as? Bool != true {
+                    throw ProbeError("kill \(n): the fresh recovery process can reach \(d["path"] ?? "?") by path, so it is no relaunch")
+                }
+                let entries = obj["entries"] as? [[String: Any]] ?? []
+                recoveredTemps += entries.reduce(0) { $0 + ($1["tempsRemoved"] as? Int ?? 0) }
+                host.log("sandbox", "kill \(n): fresh recovery process \(String(last.prefix(1200)))")
+            } else {
+                let rec = SetsExportJournal.recover(in: jdir)
+                recoveredTemps += rec.reduce(0) { $0 + ($1.tempsRemoved ?? 0) }
+            }
             let entry = journal(jdir)
             if killed, entry?.ok != true, entry?.recovered == nil { throw ProbeError("kill \(n): journal not marked recovered") }
             try verify(dest, done: Set(entry?.done ?? []), complete: entry?.ok == true, "kill \(n) (\(phase), k=\(k))")
@@ -531,6 +654,7 @@ final class Runner {
         }
         if recoveredTemps != leftovers { throw ProbeError("\(leftovers) temp files left by kills, recovery removed \(recoveredTemps)") }
         return "\(kills) kills · " + phases.sorted { $0.key < $1.key }.map { "\($0.value) \($0.key)" }.joined(separator: ", ") + " · \(leftovers) temp files left by kills, all removed on relaunch"
+        }
     }
 
     /// The app's export job run directly, no page: `from` (ARWs to copy, first `count`), `dest`,
@@ -538,6 +662,8 @@ final class Runner {
     /// runs (the disk fills up mid-copy). Expect with `n` and `failedContains`.
     private func nativeExport(_ s: [String: Any]) async throws -> String {
         let from = URL(fileURLWithPath: try str(s, "from")), dest = URL(fileURLWithPath: try str(s, "dest"))
+        // Sandboxed: the export's folders are the ones panels gave the app (the shoot, the destination).
+        ProbeSandbox.userPicked(from); ProbeSandbox.userPicked(dest)
         let raws = try FileManager.default.contentsOfDirectory(at: from, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension.lowercased() == "arw" && !$0.lastPathComponent.hasPrefix("._") }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }.prefix(s["count"] as? Int ?? 3)
@@ -545,16 +671,18 @@ final class Runner {
         items.append(.bytes(name: "note.xmp", data: Data("<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"/>".utf8)))
         let sources = try (s["sources"] as? [String] ?? []).map { try str(["v": $0], "v") }.map { URL(fileURLWithPath: $0) }
         let job = SetsExportJob(label: "both", destination: dest, items: items)
-        let jdir = outDir.appendingPathComponent("journal-\(UUID().uuidString.prefix(6))")
+        let jdir = (containerSupport ?? outDir).appendingPathComponent("journal-\(UUID().uuidString.prefix(6))")
         let task = Task.detached { job.run(journal: SetsExportJournal(directory: jdir), sources: sources) }
         if let fill = s["fill"] as? [String: Any] {
             try await settle(fill["afterMs"] as? Double ?? 20)
             let url = URL(fileURLWithPath: try str(fill, "path"))
             let mb = fill["mb"] as? Int ?? 50
-            FileManager.default.createFile(atPath: url.path, contents: nil)
-            let h = try FileHandle(forWritingTo: url)
-            for _ in 0..<mb { if (try? h.write(contentsOf: Data(count: 1 << 20))) == nil { break } }
-            try? h.close()
+            try ProbeSandbox.harness {
+                FileManager.default.createFile(atPath: url.path, contents: nil)
+                let h = try FileHandle(forWritingTo: url)
+                for _ in 0..<mb { if (try? h.write(contentsOf: Data(count: 1 << 20))) == nil { break } }
+                try? h.close()
+            }
         }
         let r = await task.value
         let note = "\(r.n) written · failed: \(r.failed.joined(separator: " | "))"
@@ -583,6 +711,7 @@ final class Runner {
             text = t
         } else { text = try str(s, "text") }
         let data = Data(text.utf8), guarded = s["guard"] as? Bool ?? true
+        ProbeSandbox.userPicked(root)       // sandboxed: the shoot folder is one a panel gave the app
         var got: String?, backedUp = false
         do {
             backedUp = try (guarded ? SetsFileOps.writeSidecar(data, rel: rel, root: root) : SetsFileOps.write(data, to: try own(root.appendingPathComponent(rel).path))).backedUp
@@ -628,8 +757,8 @@ final class Runner {
             let roll = rng.unit()
             var input: String
             if let disk = chaosDisk, rng.unit() < chaosRate {
-                if disks.mounted.contains(disk) { try disks.detach(name: disk); input = "PULL \(disk)"; pulls += 1 }
-                else { try disks.attach(name: disk, readonly: false); input = "INSERT \(disk)" }
+                if disks.mounted.contains(disk) { try ProbeSandbox.harness { try disks.detach(name: disk) }; input = "PULL \(disk)"; pulls += 1 }
+                else { try ProbeSandbox.harness { _ = try disks.attach(name: disk, readonly: false) }; input = "INSERT \(disk)" }
                 host.log("disk", input)
             } else if roll < mouseRate {
                 let p = CGPoint(x: rng.unit() * size.width, y: rng.unit() * size.height)
@@ -703,20 +832,23 @@ final class Runner {
 
     private func snap(_ name: String) async throws {
         let img = try await host.snapshot(scale: scale)
-        try Pixels.writePNG(img, to: outDir.appendingPathComponent("\(name).png"))
         let masks = try await host.js("return JSON.stringify(__probe.masks())") as? String ?? "[]"
-        try masks.write(to: outDir.appendingPathComponent("\(name).masks.json"), atomically: true, encoding: .utf8)
+        try ProbeSandbox.harness {
+            try Pixels.writePNG(img, to: outDir.appendingPathComponent("\(name).png"))
+            try masks.write(to: outDir.appendingPathComponent("\(name).masks.json"), atomically: true, encoding: .utf8)
+        }
     }
 
     private func dumpState(_ name: String) async throws {
         let json = try await host.js("return JSON.stringify(__probe.state(), null, 1)") as? String ?? "null"
-        try json.write(to: outDir.appendingPathComponent("\(name).state.json"), atomically: true, encoding: .utf8)
+        try ProbeSandbox.harness { try json.write(to: outDir.appendingPathComponent("\(name).state.json"), atomically: true, encoding: .utf8) }
     }
 
     private func compare(_ s: [String: Any]) async throws -> String {
         let name = try str(s, "name")
         let against = URL(fileURLWithPath: try str(s, "against"))
         try await snap(name)
+        return try ProbeSandbox.harness {
         let mine = try Pixels.readPNG(outDir.appendingPathComponent("\(name).png"))
         let ref = try Pixels.readPNG(against)
         var masks = try JSONDecoder().decode([Pixels.Rect].self, from: Data(contentsOf: outDir.appendingPathComponent("\(name).masks.json")))
@@ -730,6 +862,7 @@ final class Runner {
         if r.sizeMismatch { throw ProbeError("size mismatch \(mine.width)×\(mine.height) vs \(ref.width)×\(ref.height)") }
         if r.differing > allowed { throw ProbeError("\(r.differing) px differ (allowed \(allowed)), bbox \(r.bbox ?? [])") }
         return "\(r.differing) px differ"
+        }
     }
 
     private func frames_(_ name: String, _ r: [String: Double], budget: Double?) {
@@ -770,7 +903,8 @@ final class Runner {
     /// a real card or the user's folders.
     private func own(_ path: String) throws -> URL {
         let url = URL(fileURLWithPath: path).standardizedFileURL
-        guard SetsIngest.plainPath(url).hasPrefix(SetsIngest.plainPath(outDir) + "/") else { throw ProbeError("\(path) is outside this run's folder: refused") }
+        let mine = [outDir] + (containerSupport.map { [$0] } ?? [])
+        guard mine.contains(where: { SetsIngest.plainPath(url).hasPrefix(SetsIngest.plainPath($0) + "/") }) else { throw ProbeError("\(path) is outside this run's folder: refused") }
         return url
     }
 
@@ -789,6 +923,10 @@ final class Runner {
             let name = String(v[r].dropFirst(2).dropLast())
             guard let value = ProcessInfo.processInfo.environment[name], !value.isEmpty else { throw ProbeSkip(reason: "\(name) is not set") }
             v.replaceSubrange(r, with: value)
+        }
+        if let support = containerSupport {
+            let old = outDir.appendingPathComponent("support").path
+            if v == old || v.hasPrefix(old + "/") { v = support.path + v.dropFirst(old.count) }
         }
         return v
     }
@@ -813,10 +951,18 @@ final class Runner {
         let report = Report(scenario: scenarioURL.path, pass: pass, skipped: skipped, failures: failures, steps: steps, resources: sampler.summary(),
                             frames: frames, downloads: host?.downloads ?? [], dialogs: host?.dialogs ?? [], seconds: seconds)
         let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try? enc.encode(report).write(to: outDir.appendingPathComponent("report.json"))
-        if let host {
-            let lines = host.events.compactMap { try? String(data: JSONEncoder().encode($0), encoding: .utf8) }
-            try? lines.joined(separator: "\n").write(to: outDir.appendingPathComponent("events.jsonl"), atomically: true, encoding: .utf8)
+        ProbeSandbox.harness {
+            try? enc.encode(report).write(to: outDir.appendingPathComponent("report.json"))
+            if let host {
+                let lines = host.events.compactMap { try? String(data: JSONEncoder().encode($0), encoding: .utf8) }
+                try? lines.joined(separator: "\n").write(to: outDir.appendingPathComponent("events.jsonl"), atomically: true, encoding: .utf8)
+            }
+            guard ProbeSandbox.active else { return }
+            struct Sandboxed: Encodable { let pid: Int32; let webPid: Int32; let container: String; let support: String?; let denials: [ProbeSandbox.Denial] }
+            try? enc.encode(Sandboxed(pid: getpid(), webPid: host?.webProcessID ?? 0, container: NSHomeDirectory(), support: containerSupport?.path, denials: denials))
+                .write(to: outDir.appendingPathComponent("sandbox.json"))
+            // The support folder lives in the container: a copy for the evidence.
+            if let support = containerSupport { try? FileManager.default.copyItem(at: support, to: outDir.appendingPathComponent("support")) }
         }
         let name = scenarioURL.deletingPathExtension().lastPathComponent
         if let skipped { print("SKIP  \(name)  (\(skipped))"); return pass }
@@ -825,6 +971,7 @@ final class Runner {
         for s in sampler.summary() { print("   \(s.who): peak \(Int(s.peakMB)) MB, cpu mean \(Int(s.meanCPU))% peak \(Int(s.peakCPU))%") }
         for (k, r) in frames where !k.hasSuffix(".tiles") { print("   frames \(k): p50 \(r["p50"] ?? 0) p95 \(r["p95"] ?? 0) max \(r["max"] ?? 0) ms") }
         for f in failures { print("   FAIL \(f)") }
+        for d in denials { print("   SANDBOX #\(d.step) \(d.op): \(d.operation) \(d.path) (\(d.role)) \(d.detail)") }
         return pass
     }
 }

@@ -2,6 +2,7 @@
 // scheme handler serves it, with plumbing.js and a Node stand-in for SetsBridge.
 import { createRequire } from 'module';
 import { execSync } from 'child_process';
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -129,6 +130,9 @@ export function list(root) {
   return out;
 }
 
+// SetsFileOps.sidecarBase: the SHA-256 of the file's bytes, or "none" when there is no file.
+const sidecarBase = file => fs.existsSync(file) ? crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex') : 'none';
+
 export class Bridge {
   constructor(parent) {
     this.parent = parent; this.roots = {}; this.pending = null; this.calls = []; this.sessions = {}; this.index = []; this.prefs = null; this.revealed = []; this.gone = new Set(); this.denied = null;
@@ -186,7 +190,14 @@ export class Bridge {
         return { n: msg.files.length, bak: 0, folder: '/tmp/export', decoder: 'RAW 8', decoders: msg.files.map(() => 'raw 8'), fallbacks: [], renderMs: msg.files.map(() => 120) };
       }
       case 'saveSession': { this.sessions[msg.id] = msg.json; const s = this.index.find(x => x.id === msg.id); if (s) Object.assign(s, msg.summary || {}); this.saves = (this.saves || 0) + 1; return true; }
-      case 'prefetch': return (msg.items || []).length;
+      case 'prefetch': if (this.prefetches) this.prefetches.push(...(msg.items || [])); return (msg.items || []).length;
+      // SetsNear: the distance between two photos' previews, null when either can't be measured
+      // (card out, no preview range). Here: 0 for the same photo, else a fixed 0.25.
+      case 'near': {
+        (this.nears = this.nears || []).push({ a: msg.a, b: msg.b });
+        const okP = q => q && q.p && +q.o > 0 && +q.l > 0 && this.resolve(q.p) && !this.gone.has(q.p.split('/')[0]);
+        return okP(msg.a) && okP(msg.b) ? (msg.a.p === msg.b.p ? 0 : 0.25) : null;
+      }
       case 'ingestStats': return { workers: 4, inFlight: 0, maxInFlight: 4, heads: 0, previews: 0, largestRead: 0, opensAfterGone: 0, failures: 0, gone: [...this.gone] };
       case 'setPrefs': this.prefs = msg.prefs; return true;
       case 'reveal': this.revealed.push(msg.path); return true;
@@ -198,6 +209,15 @@ export class Bridge {
       case 'openSettings': this.settingsOpened = msg.what; return true;
       case 'checkAccess': return this.denied == null;
       case 'reopenDenied': return true;
+      case 'readSidecars': {
+        // Mirrors SetsFileOps.readSidecar: each sidecar as it is on disk now, and the base a write must match.
+        const root = this.roots[msg.root]; if (!root) return null;
+        return (msg.files || []).map(name => {
+          const dest = path.resolve(root, name);
+          if (!dest.startsWith(root + path.sep) || !/\.xmp$/i.test(dest)) return { name };
+          return { name, text: fs.existsSync(dest) ? fs.readFileSync(dest, 'utf8') : null, base: sidecarBase(dest) };
+        });
+      }
       case 'writeSidecars': {
         // Mirrors SetsFileOps.writeSidecar: into the shoot folder, .xmp only, .lumina-bak first, verify.
         const root = this.roots[msg.root]; if (!root) return null;
@@ -209,6 +229,9 @@ export class Bridge {
           const stem = path.basename(dest).replace(/\.[^.]+$/, '');
           if (!fs.readdirSync(path.dirname(dest)).some(n => /\.arw$/i.test(n) && n.replace(/\.[^.]+$/, '') === stem)) { errors.push({ name: stem, reason: 'missing' }); continue; }
           const data = Buffer.from(f.b64, 'base64');
+          if (this.beforeSidecar) this.beforeSidecar(dest);            // a test's chance to be the other app, writing at this instant
+          // The file must still be what the merge was based on (SetsFileOps.sidecarBase), else it is left alone.
+          if (f.base != null && sidecarBase(dest) !== f.base && !(fs.existsSync(dest) && fs.readFileSync(dest).equals(data))) { errors.push({ name: stem, reason: 'changed on disk' }); continue; }
           if (fs.existsSync(dest)) { if (!fs.existsSync(dest + '.lumina-bak')) { fs.copyFileSync(dest, dest + '.lumina-bak'); bak++; } }
           fs.writeFileSync(dest + '.tmp', data); fs.renameSync(dest + '.tmp', dest);
           if (!fs.readFileSync(dest).equals(data)) errors.push({ name: path.basename(f.name), reason: 'failed' }); else n++;
@@ -219,6 +242,13 @@ export class Bridge {
     }
   }
 }
+
+// A query as plumbing.js must write it (encodeURIComponent): %XX decoded once, a '+' stays a '+'.
+// Stricter than SetsSchemeHandler.query (which also reads '+' as a space) on purpose, so a URL built
+// with URLSearchParams fails here: a folder named "Shoot 2026" would arrive as "Shoot+2026".
+export const strictQuery = u => Object.fromEntries(u.search.slice(1).split('&').filter(Boolean).map(kv => {
+  const i = kv.indexOf('='); return [decodeURIComponent(i < 0 ? kv : kv.slice(0, i)), decodeURIComponent(i < 0 ? '' : kv.slice(i + 1))];
+}));
 
 // app: plumbing.js + the stand-in bridge (as the app); false: the prototype as designed.
 // clockBase: fixed wall clock, as the probe's (ms since epoch). parity: plumbing's test-only sample mode.
@@ -233,14 +263,14 @@ export async function open(browser, bridge, { prefs, app = true, size = [1440, 9
     const u = new URL(route.request().url()), p = decodeURIComponent(u.pathname.slice(1));
     if (p.startsWith('render/')) {
       // The Edit preview (image path): what lumina://render answers.
-      const rel = p.slice(7), q = Object.fromEntries(u.searchParams);
+      const rel = p.slice(7), q = strictQuery(u);
       if (!bridge || !bridge.resolve(rel)) return route.fulfill({ status: 404, body: 'not in an opened folder' });
       const r = await bridge.render(rel, q);
       return route.fulfill({ status: r.status, body: r.body, contentType: r.contentType || 'text/plain' });
     }
     if (p.startsWith('media/')) {
       if (bridge && bridge.delayMs) await new Promise(r => setTimeout(r, bridge.delayMs));   // a slow card
-      const q = Object.fromEntries(u.searchParams), f = bridge && bridge.resolve(q.p || '');
+      const q = strictQuery(u), f = bridge && bridge.resolve(q.p || '');
       const [n] = (q.p || '').split('/');
       if (bridge && bridge.gone.has(n)) return route.fulfill({ status: 410, body: 'card removed' });
       if (!f || !fs.existsSync(f)) return route.fulfill({ status: 404, body: 'not in an opened folder' });
@@ -260,7 +290,7 @@ export async function open(browser, bridge, { prefs, app = true, size = [1440, 9
   await page.addInitScript(`window.__resources=Object.assign(window.__resources||{},${JSON.stringify(VENDOR)});`);
   if (app) {
     await page.exposeFunction('__nativeCall', msg => bridge.handle(msg));
-    await page.addInitScript(`window.__luminaConfig=${JSON.stringify({ debug: false, prefs: prefs || null, parity })};`);
+    await page.addInitScript(`window.__luminaConfig=${JSON.stringify({ debug: false, prefs: prefs || null, parity, nearLimit: 0.35 })};`);
     await page.addInitScript(`window.webkit={messageHandlers:{lumina:{postMessage:m=>window.__nativeCall(m)}}};`);
     await page.addInitScript(fs.readFileSync(path.join(WEB, 'plumbing.js'), 'utf8'));
   }

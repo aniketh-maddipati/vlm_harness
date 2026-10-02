@@ -30,7 +30,7 @@
   },
   {
    "do": "expect",
-   "js": "return ['reveal','setPrefs','openSettings','checkAccess','reopen','workingFiles','removeWorkingFiles'].filter(k => typeof window.lumina[k] !== 'function')",
+   "js": "return ['reveal','setPrefs','openSettings','checkAccess','reopen','workingFiles','removeWorkingFiles','near'].filter(k => typeof window.lumina[k] !== 'function')",
    "equals": []
   },
   {
@@ -39,6 +39,14 @@
    "equals": [
     "boolean",
     "boolean"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "return [typeof window.lumina.nearLimit, window.lumina.nearLimit > 0 && window.lumina.nearLimit < 1]",
+   "equals": [
+    "number",
+    true
    ]
   },
   {

@@ -68,6 +68,8 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     let workers: Int
     private let lock = NSLock()
     private var roots: [String: URL] = [:]
+    /// Each root's paths as `resolve` compares them and `read` opens below them, worked out at `register`.
+    private var rootPaths: [String: RootPath] = [:]
     private var gone: Set<String> = []
     private var stats = Stats()
     private let previewCache = NSCache<NSString, NSData>()
@@ -94,8 +96,10 @@ nonisolated final class SetsIngest: @unchecked Sendable {
 
     /// A folder the user opened, known to the page by its name ("<name>/<file>").
     func register(_ url: URL) {
+        let paths = RootPath(url)                        // one realpath here, not one per read
         lock.withLock {
             roots[url.lastPathComponent] = url
+            rootPaths[url.lastPathComponent] = paths
             gone.remove(url.lastPathComponent)
             headCache.removeAllObjects()                 // another card can hold the same names
             stats.gone = gone.sorted()
@@ -107,13 +111,60 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     func root(named name: String) -> URL? { lock.withLock { roots[name] } }
 
     /// `<root name>/<path inside it>` → file URL, refusing anything that climbs out of the root.
-    func resolve(_ rel: String) -> URL? {
+    /// The one gate for every native read of a photo (head, preview, thumbnail, the Edit render, the
+    /// canvas, export): `../` out of the root is refused, and so is ANY symbolic link below the root,
+    /// a linked folder on the way or the file itself, wherever it points, inside the shoot or out
+    /// (a camera never writes one, and refusing them all needs no second look at where one leads).
+    /// The root is the folder the user chose: it may itself be reached through a link.
+    /// A file that is no longer there still resolves, so the caller can say "gone" or "missing".
+    /// Hard links can't be told apart from the file itself: accepted.
+    func resolve(_ rel: String) -> URL? { locate(rel)?.url }
+
+    /// A root's two paths. `plain` is what `resolve` compares with; `real` has every link on the way
+    /// to the root resolved, so `read` can open below it with no link allowed anywhere in the path.
+    private struct RootPath {
+        let plain: String
+        var real: String?
+
+        init(_ url: URL) { plain = SetsIngest.plainPath(url); real = Self.realPath(url) }
+
+        /// nil while the folder isn't there (a card not in the reader yet): asked again when needed.
+        static func realPath(_ url: URL) -> String? {
+            guard let p = realpath(url.path, nil) else { return nil }
+            defer { free(p) }
+            return String(cString: p)
+        }
+    }
+
+    /// `resolve`, plus the same file below the root's real path (what `read` opens).
+    private func locate(_ rel: String) -> (url: URL, real: String)? {
         let parts = rel.split(separator: "/", maxSplits: 1).map(String.init)
-        guard parts.count == 2, let root = root(named: parts[0]) else { return nil }
+        guard parts.count == 2, let (root, known) = lock.withLock({ () -> (URL, RootPath)? in
+            guard let r = roots[parts[0]], let k = rootPaths[parts[0]] else { return nil }
+            return (r, k)
+        }) else { return nil }
         let url = root.appendingPathComponent(parts[1]).standardizedFileURL
         // Compared as plain paths: a file that no longer exists keeps a /private prefix its folder loses.
-        guard Self.plainPath(url).hasPrefix(Self.plainPath(root) + "/") else { return nil }
-        return url
+        let plain = Self.plainPath(url)
+        guard plain.hasPrefix(known.plain + "/") else { return nil }
+        var real = known.real
+        if real == nil, let now = RootPath.realPath(root) {     // the folder appeared since `register`
+            real = now
+            lock.withLock { if roots[parts[0]] == root { rootPaths[parts[0]]?.real = now } }
+        }
+        // One lstat per name below the root (two for a DCIM-style path), none for the root itself.
+        // It stops at the first name that isn't there: nothing below that can be a link, and a pulled
+        // card (the root itself missing) still gets its URL back, for `lost` to call it gone.
+        var path = real ?? root.standardizedFileURL.path
+        var checking = true
+        for part in plain.dropFirst(known.plain.count + 1).split(separator: "/") {
+            path += "/" + part
+            guard checking else { continue }
+            var st = stat()
+            guard lstat(path, &st) == 0 else { checking = false; continue }
+            if (st.st_mode & S_IFMT) == S_IFLNK { return nil }
+        }
+        return (url, path)
     }
 
     /// The volume went away (card pulled or ejected): every root on it stops reading now.
@@ -169,11 +220,44 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         var others: [String] = []
         /// On a card or removable volume: the page keeps Save off (SAFETY.md 4).
         var onCard = false
+        /// Sidecars left unread because they are over `Limits.sidecarBytes`: their paths. The page
+        /// counts them with its unreadable files.
+        var skippedXmp: [String] = []
+        /// Set when the listing stopped before the end. A stopped listing carries no files, so part
+        /// of a folder never reaches the page looking like all of it.
+        var stopped: Stop?
 
         var dictionary: [String: Any] {
             ["name": name, "files": files.map { ["rel": $0.rel, "size": $0.size] }, "xmp": xmp.map { ["rel": $0.rel, "text": $0.text] },
-             "others": others, "onCard": onCard]
+             "others": others, "onCard": onCard, "skippedXmp": skippedXmp]
         }
+    }
+
+    enum Stop: String, Equatable {
+        /// More than `Limits.entries` files and folders.
+        case tooManyFiles
+        /// A folder more than `Limits.depth` levels below the opened one.
+        case tooDeep
+        /// Another folder was opened while this one was being listed.
+        case cancelled
+    }
+
+    /// How much of a folder a listing walks and reads before it gives up (threat model T5).
+    struct Limits {
+        /// Files and folders seen, counted before any filter. A shoot is a RAW, often a JPEG and a
+        /// sidecar per frame: a 512 GB card of 24 MP ARWs holds about 20,000 frames (60,000
+        /// entries), so 100,000 is a card and a half in one folder. The walk runs at about 60,000
+        /// entries a second on an M-series SSD (`SetsIngestBoundsTests` measures it), so `/`, a home
+        /// folder or a whole disk is refused in under 2 s, and `others` stays at about 10 MB of paths.
+        var entries = 100_000
+        /// Folder levels below the opened one. A card is 2 deep (DCIM/100MSDCF); an archive opened
+        /// at its year (2026/09 wedding/day 1/card A/DCIM/100MSDCF) is 6. 12 is twice that; deeper
+        /// trees (system folders, source checkouts, app data) are not shoots, and are refused as
+        /// soon as the walk reaches one instead of at the entry count.
+        var depth = 12
+        /// A sidecar is read whole and handed to the page as text. Lightroom's, with a full develop
+        /// history, is tens of KB: 1 MB is far past any real one. Larger ones are not read at all.
+        var sidecarBytes = SetsFileOps.sidecarMaxBytes
     }
 
     /// macOS refused to list the folder (Privacy & Security → Files and Folders, SAFETY.md 5).
@@ -190,29 +274,64 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     /// Every ARW under `root` (and its .xmp sidecars, read now: they're small), the way WebKit's
     /// folder input lists it: recursive, hidden files and AppleDouble `._` stubs skipped. Other
     /// files are listed by name only. Lumina's own `.lumina-bak` files are left out.
-    static func list(_ root: URL) -> Listing {
+    /// Bounded by `limits`: a sidecar over the size is not read and is named in `skippedXmp`; past
+    /// the entry count or the depth the listing stops, empty, with `stopped` set. Cancellable:
+    /// `isCancelled` (by default, the calling task's cancellation) is checked as it walks.
+    static func list(_ root: URL, limits: Limits = Limits(), isCancelled: () -> Bool = { Task.isCancelled }) -> Listing {
         var out = Listing(name: root.lastPathComponent)
         out.onCard = SetsFileOps.isCard(root)
         let base = root.standardizedFileURL.path
-        let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey]
+        let prefix = base.hasSuffix("/") ? base : base + "/"          // "/" itself opened
+        let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey, .fileSizeKey]
         guard let e = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return out }
+        let stop = { (why: Stop) -> Listing in
+            var empty = Listing(name: out.name)
+            empty.onCard = out.onCard
+            empty.stopped = why
+            return empty
+        }
+        var seen = 0
         for case let url as URL in e {
+            seen += 1
+            if seen > limits.entries { return stop(.tooManyFiles) }
+            if seen & 127 == 0, isCancelled() { return stop(.cancelled) }
+            guard let v = try? url.resourceValues(forKeys: Set(keys)) else { continue }
+            if v.isDirectory == true {
+                if url.standardizedFileURL.path.dropFirst(prefix.count).split(separator: "/").count > limits.depth { return stop(.tooDeep) }
+                continue
+            }
             let name = url.lastPathComponent
             guard !name.hasPrefix("._") else { continue }
             let ext = url.pathExtension.lowercased()
             guard !name.hasSuffix(SetsFileOps.backupSuffix) else { continue }
-            guard let v = try? url.resourceValues(forKeys: Set(keys)), v.isRegularFile == true else { continue }
-            let inside = String(url.standardizedFileURL.path.dropFirst(base.count + 1))
+            guard v.isRegularFile == true else { continue }
+            let inside = String(url.standardizedFileURL.path.dropFirst(prefix.count))
             let rel = out.name + "/" + inside
             if ext != "arw" && ext != "xmp" {
                 out.others.append(rel)
             } else if ext == "arw" {
                 out.files.append((rel, v.fileSize ?? 0))
-            } else if let data = try? Data(contentsOf: url), let text = String(data: data, encoding: .utf8) {
-                out.xmp.append((rel, text))
+            } else if (v.fileSize ?? 0) > limits.sidecarBytes {
+                out.skippedXmp.append(rel)                          // the size is enough: never read to find out
+            } else {
+                switch readAtMost(url, limits.sidecarBytes) {
+                case .some(.some(let data)): if let text = String(data: data, encoding: .utf8) { out.xmp.append((rel, text)) }
+                case .some(.none): out.skippedXmp.append(rel)       // grew past the limit after the listing saw it
+                case .none: break                                   // unreadable: left out, as before
+                }
             }
         }
+        if isCancelled() { return stop(.cancelled) }
         return out
+    }
+
+    /// The whole file if it is at most `max` bytes (`.some(data)`), `.some(nil)` if it is longer, nil
+    /// if it can't be read. Never holds more than `max + 1` bytes.
+    private static func readAtMost(_ url: URL, _ max: Int) -> Data?? {
+        guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? h.close() }
+        guard let data = try? h.read(upToCount: max + 1) else { return nil }
+        return .some(data.count > max ? nil : data)
     }
 
     // MARK: Reads (called off the main thread)
@@ -299,14 +418,21 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     /// One positioned read, uncached by the OS. A missing root means the card went away.
     private func read(_ rel: String, offset: Int, length: Int, allowShort: Bool) throws -> Data {
         if isGone(rel) { throw Failure(.gone, "card removed") }
-        guard let url = resolve(rel) else { throw Failure(.notFound, "not in an opened folder: \(rel)") }
+        guard let (url, real) = locate(rel) else { throw Failure(.notFound, "not in an opened folder: \(rel)") }
         lock.withLock {
             stats.inFlight += 1
             stats.maxInFlight = max(stats.maxInFlight, stats.inFlight)
             if gone.contains(String(rel.split(separator: "/").first ?? "")) { stats.opensAfterGone += 1 }
         }
         defer { lock.withLock { stats.inFlight -= 1 } }
-        let fd = open(url.path, O_RDONLY | O_NOFOLLOW)            // read-only; a symlink is never followed out
+        // Read-only, and no link is followed: `locate` has just checked, and the kernel checks again
+        // at the open, so a folder swapped for a link in between is refused too. Darwin refuses a
+        // link anywhere in the path (hence the root's real path); elsewhere only as the last name.
+        #if canImport(Darwin)
+        let fd = open(real, O_RDONLY | O_NOFOLLOW_ANY)
+        #else
+        let fd = open(real, O_RDONLY | O_NOFOLLOW)
+        #endif
         guard fd >= 0 else { throw lost(rel, url, errno) }
         defer { close(fd) }
         _ = fcntl(fd, F_NOCACHE, 1)

@@ -7,7 +7,7 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": true,
- "checklist": "F1 / SAFETY.md 3 and 4 (v5; was the card pulled mid-export, which v5 can't do: it never copies from a card): the card is pulled after it was read, while its keepers wait on Save. State is kept (photos, keepers), Cull says the card is gone, the previews already read still show, and culling goes on; ⌘↩ with the card out writes nothing anywhere and lists each keeper with its reason; re-inserting clears the notice without a second read and without losing a decision; nothing is ever written to the card.",
+ "checklist": "F1 / SAFETY.md 3 and 4 (v5; was the card pulled mid-export, which v5 can't do: it never copies from a card): the card is pulled after it was read, while its keepers wait on Save. State is kept (photos, keepers), Cull says the card is gone, the previews already read still show, and culling goes on; ⌘↩ with the card out writes nothing anywhere and lists each keeper with its reason; re-inserting clears the notice without a second read and without losing a decision; nothing is ever written to the card. First grant (R1c): the card is culled once through 'Cull this card' (sandboxed: the panel's pick, scripted), then a relaunch and the card out and in, so from here on it is a card the app already knows (sandboxed: through its bookmark), in both modes; the steps after that are unchanged.",
  "steps": [
   {
    "do": "startCards"
@@ -19,6 +19,47 @@
    "from": "${LUMINA_FIXTURE_ROOT}/src",
    "trimBytes": 1400000,
    "count": 12
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!(window.lumina.card || window.lumina.cardPending)",
+   "timeoutMs": 15000,
+   "what": "card noticed (first insert)"
+  },
+  {
+   "do": "sources",
+   "paths": [
+    "${DISKS}/LTPULL/DCIM"
+   ],
+   "why": "first grant: the answer to the card panel 'Cull this card' opens in the App Sandbox (unsandboxed no panel opens and this is unused)"
+  },
+  {
+   "do": "js",
+   "src": "__probe.logic().impStart(); return true"
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo)",
+   "timeoutMs": 60000,
+   "what": "card read (first grant)"
+  },
+  {
+   "do": "reload",
+   "settleMs": 800
+  },
+  {
+   "do": "detach",
+   "name": "LTPULL"
+  },
+  {
+   "do": "waitFor",
+   "js": "return window.lumina.card===null && window.lumina.cardPending===null",
+   "timeoutMs": 10000,
+   "what": "card out after the first grant"
+  },
+  {
+   "do": "attach",
+   "name": "LTPULL"
   },
   {
    "do": "waitFor",

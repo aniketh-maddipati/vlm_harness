@@ -24,7 +24,10 @@
   // keeps only a lumina:// URL for the large view (the Mac caches around the cursor). Same origin,
   // so canvases stay clean.
   class Gone extends Error {}
-  const media = (kind, q) => new URL('/media/' + kind + '?' + new URLSearchParams(q).toString(), location.href).href;
+  // encodeURIComponent, not URLSearchParams (which writes a space as '+'): a space is %20 and a real
+  // '+' is %2B, so a folder named "Shoot 2026" reads (SetsSchemeHandler.query; previewOf below reads it back).
+  const query = q => Object.keys(q).filter(k => q[k] != null).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(q[k])).join('&');
+  const media = (kind, q) => new URL('/media/' + kind + '?' + query(q), location.href).href;
   const get = async url => {
     const r = await fetch(url);
     if (r.status === 410) throw new Gone('card removed');
@@ -40,6 +43,9 @@
   // Stands in for the File the page keeps per photo: the same name and relative path, no bytes.
   const fileRef = rel => ({ name: rel.split('/').pop(), webkitRelativePath: rel, __luminaRel: rel });
   let reading = null, lastRead = null;
+  // Where each photo's embedded preview is, by path, as the native read found it: what the Mac
+  // measures for lumina.near. Photos the page read by itself (a dragged-in folder) have none.
+  const previewAt = new Map();
 
   // Everything below leans on these page members. A design sync that renames one shows up here (and
   // in the probe's plumbing-contract scenario) instead of as a silent break.
@@ -73,7 +79,7 @@
   // per row, by row id like `seen`. Never in XMP: the sidecars the page builds carry ratings only.
   const BY_ID = ['marks', 'flags', 'stars', 'cuts', 'look'];
   const SCALAR = ['seen', 'tsz', 'regions', 'lastEx', 'rowLook'];
-  let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, readMoved = false;
+  let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, readMoved = false, sessionRefused = null;
   // Last scroll in the page (any scroller), for pacing the grid's refresh while a folder is read.
   let scrollT = 0;
   document.addEventListener('scroll', () => { scrollT = performance.now(); }, { capture: true, passive: true });
@@ -119,7 +125,16 @@
     if (!(l && l.real && shootId && !reading && !l.state.realLoad)) return;
     if (performance.now() - lastChange < SAVE_DEBOUNCE) { scheduleSave(); return; }
     const json = JSON.stringify(snapshot(l));
-    if (json !== lastSaved) { lastSaved = json; base = JSON.parse(json); native('saveSession', { id: shootId, json, summary: summary(l) }); }
+    if (json !== lastSaved) {
+      lastSaved = json; base = JSON.parse(json);
+      // A session over the Mac's limit (threat model T5) is refused: said once per shoot. The wording
+      // is a stand-in until DESIGN-ASKS Prompt 6 lands. Other failures stay as before (not shown).
+      const id = shootId;
+      Promise.resolve(native('saveSession', { id, json, summary: summary(l) })).catch(err => {
+        if (!/too big/.test(String((err && err.message) || err))) throw err;
+        if (sessionRefused !== id) { sessionRefused = id; l.say('decisions not saved · session too big'); }
+      });
+    }
   };
   const scheduleSave = () => {
     clearTimeout(saveTimer);
@@ -152,6 +167,8 @@
   window.lumina = Object.assign(window.lumina || {}, {
     app: true, debug: !!cfg.debug, persisted: true,
     card: null,            // { name, photos, bytes, sony, path, model, range } while a card is in, else null
+    cardPending: null,     // { name, path, uuid, photos: null, sony: null, known: false }: a card the Mac will let Lumina read only
+                           // once it is picked (App Sandbox, first time for this card); impStart() asks for it (DESIGN-ASKS Prompt 9)
     readingCard: false,    // the open shoot is on a mounted card or removable volume: Save stays off (SAFETY.md 4)
     willPromptAccess: false, // the Mac's folder picker grants access itself: no pre-prompt sheet
     read: null,            // the last folder read: { name, total, read, unreadable, stopped: 'card removed' | null }
@@ -166,6 +183,17 @@
     openSettings: what => native('openSettings', { what: what || 'files' }),
     checkAccess: () => native('checkAccess', {}),
     reopen: () => native('reopenDenied', {}),
+    // How alike two photos are, for stacking retakes (DESIGN-ASKS Prompt 2 C): 0 is the same image,
+    // about 1 is unrelated, measured by the Mac on the embedded previews (never a RAW decode). Takes
+    // two photo paths; resolves once both are measured, to null when either can't be. Two photos
+    // are one picture at or under nearLimit, which is the Mac's because it belongs to its measure
+    // (null when the Mac has no threshold for its measure: keep the page's own rule then).
+    near: (a, b) => {
+      const A = previewAt.get(String(a)), B = previewAt.get(String(b));
+      if (!A || !B || window.lumina.nearLimit == null) return Promise.resolve(null);
+      return native('near', { a: A, b: B }).then(d => (typeof d === 'number' && isFinite(d) ? d : null), () => null);
+    },
+    nearLimit: typeof cfg.nearLimit === 'number' ? cfg.nearLimit : null,
   });
 
   const loadRecents = async logic => {
@@ -215,6 +243,12 @@
       if (!L) return;                                        // cancelled
       if (L.denied != null) { window.luminaAccess(true, L.denied); return; }
       window.luminaAccess(false);
+      // `/`, a home folder, a whole disk: the Mac stopped listing it (threat model T5). Said where the
+      // page says "no ARW found"; the wording is a stand-in until DESIGN-ASKS Prompt 6 lands.
+      if (L.tooBig) {
+        const T = L.tooBig, msg = 'not available · ' + T.name + ' · ' + (T.why === 'tooDeep' ? 'folders over ' + T.depth + ' deep' : 'over ' + T.files + ' files') + ' · open one shoot';
+        logic.setState({ openNote: msg }); return logic.say(msg);
+      }
       window.luminaCardGone(false);
       window.lumina.readingCard = !!L.onCard;
       await ingest(L);
@@ -231,6 +265,7 @@
         const [po, pl] = m.preview;
         if (po + pl <= f.size) {
           pq = { p: rel, o: po, l: pl, ori: m.orient || 1 };
+          previewAt.set(rel, pq);
           // As stored (ori 1): the page's own canvas turns it, below.
           blob = await (await get(media('preview', Object.assign({}, pq, { ori: 1 })))).blob();
           nt = nativeTile(pq);                               // made by the Mac while the page measures
@@ -339,7 +374,10 @@
       const run = reading = { name: L.name, total: files.length, done: 0, gone: false };
       const t0 = performance.now(), res = new Array(files.length); let done = 0, i = 0, pre = 0, shown = false, lastB = 0, firstCur = null;
       readMoved = false;
+      previewAt.clear();
       logic._gold = []; logic._failed = []; logic.real = [];
+      // Sidecars over 1 MB the Mac did not read (threat model T5): counted with the unreadable files.
+      for (const rel of L.skippedXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar over 1 MB, not read' });
       logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
       // Rows appear as the contiguous prefix grows: every 400 ms, as in the page; every 1.5 s while
       // the reader is scrolling, so the grid isn't rebuilt under a moving scroll (plumbing's pacing).
@@ -403,14 +441,31 @@
         return native('writeInto', { label: 'jpeg', files: list });
       }
       if (label !== 'xmp') return null;
+      // The page merged each rating into the sidecar text it holds from the open (xmpFor on p.xmp),
+      // which can be hours old: Lightroom may have written the file since. So the Mac reads every
+      // sidecar again now (text + base: the SHA-256 of those bytes, or "none"). Where the text differs
+      // from the page's, the photo gets the text on disk and the page's own xmpFor merges again. The
+      // base goes with the write: a file that is no longer its base (written in the instant between)
+      // is left as it is and comes back "changed on disk"; nothing is retried silently (SAFETY.md 6),
+      // the next Save reads again. The text from the open is never written over a newer file.
+      const root = info.name || '', enc = new TextEncoder(), byId = (logic.data && logic.data.byId) || {}, owner = {}, now = {};
+      // A file's photo, by the name the page's runExport gave the file (xpath without the folder's name).
+      for (const [id, p] of Object.entries(byId)) { const q = (p.xpath || (p.file || '').replace(/\.[^.]+$/, '') + '.xmp').split('/'); owner[q.length > 1 ? q.slice(1).join('/') : q[0]] = id; }
+      for (const s of (await native('readSidecars', { root, files: files.map(f => f.name) })) || []) now[s.name] = s;
       const list = [];
       for (const f of files) {
-        const d = f.data;
-        if (d instanceof Uint8Array) list.push({ name: f.name, b64: b64(d) });
-        else if (d instanceof Blob) list.push({ name: f.name, b64: b64(new Uint8Array(await d.arrayBuffer())) });
-        else if (typeof d === 'string') list.push({ name: f.name, b64: b64(new TextEncoder().encode(d)) });
+        const s = now[f.name], id = owner[f.name], p = id != null ? byId[id] : null, it = { name: f.name };
+        let d = f.data;
+        if (p && s && s.base != null) {
+          const tx = s.text == null ? null : s.text;
+          if ((p.xmp || null) !== (tx || null)) { p.xmp = tx; p.lrEd = LuminaCore.hasDevelop(tx); d = logic.xmpFor(id); }
+          it.base = s.base;
+        } else if (p) it.base = 'unread';                    // couldn't be read now: no file matches this, the write says why
+        // (No photo for the name: nothing the page merged from. Sent as it is, unchecked.)
+        const u = d instanceof Uint8Array ? d : d instanceof Blob ? new Uint8Array(await d.arrayBuffer()) : typeof d === 'string' ? enc.encode(d) : null;
+        if (u) { it.b64 = b64(u); list.push(it); }
       }
-      const r = await native('writeSidecars', { root: info.name || '', files: list });
+      const r = await native('writeSidecars', { root, files: list });
       if (r && !(r.errors || []).length && (r.n || 0) > 0) savedKeepers = keepersOf(logic);
       if (r) setTimeout(saveNow, 0);
       return r;
@@ -455,8 +510,9 @@
 
   let current = null;
   const watch = () => {
+    rowKeys();
     const l = findLogic();
-    if (l && l !== current) { current = l; patch(l); if (!missing(l).length) native('ready', {}); }
+    if (l && l !== current) { current = l; patch(l); lead(l); if (!missing(l).length) native('ready', {}); }
     setTimeout(watch, current ? 1000 : 30);
   };
 
@@ -507,6 +563,90 @@
   };
   document.addEventListener('scroll', () => { if (!warmRaf) warmRaf = requestAnimationFrame(warmAhead); }, { capture: true, passive: true });
 
+  // A Cull row keeps its own element while the grid scrolls. The page mounts the rows around the
+  // viewport as a list, and its runtime keys list items by position: each time the first mounted row
+  // changes, every row's element is handed the next row's photos, its height animates 180 ms to that
+  // row's height and its images swap under the reader (measured: 50 to 85 % of the rows on screen out
+  // of place while scrolling a shoot whose rows differ in height). Keyed by the row's id instead, the
+  // rows that stay are not touched and only the ones entering or leaving mount. Same elements, same
+  // styles; DESIGN-ASKS 11 asks the page for it.
+  let rowKeysOn = cfg.rowKeys !== false && !cfg.parity;
+  const rowKeys = () => {
+    const R = window.React;
+    if (!R || R.__luminaRowKeys || typeof R.createElement !== 'function') return;
+    const make = R.createElement, Frag = R.Fragment;
+    // A row item is a list item whose sc-if holds the row's element directly: that level and no other
+    // (keyed one level up, the list itself would be remounted every time its first row changes).
+    const rowId = kids => {
+      for (const c of kids) {
+        if (!c || c.type !== Frag || !c.props) continue;
+        const inner = c.props.children;
+        for (const e of Array.isArray(inner) ? inner : [inner]) {
+          if (e && e.props && e.props['data-lumina'] === 'row' && e.props['data-id'] != null) return e.props['data-id'];
+        }
+      }
+      return null;
+    };
+    R.createElement = function (type, props, kids) {
+      if (rowKeysOn && type === Frag && props && typeof props.key === 'number' && Array.isArray(kids)) {
+        const id = rowId(kids);
+        if (id != null) { const a = Array.prototype.slice.call(arguments); a[1] = Object.assign({}, props, { key: 'row:' + id }); return make.apply(this, a); }
+      }
+      return make.apply(this, arguments);
+    };
+    R.__luminaRowKeys = true;
+  };
+
+  // With rows keyed, a row entering the window is a new element, and the page starts every tile
+  // image at opacity 0, loads it lazily and fades it in over 180 ms: at scrolling speed the rows
+  // arrive on screen still blank. Two behaviours, both asked of the page in DESIGN-ASKS 7 (b), (c):
+  // a thumbnail that exists is loaded at once and shown the moment it has loaded (the fade stays for
+  // thumbnails that arrive while the reader looks on: a read in progress, the grid at rest); and the
+  // mounted rows lead the scroll by 0.4 s of travel, up to two viewports, 700 px behind as the page
+  // has it, and return to the page's own ±700 px when the scroll rests.
+  const CULL = '[data-screen-label="1 Cull"]';
+  let tilesOn = cfg.readyTiles !== false && !cfg.parity;
+  const readyTile = im => {
+    if (im.loading === 'lazy') im.loading = 'eager';
+    if (!(reading && performance.now() - scrollT > 300)) im.style.transition = 'none';
+  };
+  if (typeof MutationObserver === 'function') new MutationObserver(list => {
+    if (!tilesOn || !current || !current.real) return;
+    for (const m of list) for (const n of m.addedNodes) {
+      if (n.nodeType !== 1) continue;
+      const root = n.closest(CULL) ? n : n.querySelector(CULL);
+      if (!root) continue;
+      if (root.tagName === 'IMG') readyTile(root); else for (const im of root.querySelectorAll('img')) readyTile(im);
+    }
+  }).observe(document, { childList: true, subtree: true });      // the document: at document start there may be no root element yet
+
+  let leadOn = cfg.leadWindow !== false && !cfg.parity;
+  const lead = logic => {
+    if (logic.__luminaLead || typeof logic.onScroll !== 'function' || typeof logic.layout !== 'function' || !logic.scrollRef || !Array.isArray(logic.state.vr)) return;
+    logic.__luminaLead = true;
+    const own = logic.onScroll;
+    let lastTop = null, lastT = 0, rest = 0, held = 0, dir = 0;
+    logic.onScroll = function () {
+      if (!leadOn) return own.call(logic);
+      cancelAnimationFrame(logic._sr);
+      logic._sr = requestAnimationFrame(() => {
+        const el = logic.scrollRef.current; if (!el) return;
+        const now = performance.now(), y = el.scrollTop, dt = now - lastT, resting = lastTop == null || dt > 250;
+        const v = resting ? 0 : (y - lastTop) / Math.max(8, dt);                                             // px per ms
+        lastTop = y; lastT = now;
+        // The lead holds while the scroll keeps its direction (a frame without movement must not unmount
+        // rows the next one mounts again) and goes when the scroll turns or rests.
+        if (resting) { dir = 0; held = 0; } else if (v && Math.sign(v) !== dir) { dir = Math.sign(v); held = 0; }
+        const ahead = held = Math.max(Math.min(2 * el.clientHeight, Math.abs(v) * 400), held * 0.9);
+        const L = logic.layout(), top = y - 700 - (dir < 0 ? ahead : 0), bot = y + el.clientHeight + 700 + (dir > 0 ? ahead : 0);
+        let a = 0; while (a < L.rows.length - 1 && L.rows[a].y + L.rows[a].h < top) a++;
+        let b = a; while (b < L.rows.length - 1 && L.rows[b + 1].y < bot) b++;
+        const w = logic.state.vr; if (w[0] !== a || w[1] !== b) logic.setState({ vr: [a, b] });
+        clearTimeout(rest); if (ahead) rest = setTimeout(() => logic.onScroll(), 400);
+      });
+    };
+  };
+
   // ——— The Edit canvas (roadmap addendum, RAW 9). Behaviour and data only: the page draws the
   // filmstrip, sliders and facts; the Mac draws the pixels, either natively (an MTKView over the
   // page's canvas rect: `canvas: native`) or, without Metal, through lumina://render images the
@@ -527,10 +667,9 @@
   // transit times, so a look event and the frame that shows it are timed on one base.
   const pageNow = () => performance.now();
   const dpr = () => Math.max(1, window.devicePixelRatio || 1);
-  // Encoded with encodeURIComponent, not URLSearchParams: the latter writes a space as '+', which the
-  // Mac's URLComponents leaves as '+' (the sign in 'ev:+0.30'), so a two-key look would arrive as one token.
-  const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?'
-    + Object.keys(q).filter(k => q[k] != null).map(k => k + '=' + encodeURIComponent(q[k])).join('&');
+  // Encoded with encodeURIComponent (`query`, as media URLs), not URLSearchParams: the latter writes a
+  // space as '+', and a look's sign ('ev:+0.30') must stay a '+'. Each path segment on its own.
+  const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?' + query(q);
   const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null };
   // The image path's latest-wins renderer (addendum §7): one fetch in flight, the newest look
   // waits, a quarter-size render while dragging, the full one at rest (drag end, key, 120 ms idle).
@@ -684,10 +823,15 @@
     shootId: () => shootId,
     card(present, info) {
       if (cfg.parity) return;              // test-only: keep the sample card for pixel parity
-      window.lumina.card = present ? (info || {}) : null;
+      // A card not readable yet (sandbox, first insert) has no count and no Sony flag. As `card` the
+      // page would read it as "no ARW found · 0 photos" with nothing to click, so it waits in
+      // `cardPending` (data only) until the user picks it and the app sends the whole card.
+      const pending = !!(present && info && info.known === false);
+      window.lumina.cardPending = pending ? info : null;
+      window.lumina.card = present && !pending ? (info || {}) : null;
       const l = window.__lumina.logic();
       if (!present && l && l.state.realLoad) cardPulledWhileReading = true;
-      if (l) { l.impSet({ card: !!present }); l.forceUpdate && l.forceUpdate(); }
+      if (l) { l.impSet({ card: !!window.lumina.card }); l.forceUpdate && l.forceUpdate(); }
     },
     // The card went away (SAFETY.md 3). `stopped`: the opened folders on it, whose reads the Mac has
     // already stopped; `ours`: the open shoot is on it. State is kept.
@@ -742,12 +886,17 @@
         zsrcOff: real.length && l.data ? Object.values(l.data.byId).filter(q => q.zsrc !== q.lg).length : 0,   // zoom must use the same preview
         srcNotBlob: withPv.filter(p => !/^blob:/.test(p.src || '')).length,
         dupPaths: paths.length - new Set(paths).size,
-        shootId, card: window.lumina.card, readingCard: window.lumina.readingCard,
+        shootId, card: window.lumina.card, cardPending: window.lumina.cardPending, readingCard: window.lumina.readingCard,
       };
     },
     nativeStats: () => native('ingestStats', {}),
     // Probe A/B: decode thumbnails ahead of a scroll or not. Returns how many are held.
     warmAhead(on) { if (on != null) { warmOn = !!on; if (!warmOn) warm.clear(); } return warm.size; },
+    // Probe A/B: Cull rows keyed by row id (on) or by position, as the page's runtime keys them.
+    rowKeys(on) { if (on != null) { rowKeysOn = !!on; if (current) current.forceUpdate(); } return rowKeysOn && !!(window.React && window.React.__luminaRowKeys); },
+    // Probe A/B: thumbnails that exist shown without the fade, and the mounted rows leading the scroll.
+    readyTiles(on) { if (on != null) tilesOn = !!on; return tilesOn; },
+    leadWindow(on) { if (on != null) leadOn = !!on; return leadOn; },
     say(t) { const l = window.__lumina.logic(); if (l) l.say(t); },
     openFolder() { const l = window.__lumina.logic(); if (l) l.openFolder(true); },
     undo() {

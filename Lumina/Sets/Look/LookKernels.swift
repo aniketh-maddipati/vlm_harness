@@ -113,7 +113,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(mix(per, byLuma, k.z), s.a);
     }
 
-    // colour: k1 = (satFactor, vibranceAmt, chromaMax, protectOn), k2 = (skinHue, skinWidth, skinProtect, bw)
+    // colour: k1 = (satFactor, vibranceAmt, chromaMax, taper = 1 - vibranceFloor), k2 = (skinHue, skinWidth, skinProtect (0 below 0), bw)
     [[ stitchable ]] float4 lookColour(coreimage::sample_t s, float4 k1, float4 k2) {
         float3 c = s.rgb;
         float l = lk_cbrt(0.4122214708f * c.r + 0.5363325363f * c.g + 0.0514459929f * c.b);
@@ -132,8 +132,8 @@ nonisolated final class LookKernels: @unchecked Sendable {
             float dh = fmod(fabs(h - k2.x), 360.0f);
             if (dh > 180.0f) dh = 360.0f - dh;
             float skin = exp(-pow(dh / max(1e-6f, k2.y), 2.0f));
-            float protect = k1.w > 0.5f ? 1.0f - k2.z * skin : 1.0f;
-            float vib = max(0.0f, 1.0f + k1.y * (1.0f - min(1.0f, C / k1.z)) * protect);
+            float protect = 1.0f - k2.z * skin;
+            float vib = max(0.0f, 1.0f + k1.y * (1.0f - k1.w * min(1.0f, C / k1.z)) * protect);
             f = k1.x * vib;
         }
         A *= f; B *= f;

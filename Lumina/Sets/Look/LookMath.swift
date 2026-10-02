@@ -152,42 +152,54 @@ nonisolated enum LookMath {
 
     /// What Highlights and Shadows read a photo against (`LookPipeline.toneAnchor` measures it on
     /// a 256 px develop): the log-mean luma, how wide the tones spread (the standard deviation of
-    /// log2 luma, in stops) and the share of bright pixels (L* above 80). Across 156 photos these
-    /// explain most of how differently Lightroom treats the same pixel value from photo to photo:
-    /// Highlights pulls harder in darker and wider photos, Shadows lifts harder where much of the
-    /// frame is bright.
+    /// log2 luma, in stops), the share of bright pixels (L* above 80) and the photo's bright end
+    /// (the 95th percentile of luma). Across 156 photos these explain most of how differently
+    /// Lightroom treats the same pixel value from photo to photo: Highlights pulls harder in
+    /// darker and wider photos, Shadows lifts harder where much of the frame is bright, and the
+    /// Shadows mask sits against the photo's bright end rather than its average.
     struct ToneAnchor: Equatable, Sendable {
         var mean: Double
         /// nil: at the rules' centre (no effect), as for synthetic images and flat patches.
         var spread: Double?
         var bright: Double?
-        static let reference = ToneAnchor(mean: toneReference, spread: nil, bright: nil)
-        init(mean: Double, spread: Double? = nil, bright: Double? = nil) { self.mean = mean; self.spread = spread; self.bright = bright }
+        var high: Double?
+        static let reference = ToneAnchor(mean: toneReference, spread: nil, bright: nil, high: nil)
+        init(mean: Double, spread: Double? = nil, bright: Double? = nil, high: Double? = nil) { self.mean = mean; self.spread = spread; self.bright = bright; self.high = high }
     }
 
     /// Mid grey: the anchor mean at which the masks are the absolute ones.
     static let toneReference = 0.18
     /// Relative luminance of L* 80.
     static let brightY = 0.5668
+    /// The share of pixels below the anchor's `high`.
+    static let toneHighPercentile = 0.95
 
     /// A photo's tone anchor from its pixels (RGBA floats, linear). The mean is
-    /// exp(mean(ln(max(luma, 1e-4)))), kept inside [0.001, 4].
+    /// exp(mean(ln(max(luma, 1e-4)))), kept inside [0.001, 4]; `high` is the 95th percentile of
+    /// luma (linear interpolation between the sorted values), kept inside the same range.
     static func toneAnchor(pixels px: [Float], luma: [Double]) -> ToneAnchor {
         let n = px.count / 4
         guard n > 0 else { return .reference }
         var sum = 0.0, sum2 = 0.0, bright = 0
+        var lumas = [Double](repeating: 0, count: n)
         for i in 0..<n {
             let y = luma[0] * Double(px[4 * i]) + luma[1] * Double(px[4 * i + 1]) + luma[2] * Double(px[4 * i + 2])
             let l = log2(max(1e-4, y.isFinite ? y : 0))
+            lumas[i] = y.isFinite ? y : 0
             sum += l; sum2 += l * l
             if y > brightY { bright += 1 }
         }
         let m = sum / Double(n)
-        return ToneAnchor(mean: min(4, max(1e-3, exp2(m))), spread: max(0, sum2 / Double(n) - m * m).squareRoot(), bright: Double(bright) / Double(n))
+        lumas.sort()
+        let at = toneHighPercentile * Double(n - 1), lo = Int(at.rounded(.down)), hi = min(n - 1, lo + 1)
+        let high = lumas[lo] + (lumas[hi] - lumas[lo]) * (at - Double(lo))
+        return ToneAnchor(mean: min(4, max(1e-3, exp2(m))), spread: max(0, sum2 / Double(n) - m * m).squareRoot(), bright: Double(bright) / Double(n),
+                          high: min(4, max(1e-3, high)))
     }
 
-    /// How a photo shifts the tone stage: where the masks sit ((reference / mean)^adapt) and how
-    /// strong each slider is (exp of the photo's distance from the rules' centres).
+    /// How a photo shifts the tone stage: where the masks sit ((reference / mean)^adapt times
+    /// 2^(highAdapt · (highCentre − log2 high)): against the photo's average and its bright end)
+    /// and how strong each slider is (exp of the photo's distance from the rules' centres).
     static func toneNormalisers(anchor: ToneAnchor, _ rules: LookRules) -> (shadows: Double, highlights: Double, shadowsGain: Double, highlightsGain: Double) {
         let k = { (n: String, d: Double) in rules.k("tone", n, d) }
         let mean = min(4, max(1e-3, anchor.mean)), ratio = toneReference / mean
@@ -195,7 +207,8 @@ nonisolated enum LookMath {
         let dBright = (anchor.bright ?? k("brightCentre", 0.2)) - k("brightCentre", 0.2)
         let dMean = log2(mean) - k("meanCentre", log2(toneReference))
         let clamp = { (x: Double) in min(4, max(0.25, x)) }
-        return (pow(ratio, k("shadowsAdapt", 0)), pow(ratio, k("highlightsAdapt", 0)),
+        let dHigh = anchor.high.map { k("highCentre", 0) - log2(min(4, max(1e-3, $0))) } ?? 0
+        return (pow(ratio, k("shadowsAdapt", 0)) * exp2(k("shadowsHighAdapt", 0) * dHigh), pow(ratio, k("highlightsAdapt", 0)) * exp2(k("highlightsHighAdapt", 0) * dHigh),
                 clamp(exp(k("shadowsBright", 0) * dBright + k("shadowsSpread", 0) * dSpread)),
                 clamp(exp(k("highlightsMean", 0) * dMean + k("highlightsSpread", 0) * dSpread)))
     }
@@ -281,7 +294,12 @@ nonisolated enum LookMath {
         if dh > 180 { dh = 360 - dh }
         let skin = exp(-pow(dh / max(1e-6, rules.k("colour", "skinWidth", 25)), 2))
         let protect = vibrance > 0 ? 1 - rules.k("colour", "skinProtect", 0.7) * skin : 1
-        let vib = max(0, 1 + vibrance * rules.k("colour", "vibrancePerUnit", 0.01) * (1 - min(1, C / cmax)) * protect)
+        // Lightroom's Vibrance still moves vivid colours a little (`vibranceFloor` of the full strength at
+        // and above `vibranceChromaMax`) and takes colour away faster than it adds it (`vibranceDownPerUnit`).
+        let up = rules.k("colour", "vibrancePerUnit", 0.01)
+        let perUnit = vibrance > 0 ? up : rules.k("colour", "vibranceDownPerUnit", up)
+        let taper = 1 - min(1, max(0, rules.k("colour", "vibranceFloor", 0)))
+        let vib = max(0, 1 + vibrance * perUnit * (1 - taper * min(1, C / cmax)) * protect)
         return sat * vib
     }
 
@@ -340,6 +358,7 @@ nonisolated enum LookMath {
                 guard look.ev != 0 else { continue }
                 let g = exposureGain(look.ev, rules), w = exposureWhite(rules)
                 anchor.mean = exposure(anchor.mean, gain: g, white: w)          // the photo is that much brighter for the tone masks
+                anchor.high = anchor.high.map { exposure($0, gain: g, white: w) }
                 c = RGB(r: exposure(c.r, gain: g, white: w), g: exposure(c.g, gain: g, white: w), b: exposure(c.b, gain: g, white: w))
             case "whiteBalance":
                 guard look.wb != nil else { continue }

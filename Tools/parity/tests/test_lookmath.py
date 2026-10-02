@@ -97,6 +97,24 @@ class LookMathMirrorTests(unittest.TestCase):
         bw = lm.parse_look("bw:1")
         self.assertLess(np.ptp(lm.flat(skin, bw, AS_SHOT, r)), 1e-3)
 
+    def test_vibrance_floor_and_down_strength(self):
+        r = json.loads(json.dumps(self.rules))
+        r["stages"]["colour"]["coefficients"].update(vibrancePerUnit=0.008, vibranceDownPerUnit=0.012, vibranceChromaMax=0.3, vibranceFloor=0.0,
+                                                     skinProtect=0.8, skinHue=30.0, skinWidth=40.0)
+        f = lambda C, h, v: float(lm.chroma_factor(np.array([C]), np.array([h]), v, 0.0, False, r)[0])
+        self.assertAlmostEqual(f(0.3, 200.0, 50.0), 1.0, places=12)
+        r["stages"]["colour"]["coefficients"]["vibranceFloor"] = 0.25
+        self.assertAlmostEqual(f(0.3, 200.0, 50.0), 1 + 50 * 0.008 * 0.25 * (1 - 0.8 * np.exp(-(170.0 / 40) ** 2)), places=12)
+        self.assertAlmostEqual(f(0.5, 200.0, 50.0), f(0.3, 200.0, 50.0), places=12)
+        self.assertAlmostEqual(f(0.0, 30.0, -50.0), 1 - 50 * 0.012, places=12)
+        self.assertAlmostEqual(f(0.15, 30.0, -50.0), f(0.15, 200.0, -50.0), places=12)
+        for v in (-100.0, -50.0, 50.0, 100.0):
+            C = np.arange(0, 0.61, 0.01)
+            out = C * lm.chroma_factor(C, np.full_like(C, 200.0), v, 0.0, False, r)
+            self.assertTrue(np.all(np.diff(out) >= -1e-12), f"vibrance {v}")
+        del r["stages"]["colour"]["coefficients"]["vibranceDownPerUnit"]
+        self.assertAlmostEqual(f(0.0, 30.0, -50.0), 1 - 50 * 0.008, places=12)
+
     def test_vignette_and_local_stages(self):
         r = self.rules
         self.assertAlmostEqual(lm.vignette_gain(0.0, -100, r), 1.0)
@@ -140,12 +158,23 @@ class LookMathMirrorTests(unittest.TestCase):
         self.assertLess(bright, 0.4)
         sh = lm.single("Shadows", 100)
         px = np.array([0.1, 0.1, 0.1])
-        self.assertGreater(float(lm.luma(lm.flat(px, sh, AS_SHOT, r, anchor={'mean': 0.4}), r)), float(lm.luma(lm.flat(px, sh, AS_SHOT, r, anchor={'mean': 0.02}), r)))
+        if lm.k(r, "tone", "shadowsAdapt", 0.0) > 0:   # the Shadows mask follows the mean only when the rules say so (else the bright end, below)
+            self.assertGreater(float(lm.luma(lm.flat(px, sh, AS_SHOT, r, anchor={'mean': 0.4}), r)), float(lm.luma(lm.flat(px, sh, AS_SHOT, r, anchor={'mean': 0.02}), r)))
+        self.assertGreater(lm.k(r, "tone", "shadowsAdapt", 0.0) + lm.k(r, "tone", "shadowsHighAdapt", 0.0), 0, "Shadows must be read against the photo one way or the other")
         flat = lm.tone_anchor(np.zeros((4, 4, 3)) + 0.18, r)
         self.assertAlmostEqual(flat["mean"], 0.18); self.assertAlmostEqual(flat["spread"], 0.0); self.assertEqual(flat["bright"], 0.0)
         self.assertEqual(lm.tone_anchor(np.zeros((4, 4, 3)), r)["mean"], 1e-3)
         two = lm.tone_anchor(np.array([[[0.1] * 3, [0.8] * 3]]), r)
         self.assertAlmostEqual(two["mean"], (0.1 * 0.8) ** 0.5); self.assertAlmostEqual(two["spread"], 1.5); self.assertEqual(two["bright"], 0.5)
+        # the bright end: the 95th percentile of luma (LookMath.toneAnchor interpolates the same way)
+        self.assertAlmostEqual(flat["high"], 0.18); self.assertAlmostEqual(two["high"], 0.1 + 0.7 * 0.95)
+        ramp = lm.tone_anchor(np.repeat(np.linspace(0, 1, 101)[None, :, None], 3, axis=2), r)
+        self.assertAlmostEqual(ramp["high"], 0.95)
+        # the Shadows mask sits against the bright end; a missing one changes nothing
+        self.assertAlmostEqual(lm.tone_normalisers({"mean": 0.18}, r)[0], lm.tone_normalisers({"mean": 0.18, "high": 2.0 ** lm.k(r, "tone", "highCentre", 0.0)}, r)[0])
+        if lm.k(r, "tone", "shadowsHighAdapt", 0.0) > 0:
+            self.assertGreater(float(lm.luma(lm.flat(px, sh, AS_SHOT, r, anchor={'mean': 0.18, 'high': 1.0}), r)),
+                               float(lm.luma(lm.flat(px, sh, AS_SHOT, r, anchor={'mean': 0.18, 'high': 0.3}), r)))
         # strengths: at the rules' centre the factor is 1; kept within [0.25, 4]
         t = lambda n, d: lm.k(r, "tone", n, d)
         centre = {"mean": 2.0 ** t("meanCentre", np.log2(0.18)), "spread": t("spreadCentre", 1.5), "bright": t("brightCentre", 0.2)}
