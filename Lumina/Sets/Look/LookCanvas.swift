@@ -243,12 +243,34 @@ final class LookCanvasController: NSObject {
         stopLink()
     }
 
+    /// The largest drawable edge in px: Metal's texture limit on Apple silicon, and more than
+    /// twice an 8K display (7,680).
+    nonisolated static var maxDrawableEdge: CGFloat { 16_384 }
+
+    /// A rect `layout` can place: every number finite, the size 0 … `maxDrawableEdge` points, the
+    /// origin within ± 2 × that, the pixel ratio above 0 and at most 16.
+    nonisolated static func layable(_ rect: CGRect, dpr: CGFloat) -> Bool {
+        let o = rect.origin, s = rect.size
+        guard o.x.isFinite, o.y.isFinite, s.width.isFinite, s.height.isFinite, dpr.isFinite else { return false }
+        return s.width >= 0 && s.height >= 0 && s.width <= maxDrawableEdge && s.height <= maxDrawableEdge
+            && abs(o.x) <= 2 * maxDrawableEdge && abs(o.y) <= 2 * maxDrawableEdge && dpr > 0 && dpr <= 16
+    }
+
     /// The page's canvas rect in CSS px (origin top-left of the web view) and whether Edit is showing.
     func layout(rect: CGRect, visible: Bool, dpr: CGFloat) {
+        // Not a rect a display can hold (not finite, negative, absurdly large): the canvas hides and
+        // keeps the size it had. `Int(_:)` on such a number stops the app (Q4-hostile F2).
+        guard Self.layable(rect, dpr: dpr) else {
+            view?.isHidden = true
+            stats.visible = false
+            stopLink()
+            return
+        }
         stats.dpr = Double(dpr)
         guard let view, let host = view.superview else { return }
         let r = NSRect(x: rect.minX, y: host.bounds.height - rect.minY - rect.height, width: rect.width, height: rect.height).integral
-        let px = CGSize(width: max(1, (rect.width * dpr).rounded()), height: max(1, (rect.height * dpr).rounded()))
+        // Never past Metal's largest texture edge (a 16,384 px rect at 2× would ask for twice that).
+        let px = CGSize(width: min(Self.maxDrawableEdge, max(1, (rect.width * dpr).rounded())), height: min(Self.maxDrawableEdge, max(1, (rect.height * dpr).rounded())))
         let sizeChanged = view.frame.size != r.size || view.drawableSize != px
         view.frame = r
         view.drawableSize = px

@@ -14,9 +14,9 @@ import XCTest
 /// refusals come back as refusals (false / null / 0 / an error), never as a success.
 ///
 /// Open findings are marked `XCTExpectFailure` with the task that fixes them, so the table stays
-/// green on main and goes on checking everything else. Inputs that crash the app process cannot
-/// run in this process: `testCrashingInputs` runs them only with `LUMINA_BRIDGE_CRASH_CASES=1`
-/// (see `Tests/probe/fuzz/run.sh bridge-crash` and `docs/release/stress/Q4-hostile.md`).
+/// green on main and goes on checking everything else. The numbers that used to stop the app
+/// process (Q4-hostile F1, F2: `Int(_:)` on a non-finite or huge double) are ordinary cases now:
+/// every number the page sends is read through `SetsNumber` (`docs/release/stress/Q4-hostile.md`).
 ///
 /// Temp folders only. `openSettings` is not called (it opens System Settings on the desktop);
 /// `reveal` goes to a recorder, never Finder; `setPrefs` writes the host app's defaults and the
@@ -162,11 +162,6 @@ final class SetsBridgeOpsTests: XCTestCase {
         "setPrefs": ["prefs"], "checkAccess": [], "reopenDenied": [], "reopenCurrent": [],
     ]
 
-    /// Inputs known to stop the app process (Swift traps), run only by `testCrashingInputs`.
-    private func crashes(_ op: String, _ field: String, _ name: String) -> Bool {
-        op == "canvasLook" && field == "seq" && ["huge", "inf", "negInf", "nan", "1e300"].contains(name)
-    }
-
     // MARK: The table
 
     /// Every op × every field × every hostile value, one field at a time, the others valid.
@@ -185,7 +180,7 @@ final class SetsBridgeOpsTests: XCTestCase {
                 _ = await call(b, body); calls += 1
             }
             for field in fields {
-                for (name, v) in values() + numbers() where !crashes(op, field, name) {
+                for (name, v) in values() + numbers() {
                     var body: [String: Any] = ["op": op]
                     for f in fields where f != field { if let g = good[f] { body[f] = g } }
                     body[field] = v
@@ -366,37 +361,236 @@ final class SetsBridgeOpsTests: XCTestCase {
         }
     }
 
-    // MARK: Inputs that stop the process
+    // MARK: Numbers (Q4a: F1, F2)
 
-    /// Run only in a process of its own (`LUMINA_BRIDGE_CRASH_CASES=<case>`): each case is expected
-    /// to trap, and the crash report is the evidence. `bash Tests/probe/fuzz/run.sh bridge-crash`.
-    func testCrashingInputs() async throws {
-        guard let which = ProcessInfo.processInfo.environment["LUMINA_BRIDGE_CRASH_CASES"] else {
-            throw XCTSkip("traps the process: set LUMINA_BRIDGE_CRASH_CASES (seqHuge, seqInf, seqNaN, layoutInf, loupeInf) to run one")
+    /// `SetsNumber`: what every numeric field of a message and every query number is read with.
+    func testNumbersFromThePageAreFiniteAndInRange() {
+        let hostile: [Any] = [Double.infinity, -Double.infinity, Double.nan, 1e300, -1e300, 1e308, Double.greatestFiniteMagnitude, UInt64.max, Int.min,
+                              true, false, "12", "", NSNull(), [1], ["x": 1], -1]
+        for v in hostile {
+            XCTAssertNil(SetsNumber.int(v, in: 0...100), "\(v)")
+            XCTAssertNil(SetsNumber.double(v, in: 0...100), "\(v)")
+            XCTAssertEqual(SetsNumber.seq(v), 0, "\(v)")
+            XCTAssertNil(SetsNumber.pageClock(v), "\(v)")
+            XCTAssertNil(SetsNumber.count(v), "\(v)")
+            XCTAssertNil(SetsNumber.roi(["x": 0.1, "y": 0.1, "w": v, "h": 0.5])?.w, "\(v)")
+            XCTAssertNil(SetsNumber.canvasRect(["x": 0, "y": 0, "w": v, "h": 300]), "\(v)")
+            XCTAssertTrue((0.5...8).contains(SetsNumber.dpr(v)), "\(v)")
         }
-        let (b, _) = try await bridge(canvas: !which.hasSuffix("Inf") || which.hasPrefix("seq"))
-        switch which {
-        case "seqHuge": _ = await call(b, ["op": "canvasLook", "look": "ev:+0.1", "seq": 1e300])
-        case "seqInf": _ = await call(b, ["op": "canvasLook", "look": "ev:+0.1", "seq": Double.infinity])
-        case "seqNaN": _ = await call(b, ["op": "canvasLook", "look": "ev:+0.1", "seq": Double.nan])
-        case "layoutInf":
-            // The native canvas (a Metal view in a host view), as the app has it.
-            let host = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
-            b.attachCanvas(host: host)
-            _ = await call(b, ["op": "canvasEnter", "rel": "shoot/DSC00001.ARW", "look": ""])
-            _ = await call(b, ["op": "canvasLayout", "x": 0, "y": 0, "w": 1e308, "h": 1e308, "dpr": 2, "visible": true])
-        case "loupeInf":
-            // The loupe's region on the native canvas, with a rect the page measured as Infinity.
-            let host = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
-            b.attachCanvas(host: host)
-            _ = await call(b, ["op": "canvasEnter", "rel": "shoot/DSC00001.ARW", "look": ""])
-            _ = await call(b, ["op": "canvasLayout", "x": 0, "y": 0, "w": 400, "h": 300, "dpr": 2, "visible": true])
-            try await Task.sleep(nanoseconds: 1_000_000_000)
-            _ = await call(b, ["op": "canvasLoupe", "on": true, "roi": ["x": -Double.infinity, "y": 0.0, "w": Double.infinity, "h": 1e308]])
-            _ = await call(b, ["op": "canvasLook", "look": "ev:+0.2", "roi": ["x": 0.0, "y": 0.0, "w": Double.infinity, "h": Double.infinity], "key": true])
-            try await Task.sleep(nanoseconds: 1_000_000_000)
-        default: throw XCTSkip("unknown case \(which)")
+        XCTAssertNil(SetsNumber.int(1.5, in: 0...100), "a fraction is not a whole number")
+        XCTAssertEqual(SetsNumber.seq(1.5), 0)
+        // In range, whatever the number's type: an Int, a whole Double, an NSNumber.
+        XCTAssertEqual(SetsNumber.int(42, in: 0...100), 42)
+        XCTAssertEqual(SetsNumber.int(42.0, in: 0...100), 42)
+        XCTAssertEqual(SetsNumber.int(NSNumber(value: 42 as UInt8), in: 0...100), 42)
+        XCTAssertEqual(SetsNumber.int(-0.0, in: 0...100), 0)
+        XCTAssertEqual(SetsNumber.int(Int.max, in: 0...Int.max), Int.max)
+        XCTAssertEqual(SetsNumber.double(0.25, in: 0...1), 0.25)
+        XCTAssertEqual(SetsNumber.double(3, in: 0...10), 3)
+        // Text only where a field takes it (a query, the preview's o / l / ori).
+        XCTAssertEqual(SetsNumber.int("12", in: 0...100, text: true), 12)
+        XCTAssertNil(SetsNumber.int("99999999999999999999", in: 0...100, clamp: true, text: true))
+        XCTAssertNil(SetsNumber.int("1e3", in: 0...10_000, text: true))
+        XCTAssertNil(SetsNumber.int(" 12", in: 0...100, text: true))
+        // Clamping: finite values only. A whole number past Int's range goes to the nearer end.
+        XCTAssertEqual(SetsNumber.int(1e300, in: 0...100, clamp: true), 100)
+        XCTAssertEqual(SetsNumber.int(-1e300, in: 0...100, clamp: true), 0)
+        XCTAssertEqual(SetsNumber.int(UInt64.max, in: 0...100, clamp: true), 100)
+        XCTAssertEqual(SetsNumber.int(-7, in: 0...100, clamp: true), 0)
+        XCTAssertEqual(SetsNumber.double(1e308, in: 0...100, clamp: true), 100)
+        XCTAssertNil(SetsNumber.int(Double.infinity, in: 0...100, clamp: true))
+        XCTAssertNil(SetsNumber.int(Double.nan, in: 0...100, clamp: true))
+        XCTAssertNil(SetsNumber.int(1.5, in: 0...100, clamp: true))
+        XCTAssertNil(SetsNumber.double(Double.infinity, in: 0...100, clamp: true))
+        XCTAssertNil(SetsNumber.double(Double.nan, in: 0...100, clamp: true))
+        // The fields. What a real page sends reads as it always did.
+        XCTAssertEqual(SetsNumber.seq(7), 7)
+        XCTAssertEqual(SetsNumber.seq(7.0), 7)
+        XCTAssertEqual(SetsNumber.seq("7"), 0)
+        XCTAssertEqual(SetsNumber.seq("7", text: true), 7)
+        XCTAssertEqual(SetsNumber.seq(SetsNumber.maxSafeInteger), SetsNumber.maxSafeInteger)
+        XCTAssertEqual(SetsNumber.seq(Int.max), 0)
+        XCTAssertEqual(SetsNumber.pageClock(123_456.789), 123_456.789)
+        XCTAssertEqual(SetsNumber.fileRange(33_280), 33_280)
+        XCTAssertEqual(SetsNumber.fileRange("33280"), 33_280)
+        XCTAssertEqual(SetsNumber.fileRange(Int(UInt32.max)), Int(UInt32.max))
+        for v in [Int(UInt32.max) + 1, Int.max, -1, 1e308, Double.nan, "x", NSNull()] as [Any] { XCTAssertEqual(SetsNumber.fileRange(v), 0, "\(v)") }
+        for (v, want) in [(6, 6), ("8", 8), (0, 0), (65_535, 65_535), (65_536, 1), (-3, 1), (Double.nan, 1), (1e300, 1)] as [(Any, Int)] { XCTAssertEqual(SetsNumber.orientation(v), want, "\(v)") }
+        XCTAssertEqual(SetsNumber.dpr(2), 2)
+        XCTAssertEqual(SetsNumber.dpr(1.5), 1.5)
+        XCTAssertEqual(SetsNumber.dpr(1e308), 8)
+        XCTAssertEqual(SetsNumber.dpr(-2), 0.5)
+        XCTAssertEqual(SetsNumber.dpr(Double.nan), 1)
+        XCTAssertEqual(SetsNumber.canvasRect(["x": 320, "y": 48.5, "w": 1200, "h": 800]), CGRect(x: 320, y: 48.5, width: 1200, height: 800))
+        XCTAssertEqual(SetsNumber.canvasRect([:]), .zero, "a missing field is 0, as before")
+        XCTAssertEqual(SetsNumber.canvasRect(["x": -40, "y": -10, "w": SetsNumber.maxCanvasEdge, "h": 0])?.width, 16_384)
+        for bad in [["w": -1], ["h": 16_385], ["x": 1e308], ["y": -Double.infinity], ["w": Double.nan], ["x": "12"]] as [[String: Any]] { XCTAssertNil(SetsNumber.canvasRect(bad), "\(bad)") }
+        XCTAssertEqual(SetsNumber.roi(["x": 0.25, "y": 0.5, "w": 0.125, "h": 0.25])?.w, 0.125)
+        XCTAssertEqual(SetsNumber.roi(["x": 0, "y": 0, "w": 1, "h": 1])?.h, 1)
+        XCTAssertNil(SetsNumber.roi(["x": 0, "y": 0, "w": 0, "h": 1]))
+        XCTAssertNil(SetsNumber.roi(["x": 9, "y": 0, "w": 1, "h": 1]))
+        XCTAssertNil(SetsNumber.roi(["x": Double.nan, "y": 0, "w": 1, "h": 1]))
+        XCTAssertNil(SetsNumber.roi(NSNull()))
+        XCTAssertEqual(SetsNumber.count(100_000), 100_000)
+        XCTAssertNil(SetsNumber.count(100_001))
+        XCTAssertEqual(SetsNumber.exportEdge(2048), 2048)
+        XCTAssertEqual(SetsNumber.exportEdge("2048"), 2048)
+        XCTAssertEqual(SetsNumber.exportEdge(Int.max), 65_536)
+        for v in [0, -1, Double.nan, 1e300, "full", NSNull()] as [Any] { XCTAssertNil(SetsNumber.exportEdge(v), "\(v)") }
+        for (v, want) in [("1024", 1024), ("1", 64), ("99999", 8192), ("-5", 64), ("", 1024), ("NaN", 1024), ("1e300", 1024), ("99999999999999999999", 1024)] { XCTAssertEqual(SetsNumber.renderEdge(v), want, v) }
+        XCTAssertEqual(SetsNumber.renderEdge(nil), 1024)
+        for (v, want) in [("9", 9), ("8", 8), ("0", nil), ("-1", nil), ("100", nil), ("9.5", nil), ("Infinity", nil)] as [(String, Int?)] { XCTAssertEqual(SetsNumber.decoder(v), want, v) }
+        XCTAssertNil(SetsNumber.decoder(nil))
+    }
+
+    /// F1: `canvasLook` with a `seq` or a `t` that is not a number a counter or a clock can hold.
+    /// The look is still scheduled (its own sequence number comes back); the page's is read as 0.
+    func testCanvasLookTakesAnySeqAndClock() async throws {
+        let (b, _) = try await bridge()
+        _ = await call(b, ["op": "canvasEnter", "rel": "shoot/DSC00001.ARW", "look": ""])
+        var last = 0
+        for v in [1e300, Double.infinity, -Double.infinity, Double.nan, -1e300, 1e308, 1.5, -1, Int.max, Int.min, UInt64.max, true, "7", NSNull()] as [Any] {
+            for key in [false, true] {
+                let (r, e) = await call(b, ["op": "canvasLook", "look": "ev:+0.10", "seq": v, "t": v, "key": key])
+                XCTAssertNil(e)
+                let seq = try XCTUnwrap(r as? Int, "seq \(v)")
+                XCTAssertGreaterThan(seq, last, "seq \(v): the look was scheduled")
+                last = seq
+            }
         }
-        print("LUMINA_BRIDGE_CRASH_CASES=\(which): survived")
+        let (r, _) = await call(b, ["op": "canvasLook", "look": "ev:+0.20", "seq": 12, "t": 1234.5])
+        XCTAssertGreaterThan(try XCTUnwrap(r as? Int), last, "a real seq after the hostile ones")
+        let (s, _) = await call(b, ["op": "canvasStats"])
+        XCTAssertNotNil((s as? [String: Any])?["path"], "the stats still encode: no NaN reached them")
+        _ = await call(b, ["op": "canvasLeave"])
+    }
+
+    /// F2: `canvasLayout` on the native canvas (a Metal view in a host view, as the app has it)
+    /// with rects no display holds. They hide the canvas and leave its size alone; a real rect
+    /// after them lays out as before. Without a Metal device (a CI runner) the controller is on
+    /// the image path and only survival and the pixel ratio are checked.
+    func testHostileLayoutOnTheNativeCanvas() async throws {
+        let (b, _) = try await bridge(canvas: false)
+        let host = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        b.attachCanvas(host: host)
+        let canvas = try XCTUnwrap(b.canvas)
+        let native = canvas.path == .native
+        print("testHostileLayoutOnTheNativeCanvas: canvas path \(canvas.path.rawValue)")
+        _ = await call(b, ["op": "canvasEnter", "rel": "shoot/DSC00001.ARW", "look": ""])
+        func stats() async -> [String: Any] { ((await call(b, ["op": "canvasStats"])).0 as? [String: Any]) ?? [:] }
+        func good() async throws {
+            let (r, _) = await call(b, ["op": "canvasLayout", "x": 100, "y": 50, "w": 400, "h": 300, "dpr": 2, "visible": true])
+            XCTAssertEqual((r as? [String: Any])?["path"] as? String, canvas.path.rawValue)
+            let s = await stats()
+            XCTAssertEqual(s["dpr"] as? Double, 2)
+            guard native else { return }
+            XCTAssertEqual(s["canvas"] as? [Int], [800, 600])
+            XCTAssertEqual(s["visible"] as? Bool, true)
+            let view = try XCTUnwrap(host.subviews.first)
+            XCTAssertEqual(view.frame, NSRect(x: 100, y: 250, width: 400, height: 300))
+            XCTAssertFalse(view.isHidden)
+        }
+        func hidden(_ what: String) async {
+            let s = await stats()
+            XCTAssertEqual(s["dpr"] as? Double, 2, "\(what): the pixel ratio is the last real one")
+            guard native else { return }
+            XCTAssertEqual(s["canvas"] as? [Int], [800, 600], "\(what): the drawable keeps its size")
+            XCTAssertEqual(s["visible"] as? Bool, false, what)
+            XCTAssertEqual(host.subviews.first?.isHidden, true, what)
+            XCTAssertEqual(host.subviews.first?.frame, NSRect(x: 100, y: 250, width: 400, height: 300), what)
+        }
+        try await good()
+        // Through the bridge: the former crash (w / h = 1e308) and its relatives.
+        let rects: [[String: Any]] = [
+            ["x": 0, "y": 0, "w": 1e308, "h": 1e308], ["x": 0, "y": 0, "w": Double.infinity, "h": Double.infinity], ["x": 0, "y": 0, "w": Double.nan, "h": 300],
+            ["x": Double.nan, "y": 0, "w": 400, "h": 300], ["x": 0, "y": -Double.infinity, "w": 400, "h": 300], ["x": 1e300, "y": 0, "w": 400, "h": 300],
+            ["x": 0, "y": 0, "w": -400, "h": 300], ["x": 0, "y": 0, "w": 400, "h": 16_385], ["x": 0, "y": 0, "w": Int.max, "h": Int.max], ["x": "0", "y": 0, "w": 400, "h": 300],
+        ]
+        for r in rects {
+            var body: [String: Any] = ["op": "canvasLayout", "dpr": 2, "visible": true]
+            body.merge(r) { $1 }
+            let (out, e) = await call(b, body)
+            XCTAssertNil(e)
+            XCTAssertEqual((out as? [String: Any])?["path"] as? String, canvas.path.rawValue)
+            await hidden("\(r)")
+            try await good()
+        }
+        // A pixel ratio that is not one is clamped (0.5 … 8) or read as 1; the rect still lays out.
+        for (dpr, want) in [(1e308, 8.0), (Double.infinity, 1), (Double.nan, 1), (-2, 0.5), (0, 0.5)] as [(Double, Double)] {
+            _ = await call(b, ["op": "canvasLayout", "x": 100, "y": 50, "w": 400, "h": 300, "dpr": dpr, "visible": true])
+            let s = await stats()
+            XCTAssertEqual(s["dpr"] as? Double, want, "dpr \(dpr)")
+            if native { XCTAssertEqual(s["canvas"] as? [Int], [Int(400 * want), Int(300 * want)], "dpr \(dpr)") }
+            try await good()
+        }
+        // The controller on its own, whoever calls it: the same rects without the bridge's reading.
+        let direct: [(CGRect, CGFloat)] = [
+            (CGRect(x: 0, y: 0, width: 1e308, height: 1e308), 2), (.infinite, 2), (.null, 2), (CGRect(x: 0, y: 0, width: CGFloat.nan, height: 300), 2),
+            (CGRect(x: CGFloat.infinity, y: 0, width: 400, height: 300), 2), (CGRect(origin: .zero, size: CGSize(width: -400, height: 300)), 2),
+            (CGRect(x: 0, y: 0, width: 400, height: 300), .nan), (CGRect(x: 0, y: 0, width: 400, height: 300), .infinity), (CGRect(x: 0, y: 0, width: 400, height: 300), 0),
+            (CGRect(x: 0, y: 0, width: 400, height: 300), -2), (CGRect(x: 0, y: 0, width: 400, height: 300), 1e308), (CGRect(x: 1e9, y: 0, width: 400, height: 300), 2),
+        ]
+        for (rect, dpr) in direct {
+            XCTAssertFalse(LookCanvasController.layable(rect, dpr: dpr), "\(rect) @\(dpr)")
+            canvas.layout(rect: rect, visible: true, dpr: dpr)
+            await hidden("direct \(rect) @\(dpr)")
+            try await good()
+        }
+        // A real rect at the limit: laid out, the drawable no larger than Metal's texture edge.
+        XCTAssertTrue(LookCanvasController.layable(CGRect(x: 0, y: 0, width: 16_384, height: 9000), dpr: 2))
+        canvas.layout(rect: CGRect(x: 0, y: 0, width: 9000, height: 100), visible: false, dpr: 2)
+        if native {
+            let s = await stats()
+            XCTAssertEqual(s["canvas"] as? [Int], [16_384, 200])
+        }
+        try await good()
+        // The loupe and a zoomed look with regions that are not regions: read as "no region".
+        for v in [Double.infinity, -Double.infinity, Double.nan, 1e308, -1e308] {
+            _ = await call(b, ["op": "canvasLoupe", "on": true, "roi": ["x": -v, "y": 0.0, "w": v, "h": 1e308]])
+            _ = await call(b, ["op": "canvasLook", "look": "ev:+0.2", "roi": ["x": 0.0, "y": 0.0, "w": v, "h": v], "key": true, "seq": v, "t": v])
+        }
+        try await Task.sleep(nanoseconds: 300_000_000)          // a few display refreshes with the canvas showing
+        let after = await stats()
+        XCTAssertEqual(after["region"] as? Bool, false)
+        _ = await call(b, ["op": "canvasLoupe", "on": false])
+        _ = await call(b, ["op": "canvasLayout", "x": 0, "y": 0, "w": 0, "h": 0, "visible": false])
+        _ = await call(b, ["op": "canvasLeave"])
+    }
+
+    /// A session summary's counts go into the recents index: only counts a shoot can have.
+    func testSessionSummaryCountsAreBounded() async throws {
+        let (b, _) = try await bridge(canvas: false)
+        let id = try XCTUnwrap(b.shootId)
+        func recent() async -> [String: Any] { (((await call(b, ["op": "recents"])).0 as? [[String: Any]])?.first) ?? [:] }
+        let (ok, _) = await call(b, ["op": "saveSession", "id": id, "json": "{}", "summary": ["n": 2, "dec": 2, "kp": 1, "last": "today"]])
+        XCTAssertEqual(ok as? Bool, true)
+        var r = await recent()
+        XCTAssertEqual([r["n"] as? Int, r["dec"] as? Int, r["kp"] as? Int], [2, 2, 1])
+        for v in [1e300, Double.infinity, Double.nan, -1, Int.max, Int.min, 100_001, 1.5, true, "3", NSNull()] as [Any] {
+            let (ok, e) = await call(b, ["op": "saveSession", "id": id, "json": "{}", "summary": ["n": v, "dec": v, "kp": v]])
+            XCTAssertEqual(ok as? Bool, true, "\(v): the session itself is saved")
+            XCTAssertNil(e)
+            r = await recent()
+            XCTAssertEqual([r["n"] as? Int, r["dec"] as? Int, r["kp"] as? Int], [2, 2, 1], "\(v): the counts stay what they were")
+        }
+    }
+
+    /// Settings are stored as JSON: a number JSON can't hold (NaN, Infinity) is refused, and the
+    /// stored settings stay. `JSONSerialization` raises on one, which stopped the app.
+    func testSetPrefsRefusesNumbersJSONCannotHold() async throws {
+        let (b, _) = try await bridge(opened: false, canvas: false)
+        let (ok, _) = await call(b, ["op": "setPrefs", "prefs": ["rating": 3]])
+        XCTAssertEqual(ok as? Bool, true)
+        let stored = UserDefaults.standard.string(forKey: SetsBridge.prefsKey)
+        XCTAssertEqual(SetsBridge.prefs?["rating"] as? Int, 3)
+        for prefs in [["rating": Double.nan], ["rating": Double.infinity], ["a": ["b": [1, -Double.infinity]]], ["rating": 1e308, "x": Double.nan]] as [[String: Any]] {
+            let (r, e) = await call(b, ["op": "setPrefs", "prefs": prefs])
+            XCTAssertEqual(r as? Bool, false, "\(prefs)")
+            XCTAssertNil(e)
+            XCTAssertEqual(UserDefaults.standard.string(forKey: SetsBridge.prefsKey), stored, "\(prefs)")
+        }
+        let (again, _) = await call(b, ["op": "setPrefs", "prefs": ["rating": 4, "big": 1e308]])
+        XCTAssertEqual(again as? Bool, true)
+        XCTAssertEqual(SetsBridge.prefs?["rating"] as? Int, 4)
     }
 }

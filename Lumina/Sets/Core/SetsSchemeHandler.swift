@@ -117,7 +117,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
         guard let ingest else { return fail(task) }
         let q = Self.query(url)
         guard let rel = q["p"] else { return status(task, url, 404, "no file") }
-        let preview = SetsIngest.Preview(rel: rel, offset: Int(q["o"] ?? "") ?? 0, length: Int(q["l"] ?? "") ?? 0, orientation: Int(q["ori"] ?? "") ?? 1)
+        let preview = SetsIngest.Preview(rel: rel, offset: SetsNumber.fileRange(q["o"]), length: SetsNumber.fileRange(q["l"]), orientation: SetsNumber.orientation(q["ori"]))
         let work: () throws -> Data
         switch kind {
         case "head": work = { try ingest.head(rel) }
@@ -155,15 +155,16 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
         let q = Self.query(url)
         guard !rel.isEmpty, let file = ingest.resolve(rel) else { return status(task, url, 404, "not in an opened folder") }
         guard let renderer = lookRenderer() else { return status(task, url, 503, "no look pipeline (rules-v1.json missing)") }
-        let look = q["look"] ?? "", seq = Int(q["seq"] ?? "") ?? 0
+        let look = q["look"] ?? "", seq = SetsNumber.seq(q["seq"], text: true)
         // `tier=small` is the image fallback path's drag tier (addendum §7): a quarter of the
         // asked size on each edge, the same rule the native canvas's `small` texture follows.
-        var px = min(8192, max(64, Int(q["px"] ?? "") ?? 1024))
+        var px = SetsNumber.renderEdge(q["px"])
         if q["tier"] == "small" { px = max(64, px / 4) }
-        let decoder = Int(q["decoder"] ?? "")
+        let decoder = SetsNumber.decoder(q["decoder"])
         // `o`, `l`, `ori`: the embedded JPEG's range (the page's parseHead), the stand-in when the RAW can't be developed.
         var preview: LookBases.PreviewFallback?
-        if let o = Int(q["o"] ?? ""), let l = Int(q["l"] ?? ""), o > 0, l > 0 { preview = LookBases.PreviewFallback(offset: o, length: l, orientation: Int(q["ori"] ?? "") ?? 1) }
+        let o = SetsNumber.fileRange(q["o"]), l = SetsNumber.fileRange(q["l"])
+        if o > 0, l > 0 { preview = LookBases.PreviewFallback(offset: o, length: l, orientation: SetsNumber.orientation(q["ori"])) }
         renderer.requested(rel: rel, seq: seq)
         renderer.enqueue({ try renderer.renderJPEG(url: file, rel: rel, look: look, px: px, seq: seq, decoder: decoder, preview: preview) }) { [weak self] r in
             guard let self, !self.lock.withLock({ self.stopped.remove(ObjectIdentifier(task)) != nil }) else { return }
