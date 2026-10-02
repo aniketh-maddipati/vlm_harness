@@ -7,7 +7,9 @@
 //   node Tests/web/parity.mjs [Tests/probe/scenarios/screens-1440.json …] [--out DIR] [--selftest]
 import fs from 'fs';
 import path from 'path';
-import { pw, ROOT, Bridge, open, LOGIC } from './lib.mjs';
+import { pw, ROOT, Bridge, open, LOGIC, deadline } from './lib.mjs';
+
+deadline('parity.mjs', 600);
 
 const args = process.argv.slice(2);
 const outI = args.indexOf('--out');

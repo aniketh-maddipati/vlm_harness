@@ -204,6 +204,9 @@ jobs:
             run: bash Scripts/probe.sh sandbox smoke
     env:
       LUMINA_EDIT_GATE: "0"     # latency is reported, not gated, on a shared runner
+      LUMINA_LONG: "1"          # the fuzz storms are long runs, started on purpose here
+      LUMINA_PROBE_LIMIT: "1500"        # per probe.sh call; a shared runner is several times slower than a Mac on a desk
+      LUMINA_SCENARIO_LIMIT: "900"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0

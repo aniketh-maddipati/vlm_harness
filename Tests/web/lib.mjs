@@ -12,6 +12,13 @@ const require = createRequire(import.meta.url);
 export let pw;
 try { pw = require('playwright'); } catch (_) { pw = require(path.join(execSync('npm root -g').toString().trim(), 'playwright')); }
 
+// Every harness run ends: at its limit (LUMINA_WEB_LIMIT seconds changes it) it fails loudly and
+// exits 124. Playwright closes the browsers it launched when the process exits, and on a signal.
+export function deadline(name, seconds) {
+  const s = +(process.env.LUMINA_WEB_LIMIT || seconds);
+  setTimeout(() => { console.error(`FAIL  ${name} reached its limit of ${s} s and was stopped`); process.exit(124); }, s * 1000).unref();
+}
+
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const WEB = path.join(ROOT, 'Lumina/Sets/Web');
 export const PAGE = 'Lumina Sets v5.dc.html';
@@ -116,19 +123,23 @@ export function makeBigShoot(dir, jpegs, n) {
 
 // ——— the Swift bridge, in Node (what SetsBridge answers)
 export function list(root) {
-  const name = path.basename(root), out = { name, files: [], xmp: [], others: [], workers: 4, onCard: false };
+  const name = path.basename(root), out = { name, files: [], xmp: [], others: [], workers: 4, onCard: false, skippedXmp: [], unreadableXmp: [] };
   const walk = d => { for (const e of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     if (e.name.startsWith('.')) continue;
     const full = path.join(d, e.name), rel = name + '/' + path.relative(root, full).split(path.sep).join('/');
     if (e.isDirectory()) { walk(full); continue; }
     const ext = path.extname(e.name).toLowerCase();
     if (ext === '.arw') out.files.push({ rel, size: fs.statSync(full).size });
-    else if (ext === '.xmp') out.xmp.push({ rel, text: fs.readFileSync(full, 'utf8') });
+    // SetsIngest.list: a sidecar that is not UTF-8 text is named in unreadableXmp, without a text.
+    else if (ext === '.xmp') { const text = utf8(fs.readFileSync(full)); if (text == null) out.unreadableXmp.push(rel); else out.xmp.push({ rel, text }); }
     else if (!e.name.endsWith('.lumina-bak')) out.others.push(rel);
   } };
   walk(root);
   return out;
 }
+
+// String(data:encoding: .utf8): the text, or null when the bytes are not UTF-8.
+const utf8 = buf => { try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(buf); } catch (_) { return null; } };
 
 // SetsFileOps.sidecarBase: the SHA-256 of the file's bytes, or "none" when there is no file.
 const sidecarBase = file => fs.existsSync(file) ? crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex') : 'none';
@@ -215,7 +226,7 @@ export class Bridge {
         return (msg.files || []).map(name => {
           const dest = path.resolve(root, name);
           if (!dest.startsWith(root + path.sep) || !/\.xmp$/i.test(dest)) return { name };
-          return { name, text: fs.existsSync(dest) ? fs.readFileSync(dest, 'utf8') : null, base: sidecarBase(dest) };
+          return { name, text: fs.existsSync(dest) ? utf8(fs.readFileSync(dest)) : null, base: sidecarBase(dest) };   // not UTF-8: no text, still a base
         });
       }
       case 'writeSidecars': {
@@ -230,6 +241,8 @@ export class Bridge {
           if (!fs.readdirSync(path.dirname(dest)).some(n => /\.arw$/i.test(n) && n.replace(/\.[^.]+$/, '') === stem)) { errors.push({ name: stem, reason: 'missing' }); continue; }
           const data = Buffer.from(f.b64, 'base64');
           if (this.beforeSidecar) this.beforeSidecar(dest);            // a test's chance to be the other app, writing at this instant
+          // A sidecar that is not UTF-8 text is never replaced, whatever its base (SetsFileOps.sidecarUnreadable).
+          if (fs.existsSync(dest) && utf8(fs.readFileSync(dest)) == null) { errors.push({ name: stem, reason: 'unreadable' }); continue; }
           // The file must still be what the merge was based on (SetsFileOps.sidecarBase), else it is left alone.
           if (f.base != null && sidecarBase(dest) !== f.base && !(fs.existsSync(dest) && fs.readFileSync(dest).equals(data))) { errors.push({ name: stem, reason: 'changed on disk' }); continue; }
           if (fs.existsSync(dest)) { if (!fs.existsSync(dest + '.lumina-bak')) { fs.copyFileSync(dest, dest + '.lumina-bak'); bak++; } }
