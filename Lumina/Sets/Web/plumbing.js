@@ -73,7 +73,7 @@
   // per row, by row id like `seen`. Never in XMP: the sidecars the page builds carry ratings only.
   const BY_ID = ['marks', 'flags', 'stars', 'cuts', 'look'];
   const SCALAR = ['seen', 'tsz', 'regions', 'lastEx', 'rowLook'];
-  let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, readMoved = false;
+  let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, readMoved = false, sessionRefused = null;
   // Last scroll in the page (any scroller), for pacing the grid's refresh while a folder is read.
   let scrollT = 0;
   document.addEventListener('scroll', () => { scrollT = performance.now(); }, { capture: true, passive: true });
@@ -119,7 +119,16 @@
     if (!(l && l.real && shootId && !reading && !l.state.realLoad)) return;
     if (performance.now() - lastChange < SAVE_DEBOUNCE) { scheduleSave(); return; }
     const json = JSON.stringify(snapshot(l));
-    if (json !== lastSaved) { lastSaved = json; base = JSON.parse(json); native('saveSession', { id: shootId, json, summary: summary(l) }); }
+    if (json !== lastSaved) {
+      lastSaved = json; base = JSON.parse(json);
+      // A session over the Mac's limit (threat model T5) is refused: said once per shoot. The wording
+      // is a stand-in until DESIGN-ASKS Prompt 4 lands. Other failures stay as before (not shown).
+      const id = shootId;
+      Promise.resolve(native('saveSession', { id, json, summary: summary(l) })).catch(err => {
+        if (!/too big/.test(String((err && err.message) || err))) throw err;
+        if (sessionRefused !== id) { sessionRefused = id; l.say('decisions not saved · session too big'); }
+      });
+    }
   };
   const scheduleSave = () => {
     clearTimeout(saveTimer);
@@ -215,6 +224,12 @@
       if (!L) return;                                        // cancelled
       if (L.denied != null) { window.luminaAccess(true, L.denied); return; }
       window.luminaAccess(false);
+      // `/`, a home folder, a whole disk: the Mac stopped listing it (threat model T5). Said where the
+      // page says "no ARW found"; the wording is a stand-in until DESIGN-ASKS Prompt 4 lands.
+      if (L.tooBig) {
+        const T = L.tooBig, msg = 'not available · ' + T.name + ' · ' + (T.why === 'tooDeep' ? 'folders over ' + T.depth + ' deep' : 'over ' + T.files + ' files') + ' · open one shoot';
+        logic.setState({ openNote: msg }); return logic.say(msg);
+      }
       window.luminaCardGone(false);
       window.lumina.readingCard = !!L.onCard;
       await ingest(L);
@@ -340,6 +355,8 @@
       const t0 = performance.now(), res = new Array(files.length); let done = 0, i = 0, pre = 0, shown = false, lastB = 0, firstCur = null;
       readMoved = false;
       logic._gold = []; logic._failed = []; logic.real = [];
+      // Sidecars over 1 MB the Mac did not read (threat model T5): counted with the unreadable files.
+      for (const rel of L.skippedXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar over 1 MB, not read' });
       logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
       // Rows appear as the contiguous prefix grows: every 400 ms, as in the page; every 1.5 s while
       // the reader is scrolling, so the grid isn't rebuilt under a moving scroll (plumbing's pacing).
