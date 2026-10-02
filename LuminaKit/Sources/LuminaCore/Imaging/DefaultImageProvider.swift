@@ -96,10 +96,19 @@ public final class DefaultImageProvider: ImageProvider, PixelSizing, @unchecked 
         let source: String
         switch p.source {
         case .demo(let seed, let bw): source = "demo:\(seed):\(bw):\(String(format: "%.4f", p.aspect))"
-        case .file(let u): source = u.path
+        case .file(let u): source = u.path + stamp(u)
         case .remote(let path): source = "remote:" + path
         }
         return "\(source)|\(px)|\(LookRender.key(look))"
+    }
+
+    /// Which version of a file this is: a file replaced or rewritten in place gets a new key, so a
+    /// picture decoded before the change is never handed out (or exported) after it. `stat`, not
+    /// `URL.resourceValues`: a URL caches its resource values and would keep the old ones.
+    static func stamp(_ u: URL) -> String {
+        var s = stat()
+        guard stat(u.path, &s) == 0 else { return "" }
+        return "@\(s.st_ino):\(s.st_size):\(s.st_mtimespec.tv_sec).\(s.st_mtimespec.tv_nsec)"
     }
 
     private func run(on queue: OperationQueue, _ work: @escaping @Sendable () throws -> CGImage) async throws -> CGImage {

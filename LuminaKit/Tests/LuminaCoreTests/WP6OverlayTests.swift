@@ -278,7 +278,7 @@ final class WP6OverlayTests: XCTestCase {
             ("edit", {}, {}),
             ("help", { h.key("shift+/") }, { h.key("escape") }),
             ("variations", { h.key("v"); h.model.toast = nil }, { h.key("escape"); h.model.toast = nil }),
-            ("crop", { h.key("c") }, { h.key("escape"); h.model.toast = nil }),
+            ("crop", { h.key("c"); h.model.toast = nil }, { h.key("escape"); h.model.toast = nil }),
             ("intro", { h.model.edit.overlay = .intro }, { h.key("escape") }),
             ("sceneGrid", { h.model.sceneGridOpen() }, { h.key("escape") }),
             ("focus", { h.key("h") }, { h.key("escape") }),
