@@ -48,7 +48,8 @@ final class SetsFirstAnswer<Value> {
     init(_ deliver: @escaping @MainActor (Value) -> Void) { self.deliver = deliver }
     // Spelled out: the implicit deinit of this generic main-actor class crashes swift-frontend in
     // optimised builds (Xcode 26.6, EarlyPerfInliner), so Release and the archive did not build.
-    nonisolated deinit {}
+    // A plain deinit: `nonisolated deinit` does not compile with the Xcode the CI runner has.
+    deinit {}
 
     var isAnswered: Bool { deliver == nil }
 
