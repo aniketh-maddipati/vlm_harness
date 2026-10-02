@@ -19,6 +19,8 @@
 # start in a sandbox) or LUMINA_UI=native (the SwiftUI app: no network entitlement at all).
 #
 # Output: build/release/<version>-<build>/ (ignored by git). VERSION=1.0.1 overrides the xcconfig.
+# A notarised dmg is also copied, with its checksum and archive, to ~/Desktop/Lumina Releases/<version>-<build>/
+# (LUMINA_RELEASES_DIR=<folder> changes where, LUMINA_RELEASES_DIR= turns it off).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -27,7 +29,7 @@ MODE="${1:-}"; shift || true
 case "$MODE" in
   preflight) exec bash Scripts/release_preflight.sh "$@" ;;
   local|dmg|store) ;;
-  *) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 64 ;;
+  *) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 64 ;;
 esac
 VALIDATE=0; UPLOAD=0; STRICT=()
 for a in "$@"; do
@@ -53,6 +55,7 @@ VERSION="${VERSION:-$(sed -n 's/^MARKETING_VERSION *= *//p' Config/Release.xccon
 
 OUT="build/release/$VERSION-$BUILD"
 ARCHIVE="$OUT/Lumina.xcarchive"
+RELEASES="${LUMINA_RELEASES_DIR-$HOME/Desktop/Lumina Releases}"
 rm -rf "$OUT"; mkdir -p "$OUT"
 
 # The overrides go in a generated xcconfig that includes Config/Release.xcconfig: a setting given
@@ -129,6 +132,16 @@ case "$MODE" in
       bash Scripts/release_preflight.sh "$APP" dmg ${STRICT[@]+"${STRICT[@]}"}
     fi
     shasum -a 256 "$DMG" | tee "$OUT/SHA256.txt"
+    # A notarised dmg is one to send: keep it, its checksum and the archive (the dSYMs for its crash
+    # reports) where Finder shows them, outside a checkout that may be removed.
+    if [[ -n "${NOTARY_PROFILE:-}" && -n "$RELEASES" ]]; then
+      KEEP="$RELEASES/$VERSION-$BUILD"
+      rm -rf "$KEEP"; mkdir -p "$KEEP"
+      ditto "$DMG" "$KEEP/$(basename "$DMG")"
+      ditto "$OUT/SHA256.txt" "$KEEP/SHA256.txt"
+      ditto "$ARCHIVE" "$KEEP/Lumina.xcarchive"
+      say "copied to $KEEP"
+    fi
     say "done: $DMG"
     ;;
 
