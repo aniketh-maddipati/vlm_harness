@@ -47,6 +47,8 @@ which is what the shell does on a real resign-key, so that one already matches.
 **Ask:** `drop` → `model.dropFiles(paths.map(URL.init(fileURLWithPath:)))`; and
 `{"dragEnter":true}` → `model.dropHover(true)`.
 
+**Done** (integration).
+
 ## 6. Tokens
 
 `LuminaMotion` has `keepPopSeconds` but not the keyframes (tokens.json `keepPop.keyframes`), and

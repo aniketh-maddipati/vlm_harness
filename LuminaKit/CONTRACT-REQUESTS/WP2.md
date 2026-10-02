@@ -51,6 +51,8 @@ shell's root so a drop works on Cull, Edit and Save (R-17); the model side is do
 another step before Open has ever been shown does nothing. Ask: the shell calls
 `OpenPickers.install(model)` when it comes up (needs the enum made public; say the word).
 
+**Done** (integration): `AppShell` installs the pickers on appear; the shell's own `ShellDrop` already takes drops on every step.
+
 The pickers do nothing when `config.uiTest` is on: the tests mash ⌘O and can't drive a system
 panel. They import through `debug.command` drops.
 

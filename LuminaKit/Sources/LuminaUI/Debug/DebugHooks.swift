@@ -48,8 +48,9 @@ public enum DebugCommand {
         // The command field took the keyboard to be typed into; give it back to the window.
         NSApp.keyWindow?.makeFirstResponder(nil)
         if let r = d["resize"] as? [Double], r.count == 2 { model.hooks.resize?(CGSize(width: r[0], height: r[1])) }
-        if let paths = d["drop"] as? [String] { model.imports.dropTargeted = false; model.importURLs(paths.map { URL(fileURLWithPath: $0) }) }
-        if d["dragEnter"] as? Bool == true { model.imports.dropTargeted = true }
+        // The same calls a real drop makes (WP1.md #5).
+        if let paths = d["drop"] as? [String] { model.dropFiles(paths.map { URL(fileURLWithPath: $0) }) }
+        if d["dragEnter"] as? Bool == true { model.dropHover(true) }
         if d["blur"] as? Bool == true { model.windowBlurred(); model.hooks.blur?() }
         if let k = d["keyDown"] as? String { model.handle(KeyEvent(k, isRepeat: model.heldKeys.contains(k))) }
         if let k = d["keyUp"] as? String { model.handle(KeyEvent(k, phase: .up)) }

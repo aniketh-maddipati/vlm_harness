@@ -183,6 +183,15 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 /// Window sizes: opens at the reference size (1440×900, PARITY.md); minimum 1024×700 (ADDENDUM-1 §4).
 enum SetsWindowSize {
     static let initial = CGSize(width: 1440, height: 900)
+    /// The size a new window opens at: most of the screen it opens on (92 % of the area the Dock
+    /// and menu bar leave), never under `initial` where the screen has room for it nor under
+    /// `minimum`. A size the user chose is restored by macOS instead.
+    @MainActor static var opening: CGSize {
+        guard let v = NSScreen.main?.visibleFrame, v.width > 0, v.height > 0 else { return initial }
+        let w = max(min(initial.width, v.width), (v.width * 0.92).rounded())
+        let h = max(min(initial.height, v.height), (v.height * 0.92).rounded())
+        return CGSize(width: max(minimum.width, min(w, v.width)), height: max(minimum.height, min(h, v.height)))
+    }
     static let minimum = CGSize(width: 1024, height: 700)
 }
 

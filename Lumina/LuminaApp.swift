@@ -20,7 +20,7 @@ struct LuminaApp: App {
                     .ignoresSafeArea()
             }
         }
-        .defaultSize(SetsWindowSize.initial)
+        .defaultSize(SetsWindowSize.opening)
         .commands { LuminaCommands(menu: menu) }
     }
 }

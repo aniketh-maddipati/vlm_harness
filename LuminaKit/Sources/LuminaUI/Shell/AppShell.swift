@@ -52,7 +52,11 @@ public struct AppShell: View {
         .environment(model)
         .preferredColorScheme(.dark)
         .background(WindowAccessor { keys.attach($0, model: model, chrome: chrome) })
-        .onAppear { if let w = keys.window { keys.attach(w, model: model, chrome: chrome) } }
+        .onAppear {
+            if let w = keys.window { keys.attach(w, model: model, chrome: chrome) }
+            // ⌘O works on every step from the start, not only once Open has been shown (WP2.md #4).
+            OpenPickers.install(model)
+        }
         .onDisappear { keys.remove() }
     }
 
