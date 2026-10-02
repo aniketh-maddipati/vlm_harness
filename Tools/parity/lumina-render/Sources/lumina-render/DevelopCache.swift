@@ -13,7 +13,7 @@ import Foundation
 /// the OS). Anything else that changes the develop (a change to `LookPipeline.develop` itself)
 /// needs `--no-cache` or a bump of `version`.
 struct DevelopCache {
-    static let version = 3      // 3: the meta carries the tone anchor (mean, spread, bright share)
+    static let version = 4      // 4: the meta carries the tone anchor (mean, spread, bright share, bright end)
     let dir: URL
 
     init(dir: URL) throws {
@@ -41,7 +41,7 @@ struct DevelopCache {
         guard let metaData = try? Data(contentsOf: p.meta),
               let meta = try? JSONSerialization.jsonObject(with: metaData) as? [String: Any],
               let w = meta["width"] as? Int, let h = meta["height"] as? Int, let rowBytes = meta["rowBytes"] as? Int,
-              let kelvin = meta["kelvin"] as? Double, let tint = meta["tint"] as? Double, let anchor = meta["anchor"] as? [Double], anchor.count == 3,
+              let kelvin = meta["kelvin"] as? Double, let tint = meta["tint"] as? Double, let anchor = meta["anchor"] as? [Double], anchor.count == 4,
               let bytes = try? Data(contentsOf: p.bin, options: .alwaysMapped), bytes.count == rowBytes * h else { return nil }
         // Mark the entry used: the caller prunes what a run did not touch (`prune_develop_cache`).
         let now: [FileAttributeKey: Any] = [.modificationDate: Date()]
@@ -49,7 +49,7 @@ struct DevelopCache {
         try? FileManager.default.setAttributes(now, ofItemAtPath: p.bin.path)
         let img = CIImage(bitmapData: bytes, bytesPerRow: rowBytes, size: CGSize(width: w, height: h), format: .RGBAh, colorSpace: workingSpace)
         return LookPipeline.Developed(image: img, asShot: Look.WhiteBalance(kelvin: kelvin, tint: tint),
-                                      anchor: LookMath.ToneAnchor(mean: anchor[0], spread: anchor[1] < 0 ? nil : anchor[1], bright: anchor[2] < 0 ? nil : anchor[2]))
+                                      anchor: LookMath.ToneAnchor(mean: anchor[0], spread: anchor[1] < 0 ? nil : anchor[1], bright: anchor[2] < 0 ? nil : anchor[2], high: anchor[3] < 0 ? nil : anchor[3]))
     }
 
     /// Writes the bitmap first and the metadata last, so a half-written entry is never read.
@@ -57,7 +57,7 @@ struct DevelopCache {
         let p = paths(key)
         do {
             try bitmap.write(to: p.bin, options: .atomic)
-            let meta: [String: Any] = ["width": width, "height": height, "rowBytes": rowBytes, "kelvin": asShot.kelvin, "tint": asShot.tint, "anchor": [anchor.mean, anchor.spread ?? -1, anchor.bright ?? -1], "version": Self.version]
+            let meta: [String: Any] = ["width": width, "height": height, "rowBytes": rowBytes, "kelvin": asShot.kelvin, "tint": asShot.tint, "anchor": [anchor.mean, anchor.spread ?? -1, anchor.bright ?? -1, anchor.high ?? -1], "version": Self.version]
             try JSONSerialization.data(withJSONObject: meta).write(to: p.meta, options: .atomic)
         } catch {
             FileHandle.standardError.write(Data("lumina-render: develop cache write failed: \(error)\n".utf8))

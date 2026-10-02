@@ -132,9 +132,14 @@ probe in four parallel macOS shards (smoke + screens, fuzz, fuzz + scroll, scrol
 
 ## Parity (the Edit look vs Lightroom Classic)
 
-The Edit step ships behind the `friends` flag until `Tools/parity/criteria.json` holds on the golden
-set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5.0). The full procedure is
-`Tools/parity/README.md`; the rules that bite:
+The Edit step ships with the app (ruled 2026-10-01). `Tools/parity/criteria.json` (singles: per-slider
+median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5.0 on the golden set) is a tracked target, not a
+release gate: the numbers are reported, and nothing shipped says Edit matches Lightroom until they
+hold. A change to the look is adopted only if it improves the unseen halves of the development
+albums and the held-out set stays within a small tolerance (ruled 2026-10-01): per change at most
++0.05 median and +0.10 p95 ΔE2000 on the held-out set, and never more than +0.10 / +0.25 in total
+above the 2026-10-01 baseline (2.32 / 7.82). A change that needs more than that is rejected; the
+tolerance is the owner's to change. The full procedure is `Tools/parity/README.md`; the rules that bite:
 
 - **The look string is the only Edit state** (`ev:+0.70 wb:5200/+3 con:+12 … crop:x,y,w,h/r`,
   `Lumina/Sets/Look/LookString.swift`). Previews are `lumina://render/<rel>?look=&px=&seq=`, exports
@@ -162,18 +167,27 @@ set (singles: per-slider median ΔE2000 ≤ 2.0, p95 ≤ 4.0; combos ≤ 3.0 / 5
 - **rawDevelop ends with the base match** (`LookMath.baseMatch`, kernel `lookBase`): a two-number
   midtone curve on luma and a colour mix whose rows sum to 1 (a grey stays grey), fitted on base
   exports so the untouched render is Lightroom's Adobe Color. Every slider stage sits on this base:
-  when it changes, refit the stages, and adopt a stage's refit only if the held-out set agrees
-  (a fit that helps the sweep and hurts the held-out set overfitted; that has happened twice).
+  when it changes, refit the stages, and adopt a stage's refit only if the held-out set agrees,
+  within the tolerance above (a fit that helps the sweep and hurts the held-out set overfitted;
+  that has happened twice).
 - **White balance uses the same curve**: per-channel scene gains (Temperature moves red and blue and
   holds green, as Lightroom does; Tint has its own red and blue strengths), each channel through the
   tone curve, so a cast is full strength in the shadows and fades toward white.
 - **Highlights and Shadows are relative to the photo.** Tone is a local exposure through the same
   curve, with masks and strengths read from the photo's anchor (`LookMath.ToneAnchor`: log-mean
-  luma, spread of log2 luma, share of pixels above L* 80; measured once per file on a 256 px
-  develop by `LookPipeline.toneAnchor`, pushed through exposure, and carried by every `Developed`,
-  base, tile region and export so the tiers stay identical). On 156 photos Lightroom moves the
-  same pixel value by +3 to +58 L* at Shadows +100 depending on the photo; those three numbers
-  explain most of it. A synthetic image or flat patch gets `ToneAnchor.reference`.
+  luma, spread of log2 luma, share of pixels above L* 80, and `high`, the 95th percentile of luma;
+  measured once per file on a 256 px develop by `LookPipeline.toneAnchor`, pushed through exposure,
+  and carried by every `Developed`, base, tile region and export so the tiers stay identical). On
+  156 photos Lightroom moves the same pixel value by +3 to +58 L* at Shadows +100 depending on the
+  photo; those numbers explain most of it. The Shadows mask is placed against the photo's bright
+  end (`shadowsHighAdapt`, `highCentre`), the Highlights mask against its mean: fitted on landscapes
+  and people together (2026-10-01), where the mean alone failed on dark, high-contrast photos.
+  A synthetic image or flat patch gets `ToneAnchor.reference`.
+- **Vibrance is not Saturation with a mask.** Measured on Lightroom's own exports: above 0 it adds
+  most to dull colours, still a share (`vibranceFloor`) to vivid ones, and about a fifth as much to
+  skin hues (a narrow band, `skinHue` / `skinWidth` / `skinProtect`); below 0 it takes colour away
+  on every hue, faster than it adds it (`vibranceDownPerUnit`). The stage is fitted on Lightroom's
+  base export → Lightroom's slider export, so it does not depend on Lumina's base.
 - **Exposure is a scene gain seen through a sigmoid tone curve** (`LookMath.exposure`: per channel
   G·y / (1 + (G − 1)·y/white), G = 2^(ev · stopsPerUnit)), the form Lightroom's sweep shows:
   shadows and midtones move ~1.6 stops per unit, highlights roll off and lose saturation.

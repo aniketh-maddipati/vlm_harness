@@ -105,7 +105,11 @@ final class LookMathTests: XCTestCase {
         let night = out("Highlights", -100, 0.4, A(mean: 0.005)), bright = out("Highlights", -100, 0.4, A(mean: 0.4))
         XCTAssertLessThan(night, bright, "pulled harder where 0.4 is the brightest thing in the frame")
         XCTAssertLessThan(bright, 0.4)
-        XCTAssertGreaterThan(out("Shadows", 100, 0.1, A(mean: 0.4)), out("Shadows", 100, 0.1, A(mean: 0.02)), "0.1 is a shadow in a bright photo")
+        // Shadows are read against the photo too: against its mean, or against its bright end (the rules say which).
+        let byMean = rules.k("tone", "shadowsAdapt", 0), byHigh = rules.k("tone", "shadowsHighAdapt", 0)
+        XCTAssertGreaterThan(byMean + byHigh, 0, "Shadows must be read against the photo one way or the other")
+        if byMean > 0 { XCTAssertGreaterThan(out("Shadows", 100, 0.1, A(mean: 0.4)), out("Shadows", 100, 0.1, A(mean: 0.02)), "0.1 is a shadow in a bright photo") }
+        if byHigh > 0 { XCTAssertGreaterThan(out("Shadows", 100, 0.1, A(mean: 0.18, high: 1.0)), out("Shadows", 100, 0.1, A(mean: 0.18, high: 0.3)), "0.1 is a shadow where the bright end is far above it") }
         // The reference anchor is what a flat patch gets by default.
         XCTAssertEqual(out("Shadows", 50, 0.1, .reference), luma(run(Look.single("Shadows", 50, asShot: asShot)!, 0.1)), accuracy: 1e-12)
         // Strength follows the photo: Shadows lifts more where much of the frame is bright, Highlights
@@ -120,11 +124,19 @@ final class LookMathTests: XCTestCase {
             XCTAssertGreaterThan(out("Shadows", 100, 0.02, A(mean: 0.18, spread: nil, bright: 0.6)), out("Shadows", 100, 0.02, A(mean: 0.18, spread: nil, bright: 0.02)))
         }
         if c("highlightsSpread", 0) > 0 { XCTAssertGreaterThan(LookMath.toneNormalisers(anchor: A(mean: 0.18, spread: 3, bright: nil), rules).highlightsGain, 1) }
+        // The Shadows mask sits against the photo's bright end (Lightroom, 156 photos: where its
+        // Shadows curve sits follows the 95th percentile of luma, not the average): the same pixel
+        // in the same average photo is a deeper shadow when the bright end is higher. A missing
+        // bright end changes nothing.
+        XCTAssertEqual(LookMath.toneNormalisers(anchor: A(mean: 0.18), rules).shadows, LookMath.toneNormalisers(anchor: A(mean: 0.18, high: exp2(c("highCentre", 0))), rules).shadows, accuracy: 1e-9)
+        if c("shadowsHighAdapt", 0) > 0 {
+            XCTAssertGreaterThan(out("Shadows", 100, 0.1, A(mean: 0.18, high: 1.0)), out("Shadows", 100, 0.1, A(mean: 0.18, high: 0.3)), "0.1 is a deeper shadow under a brighter bright end")
+        }
         // However extreme the photo, a strength stays within [0.25, 4].
         let wild = LookMath.toneNormalisers(anchor: A(mean: 0.001, spread: 9, bright: 1), rules)
         XCTAssertLessThanOrEqual(wild.shadowsGain, 4); XCTAssertLessThanOrEqual(wild.highlightsGain, 4); XCTAssertGreaterThanOrEqual(wild.highlightsGain, 0.25)
         // Monotonic on a ramp for extreme anchors too.
-        for a in [A(mean: 0.003, spread: 3, bright: 0.0), A(mean: 0.6, spread: 0.5, bright: 0.9), .reference] {
+        for a in [A(mean: 0.003, spread: 3, bright: 0.0, high: 0.02), A(mean: 0.6, spread: 0.5, bright: 0.9, high: 1.0), A(mean: 0.1, high: 0.001), .reference] {
             for (slider, v) in [("Highlights", -100.0), ("Highlights", 100), ("Shadows", 100), ("Shadows", -100)] {
                 var last = -1.0
                 for i in 0...240 { let y = out(slider, v, Double(i) / 200, a); XCTAssertGreaterThanOrEqual(y, last - 1e-9, "\(slider) \(v) anchor \(a) at \(i)"); last = y }
@@ -135,6 +147,10 @@ final class LookMathTests: XCTestCase {
         XCTAssertEqual(flat.mean, 0.18, accuracy: 1e-6); XCTAssertEqual(flat.spread ?? -1, 0, accuracy: 1e-6); XCTAssertEqual(flat.bright ?? -1, 0, accuracy: 1e-12)
         let two = LookMath.toneAnchor(pixels: [0.1, 0.1, 0.1, 1, 0.8, 0.8, 0.8, 1], luma: rules.luma)
         XCTAssertEqual(two.mean, (0.1 * 0.8).squareRoot(), accuracy: 1e-6); XCTAssertEqual(two.spread ?? -1, 1.5, accuracy: 1e-6); XCTAssertEqual(two.bright ?? -1, 0.5, accuracy: 1e-12)
+        // the bright end: the 95th percentile of luma, interpolated between the sorted values
+        XCTAssertEqual(flat.high ?? -1, 0.18, accuracy: 1e-6); XCTAssertEqual(two.high ?? -1, 0.1 + 0.7 * 0.95, accuracy: 1e-6)
+        let ramp = LookMath.toneAnchor(pixels: (0...100).flatMap { i -> [Float] in let v = Float(i) / 100; return [v, v, v, 1] }, luma: rules.luma)
+        XCTAssertEqual(ramp.high ?? -1, 0.95, accuracy: 1e-6)
         XCTAssertEqual(LookMath.toneAnchor(pixels: [0, 0, 0, 1], luma: rules.luma).mean, 1e-3, accuracy: 1e-12)
         XCTAssertEqual(LookMath.toneAnchor(pixels: [], luma: rules.luma), .reference)
     }
@@ -276,6 +292,28 @@ final class LookMathTests: XCTestCase {
         let satSkin = LookMath.flat(skin, look: Look.single("Saturation", 80, asShot: asShot)!, asShot: asShot, rules: rules)
         XCTAssertGreaterThan(chroma(vibRed), chroma(red) * 0.99)
         XCTAssertLessThan(chroma(vibSkin) / chroma(skin), chroma(satSkin) / chroma(skin), "vibrance is gentler on skin than saturation")
+        // Vivid colours: without a floor Vibrance leaves a colour at vibranceChromaMax alone; with one it still
+        // moves, by that share of the full strength. Below 0 the strength is vibranceDownPerUnit, skin or not.
+        var r = rules!
+        r.stages["colour"]?.coefficients.merge(["vibrancePerUnit": 0.008, "vibranceDownPerUnit": 0.012, "vibranceChromaMax": 0.3, "vibranceFloor": 0, "skinProtect": 0.8, "skinHue": 30, "skinWidth": 40]) { $1 }
+        XCTAssertEqual(LookMath.chromaFactor(chroma: 0.3, hueDegrees: 200, vibrance: 50, saturation: 0, bw: false, r), 1, accuracy: 1e-12)
+        r.stages["colour"]?.coefficients["vibranceFloor"] = 0.25
+        let farFromSkin: Double = 1 - 0.8 * exp(-pow(170.0 / 40.0, 2))
+        let vivid: Double = 1 + 50 * 0.008 * 0.25 * farFromSkin
+        XCTAssertEqual(LookMath.chromaFactor(chroma: 0.3, hueDegrees: 200, vibrance: 50, saturation: 0, bw: false, r), vivid, accuracy: 1e-12)
+        XCTAssertEqual(LookMath.chromaFactor(chroma: 0.5, hueDegrees: 200, vibrance: 50, saturation: 0, bw: false, r), LookMath.chromaFactor(chroma: 0.3, hueDegrees: 200, vibrance: 50, saturation: 0, bw: false, r), accuracy: 1e-12)
+        XCTAssertEqual(LookMath.chromaFactor(chroma: 0.0, hueDegrees: 30, vibrance: -50, saturation: 0, bw: false, r), 1 - 50 * 0.012, accuracy: 1e-12)
+        XCTAssertEqual(LookMath.chromaFactor(chroma: 0.15, hueDegrees: 30, vibrance: -50, saturation: 0, bw: false, r), LookMath.chromaFactor(chroma: 0.15, hueDegrees: 200, vibrance: -50, saturation: 0, bw: false, r), accuracy: 1e-12)
+        // More colour in never comes out as less: C · factor rises with C at every strength the slider reaches.
+        for v in [-100.0, -50, 50, 100] {
+            var last = -1.0
+            for i in 0...60 {
+                let c = Double(i) * 0.01, out = c * LookMath.chromaFactor(chroma: c, hueDegrees: 200, vibrance: v, saturation: 0, bw: false, r)
+                XCTAssertGreaterThanOrEqual(out, last - 1e-12, "vibrance \(v) at chroma \(c)"); last = out
+            }
+        }
+        r.stages["colour"]?.coefficients["vibranceDownPerUnit"] = nil
+        XCTAssertEqual(LookMath.chromaFactor(chroma: 0.0, hueDegrees: 30, vibrance: -50, saturation: 0, bw: false, r), 1 - 50 * 0.008, accuracy: 1e-12, "without its own number, down is as strong as up")
         // Lightness survives a chroma change (Oklab L is untouched).
         XCTAssertEqual(LookMath.toOklab(more).L, LookMath.toOklab(red).L, accuracy: 1e-6)
         // Round trip of the Oklab matrices.
