@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- design/handoff/lumina-cull/SAFETY.md 7. Nothing else: every key here widens what a bad
+	     file or a bad page could reach (docs/release/THREAT-MODEL.md). -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- The shoot folder the user picks: read the ARWs, write .xmp sidecars and exports. -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<!-- File ▸ Open Recent: security-scoped bookmarks to folders picked before. -->
+	<key>com.apple.security.files.bookmarks.app-scope</key>
+	<true/>
+	<!-- No com.apple.security.network.*: the system, not just the app, keeps photos on the Mac. -->
+</dict>
+</plist>

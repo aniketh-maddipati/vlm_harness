@@ -40,6 +40,9 @@
   // Stands in for the File the page keeps per photo: the same name and relative path, no bytes.
   const fileRef = rel => ({ name: rel.split('/').pop(), webkitRelativePath: rel, __luminaRel: rel });
   let reading = null, lastRead = null;
+  // Where each photo's embedded preview is, by path, as the native read found it: what the Mac
+  // measures for lumina.near. Photos the page read by itself (a dragged-in folder) have none.
+  const previewAt = new Map();
 
   // Everything below leans on these page members. A design sync that renames one shows up here (and
   // in the probe's plumbing-contract scenario) instead of as a silent break.
@@ -153,7 +156,7 @@
     app: true, debug: !!cfg.debug, persisted: true,
     card: null,            // { name, photos, bytes, sony, path, model, range } while a card is in, else null
     cardPending: null,     // { name, path, uuid, photos: null, sony: null, known: false }: a card the Mac will let Lumina read only
-                           // once it is picked (App Sandbox, first time for this card); impStart() asks for it (DESIGN-ASKS Prompt 5)
+                           // once it is picked (App Sandbox, first time for this card); impStart() asks for it (DESIGN-ASKS Prompt 9)
     readingCard: false,    // the open shoot is on a mounted card or removable volume: Save stays off (SAFETY.md 4)
     willPromptAccess: false, // the Mac's folder picker grants access itself: no pre-prompt sheet
     read: null,            // the last folder read: { name, total, read, unreadable, stopped: 'card removed' | null }
@@ -168,6 +171,17 @@
     openSettings: what => native('openSettings', { what: what || 'files' }),
     checkAccess: () => native('checkAccess', {}),
     reopen: () => native('reopenDenied', {}),
+    // How alike two photos are, for stacking retakes (DESIGN-ASKS Prompt 2 C): 0 is the same image,
+    // about 1 is unrelated, measured by the Mac on the embedded previews (never a RAW decode). Takes
+    // two photo paths; resolves once both are measured, to null when either can't be. Two photos
+    // are one picture at or under nearLimit, which is the Mac's because it belongs to its measure
+    // (null when the Mac has no threshold for its measure: keep the page's own rule then).
+    near: (a, b) => {
+      const A = previewAt.get(String(a)), B = previewAt.get(String(b));
+      if (!A || !B || window.lumina.nearLimit == null) return Promise.resolve(null);
+      return native('near', { a: A, b: B }).then(d => (typeof d === 'number' && isFinite(d) ? d : null), () => null);
+    },
+    nearLimit: typeof cfg.nearLimit === 'number' ? cfg.nearLimit : null,
   });
 
   const loadRecents = async logic => {
@@ -233,6 +247,7 @@
         const [po, pl] = m.preview;
         if (po + pl <= f.size) {
           pq = { p: rel, o: po, l: pl, ori: m.orient || 1 };
+          previewAt.set(rel, pq);
           // As stored (ori 1): the page's own canvas turns it, below.
           blob = await (await get(media('preview', Object.assign({}, pq, { ori: 1 })))).blob();
           nt = nativeTile(pq);                               // made by the Mac while the page measures
@@ -341,6 +356,7 @@
       const run = reading = { name: L.name, total: files.length, done: 0, gone: false };
       const t0 = performance.now(), res = new Array(files.length); let done = 0, i = 0, pre = 0, shown = false, lastB = 0, firstCur = null;
       readMoved = false;
+      previewAt.clear();
       logic._gold = []; logic._failed = []; logic.real = [];
       logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
       // Rows appear as the contiguous prefix grows: every 400 ms, as in the page; every 1.5 s while
@@ -405,14 +421,31 @@
         return native('writeInto', { label: 'jpeg', files: list });
       }
       if (label !== 'xmp') return null;
+      // The page merged each rating into the sidecar text it holds from the open (xmpFor on p.xmp),
+      // which can be hours old: Lightroom may have written the file since. So the Mac reads every
+      // sidecar again now (text + base: the SHA-256 of those bytes, or "none"). Where the text differs
+      // from the page's, the photo gets the text on disk and the page's own xmpFor merges again. The
+      // base goes with the write: a file that is no longer its base (written in the instant between)
+      // is left as it is and comes back "changed on disk"; nothing is retried silently (SAFETY.md 6),
+      // the next Save reads again. The text from the open is never written over a newer file.
+      const root = info.name || '', enc = new TextEncoder(), byId = (logic.data && logic.data.byId) || {}, owner = {}, now = {};
+      // A file's photo, by the name the page's runExport gave the file (xpath without the folder's name).
+      for (const [id, p] of Object.entries(byId)) { const q = (p.xpath || (p.file || '').replace(/\.[^.]+$/, '') + '.xmp').split('/'); owner[q.length > 1 ? q.slice(1).join('/') : q[0]] = id; }
+      for (const s of (await native('readSidecars', { root, files: files.map(f => f.name) })) || []) now[s.name] = s;
       const list = [];
       for (const f of files) {
-        const d = f.data;
-        if (d instanceof Uint8Array) list.push({ name: f.name, b64: b64(d) });
-        else if (d instanceof Blob) list.push({ name: f.name, b64: b64(new Uint8Array(await d.arrayBuffer())) });
-        else if (typeof d === 'string') list.push({ name: f.name, b64: b64(new TextEncoder().encode(d)) });
+        const s = now[f.name], id = owner[f.name], p = id != null ? byId[id] : null, it = { name: f.name };
+        let d = f.data;
+        if (p && s && s.base != null) {
+          const tx = s.text == null ? null : s.text;
+          if ((p.xmp || null) !== (tx || null)) { p.xmp = tx; p.lrEd = LuminaCore.hasDevelop(tx); d = logic.xmpFor(id); }
+          it.base = s.base;
+        } else if (p) it.base = 'unread';                    // couldn't be read now: no file matches this, the write says why
+        // (No photo for the name: nothing the page merged from. Sent as it is, unchecked.)
+        const u = d instanceof Uint8Array ? d : d instanceof Blob ? new Uint8Array(await d.arrayBuffer()) : typeof d === 'string' ? enc.encode(d) : null;
+        if (u) { it.b64 = b64(u); list.push(it); }
       }
-      const r = await native('writeSidecars', { root: info.name || '', files: list });
+      const r = await native('writeSidecars', { root, files: list });
       if (r && !(r.errors || []).length && (r.n || 0) > 0) savedKeepers = keepersOf(logic);
       if (r) setTimeout(saveNow, 0);
       return r;
