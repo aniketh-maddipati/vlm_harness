@@ -52,6 +52,25 @@ final class CullThumbs {
         return image
     }
 
+    private func dimKey(_ photo: Photo, _ image: CGImage) -> NSString {
+        "\(photo.id)|\(photo.source.hashValue)|out|\(image.width)x\(image.height)" as NSString
+    }
+
+    /// The Out picture (grey, 70 %) made from `image`, if it has been made already.
+    func cachedDimmed(_ photo: Photo, from image: CGImage) -> CGImage? { cache.object(forKey: dimKey(photo, image))?.image }
+
+    /// The Out picture made from `image`: from the cache, or made off the main thread now.
+    func dimmed(_ photo: Photo, from image: CGImage) async -> CGImage? {
+        let key = dimKey(photo, image)
+        if let c = cache.object(forKey: key)?.image { return c }
+        let result: CGImage? = await withCheckedContinuation { c in
+            DispatchQueue.global(qos: .userInitiated).async { c.resume(returning: OutDim.image(image)) }
+        }
+        guard let made = result else { return nil }
+        cache.setObject(Box(made), forKey: key, cost: made.bytesPerRow * made.height)
+        return made
+    }
+
     private func acquire() async {
         if running < limit { running += 1; return }
         await withCheckedContinuation { waiting.append($0) }

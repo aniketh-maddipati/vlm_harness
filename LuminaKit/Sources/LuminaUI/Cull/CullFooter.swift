@@ -18,8 +18,11 @@ struct CullFooter: View {
             VStack(alignment: .leading, spacing: row) { decided; buttons(optional: false) }
             VStack(alignment: .leading, spacing: row) { decided; buttons(optional: false, stacked: true) }
         }
-        .padding(.horizontal, 20.scaled(s)).padding(.vertical, 8.scaled(s))
+        // The prototype's min-height 56 is CSS content-box: its padding 8 / 8 and the 1pt top
+        // hairline come on top, so the footer is 73 tall (measured in the prototype at 1100 × 760
+        // and 1440 × 900; golden cull-mid). The content gets the 56 here, then the padding.
         .frame(maxWidth: .infinity, minHeight: 56.scaled(s), alignment: .leading)
+        .padding(.horizontal, 20.scaled(s)).padding(.top, 8.scaled(s) + 1).padding(.bottom, 8.scaled(s))
         .background(LuminaColor.bgPanel)
         .overlay(alignment: .top) { LuminaColor.hairline.frame(height: 1) }
     }

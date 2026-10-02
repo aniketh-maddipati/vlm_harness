@@ -39,30 +39,37 @@ struct CullPreview: View {
         .padding(EdgeInsets(top: 16.scaled(s), leading: 4.scaled(s), bottom: 16.scaled(s), trailing: 20.scaled(s)))
     }
 
-    /// File name, camera details, and the decision on the right. On one line when it fits;
-    /// otherwise the details drop to a second line. Nothing ever pushes the column wider.
+    /// File name, shot details, and the decision on the right, wrapping as the prototype's line
+    /// does (`flex-wrap`, gap 10 both ways): all on one line when it fits; else the state drops to
+    /// a second line, right-aligned; else the details drop too. Nothing pushes the column wider.
+    /// The accessibility value keeps the camera (R-16), which the visible line leaves out.
     private func metaLine(_ keep: Bool?) -> some View {
-        let details = photo.cullDetails
+        let details = photo.cullShotDetails, gap = 10.scaled(s)
         let file = Text(photo.file).font(LuminaFont.caption(s, .semibold)).foregroundStyle(LuminaColor.textPrimary).lineLimit(1).truncationMode(.middle)
         let meta = Text(details).font(LuminaFont.caption(s)).foregroundStyle(LuminaColor.textTertiary).lineLimit(1).truncationMode(.tail)
-        let state = Text(CullCopy.state(keep)).font(LuminaFont.caption(s))
+        let stateText = CullCopy.state(keep, suggested: photo.suggested)
+        let state = Text(stateText).font(LuminaFont.caption(s))
             .foregroundStyle(keep == true ? LuminaColor.accentGold : LuminaColor.textTertiary).lineLimit(1).fixedSize()
-            .luminaStatus(AccessibilityID.Cull.previewState, CullCopy.state(keep))
-        let value = details.isEmpty ? photo.file : "\(photo.file) · \(details)"
+            .luminaStatus(AccessibilityID.Cull.previewState, stateText)
+        let all = photo.cullDetails
+        let value = all.isEmpty ? photo.file : "\(photo.file) · \(all)"
         return ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: 10.scaled(s)) {
-                HStack(alignment: .firstTextBaseline, spacing: 10.scaled(s)) { file; if !details.isEmpty { meta } }
+            HStack(alignment: .firstTextBaseline, spacing: gap) {
+                HStack(alignment: .firstTextBaseline, spacing: gap) { file; if !details.isEmpty { meta } }
                     .luminaStatus(AccessibilityID.Cull.previewMeta, value)
                 Spacer(minLength: 0)
                 state
             }
-            VStack(alignment: .leading, spacing: 2.scaled(s)) {
-                HStack(alignment: .firstTextBaseline, spacing: 10.scaled(s)) {
-                    file.luminaStatus(AccessibilityID.Cull.previewMeta, value)
-                    Spacer(minLength: 0)
-                    state
-                }
+            VStack(alignment: .leading, spacing: gap) {
+                HStack(alignment: .firstTextBaseline, spacing: gap) { file; if !details.isEmpty { meta } }
+                    .fixedSize()
+                    .luminaStatus(AccessibilityID.Cull.previewMeta, value)
+                HStack(spacing: 0) { Spacer(minLength: 0); state }
+            }
+            VStack(alignment: .leading, spacing: gap) {
+                file.luminaStatus(AccessibilityID.Cull.previewMeta, value)
                 if !details.isEmpty { meta.accessibilityHidden(true) }
+                HStack(spacing: 0) { Spacer(minLength: 0); state }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -79,21 +86,43 @@ private struct CullPreviewImage: View {
     @Environment(\.displayScale) private var displayScale
     @Environment(\.accessibilityReduceMotion) private var reduce
     @State private var shown: Shown?
+    /// The Out picture (`OutDim`) made from `shown`, faded in over it while the photo is out.
+    @State private var dimmed: Shown?
 
     private struct Shown { let id: String; let image: CGImage }
     private var px: Int { CullThumbs.pixels(aspect: photo.aspect, box: size, fill: false, scale: displayScale) }
+    /// Changes when the Out picture is wanted for another picture; empty while the photo isn't out.
+    private var dimRequest: String {
+        guard out, let shown, shown.id == photo.id else { return "" }
+        return "\(shown.id)|\(shown.image.width)x\(shown.image.height)"
+    }
 
     var body: some View {
         ZStack {
             if let shown, shown.id == photo.id {
-                Image(decorative: shown.image, scale: 1).resizable().interpolation(.high)
-                    .aspectRatio(contentMode: .fit)
-                    .saturation(out ? 0 : 1)
-                    .overlay(Color.black.opacity(out ? 0.3 : 0))
-                    .animation(LuminaMotion.outDim(reduce), value: out)
+                ZStack {
+                    Image(decorative: shown.image, scale: 1).resizable().interpolation(.high)
+                        .aspectRatio(contentMode: .fit)
+                        .saturation(out ? 0 : 1)
+                        .overlay(Color.black.opacity(out ? 0.3 : 0))
+                    if out, let dimmed, dimmed.id == photo.id {
+                        Image(decorative: dimmed.image, scale: 1).resizable().interpolation(.high)
+                            .aspectRatio(contentMode: .fit)
+                            .transition(.opacity)
+                    }
+                }
+                .animation(LuminaMotion.outDim(reduce), value: out)
             }
         }
         .frame(width: size.width, height: size.height)
+        .task(id: dimRequest) {
+            guard out, let shown, shown.id == photo.id else { return }
+            let thumbs = model.cullThumbs
+            let result: CGImage?
+            if let c = thumbs.cachedDimmed(photo, from: shown.image) { result = c } else { result = await thumbs.dimmed(photo, from: shown.image) }
+            guard let made = result, !Task.isCancelled else { return }
+            withAnimation(LuminaMotion.outDim(reduce)) { dimmed = Shown(id: shown.id, image: made) }
+        }
         .task(id: "\(photo.id)|\(px)") {
             guard size.width > 1, size.height > 1 else { return }
             let thumbs = model.cullThumbs
