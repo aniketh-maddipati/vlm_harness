@@ -22,6 +22,8 @@ struct CullTile: View, Equatable {
     @State private var image: CGImage?
     /// On screen already: a badge that arrives now pops; one that was there when the tile scrolled in doesn't.
     @State private var settled = false
+    /// The Out picture (grey, 70 %), made from `image` while the photo is out.
+    @State private var dimmed: CGImage?
 
     nonisolated static func == (a: CullTile, b: CullTile) -> Bool {
         a.photo.id == b.photo.id && a.photo.source == b.photo.source && a.photo.aspect == b.photo.aspect && a.photo.burst == b.photo.burst
@@ -77,15 +79,41 @@ struct CullTile: View, Equatable {
         .accessibilityAction { select(photo.id) }
         .onAppear { settled = true }
         .task(id: "\(photo.id)|\(px)") { await load() }
+        .task(id: dimRequest) { await loadDimmed() }
     }
 
-    /// Out: grey and dimmed to 70 % over 120 ms.
+    /// Out: grey and dimmed to 70 % over 120 ms. The grey picture (`OutDim`) fades in over the
+    /// colour one, so the grey shows wherever the view is drawn, Core Animation filters or not
+    /// (lumina-snap's `cacheDisplay` draws none); the filters under it answer at once while the
+    /// grey picture is made.
     @ViewBuilder private func picture(_ image: CGImage, out: Bool) -> some View {
-        Image(decorative: image, scale: 1).resizable().interpolation(.medium)
-            .aspectRatio(contentMode: contain ? .fit : .fill)
-            .saturation(out ? 0 : 1)
-            .overlay(Color.black.opacity(out ? 0.3 : 0))
-            .animation(LuminaMotion.outDim(reduce), value: out)
+        ZStack {
+            Image(decorative: image, scale: 1).resizable().interpolation(.medium)
+                .aspectRatio(contentMode: contain ? .fit : .fill)
+                .saturation(out ? 0 : 1)
+                .overlay(Color.black.opacity(out ? 0.3 : 0))
+            if out, let dimmed {
+                Image(decorative: dimmed, scale: 1).resizable().interpolation(.medium)
+                    .aspectRatio(contentMode: contain ? .fit : .fill)
+                    .transition(.opacity)
+            }
+        }
+        .animation(LuminaMotion.outDim(reduce), value: out)
+    }
+
+    /// Changes when the Out picture is wanted for another picture; empty while the photo isn't out.
+    private var dimRequest: String {
+        guard state == .out, let image else { return "" }
+        return "\(photo.id)|\(image.width)x\(image.height)"
+    }
+
+    private func loadDimmed() async {
+        guard state == .out, let image else { return }
+        let thumbs = model.cullThumbs
+        let result: CGImage?
+        if let c = thumbs.cachedDimmed(photo, from: image) { result = c } else { result = await thumbs.dimmed(photo, from: image) }
+        guard let made = result, !Task.isCancelled else { return }
+        withAnimation(LuminaMotion.outDim(reduce)) { dimmed = made }
     }
 
     private func load() async {

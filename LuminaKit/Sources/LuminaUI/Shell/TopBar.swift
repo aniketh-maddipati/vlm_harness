@@ -100,14 +100,14 @@ private struct StepTabStyle: ButtonStyle {
     }
 }
 
-/// "N keepers · S scenes" and the copy status in its fixed slot.
+/// "N keepers · S scenes" and, in its fixed slot, the copy status (the save status on Edit).
 struct ShootMeta: View {
     let layout: TopBarLayout
     @Environment(AppModel.self) private var model
     @Environment(\.luminaScale) private var s
 
     var body: some View {
-        let status = model.shellCopyStatus
+        let status = model.shellStatus
         HStack(alignment: .firstTextBaseline, spacing: layout.metaGap) {
             Text(model.shellShootTitle)
                 .foregroundStyle(LuminaColor.textSecondary)

@@ -317,6 +317,25 @@ final class WP1FlowTests: XCTestCase {
         XCTAssertEqual(h.model.shellShootTitle, "12 keepers · 5 scenes")
     }
 
+    /// The status slot: the copy status, except on Edit, where it is the save status (Lumina Edit
+    /// v19's `saveT`; golden edit-loaded) once the copy is done.
+    func test_shootMeta_statusSlot_isTheSaveStatusOnEdit() {
+        let h = Harness()
+        h.key("return", settle: 0)
+        h.wait(0.6)
+        XCTAssertTrue(h.model.shellIsCopying)
+        h.key("cmd+3", settle: 0.1)
+        XCTAssertEqual(h.model.step, .edit)
+        XCTAssertEqual(h.model.shellStatus, h.model.shellCopyStatus, "a copy under way still shows its progress")
+        h.wait(3)
+        XCTAssertFalse(h.model.shellIsCopying)
+        XCTAssertEqual(h.model.shellStatus, "All changes saved")
+        XCTAssertEqual(h.model.shellStatus, h.model.editSaveStatus)
+        h.key("cmd+2", settle: 0.1)
+        XCTAssertEqual(h.model.step, .cull)
+        XCTAssertEqual(h.model.shellStatus, "All 117 copied and checked")
+    }
+
     func test_tabs_hintsAndTooltips() {
         XCTAssertEqual(Step.allCases.map(\.tabHint), ["⌘1", "⌘2", "⌘3", "⌘4"])
         XCTAssertEqual(Step.allCases.map(\.title), ["Open", "Cull", "Edit", "Save"])

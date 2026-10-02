@@ -65,3 +65,16 @@ public struct TopBarLayout: Equatable, Sendable {
     /// Where the sliding thumb sits for a step, from the first segment's left edge.
     public func thumbOffset(_ step: Step) -> CGFloat { CGFloat(step.index) * tabWidth }
 }
+
+// MARK: The meta's status slot
+
+public extension AppModel {
+    /// The words in the meta's fixed status slot. On Edit, the save status (Lumina Edit v19's
+    /// top bar, `saveT`: "Saving…" / "All changes saved" / what went wrong), unless a card is
+    /// still being copied: the copy's progress is never hidden. Elsewhere the copy status.
+    /// "All changes saved" fits the 118pt slot where "All 117 copied and checked" doesn't, so the
+    /// tabs, centred between the wordmark and the meta, sit where the prototype has them on Edit.
+    var shellStatus: String {
+        step == .edit && !shellIsCopying ? editSaveStatus : shellCopyStatus
+    }
+}

@@ -1,4 +1,5 @@
 import XCTest
+import CoreGraphics
 @testable import LuminaCore
 
 // WP-3. Cull's rules, headless: the keys (R-04, R-05, R-08, R-28), keep suggested, U, the scene
@@ -265,6 +266,15 @@ final class WP3CullKeyTests: XCTestCase {
             for bad in ["undefined", "nil", "—", "Optional", "NaN", "· ·"] { XCTAssertFalse(photo.cullDetails.contains(bad), photo.cullDetails) }
         }
         XCTAssertEqual(CullCopy.state(true), "Kept"); XCTAssertEqual(CullCopy.state(false), "Out"); XCTAssertEqual(CullCopy.state(nil), "Undecided")
+        // The preview's line (prototype pvSt, golden cull-mid): the camera stays in the
+        // accessibility value only, a suggested keeper says so while undecided.
+        XCTAssertEqual(full.cullShotDetails, "09:12:40 · 85mm f/2 1/250 · ISO 100")
+        XCTAssertEqual(p.cullShotDetails, "18:30:02 · 85mm f/2.8 1/250 · ISO 800")
+        XCTAssertEqual(Photo(id: "d", file: "d", camera: "X", focal: 23.5, source: .demo(seed: 1, bw: false)).cullShotDetails, "23.5mm")
+        XCTAssertEqual(CullCopy.state(nil, suggested: true), "Undecided · suggested keep")
+        XCTAssertEqual(CullCopy.state(nil, suggested: false), "Undecided")
+        XCTAssertEqual(CullCopy.state(true, suggested: true), "Kept"); XCTAssertEqual(CullCopy.state(false, suggested: true), "Out")
+        XCTAssertEqual(Shoot.demo117.photos.filter(\.suggested).count, 44)
         XCTAssertEqual(CullCopy.sceneCount(photos: 14, decided: 0), "14 photos"); XCTAssertEqual(CullCopy.sceneCount(photos: 14, decided: 3), "14 photos · 3 decided")
         XCTAssertEqual(CullCopy.toSave(kept: 12), "Save 12 keepers →"); XCTAssertEqual(CullCopy.toEdit(kept: 12), "Edit 12 keepers")
         XCTAssertEqual(CullCopy.copying(42, of: 117), "Copying 42 of 117. Photos appear here one by one…")
@@ -491,5 +501,36 @@ final class WP3CullLayoutTests: XCTestCase {
         XCTAssertLessThan(range.count, 24)
         XCTAssertEqual(grid.range(offset: 0, viewport: 0, overscan: 0).count, 0)
         XCTAssertEqual(grid.range(offset: grid.contentHeight + 5000, viewport: viewport, overscan: 100).count, 0)
+    }
+}
+
+/// Out's picture (README §2 "Tiles", tokens outDim `grayscale(1) brightness(0.7)`): grey, at 70 %,
+/// in the pixels, so it shows where Core Animation filters are not drawn (lumina-snap, goldens).
+final class WP3OutDimTests: XCTestCase {
+    /// A `w` × `h` sRGB picture of one colour.
+    private func solid(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, w: Int = 6, h: Int = 4) -> CGImage {
+        let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.setFillColor(CGColor(srgbRed: r, green: g, blue: b, alpha: 1)); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        return ctx.makeImage()!
+    }
+
+    /// The first pixel's grey value, 0…255.
+    private func grey(_ image: CGImage) -> Int {
+        let ctx = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0, space: image.colorSpace!,
+                            bitmapInfo: CGImageAlphaInfo.none.rawValue)!
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return Int(ctx.data!.load(as: UInt8.self))
+    }
+
+    func test_outDim_isGreyAtSeventyPercent() throws {
+        let white = try XCTUnwrap(OutDim.image(solid(1, 1, 1)))
+        XCTAssertEqual(white.width, 6); XCTAssertEqual(white.height, 4)
+        XCTAssertEqual(white.colorSpace?.model, .monochrome, "grey, one channel")
+        XCTAssertEqual(grey(white), Int((255 * OutDim.brightness).rounded()), accuracy: 2)
+        XCTAssertEqual(grey(try XCTUnwrap(OutDim.image(solid(0, 0, 0)))), 0)
+        // A colour turns into a grey darker than white's, and green reads brighter than blue.
+        let green = grey(try XCTUnwrap(OutDim.image(solid(0, 1, 0)))), blue = grey(try XCTUnwrap(OutDim.image(solid(0, 0, 1))))
+        XCTAssertGreaterThan(green, blue); XCTAssertLessThan(green, grey(white)); XCTAssertGreaterThan(blue, 0)
     }
 }

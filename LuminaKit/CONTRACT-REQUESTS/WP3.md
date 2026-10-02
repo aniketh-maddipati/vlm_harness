@@ -31,10 +31,12 @@ Nothing here blocks WP-3: each item says what Cull does today instead.
 
 ## Notes
 
-- **`lumina-snap` cannot show Out.** `NSView.cacheDisplay` does not run Core Animation filters, so
-  `.saturation(0)` (and `.grayscale`, and a `Canvas` filter: all three tried) come out in colour in
-  the PNG. Out tiles and the preview show only the 70 % dimming there. The grey needs the
-  integrator's eye in a real window, or the golden run.
+- **Out is in the pixels.** `NSView.cacheDisplay` does not run Core Animation filters, so
+  `.saturation(0)` (and `.grayscale`, and a `Canvas` filter: all three tried) came out in colour in
+  lumina-snap's PNGs and the goldens. Out tiles and the preview now fade in a grey picture at 70 %
+  (`OutDim`, made off the main thread and cached in `CullThumbs`) over the filtered one, so the
+  grey shows in a window and in a capture alike. The tile dims to `brightness(0.7)` as README and
+  tokens say; the Workflow prototype's tile also drops to opacity 0.3, which is not followed.
 - **R-58 and the preview column's padding.** README gives the column padding 16 / 20 / 16 / 4;
   LAYOUT_SIZING says the photo fills the column "with no other padding". Cull keeps the README
   padding around the column's content, and inside it the photo's box (`cull.preview`) takes all
@@ -45,8 +47,14 @@ Nothing here blocks WP-3: each item says what Cull does today instead.
   WP-0 contract says `cullSet(keep:)` decides without moving, and `test_mouseOnly` clicks a tile
   and then Keep. Cull follows the contract.
 - **Kept fill on the Keep button** is `#EFECE6` (README), not the prototype's gold.
-- **State label** is "Kept" / "Out" / "Undecided" (README), without the prototype's
-  "· suggested keep".
+- **The preview's line** follows the prototype as the goldens show it (`cull-mid`, 1100 × 760):
+  "DSC03270  09:12:50 · 35mm f/4 1/250 · ISO 100", then "Undecided · suggested keep" right-aligned
+  when it doesn't fit beside (wrap gap 10). The visible line leaves the camera out (the demo
+  shoot's photos have no `body` in the prototype); `cull.previewMeta`'s value keeps it (R-16).
+  README §2 lists the camera first: if the owner wants it shown, it is `cullDetails` again.
+- **Footer height** is 73 at S = 1: the prototype's `min-height:56px` is CSS content-box, so its
+  padding 8 / 8 and the 1pt top border come on top (measured in Chromium at 1100 × 760 and
+  1440 × 900).
 - **`Components.PhotoThumb` is not used by Cull.** Cull has its own loader (`CullThumbs`: byte-capped
   cache, six decodes at most, newest request first, cancelled when the tile scrolls away).
 - **New public API in `Decisions/`** (additions only, nothing renamed): `DecisionStore.decide`,

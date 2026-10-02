@@ -5,7 +5,14 @@ import Foundation
 public extension Photo {
     /// "ILCE-7M4 · 09:12:40 · 85mm f/2 1/250 · ISO 100". A field the file doesn't have is left
     /// out, with its separator; nothing ever reads "undefined", "—" or "nil" (R-16, R-53).
-    var cullDetails: String {
+    var cullDetails: String { detailsLine(camera: true) }
+
+    /// What the preview's line shows after the file name (the prototype's demo shoot, golden
+    /// `cull-mid`): "09:12:40 · 85mm f/2 1/250 · ISO 100", without the camera. The camera stays
+    /// in `cullDetails`, the line's accessibility value (R-16 reads it there).
+    var cullShotDetails: String { detailsLine(camera: false) }
+
+    private func detailsLine(camera withCamera: Bool) -> String {
         func text(_ s: String?) -> String? {
             guard let t = s?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty, !t.contains("—"), t != "-" else { return nil }
             return t
@@ -16,7 +23,7 @@ public extension Photo {
             return r == r.rounded() ? String(Int(r)) : String(format: "%.1f", r)
         }
         let exposure = [number(focal).map { "\($0)mm" }, number(aperture).map { "f/\($0)" }, text(shutter)].compactMap { $0 }.joined(separator: " ")
-        let parts = [text(camera), text(time), text(exposure), iso.flatMap { $0 > 0 ? "ISO \($0)" : nil }]
+        let parts = [withCamera ? text(camera) : nil, text(time), text(exposure), iso.flatMap { $0 > 0 ? "ISO \($0)" : nil }]
         return parts.compactMap { $0 }.joined(separator: " · ")
     }
 }
@@ -28,6 +35,10 @@ public enum CullCopy {
     public static let editHelp = "Optional. Nothing changes unless you move a setting."
 
     public static func state(_ keep: Bool?) -> String { keep == true ? "Kept" : keep == false ? "Out" : "Undecided" }
+    /// The preview's state: "Undecided · suggested keep" for an undecided suggested keeper (prototype `pvSt`).
+    public static func state(_ keep: Bool?, suggested: Bool) -> String {
+        keep == nil && suggested ? "Undecided · suggested keep" : state(keep)
+    }
     public static func copying(_ n: Int, of total: Int) -> String { "Copying \(n) of \(total). Photos appear here one by one…" }
     public static func sceneCount(photos: Int, decided: Int) -> String { "\(photos) photos" + (decided > 0 ? " · \(decided) decided" : "") }
     public static func keepSuggested(_ n: Int) -> String { "Keep \(n) suggested" }
