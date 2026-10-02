@@ -185,6 +185,9 @@ jobs:
             run: bash Scripts/probe.sh scenarios scroll-fast-2560; s1=$?; bash Scripts/probe.sh edit; s2=$?; bash Scripts/probe.sh raw9; s3=$?; exit $((s1 | s2 | s3))
     env:
       LUMINA_EDIT_GATE: "0"     # latency is reported, not gated, on a shared runner
+      LUMINA_LONG: "1"          # the fuzz storms are long runs, started on purpose here
+      LUMINA_PROBE_LIMIT: "1500"        # per probe.sh call; a shared runner is several times slower than a Mac on a desk
+      LUMINA_SCENARIO_LIMIT: "900"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4

@@ -3,8 +3,11 @@ import AppKit
 let usage = """
 lumina-probe — drive the Lumina page in WKWebView
 
-  lumina-probe run <scenario.json>... [--out DIR] [--echo]
-      Runs each scenario in a fresh window and web process. Exit 1 if any fails.
+  lumina-probe run <scenario.json>... [--out DIR] [--echo] [--deadline S] [--scenario-deadline S]
+      Runs each scenario in a fresh window and web process. Exit 1 if any fails, 3 at a limit:
+      600 s for the run (LUMINA_PROBE_DEADLINE), 180 s per scenario (LUMINA_SCENARIO_LIMIT, or the
+      scenario's own "deadline"). 75 if another test run owns the screen. Scenarios that mount
+      disk images are skipped unless LUMINA_DISK_IMAGES=1.
       Paths inside scenarios resolve against the current directory (run from the repo root).
 
   lumina-probe export-worker <plan.json>
@@ -70,14 +73,17 @@ case "run":
     let outRoot = URL(fileURLWithPath: option("--out") ?? "artifacts/probe/latest")
     let echo = flag("--echo")
     let requireAll = flag("--require-all")      // a SKIP fails the run (CI with fixtures present)
-    // Hard ceiling for the whole run: a wedged main thread can't hang CI.
-    let deadline = Double(option("--deadline") ?? "1800") ?? 1800
-    DispatchQueue.global().asyncAfter(deadline: .now() + deadline) {
-        print("FAIL  deadline of \(Int(deadline))s reached (main thread wedged or scenario too slow)")
-        exit(3)
-    }
+    // Hard ceilings, enforced off the main thread (Guard.swift): the whole run, and each scenario
+    // (its own "deadline" when the scenario is known to need longer). A run that reaches one
+    // fails, detaches its images and exits; it never waits on.
+    let env = ProcessInfo.processInfo.environment
+    let deadline = Double(option("--deadline") ?? env["LUMINA_PROBE_DEADLINE"] ?? "") ?? 600
+    let scenarioLimit = Double(option("--scenario-deadline") ?? env["LUMINA_SCENARIO_LIMIT"] ?? "") ?? 180
     let scenarios = args.map { URL(fileURLWithPath: $0) }
     guard !scenarios.isEmpty else { print(usage); exit(2) }
+    ProbeGuard.takeScreen("lumina-probe run \(scenarios.map { $0.deletingPathExtension().lastPathComponent }.joined(separator: " "))")
+    ProbeGuard.install()
+    _ = ProbeGuard.deadline(deadline, "the run")
     ProbeSandbox.start(outRoot: outRoot)
 
     // The probe is an invisible background app. Without this, App Nap throttles its timers, and once
@@ -95,7 +101,9 @@ case "run":
             ProbeSandbox.harness { try? FileManager.default.removeItem(at: out) }
             do {
                 let runner = try Runner(scenario: s, outDir: out)
+                let limit = ProbeGuard.deadline(max(scenarioLimit, runner.spec["deadline"] as? Double ?? 0), s.deletingPathExtension().lastPathComponent)
                 let pass = await runner.run(echo: echo)
+                limit.cancel()
                 if let why = runner.skipped { skips.append("\(s.lastPathComponent): \(why)") }
                 allPass = allPass && pass
             } catch {
@@ -107,6 +115,7 @@ case "run":
             skips.forEach { print("   \($0)") }
             if requireAll { allPass = false }
         }
+        ProbeGuard.cleanup()
         exit(allPass ? 0 : 1)
     }
     app.run()

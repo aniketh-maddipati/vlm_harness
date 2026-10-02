@@ -57,7 +57,7 @@ step "8. reference (every screen, byte-compared)"
 if [[ $RECORD == 1 ]]; then bash Scripts/probe.sh reference --record; else bash Scripts/probe.sh reference || echo "  screens changed — expected for a design update; review evidence, then rerun with --record"; fi
 
 step "9. robustness (fuzz + app + edge)"
-bash Scripts/probe.sh fuzz || fail=1
+LUMINA_LONG=1 bash Scripts/probe.sh fuzz || fail=1      # a sync is the moment for the long storms
 [[ -n "${LUMINA_FIXTURE_ROOT:-}" ]] && { bash Scripts/probe.sh app || fail=1; bash Scripts/probe.sh edge || true; }
 
 step "done"

@@ -250,6 +250,9 @@ final class Runner {
             let info = try await host.js("return JSON.stringify(__probe.logic().state.realInfo)")
             return info.map { "\($0)" }
         case "diskImage":
+            guard ProbeGuard.diskImagesAllowed else {
+                throw ProbeSkip(reason: "disk images are off (it mounts one, which shows in Finder): LUMINA_DISK_IMAGES=1 turns them on")
+            }
             let from = (s["from"] as? String).map { _ in URL(fileURLWithPath: (try? str(s, "from")) ?? "") }
             let name = try str(s, "name")
             let m = try ProbeSandbox.harness {
@@ -551,7 +554,9 @@ final class Runner {
                 env[ProbeSandbox.envTokens] = tokens
                 p.environment = env
             }
-            p.standardOutput = FileHandle.nullDevice; try p.run(); return p
+            p.standardOutput = FileHandle.nullDevice; try p.run()
+            ProbeGuard.noteChild(p.processIdentifier)          // a run stopped mid-kill takes its worker with it
+            return p
         }
         func journal(_ dir: URL) -> SetsExportJournal.Entry? {
             let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
@@ -595,6 +600,7 @@ final class Runner {
             let killed = p.isRunning
             if killed { kill(p.processIdentifier, SIGKILL) }
             p.waitUntilExit()
+            ProbeGuard.forgetChild(p.processIdentifier)
             let temps = allFiles(dest).filter { $0.contains(".lumina-tmp-") }.count
             leftovers += temps
             let before = journal(jdir)

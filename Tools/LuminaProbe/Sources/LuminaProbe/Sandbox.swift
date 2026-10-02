@@ -234,7 +234,9 @@ enum SandboxLauncher {
         var actions: posix_spawn_file_actions_t?
         posix_spawn_file_actions_init(&actions)
         posix_spawn_file_actions_addinherit_np(&actions, fds[1])
+        ProbeGuard.takeScreen("lumina-probe sandbox-launch")      // the sandboxed probe cannot reach the lock file
         var env = ProcessInfo.processInfo.environment
+        env[ProbeGuard.heldKey] = env[ProbeGuard.heldKey] ?? "\(getpid())"
         env[ProbeSandbox.envBroker] = "\(fds[1])"
         env[ProbeSandbox.envDirectory] = FileManager.default.currentDirectoryPath
         let cArgs = ([exe] + args).map { strdup($0) } + [nil]
@@ -252,6 +254,7 @@ enum SandboxLauncher {
             s.setEventHandler { kill(pid, SIGKILL) }
             s.resume(); sources.append(s)
         }
+        ProbeGuard.watchParent { kill(pid, SIGKILL) }             // so does a driver that is gone
         var grants: [[String: Any]] = []
         let lock = NSLock()
         let broker = Thread {
@@ -275,6 +278,7 @@ enum SandboxLauncher {
                     if let tool = req["exe"] as? String, tools.contains(tool) {
                         let p = Process(), out = Pipe(), err = Pipe()
                         p.executableURL = URL(fileURLWithPath: tool); p.arguments = req["args"] as? [String] ?? []
+                        if tool.hasSuffix("/hdiutil"), let a = p.arguments, a.first == "attach", a.count > 1 { ProbeGuard.noteImage(a[1]) }
                         p.standardOutput = out; p.standardError = err
                         do {
                             try p.run()
@@ -294,6 +298,7 @@ enum SandboxLauncher {
         var status: Int32 = 0
         while waitpid(pid, &status, 0) < 0 && errno == EINTR {}
         let signalled = (status & 0x7f) != 0, code = signalled ? 128 + (status & 0x7f) : (status >> 8) & 0xff
+        ProbeGuard.detachLeftovers()        // a probe that was killed could not detach its own images
         if let info {
             lock.lock()
             let record: [String: Any] = ["pid": Int(pid), "exe": exe, "start": started.timeIntervalSince1970, "end": Date().timeIntervalSince1970,

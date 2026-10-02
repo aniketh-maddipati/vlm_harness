@@ -21,7 +21,7 @@
 #   bash Scripts/probe.sh app                    contract + the app on folders: read, sidecars, .lumina-bak, Lightroom's sidecars
 #                                                merged in place, sessions across a relaunch, keepers renamed / deleted mid-cull,
 #                                                the empty app (needs LUMINA_FIXTURE_ROOT)
-#   bash Scripts/probe.sh fault                  disk images (they show in Finder for a moment): kill -9 mid-write + relaunch recovery,
+#   bash Scripts/probe.sh fault                  disk images (LUMINA_LONG=1 LUMINA_DISK_IMAGES=1; they show in Finder for a moment): kill -9 mid-write + relaunch recovery,
 #                                                disk full mid-copy and for a sidecar, a read-only card, a card pulled mid-read and
 #                                                while its keepers wait on Save, .xmp and .XMP side by side on a case-sensitive disk
 #   bash Scripts/probe.sh scroll                 scrolling Cull while a folder reads (no jump when it ends), then fast scrolling at
@@ -46,7 +46,7 @@
 #                                                100 / 500 / 1000 / 2000 photos, done; photos per second. Folder: LUMINA_READ_DIR, else as scroll
 #   bash Scripts/probe.sh slowdisk               a disk whose first directory read takes 12 s (LUMINA_SLOW_DIR_MS): the app still answers
 #                                                the page while the folder is listed. Folder: LUMINA_READ_DIR, else as scroll
-#   bash Scripts/probe.sh all [--require-all]    everything v5; --require-all turns a SKIP into a failure
+#   bash Scripts/probe.sh all [--require-all]    everything v5 (LUMINA_LONG=1); --require-all turns a SKIP into a failure
 #   bash Scripts/probe.sh sandbox MODE [ARGS…]   any mode above inside the App Sandbox, with Config/Lumina-Sets.entitlements as the
 #                                                app ships them (e.g. sandbox smoke, sandbox contract, sandbox scenarios app-session).
 #                                                One process per scenario; after each, what the sandbox refused the app (access
@@ -54,6 +54,16 @@
 #                                                line and Network Process crash in the log for its pid) goes to <scenario>/
 #                                                sandbox-denials.log, and a table prints PASS / FAIL / FAILED-BY-SANDBOX + denials.
 #                                                How the probe gets its files in a sandbox: Tools/LuminaProbe/…/Sandbox.swift
+#
+# Every run ends (AGENTS.md, "Running tests without disturbing the Mac"). The suite runs under
+# Scripts/test_guard.py: one screen-owning run at a time on this Mac (a second is refused, exit 75),
+# a wall-clock limit per suite (LUMINA_PROBE_LIMIT=<seconds> changes it; exit 124 at the limit) and
+# per scenario (180 s, or the scenario's own "deadline"; LUMINA_SCENARIO_LIMIT raises it), and on
+# any exit its processes are stopped and its disk images detached. Long runs are asked for:
+#   LUMINA_LONG=1          fuzz, fault, stress, consistency, all, and scenarios with a deadline over 300 s
+#   LUMINA_DISK_IMAGES=1   scenarios that mount disk images (fault, fuzz-app-card, card-sandbox-*, app-xmp-both):
+#                          they show in Finder for a moment; without it those scenarios SKIP
+# bash Scripts/stop_tests.sh stops everything, at any time.
 #
 # Build fixtures once: LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Tests/probe/forge_fixtures.sh
 # Evidence goes to ~/LuminaEvidence/probe/<stamp> (not /tmp: it gets swept).
@@ -67,12 +77,54 @@ sandbox=0
 if [[ $suite == sandbox ]]; then sandbox=1; suite="${1:-smoke}"; shift || true; fi
 record=0; extra=()
 for a in "$@"; do [[ $a == --record ]] && record=1 || extra+=("$a"); done
+S=Tests/probe/scenarios
 
-swift build -c release --package-path Tools/LuminaProbe >/dev/null || { echo "probe build failed" >&2; exit 2; }
 PROBE="Tools/LuminaProbe/.build/release/lumina-probe"
 OUT="${LUMINA_PROBE_OUT:-$HOME/LuminaEvidence/probe/$(date +%Y%m%d-%H%M%S)$([[ $sandbox == 1 ]] && echo -sandbox)}"
 mkdir -p "$OUT"
-S=Tests/probe/scenarios
+
+# The suite's wall-clock limit in seconds: several times what it takes on this Mac, so a healthy
+# run never meets it and a stuck one ends soon. `scenarios`: the sum of its scenarios' limits.
+scenario_limit() { python3 -c 'import json,sys; print(int(json.load(open(sys.argv[1])).get("deadline", 180)))' "$S/$1.json" 2>/dev/null || echo 180; }
+long=0
+case "$suite" in
+  contract|selftest)                            limit=120 ;;
+  smoke|edge|ingest|edit-cold|raw9|slowdisk)    limit=240 ;;
+  screens|app|card|scroll|edit|readspeed)       limit=420 ;;
+  reference)                                    limit=600 ;;
+  fuzz|fault|consistency)                       limit=1200; long=1 ;;
+  stress)                                       limit=1800; long=1 ;;
+  all)                                          limit=3600; long=1 ;;
+  scenarios) limit=60
+             for n in ${extra[@]+"${extra[@]}"}; do
+               [[ $n == --* ]] && continue
+               l=$(scenario_limit "$n"); limit=$((limit + l)); [[ $l -gt 300 ]] && long=1
+             done ;;
+  sync)      echo "use: bash Scripts/sets_sync_design.sh <handoff.zip>"; exit 2 ;;
+  *)         sed -n '2,69p' "$0"; exit 2 ;;
+esac
+[[ $sandbox == 1 ]] && limit=$((limit * 2))       # one process per scenario, then the log is read
+limit="${LUMINA_PROBE_LIMIT:-$limit}"
+
+if [[ -z ${LUMINA_PROBE_INNER:-} ]]; then
+  if [[ $long == 1 && ${LUMINA_LONG:-} != 1 ]]; then
+    asked="$([[ $sandbox == 1 ]] && echo 'sandbox ')$suite ${extra[*]-}"
+    echo "probe.sh $asked is a long run (limit $((limit / 60)) min) and is only started on purpose:" >&2
+    echo "  LUMINA_LONG=1 bash Scripts/probe.sh $asked" >&2
+    exit 2
+  fi
+  if [[ $suite == fault && ${LUMINA_DISK_IMAGES:-} != 1 ]]; then
+    echo "probe.sh fault mounts and pulls disk images (they show in Finder for a moment): add LUMINA_DISK_IMAGES=1" >&2
+    exit 2
+  fi
+  GUARD=(python3 Scripts/test_guard.py run)
+  "${GUARD[@]}" --quiet --name "probe build $ROOT" --limit 900 -- swift build -c release --package-path Tools/LuminaProbe >/dev/null || { echo "probe build failed" >&2; exit 2; }
+  export LUMINA_PROBE_OUT="$OUT" LUMINA_PROBE_INNER=1 LUMINA_PROBE_LIMIT="$limit"
+  [[ $sandbox == 1 ]] && set -- sandbox "$suite" "$@" || set -- "$suite" "$@"
+  exec "${GUARD[@]}" --name probe --limit "$limit" --screen --sweep-under "$OUT" -- bash "$0" "$@"
+fi
+# What is left of the limit: the probe ends itself (and detaches its images) just before the guard would.
+left() { local s=$((limit - SECONDS - 10)); echo $((s > 5 ? s : 5)); }
 export LUMINA_FIXTURE_ROOT="${LUMINA_FIXTURE_ROOT:-}"
 # The probe is a SwiftPM tool with no bundle: the look rules come from the checkout (LookRules.bundled reads LUMINA_RULES).
 export LUMINA_RULES="${LUMINA_RULES:-$ROOT/Lumina/Sets/Look/rules-v1.json}"
@@ -104,7 +156,7 @@ run_sandboxed() {
   for f in "$@"; do
     [[ $f == *.json ]] || continue
     name="$(basename "$f" .json)"
-    "$PROBE" sandbox-launch "$ROOT/$SBX/Contents/MacOS/lumina-probe" --info "$o/.launch-$name.json" -- run "$f" --out "$o" ${extra[@]+"${extra[@]}"}
+    "$PROBE" sandbox-launch "$ROOT/$SBX/Contents/MacOS/lumina-probe" --info "$o/.launch-$name.json" -- run "$f" --out "$o" --deadline "$(left)" ${extra[@]+"${extra[@]}"}
     rc=$?
     sleep 1        # let logd take the last lines
     sandbox_report "$o" "$name" "$rc" || status=1
@@ -183,10 +235,10 @@ sandbox_table() {
   printf '  %-26s %-18s %7s %7s %5s %8s %7s %9s\n' scenario verdict denials access log webkit steps failures
   while IFS=$'\t' read -r a b c d e f g h; do printf '  %-26s %-18s %7s %7s %5s %8s %7s %9s\n' "$a" "$b" "$c" "$d" "$e" "$f" "$g" "$h"; done < "$OUT/sandbox-results.tsv"
 }
-run() { if [[ $sandbox == 1 ]]; then run_sandboxed "$OUT" "$@"; else "$PROBE" run "$@" --out "$OUT" ${extra[@]+"${extra[@]}"} || status=1; fi; }
+run() { if [[ $sandbox == 1 ]]; then run_sandboxed "$OUT" "$@"; else "$PROBE" run "$@" --out "$OUT" --deadline "$(left)" ${extra[@]+"${extra[@]}"} || status=1; fi; }
 run_out() {
   local o=$1; shift; mkdir -p "$o"
-  if [[ $sandbox == 1 ]]; then run_sandboxed "$o" "$@"; else "$PROBE" run "$@" --out "$o" ${extra[@]+"${extra[@]}"} || status=1; fi
+  if [[ $sandbox == 1 ]]; then run_sandboxed "$o" "$@"; else "$PROBE" run "$@" --out "$o" --deadline "$(left)" ${extra[@]+"${extra[@]}"} || status=1; fi
 }
 
 reference() {
@@ -329,7 +381,7 @@ case "$suite" in
              LUMINA_SLOW_DIR_MS="${LUMINA_SLOW_DIR_MS:-12000}" run "$S/open-slow-disk.json" ;;
   all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" "$S"/edge-*.json $(paths "${APP[@]}") $(paths "${FAULT[@]}")
              LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
-  *)         sed -n '2,57p' "$0"; exit 2 ;;
+  *)         sed -n '2,69p' "$0"; exit 2 ;;
 esac
 sandbox_table
 echo "evidence: $OUT"
