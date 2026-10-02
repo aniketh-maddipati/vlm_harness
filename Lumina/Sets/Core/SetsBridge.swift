@@ -364,7 +364,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             guard let id = body["id"] as? String else { return (0, nil) }
             return (shoots.bytes(id), nil)
         case "removeShoot":
-            guard let id = body["id"] as? String else { return (false, nil) }
+            guard let id = body["id"] as? String, SetsShootStore.isID(id) else { return (false, nil) }
             try? shoots.remove(id)
             onShootsChanged?()
             return (true, nil)
