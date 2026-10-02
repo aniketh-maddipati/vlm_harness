@@ -163,7 +163,7 @@ struct CropStage: View {
     /// A handle's centre: its 18pt box starts 4pt outside the corner.
     private func point(_ c: Corner, of r: CGRect) -> CGPoint {
         let o = 9.scaled(s) - 4
-        switch c {
+        return switch c {
         case .tl: CGPoint(x: r.minX + o, y: r.minY + o)
         case .tr: CGPoint(x: r.maxX - o, y: r.minY + o)
         case .bl: CGPoint(x: r.minX + o, y: r.maxY - o)
