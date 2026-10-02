@@ -124,6 +124,20 @@ def detach_under(roots, dry=False):
     return done
 
 
+def native(command):
+    """On Apple silicon a python3 built for Intel runs translated, and so would everything it
+    starts: xcodebuild and swift would then run their tests as x86_64 and fail to load them.
+    The command is started as arm64 when it can be."""
+    try:
+        translated = subprocess.run(["sysctl", "-n", "sysctl.proc_translated"], capture_output=True, text=True).stdout.strip() == "1"
+        exe = shutil.which(command[0])
+        if translated and exe and "arm64" in subprocess.run(["lipo", "-archs", exe], capture_output=True, text=True).stdout:
+            return ["/usr/bin/arch", "-arm64"] + command
+    except OSError:
+        pass
+    return command
+
+
 # ——— runs
 
 def run_files():
@@ -224,7 +238,7 @@ def cmd_run(argv):
     env = dict(os.environ, LUMINA_GUARDED=name, LUMINA_GUARD_LIMIT=str(int(limit)))
     if screen: env[HELD] = os.environ.get(HELD) or str(os.getpid())
     t0 = time.time()
-    child = subprocess.Popen(command, env=env, start_new_session=True)
+    child = subprocess.Popen(native(command), env=env, start_new_session=True)
     run = {"guard": os.getpid(), "pgid": child.pid, "name": name, "started": time.strftime("%H:%M:%S"), "limit": limit,
            "cwd": os.getcwd(), "command": " ".join(command)[:400], "sweep": roots, "screen": screen,
            "leaderStarted": processes().get(child.pid, ("",) * 4)[2]}
