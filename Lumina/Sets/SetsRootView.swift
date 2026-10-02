@@ -18,7 +18,7 @@ struct SetsRootView: NSViewRepresentable {
 /// Owns the bridge and the web view (and, through the bridge, the Edit canvas overlay); answers
 /// the page's folder input and downloads; takes the menu bar's items (LuminaApp.swift) to the page.
 @MainActor
-final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, WKDownloadDelegate, SetsChooser {
+final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, WKDownloadDelegate, NSOpenSavePanelDelegate, SetsChooser {
     private(set) var bridge: SetsBridge!
     private(set) var webView: WKWebView?
 
@@ -40,10 +40,16 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         bridge.onShootsChanged = { [weak self] in self?.refreshRecents() }
         refreshRecents()
         // An export cut short last time (crash, kill, power): clear its temp files, keep its journal.
+        // The destination is reached through the journal's bookmark (the panel's grant died with
+        // the last process); when that fails the files stay and the journal says why.
         let exports = Self.supportDir.appendingPathComponent("exports", isDirectory: true)
         Task.detached(priority: .utility) {
             for e in SetsExportJournal.recover(in: exports) {
-                NSLog("Lumina: export %@ was cut short: %d of %d done, %d temp files removed", e.id, e.done.count, e.planned.count, e.tempsRemoved ?? 0)
+                if let why = e.recoveryRefused {
+                    NSLog("Lumina: export %@ was cut short: %d of %d done, temp files left: %@", e.id, e.done.count, e.planned.count, why)
+                } else {
+                    NSLog("Lumina: export %@ was cut short: %d of %d done, %d temp files removed", e.id, e.done.count, e.planned.count, e.tempsRemoved ?? 0)
+                }
             }
         }
         let res = Bundle.main.resourceURL!
@@ -173,7 +179,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
     }
 
-    // MARK: Navigation: only our own scheme; downloads land in ~/Downloads
+    // MARK: Navigation: only our own scheme; downloads go through a save panel
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences) async -> (WKNavigationActionPolicy, WKWebpagePreferences) {
         if action.shouldPerformDownload { return (.download, preferences) }
@@ -191,15 +197,37 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) { download.delegate = self }
     func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) { download.delegate = self }
 
+    /// The page's downloads (its debug "lumina-golden.json"; the browser-only xmp zip never runs in
+    /// the app) go where the user puts them in a save panel, never straight into ~/Downloads: the
+    /// sandboxed app has no Downloads entitlement, and the page doesn't get to pick a place (R1d,
+    /// THREAT-MODEL T11). The panel's grant covers exactly the file chosen. A file already there is
+    /// not replaced (no room for a .lumina-bak beside it in the sandbox): the panel asks for another name.
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String) async -> URL? {
-        let dir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
-        var dest = dir.appendingPathComponent(suggestedFilename)
-        var n = 2
-        while FileManager.default.fileExists(atPath: dest.path) {
-            let stem = (suggestedFilename as NSString).deletingPathExtension, ext = (suggestedFilename as NSString).pathExtension
-            dest = dir.appendingPathComponent("\(stem) \(n)" + (ext.isEmpty ? "" : ".\(ext)")); n += 1
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = Self.safeDownloadName(suggestedFilename)
+        panel.canCreateDirectories = true
+        panel.delegate = self
+        guard let window = webView?.window else { return panel.runModal() == .OK ? panel.url : nil }
+        return await withCheckedContinuation { c in
+            panel.beginSheetModal(for: window) { c.resume(returning: $0 == .OK ? panel.url : nil) }
         }
-        return dest
+    }
+
+    /// The page's suggested name as one plain file name: no folders, no leading dot, no control
+    /// characters, at most 128 characters.
+    nonisolated static func safeDownloadName(_ suggested: String) -> String {
+        let last = suggested.split(whereSeparator: { $0 == "/" || $0 == "\\" }).last.map(String.init) ?? ""
+        var name = String(String.UnicodeScalarView(last.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) && $0 != ":" }))
+        while let f = name.first, f == "." || f.isWhitespace { name.removeFirst() }
+        name = String(name.prefix(128)).trimmingCharacters(in: .whitespaces)
+        return name.isEmpty ? "lumina-download" : name
+    }
+
+    /// The download's save panel: an existing file is refused (WKDownload would fail on it, and
+    /// replacing it would leave no .lumina-bak).
+    func panel(_ sender: Any, validate url: URL) throws {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteFileExistsError, userInfo: [NSFilePathErrorKey: url.path, NSURLErrorKey: url])
     }
 
     // MARK: The page stopped (crash or memory)

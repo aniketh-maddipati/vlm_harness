@@ -190,7 +190,7 @@ export class Bridge {
         return { n: msg.files.length, bak: 0, folder: '/tmp/export', decoder: 'RAW 8', decoders: msg.files.map(() => 'raw 8'), fallbacks: [], renderMs: msg.files.map(() => 120) };
       }
       case 'saveSession': { this.sessions[msg.id] = msg.json; const s = this.index.find(x => x.id === msg.id); if (s) Object.assign(s, msg.summary || {}); this.saves = (this.saves || 0) + 1; return true; }
-      case 'prefetch': return (msg.items || []).length;
+      case 'prefetch': if (this.prefetches) this.prefetches.push(...(msg.items || [])); return (msg.items || []).length;
       // SetsNear: the distance between two photos' previews, null when either can't be measured
       // (card out, no preview range). Here: 0 for the same photo, else a fixed 0.25.
       case 'near': {
@@ -243,6 +243,13 @@ export class Bridge {
   }
 }
 
+// A query as plumbing.js must write it (encodeURIComponent): %XX decoded once, a '+' stays a '+'.
+// Stricter than SetsSchemeHandler.query (which also reads '+' as a space) on purpose, so a URL built
+// with URLSearchParams fails here: a folder named "Shoot 2026" would arrive as "Shoot+2026".
+export const strictQuery = u => Object.fromEntries(u.search.slice(1).split('&').filter(Boolean).map(kv => {
+  const i = kv.indexOf('='); return [decodeURIComponent(i < 0 ? kv : kv.slice(0, i)), decodeURIComponent(i < 0 ? '' : kv.slice(i + 1))];
+}));
+
 // app: plumbing.js + the stand-in bridge (as the app); false: the prototype as designed.
 // clockBase: fixed wall clock, as the probe's (ms since epoch). parity: plumbing's test-only sample mode.
 export async function open(browser, bridge, { prefs, app = true, size = [1440, 900], scale = 1, clockBase, query = '', parity = false, ready = true } = {}) {
@@ -256,14 +263,14 @@ export async function open(browser, bridge, { prefs, app = true, size = [1440, 9
     const u = new URL(route.request().url()), p = decodeURIComponent(u.pathname.slice(1));
     if (p.startsWith('render/')) {
       // The Edit preview (image path): what lumina://render answers.
-      const rel = p.slice(7), q = Object.fromEntries(u.searchParams);
+      const rel = p.slice(7), q = strictQuery(u);
       if (!bridge || !bridge.resolve(rel)) return route.fulfill({ status: 404, body: 'not in an opened folder' });
       const r = await bridge.render(rel, q);
       return route.fulfill({ status: r.status, body: r.body, contentType: r.contentType || 'text/plain' });
     }
     if (p.startsWith('media/')) {
       if (bridge && bridge.delayMs) await new Promise(r => setTimeout(r, bridge.delayMs));   // a slow card
-      const q = Object.fromEntries(u.searchParams), f = bridge && bridge.resolve(q.p || '');
+      const q = strictQuery(u), f = bridge && bridge.resolve(q.p || '');
       const [n] = (q.p || '').split('/');
       if (bridge && bridge.gone.has(n)) return route.fulfill({ status: 410, body: 'card removed' });
       if (!f || !fs.existsSync(f)) return route.fulfill({ status: 404, body: 'not in an opened folder' });

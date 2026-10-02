@@ -1,0 +1,165 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "checklist": "S9: a folder named 'Shoot 2026 #1 & 50% (é) + more', holding a file named 'a+b=c?d&e#f 50%41.ARW', one named 'Café.ARW' (NFD: e + combining accent) and a subfolder 'Café ?=', opens, reads every photo (head, preview, thumb by lumina:// URL), keeps one and saves its sidecar under the RAW's own name. Before the fix the read stalled on a space: URLSearchParams wrote it as '+' and the scheme handler read '+' as a plus (404).",
+ "stopOnFailure": false,
+ "steps": [
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "import"
+  },
+  {
+   "do": "copyTree",
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "to": "${OUT}/shoot/Shoot 2026 #1 & 50% (é) + more"
+  },
+  {
+   "do": "move",
+   "from": "${OUT}/shoot/Shoot 2026 #1 & 50% (é) + more/DSC00003.ARW",
+   "to": "${OUT}/shoot/Shoot 2026 #1 & 50% (é) + more/a+b=c?d&e#f 50%41.ARW"
+  },
+  {
+   "do": "move",
+   "from": "${OUT}/shoot/Shoot 2026 #1 & 50% (é) + more/DSC00004.ARW",
+   "to": "${OUT}/shoot/Shoot 2026 #1 & 50% (é) + more/Café.ARW"
+  },
+  {
+   "do": "mkdir",
+   "path": "${OUT}/shoot/Shoot 2026 #1 & 50% (é) + more/Café ?="
+  },
+  {
+   "do": "move",
+   "from": "${OUT}/shoot/Shoot 2026 #1 & 50% (é) + more/DSC00011.ARW",
+   "to": "${OUT}/shoot/Shoot 2026 #1 & 50% (é) + more/Café ?=/DSC00011.ARW"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/Shoot 2026 #1 & 50% (é) + more",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "expect",
+   "js": "const l = __probe.logic(), i = l.state.realInfo || {}; return [l.state.view, l.real.length, i.n, i.bad, (i.name || '').normalize('NFC'), !!window.__lumina.shootId()]",
+   "equals": [
+    "cull",
+    12,
+    12,
+    0,
+    "Shoot 2026 #1 & 50% (é) + more",
+    true
+   ],
+   "why": "every photo read, none unreadable, shootOpened answered. Compared as NFC: Foundation hands the folder's name back decomposed (NFD) though it was created composed, so the page gets 'e + U+0301' and every path below is NFD"
+  },
+  {
+   "do": "expect",
+   "js": "const P = __probe.logic().real.map(p => p.path).map(s => s.normalize('NFC')); return ['a+b=c?d&e#f 50%41.ARW', 'Café.ARW', 'Café ?=/DSC00011.ARW', 'DSC00001.ARW'].map(n => P.includes('Shoot 2026 #1 & 50% (é) + more/' + n))",
+   "equals": [
+    true,
+    true,
+    true,
+    true
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "const bad = []; for (const p of __probe.logic().real) { const q = new URL(p.lg).searchParams, r = await fetch(p.lg); if (q.get('p') !== p.path || /\\+/.test(p.lg.split('?')[1]) || r.status !== 200) bad.push([p.path, r.status]); } return bad",
+   "equals": [],
+   "what": "every large-view URL names its own file, a space is %20 (never +), and the Mac answers 200"
+  },
+  {
+   "do": "expect",
+   "js": "const i = __lumina.inspect(); return [i.lgHeld, i.srcNotBlob, i.dupPaths, i.zsrcOff]",
+   "equals": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "const P = __probe.logic().real, a = P.find(p => /a\\+b=c/.test(p.path)).path, b = P.find(p => p.path.normalize('NFC').endsWith('/Café.ARW')).path, d = await window.lumina.near(a, b); return [typeof d, d >= 0]",
+   "equals": [
+    "number",
+    true
+   ],
+   "what": "lumina.near with two awkward paths: the Mac finds both previews"
+  },
+  {
+   "do": "js",
+   "src": "const l = __probe.logic(), id = l.data.order.find(id => /a\\+b=c/.test(l.data.byId[id].path)); l.setState({ cur: id }); return !!id"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 300
+  },
+  {
+   "do": "expect",
+   "js": "const l = __probe.logic(); return l.kept().map(id => l.data.byId[id].path.normalize('NFC'))",
+   "equals": [
+    "Shoot 2026 #1 & 50% (é) + more/a+b=c?d&e#f 50%41.ARW"
+   ]
+  },
+  {
+   "do": "wait",
+   "ms": 2300
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "cmd": true,
+   "settleMs": 1000
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "export"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "cmd": true,
+   "settleMs": 1500
+  },
+  {
+   "do": "waitFor",
+   "js": "const r = __probe.logic().state.ex.result; return !!r",
+   "what": "save result"
+  },
+  {
+   "do": "expect",
+   "js": "const r = __probe.logic().state.ex.result; return [r.t, !!r.bad, r.where.endsWith('/Shoot 2026 #1 & 50% (é) + more') || r.where.normalize('NFC').endsWith('/Shoot 2026 #1 & 50% (é) + more')]",
+   "equals": [
+    "1 saved",
+    false,
+    true
+   ]
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/Shoot 2026 #1 & 50% (é) + more/a+b=c?d&e#f 50%41.xmp",
+   "contains": "xmp:Rating=\"3\""
+  },
+  {
+   "do": "fs",
+   "path": "${OUT}/shoot/Shoot 2026 #1 & 50% (é) + more",
+   "count": 1,
+   "glob": "*.xmp"
+  },
+  {
+   "do": "expect",
+   "js": "return __lumina.unsaved()",
+   "equals": 0
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

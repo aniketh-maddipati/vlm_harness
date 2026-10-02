@@ -345,6 +345,57 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(lrRead('DSC01004.xmp') === racy.replace('xmp:Rating="1"', 'xmp:Rating="3"'), 'stale sidecar: the next Save → the newest settings survive, rating set', lrRead('DSC01004.xmp'));
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
 
+  // S9: awkward folder and file names. Every path the page or plumbing puts into a URL (head, preview,
+  // render, prefetch) or a message (near, canvasEnter, reveal, sidecars, session) must name the same
+  // file. The stand-in decodes queries strictly (a '+' stays a '+'), so a URL built with URLSearchParams
+  // fails here. NFD: 'é' as e + combining accent, as APFS can hand a name back.
+  const NFD = 'Café', AWK = 'Shoot 2026 #1 & 50% (é) + more';
+  const awk = path.join(tmp, AWK);
+  makeShoot(awk, jpegs);
+  const awkNames = { 'DSC01003.ARW': 'a+b=c?d&e#f 50%41.ARW', 'DSC01004.ARW': NFD + '.ARW', 'DSC01005.ARW': 'x %2B y.ARW' };
+  for (const [a, b] of Object.entries(awkNames)) fs.renameSync(path.join(awk, a), path.join(awk, b));
+  fs.renameSync(path.join(awk, 'sub'), path.join(awk, NFD + ' ?='));
+  bridge.delayMs = 0; bridge.pending = awk; bridge.renders = []; bridge.revealed = []; bridge.nears = []; bridge.canvas.entered = [];
+  bridge.prefetches = [];
+  await page.evaluate(() => __lumina.openFolder());
+  await loaded(page).catch(() => {}); await page.waitForTimeout(300);
+  s = await S(page);
+  ok(s.n === 12 && s.realInfo && s.realInfo.n === 12 && s.realInfo.bad === 0 && s.realInfo.name === AWK, 'awkward names: 12 photos read, 0 unreadable, folder name kept', s.realInfo);
+  ok(bridge.calls.lastIndexOf('shootOpened') > bridge.calls.lastIndexOf('openFolder'), 'awkward names: shootOpened sent after the read');
+  const urls = await page.evaluate(async () => {
+    const out = [];
+    for (const p of __lumina.logic().real) {
+      const q = p.lg ? new URL(p.lg).searchParams : null, r = p.lg ? await fetch(p.lg) : null;
+      out.push({ path: p.path, p: q && q.get('p'), plus: !!p.lg && /\+/.test(p.lg.split('?')[1]), status: r && r.status });
+    }
+    return out;
+  });
+  ok(urls.length === 12 && urls.every(u => u.p === u.path && !u.plus && u.status === 200), 'awkward names: every large-view URL names its file, %20 never +, and loads', urls.filter(u => !(u.p === u.path && !u.plus && u.status === 200)));
+  const awkPaths = urls.map(u => u.path);
+  for (const n of Object.values(awkNames).concat([NFD + ' ?=/DSC01011.ARW'])) ok(awkPaths.includes(AWK + '/' + n), 'awkward names: read ' + JSON.stringify(n), awkPaths);
+  await key(page, 'ArrowRight'); await page.waitForTimeout(400);           // a cursor move asks the Mac to read ahead
+  ok(bridge.prefetches.length &&bridge.prefetches.every(it => awkPaths.includes(it.p)), 'awkward names: prefetch items name read files', bridge.prefetches.slice(0, 3));
+  // Edit preview URL (lumina://render) for the most awkward name, fetched as the page's <img> would.
+  const relAwk = AWK + '/a+b=c?d&e#f 50%41.ARW', relNfd = AWK + '/' + NFD + '.ARW';
+  const rv = await page.evaluate(async rel => { const u = lumina.preview(rel, 'ev:+0.20 con:+5', 900, 41); const r = await fetch(u); return { u, status: r.status }; }, relAwk);
+  ok(rv.status === 200 && bridge.renders.some(r => r.rel === relAwk && r.look === 'ev:+0.20 con:+5'), 'awkward names: lumina.preview URL reaches the file with its look', { rv, renders: bridge.renders.map(r => r.rel) });
+  const nr = await page.evaluate(([a, b]) => lumina.near(a, b), [relAwk, relNfd]);
+  ok(nr === 0.25 && bridge.nears.length === 1 && bridge.nears[0].a.p === relAwk && bridge.nears[0].b.p === relNfd, 'awkward names: near sends both paths unchanged', { nr, sent: bridge.nears });
+  await page.evaluate(rel => lumina.reveal(rel), relNfd);
+  ok(bridge.revealed[0] === relNfd, 'awkward names: reveal sends the path unchanged', bridge.revealed);
+  const en = await page.evaluate(async rel => { await lumina.edit.enter(rel, ''); const st = lumina.edit.state(); lumina.edit.leave(); return st.rel; }, relAwk);
+  const ent = bridge.canvas.entered.find(e => !e.leave);
+  ok(en === relAwk && ent && ent.rel === relAwk && ent.preview && ent.preview.p === relAwk, 'awkward names: canvasEnter carries the path and its preview range unchanged', ent);
+  // Keep all, Save: sidecars beside each RAW under its own name; the session keys by the same names.
+  await page.evaluate(() => { const l = __lumina.logic(); l.setState({ marks: Object.fromEntries(l.data.order.map(id => [id, 'keep'])) }); });
+  sres = await save();
+  ok(sres && sres.t === '12 saved' && !sres.bad, 'awkward names: Save writes 12 sidecars', sres);
+  for (const x of ['a+b=c?d&e#f 50%41.xmp', NFD + '.xmp', 'x %2B y.xmp', NFD + ' ?=/DSC01011.xmp']) ok(fs.existsSync(path.join(awk, x)) && /xmp:Rating="3"|<xmp:Rating>3</.test(fs.readFileSync(path.join(awk, x), 'utf8')), 'awkward names: sidecar ' + JSON.stringify(x), fs.readdirSync(awk));
+  await page.waitForTimeout(2300);            // autosave
+  const awkSaved = bridge.sessions['id-' + AWK] && JSON.parse(bridge.sessions['id-' + AWK]);
+  ok(awkSaved && ['a+b=c?d&e#f 50%41.ARW', NFD + '.ARW', NFD + ' ?=/DSC01011.ARW'].every(k => awkSaved.marks[k] === 'keep'), 'awkward names: session marks keyed by the exact names', awkSaved && Object.keys(awkSaved.marks));
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+
   ok(errors.length === 0, 'no page errors', errors);
   await ctx.close();
   await browser.close();

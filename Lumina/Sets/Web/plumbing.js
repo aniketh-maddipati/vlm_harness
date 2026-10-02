@@ -24,7 +24,10 @@
   // keeps only a lumina:// URL for the large view (the Mac caches around the cursor). Same origin,
   // so canvases stay clean.
   class Gone extends Error {}
-  const media = (kind, q) => new URL('/media/' + kind + '?' + new URLSearchParams(q).toString(), location.href).href;
+  // encodeURIComponent, not URLSearchParams (which writes a space as '+'): a space is %20 and a real
+  // '+' is %2B, so a folder named "Shoot 2026" reads (SetsSchemeHandler.query; previewOf below reads it back).
+  const query = q => Object.keys(q).filter(k => q[k] != null).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(q[k])).join('&');
+  const media = (kind, q) => new URL('/media/' + kind + '?' + query(q), location.href).href;
   const get = async url => {
     const r = await fetch(url);
     if (r.status === 410) throw new Gone('card removed');
@@ -579,10 +582,9 @@
   // transit times, so a look event and the frame that shows it are timed on one base.
   const pageNow = () => performance.now();
   const dpr = () => Math.max(1, window.devicePixelRatio || 1);
-  // Encoded with encodeURIComponent, not URLSearchParams: the latter writes a space as '+', which the
-  // Mac's URLComponents leaves as '+' (the sign in 'ev:+0.30'), so a two-key look would arrive as one token.
-  const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?'
-    + Object.keys(q).filter(k => q[k] != null).map(k => k + '=' + encodeURIComponent(q[k])).join('&');
+  // Encoded with encodeURIComponent (`query`, as media URLs), not URLSearchParams: the latter writes a
+  // space as '+', and a look's sign ('ev:+0.30') must stay a '+'. Each path segment on its own.
+  const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?' + query(q);
   const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null };
   // The image path's latest-wins renderer (addendum §7): one fetch in flight, the newest look
   // waits, a quarter-size render while dragging, the full one at rest (drag end, key, 120 ms idle).
