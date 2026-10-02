@@ -87,6 +87,7 @@ bash Scripts/probe.sh reference     # every screen, prototype and app, byte-comp
 bash Scripts/probe.sh screens       # every screen rendered once, the app twins equal to the prototype (what CI runs)
 bash Scripts/probe.sh scenarios fuzz-sample-2 scroll-read   # just these scenarios
 bash Scripts/probe.sh contract      # plumbing.js still fits the page
+LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh sandbox smoke   # any mode inside the App Sandbox with Config/Lumina-Sets.entitlements as shipped: per scenario PASS / FAIL / FAILED-BY-SANDBOX + each denial (Sandbox.swift)
 bash Scripts/probe.sh smoke         # page runs, ?selftest passes, app reads / keeps / saves sidecars / reopens, the empty app
 bash Scripts/probe.sh selftest      # the design's own ?selftest (25 checks + timing)
 bash Scripts/probe.sh fuzz          # seeded key + mouse storms (with LUMINA_FIXTURE_ROOT: also over a card image pulled at random)
