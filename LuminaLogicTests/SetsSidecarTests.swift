@@ -189,4 +189,29 @@ final class SetsSidecarTests: XCTestCase {
         XCTAssertNil(odd.text)
         XCTAssertEqual(odd.base, SetsFileOps.sha256(Data([0xff, 0xfe, 0x00])))
     }
+
+    /// A sidecar over 1 MB is not read at Save and not replaced: the listing skipped it, so the
+    /// page has nothing to merge from, and reading a file of any size to find out is what the
+    /// limit is for (threat model T5). Sparse, so the test writes almost nothing.
+    func testOversizedSidecarIsNeitherReadNorReplaced() throws {
+        let url = dir.appendingPathComponent("DSC00010.xmp")
+        try Data("raw".utf8).write(to: dir.appendingPathComponent("DSC00010.ARW"))
+        FileManager.default.createFile(atPath: url.path, contents: nil)
+        let h = try FileHandle(forWritingTo: url)
+        try h.truncate(atOffset: UInt64(SetsFileOps.sidecarMaxBytes + 1)); try h.close()
+        XCTAssertThrowsError(try SetsFileOps.readSidecar(rel: "DSC00010.xmp", root: dir)) { e in
+            XCTAssertEqual(e as? SetsFileOps.SidecarError, SetsFileOps.SidecarError(name: "DSC00010", reason: SetsFileOps.sidecarTooBig))
+        }
+        for base in [nil, "unread", SetsFileOps.noSidecar] as [String?] {
+            XCTAssertThrowsError(try SetsFileOps.writeSidecar(Data("rated".utf8), rel: "DSC00010.xmp", root: dir, base: base)) { e in
+                XCTAssertEqual((e as? SetsFileOps.SidecarError)?.reason, SetsFileOps.sidecarTooBig)
+            }
+        }
+        XCTAssertEqual((try url.resourceValues(forKeys: [.fileSizeKey])).fileSize, SetsFileOps.sidecarMaxBytes + 1)
+        XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: dir.path)), ["sub", "DSC00010.ARW", "DSC00010.xmp"])
+        // At the limit it is still an ordinary sidecar.
+        let h2 = try FileHandle(forWritingTo: url)
+        try h2.truncate(atOffset: UInt64(SetsFileOps.sidecarMaxBytes)); try h2.close()
+        XCTAssertNoThrow(try SetsFileOps.readSidecar(rel: "DSC00010.xmp", root: dir))
+    }
 }
