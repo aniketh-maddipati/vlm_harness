@@ -60,16 +60,19 @@ final class KeyMonitor {
     /// command) still focuses it, and a real text field keeps the keyboard.
     func releaseDebugField() {
         func release() {
-            guard let w = window, let editor = w.firstResponder as? NSTextView,
-                  let field = editor.delegate as? NSTextField,
-                  // By its identifier, or by its size (the hook is laid out 1 x 1; AppKit reports
-                  // it a few points wide): SwiftUI doesn't always pass the identifier down.
-                  field.accessibilityIdentifier() == AccessibilityID.Debug.command || (model?.config.uiTest == true && field.frame.width <= 4)
-            else { return }
+            guard let w = window, let editor = w.firstResponder as? NSTextView, isDebugField(editor), editor.string.isEmpty else { return }
             w.makeFirstResponder(nil)
         }
         release()
         for delay in [0.05, 0.3] { DispatchQueue.main.asyncAfter(deadline: .now() + delay) { MainActor.assumeIsolated { release() } } }
+    }
+
+    /// The field editor is editing the debug.command hook: by its identifier, or by its size (it
+    /// is laid out 1 x 1; AppKit reports it a few points wide), since SwiftUI doesn't always pass
+    /// the identifier down to the NSTextField.
+    private func isDebugField(_ editor: NSTextView) -> Bool {
+        guard model?.config.uiTest == true, let field = editor.delegate as? NSTextField else { return false }
+        return field.accessibilityIdentifier() == AccessibilityID.Debug.command || field.frame.width <= 4
     }
 
     /// Stop listening: the window closed or the shell went away.
@@ -93,6 +96,13 @@ final class KeyMonitor {
     private func take(_ event: NSEvent) -> Bool {
         // Only this window's keys: not another Lumina window's, not a sheet's or an open panel's.
         guard let model, let w = window, event.window === w, let key = Self.keyEvent(event) else { return false }
+        // The hidden debug.command field has the keyboard but no command is being typed into it
+        // (commands start with "{"): the key is the app's. SwiftUI hands that field the keyboard
+        // whenever nothing else holds it, so releasing it once isn't enough.
+        if let editor = w.firstResponder as? NSTextView, isDebugField(editor), editor.string.isEmpty,
+           !(event.type == .keyDown && event.charactersIgnoringModifiers == "{") {
+            w.makeFirstResponder(nil)
+        }
         // A text field has the keyboard: it types (R-22). Only ⌘1–4, ⌘S, ⌘O still reach the app.
         let typing = w.firstResponder is NSText
         return model.windowKey(key, typing: typing) { w.makeFirstResponder(nil) }

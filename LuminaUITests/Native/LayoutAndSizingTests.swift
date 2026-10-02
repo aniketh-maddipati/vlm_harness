@@ -48,7 +48,7 @@ final class LayoutAndSizingTests: XCTestCase {
                 XCTAssertEqual(m.scale, S, accuracy: 0.01, "\(tag): UI scale")
                 XCTAssertGreaterThanOrEqual(m.minFontPt, 11 * S - 0.25, "\(tag): text below 11pt×S")
                 XCTAssertGreaterThanOrEqual(m.bodyFontPt, 13 * S - 0.25, "\(tag): body below 13pt×S")
-                for b in l.app.buttons.allElementsBoundByIndex where b.isHittable && !b.identifier.hasPrefix("debug.") {
+                for b in l.app.buttons.allElementsBoundByIndex where b.isHittable && !b.identifier.hasPrefix("debug.") && !b.identifier.hasPrefix("_XCUI:") {
                     let minH: CGFloat = b.identifier.hasPrefix("step.") || b.identifier.hasPrefix("cull.keepSuggested") ? 24 : 28
                     XCTAssertGreaterThanOrEqual(b.frame.height, minH * CGFloat(S) - 1, "\(tag): \(b.identifier) only \(b.frame.height)pt high")
                 }

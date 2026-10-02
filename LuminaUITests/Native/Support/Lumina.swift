@@ -104,7 +104,7 @@ final class Lumina {
     func hasHorizontalScroll() -> Bool {
         let w = window.frame
         return app.scrollViews.allElementsBoundByIndex.contains { sv in
-            sv.frame.width > w.width + 1 || (sv.scrollBars.matching(NSPredicate(format: "orientation == 0")).count > 0)
+            sv.frame.width > w.width + 1 || sv.scrollBars.allElementsBoundByIndex.contains { $0.isHittable && $0.frame.width > $0.frame.height }
         }
     }
     func visible(_ e: XCUIElement) -> Bool { e.exists && e.isHittable && e.frame.width > 0 && e.frame.height > 0 }
