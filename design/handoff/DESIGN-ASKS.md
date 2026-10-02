@@ -682,6 +682,48 @@ stay with the page:
 > text is not the `p.xmp` the merge used, merge the rating into the text just read
 > (`LuminaCore.mergeXmp`) and write that. The `.lumina-bak` copy stays as it is.
 
+## Prompt 6 — folders too big to be a shoot, oversized sidecars, sessions refused (paste into Claude Design)
+
+Found by the release threat model (T5, 2026-10-01). The Mac now bounds what a folder can make it
+read: a listing stops past 100,000 files and folders or 12 folder levels (opening `/`, a home folder
+or a whole disk), a sidecar over 1 MB is not read, and a session over 16 MB is not stored. The page
+has no words for any of it, so `plumbing.js` says stand-ins through `say` and the Open line
+(`openNote`), and adds skipped sidecars to `_failed`:
+`not available · <folder> · over 100000 files · open one shoot`,
+`not available · <folder> · folders over 12 deep · open one shoot`,
+`DSC00002.xmp · sidecar over 1 MB, not read` (in `?`, counted in `N unreadable`), and
+`decisions not saved · session too big`.
+
+> Update `Lumina Sets v5.dc.html`. Keep the look, keys and wording otherwise unchanged, and keep
+> the browser behaviour as it is.
+>
+> **A. A folder too big to be a shoot.** In the app, `openFolder` can come back as
+> `{ tooBig: { name, why: 'tooManyFiles' | 'tooDeep', files: 100000, depth: 12 } }` instead of a
+> listing: nothing was read. Stay on Open and say it where `no ARW found` is said today, in the
+> same voice, naming the folder and what to do: for example `Pictures is too big to be one shoot
+> · over 100,000 files · open the shoot's own folder` (or `· folders nested over 12 deep ·`).
+> No banner and no list: it is the photographer's pick that was wrong, not the app.
+>
+> **B. A sidecar Lumina didn't read.** The listing can carry `skippedXmp: [rel]`: sidecars over
+> 1 MB, left unread. Their photos open as if they had no sidecar. Count them in the import notes
+> as their own line, not as unreadable photos (the photo itself reads fine):
+> `1 sidecar over 1 MB not read · its rating isn't shown` with the files in the `?` list as
+> `DSC00002.xmp · over 1 MB, not read`. On Save, a keeper whose sidecar was not read should say
+> so in the result list rather than replace it silently (the Mac keeps a `.lumina-bak`).
+>
+> **C. Decisions not saved.** `lumina`'s session write can be refused (over 16 MB, or the disk).
+> Say it once per shoot in the footer, quiet but not hidden: `Decisions for this shoot can't be
+> saved · <reason>`, and keep culling.
+
+### How Prompt 6 is checked once its handoff lands
+
+- A: `LuminaLogicTests/SetsIngestBoundsTests` (the listing's refusal) and a `Tests/web/plumbing-harness.mjs`
+  case with the stand-in bridge returning `tooBig`: the Open line shows the page's own words. Drop plumbing's
+  `L.tooBig` stand-in.
+- B: the same harness with a `skippedXmp` entry: the import note line and the `?` entry. Drop plumbing's push
+  into `_failed`.
+- C: the harness's `saveSession` rejecting with "too big": the footer line once. Drop plumbing's `.catch` wording.
+
 ## Prompt 8 — an export that was cut short (paste into Claude Design)
 
 Found by release task R1d (2026-10-01). An export killed mid-way (crash, kill, power) leaves its

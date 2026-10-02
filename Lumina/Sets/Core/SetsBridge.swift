@@ -48,6 +48,19 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     let access: SetsAccess
     /// The folder macOS last refused to list (SAFETY.md 5): checkAccess and reopen use it.
     private var deniedFolder: URL?
+    /// The folder being listed now. Opening another one cancels it (threat model T5).
+    private var listing: Task<(Bool, SetsIngest.Listing), Never>?
+    /// The largest session the page may store (threat model T5). A session is a few maps keyed by
+    /// path ("100MSDCF/DSC01234.ARW") plus a look string per edited photo: about 280 bytes a photo
+    /// with every map set and a look on each, so 16 MB holds about 58,000 photos, more than the
+    /// listing lets through as RAW + sidecar pairs (100,000 entries / 2).
+    static let maxSessionBytes = 16 << 20
+
+    /// Why the page's session can't be stored, or nil when it can.
+    static func sessionRefusal(_ json: String) -> String? {
+        let n = json.utf8.count
+        return n > maxSessionBytes ? "session too big: \(n) bytes, the limit is \(maxSessionBytes)" : nil
+    }
     let shoots: SetsShootStore
     private(set) var ready = false
     var onEvent: ((String) -> Void)?
@@ -358,17 +371,33 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // first directory read can take many seconds (13.9 s measured on a USB exFAT disk), so it runs
             // off the main thread with the listing, and the time reported covers both.
             let t0 = Date()
-            let (denied, listing) = await Task.detached(priority: .userInitiated) { () -> (Bool, SetsIngest.Listing) in
+            // One listing at a time: a folder picked while another is still being listed stops that one,
+            // whose call answers the page as a cancelled pick.
+            self.listing?.cancel()
+            let task = Task.detached(priority: .userInitiated) { () -> (Bool, SetsIngest.Listing) in
                 if SetsIngest.accessDenied(url) { return (true, SetsIngest.Listing(name: url.lastPathComponent)) }
                 return (false, SetsIngest.list(url))
-            }.value
+            }
+            self.listing = task
+            let (denied, listing) = await task.value
+            if self.listing == task { self.listing = nil }
+            if task.isCancelled || listing.stopped == .cancelled {
+                onEvent?("listing stopped: another folder opened · \(url.path)")
+                return (NSNull(), nil)
+            }
+            if let stop = listing.stopped {
+                // `/`, a home folder, a whole disk: refused whole rather than listed in part.
+                let limits = SetsIngest.Limits()
+                onEvent?("too big \(url.path): \(stop.rawValue)")
+                return (["tooBig": ["name": listing.name, "why": stop.rawValue, "files": limits.entries, "depth": limits.depth]], nil)
+            }
             if denied {
                 deniedFolder = url
                 onEvent?("access denied \(url.path)")
                 return (["denied": Self.volumeName(url)], nil)
             }
             deniedFolder = nil
-            onEvent?("listed \(listing.files.count) ARW + \(listing.xmp.count) xmp + \(listing.others.count) other\(listing.onCard ? " (card)" : "") in \(Int(Date().timeIntervalSince(t0) * 1000)) ms · \(ingest.workers) readers")
+            onEvent?("listed \(listing.files.count) ARW + \(listing.xmp.count) xmp + \(listing.others.count) other\(listing.skippedXmp.isEmpty ? "" : " · \(listing.skippedXmp.count) xmp over 1 MB skipped")\(listing.onCard ? " (card)" : "") in \(Int(Date().timeIntervalSince(t0) * 1000)) ms · \(ingest.workers) readers")
             var d = listing.dictionary
             d["workers"] = ingest.workers
             return (d, nil)
@@ -465,6 +494,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (out, nil)
         case "saveSession":
             guard let id = body["id"] as? String, let json = body["json"] as? String else { return (false, nil) }
+            if let refusal = Self.sessionRefusal(json) {
+                onEvent?("session refused: \(refusal)")
+                return (false, refusal)
+            }
             do {
                 try shoots.saveSession(id, Data(json.utf8))
                 if let sum = body["summary"] as? [String: Any] {
