@@ -68,6 +68,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 wv.load(URLRequest(url: SetsSchemeHandler.pageURL))
                 host.window?.makeFirstResponder(wv)
                 bridge.cards.start()
+                offerEarlierSessions()
             } catch {
                 NSLog("Lumina: web view setup failed: \(error)")
             }
@@ -85,7 +86,16 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     func toggleZoom() { webView?.evaluateJavaScript("window.__lumina && __lumina.zoom()", completionHandler: nil) }
 
     func reopen(_ id: String) {
-        if !bridge.reopen(id: id) { webView?.evaluateJavaScript("window.__lumina && __lumina.say('not available · card out or folder moved')", completionHandler: nil) }
+        guard !bridge.reopen(id: id) else { return }
+        // A recent brought over from before the sandbox has no bookmark until its folder is opened once (R1e).
+        let imported = bridge.shoots.index().first(where: { $0.id == id }).map { $0.bookmark == nil } ?? false
+        say(imported ? SetsEarlierSessions.recentNeedsFolder : "not available · card out or folder moved")
+    }
+
+    /// One line in the page's status line.
+    private func say(_ line: String) {
+        guard let data = try? JSONEncoder().encode(line), let js = String(data: data, encoding: .utf8) else { return }
+        webView?.evaluateJavaScript("window.__lumina && __lumina.say(\(js))", completionHandler: nil)
     }
 
     /// The page saves and forgets the shoot; then its folder's access is stopped (SetsAccess).
@@ -228,6 +238,79 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     func panel(_ sender: Any, validate url: URL) throws {
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteFileExistsError, userInfo: [NSFilePathErrorKey: url.path, NSURLErrorKey: url])
+    }
+
+    // MARK: Sessions from before the sandbox (R1e)
+
+    /// Launch, once: while this store has never been used and the question was never answered,
+    /// offer to bring over the sessions of the build before the sandbox. Never under XCTest (the
+    /// logic tests are hosted in the app). A sheet on the window, so nothing blocks the launch; no
+    /// window within 10 s means no question this time.
+    private func offerEarlierSessions() {
+        guard !SetsEarlierSessions.underTest, bridge.shoots.offersImport else { return }
+        Task { @MainActor in
+            for _ in 0..<40 {
+                if let window = webView?.window { askAboutEarlierSessions(on: window); return }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+        }
+    }
+
+    private func askAboutEarlierSessions(on window: NSWindow) {
+        let alert = NSAlert()
+        alert.messageText = SetsEarlierSessions.message
+        alert.informativeText = SetsEarlierSessions.detail
+        alert.addButton(withTitle: SetsEarlierSessions.choose)
+        alert.addButton(withTitle: SetsEarlierSessions.notNow)
+        alert.beginSheetModal(for: window) { [weak self] response in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if response == .alertFirstButtonReturn { self.bringOverEarlierSessions() }
+                else { try? self.bridge.shoots.markImportAsked() }      // Not Now: never asked again by itself
+            }
+        }
+    }
+
+    /// The folder panel on the earlier build's support folder, then the import
+    /// (`SetsShootStore.importStore`, which only reads that folder). A pick without
+    /// `shoots/index.json` is refused in the panel's own message and the panel asks again; Cancel
+    /// leaves everything as it was (the launch question comes back next time). The panel's grant
+    /// is all the access there is: no bookmark to that folder is kept.
+    func bringOverEarlierSessions() {
+        Task { @MainActor in
+            var refusal: String?
+            while true {
+                let panel = NSOpenPanel()
+                panel.canChooseDirectories = true
+                panel.canChooseFiles = false
+                panel.canCreateDirectories = false
+                panel.allowsMultipleSelection = false
+                panel.prompt = SetsEarlierSessions.panelPrompt
+                panel.message = refusal ?? SetsEarlierSessions.panelMessage
+                panel.directoryURL = SetsEarlierSessions.earlierSupportDir
+                guard let picked = await run(panel) else { return }
+                let store = bridge.shoots
+                // Off the main thread: a store can hold many sessions of several megabytes.
+                let (imported, failure) = await Task.detached(priority: .userInitiated) { () -> (SetsShootStore.ImportResult?, String?) in
+                    guard let old = SetsShootStore.earlierStore(in: picked) else { return (nil, nil) }
+                    do { return (try store.importStore(from: old), nil) } catch { return (nil, "\(error)") }
+                }.value
+                if let failure {
+                    NSLog("Lumina: earlier sessions not brought over: %@", failure)
+                    say(SetsEarlierSessions.failed(failure))
+                    return
+                }
+                guard let result = imported else { refusal = SetsEarlierSessions.panelRefusal; continue }
+                NSLog("Lumina: earlier sessions: %d sessions, %d headers, %d recents brought over; %d already here, %d kept as they are here; skipped %@",
+                      result.sessions, result.headers, result.recents, result.alreadyHere, result.keptNewer,
+                      result.skipped.map { "\($0.key.rawValue) \($0.value)" }.sorted().joined(separator: ", "))
+                try? bridge.shoots.markImportAsked()
+                refreshRecents()
+                webView?.evaluateJavaScript("window.__lumina && __lumina.recents()", completionHandler: nil)
+                say(result.statusLine)
+                return
+            }
+        }
     }
 
     // MARK: The page stopped (crash or memory)

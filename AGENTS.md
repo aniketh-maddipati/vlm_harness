@@ -16,6 +16,8 @@ window. Nobody edits the UI in this repo.
   fixtures, audits the wording and demo layer, installs the files, checks the plumbing contract,
   compares every screen pixel for pixel, and runs the robustness suites. It never commits. Add
   `--record` once the new look is approved.
+  Before installing, step 2b prints every line the new page files add that names network or bridge
+  surface (`fetch(`, `postMessage`, `new Function`, a URL, …): a zip is a code import, so read them. Report only.
 - Authority order: `design/handoff/lumina-cull` (its `PROMPT.md` sets the order inside it: ADDENDUM-1 →
   PARITY → GRAMMAR → the page → CHANGES / SAFETY / MENUS) → `Lumina/Sets` (plumbing) → tests.
   The handoff's own `plumbing.js` is an older reference; the app's is `Lumina/Sets/Web/plumbing.js`.
@@ -79,7 +81,7 @@ xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug -derive
 
 # What ships (docs/release/APP-STORE.md): Release archive with Config/Release.xcconfig, sandboxed, ad hoc, then the preflight
 bash Scripts/release.sh local                                 # preflight passes; open items print WARN [task]
-PREFLIGHT_ALLOW=D2,S4 bash Scripts/release.sh local --strict   # what CI runs: any WARN outside the open items fails; drop a tag when its task lands
+PREFLIGHT_ALLOW=D2 bash Scripts/release.sh local --strict   # what CI runs: any WARN outside the open items fails; drop a tag when its task lands
 
 # Lightroom parity (Tools/parity/README.md): renders + ΔE report, the three copies of the stage maths agree
 make parity                # needs refs.json from the Lightroom sweep and the golden ARWs in ~/LuminaEvidence/parity

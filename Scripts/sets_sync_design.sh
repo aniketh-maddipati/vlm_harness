@@ -34,6 +34,30 @@ for f in "$PAGE" "$CORE"; do
   [[ -f "$DEST/$f" ]] && ! cmp -s "$DEST/$f" "$NEW/$f" && echo "  $f: $(diff "$DEST/$f" "$NEW/$f" | grep -c '^[<>]') lines differ"
 done
 
+step "2b. new network + bridge surface (report only; a person reads every line)"
+# A design zip is a code import: the page runs with the bridge (THREAT-MODEL T12). Every line of the
+# incoming page files that the current ones don't have and that names a way out of the page or into
+# the app is printed with its line number in the new file. Never fails the sync.
+for f in "${PAGE_FILES[@]}"; do
+  old="$DEST/$f"; [[ -f $old ]] || old=/dev/null
+  awk -v name="$f" '
+    BEGIN { n = split("fetch(|XMLHttpRequest|WebSocket|sendBeacon|RTCPeerConnection|EventSource|window.open|postMessage|messageHandlers|new Function|eval(|import(|http://|https://|ws://|wss://", pat, "|") }
+    FILENAME == ARGV[1] { have[$0]++; next }
+    have[$0] > 0 { have[$0]--; next }
+    {
+      for (i = 1; i <= n; i++) {
+        rest = $0; off = 0
+        while ((p = index(rest, pat[i])) > 0) {
+          at = off + p; from = (at > 60) ? at - 60 : 1
+          printf "  %s:%d: [%s] %s\n", name, FNR, pat[i], substr($0, from, 160)
+          off = at + length(pat[i]) - 1; rest = substr($0, off + 1)
+        }
+      }
+    }' "$old" "$NEW/$f" || true
+done > "$WORK/surface.txt"
+cat "$WORK/surface.txt"
+echo "  $(grep -c . "$WORK/surface.txt") new mention(s) of network or bridge surface in the page files"
+
 step "3. logic fixtures (node $CORE_TEST)"
 (cd "$NEW" && node "$CORE_TEST" | tee "$WORK/fixtures.txt" && ! grep -q '^FAIL' "$WORK/fixtures.txt") || { echo "FIXTURES FAIL — not installing"; exit 1; }
 

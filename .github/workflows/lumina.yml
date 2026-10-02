@@ -18,8 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
       - name: lumina-core fixtures
@@ -44,11 +44,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-1.56.1-${{ runner.os }}-chromium
@@ -62,7 +62,7 @@ jobs:
           sudo mkdir -p /var/cache/lumina-apt/partial && sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt && chmod -R 777 /var/cache/lumina-apt
           printf '%s\n' 'Acquire::Retries "3";' 'Acquire::http::Timeout "20";' 'Acquire::https::Timeout "20";' \
             'APT::Keep-Downloaded-Packages "true";' 'Dir::Cache::Archives "/var/cache/lumina-apt";' | sudo tee /etc/apt/apt.conf.d/80-lumina-ci
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: /var/cache/lumina-apt
           key: apt-plumbing-${{ runner.os }}-${{ hashFiles('.github/workflows/lumina.yml') }}
@@ -80,8 +80,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
       # The Ubuntu mirror stalls now and then (a run on 2026-10-01 fetched at 130 kB/s and took ten
@@ -94,12 +94,12 @@ jobs:
           sudo mkdir -p /var/cache/lumina-apt/partial && sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt && chmod -R 777 /var/cache/lumina-apt
           printf '%s\n' 'Acquire::Retries "3";' 'Acquire::http::Timeout "20";' 'Acquire::https::Timeout "20";' \
             'APT::Keep-Downloaded-Packages "true";' 'Dir::Cache::Archives "/var/cache/lumina-apt";' | sudo tee /etc/apt/apt.conf.d/80-lumina-ci
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: /var/cache/lumina-apt
           key: apt-webkit-${{ runner.os }}-${{ hashFiles('.github/workflows/lumina.yml') }}
           restore-keys: apt-webkit-${{ runner.os }}-
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-1.56.1-${{ runner.os }}-chromium
@@ -119,7 +119,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests, LookStringTests, LookMathTests, LookCanvasTests
         run: bash Tests/linux-swift/run.sh
 
@@ -128,8 +128,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
       - name: requirements
@@ -144,13 +144,13 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: build and test
         run: |
           xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
             -derivedDataPath DD -destination 'platform=macOS,arch=arm64' \
             -only-testing:LuminaLogicTests test
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: Tools/parity/lumina-render/.build
           key: lumina-render-${{ runner.os }}-${{ hashFiles('Tools/parity/lumina-render/Package.swift', 'Tools/parity/lumina-render/Sources/**/*.swift', 'Lumina/Sets/Look/*.swift') }}
@@ -171,10 +171,10 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: release.sh local --strict
         env:
-          PREFLIGHT_ALLOW: D2,S4
+          PREFLIGHT_ALLOW: D2
         run: bash Scripts/release.sh local --strict
 
   probe:
@@ -208,17 +208,17 @@ jobs:
       LUMINA_PROBE_LIMIT: "1500"        # per probe.sh call; a shared runner is several times slower than a Mac on a desk
       LUMINA_SCENARIO_LIMIT: "900"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: Tools/LuminaProbe/.build
           key: probe-${{ runner.os }}-${{ hashFiles('Tools/LuminaProbe/Package.swift', 'Tools/LuminaProbe/Sources/LuminaProbe/*.swift', 'Tools/LuminaProbe/Sources/LuminaProbe/*.js', 'Lumina/Sets/Core/*.swift', 'Lumina/Sets/Look/*.swift') }}
           restore-keys: probe-${{ runner.os }}-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: matrix.shoot
         with:
           node-version: 20
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         if: matrix.shoot
         with:
           path: ~/.cache/ms-playwright
@@ -235,7 +235,7 @@ jobs:
         env:
           LUMINA_PROBE_OUT: ${{ runner.temp }}/probe
         run: ${{ matrix.run }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: probe-evidence-${{ matrix.shard }}

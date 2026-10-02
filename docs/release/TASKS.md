@@ -40,6 +40,7 @@ Rules for every worker:
 6. **Sessions from before the sandbox (R1e).**
    - KPI: a store written by `4421a7c` opens in the sandboxed build with its decisions.
    - Steps: a one-time import through a folder panel on `~/Library/Application Support/Lumina`. Before anyone installs a sandboxed build over an unsandboxed one.
+   - #191: `SetsShootStore.importStore` (a shoot in both stores keeps what the new one has; bookmarks are not brought over), a launch question with a folder panel, tests on Mac and Linux. Left: the hand check (install over an unsandboxed build, choose the folder, open a folder culled before, find its decisions) and the design ask for File ▸ Bring Over Earlier Sessions….
 7. **Account setup (the account holder).**
    - KPI: `release.sh store --validate` accepted; the build shows in TestFlight.
    - Steps: `APP-STORE.md` "Once" and decisions D1–D5.

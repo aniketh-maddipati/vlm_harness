@@ -183,4 +183,185 @@ nonisolated struct SetsShootStore {
         let files = (FileManager.default.enumerator(at: folder,includingPropertiesForKeys: [.fileSizeKey])?.allObjects as? [URL]) ?? []
         return files.reduce(0) { $0 + Int64((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }
     }
+
+    // MARK: Sessions from before the sandbox (release task R1e)
+    //
+    // Until the app was sandboxed its store was ~/Library/Application Support/Lumina. A sandboxed
+    // build keeps its own inside its container and cannot read the old one, so the decisions made
+    // with the earlier build look gone although they are on disk. `importStore` copies them over
+    // once the user has picked the old folder in a panel (SetsRootView). A shoot's id comes from
+    // its volume and path, so an imported session is found as soon as the same folder is opened.
+
+    /// What an import leaves alone, and why.
+    nonisolated enum ImportSkip: String, Hashable, Sendable {
+        case notAnID        // a folder in the old `shoots/` whose name is not a shoot id
+        case link           // a shoot folder, or its session.json, that is a symbolic link
+        case noSession      // a shoot folder without a session.json (nothing was decided there)
+        case tooBig         // a session over `importSessionBytes`
+        case unreadable     // a session that is not a JSON object in UTF-8
+        case header         // a Lumina.json that is a link, too big or does not decode (its session still comes)
+        case index          // the old index.json: a link, too big, or not a list
+        case entry          // one entry of the old index: fields missing, or its id is not an id
+    }
+
+    nonisolated struct ImportResult: Equatable, Sendable {
+        /// Sessions, headers and recents written into this store.
+        var sessions = 0
+        var headers = 0
+        var recents = 0
+        /// Shoots this store already has a session for: the same bytes, or other ones (kept).
+        var alreadyHere = 0
+        var keptNewer = 0
+        var skipped: [ImportSkip: Int] = [:]
+
+        var changed: Bool { sessions + headers + recents > 0 }
+        var skippedTotal: Int { skipped.values.reduce(0, +) }
+
+        /// One line for the page's status line (`__lumina.say`), in its own style.
+        var statusLine: String {
+            var parts: [String]
+            if sessions > 0 {
+                parts = [sessions == 1 ? "1 session brought over" : "\(sessions) sessions brought over"]
+                parts.append(sessions == 1 ? "open its folder to continue it" : "open a folder to continue it")
+            } else if alreadyHere + keptNewer > 0 {
+                parts = ["earlier sessions are already here"]
+            } else {
+                parts = ["no earlier sessions found"]
+            }
+            if sessions > 0, keptNewer > 0 { parts.append("\(keptNewer) kept as \(keptNewer == 1 ? "it is" : "they are") here") }
+            if skippedTotal > 0 { parts.append("\(skippedTotal) skipped") }
+            return parts.joined(separator: " · ")
+        }
+    }
+
+    /// The largest session an import takes: what the bridge lets the page store (`SetsBridge.maxSessionBytes`).
+    static let importSessionBytes = 16 << 20
+    /// The largest Lumina.json an import takes (a real one is a few hundred bytes).
+    static let importHeaderBytes = 1 << 20
+    /// The longest strings an imported index entry keeps: a capture date is 19 characters, a title
+    /// or a file's name at most 255 (a file name's limit), a path 4096, a volume UUID 36.
+    static let importDateCap = 32, importNameCap = 255, importPathCap = 4096, importVolumeCap = 64
+
+    /// The marker that the question about earlier sessions was answered (beside `shoots/`).
+    var importAskedURL: URL { root.deletingLastPathComponent().appendingPathComponent("import-asked") }
+
+    /// Launch asks about earlier sessions only while this store has never been used: no index
+    /// yet, and the question not answered before.
+    var offersImport: Bool {
+        !FileManager.default.fileExists(atPath: root.appendingPathComponent("index.json").path)
+            && !FileManager.default.fileExists(atPath: importAskedURL.path)
+    }
+
+    func markImportAsked() throws { try SetsFileOps.replaceOwn(Data("asked\n".utf8), at: importAskedURL) }
+
+    /// The earlier store in a folder picked in the panel: the folder itself ("…/Application
+    /// Support/Lumina") or, one level up, its "Lumina". It must hold `shoots/index.json` as plain
+    /// files and folders (no links). Nil otherwise.
+    static func earlierStore(in picked: URL) -> URL? {
+        for c in [picked, picked.appendingPathComponent("Lumina", isDirectory: true)] {
+            let shoots = c.appendingPathComponent("shoots", isDirectory: true)
+            if importKind(shoots) == .typeDirectory, importKind(shoots.appendingPathComponent("index.json")) == .typeRegular { return c }
+        }
+        return nil
+    }
+
+    /// What is at `url`, without following a link there (lstat).
+    private static func importKind(_ url: URL) -> FileAttributeType? {
+        (try? FileManager.default.attributesOfItem(atPath: url.path))?[.type] as? FileAttributeType
+    }
+
+    /// A plain file's bytes when it is one and at most `limit` long. Nil otherwise.
+    private static func importBytes(_ url: URL, limit: Int) -> Data? {
+        guard let a = try? FileManager.default.attributesOfItem(atPath: url.path), a[.type] as? FileAttributeType == .typeRegular,
+              let size = (a[.size] as? NSNumber)?.int64Value, size <= Int64(limit),
+              let data = try? Data(contentsOf: url), data.count <= limit else { return nil }
+        return data
+    }
+
+    /// One entry of the old index, or nil when it does not decode: one bad entry does not cost the rest.
+    private nonisolated struct ImportEntry: Decodable {
+        let shoot: Shoot?
+        init(from decoder: Decoder) throws { shoot = try? Shoot(from: decoder) }
+    }
+
+    /// Brings the sessions of an earlier store (`oldSupport`, the folder that holds `shoots/`)
+    /// into this one. The old folder is only read: nothing in it is changed, moved or removed.
+    ///
+    /// The rule for a shoot that is in both stores: **this store wins**. A shoot that already has a
+    /// session here keeps it, and its Lumina.json, untouched (counted as `alreadyHere` when the
+    /// bytes are equal, `keptNewer` when they differ); an index entry that is already here keeps
+    /// every field, its bookmark included. So an import never replaces work done since, and a
+    /// second import changes nothing.
+    ///
+    /// For every other shoot folder with a valid id: `session.json` is copied byte for byte, and
+    /// `Lumina.json` when this store has none for it. Index entries come without their bookmarks
+    /// (made outside the sandbox, they do not resolve inside it; opening the folder once makes a
+    /// new one), with their strings capped, and the merged index is newest first with one entry
+    /// per id. Skipped and counted: names that are not ids, links, folders without a session,
+    /// sessions over the cap or that are not a JSON object, a header or an index that does not
+    /// decode. Export journals (`exports/`) and the legacy `bookmarks/` are not brought over.
+    ///
+    /// Throws when there is no `shoots/index.json` there, when the folder is this store, or when
+    /// a write fails (what was written before stays, and running it again finishes the job).
+    func importStore(from oldSupport: URL) throws -> ImportResult {
+        let fm = FileManager.default
+        let old = oldSupport.appendingPathComponent("shoots", isDirectory: true)
+        guard Self.importKind(old) == .typeDirectory, Self.importKind(old.appendingPathComponent("index.json")) == .typeRegular else {
+            throw SetsFileOps.Failure("no shoots/index.json there")
+        }
+        guard old.standardizedFileURL.resolvingSymlinksInPath().path != root.standardizedFileURL.resolvingSymlinksInPath().path else {
+            throw SetsFileOps.Failure("that folder is this store")
+        }
+        var result = ImportResult()
+        func skip(_ why: ImportSkip) { result.skipped[why, default: 0] += 1 }
+
+        for name in ((try? fm.contentsOfDirectory(atPath: old.path)) ?? []).sorted() where name != "index.json" && !name.hasPrefix(".") {
+            guard Self.isID(name) else { skip(.notAnID); continue }
+            let from = old.appendingPathComponent(name, isDirectory: true)
+            let sessionURL = from.appendingPathComponent("session.json")
+            let folder = Self.importKind(from), file = folder == .typeDirectory ? Self.importKind(sessionURL) : nil
+            guard folder != .typeSymbolicLink, file != .typeSymbolicLink else { skip(.link); continue }
+            guard folder == .typeDirectory, file == .typeRegular else { skip(.noSession); continue }
+            guard let data = Self.importBytes(sessionURL, limit: Self.importSessionBytes) else { skip(.tooBig); continue }
+            guard String(data: data, encoding: .utf8) != nil, (try? JSONSerialization.jsonObject(with: data)) is [String: Any] else { skip(.unreadable); continue }
+            if let here = session(name) {
+                if here == data { result.alreadyHere += 1 } else { result.keptNewer += 1 }
+                continue
+            }
+            // The header first: a session without its decoder pin would be pinned again on open.
+            let headerURL = from.appendingPathComponent(LookShootHeader.fileName)
+            if Self.importKind(headerURL) != nil, !fm.fileExists(atPath: root.appendingPathComponent(name).appendingPathComponent(LookShootHeader.fileName).path) {
+                if let h = Self.importBytes(headerURL, limit: Self.importHeaderBytes), (try? LookShootHeader.decode(h)) != nil {
+                    try SetsFileOps.replaceOwn(h, at: try dir(name).appendingPathComponent(LookShootHeader.fileName))
+                    result.headers += 1
+                } else { skip(.header) }
+            }
+            try saveSession(name, data)
+            result.sessions += 1
+        }
+
+        // The index: entries this store does not have yet, without their bookmarks.
+        let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
+        guard let raw = Self.importBytes(old.appendingPathComponent("index.json"), limit: Self.importSessionBytes),
+              let entries = try? dec.decode([ImportEntry].self, from: raw) else { skip(.index); return result }
+        let mine = index()
+        var known = Set(mine.map(\.id)), added: [Shoot] = []
+        for e in entries {
+            guard var s = e.shoot, Self.isID(s.id) else { skip(.entry); continue }
+            guard known.insert(s.id).inserted else { continue }
+            s.bookmark = nil
+            s.title = String(s.title.prefix(Self.importNameCap))
+            s.path = String(s.path.prefix(Self.importPathCap))
+            s.volumeUUID = s.volumeUUID.map { String($0.prefix(Self.importVolumeCap)) }
+            s.firstCapture = String(s.firstCapture.prefix(Self.importDateCap))
+            s.last = s.last.map { String($0.prefix(Self.importNameCap)) }
+            s.photos = max(0, s.photos); s.seen = s.seen.map { max(0, $0) }; s.keepers = s.keepers.map { max(0, $0) }
+            if let p = s.place, !Self.isID(p) || p == s.id { s.place = nil }
+            added.append(s)
+        }
+        guard !added.isEmpty else { return result }
+        try write((mine + added).sorted { $0.opened != $1.opened ? $0.opened > $1.opened : $0.id < $1.id })
+        result.recents = added.count
+        return result
+    }
 }
