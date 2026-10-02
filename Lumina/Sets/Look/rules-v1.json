@@ -34,7 +34,7 @@
     "contrast": {
       "locked": false,
       "form": "two-sided power curve in perceptual space around midpoint with slope a = 2^(contrast*slopePerUnit): below m: m*(p/m)^a, above: 1-(1-m)*((1-p)/(1-m))^a; applied per channel and on luma, mixed by lumaMix",
-      "coefficients": { "midpoint": 0.46, "slopePerUnit": 0.006, "lumaMix": 0.5 }
+      "coefficients": { "midpoint": 0.4548, "slopePerUnit": 0.007384, "lumaMix": 0 }
     },
     "colour": {
       "locked": false,
