@@ -183,6 +183,14 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
   end (`shadowsHighAdapt`, `highCentre`), the Highlights mask against its mean: fitted on landscapes
   and people together (2026-10-01), where the mean alone failed on dark, high-contrast photos.
   A synthetic image or flat patch gets `ToneAnchor.reference`.
+  Measured on all six positions (±50 included, 156 photos): Lightroom is linear in the slider
+  (fitted powers 0.97 / 1.09), and one brightness curve per photo explains its Shadows almost
+  entirely (0.14 stops rms left); a blurred base adds nothing, so `radiusFraction` stays near 0.
+  What is left is predicting that curve from the photo.
+- **Contrast's form is right; only its numbers were fitted.** Applied to Lightroom's own base
+  export, the two-sided power curve reproduces its Contrast ±25 / ±50 at 0.86 / 2.81, the same as
+  a scene-referred or a two-lobe form (leave-one-photo-out 0.91 / 3.88 for all three), per channel
+  (`lumaMix` 0). What is left of Contrast's error in a render comes from the base it is applied to.
 - **Vibrance is not Saturation with a mask.** Measured on Lightroom's own exports: above 0 it adds
   most to dull colours, still a share (`vibranceFloor`) to vivid ones, and about a fifth as much to
   skin hues (a narrow band, `skinHue` / `skinWidth` / `skinProtect`); below 0 it takes colour away

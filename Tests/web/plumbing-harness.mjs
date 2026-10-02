@@ -153,7 +153,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   bridge.renders = []; bridge.renderDelayMs = 60;
   await page.waitForTimeout(2300);            // let the 2 s autosave flush what came before
   const savesBefore = bridge.saves || 0;
-  const drag = await page.evaluate(async () => {
+  const mid = await page.evaluate(async () => {
     window.__editImages = [];
     lumina.edit.dragStart();
     const l = __lumina.logic();
@@ -162,11 +162,16 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
       l.setState({ look: Object.assign({}, l.state.look, { [l.state.cur]: look }) });      // as the page's slider does
       lumina.edit.look(look, { drag: true }); await new Promise(r => setTimeout(r, 25));
     }
-    const mid = lumina.edit.state();
+    return lumina.edit.state();
+  });
+  // Counted while the thumb is still down: the write is due 500 ms after the last change, so a
+  // count taken 500 ms after the drag ends races the debounce itself (it lost on a slow runner).
+  const savesInDrag = bridge.saves || 0;
+  const drag = await page.evaluate(async (mid) => {
     lumina.edit.dragEnd();
     await new Promise(r => setTimeout(r, 500));
     return { mid, end: lumina.edit.state(), images: window.__editImages.slice() };
-  });
+  }, mid);
   const dragRenders = bridge.renders.filter(r => r.tier === 'small'), restRenders = bridge.renders.filter(r => r.tier === 'base');
   ok(dragRenders.length >= 8 && dragRenders.length <= 45, 'edit (image path): a 2 s drag of 60 values renders the newest value at most once per render, at the small tier', { small: dragRenders.length, total: bridge.renders.length });
   ok(dragRenders.every(r => r.px === Math.round(900)), 'edit (image path): small tier renders ask the canvas size with tier=small (the Mac quarters it)', dragRenders.slice(0, 2));
@@ -175,7 +180,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(drag.images.length && drag.images.every((im, i) => i === 0 || im.seq > drag.images[i - 1].seq), 'edit (image path): images reach the page in increasing seq only (latest wins)', drag.images.map(i => i.seq));
   ok(bridge.renders.every((r, i) => i === 0 || r.t >= bridge.renders[i - 1].t + 55), 'edit (image path): renders never overlap (one in flight)', bridge.renders.slice(0, 3).map(r => r.t));
   ok(drag.mid.dragging === true && drag.end.dragging === false && bridge.canvas.drags.join() === 'true,false,true,false', 'edit: drag(start/end) and dragStart / dragEnd reach the Mac', bridge.canvas.drags);
-  ok((bridge.saves || 0) === savesBefore, 'edit: no session write during the drag (500 ms debounce)', { before: savesBefore, after: bridge.saves });
+  ok(savesInDrag === savesBefore, 'edit: no session write during the drag (500 ms debounce)', { before: savesBefore, after: savesInDrag });
   await page.waitForTimeout(2600);
   ok((bridge.saves || 0) > savesBefore, 'edit: the session is written after the drag settles', { before: savesBefore, after: bridge.saves });
   // Keystroke: a full-quality render at once, no small tier. Loupe: reaches the Mac with its region.
