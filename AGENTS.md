@@ -79,7 +79,7 @@ xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug -derive
 
 # What ships (docs/release/APP-STORE.md): Release archive with Config/Release.xcconfig, sandboxed, ad hoc, then the preflight
 bash Scripts/release.sh local                                 # preflight passes; open items print WARN [task]
-PREFLIGHT_ALLOW=D2,S4,R6 bash Scripts/release.sh local --strict   # what CI runs: any WARN outside the open items fails; drop a tag when its task lands
+PREFLIGHT_ALLOW=D2,S4 bash Scripts/release.sh local --strict   # what CI runs: any WARN outside the open items fails; drop a tag when its task lands
 
 # Lightroom parity (Tools/parity/README.md): renders + ΔE report, the three copies of the stage maths agree
 make parity                # needs refs.json from the Lightroom sweep and the golden ARWs in ~/LuminaEvidence/parity

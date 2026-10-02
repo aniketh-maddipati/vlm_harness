@@ -165,8 +165,8 @@ jobs:
     # What ships (TASKS R3): the Release archive with Config/Release.xcconfig, sandboxed, hardened,
     # signed ad hoc, then the preflight in strict mode. Strict fails on any WARN except the items
     # still open in docs/release/TASKS.md, allowed by tag: D2 (network.client while the UI is the
-    # WebView: stands until the decision), S4 (test switches, the self-test in the bundle), R6
-    # (third-party notices). When one of those lands, its tag comes off this list.
+    # WebView: stands until the decision), S4 (test switches, the self-test in the bundle).
+    # When one of those lands, its tag comes off this list (R6, third-party notices, did with #173).
     name: release build + preflight (strict)
     runs-on: macos-15
     timeout-minutes: 20
@@ -174,7 +174,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: release.sh local --strict
         env:
-          PREFLIGHT_ALLOW: D2,S4,R6
+          PREFLIGHT_ALLOW: D2,S4
         run: bash Scripts/release.sh local --strict
 
   probe:
