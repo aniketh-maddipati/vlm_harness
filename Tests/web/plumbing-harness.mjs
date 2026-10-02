@@ -9,7 +9,9 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { pw, ROOT, WEB, makeJpegs, makeShoot, makeBigShoot, Bridge, open } from './lib.mjs';
+import { pw, ROOT, WEB, makeJpegs, makeShoot, makeBigShoot, Bridge, open, deadline } from './lib.mjs';
+
+deadline('plumbing-harness.mjs', 300);
 
 const hashOnly = process.argv.includes('--hash');
 let fails = 0;
@@ -343,6 +345,38 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   sres = await save();
   ok(sres && sres.t === '4 saved' && !sres.bad, 'stale sidecar: the next Save reads it again', sres);
   ok(lrRead('DSC01004.xmp') === racy.replace('xmp:Rating="1"', 'xmp:Rating="3"'), 'stale sidecar: the next Save → the newest settings survive, rating set', lrRead('DSC01004.xmp'));
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+
+  // Q4-F5: a sidecar that is there but is not UTF-8 text (Lightroom's settings in Latin-1, a UTF-16
+  // file). The listing names it (unreadableXmp) instead of leaving it out, the page counts it with its
+  // unreadable files, and Save leaves it byte for byte as it is: no fresh ratings-only sidecar over it.
+  const odd = path.join(tmp, '2026-09-04');
+  const latin1 = Buffer.from(lrXmp('crs:Exposure2012="+0.50" xmp:Label="café"', 2), 'latin1');      // é as the single byte 0xE9
+  const utf16 = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(lrXmp('crs:Contrast2012="+15"', 4), 'utf16le')]);
+  const plain = lrXmp('crs:Exposure2012="+0.25"', 1);
+  makeShoot(odd, jpegs.slice(0, 4), { sidecars: { 'DSC01001.xmp': plain, 'DSC01002.xmp': latin1, 'DSC01003.XMP': utf16 } });
+  const oddBytes = n => fs.readFileSync(path.join(odd, n));
+  bridge.pending = odd; await page.evaluate(() => __lumina.openFolder());
+  await loaded(page); await page.waitForTimeout(300);
+  s = await S(page);
+  ok(s.n === 4 && s.realInfo.n === 4 && s.realInfo.bad === 2, 'unreadable sidecar: 4 photos read, the 2 sidecars that are not text counted with the unreadable files', s.realInfo);
+  const oddSeen = await page.evaluate(() => { const l = __lumina.logic(); return { failed: l._failed, photos: l.real.map(p => ({ name: p.name, xpath: p.xpath, xmp: p.xmp == null ? null : p.xmp.length, lrEd: !!p.lrEd })) }; });
+  ok(JSON.stringify(oddSeen.failed) === JSON.stringify([{ name: 'DSC01002.xmp', reason: 'sidecar unreadable, not read' }, { name: 'DSC01003.XMP', reason: 'sidecar unreadable, not read' }]), 'unreadable sidecar: both named in the page\'s list', oddSeen.failed);
+  ok(oddSeen.photos.find(p => p.name === 'DSC01002.ARW').xmp === null && oddSeen.photos.find(p => p.name === 'DSC01003.ARW').xpath === '2026-09-04/DSC01003.XMP' && oddSeen.photos.find(p => p.name === 'DSC01001.ARW').xmp === plain.length,
+    'unreadable sidecar: no text reaches the page; the photo keeps the sidecar\'s own path (.XMP), so Save aims at that file', oddSeen.photos);
+  await page.evaluate(() => { const l = __lumina.logic(); l.setState({ marks: Object.fromEntries(l.data.order.map(id => [id, 'keep'])) }); });
+  sres = await save();
+  ok(sres && sres.t === '2 saved · 2 failed' && sres.bad && JSON.stringify(sres.errs) === JSON.stringify([{ name: 'DSC01002', reason: 'unreadable' }, { name: 'DSC01003', reason: 'unreadable' }]),
+    'unreadable sidecar: Save reports "DSC01002 · unreadable" and "DSC01003 · unreadable"', sres);
+  ok(oddBytes('DSC01002.xmp').equals(latin1) && oddBytes('DSC01003.XMP').equals(utf16), 'unreadable sidecar: both files are byte for byte the other app\'s');
+  const oddFiles = fs.readdirSync(odd).filter(n => /xmp/i.test(n)).sort();
+  ok(JSON.stringify(oddFiles) === JSON.stringify(['DSC01001.xmp', 'DSC01001.xmp.lumina-bak', 'DSC01002.xmp', 'DSC01003.XMP', 'DSC01004.xmp']), 'unreadable sidecar: no backup made for them, no second sidecar beside the .XMP, the readable ones saved as usual', oddFiles);
+  ok(fs.readFileSync(path.join(odd, 'DSC01001.xmp'), 'utf8') === plain.replace('xmp:Rating="1"', 'xmp:Rating="3"'), 'unreadable sidecar: the readable sidecar is merged as before');
+  // The other app saves it again as UTF-8: the next Save reads it and merges the rating into it.
+  const fixed = lrXmp('crs:Exposure2012="+0.50" xmp:Label="café"', 2);
+  fs.writeFileSync(path.join(odd, 'DSC01002.xmp'), fixed);
+  sres = await save();
+  ok(sres && sres.t === '3 saved · 1 failed' && fs.readFileSync(path.join(odd, 'DSC01002.xmp'), 'utf8') === fixed.replace('xmp:Rating="2"', 'xmp:Rating="3"'), 'unreadable sidecar: once it is text again, the next Save merges into it', sres);
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
 
   // S9: awkward folder and file names. Every path the page or plumbing puts into a URL (head, preview,

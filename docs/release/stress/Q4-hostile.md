@@ -32,6 +32,36 @@ DOM, in any run. Nothing was written outside the run's folder. No Apple decoder 
 | F9 | Low (design) | `LuminaCore.mergeXmp` leaves a sidecar with no `<rdf:Description` unchanged: Save writes it back without a rating and reports it saved. Measured on the page's code only (`fuzz.mjs xmp`: `no-description`, `binary` → `ratingSet: false`), not end to end. | `~/LuminaEvidence/hostile/xmp.noindex/xmp-page.json` | Q4g |
 | F10 | Medium, **fixed** (Q4a, `8cbabf0`) | Found while sweeping the bridge's numbers for Q4a: `setPrefs` with a `NaN` or `Infinity` anywhere in `prefs` stops the test process. `JSONSerialization.data(withJSONObject:)` raises `NSInvalidArgumentException` ("Invalid number value (NaN) in JSON write") instead of throwing, through a Swift async frame (`SetsBridge.savePrefs`). The table never hit it: it fed `prefs` whole values, not a dictionary with a number inside. | `~/LuminaEvidence/hostile/bridge-crash/prefsNaN.ips` (SIGABRT in the test host, before the fix); `testSetPrefsRefusesNumbersJSONCannotHold` | Q4a |
 
+### Fixed since (F4, F5, F7)
+
+- **F5, fixed.** `SetsIngest.list` names a sidecar that is not UTF-8 in `unreadableXmp` (beside
+  `skippedXmp`); `plumbing.js` counts it with the page's unreadable files and gives its photo the
+  sidecar's own path; `SetsFileOps.writeSidecar` refuses to replace a sidecar on disk that is not
+  UTF-8, whatever base comes with the write, with the reason `unreadable`
+  (`SetsFileOps.sidecarUnreadable`). The file stays byte for byte as it was and no backup is made.
+  Tests: `SetsSidecarTests.testListingNamesASidecarThatIsNotUTF8`,
+  `testSidecarThatIsNotUTF8IsNeverReplaced`; `Tests/web/plumbing-harness.mjs` "unreadable sidecar:";
+  `hostile-xmp` now expects `6 saved · 2 failed` (`DSC00107 · unreadable`, `DSC00108 · over 1 MB`)
+  and `DSC00107.xmp` equal to the fixture. The wording is a design ask (DESIGN-ASKS, last prompt).
+  Not changed: the bridge's log line still reads `listed 8 ARW + 6 xmp … · 1 xmp over 1 MB skipped`
+  and does not count the unreadable one.
+- **F4, fixed.** Temp files are `.lumina-tmp-<tag>-<8 hex>` (37 bytes; `<tag>` = 16 hex of the
+  SHA-256 of the final name), so the temp name fits beside any name. `SetsExportJournal.recover`
+  removes a temp file only when its tag is a planned name's or that name's `.lumina-bak`'s (a
+  numbered copy keeps the planned name's tag), and still recognises the old
+  `.<planned name>.lumina-tmp-*`. `ENAMETOOLONG` now reads `name too long`. Left as it is: a sidecar
+  name over 244 bytes can be written once but not replaced, because its `.lumina-bak` cannot be
+  named; nothing is replaced and the reason says `name too long`. Tests:
+  `SetsFileOpsTests.testTempNamesHaveAFixedLengthAndATag`, `testNamesOf255BytesAreWrittenAndCopied`,
+  `testRecoveryRecognisesItsOwnTempNames`, `SetsSidecarTests.testSidecarWithA255ByteNameIsWritten`;
+  `hostile-names` expects `11 saved`. Its `*.xmp` count step expects 10: the probe's glob cannot
+  match `line\nbreak.xmp` (`*` becomes `.*`, which stops at a newline), a probe fix still to make.
+- **F7, fixed.** `SetsShootStore` bounds every string it writes to `index.json` in its one `write`
+  (`Cap`: `firstCapture` 32 characters, `title` and `last` 255); `shootOpened` drops a body whose
+  model name is over 64 bytes (or whose path is over 4096) and takes at most 16 bodies, so a 10 MB
+  key no longer reaches `Lumina.json`. `n` is not clamped (numbers belong to Q4a). Test:
+  `SetsBridgeOpsTests.testShootOpenedFieldsAreBounded`, no longer an expected failure.
+
 Not findings, checked: `..`, absolute paths, NUL bytes and 10 MB names into `writeSidecars`,
 `readSidecars`, `writeInto`, `saveSession`, `removeShoot`, `workingFiles`, `reopen` are all refused
 (a NUL name comes back "missing", it is never truncated into the RAW's name); `readSidecars` never

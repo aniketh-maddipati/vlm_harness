@@ -284,6 +284,9 @@ final class ProbeHost: NSObject, WKScriptMessageHandler, WKNavigationDelegate, W
 final class ProbeWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+    /// A key nothing in the page took ends here. NSWindow's answer is the alert sound: a fuzz
+    /// storm on an invisible window must not beep at the user.
+    override func noResponder(for eventSelector: Selector) {}
 }
 
 struct ProbeError: Error, CustomStringConvertible {

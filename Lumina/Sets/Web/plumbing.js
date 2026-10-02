@@ -361,6 +361,9 @@
         const k = x.rel.replace(/\.[^.\/]+$/, '').toLowerCase(), had = xmpMap[k];
         if (!had || (/\.xmp$/.test(x.rel) && !/\.xmp$/.test(had.path))) xmpMap[k] = { tx: x.text, path: x.rel };
       }
+      // A sidecar that is there but is not UTF-8 text (L.unreadableXmp): no text to merge into, but the
+      // photo keeps its path, so Save aims at that very file and the Mac refuses to replace it.
+      for (const rel of L.unreadableXmp || []) { const k = rel.replace(/\.[^.\/]+$/, '').toLowerCase(); if (!xmpMap[k]) xmpMap[k] = { tx: null, path: rel }; }
       const arws = (L.files || []).map(f => Object.assign(fileRef(f.rel), { size: f.size }));
       const allF = arws.concat((L.xmp || []).map(x => fileRef(x.rel)), (L.others || []).map(fileRef));
       const files = (L.files || []).slice().sort((a, b) => a.rel.localeCompare(b.rel));
@@ -378,6 +381,8 @@
       logic._gold = []; logic._failed = []; logic.real = [];
       // Sidecars over 1 MB the Mac did not read (threat model T5): counted with the unreadable files.
       for (const rel of L.skippedXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar over 1 MB, not read' });
+      // Sidecars that are not text (Latin-1, UTF-16, binary): the same count, until the page has its own line.
+      for (const rel of L.unreadableXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar unreadable, not read' });
       logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
       // Rows appear as the contiguous prefix grows: every 400 ms, as in the page; every 1.5 s while
       // the reader is scrolling, so the grid isn't rebuilt under a moving scroll (plumbing's pacing).

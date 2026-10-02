@@ -71,6 +71,79 @@ final class SetsFileOpsTests: XCTestCase {
         XCTAssertNil(SetsFileOps.refusal(destination: dir.appendingPathComponent("elsewhere"), sources: [src]))
     }
 
+    // MARK: Temp names (Q4-F4)
+
+    /// A temp name is 37 bytes whatever the file is called, carries the file's tag, and only that
+    /// exact form is recognised as Lumina's.
+    func testTempNamesHaveAFixedLengthAndATag() {
+        for name in ["a", "DSC00001.xmp", String(repeating: "L", count: 251) + ".xmp", "📷 ceremony 🔥.ARW", "line\nbreak.xmp"] {
+            let t = SetsFileOps.tempName(for: name)
+            XCTAssertEqual(t.utf8.count, 37, name)
+            XCTAssertTrue(t.hasPrefix(".lumina-tmp-"), "hidden, and found by the same '.lumina-tmp-' the probe and the tests look for")
+            XCTAssertEqual(SetsFileOps.tempTag(of: t), SetsFileOps.tempTag(for: name))
+            XCTAssertNotEqual(t, SetsFileOps.tempName(for: name), "two writes of one file never share a temp file")
+        }
+        XCTAssertNotEqual(SetsFileOps.tempTag(for: "DSC00001.xmp"), SetsFileOps.tempTag(for: "DSC00002.xmp"))
+        let tag = SetsFileOps.tempTag(for: "DSC00001.xmp")
+        for other in ["lumina-tmp-\(tag)-1234ABCD", ".lumina-tmp-\(tag)-1234ABCD.txt", ".lumina-tmp-\(tag)-1234ABC", ".lumina-tmp-\(tag)", ".lumina-tmp-\(tag)-1234ABCD-2",
+                      ".lumina-tmp-\(tag.uppercased())-1234ABCD", ".lumina-tmp-\(tag.dropLast())g-1234ABCD", ".lumina-tmp-\(tag)-1234ABCG", ".lumina-tmp-notes", ".DSC00001.xmp.lumina-tmp-1234abcd", ""] {
+            XCTAssertNil(SetsFileOps.tempTag(of: other), other)
+        }
+    }
+
+    /// Files whose names fill the 255 bytes a name may have: written, replaced-with-backup refused
+    /// by name ("name too long"), copied, and nothing left behind.
+    func testNamesOf255BytesAreWrittenAndCopied() throws {
+        let long = String(repeating: "L", count: 251)
+        let url = dir.appendingPathComponent(long + ".xmp")
+        XCTAssertFalse(try SetsFileOps.write(Data("one".utf8), to: url).backedUp)
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "one")
+        XCTAssertThrowsError(try SetsFileOps.write(Data("two".utf8), to: url)) { e in
+            XCTAssertEqual(SetsFileOps.reason(e), SetsFileOps.nameTooLong, "\(e)")
+        }
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "one", "never replaced without a backup")
+        let src = dir.appendingPathComponent("src/" + long + ".ARW"), dst = dir.appendingPathComponent("out/" + long + ".ARW")
+        try FileManager.default.createDirectory(at: src.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("raw bytes".utf8).write(to: src)
+        XCTAssertEqual(try SetsFileOps.copyVerified(src, to: dst), .copied(dst))
+        XCTAssertEqual(try String(contentsOf: dst, encoding: .utf8), "raw bytes")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: dir.appendingPathComponent("out").path), [long + ".ARW"])
+        XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: dir.path)), ["src", "out", long + ".xmp"])
+    }
+
+    /// Kill -9 mid-write leaves `.lumina-tmp-<tag>-<8 hex>`. The next launch removes the ones whose
+    /// tag is a planned file's (or its backup's, or a numbered copy's: it keeps the planned name's
+    /// tag), in the planned folders, and nothing else: not another file's temp, not a name that
+    /// only looks like one. An older Lumina's `.<name>.lumina-tmp-*` is still recognised.
+    func testRecoveryRecognisesItsOwnTempNames() throws {
+        let fm = FileManager.default
+        let dest = dir.appendingPathComponent("export"), jdir = dir.appendingPathComponent("journal")
+        try fm.createDirectory(at: dest.appendingPathComponent("RAW"), withIntermediateDirectories: true)
+        let long = String(repeating: "L", count: 251) + ".xmp"
+        let journal = SetsExportJournal(directory: jdir)
+        journal.begin(label: "both", destination: dest, names: ["DSC00001.xmp", long, "RAW/DSC00001.ARW"])
+        let tmp = { (name: String, rnd: String) in ".lumina-tmp-\(SetsFileOps.tempTag(for: name))-\(rnd)" }
+        let ours = [tmp("DSC00001.xmp", "1234ABCD"), tmp("DSC00001.xmp.lumina-bak", "5678ABCD"), tmp(long, "0A0A0A0A"), "RAW/" + tmp("DSC00001.ARW", "9ABCDEF0"),
+                    "RAW/" + tmp("DSC00001.ARW", "0FEDCBA9"), ".DSC00001.xmp.lumina-tmp-1234abcd", "RAW/.DSC00001-2.ARW.lumina-tmp-0fedcba9"]
+        let theirs = ["DSC00001.xmp", tmp("DSC00002.xmp", "1234ABCD"), tmp("DSC00001.xmp", "1234ABCD") + ".txt", ".lumina-tmp-notes", "lumina-tmp-" + SetsFileOps.tempTag(for: "DSC00001.xmp") + "-1234ABCD",
+                      ".DSC00002.xmp.lumina-tmp-1234abcd", "RAW/.hidden"]
+        for f in ours + theirs { try Data("x".utf8).write(to: dest.appendingPathComponent(f)) }
+        // Outside the planned folders nothing is looked at, whatever its name.
+        try fm.createDirectory(at: dest.appendingPathComponent("other"), withIntermediateDirectories: true)
+        let elsewhere = dest.appendingPathComponent("other/" + tmp("DSC00001.xmp", "1234ABCD"))
+        try Data("x".utf8).write(to: elsewhere)
+        // A journal write cut short leaves its own temp file beside the journals.
+        let journalTemp = jdir.appendingPathComponent(tmp("export-1.json", "1234ABCD"))
+        try Data("x".utf8).write(to: journalTemp)
+        let rec = SetsExportJournal.recover(in: jdir)
+        XCTAssertEqual(rec.first?.tempsRemoved, ours.count)
+        for f in ours { XCTAssertFalse(fm.fileExists(atPath: dest.appendingPathComponent(f).path), f) }
+        for f in theirs { XCTAssertTrue(fm.fileExists(atPath: dest.appendingPathComponent(f).path), "must not touch \(f)") }
+        XCTAssertTrue(fm.fileExists(atPath: elsewhere.path))
+        XCTAssertFalse(fm.fileExists(atPath: journalTemp.path))
+        XCTAssertEqual(SetsExportJournal.unfinished(in: jdir).count, 1, "the journal itself is kept")
+    }
+
     // MARK: Edit look — the string LuminaCore.editFilter returns is the contract
 
     func testParsesEditFilterOutput() throws {

@@ -8,7 +8,9 @@ import http from 'http';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot, makeBigJpegs, makeBigShoot, strictQuery } from './lib.mjs';
+import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot, makeBigJpegs, makeBigShoot, strictQuery, deadline } from './lib.mjs';
+
+deadline('webkit-server.mjs', 2400);         // webkit.py stops it sooner; never left listening
 
 const port = +(process.argv[2] || 8765), work = path.resolve(process.argv[3] || '/tmp/lumina-webkit');
 fs.mkdirSync(work, { recursive: true });
@@ -106,3 +108,6 @@ http.createServer(async (req, res) => {
   } catch (e) { json(res, { error: String(e) }, 500); }
 }).listen(port, '127.0.0.1', () => console.log('ready ' + ORIGIN));
 process.on('SIGTERM', () => { helper.kill(); process.exit(0); });
+// A webkit.py that was killed cannot stop its server: the server goes when its parent does.
+const parent = process.ppid;
+setInterval(() => { if (process.ppid !== parent) { helper.kill(); process.exit(0); } }, 2000);

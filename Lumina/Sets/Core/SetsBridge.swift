@@ -55,6 +55,11 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// with every map set and a look on each, so 16 MB holds about 58,000 photos, more than the
     /// listing lets through as RAW + sidecar pairs (100,000 entries / 2).
     static let maxSessionBytes = 16 << 20
+    /// What `shootOpened` takes as a shoot's bodies (T5): a camera's EXIF model name is under 32
+    /// bytes, its RAW's path inside the folder under a path's limit, and a shoot has a handful.
+    static let maxModelBytes = 64
+    static let maxRelBytes = 4096
+    static let maxBodies = 16
 
     /// Why the page's session can't be stored, or nil when it can.
     static func sessionRefusal(_ json: String) -> String? {
@@ -430,7 +435,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             shootId = id
             header = shoots.header(id)
             canvas?.leave()
-            if let bodies = body["bodies"] as? [String: String] { probeBodies(bodies) }
+            // A body is keyed by its EXIF model ("ILCE-7RM5") and kept in the shoot's header: a name
+            // no camera writes, or more bodies than a shoot has, is neither measured nor stored (T5).
+            if let bodies = body["bodies"] as? [String: String] {
+                let real = bodies.filter { $0.key.utf8.count <= Self.maxModelBytes && $0.value.utf8.count <= Self.maxRelBytes }
+                probeBodies(Dictionary(uniqueKeysWithValues: real.sorted { $0.key < $1.key }.prefix(Self.maxBodies).map { ($0.key, $0.value) }))
+            }
             return (["id": id, "session": session ?? NSNull(), "header": editFacts()] as [String: Any], nil)
         case "shootHeader":
             return (editFacts(), nil)

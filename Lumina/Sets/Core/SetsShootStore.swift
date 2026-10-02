@@ -32,6 +32,26 @@ nonisolated struct SetsShootStore {
         var currentPlace: String { place ?? id }
     }
 
+    /// The longest strings the index keeps. A capture date is 19 characters; a title or a file's
+    /// name is at most 255 (a file name's limit). `firstCapture` and `last` come from the page
+    /// (`shootOpened`, `saveSession`'s summary): a 10 MB one would be rewritten with the index on
+    /// every open and every saved session (threat model T5).
+    enum Cap {
+        static let date = 32
+        static let name = 255
+    }
+
+    static func capped(_ s: String, _ n: Int) -> String { String(s.prefix(n)) }
+
+    /// A shoot as the index stores it: every string the page or a folder's name supplies, inside `Cap`.
+    static func bounded(_ shoot: Shoot) -> Shoot {
+        var s = shoot
+        s.title = capped(s.title, Cap.name)
+        s.firstCapture = capped(s.firstCapture, Cap.date)
+        s.last = s.last.map { capped($0, Cap.name) }
+        return s
+    }
+
     let root: URL
 
     init(supportDir: URL) { root = supportDir.appendingPathComponent("shoots", isDirectory: true) }
@@ -95,8 +115,7 @@ nonisolated struct SetsShootStore {
         if shoot.place == shoot.id { shoot.place = nil }
         var list = all.filter { $0.id != shoot.id }
         list.insert(shoot, at: 0)
-        let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try SetsFileOps.replaceOwn(try enc.encode(list), at: root.appendingPathComponent("index.json"))
+        try write(list)
     }
 
     func session(_ id: String) -> Data? {
@@ -128,6 +147,7 @@ nonisolated struct SetsShootStore {
         list[i].seen = seen ?? list[i].seen
         list[i].keepers = keepers ?? list[i].keepers
         list[i].last = last ?? list[i].last
+        list[i] = Self.bounded(list[i])                    // before the comparison: an over-long `last` is not a change every time
         guard list[i] != before else { return }
         try write(list)
     }
@@ -144,9 +164,10 @@ nonisolated struct SetsShootStore {
         try write(list)
     }
 
+    /// The one place the index is written: every entry bounded (`Cap`), whoever made it.
     private func write(_ list: [Shoot]) throws {
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try SetsFileOps.replaceOwn(try enc.encode(list), at: root.appendingPathComponent("index.json"))
+        try SetsFileOps.replaceOwn(try enc.encode(list.map(Self.bounded)), at: root.appendingPathComponent("index.json"))
     }
 
     /// "Remove Lumina's working files" for one shoot: its session and index entry. Never RAWs or .xmp.
@@ -154,9 +175,7 @@ nonisolated struct SetsShootStore {
     func remove(_ id: String) throws {
         let folder = try dir(id)
         try? FileManager.default.removeItem(at: folder)
-        let list = index().filter { $0.id != id }
-        let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try SetsFileOps.replaceOwn(try enc.encode(list), at: root.appendingPathComponent("index.json"))
+        try write(index().filter { $0.id != id })
     }
 
     func bytes(_ id: String) -> Int64 {
