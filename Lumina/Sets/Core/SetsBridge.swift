@@ -8,6 +8,16 @@ protocol SetsChooser: AnyObject {
     func chooseSource(allowsDirectories: Bool) async -> URL?
     /// Export needs a destination. `refusal` is set when the previous pick was refused.
     func chooseDestination(label: String, suggested: URL?, refusal: String?) async -> URL?
+    /// "Cull this card" in the App Sandbox, the first time for this card (T10): the folder panel,
+    /// opened `at` the card's DCIM (or its root), asking for the card named `name`. `refusal` is
+    /// set when the previous pick was not on that card.
+    func chooseCard(name: String, at: URL, refusal: String?) async -> URL?
+}
+
+extension SetsChooser {
+    /// A chooser with no panel of its own for cards (the probe's scripted one) answers from its
+    /// source queue.
+    func chooseCard(name: String, at: URL, refusal: String?) async -> URL? { await chooseSource(allowsDirectories: true) }
 }
 
 /// Native side of the page's plumbing (see Web/plumbing.js). Owns the folders the user opened,
@@ -33,7 +43,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// for a reopen (the index keeps the one it came through).
     private var lastOpenedKey: (id: String, volume: String?, place: String, bookmark: Data?)?
     /// Security-scoped access: the only caller of start / stop (T9).
-    let access = SetsAccess()
+    let access: SetsAccess
     /// The folder macOS last refused to list (SAFETY.md 5): checkAccess and reopen use it.
     private var deniedFolder: URL?
     let shoots: SetsShootStore
@@ -56,14 +66,19 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// Finder forward on the desktop of whoever is using the Mac.
     var reveal: (URL) -> Void = { NSWorkspace.shared.activateFileViewerSelecting([$0]) }
 
-    init(chooser: SetsChooser, supportDir: URL) {
+    init(chooser: SetsChooser, supportDir: URL, access: SetsAccess? = nil) {
         self.chooser = chooser
         self.supportDir = supportDir
         self.shoots = SetsShootStore(supportDir: supportDir)
+        self.access = access ?? SetsAccess()
         super.init()
         SetsAccess.removeLegacyBookmarks(supportDir: supportDir)
-        access.onLog = { [weak self] in self?.onEvent?("access: \($0)") }
+        self.access.onLog = { [weak self] in self?.onEvent?("access: \($0)") }
         cards.onChange = { [weak self] card, removed in self?.cardChanged(card, removed: removed) }
+        // A card the sandbox will not let the app list (T10): the grant kept for it, if any; and
+        // its hold let go when it goes.
+        cards.grant = { [weak self] uuid, volume in self?.cardGrant(uuid: uuid, volume: volume) }
+        cards.release = { [weak self] uuid in self?.access.releaseCard(uuid) }
         cards.onWillUnmount = { [weak self] volume in
             guard let self else { return }
             let stopped = self.ingest.markGone(volume: volume)
@@ -233,9 +248,77 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         onEvent?(card.map { "card in \($0.uuid)" } ?? "card out \(removed?.uuid ?? "?")" + (stopped.isEmpty ? "" : " · stopped reading \(stopped.joined(separator: ", "))"))
     }
 
-    private func cardJSON(_ c: SetsCardWatcher.Card) -> String {
-        let o: [String: Any] = ["name": c.name, "photos": c.arwCount, "bytes": c.bytes, "sony": c.sony, "uuid": c.uuid, "path": c.volume.path]
+    /// The page's card: `{name, photos, bytes, sony, uuid, path}` as before, plus `known` and
+    /// `grant`. A card the app may not read yet (sandbox, first time) has `known: false` and
+    /// `photos`, `bytes`, `sony` null: they cannot be known before the user picks it.
+    func cardJSON(_ c: SetsCardWatcher.Card) -> String {
+        let none = NSNull()
+        let o: [String: Any] = ["name": c.name, "photos": c.known ? c.arwCount : none, "bytes": c.known ? c.bytes : none, "sony": c.known ? c.sony : none,
+                                "uuid": c.uuid, "path": c.volume.path, "known": c.known, "grant": c.grant ?? none]
         return (try? JSONSerialization.data(withJSONObject: o)).flatMap { String(data: $0, encoding: .utf8) } ?? "null"
+    }
+
+    private var cardGrants: SetsCardGrants { SetsCardGrants(supportDir: supportDir) }
+
+    /// A grant kept for this card, its access started and held while it is in: the bookmark made
+    /// when it was picked for "Cull this card" (`cards.json`, by volume UUID), else a recent shoot
+    /// opened at the card's root or DCIM (File ▸ Open on the card; its bookmark is in the index).
+    /// How it was found, or nil.
+    private func cardGrant(uuid: String, volume: URL) -> String? {
+        if let data = cardGrants.bookmark(uuid) {
+            if let r = access.holdCard(uuid, bookmark: data) {
+                if r.stale, let renewed = access.makeBookmark(r.url) { try? cardGrants.save(uuid, bookmark: renewed, path: r.url.path) }
+                onEvent?("card \(uuid): granted by its bookmark (\(r.url.lastPathComponent))")
+                return "bookmark"
+            }
+        }
+        let v = SetsIngest.plainPath(volume)
+        for s in shoots.index() where s.volumeUUID == uuid {
+            guard let data = s.bookmark, let at = access.peek(data) else { continue }
+            let p = SetsIngest.plainPath(at)
+            guard p == v || p.lowercased() == v.lowercased() + "/dcim", access.holdCard(uuid, bookmark: data) != nil else { continue }
+            onEvent?("card \(uuid): granted by recent shoot \(s.id)")
+            return "recent"
+        }
+        return nil
+    }
+
+    /// Why a folder picked for "Cull this card" is refused (the panel asks again with it), or nil:
+    /// only the card's own root or its DCIM folder will do.
+    nonisolated static func cardPickRefusal(_ picked: URL, volume: URL, name: String) -> String? {
+        let p = SetsIngest.plainPath(picked), v = SetsIngest.plainPath(volume)
+        if p == v || p.lowercased() == v.lowercased() + "/dcim" { return nil }
+        if p.hasPrefix(v + "/") { return "Choose the card \(name) itself, or its DCIM folder." }
+        return "That folder is not on the card \(name). Choose the card."
+    }
+
+    /// "Cull this card": the card's DCIM folder, read in place. In the App Sandbox the first time
+    /// for a card, the panel opens on it first; the pick is held while the card is in and kept as a
+    /// bookmark by volume UUID, so the next time needs no panel. True when the page should not
+    /// fall back to its own action (opened, or the user cancelled the panel).
+    func cullCard() async -> Bool {
+        guard let card = cards.current else { return false }
+        if !card.known {
+            let dcim = card.volume.appendingPathComponent("DCIM")
+            let at = FileManager.default.fileExists(atPath: dcim.path) ? dcim : card.volume
+            var refusal: String?
+            while true {
+                onEvent?("card panel at \(at.path)" + (refusal == nil ? "" : " (again)"))
+                guard let picked = await chooser.chooseCard(name: card.name, at: at, refusal: refusal) else { onEvent?("card panel cancelled"); return true }
+                guard cards.current?.uuid == card.uuid else { onEvent?("card panel: the card went meanwhile"); return true }
+                if let why = Self.cardPickRefusal(picked, volume: card.volume, name: card.name) { refusal = why; onEvent?("refused card pick \(picked.path)"); continue }
+                access.holdCard(card.uuid, picked: picked)
+                if let data = access.makeBookmark(picked) {
+                    do { try cardGrants.save(card.uuid, bookmark: data, path: picked.path) } catch { onEvent?("card \(card.uuid): bookmark not saved (\(error))") }
+                } else { onEvent?("card \(card.uuid): no bookmark for \(picked.path)") }
+                onEvent?("card \(card.uuid): granted by panel (\(picked.lastPathComponent))")
+                guard cards.granted(card.uuid) else { access.releaseCard(card.uuid); return false }
+                break
+            }
+        }
+        guard let now = cards.current, now.known, let dcim = now.folders.first?.deletingLastPathComponent() else { return false }
+        open(dcim)
+        return true
     }
 
     // MARK: Page → native
@@ -257,9 +340,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             onEvent?("ready")
             return (true, nil)
         case "cullCard":
-            guard let card = cards.current, let dcim = card.folders.first?.deletingLastPathComponent() else { return (false, nil) }
-            open(dcim)
-            return (true, nil)
+            return (await cullCard(), nil)
         case "openFolder":
             // Native ingest: pick (or take the pending folder), then list it before reading anything.
             guard let url = await openPanel(allowsDirectories: true)?.first else { return (NSNull(), nil) }

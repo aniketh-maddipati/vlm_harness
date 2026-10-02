@@ -147,6 +147,18 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         return await run(panel)
     }
 
+    func chooseCard(name: String, at: URL, refusal: String?) async -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Cull This Card"
+        panel.message = refusal ?? "Choose the card \(name) to let Lumina read it. Lumina only reads it, and remembers this card."
+        panel.directoryURL = at
+        return await run(panel)
+    }
+
     private func run(_ panel: NSOpenPanel) async -> URL? {
         guard let window = webView?.window else { return panel.runModal() == .OK ? panel.url : nil }
         return await withCheckedContinuation { c in
