@@ -53,7 +53,9 @@
   // Cull tiles while scrolling, sampled every frame: how many on-screen tiles the layout expects,
   // how many show a loaded, fully faded-in thumbnail, and each shown thumbnail's upscale ratio
   // (image px per device px: < 1 means the thumbnail is magnified on screen).
-  const tiles = { on: false, n: 0, expect: 0, blank: 0, blankFrames: 0, worst: 0, ratios: [] };
+  // Rows too: an on-screen row drawn at another height or place than the layout gives it (over 1 px)
+  // is a row caught mid-animation, e.g. an element reused for the next row when the window moves.
+  const tiles = { on: false, n: 0, expect: 0, blank: 0, blankFrames: 0, worst: 0, ratios: [], rows: 0, rowsOff: 0, rowFrames: 0, rowWorst: 0 };
   const cullEl = () => document.querySelector('[data-screen-label="1 Cull"]');
   const tileSample = () => {
     const l = P.logic(), el = cullEl();
@@ -76,6 +78,15 @@
       const s = fit === 'cover' ? Math.max(sx, sy) : Math.min(sx, sy);
       if (tiles.ratios.length < 20000) tiles.ratios.push(1 / (s * dpr));
     }
+    const rowAt = {}; for (const r of L.rows) rowAt[r.r.id] = r;
+    let rowsOff = 0;
+    for (const d of el.querySelectorAll('[data-lumina="row"][data-row]')) {
+      const r = d.getBoundingClientRect(), w = rowAt[d.getAttribute('data-row')];
+      if (!w || r.bottom < vr.top || r.top > vr.bottom) continue;
+      const off = Math.max(Math.abs(r.height - w.h), Math.abs(r.top - vr.top + top - w.y));
+      tiles.rows++; if (off > 1) { rowsOff++; tiles.rowWorst = Math.max(tiles.rowWorst, off); }
+    }
+    tiles.rowsOff += rowsOff; if (rowsOff) tiles.rowFrames++;
     const blank = Math.max(0, expect - ready);
     tiles.n++; tiles.expect += expect; tiles.blank += blank;
     if (blank) tiles.blankFrames++;
@@ -182,11 +193,12 @@
       const pct = p => g.length ? g[Math.min(g.length - 1, Math.floor(p * g.length))] : 0;
       return { frames: g.length, p50: pct(0.5), p95: pct(0.95), p99: pct(0.99), max: g.length ? g[g.length - 1] : 0, over33: g.filter(x => x > 33.4).length };
     },
-    tilesStart() { Object.assign(tiles, { on: true, n: 0, expect: 0, blank: 0, blankFrames: 0, worst: 0, ratios: [] }); },
+    tilesStart() { Object.assign(tiles, { on: true, n: 0, expect: 0, blank: 0, blankFrames: 0, worst: 0, ratios: [], rows: 0, rowsOff: 0, rowFrames: 0, rowWorst: 0 }); },
     tilesStop() {
       tiles.on = false; const r = tiles.ratios.slice().sort((a, b) => a - b), q = p => r.length ? +r[Math.min(r.length - 1, Math.floor(p * r.length))].toFixed(3) : 0;
       return { samples: tiles.n, blankPct: tiles.expect ? +(100 * tiles.blank / tiles.expect).toFixed(2) : 0, blankFramesPct: tiles.n ? +(100 * tiles.blankFrames / tiles.n).toFixed(1) : 0,
-        worstBlankPct: +(100 * tiles.worst).toFixed(1), upscaleMin: q(0), upscaleP10: q(0.1), upscaleMedian: q(0.5), dpr: window.devicePixelRatio || 1,
+        worstBlankPct: +(100 * tiles.worst).toFixed(1), rowsOffPct: tiles.rows ? +(100 * tiles.rowsOff / tiles.rows).toFixed(2) : 0,
+        rowFramesPct: tiles.n ? +(100 * tiles.rowFrames / tiles.n).toFixed(1) : 0, rowWorstPx: Math.round(tiles.rowWorst), upscaleMin: q(0), upscaleP10: q(0.1), upscaleMedian: q(0.5), dpr: window.devicePixelRatio || 1,
         tile: (() => { const l = P.logic(); if (!l || !l.layout) return 0; return l.layout().TW; })() };
     },
     // What happens when a folder read ends: the cursor's file just before and 2 s after, and how far
