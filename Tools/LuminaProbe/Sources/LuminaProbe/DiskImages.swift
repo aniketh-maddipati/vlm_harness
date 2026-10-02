@@ -102,8 +102,11 @@ final class DiskImages {
     private func attachedDevice(_ dmg: URL) -> String? {
         guard let text = try? hdiutil(["info", "-plist"]), let plist = try? PropertyListSerialization.propertyList(from: Data(text.utf8), format: nil) as? [String: Any],
               let all = plist["images"] as? [[String: Any]] else { return nil }
-        let want = dmg.resolvingSymlinksInPath().path
-        for image in all where (image["image-path"] as? String).map({ URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }) == want {
+        // Sandboxed, resolving a path needs the harness grant (held for that only: a pull runs
+        // outside it, Runner's "detach").
+        let real = { (p: URL) in ProbeSandbox.harness { p.resolvingSymlinksInPath().path } }
+        let want = real(dmg)
+        for image in all where (image["image-path"] as? String).map({ real(URL(fileURLWithPath: $0)) }) == want {
             let devs = (image["system-entities"] as? [[String: Any]] ?? []).compactMap { $0["dev-entry"] as? String }
             return devs.min { $0.count < $1.count }
         }
