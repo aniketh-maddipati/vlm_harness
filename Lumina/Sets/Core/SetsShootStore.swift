@@ -37,6 +37,20 @@ nonisolated struct SetsShootStore {
         return String(SetsFileOps.sha256(Data(((vals?.volumeUUIDString ?? "") + "|" + rel).utf8)).prefix(16))
     }
 
+    /// An id is exactly what `id(for:)` makes: 16 lowercase hex characters. Ids also come from the
+    /// page (saveSession, workingFiles, removeShoot) and name a folder under `root`, so anything
+    /// else ("..", a path, an empty string) is refused before a path is built from it.
+    static func isID(_ id: String) -> Bool {
+        id.utf8.count == 16 && id.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
+    }
+
+    /// The one place a shoot's folder is named. Writers pass the refusal on; readers answer
+    /// nil / empty / 0.
+    private func dir(_ id: String) throws -> URL {
+        guard Self.isID(id) else { throw SetsFileOps.Failure("not a shoot id") }
+        return root.appendingPathComponent(id, isDirectory: true)
+    }
+
     func index() -> [Shoot] {
         let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
         guard let data = try? Data(contentsOf: root.appendingPathComponent("index.json")),
@@ -57,26 +71,27 @@ nonisolated struct SetsShootStore {
     }
 
     func session(_ id: String) -> Data? {
-        try? Data(contentsOf: root.appendingPathComponent(id).appendingPathComponent("session.json"))
+        try? Data(contentsOf: dir(id).appendingPathComponent("session.json"))
     }
 
     func saveSession(_ id: String, _ json: Data) throws {
-        try SetsFileOps.replaceOwn(json, at: root.appendingPathComponent(id).appendingPathComponent("session.json"))
+        try SetsFileOps.replaceOwn(json, at: try dir(id).appendingPathComponent("session.json"))
     }
 
     /// The shoot header (`Lumina.json`), or an empty one.
     func header(_ id: String) -> LookShootHeader {
-        guard let data = try? Data(contentsOf: root.appendingPathComponent(id).appendingPathComponent(LookShootHeader.fileName)),
+        guard let data = try? Data(contentsOf: dir(id).appendingPathComponent(LookShootHeader.fileName)),
               let h = try? LookShootHeader.decode(data) else { return LookShootHeader() }
         return h
     }
 
     func saveHeader(_ id: String, _ header: LookShootHeader) throws {
-        try SetsFileOps.replaceOwn(try header.encoded(), at: root.appendingPathComponent(id).appendingPathComponent(LookShootHeader.fileName))
+        try SetsFileOps.replaceOwn(try header.encoded(), at: try dir(id).appendingPathComponent(LookShootHeader.fileName))
     }
 
     /// The numbers the Open screen shows for a shoot. Written only when they change.
     func saveSummary(_ id: String, photos: Int?, seen: Int?, keepers: Int?, last: String?) throws {
+        _ = try dir(id)
         var list = index()
         guard let i = list.firstIndex(where: { $0.id == id }) else { return }
         let before = list[i]
@@ -94,16 +109,18 @@ nonisolated struct SetsShootStore {
     }
 
     /// "Remove Lumina's working files" for one shoot: its session and index entry. Never RAWs or .xmp.
+    /// A refused id throws before anything is removed or the index is rewritten.
     func remove(_ id: String) throws {
-        try? FileManager.default.removeItem(at: root.appendingPathComponent(id))
+        let folder = try dir(id)
+        try? FileManager.default.removeItem(at: folder)
         let list = index().filter { $0.id != id }
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         try SetsFileOps.replaceOwn(try enc.encode(list), at: root.appendingPathComponent("index.json"))
     }
 
     func bytes(_ id: String) -> Int64 {
-        let dir = root.appendingPathComponent(id)
-        let files = (FileManager.default.enumerator(at: dir, includingPropertiesForKeys: [.fileSizeKey])?.allObjects as? [URL]) ?? []
+        guard let folder = try? dir(id) else { return 0 }
+        let files = (FileManager.default.enumerator(at: folder,includingPropertiesForKeys: [.fileSizeKey])?.allObjects as? [URL]) ?? []
         return files.reduce(0) { $0 + Int64((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }
     }
 }
