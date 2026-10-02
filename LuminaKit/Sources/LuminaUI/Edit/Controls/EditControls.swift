@@ -2,9 +2,10 @@ import SwiftUI
 import AppKit
 import LuminaCore
 
-// WP-5. The controls column (README §3): header, tools, sections, sliders, the hint line and the
-// bottom bar. Its width and where it sits are the canvas's (WP-4); it fills what it is given and
-// scrolls its sliders inside. Every action is a model function; nothing here reads the keyboard.
+// WP-5. The controls column (README §3): header, the histogram, tools, sections, sliders, the hint
+// line and the bottom bar with the save status. Its width and where it sits are the canvas's
+// (WP-4); it fills what it is given and scrolls its sliders inside. Every action is a model
+// function; nothing here reads the keyboard.
 
 public struct EditControls: View {
     @Environment(AppModel.self) private var model
@@ -21,6 +22,7 @@ public struct EditControls: View {
             EditControlsHeader(m: m)
             if let w = model.edit.warning, !w.isEmpty { EditWarningLine(text: w) }
             if !collapsed {
+                if model.histogramShown { EditHistogramPanel() }
                 EditToolsRow(m: m)
                 EditSectionTabs(m: m)
                 ScrollView(.vertical) { EditSliderList(m: m).padding(.horizontal, m.rowInset) }
@@ -98,7 +100,8 @@ struct EditHintLine: View {
     @Environment(\.luminaScale) private var s
     @Environment(\.accessibilityReduceMotion) private var reduce
     var body: some View {
-        let text = model.edit.draggingKey == nil ? (model.edit.hoverKey.map(EditFormat.hint) ?? "") : ""
+        // A slider's hint, or a clipping marker's words.
+        let text = model.editHintText
         Text(EditFormat.hint("lum_magenta")).font(LuminaFont.small(s)).fixedSize(horizontal: false, vertical: true).hidden()
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .topLeading) {

@@ -22,6 +22,10 @@ struct EditSliderList: View {
                 .padding(.bottom, 2.scaled(s))
             }
             if model.editCur != nil {
+                if section == .curve {
+                    EditCurveGraph(m: m).padding(.bottom, 8.scaled(s))
+                    EditCurvePresets().padding(.bottom, 4.scaled(s))
+                }
                 LazyVGrid(columns: cols, spacing: 0) {
                     ForEach(settings, id: \.key) { EditSliderRow(setting: $0, m: m) }
                 }

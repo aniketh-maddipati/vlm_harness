@@ -2,7 +2,8 @@ import SwiftUI
 import LuminaCore
 
 // WP-5. The bottom bar (README §3): ‹ Previous and Next → (gold, ⏎); Save {n} and ✕ Out;
-// then All shortcuts ?. On the last photo the gold moves from Next to Save.
+// then the save status ("Saving…" / "All changes saved") and All shortcuts ?. On the last photo
+// the gold moves from Next to Save.
 
 struct EditBottomBar: View {
     @Environment(AppModel.self) private var model
@@ -55,13 +56,21 @@ struct EditBottomBar: View {
                 .disabled(none)
                 .help("Out · X · drops it from your keepers · ⌘Z brings it back").accessibilityLabel("Out").accessibilityIdentifier(AccessibilityID.Edit.out)
             }
-            HStack {
+            // The footer (prototype `data-lumina="footer"` and `saveT`): where the edits stand, then help.
+            HStack(spacing: 8.scaled(s)) {
+                let status = model.editSaveStatus
+                Text(status).font(LuminaFont.small(s))
+                    .foregroundStyle(model.edit.warning == AppModel.storageWarning ? LuminaColor.errorText : LuminaColor.textTertiary)
+                    .lineLimit(1).truncationMode(.tail)
+                    .luminaStatus(AccessibilityID.Edit.saveStatus, status)
                 Spacer(minLength: 0)
                 Button { model.helpOpen() } label: {
                     HStack(spacing: 6.scaled(s)) { Text("All shortcuts"); KeyHint("?", opacity: 0.8) }
                 }
                 .buttonStyle(LuminaLinkButtonStyle())
+                .fixedSize()
                 .help("Every key and gesture · ?").accessibilityLabel("All shortcuts")
+                .accessibilityIdentifier(AccessibilityID.Edit.shortcuts)
             }
         }
         .padding(.top, 6.scaled(s))
