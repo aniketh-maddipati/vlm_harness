@@ -40,6 +40,9 @@
   // Stands in for the File the page keeps per photo: the same name and relative path, no bytes.
   const fileRef = rel => ({ name: rel.split('/').pop(), webkitRelativePath: rel, __luminaRel: rel });
   let reading = null, lastRead = null;
+  // Where each photo's embedded preview is, by path, as the native read found it: what the Mac
+  // measures for lumina.near. Photos the page read by itself (a dragged-in folder) have none.
+  const previewAt = new Map();
 
   // Everything below leans on these page members. A design sync that renames one shows up here (and
   // in the probe's plumbing-contract scenario) instead of as a silent break.
@@ -166,6 +169,17 @@
     openSettings: what => native('openSettings', { what: what || 'files' }),
     checkAccess: () => native('checkAccess', {}),
     reopen: () => native('reopenDenied', {}),
+    // How alike two photos are, for stacking retakes (DESIGN-ASKS Prompt 2 C): 0 is the same image,
+    // about 1 is unrelated, measured by the Mac on the embedded previews (never a RAW decode). Takes
+    // two photo paths; resolves once both are measured, to null when either can't be. Two photos
+    // are one picture at or under nearLimit, which is the Mac's because it belongs to its measure
+    // (null when the Mac has no threshold for its measure: keep the page's own rule then).
+    near: (a, b) => {
+      const A = previewAt.get(String(a)), B = previewAt.get(String(b));
+      if (!A || !B || window.lumina.nearLimit == null) return Promise.resolve(null);
+      return native('near', { a: A, b: B }).then(d => (typeof d === 'number' && isFinite(d) ? d : null), () => null);
+    },
+    nearLimit: typeof cfg.nearLimit === 'number' ? cfg.nearLimit : null,
   });
 
   const loadRecents = async logic => {
@@ -231,6 +245,7 @@
         const [po, pl] = m.preview;
         if (po + pl <= f.size) {
           pq = { p: rel, o: po, l: pl, ori: m.orient || 1 };
+          previewAt.set(rel, pq);
           // As stored (ori 1): the page's own canvas turns it, below.
           blob = await (await get(media('preview', Object.assign({}, pq, { ori: 1 })))).blob();
           nt = nativeTile(pq);                               // made by the Mac while the page measures
@@ -339,6 +354,7 @@
       const run = reading = { name: L.name, total: files.length, done: 0, gone: false };
       const t0 = performance.now(), res = new Array(files.length); let done = 0, i = 0, pre = 0, shown = false, lastB = 0, firstCur = null;
       readMoved = false;
+      previewAt.clear();
       logic._gold = []; logic._failed = []; logic.real = [];
       logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
       // Rows appear as the contiguous prefix grows: every 400 ms, as in the page; every 1.5 s while

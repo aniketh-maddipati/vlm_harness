@@ -95,6 +95,19 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   // tile on this screen (324 CSS px × devicePixelRatio, 360–720), never upscaled.
   ok(th.length && th.every(t => t.w === t.want), 'thumbs: fallback tile image sized for the largest tile, never upscaled', th);
   ok(bridge.calls.includes('shootOpened'), 'session: shootOpened sent');
+
+  // Retakes (DESIGN-ASKS Prompt 2 C): lumina.near(pathA, pathB) is the Mac's distance between two photos'
+  // previews, lumina.nearLimit its threshold. The page names photos by path; plumbing sends where each
+  // preview is, as the native read found it.
+  const near = await page.evaluate(async () => {
+    const P = __lumina.logic().real, a = P[0].path, b = P[1].path;
+    return { limit: lumina.nearLimit, ab: await lumina.near(a, b), aa: await lumina.near(a, a), unknown: await lumina.near(a, 'nowhere/DSC0.ARW'), none: await lumina.near(), a, b };
+  });
+  ok(near.limit === 0.35, 'near: lumina.nearLimit comes from the app config', near.limit);
+  ok(near.ab === 0.25 && near.aa === 0, 'near: lumina.near(pathA, pathB) resolves to the Mac\'s distance', near);
+  const sent = (bridge.nears || [])[0];
+  ok(sent && sent.a.p === near.a && sent.b.p === near.b && sent.a.o > 0 && sent.a.l > 0 && sent.a.ori >= 1, 'near: the Mac gets each preview\'s path, byte range and orientation', sent);
+  ok(near.unknown === null && near.none === null && (bridge.nears || []).length === 2, 'near: a path that was not read resolves to null without asking the Mac', { near, asked: (bridge.nears || []).length });
   ok(await page.evaluate(() => window.lumina.readingCard === false), 'card: readingCard false for a folder');
 
   // Decisions + autosave
@@ -169,7 +182,9 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   const savesInDrag = bridge.saves || 0;
   const drag = await page.evaluate(async (mid) => {
     lumina.edit.dragEnd();
-    await new Promise(r => setTimeout(r, 500));
+    // Shorter than the 500 ms debounce: the save that follows a drag must not land before the
+    // "no session write during the drag" check below reads the count (the rest render needs ~250 ms).
+    await new Promise(r => setTimeout(r, 400));
     return { mid, end: lumina.edit.state(), images: window.__editImages.slice() };
   }, mid);
   const dragRenders = bridge.renders.filter(r => r.tier === 'small'), restRenders = bridge.renders.filter(r => r.tier === 'base');
