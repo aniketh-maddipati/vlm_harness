@@ -182,7 +182,7 @@ public extension AppModel {
         edit.zoom = 1; edit.pan = .zero; edit.before = false; edit.beforeHeld = false; edit.straightening = false
         edit.cropRatio = box.ratioName(aspect: p.aspect)
         let c = canvas; c.cropUndo = []; c.cropRedo = []; c.cropSwapped = false; c.lastCropKind = ""
-        say("Drag a corner to crop. R turns it, ← → straighten. ⏎ keeps it, esc cancels.")
+        // The how-to is the footer's hint while cropping (prototype); no toast over the photo.
     }
 
     func cropCancel() {

@@ -86,7 +86,8 @@ struct EditFooter: View {
         let warn = model.edit.warning == AppModel.storageWarning
         HStack(spacing: 16.scaled(s)) {
             ZStack(alignment: .leading) {
-                Text(cropping ? Self.cropHint : status)
+                // The save status is the top bar's on Edit (prototype `saveT`); here only a storage problem shows.
+                Text(cropping ? Self.cropHint : (warn ? status : ""))
                     .foregroundStyle(warn && !cropping ? LuminaColor.errorText : LuminaColor.textSecondary)
                     .lineLimit(1).truncationMode(.tail)
                     .opacity(hint.isEmpty ? 1 : 0)

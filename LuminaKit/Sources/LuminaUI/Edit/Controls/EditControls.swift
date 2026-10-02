@@ -102,12 +102,12 @@ struct EditCropRow: View {
             Text("Cropping").font(LuminaFont.small(s, .bold)).foregroundStyle(LuminaColor.textPrimary).lineLimit(1).fixedSize()
             Spacer(minLength: 0)
             Button { model.cropCancel() } label: {
-                Text("Cancel").font(LuminaFont.small(s)).foregroundStyle(LuminaColor.textPrimary)
+                Text("Cancel").font(LuminaFont.small(s)).foregroundStyle(LuminaColor.textPrimary).fixedSize()
                     .padding(.horizontal, 8.scaled(s)).frame(height: LuminaHeight.chip.scaled(s)).contentShape(Rectangle())
             }
             .buttonStyle(.plain).help("Cancel the crop · esc")
             Button { model.cropKeep() } label: {
-                HStack(spacing: 6.scaled(s)) { Text("Apply"); KeyCap(text: "⏎", onGold: true) }
+                HStack(spacing: 6.scaled(s)) { Text("Apply"); KeyCap(text: "⏎", onGold: true) }.fixedSize()
                     .font(LuminaFont.small(s, .bold)).foregroundStyle(LuminaColor.textOnPrimary)
                     .padding(.horizontal, 8.scaled(s)).frame(height: LuminaHeight.chip.scaled(s))
                     .background(RoundedRectangle(cornerRadius: 6.scaled(s), style: .continuous).fill(LuminaColor.accentGold))

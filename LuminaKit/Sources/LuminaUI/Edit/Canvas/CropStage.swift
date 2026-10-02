@@ -328,11 +328,8 @@ struct CropToolbar: View {
                 Divider()
                 Button("Portrait ↔ landscape") { model.cropSwapRatio() }
             } label: {
-                HStack(spacing: 6.scaled(s)) {
-                    Text("Ratio \(model.edit.cropRatio)").font(LuminaFont.small(s, .semibold))
-                    Text("▾").font(LuminaFont.ui(10, .regular, s)).opacity(0.7)
-                }
-                .foregroundStyle(LuminaColor.textPrimary)
+                Text("Ratio \(model.edit.cropRatio) ▾").font(LuminaFont.small(s, .semibold))
+                    .foregroundStyle(LuminaColor.textPrimary)
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             .padding(.horizontal, 9.scaled(s)).frame(height: LuminaHeight.chip.scaled(s))
