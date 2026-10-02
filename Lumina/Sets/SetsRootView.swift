@@ -82,7 +82,11 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         if !bridge.reopen(id: id) { webView?.evaluateJavaScript("window.__lumina && __lumina.say('not available · card out or folder moved')", completionHandler: nil) }
     }
 
-    func closeShoot() { webView?.evaluateJavaScript("window.__lumina && __lumina.closeShoot()", completionHandler: nil) }
+    /// The page saves and forgets the shoot; then its folder's access is stopped (SetsAccess).
+    func closeShoot() {
+        guard let webView else { bridge.closeShoot(); return }
+        webView.evaluateJavaScript("window.__lumina && __lumina.closeShoot()") { [weak self] _, _ in self?.bridge.closeShoot() }
+    }
 
     /// File ▸ Remove Working Files…: Lumina's own session files for the open shoot. Never photos or sidecars.
     func confirmRemoveWorkingFiles() {
@@ -140,6 +144,18 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         panel.prompt = "Export here"
         panel.message = refusal ?? (label == "xmp" ? "Choose the folder for the .xmp sidecars." : "Choose where the export goes.")
         panel.directoryURL = suggested
+        return await run(panel)
+    }
+
+    func chooseCard(name: String, at: URL, refusal: String?) async -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Cull This Card"
+        panel.message = refusal ?? "Choose the card \(name) to let Lumina read it. Lumina only reads it, and remembers this card."
+        panel.directoryURL = at
         return await run(panel)
     }
 

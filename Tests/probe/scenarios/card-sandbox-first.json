@@ -1,0 +1,146 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": true,
+ "checklist": "R1c / T10: the camera card in the App Sandbox, first time. The mount is noticed without reading the volume (a name, no count); 'Cull this card' opens the folder panel on the card's DCIM (answered by the scripted chooser); after the pick the card is inspected and read in place, as before. Pulled after the read and put back: state kept, nothing read again, nothing written to the card. Unsandboxed the same steps run with no panel.",
+ "steps": [
+  {
+   "do": "startCards"
+  },
+  {
+   "do": "diskImage",
+   "name": "LTFIRST",
+   "sizeMB": 64,
+   "from": "${LUMINA_FIXTURE_ROOT}/src",
+   "trimBytes": 1400000,
+   "count": 12
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!(window.lumina.card || window.lumina.cardPending)",
+   "timeoutMs": 15000,
+   "what": "card noticed"
+  },
+  {
+   "do": "js",
+   "src": "const c=window.lumina.card, p=window.lumina.cardPending; return c ? 'known before any pick (not sandboxed): '+c.photos+' ARW' : 'pending: '+JSON.stringify(p)"
+  },
+  {
+   "do": "expect",
+   "js": "const c=window.lumina.card, p=window.lumina.cardPending; return c ? (c.known===true && c.photos===12 && !p) : (p.known===false && p.photos===null && p.sony===null && p.name==='LTFIRST')",
+   "why": "sandboxed, the first insert is noticed without reading the card: a name and no count; unsandboxed it is read as before"
+  },
+  {
+   "do": "sources",
+   "paths": [
+    "${DISKS}/LTFIRST/DCIM"
+   ]
+  },
+  {
+   "do": "js",
+   "src": "__probe.logic().impStart(); return true"
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo)",
+   "timeoutMs": 60000,
+   "what": "card read"
+  },
+  {
+   "do": "expect",
+   "js": "const c=window.lumina.card; return [__probe.logic().state.realInfo.n, window.lumina.readingCard, c.photos, c.sony, c.known, window.lumina.cardPending]",
+   "equals": [
+    12,
+    true,
+    12,
+    true,
+    true,
+    null
+   ],
+   "why": "after the pick the page has the whole card"
+  },
+  {
+   "do": "key",
+   "k": "p",
+   "settleMs": 200
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return l.kept().map(id=>l.data.byId[id].file).sort()",
+   "equals": [
+    "DSC00001.ARW"
+   ]
+  },
+  {
+   "do": "detach",
+   "name": "LTFIRST"
+  },
+  {
+   "do": "waitFor",
+   "js": "return window.lumina.card===null && window.lumina.cardPending===null",
+   "timeoutMs": 10000,
+   "what": "card removal noticed"
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return [!!l.state.gone, l.kept().length, l.real.length]",
+   "equals": [
+    true,
+    1,
+    12
+   ],
+   "why": "state is kept"
+  },
+  {
+   "do": "attach",
+   "name": "LTFIRST"
+  },
+  {
+   "do": "waitFor",
+   "js": "return !!(window.lumina.card && window.lumina.card.known)",
+   "timeoutMs": 10000,
+   "what": "card back, readable without a panel"
+  },
+  {
+   "do": "wait",
+   "ms": 1500
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); return [!!l.state.gone, l.real.length, !!l.state.realLoad, l.kept().length]",
+   "equals": [
+    false,
+    12,
+    false,
+    1
+   ],
+   "why": "the notice clears, a complete read is not read again, no decision lost"
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTFIRST",
+   "glob": "*.xmp",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTFIRST",
+   "glob": "*lumina-*",
+   "count": 0
+  },
+  {
+   "do": "fs",
+   "path": "${DISKS}/LTFIRST",
+   "glob": "*.ARW",
+   "count": 12
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

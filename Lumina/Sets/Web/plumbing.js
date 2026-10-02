@@ -164,6 +164,8 @@
   window.lumina = Object.assign(window.lumina || {}, {
     app: true, debug: !!cfg.debug, persisted: true,
     card: null,            // { name, photos, bytes, sony, path, model, range } while a card is in, else null
+    cardPending: null,     // { name, path, uuid, photos: null, sony: null, known: false }: a card the Mac will let Lumina read only
+                           // once it is picked (App Sandbox, first time for this card); impStart() asks for it (DESIGN-ASKS Prompt 9)
     readingCard: false,    // the open shoot is on a mounted card or removable volume: Save stays off (SAFETY.md 4)
     willPromptAccess: false, // the Mac's folder picker grants access itself: no pre-prompt sheet
     read: null,            // the last folder read: { name, total, read, unreadable, stopped: 'card removed' | null }
@@ -734,10 +736,15 @@
     shootId: () => shootId,
     card(present, info) {
       if (cfg.parity) return;              // test-only: keep the sample card for pixel parity
-      window.lumina.card = present ? (info || {}) : null;
+      // A card not readable yet (sandbox, first insert) has no count and no Sony flag. As `card` the
+      // page would read it as "no ARW found · 0 photos" with nothing to click, so it waits in
+      // `cardPending` (data only) until the user picks it and the app sends the whole card.
+      const pending = !!(present && info && info.known === false);
+      window.lumina.cardPending = pending ? info : null;
+      window.lumina.card = present && !pending ? (info || {}) : null;
       const l = window.__lumina.logic();
       if (!present && l && l.state.realLoad) cardPulledWhileReading = true;
-      if (l) { l.impSet({ card: !!present }); l.forceUpdate && l.forceUpdate(); }
+      if (l) { l.impSet({ card: !!window.lumina.card }); l.forceUpdate && l.forceUpdate(); }
     },
     // The card went away (SAFETY.md 3). `stopped`: the opened folders on it, whose reads the Mac has
     // already stopped; `ours`: the open shoot is on it. State is kept.
@@ -792,7 +799,7 @@
         zsrcOff: real.length && l.data ? Object.values(l.data.byId).filter(q => q.zsrc !== q.lg).length : 0,   // zoom must use the same preview
         srcNotBlob: withPv.filter(p => !/^blob:/.test(p.src || '')).length,
         dupPaths: paths.length - new Set(paths).size,
-        shootId, card: window.lumina.card, readingCard: window.lumina.readingCard,
+        shootId, card: window.lumina.card, cardPending: window.lumina.cardPending, readingCard: window.lumina.readingCard,
       };
     },
     nativeStats: () => native('ingestStats', {}),

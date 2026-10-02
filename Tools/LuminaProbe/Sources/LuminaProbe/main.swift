@@ -11,10 +11,15 @@ lumina-probe — drive the Lumina page in WKWebView
       Runs one export with the app's own SetsExportJob + journal, then exits. The kill-mid-handoff
       step (killExport) starts it and SIGKILLs it part way.
 
+  lumina-probe sandbox-launch <sandboxed lumina-probe> [--info FILE] -- run <scenario.json>... [--out DIR]
+      Starts the sandboxed copy of the probe (Scripts/probe.sh sandbox builds and signs it) and stands
+      in for the powerbox: hands it the folder grants it asks for. See Sandbox.swift.
+
   lumina-probe diff <a.png> <b.png> [--masks a.masks.json] [--scale 1] [--out diff.png]
       Exact pixel diff, photo rects masked. Exit 1 on any differing pixel.
 """
 
+ProbeSandbox.begin()        // sandboxed (Sandbox.swift): back to the checkout, or stop
 var args = Array(CommandLine.arguments.dropFirst())
 func option(_ name: String) -> String? {
     guard let i = args.firstIndex(of: name), i + 1 < args.count else { return nil }
@@ -29,7 +34,13 @@ guard let command = args.first else { print(usage); exit(2) }
 args.removeFirst()
 
 switch command {
+case "sandbox-launch":
+    let info = option("--info")
+    guard let exe = args.first, args.count > 2, args[1] == "--" else { print(usage); exit(2) }
+    SandboxLauncher.run(exe: exe, info: info, args: Array(args.dropFirst(2)))
+
 case "export-worker":
+    ProbeSandbox.adopt()        // sandboxed: the destination and sources the parent was granted
     guard let path = args.first, let data = FileManager.default.contents(atPath: path),
           let plan = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
           let dest = plan["destination"] as? String, let jdir = plan["journalDir"] as? String,
@@ -67,6 +78,7 @@ case "run":
     }
     let scenarios = args.map { URL(fileURLWithPath: $0) }
     guard !scenarios.isEmpty else { print(usage); exit(2) }
+    ProbeSandbox.start(outRoot: outRoot)
 
     // The probe is an invisible background app. Without this, App Nap throttles its timers, and once
     // the display idles WebKit throttles the page process: a 500 ms wait stretched to 4 minutes.
@@ -80,7 +92,7 @@ case "run":
         var skips: [String] = []
         for s in scenarios {
             let out = outRoot.appendingPathComponent(s.deletingPathExtension().lastPathComponent)
-            try? FileManager.default.removeItem(at: out)
+            ProbeSandbox.harness { try? FileManager.default.removeItem(at: out) }
             do {
                 let runner = try Runner(scenario: s, outDir: out)
                 let pass = await runner.run(echo: echo)
