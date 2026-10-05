@@ -519,7 +519,7 @@ def run(exports_dir, raws_dir, out_dir, render_bin, compare_px=1024):
 
     os.makedirs(out_dir, exist_ok=True)
     for old in os.listdir(out_dir):
-        if "__edit" in old:
+        if "__edit" in old and not old.startswith("."):      # an ExFAT disk drops a file's ._ stub with the file
             os.remove(os.path.join(out_dir, old))
     per_stem, docs, written = {}, {}, []
     for f in frames:

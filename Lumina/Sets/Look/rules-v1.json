@@ -58,8 +58,9 @@
     },
     "outputTransform": {
       "locked": false,
-      "form": "clamp to 0..1, convert working space to the output space (sRGB preview / export, ProPhoto RGB for parity TIFFs)",
-      "coefficients": {}
+      "mapper": "clamp",
+      "form": "mapper clamp: clamp to 0..1. mapper sigmoid (LookMath.DisplayMapper; a prototype, measured, not adopted): inset (every primary `inset` of the way to white, turned `rotate` degrees about the grey axis), each channel through a shoulder in log2 around 0.18 (identity up to kneeEV stops above grey; above, L' = kneeEV + H*(1-(1-u)^q) with u = (L-kneeEV)/(maxEV-kneeEV), H = log2(1/0.18)-kneeEV, q = (maxEV-kneeEV)/H: slope 1 at the knee, exactly 1 at maxEV), the middle channel put back between the other two (hueKeep), outset = the inset's inverse, clamp to 0..1. Either way, then: working space to the output space (sRGB preview / export, ProPhoto RGB for parity TIFFs)",
+      "coefficients": { "kneeEV": 2.0, "maxEV": 6.5, "inset": 0.2, "rotate": 0, "hueKeep": 1 }
     }
   }
 }

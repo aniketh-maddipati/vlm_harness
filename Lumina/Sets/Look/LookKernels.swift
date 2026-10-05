@@ -175,6 +175,27 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(s.rgb * g, s.a);
     }
 
+    // outputTransform's sigmoid mapper (LookMath.DisplayMapper): inset, the shoulder per channel in log2
+    // around mid grey, the hue put back, outset, 0…1. r0…r2 = the inset's rows, o0…o2 = the outset's;
+    // k = (kneeEV, maxEV, stops from the knee to white, hueKeep)
+    [[ stitchable ]] float4 lookDisplay(coreimage::sample_t s, float4 r0, float4 r1, float4 r2, float4 o0, float4 o1, float4 o2, float4 k) {
+        float top = 0.18f * exp2(k.y), knee = 0.18f * exp2(k.x);
+        float3 x = min(float3(dot(s.rgb, r0.rgb), dot(s.rgb, r1.rgb), dot(s.rgb, r2.rgb)), float3(top));
+        float3 p = x;
+        for (int i = 0; i < 3; i++) {
+            if (x[i] > knee) {
+                float u = (log2(x[i] / 0.18f) - k.x) / (k.y - k.x);
+                p[i] = 0.18f * exp2(k.x + k.z * (1.0f - pow(max(0.0f, 1.0f - u), (k.y - k.x) / k.z)));
+            }
+        }
+        float xmax = max(x.r, max(x.g, x.b)), xmin = min(x.r, min(x.g, x.b));
+        float pmax = max(p.r, max(p.g, p.b)), pmin = min(p.r, min(p.g, p.b));
+        float span = xmax - xmin;
+        if (span > 1e-6f) p = mix(p, float3(pmin) + (x - float3(xmin)) * ((pmax - pmin) / span), k.w);
+        float3 o = float3(dot(p, o0.rgb), dot(p, o1.rgb), dot(p, o2.rgb));
+        return float4(clamp(o, 0.0f, 1.0f), s.a);
+    }
+
     // Argument echo (tests only): what each parameter slot receives, in the layouts the stages use.
     [[ stitchable ]] float4 lookEcho442(coreimage::sample_t s, float4 a, float4 b, float2 c) {
         return float4(s.r + 1000.0f * a.x + 1000000.0f * b.x, a.y + 1000.0f * b.y + 1000000.0f * c.x, a.z + 1000.0f * b.z + 1000000.0f * c.y, a.w + 1000.0f * b.w);
@@ -189,7 +210,8 @@ nonisolated final class LookKernels: @unchecked Sendable {
 
     struct CompileError: Error, CustomStringConvertible { let description: String }
 
-    /// The stage kernels, compiled when the pipeline is made.
+    /// The stage kernels, compiled when the pipeline is made. `lookDisplay` (the sigmoid mapper) is
+    /// not one of them: it compiles on first use, so with the default mapper nothing new is built.
     static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette"]
 
     private let header: String

@@ -345,4 +345,127 @@ final class LookMathTests: XCTestCase {
         XCTAssertGreaterThan(LookMath.sharpen(0.55, blur: 0.50, amount: 100, rules), 0.55)
         XCTAssertEqual(LookMath.sharpen(0.5001, blur: 0.5, amount: 100, rules), 0.5001, accuracy: 1e-9, "below the threshold nothing sharpens")
     }
+
+    // MARK: outputTransform (the display mapper)
+
+    private var sigmoidRules: LookRules {
+        var r = rules!
+        r.stages["outputTransform", default: LookRules.Stage()].mapper = "sigmoid"
+        return r
+    }
+
+    /// Oklab hue (degrees) and chroma.
+    private func hue(_ c: LookMath.RGB) -> (h: Double, C: Double) {
+        let lab = LookMath.toOklab(c)
+        return (atan2(lab.b, lab.a) * 180 / .pi, hypot(lab.a, lab.b))
+    }
+
+    private func hueShift(_ a: Double, _ b: Double) -> Double {
+        let d = abs(a - b).truncatingRemainder(dividingBy: 360)
+        return d > 180 ? 360 - d : d
+    }
+
+    func testTheShippedMapperIsTheClamp() throws {
+        XCTAssertEqual(rules.mapper, .clamp, "the sigmoid mapper is a prototype: the owner rules before it ships")
+        let out = LookMath.output(LookMath.RGB(r: 1.5, g: 0.5, b: -0.1), rules)
+        XCTAssertEqual(out, LookMath.RGB(r: 1, g: 0.5, b: 0))
+        let s = sigmoidRules
+        XCTAssertEqual(s.mapper, .sigmoid)
+        XCTAssertEqual(try LookRules.load(json: try s.encoded()).mapper, .sigmoid, "the mapper survives a re-encode")
+        var none = rules!
+        none.stages["outputTransform"]?.mapper = nil
+        XCTAssertEqual(try LookRules.load(json: try none.encoded()).mapper, .clamp, "a rules file without the key is the clamp")
+        var bad = rules!
+        bad.stages["outputTransform"]?.mapper = "filmic"
+        XCTAssertThrowsError(try bad.validate())
+    }
+
+    func testMapperMatricesAreInversesAndKeepGrey() {
+        for (inset, rotate) in [(0.2, 0.0), (0.2, 7.0), (0.35, -4.0), (0.0, 0.0)] {
+            var m = LookMath.DisplayMapper(); m.inset = inset; m.rotate = rotate
+            let a = m.insetRows, b = m.outsetRows
+            for i in 0..<3 {
+                XCTAssertEqual(a[i].reduce(0, +), 1, accuracy: 1e-12); XCTAssertEqual(b[i].reduce(0, +), 1, accuracy: 1e-12)
+                for j in 0..<3 {
+                    let v = (0..<3).reduce(0.0) { $0 + b[i][$1] * a[$1][j] }
+                    XCTAssertEqual(v, i == j ? 1 : 0, accuracy: 1e-12, "inset \(inset) rotate \(rotate)")
+                }
+            }
+        }
+    }
+
+    func testMapperIsTheIdentityBelowTheKnee() {
+        let r = sigmoidRules
+        for c in [LookMath.RGB.gray(0), .gray(0.02), .gray(0.18), .gray(0.6), LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), LookMath.RGB(r: 0.5, g: 0.2, b: 0.2),
+                  LookMath.RGB(r: 0.15, g: 0.2, b: 0.6), LookMath.RGB(r: 0.004, g: 0.002, b: 0.006)] {
+            let out = LookMath.output(c, r)
+            XCTAssertEqual(out.r, c.r, accuracy: 1e-12); XCTAssertEqual(out.g, c.g, accuracy: 1e-12); XCTAssertEqual(out.b, c.b, accuracy: 1e-12)
+        }
+    }
+
+    func testMapperRollsOffSmoothlyOnAGreyRamp() {
+        let r = sigmoidRules, m = LookMath.DisplayMapper(r)
+        var last = -1.0
+        for i in 0...4000 {
+            let v = Double(i) / 200                                   // 0 … 20, past the top (0.18 · 2^6.5 ≈ 16.3)
+            let out = LookMath.output(.gray(v), r)
+            XCTAssertTrue(out.isNeutral(tolerance: 1e-9), "grey \(v) → \(out)")
+            XCTAssertGreaterThanOrEqual(out.g, last, "not monotonic at \(v)")
+            XCTAssertLessThanOrEqual(out.g, 1)
+            last = out.g
+        }
+        // Slope 1 on both sides of the knee, white only at the top, and 1.0 itself a little under white.
+        let knee = LookMath.DisplayMapper.grey * exp2(m.kneeEV), h = 1e-5
+        XCTAssertEqual((m.shoulder(knee) - m.shoulder(knee - h)) / h, 1, accuracy: 1e-6)
+        XCTAssertEqual((m.shoulder(knee + h) - m.shoulder(knee)) / h, 1, accuracy: 1e-3)
+        XCTAssertEqual(m.shoulder(m.top), 1, accuracy: 1e-12)
+        XCTAssertEqual(m.shoulder(m.top * 8), 1, accuracy: 1e-12)
+        XCTAssertLessThan(m.shoulder(4), 1)
+        XCTAssertGreaterThan(m.shoulder(1), 0.85); XCTAssertLessThan(m.shoulder(1), 0.95)
+        // No kink: the slope only falls from the knee up.
+        var slope = 1.0 + 1e-6, x = knee
+        while x < m.top {
+            let s = (m.shoulder(x * 1.01) - m.shoulder(x)) / (x * 0.01)
+            XCTAssertLessThanOrEqual(s, slope + 1e-9, "the slope rose at \(x)")
+            slope = s; x *= 1.01
+        }
+    }
+
+    /// A saturated colour pushed above white keeps its hue and fades toward white; the clamp
+    /// cuts one channel and turns the same orange yellow.
+    func testMapperKeepsHueAndFadesToWhiteAboveWhite() {
+        let r = sigmoidRules
+        for base in [LookMath.RGB(r: 1, g: 0.5, b: 0.05), LookMath.RGB(r: 1, g: 0.08, b: 0.03), LookMath.RGB(r: 0.2, g: 0.4, b: 1), LookMath.RGB(r: 0.2, g: 1, b: 0.1)] {
+            let scaled = { (g: Double) in LookMath.RGB(r: base.r * g, g: base.g * g, b: base.b * g) }
+            let h0 = hue(scaled(0.5)).h
+            var chroma = Double.infinity
+            for g in [1.0, 2, 4, 8, 16] {
+                let out = LookMath.output(scaled(g), r), (h, C) = hue(out)
+                if g <= 4 { XCTAssertLessThan(hueShift(h, h0), 10, "\(base) × \(g): hue \(h) from \(h0) (\(out))") }
+                XCTAssertLessThanOrEqual(C, chroma + 1e-9, "\(base) × \(g) gained colour")
+                chroma = C
+            }
+            XCTAssertLessThan(chroma, 0.02, "\(base) × 16 is nearly white")
+            let far = LookMath.output(scaled(64), r)
+            XCTAssertGreaterThan(min(far.r, far.g, far.b), 0.98, "\(base) × 64 → \(far): white")
+        }
+        let orange = LookMath.RGB(r: 4, g: 2, b: 0.2), h0 = hue(LookMath.RGB(r: 0.5, g: 0.25, b: 0.025)).h
+        XCTAssertGreaterThan(hueShift(hue(LookMath.output(orange, rules)).h, h0), 20, "the clamp turns it yellow")
+        XCTAssertLessThan(hueShift(hue(LookMath.output(orange, r)).h, h0), 8)
+        // A pure primary reaches white too (the inset gives its other channels something to rise from).
+        let red = LookMath.output(LookMath.RGB(r: 30, g: 0, b: 0), r)
+        XCTAssertGreaterThan(red.g, 0.95); XCTAssertEqual(LookMath.output(LookMath.RGB(r: 30, g: 0, b: 0), rules), LookMath.RGB(r: 1, g: 0, b: 0))
+    }
+
+    func testMapperIsFiniteForZeroNegativeAndHugeInputs() {
+        let r = sigmoidRules
+        for v in [0.0, -0.5, 1e-30, 1e6, 1e30, Double.greatestFiniteMagnitude, .infinity] {
+            for c in [LookMath.RGB.gray(v), LookMath.RGB(r: v, g: 1, b: 0), LookMath.RGB(r: 0, g: 0.3, b: v)] {
+                let out = LookMath.output(c, r)
+                for x in [out.r, out.g, out.b] { XCTAssertTrue(x.isFinite && x >= 0 && x <= 1, "\(c) → \(out)") }
+            }
+        }
+        XCTAssertEqual(LookMath.output(.gray(0), r), .gray(0))
+        XCTAssertEqual(LookMath.output(.gray(.infinity), r).g, 1, accuracy: 1e-12)
+    }
 }

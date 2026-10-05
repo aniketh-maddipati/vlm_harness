@@ -322,6 +322,58 @@ def vignette_gain(r, vignette, rules):
     return 2.0 ** (vignette * k(rules, "vignette", "stopsPerUnit", 0.02) * smoothstep(m - f / 2, m + f / 2, r))
 
 
+# ---- outputTransform (the display mapper) -------------------------------------------------------
+
+GREY = TONE_REFERENCE
+WHITE_EV = float(np.log2(1.0 / GREY))      # display white, in stops above mid grey
+
+
+def mapper(rules):
+    """"clamp" (what ships) or "sigmoid" (LookRules.mapper)."""
+    return rules["stages"].get("outputTransform", {}).get("mapper") or "clamp"
+
+
+def display_mapper(rules):
+    """LookMath.DisplayMapper's numbers: (kneeEV, maxEV, inset, rotate, hueKeep), kept in range."""
+    o = lambda n, d: k(rules, "outputTransform", n, d)
+    return (min(WHITE_EV - 0.05, o("kneeEV", 2.0)), max(WHITE_EV + 0.05, o("maxEV", 6.5)), min(0.9, max(0.0, o("inset", 0.2))),
+            o("rotate", 0.0), min(1.0, max(0.0, o("hueKeep", 1.0))))
+
+
+def mapper_matrices(inset, rotate):
+    """(inset, outset): every primary `inset` of the way to white, turned `rotate` degrees about the
+    grey axis, and the inverse. Rows sum to 1."""
+    t = np.radians(rotate); c = np.cos(t); d = (1.0 - c) / 3.0; s = np.sin(t) / np.sqrt(3.0)
+    turn = np.array([[c + d, d - s, d + s], [d + s, c + d, d - s], [d - s, d + s, c + d]])
+    return (1.0 - inset) * turn + inset / 3.0, turn.T / (1.0 - inset) - inset / (3.0 * (1.0 - inset))
+
+
+def shoulder(x, knee_ev, max_ev):
+    """One channel through the shoulder: the identity up to the knee, then in log2 around mid grey
+    L' = knee + H·(1 − (1 − u)^q), q = (max − knee) / H, reaching 1 at max_ev with slope 0."""
+    x = np.asarray(x, dtype=np.float64)
+    knee, h = GREY * 2.0 ** knee_ev, WHITE_EV - knee_ev
+    u = (np.log2(np.clip(x, knee, GREY * 2.0 ** max_ev) / GREY) - knee_ev) / (max_ev - knee_ev)
+    return np.where(x > knee, GREY * 2.0 ** (knee_ev + h * (1.0 - np.power(np.maximum(0.0, 1.0 - u), (max_ev - knee_ev) / h))), x)
+
+
+def output_transform(rgb, rules):
+    """LookMath.output: the rules' mapper on colours (..., 3), inside 0…1 (linear, working space)."""
+    c = np.asarray(rgb, dtype=np.float64)
+    if mapper(rules) != "sigmoid":
+        return np.clip(c, 0.0, 1.0)
+    knee_ev, max_ev, inset, rotate, hue_keep = display_mapper(rules)
+    m, o = mapper_matrices(inset, rotate)
+    x = np.minimum(c @ m.T, GREY * 2.0 ** max_ev)
+    p = shoulder(x, knee_ev, max_ev)
+    xmax, xmin = x.max(axis=-1, keepdims=True), x.min(axis=-1, keepdims=True)
+    pmax, pmin = p.max(axis=-1, keepdims=True), p.min(axis=-1, keepdims=True)
+    span = xmax - xmin
+    kept = pmin + (x - xmin) * ((pmax - pmin) / np.where(span > 1e-6, span, 1.0))
+    p = np.where(span > 1e-6, p + (kept - p) * hue_keep, p)
+    return np.clip(p @ o.T, 0.0, 1.0)
+
+
 def apply_luma_ratio(rgb, y_new, y_old):
     ratio = np.where(y_old > 1e-9, y_new / np.maximum(y_old, 1e-9), 1.0)
     return rgb * ratio[..., None]
@@ -412,6 +464,7 @@ def check(path, tolerance=0.02):
         dump = json.load(f)
     rules = {"stages": {s: {"coefficients": c} for s, c in dump["rules"].items()}, "perceptualGamma": dump["perceptualGamma"],
              "order": dump["order"]}
+    rules["stages"].setdefault("outputTransform", {"coefficients": {}})["mapper"] = dump.get("mapper", "clamp")
     look = parse_look(dump["look"])
     as_shot = (dump["asShot"]["kelvin"], dump["asShot"]["tint"])
     worst, rows = 0.0, []
@@ -423,6 +476,13 @@ def check(path, tolerance=0.02):
         e_swift = float(np.max(np.abs(mine - swift)))
         worst = max(worst, e_graph, e_swift)
         rows.append((row["in"], list(mine), list(graph), list(swift), e_graph, e_swift))
+    # outputTransform alone (the dump's mapper), on colours up to far above white
+    for row in dump.get("display", []):
+        mine = output_transform(np.array(row["in"]), rules)
+        e_graph = float(np.max(np.abs(mine - np.array(row["graph"]))))
+        e_swift = float(np.max(np.abs(mine - np.array(row["math"]))))
+        worst = max(worst, e_graph, e_swift)
+        rows.append((row["in"], list(mine), row["graph"], row["math"], e_graph, e_swift))
     return worst, rows
 
 

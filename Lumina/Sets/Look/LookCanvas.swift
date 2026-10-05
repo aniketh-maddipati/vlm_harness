@@ -443,7 +443,7 @@ final class LookCanvasController: NSObject {
     func renderToImage() -> CGImage? {
         guard let c = current, let e = c.entry else { return nil }
         let img = pipeline.apply(c.look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot, anchor: e.anchor), crop: false)
-        return pipeline.context.createCGImage(pipeline.clamped(img), from: img.extent.integral, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
+        return pipeline.context.createCGImage(pipeline.output(img), from: img.extent.integral, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
     }
 
     var currentEntry: LookBases.Entry? { current?.entry }
@@ -554,7 +554,7 @@ final class LookCanvasController: NSObject {
         let s = min(dw / max(1, visible.width), dh / max(1, visible.height))
         let out = image.transformed(by: CGAffineTransform(translationX: -visible.minX, y: -visible.minY).concatenating(CGAffineTransform(scaleX: s, y: s)))
         let ox = ((dw - visible.width * s) / 2).rounded(), oy = ((dh - visible.height * s) / 2).rounded()
-        return (pipeline.clamped(out).transformed(by: CGAffineTransform(translationX: ox, y: oy)), image, region)
+        return (pipeline.output(out).transformed(by: CGAffineTransform(translationX: ox, y: oy)), image, region)
     }
 
     private func render(_ r: LookCanvasSchedule.Request, entry: LookBases.Entry, look: Look, view: LookCanvasView) {

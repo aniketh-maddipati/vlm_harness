@@ -78,7 +78,7 @@ enum ConsistencySteps {
         let bases = LookBases(pipeline: pipe, byteCap: 800 << 20, maxPhotos: 2)
         var info: [String: LookDecoderInfo] = [:]          // per body, measured once
 
-        func cg(_ img: CIImage) -> CGImage? { pipe.context.createCGImage(pipe.clamped(img), from: img.extent.integral, format: .RGBA8, colorSpace: srgb) }
+        func cg(_ img: CIImage) -> CGImage? { pipe.context.createCGImage(pipe.output(img), from: img.extent.integral, format: .RGBA8, colorSpace: srgb) }
         func decode(_ data: Data) -> CGImage? { CGImageSourceCreateWithData(data as CFData, nil).flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) } }
         /// An export scaled to the canvas picture's size with the pipeline's own Lanczos.
         func scaled(_ full: CGImage, to target: CGImage) -> CGImage? {

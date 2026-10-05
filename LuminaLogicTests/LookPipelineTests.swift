@@ -387,4 +387,37 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertThrowsError(try r.renderJPEG(url: file, rel: "shoot/ramp.png", look: "nope:1", px: 128, seq: 6))
         XCTAssertThrowsError(try r.renderJPEG(url: dir.appendingPathComponent("missing.png"), rel: "shoot/missing.png", look: "", px: 128, seq: 1))
     }
+
+    // MARK: outputTransform (the display mapper)
+
+    /// The shipped rules clamp; with `mapper: sigmoid` the Metal kernel equals `LookMath.output`,
+    /// keeps a grey ramp grey and monotonic, and never leaves 0…1.
+    func testDisplayMapperKernelEqualsLookMath() throws {
+        let ramp = pipe.ramp(steps: 64, columnWidth: 2, height: 8, lo: 0, hi: 1.2)
+        XCTAssertEqual(pipe.pixel(pipe.output(ramp.image), x: 127, y: 4).g, 1, accuracy: 2e-3, "the shipped mapper is the clamp")
+        XCTAssertFalse(LookKernels.stageNames.contains("lookDisplay"), "nothing new compiles with the shipped mapper")
+
+        var r = rules!
+        r.stages["outputTransform", default: LookRules.Stage()].mapper = "sigmoid"
+        let mapped = try LookPipeline(rules: r)
+        for c in [LookMath.RGB.gray(0), .gray(0.18), .gray(0.6), .gray(0.9), .gray(1), .gray(1.5), .gray(4), .gray(40),
+                  LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), LookMath.RGB(r: 1, g: 0.5, b: 0.05), LookMath.RGB(r: 4, g: 2, b: 0.2),
+                  LookMath.RGB(r: 3, g: 0.24, b: 0.09), LookMath.RGB(r: 0.8, g: 1.6, b: 4), LookMath.RGB(r: 2, g: 1.2, b: 0.84),
+                  LookMath.RGB(r: 0.4, g: 8, b: 0.2), LookMath.RGB(r: 30, g: 0, b: 0)] {
+            let got = mapped.pixel(mapped.output(mapped.flat(c, size: 16).image), x: 8, y: 8)
+            let want = LookMath.output(c, r)
+            for (g, w) in [(got.r, want.r), (got.g, want.g), (got.b, want.b)] { XCTAssertEqual(g, w, accuracy: max(0.004, 0.01 * abs(w)), "\(c): graph \(got) vs maths \(want)") }
+        }
+        let wide = mapped.ramp(steps: 256, columnWidth: 1, height: 8, lo: 0, hi: 20)
+        let row = mapped.row(mapped.output(wide.image), y: 4, width: 256)
+        var last = -1.0
+        for (x, c) in row.enumerated() {
+            XCTAssertTrue(c.isNeutral(tolerance: 4e-3), "x=\(x): \(c)")
+            XCTAssertTrue(c.g.isFinite && c.g >= last - 2e-3 && c.g <= 1 + 1e-3, "x=\(x): \(c.g) after \(last)")
+            last = max(last, c.g)
+        }
+        XCTAssertEqual(last, 1, accuracy: 2e-3)
+        // The encoders go through the same mapper.
+        XCTAssertGreaterThan(try mapped.jpeg(mapped.apply(try Look.parse("ev:+2"), to: wide)).count, 100)
+    }
 }
