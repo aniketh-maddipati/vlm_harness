@@ -61,10 +61,10 @@ nonisolated struct Look: Equatable, Sendable {
     }
 
     /// Midpoint 0 … 100 (50): how far from the centre the vignette starts. Roundness −100 … +100
-    /// (0): below 0 the shape follows the frame (its ellipse, then its rectangle). Feather
-    /// 0 … 100 (50): the width of the falloff, 0 a hard edge. Highlights 0 … 100 (0): how much
-    /// of a darkening vignette bright pixels are spared. At reset the stage is the one it was
-    /// before these existed (`LookMath.vignetteGain(r:vignette:_:)`, the `lookVignette` kernel).
+    /// (0): 0 is the frame's own ellipse, above it a circle, below it the frame's rectangle.
+    /// Feather 0 … 100 (50): the width of the falloff. Highlights 0 … 100 (0): how much of a
+    /// darkening vignette bright pixels are spared. The page's and Lightroom's scales, 1:1
+    /// (`LookMath.VignetteForm`).
     struct VignetteShape: Equatable, Sendable {
         var midpoint: Double = 50, roundness: Double = 0, feather: Double = 50, highlights: Double = 0
         var isDefault: Bool { self == VignetteShape() }

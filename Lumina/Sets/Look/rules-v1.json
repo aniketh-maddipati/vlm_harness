@@ -63,8 +63,8 @@
     },
     "vignette": {
       "locked": false,
-      "form": "gain 2^(vignette*stopsPerUnit*smoothstep(midpoint-feather/2, midpoint+feather/2, r)) with r = distance from the centre over the half diagonal. With a shape (the look's vigs:mid,round,feather,hl off its reset 50,0,50,0; LookMath.VignetteForm, unfitted): the smoothstep's middle is midpoint + (mid-50)/100*midpointRange and its width feather*fea/50; r = (|u*sx|^p + |v*sy|^p)^(1/p) over its value at a corner, u and v in -1..1 across the frame, at position q = clamp(roundAtReset + round*(1 + roundAtReset/100), -100, 100) of the family +100 a circle in pixels (sx:sy = aspect:1, p 2), 0 the frame's ellipse (sx = sy = 1), -100 the frame's rectangle (p = rectPower); a darkening vignette's stops are scaled by 1 - hl/100*P^highlightsPower, P the pixel's perceptual luma in 0..1",
-      "coefficients": { "stopsPerUnit": 0.02, "midpoint": 0.5, "feather": 0.5, "midpointRange": 0.5, "roundAtReset": 100, "rectPower": 8, "highlightsPower": 2 }
+      "form": "the post-crop vignette on the page's scale (LookMath.VignetteForm; ruled 2026-10-05, before it a circle in pixels with a fixed falloff). gain 2^(vignette*stopsPerUnit*smoothstep(e0, e0 + w, d)), with the look's vigs:mid,round,feather,hl (reset 50,0,50,0): d0 = midpointAt0 + mid/100*midpointPer100, w = featherAt0 + feather/100*featherPer100, e0 = d0 - featherInside*w; d = (|u*sx|^p + |v*sy|^p)^(1/p) over its value at a corner, u and v in -1..1 across the frame: round 0 the frame's ellipse (sx = sy = 1, p 2), +100 a circle in pixels (sx:sy = aspect:1), -100 the frame's rectangle (p = rectPower), blended between; a darkening vignette's stops are scaled by 1 - hl/100*P^highlightsPower, P the pixel's perceptual luma in 0..1. The shape is the page's; stopsPerUnit and highlightsPower are unfitted",
+      "coefficients": { "stopsPerUnit": 0.02, "midpointAt0": 0.5, "midpointPer100": 0.5, "featherAt0": 0.08, "featherPer100": 0.6, "featherInside": 0.3, "rectPower": 8, "highlightsPower": 2 }
     },
     "outputTransform": {
       "locked": false,
