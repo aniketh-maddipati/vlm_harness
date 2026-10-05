@@ -14,7 +14,7 @@ stays the product-side checklist.
 | `Scripts/release.sh local` (sandboxed, ad hoc) | Runs: 18 s, preflight passes with 4 warnings |
 | `Scripts/release.sh dmg` (Developer ID, signed dmg) | Runs end to end, notarised and stapled (1.0.0 build 563, 2026-10-02; keychain profile `lumina-notary`) |
 | `Scripts/release.sh store` (pkg for App Store Connect, `--validate`, `--upload`) | Runs: 1.0.0 build 568 validated and uploaded to App Store Connect on 2026-10-05 (TestFlight). `--upload` asks at a prompt, so it needs a terminal |
-| `Scripts/release_preflight.sh` (signature, entitlement allowlist, Info.plist, arm64, page and vendor bytes, privacy manifest, stray files) | Runs; `--strict` fails on the open items |
+| `Scripts/release_preflight.sh` (signature, entitlement allowlist, Info.plist, arm64, page and vendor bytes, privacy manifest, stray files; network: no networking API imported, no ATS exception, the offline content rule compiled in, no unreviewed script, nothing in `plumbing.js` that reaches out, and every URL string in the page files and binary listed with its file and line, not failed) | Runs; `--strict` fails on the open items (D2 only, 2026-10-05) |
 | The app actually working in the sandbox | **No.** The page does not load without the network entitlement (measured), and bookmarks, the card flow and crash recovery assume no sandbox (read from the code). `TASKS.md` R1 |
 
 ## Decisions only you can make
