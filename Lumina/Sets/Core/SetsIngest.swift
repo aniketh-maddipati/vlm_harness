@@ -284,7 +284,7 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         }
     }
 
-    /// Every ARW under `root` (and its .xmp sidecars, read now: they're small), the way WebKit's
+    /// Every ARW or DNG under `root` (and its .xmp sidecars, read now: they're small), the way WebKit's
     /// folder input lists it: recursive, hidden files and AppleDouble `._` stubs skipped. Other
     /// files are listed by name only. Lumina's own `.lumina-bak` files are left out.
     /// A sidecar that is not UTF-8 text is named in `unreadableXmp`, without its text.
@@ -321,9 +321,9 @@ nonisolated final class SetsIngest: @unchecked Sendable {
             guard v.isRegularFile == true else { continue }
             let inside = String(url.standardizedFileURL.path.dropFirst(prefix.count))
             let rel = out.name + "/" + inside
-            if ext != "arw" && ext != "xmp" {
+            if ext != "arw" && ext != "dng" && ext != "xmp" {
                 out.others.append(rel)
-            } else if ext == "arw" {
+            } else if ext == "arw" || ext == "dng" {
                 out.files.append((rel, v.fileSize ?? 0))
             } else if (v.fileSize ?? 0) > limits.sidecarBytes {
                 out.skippedXmp.append(rel)                          // the size is enough: never read to find out
