@@ -325,6 +325,9 @@ return { state: JSON.parse(JSON.stringify(l.state, (k, v) => { if (typeof v === 
   if (v && typeof v === 'object') { if (v.nodeType || v instanceof Blob || ('current' in v && Object.keys(v).length === 1)) return undefined; if (seen.has(v)) return undefined; seen.add(v); } return v; })),
   order: l.data ? l.data.order.length : 0, real: !!l.real };"""
 
+SETTLE = """const l = __probe.logic(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+if (l.state.view === 'cull' && typeof l.visNow === 'function') l.visNow(); await new Promise(r => setTimeout(r, 50)); return true"""
+
 
 def run_screens(spec, app, d):
     os.makedirs(d, exist_ok=True)
@@ -345,6 +348,10 @@ def run_screens(spec, app, d):
                 p.js('K(%s, {down: false})' % json.dumps(s['k'])); wait(60)
             elif s['do'] == 'snap': snaps[s['name']] = p.snap(os.path.join(d, s['name'] + '.png'))
             elif s['do'] == 'state':
+                # v8 widens the mounted-row window (vr) on a scroll frame and narrows it 240 ms after the
+                # scroll rests. On a software-rendered runner a frame can land after that timer and leave
+                # one twin wide. Both twins are taken at rest: two frames, then the page's own visNow().
+                p.js(SETTLE)
                 states[s['name']] = p.js(STATE)
                 json.dump(states[s['name']], open(os.path.join(d, s['name'] + '.state.json'), 'w'), indent=1)
             elif s['do'] == 'js': p.js(s['src'])
