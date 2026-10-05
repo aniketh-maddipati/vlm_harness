@@ -162,7 +162,10 @@ final class LookPipelineTests: XCTestCase {
         for (slider, value) in sweep { looks.append(Look.single(slider, value, asShot: asShot)!) }
         for s in ["ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0",
                   "ev:-1.20 con:-30 hl:+50 sh:-40 wh:+30 bl:+20 vib:-40 sat:+25",
-                  "ev:+0.30 wb:3200/-20 con:+40 bw:1", "sat:-100", "wh:-60 bl:-60 con:+80"] {
+                  "ev:+0.30 wb:3200/-20 con:+40 bw:1", "sat:-100", "wh:-60 bl:-60 con:+80",
+                  // the tone curve: region sliders, point curves, per channel, and inside a whole look
+                  "tc:+20,-10,+15", "tc:-50,+50,-50", "crv:0,0/0.25,0.2/0.6,0.7125/1,1", "crv:0,0.1/1,0.9", "crv:0,0/0.3,0.8/0.6,0.2/1,1",
+                  "crv:0,0.05/0.3,0.4/0.7,0.6/1,0.95 crvr:0,0/0.5,0.6/1,1 crvb:0,0.1/1,0.9", "ev:+0.30 con:+20 hl:-30 tc:+20,-10,+15 crvg:0,0/0.5,0.45/1,1 sat:+10 vib:+20"] {
             looks.append(try! Look.parse(s))
         }
         var worst = 0.0
@@ -187,12 +190,183 @@ final class LookPipelineTests: XCTestCase {
         var light = Look(); light.vignette = 60
         let d = pipe.apply(dark, to: dev), l = pipe.apply(light, to: dev)
         XCTAssertEqual(pipe.pixel(d, x: 128, y: 128).g, 0.5, accuracy: 3e-3)
-        XCTAssertLessThan(pipe.pixel(d, x: 2, y: 2).g, 0.4)
+        XCTAssertLessThan(pipe.pixel(d, x: 2, y: 2).g, 0.2)
         XCTAssertLessThan(pipe.pixel(d, x: 2, y: 2).g, pipe.pixel(d, x: 40, y: 40).g)
+        XCTAssertGreaterThan(pipe.pixel(d, x: 128, y: 2).g, 0.45, "at the reset shape the edges are almost untouched")
         XCTAssertGreaterThan(pipe.pixel(l, x: 2, y: 253).g, 0.5)
         XCTAssertTrue(pipe.pixel(d, x: 2, y: 2).isNeutral(tolerance: 4e-3))
-        let expected = 0.5 * LookMath.vignetteGain(r: hypot(125.5, 125.5) / hypot(128, 128), vignette: -100, rules)
+        let form = LookMath.VignetteForm(shape: Look.VignetteShape(), vignette: -100, aspect: 1, rules)
+        let expected = LookMath.vignette(.gray(0.5), d: form.distance(u: 125.5 / 128, v: 125.5 / 128), vignette: -100, form: form, rules).g
         XCTAssertEqual(pipe.pixel(d, x: 2, y: 2).g, expected, accuracy: 0.01)
+    }
+
+    /// The tone curve through the real graph: its table kernel equals `LookMath.curve` across
+    /// the whole range, a grey ramp stays monotonic whatever the points are, and a grey stays
+    /// grey under the all-channels curve and the region sliders.
+    func testToneCurveOnARampIsMonotonicGreyAndEqualsLookMath() throws {
+        let width = 512
+        let dev = pipe.ramp(steps: width, columnWidth: 1, height: 8, lo: 0, hi: 1.2)
+        let all = ["tc:+50,+50,+50", "tc:-50,-50,-50", "tc:+50,-50,+50", "tc:+10,0,-8", "crv:0,0/0.25,0.2/0.6,0.7125/1,1", "crv:0,0.2/1,0.8", "crv:0,1/1,0",
+                   "crv:0,0/0.3,0.8/0.6,0.2/1,1", "crv:0.3,0/0.7,1", "crv:0,0/0.02,1/0.04,0/0.06,1/1,1", "tc:+20,0,0 crv:0,0/0.5,0.3/1,1"]
+        let channels = ["crvr:0,0.05/1,1", "crvg:0,0/0.5,0.2/1,0.6 crvb:0,1/1,0", "crv:0,0/0.5,0.6/1,1 crvr:0,0/0.3,0.9/0.6,0.1/1,1 crvb:0,0.3/1,0.7"]
+        var worst = 0.0
+        for text in all + channels {
+            let look = try Look.parse(text)
+            XCTAssertEqual(rules.lookStages.filter(look.runs), ["curve"])
+            let row = pipe.row(pipe.apply(look, to: dev), y: 4, width: width)
+            var last = -1.0
+            for x in 0..<width {
+                let v = 1.2 * Double(x) / Double(width - 1), y = luma(row[x])
+                XCTAssertTrue(y.isFinite && y >= -1e-4, "\(text) x=\(x): \(y)")
+                XCTAssertGreaterThanOrEqual(y, last - 2e-3, "\(text) not monotonic at x=\(x): \(y) after \(last)")
+                last = max(last, y)
+                if !channels.contains(text) { XCTAssertTrue(row[x].isNeutral(tolerance: 4e-3), "\(text) x=\(x) tinted a grey: \(row[x])") }
+                // A curve as steep as a step moves by more than any tolerance within one node: compare where it is not.
+                let want = LookMath.flat(.gray(v), look: look, asShot: asShot, rules: rules)
+                let near = LookMath.flat(.gray(1.2 * (Double(x) + 0.6) / Double(width - 1)), look: look, asShot: asShot, rules: rules)
+                let before = LookMath.flat(.gray(max(0, 1.2 * (Double(x) - 0.6) / Double(width - 1))), look: look, asShot: asShot, rules: rules)
+                for (g, w, a, b) in [(row[x].r, want.r, before.r, near.r), (row[x].g, want.g, before.g, near.g), (row[x].b, want.b, before.b, near.b)] {
+                    let tol = max(0.006, 0.02 * abs(w)) + abs(b - a)
+                    worst = max(worst, abs(g - w) / tol)
+                    XCTAssertEqual(g, w, accuracy: tol, "\(text) x=\(x) (grey \(v)): graph \(row[x]) vs maths \(want)")
+                }
+            }
+        }
+        print("LookPipelineTests: tone curve graph vs LookMath worst error = \(String(format: "%.2f", worst)) × tolerance")
+        // The table image: one row of `curveNodes` values, the same image while the curve is the same.
+        let curve = try Look.parse("tc:+20,-10,+15").curve
+        let lut = pipe.curveTable(curve)
+        XCTAssertEqual(lut.extent, CGRect(x: 0, y: 0, width: LookMath.curveNodes, height: 1))
+        XCTAssertTrue(pipe.curveTable(curve) === lut); XCTAssertFalse(pipe.curveTable(try Look.parse("tc:+21,-10,+15").curve) === lut)
+        // A large frame (the kernel reads its table whole for every tile of the output).
+        let big = LookPipeline.Developed(image: pipe.flat(.gray(0.18), size: 64).image.clampedToExtent().cropped(to: CGRect(x: 0, y: 0, width: 3000, height: 2000)), asShot: asShot, anchor: .reference)
+        let out = pipe.apply(try Look.parse("crv:0,0/0.5,0.6/1,1"), to: big), want = LookMath.flat(.gray(0.18), look: try Look.parse("crv:0,0/0.5,0.6/1,1"), asShot: asShot, rules: rules)
+        for (x, y) in [(0, 0), (2999, 1999), (1500, 1000), (2990, 5)] { XCTAssertEqual(pipe.pixel(out, x: x, y: y).g, want.g, accuracy: 0.004, "at \(x),\(y)") }
+    }
+
+    /// The colour mixer on the GPU equals `LookMath.mixer` on colours round the hue circle, and
+    /// leaves a grey ramp as it found it for any of the 24 values.
+    func testColourMixerKernelEqualsLookMathAndLeavesGreyAlone() throws {
+        let looks = try ["mixh:+100,+100,+100,+100,+100,+100,+100,+100", "mixs:-100,+100,-100,+100,-100,+100,-100,+100", "mixl:+100,-100,+100,-100,+100,-100,+100,-100",
+                         "mixh:0,+10,0,0,0,-25,0,0 mixs:+40,0,0,-100,0,0,0,+5 mixl:0,0,0,0,0,-30,0,0", "mixh:-100,+60,-30,+100,-80,+45,-100,+100 mixs:+100,+100,+100,+100,+100,+100,+100,+100 mixl:-100,-100,-100,-100,-100,-100,-100,-100",
+                         "ev:+0.30 con:+20 tc:+10,0,-8 sat:+15 vib:+20 mixh:0,0,+40,0,0,0,0,0 mixs:0,-50,0,0,+30,0,0,0 mixl:+50,0,0,0,0,-50,0,0"].map(Look.parse)
+        var colours: [LookMath.RGB] = [LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), LookMath.RGB(r: 0.2, g: 0.5, b: 0.2), LookMath.RGB(r: 0.15, g: 0.2, b: 0.6), LookMath.RGB(r: 0.6, g: 0.35, b: 0.25),
+                                       LookMath.RGB(r: 0.7, g: 0.6, b: 0.1), LookMath.RGB(r: 0.3, g: 0.6, b: 0.7), LookMath.RGB(r: 0.9, g: 0.1, b: 0.6), LookMath.RGB(r: 0.02, g: 0.03, b: 0.05), LookMath.RGB(r: 1.1, g: 0.9, b: 0.5)]
+        for hue in stride(from: 0.0, to: 360, by: 20) { colours.append(LookMath.fromOklab(0.7, 0.08 * cos(hue * .pi / 180), 0.08 * sin(hue * .pi / 180))) }
+        var worst = 0.0
+        for c in colours {
+            let dev = pipe.flat(c, size: 16)
+            for look in looks {
+                let got = pipe.pixel(pipe.apply(look, to: dev), x: 8, y: 8), want = LookMath.flat(c, look: look, asShot: asShot, rules: rules)
+                for (g, w) in [(got.r, want.r), (got.g, want.g), (got.b, want.b)] {
+                    let tol = max(0.006, 0.02 * abs(w))
+                    worst = max(worst, abs(g - w) / tol)
+                    XCTAssertEqual(g, w, accuracy: tol, "\(look.format()) on \(c): graph \(got) vs maths \(want)")
+                }
+            }
+        }
+        print("LookPipelineTests: colour mixer graph vs LookMath worst error = \(String(format: "%.2f", worst)) × tolerance")
+        // A grey ramp: every pixel what it was (to the graph's own precision), monotonic, grey.
+        let width = 256
+        let ramp = pipe.ramp(steps: width, columnWidth: 1, height: 8, lo: 0, hi: 1.2), before = pipe.row(ramp.image, y: 4, width: width)
+        for look in looks.prefix(5) {
+            XCTAssertEqual(rules.lookStages.filter(look.runs), ["mixer"])
+            let row = pipe.row(pipe.apply(look, to: ramp), y: 4, width: width)
+            var last = -1.0
+            for x in 0..<width {
+                XCTAssertEqual(row[x].r, before[x].r, accuracy: 2e-3, "\(look.format()) x=\(x)"); XCTAssertEqual(row[x].g, before[x].g, accuracy: 2e-3); XCTAssertEqual(row[x].b, before[x].b, accuracy: 2e-3)
+                XCTAssertTrue(row[x].isNeutral(tolerance: 2e-3), "\(look.format()) x=\(x) tinted a grey: \(row[x])")
+                XCTAssertGreaterThanOrEqual(luma(row[x]), last - 2e-3); last = max(last, luma(row[x]))
+            }
+        }
+    }
+
+    /// A look that uses none of the added keys (and no vignette amount) builds the graph it built before them: the same
+    /// kernels with the same arguments (written out here as they were), so the same pixels, bit
+    /// for bit. This is what keeps every earlier render, and the parity numbers, where they were.
+    func testLooksWithoutTheAddedKeysBuildTheGraphTheyDid() throws {
+        let dev = pipe.ramp(steps: 32, columnWidth: 2, height: 16, lo: 0.02, hi: 1.1, tint: LookMath.RGB(r: 1, g: 0.8, b: 0.6))
+        let extent = dev.image.extent, r = rules!
+        let gam = CIVector(x: 1 / r.perceptualGamma, y: r.perceptualGamma), lum = CIVector(x: r.luma[0], y: r.luma[1], z: r.luma[2], w: 0)
+        // No `vig` here: ruled 2026-10-05, the vignette moved to the page's scale, so a look with an
+        // amount renders differently from before on purpose. vig:0 is no stage, as it always was.
+        let look = try Look.parse("ev:+0.70 con:+12 wh:+20 bl:-8 vib:+10 sat:+5 vig:0")
+        XCTAssertEqual(rules.lookStages.filter(look.runs), ["exposure", "whitesBlacks", "contrast", "colour"])
+        var img = dev.image
+        func pass(_ name: String, _ args: [Any]) throws { img = try XCTUnwrap(pipe.kernels.apply(name, extent: extent, [img] + args)) }
+        try pass("lookExposure", [CIVector(x: LookMath.exposureGain(look.ev, r), y: LookMath.exposureWhite(r))])
+        try pass("lookPre", [CIVector(x: 1, y: 1, z: 1, w: 1), CIVector(x: look.whites * r.k("whitesBlacks", "whitesPerUnit", 0.003), y: -look.blacks * r.k("whitesBlacks", "blacksPerUnit", 0.002),
+                                                                    z: r.k("whitesBlacks", "whitesPower", 2), w: r.k("whitesBlacks", "blacksPower", 2)), gam])
+        try pass("lookContrast", [CIVector(x: min(0.95, max(0.05, r.k("contrast", "midpoint", 0.46))), y: exp2(look.contrast * r.k("contrast", "slopePerUnit", 0.006)), z: min(1, max(0, r.k("contrast", "lumaMix", 0.5))), w: 0), gam, lum])
+        try pass("lookColour", [CIVector(x: max(0, 1 + look.saturation * r.k("colour", "saturationPerUnit", 0.01)), y: look.vibrance * r.k("colour", "vibrancePerUnit", 0.01),
+                                         z: max(1e-6, r.k("colour", "vibranceChromaMax", 0.25)), w: 1 - min(1, max(0, r.k("colour", "vibranceFloor", 0)))),
+                                CIVector(x: r.k("colour", "skinHue", 60), y: max(1e-6, r.k("colour", "skinWidth", 25)), z: r.k("colour", "skinProtect", 0.7), w: 0)])
+        XCTAssertEqual(floats(pipe.apply(look, to: dev)), floats(img))
+        // The kernels those stages run are in the source that shipped, which the added ones do not share.
+        for name in ["lookVignette", "lookCurve", "lookMixer"] {
+            XCTAssertFalse(LookKernels.source.contains(name)); XCTAssertTrue(LookKernels.moreSource.contains("float4 \(name)("))
+        }
+        XCTAssertFalse(LookKernels.moreSource.contains("static "), "no helper is added to the shared header")
+    }
+
+    /// Float pixels of a whole (small) image, for exact comparisons.
+    private func floats(_ img: CIImage) -> [Float] {
+        let w = Int(img.extent.width), h = Int(img.extent.height)
+        var px = [Float](repeating: 0, count: 4 * w * h)
+        pipe.context.render(img, toBitmap: &px, rowBytes: 16 * w, bounds: CGRect(x: 0, y: 0, width: w, height: h), format: .RGBAf, colorSpace: pipe.workingSpace)
+        return px
+    }
+
+    /// The vignette on the GPU equals `LookMath.vignette`, pixel by pixel across a frame that is
+    /// not square, at the reset shape and off it; Roundness 0 follows the frame's aspect; a grey
+    /// stays grey; farther from the centre is never brighter under a darkening vignette.
+    func testVignetteKernelEqualsLookMath() throws {
+        let w = 96, h = 64
+        for colour in [LookMath.RGB.gray(0.5), .gray(0.95), LookMath.RGB(r: 0.6, g: 0.35, b: 0.25)] {
+            let dev = LookPipeline.Developed(image: pipe.flat(colour, size: w).image.cropped(to: CGRect(x: 0, y: 0, width: w, height: h)), asShot: asShot, anchor: .reference)
+            for text in ["vig:-80", "vig:+60", "vig:-80 vigs:30,0,50,0", "vig:-80 vigs:50,-50,50,0", "vig:-100 vigs:60,-100,30,0", "vig:-70 vigs:50,0,50,80", "vig:+60 vigs:40,-25,90,100", "vig:-100 vigs:50,0,0,0", "vig:-90 vigs:20,+60,100,40", "vig:-90 vigs:50,+100,50,0"] {
+                let look = try Look.parse(text)
+                let out = pipe.apply(look, to: dev)
+                let form = LookMath.VignetteForm(shape: look.vignetteShape, vignette: look.vignette, aspect: Double(w) / Double(h), rules)
+                for (x, y) in [(48, 32), (0, 0), (95, 63), (2, 61), (90, 30), (47, 3), (20, 20), (70, 50), (95, 32), (48, 63)] {
+                    let u = (Double(x) + 0.5 - Double(w) / 2) / (Double(w) / 2), v = (Double(y) + 0.5 - Double(h) / 2) / (Double(h) / 2)
+                    let d = form.distance(u: u, v: v)
+                    let got = pipe.pixel(out, x: x, y: y), want = LookMath.flat(colour, look: look, asShot: asShot, rules: rules, vignetteR: d, aspect: Double(w) / Double(h))
+                    // Where the falloff is narrow (feather 0) a pixel's own width matters: allow for it.
+                    let slack = abs(look.vignette) * form.stopsPerUnit * 1.5 / max(1e-3, form.edge1 - form.edge0) * (2.0 / Double(h)) * 0.02
+                    for (g, e) in [(got.r, want.r), (got.g, want.g), (got.b, want.b)] { XCTAssertEqual(g, e, accuracy: max(0.004, 0.01 * abs(e)) + slack, "\(text) on \(colour) at \(x),\(y) d=\(d): \(got) vs \(want)") }
+                    if colour.isNeutral { XCTAssertTrue(got.isNeutral(tolerance: 4e-3), "\(text) tinted a grey at \(x),\(y): \(got)") }
+                }
+            }
+        }
+        // Roundness 0 follows the frame: in a 3:1 frame the middles of the long and the short edges are darkened alike
+        // (a circle would darken the short edges' middles far more), and the corners most.
+        let wide = LookPipeline.Developed(image: pipe.flat(.gray(0.5), size: 192).image.cropped(to: CGRect(x: 0, y: 0, width: 192, height: 64)), asShot: asShot, anchor: .reference)
+        let oval = pipe.apply(try Look.parse("vig:-100 vigs:0,0,100,0"), to: wide), round = pipe.apply(try Look.parse("vig:-100 vigs:0,+100,100,0"), to: wide)
+        XCTAssertEqual(pipe.pixel(oval, x: 191, y: 32).g, pipe.pixel(oval, x: 96, y: 63).g, accuracy: 0.01)
+        XCTAssertLessThan(pipe.pixel(oval, x: 0, y: 0).g, pipe.pixel(oval, x: 191, y: 32).g - 0.05)
+        XCTAssertLessThan(pipe.pixel(round, x: 191, y: 32).g, pipe.pixel(round, x: 96, y: 63).g - 0.1, "+100 is a circle in pixels")
+        // Radially monotonic: along rows and columns out from the centre, never brighter (darkening), never darker (lightening).
+        for text in ["vig:-100", "vig:-100 vigs:20,-100,60,0", "vig:-100 vigs:70,+100,10,0", "vig:+80 vigs:30,-40,80,0"] {
+            let look = try Look.parse(text), out = pipe.apply(look, to: wide), sign = look.vignette < 0 ? 1.0 : -1.0
+            let row = pipe.row(out, y: 32, width: 192).map(\.g), col = (0..<64).map { pipe.pixel(out, x: 96, y: $0).g }
+            for x in 97..<192 { XCTAssertLessThanOrEqual(sign * row[x], sign * row[x - 1] + 1e-3, "\(text) row x=\(x)") }
+            for x in stride(from: 95, to: 0, by: -1) { XCTAssertLessThanOrEqual(sign * row[x - 1], sign * row[x] + 1e-3, "\(text) row x=\(x)") }
+            for y in 33..<64 { XCTAssertLessThanOrEqual(sign * col[y], sign * col[y - 1] + 1e-3, "\(text) column y=\(y)") }
+        }
+        // A grey ramp at the frame's edge: brighter in is brighter out, with Highlights too.
+        for text in ["vig:-100", "vig:-100 vigs:0,-50,100,100", "vig:-100 vigs:50,0,50,60"] {
+            var last = -1.0
+            for i in 0...24 {
+                let dev = LookPipeline.Developed(image: pipe.flat(.gray(Double(i) / 20), size: 64).image, asShot: asShot, anchor: .reference)
+                let px = pipe.pixel(pipe.apply(try Look.parse(text), to: dev), x: 63, y: 63)
+                XCTAssertGreaterThanOrEqual(px.g, last - 2e-3, "\(text) grey \(Double(i) / 20)"); last = max(last, px.g)
+                XCTAssertTrue(px.isNeutral(tolerance: 4e-3))
+            }
+        }
+        // vig:0: no stage, the image itself, whatever the shape says.
+        XCTAssertTrue(pipe.apply(try Look.parse("vig:0 vigs:10,-100,0,100"), to: wide) === wide.image)
+        XCTAssertFalse(LookKernels.source.contains("lookVignette"), "one vignette kernel, with the added stages' kernels")
     }
 
     func testCropAndStraighten() throws {
@@ -204,6 +378,87 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertEqual(pipe.pixel(out, x: 0, y: 32).r, 64.0 / 255, accuracy: 0.02)
         look.crop?.rotate = 10
         XCTAssertEqual(pipe.apply(look, to: dev).extent.size, CGSize(width: 128, height: 64))
+    }
+
+    /// `rot`: the picture turned clockwise by quarter turns, after the crop, in `apply` (previews,
+    /// exports), in the canvas's bases (their key and their size) and in the loupe's region maths.
+    func testQuarterTurnIsGeometryAppliedAfterTheCrop() throws {
+        // 64 × 32: red grows to the right, green toward the top.
+        let w = 64, h = 32
+        var data = [Float](repeating: 1, count: w * h * 4)
+        for y in 0..<h { for x in 0..<w { let i = 4 * (y * w + x); data[i] = Float(x) / Float(w - 1); data[i + 1] = 1 - Float(y) / Float(h - 1); data[i + 2] = 0.25 } }       // bitmap row 0 is the top
+        let img = CIImage(bitmapData: data.withUnsafeBufferPointer { Data(buffer: $0) }, bytesPerRow: w * 16, size: CGSize(width: w, height: h), format: .RGBAf, colorSpace: pipe.workingSpace)
+        let dev = LookPipeline.Developed(image: img, asShot: asShot, anchor: .reference)
+        func corners(_ o: CIImage) -> (tl: LookMath.RGB, tr: LookMath.RGB, bl: LookMath.RGB, br: LookMath.RGB) {
+            let ew = Int(o.extent.width), eh = Int(o.extent.height)
+            return (pipe.pixel(o, x: 0, y: eh - 1), pipe.pixel(o, x: ew - 1, y: eh - 1), pipe.pixel(o, x: 0, y: 0), pipe.pixel(o, x: ew - 1, y: 0))
+        }
+        // (red, green) of the frame's corners: top left (0, 1), top right (1, 1), bottom left (0, 0), bottom right (1, 0).
+        func isAt(_ c: LookMath.RGB, _ r: Double, _ g: Double, _ what: String) {
+            XCTAssertEqual(c.r, r, accuracy: 0.01, what); XCTAssertEqual(c.g, g, accuracy: 0.01, what); XCTAssertEqual(c.b, 0.25, accuracy: 0.01, what)
+        }
+        XCTAssertTrue(pipe.apply(Look(), to: dev) === dev.image, "no turn: the image itself")
+        var look = Look(); look.rot = 90
+        var o = pipe.apply(look, to: dev)
+        XCTAssertEqual(o.extent, CGRect(x: 0, y: 0, width: 32, height: 64))
+        var c = corners(o)          // clockwise: the top left corner goes to the top right, the bottom left to the top left
+        isAt(c.tr, 0, 1, "90 top right"); isAt(c.br, 1, 1, "90 bottom right"); isAt(c.bl, 1, 0, "90 bottom left"); isAt(c.tl, 0, 0, "90 top left")
+        look.rot = 180; o = pipe.apply(look, to: dev); c = corners(o)
+        XCTAssertEqual(o.extent, CGRect(x: 0, y: 0, width: 64, height: 32))
+        isAt(c.br, 0, 1, "180 bottom right"); isAt(c.tl, 1, 0, "180 top left")
+        look.rot = 270; o = pipe.apply(look, to: dev); c = corners(o)
+        XCTAssertEqual(o.extent, CGRect(x: 0, y: 0, width: 32, height: 64))
+        isAt(c.bl, 0, 1, "270 bottom left"); isAt(c.tl, 1, 1, "270 top left"); isAt(c.tr, 1, 0, "270 top right")
+        // Four quarter turns are the picture again, pixel for pixel.
+        var back = dev.image
+        for _ in 0..<4 { back = LookPipeline.turned(back, rot: 90) }
+        XCTAssertEqual(back.extent, dev.image.extent)
+        for (x, y) in [(0, 0), (17, 5), (63, 31)] { XCTAssertEqual(pipe.pixel(back, x: x, y: y), pipe.pixel(dev.image, x: x, y: y)) }
+        // The crop is taken in the frame as shot (its left half), then turned: red stays below 0.5.
+        look = Look(); look.crop = Look.Crop(x: 0, y: 0, w: 0.5, h: 1); look.rot = 90
+        o = pipe.apply(look, to: dev)
+        XCTAssertEqual(o.extent, CGRect(x: 0, y: 0, width: 32, height: 32))
+        c = corners(o)
+        isAt(c.tr, 0, 1, "crop then turn, top right"); XCTAssertEqual(c.br.r, 31.0 / 63, accuracy: 0.02); XCTAssertEqual(c.br.g, 1, accuracy: 0.01)
+        // crop: false leaves the geometry to the caller (the canvas's bases), turn included.
+        XCTAssertTrue(pipe.apply(look, to: dev, crop: false) === dev.image)
+        XCTAssertEqual(pipe.geometry(dev.image, look.crop, rot: 90).extent, o.extent)
+        // The stages run on the turned picture: the same pixels as turning the finished render.
+        var graded = try Look.parse("ev:+0.50 con:+20 sat:+15"); let flatRender = pipe.apply(graded, to: dev)
+        graded.rot = 90
+        let turnedRender = pipe.apply(graded, to: dev), want = LookPipeline.turned(flatRender, rot: 90)
+        for (x, y) in [(0, 0), (9, 40), (31, 63)] {
+            let a = pipe.pixel(turnedRender, x: x, y: y), b = pipe.pixel(want, x: x, y: y)
+            XCTAssertEqual(a.r, b.r, accuracy: 1e-4); XCTAssertEqual(a.g, b.g, accuracy: 1e-4); XCTAssertEqual(a.b, b.b, accuracy: 1e-4)
+        }
+
+        // The bases: the turn is part of the key and of the size.
+        let canvas = CGSize(width: 200, height: 200)
+        var turned = Look(); turned.rot = 90
+        let plain = LookBases.Key(rel: "s/p.png", decoder: nil, look: Look(), canvas: canvas), quarter = LookBases.Key(rel: "s/p.png", decoder: nil, look: turned, canvas: canvas)
+        XCTAssertNotEqual(plain, quarter)
+        XCTAssertEqual(plain.description, "s/p.png|d0||r0.0|200x200|nr-1", "a key without a turn reads as before")
+        XCTAssertTrue(quarter.description.contains("|q90|"))
+        XCTAssertEqual(LookBases.croppedSize(CGSize(width: 6000, height: 4000), nil, rot: 90), CGSize(width: 4000, height: 6000))
+        XCTAssertEqual(LookBases.croppedSize(CGSize(width: 6000, height: 4000), Look.Crop(x: 0, y: 0, w: 0.5, h: 1), rot: 270), CGSize(width: 4000, height: 3000))
+        XCTAssertEqual(LookBases.croppedSize(CGSize(width: 6000, height: 4000), Look.Crop(x: 0, y: 0, w: 0.5, h: 1), rot: 180), CGSize(width: 3000, height: 4000))
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("look-rot-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("p.png")
+        try pipe.png(img).write(to: url)
+        let bases = LookBases(pipeline: pipe, byteCap: 64 << 20, maxPhotos: 3)
+        let e0 = try bases.build(plain, url: url, look: Look(), preview: nil), e90 = try bases.build(quarter, url: url, look: turned, preview: nil)
+        XCTAssertGreaterThan(e0.baseSize.width, e0.baseSize.height); XCTAssertGreaterThan(e90.baseSize.height, e90.baseSize.width, "the turn is baked into the base")
+        XCTAssertEqual(e90.photoSize, CGSize(width: 32, height: 64))
+        // Upright after the turn: the frame's left edge (red 0) is the base's top row.
+        let bw = Int(e90.baseSize.width), bh = Int(e90.baseSize.height)
+        XCTAssertLessThan(pipe.pixel(e90.base, x: bw / 2, y: bh - 1).r, 0.1); XCTAssertGreaterThan(pipe.pixel(e90.base, x: bw / 2, y: 0).r, 0.9)
+
+        // The loupe's region: a point of the frame lands where the whole frame's transform puts it.
+        let t = LookPipeline.turnTransform(size: CGSize(width: 6000, height: 4000), rot: 90)
+        XCTAssertEqual(CGRect(x: 0, y: 3000, width: 1000, height: 1000).applying(t), CGRect(x: 3000, y: 5000, width: 1000, height: 1000), "the frame's top left tile is the turned picture's top right")
+        XCTAssertTrue(LookPipeline.turnTransform(size: CGSize(width: 6000, height: 4000), rot: 0).isIdentity)
     }
 
     func testEncodersWriteSixteenBitTIFFAndJPEG() throws {

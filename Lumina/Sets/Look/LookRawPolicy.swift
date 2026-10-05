@@ -129,6 +129,18 @@ nonisolated enum LookRawPolicy {
         return out
     }
 
+    /// A region of the turned picture (`Look.rot`, clockwise quarter turns; fractions from the
+    /// top left) as the same region of the frame as shot, where the tiles live. A point (x, y) of
+    /// the frame sits at (1 − y, x) after 90°, (1 − x, 1 − y) after 180°, (y, 1 − x) after 270°.
+    static func unturned(_ roi: LookCanvasSchedule.ROI, rot: Int) -> LookCanvasSchedule.ROI {
+        switch ((rot % 360) + 360) % 360 {
+        case 90: return LookCanvasSchedule.ROI(x: roi.y, y: 1 - roi.x - roi.w, w: roi.h, h: roi.w)
+        case 180: return LookCanvasSchedule.ROI(x: 1 - roi.x - roi.w, y: 1 - roi.y - roi.h, w: roi.w, h: roi.h)
+        case 270: return LookCanvasSchedule.ROI(x: 1 - roi.y - roi.h, y: roi.x, w: roi.h, h: roi.w)
+        default: return roi
+        }
+    }
+
     /// Under memory pressure: region tiles go first, then the neighbours' bases, never the
     /// current photo's. Returns the order in which caches are asked to drop, by name.
     static let pressureOrder = ["tiles", "prefetchBases"]

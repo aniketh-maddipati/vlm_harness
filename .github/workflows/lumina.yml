@@ -6,6 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A pull request runs the fast set: three Linux jobs and two macOS jobs (build + tests with the
+# release preflight; the probe's smoke, screens and sandbox smoke). The long probe storms (fuzz,
+# scroll, edit, RAW 9) run on main and on demand (Actions > Lumina > Run workflow, any branch).
+# Seven macOS jobs per PR filled the account's macOS runners on their own, so PRs queued.
+
 # A newer run on the same branch or PR replaces the older one (the macOS runners queue up
 # otherwise: several sessions pushing in a row turned a 5-minute run into 17). Runs on main finish.
 concurrency:
@@ -22,6 +27,9 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
       - name: lumina-core fixtures
         run: |
           source Scripts/page_files.sh
@@ -39,41 +47,10 @@ jobs:
       - name: wording + demo-layer audit (report only)
         run: source Scripts/page_files.sh && python3 Tests/probe/design_audit.py "design/handoff/lumina-cull/$PAGE"
 
-  plumbing:
-    name: plumbing.js on the page (Chromium)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 20
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-1.56.1-${{ runner.os }}-chromium
-      # The Ubuntu mirror stalls now and then (a run on 2026-10-01 fetched at 130 kB/s and took ten
-      # minutes; another hung). Stalled downloads time out and retry, and the packages are cached, so
-      # most runs don't download them at all. Both apt installs of the job use the same settings.
-      - name: "apt: retries, timeouts, a package cache"
-        run: |
-          # Owned by the runner: actions/cache restores as that user and tar must be able to set the
-          # directory's times and mode (a root-owned directory made the restore fail with exit code 2).
-          sudo mkdir -p /var/cache/lumina-apt/partial && sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt && chmod -R 777 /var/cache/lumina-apt
-          printf '%s\n' 'Acquire::Retries "3";' 'Acquire::http::Timeout "20";' 'Acquire::https::Timeout "20";' \
-            'APT::Keep-Downloaded-Packages "true";' 'Dir::Cache::Archives "/var/cache/lumina-apt";' | sudo tee /etc/apt/apt.conf.d/80-lumina-ci
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: /var/cache/lumina-apt
-          key: apt-plumbing-${{ runner.os }}-${{ hashFiles('.github/workflows/lumina.yml') }}
-          restore-keys: apt-plumbing-${{ runner.os }}-
-      - name: playwright
-        run: npm i -g playwright@1.56.1 && npx playwright install --with-deps chromium
-      - name: "apt: leave the cache readable"
-        if: always()
-        run: sudo rm -f /var/cache/lumina-apt/lock; sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt; chmod -R a+rwX /var/cache/lumina-apt
-      - name: plumbing harness
-        run: NODE_PATH="$(npm root -g)" node Tests/web/plumbing-harness.mjs
+      - name: parity tools (ΔE, numpy mirror, refs, report)
+        run: python3 -m pip install -q -r Tools/parity/requirements.txt && make parity-test
+      - name: rules-v1.json is valid JSON in canonical stage order
+        run: python3 -c "import json;r=json.load(open('Lumina/Sets/Look/rules-v1.json'));assert r['order'][0]=='rawDevelop' and r['order'][-1]=='outputTransform';print(len(r['stages']),'stages')"
 
   webkit:
     name: page + plumbing in WebKit (WebKitGTK sandbox)
@@ -111,6 +88,8 @@ jobs:
       - name: "apt: leave the cache readable"
         if: always()
         run: sudo rm -f /var/cache/lumina-apt/lock; sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt; chmod -R a+rwX /var/cache/lumina-apt
+      - name: plumbing harness (Chromium)
+        run: NODE_PATH="$(npm root -g)" node Tests/web/plumbing-harness.mjs
       - name: contract, selftest, app flow, screens (prototype vs app)
         run: NODE_PATH="$(npm root -g)" xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3 Tests/web/webkit.py
 
@@ -123,26 +102,14 @@ jobs:
       - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests, LookStringTests, LookMathTests, LookCanvasTests
         run: bash Tests/linux-swift/run.sh
 
-  parity:
-    name: parity tools (ΔE, numpy mirror, refs, report)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with:
-          python-version: "3.12"
-      - name: requirements
-        run: python3 -m pip install -q -r Tools/parity/requirements.txt
-      - name: delta_e selftest + Tools/parity/tests
-        run: make parity-test
-      - name: rules-v1.json is valid JSON in canonical stage order
-        run: python3 -c "import json;r=json.load(open('Lumina/Sets/Look/rules-v1.json'));assert r['order'][0]=='rawDevelop' and r['order'][-1]=='outputTransform';print(len(r['stages']),'stages')"
-
   app:
+    # Then what ships (TASKS R3): the Release archive with Config/Release.xcconfig, sandboxed,
+    # hardened, signed ad hoc, and the preflight in strict mode. Strict fails on any WARN except the
+    # items still open in docs/release/TASKS.md, allowed by tag: D2 (network.client while the UI is
+    # the WebView: stands until the decision). When one lands, its tag comes off PREFLIGHT_ALLOW.
     name: build + tests
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: build and test
@@ -160,48 +127,25 @@ jobs:
           Tools/parity/lumina-render/.build/release/lumina-render ramp --out "${{ runner.temp }}/ramp.json"
           python3 -m venv "${{ runner.temp }}/venv" && "${{ runner.temp }}/venv/bin/pip" install -q -r Tools/parity/requirements.txt
           "${{ runner.temp }}/venv/bin/python" Tools/parity/lookmath.py --check "${{ runner.temp }}/ramp.json"
-
-  release:
-    # What ships (TASKS R3): the Release archive with Config/Release.xcconfig, sandboxed, hardened,
-    # signed ad hoc, then the preflight in strict mode. Strict fails on any WARN except the items
-    # still open in docs/release/TASKS.md, allowed by tag: D2 (network.client while the UI is the
-    # WebView: stands until the decision), S4 (test switches, the self-test in the bundle).
-    # When one of those lands, its tag comes off this list (R6, third-party notices, did with #173).
-    name: release build + preflight (strict)
-    runs-on: macos-15
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: release.sh local --strict
         env:
           PREFLIGHT_ALLOW: D2
         run: bash Scripts/release.sh local --strict
 
   probe:
-    # Three shards in parallel. GitHub runs at most five macOS jobs at a time for this repo, and
-    # `app` and `release` are two of them: a sixth or seventh job waits for a free runner, which
-    # cost more wall time than any suite. Each shard builds the probe (cached; in parallel that is
-    # faster than one build handed on). `smoke` already holds contract + selftest, and `screens`
-    # renders every screen once and compares the app twins with the prototype in the same run (the
-    # committed reference is for local runs). RAW 9 needs real ARWs, so it runs on a Mac only.
+    # Job and shard names stay as they were, so required checks keep matching. One shard on a pull
+    # request: `smoke` (contract + selftest + the app flow), `screens` (every
+    # screen once, the app twins compared with the prototype in the same run; the committed
+    # reference is for local runs) and smoke inside the App Sandbox with the shipped entitlements
+    # (R1a, R3). On main and on demand, the long shards run alongside it in parallel; each builds
+    # the probe once (cached).
     name: probe (${{ matrix.shard }})
     runs-on: macos-15
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - shard: smoke + screens + sandbox
-            run: bash Scripts/probe.sh smoke; s1=$?; bash Scripts/probe.sh screens; s2=$?; LUMINA_PROBE_OUT="$LUMINA_PROBE_OUT-sandbox" bash Scripts/probe.sh sandbox smoke; s3=$?; exit $((s1 | s2 | s3))
-          # One seeded storm on Cull and two scroll passes per size (warm-ahead on and off): the other
-          # storms (fuzz-sample-1, -3) and the full scroll sweep (scroll-fast*) run on a Mac with
-          # `probe.sh fuzz` and `probe.sh scroll`. Scroll numbers are reported here, not gated.
-          - shard: fuzz + scroll 2560
-            shoot: true
-            run: bash Scripts/probe.sh scenarios fuzz-sample-2 scroll-quick-2560
-          - shard: scroll + edit
-            shoot: true
-            run: bash Scripts/probe.sh scenarios scroll-read scroll-quick; s1=$?; bash Scripts/probe.sh edit; s2=$?; exit $((s1 | s2))
+        shard: ${{ fromJSON(github.event_name == 'pull_request' && '["smoke + screens"]' || '["smoke + screens", "fuzz + scroll 2560", "scroll + edit"]') }}
     env:
       LUMINA_EDIT_GATE: "0"     # latency is reported, not gated, on a shared runner
       LUMINA_LONG: "1"          # the fuzz storms are long runs, started on purpose here
@@ -215,16 +159,16 @@ jobs:
           key: probe-${{ runner.os }}-${{ hashFiles('Tools/LuminaProbe/Package.swift', 'Tools/LuminaProbe/Sources/LuminaProbe/*.swift', 'Tools/LuminaProbe/Sources/LuminaProbe/*.js', 'Lumina/Sets/Core/*.swift', 'Lumina/Sets/Look/*.swift') }}
           restore-keys: probe-${{ runner.os }}-
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        if: matrix.shoot
+        if: contains(matrix.shard, 'scroll')
         with:
           node-version: 20
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        if: matrix.shoot
+        if: contains(matrix.shard, 'scroll')
         with:
           path: ~/.cache/ms-playwright
           key: playwright-1.56.1-${{ runner.os }}-chromium
       - name: synthetic cards (775 photos to scroll, 24 to edit)
-        if: matrix.shoot
+        if: contains(matrix.shard, 'scroll')
         run: |
           npm i -g playwright@1.56.1 && npx playwright install chromium
           NODE_PATH="$(npm root -g)" node Tests/web/make-shoot.mjs "${{ runner.temp }}/scroll-775/100MSDCF" 775
@@ -237,7 +181,22 @@ jobs:
         shell: bash {0}       # no -e: every suite in the shard runs; the exit code combines them
         env:
           LUMINA_PROBE_OUT: ${{ runner.temp }}/probe
-        run: ${{ matrix.run }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          s1=0; s2=0; s3=0
+          case "$SHARD" in
+            "smoke + screens")
+              bash Scripts/probe.sh smoke; s1=$?; bash Scripts/probe.sh screens; s2=$?; LUMINA_PROBE_OUT="$LUMINA_PROBE_OUT-sandbox" bash Scripts/probe.sh sandbox smoke; s3=$? ;;
+            # One seeded storm on Cull and two scroll passes per size (warm-ahead on and off): the other
+            # storms (fuzz-sample-1, -3), the full scroll sweep (scroll-fast*) and raw9 (real ARWs) run
+            # on a Mac with `probe.sh fuzz`, `scroll` and `raw9`. Scroll numbers are reported, not gated.
+            "fuzz + scroll 2560")
+              bash Scripts/probe.sh scenarios fuzz-sample-2 scroll-quick-2560; s1=$? ;;
+            "scroll + edit")
+              bash Scripts/probe.sh scenarios scroll-read scroll-quick; s1=$?; bash Scripts/probe.sh edit; s2=$? ;;
+            *) echo "unknown shard: $SHARD"; exit 2 ;;
+          esac
+          exit $((s1 | s2 | s3))
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
