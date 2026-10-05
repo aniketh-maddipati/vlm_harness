@@ -216,6 +216,30 @@ final class Runner {
             } else if !truthy(r) {
                 throw ProbeError("expected truthy: \(s["js"] ?? "")  got \(r ?? "nil")")
             }
+        case "selftest":
+            // The design's ?selftest rows (window.luminaTestResults: {n, ok, d}). Every failing row
+            // fails the step, except the names in `known` (a JSON file with a "known" list, shared
+            // with Tests/web/webkit.py): those are reported. One of them passing again is reported
+            // too, loudly, and does not fail.
+            let file = try str(s, "known")
+            let url = file.hasPrefix("/") ? URL(fileURLWithPath: file) : URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(file)
+            guard let obj = try JSONSerialization.jsonObject(with: try Data(contentsOf: url)) as? [String: Any], let known = obj["known"] as? [String] else {
+                throw ProbeError("\(file): no \"known\" list")
+            }
+            guard let rows = try await host.js("return window.luminaTestResults") as? [[String: Any]], !rows.isEmpty else { throw ProbeError("no self-test results") }
+            if let least = s["atLeast"] as? Int, rows.count < least { throw ProbeError("self-test ran \(rows.count) checks, expected at least \(least)") }
+            let name = { (r: [String: Any]) in r["n"] as? String ?? "?" }
+            let failing = rows.filter { !truthy($0["ok"]) }
+            let unknown = failing.filter { !known.contains(name($0)) }.map { "\(name($0)) · \($0["d"] as? String ?? "")" }
+            let stillFailing = failing.map(name).filter(known.contains)
+            let nowPassing = known.filter { k in rows.contains { name($0) == k && truthy($0["ok"]) } }
+            let missing = known.filter { k in !rows.contains { name($0) == k } }
+            var note = "\(rows.count - failing.count) / \(rows.count) pass"
+            if !stillFailing.isEmpty { note += " · known, not gated (\(file)): " + stillFailing.joined(separator: " | ") }
+            if !nowPassing.isEmpty { note += " · NOW PASSES, DROP IT FROM THE LIST in \(file): " + nowPassing.joined(separator: " | ") }
+            if !missing.isEmpty { note += " · in the list but no longer a check, drop it: " + missing.joined(separator: " | ") }
+            if !unknown.isEmpty { throw ProbeError("\(unknown.count) failing: " + unknown.joined(separator: " | ") + "  (\(note))") }
+            return note
         case "snap":
             try await snap(try str(s, "name"))
         case "state":

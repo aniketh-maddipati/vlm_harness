@@ -21,9 +21,10 @@
    "js": "return window.luminaTestResults"
   },
   {
-   "do": "expect",
-   "js": "return window.luminaTestResults.filter(r => !r.ok).map(r => r.n + ' · ' + r.d)",
-   "equals": []
+   "do": "selftest",
+   "known": "Tests/selftest-known.json",
+   "atLeast": 25,
+   "why": "every failing check fails, the timing checks included, except the four that still describe v5 (DESIGN-ASKS Prompt 12 ask 4): reported, and reported again when one passes"
   }
  ]
 }
