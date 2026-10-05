@@ -7,7 +7,7 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
- "checklist": "F6 / F11 / L2 (v5): real Lightroom 9.3.1 sidecars next to their RAWs (DSC08186.xmp, DSC08187.XMP with 2★ Red, DSC08190 without one). The read names each sidecar and says what Save will do; ⌘↩ merges in place: only the rating changes (3★), every crs: setting and Lightroom's label stay byte-identical, the name keeps its case, exiftool reads the stars; each Lightroom file is kept as .lumina-bak; the photo without a sidecar gets a fresh one; the RAWs never change. Saving again with nothing changed writes nothing and leaves the backups Lightroom's.",
+ "checklist": "F6 / F11 / L2: real Lightroom 9.3.1 sidecars next to their RAWs (DSC08186.xmp, DSC08187.XMP with 2★ Red, DSC08190 without one). The read names each sidecar and says what Save will do; ⌘↩ merges in place: only the rating changes (3★), every crs: setting and Lightroom's label stay byte-identical, the name keeps its case, exiftool reads the stars; each Lightroom file is kept as .lumina-bak; the photo without a sidecar gets a fresh one; the RAWs never change. Saving again with nothing changed writes nothing and leaves the backups Lightroom's. (Sets v7: Save is step ⌘4, and with undecided photos the first ⌘↩ only warns, the second within 5 s saves).",
  "steps": [
   {
    "do": "copyTree",
