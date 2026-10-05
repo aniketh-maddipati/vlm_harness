@@ -389,13 +389,14 @@ final class Runner {
         case "fillDisk":
             let url = URL(fileURLWithPath: try str(s, "path"))
             return try ProbeSandbox.harness { try fillDisk(url) }
-        case "editDrag", "editParity", "raw9", "editConsistency":
+        case "editDrag", "editPageDrag", "editParity", "raw9", "editConsistency":
             // The Edit canvas and RAW 9 measures (EditSteps.swift). Gates apply unless LUMINA_EDIT_GATE=0.
             // Sandboxed: these measure the canvas, not file access, and write their images and
             // reports as they go, so the harness grants are held for the whole step.
             let o: EditSteps.Outcome = try await ProbeSandbox.harnessAsync {
                 switch op {
                 case "editDrag": return try await EditSteps.drag(host: host, s)
+                case "editPageDrag": return try await EditSteps.pageDrag(host: host, s)
                 case "editParity": return try await EditSteps.parity(host: host, s, outDir: outDir)
                 case "editConsistency": return try await ConsistencySteps.run(host: host, s, folder: URL(fileURLWithPath: try str(s, "folder")), outDir: outDir)
                 default: return try await EditSteps.raw9(host: host, s, folder: URL(fileURLWithPath: try str(s, "folder")), outDir: outDir)
