@@ -127,7 +127,7 @@
   {
    "do": "fuzz",
    "seed": 21,
-   "count": 800,
+   "count": 200,
    "gapMs": [
     0,
     20

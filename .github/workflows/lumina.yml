@@ -178,10 +178,12 @@ jobs:
         run: bash Scripts/release.sh local --strict
 
   probe:
-    # Five shards in parallel (macOS minutes are free on this public repo); each one builds the
-    # probe once (cached) and runs its suites. `smoke` already holds contract + selftest, and
-    # `screens` renders every screen once and compares the app twins with the prototype in the
-    # same run (the committed reference is for local runs).
+    # Three shards in parallel. GitHub runs at most five macOS jobs at a time for this repo, and
+    # `app` and `release` are two of them: a sixth or seventh job waits for a free runner, which
+    # cost more wall time than any suite. Each shard builds the probe (cached; in parallel that is
+    # faster than one build handed on). `smoke` already holds contract + selftest, and `screens`
+    # renders every screen once and compares the app twins with the prototype in the same run (the
+    # committed reference is for local runs). RAW 9 needs real ARWs, so it runs on a Mac only.
     name: probe (${{ matrix.shard }})
     runs-on: macos-15
     timeout-minutes: 30
@@ -189,19 +191,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - shard: smoke + screens
-            run: bash Scripts/probe.sh smoke; s1=$?; bash Scripts/probe.sh screens; s2=$?; exit $((s1 | s2))
-          - shard: fuzz 1-2
-            run: bash Scripts/probe.sh scenarios fuzz-sample-1 fuzz-sample-2
-          - shard: fuzz 3 + scroll
+          - shard: smoke + screens + sandbox
+            run: bash Scripts/probe.sh smoke; s1=$?; bash Scripts/probe.sh screens; s2=$?; LUMINA_PROBE_OUT="$LUMINA_PROBE_OUT-sandbox" bash Scripts/probe.sh sandbox smoke; s3=$?; exit $((s1 | s2 | s3))
+          # One seeded storm on Cull and two scroll passes per size (warm-ahead on and off): the other
+          # storms (fuzz-sample-1, -3) and the full scroll sweep (scroll-fast*) run on a Mac with
+          # `probe.sh fuzz` and `probe.sh scroll`. Scroll numbers are reported here, not gated.
+          - shard: fuzz + scroll 2560
             shoot: true
-            run: bash Scripts/probe.sh scenarios fuzz-sample-3 scroll-read scroll-fast
-          - shard: scroll 2560 + edit + raw9
+            run: bash Scripts/probe.sh scenarios fuzz-sample-2 scroll-quick-2560
+          - shard: scroll + edit
             shoot: true
-            run: bash Scripts/probe.sh scenarios scroll-fast-2560; s1=$?; bash Scripts/probe.sh edit; s2=$?; bash Scripts/probe.sh raw9; s3=$?; exit $((s1 | s2 | s3))
-          # The smoke suite inside the App Sandbox with the entitlements the app ships (R1a, R3).
-          - shard: sandbox smoke
-            run: bash Scripts/probe.sh sandbox smoke
+            run: bash Scripts/probe.sh scenarios scroll-read scroll-quick; s1=$?; bash Scripts/probe.sh edit; s2=$?; exit $((s1 | s2))
     env:
       LUMINA_EDIT_GATE: "0"     # latency is reported, not gated, on a shared runner
       LUMINA_LONG: "1"          # the fuzz storms are long runs, started on purpose here
@@ -223,13 +223,16 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-1.56.1-${{ runner.os }}-chromium
-      - name: a 775-photo synthetic card (scroll, Edit, RAW 9)
+      - name: synthetic cards (775 photos to scroll, 24 to edit)
         if: matrix.shoot
         run: |
           npm i -g playwright@1.56.1 && npx playwright install chromium
           NODE_PATH="$(npm root -g)" node Tests/web/make-shoot.mjs "${{ runner.temp }}/scroll-775/100MSDCF" 775
+          # Edit needs a photo and its neighbours, not a card: 24 photos open in about a second where
+          # 775 took 20 s, and each of edit's three runs opens the folder again.
+          NODE_PATH="$(npm root -g)" node Tests/web/make-shoot.mjs "${{ runner.temp }}/edit-24/100MSDCF" 24
           echo "LUMINA_SCROLL_DIR=${{ runner.temp }}/scroll-775/100MSDCF" >> "$GITHUB_ENV"
-          echo "LUMINA_EDIT_DIR=${{ runner.temp }}/scroll-775/100MSDCF" >> "$GITHUB_ENV"
+          echo "LUMINA_EDIT_DIR=${{ runner.temp }}/edit-24/100MSDCF" >> "$GITHUB_ENV"
       - name: ${{ matrix.shard }}
         shell: bash {0}       # no -e: every suite in the shard runs; the exit code combines them
         env:
