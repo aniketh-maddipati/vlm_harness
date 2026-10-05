@@ -52,12 +52,146 @@ final class LookMathTests: XCTestCase {
 
     func testRulesFileLoadsAndIsCanonical() throws {
         XCTAssertEqual(rules.order, LookRules.canonicalOrder)
-        XCTAssertEqual(rules.lookStages.count, 9)
+        XCTAssertEqual(rules.lookStages, ["exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "clarity", "sharpen", "vignette"])
         for s in rules.lookStages { XCTAssertNotNil(rules.stages[s], s) }
         XCTAssertNoThrow(try rules.validate())
         var bad = rules!; bad.order = ["exposure", "rawDevelop", "outputTransform"]
         XCTAssertThrowsError(try bad.validate())
         XCTAssertEqual(try LookRules.load(json: try rules.encoded()), rules, "rules survive a re-encode (the loop rewrites the file)")
+    }
+
+    /// A rules file written before a stage existed still loads: the stage takes its canonical
+    /// place with the code's own numbers, and every other stage keeps the file's.
+    func testRulesFilesFromBeforeAStageExistedStillLoad() throws {
+        var old = rules!
+        for (name, _) in LookRules.addedStages { old.order.removeAll { $0 == name }; old.stages[name] = nil }
+        XCTAssertThrowsError(try old.validate(), "as decoded, it names too few stages")
+        let loaded = try LookRules.load(json: try old.encoded())
+        XCTAssertEqual(loaded.order, LookRules.canonicalOrder)
+        for (name, _) in LookRules.addedStages { XCTAssertEqual(loaded.stages[name], LookRules.Stage()) }
+        XCTAssertEqual(loaded.stages["tone"], rules.stages["tone"]); XCTAssertEqual(loaded.stages["vignette"], rules.stages["vignette"])
+        // The code's fallbacks are the shipped numbers: the same render with or without the entries.
+        for text in ["tc:+30,-10,+20", "crv:0,0.05/0.4,0.5/1,0.95 crvb:0,0/0.5,0.4/1,1", "ev:+0.50 con:+20 tc:-40,+25,0 sat:+10"] {
+            let look = try Look.parse(text)
+            for c in [LookMath.RGB.gray(0.18), LookMath.RGB(r: 0.6, g: 0.35, b: 0.25)] {
+                XCTAssertEqual(LookMath.flat(c, look: look, asShot: asShot, rules: loaded), LookMath.flat(c, look: look, asShot: asShot, rules: rules), text)
+            }
+        }
+    }
+
+    /// A look that uses none of the added keys goes through none of the added stages: the chain
+    /// gives what the stages that existed before give, bit for bit, with the added stages named
+    /// in the order or not.
+    func testLooksWithoutTheAddedKeysRenderAsBefore() throws {
+        var before = rules!
+        for (name, _) in LookRules.addedStages { before.order.removeAll { $0 == name } }          // the order as it was
+        let colours: [LookMath.RGB] = [.gray(0.02), .gray(0.18), .gray(0.9), .gray(1.1), LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), LookMath.RGB(r: 0.15, g: 0.2, b: 0.6), LookMath.RGB(r: 0.7, g: 0.6, b: 0.1)]
+        var looks = sweep.map { Look.single($0.0, $0.1, asShot: asShot)! }
+        for s in ["ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0", "ev:-1.20 con:-30 hl:+50 sh:-40 wh:+30 bl:+20 vib:-40 sat:+25 vig:-40",
+                  "ev:+0.30 wb:3200/-20 con:+40 bw:1 nr:30 crop:0.1,0.1,0.8,0.8/2", "", "vig:+35 rot:90"] { looks.append(try Look.parse(s)) }
+        for look in looks {
+            XCTAssertFalse(look.runs("curve")); XCTAssertFalse(look.runs("mixer"))
+            for c in colours {
+                let a = LookMath.flat(c, look: look, asShot: asShot, rules: rules, vignetteR: 0.8), b = LookMath.flat(c, look: look, asShot: asShot, rules: before, vignetteR: 0.8)
+                XCTAssertTrue(a.r == b.r && a.g == b.g && a.b == b.b, "\(look.format()) on \(c): \(a) vs \(b)")
+            }
+        }
+    }
+
+    // MARK: curve (the tone curve)
+
+    private func curved(_ text: String, _ c: LookMath.RGB) throws -> LookMath.RGB { LookMath.flat(c, look: try Look.parse(text), asShot: asShot, rules: rules) }
+    private func perc(_ v: Double) -> Double { LookMath.perceptual(v, rules) }
+
+    func testToneCurveSplineIsThePagesAndNeverFalls() throws {
+        typealias P = Look.ToneCurve.Point
+        // The page's cSpline on three points, worked by hand: slopes 1.2 and 0.8, tangents 1.2, 1.0, 0.8.
+        let f = LookMath.CurveSpline([P(0, 0), P(0.5, 0.6), P(1, 1)])
+        XCTAssertEqual(f(0.25), 0.3125, accuracy: 1e-12); XCTAssertEqual(f(0.5), 0.6, accuracy: 1e-12); XCTAssertEqual(f(0), 0); XCTAssertEqual(f(1), 1)
+        XCTAssertEqual(f(0.75), 0.5 * 0.6 + 0.125 * 0.5 * 1.0 + 0.5 * 1.0 - 0.125 * 0.5 * 0.8, accuracy: 1e-12)
+        // Two points are a straight line; beyond the first and last point the curve is flat.
+        let line = LookMath.CurveSpline([P(0.2, 0.1), P(0.8, 0.9)])
+        XCTAssertEqual(line(0.5), 0.5, accuracy: 1e-12); XCTAssertEqual(line(0.1), 0.1); XCTAssertEqual(line(0.95), 0.9)
+        XCTAssertEqual(LookMath.CurveSpline([])(0.37), 0.37); XCTAssertEqual(LookMath.CurveSpline([P(0.5, 0.2)])(0.37), 0.37)
+        // A point dragged below its left neighbour: raised to it. The dip becomes a flat span.
+        let fallen = [P(0, 0), P(0.3, 0.8), P(0.6, 0.2), P(1, 1)]
+        XCTAssertEqual(LookMath.curveRepaired(fallen), [P(0, 0), P(0.3, 0.8), P(0.6, 0.8), P(1, 1)])
+        XCTAssertEqual(LookMath.curveRepaired([P(0, 1.4), P(0.5, -3), P(1, 0.5)]), [P(0, 1), P(0.5, 1), P(1, 1)], "y is kept in 0…1 first")
+        let rising = [P(0, 0.1), P(0.4, 0.3), P(1, 0.9)]
+        XCTAssertEqual(LookMath.curveRepaired(rising), rising, "a rising curve is untouched")
+        let g = LookMath.CurveSpline(fallen)
+        XCTAssertEqual(g(0.3), 0.8, accuracy: 1e-12); XCTAssertEqual(g(0.45), 0.8, accuracy: 1e-12); XCTAssertEqual(g(0.6), 0.8, accuracy: 1e-12)
+        // Whatever the points (seeded, most of them falling somewhere), the spline and the tables never fall.
+        var seed: UInt64 = 0x1234_5678_9abc_def1
+        func next() -> Double { seed = seed &* 6364136223846793005 &+ 1442695040888963407; return Double(seed >> 11) / Double(1 << 53) }
+        for _ in 0..<300 {
+            let n = 2 + Int(next() * 9)
+            var xs = (0..<n).map { _ in (next() * 10000).rounded() / 10000 }.sorted()
+            for i in 1..<n where xs[i] <= xs[i - 1] { xs[i] = xs[i - 1] + 0.0001 }
+            func points() -> [P] { xs.map { P(min(1, $0), next() < 0.15 ? 2 * next() - 0.5 : next()) } }
+            let s = LookMath.CurveSpline(points())
+            var last = -1.0
+            for i in 0...2000 { let y = s(Double(i) / 2000); XCTAssertGreaterThanOrEqual(y, last - 1e-12, "spline fell at \(Double(i) / 2000): \(s.xs) \(s.ys)"); XCTAssertTrue(y >= 0 && y <= 1); last = y }
+            var curve = Look.ToneCurve(); curve.rgb = points(); curve.red = points(); curve.blue = points()
+            let t = LookMath.curveTables(curve, rules)
+            for table in [t.r, t.g, t.b] {
+                XCTAssertEqual(table.count, LookMath.curveNodes)
+                for (a, b) in zip(table, table.dropFirst()) { XCTAssertGreaterThanOrEqual(b, a); XCTAssertTrue(a >= 0 && b <= 1) }
+            }
+        }
+    }
+
+    func testToneCurveStage() throws {
+        // No curve: no stage, the colour itself.
+        XCTAssertEqual(try curved("tc:0,0,0 crv:0,0/1,1", .gray(0.3)), .gray(0.3))
+        let identity = LookMath.curveTables(Look.ToneCurve(), rules)
+        for (i, v) in identity.g.enumerated() { XCTAssertEqual(v, Double(i) / 255, accuracy: 1e-15) }
+        // The region sliders move the curve at a quarter, a half, three quarters (display-referred): ±50 is ±0.25.
+        let per = rules.k("curve", "regionPerUnit", 0.005)
+        XCTAssertEqual(perc(try curved("tc:0,+20,0", .gray(LookMath.linear(0.5, rules))).g), 0.5 + 20 * per, accuracy: 2e-3)
+        XCTAssertEqual(perc(try curved("tc:-30,0,0", .gray(LookMath.linear(0.25, rules))).g), 0.25 - 30 * per, accuracy: 2e-3)
+        XCTAssertEqual(perc(try curved("tc:0,0,+50", .gray(LookMath.linear(0.75, rules))).g), 1.0, accuracy: 2e-3)
+        XCTAssertEqual(try curved("tc:+50,+50,+50", .gray(0)).g, 0, accuracy: 1e-12); XCTAssertEqual(try curved("tc:-50,-50,-50", .gray(1)).g, 1, accuracy: 1e-12)
+        // A point curve: through its points, flat beyond its ends (a lifted black, a lowered white).
+        XCTAssertEqual(perc(try curved("crv:0,0/0.5,0.6/1,1", .gray(LookMath.linear(0.25, rules))).g), 0.3125, accuracy: 2e-3)
+        XCTAssertEqual(perc(try curved("crv:0,0.1/1,0.9", .gray(0)).g), 0.1, accuracy: 1e-9); XCTAssertEqual(perc(try curved("crv:0,0.1/1,0.9", .gray(1)).g), 0.9, accuracy: 1e-9)
+        // Above white the curve goes on at slope 1 from where it ended.
+        XCTAssertEqual(perc(try curved("crv:0,0.1/1,0.9", .gray(LookMath.linear(1.1, rules))).g), 1.0, accuracy: 1e-9)
+        XCTAssertEqual(try curved("tc:0,+20,0", .gray(1.3)).g, 1.3, accuracy: 1e-9)
+        // With points set for all channels the region sliders are a read-out, not a second curve (as on the page).
+        XCTAssertEqual(try curved("tc:+40,-30,+10 crv:0,0/0.5,0.6/1,1", .gray(0.2)), try curved("crv:0,0/0.5,0.6/1,1", .gray(0.2)))
+        XCTAssertNotEqual(try curved("tc:+40,-30,+10 crvr:0,0/0.5,0.6/1,1", .gray(0.2)), try curved("crvr:0,0/0.5,0.6/1,1", .gray(0.2)), "a channel curve does not replace them")
+        // Composite, then channel: red through both curves, green and blue through the first only.
+        let both = try curved("crv:0,0/0.5,0.6/1,1 crvr:0,0/0.5,0.4/1,1", .gray(0.2)), first = try curved("crv:0,0/0.5,0.6/1,1", .gray(0.2))
+        XCTAssertEqual(both.g, first.g); XCTAssertEqual(both.b, first.b)
+        XCTAssertEqual(perc(both.r), LookMath.CurveSpline([.init(0, 0), .init(0.5, 0.4), .init(1, 1)])(perc(first.r)), accuracy: 2e-3)
+        XCTAssertLessThan(both.r, first.r)
+    }
+
+    /// Monotonic on a grey ramp whatever the curve; grey in → grey out for the all-channels
+    /// curve and the region sliders (the channel curves tint by design, as white balance does).
+    func testToneCurveIsMonotonicAndKeepsGreyGrey() throws {
+        let curves = ["tc:+50,+50,+50", "tc:-50,-50,-50", "tc:+50,-50,+50", "tc:-50,+50,-50", "tc:+10,0,-8", "tc:0,0,+1",
+                      "crv:0,0/0.25,0.2/0.6,0.7125/1,1", "crv:0,0.2/1,0.8", "crv:0,1/1,0", "crv:0,0/0.3,0.8/0.6,0.2/1,1", "crv:0.3,0/0.7,1", "crv:0,0/0.02,1/0.04,0/0.06,1/1,1",
+                      "crv:0,0.5/1,0.5", "tc:+20,0,0 crv:0,0/0.5,0.3/1,1"]
+        let channels = ["crvr:0,0.05/1,1", "crvg:0,0/0.5,0.2/1,0.6 crvb:0,1/1,0", "crv:0,0/0.5,0.6/1,1 crvr:0,0/0.3,0.9/0.6,0.1/1,1 crvb:0,0.3/1,0.7", "tc:-20,+30,0 crvg:0,0/0.5,0.7/1,1"]
+        for text in curves + channels {
+            var last = -1.0
+            for v in ramp {
+                let out = try curved(text, .gray(v)), y = luma(out)
+                XCTAssertGreaterThanOrEqual(y, last - 1e-12, "\(text) at grey \(v): \(y) < \(last)")
+                XCTAssertTrue(y.isFinite && out.r >= 0 && out.g >= 0 && out.b >= 0)
+                if !channels.contains(text) { XCTAssertTrue(out.r == out.g && out.g == out.b, "\(text) tinted grey \(v): \(out)") }
+                last = y
+            }
+        }
+        XCTAssertFalse(try curved("crvr:0,0.05/1,1", .gray(0.18)).isNeutral, "a channel curve is a colour control")
+        // And in the whole chain, after the other tone stages.
+        var last = -1.0
+        for v in ramp {
+            let out = try curved("ev:+0.50 con:+30 hl:-40 sh:+30 wh:+20 bl:-10 tc:+30,-20,+25 crv:0,0/0.3,0.5/0.6,0.4/1,1 sat:+20 vib:-10", .gray(v))
+            XCTAssertGreaterThanOrEqual(luma(out), last - 1e-9); XCTAssertTrue(out.isNeutral, "\(out)"); last = luma(out)
+        }
     }
 
     func testResetIsIdentity() {

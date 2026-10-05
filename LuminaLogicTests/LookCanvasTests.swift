@@ -249,7 +249,13 @@ final class LookCanvasTests: XCTestCase {
         XCTAssertEqual(stages.filter(wb.runs), ["whiteBalance"])
         var bw = Look(); bw.bw = true
         XCTAssertEqual(stages.filter(bw.runs), ["colour"])
-        XCTAssertEqual(seen.union(["whiteBalance"]), Set(stages), "every stage has a slider that switches it on")
+        // The stages whose controls are not plain sliders: each of their keys switches exactly that stage.
+        for text in ["tc:0,+10,0", "tc:-5,0,0", "crv:0,0/0.5,0.6/1,1", "crvr:0,0.1/1,1", "crvg:0,0/1,0.9", "crvb:0,0/0.4,0.5/1,1", "tc:+10,0,0 crv:0,0/0.5,0.6/1,1 crvb:0,0/1,0.9"] {
+            XCTAssertEqual(stages.filter(try Look.parse(text).runs), ["curve"], text)
+        }
+        XCTAssertEqual(seen.union(["whiteBalance", "curve"]), Set(stages), "every stage has a control that switches it on")
+        // rot is geometry (the base), the vignette's shape draws nothing without an amount.
+        XCTAssertEqual(LookWarmPlan.signature(try Look.parse("rot:90 vigs:20,-50,80,40 tc:0,0,0 crv:0,0/1,1"), stages: stages), "none")
         // nr and crop belong to the base (the RAW stage, the geometry), not to a look stage.
         XCTAssertEqual(LookWarmPlan.signature(try Look.parse("nr:40 crop:0.1,0.1,0.5,0.5/2"), stages: stages), "none")
         XCTAssertEqual(LookWarmPlan.signature(try Look.parse("vig:-20 ev:+0.30 con:+10"), stages: stages), "exposure+contrast+vignette", "in the order the stages run")

@@ -26,22 +26,51 @@ nonisolated struct LookRules: Codable, Equatable, Sendable {
     var order: [String] = LookRules.canonicalOrder
     var stages: [String: Stage] = [:]
 
-    static let canonicalOrder = ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "colour",
+    /// Where the stages sit, and why the two added ones sit where they do:
+    ///
+    /// - `curve` (the tone curve) comes after every stage that sets the tones (exposure, white
+    ///   balance, whites and blacks, highlights and shadows, contrast): it is display-referred, a
+    ///   map from the tone the picture has to the tone it should have, as in Lightroom, where the
+    ///   curve follows the Basic panel's tone controls. It comes before `colour`, so vibrance and
+    ///   saturation work on the tones the curve left, and before the local stages and the
+    ///   vignette, which belong on the finished tones.
+    /// - `mixer` (the colour mixer) follows `colour`: the global chroma first, then the per-hue
+    ///   trims (with `bw` the picture has no chroma left and the mixer does nothing, as on the
+    ///   page, which hides it then). Clarity and sharpening then see the final luminances, and
+    ///   the vignette stays last, over everything, as a post-crop effect.
+    static let canonicalOrder = ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour",
                                  "clarity", "sharpen", "vignette", "outputTransform"]
     static let fileName = "rules-v1.json"
 
     struct LoadError: Error, CustomStringConvertible { let description: String }
 
     static func load(from url: URL) throws -> LookRules {
-        let rules = try JSONDecoder().decode(LookRules.self, from: Data(contentsOf: url))
+        let rules = try JSONDecoder().decode(LookRules.self, from: Data(contentsOf: url)).upgraded()
         try rules.validate()
         return rules
     }
 
     static func load(json: Data) throws -> LookRules {
-        let rules = try JSONDecoder().decode(LookRules.self, from: json)
+        let rules = try JSONDecoder().decode(LookRules.self, from: json).upgraded()
         try rules.validate()
         return rules
+    }
+
+    /// The stages added since the first rules files, each with the stage it follows. A file
+    /// written before one existed (a candidate under `LUMINA_RULES`, a report's copy) still
+    /// loads: the stage is put at its canonical place with no coefficients, i.e. the code's
+    /// fallbacks, which are the shipped numbers. It changes nothing for a look that does not
+    /// use the stage.
+    static let addedStages: [(name: String, after: String)] = [("curve", "contrast")]
+
+    func upgraded() -> LookRules {
+        var r = self
+        for (name, after) in Self.addedStages where !r.order.contains(name) {
+            let at = r.order.firstIndex(of: after).map { $0 + 1 } ?? r.order.lastIndex(of: "outputTransform") ?? r.order.count
+            r.order.insert(name, at: at)
+            if r.stages[name] == nil { r.stages[name] = Stage() }
+        }
+        return r
     }
 
     /// The copy in the app bundle. In Debug builds and in the tools (the probe, which has no

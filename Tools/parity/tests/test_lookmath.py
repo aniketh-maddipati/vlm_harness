@@ -183,6 +183,66 @@ class LookMathMirrorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             lm.parse_look("vigs:50,0,50")
 
+    def test_tone_curve(self):
+        """The tone curve (LookMathTests' curve tests): the page's spline, repaired, as a table."""
+        r = self.rules
+        f = lm.curve_spline([(0, 0), (0.5, 0.6), (1, 1)])
+        np.testing.assert_allclose(f(np.array([0.0, 0.25, 0.5, 0.75, 1.0])), [0.0, 0.3125, 0.6, 0.8125, 1.0], atol=1e-12)
+        line = lm.curve_spline([(0.2, 0.1), (0.8, 0.9)])
+        np.testing.assert_allclose(line(np.array([0.1, 0.5, 0.95])), [0.1, 0.5, 0.9], atol=1e-12)
+        # a point below its left neighbour is raised to it: the dip is a flat span
+        np.testing.assert_allclose(lm.curve_spline([(0, 0), (0.3, 0.8), (0.6, 0.2), (1, 1)])(np.array([0.3, 0.45, 0.6])), 0.8, atol=1e-12)
+        # whatever the points, the spline and the tables never fall
+        rng = np.random.default_rng(7)
+        x = np.linspace(0, 1, 2001)
+        for _ in range(200):
+            n = int(rng.integers(2, 11))
+            xs = np.unique(np.round(rng.random(n), 4))
+            if len(xs) < 2:
+                continue
+            pts = lambda: [(float(a), float(rng.random() * 2 - 0.5 if rng.random() < 0.15 else rng.random())) for a in xs]
+            y = lm.curve_spline(pts())(x)
+            self.assertTrue(np.all(np.diff(y) >= -1e-12) and y.min() >= 0 and y.max() <= 1)
+            look = lm.parse_look("")
+            look.update({"crv": pts(), "crvr": pts(), "crvb": pts()})
+            t = lm.curve_tables(look, r)
+            self.assertEqual(t.shape, (3, lm.CURVE_NODES))
+            self.assertTrue(np.all(np.diff(t, axis=1) >= 0) and t.min() >= 0 and t.max() <= 1)
+        # the stage: identity without a curve, the region sliders at a quarter / a half / three quarters
+        np.testing.assert_allclose(lm.curve_tables(lm.parse_look(""), r)[1], np.linspace(0, 1, lm.CURVE_NODES), atol=1e-15)
+        per = r["stages"]["curve"]["coefficients"]["regionPerUnit"]
+        g = lambda text, p: float(lm.perceptual(lm.flat(np.array([p, p, p]) ** lm.gamma(r), lm.parse_look(text), AS_SHOT, r), r)[1])
+        self.assertAlmostEqual(g("tc:0,+20,0", 0.5), 0.5 + 20 * per, delta=2e-3)
+        self.assertAlmostEqual(g("tc:-30,0,0", 0.25), 0.25 - 30 * per, delta=2e-3)
+        self.assertAlmostEqual(g("crv:0,0/0.5,0.6/1,1", 0.25), 0.3125, delta=2e-3)
+        self.assertAlmostEqual(g("crv:0,0.1/1,0.9", 0.0), 0.1, places=9)
+        self.assertAlmostEqual(g("crv:0,0.1/1,0.9", 1.1), 1.0, places=9)
+        # with all-channels points set, the region sliders are a read-out (as on the page)
+        a = lm.flat(self.ramp, lm.parse_look("tc:+40,-30,+10 crv:0,0/0.5,0.6/1,1"), AS_SHOT, r)
+        np.testing.assert_array_equal(a, lm.flat(self.ramp, lm.parse_look("crv:0,0/0.5,0.6/1,1"), AS_SHOT, r))
+        # monotonic on a grey ramp whatever the curve; grey stays grey except under a channel curve
+        for text, grey in (("tc:+50,+50,+50", True), ("tc:+50,-50,+50", True), ("crv:0,1/1,0", True), ("crv:0,0/0.3,0.8/0.6,0.2/1,1", True),
+                           ("crv:0,0/0.02,1/0.04,0/0.06,1/1,1", True), ("crvr:0,0.05/1,1", False),
+                           ("crv:0,0/0.5,0.6/1,1 crvr:0,0/0.3,0.9/0.6,0.1/1,1 crvb:0,0.3/1,0.7", False)):
+            out = lm.flat(self.ramp, lm.parse_look(text), AS_SHOT, r)
+            self.assertTrue(np.all(np.diff(out, axis=0) >= -1e-12), f"{text} not monotonic")
+            if grey:
+                self.assertTrue(np.all(out[:, 0] == out[:, 1]) and np.all(out[:, 1] == out[:, 2]), f"{text} tinted a grey")
+        # the whole image goes through the same stage
+        look = lm.parse_look("tc:+20,-10,+15 crvb:0,0.1/1,0.9")
+        img = np.zeros((8, 12, 3)) + np.array([0.6, 0.35, 0.25])
+        np.testing.assert_allclose(lm.apply_image(img, look, AS_SHOT, r)[3, 5], lm.flat(np.array([0.6, 0.35, 0.25]), look, AS_SHOT, r), atol=1e-12)
+        # the string
+        s = lm.parse_look("tc:+10,0,-8 crv:0,0/0.25,0.2/0.6,0.7125/1,1 crvr:0,0.05/1,1")
+        self.assertEqual(s["tc"], (10.0, 0.0, -8.0))
+        self.assertEqual(s["crv"], ((0.0, 0.0), (0.25, 0.2), (0.6, 0.7125), (1.0, 1.0)))
+        self.assertTrue(lm.format_look(s).endswith("vig:0 tc:+10,0,-8 crv:0,0/0.25,0.2/0.6,0.7125/1,1 crvr:0,0.05/1,1"))
+        self.assertEqual(lm.parse_look(lm.format_look(s)), s)
+        self.assertEqual(lm.format_look(lm.parse_look("tc:0,0,0 crv:0,0/1,1 crvg:0,0/0.5,0.5/1,1")), lm.format_look(lm.parse_look("")))
+        for bad in ("tc:1,2", "crv:0,0", "crv:0,0/0.6,0.5/0.4,0.7/1,1", "crv:0,0/0.5/1,1"):
+            with self.assertRaises(ValueError):
+                lm.parse_look(bad)
+
     def test_look_string_round_trip(self):
         s = "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0"
         self.assertEqual(lm.format_look(lm.parse_look(s)), s)

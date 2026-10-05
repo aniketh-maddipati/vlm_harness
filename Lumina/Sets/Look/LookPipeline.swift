@@ -334,6 +334,10 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                                  y: exp2(look.contrast * r.k("contrast", "slopePerUnit", 0.006)),
                                  z: min(1, max(0, r.k("contrast", "lumaMix", 0.5))), w: 0)
                 pass("lookContrast", [img, k, gam, lum])
+            case "curve":
+                let lut = curveTable(look.curve)
+                let k = CIVector(x: 1 / r.perceptualGamma, y: r.perceptualGamma, z: Double(LookMath.curveNodes - 1), w: 0)
+                if let out = kernels.apply("lookCurve", extent: extent, table: lut, [img, lut, k]) { img = out }
             case "colour":
                 let up = r.k("colour", "vibrancePerUnit", 0.01)
                 let k1 = CIVector(x: max(0, 1 + look.saturation * r.k("colour", "saturationPerUnit", 0.01)),
@@ -367,6 +371,26 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 continue
             }
         }
+        return img
+    }
+
+    // MARK: the tone curve's table
+
+    private let curveLock = NSLock()
+    private var lastCurve: (curve: Look.ToneCurve, table: CIImage)?
+
+    /// `LookMath.curveTables` as an image the `lookCurve` kernel reads: `curveNodes` × 1 px, the
+    /// three channels' tables in r, g, b, raw floats (no colour space, read at texel centres).
+    /// The last curve's image is kept: while another slider moves, the curve's table is the
+    /// same image and Core Image does not upload it again.
+    func curveTable(_ curve: Look.ToneCurve) -> CIImage {
+        if let hit = curveLock.withLock({ lastCurve?.curve == curve ? lastCurve?.table : nil }) { return hit }
+        let t = LookMath.curveTables(curve, rules), n = LookMath.curveNodes
+        var px = [Float](repeating: 1, count: 4 * n)
+        for i in 0..<n { px[4 * i] = Float(t.r[i]); px[4 * i + 1] = Float(t.g[i]); px[4 * i + 2] = Float(t.b[i]) }
+        let img = CIImage(bitmapData: px.withUnsafeBufferPointer { Data(buffer: $0) }, bytesPerRow: 16 * n, size: CGSize(width: n, height: 1), format: .RGBAf, colorSpace: nil)
+            .samplingNearest()
+        curveLock.withLock { lastCurve = (curve, img) }
         return img
     }
 
