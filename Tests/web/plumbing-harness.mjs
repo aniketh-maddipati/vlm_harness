@@ -463,15 +463,24 @@ const loaded = async page => {
   // A photo's id is its place by time, so one that is listed last and was taken first moves every
   // id when it is read. What the reader did before it arrived stays on the same photos, by path.
   const shifted = path.join(tmp, '2026-09-05');
-  makeBigShoot(shifted, jpegs, 64);
+  makeBigShoot(shifted, Array(12).fill(jpegs[0]), 64);          // one picture throughout: the frames a second apart are stacks
   fs.writeFileSync(path.join(shifted, 'DSC19999.ARW'), tiff({ date: '2026:09:01 08:00:00', jpeg: jpegs[0], pad: 4096 + jpegs[0].length + 16 }));
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
   bridge.delayMs = 60; bridge.pending = shifted; await page.evaluate(() => __lumina.openFolder());
   await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 30000 });
   const held = () => page.evaluate(() => { const l = __lumina.logic(), B = l.data.byId, P = id => B[id] && B[id].path.split('/').pop();
-    return { cur: P(l.state.cur), curId: l.state.cur, kept: l.kept().map(P), still: !!l.state.realLoad, n: l.real.length, firstFile: P(l.data.order[0]) }; });
-  await key(page, 'ArrowDown'); await page.waitForTimeout(120); await key(page, 'ArrowRight'); await page.waitForTimeout(120);
+    const firstOf = ids => P(ids.slice().sort((a, b) => B[a].n - B[b].n)[0]), g = l.state.open && l.data.G[l.state.open];
+    return { cur: P(l.state.cur), curId: l.state.cur, kept: l.kept().map(P), still: !!l.state.realLoad, n: l.real.length, firstFile: P(l.data.order[0]),
+      sel: Object.keys(l.state.sel || {}).map(P).sort(), open: g ? P(g.frames[0].id) : null, undo: (l.state.undo || []).length, redo: (l.state.redo || []).length,
+      seen: l.data.R.filter(r => (l.state.seen || {})[r.id]).map(r => firstOf(r.ids)).sort() }; });
+  // Into the second row (the first is 40 photos), so the first one is left behind and counts as seen.
+  await page.evaluate(() => { const l = __lumina.logic(); l.setState({ cur: l.data.R[1].ids[0] }); }); await page.waitForTimeout(150);
   await key(page, 'p'); await page.waitForTimeout(150);
+  // More that the page holds by id: a photo in play (its multi-selection) and an open stack.
+  await page.evaluate(() => { const l = __lumina.logic(); l.toggleSel(l.state.cur); });
+  await page.waitForTimeout(80);
+  await page.evaluate(() => { const l = __lumina.logic(), g = l.data.G[l.data.byId[l.state.cur].gid]; if (g && g.kind !== 'single') l.openStack(g.gid, false, true); });
+  await page.waitForTimeout(150);
   const hMid = await held();
   await loaded(page); await page.waitForTimeout(600);
   const hEnd = await held();
@@ -483,6 +492,25 @@ const loaded = async page => {
   await page.waitForTimeout(2300);            // autosave
   const savedS = bridge.sessions['id-2026-09-05'] && JSON.parse(bridge.sessions['id-2026-09-05']);
   ok(savedS && JSON.stringify(Object.keys(savedS.marks)) === JSON.stringify(hMid.kept), 'ids moved mid-read: the session holds the keep under its own path', savedS && savedS.marks);
+  ok(hMid.sel.length === 1 && hMid.open && hMid.seen.length === 1 && hMid.seen[0] === 'DSC10001.ARW' && hMid.undo === 1, 'ids moved mid-read: a photo in play, a stack open, a row seen and one undo entry before the ids moved', hMid);
+  ok(JSON.stringify(hEnd.sel) === JSON.stringify(hMid.sel), 'ids moved mid-read: the photo in play is the same photo, by path', { mid: hMid.sel, end: hEnd.sel });
+  ok(hEnd.open === hMid.open, 'ids moved mid-read: the open stack is the same stack, by its first photo', { mid: hMid.open, end: hEnd.open });
+  ok(JSON.stringify(hEnd.seen) === JSON.stringify(hMid.seen), 'ids moved mid-read: the rows seen are the same rows, by their first photo', { mid: hMid.seen, end: hEnd.seen });
+  // Undo holds the photo's id as it was when the keep was made: it comes off that photo, not its neighbour.
+  await page.evaluate(() => __lumina.logic().undo()); await page.waitForTimeout(200);
+  const hUndo = await held();
+  ok(hUndo.kept.length === 0 && hUndo.redo === 1, 'ids moved mid-read: undo takes the keep off the photo it was made on', hUndo);
+  await page.waitForTimeout(2300);            // autosave
+  const savedU = bridge.sessions['id-2026-09-05'] && JSON.parse(bridge.sessions['id-2026-09-05']);
+  ok(savedU && Object.keys(savedU.marks).length === 0, 'ids moved mid-read: after undo the session holds no keep', savedU && savedU.marks);
+  await page.evaluate(() => __lumina.logic().redo()); await page.waitForTimeout(200);
+  const hRedo = await held();
+  ok(JSON.stringify(hRedo.kept) === JSON.stringify(hMid.kept) && hRedo.undo === 1 && hRedo.redo === 0, 'ids moved mid-read: redo puts the keep back on the same photo', hRedo);
+  // A redo entry names the shoot it was made in: the next read starts without it.
+  await page.evaluate(() => __lumina.logic().undo()); await page.waitForTimeout(150);
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  bridge.pending = shifted; await page.evaluate(() => __lumina.openFolder()); await loaded(page);
+  ok(await page.evaluate(() => (__lumina.logic().state.redo || []).length) === 0, 'redo: empty after another shoot is opened', await page.evaluate(() => __lumina.logic().state.redo));
 
   // T4: a sidecar another app rewrote between open and Save. Save merges the rating onto the text on
   // disk NOW (the page's own xmpFor, on text re-read by the Mac), never onto the text from the open.

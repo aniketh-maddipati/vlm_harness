@@ -172,28 +172,60 @@
   // A photo's id is its place in the shoot by time ('f' + n, LuminaCore.buildShoot), so it names the
   // same photo only while the list is the same. While a folder is read the list grows, and a photo
   // that sorts before the ones already shown (a second body, a subfolder listed later, another
-  // source joining at the end) moves every id after it. What the reader holds by id is carried by
-  // path across such a rebuild: `heldIds` before it, `carryIds` after (null when nothing moved).
-  const HELD = ['marks', 'flags', 'stars', 'cuts', 'look'];
+  // source joining at the end) moves every id after it. A stack's id is its first photo's number
+  // ('g' + n) and a row's id its place among the rows ('m' + i), so they move with it. Everything
+  // the page holds under one of those ids is carried across such a rebuild: by the photo's path, a
+  // stack and a row by their first photo. `heldIds` before the rebuild, `carryIds` after it: null
+  // when nothing moved, else the state to set (and the shoot rebuilt with the carried cuts).
+  //   by photo id   marks, flags, stars, cuts, look, xsaved, sel; the undo and redo entries (each a
+  //                 {label, p: {marks, flags, stars: {id: the value before}}, c: a whole cuts map or
+  //                 null}); pend (a decision waiting 600 ms: {ch: {marks, flags, stars}}); cur
+  //   by stack id   open, shown, inside; regions (stack id, or photo id for a single)
+  //   by row id     seen, rowLook
+  //                 (and `_rp`, the index of the row the cursor was last in)
+  //   by position   selA (a cell's index), selRows (row indexes), autoPv (a row index and a
+  //                 preview of keeps while A is held): dropped, since the cells and rows they
+  //                 count are not the ones the reader chose them in. The selection itself stays.
+  const HELD = ['marks', 'flags', 'stars', 'cuts', 'look', 'xsaved', 'sel'];
   const heldIds = logic => {
-    const B = (logic.data && logic.data.byId) || {}, s = logic.state, by = {};
-    const add = id => { if (id != null && B[id] && B[id].path) by[id] = B[id].path; };
-    for (const k of HELD) for (const id of Object.keys(s[k] || {})) add(id);
-    add(s.cur);
+    const d = logic.data || {}, B = d.byId || {}, by = { path: {}, grp: {}, row: {} };
+    for (const [id, p] of Object.entries(B)) if (p.path) by.path[id] = p.path;
+    for (const [gid, g] of Object.entries(d.G || {})) if (g.frames && g.frames[0]) by.grp[gid] = g.frames[0].id;
+    for (const r of d.R || []) if (r.ids && r.ids.length) by.row[r.id] = r.ids.slice().sort((a, b) => B[a].n - B[b].n)[0];
     return by;
   };
   const carryIds = (logic, by) => {
-    const B = logic.data.byId;
-    if (Object.keys(by).every(id => B[id] && B[id].path === by[id])) return null;
+    if (!by) return null;
+    let B = logic.data.byId;
     const idOf = {}; for (const [id, p] of Object.entries(B)) if (p.path) idOf[p.path] = id;
     const s = logic.state, st = {};
-    for (const k of HELD) {
-      const m = {}; let ch = false;
-      for (const [id, v] of Object.entries(s[k] || {})) { const n = by[id] ? idOf[by[id]] : id; if (n !== id) ch = true; if (n != null) m[n] = v; }
-      if (ch) st[k] = m;
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const set = (k, v) => { if (!same(v, s[k])) st[k] = v; };
+    const pid = id => (by.path[id] ? idOf[by.path[id]] : undefined);
+    const rekey = (m, f) => { const o = {}; for (const [k, v] of Object.entries(m || {})) { const n = f(k); if (n != null) o[n] = v; } return o; };
+    const photos = m => (m && typeof m === 'object' ? rekey(m, pid) : m);
+    if (Object.keys(by.path).some(id => pid(id) !== id)) {
+      for (const k of HELD) if (s[k] && typeof s[k] === 'object') set(k, photos(s[k]));
+      const entry = e => (e && typeof e === 'object' ? Object.assign({}, e, e.p ? { p: rekey(e.p, k => k) } : {}, e.c ? { c: photos(e.c) } : {}) : e);
+      const entries = L => L.map(e => { const o = entry(e); if (o && o.p) for (const k of Object.keys(o.p)) o.p[k] = photos(o.p[k]); return o; });
+      for (const k of ['undo', 'redo']) if (Array.isArray(s[k]) && s[k].length) set(k, entries(s[k]));
+      if (s.pend && s.pend.ch) { const ch = {}; for (const [k, m] of Object.entries(s.pend.ch)) ch[k] = photos(m); set('pend', Object.assign({}, s.pend, { ch })); }
+      if (s.cur != null && pid(s.cur) != null) set('cur', pid(s.cur));
+      if (s.selA != null) st.selA = null;
+      if (s.selRows != null) st.selRows = null;
+      if (s.autoPv) st.autoPv = null;
     }
-    if (s.cur != null && by[s.cur] && idOf[by[s.cur]] && idOf[by[s.cur]] !== s.cur) st.cur = idOf[by[s.cur]];
-    return st;
+    // Rows and stacks are read off the shoot as the carried cuts build it.
+    if (st.cuts) { logic.data = logic.build(st.cuts); B = logic.data.byId; }
+    const first = id => (id != null && pid(id) != null ? B[pid(id)] : null);
+    const gid = g => { const p = first(by.grp[g]); return p && p.gid && logic.data.G[p.gid] ? p.gid : undefined; };
+    const rid = r => { const p = first(by.row[r]), row = p && logic.data.R[p.mi]; return row ? row.id : undefined; };
+    for (const k of ['open', 'shown', 'inside']) if (s[k] != null && by.grp[s[k]] != null) set(k, gid(s[k]) || null);
+    if (s.regions && Object.keys(s.regions).length) set('regions', rekey(s.regions, k => (by.grp[k] != null ? gid(k) : pid(k))));
+    for (const k of ['seen', 'rowLook']) if (s[k] && Object.keys(s[k]).length) set(k, rekey(s[k], k2 => (by.row[k2] != null ? rid(k2) : k2)));
+    // The row the cursor was last in, which the page keeps as an index (`_rp`, for "the row just left is seen").
+    if (logic._rp != null && by.row['m' + logic._rp] != null) { const r = rid('m' + logic._rp), i = r == null ? -1 : logic.data.R.findIndex(x => x.id === r); logic._rp = i < 0 ? null : i; }
+    return Object.keys(st).length ? st : null;
   };
   // `live`: the reader moved or decided while the folder was being read. Those decisions win over
   // the saved ones and the cursor stays where it is (nothing jumps when the read ends).
@@ -566,7 +598,7 @@
       logic._gold = []; logic._failed = []; logic.real = [];
       logic._reading = true; logic._rd = { moved: false, cur: null, top: 0 };       // the page's own scroll handler marks `moved`
       for (const P of parts) sidecarFailures(P);
-      logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, xsaved: {}, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
+      logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, xsaved: {}, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], redo: [], open: null, undec: false, pend: null });   // redo: the last shoot's entries name its ids
       // Rows appear as the contiguous prefix grows: every 400 ms; every 1.5 s while the reader has
       // scrolled in the last 1.5 s, so the grid isn't rebuilt under a moving scroll (the page's pacing since v7).
       const grow = force => {
@@ -578,10 +610,14 @@
         if (!force && Date.now() - (logic._scrollT || 0) < 450) { clearTimeout(logic._growT); logic._growT = setTimeout(() => grow(false), 480); return; }
         if (!force && now - lastB < 700) return; lastB = now;
         const anc = shown && typeof logic.scrollAnchor === 'function' ? logic.scrollAnchor() : null;
-        const held = shown ? heldIds(logic) : {};
+        const held = shown ? heldIds(logic) : null;
         logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {});
         const carried = carryIds(logic, held);
-        if (carried) { if (carried.cuts) logic.data = logic.build(carried.cuts); logic.setState(carried); }
+        if (carried) {
+          // The photo the read began on is still "not moved" under its new id.
+          if (carried.cur != null && logic.state.cur === firstCur) { firstCur = carried.cur; logic._rd.cur = firstCur; }
+          logic.setState(carried);
+        }
         logic._lk = null; logic._anc = anc;
         if (!shown) { shown = true; firstCur = logic.data.order[0]; logic._rd.cur = firstCur; const se = logic.scrollRef && logic.scrollRef.current; logic._rd.top = se ? se.scrollTop : 0; logic.setState({ cur: firstCur }); logic.setView('cull', true); } else logic.forceUpdate();
       };
@@ -618,10 +654,9 @@
       const sc = logic.scrollRef && logic.scrollRef.current, was = logic.state.cur, wasKey = shown && was && logic.data.byId[was] ? keyOf(logic.data.byId[was]) : null;
       readMoved = shown && (!!rd.moved || was !== firstCur || Object.keys(logic.state.marks || {}).length > 0 || Object.keys(logic.state.flags || {}).length > 0 || !!(sc && sc.scrollTop > 40));
       const ancF = typeof logic.scrollAnchor === 'function' ? logic.scrollAnchor() : null;
-      const held = shown ? heldIds(logic) : {};
+      const held = shown ? heldIds(logic) : null;
       logic.real = ok; logic.data = logic.build(logic.state.cuts || {});
       const carried = carryIds(logic, held) || {}; delete carried.cur;            // the cursor: `stay`, below
-      if (carried.cuts) logic.data = logic.build(carried.cuts);
       logic._lk = null; logic._anc = ancF;
       let stay = null;
       if (readMoved && wasKey) for (const [id, p] of Object.entries(logic.data.byId)) if (keyOf(p) === wasKey) { stay = id; break; }
@@ -701,7 +736,7 @@
       restore(logic, snap, false);
       const info = Object.assign({}, prev, { name: primaryTop || prev.name, n: logic.real.length, rows: logic.data.R.length, stacks: G0().filter(g => g.kind !== 'single').length, bad: logic._failed.length,
         secs: ((performance.now() - t0) / 1000).toFixed(1), date: first.slice(0, 10).replace(/:/g, '-') });
-      logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, undo: [], sel: {}, pend: null });
+      logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, undo: [], redo: [], sel: {}, pend: null });
       lastRead = { name: L.name, total: files.length, read: nw.length + dup.length, unreadable: files.length - nw.length - dup.length, stopped: run.gone ? 'card removed' : null, secs: +info.secs };
       window.lumina.read = Object.assign({}, lastRead);
       if (!filling) {
