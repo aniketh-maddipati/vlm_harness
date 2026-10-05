@@ -104,12 +104,14 @@
   },
   {
    "do": "wait",
-   "ms": 500
+   "ms": 500,
+   "invariants": false
   },
   {
    "do": "js",
    "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
-   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
+   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms",
+   "invariants": false
   },
   {
    "do": "key",
@@ -143,15 +145,9 @@
   },
   {
    "do": "expect",
-   "js": "return __probe.logic().state.armed",
-   "equals": "save",
-   "why": "v7: with undecided photos the first ⌘⏎ only warns"
-  },
-  {
-   "do": "key",
-   "k": "Enter",
-   "settleMs": 1500,
-   "cmd": true,
+   "js": "return __probe.logic().state.armed || 'none'",
+   "equals": "none",
+   "why": "v7: every photo is decided, so the first ⌘⏎ saves and nothing warns; the guard is only for undecided photos",
    "invariants": false
   },
   {

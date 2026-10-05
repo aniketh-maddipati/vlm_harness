@@ -7,7 +7,7 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
- "checklist": "F6 'both' (v5): on a case-sensitive volume a RAW has DSC.xmp (Lightroom's) and DSC.XMP (1★ Yellow). The lower-case .xmp is the one read, every time, and the one Save plans to write: Lightroom's settings with only the rating changed. The volume is a disk image, which the app takes for removable media: ⌘↩ writes nothing and lists the keeper as 'on the card'. The same bytes through the app's write (below the card check) land in .xmp only, with Lightroom's .xmp kept as .lumina-bak; .XMP is never touched and never backed up.",
+ "checklist": "F6 'both': on a case-sensitive volume a RAW has DSC.xmp (Lightroom's) and DSC.XMP (1★ Yellow). The lower-case .xmp is the one read, every time, and the one Save plans to write: Lightroom's settings with only the rating changed. The volume is a disk image, which the app takes for removable media: ⌘↩ writes nothing and lists the keeper as 'on the card'. The same bytes through the app's write (below the card check) land in .xmp only, with Lightroom's .xmp kept as .lumina-bak; .XMP is never touched and never backed up. (Sets v7: Save is step ⌘4, and with undecided photos the first ⌘↩ only warns, the second within 5 s saves).",
  "steps": [
   {
    "do": "diskImage",
@@ -143,15 +143,9 @@
   },
   {
    "do": "expect",
-   "js": "return __probe.logic().state.armed",
-   "equals": "save",
-   "why": "v7: with undecided photos the first ⌘⏎ only warns"
-  },
-  {
-   "do": "key",
-   "k": "Enter",
-   "settleMs": 1500,
-   "cmd": true
+   "js": "return __probe.logic().state.armed || 'none'",
+   "equals": "none",
+   "why": "v7: every photo is decided, so the first ⌘⏎ saves and nothing warns; the guard is only for undecided photos"
   },
   {
    "do": "waitFor",

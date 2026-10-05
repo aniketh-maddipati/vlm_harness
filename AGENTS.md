@@ -19,6 +19,13 @@ window. Nobody edits the UI in this repo.
   `--record` once the new look is approved.
   Before installing, step 2b prints every line the new page files add that names network or bridge
   surface (`fetch(`, `postMessage`, `new Function`, a URL, …): a zip is a code import, so read them. Report only.
+- A designer's export can also arrive as one standalone HTML (the bundler's output, no zip). The sync
+  does not take it. `python3 Scripts/sets_unbundle_standalone.py <standalone.html> --out <folder> --like <the
+  current Sets page>` turns it back into page files: the core script and the Edit page are the export's own
+  bytes; the Sets page keeps the export's logic byte for byte, with the bundler's markup rewriting undone.
+  The check that the reversal is right: `--prove <the previous standalone> <the previous Sets page>` must
+  reproduce that page exactly. Then install and verify as for a zip (give the sync the folder), and ask the
+  designer for a proper zip next time.
 - Authority order: `design/handoff/lumina-cull` → `Lumina/Sets` (plumbing) → tests. Inside the handoff,
   since v0.01 (2026-10-05), its `README.md` sets the order: README + `BRIDGE.md` (the page ↔ app
   contract) → the two pages → `ROADMAP.md` (trust rules) → the v5-era docs (PROMPT, ADDENDUM-1, PARITY,
@@ -33,11 +40,11 @@ window. Nobody edits the UI in this repo.
 | Path | What it does |
 |---|---|
 | `Lumina/LuminaApp.swift` | One window and the menu bar from MENUS.md: every item calls `window.luminaCommand(name)`; Quit asks about unsaved keepers |
-| `Lumina/Sets/SetsRootView.swift` | The WKWebView, the native folder pickers, downloads, and the Edit canvas overlay laid above the web view |
+| `Lumina/Sets/SetsRootView.swift` | The WKWebView, the native folder pickers, downloads, the Edit canvas overlay laid above the web view, and the page's three outbound links: any navigation the page asks for that leaves `lumina://` is handed to the browser or Mail only if `SetsExternalLinks` allows it exactly, from the main frame only, at most one hand-over per 2 s |
 | `Lumina/Sets/Web/` | The design's files, copied unchanged by `Scripts/sets_sync_ui.sh`, plus `plumbing.js` |
-| `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, `near` / `nearLimit` (how alike two photos are and the threshold for a retake, DESIGN-ASKS Prompt 2 C), …, and the Edit step's `preview` / `canvasRect` / `drag` / `roi` from DESIGN-ASKS Prompt 1 §3, plus `edit`, the superset the probe drives), persists sessions (writes debounce 500 ms after the last Edit change), makes the grid thumbnails (720 × 480; measures stay on the page's 360 px bitmap) and decodes them ahead of a scroll (design ask 7), keeps every Cull row on its own element while the grid scrolls (the row items get their row id as React key, existing thumbnails show without the fade, the mounted rows lead the scroll; design ask 11), keeps the reader's place and decisions when a read they culled during ends (design ask 8), adds to the open shoot (v7's `onDir` with add over native listings: more folders or files from the panel, Finder drops and AirDrop arrivals, each a source read by the Mac; `lumina.addFrom` / `reconnect` / `sources` / `watchAirdrop`; Save writes each sidecar under its own source), mirrors the few `localStorage` keys that must outlive a launch into `SetsPageStore` and seeds them back before the page starts, drives Edit v21 on the native canvas (it reads the page's Edit state and translates its look object to the look string), and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`, `luminaPresented`, `luminaHistogram`, `luminaFacts`, `luminaEditStats`) |
-| `Lumina/Sets/Core/` | The native bridge: `SetsIngest` (reads opened folders: listing, 256 KB heads, byte-range previews that reuse the part the head already holds, prefetch, stops when the card goes), `SetsFileOps` (`writeSidecar`: Save (v5's, unchanged in v7), one `.xmp` into the shoot folder with `.lumina-bak`, atomic, read back, refused on a card; SHA-256 copies), `SetsExport` (+ crash journal; RAW copies, v3's CSS-look JPEGs, and the Edit step's `look` renders through `SetsLookExport`, which names the RAW decoder used and falls back per file), `SetsCardWatcher` (ARW and DNG counted), `SetsAccess` (the one owner of security-scoped access: start and stop, held across a Save), `SetsSources` + `SetsShootSources` (what a shoot is made of besides its first folder: folders and files added later, each a security-scoped bookmark, `sources/<shoot id>.json`; a stale bookmark is renewed in place), `SetsDownloadsWatcher` (complete AirDrop RAWs arriving in a granted Downloads folder, a file reported after one second of stability, nothing opened or changed), `SetsPageStore` (the page's `localStorage` keys that outlive a launch: the tour, shoot names, the seen-before memory and a few more, each key named and size-capped), `SetsWorkingFiles` (Lumina's own files under Application Support, accounted and removed; never anything that could be an original), `SetsExternalLinks` (the exact allowlist for the page's three links: the bug-report mail, LinkedIn and X, on a user's click only, rebuilt before they leave), `SetsNumber` (every number from the page read without trusting it: finite, in range, else the default), `SetsNear` (`lumina.near`: the distance between Vision feature prints of two embedded previews, read through `SetsIngest`, one measure per photo at `.utility`; revision 2 is pinned and `limit` belongs to it), `SetsShootStore` (per-shoot sessions and the `Lumina.json` header), `SetsSchemeHandler` (`lumina://`, no network; `lumina://render/<rel>?look=&px=&seq=[&tier=small]` is the Edit preview on the image fallback path), `SetsBridge` (the page's ops, the canvas ops `canvasEnter/Layout/Look/Drag/Loupe/Stats`, the decoder map) |
-| `Lumina/Sets/Look/` | The Edit look pipeline (roadmap Prompt 2): `LookString` (the look string, the Edit step's only state), `LookRules` + `rules-v1.json` (stage order, working space, fitted coefficients, `locked` flags), `LookMath` (every stage's maths in scalar form), `LookKernels` (the same maths as Metal, compiled at first use), `LookPipeline` (the one Core Image graph previews, export and `lumina-render` share; `develop` takes the decoder version and `nr`), `LookRenderer` (developed RAW cached per (rel, px, decoder) under a byte cap, sequence numbers drop stale requests). The Edit canvas (addendum): `LookCanvasSchedule` (two tiers, latest wins, sequence numbers; Foundation only), `LookWarmPlan` (which stage graphs to compile ahead of a drag; Foundation only), `LookByteCache` (byte-capped LRU), `LookBases` (`base` + `small` rgba16Float textures per photo, prefetch), `LookRegionTiles` (RAW 9 512 px tiles for the loupe), `LookCanvas` (the MTKView overlay, CIRenderDestination, display link), `LookRawPolicy` + `LookDecoderProbe` (the RAW tiers, the pin rule, the capability map). Also compiled into the probe and `Tools/parity/lumina-render` through symlinks |
+| `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, and its native read mirrors the refreshed page's `onDir` / `readOne` (`ONDIR` is the hash of the page's copy; see "Rules that bite"). It provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, `near` / `nearLimit` (how alike two photos are and the threshold for a retake, DESIGN-ASKS Prompt 2 C), the sources (`addFrom`, `sources`, `reconnect`), `watchAirdrop`, `removeWorkingFiles` (keeps the session; the File menu's Remove Working Files… is what removes it), …, and the Edit step's `preview` / `canvasRect` / `drag` / `roi` from DESIGN-ASKS Prompt 1 §3, plus `edit`, the superset the probe drives), holds the page's `localStorage` keys that must outlive a launch in `SetsPageStore` (the list is `STORED`), persists sessions (Edit's own state rides in them by photo path, `editOut` / `editIn`; writes debounce 500 ms after the last Edit change), makes the grid thumbnails (720 × 480; measures stay on the page's 360 px bitmap) and decodes them ahead of a scroll (design ask 7), keeps every Cull row on its own element while the grid scrolls (the row items get their row id as React key, existing thumbnails show without the fade, the mounted rows lead the scroll; design ask 11), keeps the reader's place and decisions when a read they culled during ends (design ask 8), and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`, `luminaPresented`, `luminaHistogram`, `luminaFacts`, `luminaEditStats`) |
+| `Lumina/Sets/Core/` | The native bridge: `SetsIngest` (reads opened folders, ARW and DNG: listing, 256 KB heads, byte-range previews that reuse the part the head already holds, prefetch, stops when the card goes), `SetsFileOps` (`writeSidecar`: v5's Save, one `.xmp` into the shoot folder with `.lumina-bak`, atomic, read back, refused on a card; SHA-256 copies), `SetsExport` (+ crash journal; `.copy` items for RAWs and the `Picks/` copies, a failed file is its own error and the rest go on, while a full disk or a quota still ends the job; v3's CSS-look JPEGs, and the Edit step's `look` renders through `SetsLookExport`, which names the RAW decoder used and falls back per file), `SetsCardWatcher` (counts ARW and DNG on a card), `SetsNear` (`lumina.near`: the distance between Vision feature prints of two embedded previews, read through `SetsIngest`, one measure per photo at `.utility`; revision 2 is pinned and `limit` belongs to it), `SetsShootStore` (per-shoot sessions and the `Lumina.json` header), `SetsShootSources` + `SetsSources` (a shoot made of several sources, folders and files added later: names and security-scoped bookmarks, in `sources/<shoot id>.json`; the bookmark is the only way back after a relaunch, and a missing source can be reconnected), `SetsDownloadsWatcher` (the AirDrop watch: a granted Downloads folder, new RAWs reported once they have been stable for a second, nothing opened or changed), `SetsWorkingFiles` (what Lumina keeps in Application Support, counted and removed; refuses anything that could be an original), `SetsExternalLinks` (the exact allowlist of the three outbound links), `SetsPageStore` (the page's few persistent `localStorage` keys, each under a size cap), `SetsSchemeHandler` (`lumina://`, no network; `lumina://render/<rel>?look=&px=&seq=[&tier=small]` is the Edit preview on the image fallback path), `SetsBridge` (the page's ops, the canvas ops `canvasEnter/Layout/Look/Drag/Loupe/Stats`, the decoder map) |
+| `Lumina/Sets/Look/` | The Edit look pipeline (roadmap Prompt 2): `LookString` (the look string, the Edit step's only state), `LookRules` + `rules-v1.json` (stage order: rawDevelop, exposure, whiteBalance, whitesBlacks, tone, contrast, curve, colour, mixer, clarity, sharpen, vignette, outputTransform; working space, fitted coefficients, `locked` flags), `LookMath` (every stage's maths in scalar form), `LookKernels` (the same maths as Metal, compiled at first use), `LookPipeline` (the one Core Image graph previews, export and `lumina-render` share; `develop` takes the decoder version and `nr`), `LookRenderer` (developed RAW cached per (rel, px, decoder) under a byte cap, sequence numbers drop stale requests). The Edit canvas (addendum): `LookCanvasSchedule` (two tiers, latest wins, sequence numbers; Foundation only), `LookWarmPlan` (which stage graphs to compile ahead of a drag; Foundation only), `LookByteCache` (byte-capped LRU), `LookBases` (`base` + `small` rgba16Float textures per photo, prefetch), `LookRegionTiles` (RAW 9 512 px tiles for the loupe), `LookCanvas` (the MTKView overlay, CIRenderDestination, display link), `LookRawPolicy` + `LookDecoderProbe` (the RAW tiers, the pin rule, the capability map). Also compiled into the probe and `Tools/parity/lumina-render` through symlinks |
 | `Tools/parity/` | The Lightroom parity harness: the sweep plug-in, `import_refs.py`, `lumina-render`, `delta_e.py`, `parity.py` (`make parity`), `fit.py`, `loop.sh`, `criteria.json`, `golden.json`. See its README and "Parity" below |
 | `Tools/culleval/` | The culling eval: the page's own `lumina-core` run on real shoots, scored against camera bursts and the photographer's keeps (`make culleval`, report in `~/LuminaEvidence/culleval`; `make culleval-test` on Linux), the same keeps question through the app (`culleval-app.mjs` on a probe dump, one matcher and one set of scores for both), and candidate ranking signals (`signals/`). Measures only. See its README |
 | `design/handoff/vendor/` | React / Babel pinned to the SRI hashes in `support.js` (see `VENDOR.md`) |
@@ -48,17 +55,21 @@ page reports for its Edit canvas; the look stages render straight into its drawa
 move never goes through a JPEG, a readback or the web view's image decode. It is pixels only: it
 takes no input, draws nothing of its own (no chrome, no text), and is hidden whenever Edit isn't
 the active step. Edit v21 leaves that rect empty in the app and calls no canvas API: `plumbing.js`
-reads the page's own Edit state each frame (photo, look object, canvas box, zoom) and its
-`lumina.emit` drag events, translates the look object to the look string, and drives the canvas;
-it hides the canvas while the page draws over the photo itself (crop, pickers, variations). The page keeps drawing the filmstrip, sliders and facts. Without a Metal device
+reads the page's own Edit state each frame (`pageSync`: photo, look object, `pageGeo`: canvas box and
+zoom) and its `lumina.emit` drag events, translates the look object to the look string, and drives the
+canvas. The base the canvas holds is already cropped, straightened and turned, so the zoom region
+(`roi`) is a fraction of that picture, not of the frame as shot. The canvas is hidden while the page
+draws over the photo itself (`pageCovered`: crop, white picker, straighten, colour, variations, scene
+review, versions, help, intro, before, and the FAQ, tour, settings, known issues and working files
+pages); the page's chrome inside the box (zoom pill, chips) is passed as holes. The page keeps drawing the filmstrip, sliders and facts. Without a Metal device
 the same schedule runs on `lumina://render` images the page shows itself (`canvas: image` in the
 facts line). Everything else the app shows is the page's.
 
 Trust rules, from the ROADMAP; the tests enforce them:
-- never write to the card or change originals (Save writes only `.xmp` sidecars, into each source's folder, and verified copies of DNG picks into `Picks/`);
+- never write to the card or change originals (v5 writes only `.xmp` sidecars, into the shoot folder);
 - copy, never move, and verify every copy;
 - keep a `.lumina-bak` before replacing any file;
-- nothing leaves the Mac, and the page has no network access (the three links it offers go to the default mail app or browser on a click, through `SetsExternalLinks`).
+- nothing leaves the Mac, and the page has no network access. The one exception is a hand-over, not a connection: a click on one of three links (the bug-report mail and two profile links) opens the browser or Mail, from the main frame only, one per 2 s, by an exact allowlist (`SetsExternalLinks`); the page itself never fetches anything.
 
 ## Checks
 
@@ -69,6 +80,9 @@ Trust rules, from the ROADMAP; the tests enforce them:
 # Linux too: the real page in headless Chromium with plumbing.js and a Node stand-in for SetsBridge
 node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, sidecars, card, access
 node Tests/web/parity.mjs                    # screens-* in prototype vs app parity mode, every snapshot diffed
+node Tests/web/page-core-sync.test.mjs       # the page's copy of the core logic is in step with lumina-core
+node Tests/web/dng-parse.test.mjs            # DNG heads through the core's parseHead
+node Tests/web/dng-families.test.mjs         # phone / camera families (phoneOf) on synthetic DNGs and the page's own remap line
 # WebKit sandbox (WebKitGTK + JavaScriptCore, real script-message handler): contract, selftest, app flow, screens
 xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py   # apt: gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb
 # Fast scrolling over 400 synthetic ARWs at a Retina pixel ratio (numbers reported, not gated)
@@ -106,8 +120,8 @@ LUMINA_LONG=1 bash Scripts/probe.sh scenarios fuzz-sample-2 scroll-read   # just
 bash Scripts/probe.sh contract      # plumbing.js still fits the page
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh sandbox smoke   # any mode inside the App Sandbox with Config/Lumina-Sets.entitlements as shipped: per scenario PASS / FAIL / FAILED-BY-SANDBOX + each denial (Sandbox.swift)
 bash Scripts/probe.sh sandbox smoke # the same without fixtures (what CI runs)
-bash Scripts/probe.sh smoke         # page runs, ?selftest passes, app reads / keeps / saves sidecars / reopens, the empty app
-bash Scripts/probe.sh selftest      # the design's own ?selftest (25 checks + timing)
+bash Scripts/probe.sh smoke         # (scenarios start past the tour and Edit's first-entry intro unless they say "tour": true; see Tools/LuminaProbe/Sources/LuminaProbe/probe.js) page runs, ?selftest passes, app reads / keeps / saves sidecars / reopens, the empty app
+bash Scripts/probe.sh selftest      # the design's own ?selftest (every check + timing); the four v5-era checks the page still carries are in Tests/selftest-known.json, reported and not failed on (the probe's `selftest` step; a listed check that passes again is reported)
 LUMINA_LONG=1 bash Scripts/probe.sh fuzz          # seeded key + mouse storms (with LUMINA_FIXTURE_ROOT: also over a card image pulled at random)
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh scroll  # fast Cull scrolling: frames, blank tiles, thumbnail upscale, memory
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # contract + the app on folders: sidecars, .lumina-bak, Lightroom's sidecars merged, sessions across a relaunch, keepers renamed mid-cull, the empty app
@@ -118,6 +132,7 @@ LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh ingest  # th
 LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh card         # golden card + page vs native read
 LUMINA_LONG=1 LUMINA_CARD_DIR=/Volumes/…/DCIM/101MSDCF bash Scripts/probe.sh stress       # a whole card: scroll frame budget, 3,000-input storm, memory; page read, then native read
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh edit           # Edit canvas: 2 s drags, latency p95 ≤ 16 ms (LUMINA_EDIT_P95), 0 dropped, rest ≤ 120 ms, ≤ 3 photos / 300 MB, canvas vs export ΔE; then with nothing compiled (edit-cold); then the image path
+LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh scenarios edit-page   # Edit through the page's own sliders and pointer (step `editPageDrag`), the canvas in the page's box; plumbing drives the canvas, not the probe
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh edit-cold      # the first launch after a kernel change (LUMINA_KERNEL_SALT, new per run): first drags on stages the canvas has not rendered, gated like edit + first render of a new set of stages ≤ 8 ms on the main thread; LUMINA_CANVAS_WARM=0 = no warm-up (fails, the "before" measure)
 LUMINA_READ_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh readspeed       # read speed: Open → first rows, first thumbnail, 100 / 500 / 1000 / 2000 photos, done; photos per second (reported, not gated)
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh raw9           # RAW 9: decoder map, first tile / full region, export time + memory per version, forced fallback, tiles vs export ΔE
@@ -189,23 +204,21 @@ harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift
 - **Don't edit `Lumina/Sets/Web/*.html|support.js|lumina-core-v4.js|lumina-measure.js|lumina-v4-data.js|lumina-selftest.js|vendor`.** Change the design, then sync. `SetsPageBytesTests` and CI fail on drift.
 - **`plumbing.js` supplies behaviour and data, never UI.** If the page can't show something, that's a design ask.
 - **The native read repeats the page's `onDir` and `readOne`.** `probe.sh contract` fails (`__lumina.drift()`) when a sync changes either: review the read in `plumbing.js`, then update `ONDIR` (`node Tests/web/plumbing-harness.mjs --hash` prints it). Parity with the page's own read is checked with `card-clock.json` in both modes.
+- **The first ⌘⏎ and the first ⌘O with picks not saved only warn** (the page's `armed` state: "again opens anyway"). A scenario or a manual test that presses one once has opened nothing; the second press, within 5 s, goes on. Plumbing's `openFolder` honours the same arming.
+- **A new shoot's name field takes the keyboard** (plumbing focuses it with the page's suggestion, 350 ms after the open, unless the reader has moved). Keys sent right after opening a never-seen shoot go into the name, not the grid.
+- **One pusher to a shared branch, and merges go through one place.** Everyone else hands work over as a branch. Never rebase or reset a branch another live session owns: its worktree and its unpushed work sit on it.
 - **Cull rows are keyed by row id, from `plumbing.js`.** The page's runtime keys list items by position, which hands every mounted row the next row's content each time the window moves (heights animating, images swapping: the scroll wobble). `probe.sh scroll` reports it (`rows out of place`: 0 % on a Mac against 65 to 80 % with the page's keying; not gated, the CI runner's 180 to 300 ms frames give 1 to 26 % either way) and keeps one pass with the page's own keying for comparison. A sync that renames `data-lumina="row"` / `data-id` turns the keying off silently: compare the two passes after a sync.
 - **Pixel parity is 0 px.** App-mode screens (`screens-*-app`, plumbing's test-only parity mode: the design's sample shoot and card) must match the prototype reference byte for byte. Both twins run with `"storageWrites": false`, because the page's "saved" label is browser-only. CSS tricks that change anti-aliasing are out; content-visibility was tried and rejected.
-- **The probe never touches a real card.** Fault tests use disk images, and the probe's card watcher only accepts its own images.
-- **A disk image is a card to the app** (`volumeIsRemovable`), with or without DCIM: Save on one is refused "on the card". A scenario that needs the write itself on an image (case-sensitive, full) uses the probe's `nativeSidecar` step with `"guard": false`.
 - **v7's keys in scenarios.** ⌘1 Open, ⌘2 Pick, ⌘3 Edit, ⌘4 Save. K, P and T keep; R and X remove; F,
-  E and B held are overlays (M too in the large view); there is no flag key (v5's F). With undecided photos the first ⌘⏎ only warns
-  (`state.armed === 'save'`) and the second saves; on a card the page refuses before that guard. A shoot
-  read for the first time puts the keyboard in its name field after 350 ms, which swallows every key:
-  blur it before the next key. `probe.js` starts past the tour and Edit's first-entry intro unless a
-  scenario asks for the tour (`"tour": true`).
+  E and B held are overlays (M too in the large view); there is no flag key (v5's F). On a card the
+  page refuses Save before the undecided-photos guard.
 - **The header's working-files meter is masked in every snapshot.** What it shows depends on the
   moment (the page keeps its total for 1 s while previews load, its cells fade 360 ms), so its
   contents are hidden while a snapshot is taken (`__probe.meterMask`, and the same in
   `Tests/web/parity.mjs` and `webkit.py`); the twins compare whole-PNG hashes, so the mask is applied
-  at capture. Its numbers are checked through state. In parity mode plumbing runs the page's own
-  prototype branch for the meter and Save's Tidy up (`cacheParts`, `cacheView`), so the twins show
-  the sample shoot's working files.
+  at capture. Its numbers are checked through state.
+- **The probe never touches a real card.** Fault tests use disk images, and the probe's card watcher only accepts its own images.
+- **A disk image is a card to the app** (`volumeIsRemovable`), with or without DCIM: Save on one is refused "on the card". A scenario that needs the write itself on an image (case-sensitive, full) uses the probe's `nativeSidecar` step with `"guard": false`.
 - **The probe refuses the page's `dragstart`.** A synthetic drag over a tile would start a real system drag: a drag image on the user's screen and a session that follows the real pointer.
 - **ExFAT volume labels are at most 11 characters.** `hdiutil` reports a longer one as "Operation not permitted".
 - **Probe runs need an awake display.** The probe holds the display awake itself. If runs stall for minutes, macOS is throttling the page process.
@@ -223,15 +236,8 @@ albums and the held-out set stays within a small tolerance (ruled 2026-10-01): p
 above the 2026-10-01 baseline (2.32 / 7.82). A change that needs more than that is rejected; the
 tolerance is the owner's to change. The full procedure is `Tools/parity/README.md`; the rules that bite:
 
-- **The look string is the only Edit state** (`ev:+0.70 wb:5200/+3 con:+12 … crop:x,y,w,h/r rot:90`,
-  `Lumina/Sets/Look/LookString.swift`). Keys: `ev wb con hl sh wh bl vib sat clr shp vig`, and, written
-  only when set, `vigs` (the vignette's midpoint, roundness, feather, highlights), `tc` (the tone
-  curve's dark, mid, light), `crv crvr crvg crvb` (point curves), `mixh mixs mixl` (the colour mixer,
-  hue / saturation / luminance per colour), `nr`, `bw`, `crop`, `rot` (a quarter turn after the crop).
-  Unknown keys are an error. A look without the v7 keys renders as before, except a plain `vig` (the
-  ruling below). Edit v21 keeps its own look object; plumbing translates it. Stage order
-  (`rules-v1.json`): rawDevelop, exposure, whiteBalance, whitesBlacks, tone, contrast, curve, colour,
-  mixer, clarity, sharpen, vignette, outputTransform. Previews are `lumina://render/<rel>?look=&px=&seq=`, exports
+- **The look string is the only Edit state** (`ev:+0.70 wb:5200/+3 con:+12 … vig:-30 vigs:50,0,50,0 tc:0,+10,0 crv:0,0/0.5,0.6/1,1 mixh:… crop:x,y,w,h/r rot:90`; keys `vigs`, `tc`, `crv`, `crvr`, `crvg`, `crvb`, `mixh`, `mixs`, `mixl`, `rot` since v0.01,
+  `Lumina/Sets/Look/LookString.swift`). Previews are `lumina://render/<rel>?look=&px=&seq=`, exports
   go through `SetsExport` `.look` items, sessions keep `look` per photo and `rowLook` per row. Looks
   are **never written to XMP**; handoff stays ratings only.
 - **One maths, three copies.** A stage's transfer function lives in `LookMath.swift` (reference),
@@ -239,6 +245,7 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
   optimises). Change all three together; `LookPipelineTests` and `make parity-check` fail otherwise.
   Every stage stays monotonic on a grey ramp and keeps grey grey (white balance excepted); the ramp
   tests enforce it, so a coefficient the fit proposes can't break it silently.
+- **Stages added with the page's v21 Edit: `curve`, `mixer`, and the vignette's shape.** `curve` (after contrast) is the tone curve: `tc` is the three region sliders, `crv` / `crvr` / `crvg` / `crvb` the point curves, and `tc` is ignored when `crv` is set (the page's semantics: the sliders are then only a read-out of the points). `mixer` (after colour) is the eight-colour hue / saturation / luminance mixer, `mixh` / `mixs` / `mixl`. `vigs` is midpoint, roundness, feather, highlights. `rot` is a quarter turn clockwise, applied after the crop (the crop box stays in the frame as shot) and baked into the canvas base (`LookBases.Key`). The vignette is on the page's and Lightroom's scale (ruled 2026-10-05; Roundness 0 is the frame's own ellipse): a plain `vig` renders differently from before. The held-out set has not been re-measured for any of the new stages; the 2026-10-01 baseline above predates them.
 - **Coefficients live in `rules-v1.json`, forms live in code.** `loop.sh` / `fit.py` edit only
   `coefficients` and `locked`. A locked stage is not touched to compensate for another.
 - **Two kinds of Lightroom data, two uses.** The *sweep* (one slider from a neutral base) is the
@@ -288,13 +295,6 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
 - **Exposure is a scene gain seen through a sigmoid tone curve** (`LookMath.exposure`: per channel
   G·y / (1 + (G − 1)·y/white), G = 2^(ev · stopsPerUnit)), the form Lightroom's sweep shows:
   shadows and midtones move ~1.6 stops per unit, highlights roll off and lose saturation.
-- **The vignette is on the page's scale (ruled 2026-10-05).** Edit v21's four numbers go through 1:1:
-  roundness 0 is the frame's ellipse (+100 a circle in pixels, −100 the frame's rectangle), midpoint
-  and feather are the page's (d0 = 0.5 + mid/100 · 0.5, w = 0.08 + feather/100 · 0.6, falloff from
-  d0 − 0.3w to d0 + 0.7w). One form (`LookMath.VignetteForm`), one kernel (`lookVignette`), mirrored in
-  `lookmath.py`. This changed what a plain `vig` renders, and the held-out parity has not been
-  re-measured since; `vig:0` is still no stage. The tone curve, mixer, `vigs` and `rot` have no
-  Lightroom sweep yet: their parity is unmeasured.
 - **Criteria are edited only by a human.** `criteria.json` and `golden.json` never change inside the
   loop. Changing the golden set means a new sweep and every stage unlocked.
 - **Add a golden image:** copy the ARW to `~/LuminaEvidence/parity/golden/`, run
