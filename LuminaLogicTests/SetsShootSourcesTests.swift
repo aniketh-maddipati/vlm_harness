@@ -389,3 +389,66 @@ final class SetsShootSourcesTests: XCTestCase {
         do { let v = await call(bridge, ["op": "watchAirdrop", "on": false]) as? Bool; XCTAssertEqual(v, true) }
     }
 }
+
+/// Two sources of one shoot can hold photos of the same name (two phones' IMG_0001.DNG). Their
+/// picks both go to `Picks/<file>`: the export job's verified copy keeps both, the second under a
+/// numbered name, and lands identical bytes once.
+final class SetsSourcesSameNamePicksTests: XCTestCase {
+    private let fm = FileManager.default
+    private var dir: URL!
+
+    override func setUpWithError() throws {
+        dir = fm.temporaryDirectory.appendingPathComponent("sets-same-name-\(UUID().uuidString)", isDirectory: true)
+        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws { try? fm.removeItem(at: dir) }
+
+    private func dng(_ folder: String, _ bytes: Data) throws -> URL {
+        let url = dir.appendingPathComponent("\(folder)/IMG_0001.DNG")
+        try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try bytes.write(to: url)
+        return url
+    }
+
+    private func job(_ a: URL, _ b: URL, to destination: URL) -> SetsExportJob {
+        SetsExportJob(label: "picks", destination: destination,
+                      items: [.copy(name: "Picks/IMG_0001.DNG", source: a), .copy(name: "Picks/IMG_0001.DNG", source: b)])
+    }
+
+    private func picks(_ destination: URL) -> [String] {
+        ((try? fm.contentsOfDirectory(atPath: destination.appendingPathComponent("Picks").path)) ?? []).sorted()
+    }
+
+    func testDifferentBytesBothLandTheSecondNumberedBothVerified() throws {
+        let phoneA = try dng("Phone A", Data((0..<4096).map { UInt8($0 % 251) }))
+        let phoneB = try dng("Phone B", Data((0..<4096).map { UInt8(($0 * 7) % 253) }))
+        let hashes = try [phoneA, phoneB].map { try SetsFileOps.sha256(file: $0) }
+        XCTAssertNotEqual(hashes[0], hashes[1])
+        let destination = dir.appendingPathComponent("export")
+
+        let r = job(phoneA, phoneB, to: destination).run(journal: nil, sources: [phoneA.deletingLastPathComponent(), phoneB.deletingLastPathComponent()])
+
+        XCTAssertEqual(r.errors, [])
+        XCTAssertEqual(r.n, 2)
+        XCTAssertEqual(r.renamed, 1)
+        XCTAssertEqual(picks(destination), ["IMG_0001-2.DNG", "IMG_0001.DNG"])
+        XCTAssertEqual(try SetsFileOps.sha256(file: destination.appendingPathComponent("Picks/IMG_0001.DNG")), hashes[0], "the first source's photo under its own name")
+        XCTAssertEqual(try SetsFileOps.sha256(file: destination.appendingPathComponent("Picks/IMG_0001-2.DNG")), hashes[1], "the second source's photo, numbered")
+        XCTAssertEqual(try [phoneA, phoneB].map { try SetsFileOps.sha256(file: $0) }, hashes, "originals unchanged")
+    }
+
+    func testIdenticalBytesLandOnce() throws {
+        let same = Data((0..<4096).map { UInt8($0 % 241) })
+        let phoneA = try dng("Phone A", same), phoneB = try dng("Phone B", same)
+        let destination = dir.appendingPathComponent("export")
+
+        let r = job(phoneA, phoneB, to: destination).run(journal: nil, sources: [phoneA.deletingLastPathComponent(), phoneB.deletingLastPathComponent()])
+
+        XCTAssertEqual(r.errors, [])
+        XCTAssertEqual(r.n, 2, "both picks are accounted for")
+        XCTAssertEqual(r.renamed, 0)
+        XCTAssertEqual(picks(destination), ["IMG_0001.DNG"])
+        XCTAssertEqual(try SetsFileOps.sha256(file: destination.appendingPathComponent("Picks/IMG_0001.DNG")), try SetsFileOps.sha256(file: phoneA))
+    }
+}

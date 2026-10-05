@@ -22,7 +22,7 @@
   // label would otherwise never match their app twin.
   // v7 shows its five-step tour on a first launch, and the tour takes every key. A scenario starts
   // past it unless it asks for it ("tour": true), as a second launch does.
-  if (!cfg.tour) { try { localStorage.setItem('lumina-v4-toured', '1'); } catch (_) {} }
+  if (!cfg.tour) { try { localStorage.setItem('lumina-v4-toured', '1'); localStorage.setItem('lumina.edit.intro.v1', '1'); } catch (_) {} }          // Edit's first-entry intro too: it covers the canvas
   if (cfg.noStorageWrites) { try { Storage.prototype.setItem = function () { throw new DOMException('probe: storage writes off', 'QuotaExceededError'); }; } catch (_) {} }
 
   // Vendored React / Babel through support.js's own hook; page bytes stay unchanged.
@@ -125,6 +125,18 @@
         return v;
       }));
       return { state: clean, hostError: h.state && h.state.__err || null, order: l.data ? l.data.order.length : 0, real: !!l.real };
+    },
+    // The header's working-files meter is masked in every snapshot: the page keeps its total for 1 s
+    // while previews load and fades its cells over 360 ms, so the moment of the snapshot decides what
+    // it shows, a different moment in each twin. Its contents are hidden for the snapshot (the pill's
+    // background stays); the screens compare everything else byte for byte. Its numbers are checked
+    // through state instead.
+    async meterMask(on) {
+      let el = document.getElementById('__probe-meter-mask');
+      if (on && !el) { el = document.createElement('style'); el.id = '__probe-meter-mask'; el.textContent = '[data-lumina="cache-pill"] > * { visibility: hidden !important; }'; document.head.appendChild(el); }
+      if (!on && el) el.remove();
+      await new Promise(r => { let n = 0; const done = () => { if (!n++) r(); }; requestAnimationFrame(() => requestAnimationFrame(done)); setTimeout(done, 100); });
+      return true;
     },
     // Rects to ignore in pixel diffs: every <img> and every element painting a url() background.
     masks() {

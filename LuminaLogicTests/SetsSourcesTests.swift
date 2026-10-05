@@ -164,6 +164,103 @@ final class SetsSourcesTests: XCTestCase {
         XCTAssertEqual(sources.sources, [second])
     }
 
+    // MARK: Reconnect holds the scope while a stale bookmark is renewed
+
+    /// Fakes that log every call in order. A "bookmark" is the folder's path; `renewFails` makes
+    /// creating one throw, as the sandbox does for a scoped URL whose access is not started.
+    private final class Logged {
+        var log: [String] = []
+        var stale = true
+        var renewFails = false
+        var started = 0
+
+        func calls() -> SetsAccess.Calls {
+            SetsAccess.Calls(
+                start: { [unowned self] u in started += 1; log.append("start \(u.lastPathComponent)"); return true },
+                stop: { [unowned self] u in started -= 1; log.append("stop \(u.lastPathComponent)") },
+                resolve: { [unowned self] data in
+                    let url = URL(fileURLWithPath: String(decoding: data, as: UTF8.self), isDirectory: true)
+                    log.append("resolve \(url.lastPathComponent)")
+                    return (url, stale)
+                },
+                bookmark: { [unowned self] u in
+                    log.append("bookmark \(u.lastPathComponent)")
+                    if renewFails { throw CocoaError(.fileWriteNoPermission) }
+                    return Data(("renewed:" + u.path).utf8)
+                },
+                exists: { [unowned self] u in
+                    log.append("exists \(u.lastPathComponent)")
+                    var d: ObjCBool = false
+                    return FileManager.default.fileExists(atPath: u.path, isDirectory: &d) && d.boolValue
+                })
+        }
+    }
+
+    private func source(_ url: URL) -> SetsSources.Source {
+        SetsSources.Source(id: "s1", kind: "folder", label: url.lastPathComponent, path: url.path, bookmark: Data(url.path.utf8), added: Date(timeIntervalSince1970: 0))
+    }
+
+    func testReconnectStartsBeforeLookingAndRenewingAndStopsAfterTheCallersHold() throws {
+        let fake = Logged()
+        let shoot = try folder("Shoot")
+        var sources = SetsSources(sources: [source(shoot)], calls: fake.calls())
+        let got = try XCTUnwrap(sources.reconnect("s1", hold: { fake.log.append("hold \($0.lastPathComponent)") }))
+        XCTAssertEqual(fake.log, ["resolve Shoot", "start Shoot", "exists Shoot", "bookmark Shoot", "hold Shoot", "stop Shoot"])
+        XCTAssertEqual(fake.started, 0, "this call's start is balanced; the lasting access is the caller's hold")
+        XCTAssertTrue(got.renewed)
+        XCTAssertNil(got.renewalFailure)
+        XCTAssertEqual(sources.sources[0].bookmark, Data(("renewed:" + shoot.path).utf8))
+        XCTAssertEqual(sources.sources[0].id, "s1")
+    }
+
+    func testAFreshBookmarkIsNotMadeAgain() throws {
+        let fake = Logged()
+        fake.stale = false
+        let shoot = try folder("Shoot")
+        var sources = SetsSources(sources: [source(shoot)], calls: fake.calls())
+        let got = try XCTUnwrap(sources.reconnect("s1", hold: { fake.log.append("hold \($0.lastPathComponent)") }))
+        XCTAssertEqual(fake.log, ["resolve Shoot", "start Shoot", "exists Shoot", "hold Shoot", "stop Shoot"])
+        XCTAssertFalse(got.renewed)
+        XCTAssertEqual(sources.sources[0].bookmark, Data(shoot.path.utf8))
+    }
+
+    func testAFailedRenewalIsReportedAndTheOldBookmarkKept() throws {
+        let fake = Logged()
+        fake.renewFails = true
+        let shoot = try folder("Shoot")
+        let before = source(shoot)
+        var sources = SetsSources(sources: [before], calls: fake.calls())
+        var held: [URL] = []
+        let got = try XCTUnwrap(sources.reconnect("s1", hold: { held.append($0) }), "the folder is there: it is still reached")
+        XCTAssertFalse(got.renewed)
+        XCTAssertNotNil(got.renewalFailure)
+        XCTAssertEqual(sources.sources, [before], "the old bookmark and path are kept")
+        XCTAssertEqual(held.map(\.lastPathComponent), ["Shoot"])
+        XCTAssertEqual(fake.log, ["resolve Shoot", "start Shoot", "exists Shoot", "bookmark Shoot", "stop Shoot"])
+        XCTAssertEqual(fake.started, 0)
+        // The URL-only form reports the same reach; the next reconnect tries the renewal again.
+        fake.renewFails = false
+        XCTAssertEqual(sources.reconnect("s1")?.path, shoot.path)
+        XCTAssertEqual(sources.sources[0].bookmark, Data(("renewed:" + shoot.path).utf8))
+    }
+
+    func testAMissingFolderIsStoppedAndNeverRenewedOrHeld() throws {
+        let fake = Logged()
+        let gone = sandbox.appendingPathComponent("Gone", isDirectory: true)
+        let before = source(gone)
+        var sources = SetsSources(sources: [before], calls: fake.calls())
+        var held = 0
+        XCTAssertNil(sources.reconnect("s1", hold: { _ in held += 1 }))
+        XCTAssertEqual(fake.log, ["resolve Gone", "start Gone", "exists Gone", "stop Gone"])
+        XCTAssertEqual(held, 0)
+        XCTAssertEqual(fake.started, 0)
+        XCTAssertEqual(sources.sources, [before])
+        // An unknown id touches nothing.
+        fake.log = []
+        XCTAssertNil(sources.reconnect("nope", hold: { _ in held += 1 }))
+        XCTAssertEqual(fake.log, [])
+    }
+
     func testRealBookmarkFollowsRenamedFolder() throws {
         let original = try folder("Real")
         var sources = SetsSources(calls: .system)
