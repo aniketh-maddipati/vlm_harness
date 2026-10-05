@@ -128,6 +128,7 @@ nonisolated extension Look {
         case "whitesBlacks": return whites != 0 || blacks != 0
         case "tone": return highlights != 0 || shadows != 0
         case "contrast": return contrast != 0
+        case "curve": return !curve.isNeutral
         case "colour": return vibrance != 0 || saturation != 0 || bw
         case "clarity": return clarity != 0
         case "sharpen": return sharpen != 0
@@ -165,6 +166,7 @@ nonisolated extension Look {
         case "whitesBlacks": l.whites = on ? 10 : 0; l.blacks = 0
         case "tone": l.shadows = on ? 10 : 0; l.highlights = 0
         case "contrast": l.contrast = on ? 10 : 0
+        case "curve": l.curve = ToneCurve(); if on { l.curve.mid = 10 }          // one program for every curve: the table is data
         case "colour": l.vibrance = on ? 10 : 0; l.saturation = 0; l.bw = false
         case "clarity": l.clarity = on ? 10 : 0
         case "sharpen": l.sharpen = on ? 30 : 0

@@ -226,6 +226,21 @@ nonisolated final class LookKernels: @unchecked Sendable {
         }
         return float4(s.rgb * exp2(e), s.a);
     }
+
+    // curve: the tone curve as a lookup per channel (LookMath.curve). lut = nodes × 1 px, its r, g, b the three
+    // tables at p = i / (nodes − 1); read at texel centres and mixed here, so the sampler's own filter does
+    // not matter. k = (invGamma, gamma, nodes − 1, 0). Above white the curve goes on at slope 1.
+    [[ stitchable ]] float4 lookCurve(coreimage::sampler src, coreimage::sampler lut, float4 k) {
+        float4 s = src.sample(src.coord());
+        float3 p = pow(max(float3(0.0f), s.rgb), float3(k.x));
+        float3 x = clamp(p, 0.0f, 1.0f) * k.z;
+        float3 i = min(floor(x), float3(k.z - 1.0f));
+        float3 f = x - i;
+        float3 lo = float3(lut.sample(lut.transform(float2(i.r + 0.5f, 0.5f))).r, lut.sample(lut.transform(float2(i.g + 0.5f, 0.5f))).g, lut.sample(lut.transform(float2(i.b + 0.5f, 0.5f))).b);
+        float3 hi = float3(lut.sample(lut.transform(float2(i.r + 1.5f, 0.5f))).r, lut.sample(lut.transform(float2(i.g + 1.5f, 0.5f))).g, lut.sample(lut.transform(float2(i.b + 1.5f, 0.5f))).b);
+        float3 q = mix(lo, hi, f) + max(float3(0.0f), p - 1.0f);
+        return float4(pow(max(float3(0.0f), q), float3(k.y)), s.a);
+    }
     """
 
     struct CompileError: Error, CustomStringConvertible { let description: String }
@@ -233,7 +248,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     /// The stage kernels, compiled when the pipeline is made. `lookDisplay` (the sigmoid mapper) is
     /// not one of them: it compiles on first use, so with the default mapper nothing new is built.
     static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette",
-                             "lookVignetteShape"]
+                             "lookVignetteShape", "lookCurve"]
 
     private let header: String
     /// The helpers a `moreSource` kernel compiles with: `header` plus that source's own.
@@ -320,5 +335,12 @@ nonisolated final class LookKernels: @unchecked Sendable {
     /// Runs a colour kernel over `extent`. Inputs map 1:1, so the region of interest is the output rect.
     func apply(_ name: String, extent: CGRect, _ args: [Any]) -> CIImage? {
         (try? kernel(name))?.apply(extent: extent, roiCallback: { _, r in r }, arguments: args)
+    }
+
+    /// Runs a kernel whose second image is a lookup table (`lookCurve`): the picture maps 1:1,
+    /// the table is needed whole for every output rect.
+    func apply(_ name: String, extent: CGRect, table: CIImage, _ args: [Any]) -> CIImage? {
+        let whole = table.extent
+        return (try? kernel(name))?.apply(extent: extent, roiCallback: { index, r in index == 1 ? whole : r }, arguments: args)
     }
 }

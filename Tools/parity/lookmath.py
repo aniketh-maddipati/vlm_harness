@@ -15,7 +15,7 @@ import sys
 
 import numpy as np
 
-STAGES = ["exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "colour", "clarity", "sharpen", "vignette"]
+STAGES = ["exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "clarity", "sharpen", "vignette"]
 LR_SLIDERS = ["Exposure", "Temperature", "Tint", "Contrast", "Highlights", "Shadows", "Whites", "Blacks",
               "Vibrance", "Saturation", "Clarity", "Sharpness"]
 # which stage a Lightroom slider exercises
@@ -60,6 +60,9 @@ def linear(p, rules):
 
 VIGNETTE_SHAPE = (50.0, 0.0, 50.0, 0.0)      # vigs: midpoint, roundness, feather, highlights at reset
 VIGNETTE_SHAPE_RANGES = ((0.0, 100.0), (-100.0, 100.0), (0.0, 100.0), (0.0, 100.0))
+CURVE_KEYS = ("crv", "crvr", "crvg", "crvb")   # the point curves: all channels, red, green, blue
+CURVE_MAX_POINTS = 64
+CURVE_NODES = 256
 
 
 def _numbers(key, raw, ranges):
@@ -80,7 +83,8 @@ def _signed(v, d=0):
 def parse_look(s):
     """The look string → dict (the twelve sliders + bw). Mirrors Look.parse, without clamping."""
     look = {"ev": 0.0, "wb": None, "con": 0.0, "hl": 0.0, "sh": 0.0, "wh": 0.0, "bl": 0.0, "vib": 0.0, "sat": 0.0,
-            "clr": 0.0, "shp": 0.0, "vig": 0.0, "vigs": VIGNETTE_SHAPE, "bw": False, "crop": None, "nr": None, "rot": 0}
+            "clr": 0.0, "shp": 0.0, "vig": 0.0, "vigs": VIGNETTE_SHAPE, "tc": (0.0, 0.0, 0.0),
+            "crv": None, "crvr": None, "crvg": None, "crvb": None, "bw": False, "crop": None, "nr": None, "rot": 0}
     s = (s or "").strip()
     if s in ("", "none"):
         return look
@@ -91,6 +95,20 @@ def parse_look(s):
             look["wb"] = (float(kv), float(tint))
         elif key == "vigs":
             look["vigs"] = _numbers(key, raw, VIGNETTE_SHAPE_RANGES)
+        elif key == "tc":
+            look["tc"] = _numbers(key, raw, ((-50.0, 50.0),) * 3)
+        elif key in CURVE_KEYS:
+            # x,y/x,y/…: 2 to 64 points in 0…1 (four decimals), x strictly increasing; the diagonal is no curve
+            pts = []
+            for part in raw.split("/"):
+                xy = part.split(",")
+                if len(xy) != 2:
+                    raise ValueError(f"{key} wants x,y/x,y/…, got {raw!r}")
+                pts.append(tuple(round(min(1.0, max(0.0, float(v))), 4) for v in xy))
+            if not 2 <= len(pts) <= CURVE_MAX_POINTS or any(a[0] >= b[0] for a, b in zip(pts, pts[1:])):
+                raise ValueError(f"{key} wants 2 to {CURVE_MAX_POINTS} points with x increasing, got {raw!r}")
+            identity = pts[0][0] == 0 and pts[-1][0] == 1 and all(x == y for x, y in pts)
+            look[key] = None if identity else tuple(pts)
         elif key == "bw":
             look["bw"] = raw in ("1", "true")
         elif key == "nr":
@@ -147,6 +165,13 @@ def format_look(look):
     shape = tuple(look.get("vigs") or VIGNETTE_SHAPE)
     if shape != VIGNETTE_SHAPE:
         out.append(f"vigs:{int(round(shape[0]))},{signed(shape[1], 0)},{int(round(shape[2]))},{int(round(shape[3]))}")
+    tc = tuple(look.get("tc") or (0.0, 0.0, 0.0))
+    if any(tc):
+        out.append("tc:" + ",".join(signed(v, 0) for v in tc))
+    for key in CURVE_KEYS:
+        if look.get(key):
+            unit = lambda v: (f"{v:.4f}".rstrip("0").rstrip("."))
+            out.append(f"{key}:" + "/".join(f"{unit(x)},{unit(y)}" for x, y in look[key]))
     if look.get("nr") is not None:
         out.append(f"nr:{int(round(look['nr']))}")
     if look.get("bw"):
@@ -278,6 +303,83 @@ def contrast(rgb, amount, rules):
     ratio = np.where(y > 1e-9, linear(contrast_curve(perceptual(y, rules), amount, rules), rules) / np.maximum(y, 1e-9), 1.0)
     by_luma = rgb * ratio[..., None]
     return per + (by_luma - per) * mix
+
+
+def curve_runs(look):
+    return any(look.get("tc") or ()) or any(look.get(key) for key in CURVE_KEYS)
+
+
+def curve_spline(points):
+    """LookMath.CurveSpline: the monotone cubic (Fritsch–Carlson, the page's cSpline) through the
+    points after their y are kept in 0…1 and made non-decreasing; flat beyond the first and last
+    point. Returns a function of an array."""
+    xs = np.array([p[0] for p in points], dtype=np.float64)
+    ys = np.maximum.accumulate(np.clip(np.array([p[1] for p in points], dtype=np.float64), 0.0, 1.0))
+    n = len(xs)
+    if n < 2:
+        return lambda x: np.asarray(x, dtype=np.float64)
+    d = (ys[1:] - ys[:-1]) / np.maximum(1e-6, xs[1:] - xs[:-1])
+    m = np.zeros(n)
+    m[0], m[-1] = d[0], d[-1]
+    for i in range(1, n - 1):
+        m[i] = 0.0 if d[i - 1] * d[i] <= 0 else (d[i - 1] + d[i]) / 2
+    for i in range(n - 1):
+        if d[i] == 0:
+            m[i] = m[i + 1] = 0.0
+            continue
+        a, b = m[i] / d[i], m[i + 1] / d[i]
+        s = a * a + b * b
+        if s > 9:
+            t = 3 / np.sqrt(s)
+            m[i], m[i + 1] = t * a * d[i], t * b * d[i]
+
+    def f(x):
+        x = np.asarray(x, dtype=np.float64)
+        i = np.clip(np.searchsorted(xs, x, side="left") - 1, 0, n - 2)
+        h = xs[i + 1] - xs[i]
+        t = (x - xs[i]) / h
+        t2, t3 = t * t, t * t * t
+        y = (2 * t3 - 3 * t2 + 1) * ys[i] + (t3 - 2 * t2 + t) * h * m[i] + (-2 * t3 + 3 * t2) * ys[i + 1] + (t3 - t2) * h * m[i + 1]
+        return np.where(x <= xs[0], ys[0], np.where(x >= xs[-1], ys[-1], np.clip(y, 0.0, 1.0)))
+    return f
+
+
+def curve_region_points(dark, mid, light, rules):
+    """The region sliders (tc) as points (LookMath.curveRegionPoints)."""
+    per = k(rules, "curve", "regionPerUnit", 0.005)
+    dark_at = min(0.45, max(0.05, k(rules, "curve", "darkAt", 0.25)))
+    light_at = min(0.95, max(0.55, k(rules, "curve", "lightAt", 0.75)))
+    mid_at = min(light_at - 0.05, max(dark_at + 0.05, k(rules, "curve", "midAt", 0.5)))
+    return [(0.0, 0.0), (dark_at, dark_at + dark * per), (mid_at, mid_at + mid * per), (light_at, light_at + light * per), (1.0, 1.0)]
+
+
+def curve_tables(look, rules):
+    """LookMath.curveTables: (3, CURVE_NODES), each channel's transfer F_c(M(p)) at p = i / (nodes − 1).
+    M is the all-channels point curve when set, else the region sliders; never falling."""
+    x = np.linspace(0.0, 1.0, CURVE_NODES)
+    tc = tuple(look.get("tc") or (0.0, 0.0, 0.0))
+    if look.get("crv"):
+        m = curve_spline(look["crv"])(x)
+    elif any(tc):
+        m = curve_spline(curve_region_points(*tc, rules))(x)
+    else:
+        m = x
+    return np.stack([np.maximum.accumulate(np.clip(curve_spline(look[key])(m) if look.get(key) else m, 0.0, 1.0)) for key in ("crvr", "crvg", "crvb")])
+
+
+def curve_lookup(table, p):
+    """Linear between nodes; above white the curve goes on at slope 1 (LookMath.curveLookup)."""
+    p = np.asarray(p, dtype=np.float64)
+    x = np.clip(p, 0.0, 1.0) * (len(table) - 1)
+    i = np.minimum(np.floor(x), len(table) - 2).astype(int)
+    return table[i] + (table[i + 1] - table[i]) * (x - i) + np.maximum(0.0, p - 1.0)
+
+
+def curve(rgb, look, rules):
+    """The stage on colours (..., 3): each channel's perceptual value through its table."""
+    t = curve_tables(look, rules)
+    p = perceptual(np.asarray(rgb, dtype=np.float64), rules)
+    return linear(np.stack([curve_lookup(t[c], p[..., c]) for c in range(3)], axis=-1), rules)
 
 
 def cbrt_signed(x):
@@ -473,6 +575,9 @@ def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None, aspect=1.5):
                 c = through_curve(c * tone_detail(y, y, rules)[..., None], g[..., None], tone_white(rules))
         elif stage == "contrast":
             c = contrast(c, look["con"], rules)
+        elif stage == "curve":
+            if curve_runs(look):
+                c = curve(c, look, rules)
         elif stage == "colour":
             c = colour(c, look["vib"], look["sat"], look["bw"], rules)
         elif stage == "vignette":
@@ -493,7 +598,7 @@ def apply_image(img, look, as_shot, rules, sigma_scale=None):
     anchor = tone_anchor(c, rules)            # of the developed frame, before any stage
     order = [s for s in rules.get("order", ["rawDevelop"] + STAGES + ["outputTransform"]) if s in STAGES]
     for stage in order:
-        if stage in ("exposure", "whiteBalance", "whitesBlacks", "contrast", "colour"):
+        if stage in ("exposure", "whiteBalance", "whitesBlacks", "contrast", "curve", "colour", "mixer"):
             one = {**look, "hl": 0, "sh": 0, "vig": 0, "clr": 0, "shp": 0}
             sub = {"stages": rules["stages"], "order": ["rawDevelop", stage, "outputTransform"],
                    "perceptualGamma": gamma(rules), "luma": list(luma_weights(rules))}

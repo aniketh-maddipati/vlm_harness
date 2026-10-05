@@ -261,6 +261,116 @@ nonisolated enum LookMath {
         return RGB(r: per.r + (byLuma.r - per.r) * mix, g: per.g + (byLuma.g - per.g) * mix, b: per.b + (byLuma.b - per.b) * mix)
     }
 
+    // MARK: curve (the tone curve)
+
+    /// The tone curve (`Look.ToneCurve`), display-referred: each channel's perceptual value
+    /// through T_c = F_c ∘ M, with M the all-channels curve (the point curve `rgb` when set, else
+    /// the three region sliders as a curve through five points) and F_c the channel's own point
+    /// curve. The page draws the same thing: one spline, composite then channel, as a table.
+    ///
+    /// A curve through points is the monotone cubic of Fritsch and Carlson (the page's
+    /// `cSpline`): Hermite pieces whose tangents are the mean of the neighbouring slopes, zero
+    /// at a turn, and scaled back where they would overshoot. Flat before the first point and
+    /// after the last. That interpolant never falls *if its points never fall*, and the page
+    /// lets a point be dragged below its left neighbour, so the points are repaired first: each
+    /// y is raised to the highest y to its left (y_i = max(y_i, y_(i−1))). The dip becomes a
+    /// flat span; a rising curve is untouched. Then F_c ∘ M of two non-falling curves is
+    /// non-falling, the table built from it is made non-falling once more against rounding, and
+    /// linear interpolation between nodes keeps it. So no look string can produce a transfer
+    /// that falls: a grey ramp stays monotonic through this stage whatever the points are.
+    ///
+    /// A grey stays grey through M (the three channels take the same table); the channel
+    /// curves are colour controls and tint it by design, as white balance does.
+    static let curveNodes = 256
+
+    /// The points as the spline uses them: y into 0 … 1 and never falling.
+    static func curveRepaired(_ points: [Look.ToneCurve.Point]) -> [Look.ToneCurve.Point] {
+        var top = 0.0
+        return points.map { p in
+            top = max(top, min(1, max(0, p.y)))
+            return Look.ToneCurve.Point(p.x, top)
+        }
+    }
+
+    /// The monotone cubic through `points` (x strictly increasing), after `curveRepaired`.
+    /// Fewer than two points is the identity.
+    struct CurveSpline: Sendable {
+        let xs: [Double], ys: [Double], ms: [Double]
+
+        init(_ points: [Look.ToneCurve.Point]) {
+            let p = LookMath.curveRepaired(points), n = p.count
+            xs = p.map(\.x); ys = p.map(\.y)
+            guard n >= 2 else { ms = []; return }
+            var d = [Double](repeating: 0, count: n - 1), m = [Double](repeating: 0, count: n)
+            for i in 0..<(n - 1) { d[i] = (ys[i + 1] - ys[i]) / max(1e-6, xs[i + 1] - xs[i]) }
+            m[0] = d[0]; m[n - 1] = d[n - 2]
+            if n > 2 { for i in 1..<(n - 1) { m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2 } }
+            for i in 0..<(n - 1) {
+                if d[i] == 0 { m[i] = 0; m[i + 1] = 0; continue }
+                let a = m[i] / d[i], b = m[i + 1] / d[i], s = a * a + b * b
+                if s > 9 { let t = 3 / s.squareRoot(); m[i] = t * a * d[i]; m[i + 1] = t * b * d[i] }
+            }
+            ms = m
+        }
+
+        func callAsFunction(_ x: Double) -> Double {
+            let n = xs.count
+            guard n >= 2 else { return x }
+            if x <= xs[0] { return ys[0] }
+            if x >= xs[n - 1] { return ys[n - 1] }
+            var i = 0
+            while i < n - 2 && x > xs[i + 1] { i += 1 }
+            let h = xs[i + 1] - xs[i], t = (x - xs[i]) / h, t2 = t * t, t3 = t2 * t
+            return min(1, max(0, (2 * t3 - 3 * t2 + 1) * ys[i] + (t3 - 2 * t2 + t) * h * ms[i] + (-2 * t3 + 3 * t2) * ys[i + 1] + (t3 - t2) * h * ms[i + 1]))
+        }
+    }
+
+    /// The region sliders as points: the curve moved by `regionPerUnit` per unit at `darkAt`,
+    /// `midAt` and `lightAt` (the page: ±50 is a quarter of the range at 0.25, 0.5, 0.75).
+    static func curveRegionPoints(dark: Double, mid: Double, light: Double, _ rules: LookRules) -> [Look.ToneCurve.Point] {
+        let per = rules.k("curve", "regionPerUnit", 0.005)
+        let darkAt = min(0.45, max(0.05, rules.k("curve", "darkAt", 0.25))), lightAt = min(0.95, max(0.55, rules.k("curve", "lightAt", 0.75)))
+        let midAt = min(lightAt - 0.05, max(darkAt + 0.05, rules.k("curve", "midAt", 0.5)))
+        return [Look.ToneCurve.Point(0, 0), Look.ToneCurve.Point(darkAt, darkAt + dark * per), Look.ToneCurve.Point(midAt, midAt + mid * per),
+                Look.ToneCurve.Point(lightAt, lightAt + light * per), Look.ToneCurve.Point(1, 1)]
+    }
+
+    /// The three channels' transfers as tables of `curveNodes` values at p = i / (nodes − 1).
+    struct CurveTables: Equatable, Sendable {
+        var r: [Double], g: [Double], b: [Double]
+    }
+
+    static func curveTables(_ curve: Look.ToneCurve, _ rules: LookRules) -> CurveTables {
+        let all: CurveSpline?
+        if let pts = curve.rgb { all = CurveSpline(pts) }
+        else if curve.dark != 0 || curve.mid != 0 || curve.light != 0 { all = CurveSpline(curveRegionPoints(dark: curve.dark, mid: curve.mid, light: curve.light, rules)) }
+        else { all = nil }
+        func table(_ channel: [Look.ToneCurve.Point]?) -> [Double] {
+            let own = channel.map { CurveSpline($0) }
+            var top = 0.0
+            return (0..<curveNodes).map { i in
+                let x = Double(i) / Double(curveNodes - 1), m = all.map { $0(x) } ?? x
+                top = max(top, min(1, max(0, own.map { $0(m) } ?? m)))
+                return top
+            }
+        }
+        return CurveTables(r: table(curve.red), g: table(curve.green), b: table(curve.blue))
+    }
+
+    /// One perceptual value through a table: linear between nodes; above white the curve goes on
+    /// at slope 1 from its last value (the working space keeps what is above 1, clipped later).
+    static func curveLookup(_ table: [Double], _ p: Double) -> Double {
+        let n = table.count
+        guard n >= 2 else { return p }
+        let x = min(1, max(0, p)) * Double(n - 1), i = min(Double(n - 2), x.rounded(.down)), f = x - i
+        return table[Int(i)] + (table[Int(i) + 1] - table[Int(i)]) * f + max(0, p - 1)
+    }
+
+    static func curve(_ c: RGB, tables t: CurveTables, _ rules: LookRules) -> RGB {
+        RGB(r: linear(curveLookup(t.r, perceptual(c.r, rules)), rules), g: linear(curveLookup(t.g, perceptual(c.g, rules)), rules),
+            b: linear(curveLookup(t.b, perceptual(c.b, rules)), rules))
+    }
+
     // MARK: colour (Oklab chroma)
 
     /// Sign-preserving cube root, as the Metal kernel writes it (Metal has no cbrt).
@@ -538,6 +648,9 @@ nonisolated enum LookMath {
                 c = RGB(r: exposure(c.r * d, gain: g, white: w), g: exposure(c.g * d, gain: g, white: w), b: exposure(c.b * d, gain: g, white: w))
             case "contrast":
                 c = contrast(c, contrast: look.contrast, rules)
+            case "curve":
+                guard !look.curve.isNeutral else { continue }
+                c = curve(c, tables: curveTables(look.curve, rules), rules)
             case "colour":
                 c = colour(c, vibrance: look.vibrance, saturation: look.saturation, bw: look.bw, rules)
             case "clarity", "sharpen":

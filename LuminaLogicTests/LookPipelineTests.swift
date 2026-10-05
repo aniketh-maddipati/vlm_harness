@@ -162,7 +162,10 @@ final class LookPipelineTests: XCTestCase {
         for (slider, value) in sweep { looks.append(Look.single(slider, value, asShot: asShot)!) }
         for s in ["ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0",
                   "ev:-1.20 con:-30 hl:+50 sh:-40 wh:+30 bl:+20 vib:-40 sat:+25",
-                  "ev:+0.30 wb:3200/-20 con:+40 bw:1", "sat:-100", "wh:-60 bl:-60 con:+80"] {
+                  "ev:+0.30 wb:3200/-20 con:+40 bw:1", "sat:-100", "wh:-60 bl:-60 con:+80",
+                  // the tone curve: region sliders, point curves, per channel, and inside a whole look
+                  "tc:+20,-10,+15", "tc:-50,+50,-50", "crv:0,0/0.25,0.2/0.6,0.7125/1,1", "crv:0,0.1/1,0.9", "crv:0,0/0.3,0.8/0.6,0.2/1,1",
+                  "crv:0,0.05/0.3,0.4/0.7,0.6/1,0.95 crvr:0,0/0.5,0.6/1,1 crvb:0,0.1/1,0.9", "ev:+0.30 con:+20 hl:-30 tc:+20,-10,+15 crvg:0,0/0.5,0.45/1,1 sat:+10 vib:+20"] {
             looks.append(try! Look.parse(s))
         }
         var worst = 0.0
@@ -193,6 +196,50 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertTrue(pipe.pixel(d, x: 2, y: 2).isNeutral(tolerance: 4e-3))
         let expected = 0.5 * LookMath.vignetteGain(r: hypot(125.5, 125.5) / hypot(128, 128), vignette: -100, rules)
         XCTAssertEqual(pipe.pixel(d, x: 2, y: 2).g, expected, accuracy: 0.01)
+    }
+
+    /// The tone curve through the real graph: its table kernel equals `LookMath.curve` across
+    /// the whole range, a grey ramp stays monotonic whatever the points are, and a grey stays
+    /// grey under the all-channels curve and the region sliders.
+    func testToneCurveOnARampIsMonotonicGreyAndEqualsLookMath() throws {
+        let width = 512
+        let dev = pipe.ramp(steps: width, columnWidth: 1, height: 8, lo: 0, hi: 1.2)
+        let all = ["tc:+50,+50,+50", "tc:-50,-50,-50", "tc:+50,-50,+50", "tc:+10,0,-8", "crv:0,0/0.25,0.2/0.6,0.7125/1,1", "crv:0,0.2/1,0.8", "crv:0,1/1,0",
+                   "crv:0,0/0.3,0.8/0.6,0.2/1,1", "crv:0.3,0/0.7,1", "crv:0,0/0.02,1/0.04,0/0.06,1/1,1", "tc:+20,0,0 crv:0,0/0.5,0.3/1,1"]
+        let channels = ["crvr:0,0.05/1,1", "crvg:0,0/0.5,0.2/1,0.6 crvb:0,1/1,0", "crv:0,0/0.5,0.6/1,1 crvr:0,0/0.3,0.9/0.6,0.1/1,1 crvb:0,0.3/1,0.7"]
+        var worst = 0.0
+        for text in all + channels {
+            let look = try Look.parse(text)
+            XCTAssertEqual(rules.lookStages.filter(look.runs), ["curve"])
+            let row = pipe.row(pipe.apply(look, to: dev), y: 4, width: width)
+            var last = -1.0
+            for x in 0..<width {
+                let v = 1.2 * Double(x) / Double(width - 1), y = luma(row[x])
+                XCTAssertTrue(y.isFinite && y >= -1e-4, "\(text) x=\(x): \(y)")
+                XCTAssertGreaterThanOrEqual(y, last - 2e-3, "\(text) not monotonic at x=\(x): \(y) after \(last)")
+                last = max(last, y)
+                if !channels.contains(text) { XCTAssertTrue(row[x].isNeutral(tolerance: 4e-3), "\(text) x=\(x) tinted a grey: \(row[x])") }
+                // A curve as steep as a step moves by more than any tolerance within one node: compare where it is not.
+                let want = LookMath.flat(.gray(v), look: look, asShot: asShot, rules: rules)
+                let near = LookMath.flat(.gray(1.2 * (Double(x) + 0.6) / Double(width - 1)), look: look, asShot: asShot, rules: rules)
+                let before = LookMath.flat(.gray(max(0, 1.2 * (Double(x) - 0.6) / Double(width - 1))), look: look, asShot: asShot, rules: rules)
+                for (g, w, a, b) in [(row[x].r, want.r, before.r, near.r), (row[x].g, want.g, before.g, near.g), (row[x].b, want.b, before.b, near.b)] {
+                    let tol = max(0.006, 0.02 * abs(w)) + abs(b - a)
+                    worst = max(worst, abs(g - w) / tol)
+                    XCTAssertEqual(g, w, accuracy: tol, "\(text) x=\(x) (grey \(v)): graph \(row[x]) vs maths \(want)")
+                }
+            }
+        }
+        print("LookPipelineTests: tone curve graph vs LookMath worst error = \(String(format: "%.2f", worst)) × tolerance")
+        // The table image: one row of `curveNodes` values, the same image while the curve is the same.
+        let curve = try Look.parse("tc:+20,-10,+15").curve
+        let lut = pipe.curveTable(curve)
+        XCTAssertEqual(lut.extent, CGRect(x: 0, y: 0, width: LookMath.curveNodes, height: 1))
+        XCTAssertTrue(pipe.curveTable(curve) === lut); XCTAssertFalse(pipe.curveTable(try Look.parse("tc:+21,-10,+15").curve) === lut)
+        // A large frame (the kernel reads its table whole for every tile of the output).
+        let big = LookPipeline.Developed(image: pipe.flat(.gray(0.18), size: 64).image.clampedToExtent().cropped(to: CGRect(x: 0, y: 0, width: 3000, height: 2000)), asShot: asShot, anchor: .reference)
+        let out = pipe.apply(try Look.parse("crv:0,0/0.5,0.6/1,1"), to: big), want = LookMath.flat(.gray(0.18), look: try Look.parse("crv:0,0/0.5,0.6/1,1"), asShot: asShot, rules: rules)
+        for (x, y) in [(0, 0), (2999, 1999), (1500, 1000), (2990, 5)] { XCTAssertEqual(pipe.pixel(out, x: x, y: y).g, want.g, accuracy: 0.004, "at \(x),\(y)") }
     }
 
     /// Float pixels of a whole (small) image, for exact comparisons.

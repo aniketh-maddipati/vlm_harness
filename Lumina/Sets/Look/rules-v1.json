@@ -4,7 +4,7 @@
   "workingSpace": "extendedLinearSRGB",
   "perceptualGamma": 2.2,
   "luma": [0.2126, 0.7152, 0.0722],
-  "order": ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "colour", "clarity", "sharpen", "vignette", "outputTransform"],
+  "order": ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "clarity", "sharpen", "vignette", "outputTransform"],
   "stages": {
     "rawDevelop": {
       "locked": false,
@@ -35,6 +35,11 @@
       "locked": false,
       "form": "two-sided power curve in perceptual space around midpoint with slope a = 2^(contrast*slopePerUnit): below m: m*(p/m)^a, above: 1-(1-m)*((1-p)/(1-m))^a; applied per channel and on luma, mixed by lumaMix",
       "coefficients": { "midpoint": 0.4548, "slopePerUnit": 0.007384, "lumaMix": 0 }
+    },
+    "curve": {
+      "locked": false,
+      "form": "the tone curve, display-referred, per channel in perceptual p = x^(1/gamma): T_c = F_c(M(p)) for p in 0..1, T_c(1) + (p - 1) above. M is the look's all-channels point curve (crv) when set, else the region sliders (tc:dark,mid,light) as the curve through (0,0), (darkAt, darkAt + dark*regionPerUnit), (midAt, midAt + mid*regionPerUnit), (lightAt, lightAt + light*regionPerUnit), (1,1); F_c is the channel's point curve (crvr, crvg, crvb). Every curve is the monotone cubic through its points (Fritsch-Carlson tangents, the page's cSpline; flat beyond its first and last point) after the points' y are made non-decreasing (y_i = max(y_i, y_(i-1))), so no input can make the transfer fall. Rendered as a 256-node lookup per channel, linear between nodes (LookMath.curveTables). Unfitted",
+      "coefficients": { "regionPerUnit": 0.005, "darkAt": 0.25, "midAt": 0.5, "lightAt": 0.75 }
     },
     "colour": {
       "locked": false,

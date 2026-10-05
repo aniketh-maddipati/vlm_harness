@@ -91,6 +91,37 @@ final class LookStringTests: XCTestCase {
         XCTAssertThrowsError(try Look.parse("vigs:50,round,50,0")); XCTAssertThrowsError(try Look.parse("vigs:"))
     }
 
+    /// The tone curve: `tc:dark,mid,light` and the point curves `crv`, `crvr`, `crvg`, `crvb`.
+    func testToneCurve() throws {
+        typealias P = Look.ToneCurve.Point
+        XCTAssertTrue(Look().curve.isNeutral)
+        let l = try Look.parse("tc:+10,0,-8 crv:0,0/0.25,0.2/0.6,0.7125/1,1 crvr:0,0.05/1,1 crvb:0,0/0.5,0.4/1,0.9")
+        XCTAssertEqual(l.curve.dark, 10); XCTAssertEqual(l.curve.mid, 0); XCTAssertEqual(l.curve.light, -8)
+        XCTAssertEqual(l.curve.rgb, [P(0, 0), P(0.25, 0.2), P(0.6, 0.7125), P(1, 1)])
+        XCTAssertEqual(l.curve.red, [P(0, 0.05), P(1, 1)]); XCTAssertNil(l.curve.green); XCTAssertEqual(l.curve.blue?.count, 3)
+        XCTAssertFalse(l.isNeutral)
+        XCTAssertTrue(l.format().hasSuffix("vig:0 tc:+10,0,-8 crv:0,0/0.25,0.2/0.6,0.7125/1,1 crvr:0,0.05/1,1 crvb:0,0/0.5,0.4/1,0.9"), l.format())
+        XCTAssertEqual(try Look.parse(l.format()), l)
+        // Reset values are not written: the region sliders at 0, a curve that is the diagonal.
+        XCTAssertEqual(try Look.parse("tc:0,0,0 crv:0,0/1,1 crvg:0,0/0.5,0.5/1,1"), Look())
+        XCTAssertEqual(try Look.parse("tc:0,0,0 crv:0,0/1,1").format(), Look().format())
+        XCTAssertFalse(try Look.parse("tc:0,+5,0").isNeutral)
+        // Numbers clamp (regions to ±50, points into 0…1 at four decimals); the list's shape is checked.
+        XCTAssertEqual(try Look.parse("tc:-80,+51,+3").curve.dark, -50); XCTAssertEqual(try Look.parse("tc:-80,+51,+3").curve.mid, 50)
+        XCTAssertEqual(try Look.parse("crv:-0.2,-1/0.33333333,0.5/1.5,2").curve.rgb, [P(0, 0), P(0.3333, 0.5), P(1, 1)])
+        XCTAssertEqual(try Look.parse("crv:0,0/0.33333333,0.5/1,1").format(), try Look.parse("crv:0,0/0.3333,0.5/1,1").format())
+        XCTAssertThrowsError(try Look.parse("tc:1,2")); XCTAssertThrowsError(try Look.parse("tc:a,b,c"))
+        XCTAssertThrowsError(try Look.parse("crv:0,0"), "one point is not a curve")
+        XCTAssertThrowsError(try Look.parse("crv:0,0/0.5/1,1")); XCTAssertThrowsError(try Look.parse("crv:0,0/0.5,x/1,1"))
+        XCTAssertThrowsError(try Look.parse("crv:0,0/0.6,0.5/0.4,0.7/1,1"), "x must increase")
+        XCTAssertThrowsError(try Look.parse("crv:0,0/0.5,0.5/0.5,0.7/1,1"), "x must increase strictly")
+        XCTAssertThrowsError(try Look.parse("crvr:" + (0...Look.ToneCurve.maxPoints).map { "\(Double($0) / 100),0.5" }.joined(separator: "/")), "too many points")
+        XCTAssertThrowsError(try Look.parse("crvx:0,0/1,1"), "unknown key")
+        // A falling curve is kept as written (it is the page's state); the stage repairs it when it renders.
+        XCTAssertEqual(try Look.parse("crv:0,0/0.3,0.8/0.6,0.2/1,1").curve.rgb?[2], P(0.6, 0.2))
+        XCTAssertEqual(Look.keys.filter { $0.hasPrefix("crv") || $0 == "tc" }, ["tc", "crv", "crvr", "crvg", "crvb"])
+    }
+
     func testSingleSliderLooksForTheSweep() {
         let asShot = Look.WhiteBalance(kelvin: 5100, tint: 4)
         XCTAssertEqual(Look.single("Exposure", 1.5, asShot: asShot)?.ev, 1.5)
