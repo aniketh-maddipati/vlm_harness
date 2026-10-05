@@ -243,6 +243,56 @@ class LookMathMirrorTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 lm.parse_look(bad)
 
+    def test_colour_mixer(self):
+        """The colour mixer (LookMathTests' mixer tests): band weights sum to 1, a grey is untouched."""
+        r = self.rules
+        cen = lm.mixer_centres(r)
+        self.assertTrue(np.all(np.diff(cen) > 0) and len(cen) == len(lm.MIXER_COLOURS))
+        h = np.arange(0, 360, 0.1)
+        i, j, w = lm.mixer_band(h, cen)
+        self.assertTrue(np.all((w >= 0) & (w <= 1)) and np.all(j == (i + 1) % 8))
+        own = lm.mixer_band(cen, cen)
+        np.testing.assert_array_equal(own[0], np.arange(8)); np.testing.assert_allclose(own[2], 0.0, atol=1e-12)
+        self.assertTrue(np.max(np.abs(np.diff(np.where(i == 0, 1 - w, np.where(j == 0, w, 0.0))))) < 0.02, "red's weight is smooth across 0 degrees")
+        rng = np.random.default_rng(11)
+        greys = np.concatenate([self.ramp, np.array([[1e-6] * 3, [2.5] * 3, [40.0] * 3])])
+        for _ in range(40):
+            look = lm.parse_look("")
+            for key in lm.MIXER_KEYS:
+                look[key] = tuple(float(v) for v in rng.integers(-100, 101, 8))
+            np.testing.assert_array_equal(lm.flat(greys, look, AS_SHOT, r), greys)
+            out = lm.flat(np.array([[1.0, 0, 0], [0, 0, 1.0], [0.004, 0.002, 0.006], [1.3, 0.9, 0.2], [0, 0, 0]]), look, AS_SHOT, r)
+            self.assertTrue(np.all(np.isfinite(out)) and np.all(out >= 0))
+        # one band at its own centre: the hue turns, the chroma scales, the lightness moves; the opposite band stays
+        k_ = lambda n: r["stages"]["mixer"]["coefficients"][n]
+        col = lambda hue: lm.from_oklab(np.array([0.7, 0.08 * np.cos(np.radians(hue)), 0.08 * np.sin(np.radians(hue))]))
+        for b in range(8):
+            c, other = col(cen[b]), col(cen[(b + 4) % 8])
+            one = lambda key, v: {**lm.parse_look(""), key: tuple(v if n == b else 0.0 for n in range(8))}
+            h0, c0 = self.hue(c)
+            h1, c1 = self.hue(lm.mixer(c, one("mixh", 50.0), r))
+            self.assertAlmostEqual(self.hue_shift(h1, h0 + 50 * k_("hueDegreesPerUnit")), 0.0, delta=0.05)
+            self.assertAlmostEqual(c1, c0, places=5)
+            self.assertAlmostEqual(self.hue(lm.mixer(c, one("mixs", 40.0), r))[1], c0 * (1 + 40 * k_("saturationPerUnit")), places=5)
+            up = lm.to_oklab(lm.mixer(c, one("mixl", 60.0), r))[0]
+            self.assertAlmostEqual(up / 0.7 - 1, 60 * k_("luminancePerUnit") * c0 / (c0 + k_("luminanceChromaKnee")), places=5)
+            for key in lm.MIXER_KEYS:
+                np.testing.assert_allclose(lm.mixer(other, one(key, 100.0), r), other, atol=1e-5)
+        # the whole image, and the string
+        look = lm.parse_look("mixh:0,+10,0,0,0,-25,0,0 mixs:+40,0,0,-100,0,0,0,+5 mixl:0,0,0,0,0,-30,0,0")
+        img = np.zeros((8, 12, 3)) + np.array([0.6, 0.35, 0.25])
+        np.testing.assert_allclose(lm.apply_image(img, look, AS_SHOT, r)[3, 5], lm.flat(np.array([0.6, 0.35, 0.25]), look, AS_SHOT, r), atol=1e-12)
+        self.assertTrue(lm.format_look(look).endswith("vig:0 mixh:0,+10,0,0,0,-25,0,0 mixs:+40,0,0,-100,0,0,0,+5 mixl:0,0,0,0,0,-30,0,0"))
+        self.assertEqual(lm.parse_look(lm.format_look(look)), look)
+        self.assertEqual(lm.format_look(lm.parse_look("mixh:0,0,0,0,0,0,0,0")), lm.format_look(lm.parse_look("")))
+        self.assertEqual(lm.parse_look("mixl:-500,0,0,0,0,0,0,+101")["mixl"], (-100.0, 0, 0, 0, 0, 0, 0, 100.0))
+        with self.assertRaises(ValueError):
+            lm.parse_look("mixh:0,0,0")
+        # every added key in one string, canonical order
+        s = ("ev:+0.30 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:-30 vigs:40,-20,70,25 tc:+10,0,-8 crv:0,0/0.25,0.2/1,1 crvr:0,0.05/1,1 "
+             "mixh:0,+10,0,0,0,0,0,0 mixs:0,0,0,0,0,+20,0,0 mixl:0,0,0,0,0,-15,0,0 nr:20 crop:0.1000,0.1000,0.8000,0.8000/1.50 rot:90")
+        self.assertEqual(lm.format_look(lm.parse_look(s)), s)
+
     def test_look_string_round_trip(self):
         s = "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0"
         self.assertEqual(lm.format_look(lm.parse_look(s)), s)

@@ -347,6 +347,13 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 let k2 = CIVector(x: r.k("colour", "skinHue", 60), y: max(1e-6, r.k("colour", "skinWidth", 25)),
                                   z: look.vibrance > 0 ? r.k("colour", "skinProtect", 0.7) : 0, w: look.bw ? 1 : 0)
                 pass("lookColour", [img, k1, k2])
+            case "mixer":
+                let c = LookMath.mixerCentres(r), m = look.mixer
+                func pair(_ v: [Double], _ scale: Double) -> [CIVector] {
+                    [CIVector(x: v[0] * scale, y: v[1] * scale, z: v[2] * scale, w: v[3] * scale), CIVector(x: v[4] * scale, y: v[5] * scale, z: v[6] * scale, w: v[7] * scale)]
+                }
+                pass("lookMixer", [img] + pair(c, 1) + pair(m.hue, r.k("mixer", "hueDegreesPerUnit", 0.3)) + pair(m.saturation, r.k("mixer", "saturationPerUnit", 0.01))
+                     + pair(m.luminance, r.k("mixer", "luminancePerUnit", 0.003)) + [CIVector(x: max(1e-6, r.k("mixer", "luminanceChromaKnee", 0.05)), y: 0, z: 0, w: 0)])
             case "clarity":
                 let base = blur(luma(perceptual: true), sigma: r.k("clarity", "radiusFraction", 0.02) * longEdge)
                 let k = CIVector(x: look.clarity * r.k("clarity", "amountPerUnit", 0.01), y: r.k("clarity", "midtonePower", 2), z: 0, w: 0)

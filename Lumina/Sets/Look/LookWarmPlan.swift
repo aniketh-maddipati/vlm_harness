@@ -130,6 +130,7 @@ nonisolated extension Look {
         case "contrast": return contrast != 0
         case "curve": return !curve.isNeutral
         case "colour": return vibrance != 0 || saturation != 0 || bw
+        case "mixer": return !mixer.isNeutral
         case "clarity": return clarity != 0
         case "sharpen": return sharpen != 0
         case "vignette": return vignette != 0
@@ -168,6 +169,7 @@ nonisolated extension Look {
         case "contrast": l.contrast = on ? 10 : 0
         case "curve": l.curve = ToneCurve(); if on { l.curve.mid = 10 }          // one program for every curve: the table is data
         case "colour": l.vibrance = on ? 10 : 0; l.saturation = 0; l.bw = false
+        case "mixer": l.mixer = Mixer(); if on { l.mixer.saturation = Array(repeating: 10, count: Mixer.colours.count) }
         case "clarity": l.clarity = on ? 10 : 0
         case "sharpen": l.sharpen = on ? 30 : 0
         case "vignette": l.vignette = on ? -10 : 0

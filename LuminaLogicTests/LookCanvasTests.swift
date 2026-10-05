@@ -253,7 +253,11 @@ final class LookCanvasTests: XCTestCase {
         for text in ["tc:0,+10,0", "tc:-5,0,0", "crv:0,0/0.5,0.6/1,1", "crvr:0,0.1/1,1", "crvg:0,0/1,0.9", "crvb:0,0/0.4,0.5/1,1", "tc:+10,0,0 crv:0,0/0.5,0.6/1,1 crvb:0,0/1,0.9"] {
             XCTAssertEqual(stages.filter(try Look.parse(text).runs), ["curve"], text)
         }
-        XCTAssertEqual(seen.union(["whiteBalance", "curve"]), Set(stages), "every stage has a control that switches it on")
+        for text in ["mixh:0,0,+10,0,0,0,0,0", "mixs:-100,0,0,0,0,0,0,0", "mixl:0,0,0,0,0,0,0,+1", "mixh:+5,0,0,0,0,0,0,0 mixs:0,0,0,-5,0,0,0,0 mixl:0,0,0,0,+5,0,0,0"] {
+            XCTAssertEqual(stages.filter(try Look.parse(text).runs), ["mixer"], text)
+        }
+        XCTAssertEqual(LookWarmPlan.signature(try Look.parse("con:+10 tc:0,+5,0 sat:+5 mixs:0,+5,0,0,0,0,0,0 clr:+5"), stages: stages), "contrast+curve+colour+mixer+clarity", "in the order the stages run")
+        XCTAssertEqual(seen.union(["whiteBalance", "curve", "mixer"]), Set(stages), "every stage has a control that switches it on")
         // rot is geometry (the base), the vignette's shape draws nothing without an amount.
         XCTAssertEqual(LookWarmPlan.signature(try Look.parse("rot:90 vigs:20,-50,80,40 tc:0,0,0 crv:0,0/1,1"), stages: stages), "none")
         // nr and crop belong to the base (the RAW stage, the geometry), not to a look stage.

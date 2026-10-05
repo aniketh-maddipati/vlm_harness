@@ -242,6 +242,71 @@ final class LookPipelineTests: XCTestCase {
         for (x, y) in [(0, 0), (2999, 1999), (1500, 1000), (2990, 5)] { XCTAssertEqual(pipe.pixel(out, x: x, y: y).g, want.g, accuracy: 0.004, "at \(x),\(y)") }
     }
 
+    /// The colour mixer on the GPU equals `LookMath.mixer` on colours round the hue circle, and
+    /// leaves a grey ramp as it found it for any of the 24 values.
+    func testColourMixerKernelEqualsLookMathAndLeavesGreyAlone() throws {
+        let looks = try ["mixh:+100,+100,+100,+100,+100,+100,+100,+100", "mixs:-100,+100,-100,+100,-100,+100,-100,+100", "mixl:+100,-100,+100,-100,+100,-100,+100,-100",
+                         "mixh:0,+10,0,0,0,-25,0,0 mixs:+40,0,0,-100,0,0,0,+5 mixl:0,0,0,0,0,-30,0,0", "mixh:-100,+60,-30,+100,-80,+45,-100,+100 mixs:+100,+100,+100,+100,+100,+100,+100,+100 mixl:-100,-100,-100,-100,-100,-100,-100,-100",
+                         "ev:+0.30 con:+20 tc:+10,0,-8 sat:+15 vib:+20 mixh:0,0,+40,0,0,0,0,0 mixs:0,-50,0,0,+30,0,0,0 mixl:+50,0,0,0,0,-50,0,0"].map(Look.parse)
+        var colours: [LookMath.RGB] = [LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), LookMath.RGB(r: 0.2, g: 0.5, b: 0.2), LookMath.RGB(r: 0.15, g: 0.2, b: 0.6), LookMath.RGB(r: 0.6, g: 0.35, b: 0.25),
+                                       LookMath.RGB(r: 0.7, g: 0.6, b: 0.1), LookMath.RGB(r: 0.3, g: 0.6, b: 0.7), LookMath.RGB(r: 0.9, g: 0.1, b: 0.6), LookMath.RGB(r: 0.02, g: 0.03, b: 0.05), LookMath.RGB(r: 1.1, g: 0.9, b: 0.5)]
+        for hue in stride(from: 0.0, to: 360, by: 20) { colours.append(LookMath.fromOklab(0.7, 0.08 * cos(hue * .pi / 180), 0.08 * sin(hue * .pi / 180))) }
+        var worst = 0.0
+        for c in colours {
+            let dev = pipe.flat(c, size: 16)
+            for look in looks {
+                let got = pipe.pixel(pipe.apply(look, to: dev), x: 8, y: 8), want = LookMath.flat(c, look: look, asShot: asShot, rules: rules)
+                for (g, w) in [(got.r, want.r), (got.g, want.g), (got.b, want.b)] {
+                    let tol = max(0.006, 0.02 * abs(w))
+                    worst = max(worst, abs(g - w) / tol)
+                    XCTAssertEqual(g, w, accuracy: tol, "\(look.format()) on \(c): graph \(got) vs maths \(want)")
+                }
+            }
+        }
+        print("LookPipelineTests: colour mixer graph vs LookMath worst error = \(String(format: "%.2f", worst)) × tolerance")
+        // A grey ramp: every pixel what it was (to the graph's own precision), monotonic, grey.
+        let width = 256
+        let ramp = pipe.ramp(steps: width, columnWidth: 1, height: 8, lo: 0, hi: 1.2), before = pipe.row(ramp.image, y: 4, width: width)
+        for look in looks.prefix(5) {
+            XCTAssertEqual(rules.lookStages.filter(look.runs), ["mixer"])
+            let row = pipe.row(pipe.apply(look, to: ramp), y: 4, width: width)
+            var last = -1.0
+            for x in 0..<width {
+                XCTAssertEqual(row[x].r, before[x].r, accuracy: 2e-3, "\(look.format()) x=\(x)"); XCTAssertEqual(row[x].g, before[x].g, accuracy: 2e-3); XCTAssertEqual(row[x].b, before[x].b, accuracy: 2e-3)
+                XCTAssertTrue(row[x].isNeutral(tolerance: 2e-3), "\(look.format()) x=\(x) tinted a grey: \(row[x])")
+                XCTAssertGreaterThanOrEqual(luma(row[x]), last - 2e-3); last = max(last, luma(row[x]))
+            }
+        }
+    }
+
+    /// A look that uses none of the added keys builds the graph it built before them: the same
+    /// kernels with the same arguments (written out here as they were), so the same pixels, bit
+    /// for bit. This is what keeps every earlier render, and the parity numbers, where they were.
+    func testLooksWithoutTheAddedKeysBuildTheGraphTheyDid() throws {
+        let dev = pipe.ramp(steps: 32, columnWidth: 2, height: 16, lo: 0.02, hi: 1.1, tint: LookMath.RGB(r: 1, g: 0.8, b: 0.6))
+        let extent = dev.image.extent, r = rules!
+        let gam = CIVector(x: 1 / r.perceptualGamma, y: r.perceptualGamma), lum = CIVector(x: r.luma[0], y: r.luma[1], z: r.luma[2], w: 0)
+        let look = try Look.parse("ev:+0.70 con:+12 wh:+20 bl:-8 vib:+10 sat:+5 vig:-25")
+        XCTAssertEqual(rules.lookStages.filter(look.runs), ["exposure", "whitesBlacks", "contrast", "colour", "vignette"])
+        var img = dev.image
+        func pass(_ name: String, _ args: [Any]) throws { img = try XCTUnwrap(pipe.kernels.apply(name, extent: extent, [img] + args)) }
+        try pass("lookExposure", [CIVector(x: LookMath.exposureGain(look.ev, r), y: LookMath.exposureWhite(r))])
+        try pass("lookPre", [CIVector(x: 1, y: 1, z: 1, w: 1), CIVector(x: look.whites * r.k("whitesBlacks", "whitesPerUnit", 0.003), y: -look.blacks * r.k("whitesBlacks", "blacksPerUnit", 0.002),
+                                                                    z: r.k("whitesBlacks", "whitesPower", 2), w: r.k("whitesBlacks", "blacksPower", 2)), gam])
+        try pass("lookContrast", [CIVector(x: min(0.95, max(0.05, r.k("contrast", "midpoint", 0.46))), y: exp2(look.contrast * r.k("contrast", "slopePerUnit", 0.006)), z: min(1, max(0, r.k("contrast", "lumaMix", 0.5))), w: 0), gam, lum])
+        try pass("lookColour", [CIVector(x: max(0, 1 + look.saturation * r.k("colour", "saturationPerUnit", 0.01)), y: look.vibrance * r.k("colour", "vibrancePerUnit", 0.01),
+                                         z: max(1e-6, r.k("colour", "vibranceChromaMax", 0.25)), w: 1 - min(1, max(0, r.k("colour", "vibranceFloor", 0)))),
+                                CIVector(x: r.k("colour", "skinHue", 60), y: max(1e-6, r.k("colour", "skinWidth", 25)), z: r.k("colour", "skinProtect", 0.7), w: 0)])
+        let m = r.k("vignette", "midpoint", 0.5), f = r.k("vignette", "feather", 0.5)
+        try pass("lookVignette", [CIVector(x: look.vignette * r.k("vignette", "stopsPerUnit", 0.02), y: m - f / 2, z: m + f / 2, w: 1 / (hypot(extent.width, extent.height) / 2)), CIVector(x: extent.midX, y: extent.midY)])
+        XCTAssertEqual(floats(pipe.apply(look, to: dev)), floats(img))
+        // The kernels those stages run are in the source that shipped, which the added ones do not share.
+        for name in ["lookVignetteShape", "lookCurve", "lookMixer"] {
+            XCTAssertFalse(LookKernels.source.contains(name)); XCTAssertTrue(LookKernels.moreSource.contains("float4 \(name)("))
+        }
+        XCTAssertFalse(LookKernels.moreSource.contains("static "), "no helper is added to the shared header")
+    }
+
     /// Float pixels of a whole (small) image, for exact comparisons.
     private func floats(_ img: CIImage) -> [Float] {
         let w = Int(img.extent.width), h = Int(img.extent.height)

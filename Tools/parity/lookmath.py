@@ -15,7 +15,7 @@ import sys
 
 import numpy as np
 
-STAGES = ["exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "clarity", "sharpen", "vignette"]
+STAGES = ["exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer", "clarity", "sharpen", "vignette"]
 LR_SLIDERS = ["Exposure", "Temperature", "Tint", "Contrast", "Highlights", "Shadows", "Whites", "Blacks",
               "Vibrance", "Saturation", "Clarity", "Sharpness"]
 # which stage a Lightroom slider exercises
@@ -63,6 +63,10 @@ VIGNETTE_SHAPE_RANGES = ((0.0, 100.0), (-100.0, 100.0), (0.0, 100.0), (0.0, 100.
 CURVE_KEYS = ("crv", "crvr", "crvg", "crvb")   # the point curves: all channels, red, green, blue
 CURVE_MAX_POINTS = 64
 CURVE_NODES = 256
+MIXER_KEYS = ("mixh", "mixs", "mixl")          # the colour mixer: hue, saturation, luminance, eight values each
+MIXER_COLOURS = ("red", "orange", "yellow", "green", "aqua", "blue", "purple", "magenta")
+MIXER_HUES = (("hueRed", 29.0), ("hueOrange", 55.0), ("hueYellow", 105.0), ("hueGreen", 143.0), ("hueAqua", 195.0),
+              ("hueBlue", 262.0), ("huePurple", 296.0), ("hueMagenta", 335.0))
 
 
 def _numbers(key, raw, ranges):
@@ -84,7 +88,7 @@ def parse_look(s):
     """The look string → dict (the twelve sliders + bw). Mirrors Look.parse, without clamping."""
     look = {"ev": 0.0, "wb": None, "con": 0.0, "hl": 0.0, "sh": 0.0, "wh": 0.0, "bl": 0.0, "vib": 0.0, "sat": 0.0,
             "clr": 0.0, "shp": 0.0, "vig": 0.0, "vigs": VIGNETTE_SHAPE, "tc": (0.0, 0.0, 0.0),
-            "crv": None, "crvr": None, "crvg": None, "crvb": None, "bw": False, "crop": None, "nr": None, "rot": 0}
+            "crv": None, "crvr": None, "crvg": None, "crvb": None, "mixh": (0.0,) * 8, "mixs": (0.0,) * 8, "mixl": (0.0,) * 8, "bw": False, "crop": None, "nr": None, "rot": 0}
     s = (s or "").strip()
     if s in ("", "none"):
         return look
@@ -97,6 +101,8 @@ def parse_look(s):
             look["vigs"] = _numbers(key, raw, VIGNETTE_SHAPE_RANGES)
         elif key == "tc":
             look["tc"] = _numbers(key, raw, ((-50.0, 50.0),) * 3)
+        elif key in MIXER_KEYS:
+            look[key] = _numbers(key, raw, ((-100.0, 100.0),) * 8)
         elif key in CURVE_KEYS:
             # x,y/x,y/…: 2 to 64 points in 0…1 (four decimals), x strictly increasing; the diagonal is no curve
             pts = []
@@ -172,6 +178,9 @@ def format_look(look):
         if look.get(key):
             unit = lambda v: (f"{v:.4f}".rstrip("0").rstrip("."))
             out.append(f"{key}:" + "/".join(f"{unit(x)},{unit(y)}" for x, y in look[key]))
+    for key in MIXER_KEYS:
+        if any(look.get(key) or ()):
+            out.append(f"{key}:" + ",".join(signed(v, 0) for v in look[key]))
     if look.get("nr") is not None:
         out.append(f"nr:{int(round(look['nr']))}")
     if look.get("bw"):
@@ -439,6 +448,49 @@ def colour(rgb, vibrance, saturation, bw, rules):
     return np.maximum(0.0, out)
 
 
+def mixer_runs(look):
+    return any(any(look.get(key) or ()) for key in MIXER_KEYS)
+
+
+def mixer_centres(rules):
+    return np.array([k(rules, "mixer", name, default) for name, default in MIXER_HUES])
+
+
+def mixer_band(hue_deg, centres):
+    """LookMath.mixerBand on an array of hues: (lower band, upper band, the upper band's weight)."""
+    h = np.asarray(hue_deg, dtype=np.float64)
+    n = len(centres)
+    i = np.full(h.shape, n - 1, dtype=int)
+    for b in range(n):
+        i = np.where(h >= centres[b], b, i)
+    j = np.where(i == n - 1, 0, i + 1)
+    hi = centres[j] + np.where(j == 0, 360.0, 0.0)
+    hh = h + np.where((j == 0) & (h < centres[i]), 360.0, 0.0)
+    t = np.clip((hh - centres[i]) / np.maximum(1e-3, hi - centres[i]), 0.0, 1.0)
+    return i, j, t * t * (3.0 - 2.0 * t)
+
+
+def mixer(rgb, look, rules):
+    """LookMath.mixer: hue turn, chroma scale and lightness scale per band, in Oklab; a pixel
+    without chroma is returned as it came."""
+    if not mixer_runs(look):
+        return rgb
+    rgb = np.asarray(rgb, dtype=np.float64)
+    lab = to_oklab(rgb)
+    C = np.hypot(lab[..., 1], lab[..., 2])
+    h = np.degrees(np.arctan2(lab[..., 2], lab[..., 1]))
+    h = np.where(h < 0, h + 360.0, h)
+    i, j, w = mixer_band(h, mixer_centres(rules))
+    at = lambda key: (lambda v: v[i] + (v[j] - v[i]) * w)(np.asarray(look[key], dtype=np.float64))
+    turn = np.radians(at("mixh") * k(rules, "mixer", "hueDegreesPerUnit", 0.3))
+    sat = np.maximum(0.0, 1.0 + at("mixs") * k(rules, "mixer", "saturationPerUnit", 0.01))
+    L = np.maximum(0.0, lab[..., 0] * (1.0 + at("mixl") * k(rules, "mixer", "luminancePerUnit", 0.003) * C / (C + max(1e-6, k(rules, "mixer", "luminanceChromaKnee", 0.05)))))
+    cs, sn = np.cos(turn), np.sin(turn)
+    out = from_oklab(np.stack([L, (lab[..., 1] * cs - lab[..., 2] * sn) * sat, (lab[..., 1] * sn + lab[..., 2] * cs) * sat], axis=-1))
+    # without chroma, relative to the lightness: an exact grey has C / L near 4e-8 from the matrices' rounding
+    return np.where((C > np.maximum(1e-9, 1e-6 * np.abs(lab[..., 0])))[..., None], np.maximum(0.0, out), rgb)
+
+
 def clarity(q, base, amount, rules):
     mid = 1.0 - np.power(np.abs(2.0 * np.clip(q, 0.0, 1.0) - 1.0), k(rules, "clarity", "midtonePower", 2.0))
     return np.maximum(0.0, q + amount * k(rules, "clarity", "amountPerUnit", 0.01) * (q - base) * mid)
@@ -580,6 +632,8 @@ def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None, aspect=1.5):
                 c = curve(c, look, rules)
         elif stage == "colour":
             c = colour(c, look["vib"], look["sat"], look["bw"], rules)
+        elif stage == "mixer":
+            c = mixer(c, look, rules)
         elif stage == "vignette":
             shape = tuple(look.get("vigs") or VIGNETTE_SHAPE)
             if look["vig"] != 0 and shape != VIGNETTE_SHAPE:

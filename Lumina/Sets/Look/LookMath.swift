@@ -425,6 +425,66 @@ nonisolated enum LookMath {
         return RGB(r: max(0, out.r), g: max(0, out.g), b: max(0, out.b))
     }
 
+    // MARK: mixer (the colour mixer: hue, saturation, luminance per colour)
+
+    /// The centres of the eight bands, Oklab hue in degrees, in `Look.Mixer.colours`' order.
+    /// They must ascend (red lowest): the bands are found by walking them.
+    static let mixerHueNames = ["hueRed", "hueOrange", "hueYellow", "hueGreen", "hueAqua", "hueBlue", "huePurple", "hueMagenta"]
+    static let mixerHueDefaults = [29.0, 55, 105, 143, 195, 262, 296, 335]
+    static func mixerCentres(_ rules: LookRules) -> [Double] {
+        zip(mixerHueNames, mixerHueDefaults).map { rules.k("mixer", $0, $1) }
+    }
+
+    /// Where a hue sits among the bands: between centre `lower` and the next one round the
+    /// circle, `upper`, with `weight` the upper band's share, smoothstep of the way across. The
+    /// lower band has the rest and every other band nothing, so the eight weights are smooth in
+    /// the hue, each 1 at its own centre, and always sum to 1.
+    static func mixerBand(hueDegrees h: Double, centres c: [Double]) -> (lower: Int, upper: Int, weight: Double) {
+        var i = c.count - 1                                      // below the first centre: the last band, a turn back
+        for n in 0..<c.count where h >= c[n] { i = n }
+        let j = i == c.count - 1 ? 0 : i + 1
+        var hi = c[j], hh = h
+        if j == 0 { hi += 360; if h < c[i] { hh += 360 } }
+        let t = min(1, max(0, (hh - c[i]) / max(1e-3, hi - c[i])))
+        return (i, j, t * t * (3 - 2 * t))
+    }
+
+    /// All eight weights (the tests and the docs; the stage only needs the two that are not 0).
+    static func mixerWeights(hueDegrees h: Double, centres c: [Double]) -> [Double] {
+        let b = mixerBand(hueDegrees: h, centres: c)
+        var w = [Double](repeating: 0, count: c.count)
+        w[b.lower] += 1 - b.weight; w[b.upper] += b.weight
+        return w
+    }
+
+    /// The stage on one colour, in Oklab like `colour`: with H, S, Lm the pixel's band-weighted
+    /// slider values, the hue turns by H · `hueDegreesPerUnit`, the chroma is scaled by
+    /// 1 + S · `saturationPerUnit`, and the lightness by 1 + Lm · `luminancePerUnit` · C / (C +
+    /// `luminanceChromaKnee`). Every one of the three is a change *of* or *in proportion to* the
+    /// chroma: a turned or scaled zero is zero, and the lightness factor is 1 at C = 0. A pixel
+    /// without chroma is returned as it came, so a grey is exactly the same grey for any of the
+    /// 24 values (and the stage cannot disturb a grey ramp). Near grey the changes fade in with
+    /// the chroma, so noise in the hue of an almost-grey pixel moves it almost nowhere.
+    /// First numbers, unfitted (band centres, strengths): nothing here claims Lightroom's mixer.
+    static func mixer(_ c: RGB, mixer m: Look.Mixer, _ rules: LookRules) -> RGB {
+        guard !m.isNeutral else { return c }
+        let lab = toOklab(c)
+        let C = hypot(lab.a, lab.b)
+        // "Without chroma" is relative to the lightness: an exact grey comes out of the Oklab
+        // matrices with C / L near 4e-8 (their rows sum to 1 only to ten digits), far below 1e-6.
+        guard C > max(1e-9, 1e-6 * abs(lab.L)) else { return c }
+        var h = atan2(lab.b, lab.a) * 180 / .pi
+        if h < 0 { h += 360 }
+        let band = mixerBand(hueDegrees: h, centres: mixerCentres(rules))
+        func at(_ v: [Double]) -> Double { v[band.lower] + (v[band.upper] - v[band.lower]) * band.weight }
+        let turn = at(m.hue) * rules.k("mixer", "hueDegreesPerUnit", 0.3) * .pi / 180
+        let sat = max(0, 1 + at(m.saturation) * rules.k("mixer", "saturationPerUnit", 0.01))
+        let L = max(0, lab.L * (1 + at(m.luminance) * rules.k("mixer", "luminancePerUnit", 0.003) * C / (C + max(1e-6, rules.k("mixer", "luminanceChromaKnee", 0.05)))))
+        let cs = cos(turn), sn = sin(turn)
+        let out = fromOklab(L, (lab.a * cs - lab.b * sn) * sat, (lab.a * sn + lab.b * cs) * sat)
+        return RGB(r: max(0, out.r), g: max(0, out.g), b: max(0, out.b))
+    }
+
     // MARK: clarity (perceptual luma on a base)
 
     static func clarity(_ q: Double, base: Double, clarity amount: Double, _ rules: LookRules) -> Double {
@@ -653,6 +713,8 @@ nonisolated enum LookMath {
                 c = curve(c, tables: curveTables(look.curve, rules), rules)
             case "colour":
                 c = colour(c, vibrance: look.vibrance, saturation: look.saturation, bw: look.bw, rules)
+            case "mixer":
+                c = mixer(c, mixer: look.mixer, rules)
             case "clarity", "sharpen":
                 continue                                          // q − base == 0 on a flat patch
             case "vignette":
