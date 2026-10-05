@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """WebKit sandbox for the Mac-only checks, runnable on Linux.
 
-Runs the real v5 page in WebKitGTK (the WebKit engine and JavaScriptCore, as in WKWebView, minus
+Runs the real v7 page in WebKitGTK (the WebKit engine and JavaScriptCore, as in WKWebView, minus
 Cocoa) with plumbing.js injected at document start and a real `lumina` script-message handler with
 replies, the same channel WKWebView uses. The handler forwards each message to
 Tests/web/webkit-server.mjs, which answers as SetsBridge does (a Node stand-in; the Swift itself is
 not exercised here). Suites:
 
   contract   app-plumbing-contract.json's expressions, and ONDIR under JavaScriptCore
-  selftest   the design's ?selftest (25 checks + timing)
-  flow       open a folder, read, keep, save sidecars into the folder, .lumina-bak, reopen, card, access
+  selftest   the design's ?selftest (25 checks + timing; Tests/selftest-known.json's checks reported, not gated)
+  flow       open a folder, read, pick, save sidecars into the folder (⌘4), .lumina-bak, reopen, card, access
   screens    screens-1440 / 1920: prototype vs app parity mode, every snapshot and state dump compared
   scroll     fast scrolling in Cull over a few hundred synthetic ARWs: frame pacing, blank tiles, thumbnail
              upscale ratio, web-process memory (reported, not gated: no GPU here; the Mac's is probe.sh scroll)
@@ -260,14 +260,19 @@ def selftest():
 
 FLOW = r"""
 const L = () => __lumina.logic(), out = [], t = (n, c, g) => out.push({ n, ok: !!c, got: c ? undefined : g });
+// v7: a shoot opened for the first time puts the keyboard in its name field 350 ms after the read
+// (keys go to the name until ⏎ or a click). The checks below drive keys, so they leave the field.
+const leaveName = async () => { await W(450); const a = document.activeElement; if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) a.blur(); };
+// v7: with undecided photos the first ⌘⏎ only warns (saveGuard); the second, within 5 s, saves.
+const save = async () => { __lumina.command('save'); await W(60); if (L().state.armed === 'save') __lumina.command('save'); };
 const shoot = await C('shoot', { name: '2026-09-01', others: ['DSC01001.JPG', 'X.CR3', 'clip.MP4'],
   sidecars: { 'DSC01002.xmp': '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:Rating="2"/></rdf:RDF></x:xmpmeta>' } });
 t('start: empty Open, no sample', L().state.view === 'import' && L().data.order.length === 0, L().state.view);
 const nr = await C('folder', { name: 'NoRaw', files: ['A.CR3', 'B.CR3', 'C.JPG', 'D.MP4'] });
 await C('pick', { path: nr }); __lumina.openFolder(); await until(() => L().state.openNote, 5000);
-t('no ARW: the page\'s note from the native listing', L().state.openNote === 'no ARW found · 2 CR3 · 1 JPEG / HEIF · 1 videos · only Sony ARW is supported', L().state.openNote);
+t('no ARW: the page\'s note from the native listing', L().state.openNote === 'no ARW or DNG found · 2 CR3 · 1 JPEG / HEIF · 1 videos · Lumina reads ARW and DNG', L().state.openNote);
 await C('pick', { path: shoot }); __lumina.openFolder();
-await until(() => L().real && L().real.length && !L().state.realLoad && L().state.realInfo, 30000);
+await until(() => L().real && L().real.length && !L().state.realLoad && L().state.realInfo, 30000); await leaveName();
 const ri = L().state.realInfo || {};
 t('read: 12 photos in Cull', L().state.view === 'cull' && ri.n === 12 && ri.bad === 0, ri);
 const notes = (L().state.notes || []).map(x => x.t).join(' | ');
@@ -277,14 +282,14 @@ const p7 = Object.values(L().data.byId).find(p => (p.file || p.name) === 'DSC010
 t('read: orientation 6 is portrait in WebKit', p7 && p7.portrait === true, p7 && p7.portrait);
 t('read: measures from the WebKit canvas', L().real.every(p => p.nopv || (p.focus > 0 && p.lum > 0 && p.dhash)), L().real.map(p => [p.focus, p.lum, p.dhash]).slice(0, 3));
 K('p'); await W(120); K('ArrowDown'); await W(150); K('p'); await W(150);
-const kept = L().kept().length; t('cull: P keeps (2)', kept === 2, L().state.marks);
+const kept = L().kept().length; t('pick: P picks (2)', kept === 2, L().state.marks);
 await W(2300);
 let st = await C('state'); const sid = __lumina.shootId(), saved = st.sessions[sid] && JSON.parse(st.sessions[sid]);
 t('session: saved by path within 2 s', saved && Object.keys(saved.marks).length === 2 && Object.keys(saved.marks).every(k => /^(sub\/)?DSC0\d+\.ARW$/.test(k)), saved && saved.marks);
-t('quit: 2 unsaved keepers', __lumina.unsaved() === 2, __lumina.unsaved());
-__lumina.command('stepSave'); await W(950);
-t('save: ⌘3 via luminaCommand', L().state.view === 'export', L().state.view);
-__lumina.command('save'); await until(() => L().state.ex && L().state.ex.result, 8000);
+t('quit: 2 unsaved picks', __lumina.unsaved() === 2, __lumina.unsaved());
+__lumina.command('stepSave'); await W(950);            // the page ignores ⌘⏎ for 800 ms after a step change
+t('save: ⌘4 via luminaCommand', L().state.view === 'export', L().state.view);
+await save(); await until(() => L().state.ex && L().state.ex.result, 8000);
 const res = L().state.ex.result || {};
 t('save: "2 saved"', res.t === '2 saved' && !res.bad, res);
 const ls = await C('ls', { path: shoot }); const xmps = ls.filter(f => /\.xmp$/.test(f));
@@ -298,10 +303,10 @@ t('save: ⌘R reveals', st.revealed.length === 1, st.revealed);
 __lumina.closeShoot(); await W(300);
 t('close shoot: back to Open with the recent card', L().state.view === 'import' && L().recents().length === 1 && L().recents()[0].kp === 2, L().recents());
 L().libOpen(L().recents()[0]);
-await until(() => L().real && L().real.length && !L().state.realLoad && L().kept().length === 2, 20000);
-t('reopen: 2 keepers restored, nothing unsaved', L().kept().length === 2 && __lumina.unsaved() === 0, [L().kept().length, __lumina.unsaved()]);
+await until(() => L().real && L().real.length && !L().state.realLoad && L().kept().length === 2, 20000); await leaveName();
+t('reopen: 2 picks restored, nothing unsaved', L().kept().length === 2 && __lumina.unsaved() === 0, [L().kept().length, __lumina.unsaved()]);
 K('ArrowDown'); await W(150); K('ArrowDown'); await W(150); K('p'); await W(150);
-__lumina.command('stepSave'); await W(950); __lumina.command('save');
+__lumina.command('stepSave'); await W(950); L().exSet({ result: null }); await save();
 await until(() => L().state.ex && L().state.ex.result, 8000);
 const ls2 = await C('ls', { path: shoot });
 t('save again: .lumina-bak next to replaced sidecars', ls2.filter(f => /\.xmp\.lumina-bak$/.test(f)).length >= 2, ls2.filter(f => /lumina-bak/.test(f)));
