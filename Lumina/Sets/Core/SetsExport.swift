@@ -113,7 +113,7 @@ nonisolated struct SetsExportJob {
     static func isDiskFull(_ error: Error) -> Bool {
         var e: NSError? = error as NSError
         while let n = e {
-            if (n.domain == NSPOSIXErrorDomain && n.code == Int(ENOSPC)) || (n.domain == NSCocoaErrorDomain && n.code == NSFileWriteOutOfSpaceError) { return true }
+            if (n.domain == NSPOSIXErrorDomain && (n.code == Int(ENOSPC) || n.code == Int(EDQUOT))) || (n.domain == NSCocoaErrorDomain && n.code == NSFileWriteOutOfSpaceError) { return true }
             e = n.userInfo[NSUnderlyingErrorKey] as? NSError
         }
         return false

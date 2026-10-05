@@ -7,12 +7,12 @@ import Foundation
 /// One JSON file in Application Support. Only the keys below, each under a size cap: a key the
 /// page invents later is not stored until it is named here.
 nonisolated struct SetsPageStore {
-    /// `lumina-v4-seen` is the large one: up to 20,000 photos at about 120 bytes.
+    /// `lumina-v4-seen` is the large one: up to 20,000 photos at about 220 bytes with long folder and shoot names.
     static let keys: [String: Int] = [
         "lumina-v4-toured": 16,
         "lumina-v4-pre-ok": 16,
         "lumina-v4-names": 256 << 10,
-        "lumina-v4-seen": 4 << 20,
+        "lumina-v4-seen": 8 << 20,
         "lumina-phone-kind": 64,
         "lumina-phone-used": 16,
         "lumina.edit.intro.v1": 16,
@@ -24,7 +24,7 @@ nonisolated struct SetsPageStore {
 
     /// What is stored, without anything that is no longer an allowed key or is over its cap.
     func all() -> [String: String] {
-        guard let data = try? Data(contentsOf: file), data.count <= 8 << 20,
+        guard let data = try? Data(contentsOf: file), data.count <= 12 << 20,
               let any = try? JSONSerialization.jsonObject(with: data), let map = any as? [String: String] else { return [:] }
         return map.filter { Self.allows($0.key, $0.value) }
     }
