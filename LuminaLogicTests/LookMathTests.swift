@@ -79,18 +79,22 @@ final class LookMathTests: XCTestCase {
         }
     }
 
-    /// A look that uses none of the added keys goes through none of the added stages: the chain
-    /// gives what the stages that existed before give, bit for bit, with the added stages named
-    /// in the order or not.
+    /// A look that uses none of the added keys (and no vignette amount, see below) goes through
+    /// none of the added or changed stages: the chain gives what the stages that existed before
+    /// give, bit for bit, with the added stages named in the order or not.
     func testLooksWithoutTheAddedKeysRenderAsBefore() throws {
         var before = rules!
         for (name, _) in LookRules.addedStages { before.order.removeAll { $0 == name } }          // the order as it was
         let colours: [LookMath.RGB] = [.gray(0.02), .gray(0.18), .gray(0.9), .gray(1.1), LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), LookMath.RGB(r: 0.15, g: 0.2, b: 0.6), LookMath.RGB(r: 0.7, g: 0.6, b: 0.1)]
         var looks = sweep.map { Look.single($0.0, $0.1, asShot: asShot)! }
-        for s in ["ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0", "ev:-1.20 con:-30 hl:+50 sh:-40 wh:+30 bl:+20 vib:-40 sat:+25 vig:-40",
-                  "ev:+0.30 wb:3200/-20 con:+40 bw:1 nr:30 crop:0.1,0.1,0.8,0.8/2", "", "vig:+35 rot:90"] { looks.append(try Look.parse(s)) }
+        for s in ["ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0", "ev:-1.20 con:-30 hl:+50 sh:-40 wh:+30 bl:+20 vib:-40 sat:+25",
+                  "ev:+0.30 wb:3200/-20 con:+40 bw:1 nr:30 crop:0.1,0.1,0.8,0.8/2", "", "con:+35 rot:90"] { looks.append(try Look.parse(s)) }
+        // Not `vig`: ruled 2026-10-05, the vignette moved to the page's scale (Roundness 0 the frame's
+        // ellipse, the page's midpoint and feather), so a look with an amount renders differently from
+        // before on purpose. With vig:0 the stage does not run and everything here holds.
+        for i in looks.indices { looks[i].vignette = 0 }
         for look in looks {
-            XCTAssertFalse(look.runs("curve")); XCTAssertFalse(look.runs("mixer"))
+            XCTAssertFalse(look.runs("curve")); XCTAssertFalse(look.runs("mixer")); XCTAssertFalse(look.runs("vignette"))
             for c in colours {
                 let a = LookMath.flat(c, look: look, asShot: asShot, rules: rules, vignetteR: 0.8), b = LookMath.flat(c, look: look, asShot: asShot, rules: before, vignetteR: 0.8)
                 XCTAssertTrue(a.r == b.r && a.g == b.g && a.b == b.b, "\(look.format()) on \(c): \(a) vs \(b)")
@@ -590,93 +594,99 @@ final class LookMathTests: XCTestCase {
         XCTAssertTrue(LookMath.flat(skin, look: bw, asShot: asShot, rules: rules).isNeutral)
     }
 
-    func testVignetteGain() {
-        var dark = Look(); dark.vignette = -100
-        XCTAssertEqual(LookMath.vignetteGain(r: 0, vignette: -100, rules), 1, accuracy: 1e-12)
-        XCTAssertLessThan(LookMath.vignetteGain(r: 1, vignette: -100, rules), 1)
-        XCTAssertGreaterThan(LookMath.vignetteGain(r: 1, vignette: 60, rules), 1)
-        XCTAssertLessThan(LookMath.vignetteGain(r: 1, vignette: -100, rules), LookMath.vignetteGain(r: 0.6, vignette: -100, rules))
-        let corner = LookMath.flat(.gray(0.5), look: dark, asShot: asShot, rules: rules, vignetteR: 1)
-        XCTAssertTrue(corner.isNeutral); XCTAssertLessThan(corner.r, 0.5)
-    }
-
-    /// The four shape sliders at reset: the stage is, bit for bit, the one it was before they
-    /// existed. The expected values are written out here from the form the stage had then.
-    func testVignetteAtTheShapeResetIsBitForBitTheStageItWas() throws {
-        let stops = rules.k("vignette", "stopsPerUnit", 0.02), m = rules.k("vignette", "midpoint", 0.5), f = rules.k("vignette", "feather", 0.5)
-        func before(_ v: Double, vignette: Double, r: Double) -> Double {
-            let e0 = m - f / 2, e1 = m + f / 2, t = min(1, max(0, (r - e0) / (e1 - e0)))
-            return v * exp2(vignette * stops * (t * t * (3 - 2 * t)))
-        }
-        for text in ["vig:-100", "vig:-37", "vig:+60", "vig:-37 vigs:50,0,50,0"] {
-            let look = try Look.parse(text)
-            XCTAssertTrue(look.vignetteShape.isDefault)
-            for r in stride(from: 0.0, through: 1.2, by: 0.05) {
-                for v in ramp {
-                    let out = LookMath.flat(.gray(v), look: look, asShot: asShot, rules: rules, vignetteR: r)
-                    let want = before(v, vignette: look.vignette, r: r)
-                    XCTAssertTrue(out.r == want && out.g == want && out.b == want, "\(text) r=\(r) grey \(v): \(out) vs \(want)")
-                }
-            }
-        }
-        // And the shaped form meets it there: the same edges exactly, the same distance (the circle
-        // through the corners) to rounding, nothing spared.
+    /// The vignette on the page's scale (ruled 2026-10-05): at the reset shape the corners are
+    /// darkened and the edges almost untouched; the centre never moves.
+    func testVignetteAtTheResetShape() throws {
+        typealias Shape = Look.VignetteShape
         for aspect in [1.5, 1.0, 0.6667, 2.4] {
-            let form = LookMath.VignetteForm(shape: Look.VignetteShape(), vignette: -50, aspect: aspect, rules)
-            XCTAssertTrue(form.edge0 == m - f / 2 && form.edge1 == m + f / 2)
-            XCTAssertEqual(form.keep, 0); XCTAssertEqual(form.power, 2); XCTAssertEqual(form.stopsPerUnit, stops)
-            for (u, v) in [(0.0, 0.0), (1.0, 1.0), (1.0, 0.0), (0.0, 1.0), (0.3, -0.8), (-0.6, 0.2)] {
-                let circle = hypot(u * aspect, v) / hypot(aspect, 1)          // pixels from the centre over the half diagonal
-                XCTAssertEqual(form.distance(u: u, v: v), circle, accuracy: 1e-12, "aspect \(aspect) at \(u), \(v)")
-                let shaped = LookMath.vignetteShaped(.gray(0.4), d: form.distance(u: u, v: v), vignette: -50, form: form, rules)
-                XCTAssertEqual(shaped.g, 0.4 * LookMath.vignetteGain(r: circle, vignette: -50, rules), accuracy: 1e-12)
-            }
+            let form = LookMath.VignetteForm(shape: Shape(), vignette: -100, aspect: aspect, rules)
+            // The page's numbers: d0 = 0.5 + 50/100·0.5, w = 0.08 + 50/100·0.6, from d0 − 0.3w to d0 + 0.7w.
+            XCTAssertEqual(form.edge0, 0.75 - 0.3 * 0.38, accuracy: 1e-12); XCTAssertEqual(form.edge1, 0.75 + 0.7 * 0.38, accuracy: 1e-12)
+            XCTAssertEqual(form.power, 2); XCTAssertEqual(form.sx, 1); XCTAssertEqual(form.sy, 1); XCTAssertEqual(form.keep, 0)
+            // Roundness 0 follows the frame: its ellipse, the same distance at every edge's middle whatever the aspect.
+            for (u, v) in [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)] { XCTAssertEqual(form.distance(u: u, v: v), 0.5.squareRoot(), accuracy: 1e-12, "aspect \(aspect)") }
+            XCTAssertEqual(form.distance(u: 0.3, v: -0.8), hypot(0.3, 0.8) / 2.0.squareRoot(), accuracy: 1e-12)
+            let centre = LookMath.vignette(.gray(0.5), d: form.distance(u: 0, v: 0), vignette: -100, form: form, rules)
+            let edge = LookMath.vignette(.gray(0.5), d: form.distance(u: 1, v: 0), vignette: -100, form: form, rules)
+            let corner = LookMath.vignette(.gray(0.5), d: form.distance(u: 1, v: 1), vignette: -100, form: form, rules)
+            XCTAssertEqual(centre, .gray(0.5)); XCTAssertGreaterThan(edge.g, 0.42, "the edges' middles barely touched, even at −100"); XCTAssertLessThan(corner.g, 0.2, "the corners darkened")
+            XCTAssertTrue(corner.isNeutral)
+        }
+        var dark = Look(); dark.vignette = -100
+        var light = Look(); light.vignette = 60
+        XCTAssertEqual(LookMath.flat(.gray(0.5), look: dark, asShot: asShot, rules: rules), .gray(0.5), "the frame's centre")
+        XCTAssertLessThan(LookMath.flat(.gray(0.5), look: dark, asShot: asShot, rules: rules, vignetteR: 1).g, 0.2)
+        XCTAssertGreaterThan(LookMath.flat(.gray(0.5), look: light, asShot: asShot, rules: rules, vignetteR: 1).g, 0.5)
+        // `vigs` at its reset is no key: the same look, the same render.
+        XCTAssertEqual(try Look.parse("vig:-37 vigs:50,0,50,0"), try Look.parse("vig:-37"))
+        // vig:0 is no stage at all, whatever the shape: the colour itself (as before the ruling).
+        for text in ["vig:0", "vigs:0,-100,0,100", "vig:0 vigs:100,+100,100,0"] {
+            let look = try Look.parse(text)
+            XCTAssertFalse(look.runs("vignette"))
+            for r in [0.0, 0.7, 1.0] { XCTAssertEqual(LookMath.flat(LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), look: look, asShot: asShot, rules: rules, vignetteR: r), LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), text) }
         }
     }
 
     func testVignetteShape() throws {
         typealias Shape = Look.VignetteShape
         func form(_ s: Shape, vignette: Double = -60, aspect: Double = 1.5) -> LookMath.VignetteForm { LookMath.VignetteForm(shape: s, vignette: vignette, aspect: aspect, rules) }
-        func corner(_ s: Shape, d: Double, vignette: Double = -60, grey: Double = 0.4) -> Double {
-            LookMath.vignetteShaped(.gray(grey), d: d, vignette: vignette, form: form(s, vignette: vignette), rules).g
+        func at(_ s: Shape, d: Double, vignette: Double = -60, grey: Double = 0.4) -> Double {
+            LookMath.vignette(.gray(grey), d: d, vignette: vignette, form: form(s, vignette: vignette), rules).g
         }
-        // Midpoint: a higher one starts the falloff farther out. Feather: 0 is a hard edge at the midpoint.
-        XCTAssertGreaterThan(corner(Shape(midpoint: 80), d: 0.6), corner(Shape(midpoint: 20), d: 0.6))
-        XCTAssertEqual(corner(Shape(midpoint: 100), d: 0.45), 0.4, accuracy: 1e-12, "nothing yet, well inside the midpoint")
-        let hard = form(Shape(feather: 0)); XCTAssertEqual(hard.edge0, hard.edge1)
-        XCTAssertEqual(corner(Shape(feather: 0), d: 0.49), 0.4, accuracy: 1e-12)
-        XCTAssertEqual(corner(Shape(feather: 0), d: 0.51), 0.4 * exp2(-60 * rules.k("vignette", "stopsPerUnit", 0.02)), accuracy: 1e-12)
-        XCTAssertEqual(form(Shape(feather: 100)).edge1 - form(Shape(feather: 100)).edge0, 2 * rules.k("vignette", "feather", 0.5), accuracy: 1e-12)
-        // Roundness: every shape is 0 at the centre and 1 at the corners; in between, the circle
-        // (reset), the frame's ellipse, the frame's rectangle. The numbers below read the shipped
-        // `roundAtReset` (100: Roundness 0 is the circle the stage has always drawn).
-        let at = rules.k("vignette", "roundAtReset", 100)
+        // Midpoint: a higher one starts the falloff farther out (the page: d0 from 0.5 to 1.0).
+        XCTAssertGreaterThan(at(Shape(midpoint: 80), d: 0.8), at(Shape(midpoint: 20), d: 0.8))
+        XCTAssertEqual(at(Shape(midpoint: 100), d: 0.85), 0.4, accuracy: 1e-12, "nothing yet, well inside the midpoint")
+        XCTAssertEqual(form(Shape(midpoint: 0)).edge0 + 0.3 * 0.38, 0.5, accuracy: 1e-12); XCTAssertEqual(form(Shape(midpoint: 100)).edge0 + 0.3 * 0.38, 1.0, accuracy: 1e-12)
+        // Feather: the falloff's width, 0.08 at 0 (a narrow edge, not a step) to 0.68 at 100.
+        XCTAssertEqual(form(Shape(feather: 0)).edge1 - form(Shape(feather: 0)).edge0, 0.08, accuracy: 1e-12)
+        XCTAssertEqual(form(Shape(feather: 100)).edge1 - form(Shape(feather: 100)).edge0, 0.68, accuracy: 1e-12)
+        XCTAssertEqual(at(Shape(feather: 0), d: 0.72), 0.4, accuracy: 1e-12); XCTAssertEqual(at(Shape(feather: 0), d: 0.81), 0.4 * exp2(-60 * rules.k("vignette", "stopsPerUnit", 0.02)), accuracy: 1e-12)
+        // Roundness: every shape is 0 at the centre, 1 at the corners, and grows along every ray from the centre.
         for r in [-100.0, -75, -50, -25, 0, 40, 100] {
             for aspect in [1.5, 0.6667, 1.0] {
                 let f = form(Shape(roundness: r), aspect: aspect)
                 XCTAssertEqual(f.distance(u: 0, v: 0), 0, accuracy: 1e-12)
                 for (u, v) in [(1.0, 1.0), (-1.0, 1.0), (1.0, -1.0)] { XCTAssertEqual(f.distance(u: u, v: v), 1, accuracy: 1e-12, "roundness \(r) aspect \(aspect)") }
-                var last = 0.0          // grows along any ray from the centre
-                for t in stride(from: 0.1, through: 1.0, by: 0.1) { let d = f.distance(u: 0.7 * t, v: -t); XCTAssertGreaterThan(d, last); last = d }
+                for (du, dv) in [(1.0, 0.0), (0.0, 1.0), (0.7, -1.0), (-1.0, 0.2), (1.0, 1.0)] {
+                    var last = 0.0
+                    for t in stride(from: 0.1, through: 1.0, by: 0.1) { let d = f.distance(u: du * t, v: dv * t); XCTAssertGreaterThan(d, last, "roundness \(r)"); last = d }
+                }
             }
         }
-        if at == 100 {
-            let ellipse = form(Shape(roundness: -50)), rect = form(Shape(roundness: -100)), circle = form(Shape(roundness: 0)), above = form(Shape(roundness: 100))
-            XCTAssertEqual(ellipse.distance(u: 1, v: 0), ellipse.distance(u: 0, v: 1), accuracy: 1e-12, "the frame's ellipse reaches all four edges alike")
-            XCTAssertEqual(ellipse.distance(u: 1, v: 0), 0.5.squareRoot(), accuracy: 1e-12)
-            XCTAssertGreaterThan(circle.distance(u: 1, v: 0), circle.distance(u: 0, v: 1), "a circle in pixels reaches the long edge's ends first")
-            XCTAssertGreaterThan(rect.distance(u: 1, v: 0), 0.9, "the rectangle hugs the edges"); XCTAssertEqual(rect.distance(u: 1, v: 0), rect.distance(u: 0, v: 1), accuracy: 1e-12)
-            XCTAssertEqual(rect.power, rules.k("vignette", "rectPower", 8))
-            XCTAssertEqual(above, circle, "above the reset there is nothing left to round")
+        // 0: the frame's ellipse. +100: a circle in pixels. −100: the frame's rectangle with round corners.
+        // (The page's ends, and Lightroom's as its panel words them; Lightroom's exact shapes at ±100 are not measured.)
+        let ellipse = form(Shape()), circle = form(Shape(roundness: 100)), rect = form(Shape(roundness: -100)), half = form(Shape(roundness: 50))
+        XCTAssertEqual(ellipse.distance(u: 1, v: 0), ellipse.distance(u: 0, v: 1), accuracy: 1e-12, "the ellipse reaches all four edges alike")
+        for (u, v) in [(1.0, 0.0), (0.0, 1.0), (0.3, -0.8), (-0.6, 0.2)] {
+            XCTAssertEqual(circle.distance(u: u, v: v), hypot(u * 1.5, v) / hypot(1.5, 1), accuracy: 1e-12, "pixels from the centre over the half diagonal")
+        }
+        XCTAssertGreaterThan(circle.distance(u: 1, v: 0), circle.distance(u: 0, v: 1), "a circle reaches the long edge's ends first")
+        XCTAssertGreaterThan(half.distance(u: 1, v: 0), ellipse.distance(u: 1, v: 0)); XCTAssertLessThan(half.distance(u: 1, v: 0), circle.distance(u: 1, v: 0))
+        XCTAssertEqual(form(Shape(roundness: 100), aspect: 1), form(Shape(), aspect: 1), "in a square frame the ellipse is the circle")
+        XCTAssertEqual(rect.power, rules.k("vignette", "rectPower", 8)); XCTAssertEqual(rect.distance(u: 1, v: 0), rect.distance(u: 0, v: 1), accuracy: 1e-12)
+        XCTAssertGreaterThan(rect.distance(u: 1, v: 0), 0.9, "the rectangle hugs the edges"); XCTAssertEqual(rect.distance(u: 1, v: 0), rect.distance(u: 1, v: 0.5), accuracy: 0.01)
+        // Radially monotonic through the whole stage: farther from the centre is never brighter (darkening) or darker (lightening).
+        for s in [Shape(), Shape(midpoint: 0, roundness: -100, feather: 100, highlights: 60), Shape(midpoint: 80, roundness: 100, feather: 0, highlights: 0), Shape(midpoint: 30, roundness: -40, feather: 70, highlights: 100)] {
+            for (du, dv) in [(1.0, 0.0), (0.0, 1.0), (1.0, 1.0), (0.4, -1.0)] {
+                var lastDark = 1.0, lastLight = 0.0
+                for t in stride(from: 0.0, through: 1.0, by: 0.02) {
+                    let fd = form(s, vignette: -80), fl = form(s, vignette: 80)
+                    let dk = LookMath.vignette(.gray(0.4), d: fd.distance(u: du * t, v: dv * t), vignette: -80, form: fd, rules).g
+                    let lt = LookMath.vignette(.gray(0.4), d: fl.distance(u: du * t, v: dv * t), vignette: 80, form: fl, rules).g
+                    XCTAssertLessThanOrEqual(dk, lastDark + 1e-12, "\(s) darkening along \(du), \(dv) at \(t)"); XCTAssertGreaterThanOrEqual(lt, lastLight - 1e-12)
+                    lastDark = dk; lastLight = lt
+                }
+                XCTAssertEqual(LookMath.vignette(.gray(0.4), d: 0, vignette: -80, form: form(s, vignette: -80), rules).g, 0.4, accuracy: 1e-12, "the centre never moves")
+            }
         }
         // Highlights: a darkening vignette spares bright pixels, white in full at 100; a lightening one ignores it.
-        let plain = corner(Shape(midpoint: 49), d: 1, grey: 0.9), kept = corner(Shape(highlights: 60), d: 1, grey: 0.9), all = corner(Shape(highlights: 100), d: 1, grey: 1)
+        let plain = at(Shape(), d: 1.1, grey: 0.9), kept = at(Shape(highlights: 60), d: 1.1, grey: 0.9), all = at(Shape(highlights: 100), d: 1.1, grey: 1)
         XCTAssertLessThan(plain, kept); XCTAssertLessThan(kept, 0.9); XCTAssertEqual(all, 1, accuracy: 1e-12)
-        XCTAssertEqual(corner(Shape(highlights: 100), d: 1, grey: 0.0001) / 0.0001, corner(Shape(midpoint: 49), d: 1, grey: 0.0001) / 0.0001, accuracy: 1e-3, "the shadows get the whole vignette")
+        XCTAssertEqual(at(Shape(highlights: 100), d: 1.1, grey: 0.0001) / 0.0001, at(Shape(), d: 1.1, grey: 0.0001) / 0.0001, accuracy: 1e-3, "the shadows get the whole vignette")
         XCTAssertEqual(form(Shape(highlights: 100), vignette: 60).keep, 0)
-        XCTAssertEqual(corner(Shape(highlights: 100), d: 1, vignette: 60), corner(Shape(midpoint: 50.0001), d: 1, vignette: 60), accuracy: 1e-9)
+        XCTAssertEqual(at(Shape(highlights: 100), d: 1.1, vignette: 60), at(Shape(), d: 1.1, vignette: 60), accuracy: 1e-12)
         // Monotonic on a grey ramp and grey-preserving at every distance, for any shape and amount.
-        for text in ["vig:-100 vigs:50,0,50,100", "vig:-100 vigs:0,-100,100,60", "vig:-45 vigs:80,-50,0,30", "vig:+100 vigs:20,-30,80,100", "vig:-100 vigs:100,+100,100,100"] {
+        for text in ["vig:-100", "vig:+60", "vig:-100 vigs:50,0,50,100", "vig:-100 vigs:0,-100,100,60", "vig:-45 vigs:80,-50,0,30", "vig:+100 vigs:20,-30,80,100", "vig:-100 vigs:100,+100,100,100"] {
             let look = try Look.parse(text)
             for d in [0.0, 0.4, 0.7, 1.0, 1.3] {
                 var last = -1.0
@@ -689,8 +699,6 @@ final class LookMathTests: XCTestCase {
                 }
             }
         }
-        // The shape alone, without an amount, is no stage at all.
-        XCTAssertEqual(LookMath.flat(.gray(0.4), look: try Look.parse("vigs:0,-100,0,100"), asShot: asShot, rules: rules, vignetteR: 1), .gray(0.4))
     }
 
     func testLocalStagesAreIdentityOnAFlatPatch() {

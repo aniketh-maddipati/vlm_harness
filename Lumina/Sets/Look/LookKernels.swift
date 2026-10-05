@@ -168,13 +168,6 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(s.rgb * ratio, s.a);
     }
 
-    // vignette: k = (amountStops, edge0, edge1, invHalfDiagonal), c = centre in pixels
-    [[ stitchable ]] float4 lookVignette(coreimage::sample_t s, float4 k, float2 c, coreimage::destination dest) {
-        float r = length(dest.coord() - c) * k.w;
-        float g = exp2(k.x * lk_smooth(k.y, k.z, r));
-        return float4(s.rgb * g, s.a);
-    }
-
     // outputTransform's sigmoid mapper (LookMath.DisplayMapper): inset, the shoulder per channel in log2
     // around mid grey, the hue put back, outset, 0…1. r0…r2 = the inset's rows, o0…o2 = the outset's;
     // k = (kneeEV, maxEV, stops from the knee to white, hueKeep)
@@ -208,15 +201,16 @@ nonisolated final class LookKernels: @unchecked Sendable {
     }
     """
 
-    /// The kernels of the stages added after the first twelve sliders (the vignette's shape, the
-    /// tone curve, the colour mixer). A source of their own, compiled with `source`'s helpers plus
-    /// the ones here: `source` and every kernel in it stay byte for byte what they were, so a
-    /// look that uses none of the new keys compiles and runs exactly the programs it did before.
+    /// The kernels of the stages added or re-formed after the first twelve sliders (the vignette
+    /// with its shape, the tone curve, the colour mixer). A source of their own, compiled with
+    /// `source`'s helpers plus the ones here: the kernels in `source` stay what they were, so a
+    /// look that uses none of the new keys (and no `vig`, whose form changed on 2026-10-05)
+    /// compiles and runs exactly the programs it did before.
     static let moreSource = """
 
-    // vignette with a shape (LookMath.vignetteShaped). k = (amountStops, edge0, edge1, highlights kept 0…1),
+    // vignette (LookMath.vignette: the amount and its four shape sliders). k = (amountStops, edge0, edge1, highlights kept 0…1),
     // sh = (sx·2/width, sy·2/height, power, 1/corner distance), hl = (highlightsPower, invGamma, 0, 0), c = centre in pixels
-    [[ stitchable ]] float4 lookVignetteShape(coreimage::sample_t s, float4 k, float4 sh, float4 hl, float4 lum, float2 c, coreimage::destination dest) {
+    [[ stitchable ]] float4 lookVignette(coreimage::sample_t s, float4 k, float4 sh, float4 hl, float4 lum, float2 c, coreimage::destination dest) {
         float2 uv = fabs(dest.coord() - c) * sh.xy;
         float d = pow(pow(uv.x, sh.z) + pow(uv.y, sh.z), 1.0f / sh.z) * sh.w;
         float e = k.x * lk_smooth(k.y, k.z, d);
@@ -288,8 +282,8 @@ nonisolated final class LookKernels: @unchecked Sendable {
 
     /// The stage kernels, compiled when the pipeline is made. `lookDisplay` (the sigmoid mapper) is
     /// not one of them: it compiles on first use, so with the default mapper nothing new is built.
-    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette",
-                             "lookVignetteShape", "lookCurve", "lookMixer"]
+    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen",
+                             "lookVignette", "lookCurve", "lookMixer"]
 
     private let header: String
     /// The helpers a `moreSource` kernel compiles with: `header` plus that source's own.
