@@ -1,9 +1,9 @@
-# Design asks for the next handoff (after v5)
+# Design asks for the next handoff (after v8 / Edit v21)
 
 Status: open. Paste the prompt below into Claude Design, download the new handoff zip, then run
 `bash Scripts/sets_sync_design.sh "<zip>"` (add `--record` once you've approved the new look).
 
-The Mac app ships `Lumina Sets v5.dc.html` byte for byte. Anything visible has to change in the
+The Mac app ships `Lumina Sets v8.dc.html` (with `Lumina Edit v21.dc.html` mounted inside it) byte for byte. The asks below were written against v5; v0.02 answered some (8: the read keeps the reader's place; the window chrome, decision 9a). Prompt 12 is new with v8. Anything visible has to change in the
 design and then be synced here. These asks were found while fitting `plumbing.js` to v5
 (2026-09-29), by `Tests/web/plumbing-harness.mjs` and `Tests/web/parity.mjs`. The WKWebView probe
 runs are still to come.
@@ -981,3 +981,44 @@ by its folder) and the recent works from then on. Until then File ▸ Open Recen
   contract scenario lists them.
 - By hand, once: install a sandboxed build over an unsandboxed one, see the alert, choose the
   folder, open a folder culled before and find its decisions.
+
+## Prompt 12 — Edit v21 calls the native canvas it specifies (paste into Claude Design)
+
+Found while syncing handoff v0.02 (Sets v8 + Edit v21, 2026-10-05). `BRIDGE-v0.02.md` §2 says
+Edit calls `lumina.canvasRect`, `lumina.drag`, `lumina.roi`, `lumina.preview` and
+`lumina.prefetch`, and that the app calls `window.luminaPresented`, `window.luminaHistogram`,
+`window.luminaFacts` and `window.luminaEditStats`. `Lumina Edit v21.dc.html` makes none of those
+calls and defines none of those hooks: its only app calls are `lumina.auto(rel)` and
+`lumina.emit(type, detail)` (`dragStart`, `dragEnd`, `step`, `zoom`, `pan`, `colourAt`, `wbPick`,
+`spectrum`). So the app can't place the native canvas, can't hear a look change, and can't hand
+back histograms or the decoder line. Until this lands, Edit in the app shows the page's own
+preview, as in the browser. `plumbing.js` will not read Edit's internals to fake it.
+
+> In `Lumina Edit v21`, add the calls BRIDGE-v0.02 §2 describes, each guarded with
+> `typeof lumina.x === 'function'` so the page still runs in a browser:
+> - `lumina.canvasRect({x, y, w, h, dpr})` (CSS px, in the window) on open, on every layout change
+>   and resize, and when something covers the canvas; `lumina.canvasRect(null)` when Edit hides.
+>   In the app, the canvas box is transparent where the native canvas sits.
+> - `lumina.preview(rel, look, px, seq)` at most once per animation frame while a look changes,
+>   `look` being the canonical look string (§4), `seq` increasing. A `null` answer keeps the box
+>   transparent.
+> - `lumina.drag('start' | 'end')` on slider press and release.
+> - `lumina.roi({x, y, w, h})` in image px while Z is held, `lumina.roi(null)` on release.
+> - `lumina.prefetch([{rel, pri, px}])` on keep, ⇧P, entering Edit, cursor moves in Edit and
+>   entering Save (each call replaces the last).
+> - Define `window.luminaPresented(seq)`, `window.luminaHistogram({seq, r, g, b, clipHi, clipLo})`
+>   and `window.luminaFacts({canvas, raw9, decoder, note})` while Edit is mounted, and remove them
+>   on unmount: older pending previews drop on `luminaPresented`, the histogram and clipping
+>   warnings come from `luminaHistogram`, and the facts line names the decoder from `luminaFacts`
+>   (`note` "update shoot" calls `lumina.edit.updateDecoder()`; hide Colour NR, Detail and Moiré
+>   while `raw9` is true).
+> Nothing visible changes in the browser.
+
+### How Prompt 12 is checked once its handoff lands
+
+- `Tests/web/plumbing-harness.mjs`, the `edit:` checks, switch from driving `lumina.edit` by hand
+  to the page's own calls: `stepEdit`, then the page's `canvasRect`, one `preview` per frame for 100
+  slider events, `drag`, `roi`, and the hooks answered.
+- `probe.sh edit` and `probe.sh raw9` drop `lumina.edit.layout(rect, true, {force: true})` and use
+  `stepEdit` with the page's own rect.
+- The contract scenario lists the calls and hooks.

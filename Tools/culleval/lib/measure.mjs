@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { LuminaCore, CORE_FILE, PAGE_FILE, sha, coreHash } from './core.mjs';
 
-export const READONE = '2fb6a3ffc2b62ed2';
+export const READONE = '90ef314774b89942';
 export function readOneHash() {
   const html = fs.readFileSync(PAGE_FILE, 'utf8'), a = html.indexOf('async readOne('), b = html.indexOf('async onDir(', a);
   return a < 0 || b < 0 ? null : sha(html.slice(a, b));
@@ -25,8 +25,17 @@ function head(file) {
     const buf = Buffer.alloc(Math.min(HEAD, size)); fs.readSync(fd, buf, 0, buf.length, 0);
     const m = LuminaCore.parseHead(new Uint8Array(buf.buffer, buf.byteOffset, buf.length), size);
     if (!m) return null;
+    // The first candidate that fits the file and starts FF D8, as the page tries them. A raw-strip
+    // preview (pvParts / pvRGB, assemblePreview) is not rebuilt here: Sony ARWs always carry a JPEG.
     let preview = null;
-    if (m.preview && m.preview[0] + m.preview[1] <= size) { preview = Buffer.alloc(m.preview[1]); fs.readSync(fd, preview, 0, preview.length, m.preview[0]); }
+    for (const [po, pl] of (m.previews && m.previews.length ? m.previews : m.preview ? [m.preview] : [])) {
+      if (po + pl > size) continue;
+      const pb = Buffer.alloc(pl); fs.readSync(fd, pb, 0, pl, po);
+      if (pb[0] !== 0xFF || pb[1] !== 0xD8) continue;
+      preview = pb; break;
+    }
+    const ph = LuminaCore.phoneOf ? LuminaCore.phoneOf(m) : null;
+    if (ph) { m.flReal = m.fl; if (m.fl35) m.fl = m.fl35; m.model = ph.short; m.lens = ph.zoom ? ph.zoom + ' camera' : m.lens; }
     return { m, size, preview };
   } finally { fs.closeSync(fd); }
 }
@@ -76,7 +85,7 @@ export async function measureAll(files, cacheFile, { jobs = 4, log = () => {} } 
         const f = todo[i]; let rec;
         try {
           const h = head(f); if (!h) throw new Error('unreadable');
-          const m = h.m, base = { name: path.basename(f), path: f, bytes: h.size, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso, model: m.model || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, lens: m.lens || null, serial: m.serial || null, program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null };
+          const m = h.m, base = { lowpv: false, wbK: m.wbK ?? null, wbTint: m.wbTint ?? null, make: m.make || null, name: path.basename(f), path: f, bytes: h.size, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso, model: m.model || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, lens: m.lens || null, serial: m.serial || null, program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null };
           let me = null;
           if (h.preview) { bytes.set('/p/' + i, h.preview); me = await page.evaluate(IN_PAGE, { url: '/p/' + i, ori: m.orient || 1 }); }
           rec = me ? { ...base, ...me } : { ...base, nopv: true, portrait: false, lum: null, focus: 0, clip: 0, dhash: null };

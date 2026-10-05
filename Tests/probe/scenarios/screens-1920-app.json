@@ -1,5 +1,5 @@
 {
- "page": "Lumina Sets v5.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1920,
   1080
@@ -8,7 +8,7 @@
  "clock": "2026-09-08T14:30:00",
  "storageWrites": false,
  "stopOnFailure": false,
- "checklist": "Every v5 screen at 1920x1080. The -app twin runs the same steps through plumbing.js (parity mode: the design's sample shoot and card) and must match pixel for pixel",
+ "checklist": "Every v8 screen at 1920x1080. The -app twin runs the same steps through plumbing.js (parity mode: the design's sample shoot and card) and must match pixel for pixel",
  "mode": "app",
  "app": {
   "parity": true
@@ -25,6 +25,14 @@
   {
    "do": "state",
    "name": "00-open"
+  },
+  {
+   "do": "js",
+   "src": "__probe.logic().tourEnd()"
+  },
+  {
+   "do": "wait",
+   "ms": 500
   },
   {
    "do": "key",
@@ -168,7 +176,7 @@
   },
   {
    "do": "key",
-   "k": "3",
+   "k": "4",
    "settleMs": 1000,
    "cmd": true
   },

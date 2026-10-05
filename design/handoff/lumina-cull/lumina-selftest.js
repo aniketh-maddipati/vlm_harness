@@ -17,10 +17,10 @@
       await T('⌘2 opens Cull',async()=>{ await tap('2','Digit2',{metaKey:true}); await wait(300); return S().view==='cull'; });
       await T('P keeps the photo under the cursor',async()=>{ await clickTile('[data-lumina=tile]'); const id=S().cur; await tap('p','KeyP'); return S().marks[id]==='keep'; });
       await T('P again un-keeps',async()=>{ await tap('ArrowLeft','ArrowLeft'); const id=S().cur; const was=S().marks[id]; await tap('p','KeyP'); return was==='keep'&&!S().marks[id]; });
-      await T('R keeps too',async()=>{ const id=S().cur; await tap('r','KeyR'); return S().marks[id]==='keep'; });
-      await T('X changes nothing',async()=>{ const u=S().undoDepth; await tap('x','KeyX'); return S().undoDepth===u; });
+      await T('R un-keeps (two states only)',async()=>{ const id=S().cur; await tap('p','KeyP'); await tap('ArrowLeft','ArrowLeft'); await tap('r','KeyR'); return !S().marks[id]&&!Object.values(S().marks).includes('out'); });
+      await T('⇧R steps back and un-keeps',async()=>{ const id=S().cur; await tap('p','KeyP'); await tap('R','KeyR',{shiftKey:true}); return S().cur===id&&!S().marks[id]; });
       await T('1–5 change nothing',async()=>{ const u=S().undoDepth; await tap('3','Digit3'); return S().undoDepth===u; });
-      await T('F flags',async()=>{ await tap('ArrowRight','ArrowRight'); const id=S().cur; await tap('f','KeyF'); return !!S().flags[id]; });
+      await T('F held shows the focus overlay',async()=>{ await tap('ArrowRight','ArrowRight'); await tap(' ','Space'); await wait(250); await K('f','KeyF',{},250); const on=/red = sharp edges/.test(document.body.innerText); await U('f','KeyF'); await tap('Escape','Escape'); await wait(150); return on; });
       await T('Q undoes one step',async()=>{ const u=S().undoDepth; await tap('q','KeyQ'); return S().undoDepth===u-1; });
       await T('⇧→ opens a stack with a time axis',async()=>{ await clickTile('[data-lumina=stack]'); await tap('ArrowRight','ArrowRight',{shiftKey:true}); await wait(200); return !!q('[data-lumina=stack-axis]'); });
       await T('⇧→ steps frames inside the stack',async()=>{ const a=S().cur; await tap('ArrowRight','ArrowRight',{shiftKey:true}); return S().cur!==a&&!!q('[data-lumina=stack-axis]'); });
@@ -34,7 +34,7 @@
       await T('↓ marks the row seen',async()=>{ await tap('ArrowUp','ArrowUp'); const row=S().cur; await tap('ArrowDown','ArrowDown'); await wait(150); return [...doc().querySelectorAll('[data-lumina=row-progress]')].some(n=>/seen/.test(n.textContent)); });
       await T('⌘A previews keep-row, esc cancels',async()=>{ await K('a','KeyA',{metaKey:true}); const p=S().pending; await tap('Escape','Escape'); return p&&!S().pending; });
       await T('⌘, opens Settings, esc closes',async()=>{ await tap(',','Comma',{metaKey:true}); const o=!!q('[data-lumina=settings]'); await tap('Escape','Escape'); await wait(100); return o&&!q('[data-lumina=settings]'); });
-      await T('⌘3 shows the Save bar with a count',async()=>{ await tap('3','Digit3',{metaKey:true}); await wait(300); const b=q('[data-lumina=handoff-primary]'); return {ok:!!b&&/Save \d+ keeper/.test(b.textContent),d:b?b.textContent.trim():'none'}; });
+      await T('⌘4 shows the Save bar with a count',async()=>{ await tap('4','Digit4',{metaKey:true}); await wait(300); const b=q('[data-lumina=handoff-primary]'); return {ok:!!b&&/Save \d+ pick/.test(b.textContent),d:b?b.textContent.trim():'none'}; });
       await T('⌘2 back to Cull',async()=>{ await tap('2','Digit2',{metaKey:true}); await wait(200); return S().view==='cull'; });
       await T('perf: → key to next frame (median of 40)',async()=>{ const ts=[]; for(let i=0;i<40;i++){ const t0=performance.now(); await K('ArrowRight','ArrowRight',{},0); await new Promise(r=>w().requestAnimationFrame(()=>r())); ts.push(performance.now()-t0); await U('ArrowRight','ArrowRight',0); } ts.sort((a,b)=>a-b); const m=ts[20]; return {ok:m<50,d:m.toFixed(1)+' ms'}; });
       await T('perf: open large view',async()=>{ const t0=performance.now(); await K(' ','Space',{},0); await new Promise(r=>w().requestAnimationFrame(()=>r())); const ms=performance.now()-t0; await U(' ','Space',0); await tap('Escape','Escape'); return {ok:ms<100,d:ms.toFixed(1)+' ms'}; });

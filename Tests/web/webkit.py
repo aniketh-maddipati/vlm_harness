@@ -29,7 +29,7 @@ import cairo
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 WEB = os.path.join(ROOT, 'Lumina/Sets/Web')
 SCEN = os.path.join(ROOT, 'Tests/probe/scenarios')
-PAGE = 'Lumina Sets v5.dc.html'
+PAGE = 'Lumina Sets v8.dc.html'
 def free_port():
     with socket.socket() as s:
         s.bind(('127.0.0.1', 0))

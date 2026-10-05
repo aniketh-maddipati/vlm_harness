@@ -53,6 +53,7 @@
     'writeInto', 'runExport', 'impStart', 'impSet', 'libOpen', 'build', 'forget', 'kept', 'undec', 'land', 'xmpFor', 'reveal'];
   const GLOBALS = { 'LuminaCore.parseHead': () => window.LuminaCore && LuminaCore.parseHead, 'LuminaCore.measure': () => window.LuminaCore && LuminaCore.measure,
     'LuminaCore.hasDevelop': () => window.LuminaCore && LuminaCore.hasDevelop, 'LuminaCore.buildShoot': () => window.LuminaCore && LuminaCore.buildShoot,
+    'LuminaCore.phoneOf': () => window.LuminaCore && LuminaCore.phoneOf, 'LuminaCore.assemblePreview': () => window.LuminaCore && LuminaCore.assemblePreview,
     'LuminaV4.fmt.base': () => window.LuminaV4 && LuminaV4.fmt && LuminaV4.fmt.base };
   // Set by the page when it mounts (MENUS.md, SAFETY.md 3 and 5).
   const HOOKS = ['luminaCommand', 'luminaCardGone', 'luminaAccess', 'luminaState'];
@@ -63,7 +64,7 @@
     HOOKS.filter(k => typeof window[k] !== 'function').map(k => 'window.' + k));
   // The native read (below) repeats the page's onDir and readOne step for step. When a design sync
   // changes either, the contract check reports it so the repeat gets reviewed; the app keeps working.
-  const ONDIR = 3373286225;
+  const ONDIR = 2746464250;
   const fnv = t => { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
   const readHash = logic => {
     const proto = logic && Object.getPrototypeOf(logic);
@@ -210,6 +211,14 @@
     const gaps = missing(logic);
     if (gaps.length) { native('ready', { missing: gaps }); return; }
 
+    // Parity mode (test only): the storage meter (header, Save) counts the Mac's working files in the app
+    // and the browser's own storage in the prototype. Measure it the prototype's way so the twins compare.
+    if (cfg.parity) for (const k of ['cacheParts', 'cacheView']) {
+      if (typeof logic[k] !== 'function') continue;
+      const f = logic[k].bind(logic), C = logic.constructor;
+      logic[k] = () => { const app = C.app; C.app = () => false; try { return f(); } finally { C.app = app; } };
+    }
+
     // After a folder is read: remember the shoot and bring its decisions back.
     const afterRead = async () => {
       if (!logic.real || !logic.real.length) return;
@@ -255,24 +264,34 @@
       await afterRead();
     };
 
-    // One ARW, as the page's readOne reads it, from the Mac's reader.
+    // One ARW or DNG, as the page's readOne reads it, from the Mac's reader.
     const readOne = async (f, xmpMap) => {
       const rel = f.rel, name = rel.split('/').pop();
       const head = new Uint8Array(await (await get(media('head', { p: rel }))).arrayBuffer());
       const m = LuminaCore.parseHead(head, f.size); if (!m) throw new Error('unreadable');
       let blob = null, pq = null, nt = null;
-      if (m.preview) {
-        const [po, pl] = m.preview;
-        if (po + pl <= f.size) {
-          pq = { p: rel, o: po, l: pl, ori: m.orient || 1 };
-          previewAt.set(rel, pq);
-          // As stored (ori 1): the page's own canvas turns it, below.
-          blob = await (await get(media('preview', Object.assign({}, pq, { ori: 1 })))).blob();
-          nt = nativeTile(pq);                               // made by the Mac while the page measures
-        }
+      // The page tries each embedded preview in turn; the first that starts FF D8 wins.
+      for (const [po, pl] of (m.previews && m.previews.length ? m.previews : m.preview ? [m.preview] : [])) {
+        if (po + pl > f.size) continue;
+        const q = { p: rel, o: po, l: pl, ori: m.orient || 1 };
+        // As stored (ori 1): the page's own canvas turns it, below.
+        const b = await (await get(media('preview', Object.assign({}, q, { ori: 1 })))).blob();
+        const sig = new Uint8Array(await b.slice(0, 2).arrayBuffer());
+        if (sig[0] !== 0xFF || sig[1] !== 0xD8) continue;
+        blob = b; pq = q;
+        previewAt.set(rel, pq);
+        nt = nativeTile(pq);                                 // made by the Mac while the page measures
+        break;
       }
+      // Tiled or multi-strip previews, or only an RGB thumbnail: the page assembles them on a canvas
+      // from byte ranges of the file, which the Mac reads here as it reads a preview.
+      if (!blob && (m.pvParts || m.pvRGB)) {
+        const file = { name, size: f.size, slice: (o, e) => ({ arrayBuffer: async () => (await get(media('preview', { p: rel, o, l: e - o, ori: 1 }))).arrayBuffer() }) };
+        try { const ap = await LuminaCore.assemblePreview(file, m); if (ap && ap.blob) { blob = ap.blob; m._lowpv = ap.low; } } catch (err) { if (err instanceof Gone) throw err; blob = null; }
+      }
+      const ph = LuminaCore.phoneOf(m); if (ph) { m.flReal = m.fl; if (m.fl35) m.fl = m.fl35; m.model = ph.short; m.lens = ph.zoom ? ph.zoom + ' camera' : m.lens; }
       const xk = rel.replace(/\.[^.\/]+$/, '').toLowerCase(), xo = xmpMap[xk] || null, xpath = xo ? xo.path : rel.replace(/\.[^.\/]+$/, '') + '.xmp';
-      const baseP = { model: m.model || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, bytes: f.size, lens: m.lens || null, serial: m.serial || null,
+      const baseP = { lowpv: !!m._lowpv, wbK: m.wbK ?? null, wbTint: m.wbTint ?? null, model: m.model || null, make: m.make || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, bytes: f.size, lens: m.lens || null, serial: m.serial || null,
         program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null,
         fileObj: fileRef(rel), xpath, xmp: xo && xo.tx, lrEd: LuminaCore.hasDevelop(xo && xo.tx), name, path: rel, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso };
       let me = null, portrait = false, tb = null;
@@ -298,7 +317,7 @@
       logic._gold.push({ file: name, size: f.size, parsed: Object.assign(Object.fromEntries(Object.entries(m).filter(([k]) => !/^_/.test(k))), { dhash: me ? me.dhash : null }) });
       if (!me) return Object.assign(baseP, { nopv: true, portrait: false, lum: null, focus: 0, clip: 0, dhash: null, src: '', lg: '' });
       // The large view gets the Mac's upright preview by URL: never held by the page.
-      return Object.assign(baseP, { portrait, dhash: me.dhash, lum: me.lum, focus: me.focus, clip: me.clip, src: URL.createObjectURL(tb), lg: media('preview', pq) });
+      return Object.assign(baseP, { portrait, dhash: me.dhash, lum: me.lum, focus: me.focus, clip: me.clip, src: URL.createObjectURL(tb), lg: pq ? media('preview', pq) : URL.createObjectURL(blob) });
     };
 
     // Grid thumbnails (data, not UI). The page makes them 360 px wide at JPEG 0.82 for its own measure
@@ -370,7 +389,7 @@
       logic._intake = logic.intake(allF, arws);
       if (!files.length) {
         const I = logic._intake, parts = [...Object.entries(I.raw).map(([e, n]) => n + ' ' + e.toUpperCase()), I.jp + I.ja ? (I.jp + I.ja) + ' JPEG / HEIF' : '', I.vid ? I.vid + ' videos' : ''].filter(Boolean);
-        const msg = 'no ARW found' + (parts.length ? ' · ' + parts.join(' · ') + ' · only Sony ARW is supported' : ' · 0 photos');
+        const msg = 'no ARW or DNG found' + (parts.length ? ' · ' + parts.join(' · ') + ' · Lumina reads ARW and DNG' : ' · 0 photos');
         logic.setState({ openNote: msg }); return logic.say(msg);
       }
       (logic.real || []).forEach(p => { p.src && URL.revokeObjectURL(p.src); /^blob:/.test(p.lg || '') && URL.revokeObjectURL(p.lg); });
@@ -383,7 +402,7 @@
       for (const rel of L.skippedXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar over 1 MB, not read' });
       // Sidecars that are not text (Latin-1, UTF-16, binary): the same count, until the page has its own line.
       for (const rel of L.unreadableXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar unreadable, not read' });
-      logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
+      logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, xsaved: {}, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
       // Rows appear as the contiguous prefix grows: every 400 ms, as in the page; every 1.5 s while
       // the reader is scrolling, so the grid isn't rebuilt under a moving scroll (plumbing's pacing).
       const grow = force => {
@@ -854,7 +873,13 @@
       if (lastRead && lastRead.stopped) native('reopenCurrent', {});
     },
     access(denied, what) { window.luminaAccess(!!denied, what || ''); },
-    command(name) { return typeof window.luminaCommand === 'function' ? window.luminaCommand(name) : false; },
+    // A menu item (BRIDGE.md, MENUS v7). While Edit is the active step, Undo, Redo, Copy and Paste
+    // are Edit's own (window.luminaEdit); everything else goes to Sets' luminaCommand.
+    command(name) {
+      const l = current, E = window.luminaEdit;
+      if (l && l.state.view === 'edit' && E && ['undo', 'redo', 'copy', 'paste'].includes(name) && typeof E[name] === 'function') { E[name](); return true; }
+      return typeof window.luminaCommand === 'function' ? window.luminaCommand(name) : false;
+    },
     // View ▸ Zoom 100%: Z is a hold key in the page; the menu toggles it through the page's gesture hook.
     zoom() { const l = window.__lumina.logic(); if (l && typeof window.luminaGesture === 'function') window.luminaGesture('hold', { key: 'z', down: !l.state.zoom }); },
     // Quit asks when there are keepers not yet saved (MENUS.md): their count, or 0.
