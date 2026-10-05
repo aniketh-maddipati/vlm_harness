@@ -848,14 +848,22 @@
     logic.constructor.SHOOTS = (window.LuminaV4 && LuminaV4.SHOOTS) || [];
     // The working-files meter and Save's Tidy up: in the app the page lists the Mac's store (one
     // part, the size plumbing gives it); the prototype measures its own previews and storage. The
-    // page's own prototype branches run here (cacheView's Remove all checks app() too).
-    for (const name of ['cacheParts', 'cacheView']) {
+    // page's own prototype branches run here (cacheView's Remove all checks app() too), and so do
+    // the ones that act on those parts: the meter's Remove buttons (cacheRemove; its app branch
+    // knows only the Mac's one part and would free nothing of what the twin lists) and the limit
+    // (enforceCap, which the app leaves to the Mac).
+    for (const name of ['cacheParts', 'cacheView', 'cacheRemove', 'enforceCap']) {
       const fn = logic[name];
       if (typeof fn === 'function') logic[name] = function (...a) {
         const was = window.lumina.app; window.lumina.app = false;
         try { return fn.apply(this, a); } finally { window.lumina.app = was; }
       };
     }
+    // Save's size and its Remove: the page asks the Mac (fetchWf on entering Save, after a save,
+    // when the meter opens; with no shoot open here that answers 0 and the twin would say 1 KB
+    // where the prototype measures its own). The prototype's number, and its own clearing.
+    if (typeof logic.cacheBytes === 'function') logic.fetchWf = function () { this.exSet({ wf: this.cacheBytes() }); };
+    if (typeof logic.clearCache === 'function') window.lumina.removeWorkingFiles = () => { logic.clearCache(); return Promise.resolve(true); };
     logic.setState({ cur: d.order[0] || null, imp: Object.assign({}, logic.state.imp, { card: true }) });
   };
 
@@ -1094,23 +1102,41 @@
   //   drags   lumina.emit('dragStart' | 'dragEnd') → edit.dragStart / dragEnd
   // The canvas hides (null rect) whenever the page shows something of its own in that box.
   // Decisions still open (the owner's): the page's Sharpening rests at 40 and the Mac's at 0, so 40
-  // is taken as the Mac's 0 here (SHP_BASE); the page's as-shot temperature is a fixed 5500 K, so a
-  // temperature is sent as a ratio of the photo's own as-shot value when the Mac names it
-  // (header.asShot for header.asShotRel), else as the page's number.
+  // is taken as the Mac's 0 here (SHP_BASE). White balance: the rule is at lookString.
   const SHP_BASE = 40;
   // `\` held: the as-shot render, not a hidden canvas (the page would show the untouched preview).
   const BEFORE_RENDERS = true;
   const lookNum = (v, d) => { const r = +(+v).toFixed(d); return r === 0 ? (d ? (0).toFixed(d) : '0') : (r > 0 ? '+' : '') + r.toFixed(d); };
   // LookString.swift's grammar, values at reset left out. The page's keys with no stage on the Mac
   // (tone curve, colour mixer, vignette shape, 90° turns) are dropped.
+  //
+  // White balance. The page's numbers rest on the photo's own: temperature at `wbShot` (Sets passes
+  // the file's `wbK`, 5500 when the read found none), tint at `tintShot` (`wbTint`, else 0). On the
+  // Mac `wb:K/T` is an absolute kelvin and tint, a look without `wb` is the RAW as shot, and the
+  // gains come from the distance between K/T and the as-shot pair the decoder reports
+  // (LookMath.whiteBalanceGains), which need not be the page's pair for the same file. So:
+  //   · both at rest (temperature = wbShot and tint = tintShot, whether the look holds them or
+  //     not: Auto and the picker write resting values back): no `wb` key. Untouched is as shot.
+  //   · moved, and the Mac has named the photo's as-shot pair (`asShot`, from canvasEnter's
+  //     answer): the user's move applied to the Mac's pair. K = asShot.kelvin × wb / wbShot (the
+  //     page's temperature slider is a ratio scale), T = asShot.tint + (tint − tintShot). Exact
+  //     whatever the page believed, the 5500 of a photo with no `wbK` included.
+  //   · moved, no `asShot` (what ships today: canvasEnter does not answer it): the page's own
+  //     numbers, K = wb, T = tint. Right by as much as wbShot / tintShot are the decoder's pair;
+  //     for a photo with no `wbK` the first move jumps from the true as-shot to the number the
+  //     slider shows. The look string cannot say "from as shot", so plumbing alone stops here.
   const lookString = (L, p, asShot) => {
     L = L || {};
     const out = [], has = k => L[k] != null && isFinite(+L[k]), cl = (v, a, b) => Math.min(b, Math.max(a, +v));
     if (has('ev') && +L.ev !== 0) out.push('ev:' + lookNum(cl(L.ev, -5, 5), 2));
-    if (has('wb') || (has('tint') && +L.tint !== 0)) {
-      const shot = +(p && p.wbShot) || 5500, k = has('wb') ? +L.wb : shot, t = has('tint') ? +L.tint : 0;
-      const K = asShot && +asShot.kelvin > 0 ? +asShot.kelvin * k / shot : k, T = (asShot ? +asShot.tint || 0 : 0) + t;
-      out.push('wb:' + Math.round(cl(K, 2000, 50000)) + '/' + lookNum(cl(T, -150, 150), 0));
+    {
+      const shot = +(p && p.wbShot) || 5500, tshot = p && p.tintShot != null && isFinite(+p.tintShot) ? +p.tintShot : 0;
+      const k = has('wb') ? +L.wb : shot, t = has('tint') ? +L.tint : tshot;
+      if (Math.round(k) !== Math.round(shot) || Math.round(t) !== Math.round(tshot)) {
+        const named = asShot && +asShot.kelvin > 0;
+        const K = named ? +asShot.kelvin * k / shot : k, T = named ? (+asShot.tint || 0) + (t - tshot) : t;
+        out.push('wb:' + Math.round(cl(K, 2000, 50000)) + '/' + lookNum(cl(T, -150, 150), 0));
+      }
     }
     for (const k of ['con', 'hl', 'sh', 'wh', 'bl', 'sat']) if (has(k) && Math.round(+L[k]) !== 0) out.push(k + ':' + lookNum(cl(L[k], -100, 100), 0));
     if (has('shp')) { const v = Math.round(cl(+L.shp - SHP_BASE, 0, 150)); if (v) out.push('shp:' + v); }
@@ -1160,7 +1186,7 @@
     if (!(w > 0 && h > 0)) return { x: 0, y: 0, w: 1, h: 1, ang: 0, set: false };
     return { x, y, w, h, ang, set: !!ang || x > 0.001 || y > 0.001 || w < 0.999 || h < 0.999 };
   };
-  const pg = { on: false, raf: 0, timer: 0, rel: null, entering: null, lay: null, roiKey: '', lastLook: 0, endDrag: false, miss: 0, loupeT: 0, loupeKey: '', why: '', error: null };
+  const pg = { on: false, raf: 0, timer: 0, rel: null, entering: null, lay: null, roiKey: '', lastLook: 0, endDrag: false, held: false, miss: 0, loupeT: 0, loupeKey: '', why: '', error: null };
   const pageOwner = () => { const f = window.luminaState, o = f && f.__edit && f.__owner; return o && o.state && o.data && o.data.byId && typeof o.look === 'function' ? o : null; };
   // Why the canvas may not show now: the page (Edit, or Sets above it) is drawing in the photo's box.
   const pageCovered = (o, l, L) => {
@@ -1207,7 +1233,7 @@
   const pageStop = () => {
     if (!pg.on) return;
     pg.on = false; cancelAnimationFrame(pg.raf); clearTimeout(pg.timer); clearTimeout(pg.loupeT);
-    pg.endDrag = false; pg.miss = 0; pg.loupeKey = ''; pg.roiKey = ''; pg.lay = null; pg.entering = null; pg.why = '';
+    pg.endDrag = false; pg.held = false; pg.miss = 0; pg.loupeKey = ''; pg.roiKey = ''; pg.lay = null; pg.entering = null; pg.why = '';
     if (ed.dragging) edit.dragEnd();
     if (pg.rel) { pg.rel = null; edit.leave(); }
   };
@@ -1237,6 +1263,10 @@
     // a held key): the quarter tier, as a drag; one alone is a keystroke: once, at full quality.
     const roi = geo ? geo.roi : ed.roi, roiKey = geo ? (roi ? JSON.stringify(roi) : '') : pg.roiKey;
     const moved = look !== ed.look;
+    // With the pointer down on a slider every change is the drag's, from the first one and however
+    // far apart (a slow drag on a whole-number slider changes about every 110 ms): the drag starts
+    // here if the page has not announced it yet.
+    if (moved && pg.held && !ed.dragging) { pg.endDrag = false; pg.miss = 0; edit.dragStart(); }
     if (moved || roiKey !== pg.roiKey) {
       const now = performance.now(), drag = ed.dragging || !moved || now - pg.lastLook < 100;
       if (moved) pg.lastLook = now;
@@ -1251,7 +1281,7 @@
       else pg.loupeT = setTimeout(() => { if (pg.on && pg.loupeKey === lk && ed.rel === rel) edit.loupe(true, roi); }, 150);
     }
     // Drags: the page's events lead; its state is the fallback (three passes of disagreement).
-    const sd = !!s.dragging;
+    const sd = !!s.dragging || (pg.held && ed.dragging);
     if (pg.endDrag) { pg.endDrag = false; pg.miss = 0; if (ed.dragging) edit.dragEnd(); }
     else if (sd === ed.dragging) pg.miss = 0;
     else if (++pg.miss >= 3) { pg.miss = 0; if (sd) edit.dragStart(); else edit.dragEnd(); }
@@ -1271,8 +1301,19 @@
   const pageEmit = (type, detail) => {
     if (!pg.on) return;
     if (type === 'dragStart') { pg.endDrag = false; pg.miss = 0; if (!ed.dragging) edit.dragStart(); }
-    else if (type === 'dragEnd') pg.endDrag = true;
+    else if (type === 'dragEnd') { pg.endDrag = true; pg.held = false; }      // Escape ends it with the pointer still down
   };
+  // The pointer on one of the page's sliders (`[data-lumina="slider"]`): the page announces a drag
+  // only once the value has moved, and not at all for a change made some other way while the
+  // pointer is down. Seen in the capture phase, and only while the page's Edit step is on the
+  // canvas. Letting go ends the drag on the next pass, after its last value.
+  const pageHeld = e => {
+    if (!pg.on) return;
+    if (e.type === 'pointerdown') { if (e.button === 0 && e.target && e.target.closest && e.target.closest('[data-lumina="slider"]')) pg.held = true; return; }
+    if (e.type === 'blur' && e.target !== window) return;                      // the window's own, not a field's
+    if (pg.held) { pg.held = false; if (ed.dragging) pg.endDrag = true; }
+  };
+  for (const t of ['pointerdown', 'pointerup', 'pointercancel', 'blur']) window.addEventListener(t, pageHeld, true);
   const photoAt = (l, rel) => { for (const [id, p] of Object.entries(l.data.byId)) if ((l.state.realInfo && l.state.realInfo.name || '') + '/' + keyOf(p) === rel || p.path === rel) return [id, p]; return [null, null]; };
   const edit = {
     // Entering Edit for a photo (its path, "<folder>/DSC.ARW"): the Mac builds its bases now and its
