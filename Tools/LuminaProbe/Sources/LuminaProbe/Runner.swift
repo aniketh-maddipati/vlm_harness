@@ -66,6 +66,7 @@ final class Runner {
             scale = (spec["scale"] as? Double) ?? 1
             var config: [String: Any] = [:]
             if spec["storageWrites"] as? Bool == false { config["noStorageWrites"] = true }
+            if spec["tour"] as? Bool == true { config["tour"] = true }
             if let clock = spec["clock"] as? String {
                 let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"; f.timeZone = .current
                 guard let d = f.date(from: clock) else { throw ProbeError("bad clock \(clock)") }

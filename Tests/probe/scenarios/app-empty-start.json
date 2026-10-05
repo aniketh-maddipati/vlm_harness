@@ -7,7 +7,7 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
- "checklist": "Empty states (the v3-era design ask 1, answered by v5): the app starts with no sample shoot and no recents. Open shows its empty state; ⌘2 and ⌘3 stay on Open and say '0 photos · ⌘O'; the Cull and Save keys do nothing and write nothing; an 800-input key and mouse storm over the empty app holds every invariant.",
+ "checklist": "Empty states (the v3-era design ask 1, answered by v5): the app starts with no sample shoot and no recents. Open shows its empty state; ⌘2, ⌘3 and ⌘4 stay on Open and say '0 photos · ⌘O'; the Cull and Save keys do nothing and write nothing; an 800-input key and mouse storm over the empty app holds every invariant.",
  "steps": [
   {
    "do": "wait",
@@ -51,6 +51,21 @@
   {
    "do": "key",
    "k": "3",
+   "settleMs": 300,
+   "cmd": true
+  },
+  {
+   "do": "expect",
+   "js": "const s=__probe.logic().state; return [s.view, s.toast]",
+   "equals": [
+    "import",
+    "0 photos · ⌘O"
+   ],
+   "why": "Edit needs a shoot"
+  },
+  {
+   "do": "key",
+   "k": "4",
    "settleMs": 300,
    "cmd": true
   },

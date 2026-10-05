@@ -35,6 +35,20 @@
    "timeoutMs": 120000
   },
   {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "expect",
+   "js": "const a=document.activeElement; return a ? a.tagName : 'none'",
+   "equals": "INPUT",
+   "why": "v7: a shoot opened for the first time puts the keyboard in its name field"
+  },
+  {
+   "do": "js",
+   "src": "document.activeElement && document.activeElement.blur(); return true"
+  },
+  {
    "do": "expect",
    "js": "return __probe.logic().state.view",
    "equals": "cull"
@@ -108,7 +122,7 @@
   },
   {
    "do": "key",
-   "k": "3",
+   "k": "4",
    "cmd": true,
    "settleMs": 1000
   },
@@ -120,6 +134,18 @@
   {
    "do": "snap",
    "name": "save"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "cmd": true,
+   "settleMs": 1500
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.armed",
+   "equals": "save",
+   "why": "v7: with undecided photos the first ⌘⏎ only warns"
   },
   {
    "do": "key",
@@ -222,9 +248,21 @@
   },
   {
    "do": "key",
-   "k": "3",
+   "k": "4",
    "cmd": true,
    "settleMs": 1000
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "cmd": true,
+   "settleMs": 1500
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.armed",
+   "equals": "save",
+   "why": "v7: with undecided photos the first ⌘⏎ only warns"
   },
   {
    "do": "key",

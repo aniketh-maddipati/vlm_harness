@@ -5,7 +5,7 @@
   540
  ],
  "clock": "2026-09-08T14:30:00",
- "checklist": "The v5 prototype runs: Open, Cull, keep, Save",
+ "checklist": "The v7 prototype runs: Open, Pick, keep, Edit, Save",
  "steps": [
   {
    "do": "wait",
@@ -56,6 +56,21 @@
   {
    "do": "key",
    "k": "3",
+   "cmd": true,
+   "settleMs": 800
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "edit"
+  },
+  {
+   "do": "snap",
+   "name": "edit"
+  },
+  {
+   "do": "key",
+   "k": "4",
    "cmd": true,
    "settleMs": 800
   },

@@ -20,6 +20,9 @@
   // "storageWrites": false in a scenario: the page's own localStorage writes fail, as they do in
   // the app (it persists through plumbing.js instead). Screens that show the browser-only "saved"
   // label would otherwise never match their app twin.
+  // v7 shows its five-step tour on a first launch, and the tour takes every key. A scenario starts
+  // past it unless it asks for it ("tour": true), as a second launch does.
+  if (!cfg.tour) { try { localStorage.setItem('lumina-v4-toured', '1'); } catch (_) {} }
   if (cfg.noStorageWrites) { try { Storage.prototype.setItem = function () { throw new DOMException('probe: storage writes off', 'QuotaExceededError'); }; } catch (_) {} }
 
   // Vendored React / Babel through support.js's own hook; page bytes stay unchanged.
