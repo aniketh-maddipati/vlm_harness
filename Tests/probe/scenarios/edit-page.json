@@ -1,0 +1,313 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v7.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "sampleMs": 100,
+ "stopOnFailure": false,
+ "deadline": 300,
+ "checklist": "Edit through the page (v21) on real photos: ⌘3 puts the open photo on the native canvas inside the page's photo box; a pointer drag on each of the page's own sliders reaches its native stage (exposure, contrast, vignette and its shape, the tone curve's three regions, the colour mixer's saturation, hue and luminance) at p95 ≤ 16 ms with no dropped frames; canvas vs export ΔE median ≤ 0.5 with every new stage on; a quarter turn is drawn; leaving Edit hides the canvas. Folder: LUMINA_EDIT_DIR.",
+ "budgets": {
+  "probePeakMB": 3000
+ },
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_EDIT_DIR}",
+   "via": "js",
+   "timeoutMs": 900000
+  },
+  {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "js",
+   "src": "document.activeElement && document.activeElement.blur(); return true"
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "cmd": true,
+   "settleMs": 900
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "edit"
+  },
+  {
+   "do": "waitFor",
+   "js": "const s=lumina.edit.state(); return !!(s.page && s.page.on && s.rel && s.visible)",
+   "timeoutMs": 30000,
+   "what": "the page's Edit photo is on the native canvas"
+  },
+  {
+   "do": "waitFor",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'||(s.bases&&s.bases.resident>0))",
+   "timeoutMs": 90000,
+   "what": "bases built"
+  },
+  {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "js",
+   "src": "const s=lumina.edit.state(); return JSON.stringify({rel:s.rel,rect:s.rect,hidden:s.page.hidden,look:s.look})"
+  },
+  {
+   "do": "expect",
+   "js": "const s=lumina.edit.state(), el=document.querySelector('[data-lumina=\"canvas\"]').getBoundingClientRect(); return s.rect.x>=el.left-1 && s.rect.y>=el.top-1 && s.rect.x+s.rect.w<=el.right+1 && s.rect.y+s.rect.h<=el.bottom+1",
+   "why": "the canvas sits inside the page's photo box"
+  },
+  {
+   "do": "snap",
+   "name": "edit-open"
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "ev",
+   "px": 120,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "ev:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "con",
+   "px": 140,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "con:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "click",
+   "text": "Effects",
+   "settleMs": 350
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "vig",
+   "px": -120,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "vig:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "vMid",
+   "px": -60,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "vigs:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "vRound",
+   "px": -100,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "vigs:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "vFeather",
+   "px": 60,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "vigs:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "vHl",
+   "px": 100,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "vigs:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "click",
+   "text": "Curve",
+   "settleMs": 350
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "cMid",
+   "px": 60,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "tc:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "cDark",
+   "px": -50,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "tc:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "cLight",
+   "px": 50,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "tc:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "click",
+   "text": "Colour",
+   "settleMs": 350
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "sat_red",
+   "px": 120,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "mixs:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "sat_blue",
+   "px": -120,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "mixs:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "click",
+   "text": "Hue",
+   "settleMs": 350
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "hue_orange",
+   "px": 80,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "mixh:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "click",
+   "text": "Luminance",
+   "settleMs": 350
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "lum_green",
+   "px": -80,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "mixl:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "snap",
+   "name": "edit-all-stages"
+  },
+  {
+   "do": "editParity",
+   "maxMedianDE": 0.5
+  },
+  {
+   "do": "js",
+   "src": "window.luminaState.__owner.rotate90(1); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 900
+  },
+  {
+   "do": "expect",
+   "js": "const s=lumina.edit.state(); return [/rot:90/.test(s.look), s.visible, s.page.hidden, s.rect.h>s.rect.w]",
+   "equals": [
+    true,
+    true,
+    "",
+    true
+   ],
+   "why": "a turned photo is drawn, upright box"
+  },
+  {
+   "do": "snap",
+   "name": "edit-turned"
+  },
+  {
+   "do": "expect",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'||s.bases.residentPhotos<=3)"
+  },
+  {
+   "do": "expect",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'||s.bases.bytes<=300*1048576)"
+  },
+  {
+   "do": "dump",
+   "name": "canvas",
+   "js": "return lumina.edit.stats()"
+  },
+  {
+   "do": "key",
+   "k": "2",
+   "cmd": true,
+   "settleMs": 700
+  },
+  {
+   "do": "expect",
+   "js": "return [__probe.logic().state.view, lumina.edit.state().visible]",
+   "equals": [
+    "cull",
+    false
+   ],
+   "why": "leaving Edit hides the canvas"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

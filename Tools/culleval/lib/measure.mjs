@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { LuminaCore, CORE_FILE, PAGE_FILE, sha, coreHash } from './core.mjs';
 
-export const READONE = '4ea2cacc903847ca';
+export const READONE = '8b2aae62a1f7ec2b';
 export function readOneHash() {
   const html = fs.readFileSync(PAGE_FILE, 'utf8'), a = html.indexOf('async readOne('), b = html.indexOf('async onDir(', a);
   return a < 0 || b < 0 ? null : sha(html.slice(a, b));
@@ -23,7 +23,7 @@ export const RAW_FILE = /\.(arw|dng)$/i;
 export function recordOf(parsed, file, size) {
   const m = { ...parsed }, ph = LuminaCore.phoneOf(m);
   if (ph) { m.flReal = m.fl; if (m.fl35) m.fl = m.fl35; m.model = ph.short; m.lens = ph.zoom ? ph.zoom + ' camera' : m.lens; }
-  return { name: path.basename(file), path: file, bytes: size, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso, model: m.model || null, make: m.make || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, lens: m.lens || null, serial: m.serial || null, program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null };
+  return { wbK: m.wbK ?? null, wbTint: m.wbTint ?? null, name: path.basename(file), path: file, bytes: size, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso, model: m.model || null, make: m.make || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, lens: m.lens || null, serial: m.serial || null, program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null };
 }
 
 const HEAD = 262144;
