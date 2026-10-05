@@ -848,14 +848,22 @@
     logic.constructor.SHOOTS = (window.LuminaV4 && LuminaV4.SHOOTS) || [];
     // The working-files meter and Save's Tidy up: in the app the page lists the Mac's store (one
     // part, the size plumbing gives it); the prototype measures its own previews and storage. The
-    // page's own prototype branches run here (cacheView's Remove all checks app() too).
-    for (const name of ['cacheParts', 'cacheView']) {
+    // page's own prototype branches run here (cacheView's Remove all checks app() too), and so do
+    // the ones that act on those parts: the meter's Remove buttons (cacheRemove; its app branch
+    // knows only the Mac's one part and would free nothing of what the twin lists) and the limit
+    // (enforceCap, which the app leaves to the Mac).
+    for (const name of ['cacheParts', 'cacheView', 'cacheRemove', 'enforceCap']) {
       const fn = logic[name];
       if (typeof fn === 'function') logic[name] = function (...a) {
         const was = window.lumina.app; window.lumina.app = false;
         try { return fn.apply(this, a); } finally { window.lumina.app = was; }
       };
     }
+    // Save's size and its Remove: the page asks the Mac (fetchWf on entering Save, after a save,
+    // when the meter opens; with no shoot open here that answers 0 and the twin would say 1 KB
+    // where the prototype measures its own). The prototype's number, and its own clearing.
+    if (typeof logic.cacheBytes === 'function') logic.fetchWf = function () { this.exSet({ wf: this.cacheBytes() }); };
+    if (typeof logic.clearCache === 'function') window.lumina.removeWorkingFiles = () => { logic.clearCache(); return Promise.resolve(true); };
     logic.setState({ cur: d.order[0] || null, imp: Object.assign({}, logic.state.imp, { card: true }) });
   };
 
@@ -1094,23 +1102,41 @@
   //   drags   lumina.emit('dragStart' | 'dragEnd') → edit.dragStart / dragEnd
   // The canvas hides (null rect) whenever the page shows something of its own in that box.
   // Decisions still open (the owner's): the page's Sharpening rests at 40 and the Mac's at 0, so 40
-  // is taken as the Mac's 0 here (SHP_BASE); the page's as-shot temperature is a fixed 5500 K, so a
-  // temperature is sent as a ratio of the photo's own as-shot value when the Mac names it
-  // (header.asShot for header.asShotRel), else as the page's number.
+  // is taken as the Mac's 0 here (SHP_BASE). White balance: the rule is at lookString.
   const SHP_BASE = 40;
   // `\` held: the as-shot render, not a hidden canvas (the page would show the untouched preview).
   const BEFORE_RENDERS = true;
   const lookNum = (v, d) => { const r = +(+v).toFixed(d); return r === 0 ? (d ? (0).toFixed(d) : '0') : (r > 0 ? '+' : '') + r.toFixed(d); };
   // LookString.swift's grammar, values at reset left out. The page's keys with no stage on the Mac
   // (tone curve, colour mixer, vignette shape, 90° turns) are dropped.
+  //
+  // White balance. The page's numbers rest on the photo's own: temperature at `wbShot` (Sets passes
+  // the file's `wbK`, 5500 when the read found none), tint at `tintShot` (`wbTint`, else 0). On the
+  // Mac `wb:K/T` is an absolute kelvin and tint, a look without `wb` is the RAW as shot, and the
+  // gains come from the distance between K/T and the as-shot pair the decoder reports
+  // (LookMath.whiteBalanceGains), which need not be the page's pair for the same file. So:
+  //   · both at rest (temperature = wbShot and tint = tintShot, whether the look holds them or
+  //     not: Auto and the picker write resting values back): no `wb` key. Untouched is as shot.
+  //   · moved, and the Mac has named the photo's as-shot pair (`asShot`, from canvasEnter's
+  //     answer): the user's move applied to the Mac's pair. K = asShot.kelvin × wb / wbShot (the
+  //     page's temperature slider is a ratio scale), T = asShot.tint + (tint − tintShot). Exact
+  //     whatever the page believed, the 5500 of a photo with no `wbK` included.
+  //   · moved, no `asShot` (what ships today: canvasEnter does not answer it): the page's own
+  //     numbers, K = wb, T = tint. Right by as much as wbShot / tintShot are the decoder's pair;
+  //     for a photo with no `wbK` the first move jumps from the true as-shot to the number the
+  //     slider shows. The look string cannot say "from as shot", so plumbing alone stops here.
   const lookString = (L, p, asShot) => {
     L = L || {};
     const out = [], has = k => L[k] != null && isFinite(+L[k]), cl = (v, a, b) => Math.min(b, Math.max(a, +v));
     if (has('ev') && +L.ev !== 0) out.push('ev:' + lookNum(cl(L.ev, -5, 5), 2));
-    if (has('wb') || (has('tint') && +L.tint !== 0)) {
-      const shot = +(p && p.wbShot) || 5500, k = has('wb') ? +L.wb : shot, t = has('tint') ? +L.tint : 0;
-      const K = asShot && +asShot.kelvin > 0 ? +asShot.kelvin * k / shot : k, T = (asShot ? +asShot.tint || 0 : 0) + t;
-      out.push('wb:' + Math.round(cl(K, 2000, 50000)) + '/' + lookNum(cl(T, -150, 150), 0));
+    {
+      const shot = +(p && p.wbShot) || 5500, tshot = p && p.tintShot != null && isFinite(+p.tintShot) ? +p.tintShot : 0;
+      const k = has('wb') ? +L.wb : shot, t = has('tint') ? +L.tint : tshot;
+      if (Math.round(k) !== Math.round(shot) || Math.round(t) !== Math.round(tshot)) {
+        const named = asShot && +asShot.kelvin > 0;
+        const K = named ? +asShot.kelvin * k / shot : k, T = named ? (+asShot.tint || 0) + (t - tshot) : t;
+        out.push('wb:' + Math.round(cl(K, 2000, 50000)) + '/' + lookNum(cl(T, -150, 150), 0));
+      }
     }
     for (const k of ['con', 'hl', 'sh', 'wh', 'bl', 'sat']) if (has(k) && Math.round(+L[k]) !== 0) out.push(k + ':' + lookNum(cl(L[k], -100, 100), 0));
     if (has('shp')) { const v = Math.round(cl(+L.shp - SHP_BASE, 0, 150)); if (v) out.push('shp:' + v); }

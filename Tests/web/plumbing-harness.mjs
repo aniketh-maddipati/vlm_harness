@@ -244,6 +244,16 @@ const loaded = async page => {
       await lookStr({ wb: 6000, tint: 12 }, { wbShot: 5500 }, { kelvin: 4400, tint: 5 }), await lookStr({ ev: 9, crop: { x: 0.6, y: 0, w: 0.9, h: 1 } }, { wbShot: 5500, bw: true })];
     ok(t2[0] === '' && t2[1] === '' && t2[2] === 'wb:5500/-8' && t2[3] === 'wb:4800/+17' && t2[4] === 'ev:+5.00 bw:1 crop:0.6000,0.0000,0.4000,1.0000',
       'edit v21: reset values are left out, a temperature follows the photo\'s as-shot when the Mac names it, values stay in range', t2);
+    // White balance (the rule at lookString): the page rests on the photo's own wbShot / tintShot.
+    const shot = { wbShot: 5200, tintShot: 4 }, none = { wbShot: 5500, tintShot: 0 }, mac = { kelvin: 4680, tint: 9 };
+    const w1 = [await lookStr({}, shot), await lookStr({ wb: 5200, tint: 4 }, shot), await lookStr({ wb: 5200, tint: 4 }, shot, mac), await lookStr({ wb: 5500, tint: 0 }, none), await lookStr({ wb: 5500 }, {})];
+    ok(w1.every(s => s === ''), 'edit v21 white balance: temperature and tint at the photo\'s own values send no wb key (untouched = as shot), held in the look or not', w1);
+    const w2 = [await lookStr({ wb: 6000 }, shot), await lookStr({ tint: 10 }, shot), await lookStr({ wb: 6000 }, none), await lookStr({ wb: 6000 }, {}), await lookStr({ tint: 0 }, shot)];
+    ok(w2[0] === 'wb:6000/+4' && w2[1] === 'wb:5200/+10' && w2[2] === 'wb:6000/0' && w2[3] === 'wb:6000/0' && w2[4] === 'wb:5200/0',
+      'edit v21 white balance: moved with no as-shot from the Mac, the page\'s own numbers go out, the untouched one at the photo\'s value (5500 / 0 without wbK)', w2);
+    const w3 = [await lookStr({ wb: 6000 }, shot, mac), await lookStr({ tint: 10 }, shot, mac), await lookStr({ wb: 6050 }, none, mac), await lookStr({ wb: 6000, tint: 4 }, shot, { kelvin: 0, tint: 9 })];
+    ok(w3[0] === 'wb:5400/+9' && w3[1] === 'wb:4680/+15' && w3[2] === 'wb:5148/+9' && w3[3] === 'wb:6000/+4',
+      'edit v21 white balance: when the Mac names the as-shot pair, the user\'s move (ratio of kelvin, difference of tint) is applied to it', w3);
 
     bridge.header = Object.assign({}, bridge.header, { canvas: 'native' }); bridge.canvas.path = 'native';
     const n0 = { entered: bridge.canvas.entered.length, layouts: bridge.canvas.layouts.length, looks: bridge.canvas.looks.length, drags: bridge.canvas.drags.length, loupes: bridge.canvas.loupes.length };
