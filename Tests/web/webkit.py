@@ -99,12 +99,15 @@ def offline_filter():
 class Page:
     """One offscreen WebKitGTK view. app=True: plumbing.js + the lumina message handler."""
 
-    def __init__(self, app, size=(1440, 900), query='', clock=None, parity=False, storage_writes=True, probe=False):
+    def __init__(self, app, size=(1440, 900), query='', clock=None, parity=False, storage_writes=True, probe=False, tour=False):
         ucm = WebKit2.UserContentManager()
         add = lambda src: ucm.add_script(WebKit2.UserScript.new(src, WebKit2.UserContentInjectedFrames.TOP_FRAME, WebKit2.UserScriptInjectionTime.START, None, None))
         if clock:
             base = int(time.mktime(time.strptime(clock, '%Y-%m-%dT%H:%M:%S')) * 1000)
             add('(() => { const R = Date, t0 = R.now(), b = %d; const now = () => b + (R.now() - t0); class D extends R { constructor(...a) { if (a.length === 0) super(now()); else super(...a); } static now() { return now(); } } window.Date = D; })();' % base)
+        # v7's first-launch tour takes every key: start past it unless asked ("tour": true), as probe.js does.
+        if not tour:
+            add("try { localStorage.setItem('lumina-v4-toured', '1'); } catch (_) {}")
         if not storage_writes:
             add("Storage.prototype.setItem = function () { throw new DOMException('storage writes off', 'QuotaExceededError'); };")
         if probe:   # the Mac probe's own page helpers (tile meter, frame pacing); its message posts no-op here
@@ -339,7 +342,7 @@ return { state: JSON.parse(JSON.stringify(l.state, (k, v) => { if (typeof v === 
 def run_screens(spec, app, d):
     os.makedirs(d, exist_ok=True)
     ctl('reset')
-    p = Page(app=app, size=tuple(spec['size']), clock=spec.get('clock'), parity=app, storage_writes=spec.get('storageWrites', True))
+    p = Page(app=app, size=tuple(spec['size']), clock=spec.get('clock'), parity=app, storage_writes=spec.get('storageWrites', True), tour=spec.get('tour', False))
     if not ready(p, app):
         raise RuntimeError('screens: page not ready')
     snaps, states, fails = {}, {}, []
