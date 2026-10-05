@@ -1,7 +1,9 @@
 # The design page's file names: one place for the scripts and CI. SetsSchemeHandler.pageFiles and
 # SetsPageBytesTests repeat them for the app. A handoff that renames a file shows up in
 # sets_sync_design.sh step 1; update the names here, there and in the scenarios' "page".
-PAGE="Lumina Sets v5.dc.html"
+PAGE="Lumina Sets v7.dc.html"
+# The Edit step: its own page since v0.01, mounted by $PAGE.
+EDIT="Lumina Edit v21.dc.html"
 CORE="lumina-core-v4.js"
 CORE_TEST="lumina-core-v4.test.mjs"
-PAGE_FILES=("$PAGE" support.js "$CORE" lumina-v4-data.js lumina-selftest.js)
+PAGE_FILES=("$PAGE" "$EDIT" support.js "$CORE" lumina-measure.js lumina-v4-data.js lumina-selftest.js)

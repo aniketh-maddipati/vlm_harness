@@ -19,7 +19,13 @@ const ok = (cond, what, extra) => { if (!cond) fails++; console.log((cond ? 'ok 
 
 const S = page => page.evaluate(() => { const l = __lumina.logic(); return { view: l.state.view, cur: l.state.cur, marks: l.state.marks, realInfo: l.state.realInfo, n: l.data.order.length, notes: l.state.notes, openNote: l.state.openNote }; });
 const key = (page, k, o = {}) => page.evaluate(([k, o]) => { const codes = { p: 'KeyP', f: 'KeyF', ArrowDown: 'ArrowDown', ArrowRight: 'ArrowRight', Enter: 'Enter', '3': 'Digit3', '2': 'Digit2', o: 'KeyO' }; dispatchEvent(new KeyboardEvent('keydown', { key: k, code: codes[k] || k, bubbles: true, ...o })); dispatchEvent(new KeyboardEvent('keyup', { key: k, code: codes[k] || k, bubbles: true, ...o })); }, [k, o]);
-const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); return !!(l.real && l.real.length && !l.state.realLoad && l.state.realInfo); }, null, { timeout: 30000 });
+// v7: a shoot opened for the first time puts the keyboard in its name field 350 ms after the read
+// (keys go to the name until ⏎ or a click). The checks below drive keys, so they leave the field.
+const loaded = async page => {
+  await page.waitForFunction(() => { const l = __lumina.logic(); return !!(l.real && l.real.length && !l.state.realLoad && l.state.realInfo); }, null, { timeout: 30000 });
+  await page.waitForTimeout(450);
+  return page.evaluate(() => { const a = document.activeElement, named = !!(a && /^(INPUT|TEXTAREA)$/.test(a.tagName)); if (named) a.blur(); return named; });
+};
 
 (async () => {
   const browser = await pw.chromium.launch({ executablePath: process.env.CHROMIUM || undefined });
@@ -60,7 +66,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   for (const n of ['A.CR3', 'B.CR3', 'C.JPG', 'D.MP4']) fs.writeFileSync(path.join(empty, n), 'x');
   bridge.pending = empty; await page.evaluate(() => __lumina.openFolder());
   await page.waitForFunction(() => !!__lumina.logic().state.openNote, null, { timeout: 5000 }).catch(() => {});
-  ok((await S(page)).openNote === 'no ARW found · 2 CR3 · 1 JPEG / HEIF · 1 videos · only Sony ARW is supported', 'intake: no-ARW note uses non-ARW names from the listing', (await S(page)).openNote);
+  ok((await S(page)).openNote === 'no ARW or DNG found · 2 CR3 · 1 JPEG / HEIF · 1 videos · Lumina reads ARW and DNG', 'intake: no-ARW note uses non-ARW names from the listing', (await S(page)).openNote);
 
   // A shoot
   const shoot = path.join(tmp, '2026-09-01');
@@ -221,12 +227,106 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(bridge.canvas.entered.some(e => e.leave) && (await page.evaluate(() => lumina.edit.state().rel)) === null && bridge.canvas.layouts[bridge.canvas.layouts.length - 1].visible === false, 'edit: leave hides the canvas and tells the Mac');
   ok((await page.evaluate(() => { try { lumina.edit.look('ev:+0.10', { drag: true }); lumina.edit.dragEnd(); return true; } catch (e) { return String(e); } })) === true, 'edit: calls after leave are harmless no-ops');
 
+  // Edit v21, the page's own Edit step, on the canvas: the page calls nothing, plumbing reads its
+  // state (pageSync). The Mac's side is the stand-in, told to answer `canvas: native` so the looks
+  // arrive as canvasLook messages.
+  {
+    const lookStr = (L, p, a) => page.evaluate(([L, p, a]) => lumina.edit.lookString(L, p, a), [L, p, a || null]);
+    const full = { ev: -1.25, wb: 6000, tint: 12, con: 10, hl: -22, sh: 18, wh: 5, bl: -5, sat: 7, shp: 65, vig: -30, nr: 25, vMid: 70, vRound: 10, vFeather: 20, vHl: 5, cMid: 10, cDark: -5,
+      sat_red: 20, hue_blue: -10, lum_green: 5, curve: [[0, 0], [1, 1]], rot: 90, crop: { x: 0.1, y: 0.2, w: 0.5, h: 0.6, ang: 1.5, ratio: 'free' } };
+    const t1 = await lookStr(full, { wbShot: 5500 });
+    ok(t1 === 'ev:-1.25 wb:6000/+12 con:+10 hl:-22 sh:+18 wh:+5 bl:-5 sat:+7 shp:25 vig:-30 nr:25 crop:0.1000,0.2000,0.5000,0.6000/1.50', 'edit v21: the page\'s look object becomes a look string (keys without a stage dropped)', t1);
+    const t2 = [await lookStr({}, { wbShot: 5500 }), await lookStr({ shp: 40, ev: 0, crop: { x: 0, y: 0, w: 1, h: 1, ang: 0 } }, { wbShot: 5500 }), await lookStr({ tint: -8 }, { wbShot: 5500 }),
+      await lookStr({ wb: 6000, tint: 12 }, { wbShot: 5500 }, { kelvin: 4400, tint: 5 }), await lookStr({ ev: 9, crop: { x: 0.6, y: 0, w: 0.9, h: 1 } }, { wbShot: 5500, bw: true })];
+    ok(t2[0] === '' && t2[1] === '' && t2[2] === 'wb:5500/-8' && t2[3] === 'wb:4800/+17' && t2[4] === 'ev:+5.00 bw:1 crop:0.6000,0.0000,0.4000,1.0000',
+      'edit v21: reset values are left out, a temperature follows the photo\'s as-shot when the Mac names it, values stay in range', t2);
+
+    bridge.header = Object.assign({}, bridge.header, { canvas: 'native' }); bridge.canvas.path = 'native';
+    const n0 = { entered: bridge.canvas.entered.length, layouts: bridge.canvas.layouts.length, looks: bridge.canvas.looks.length, drags: bridge.canvas.drags.length, loupes: bridge.canvas.loupes.length };
+    const lastLayout = () => bridge.canvas.layouts[bridge.canvas.layouts.length - 1], lastLook = () => bridge.canvas.looks[bridge.canvas.looks.length - 1];
+    const settle = (ms = 250) => page.waitForTimeout(ms);
+    ok(await page.evaluate(() => lumina.edit.command('undo') === undefined && typeof lumina.emit === 'function'), 'edit v21: outside Edit a menu command is not Edit\'s; lumina.emit is there for the page');
+    await page.evaluate(() => __lumina.logic().setView('edit'));
+    // First time in Edit the page shows its intro over the photo: the canvas waits behind it.
+    await page.waitForFunction(() => { const s = lumina.edit.state(); return s.page.on && s.rel && !s.page.entering; }, null, { timeout: 15000 }).catch(() => {});
+    const i1 = await page.evaluate(() => ({ intro: !!window.luminaState.__owner.state.intro, st: lumina.edit.state() }));
+    ok(i1.intro && i1.st.page.hidden === 'intro' && !i1.st.visible && i1.st.rel, 'edit v21: the page\'s intro keeps the canvas hidden (the photo is entered behind it)', i1);
+    await page.evaluate(() => window.luminaState.__owner.closeIntro());
+    await page.waitForFunction(() => { const s = lumina.edit.state(); return s.visible && !s.page.hidden; }, null, { timeout: 15000 }).catch(() => {});
+    const e1 = await page.evaluate(() => { const o = window.luminaState && window.luminaState.__owner, el = document.querySelector('[data-lumina="canvas"]'), b = el && el.getBoundingClientRect(), l = __lumina.logic();
+      return { view: l.state.view, st: lumina.edit.state(), cur: o && o.state.cur, path: o && l.data.byId[o.state.cur] && l.data.byId[o.state.cur].path, ar: o && o.data.byId[o.state.cur].ar, box: b && { x: b.left, y: b.top, w: b.width, h: b.height } }; });
+    const en = bridge.canvas.entered.slice(n0.entered).filter(m => !m.leave), la = lastLayout();
+    ok(e1.view === 'edit' && e1.st.page.on && e1.path && e1.st.rel === e1.path && en.length === 1 && en[0].rel === e1.path && en[0].look === '', 'edit v21: opening Edit enters the page\'s photo on the canvas with its look', { e1, en });
+    const inBox = r => e1.box && r.x >= e1.box.x - 1 && r.y >= e1.box.y - 1 && r.x + r.w <= e1.box.x + e1.box.w + 1 && r.y + r.h <= e1.box.y + e1.box.h + 1;
+    ok(la && la.visible === true && la.w > 100 && inBox(la) && Math.abs(la.w / la.h - e1.ar) < 0.02 && Array.isArray(la.holes) && (Math.abs(la.w - e1.box.w) <= 2 || Math.abs(la.h - e1.box.h) <= 2),
+      'edit v21: the canvas lies on the photo\'s box (the photo\'s shape, fitted into the page\'s canvas element)', { la, box: e1.box, ar: e1.ar, page: e1.st.page });
+
+    // A keystroke-like change (Auto, paste, a nudge): once, at full quality.
+    await page.evaluate(() => window.luminaState.__owner.setVal('ev', 0.5)); await settle();
+    const k1 = lastLook();
+    ok(bridge.canvas.looks.length === n0.looks + 1 && k1.look === 'ev:+0.50' && k1.key === true && k1.drag === false && k1.roi == null, 'edit v21: a single change reaches the canvas once, as a keystroke', bridge.canvas.looks.slice(n0.looks));
+    // A drag, as the page does it: emit dragStart, values, emit dragEnd.
+    const nl = bridge.canvas.looks.length;
+    await page.evaluate(async () => { const o = window.luminaState.__owner, f = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      o.setState({ dragging: 'con' }); o.emit('dragStart', { slider: 'con' });
+      for (const v of [5, 10, 15, 20]) { o.setVal('con', v, true); await f(); }
+      o.setState({ dragging: false }); o.emit('dragEnd', { slider: 'con', value: 20 }); await f(); });
+    await settle();
+    const dl = bridge.canvas.looks.slice(nl), dd = bridge.canvas.drags.slice(n0.drags);
+    ok(dd.length === 2 && dd[0] === true && dd[1] === false && dl.length >= 2 && dl.every(m => m.drag === true && m.key === false) && dl[dl.length - 1].look === 'ev:+0.50 con:+20' && !(await page.evaluate(() => lumina.edit.state().dragging)),
+      'edit v21: a slider drag is a drag on the canvas (start, the values at the quarter tier, the last value, end)', { dl: dl.map(m => [m.look, m.drag]), dd });
+    const order = bridge.calls.slice(bridge.calls.lastIndexOf('canvasLook'));
+    ok(order.includes('canvasDrag'), 'edit v21: the drag ends after its last value', order);
+
+    // A crop is a region of the frame; the box takes the crop's shape.
+    await page.evaluate(() => { const o = window.luminaState.__owner, p = o.data.byId[o.state.cur]; o.setLook(p, Object.assign({}, o.look(p), { crop: { x: 0.25, y: 0.25, w: 0.5, h: 0.25, ang: 0, ratio: 'free' } })); }); await settle();
+    const c1 = lastLook(), cl = lastLayout();
+    ok(c1.look === 'ev:+0.50 con:+20 crop:0.2500,0.2500,0.5000,0.2500' && c1.roi && Math.abs(c1.roi.x - 0.25) < 1e-3 && Math.abs(c1.roi.y - 0.25) < 1e-3 && Math.abs(c1.roi.w - 0.5) < 1e-3 && Math.abs(c1.roi.h - 0.25) < 1e-3 &&
+      cl.visible && inBox(cl) && Math.abs(cl.w / cl.h - e1.ar * 2) < 0.05, 'edit v21: a crop reaches the canvas as the look\'s crop and as the visible region; the box follows', { c1, cl });
+    // Zoom and pan: the region shrinks to what the page shows, and is refined once it stands still.
+    await page.evaluate(() => { const o = window.luminaState.__owner; o.setState({ zm: 2, zx: -200, zy: -100, zoom: '100%' }); o.emit('zoom', { zoom: '100%', scale: 2 }); }); await settle(500);
+    const z1 = lastLook(), zl = lastLayout(), lp = bridge.canvas.loupes.slice(n0.loupes);
+    ok(z1.roi && z1.roi.w < 0.5 && z1.roi.w > 0.05 && z1.roi.x >= 0.25 - 1e-3 && z1.roi.x + z1.roi.w <= 0.75 + 1e-3 && zl.visible && inBox(zl) && lp.length === 1 && lp[0].on === true && Math.abs(lp[0].roi.w - z1.roi.w) < 1e-6,
+      'edit v21: zoomed in, the canvas shows the visible part of the crop and the Mac refines that region', { z1, zl, lp });
+    await page.evaluate(() => window.luminaState.__owner.setState({ zm: 1, zx: 0, zy: 0, zoom: 'fit' })); await settle();
+    const lp2 = bridge.canvas.loupes.slice(n0.loupes);
+    ok(lp2.length === 2 && lp2[1].on === false && Math.abs(lastLook().roi.w - 0.5) < 1e-3, 'edit v21: back at fit the refinement ends and the region is the crop again', { lp2, look: lastLook() });
+
+    // The page's own things in the photo's box: the canvas steps aside.
+    const hides = [];
+    for (const [st, off, why] of [[{ help: true }, { help: false }, 'help'], [{ pick: true }, { pick: false }, 'white picker'], [{ sg: true }, { sg: false }, 'scene review'], [{ stMode: true }, { stMode: false }, 'straighten']]) {
+      await page.evaluate(st => window.luminaState.__owner.setState(st), st); await settle(150);
+      const h = { why, hidden: await page.evaluate(() => lumina.edit.state().page.hidden), visible: lastLayout().visible, rel: await page.evaluate(() => lumina.edit.state().rel) };
+      await page.evaluate(st => window.luminaState.__owner.setState(st), off); await settle(150);
+      h.back = lastLayout().visible; hides.push(h);
+    }
+    ok(hides.every(h => h.hidden === h.why && h.visible === false && h.back === true && h.rel === e1.path), 'edit v21: help, the white picker, scene review and straighten hide the canvas; it returns after (the photo stays entered)', hides);
+    const nb = bridge.canvas.looks.length;
+    await page.evaluate(() => window.luminaState.__owner.setState({ before: true })); await settle();
+    const b1 = lastLook();
+    await page.evaluate(() => window.luminaState.__owner.setState({ before: false })); await settle();
+    ok(bridge.canvas.looks.length === nb + 2 && b1.look === 'none' && lastLook().look === 'ev:+0.50 con:+20 crop:0.2500,0.2500,0.5000,0.2500', 'edit v21: before (\\ held) is the as-shot render, the look returns on release', bridge.canvas.looks.slice(nb).map(m => m.look));
+
+    // Menu commands in Edit (the router calls lumina.edit.command first).
+    const u1 = await page.evaluate(async () => { const r = lumina.edit.command('undo'); await new Promise(r => setTimeout(r, 250)); return { r, look: lumina.edit.state().look, other: lumina.edit.command('keepRow') }; });
+    ok(u1.r === true && u1.look === 'ev:+0.50 con:+20' && u1.other === undefined, 'edit v21: Undo in Edit is the page\'s Edit undo (the crop is gone); other commands fall through', u1);
+    const r1 = await page.evaluate(async () => { const r = lumina.edit.command('redo'); await new Promise(r => setTimeout(r, 250)); return { r, look: lumina.edit.state().look, copy: lumina.edit.command('copy'), paste: lumina.edit.command('paste') }; });
+    ok(r1.r === true && /crop:/.test(r1.look) && r1.copy === true && r1.paste === true, 'edit v21: Redo, Copy and Paste reach the page\'s Edit too', r1);
+    const s1 = await page.evaluate(async () => { const r = lumina.edit.command('stepCull'); await new Promise(r => setTimeout(r, 500)); return { r, view: __lumina.logic().state.view, st: lumina.edit.state() }; });
+    ok(s1.r === true && s1.view === 'cull' && !s1.st.page.on && s1.st.rel === null && !s1.st.visible && bridge.canvas.entered[bridge.canvas.entered.length - 1].leave && lastLayout().visible === false,
+      'edit v21: a step command leaves Edit through the page\'s event; the canvas hides and the Mac is told', s1);
+    bridge.header = Object.assign({}, bridge.header, { canvas: 'image' }); bridge.canvas.path = 'image';
+    await page.evaluate(() => { lumina.edit.header({ canvas: 'image' }); });
+  }
+
   // Save → sidecars INTO the folder
-  const before2 = fs.readFileSync(path.join(shoot, 'DSC01002.xmp'), 'utf8');
+  const before2 =fs.readFileSync(path.join(shoot, 'DSC01002.xmp'), 'utf8');
   await page.evaluate(() => __lumina.command('stepSave')); await page.waitForTimeout(300);
   ok((await S(page)).view === 'export', 'save: ⌘3 via luminaCommand');
   await page.waitForTimeout(900);            // the page ignores ⌘⏎ for 800 ms after a step change
   await page.evaluate(() => __lumina.command('save'));
+  // v7: with undecided photos the first ⌘⏎ only warns (saveGuard); the second, within 5 s, saves.
+  if (await page.evaluate(() => __lumina.logic().state.armed === 'save')) await page.evaluate(() => __lumina.command('save'));
   await page.waitForFunction(() => { const r = __lumina.logic().state.ex; return r && r.result; }, null, { timeout: 5000 }).catch(() => {});
   const res = await page.evaluate(() => __lumina.logic().state.ex.result);
   ok(res && res.t === keptN + ' saved' && !res.bad, 'save: result "N saved"', res);

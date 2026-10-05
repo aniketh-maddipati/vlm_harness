@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<style>
+body{margin:0;background:#141312;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#EFECE6;text-decoration:none}a:hover{color:#FFD27A}
+</style>
+</helmet>
+<section id="t1" style="padding:44px 48px 40px">
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:24px">
+    <a href="#t1" style="font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#EFECE6;color:#141312;border-radius:4px">1</a>
+    <span style="font-size:14px;font-weight:600">Getting RAWs in · card, folder, phone</span>
+    <span style="font-size:12px;color:#7D7971">1440×900 · big targets · grey blocks stand in for photos</span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+
+    <div id="1a" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9A958D"><a href="#1a" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(239,236,230,0.1);border-radius:5px">1a</a>Add · three big ways in, card already detected</div>
+      <div style="width:1440px;height:900px;position:relative;overflow:hidden;border-radius:10px;background:#1E1D1B;box-shadow:0 0 0 1px rgba(239,236,230,0.08), 0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column">
+        <div style="flex:none;height:52px;padding:0 24px;display:flex;align-items:center;gap:18px;background:#262523;border-bottom:1px solid rgba(239,236,230,0.08)">
+          <span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:21px">Lumina</span>
+          <span style="font-size:14px;font-weight:600">Tahoe · Sat 3 Oct</span><span style="font-size:12px;color:#9A958D">1,180 photos</span>
+          <span style="flex:1"></span>
+          <span style="font-size:13px;color:#9A958D">Drop anything on this window to add it</span>
+        </div>
+        <div style="flex:1;min-height:0;padding:48px 72px;display:flex;flex-direction:column;gap:36px">
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px">
+            <sc-for list="{{ ways }}" as="w" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:18px;min-height:280px;padding:28px;border-radius:18px;background:{{ w.bg }};box-shadow:{{ w.ring }}">
+                <div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:13px;font-weight:600;color:#9A958D">{{ w.kind }}</span><span style="font-size:12px;color:#7D7971">{{ w.key }}</span></div>
+                <span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;line-height:1.15;color:#EFECE6">{{ w.title }}</span>
+                <span style="font-size:15px;line-height:1.5;color:#B8B3AB;text-wrap:pretty">{{ w.sub }}</span>
+                <div style="flex:1"></div>
+                <div style="height:60px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:10px;background:{{ w.btnBg }};color:{{ w.btnFg }};font-size:17px;font-weight:600">{{ w.btn }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:15px;font-weight:600">In this shoot</span><span style="font-size:13px;color:#9A958D">files stay where they are · originals never change</span></div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ sources }}" as="s" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:16px;min-height:60px;padding:0 20px;border-radius:12px;background:#232220;opacity:{{ s.op }}">
+                  <span style="flex:none;width:96px;font-size:13px;font-weight:600;color:#9A958D">{{ s.kind }}</span>
+                  <span style="flex:1;min-width:0;font-size:15px;color:#EFECE6">{{ s.name }}</span>
+                  <span style="font-size:14px;color:#B8B3AB;font-variant-numeric:tabular-nums">{{ s.n }}</span>
+                  <sc-if value="{{ s.act }}" hint-placeholder-val="{{ false }}"><div style="height:44px;padding:0 18px;border-radius:10px;display:flex;align-items:center;background:rgba(239,236,230,0.1);color:#EFECE6;font-size:14px;font-weight:600">{{ s.act }}</div></sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="flex:none;height:34px;padding:0 24px;display:flex;align-items:center;gap:16px;border-top:1px solid rgba(239,236,230,0.06);background:#1B1A18;font-size:12px;color:#9A958D"><span style="color:#EFECE6">ARW and DNG only · 212 already-here photos skipped last time</span><span style="flex:1"></span><span>⌘O folder · ⏎ add from card</span></div>
+      </div>
+    </div>
+
+    <div id="1b" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9A958D"><a href="#1b" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(239,236,230,0.1);border-radius:5px">1b</a>Phone · pick your phone, follow 3 steps, drop, add</div>
+      <div style="width:1440px;height:900px;position:relative;overflow:hidden;border-radius:10px;background:#1E1D1B;box-shadow:0 0 0 1px rgba(239,236,230,0.08), 0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column">
+        <div style="flex:none;height:52px;padding:0 24px;display:flex;align-items:center;gap:18px;background:#262523;border-bottom:1px solid rgba(239,236,230,0.08)">
+          <span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:21px">Lumina</span>
+          <span style="font-size:14px;font-weight:600">Phone photos</span><span style="font-size:12px;color:#9A958D">into Tahoe · Sat 3 Oct</span>
+        </div>
+        <div style="flex:1;min-height:0;padding:36px 72px 0;display:flex;flex-direction:column;gap:24px">
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+            <sc-for list="{{ phones }}" as="p" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:14px;padding:22px 24px;border-radius:16px;background:{{ p.bg }};box-shadow:{{ p.ring }}">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px"><span style="font-size:19px;font-weight:700;color:#EFECE6">{{ p.t }}</span><span style="font-size:12px;color:#9A958D">{{ p.sub }}</span></div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <sc-for list="{{ p.steps }}" as="s" hint-placeholder-count="3"><div style="display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.45;color:#B8B3AB"><span style="flex:none;width:24px;height:24px;border-radius:50%;background:{{ p.numBg }};color:{{ p.numFg }};font-size:12px;font-weight:700;display:grid;place-items:center">{{ s.n }}</span><span>{{ s.t }}</span></div></sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:20px;min-height:132px;padding:0 32px;border-radius:18px;background:#2A261C;box-shadow:inset 0 0 0 2px #FFD27A">
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span style="font-size:20px;font-weight:600;color:#EFECE6">Drop phone RAWs here</span><span style="font-size:14px;color:#B8B3AB">Watching Downloads · new RAWs show up below on their own</span></div>
+            <div style="height:56px;padding:0 22px;border-radius:12px;display:flex;align-items:center;background:rgba(239,236,230,0.1);color:#EFECE6;font-size:15px;font-weight:600">Choose files…</div>
+            <div style="height:56px;padding:0 22px;border-radius:12px;display:flex;align-items:center;gap:10px;background:rgba(158,215,176,0.14);color:#9ED7B0;font-size:15px;font-weight:600"><span style="width:9px;height:9px;border-radius:50%;background:#9ED7B0"></span>Watching Downloads</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:15px;font-weight:600">Ready to add</span><span style="font-size:14px;color:#B8B3AB">6 RAW · 3 HEIC skipped</span></div>
+            <div style="display:flex;gap:12px">
+              <sc-for list="{{ got }}" as="g" hint-placeholder-count="9">
+                <div style="flex:none;display:flex;flex-direction:column;gap:6px;width:112px;opacity:{{ g.op }}">
+                  <div style="position:relative;width:112px;height:112px;border-radius:8px;background:#2A2927;display:grid;place-items:center"><div style="width:{{ g.w }}px;height:{{ g.h }}px;border-radius:2px;background:{{ g.bg }}"></div><span style="position:absolute;left:7px;top:7px;padding:2px 7px;border-radius:5px;background:rgba(22,21,20,0.85);font-size:11px;font-weight:700;color:{{ g.tc }}">{{ g.tag }}</span></div>
+                  <span style="font-size:12px;color:#EFECE6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.name }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="flex:1"></div>
+          <div style="display:flex;align-items:center;gap:14px;padding:20px 0 24px;border-top:1px solid rgba(239,236,230,0.06)">
+            <div style="height:60px;padding:0 26px;border-radius:14px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;font-size:16px">Back</div>
+            <span style="flex:1;font-size:13px;color:#9A958D">HEIC and JPG aren't added. On iPhone, turn on Options → All Photos Data to send the RAW.</span>
+            <div style="height:60px;padding:0 26px;border-radius:14px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;font-size:16px;font-weight:600">New shoot with 6</div>
+            <div style="height:60px;padding:0 30px;border-radius:14px;display:flex;align-items:center;gap:12px;background:#FFD27A;color:#1E1D1B;font-size:17px;font-weight:700">Add 6 to Tahoe<span style="font-weight:400;opacity:0.6">⏎</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="1c" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9A958D"><a href="#1c" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(239,236,230,0.1);border-radius:5px">1c</a>What can go wrong while adding · one clear action each</div>
+      <div style="width:1440px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+        <sc-for list="{{ states }}" as="st" hint-placeholder-count="6">
+          <div style="min-height:220px;box-sizing:border-box;padding:24px;border-radius:14px;background:#1E1D1B;box-shadow:0 0 0 1px rgba(239,236,230,0.08);display:flex;flex-direction:column;gap:12px">
+            <span style="font-size:12px;font-weight:600;color:#9A958D">{{ st.k }}</span>
+            <span style="font-size:19px;line-height:1.3;color:#EFECE6;text-wrap:pretty">{{ st.t }}</span>
+            <span style="font-size:14px;line-height:1.5;color:#B8B3AB;text-wrap:pretty">{{ st.d }}</span>
+            <div style="flex:1"></div>
+            <div style="display:flex;gap:10px"><sc-for list="{{ st.btns }}" as="b" hint-placeholder-count="1"><div style="height:52px;padding:0 20px;border-radius:12px;display:flex;align-items:center;background:{{ b.bg }};color:{{ b.fg }};font-size:15px;font-weight:600">{{ b.t }}</div></sc-for></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+  </div>
+  <p style="margin:28px 0 0;font-size:12px;color:#7D7971">Next: "build <a href="#1b">1b</a> into Sets" · "first-launch version of <a href="#1a">1a</a>" · "fewer words on <a href="#1c">1c</a>"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals(){
+    const amber={btnBg:'#FFD27A',btnFg:'#1E1D1B'}, plain={btnBg:'rgba(239,236,230,0.1)',btnFg:'#EFECE6'};
+    const ways=[
+      {kind:'Card',key:'⏎',title:'SONY A7 IV · Untitled',sub:'1,204 frames · 1,180 already in this shoot · 24 new',btn:'Add 24 new',bg:'#262523',ring:'inset 0 0 0 2px rgba(255,210,122,0.55)',...amber},
+      {kind:'Folder',key:'⌘O',title:'Folder or files',sub:'Any folder of ARW or DNG on this Mac or a drive. Already-added photos are skipped.',btn:'Choose…',bg:'#232220',ring:'inset 0 0 0 1px rgba(239,236,230,0.1)',...plain},
+      {kind:'Phone',key:'',title:'iPhone or Android',sub:'AirDrop, the Photos app, or a cable. Only RAW files are added.',btn:'Add from phone',bg:'#232220',ring:'inset 0 0 0 1px rgba(239,236,230,0.1)',...plain}];
+    const sources=[
+      {kind:'Card',name:'SONY A7 IV · Untitled',n:'1,180 photos',act:'',op:1},
+      {kind:'Phone',name:'AirDrop · iPhone 15 Pro',n:'6 photos',act:'',op:1},
+      {kind:'Folder',name:'Tahoe-drive',n:'disk not connected',act:'Reconnect',op:0.8}];
+    const st=t=>t.map((x,i)=>({n:String(i+1),t:x}));
+    const phones=[
+      {t:'iPhone · AirDrop',sub:'fastest',steps:st(['Photos → select → Share','Options → All Photos Data → Done','AirDrop → this Mac']),bg:'#262523',ring:'inset 0 0 0 2px rgba(255,210,122,0.55)',numBg:'#FFD27A',numFg:'#1E1D1B'},
+      {t:'iPhone · Photos app',sub:'already on this Mac',steps:st(['Open Photos, select shots','File → Export → Export Unmodified Original','Save to Downloads']),bg:'#232220',ring:'inset 0 0 0 1px rgba(239,236,230,0.1)',numBg:'rgba(239,236,230,0.12)',numFg:'#EFECE6'},
+      {t:'Android · cable',sub:'Pixel, Samsung',steps:st(['Plug in, unlock, choose File transfer','Open OpenMTP → DCIM → Camera','Copy the .dng files to Downloads']),bg:'#232220',ring:'inset 0 0 0 1px rgba(239,236,230,0.1)',numBg:'rgba(239,236,230,0.12)',numFg:'#EFECE6'}];
+    const T=['#4E4944','#5A544E','#47423E','#625B54','#534E48','#4A4541'];
+    const got=Array.from({length:9},(_,i)=>{ const raw=i<6, pt=i%3!==1; return {name:'IMG_48'+(21+i)+(raw?'.DNG':'.HEIC'),tag:raw?'RAW':'HEIC',tc:raw?'#FFD27A':'#9A958D',op:raw?1:0.4,bg:T[i%6],w:pt?72:96,h:pt?96:72}; });
+    const B=(t,pri)=>({t,bg:pri?'#FFD27A':'rgba(239,236,230,0.1)',fg:pri?'#1E1D1B':'#EFECE6'});
+    const states=[
+      {k:'First launch',t:'Add photos',d:'Insert a card, choose a folder, or add from your phone. Nothing leaves this Mac.',btns:[B('Choose folder…',true),B('Add from phone')]},
+      {k:'Reading',t:'Reading 312 of 1,204',d:'The first rows are ready. Start picking now; the rest fill in below.',btns:[B('Start picking',true)]},
+      {k:'Already here',t:'212 skipped of 236',d:'Same camera, time and size as photos already in this shoot. 24 new were added.',btns:[B('Show skipped')]},
+      {k:'Source not connected',t:'Tahoe-drive isn’t connected',d:'180 photos and your picks are kept. Plug the drive back in, or point to where it moved.',btns:[B('Reconnect',true)]},
+      {k:'Second camera',t:'A7 III clock is 4 min 12 s behind',d:'31 photos match moments from the A7 IV. Shift to line them up. Files don’t change.',btns:[B('Shift 4 min 12 s',true),B('Keep times')]},
+      {k:'Not RAW',t:'3 HEIC weren’t added',d:'They came without the RAW. On the iPhone, Share → Options → All Photos Data, then send again.',btns:[B('Got it')]}];
+    return {ways,sources,phones,got,states};
+  }
+}
+</script>
+</body>
+</html>

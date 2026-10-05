@@ -46,7 +46,7 @@ struct LuminaCommands: Commands {
         }
         CommandGroup(replacing: .saveItem) {
             Button("Close Shoot") { SetsMenuModel.closeShoot() }.keyboardShortcut("w", modifiers: .command)
-            Button("Save Keepers") { send("save") }.keyboardShortcut(.return, modifiers: .command)
+            Button("Save Picks") { send("save") }.keyboardShortcut(.return, modifiers: .command)
             Button("Show in Finder") { send("finder") }.keyboardShortcut("r", modifiers: .command)
             Divider()
             Button("Remove Working Files…") { SetsMenuModel.removeWorkingFiles() }
@@ -59,17 +59,16 @@ struct LuminaCommands: Commands {
         }
         CommandMenu("Photo") {
             Button("Keep  P") { send("keep") }
-            Button("Flag  F") { send("flag") }
             Button("Keep Sharpest of Stack  ⇧P") { send("keepStack") }
-            Button("Flag Stack  ⇧F") { send("flagStack") }
             Divider()
             Button("Open Stack  ⏎") { send("openStack") }
             Button("Close Stack  esc") { send("closeStack") }
         }
         CommandGroup(before: .toolbar) {
             Button("Open") { send("stepOpen") }.keyboardShortcut("1", modifiers: .command)
-            Button("Cull") { send("stepCull") }.keyboardShortcut("2", modifiers: .command)
-            Button("Save") { send("stepSave") }.keyboardShortcut("3", modifiers: .command)
+            Button("Pick") { send("stepCull") }.keyboardShortcut("2", modifiers: .command)
+            Button("Edit") { send("stepEdit") }.keyboardShortcut("3", modifiers: .command)
+            Button("Save") { send("stepSave") }.keyboardShortcut("4", modifiers: .command)
             Divider()
             Button("Large View  Space") { send("large") }
             Button("Zoom 100%  Z") { SetsMenuModel.zoom() }

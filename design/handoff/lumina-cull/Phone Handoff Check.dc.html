@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./lumina-core-v4.js"></script>
+<style>
+body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#EFECE6}a:hover{color:#B8B3AB}
+</style>
+</helmet>
+<div onDragOver="{{ over }}" onDragLeave="{{ leave }}" onDrop="{{ drop }}" style="min-height:100vh;box-sizing:border-box;padding:clamp(20px,4vw,48px);box-shadow:{{ ring }}">
+  <div style="max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px">Phone handoff check</span>
+      <span style="font-size:13px;color:#9A958D">Drop a folder of phone photos. Nothing is uploaded or changed.</span>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div role="button" tabIndex="0" onClick="{{ pickDir }}" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:600;font-size:14px;cursor:pointer">Choose folder…</div>
+      <div role="button" tabIndex="0" onClick="{{ pickFiles }}" style="padding:9px 16px;border-radius:10px;background:#2A2927;color:#EFECE6;font-size:14px;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.12)">Choose files…</div>
+      <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ false }}"><div role="button" tabIndex="0" onClick="{{ copy }}" style="padding:9px 16px;border-radius:10px;background:#2A2927;color:#EFECE6;font-size:14px;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.12)">{{ copyT }}</div></sc-if>
+      <span style="font-size:12px;color:#7D7971">iPhone: AirDrop, or Photos → File → Export → Export Unmodified Original · Android: USB file mode → DCIM</span>
+    </div>
+    <input ref="{{ dirRef }}" type="file" multiple="" onChange="{{ onFiles }}" style="display:none">
+    <input ref="{{ fileRef }}" type="file" multiple="" onChange="{{ onFiles }}" style="display:none">
+    <sc-if value="{{ busy }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#B8B3AB">{{ busyT }}</span></sc-if>
+    <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px">
+        <sc-for list="{{ checks }}" as="c" hint-placeholder-count="6">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:inset 3px 0 0 {{ c.col }}">
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:12px;font-weight:700;color:{{ c.col }}">{{ c.v }}</span><span style="font-size:14px;color:#EFECE6">{{ c.k }}</span></div>
+            <span style="font-size:12px;line-height:1.45;color:#B8B3AB;text-wrap:pretty">{{ c.d }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div style="display:grid;grid-template-columns:72px minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px;padding:8px 10px;font-size:11px;color:#7D7971;letter-spacing:0.04em;text-transform:uppercase"><span></span><span>File</span><span>Device</span><span>Preview</span><span>Lumina</span></div>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:72px minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:center;padding:8px 10px;border-radius:8px;background:#232220;font-size:13px">
+            <div style="width:72px;height:54px;border-radius:4px;background:#3C3836;overflow:hidden;display:grid;place-items:center"><sc-if value="{{ r.thumb }}" hint-placeholder-val="{{ false }}"><div style="width:100%;height:100%;background-image:url({{ r.thumb }});background-size:contain;background-repeat:no-repeat;background-position:center;transform:{{ r.rot }}"></div></sc-if></div>
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="color:#EFECE6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span><span style="font-size:12px;color:#9A958D">{{ r.sub }}</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="color:{{ r.devC }}">{{ r.dev }}</span><span style="font-size:12px;color:#9A958D">{{ r.devSub }}</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="color:{{ r.pvC }}">{{ r.pv }}</span><span style="font-size:12px;color:#9A958D">{{ r.pvSub }}</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="color:{{ r.outC }}">{{ r.out }}</span><span style="font-size:12px;color:#9A958D">{{ r.outSub }}</span></div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:48px 24px;border-radius:16px;background:#232220;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08);display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center;color:#B8B3AB;font-size:14px;line-height:1.5">
+        <span style="color:#EFECE6;font-size:16px">What this checks, per photo</span>
+        <span style="max-width:620px;text-wrap:pretty">Read as phone from Make/Model (not the extension) · embedded preview found and its size · portrait shown upright · lens as 0.5× / 1× / 3× · HEIC/JPEG twins skipped · iCloud placeholders (0-byte files) caught · what Save would do (DNG → copied to Picks)</span>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { rows: [], busy: false, done: 0, total: 0, drop: false, copied: false, other: {} };
+  dirRef = React.createRef(); fileRef = React.createRef();
+  componentDidMount(){ if(this.dirRef.current) this.dirRef.current.setAttribute('webkitdirectory',''); }
+  async run(files){
+    const ext=f=>((f.name.match(/\.([^.]+)$/)||[])[1]||'').toLowerCase(), key=f=>(f.webkitRelativePath||f.name).replace(/\.[^.\/]+$/,'').toLowerCase();
+    const raws=files.filter(f=>['dng','arw'].includes(ext(f))), rawKeys=new Set(raws.map(key)), other={twin:0,lone:0,vid:0,zero:0,misc:0};
+    files.forEach(f=>{ const e=ext(f); if(f.name.startsWith('.')||['dng','arw','xmp','aae'].includes(e)) return; if(['jpg','jpeg','heic','heif'].includes(e)) rawKeys.has(key(f))?other.twin++:other.lone++; else if(['mov','mp4'].includes(e)) other.vid++; else other.misc++; });
+    this.state.rows.forEach(r=>r.thumb&&URL.revokeObjectURL(r.thumb));
+    this.setState({rows:[],busy:true,done:0,total:raws.length,other,copied:false});
+    const out=[];
+    for(const f of raws){ out.push(await this.one(f)); if(out.length%4===0) this.setState({done:out.length,rows:out.slice()}); }
+    this.setState({rows:out,busy:false,done:out.length});
+  }
+  async one(f){
+    const r={name:f.name,path:f.webkitRelativePath||f.name,size:f.size};
+    if(!f.size){ r.zero=true; return r; }
+    try{
+      const head=new Uint8Array(await f.slice(0,Math.min(262144,f.size)).arrayBuffer()), m=LuminaCore.parseHead(head,f.size);
+      if(!m){ r.err='unreadable header'; return r; }
+      Object.assign(r,{make:m.make,model:m.model,lens:m.lens,fl:m.fl,fl35:m.fl35,date:m.date,orient:m.orient||1,dng:!!m.dng,w:m.w,h:m.h});
+      r.phone=LuminaCore.phoneOf(m);
+      if(m.preview){ const [po,pl]=m.preview; r.pvBytes=pl; const buf=po+pl<=head.length?head.slice(po,po+pl):new Uint8Array(await f.slice(po,po+pl).arrayBuffer()); const blob=new Blob([buf],{type:'image/jpeg'});
+        try{ const bmp=await createImageBitmap(blob,{imageOrientation:'none'}); r.pvW=bmp.width; r.pvH=bmp.height; bmp.close(); r.thumb=URL.createObjectURL(blob); }catch(_){ r.pvBad=true; } }
+    }catch(e){ r.err=e.message||'read failed'; }
+    return r;
+  }
+  pick(files){ const a=[...(files||[])]; if(a.length) this.run(a); }
+  async dropIn(e){ e.preventDefault(); this.setState({drop:false}); const items=[...(e.dataTransfer.items||[])].map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean), out=[];
+    const fileOf=en=>new Promise(res=>en.file(res,()=>res(null))), readAll=rd=>new Promise(res=>{ const acc=[]; const step=()=>rd.readEntries(b=>{ if(!b.length) return res(acc); acc.push(...b); step(); },()=>res(acc)); step(); });
+    const walk=async(en,pre)=>{ if(en.isDirectory){ for(const c of await readAll(en.createReader())) await walk(c,pre+en.name+'/'); } else { const f=await fileOf(en); if(f){ try{ Object.defineProperty(f,'webkitRelativePath',{value:pre+en.name}); }catch(_){} out.push(f); } } };
+    for(const en of items) await walk(en,''); this.pick(out); }
+  rotOf(o){ return o===6?'rotate(90deg)':o===8?'rotate(-90deg)':o===3?'rotate(180deg)':'none'; }
+  renderVals(){
+    const s=this.state, R=s.rows, ok='#9ED7B0', warn='#FFD27A', bad='#FF8A7A', mp=r=>r.pvW&&r.pvH?(r.pvW*r.pvH/1e6).toFixed(1)+' MP':'';
+    const rows=R.map(r=>{ const ph=r.phone, side=r.orient>=5, upW=side?r.pvH:r.pvW, upH=side?r.pvW:r.pvH, portrait=upH>upW;
+      if(r.zero) return {name:r.name,sub:'0 bytes',dev:'—',devSub:'',devC:'#9A958D',pv:'iCloud placeholder',pvSub:'download the original first',pvC:bad,out:'skipped',outSub:'',outC:bad,thumb:'',rot:'none'};
+      if(r.err) return {name:r.name,sub:r.err,dev:'—',devSub:'',devC:'#9A958D',pv:'—',pvSub:'',pvC:bad,out:'unreadable',outSub:'',outC:bad,thumb:'',rot:'none'};
+      return {name:r.name,sub:[(r.size/1e6).toFixed(1)+' MB',r.dng?'DNG':'ARW',r.date?r.date.slice(0,16):'no capture time'].join(' · '),
+        dev:ph?ph.short:(r.model||'unknown'),devSub:ph?['phone',ph.zoom?ph.zoom+' camera':'',r.fl35?r.fl35+' mm eq.':''].filter(Boolean).join(' · '):[r.make||'no make','camera'].join(' · '),devC:ph?ok:r.make?'#EFECE6':warn,
+        pv:r.pvW?mp(r)+(portrait?' · portrait':' · landscape'):r.pvBad?'preview won’t decode':'no preview found',pvSub:r.pvW?r.pvW+'×'+r.pvH+(side?' · turned '+(r.orient===6?'90°':'270°'):''):'',pvC:!r.pvW?bad:(r.pvW*r.pvH<1.5e6?warn:ok),
+        out:r.pvW?(r.dng?'copied to Picks on save':'rating sidecar'):'shown without preview',outSub:r.date?'':'no time · sorted by name',outC:r.pvW?ok:warn,thumb:r.thumb||'',rot:this.rotOf(r.orient)}; });
+    const n=R.filter(r=>!r.zero&&!r.err).length, phones=R.filter(r=>r.phone).length, pv=R.filter(r=>r.pvW).length, small=R.filter(r=>r.pvW&&r.pvW*r.pvH<1.5e6).length, zero=R.filter(r=>r.zero).length, errs=R.filter(r=>r.err).length, noT=R.filter(r=>!r.zero&&!r.err&&!r.date).length, o=s.other||{};
+    const models=[...new Set(R.filter(r=>r.phone).map(r=>r.phone.short))], zooms=[...new Set(R.filter(r=>r.phone&&r.phone.zoom).map(r=>r.phone.zoom))];
+    const C=(k,pass,v,d)=>({k,v,col:pass===true?ok:pass===false?bad:warn,d});
+    const checks=!R.length?[]:[
+      C('Read as phone',phones===n&&n>0?true:phones?null:false,phones+' / '+n,models.length?models.join(', ')+(zooms.length?' · lenses '+zooms.join(' '):''):'No phone Make/Model found. Lumina would treat these as camera files.'),
+      C('Preview found',pv===n&&n>0?true:pv?null:false,pv+' / '+n,small?small+' previews under 1.5 MP · fine for the grid, soft in the big view':'Big enough for the grid and big view.'),
+      C('Capture time',noT===0,noT?noT+' missing':'all',noT?'Photos without a time sort by file name and can’t join bursts.':'Rows and bursts will form from capture time.'),
+      C('HEIC / JPEG twins',true,o.twin+' skipped',o.lone?o.lone+' without a RAW would also be skipped and listed in the import notes.':'Every twin has its RAW.'),
+      C('iCloud placeholders',zero===0,zero?zero+' found':'none',zero?'0-byte files: the originals are only in iCloud. Download them on the phone or Mac first.':'All files are real originals.'),
+      C('Unreadable',errs===0,errs?errs+' files':'none',errs?'Send one of these as a test fixture.':(o.vid?o.vid+' videos would be skipped.':'Nothing failed.'))];
+    return { rows, checks, hasRows:R.length>0||s.busy, empty:!R.length&&!s.busy, busy:s.busy, busyT:'Reading '+s.done+' of '+s.total+'…', ring:s.drop?'inset 0 0 0 2px #FFD27A':'none', dirRef:this.dirRef, fileRef:this.fileRef,
+      pickDir:()=>{ const el=this.dirRef.current; el.value=''; el.click(); }, pickFiles:()=>{ const el=this.fileRef.current; el.value=''; el.click(); }, onFiles:e=>this.pick(e.target.files),
+      over:e=>{ e.preventDefault(); if(!s.drop) this.setState({drop:true}); }, leave:e=>{ if(!e.currentTarget.contains(e.relatedTarget)) this.setState({drop:false}); }, drop:e=>this.dropIn(e),
+      copyT:s.copied?'Report copied':'Copy report', copy:()=>{ const rep={when:new Date().toISOString(),ua:navigator.userAgent,other:o,files:R.map(r=>({name:r.name,size:r.size,make:r.make,model:r.model,phone:r.phone,fl:r.fl,fl35:r.fl35,orient:r.orient,date:r.date,dng:r.dng,preview:r.pvW?[r.pvW,r.pvH,r.pvBytes]:null,zero:!!r.zero,err:r.err||null}))}; try{ navigator.clipboard.writeText(JSON.stringify(rep,null,2)); }catch(_){} this.setState({copied:true}); } };
+  }
+}
+</script>
+</body>
+</html>

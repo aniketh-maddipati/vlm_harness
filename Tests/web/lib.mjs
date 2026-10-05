@@ -21,7 +21,7 @@ export function deadline(name, seconds) {
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const WEB = path.join(ROOT, 'Lumina/Sets/Web');
-export const PAGE = 'Lumina Sets v5.dc.html';
+export const PAGE = 'Lumina Sets v7.dc.html';
 export const ORIGIN = 'http://lumina.test';
 export const VENDOR = {
   'https://unpkg.com/react@18.3.1/umd/react.production.min.js': ORIGIN + '/vendor/react.production.min.js',
@@ -187,7 +187,8 @@ export class Bridge {
       }
       case 'shootHeader': return this.header;
       case 'decoderUpdate': this.canvas.updates++; this.header = Object.assign({}, this.header, { decoder: this.header.newest, offerUpdate: false }); return this.header;
-      case 'canvasEnter': this.canvas.entered.push(msg); return Object.assign({ decoderCanvas: 8, decoderRegion: 8 }, this.header);
+      // `asShot` (set this.asShot = {kelvin, tint} to answer it): the photo's own white balance, for the page's temperature.
+      case 'canvasEnter': this.canvas.entered.push(msg); return Object.assign({ decoderCanvas: 8, decoderRegion: 8 }, this.header, this.asShot ? { asShot: this.asShot, asShotRel: msg.rel } : {});
       case 'canvasLeave': this.canvas.entered.push({ leave: true }); return true;
       case 'canvasLayout': this.canvas.layouts.push(msg); return { path: this.canvas.path };
       case 'canvasLook': this.canvas.looks.push(msg); return this.canvas.looks.length;

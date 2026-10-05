@@ -77,7 +77,7 @@
   // the last successful Save, so Quit knows whether keepers are unsaved. The Edit step's look
   // strings (roadmap "Rendering contract") live here too: `look` per photo, by path, and `rowLook`
   // per row, by row id like `seen`. Never in XMP: the sidecars the page builds carry ratings only.
-  const BY_ID = ['marks', 'flags', 'stars', 'cuts', 'look'];
+  const BY_ID = ['marks', 'flags', 'stars', 'cuts', 'look', 'xsaved'];      // xsaved (v7): the picks the last Save wrote
   const SCALAR = ['seen', 'tsz', 'regions', 'lastEx', 'rowLook'];
   let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, readMoved = false, sessionRefused = null;
   // Last scroll in the page (any scroller), for pacing the grid's refresh while a folder is read.
@@ -221,6 +221,10 @@
       shootId = r && r.id; lastSaved = ''; base = null; savedKeepers = null;
       edit.header(r && r.header);
       if (r && r.session) { try { restore(logic, JSON.parse(r.session), readMoved); } catch (_) {} }
+      // A shoot never opened before and not yet named: the name field takes the keyboard with the page's
+      // suggestion (v7's onDir), unless the reader has moved. A shoot with a session is left alone.
+      else if (!readMoved && typeof logic.names === 'function' && typeof logic.nameKey === 'function' && !logic.names()[logic.nameKey()])
+        setTimeout(() => { const el = logic.nameRef && logic.nameRef.current; if (el && !readMoved) { el.focus(); try { el.select(); } catch (_) {} } }, 350);
       // Decisions made while the folder was read aren't in the session yet: the next save sends them.
       lastSaved = readMoved ? '' : JSON.stringify(snapshot(logic));
       loadRecents(logic);
@@ -230,6 +234,10 @@
     // where the bytes come from differs.
     const openFolder0 = logic.openFolder.bind(logic);
     logic.openFolder = async force => {
+      // v7: with picks not saved yet the first ⌘O only warns ("⌘O again opens anyway"); the page's own
+      // openFolder arms it and says so. The second, within 5 s, goes on.
+      if (!force && logic.data.order.length && typeof logic.unsaved === 'function' && logic.unsaved() > 0 && !(logic._opArm && Date.now() - logic._opArm < 5000)) return openFolder0(false);
+      logic._opArm = 0; if (logic.state.armed === 'open') logic.setState({ armed: null });
       if (!force && window.lumina.willPromptAccess) {
         let skip = false; try { skip = localStorage.getItem('lumina-v4-pre-ok') === '1'; } catch (_) {}
         if (!skip) return openFolder0(false);                // the page's own sheet; it calls back with force
@@ -255,7 +263,7 @@
       await afterRead();
     };
 
-    // One ARW, as the page's readOne reads it, from the Mac's reader.
+    // One RAW (ARW or DNG), as the page's readOne reads it, from the Mac's reader.
     const readOne = async (f, xmpMap) => {
       const rel = f.rel, name = rel.split('/').pop();
       const head = new Uint8Array(await (await get(media('head', { p: rel }))).arrayBuffer());
@@ -271,8 +279,11 @@
           nt = nativeTile(pq);                               // made by the Mac while the page measures
         }
       }
+      // A phone, told from EXIF Make / Model only: its name, its "1× camera" lens, and the 35 mm
+      // equivalent as the focal length the shake check and the row splits use.
+      const ph = LuminaCore.phoneOf(m); if (ph) { m.flReal = m.fl; if (m.fl35) m.fl = m.fl35; m.model = ph.short; m.lens = ph.zoom ? ph.zoom + ' camera' : m.lens; }
       const xk = rel.replace(/\.[^.\/]+$/, '').toLowerCase(), xo = xmpMap[xk] || null, xpath = xo ? xo.path : rel.replace(/\.[^.\/]+$/, '') + '.xmp';
-      const baseP = { model: m.model || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, bytes: f.size, lens: m.lens || null, serial: m.serial || null,
+      const baseP = { model: m.model || null, make: m.make || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, bytes: f.size, lens: m.lens || null, serial: m.serial || null,
         program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null,
         fileObj: fileRef(rel), xpath, xmp: xo && xo.tx, lrEd: LuminaCore.hasDevelop(xo && xo.tx), name, path: rel, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso };
       let me = null, portrait = false, tb = null;
@@ -366,11 +377,15 @@
       for (const rel of L.unreadableXmp || []) { const k = rel.replace(/\.[^.\/]+$/, '').toLowerCase(); if (!xmpMap[k]) xmpMap[k] = { tx: null, path: rel }; }
       const arws = (L.files || []).map(f => Object.assign(fileRef(f.rel), { size: f.size }));
       const allF = arws.concat((L.xmp || []).map(x => fileRef(x.rel)), (L.others || []).map(fileRef));
+      // A new shoot from one source (the page's onDir without `add`): the Sources panel reads these.
+      logic._addFrom = null; logic._sources = []; logic._srcOf = {};
+      if (typeof logic.addSource === 'function') logic.addSource(L.source || { kind: L.onCard ? 'card' : 'folder' }, allF);
+      logic._allF = allF;
       const files = (L.files || []).slice().sort((a, b) => a.rel.localeCompare(b.rel));
       logic._intake = logic.intake(allF, arws);
       if (!files.length) {
         const I = logic._intake, parts = [...Object.entries(I.raw).map(([e, n]) => n + ' ' + e.toUpperCase()), I.jp + I.ja ? (I.jp + I.ja) + ' JPEG / HEIF' : '', I.vid ? I.vid + ' videos' : ''].filter(Boolean);
-        const msg = 'no ARW found' + (parts.length ? ' · ' + parts.join(' · ') + ' · only Sony ARW is supported' : ' · 0 photos');
+        const msg = 'no ARW or DNG found' + (parts.length ? ' · ' + parts.join(' · ') + ' · Lumina reads ARW and DNG' : ' · 0 photos');
         logic.setState({ openNote: msg }); return logic.say(msg);
       }
       (logic.real || []).forEach(p => { p.src && URL.revokeObjectURL(p.src); /^blob:/.test(p.lg || '') && URL.revokeObjectURL(p.lg); });
@@ -379,18 +394,19 @@
       readMoved = false;
       previewAt.clear();
       logic._gold = []; logic._failed = []; logic.real = [];
+      logic._reading = true; logic._rd = { moved: false, cur: null, top: 0 };       // the page's own scroll handler marks `moved`
       // Sidecars over 1 MB the Mac did not read (threat model T5): counted with the unreadable files.
       for (const rel of L.skippedXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar over 1 MB, not read' });
       // Sidecars that are not text (Latin-1, UTF-16, binary): the same count, until the page has its own line.
       for (const rel of L.unreadableXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar unreadable, not read' });
-      logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
-      // Rows appear as the contiguous prefix grows: every 400 ms, as in the page; every 1.5 s while
-      // the reader is scrolling, so the grid isn't rebuilt under a moving scroll (plumbing's pacing).
+      logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, xsaved: {}, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
+      // Rows appear as the contiguous prefix grows: every 400 ms; every 1.5 s while the reader has
+      // scrolled in the last 1.5 s, so the grid isn't rebuilt under a moving scroll (the page's pacing since v7).
       const grow = force => {
         while (pre < files.length && res[pre] !== undefined) pre++;
-        const now = performance.now(); if (!force && (pre < 48 || now - lastB < (now - scrollT < 300 ? 1500 : 400))) return; lastB = now;
+        const now = performance.now(); if (!force && (pre < 48 || now - lastB < (now - scrollT < 1500 ? 1500 : 400))) return; lastB = now;
         logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null;
-        if (!shown) { shown = true; firstCur = logic.data.order[0]; logic.setState({ cur: firstCur }); logic.setView('cull', true); } else logic.forceUpdate();
+        if (!shown) { shown = true; firstCur = logic.data.order[0]; logic._rd.cur = firstCur; const se = logic.scrollRef && logic.scrollRef.current; logic._rd.top = se ? se.scrollTop : 0; logic.setState({ cur: firstCur }); logic.setView('cull', true); } else logic.forceUpdate();
       };
       const one = async (f, k) => {
         try { res[k] = await readOne(f, xmpMap); }
@@ -402,8 +418,8 @@
       await Promise.all(Array.from({ length: Math.max(1, L.workers || 4) }, async () => { while (i < files.length && !run.gone) { const k = i++; await one(files[k], k); } }));
       // Card pulled: the readers stopped. What wasn't read counts as unreadable, as the page counts it.
       for (; i < files.length; i++) { res[i] = { err: true }; logic._failed.push({ name: files[i].rel.split('/').pop(), reason: 'card removed' }); }
-      const ok = res.filter(p => p && !p.err);
-      reading = null;
+      const ok = res.filter(p => p && !p.err), rd = logic._rd || {};
+      reading = null; logic._reading = false;
       lastRead = { name: L.name, total: files.length, read: ok.length, unreadable: files.length - ok.length, stopped: run.gone ? 'card removed' : null, secs: +((performance.now() - t0) / 1000).toFixed(1) };
       window.lumina.read = Object.assign({}, lastRead);
       if (!ok.length) { logic.real = null; logic.data = logic.build({}); logic.setState({ realLoad: null }); return logic.say(run.gone ? 'Card removed · re-insert to keep going' : '0 photos · ' + files.length + ' unreadable'); }
@@ -411,8 +427,8 @@
       // moved (cursor, keeps, or scrolled), plumbing keeps them where they are instead: same photo,
       // same scroll, no fly-back across the shoot. Design ask 8 asks the page for the same.
       const sc = logic.scrollRef && logic.scrollRef.current, was = logic.state.cur, wasKey = shown && was && logic.data.byId[was] ? keyOf(logic.data.byId[was]) : null;
-      readMoved = shown && (was !== firstCur || Object.keys(logic.state.marks || {}).length > 0 || !!(sc && sc.scrollTop > 40));
-      logic.real = ok; logic.data = logic.build({});
+      readMoved = shown && (!!rd.moved || was !== firstCur || Object.keys(logic.state.marks || {}).length > 0 || Object.keys(logic.state.flags || {}).length > 0 || !!(sc && sc.scrollTop > 40));
+      logic.real = ok; logic.data = logic.build(logic.state.cuts || {});
       let stay = null;
       if (readMoved && wasKey) for (const [id, p] of Object.entries(logic.data.byId)) if (keyOf(p) === wasKey) { stay = id; break; }
       const G = Object.values(logic.data.G), first = ok.map(p => p.date).filter(Boolean).sort()[0] || '';
@@ -478,7 +494,11 @@
 
     // "Cull This Card": the card's DCIM folder, read in place.
     const impStart = logic.impStart.bind(logic);
-    logic.impStart = () => native('cullCard', {}).then(opened => { if (!opened) impStart(); });
+    // Since v7 the page also calls impStart(to) for ⌘2 / ⌘3 / ⌘4 from Open with a shoot loaded (to: 'cull',
+    // 'edit' or null) and for the card's Edit button: those are the page's own. Only the bare call is the card.
+    logic.impStart = v => (v === undefined || !logic.data.order.length)
+      ? native('cullCard', {}).then(opened => { if (!opened) impStart(v); })
+      : impStart(v);
 
     // Recent shoots reopen the real folder (with a security-scoped bookmark).
     logic.libOpen = x => (x && x.id) ? native('reopen', { id: x.id }).then(ok => { if (!ok) logic.say('not available · ' + (x.where || 'card out or folder moved')); }) : undefined;
@@ -630,6 +650,9 @@
     if (logic.__luminaLead || typeof logic.onScroll !== 'function' || typeof logic.layout !== 'function' || !logic.scrollRef || !Array.isArray(logic.state.vr)) return;
     logic.__luminaLead = true;
     const own = logic.onScroll;
+    // Since v7 the page leads its own window (two viewports in the direction of travel) and its
+    // scroll handler also keeps the time axis and the read's "moved" mark: nothing to replace.
+    if (/_dir\b/.test(String(own))) return;
     let lastTop = null, lastT = 0, rest = 0, held = 0, dir = 0;
     logic.onScroll = function () {
       if (!leadOn) return own.call(logic);
@@ -720,6 +743,166 @@
   };
   // `force`: on entering Edit the page has just mounted its hooks, so tell it even if nothing changed.
   const pushFacts = force => { const t = factsText(); if (force || t !== ed.factsText) { ed.factsText = t; const f = factsObj(); hook('luminaFacts', f); hook('luminaEditFacts', t, Object.assign(f, edit.facts())); } };
+  // ——— Edit v21 on the canvas above. The page (Lumina Edit v21, mounted by Sets v7) makes none of
+  // Prompt 1 §3's calls: in the app it leaves its photo box empty and keeps its state to itself. So
+  // while its Edit step is the active one, plumbing reads that state once per animation frame (the
+  // page announces drags, zoom and pan through lumina.emit, but not keys, Auto, paste, undo or a
+  // pointer pan, so events alone would miss changes) and drives the calls above with it:
+  //   photo   luminaState.__owner (the Edit logic): state.cur → Sets' data.byId[id].path → edit.enter
+  //   look    owner.look(photo), an object → lookString → edit.look
+  //   box     where the page would draw the photo: the crop fitted into [data-lumina="canvas"], then
+  //           the page's zoom and pan, clipped to that element → edit.layout; what is left of the frame
+  //           inside it → roi (the canvas draws the uncropped frame, so a crop is a region too)
+  //   drags   lumina.emit('dragStart' | 'dragEnd') → edit.dragStart / dragEnd
+  // The canvas hides (null rect) whenever the page shows something of its own in that box.
+  // Decisions still open (the owner's): the page's Sharpening rests at 40 and the Mac's at 0, so 40
+  // is taken as the Mac's 0 here (SHP_BASE); the page's as-shot temperature is a fixed 5500 K, so a
+  // temperature is sent as a ratio of the photo's own as-shot value when the Mac names it
+  // (header.asShot for header.asShotRel), else as the page's number.
+  const SHP_BASE = 40;
+  // `\` held: the as-shot render, not a hidden canvas (the page would show the untouched preview).
+  const BEFORE_RENDERS = true;
+  const lookNum = (v, d) => { const r = +(+v).toFixed(d); return r === 0 ? (d ? (0).toFixed(d) : '0') : (r > 0 ? '+' : '') + r.toFixed(d); };
+  // LookString.swift's grammar, values at reset left out. The page's keys with no stage on the Mac
+  // (tone curve, colour mixer, vignette shape, 90° turns) are dropped.
+  const lookString = (L, p, asShot) => {
+    L = L || {};
+    const out = [], has = k => L[k] != null && isFinite(+L[k]), cl = (v, a, b) => Math.min(b, Math.max(a, +v));
+    if (has('ev') && +L.ev !== 0) out.push('ev:' + lookNum(cl(L.ev, -5, 5), 2));
+    if (has('wb') || (has('tint') && +L.tint !== 0)) {
+      const shot = +(p && p.wbShot) || 5500, k = has('wb') ? +L.wb : shot, t = has('tint') ? +L.tint : 0;
+      const K = asShot && +asShot.kelvin > 0 ? +asShot.kelvin * k / shot : k, T = (asShot ? +asShot.tint || 0 : 0) + t;
+      out.push('wb:' + Math.round(cl(K, 2000, 50000)) + '/' + lookNum(cl(T, -150, 150), 0));
+    }
+    for (const k of ['con', 'hl', 'sh', 'wh', 'bl', 'sat']) if (has(k) && Math.round(+L[k]) !== 0) out.push(k + ':' + lookNum(cl(L[k], -100, 100), 0));
+    if (has('shp')) { const v = Math.round(cl(+L.shp - SHP_BASE, 0, 150)); if (v) out.push('shp:' + v); }
+    if (has('vig') && Math.round(+L.vig) !== 0) out.push('vig:' + lookNum(cl(L.vig, -100, 100), 0));
+    if (has('nr') && Math.round(+L.nr) > 0) out.push('nr:' + Math.round(cl(L.nr, 0, 100)));
+    if (p && p.bw) out.push('bw:1');
+    const c = cropOf(L);
+    if (c.set) out.push('crop:' + [c.x, c.y, c.w, c.h].map(v => v.toFixed(4)).join(',') + (c.ang ? '/' + c.ang.toFixed(2) : ''));
+    return out.join(' ');
+  };
+  // The page's crop ({x, y, w, h} in fractions of the frame, `ang` degrees), kept inside the frame.
+  const cropOf = L => {
+    const c = (L && L.crop) || {}, f = v => (isFinite(+v) ? +v : NaN);
+    let x = f(c.x), y = f(c.y), w = f(c.w), h = f(c.h);
+    if (!(w > 0 && h > 0) || isNaN(x) || isNaN(y)) return { x: 0, y: 0, w: 1, h: 1, ang: 0, set: false };
+    x = Math.min(1, Math.max(0, x)); y = Math.min(1, Math.max(0, y));
+    w = Math.floor(Math.min(w, 1 - x) * 1e4) / 1e4; h = Math.floor(Math.min(h, 1 - y) * 1e4) / 1e4;
+    const ang = Math.min(45, Math.max(-45, f(c.ang) || 0));
+    if (!(w > 0 && h > 0)) return { x: 0, y: 0, w: 1, h: 1, ang: 0, set: false };
+    return { x, y, w, h, ang, set: !!ang || x > 0.001 || y > 0.001 || w < 0.999 || h < 0.999 };
+  };
+  const pg = { on: false, raf: 0, timer: 0, rel: null, entering: null, lay: null, roiKey: '', lastLook: 0, endDrag: false, miss: 0, loupeT: 0, loupeKey: '', why: '', error: null };
+  const pageOwner = () => { const f = window.luminaState, o = f && f.__edit && f.__owner; return o && o.state && o.data && o.data.byId && typeof o.look === 'function' ? o : null; };
+  // Why the canvas may not show now: the page (Edit, or Sets above it) is drawing in the photo's box.
+  const pageCovered = (o, l, L) => {
+    const s = o.state, t = l.state;
+    return s.crop ? 'crop' : s.pick ? 'white picker' : s.stMode || s.rHeld || s.sLine ? 'straighten' : s.alt && s.sec === 'colour' ? 'colour' :
+      s.spec ? 'variations' : s.sg ? 'scene review' : s.verOpen ? 'versions' : s.help ? 'help' : s.intro ? 'intro' : !BEFORE_RENDERS && s.before ? 'before' :
+      (+L.rot || 0) % 360 ? 'turned' : t.faq ? 'faq' : t.tour != null ? 'tour' : t.prefsOn ? 'settings' : t.betaOn ? 'known issues' : t.cacheOn ? 'working files' :
+      t.pre ? 'access' : t.phonePage ? 'phone' : '';
+  };
+  const pageGeo = (o, p, L) => {
+    const el = document.querySelector('[data-lumina="canvas"]'); if (!el) return null;
+    const CW = el.clientWidth, CH = el.clientHeight; if (CW < 20 || CH < 20) return null;
+    // The photo's own shape (Sets' number), not the page's measure of the image it shows: in the app
+    // that image is a 1 × 1 stand-in.
+    const s = o.state, A = +p.ar > 0 ? +p.ar : 1.5, c = cropOf(L), zm = +s.zm > 0 ? +s.zm : 1;
+    const k = Math.min(CW / (c.w * A), CH / c.h), w = c.w * A * k, h = c.h * k;
+    const X = Math.round(+s.zx || 0) + zm * (CW - w) / 2, Y = Math.round(+s.zy || 0) + zm * (CH - h) / 2, W = zm * w, H = zm * h;
+    const x0 = Math.max(0, X), y0 = Math.max(0, Y), x1 = Math.min(CW, X + W), y1 = Math.min(CH, Y + H);
+    if (x1 - x0 < 1 || y1 - y0 < 1) return null;
+    const b = el.getBoundingClientRect(), bx = b.left + el.clientLeft, by = b.top + el.clientTop;
+    const rect = { x: Math.round(bx + x0), y: Math.round(by + y0), w: Math.round(x1 - x0), h: Math.round(y1 - y0) };
+    const r5 = v => +v.toFixed(5);
+    let roi = { x: r5(c.x + (x0 - X) / W * c.w), y: r5(c.y + (y0 - Y) / H * c.h), w: r5((x1 - x0) / W * c.w), h: r5((y1 - y0) / H * c.h) };
+    if (roi.x <= 0.0005 && roi.y <= 0.0005 && roi.w >= 0.999 && roi.h >= 0.999) roi = null;
+    // The page's chrome inside the element (zoom pill, state chip, colour chip) and Sets' working
+    // files pill: whatever lies over the photo and is not the photo's own layer or a full cover.
+    const holes = [], photo = el.querySelector('[data-lumina-img]');
+    const add = n => {
+      if (!n || n.nodeType !== 1 || (photo && n.contains(photo))) return;
+      const q = n.getBoundingClientRect();
+      if (q.width < 1 || q.height < 1) { for (const m of n.children) add(m); return; }
+      if (q.width >= CW * 0.9 && q.height >= CH * 0.9) return;
+      const hx = Math.max(q.left, rect.x), hy = Math.max(q.top, rect.y), hw = Math.min(q.right, rect.x + rect.w) - hx, hh = Math.min(q.bottom, rect.y + rect.h) - hy;
+      if (hw >= 1 && hh >= 1 && holes.length < 16) holes.push({ x: Math.round(hx), y: Math.round(hy), w: Math.round(hw), h: Math.round(hh) });
+    };
+    for (const n of el.children) add(n);
+    add(document.querySelector('[data-lumina="cache-pill-edit"]'));
+    return { rect, roi, holes };
+  };
+  const pageStop = () => {
+    if (!pg.on) return;
+    pg.on = false; cancelAnimationFrame(pg.raf); clearTimeout(pg.timer); clearTimeout(pg.loupeT);
+    pg.endDrag = false; pg.miss = 0; pg.loupeKey = ''; pg.roiKey = ''; pg.lay = null; pg.entering = null; pg.why = '';
+    if (ed.dragging) edit.dragEnd();
+    if (pg.rel) { pg.rel = null; edit.leave(); }
+  };
+  // One pass: false when the page's Edit step is no longer the active one (the loop ends).
+  const pageSync = () => {
+    const l = current;
+    if (!l || l.state.view !== 'edit' || typeof window.luminaEditRect === 'function') { pageStop(); return false; }
+    const o = pageOwner(), s = o && o.state, p = o && s.cur != null ? o.data.byId[s.cur] : null;
+    const q = p && l.data && l.data.byId ? l.data.byId[p.id] : null, rel = (q && q.path) || null;
+    if (!rel) {
+      if (pg.rel) { pg.rel = null; pg.lay = null; if (ed.dragging) edit.dragEnd(); edit.leave(); }
+      pg.why = o ? 'no photo' : 'not mounted'; return true;
+    }
+    let L = {}; try { L = o.look(p) || {}; } catch (_) {}
+    const asShot = ed.header && ed.header.asShot && ed.header.asShotRel === rel ? ed.header.asShot : null;
+    const look = BEFORE_RENDERS && s.before ? 'none' : lookString(L, p, asShot);
+    if (pg.rel !== rel) {
+      pg.rel = rel; pg.entering = rel; pg.roiKey = ''; pg.loupeKey = ''; clearTimeout(pg.loupeT);
+      Promise.resolve(edit.enter(rel, look)).catch(() => null).then(() => { if (pg.entering === rel) pg.entering = null; });
+    }
+    pg.why = pageCovered(o, l, L);
+    const geo = pg.why ? null : pageGeo(o, p, L);
+    const lay = geo ? JSON.stringify([geo.rect, geo.holes]) : '';
+    if (lay !== pg.lay || (!!geo) !== ed.visible) { pg.lay = lay; edit.layout(geo ? geo.rect : null, !!geo, geo ? { holes: geo.holes } : null); }
+    if (pg.entering === rel || ed.rel !== rel) return true;
+    // The look and the region. A change within 100 ms of the last one is a run (a wheel on a slider,
+    // a held key): the quarter tier, as a drag; one alone is a keystroke: once, at full quality.
+    const roi = geo ? geo.roi : ed.roi, roiKey = geo ? (roi ? JSON.stringify(roi) : '') : pg.roiKey;
+    const moved = look !== ed.look;
+    if (moved || roiKey !== pg.roiKey) {
+      const now = performance.now(), drag = ed.dragging || !moved || now - pg.lastLook < 100;
+      if (moved) pg.lastLook = now;
+      pg.roiKey = roiKey;
+      edit.look(look, { drag, key: !drag, roi });
+    }
+    // 100 %: the region is refined (RAW 9) once it has stood still for 150 ms.
+    const lk = geo && zoomedIn(s) && roi ? roiKey : '';
+    if (lk !== pg.loupeKey) {
+      pg.loupeKey = lk; clearTimeout(pg.loupeT);
+      if (!lk) { if (ed.loupe) edit.loupe(false); }
+      else pg.loupeT = setTimeout(() => { if (pg.on && pg.loupeKey === lk && ed.rel === rel) edit.loupe(true, roi); }, 150);
+    }
+    // Drags: the page's events lead; its state is the fallback (three passes of disagreement).
+    const sd = !!s.dragging;
+    if (pg.endDrag) { pg.endDrag = false; pg.miss = 0; if (ed.dragging) edit.dragEnd(); }
+    else if (sd === ed.dragging) pg.miss = 0;
+    else if (++pg.miss >= 3) { pg.miss = 0; if (sd) edit.dragStart(); else edit.dragEnd(); }
+    return true;
+  };
+  const zoomedIn = s => (+s.zm || 1) > 1.001;
+  // Once per animation frame while Edit shows; every 250 ms when frames are not running (a hidden window).
+  const pageRun = () => {
+    cancelAnimationFrame(pg.raf); clearTimeout(pg.timer);
+    let more = pg.on;
+    try { if (more) more = pageSync(); pg.error = null; } catch (e) { pg.error = String((e && e.message) || e); }
+    if (more && pg.on) { pg.raf = requestAnimationFrame(pageRun); pg.timer = setTimeout(pageRun, 250); }
+  };
+  // What the page announces (Edit v21's emit): a drag's start and end. Zoom and pan carry no
+  // position and arrive before the page's state has moved, so the region is read from that state on
+  // the next pass; the other types (spectrum, wbPick, colourAt, step) are the page's own business.
+  const pageEmit = (type, detail) => {
+    if (!pg.on) return;
+    if (type === 'dragStart') { pg.endDrag = false; pg.miss = 0; if (!ed.dragging) edit.dragStart(); }
+    else if (type === 'dragEnd') pg.endDrag = true;
+  };
   const photoAt = (l, rel) => { for (const [id, p] of Object.entries(l.data.byId)) if ((l.state.realInfo && l.state.realInfo.name || '') + '/' + keyOf(p) === rel || p.path === rel) return [id, p]; return [null, null]; };
   const edit = {
     // Entering Edit for a photo (its path, "<folder>/DSC.ARW"): the Mac builds its bases now and its
@@ -743,7 +926,8 @@
     layout(rect, visible, o) {
       ed.force = !!(o && o.force) && !!visible;
       ed.rect = rect && rect.w > 0 && rect.h > 0 ? { x: rect.x, y: rect.y, w: rect.w, h: rect.h } : null; ed.visible = !!visible && !!ed.rect;
-      native('canvasLayout', Object.assign({ visible: ed.visible, dpr: dpr() }, ed.rect || { x: 0, y: 0, w: 0, h: 0 })).then(r => { if (r && r.path) { ed.path = r.path; pushFacts(); } }).catch(() => {});
+      // `holes`: page chrome lying over the photo (CSS px, as the rect), for the Mac to leave uncovered.
+      native('canvasLayout', Object.assign({ visible: ed.visible, dpr: dpr(), holes: ed.visible && o && Array.isArray(o.holes) ? o.holes : [] }, ed.rect || { x: 0, y: 0, w: 0, h: 0 })).then(r => { if (r && r.path) { ed.path = r.path; pushFacts(); } }).catch(() => {});
       if (ed.path === 'image' && ed.visible && ed.rel && !img.shown) imgSubmit('base', true);
     },
     // A slider value, as often as the slider emits. {drag: true} while the thumb is held, {key: true}
@@ -787,14 +971,31 @@
     // The page reports its rect itself (layout), or exposes luminaEditRect(): polled while Edit shows.
     pollRect() {
       clearTimeout(ed.rectTimer);
-      const l = current; if (!l || l.state.view !== 'edit' || typeof window.luminaEditRect !== 'function') return;
+      const l = current; if (!l || l.state.view !== 'edit') return;
+      // Edit v21 reports nothing: the photo, its look and its box are read from the page (pageSync, below).
+      if (typeof window.luminaEditRect !== 'function') { if (!pg.on) { pg.on = true; pg.lay = null; pg.rel = null; pageRun(); } return; }
       const r = window.luminaEditRect();
       const same = ed.rect && r && ed.rect.x === r.x && ed.rect.y === r.y && ed.rect.w === r.w && ed.rect.h === r.h;
       if (!same || !ed.visible) edit.layout(r, !!r);
       ed.rectTimer = setTimeout(edit.pollRect, 250);
     },
+    // Menu commands while the page's Edit step is the active one (Edit v21 leaves ⌘Z ⇧⌘Z ⌘C ⌘V to the
+    // app and answers them on window.luminaEdit; a step goes through its 'lumina:step' event).
+    // undefined = not Edit's: the caller falls through to window.luminaCommand.
+    command(name) {
+      const l = current; if (!l || l.state.view !== 'edit') return undefined;
+      if (name === 'undo' || name === 'redo' || name === 'copy' || name === 'paste') {
+        const e = window.luminaEdit; if (!e || typeof e[name] !== 'function') return false;
+        e[name](); return true;
+      }
+      const view = { stepOpen: 'open', stepCull: 'cull', stepEdit: 'edit', stepSave: 'save' }[name];
+      if (!view) return undefined;
+      window.dispatchEvent(new CustomEvent('lumina:step', { detail: { view } })); return true;
+    },
+    lookString: (L, p, asShot) => lookString(L, p, asShot),
     get image() { return img.url; },
     state() { return { rel: ed.rel, look: ed.look, path: ed.path, rect: ed.rect, visible: ed.visible, force: !!ed.force, dragging: ed.dragging, seq: ed.seq, loupe: ed.loupe, roi: ed.roi,
+      page: { on: pg.on, rel: pg.rel, entering: pg.entering, hidden: pg.why, error: pg.error },
       image: { shown: img.shown, tier: img.tier, fetches: img.fetches, superseded: img.superseded, inFlight: img.inFlight, pending: !!img.pending, url: img.url }, facts: ed.factsText, header: ed.header }; },
   };
   window.lumina.edit = edit;
@@ -803,6 +1004,8 @@
   window.lumina.canvasRect = edit.canvasRect;
   window.lumina.drag = edit.drag;
   window.lumina.roi = edit.roi;
+  // Edit v21 calls this when it is there (its drags; see pageEmit).
+  window.lumina.emit = pageEmit;
   window.addEventListener('resize', () => { if (ed.visible || (current && current.state.view === 'edit')) edit.pollRect(); });
 
   watch();
@@ -861,6 +1064,8 @@
     unsaved() {
       const l = window.__lumina.logic();
       if (!l || !l.real || !l.real.length) return 0;
+      // v7 counts it itself (picks, or everything not removed, minus what the last Save wrote).
+      if (typeof window.luminaUnsaved === 'function') return window.luminaUnsaved() || 0;
       const k = l.kept().length;
       return k && keepersOf(l) !== savedKeepers ? k : 0;
     },
