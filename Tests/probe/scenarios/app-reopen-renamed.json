@@ -20,6 +20,15 @@
    "timeoutMs": 120000
   },
   {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "js",
+   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
+   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
+  },
+  {
    "do": "key",
    "k": "p",
    "settleMs": 200
@@ -30,9 +39,19 @@
    "settleMs": 200
   },
   {
+   "do": "js",
+   "src": "__probe.logic().setPref({adv:false}); return true",
+   "why": "v5's flag left the cursor in place; v7's remove advances"
+  },
+  {
    "do": "key",
-   "k": "f",
+   "k": "x",
    "settleMs": 200
+  },
+  {
+   "do": "js",
+   "src": "__probe.logic().setPref({adv:true}); return true",
+   "why": "auto-advance back on"
   },
   {
    "do": "key",
@@ -102,20 +121,41 @@
   },
   {
    "do": "expect",
-   "js": "const l=__probe.logic(); return Object.keys(l.state.flags).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file).sort()",
+   "js": "const l=__probe.logic(); return Object.keys(l.state.marks).filter(id=>l.state.marks[id]==='out').map(id=>l.data.byId[id].file).sort()",
    "equals": [
     "DSC00002.ARW"
    ]
   },
   {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "js",
+   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
+   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
+  },
+  {
    "do": "key",
-   "k": "3",
+   "k": "4",
    "settleMs": 1000,
    "cmd": true
   },
   {
    "do": "js",
    "src": "window.__lastSave = __probe.logic().state.ex.result || null; return true"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 1500,
+   "cmd": true
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.armed",
+   "equals": "save",
+   "why": "v7: with undecided photos the first \u2318\u23ce only warns"
   },
   {
    "do": "key",

@@ -39,6 +39,15 @@
    "p95Ms": 17.5
   },
   {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "js",
+   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
+   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
+  },
+  {
    "do": "key",
    "k": "ArrowDown",
    "times": 150,
@@ -77,7 +86,7 @@
   },
   {
    "do": "key",
-   "k": "3",
+   "k": "4",
    "settleMs": 900,
    "cmd": true
   },

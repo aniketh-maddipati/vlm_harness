@@ -405,7 +405,7 @@ export async function standIn(browser, name) {
   return standIns.get(name);
 }
 
-export async function open(browser, bridge, { prefs, app = true, size = [1440, 900], scale = 1, clockBase, query = '', parity = false, ready = true } = {}) {
+export async function open(browser, bridge, { prefs, app = true, size = [1440, 900], scale = 1, clockBase, query = '', parity = false, ready = true, toured = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: size[0], height: size[1] }, deviceScaleFactor: scale, reducedMotion: 'no-preference' });
   const page = await ctx.newPage();
   if (bridge) bridge.page = page;
@@ -442,8 +442,8 @@ export async function open(browser, bridge, { prefs, app = true, size = [1440, 9
   if (clockBase) await page.addInitScript(`(() => { const R = Date, t0 = R.now(), b = ${clockBase}; const now = () => b + (R.now() - t0);
     class D extends R { constructor(...a) { if (a.length === 0) super(now()); else super(...a); } static now() { return now(); } } window.Date = D; })();`);
   await page.addInitScript(`window.__resources=Object.assign(window.__resources||{},${JSON.stringify(VENDOR)});`);
-  // v7 shows its five-step tour on a first launch, and the tour takes every key: start past it, as the Mac probe does.
-  await page.addInitScript(`try { localStorage.setItem('lumina-v4-toured', '1'); } catch (_) {}`);
+  // As probe.js does: v7's first-launch tour takes every key, so a screens run starts past it.
+  if (toured) await page.addInitScript(`try { localStorage.setItem('lumina-v4-toured', '1'); } catch (_) {}`);
   if (app) {
     await page.exposeFunction('__nativeCall', msg => bridge.handle(msg));
     await page.addInitScript(`window.__luminaConfig=${JSON.stringify({ debug: false, prefs: prefs || null, parity, nearLimit: 0.35 })};`);

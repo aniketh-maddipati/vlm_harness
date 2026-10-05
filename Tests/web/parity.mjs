@@ -31,7 +31,7 @@ const STATE = `(() => { const l = (${LOGIC})(), seen = new WeakSet();
 async function run(browser, spec, app, dir) {
   fs.mkdirSync(dir, { recursive: true });
   const clockBase = spec.clock ? new Date(spec.clock).getTime() : undefined;
-  const { ctx, page, errors } = await open(browser, app ? new Bridge() : null, { app, size: spec.size, scale: spec.scale || 1, clockBase, parity: !!(spec.app && spec.app.parity) || app });
+  const { ctx, page, errors } = await open(browser, app ? new Bridge() : null, { app, size: spec.size, scale: spec.scale || 1, clockBase, parity: !!(spec.app && spec.app.parity) || app, toured: !spec.tour });
   await page.evaluate(`window.__probe = { logic: ${LOGIC} }`);
   if (spec.storageWrites === false) await page.evaluate(() => { Storage.prototype.setItem = function () { throw new DOMException('storage writes off', 'QuotaExceededError'); }; });
   const out = { snaps: {}, states: {}, fails: [] };

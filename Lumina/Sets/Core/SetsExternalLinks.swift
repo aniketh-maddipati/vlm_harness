@@ -42,10 +42,11 @@ enum SetsExternalLinks {
         guard url.absoluteString.count <= 2_000 else {
             return .refuse("bug report link is too long")
         }
-        // The text itself is checked for a fragment: for a URL without "//" some macOS versions leave
-        // `fragment` nil and keep "#…" in the query's last value (seen on CI's runner, not on macOS 26).
+        // A fragment is refused however Foundation parsed it: for a URL without "//" macOS 15 leaves
+        // `fragment` nil and keeps the "#…" (or %23…) in the query, so the decoded items are checked too.
         guard url.fragment == nil, !url.absoluteString.contains("#"),
               let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              parts.fragment == nil,
               parts.host == nil, parts.user == nil, parts.password == nil, parts.port == nil,
               parts.path == bugReportRecipient else {
             return .refuse("bug report recipient is not allowed")
@@ -53,7 +54,7 @@ enum SetsExternalLinks {
 
         let items = parts.queryItems ?? []
         let allowed = Set(["subject", "body"])
-        guard items.allSatisfy({ allowed.contains($0.name) }),
+        guard items.allSatisfy({ allowed.contains($0.name) && !($0.value ?? "").contains("#") }),
               Set(items.map(\.name)).count == items.count else {
             return .refuse("bug report query is not allowed")
         }
