@@ -42,7 +42,9 @@ enum SetsExternalLinks {
         guard url.absoluteString.count <= 2_000 else {
             return .refuse("bug report link is too long")
         }
-        guard url.fragment == nil,
+        // The text itself is checked for a fragment: for a URL without "//" some macOS versions leave
+        // `fragment` nil and keep "#…" in the query's last value (seen on CI's runner, not on macOS 26).
+        guard url.fragment == nil, !url.absoluteString.contains("#"),
               let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
               parts.host == nil, parts.user == nil, parts.password == nil, parts.port == nil,
               parts.path == bugReportRecipient else {
