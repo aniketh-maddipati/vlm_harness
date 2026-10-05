@@ -839,6 +839,16 @@
     window.lumina.card = P.length ? { name: 'SONY-A7M4', photos: P.length, bytes: P.reduce((a, p) => a + (p.bytes || 0), 0), sony: true, path: '/Volumes/Untitled',
       model: [...new Set(P.map(p => p.model).filter(Boolean))].join(' + '), range: t[0] + ' → ' + t[t.length - 1].slice(11) } : null;
     logic.constructor.SHOOTS = (window.LuminaV4 && LuminaV4.SHOOTS) || [];
+    // The working-files meter and Save's Tidy up: in the app the page lists the Mac's store (one
+    // part, the size plumbing gives it); the prototype measures its own previews and storage. The
+    // page's own prototype branches run here (cacheView's Remove all checks app() too).
+    for (const name of ['cacheParts', 'cacheView']) {
+      const fn = logic[name];
+      if (typeof fn === 'function') logic[name] = function (...a) {
+        const was = window.lumina.app; window.lumina.app = false;
+        try { return fn.apply(this, a); } finally { window.lumina.app = was; }
+      };
+    }
     logic.setState({ cur: d.order[0] || null, imp: Object.assign({}, logic.state.imp, { card: true }) });
   };
 
