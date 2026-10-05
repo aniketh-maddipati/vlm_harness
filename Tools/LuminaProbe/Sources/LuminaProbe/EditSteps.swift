@@ -69,6 +69,11 @@ enum EditSteps {
         return Object.assign({}, st, { looks: n, state, pageLatency: { n: lat.length, p50: q(0.5), p95: q(0.95), max: lat[lat.length - 1] || 0, restMs: rest ? rest.t - tEnd : null, images: shown.length } });
         """
         guard let r = try await host.js(js, timeout: ms / 1000 + 20) as? [String: Any] else { throw ProbeError("editDrag: no stats") }
+        return outcome(r, key: key, s, warmNote: warmNote)
+    }
+
+    /// The Mac's numbers for one drag, as a line and as gates (shared by `editDrag` and `editPageDrag`).
+    static func outcome(_ r: [String: Any], key: String, _ s: [String: Any], warmNote: String = "", step: String = "editDrag") -> Outcome {
         let path = r["path"] as? String ?? "image"
         let native = path == "native"
         let p50 = native ? r["latencyP50"] as? Double ?? 0 : (r["pageLatency"] as? [String: Any])?["p50"] as? Double ?? 0
@@ -90,15 +95,58 @@ enum EditSteps {
         o.frames["edit-\(key)"] = ["p50": p50, "p95": p95, "max": mx, "dropped": Double(dropped), "rest": rest, "looks": Double(looks), "samples": Double(n), "native": native ? 1 : 0,
                                    "firstRenders": Double(firsts.count), "firstMaxMs": firstMax]
         guard gate, native else { return o }
-        if let cap = s["maxFirstMs"] as? Double, firstMax > cap { o.failures.append("editDrag \(key): the first render of a new set of stages took \(String(format: "%.1f", firstMax)) ms on the main thread > \(cap) ms") }
-        if s["expectFirst"] as? Bool ?? false, firsts.isEmpty { o.failures.append("editDrag \(key): the drag rendered no set of stages the canvas had not rendered before (nothing was tested)") }
+        if let cap = s["maxFirstMs"] as? Double, firstMax > cap { o.failures.append("\(step) \(key): the first render of a new set of stages took \(String(format: "%.1f", firstMax)) ms on the main thread > \(cap) ms") }
+        if s["expectFirst"] as? Bool ?? false, firsts.isEmpty { o.failures.append("\(step) \(key): the drag rendered no set of stages the canvas had not rendered before (nothing was tested)") }
         let p95Cap = ProcessInfo.processInfo.environment["LUMINA_EDIT_P95"].flatMap(Double.init) ?? s["p95Ms"] as? Double
-        if let cap = p95Cap, p95 > cap { o.failures.append("editDrag \(key): latency p95 \(String(format: "%.1f", p95)) ms > \(cap) ms") }
-        if n == 0 { o.failures.append("editDrag \(key): no presented frames were measured") }
-        if let cap = s["maxDropped"] as? Int, dropped > cap { o.failures.append("editDrag \(key): \(dropped) dropped frames during the drag (allowed \(cap))") }
-        if let cap = s["restMs"] as? Double, rest > cap { o.failures.append("editDrag \(key): rest render \(String(format: "%.0f", rest)) ms after drag end > \(cap) ms") }
-        if let cap = s["maxPhotos"] as? Int ?? Optional(3), (bases["residentPhotos"] as? Int ?? 0) > cap { o.failures.append("editDrag: \(bases["residentPhotos"] ?? 0) photos' bases resident > \(cap)") }
-        if let cap = s["maxBaseMB"] as? Double ?? Optional(300), Double(bases["bytes"] as? Int ?? 0) / 1_048_576 > cap { o.failures.append("editDrag: bases \(bases["bytes"] ?? 0) bytes > \(cap) MB") }
+        if let cap = p95Cap, p95 > cap { o.failures.append("\(step) \(key): latency p95 \(String(format: "%.1f", p95)) ms > \(cap) ms") }
+        if n == 0 { o.failures.append("\(step) \(key): no presented frames were measured") }
+        if let cap = s["maxDropped"] as? Int, dropped > cap { o.failures.append("\(step) \(key): \(dropped) dropped frames during the drag (allowed \(cap))") }
+        if let cap = s["restMs"] as? Double, rest > cap { o.failures.append("\(step) \(key): rest render \(String(format: "%.0f", rest)) ms after drag end > \(cap) ms") }
+        if let cap = s["maxPhotos"] as? Int ?? Optional(3), (bases["residentPhotos"] as? Int ?? 0) > cap { o.failures.append("\(step): \(bases["residentPhotos"] ?? 0) photos' bases resident > \(cap)") }
+        if let cap = s["maxBaseMB"] as? Double ?? Optional(300), Double(bases["bytes"] as? Int ?? 0) / 1_048_576 > cap { o.failures.append("\(step): bases \(bases["bytes"] ?? 0) bytes > \(cap) MB") }
+        return o
+    }
+
+    /// A drag on one of the page's own Edit sliders (`[data-lumina="slider"][data-slider="<key>"]`),
+    /// with the pointer, the way a person does it: the page changes its look, plumbing.js reads it
+    /// each frame, translates it and drives the canvas. Scored like `editDrag` (latency is from
+    /// plumbing's look to the presented frame; the page's own frame before it is not in the number).
+    /// `expect`: text the canvas's look string must contain afterwards (the native key the slider
+    /// maps to), so a slider that moves the page but never reaches a stage fails.
+    static func pageDrag(host: ProbeHost, _ s: [String: Any]) async throws -> Outcome {
+        let key = s["slider"] as? String ?? "ev"
+        let px = s["px"] as? Double ?? 160, ms = s["ms"] as? Double ?? 2000, hz = s["hz"] as? Double ?? 60
+        guard key.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" }) else { throw ProbeError("editPageDrag: bad slider '\(key)'") }
+        let find = """
+        const el = document.querySelector('[data-lumina="slider"][data-slider="\(key)"]'); if (!el) return null;
+        el.scrollIntoView({ block: 'center' }); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const b = el.getBoundingClientRect(), o = window.luminaState && window.luminaState.__owner;
+        await lumina.edit.stats(true);
+        return { x: b.left + b.width / 2, y: b.top + b.height / 2, before: o ? JSON.stringify(o.look(o.data.byId[o.state.cur])) : '' };
+        """
+        guard let at = try await host.js(find, timeout: 10) as? [String: Any], let x = at["x"] as? Double, let y = at["y"] as? Double else {
+            throw ProbeError("editPageDrag: the page shows no slider '\(key)' (is its section open?)")
+        }
+        let from = CGPoint(x: x, y: y), n = max(2, Int(ms / 1000 * hz))
+        host.mouse(.leftMouseDown, at: from)
+        try await Task.sleep(nanoseconds: 60_000_000)
+        for i in 1...n {
+            host.mouse(.leftMouseDragged, at: CGPoint(x: x + px * Double(i) / Double(n), y: y))
+            try await Task.sleep(nanoseconds: UInt64(1_000_000_000 / hz))
+        }
+        host.mouse(.leftMouseUp, at: CGPoint(x: x + px, y: y))
+        try await Task.sleep(nanoseconds: 800_000_000)
+        let read = """
+        const st = await lumina.edit.stats(false), o = window.luminaState && window.luminaState.__owner;
+        return Object.assign({}, st, { looks: (st.schedule && (st.schedule.small || 0)) || 0, state: lumina.edit.state(), after: o ? JSON.stringify(o.look(o.data.byId[o.state.cur])) : '' });
+        """
+        guard let r = try await host.js(read, timeout: 20) as? [String: Any] else { throw ProbeError("editPageDrag: no stats") }
+        var o = outcome(r, key: key, s, step: "editPageDrag")
+        let look = host.bridge?.canvas?.currentLook ?? ""
+        let page = (r["state"] as? [String: Any])?["page"] as? [String: Any] ?? [:]
+        o.note = "page slider \(key) → " + o.note + " · canvas look: \(look.isEmpty ? "(none)" : look)" + ((page["hidden"] as? String).map { $0.isEmpty ? "" : " · canvas hidden: \($0)" } ?? "")
+        if (at["before"] as? String ?? "") == (r["after"] as? String ?? "") { o.failures.append("editPageDrag \(key): the page's look did not change (the pointer did not reach the slider)") }
+        if let want = s["expect"] as? String, !look.contains(want) { o.failures.append("editPageDrag \(key): the canvas's look has no '\(want)' (got '\(look)')") }
         return o
     }
 
