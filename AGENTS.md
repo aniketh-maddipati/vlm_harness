@@ -20,11 +20,12 @@ window. Nobody edits the UI in this repo.
   Before installing, step 2b prints every line the new page files add that names network or bridge
   surface (`fetch(`, `postMessage`, `new Function`, a URL, …): a zip is a code import, so read them. Report only.
 - A designer's export can also arrive as one standalone HTML (the bundler's output, no zip). The sync
-  does not take it. Until `Scripts/sets_unbundle_standalone.py` exists (it is not in the tree yet), the
-  files are made by hand: the core script and the Edit page are the export's own bytes; the Sets page keeps
-  the export's logic byte for byte, with the bundler's markup rewriting undone. The check that the reversal
-  is right: the same steps on the previous standalone give the previous handoff's page exactly. Then install
-  and verify as for a zip, and ask the designer for a proper zip next time.
+  does not take it. `python3 Scripts/sets_unbundle_standalone.py <standalone.html> --out <folder> --like <the
+  current Sets page>` turns it back into page files: the core script and the Edit page are the export's own
+  bytes; the Sets page keeps the export's logic byte for byte, with the bundler's markup rewriting undone.
+  The check that the reversal is right: `--prove <the previous standalone> <the previous Sets page>` must
+  reproduce that page exactly. Then install and verify as for a zip (give the sync the folder), and ask the
+  designer for a proper zip next time.
 - Authority order: `design/handoff/lumina-cull` → `Lumina/Sets` (plumbing) → tests. Inside the handoff,
   since v0.01 (2026-10-05), its `README.md` sets the order: README + `BRIDGE.md` (the page ↔ app
   contract) → the two pages → `ROADMAP.md` (trust rules) → the v5-era docs (PROMPT, ADDENDUM-1, PARITY,
