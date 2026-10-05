@@ -56,7 +56,7 @@
   },
   {
    "do": "expect",
-   "js": "return ['open','save','finder','undo','keepRow','keep','keepStack','openStack','closeStack','stepOpen','stepCull','stepEdit','stepSave','large','unseen','smaller','larger','keyBar','shortcuts','settings'].filter(n => { const s = __probe.logic().state; const r = window.luminaCommand(n); if (n === 'settings' && s) window.luminaCommand('settings'); if (n === 'shortcuts') __probe.logic().setState({glance:false}); return r !== true; })",
+   "js": "return ['open','save','finder','undo','keepRow','keep','pass','redo','openStack','closeStack','stepOpen','stepCull','stepEdit','stepSave','large','unseen','smaller','larger','keyBar','shortcuts','settings'].filter(n => { const s = __probe.logic().state; const r = window.luminaCommand(n); if (n === 'settings' && s) window.luminaCommand('settings'); if (n === 'shortcuts') __probe.logic().setState({glance:false}); return r !== true; })",
    "equals": []
   },
   {
