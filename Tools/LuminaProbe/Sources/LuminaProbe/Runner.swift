@@ -260,12 +260,36 @@ final class Runner {
             // In the browser the page first shows its "macOS will ask for access" sheet; its own
             // "don't show again" flag skips it (the app never shows it: plumbing opens the folder itself).
             _ = try await host.js("try { localStorage.setItem('lumina-v4-pre-ok', '1') } catch (_) {} window.__probeOpened = __probe.logic().state.realInfo || null")
-            if (s["via"] as? String ?? "key") == "key" { try host.key("o", cmd: true) } else { _ = try await host.js("__probe.logic().openFolder()") }
-            // In the browser v5 first shows its "before you open" sheet (state.pre) and opens the folder
-            // input only once that is confirmed. Enter confirms it, and being a real key event it also
-            // gives the page the user activation a file input needs. The app never shows the sheet.
+            let asked = host.events.count
+            let viaKey = (s["via"] as? String ?? "key") == "key"
+            // With a shoot already read, v7's ⌘O in Pick or Save offers "add photos"; ⌘⇧O is its open.
+            let inShoot = try? await host.js("const l=__probe.logic(); return !!(l.real && (l.state.view==='cull' || l.state.view==='export'))", timeout: 5)
+            let adds = viaKey && truthy(inShoot)
+            func press() async throws {
+                if viaKey { try host.key("o", shift: adds, cmd: true) } else { _ = try await host.js("__probe.logic().openFolder()") }
+            }
+            try await press()
             try await settle(120)
+            // v7 guards picks that are not saved yet: the first ⌘O only arms ("⌘O again opens anyway",
+            // 5 s). The sample shoot a browser launch shows has such picks, so every first open in the
+            // prototype is guarded. The second ⌘O is the one that opens, as the page says.
+            if truthy(try? await host.js("return __probe.logic().state.armed === 'open'", timeout: 5)) { try await press(); try await settle(120) }
+            // In the browser the page then shows its "before you open" sheet (state.pre) and opens the
+            // folder input only once that is confirmed. Enter confirms it, and being a real key event it also
+            // gives the page the user activation a file input needs. The app never shows the sheet.
             if truthy(try? await host.js("return !!__probe.logic().state.pre", timeout: 5)) { try host.key("Enter"); try await settle(120) }
+            // The page's own read starts from its file input, i.e. WebKit's open panel. If the panel was
+            // never asked for, the open did not happen: say what the page shows instead of waiting out the read.
+            if host.bridge == nil {
+                var waited = 0.0
+                while !host.events[asked...].contains(where: { $0.kind == "openpanel" }) {
+                    if waited >= 5000 {
+                        let st = try? await host.js("const s=__probe.logic().state; return JSON.stringify({view:s.view, armed:s.armed||null, pre:!!s.pre, addBar:!!s.addBar})", timeout: 5)
+                        throw ProbeError("the page never asked for its folder input after ⌘O (state \(st ?? "?"))")
+                    }
+                    try await settle(100); waited += 100
+                }
+            }
             // until: "shown" returns once Cull shows its first rows, while the folder is still being read.
             // until: "started" returns as soon as the open is asked for (the scenario watches what happens next).
             if s["until"] as? String == "started" { return "asked" }
