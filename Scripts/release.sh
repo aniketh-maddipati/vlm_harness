@@ -151,6 +151,13 @@ case "$MODE" in
       -exportOptionsPlist Config/ExportOptions-AppStore.plist ${AUTH[@]+"${AUTH[@]}"} -quiet || die "export failed"
     PKG="$(ls "$OUT"/export/*.pkg 2>/dev/null | head -1)"
     [[ -f "$PKG" ]] || die "the export holds no .pkg"
+    # The export signs again for distribution: the app App Store Connect gets is the one in the
+    # pkg, not the archive's (signed for development under automatic signing).
+    pkgutil --check-signature "$PKG" | grep -q "Mac Developer Installer" || die "the pkg is not signed with the Mac Installer Distribution certificate"
+    UNPACKED="$(mktemp -d)"; trap 'rm -rf "$UNPACKED"' EXIT
+    pkgutil --expand-full "$PKG" "$UNPACKED/pkg" || die "the pkg does not unpack"
+    APP="$(find "$UNPACKED/pkg" -maxdepth 3 -name Lumina.app | head -1)"
+    [[ -d "$APP" ]] || die "the pkg holds no Lumina.app"
     bash Scripts/release_preflight.sh "$APP" store ${STRICT[@]+"${STRICT[@]}"}
     if (( VALIDATE )); then
       [[ -n "${ASC_KEY_ID:-}" && -n "${ASC_ISSUER_ID:-}" ]] || die "--validate and --upload need ASC_KEY_ID and ASC_ISSUER_ID"

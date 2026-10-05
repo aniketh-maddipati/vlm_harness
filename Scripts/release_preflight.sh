@@ -56,7 +56,8 @@ case "$MODE" in
   store) [[ "$AUTHORITY" == "Apple Distribution:"* || "$AUTHORITY" == "3rd Party Mac Developer Application:"* ]] && ok "$AUTHORITY" || fail "not signed for the App Store (${AUTHORITY:-ad hoc})"
          [[ -f "$APP/Contents/embedded.provisionprofile" ]] && ok "provisioning profile embedded" || fail "no embedded.provisionprofile (TestFlight needs one)" ;;
 esac
-if [[ "$MODE" != local ]]; then
+# Notarisation asks for a secure timestamp. A store export has none (App Store Connect signs again).
+if [[ "$MODE" == dmg ]]; then
   grep -q '^Timestamp=' <<<"$SIG" && ok "secure timestamp" || fail "no secure timestamp"
 fi
 if (( NOTARISED )); then
