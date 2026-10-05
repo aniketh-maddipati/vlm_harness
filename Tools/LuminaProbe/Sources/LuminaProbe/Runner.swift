@@ -862,7 +862,10 @@ final class Runner {
     }
 
     private func snap(_ name: String) async throws {
-        let img = try await host.snapshot(scale: scale)
+        _ = try? await host.js("return await __probe.meterMask(true)")
+        let img: CGImage
+        do { img = try await host.snapshot(scale: scale) } catch { _ = try? await host.js("return await __probe.meterMask(false)"); throw error }
+        _ = try? await host.js("return await __probe.meterMask(false)")
         let masks = try await host.js("return JSON.stringify(__probe.masks())") as? String ?? "[]"
         try ProbeSandbox.harness {
             try Pixels.writePNG(img, to: outDir.appendingPathComponent("\(name).png"))
