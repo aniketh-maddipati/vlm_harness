@@ -546,7 +546,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // the canvas hides and keeps its size (`.null` is the rect LookCanvasController.layable refuses).
             let rect = SetsNumber.canvasRect(body)
             if rect == nil { onEvent?("canvasLayout refused: not a rect") }
-            c.layout(rect: rect ?? .null, visible: rect != nil && (body["visible"] as? Bool ?? false), dpr: CGFloat(SetsNumber.dpr(body["dpr"])))
+            // `holes`: the page's chrome over the photo, at most 16, left see-through (LookCanvasHoles).
+            let holes = rect.map { LookCanvasHoles.parse(body["holes"], in: $0) } ?? []
+            c.layout(rect: rect ?? .null, visible: rect != nil && (body["visible"] as? Bool ?? false), dpr: CGFloat(SetsNumber.dpr(body["dpr"])), holes: holes)
             return (["path": c.path.rawValue], nil)
         case "canvasLook":
             guard let c = canvas, let look = body["look"] as? String else { return (0, nil) }
