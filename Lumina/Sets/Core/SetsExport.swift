@@ -63,15 +63,15 @@ nonisolated struct SetsExportJob {
         /// Results written before per-file errors existed still open with an empty error list.
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
-            n = try c.decodeIfPresent(Int.self, forKey: .n) ?? 0
-            bak = try c.decodeIfPresent(Int.self, forKey: .bak) ?? 0
-            renamed = try c.decodeIfPresent(Int.self, forKey: .renamed) ?? 0
-            folder = try c.decodeIfPresent(String.self, forKey: .folder) ?? ""
-            failed = try c.decodeIfPresent([String].self, forKey: .failed) ?? []
+            n = try c.decode(Int.self, forKey: .n)
+            bak = try c.decode(Int.self, forKey: .bak)
+            renamed = try c.decode(Int.self, forKey: .renamed)
+            folder = try c.decode(String.self, forKey: .folder)
+            failed = try c.decode([String].self, forKey: .failed)
             errors = try c.decodeIfPresent([Failed].self, forKey: .errors) ?? []
-            decoders = try c.decodeIfPresent([String].self, forKey: .decoders) ?? []
-            fallbacks = try c.decodeIfPresent([String].self, forKey: .fallbacks) ?? []
-            renderMs = try c.decodeIfPresent([Double].self, forKey: .renderMs) ?? []
+            decoders = try c.decode([String].self, forKey: .decoders)
+            fallbacks = try c.decode([String].self, forKey: .fallbacks)
+            renderMs = try c.decode([Double].self, forKey: .renderMs)
         }
 
         /// One line for the export's result block (Prompt 1 §7's `decoder`): "RAW 9", or
