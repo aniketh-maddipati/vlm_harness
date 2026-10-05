@@ -181,6 +181,11 @@ final class LookCanvasController: NSObject {
     var onStats: (([String: Any]) -> Void)?
     /// A file's RAW 9 render failed and the previous version took over (logged once per file).
     var onDecoderFallback: ((String, Int, Int) -> Void)?
+    /// The as-shot white balance of the photo on the canvas became known (or changed with the
+    /// decoder) after `enter` answered: its rel and the pair. Read from the base the canvas
+    /// developed anyway; never a develop of its own.
+    var onAsShot: ((String, Look.WhiteBalance) -> Void)?
+    private var asShotTold: (rel: String, wb: Look.WhiteBalance)?
 
     /// `host`: the view the overlay is laid into (above the web view). Nil host or no Metal
     /// device → the image path: the controller answers the bridge with `path == .image`.
@@ -243,7 +248,7 @@ final class LookCanvasController: NSObject {
         let parsed = (try? Look.parse(look)) ?? Look()
         let size = canvasPixels()
         let key = LookBases.Key(rel: rel, decoder: decoder, look: parsed, canvas: size)
-        if current?.rel != rel { schedule.reset(); region = nil; supersedeRegion(); stats.region = false }
+        if current?.rel != rel { schedule.reset(); region = nil; supersedeRegion(); stats.region = false; asShotTold = nil }
         current = (rel, url, key, parsed, bases.entry(key), preview, decoder, regionDecoder)
         stats.rel = rel
         bases.pin(key)
@@ -269,6 +274,7 @@ final class LookCanvasController: NSObject {
         current?.entry = bases.entry(key)
         bases.pin(key)
         ensureBases()
+        tellAsShot()
         neighbours = neighbours.map { (key: LookBases.Key(rel: $0.key.rel, decoder: decoder, look: Look(), canvas: CGSize(width: $0.key.width, height: $0.key.height)), url: $0.url, look: $0.look, preview: $0.preview) }
         prefetchIssued = false
         basePresented = false
@@ -281,7 +287,40 @@ final class LookCanvasController: NSObject {
         kick()
     }
 
+    // MARK: The photo's as-shot white balance (for the page's temperature slider)
+
+    /// The decoder's own pair for a developed RAW. Nil for the embedded JPEG standing in, an image
+    /// file (their 5500 K is a placeholder, not a reading), and a value no slider can rest on.
+    nonisolated static func asShot(of entry: LookBases.Entry?) -> Look.WhiteBalance? {
+        guard let e = entry, e.source == "raw", e.asShot.kelvin.isFinite, e.asShot.tint.isFinite, e.asShot.kelvin > 0 else { return nil }
+        return e.asShot
+    }
+
+    /// What the page's edit header takes (`canvasEnter`'s answer and `__lumina.editHeader`): the
+    /// pair and the rel it belongs to.
+    nonisolated static func asShotHeader(rel: String, _ wb: Look.WhiteBalance) -> [String: Any] {
+        ["asShot": ["kelvin": wb.kelvin, "tint": wb.tint], "asShotRel": rel]
+    }
+
+    /// For `canvasEnter`'s answer: the pair of the photo on the canvas when its base is already
+    /// there (the cache lookup `enter` made; nothing is developed or waited for), else nil and
+    /// `onAsShot` says it when the base lands.
+    func asShotForReply() -> (rel: String, wb: Look.WhiteBalance)? {
+        guard let c = current, let wb = Self.asShot(of: c.entry) else { return nil }
+        asShotTold = (c.rel, wb)
+        return (c.rel, wb)
+    }
+
+    /// The base of the photo on the canvas landed or changed: say its pair, once per value.
+    private func tellAsShot() {
+        guard let c = current, let wb = Self.asShot(of: c.entry) else { return }
+        if let t = asShotTold, t.rel == c.rel, t.wb == wb { return }
+        asShotTold = (c.rel, wb)
+        onAsShot?(c.rel, wb)
+    }
+
     func leave() {
+        asShotTold = nil
         current = nil
         schedule.reset()
         region = nil
@@ -348,6 +387,7 @@ final class LookCanvasController: NSObject {
             current?.entry = bases.entry(key)
             bases.pin(key)
             ensureBases()
+            tellAsShot()
             if let l = schedule.presentedLook ?? current?.look.format() { _ = schedule.keystroke(l, at: now()) }
         }
         kick()
@@ -363,6 +403,7 @@ final class LookCanvasController: NSObject {
             c.key = base; c.entry = bases.entry(base); c.look = parsed; current = c
             bases.pin(base)
             ensureBases()
+            tellAsShot()
         } else { current?.look = parsed }
         zoom = roi
         // The page's clock → ours: the smallest arrival − emit gap seen is the offset within a message's transit.
@@ -517,6 +558,7 @@ final class LookCanvasController: NSObject {
             switch r {
             case .success(let e):
                 self.current?.entry = e
+                self.tellAsShot()
                 self.setFacts()
                 self.kick()
                 self.updatePrefetch()

@@ -113,6 +113,11 @@ nonisolated final class LookBases: @unchecked Sendable {
         }
     }
 
+    /// A base made elsewhere joins the cache as if built here. The tests' seam: a photo whose
+    /// base is "already developed" without a RAW file (`SetsCanvasAsShotTests`); `stats.built`
+    /// still counts only real builds.
+    func adopt(_ key: Key, _ entry: Entry) { lock.withLock { _ = cache.set(key, entry, bytes: entry.bytes) } }
+
     /// The photo on the canvas: never evicted while pinned.
     func pin(_ key: Key?) { lock.withLock { cache.pinned = key.map { [$0] } ?? [] } }
 
