@@ -288,7 +288,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// program per set of stages, compiled the first time it renders (`LookWarmPlan`).
     func apply(_ look: Look, to dev: Developed, crop: Bool = true) -> CIImage {
         var img = dev.image
-        if crop, let c = look.crop { img = cropped(img, c) }
+        if crop { img = geometry(img, look.crop, rot: look.rot) }
         let extent = img.extent
         let longEdge = max(extent.width, extent.height)
         let gam = CIVector(x: 1 / rules.perceptualGamma, y: rules.perceptualGamma)
@@ -363,9 +363,31 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         return img
     }
 
-    /// The crop and straighten alone (the canvas bakes them into its `base`, then applies the
-    /// look with `crop: false`).
-    func geometry(_ img: CIImage, _ c: Look.Crop?) -> CIImage { c.map { cropped(img, $0) } ?? img }
+    /// The geometry alone: crop and straighten in the frame as shot, then the quarter turn
+    /// (`Look.rot`). The canvas bakes it into its `base`, then applies the look with `crop: false`;
+    /// previews and exports get it from `apply`. One function for all of them, so they agree.
+    func geometry(_ img: CIImage, _ c: Look.Crop?, rot: Int = 0) -> CIImage {
+        Self.turned(c.map { cropped(img, $0) } ?? img, rot: rot)
+    }
+
+    /// The transform that turns a frame of `size` clockwise by `rot` degrees (a multiple of 90)
+    /// and leaves it at the origin, in Core Image's coordinates (y up). A point of the frame
+    /// lands where it is in the turned picture, so a part of the frame (a region tile's
+    /// composite) turns with the same transform as the whole.
+    static func turnTransform(size: CGSize, rot: Int) -> CGAffineTransform {
+        switch ((rot % 360) + 360) % 360 {
+        case 90: return CGAffineTransform(a: 0, b: -1, c: 1, d: 0, tx: 0, ty: size.width)                  // (x, y) → (y, W − x)
+        case 180: return CGAffineTransform(a: -1, b: 0, c: 0, d: -1, tx: size.width, ty: size.height)      // (x, y) → (W − x, H − y)
+        case 270: return CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: size.height, ty: 0)                // (x, y) → (H − y, x)
+        default: return .identity
+        }
+    }
+
+    /// `img` (origin at 0, 0) turned clockwise by `rot` degrees. 0 is the image itself.
+    static func turned(_ img: CIImage, rot: Int) -> CIImage {
+        guard ((rot % 360) + 360) % 360 != 0, !img.extent.isInfinite else { return img }
+        return atOrigin(img.transformed(by: turnTransform(size: img.extent.size, rot: rot)))
+    }
 
     /// Straighten about the centre, then the box as fractions of the frame (y from the top).
     private func cropped(_ img: CIImage, _ c: Look.Crop) -> CIImage {

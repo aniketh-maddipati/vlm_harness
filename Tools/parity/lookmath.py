@@ -61,7 +61,7 @@ def linear(p, rules):
 def parse_look(s):
     """The look string → dict (the twelve sliders + bw). Mirrors Look.parse, without clamping."""
     look = {"ev": 0.0, "wb": None, "con": 0.0, "hl": 0.0, "sh": 0.0, "wh": 0.0, "bl": 0.0, "vib": 0.0, "sat": 0.0,
-            "clr": 0.0, "shp": 0.0, "vig": 0.0, "bw": False, "crop": None, "nr": None}
+            "clr": 0.0, "shp": 0.0, "vig": 0.0, "bw": False, "crop": None, "nr": None, "rot": 0}
     s = (s or "").strip()
     if s in ("", "none"):
         return look
@@ -79,6 +79,12 @@ def parse_look(s):
             box, _, rot = raw.partition("/")
             x, y, w, h = (float(v) for v in box.split(","))
             look["crop"] = (x, y, w, h, float(rot) if rot else 0.0)
+        elif key == "rot":
+            # A quarter turn, clockwise: geometry like the crop (applied after it), no colour maths.
+            v = float(raw)
+            if v != round(v) or int(v) % 90:
+                raise ValueError(f"rot wants 0, 90, 180 or 270, got {raw!r}")
+            look["rot"] = int(v) % 360
         elif key in look:
             look[key] = float(raw)
         else:
@@ -124,6 +130,8 @@ def format_look(look):
     if look.get("crop"):
         x, y, w, h, r = look["crop"]
         out.append(f"crop:{x:.4f},{y:.4f},{w:.4f},{h:.4f}" + (f"/{r:.2f}" if r else ""))
+    if look.get("rot"):
+        out.append(f"rot:{int(look['rot'])}")
     return " ".join(out)
 
 

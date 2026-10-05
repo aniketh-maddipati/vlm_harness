@@ -136,6 +136,15 @@ class LookMathMirrorTests(unittest.TestCase):
         self.assertTrue(lm.format_look(c).endswith("bw:1 crop:0.1000,0.2000,0.5000,0.6000/-1.50"))
         with self.assertRaises(ValueError):
             lm.parse_look("exposure:1")
+        # rot: a quarter turn, written last and only when set; geometry, so the maths ignores it
+        t = lm.parse_look("rot:-90 crop:0.1,0.2,0.5,0.6")
+        self.assertEqual(t["rot"], 270)
+        self.assertTrue(lm.format_look(t).endswith("crop:0.1000,0.2000,0.5000,0.6000 rot:270"))
+        self.assertEqual(lm.parse_look(lm.format_look(t)), t)
+        self.assertNotIn("rot", lm.format_look(lm.parse_look("rot:360")))
+        with self.assertRaises(ValueError):
+            lm.parse_look("rot:45")
+        np.testing.assert_allclose(lm.flat(self.ramp, lm.parse_look("rot:90"), AS_SHOT, self.rules), self.ramp, atol=1e-12)
 
     def test_apply_image_matches_flat_on_a_flat_patch(self):
         r = self.rules

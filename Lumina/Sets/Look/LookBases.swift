@@ -20,7 +20,8 @@ nonisolated final class LookBases: @unchecked Sendable {
         let decoder: Int?
         let crop: String            // "" for the whole frame, else the look's crop text
         let rotation: Double
-        let width: Int              // the canvas, device px
+        let rot: Int                // the quarter turn (`Look.rot`), baked into the base like the crop
+        let width: Int             // the canvas, device px
         let height: Int
         let nr: Int?
 
@@ -29,12 +30,13 @@ nonisolated final class LookBases: @unchecked Sendable {
             self.decoder = decoder
             crop = look.crop.map { String(format: "%.4f,%.4f,%.4f,%.4f", $0.x, $0.y, $0.w, $0.h) } ?? ""
             rotation = look.crop?.rotate ?? 0
+            rot = look.rot
             width = max(1, Int(canvas.width.rounded()))
             height = max(1, Int(canvas.height.rounded()))
             nr = look.nr.map { Int($0.rounded()) }
         }
 
-        var description: String { "\(rel)|d\(decoder ?? 0)|\(crop)|r\(rotation)|\(width)x\(height)|nr\(nr ?? -1)" }
+        var description: String { "\(rel)|d\(decoder ?? 0)|\(crop)|r\(rotation)\(rot == 0 ? "" : "|q\(rot)")|\(width)x\(height)|nr\(nr ?? -1)" }
     }
 
     /// The embedded JPEG's byte range, the stand-in when the RAW can't be developed.
@@ -143,7 +145,7 @@ nonisolated final class LookBases: @unchecked Sendable {
         // Develop at the long edge that, once cropped, fits the canvas plus its margin.
         var source = LookPipeline.isRAW(url) ? "raw" : "image"
         let native = LookPipeline.isRAW(url) ? LookPipeline.nativeSize(url: url) : nil
-        let cropped = Self.croppedSize(native ?? CGSize(width: 3, height: 2), look.crop)
+        let cropped = Self.croppedSize(native ?? CGSize(width: 3, height: 2), look.crop, rot: look.rot)
         let fit = min(canvas.width / max(1, cropped.width), canvas.height / max(1, cropped.height))
         let px = native.map { Int((max($0.width, $0.height) * fit).rounded(.up)) }
         var dev: LookPipeline.Developed
@@ -153,12 +155,12 @@ nonisolated final class LookBases: @unchecked Sendable {
             guard let p = preview else { lock.withLock { _stats.failed += 1 }; throw error }
             source = "jpeg"
             dev = try LookPipeline.developPreview(url: url, offset: p.offset, length: p.length, orientation: p.orientation, longEdge: nil)
-            let c = Self.croppedSize(dev.extent.size, look.crop)
+            let c = Self.croppedSize(dev.extent.size, look.crop, rot: look.rot)
             dev = LookPipeline.Developed(image: LookPipeline.scaled(dev.image, longEdge: Int((max(dev.extent.width, dev.extent.height) * min(canvas.width / max(1, c.width), canvas.height / max(1, c.height))).rounded(.up))), asShot: dev.asShot, anchor: dev.anchor)
         }
-        let photoSize = Self.croppedSize(native ?? dev.extent.size, look.crop)
-        // Crop and straighten are baked in; the look runs with crop: false on top.
-        var img = LookPipeline.atOrigin(pipeline.geometry(dev.image, look.crop))
+        let photoSize = Self.croppedSize(native ?? dev.extent.size, look.crop, rot: look.rot)
+        // Crop, straighten and the quarter turn are baked in; the look runs with crop: false on top.
+        var img = LookPipeline.atOrigin(pipeline.geometry(dev.image, look.crop, rot: look.rot))
         // A JPEG stand-in or a RAW larger than needed (a crop that fits by height): scale to the canvas.
         let e = img.extent
         let s = min(canvas.width / max(1, e.width), canvas.height / max(1, e.height))
@@ -284,9 +286,9 @@ nonisolated final class LookBases: @unchecked Sendable {
         return f
     }
 
-    /// The upright size after the crop (fractions of the frame).
-    static func croppedSize(_ size: CGSize, _ crop: Look.Crop?) -> CGSize {
-        guard let c = crop else { return size }
-        return CGSize(width: max(1, (size.width * c.w).rounded()), height: max(1, (size.height * c.h).rounded()))
+    /// The upright size after the crop (fractions of the frame) and the quarter turn.
+    static func croppedSize(_ size: CGSize, _ crop: Look.Crop?, rot: Int = 0) -> CGSize {
+        let s = crop.map { CGSize(width: max(1, (size.width * $0.w).rounded()), height: max(1, (size.height * $0.h).rounded())) } ?? size
+        return rot % 180 == 0 ? s : CGSize(width: s.height, height: s.width)
     }
 }

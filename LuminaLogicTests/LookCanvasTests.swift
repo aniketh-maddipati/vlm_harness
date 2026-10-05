@@ -212,6 +212,26 @@ final class LookCanvasTests: XCTestCase {
         XCTAssertTrue(LookRawPolicy.tiles(covering: roi, width: 0, height: 0).isEmpty)
     }
 
+    /// `Look.rot`: the loupe's region is named in the turned picture, the tiles live in the frame as shot.
+    func testRegionOfATurnedPictureMapsBackToTheFrame() {
+        typealias ROI = LookCanvasSchedule.ROI
+        let roi = ROI(x: 0.1, y: 0.2, w: 0.3, h: 0.4)
+        func same(_ a: ROI, _ b: ROI, _ what: String) {
+            XCTAssertEqual(a.x, b.x, accuracy: 1e-12, what); XCTAssertEqual(a.y, b.y, accuracy: 1e-12, what)
+            XCTAssertEqual(a.w, b.w, accuracy: 1e-12, what); XCTAssertEqual(a.h, b.h, accuracy: 1e-12, what)
+        }
+        XCTAssertEqual(LookRawPolicy.unturned(roi, rot: 0), roi)
+        // Turned clockwise, the picture's top left corner is the frame's bottom left.
+        same(LookRawPolicy.unturned(ROI(x: 0, y: 0, w: 0.25, h: 0.5), rot: 90), ROI(x: 0, y: 0.75, w: 0.5, h: 0.25), "90")
+        same(LookRawPolicy.unturned(ROI(x: 0, y: 0, w: 0.25, h: 0.5), rot: 180), ROI(x: 0.75, y: 0.5, w: 0.25, h: 0.5), "180")
+        same(LookRawPolicy.unturned(ROI(x: 0, y: 0, w: 0.25, h: 0.5), rot: 270), ROI(x: 0.5, y: 0, w: 0.5, h: 0.25), "270")
+        // Turning the frame's region forward again (90 then 270, 180 twice) is the region itself.
+        same(LookRawPolicy.unturned(LookRawPolicy.unturned(roi, rot: 90), rot: 270), roi, "90 + 270")
+        same(LookRawPolicy.unturned(LookRawPolicy.unturned(roi, rot: 180), rot: 180), roi, "180 twice")
+        same(LookRawPolicy.unturned(roi, rot: -90), LookRawPolicy.unturned(roi, rot: 270), "-90 is 270")
+        XCTAssertTrue(LookRawPolicy.unturned(ROI(x: 0, y: 0, w: 1, h: 1), rot: 90).isWhole)
+    }
+
     // MARK: The warm-up plan (LookWarmPlan)
 
     private let stages = LookRules().lookStages

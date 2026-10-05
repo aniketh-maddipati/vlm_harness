@@ -4,10 +4,10 @@ import Foundation
 /// is `lumina://render/<rel>?look=<string>&px=<n>`; every export carries the same string; the
 /// session keeps it per photo (`look`) and per row (`rowLook`). It is never written to XMP.
 ///
-///     ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0 crop:x,y,w,h/r
+///     ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0 crop:x,y,w,h/r rot:90
 ///
 /// Keys may come in any order; a missing key means its reset value (`wb` missing = as shot,
-/// `crop` missing = whole frame). Unknown keys are an error, so a typo can't silently render a
+/// `crop` missing = whole frame, `rot` missing = no turn). Unknown keys are an error, so a typo can't silently render a
 /// different look. `format` writes the canonical form (fixed key order, fixed precision, zeros
 /// unsigned), so two equal looks are equal strings and cache keys.
 nonisolated struct Look: Equatable, Sendable {
@@ -27,9 +27,17 @@ nonisolated struct Look: Equatable, Sendable {
     var sharpen: Double = 0
     /// Post-crop vignette −100 … +100 (negative darkens the corners, as in Lightroom).
     var vignette: Double = 0
+    /// The vignette's shape, `vigs:midpoint,roundness,feather,highlights` (Lightroom's four
+    /// sliders and its ranges). Written only when one of them is off its reset; it draws nothing
+    /// while `vig` is 0.
+    var vignetteShape = VignetteShape()
     /// Black and white: chroma to zero in the colour stage. Optional key `bw:1`.
     var bw: Bool = false
     var crop: Crop?
+    /// A quarter turn of the picture, clockwise: 0, 90, 180 or 270 (`rot:90`). Geometry like the
+    /// crop, and applied after it: the crop box and its straighten angle stay in the frame as
+    /// shot (the page's crop tool works there), then the cropped picture is turned.
+    var rot: Int = 0
     /// Detail ▸ luminance noise reduction, 0 … 100, the RAW stage's
     /// `luminanceNoiseReductionAmount` (RAW 9 §6). Nil = the decoder's default. A develop
     /// parameter, not a look stage: it changes the `base`, not the graph on top of it.
@@ -45,6 +53,17 @@ nonisolated struct Look: Equatable, Sendable {
         var x: Double, y: Double, w: Double, h: Double
         var rotate: Double = 0
     }
+
+    /// Midpoint 0 … 100 (50): how far from the centre the vignette starts. Roundness −100 … +100
+    /// (0): below 0 the shape follows the frame (its ellipse, then its rectangle). Feather
+    /// 0 … 100 (50): the width of the falloff, 0 a hard edge. Highlights 0 … 100 (0): how much
+    /// of a darkening vignette bright pixels are spared. At reset the stage is the one it was
+    /// before these existed (`LookMath.vignetteGain(r:vignette:_:)`, the `lookVignette` kernel).
+    struct VignetteShape: Equatable, Sendable {
+        var midpoint: Double = 50, roundness: Double = 0, feather: Double = 50, highlights: Double = 0
+        var isDefault: Bool { self == VignetteShape() }
+    }
+    static let vignetteShapeRanges = [Range(min: 0, max: 100, step: 1), Range(min: -100, max: 100, step: 1), Range(min: 0, max: 100, step: 1), Range(min: 0, max: 100, step: 1)]
 
     struct ParseError: Error, CustomStringConvertible, Equatable {
         let description: String
@@ -65,7 +84,7 @@ nonisolated struct Look: Equatable, Sendable {
     static let tintRange = Range(min: -150, max: 150, step: 1)
     static let nrRange = Range(min: 0, max: 100, step: 1)
     /// Canonical key order; also the order `format` writes.
-    static let keys = ["ev", "wb", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "nr", "bw", "crop"]
+    static let keys = ["ev", "wb", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "nr", "bw", "crop", "rot"]
     /// The plain numeric sliders, key → field.
     static let sliders: [String: WritableKeyPath<Look, Double>] = [
         "ev": \.ev, "con": \.contrast, "hl": \.highlights, "sh": \.shadows, "wh": \.whites, "bl": \.blacks,
@@ -106,7 +125,16 @@ nonisolated struct Look: Equatable, Sendable {
                 look[keyPath: field] = clamp(v, ranges[key]!)
                 continue
             }
+            /// `a,b,c`: exactly `count` numbers, each clamped into its range.
+            func list(_ what: String, _ ranges: [Range]) throws -> [Double] {
+                let parts = raw.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
+                guard parts.count == ranges.count else { throw ParseError(description: "\(key) wants \(what), got '\(raw)'") }
+                return try zip(parts, ranges).map { clamp(try number($0, key), $1) }
+            }
             switch key {
+            case "vigs":
+                let v = try list("midpoint,roundness,feather,highlights", vignetteShapeRanges)
+                look.vignetteShape = VignetteShape(midpoint: v[0], roundness: v[1], feather: v[2], highlights: v[3])
             case "bw":
                 look.bw = raw == "1" || raw == "true"
             case "nr":
@@ -128,6 +156,11 @@ nonisolated struct Look: Equatable, Sendable {
                 }
                 guard c.w > 0, c.h > 0, c.x + c.w <= 1.0001, c.y + c.h <= 1.0001 else { throw ParseError(description: "crop '\(raw)' leaves the frame") }
                 look.crop = c
+            case "rot":
+                // Any whole number of quarter turns (-90 is 270, 360 is 0); anything else is a typo.
+                let v = try number(raw, "rot")
+                guard v == v.rounded(), abs(v) <= 3600, Int(v) % 90 == 0 else { throw ParseError(description: "rot wants 0, 90, 180 or 270, got '\(raw)'") }
+                look.rot = ((Int(v) % 360) + 360) % 360
             default:
                 throw ParseError(description: "unknown key '\(key)'")
             }
@@ -138,7 +171,7 @@ nonisolated struct Look: Equatable, Sendable {
     // MARK: Format
 
     /// Canonical text. Reset values are written too (the page can diff two looks by eye); `wb`,
-    /// `nr`, `bw` and `crop` only when set.
+    /// `vigs`, `nr`, `bw`, `crop` and `rot` only when set.
     func format() -> String {
         func signed(_ v: Double, _ decimals: Int) -> String {
             let r = (v * pow(10, Double(decimals))).rounded() / pow(10, Double(decimals))
@@ -151,12 +184,17 @@ nonisolated struct Look: Equatable, Sendable {
                 "wh:\(signed(whites, 0))", "bl:\(signed(blacks, 0))", "vib:\(signed(vibrance, 0))",
                 "sat:\(signed(saturation, 0))", "clr:\(signed(clarity, 0))", "shp:\(Int(sharpen.rounded()))",
                 "vig:\(signed(vignette, 0))"]
+        if !vignetteShape.isDefault {
+            let s = vignetteShape
+            out.append("vigs:\(Int(s.midpoint.rounded())),\(signed(s.roundness, 0)),\(Int(s.feather.rounded())),\(Int(s.highlights.rounded()))")
+        }
         if let nr { out.append("nr:\(Int(nr.rounded()))") }
         if bw { out.append("bw:1") }
         if let c = crop {
             let f = { (v: Double) in String(format: "%.4f", v) }
             out.append("crop:\(f(c.x)),\(f(c.y)),\(f(c.w)),\(f(c.h))" + (c.rotate == 0 ? "" : "/\(String(format: "%.2f", c.rotate))"))
         }
+        if rot != 0 { out.append("rot:\(rot)") }
         return out.joined(separator: " ")
     }
 
