@@ -72,8 +72,14 @@ const loaded = async page => {
   const shoot = path.join(tmp, '2026-09-01');
   makeShoot(shoot, jpegs, { others: ['DSC01001.JPG', 'X.CR3', 'clip.MP4'], sidecars: { 'DSC01002.xmp': '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:Rating="2"/></rdf:RDF></x:xmpmeta>' } });
   bridge.pending = shoot; await page.evaluate(() => __lumina.openFolder());
-  await loaded(page);
+  const namedAtOpen = await loaded(page);
   let s = await S(page);
+  // v7's nameCommit (the name field losing focus, above) calls the page's persist(), the browser's
+  // session store. In the app the Mac holds sessions and recents: nothing of either in localStorage.
+  await page.waitForTimeout(600);
+  const stored = await page.evaluate(() => ({ keys: Object.keys(localStorage), names: localStorage.getItem('lumina-v4-names') }));
+  ok(namedAtOpen && /2026-09-01/.test(stored.names || '') && !stored.keys.some(k => k === 'lumina-v4-recents' || k.startsWith('lumina-v4-shoot:')),
+    'name: committed to lumina-v4-names; no browser session or lumina-v4-recents left in localStorage', [namedAtOpen, stored]);
   ok(s.view === 'cull', 'read: lands in Cull', s.view);
   ok(s.n === 12 && s.realInfo.n === 12 && s.realInfo.bad === 0, 'read: 12 photos, 0 unreadable', s.realInfo);
   ok(s.realInfo.name === '2026-09-01' && s.realInfo.date === '2026-09-01', 'read: realInfo name + date', s.realInfo);

@@ -295,6 +295,17 @@
     const gaps = missing(logic);
     if (gaps.length) { native('ready', { missing: gaps }); return; }
 
+    // The page's persist() is the browser's session store: the shoot's decisions under its key and
+    // the 'lumina-v4-recents' list, both in localStorage. In the app the Mac holds both (sessions,
+    // lumina.shoots) and the page never reads either back, but v7's nameCommit calls persist()
+    // without the app check its other caller has, so every named shoot left a second copy of its
+    // session and a recents entry in the web view's storage (and, where storage is shared between
+    // pages, the prototype then lists it under Recent). What stays is the part the app does use:
+    // the seen-before memory, on the page's own timer. The probe's twins keep the page's own.
+    if (!cfg.parity && typeof logic.persist === 'function') logic.persist = function () {
+      clearTimeout(this._rsT); this._rsT = setTimeout(() => { if (typeof this.rememberSeen === 'function') this.rememberSeen(); }, 400);
+    };
+
     // After a folder is read: remember the shoot and bring its decisions back.
     const afterRead = async () => {
       if (!logic.real || !logic.real.length) return;
@@ -852,7 +863,9 @@
     // the ones that act on those parts: the meter's Remove buttons (cacheRemove; its app branch
     // knows only the Mac's one part and would free nothing of what the twin lists) and the limit
     // (enforceCap, which the app leaves to the Mac).
-    for (const name of ['cacheParts', 'cacheView', 'cacheRemove', 'enforceCap']) {
+    // The Recent list too: the prototype's is its own browser list ('lumina-v4-recents', none in a
+    // fresh store) followed by the sample shoots; the page's app branch leaves the browser list out.
+    for (const name of ['cacheParts', 'cacheView', 'cacheRemove', 'enforceCap', 'recents']) {
       const fn = logic[name];
       if (typeof fn === 'function') logic[name] = function (...a) {
         const was = window.lumina.app; window.lumina.app = false;
