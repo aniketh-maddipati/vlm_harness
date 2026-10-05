@@ -235,7 +235,11 @@ const loaded = async page => {
     const full = { ev: -1.25, wb: 6000, tint: 12, con: 10, hl: -22, sh: 18, wh: 5, bl: -5, sat: 7, shp: 65, vig: -30, nr: 25, vMid: 70, vRound: 10, vFeather: 20, vHl: 5, cMid: 10, cDark: -5,
       sat_red: 20, hue_blue: -10, lum_green: 5, curve: [[0, 0], [1, 1]], rot: 90, crop: { x: 0.1, y: 0.2, w: 0.5, h: 0.6, ang: 1.5, ratio: 'free' } };
     const t1 = await lookStr(full, { wbShot: 5500 });
-    ok(t1 === 'ev:-1.25 wb:6000/+12 con:+10 hl:-22 sh:+18 wh:+5 bl:-5 sat:+7 shp:25 vig:-30 nr:25 crop:0.1000,0.2000,0.5000,0.6000/1.50', 'edit v21: the page\'s look object becomes a look string (keys without a stage dropped)', t1);
+    ok(t1 === 'ev:-1.25 wb:6000/+12 con:+10 hl:-22 sh:+18 wh:+5 bl:-5 sat:+7 shp:25 vig:-30 vigs:70,+10,20,5 tc:-5,+10,0 mixh:0,0,0,0,0,-10,0,0 mixs:+20,0,0,0,0,0,0,0 mixl:0,0,0,+5,0,0,0,0 nr:25 crop:0.1000,0.2000,0.5000,0.6000/1.50 rot:90',
+      'edit v21: the page\'s look object becomes a look string (the vignette\'s shape, the tone curve, the colour mixer and the quarter turn included)', t1);
+    const t1b = [await lookStr({ curveR: [[1, 1], [0.5, 0.6], [0, 0]], curve: [[0, 0.1], [1, 0.9]] }, {}), await lookStr({ vMid: 70 }, {}), await lookStr({ rot: 360 }, {}), await lookStr({ rot: 45 }, {}), await lookStr({ rot: -90 }, {}), await lookStr({ curveG: [[0, 0]] }, {})];
+    ok(t1b[0] === 'crv:0,0.1/1,0.9 crvr:0,0/0.5,0.6/1,1' && t1b[1] === '' && t1b[2] === '' && t1b[3] === '' && t1b[4] === 'rot:270' && t1b[5] === '',
+      'edit v21: point curves by x, a shape without a vignette and a turn that is not a quarter are left out', t1b);
     const t2 = [await lookStr({}, { wbShot: 5500 }), await lookStr({ shp: 40, ev: 0, crop: { x: 0, y: 0, w: 1, h: 1, ang: 0 } }, { wbShot: 5500 }), await lookStr({ tint: -8 }, { wbShot: 5500 }),
       await lookStr({ wb: 6000, tint: 12 }, { wbShot: 5500 }, { kelvin: 4400, tint: 5 }), await lookStr({ ev: 9, crop: { x: 0.6, y: 0, w: 0.9, h: 1 } }, { wbShot: 5500, bw: true })];
     ok(t2[0] === '' && t2[1] === '' && t2[2] === 'wb:5500/-8' && t2[3] === 'wb:4800/+17' && t2[4] === 'ev:+5.00 bw:1 crop:0.6000,0.0000,0.4000,1.0000',
@@ -278,19 +282,19 @@ const loaded = async page => {
     const order = bridge.calls.slice(bridge.calls.lastIndexOf('canvasLook'));
     ok(order.includes('canvasDrag'), 'edit v21: the drag ends after its last value', order);
 
-    // A crop is a region of the frame; the box takes the crop's shape.
+    // A crop is in the look (the Mac's base is cropped); the box takes the crop's shape and there is no region at fit.
     await page.evaluate(() => { const o = window.luminaState.__owner, p = o.data.byId[o.state.cur]; o.setLook(p, Object.assign({}, o.look(p), { crop: { x: 0.25, y: 0.25, w: 0.5, h: 0.25, ang: 0, ratio: 'free' } })); }); await settle();
     const c1 = lastLook(), cl = lastLayout();
-    ok(c1.look === 'ev:+0.50 con:+20 crop:0.2500,0.2500,0.5000,0.2500' && c1.roi && Math.abs(c1.roi.x - 0.25) < 1e-3 && Math.abs(c1.roi.y - 0.25) < 1e-3 && Math.abs(c1.roi.w - 0.5) < 1e-3 && Math.abs(c1.roi.h - 0.25) < 1e-3 &&
-      cl.visible && inBox(cl) && Math.abs(cl.w / cl.h - e1.ar * 2) < 0.05, 'edit v21: a crop reaches the canvas as the look\'s crop and as the visible region; the box follows', { c1, cl });
+    ok(c1.look === 'ev:+0.50 con:+20 crop:0.2500,0.2500,0.5000,0.2500' && c1.roi == null &&
+      cl.visible && inBox(cl) && Math.abs(cl.w / cl.h - e1.ar * 2) < 0.05, 'edit v21: a crop reaches the canvas in the look only (the base is cropped); the box follows', { c1, cl });
     // Zoom and pan: the region shrinks to what the page shows, and is refined once it stands still.
     await page.evaluate(() => { const o = window.luminaState.__owner; o.setState({ zm: 2, zx: -200, zy: -100, zoom: '100%' }); o.emit('zoom', { zoom: '100%', scale: 2 }); }); await settle(500);
     const z1 = lastLook(), zl = lastLayout(), lp = bridge.canvas.loupes.slice(n0.loupes);
-    ok(z1.roi && z1.roi.w < 0.5 && z1.roi.w > 0.05 && z1.roi.x >= 0.25 - 1e-3 && z1.roi.x + z1.roi.w <= 0.75 + 1e-3 && zl.visible && inBox(zl) && lp.length === 1 && lp[0].on === true && Math.abs(lp[0].roi.w - z1.roi.w) < 1e-6,
+    ok(z1.roi && z1.roi.w < 1 && z1.roi.w > 0.05 && z1.roi.x >= 0 && z1.roi.x + z1.roi.w <= 1 + 1e-3 && zl.visible && inBox(zl) && lp.length === 1 && lp[0].on === true && Math.abs(lp[0].roi.w - z1.roi.w) < 1e-6,
       'edit v21: zoomed in, the canvas shows the visible part of the crop and the Mac refines that region', { z1, zl, lp });
     await page.evaluate(() => window.luminaState.__owner.setState({ zm: 1, zx: 0, zy: 0, zoom: 'fit' })); await settle();
     const lp2 = bridge.canvas.loupes.slice(n0.loupes);
-    ok(lp2.length === 2 && lp2[1].on === false && Math.abs(lastLook().roi.w - 0.5) < 1e-3, 'edit v21: back at fit the refinement ends and the region is the crop again', { lp2, look: lastLook() });
+    ok(lp2.length === 2 && lp2[1].on === false && lastLook().roi == null, 'edit v21: back at fit the refinement ends and there is no region', { lp2, look: lastLook() });
 
     // The page's own things in the photo's box: the canvas steps aside.
     const hides = [];

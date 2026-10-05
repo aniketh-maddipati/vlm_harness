@@ -1097,12 +1097,40 @@
     }
     for (const k of ['con', 'hl', 'sh', 'wh', 'bl', 'sat']) if (has(k) && Math.round(+L[k]) !== 0) out.push(k + ':' + lookNum(cl(L[k], -100, 100), 0));
     if (has('shp')) { const v = Math.round(cl(+L.shp - SHP_BASE, 0, 150)); if (v) out.push('shp:' + v); }
-    if (has('vig') && Math.round(+L.vig) !== 0) out.push('vig:' + lookNum(cl(L.vig, -100, 100), 0));
+    if (has('vig') && Math.round(+L.vig) !== 0) {
+      out.push('vig:' + lookNum(cl(L.vig, -100, 100), 0));
+      // The vignette's shape (the page's Midpoint, Roundness, Feather, Keep highlights; the same scale).
+      const m = has('vMid') ? Math.round(cl(L.vMid, 0, 100)) : 50, r = has('vRound') ? Math.round(cl(L.vRound, -100, 100)) : 0, f = has('vFeather') ? Math.round(cl(L.vFeather, 0, 100)) : 50, h = has('vHl') ? Math.round(cl(L.vHl, 0, 100)) : 0;
+      if (m !== 50 || r !== 0 || f !== 50 || h !== 0) out.push('vigs:' + m + ',' + lookNum(r, 0) + ',' + f + ',' + h);
+    }
+    // The tone curve: the three region sliders, and the point curves (all channels, then each).
+    const tc = ['cDark', 'cMid', 'cLight'].map(k => (has(k) ? Math.round(cl(L[k], -50, 50)) : 0));
+    if (tc.some(Boolean)) out.push('tc:' + tc.map(v => lookNum(v, 0)).join(','));
+    for (const [k, key] of [['curve', 'crv'], ['curveR', 'crvr'], ['curveG', 'crvg'], ['curveB', 'crvb']]) { const t = curveText(L[k]); if (t) out.push(key + ':' + t); }
+    // The colour mixer: hue, saturation and luminance for the page's eight colours, in the look string's order.
+    for (const [pre, key] of [['hue_', 'mixh'], ['sat_', 'mixs'], ['lum_', 'mixl']]) {
+      const v = MIX_COLOURS.map(c => (has(pre + c) ? Math.round(cl(L[pre + c], -100, 100)) : 0));
+      if (v.some(Boolean)) out.push(key + ':' + v.map(x => lookNum(x, 0)).join(','));
+    }
     if (has('nr') && Math.round(+L.nr) > 0) out.push('nr:' + Math.round(cl(L.nr, 0, 100)));
     if (p && p.bw) out.push('bw:1');
     const c = cropOf(L);
     if (c.set) out.push('crop:' + [c.x, c.y, c.w, c.h].map(v => v.toFixed(4)).join(',') + (c.ang ? '/' + c.ang.toFixed(2) : ''));
+    const q = quarter(L); if (q) out.push('rot:' + q);
     return out.join(' ');
+  };
+  const MIX_COLOURS = ['red', 'orange', 'yellow', 'green', 'aqua', 'blue', 'purple', 'magenta'];
+  // The page's quarter turn (0 / 90 / 180 / 270, clockwise), applied after the crop.
+  const quarter = L => { const r = Math.round(+(L && L.rot) || 0); return r % 90 ? 0 : ((r % 360) + 360) % 360; };
+  // A point curve as the look string writes it: 'x,y/x,y/…' in 0…1, by x; nothing for the diagonal or a broken list.
+  const curveText = P => {
+    if (!Array.isArray(P) || P.length < 2 || P.length > 64) return '';
+    const pts = []; for (const q of P) { if (!Array.isArray(q) || !isFinite(+q[0]) || !isFinite(+q[1])) return ''; pts.push([Math.min(1, Math.max(0, +q[0])), Math.min(1, Math.max(0, +q[1]))]); }
+    pts.sort((a, b) => a[0] - b[0]);
+    for (let i = 1; i < pts.length; i++) if (!(pts[i][0] > pts[i - 1][0])) return '';          // x strictly rising, as the look string wants
+    if (pts.every(q => Math.abs(q[0] - q[1]) < 1e-6)) return '';
+    const u = v => String(+v.toFixed(4));
+    return pts.map(q => u(q[0]) + ',' + u(q[1])).join('/');
   };
   // The page's crop ({x, y, w, h} in fractions of the frame, `ang` degrees), kept inside the frame.
   const cropOf = L => {
@@ -1122,7 +1150,7 @@
     const s = o.state, t = l.state;
     return s.crop ? 'crop' : s.pick ? 'white picker' : s.stMode || s.rHeld || s.sLine ? 'straighten' : s.alt && s.sec === 'colour' ? 'colour' :
       s.spec ? 'variations' : s.sg ? 'scene review' : s.verOpen ? 'versions' : s.help ? 'help' : s.intro ? 'intro' : !BEFORE_RENDERS && s.before ? 'before' :
-      (+L.rot || 0) % 360 ? 'turned' : t.faq ? 'faq' : t.tour != null ? 'tour' : t.prefsOn ? 'settings' : t.betaOn ? 'known issues' : t.cacheOn ? 'working files' :
+      t.faq ? 'faq' : t.tour != null ? 'tour' : t.prefsOn ? 'settings' : t.betaOn ? 'known issues' : t.cacheOn ? 'working files' :
       t.pre ? 'access' : t.phonePage ? 'phone' : '';
   };
   const pageGeo = (o, p, L) => {
@@ -1131,14 +1159,18 @@
     // The photo's own shape (Sets' number), not the page's measure of the image it shows: in the app
     // that image is a 1 × 1 stand-in.
     const s = o.state, A = +p.ar > 0 ? +p.ar : 1.5, c = cropOf(L), zm = +s.zm > 0 ? +s.zm : 1;
-    const k = Math.min(CW / (c.w * A), CH / c.h), w = c.w * A * k, h = c.h * k;
+    // A quarter turn swaps the box's sides (the page's boxR): the crop stays in the frame as shot.
+    const side = quarter(L) % 180 !== 0, pw = side ? c.h : c.w * A, ph = side ? c.w * A : c.h;
+    const k = Math.min(CW / pw, CH / ph), w = pw * k, h = ph * k;
     const X = Math.round(+s.zx || 0) + zm * (CW - w) / 2, Y = Math.round(+s.zy || 0) + zm * (CH - h) / 2, W = zm * w, H = zm * h;
     const x0 = Math.max(0, X), y0 = Math.max(0, Y), x1 = Math.min(CW, X + W), y1 = Math.min(CH, Y + H);
     if (x1 - x0 < 1 || y1 - y0 < 1) return null;
     const b = el.getBoundingClientRect(), bx = b.left + el.clientLeft, by = b.top + el.clientTop;
     const rect = { x: Math.round(bx + x0), y: Math.round(by + y0), w: Math.round(x1 - x0), h: Math.round(y1 - y0) };
     const r5 = v => +v.toFixed(5);
-    let roi = { x: r5(c.x + (x0 - X) / W * c.w), y: r5(c.y + (y0 - Y) / H * c.h), w: r5((x1 - x0) / W * c.w), h: r5((y1 - y0) / H * c.h) };
+    // The visible part, as fractions of the picture the canvas holds: the Mac's base is already
+    // cropped, straightened and turned (LookBases), so the crop is not a region here.
+    let roi = { x: r5((x0 - X) / W), y: r5((y0 - Y) / H), w: r5((x1 - x0) / W), h: r5((y1 - y0) / H) };
     if (roi.x <= 0.0005 && roi.y <= 0.0005 && roi.w >= 0.999 && roi.h >= 0.999) roi = null;
     // The page's chrome inside the element (zoom pill, state chip, colour chip) and Sets' working
     // files pill: whatever lies over the photo and is not the photo's own layer or a full cover.
