@@ -1022,3 +1022,21 @@ preview, as in the browser. `plumbing.js` will not read Edit's internals to fake
 - `probe.sh edit` and `probe.sh raw9` drop `lumina.edit.layout(rect, true, {force: true})` and use
   `stepEdit` with the page's own rect.
 - The contract scenario lists the calls and hooks.
+
+## Prompt 13 — the self-test still checks v5's P toggle (paste into Claude Design)
+
+v8's page does what CHANGES-v0.02 says: P on a kept photo moves on and never toggles. The self-test
+still has v5's check `P again un-keeps` (← back to the kept photo, P, expect it un-kept), so
+`?selftest` reports 22 / 23 in every browser and in the app. Until this lands, the probe's
+`selftest` scenario and `Tests/web/webkit.py` expect exactly that one failure and check v8's rule
+themselves.
+
+> In `lumina-selftest.js`, replace the check `P again un-keeps` with
+> `P on a kept photo keeps it and moves on`: ← back to the photo P just kept, P, and pass when it
+> is still kept and the cursor has moved off it (CHANGES-v0.02: ⏎ / P / K never toggle). Nothing
+> else changes.
+
+### How Prompt 13 is checked once its handoff lands
+
+- `?selftest` passes every check; `Tests/probe/scenarios/selftest.json` goes back to expecting no
+  failures and drops its own v8 step, and `STALE` comes out of `Tests/web/webkit.py`.

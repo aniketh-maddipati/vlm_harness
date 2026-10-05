@@ -113,7 +113,7 @@
   },
   {
    "do": "key",
-   "k": "3",
+   "k": "4",
    "settleMs": 1000,
    "cmd": true
   },
@@ -133,8 +133,17 @@
   {
    "do": "key",
    "k": "Enter",
-   "settleMs": 1500,
+   "settleMs": 200,
    "cmd": true
+  },
+  {
+   "do": "js",
+   "src": "const l = __probe.logic(); if (l.state.armed === 'save') window.luminaCommand('save'); return true",
+   "why": "v8's Save guard: rows not looked at arm ⌘⏎ once; the second ⌘⏎ saves"
+  },
+  {
+   "do": "wait",
+   "ms": 1300
   },
   {
    "do": "waitFor",

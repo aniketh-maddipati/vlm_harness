@@ -200,5 +200,6 @@
    "do": "snap",
    "name": "13-open-again"
   }
- ]
+ ],
+ "tour": true
 }
