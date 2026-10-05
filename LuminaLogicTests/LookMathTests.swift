@@ -52,7 +52,7 @@ final class LookMathTests: XCTestCase {
 
     func testRulesFileLoadsAndIsCanonical() throws {
         XCTAssertEqual(rules.order, LookRules.canonicalOrder)
-        XCTAssertEqual(rules.lookStages, ["exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "clarity", "sharpen", "vignette"])
+        XCTAssertEqual(rules.lookStages, ["exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer", "clarity", "sharpen", "vignette"])
         for s in rules.lookStages { XCTAssertNotNil(rules.stages[s], s) }
         XCTAssertNoThrow(try rules.validate())
         var bad = rules!; bad.order = ["exposure", "rawDevelop", "outputTransform"]
@@ -192,6 +192,139 @@ final class LookMathTests: XCTestCase {
             let out = try curved("ev:+0.50 con:+30 hl:-40 sh:+30 wh:+20 bl:-10 tc:+30,-20,+25 crv:0,0/0.3,0.5/0.6,0.4/1,1 sat:+20 vib:-10", .gray(v))
             XCTAssertGreaterThanOrEqual(luma(out), last - 1e-9); XCTAssertTrue(out.isNeutral, "\(out)"); last = luma(out)
         }
+    }
+
+    // MARK: mixer (the colour mixer)
+
+    private func hueChroma(_ c: LookMath.RGB) -> (h: Double, C: Double, L: Double) {
+        let lab = LookMath.toOklab(c)
+        var h = atan2(lab.b, lab.a) * 180 / .pi
+        if h < 0 { h += 360 }
+        return (h, hypot(lab.a, lab.b), lab.L)
+    }
+    private func hueGap(_ a: Double, _ b: Double) -> Double { let d = abs(a - b).truncatingRemainder(dividingBy: 360); return d > 180 ? 360 - d : d }
+    /// A colour of the given Oklab hue, lightness and chroma (inside sRGB for the values used here).
+    private func colour(hue: Double, L: Double = 0.7, C: Double = 0.08) -> LookMath.RGB {
+        LookMath.fromOklab(L, C * cos(hue * .pi / 180), C * sin(hue * .pi / 180))
+    }
+    /// A deterministic spread of the 24 values, some of them at the ends of the range.
+    private func mixers() -> [Look.Mixer] {
+        var seed: UInt64 = 0x9e37_79b9_7f4a_7c15
+        func next() -> Double { seed = seed &* 6364136223846793005 &+ 1442695040888963407; return Double(seed >> 11) / Double(1 << 53) }
+        func eight() -> [Double] { (0..<8).map { _ in let v = next(); return v < 0.15 ? -100 : v > 0.85 ? 100 : (200 * next() - 100).rounded() } }
+        var out: [Look.Mixer] = []
+        for _ in 0..<40 { out.append(Look.Mixer(hue: eight(), saturation: eight(), luminance: eight())) }
+        out.append(Look.Mixer(hue: Array(repeating: 100, count: 8), saturation: Array(repeating: 100, count: 8), luminance: Array(repeating: 100, count: 8)))
+        out.append(Look.Mixer(hue: Array(repeating: -100, count: 8), saturation: Array(repeating: -100, count: 8), luminance: Array(repeating: -100, count: 8)))
+        return out
+    }
+
+    func testMixerBandWeightsAreSmoothAndSumToOne() {
+        let centres = LookMath.mixerCentres(rules)
+        XCTAssertEqual(centres.count, Look.Mixer.colours.count)
+        XCTAssertEqual(centres, centres.sorted(), "the centres ascend, red first"); XCTAssertEqual(Set(centres).count, 8)
+        XCTAssertTrue(centres.allSatisfy { $0 >= 0 && $0 < 360 })
+        XCTAssertEqual(LookMath.mixerCentres(LookRules()), LookMath.mixerHueDefaults, "the code's fallbacks")
+        XCTAssertEqual(centres, LookMath.mixerHueDefaults, "…are the shipped numbers")
+        var last = LookMath.mixerWeights(hueDegrees: 359.99, centres: centres)
+        for step in 0...3600 {
+            let h = Double(step) / 10
+            let w = LookMath.mixerWeights(hueDegrees: h, centres: centres)
+            XCTAssertEqual(w.reduce(0, +), 1, accuracy: 1e-12, "at \(h)")
+            XCTAssertTrue(w.allSatisfy { $0 >= 0 && $0 <= 1 }); XCTAssertLessThanOrEqual(w.filter { $0 > 0 }.count, 2)
+            for (a, b) in zip(w, last) { XCTAssertLessThan(abs(a - b), 0.02, "a weight jumped at \(h)") }          // smooth, across 0° too
+            last = w
+        }
+        // Each band is alone at its own centre, and shares evenly half way to its neighbour.
+        for (i, c) in centres.enumerated() {
+            XCTAssertEqual(LookMath.mixerWeights(hueDegrees: c, centres: centres)[i], 1, accuracy: 1e-12, Look.Mixer.colours[i])
+            let next = i == 7 ? centres[0] + 360 : centres[i + 1], mid = (c + next) / 2
+            let w = LookMath.mixerWeights(hueDegrees: mid.truncatingRemainder(dividingBy: 360), centres: centres)
+            XCTAssertEqual(w[i], 0.5, accuracy: 1e-9); XCTAssertEqual(w[(i + 1) % 8], 0.5, accuracy: 1e-9)
+        }
+        // The band names mean what they say: sRGB's primaries fall in their bands.
+        func band(_ c: LookMath.RGB) -> String { Look.Mixer.colours[LookMath.mixerWeights(hueDegrees: hueChroma(c).h, centres: centres).enumerated().max { $0.element < $1.element }!.offset] }
+        XCTAssertEqual(band(LookMath.RGB(r: 1, g: 0, b: 0)), "red"); XCTAssertEqual(band(LookMath.RGB(r: 1, g: 1, b: 0)), "yellow")
+        XCTAssertEqual(band(LookMath.RGB(r: 0, g: 1, b: 0)), "green"); XCTAssertEqual(band(LookMath.RGB(r: 0, g: 1, b: 1)), "aqua")
+        XCTAssertEqual(band(LookMath.RGB(r: 0, g: 0, b: 1)), "blue"); XCTAssertEqual(band(LookMath.RGB(r: 1, g: 0, b: 1)), "magenta")
+        XCTAssertEqual(band(LookMath.RGB(r: 1, g: 0.214, b: 0)), "orange"); XCTAssertEqual(band(LookMath.RGB(r: 0.214, g: 0, b: 1)), "purple")          // sRGB 255,128,0 and 128,0,255, linear
+    }
+
+    /// A grey is exactly the same grey for any of the 24 values, so a grey ramp goes through untouched.
+    func testMixerLeavesEveryGreyExactlyAsItCame() throws {
+        let greys = ramp + [1e-6, 0.003, 0.18, 2.5, 40]
+        for m in mixers() {
+            var look = Look(); look.mixer = m
+            XCTAssertTrue(look.runs("mixer"))
+            for v in greys {
+                let out = LookMath.mixer(.gray(v), mixer: m, rules)
+                XCTAssertTrue(out.r == v && out.g == v && out.b == v, "grey \(v) → \(out) under \(look.format())")
+                XCTAssertEqual(LookMath.flat(.gray(v), look: look, asShot: asShot, rules: rules), .gray(v))
+            }
+            // In a whole look the ramp is as monotonic and as grey as it is without the mixer.
+            var whole = try Look.parse("ev:+0.50 con:+30 hl:-40 sh:+30 tc:+20,-10,+15 sat:+30 vib:+20"); let plain = whole
+            whole.mixer = m
+            var last = -1.0
+            for v in ramp {
+                let out = LookMath.flat(.gray(v), look: whole, asShot: asShot, rules: rules), y = luma(out)
+                XCTAssertGreaterThanOrEqual(y, last - 1e-9); XCTAssertTrue(out.isNeutral, "\(out)"); last = y
+                XCTAssertEqual(y, luma(LookMath.flat(.gray(v), look: plain, asShot: asShot, rules: rules)), accuracy: 1e-6 * max(1, y), "the mixer moved a grey")
+            }
+        }
+        // The changes fade in with the chroma: a nearly grey pixel barely moves, whatever its (noisy) hue.
+        let all = Look.Mixer(hue: Array(repeating: 100, count: 8), saturation: Array(repeating: 100, count: 8), luminance: Array(repeating: 100, count: 8))
+        for hue in stride(from: 0.0, to: 360, by: 15) {
+            let near = colour(hue: hue, L: 0.6, C: 1e-4), out = LookMath.mixer(near, mixer: all, rules)
+            XCTAssertLessThan(max(abs(out.r - near.r), abs(out.g - near.g), abs(out.b - near.b)), 2e-3, "hue \(hue)")
+        }
+        // Black and white first: no chroma is left, so the mixer has nothing to act on.
+        var bw = Look(); bw.bw = true; let grey = LookMath.flat(LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), look: bw, asShot: asShot, rules: rules)
+        bw.mixer = all
+        let mixed = LookMath.flat(LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), look: bw, asShot: asShot, rules: rules)
+        XCTAssertEqual(mixed.g, grey.g, accuracy: 1e-4); XCTAssertTrue(mixed.isNeutral)
+    }
+
+    func testMixerActsOnItsOwnBand() throws {
+        let centres = LookMath.mixerCentres(rules)
+        // Through Oklab and back a colour returns to about 1e-6 (the matrices' precision).
+        func same(_ a: LookMath.RGB, _ b: LookMath.RGB, _ what: String) { XCTAssertEqual(a.r, b.r, accuracy: 1e-5, what); XCTAssertEqual(a.g, b.g, accuracy: 1e-5, what); XCTAssertEqual(a.b, b.b, accuracy: 1e-5, what) }
+        let hueStep = rules.k("mixer", "hueDegreesPerUnit", 0.3), satStep = rules.k("mixer", "saturationPerUnit", 0.01)
+        for (i, name) in Look.Mixer.colours.enumerated() {
+            let own = colour(hue: centres[i]), other = colour(hue: centres[(i + 4) % 8]), before = hueChroma(own)
+            var m = Look.Mixer(); m.hue[i] = 50
+            var out = hueChroma(LookMath.mixer(own, mixer: m, rules))
+            XCTAssertEqual(hueGap(out.h, before.h + 50 * hueStep), 0, accuracy: 0.05, "\(name) hue"); XCTAssertEqual(out.C, before.C, accuracy: 1e-5); XCTAssertEqual(out.L, before.L, accuracy: 1e-5)
+            same(LookMath.mixer(other, mixer: m, rules), other, "\(name) hue moved the opposite band")
+            m = Look.Mixer(); m.saturation[i] = 40
+            out = hueChroma(LookMath.mixer(own, mixer: m, rules))
+            XCTAssertEqual(out.C, before.C * (1 + 40 * satStep), accuracy: 1e-5, "\(name) saturation"); XCTAssertEqual(hueGap(out.h, before.h), 0, accuracy: 1e-3); XCTAssertEqual(out.L, before.L, accuracy: 1e-5)
+            m.saturation[i] = -100
+            XCTAssertTrue(LookMath.mixer(own, mixer: m, rules).isNeutral(tolerance: 1e-5), "\(name) saturation −100 is grey")
+            same(LookMath.mixer(other, mixer: m, rules), other, name)
+            m = Look.Mixer(); m.luminance[i] = 60
+            let up = hueChroma(LookMath.mixer(own, mixer: m, rules)); m.luminance[i] = -60
+            let down = hueChroma(LookMath.mixer(own, mixer: m, rules))
+            XCTAssertGreaterThan(up.L, before.L, "\(name) luminance"); XCTAssertLessThan(down.L, before.L)
+            XCTAssertEqual(up.L / before.L - 1, 60 * rules.k("mixer", "luminancePerUnit", 0.003) * before.C / (before.C + rules.k("mixer", "luminanceChromaKnee", 0.05)), accuracy: 1e-5)
+            XCTAssertEqual(hueGap(up.h, before.h), 0, accuracy: 1e-3); XCTAssertEqual(up.C, before.C, accuracy: 1e-5)
+            same(LookMath.mixer(other, mixer: m, rules), other, name)
+        }
+        // Between two bands a colour takes each band's value by its weight, smoothly.
+        var m = Look.Mixer(); m.saturation[0] = 100; m.saturation[1] = -100          // red up, orange down
+        var last = 10.0
+        for h in stride(from: centres[0], through: centres[1], by: 0.5) {
+            let c = colour(hue: h), ratio = hueChroma(LookMath.mixer(c, mixer: m, rules)).C / hueChroma(c).C
+            XCTAssertLessThanOrEqual(ratio, last + 1e-9); XCTAssertLessThan(last == 10 ? 0 : last - ratio, 0.08, "a jump at hue \(h)"); last = ratio
+        }
+        XCTAssertEqual(last, 0, accuracy: 1e-5)
+        // Nothing negative, nothing NaN, for any values on colours from black to above white.
+        for m in mixers() {
+            for c in [LookMath.RGB(r: 1, g: 0, b: 0), LookMath.RGB(r: 0, g: 0, b: 1), LookMath.RGB(r: 0.004, g: 0.002, b: 0.006), LookMath.RGB(r: 1.3, g: 0.9, b: 0.2), LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), LookMath.RGB(r: 0, g: 0, b: 0)] {
+                let out = LookMath.mixer(c, mixer: m, rules)
+                XCTAssertTrue(out.r.isFinite && out.g.isFinite && out.b.isFinite && out.r >= 0 && out.g >= 0 && out.b >= 0, "\(c) → \(out)")
+            }
+        }
+        XCTAssertEqual(LookMath.mixer(LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), mixer: Look.Mixer(), rules), LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), "reset: the colour itself")
     }
 
     func testResetIsIdentity() {

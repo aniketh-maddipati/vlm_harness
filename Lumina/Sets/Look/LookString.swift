@@ -34,6 +34,9 @@ nonisolated struct Look: Equatable, Sendable {
     /// The tone curve: `tc:dark,mid,light` (the three region sliders) and the point curves
     /// `crv:` (all channels), `crvr:`, `crvg:`, `crvb:` as `x,y/x,y/…`. Each written only when set.
     var curve = ToneCurve()
+    /// The colour mixer: hue, saturation and luminance per colour, `mixh:`, `mixs:`, `mixl:`,
+    /// each eight values in `Mixer.colours`' order. Each written only when one of its eight is set.
+    var mixer = Mixer()
     /// Black and white: chroma to zero in the colour stage. Optional key `bw:1`.
     var bw: Bool = false
     var crop: Crop?
@@ -104,6 +107,21 @@ nonisolated struct Look: Equatable, Sendable {
         }
     }
 
+    /// The colour mixer's 24 values, −100 … +100: per colour a hue shift, a saturation change and
+    /// a luminance change. The colours and their order are the page's (`hue_red` … `lum_magenta`)
+    /// and Lightroom's.
+    struct Mixer: Equatable, Sendable {
+        static let colours = ["red", "orange", "yellow", "green", "aqua", "blue", "purple", "magenta"]
+        static let range = Range(min: -100, max: 100, step: 1)
+        var hue = [Double](repeating: 0, count: 8)
+        var saturation = [Double](repeating: 0, count: 8)
+        var luminance = [Double](repeating: 0, count: 8)
+        var isNeutral: Bool { !(hue + saturation + luminance).contains { $0 != 0 } }
+
+        /// The three keys, in the order `format` writes them.
+        static let keys: [(key: String, field: WritableKeyPath<Mixer, [Double]>)] = [("mixh", \.hue), ("mixs", \.saturation), ("mixl", \.luminance)]
+    }
+
     struct ParseError: Error, CustomStringConvertible, Equatable {
         let description: String
     }
@@ -123,7 +141,7 @@ nonisolated struct Look: Equatable, Sendable {
     static let tintRange = Range(min: -150, max: 150, step: 1)
     static let nrRange = Range(min: 0, max: 100, step: 1)
     /// Canonical key order; also the order `format` writes.
-    static let keys = ["ev", "wb", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "nr", "bw", "crop", "rot"]
+    static let keys = ["ev", "wb", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot"]
     /// The plain numeric sliders, key → field.
     static let sliders: [String: WritableKeyPath<Look, Double>] = [
         "ev": \.ev, "con": \.contrast, "hl": \.highlights, "sh": \.shadows, "wh": \.whites, "bl": \.blacks,
@@ -135,7 +153,7 @@ nonisolated struct Look: Equatable, Sendable {
     var isNeutral: Bool {
         ev == 0 && wb == nil && contrast == 0 && highlights == 0 && shadows == 0 && whites == 0 && blacks == 0
             && vibrance == 0 && saturation == 0 && clarity == 0 && sharpen == 0 && vignette == 0 && !bw
-            && curve.isNeutral
+            && curve.isNeutral && mixer.isNeutral
     }
 
     static func clamp(_ v: Double, _ r: Range) -> Double {
@@ -184,6 +202,10 @@ nonisolated struct Look: Equatable, Sendable {
                 look.curve[keyPath: curveKey.field] = ToneCurve.isIdentity(pts) ? nil : pts
                 continue
             }
+            if let mixKey = Mixer.keys.first(where: { $0.key == key }) {
+                look.mixer[keyPath: mixKey.field] = try list("eight values (\(Mixer.colours.joined(separator: ",")))", Array(repeating: Mixer.range, count: Mixer.colours.count))
+                continue
+            }
             switch key {
             case "tc":
                 let v = try list("dark,mid,light", [ToneCurve.regionRange, ToneCurve.regionRange, ToneCurve.regionRange])
@@ -227,7 +249,7 @@ nonisolated struct Look: Equatable, Sendable {
     // MARK: Format
 
     /// Canonical text. Reset values are written too (the page can diff two looks by eye); `wb`,
-    /// `vigs`, the curve keys, `nr`, `bw`, `crop` and `rot` only when set.
+    /// `vigs`, the curve keys, the mixer keys, `nr`, `bw`, `crop` and `rot` only when set.
     func format() -> String {
         func signed(_ v: Double, _ decimals: Int) -> String {
             let r = (v * pow(10, Double(decimals))).rounded() / pow(10, Double(decimals))
@@ -255,6 +277,10 @@ nonisolated struct Look: Equatable, Sendable {
                 return t
             }
             out.append("\(key):" + pts.map { "\(unit($0.x)),\(unit($0.y))" }.joined(separator: "/"))
+        }
+        for (key, field) in Mixer.keys {
+            let v = mixer[keyPath: field]
+            if v.contains(where: { $0 != 0 }) { out.append("\(key):" + v.map { signed($0, 0) }.joined(separator: ",")) }
         }
         if let nr { out.append("nr:\(Int(nr.rounded()))") }
         if bw { out.append("bw:1") }
