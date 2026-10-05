@@ -232,8 +232,16 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     /// `window.open(url, '_blank')`: never a second web view. An allowlisted link goes to the browser.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if let url = action.request.url, case .external(let out) = SetsExternalLinks.verdict(for: url, userClicked: true) { NSWorkspace.shared.open(out) }
+        if let url = action.request.url, case .external(let out) = SetsExternalLinks.verdict(for: url, userClicked: true) { handOver(out) }
         return nil
+    }
+
+    /// One hand-over to the browser or Mail every 2 s at most: a page that asks in a loop opens one.
+    private var lastHandOver = Date.distantPast
+    private func handOver(_ url: URL) {
+        guard Date().timeIntervalSince(lastHandOver) >= 2 else { return }
+        lastHandOver = Date()
+        NSWorkspace.shared.open(url)
     }
 
     // MARK: Navigation: only our own scheme; downloads go through a save panel
@@ -246,8 +254,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             // Exactly three: the bug-report mail and the two profile links (`SetsExternalLinks`). v7 also
             // opens them from its own click handlers (location.href, window.open), which arrive here
             // without a link click: the allowlist is exact, so those are handed over too.
-            if let url = action.request.url, case .external(let out) = SetsExternalLinks.verdict(for: url, userClicked: true) {
-                NSWorkspace.shared.open(out)
+            // The main frame only: a frame the page adds cannot ask.
+            if action.targetFrame?.isMainFrame != false, let url = action.request.url, case .external(let out) = SetsExternalLinks.verdict(for: url, userClicked: true) {
+                handOver(out)
             }
             return (.cancel, preferences)
         }
