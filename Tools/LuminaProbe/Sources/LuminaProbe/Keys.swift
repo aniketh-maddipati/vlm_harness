@@ -56,11 +56,22 @@ enum Keys {
         return nil
     }
 
-    /// Every key the v5 page handles (GRAMMAR.md), plus the keys it answers with a hint (X U L G 1–5),
-    /// for the fuzzer. Modifiers (⌘ ⇧ ⌥) are added at random.
+    /// Every key the v7 page handles (`onKey`, `openKey`, `cullKey`, `handKey` in `Lumina Sets v7.dc.html`),
+    /// plus the letters it answers with a hint (U L G, digits in the large view), for the fuzzer.
+    /// K P T keep, R X remove, F E B hold overlays (M too in the large view), Z holds 100 %, Q undoes in
+    /// the large view, Y toggles the tray, H the key bar. Dead in v7 and so left out: C, O (only ⌘O is
+    /// bound; the fuzzer never presses it, it opens a native panel) and `,` (only ⌘,). Modifiers
+    /// (⌘ ⇧ ⌥) are added at random by the fuzz step.
     static let pageKeys: [String] = [
         "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape", "Tab", " ", "Backspace",
-        "1", "2", "3", "4", "5", "0", "=", "-", "?", ",",
-        "a", "c", "f", "g", "h", "l", "o", "p", "q", "r", "t", "u", "x", "z",
+        "1", "2", "3", "4", "5", "0", "=", "-", "?",
+        "a", "b", "e", "f", "g", "h", "k", "l", "m", "p", "q", "r", "t", "u", "x", "y", "z",
     ]
+    /// Keys the fuzz step may press with ⌘ (v7: ⌘1–4 steps, ⌘A keep row, ⌘R Finder, ⌘Z undo, ⇧⌘Z redo).
+    /// Never ⌘O (native folder panel in app mode), ⌘⏎ (Save writes), ⌥⌘⌫ (clears decisions) or ⌘, (the
+    /// pool has no `,`, as before).
+    static let cmdKeys: [String] = ["z", "1", "2", "3", "4", "a", "r"]
+    /// Keys the page reads on key down and key up (overlays F E B M, Z zoom, K P R T X decide on hold,
+    /// Space large, arrows repeat): pressed as held sometimes.
+    static let heldKeys: [String] = ["z", " ", "ArrowLeft", "ArrowRight", "f", "e", "b", "m", "k", "p", "r", "t", "x"]
 }
