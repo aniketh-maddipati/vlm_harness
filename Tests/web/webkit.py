@@ -230,9 +230,15 @@ def selftest():
             print(('     ' if r['ok'] else 'FAIL ') + r['n'] + ' · ' + r['d'])
     # Behaviour checks gate; the two timing checks are reported only: ADDENDUM-1 §6 measures timing
     # in the real app, and a virtual display without GPU is no measure of it.
-    bad = [r['n'] for r in rows if not r['ok'] and not r['n'].startswith('perf')]
+    # Tests/selftest-known.json: checks the design's selftest still states for v5 (DESIGN-ASKS Prompt 12
+    # ask 4) are reported, not gated, as the probe does; any other failing check fails, and a known
+    # check that passes again is reported so the list can shrink.
+    known = set(json.load(open(os.path.join(ROOT, 'Tests', 'selftest-known.json')))['known'])
+    bad = [r['n'] for r in rows if not r['ok'] and not r['n'].startswith('perf') and r['n'] not in known]
     beh = [r for r in rows if not r['n'].startswith('perf')]
-    ok(len(rows) >= 25 and not bad, 'selftest: %d / %d behaviour checks pass in WebKit' % (len(beh) - len(bad), len(beh)), bad)
+    for r in beh:
+        if r['n'] in known: print('     ' + ('known, not gated: ' if not r['ok'] else 'now passes, drop it from Tests/selftest-known.json: ') + r['n'])
+    ok(len(rows) >= 25 and not bad, 'selftest: %d / %d behaviour checks pass in WebKit (%d known)' % (len(beh) - len(bad), len(beh), len([r for r in beh if r['n'] in known and not r['ok']])), bad)
     p.close()
 
 
@@ -243,7 +249,7 @@ const shoot = await C('shoot', { name: '2026-09-01', others: ['DSC01001.JPG', 'X
 t('start: empty Open, no sample', L().state.view === 'import' && L().data.order.length === 0, L().state.view);
 const nr = await C('folder', { name: 'NoRaw', files: ['A.CR3', 'B.CR3', 'C.JPG', 'D.MP4'] });
 await C('pick', { path: nr }); __lumina.openFolder(); await until(() => L().state.openNote, 5000);
-t('no ARW: the page\'s note from the native listing', L().state.openNote === 'no ARW found · 2 CR3 · 1 JPEG / HEIF · 1 videos · only Sony ARW is supported', L().state.openNote);
+t('no ARW: the page\'s note from the native listing', L().state.openNote === 'no ARW or DNG found · 2 CR3 · 1 JPEG / HEIF · 1 videos · Lumina reads ARW and DNG', L().state.openNote);
 await C('pick', { path: shoot }); __lumina.openFolder();
 await until(() => L().real && L().real.length && !L().state.realLoad && L().state.realInfo, 30000);
 const ri = L().state.realInfo || {};
@@ -254,6 +260,8 @@ const ins = __lumina.inspect(); t('read: previews by URL, thumbs as blobs', !ins
 const p7 = Object.values(L().data.byId).find(p => (p.file || p.name) === 'DSC01007.ARW');
 t('read: orientation 6 is portrait in WebKit', p7 && p7.portrait === true, p7 && p7.portrait);
 t('read: measures from the WebKit canvas', L().real.every(p => p.nopv || (p.focus > 0 && p.lum > 0 && p.dhash)), L().real.map(p => [p.focus, p.lum, p.dhash]).slice(0, 3));
+// v7: a shoot read for the first time puts the keyboard in its name field after 350 ms; keys go to it until it lets go.
+await W(500); { const a = document.activeElement; if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) a.blur(); }
 K('p'); await W(120); K('ArrowDown'); await W(150); K('p'); await W(150);
 const kept = L().kept().length; t('cull: P keeps (2)', kept === 2, L().state.marks);
 await W(2300);
@@ -261,8 +269,11 @@ let st = await C('state'); const sid = __lumina.shootId(), saved = st.sessions[s
 t('session: saved by path within 2 s', saved && Object.keys(saved.marks).length === 2 && Object.keys(saved.marks).every(k => /^(sub\/)?DSC0\d+\.ARW$/.test(k)), saved && saved.marks);
 t('quit: 2 unsaved keepers', __lumina.unsaved() === 2, __lumina.unsaved());
 __lumina.command('stepSave'); await W(950);
-t('save: ⌘3 via luminaCommand', L().state.view === 'export', L().state.view);
-__lumina.command('save'); await until(() => L().state.ex && L().state.ex.result, 8000);
+t('save: ⌘4 via luminaCommand', L().state.view === 'export', L().state.view);
+__lumina.command('save'); await W(300);
+t('save: the first ⌘⏎ warns while photos are undecided', L().state.armed === 'save', L().state.armed);
+if (L().state.armed === 'save') __lumina.command('save');
+await until(() => L().state.ex && L().state.ex.result, 8000);
 const res = L().state.ex.result || {};
 t('save: "2 saved"', res.t === '2 saved' && !res.bad, res);
 const ls = await C('ls', { path: shoot }); const xmps = ls.filter(f => /\.xmp$/.test(f));
@@ -278,8 +289,10 @@ t('close shoot: back to Open with the recent card', L().state.view === 'import' 
 L().libOpen(L().recents()[0]);
 await until(() => L().real && L().real.length && !L().state.realLoad && L().kept().length === 2, 20000);
 t('reopen: 2 keepers restored, nothing unsaved', L().kept().length === 2 && __lumina.unsaved() === 0, [L().kept().length, __lumina.unsaved()]);
+await W(500); { const a = document.activeElement; if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) a.blur(); }
 K('ArrowDown'); await W(150); K('ArrowDown'); await W(150); K('p'); await W(150);
-__lumina.command('stepSave'); await W(950); __lumina.command('save');
+__lumina.command('stepSave'); await W(950); __lumina.command('save'); await W(300);
+if (L().state.armed === 'save') __lumina.command('save');
 await until(() => L().state.ex && L().state.ex.result, 8000);
 const ls2 = await C('ls', { path: shoot });
 t('save again: .lumina-bak next to replaced sidecars', ls2.filter(f => /\.xmp\.lumina-bak$/.test(f)).length >= 2, ls2.filter(f => /lumina-bak/.test(f)));
