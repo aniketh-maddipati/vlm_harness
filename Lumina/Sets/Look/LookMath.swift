@@ -261,6 +261,116 @@ nonisolated enum LookMath {
         return RGB(r: per.r + (byLuma.r - per.r) * mix, g: per.g + (byLuma.g - per.g) * mix, b: per.b + (byLuma.b - per.b) * mix)
     }
 
+    // MARK: curve (the tone curve)
+
+    /// The tone curve (`Look.ToneCurve`), display-referred: each channel's perceptual value
+    /// through T_c = F_c ∘ M, with M the all-channels curve (the point curve `rgb` when set, else
+    /// the three region sliders as a curve through five points) and F_c the channel's own point
+    /// curve. The page draws the same thing: one spline, composite then channel, as a table.
+    ///
+    /// A curve through points is the monotone cubic of Fritsch and Carlson (the page's
+    /// `cSpline`): Hermite pieces whose tangents are the mean of the neighbouring slopes, zero
+    /// at a turn, and scaled back where they would overshoot. Flat before the first point and
+    /// after the last. That interpolant never falls *if its points never fall*, and the page
+    /// lets a point be dragged below its left neighbour, so the points are repaired first: each
+    /// y is raised to the highest y to its left (y_i = max(y_i, y_(i−1))). The dip becomes a
+    /// flat span; a rising curve is untouched. Then F_c ∘ M of two non-falling curves is
+    /// non-falling, the table built from it is made non-falling once more against rounding, and
+    /// linear interpolation between nodes keeps it. So no look string can produce a transfer
+    /// that falls: a grey ramp stays monotonic through this stage whatever the points are.
+    ///
+    /// A grey stays grey through M (the three channels take the same table); the channel
+    /// curves are colour controls and tint it by design, as white balance does.
+    static let curveNodes = 256
+
+    /// The points as the spline uses them: y into 0 … 1 and never falling.
+    static func curveRepaired(_ points: [Look.ToneCurve.Point]) -> [Look.ToneCurve.Point] {
+        var top = 0.0
+        return points.map { p in
+            top = max(top, min(1, max(0, p.y)))
+            return Look.ToneCurve.Point(p.x, top)
+        }
+    }
+
+    /// The monotone cubic through `points` (x strictly increasing), after `curveRepaired`.
+    /// Fewer than two points is the identity.
+    struct CurveSpline: Sendable {
+        let xs: [Double], ys: [Double], ms: [Double]
+
+        init(_ points: [Look.ToneCurve.Point]) {
+            let p = LookMath.curveRepaired(points), n = p.count
+            xs = p.map(\.x); ys = p.map(\.y)
+            guard n >= 2 else { ms = []; return }
+            var d = [Double](repeating: 0, count: n - 1), m = [Double](repeating: 0, count: n)
+            for i in 0..<(n - 1) { d[i] = (ys[i + 1] - ys[i]) / max(1e-6, xs[i + 1] - xs[i]) }
+            m[0] = d[0]; m[n - 1] = d[n - 2]
+            if n > 2 { for i in 1..<(n - 1) { m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2 } }
+            for i in 0..<(n - 1) {
+                if d[i] == 0 { m[i] = 0; m[i + 1] = 0; continue }
+                let a = m[i] / d[i], b = m[i + 1] / d[i], s = a * a + b * b
+                if s > 9 { let t = 3 / s.squareRoot(); m[i] = t * a * d[i]; m[i + 1] = t * b * d[i] }
+            }
+            ms = m
+        }
+
+        func callAsFunction(_ x: Double) -> Double {
+            let n = xs.count
+            guard n >= 2 else { return x }
+            if x <= xs[0] { return ys[0] }
+            if x >= xs[n - 1] { return ys[n - 1] }
+            var i = 0
+            while i < n - 2 && x > xs[i + 1] { i += 1 }
+            let h = xs[i + 1] - xs[i], t = (x - xs[i]) / h, t2 = t * t, t3 = t2 * t
+            return min(1, max(0, (2 * t3 - 3 * t2 + 1) * ys[i] + (t3 - 2 * t2 + t) * h * ms[i] + (-2 * t3 + 3 * t2) * ys[i + 1] + (t3 - t2) * h * ms[i + 1]))
+        }
+    }
+
+    /// The region sliders as points: the curve moved by `regionPerUnit` per unit at `darkAt`,
+    /// `midAt` and `lightAt` (the page: ±50 is a quarter of the range at 0.25, 0.5, 0.75).
+    static func curveRegionPoints(dark: Double, mid: Double, light: Double, _ rules: LookRules) -> [Look.ToneCurve.Point] {
+        let per = rules.k("curve", "regionPerUnit", 0.005)
+        let darkAt = min(0.45, max(0.05, rules.k("curve", "darkAt", 0.25))), lightAt = min(0.95, max(0.55, rules.k("curve", "lightAt", 0.75)))
+        let midAt = min(lightAt - 0.05, max(darkAt + 0.05, rules.k("curve", "midAt", 0.5)))
+        return [Look.ToneCurve.Point(0, 0), Look.ToneCurve.Point(darkAt, darkAt + dark * per), Look.ToneCurve.Point(midAt, midAt + mid * per),
+                Look.ToneCurve.Point(lightAt, lightAt + light * per), Look.ToneCurve.Point(1, 1)]
+    }
+
+    /// The three channels' transfers as tables of `curveNodes` values at p = i / (nodes − 1).
+    struct CurveTables: Equatable, Sendable {
+        var r: [Double], g: [Double], b: [Double]
+    }
+
+    static func curveTables(_ curve: Look.ToneCurve, _ rules: LookRules) -> CurveTables {
+        let all: CurveSpline?
+        if let pts = curve.rgb { all = CurveSpline(pts) }
+        else if curve.dark != 0 || curve.mid != 0 || curve.light != 0 { all = CurveSpline(curveRegionPoints(dark: curve.dark, mid: curve.mid, light: curve.light, rules)) }
+        else { all = nil }
+        func table(_ channel: [Look.ToneCurve.Point]?) -> [Double] {
+            let own = channel.map { CurveSpline($0) }
+            var top = 0.0
+            return (0..<curveNodes).map { i in
+                let x = Double(i) / Double(curveNodes - 1), m = all.map { $0(x) } ?? x
+                top = max(top, min(1, max(0, own.map { $0(m) } ?? m)))
+                return top
+            }
+        }
+        return CurveTables(r: table(curve.red), g: table(curve.green), b: table(curve.blue))
+    }
+
+    /// One perceptual value through a table: linear between nodes; above white the curve goes on
+    /// at slope 1 from its last value (the working space keeps what is above 1, clipped later).
+    static func curveLookup(_ table: [Double], _ p: Double) -> Double {
+        let n = table.count
+        guard n >= 2 else { return p }
+        let x = min(1, max(0, p)) * Double(n - 1), i = min(Double(n - 2), x.rounded(.down)), f = x - i
+        return table[Int(i)] + (table[Int(i) + 1] - table[Int(i)]) * f + max(0, p - 1)
+    }
+
+    static func curve(_ c: RGB, tables t: CurveTables, _ rules: LookRules) -> RGB {
+        RGB(r: linear(curveLookup(t.r, perceptual(c.r, rules)), rules), g: linear(curveLookup(t.g, perceptual(c.g, rules)), rules),
+            b: linear(curveLookup(t.b, perceptual(c.b, rules)), rules))
+    }
+
     // MARK: colour (Oklab chroma)
 
     /// Sign-preserving cube root, as the Metal kernel writes it (Metal has no cbrt).
@@ -315,6 +425,66 @@ nonisolated enum LookMath {
         return RGB(r: max(0, out.r), g: max(0, out.g), b: max(0, out.b))
     }
 
+    // MARK: mixer (the colour mixer: hue, saturation, luminance per colour)
+
+    /// The centres of the eight bands, Oklab hue in degrees, in `Look.Mixer.colours`' order.
+    /// They must ascend (red lowest): the bands are found by walking them.
+    static let mixerHueNames = ["hueRed", "hueOrange", "hueYellow", "hueGreen", "hueAqua", "hueBlue", "huePurple", "hueMagenta"]
+    static let mixerHueDefaults = [29.0, 55, 105, 143, 195, 262, 296, 335]
+    static func mixerCentres(_ rules: LookRules) -> [Double] {
+        zip(mixerHueNames, mixerHueDefaults).map { rules.k("mixer", $0, $1) }
+    }
+
+    /// Where a hue sits among the bands: between centre `lower` and the next one round the
+    /// circle, `upper`, with `weight` the upper band's share, smoothstep of the way across. The
+    /// lower band has the rest and every other band nothing, so the eight weights are smooth in
+    /// the hue, each 1 at its own centre, and always sum to 1.
+    static func mixerBand(hueDegrees h: Double, centres c: [Double]) -> (lower: Int, upper: Int, weight: Double) {
+        var i = c.count - 1                                      // below the first centre: the last band, a turn back
+        for n in 0..<c.count where h >= c[n] { i = n }
+        let j = i == c.count - 1 ? 0 : i + 1
+        var hi = c[j], hh = h
+        if j == 0 { hi += 360; if h < c[i] { hh += 360 } }
+        let t = min(1, max(0, (hh - c[i]) / max(1e-3, hi - c[i])))
+        return (i, j, t * t * (3 - 2 * t))
+    }
+
+    /// All eight weights (the tests and the docs; the stage only needs the two that are not 0).
+    static func mixerWeights(hueDegrees h: Double, centres c: [Double]) -> [Double] {
+        let b = mixerBand(hueDegrees: h, centres: c)
+        var w = [Double](repeating: 0, count: c.count)
+        w[b.lower] += 1 - b.weight; w[b.upper] += b.weight
+        return w
+    }
+
+    /// The stage on one colour, in Oklab like `colour`: with H, S, Lm the pixel's band-weighted
+    /// slider values, the hue turns by H · `hueDegreesPerUnit`, the chroma is scaled by
+    /// 1 + S · `saturationPerUnit`, and the lightness by 1 + Lm · `luminancePerUnit` · C / (C +
+    /// `luminanceChromaKnee`). Every one of the three is a change *of* or *in proportion to* the
+    /// chroma: a turned or scaled zero is zero, and the lightness factor is 1 at C = 0. A pixel
+    /// without chroma is returned as it came, so a grey is exactly the same grey for any of the
+    /// 24 values (and the stage cannot disturb a grey ramp). Near grey the changes fade in with
+    /// the chroma, so noise in the hue of an almost-grey pixel moves it almost nowhere.
+    /// First numbers, unfitted (band centres, strengths): nothing here claims Lightroom's mixer.
+    static func mixer(_ c: RGB, mixer m: Look.Mixer, _ rules: LookRules) -> RGB {
+        guard !m.isNeutral else { return c }
+        let lab = toOklab(c)
+        let C = hypot(lab.a, lab.b)
+        // "Without chroma" is relative to the lightness: an exact grey comes out of the Oklab
+        // matrices with C / L near 4e-8 (their rows sum to 1 only to ten digits), far below 1e-6.
+        guard C > max(1e-9, 1e-6 * abs(lab.L)) else { return c }
+        var h = atan2(lab.b, lab.a) * 180 / .pi
+        if h < 0 { h += 360 }
+        let band = mixerBand(hueDegrees: h, centres: mixerCentres(rules))
+        func at(_ v: [Double]) -> Double { v[band.lower] + (v[band.upper] - v[band.lower]) * band.weight }
+        let turn = at(m.hue) * rules.k("mixer", "hueDegreesPerUnit", 0.3) * .pi / 180
+        let sat = max(0, 1 + at(m.saturation) * rules.k("mixer", "saturationPerUnit", 0.01))
+        let L = max(0, lab.L * (1 + at(m.luminance) * rules.k("mixer", "luminancePerUnit", 0.003) * C / (C + max(1e-6, rules.k("mixer", "luminanceChromaKnee", 0.05)))))
+        let cs = cos(turn), sn = sin(turn)
+        let out = fromOklab(L, (lab.a * cs - lab.b * sn) * sat, (lab.a * sn + lab.b * cs) * sat)
+        return RGB(r: max(0, out.r), g: max(0, out.g), b: max(0, out.b))
+    }
+
     // MARK: clarity (perceptual luma on a base)
 
     static func clarity(_ q: Double, base: Double, clarity amount: Double, _ rules: LookRules) -> Double {
@@ -338,10 +508,75 @@ nonisolated enum LookMath {
 
     // MARK: vignette
 
-    /// `r`: distance from the centre over the half diagonal (0 centre, 1 corners).
-    static func vignetteGain(r: Double, vignette: Double, _ rules: LookRules) -> Double {
-        let m = rules.k("vignette", "midpoint", 0.5), f = rules.k("vignette", "feather", 0.5)
-        return exp2(vignette * rules.k("vignette", "stopsPerUnit", 0.02) * smoothstep(m - f / 2, m + f / 2, r))
+    /// The post-crop vignette: an amount (`vig`) and Lightroom's four shape sliders
+    /// (`Look.VignetteShape`), on the page's own scale (its `vigMask`), so the page's numbers go
+    /// through as they are (ruled 2026-10-05; before it the stage drew a circle in pixels with a
+    /// fixed falloff, and a plain `vig` looked different).
+    ///
+    /// Distance: u, v in −1 … 1 across the (cropped, turned) frame, d = (|u·sx|^p + |v·sy|^p)^(1/p),
+    /// scaled so the corners sit at 1.
+    /// - Roundness 0: the frame's own ellipse (sx = sy = 1, p = 2). It follows the frame's
+    ///   aspect: the four edge midpoints sit at 0.71, whatever the frame.
+    /// - Roundness +100: a circle in pixels (sx : sy = aspect : 1); between, sx and sy blend.
+    /// - Roundness −100: the frame's rectangle with round corners (p = `rectPower`, 8); between,
+    ///   p grows from 2.
+    /// Those ends are the page's, and Lightroom's as its panel describes them (0 an oval that
+    /// follows the frame, + rounder, − squarer); Lightroom's exact shapes at ±100 are not measured.
+    ///
+    /// Falloff: smoothstep from e0 to e1 on d, with d0 = `midpointAt0` + Midpoint/100 ·
+    /// `midpointPer100` and width w = `featherAt0` + Feather/100 · `featherPer100`: e0 = d0 −
+    /// `featherInside`·w, e1 = e0 + w. At 50 / 50: 0.636 … 1.016, the corners darkened and the
+    /// edges almost untouched. Feather 0 is a narrow edge, not a step (`featherAt0`).
+    ///
+    /// Amount: the gain is 2^(vig · `stopsPerUnit` · falloff), one gain for the three channels.
+    ///
+    /// Highlights (a darkening vignette only, as in Lightroom): the stops are scaled by
+    /// 1 − h·p^`highlightsPower`, p the pixel's perceptual luma in 0 … 1, so white is spared in
+    /// full at 100 and the shadows not at all. A grey stays grey (one gain), and since a
+    /// brighter pixel is never darkened more, luma stays monotonic at any place in the frame.
+    /// (The page's preview blends toward src^(1 + A·t·h), which also holds white; same intent.)
+    ///
+    /// The shape is the page's; the amount's strength and Highlights are first numbers,
+    /// unfitted: Lightroom has no vignette in the sweep yet.
+    struct VignetteForm: Equatable, Sendable {
+        /// The smoothstep's edges on the distance.
+        var edge0 = 0.636, edge1 = 1.016
+        /// Scales on |u| and |v|, the superellipse power, and 1 / (the distance at a corner).
+        var sx = 1.0, sy = 1.0, power = 2.0, norm = 0.5.squareRoot()
+        /// The share of the darkening a white pixel is spared (0 when the vignette lightens).
+        var keep = 0.0, keepPower = 2.0
+        var stopsPerUnit = 0.02
+
+        init(shape: Look.VignetteShape, vignette: Double, aspect: Double, _ rules: LookRules) {
+            let k = { (n: String, d: Double) in rules.k("vignette", n, d) }
+            let d0 = k("midpointAt0", 0.5) + shape.midpoint / 100 * k("midpointPer100", 0.5)
+            let w = max(1e-3, k("featherAt0", 0.08) + shape.feather / 100 * k("featherPer100", 0.6))
+            edge0 = d0 - k("featherInside", 0.3) * w; edge1 = edge0 + w
+            let q = min(100, max(-100, shape.roundness))
+            let a = min(100, max(0.01, aspect)), t = max(0, q) / 100, n = ((a * a + 1) / 2).squareRoot()
+            power = q < 0 ? 2 + (-q / 100) * (max(2, k("rectPower", 8)) - 2) : 2
+            sx = 1 + t * (a / n - 1); sy = 1 + t * (1 / n - 1)
+            norm = 1 / pow(pow(sx, power) + pow(sy, power), 1 / power)
+            keep = vignette < 0 ? min(1, max(0, shape.highlights / 100)) : 0
+            keepPower = max(0.1, k("highlightsPower", 2))
+            stopsPerUnit = k("stopsPerUnit", 0.02)
+        }
+
+        /// The distance of (u, v) from the centre: 0 there, 1 at the corners.
+        func distance(u: Double, v: Double) -> Double {
+            pow(pow(abs(u) * sx, power) + pow(abs(v) * sy, power), 1 / power) * norm
+        }
+    }
+
+    /// The stage on one pixel at distance `d` (`VignetteForm.distance`).
+    static func vignette(_ c: RGB, d: Double, vignette: Double, form: VignetteForm, _ rules: LookRules) -> RGB {
+        var stops = vignette * form.stopsPerUnit * smoothstep(form.edge0, form.edge1, d)
+        if form.keep > 0 {
+            let p = min(1, max(0, perceptual(luma(c, rules), rules)))
+            stops *= 1 - form.keep * pow(p, form.keepPower)
+        }
+        let g = exp2(stops)
+        return RGB(r: c.r * g, g: c.g * g, b: c.b * g)
     }
 
     // MARK: outputTransform (the display mapper)
@@ -435,9 +670,10 @@ nonisolated enum LookMath {
     // MARK: the whole chain on a flat patch
 
     /// Every stage on one colour, where blur(x) == x (a flat patch) and the pixel is at the frame's
-    /// centre (vignette gain 1 unless `r` says otherwise). This is what the pipeline tests and the
-    /// Python mirror compare against.
-    static func flat(_ input: RGB, look: Look, asShot: Look.WhiteBalance, rules: LookRules, vignetteR r: Double = 0, anchor: ToneAnchor = .reference) -> RGB {
+    /// centre (no vignette there unless `r` says otherwise: the pixel's distance from the centre, 1 at
+    /// the corners, by `VignetteForm.distance`; `aspect` is the frame's, for that form). This is what the pipeline tests and the Python
+    /// mirror compare against.
+    static func flat(_ input: RGB, look: Look, asShot: Look.WhiteBalance, rules: LookRules, vignetteR r: Double = 0, anchor: ToneAnchor = .reference, aspect: Double = 1.5) -> RGB {
         var c = input
         var anchor = anchor
         for stage in rules.lookStages {
@@ -467,14 +703,18 @@ nonisolated enum LookMath {
                 c = RGB(r: exposure(c.r * d, gain: g, white: w), g: exposure(c.g * d, gain: g, white: w), b: exposure(c.b * d, gain: g, white: w))
             case "contrast":
                 c = contrast(c, contrast: look.contrast, rules)
+            case "curve":
+                guard !look.curve.isNeutral else { continue }
+                c = curve(c, tables: curveTables(look.curve, rules), rules)
             case "colour":
                 c = colour(c, vibrance: look.vibrance, saturation: look.saturation, bw: look.bw, rules)
+            case "mixer":
+                c = mixer(c, mixer: look.mixer, rules)
             case "clarity", "sharpen":
                 continue                                          // q − base == 0 on a flat patch
             case "vignette":
                 guard look.vignette != 0 else { continue }
-                let g = vignetteGain(r: r, vignette: look.vignette, rules)
-                c = RGB(r: c.r * g, g: c.g * g, b: c.b * g)
+                c = vignette(c, d: r, vignette: look.vignette, form: VignetteForm(shape: look.vignetteShape, vignette: look.vignette, aspect: aspect, rules), rules)
             default:
                 continue
             }

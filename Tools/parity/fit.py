@@ -40,7 +40,7 @@ FREE = {
     "colour": ["saturationPerUnit", "vibrancePerUnit", "vibranceDownPerUnit", "vibranceChromaMax", "vibranceFloor", "skinHue", "skinWidth", "skinProtect"],
     "clarity": ["amountPerUnit", "midtonePower", "radiusFraction"],
     "sharpen": ["amountPerUnit", "threshold", "radiusPx"],
-    "vignette": ["stopsPerUnit", "midpoint", "feather"],
+    "vignette": ["stopsPerUnit"],
 }
 # The bounds hold the invariants the ramp tests enforce, so the fit can't propose what they would
 # reject: a whites / blacks exponent below 1 folds the curve back at the end it bends (not

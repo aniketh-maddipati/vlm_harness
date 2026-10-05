@@ -42,6 +42,9 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let rel: String
         let decoder: Int
         let roi: LookCanvasSchedule.ROI
+        /// The quarter turn (`Look.rot`) the region was made for: `roi`, `photoSize`, `rect` and
+        /// `image` are all in the turned picture. The tiles themselves are in the frame as shot.
+        var rot: Int = 0
         let photoSize: CGSize
         let rect: CGRect             // the tiles' union, full-frame pixels
         let image: CIImage           // the composite, origin at rect.origin
@@ -107,18 +110,20 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
     /// Renders the region on the tile queue. `seq` (from `nextSeq`) supersedes older requests (a
     /// pan, a new photo); `first` fires on the main thread when the first tile is ready, `done`
     /// with the composite. Failures name the decoder so the caller can fall back one version.
-    func region(rel: String, url: URL, decoder: Int, nr: Double?, roi: LookCanvasSchedule.ROI, seq: Int,
+    /// `rot` is the look's quarter turn: `roi` is then a region of the turned picture, and the
+    /// region comes back turned (the crop is not applied here, as before).
+    func region(rel: String, url: URL, decoder: Int, nr: Double?, roi: LookCanvasSchedule.ROI, rot: Int = 0, seq: Int,
                 first: @escaping (Double) -> Void, done: @escaping (Result<Region, Error>) -> Void) {
         lock.withLock { latest = max(latest, seq) }
         queue.addOperation { [self] in
-            let r = Result { try self.render(rel: rel, url: url, decoder: decoder, nr: nr, roi: roi, seq: seq, first: first) }
+            let r = Result { try self.render(rel: rel, url: url, decoder: decoder, nr: nr, roi: roi, rot: rot, seq: seq, first: first) }
             DispatchQueue.main.async { done(r) }
         }
     }
 
     private func stale(_ seq: Int) -> Bool { lock.withLock { latest > seq } }
 
-    private func render(rel: String, url: URL, decoder: Int, nr: Double?, roi: LookCanvasSchedule.ROI, seq: Int, first: @escaping (Double) -> Void) throws -> Region {
+    private func render(rel: String, url: URL, decoder: Int, nr: Double?, roi: LookCanvasSchedule.ROI, rot: Int, seq: Int, first: @escaping (Double) -> Void) throws -> Region {
         if stale(seq) { throw Cancelled() }
         let t0 = Date()
         let dkey = "\(rel)|\(decoder)|\(nr.map { Int($0.rounded()) } ?? -1)"
@@ -129,7 +134,7 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         }
         let size = dev.extent.size
         let w = Int(size.width), h = Int(size.height)
-        let wanted = LookRawPolicy.tiles(covering: roi, width: w, height: h, tile: tileSize)
+        let wanted = LookRawPolicy.tiles(covering: LookRawPolicy.unturned(roi, rot: rot), width: w, height: h, tile: tileSize)
         guard !wanted.isEmpty else { throw LookPipeline.Failure("empty region") }
         var tiles: [Tile] = []
         var hits = 0, firstMs = 0.0, firstSent = false
@@ -159,6 +164,13 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let facts = facts(composite, rect: rect)
         let total = Date().timeIntervalSince(t0) * 1000
         lock.withLock { _stats.regions += 1; _stats.cacheHits += hits; _stats.lastRegionMs = total; _stats.lastDecoder = decoder }
+        // The quarter turn: the composite and its place move with the whole frame's transform.
+        let turn = LookPipeline.turnTransform(size: size, rot: rot)
+        if !turn.isIdentity {
+            return Region(rel: rel, decoder: decoder, roi: roi, rot: rot, photoSize: rot % 180 == 0 ? size : CGSize(width: size.height, height: size.width),
+                          rect: rect.applying(turn), image: composite.transformed(by: turn), asShot: dev.asShot, anchor: dev.anchor,
+                          tiles: tiles.count, fromCache: hits, firstTileMs: firstMs, totalMs: total, facts: facts)
+        }
         return Region(rel: rel, decoder: decoder, roi: roi, photoSize: size, rect: rect, image: composite, asShot: dev.asShot, anchor: dev.anchor,
                       tiles: tiles.count, fromCache: hits, firstTileMs: firstMs, totalMs: total, facts: facts)
     }
