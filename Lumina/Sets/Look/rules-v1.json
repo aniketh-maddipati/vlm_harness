@@ -4,7 +4,7 @@
   "workingSpace": "extendedLinearSRGB",
   "perceptualGamma": 2.2,
   "luma": [0.2126, 0.7152, 0.0722],
-  "order": ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "colour", "clarity", "sharpen", "vignette", "outputTransform"],
+  "order": ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "clarity", "sharpen", "vignette", "outputTransform"],
   "stages": {
     "rawDevelop": {
       "locked": false,
@@ -36,6 +36,11 @@
       "form": "two-sided power curve in perceptual space around midpoint with slope a = 2^(contrast*slopePerUnit): below m: m*(p/m)^a, above: 1-(1-m)*((1-p)/(1-m))^a; applied per channel and on luma, mixed by lumaMix",
       "coefficients": { "midpoint": 0.4548, "slopePerUnit": 0.007384, "lumaMix": 0 }
     },
+    "curve": {
+      "locked": false,
+      "form": "the tone curve, display-referred, per channel in perceptual p = x^(1/gamma): T_c = F_c(M(p)) for p in 0..1, T_c(1) + (p - 1) above. M is the look's all-channels point curve (crv) when set, else the region sliders (tc:dark,mid,light) as the curve through (0,0), (darkAt, darkAt + dark*regionPerUnit), (midAt, midAt + mid*regionPerUnit), (lightAt, lightAt + light*regionPerUnit), (1,1); F_c is the channel's point curve (crvr, crvg, crvb). Every curve is the monotone cubic through its points (Fritsch-Carlson tangents, the page's cSpline; flat beyond its first and last point) after the points' y are made non-decreasing (y_i = max(y_i, y_(i-1))), so no input can make the transfer fall. Rendered as a 256-node lookup per channel, linear between nodes (LookMath.curveTables). Unfitted",
+      "coefficients": { "regionPerUnit": 0.005, "darkAt": 0.25, "midAt": 0.5, "lightAt": 0.75 }
+    },
     "colour": {
       "locked": false,
       "form": "Oklab chroma: C *= max(0, 1+saturation*saturationPerUnit) * max(0, 1 + vibrance*perUnit*(1-(1-vibranceFloor)*min(1,C/vibranceChromaMax))*(1-skinProtect*skin(h))) ; perUnit = vibrancePerUnit above 0, vibranceDownPerUnit below; skin(h) = exp(-((h-skinHue)/skinWidth)^2), only for vibrance > 0; bw sets C = 0",
@@ -53,8 +58,8 @@
     },
     "vignette": {
       "locked": false,
-      "form": "gain 2^(vignette*stopsPerUnit*smoothstep(midpoint-feather/2, midpoint+feather/2, r)) with r = distance from the centre over the half diagonal",
-      "coefficients": { "stopsPerUnit": 0.02, "midpoint": 0.5, "feather": 0.5 }
+      "form": "gain 2^(vignette*stopsPerUnit*smoothstep(midpoint-feather/2, midpoint+feather/2, r)) with r = distance from the centre over the half diagonal. With a shape (the look's vigs:mid,round,feather,hl off its reset 50,0,50,0; LookMath.VignetteForm, unfitted): the smoothstep's middle is midpoint + (mid-50)/100*midpointRange and its width feather*fea/50; r = (|u*sx|^p + |v*sy|^p)^(1/p) over its value at a corner, u and v in -1..1 across the frame, at position q = clamp(roundAtReset + round*(1 + roundAtReset/100), -100, 100) of the family +100 a circle in pixels (sx:sy = aspect:1, p 2), 0 the frame's ellipse (sx = sy = 1), -100 the frame's rectangle (p = rectPower); a darkening vignette's stops are scaled by 1 - hl/100*P^highlightsPower, P the pixel's perceptual luma in 0..1",
+      "coefficients": { "stopsPerUnit": 0.02, "midpoint": 0.5, "feather": 0.5, "midpointRange": 0.5, "roundAtReset": 100, "rectPower": 8, "highlightsPower": 2 }
     },
     "outputTransform": {
       "locked": false,

@@ -288,7 +288,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// program per set of stages, compiled the first time it renders (`LookWarmPlan`).
     func apply(_ look: Look, to dev: Developed, crop: Bool = true) -> CIImage {
         var img = dev.image
-        if crop, let c = look.crop { img = cropped(img, c) }
+        if crop { img = geometry(img, look.crop, rot: look.rot) }
         let extent = img.extent
         let longEdge = max(extent.width, extent.height)
         let gam = CIVector(x: 1 / rules.perceptualGamma, y: rules.perceptualGamma)
@@ -334,6 +334,10 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                                  y: exp2(look.contrast * r.k("contrast", "slopePerUnit", 0.006)),
                                  z: min(1, max(0, r.k("contrast", "lumaMix", 0.5))), w: 0)
                 pass("lookContrast", [img, k, gam, lum])
+            case "curve":
+                let lut = curveTable(look.curve)
+                let k = CIVector(x: 1 / r.perceptualGamma, y: r.perceptualGamma, z: Double(LookMath.curveNodes - 1), w: 0)
+                if let out = kernels.apply("lookCurve", extent: extent, table: lut, [img, lut, k]) { img = out }
             case "colour":
                 let up = r.k("colour", "vibrancePerUnit", 0.01)
                 let k1 = CIVector(x: max(0, 1 + look.saturation * r.k("colour", "saturationPerUnit", 0.01)),
@@ -351,6 +355,13 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 let base = blur(luma(perceptual: true), sigma: LookMath.sharpenRadius(longEdge: longEdge, r))
                 let k = CIVector(x: look.sharpen * r.k("sharpen", "amountPerUnit", 0.01), y: max(1e-6, r.k("sharpen", "threshold", 0.01)), z: 0, w: 0)
                 pass("lookSharpen", [img, base, k, gam, lum])
+            case "vignette" where !look.vignetteShape.isDefault:
+                // A shape slider is off its reset: the shaped form, its own kernel. The case below
+                // (every look without `vigs`) is the stage as it has always been, argument for argument.
+                let f = LookMath.VignetteForm(shape: look.vignetteShape, vignette: look.vignette, aspect: extent.height > 0 ? extent.width / extent.height : 1, r)
+                let k = CIVector(x: look.vignette * f.stopsPerUnit, y: f.edge0, z: f.edge1, w: f.keep)
+                let sh = CIVector(x: extent.width > 0 ? f.sx * 2 / extent.width : 0, y: extent.height > 0 ? f.sy * 2 / extent.height : 0, z: f.power, w: f.norm)
+                pass("lookVignetteShape", [img, k, sh, CIVector(x: f.keepPower, y: 1 / r.perceptualGamma, z: 0, w: 0), lum, CIVector(x: extent.midX, y: extent.midY)])
             case "vignette":
                 let m = r.k("vignette", "midpoint", 0.5), f = r.k("vignette", "feather", 0.5)
                 let halfDiag = hypot(extent.width, extent.height) / 2
@@ -363,9 +374,51 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         return img
     }
 
-    /// The crop and straighten alone (the canvas bakes them into its `base`, then applies the
-    /// look with `crop: false`).
-    func geometry(_ img: CIImage, _ c: Look.Crop?) -> CIImage { c.map { cropped(img, $0) } ?? img }
+    // MARK: the tone curve's table
+
+    private let curveLock = NSLock()
+    private var lastCurve: (curve: Look.ToneCurve, table: CIImage)?
+
+    /// `LookMath.curveTables` as an image the `lookCurve` kernel reads: `curveNodes` × 1 px, the
+    /// three channels' tables in r, g, b, raw floats (no colour space, read at texel centres).
+    /// The last curve's image is kept: while another slider moves, the curve's table is the
+    /// same image and Core Image does not upload it again.
+    func curveTable(_ curve: Look.ToneCurve) -> CIImage {
+        if let hit = curveLock.withLock({ lastCurve?.curve == curve ? lastCurve?.table : nil }) { return hit }
+        let t = LookMath.curveTables(curve, rules), n = LookMath.curveNodes
+        var px = [Float](repeating: 1, count: 4 * n)
+        for i in 0..<n { px[4 * i] = Float(t.r[i]); px[4 * i + 1] = Float(t.g[i]); px[4 * i + 2] = Float(t.b[i]) }
+        let img = CIImage(bitmapData: px.withUnsafeBufferPointer { Data(buffer: $0) }, bytesPerRow: 16 * n, size: CGSize(width: n, height: 1), format: .RGBAf, colorSpace: nil)
+            .samplingNearest()
+        curveLock.withLock { lastCurve = (curve, img) }
+        return img
+    }
+
+    /// The geometry alone: crop and straighten in the frame as shot, then the quarter turn
+    /// (`Look.rot`). The canvas bakes it into its `base`, then applies the look with `crop: false`;
+    /// previews and exports get it from `apply`. One function for all of them, so they agree.
+    func geometry(_ img: CIImage, _ c: Look.Crop?, rot: Int = 0) -> CIImage {
+        Self.turned(c.map { cropped(img, $0) } ?? img, rot: rot)
+    }
+
+    /// The transform that turns a frame of `size` clockwise by `rot` degrees (a multiple of 90)
+    /// and leaves it at the origin, in Core Image's coordinates (y up). A point of the frame
+    /// lands where it is in the turned picture, so a part of the frame (a region tile's
+    /// composite) turns with the same transform as the whole.
+    static func turnTransform(size: CGSize, rot: Int) -> CGAffineTransform {
+        switch ((rot % 360) + 360) % 360 {
+        case 90: return CGAffineTransform(a: 0, b: -1, c: 1, d: 0, tx: 0, ty: size.width)                  // (x, y) → (y, W − x)
+        case 180: return CGAffineTransform(a: -1, b: 0, c: 0, d: -1, tx: size.width, ty: size.height)      // (x, y) → (W − x, H − y)
+        case 270: return CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: size.height, ty: 0)                // (x, y) → (H − y, x)
+        default: return .identity
+        }
+    }
+
+    /// `img` (origin at 0, 0) turned clockwise by `rot` degrees. 0 is the image itself.
+    static func turned(_ img: CIImage, rot: Int) -> CIImage {
+        guard ((rot % 360) + 360) % 360 != 0, !img.extent.isInfinite else { return img }
+        return atOrigin(img.transformed(by: turnTransform(size: img.extent.size, rot: rot)))
+    }
 
     /// Straighten about the centre, then the box as fractions of the frame (y from the top).
     private func cropped(_ img: CIImage, _ c: Look.Crop) -> CIImage {

@@ -65,16 +65,18 @@ nonisolated struct LookWarmPlan: Sendable {
 
     init(enabled: Bool = true) { stats.enabled = enabled }
 
-    /// The stages `look` runs, in the rules' order.
+    /// The stages `look` runs, in the rules' order, each by the name of the program it runs
+    /// (`Look.program`: a stage with two kernels, the vignette, names which).
     static func signature(_ look: Look, stages: [String]) -> String {
-        let on = stages.filter(look.runs)
+        let on = stages.filter(look.runs).map(look.program)
         return on.isEmpty ? "none" : on.joined(separator: "+")
     }
 
-    /// The look itself, then the look with each stage switched; one per distinct set of stages.
+    /// The look itself, then the look with each stage switched (and, for a stage with two
+    /// kernels, with the other one); one per distinct set of programs.
     static func looks(around look: Look, stages: [String]) -> [Look] {
         var seen: Set<String> = [], out: [Look] = []
-        for l in [look] + stages.map(look.toggling) where seen.insert(signature(l, stages: stages)).inserted { out.append(l) }
+        for l in [look] + stages.flatMap(look.reachable) where seen.insert(signature(l, stages: stages)).inserted { out.append(l) }
         return out
     }
 
@@ -126,12 +128,31 @@ nonisolated extension Look {
         case "whitesBlacks": return whites != 0 || blacks != 0
         case "tone": return highlights != 0 || shadows != 0
         case "contrast": return contrast != 0
+        case "curve": return !curve.isNeutral
         case "colour": return vibrance != 0 || saturation != 0 || bw
         case "clarity": return clarity != 0
         case "sharpen": return sharpen != 0
         case "vignette": return vignette != 0
         default: return false
         }
+    }
+
+    /// The program `stage` runs for this look. The stage's own name, except where a stage has
+    /// two kernels: the vignette with a shape slider off its reset runs `lookVignetteShape`.
+    func program(_ stage: String) -> String {
+        stage == "vignette" && !vignetteShape.isDefault ? "vignette.shape" : stage
+    }
+
+    /// Every look one slider away through `stage`: the stage switched, and for the vignette
+    /// while it runs, its other kernel (the first move of a shape slider, or its return to reset).
+    func reachable(_ stage: String) -> [Look] {
+        var out = [toggling(stage)]
+        if stage == "vignette", runs(stage) {
+            var l = self
+            l.vignetteShape = vignetteShape.isDefault ? VignetteShape(midpoint: 40, roundness: 0, feather: 50, highlights: 0) : VignetteShape()
+            out.append(l)
+        }
+        return out
     }
 
     /// The look with `stage` switched: back to reset when it runs, to a small value when it
@@ -145,6 +166,7 @@ nonisolated extension Look {
         case "whitesBlacks": l.whites = on ? 10 : 0; l.blacks = 0
         case "tone": l.shadows = on ? 10 : 0; l.highlights = 0
         case "contrast": l.contrast = on ? 10 : 0
+        case "curve": l.curve = ToneCurve(); if on { l.curve.mid = 10 }          // one program for every curve: the table is data
         case "colour": l.vibrance = on ? 10 : 0; l.saturation = 0; l.bw = false
         case "clarity": l.clarity = on ? 10 : 0
         case "sharpen": l.sharpen = on ? 30 : 0

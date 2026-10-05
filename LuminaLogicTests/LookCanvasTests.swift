@@ -212,6 +212,26 @@ final class LookCanvasTests: XCTestCase {
         XCTAssertTrue(LookRawPolicy.tiles(covering: roi, width: 0, height: 0).isEmpty)
     }
 
+    /// `Look.rot`: the loupe's region is named in the turned picture, the tiles live in the frame as shot.
+    func testRegionOfATurnedPictureMapsBackToTheFrame() {
+        typealias ROI = LookCanvasSchedule.ROI
+        let roi = ROI(x: 0.1, y: 0.2, w: 0.3, h: 0.4)
+        func same(_ a: ROI, _ b: ROI, _ what: String) {
+            XCTAssertEqual(a.x, b.x, accuracy: 1e-12, what); XCTAssertEqual(a.y, b.y, accuracy: 1e-12, what)
+            XCTAssertEqual(a.w, b.w, accuracy: 1e-12, what); XCTAssertEqual(a.h, b.h, accuracy: 1e-12, what)
+        }
+        XCTAssertEqual(LookRawPolicy.unturned(roi, rot: 0), roi)
+        // Turned clockwise, the picture's top left corner is the frame's bottom left.
+        same(LookRawPolicy.unturned(ROI(x: 0, y: 0, w: 0.25, h: 0.5), rot: 90), ROI(x: 0, y: 0.75, w: 0.5, h: 0.25), "90")
+        same(LookRawPolicy.unturned(ROI(x: 0, y: 0, w: 0.25, h: 0.5), rot: 180), ROI(x: 0.75, y: 0.5, w: 0.25, h: 0.5), "180")
+        same(LookRawPolicy.unturned(ROI(x: 0, y: 0, w: 0.25, h: 0.5), rot: 270), ROI(x: 0.5, y: 0, w: 0.5, h: 0.25), "270")
+        // Turning the frame's region forward again (90 then 270, 180 twice) is the region itself.
+        same(LookRawPolicy.unturned(LookRawPolicy.unturned(roi, rot: 90), rot: 270), roi, "90 + 270")
+        same(LookRawPolicy.unturned(LookRawPolicy.unturned(roi, rot: 180), rot: 180), roi, "180 twice")
+        same(LookRawPolicy.unturned(roi, rot: -90), LookRawPolicy.unturned(roi, rot: 270), "-90 is 270")
+        XCTAssertTrue(LookRawPolicy.unturned(ROI(x: 0, y: 0, w: 1, h: 1), rot: 90).isWhole)
+    }
+
     // MARK: The warm-up plan (LookWarmPlan)
 
     private let stages = LookRules().lookStages
@@ -229,7 +249,13 @@ final class LookCanvasTests: XCTestCase {
         XCTAssertEqual(stages.filter(wb.runs), ["whiteBalance"])
         var bw = Look(); bw.bw = true
         XCTAssertEqual(stages.filter(bw.runs), ["colour"])
-        XCTAssertEqual(seen.union(["whiteBalance"]), Set(stages), "every stage has a slider that switches it on")
+        // The stages whose controls are not plain sliders: each of their keys switches exactly that stage.
+        for text in ["tc:0,+10,0", "tc:-5,0,0", "crv:0,0/0.5,0.6/1,1", "crvr:0,0.1/1,1", "crvg:0,0/1,0.9", "crvb:0,0/0.4,0.5/1,1", "tc:+10,0,0 crv:0,0/0.5,0.6/1,1 crvb:0,0/1,0.9"] {
+            XCTAssertEqual(stages.filter(try Look.parse(text).runs), ["curve"], text)
+        }
+        XCTAssertEqual(seen.union(["whiteBalance", "curve"]), Set(stages), "every stage has a control that switches it on")
+        // rot is geometry (the base), the vignette's shape draws nothing without an amount.
+        XCTAssertEqual(LookWarmPlan.signature(try Look.parse("rot:90 vigs:20,-50,80,40 tc:0,0,0 crv:0,0/1,1"), stages: stages), "none")
         // nr and crop belong to the base (the RAW stage, the geometry), not to a look stage.
         XCTAssertEqual(LookWarmPlan.signature(try Look.parse("nr:40 crop:0.1,0.1,0.5,0.5/2"), stages: stages), "none")
         XCTAssertEqual(LookWarmPlan.signature(try Look.parse("vig:-20 ev:+0.30 con:+10"), stages: stages), "exposure+contrast+vignette", "in the order the stages run")
@@ -264,6 +290,34 @@ final class LookCanvasTests: XCTestCase {
                 XCTAssertTrue(around.contains(LookWarmPlan.signature(l, stages: stages)), "\(key) = \(v)")
             }
         }
+    }
+
+    /// The vignette has two kernels (reset shape, any other shape): the plan names which one a
+    /// look runs and, while the vignette runs, warms the other, so the first move of a shape
+    /// slider (or its return to reset) lands on a compiled program.
+    func testWarmPlanKnowsTheVignettesTwoKernels() throws {
+        let plain = try Look.parse("ev:+0.30 vig:-20"), shaped = try Look.parse("ev:+0.30 vig:-20 vigs:50,0,50,30")
+        XCTAssertEqual(LookWarmPlan.signature(plain, stages: stages), "exposure+vignette")
+        XCTAssertEqual(LookWarmPlan.signature(shaped, stages: stages), "exposure+vignette.shape")
+        XCTAssertEqual(LookWarmPlan.signature(try Look.parse("ev:+0.30 vigs:50,0,50,30"), stages: stages), "exposure", "a shape without an amount runs nothing")
+        let around = LookWarmPlan.looks(around: plain, stages: stages).map { LookWarmPlan.signature($0, stages: stages) }
+        XCTAssertEqual(around.count, stages.count + 2); XCTAssertEqual(Set(around).count, around.count)
+        XCTAssertTrue(around.contains("exposure+vignette.shape"), "the first move of Midpoint, Roundness, Feather or Highlights")
+        XCTAssertTrue(around.contains("exposure"), "the amount dragged through 0")
+        let back = LookWarmPlan.looks(around: shaped, stages: stages).map { LookWarmPlan.signature($0, stages: stages) }
+        XCTAssertEqual(back.first, "exposure+vignette.shape"); XCTAssertTrue(back.contains("exposure+vignette"), "the shape back at its reset")
+        // Every single shape slider change from either look lands on a warmed set.
+        for (from, sets) in [(plain, around), (shaped, back)] {
+            for s in [Look.VignetteShape(), Look.VignetteShape(midpoint: 10), Look.VignetteShape(roundness: -80), Look.VignetteShape(feather: 0), Look.VignetteShape(highlights: 100)] {
+                var l = from; l.vignetteShape = s
+                XCTAssertTrue(sets.contains(LookWarmPlan.signature(l, stages: stages)), "\(s)")
+            }
+        }
+        // With the vignette off, switching it on keeps the look's shape: that is the kernel the first drag of the amount needs.
+        let off = try Look.parse("vigs:50,-40,50,0")
+        XCTAssertEqual(LookWarmPlan.signature(off.toggling("vignette"), stages: stages), "vignette.shape")
+        XCTAssertEqual(off.toggling("vignette").vignetteShape, off.vignetteShape)
+        XCTAssertEqual(LookWarmPlan.looks(around: off, stages: stages).count, stages.count + 1)
     }
 
     func testWarmPlanOrdersSmallFirstAndNeverRepeats() throws {

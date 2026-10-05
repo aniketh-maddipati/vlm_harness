@@ -49,6 +49,79 @@ final class LookStringTests: XCTestCase {
         XCTAssertEqual(try Look.parse(l.format()), l)
     }
 
+    /// `rot`: a quarter turn, geometry like the crop. Written only when set, last.
+    func testQuarterTurn() throws {
+        XCTAssertEqual(Look().rot, 0)
+        for r in [90, 180, 270] {
+            let l = try Look.parse("rot:\(r)")
+            XCTAssertEqual(l.rot, r)
+            XCTAssertTrue(l.isNeutral, "a turn is geometry, not a look stage")
+            XCTAssertTrue(l.format().hasSuffix(" vig:0 rot:\(r)"))
+            XCTAssertEqual(try Look.parse(l.format()), l)
+        }
+        XCTAssertEqual(try Look.parse("rot:0"), Look())
+        XCTAssertFalse(try Look.parse("rot:0").format().contains("rot"), "the reset value is not written")
+        XCTAssertEqual(try Look.parse("rot:-90").rot, 270); XCTAssertEqual(try Look.parse("rot:360").rot, 0); XCTAssertEqual(try Look.parse("rot:450").rot, 90)
+        XCTAssertThrowsError(try Look.parse("rot:45")); XCTAssertThrowsError(try Look.parse("rot:90.5"))
+        XCTAssertThrowsError(try Look.parse("rot:right")); XCTAssertThrowsError(try Look.parse("rot:90 rot:180"))
+        // Separate from the crop's straighten angle, and written after the crop.
+        let both = try Look.parse("rot:270 crop:0.1,0.2,0.5,0.6/-1.5")
+        XCTAssertEqual(both.crop?.rotate, -1.5); XCTAssertEqual(both.rot, 270)
+        XCTAssertTrue(both.format().hasSuffix("crop:0.1000,0.2000,0.5000,0.6000/-1.50 rot:270"))
+        XCTAssertEqual(try Look.parse(both.format()), both)
+    }
+
+    /// `vigs:midpoint,roundness,feather,highlights`: the vignette's shape, written only off its reset.
+    func testVignetteShape() throws {
+        XCTAssertTrue(Look().vignetteShape.isDefault)
+        XCTAssertEqual(Look().vignetteShape, Look.VignetteShape(midpoint: 50, roundness: 0, feather: 50, highlights: 0))
+        let l = try Look.parse("vig:-30 vigs:40,-20,70,25")
+        XCTAssertEqual(l.vignetteShape, Look.VignetteShape(midpoint: 40, roundness: -20, feather: 70, highlights: 25))
+        XCTAssertTrue(l.format().hasSuffix("vig:-30 vigs:40,-20,70,25"))
+        XCTAssertEqual(try Look.parse(l.format()), l)
+        XCTAssertTrue(try Look.parse("vigs:50,+35,50,0").format().hasSuffix("vig:0 vigs:50,+35,50,0"), "roundness is signed like the other ± sliders")
+        // The reset is not written, so a look that never touched the shape is the string it was.
+        XCTAssertEqual(try Look.parse("vig:-30 vigs:50,0,50,0"), try Look.parse("vig:-30"))
+        XCTAssertEqual(try Look.parse("vig:-30 vigs:50,0,50,0").format(), "ev:0.00 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:-30")
+        // A shape without an amount draws nothing: the look is neutral.
+        XCTAssertTrue(try Look.parse("vigs:10,-100,0,100").isNeutral)
+        // Clamped into Lightroom's ranges; the wrong number of values or a word is an error.
+        XCTAssertEqual(try Look.parse("vigs:-5,-500,400,101").vignetteShape, Look.VignetteShape(midpoint: 0, roundness: -100, feather: 100, highlights: 100))
+        XCTAssertThrowsError(try Look.parse("vigs:50,0,50")); XCTAssertThrowsError(try Look.parse("vigs:50,0,50,0,0"))
+        XCTAssertThrowsError(try Look.parse("vigs:50,round,50,0")); XCTAssertThrowsError(try Look.parse("vigs:"))
+    }
+
+    /// The tone curve: `tc:dark,mid,light` and the point curves `crv`, `crvr`, `crvg`, `crvb`.
+    func testToneCurve() throws {
+        typealias P = Look.ToneCurve.Point
+        XCTAssertTrue(Look().curve.isNeutral)
+        let l = try Look.parse("tc:+10,0,-8 crv:0,0/0.25,0.2/0.6,0.7125/1,1 crvr:0,0.05/1,1 crvb:0,0/0.5,0.4/1,0.9")
+        XCTAssertEqual(l.curve.dark, 10); XCTAssertEqual(l.curve.mid, 0); XCTAssertEqual(l.curve.light, -8)
+        XCTAssertEqual(l.curve.rgb, [P(0, 0), P(0.25, 0.2), P(0.6, 0.7125), P(1, 1)])
+        XCTAssertEqual(l.curve.red, [P(0, 0.05), P(1, 1)]); XCTAssertNil(l.curve.green); XCTAssertEqual(l.curve.blue?.count, 3)
+        XCTAssertFalse(l.isNeutral)
+        XCTAssertTrue(l.format().hasSuffix("vig:0 tc:+10,0,-8 crv:0,0/0.25,0.2/0.6,0.7125/1,1 crvr:0,0.05/1,1 crvb:0,0/0.5,0.4/1,0.9"), l.format())
+        XCTAssertEqual(try Look.parse(l.format()), l)
+        // Reset values are not written: the region sliders at 0, a curve that is the diagonal.
+        XCTAssertEqual(try Look.parse("tc:0,0,0 crv:0,0/1,1 crvg:0,0/0.5,0.5/1,1"), Look())
+        XCTAssertEqual(try Look.parse("tc:0,0,0 crv:0,0/1,1").format(), Look().format())
+        XCTAssertFalse(try Look.parse("tc:0,+5,0").isNeutral)
+        // Numbers clamp (regions to ±50, points into 0…1 at four decimals); the list's shape is checked.
+        XCTAssertEqual(try Look.parse("tc:-80,+51,+3").curve.dark, -50); XCTAssertEqual(try Look.parse("tc:-80,+51,+3").curve.mid, 50)
+        XCTAssertEqual(try Look.parse("crv:-0.2,-1/0.33333333,0.5/1.5,2").curve.rgb, [P(0, 0), P(0.3333, 0.5), P(1, 1)])
+        XCTAssertEqual(try Look.parse("crv:0,0/0.33333333,0.5/1,1").format(), try Look.parse("crv:0,0/0.3333,0.5/1,1").format())
+        XCTAssertThrowsError(try Look.parse("tc:1,2")); XCTAssertThrowsError(try Look.parse("tc:a,b,c"))
+        XCTAssertThrowsError(try Look.parse("crv:0,0"), "one point is not a curve")
+        XCTAssertThrowsError(try Look.parse("crv:0,0/0.5/1,1")); XCTAssertThrowsError(try Look.parse("crv:0,0/0.5,x/1,1"))
+        XCTAssertThrowsError(try Look.parse("crv:0,0/0.6,0.5/0.4,0.7/1,1"), "x must increase")
+        XCTAssertThrowsError(try Look.parse("crv:0,0/0.5,0.5/0.5,0.7/1,1"), "x must increase strictly")
+        XCTAssertThrowsError(try Look.parse("crvr:" + (0...Look.ToneCurve.maxPoints).map { "\(Double($0) / 100),0.5" }.joined(separator: "/")), "too many points")
+        XCTAssertThrowsError(try Look.parse("crvx:0,0/1,1"), "unknown key")
+        // A falling curve is kept as written (it is the page's state); the stage repairs it when it renders.
+        XCTAssertEqual(try Look.parse("crv:0,0/0.3,0.8/0.6,0.2/1,1").curve.rgb?[2], P(0.6, 0.2))
+        XCTAssertEqual(Look.keys.filter { $0.hasPrefix("crv") || $0 == "tc" }, ["tc", "crv", "crvr", "crvg", "crvb"])
+    }
+
     func testSingleSliderLooksForTheSweep() {
         let asShot = Look.WhiteBalance(kelvin: 5100, tint: 4)
         XCTAssertEqual(Look.single("Exposure", 1.5, asShot: asShot)?.ev, 1.5)
