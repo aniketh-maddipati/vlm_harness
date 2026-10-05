@@ -23,17 +23,56 @@ nonisolated struct SetsExportJob {
         }
     }
 
+    struct Failed: Codable, Equatable {
+        let name: String
+        let reason: String
+    }
+
     struct Result: Codable, Equatable {
-        var n = 0
-        var bak = 0
-        var renamed = 0
-        var folder = ""
-        var failed: [String] = []
+        var n: Int
+        var bak: Int
+        var renamed: Int
+        var folder: String
+        var failed: [String]
+        /// One entry for every item that did not land. `failed` remains for older callers.
+        var errors: [Failed]
         /// The RAW decoder each look render used ("raw 9", "raw 8 (raw 9 failed: …)"), in order.
-        var decoders: [String] = []
+        var decoders: [String]
         /// Files whose RAW 9 render failed and were rendered again with the previous version.
-        var fallbacks: [String] = []
-        var renderMs: [Double] = []
+        var fallbacks: [String]
+        var renderMs: [Double]
+
+        init(n: Int = 0, bak: Int = 0, renamed: Int = 0, folder: String = "",
+             failed: [String] = [], errors: [Failed] = [], decoders: [String] = [],
+             fallbacks: [String] = [], renderMs: [Double] = []) {
+            self.n = n
+            self.bak = bak
+            self.renamed = renamed
+            self.folder = folder
+            self.failed = failed
+            self.errors = errors
+            self.decoders = decoders
+            self.fallbacks = fallbacks
+            self.renderMs = renderMs
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case n, bak, renamed, folder, failed, errors, decoders, fallbacks, renderMs
+        }
+
+        /// Results written before per-file errors existed still open with an empty error list.
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            n = try c.decode(Int.self, forKey: .n)
+            bak = try c.decode(Int.self, forKey: .bak)
+            renamed = try c.decode(Int.self, forKey: .renamed)
+            folder = try c.decode(String.self, forKey: .folder)
+            failed = try c.decode([String].self, forKey: .failed)
+            errors = try c.decodeIfPresent([Failed].self, forKey: .errors) ?? []
+            decoders = try c.decode([String].self, forKey: .decoders)
+            fallbacks = try c.decode([String].self, forKey: .fallbacks)
+            renderMs = try c.decode([Double].self, forKey: .renderMs)
+        }
 
         /// One line for the export's result block (Prompt 1 §7's `decoder`): "RAW 9", or
         /// "RAW 8 + RAW 9 · 1 file fell back".
@@ -84,11 +123,25 @@ nonisolated struct SetsExportJob {
     /// and its folder — symlinks followed — must not be a source folder or on the card.
     static func landing(_ name: String, in destination: URL, sources: [URL]) -> Swift.Result<URL, SetsFileOps.Failure> {
         let base = destination.standardizedFileURL
-        let dst = base.appendingPathComponent(name).standardizedFileURL
-        guard dst.path.hasPrefix(base.path + "/") else { return .failure(.init("\(name): outside the export folder")) }
+        let parts = name.split(separator: "/", omittingEmptySubsequences: false)
+        guard !name.hasPrefix("/"), (1...2).contains(parts.count),
+              !parts.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }) else {
+            return .failure(.init("outside the export folder"))
+        }
+        let dst = base.appendingPathComponent(name)
+        if (try? dst.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true {
+            return .failure(.init("a linked file cannot be an export destination"))
+        }
         var parent = dst.deletingLastPathComponent()
         while !FileManager.default.fileExists(atPath: parent.path), parent.path != "/" { parent.deleteLastPathComponent() }
-        if let why = SetsFileOps.refusal(destination: parent.resolvingSymlinksInPath(), sources: sources) { return .failure(.init(why)) }
+        var baseAnchor = base
+        while !FileManager.default.fileExists(atPath: baseAnchor.path), baseAnchor.path != "/" { baseAnchor.deleteLastPathComponent() }
+        let realBase = baseAnchor.resolvingSymlinksInPath()
+        let realParent = parent.resolvingSymlinksInPath()
+        guard realParent.path == realBase.path || realParent.path.hasPrefix(realBase.path + "/") else {
+            return .failure(.init("a linked folder leads outside the export folder"))
+        }
+        if let why = SetsFileOps.refusal(destination: realParent, sources: sources) { return .failure(.init(why)) }
         return .success(dst)
     }
 
@@ -100,6 +153,7 @@ nonisolated struct SetsExportJob {
         let needed = bytesNeeded(), margin = max(Int64(1 << 20), needed / 20)
         if let free = SetsFileOps.freeBytes(at: destination), free < needed + margin {
             r.failed.append("Not enough space in \(destination.lastPathComponent): needs \(ByteCountFormatter.string(fromByteCount: needed, countStyle: .file)), \(ByteCountFormatter.string(fromByteCount: free, countStyle: .file)) free. Nothing was written.")
+            r.errors = items.map { Failed(name: $0.name, reason: "disk full") }
             return r
         }
         journal?.begin(label: label, destination: destination, names: items.map(\.name))
@@ -121,6 +175,8 @@ nonisolated struct SetsExportJob {
                 r.n += 1
                 journal?.done(item.name)
             } catch {
+                let reason = (error as? SetsFileOps.Failure)?.description ?? SetsFileOps.reason(error)
+                r.errors.append(Failed(name: item.name, reason: reason))
                 if let src = item.source, !FileManager.default.fileExists(atPath: src.path) {
                     r.failed.append(Self.missing(src))
                 } else if Self.isDiskFull(error) {
@@ -128,12 +184,10 @@ nonisolated struct SetsExportJob {
                 } else {
                     r.failed.append("\(item.name): \(error)")
                 }
-                journal?.finish(ok: false)
-                return r
             }
             progress(i + 1, items.count)
         }
-        journal?.finish(ok: true)
+        journal?.finish(ok: r.errors.isEmpty)
         return r
     }
 }
