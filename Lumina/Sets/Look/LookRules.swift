@@ -38,7 +38,7 @@ nonisolated struct LookRules: Codable, Equatable, Sendable {
     ///   trims (with `bw` the picture has no chroma left and the mixer does nothing, as on the
     ///   page, which hides it then). Clarity and sharpening then see the final luminances, and
     ///   the vignette stays last, over everything, as a post-crop effect.
-    static let canonicalOrder = ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour",
+    static let canonicalOrder = ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer",
                                  "clarity", "sharpen", "vignette", "outputTransform"]
     static let fileName = "rules-v1.json"
 
@@ -61,7 +61,7 @@ nonisolated struct LookRules: Codable, Equatable, Sendable {
     /// loads: the stage is put at its canonical place with no coefficients, i.e. the code's
     /// fallbacks, which are the shipped numbers. It changes nothing for a look that does not
     /// use the stage.
-    static let addedStages: [(name: String, after: String)] = [("curve", "contrast")]
+    static let addedStages: [(name: String, after: String)] = [("curve", "contrast"), ("mixer", "colour")]
 
     func upgraded() -> LookRules {
         var r = self

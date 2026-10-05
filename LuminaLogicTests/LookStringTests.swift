@@ -122,6 +122,36 @@ final class LookStringTests: XCTestCase {
         XCTAssertEqual(Look.keys.filter { $0.hasPrefix("crv") || $0 == "tc" }, ["tc", "crv", "crvr", "crvg", "crvb"])
     }
 
+    /// The colour mixer: `mixh`, `mixs`, `mixl`, eight values each (red … magenta).
+    func testColourMixer() throws {
+        XCTAssertEqual(Look.Mixer.colours, ["red", "orange", "yellow", "green", "aqua", "blue", "purple", "magenta"])
+        XCTAssertTrue(Look().mixer.isNeutral)
+        let l = try Look.parse("mixh:0,+10,0,0,0,-25,0,0 mixs:+40,0,0,-100,0,0,0,+5 mixl:0,0,0,0,0,-30,0,0")
+        XCTAssertEqual(l.mixer.hue, [0, 10, 0, 0, 0, -25, 0, 0]); XCTAssertEqual(l.mixer.saturation, [40, 0, 0, -100, 0, 0, 0, 5]); XCTAssertEqual(l.mixer.luminance[5], -30)
+        XCTAssertFalse(l.isNeutral)
+        XCTAssertTrue(l.format().hasSuffix("vig:0 mixh:0,+10,0,0,0,-25,0,0 mixs:+40,0,0,-100,0,0,0,+5 mixl:0,0,0,0,0,-30,0,0"), l.format())
+        XCTAssertEqual(try Look.parse(l.format()), l)
+        // Only the rows in use are written; all zeros is no key at all.
+        XCTAssertTrue(try Look.parse("mixs:0,0,+7,0,0,0,0,0").format().hasSuffix("vig:0 mixs:0,0,+7,0,0,0,0,0"))
+        XCTAssertEqual(try Look.parse("mixh:0,0,0,0,0,0,0,0 mixl:0,0,0,0,0,0,0,0"), Look())
+        XCTAssertEqual(try Look.parse("mixh:0,0,0,0,0,0,0,0").format(), Look().format())
+        // Clamped to ±100; eight values exactly.
+        XCTAssertEqual(try Look.parse("mixl:-500,0,0,0,0,0,0,+101").mixer.luminance, [-100, 0, 0, 0, 0, 0, 0, 100])
+        XCTAssertThrowsError(try Look.parse("mixh:0,0,0,0,0,0,0")); XCTAssertThrowsError(try Look.parse("mixh:0,0,0,0,0,0,0,0,0"))
+        XCTAssertThrowsError(try Look.parse("mixs:0,0,red,0,0,0,0,0")); XCTAssertThrowsError(try Look.parse("mix:0,0,0,0,0,0,0,0"), "unknown key")
+    }
+
+    /// All four additions in one string, in canonical order, and a string without them unchanged.
+    func testEveryAddedKeyTogether() throws {
+        let s = "ev:+0.30 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:-30 vigs:40,-20,70,25 tc:+10,0,-8 crv:0,0/0.25,0.2/1,1 crvr:0,0.05/1,1 mixh:0,+10,0,0,0,0,0,0 mixs:0,0,0,0,0,+20,0,0 mixl:0,0,0,0,0,-15,0,0 nr:20 crop:0.1000,0.1000,0.8000,0.8000/1.50 rot:90"
+        let l = try Look.parse(s)
+        XCTAssertEqual(l.format(), s)
+        XCTAssertEqual(try Look.parse(s.split(separator: " ").reversed().joined(separator: " ")), l, "any order")
+        XCTAssertEqual(Look.keys, ["ev", "wb", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot"])
+        let old = "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:-20 nr:40 bw:1 crop:0.1000,0.2000,0.5000,0.6000/-1.50"
+        XCTAssertEqual(try Look.parse(old).format(), old)
+    }
+
     func testSingleSliderLooksForTheSweep() {
         let asShot = Look.WhiteBalance(kelvin: 5100, tint: 4)
         XCTAssertEqual(Look.single("Exposure", 1.5, asShot: asShot)?.ev, 1.5)

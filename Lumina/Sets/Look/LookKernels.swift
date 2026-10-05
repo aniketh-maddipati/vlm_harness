@@ -168,13 +168,6 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(s.rgb * ratio, s.a);
     }
 
-    // vignette: k = (amountStops, edge0, edge1, invHalfDiagonal), c = centre in pixels
-    [[ stitchable ]] float4 lookVignette(coreimage::sample_t s, float4 k, float2 c, coreimage::destination dest) {
-        float r = length(dest.coord() - c) * k.w;
-        float g = exp2(k.x * lk_smooth(k.y, k.z, r));
-        return float4(s.rgb * g, s.a);
-    }
-
     // outputTransform's sigmoid mapper (LookMath.DisplayMapper): inset, the shoulder per channel in log2
     // around mid grey, the hue put back, outset, 0…1. r0…r2 = the inset's rows, o0…o2 = the outset's;
     // k = (kneeEV, maxEV, stops from the knee to white, hueKeep)
@@ -208,15 +201,16 @@ nonisolated final class LookKernels: @unchecked Sendable {
     }
     """
 
-    /// The kernels of the stages added after the first twelve sliders (the vignette's shape, the
-    /// tone curve, the colour mixer). A source of their own, compiled with `source`'s helpers plus
-    /// the ones here: `source` and every kernel in it stay byte for byte what they were, so a
-    /// look that uses none of the new keys compiles and runs exactly the programs it did before.
+    /// The kernels of the stages added or re-formed after the first twelve sliders (the vignette
+    /// with its shape, the tone curve, the colour mixer). A source of their own, compiled with
+    /// `source`'s helpers plus the ones here: the kernels in `source` stay what they were, so a
+    /// look that uses none of the new keys (and no `vig`, whose form changed on 2026-10-05)
+    /// compiles and runs exactly the programs it did before.
     static let moreSource = """
 
-    // vignette with a shape (LookMath.vignetteShaped). k = (amountStops, edge0, edge1, highlights kept 0…1),
+    // vignette (LookMath.vignette: the amount and its four shape sliders). k = (amountStops, edge0, edge1, highlights kept 0…1),
     // sh = (sx·2/width, sy·2/height, power, 1/corner distance), hl = (highlightsPower, invGamma, 0, 0), c = centre in pixels
-    [[ stitchable ]] float4 lookVignetteShape(coreimage::sample_t s, float4 k, float4 sh, float4 hl, float4 lum, float2 c, coreimage::destination dest) {
+    [[ stitchable ]] float4 lookVignette(coreimage::sample_t s, float4 k, float4 sh, float4 hl, float4 lum, float2 c, coreimage::destination dest) {
         float2 uv = fabs(dest.coord() - c) * sh.xy;
         float d = pow(pow(uv.x, sh.z) + pow(uv.y, sh.z), 1.0f / sh.z) * sh.w;
         float e = k.x * lk_smooth(k.y, k.z, d);
@@ -241,14 +235,55 @@ nonisolated final class LookKernels: @unchecked Sendable {
         float3 q = mix(lo, hi, f) + max(float3(0.0f), p - 1.0f);
         return float4(pow(max(float3(0.0f), q), float3(k.y)), s.a);
     }
+
+    // mixer: hue, saturation, luminance per colour band, in Oklab (LookMath.mixer). cA, cB = the eight band
+    // centres (degrees, ascending); hA, hB = the bands' hue turns in degrees; sA, sB = their chroma changes
+    // (factor − 1); lA, lB = their lightness changes (factor − 1 at full chroma); k = (luminanceChromaKnee, 0, 0, 0)
+    [[ stitchable ]] float4 lookMixer(coreimage::sample_t s, float4 cA, float4 cB, float4 hA, float4 hB, float4 sA, float4 sB, float4 lA, float4 lB, float4 k) {
+        float3 c = s.rgb;
+        float l = lk_cbrt(0.4122214708f * c.r + 0.5363325363f * c.g + 0.0514459929f * c.b);
+        float m = lk_cbrt(0.2119034982f * c.r + 0.6806995451f * c.g + 0.1073969566f * c.b);
+        float sc = lk_cbrt(0.0883024619f * c.r + 0.2817188376f * c.g + 0.6299787005f * c.b);
+        float L = 0.2104542553f * l + 0.7936177850f * m - 0.0040720468f * sc;
+        float A = 1.9779984951f * l - 2.4285922050f * m + 0.4505937099f * sc;
+        float B = 0.0259040371f * l + 0.7827717662f * m - 0.8086757660f * sc;
+        float C = length(float2(A, B));
+        if (C <= max(1e-9f, 1e-6f * fabs(L))) return s;
+        float h = atan2(B, A) * 57.29577951308232f;
+        if (h < 0.0f) h += 360.0f;
+        float cen[8] = { cA.x, cA.y, cA.z, cA.w, cB.x, cB.y, cB.z, cB.w };
+        float dh[8] = { hA.x, hA.y, hA.z, hA.w, hB.x, hB.y, hB.z, hB.w };
+        float ds[8] = { sA.x, sA.y, sA.z, sA.w, sB.x, sB.y, sB.z, sB.w };
+        float dl[8] = { lA.x, lA.y, lA.z, lA.w, lB.x, lB.y, lB.z, lB.w };
+        int i = 7;
+        for (int n = 0; n < 8; n++) { if (h >= cen[n]) i = n; }
+        int j = i == 7 ? 0 : i + 1;
+        float hi = cen[j], hh = h;
+        if (j == 0) { hi += 360.0f; if (h < cen[i]) hh += 360.0f; }
+        float t = clamp((hh - cen[i]) / max(1e-3f, hi - cen[i]), 0.0f, 1.0f);
+        float w = t * t * (3.0f - 2.0f * t);
+        float turn = mix(dh[i], dh[j], w) * 0.017453292519943295f;
+        float sat = max(0.0f, 1.0f + mix(ds[i], ds[j], w));
+        float L2 = max(0.0f, L * (1.0f + mix(dl[i], dl[j], w) * C / (C + k.x)));
+        float cs = cos(turn), sn = sin(turn);
+        float A2 = (A * cs - B * sn) * sat, B2 = (A * sn + B * cs) * sat;
+        float l_ = L2 + 0.3963377774f * A2 + 0.2158037573f * B2;
+        float m_ = L2 - 0.1055613458f * A2 - 0.0638541728f * B2;
+        float s_ = L2 - 0.0894841775f * A2 - 1.2914855480f * B2;
+        float l3 = l_ * l_ * l_, m3 = m_ * m_ * m_, s3 = s_ * s_ * s_;
+        float3 o = float3(4.0767416621f * l3 - 3.3077115913f * m3 + 0.2309699292f * s3,
+                          -1.2684380046f * l3 + 2.6097574011f * m3 - 0.3413193965f * s3,
+                          -0.0041960863f * l3 - 0.7034186147f * m3 + 1.7076147010f * s3);
+        return float4(max(float3(0.0f), o), s.a);
+    }
     """
 
     struct CompileError: Error, CustomStringConvertible { let description: String }
 
     /// The stage kernels, compiled when the pipeline is made. `lookDisplay` (the sigmoid mapper) is
     /// not one of them: it compiles on first use, so with the default mapper nothing new is built.
-    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette",
-                             "lookVignetteShape", "lookCurve"]
+    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen",
+                             "lookVignette", "lookCurve", "lookMixer"]
 
     private let header: String
     /// The helpers a `moreSource` kernel compiles with: `header` plus that source's own.

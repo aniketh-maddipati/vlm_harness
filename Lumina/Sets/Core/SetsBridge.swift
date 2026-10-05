@@ -586,7 +586,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (shoots.workingBytes(id), nil)
         case "removeWorkingFiles":
             // The page's "clear" (v7, any step): Lumina's own files for the shoot go, its decisions stay
-            // (BRIDGE.md: "keep the session until saved"). The menu's Remove Working Files… is `removeShoot`.
+            // (BRIDGE.md: "keep the session until saved"). File ▸ Remove Working Files… is `removeShoot` (plumbing's `__lumina.removeWorkingFiles`).
             guard let id = body["id"] as? String, SetsShootStore.isID(id) else { return (false, nil) }
             return (shoots.removeWorking(id), nil)
         case "removeShoot":
@@ -646,14 +646,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     func reopen(id: String) -> Bool {
         guard let shoot = shoots.index().first(where: { $0.id == id }) else { return false }
         // A shoot opened from single files: back through their bookmarks (its folder was never granted).
-        let stored = sources.load(id)
+        var stored = sources.load(id)
         if let first = stored.entries.first(where: { $0.isPrimary }), let names = first.files {
+            // Where its files' bookmarks point; whether they are there is seen once the shoot holds them (openPanel).
             let found = zip(first.refs, names).compactMap { ref, name -> URL? in
-                guard let data = stored.grants.sources.first(where: { $0.id == ref })?.bookmark, let url = access.peek(data),
-                      url.lastPathComponent == name, FileManager.default.fileExists(atPath: url.path) else { return nil }
+                guard let url = Self.locate(ref, in: &stored), url.lastPathComponent == name else { return nil }
                 return url
             }
-            guard let folder = found.first?.deletingLastPathComponent() else { onEvent?("reopen \(id): none of its files is there"); return false }
+            guard let folder = found.first?.deletingLastPathComponent() else { onEvent?("reopen \(id): none of its files can be found"); return false }
             open(folder, shoot: shoot.id)
             pendingLoose = (first.name, Set(found.filter { $0.deletingLastPathComponent().path == folder.path }.map(\.lastPathComponent)), first.nid)
             pendingKind = first.kind
@@ -807,26 +807,48 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         return entry
     }
 
+    /// Where a kept bookmark points now, a stale one renewed in `stored`. Not checked to be
+    /// there: in the App Sandbox that can only be asked once the URL's access is started
+    /// (`activate` does both). (`SetsSources` with its own calls, minus its look at the disk.)
+    private static let unchecked: SetsAccess.Calls = {
+        var c = SetsAccess.Calls.system
+        c.exists = { _ in true }
+        return c
+    }()
+
+    private static func locate(_ ref: String, in stored: inout SetsShootSources.Stored) -> URL? {
+        var all = SetsSources(sources: stored.grants.sources, calls: unchecked)
+        guard let url = all.reconnect(ref) else { return nil }
+        stored.grants = SetsSources(sources: all.sources)
+        return url
+    }
+
     /// Reaches a kept source through its bookmarks and holds its access for the open shoot: the
     /// folder, or the folder its files are in and those of them that are there. Nil: not connected.
     private func activate(_ entry: SetsShootSources.Entry, shoot id: String) -> (url: URL, only: Set<String>?)? {
         var stored = sources.load(id)
+        let before = stored.grants.sources
+        defer { if stored.grants.sources != before { try? sources.save(id, stored) } }      // a stale bookmark was renewed
+        let fm = FileManager.default
         if let names = entry.files {
             var folder: URL?, found = Set<String>()
             for (ref, name) in zip(entry.refs, names) {
-                guard let data = stored.grants.sources.first(where: { $0.id == ref })?.bookmark, let url = access.peek(data), url.lastPathComponent == name else { continue }
+                guard let url = Self.locate(ref, in: &stored), url.lastPathComponent == name else { continue }
                 let parent = url.deletingLastPathComponent()
                 if let folder, folder.standardizedFileURL.path != parent.standardizedFileURL.path { continue }
                 let token = access.hold(url, scoped: true)
-                guard FileManager.default.fileExists(atPath: url.path) else { access.release(token); continue }
+                var dir: ObjCBool = false
+                guard fm.fileExists(atPath: url.path, isDirectory: &dir), !dir.boolValue else { access.release(token); continue }
                 sourceHolds.append(token)
                 folder = parent; found.insert(name)
             }
             return folder.map { ($0, found) }
         }
-        guard let ref = entry.refs.first, let url = stored.grants.reconnect(ref) else { return nil }
-        try? sources.save(id, stored)                        // a stale bookmark was renewed
-        sourceHolds.append(access.hold(url, scoped: true))
+        guard let ref = entry.refs.first, let url = Self.locate(ref, in: &stored) else { return nil }
+        let token = access.hold(url, scoped: true)
+        var dir: ObjCBool = false
+        guard fm.fileExists(atPath: url.path, isDirectory: &dir), dir.boolValue else { access.release(token); return nil }
+        sourceHolds.append(token)
         return (url, nil)
     }
 
@@ -1221,7 +1243,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             } else if let rel = f["copy"] as? String {
                 // v7's DNG picks: {name: "Picks/<file>.DNG", copy: "<rel>"} → a streamed, SHA-256 verified
                 // copy of the original (never a move; `SetsFileOps.copyVerified`).
-                guard Self.copyExtensions.contains(ext) else { return ["aborted": true, "say": "export stopped · bad file name"] }
+                // The original is a RAW too, of the same kind as the name it lands under: a page cannot ask
+                // for any other file in an opened folder to be copied out as a "pick".
+                guard Self.copyExtensions.contains(ext), (rel as NSString).pathExtension.lowercased() == ext else { return ["aborted": true, "say": "export stopped · bad file name"] }
                 guard let src = resolve(rel) else { return ["aborted": true, "say": "export stopped · can't find \(rel)"] }
                 items.append(.copy(name: name, source: src))
             } else {

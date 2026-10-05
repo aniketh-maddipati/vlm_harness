@@ -253,7 +253,11 @@ final class LookCanvasTests: XCTestCase {
         for text in ["tc:0,+10,0", "tc:-5,0,0", "crv:0,0/0.5,0.6/1,1", "crvr:0,0.1/1,1", "crvg:0,0/1,0.9", "crvb:0,0/0.4,0.5/1,1", "tc:+10,0,0 crv:0,0/0.5,0.6/1,1 crvb:0,0/1,0.9"] {
             XCTAssertEqual(stages.filter(try Look.parse(text).runs), ["curve"], text)
         }
-        XCTAssertEqual(seen.union(["whiteBalance", "curve"]), Set(stages), "every stage has a control that switches it on")
+        for text in ["mixh:0,0,+10,0,0,0,0,0", "mixs:-100,0,0,0,0,0,0,0", "mixl:0,0,0,0,0,0,0,+1", "mixh:+5,0,0,0,0,0,0,0 mixs:0,0,0,-5,0,0,0,0 mixl:0,0,0,0,+5,0,0,0"] {
+            XCTAssertEqual(stages.filter(try Look.parse(text).runs), ["mixer"], text)
+        }
+        XCTAssertEqual(LookWarmPlan.signature(try Look.parse("con:+10 tc:0,+5,0 sat:+5 mixs:0,+5,0,0,0,0,0,0 clr:+5"), stages: stages), "contrast+curve+colour+mixer+clarity", "in the order the stages run")
+        XCTAssertEqual(seen.union(["whiteBalance", "curve", "mixer"]), Set(stages), "every stage has a control that switches it on")
         // rot is geometry (the base), the vignette's shape draws nothing without an amount.
         XCTAssertEqual(LookWarmPlan.signature(try Look.parse("rot:90 vigs:20,-50,80,40 tc:0,0,0 crv:0,0/1,1"), stages: stages), "none")
         // nr and crop belong to the base (the RAW stage, the geometry), not to a look stage.
@@ -292,32 +296,15 @@ final class LookCanvasTests: XCTestCase {
         }
     }
 
-    /// The vignette has two kernels (reset shape, any other shape): the plan names which one a
-    /// look runs and, while the vignette runs, warms the other, so the first move of a shape
-    /// slider (or its return to reset) lands on a compiled program.
-    func testWarmPlanKnowsTheVignettesTwoKernels() throws {
-        let plain = try Look.parse("ev:+0.30 vig:-20"), shaped = try Look.parse("ev:+0.30 vig:-20 vigs:50,0,50,30")
+    /// The vignette is one stage and one program whatever its shape: a shape slider never changes the set.
+    func testVignetteShapeNeverChangesTheStageSet() throws {
+        let plain = try Look.parse("ev:+0.30 vig:-20"), shaped = try Look.parse("ev:+0.30 vig:-20 vigs:50,-40,50,30")
         XCTAssertEqual(LookWarmPlan.signature(plain, stages: stages), "exposure+vignette")
-        XCTAssertEqual(LookWarmPlan.signature(shaped, stages: stages), "exposure+vignette.shape")
+        XCTAssertEqual(LookWarmPlan.signature(shaped, stages: stages), "exposure+vignette")
         XCTAssertEqual(LookWarmPlan.signature(try Look.parse("ev:+0.30 vigs:50,0,50,30"), stages: stages), "exposure", "a shape without an amount runs nothing")
-        let around = LookWarmPlan.looks(around: plain, stages: stages).map { LookWarmPlan.signature($0, stages: stages) }
-        XCTAssertEqual(around.count, stages.count + 2); XCTAssertEqual(Set(around).count, around.count)
-        XCTAssertTrue(around.contains("exposure+vignette.shape"), "the first move of Midpoint, Roundness, Feather or Highlights")
-        XCTAssertTrue(around.contains("exposure"), "the amount dragged through 0")
-        let back = LookWarmPlan.looks(around: shaped, stages: stages).map { LookWarmPlan.signature($0, stages: stages) }
-        XCTAssertEqual(back.first, "exposure+vignette.shape"); XCTAssertTrue(back.contains("exposure+vignette"), "the shape back at its reset")
-        // Every single shape slider change from either look lands on a warmed set.
-        for (from, sets) in [(plain, around), (shaped, back)] {
-            for s in [Look.VignetteShape(), Look.VignetteShape(midpoint: 10), Look.VignetteShape(roundness: -80), Look.VignetteShape(feather: 0), Look.VignetteShape(highlights: 100)] {
-                var l = from; l.vignetteShape = s
-                XCTAssertTrue(sets.contains(LookWarmPlan.signature(l, stages: stages)), "\(s)")
-            }
-        }
-        // With the vignette off, switching it on keeps the look's shape: that is the kernel the first drag of the amount needs.
+        XCTAssertEqual(LookWarmPlan.looks(around: shaped, stages: stages).count, stages.count + 1)
         let off = try Look.parse("vigs:50,-40,50,0")
-        XCTAssertEqual(LookWarmPlan.signature(off.toggling("vignette"), stages: stages), "vignette.shape")
-        XCTAssertEqual(off.toggling("vignette").vignetteShape, off.vignetteShape)
-        XCTAssertEqual(LookWarmPlan.looks(around: off, stages: stages).count, stages.count + 1)
+        XCTAssertEqual(off.toggling("vignette").vignetteShape, off.vignetteShape, "switching the amount on keeps the shape")
     }
 
     func testWarmPlanOrdersSmallFirstAndNeverRepeats() throws {

@@ -425,6 +425,66 @@ nonisolated enum LookMath {
         return RGB(r: max(0, out.r), g: max(0, out.g), b: max(0, out.b))
     }
 
+    // MARK: mixer (the colour mixer: hue, saturation, luminance per colour)
+
+    /// The centres of the eight bands, Oklab hue in degrees, in `Look.Mixer.colours`' order.
+    /// They must ascend (red lowest): the bands are found by walking them.
+    static let mixerHueNames = ["hueRed", "hueOrange", "hueYellow", "hueGreen", "hueAqua", "hueBlue", "huePurple", "hueMagenta"]
+    static let mixerHueDefaults = [29.0, 55, 105, 143, 195, 262, 296, 335]
+    static func mixerCentres(_ rules: LookRules) -> [Double] {
+        zip(mixerHueNames, mixerHueDefaults).map { rules.k("mixer", $0, $1) }
+    }
+
+    /// Where a hue sits among the bands: between centre `lower` and the next one round the
+    /// circle, `upper`, with `weight` the upper band's share, smoothstep of the way across. The
+    /// lower band has the rest and every other band nothing, so the eight weights are smooth in
+    /// the hue, each 1 at its own centre, and always sum to 1.
+    static func mixerBand(hueDegrees h: Double, centres c: [Double]) -> (lower: Int, upper: Int, weight: Double) {
+        var i = c.count - 1                                      // below the first centre: the last band, a turn back
+        for n in 0..<c.count where h >= c[n] { i = n }
+        let j = i == c.count - 1 ? 0 : i + 1
+        var hi = c[j], hh = h
+        if j == 0 { hi += 360; if h < c[i] { hh += 360 } }
+        let t = min(1, max(0, (hh - c[i]) / max(1e-3, hi - c[i])))
+        return (i, j, t * t * (3 - 2 * t))
+    }
+
+    /// All eight weights (the tests and the docs; the stage only needs the two that are not 0).
+    static func mixerWeights(hueDegrees h: Double, centres c: [Double]) -> [Double] {
+        let b = mixerBand(hueDegrees: h, centres: c)
+        var w = [Double](repeating: 0, count: c.count)
+        w[b.lower] += 1 - b.weight; w[b.upper] += b.weight
+        return w
+    }
+
+    /// The stage on one colour, in Oklab like `colour`: with H, S, Lm the pixel's band-weighted
+    /// slider values, the hue turns by H · `hueDegreesPerUnit`, the chroma is scaled by
+    /// 1 + S · `saturationPerUnit`, and the lightness by 1 + Lm · `luminancePerUnit` · C / (C +
+    /// `luminanceChromaKnee`). Every one of the three is a change *of* or *in proportion to* the
+    /// chroma: a turned or scaled zero is zero, and the lightness factor is 1 at C = 0. A pixel
+    /// without chroma is returned as it came, so a grey is exactly the same grey for any of the
+    /// 24 values (and the stage cannot disturb a grey ramp). Near grey the changes fade in with
+    /// the chroma, so noise in the hue of an almost-grey pixel moves it almost nowhere.
+    /// First numbers, unfitted (band centres, strengths): nothing here claims Lightroom's mixer.
+    static func mixer(_ c: RGB, mixer m: Look.Mixer, _ rules: LookRules) -> RGB {
+        guard !m.isNeutral else { return c }
+        let lab = toOklab(c)
+        let C = hypot(lab.a, lab.b)
+        // "Without chroma" is relative to the lightness: an exact grey comes out of the Oklab
+        // matrices with C / L near 4e-8 (their rows sum to 1 only to ten digits), far below 1e-6.
+        guard C > max(1e-9, 1e-6 * abs(lab.L)) else { return c }
+        var h = atan2(lab.b, lab.a) * 180 / .pi
+        if h < 0 { h += 360 }
+        let band = mixerBand(hueDegrees: h, centres: mixerCentres(rules))
+        func at(_ v: [Double]) -> Double { v[band.lower] + (v[band.upper] - v[band.lower]) * band.weight }
+        let turn = at(m.hue) * rules.k("mixer", "hueDegreesPerUnit", 0.3) * .pi / 180
+        let sat = max(0, 1 + at(m.saturation) * rules.k("mixer", "saturationPerUnit", 0.01))
+        let L = max(0, lab.L * (1 + at(m.luminance) * rules.k("mixer", "luminancePerUnit", 0.003) * C / (C + max(1e-6, rules.k("mixer", "luminanceChromaKnee", 0.05)))))
+        let cs = cos(turn), sn = sin(turn)
+        let out = fromOklab(L, (lab.a * cs - lab.b * sn) * sat, (lab.a * sn + lab.b * cs) * sat)
+        return RGB(r: max(0, out.r), g: max(0, out.g), b: max(0, out.b))
+    }
+
     // MARK: clarity (perceptual luma on a base)
 
     static func clarity(_ q: Double, base: Double, clarity amount: Double, _ rules: LookRules) -> Double {
@@ -448,42 +508,39 @@ nonisolated enum LookMath {
 
     // MARK: vignette
 
-    /// `r`: distance from the centre over the half diagonal (0 centre, 1 corners).
-    static func vignetteGain(r: Double, vignette: Double, _ rules: LookRules) -> Double {
-        let m = rules.k("vignette", "midpoint", 0.5), f = rules.k("vignette", "feather", 0.5)
-        return exp2(vignette * rules.k("vignette", "stopsPerUnit", 0.02) * smoothstep(m - f / 2, m + f / 2, r))
-    }
-
-    // MARK: vignette, shaped (`Look.VignetteShape`)
-
-    /// The stage with its four shape sliders. With all four at reset the stage is
-    /// `vignetteGain(r:vignette:_:)` above and the `lookVignette` kernel, untouched; this form
-    /// (the `lookVignetteShape` kernel) runs only when one of them is moved, and meets the reset
-    /// form there: its distance at Roundness 0 is the same circle through the corners, its edges
-    /// at Midpoint 50 / Feather 50 are `midpoint ∓ feather / 2`, and Highlights 0 spares nothing.
+    /// The post-crop vignette: an amount (`vig`) and Lightroom's four shape sliders
+    /// (`Look.VignetteShape`), on the page's own scale (its `vigMask`), so the page's numbers go
+    /// through as they are (ruled 2026-10-05; before it the stage drew a circle in pixels with a
+    /// fixed falloff, and a plain `vig` looked different).
     ///
     /// Distance: u, v in −1 … 1 across the (cropped, turned) frame, d = (|u·sx|^p + |v·sy|^p)^(1/p),
-    /// scaled so the corners sit at 1. The family is the page's (its `vigMask`) and Lightroom's:
-    /// position +100 a circle in pixels (sx : sy = aspect : 1, p = 2), 0 the frame's own ellipse
-    /// (sx = sy = 1), −100 the frame's rectangle with round corners (p = `rectPower`). Roundness
-    /// r sits at position `roundAtReset + r·(1 + roundAtReset / 100)` kept in −100 … +100: with
-    /// `roundAtReset` 100 (the circle this stage has always drawn) 0 is the circle, −50 the
-    /// ellipse, −100 the rectangle, and above 0 nothing is left to round. `roundAtReset` 0 would
-    /// be Lightroom's own scale (0 = the ellipse); it changes what `vig` alone looks like, so it
-    /// is the owner's to set, with the reset kernel.
+    /// scaled so the corners sit at 1.
+    /// - Roundness 0: the frame's own ellipse (sx = sy = 1, p = 2). It follows the frame's
+    ///   aspect: the four edge midpoints sit at 0.71, whatever the frame.
+    /// - Roundness +100: a circle in pixels (sx : sy = aspect : 1); between, sx and sy blend.
+    /// - Roundness −100: the frame's rectangle with round corners (p = `rectPower`, 8); between,
+    ///   p grows from 2.
+    /// Those ends are the page's, and Lightroom's as its panel describes them (0 an oval that
+    /// follows the frame, + rounder, − squarer); Lightroom's exact shapes at ±100 are not measured.
     ///
-    /// Midpoint moves the middle of the falloff by `midpointRange` over its 0 … 100; Feather
-    /// scales its width from 0 (a hard edge) to twice `feather`.
+    /// Falloff: smoothstep from e0 to e1 on d, with d0 = `midpointAt0` + Midpoint/100 ·
+    /// `midpointPer100` and width w = `featherAt0` + Feather/100 · `featherPer100`: e0 = d0 −
+    /// `featherInside`·w, e1 = e0 + w. At 50 / 50: 0.636 … 1.016, the corners darkened and the
+    /// edges almost untouched. Feather 0 is a narrow edge, not a step (`featherAt0`).
+    ///
+    /// Amount: the gain is 2^(vig · `stopsPerUnit` · falloff), one gain for the three channels.
     ///
     /// Highlights (a darkening vignette only, as in Lightroom): the stops are scaled by
     /// 1 − h·p^`highlightsPower`, p the pixel's perceptual luma in 0 … 1, so white is spared in
-    /// full at 100 and the shadows not at all. One gain for the three channels (a grey stays
-    /// grey), and since a brighter pixel is never darkened more, luma stays monotonic. (The
-    /// page's own preview blends toward src^(1 + A·t·h), which also holds white; same intent.)
-    /// First numbers, unfitted: Lightroom has no vignette in the sweep yet.
+    /// full at 100 and the shadows not at all. A grey stays grey (one gain), and since a
+    /// brighter pixel is never darkened more, luma stays monotonic at any place in the frame.
+    /// (The page's preview blends toward src^(1 + A·t·h), which also holds white; same intent.)
+    ///
+    /// The shape is the page's; the amount's strength and Highlights are first numbers,
+    /// unfitted: Lightroom has no vignette in the sweep yet.
     struct VignetteForm: Equatable, Sendable {
         /// The smoothstep's edges on the distance.
-        var edge0 = 0.25, edge1 = 0.75
+        var edge0 = 0.636, edge1 = 1.016
         /// Scales on |u| and |v|, the superellipse power, and 1 / (the distance at a corner).
         var sx = 1.0, sy = 1.0, power = 2.0, norm = 0.5.squareRoot()
         /// The share of the darkening a white pixel is spared (0 when the vignette lightens).
@@ -492,11 +549,10 @@ nonisolated enum LookMath {
 
         init(shape: Look.VignetteShape, vignette: Double, aspect: Double, _ rules: LookRules) {
             let k = { (n: String, d: Double) in rules.k("vignette", n, d) }
-            let m = k("midpoint", 0.5) + (shape.midpoint - 50) / 100 * k("midpointRange", 0.5)
-            let f = max(0, k("feather", 0.5) * (shape.feather / 50))
-            edge0 = m - f / 2; edge1 = m + f / 2
-            let at = min(100, max(-100, k("roundAtReset", 100)))
-            let q = min(100, max(-100, at + shape.roundness * (1 + at / 100)))
+            let d0 = k("midpointAt0", 0.5) + shape.midpoint / 100 * k("midpointPer100", 0.5)
+            let w = max(1e-3, k("featherAt0", 0.08) + shape.feather / 100 * k("featherPer100", 0.6))
+            edge0 = d0 - k("featherInside", 0.3) * w; edge1 = edge0 + w
+            let q = min(100, max(-100, shape.roundness))
             let a = min(100, max(0.01, aspect)), t = max(0, q) / 100, n = ((a * a + 1) / 2).squareRoot()
             power = q < 0 ? 2 + (-q / 100) * (max(2, k("rectPower", 8)) - 2) : 2
             sx = 1 + t * (a / n - 1); sy = 1 + t * (1 / n - 1)
@@ -512,8 +568,8 @@ nonisolated enum LookMath {
         }
     }
 
-    /// The shaped stage on one pixel at distance `d` (`VignetteForm.distance`).
-    static func vignetteShaped(_ c: RGB, d: Double, vignette: Double, form: VignetteForm, _ rules: LookRules) -> RGB {
+    /// The stage on one pixel at distance `d` (`VignetteForm.distance`).
+    static func vignette(_ c: RGB, d: Double, vignette: Double, form: VignetteForm, _ rules: LookRules) -> RGB {
         var stops = vignette * form.stopsPerUnit * smoothstep(form.edge0, form.edge1, d)
         if form.keep > 0 {
             let p = min(1, max(0, perceptual(luma(c, rules), rules)))
@@ -614,9 +670,8 @@ nonisolated enum LookMath {
     // MARK: the whole chain on a flat patch
 
     /// Every stage on one colour, where blur(x) == x (a flat patch) and the pixel is at the frame's
-    /// centre (vignette gain 1 unless `r` says otherwise: the pixel's distance from the centre, 1 at
-    /// the corners, by `VignetteForm.distance` when the vignette has a shape; `aspect` is the
-    /// frame's, which only that shape reads). This is what the pipeline tests and the Python
+    /// centre (no vignette there unless `r` says otherwise: the pixel's distance from the centre, 1 at
+    /// the corners, by `VignetteForm.distance`; `aspect` is the frame's, for that form). This is what the pipeline tests and the Python
     /// mirror compare against.
     static func flat(_ input: RGB, look: Look, asShot: Look.WhiteBalance, rules: LookRules, vignetteR r: Double = 0, anchor: ToneAnchor = .reference, aspect: Double = 1.5) -> RGB {
         var c = input
@@ -653,16 +708,13 @@ nonisolated enum LookMath {
                 c = curve(c, tables: curveTables(look.curve, rules), rules)
             case "colour":
                 c = colour(c, vibrance: look.vibrance, saturation: look.saturation, bw: look.bw, rules)
+            case "mixer":
+                c = mixer(c, mixer: look.mixer, rules)
             case "clarity", "sharpen":
                 continue                                          // q − base == 0 on a flat patch
             case "vignette":
                 guard look.vignette != 0 else { continue }
-                guard look.vignetteShape.isDefault else {
-                    c = vignetteShaped(c, d: r, vignette: look.vignette, form: VignetteForm(shape: look.vignetteShape, vignette: look.vignette, aspect: aspect, rules), rules)
-                    continue
-                }
-                let g = vignetteGain(r: r, vignette: look.vignette, rules)
-                c = RGB(r: c.r * g, g: c.g * g, b: c.b * g)
+                c = vignette(c, d: r, vignette: look.vignette, form: VignetteForm(shape: look.vignetteShape, vignette: look.vignette, aspect: aspect, rules), rules)
             default:
                 continue
             }
