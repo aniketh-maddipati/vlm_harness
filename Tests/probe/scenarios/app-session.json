@@ -7,7 +7,7 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
- "checklist": "SAFETY.md 2 (v5): keeps (P), a removed photo (X), seen rows and the cursor are saved by the 2 s autosave, keyed by file path; after a relaunch the Open screen lists the shoot, ⏎ reopens it with every decision and the cursor's row; unsaved keepers are still counted (Quit asks). After ⌘↩ and another relaunch the keepers count as saved, and the sidecars are untouched by the reopen.",
+ "checklist": "SAFETY.md 2: keeps (P), a removed photo (X), seen rows and the cursor are saved by the 2 s autosave, keyed by file path; after a relaunch the Open screen lists the shoot, ⏎ reopens it with every decision and the cursor's row; unsaved keepers are still counted (Quit asks). After ⌘↩ and another relaunch the keepers count as saved, and the sidecars are untouched by the reopen. (Sets v7: Save is step ⌘4, and with undecided photos the first ⌘↩ only warns, the second within 5 s saves).",
  "steps": [
   {
    "do": "copyTree",
