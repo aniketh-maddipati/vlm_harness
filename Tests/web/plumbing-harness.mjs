@@ -291,6 +291,24 @@ const loaded = async page => {
       'edit v21: a slider drag is a drag on the canvas (start, the values at the quarter tier, the last value, end)', { dl: dl.map(m => [m.look, m.drag]), dd });
     const order = bridge.calls.slice(bridge.calls.lastIndexOf('canvasLook'));
     ok(order.includes('canvasDrag'), 'edit v21: the drag ends after its last value', order);
+    // The pointer down on a slider, values 110 ms apart (a slow drag on a whole-number slider), and
+    // nothing announced by the page: every one is the drag's, from the first, and letting go ends it once.
+    const hl = bridge.canvas.looks.length, hd = bridge.canvas.drags.length;
+    const held = await page.evaluate(async () => { const o = window.luminaState.__owner, el = document.querySelector('[data-lumina="slider"][data-slider="con"]') || document.querySelector('[data-lumina="slider"]');
+      if (!el) return { slider: false };
+      const ev = (t, on) => on.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true, button: 0, pointerId: 7, clientX: 10, clientY: 10 })), wait = ms => new Promise(r => setTimeout(r, ms));
+      ev('pointerdown', el); await wait(60); ev('pointerup', el); await wait(120);                       // a click: no drag
+      const click = lumina.edit.state().dragging;
+      ev('pointerdown', el); await wait(150);
+      for (const v of [12, 14, 16, 18, 20]) { o.setVal('con', v, true); await wait(110); }
+      const during = lumina.edit.state().dragging;
+      ev('pointerup', el); await wait(120);
+      return { slider: true, click, during, after: lumina.edit.state().dragging, announced: !!o.state.dragging }; });
+    await settle();
+    const hLooks = bridge.canvas.looks.slice(hl), hDrags = bridge.canvas.drags.slice(hd), hCalls = bridge.calls.slice(bridge.calls.lastIndexOf('canvasLook'));
+    ok(held.slider && held.click === false && held.during === true && held.after === false && held.announced === false && hLooks.length === 5 && hLooks.every(m => m.drag === true && m.key === false) &&
+      hLooks[4].look === 'ev:+0.50 con:+20' && hDrags.length === 2 && hDrags[0] === true && hDrags[1] === false && hCalls.includes('canvasDrag'),
+      'edit v21: with the pointer down on a slider, changes 110 ms apart all go out as a drag from the first one, and one drag end follows the last', { held, looks: hLooks.map(m => [m.look, m.drag, m.key]), hDrags });
 
     // A crop is in the look (the Mac's base is cropped); the box takes the crop's shape and there is no region at fit.
     await page.evaluate(() => { const o = window.luminaState.__owner, p = o.data.byId[o.state.cur]; o.setLook(p, Object.assign({}, o.look(p), { crop: { x: 0.25, y: 0.25, w: 0.5, h: 0.25, ang: 0, ratio: 'free' } })); }); await settle();
