@@ -31,6 +31,9 @@ nonisolated struct Look: Equatable, Sendable {
     /// sliders and its ranges). Written only when one of them is off its reset; it draws nothing
     /// while `vig` is 0.
     var vignetteShape = VignetteShape()
+    /// The tone curve: `tc:dark,mid,light` (the three region sliders) and the point curves
+    /// `crv:` (all channels), `crvr:`, `crvg:`, `crvb:` as `x,y/x,y/…`. Each written only when set.
+    var curve = ToneCurve()
     /// Black and white: chroma to zero in the colour stage. Optional key `bw:1`.
     var bw: Bool = false
     var crop: Crop?
@@ -65,6 +68,42 @@ nonisolated struct Look: Equatable, Sendable {
     }
     static let vignetteShapeRanges = [Range(min: 0, max: 100, step: 1), Range(min: -100, max: 100, step: 1), Range(min: 0, max: 100, step: 1), Range(min: 0, max: 100, step: 1)]
 
+    /// The tone curve as the page keeps it. `dark`, `mid`, `light` (−50 … +50) are the region
+    /// sliders: each moves the curve at a quarter, a half and three quarters of the way from
+    /// black to white. `rgb`, `red`, `green`, `blue` are point curves: 2 to `maxPoints` points,
+    /// x and y in 0 … 1 (0 black, 1 white, display-referred), x strictly increasing, four
+    /// decimals. A curve that is the straight line from 0,0 to 1,1 is no curve (nil).
+    ///
+    /// As on the page, the all-channels curve is `rgb` when it is set and the three region
+    /// sliders otherwise: once the user has edited points, the page keeps the sliders only as a
+    /// read-out of the same curve (its value at 0.25 / 0.5 / 0.75), so with `rgb` set the stage
+    /// does not read them. The string carries both; neither is derived here.
+    ///
+    /// y is not required to rise: the string is the page's state, points and all. The stage
+    /// repairs a falling curve when it renders (`LookMath.curveSpline`), so the transfer never falls.
+    struct ToneCurve: Equatable, Sendable {
+        struct Point: Equatable, Sendable {
+            var x: Double, y: Double
+            init(_ x: Double, _ y: Double) { self.x = x; self.y = y }
+        }
+        var dark = 0.0, mid = 0.0, light = 0.0
+        var rgb: [Point]?, red: [Point]?, green: [Point]?, blue: [Point]?
+
+        /// Whether the stage has anything to do. (Points that happen to lie on the diagonal still
+        /// count: `parse` never produces them.)
+        var isNeutral: Bool { rgb == nil && red == nil && green == nil && blue == nil && dark == 0 && mid == 0 && light == 0 }
+
+        /// The page keeps points at least 0.02 apart in x: at most 51. Room to spare.
+        static let maxPoints = 64
+        static let regionRange = Range(min: -50, max: 50, step: 1)
+        /// The point-curve keys, in the order `format` writes them.
+        static let pointKeys: [(key: String, field: WritableKeyPath<ToneCurve, [Point]?>)] = [("crv", \.rgb), ("crvr", \.red), ("crvg", \.green), ("crvb", \.blue)]
+
+        static func isIdentity(_ p: [Point]) -> Bool {
+            p.count >= 2 && p.first!.x == 0 && p.last!.x == 1 && p.allSatisfy { $0.x == $0.y }
+        }
+    }
+
     struct ParseError: Error, CustomStringConvertible, Equatable {
         let description: String
     }
@@ -84,7 +123,7 @@ nonisolated struct Look: Equatable, Sendable {
     static let tintRange = Range(min: -150, max: 150, step: 1)
     static let nrRange = Range(min: 0, max: 100, step: 1)
     /// Canonical key order; also the order `format` writes.
-    static let keys = ["ev", "wb", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "nr", "bw", "crop", "rot"]
+    static let keys = ["ev", "wb", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "nr", "bw", "crop", "rot"]
     /// The plain numeric sliders, key → field.
     static let sliders: [String: WritableKeyPath<Look, Double>] = [
         "ev": \.ev, "con": \.contrast, "hl": \.highlights, "sh": \.shadows, "wh": \.whites, "bl": \.blacks,
@@ -96,6 +135,7 @@ nonisolated struct Look: Equatable, Sendable {
     var isNeutral: Bool {
         ev == 0 && wb == nil && contrast == 0 && highlights == 0 && shadows == 0 && whites == 0 && blacks == 0
             && vibrance == 0 && saturation == 0 && clarity == 0 && sharpen == 0 && vignette == 0 && !bw
+            && curve.isNeutral
     }
 
     static func clamp(_ v: Double, _ r: Range) -> Double {
@@ -131,7 +171,23 @@ nonisolated struct Look: Equatable, Sendable {
                 guard parts.count == ranges.count else { throw ParseError(description: "\(key) wants \(what), got '\(raw)'") }
                 return try zip(parts, ranges).map { clamp(try number($0, key), $1) }
             }
+            if let curveKey = ToneCurve.pointKeys.first(where: { $0.key == key }) {
+                // `x,y/x,y/…`: numbers clamp into 0 … 1 (four decimals); the shape of the list is checked.
+                let pts = try raw.split(separator: "/", omittingEmptySubsequences: false).map { part -> ToneCurve.Point in
+                    let xy = part.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
+                    guard xy.count == 2 else { throw ParseError(description: "\(key) wants x,y/x,y/…, got '\(raw)'") }
+                    let unit = { (t: String) in (min(1, max(0, try number(t, key))) * 10000).rounded() / 10000 }
+                    return ToneCurve.Point(try unit(xy[0]), try unit(xy[1]))
+                }
+                guard pts.count >= 2, pts.count <= ToneCurve.maxPoints else { throw ParseError(description: "\(key) wants 2 to \(ToneCurve.maxPoints) points, got \(pts.count)") }
+                guard zip(pts, pts.dropFirst()).allSatisfy({ $0.x < $1.x }) else { throw ParseError(description: "\(key): x must increase from point to point, got '\(raw)'") }
+                look.curve[keyPath: curveKey.field] = ToneCurve.isIdentity(pts) ? nil : pts
+                continue
+            }
             switch key {
+            case "tc":
+                let v = try list("dark,mid,light", [ToneCurve.regionRange, ToneCurve.regionRange, ToneCurve.regionRange])
+                look.curve.dark = v[0]; look.curve.mid = v[1]; look.curve.light = v[2]
             case "vigs":
                 let v = try list("midpoint,roundness,feather,highlights", vignetteShapeRanges)
                 look.vignetteShape = VignetteShape(midpoint: v[0], roundness: v[1], feather: v[2], highlights: v[3])
@@ -171,7 +227,7 @@ nonisolated struct Look: Equatable, Sendable {
     // MARK: Format
 
     /// Canonical text. Reset values are written too (the page can diff two looks by eye); `wb`,
-    /// `vigs`, `nr`, `bw`, `crop` and `rot` only when set.
+    /// `vigs`, the curve keys, `nr`, `bw`, `crop` and `rot` only when set.
     func format() -> String {
         func signed(_ v: Double, _ decimals: Int) -> String {
             let r = (v * pow(10, Double(decimals))).rounded() / pow(10, Double(decimals))
@@ -187,6 +243,18 @@ nonisolated struct Look: Equatable, Sendable {
         if !vignetteShape.isDefault {
             let s = vignetteShape
             out.append("vigs:\(Int(s.midpoint.rounded())),\(signed(s.roundness, 0)),\(Int(s.feather.rounded())),\(Int(s.highlights.rounded()))")
+        }
+        if curve.dark != 0 || curve.mid != 0 || curve.light != 0 { out.append("tc:\(signed(curve.dark, 0)),\(signed(curve.mid, 0)),\(signed(curve.light, 0))") }
+        for (key, field) in ToneCurve.pointKeys {
+            guard let pts = curve[keyPath: field] else { continue }
+            // Four decimals, trailing zeros dropped: 0.25, 1, 0.
+            func unit(_ v: Double) -> String {
+                var t = String(format: "%.4f", v)
+                while t.hasSuffix("0") { t.removeLast() }
+                if t.hasSuffix(".") { t.removeLast() }
+                return t
+            }
+            out.append("\(key):" + pts.map { "\(unit($0.x)),\(unit($0.y))" }.joined(separator: "/"))
         }
         if let nr { out.append("nr:\(Int(nr.rounded()))") }
         if bw { out.append("bw:1") }

@@ -195,6 +195,82 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertEqual(pipe.pixel(d, x: 2, y: 2).g, expected, accuracy: 0.01)
     }
 
+    /// Float pixels of a whole (small) image, for exact comparisons.
+    private func floats(_ img: CIImage) -> [Float] {
+        let w = Int(img.extent.width), h = Int(img.extent.height)
+        var px = [Float](repeating: 0, count: 4 * w * h)
+        pipe.context.render(img, toBitmap: &px, rowBytes: 16 * w, bounds: CGRect(x: 0, y: 0, width: w, height: h), format: .RGBAf, colorSpace: pipe.workingSpace)
+        return px
+    }
+
+    /// With the four shape sliders at reset the graph holds the kernel it always held, with the
+    /// arguments it always got: the render is bit for bit the one written out here by hand.
+    func testVignetteAtTheShapeResetIsBitForBitTheKernelItWas() throws {
+        let dev = pipe.ramp(steps: 48, columnWidth: 2, height: 64, lo: 0.02, hi: 1.1, tint: LookMath.RGB(r: 1, g: 0.8, b: 0.6))
+        let extent = dev.image.extent
+        for text in ["vig:-100", "vig:-37", "vig:+60", "vig:-37 vigs:50,0,50,0"] {
+            let look = try Look.parse(text)
+            let m = rules.k("vignette", "midpoint", 0.5), f = rules.k("vignette", "feather", 0.5), halfDiag = hypot(extent.width, extent.height) / 2
+            let k = CIVector(x: look.vignette * rules.k("vignette", "stopsPerUnit", 0.02), y: m - f / 2, z: m + f / 2, w: 1 / halfDiag)
+            let before = try XCTUnwrap(pipe.kernels.apply("lookVignette", extent: extent, [dev.image, k, CIVector(x: extent.midX, y: extent.midY)]))
+            XCTAssertEqual(floats(pipe.apply(look, to: dev)), floats(before), text)
+        }
+        XCTAssertTrue(LookKernels.source.contains("float4 lookVignette(coreimage::sample_t s, float4 k, float2 c, coreimage::destination dest) {\n    float r = length(dest.coord() - c) * k.w;\n    float g = exp2(k.x * lk_smooth(k.y, k.z, r));\n    return float4(s.rgb * g, s.a);\n}"),
+                      "the reset kernel's source is the one that shipped")
+        XCTAssertFalse(LookKernels.source.contains("lookVignetteShape"), "the new kernels live in a source of their own")
+    }
+
+    /// The shaped vignette on the GPU equals `LookMath.vignetteShaped`, pixel by pixel across a
+    /// frame that is not square, and meets the reset kernel next to the reset.
+    func testVignetteShapeKernelEqualsLookMath() throws {
+        let w = 96, h = 64
+        for colour in [LookMath.RGB.gray(0.5), .gray(0.95), LookMath.RGB(r: 0.6, g: 0.35, b: 0.25)] {
+            let dev = LookPipeline.Developed(image: pipe.flat(colour, size: w).image.cropped(to: CGRect(x: 0, y: 0, width: w, height: h)), asShot: asShot, anchor: .reference)
+            for text in ["vig:-80 vigs:30,0,50,0", "vig:-80 vigs:50,-50,50,0", "vig:-100 vigs:60,-100,30,0", "vig:-70 vigs:50,0,50,80", "vig:+60 vigs:40,-25,90,100", "vig:-100 vigs:50,0,0,0", "vig:-90 vigs:20,+60,100,40"] {
+                let look = try Look.parse(text)
+                XCTAssertFalse(look.vignetteShape.isDefault)
+                let out = pipe.apply(look, to: dev)
+                let form = LookMath.VignetteForm(shape: look.vignetteShape, vignette: look.vignette, aspect: Double(w) / Double(h), rules)
+                for (x, y) in [(48, 32), (0, 0), (95, 63), (2, 61), (90, 30), (47, 3), (20, 20), (70, 50)] {
+                    let u = (Double(x) + 0.5 - Double(w) / 2) / (Double(w) / 2), v = (Double(y) + 0.5 - Double(h) / 2) / (Double(h) / 2)
+                    let d = form.distance(u: u, v: v)
+                    // A hard edge (feather 0) is a step: skip the pixels the edge passes through.
+                    if look.vignetteShape.feather == 0, abs(d - form.edge0) < 0.03 { continue }
+                    let got = pipe.pixel(out, x: x, y: y), want = LookMath.flat(colour, look: look, asShot: asShot, rules: rules, vignetteR: d, aspect: Double(w) / Double(h))
+                    for (g, e) in [(got.r, want.r), (got.g, want.g), (got.b, want.b)] { XCTAssertEqual(g, e, accuracy: max(0.004, 0.01 * abs(e)), "\(text) on \(colour) at \(x),\(y) d=\(d): \(got) vs \(want)") }
+                    if colour.isNeutral { XCTAssertTrue(got.isNeutral(tolerance: 4e-3), "\(text) tinted a grey at \(x),\(y): \(got)") }
+                }
+            }
+            // A hair off the reset, the shaped kernel draws what the reset kernel draws.
+            let near = pipe.apply(try Look.parse("vig:-80 vigs:50.001,0,50,0"), to: dev), reset = pipe.apply(try Look.parse("vig:-80"), to: dev)
+            for (x, y) in [(48, 32), (0, 0), (95, 63), (90, 30), (47, 3), (20, 20)] {
+                XCTAssertEqual(pipe.pixel(near, x: x, y: y).g, pipe.pixel(reset, x: x, y: y).g, accuracy: 2e-3, "at \(x),\(y)")
+            }
+        }
+        // Grey ramp through the shaped stage, at the frame's edge: monotonic and grey.
+        let ramp = pipe.ramp(steps: 256, columnWidth: 1, height: 8, lo: 0, hi: 1.2)
+        for text in ["vig:-100 vigs:0,-50,100,100", "vig:-100 vigs:0,0,100,60", "vig:+80 vigs:0,-100,100,0"] {
+            let row = pipe.row(pipe.apply(try Look.parse(text), to: ramp), y: 4, width: 256)
+            // Along the row the distance changes too, so compare each pixel with the maths rather than its neighbour…
+            let look = try Look.parse(text), form = LookMath.VignetteForm(shape: look.vignetteShape, vignette: look.vignette, aspect: 256.0 / 8, rules)
+            for x in stride(from: 0, to: 256, by: 5) {
+                let d = form.distance(u: (Double(x) + 0.5 - 128) / 128, v: (4.5 - 4) / 4), v = 1.2 * Double(x) / 255
+                let want = LookMath.flat(.gray(v), look: look, asShot: asShot, rules: rules, vignetteR: d, aspect: 256.0 / 8)
+                XCTAssertEqual(row[x].g, want.g, accuracy: max(0.004, 0.01 * want.g), "\(text) x=\(x)")
+                XCTAssertTrue(row[x].isNeutral(tolerance: 4e-3), "\(text) x=\(x) tinted a grey: \(row[x])")
+            }
+        }
+        // …and at one place (a 1 px column at the frame's right edge), brighter in is brighter out.
+        for text in ["vig:-100 vigs:0,-50,100,100", "vig:-100 vigs:50,0,50,60"] {
+            var last = -1.0
+            for i in 0...24 {
+                let dev = LookPipeline.Developed(image: pipe.flat(.gray(Double(i) / 20), size: 64).image, asShot: asShot, anchor: .reference)
+                let y = pipe.pixel(pipe.apply(try Look.parse(text), to: dev), x: 63, y: 32).g
+                XCTAssertGreaterThanOrEqual(y, last - 2e-3, "\(text) grey \(Double(i) / 20)"); last = max(last, y)
+            }
+        }
+    }
+
     func testCropAndStraighten() throws {
         let dev = pipe.ramp(steps: 256, columnWidth: 1, height: 128)
         var look = Look(); look.crop = Look.Crop(x: 0.25, y: 0.25, w: 0.5, h: 0.5)

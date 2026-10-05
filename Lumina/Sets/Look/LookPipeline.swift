@@ -351,6 +351,13 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 let base = blur(luma(perceptual: true), sigma: LookMath.sharpenRadius(longEdge: longEdge, r))
                 let k = CIVector(x: look.sharpen * r.k("sharpen", "amountPerUnit", 0.01), y: max(1e-6, r.k("sharpen", "threshold", 0.01)), z: 0, w: 0)
                 pass("lookSharpen", [img, base, k, gam, lum])
+            case "vignette" where !look.vignetteShape.isDefault:
+                // A shape slider is off its reset: the shaped form, its own kernel. The case below
+                // (every look without `vigs`) is the stage as it has always been, argument for argument.
+                let f = LookMath.VignetteForm(shape: look.vignetteShape, vignette: look.vignette, aspect: extent.height > 0 ? extent.width / extent.height : 1, r)
+                let k = CIVector(x: look.vignette * f.stopsPerUnit, y: f.edge0, z: f.edge1, w: f.keep)
+                let sh = CIVector(x: extent.width > 0 ? f.sx * 2 / extent.width : 0, y: extent.height > 0 ? f.sy * 2 / extent.height : 0, z: f.power, w: f.norm)
+                pass("lookVignetteShape", [img, k, sh, CIVector(x: f.keepPower, y: 1 / r.perceptualGamma, z: 0, w: 0), lum, CIVector(x: extent.midX, y: extent.midY)])
             case "vignette":
                 let m = r.k("vignette", "midpoint", 0.5), f = r.k("vignette", "feather", 0.5)
                 let halfDiag = hypot(extent.width, extent.height) / 2

@@ -71,6 +71,26 @@ final class LookStringTests: XCTestCase {
         XCTAssertEqual(try Look.parse(both.format()), both)
     }
 
+    /// `vigs:midpoint,roundness,feather,highlights`: the vignette's shape, written only off its reset.
+    func testVignetteShape() throws {
+        XCTAssertTrue(Look().vignetteShape.isDefault)
+        XCTAssertEqual(Look().vignetteShape, Look.VignetteShape(midpoint: 50, roundness: 0, feather: 50, highlights: 0))
+        let l = try Look.parse("vig:-30 vigs:40,-20,70,25")
+        XCTAssertEqual(l.vignetteShape, Look.VignetteShape(midpoint: 40, roundness: -20, feather: 70, highlights: 25))
+        XCTAssertTrue(l.format().hasSuffix("vig:-30 vigs:40,-20,70,25"))
+        XCTAssertEqual(try Look.parse(l.format()), l)
+        XCTAssertTrue(try Look.parse("vigs:50,+35,50,0").format().hasSuffix("vig:0 vigs:50,+35,50,0"), "roundness is signed like the other ± sliders")
+        // The reset is not written, so a look that never touched the shape is the string it was.
+        XCTAssertEqual(try Look.parse("vig:-30 vigs:50,0,50,0"), try Look.parse("vig:-30"))
+        XCTAssertEqual(try Look.parse("vig:-30 vigs:50,0,50,0").format(), "ev:0.00 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:-30")
+        // A shape without an amount draws nothing: the look is neutral.
+        XCTAssertTrue(try Look.parse("vigs:10,-100,0,100").isNeutral)
+        // Clamped into Lightroom's ranges; the wrong number of values or a word is an error.
+        XCTAssertEqual(try Look.parse("vigs:-5,-500,400,101").vignetteShape, Look.VignetteShape(midpoint: 0, roundness: -100, feather: 100, highlights: 100))
+        XCTAssertThrowsError(try Look.parse("vigs:50,0,50")); XCTAssertThrowsError(try Look.parse("vigs:50,0,50,0,0"))
+        XCTAssertThrowsError(try Look.parse("vigs:50,round,50,0")); XCTAssertThrowsError(try Look.parse("vigs:"))
+    }
+
     func testSingleSliderLooksForTheSweep() {
         let asShot = Look.WhiteBalance(kelvin: 5100, tint: 4)
         XCTAssertEqual(Look.single("Exposure", 1.5, asShot: asShot)?.ev, 1.5)
