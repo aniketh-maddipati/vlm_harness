@@ -19,9 +19,13 @@ final class SetsCardWatcher {
         let volume: URL
         let uuid: String
         let name: String
-        let folders: [URL]          // DCIM/1xxMSDCF, oldest first; empty while not known
+        /// Sony DCIM folders when present, otherwise every DCIM subfolder; empty while not known.
+        let folders: [URL]
+        /// True when the chosen folders contain at least one ARW or DNG.
         let sony: Bool
+        /// Number of ARW and DNG files in the chosen folders.
         var arwCount: Int
+        /// Total bytes of the ARW and DNG files counted by `arwCount`.
         var bytes: Int64
         /// False: noticed but not readable yet (sandbox, no grant): count, size, folders and
         /// whether it is a Sony card are not known.
@@ -157,17 +161,18 @@ final class SetsCardWatcher {
         let dirs = subs.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }.sorted { $0.lastPathComponent < $1.lastPathComponent }
         guard !dirs.isEmpty else { return nil }
         let sonyDirs = dirs.filter { $0.lastPathComponent.range(of: #"^1\d\dMSDCF$"#, options: .regularExpression) != nil }
+        let folders = sonyDirs.isEmpty ? dirs : sonyDirs
         let vals = try? volume.resourceValues(forKeys: [.volumeUUIDStringKey, .volumeNameKey])
         var count = 0, bytes: Int64 = 0
-        for d in sonyDirs {
+        for d in folders {
             for f in (try? FileManager.default.contentsOfDirectory(at: d, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles])) ?? []
-            where f.pathExtension.lowercased() == "arw" {
+            where ["arw", "dng"].contains(f.pathExtension.lowercased()) {
                 count += 1
                 bytes += Int64((try? f.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
             }
         }
         return Card(volume: volume, uuid: vals?.volumeUUIDString ?? volume.path, name: vals?.volumeName ?? volume.lastPathComponent,
-                    folders: sonyDirs.isEmpty ? dirs : sonyDirs, sony: !sonyDirs.isEmpty, arwCount: count, bytes: bytes)
+                    folders: folders, sony: count > 0, arwCount: count, bytes: bytes)
     }
 }
 
