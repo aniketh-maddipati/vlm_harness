@@ -53,8 +53,12 @@ struct LuminaCommands: Commands {
         }
         CommandGroup(replacing: .undoRedo) {
             Button("Undo") { send("undo") }.keyboardShortcut("z", modifiers: .command)
+            Button("Redo") { SetsMenuModel.editCommand("redo", else: Selector(("redo:"))) }.keyboardShortcut("z", modifiers: [.command, .shift])
         }
         CommandGroup(replacing: .pasteboard) {
+            Button("Copy") { SetsMenuModel.editCommand("copy", else: #selector(NSText.copy(_:))) }.keyboardShortcut("c", modifiers: .command)
+            Button("Paste") { SetsMenuModel.editCommand("paste", else: #selector(NSText.paste(_:))) }.keyboardShortcut("v", modifiers: .command)
+            Divider()
             Button("Keep Row") { send("keepRow") }.keyboardShortcut("a", modifiers: .command)
         }
         CommandMenu("Photo") {
@@ -97,6 +101,7 @@ final class SetsMenuModel: ObservableObject {
     weak var controller: SetsWindowController?
 
     static func command(_ name: String) { shared.controller?.command(name) }
+    static func editCommand(_ name: String, else fallback: Selector) { shared.controller?.editCommand(name, else: fallback) }
     static func reopen(_ id: String) { shared.controller?.reopen(id) }
     static func closeShoot() { shared.controller?.closeShoot() }
     static func removeWorkingFiles() { shared.controller?.confirmRemoveWorkingFiles() }

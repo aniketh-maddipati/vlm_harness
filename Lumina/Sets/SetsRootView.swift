@@ -57,7 +57,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         Task { @MainActor in
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
-                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull()], frame: host.bounds)
+                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(),
+                                                                  "store": SetsPageStore(supportDir: Self.supportDir).all()], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self
@@ -81,6 +82,15 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     func command(_ name: String) {
         guard name.allSatisfy({ $0.isLetter }) else { return }
         webView?.evaluateJavaScript("window.__lumina && __lumina.command('\(name)')", completionHandler: nil)
+    }
+
+    /// Redo, Copy, Paste: the Edit step's when it is the active step (`window.luminaEdit`); anywhere
+    /// else the usual text command, so the shoot's name field still copies and pastes.
+    func editCommand(_ name: String, else fallback: Selector) {
+        guard name.allSatisfy({ $0.isLetter }), let webView else { return }
+        webView.evaluateJavaScript("!!(window.__lumina && __lumina.command('\(name)') === true)") { result, _ in
+            if (result as? Bool) != true { NSApp.sendAction(fallback, to: nil, from: nil) }
+        }
     }
 
     func toggleZoom() { webView?.evaluateJavaScript("window.__lumina && __lumina.zoom()", completionHandler: nil) }
@@ -189,6 +199,12 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
     }
 
+    /// `window.open(url, '_blank')`: never a second web view. An allowlisted link goes to the browser.
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if let url = action.request.url, case .external(let out) = SetsExternalLinks.verdict(for: url, userClicked: true) { NSWorkspace.shared.open(out) }
+        return nil
+    }
+
     // MARK: Navigation: only our own scheme; downloads go through a save panel
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences) async -> (WKNavigationActionPolicy, WKWebpagePreferences) {
@@ -196,8 +212,11 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         guard let url = action.request.url, let scheme = url.scheme, [SetsSchemeHandler.scheme, "about", "blob", "data"].contains(scheme) else {
             // The page's contact links (X, mail) open in the user's browser or mail app, from a click
             // only. The page itself never reaches the network.
-            if action.navigationType == .linkActivated, let url = action.request.url, ["https", "mailto"].contains(url.scheme ?? "") {
-                NSWorkspace.shared.open(url)
+            // Exactly three: the bug-report mail and the two profile links (`SetsExternalLinks`). v7 also
+            // opens them from its own click handlers (location.href, window.open), which arrive here
+            // without a link click: the allowlist is exact, so those are handed over too.
+            if let url = action.request.url, case .external(let out) = SetsExternalLinks.verdict(for: url, userClicked: true) {
+                NSWorkspace.shared.open(out)
             }
             return (.cancel, preferences)
         }

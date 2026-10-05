@@ -11,6 +11,18 @@
   // localStorage when it starts and hands every change to lumina.setPrefs. The web view's storage is
   // not persistent, so seed it before the page's constructor runs.
   if (cfg.prefs && typeof cfg.prefs === 'object') { try { localStorage.setItem('lumina-prefs', JSON.stringify(cfg.prefs)); } catch (_) {} }
+  // The same for the few other keys the page keeps there and that must outlive a launch (v7: the tour
+  // was seen, shoot names, the seen-before memory, the "before you open" tick, the phone page's
+  // choice, Edit's intro). The Mac holds them (SetsPageStore, the same list); seeded here, and every
+  // later write of one of them is handed over half a second after the last. Not in the probe's twins.
+  const STORED = ['lumina-v4-toured', 'lumina-v4-pre-ok', 'lumina-v4-names', 'lumina-v4-seen', 'lumina-phone-kind', 'lumina-phone-used', 'lumina.edit.intro.v1'];
+  if (cfg.store && typeof cfg.store === 'object' && !cfg.parity) {
+    try { for (const k of STORED) if (typeof cfg.store[k] === 'string') localStorage.setItem(k, cfg.store[k]); } catch (_) {}
+    const timers = {}, hand = k => { clearTimeout(timers[k]); timers[k] = setTimeout(() => { let v = null; try { v = localStorage.getItem(k); } catch (_) {} native('storeSet', { key: k, value: v }); }, 500); };
+    const set0 = Storage.prototype.setItem, rem0 = Storage.prototype.removeItem;
+    Storage.prototype.setItem = function (k, v) { const r = set0.call(this, k, v); if (this === localStorage && STORED.includes(String(k))) hand(String(k)); return r; };
+    Storage.prototype.removeItem = function (k) { const r = rem0.call(this, k); if (this === localStorage && STORED.includes(String(k))) hand(String(k)); return r; };
+  }
 
   const b64 = u8 => {
     let s = '';
@@ -177,7 +189,8 @@
     reveal: path => native('reveal', { path: String(path || '') }),
     // Lumina's own files for the open shoot (never RAWs or .xmp): size in bytes, and remove.
     workingFiles: () => shootId ? native('workingFiles', { id: shootId }) : Promise.resolve(0),
-    removeWorkingFiles: () => shootId ? native('removeShoot', { id: shootId }).then(ok => { shootId = null; lastSaved = ''; base = null; return ok; }) : Promise.resolve(false),
+    // The page's clear (v7, from any step): the decisions stay (BRIDGE.md "keep the session until saved").
+    removeWorkingFiles: () => shootId ? native('removeWorkingFiles', { id: shootId }) : Promise.resolve(false),
     setPrefs: prefs => native('setPrefs', { prefs }),
     // Permissions (SAFETY.md 5).
     openSettings: what => native('openSettings', { what: what || 'files' }),
@@ -462,6 +475,25 @@
         return native('writeInto', { label: 'jpeg', files: list });
       }
       if (label !== 'xmp') return null;
+      // v7 sends two kinds in one call: ratings as .xmp bytes, and DNG picks as `Picks/<file>.DNG` whose
+      // data is the photo's file (Lightroom ignores sidecars for DNG). The copies are made by the Mac,
+      // streamed and SHA-256 verified, into a folder asked for once; the sidecars go next to the RAWs.
+      const copies = files.filter(f => f && f.data && f.data.__luminaRel && /^Picks\//.test(f.name || ''));
+      if (copies.length) files = files.filter(f => !copies.includes(f));
+      const withCopies = async r => {
+        if (!copies.length) return r;
+        const c = await native('writeInto', { label: 'picks', files: copies.map(f => ({ name: f.name, copy: f.data.__luminaRel })) });
+        const out = Object.assign({ n: 0, errors: [] }, r || {}), errs = (out.errors || []).slice();
+        if (!c || c.aborted) for (const f of copies) errs.push({ name: f.name, reason: (c && c.say) || 'not copied · no folder chosen' });
+        else { out.n = (out.n || 0) + (c.n || 0); for (const e of c.errors || []) errs.push(e); if (!files.length) { out.path = c.path; out.folder = c.folder; } }
+        // The page marks a pick saved unless an error's name matches its sidecar path: a failed copy is
+        // named by that path too, so the pick stays unsaved (DESIGN-ASKS: match copy errors by the DNG's name).
+        const stem = n => String(n || '').split('/').pop().replace(/\.[^.]+$/, '').toLowerCase(), xp = {};
+        for (const p of Object.values((logic.data && logic.data.byId) || {})) if (/\.dng$/i.test(p.path || '')) xp[stem(p.path)] = (p.xpath || '').split('/').pop();
+        out.errors = errs.map(e => (/^Picks\//.test(e.name || '') && xp[stem(e.name)]) ? { name: xp[stem(e.name)], reason: e.name.split('/').pop() + ' not copied · ' + e.reason } : e);
+        return out;
+      };
+      if (!files.length) return withCopies(null);
       // The page merged each rating into the sidecar text it holds from the open (xmpFor on p.xmp),
       // which can be hours old: Lightroom may have written the file since. So the Mac reads every
       // sidecar again now (text + base: the SHA-256 of those bytes, or "none"). Where the text differs
@@ -489,7 +521,7 @@
       const r = await native('writeSidecars', { root, files: list });
       if (r && !(r.errors || []).length && (r.n || 0) > 0) savedKeepers = keepersOf(logic);
       if (r) setTimeout(saveNow, 0);
-      return r;
+      return withCopies(r);
     };
 
     // "Cull This Card": the card's DCIM folder, read in place.
@@ -1057,7 +1089,8 @@
       if (lastRead && lastRead.stopped) native('reopenCurrent', {});
     },
     access(denied, what) { window.luminaAccess(!!denied, what || ''); },
-    command(name) { return typeof window.luminaCommand === 'function' ? window.luminaCommand(name) : false; },
+    // Edit's own first (undo / redo / copy / paste, and the step menu while Edit is the active step).
+    command(name) { const h = edit.command(name); if (h !== undefined) return h; return typeof window.luminaCommand === 'function' ? window.luminaCommand(name) : false; },
     // View ▸ Zoom 100%: Z is a hold key in the page; the menu toggles it through the page's gesture hook.
     zoom() { const l = window.__lumina.logic(); if (l && typeof window.luminaGesture === 'function') window.luminaGesture('hold', { key: 'z', down: !l.state.zoom }); },
     // Quit asks when there are keepers not yet saved (MENUS.md): their count, or 0.

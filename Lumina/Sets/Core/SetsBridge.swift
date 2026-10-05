@@ -528,7 +528,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (reopen(id: body["id"] as? String ?? ""), nil)
         case "workingFiles":
             guard let id = body["id"] as? String else { return (0, nil) }
-            return (shoots.bytes(id), nil)
+            return (shoots.workingBytes(id), nil)
+        case "removeWorkingFiles":
+            // The page's "clear" (v7, any step): Lumina's own files for the shoot go, its decisions stay
+            // (BRIDGE.md: "keep the session until saved"). The menu's Remove Working Files… is `removeShoot`.
+            guard let id = body["id"] as? String, SetsShootStore.isID(id) else { return (false, nil) }
+            return (shoots.removeWorking(id), nil)
         case "removeShoot":
             guard let id = body["id"] as? String, SetsShootStore.isID(id) else { return (false, nil) }
             try? shoots.remove(id)
@@ -545,6 +550,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             reveal(url)
             onEvent?("reveal \(url.path)")
             return (true, nil)
+        case "storeSet":
+            // One of the page's stored keys that outlive a launch (`SetsPageStore`: tour seen, names, seen-before).
+            guard let key = body["key"] as? String else { return (false, nil) }
+            return (SetsPageStore(supportDir: supportDir).set(key, body["value"] as? String), nil)
         case "setPrefs":
             guard let prefs = body["prefs"] as? [String: Any] else { return (false, nil) }
             return (Self.savePrefs(prefs), nil)
@@ -697,6 +706,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// hands over are sidecars and nothing else; a look render is an image.
     static let bytesExtensions: Set<String> = ["xmp"]
     static let renderExtensions: Set<String> = ["jpg", "jpeg", "tif", "tiff", "png"]
+    /// What a `copy` item may be: a RAW pick copied whole (v7: DNG picks go to `Picks/`, because
+    /// Lightroom ignores sidecars for DNG).
+    static let copyExtensions: Set<String> = ["dng", "arw"]
 
     /// The page's export into a folder the user picks. v5 sends one kind of item, the Edit step's
     /// renders (plumbing's `writeInto(files, 'jpeg')`); Save goes through `writeSidecars`. Items:
@@ -722,8 +734,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 let px = SetsNumber.exportEdge(l["px"])
                 let decoder = LookRawPolicy.version(for: .export, body: (l["model"] as? String).flatMap { header.bodies[$0] }, pinned: header.decoderVersion)
                 items.append(.look(name: name, source: src, look: l["look"] as? String ?? "", px: px, decoder: decoder))
+            } else if let rel = f["copy"] as? String {
+                // v7's DNG picks: {name: "Picks/<file>.DNG", copy: "<rel>"} → a streamed, SHA-256 verified
+                // copy of the original (never a move; `SetsFileOps.copyVerified`).
+                guard Self.copyExtensions.contains(ext) else { return ["aborted": true, "say": "export stopped · bad file name"] }
+                guard let src = resolve(rel) else { return ["aborted": true, "say": "export stopped · can't find \(rel)"] }
+                items.append(.copy(name: name, source: src))
             } else {
-                // Not an item v5 has: nothing is written and no folder is asked for.
+                // Not an item the page has: nothing is written and no folder is asked for.
                 onEvent?("writeInto \(label): an item that is neither a look render nor sidecar bytes, nothing written")
                 return ["aborted": true]
             }
@@ -748,6 +766,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         let result = await Task.detached(priority: hasLooks ? .utility : .userInitiated) { [sources] in job.run(journal: journal, sources: sources) }.value
         ProcessInfo.processInfo.endActivity(activity)
         onEvent?("export \(label) → \(dest!.path): \(result.n) written, \(result.bak) bak, \(result.failed.count) failed\(result.failed.first.map { " — " + $0 } ?? "")\(result.decoders.isEmpty ? "" : " · " + result.decoderSummary)")
+        // Copies report per file (BRIDGE.md: `{n, folder, path, errors: [{name, reason}]}`): the page lists
+        // them and keeps those picks unsaved. Renders and bytes keep their one-line stop.
+        if label == "picks" {
+            return ["n": result.n, "folder": result.folder, "path": result.folder, "renamed": result.renamed,
+                    "errors": result.errors.map { ["name": $0.name, "reason": $0.reason] }]
+        }
         if let first = result.failed.first {
             return ["aborted": true, "say": result.n > 0 ? "export stopped after \(result.n) · \(first)" : first]
         }

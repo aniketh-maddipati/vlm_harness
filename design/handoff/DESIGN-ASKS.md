@@ -981,3 +981,45 @@ by its folder) and the recent works from then on. Until then File ▸ Open Recen
   contract scenario lists them.
 - By hand, once: install a sandboxed build over an unsandboxed one, see the alert, choose the
   folder, open a folder culled before and find its decisions.
+
+## Prompt 12 — after the v0.01 handoff (Sets v7, Edit v21) (paste into Claude Design)
+
+Found while fitting the app to the v0.01 handoff (2026-10-05). Six asks; none blocks the app.
+
+1. **Edit: no web images when Sets supplied the shoot.** In `Lumina Edit`, when `window.luminaShoot`
+   exists and a photo has no preview, show the "Couldn't open" state. Do not fall back to
+   `picsum.photos` or `images.unsplash.com`. The app makes no network calls, so today that tile is a
+   broken image.
+2. **Save: a failed DNG copy is still marked saved.** In `runExport`, `errors[].name` is matched only
+   against each photo's `.xmp` path. A copy error comes back named `Picks/<file>.DNG`, never matches,
+   and the pick is marked saved. Match copy errors by the DNG's file name as well, so a pick whose
+   copy failed stays unsaved and shows in the error list.
+3. **Card panel wording.** When `lumina.card.sony` is false the card panel reads "no ARW found · 0
+   photos". BRIDGE.md and the folder message both say "no ARW or DNG". Make the card panel read "no
+   ARW or DNG found · 0 photos".
+4. **Selftest for v7.** `lumina-selftest.js` fails 4 of 25 checks on Sets v7 because they describe
+   v5: "R keeps too" (R now removes), "X changes nothing" (X now removes as well), "F flags" (there
+   is no flag; F held shows the focus overlay), "⌘3 shows the Save bar with a count" (⌘3 is Edit,
+   Save is ⌘4). Update these four to v7's keys. The README's definition of done requires every
+   selftest check to pass.
+5. **Edit: as-shot white balance.** `editShoot()` in Sets passes `wbShot: 5500` for every photo, so
+   the white balance slider starts at 5500 K whatever the camera recorded. When a photo carries its
+   as-shot temperature and tint, pass those; keep 5500 and 0 only when it has none. Name the two
+   photo fields you want the app to fill and add them to BRIDGE.md.
+6. **Menu spec for v7.** The handoff has no menu spec. BRIDGE.md lists seven `luminaCommand` names
+   (open, save, finder, undo, keepRow, faq, tour); the page accepts twenty-two. Please add a short
+   MENUS section saying which commands are menu items and under what titles, including: the four
+   steps (Open ⌘1, Pick ⌘2, Edit ⌘3, Save ⌘4), what ⇧P is called now that it toggles the second
+   pass, and what Undo, Redo, Copy and Paste are called while Edit is the active step.
+
+Not asked (ruled 2026-10-05): v21's tone curve, colour mixer, vignette shape and 90° turn stay in
+the design. Native grows the stages for them; until each lands, that control moves the filmstrip
+but not the main canvas.
+
+Until the page changes, the app:
+- names a failed DNG copy by the photo's sidecar path in the Save result, so the pick stays unsaved
+  (`plumbing.js`, `writeInto`; ask 2);
+- follows the page's `luminaCommand` names for its menu, with "Pick", "Edit" and "Save Picks" as
+  titles and Redo / Copy / Paste routed to `window.luminaEdit` in Edit (`LuminaApp.swift`; ask 6);
+- sends Temperature as the page's number against its 5500 K until native hands back the as-shot
+  values (`plumbing.js`, the Edit translator; ask 5).

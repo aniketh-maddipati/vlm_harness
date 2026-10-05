@@ -178,6 +178,30 @@ nonisolated struct SetsShootStore {
         try write(index().filter { $0.id != id })
     }
 
+    /// What a shoot's folder keeps when its working files are cleared: the decisions and the header
+    /// (the decoder pin, RAW 9's pin rule).
+    static let kept: Set<String> = ["session.json", "Lumina.json"]
+
+    /// Lumina's own files for the shoot that can be made again (previews, thumbnails): everything in
+    /// its folder but `kept`. Never RAWs or .xmp: those are not in the store.
+    func workingBytes(_ id: String) -> Int64 {
+        guard let folder = try? dir(id) else { return 0 }
+        let top = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        return top.filter { !Self.kept.contains($0.lastPathComponent) }.reduce(Int64(0)) { sum, url in
+            let inside = (FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey])?.allObjects as? [URL]) ?? []
+            return ([url] + inside).reduce(sum) { $0 + Int64((try? $1.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]))?.isRegularFile == true ? ((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) : 0) }
+        }
+    }
+
+    /// Removes those files and leaves the session and the header. False for a refused id.
+    func removeWorking(_ id: String) -> Bool {
+        guard let folder = try? dir(id) else { return false }
+        for url in (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [] where !Self.kept.contains(url.lastPathComponent) {
+            try? FileManager.default.removeItem(at: url)
+        }
+        return true
+    }
+
     func bytes(_ id: String) -> Int64 {
         guard let folder = try? dir(id) else { return 0 }
         let files = (FileManager.default.enumerator(at: folder,includingPropertiesForKeys: [.fileSizeKey])?.allObjects as? [URL]) ?? []
