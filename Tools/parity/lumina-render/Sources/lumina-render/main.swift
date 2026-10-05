@@ -208,9 +208,22 @@ do {
             worst = max(worst, err)
             rows.append(["in": [c.r, c.g, c.b], "graph": [got.r, got.g, got.b], "math": [want.r, want.g, want.b], "err": err])
         }
+        // outputTransform alone (the rules' mapper), on colours up to far above white
+        var display: [[String: Any]] = []
+        let bright: [LookMath.RGB] = [.gray(0), .gray(0.18), .gray(0.6), .gray(0.9), .gray(1), .gray(1.5), .gray(4), .gray(40),
+                                      LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), LookMath.RGB(r: 1, g: 0.5, b: 0.05), LookMath.RGB(r: 4, g: 2, b: 0.2),
+                                      LookMath.RGB(r: 3, g: 0.24, b: 0.09), LookMath.RGB(r: 0.8, g: 1.6, b: 4), LookMath.RGB(r: 2, g: 1.2, b: 0.84),
+                                      LookMath.RGB(r: 0.4, g: 8, b: 0.2), LookMath.RGB(r: 30, g: 0, b: 0)]
+        for c in bright {
+            let got = pipe.pixel(pipe.output(pipe.flat(c, size: 64).image), x: 32, y: 32)
+            let want = LookMath.output(c, rules)
+            let err = max(abs(got.r - want.r), abs(got.g - want.g), abs(got.b - want.b))
+            worst = max(worst, err)
+            display.append(["in": [c.r, c.g, c.b], "graph": [got.r, got.g, got.b], "math": [want.r, want.g, want.b], "err": err])
+        }
         let report: [String: Any] = ["look": look.format(), "asShot": ["kelvin": asShot.kelvin, "tint": asShot.tint],
                                      "rules": rules.stages.mapValues { $0.coefficients }, "perceptualGamma": rules.perceptualGamma,
-                                     "order": rules.order, "patches": rows, "worstGraphVsMath": worst]
+                                     "order": rules.order, "patches": rows, "mapper": rules.mapper.rawValue, "display": display, "worstGraphVsMath": worst]
         let text = json(report)
         if let outPath { try Data(text.utf8).write(to: URL(fileURLWithPath: outPath)) ; print("ramp → \(outPath) · worst graph vs maths \(String(format: "%.4f", worst))") }
         else { print(text) }

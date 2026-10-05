@@ -199,5 +199,107 @@ class LookMathMirrorTests(unittest.TestCase):
         self.assertEqual(len(rows), 3)
 
 
+    # ---- outputTransform (the display mapper) ----
+
+    def sigmoid_rules(self):
+        r = json.loads(json.dumps(self.rules))
+        r["stages"]["outputTransform"]["mapper"] = "sigmoid"
+        return r
+
+    @staticmethod
+    def hue(rgb):
+        lab = lm.to_oklab(np.asarray(rgb, dtype=np.float64))
+        return float(np.degrees(np.arctan2(lab[2], lab[1]))), float(np.hypot(lab[1], lab[2]))
+
+    @staticmethod
+    def hue_shift(a, b):
+        d = abs(a - b) % 360.0
+        return 360.0 - d if d > 180.0 else d
+
+    def test_shipped_mapper_is_the_clamp(self):
+        self.assertEqual(lm.mapper(self.rules), "clamp")
+        np.testing.assert_allclose(lm.output_transform([1.5, 0.5, -0.1], self.rules), [1.0, 0.5, 0.0])
+        self.assertEqual(lm.mapper(self.sigmoid_rules()), "sigmoid")
+        self.assertEqual(lm.mapper({"stages": {}}), "clamp")
+
+    def test_mapper_matrices(self):
+        for inset, rotate in ((0.2, 0.0), (0.2, 7.0), (0.35, -4.0), (0.0, 0.0)):
+            m, o = lm.mapper_matrices(inset, rotate)
+            np.testing.assert_allclose(o @ m, np.eye(3), atol=1e-12)
+            np.testing.assert_allclose(m.sum(axis=1), 1.0, atol=1e-12)
+            np.testing.assert_allclose(o.sum(axis=1), 1.0, atol=1e-12)
+
+    def test_mapper_identity_below_the_knee(self):
+        r = self.sigmoid_rules()
+        c = np.array([[0, 0, 0], [0.02] * 3, [0.18] * 3, [0.6] * 3, [0.6, 0.35, 0.25], [0.5, 0.2, 0.2], [0.15, 0.2, 0.6], [0.004, 0.002, 0.006]])
+        np.testing.assert_allclose(lm.output_transform(c, r), c, atol=1e-12)
+
+    def test_mapper_rolls_off_smoothly(self):
+        r = self.sigmoid_rules()
+        knee_ev, max_ev = lm.display_mapper(r)[:2]
+        g = np.linspace(0, 20, 4001)
+        out = lm.output_transform(np.stack([g] * 3, axis=-1), r)
+        self.assertTrue(np.all(np.diff(out[:, 1]) >= 0) and np.all(out <= 1.0))
+        self.assertLess(float(np.max(np.abs(out[:, 0] - out[:, 2]))), 1e-9)
+        knee, top, h = lm.GREY * 2.0 ** knee_ev, lm.GREY * 2.0 ** max_ev, 1e-5
+        f = lambda x: float(lm.shoulder(x, knee_ev, max_ev))
+        self.assertAlmostEqual((f(knee) - f(knee - h)) / h, 1.0, places=6)
+        self.assertAlmostEqual((f(knee + h) - f(knee)) / h, 1.0, places=3)
+        self.assertAlmostEqual(f(top), 1.0); self.assertAlmostEqual(f(top * 8), 1.0)
+        self.assertLess(f(4.0), 1.0)
+        self.assertTrue(0.85 < f(1.0) < 0.95)
+        x = knee * 1.01 ** np.arange(0, int(np.log(top / knee) / np.log(1.01)))
+        slopes = (lm.shoulder(x * 1.01, knee_ev, max_ev) - lm.shoulder(x, knee_ev, max_ev)) / (x * 0.01)
+        self.assertTrue(np.all(np.diff(slopes) <= 1e-9), "the slope only falls from the knee up")
+
+    def test_mapper_keeps_hue_and_fades_to_white(self):
+        r = self.sigmoid_rules()
+        for base in ([1, 0.5, 0.05], [1, 0.08, 0.03], [0.2, 0.4, 1], [0.2, 1, 0.1]):
+            base = np.array(base, dtype=np.float64)
+            h0 = self.hue(base * 0.5)[0]
+            chroma = np.inf
+            for gain in (1, 2, 4, 8, 16):
+                h, C = self.hue(lm.output_transform(base * gain, r))
+                if gain <= 4:
+                    self.assertLess(self.hue_shift(h, h0), 10.0, f"{base} x {gain}")
+                self.assertLessEqual(C, chroma + 1e-9, f"{base} x {gain} gained colour")
+                chroma = C
+            self.assertLess(chroma, 0.02, f"{base} x 16 is nearly white")
+            self.assertGreater(float(lm.output_transform(base * 64, r).min()), 0.98)
+        orange, h0 = np.array([4, 2, 0.2]), self.hue([0.5, 0.25, 0.025])[0]
+        self.assertGreater(self.hue_shift(self.hue(lm.output_transform(orange, self.rules))[0], h0), 20.0, "the clamp turns it yellow")
+        self.assertLess(self.hue_shift(self.hue(lm.output_transform(orange, r))[0], h0), 8.0)
+        self.assertGreater(float(lm.output_transform([30.0, 0, 0], r)[1]), 0.95)
+
+    def test_mapper_is_finite(self):
+        r = self.sigmoid_rules()
+        with np.errstate(all="ignore"):
+            for v in (0.0, -0.5, 1e-30, 1e6, 1e30, sys.float_info.max, np.inf):
+                for c in ([v, v, v], [v, 1, 0], [0, 0.3, v]):
+                    out = lm.output_transform(np.array(c, dtype=np.float64), r)
+                    self.assertTrue(np.all(np.isfinite(out)) and np.all(out >= 0) and np.all(out <= 1), f"{c} -> {out}")
+        np.testing.assert_allclose(lm.output_transform([np.inf] * 3, r), 1.0)
+
+    def test_check_covers_the_mapper(self):
+        r = self.sigmoid_rules()
+        display = []
+        for c in ([0.18] * 3, [4, 2, 0.2], [30, 0, 0]):
+            v = lm.output_transform(np.array(c, dtype=np.float64), r)
+            display.append({"in": c, "graph": list(v + 0.001), "math": list(v)})
+        dump = {"look": "", "asShot": {"kelvin": AS_SHOT[0], "tint": AS_SHOT[1]}, "rules": {s: r["stages"][s]["coefficients"] for s in r["stages"]},
+                "perceptualGamma": r["perceptualGamma"], "order": r["order"], "patches": [], "mapper": "sigmoid", "display": display}
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(dump, f)
+        worst, rows = lm.check(f.name)
+        dump["mapper"] = "clamp"
+        with open(f.name, "w") as g:
+            json.dump(dump, g)
+        clamped, _ = lm.check(f.name)
+        os.unlink(f.name)
+        self.assertLess(worst, 0.002)
+        self.assertEqual(len(rows), 3)
+        self.assertGreater(clamped, 0.1, "a dump whose mapper differs from the values fails the check")
+
+
 if __name__ == "__main__":
     unittest.main()

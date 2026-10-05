@@ -117,7 +117,7 @@ enum EditSteps {
             // The RAW can't be developed here (synthetic fixtures): the export path on the same embedded JPEG.
             let dev = try LookPipeline.developPreview(url: url, offset: p.offset, length: p.length, orientation: p.orientation, longEdge: px)
             let img = pipe.apply(try Look.parse(look), to: dev)
-            guard let cg = pipe.context.createCGImage(pipe.clamped(img), from: img.extent.integral, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!) else { throw ProbeError("export render failed") }
+            guard let cg = pipe.context.createCGImage(pipe.output(img), from: img.extent.integral, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!) else { throw ProbeError("export render failed") }
             export = cg
         } else {
             let (data, _) = try SetsLookExport.render(raw: url, look: look, px: px, format: "png", decoder: entry.decoder)
@@ -227,8 +227,8 @@ enum EditSteps {
             let tilesImg = pipe.apply(Look(), to: LookPipeline.Developed(image: region.image, asShot: region.asShot, anchor: region.anchor), crop: false)
             let dev = try LookPipeline.develop(url: first, longEdge: nil, rules: pipe.rules, decoderVersion: v)
             let exportImg = pipe.apply(Look(), to: dev)
-            guard let a = pipe.context.createCGImage(pipe.clamped(tilesImg), from: region.rect, format: .RGBA8, colorSpace: srgb),
-                  let b = pipe.context.createCGImage(pipe.clamped(exportImg), from: region.rect, format: .RGBA8, colorSpace: srgb) else { o.failures.append("raw9: region render failed for raw \(v)"); continue }
+            guard let a = pipe.context.createCGImage(pipe.output(tilesImg), from: region.rect, format: .RGBA8, colorSpace: srgb),
+                  let b = pipe.context.createCGImage(pipe.output(exportImg), from: region.rect, format: .RGBA8, colorSpace: srgb) else { o.failures.append("raw9: region render failed for raw \(v)"); continue }
             let de = LookParity.stats(a, b)
             parity.append(["decoder": v, "median": de.median, "mean": de.mean, "p95": de.p95, "max": de.max, "pixels": de.pixels])
             lines.append(String(format: "parity raw %d: region tiles vs export ΔE median %.3f p95 %.3f max %.2f", v, de.median, de.p95, de.max))

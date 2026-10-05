@@ -381,23 +381,31 @@ nonisolated final class LookPipeline: @unchecked Sendable {
 
     // MARK: outputTransform
 
-    /// Clamped to 0…1 in the working space; the colour space conversion happens in the encode.
-    func clamped(_ img: CIImage) -> CIImage { img.applyingFilter("CIColorClamp") }
+    /// Brought into 0…1 in the working space by the rules' mapper (`LookRules.mapper`): the clamp,
+    /// or `LookMath.DisplayMapper`. The colour space conversion happens in the encode.
+    func output(_ img: CIImage) -> CIImage {
+        guard rules.mapper == .sigmoid else { return img.applyingFilter("CIColorClamp") }
+        let m = LookMath.DisplayMapper(rules), r = m.insetRows, o = m.outsetRows
+        var args: [Any] = [img]
+        for row in r + o { args.append(CIVector(x: row[0], y: row[1], z: row[2], w: 0)) }
+        args.append(CIVector(x: m.kneeEV, y: m.maxEV, z: m.headroom, w: m.hueKeep))
+        return kernels.apply("lookDisplay", extent: img.extent, args) ?? img.applyingFilter("CIColorClamp")
+    }
 
     func jpeg(_ img: CIImage, quality: Double = 0.9, space: OutputSpace = .sRGB) throws -> Data {
         let q = CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String)
-        guard let d = context.jpegRepresentation(of: clamped(img), colorSpace: space.cgColorSpace, options: [q: quality]) else { throw Failure("JPEG encode failed") }
+        guard let d = context.jpegRepresentation(of: output(img), colorSpace: space.cgColorSpace, options: [q: quality]) else { throw Failure("JPEG encode failed") }
         return d
     }
 
     /// 16-bit TIFF (RGBA16, the alpha channel is all ones) in `space`, tagged with its profile.
     func tiff16(_ img: CIImage, space: OutputSpace) throws -> Data {
-        guard let d = context.tiffRepresentation(of: clamped(img), format: .RGBA16, colorSpace: space.cgColorSpace, options: [:]) else { throw Failure("TIFF encode failed") }
+        guard let d = context.tiffRepresentation(of: output(img), format: .RGBA16, colorSpace: space.cgColorSpace, options: [:]) else { throw Failure("TIFF encode failed") }
         return d
     }
 
     func png(_ img: CIImage, space: OutputSpace = .sRGB) throws -> Data {
-        guard let d = context.pngRepresentation(of: clamped(img), format: .RGBA8, colorSpace: space.cgColorSpace, options: [:]) else { throw Failure("PNG encode failed") }
+        guard let d = context.pngRepresentation(of: output(img), format: .RGBA8, colorSpace: space.cgColorSpace, options: [:]) else { throw Failure("PNG encode failed") }
         return d
     }
 

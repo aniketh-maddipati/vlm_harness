@@ -59,6 +59,8 @@ def image_info(path):
 def index(folder, read_info=True):
     refs, ignored, asshot = [], [], {}
     for name in sorted(os.listdir(folder)):
+        if name.startswith("."):
+            continue                                    # AppleDouble stubs (._name) on an ExFAT disk, .DS_Store
         path = os.path.join(folder, name)
         if name.lower().endswith("__asshot.json"):
             stem = name[: -len("__asshot.json")]

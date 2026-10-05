@@ -344,6 +344,94 @@ nonisolated enum LookMath {
         return exp2(vignette * rules.k("vignette", "stopsPerUnit", 0.02) * smoothstep(m - f / 2, m + f / 2, r))
     }
 
+    // MARK: outputTransform (the display mapper)
+
+    /// The `sigmoid` mapper (`rules.mapper`; the default is the clamp). The working space holds
+    /// values above 1 (the decoder's headroom, whatever a slider pushed there) that the clamp cuts
+    /// one channel at a time: a bright orange turns yellow, a blown sky cyan. This rolls them off:
+    ///
+    ///  1. the inset: every primary moved `inset` of the way to white and turned `rotate` degrees
+    ///     about the grey axis (rows sum to 1, a grey stays the same grey), so a pure primary has
+    ///     something in its other channels and can reach white;
+    ///  2. each channel through the shoulder, in log2 around mid grey (0.18): the identity up to
+    ///     `kneeEV` stops above grey, then L′ = knee + H·(1 − (1 − u)^q) with u the way from the knee to
+    ///     `maxEV`, H the stops from the knee to display white and q = (maxEV − kneeEV) / H, which
+    ///     makes the slope 1 at the knee and 0 at `maxEV`, where the output is exactly 1;
+    ///  3. the hue put back: the largest and smallest channel keep the shoulder's values, the middle
+    ///     one keeps its place between them (`hueKeep` of the way; 0 is the plain per-channel curve,
+    ///     which shifts a bright orange or a skin tone by about 10 degrees before it reaches white);
+    ///  4. the outset, the inverse of the inset, so a colour below the knee comes out as it went in.
+    ///
+    /// Only the upper half of a sigmoid: below the knee the input is already display-referred
+    /// (the decoder's tone curve and the base match), so there is no toe to add.
+    ///
+    /// Structure ideas only (no code) from the published AgX write-ups (Troy Sobotka's AgX: a log2
+    /// encoding around mid grey, one sigmoid, inset and outset matrices for the path to white) and
+    /// from the hue-preserving option of darktable's sigmoid module.
+    struct DisplayMapper: Equatable, Sendable {
+        var kneeEV = 2.0, maxEV = 6.5, inset = 0.2, rotate = 0.0, hueKeep = 1.0
+
+        static let grey = toneReference
+        /// Display white, in stops above mid grey.
+        static let whiteEV = log2(1 / grey)
+
+        init() {}
+        init(_ rules: LookRules) {
+            let k = { (n: String, d: Double) in rules.k("outputTransform", n, d) }
+            kneeEV = min(Self.whiteEV - 0.05, k("kneeEV", 2))
+            maxEV = max(Self.whiteEV + 0.05, k("maxEV", 6.5))
+            inset = min(0.9, max(0, k("inset", 0.2)))
+            rotate = k("rotate", 0)
+            hueKeep = min(1, max(0, k("hueKeep", 1)))
+        }
+
+        /// The input above which everything is white.
+        var top: Double { Self.grey * exp2(maxEV) }
+        /// The stops from the knee to display white.
+        var headroom: Double { Self.whiteEV - kneeEV }
+
+        /// A turn of `rotate` degrees about the grey axis: rows and columns sum to 1.
+        private var turn: [[Double]] {
+            let t = rotate * .pi / 180, c = cos(t), d = (1 - c) / 3, s = sin(t) / 3.0.squareRoot()
+            return [[c + d, d - s, d + s], [d + s, c + d, d - s], [d - s, d + s, c + d]]
+        }
+        /// (1 − inset) · turn + inset / 3: out.r = insetRows[0] · (r, g, b), …
+        var insetRows: [[Double]] { turn.map { row in row.map { (1 - inset) * $0 + inset / 3 } } }
+        /// Its inverse: turnᵀ / (1 − inset) − inset / (3 · (1 − inset)).
+        var outsetRows: [[Double]] {
+            let r = turn
+            return (0..<3).map { i in (0..<3).map { j in r[j][i] / (1 - inset) - inset / (3 * (1 - inset)) } }
+        }
+
+        /// One channel through the shoulder (linear in, linear out).
+        func shoulder(_ x: Double) -> Double {
+            let knee = Self.grey * exp2(kneeEV)
+            guard x > knee else { return x }
+            let u = (log2(min(x, top) / Self.grey) - kneeEV) / (maxEV - kneeEV)
+            return Self.grey * exp2(kneeEV + headroom * (1 - pow(max(0, 1 - u), (maxEV - kneeEV) / headroom)))
+        }
+
+        func apply(_ c: RGB) -> RGB {
+            let m = insetRows, o = outsetRows
+            let x = m.map { min(top, $0[0] * c.r + $0[1] * c.g + $0[2] * c.b) }
+            var p = x.map(shoulder)
+            let xmax = x.max()!, xmin = x.min()!, pmax = p.max()!, pmin = p.min()!, span = xmax - xmin
+            if span > 1e-6 {
+                for i in 0..<3 { p[i] += (pmin + (x[i] - xmin) * ((pmax - pmin) / span) - p[i]) * hueKeep }
+            }
+            let out = o.map { min(1, max(0, $0[0] * p[0] + $0[1] * p[1] + $0[2] * p[2])) }
+            return RGB(r: out[0], g: out[1], b: out[2])
+        }
+    }
+
+    /// outputTransform on one colour: the rules' mapper, inside 0…1 (linear, working space).
+    static func output(_ c: RGB, _ rules: LookRules) -> RGB {
+        switch rules.mapper {
+        case .clamp: return RGB(r: min(1, max(0, c.r)), g: min(1, max(0, c.g)), b: min(1, max(0, c.b)))
+        case .sigmoid: return DisplayMapper(rules).apply(c)
+        }
+    }
+
     // MARK: the whole chain on a flat patch
 
     /// Every stage on one colour, where blur(x) == x (a flat patch) and the pixel is at the frame's
