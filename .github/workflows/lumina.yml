@@ -206,6 +206,7 @@ jobs:
             run: bash Scripts/probe.sh sandbox smoke
     env:
       LUMINA_EDIT_GATE: "0"     # latency is reported, not gated, on a shared runner
+      LUMINA_SELFTEST_TIMING: "report"  # the same for the selftest's timing checks (Tests/selftest-known.json); a Mac gates them
       LUMINA_LONG: "1"          # the fuzz storms are long runs, started on purpose here
       LUMINA_PROBE_LIMIT: "1500"        # per probe.sh call; a shared runner is several times slower than a Mac on a desk
       LUMINA_SCENARIO_LIMIT: "900"

@@ -229,21 +229,24 @@ def selftest():
     rows = p.js('return window.luminaTestResults') or []
     # The checks that still describe v5 (DESIGN-ASKS Prompt 12 ask 4): reported, never gating. The
     # same file the Mac probe's `selftest` step reads (Tests/probe/scenarios/selftest.json).
-    known = json.load(open(os.path.join(ROOT, 'Tests/selftest-known.json')))['known']
+    lists = json.load(open(os.path.join(ROOT, 'Tests/selftest-known.json')))
+    known, timing = lists['known'], lists.get('timing', [])
     names = [r['n'] for r in rows]
     for r in rows:
         if r['n'] in known:
             print(('     known, not gated: ' if not r['ok'] else '     ') + r['n'] + ' · ' + r['d'])
         elif not r['ok'] or r['n'].startswith('perf'):
-            print(('     ' if r['ok'] else 'FAIL ') + r['n'] + ' · ' + r['d'])
+            slow = not r['ok'] and (r['n'].startswith('perf') or r['n'] in timing)
+            print(('     ' if r['ok'] else '     timing, reported not gated: ' if slow else 'FAIL ') + r['n'] + ' · ' + r['d'])
     for k in known:
         if k in names and next(r for r in rows if r['n'] == k)['ok']:
             print('     NOW PASSES, DROP IT FROM THE LIST: %s (Tests/selftest-known.json)' % k)
         elif k not in names:
             print('     in the list but no longer a check, drop it: %s (Tests/selftest-known.json)' % k)
-    # Behaviour checks gate; the two timing checks are reported only: ADDENDUM-1 §6 measures timing
-    # in the real app, and a virtual display without GPU is no measure of it.
-    beh = [r for r in rows if not r['n'].startswith('perf')]
+    # Behaviour checks gate; the timing checks are reported only (the perf checks and the file's
+    # "timing" list: behaviour checks with a fixed wait): ADDENDUM-1 §6 measures timing in the real
+    # app, and a virtual display without GPU is no measure of it. The Mac probe gates them.
+    beh = [r for r in rows if not r['n'].startswith('perf') and r['n'] not in timing]
     bad = [r['n'] for r in beh if not r['ok'] and r['n'] not in known]
     ok(len(rows) >= 25 and not bad, 'selftest: %d behaviour checks, %d failing outside the known list (Tests/selftest-known.json)' % (len(beh), len(bad)), bad)
     p.close()

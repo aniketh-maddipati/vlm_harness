@@ -220,7 +220,9 @@ final class Runner {
             // The design's ?selftest rows (window.luminaTestResults: {n, ok, d}). Every failing row
             // fails the step, except the names in `known` (a JSON file with a "known" list, shared
             // with Tests/web/webkit.py): those are reported. One of them passing again is reported
-            // too, loudly, and does not fail.
+            // too, loudly, and does not fail. Timing checks (a name starting "perf", or in the file's
+            // "timing" list) gate on a Mac; with LUMINA_SELFTEST_TIMING=report (a shared CI runner,
+            // like LUMINA_EDIT_GATE=0 for Edit) a failing one is reported and does not fail.
             let file = try str(s, "known")
             let url = file.hasPrefix("/") ? URL(fileURLWithPath: file) : URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(file)
             guard let obj = try JSONSerialization.jsonObject(with: try Data(contentsOf: url)) as? [String: Any], let known = obj["known"] as? [String] else {
@@ -230,12 +232,18 @@ final class Runner {
             if let least = s["atLeast"] as? Int, rows.count < least { throw ProbeError("self-test ran \(rows.count) checks, expected at least \(least)") }
             let name = { (r: [String: Any]) in r["n"] as? String ?? "?" }
             let failing = rows.filter { !truthy($0["ok"]) }
-            let unknown = failing.filter { !known.contains(name($0)) }.map { "\(name($0)) · \($0["d"] as? String ?? "")" }
+            let timingNames = obj["timing"] as? [String] ?? []
+            let reportTiming = ProcessInfo.processInfo.environment["LUMINA_SELFTEST_TIMING"] == "report"
+            let isTiming = { (r: [String: Any]) in name(r).hasPrefix("perf") || timingNames.contains(name(r)) }
+            let label = { (r: [String: Any]) in "\(name(r)) · \(r["d"] as? String ?? "")" }
+            let slow = reportTiming ? failing.filter { !known.contains(name($0)) && isTiming($0) }.map(label) : []
+            let unknown = failing.filter { !known.contains(name($0)) && !(reportTiming && isTiming($0)) }.map(label)
             let stillFailing = failing.map(name).filter(known.contains)
             let nowPassing = known.filter { k in rows.contains { name($0) == k && truthy($0["ok"]) } }
             let missing = known.filter { k in !rows.contains { name($0) == k } }
             var note = "\(rows.count - failing.count) / \(rows.count) pass"
             if !stillFailing.isEmpty { note += " · known, not gated (\(file)): " + stillFailing.joined(separator: " | ") }
+            if !slow.isEmpty { note += " · timing, reported not gated on this runner (LUMINA_SELFTEST_TIMING=report): " + slow.joined(separator: " | ") }
             if !nowPassing.isEmpty { note += " · NOW PASSES, DROP IT FROM THE LIST in \(file): " + nowPassing.joined(separator: " | ") }
             if !missing.isEmpty { note += " · in the list but no longer a check, drop it: " + missing.joined(separator: " | ") }
             if !unknown.isEmpty { throw ProbeError("\(unknown.count) failing: " + unknown.joined(separator: " | ") + "  (\(note))") }

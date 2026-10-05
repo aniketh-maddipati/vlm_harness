@@ -5,5 +5,9 @@
   "X changes nothing",
   "F flags",
   "⌘3 shows the Save bar with a count"
+ ],
+ "timingWhy": "Checks that measure time. On a Mac they gate like every other check. On a shared CI runner (LUMINA_SELFTEST_TIMING=report, set for the probe shards in .github/workflows/lumina.yml; always in Tests/web/webkit.py, a virtual display without a GPU) a failing one is reported and does not fail the run (ruled 2026-10-05). Every check whose name starts with 'perf' is a timing check; the names below are behaviour checks with a fixed wait that a slow runner misses: 'Space on a stack…' waits 350 ms for the large view and its axis, and failed only on runs where the large view took 141 to 225 ms to its first frame (limit 100 ms).",
+ "timing": [
+  "Space on a stack opens large at frame 1 with an axis"
  ]
 }
