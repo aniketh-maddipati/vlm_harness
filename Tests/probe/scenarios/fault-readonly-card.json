@@ -7,7 +7,7 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": true,
- "checklist": "F7 read-only / locked card (v5): the card reads fine; Save on a card is replaced by 'copy to disk first' with the page's notice, ⌘↩ writes nothing to the card (no .xmp, no temp files). First grant (R1c): the card is culled once through 'Cull this card' (sandboxed: the panel's pick, scripted), then a relaunch and the card out and in, so from here on it is a card the app already knows (sandboxed: through its bookmark), in both modes; the steps after that are unchanged.",
+ "checklist": "F7 read-only / locked card: the card reads fine; Save on a card is replaced by 'copy to disk first' with the page's notice, ⌘↩ writes nothing to the card (no .xmp, no temp files). First grant (R1c): the card is culled once through 'Cull this card' (sandboxed: the panel's pick, scripted), then a relaunch and the card out and in, so from here on it is a card the app already knows (sandboxed: through its bookmark), in both modes; the steps after that are unchanged. (Sets v7: Save is step ⌘4, and with undecided photos the first ⌘↩ only warns, the second within 5 s saves).",
  "steps": [
   {
    "do": "startCards"

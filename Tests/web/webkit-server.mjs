@@ -8,14 +8,14 @@ import http from 'http';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot, makeBigJpegs, makeBigShoot, strictQuery, deadline } from './lib.mjs';
+import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot, makeBigJpegs, makeBigShoot, strictQuery, deadline, standIn } from './lib.mjs';
 
 deadline('webkit-server.mjs', 2400);         // webkit.py stops it sooner; never left listening
 
 const port = +(process.argv[2] || 8765), work = path.resolve(process.argv[3] || '/tmp/lumina-webkit');
 fs.mkdirSync(work, { recursive: true });
 const ORIGIN = `http://127.0.0.1:${port}`;
-let bridge = new Bridge();
+let bridge = new Bridge(), standBrowser = null;   // Chromium for the drawn stand-in photos, started on the first request
 
 // Synthetic ARWs need JPEG previews: made once with Chromium's canvas, then reused.
 const jpegDir = path.join(work, 'jpegs');
@@ -101,13 +101,21 @@ http.createServer(async (req, res) => {
       const b = fs.readFileSync(f), out = p === 'media/head' ? b.subarray(0, 262144) : b.subarray(+q.o, +q.o + +q.l);
       res.writeHead(200, { 'content-type': p === 'media/head' ? 'application/octet-stream' : 'image/jpeg' }); return res.end(out);
     }
+    // v7's sample shoot shows `uploads/<name>.jpg` (the designer's photos, not in the repo): a drawn
+    // stand-in, the same picture for the same name, as lib.mjs open() gives the Chromium runs and the
+    // Mac probe's scheme handler gives the app. Served in every mode (the app's own twin of the sample
+    // shoot, plumbing's parity mode, needs it too; no check opens the sample shoot in plain app mode).
+    if (/^uploads\/[A-Za-z0-9_-]{1,40}\.jpg$/.test(p)) {
+      standBrowser ||= pw.chromium.launch();
+      res.writeHead(200, { 'content-type': 'image/jpeg' }); return res.end(await standIn(await standBrowser, p.slice(8)));
+    }
     const file = p.startsWith('vendor/') ? path.join(WEB, p.slice(7)) : path.join(WEB, p);
     if (!p || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'content-type': file.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/javascript; charset=utf-8' });
     res.end(fs.readFileSync(file));
   } catch (e) { json(res, { error: String(e) }, 500); }
 }).listen(port, '127.0.0.1', () => console.log('ready ' + ORIGIN));
-process.on('SIGTERM', () => { helper.kill(); process.exit(0); });
+process.on('SIGTERM', () => { helper.kill(); if (standBrowser) standBrowser.then(b => b.close()).catch(() => {}); process.exit(0); });
 // A webkit.py that was killed cannot stop its server: the server goes when its parent does.
 const parent = process.ppid;
 setInterval(() => { if (process.ppid !== parent) { helper.kill(); process.exit(0); } }, 2000);
