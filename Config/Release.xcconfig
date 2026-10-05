@@ -7,7 +7,7 @@
 
 // The App Store record's bundle id. Sessions live in the sandbox container named after it, so it
 // must not change after the first TestFlight build (docs/release/APP-STORE.md, decisions).
-PRODUCT_BUNDLE_IDENTIFIER = com.lumina.app
+PRODUCT_BUNDLE_IDENTIFIER = com.aniketh.lumina
 // The team of the Developer ID certificate on the release Mac. Public: it is in every signature.
 DEVELOPMENT_TEAM = QHB498M84T
 
