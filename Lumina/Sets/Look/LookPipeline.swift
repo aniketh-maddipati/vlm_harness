@@ -347,6 +347,13 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 let k2 = CIVector(x: r.k("colour", "skinHue", 60), y: max(1e-6, r.k("colour", "skinWidth", 25)),
                                   z: look.vibrance > 0 ? r.k("colour", "skinProtect", 0.7) : 0, w: look.bw ? 1 : 0)
                 pass("lookColour", [img, k1, k2])
+            case "mixer":
+                let c = LookMath.mixerCentres(r), m = look.mixer
+                func pair(_ v: [Double], _ scale: Double) -> [CIVector] {
+                    [CIVector(x: v[0] * scale, y: v[1] * scale, z: v[2] * scale, w: v[3] * scale), CIVector(x: v[4] * scale, y: v[5] * scale, z: v[6] * scale, w: v[7] * scale)]
+                }
+                pass("lookMixer", [img] + pair(c, 1) + pair(m.hue, r.k("mixer", "hueDegreesPerUnit", 0.3)) + pair(m.saturation, r.k("mixer", "saturationPerUnit", 0.01))
+                     + pair(m.luminance, r.k("mixer", "luminancePerUnit", 0.003)) + [CIVector(x: max(1e-6, r.k("mixer", "luminanceChromaKnee", 0.05)), y: 0, z: 0, w: 0)])
             case "clarity":
                 let base = blur(luma(perceptual: true), sigma: r.k("clarity", "radiusFraction", 0.02) * longEdge)
                 let k = CIVector(x: look.clarity * r.k("clarity", "amountPerUnit", 0.01), y: r.k("clarity", "midtonePower", 2), z: 0, w: 0)
@@ -355,18 +362,11 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 let base = blur(luma(perceptual: true), sigma: LookMath.sharpenRadius(longEdge: longEdge, r))
                 let k = CIVector(x: look.sharpen * r.k("sharpen", "amountPerUnit", 0.01), y: max(1e-6, r.k("sharpen", "threshold", 0.01)), z: 0, w: 0)
                 pass("lookSharpen", [img, base, k, gam, lum])
-            case "vignette" where !look.vignetteShape.isDefault:
-                // A shape slider is off its reset: the shaped form, its own kernel. The case below
-                // (every look without `vigs`) is the stage as it has always been, argument for argument.
+            case "vignette":
                 let f = LookMath.VignetteForm(shape: look.vignetteShape, vignette: look.vignette, aspect: extent.height > 0 ? extent.width / extent.height : 1, r)
                 let k = CIVector(x: look.vignette * f.stopsPerUnit, y: f.edge0, z: f.edge1, w: f.keep)
                 let sh = CIVector(x: extent.width > 0 ? f.sx * 2 / extent.width : 0, y: extent.height > 0 ? f.sy * 2 / extent.height : 0, z: f.power, w: f.norm)
-                pass("lookVignetteShape", [img, k, sh, CIVector(x: f.keepPower, y: 1 / r.perceptualGamma, z: 0, w: 0), lum, CIVector(x: extent.midX, y: extent.midY)])
-            case "vignette":
-                let m = r.k("vignette", "midpoint", 0.5), f = r.k("vignette", "feather", 0.5)
-                let halfDiag = hypot(extent.width, extent.height) / 2
-                let k = CIVector(x: look.vignette * r.k("vignette", "stopsPerUnit", 0.02), y: m - f / 2, z: m + f / 2, w: halfDiag > 0 ? 1 / halfDiag : 0)
-                pass("lookVignette", [img, k, CIVector(x: extent.midX, y: extent.midY)])
+                pass("lookVignette", [img, k, sh, CIVector(x: f.keepPower, y: 1 / r.perceptualGamma, z: 0, w: 0), lum, CIVector(x: extent.midX, y: extent.midY)])
             default:
                 continue
             }

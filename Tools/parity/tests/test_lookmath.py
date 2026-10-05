@@ -117,9 +117,11 @@ class LookMathMirrorTests(unittest.TestCase):
 
     def test_vignette_and_local_stages(self):
         r = self.rules
-        self.assertAlmostEqual(lm.vignette_gain(0.0, -100, r), 1.0)
-        self.assertLess(lm.vignette_gain(1.0, -100, r), 1.0)
-        self.assertGreater(lm.vignette_gain(1.0, 60, r), 1.0)
+        g = lambda d, v: float(lm.flat(np.array([0.5, 0.5, 0.5]), lm.parse_look(f"vig:{v}"), AS_SHOT, r, vignette_r=d)[1]) / 0.5
+        self.assertAlmostEqual(g(0.0, -100), 1.0)
+        self.assertLess(g(1.0, -100), 0.4)
+        self.assertGreater(g(1.0, 60), 1.0)
+        self.assertGreater(g(0.5 ** 0.5, -100), 0.85, "at the reset shape the edges' middles are barely touched")
         for q in (0.0, 0.2, 0.5, 0.9):
             self.assertAlmostEqual(float(lm.clarity(np.array(q), np.array(q), 100, r)), q)
             self.assertAlmostEqual(float(lm.sharpen(np.array(q), np.array(q), 150, r)), q)
@@ -128,57 +130,67 @@ class LookMathMirrorTests(unittest.TestCase):
         self.assertAlmostEqual(float(lm.sharpen(np.array(0.5001), np.array(0.5), 100, r)), 0.5001)
 
     def test_vignette_shape(self):
-        """The vignette's four shape sliders (LookMathTests.testVignetteShape and the reset test)."""
+        """The vignette on the page's scale (ruled 2026-10-05; LookMathTests' vignette tests)."""
         r = self.rules
-        v = lambda n: r["stages"]["vignette"]["coefficients"][n]
-        # at reset the look has no shape and the stage is the one it was, exactly
-        for text in ("vig:-100", "vig:-37", "vig:+60", "vig:-37 vigs:50,0,50,0"):
-            look = lm.parse_look(text)
-            self.assertEqual(look["vigs"], lm.VIGNETTE_SHAPE)
-            for d in np.arange(0.0, 1.25, 0.05):
-                t = min(1.0, max(0.0, (d - (v("midpoint") - v("feather") / 2)) / v("feather")))
-                want = self.ramp * 2.0 ** (look["vig"] * v("stopsPerUnit") * (t * t * (3 - 2 * t)))
-                np.testing.assert_allclose(lm.flat(self.ramp, look, AS_SHOT, r, vignette_r=float(d)), want, rtol=1e-14, atol=0)
-        # the shaped form meets it there
+        # the reset shape: the page's edges, the frame's ellipse whatever the aspect
         for aspect in (1.5, 1.0, 0.6667, 2.4):
             form = lm.vignette_form(lm.VIGNETTE_SHAPE, -50, aspect, r)
-            self.assertEqual((form["edge0"], form["edge1"]), (v("midpoint") - v("feather") / 2, v("midpoint") + v("feather") / 2))
-            self.assertEqual(form["keep"], 0.0)
-            for u, w in ((0, 0), (1, 1), (1, 0), (0, 1), (0.3, -0.8)):
-                self.assertAlmostEqual(float(lm.vignette_distance(u, w, form)), float(np.hypot(u * aspect, w) / np.hypot(aspect, 1)), places=12)
-        # roundness: corners at 1 for every shape; with roundAtReset 100, -50 is the frame's ellipse and -100 its rectangle
+            self.assertAlmostEqual(form["edge0"], 0.75 - 0.3 * 0.38, places=12)
+            self.assertAlmostEqual(form["edge1"], 0.75 + 0.7 * 0.38, places=12)
+            self.assertEqual((form["sx"], form["sy"], form["power"], form["keep"]), (1.0, 1.0, 2.0, 0.0))
+            for u, w in ((1, 0), (0, 1), (-1, 0), (0, -1)):
+                self.assertAlmostEqual(float(lm.vignette_distance(u, w, form)), float(np.sqrt(0.5)), places=12)
+        # roundness: corners at 1 and the centre at 0 for every shape; +100 a circle in pixels, -100 the frame's rectangle
         for rnd in (-100, -75, -50, -25, 0, 40, 100):
             form = lm.vignette_form((50, rnd, 50, 0), -60, 1.5, r)
             self.assertAlmostEqual(float(lm.vignette_distance(1, -1, form)), 1.0, places=12)
             self.assertAlmostEqual(float(lm.vignette_distance(0, 0, form)), 0.0, places=12)
-        if v("roundAtReset") == 100:
-            ellipse, rect = lm.vignette_form((50, -50, 50, 0), -60, 1.5, r), lm.vignette_form((50, -100, 50, 0), -60, 1.5, r)
-            self.assertAlmostEqual(float(lm.vignette_distance(1, 0, ellipse)), float(np.sqrt(0.5)), places=12)
-            self.assertAlmostEqual(float(lm.vignette_distance(0, 1, ellipse)), float(np.sqrt(0.5)), places=12)
-            self.assertGreater(float(lm.vignette_distance(1, 0, rect)), 0.9)
-            self.assertEqual(lm.vignette_form((50, 100, 50, 0), -60, 1.5, r), lm.vignette_form((50, 0, 50, 0), -60, 1.5, r))
+            t = np.linspace(0.05, 1, 20)
+            for du, dv in ((1, 0), (0, 1), (0.7, -1), (1, 1)):
+                self.assertTrue(np.all(np.diff(lm.vignette_distance(du * t, dv * t, form)) > 0), f"roundness {rnd} along {du},{dv}")
+        circle, rect = lm.vignette_form((50, 100, 50, 0), -60, 1.5, r), lm.vignette_form((50, -100, 50, 0), -60, 1.5, r)
+        for u, w in ((1, 0), (0, 1), (0.3, -0.8)):
+            self.assertAlmostEqual(float(lm.vignette_distance(u, w, circle)), float(np.hypot(u * 1.5, w) / np.hypot(1.5, 1)), places=12)
+        self.assertGreater(float(lm.vignette_distance(1, 0, rect)), 0.9)
+        self.assertEqual(lm.vignette_form((50, 100, 50, 0), -60, 1.0, r), lm.vignette_form((50, 0, 50, 0), -60, 1.0, r))
+        # midpoint and feather on the page's scale
+        self.assertAlmostEqual(lm.vignette_form((0, 0, 50, 0), -60, 1.5, r)["edge0"] + 0.3 * 0.38, 0.5, places=12)
+        self.assertAlmostEqual(lm.vignette_form((100, 0, 50, 0), -60, 1.5, r)["edge0"] + 0.3 * 0.38, 1.0, places=12)
+        self.assertAlmostEqual(lm.vignette_form((50, 0, 0, 0), -60, 1.5, r)["edge1"] - lm.vignette_form((50, 0, 0, 0), -60, 1.5, r)["edge0"], 0.08, places=12)
+        self.assertAlmostEqual(lm.vignette_form((50, 0, 100, 0), -60, 1.5, r)["edge1"] - lm.vignette_form((50, 0, 100, 0), -60, 1.5, r)["edge0"], 0.68, places=12)
         # highlights: white spared in full at 100, only when darkening; monotonic and grey on a ramp for any shape
-        white = lm.flat(np.array([1.0, 1.0, 1.0]), lm.parse_look("vig:-100 vigs:50,0,50,100"), AS_SHOT, r, vignette_r=1.0)
+        white = lm.flat(np.array([1.0, 1.0, 1.0]), lm.parse_look("vig:-100 vigs:50,0,50,100"), AS_SHOT, r, vignette_r=1.1)
         np.testing.assert_allclose(white, 1.0, atol=1e-12)
         self.assertEqual(lm.vignette_form((50, 0, 50, 100), 60, 1.5, r)["keep"], 0.0)
-        for text in ("vig:-100 vigs:50,0,50,100", "vig:-100 vigs:0,-100,100,60", "vig:-45 vigs:80,-50,0,30", "vig:+100 vigs:20,-30,80,100"):
+        for text in ("vig:-100", "vig:+60", "vig:-100 vigs:50,0,50,100", "vig:-100 vigs:0,-100,100,60", "vig:-45 vigs:80,-50,0,30", "vig:+100 vigs:20,-30,80,100"):
             for d in (0.0, 0.4, 0.7, 1.0, 1.3):
                 out = lm.flat(self.ramp, lm.parse_look(text), AS_SHOT, r, vignette_r=d)
                 self.assertTrue(np.all(np.diff(out[:, 1]) >= 0), f"{text} d={d} not monotonic")
                 self.assertTrue(np.all(out[:, 0] == out[:, 1]) and np.all(out[:, 1] == out[:, 2]), f"{text} d={d} tinted a grey")
+        # radially monotonic: farther from the centre is never brighter under a darkening vignette
+        for shape in (lm.VIGNETTE_SHAPE, (0, -100, 100, 60), (80, 100, 0, 0)):
+            form = lm.vignette_form(shape, -80, 1.5, r)
+            t = np.linspace(0, 1, 51)
+            for du, dv in ((1, 0), (0, 1), (1, 1), (0.4, -1)):
+                out = lm.vignette(np.full((51, 3), 0.4), lm.vignette_distance(du * t, dv * t, form), -80, form, r)
+                self.assertTrue(np.all(np.diff(out[:, 1]) <= 1e-12))
+        # vig:0 is no stage, whatever the shape
+        np.testing.assert_array_equal(lm.flat(self.ramp, lm.parse_look("vigs:0,-100,0,100"), AS_SHOT, r, vignette_r=1.0), self.ramp)
         # the whole image: the corner of a flat frame is the flat chain at the corner's distance
-        look = lm.parse_look("vig:-80 vigs:30,-50,70,40")
-        img = np.zeros((40, 60, 3)) + np.array([0.6, 0.35, 0.25])
-        out = lm.apply_image(img, look, AS_SHOT, r)
-        form = lm.vignette_form(look["vigs"], -80, 60 / 40, r)
-        d = float(lm.vignette_distance((0.5 - 30) / 30, (39.5 - 20) / 20, form))
-        np.testing.assert_allclose(out[0, 0], lm.flat(np.array([0.6, 0.35, 0.25]), look, AS_SHOT, r, vignette_r=d, aspect=1.5), atol=1e-9)
-        np.testing.assert_allclose(out[20, 30], [0.6, 0.35, 0.25], atol=1e-3)
+        for text in ("vig:-80", "vig:-80 vigs:30,-50,70,40"):
+            look = lm.parse_look(text)
+            img = np.zeros((40, 60, 3)) + np.array([0.6, 0.35, 0.25])
+            out = lm.apply_image(img, look, AS_SHOT, r)
+            form = lm.vignette_form(look["vigs"], -80, 60 / 40, r)
+            d = float(lm.vignette_distance((0.5 - 30) / 30, (39.5 - 20) / 20, form))
+            np.testing.assert_allclose(out[0, 0], lm.flat(np.array([0.6, 0.35, 0.25]), look, AS_SHOT, r, vignette_r=d, aspect=1.5), atol=1e-9)
+            np.testing.assert_allclose(out[20, 30], [0.6, 0.35, 0.25], atol=1e-3)
         # the string
         s = lm.parse_look("vig:-30 vigs:40,-20,70,25")
         self.assertEqual(s["vigs"], (40.0, -20.0, 70.0, 25.0))
         self.assertTrue(lm.format_look(s).endswith("vig:-30 vigs:40,-20,70,25"))
         self.assertEqual(lm.parse_look(lm.format_look(s)), s)
+        self.assertEqual(lm.parse_look("vig:-30 vigs:50,0,50,0"), lm.parse_look("vig:-30"))
         self.assertEqual(lm.parse_look("vigs:-5,-500,400,101")["vigs"], (0.0, -100.0, 100.0, 100.0))
         with self.assertRaises(ValueError):
             lm.parse_look("vigs:50,0,50")
@@ -242,6 +254,56 @@ class LookMathMirrorTests(unittest.TestCase):
         for bad in ("tc:1,2", "crv:0,0", "crv:0,0/0.6,0.5/0.4,0.7/1,1", "crv:0,0/0.5/1,1"):
             with self.assertRaises(ValueError):
                 lm.parse_look(bad)
+
+    def test_colour_mixer(self):
+        """The colour mixer (LookMathTests' mixer tests): band weights sum to 1, a grey is untouched."""
+        r = self.rules
+        cen = lm.mixer_centres(r)
+        self.assertTrue(np.all(np.diff(cen) > 0) and len(cen) == len(lm.MIXER_COLOURS))
+        h = np.arange(0, 360, 0.1)
+        i, j, w = lm.mixer_band(h, cen)
+        self.assertTrue(np.all((w >= 0) & (w <= 1)) and np.all(j == (i + 1) % 8))
+        own = lm.mixer_band(cen, cen)
+        np.testing.assert_array_equal(own[0], np.arange(8)); np.testing.assert_allclose(own[2], 0.0, atol=1e-12)
+        self.assertTrue(np.max(np.abs(np.diff(np.where(i == 0, 1 - w, np.where(j == 0, w, 0.0))))) < 0.02, "red's weight is smooth across 0 degrees")
+        rng = np.random.default_rng(11)
+        greys = np.concatenate([self.ramp, np.array([[1e-6] * 3, [2.5] * 3, [40.0] * 3])])
+        for _ in range(40):
+            look = lm.parse_look("")
+            for key in lm.MIXER_KEYS:
+                look[key] = tuple(float(v) for v in rng.integers(-100, 101, 8))
+            np.testing.assert_array_equal(lm.flat(greys, look, AS_SHOT, r), greys)
+            out = lm.flat(np.array([[1.0, 0, 0], [0, 0, 1.0], [0.004, 0.002, 0.006], [1.3, 0.9, 0.2], [0, 0, 0]]), look, AS_SHOT, r)
+            self.assertTrue(np.all(np.isfinite(out)) and np.all(out >= 0))
+        # one band at its own centre: the hue turns, the chroma scales, the lightness moves; the opposite band stays
+        k_ = lambda n: r["stages"]["mixer"]["coefficients"][n]
+        col = lambda hue: lm.from_oklab(np.array([0.7, 0.08 * np.cos(np.radians(hue)), 0.08 * np.sin(np.radians(hue))]))
+        for b in range(8):
+            c, other = col(cen[b]), col(cen[(b + 4) % 8])
+            one = lambda key, v: {**lm.parse_look(""), key: tuple(v if n == b else 0.0 for n in range(8))}
+            h0, c0 = self.hue(c)
+            h1, c1 = self.hue(lm.mixer(c, one("mixh", 50.0), r))
+            self.assertAlmostEqual(self.hue_shift(h1, h0 + 50 * k_("hueDegreesPerUnit")), 0.0, delta=0.05)
+            self.assertAlmostEqual(c1, c0, places=5)
+            self.assertAlmostEqual(self.hue(lm.mixer(c, one("mixs", 40.0), r))[1], c0 * (1 + 40 * k_("saturationPerUnit")), places=5)
+            up = lm.to_oklab(lm.mixer(c, one("mixl", 60.0), r))[0]
+            self.assertAlmostEqual(up / 0.7 - 1, 60 * k_("luminancePerUnit") * c0 / (c0 + k_("luminanceChromaKnee")), places=5)
+            for key in lm.MIXER_KEYS:
+                np.testing.assert_allclose(lm.mixer(other, one(key, 100.0), r), other, atol=1e-5)
+        # the whole image, and the string
+        look = lm.parse_look("mixh:0,+10,0,0,0,-25,0,0 mixs:+40,0,0,-100,0,0,0,+5 mixl:0,0,0,0,0,-30,0,0")
+        img = np.zeros((8, 12, 3)) + np.array([0.6, 0.35, 0.25])
+        np.testing.assert_allclose(lm.apply_image(img, look, AS_SHOT, r)[3, 5], lm.flat(np.array([0.6, 0.35, 0.25]), look, AS_SHOT, r), atol=1e-12)
+        self.assertTrue(lm.format_look(look).endswith("vig:0 mixh:0,+10,0,0,0,-25,0,0 mixs:+40,0,0,-100,0,0,0,+5 mixl:0,0,0,0,0,-30,0,0"))
+        self.assertEqual(lm.parse_look(lm.format_look(look)), look)
+        self.assertEqual(lm.format_look(lm.parse_look("mixh:0,0,0,0,0,0,0,0")), lm.format_look(lm.parse_look("")))
+        self.assertEqual(lm.parse_look("mixl:-500,0,0,0,0,0,0,+101")["mixl"], (-100.0, 0, 0, 0, 0, 0, 0, 100.0))
+        with self.assertRaises(ValueError):
+            lm.parse_look("mixh:0,0,0")
+        # every added key in one string, canonical order
+        s = ("ev:+0.30 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:-30 vigs:40,-20,70,25 tc:+10,0,-8 crv:0,0/0.25,0.2/1,1 crvr:0,0.05/1,1 "
+             "mixh:0,+10,0,0,0,0,0,0 mixs:0,0,0,0,0,+20,0,0 mixl:0,0,0,0,0,-15,0,0 nr:20 crop:0.1000,0.1000,0.8000,0.8000/1.50 rot:90")
+        self.assertEqual(lm.format_look(lm.parse_look(s)), s)
 
     def test_look_string_round_trip(self):
         s = "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0"

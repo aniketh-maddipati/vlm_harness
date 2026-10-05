@@ -4,7 +4,7 @@
   "workingSpace": "extendedLinearSRGB",
   "perceptualGamma": 2.2,
   "luma": [0.2126, 0.7152, 0.0722],
-  "order": ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "clarity", "sharpen", "vignette", "outputTransform"],
+  "order": ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer", "clarity", "sharpen", "vignette", "outputTransform"],
   "stages": {
     "rawDevelop": {
       "locked": false,
@@ -46,6 +46,11 @@
       "form": "Oklab chroma: C *= max(0, 1+saturation*saturationPerUnit) * max(0, 1 + vibrance*perUnit*(1-(1-vibranceFloor)*min(1,C/vibranceChromaMax))*(1-skinProtect*skin(h))) ; perUnit = vibrancePerUnit above 0, vibranceDownPerUnit below; skin(h) = exp(-((h-skinHue)/skinWidth)^2), only for vibrance > 0; bw sets C = 0",
       "coefficients": { "saturationPerUnit": 0.010109, "vibrancePerUnit": 0.007578, "vibranceDownPerUnit": 0.011342, "vibranceChromaMax": 0.42859, "vibranceFloor": 0.22581, "skinHue": 31.391, "skinWidth": 38.983, "skinProtect": 0.83214 }
     },
+    "mixer": {
+      "locked": false,
+      "form": "the colour mixer, in Oklab (L, C, h): eight bands red, orange, yellow, green, aqua, blue, purple, magenta centred at hueRed .. hueMagenta (degrees, ascending); between two neighbouring centres the upper band's weight is smoothstep of the way across and the lower band's the rest, every other band 0 (the weights sum to 1). With H, S, Lm the look's mixh, mixs, mixl weighted so: h += H*hueDegreesPerUnit; C *= max(0, 1 + S*saturationPerUnit); L *= 1 + Lm*luminancePerUnit*C/(C + luminanceChromaKnee). Every change scales with chroma and a pixel without chroma (C <= 1e-6*L) is returned as it came, so a grey stays the same grey for any values. Centres are the Oklab hues of sRGB's hues 0, 30, 60, 120, 180, 230, 270, 305; unfitted",
+      "coefficients": { "hueRed": 29, "hueOrange": 55, "hueYellow": 105, "hueGreen": 143, "hueAqua": 195, "hueBlue": 262, "huePurple": 296, "hueMagenta": 335, "hueDegreesPerUnit": 0.3, "saturationPerUnit": 0.01, "luminancePerUnit": 0.003, "luminanceChromaKnee": 0.05 }
+    },
     "clarity": {
       "locked": false,
       "form": "q = perceptual(luma), base = gaussian blur of q (radiusFraction of the long edge); q += clarity*amountPerUnit*(q-base)*(1-|2q-1|^midtonePower); rgb scaled by the luma ratio",
@@ -58,8 +63,8 @@
     },
     "vignette": {
       "locked": false,
-      "form": "gain 2^(vignette*stopsPerUnit*smoothstep(midpoint-feather/2, midpoint+feather/2, r)) with r = distance from the centre over the half diagonal. With a shape (the look's vigs:mid,round,feather,hl off its reset 50,0,50,0; LookMath.VignetteForm, unfitted): the smoothstep's middle is midpoint + (mid-50)/100*midpointRange and its width feather*fea/50; r = (|u*sx|^p + |v*sy|^p)^(1/p) over its value at a corner, u and v in -1..1 across the frame, at position q = clamp(roundAtReset + round*(1 + roundAtReset/100), -100, 100) of the family +100 a circle in pixels (sx:sy = aspect:1, p 2), 0 the frame's ellipse (sx = sy = 1), -100 the frame's rectangle (p = rectPower); a darkening vignette's stops are scaled by 1 - hl/100*P^highlightsPower, P the pixel's perceptual luma in 0..1",
-      "coefficients": { "stopsPerUnit": 0.02, "midpoint": 0.5, "feather": 0.5, "midpointRange": 0.5, "roundAtReset": 100, "rectPower": 8, "highlightsPower": 2 }
+      "form": "the post-crop vignette on the page's scale (LookMath.VignetteForm; ruled 2026-10-05, before it a circle in pixels with a fixed falloff). gain 2^(vignette*stopsPerUnit*smoothstep(e0, e0 + w, d)), with the look's vigs:mid,round,feather,hl (reset 50,0,50,0): d0 = midpointAt0 + mid/100*midpointPer100, w = featherAt0 + feather/100*featherPer100, e0 = d0 - featherInside*w; d = (|u*sx|^p + |v*sy|^p)^(1/p) over its value at a corner, u and v in -1..1 across the frame: round 0 the frame's ellipse (sx = sy = 1, p 2), +100 a circle in pixels (sx:sy = aspect:1), -100 the frame's rectangle (p = rectPower), blended between; a darkening vignette's stops are scaled by 1 - hl/100*P^highlightsPower, P the pixel's perceptual luma in 0..1. The shape is the page's; stopsPerUnit and highlightsPower are unfitted",
+      "coefficients": { "stopsPerUnit": 0.02, "midpointAt0": 0.5, "midpointPer100": 0.5, "featherAt0": 0.08, "featherPer100": 0.6, "featherInside": 0.3, "rectPower": 8, "highlightsPower": 2 }
     },
     "outputTransform": {
       "locked": false,
