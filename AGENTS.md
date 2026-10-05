@@ -208,6 +208,14 @@ harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift
 - **One pusher to a shared branch, and merges go through one place.** Everyone else hands work over as a branch. Never rebase or reset a branch another live session owns: its worktree and its unpushed work sit on it.
 - **Cull rows are keyed by row id, from `plumbing.js`.** The page's runtime keys list items by position, which hands every mounted row the next row's content each time the window moves (heights animating, images swapping: the scroll wobble). `probe.sh scroll` reports it (`rows out of place`: 0 % on a Mac against 65 to 80 % with the page's keying; not gated, the CI runner's 180 to 300 ms frames give 1 to 26 % either way) and keeps one pass with the page's own keying for comparison. A sync that renames `data-lumina="row"` / `data-id` turns the keying off silently: compare the two passes after a sync.
 - **Pixel parity is 0 px.** App-mode screens (`screens-*-app`, plumbing's test-only parity mode: the design's sample shoot and card) must match the prototype reference byte for byte. Both twins run with `"storageWrites": false`, because the page's "saved" label is browser-only. CSS tricks that change anti-aliasing are out; content-visibility was tried and rejected.
+- **v7's keys in scenarios.** ⌘1 Open, ⌘2 Pick, ⌘3 Edit, ⌘4 Save. K, P and T keep; R and X remove; F,
+  E and B held are overlays (M too in the large view); there is no flag key (v5's F). On a card the
+  page refuses Save before the undecided-photos guard.
+- **The header's working-files meter is masked in every snapshot.** What it shows depends on the
+  moment (the page keeps its total for 1 s while previews load, its cells fade 360 ms), so its
+  contents are hidden while a snapshot is taken (`__probe.meterMask`, and the same in
+  `Tests/web/parity.mjs` and `webkit.py`); the twins compare whole-PNG hashes, so the mask is applied
+  at capture. Its numbers are checked through state.
 - **The probe never touches a real card.** Fault tests use disk images, and the probe's card watcher only accepts its own images.
 - **A disk image is a card to the app** (`volumeIsRemovable`), with or without DCIM: Save on one is refused "on the card". A scenario that needs the write itself on an image (case-sensitive, full) uses the probe's `nativeSidecar` step with `"guard": false`.
 - **The probe refuses the page's `dragstart`.** A synthetic drag over a tile would start a real system drag: a drag image on the user's screen and a session that follows the real pointer.
