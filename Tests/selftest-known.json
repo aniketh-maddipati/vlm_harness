@@ -1,0 +1,9 @@
+{
+ "why": "The design's own lumina-selftest.js still tests v5 keys in these checks; Sets v7 behaves as designed (R and X remove, F held shows the focus overlay, Cmd-3 is Edit and Save is Cmd-4). DESIGN-ASKS Prompt 12 ask 4 asks the design to update them. Until that handoff lands, every runner of ?selftest (Tests/probe/scenarios/selftest.json through the probe's 'selftest' step, Tests/web/webkit.py) reports these and does not fail on them; any other failing check still fails. A check listed here that passes again is reported ('now passes: drop it from the list'). Drop the whole list when the handoff's selftest is at v7.",
+ "known": [
+  "R keeps too",
+  "X changes nothing",
+  "F flags",
+  "⌘3 shows the Save bar with a count"
+ ]
+}
