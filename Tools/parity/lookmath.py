@@ -58,10 +58,29 @@ def linear(p, rules):
 
 # ---- look strings ---------------------------------------------------------------------------
 
+VIGNETTE_SHAPE = (50.0, 0.0, 50.0, 0.0)      # vigs: midpoint, roundness, feather, highlights at reset
+VIGNETTE_SHAPE_RANGES = ((0.0, 100.0), (-100.0, 100.0), (0.0, 100.0), (0.0, 100.0))
+
+
+def _numbers(key, raw, ranges):
+    """`a,b,c`: exactly len(ranges) numbers, each clamped into its range (Look.parse's `list`)."""
+    parts = raw.split(",")
+    if len(parts) != len(ranges):
+        raise ValueError(f"{key} wants {len(ranges)} numbers, got {raw!r}")
+    return tuple(min(hi, max(lo, float(v))) for v, (lo, hi) in zip(parts, ranges))
+
+
+def _signed(v, d=0):
+    r = round(v, d)
+    if r == 0:
+        return "0" if d == 0 else f"{0:.{d}f}"
+    return ("+" if r > 0 else "") + f"{r:.{d}f}"
+
+
 def parse_look(s):
     """The look string → dict (the twelve sliders + bw). Mirrors Look.parse, without clamping."""
     look = {"ev": 0.0, "wb": None, "con": 0.0, "hl": 0.0, "sh": 0.0, "wh": 0.0, "bl": 0.0, "vib": 0.0, "sat": 0.0,
-            "clr": 0.0, "shp": 0.0, "vig": 0.0, "bw": False, "crop": None, "nr": None, "rot": 0}
+            "clr": 0.0, "shp": 0.0, "vig": 0.0, "vigs": VIGNETTE_SHAPE, "bw": False, "crop": None, "nr": None, "rot": 0}
     s = (s or "").strip()
     if s in ("", "none"):
         return look
@@ -70,6 +89,8 @@ def parse_look(s):
         if key == "wb":
             kv, tint = raw.split("/")
             look["wb"] = (float(kv), float(tint))
+        elif key == "vigs":
+            look["vigs"] = _numbers(key, raw, VIGNETTE_SHAPE_RANGES)
         elif key == "bw":
             look["bw"] = raw in ("1", "true")
         elif key == "nr":
@@ -123,6 +144,9 @@ def format_look(look):
         out.append(f"{key}:{signed(look[key], 0)}")
     out.append(f"shp:{int(round(look['shp']))}")
     out.append(f"vig:{signed(look['vig'], 0)}")
+    shape = tuple(look.get("vigs") or VIGNETTE_SHAPE)
+    if shape != VIGNETTE_SHAPE:
+        out.append(f"vigs:{int(round(shape[0]))},{signed(shape[1], 0)},{int(round(shape[2]))},{int(round(shape[3]))}")
     if look.get("nr") is not None:
         out.append(f"nr:{int(round(look['nr']))}")
     if look.get("bw"):
@@ -330,6 +354,40 @@ def vignette_gain(r, vignette, rules):
     return 2.0 ** (vignette * k(rules, "vignette", "stopsPerUnit", 0.02) * smoothstep(m - f / 2, m + f / 2, r))
 
 
+def vignette_form(shape, vignette, aspect, rules):
+    """LookMath.VignetteForm: the shaped stage's numbers for one frame. shape = (midpoint, roundness,
+    feather, highlights); aspect = width / height."""
+    v = lambda n, d: k(rules, "vignette", n, d)
+    mid, rnd, fea, hl = shape
+    m = v("midpoint", 0.5) + (mid - 50.0) / 100.0 * v("midpointRange", 0.5)
+    f = max(0.0, v("feather", 0.5) * (fea / 50.0))
+    at = min(100.0, max(-100.0, v("roundAtReset", 100.0)))
+    q = min(100.0, max(-100.0, at + rnd * (1.0 + at / 100.0)))
+    a = min(100.0, max(0.01, aspect)); t = max(0.0, q) / 100.0; n = np.sqrt((a * a + 1.0) / 2.0)
+    power = 2.0 + (-q / 100.0) * (max(2.0, v("rectPower", 8.0)) - 2.0) if q < 0 else 2.0
+    sx, sy = 1.0 + t * (a / n - 1.0), 1.0 + t * (1.0 / n - 1.0)
+    return {"edge0": m - f / 2, "edge1": m + f / 2, "sx": float(sx), "sy": float(sy), "power": power,
+            "norm": float(1.0 / (sx ** power + sy ** power) ** (1.0 / power)),
+            "keep": min(1.0, max(0.0, hl / 100.0)) if vignette < 0 else 0.0, "keepPower": max(0.1, v("highlightsPower", 2.0)),
+            "stopsPerUnit": v("stopsPerUnit", 0.02)}
+
+
+def vignette_distance(u, v, form):
+    """0 at the centre, 1 at the corners; u, v in −1…1 across the frame."""
+    p = form["power"]
+    return np.power(np.power(np.abs(u) * form["sx"], p) + np.power(np.abs(v) * form["sy"], p), 1.0 / p) * form["norm"]
+
+
+def vignette_shaped(rgb, d, vignette, form, rules):
+    """LookMath.vignetteShaped: the stage with a shape, on colours (..., 3) at distance d."""
+    rgb = np.asarray(rgb, dtype=np.float64)
+    stops = vignette * form["stopsPerUnit"] * smoothstep(form["edge0"], form["edge1"], d)
+    if form["keep"] > 0:
+        p = np.clip(perceptual(luma(rgb, rules), rules), 0.0, 1.0)
+        stops = stops * (1.0 - form["keep"] * np.power(p, form["keepPower"]))
+    return rgb * np.asarray(2.0 ** stops)[..., None]
+
+
 # ---- outputTransform (the display mapper) -------------------------------------------------------
 
 GREY = TONE_REFERENCE
@@ -389,7 +447,7 @@ def apply_luma_ratio(rgb, y_new, y_old):
 
 # ---- the chain ----------------------------------------------------------------------------------
 
-def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None):
+def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None, aspect=1.5):
     """Every stage on colours (..., 3) where blur(x) == x (LookMath.flat)."""
     c = np.array(rgb, dtype=np.float64)
     anchor = dict(anchor or REFERENCE_ANCHOR)
@@ -418,7 +476,10 @@ def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None):
         elif stage == "colour":
             c = colour(c, look["vib"], look["sat"], look["bw"], rules)
         elif stage == "vignette":
-            if look["vig"] != 0:
+            shape = tuple(look.get("vigs") or VIGNETTE_SHAPE)
+            if look["vig"] != 0 and shape != VIGNETTE_SHAPE:
+                c = vignette_shaped(c, vignette_r, look["vig"], vignette_form(shape, look["vig"], aspect, rules), rules)
+            elif look["vig"] != 0:
                 c = c * vignette_gain(vignette_r, look["vig"], rules)
     return c
 
@@ -459,6 +520,12 @@ def apply_image(img, look, as_shot, rules, sigma_scale=None):
         elif stage == "vignette" and look["vig"] != 0:
             h, w = c.shape[:2]
             yy, xx = np.mgrid[0:h, 0:w]
+            shape = tuple(look.get("vigs") or VIGNETTE_SHAPE)
+            if shape != VIGNETTE_SHAPE:
+                form = vignette_form(shape, look["vig"], w / h, rules)
+                d = vignette_distance((xx + 0.5 - w / 2) / (w / 2), ((h - 1 - yy) + 0.5 - h / 2) / (h / 2), form)
+                c = vignette_shaped(c, d, look["vig"], form, rules)
+                continue
             r = np.hypot(xx + 0.5 - w / 2, (h - 1 - yy) + 0.5 - h / 2) / (np.hypot(w, h) / 2)
             c = c * vignette_gain(r, look["vig"], rules)[..., None]
     return c

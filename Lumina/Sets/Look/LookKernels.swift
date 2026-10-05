@@ -208,13 +208,37 @@ nonisolated final class LookKernels: @unchecked Sendable {
     }
     """
 
+    /// The kernels of the stages added after the first twelve sliders (the vignette's shape, the
+    /// tone curve, the colour mixer). A source of their own, compiled with `source`'s helpers plus
+    /// the ones here: `source` and every kernel in it stay byte for byte what they were, so a
+    /// look that uses none of the new keys compiles and runs exactly the programs it did before.
+    static let moreSource = """
+
+    // vignette with a shape (LookMath.vignetteShaped). k = (amountStops, edge0, edge1, highlights kept 0…1),
+    // sh = (sx·2/width, sy·2/height, power, 1/corner distance), hl = (highlightsPower, invGamma, 0, 0), c = centre in pixels
+    [[ stitchable ]] float4 lookVignetteShape(coreimage::sample_t s, float4 k, float4 sh, float4 hl, float4 lum, float2 c, coreimage::destination dest) {
+        float2 uv = fabs(dest.coord() - c) * sh.xy;
+        float d = pow(pow(uv.x, sh.z) + pow(uv.y, sh.z), 1.0f / sh.z) * sh.w;
+        float e = k.x * lk_smooth(k.y, k.z, d);
+        if (k.w > 0.0f) {
+            float p = clamp(lk_perc(dot(s.rgb, lum.rgb), hl.y), 0.0f, 1.0f);
+            e *= 1.0f - k.w * pow(p, hl.x);
+        }
+        return float4(s.rgb * exp2(e), s.a);
+    }
+    """
+
     struct CompileError: Error, CustomStringConvertible { let description: String }
 
     /// The stage kernels, compiled when the pipeline is made. `lookDisplay` (the sigmoid mapper) is
     /// not one of them: it compiles on first use, so with the default mapper nothing new is built.
-    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette"]
+    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen", "lookVignette",
+                             "lookVignetteShape"]
 
     private let header: String
+    /// The helpers a `moreSource` kernel compiles with: `header` plus that source's own.
+    private let moreHeader: String
+    private let moreNames: Set<String>
     private let blocks: [String: String]             // function name → its source block
     private let lock = NSLock()
     private var compiled: [String: CIKernel] = [:]
@@ -228,21 +252,28 @@ nonisolated final class LookKernels: @unchecked Sendable {
     /// The stage kernels compile here; the echo kernels (tests) compile on first use.
     init() throws {
         let marker = "[[ stitchable ]]"
-        guard let first = Self.source.range(of: marker) else { throw CompileError(description: "no kernels in the source") }
-        header = String(Self.source[..<first.lowerBound])
-        var rest = String(Self.source[first.lowerBound...])
-        var list: [String] = []
-        while let next = rest.range(of: marker, options: [], range: rest.index(after: rest.startIndex)..<rest.endIndex) {
-            list.append(String(rest[..<next.lowerBound]))
-            rest = String(rest[next.lowerBound...])
+        /// A source → what comes before its first kernel, and its kernels by name.
+        func split(_ source: String) throws -> (head: String, named: [String: String]) {
+            guard let first = source.range(of: marker) else { throw CompileError(description: "no kernels in the source") }
+            var rest = String(source[first.lowerBound...])
+            var list: [String] = []
+            while let next = rest.range(of: marker, options: [], range: rest.index(after: rest.startIndex)..<rest.endIndex) {
+                list.append(String(rest[..<next.lowerBound]))
+                rest = String(rest[next.lowerBound...])
+            }
+            list.append(rest)
+            var named: [String: String] = [:]
+            for block in list {
+                guard let open = block.range(of: "("), let space = block[..<open.lowerBound].lastIndex(of: " ") else { throw CompileError(description: "unreadable kernel block") }
+                named[String(block[block.index(after: space)..<open.lowerBound])] = block
+            }
+            return (String(source[..<first.lowerBound]), named)
         }
-        list.append(rest)
-        var named: [String: String] = [:]
-        for block in list {
-            guard let open = block.range(of: "("), let space = block[..<open.lowerBound].lastIndex(of: " ") else { throw CompileError(description: "unreadable kernel block") }
-            named[String(block[block.index(after: space)..<open.lowerBound])] = block
-        }
-        blocks = named
+        let base = try split(Self.source), more = try split(Self.moreSource)
+        header = base.head
+        moreHeader = base.head + more.head
+        moreNames = Set(more.named.keys)
+        blocks = base.named.merging(more.named) { a, _ in a }
         for name in Self.stageNames { _ = try kernel(name) }
     }
 
@@ -269,7 +300,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
             function = "\(name)_\(salt)"
             block = block.replacingOccurrences(of: " \(name)(", with: " \(function)(")
         }
-        let list = try CIKernel.kernels(withMetalString: header + block)
+        let list = try CIKernel.kernels(withMetalString: (moreNames.contains(name) ? moreHeader : header) + block)
         guard list.count == 1, let k = list.first, k.name == function else { throw CompileError(description: "\(name): expected one kernel, got \(list.map(\.name))") }
         lock.withLock { compiled[name] = k }
         return k

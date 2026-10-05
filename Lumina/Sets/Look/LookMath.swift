@@ -344,6 +344,75 @@ nonisolated enum LookMath {
         return exp2(vignette * rules.k("vignette", "stopsPerUnit", 0.02) * smoothstep(m - f / 2, m + f / 2, r))
     }
 
+    // MARK: vignette, shaped (`Look.VignetteShape`)
+
+    /// The stage with its four shape sliders. With all four at reset the stage is
+    /// `vignetteGain(r:vignette:_:)` above and the `lookVignette` kernel, untouched; this form
+    /// (the `lookVignetteShape` kernel) runs only when one of them is moved, and meets the reset
+    /// form there: its distance at Roundness 0 is the same circle through the corners, its edges
+    /// at Midpoint 50 / Feather 50 are `midpoint ∓ feather / 2`, and Highlights 0 spares nothing.
+    ///
+    /// Distance: u, v in −1 … 1 across the (cropped, turned) frame, d = (|u·sx|^p + |v·sy|^p)^(1/p),
+    /// scaled so the corners sit at 1. The family is the page's (its `vigMask`) and Lightroom's:
+    /// position +100 a circle in pixels (sx : sy = aspect : 1, p = 2), 0 the frame's own ellipse
+    /// (sx = sy = 1), −100 the frame's rectangle with round corners (p = `rectPower`). Roundness
+    /// r sits at position `roundAtReset + r·(1 + roundAtReset / 100)` kept in −100 … +100: with
+    /// `roundAtReset` 100 (the circle this stage has always drawn) 0 is the circle, −50 the
+    /// ellipse, −100 the rectangle, and above 0 nothing is left to round. `roundAtReset` 0 would
+    /// be Lightroom's own scale (0 = the ellipse); it changes what `vig` alone looks like, so it
+    /// is the owner's to set, with the reset kernel.
+    ///
+    /// Midpoint moves the middle of the falloff by `midpointRange` over its 0 … 100; Feather
+    /// scales its width from 0 (a hard edge) to twice `feather`.
+    ///
+    /// Highlights (a darkening vignette only, as in Lightroom): the stops are scaled by
+    /// 1 − h·p^`highlightsPower`, p the pixel's perceptual luma in 0 … 1, so white is spared in
+    /// full at 100 and the shadows not at all. One gain for the three channels (a grey stays
+    /// grey), and since a brighter pixel is never darkened more, luma stays monotonic. (The
+    /// page's own preview blends toward src^(1 + A·t·h), which also holds white; same intent.)
+    /// First numbers, unfitted: Lightroom has no vignette in the sweep yet.
+    struct VignetteForm: Equatable, Sendable {
+        /// The smoothstep's edges on the distance.
+        var edge0 = 0.25, edge1 = 0.75
+        /// Scales on |u| and |v|, the superellipse power, and 1 / (the distance at a corner).
+        var sx = 1.0, sy = 1.0, power = 2.0, norm = 0.5.squareRoot()
+        /// The share of the darkening a white pixel is spared (0 when the vignette lightens).
+        var keep = 0.0, keepPower = 2.0
+        var stopsPerUnit = 0.02
+
+        init(shape: Look.VignetteShape, vignette: Double, aspect: Double, _ rules: LookRules) {
+            let k = { (n: String, d: Double) in rules.k("vignette", n, d) }
+            let m = k("midpoint", 0.5) + (shape.midpoint - 50) / 100 * k("midpointRange", 0.5)
+            let f = max(0, k("feather", 0.5) * (shape.feather / 50))
+            edge0 = m - f / 2; edge1 = m + f / 2
+            let at = min(100, max(-100, k("roundAtReset", 100)))
+            let q = min(100, max(-100, at + shape.roundness * (1 + at / 100)))
+            let a = min(100, max(0.01, aspect)), t = max(0, q) / 100, n = ((a * a + 1) / 2).squareRoot()
+            power = q < 0 ? 2 + (-q / 100) * (max(2, k("rectPower", 8)) - 2) : 2
+            sx = 1 + t * (a / n - 1); sy = 1 + t * (1 / n - 1)
+            norm = 1 / pow(pow(sx, power) + pow(sy, power), 1 / power)
+            keep = vignette < 0 ? min(1, max(0, shape.highlights / 100)) : 0
+            keepPower = max(0.1, k("highlightsPower", 2))
+            stopsPerUnit = k("stopsPerUnit", 0.02)
+        }
+
+        /// The distance of (u, v) from the centre: 0 there, 1 at the corners.
+        func distance(u: Double, v: Double) -> Double {
+            pow(pow(abs(u) * sx, power) + pow(abs(v) * sy, power), 1 / power) * norm
+        }
+    }
+
+    /// The shaped stage on one pixel at distance `d` (`VignetteForm.distance`).
+    static func vignetteShaped(_ c: RGB, d: Double, vignette: Double, form: VignetteForm, _ rules: LookRules) -> RGB {
+        var stops = vignette * form.stopsPerUnit * smoothstep(form.edge0, form.edge1, d)
+        if form.keep > 0 {
+            let p = min(1, max(0, perceptual(luma(c, rules), rules)))
+            stops *= 1 - form.keep * pow(p, form.keepPower)
+        }
+        let g = exp2(stops)
+        return RGB(r: c.r * g, g: c.g * g, b: c.b * g)
+    }
+
     // MARK: outputTransform (the display mapper)
 
     /// The `sigmoid` mapper (`rules.mapper`; the default is the clamp). The working space holds
@@ -435,9 +504,11 @@ nonisolated enum LookMath {
     // MARK: the whole chain on a flat patch
 
     /// Every stage on one colour, where blur(x) == x (a flat patch) and the pixel is at the frame's
-    /// centre (vignette gain 1 unless `r` says otherwise). This is what the pipeline tests and the
-    /// Python mirror compare against.
-    static func flat(_ input: RGB, look: Look, asShot: Look.WhiteBalance, rules: LookRules, vignetteR r: Double = 0, anchor: ToneAnchor = .reference) -> RGB {
+    /// centre (vignette gain 1 unless `r` says otherwise: the pixel's distance from the centre, 1 at
+    /// the corners, by `VignetteForm.distance` when the vignette has a shape; `aspect` is the
+    /// frame's, which only that shape reads). This is what the pipeline tests and the Python
+    /// mirror compare against.
+    static func flat(_ input: RGB, look: Look, asShot: Look.WhiteBalance, rules: LookRules, vignetteR r: Double = 0, anchor: ToneAnchor = .reference, aspect: Double = 1.5) -> RGB {
         var c = input
         var anchor = anchor
         for stage in rules.lookStages {
@@ -473,6 +544,10 @@ nonisolated enum LookMath {
                 continue                                          // q − base == 0 on a flat patch
             case "vignette":
                 guard look.vignette != 0 else { continue }
+                guard look.vignetteShape.isDefault else {
+                    c = vignetteShaped(c, d: r, vignette: look.vignette, form: VignetteForm(shape: look.vignetteShape, vignette: look.vignette, aspect: aspect, rules), rules)
+                    continue
+                }
                 let g = vignetteGain(r: r, vignette: look.vignette, rules)
                 c = RGB(r: c.r * g, g: c.g * g, b: c.b * g)
             default:
