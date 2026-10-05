@@ -9,7 +9,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { pw, ROOT, WEB, makeJpegs, makeShoot, makeBigShoot, Bridge, open, deadline } from './lib.mjs';
+import { pw, ROOT, WEB, makeJpegs, makeShoot, makeBigShoot, tiff, Bridge, open, deadline } from './lib.mjs';
 
 deadline('plumbing-harness.mjs', 420);
 
@@ -72,8 +72,14 @@ const loaded = async page => {
   const shoot = path.join(tmp, '2026-09-01');
   makeShoot(shoot, jpegs, { others: ['DSC01001.JPG', 'X.CR3', 'clip.MP4'], sidecars: { 'DSC01002.xmp': '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:Rating="2"/></rdf:RDF></x:xmpmeta>' } });
   bridge.pending = shoot; await page.evaluate(() => __lumina.openFolder());
-  await loaded(page);
+  const namedAtOpen = await loaded(page);
   let s = await S(page);
+  // v7's nameCommit (the name field losing focus, above) calls the page's persist(), the browser's
+  // session store. In the app the Mac holds sessions and recents: nothing of either in localStorage.
+  await page.waitForTimeout(600);
+  const stored = await page.evaluate(() => ({ keys: Object.keys(localStorage), names: localStorage.getItem('lumina-v4-names') }));
+  ok(namedAtOpen && /2026-09-01/.test(stored.names || '') && !stored.keys.some(k => k === 'lumina-v4-recents' || k.startsWith('lumina-v4-shoot:')),
+    'name: committed to lumina-v4-names; no browser session or lumina-v4-recents left in localStorage', [namedAtOpen, stored]);
   ok(s.view === 'cull', 'read: lands in Cull', s.view);
   ok(s.n === 12 && s.realInfo.n === 12 && s.realInfo.bad === 0, 'read: 12 photos, 0 unreadable', s.realInfo);
   ok(s.realInfo.name === '2026-09-01' && s.realInfo.date === '2026-09-01', 'read: realInfo name + date', s.realInfo);
@@ -421,9 +427,14 @@ const loaded = async page => {
   const slow = path.join(tmp, '2026-09-02');
   makeBigShoot(slow, jpegs, 160);
   const during = async (label, moves) => {
-    bridge.delayMs = 25; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
+    // A slow read (60 ms a request), so the keys below land well inside it on any machine.
+    bridge.delayMs = 60; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
     await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 30000 });
     for (const k of moves) { await key(page, k); await page.waitForTimeout(120); }
+    // Not on the first photo of its row: the page's land() goes to the row's first undecided photo,
+    // so a cursor already there would hide a land() that should not have run (the reopen, below).
+    for (let t = 0; t < 6 && await page.evaluate(() => { const l = __lumina.logic(), p = l.data.byId[l.state.cur], row = l.data.R[p.mi]; return !row || row.ids.length < 3 || row.ids.indexOf(l.state.cur) < 1; }); t++) { await key(page, 'ArrowDown'); await page.waitForTimeout(120); await key(page, 'ArrowRight'); await page.waitForTimeout(120); }
+    const picked = await page.evaluate(() => { const l = __lumina.logic(); return l.data.byId[l.state.cur].path; });
     await key(page, 'p'); await page.waitForTimeout(150);
     const mid = await page.evaluate(() => { const l = __lumina.logic(), p = l.data.byId[l.state.cur], el = l.scrollRef.current;
       return { cur: p && p.path, kept: l.kept().map(id => l.data.byId[id].path), still: !!l.state.realLoad, top: el.scrollTop }; });
@@ -431,7 +442,10 @@ const loaded = async page => {
     const end = await page.evaluate(() => { const l = __lumina.logic(), p = l.data.byId[l.state.cur], el = l.scrollRef.current;
       return { cur: p && p.path, kept: l.kept().map(id => l.data.byId[id].path), top: el.scrollTop, n: l.real.length }; });
     bridge.delayMs = 0;
-    ok(mid.still && mid.kept.length === 1, label + ': kept a photo while the folder was still being read', mid);
+    const row = await page.evaluate(() => { const l = __lumina.logic(), p = l.data.byId[l.state.cur], r = l.data.R[p.mi]; return { at: r.ids.indexOf(l.state.cur), firstUndecided: r.ids.findIndex(id => l.undec(id)) }; });
+    ok(mid.still && mid.kept.length === 1 && mid.kept[0] === picked, label + ': kept a photo while the folder was still being read', { mid, picked });
+    ok(row.at !== row.firstUndecided, label + ': the cursor is not where the page\'s land() would put it (the check below can fail)', row);
+    ok(end.kept.includes(picked), label + ': the keep is on the photo the reader picked, by path', { picked, kept: end.kept });
     ok(end.n === 160 && end.cur === mid.cur, label + ': the read ends on the reader\'s photo, not the first', { mid, end });
     ok(Math.abs(end.top - mid.top) < 400, label + ': no scroll jump when the read ends', { mid: mid.top, end: end.top });
     return { mid, end };
@@ -443,7 +457,32 @@ const loaded = async page => {
   ok(saved2 && Object.keys(saved2.marks).length === 1, 'during read: the keep made while reading is saved', saved2 && saved2.marks);
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
   const again = await during('reopen during read', ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowRight']);
-  ok(again.end.kept.length === 2 && again.end.kept.includes(first.end.kept[0]), 'reopen during read: the saved keep and the new one both kept', { first: first.end.kept, again: again.end.kept });
+  ok(again.end.kept.length === 2 && again.end.kept.includes(first.end.kept[0]) && again.end.kept.includes(again.mid.kept[0]) && again.mid.kept[0] !== first.end.kept[0],
+    'reopen during read: the saved keep and the new one both kept, on their own photos', { first: first.end.kept, mid: again.mid.kept, again: again.end.kept });
+
+  // A photo's id is its place by time, so one that is listed last and was taken first moves every
+  // id when it is read. What the reader did before it arrived stays on the same photos, by path.
+  const shifted = path.join(tmp, '2026-09-05');
+  makeBigShoot(shifted, jpegs, 64);
+  fs.writeFileSync(path.join(shifted, 'DSC19999.ARW'), tiff({ date: '2026:09:01 08:00:00', jpeg: jpegs[0], pad: 4096 + jpegs[0].length + 16 }));
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  bridge.delayMs = 60; bridge.pending = shifted; await page.evaluate(() => __lumina.openFolder());
+  await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 30000 });
+  const held = () => page.evaluate(() => { const l = __lumina.logic(), B = l.data.byId, P = id => B[id] && B[id].path.split('/').pop();
+    return { cur: P(l.state.cur), curId: l.state.cur, kept: l.kept().map(P), still: !!l.state.realLoad, n: l.real.length, firstFile: P(l.data.order[0]) }; });
+  await key(page, 'ArrowDown'); await page.waitForTimeout(120); await key(page, 'ArrowRight'); await page.waitForTimeout(120);
+  await key(page, 'p'); await page.waitForTimeout(150);
+  const hMid = await held();
+  await loaded(page); await page.waitForTimeout(600);
+  const hEnd = await held();
+  bridge.delayMs = 0;
+  ok(hMid.still && hMid.kept.length === 1 && hMid.firstFile === 'DSC10001.ARW', 'ids moved mid-read: kept before the earliest photo was read', hMid);
+  ok(hEnd.n === 65 && hEnd.firstFile === 'DSC19999.ARW' && hEnd.curId !== hMid.curId, 'ids moved mid-read: the last file listed sorts first, every id moved', hEnd);
+  ok(JSON.stringify(hEnd.kept) === JSON.stringify(hMid.kept) && hEnd.cur === hMid.cur,
+    'ids moved mid-read: the keep and the cursor are on the same photos, by path', { mid: hMid, end: hEnd });
+  await page.waitForTimeout(2300);            // autosave
+  const savedS = bridge.sessions['id-2026-09-05'] && JSON.parse(bridge.sessions['id-2026-09-05']);
+  ok(savedS && JSON.stringify(Object.keys(savedS.marks)) === JSON.stringify(hMid.kept), 'ids moved mid-read: the session holds the keep under its own path', savedS && savedS.marks);
 
   // T4: a sidecar another app rewrote between open and Save. Save merges the rating onto the text on
   // disk NOW (the page's own xmpFor, on text re-read by the Mac), never onto the text from the open.

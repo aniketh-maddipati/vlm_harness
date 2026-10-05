@@ -169,6 +169,32 @@
   // For the Open screen's recent cards: the same numbers the prototype's persist() keeps.
   const summary = logic => ({ n: logic.data.order.length, dec: logic.data.order.filter(id => !logic.undec(id)).length,
     kp: logic.kept().length, last: LuminaV4.fmt.base((logic.data.byId[logic.state.cur] || {}).file) || '' });
+  // A photo's id is its place in the shoot by time ('f' + n, LuminaCore.buildShoot), so it names the
+  // same photo only while the list is the same. While a folder is read the list grows, and a photo
+  // that sorts before the ones already shown (a second body, a subfolder listed later, another
+  // source joining at the end) moves every id after it. What the reader holds by id is carried by
+  // path across such a rebuild: `heldIds` before it, `carryIds` after (null when nothing moved).
+  const HELD = ['marks', 'flags', 'stars', 'cuts', 'look'];
+  const heldIds = logic => {
+    const B = (logic.data && logic.data.byId) || {}, s = logic.state, by = {};
+    const add = id => { if (id != null && B[id] && B[id].path) by[id] = B[id].path; };
+    for (const k of HELD) for (const id of Object.keys(s[k] || {})) add(id);
+    add(s.cur);
+    return by;
+  };
+  const carryIds = (logic, by) => {
+    const B = logic.data.byId;
+    if (Object.keys(by).every(id => B[id] && B[id].path === by[id])) return null;
+    const idOf = {}; for (const [id, p] of Object.entries(B)) if (p.path) idOf[p.path] = id;
+    const s = logic.state, st = {};
+    for (const k of HELD) {
+      const m = {}; let ch = false;
+      for (const [id, v] of Object.entries(s[k] || {})) { const n = by[id] ? idOf[by[id]] : id; if (n !== id) ch = true; if (n != null) m[n] = v; }
+      if (ch) st[k] = m;
+    }
+    if (s.cur != null && by[s.cur] && idOf[by[s.cur]] && idOf[by[s.cur]] !== s.cur) st.cur = idOf[by[s.cur]];
+    return st;
+  };
   // `live`: the reader moved or decided while the folder was being read. Those decisions win over
   // the saved ones and the cursor stays where it is (nothing jumps when the read ends).
   const restore = (logic, saved, live) => {
@@ -294,6 +320,17 @@
     logic.__luminaPlumbed = true;
     const gaps = missing(logic);
     if (gaps.length) { native('ready', { missing: gaps }); return; }
+
+    // The page's persist() is the browser's session store: the shoot's decisions under its key and
+    // the 'lumina-v4-recents' list, both in localStorage. In the app the Mac holds both (sessions,
+    // lumina.shoots) and the page never reads either back, but v7's nameCommit calls persist()
+    // without the app check its other caller has, so every named shoot left a second copy of its
+    // session and a recents entry in the web view's storage (and, where storage is shared between
+    // pages, the prototype then lists it under Recent). What stays is the part the app does use:
+    // the seen-before memory, on the page's own timer. The probe's twins keep the page's own.
+    if (!cfg.parity && typeof logic.persist === 'function') logic.persist = function () {
+      clearTimeout(this._rsT); this._rsT = setTimeout(() => { if (typeof this.rememberSeen === 'function') this.rememberSeen(); }, 400);
+    };
 
     // After a folder is read: remember the shoot and bring its decisions back.
     const afterRead = async () => {
@@ -541,7 +578,11 @@
         if (!force && Date.now() - (logic._scrollT || 0) < 450) { clearTimeout(logic._growT); logic._growT = setTimeout(() => grow(false), 480); return; }
         if (!force && now - lastB < 700) return; lastB = now;
         const anc = shown && typeof logic.scrollAnchor === 'function' ? logic.scrollAnchor() : null;
-        logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null; logic._anc = anc;
+        const held = shown ? heldIds(logic) : {};
+        logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {});
+        const carried = carryIds(logic, held);
+        if (carried) { if (carried.cuts) logic.data = logic.build(carried.cuts); logic.setState(carried); }
+        logic._lk = null; logic._anc = anc;
         if (!shown) { shown = true; firstCur = logic.data.order[0]; logic._rd.cur = firstCur; const se = logic.scrollRef && logic.scrollRef.current; logic._rd.top = se ? se.scrollTop : 0; logic.setState({ cur: firstCur }); logic.setView('cull', true); } else logic.forceUpdate();
       };
       const one = async (f, k) => {
@@ -577,13 +618,22 @@
       const sc = logic.scrollRef && logic.scrollRef.current, was = logic.state.cur, wasKey = shown && was && logic.data.byId[was] ? keyOf(logic.data.byId[was]) : null;
       readMoved = shown && (!!rd.moved || was !== firstCur || Object.keys(logic.state.marks || {}).length > 0 || Object.keys(logic.state.flags || {}).length > 0 || !!(sc && sc.scrollTop > 40));
       const ancF = typeof logic.scrollAnchor === 'function' ? logic.scrollAnchor() : null;
-      logic.real = ok; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null; logic._anc = ancF;
+      const held = shown ? heldIds(logic) : {};
+      logic.real = ok; logic.data = logic.build(logic.state.cuts || {});
+      const carried = carryIds(logic, held) || {}; delete carried.cur;            // the cursor: `stay`, below
+      if (carried.cuts) logic.data = logic.build(carried.cuts);
+      logic._lk = null; logic._anc = ancF;
       let stay = null;
       if (readMoved && wasKey) for (const [id, p] of Object.entries(logic.data.byId)) if (keyOf(p) === wasKey) { stay = id; break; }
       const G = Object.values(logic.data.G), first = ok.map(p => p.date).filter(Boolean).sort()[0] || '';
       const info = { name: L.name, n: ok.length, rows: logic.data.R.length, stacks: G.filter(g => g.kind !== 'single').length, bad: logic._failed.length, secs: lastRead.secs.toFixed(1), date: first.slice(0, 10).replace(/:/g, '-') };
-      logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, cur: stay || logic.data.order[0] });
-      logic._landT = Date.now(); logic.setView('cull', true); if (!stay) setTimeout(() => logic.land(), 0);
+      logic.setState(Object.assign(carried, { realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, cur: stay || logic.data.order[0] }));
+      // `_landT` is the page's "land again when decisions arrive within 6 s of a read" (its
+      // componentDidUpdate: the saved session's marks, then the first undecided photo of the row).
+      // As the page's onDir, only when the reader has not moved: with it set, a reopen merged the
+      // saved marks a moment after the read and the page's land() took the cursor off the reader's
+      // photo, to the first undecided one of its row.
+      logic._landT = stay ? 0 : Date.now(); logic.setView('cull', true); if (!stay) setTimeout(() => logic.land(), 0);
       if (run.gone) logic.say('Card removed · ' + ok.length + ' of ' + files.length + ' read · re-insert to keep going');
     };
 
@@ -852,7 +902,9 @@
     // the ones that act on those parts: the meter's Remove buttons (cacheRemove; its app branch
     // knows only the Mac's one part and would free nothing of what the twin lists) and the limit
     // (enforceCap, which the app leaves to the Mac).
-    for (const name of ['cacheParts', 'cacheView', 'cacheRemove', 'enforceCap']) {
+    // The Recent list too: the prototype's is its own browser list ('lumina-v4-recents', none in a
+    // fresh store) followed by the sample shoots; the page's app branch leaves the browser list out.
+    for (const name of ['cacheParts', 'cacheView', 'cacheRemove', 'enforceCap', 'recents']) {
       const fn = logic[name];
       if (typeof fn === 'function') logic[name] = function (...a) {
         const was = window.lumina.app; window.lumina.app = false;
