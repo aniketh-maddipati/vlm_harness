@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 import WebKit
 
 /// The whole app window: one WKWebView showing the design's page, full window, no browser chrome.
@@ -185,6 +186,34 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         return await run(panel)
     }
 
+    func chooseSources(at: URL?, files: Bool, multiple: Bool, prompt: String, message: String) async -> [URL] {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = files
+        panel.allowsMultipleSelection = multiple
+        panel.canCreateDirectories = false
+        panel.prompt = prompt
+        panel.message = message
+        if files { panel.allowedContentTypes = [UTType("com.sony.arw-raw-image"), UTType("com.adobe.raw-image"), .rawImage, .folder].compactMap { $0 } }
+        if let at { panel.directoryURL = at }
+        guard let window = webView?.window else { return panel.runModal() == .OK ? panel.urls : [] }
+        return await withCheckedContinuation { c in
+            panel.beginSheetModal(for: window) { c.resume(returning: $0 == .OK ? panel.urls : []) }
+        }
+    }
+
+    func chooseDownloads(at: URL) async -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Watch"
+        panel.message = "Choose Downloads to let Lumina see AirDrop arrivals there. Lumina only reads it, and remembers this."
+        panel.directoryURL = at
+        return await run(panel)
+    }
+
     private func run(_ panel: NSOpenPanel) async -> URL? {
         guard let window = webView?.window else { return panel.runModal() == .OK ? panel.url : nil }
         return await withCheckedContinuation { c in
@@ -196,7 +225,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
-        Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
+        // The page's own file inputs (the phone page's "choose"): what is picked is noted, the page
+        // gets its `File`s, and plumbing has the Mac read them (`claimFiles`). ⌘O never comes here.
+        Task { @MainActor in completionHandler(await bridge.inputPanel(allowsDirectories: parameters.allowsDirectories, allowsMultipleSelection: parameters.allowsMultipleSelection)) }
     }
 
     /// `window.open(url, '_blank')`: never a second web view. An allowlisted link goes to the browser.

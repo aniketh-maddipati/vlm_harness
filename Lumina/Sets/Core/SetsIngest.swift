@@ -70,6 +70,10 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     private var roots: [String: URL] = [:]
     /// Each root's paths as `resolve` compares them and `read` opens below them, worked out at `register`.
     private var rootPaths: [String: RootPath] = [:]
+    /// Roots that are not a whole folder but some files in one (photos dropped or picked one by
+    /// one, AirDrop arrivals in Downloads): the file names that may be read, by root name. Nothing
+    /// else in that folder is listed, read or named: the user granted those files, not the folder.
+    private var only: [String: Set<String>] = [:]
     private var gone: Set<String> = []
     private var stats = Stats()
     private let previewCache = NSCache<NSString, NSData>()
@@ -100,19 +104,37 @@ nonisolated final class SetsIngest: @unchecked Sendable {
 
     // MARK: Roots
 
-    /// A folder the user opened, known to the page by its name ("<name>/<file>").
-    func register(_ url: URL) {
+    /// A folder the user opened, known to the page by its name ("<name>/<file>"). `name`: another
+    /// name for it, when a shoot holds two folders called the same (its second "100MSDCF"). `files`:
+    /// the root is only these files of the folder (plain names, no path), not the folder itself.
+    func register(_ url: URL, as name: String? = nil, only files: Set<String>? = nil) {
         let paths = RootPath(url)                        // one realpath here, not one per read
+        let name = name ?? url.lastPathComponent
         lock.withLock {
-            roots[url.lastPathComponent] = url
-            rootPaths[url.lastPathComponent] = paths
-            gone.remove(url.lastPathComponent)
+            roots[name] = url
+            rootPaths[name] = paths
+            only[name] = files.map { Set($0.filter(Self.isPlainName)) }
+            gone.remove(name)
             headCache.removeAllObjects()                 // another card can hold the same names
             stats.gone = gone.sorted()
         }
     }
 
-    var rootURLs: [URL] { lock.withLock { Array(roots.values) } }
+    /// One file's own name: no folder, no `..`, not hidden.
+    static func isPlainName(_ n: String) -> Bool {
+        !n.isEmpty && !n.contains("/") && !n.hasPrefix(".") && !n.utf8.contains(0)
+    }
+
+    /// The whole folders opened. A root that is only some files of a folder is not one of them.
+    var rootURLs: [URL] { lock.withLock { roots.filter { only[$0.key] == nil }.map(\.value) } }
+
+    /// The files of the roots that are only some files of a folder.
+    var looseURLs: [URL] {
+        lock.withLock { only.flatMap { name, files in roots[name].map { r in files.map { r.appendingPathComponent($0) } } ?? [] } }
+    }
+
+    /// The file names a root is limited to, or nil for a whole folder (and for an unknown name).
+    func allowed(named name: String) -> Set<String>? { lock.withLock { only[name] } }
 
     func root(named name: String) -> URL? { lock.withLock { roots[name] } }
 
@@ -147,6 +169,8 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         let parts = rel.split(separator: "/", maxSplits: 1).map(String.init)
         guard parts.count == 2, let (root, known) = lock.withLock({ () -> (URL, RootPath)? in
             guard let r = roots[parts[0]], let k = rootPaths[parts[0]] else { return nil }
+            // A root of single files: one of them, by its own name, and nothing else in the folder.
+            if let files = only[parts[0]], !files.contains(parts[1]) { return nil }
             return (r, k)
         }) else { return nil }
         let url = root.appendingPathComponent(parts[1]).standardizedFileURL
@@ -291,9 +315,34 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     /// Bounded by `limits`: a sidecar over the size is not read and is named in `skippedXmp`; past
     /// the entry count or the depth the listing stops, empty, with `stopped` set. Cancellable:
     /// `isCancelled` (by default, the calling task's cancellation) is checked as it walks.
-    static func list(_ root: URL, limits: Limits = Limits(), isCancelled: () -> Bool = { Task.isCancelled }) -> Listing {
-        var out = Listing(name: root.lastPathComponent)
+    ///
+    /// `name`: the root's name in the page's paths when it is not the folder's own. `only`: the root
+    /// is these files of the folder (see `register`): the folder is not walked at all, each name is
+    /// looked at by itself, and a name that is not a regular file there (gone, a link, a folder) is
+    /// left out. Sidecars are only read when they are among the names.
+    static func list(_ root: URL, name: String? = nil, only: Set<String>? = nil, limits: Limits = Limits(), isCancelled: () -> Bool = { Task.isCancelled }) -> Listing {
+        var out = Listing(name: name ?? root.lastPathComponent)
         out.onCard = SetsFileOps.isCard(root)
+        if let only {
+            for file in only.filter(isPlainName).sorted().prefix(limits.entries) {
+                let url = root.appendingPathComponent(file)
+                var st = stat()
+                guard lstat(url.path, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG, !file.hasSuffix(SetsFileOps.backupSuffix) else { continue }
+                let ext = url.pathExtension.lowercased(), rel = out.name + "/" + file, size = Int(st.st_size)
+                if ext == "arw" || ext == "dng" { out.files.append((rel, size)) }
+                else if ext != "xmp" { out.others.append(rel) }
+                else if size > limits.sidecarBytes { out.skippedXmp.append(rel) }
+                else {
+                    switch readAtMost(url, limits.sidecarBytes) {
+                    case .some(.some(let data)):
+                        if let text = String(data: data, encoding: .utf8) { out.xmp.append((rel, text)) } else { out.unreadableXmp.append(rel) }
+                    case .some(.none): out.skippedXmp.append(rel)
+                    case .none: break
+                    }
+                }
+            }
+            return out
+        }
         let base = root.standardizedFileURL.path
         let prefix = base.hasSuffix("/") ? base : base + "/"          // "/" itself opened
         let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey, .fileSizeKey]

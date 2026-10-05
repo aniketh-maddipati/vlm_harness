@@ -12,9 +12,22 @@ protocol SetsChooser: AnyObject {
     /// opened `at` the card's DCIM (or its root), asking for the card named `name`. `refusal` is
     /// set when the previous pick was not on that card.
     func chooseCard(name: String, at: URL, refusal: String?) async -> URL?
+    /// Folders and photos for the open shoot ("Add to shoot", the page's own file inputs, a source
+    /// to find again): the panel opened `at` a folder (nil: where the panel likes), `files` whether
+    /// single photos may be picked beside folders, `multiple` whether more than one.
+    func chooseSources(at: URL?, files: Bool, multiple: Bool, prompt: String, message: String) async -> [URL]
+    /// The Downloads folder, to watch it for AirDrop arrivals: the panel opened `at` it. The pick
+    /// is the grant (App Sandbox); it is asked once and kept as a bookmark.
+    func chooseDownloads(at: URL) async -> URL?
 }
 
 extension SetsChooser {
+    /// A chooser with one folder panel (the probe's scripted one) answers both from it.
+    func chooseSources(at: URL?, files: Bool, multiple: Bool, prompt: String, message: String) async -> [URL] {
+        await chooseSource(allowsDirectories: true).map { [$0] } ?? []
+    }
+    func chooseDownloads(at: URL) async -> URL? { await chooseSource(allowsDirectories: true) }
+
     /// A chooser with no panel of its own for cards (the probe's scripted one) answers from its
     /// source queue.
     func chooseCard(name: String, at: URL, refusal: String?) async -> URL? { await chooseSource(allowsDirectories: true) }
@@ -37,6 +50,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// The recent shoot `pendingSource` reopens: the folder keeps that shoot's id wherever its
     /// bookmark found it (renamed or moved), instead of becoming a second shoot.
     private var pendingShoot: String?
+    /// `pendingSource` is opened as some files of that folder, not the folder (a root of single
+    /// files): the root's name and the files; `nid` when the shoot's source list already has them.
+    private var pendingLoose: (name: String, only: Set<String>, nid: String?)?
+    /// What the open shoot's first source is to the page's Sources panel ("drop", "phone"…), when
+    /// it is not just a folder or a card.
+    private var pendingKind: String?
+    /// The open shoot's first source, as `pendingKind` named it (kept for a read started again).
+    private var openKind: String?
     private var lastOpened: URL?
     /// The folder the user picked for the last export in this run: with the opened folders, the
     /// only places Show in Finder opens (`revealURL`).
@@ -70,6 +91,25 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         return n > maxSessionBytes ? "session too big: \(n) bytes, the limit is \(maxSessionBytes)" : nil
     }
     let shoots: SetsShootStore
+    /// The open shoot's roots, the first one first: each a folder, or some files of one, under the
+    /// name the page's paths start with. `nid`: its entry in the shoot's source list.
+    struct OpenRoot { var name: String; var url: URL; var only: Set<String>?; var nid: String? }
+    private(set) var shootRoots: [OpenRoot] = []
+    /// The sources a shoot has besides its first folder, with their bookmarks.
+    let sources: SetsShootSources
+    /// Access started for sources reached through their bookmarks, let go with the shoot.
+    private var sourceHolds: [Int] = []
+    /// What the user handed the app in this run and the page may name: dropped items, picks of the
+    /// page's own file inputs. Newest last. Only these are ever matched to the page's `File`s.
+    private var granted: [(url: URL, isDirectory: Bool)] = []
+    static let maxGranted = 4096
+    /// AirDrop watch (BRIDGE.md "Phone upload"): the Downloads folder the user granted, the files
+    /// that arrived while watching (the only ones readable as "AirDrop/<name>"), the watcher.
+    private let downloads = SetsDownloadsWatcher()
+    private var airdropFolder: URL?
+    private var airdropHold: Int?
+    private var airdropNames: Set<String> = []
+    static let airdropName = "AirDrop"
     private(set) var ready = false
     var onEvent: ((String) -> Void)?
     /// The recent-shoots list changed (File ▸ Open Recent).
@@ -93,6 +133,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         self.chooser = chooser
         self.supportDir = supportDir
         self.shoots = SetsShootStore(supportDir: supportDir)
+        self.sources = SetsShootSources(supportDir: supportDir)
         self.access = access ?? SetsAccess()
         super.init()
         SetsAccess.removeLegacyBookmarks(supportDir: supportDir)
@@ -221,22 +262,42 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     func openPanel(allowsDirectories: Bool) async -> [URL]? {
         let url: URL?
         let reopening: String?
-        if let pending = pendingSource { url = pending; reopening = pendingShoot; pendingSource = nil; pendingShoot = nil }
-        else { url = await chooser.chooseSource(allowsDirectories: allowsDirectories); reopening = nil }
+        var loose = pendingLoose
+        let kind = pendingKind
+        if let pending = pendingSource { url = pending; reopening = pendingShoot; pendingSource = nil; pendingShoot = nil; pendingLoose = nil; pendingKind = nil }
+        else { url = await chooser.chooseSource(allowsDirectories: allowsDirectories); reopening = nil; loose = nil; pendingLoose = nil; pendingKind = nil }
         guard let url else { return nil }
+        // The shoot open before is let go with its added sources.
+        releaseSources()
+        // A shoot of single files reopened: its files are reached through their own bookmarks.
+        if let l = loose, let nid = l.nid, let id = reopening, let entry = sources.load(id).entries.first(where: { $0.nid == nid }),
+           let found = activate(entry, shoot: id) { loose = (l.name, found.only ?? l.only, nid) }
         // The open shoot is this folder now. A reopen already started its access (scoped); a
         // panel's pick needs none, and the shoot open before is let go either way.
         access.openShoot(url, scoped: false)
-        ingest.register(url)
+        ingest.register(url, as: loose?.name, only: loose?.only)
         lastOpened = url
-        let place = SetsShootStore.id(for: url), volume = SetsFileOps.volumeID(url)
+        let volume = SetsFileOps.volumeID(url)
+        let place = loose.map { SetsShootSources.loosePlace(folder: SetsShootStore.id(for: url), names: $0.only) } ?? SetsShootStore.id(for: url)
         // A recent's own id; else the shoot that is at this place; else a recent renamed or moved
         // here since (its bookmark follows it); else a new shoot.
         let id = reopening ?? shoots.index().first(where: { $0.currentPlace == place })?.id
-            ?? access.movedShoot(to: url, volume: volume, in: shoots)?.id ?? shoots.shootID(at: place)
+            ?? (loose == nil ? access.movedShoot(to: url, volume: volume, in: shoots)?.id : nil) ?? shoots.shootID(at: place)
         // The bookmark the index keeps, made while the grant is fresh. The only one: there is no
-        // second copy elsewhere.
-        lastOpenedKey = (id, volume, place, reopening == nil ? try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) : nil)
+        // second copy elsewhere. Single files have theirs in the shoot's source list instead.
+        lastOpenedKey = (id, volume, place, reopening == nil && loose == nil ? try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) : nil)
+        var first = OpenRoot(name: loose?.name ?? url.lastPathComponent, url: url, only: loose?.only, nid: loose?.nid)
+        if let l = loose, l.nid == nil {
+            // Opened from single files for the first time: they are the shoot's first source.
+            var stored = sources.load(id)
+            stored.entries.removeAll { $0.isPrimary }
+            let entry = makeEntry(&stored, url: url, only: l.only, name: l.name, kind: kind ?? "drop", label: l.name, primary: true)
+            stored.entries.insert(entry, at: 0)
+            try? sources.save(id, stored)
+            first.nid = entry.nid
+        }
+        shootRoots = [first]
+        openKind = kind
         onEvent?("opened \(url.path)")      // exactly this: the probe's sandbox checks read the path from it
         if id != place { onEvent?("shoot \(id) is at a new place \(place)" + (reopening == nil ? " (picked)" : " (reopened)")) }
         return [url]
@@ -247,12 +308,18 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     func open(_ url: URL, shoot: String? = nil) {
         pendingSource = url
         pendingShoot = shoot
+        pendingLoose = nil
+        pendingKind = nil
         webView?.evaluateJavaScript("window.__lumina && __lumina.openFolder()", completionHandler: nil)
     }
 
     /// No shoot is open any more (File ▸ Close Shoot, or the page started over): its folder's
     /// access is stopped.
-    func closeShoot() { access.closeShoot() }
+    func closeShoot() {
+        access.closeShoot()
+        releaseSources()
+        shootRoots = []
+    }
 
     func resolve(_ rel: String) -> URL? { ingest.resolve(rel) }      // no ../ escapes
 
@@ -277,6 +344,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             js = "window.__lumina && __lumina.cardGone(\(names), \(removed.map { ours($0.volume) } ?? false))"
         }
         if ready { webView?.evaluateJavaScript(js, completionHandler: nil) }
+        // A source of the open shoot on that volume is "not connected" now, or connected again.
+        if shootRoots.count > 1 { push("__lumina.sources(\(Self.json(sourcesStatus())))") }
         onEvent?(card.map { "card in \($0.uuid)" } ?? "card out \(removed?.uuid ?? "?")" + (stopped.isEmpty ? "" : " · stopped reading \(stopped.joined(separator: ", "))"))
     }
 
@@ -368,48 +437,32 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             ready = true
             // A page that starts (a launch, a reload after its process stopped) has no shoot open.
             closeShoot()
+            stopAirdrop()
             webView?.evaluateJavaScript("window.__lumina && __lumina.card(\(cards.current != nil), \(cards.current.map(cardJSON) ?? "null"))", completionHandler: nil)
             onEvent?("ready")
             return (true, nil)
         case "cullCard":
             return (await cullCard(), nil)
         case "openFolder":
-            // Native ingest: pick (or take the pending folder), then list it before reading anything.
-            guard let url = await openPanel(allowsDirectories: true)?.first else { return (NSNull(), nil) }
-            // The access check lists the folder too. On a disk that was just mounted, or is asleep, that
-            // first directory read can take many seconds (13.9 s measured on a USB exFAT disk), so it runs
-            // off the main thread with the listing, and the time reported covers both.
-            let t0 = Date()
-            // One listing at a time: a folder picked while another is still being listed stops that one,
-            // whose call answers the page as a cancelled pick.
-            self.listing?.cancel()
-            let task = Task.detached(priority: .userInitiated) { () -> (Bool, SetsIngest.Listing) in
-                if SetsIngest.accessDenied(url) { return (true, SetsIngest.Listing(name: url.lastPathComponent)) }
-                return (false, SetsIngest.list(url))
-            }
-            self.listing = task
-            let (denied, listing) = await task.value
-            if self.listing == task { self.listing = nil }
-            if task.isCancelled || listing.stopped == .cancelled {
-                onEvent?("listing stopped: another folder opened · \(url.path)")
-                return (NSNull(), nil)
-            }
-            if let stop = listing.stopped {
-                // `/`, a home folder, a whole disk: refused whole rather than listed in part.
-                let limits = SetsIngest.Limits()
-                onEvent?("too big \(url.path): \(stop.rawValue)")
-                return (["tooBig": ["name": listing.name, "why": stop.rawValue, "files": limits.entries, "depth": limits.depth]], nil)
-            }
-            if denied {
-                deniedFolder = url
-                onEvent?("access denied \(url.path)")
-                return (["denied": Self.volumeName(url)], nil)
-            }
-            deniedFolder = nil
-            onEvent?("listed \(listing.files.count) ARW + \(listing.xmp.count) xmp + \(listing.others.count) other\(listing.skippedXmp.isEmpty ? "" : " · \(listing.skippedXmp.count) xmp over 1 MB skipped")\(listing.onCard ? " (card)" : "") in \(Int(Date().timeIntervalSince(t0) * 1000)) ms · \(ingest.workers) readers")
-            var d = listing.dictionary
-            d["workers"] = ingest.workers
-            return (d, nil)
+            return (await openListing(), nil)
+        case "addFrom":
+            // The Sources panel's Add (BRIDGE.md "Native recipe"): the panel, then what was picked
+            // joins the open shoot (or is opened, when there is none).
+            return (await addFrom(where: body["where"] as? String ?? "folder", add: body["add"] as? Bool ?? false, shoot: body["id"] as? String), nil)
+        case "claimFiles":
+            // The page was handed `File`s (a drop, its own file input, AirDrop arrivals) and is about
+            // to read them: the same items, read by the Mac instead. Null when none of them is
+            // something the user handed the app.
+            return (await claimFiles(body["files"] as? [[String: Any]] ?? [], add: body["add"] as? Bool ?? false, shoot: body["id"] as? String,
+                                     kind: body["kind"] as? String, label: body["label"] as? String), nil)
+        case "shootSources":
+            return (keepSources(shoot: body["id"] as? String ?? "", list: body["sources"] as? [[String: Any]] ?? []), nil)
+        case "sourcesStatus":
+            return (sourcesStatus(), nil)
+        case "sourceReconnect":
+            return (await reconnectSource(body["nid"] as? String ?? "", shoot: body["id"] as? String ?? ""), nil)
+        case "watchAirdrop":
+            return (await watchAirdrop(body["on"] as? Bool ?? false), nil)
         case "prefetch":
             let items = (body["items"] as? [[String: Any]] ?? []).compactMap(Self.ingestPreview)
             ingest.prefetch(items)
@@ -427,11 +480,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             let key = url == lastOpened ? lastOpenedKey : nil
             let place = key?.place ?? SetsShootStore.id(for: url)
             let id = key?.id ?? shoots.shootID(at: place)
+            // A shoot of single files is called what its root is (the folder is not the shoot).
+            let looseName = url == lastOpened ? shootRoots.first.flatMap { $0.only == nil ? nil : $0.name } : nil
             // The bookmark made at open (nil for a reopen: upsert keeps the one it came through).
-            let shoot = SetsShootStore.Shoot(id: id, title: url.lastPathComponent == "DCIM" ? (cards.current?.name ?? "Card") : url.lastPathComponent,
+            let shoot = SetsShootStore.Shoot(id: id, title: looseName ?? (url.lastPathComponent == "DCIM" ? (cards.current?.name ?? "Card") : url.lastPathComponent),
                                              path: url.path, volumeUUID: key?.volume ?? SetsFileOps.volumeID(url), photos: SetsNumber.count(body["n"]) ?? 0,
                                              firstCapture: body["date"] as? String ?? "", opened: Date(),
-                                             bookmark: key.map { $0.bookmark } ?? (try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)),
+                                             bookmark: key.map { $0.bookmark } ?? (looseName == nil ? try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) : nil),
                                              place: place)
             try? shoots.upsert(shoot)
             onShootsChanged?()
@@ -537,6 +592,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "removeShoot":
             guard let id = body["id"] as? String, SetsShootStore.isID(id) else { return (false, nil) }
             try? shoots.remove(id)
+            sources.remove(id)
             onShootsChanged?()
             return (true, nil)
         case "writeInto":
@@ -572,7 +628,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "reopenCurrent":
             // The card with the open shoot came back after a read it cut short: read it again.
             guard let url = lastOpened, FileManager.default.fileExists(atPath: url.path) else { return (false, nil) }
-            open(url)
+            let first = shootRoots.first
+            open(url, shoot: lastOpenedKey?.id)
+            if let first, let only = first.only { pendingLoose = (first.name, only, first.nid) }
+            pendingKind = openKind
             return (true, nil)
         default:
             return (nil, "unknown op \(op)")
@@ -585,7 +644,22 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// resolved or the folder is not there (card out, folder gone, a refusal): no fallback to the
     /// stored path, which is for display only.
     func reopen(id: String) -> Bool {
-        guard let shoot = shoots.index().first(where: { $0.id == id }), let url = access.reopen(shoot, store: shoots) else { return false }
+        guard let shoot = shoots.index().first(where: { $0.id == id }) else { return false }
+        // A shoot opened from single files: back through their bookmarks (its folder was never granted).
+        let stored = sources.load(id)
+        if let first = stored.entries.first(where: { $0.isPrimary }), let names = first.files {
+            let found = zip(first.refs, names).compactMap { ref, name -> URL? in
+                guard let data = stored.grants.sources.first(where: { $0.id == ref })?.bookmark, let url = access.peek(data),
+                      url.lastPathComponent == name, FileManager.default.fileExists(atPath: url.path) else { return nil }
+                return url
+            }
+            guard let folder = found.first?.deletingLastPathComponent() else { onEvent?("reopen \(id): none of its files is there"); return false }
+            open(folder, shoot: shoot.id)
+            pendingLoose = (first.name, Set(found.filter { $0.deletingLastPathComponent().path == folder.path }.map(\.lastPathComponent)), first.nid)
+            pendingKind = first.kind
+            return true
+        }
+        guard let url = access.reopen(shoot, store: shoots) else { return false }
         open(url, shoot: shoot.id)
         return true
     }
@@ -607,18 +681,21 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         let fm = FileManager.default
         guard !path.isEmpty else { return nil }
         guard path.hasPrefix("/") else {
-            let url = path.contains("/") ? resolve(path) : ingest.root(named: path)
+            // A root of single files is not a folder to show: only its files are.
+            let url = path.contains("/") ? resolve(path) : (ingest.allowed(named: path) == nil ? ingest.root(named: path) : nil)
             return url.flatMap { fm.fileExists(atPath: $0.path) ? $0 : nil }
         }
         let url = URL(fileURLWithPath: path).standardizedFileURL
         guard fm.fileExists(atPath: url.path) else { return nil }
         let real = url.resolvingSymlinksInPath().path
-        let folders = ingest.rootURLs + [lastOpened, lastExport].compactMap { $0 }
+        let opened = shootRoots.first?.only == nil ? lastOpened : nil      // not the folder single files came from
+        let folders = ingest.rootURLs + [opened, lastExport].compactMap { $0 }
         let inside = folders.contains { folder in
             let f = folder.standardizedFileURL.resolvingSymlinksInPath().path
             return real == f || real.hasPrefix(f.hasSuffix("/") ? f : f + "/")
         }
-        return inside ? url : nil
+        if inside { return url }
+        return ingest.looseURLs.contains { $0.standardizedFileURL.resolvingSymlinksInPath().path == real } ? url : nil
     }
 
     /// The volume's name for the access banner: "SONY-A7M4", or the folder's name on the startup disk.
@@ -647,6 +724,400 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         return true
     }
 
+    // MARK: Sources (BRIDGE.md "Sources", "Native recipe", "Phone upload")
+
+    /// The page's `openFolder`, read by the Mac: the pending folder or the panel's pick becomes the
+    /// open shoot and is listed before anything is read. NSNull for a cancelled pick; `denied` /
+    /// `tooBig` as the page shows them; else the listing, with `source` (what the first source is
+    /// to the Sources panel) and `more`, the shoot's other sources as they were kept, each listed
+    /// the same way or marked `missing`.
+    private func openListing() async -> Any {
+        guard let url = await openPanel(allowsDirectories: true)?.first, let first = shootRoots.first else { return NSNull() }
+        // The access check lists the folder too. On a disk that was just mounted, or is asleep, that
+        // first directory read can take many seconds (13.9 s measured on a USB exFAT disk), so it runs
+        // off the main thread with the listing, and the time reported covers both.
+        let t0 = Date()
+        // One listing at a time: a folder picked while another is still being listed stops that one,
+        // whose call answers the page as a cancelled pick.
+        self.listing?.cancel()
+        let task = Task.detached(priority: .userInitiated) { () -> (Bool, SetsIngest.Listing) in
+            // Single files: their folder was not granted and is not listed, so nothing to refuse here.
+            if first.only == nil, SetsIngest.accessDenied(url) { return (true, SetsIngest.Listing(name: first.name)) }
+            return (false, SetsIngest.list(url, name: first.name, only: first.only))
+        }
+        self.listing = task
+        let (denied, listing) = await task.value
+        if self.listing == task { self.listing = nil }
+        if task.isCancelled || listing.stopped == .cancelled {
+            onEvent?("listing stopped: another folder opened · \(url.path)")
+            return NSNull()
+        }
+        if let stop = listing.stopped {
+            // `/`, a home folder, a whole disk: refused whole rather than listed in part.
+            let limits = SetsIngest.Limits()
+            onEvent?("too big \(url.path): \(stop.rawValue)")
+            return ["tooBig": ["name": listing.name, "why": stop.rawValue, "files": limits.entries, "depth": limits.depth]]
+        }
+        if denied {
+            deniedFolder = url
+            onEvent?("access denied \(url.path)")
+            return ["denied": Self.volumeName(url)]
+        }
+        deniedFolder = nil
+        onEvent?("listed \(listing.files.count) ARW + \(listing.xmp.count) xmp + \(listing.others.count) other\(listing.skippedXmp.isEmpty ? "" : " · \(listing.skippedXmp.count) xmp over 1 MB skipped")\(listing.onCard ? " (card)" : "") in \(Int(Date().timeIntervalSince(t0) * 1000)) ms · \(ingest.workers) readers")
+        var d = listing.dictionary
+        d["workers"] = ingest.workers
+        d["source"] = ["kind": openKind ?? (listing.onCard ? "card" : "folder")]
+        if let id = lastOpenedKey?.id {
+            let more = await restoreSources(shoot: id, opened: url)
+            if !more.isEmpty { d["more"] = more }
+        }
+        return d
+    }
+
+    /// Makes a root of the open shoot readable under its name. The watched Downloads folder's
+    /// arrivals share the name "AirDrop" with a shoot's AirDrop source: both sets stay readable.
+    private func register(_ root: OpenRoot) {
+        var only = root.only
+        if only != nil, root.name == Self.airdropName, let folder = airdropFolder, Self.same(folder, root.url) { only?.formUnion(airdropNames) }
+        ingest.register(root.url, as: root.name, only: only)
+    }
+
+    /// Lets go of the access started for the open shoot's added sources.
+    private func releaseSources() {
+        for t in sourceHolds { access.release(t) }
+        sourceHolds = []
+    }
+
+    /// A new entry for the shoot's source list, with a bookmark for the folder or for each file.
+    /// A file that gives no bookmark (outside the sandbox's grant) is left out of the entry: it
+    /// is read now and not found again after a relaunch.
+    private func makeEntry(_ stored: inout SetsShootSources.Stored, url: URL, only: Set<String>?, name: String, kind: String, label: String, primary: Bool = false) -> SetsShootSources.Entry {
+        var entry = SetsShootSources.Entry(nid: SetsShootSources.newID(), name: name, kind: kind, label: label, files: nil, refs: [], primary: primary ? true : nil)
+        if let only {
+            var files: [String] = []
+            for file in only.sorted().prefix(SetsShootSources.maxFiles) {
+                guard let s = try? stored.grants.add(url: url.appendingPathComponent(file), kind: kind, label: file) else { continue }
+                files.append(file); entry.refs.append(s.id)
+            }
+            entry.files = files
+        } else if let s = try? stored.grants.add(url: url, kind: kind, label: label) {
+            entry.refs = [s.id]
+        }
+        return entry
+    }
+
+    /// Reaches a kept source through its bookmarks and holds its access for the open shoot: the
+    /// folder, or the folder its files are in and those of them that are there. Nil: not connected.
+    private func activate(_ entry: SetsShootSources.Entry, shoot id: String) -> (url: URL, only: Set<String>?)? {
+        var stored = sources.load(id)
+        if let names = entry.files {
+            var folder: URL?, found = Set<String>()
+            for (ref, name) in zip(entry.refs, names) {
+                guard let data = stored.grants.sources.first(where: { $0.id == ref })?.bookmark, let url = access.peek(data), url.lastPathComponent == name else { continue }
+                let parent = url.deletingLastPathComponent()
+                if let folder, folder.standardizedFileURL.path != parent.standardizedFileURL.path { continue }
+                let token = access.hold(url, scoped: true)
+                guard FileManager.default.fileExists(atPath: url.path) else { access.release(token); continue }
+                sourceHolds.append(token)
+                folder = parent; found.insert(name)
+            }
+            return folder.map { ($0, found) }
+        }
+        guard let ref = entry.refs.first, let url = stored.grants.reconnect(ref) else { return nil }
+        try? sources.save(id, stored)                        // a stale bookmark was renewed
+        sourceHolds.append(access.hold(url, scoped: true))
+        return (url, nil)
+    }
+
+    /// One source's listing for the page: the listing's own fields plus what the Sources panel and
+    /// the session need (`nid`, `kind`, `label`, and for a kept one `offset`, `n`).
+    private func listed(_ root: OpenRoot, kind: String, label: String, entry: SetsShootSources.Entry? = nil) async -> [String: Any] {
+        let t0 = Date()
+        let (denied, listing) = await Task.detached(priority: .userInitiated) { () -> (Bool, SetsIngest.Listing) in
+            if root.only == nil, SetsIngest.accessDenied(root.url) { return (true, SetsIngest.Listing(name: root.name)) }
+            return (false, SetsIngest.list(root.url, name: root.name, only: root.only))
+        }.value
+        var d: [String: Any]
+        if let stop = listing.stopped {
+            let limits = SetsIngest.Limits()
+            onEvent?("too big \(root.url.path): \(stop.rawValue)")
+            d = ["name": root.name, "tooBig": ["name": listing.name, "why": stop.rawValue, "files": limits.entries, "depth": limits.depth]]
+        } else if denied {
+            onEvent?("access denied \(root.url.path)")
+            d = ["name": root.name, "denied": Self.volumeName(root.url)]
+        } else {
+            onEvent?("source \(root.name): listed \(listing.files.count) RAW + \(listing.xmp.count) xmp + \(listing.others.count) other\(listing.onCard ? " (card)" : "") in \(Int(Date().timeIntervalSince(t0) * 1000)) ms · \(root.url.path)")
+            d = listing.dictionary
+            d["workers"] = ingest.workers
+        }
+        d["nid"] = root.nid ?? NSNull(); d["kind"] = kind; d["label"] = label
+        if let o = entry?.offset { d["offset"] = o }
+        if let n = entry?.n { d["n"] = n }
+        return d
+    }
+
+    /// The open shoot's other sources, as kept: each reached through its bookmark, registered under
+    /// its name and listed; one that is not there is `missing` and the rest still open.
+    private func restoreSources(shoot id: String, opened: URL) async -> [[String: Any]] {
+        var out: [[String: Any]] = []
+        for entry in sources.load(id).entries.prefix(SetsShootSources.maxEntries) where !entry.isPrimary {
+            let gone: [String: Any] = ["nid": entry.nid, "name": entry.name, "kind": entry.kind, "label": entry.label, "missing": true,
+                                       "n": entry.n ?? 0, "offset": entry.offset ?? NSNull()]
+            guard !shootRoots.contains(where: { $0.name == entry.name }), let found = activate(entry, shoot: id) else {
+                onEvent?("source \(entry.name): not connected")
+                out.append(gone); continue
+            }
+            let root = OpenRoot(name: entry.name, url: found.url, only: found.only, nid: entry.nid)
+            register(root)
+            shootRoots.append(root)
+            let d = await listed(root, kind: entry.kind, label: entry.label, entry: entry)
+            guard lastOpened == opened else { return out }       // another shoot opened meanwhile
+            out.append(d["files"] == nil ? gone : d)
+        }
+        return out
+    }
+
+    private static func same(_ a: URL, _ b: URL) -> Bool {
+        a.standardizedFileURL.resolvingSymlinksInPath().path == b.standardizedFileURL.resolvingSymlinksInPath().path
+    }
+
+    /// Folders, or files of a folder, that join the open shoot (`add`) or are opened: with no
+    /// shoot open the first is opened as a shoot and the rest join it. `sources`: one listing per
+    /// item, the opened one marked `primary`.
+    private func adopt(_ items: [SetsShootSources.Claim], add: Bool, shoot: String?, kind: String, label: String?) async -> [String: Any] {
+        var out: [[String: Any]] = []
+        var adding = add && !shootRoots.isEmpty
+        // The page's shoot id when the Mac has one too; its own otherwise (a shoot being opened).
+        var sid = shoot.flatMap { SetsShootStore.isID($0) ? $0 : nil } ?? lastOpenedKey?.id
+        for item in items.prefix(SetsShootSources.maxEntries) {
+            if !adding {
+                pendingSource = item.url; pendingShoot = nil
+                pendingLoose = item.only.map { (SetsShootSources.alias(item.base, taken: []), $0, nil) }
+                pendingKind = kind
+                guard var d = await openListing() as? [String: Any] else { continue }
+                d["primary"] = true; d["kind"] = kind; d["label"] = label ?? NSNull()
+                out.append(d)
+                if d["files"] != nil { adding = true; sid = lastOpenedKey?.id }
+                continue
+            }
+            var root: OpenRoot
+            if let i = shootRoots.firstIndex(where: { Self.same($0.url, item.url) && $0.only == nil }) {
+                // Already a folder of this shoot: listed again under its name (new files join; the page skips the rest).
+                root = OpenRoot(name: shootRoots[i].name, url: shootRoots[i].url, only: item.only, nid: shootRoots[i].nid)
+            } else if let only = item.only, let i = shootRoots.firstIndex(where: { Self.same($0.url, item.url) && $0.only != nil && $0.name.hasPrefix(item.base) }) {
+                // More files of a folder some files already came from: one root, the files together.
+                shootRoots[i].only = (shootRoots[i].only ?? []).union(only)
+                register(shootRoots[i])
+                if let sid, let nid = shootRoots[i].nid {
+                    var stored = sources.load(sid)
+                    if let k = stored.entries.firstIndex(where: { $0.nid == nid }) {
+                        for file in only.sorted() where !(stored.entries[k].files ?? []).contains(file) && (stored.entries[k].files ?? []).count < SetsShootSources.maxFiles {
+                            guard let s = try? stored.grants.add(url: item.url.appendingPathComponent(file), kind: kind, label: file) else { continue }
+                            stored.entries[k].files = (stored.entries[k].files ?? []) + [file]; stored.entries[k].refs.append(s.id)
+                        }
+                        try? sources.save(sid, stored)
+                    }
+                }
+                root = OpenRoot(name: shootRoots[i].name, url: shootRoots[i].url, only: only, nid: shootRoots[i].nid)
+            } else {
+                let name = SetsShootSources.alias(item.base, taken: Set(shootRoots.map(\.name)))
+                root = OpenRoot(name: name, url: item.url, only: item.only, nid: nil)
+                if let sid {
+                    var stored = sources.load(sid)
+                    let entry = makeEntry(&stored, url: item.url, only: item.only, name: name, kind: kind, label: label ?? name)
+                    if stored.entries.count < SetsShootSources.maxEntries, !entry.refs.isEmpty {
+                        stored.entries.append(entry)
+                        do { try sources.save(sid, stored); root.nid = entry.nid } catch { onEvent?("source \(name): not kept (\(error))") }
+                    } else { onEvent?("source \(name): not kept (no bookmark)") }
+                }
+                register(root)
+                shootRoots.append(root)
+            }
+            out.append(await listed(root, kind: kind, label: label ?? root.name))
+        }
+        return ["sources": out]
+    }
+
+    /// `lumina.addFrom(where)`: the panel, opened in Pictures / Downloads / Desktop for those three
+    /// (the panel's own place for 'folder'); folders and RAW files, several at once.
+    private func addFrom(where place: String, add: Bool, shoot: String?) async -> Any {
+        let fm = FileManager.default
+        let at: URL? = ["pictures": FileManager.SearchPathDirectory.picturesDirectory, "downloads": .downloadsDirectory, "desktop": .desktopDirectory][place]
+            .flatMap { fm.urls(for: $0, in: .userDomainMask).first }
+        let adding = add && !shootRoots.isEmpty
+        let picked = await chooser.chooseSources(at: at, files: true, multiple: true, prompt: adding ? "Add to shoot" : "Open",
+                                                 message: adding ? "Choose folders or photos to add to this shoot. Lumina only reads them." : "Choose a folder of photos. Lumina only reads it.")
+        guard !picked.isEmpty else { return NSNull() }
+        grant(picked)
+        let kind = ["pictures", "downloads", "desktop"].contains(place) ? place : "folder"
+        return await adopt(Self.claims(of: picked), add: add, shoot: shoot, kind: kind, label: nil)
+    }
+
+    /// Picked or dropped URLs as roots: each folder whole, single files together per folder.
+    nonisolated static func claims(of urls: [URL]) -> [SetsShootSources.Claim] {
+        var out: [SetsShootSources.Claim] = [], loose: [String: Int] = [:]
+        for url in urls {
+            var dir: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &dir) else { continue }
+            if dir.boolValue { out.append(.init(url: url, only: nil, base: url.lastPathComponent)); continue }
+            let parent = url.deletingLastPathComponent(), key = parent.standardizedFileURL.path
+            if let i = loose[key] { out[i].only?.insert(url.lastPathComponent) }
+            else { loose[key] = out.count; out.append(.init(url: parent, only: [url.lastPathComponent], base: parent.lastPathComponent)) }
+        }
+        return out
+    }
+
+    /// The user handed the app these (a drop on the window, a pick in a panel): the only things
+    /// the page's `File`s are ever matched to (`claimFiles`).
+    func grant(_ urls: [URL]) {
+        for url in urls where url.isFileURL {
+            var dir: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &dir) else { continue }
+            granted.removeAll { $0.url == url }
+            granted.append((url, dir.boolValue))
+        }
+        if granted.count > Self.maxGranted { granted.removeFirst(granted.count - Self.maxGranted) }
+        if !urls.isEmpty { onEvent?("granted \(urls.count): \(urls.prefix(3).map(\.lastPathComponent).joined(separator: ", "))") }
+    }
+
+    /// The panel for one of the page's own file inputs (the phone page's "choose"): what is
+    /// picked is granted, and the page gets it as `File`s. The open shoot is not touched.
+    func inputPanel(allowsDirectories: Bool, allowsMultipleSelection: Bool) async -> [URL]? {
+        let picked = await chooser.chooseSources(at: nil, files: true, multiple: allowsMultipleSelection, prompt: "Choose", message: "Choose photos. Lumina only reads them.")
+        guard !picked.isEmpty else { return nil }
+        grant(picked)
+        return picked
+    }
+
+    private func claimFiles(_ files: [[String: Any]], add: Bool, shoot: String?, kind: String?, label: String?) async -> Any {
+        let rels = files.prefix(SetsIngest.Limits().entries).compactMap { $0["rel"] as? String }.filter { $0.utf8.count <= Self.maxRelBytes }
+        // AirDrop arrivals are named "AirDrop/<name>" by the Mac itself: those of them that arrived.
+        let prefix = Self.airdropName + "/"
+        let arrived = Set(rels.filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) }).intersection(airdropNames)
+        var items = SetsShootSources.claims(files: rels.filter { !($0.hasPrefix(prefix) && arrived.contains(String($0.dropFirst(prefix.count)))) }, granted: granted)
+        if let folder = airdropFolder, !arrived.isEmpty { items.insert(.init(url: folder, only: arrived, base: Self.airdropName), at: 0) }
+        guard !items.isEmpty else { return NSNull() }
+        let k = kind.flatMap { ["card", "phone", "downloads", "desktop", "pictures", "drop", "folder"].contains($0) ? $0 : nil } ?? "drop"
+        return await adopt(items, add: add, shoot: shoot, kind: k, label: label.map { SetsShootStore.capped($0, SetsShootStore.Cap.name) })
+    }
+
+    /// The page's source list after an add, a restore or a clock shift: `{nid, offset, n}` for
+    /// every source in use. Entries the page did not keep (an add that brought nothing new) go;
+    /// the shoot's first source stays. Answers the status list.
+    private func keepSources(shoot id: String, list: [[String: Any]]) -> [[String: Any]] {
+        guard SetsShootStore.isID(id) else { return [] }
+        var stored = sources.load(id)
+        let keep = Dictionary(list.prefix(SetsShootSources.maxEntries * 4).compactMap { d in (d["nid"] as? String).map { ($0, d) } }, uniquingKeysWith: { a, _ in a })
+        let before = stored
+        for e in stored.entries where !e.isPrimary && keep[e.nid] == nil { for r in e.refs { stored.grants.remove(r) } }
+        stored.entries.removeAll { !$0.isPrimary && keep[$0.nid] == nil }
+        for i in stored.entries.indices {
+            guard let d = keep[stored.entries[i].nid] else { continue }
+            if let n = SetsNumber.count(d["n"]) { stored.entries[i].n = n }
+            let off = (d["offset"] as? NSNumber)?.doubleValue
+            stored.entries[i].offset = off.flatMap { $0.isFinite && abs($0) <= 86_400 * 366 && $0 != 0 ? Int($0) : nil }
+        }
+        if stored.entries != before.entries { try? sources.save(id, stored) }
+        return sourcesStatus()
+    }
+
+    /// `[{nid, missing}]` for the open shoot's added sources: missing when its folder (or every
+    /// one of its files) is not there now, or its volume went.
+    func sourcesStatus() -> [[String: Any]] {
+        var out: [[String: Any]] = []
+        let open = Dictionary(shootRoots.compactMap { r in r.nid.map { ($0, r) } }, uniquingKeysWith: { a, _ in a })
+        let listed = (lastOpenedKey?.id).map { sources.load($0).entries } ?? []
+        for e in listed where !e.isPrimary {
+            guard let r = open[e.nid], !ingest.isGone(r.name + "/") else { out.append(["nid": e.nid, "missing": true]); continue }
+            let there = r.only.map { $0.contains { FileManager.default.fileExists(atPath: r.url.appendingPathComponent($0).path) } } ?? FileManager.default.fileExists(atPath: r.url.path)
+            out.append(["nid": e.nid, "missing": !there])
+        }
+        return out
+    }
+
+    /// The Sources panel's Reconnect: the bookmark again; when that fails, the panel to find the
+    /// folder, which then takes the source's place (same name, same decisions). `source`: its
+    /// listing. Null: cancelled, or not something that can be found again (single files).
+    private func reconnectSource(_ nid: String, shoot id: String) async -> Any {
+        guard SetsShootStore.isID(id), lastOpenedKey?.id == id, let entry = sources.load(id).entries.first(where: { $0.nid == nid && !$0.isPrimary }) else { return NSNull() }
+        var found = activate(entry, shoot: id)
+        if found == nil, entry.files == nil, let ref = entry.refs.first {
+            guard let picked = await chooser.chooseSources(at: nil, files: false, multiple: false, prompt: "Reconnect",
+                                                           message: "Choose the folder “\(entry.label)” to connect it to this shoot again.").first else { return NSNull() }
+            var stored = sources.load(id)
+            guard (try? stored.grants.relocate(ref, to: picked)) ?? nil != nil else { return NSNull() }
+            try? sources.save(id, stored)
+            onEvent?("source \(entry.name): relocated to \(picked.path)")
+            found = (picked, nil)
+        }
+        guard let found else { return NSNull() }
+        let root = OpenRoot(name: entry.name, url: found.url, only: found.only, nid: nid)
+        register(root)
+        shootRoots.removeAll { $0.nid == nid }
+        shootRoots.append(root)
+        return ["source": await listed(root, kind: entry.kind, label: entry.label, entry: entry)]
+    }
+
+    // MARK: AirDrop watch
+
+    private var downloadsBookmark: URL { supportDir.appendingPathComponent("downloads.bookmark") }
+
+    /// `lumina.watchAirdrop(on)`. On: the Downloads folder through the bookmark kept from the
+    /// first time, else the panel opened on Downloads (asked once; the pick is the grant), then
+    /// the watcher. False when there is no folder to watch (the panel was cancelled).
+    func watchAirdrop(_ on: Bool) async -> Bool {
+        guard on else { stopAirdrop(); return true }
+        if airdropFolder != nil { return true }
+        var folder: URL?, hold: Int?
+        if let data = try? Data(contentsOf: downloadsBookmark), let url = access.peek(data) {
+            let t = access.hold(url, scoped: true)
+            var dir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: url.path, isDirectory: &dir), dir.boolValue, !SetsIngest.accessDenied(url) { folder = url; hold = t } else { access.release(t) }
+        }
+        if folder == nil {
+            let at = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? FileManager.default.homeDirectoryForCurrentUser
+            guard let picked = await chooser.chooseDownloads(at: at) else { onEvent?("airdrop: no folder to watch"); return false }
+            var dir: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: picked.path, isDirectory: &dir), dir.boolValue else { return false }
+            if let data = access.makeBookmark(picked) {
+                try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
+                try? SetsFileOps.replaceOwn(data, at: downloadsBookmark)
+            }
+            folder = picked
+        }
+        guard let folder else { return false }
+        airdropFolder = folder; airdropHold = hold; airdropNames = []
+        onEvent?("airdrop: watching \(folder.path)")
+        downloads.start(folder: folder) { [weak self] batch in
+            Task { @MainActor in self?.arrived(batch, in: folder) }
+        }
+        return true
+    }
+
+    private func stopAirdrop() {
+        downloads.stop()
+        if let t = airdropHold { access.release(t) }
+        if airdropFolder != nil { onEvent?("airdrop: stopped") }
+        airdropFolder = nil; airdropHold = nil
+    }
+
+    /// Complete RAWs arrived in the watched folder: readable as "AirDrop/<name>" from now on, and
+    /// handed to the page's `luminaPhoneArrived` with the count of HEIC / JPEG arrivals.
+    private func arrived(_ batch: SetsDownloadsWatcher.Batch, in folder: URL) {
+        guard airdropFolder == folder else { return }
+        let names = batch.raws.map(\.name).filter(SetsIngest.isPlainName)
+        airdropNames.formUnion(names)
+        // The name may already be a root of the open shoot (earlier arrivals added to it): those stay readable.
+        let inShoot = shootRoots.first(where: { $0.name == Self.airdropName && Self.same($0.url, folder) })?.only ?? []
+        if !shootRoots.contains(where: { $0.name == Self.airdropName && !Self.same($0.url, folder) }) {
+            ingest.register(folder, as: Self.airdropName, only: airdropNames.union(inShoot))
+        }
+        let files = batch.raws.filter { SetsIngest.isPlainName($0.name) }.map { ["rel": Self.airdropName + "/" + $0.name, "size": $0.size] as [String: Any] }
+        onEvent?("airdrop: \(files.count) RAW, \(batch.lossy) other")
+        push("__lumina.phoneArrived(\(Self.json(files)), \(batch.lossy))")
+    }
+
     // MARK: Save (SAFETY.md 1)
 
     /// The sidecars Save is about to merge into, as they are on disk now: `{ name, text, base }`
@@ -658,9 +1129,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             onEvent?("readSidecars: \(name) is not an opened folder")
             return nil
         }
+        let allowed = ingest.root(named: name) == nil ? nil : ingest.allowed(named: name)
         return await Task.detached(priority: .userInitiated) { () -> [[String: Any]] in
             files.map { rel in
-                guard let s = try? SetsFileOps.readSidecar(rel: rel, root: root) else { return ["name": rel] }
+                guard Self.sidecarAllowed(rel, among: allowed), let s = try? SetsFileOps.readSidecar(rel: rel, root: root) else { return ["name": rel] }
                 return ["name": rel, "text": s.text ?? NSNull(), "base": s.base]
             }
         }.value
@@ -679,12 +1151,15 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         onEvent?("writeSidecars \(files.count) → \(root.path)")
         let items: [(String, Data?, String?)] = files.map { ($0["name"] as? String ?? "", ($0["b64"] as? String).flatMap { Data(base64Encoded: $0) }, $0["base"] as? String) }
         let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "Lumina save")
+        let allowed = ingest.root(named: name) == nil ? nil : ingest.allowed(named: name)
         let (n, bak, errors) = await Task.detached(priority: .userInitiated) { () -> (Int, Int, [[String: String]]) in
             var n = 0, bak = 0, errors: [[String: String]] = []
             let onCard = SetsFileOps.isCard(root)
             for (rel, data, base) in items {
                 let stem = ((rel as NSString).lastPathComponent as NSString).deletingPathExtension
                 guard let data else { errors.append(["name": stem, "reason": "failed"]); continue }
+                // A root of single files: a sidecar only beside one of them, never elsewhere in that folder.
+                guard Self.sidecarAllowed(rel, among: allowed) else { errors.append(["name": stem, "reason": "refused"]); continue }
                 if onCard { errors.append(["name": stem, "reason": "on the card"]); continue }
                 do {
                     if try SetsFileOps.writeSidecar(data, rel: rel, root: root, base: base).backedUp { bak += 1 }
@@ -700,6 +1175,15 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         ProcessInfo.processInfo.endActivity(activity)
         onEvent?("sidecars → \(root.path): \(n) written, \(bak) bak, \(errors.count) failed\(errors.first.map { " — \($0["name"] ?? "") · \($0["reason"] ?? "")" } ?? "")")
         return ["n": n, "bak": bak, "folder": root.lastPathComponent, "path": root.path, "errors": errors]
+    }
+
+    /// Whether a sidecar name may be read or written in a root limited to `files` (nil: a whole
+    /// folder, where `SetsFileOps` decides): only beside one of those files, by its stem.
+    nonisolated static func sidecarAllowed(_ rel: String, among files: Set<String>?) -> Bool {
+        guard let files else { return true }
+        guard SetsIngest.isPlainName(rel) else { return false }
+        let stem = (rel as NSString).deletingPathExtension
+        return files.contains { ($0 as NSString).deletingPathExtension == stem && ["arw", "dng"].contains(($0 as NSString).pathExtension.lowercased()) }
     }
 
     /// What an export may write, by the name's extension (threat model T8, S4): bytes the page
@@ -750,7 +1234,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         var refusal: String?
         var dest: URL?
         while dest == nil {
-            guard let picked = await chooser.chooseDestination(label: label, suggested: ingest.rootURLs.first?.deletingLastPathComponent(), refusal: refusal) else {
+            guard let picked = await chooser.chooseDestination(label: label, suggested: (shootRoots.first?.url ?? ingest.rootURLs.first)?.deletingLastPathComponent(), refusal: refusal) else {
                 return ["aborted": true]
             }
             if let why = SetsFileOps.refusal(destination: picked, sources: sources) { refusal = why; onEvent?("refused \(picked.path)"); continue }
@@ -787,6 +1271,19 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     }
 }
 
+/// The page's web view, which also notes what is dropped on it. The page still gets the drop (its
+/// highlight, its own drop handlers, `File`s); the Mac gets the same items as file URLs, which is
+/// what lets it read them itself, and write sidecars beside them, instead of the page.
+final class SetsDropWebView: WKWebView {
+    var onFiles: (([URL]) -> Void)?
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        if !urls.isEmpty { onFiles?(urls) }
+        return super.performDragOperation(sender)
+    }
+}
+
 /// The page's web view: bundled files only, network blocked, plumbing injected.
 @MainActor
 enum SetsWebView {
@@ -811,7 +1308,8 @@ enum SetsWebView {
         if let list = try await WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "lumina-offline", encodedContentRuleList: rules) {
             ucc.add(list)
         }
-        let wv = WKWebView(frame: frame, configuration: conf)
+        let wv = SetsDropWebView(frame: frame, configuration: conf)
+        wv.onFiles = { [weak bridge] urls in bridge?.grant(urls) }
         bridge?.webView = wv
         return (wv, scheme)
     }
