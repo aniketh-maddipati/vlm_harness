@@ -8,7 +8,7 @@
  "clock": "2026-09-08T14:30:00",
  "storageWrites": false,
  "stopOnFailure": false,
- "checklist": "Every v5 screen at 1440x900. The -app twin runs the same steps through plumbing.js (parity mode: the design's sample shoot and card) and must match pixel for pixel",
+ "checklist": "Every v7 screen but Edit (in the app its photo is drawn natively) at 1440x900. The -app twin runs the same steps through plumbing.js (parity mode: the design's sample shoot and card) and must match pixel for pixel",
  "mode": "app",
  "app": {
   "parity": true
@@ -83,12 +83,12 @@
   },
   {
    "do": "key",
-   "k": "f",
+   "k": "x",
    "settleMs": 700
   },
   {
    "do": "snap",
-   "name": "05-cull-flagged"
+   "name": "05-cull-removed"
   },
   {
    "do": "key",
@@ -168,7 +168,7 @@
   },
   {
    "do": "key",
-   "k": "3",
+   "k": "4",
    "settleMs": 1000,
    "cmd": true
   },

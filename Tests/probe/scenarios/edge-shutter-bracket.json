@@ -37,6 +37,15 @@
    ]
   },
   {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "js",
+   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
+   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
+  },
+  {
    "do": "key",
    "k": "2",
    "settleMs": 300,
