@@ -9,7 +9,7 @@
  "sampleMs": 100,
  "stopOnFailure": false,
  "deadline": 300,
- "checklist": "Edit through the page (v21) on real photos: ⌘3 puts the open photo on the native canvas inside the page's photo box; a pointer drag on each of the page's own sliders reaches its native stage (exposure, contrast, vignette and its shape, the tone curve's three regions, the colour mixer's saturation, hue and luminance) at p95 ≤ 16 ms with no dropped frames; canvas vs export ΔE median ≤ 0.5 with every new stage on; a quarter turn is drawn; leaving Edit hides the canvas. Folder: LUMINA_EDIT_DIR.",
+ "checklist": "Edit through the page (v21) on real photos: ⌘3 puts the open photo on the native canvas inside the page's photo box; a pointer drag on each of the page's own sliders reaches its native stage (exposure, contrast, vignette and its shape, the tone curve's three regions (Curve section), the vignette's shape (after 'Vignette shape'), the colour mixer (a swatch picks the colour; saturation, hue and luminance of red and of blue)) at p95 ≤ 16 ms with no dropped frames; canvas vs export ΔE median ≤ 0.5 with every new stage on; a quarter turn is drawn; leaving Edit hides the canvas. Folder: LUMINA_EDIT_DIR.",
  "budgets": {
   "probePeakMB": 3000
  },
@@ -105,6 +105,11 @@
    "p95Ms": 16,
    "maxDropped": 0,
    "restMs": 120
+  },
+  {
+   "do": "click",
+   "text": "Vignette shape ▸",
+   "settleMs": 350
   },
   {
    "do": "editPageDrag",
@@ -206,6 +211,33 @@
   },
   {
    "do": "editPageDrag",
+   "slider": "hue_red",
+   "px": 80,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "mixh:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "editPageDrag",
+   "slider": "lum_red",
+   "px": -80,
+   "ms": 2000,
+   "hz": 60,
+   "expect": "mixl:",
+   "p95Ms": 16,
+   "maxDropped": 0,
+   "restMs": 120
+  },
+  {
+   "do": "click",
+   "sel": "[role=radio][aria-label=\"Blue\"]",
+   "settleMs": 350
+  },
+  {
+   "do": "editPageDrag",
    "slider": "sat_blue",
    "px": -120,
    "ms": 2000,
@@ -216,13 +248,8 @@
    "restMs": 120
   },
   {
-   "do": "click",
-   "text": "Hue",
-   "settleMs": 350
-  },
-  {
    "do": "editPageDrag",
-   "slider": "hue_orange",
+   "slider": "hue_blue",
    "px": 80,
    "ms": 2000,
    "hz": 60,
@@ -232,13 +259,8 @@
    "restMs": 120
   },
   {
-   "do": "click",
-   "text": "Luminance",
-   "settleMs": 350
-  },
-  {
    "do": "editPageDrag",
-   "slider": "lum_green",
+   "slider": "lum_blue",
    "px": -80,
    "ms": 2000,
    "hz": 60,
