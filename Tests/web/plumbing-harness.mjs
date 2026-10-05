@@ -342,7 +342,15 @@ const loaded = async page => {
 
   // Reopen: session restored by path
   const marksBefore = (await S(page)).marks;
+  // Edit v21's own state (localStorage, by photo id and by stack id) rides in the session by path.
+  const editBefore = await page.evaluate(() => { const l = __lumina.logic(), id = l.data.order[0], g = Object.values(l.data.G).find(x => x.kind !== 'single');
+    const st = { looks: { [id]: { ev: 0.5, con: 12 } }, tags: {}, keep: {}, done: { [id]: 1 }, vers: {}, cur: id }; if (g) st.looks[g.id] = { sat: -20 };
+    localStorage.setItem(l.editKey(), JSON.stringify(st)); return { key: l.editKey(), path: l.data.byId[id].path.split('/').slice(1).join('/'), stack: !!g }; });
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  const editSaved = (JSON.parse(Object.values(bridge.sessions)[0] || '{}')).edit;
+  ok(editSaved && editSaved.looks[editBefore.path] && editSaved.looks[editBefore.path].ev === 0.5 && editSaved.cur === editBefore.path && editSaved.done[editBefore.path] === 1
+    && (!editBefore.stack || Object.keys(editSaved.looks).some(k => /^g\|/.test(k))), 'edit state: saved in the session by path (a stack as g|path)', editSaved);
+  await page.evaluate(k => localStorage.removeItem(k), editBefore.key);          // a new launch: the web view's storage is gone
   ok((await S(page)).view === 'import', 'close shoot: back to Open');
   const recents = await page.evaluate(() => __lumina.logic().recents());
   ok(recents.length === 1 && recents[0].id && recents[0].kp === keptN, 'recents: the shoot, with keepers', recents);
@@ -351,6 +359,9 @@ const loaded = async page => {
   s = await S(page);
   ok(JSON.stringify(Object.keys(s.marks).sort()) === JSON.stringify(Object.keys(marksBefore).sort()), 'reopen: marks restored', { now: s.marks, before: marksBefore });
   ok((await page.evaluate(() => __lumina.unsaved())) === 0, 'reopen: saved keepers remembered');
+  const editAfter = await page.evaluate(() => { const l = __lumina.logic(), st = JSON.parse(localStorage.getItem(l.editKey()) || 'null'), id = l.data.order[0], g = Object.values(l.data.G).find(x => x.kind !== 'single');
+    return st && { ev: (st.looks[id] || {}).ev, cur: st.cur === id, done: st.done[id], stack: !g || (st.looks[g.id] || {}).sat === -20, keep: JSON.stringify(st.keep) }; });
+  ok(editAfter && editAfter.ev === 0.5 && editAfter.cur && editAfter.done === 1 && editAfter.stack && editAfter.keep === '{}', 'edit state: back under the page\'s key on reopen, by id', editAfter);
 
   // Card removed mid-read, then back
   bridge.gone.add('2026-09-01');

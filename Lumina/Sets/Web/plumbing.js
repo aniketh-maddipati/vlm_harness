@@ -109,7 +109,32 @@
       out[k] = m;
     }
     for (const k of SCALAR) if (s[k] !== undefined) out[k] = s[k];
+    const e = editOut(logic); if (e) out.edit = e; else if (base && base.edit) out.edit = base.edit;
     return out;
+  };
+  // The Edit step (v21) keeps its state in localStorage under 'lumina-edit.<shoot key>':
+  // { looks, tags, keep, done, vers, cur }, keyed by photo id, or by stack id for a stack edited as
+  // one. The web view's storage ends with the launch and ids are not stable across reads, so the
+  // session carries it by path: a photo as its path, a stack as 'g|' + the first of its members'
+  // paths. `keep` is not kept: the page folds it into its own marks when it leaves Edit.
+  const EDIT_MAPS = ['looks', 'tags', 'done', 'vers'];
+  const editKeyOf = logic => { try { return typeof logic.editKey === 'function' ? logic.editKey() : null; } catch (_) { return null; } };
+  const stackPath = (logic, gid) => { const g = logic.data.G && logic.data.G[gid]; if (!g || !Array.isArray(g.ids)) return null; const ps = g.ids.map(id => pathOf(logic, id)).filter(Boolean).sort(); return ps.length ? 'g|' + ps[0] : null; };
+  const editOut = logic => {
+    const key = editKeyOf(logic); if (!key || !logic.real) return null;
+    let st = null; try { st = JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) {}
+    if (!st || typeof st !== 'object') return null;
+    const B = logic.data.byId, to = k => B[k] ? pathOf(logic, k) : stackPath(logic, k), out = { cur: (st.cur && B[st.cur] && pathOf(logic, st.cur)) || null };
+    for (const m of EDIT_MAPS) { const o = {}; for (const [k, v] of Object.entries(st[m] || {})) { const p = to(k); if (p) o[p] = v; } out[m] = o; }
+    return out;
+  };
+  // Back into the page's own key, before the reader enters Edit (Edit reads it when it mounts).
+  const editIn = (logic, saved) => {
+    const key = editKeyOf(logic); if (!key || !saved || typeof saved !== 'object') return;
+    const idOf = {}, gidOf = {}; for (const [id, p] of Object.entries(logic.data.byId)) { const k = keyOf(p); idOf[k] = id; if (p.gid) gidOf[k] = p.gid; }
+    const from = k => /^g\|/.test(k) ? gidOf[k.slice(2)] : idOf[k], st = { keep: {}, cur: (saved.cur && idOf[saved.cur]) || null };
+    for (const m of EDIT_MAPS) { const o = {}; for (const [k, v] of Object.entries(saved[m] || {})) { const id = from(k); if (id) o[id] = v; } st[m] = o; }
+    try { localStorage.setItem(key, JSON.stringify(st)); } catch (_) {}
   };
   // For the Open screen's recent cards: the same numbers the prototype's persist() keeps.
   const summary = logic => ({ n: logic.data.order.length, dec: logic.data.order.filter(id => !logic.undec(id)).length,
@@ -126,6 +151,7 @@
     if (Object.keys(st.cuts || {}).length) logic.data = logic.build(st.cuts);
     const cur = saved.cur && idOf[saved.cur];
     if (cur && logic.data.byId[cur] && !live) st.cur = cur;
+    if (!live || !editOut(logic)) editIn(logic, saved.edit);
     logic.setState(st);
   };
   // Session writes debounce at 500 ms after the last Edit change (addendum §6): a slider drag
