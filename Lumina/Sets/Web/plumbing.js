@@ -77,7 +77,7 @@
     HOOKS.filter(k => typeof window[k] !== 'function').map(k => 'window.' + k));
   // The native read (below) repeats the page's onDir and readOne step for step. When a design sync
   // changes either, the contract check reports it so the repeat gets reviewed; the app keeps working.
-  const ONDIR = 2481318810;
+  const ONDIR = 4203343896;
   const fnv = t => { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
   const readHash = logic => {
     const proto = logic && Object.getPrototypeOf(logic);
@@ -374,7 +374,7 @@
       // equivalent as the focal length the shake check and the row splits use.
       const ph = LuminaCore.phoneOf(m); if (ph) { m.flReal = m.fl; if (m.fl35) m.fl = m.fl35; m.model = ph.short; m.lens = ph.zoom ? ph.zoom + ' camera' : m.lens; }
       const xk = rel.replace(/\.[^.\/]+$/, '').toLowerCase(), xo = xmpMap[xk] || null, xpath = xo ? xo.path : rel.replace(/\.[^.\/]+$/, '') + '.xmp';
-      const baseP = { model: m.model || null, make: m.make || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, bytes: f.size, lens: m.lens || null, serial: m.serial || null,
+      const baseP = { wbK: m.wbK ?? null, wbTint: m.wbTint ?? null, model: m.model || null, make: m.make || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, bytes: f.size, lens: m.lens || null, serial: m.serial || null,
         program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null,
         fileObj: fileRef(rel), xpath, xmp: xo && xo.tx, lrEd: LuminaCore.hasDevelop(xo && xo.tx), name, path: rel, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso };
       let me = null, portrait = false, tb = null;
@@ -534,8 +534,14 @@
       // scrolled in the last 1.5 s, so the grid isn't rebuilt under a moving scroll (the page's pacing since v7).
       const grow = force => {
         while (pre < files.length && res[pre] !== undefined) pre++;
-        const now = performance.now(); if (!force && (pre < 48 || now - lastB < (now - scrollT < 1500 ? 1500 : 400))) return; lastB = now;
-        logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null;
+        // The page's pacing (2026-10-05 export): not while the reader has scrolled in the last 450 ms (tried
+        // again 480 ms on), else every 700 ms; and the grid keeps its place: the row at the top of the
+        // view is noted before the rebuild and the page's applyAnchor puts it back after the render.
+        const now = performance.now(); if (!force && pre < 48) return;
+        if (!force && Date.now() - (logic._scrollT || 0) < 450) { clearTimeout(logic._growT); logic._growT = setTimeout(() => grow(false), 480); return; }
+        if (!force && now - lastB < 700) return; lastB = now;
+        const anc = shown && typeof logic.scrollAnchor === 'function' ? logic.scrollAnchor() : null;
+        logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null; logic._anc = anc;
         if (!shown) { shown = true; firstCur = logic.data.order[0]; logic._rd.cur = firstCur; const se = logic.scrollRef && logic.scrollRef.current; logic._rd.top = se ? se.scrollTop : 0; logic.setState({ cur: firstCur }); logic.setView('cull', true); } else logic.forceUpdate();
       };
       const one = async (f, k) => {
@@ -549,7 +555,7 @@
       // Card pulled: the readers stopped. What wasn't read counts as unreadable, as the page counts it.
       for (; i < files.length; i++) { res[i] = { err: true }; logic._failed.push({ name: files[i].rel.split('/').pop(), reason: 'card removed' }); }
       const ok = res.filter(p => p && !p.err), rd = logic._rd || {};
-      reading = null; logic._reading = false;
+      reading = null; logic._reading = false; clearTimeout(logic._growT);
       lastRead = { name: L.name, total: files.length, read: ok.length, unreadable: files.length - ok.length, stopped: run.gone ? 'card removed' : null, secs: +((performance.now() - t0) / 1000).toFixed(1) };
       window.lumina.read = Object.assign({}, lastRead);
       if (!ok.length) { logic.real = null; logic.data = logic.build({}); logic.setState({ realLoad: null }); return logic.say(run.gone ? 'Card removed · re-insert to keep going' : '0 photos · ' + files.length + ' unreadable'); }
@@ -570,7 +576,8 @@
       // same scroll, no fly-back across the shoot. Design ask 8 asks the page for the same.
       const sc = logic.scrollRef && logic.scrollRef.current, was = logic.state.cur, wasKey = shown && was && logic.data.byId[was] ? keyOf(logic.data.byId[was]) : null;
       readMoved = shown && (!!rd.moved || was !== firstCur || Object.keys(logic.state.marks || {}).length > 0 || Object.keys(logic.state.flags || {}).length > 0 || !!(sc && sc.scrollTop > 40));
-      logic.real = ok; logic.data = logic.build(logic.state.cuts || {});
+      const ancF = typeof logic.scrollAnchor === 'function' ? logic.scrollAnchor() : null;
+      logic.real = ok; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null; logic._anc = ancF;
       let stay = null;
       if (readMoved && wasKey) for (const [id, p] of Object.entries(logic.data.byId)) if (keyOf(p) === wasKey) { stay = id; break; }
       const G = Object.values(logic.data.G), first = ok.map(p => p.date).filter(Boolean).sort()[0] || '';
@@ -1347,7 +1354,7 @@
     // undefined = not Edit's: the caller falls through to window.luminaCommand.
     command(name) {
       const l = current; if (!l || l.state.view !== 'edit') return undefined;
-      if (name === 'undo' || name === 'redo' || name === 'copy' || name === 'paste') {
+      if (name === 'undo' || name === 'redo' || name === 'copy' || name === 'paste') {            // (outside Edit, 'redo' is the page's own command)
         const e = window.luminaEdit; if (!e || typeof e[name] !== 'function') return false;
         e[name](); return true;
       }

@@ -8,7 +8,7 @@
  "clock": "2026-09-08T14:30:00",
  "storageWrites": false,
  "stopOnFailure": false,
- "checklist": "Every v7 screen but Edit (in the app its photo is drawn natively) at 1440x900. The -app twin runs the same steps through plumbing.js (parity mode: the design's sample shoot and card) and must match pixel for pixel",
+ "checklist": "Every v7 screen at 1440x900: Open, Pick (next, row seen, picked, removed), the large view, the focus overlay, 100%, shortcuts, settings, the FAQ, Save, Open again (Edit is visited on the way, not snapped).The -app twin runs the same steps through plumbing.js (parity mode: the design's sample shoot and card) and must match pixel for pixel",
  "mode": "app",
  "app": {
   "parity": true
@@ -84,10 +84,15 @@
   {
    "do": "key",
    "k": "x",
-   "settleMs": 700
+   "settleMs": 700,
+   "why": "v7: X (and R) remove; there is no flag"
   },
   {
    "do": "snap",
+   "name": "05-cull-removed"
+  },
+  {
+   "do": "state",
    "name": "05-cull-removed"
   },
   {
@@ -101,9 +106,16 @@
   },
   {
    "do": "hold",
+   "k": "f",
+   "ms": 700,
+   "snap": "07-large-focus",
+   "why": "v7: F held shows the focus overlay"
+  },
+  {
+   "do": "hold",
    "k": "z",
    "ms": 700,
-   "snap": "07-zoom-100"
+   "snap": "08-zoom-100"
   },
   {
    "do": "key",
@@ -118,7 +130,7 @@
   },
   {
    "do": "snap",
-   "name": "08-cull-skip"
+   "name": "09-cull-skip"
   },
   {
    "do": "key",
@@ -127,7 +139,7 @@
   },
   {
    "do": "snap",
-   "name": "09-shortcuts"
+   "name": "10-shortcuts"
   },
   {
    "do": "key",
@@ -142,7 +154,7 @@
   },
   {
    "do": "snap",
-   "name": "10-settings"
+   "name": "11-settings"
   },
   {
    "do": "key",
@@ -159,7 +171,7 @@
   },
   {
    "do": "snap",
-   "name": "11-faq"
+   "name": "12-faq"
   },
   {
    "do": "key",
@@ -168,9 +180,23 @@
   },
   {
    "do": "key",
+   "k": "3",
+   "settleMs": 2000,
+   "cmd": true,
+   "why": "v7: ⌘3 is Edit"
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.view",
+   "equals": "edit",
+   "why": "Edit is visited, not snapped: in app mode its canvas is drawn by the Mac (no photo in the page) and Edit reports its own failed storage write, so the twins cannot match there"
+  },
+  {
+   "do": "key",
    "k": "4",
    "settleMs": 1000,
-   "cmd": true
+   "cmd": true,
+   "why": "v7: Save is ⌘4"
   },
   {
    "do": "expect",
@@ -179,7 +205,7 @@
   },
   {
    "do": "snap",
-   "name": "12-save"
+   "name": "13-save"
   },
   {
    "do": "key",
@@ -194,7 +220,7 @@
   },
   {
    "do": "snap",
-   "name": "13-open-again"
+   "name": "14-open-again"
   }
  ]
 }

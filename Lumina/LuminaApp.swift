@@ -63,7 +63,7 @@ struct LuminaCommands: Commands {
         }
         CommandMenu("Photo") {
             Button("Keep  P") { send("keep") }
-            Button("Keep Sharpest of Stack  ⇧P") { send("keepStack") }
+            Button("Second Pass  ⇧P") { send("pass") }
             Divider()
             Button("Open Stack  ⏎") { send("openStack") }
             Button("Close Stack  esc") { send("closeStack") }

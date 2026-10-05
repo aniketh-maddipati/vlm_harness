@@ -383,6 +383,28 @@ export const strictQuery = u => Object.fromEntries(u.search.slice(1).split('&').
 
 // app: plumbing.js + the stand-in bridge (as the app); false: the prototype as designed.
 // clockBase: fixed wall clock, as the probe's (ms since epoch). parity: plumbing's test-only sample mode.
+// v7's sample shoot shows `uploads/<name>.jpg`, the designer's photos, which are not in the repo.
+// The prototype (and the app's parity twin) gets a drawn stand-in per name instead, as the Mac
+// probe's scheme handler gives (SetsSchemeHandler, `standInPhotos`): the same picture for the same
+// name in every run, so prototype and app compare in the same engine.
+const standIns = new Map();
+export async function standIn(browser, name) {
+  if (!standIns.has(name)) {
+    const p = await browser.newPage();
+    const b64 = await p.evaluate(name => {
+      let h = 2166136261; for (const ch of name) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+      const c = document.createElement('canvas'); c.width = 1200; c.height = 800; const x = c.getContext('2d');
+      x.fillStyle = `hsl(${h % 360},45%,${35 + (h >>> 9) % 30}%)`; x.fillRect(0, 0, 1200, 800);
+      x.fillStyle = `hsl(${(h >>> 5) % 360},50%,${20 + (h >>> 13) % 25}%)`; x.fillRect(0, 300 + (h >>> 17) % 200, 1200, 800);
+      for (let k = 0; k < 24; k++) { x.fillStyle = `hsl(${(h + k * 47) % 360},60%,${(k * 11 + (h >>> 3)) % 90}%)`; x.fillRect((k * 131 + h) % 1100, (k * 67 + (h >>> 7)) % 720, 30 + (k % 5) * 14, 30 + (k % 3) * 18); }
+      return c.toDataURL('image/jpeg', 0.85).split(',')[1];
+    }, name);
+    await p.close();
+    standIns.set(name, Buffer.from(b64, 'base64'));
+  }
+  return standIns.get(name);
+}
+
 export async function open(browser, bridge, { prefs, app = true, size = [1440, 900], scale = 1, clockBase, query = '', parity = false, ready = true, toured = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: size[0], height: size[1] }, deviceScaleFactor: scale, reducedMotion: 'no-preference' });
   const page = await ctx.newPage();
@@ -411,6 +433,7 @@ export async function open(browser, bridge, { prefs, app = true, size = [1440, 9
       const body = p === 'media/head' ? b.subarray(0, 262144) : b.subarray(+q.o, +q.o + +q.l);
       return route.fulfill({ status: 200, body, contentType: p === 'media/head' ? 'application/octet-stream' : 'image/jpeg' });
     }
+    if ((!app || parity) && /^uploads\/[A-Za-z0-9_-]{1,40}\.jpg$/.test(p)) return route.fulfill({ status: 200, body: await standIn(browser, p.slice(8)), contentType: 'image/jpeg' });
     const file = p.startsWith('vendor/') ? path.join(WEB, p.slice(7)) : path.join(WEB, p);
     if (!fs.existsSync(file)) return route.fulfill({ status: 404 });
     return route.fulfill({ status: 200, body: fs.readFileSync(file), contentType: file.endsWith('.html') ? 'text/html' : 'text/javascript' });
