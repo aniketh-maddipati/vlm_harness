@@ -7,7 +7,7 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
- "checklist": "M4 / SAFETY.md 6 (v5): two keepers are renamed / deleted in Finder while culling. Culling, the large view and the invariants keep working; the preview already read still shows and the gone originals aren't read again (404). ⌘↩ saves the keeper whose RAW is still there and lists each gone one as 'name · missing': no sidecar is written for a RAW that isn't in the folder any more. The renamed original is untouched. After a relaunch the decisions whose files still exist are back and the renamed file is a new, undecided photo.",
+ "checklist": "M4 / SAFETY.md 6: two keepers are renamed / deleted in Finder while culling. Culling, the large view and the invariants keep working; the preview already read still shows and the gone originals aren't read again (404). ⌘↩ saves the keeper whose RAW is still there and lists each gone one as 'name · missing': no sidecar is written for a RAW that isn't in the folder any more. The renamed original is untouched. After a relaunch the decisions whose files still exist are back and the renamed file is a new, undecided photo. (Sets v7: Save is step ⌘4, and with undecided photos the first ⌘↩ only warns, the second within 5 s saves).",
  "steps": [
   {
    "do": "copyTree",
