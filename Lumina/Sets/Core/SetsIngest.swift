@@ -76,13 +76,19 @@ nonisolated final class SetsIngest: @unchecked Sendable {
     private var only: [String: Set<String>] = [:]
     private var gone: Set<String> = []
     private var stats = Stats()
-    private let previewCache = NSCache<NSString, NSData>()
+    private let previewCache: NSCache<NSString, NSData>
     /// Heads just read, by `rel`: the page asks for a file's preview right after its head.
-    private let headCache = NSCache<NSString, NSData>()
+    private let headCache: NSCache<NSString, NSData>
     private let readQueue = OperationQueue()
     private let prefetchQueue = OperationQueue()
 
-    init(workers: Int? = nil) {
+    /// `previews`, `heads`: the two caches. The app never passes them. A test does: an NSCache
+    /// may drop anything at any moment under memory pressure, so a test of "the second ask is not
+    /// read from the card again" needs a cache that keeps what it was given, and a test of "a dropped
+    /// entry is read again" one that keeps nothing.
+    init(workers: Int? = nil, previews: NSCache<NSString, NSData> = .init(), heads: NSCache<NSString, NSData> = .init()) {
+        previewCache = previews
+        headCache = heads
         // A switch for the probe and Debug builds only (S4): the app's Release build has no such
         // read, so it always takes the default below.
         #if DEBUG || LUMINA_TOOLS
