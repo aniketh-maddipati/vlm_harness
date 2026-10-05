@@ -49,6 +49,28 @@ final class LookStringTests: XCTestCase {
         XCTAssertEqual(try Look.parse(l.format()), l)
     }
 
+    /// `rot`: a quarter turn, geometry like the crop. Written only when set, last.
+    func testQuarterTurn() throws {
+        XCTAssertEqual(Look().rot, 0)
+        for r in [90, 180, 270] {
+            let l = try Look.parse("rot:\(r)")
+            XCTAssertEqual(l.rot, r)
+            XCTAssertTrue(l.isNeutral, "a turn is geometry, not a look stage")
+            XCTAssertTrue(l.format().hasSuffix(" vig:0 rot:\(r)"))
+            XCTAssertEqual(try Look.parse(l.format()), l)
+        }
+        XCTAssertEqual(try Look.parse("rot:0"), Look())
+        XCTAssertFalse(try Look.parse("rot:0").format().contains("rot"), "the reset value is not written")
+        XCTAssertEqual(try Look.parse("rot:-90").rot, 270); XCTAssertEqual(try Look.parse("rot:360").rot, 0); XCTAssertEqual(try Look.parse("rot:450").rot, 90)
+        XCTAssertThrowsError(try Look.parse("rot:45")); XCTAssertThrowsError(try Look.parse("rot:90.5"))
+        XCTAssertThrowsError(try Look.parse("rot:right")); XCTAssertThrowsError(try Look.parse("rot:90 rot:180"))
+        // Separate from the crop's straighten angle, and written after the crop.
+        let both = try Look.parse("rot:270 crop:0.1,0.2,0.5,0.6/-1.5")
+        XCTAssertEqual(both.crop?.rotate, -1.5); XCTAssertEqual(both.rot, 270)
+        XCTAssertTrue(both.format().hasSuffix("crop:0.1000,0.2000,0.5000,0.6000/-1.50 rot:270"))
+        XCTAssertEqual(try Look.parse(both.format()), both)
+    }
+
     func testSingleSliderLooksForTheSweep() {
         let asShot = Look.WhiteBalance(kelvin: 5100, tint: 4)
         XCTAssertEqual(Look.single("Exposure", 1.5, asShot: asShot)?.ev, 1.5)

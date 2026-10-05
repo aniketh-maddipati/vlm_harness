@@ -206,6 +206,87 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertEqual(pipe.apply(look, to: dev).extent.size, CGSize(width: 128, height: 64))
     }
 
+    /// `rot`: the picture turned clockwise by quarter turns, after the crop, in `apply` (previews,
+    /// exports), in the canvas's bases (their key and their size) and in the loupe's region maths.
+    func testQuarterTurnIsGeometryAppliedAfterTheCrop() throws {
+        // 64 × 32: red grows to the right, green toward the top.
+        let w = 64, h = 32
+        var data = [Float](repeating: 1, count: w * h * 4)
+        for y in 0..<h { for x in 0..<w { let i = 4 * (y * w + x); data[i] = Float(x) / Float(w - 1); data[i + 1] = 1 - Float(y) / Float(h - 1); data[i + 2] = 0.25 } }       // bitmap row 0 is the top
+        let img = CIImage(bitmapData: data.withUnsafeBufferPointer { Data(buffer: $0) }, bytesPerRow: w * 16, size: CGSize(width: w, height: h), format: .RGBAf, colorSpace: pipe.workingSpace)
+        let dev = LookPipeline.Developed(image: img, asShot: asShot, anchor: .reference)
+        func corners(_ o: CIImage) -> (tl: LookMath.RGB, tr: LookMath.RGB, bl: LookMath.RGB, br: LookMath.RGB) {
+            let ew = Int(o.extent.width), eh = Int(o.extent.height)
+            return (pipe.pixel(o, x: 0, y: eh - 1), pipe.pixel(o, x: ew - 1, y: eh - 1), pipe.pixel(o, x: 0, y: 0), pipe.pixel(o, x: ew - 1, y: 0))
+        }
+        // (red, green) of the frame's corners: top left (0, 1), top right (1, 1), bottom left (0, 0), bottom right (1, 0).
+        func isAt(_ c: LookMath.RGB, _ r: Double, _ g: Double, _ what: String) {
+            XCTAssertEqual(c.r, r, accuracy: 0.01, what); XCTAssertEqual(c.g, g, accuracy: 0.01, what); XCTAssertEqual(c.b, 0.25, accuracy: 0.01, what)
+        }
+        XCTAssertTrue(pipe.apply(Look(), to: dev) === dev.image, "no turn: the image itself")
+        var look = Look(); look.rot = 90
+        var o = pipe.apply(look, to: dev)
+        XCTAssertEqual(o.extent, CGRect(x: 0, y: 0, width: 32, height: 64))
+        var c = corners(o)          // clockwise: the top left corner goes to the top right, the bottom left to the top left
+        isAt(c.tr, 0, 1, "90 top right"); isAt(c.br, 1, 1, "90 bottom right"); isAt(c.bl, 1, 0, "90 bottom left"); isAt(c.tl, 0, 0, "90 top left")
+        look.rot = 180; o = pipe.apply(look, to: dev); c = corners(o)
+        XCTAssertEqual(o.extent, CGRect(x: 0, y: 0, width: 64, height: 32))
+        isAt(c.br, 0, 1, "180 bottom right"); isAt(c.tl, 1, 0, "180 top left")
+        look.rot = 270; o = pipe.apply(look, to: dev); c = corners(o)
+        XCTAssertEqual(o.extent, CGRect(x: 0, y: 0, width: 32, height: 64))
+        isAt(c.bl, 0, 1, "270 bottom left"); isAt(c.tl, 1, 1, "270 top left"); isAt(c.tr, 1, 0, "270 top right")
+        // Four quarter turns are the picture again, pixel for pixel.
+        var back = dev.image
+        for _ in 0..<4 { back = LookPipeline.turned(back, rot: 90) }
+        XCTAssertEqual(back.extent, dev.image.extent)
+        for (x, y) in [(0, 0), (17, 5), (63, 31)] { XCTAssertEqual(pipe.pixel(back, x: x, y: y), pipe.pixel(dev.image, x: x, y: y)) }
+        // The crop is taken in the frame as shot (its left half), then turned: red stays below 0.5.
+        look = Look(); look.crop = Look.Crop(x: 0, y: 0, w: 0.5, h: 1); look.rot = 90
+        o = pipe.apply(look, to: dev)
+        XCTAssertEqual(o.extent, CGRect(x: 0, y: 0, width: 32, height: 32))
+        c = corners(o)
+        isAt(c.tr, 0, 1, "crop then turn, top right"); XCTAssertEqual(c.br.r, 31.0 / 63, accuracy: 0.02); XCTAssertEqual(c.br.g, 1, accuracy: 0.01)
+        // crop: false leaves the geometry to the caller (the canvas's bases), turn included.
+        XCTAssertTrue(pipe.apply(look, to: dev, crop: false) === dev.image)
+        XCTAssertEqual(pipe.geometry(dev.image, look.crop, rot: 90).extent, o.extent)
+        // The stages run on the turned picture: the same pixels as turning the finished render.
+        var graded = try Look.parse("ev:+0.50 con:+20 sat:+15"); let flatRender = pipe.apply(graded, to: dev)
+        graded.rot = 90
+        let turnedRender = pipe.apply(graded, to: dev), want = LookPipeline.turned(flatRender, rot: 90)
+        for (x, y) in [(0, 0), (9, 40), (31, 63)] {
+            let a = pipe.pixel(turnedRender, x: x, y: y), b = pipe.pixel(want, x: x, y: y)
+            XCTAssertEqual(a.r, b.r, accuracy: 1e-4); XCTAssertEqual(a.g, b.g, accuracy: 1e-4); XCTAssertEqual(a.b, b.b, accuracy: 1e-4)
+        }
+
+        // The bases: the turn is part of the key and of the size.
+        let canvas = CGSize(width: 200, height: 200)
+        var turned = Look(); turned.rot = 90
+        let plain = LookBases.Key(rel: "s/p.png", decoder: nil, look: Look(), canvas: canvas), quarter = LookBases.Key(rel: "s/p.png", decoder: nil, look: turned, canvas: canvas)
+        XCTAssertNotEqual(plain, quarter)
+        XCTAssertEqual(plain.description, "s/p.png|d0||r0.0|200x200|nr-1", "a key without a turn reads as before")
+        XCTAssertTrue(quarter.description.contains("|q90|"))
+        XCTAssertEqual(LookBases.croppedSize(CGSize(width: 6000, height: 4000), nil, rot: 90), CGSize(width: 4000, height: 6000))
+        XCTAssertEqual(LookBases.croppedSize(CGSize(width: 6000, height: 4000), Look.Crop(x: 0, y: 0, w: 0.5, h: 1), rot: 270), CGSize(width: 4000, height: 3000))
+        XCTAssertEqual(LookBases.croppedSize(CGSize(width: 6000, height: 4000), Look.Crop(x: 0, y: 0, w: 0.5, h: 1), rot: 180), CGSize(width: 3000, height: 4000))
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("look-rot-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("p.png")
+        try pipe.png(img).write(to: url)
+        let bases = LookBases(pipeline: pipe, byteCap: 64 << 20, maxPhotos: 3)
+        let e0 = try bases.build(plain, url: url, look: Look(), preview: nil), e90 = try bases.build(quarter, url: url, look: turned, preview: nil)
+        XCTAssertGreaterThan(e0.baseSize.width, e0.baseSize.height); XCTAssertGreaterThan(e90.baseSize.height, e90.baseSize.width, "the turn is baked into the base")
+        XCTAssertEqual(e90.photoSize, CGSize(width: 32, height: 64))
+        // Upright after the turn: the frame's left edge (red 0) is the base's top row.
+        let bw = Int(e90.baseSize.width), bh = Int(e90.baseSize.height)
+        XCTAssertLessThan(pipe.pixel(e90.base, x: bw / 2, y: bh - 1).r, 0.1); XCTAssertGreaterThan(pipe.pixel(e90.base, x: bw / 2, y: 0).r, 0.9)
+
+        // The loupe's region: a point of the frame lands where the whole frame's transform puts it.
+        let t = LookPipeline.turnTransform(size: CGSize(width: 6000, height: 4000), rot: 90)
+        XCTAssertEqual(CGRect(x: 0, y: 3000, width: 1000, height: 1000).applying(t), CGRect(x: 3000, y: 5000, width: 1000, height: 1000), "the frame's top left tile is the turned picture's top right")
+        XCTAssertTrue(LookPipeline.turnTransform(size: CGSize(width: 6000, height: 4000), rot: 0).isIdentity)
+    }
+
     func testEncodersWriteSixteenBitTIFFAndJPEG() throws {
         let dev = pipe.ramp(steps: 64, columnWidth: 2, height: 16)
         let out = pipe.apply(try Look.parse("ev:+0.5 con:+20"), to: dev)

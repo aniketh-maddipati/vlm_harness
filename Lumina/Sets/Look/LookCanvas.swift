@@ -379,7 +379,7 @@ final class LookCanvasController: NSObject {
         refiningTimer = Timer.scheduledTimer(withTimeInterval: LookRawPolicy.refiningAfterMs / 1000, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated { guard let self, self.regionSeq == seq else { return }; self.stats.refining = true; self.setFacts() }
         }
-        tiles.region(rel: rel, url: url, decoder: version, nr: current?.look.nr, roi: roi, seq: seq, first: { [weak self] ms in
+        tiles.region(rel: rel, url: url, decoder: version, nr: current?.look.nr, roi: roi, rot: current?.look.rot ?? 0, seq: seq, first: { [weak self] ms in
             guard let self, self.regionSeq == seq else { return }
             if ms <= LookRawPolicy.refiningAfterMs { self.refiningTimer?.invalidate() }
         }, done: { [weak self] r in
@@ -544,7 +544,7 @@ final class LookCanvasController: NSObject {
         }
         // The loupe's RAW 9 region, when it covers the visible part, replaces the base there.
         var region: LookRegionTiles.Region?
-        if tier == .base, let reg = self.region, reg.rel == current?.rel, let z = zoom, reg.roi == z {
+        if tier == .base, let reg = self.region, reg.rel == current?.rel, let z = zoom, reg.roi == z, reg.rot == look.rot {
             region = reg
             let regionImage = pipeline.apply(look, to: LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor), crop: false)
             let vis = CGRect(x: z.x * reg.photoSize.width, y: (1 - z.y - z.h) * reg.photoSize.height, width: z.w * reg.photoSize.width, height: z.h * reg.photoSize.height)
