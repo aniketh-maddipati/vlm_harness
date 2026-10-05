@@ -156,11 +156,14 @@ final class SetsBridgeOpsTests: XCTestCase {
         "ready": ["missing"], "cullCard": [], "openFolder": [], "prefetch": ["items"], "near": ["a", "b"], "ingestStats": [],
         "shootOpened": ["name", "n", "date", "bodies"], "shootHeader": [], "decoderUpdate": [],
         "canvasEnter": ["rel", "model", "look", "prev", "next", "preview", "prevPreview", "nextPreview"], "canvasLeave": [],
-        "canvasLayout": ["x", "y", "w", "h", "visible", "dpr"], "canvasLook": ["look", "drag", "key", "roi", "t", "seq"],
+        "canvasLayout": ["x", "y", "w", "h", "visible", "dpr", "holes"], "canvasLook": ["look", "drag", "key", "roi", "t", "seq"],
         "canvasDrag": ["start"], "canvasLoupe": ["on", "roi"], "canvasStats": ["reset"],
         "saveSession": ["id", "json", "summary"], "recents": [], "reopen": ["id"], "workingFiles": ["id"], "removeShoot": ["id"],
         "writeInto": ["label", "files"], "readSidecars": ["root", "files"], "writeSidecars": ["root", "files"], "reveal": ["path"],
         "setPrefs": ["prefs"], "checkAccess": [], "reopenDenied": [], "reopenCurrent": [],
+        "storeSet": ["key", "value"], "removeWorkingFiles": ["id"], "addFrom": ["where", "add", "id"],
+        "claimFiles": ["files", "add", "id", "kind", "label"], "shootSources": ["id", "sources"], "sourcesStatus": [],
+        "sourceReconnect": ["nid", "id"], "watchAirdrop": ["on"],
     ]
 
     // MARK: The table
@@ -175,6 +178,12 @@ final class SetsBridgeOpsTests: XCTestCase {
         // Valid values for the fields not under test, so a hostile one is the only thing wrong.
         let good: [String: Any] = ["id": id, "json": "{}", "name": "shoot", "root": "shoot", "rel": "shoot/DSC00001.ARW", "path": "shoot/DSC00001.ARW",
                                    "look": "ev:+0.30", "files": [] as [Any], "items": [] as [Any], "label": "Hostile", "prefs": ["rating": 3]]
+        // Per op, where a field name means something else or the op needs a real rect to reach the field.
+        let goodFor: [String: [String: Any]] = [
+            "canvasLayout": ["x": 100, "y": 50, "w": 400, "h": 300, "visible": true, "dpr": 2, "holes": [["x": 120, "y": 60, "w": 50, "h": 20]]],
+            "storeSet": ["key": "tour", "value": "1"], "addFrom": ["where": "folder", "add": false], "claimFiles": ["add": false, "kind": "folder"],
+            "shootSources": ["sources": [] as [Any]], "sourceReconnect": ["nid": "n1"], "watchAirdrop": ["on": false],
+        ]
         for (op, fields) in Self.fields.sorted(by: { $0.key < $1.key }) {
             // Missing everything, and the op alone with a wrong-typed op name next to it.
             for body in [["op": op], ["op": op, "op2": NSNull()]] as [[String: Any]] {
@@ -183,7 +192,7 @@ final class SetsBridgeOpsTests: XCTestCase {
             for field in fields {
                 for (name, v) in values() + numbers() {
                     var body: [String: Any] = ["op": op]
-                    for f in fields where f != field { if let g = good[f] { body[f] = g } }
+                    for f in fields where f != field { if let g = goodFor[op]?[f] ?? good[f] { body[f] = g } }
                     body[field] = v
                     chooser.destinationAsks = 0
                     let (r, e) = await call(b, body); calls += 1
@@ -213,8 +222,15 @@ final class SetsBridgeOpsTests: XCTestCase {
     private func refusalBroken(op: String, field: String, value v: Any, result r: Any?, error e: String?) -> String? {
         let truthy = (r as? Bool) == true
         switch (op, field) {
-        case ("saveSession", "id"), ("removeShoot", "id"), ("reopen", "id"):
+        case ("saveSession", "id"), ("removeShoot", "id"), ("reopen", "id"), ("removeWorkingFiles", "id"):
             return truthy ? "accepted a hostile id" : nil
+        case ("shootSources", "id"):
+            return (r as? [[String: Any]])?.isEmpty == false ? "answered the sources of a hostile id" : nil
+        // The test's panel answers Cancel and nothing was handed to the app: no listing comes back.
+        case ("addFrom", _), ("claimFiles", _), ("sourceReconnect", _):
+            return r != nil && !(r is NSNull) ? "answered with a listing" : nil
+        case ("watchAirdrop", "on"):
+            return truthy && (v as? Bool) == true ? "watches with no folder" : nil
         case ("workingFiles", "id"):
             return ((r as? Int64) ?? Int64((r as? Int) ?? 0)) != 0 ? "sized a hostile id" : nil
         case ("saveSession", "json"):
@@ -315,6 +331,43 @@ final class SetsBridgeOpsTests: XCTestCase {
         XCTAssertEqual(leaked, [], "a copy from outside the opened folders")
         // On disk, as the file system names them: only the two sidecars, nothing with another extension.
         XCTAssertEqual(written.sorted(), ["\(marker)-ok.xmp", "sub/\(marker)-ok.XMP"], "only .xmp bytes land in the destination")
+    }
+
+    /// v7's DNG picks: `{name, copy: rel}` copies an original of the same RAW kind as its name out of an
+    /// opened folder, verified; any other source or name copies nothing.
+    func testWriteIntoCopyItems() async throws {
+        let (b, chooser) = try await bridge(canvas: false)
+        let before = snapshot()
+        func export(_ file: [String: Any]) async -> [String: Any] {
+            chooser.destinationAsks = 0
+            return ((await call(b, ["op": "writeInto", "label": "picks", "files": [file]])).0 as? [String: Any]) ?? [:]
+        }
+        let hostile: [[String: Any]] = [
+            ["name": "Picks/\(marker).DNG", "copy": "../outside/secret.txt"], ["name": "Picks/\(marker).ARW", "copy": "../outside/DSC09999.ARW"],
+            ["name": "Picks/\(marker).ARW", "copy": outside.appendingPathComponent("DSC09999.ARW").path], ["name": "Picks/\(marker).ARW", "copy": "shoot/../outside/DSC09999.ARW"],
+            ["name": "Picks/\(marker).txt", "copy": "shoot/DSC00001.ARW"], ["name": "Picks/\(marker).DNG", "copy": "shoot/DSC00001.ARW"],
+            ["name": "Picks/\(marker).ARW", "copy": "shoot/DSC00001.xmp"], ["name": "../\(marker).ARW", "copy": "shoot/DSC00001.ARW"],
+            ["name": "/tmp/\(marker).ARW", "copy": "shoot/DSC00001.ARW"], ["name": "\(marker).ARW\u{0}.txt", "copy": "shoot/DSC00001.ARW"],
+            ["name": "Picks/\(marker).ARW", "copy": "shoot/DSC00001.ARW\u{0}.txt"], ["name": Self.tenMB + ".ARW", "copy": "shoot/DSC00001.ARW"],
+            ["name": "Picks/\(marker).ARW", "copy": Self.tenMB + ".ARW"], ["name": "Picks/\(marker).ARW", "copy": ""], ["name": "Picks/\(marker).ARW", "copy": 42],
+            ["name": "Picks/\(marker).ARW", "copy": NSNull()], ["name": 7, "copy": "shoot/DSC00001.ARW"], ["name": "Picks/\(marker).ARW", "copy": ["shoot/DSC00001.ARW"]],
+            ["name": "Picks/\(marker).ARW", "copy": "shoot/DSC09999.ARW"], ["name": "\u{202E}gnp.ARW", "copy": "shoot/DSC00001.ARW\n"],
+        ]
+        for f in hostile {
+            let r = await export(f)
+            XCTAssertEqual(r["n"] as? Int ?? 0, 0, "\(f)")
+        }
+        XCTAssertEqual(strays(), [], "a copy name led out of the destination")
+        XCTAssertEqual(snapshot(), before)
+        let leaked = (fm.enumerator(atPath: dest.path)?.compactMap { $0 as? String } ?? []).filter { p in
+            (try? String(contentsOf: dest.appendingPathComponent(p), encoding: .utf8))?.contains(Self.canary) == true
+        }
+        XCTAssertEqual(leaked, [], "a copy from outside the opened folders")
+        // The one real pick: a byte-for-byte copy in the folder the user picks, the original untouched.
+        let ok = await export(["name": "Picks/DSC00001.ARW", "copy": "shoot/DSC00001.ARW"])
+        XCTAssertEqual(ok["n"] as? Int, 1, "\(ok)")
+        XCTAssertEqual(try Data(contentsOf: dest.appendingPathComponent("Picks/DSC00001.ARW")), try Data(contentsOf: shoot.appendingPathComponent("DSC00001.ARW")))
+        XCTAssertEqual(snapshot(), before)
     }
 
     /// S4 (threat model T8): what an export takes. Look renders named .jpg / .jpeg / .tif / .tiff /
@@ -426,6 +479,52 @@ final class SetsBridgeOpsTests: XCTestCase {
         let stats = b.ingest.snapshot
         XCTAssertLessThanOrEqual(stats.largestRead, SetsIngest.headBytes, "no read past a 4 KB file's end, no 2 GB buffer")
         XCTAssertEqual(stats.opensAfterGone, 0)
+    }
+
+    /// `canvasLayout`'s `holes` (the page's chrome over the photo): up to 16 `{x, y, w, h}`; 10,000 of
+    /// them, and members that are not rects, answer like any layout and leave the canvas as it was.
+    /// On the image path and on the native canvas (a Metal view in a host view).
+    func testHostileCanvasHoles() async throws {
+        let (img, _) = try await bridge()
+        let (nat, _) = try await bridge(canvas: false)
+        let host = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        nat.attachCanvas(host: host)
+        let rect = CGRect(x: 100, y: 50, width: 400, height: 300)
+        let valid: [String: Any] = ["x": 120, "y": 60, "w": 50, "h": 20]
+        let many: [[String: Any]] = (0..<10_000).map { ["x": 100 + $0 % 300, "y": 50 + $0 % 200, "w": 30, "h": 10] }
+        XCTAssertEqual(LookCanvasHoles.parse(many, in: rect).count, LookCanvasHoles.maxCount, "10,000 holes: the first 16 are read")
+        var deep: Any = [Any]()
+        for _ in 0..<1000 { deep = [deep] }
+        let nums: [Any] = [Double.nan, Double.infinity, -Double.infinity, 1e308, -1e308, Int.max, Int.min, "12", true, NSNull(), [1], ["a": 1], -50, 0]
+        let numNames = ["nan", "inf", "-inf", "1e308", "-1e308", "intMax", "intMin", "string", "bool", "null", "array", "dict", "negative", "zero"]
+        var lists: [(String, Any)] = [("10,000 holes", many), ("10,000 non-rects", [Any](repeating: 7, count: 10_000)), ("not a list", "holes"), ("dict", ["x": 1]),
+                                      ("nested arrays", [[1, 2, 3, 4], [[valid]], [[], [[]]]]), ("deep nest", deep), ("members", ["x", 42, NSNull(), [valid], true] as [Any]),
+                                      ("huge string", [["x": Self.tenMB, "y": Self.tenMB, "w": Self.tenMB, "h": Self.tenMB]])]
+        for field in ["x", "y", "w", "h"] {
+            for (n, v) in zip(numNames, nums) {
+                var h = valid; h[field] = v
+                lists.append(("\(field)=\(n)", [h, valid]))
+            }
+        }
+        lists.append(("every number hostile", nums.map { ["x": $0, "y": $0, "w": $0, "h": $0] }))
+        for (name, holes) in lists {
+            for b in [img, nat] {
+                let (r, e) = await call(b, ["op": "canvasLayout", "x": 100, "y": 50, "w": 400, "h": 300, "dpr": 2, "visible": true, "holes": holes])
+                XCTAssertNil(e, name)
+                XCTAssertNotNil((r as? [String: Any])?["path"], name)
+            }
+            let kept = LookCanvasHoles.parse(holes, in: rect)
+            XCTAssertLessThanOrEqual(kept.count, LookCanvasHoles.maxCount, name)
+            for k in kept { XCTAssertTrue(CGRect(origin: .zero, size: rect.size).contains(k) && k.width > 0 && k.height > 0, "\(name): \(k)") }
+        }
+        // A hostile list on a rect that is itself refused: hidden, no holes read.
+        let (r, e) = await call(nat, ["op": "canvasLayout", "x": Double.nan, "y": 0, "w": 400, "h": 300, "dpr": 2, "visible": true, "holes": many])
+        XCTAssertNil(e)
+        XCTAssertNotNil((r as? [String: Any])?["path"])
+        let (s, _) = await call(nat, ["op": "canvasStats"])
+        XCTAssertNotNil((s as? [String: Any])?["path"], "the stats still encode")
+        _ = await call(nat, ["op": "canvasLayout", "x": 0, "y": 0, "w": 0, "h": 0, "visible": false])
+        _ = await call(img, ["op": "canvasLeave"]); _ = await call(nat, ["op": "canvasLeave"])
     }
 
     /// Canvas rects and regions with non-finite and huge numbers, on the image path.
