@@ -124,10 +124,11 @@ are not seen (R1e).
 Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh`. It only reads the card.
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 
-CI (`.github/workflows/lumina.yml`) runs the fixtures, the byte-for-byte page check, the wording
-audit, the Chromium plumbing harness, the WebKitGTK sandbox, the Linux Swift tests, the build + logic tests, the
-release build with the strict preflight, and the probe in five parallel macOS shards (smoke + screens, fuzz, fuzz + scroll,
-scroll 2560 + edit + raw9, sandbox smoke).
+CI (`.github/workflows/lumina.yml`) runs, on every pull request, the fixtures, the byte-for-byte page check, the
+wording audit and the parity tools (one Linux job), the Chromium plumbing harness and the WebKitGTK sandbox (one
+job), the Linux Swift tests, the build + logic tests with the release build and strict preflight (one macOS job),
+and the probe's smoke, screens and sandbox smoke (one macOS job). The long probe shards (fuzz 1-2, fuzz 3 + scroll,
+scroll 2560 + edit + raw9) run in parallel on main and when the workflow is run by hand on a branch.
 
 ## Running tests without disturbing the Mac
 
