@@ -7,7 +7,7 @@
 //   node Tests/web/parity.mjs [Tests/probe/scenarios/screens-1440.json …] [--out DIR] [--selftest]
 import fs from 'fs';
 import path from 'path';
-import { pw, ROOT, Bridge, open, LOGIC, deadline } from './lib.mjs';
+import { pw, ROOT, Bridge, open, LOGIC, deadline, warmStandIns } from './lib.mjs';
 
 deadline('parity.mjs', 600);
 
@@ -81,6 +81,7 @@ async function diff(browser, a, b) {
 
 (async () => {
   const browser = await pw.chromium.launch();
+  await warmStandIns(browser);   // both twins get every sample photo at once
   let bad = 0;
   for (const f of scenarios) {
     const spec = JSON.parse(fs.readFileSync(f, 'utf8')), name = path.basename(f, '.json');

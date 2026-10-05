@@ -405,6 +405,16 @@ export async function standIn(browser, name) {
   return standIns.get(name);
 }
 
+// Every stand-in the sample shoot names (SAMPLE_IMGS in the data file), drawn before a run. Drawn
+// on first request instead, the first twin to run waits for each picture and the second gets them
+// from the cache: the prototype's Pick showed blank tiles where the app's showed photos.
+export async function warmStandIns(browser) {
+  const src = fs.readFileSync(path.join(WEB, 'lumina-v4-data.js'), 'utf8');
+  const names = [...new Set(src.match(/[A-Za-z0-9_-]{1,40}\.jpg/g) || [])];
+  for (const n of names) await standIn(browser, n);
+  return names.length;
+}
+
 export async function open(browser, bridge, { prefs, app = true, size = [1440, 900], scale = 1, clockBase, query = '', parity = false, ready = true, toured = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: size[0], height: size[1] }, deviceScaleFactor: scale, reducedMotion: 'no-preference' });
   const page = await ctx.newPage();

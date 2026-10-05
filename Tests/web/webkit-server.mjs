@@ -8,14 +8,14 @@ import http from 'http';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot, makeBigJpegs, makeBigShoot, strictQuery, deadline, standIn } from './lib.mjs';
+import { pw, WEB, VENDOR, Bridge, makeJpegs, makeShoot, makeBigJpegs, makeBigShoot, strictQuery, deadline, standIn, warmStandIns } from './lib.mjs';
 
 deadline('webkit-server.mjs', 2400);         // webkit.py stops it sooner; never left listening
 
 const port = +(process.argv[2] || 8765), work = path.resolve(process.argv[3] || '/tmp/lumina-webkit');
 fs.mkdirSync(work, { recursive: true });
 const ORIGIN = `http://127.0.0.1:${port}`;
-let bridge = new Bridge(), standBrowser = null;   // Chromium for the drawn stand-in photos, started on the first request
+let bridge = new Bridge(), standBrowser = null;   // Chromium for the drawn stand-in photos, started before ready
 
 // Synthetic ARWs need JPEG previews: made once with Chromium's canvas, then reused.
 const jpegDir = path.join(work, 'jpegs');
@@ -114,7 +114,12 @@ http.createServer(async (req, res) => {
     res.writeHead(200, { 'content-type': file.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/javascript; charset=utf-8' });
     res.end(fs.readFileSync(file));
   } catch (e) { json(res, { error: String(e) }, 500); }
-}).listen(port, '127.0.0.1', () => console.log('ready ' + ORIGIN));
+}).listen(port, '127.0.0.1', async () => {
+  // Every sample photo drawn before the first page asks: the first twin to run waits for none.
+  standBrowser ||= pw.chromium.launch();
+  await warmStandIns(await standBrowser);
+  console.log('ready ' + ORIGIN);
+});
 process.on('SIGTERM', () => { helper.kill(); if (standBrowser) standBrowser.then(b => b.close()).catch(() => {}); process.exit(0); });
 // A webkit.py that was killed cannot stop its server: the server goes when its parent does.
 const parent = process.ppid;
