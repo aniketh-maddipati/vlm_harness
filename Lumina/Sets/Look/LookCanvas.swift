@@ -422,6 +422,9 @@ final class LookCanvasController: NSObject {
                 LookTrace.mark("missed vsync ×\(missed), a look emitted \(Int((g.end - emitted).rounded())) ms before the gap ended arrived after it (main thread held)", ms: g.end - g.start, at: g.start)
             }
         }
+        // A look that took more than a refresh to get here: the wait was before the canvas had it
+        // (the page's process or the message's transit), and the trace says so next to the frame.
+        if dragging, arrived - emitted > 16 { LookTrace.mark("look arrived \(Int((arrived - emitted).rounded())) ms after the page emitted it", at: arrived) }
         if !schedule.pending { waitingSince = emitted }
         let seq = key ? schedule.keystroke(text, at: arrived, pageSeq: pageSeq, pageAt: t ?? 0) : schedule.submit(text, at: arrived, roi: roi, pageSeq: pageSeq, pageAt: t ?? 0)
         kick()
@@ -741,13 +744,18 @@ final class LookCanvasController: NSObject {
     }
 
     private var sampleIndex: [Int: Int] = [:]        // render seq → its latency sample's index
+    private var sampledLook = 0                      // the newest look (the schedule's count) with a latency sample
 
     /// A render's frame time (seconds on our clock): records the latency sample (once per render,
     /// the presented time overriding the GPU end time), the rest render's delay after drag end, and
     /// tells the page which look is on screen.
     private func frameShown(_ r: LookCanvasSchedule.Request, at frame: CFTimeInterval, dragEnd: CFTimeInterval?, presented: Bool) {
         let frameMs = frame * 1000
-        if r.pageAt > 0, clockOffset < Double.greatestFiniteMagnitude {
+        // A look's latency is to its first frame. The rest render of a look already on screen from
+        // `small` (a pause in a drag, drag end) is a second frame of the same value, as late as the
+        // pause was long: not a sample (`lastRestMs` times it after drag end).
+        if r.pageAt > 0, clockOffset < Double.greatestFiniteMagnitude, sampleIndex[r.seq] != nil || r.lookSeq > sampledLook {
+            sampledLook = max(sampledLook, r.lookSeq)
             let latency = frameMs - (r.pageAt + clockOffset)
             if let i = sampleIndex[r.seq], i < latencies.count { latencies[i] = latency }
             else { latencies.append(latency); sampleIndex[r.seq] = latencies.count - 1 }
