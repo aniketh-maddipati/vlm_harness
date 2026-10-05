@@ -531,9 +531,16 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 guard let r = body[k] as? String, let u = resolve(r) else { return nil }
                 return LookCanvasController.Neighbour(rel: r, url: u, preview: preview(body[k + "Preview"]))
             }
+            // The photo's as-shot white balance (the page's temperature slider rests on it, plumbing's
+            // `lookString`): in this answer when the photo's base is already developed, else pushed
+            // through `__lumina.editHeader` when the base lands. Read off the base the canvas builds
+            // anyway: no develop of its own, nothing waited for. No key at all for the embedded JPEG
+            // standing in or a file without a readable value.
+            canvas?.onAsShot = { [weak self] rel, wb in self?.push("__lumina.editHeader(\(Self.json(LookCanvasController.asShotHeader(rel: rel, wb))))") }
             canvas?.enter(rel: rel, url: url, look: body["look"] as? String ?? "", decoder: d.canvas, regionDecoder: d.region, preview: preview(body["preview"]), neighbours: neighbours)
             var out = editFacts()
             out["decoderCanvas"] = d.canvas.map { $0 as Any } ?? NSNull(); out["decoderRegion"] = d.region.map { $0 as Any } ?? NSNull()
+            if let a = canvas?.asShotForReply() { out.merge(LookCanvasController.asShotHeader(rel: a.rel, a.wb)) { $1 } }
             return (out, nil)
         case "canvasLeave":
             canvasModel = nil

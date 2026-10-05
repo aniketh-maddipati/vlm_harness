@@ -307,7 +307,9 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
 - **Structure only from RapidRAW / darktable** (AGPL/GPL): ideas, cited in a comment, never code.
 - **The Edit canvas schedule is `LookCanvasSchedule`** (Foundation only, tested on Linux): two tiers
   (`small`, a quarter of the canvas on each edge, while a slider is dragged; `base` at full quality on
-  drag end, a keystroke, or 120 ms idle), latest wins (one render in flight, the next display refresh
+  drag end, a keystroke, or 120 ms idle; during a drag idle means max(120 ms, 1.5 × the gap between
+  the drag's last two looks), at most 360 ms, so a slow drag on a whole-number slider (looks about
+  110 ms apart) gets no rest render in the middle while a real pause still does), latest wins (one render in flight, the next display refresh
   takes the newest value), and a sequence number per render (presented only if newer than the last
   presented). Histogram and clipping are computed on rest renders only. Session writes debounce at
   500 ms after the last change. Bases are keyed by (rel, decoder version, crop, rotation, canvas size,
