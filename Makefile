@@ -12,6 +12,9 @@
 #   make culleval          grouping + auto keeps vs what was shot and kept → ~/LuminaEvidence/culleval/report
 #   make culleval-test     its scoring tests (Linux too)
 #   make culleval-app      the same keeps question through the app: DUMPS="<run>/dump-decisions/decisions.json …" EXPORTS=exports.csv [OUT=report.md]
+#
+# The page's own node tests (Tests/web, no browser):
+#   make web-test          page files vs the scripts they load, the DNG reader on built fixtures (Linux too)
 
 PARITY   := Tools/parity
 RENDER   := $(PARITY)/lumina-render/.build/release/lumina-render
@@ -83,6 +86,14 @@ culleval:
 culleval-test:
 	node --test Tools/culleval/tests/culleval.test.mjs
 	python3 -m unittest discover -s Tools/culleval/signals
+
+# The page's files against the scripts they load, and the page's DNG reader on fixtures built in memory.
+# Plain node: no browser, no window (Linux too).
+.PHONY: web-test
+web-test:
+	node Tests/web/page-core-sync.test.mjs
+	node Tests/web/dng-parse.test.mjs
+	node Tests/web/dng-families.test.mjs
 
 culleval-app:
 	node Tools/culleval/culleval-app.mjs --exports $(EXPORTS) $(if $(OUT),--out $(OUT)) $(DUMPS)
