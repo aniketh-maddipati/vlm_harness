@@ -6,8 +6,9 @@ Sony ARW shooters.
 ## The rule
 
 **The design is the product.** Lumina's UI is the Claude Design page in `design/handoff/lumina-cull/`
-(`Lumina Sets v5.dc.html` + `support.js` + `lumina-core-v4.js` + `lumina-v4-data.js` + `lumina-selftest.js`;
-the names live in `Scripts/page_files.sh`). The app ships those files **byte for byte** inside a native
+(`Lumina Sets v7.dc.html` + `Lumina Edit v21.dc.html`, the Edit step the Sets page mounts, + `support.js` +
+`lumina-core-v4.js` + `lumina-measure.js` + `lumina-v4-data.js` + `lumina-selftest.js`; the names live in
+`Scripts/page_files.sh`). The app ships those files **byte for byte** inside a native
 window. Nobody edits the UI in this repo.
 
 - Something visible is wrong or missing (layout, copy, keys, empty states)? It goes into
@@ -18,9 +19,14 @@ window. Nobody edits the UI in this repo.
   `--record` once the new look is approved.
   Before installing, step 2b prints every line the new page files add that names network or bridge
   surface (`fetch(`, `postMessage`, `new Function`, a URL, …): a zip is a code import, so read them. Report only.
-- Authority order: `design/handoff/lumina-cull` (its `PROMPT.md` sets the order inside it: ADDENDUM-1 →
-  PARITY → GRAMMAR → the page → CHANGES / SAFETY / MENUS) → `Lumina/Sets` (plumbing) → tests.
-  The handoff's own `plumbing.js` is an older reference; the app's is `Lumina/Sets/Web/plumbing.js`.
+- Authority order: `design/handoff/lumina-cull` → `Lumina/Sets` (plumbing) → tests. Inside the handoff,
+  since v0.01 (2026-10-05), its `README.md` sets the order: README + `BRIDGE.md` (the page ↔ app
+  contract) → the two pages → `ROADMAP.md` (trust rules) → the v5-era docs (PROMPT, ADDENDUM-1, PARITY,
+  GRAMMAR, MENUS, `reference/`), which stand where the newer ones are silent. Where BRIDGE.md and the
+  page's source disagree on a name or a shape, the page is what runs.
+  The handoff's own `reference/plumbing.js` is an older reference; the app's is `Lumina/Sets/Web/plumbing.js`.
+- The handoff's `uploads/` (the sample shoot's photos) and `screenshots/` stay out of the repo and the
+  bundle: the sync puts them in `~/LuminaEvidence/design`. The app never shows the sample shoot.
 
 ## What the app is
 
@@ -41,7 +47,10 @@ MTKView, `Lumina/Sets/Look/LookCanvas.swift`) sits above the web view exactly on
 page reports for its Edit canvas; the look stages render straight into its drawable, so a slider
 move never goes through a JPEG, a readback or the web view's image decode. It is pixels only: it
 takes no input, draws nothing of its own (no chrome, no text), and is hidden whenever Edit isn't
-the active step. The page keeps drawing the filmstrip, sliders and facts. Without a Metal device
+the active step. Edit v21 leaves that rect empty in the app and calls no canvas API: `plumbing.js`
+reads the page's own Edit state each frame (photo, look object, canvas box, zoom) and its
+`lumina.emit` drag events, translates the look object to the look string, and drives the canvas;
+it hides the canvas while the page draws over the photo itself (crop, pickers, variations). The page keeps drawing the filmstrip, sliders and facts. Without a Metal device
 the same schedule runs on `lumina://render` images the page shows itself (`canvas: image` in the
 facts line). Everything else the app shows is the page's.
 
@@ -177,7 +186,7 @@ harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift
 
 ## Rules that bite
 
-- **Don't edit `Lumina/Sets/Web/*.html|support.js|lumina-core-v4.js|lumina-v4-data.js|lumina-selftest.js|vendor`.** Change the design, then sync. `SetsPageBytesTests` and CI fail on drift.
+- **Don't edit `Lumina/Sets/Web/*.html|support.js|lumina-core-v4.js|lumina-measure.js|lumina-v4-data.js|lumina-selftest.js|vendor`.** Change the design, then sync. `SetsPageBytesTests` and CI fail on drift.
 - **`plumbing.js` supplies behaviour and data, never UI.** If the page can't show something, that's a design ask.
 - **The native read repeats the page's `onDir` and `readOne`.** `probe.sh contract` fails (`__lumina.drift()`) when a sync changes either: review the read in `plumbing.js`, then update `ONDIR` (`node Tests/web/plumbing-harness.mjs --hash` prints it). Parity with the page's own read is checked with `card-clock.json` in both modes.
 - **Cull rows are keyed by row id, from `plumbing.js`.** The page's runtime keys list items by position, which hands every mounted row the next row's content each time the window moves (heights animating, images swapping: the scroll wobble). `probe.sh scroll` reports it (`rows out of place`: 0 % on a Mac against 65 to 80 % with the page's keying; not gated, the CI runner's 180 to 300 ms frames give 1 to 26 % either way) and keeps one pass with the page's own keying for comparison. A sync that renames `data-lumina="row"` / `data-id` turns the keying off silently: compare the two passes after a sync.
