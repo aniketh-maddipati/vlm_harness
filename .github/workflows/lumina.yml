@@ -36,6 +36,8 @@ jobs:
             cmp "design/handoff/lumina-cull/$f" "Lumina/Sets/Web/$f"
           done
           for f in design/handoff/vendor/*.js; do cmp "$f" "Lumina/Sets/Web/$(basename "$f")"; done
+      - name: page and scripts in step, the DNG reader on built fixtures (plain node)
+        run: make web-test
       - name: wording + demo-layer audit (report only)
         run: source Scripts/page_files.sh && python3 Tests/probe/design_audit.py "design/handoff/lumina-cull/$PAGE"
 
