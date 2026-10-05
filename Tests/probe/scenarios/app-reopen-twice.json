@@ -20,6 +20,15 @@
    "timeoutMs": 120000
   },
   {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "js",
+   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
+   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
+  },
+  {
    "do": "key",
    "k": "p",
    "settleMs": 200
@@ -30,9 +39,19 @@
    "settleMs": 200
   },
   {
+   "do": "js",
+   "src": "__probe.logic().setPref({adv:false}); return true",
+   "why": "v5's flag left the cursor in place; v7's remove advances"
+  },
+  {
    "do": "key",
-   "k": "f",
+   "k": "x",
    "settleMs": 200
+  },
+  {
+   "do": "js",
+   "src": "__probe.logic().setPref({adv:true}); return true",
+   "why": "auto-advance back on"
   },
   {
    "do": "key",

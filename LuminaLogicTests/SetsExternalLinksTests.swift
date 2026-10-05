@@ -2,8 +2,10 @@ import XCTest
 @testable import Lumina
 
 final class SetsExternalLinksTests: XCTestCase {
-    // Sets v7 encodes this href for HTML; a browser hands native the &amp;-decoded URL.
-    private let bugReportHTML = "mailto:anikethcov@gmail.com?subject=Lumina%20beta%200.01%20bug%20report&amp;body=What%20happened%3F%0A%0A"
+    // Copied from Lumina v0.0.1 standalone.html. The Beta panel's href is HTML-encoded; a browser
+    // hands native the &amp;-decoded URL. The ? sheet sets window.location.href to the subject-only one.
+    private let bugReportHTML = "mailto:anikethcov@gmail.com?subject=Lumina%20beta%200.01%20bug&amp;body=What%20happened%3A%0A%0AWhat%20you%20expected%3A%0A%0ACamera%20%2F%20phone%3A%0A"
+    private let bugReportSheet = "mailto:anikethcov@gmail.com?subject=Lumina%20beta%200.01%20bug"
 
     private func url(_ text: String) -> URL {
         try! XCTUnwrap(URL(string: text))
@@ -25,10 +27,26 @@ final class SetsExternalLinksTests: XCTestCase {
     func testTheThreePageDestinationsAreAllowedAndCanonicalized() {
         let decodedMail = bugReportHTML.replacingOccurrences(of: "&amp;", with: "&")
         assertExternal(decodedMail)
+        assertExternal(bugReportSheet)
+        XCTAssertEqual(SetsExternalLinks.verdict(for: url("https://www.linkedin.com/in/anikethmaddipati/"), userClicked: true),
+                       .external(SetsExternalLinks.linkedIn))
         XCTAssertEqual(SetsExternalLinks.verdict(for: url("https://www.linkedin.com/in/anikethmaddipati"), userClicked: true),
                        .external(SetsExternalLinks.linkedIn))
         XCTAssertEqual(SetsExternalLinks.verdict(for: url("https://x.com/aniketh745"), userClicked: true),
                        .external(SetsExternalLinks.x))
+    }
+
+    func testThePageBugReportKeepsItsSubjectAndBody() {
+        let decodedMail = url(bugReportHTML.replacingOccurrences(of: "&amp;", with: "&"))
+        guard case .external(let output) = SetsExternalLinks.verdict(for: decodedMail, userClicked: true) else {
+            return XCTFail("expected external mail URL")
+        }
+        let parts = try! XCTUnwrap(URLComponents(url: output, resolvingAgainstBaseURL: false))
+        XCTAssertEqual(parts.path, "anikethcov@gmail.com")
+        XCTAssertEqual(parts.queryItems, [
+            URLQueryItem(name: "subject", value: "Lumina beta 0.01 bug"),
+            URLQueryItem(name: "body", value: "What happened:\n\nWhat you expected:\n\nCamera / phone:\n"),
+        ])
     }
 
     func testMailIsRebuiltFromParsedParts() {

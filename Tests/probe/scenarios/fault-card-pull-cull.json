@@ -87,6 +87,15 @@
    ]
   },
   {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "js",
+   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
+   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
+  },
+  {
    "do": "key",
    "k": "p",
    "settleMs": 200
@@ -100,7 +109,7 @@
   },
   {
    "do": "key",
-   "k": "3",
+   "k": "4",
    "settleMs": 1000,
    "cmd": true
   },
@@ -142,6 +151,18 @@
   {
    "do": "js",
    "src": "window.__lastSave = __probe.logic().state.ex.result || null; return true"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 1500,
+   "cmd": true
+  },
+  {
+   "do": "expect",
+   "js": "return __probe.logic().state.armed",
+   "equals": "save",
+   "why": "v7: with undecided photos the first ⌘⏎ only warns"
   },
   {
    "do": "key",
@@ -251,7 +272,7 @@
   },
   {
    "do": "key",
-   "k": "3",
+   "k": "4",
    "settleMs": 1000,
    "cmd": true
   },
