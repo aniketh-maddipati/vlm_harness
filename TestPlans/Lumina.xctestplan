@@ -3,9 +3,7 @@
     {
       "id" : "5E75A1C0-0000-4000-8000-000000000001",
       "name" : "Default",
-      "options" : {
-
-      }
+      "options" : {}
     }
   ],
   "defaultOptions" : {
@@ -23,13 +21,6 @@
         "containerPath" : "container:Lumina.xcodeproj",
         "identifier" : "A30000010000000000000006",
         "name" : "LuminaLogicTests"
-      }
-    },
-    {
-      "target" : {
-        "containerPath" : "container:Lumina.xcodeproj",
-        "identifier" : "A20000010000000000000006",
-        "name" : "LuminaUITests"
       }
     }
   ],
