@@ -76,6 +76,8 @@ jobs:
           grep -ho '"page": *"[^"]*"' Tests/probe/scenarios/*.json | sed 's/.*: *"//; s/"$//' | sort -u | while IFS= read -r p; do
             [[ -f "Lumina/Sets/Web/$p" ]] || { echo "a probe scenario names \"$p\", which the app does not ship:"; grep -l "\"$p\"" Tests/probe/scenarios/*.json; exit 1; }
           done
+      - name: page and scripts in step, the DNG reader on built fixtures (plain node)
+        run: make web-test
       - name: wording + demo-layer audit (report only)
         run: source Scripts/page_files.sh && python3 Tests/probe/design_audit.py "design/handoff/lumina-cull/$PAGE"
 
