@@ -29,6 +29,7 @@
 #                                                upscale, memory. Folder: LUMINA_SCROLL_DIR, else LUMINA_CARD_DIR (only read), else
 #                                                408 APFS clones of LUMINA_FIXTURE_ROOT/src, 20 s apart (built once)
 #                                                (CI runs scroll-quick / scroll-quick-2560: tile 216, warm-ahead on and off)
+#                                                then keys typed faster than the page takes them (keys-spam: grid and large view)
 #   bash Scripts/probe.sh edit                   the Edit canvas (addendum §8): 2 s drags on exposure and shadows, look-event-to-
 #                                                presented-frame latency (p95 ≤ LUMINA_EDIT_P95, default 16 ms), dropped frames,
 #                                                rest render, bases resident, canvas vs export ΔE; native first, then with
@@ -393,7 +394,7 @@ case "$suite" in
   app)       run $(paths "${APP[@]}") ;;
   contract)  run "$S/app-plumbing-contract.json" ;;
   fault)     run $(paths "${FAULT[@]}") ;;
-  scroll)    scrolldir; run "$S/scroll-read.json" "$S/scroll-fast.json" "$S/scroll-fast-2560.json" ;;
+  scroll)    scrolldir; run "$S/scroll-read.json" "$S/scroll-fast.json" "$S/scroll-fast-2560.json" "$S/keys-spam.json" ;;
   edit)      editdir; run "$S/edit-canvas.json"
              echo "— nothing compiled (LUMINA_KERNEL_SALT): first drags on stages the canvas has not rendered —"
              LUMINA_KERNEL_SALT="${LUMINA_KERNEL_SALT:-p$(date +%s)}" run_out "$OUT/cold" "$S/edit-cold.json"
