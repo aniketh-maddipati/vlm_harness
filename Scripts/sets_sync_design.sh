@@ -71,7 +71,8 @@ step "5. wording + demo-layer audit (report only; fixes go to the design)"
 python3 Tests/probe/design_audit.py "$NEW/$PAGE"
 
 step "6. install"
-rsync -a --delete --exclude '._*' "$NEW/" "$DEST/"
+# data/auto-fixtures.js is generated here from AutoDevelop (make auto-fixtures), never by the design: a sync keeps it.
+rsync -a --delete --exclude '._*' --exclude 'data/auto-fixtures.js' "$NEW/" "$DEST/"
 bash Scripts/sets_sync_ui.sh
 
 step "7. plumbing contract + app suites"

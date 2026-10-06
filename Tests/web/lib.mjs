@@ -209,6 +209,15 @@ export class Bridge {
         const okP = q => q && q.p && +q.o > 0 && +q.l > 0 && this.resolve(q.p) && !this.gone.has(q.p.split('/')[0]);
         return okP(msg.a) && okP(msg.b) ? (msg.a.p === msg.b.p ? 0 : 0.25) : null;
       }
+      // SetsAuto (BRIDGE-v0.02 §1): AutoDevelop on the RAW, {look, version} in the Edit page's slider units;
+      // null for a path that is not a RAW in an opened folder. Here: a fixed answer (this.autoAnswer to change it).
+      case 'auto': {
+        (this.autos = this.autos || []).push(msg.rel);
+        const f = typeof msg.rel === 'string' && /\.(arw|dng)$/i.test(msg.rel) ? this.resolve(msg.rel) : null;
+        if (!f || !fs.existsSync(f) || this.gone.has(msg.rel.split('/')[0])) return null;
+        if (this.autoDelayMs) await new Promise(r => setTimeout(r, this.autoDelayMs));
+        return this.autoAnswer || { look: { ev: 0.35, wb: 5150, tint: 4, hl: -24, sh: 0, wh: 0, bl: 0 }, version: 'autodevelop-2' };
+      }
       case 'ingestStats': return { workers: 4, inFlight: 0, maxInFlight: 4, heads: 0, previews: 0, largestRead: 0, opensAfterGone: 0, failures: 0, gone: [...this.gone] };
       case 'setPrefs': this.prefs = msg.prefs; return true;
       case 'reveal': this.revealed.push(msg.path); return true;

@@ -56,6 +56,8 @@ jobs:
 
       - name: parity tools (ΔE, numpy mirror, refs, report)
         run: python3 -m pip install -q -r Tools/parity/requirements.txt && make parity-test
+      - name: Auto fixture generator (synthetic lumina-render lines)
+        run: make auto-fixtures-test
       - name: rules-v1.json is valid JSON in canonical stage order
         run: python3 -c "import json;r=json.load(open('Lumina/Sets/Look/rules-v1.json'));assert r['order'][0]=='rawDevelop' and r['order'][-1]=='outputTransform';print(len(r['stages']),'stages')"
 

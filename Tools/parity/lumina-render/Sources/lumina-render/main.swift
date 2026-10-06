@@ -23,6 +23,11 @@ lumina-render — render an ARW through the app's LookPipeline (Tools/parity)
   lumina-render info <image>
       As-shot white balance, native size, develop time, the RAW decoder versions this Mac offers.
 
+  lumina-render auto <image>... [--rules rules-v1.json]
+      AutoDevelop on each RAW, as the app's lumina.auto answers it (BRIDGE-v0.02 §1): one JSON line per
+      file, {"image", "ok", "look": {ev, wb?, tint?, hl, sh, wh, bl}, "version", "stats"}. What
+      `make auto-fixtures` records into data/auto-fixtures.js.
+
   lumina-render ramp [--look "<look string>"] [--rules rules-v1.json] [--out ramp.json]
       The graph on flat patches (a grey ramp and test colours) next to LookMath's scalar chain,
       as JSON, for Tools/parity/lookmath.py --check: proves the Metal, Swift and numpy copies of
@@ -188,6 +193,26 @@ do {
                                    "asShot": ["kelvin": dev.asShot.kelvin, "tint": dev.asShot.tint], "developMs": ms(t0),
                                    "raw": LookPipeline.isRAW(url), "decoders": LookPipeline.supportedDecoderVersions(url: url)]
         print(json(info))
+
+    case "auto":
+        // The app's Auto, file by file: AutoDevelopRaw's stats on the RAW, AutoDevelop's recipe in slider units.
+        let rules = try loadRules(option("--rules"))
+        guard !args.isEmpty else { fail(usage, code: 2) }
+        var failed = 0
+        for imagePath in args {
+            var line: [String: Any] = ["image": imagePath, "version": AutoDevelop.version]
+            do {
+                let st = try AutoDevelopRaw.stats(url: URL(fileURLWithPath: imagePath), rules: rules)
+                line["ok"] = true
+                line["look"] = AutoDevelop.recipe(for: st).look
+                line["stats"] = ["mean": st.mean, "linearMean": st.linearMean, "shadowClip": st.shadowClipFraction, "highlightClip": st.highlightClipFraction,
+                                 "kelvin": st.nativeTemperature ?? NSNull(), "tint": st.nativeTint ?? NSNull()] as [String: Any]
+            } catch {
+                line["ok"] = false; line["error"] = "\(error)"; failed += 1
+            }
+            print(json(line))
+        }
+        exit(failed == 0 ? 0 : 1)
 
     case "ramp":
         let lookText = option("--look") ?? "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0"

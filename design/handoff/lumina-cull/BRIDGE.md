@@ -21,6 +21,7 @@ The page checks `window.lumina?.app`. When it is true the page uses the members 
 | checkAccess() | re-test read access to the last folder/card | Promise<bool> |
 | openSettings('files') | open System Settings › Privacy › Files and Folders | void |
 | reopen() | reopen the last folder after access is granted | void |
+| auto(rel) | AutoDevelop on the photo's RAW, never its embedded JPEG (BRIDGE-v0.02 §1). `rel` is the photo's path, id or file name | Promise<{look:{ev,wb?,tint?,hl,sh,wh,bl}, version}\|null> |
 
 ## Hooks native calls on the page
 | Global | When |
