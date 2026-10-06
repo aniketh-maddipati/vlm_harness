@@ -18,7 +18,6 @@ final class SetsPageBytesTests: XCTestCase {
             ("design/handoff/lumina-cull/lumina-selftest.js", "Lumina/Sets/Web/lumina-selftest.js"),
             ("design/handoff/vendor/react.production.min.js", "Lumina/Sets/Web/react.production.min.js"),
             ("design/handoff/vendor/react-dom.production.min.js", "Lumina/Sets/Web/react-dom.production.min.js"),
-            ("design/handoff/vendor/babel.min.js", "Lumina/Sets/Web/babel.min.js"),
         ]
         for (design, bundled) in pairs {
             let a = try Data(contentsOf: repo.appendingPathComponent(design))
@@ -26,6 +25,14 @@ final class SetsPageBytesTests: XCTestCase {
             XCTAssertEqual(SHA256.hash(data: a).description, SHA256.hash(data: b).description,
                            "\(bundled) drifted from \(design) — run Scripts/sets_sync_ui.sh")
         }
+    }
+
+    /// Babel stays in design/handoff/vendor (the prototype) but not in the app: no page file loads it.
+    func testBabelIsNotBundled() {
+        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: repo.appendingPathComponent("Lumina/Sets/Web/babel.min.js").path),
+                       "babel.min.js is back in Lumina/Sets/Web — run Scripts/sets_sync_ui.sh")
+        XCTAssertFalse(SetsSchemeHandler.vendorFiles.contains("babel.min.js"))
     }
 
     func testVendoredRuntimeMatchesTheSRIPinnedInSupportJS() throws {

@@ -26,7 +26,6 @@ export const ORIGIN = 'http://lumina.test';
 export const VENDOR = {
   'https://unpkg.com/react@18.3.1/umd/react.production.min.js': ORIGIN + '/vendor/react.production.min.js',
   'https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js': ORIGIN + '/vendor/react-dom.production.min.js',
-  'https://unpkg.com/@babel/standalone@7.29.0/babel.min.js': ORIGIN + '/vendor/babel.min.js',
 };
 
 // ——— synthetic ARWs
