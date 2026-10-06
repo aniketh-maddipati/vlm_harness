@@ -792,7 +792,11 @@ enum SetsWebView {
         ucc.addUserScript(WKUserScript(source: "window.__luminaConfig=\(cfg);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         if bridge != nil { ucc.addUserScript(WKUserScript(source: plumbing, injectionTime: .atDocumentStart, forMainFrameOnly: true)) }
         bridge?.install(in: conf)
-        let rules = #"[{"trigger":{"url-filter":"^https?://"},"action":{"type":"block"}}]"#
+        // One rule per scheme: content-rule patterns have no alternation. WebSockets are blocked too,
+        // since the page has no network use (THREAT-MODEL S1); the navigation policy covers the rest.
+        let rules = #"[{"trigger":{"url-filter":"^https?://"},"action":{"type":"block"}},"#
+            + #"{"trigger":{"url-filter":"^wss?://"},"action":{"type":"block"}},"#
+            + #"{"trigger":{"url-filter":"^ftp://"},"action":{"type":"block"}}]"#
         if let list = try await WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "lumina-offline", encodedContentRuleList: rules) {
             ucc.add(list)
         }
