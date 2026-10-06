@@ -1,8 +1,9 @@
 import Foundation
 
 /// What a rendered export (Edit's JPEG, TIFF or PNG) says about the photo (docs/release/TRUST.md I7).
-/// The look stages are Metal kernels, which keep none of the RAW's metadata, so an export carries
-/// only what is chosen here, by allowlist: the capture time, the camera and lens, the exposure, and
+/// Core Image carries the RAW's properties (GPS and serial numbers included) through the look into
+/// the encoder, so SetsLookExport clears them before encoding and writes back only what is chosen
+/// here, by allowlist: the capture time, the camera and lens, the exposure, and
 /// the photographer's own credit (artist, copyright, IPTC creator and caption). Never written:
 /// location (GPS, and IPTC's city, region and country), camera and lens serial numbers, maker notes,
 /// and the orientation (the pixels are already upright). A field nobody listed stays out, so a new
