@@ -1,5 +1,13 @@
 # Design asks for the next handoff (after v8 / Edit v21)
 
+> **Status after design v0.05 (2026-10-06).** The app now ships `Lumina Sets v11.dc.html` with
+> `Lumina Edit v22.dc.html`; the v8 / v21 names below are history. v0.03 to v0.05 answered asks
+> 1 to 11 (CHANGES-v0.03), Prompts 12 to 14, and REMAINING-v0.03's A1, A2, A4, B1, B2, B3 F,
+> B5 b, C2, D1 A, D2, D3 and E. Still open before release: A3 (the call that brings sessions over
+> from before the sandbox) and D1 B / C (`lumina.sidecars` refresh). After release: B3 B / C / G,
+> B4 a, B5 c, B6, B7, C1, C3, D4, D5. `design/handoff/lumina-cull/REMAINING-v0.03.md` is the
+> element-by-element list; new asks reach its next revision through a prompt written here.
+
 Status: open. Paste the prompt below into Claude Design, download the new handoff zip, then run
 `bash Scripts/sets_sync_design.sh "<zip>"` (add `--record` once you've approved the new look).
 

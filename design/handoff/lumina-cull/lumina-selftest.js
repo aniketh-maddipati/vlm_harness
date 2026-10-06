@@ -16,7 +16,9 @@
       await T('page exposes luminaState',()=>typeof w().luminaState==='function');
       await T('⌘2 opens Cull',async()=>{ await tap('2','Digit2',{metaKey:true}); await wait(300); return S().view==='cull'; });
       await T('P keeps the photo under the cursor',async()=>{ await clickTile('[data-lumina=tile]'); const id=S().cur; await tap('p','KeyP'); return S().marks[id]==='keep'; });
-      await T('P again un-keeps',async()=>{ await tap('ArrowLeft','ArrowLeft'); const id=S().cur; const was=S().marks[id]; await tap('p','KeyP'); return was==='keep'&&!S().marks[id]; });
+      await T('P on a kept photo keeps it and moves on (never toggles)',async()=>{ await tap('ArrowLeft','ArrowLeft'); const id=S().cur; const was=S().marks[id]; await tap('p','KeyP'); return was==='keep'&&S().marks[id]==='keep'&&S().cur!==id; });
+      await T('luminaState reports the step and pass',async()=>S().step==='pick'&&S().pass>=1&&typeof S().kept==='number');
+      await T('rows carry stable keys',async()=>{ const r=document.querySelectorAll('[data-lumina=row][data-key],[data-lumina=row-gap][data-key]'); return r.length>0&&[...r].every(n=>/^k/.test(n.dataset.key)); });
       await T('R un-keeps (two states only)',async()=>{ const id=S().cur; await tap('p','KeyP'); await tap('ArrowLeft','ArrowLeft'); await tap('r','KeyR'); return !S().marks[id]&&!Object.values(S().marks).includes('out'); });
       await T('⇧R steps back and un-keeps',async()=>{ const id=S().cur; await tap('p','KeyP'); await tap('R','KeyR',{shiftKey:true}); return S().cur===id&&!S().marks[id]; });
       await T('1–5 change nothing',async()=>{ const u=S().undoDepth; await tap('3','Digit3'); return S().undoDepth===u; });

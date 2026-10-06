@@ -19,9 +19,9 @@ import WebKit
 ///   rendering; a bad look string 400; a file outside the opened folders 404.
 nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "lumina"
-    static let pageFile = "Lumina Sets v8.dc.html"
-    /// Edit is its own page, which support.js fetches when Sets mounts it (`<dc-import name="Lumina Edit v21">`).
-    static let editPageFile = "Lumina Edit v21.dc.html"
+    static let pageFile = "Lumina Sets v11.dc.html"
+    /// Edit is its own page, which support.js fetches when Sets mounts it (`<dc-import name="Lumina Edit v22">`).
+    static let editPageFile = "Lumina Edit v22.dc.html"
     static let vendorFiles = ["react.production.min.js", "react-dom.production.min.js", "babel.min.js"]
     /// What `lumina://app/<file>` serves. Debug builds and the probe: the same list as
     /// Scripts/page_files.sh, with the design's self-test, which the page asks for only with

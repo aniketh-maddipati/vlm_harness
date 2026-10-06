@@ -21,7 +21,7 @@ export function deadline(name, seconds) {
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const WEB = path.join(ROOT, 'Lumina/Sets/Web');
-export const PAGE = 'Lumina Sets v8.dc.html';
+export const PAGE = 'Lumina Sets v11.dc.html';
 export const ORIGIN = 'http://lumina.test';
 export const VENDOR = {
   'https://unpkg.com/react@18.3.1/umd/react.production.min.js': ORIGIN + '/vendor/react.production.min.js',
@@ -251,6 +251,10 @@ export class Bridge {
         }
         return { n, bak, folder: path.basename(root), path: root, errors };
       }
+      // Help ▸ Acknowledgements: the app answers with its bundled THIRD-PARTY-NOTICES.txt.
+      case 'notices': return 'React 18.3.1 · MIT\n';
+      // Esc on "Opening <name>…": the app stops the listing (SetsBridge openCancel).
+      case 'openCancel': this.cancels = (this.cancels || 0) + 1; return true;
       default: return null;
     }
   }
