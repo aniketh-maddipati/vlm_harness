@@ -984,7 +984,7 @@ by its folder) and the recent works from then on. Until then File ▸ Open Recen
 
 ## Prompt 12 — after the v0.01 handoff (Sets v7, Edit v21) (paste into Claude Design)
 
-Found while fitting the app to the v0.01 handoff (2026-10-05). Six asks; none blocks the app.
+Found while fitting the app to the v0.01 handoff (2026-10-05). Seven asks; none blocks the app.
 
 1. **Edit: no web images when Sets supplied the shoot.** In `Lumina Edit`, when `window.luminaShoot`
    exists and a photo has no preview, show the "Couldn't open" state. Do not fall back to
@@ -1011,6 +1011,18 @@ Found while fitting the app to the v0.01 handoff (2026-10-05). Six asks; none bl
    MENUS section saying which commands are menu items and under what titles, including: the four
    steps (Open ⌘1, Pick ⌘2, Edit ⌘3, Save ⌘4), what ⇧P is called now that it toggles the second
    pass, and what Undo, Redo, Copy and Paste are called while Edit is the active step.
+7. **The large view opens too slowly for its own budget.** The selftest's "perf: open large view"
+   (keydown to the next frame, budget 100 ms) measures 101 to 273 ms on the CI Mac (GitHub's
+   macos-15 runner) and 68 to 85 ms in desktop Chromium, so it fails on slower Macs. Sets v5 opened
+   well inside the budget on the same runner. Opening it alone takes about 30 ms. Right after the
+   check's run of 40 → presses it takes 70 to 85 ms. Most of that time is the page's own render of
+   the large view (support.js's `cssToObj` / `renderVals`, React, layout). `analyseLarge`'s 900 px
+   measure is not the cost: skipping it changes nothing. When the open is that slow, a tapped Space
+   (keydown, 60 ms, keyup) reads as held (`held` > 350 ms) and the large view closes again, so "Space on
+   a stack opens large at frame 1 with an axis" fails on the same runs. Make opening the large view
+   fit the budget on a slow Mac: draw the photo and the frame in the first frame, and defer the
+   columns, the filmstrip and the analysis to the frames after it. Measure "held" from the keydown
+   event's own `timeStamp`, not from when the handler ran.
 
 Not asked (ruled 2026-10-05): v21's tone curve, colour mixer, vignette shape and 90° turn stay in
 the design. Native grows the stages for them; until each lands, that control moves the filmstrip
