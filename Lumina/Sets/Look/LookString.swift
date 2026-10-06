@@ -61,10 +61,19 @@ nonisolated struct Look: Equatable, Sendable {
         /// placeholders.
         var kelvinAsShot = false
         var tintAsShot = false
+        /// `wbref:K/T`: the as-shot pair the page's numbers rest on (the page reads its own from the
+        /// file, which need not be the decoder's). With it, `kelvin` / `tint` are a move from that
+        /// pair, applied to the photo's own: Kelvin as a ratio (the page's temperature slider is a
+        /// ratio scale), tint as a difference. Nil: absolute, as Lightroom's numbers are.
+        var refKelvin: Double?
+        var refTint: Double?
 
-        /// The balance the stage renders: a side left as shot takes the photo's own value.
+        /// The balance the stage renders: a side left as shot takes the photo's own value, a side
+        /// with a reference is moved from the photo's own by as much as the page moved it.
         func resolved(asShot: WhiteBalance) -> WhiteBalance {
-            WhiteBalance(kelvin: kelvinAsShot ? asShot.kelvin : kelvin, tint: tintAsShot ? asShot.tint : tint)
+            let k = kelvinAsShot ? asShot.kelvin : refKelvin.map { asShot.kelvin * kelvin / $0 } ?? kelvin
+            let t = tintAsShot ? asShot.tint : refTint.map { asShot.tint + tint - $0 } ?? tint
+            return WhiteBalance(kelvin: Look.clamp(k, Look.kelvinRange), tint: Look.clamp(t, Look.tintRange))
         }
     }
 
@@ -166,7 +175,7 @@ nonisolated struct Look: Equatable, Sendable {
     /// The crop tool's aspect preset: what the crop box was drawn with, not something to render.
     static let pageOnly: Set<String> = ["cropRatio"]
     /// Canonical key order; also the order `format` writes.
-    static let keys = ["ev", "wb", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot"]
+    static let keys = ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot"]
     /// The plain numeric sliders, key → field.
     static let sliders: [String: WritableKeyPath<Look, Double>] = [
         "ev": \.ev, "con": \.contrast, "hl": \.highlights, "sh": \.shadows, "wh": \.whites, "bl": \.blacks,
@@ -194,6 +203,7 @@ nonisolated struct Look: Equatable, Sendable {
         let text = s.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty || text == "none" { return look }
         var seen: Set<String> = []
+        var wbRef: (kelvin: Double, tint: Double)?
         for token in text.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" }) {
             guard let colon = token.firstIndex(of: ":") else { throw ParseError(description: "'\(token)' has no ':'") }
             let key = String(token[..<colon]), raw = String(token[token.index(after: colon)...])
@@ -269,6 +279,13 @@ nonisolated struct Look: Equatable, Sendable {
                 look.bw = raw == "1" || raw == "true"
             case "nr":
                 look.nr = clamp(try number(raw, "nr"), nrRange)
+            case "wbref":
+                // The page's as-shot pair, `K/T`; read with `wb` (alone it changes nothing).
+                let parts = raw.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+                guard parts.count == 2 else { throw ParseError(description: "wbref wants kelvin/tint, got '\(raw)'") }
+                let k = try number(parts[0], "wbref kelvin"), t = try number(parts[1], "wbref tint")
+                guard k > 0 else { throw ParseError(description: "wbref kelvin must be above 0, got '\(raw)'") }
+                wbRef = (clamp(k, kelvinRange), clamp(t, tintRange))
             case "wb":
                 let parts = raw.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
                 guard parts.count == 2 else { throw ParseError(description: "wb wants kelvin/tint, got '\(raw)'") }
@@ -297,6 +314,7 @@ nonisolated struct Look: Equatable, Sendable {
                 throw ParseError(description: "unknown key '\(key)'")
             }
         }
+        if let r = wbRef, look.wb != nil { look.wb?.refKelvin = r.kelvin; look.wb?.refTint = r.tint }
         return look
     }
 
@@ -311,7 +329,10 @@ nonisolated struct Look: Equatable, Sendable {
             return (r > 0 ? "+" : "") + String(format: "%.\(decimals)f", r)
         }
         var out = ["ev:\(signed(ev, 2))"]
-        if let wb { out.append("wb:" + (wb.kelvinAsShot ? "" : "\(Int(wb.kelvin.rounded()))") + "/" + (wb.tintAsShot ? "" : signed(wb.tint, 0))) }
+        if let wb {
+            out.append("wb:" + (wb.kelvinAsShot ? "" : "\(Int(wb.kelvin.rounded()))") + "/" + (wb.tintAsShot ? "" : signed(wb.tint, 0)))
+            if let k = wb.refKelvin { out.append("wbref:\(Int(k.rounded()))/\(signed(wb.refTint ?? 0, 0))") }
+        }
         out += ["con:\(signed(contrast, 0))", "hl:\(signed(highlights, 0))", "sh:\(signed(shadows, 0))",
                 "wh:\(signed(whites, 0))", "bl:\(signed(blacks, 0))", "vib:\(signed(vibrance, 0))",
                 "sat:\(signed(saturation, 0))", "clr:\(signed(clarity, 0))", "shp:\(Int(sharpen.rounded()))",
