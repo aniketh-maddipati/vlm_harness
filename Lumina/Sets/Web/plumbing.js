@@ -81,8 +81,8 @@
   const BY_ID = ['marks', 'flags', 'stars', 'cuts', 'look'];
   const SCALAR = ['seen', 'tsz', 'regions', 'lastEx', 'rowLook'];
   let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, readMoved = false, sessionRefused = null;
-  // Last scroll in the page (any scroller), for pacing the grid's refresh while a folder is read.
-  let scrollT = 0;
+  // Last scroll in the page (any scroller), for holding the grid's refresh while a folder is read.
+  let scrollT = 0, growT = 0;
   document.addEventListener('scroll', () => { scrollT = performance.now(); }, { capture: true, passive: true });
   // Path inside the opened folder ("sub/DSC00001.ARW"): stable across reopen and new files.
   const keyOf = p => { const r = (p && p.fileObj && p.fileObj.webkitRelativePath) || (p && p.path) || ''; return r ? r.split('/').slice(1).join('/') : (p && p.file) || ''; };
@@ -403,12 +403,17 @@
       // Sidecars that are not text (Latin-1, UTF-16, binary): the same count, until the page has its own line.
       for (const rel of L.unreadableXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar unreadable, not read' });
       logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, xsaved: {}, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
-      // Rows appear as the contiguous prefix grows: every 400 ms, as in the page; every 1.5 s while
-      // the reader is scrolling, so the grid isn't rebuilt under a moving scroll (plumbing's pacing).
+      // Rows appear as the contiguous prefix grows, at most every 400 ms. As in v8's page: never under a
+      // moving scroll (the rebuild waits until 450 ms after the last scroll), and the row at the top of
+      // the viewport stays where it is (the page's scrollAnchor, applied in its componentDidUpdate).
       const grow = force => {
+        if (reading !== run) return;
         while (pre < files.length && res[pre] !== undefined) pre++;
-        const now = performance.now(); if (!force && (pre < 48 || now - lastB < (now - scrollT < 300 ? 1500 : 400))) return; lastB = now;
-        logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null;
+        const now = performance.now(); if (!force && pre < 48) return;
+        if (!force && now - scrollT < 450) { clearTimeout(growT); growT = setTimeout(() => grow(false), 480); return; }
+        if (!force && now - lastB < 400) return; lastB = now;
+        const anc = shown && typeof logic.scrollAnchor === 'function' ? logic.scrollAnchor() : null;
+        logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null; if (anc) logic._anc = anc;
         if (!shown) { shown = true; firstCur = logic.data.order[0]; logic.setState({ cur: firstCur }); logic.setView('cull', true); } else logic.forceUpdate();
       };
       const one = async (f, k) => {
@@ -421,6 +426,7 @@
       await Promise.all(Array.from({ length: Math.max(1, L.workers || 4) }, async () => { while (i < files.length && !run.gone) { const k = i++; await one(files[k], k); } }));
       // Card pulled: the readers stopped. What wasn't read counts as unreadable, as the page counts it.
       for (; i < files.length; i++) { res[i] = { err: true }; logic._failed.push({ name: files[i].rel.split('/').pop(), reason: 'card removed' }); }
+      clearTimeout(growT);
       const ok = res.filter(p => p && !p.err);
       reading = null;
       lastRead = { name: L.name, total: files.length, read: ok.length, unreadable: files.length - ok.length, stopped: run.gone ? 'card removed' : null, secs: +((performance.now() - t0) / 1000).toFixed(1) };
@@ -630,9 +636,17 @@
   // has it, and return to the page's own ±700 px when the scroll rests.
   const CULL = '[data-screen-label="1 Cull"]';
   let tilesOn = cfg.readyTiles !== false && !cfg.parity;
+  // The fade is off only until the picture is on screen: two frames after it loaded, the page's own
+  // transition comes back, so marking a photo out (its brightness) and the source filter (its opacity)
+  // still ease as the design has them instead of snapping on every tile that scrolled in.
   const readyTile = im => {
     if (im.loading === 'lazy') im.loading = 'eager';
-    if (!(reading && performance.now() - scrollT > 300)) im.style.transition = 'none';
+    if (reading && performance.now() - scrollT > 300) return;
+    const own = im.style.transition;
+    if (own === 'none') return;
+    im.style.transition = 'none';
+    const back = () => requestAnimationFrame(() => requestAnimationFrame(() => { if (im.style.transition === 'none') im.style.transition = own; }));
+    im.addEventListener('load', back, { once: true }); im.addEventListener('error', back, { once: true });
   };
   if (typeof MutationObserver === 'function') new MutationObserver(list => {
     if (!tilesOn || !current || !current.real) return;
@@ -651,7 +665,12 @@
     const own = logic.onScroll;
     let lastTop = null, lastT = 0, rest = 0, held = 0, dir = 0;
     logic.onScroll = function () {
-      if (!leadOn) return own.call(logic);
+      // The page's own handler runs first, every time: it moves the time axis with the scroll (no
+      // React render per frame), notes the direction and the scroll time (its read holds the grid's
+      // rebuild while that is recent) and whether the reader moved during a read, and narrows the window
+      // 240 ms after the scroll rests. Only the rows window it schedules is replaced by the lead below.
+      own.call(logic);
+      if (!leadOn) return;
       cancelAnimationFrame(logic._sr);
       logic._sr = requestAnimationFrame(() => {
         const el = logic.scrollRef.current; if (!el) return;
@@ -875,13 +894,17 @@
     access(denied, what) { window.luminaAccess(!!denied, what || ''); },
     // A menu item (BRIDGE.md, MENUS v7). While Edit is the active step, Undo, Redo, Copy and Paste
     // are Edit's own (window.luminaEdit); everything else goes to Sets' luminaCommand.
+    // Keys typed fast wait in the page's queue (one per frame). A menu shortcut is a ⌘ key the page
+    // never sees, so it would act before them (⌘Z undoing the keep before the last one); the page's
+    // own rule for ⌘ keys is to run the queue first, so plumbing does that here.
     command(name) {
       const l = current, E = window.luminaEdit;
+      if (l && typeof l.flushKeys === 'function') l.flushKeys();
       if (l && l.state.view === 'edit' && E && ['undo', 'redo', 'copy', 'paste'].includes(name) && typeof E[name] === 'function') { E[name](); return true; }
       return typeof window.luminaCommand === 'function' ? window.luminaCommand(name) : false;
     },
     // View ▸ Zoom 100%: Z is a hold key in the page; the menu toggles it through the page's gesture hook.
-    zoom() { const l = window.__lumina.logic(); if (l && typeof window.luminaGesture === 'function') window.luminaGesture('hold', { key: 'z', down: !l.state.zoom }); },
+    zoom() { const l = window.__lumina.logic(); if (l && typeof l.flushKeys === 'function') l.flushKeys(); if (l && typeof window.luminaGesture === 'function') window.luminaGesture('hold', { key: 'z', down: !l.state.zoom }); },
     // Quit asks when there are keepers not yet saved (MENUS.md): their count, or 0.
     unsaved() {
       const l = window.__lumina.logic();
