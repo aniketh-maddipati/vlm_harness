@@ -25,6 +25,12 @@
    "known": "Tests/selftest-known.json",
    "atLeast": 25,
    "why": "every failing check fails, the timing checks included, except the four that still describe v5 (DESIGN-ASKS Prompt 12 ask 4): reported, and reported again when one passes"
+  },
+  {
+   "do": "js",
+   "what": "timing facts (report only): CPU, rAF and timer cadence, large view open; compared between the plain and the sandboxed run",
+   "timeoutMs": 60000,
+   "src": "const wait=ms=>new Promise(r=>setTimeout(r,ms)), raf=()=>new Promise(r=>requestAnimationFrame(()=>r()));\nconst key=(t,k,c)=>window.dispatchEvent(new KeyboardEvent(t,{key:k,code:c,bubbles:true}));\nlet t=performance.now(), x=0; for(let i=0;i<2e7;i++) x+=i%7; const cpu=performance.now()-t;\nconst fr=[]; let last=performance.now(); for(let i=0;i<30;i++){ await raf(); const n=performance.now(); fr.push(n-last); last=n; } fr.sort((a,b)=>a-b);\nconst tm=[]; for(let i=0;i<10;i++){ const a=performance.now(); await wait(20); tm.push(performance.now()-a); } tm.sort((a,b)=>a-b);\nconst lg=[]; for(let i=0;i<5;i++){ const a=performance.now(); key('keydown',' ','Space'); const s=performance.now()-a; await raf(); const r1=performance.now()-a; await raf(); const r2=performance.now()-a; key('keyup',' ','Space'); await wait(300); key('keydown','Escape','Escape'); key('keyup','Escape','Escape'); await wait(300); lg.push(s.toFixed(0)+'/'+r1.toFixed(0)+'/'+r2.toFixed(0)); }\nconst f=v=>v.toFixed(1);\nreturn 'diag · cpu 2e7 loop '+f(cpu)+' ms · rAF gap p50 '+f(fr[15])+' max '+f(fr[29])+' ms · setTimeout(20) p50 '+f(tm[5])+' max '+f(tm[9])+' ms · large open sync/rAF1/rAF2 '+lg.join(' ')+' ms · '+document.visibilityState+' · dpr '+devicePixelRatio+' · cores '+navigator.hardwareConcurrency;"
   }
  ]
 }
