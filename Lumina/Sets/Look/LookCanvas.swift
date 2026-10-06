@@ -115,7 +115,7 @@ final class LookCanvasController: NSObject {
     }
 
     /// What the last `layout` placed: the same again, holes aside, changes nothing.
-    private struct Placement: Equatable { let rect: CGRect; let visible: Bool; let dpr: CGFloat; let hostHeight: CGFloat }
+    private struct Placement: Equatable { let rect: CGRect; let visible: Bool; let dpr: CGFloat; let hostHeight: CGFloat; let viewportHeight: CGFloat? }
 
     struct Neighbour { let rel: String; let url: URL; let preview: LookBases.PreviewFallback? }
 
@@ -347,10 +347,21 @@ final class LookCanvasController: NSObject {
             && abs(o.x) <= 2 * maxDrawableEdge && abs(o.y) <= 2 * maxDrawableEdge && dpr > 0 && dpr <= 16
     }
 
-    /// The page's canvas rect in CSS px (origin top-left of the web view), whether Edit is showing,
-    /// and the page chrome over it to leave see-through (`LookCanvasHoles.parse`'s frame). Holes
-    /// alone change only the mask: no base, render or cache key follows them.
-    func layout(rect: CGRect, visible: Bool, dpr: CGFloat, holes: [CGRect] = []) {
+    /// Where the page's canvas rect (CSS px, origin the viewport's top-left) sits in the host
+    /// (bottom-left origin). The web view fills the host, but on macOS 26 it keeps the strip under
+    /// the title bar out of the page (its obscured content inset), so CSS y = 0 is that far below
+    /// the host's top. The viewport's bottom is the host's bottom either way, so the rect is placed
+    /// up from there: `viewportHeight` is the page's `innerHeight`. Without it (or one taller than
+    /// the host), the viewport is the whole host, as before.
+    nonisolated static func frame(for rect: CGRect, hostHeight: CGFloat, viewportHeight: CGFloat?) -> NSRect {
+        let vh = viewportHeight.flatMap { $0.isFinite && $0 > 0 && $0 <= hostHeight ? $0 : nil } ?? hostHeight
+        return NSRect(x: rect.minX, y: vh - rect.minY - rect.height, width: rect.width, height: rect.height).integral
+    }
+
+    /// The page's canvas rect in CSS px (origin top-left of the page's viewport), whether Edit is
+    /// showing, and the page chrome over it to leave see-through (`LookCanvasHoles.parse`'s frame).
+    /// Holes alone change only the mask: no base, render or cache key follows them.
+    func layout(rect: CGRect, visible: Bool, dpr: CGFloat, holes: [CGRect] = [], viewportHeight: CGFloat? = nil) {
         // Not a rect a display can hold (not finite, negative, absurdly large): the canvas hides and
         // keeps the size it had. `Int(_:)` on such a number stops the app (Q4-hostile F2).
         guard Self.layable(rect, dpr: dpr) else {
@@ -362,21 +373,22 @@ final class LookCanvasController: NSObject {
         }
         stats.dpr = Double(dpr)
         guard let view, let host = view.superview else { return }
-        let placed = Placement(rect: rect, visible: visible, dpr: dpr, hostHeight: host.bounds.height)
+        let placed = Placement(rect: rect, visible: visible, dpr: dpr, hostHeight: host.bounds.height, viewportHeight: viewportHeight)
         if placed == placement {
             if holes != self.holes { applyHoles(holes) }
             return
         }
         placement = placed
-        let r = NSRect(x: rect.minX, y: host.bounds.height - rect.minY - rect.height, width: rect.width, height: rect.height).integral
+        let r = Self.frame(for: rect, hostHeight: host.bounds.height, viewportHeight: viewportHeight)
         // Never past Metal's largest texture edge (a 16,384 px rect at 2× would ask for twice that).
         let px = CGSize(width: min(Self.maxDrawableEdge, max(1, (rect.width * dpr).rounded())), height: min(Self.maxDrawableEdge, max(1, (rect.height * dpr).rounded())))
         let sizeChanged = view.frame.size != r.size || view.drawableSize != px
         view.frame = r
         view.drawableSize = px
         // The drawable is sized by hand (`autoResizeDrawable` is off), so the layer's scale is ours
-        // to set too. Left at 1 on a 2× display, the layer is composited at half its pixels once it
-        // has a mask (the holes), and the photo is soft however sharp the drawable is.
+        // to set too. Left at 1 on a 2× display the layer is composited at half its pixels, and the
+        // photo is soft however sharp the drawable is (measured on screen: 1 px stripes blur at 1,
+        // resolve fully at the window's scale, with or without the holes' mask).
         if let scale = view.window?.backingScaleFactor, view.layer?.contentsScale != scale { view.layer?.contentsScale = scale }
         applyHoles(holes)
         stats.canvas = [Int(px.width), Int(px.height)]
