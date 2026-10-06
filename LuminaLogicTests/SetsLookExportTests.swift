@@ -50,4 +50,39 @@ final class SetsLookExportTests: XCTestCase {
         let r = job.run(journal: nil)
         XCTAssertEqual(r.n, 1); XCTAssertEqual(r.decoders, ["embedded image"]); XCTAssertTrue(r.fallbacks.isEmpty); XCTAssertEqual(r.renderMs.count, 1)
     }
+
+    /// An export says what SetsExportMetadata allows and nothing else (docs/release/TRUST.md I7):
+    /// a source with a location, serial numbers and a credit renders to a JPEG that keeps the credit
+    /// and the capture time and loses the rest, and to a PNG with nothing refused.
+    func testExportMetadataIsTheAllowlist() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("look-meta-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let pipe = try LookPipeline(rules: LookTestRules.load())
+        let plain = try pipe.png(pipe.ramp(steps: 16, columnWidth: 4, height: 16).image)
+        let file = dir.appendingPathComponent("tagged.jpg")
+        let src = try XCTUnwrap(CGImageSourceCreateWithData(plain as CFData, nil))
+        let out = NSMutableData()
+        let dest = try XCTUnwrap(CGImageDestinationCreateWithData(out, "public.jpeg" as CFString, 1, nil))
+        let tags: [CFString: Any] = [
+            kCGImagePropertyGPSDictionary: [kCGImagePropertyGPSLatitude: 51.5, kCGImagePropertyGPSLatitudeRef: "N", kCGImagePropertyGPSLongitude: 0.12, kCGImagePropertyGPSLongitudeRef: "W"] as [CFString: Any],
+            kCGImagePropertyExifDictionary: [kCGImagePropertyExifDateTimeOriginal: "2026:09:08 14:30:00", kCGImagePropertyExifBodySerialNumber: "1234567", kCGImagePropertyExifLensSerialNumber: "7654321"],
+            kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFArtist: "Sam", kCGImagePropertyTIFFCopyright: "© Sam", kCGImagePropertyTIFFMake: "SONY"],
+        ]
+        CGImageDestinationAddImageFromSource(dest, src, 0, tags as CFDictionary)
+        XCTAssertTrue(CGImageDestinationFinalize(dest))
+        try (out as Data).write(to: file)
+        for format in ["jpg", "png"] {
+            let (data, _) = try SetsLookExport.render(raw: file, look: "ev:+0.3", px: 32, format: format, decoder: nil)
+            let r = try XCTUnwrap(CGImageSourceCreateWithData(data as CFData, nil))
+            let props = CGImageSourceCopyPropertiesAtIndex(r, 0, nil) as? [String: Any] ?? [:]
+            XCTAssertNil(props["{GPS}"], format)
+            XCTAssertEqual(SetsExportMetadata.refused(in: props), [], format)
+            guard format == "jpg" else { continue }   // a PNG may carry them as XMP only; what matters there is what it doesn't carry
+            let exif = props["{Exif}"] as? [String: Any], tiff = props["{TIFF}"] as? [String: Any]
+            XCTAssertEqual(exif?["DateTimeOriginal"] as? String, "2026:09:08 14:30:00", format)
+            XCTAssertEqual(tiff?["Artist"] as? String, "Sam", format)
+            XCTAssertEqual(tiff?["Copyright"] as? String, "© Sam", format)
+        }
+    }
 }

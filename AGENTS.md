@@ -46,7 +46,9 @@ the active step. The page keeps drawing the filmstrip, sliders and facts. Withou
 the same schedule runs on `lumina://render` images the page shows itself (`canvas: image` in the
 facts line). Everything else the app shows is the page's.
 
-Trust rules, from the ROADMAP; the tests enforce them:
+Trust rules, from the ROADMAP; the tests enforce them (the full list, and everything the app can
+reach, is `docs/release/TRUST.md`; `python3 Scripts/trust_check.py` fails CI when the code reaches
+something it doesn't list):
 - never write to the card or change originals (v5 writes only `.xmp` sidecars, into the shoot folder);
 - copy, never move, and verify every copy;
 - keep a `.lumina-bak` before replacing any file;
@@ -60,9 +62,10 @@ Trust rules, from the ROADMAP; the tests enforce them:
 
 # Linux too: the real page in headless Chromium with plumbing.js and a Node stand-in for SetsBridge
 node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, sidecars, card, access
+python3 Scripts/trust_check.py               # docs/release/TRUST.md's inventory against the code (CI: design handoff)
 node Tests/web/parity.mjs                    # screens-* in prototype vs app parity mode, every snapshot diffed
 # WebKit sandbox (WebKitGTK + JavaScriptCore, real script-message handler): contract, selftest, app flow, screens
-xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py   # apt: gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb
+xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py   # apt: gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb; runs under the app's offline layers, ends with the escape test (offline)
 # Fast scrolling over 400 synthetic ARWs at a Retina pixel ratio (numbers reported, not gated)
 GDK_SCALE=2 xvfb-run -a -s "-screen 0 5200x3000x24" /usr/bin/python3.12 Tests/web/webkit.py scroll
 # The Foundation-only Swift (SetsFileOps, SetsShootStore, SetsExport, SetsIngest, LookString/LookRules/LookMath) + its tests, Swift 6.1 in Docker
@@ -191,6 +194,9 @@ harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift
   the Claude sessions open in a checkout: those can start tests again and only you can close them.
 
 ## Rules that bite
+
+- **New reach needs a row in `docs/release/TRUST.md`.** A bridge op, entitlement, permission prompt, `NSWorkspace.shared.open`, URL in Swift, privacy-manifest reason or vendored file that the inventory doesn't list fails `Scripts/trust_check.py` (CI's `design handoff` job). It also fails on a networking API in app code, `NSLog` or `print` (log through `LuminaLog`, names and paths `.private`), a network call in `plumbing.js`, an unpinned Action and a Swift package.
+- **The page's offline layers live in `SetsOffline.swift`** (content rules, the page's CSP, the no-WebRTC script). `Tests/web/webkit.py offline` reads them from that file and tries 32 ways out against a local listener; `app-offline` (in `probe.sh smoke`) checks them in WKWebView. A design that needs a new source (a font, a worker) is a change there, reviewed like an entitlement.
 
 - **Don't edit `Lumina/Sets/Web/*.html|support.js|lumina-core-v4.js|lumina-v4-data.js|lumina-selftest.js|vendor`.** Change the design, then sync. `SetsPageBytesTests` and CI fail on drift.
 - **`plumbing.js` supplies behaviour and data, never UI.** If the page can't show something, that's a design ask.

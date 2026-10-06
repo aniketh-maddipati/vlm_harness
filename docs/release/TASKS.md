@@ -42,7 +42,7 @@ Rules for every worker:
 
 ## Open · blocks the store submission
 
-6. **Trust model (one thread, draft #215):** S1 network lockdown (WebRTC, a CSP header; a scenario that tries 8 channels against a local listener), the external-link allowlist wired in (`SetsExternalLinks.swift` has no caller), R7 private paths in logs.
+6. **Trust model (#215).** Landed 2026-10-06: S1 network lockdown (`SetsOffline`: content rules, a CSP header, WebRTC removed; 32 channels in `webkit.py offline`, and `app-offline` passed on the Mac), the external-link and navigation allowlist wired in (`SetsExternalLinks.verdict`), R7 private paths in logs (`LuminaLog`), the export metadata allowlist, `TRUST.md` + `trust_check.py`. Left: D2 itself (only a native UI lets macOS enforce it).
 7. **Stress, each run asked for, bounded, under the guard.** Q1 scale, Q2 storage, Q3 lifecycle (their WIP branches are gone; start again from `STRESS-MATRIX.md`), Q5 soak 8 h.
 8. **Hand checks for S6 (five minutes).** Kill the page's process 4 times in a minute (3 reloads, then the alert); Quit with the page hung (about 2 s); Quit with unsaved keepers (the usual alert).
 9. **Fresh machine (Q6), by hand.** The procedure below, on macOS 15 and 26, store and dmg.
@@ -50,7 +50,7 @@ Rules for every worker:
 ## Open · before the public listing
 
 - The listing (R5): drafts in `docs/release/listing/`. Left: screenshots of the v11 UI (2880 × 1800), the privacy and support pages published at real URLs, the five sample ARWs uploaded for review.
-- R8 leftovers: a damaged `index.json` or session is kept aside (this change); the navigation allowlist is part of item 6.
+- R8: a damaged `index.json` or session is kept aside (#217); the navigation allowlist landed with item 6 (#215).
 - Known gaps, accepted or to schedule: a huge folder is refused in about 2 s on a fast Mac and about 5 s on a slow one; a link swapped in between the path check and the open by render, canvas or export (S5); F6 and F9 in `stress/Q4-hostile.md`.
 
 ## Q6 · fresh-machine procedure

@@ -3,6 +3,7 @@ import CoreImage
 import Metal
 import MetalKit
 import QuartzCore
+import os
 
 /// The Edit canvas (roadmap addendum §2): a Metal view laid over the page's canvas rect. The
 /// page keeps drawing the filmstrip, sliders and facts; this view is pixels only, takes no
@@ -505,7 +506,7 @@ final class LookCanvasController: NSObject {
                 if self.fallbackVersions[rel] == nil, let prev = LookRawPolicy.fallback(after: version, supported: supported) {
                     self.fallbackVersions[rel] = prev
                     self.stats.decoderFallbacks.append("\(rel): \(version) → \(prev) (\(e))")
-                    NSLog("Lumina: RAW decoder \(version) failed for \(rel) (\(e)); using \(prev)")
+                    LuminaLog.canvas.error("RAW decoder \(version, privacy: .public) failed for \(rel, privacy: .private) (\(String(describing: e), privacy: .private)); using \(prev, privacy: .public)")
                     self.onDecoderFallback?(rel, version, prev)
                     self.refine(rel: rel, url: url, decoder: prev, roi: roi)
                 } else {
@@ -897,7 +898,7 @@ final class LookCanvasController: NSObject {
                 guard let self else { return }
                 // Region tiles first, then the neighbours' bases, never the current photo's (§5).
                 let t = self.tiles.drop(), b = self.bases.dropPrefetched()
-                NSLog("Lumina: memory pressure: dropped \(t) region tiles and \(b) prefetched bases")
+                LuminaLog.canvas.notice("memory pressure: dropped \(t, privacy: .public) region tiles and \(b, privacy: .public) prefetched bases")
             }
         }
         src.resume()
