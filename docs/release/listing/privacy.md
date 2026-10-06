@@ -15,4 +15,4 @@ Lumina Editor does not collect, store or share any information about you.
 - **Crash reports.** If you have chosen to share analytics with app developers in macOS settings,
   Apple may send us anonymous crash reports. That is controlled by macOS, not by the app.
 
-Questions: <contact email or support page URL>
+Questions: anikethcov@gmail.com, or the support page.

@@ -1,6 +1,6 @@
 # Lumina Editor: support
 
-**Contact:** <email address>. Include your macOS version, your Mac model and what you did just before
+**Contact:** anikethcov@gmail.com · [LinkedIn](https://www.linkedin.com/in/anikethmaddipati). Include your macOS version, your Mac model and what you did just before
 the problem.
 
 ## Common questions
