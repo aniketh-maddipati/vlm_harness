@@ -66,7 +66,7 @@ sets, the Capture One XMP preference and rejects; the macOS access-denied prompt
   Shadows are where we're working now.
 - Vibrance is too weak on skin tones (2–4× less colour gain than Lightroom) and too strong on greens and blues.
 - Edits are not written to XMP. Only ratings travel to Lightroom; an edited picture leaves Lumina as a JPEG.
-- Sony ARW only. Apple silicon, macOS 14 or later.
+- Sony ARW only. Apple silicon, macOS 15 or later.
 - Apple's newest RAW decoder (RAW 9) needs macOS 27. Older systems use the previous decoder.
 
 ## Edit vs Lightroom: the numbers
