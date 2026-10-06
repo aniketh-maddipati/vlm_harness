@@ -37,7 +37,19 @@ nonisolated final class LookBases: @unchecked Sendable {
         }
 
         var description: String { "\(rel)|d\(decoder ?? 0)|\(crop)|r\(rotation)\(rot == 0 ? "" : "|q\(rot)")|\(width)x\(height)|nr\(nr ?? -1)" }
+
+        /// The embedded JPEG's base for the same photo, crop and canvas: what the canvas shows
+        /// while this key's RAW develops (`build(jpegOnly:)`). Decoder −1 is no RAW decoder's.
+        var jpegFirst: Key { Key(self, decoder: Self.jpegDecoder) }
+        static let jpegDecoder = -1
+
+        private init(_ k: Key, decoder: Int?) {
+            rel = k.rel; self.decoder = decoder; crop = k.crop; rotation = k.rotation; rot = k.rot; width = k.width; height = k.height; nr = k.nr
+        }
     }
+
+    /// `build(jpegOnly: true)`: straight to the embedded JPEG, no RAW develop.
+    private struct JPEGFirst: Error {}
 
     /// The embedded JPEG's byte range, the stand-in when the RAW can't be developed.
     struct PreviewFallback: Sendable, Equatable { let offset: Int; let length: Int; let orientation: Int }
@@ -142,7 +154,7 @@ nonisolated final class LookBases: @unchecked Sendable {
 
     /// The photo's bases, built now on the calling queue when not cached. `preview` is the
     /// embedded JPEG's range, used only when the RAW can't be developed.
-    func build(_ key: Key, url: URL, look: Look, preview: PreviewFallback?) throws -> Entry {
+    func build(_ key: Key, url: URL, look: Look, preview: PreviewFallback?, jpegOnly: Bool = false) throws -> Entry {
         if let e = entry(key) { return e }
         let t0 = Date()
         let margin = 1 + LookRawPolicy.baseMargin
@@ -155,9 +167,10 @@ nonisolated final class LookBases: @unchecked Sendable {
         let px = native.map { Int((max($0.width, $0.height) * fit).rounded(.up)) }
         var dev: LookPipeline.Developed
         do {
+            if jpegOnly { throw JPEGFirst() }
             dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipeline.rules, decoderVersion: key.decoder, nr: look.nr)
         } catch {
-            guard let p = preview else { lock.withLock { _stats.failed += 1 }; throw error }
+            guard let p = preview else { if !jpegOnly { lock.withLock { _stats.failed += 1 } }; throw error }
             source = "jpeg"
             dev = try LookPipeline.developPreview(url: url, offset: p.offset, length: p.length, orientation: p.orientation, longEdge: nil)
             let c = Self.croppedSize(dev.extent.size, look.crop, rot: look.rot)
@@ -199,11 +212,11 @@ nonisolated final class LookBases: @unchecked Sendable {
     }
 
     /// Builds on the build queue; `done` on the main thread.
-    func request(_ key: Key, url: URL, look: Look, preview: PreviewFallback?, done: @escaping (Result<Entry, Error>) -> Void) {
+    func request(_ key: Key, url: URL, look: Look, preview: PreviewFallback?, jpegOnly: Bool = false, done: @escaping (Result<Entry, Error>) -> Void) {
         let started: Bool = lock.withLock { building.insert(key).inserted }
         guard started else { return }
         buildQueue.addOperation { [self] in
-            let r = Result { try LookTrace.span("base build \(key.rel.split(separator: "/").last ?? "")") { try self.build(key, url: url, look: look, preview: preview) } }
+            let r = Result { try LookTrace.span("base build \(key.rel.split(separator: "/").last ?? "")") { try self.build(key, url: url, look: look, preview: preview, jpegOnly: jpegOnly) } }
             lock.withLock { _ = building.remove(key) }
             DispatchQueue.main.async { done(r) }
         }

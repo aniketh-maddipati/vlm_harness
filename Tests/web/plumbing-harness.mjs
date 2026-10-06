@@ -235,9 +235,10 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   await page.evaluate(() => { lumina.edit.leave(); delete window.luminaEditImage; delete window.luminaEditFacts; });
   ok(bridge.canvas.entered.some(e => e.leave) && (await page.evaluate(() => lumina.edit.state().rel)) === null && bridge.canvas.layouts[bridge.canvas.layouts.length - 1].visible === false, 'edit: leave hides the canvas and tells the Mac');
   ok((await page.evaluate(() => { try { lumina.edit.look('ev:+0.10', { drag: true }); lumina.edit.dragEnd(); return true; } catch (e) { return String(e); } })) === true, 'edit: calls after leave are harmless no-ops');
-  // A photo the canvas can't show (sam's "rendering…" over a blank frame): canvasEnter refused, or no
-  // frame comes. lumina.preview answers false, so the page draws its own preview; the canvas hides and
-  // the facts line says why. The next photo comes back on the canvas, answered once its frame shows.
+  // A photo the canvas can't show (sam's "rendering…" over a blank frame). The page never draws a
+  // preview of its own on the native path: lumina.preview stays null. A refused canvasEnter hides the
+  // canvas and the facts say why; a canvas that sends no frame is entered again from clean once, and
+  // if that sends none either the facts say so until a frame comes.
   { bridge.canvas.path = 'native';
     const rels = await page.evaluate(() => __lumina.logic().data.order.map(id => __lumina.logic().data.byId[id].path).slice(0, 4));
     await page.evaluate(() => { window.__facts = []; window.luminaFacts = f => window.__facts.push(f); lumina.edit.layout({ x: 300, y: 80, w: 900, h: 600 }, true); });
@@ -245,23 +246,30 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     bridge.canvas.refuse = 'not in an opened folder';
     const n0 = bridge.canvas.layouts.length;
     const bad = await page.evaluate(rel => Promise.resolve(lumina.preview(rel, '', 900, 30)), rels[1]);
+    await page.waitForTimeout(50);
     const badSt = await page.evaluate(() => ({ st: lumina.edit.state(), facts: lumina.edit.facts(), again: lumina.preview(lumina.edit.state().rel, 'ev:+0.10', 900, 31), seen: window.__facts.slice(-1)[0] }));
     const Lb = bridge.canvas.layouts.slice(n0);
-    ok(bad === false && badSt.again === false && badSt.st.visible === false && Lb.length && Lb[Lb.length - 1].visible === false && Lb[Lb.length - 1].w === 900,
-      'edit (native): a photo canvasEnter refuses answers lumina.preview false (the page draws its own preview) and hides the canvas at its rect', { bad, again: badSt.again, layouts: Lb });
-    ok(/showing the embedded JPEG · not in an opened folder/.test(badSt.facts.text) && badSt.seen && /not in an opened folder/.test(badSt.seen.note || ''), 'edit (native): the facts line says why the photo is not on the canvas', { text: badSt.facts.text, seen: badSt.seen });
+    ok(bad == null && badSt.again == null && badSt.st.visible === false && Lb.length && Lb[Lb.length - 1].visible === false && Lb[Lb.length - 1].w === 900,
+      'edit (native): a photo canvasEnter refuses hides the canvas at its rect; lumina.preview stays null (no page JPEG)', { bad, again: badSt.again, layouts: Lb });
+    ok(/not on the canvas: not in an opened folder/.test(badSt.facts.text) && !/embedded JPEG/.test(badSt.facts.text) && badSt.seen && /not in an opened folder/.test(badSt.seen.note || ''), 'edit (native): the facts line says why the photo is not on the canvas', { text: badSt.facts.text, seen: badSt.seen });
     bridge.canvas.refuse = null;
     const n1 = bridge.canvas.layouts.length;
     const good = await page.evaluate(async rel => { const p = Promise.resolve(lumina.preview(rel, '', 900, 40)); await new Promise(r => setTimeout(r, 50)); __lumina.editPresented(40); return { v: await p, st: lumina.edit.state(), text: lumina.edit.facts().text }; }, rels[2]);
     const Lg = bridge.canvas.layouts.slice(n1);
-    ok(good.v === null && good.st.visible === true && Lg.length && Lg[Lg.length - 1].visible === true && !/embedded JPEG/.test(good.text), 'edit (native): the next photo is back on the canvas, answered when its frame is presented', { good, layouts: Lg });
-    const t0 = Date.now();
+    ok(good.v == null && good.st.visible === true && Lg.length && Lg[Lg.length - 1].visible === true && !/not on the canvas/.test(good.text), 'edit (native): the next photo is back on the canvas', { good, layouts: Lg });
+    const e2 = bridge.canvas.entered.length, k2 = (bridge.canvas.looks || []).length;
     const slow = await page.evaluate(rel => Promise.resolve(lumina.preview(rel, '', 900, 50)), rels[3]);
-    const slowSt = await page.evaluate(() => ({ st: lumina.edit.state(), text: lumina.edit.facts().text }));
-    ok(slow === false && Date.now() - t0 >= 4500 && slowSt.st.visible === false && /no frame from the canvas/.test(slowSt.text), 'edit (native): no frame within 5 s: the page draws its own preview and the facts say so', { slow, ms: Date.now() - t0, slowSt });
+    await page.waitForTimeout(5400);
+    const E = bridge.canvas.entered.slice(e2), K = (bridge.canvas.looks || []).slice(k2);
+    const retry = await page.evaluate(() => ({ st: lumina.edit.state(), text: lumina.edit.facts().text }));
+    ok(slow == null && E.some(e => e.leave) && E.filter(e => !e.leave && e.rel === rels[3]).length === 2 && retry.st.visible === true && !/no frame/.test(retry.text),
+      'edit (native): no frame within 5 s: the canvas is left and entered again from clean, once', { E, retry });
+    ok(!bridge.canvas.looks || K.filter(l => l.seq === 50).length >= 2, 'edit (native): the retry sends the look again with the same seq', K);
+    await page.waitForTimeout(5300);
+    const stuck = await page.evaluate(() => lumina.edit.facts().text);
+    ok(/no frame from the canvas yet/.test(stuck) && bridge.canvas.entered.slice(e2).filter(e => !e.leave && e.rel === rels[3]).length === 2, 'edit (native): still no frame after the retry: the facts say so and nothing loops', stuck);
     const late = await page.evaluate(() => { __lumina.editPresented(50); return { st: lumina.edit.state(), text: lumina.edit.facts().text }; });
-    await page.waitForTimeout(50);
-    ok(late.st.visible === true && !/embedded JPEG/.test(late.text) && bridge.canvas.layouts[bridge.canvas.layouts.length - 1].visible === true, 'edit (native): a frame that comes late brings the canvas back', late);
+    ok(late.st.visible === true && !/no frame/.test(late.text), 'edit (native): a frame that comes late clears the note', late);
     await page.evaluate(() => { lumina.edit.leave(); delete window.luminaFacts; });
     bridge.canvas.path = 'image'; }
 

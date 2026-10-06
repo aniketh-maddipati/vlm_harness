@@ -552,6 +552,33 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertThrowsError(try bases.build(LookBases.Key(rel: "s/missing.png", decoder: nil, look: Look(), canvas: canvas), url: dir.appendingPathComponent("missing.png"), look: Look(), preview: nil))
     }
 
+    /// The canvas's first frame (Lightroom's order): `jpegFirst` is the same photo, crop and canvas
+    /// under a decoder no RAW has, and `build(jpegOnly:)` makes it from the embedded JPEG alone,
+    /// never a RAW develop, never counted as a failure. Without a JPEG range it throws.
+    func testJPEGFirstIsTheEmbeddedPreviewNeverARawDevelop() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("look-jpegfirst-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let img = CIImage(color: CIColor(red: 0.2, green: 0.6, blue: 0.9)).cropped(to: CGRect(x: 0, y: 0, width: 120, height: 80))
+        let jpeg = try XCTUnwrap(CIContext().jpegRepresentation(of: img, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, options: [:]))
+        let url = dir.appendingPathComponent("DSC00001.ARW")
+        try (Data(repeating: 0, count: 4096) + jpeg).write(to: url)
+
+        let key = LookBases.Key(rel: "s/DSC00001.ARW", decoder: 8, look: Look(), canvas: CGSize(width: 200, height: 200)), jk = key.jpegFirst
+        XCTAssertEqual(jk.decoder, LookBases.Key.jpegDecoder)
+        XCTAssertNotEqual(jk, key)
+        XCTAssertEqual([jk.rel, "\(jk.width)x\(jk.height)", jk.crop], [key.rel, "\(key.width)x\(key.height)", key.crop])
+
+        let bases = LookBases(pipeline: pipe, byteCap: 64 << 20, maxPhotos: 3)
+        let e = try bases.build(jk, url: url, look: Look(), preview: .init(offset: 4096, length: jpeg.count, orientation: 1), jpegOnly: true)
+        XCTAssertEqual(e.source, "jpeg")
+        XCTAssertNil(e.decoder)
+        XCTAssertNotNil(bases.entry(jk)); XCTAssertNil(bases.entry(key), "the RAW's key is still to build")
+        XCTAssertThrowsError(try bases.build(LookBases.Key(rel: "s/other.ARW", decoder: 8, look: Look(), canvas: CGSize(width: 200, height: 200)).jpegFirst,
+                                             url: url, look: Look(), preview: nil, jpegOnly: true))
+        XCTAssertEqual(bases.stats.failed, 0, "a JPEG-first build is never a failed develop")
+    }
+
     /// The lens-shading gain as an image: 1 at the centre, the camera's corner gain at the corners,
     /// the same in every quadrant.
     func testShadingGainImageIsRadialAndCoversTheFrame() throws {

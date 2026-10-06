@@ -556,13 +556,31 @@ final class LookCanvasController: NSObject {
 
     private func ensureBases() {
         guard let c = current, c.entry == nil else { return }
+        // Lightroom's order: the embedded JPEG on the canvas at once (a few ms to decode), the RAW
+        // in its place when it lands. Both on the one build queue, the JPEG first, so nothing
+        // waits behind a RAW develop to show the photo. Sliders run on whichever is on screen.
+        if let p = c.preview, LookPipeline.isRAW(c.url) {
+            let jk = c.key.jpegFirst
+            if let e = bases.entry(jk) { current?.entry = e; setFacts(); kick() }
+            else {
+                bases.request(jk, url: c.url, look: c.look, preview: p, jpegOnly: true) { [weak self] r in
+                    guard let self, let cur = self.current, cur.key == c.key, cur.entry == nil, case .success(let e) = r else { return }
+                    self.current?.entry = e
+                    self.setFacts()
+                    self.kick()
+                }
+            }
+        }
         bases.request(c.key, url: c.url, look: c.look, preview: c.preview) { [weak self] r in
             guard let self, let cur = self.current, cur.key == c.key else { return }
             switch r {
             case .success(let e):
+                let stoodIn = cur.entry != nil
                 self.current?.entry = e
                 self.tellAsShot()
                 self.setFacts()
+                // The JPEG was on screen: the same look again, now on the RAW.
+                if stoodIn, let l = self.schedule.presentedLook ?? self.current?.look.format() { _ = self.schedule.keystroke(l, at: self.now()) }
                 self.kick()
                 self.updatePrefetch()
             case .failure(let e):
