@@ -227,21 +227,22 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 }
 
-/// Flat, seeded stand-ins for the sample shoot: sky and ground with a hue from the seed.
+/// Flat, seeded stand-ins for the sample shoot: one colour per photo, its hue from the seed.
+/// No edge inside the picture (a sky and ground used to meet at a horizon): the screens twins draw
+/// the same stand-in from differently sized decodes (the app decodes ahead of a scroll, the
+/// prototype does not), and an edge resampled from two sources lands on two different blended rows
+/// (the large view's filmstrip differed by that row alone). A flat colour resamples to itself.
 nonisolated enum StandInPhoto {
     static func jpeg(seed: String, width: Int, height: Int) -> Data? {
         let w = max(1, min(width, 6000)), h = max(1, min(height, 6000))
         var hash: UInt32 = 2166136261
         for b in seed.utf8 { hash = (hash ^ UInt32(b)) &* 16777619 }
         let hue = CGFloat(hash % 360) / 360
-        let sky = NSColor(hue: hue, saturation: 0.35, brightness: 0.85, alpha: 1)
-        let ground = NSColor(hue: (hue + 0.33).truncatingRemainder(dividingBy: 1), saturation: 0.45, brightness: 0.4, alpha: 1)
+        let fill = NSColor(hue: hue, saturation: 0.35 + CGFloat((hash >> 9) % 20) / 100, brightness: 0.45 + CGFloat((hash >> 17) % 40) / 100, alpha: 1)
         guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
                                   space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                   bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
-        let horizon = CGFloat(h) * (0.35 + CGFloat((hash >> 9) % 30) / 100)
-        ctx.setFillColor(ground.cgColor); ctx.fill(CGRect(x: 0, y: 0, width: w, height: Int(horizon)))
-        ctx.setFillColor(sky.cgColor); ctx.fill(CGRect(x: 0, y: Int(horizon), width: w, height: h))
+        ctx.setFillColor(fill.cgColor); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
         guard let image = ctx.makeImage() else { return nil }
         return NSBitmapImageRep(cgImage: image).representation(using: .jpeg, properties: [.compressionFactor: 0.85])
     }
