@@ -18,10 +18,19 @@ window. Nobody edits the UI in this repo.
   `--record` once the new look is approved.
   Before installing, step 2b prints every line the new page files add that names network or bridge
   surface (`fetch(`, `postMessage`, `new Function`, a URL, …): a zip is a code import, so read them. Report only.
+- A designer's export can also arrive as one standalone HTML (the bundler's output, no zip). The sync
+  does not take it. `python3 Scripts/sets_unbundle_standalone.py <standalone.html> --out <folder> --like <the
+  current Sets page>` turns it back into page files: the core script and the Edit page are the export's own
+  bytes; the Sets page keeps the export's logic byte for byte, with the bundler's markup rewriting undone.
+  The check that the reversal is right: `--prove <the previous standalone> <the previous Sets page>` must
+  reproduce that page exactly. Then install and verify as for a zip (give the sync the folder), and ask the
+  designer for a proper zip next time.
 - Authority order: `design/handoff/lumina-cull` (its `README.md` sets the order inside it: README, CHANGES-v0.05 / v0.04 / v0.03,
   BRIDGE-v0.03, REMAINING-v0.03, then CHANGES-v0.02, BRIDGE-v0.02, NATIVE-EDIT → the Sets v11 and Edit v22 pages → BRIDGE, TEST-PLAN, ROADMAP → `reference/`)
   → `Lumina/Sets` (plumbing) → tests. The handoff's `reference/plumbing.js` is an older reference; the app's is
   `Lumina/Sets/Web/plumbing.js`.
+- The handoff's `uploads/` (the sample shoot's photos) and `screenshots/` stay out of the repo and the
+  bundle: the sync puts them in `~/LuminaEvidence/design`. The app never shows the sample shoot.
 
 ## What the app is
 
@@ -57,6 +66,7 @@ Trust rules, from the ROADMAP; the tests enforce them:
 ```bash
 # Design logic fixtures
 (cd design/handoff/lumina-cull && node lumina-core-v4.test.mjs)
+python3 Tests/probe/test_design_audit.py && python3 Tests/probe/test_unbundle_standalone.py   # the wording audit and the standalone unbundler
 
 # Linux too: the real page in headless Chromium with plumbing.js and a Node stand-in for SetsBridge
 node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, sidecars, card, access

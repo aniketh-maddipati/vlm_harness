@@ -22,7 +22,7 @@ finding that is not marked *WebView only*. Fixes are proposals; `TASKS.md` order
 | B1 | Card or folder → app | ARW heads, embedded JPEGs, whole RAWs (Edit), `.xmp` text, file and folder names, the volume label |
 | B2 | Page (WebContent process) ↔ native | The `lumina` message handler (28 ops, `SetsBridge.swift:223`) and `lumina://` (`SetsSchemeHandler`) |
 | B3 | App ↔ file system | Reads in opened folders; writes: sidecars, exports, sessions, downloads |
-| B4 | App ↔ network | Should be nothing |
+| B4 | App ↔ network | Should be nothing. The page files name URLs since v7 (contact links, CDN names mapped to `lumina://vendor`, Edit's browser-only photo fallback); `release_preflight.sh` lists them and fails only on what could make a request (networking imports, ATS exceptions, a missing content rule, unreviewed scripts, network calls in `plumbing.js`) |
 | B5 | Design zip → repo → CI → signed build → store | Page code, vendor JS, Swift packages, Actions, certificates |
 
 Who or what goes wrong, most likely first: **accidents** (a pulled card, a full disk, a crash, two

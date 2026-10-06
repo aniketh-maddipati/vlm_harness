@@ -325,6 +325,15 @@ SETTLE = """const l = __probe.logic(); await new Promise(r => requestAnimationFr
 if (l.state.view === 'cull' && typeof l.visNow === 'function') l.visNow(); await new Promise(r => setTimeout(r, 50)); return true"""
 
 
+SETTLE_ANIMATIONS = """const live = (document.getAnimations ? document.getAnimations() : []).filter(a => {
+  if (a.playState !== 'running') return false;
+  const t = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming() : null;
+  return t && isFinite(t.endTime);
+});
+if (live.length) await Promise.race([Promise.all(live.map(a => a.finished.catch(() => {}))), new Promise(r => setTimeout(r, 2000))]);
+await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); return live.length"""
+
+
 def run_screens(spec, app, d):
     os.makedirs(d, exist_ok=True)
     ctl('reset')
@@ -332,6 +341,18 @@ def run_screens(spec, app, d):
     if not ready(p, app):
         raise RuntimeError('screens: page not ready')
     snaps, states, fails = {}, {}, []
+    # As the Mac probe's snapshots (probe.js meterMask): the header's working-files meter is hidden
+    # while a snapshot is taken; what it shows depends on the moment (a 1 s total, 360 ms fades).
+    mask_css = json.dumps('[data-lumina="cache-pill"] { width: 140px !important; box-sizing: border-box !important; overflow: hidden !important; color: transparent !important; } [data-lumina="cache-pill"] * { visibility: hidden !important; color: transparent !important; }')
+    # Before the snapshot, finite CSS transitions and animations are let finish (at most 2 s), as
+    # probe.js's settle: on a software-rendered runner the large view's open was caught mid-fade in
+    # one twin and at rest in the other.
+    def shot(path):
+        p.js("const el = document.createElement('style'); el.id = '__probe-meter-mask'; el.textContent = " + mask_css + "; document.head.appendChild(el); return true")
+        p.js(SETTLE_ANIMATIONS)
+        wait(100)
+        try: return p.snap(path)
+        finally: p.js("const el = document.getElementById('__probe-meter-mask'); if (el) el.remove(); return true")
     for i, s in enumerate(spec['steps']):
         try:
             if s['do'] == 'wait': wait(s.get('ms', 100))
@@ -340,9 +361,9 @@ def run_screens(spec, app, d):
                 wait(s.get('settleMs', 60))
             elif s['do'] == 'hold':
                 p.js('K(%s, {up: false})' % json.dumps(s['k'])); wait(s.get('ms', 400))
-                if s.get('snap'): snaps[s['snap']] = p.snap(os.path.join(d, s['snap'] + '.png'))
+                if s.get('snap'): snaps[s['snap']] = shot(os.path.join(d, s['snap'] + '.png'))
                 p.js('K(%s, {down: false})' % json.dumps(s['k'])); wait(60)
-            elif s['do'] == 'snap': snaps[s['name']] = p.snap(os.path.join(d, s['name'] + '.png'))
+            elif s['do'] == 'snap': snaps[s['name']] = shot(os.path.join(d, s['name'] + '.png'))
             elif s['do'] == 'state':
                 # v8 widens the mounted-row window (vr) on a scroll frame and narrows it 240 ms after the
                 # scroll rests. On a software-rendered runner a frame can land after that timer and leave

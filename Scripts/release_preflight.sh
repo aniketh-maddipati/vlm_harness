@@ -157,6 +157,60 @@ JUNK="$(find "$APP" \( -name .DS_Store -o -name '*.xctest' -o -name '*.dSYM' -o 
 THIRD="$(find "$RES" -iname '*licen*' -o -iname '*acknowledg*' -o -iname '*notice*' 2>/dev/null | head -1)"
 [[ -n "$THIRD" ]] && ok "third-party notices" || warn R6 "no third-party notices for React and Babel (MIT asks for the licence text; TASKS R6)"
 
+# The rule is "the app makes no network request" (THREAT-MODEL B4), not "no URL in the bundle":
+# since v7 the page files name URLs (the three contact links, support.js's CDN names that
+# SetsSchemeHandler maps to lumina://vendor, Edit's browser-only photo fallback, XML namespaces).
+# The page is held offline by the content rule and the navigation policy, plus the three hand-offs
+# in SetsExternalLinks.swift. So a URL string is listed with its file and line, never failed;
+# whatever could reach the network on its own (a networking API in the binary, an ATS exception,
+# an unreviewed script, a network call in plumbing.js, the content rule gone) fails.
+echo "network"
+IMPORTS="$(nm -u "$BIN" 2>/dev/null)"
+NETSYM="$(grep -oE 'NSURLSession|URLSession|NSURLConnection|NSURLDownload|NWConnection|NWListener|NWBrowser|NWPathMonitor|^_nw_[a-z_]+|CFSocket[A-Za-z]*|CFStreamCreatePairWithSocket[A-Za-z]*|CFHTTP[A-Za-z]*|^_(socket|connect|getaddrinfo|gethostbyname|sendto|bind|listen)$' <<<"$IMPORTS" | sort -u | tr '\n' ' ')"
+[[ -z "$NETSYM" ]] && ok "the binary imports no networking API (URLSession, Network, CFNetwork sockets, BSD sockets)" || fail "the binary imports networking APIs: $NETSYM"
+otool -L "$BIN" 2>/dev/null | grep -qE '/(Network|CFNetwork)\.framework/' && fail "links Network.framework or CFNetwork directly" || ok "links neither Network.framework nor CFNetwork"
+ATS="$(for k in NSAllowsArbitraryLoads NSAllowsArbitraryLoadsInWebContent NSAllowsArbitraryLoadsForMedia NSAllowsLocalNetworking; do [[ "$(plist "NSAppTransportSecurity:$k")" == true ]] && printf '%s ' "$k"; done; plist NSAppTransportSecurity:NSExceptionDomains >/dev/null && printf 'NSExceptionDomains')"
+[[ -z "$ATS" ]] && ok "no App Transport Security exception" || fail "App Transport Security exceptions in Info.plist: ${ATS% }"
+grep -E '"url-filter"' <<<"$TEXT" | grep -q '"block"' && ok "the page's offline content rule is compiled in" || fail "no content rule blocking the page's network loads in the binary (SetsWebView.make)"
+KNOWN=" ${PAGE_FILES[*]} plumbing.js react.production.min.js react-dom.production.min.js babel.min.js "
+UNKNOWN="$(cd "$RES" && find . -type f \( -iname '*.js' -o -iname '*.mjs' -o -iname '*.cjs' -o -iname '*.html' -o -iname '*.htm' -o -iname '*.xhtml' -o -iname '*.svg' -o -iname '*.wasm' \) | sed 's|^\./||' | while IFS= read -r f; do [[ "$KNOWN" == *" $f "* ]] || printf '%s; ' "$f"; done)"
+[[ -z "$UNKNOWN" ]] && ok "every script or page in the bundle is a page file, plumbing.js or a pinned vendor file" || fail "unreviewed scripts or pages in the bundle: ${UNKNOWN%; }"
+PNET="$(grep -nE '(https?|wss?|ftp)://|\b(WebSocket|EventSource|XMLHttpRequest|RTCPeerConnection|importScripts)\b|sendBeacon' "$RES/plumbing.js" 2>/dev/null | cut -c1-120 | head -5)"
+[[ -z "$PNET" ]] && ok "plumbing.js names no network URL or socket API (its fetches are lumina://)" || fail "plumbing.js reaches for the network: $PNET"
+# The report. Allowlisted = the hand-offs SetsExternalLinks.swift names (the menu's "Contact on X" is the same URL).
+/usr/bin/python3 - "$RES" "$BIN" "$ROOT/Lumina/Sets/Core/SetsExternalLinks.swift" "${PAGE_FILES[@]}" <<'PY' || fail "the URL report did not run"
+import re, subprocess, sys
+res, binary, links, files = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:]
+src = open(links, encoding="utf-8").read() if links else ""
+allowed = set(re.findall(r'URL\(string:\s*"([^"]+)"\)', src))
+recipients = set(re.findall(r'bugReportRecipient\s*=\s*"([^"]+)"', src))
+url_re = re.compile(r'(?:https?|wss?|ftp)://[^\s"\'`<>)\\]+|mailto:[^\s"\'`<>)\\]+')
+namespace = ("http://www.w3.org/", "http://ns.adobe.com/", "http://www.apple.com/DTDs/")
+bin_text = subprocess.run(["strings", "-", binary], capture_output=True).stdout.decode("utf-8", "replace")
+def kind(u):
+    if u.startswith(namespace): return "namespace, not fetched"
+    if u.startswith("mailto:"):
+        to = u[7:].split("?")[0]
+        return "allowlisted hand-off" if to in recipients else "mailto the app refuses (not in SetsExternalLinks)"
+    if u in allowed or u.rstrip("/") in {a.rstrip("/") for a in allowed}: return "allowlisted hand-off"
+    if u in bin_text: return "mapped to lumina:// by the app"
+    return "blocked in the app (content rule); browser-only"
+seen = 0
+for f in files:
+    try: lines = open(f"{res}/{f}", encoding="utf-8", errors="replace").read().split("\n")
+    except OSError: continue
+    for n, line in enumerate(lines, 1):
+        for u in dict.fromkeys(url_re.findall(line)):
+            u = u.replace("&amp;", "&")
+            print(f"  url   {f}:{n}  {u[:90]}{'…' if len(u) > 90 else ''}  ({kind(u)})"); seen += 1
+for u in sorted(set(url_re.findall(bin_text))):
+    k = kind(u)
+    if k.startswith("blocked"): k = "a string, not a request"
+    if any(u.startswith(m) for m in ("https://unpkg.com/", "https://picsum.photos/")): k = "names a page URL the app maps or rewrites to lumina://"
+    print(f"  url   binary  {u[:90]}  ({k})"); seen += 1
+print(f"  ok    {seen} URL strings listed (reported, not failed: the rule is no request, not no URL)")
+PY
+
 SIZE="$(du -sh "$APP" | cut -f1)"
 echo "size $SIZE"
 for t in ${ALLOW//,/ }; do [[ "$SEEN" == *",$t,"* ]] || echo "note: --allow=$t, but nothing is open under $t any more: take it off the list"; done
