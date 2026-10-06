@@ -20,13 +20,26 @@
 				<string>CA92.1</string>
 			</array>
 		</dict>
-		<!-- File sizes of the photos in a folder the user opened (SetsIngest.list, SetsExport). -->
+		<!-- File sizes and dates of the photos in a folder the user opened (SetsIngest.list, SetsExport,
+		     LookPipeline.toneAnchor), and of the app's own session files in its container
+		     (SetsShootStore, SetsWorkingFiles). -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
 				<string>3B52.1</string>
+				<string>C617.1</string>
+			</array>
+		</dict>
+		<!-- Time between two events inside the app: the page reload limit (SetsPageRecovery) and the
+		     Downloads watcher's stability rule (SetsDownloadsWatcher). Never sent anywhere. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>35F9.1</string>
 			</array>
 		</dict>
 		<!-- Free space at the export folder, checked before the first file is written (SetsFileOps.freeBytes). -->

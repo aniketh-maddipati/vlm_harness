@@ -28,20 +28,6 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "A20000010000000000000006"
-               BuildableName = "LuminaUITests.xctest"
-               BlueprintName = "LuminaUITests"
-               ReferencedContainer = "container:Lumina.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "NO"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
                BlueprintIdentifier = "A30000010000000000000006"
                BuildableName = "LuminaLogicTests.xctest"
                BlueprintName = "LuminaLogicTests"
