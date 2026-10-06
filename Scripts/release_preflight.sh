@@ -115,9 +115,11 @@ for f in "${PAGE_FILES[@]}"; do
   cmp -s "$ROOT/design/handoff/lumina-cull/$f" "$RES/$f" && ok "$f = the design, byte for byte" || fail "$f differs from design/handoff/lumina-cull"
 done
 cmp -s "$ROOT/Lumina/Sets/Web/plumbing.js" "$RES/plumbing.js" && ok "plumbing.js" || fail "plumbing.js differs from Lumina/Sets/Web"
-for f in react.production.min.js react-dom.production.min.js babel.min.js; do
+for f in react.production.min.js react-dom.production.min.js; do
   cmp -s "$ROOT/design/handoff/vendor/$f" "$RES/$f" && ok "$f = the pinned vendor file" || fail "$f differs from design/handoff/vendor"
 done
+# support.js loads Babel only for an <x-import> of a .jsx/.tsx file, which no page file has.
+[[ ! -e "$RES/babel.min.js" ]] && ok "no Babel (no page file needs it)" || fail "babel.min.js is in the bundle (3 MB no page file loads)"
 [[ -f "$RES/rules-v1.json" ]] && ok "rules-v1.json" || fail "rules-v1.json missing: no Edit look"
 if [[ -f "$RES/PrivacyInfo.xcprivacy" ]] && plutil -lint "$RES/PrivacyInfo.xcprivacy" >/dev/null; then ok "privacy manifest"; else fail "PrivacyInfo.xcprivacy missing or invalid"; fi
 # Each "required reason" API the binary names needs its category in the manifest, or App Store

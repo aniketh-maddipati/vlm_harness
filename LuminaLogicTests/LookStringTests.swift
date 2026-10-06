@@ -147,7 +147,7 @@ final class LookStringTests: XCTestCase {
         let l = try Look.parse(s)
         XCTAssertEqual(l.format(), s)
         XCTAssertEqual(try Look.parse(s.split(separator: " ").reversed().joined(separator: " ")), l, "any order")
-        XCTAssertEqual(Look.keys, ["ev", "wb", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot"])
+        XCTAssertEqual(Look.keys, ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot"])
         let old = "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:-20 nr:40 bw:1 crop:0.1000,0.2000,0.5000,0.6000/-1.50"
         XCTAssertEqual(try Look.parse(old).format(), old)
     }
@@ -194,5 +194,26 @@ final class LookStringTests: XCTestCase {
         XCTAssertEqual(crop.crop, Look.Crop(x: 0.1, y: 0.2, w: 0.5, h: 0.6, rotate: -1.5))
         XCTAssertEqual(crop.nr, 20); XCTAssertTrue(crop.bw)
         XCTAssertThrowsError(try Look.parse("cDarkk:+1"), "still strict about names it does not know")
+    }
+
+    /// `wbref:K/T`: the as-shot pair the page's white balance rests on. The stage applies the
+    /// page's move to the photo's own pair: Kelvin as a ratio, tint as a difference.
+    func testWhiteBalanceReference() throws {
+        let decoder = Look.WhiteBalance(kelvin: 4800, tint: 2)
+        let l = try Look.parse("wb:6600/+8 wbref:5500/+3 ev:+0.10")
+        XCTAssertEqual(l.wb?.refKelvin, 5500); XCTAssertEqual(l.wb?.refTint, 3)
+        let r = try XCTUnwrap(l.wb?.resolved(asShot: decoder))
+        XCTAssertEqual(r.kelvin, 4800 * 6600 / 5500, accuracy: 1e-9); XCTAssertEqual(r.tint, 7, accuracy: 1e-9)
+        XCTAssertEqual(try Look.parse(l.format()), l, "round-trips")
+        XCTAssertTrue(l.format().contains("wb:6600/+8 wbref:5500/+3"))
+        // At rest on the page's pair: exactly the photo's own.
+        XCTAssertEqual(try Look.parse("wb:5500/+3 wbref:5500/+3").wb?.resolved(asShot: decoder), decoder)
+        // One side empty stays as shot; the other still moves from the reference.
+        XCTAssertEqual(try Look.parse("wb:/+5 wbref:5200/0").wb?.resolved(asShot: decoder), Look.WhiteBalance(kelvin: 4800, tint: 7))
+        // No wb: the reference alone changes nothing. No reference: absolute, as before.
+        XCTAssertNil(try Look.parse("wbref:5500/0").wb)
+        XCTAssertEqual(try Look.parse("wb:6000/+1").wb?.resolved(asShot: decoder), Look.WhiteBalance(kelvin: 6000, tint: 1))
+        XCTAssertThrowsError(try Look.parse("wb:6000/0 wbref:0/0"))
+        XCTAssertThrowsError(try Look.parse("wb:6000/0 wbref:5500"))
     }
 }
