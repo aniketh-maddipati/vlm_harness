@@ -1,5 +1,6 @@
 import AppKit
 import WebKit
+import os
 
 /// Where folders come from. The app asks the user (NSOpenPanel); the probe answers from a script.
 @MainActor
@@ -362,7 +363,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             if let gaps = body["missing"] as? [String], !gaps.isEmpty {
                 // A design sync removed or renamed something the plumbing needs.
                 onEvent?("plumbing contract broken: \(gaps.joined(separator: ", "))")
-                NSLog("Lumina plumbing contract broken: %@", gaps.joined(separator: ", "))
+                LuminaLog.app.fault("plumbing contract broken: \(gaps.joined(separator: ", "), privacy: .public)")
                 return (false, nil)
             }
             ready = true
@@ -787,6 +788,8 @@ enum SetsWebView {
         let scheme = SetsSchemeHandler(pageRoot: pageRoot, vendorRoot: vendorRoot, standInPhotos: standInPhotos, ingest: bridge?.ingest)
         conf.setURLSchemeHandler(scheme, forURLScheme: SetsSchemeHandler.scheme)
         let ucc = conf.userContentController
+        // First, in every frame: no WebRTC (SetsOffline).
+        ucc.addUserScript(WKUserScript(source: SetsOffline.pageScript, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         let res = String(data: try JSONSerialization.data(withJSONObject: SetsSchemeHandler.resources), encoding: .utf8)!
         ucc.addUserScript(WKUserScript(source: "window.__resources=Object.assign(window.__resources||{},\(res));", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         for s in extraScripts { ucc.addUserScript(WKUserScript(source: s, injectionTime: .atDocumentStart, forMainFrameOnly: true)) }
@@ -797,14 +800,14 @@ enum SetsWebView {
         ucc.addUserScript(WKUserScript(source: "window.__luminaConfig=\(cfg);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         if bridge != nil { ucc.addUserScript(WKUserScript(source: plumbing, injectionTime: .atDocumentStart, forMainFrameOnly: true)) }
         bridge?.install(in: conf)
-        // One rule per scheme: content-rule patterns have no alternation. WebSockets are blocked too,
-        // since the page has no network use (THREAT-MODEL S1); the navigation policy covers the rest.
-        let rules = #"[{"trigger":{"url-filter":"^https?://"},"action":{"type":"block"}},"#
-            + #"{"trigger":{"url-filter":"^wss?://"},"action":{"type":"block"}},"#
-            + #"{"trigger":{"url-filter":"^ftp://"},"action":{"type":"block"}}]"#
-        if let list = try await WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "lumina-offline", encodedContentRuleList: rules) {
-            ucc.add(list)
+        // Every load blocked but the page's own schemes (SetsOffline); the navigation policy and the
+        // page's Content-Security-Policy hold the same line on their own.
+        let rules = SetsOffline.contentRules
+        // No rules, no page.
+        guard let list = try await WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "lumina-offline", encodedContentRuleList: rules) else {
+            throw SetsFileOps.Failure("the offline content rules did not compile")
         }
+        ucc.add(list)
         let wv = WKWebView(frame: frame, configuration: conf)
         bridge?.webView = wv
         return (wv, scheme)

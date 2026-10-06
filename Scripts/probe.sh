@@ -382,7 +382,7 @@ case "$suite" in
   screens)   screens ;;
   scenarios) scrolldir; editdir; files=(); for n in ${extra[@]+"${extra[@]}"}; do files+=("$S/$n.json"); done; extra=(); run "${files[@]}" ;;
   sync)      echo "use: bash Scripts/sets_sync_design.sh <handoff.zip>"; exit 2 ;;
-  smoke)     run "$S/smoke.json" "$S/keys-open-return.json" "$S/selftest.json" "$S/app-plumbing-contract.json" "$S/app-smoke.json" "$S/app-empty-start.json" ;;
+  smoke)     run "$S/smoke.json" "$S/keys-open-return.json" "$S/selftest.json" "$S/app-plumbing-contract.json" "$S/app-offline.json" "$S/app-smoke.json" "$S/app-empty-start.json" ;;
   selftest)  run "$S/selftest.json" ;;
   fuzz)      run "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" ;;
   edge)      run "$S"/edge-*.json ;;

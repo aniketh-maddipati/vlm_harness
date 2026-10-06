@@ -47,7 +47,7 @@ Rules for every worker:
 
 ## P1 · Blocks the store submission
 
-8. **Network lockdown (S1; only if the WebView ships).**
+8. **Network lockdown (S1; only if the WebView ships).** Landed 2026-10-06 (`SetsOffline`, 32 channels in `webkit.py offline`, `app-offline`); the Mac run of `app-offline` is the last check.
    - KPI: 0 requests reach a local listener over 8 channels (fetch, XHR, WebSocket, image, beacon, WebRTC, form, `window.open`).
    - Steps: block-all content rules with an allowlist; a CSP response header; a navigation allowlist.
 9. **Nothing unused in the release binary (S4).**
@@ -68,7 +68,7 @@ Rules for every worker:
 ## P2 · Before the public listing
 
 - The listing: copy, screenshots, privacy and support pages, review notes with sample ARWs (R5).
-- Diagnostics: private paths in logs (R7); navigation allowlist, a damaged `index.json` kept aside, a session format version (R8).
+- Diagnostics: ~~private paths in logs (R7)~~ landed 2026-10-06 (`LuminaLog`); navigation allowlist, a damaged `index.json` kept aside, a session format version (R8).
 - `DESIGN-ASKS.md` sections sorted 4–9; `open-folder-awkward-name` added to the probe's `app` suite.
 - Known gaps, accepted or to schedule: a huge folder is refused in about 2 s on a fast Mac and about 5 s on a slow one; a link swapped in between the path check and the open by render, canvas or export (S5); two licence texts marked MISSING (R6); F6 and F9 in `stress/Q4-hostile.md`.
 
