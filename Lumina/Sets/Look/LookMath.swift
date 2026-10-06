@@ -120,7 +120,7 @@ nonisolated enum LookMath {
     /// Per-channel multipliers taking the as-shot balance to `target`. Identity when `target` is
     /// nil. Higher Kelvin in the look = the scene was bluer = warm the render (Lightroom's sign).
     static func whiteBalanceGains(_ target: Look.WhiteBalance?, asShot: Look.WhiteBalance, _ rules: LookRules) -> RGB {
-        guard let target else { return .gray(1) }
+        guard let target = target?.resolved(asShot: asShot) else { return .gray(1) }
         let dM = 1e6 / max(1000, asShot.kelvin) - 1e6 / max(1000, target.kelvin)     // mired, + = warmer
         let dT = target.tint - asShot.tint
         // Temperature moves red and blue against each other and leaves green (as Lightroom does);

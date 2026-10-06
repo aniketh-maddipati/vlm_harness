@@ -1,6 +1,6 @@
 {
  "mode": "app",
- "page": "Lumina Sets v8.dc.html",
+ "page": "Lumina Sets v11.dc.html",
  "size": [
   1440,
   900
@@ -8,7 +8,7 @@
  "clock": "2026-09-08T14:30:00",
  "sampleMs": 100,
  "stopOnFailure": false,
- "checklist": "Fast scrolling in Cull on a real shoot (1440 \u00d7 900): frame pacing, % of on-screen tiles not yet showing their thumbnail (sampled every frame), thumbnail upscale ratio (image px per device px; < 1 = magnified), mid-scroll snapshots, web-process memory. Folder: LUMINA_SCROLL_DIR (probe.sh scroll sets it). tile216-dy150-nowarm: the same pass with plumbing's warm-ahead decoding off (A/B). Rows out of place: on-screen rows drawn at another height or position than the layout's (a row element reused for another row). Reported, not gated, like the other scroll numbers: on this Mac 0 % with rows keyed by id against 65 to 80 % with the page's keying, on the CI runner (frames of 180 to 300 ms) 1 to 26 % either way. tile216-dy150-indexkeys: the same pass with rows keyed by position, as the page's runtime keys them (A/B)",
+ "checklist": "Fast scrolling in Cull on a real shoot (1440 × 900): frame pacing, % of on-screen tiles not yet showing their thumbnail (sampled every frame), thumbnail upscale ratio (image px per device px; < 1 = magnified), mid-scroll snapshots, web-process memory. Folder: LUMINA_SCROLL_DIR (probe.sh scroll sets it). Rows out of place: on-screen rows drawn at another height or position than the layout's (a row element reused for another row). Reported, not gated, like the other scroll numbers. Since handoff v0.03 the page keys rows itself (every layout row in the list, gaps as placeholders), so there is no A/B pass with plumbing's keying any more.",
  "budgets": {
   "webPeakMB": 1500
  },
@@ -127,54 +127,6 @@
    "frames": 120,
    "dy": 150,
    "tiles": true
-  },
-  {
-   "do": "js",
-   "src": "const el=document.querySelector('[data-screen-label=\"1 Cull\"]'); el.scrollTop=0; return true"
-  },
-  {
-   "do": "js",
-   "src": "return __lumina.warmAhead(false)"
-  },
-  {
-   "do": "wait",
-   "ms": 1200
-  },
-  {
-   "do": "wheel",
-   "name": "tile216-dy150-nowarm",
-   "sel": "[data-screen-label=\"1 Cull\"]",
-   "frames": 120,
-   "dy": 150,
-   "tiles": true
-  },
-  {
-   "do": "js",
-   "src": "return __lumina.warmAhead(true)"
-  },
-  {
-   "do": "js",
-   "src": "const el=document.querySelector('[data-screen-label=\"1 Cull\"]'); el.scrollTop=0; return true"
-  },
-  {
-   "do": "js",
-   "src": "return __lumina.rowKeys(false)"
-  },
-  {
-   "do": "wait",
-   "ms": 1200
-  },
-  {
-   "do": "wheel",
-   "name": "tile216-dy150-indexkeys",
-   "sel": "[data-screen-label=\"1 Cull\"]",
-   "frames": 120,
-   "dy": 150,
-   "tiles": true
-  },
-  {
-   "do": "expect",
-   "js": "return __lumina.rowKeys(true)"
   },
   {
    "do": "js",

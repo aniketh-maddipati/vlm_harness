@@ -85,7 +85,7 @@ final class Runner {
             sampler.start(interval: ((spec["sampleMs"] as? Double) ?? 250) / 1000) { [host] in
                 [(getpid(), "probe"), (host!.webProcessID, "web")]
             }
-            try await host.load((spec["page"] as? String) ?? "Lumina Sets v8.dc.html", query: spec["query"] as? String)
+            try await host.load((spec["page"] as? String) ?? "Lumina Sets v11.dc.html", query: spec["query"] as? String)
             try await waitFor("return window.__probe && __probe.ready()", timeout: 30, what: "page ready")
 
             for (i, step) in ((spec["steps"] as? [[String: Any]]) ?? []).enumerated() {
@@ -310,7 +310,7 @@ final class Runner {
             // The scenarios' relaunch. A new process holds none of the last one's panel grants.
             for line in ProbeSandbox.relaunch() { host.log("sandbox", "relaunch: panel grant dropped · \(line)") }
             launchedAt = host.events.count
-            try await host.load((spec["page"] as? String) ?? "Lumina Sets v8.dc.html", query: spec["query"] as? String)
+            try await host.load((spec["page"] as? String) ?? "Lumina Sets v11.dc.html", query: spec["query"] as? String)
             try await waitFor("return window.__probe && __probe.ready()", timeout: 30, what: "page ready after reload")
             try await settle(s["settleMs"] as? Double ?? 600)
         case "logged":

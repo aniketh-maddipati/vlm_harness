@@ -8,7 +8,7 @@
  "clock": "2026-09-08T14:30:00",
  "sampleMs": 100,
  "stopOnFailure": false,
- "checklist": "CI's cut of scroll-fast-2560: the same folder and size, Cull at tile 216 only, one fast wheel pass with warm-ahead on and one with it off (frame pacing, blank tiles, thumbnail upscale, rows out of place, memory; reported, not gated). The full sweep (tile 144, dy 60, snaps, the page's own row keys) is scroll-fast-2560, in probe.sh scroll.",
+ "checklist": "CI's cut of scroll-fast-2560: the same folder and size, Cull at tile 216 only, one fast wheel pass (frame pacing, blank tiles, thumbnail upscale, rows out of place, memory; reported, not gated). The full sweep (tile 144, dy 60, snaps) is scroll-fast-2560, in probe.sh scroll.",
  "budgets": {
   "webPeakMB": 1500
  },
@@ -47,30 +47,6 @@
    "frames": 120,
    "dy": 150,
    "tiles": true
-  },
-  {
-   "do": "js",
-   "src": "const el=document.querySelector('[data-screen-label=\"1 Cull\"]'); el.scrollTop=0; return true"
-  },
-  {
-   "do": "js",
-   "src": "return __lumina.warmAhead(false)"
-  },
-  {
-   "do": "wait",
-   "ms": 1200
-  },
-  {
-   "do": "wheel",
-   "name": "tile216-dy150-nowarm",
-   "sel": "[data-screen-label=\"1 Cull\"]",
-   "frames": 120,
-   "dy": 150,
-   "tiles": true
-  },
-  {
-   "do": "js",
-   "src": "return __lumina.warmAhead(true)"
   },
   {
    "do": "js",
