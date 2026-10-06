@@ -61,7 +61,7 @@
   // in the probe's plumbing-contract scenario) instead of as a silent break.
   const REQUIRED = ['onKey', 'setState', 'setView', 'say', 'undo', 'openFolder', 'onDir', 'readOne', 'intake', 'notesFor',
     'writeInto', 'runExport', 'impStart', 'impSet', 'libOpen', 'build', 'forget', 'kept', 'undec', 'land', 'xmpFor', 'reveal',
-    'scrollAnchor', 'bridgeEmit', 'reshift'];
+    'scrollAnchor', 'bridgeEmit', 'reshift', 'editShoot'];
   const GLOBALS = { 'LuminaCore.parseHead': () => window.LuminaCore && LuminaCore.parseHead, 'LuminaCore.measure': () => window.LuminaCore && LuminaCore.measure,
     'LuminaCore.hasDevelop': () => window.LuminaCore && LuminaCore.hasDevelop, 'LuminaCore.buildShoot': () => window.LuminaCore && LuminaCore.buildShoot,
     'LuminaCore.phoneOf': () => window.LuminaCore && LuminaCore.phoneOf, 'LuminaCore.assemblePreview': () => window.LuminaCore && LuminaCore.assemblePreview,
@@ -173,7 +173,7 @@
         lastView = v; saveNow();
         // The Edit canvas overlay shows only while Edit is the active step.
         // (Edit v22 sends canvasRect(null) itself when it unmounts; this covers a page that doesn't.)
-        if (v !== 'edit' && edit.state().visible && !edit.state().force) edit.layout(null, false);
+        if (v !== 'edit' && edit.state().visible && !edit.state().force) { edit.layout(null, false); watchHoles(false); }
       }
     } finally { setTimeout(viewLoop, 150); }
   };
@@ -249,6 +249,18 @@
       const f = logic[k].bind(logic), C = logic.constructor;
       logic[k] = () => { const app = C.app; C.app = () => false; try { return f(); } finally { C.app = app; } };
     }
+
+    // The Edit step's photos (Edit v22 reads them through window.luminaShoot = editShoot). The page
+    // names a photo by its file name without the folder or extension, so the canvas could not find
+    // it: give each one its path in the opened folder as `rel` (the page's rel(p) prefers it), and the
+    // RAW's own as-shot white balance once the Mac has read it (`asShot`, from the canvas's base).
+    const editShoot0 = logic.editShoot.bind(logic);
+    logic.editShoot = () => {
+      const s = editShoot0(); if (!s || !Array.isArray(s.P)) return s;
+      const name = (logic.state.realInfo && logic.state.realInfo.name) || '';
+      for (const p of s.P) { const f = logic.data.byId[p.id], k = keyOf(f); if (!f || !k) continue; p.rel = name + '/' + k; applyAsShot(p); }
+      return s;
+    };
 
     // After a folder is read: remember the shoot and bring its decisions back.
     const afterRead = async () => {
@@ -675,6 +687,65 @@
   // `force`: on entering Edit the page has just mounted its hooks, so tell it even if nothing changed.
   const pushFacts = force => { const t = factsText(); if (force || t !== ed.factsText) { ed.factsText = t; const f = factsObj(); hook('luminaFacts', f); hook('luminaEditFacts', t, Object.assign(f, edit.facts())); } };
   const photoAt = (l, rel) => { for (const [id, p] of Object.entries(l.data.byId)) if ((l.state.realInfo && l.state.realInfo.name || '') + '/' + keyOf(p) === rel || p.path === rel) return [id, p]; return [null, null]; };
+  // The RAW's as-shot white balance per path, as the canvas read it (canvasEnter's answer or
+  // __lumina.editHeader once the base lands): Edit's White balance starts there and Auto starts from it.
+  const asShot = new Map();
+  const applyAsShot = p => { const a = p && p.rel && asShot.get(p.rel); if (!a) return false; if (p.wbShot === a.kelvin && p.tintShot === a.tint) return false; p.wbShot = a.kelvin; p.tintShot = a.tint; return true; };
+  const findEditLogic = () => {
+    const el = document.querySelector('[data-lumina="canvas"]'); if (!el) return null;
+    const k = Object.keys(el).find(x => x.startsWith('__reactFiber$')); if (!k) return null;
+    for (let f = el[k]; f; f = f.return) { const sn = f.stateNode; if (sn && sn.logic && typeof sn.logic.nbInfo === 'function') return sn.logic; }
+    return null;
+  };
+  const noteAsShot = h => {
+    const a = h && h.asShot, rel = h && h.asShotRel;
+    if (!a || typeof rel !== 'string' || !Number.isFinite(+a.kelvin) || !Number.isFinite(+a.tint)) return;
+    asShot.set(rel, { kelvin: Math.round(+a.kelvin), tint: Math.round(+a.tint) });
+    // The Edit page built its photos when it opened: update the one on the canvas in place.
+    const E = findEditLogic(), P = E && E.data && E.data.byId; if (!P) return;
+    let changed = false; for (const p of Object.values(P)) if (p && p.rel === rel) changed = applyAsShot(p) || changed;
+    if (changed) try { E.setState({}); } catch (_) {}
+  };
+  // Page chrome over the photo (the zoom pill, the state chip, the loading chip, the crop bar, the
+  // colour picker's label): Edit v22 sends canvasRect without `holes`, so they are read off the
+  // page here, as the absolutely placed boxes inside the canvas element that cover only part of it.
+  // Full-size layers (the photo itself, crop and grid overlays) are looked into, never cut out:
+  // a hole that size would show the page's empty canvas instead of the photo.
+  const MAX_HOLES = 16;
+  const holesOf = rect => {
+    const root = document.querySelector('[data-lumina="canvas"]'), out = [];
+    if (!root || !rect || !(rect.w > 0) || !(rect.h > 0)) return out;
+    const area = rect.w * rect.h;
+    const walk = (el, depth) => {
+      for (const c of el.children) {
+        if (out.length >= MAX_HOLES) return;
+        if (c.matches('[data-lumina-img]') || c.querySelector('[data-lumina-img]')) continue;
+        const cs = getComputedStyle(c);
+        if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue;
+        const b = c.getBoundingClientRect(), placed = cs.position === 'absolute' || cs.position === 'fixed';
+        if (!placed || b.width < 1 || b.height < 1 || b.width * b.height >= 0.6 * area) { if (depth < 4) walk(c, depth + 1); continue; }
+        const x0 = Math.max(rect.x, Math.floor(b.left) - 1), y0 = Math.max(rect.y, Math.floor(b.top) - 1);
+        const x1 = Math.min(rect.x + rect.w, Math.ceil(b.right) + 1), y1 = Math.min(rect.y + rect.h, Math.ceil(b.bottom) + 1);
+        if (x1 > x0 && y1 > y0) out.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+      }
+    };
+    walk(root, 0);
+    return out;
+  };
+  // The chips come and go without the rect changing: watch the canvas element and send the new
+  // holes with the same rect, once per frame at most.
+  let holesObs = null, holesRaf = 0;
+  const watchHoles = on => {
+    if (!on) { if (holesObs) holesObs.disconnect(); holesObs = null; return; }
+    const root = document.querySelector('[data-lumina="canvas"]'); if (!root || (holesObs && holesObs.root === root)) return;
+    if (holesObs) holesObs.disconnect();
+    holesObs = new MutationObserver(() => {
+      if (holesRaf) return;
+      holesRaf = requestAnimationFrame(() => { holesRaf = 0; if (ed.visible && ed.rect && ed.autoHoles) { const h = holesOf(ed.rect); if (JSON.stringify(h) !== ed.holesKey) edit.layout(ed.rect, true, { holes: h, auto: true }); } });
+    });
+    holesObs.root = root;
+    holesObs.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+  };
   const edit = {
     // Entering Edit for a photo (its path, "<folder>/DSC.ARW"): the Mac builds its bases now and its
     // neighbours' in the background. `look` is the photo's look string.
@@ -686,12 +757,12 @@
       ed.rel = rel; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = false; ed.roi = null; ed.preview = previewOf(p.lg);
       img.shown = 0; img.tier = null; img.pending = null; ed.seq = 0;
       const r = await native('canvasEnter', { rel, look: ed.look, model: ed.model, preview: previewOf(p.lg), prev, prevPreview, next, nextPreview });
-      if (r && typeof r === 'object') { ed.header = Object.assign({}, ed.header || {}, r); ed.path = r.canvas || 'image'; ed.decoder = r.decoderCanvas != null ? r.decoderCanvas : null; }
+      if (r && typeof r === 'object') { ed.header = Object.assign({}, ed.header || {}, r); ed.path = r.canvas || 'image'; ed.decoder = r.decoderCanvas != null ? r.decoderCanvas : null; noteAsShot(r); }
       pushFacts(true);
       if (ed.path === 'image') imgSubmit('base', true);
       return edit.facts();
     },
-    leave() { ed.rel = null; ed.loupe = false; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
+    leave() { watchHoles(false); ed.rel = null; ed.loupe = false; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
     // The canvas rect in CSS px from the page's top-left, on layout and resize; `visible` = Edit shows.
     // {force: true} (the probe) keeps the canvas up whatever the page's view is.
     // `holes` (on the rect or in `o`): page chrome lying over the photo, [{x, y, w, h}] in CSS px as
@@ -700,6 +771,7 @@
       ed.force = !!(o && o.force) && !!visible;
       ed.rect = rect && rect.w > 0 && rect.h > 0 ? { x: rect.x, y: rect.y, w: rect.w, h: rect.h } : null; ed.visible = !!visible && !!ed.rect;
       const holes = (o && Array.isArray(o.holes) && o.holes) || (rect && Array.isArray(rect.holes) && rect.holes) || [];
+      ed.holesKey = JSON.stringify(ed.visible ? holes : []);
       native('canvasLayout', Object.assign({ visible: ed.visible, dpr: dpr(), holes: ed.visible ? holes : [] }, ed.rect || { x: 0, y: 0, w: 0, h: 0 })).then(r => { if (r && r.path) { ed.path = r.path; pushFacts(); } }).catch(() => {});
       if (ed.path === 'image' && ed.visible && ed.rel && !img.shown) imgSubmit('base', true);
     },
@@ -726,7 +798,12 @@
       ed.seq = Math.max(ed.seq, q.seq);
       return renderURL(rel, withPreview(q));
     },
-    canvasRect(r) { edit.layout(r, !!r); },
+    // A rect without `holes` (Edit v22) gets them read off the page, and kept current while it shows.
+    canvasRect(r) {
+      ed.autoHoles = !!r && !Array.isArray(r.holes);
+      if (ed.autoHoles) { edit.layout(r, true, { holes: holesOf(r) }); watchHoles(true); }
+      else { edit.layout(r, !!r); if (!r) watchHoles(false); }
+    },
     drag(what) { if (what === 'start') edit.dragStart(); else edit.dragEnd(); },
     // The visible region at 100 %: small renders show only it, and the Mac refines it with RAW 9.
     roi(r) { ed.roi = r || null; edit.loupe(!!r, r || undefined); },
@@ -740,7 +817,7 @@
     stats(reset) { return native('canvasStats', { reset: !!reset }); },
     // The facts line's offer: pin the shoot to the newest decoder (RAW 9 §7).
     updateDecoder() { return native('decoderUpdate', {}).then(h => { edit.header(h); return edit.facts(); }); },
-    header(h) { if (h && typeof h === 'object') { ed.header = Object.assign({}, ed.header || {}, h); if (h.canvas) ed.path = h.canvas; } pushFacts(); },
+    header(h) { if (h && typeof h === 'object') { ed.header = Object.assign({}, ed.header || {}, h); if (h.canvas) ed.path = h.canvas; noteAsShot(h); } pushFacts(); },
     get image() { return img.url; },
     state() { return { rel: ed.rel, look: ed.look, path: ed.path, rect: ed.rect, visible: ed.visible, force: !!ed.force, dragging: ed.dragging, seq: ed.seq, loupe: ed.loupe, roi: ed.roi,
       image: { shown: img.shown, tier: img.tier, fetches: img.fetches, superseded: img.superseded, inFlight: img.inFlight, pending: !!img.pending, url: img.url }, facts: ed.factsText, header: ed.header }; },

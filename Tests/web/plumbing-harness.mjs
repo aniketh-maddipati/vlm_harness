@@ -228,6 +228,43 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(bridge.canvas.entered.some(e => e.leave) && (await page.evaluate(() => lumina.edit.state().rel)) === null && bridge.canvas.layouts[bridge.canvas.layouts.length - 1].visible === false, 'edit: leave hides the canvas and tells the Mac');
   ok((await page.evaluate(() => { try { lumina.edit.look('ev:+0.10', { drag: true }); lumina.edit.dragEnd(); return true; } catch (e) { return String(e); } })) === true, 'edit: calls after leave are harmless no-ops');
 
+  // Edit v22 through the page itself (not lumina.edit): it names a photo by its file name, so plumbing's
+  // editShoot gives each photo its path; the chrome over the photo becomes holes; the RAW's as-shot
+  // white balance reaches the page's photo.
+  { const e0 = bridge.canvas.entered.length, l0 = bridge.canvas.layouts.length;
+    await page.evaluate(() => __lumina.logic().setView('edit', true));
+    await page.waitForTimeout(1500);
+    const ent = bridge.canvas.entered.slice(e0).filter(x => !x.leave);
+    const rels = await page.evaluate(() => __lumina.logic().real.map(p => (__lumina.logic().state.realInfo.name || '') + '/' + p.path.split('/').slice(1).join('/')));
+    ok(ent.length >= 1 && rels.includes(ent[0].rel) && ent[0].model === 'ILCE-7M4', 'edit v22 (page): opening Edit enters the canvas with the photo\'s path in the folder', { ent: ent.slice(0, 1), rel: rels[0] });
+    const pv = await page.evaluate(() => (window.luminaShoot ? window.luminaShoot().P : []).slice(0, 2).map(p => p.rel));
+    ok(pv.length === 2 && pv.every(r => rels.includes(r)), 'edit v22 (page): luminaShoot photos carry rel', pv);
+    const L = bridge.canvas.layouts.slice(l0).filter(x => x.visible), last = L[L.length - 1];
+    const inside = h => h.x >= last.x && h.y >= last.y && h.x + h.w <= last.x + last.w && h.y + h.h <= last.y + last.h;
+    ok(last && Array.isArray(last.holes) && last.holes.length >= 1 && last.holes.length <= 16 && last.holes.every(inside) && last.holes.every(h => h.w * h.h < 0.6 * last.w * last.h),
+      'edit v22 (page): the chrome over the photo (the zoom pill) is sent as holes inside the rect, nothing full-size', last && last.holes);
+    // A chip appearing without the rect changing sends the holes again.
+    const n1 = bridge.canvas.layouts.length;
+    await page.evaluate(() => { const d = document.createElement('div'); d.id = '__chip'; d.style.cssText = 'position:absolute;left:12px;top:12px;width:60px;height:24px'; document.querySelector('[data-lumina="canvas"]').appendChild(d); });
+    await page.waitForTimeout(300);
+    const L2 = bridge.canvas.layouts.slice(n1);
+    ok(L2.length >= 1 && L2[L2.length - 1].visible && L2[L2.length - 1].holes.length === last.holes.length + 1, 'edit v22 (page): a chip that appears over the photo is sent as one more hole', L2.map(x => x.holes));
+    await page.evaluate(() => document.getElementById('__chip').remove()); await page.waitForTimeout(300);
+    // As-shot white balance from the canvas (the base landed): the page's photo starts there.
+    const shot = await page.evaluate(rel => {
+      __lumina.editHeader({ asShot: { kelvin: 4321, tint: 7 }, asShotRel: rel });
+      const el = document.querySelector('[data-lumina="canvas"]'), k = Object.keys(el).find(x => x.startsWith('__reactFiber$'));
+      let E = null; for (let f = el[k]; f && !E; f = f.return) if (f.stateNode && f.stateNode.logic && f.stateNode.logic.nbInfo) E = f.stateNode.logic;
+      const p = Object.values(E.data.byId).find(q => q.rel === rel), q = window.luminaShoot().P.find(x => x.rel === rel);
+      return { page: p && [p.wbShot, p.tintShot], shoot: q && [q.wbShot, q.tintShot], def: p && E.def('wb', p) };
+    }, ent[0] && ent[0].rel);
+    ok(shot.page && shot.page[0] === 4321 && shot.page[1] === 7 && shot.shoot[0] === 4321 && shot.def === 4321, 'edit v22 (page): the RAW\'s as-shot white balance becomes the photo\'s wbShot / tintShot (Edit and later opens)', shot);
+    await page.evaluate(() => __lumina.editHeader({ asShot: { kelvin: 'x', tint: 1 }, asShotRel: 'nope' }));
+    const n2 = bridge.canvas.layouts.length;
+    await page.evaluate(() => __lumina.logic().setView('cull')); await page.waitForTimeout(500);
+    const L3 = bridge.canvas.layouts.slice(n2);
+    ok(L3.length >= 1 && L3[L3.length - 1].visible === false, 'edit v22 (page): leaving Edit hides the canvas', L3); }
+
   // Save → sidecars INTO the folder
   const before2 = fs.readFileSync(path.join(shoot, 'DSC01002.xmp'), 'utf8');
   await page.evaluate(() => __lumina.command('stepSave')); await page.waitForTimeout(300);
