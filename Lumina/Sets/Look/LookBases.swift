@@ -155,7 +155,8 @@ nonisolated final class LookBases: @unchecked Sendable {
         let px = native.map { Int((max($0.width, $0.height) * fit).rounded(.up)) }
         var dev: LookPipeline.Developed
         do {
-            dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipeline.rules, decoderVersion: key.decoder, nr: look.nr)
+            // Every photosite, then scaled: Fit is as sharp as the file allows, like the export.
+            dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipeline.rules, decoderVersion: key.decoder, nr: look.nr, fullDecode: true)
         } catch {
             guard let p = preview else { lock.withLock { _stats.failed += 1 }; throw error }
             source = "jpeg"

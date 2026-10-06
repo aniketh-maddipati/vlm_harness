@@ -120,7 +120,10 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// decode itself (`scaleFactor`), so a 1024 px preview never demosaics 24 MP.
     /// `decoderVersion` picks one of `supportedDecoderVersions` (RAW 9 tiers; nil = Core Image's
     /// default), `nr` is the look's Detail ▸ luminance noise reduction (0 … 100).
-    static func develop(url: URL, longEdge px: Int?, rules: LookRules, decoderVersion: Int? = nil, nr: Double? = nil) throws -> Developed {
+    /// `fullDecode`: every photosite is demosaiced and the result is scaled to `longEdge` with
+    /// Lanczos, for what a person looks at closely (the Edit canvas, an export). The decoder's own
+    /// `scaleFactor` is several times faster and visibly softer at the same size.
+    static func develop(url: URL, longEdge px: Int?, rules: LookRules, decoderVersion: Int? = nil, nr: Double? = nil, fullDecode: Bool = false) throws -> Developed {
         guard let raw = CIRAWFilter(imageURL: url) else { throw Failure("not a RAW Core Image can read: \(url.lastPathComponent)") }
         if let want = decoderVersion {
             guard let v = raw.supportedDecoderVersions.first(where: { decoderNumber($0) == want }) else {
@@ -131,7 +134,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         if let nr { raw.luminanceNoiseReductionAmount = Float(min(1, max(0, nr / 100))) }
         let native = raw.nativeSize
         let long = max(native.width, native.height)
-        if let px, px > 0, long > 0, CGFloat(px) < long { raw.scaleFactor = Float(CGFloat(px) / long) }
+        if !fullDecode, let px, px > 0, long > 0, CGFloat(px) < long { raw.scaleFactor = Float(CGFloat(px) / long) }
         let draftBelow = rules.k("rawDevelop", "draftBelowPx", 0)
         if let px, draftBelow > 0, Double(px) <= draftBelow { raw.isDraftModeEnabled = true }
         raw.boostAmount = Float(rules.k("rawDevelop", "boostAmount", 1))
@@ -143,7 +146,8 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         }
         guard let out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite else { throw Failure("couldn't decode \(url.lastPathComponent)") }
         let asShot = Look.WhiteBalance(kelvin: Double(raw.neutralTemperature), tint: Double(raw.neutralTint))
-        return Developed(image: try baseMatched(Self.atOrigin(out), rules: rules), asShot: asShot, anchor: toneAnchor(raw: url, rules: rules))
+        let matched = try baseMatched(Self.atOrigin(out), rules: rules)
+        return Developed(image: fullDecode ? Self.scaled(matched, longEdge: px) : matched, asShot: asShot, anchor: toneAnchor(raw: url, rules: rules))
     }
 
     // MARK: the tone anchor
@@ -257,8 +261,8 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     }
 
     /// A RAW when Core Image reads it as one, else any image ImageIO reads.
-    static func developAny(url: URL, longEdge px: Int?, rules: LookRules, decoderVersion: Int? = nil, nr: Double? = nil) throws -> Developed {
-        if isRAW(url) { return try develop(url: url, longEdge: px, rules: rules, decoderVersion: decoderVersion, nr: nr) }
+    static func developAny(url: URL, longEdge px: Int?, rules: LookRules, decoderVersion: Int? = nil, nr: Double? = nil, fullDecode: Bool = false) throws -> Developed {
+        if isRAW(url) { return try develop(url: url, longEdge: px, rules: rules, decoderVersion: decoderVersion, nr: nr, fullDecode: fullDecode) }
         return try developImage(url: url, longEdge: px)
     }
 

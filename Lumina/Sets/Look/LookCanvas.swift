@@ -374,6 +374,10 @@ final class LookCanvasController: NSObject {
         let sizeChanged = view.frame.size != r.size || view.drawableSize != px
         view.frame = r
         view.drawableSize = px
+        // The drawable is sized by hand (`autoResizeDrawable` is off), so the layer's scale is ours
+        // to set too. Left at 1 on a 2× display, the layer is composited at half its pixels once it
+        // has a mask (the holes), and the photo is soft however sharp the drawable is.
+        if let scale = view.window?.backingScaleFactor, view.layer?.contentsScale != scale { view.layer?.contentsScale = scale }
         applyHoles(holes)
         stats.canvas = [Int(px.width), Int(px.height)]
         let show = visible && rect.width >= 2 && rect.height >= 2
