@@ -35,6 +35,7 @@ jobs:
       release: ${{ steps.f.outputs.release }}
       screens: ${{ steps.f.outputs.screens }}
       sandbox: ${{ steps.f.outputs.sandbox }}
+      xctest: ${{ steps.f.outputs.xctest }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -134,11 +135,17 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # On a pull request, only the test classes the change touches (Scripts/ci_changes.py, xctest_args);
+      # on main and nightly, all of LuminaLogicTests. No index store: CI never reads it.
       - name: build and test
+        env:
+          ONLY_TESTING: ${{ needs.changes.outputs.xctest }}
         run: |
+          echo "tests: $ONLY_TESTING"
+          # shellcheck disable=SC2086  # one -only-testing argument per class
           xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
             -derivedDataPath DD -destination 'platform=macOS,arch=arm64' \
-            -only-testing:LuminaLogicTests COMPILER_INDEX_STORE_ENABLE=NO test   # no index store: CI never reads it
+            ${ONLY_TESTING:--only-testing:LuminaLogicTests} COMPILER_INDEX_STORE_ENABLE=NO test
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         if: needs.changes.outputs.look == 'true'
         with:

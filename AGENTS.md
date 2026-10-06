@@ -136,6 +136,15 @@ long probe shards (fuzz-sample-2 + scroll-quick-2560; scroll-read + scroll-quick
 nightly and when the workflow is run by hand on a branch. The other storms, the full scroll sweep and raw9 (real
 ARWs, macOS 27) run on a Mac.
 
+**Before you push, run what CI will run, then push once.** Each push restarts a macOS run of several
+minutes (a newer push cancels the older one, so a series of quick pushes keeps the runners busy and
+the PR waiting). `python3 Scripts/ci_changes.py $(git diff --name-only origin/main...)` prints which
+areas your change sets and the XCTest classes CI will pick (`xctest=`); run the matching local checks
+above (Linux: the node fixtures, `Tests/web`, `make parity-test`, `Tests/linux-swift`; Mac: those
+classes with `-only-testing`, `probe.sh smoke`), fix what fails, and push the finished change in one go.
+CI's per-class pick follows names (a test file that names a type the change declares); main runs the
+whole target, so a break that reaches a class only indirectly still shows there.
+
 ## Running tests without disturbing the Mac
 
 The probe's window and a UI test take the screen and the keyboard, disk images show in Finder, and
