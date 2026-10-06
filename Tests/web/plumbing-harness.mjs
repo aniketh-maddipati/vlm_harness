@@ -60,7 +60,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   for (const n of ['A.CR3', 'B.CR3', 'C.JPG', 'D.MP4']) fs.writeFileSync(path.join(empty, n), 'x');
   bridge.pending = empty; await page.evaluate(() => __lumina.openFolder());
   await page.waitForFunction(() => !!__lumina.logic().state.openNote, null, { timeout: 5000 }).catch(() => {});
-  ok((await S(page)).openNote === 'no ARW found · 2 CR3 · 1 JPEG / HEIF · 1 videos · only Sony ARW is supported', 'intake: no-ARW note uses non-ARW names from the listing', (await S(page)).openNote);
+  ok((await S(page)).openNote === 'no ARW or DNG found · 2 CR3 · 1 JPEG / HEIF · 1 videos · Lumina reads ARW and DNG', 'intake: no-ARW note uses non-ARW names from the listing', (await S(page)).openNote);
 
   // A shoot
   const shoot = path.join(tmp, '2026-09-01');
@@ -224,9 +224,11 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   // Save → sidecars INTO the folder
   const before2 = fs.readFileSync(path.join(shoot, 'DSC01002.xmp'), 'utf8');
   await page.evaluate(() => __lumina.command('stepSave')); await page.waitForTimeout(300);
-  ok((await S(page)).view === 'export', 'save: ⌘3 via luminaCommand');
+  ok((await S(page)).view === 'export', 'save: ⌘4 via luminaCommand');
   await page.waitForTimeout(900);            // the page ignores ⌘⏎ for 800 ms after a step change
   await page.evaluate(() => __lumina.command('save'));
+  // v8's Save guard: rows not looked at this pass arm ⌘⏎ once; the second ⌘⏎ saves.
+  if (await page.evaluate(() => __lumina.logic().state.armed === 'save')) await page.evaluate(() => __lumina.command('save'));
   await page.waitForFunction(() => { const r = __lumina.logic().state.ex; return r && r.result; }, null, { timeout: 5000 }).catch(() => {});
   const res = await page.evaluate(() => __lumina.logic().state.ex.result);
   ok(res && res.t === keptN + ' saved' && !res.bad, 'save: result "N saved"', res);

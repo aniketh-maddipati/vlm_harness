@@ -3,29 +3,43 @@
 (function(g){
 let _crcT=null;
 
-// Sony ARW (TIFF) header → capture time, exposure, focal length, EV comp, ISO, orientation,
+// ARW / DNG (TIFF) header → capture time, exposure, focal length, EV comp, ISO, orientation,
 // and the largest embedded JPEG preview [offset, length].
-function parseHead(u8,size){ const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength), le=u8[0]===0x49&&u8[1]===0x49; if(!le&&!(u8[0]===0x4d&&u8[1]===0x4d)) return null;
-    const g16=o=>dv.getUint16(o,le), g32=o=>dv.getUint32(o,le), in_=o=>o>=0&&o+4<=u8.length; const seen=new Set(), jpgs=[], o={};
+function parseHead(u8,size){ if(!u8||u8.length<8) return null; const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength), le=u8[0]===0x49&&u8[1]===0x49; if(!le&&!(u8[0]===0x4d&&u8[1]===0x4d)) return null;
+    const g16=o=>dv.getUint16(o,le), g32=o=>dv.getUint32(o,le), in_=o=>o>=0&&o+4<=u8.length; const seen=new Set(), jpgs=[], parts=[], rgbs=[], o={};
+    const arr=(type,cnt,vo)=>{ const sz=type===3?2:4, p=cnt*sz>4?g32(vo):vo, out=[]; if(cnt>4096) return null; for(let k=0;k<cnt;k++){ const q=p+k*sz; if(q+sz>u8.length) return null; out.push(sz===2?g16(q):g32(q)); } return out; };
     const str=(p,n)=>{ let s=''; for(let i=0;i<n&&p+i<u8.length;i++){ const c=u8[p+i]; if(!c) break; s+=String.fromCharCode(c); } return s.trim(); };
     const rat=(p,signed)=>in_(p+4)?(signed?dv.getInt32(p,le)/dv.getInt32(p+4,le):g32(p)/g32(p+4)):null;
-    const walk=(off,d)=>{ if(!off||seen.has(off)||d>6||off+2>u8.length) return; seen.add(off); const n=g16(off); if(n===0||n>1000||off+2+n*12+4>u8.length) return; let jo=0,jl=0; const subs=[];
+    const walk=(off,d)=>{ if(!off||seen.has(off)||d>6||off+2>u8.length) return; seen.add(off); const n=g16(off); if(n===0||n>1000||off+2+n*12+4>u8.length) return; let jo=0,jl=0,cmp=0,nst=-1,so=0,sl=0,soA=null,slA=null,toA=null,tlA=null,tw=0,th=0,iw=0,ih=0,spp=0,bps=0,pm=0,rps=0; const subs=[];
       for(let i=0;i<n;i++){ const e=off+2+i*12, tag=g16(e), type=g16(e+2), cnt=g32(e+4), vo=e+8, val=()=>(type===3&&cnt===1)?g16(vo):g32(vo), sp=()=>cnt>4?g32(vo):vo;
-        if(tag===0x0201) jo=val(); else if(tag===0x0202) jl=val(); else if(tag===0x8769) subs.push(val());
-        else if(tag===0x9003&&!o.date) o.date=str(sp(),cnt); else if(tag===0x829A) o.exp=rat(g32(vo)); else if(tag===0x920A) o.fl=rat(g32(vo)); else if(tag===0x9204) o.ev=rat(g32(vo),true); else if(tag===0x8827) o.iso=val(); else if(tag===0xA434&&!o.lens) o.lens=str(sp(),cnt); else if(tag===0xA431&&!o.serial) o.serial=str(sp(),cnt); else if(tag===0x8822) o.program=val(); else if(tag===0xA403) o.wb=val(); else if(tag===0x9209) o.flash=val()&1; else if(tag===0x0112&&!o.orient) o.orient=val(); else if(tag===0x927C&&!o._mn) o._mn=[sp(),cnt]; else if(tag===0x829D&&!o.fnum) o.fnum=rat(g32(vo)); else if(tag===0x0110&&!o.model) o.model=str(sp(),cnt); else if(tag===0xA002&&!o.w) o.w=val(); else if(tag===0xA003&&!o.h) o.h=val(); }
-      if(jo&&jl&&jo+jl<=size) jpgs.push([jo,jl]); subs.forEach(s=>walk(s,d+1)); walk(g32(off+2+n*12),d+1); };
-    walk(g32(4),0); jpgs.sort((a,b)=>b[1]-a[1]); o.preview=jpgs[0]||null;
-    o.bytes=size||null; ['fnum','model','w','h','lens','serial','program','wb','flash','ev'].forEach(k=>{ if(o[k]===undefined) o[k]=null; }); Object.assign(o,{releaseMode2:null,seqImage:null,seqLength:null,shotSincePower:null,focusMode:null,seqNumber:null}); if(o._mn) try{ sonyMN(u8,dv,le,o._mn[0],o); }catch(_){} delete o._mn; return o; }
-// Sony MakerNote. Plain tags: 0xB049 ReleaseMode, 0xB04A SequenceNumber, 0x201B FocusMode. Enciphered 0x9400 (Tag9400c layout, bodies from ~2017):
+        if(tag===0x0201) jo=val(); else if(tag===0x0202) jl=val(); else if(tag===0x8769) subs.push(val()); else if(tag===0x014A){ if(cnt===1) subs.push(g32(vo)); else { const p=g32(vo); for(let k=0;k<cnt&&k<8&&in_(p+k*4);k++) subs.push(g32(p+k*4)); } } else if(tag===0x0103) cmp=val(); else if(tag===0x00FE) nst=val(); else if(tag===0x0111&&cnt===1) so=val(); else if(tag===0x0117&&cnt===1) sl=val(); else if(tag===0x010F&&!o.make) o.make=str(sp(),cnt); else if(tag===0xA405&&!o.fl35) o.fl35=val(); else if(tag===0xC612) o.dng=true;
+        else if(tag===0x9003&&!o.date) o.date=str(sp(),cnt); else if(tag===0x829A) o.exp=rat(g32(vo)); else if(tag===0x920A) o.fl=rat(g32(vo)); else if(tag===0x9204) o.ev=rat(g32(vo),true); else if(tag===0x8827) o.iso=val(); else if(tag===0xA434&&!o.lens) o.lens=str(sp(),cnt); else if(tag===0xA431&&!o.serial) o.serial=str(sp(),cnt); else if(tag===0x8822) o.program=val(); else if(tag===0xA403) o.wb=val(); else if(tag===0x9209) o.flash=val()&1; else if(tag===0x0112&&!o.orient) o.orient=val(); else if(tag===0x927C&&!o._mn) o._mn=[sp(),cnt]; else if(tag===0x829D&&!o.fnum) o.fnum=rat(g32(vo)); else if(tag===0x0110&&!o.model) o.model=str(sp(),cnt); else if(tag===0xA002&&!o.w) o.w=val(); else if(tag===0xA003&&!o.h) o.h=val();
+        if(tag===0x0111) soA=arr(type,cnt,vo); else if(tag===0x0117) slA=arr(type,cnt,vo); else if(tag===0x0144) toA=arr(type,cnt,vo); else if(tag===0x0145) tlA=arr(type,cnt,vo); else if(tag===0x0142) tw=val(); else if(tag===0x0143) th=val(); else if(tag===0x0100) iw=val(); else if(tag===0x0101) ih=val(); else if(tag===0x0115) spp=val(); else if(tag===0x0102) bps=cnt===1?val():((arr(type,cnt,vo)||[0])[0]); else if(tag===0x0106) pm=val(); else if(tag===0x0116) rps=val(); }
+      // previews in pieces (tiled or multi-strip JPEG) and uncompressed 8-bit RGB thumbnails (Android DngCreator IFD0)
+      const fit=L=>L.every(([a,b])=>a&&b&&a+b<=size);
+      if((cmp===6||cmp===7)&&nst===1&&iw&&ih){ if(toA&&tlA&&toA.length===tlA.length&&tw&&th){ const L=toA.map((x,i)=>[x,tlA[i]]); if(fit(L)) parts.push({parts:L,w:iw,h:ih,tw,th,tiled:true}); } else if(soA&&slA&&soA.length>1&&soA.length===slA.length){ const L=soA.map((x,i)=>[x,slA[i]]); if(fit(L)) parts.push({parts:L,w:iw,h:ih,rps:rps||Math.ceil(ih/soA.length),tiled:false}); } }
+      if(cmp===1&&nst===1&&pm===2&&(spp===3||spp===4)&&bps===8&&iw&&ih&&soA&&slA&&soA.length===slA.length){ const L=soA.map((x,i)=>[x,slA[i]]); if(fit(L)) rgbs.push({parts:L,w:iw,h:ih,spp}); }
+      if(jo&&jl&&jo+jl<=size&&(!in_(jo)||u8[jo]===0xFF&&u8[jo+1]===0xD8)) jpgs.push([jo,jl]); if((cmp===6||cmp===7)&&nst===1&&so&&sl&&so+sl<=size&&(!in_(so)||u8[so]===0xFF&&u8[so+1]===0xD8)) jpgs.push([so,sl]); subs.forEach(s=>walk(s,d+1)); walk(g32(off+2+n*12),d+1); };
+    walk(g32(4),0); jpgs.sort((a,b)=>b[1]-a[1]); o.preview=jpgs[0]||null; o.previews=jpgs.slice(0,4); const area=x=>x.w*x.h; parts.sort((a,b)=>area(b)-area(a)); rgbs.sort((a,b)=>area(b)-area(a)); o.pvParts=o.preview?null:parts[0]||null; o.pvRGB=o.preview?null:rgbs[0]||null;
+    o.bytes=size||null; ['fnum','model','make','fl35','w','h','lens','serial','program','wb','flash','ev','dng'].forEach(k=>{ if(o[k]===undefined) o[k]=null; }); Object.assign(o,{releaseMode2:null,seqImage:null,seqLength:null,shotSincePower:null,focusMode:null,seqNumber:null}); if(o._mn) try{ sonyMN(u8,dv,le,o._mn[0],o); }catch(_){} delete o._mn; return o; }
+// Preview from pieces (pvParts) or, failing that, the uncompressed RGB thumbnail (pvRGB, low-res stand-in) → JPEG Blob. Browser only.
+async function assemblePreview(f,m){ const rd=async(o,l)=>new Uint8Array(await f.slice(o,o+l).arrayBuffer()), out=c=>new Promise(r=>c.toBlob(r,'image/jpeg',0.9));
+  if(m.pvParts) try{ const P=m.pvParts, c=document.createElement('canvas'); c.width=P.w; c.height=P.h; const x=c.getContext('2d'), across=P.tiled?Math.ceil(P.w/P.tw):1;
+    for(let i=0;i<P.parts.length;i++){ const [o,l]=P.parts[i], b=await rd(o,l); if(b[0]!==0xFF||b[1]!==0xD8) throw 0; const bm=await createImageBitmap(new Blob([b],{type:'image/jpeg'})); x.drawImage(bm,P.tiled?(i%across)*P.tw:0,P.tiled?Math.floor(i/across)*P.th:i*P.rps); bm.close(); }
+    return {blob:await out(c),low:false}; }catch(_){}
+  if(m.pvRGB){ const R=m.pvRGB, n=R.w*R.h, buf=new Uint8Array(n*R.spp); let p=0; for(const [o,l] of R.parts){ if(p>=buf.length) break; const b=await rd(o,Math.min(l,buf.length-p)); buf.set(b,p); p+=b.length; } if(p<buf.length) return null;
+    const c=document.createElement('canvas'); c.width=R.w; c.height=R.h; const x=c.getContext('2d'), id=x.createImageData(R.w,R.h); for(let i=0;i<n;i++){ const s=i*R.spp, d=i*4; id.data[d]=buf[s]; id.data[d+1]=buf[s+1]; id.data[d+2]=buf[s+2]; id.data[d+3]=255; } x.putImageData(id,0,0); return {blob:await out(c),low:true}; }
+  return null; }
+// Sony MakerNote (with or without the "SONY DSC " header; IFD at +12 or +0). 0x9400 layout is checked on the stored first byte. 0x9400 SequenceImageNumber counts from 0 (+1 here, null for singles); 0xB04A counts from 1 (0 = single). Plain tags: 0xB049 ReleaseMode, 0xB04A SequenceNumber, 0x201B FocusMode. Enciphered 0x9400 (Tag9400c layout, bodies from ~2017):
 // 0x09 ReleaseMode2, 0x0A ShotNumberSincePowerUp, 0x12 SequenceImageNumber, 0x1E SequenceLength. Anything that doesn't sanity-check stays null.
 let _sonyDec=null;
-function sonyMN(u8,dv,le,mo,o){ if(mo+14>u8.length||String.fromCharCode(...u8.subarray(mo,mo+4))!=='SONY') return; const ifd=mo+12, g16=p=>dv.getUint16(p,le), g32=p=>dv.getUint32(p,le), n=g16(ifd); if(!n||n>400||ifd+2+n*12>u8.length) return;
+function sonyMN(u8,dv,le,mo,o){ if(mo+14>u8.length) return; const hdr=String.fromCharCode(...u8.subarray(mo,mo+4))==='SONY'; const ifd=hdr?mo+12:mo, g16=p=>dv.getUint16(p,le), g32=p=>dv.getUint32(p,le), n=g16(ifd); if(!n||n>400||ifd+2+n*12>u8.length) return;
   for(let i=0;i<n;i++){ const e=ifd+2+i*12, tag=g16(e), type=g16(e+2), cnt=g32(e+4), vo=e+8, v16=()=>type===3?g16(vo):type===4?g32(vo):u8[vo];
     if(tag===0xB04A) o.seqNumber=v16(); else if(tag===0x201B) o.focusMode=u8[vo]; else if(tag===0x9400&&cnt>=0x20){ const p=g32(vo); if(p+0x20>u8.length) continue;
       if(!_sonyDec){ _sonyDec=new Uint8Array(256); for(let c=0;c<256;c++) _sonyDec[c]=c; for(let c=0;c<249;c++) _sonyDec[(c*c*c)%249]=c; }
       const d=Array.from(u8.subarray(p,p+0x20),x=>_sonyDec[x]), u32=k=>(le?d[k]|d[k+1]<<8|d[k+2]<<16|d[k+3]<<24:d[k]<<24|d[k+1]<<16|d[k+2]<<8|d[k+3])>>>0;
-      if([0x23,0x24,0x26,0x28,0x31,0x32,0x33].includes(d[0])){ const si=u32(0x12), sl=d[0x1E], sp=u32(0x0A);
-        o.releaseMode2=d[0x09]<64?d[0x09]:null; o.seqImage=si>0&&si<100000?si:null; o.seqLength=sl>0?sl:null; o.shotSincePower=sp>0&&sp<1e7?sp:null; } } }
+      if([0x23,0x24,0x26,0x28,0x31,0x32,0x33].includes(u8[p])){ const si=u32(0x12), sl=d[0x1E], sp=u32(0x0A);
+        o.releaseMode2=d[0x09]<64?d[0x09]:null; o.seqImage=sl>1&&si<100000?si+1:null; o.seqLength=sl>0?sl:null; o.shotSincePower=sp>0&&sp<1e7?sp:null; } } }
   if(o.seqImage==null&&o.seqNumber!=null&&o.seqNumber<65535) o.seqImage=o.seqNumber||null; }
 
 // Preview bitmap → mean luminance 0–1, Laplacian variance (focus), % clipped pixels.
@@ -45,10 +59,18 @@ function zip(files){ const enc=new TextEncoder(), parts=[], cen=[]; let off=0;
     return new Blob([...parts,...cen,new Uint8Array(e.buffer)],{type:'application/zip'}); }
 
 // Set rating + label in an existing XMP; everything else (Lightroom edits) untouched.
-function mergeXmp(src,rating,final){ let x=src; const setA=(name,val)=>{ const re=new RegExp('(<(?:[\\w-]+:)?'+name.replace(':','\\:')+'>)[^<]*(</)'), ra=new RegExp(name.replace(':','\\:')+'\\s*=\\s*"[^"]*"');
+// kw: one Lumina pass keyword; earlier Lumina pass keywords are replaced, other keywords stay.
+function mergeXmp(src,rating,final,kw){ let x=src; const setA=(name,val)=>{ const re=new RegExp('(<(?:[\\w-]+:)?'+name.replace(':','\\:')+'>)[^<]*(</)'), ra=new RegExp(name.replace(':','\\:')+'\\s*=\\s*"[^"]*"');
       if(ra.test(x)) x=x.replace(ra,name+'="'+val+'"'); else if(re.test(x)) x=x.replace(re,'$1'+val+'$2'); else x=x.replace(/<rdf:Description\b/,m=>m+' '+name+'="'+val+'"'); };
     const d=/<rdf:Description\b[^>]*>/.exec(x); if(d&&!/xmlns:xmp\s*=/.test(x)) x=x.replace(/<rdf:Description\b/,m=>m+' xmlns:xmp="http://ns.adobe.com/xap/1.0/"');
-    setA('xmp:Rating',rating); if(final) setA('xmp:Label',final); return x; }
+    setA('xmp:Rating',rating); if(final) setA('xmp:Label',final); if(kw) x=addKw(x,kw); return x; }
+function addKw(x,kw){ x=x.replace(/<rdf:li>Lumina pass \d+<\/rdf:li>/g,'').replace(/<rdf:li>Lumina\|pass \d+<\/rdf:li>/gi,'');
+  if(!/xmlns:dc\s*=/.test(x)) x=x.replace(/<rdf:Description\b/,m=>m+' xmlns:dc="http://purl.org/dc/elements/1.1/"');
+  const li='<rdf:li>'+kw+'</rdf:li>';
+  if(/<dc:subject>\s*<rdf:Bag>/.test(x)) return x.replace(/(<dc:subject>\s*<rdf:Bag>)/,'$1'+li);
+  const block='<dc:subject><rdf:Bag>'+li+'</rdf:Bag></dc:subject>';
+  if(/<rdf:Description\b[^>]*\/>/.test(x)) return x.replace(/(<rdf:Description\b[^>]*?)\s*\/>/,'$1>'+block+'</rdf:Description>');
+  return x.replace(/(<rdf:Description\b[^>]*>)/,'$1'+block); }
 
 // Photos → rows (weighted change score, see rowScore; cuts[id]='row' | 'join' override), stacks
 // (Sony SequenceImageNumber runs when present; else gap ≤ 2 s and dHash distance ≤ 6; dHash ≥ 28 always splits;
@@ -63,7 +85,7 @@ function buildShoot(list,cuts){ const light=h=>h<11?'morning':h<15?'midday':h<18
     const gaps=[]; P.forEach((q,idx)=>{ const prev=P[idx-1], gap=prev?(q.t-prev.t)/1000:1e9; let rs=prev?rowScore(prev,q,gap,gaps):null; if(prev&&gap>2) gaps.push(gap); const rc=cuts['f'+n]; if(rs&&(rc==='row'||rc==='moved')) rs={start:true,reason:rc==='moved'?'you moved this':'you split here'}; else if(rs&&rc==='join') rs={start:false}; if(!cur||rs.start){ const d=new Date(q.t), hh=d.getUTCHours(); cur={hh,time:String(hh).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'),fr:[],reason:rs?rs.reason:''}; M.push(cur); }
       const id='f'+n, hh=new Date(q.t).getUTCHours(), fl=q.fl||0, shake=!!(q.exp&&fl&&q.exp>2/fl);
       const d2=new Date(q.t), p2=x=>String(x).padStart(2,'0');
-      const p={exp:q.exp??null,iso:q.iso??null,model:q.model||null,fnum:q.fnum||null,pw:q.w||null,ph:q.h||null,bytes:q.bytes||null,seqLen:q.seqLength??null,evc:q.ev??null,sec:p2(d2.getUTCHours())+':'+p2(d2.getUTCMinutes())+':'+p2(d2.getUTCSeconds()),date10:d2.getUTCFullYear()+'-'+p2(d2.getUTCMonth()+1)+'-'+p2(d2.getUTCDate()),dark:!q.nopv&&q.lum!=null&&q.lum<0.08,nopv:!!q.nopv,path:q.path,lens:q.lens||null,serial:q.serial||null,program:q.program??null,wb:q.wb??null,flash:q.flash??null,dhash:q.dhash||null,hist:q.hist||null,id,n,jpg:!!q.jpg,mi:M.length-1,fileObj:q.fileObj,xpath:q.xpath,xmp:q.xmp||null,lrEd:!!q.lrEd,portrait:!!q.portrait,src:q.src,lg:q.lg,zsrc:q.lg,ev:0,time:cur.time,hh,light:light(hh),h:q.lum,sharp:pct(q.focus),focus:q.focus,fx:50,fy:50,seq:q.seqImage??null,rm2:q.releaseMode2??null,start:!prev||cur.fr.length===0||(()=>{ const sq=q.seqImage, ps=prev.seqImage; const h=prev.dhash&&q.dhash?ham(prev.dhash,q.dhash):null; if(h!=null&&h>=28) return true; if(sq!=null&&ps!=null) return !(sq===ps+1&&gap<=2); if(h!=null) return !(gap<=2&&h<=6); return gap>1; })(),bk:false,evs:q.ev,seed:0,sug:null,bl:0,clip:+q.clip.toFixed(1),blown:q.clip>2,shake,ss:q.exp?(q.exp>=1?q.exp.toFixed(1)+'s':'1/'+Math.round(1/q.exp)):'',fl:fl?Math.round(fl):0,file:q.name};
+      const p={exp:q.exp??null,iso:q.iso??null,model:q.model||null,make:q.make||null,wbK:q.wbK??null,wbTint:q.wbTint??null,fnum:q.fnum||null,pw:q.w||null,ph:q.h||null,bytes:q.bytes||null,seqLen:q.seqLength??null,evc:q.ev??null,sec:p2(d2.getUTCHours())+':'+p2(d2.getUTCMinutes())+':'+p2(d2.getUTCSeconds()),date10:d2.getUTCFullYear()+'-'+p2(d2.getUTCMonth()+1)+'-'+p2(d2.getUTCDate()),dark:!q.nopv&&q.lum!=null&&q.lum<0.08,nopv:!!q.nopv,path:q.path,lens:q.lens||null,serial:q.serial||null,program:q.program??null,wb:q.wb??null,flash:q.flash??null,dhash:q.dhash||null,hist:q.hist||null,id,n,jpg:!!q.jpg,mi:M.length-1,fileObj:q.fileObj,xpath:q.xpath,xmp:q.xmp||null,lrEd:!!q.lrEd,portrait:!!q.portrait,src:q.src,lg:q.lg,zsrc:q.lg,ev:0,time:cur.time,hh,light:light(hh),h:q.lum,sharp:pct(q.focus),focus:q.focus,fx:q.focusLoc?Math.round(q.focusLoc.x*100):50,fy:q.focusLoc?Math.round(q.focusLoc.y*100):50,subj:q.focusLoc||null,seq:q.seqImage??null,rm2:q.releaseMode2??null,start:!prev||cur.fr.length===0||(()=>{ const sq=q.seqImage, ps=prev.seqImage; const h=prev.dhash&&q.dhash?ham(prev.dhash,q.dhash):null; if(h!=null&&h>=28) return true; if(sq!=null&&ps!=null) return !(sq===ps+1&&gap<=2); if(h!=null) return !(gap<=2&&h<=6); return gap>1; })(),bk:false,evs:q.ev,seed:0,sug:null,bl:0,clip:+q.clip.toFixed(1),blown:false,lowpv:!!q.lowpv,shake,ss:q.exp?(q.exp>=1?q.exp.toFixed(1)+'s':'1/'+Math.round(1/q.exp)):'',fl:fl?Math.round(fl):0,file:q.name};
       byId[id]=p; cur.fr.push(p); n++; });
     // Manual moves (drag tiles onto a row header / a stack / between rows): cuts[id] = {to|stack|newAfter: anchor frame id}.
     const mv=Object.entries(cuts).filter(([,v])=>v&&typeof v==='object');
@@ -74,13 +96,15 @@ function buildShoot(list,cuts){ const light=h=>h<11?'morning':h<15?'midday':h<18
       news.forEach(nr=>{ M.splice(M.indexOf(nr.after)+1,0,nr); }); M.forEach(m=>{ m.fr.sort((a,b)=>a.n-b.n); if(m.fr[0]){ m.time=m.fr[0].time; m.hh=m.fr[0].hh; } });
       for(let i=M.length-1;i>=0;i--) if(!M[i].fr.length) M.splice(i,1); }
     M.forEach((m,mi)=>{ m.mi=mi; m.reason=m.reason||''; m.id='m'+mi; m.light=light(m.hh); m.fr.forEach(p=>{ p.mi=mi; });
+      const cs=m.fr.map(f=>f.clip).sort((a,b)=>a-b), rowClip=Math.max(5,(cs[cs.length>>1]||0)*2.5);
       const gs=[], late=[]; m.fr.forEach((p,i)=>{ if(p._stackTo&&m.fr.some(x=>x.id===p._stackTo)){ late.push(p); return; } const cv=cuts[p.id], pv=m.fr[i-1];
         const st=!gs.length?true:typeof cv==='boolean'?cv:(p._moved||(pv&&pv._moved))?!(pv&&pv.n===p.n-1&&!p.start&&!!pv._moved===!!p._moved):p.start; if(st) gs.push([]); gs[gs.length-1].push(p); });
       late.forEach(p=>{ const g=gs.find(x=>x.some(f=>f.id===p._stackTo)); if(g){ g.push(p); g.sort((a,b)=>a.n-b.n); } else gs.push([p]); });
       let groups=gs.map(g=>{ const evs=g.map(f=>f.evs), br=g.length>=2&&g.every(f=>f.rm2===2||f.rm2===3)||g.length>=3&&evs.every(v=>v!=null)&&new Set(evs.map(v=>v.toFixed(1))).size===g.length&&Math.min(...evs)<0&&Math.max(...evs)>0;
         const kind=g.length<2?'single':br?'bracket':'burst'; g.forEach(f=>{ f.bk=kind==='bracket'; });
-        if(kind==='burst'){ const mx=Math.max(...g.map(f=>f.focus)); g.forEach(f=>{ f.soft=f.focus<mx*0.45; f.slight=!f.soft&&f.focus<mx*0.7; }); } else g.forEach(f=>{ f.soft=f.sharp<12; f.slight=!f.soft&&f.sharp<25; });
-        g.forEach(f=>{ if(f.nopv){ f.soft=false; f.slight=false; f.blown=false; f.shake=false; } f.peak=false; }); const pk=kind==='burst'?peakOf(g):null; if(pk) pk.peak=true;
+        // 8g: soft only against a sharper frame in the same stack; blown only against a cleaner frame in the stack, or (singles) the row's typical clipping. No 'slight'.
+        if(kind==='burst'){ const mx=Math.max(...g.map(f=>f.focus)), mc=Math.min(...g.map(f=>f.clip)); g.forEach(f=>{ f.soft=f.focus<mx*0.45; f.slight=false; f.blown=f.clip>=3&&f.clip>mc+3; }); } else g.forEach(f=>{ f.soft=false; f.slight=false; f.blown=kind==='single'&&f.clip>=3&&f.clip>rowClip; });
+        g.forEach(f=>{ if(f.nopv||f.lowpv){ f.soft=false; f.slight=false; f.blown=false; f.shake=false; } f.peak=false; }); const pk=kind==='burst'?peakOf(g):null; if(pk) pk.peak=true;
         const ranked=kind==='bracket'?[...g]:[...g].sort((a,b)=>b.focus-a.focus); ranked.forEach((f,r)=>{ f.rank=r+1; f.bn=g.length; f.kind=kind; }); const gid='g'+g[0].n; g.forEach(f=>f.gid=gid); return G[gid]={gid,frames:g,ranked,kind}; });
       const subs=[]; groups.forEach(g=>{ if(g.kind==='single'){ const L=subs[subs.length-1]; if(L&&L.kind==='singles') L.frames.push(g.frames[0]); else subs.push({kind:'singles',frames:[g.frames[0]]}); } else subs.push({kind:g.kind,gid:g.gid,frames:g.frames}); });
       subs.forEach(sb=>{ sb.id=sb.gid||('r'+sb.frames[0].id); sb.ids=sb.frames.map(f=>f.id); }); m.groups=groups; m.subs=subs; m.time=m.time; });
@@ -91,10 +115,10 @@ function buildShoot(list,cuts){ const light=h=>h<11?'morning':h<15?'midday':h<18
     return {M,G,R,byId,N,sub,sugKeep,order:R.flatMap(r=>r.ids)}; }
 
 // New sidecar. dev = {Exposure, Contrast, Highlights, Shadows, Temp} or null for ratings only.
-function freshXmp(rating,label,dev){
+function freshXmp(rating,label,dev,kw){
   let a='xmp:Rating="'+rating+'"'+(label?' xmp:Label="'+label+'"':'');
   if(dev){ const f=(v,d=2)=>(v>=0?'+':'')+(+v).toFixed(d); a+=' crs:Version="15.0" crs:ProcessVersion="11.0" crs:HasSettings="True" crs:Exposure2012="'+f(dev.Exposure||0)+'" crs:Contrast2012="'+f(dev.Contrast||0,0)+'" crs:Highlights2012="'+f(dev.Highlights||0,0)+'" crs:Shadows2012="'+f(dev.Shadows||0,0)+'"'+(dev.Temp?' crs:WhiteBalance="Custom" crs:Temperature="'+Math.round(dev.Temp)+'" crs:Tint="+0"':''); }
-  return '<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>\n<x:xmpmeta xmlns:x="adobe:ns:meta/">\n <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n  <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" '+a+'/>\n </rdf:RDF>\n</x:xmpmeta>\n<?xpacket end="w"?>\n'; }
+  return '<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>\n<x:xmpmeta xmlns:x="adobe:ns:meta/">\n <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n  <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:lr="http://ns.adobe.com/lightroom/1.0/" '+a+(kw?'>\n   <dc:subject><rdf:Bag><rdf:li>'+kw+'</rdf:li></rdf:Bag></dc:subject>\n   <lr:hierarchicalSubject><rdf:Bag><rdf:li>Lumina|'+kw.replace(/^Lumina /,'')+'</rdf:li></rdf:Bag></lr:hierarchicalSubject>\n  </rdf:Description>':'/>')+'\n </rdf:RDF>\n</x:xmpmeta>\n<?xpacket end="w"?>\n'; }
 
 // Existing sidecar already has develop settings (edited in Lightroom / Camera Raw)?
 function hasDevelop(x){ return !!(x&&(/crs:HasSettings\s*=\s*"True"/i.test(x)||/<crs:HasSettings>True</i.test(x)||/crs:(Exposure2012|Temperature|Contrast2012|Highlights2012|Shadows2012)/.test(x))); }
@@ -150,6 +174,12 @@ function rowDone(marks,ids,verb,flags){ const m={...marks}, prev={}; let n=0; id
 function paint(marks,ids,verb,flags){ const m={...marks}, prev={}; let n=0; ids.forEach(id=>{ if(flags&&flags[id]||marks[id]===verb) return; prev[id]=marks[id]||null; m[id]=verb; n++; });
   return {marks:m,undo:{label:(verb==='keep'?'kept ':'rejected ')+n+' · painted',prev}}; }
 function undoSweep(marks,undo){ const m={...marks}; Object.entries(undo.prev).forEach(([id,v])=>{ if(v==null) delete m[id]; else m[id]=v; }); return m; }
-const LuminaCore={ham,peakOf,rowScore,sweep,undoSweep,rowDone,paint,jpegTiff,editFilter,parseHead,measure,crc32,zip,mergeXmp,freshXmp,hasDevelop,buildShoot,exportPlan};
+// Phone or camera, from EXIF Make/Model only — never from the file extension (DNG also comes from Leica, Pentax, Ricoh, DJI, converters).
+// Unknown make → not a phone. Returns null for cameras, else {short, zoom} where zoom is the phone's own label (0.5× / 1× / 3×…) from the 35 mm-equivalent focal length.
+function phoneOf(m){ const mk=(m&&m.make||'').trim(), md=(m&&m.model||'').trim(); if(!mk&&!md) return null;
+  const ph=(/^(apple|google|xiaomi|redmi|poco|oneplus|oppo|vivo|realme|huawei|honor|motorola|nothing|fairphone|zte|nubia|tecno|infinix|hmd)\b/i.test(mk))||/^samsung/i.test(mk)&&!/^(NX|WB|EX|ST|PL|ES)\d/i.test(md)||/^sony/i.test(mk)&&/^(XQ-|SO-|Xperia)/i.test(md)||/^asus/i.test(mk)&&/^(ASUS_|ROG|Zenfone)/i.test(md)||/\b(iPhone|iPad|Pixel)\b/i.test(md);
+  if(!ph) return null; const short=/^apple|^google/i.test(mk)||md.toLowerCase().startsWith(mk.toLowerCase())?md:(mk.charAt(0).toUpperCase()+mk.slice(1).toLowerCase()+' '+md);
+  let zoom=''; if(m.fl35){ const r=m.fl35/24, Z=[0.5,1,2,3,5,10]; let best=Z[0]; Z.forEach(z=>{ if(Math.abs(Math.log(r/z))<Math.abs(Math.log(r/best))) best=z; }); zoom=best+'×'; } return {short,zoom}; }
+const LuminaCore={phoneOf,ham,peakOf,rowScore,sweep,undoSweep,rowDone,paint,jpegTiff,editFilter,parseHead,assemblePreview,measure,crc32,zip,mergeXmp,freshXmp,hasDevelop,buildShoot,exportPlan};
 g.LuminaCore=LuminaCore; if(typeof module!=='undefined'&&module.exports) module.exports=LuminaCore;
 })(typeof window!=='undefined'?window:globalThis);

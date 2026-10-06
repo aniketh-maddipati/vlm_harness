@@ -3,7 +3,7 @@
 # it ships, as LuminaBuild.json in the app's Resources.
 set -eu
 ROOT="${SRCROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-PAGE="$ROOT/design/handoff/lumina-cull/Lumina Sets v5.dc.html"
+PAGE="$ROOT/design/handoff/lumina-cull/Lumina Sets v8.dc.html"
 sha() { shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1; }
 GIT_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
 DEST="${TARGET_BUILD_DIR:-$ROOT/build}/${UNLOCALIZED_RESOURCES_FOLDER_PATH:-}"

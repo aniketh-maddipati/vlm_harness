@@ -1,5 +1,5 @@
 {
- "page": "Lumina Sets v5.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1440,
   900
@@ -8,7 +8,7 @@
  "clock": "2026-09-08T14:30:00",
  "storageWrites": false,
  "stopOnFailure": false,
- "checklist": "Every v5 screen at 1440x900. The -app twin runs the same steps through plumbing.js (parity mode: the design's sample shoot and card) and must match pixel for pixel",
+ "checklist": "Every v8 screen at 1440x900. The -app twin runs the same steps through plumbing.js (parity mode: the design's sample shoot and card) and must match pixel for pixel",
  "mode": "app",
  "app": {
   "parity": true
@@ -25,6 +25,14 @@
   {
    "do": "state",
    "name": "00-open"
+  },
+  {
+   "do": "js",
+   "src": "__probe.logic().tourEnd()"
+  },
+  {
+   "do": "wait",
+   "ms": 500
   },
   {
    "do": "key",
@@ -117,6 +125,15 @@
    "alt": true
   },
   {
+   "do": "js",
+   "src": "const l = __probe.logic(); l._cpAt = 0; l.forceUpdate(); return true",
+   "why": "The storage meter memoizes its total for 1 s (cacheParts) and ⌥→'s preloads land inside or after that second; expire the memo and draw it once more, so both twins show the current total (DESIGN-ASKS Prompt 14)"
+  },
+  {
+   "do": "wait",
+   "ms": 300
+  },
+  {
    "do": "snap",
    "name": "08-cull-skip"
   },
@@ -168,7 +185,7 @@
   },
   {
    "do": "key",
-   "k": "3",
+   "k": "4",
    "settleMs": 1000,
    "cmd": true
   },
@@ -196,5 +213,6 @@
    "do": "snap",
    "name": "13-open-again"
   }
- ]
+ ],
+ "tour": true
 }

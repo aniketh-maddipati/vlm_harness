@@ -1,6 +1,6 @@
 {
  "mode": "app",
- "page": "Lumina Sets v5.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1440,
   900
@@ -113,7 +113,7 @@
   },
   {
    "do": "key",
-   "k": "3",
+   "k": "4",
    "cmd": true,
    "settleMs": 1000
   },
@@ -126,7 +126,16 @@
    "do": "key",
    "k": "Enter",
    "cmd": true,
-   "settleMs": 1500
+   "settleMs": 200
+  },
+  {
+   "do": "js",
+   "src": "const l = __probe.logic(); if (l.state.armed === 'save') window.luminaCommand('save'); return true",
+   "why": "v8's Save guard: rows not looked at arm ⌘⏎ once; the second ⌘⏎ saves"
+  },
+  {
+   "do": "wait",
+   "ms": 1300
   },
   {
    "do": "waitFor",

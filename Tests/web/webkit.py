@@ -29,7 +29,7 @@ import cairo
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 WEB = os.path.join(ROOT, 'Lumina/Sets/Web')
 SCEN = os.path.join(ROOT, 'Tests/probe/scenarios')
-PAGE = 'Lumina Sets v5.dc.html'
+PAGE = 'Lumina Sets v8.dc.html'
 def free_port():
     with socket.socket() as s:
         s.bind(('127.0.0.1', 0))
@@ -221,6 +221,9 @@ def contract():
     p.close()
 
 
+V8_KEEP = "const wait = ms => new Promise(r => setTimeout(r, ms)), S = () => window.luminaState(); const tap = async (key, code) => { window.dispatchEvent(new KeyboardEvent('keydown', { key, code, bubbles: true })); await wait(60); window.dispatchEvent(new KeyboardEvent('keyup', { key, code, bubbles: true })); await wait(40); }; document.querySelector('[data-lumina=tile]').click(); await wait(120); const id = S().cur; if (S().marks[id] !== 'keep') await tap('p', 'KeyP'); else await tap('ArrowRight', 'ArrowRight'); await tap('ArrowLeft', 'ArrowLeft'); const back = S().cur; await tap('p', 'KeyP'); return back === id && S().marks[id] === 'keep' && S().cur !== id;"
+
+
 def selftest():
     p = Page(app=False, query='selftest')
     ok(spin(lambda: p.js('return Array.isArray(window.luminaTestResults)'), 240), 'selftest: finished')
@@ -230,9 +233,14 @@ def selftest():
             print(('     ' if r['ok'] else 'FAIL ') + r['n'] + ' · ' + r['d'])
     # Behaviour checks gate; the two timing checks are reported only: ADDENDUM-1 §6 measures timing
     # in the real app, and a virtual display without GPU is no measure of it.
+    # STALE is v5's rule, which v8 reverses (CHANGES-v0.02: P on a kept photo moves on, never toggles;
+    # DESIGN-ASKS Prompt 13). It is held to v8's rule below; once the design's file is fixed it passes,
+    # this gate fails, and STALE comes out.
+    STALE = ['P again un-keeps']
     bad = [r['n'] for r in rows if not r['ok'] and not r['n'].startswith('perf')]
     beh = [r for r in rows if not r['n'].startswith('perf')]
-    ok(len(rows) >= 25 and not bad, 'selftest: %d / %d behaviour checks pass in WebKit' % (len(beh) - len(bad), len(beh)), bad)
+    ok(len(rows) >= 25 and bad == STALE, 'selftest: %d / %d behaviour checks pass in WebKit (and v5\'s "%s" still fails)' % (len(beh) - len(bad), len(beh), STALE[0]), bad)
+    ok(p.js(V8_KEEP) is True, 'selftest: v8: P on a kept photo keeps it and moves on')
     p.close()
 
 
@@ -243,7 +251,7 @@ const shoot = await C('shoot', { name: '2026-09-01', others: ['DSC01001.JPG', 'X
 t('start: empty Open, no sample', L().state.view === 'import' && L().data.order.length === 0, L().state.view);
 const nr = await C('folder', { name: 'NoRaw', files: ['A.CR3', 'B.CR3', 'C.JPG', 'D.MP4'] });
 await C('pick', { path: nr }); __lumina.openFolder(); await until(() => L().state.openNote, 5000);
-t('no ARW: the page\'s note from the native listing', L().state.openNote === 'no ARW found · 2 CR3 · 1 JPEG / HEIF · 1 videos · only Sony ARW is supported', L().state.openNote);
+t('no ARW: the page\'s note from the native listing', L().state.openNote === 'no ARW or DNG found · 2 CR3 · 1 JPEG / HEIF · 1 videos · Lumina reads ARW and DNG', L().state.openNote);
 await C('pick', { path: shoot }); __lumina.openFolder();
 await until(() => L().real && L().real.length && !L().state.realLoad && L().state.realInfo, 30000);
 const ri = L().state.realInfo || {};
@@ -261,8 +269,9 @@ let st = await C('state'); const sid = __lumina.shootId(), saved = st.sessions[s
 t('session: saved by path within 2 s', saved && Object.keys(saved.marks).length === 2 && Object.keys(saved.marks).every(k => /^(sub\/)?DSC0\d+\.ARW$/.test(k)), saved && saved.marks);
 t('quit: 2 unsaved keepers', __lumina.unsaved() === 2, __lumina.unsaved());
 __lumina.command('stepSave'); await W(950);
-t('save: ⌘3 via luminaCommand', L().state.view === 'export', L().state.view);
-__lumina.command('save'); await until(() => L().state.ex && L().state.ex.result, 8000);
+t('save: ⌘4 via luminaCommand', L().state.view === 'export', L().state.view);
+__lumina.command('save'); await W(150); if (L().state.armed === 'save') __lumina.command('save');   // v8's guard: unseen rows ask for a second ⌘⏎
+await until(() => L().state.ex && L().state.ex.result, 8000);
 const res = L().state.ex.result || {};
 t('save: "2 saved"', res.t === '2 saved' && !res.bad, res);
 const ls = await C('ls', { path: shoot }); const xmps = ls.filter(f => /\.xmp$/.test(f));
@@ -279,7 +288,7 @@ L().libOpen(L().recents()[0]);
 await until(() => L().real && L().real.length && !L().state.realLoad && L().kept().length === 2, 20000);
 t('reopen: 2 keepers restored, nothing unsaved', L().kept().length === 2 && __lumina.unsaved() === 0, [L().kept().length, __lumina.unsaved()]);
 K('ArrowDown'); await W(150); K('ArrowDown'); await W(150); K('p'); await W(150);
-__lumina.command('stepSave'); await W(950); __lumina.command('save');
+__lumina.command('stepSave'); await W(950); __lumina.command('save'); await W(150); if (L().state.armed === 'save') __lumina.command('save');
 await until(() => L().state.ex && L().state.ex.result, 8000);
 const ls2 = await C('ls', { path: shoot });
 t('save again: .lumina-bak next to replaced sidecars', ls2.filter(f => /\.xmp\.lumina-bak$/.test(f)).length >= 2, ls2.filter(f => /lumina-bak/.test(f)));
@@ -316,6 +325,9 @@ return { state: JSON.parse(JSON.stringify(l.state, (k, v) => { if (typeof v === 
   if (v && typeof v === 'object') { if (v.nodeType || v instanceof Blob || ('current' in v && Object.keys(v).length === 1)) return undefined; if (seen.has(v)) return undefined; seen.add(v); } return v; })),
   order: l.data ? l.data.order.length : 0, real: !!l.real };"""
 
+SETTLE = """const l = __probe.logic(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+if (l.state.view === 'cull' && typeof l.visNow === 'function') l.visNow(); await new Promise(r => setTimeout(r, 50)); return true"""
+
 
 def run_screens(spec, app, d):
     os.makedirs(d, exist_ok=True)
@@ -336,6 +348,10 @@ def run_screens(spec, app, d):
                 p.js('K(%s, {down: false})' % json.dumps(s['k'])); wait(60)
             elif s['do'] == 'snap': snaps[s['name']] = p.snap(os.path.join(d, s['name'] + '.png'))
             elif s['do'] == 'state':
+                # v8 widens the mounted-row window (vr) on a scroll frame and narrows it 240 ms after the
+                # scroll rests. On a software-rendered runner a frame can land after that timer and leave
+                # one twin wide. Both twins are taken at rest: two frames, then the page's own visNow().
+                p.js(SETTLE)
                 states[s['name']] = p.js(STATE)
                 json.dump(states[s['name']], open(os.path.join(d, s['name'] + '.state.json'), 'w'), indent=1)
             elif s['do'] == 'js': p.js(s['src'])

@@ -6,8 +6,8 @@ Sony ARW shooters.
 ## The rule
 
 **The design is the product.** Lumina's UI is the Claude Design page in `design/handoff/lumina-cull/`
-(`Lumina Sets v5.dc.html` + `support.js` + `lumina-core-v4.js` + `lumina-v4-data.js` + `lumina-selftest.js`;
-the names live in `Scripts/page_files.sh`). The app ships those files **byte for byte** inside a native
+(`Lumina Sets v8.dc.html`, with `Lumina Edit v21.dc.html` mounted inside it, + `support.js` + `lumina-core-v4.js` +
+`lumina-v4-data.js` + `lumina-measure.js` + `lumina-selftest.js`; the names live in `Scripts/page_files.sh`). The app ships those files **byte for byte** inside a native
 window. Nobody edits the UI in this repo.
 
 - Something visible is wrong or missing (layout, copy, keys, empty states)? It goes into
@@ -18,15 +18,16 @@ window. Nobody edits the UI in this repo.
   `--record` once the new look is approved.
   Before installing, step 2b prints every line the new page files add that names network or bridge
   surface (`fetch(`, `postMessage`, `new Function`, a URL, …): a zip is a code import, so read them. Report only.
-- Authority order: `design/handoff/lumina-cull` (its `PROMPT.md` sets the order inside it: ADDENDUM-1 →
-  PARITY → GRAMMAR → the page → CHANGES / SAFETY / MENUS) → `Lumina/Sets` (plumbing) → tests.
-  The handoff's own `plumbing.js` is an older reference; the app's is `Lumina/Sets/Web/plumbing.js`.
+- Authority order: `design/handoff/lumina-cull` (its `README.md` sets the order inside it: README, CHANGES-v0.02,
+  BRIDGE-v0.02, NATIVE-EDIT → the Sets v8 and Edit v21 pages → BRIDGE, TEST-PLAN, ROADMAP → `reference/`)
+  → `Lumina/Sets` (plumbing) → tests. The handoff's `reference/plumbing.js` is an older reference; the app's is
+  `Lumina/Sets/Web/plumbing.js`.
 
 ## What the app is
 
 | Path | What it does |
 |---|---|
-| `Lumina/LuminaApp.swift` | One window and the menu bar from MENUS.md: every item calls `window.luminaCommand(name)`; Quit asks about unsaved keepers |
+| `Lumina/LuminaApp.swift` | One window and the menu bar from BRIDGE.md "MENUS (v7)": every item calls `window.luminaCommand(name)` (Undo, Redo, Copy, Paste go to `window.luminaEdit` while Edit is the step); Quit asks about unsaved keepers |
 | `Lumina/Sets/SetsRootView.swift` | The WKWebView, the native folder pickers, downloads, and the Edit canvas overlay laid above the web view |
 | `Lumina/Sets/Web/` | The design's files, copied unchanged by `Scripts/sets_sync_ui.sh`, plus `plumbing.js` |
 | `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, `near` / `nearLimit` (how alike two photos are and the threshold for a retake, DESIGN-ASKS Prompt 2 C), …, and the Edit step's `preview` / `canvasRect` / `drag` / `roi` from DESIGN-ASKS Prompt 1 §3, plus `edit`, the superset the probe drives), persists sessions (writes debounce 500 ms after the last Edit change), makes the grid thumbnails (720 × 480; measures stay on the page's 360 px bitmap) and decodes them ahead of a scroll (design ask 7), keeps every Cull row on its own element while the grid scrolls (the row items get their row id as React key, existing thumbnails show without the fade, the mounted rows lead the scroll; design ask 11), keeps the reader's place and decisions when a read they culled during ends (design ask 8), and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`, `luminaPresented`, `luminaHistogram`, `luminaFacts`, `luminaEditStats`) |
@@ -56,6 +57,7 @@ Trust rules, from the ROADMAP; the tests enforce them:
 ```bash
 # Design logic fixtures
 (cd design/handoff/lumina-cull && node lumina-core-v4.test.mjs)
+node Tests/core/v8-core.test.mjs   # the core cases CHANGES-v0.02 §9 asks for (parseHead pieces, Sony MakerNote, soft/blown, pass keywords)
 
 # Linux too: the real page in headless Chromium with plumbing.js and a Node stand-in for SetsBridge
 node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, sidecars, card, access

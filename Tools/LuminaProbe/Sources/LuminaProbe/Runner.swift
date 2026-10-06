@@ -66,6 +66,7 @@ final class Runner {
             scale = (spec["scale"] as? Double) ?? 1
             var config: [String: Any] = [:]
             if spec["storageWrites"] as? Bool == false { config["noStorageWrites"] = true }
+            if spec["tour"] as? Bool == true { config["tour"] = true }
             if let clock = spec["clock"] as? String {
                 let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"; f.timeZone = .current
                 guard let d = f.date(from: clock) else { throw ProbeError("bad clock \(clock)") }
@@ -84,7 +85,7 @@ final class Runner {
             sampler.start(interval: ((spec["sampleMs"] as? Double) ?? 250) / 1000) { [host] in
                 [(getpid(), "probe"), (host!.webProcessID, "web")]
             }
-            try await host.load((spec["page"] as? String) ?? "Lumina Sets v5.dc.html", query: spec["query"] as? String)
+            try await host.load((spec["page"] as? String) ?? "Lumina Sets v8.dc.html", query: spec["query"] as? String)
             try await waitFor("return window.__probe && __probe.ready()", timeout: 30, what: "page ready")
 
             for (i, step) in ((spec["steps"] as? [[String: Any]]) ?? []).enumerated() {
@@ -309,7 +310,7 @@ final class Runner {
             // The scenarios' relaunch. A new process holds none of the last one's panel grants.
             for line in ProbeSandbox.relaunch() { host.log("sandbox", "relaunch: panel grant dropped · \(line)") }
             launchedAt = host.events.count
-            try await host.load((spec["page"] as? String) ?? "Lumina Sets v5.dc.html", query: spec["query"] as? String)
+            try await host.load((spec["page"] as? String) ?? "Lumina Sets v8.dc.html", query: spec["query"] as? String)
             try await waitFor("return window.__probe && __probe.ready()", timeout: 30, what: "page ready after reload")
             try await settle(s["settleMs"] as? Double ?? 600)
         case "logged":
