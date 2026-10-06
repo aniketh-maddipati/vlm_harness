@@ -420,6 +420,9 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   bridge.delayMs = 0; await loaded(page); await page.waitForTimeout(600);
   const stayed = await page.evaluate(() => __lumina.logic().state.view);
   ok(stillReading && stayed === 'edit', 'read end: a reader in Edit stays in Edit when the photos finish loading', { stillReading, stayed });
+  const src = await page.evaluate(() => { const l = __lumina.logic(), S = l._sources || [];
+    return { n: S.length, label: S[0] && S[0].label, photos: S[0] && S[0].n, mapped: l.real.filter(p => l.srcOfP(p)).length, total: l.real.length }; });
+  ok(src.n === 1 && src.label === '2026-09-02' && src.photos === 160 && src.mapped === src.total, 'sources: the opened folder is the shoot\'s one source, every photo in it', src);
   await page.evaluate(() => __lumina.logic().setView('cull')); await page.waitForTimeout(200);
 
   // T4: a sidecar another app rewrote between open and Save. Save merges the rating onto the text on

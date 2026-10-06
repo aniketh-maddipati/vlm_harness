@@ -1130,3 +1130,41 @@ showing; the page's own read (the browser) still jumps.
 
 - `node Tests/web/plumbing-harness.mjs`: `read end: a reader in Edit stays in Edit` still passes,
   and the same steps in the prototype (no plumbing) stay in Edit too.
+
+## Prompt 18 — holding ⇧ opens the shoot popover (paste into Claude Design)
+
+In Pick, holding ⇧ for 350 ms opens the shoot popover (`Tue 8 Sep · Add to this shoot · Phone ·
+Folder or files…`). ⇧ is half the grammar (⇧⏎, ⇧R, ⇧K, ⇧P, ⇧U, ⇧→) and every ⌘⇧ shortcut,
+including macOS's own ⌘⇧4 screenshot, so the popover keeps appearing while the photographer
+culls. When the system takes the key-up (a screenshot), it stays open.
+
+> In Lumina Sets v11, Pick opens the shoot popover only on a click (the shoot name or `+` in
+> the header) and with ⌘O, as now. Holding ⇧ does nothing by itself: drop the 350 ms ⇧-hold
+> timer (`_shT` → `addBar:true`) and the ⇧ key-up close that goes with it. Esc and a click outside
+> still close it. Nothing else changes.
+
+### How Prompt 18 is checked once its handoff lands
+
+- In Pick, hold ⇧ for a second, then press ⌘⇧4 and Esc: no popover. A click on the shoot name
+  opens it.
+
+## Prompt 19 — a row's last line of photos is cut off by the next row (paste into Claude Design)
+
+At some window widths a Pick row holds one more line of photos than its height allows, and the
+row's `overflow:hidden` cuts that line to a strip under the next row's header. `layout()` takes
+the row's side padding as `max(16, min(40, cullW × 0.022))` (cullW is the scroll box's width),
+but the row draws it as `clamp(16px, 2.2vw, 40px)` (the window's width). The window is wider than
+the scroll box, so the drawn padding is larger, the line holds one tile fewer than `layout()`
+counted, and the last tile wraps onto a line the row has no room for. In the prototype in
+Chromium at 900 to 2200 px, 11 of 101 widths cut a row: 1043 and every width from 1368 to 1485
+(at 1368: cullW 1272, layout fits 6 tiles of 196 in 1216 px, the row has 1212).
+
+> In Lumina Sets v11, a Pick row's side padding comes from one number. Compute the padding in
+> `layout()` from `cullW` as now, return it with the layout, and draw the row with that value in
+> px (`padding:0 {{ r.pad }}px`) instead of `clamp(16px,2.2vw,40px)`. The time axis and anything
+> else that lines up with the row use the same value. Nothing else changes.
+
+### How Prompt 19 is checked once its handoff lands
+
+- For every width from 900 to 2200 px in 13 px steps, no row's tiles reach below its own height
+  (`[data-lumina=row][data-row]`: the tile box's bottom stays above the row's).

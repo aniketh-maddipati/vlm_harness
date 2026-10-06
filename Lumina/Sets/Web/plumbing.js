@@ -429,6 +429,9 @@
       const arws = (L.files || []).map(f => Object.assign(fileRef(f.rel), { size: f.size }));
       const allF = arws.concat((L.xmp || []).map(x => fileRef(x.rel)), (L.others || []).map(fileRef));
       const files = (L.files || []).slice().sort((a, b) => a.rel.localeCompare(b.rel));
+      // The shoot's sources, as the page's onDir keeps them: the add popover names the folder (or the
+      // card) and counts its photos instead of reading "sample shoot".
+      if (!logic._addFrom && typeof logic.addSource === 'function') { logic._sources = []; logic._srcOf = {}; logic.addSource(L.onCard ? { kind: 'card' } : null, arws); }
       logic._intake = logic.intake(allF, arws);
       if (!files.length) {
         const I = logic._intake, parts = [...Object.entries(I.raw).map(([e, n]) => n + ' ' + e.toUpperCase()), I.jp + I.ja ? (I.jp + I.ja) + ' JPEG / HEIF' : '', I.vid ? I.vid + ' videos' : ''].filter(Boolean);
