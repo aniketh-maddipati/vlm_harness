@@ -312,6 +312,8 @@ final class LookCanvasTests: XCTestCase {
         let old = LookDecoderInfo(supported: [7, 8], raw9: false, fastest: 8)
         XCTAssertNil(LookRawPolicy.version(for: .cull, body: a7, pinned: 9), "Cull never decodes a RAW")
         XCTAssertEqual(LookRawPolicy.version(for: .canvas, body: a7, pinned: 9), 8, "the canvas takes the fastest")
+        XCTAssertEqual(LookRawPolicy.version(for: .canvas, body: nil, pinned: 9), 8, "a body not measured yet: RAW 8, never Core Image's default (RAW 9)")
+        XCTAssertEqual(LookRawPolicy.version(for: .canvas, body: nil, pinned: nil), LookRawPolicy.canvasUnmeasured)
         XCTAssertEqual(LookRawPolicy.version(for: .region, body: a7, pinned: 9), 9)
         XCTAssertEqual(LookRawPolicy.version(for: .export, body: a7, pinned: 8), 8, "the pin wins over a newer decoder")
         XCTAssertEqual(LookRawPolicy.version(for: .export, body: old, pinned: 9), 8, "a body without the pin takes its newest")

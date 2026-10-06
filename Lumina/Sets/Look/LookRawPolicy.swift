@@ -67,6 +67,9 @@ nonisolated struct LookShootHeader: Codable, Equatable, Sendable {
 nonisolated enum LookRawPolicy {
     enum Tier: String, Sendable { case cull, canvas, region, export }
 
+    /// The canvas's version for a body the shoot's decoder map hasn't measured yet.
+    static let canvasUnmeasured = 8
+
     /// The decoder version a tier uses for a body, or nil for "the embedded JPEG, never a RAW
     /// decode" (Cull). `canvas` takes the fastest version so sliders stay under a frame; `region`
     /// and `export` take the shoot's pinned version (RAW 9 when it is), falling back to the
@@ -75,7 +78,9 @@ nonisolated enum LookRawPolicy {
         switch tier {
         case .cull: return nil
         case .canvas:
-            guard let body else { return nil }
+            // The body not measured yet (its probe still running on a shoot's first open): RAW 8,
+            // never Core Image's default, which is RAW 9 on macOS 27 and seconds per develop.
+            guard let body else { return canvasUnmeasured }
             return body.fastest ?? body.supported.filter { $0 < 9 }.max() ?? body.newest
         case .region, .export:
             guard let body else { return pinned }
