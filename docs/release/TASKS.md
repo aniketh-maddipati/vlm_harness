@@ -14,7 +14,7 @@ Rules for every worker:
 | KPI | Target | Today |
 |---|---|---|
 | CI on `main`, including a Release build | all green | Debug only; the Release job is in #179 |
-| `release_preflight.sh --strict` | 0 FAIL, 0 WARN except D2 (network entitlement) | D2 and S4 ×2 expected (R6's is closed); not re-run since |
+| `release_preflight.sh --strict` | 0 FAIL, 0 WARN except D2 (network entitlement) | D2 only (2026-10-05, build 587, with the new network checks); S4 and R6 closed |
 | App-process crashes on the bridge-op table (1,303 calls) and 32,000 fuzz cases | 0 | 4 inputs crash (F1, F2) |
 | Denials in the sandboxed probe suites | 0 | 0 here; 1 log line on the CI runner (#179) |
 | Unasked test runs on this Mac | 0; every run under 600 s | guard in #184 |

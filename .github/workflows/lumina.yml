@@ -76,6 +76,8 @@ jobs:
           grep -ho '"page": *"[^"]*"' Tests/probe/scenarios/*.json | sed 's/.*: *"//; s/"$//' | sort -u | while IFS= read -r p; do
             [[ -f "Lumina/Sets/Web/$p" ]] || { echo "a probe scenario names \"$p\", which the app does not ship:"; grep -l "\"$p\"" Tests/probe/scenarios/*.json; exit 1; }
           done
+      - name: the wording audit's and the standalone unbundler's own tests
+        run: python3 Tests/probe/test_design_audit.py && python3 Tests/probe/test_unbundle_standalone.py
       - name: wording + demo-layer audit (report only)
         run: source Scripts/page_files.sh && python3 Tests/probe/design_audit.py "design/handoff/lumina-cull/$PAGE"
 
