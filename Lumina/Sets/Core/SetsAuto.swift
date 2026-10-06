@@ -33,8 +33,12 @@ nonisolated final class SetsAuto: @unchecked Sendable {
         return s
     }
 
+    /// A fresh URL for the same path: a URL keeps the resource values it read once (NSURL's cache), so
+    /// asking the caller's URL again would miss a file rewritten since.
+    private static func fresh(_ url: URL) -> URL { URL(fileURLWithPath: url.path) }
+
     static func key(_ url: URL) -> String {
-        let v = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+        let v = try? fresh(url).resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
         return "\(url.standardizedFileURL.path)|\(v?.fileSize ?? -1)|\(v?.contentModificationDate?.timeIntervalSince1970 ?? 0)|\(AutoDevelop.version)"
     }
 
@@ -46,7 +50,7 @@ nonisolated final class SetsAuto: @unchecked Sendable {
     /// The answer for a resolved file, measured once per key. Nil when it can't be measured, and
     /// at once (no decode, nothing cached) when it is not a regular file that is there now.
     func answer(url: URL) -> [String: Any]? {
-        guard (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { return nil }
+        guard (try? Self.fresh(url).resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { return nil }
         let k = Self.key(url)
         lock.lock()
         let hit = cache[k]

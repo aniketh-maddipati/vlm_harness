@@ -547,11 +547,16 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   // footer says "Auto · …", never "Auto (estimate)".
   bridge.autos = [];
   await page.evaluate(() => { try { localStorage.setItem('lumina.edit.intro.v1', '1'); } catch (_) {} window.luminaCommand('stepEdit'); });
-  await page.waitForFunction(() => __lumina.logic().state.view === 'edit' && !!window.luminaEdit, null, { timeout: 10000 }).catch(() => {});
-  await page.waitForTimeout(300);
-  await page.evaluate(() => { for (const t of ['keydown', 'keyup']) dispatchEvent(new KeyboardEvent(t, { key: 'a', code: 'KeyA', bubbles: true })); });
-  const foot = await page.waitForFunction(() => /Auto · |Auto \(estimate\)/.test(document.body.innerText) && document.body.innerText.match(/Auto( · | \(estimate\))[^\n]*/)[0], null, { timeout: 5000 }).then(h => h.jsonValue()).catch(() => null);
-  ok(foot && /^Auto · \+0\.35 EV/.test(foot) && !/estimate|recorded/.test(foot) && bridge.autos.length === 1, 'edit: A applies the Mac\'s Auto and the footer says "Auto ·", not "Auto (estimate)"', { foot, autos: bridge.autos });
+  const inEdit = await page.waitForFunction(() => __lumina.logic().state.view === 'edit' && !!window.luminaEdit, null, { timeout: 30000 }).then(() => true, () => false);
+  // A runner can mount Edit before its photo is there: press A until the ask reaches the Mac (never twice
+  // after it has, which would undo), then read the footer.
+  let foot = null;
+  const t0 = Date.now();
+  while (inEdit && !foot && Date.now() - t0 < 30000) {
+    if (!bridge.autos.length) await page.evaluate(() => { for (const t of ['keydown', 'keyup']) dispatchEvent(new KeyboardEvent(t, { key: 'a', code: 'KeyA', bubbles: true })); });
+    foot = await page.waitForFunction(() => { const m = document.body.innerText.match(/Auto( · | \(estimate\))[^\n]*/); return m && m[0]; }, null, { timeout: 1500, polling: 50 }).then(h => h.jsonValue(), () => null);
+  }
+  ok(inEdit && foot && /^Auto · \+0\.35 EV/.test(foot) && !/estimate|recorded/.test(foot) && bridge.autos.length === 1, 'edit: A applies the Mac\'s Auto and the footer says "Auto ·", not "Auto (estimate)"', { inEdit, foot, autos: bridge.autos });
   await page.evaluate(() => window.luminaCommand('stepCull')); await page.waitForTimeout(200);
   await page.waitForTimeout(2300);            // autosave
   const awkSaved = bridge.sessions['id-' + AWK] && JSON.parse(bridge.sessions['id-' + AWK]);
