@@ -6,7 +6,7 @@ Sony ARW shooters.
 ## The rule
 
 **The design is the product.** Lumina's UI is the Claude Design page in `design/handoff/lumina-cull/`
-(`Lumina Sets v8.dc.html`, with `Lumina Edit v21.dc.html` mounted inside it, + `support.js` + `lumina-core-v4.js` +
+(`Lumina Sets v11.dc.html`, with `Lumina Edit v22.dc.html` mounted inside it, + `support.js` + `lumina-core-v4.js` +
 `lumina-v4-data.js` + `lumina-measure.js` + `lumina-selftest.js`; the names live in `Scripts/page_files.sh`). The app ships those files **byte for byte** inside a native
 window. Nobody edits the UI in this repo.
 
@@ -18,8 +18,8 @@ window. Nobody edits the UI in this repo.
   `--record` once the new look is approved.
   Before installing, step 2b prints every line the new page files add that names network or bridge
   surface (`fetch(`, `postMessage`, `new Function`, a URL, …): a zip is a code import, so read them. Report only.
-- Authority order: `design/handoff/lumina-cull` (its `README.md` sets the order inside it: README, CHANGES-v0.02,
-  BRIDGE-v0.02, NATIVE-EDIT → the Sets v8 and Edit v21 pages → BRIDGE, TEST-PLAN, ROADMAP → `reference/`)
+- Authority order: `design/handoff/lumina-cull` (its `README.md` sets the order inside it: README, CHANGES-v0.05 / v0.04 / v0.03,
+  BRIDGE-v0.03, REMAINING-v0.03, then CHANGES-v0.02, BRIDGE-v0.02, NATIVE-EDIT → the Sets v11 and Edit v22 pages → BRIDGE, TEST-PLAN, ROADMAP → `reference/`)
   → `Lumina/Sets` (plumbing) → tests. The handoff's `reference/plumbing.js` is an older reference; the app's is
   `Lumina/Sets/Web/plumbing.js`.
 
@@ -30,8 +30,8 @@ window. Nobody edits the UI in this repo.
 | `Lumina/LuminaApp.swift` | One window and the menu bar from BRIDGE.md "MENUS (v7)": every item calls `window.luminaCommand(name)` (Undo, Redo, Copy, Paste go to `window.luminaEdit` while Edit is the step); Quit asks about unsaved keepers |
 | `Lumina/Sets/SetsRootView.swift` | The WKWebView, the native folder pickers, downloads, and the Edit canvas overlay laid above the web view |
 | `Lumina/Sets/Web/` | The design's files, copied unchanged by `Scripts/sets_sync_ui.sh`, plus `plumbing.js` |
-| `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, `near` / `nearLimit` (how alike two photos are and the threshold for a retake, DESIGN-ASKS Prompt 2 C), `auto` (AutoDevelop on the RAW, BRIDGE-v0.02 §1), …, and the Edit step's `preview` / `canvasRect` / `drag` / `roi` from DESIGN-ASKS Prompt 1 §3, plus `edit`, the superset the probe drives), persists sessions (writes debounce 500 ms after the last Edit change), makes the grid thumbnails (720 × 480; measures stay on the page's 360 px bitmap) and decodes them ahead of a scroll (design ask 7), keeps every Cull row on its own element while the grid scrolls (the row items get their row id as React key, existing thumbnails show without the fade until they are on screen, the mounted rows lead the scroll; design ask 11), holds the grid's rebuild during a read until the scroll rests and keeps the top row in place (as v8's own read does), keeps the reader's place and decisions when a read they culled during ends (design ask 8), runs the keys still queued before a menu shortcut, and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`, `luminaPresented`, `luminaHistogram`, `luminaFacts`, `luminaEditStats`) |
-| `Lumina/Sets/Core/` | The native bridge: `SetsIngest` (reads opened folders: listing, 256 KB heads, byte-range previews that reuse the part the head already holds, prefetch, stops when the card goes), `SetsFileOps` (`writeSidecar`: v5's Save, one `.xmp` into the shoot folder with `.lumina-bak`, atomic, read back, refused on a card; SHA-256 copies), `SetsExport` (+ crash journal; RAW copies, v3's CSS-look JPEGs, and the Edit step's `look` renders through `SetsLookExport`, which names the RAW decoder used and falls back per file), `SetsEditLook` (v3's Edit look, unused by v5), `SetsCardWatcher`, `SetsNear` (`lumina.near`: the distance between Vision feature prints of two embedded previews, read through `SetsIngest`, one measure per photo at `.utility`; revision 2 is pinned and `limit` belongs to it), `SetsShootStore` (per-shoot sessions and the `Lumina.json` header), `SetsSchemeHandler` (`lumina://`, no network; `lumina://render/<rel>?look=&px=&seq=[&tier=small]` is the Edit preview on the image fallback path), `SetsBridge` (the page's ops, the canvas ops `canvasEnter/Layout/Look/Drag/Loupe/Stats`, the decoder map), `SetsAuto` (`lumina.auto`: AutoDevelop's answer per file + version, off the main thread; Foundation only) |
+| `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, `near` / `nearLimit` (how alike two photos are and the threshold for a retake, DESIGN-ASKS Prompt 2 C), `auto` (AutoDevelop on the RAW, BRIDGE-v0.02 §1), …, and the Edit step's `preview` / `canvasRect` / `drag` / `roi` from DESIGN-ASKS Prompt 1 §3, plus `edit`, the superset the probe drives), persists sessions (writes debounce 500 ms after the last Edit change), makes the grid thumbnails (720 × 480; measures stay on the page's 360 px bitmap) and decodes the ones the page asks for (`lumina.prefetch`), reads a folder the way v11's `onDir` does (unreadable files as grey `unread` tiles, the reader's place kept through `scrollAnchor` and `readEnd`, shifted clocks saved with the session and replayed through `reshift`), runs the keys still queued in the page before a menu shortcut (`flushKeys`, so ⌘Z after fast keys undoes the last one), and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`, `luminaStep`, `luminaOpening`, `luminaNotice`; Edit's `luminaPresented`, `luminaHistogram`, `luminaFacts`, `luminaEditStats`). Design v0.05 (BRIDGE-v0.03) adds `lumina.cutShort` (exports a crash cut short, from the journal before the page loads), `lumina.notices()` (`THIRD-PARTY-NOTICES.txt`) and `lumina.emit(type, detail)` (`openCancel` stops the listing). Since v0.05 the page itself keys Cull rows, warms thumbnails ahead and leads the scroll, so plumbing no longer does |
+| `Lumina/Sets/Core/` | The native bridge: `SetsIngest` (reads opened folders: listing, 256 KB heads, byte-range previews that reuse the part the head already holds, prefetch, stops when the card goes), `SetsFileOps` (`writeSidecar`: v5's Save, one `.xmp` into the shoot folder with `.lumina-bak`, atomic, read back, refused on a card; SHA-256 copies), `SetsExport` (+ crash journal; RAW copies, v3's CSS-look JPEGs, and the Edit step's `look` renders through `SetsLookExport`, which names the RAW decoder used and falls back per file), `SetsEditLook` (v3's Edit look, unused by v5), `SetsCardWatcher`, `SetsNear` (`lumina.near`: the distance between Vision feature prints of two embedded previews, read through `SetsIngest`, one measure per photo at `.utility`; revision 2 is pinned and `limit` belongs to it), `SetsShootStore` (per-shoot sessions and the `Lumina.json` header), `SetsSchemeHandler` (`lumina://`, no network; `lumina://render/<rel>?look=&px=&seq=[&tier=small]` is the Edit preview on the image fallback path), `SetsAuto` (`lumina.auto`: AutoDevelop's answer per file + version, off the main thread; Foundation only), `SetsBridge` (the page's ops, the canvas ops `canvasEnter/Layout/Look/Drag/Loupe/Stats`, the decoder map) |
 | `Lumina/Sets/Look/` | The Edit look pipeline (roadmap Prompt 2): `LookString` (the look string, the Edit step's only state), `LookRules` + `rules-v1.json` (stage order, working space, fitted coefficients, `locked` flags), `LookMath` (every stage's maths in scalar form), `LookKernels` (the same maths as Metal, compiled at first use), `LookPipeline` (the one Core Image graph previews, export and `lumina-render` share; `develop` takes the decoder version and `nr`), `LookRenderer` (developed RAW cached per (rel, px, decoder) under a byte cap, sequence numbers drop stale requests). The Edit canvas (addendum): `LookCanvasSchedule` (two tiers, latest wins, sequence numbers; Foundation only), `LookWarmPlan` (which stage graphs to compile ahead of a drag; Foundation only), `LookByteCache` (byte-capped LRU), `LookBases` (`base` + `small` rgba16Float textures per photo, prefetch), `LookRegionTiles` (RAW 9 512 px tiles for the loupe), `LookCanvas` (the MTKView overlay, CIRenderDestination, display link), `LookRawPolicy` + `LookDecoderProbe` (the RAW tiers, the pin rule, the capability map). Auto: `AutoDevelop` (`ImageStats` + the recipe in the Edit page's slider units; Foundation only) and `AutoDevelopRaw` (the stats on the RAW, 256 px through `LookPipeline.develop`). Also compiled into the probe and `Tools/parity/lumina-render` through symlinks |
 | `Tools/parity/` | The Lightroom parity harness: the sweep plug-in, `import_refs.py`, `lumina-render`, `delta_e.py`, `parity.py` (`make parity`), `fit.py`, `loop.sh`, `criteria.json`, `golden.json`. See its README and "Parity" below |
 | `Tools/culleval/` | The culling eval: the page's own `lumina-core` run on real shoots, scored against camera bursts and the photographer's keeps (`make culleval`, report in `~/LuminaEvidence/culleval`; `make culleval-test` on Linux), the same keeps question through the app (`culleval-app.mjs` on a probe dump, one matcher and one set of scores for both), and candidate ranking signals (`signals/`). Measures only. See its README |
@@ -57,7 +57,6 @@ Trust rules, from the ROADMAP; the tests enforce them:
 ```bash
 # Design logic fixtures
 (cd design/handoff/lumina-cull && node lumina-core-v4.test.mjs)
-node Tests/core/v8-core.test.mjs   # the core cases CHANGES-v0.02 §9 asks for (parseHead pieces, Sony MakerNote, soft/blown, pass keywords)
 
 # Linux too: the real page in headless Chromium with plumbing.js and a Node stand-in for SetsBridge
 node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, sidecars, card, access
@@ -67,7 +66,7 @@ xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py 
 # Fast scrolling over 400 synthetic ARWs at a Retina pixel ratio (numbers reported, not gated)
 GDK_SCALE=2 xvfb-run -a -s "-screen 0 5200x3000x24" /usr/bin/python3.12 Tests/web/webkit.py scroll
 # The Foundation-only Swift (SetsFileOps, SetsShootStore, SetsExport, SetsIngest, SetsAuto, LookString/LookRules/LookMath, AutoDevelop) + its tests, Swift 6.1 in Docker
-bash Tests/linux-swift/run.sh
+bash Tests/linux-swift/run.sh   # local only: CI runs the same tests in LuminaLogicTests on macOS
 # The parity tools' own tests (ΔE2000, the numpy mirror of LookMath, refs indexing, the report), Linux too
 make parity-test
 # The culling eval's scoring tests (synthetic data) + the guard on the page's readOne, Linux too
@@ -132,12 +131,24 @@ are not seen (R1e).
 Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh`. It only reads the card.
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 
-CI (`.github/workflows/lumina.yml`) runs, on every pull request, the fixtures, the byte-for-byte page check, the
-wording audit and the parity tools (one Linux job), the Chromium plumbing harness and the WebKitGTK sandbox (one
-job), the Linux Swift tests, the build + logic tests with the release build and strict preflight (one macOS job),
-and the probe's smoke, screens and sandbox smoke (one macOS job). The long probe shards (fuzz-sample-2 +
-scroll-quick-2560; scroll-read + scroll-quick + edit on a 24-photo folder) run in parallel on main and when the
-workflow is run by hand on a branch. The other storms, the full scroll sweep and raw9 (real ARWs) run on a Mac.
+CI (`.github/workflows/lumina.yml`) runs a readiness gate on every pull request: the fixtures, the byte-for-byte
+page check, the wording audit and the parity tools (one Linux job), and the probe's smoke on macOS. The rest runs
+only when its area changed (`python3 Scripts/ci_changes.py FILE…` prints which): the Chromium plumbing harness and
+the WebKitGTK sandbox for the page, `plumbing.js` or `Tests/web`; the build + logic tests for anything Xcode builds, with lumina-render for the look and the Release build +
+strict preflight for signing, entitlements and settings; the probe's screens for the page or the probe; its
+sandbox smoke for native code and entitlements. A change to CI itself, and every push to main, runs all of it. The
+long probe shards (fuzz-sample-2 + scroll-quick-2560; scroll-read + scroll-quick + edit on a 24-photo folder) run
+nightly and when the workflow is run by hand on a branch. The other storms, the full scroll sweep and raw9 (real
+ARWs, macOS 27) run on a Mac.
+
+**Before you push, run what CI will run, then push once.** Each push restarts a macOS run of several
+minutes (a newer push cancels the older one, so a series of quick pushes keeps the runners busy and
+the PR waiting). `python3 Scripts/ci_changes.py $(git diff --name-only origin/main...)` prints which
+areas your change sets and the XCTest classes CI will pick (`xctest=`); run the matching local checks
+above (Linux: the node fixtures, `Tests/web`, `make parity-test`, `Tests/linux-swift`; Mac: those
+classes with `-only-testing`, `probe.sh smoke`), fix what fails, and push the finished change in one go.
+CI's per-class pick follows names (a test file that names a type the change declares); main runs the
+whole target, so a break that reaches a class only indirectly still shows there.
 
 ## Running tests without disturbing the Mac
 
@@ -190,8 +201,8 @@ harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift
 - **Don't edit `Lumina/Sets/Web/*.html|support.js|lumina-core-v4.js|lumina-v4-data.js|lumina-selftest.js|vendor`.** Change the design, then sync. `SetsPageBytesTests` and CI fail on drift.
 - **`plumbing.js` supplies behaviour and data, never UI.** If the page can't show something, that's a design ask.
 - **The native read repeats the page's `onDir` and `readOne`.** `probe.sh contract` fails (`__lumina.drift()`) when a sync changes either: review the read in `plumbing.js`, then update `ONDIR` (`node Tests/web/plumbing-harness.mjs --hash` prints it). Parity with the page's own read is checked with `card-clock.json` in both modes.
-- **Plumbing's scroll lead wraps the page's `onScroll`, never replaces it.** The page's handler moves the time axis (`syncAx`), notes the scroll time its read uses to hold rebuilds, and narrows the window at rest; v8 broke when plumbing skipped it (the axis froze between renders). `node Tests/web/plumbing-harness.mjs` checks the axis every frame, no rebuild under a moving scroll, tiles keeping the page's fade, and menu Undo after queued keys; `probe.sh scroll` reports the same on the Mac (`time axis off`, `grid rebuilt`, `tiles without their fade`, and `keys-spam`).
-- **Cull rows are keyed by row id, from `plumbing.js`.** The page's runtime keys list items by position, which hands every mounted row the next row's content each time the window moves (heights animating, images swapping: the scroll wobble). `probe.sh scroll` reports it (`rows out of place`: 0 % on a Mac against 65 to 80 % with the page's keying; not gated, the CI runner's 180 to 300 ms frames give 1 to 26 % either way) and keeps one pass with the page's own keying for comparison. A sync that renames `data-lumina="row"` / `data-id` turns the keying off silently: compare the two passes after a sync.
+- **Plumbing never replaces the page's `onScroll`.** The page's handler moves the time axis (`syncAx`), notes the scroll time its read uses to hold rebuilds, and narrows the window at rest; v8 broke when plumbing skipped it. `node Tests/web/plumbing-harness.mjs` checks the axis every frame, no rebuild under a moving scroll, tiles keeping the page's fade, and menu Undo after queued keys; `probe.sh scroll` reports the same on the Mac (`time axis off`, `grid rebuilt`, `tiles without their fade`, and `keys-spam`).
+- **Cull rows are keyed by the page** (v0.05, CHANGES-v0.03 ask 11). `probe.sh scroll` still reports `rows out of place`; a sync that brings it back above 0 % on a Mac is a design ask, not a plumbing patch.
 - **Pixel parity is 0 px.** App-mode screens (`screens-*-app`, plumbing's test-only parity mode: the design's sample shoot and card) must match the prototype reference byte for byte. Both twins run with `"storageWrites": false`, because the page's "saved" label is browser-only. CSS tricks that change anti-aliasing are out; content-visibility was tried and rejected.
 - **The probe never touches a real card.** Fault tests use disk images, and the probe's card watcher only accepts its own images.
 - **A disk image is a card to the app** (`volumeIsRemovable`), with or without DCIM: Save on one is refused "on the card". A scenario that needs the write itself on an image (case-sensitive, full) uses the probe's `nativeSidecar` step with `"guard": false`.
@@ -213,7 +224,14 @@ above the 2026-10-01 baseline (2.32 / 7.82). A change that needs more than that 
 tolerance is the owner's to change. The full procedure is `Tools/parity/README.md`; the rules that bite:
 
 - **The look string is the only Edit state** (`ev:+0.70 wb:5200/+3 con:+12 … crop:x,y,w,h/r`,
-  `Lumina/Sets/Look/LookString.swift`). Previews are `lumina://render/<rel>?look=&px=&seq=`, exports
+  `Lumina/Sets/Look/LookString.swift`). Edit v22 sends the core's `lookString` form (`cDark`,
+  `vMid`, `hue_red`, `curve:~[[x,y],…]`, `wb:/+5`, `cropRatio`); `Look.parse` reads both and
+  `LookStringTests.testThePagesLookStrings` holds strings copied from the core. Plumbing adds two things the
+  page means but does not write (`macLook`): `wbref:K/T`, the as-shot pair the page's white balance
+  rests on (its `wbK` / `wbTint`; the Mac applies the page's move to the decoder's own pair,
+  `Look.WhiteBalance.resolved`), and `shp:40` when the look has no `shp` (the page's Sharpening rests
+  at Lightroom's 40; the Mac's 0 is none). It also sends the page's chrome over the canvas box as
+  `holes` (`canvasLayout`), which the canvas leaves see-through. Previews are `lumina://render/<rel>?look=&px=&seq=`, exports
   go through `SetsExport` `.look` items, sessions keep `look` per photo and `rowLook` per row. Looks
   are **never written to XMP**; handoff stays ratings only.
 - **One maths, three copies.** A stage's transfer function lives in `LookMath.swift` (reference),
@@ -282,7 +300,9 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
 - **Structure only from RapidRAW / darktable** (AGPL/GPL): ideas, cited in a comment, never code.
 - **The Edit canvas schedule is `LookCanvasSchedule`** (Foundation only, tested on Linux): two tiers
   (`small`, a quarter of the canvas on each edge, while a slider is dragged; `base` at full quality on
-  drag end, a keystroke, or 120 ms idle), latest wins (one render in flight, the next display refresh
+  drag end, a keystroke, or 120 ms idle; during a drag idle means max(120 ms, 1.5 × the gap between
+  the drag's last two looks), at most 360 ms, so a slow drag on a whole-number slider (looks about
+  110 ms apart) gets no rest render in the middle while a real pause still does), latest wins (one render in flight, the next display refresh
   takes the newest value), and a sequence number per render (presented only if newer than the last
   presented). Histogram and clipping are computed on rest renders only. Session writes debounce at
   500 ms after the last change. Bases are keyed by (rel, decoder version, crop, rotation, canvas size,
@@ -366,9 +386,9 @@ Everything before the Sets rebuild (the P0/Elastic SwiftUI UI, its harness and l
 `CullCore` port, AutoDevelop) was removed in the Phase 6 cleanup and lives in git history before it.
 AutoDevelop came back on 2026-10-06 (sam's choice): **the backend AutoDevelop is the Auto.**
 `AutoDevelop.recipe(for:)` (`Lumina/Sets/Look/AutoDevelop.swift`), measured on the RAW by `AutoDevelopRaw`
-(scene-linear, never the embedded JPEG), answers `lumina.auto(rel)` (BRIDGE-v0.02 §1); Edit v21's A key
+(scene-linear, never the embedded JPEG), answers `lumina.auto(rel)` (BRIDGE-v0.02 §1); the Edit page's A key
 asks it first and its footer then says "Auto · …". The page's own preview-JPEG Auto (`autoOf`) is the
-browser's fallback ("Auto (estimate)"), and Edit v21's arrival-auto and scene matching still call it: moving
+browser's fallback ("Auto (estimate)"), and the Edit page's arrival-auto and scene matching still call it: moving
 those onto `lumina.auto` is the design's (PROMPT-auto-backend step 3). `make auto-fixtures` records it for the browser design (`data/auto-fixtures.js`).
 Its acceptance gate is the Auto loop (median |Δexposure| < 0.25 EV against the photographer's own edited
 XMPs), on the Mac.

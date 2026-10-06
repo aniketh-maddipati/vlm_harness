@@ -114,7 +114,7 @@ nonisolated enum AutoDevelop {
     static let defaultHighlights = 0.0
     static let defaultShadows = 0.0
 
-    /// The Edit page's slider ranges (`Lumina Edit v21.dc.html`, `SL`).
+    /// The Edit page's slider ranges (`Lumina Edit v22.dc.html`, `SL`; unchanged since v21).
     static let evRange = -5.0...5.0
     static let kelvinRange = 2500.0...10000.0
     static let kelvinStep = 10.0

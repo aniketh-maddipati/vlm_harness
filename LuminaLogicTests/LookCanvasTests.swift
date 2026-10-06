@@ -53,6 +53,118 @@ final class LookCanvasTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(s.tick(at: 201)).tier, .small, "the thumb moved again: back to small")
     }
 
+    // MARK: The rest rule during a drag (N8)
+
+    /// Runs a schedule on a 120 Hz display link from `from` to `to` (ms), finishing each render
+    /// one refresh later; `events` are applied at their time. Returns the renders in order.
+    private func run(_ s: inout S, from: Double, to: Double, _ events: [(at: Double, what: (inout S, Double) -> Void)]) -> [(at: Double, r: S.Request)] {
+        var out: [(Double, S.Request)] = [], queue = events.sorted { $0.at < $1.at }[...], flying: S.Request?
+        var t = from
+        while t <= to {
+            while let e = queue.first, e.at <= t { e.what(&s, e.at); queue.removeFirst() }
+            if let f = flying { XCTAssertTrue(s.finished(f)); flying = nil }
+            if let r = s.tick(at: t) { out.append((t, r)); flying = r }
+            t += 1000 / 120
+        }
+        if let f = flying { _ = s.finished(f) }
+        return out
+    }
+
+    private func looks(every gap: Double, from: Double, to: Double) -> [(at: Double, what: (inout S, Double) -> Void)] {
+        stride(from: from, through: to, by: gap).enumerated().map { i, t in (t, { s, at in s.submit("tc:\(i),0,0", at: at) }) }
+    }
+
+    /// A slow drag on a whole-number slider: a look every 110 ms for 2 s (with one late by 15 ms,
+    /// past the 120 ms rule). Every look renders from `small`, nothing from `base` until the drag ends.
+    func testSlowDragGetsNoRestRenderBeforeDragEnd() {
+        for jitter in [0.0, 15] {
+            var s = S()
+            var events = looks(every: 110, from: 60, to: 2000)
+            if jitter > 0 { let k = events.count / 2; for i in k..<events.count { events[i].at += jitter } }
+            let n = events.count, last = events.last!.at
+            events.insert((0, { s, at in s.dragStart(at: at) }), at: 0)
+            let during = run(&s, from: 0, to: last + 100, events)
+            XCTAssertEqual(during.filter { $0.r.tier == .base }.count, 0, "jitter \(jitter): a rest render in the middle of the drag")
+            XCTAssertEqual(during.count, n, "every look rendered once, from small")
+            XCTAssertEqual(s.cadence ?? 0, 110, accuracy: 0.001)
+            XCTAssertEqual(s.restAfterMs, 165, accuracy: 0.001)
+            XCTAssertEqual(s.stats.coalesced, 0)
+            // Drag end: the rest render on the next refresh, however long the cadence was.
+            s.dragEnd(at: last + 101)
+            let rest = try! XCTUnwrap(s.tick(at: last + 102))
+            XCTAssertEqual(rest.tier, .base); XCTAssertEqual(rest.lookSeq, n); XCTAssertTrue(rest.stats)
+            XCTAssertTrue(s.finished(rest)); XCTAssertFalse(s.restPending)
+        }
+    }
+
+    /// A fast drag (a look every refresh or two): the rule is the 120 ms one, as before.
+    func testFastDragRestsAfter120msAsBefore() {
+        var s = S()
+        var events = looks(every: 16, from: 10, to: 2000)
+        let last = events.last!.at
+        events.insert((0, { s, at in s.dragStart(at: at) }), at: 0)
+        let during = run(&s, from: 0, to: last + 110, events)
+        XCTAssertEqual(during.filter { $0.r.tier == .base }.count, 0)
+        XCTAssertEqual(s.restAfterMs, 120, "1.5 × 16 ms is under idleMs")
+        XCTAssertNil(s.tick(at: last + 119.9))
+        let rest = try! XCTUnwrap(s.tick(at: last + 120))
+        XCTAssertEqual(rest.tier, .base, "the thumb held still for 120 ms with the button down")
+    }
+
+    /// A slow drag that stops for 400 ms and goes on: one rest render in the pause (after 1.5 ×
+    /// the cadence), none before or after, and the pause does not become the cadence.
+    func testAPauseMidDragRestsOnce() {
+        var s = S()
+        var events = looks(every: 110, from: 60, to: 800)              // … 720
+        let stopped = events.last!.at
+        events += looks(every: 110, from: stopped + 400, to: stopped + 400 + 770).map { e in (e.at, { s, at in s.submit("tc:0,\(Int(at)),0", at: at) }) }
+        let last = events.last!.at
+        events.insert((0, { s, at in s.dragStart(at: at) }), at: 0)
+        let renders = run(&s, from: 0, to: last + 100, events)
+        let rests = renders.filter { $0.r.tier == .base }
+        XCTAssertEqual(rests.count, 1)
+        XCTAssertEqual(rests[0].at, stopped + 165, accuracy: 1000 / 120 + 0.001, "after 1.5 × the 110 ms cadence of stillness")
+        XCTAssertEqual(s.cadence ?? 0, 110, accuracy: 0.001, "the 400 ms gap was a pause, not the cadence")
+        XCTAssertEqual(renders.last?.r.tier, .small)
+        s.dragEnd(at: last + 101)
+        XCTAssertEqual(try! XCTUnwrap(s.tick(at: last + 102)).tier, .base)
+    }
+
+    /// The cadence belongs to one drag, and stillness never waits longer than 3 × idleMs.
+    func testCadenceIsPerDragAndCapped() {
+        var s = S()
+        s.dragStart(at: 0)
+        s.submit("a", at: 0); s.submit("b", at: 110)
+        XCTAssertEqual(s.restAfterMs, 165, accuracy: 0.001)
+        s.submit("c", at: 270)                                           // 160 ms: still under 165, the cadence follows
+        XCTAssertEqual(s.restAfterMs, 240, accuracy: 0.001)
+        s.submit("d", at: 500); s.submit("e", at: 835)                   // 230, then 335 (under 345)
+        XCTAssertEqual(s.restAfterMs, 360, "never more than 3 × idleMs")
+        s.dragEnd(at: 900)
+        XCTAssertEqual(s.restAfterMs, 120, "not dragging: idleMs")
+        s.dragStart(at: 1000)
+        XCTAssertNil(s.cadence, "a new drag starts without one")
+        s.submit("f", at: 1010)
+        XCTAssertEqual(s.restAfterMs, 120)
+        s.reset()
+        XCTAssertNil(s.cadence)
+    }
+
+    /// Not dragging: nothing changed. A look renders from `base` at once (no small tier, no wait),
+    /// and a look let go mid-drag after one step still rests at 120 ms (the test above this mark).
+    func testNotDraggingIsUnchanged() {
+        var s = S()
+        for (i, t) in [0.0, 110, 220, 330].enumerated() {
+            s.submit("ev:+0.\(i)", at: t)
+            let r = try! XCTUnwrap(s.tick(at: t + 1))
+            XCTAssertEqual(r.tier, .base); XCTAssertTrue(s.finished(r))
+            XCTAssertNil(s.tick(at: t + 100))
+        }
+        XCTAssertNil(s.cadence, "looks outside a drag set no cadence")
+        XCTAssertEqual(s.restAfterMs, 120)
+        XCTAssertEqual(s.stats.small, 0); XCTAssertEqual(s.stats.base, 4)
+    }
+
     func testLatestWinsAndNeverQueuesBehindARenderInFlight() {
         var s = S()
         s.dragStart(at: 0)

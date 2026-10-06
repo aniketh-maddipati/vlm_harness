@@ -5,7 +5,9 @@ import WebKit
 /// Serves the page from local files under `lumina://`. Nothing loads from the network.
 ///
 /// - `lumina://app/<file>`     the design's page files, byte-identical
-/// - `lumina://vendor/<file>`  React / Babel (support.js asks for them via `window.__resources`)
+/// - `lumina://vendor/<file>`  React and React DOM (support.js asks for them via `window.__resources`).
+///   Not Babel: support.js loads it only for an `<x-import>` of a .jsx/.tsx file, which no page file
+///   has (Scripts/sets_sync_ui.sh refuses a sync that adds one), so its 3 MB stay out of the bundle.
 /// - `lumina://app/media/{head,preview,thumb}?p=<folder/file>&o=&l=&ori=`  the opened folder's
 ///   photos, read natively by byte range (SetsIngest). Same origin as the page, so it can measure
 ///   them on a canvas. Never a whole RAW, never the network.
@@ -19,10 +21,10 @@ import WebKit
 ///   rendering; a bad look string 400; a file outside the opened folders 404.
 nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "lumina"
-    static let pageFile = "Lumina Sets v8.dc.html"
-    /// Edit is its own page, which support.js fetches when Sets mounts it (`<dc-import name="Lumina Edit v21">`).
-    static let editPageFile = "Lumina Edit v21.dc.html"
-    static let vendorFiles = ["react.production.min.js", "react-dom.production.min.js", "babel.min.js"]
+    static let pageFile = "Lumina Sets v11.dc.html"
+    /// Edit is its own page, which support.js fetches when Sets mounts it (`<dc-import name="Lumina Edit v22">`).
+    static let editPageFile = "Lumina Edit v22.dc.html"
+    static let vendorFiles = ["react.production.min.js", "react-dom.production.min.js"]
     /// What `lumina://app/<file>` serves. Debug builds and the probe: the same list as
     /// Scripts/page_files.sh, with the design's self-test, which the page asks for only with
     /// `?selftest` (`probe.sh selftest`). The app's Release build does not serve the self-test
@@ -38,7 +40,6 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let resources: [String: String] = [
         "https://unpkg.com/react@18.3.1/umd/react.production.min.js": "\(scheme)://vendor/react.production.min.js",
         "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js": "\(scheme)://vendor/react-dom.production.min.js",
-        "https://unpkg.com/@babel/standalone@7.29.0/babel.min.js": "\(scheme)://vendor/babel.min.js",
     ]
 
     let pageRoot: URL

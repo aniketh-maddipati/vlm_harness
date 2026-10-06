@@ -6,6 +6,16 @@
 (() => {
   const cfg = Object.assign({}, window.__luminaConfig || {});
   const native = (op, args) => window.webkit.messageHandlers.lumina.postMessage(Object.assign({ op }, args || {}));
+  // The page's notices (CHANGES-v0.04 A4): its own words for a folder too big to be a shoot, a sidecar
+  // the Mac did not read, a session the Mac refused.
+  // Result reasons are the page's REASON keys (CHANGES-v0.04 D1/D2, PARITY-v0.05 §4). The Mac's
+  // other words fold into the nearest one; 'on the card' stays (the page's Save guard comes first).
+  const REASONS = ['changed on disk', 'unreadable', 'name too long', 'locked', 'read-only', 'missing', 'disk full', 'failed', 'on the card'];
+  const reasons = r => {
+    if (r && Array.isArray(r.errors)) r.errors.forEach(e => { if (e && !REASONS.includes(e.reason)) e.reason = e.reason === 'over 1 MB' ? 'unreadable' : 'failed'; });
+    return r;
+  };
+  const notice = (kind, info) => { try { return typeof window.luminaNotice === 'function' ? window.luminaNotice(kind, info || {}) : false; } catch (_) { return false; } };
 
   // Settings (MENUS.md): stored per user by the Mac (UserDefaults). The page reads 'lumina-prefs' from
   // localStorage when it starts and hands every change to lumina.setPrefs. The web view's storage is
@@ -50,13 +60,14 @@
   // Everything below leans on these page members. A design sync that renames one shows up here (and
   // in the probe's plumbing-contract scenario) instead of as a silent break.
   const REQUIRED = ['onKey', 'setState', 'setView', 'say', 'undo', 'openFolder', 'onDir', 'readOne', 'intake', 'notesFor',
-    'writeInto', 'runExport', 'impStart', 'impSet', 'libOpen', 'build', 'forget', 'kept', 'undec', 'land', 'xmpFor', 'reveal'];
+    'writeInto', 'runExport', 'impStart', 'impSet', 'libOpen', 'build', 'forget', 'kept', 'undec', 'land', 'xmpFor', 'reveal',
+    'scrollAnchor', 'bridgeEmit', 'reshift', 'editShoot'];
   const GLOBALS = { 'LuminaCore.parseHead': () => window.LuminaCore && LuminaCore.parseHead, 'LuminaCore.measure': () => window.LuminaCore && LuminaCore.measure,
     'LuminaCore.hasDevelop': () => window.LuminaCore && LuminaCore.hasDevelop, 'LuminaCore.buildShoot': () => window.LuminaCore && LuminaCore.buildShoot,
     'LuminaCore.phoneOf': () => window.LuminaCore && LuminaCore.phoneOf, 'LuminaCore.assemblePreview': () => window.LuminaCore && LuminaCore.assemblePreview,
     'LuminaV4.fmt.base': () => window.LuminaV4 && LuminaV4.fmt && LuminaV4.fmt.base };
   // Set by the page when it mounts (MENUS.md, SAFETY.md 3 and 5).
-  const HOOKS = ['luminaCommand', 'luminaCardGone', 'luminaAccess', 'luminaState'];
+  const HOOKS = ['luminaCommand', 'luminaCardGone', 'luminaAccess', 'luminaState', 'luminaStep', 'luminaOpening', 'luminaNotice'];
   const missing = logic => REQUIRED.filter(k => typeof logic[k] !== 'function').concat(
     logic.constructor && Array.isArray(logic.constructor.SHOOTS) ? [] : ['static SHOOTS'],
     logic.constructor && typeof logic.constructor.clean === 'function' ? [] : ['static clean'],
@@ -64,7 +75,7 @@
     HOOKS.filter(k => typeof window[k] !== 'function').map(k => 'window.' + k));
   // The native read (below) repeats the page's onDir and readOne step for step. When a design sync
   // changes either, the contract check reports it so the repeat gets reviewed; the app keeps working.
-  const ONDIR = 2746464250;
+  const ONDIR = 623750811;
   const fnv = t => { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
   const readHash = logic => {
     const proto = logic && Object.getPrototypeOf(logic);
@@ -80,10 +91,7 @@
   // per row, by row id like `seen`. Never in XMP: the sidecars the page builds carry ratings only.
   const BY_ID = ['marks', 'flags', 'stars', 'cuts', 'look'];
   const SCALAR = ['seen', 'tsz', 'regions', 'lastEx', 'rowLook'];
-  let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, readMoved = false, sessionRefused = null;
-  // Last scroll in the page (any scroller), for holding the grid's refresh while a folder is read.
-  let scrollT = 0, growT = 0;
-  document.addEventListener('scroll', () => { scrollT = performance.now(); }, { capture: true, passive: true });
+  let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, sessionRefused = null;
   // Path inside the opened folder ("sub/DSC00001.ARW"): stable across reopen and new files.
   const keyOf = p => { const r = (p && p.fileObj && p.fileObj.webkitRelativePath) || (p && p.path) || ''; return r ? r.split('/').slice(1).join('/') : (p && p.file) || ''; };
   const pathOf = (logic, id) => keyOf(logic.data && logic.data.byId[id]);
@@ -98,6 +106,8 @@
       out[k] = m;
     }
     for (const k of SCALAR) if (s[k] !== undefined) out[k] = s[k];
+    // Shift Capture Time (CHANGES-v0.04 B2): the page's shifts, by photo path, kept with the session only.
+    out.shifts = logic._shifts || [];
     return out;
   };
   // For the Open screen's recent cards: the same numbers the prototype's persist() keeps.
@@ -107,6 +117,12 @@
   // the saved ones and the cursor stays where it is (nothing jumps when the read ends).
   const restore = (logic, saved, live) => {
     base = saved; savedKeepers = typeof saved.saved === 'string' ? saved.saved : null;
+    // The shoot's capture-time shifts come first: rows, stacks and ids are built from the shifted times.
+    // The page's reshift remaps what was decided during the read; without one, a plain rebuild.
+    if (Array.isArray(saved.shifts) && saved.shifts.length) {
+      if (live && typeof logic.reshift === 'function') logic.reshift(saved.shifts);
+      else { logic._shifts = saved.shifts; logic.data = logic.build(logic.state.cuts || {}); }
+    }
     const idOf = {}; for (const [id, p] of Object.entries(logic.data.byId)) idOf[keyOf(p)] = id;
     const st = {};
     for (const k of BY_ID) { const m = {}; for (const [p, v] of Object.entries(saved[k] || {})) if (idOf[p]) m[idOf[p]] = v; st[k] = live ? Object.assign(m, logic.state[k] || {}) : m; }
@@ -128,12 +144,16 @@
     const json = JSON.stringify(snapshot(l));
     if (json !== lastSaved) {
       lastSaved = json; base = JSON.parse(json);
-      // A session over the Mac's limit (threat model T5) is refused: said once per shoot. The wording
-      // is a stand-in until DESIGN-ASKS Prompt 6 lands. Other failures stay as before (not shown).
+      // A session over the Mac's limit (threat model T5) is refused: the page says so once per shoot
+      // (luminaNotice 'sessionBig'). Other failures stay as before (not shown). A write changes the
+      // working files' size: pushed to the storage meter (BRIDGE-v0.03 §7, luminaWorkingFiles).
       const id = shootId;
-      Promise.resolve(native('saveSession', { id, json, summary: summary(l) })).catch(err => {
+      Promise.resolve(native('saveSession', { id, json, summary: summary(l) })).then(() => {
+        if (cfg.parity || typeof window.luminaWorkingFiles !== 'function' || shootId !== id) return;
+        return native('workingFiles', { id }).then(b => { if (b != null && shootId === id) window.luminaWorkingFiles(b); }, () => {});
+      }).catch(err => {
         if (!/too big/.test(String((err && err.message) || err))) throw err;
-        if (sessionRefused !== id) { sessionRefused = id; l.say('decisions not saved · session too big'); }
+        if (sessionRefused !== id) { sessionRefused = id; notice('sessionBig', {}); }
       });
     }
   };
@@ -152,14 +172,8 @@
       if (v !== lastView) {
         lastView = v; saveNow();
         // The Edit canvas overlay shows only while Edit is the active step.
-        if (v !== 'edit' && edit.state().visible && !edit.state().force) edit.layout(null, false);
-        if (v === 'edit') edit.pollRect();
-        // Save shows "Remove Lumina's working files (size)" once it knows the size; in the app the
-        // page only asks after a save. Give it the size when Save opens.
-        if (v === 'export' && typeof l.exSet === 'function') {
-          if (cfg.parity) { if (typeof l.cacheBytes === 'function') l.exSet({ wf: l.cacheBytes() }); }
-          else if (shootId) window.lumina.workingFiles().then(b => { if (current === l && l.state.view === 'export') l.exSet({ wf: b }); }).catch(() => {});
-        }
+        // (Edit v22 sends canvasRect(null) itself when it unmounts; this covers a page that doesn't.)
+        if (v !== 'edit' && edit.state().visible && !edit.state().force) { edit.layout(null, false); watchHoles(false); }
       }
     } finally { setTimeout(viewLoop, 150); }
   };
@@ -226,7 +240,24 @@
       if (!autoAsks.has(r)) autoAsks.set(r, native('auto', { rel: r }).then(autoOk, () => null).finally(() => autoAsks.delete(r)));
       return autoAsks.get(r);
     },
+    // Exports a crash or kill cut short, found at launch (SetsExportJournal.recover): the page says so
+    // once on Open (CHANGES-v0.04 D3). [{folder, done, planned, cleaned}], newest first.
+    cutShort: Array.isArray(cfg.cutShort) ? cfg.cutShort : [],
+    // Help ▸ Acknowledgements (Prompt 7): the bundled THIRD-PARTY-NOTICES.txt.
+    notices: () => native('notices', {}),
+    // Warm-ahead lists from Sets and Edit (BRIDGE-v0.03 §6).
+    prefetch: list => prefetch(list),
+    // The page's events (BRIDGE-v0.03 §3): flow, moved, stayed, readEnd, leadReady, shifted, openCancel.
+    // Esc on "Opening <name>…" cancels the listing, so a late answer can't open the folder.
+    emit: (type, detail) => {
+      events.push({ type, detail, t: Math.round(performance.now()) }); if (events.length > 200) events.shift();
+      if (type === 'openCancel') native('openCancel', {}).catch(() => {});
+    },
   });
+  const events = [];
+  // Parity mode (test only): the storage meter is measured the prototype's way (see patch), so the page
+  // must not ask the Mac for its working files either; it asks on mount, before patch runs.
+  if (cfg.parity) delete window.lumina.workingFiles;
 
   const loadRecents = async logic => {
     const list = await native('recents', {});
@@ -250,6 +281,18 @@
       logic[k] = () => { const app = C.app; C.app = () => false; try { return f(); } finally { C.app = app; } };
     }
 
+    // The Edit step's photos (Edit v22 reads them through window.luminaShoot = editShoot). The page
+    // names a photo by its file name without the folder or extension, so the canvas could not find
+    // it: give each one its path in the opened folder as `rel` (the page's rel(p) prefers it), and the
+    // RAW's own as-shot white balance once the Mac has read it (`asShot`, from the canvas's base).
+    const editShoot0 = logic.editShoot.bind(logic);
+    logic.editShoot = () => {
+      const s = editShoot0(); if (!s || !Array.isArray(s.P)) return s;
+      const name = (logic.state.realInfo && logic.state.realInfo.name) || '';
+      for (const p of s.P) { const f = logic.data.byId[p.id], k = keyOf(f); if (!f || !k) continue; p.rel = name + '/' + k; applyAsShot(p); }
+      return s;
+    };
+
     // After a folder is read: remember the shoot and bring its decisions back.
     const afterRead = async () => {
       if (!logic.real || !logic.real.length) return;
@@ -260,9 +303,10 @@
       const r = await native('shootOpened', { name: info.name, n: logic.real.length, date: first, bodies });
       shootId = r && r.id; lastSaved = ''; base = null; savedKeepers = null;
       edit.header(r && r.header);
-      if (r && r.session) { try { restore(logic, JSON.parse(r.session), readMoved); } catch (_) {} }
+      const live = !!(logic._readEnd && logic._readEnd.stay);
+      if (r && r.session) { try { restore(logic, JSON.parse(r.session), live); } catch (_) {} }
       // Decisions made while the folder was read aren't in the session yet: the next save sends them.
-      lastSaved = readMoved ? '' : JSON.stringify(snapshot(logic));
+      lastSaved = live ? '' : JSON.stringify(snapshot(logic));
       loadRecents(logic);
     };
 
@@ -279,16 +323,15 @@
       // the open shoot's now, or what was decided since the last 2 s autosave is lost (a card
       // re-inserted right after a keep, the same folder opened again).
       saveNow();
+      // The Mac shows "Opening <name>…" (window.luminaOpening) once the folder is picked and clears it
+      // here, whatever the listing's outcome.
       const L = await native('openFolder', {});
-      if (!L) return;                                        // cancelled
+      if (typeof window.luminaOpening === 'function') window.luminaOpening(null);
+      if (!L) return;                                        // cancelled (or Esc while it was listed)
       if (L.denied != null) { window.luminaAccess(true, L.denied); return; }
       window.luminaAccess(false);
-      // `/`, a home folder, a whole disk: the Mac stopped listing it (threat model T5). Said where the
-      // page says "no ARW found"; the wording is a stand-in until DESIGN-ASKS Prompt 6 lands.
-      if (L.tooBig) {
-        const T = L.tooBig, msg = 'not available · ' + T.name + ' · ' + (T.why === 'tooDeep' ? 'folders over ' + T.depth + ' deep' : 'over ' + T.files + ' files') + ' · open one shoot';
-        logic.setState({ openNote: msg }); return logic.say(msg);
-      }
+      // `/`, a home folder, a whole disk: the Mac stopped listing it (threat model T5).
+      if (L.tooBig) { notice(L.tooBig.why === 'tooDeep' ? 'tooDeep' : 'tooBig', { folder: L.tooBig.name }); return; }
       window.luminaCardGone(false);
       window.lumina.readingCard = !!L.onCard;
       await ingest(L);
@@ -425,56 +468,73 @@
       }
       (logic.real || []).forEach(p => { p.src && URL.revokeObjectURL(p.src); /^blob:/.test(p.lg || '') && URL.revokeObjectURL(p.lg); });
       const run = reading = { name: L.name, total: files.length, done: 0, gone: false };
-      const t0 = performance.now(), res = new Array(files.length); let done = 0, i = 0, pre = 0, shown = false, lastB = 0, firstCur = null;
-      readMoved = false;
+      const t0 = performance.now(), res = new Array(files.length); let done = 0, i = 0, pre = 0, shown = false, lastB = 0;
       previewAt.clear();
       logic._gold = []; logic._failed = []; logic.real = [];
-      // Sidecars over 1 MB the Mac did not read (threat model T5): counted with the unreadable files.
-      for (const rel of L.skippedXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar over 1 MB, not read' });
-      // Sidecars that are not text (Latin-1, UTF-16, binary): the same count, until the page has its own line.
+      // The page's own read state: its onScroll marks the reader as moved (_rd) while _reading is set.
+      logic._reading = true; logic._rd = { moved: false, cur: null, top: 0 };
+      // Sidecars over 1 MB the Mac did not read (threat model T5): the page's notice lists each one.
+      for (const rel of L.skippedXmp || []) notice('sidecarBig', { name: rel.split('/').pop() });
+      // Sidecars that are not text (Latin-1, UTF-16, binary): the same list, until the page has its own line.
       for (const rel of L.unreadableXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar unreadable, not read' });
-      logic.setState({ realLoad: { done: 0, total: files.length, t0 }, realInfo: null, xsaved: {}, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
-      // Rows appear as the contiguous prefix grows, at most every 400 ms. As in v8's page: never under a
-      // moving scroll (the rebuild waits until 450 ms after the last scroll), and the row at the top of
-      // the viewport stays where it is (the page's scrollAnchor, applied in its componentDidUpdate).
+      if (!logic._addFrom) logic._shifts = [];
+      logic.setState({ opening: null, realLoad: { done: 0, total: files.length, t0 }, realInfo: null, xsaved: {}, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
+      // Rows appear as the contiguous prefix grows, paced as the page paces them: not while the reader
+      // scrolls (450 ms), at most every 700 ms, keeping the row at the top of the view where it was.
       const grow = force => {
         if (reading !== run) return;
         while (pre < files.length && res[pre] !== undefined) pre++;
         const now = performance.now(); if (!force && pre < 48) return;
-        if (!force && now - scrollT < 450) { clearTimeout(growT); growT = setTimeout(() => grow(false), 480); return; }
-        if (!force && now - lastB < 400) return; lastB = now;
+        if (!force && Date.now() - (logic._scrollT || 0) < 450) { clearTimeout(logic._growT); logic._growT = setTimeout(() => grow(false), 480); return; }
+        if (!force && now - lastB < 700) return; lastB = now;
         const anc = shown && typeof logic.scrollAnchor === 'function' ? logic.scrollAnchor() : null;
-        logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null; if (anc) logic._anc = anc;
-        if (!shown) { shown = true; firstCur = logic.data.order[0]; logic.setState({ cur: firstCur }); logic.setView('cull', true); } else logic.forceUpdate();
+        logic.real = res.slice(0, pre).filter(p => p && !p.err); if (!logic.real.length) return; logic.data = logic.build(logic.state.cuts || {}); logic._lk = null; logic._anc = anc;
+        if (!shown) {
+          shown = true; logic._rd.cur = logic.data.order[0];
+          const se = logic.scrollRef && logic.scrollRef.current; logic._rd.top = se ? se.scrollTop : 0;
+          logic.setState({ cur: logic.data.order[0] }); logic.setView('cull', true);
+        } else logic.forceUpdate();
+      };
+      // A file that can't be read stays, as a grey tile (CHANGES-v0.05 B1): the page's own record.
+      // Only a pulled card drops what it cut off.
+      const unread = f => {
+        const pth = f.rel, xk = pth.replace(/\.[^.\/]+$/, '').toLowerCase(), xo = xmpMap[xk] || null;
+        return { unread: true, nopv: true, name: pth.split('/').pop(), path: pth, date: '', bytes: f.size, fileObj: fileRef(pth), xpath: xo ? xo.path : pth.replace(/\.[^.\/]+$/, '') + '.xmp', xmp: xo && xo.tx,
+          lrEd: LuminaCore.hasDevelop(xo && xo.tx), portrait: false, lum: null, focus: 0, clip: 0, dhash: null, src: '', lg: '', exp: null, fl: null, ev: null, iso: null };
       };
       const one = async (f, k) => {
         try { res[k] = await readOne(f, xmpMap); }
-        catch (err) { if (err instanceof Gone) run.gone = true; res[k] = { err: true }; logic._failed.push({ name: f.rel.split('/').pop(), reason: err instanceof Gone ? 'card removed' : 'unreadable' }); }
+        catch (err) {
+          if (err instanceof Gone) { run.gone = true; res[k] = { err: true }; logic._failed.push({ name: f.rel.split('/').pop(), reason: 'card removed' }); }
+          else { res[k] = unread(f); logic._failed.push({ name: f.rel.split('/').pop(), reason: 'unreadable' }); }
+        }
         done++; run.done = done;
         if (done % 8 === 0 || done === files.length) logic.setState({ realLoad: { done, total: files.length, t0 } });
         grow(false);
       };
       await Promise.all(Array.from({ length: Math.max(1, L.workers || 4) }, async () => { while (i < files.length && !run.gone) { const k = i++; await one(files[k], k); } }));
+      clearTimeout(logic._growT);
       // Card pulled: the readers stopped. What wasn't read counts as unreadable, as the page counts it.
       for (; i < files.length; i++) { res[i] = { err: true }; logic._failed.push({ name: files[i].rel.split('/').pop(), reason: 'card removed' }); }
-      clearTimeout(growT);
-      const ok = res.filter(p => p && !p.err);
-      reading = null;
-      lastRead = { name: L.name, total: files.length, read: ok.length, unreadable: files.length - ok.length, stopped: run.gone ? 'card removed' : null, secs: +((performance.now() - t0) / 1000).toFixed(1) };
+      const ok = res.filter(p => p && !p.err), s1 = logic.state, rd = logic._rd || {};
+      reading = null; logic._reading = false;
+      if (ok.length && ok.every(p => p.unread)) ok.length = 0;
+      lastRead = { name: L.name, total: files.length, read: ok.filter(p => !p.unread).length, unreadable: files.length - ok.filter(p => !p.unread).length, stopped: run.gone ? 'card removed' : null, secs: +((performance.now() - t0) / 1000).toFixed(1) };
       window.lumina.read = Object.assign({}, lastRead);
+      // The page's readEnd (BRIDGE-v0.03 §3): the reader moved, kept or scrolled during the read, so the
+      // page keeps the cursor and the scroll where they are.
+      const moved = !!(rd.moved || (rd.cur != null && s1.cur !== rd.cur) || Object.keys(s1.marks || {}).length || Object.keys(s1.flags || {}).length);
+      logic._readEnd = { stay: moved, cur: s1.cur };
+      if (typeof logic.bridgeEmit === 'function') logic.bridgeEmit('readEnd', { stay: moved, cur: s1.cur, photos: ok.length });
       if (!ok.length) { logic.real = null; logic.data = logic.build({}); logic.setState({ realLoad: null }); return logic.say(run.gone ? 'Card removed · re-insert to keep going' : '0 photos · ' + files.length + ' unreadable'); }
-      // The page ends a read on the first photo and scrolls to it (land). When the reader has already
-      // moved (cursor, keeps, or scrolled), plumbing keeps them where they are instead: same photo,
-      // same scroll, no fly-back across the shoot. Design ask 8 asks the page for the same.
-      const sc = logic.scrollRef && logic.scrollRef.current, was = logic.state.cur, wasKey = shown && was && logic.data.byId[was] ? keyOf(logic.data.byId[was]) : null;
-      readMoved = shown && (was !== firstCur || Object.keys(logic.state.marks || {}).length > 0 || !!(sc && sc.scrollTop > 40));
-      logic.real = ok; logic.data = logic.build({});
-      let stay = null;
-      if (readMoved && wasKey) for (const [id, p] of Object.entries(logic.data.byId)) if (keyOf(p) === wasKey) { stay = id; break; }
+      const ancF = typeof logic.scrollAnchor === 'function' ? logic.scrollAnchor() : null;
+      logic.real = ok; logic.data = logic.build(s1.cuts || {}); logic._lk = null; logic._anc = ancF;
       const G = Object.values(logic.data.G), first = ok.map(p => p.date).filter(Boolean).sort()[0] || '';
-      const info = { name: L.name, n: ok.length, rows: logic.data.R.length, stacks: G.filter(g => g.kind !== 'single').length, bad: logic._failed.length, secs: lastRead.secs.toFixed(1), date: first.slice(0, 10).replace(/:/g, '-') };
-      logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, cur: stay || logic.data.order[0] });
-      logic._landT = Date.now(); logic.setView('cull', true); if (!stay) setTimeout(() => logic.land(), 0);
+      const info = { name: L.name, n: ok.length, rows: logic.data.R.length, stacks: G.filter(g => g.kind !== 'single').length, bad: logic._failed.length, nopic: ok.filter(p => p.nopv || p.unread).length,
+        secs: lastRead.secs.toFixed(1), date: first.slice(0, 10).replace(/:/g, '-') };
+      const B = logic.data.byId;
+      logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, cur: moved && B[s1.cur] ? s1.cur : logic.data.order[0] });
+      logic._landT = Date.now(); logic.setView('cull', true); if (!moved) setTimeout(() => logic.land(), 0);
       if (run.gone) logic.say('Card removed · ' + ok.length + ' of ' + files.length + ' read · re-insert to keep going');
     };
 
@@ -482,7 +542,7 @@
     // Files and the page reads them itself.
     const onDir = logic.onDir.bind(logic);
     logic.onDir = async e => {
-      cardPulledWhileReading = false; readMoved = false;
+      cardPulledWhileReading = false;
       window.lumina.readingCard = false;
       await onDir(e);
       if (cardPulledWhileReading) logic.say('Card removed · re-insert to keep going');
@@ -498,8 +558,8 @@
         // The Edit step's JPEGs (Prompt 1 §7): {name, look: {src, look, px}} rendered natively through
         // LookPipeline with the decoder the shoot pins for that body; the result names the decoder.
         const byPath = {}; for (const p of Object.values((logic.data && logic.data.byId) || {})) if (p.path) byPath[p.path] = p;
-        const list = files.filter(f => f && f.look && f.look.src).map(f => ({ name: f.name, look: { src: f.look.src, look: f.look.look || '', px: f.look.px == null ? null : f.look.px, model: (byPath[f.look.src] || {}).model || null } }));
-        return native('writeInto', { label: 'jpeg', files: list });
+        const list = files.filter(f => f && f.look && f.look.src).map(f => ({ name: f.name, look: { src: f.look.src, look: macLook(f.look.look || '', byPath[f.look.src]), px: f.look.px == null ? null : f.look.px, model: (byPath[f.look.src] || {}).model || null } }));
+        return native('writeInto', { label: 'jpeg', files: list }).then(reasons);
       }
       if (label !== 'xmp') return null;
       // The page merged each rating into the sidecar text it holds from the open (xmpFor on p.xmp),
@@ -526,7 +586,7 @@
         const u = d instanceof Uint8Array ? d : d instanceof Blob ? new Uint8Array(await d.arrayBuffer()) : typeof d === 'string' ? enc.encode(d) : null;
         if (u) { it.b64 = b64(u); list.push(it); }
       }
-      const r = await native('writeSidecars', { root, files: list });
+      const r = reasons(await native('writeSidecars', { root, files: list }));
       if (r && !(r.errors || []).length && (r.n || 0) > 0) savedKeepers = keepersOf(logic);
       if (r) setTimeout(saveNow, 0);
       return r;
@@ -571,154 +631,21 @@
 
   let current = null;
   const watch = () => {
-    rowKeys();
     const l = findLogic();
-    if (l && l !== current) { current = l; patch(l); lead(l); if (!missing(l).length) native('ready', {}); }
+    if (l && l !== current) { current = l; patch(l); if (!missing(l).length) native('ready', {}); }
     setTimeout(watch, current ? 1000 : 30);
   };
 
-  // Previews around the cursor are read ahead into the Mac's cache (never into the page).
-  let lastCur = null;
-  const prefetchLoop = () => {
-    try {
-      const l = current;
-      if (l && l.real && l.data && !reading && l.state.cur !== lastCur) {
-        lastCur = l.state.cur;
-        const o = l.data.order, k = o.indexOf(lastCur), items = [];
-        if (k >= 0) for (const d of [1, -1, 2, 3, -2, 4, 5, 6, 0]) { const p = l.data.byId[o[k + d]], q = p && previewOf(p.lg); if (q) items.push(q); }
-        if (items.length) native('prefetch', { items });
-      }
-    } finally { setTimeout(prefetchLoop, 120); }
-  };
-  prefetchLoop();
-
-  // Grid thumbnails ahead of a scroll are decoded before the page mounts their rows (it renders
-  // ±700 px around the viewport), so a fast scroll finds them ready. WebKit shares a decoded image
-  // between elements with the same URL; the Images here only hold it (at most WARM_MAX × 720 × 480
-  // × 4 bytes, ~165 MB). Two viewports ahead, 700 px behind.
-  const warm = new Map();                       // tile blob URL → decoding Image, oldest first
-  const WARM_MAX = 120;
-  let warmReal = null, warmTop = null, warmRaf = 0, warmOn = cfg.warmAhead !== false;
-  const warmAhead = () => {
-    warmRaf = 0;
-    if (!warmOn) return;
-    const l = current, el = document.querySelector('[data-screen-label="1 Cull"]');
-    if (!l || !l.real || !el || typeof l.layout !== 'function' || l.state.view !== 'cull') return;
-    if (warmReal !== l._gold) { warm.clear(); warmReal = l._gold; }      // a new read (its thumbnails are new URLs)
-    const top = el.scrollTop, dir = warmTop == null || top >= warmTop ? 1 : -1, span = el.clientHeight * 2 + 700;
-    warmTop = top;
-    const lo = dir > 0 ? top - 700 : top - span, hi = dir > 0 ? top + el.clientHeight + span : top + el.clientHeight + 700;
-    const L = l.layout(), byId = l.data.byId, want = [];
-    for (const r of L.rows) {
-      if (r.y + r.h < lo || r.y > hi) continue;
-      for (const c of r.cells) { const p = byId[c.id]; if (p && p.src) want.push({ src: p.src, d: Math.abs(r.y - top) }); }
-    }
-    want.sort((a, b) => a.d - b.d);
-    for (const { src } of want) {
-      const im = warm.get(src);
-      if (im) { warm.delete(src); warm.set(src, im); continue; }
-      const n = new Image(); n.decoding = 'async'; n.src = src; if (n.decode) n.decode().catch(() => {});
-      warm.set(src, n);
-    }
-    while (warm.size > WARM_MAX) warm.delete(warm.keys().next().value);
-  };
-  document.addEventListener('scroll', () => { if (!warmRaf) warmRaf = requestAnimationFrame(warmAhead); }, { capture: true, passive: true });
-
-  // A Cull row keeps its own element while the grid scrolls. The page mounts the rows around the
-  // viewport as a list, and its runtime keys list items by position: each time the first mounted row
-  // changes, every row's element is handed the next row's photos, its height animates 180 ms to that
-  // row's height and its images swap under the reader (measured: 50 to 85 % of the rows on screen out
-  // of place while scrolling a shoot whose rows differ in height). Keyed by the row's id instead, the
-  // rows that stay are not touched and only the ones entering or leaving mount. Same elements, same
-  // styles; DESIGN-ASKS 11 asks the page for it.
-  let rowKeysOn = cfg.rowKeys !== false && !cfg.parity;
-  const rowKeys = () => {
-    const R = window.React;
-    if (!R || R.__luminaRowKeys || typeof R.createElement !== 'function') return;
-    const make = R.createElement, Frag = R.Fragment;
-    // A row item is a list item whose sc-if holds the row's element directly: that level and no other
-    // (keyed one level up, the list itself would be remounted every time its first row changes).
-    const rowId = kids => {
-      for (const c of kids) {
-        if (!c || c.type !== Frag || !c.props) continue;
-        const inner = c.props.children;
-        for (const e of Array.isArray(inner) ? inner : [inner]) {
-          if (e && e.props && e.props['data-lumina'] === 'row' && e.props['data-id'] != null) return e.props['data-id'];
-        }
-      }
-      return null;
-    };
-    R.createElement = function (type, props, kids) {
-      if (rowKeysOn && type === Frag && props && typeof props.key === 'number' && Array.isArray(kids)) {
-        const id = rowId(kids);
-        if (id != null) { const a = Array.prototype.slice.call(arguments); a[1] = Object.assign({}, props, { key: 'row:' + id }); return make.apply(this, a); }
-      }
-      return make.apply(this, arguments);
-    };
-    R.__luminaRowKeys = true;
-  };
-
-  // With rows keyed, a row entering the window is a new element, and the page starts every tile
-  // image at opacity 0, loads it lazily and fades it in over 180 ms: at scrolling speed the rows
-  // arrive on screen still blank. Two behaviours, both asked of the page in DESIGN-ASKS 7 (b), (c):
-  // a thumbnail that exists is loaded at once and shown the moment it has loaded (the fade stays for
-  // thumbnails that arrive while the reader looks on: a read in progress, the grid at rest); and the
-  // mounted rows lead the scroll by 0.4 s of travel, up to two viewports, 700 px behind as the page
-  // has it, and return to the page's own ±700 px when the scroll rests.
-  const CULL = '[data-screen-label="1 Cull"]';
-  let tilesOn = cfg.readyTiles !== false && !cfg.parity;
-  // The fade is off only until the picture is on screen: two frames after it loaded, the page's own
-  // transition comes back, so marking a photo out (its brightness) and the source filter (its opacity)
-  // still ease as the design has them instead of snapping on every tile that scrolled in.
-  const readyTile = im => {
-    if (im.loading === 'lazy') im.loading = 'eager';
-    if (reading && performance.now() - scrollT > 300) return;
-    const own = im.style.transition;
-    if (own === 'none') return;
-    im.style.transition = 'none';
-    const back = () => requestAnimationFrame(() => requestAnimationFrame(() => { if (im.style.transition === 'none') im.style.transition = own; }));
-    im.addEventListener('load', back, { once: true }); im.addEventListener('error', back, { once: true });
-  };
-  if (typeof MutationObserver === 'function') new MutationObserver(list => {
-    if (!tilesOn || !current || !current.real) return;
-    for (const m of list) for (const n of m.addedNodes) {
-      if (n.nodeType !== 1) continue;
-      const root = n.closest(CULL) ? n : n.querySelector(CULL);
-      if (!root) continue;
-      if (root.tagName === 'IMG') readyTile(root); else for (const im of root.querySelectorAll('img')) readyTile(im);
-    }
-  }).observe(document, { childList: true, subtree: true });      // the document: at document start there may be no root element yet
-
-  let leadOn = cfg.leadWindow !== false && !cfg.parity;
-  const lead = logic => {
-    if (logic.__luminaLead || typeof logic.onScroll !== 'function' || typeof logic.layout !== 'function' || !logic.scrollRef || !Array.isArray(logic.state.vr)) return;
-    logic.__luminaLead = true;
-    const own = logic.onScroll;
-    let lastTop = null, lastT = 0, rest = 0, held = 0, dir = 0;
-    logic.onScroll = function () {
-      // The page's own handler runs first, every time: it moves the time axis with the scroll (no
-      // React render per frame), notes the direction and the scroll time (its read holds the grid's
-      // rebuild while that is recent) and whether the reader moved during a read, and narrows the window
-      // 240 ms after the scroll rests. Only the rows window it schedules is replaced by the lead below.
-      own.call(logic);
-      if (!leadOn) return;
-      cancelAnimationFrame(logic._sr);
-      logic._sr = requestAnimationFrame(() => {
-        const el = logic.scrollRef.current; if (!el) return;
-        const now = performance.now(), y = el.scrollTop, dt = now - lastT, resting = lastTop == null || dt > 250;
-        const v = resting ? 0 : (y - lastTop) / Math.max(8, dt);                                             // px per ms
-        lastTop = y; lastT = now;
-        // The lead holds while the scroll keeps its direction (a frame without movement must not unmount
-        // rows the next one mounts again) and goes when the scroll turns or rests.
-        if (resting) { dir = 0; held = 0; } else if (v && Math.sign(v) !== dir) { dir = Math.sign(v); held = 0; }
-        const ahead = held = Math.max(Math.min(2 * el.clientHeight, Math.abs(v) * 400), held * 0.9);
-        const L = logic.layout(), top = y - 700 - (dir < 0 ? ahead : 0), bot = y + el.clientHeight + 700 + (dir > 0 ? ahead : 0);
-        let a = 0; while (a < L.rows.length - 1 && L.rows[a].y + L.rows[a].h < top) a++;
-        let b = a; while (b < L.rows.length - 1 && L.rows[b + 1].y < bot) b++;
-        const w = logic.state.vr; if (w[0] !== a || w[1] !== b) logic.setState({ vr: [a, b] });
-        clearTimeout(rest); if (ahead) rest = setTimeout(() => logic.onScroll(), 400);
-      });
-    };
+  // Warm-ahead (BRIDGE-v0.03 §6): the page decides what, the Mac decides when. Sets sends its picks
+  // (Pick, ⇧P, Save) and Edit its neighbours, as [{rel, pri, px: 'full' | 'screen'}]; each photo's
+  // embedded preview is read into the Mac's cache (never into the page), most urgent first. The
+  // page's own ±2 big-view preloads load the same previews by URL.
+  const prefetch = list => {
+    const l = current; if (!l || !l.data || !Array.isArray(list)) return 0;
+    const byRel = {}; for (const p of Object.values(l.data.byId)) if (p.path) byRel[p.path] = p;
+    const items = list.filter(x => x && x.rel).sort((a, b) => (a.pri || 0) - (b.pri || 0)).map(x => byRel[x.rel] && previewOf(byRel[x.rel].lg)).filter(Boolean);
+    if (items.length) native('prefetch', { items }).catch(() => {});
+    return items.length;
   };
 
   // ——— The Edit canvas (roadmap addendum, RAW 9). Behaviour and data only: the page draws the
@@ -727,6 +654,7 @@
   // page shows in its own <img> (`canvas: image`). The page's contract is DESIGN-ASKS Prompt 1 §3:
   //   window.lumina.preview(rel, look, px, seq) → a lumina://render URL (image path) or null (native)
   //   window.lumina.canvasRect({x, y, w, h, dpr} | null)   on Edit open, layout, resize, scroll, zoom
+  //                                                        (+ holes: [{x, y, w, h}], page chrome over the photo left see-through)
   //   window.lumina.drag('start' | 'end')                  a slider's pointer-down / release
   //   window.lumina.roi({x, y, w, h} | null)               the visible region at 100 % (also refines it with RAW 9)
   // and the hooks the app calls (optional; no-ops when absent):
@@ -744,7 +672,7 @@
   // Encoded with encodeURIComponent (`query`, as media URLs), not URLSearchParams: the latter writes a
   // space as '+', and a look's sign ('ev:+0.30') must stay a '+'. Each path segment on its own.
   const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?' + query(q);
-  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null };
+  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null, photo: null };
   // The image path's latest-wins renderer (addendum §7): one fetch in flight, the newest look
   // waits, a quarter-size render while dragging, the full one at rest (drag end, key, 120 ms idle).
   const img = { pending: null, inFlight: false, shown: 0, tier: null, url: null, fetches: 0, superseded: 0, restTimer: 0, last: null };
@@ -753,7 +681,7 @@
   const imgSubmit = (tier, key) => {
     if (!ed.rel || !ed.rect) return;
     ed.seq++;
-    img.pending = { look: ed.look, seq: ed.seq, tier, key: !!key };
+    img.pending = { look: macLook(ed.look, ed.photo), seq: ed.seq, tier, key: !!key };
     clearTimeout(img.restTimer); img.restTimer = 0;
     if (tier === 'small') img.restTimer = setTimeout(() => { if (ed.rel && img.tier !== 'base') imgSubmit('base'); }, 120);
     imgRender();
@@ -790,6 +718,92 @@
   // `force`: on entering Edit the page has just mounted its hooks, so tell it even if nothing changed.
   const pushFacts = force => { const t = factsText(); if (force || t !== ed.factsText) { ed.factsText = t; const f = factsObj(); hook('luminaFacts', f); hook('luminaEditFacts', t, Object.assign(f, edit.facts())); } };
   const photoAt = (l, rel) => { for (const [id, p] of Object.entries(l.data.byId)) if ((l.state.realInfo && l.state.realInfo.name || '') + '/' + keyOf(p) === rel || p.path === rel) return [id, p]; return [null, null]; };
+  // The RAW's as-shot white balance per path, as the canvas read it (canvasEnter's answer or
+  // __lumina.editHeader once the base lands): Edit's White balance starts there and Auto starts from it.
+  const asShot = new Map();
+  const applyAsShot = p => { const a = p && p.rel && asShot.get(p.rel); if (!a) return false; if (p.wbShot === a.kelvin && p.tintShot === a.tint) return false; p.wbShot = a.kelvin; p.tintShot = a.tint; return true; };
+  const findEditLogic = () => {
+    const el = document.querySelector('[data-lumina="canvas"]'); if (!el) return null;
+    const k = Object.keys(el).find(x => x.startsWith('__reactFiber$')); if (!k) return null;
+    for (let f = el[k]; f; f = f.return) { const sn = f.stateNode; if (sn && sn.logic && typeof sn.logic.nbInfo === 'function') return sn.logic; }
+    return null;
+  };
+  const noteAsShot = h => {
+    const a = h && h.asShot, rel = h && h.asShotRel;
+    if (!a || typeof rel !== 'string' || !Number.isFinite(+a.kelvin) || !Number.isFinite(+a.tint)) return;
+    asShot.set(rel, { kelvin: Math.round(+a.kelvin), tint: Math.round(+a.tint) });
+    // The Edit page built its photos when it opened: update the one on the canvas in place.
+    const E = findEditLogic(), P = E && E.data && E.data.byId; if (!P) return;
+    let changed = false; for (const p of Object.values(P)) if (p && p.rel === rel) changed = applyAsShot(p) || changed;
+    if (changed) try { E.setState({}); } catch (_) {}
+  };
+  // Page chrome over the photo (the zoom pill, the state chip, the loading chip, the crop bar, the
+  // colour picker's label): Edit v22 sends canvasRect without `holes`, so they are read off the
+  // page here, as the absolutely placed boxes inside the canvas element that cover only part of it.
+  // Full-size layers (the photo itself, crop and grid overlays) are looked into, never cut out:
+  // a hole that size would show the page's empty canvas instead of the photo.
+  const MAX_HOLES = 16;
+  const holesOf = rect => {
+    const root = document.querySelector('[data-lumina="canvas"]'), out = [];
+    if (!root || !rect || !(rect.w > 0) || !(rect.h > 0)) return out;
+    const area = rect.w * rect.h;
+    const walk = (el, depth) => {
+      for (const c of el.children) {
+        if (out.length >= MAX_HOLES) return;
+        if (c.matches('[data-lumina-img]') || c.querySelector('[data-lumina-img]')) continue;
+        const cs = getComputedStyle(c);
+        if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue;
+        const b = c.getBoundingClientRect(), placed = cs.position === 'absolute' || cs.position === 'fixed';
+        if (!placed || b.width < 1 || b.height < 1 || b.width * b.height >= 0.6 * area) { if (depth < 4) walk(c, depth + 1); continue; }
+        const x0 = Math.max(rect.x, Math.floor(b.left) - 1), y0 = Math.max(rect.y, Math.floor(b.top) - 1);
+        const x1 = Math.min(rect.x + rect.w, Math.ceil(b.right) + 1), y1 = Math.min(rect.y + rect.h, Math.ceil(b.bottom) + 1);
+        if (x1 > x0 && y1 > y0) out.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+      }
+    };
+    walk(root, 0);
+    // Sets' working-files pill sits over the Edit canvas too, outside its element.
+    const pill = document.querySelector('[data-lumina="cache-pill-edit"]'), pb = pill && pill.getBoundingClientRect();
+    if (pb && pb.width >= 1 && pb.height >= 1 && out.length < MAX_HOLES) {
+      const x0 = Math.max(rect.x, Math.floor(pb.left) - 1), y0 = Math.max(rect.y, Math.floor(pb.top) - 1);
+      const x1 = Math.min(rect.x + rect.w, Math.ceil(pb.right) + 1), y1 = Math.min(rect.y + rect.h, Math.ceil(pb.bottom) + 1);
+      if (x1 > x0 && y1 > y0) out.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+    }
+    return out;
+  };
+  // The chips come and go without the rect changing: watch the canvas element and send the new
+  // holes with the same rect, once per frame at most.
+  let holesObs = null, holesRaf = 0;
+  const watchHoles = on => {
+    if (!on) { if (holesObs) holesObs.disconnect(); holesObs = null; return; }
+    const root = document.querySelector('[data-lumina="canvas"]'); if (!root || (holesObs && holesObs.root === root)) return;
+    if (holesObs) holesObs.disconnect();
+    holesObs = new MutationObserver(() => {
+      if (holesRaf) return;
+      holesRaf = requestAnimationFrame(() => { holesRaf = 0; if (ed.visible && ed.rect && ed.autoHoles) { const h = holesOf(ed.rect); if (JSON.stringify(h) !== ed.holesKey) edit.layout(ed.rect, true, { holes: h, auto: true }); } });
+    });
+    holesObs.root = root;
+    holesObs.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+  };
+  // The page's look string (Edit v22, LuminaCore.lookString) → the one the Mac renders. Two of the
+  // page's numbers rest on the photo, not on zero:
+  //   · Temperature and Tint rest on the photo's as-shot pair as the page knows it (the canvas's,
+  //     once noteAsShot has it; before that Sets' wbK, else 5500, and wbTint, else 0; the
+  //     temperature slider is a ratio scale). That pair rides along as `wbref:K/T` and the Mac
+  //     applies the move to its own as-shot pair (Look.WhiteBalance.resolved): the same on the
+  //     canvas, the image path and the JPEG export, whichever reference the page had then.
+  //   · Sharpening rests at 40 on the page, Lightroom's RAW default; the Mac's 0 is no sharpening
+  //     (its Sharpness sweep starts from 0, Tools/parity/README.md). A look without `shp` is 40.
+  const SHP_DEFAULT = 40;
+  const macLook = (look, p) => {
+    const out = String(look || '').trim().split(/\s+/).filter(Boolean);
+    if (out.some(t => t.startsWith('wb:')) && !out.some(t => t.startsWith('wbref:'))) {
+      const a = p && asShot.get(((current && current.state.realInfo && current.state.realInfo.name) || '') + '/' + keyOf(p));
+      const k = a ? a.kelvin : Math.round(+(p && p.wbK) || 5500), t = a ? a.tint : p && p.wbTint != null && isFinite(+p.wbTint) ? Math.round(+p.wbTint) : 0;
+      out.push('wbref:' + k + '/' + (t > 0 ? '+' : '') + t);
+    }
+    if (!out.some(t => t.startsWith('shp:'))) out.push('shp:' + SHP_DEFAULT);
+    return out.join(' ');
+  };
   const edit = {
     // Entering Edit for a photo (its path, "<folder>/DSC.ARW"): the Mac builds its bases now and its
     // neighbours' in the background. `look` is the photo's look string.
@@ -798,21 +812,25 @@
       const [id, p] = photoAt(l, rel); if (!p) return null;
       const o = l.data.order, k = o.indexOf(id), nb = d => { const q = l.data.byId[o[k + d]]; return q ? [q.path, previewOf(q.lg)] : [null, null]; };
       const [prev, prevPreview] = nb(-1), [next, nextPreview] = nb(1);
-      ed.rel = rel; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = false; ed.roi = null; ed.preview = previewOf(p.lg);
+      ed.rel = rel; ed.photo = p; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = false; ed.roi = null; ed.preview = previewOf(p.lg);
       img.shown = 0; img.tier = null; img.pending = null; ed.seq = 0;
-      const r = await native('canvasEnter', { rel, look: ed.look, model: ed.model, preview: previewOf(p.lg), prev, prevPreview, next, nextPreview });
-      if (r && typeof r === 'object') { ed.header = Object.assign({}, ed.header || {}, r); ed.path = r.canvas || 'image'; ed.decoder = r.decoderCanvas != null ? r.decoderCanvas : null; }
+      const r = await native('canvasEnter', { rel, look: macLook(ed.look, p), model: ed.model, preview: previewOf(p.lg), prev, prevPreview, next, nextPreview });
+      if (r && typeof r === 'object') { ed.header = Object.assign({}, ed.header || {}, r); ed.path = r.canvas || 'image'; ed.decoder = r.decoderCanvas != null ? r.decoderCanvas : null; noteAsShot(r); }
       pushFacts(true);
       if (ed.path === 'image') imgSubmit('base', true);
       return edit.facts();
     },
-    leave() { ed.rel = null; ed.loupe = false; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
+    leave() { watchHoles(false); ed.rel = null; ed.loupe = false; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
     // The canvas rect in CSS px from the page's top-left, on layout and resize; `visible` = Edit shows.
     // {force: true} (the probe) keeps the canvas up whatever the page's view is.
+    // `holes` (on the rect or in `o`): page chrome lying over the photo, [{x, y, w, h}] in CSS px as
+    // the rect, for the Mac to leave see-through (it reads at most 16).
     layout(rect, visible, o) {
       ed.force = !!(o && o.force) && !!visible;
       ed.rect = rect && rect.w > 0 && rect.h > 0 ? { x: rect.x, y: rect.y, w: rect.w, h: rect.h } : null; ed.visible = !!visible && !!ed.rect;
-      native('canvasLayout', Object.assign({ visible: ed.visible, dpr: dpr() }, ed.rect || { x: 0, y: 0, w: 0, h: 0 })).then(r => { if (r && r.path) { ed.path = r.path; pushFacts(); } }).catch(() => {});
+      const holes = (o && Array.isArray(o.holes) && o.holes) || (rect && Array.isArray(rect.holes) && rect.holes) || [];
+      ed.holesKey = JSON.stringify(ed.visible ? holes : []);
+      native('canvasLayout', Object.assign({ visible: ed.visible, dpr: dpr(), holes: ed.visible ? holes : [] }, ed.rect || { x: 0, y: 0, w: 0, h: 0 })).then(r => { if (r && r.path) { ed.path = r.path; pushFacts(); } }).catch(() => {});
       if (ed.path === 'image' && ed.visible && ed.rel && !img.shown) imgSubmit('base', true);
     },
     // A slider value, as often as the slider emits. {drag: true} while the thumb is held, {key: true}
@@ -822,7 +840,7 @@
       ed.look = look; lastChange = performance.now(); scheduleSave();
       if (o.roi !== undefined) ed.roi = o.roi;
       if (!ed.rel) return 0;
-      if (ed.path === 'native') { const seq = o.seq != null ? o.seq : ++ed.seq; ed.seq = Math.max(ed.seq, seq); native('canvasLook', { look, drag: !!o.drag && !o.key, key: !!o.key, roi: ed.roi, t: pageNow(), seq }).catch(() => {}); return seq; }
+      if (ed.path === 'native') { const seq = o.seq != null ? o.seq : ++ed.seq; ed.seq = Math.max(ed.seq, seq); native('canvasLook', { look: macLook(look, ed.photo), drag: !!o.drag && !o.key, key: !!o.key, roi: ed.roi, t: pageNow(), seq }).catch(() => {}); return seq; }
       imgSubmit(o.drag && !o.key ? 'small' : 'base', o.key); return ed.seq;
     },
     // Prompt 1 §3: the page's one preview call. Native path: the look goes to the canvas and null
@@ -833,12 +851,17 @@
       if (ed.rel !== rel) edit.enter(rel, look || '');
       ed.look = look || ''; lastChange = performance.now(); scheduleSave();
       if (ed.path === 'native') { if (ed.rect) edit.look(ed.look, { drag: ed.dragging, seq }); return null; }
-      const q = { look: ed.look, px: Math.max(64, Math.round(px || (ed.rect ? Math.max(ed.rect.w, ed.rect.h) * dpr() : 1024))), seq: seq != null ? seq : ++ed.seq, tier: ed.dragging ? 'small' : 'base' };
+      const q = { look: macLook(ed.look, ed.photo), px: Math.max(64, Math.round(px || (ed.rect ? Math.max(ed.rect.w, ed.rect.h) * dpr() : 1024))), seq: seq != null ? seq : ++ed.seq, tier: ed.dragging ? 'small' : 'base' };
       if (ed.decoder != null) q.decoder = ed.decoder;
       ed.seq = Math.max(ed.seq, q.seq);
       return renderURL(rel, withPreview(q));
     },
-    canvasRect(r) { edit.layout(r, !!r); },
+    // A rect without `holes` (Edit v22) gets them read off the page, and kept current while it shows.
+    canvasRect(r) {
+      ed.autoHoles = !!r && !Array.isArray(r.holes);
+      if (ed.autoHoles) { edit.layout(r, true, { holes: holesOf(r) }); watchHoles(true); }
+      else { edit.layout(r, !!r); if (!r) watchHoles(false); }
+    },
     drag(what) { if (what === 'start') edit.dragStart(); else edit.dragEnd(); },
     // The visible region at 100 %: small renders show only it, and the Mac refines it with RAW 9.
     roi(r) { ed.roi = r || null; edit.loupe(!!r, r || undefined); },
@@ -852,16 +875,7 @@
     stats(reset) { return native('canvasStats', { reset: !!reset }); },
     // The facts line's offer: pin the shoot to the newest decoder (RAW 9 §7).
     updateDecoder() { return native('decoderUpdate', {}).then(h => { edit.header(h); return edit.facts(); }); },
-    header(h) { if (h && typeof h === 'object') { ed.header = Object.assign({}, ed.header || {}, h); if (h.canvas) ed.path = h.canvas; } pushFacts(); },
-    // The page reports its rect itself (layout), or exposes luminaEditRect(): polled while Edit shows.
-    pollRect() {
-      clearTimeout(ed.rectTimer);
-      const l = current; if (!l || l.state.view !== 'edit' || typeof window.luminaEditRect !== 'function') return;
-      const r = window.luminaEditRect();
-      const same = ed.rect && r && ed.rect.x === r.x && ed.rect.y === r.y && ed.rect.w === r.w && ed.rect.h === r.h;
-      if (!same || !ed.visible) edit.layout(r, !!r);
-      ed.rectTimer = setTimeout(edit.pollRect, 250);
-    },
+    header(h) { if (h && typeof h === 'object') { ed.header = Object.assign({}, ed.header || {}, h); if (h.canvas) ed.path = h.canvas; noteAsShot(h); } pushFacts(); },
     get image() { return img.url; },
     state() { return { rel: ed.rel, look: ed.look, path: ed.path, rect: ed.rect, visible: ed.visible, force: !!ed.force, dragging: ed.dragging, seq: ed.seq, loupe: ed.loupe, roi: ed.roi,
       image: { shown: img.shown, tier: img.tier, fetches: img.fetches, superseded: img.superseded, inFlight: img.inFlight, pending: !!img.pending, url: img.url }, facts: ed.factsText, header: ed.header }; },
@@ -872,7 +886,6 @@
   window.lumina.canvasRect = edit.canvasRect;
   window.lumina.drag = edit.drag;
   window.lumina.roi = edit.roi;
-  window.addEventListener('resize', () => { if (ed.visible || (current && current.state.view === 'edit')) edit.pollRect(); });
 
   watch();
   saveLoop();
@@ -974,13 +987,8 @@
       };
     },
     nativeStats: () => native('ingestStats', {}),
-    // Probe A/B: decode thumbnails ahead of a scroll or not. Returns how many are held.
-    warmAhead(on) { if (on != null) { warmOn = !!on; if (!warmOn) warm.clear(); } return warm.size; },
-    // Probe A/B: Cull rows keyed by row id (on) or by position, as the page's runtime keys them.
-    rowKeys(on) { if (on != null) { rowKeysOn = !!on; if (current) current.forceUpdate(); } return rowKeysOn && !!(window.React && window.React.__luminaRowKeys); },
-    // Probe A/B: thumbnails that exist shown without the fade, and the mounted rows leading the scroll.
-    readyTiles(on) { if (on != null) tilesOn = !!on; return tilesOn; },
-    leadWindow(on) { if (on != null) leadOn = !!on; return leadOn; },
+    // The page's bridge events (BRIDGE-v0.03 §3), newest last: what the probe checks flow, moves and reads by.
+    events: () => events.slice(),
     say(t) { const l = window.__lumina.logic(); if (l) l.say(t); },
     openFolder() { const l = window.__lumina.logic(); if (l) l.openFolder(true); },
     undo() {

@@ -382,6 +382,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "openFolder":
             // Native ingest: pick (or take the pending folder), then list it before reading anything.
             guard let url = await openPanel(allowsDirectories: true)?.first else { return (NSNull(), nil) }
+            // "Opening <name>…" (CHANGES-v0.04 A1): the page shows it after 400 ms while the folder is
+            // listed, and plumbing clears it when this call answers. Esc there sends openCancel (below).
+            let removable = (try? url.resourceValues(forKeys: [.volumeIsRemovableKey]).volumeIsRemovable) ?? false
+            push("window.luminaOpening && luminaOpening(\(Self.json(["name": url.lastPathComponent, "onCard": removable] as [String: Any])))")
             // The access check lists the folder too. On a disk that was just mounted, or is asleep, that
             // first directory read can take many seconds (13.9 s measured on a USB exFAT disk), so it runs
             // off the main thread with the listing, and the time reported covers both.
@@ -416,6 +420,16 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             var d = listing.dictionary
             d["workers"] = ingest.workers
             return (d, nil)
+        case "openCancel":
+            // Esc on the page's opening line: stop the listing, so its late answer can't open the folder.
+            listing?.cancel()
+            onEvent?("listing cancelled from the page")
+            return (true, nil)
+        case "notices":
+            // Help ▸ Acknowledgements (Prompt 7): the bundled licence texts, shown by the page as they are.
+            guard let url = Bundle.main.url(forResource: "THIRD-PARTY-NOTICES", withExtension: "txt"),
+                  let text = try? String(contentsOf: url, encoding: .utf8) else { return (NSNull(), nil) }
+            return (text, nil)
         case "prefetch":
             let items = (body["items"] as? [[String: Any]] ?? []).compactMap(Self.ingestPreview)
             ingest.prefetch(items)
@@ -492,9 +506,16 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 guard let r = body[k] as? String, let u = resolve(r) else { return nil }
                 return LookCanvasController.Neighbour(rel: r, url: u, preview: preview(body[k + "Preview"]))
             }
+            // The photo's as-shot white balance, for a temperature slider to rest on: in this answer
+            // when the photo's base is already developed, else pushed through `__lumina.editHeader`
+            // when the base lands. Read off the base the canvas builds anyway: no develop of its own,
+            // nothing waited for. No key at all for the embedded JPEG standing in or a file without
+            // a readable value.
+            canvas?.onAsShot = { [weak self] rel, wb in self?.push("__lumina.editHeader(\(Self.json(LookCanvasController.asShotHeader(rel: rel, wb))))") }
             canvas?.enter(rel: rel, url: url, look: body["look"] as? String ?? "", decoder: d.canvas, regionDecoder: d.region, preview: preview(body["preview"]), neighbours: neighbours)
             var out = editFacts()
             out["decoderCanvas"] = d.canvas.map { $0 as Any } ?? NSNull(); out["decoderRegion"] = d.region.map { $0 as Any } ?? NSNull()
+            if let a = canvas?.asShotForReply() { out.merge(LookCanvasController.asShotHeader(rel: a.rel, a.wb)) { $1 } }
             return (out, nil)
         case "canvasLeave":
             canvasModel = nil
@@ -507,7 +528,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // the canvas hides and keeps its size (`.null` is the rect LookCanvasController.layable refuses).
             let rect = SetsNumber.canvasRect(body)
             if rect == nil { onEvent?("canvasLayout refused: not a rect") }
-            c.layout(rect: rect ?? .null, visible: rect != nil && (body["visible"] as? Bool ?? false), dpr: CGFloat(SetsNumber.dpr(body["dpr"])))
+            // `holes`: the page's chrome over the photo, at most 16, left see-through (LookCanvasHoles).
+            let holes = rect.map { LookCanvasHoles.parse(body["holes"], in: $0) } ?? []
+            c.layout(rect: rect ?? .null, visible: rect != nil && (body["visible"] as? Bool ?? false), dpr: CGFloat(SetsNumber.dpr(body["dpr"])), holes: holes)
             return (["path": c.path.rawValue], nil)
         case "canvasLook":
             guard let c = canvas, let look = body["look"] as? String else { return (0, nil) }

@@ -1,5 +1,6 @@
 import CryptoKit
 import XCTest
+@testable import Lumina
 
 /// The app ships the design's page unchanged (BUILD-exact rule 1). The bundled copies in
 /// Lumina/Sets/Web must be byte-identical to design/handoff; run Scripts/sets_sync_ui.sh after a
@@ -9,8 +10,8 @@ final class SetsPageBytesTests: XCTestCase {
         let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let pairs: [(String, String)] = [
             // Same list as Scripts/page_files.sh
-            ("design/handoff/lumina-cull/Lumina Sets v8.dc.html", "Lumina/Sets/Web/Lumina Sets v8.dc.html"),
-            ("design/handoff/lumina-cull/Lumina Edit v21.dc.html", "Lumina/Sets/Web/Lumina Edit v21.dc.html"),
+            ("design/handoff/lumina-cull/Lumina Sets v11.dc.html", "Lumina/Sets/Web/Lumina Sets v11.dc.html"),
+            ("design/handoff/lumina-cull/Lumina Edit v22.dc.html", "Lumina/Sets/Web/Lumina Edit v22.dc.html"),
             ("design/handoff/lumina-cull/support.js", "Lumina/Sets/Web/support.js"),
             ("design/handoff/lumina-cull/lumina-core-v4.js", "Lumina/Sets/Web/lumina-core-v4.js"),
             ("design/handoff/lumina-cull/lumina-v4-data.js", "Lumina/Sets/Web/lumina-v4-data.js"),
@@ -18,7 +19,6 @@ final class SetsPageBytesTests: XCTestCase {
             ("design/handoff/lumina-cull/lumina-selftest.js", "Lumina/Sets/Web/lumina-selftest.js"),
             ("design/handoff/vendor/react.production.min.js", "Lumina/Sets/Web/react.production.min.js"),
             ("design/handoff/vendor/react-dom.production.min.js", "Lumina/Sets/Web/react-dom.production.min.js"),
-            ("design/handoff/vendor/babel.min.js", "Lumina/Sets/Web/babel.min.js"),
         ]
         for (design, bundled) in pairs {
             let a = try Data(contentsOf: repo.appendingPathComponent(design))
@@ -26,6 +26,14 @@ final class SetsPageBytesTests: XCTestCase {
             XCTAssertEqual(SHA256.hash(data: a).description, SHA256.hash(data: b).description,
                            "\(bundled) drifted from \(design) — run Scripts/sets_sync_ui.sh")
         }
+    }
+
+    /// Babel stays in design/handoff/vendor (the prototype) but not in the app: no page file loads it.
+    func testBabelIsNotBundled() {
+        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: repo.appendingPathComponent("Lumina/Sets/Web/babel.min.js").path),
+                       "babel.min.js is back in Lumina/Sets/Web — run Scripts/sets_sync_ui.sh")
+        XCTAssertFalse(SetsSchemeHandler.vendorFiles.contains("babel.min.js"))
     }
 
     func testVendoredRuntimeMatchesTheSRIPinnedInSupportJS() throws {

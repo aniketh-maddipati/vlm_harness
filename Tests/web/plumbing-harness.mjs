@@ -183,8 +183,15 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(bridge.canvas.entered[0] && bridge.canvas.entered[0].rel === rel0 && bridge.canvas.entered[0].model === 'ILCE-7M4' && bridge.canvas.entered[0].next && bridge.canvas.entered[0].preview && +bridge.canvas.entered[0].preview.l > 0,
     'edit: canvasEnter carries the photo, its body, its preview range and its neighbours', bridge.canvas.entered[0]);
   ok(bridge.canvas.layouts[0] && bridge.canvas.layouts[0].w === 900 && bridge.canvas.layouts[0].visible === true && bridge.canvas.layouts[0].dpr >= 1, 'edit: canvasLayout carries the rect, visibility and dpr', bridge.canvas.layouts[0]);
+  // Page chrome over the photo rides along as `holes`, on the rect or in the options; a hidden canvas sends none.
+  { const n0 = bridge.canvas.layouts.length, hole = { x: 110, y: 60, w: 40, h: 20 };
+    await page.evaluate(h => { const r = Object.assign({}, lumina.edit.state().rect); lumina.canvasRect(Object.assign({}, r, { holes: [h] })); lumina.edit.layout(r, true, { holes: [h, h] }); lumina.edit.layout(r, true); }, hole);
+    await page.waitForTimeout(100);
+    const L = bridge.canvas.layouts.slice(n0);
+    ok(L.length === 3 && L[0].holes.length === 1 && L[0].holes[0].w === 40 && L[1].holes.length === 2 && Array.isArray(L[2].holes) && L[2].holes.length === 0 && L[2].w === 900 && L[2].visible === true,
+      'edit: canvasLayout carries the page chrome over the photo as holes, and none when the page names none', L); }
   ok(hooks.images.length === 1 && hooks.images[0].tier === 'base' && /\/render\/2026-09-01\/DSC01001\.ARW\?/.test(hooks.images[0].url), 'edit (image path): entering loads one full-quality image (an <img>, no CORS) and hands its URL to luminaEditImage', hooks.images);
-  ok(bridge.renders.length >= 1 && bridge.renders[0].look === 'ev:+0.50' && bridge.renders[0].px === 900 && bridge.renders[0].decoder === 8, 'edit (image path): the render asks for the look at the canvas size with the canvas decoder', bridge.renders[0]);
+  ok(bridge.renders.length >= 1 && bridge.renders[0].look === 'ev:+0.50 shp:40' && bridge.renders[0].px === 900 && bridge.renders[0].decoder === 8, 'edit (image path): the render asks for the look at the canvas size with the canvas decoder', bridge.renders[0]);
   // A 2 s drag: 60 looks at ~25 ms, renders slower than that (60 ms): only the newest value is fetched,
   // at the small tier, one at a time; drag end brings one full-quality render of the last value.
   bridge.renders = []; bridge.renderDelayMs = 60;
@@ -214,7 +221,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   const dragRenders = bridge.renders.filter(r => r.tier === 'small'), restRenders = bridge.renders.filter(r => r.tier === 'base');
   ok(dragRenders.length >= 8 && dragRenders.length <= 45, 'edit (image path): a 2 s drag of 60 values renders the newest value at most once per render, at the small tier', { small: dragRenders.length, total: bridge.renders.length });
   ok(dragRenders.every(r => r.px === Math.round(900)), 'edit (image path): small tier renders ask the canvas size with tier=small (the Mac quarters it)', dragRenders.slice(0, 2));
-  ok(restRenders.length >= 1 && restRenders[restRenders.length - 1].look === 'ev:0.60', 'edit (image path): drag end renders the final value at full quality', restRenders);
+  ok(restRenders.length >= 1 && restRenders[restRenders.length - 1].look === 'ev:0.60 shp:40', 'edit (image path): drag end renders the final value at full quality', restRenders);
   ok(drag.end.image.tier === 'base' && drag.end.image.shown === drag.end.seq && !drag.end.image.inFlight && !drag.end.image.pending, 'edit (image path): the last shown image is the newest seq at the base tier, nothing left in flight', drag.end.image);
   ok(drag.images.length && drag.images.every((im, i) => i === 0 || im.seq > drag.images[i - 1].seq), 'edit (image path): images reach the page in increasing seq only (latest wins)', drag.images.map(i => i.seq));
   ok(bridge.renders.every((r, i) => i === 0 || r.t >= bridge.renders[i - 1].t + 55), 'edit (image path): renders never overlap (one in flight)', bridge.renders.slice(0, 3).map(r => r.t));
@@ -225,7 +232,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   // Keystroke: a full-quality render at once, no small tier. Loupe: reaches the Mac with its region.
   bridge.renders = []; bridge.renderDelayMs = 0;
   await page.evaluate(async () => { lumina.edit.look('ev:+1.00', { key: true }); lumina.edit.loupe(true, { x: 0.25, y: 0.25, w: 0.5, h: 0.5 }); await new Promise(r => setTimeout(r, 200)); });
-  ok(bridge.renders.length === 1 && bridge.renders[0].tier === 'base' && bridge.renders[0].look === 'ev:+1.00', 'edit (image path): a keystroke renders once at full quality', bridge.renders);
+  ok(bridge.renders.length === 1 && bridge.renders[0].tier === 'base' && bridge.renders[0].look === 'ev:+1.00 shp:40', 'edit (image path): a keystroke renders once at full quality', bridge.renders);
   ok(bridge.canvas.loupes[0] && bridge.canvas.loupes[0].on === true && bridge.canvas.loupes[0].roi.w === 0.5, 'edit: loupe on with its region reaches the Mac (RAW 9 region)', bridge.canvas.loupes[0]);
   await page.evaluate(() => { lumina.roi({ x: 0.1, y: 0.1, w: 0.3, h: 0.3 }); lumina.roi(null); });
   ok(bridge.canvas.loupes.length === 3 && bridge.canvas.loupes[1].on === true && bridge.canvas.loupes[1].roi.x === 0.1 && bridge.canvas.loupes[2].on === false, 'edit: lumina.roi(region) / roi(null) drive the RAW 9 region', bridge.canvas.loupes.slice(1));
@@ -236,12 +243,57 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   const hist = await page.evaluate(() => { window.__hist = []; window.__pres = []; window.luminaHistogram = h => window.__hist.push(h); window.luminaPresented = s => window.__pres.push(s);
     __lumina.editStats({ seq: 12, histogram: { r: [1, 2], g: [3, 4], b: [5, 6] }, clipHi: 0.01, clipLo: 0.02, source: 'jpeg' }); __lumina.editPresented(12); return { h: window.__hist, p: window.__pres }; });
   ok(hist.h.length === 1 && hist.h[0].seq === 12 && hist.h[0].r[1] === 2 && hist.h[0].clipHi === 0.01 && hist.p[0] === 12, 'edit: luminaHistogram({seq, r, g, b, clipHi, clipLo}) and luminaPresented(seq) reach the page', hist);
+  // The page's white balance rests on its own as-shot pair: it rides along as wbref, the same in the
+  // render URL, the canvas and the JPEG export; a look without shp is the page's 40.
+  const wbRef = await page.evaluate(rel => { const p = Object.values(__lumina.logic().data.byId).find(q => q.path === rel); return Math.round(+p.wbK || 5500) + '/' + ((t => (t > 0 ? '+' : '') + t)(p.wbTint != null ? Math.round(+p.wbTint) : 0)); }, rel0);
+  const pvWb = await page.evaluate(rel => decodeURIComponent(lumina.preview(rel, 'wb:6600/+3 shp:20', 900, 60).split('look=')[1].split('&')[0]), rel0);
+  ok(pvWb === 'wb:6600/+3 shp:20 wbref:' + wbRef, 'edit: a moved white balance carries the page\'s as-shot pair (wbref); an explicit shp stays', { pvWb, wbRef });
+  // Once the canvas has read the RAW's as-shot pair, the page's White balance rests on it, and so does wbref.
+  const pvShot = await page.evaluate(rel => { lumina.edit.header({ asShot: { kelvin: 4800, tint: 7 }, asShotRel: rel }); return decodeURIComponent(lumina.preview(rel, 'wb:6600/+3', 900, 61).split('look=')[1].split('&')[0]); }, rel0);
+  ok(pvShot === 'wb:6600/+3 wbref:4800/+7 shp:40', 'edit: after the canvas reads the as-shot pair, wbref is that pair', pvShot);
   // Prompt 1 §7: writeInto(files, 'jpeg') renders natively with the body's pinned decoder.
   const jp = await page.evaluate(rel => __lumina.logic().writeInto([{ name: 'JPEG/DSC01001.jpg', look: { src: rel, look: 'ev:+0.50', px: 2048 } }], 'jpeg'), rel0);
-  ok(jp && jp.n === 1 && jp.decoder === 'RAW 8' && bridge.jpegItems && bridge.jpegItems[0].look.model === 'ILCE-7M4' && bridge.jpegItems[0].look.px === 2048, 'edit: writeInto(files, "jpeg") reaches the Mac with the look, size and body; the result names the decoder', { jp, items: bridge.jpegItems });
+  ok(jp && jp.n === 1 && jp.decoder === 'RAW 8' && bridge.jpegItems && bridge.jpegItems[0].look.model === 'ILCE-7M4' && bridge.jpegItems[0].look.px === 2048 && bridge.jpegItems[0].look.look === 'ev:+0.50 shp:40', 'edit: writeInto(files, "jpeg") reaches the Mac with the look, size and body; the result names the decoder', { jp, items: bridge.jpegItems });
   await page.evaluate(() => { lumina.edit.leave(); delete window.luminaEditImage; delete window.luminaEditFacts; });
   ok(bridge.canvas.entered.some(e => e.leave) && (await page.evaluate(() => lumina.edit.state().rel)) === null && bridge.canvas.layouts[bridge.canvas.layouts.length - 1].visible === false, 'edit: leave hides the canvas and tells the Mac');
   ok((await page.evaluate(() => { try { lumina.edit.look('ev:+0.10', { drag: true }); lumina.edit.dragEnd(); return true; } catch (e) { return String(e); } })) === true, 'edit: calls after leave are harmless no-ops');
+
+  // Edit v22 through the page itself (not lumina.edit): it names a photo by its file name, so plumbing's
+  // editShoot gives each photo its path; the chrome over the photo becomes holes; the RAW's as-shot
+  // white balance reaches the page's photo.
+  { const e0 = bridge.canvas.entered.length, l0 = bridge.canvas.layouts.length;
+    await page.evaluate(() => __lumina.logic().setView('edit', true));
+    await page.waitForTimeout(1500);
+    const ent = bridge.canvas.entered.slice(e0).filter(x => !x.leave);
+    const rels = await page.evaluate(() => __lumina.logic().real.map(p => (__lumina.logic().state.realInfo.name || '') + '/' + p.path.split('/').slice(1).join('/')));
+    ok(ent.length >= 1 && rels.includes(ent[0].rel) && ent[0].model === 'ILCE-7M4', 'edit v22 (page): opening Edit enters the canvas with the photo\'s path in the folder', { ent: ent.slice(0, 1), rel: rels[0] });
+    const pv = await page.evaluate(() => (window.luminaShoot ? window.luminaShoot().P : []).slice(0, 2).map(p => p.rel));
+    ok(pv.length === 2 && pv.every(r => rels.includes(r)), 'edit v22 (page): luminaShoot photos carry rel', pv);
+    const L = bridge.canvas.layouts.slice(l0).filter(x => x.visible), last = L[L.length - 1];
+    const inside = h => h.x >= last.x && h.y >= last.y && h.x + h.w <= last.x + last.w && h.y + h.h <= last.y + last.h;
+    ok(last && Array.isArray(last.holes) && last.holes.length >= 1 && last.holes.length <= 16 && last.holes.every(inside) && last.holes.every(h => h.w * h.h < 0.6 * last.w * last.h),
+      'edit v22 (page): the chrome over the photo (the zoom pill) is sent as holes inside the rect, nothing full-size', last && last.holes);
+    // A chip appearing without the rect changing sends the holes again.
+    const n1 = bridge.canvas.layouts.length;
+    await page.evaluate(() => { const d = document.createElement('div'); d.id = '__chip'; d.style.cssText = 'position:absolute;left:12px;top:12px;width:60px;height:24px'; document.querySelector('[data-lumina="canvas"]').appendChild(d); });
+    await page.waitForTimeout(300);
+    const L2 = bridge.canvas.layouts.slice(n1);
+    ok(L2.length >= 1 && L2[L2.length - 1].visible && L2[L2.length - 1].holes.length === last.holes.length + 1, 'edit v22 (page): a chip that appears over the photo is sent as one more hole', L2.map(x => x.holes));
+    await page.evaluate(() => document.getElementById('__chip').remove()); await page.waitForTimeout(300);
+    // As-shot white balance from the canvas (the base landed): the page's photo starts there.
+    const shot = await page.evaluate(rel => {
+      __lumina.editHeader({ asShot: { kelvin: 4321, tint: 7 }, asShotRel: rel });
+      const el = document.querySelector('[data-lumina="canvas"]'), k = Object.keys(el).find(x => x.startsWith('__reactFiber$'));
+      let E = null; for (let f = el[k]; f && !E; f = f.return) if (f.stateNode && f.stateNode.logic && f.stateNode.logic.nbInfo) E = f.stateNode.logic;
+      const p = Object.values(E.data.byId).find(q => q.rel === rel), q = window.luminaShoot().P.find(x => x.rel === rel);
+      return { page: p && [p.wbShot, p.tintShot], shoot: q && [q.wbShot, q.tintShot], def: p && E.def('wb', p) };
+    }, ent[0] && ent[0].rel);
+    ok(shot.page && shot.page[0] === 4321 && shot.page[1] === 7 && shot.shoot[0] === 4321 && shot.def === 4321, 'edit v22 (page): the RAW\'s as-shot white balance becomes the photo\'s wbShot / tintShot (Edit and later opens)', shot);
+    await page.evaluate(() => __lumina.editHeader({ asShot: { kelvin: 'x', tint: 1 }, asShotRel: 'nope' }));
+    const n2 = bridge.canvas.layouts.length;
+    await page.evaluate(() => __lumina.logic().setView('cull')); await page.waitForTimeout(500);
+    const L3 = bridge.canvas.layouts.slice(n2);
+    ok(L3.length >= 1 && L3[L3.length - 1].visible === false, 'edit v22 (page): leaving Edit hides the canvas', L3); }
 
   // Save → sidecars INTO the folder
   const before2 = fs.readFileSync(path.join(shoot, 'DSC01002.xmp'), 'utf8');
@@ -469,12 +521,12 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(urls.length === 12 && urls.every(u => u.p === u.path && !u.plus && u.status === 200), 'awkward names: every large-view URL names its file, %20 never +, and loads', urls.filter(u => !(u.p === u.path && !u.plus && u.status === 200)));
   const awkPaths = urls.map(u => u.path);
   for (const n of Object.values(awkNames).concat([NFD + ' ?=/DSC01011.ARW'])) ok(awkPaths.includes(AWK + '/' + n), 'awkward names: read ' + JSON.stringify(n), awkPaths);
-  await key(page, 'ArrowRight'); await page.waitForTimeout(400);           // a cursor move asks the Mac to read ahead
+  await key(page, 'p'); await page.waitForTimeout(600);                    // a keep: the page sends its warm-ahead list (BRIDGE-v0.03 §6)
   ok(bridge.prefetches.length &&bridge.prefetches.every(it => awkPaths.includes(it.p)), 'awkward names: prefetch items name read files', bridge.prefetches.slice(0, 3));
   // Edit preview URL (lumina://render) for the most awkward name, fetched as the page's <img> would.
   const relAwk = AWK + '/a+b=c?d&e#f 50%41.ARW', relNfd = AWK + '/' + NFD + '.ARW';
   const rv = await page.evaluate(async rel => { const u = lumina.preview(rel, 'ev:+0.20 con:+5', 900, 41); const r = await fetch(u); return { u, status: r.status }; }, relAwk);
-  ok(rv.status === 200 && bridge.renders.some(r => r.rel === relAwk && r.look === 'ev:+0.20 con:+5'), 'awkward names: lumina.preview URL reaches the file with its look', { rv, renders: bridge.renders.map(r => r.rel) });
+  ok(rv.status === 200 && bridge.renders.some(r => r.rel === relAwk && r.look === 'ev:+0.20 con:+5 shp:40'), 'awkward names: lumina.preview URL reaches the file with its look', { rv, renders: bridge.renders.map(r => r.rel) });
   const nr = await page.evaluate(([a, b]) => lumina.near(a, b), [relAwk, relNfd]);
   ok(nr === 0.25 && bridge.nears.length === 1 && bridge.nears[0].a.p === relAwk && bridge.nears[0].b.p === relNfd, 'awkward names: near sends both paths unchanged', { nr, sent: bridge.nears });
   await page.evaluate(rel => lumina.reveal(rel), relNfd);
@@ -504,6 +556,34 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   await page.waitForTimeout(2300);            // autosave
   const awkSaved = bridge.sessions['id-' + AWK] && JSON.parse(bridge.sessions['id-' + AWK]);
   ok(awkSaved && ['a+b=c?d&e#f 50%41.ARW', NFD + '.ARW', NFD + ' ?=/DSC01011.ARW'].every(k => awkSaved.marks[k] === 'keep'), 'awkward names: session marks keyed by the exact names', awkSaved && Object.keys(awkSaved.marks));
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+
+  // Handoff v0.05. An ARW that can't be read stays as a grey tile (CHANGES-v0.05 B1); "Opening <name>…"
+  // clears when the listing arrives (v0.04 A1); the read reports readEnd (BRIDGE-v0.03 §3); a capture-time
+  // shift rides the session and is back on reopen (v0.04 B2); Esc on the opening line cancels the listing.
+  const grey = path.join(tmp, 'Grey'); makeShoot(grey, jpegs);
+  fs.writeFileSync(path.join(grey, 'DSC01003.ARW'), Buffer.from('not a raw file'));
+  bridge.pending = grey;
+  await page.evaluate(() => { window.luminaOpening({ name: 'Grey', onCard: false }); return __lumina.openFolder(); });
+  await loaded(page); await page.waitForTimeout(300);
+  s = await S(page);
+  const gp = await page.evaluate(() => __lumina.logic().real.filter(p => p.unread).map(p => ({ name: p.name, nopv: p.nopv, path: p.path })));
+  ok(s.realInfo.n === 12 && s.realInfo.nopic === 1 && JSON.stringify(gp) === JSON.stringify([{ name: 'DSC01003.ARW', nopv: true, path: 'Grey/DSC01003.ARW' }]),
+    'grey tile: an unreadable ARW stays a photo (unread), counted without a picture', { info: s.realInfo, gp });
+  ok(await page.evaluate(() => !__lumina.logic().state.opening), 'opening: cleared when the listing arrives');
+  const rEnd = await page.evaluate(() => __lumina.events().filter(e => e.type === 'readEnd').pop());
+  ok(rEnd && rEnd.detail.stay === false && rEnd.detail.photos === 12, 'readEnd: the read reports its end through lumina.emit', rEnd);
+  await page.evaluate(() => { const f = window.luminaWorkingFiles; window.__wfPushed = []; window.luminaWorkingFiles = b => { window.__wfPushed.push(b); return f(b); }; });
+  await page.evaluate(() => __lumina.logic().reshift([{ paths: null, sec: 3600, label: 'shifted 12 photos by +1:00:00' }], 'shifted 12 photos by +1:00:00'));
+  await page.waitForTimeout(2300);            // autosave
+  const gSaved = bridge.sessions['id-Grey'] && JSON.parse(bridge.sessions['id-Grey']);
+  ok(gSaved && Array.isArray(gSaved.shifts) && gSaved.shifts.length === 1 && gSaved.shifts[0].sec === 3600, 'shift: saved with the session', gSaved && gSaved.shifts);
+  ok(await page.evaluate(() => window.__wfPushed.includes(1234)), 'storage meter: a session write pushes luminaWorkingFiles(bytes)', await page.evaluate(() => window.__wfPushed));
+  bridge.pending = grey; await page.evaluate(() => __lumina.openFolder()); await loaded(page); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => JSON.stringify(luminaState().shifts.map(x => x.sec)) === '[3600]'), 'shift: back on reopen', await page.evaluate(() => luminaState().shifts));
+  ok(await page.evaluate(async () => (await lumina.notices()) === 'React 18.3.1 · MIT\n'), 'acknowledgements: lumina.notices() is the app\'s text');
+  await page.evaluate(() => lumina.emit('openCancel', {})); await page.waitForTimeout(100);
+  ok(bridge.cancels === 1, 'opening: Esc (openCancel) stops the listing', bridge.cancels);
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
 
   ok(errors.length === 0, 'no page errors', errors);

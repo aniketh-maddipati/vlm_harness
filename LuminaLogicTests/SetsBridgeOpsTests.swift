@@ -156,7 +156,7 @@ final class SetsBridgeOpsTests: XCTestCase {
         "ready": ["missing"], "cullCard": [], "openFolder": [], "prefetch": ["items"], "near": ["a", "b"], "auto": ["rel"], "ingestStats": [],
         "shootOpened": ["name", "n", "date", "bodies"], "shootHeader": [], "decoderUpdate": [],
         "canvasEnter": ["rel", "model", "look", "prev", "next", "preview", "prevPreview", "nextPreview"], "canvasLeave": [],
-        "canvasLayout": ["x", "y", "w", "h", "visible", "dpr"], "canvasLook": ["look", "drag", "key", "roi", "t", "seq"],
+        "canvasLayout": ["x", "y", "w", "h", "visible", "dpr", "holes"], "canvasLook": ["look", "drag", "key", "roi", "t", "seq"],
         "canvasDrag": ["start"], "canvasLoupe": ["on", "roi"], "canvasStats": ["reset"],
         "saveSession": ["id", "json", "summary"], "recents": [], "reopen": ["id"], "workingFiles": ["id"], "removeShoot": ["id"],
         "writeInto": ["label", "files"], "readSidecars": ["root", "files"], "writeSidecars": ["root", "files"], "reveal": ["path"],
@@ -175,6 +175,10 @@ final class SetsBridgeOpsTests: XCTestCase {
         // Valid values for the fields not under test, so a hostile one is the only thing wrong.
         let good: [String: Any] = ["id": id, "json": "{}", "name": "shoot", "root": "shoot", "rel": "shoot/DSC00001.ARW", "path": "shoot/DSC00001.ARW",
                                    "look": "ev:+0.30", "files": [] as [Any], "items": [] as [Any], "label": "Hostile", "prefs": ["rating": 3]]
+        // Per op, where the op needs a real rect to reach the field.
+        let goodFor: [String: [String: Any]] = [
+            "canvasLayout": ["x": 100, "y": 50, "w": 400, "h": 300, "visible": true, "dpr": 2, "holes": [["x": 120, "y": 60, "w": 50, "h": 20]]],
+        ]
         for (op, fields) in Self.fields.sorted(by: { $0.key < $1.key }) {
             // Missing everything, and the op alone with a wrong-typed op name next to it.
             for body in [["op": op], ["op": op, "op2": NSNull()]] as [[String: Any]] {
@@ -183,7 +187,7 @@ final class SetsBridgeOpsTests: XCTestCase {
             for field in fields {
                 for (name, v) in values() + numbers() {
                     var body: [String: Any] = ["op": op]
-                    for f in fields where f != field { if let g = good[f] { body[f] = g } }
+                    for f in fields where f != field { if let g = goodFor[op]?[f] ?? good[f] { body[f] = g } }
                     body[field] = v
                     chooser.destinationAsks = 0
                     let (r, e) = await call(b, body); calls += 1
@@ -446,6 +450,52 @@ final class SetsBridgeOpsTests: XCTestCase {
         let (none, _) = await call(b, ["op": "auto"])
         XCTAssertTrue(none == nil || none is NSNull)
         XCTAssertEqual(b.auto.measured, 1, "only the shoot's own ARW reached a decode, once (its failure is cached)")
+    }
+
+    /// `canvasLayout`'s `holes` (the page's chrome over the photo): up to 16 `{x, y, w, h}`; 10,000 of
+    /// them, and members that are not rects, answer like any layout and leave the canvas as it was.
+    /// On the image path and on the native canvas (a Metal view in a host view).
+    func testHostileCanvasHoles() async throws {
+        let (img, _) = try await bridge()
+        let (nat, _) = try await bridge(canvas: false)
+        let host = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        nat.attachCanvas(host: host)
+        let rect = CGRect(x: 100, y: 50, width: 400, height: 300)
+        let valid: [String: Any] = ["x": 120, "y": 60, "w": 50, "h": 20]
+        let many: [[String: Any]] = (0..<10_000).map { ["x": 100 + $0 % 300, "y": 50 + $0 % 200, "w": 30, "h": 10] }
+        XCTAssertEqual(LookCanvasHoles.parse(many, in: rect).count, LookCanvasHoles.maxCount, "10,000 holes: the first 16 are read")
+        var deep: Any = [Any]()
+        for _ in 0..<1000 { deep = [deep] }
+        let nums: [Any] = [Double.nan, Double.infinity, -Double.infinity, 1e308, -1e308, Int.max, Int.min, "12", true, NSNull(), [1], ["a": 1], -50, 0]
+        let numNames = ["nan", "inf", "-inf", "1e308", "-1e308", "intMax", "intMin", "string", "bool", "null", "array", "dict", "negative", "zero"]
+        var lists: [(String, Any)] = [("10,000 holes", many), ("10,000 non-rects", [Any](repeating: 7, count: 10_000)), ("not a list", "holes"), ("dict", ["x": 1]),
+                                      ("nested arrays", [[1, 2, 3, 4], [[valid]], [[], [[]]]]), ("deep nest", deep), ("members", ["x", 42, NSNull(), [valid], true] as [Any]),
+                                      ("huge string", [["x": Self.tenMB, "y": Self.tenMB, "w": Self.tenMB, "h": Self.tenMB]])]
+        for field in ["x", "y", "w", "h"] {
+            for (n, v) in zip(numNames, nums) {
+                var h = valid; h[field] = v
+                lists.append(("\(field)=\(n)", [h, valid]))
+            }
+        }
+        lists.append(("every number hostile", nums.map { ["x": $0, "y": $0, "w": $0, "h": $0] }))
+        for (name, holes) in lists {
+            for b in [img, nat] {
+                let (r, e) = await call(b, ["op": "canvasLayout", "x": 100, "y": 50, "w": 400, "h": 300, "dpr": 2, "visible": true, "holes": holes])
+                XCTAssertNil(e, name)
+                XCTAssertNotNil((r as? [String: Any])?["path"], name)
+            }
+            let kept = LookCanvasHoles.parse(holes, in: rect)
+            XCTAssertLessThanOrEqual(kept.count, LookCanvasHoles.maxCount, name)
+            for k in kept { XCTAssertTrue(CGRect(origin: .zero, size: rect.size).contains(k) && k.width > 0 && k.height > 0, "\(name): \(k)") }
+        }
+        // A hostile list on a rect that is itself refused: hidden, no holes read.
+        let (r, e) = await call(nat, ["op": "canvasLayout", "x": Double.nan, "y": 0, "w": 400, "h": 300, "dpr": 2, "visible": true, "holes": many])
+        XCTAssertNil(e)
+        XCTAssertNotNil((r as? [String: Any])?["path"])
+        let (s, _) = await call(nat, ["op": "canvasStats"])
+        XCTAssertNotNil((s as? [String: Any])?["path"], "the stats still encode")
+        _ = await call(nat, ["op": "canvasLayout", "x": 0, "y": 0, "w": 0, "h": 0, "visible": false])
+        _ = await call(img, ["op": "canvasLeave"]); _ = await call(nat, ["op": "canvasLeave"])
     }
 
     /// Canvas rects and regions with non-finite and huge numbers, on the image path.
