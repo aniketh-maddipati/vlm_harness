@@ -197,6 +197,9 @@ final class Runner {
                 note += String(format: " · blank %.1f%% of on-screen tiles (%.1f%% of frames, worst %.1f%%) · upscale min %.2f median %.2f (tile %.0f px, dpr %.0f)",
                                t["blankPct"] ?? 0, t["blankFramesPct"] ?? 0, t["worstBlankPct"] ?? 0, t["upscaleMin"] ?? 0, t["upscaleMedian"] ?? 0, t["tile"] ?? 0, t["dpr"] ?? 0)
                 note += String(format: " · rows out of place %.1f%% (%.1f%% of frames, worst %.0f px)", t["rowsOffPct"] ?? 0, t["rowFramesPct"] ?? 0, t["rowWorstPx"] ?? 0)
+                note += String(format: " · time axis off the scroll in %.1f%% of frames (worst %.0f px) · grid rebuilt %.0f× while scrolling · %.0f tiles without their fade",
+                               t["axisOffPct"] ?? 0, t["axisWorstPx"] ?? 0, t["rebuilds"] ?? 0, t["fadeOff"] ?? 0)
+                if let cap = s["maxAxisOffPct"] as? Double, (t["axisOffPct"] ?? 0) > cap { failures.append("time axis \(name): off the scroll in \(t["axisOffPct"] ?? 0)% of frames > \(cap)%") }
                 if let cap = s["maxRowsOffPct"] as? Double, (t["rowsOffPct"] ?? 0) > cap { failures.append("rows \(name): \(t["rowsOffPct"] ?? 0)% of on-screen rows out of place > \(cap)%") }
                 if let cap = s["maxBlankPct"] as? Double, (t["blankPct"] ?? 0) > cap { failures.append("tiles \(name): \(t["blankPct"] ?? 0)% blank > \(cap)%") }
                 if let floor = s["minUpscale"] as? Double, (t["upscaleMin"] ?? 0) < floor { failures.append("tiles \(name): thumbnails magnified, upscale min \(t["upscaleMin"] ?? 0) < \(floor)") }

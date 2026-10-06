@@ -60,7 +60,10 @@
   // (image px per device px: < 1 means the thumbnail is magnified on screen).
   // Rows too: an on-screen row drawn at another height or place than the layout gives it (over 1 px)
   // is a row caught mid-animation, e.g. an element reused for the next row when the window moves.
-  const tiles = { on: false, n: 0, expect: 0, blank: 0, blankFrames: 0, worst: 0, ratios: [], rows: 0, rowsOff: 0, rowFrames: 0, rowWorst: 0 };
+  // The time axis beside the grid: a frame where it isn't at the grid's scroll (over 1 px) is the axis
+  // lagging or jumping. The grid's data rebuilt while sampling (a scroll is moving) is a rebuild under
+  // the reader's scroll: during a read the rows must wait for the scroll to rest.
+  const tiles = { on: false, n: 0, expect: 0, blank: 0, blankFrames: 0, worst: 0, ratios: [], rows: 0, rowsOff: 0, rowFrames: 0, rowWorst: 0, axFrames: 0, axOff: 0, axWorst: 0, data: null, rebuilds: 0 };
   const cullEl = () => document.querySelector('[data-screen-label="1 Cull"]');
   const tileSample = () => {
     const l = P.logic(), el = cullEl();
@@ -92,6 +95,12 @@
       tiles.rows++; if (off > 1) { rowsOff++; tiles.rowWorst = Math.max(tiles.rowWorst, off); }
     }
     tiles.rowsOff += rowsOff; if (rowsOff) tiles.rowFrames++;
+    const ax = l.axInRef && l.axInRef.current;
+    if (ax) {
+      const m = /translate3d\(0(?:px)?,\s*(-?[\d.]+)px/.exec(ax.style.transform || ''), off = m ? Math.abs(+m[1] + top) : top;
+      tiles.axFrames++; if (off > 1) { tiles.axOff++; tiles.axWorst = Math.max(tiles.axWorst, off); }
+    }
+    if (tiles.data !== l.data) { if (tiles.data) tiles.rebuilds++; tiles.data = l.data; }
     const blank = Math.max(0, expect - ready);
     tiles.n++; tiles.expect += expect; tiles.blank += blank;
     if (blank) tiles.blankFrames++;
@@ -198,12 +207,14 @@
       const pct = p => g.length ? g[Math.min(g.length - 1, Math.floor(p * g.length))] : 0;
       return { frames: g.length, p50: pct(0.5), p95: pct(0.95), p99: pct(0.99), max: g.length ? g[g.length - 1] : 0, over33: g.filter(x => x > 33.4).length };
     },
-    tilesStart() { Object.assign(tiles, { on: true, n: 0, expect: 0, blank: 0, blankFrames: 0, worst: 0, ratios: [], rows: 0, rowsOff: 0, rowFrames: 0, rowWorst: 0 }); },
+    tilesStart() { Object.assign(tiles, { on: true, n: 0, expect: 0, blank: 0, blankFrames: 0, worst: 0, ratios: [], rows: 0, rowsOff: 0, rowFrames: 0, rowWorst: 0, axFrames: 0, axOff: 0, axWorst: 0, data: null, rebuilds: 0 }); },
     tilesStop() {
       tiles.on = false; const r = tiles.ratios.slice().sort((a, b) => a - b), q = p => r.length ? +r[Math.min(r.length - 1, Math.floor(p * r.length))].toFixed(3) : 0;
       return { samples: tiles.n, blankPct: tiles.expect ? +(100 * tiles.blank / tiles.expect).toFixed(2) : 0, blankFramesPct: tiles.n ? +(100 * tiles.blankFrames / tiles.n).toFixed(1) : 0,
         worstBlankPct: +(100 * tiles.worst).toFixed(1), rowsOffPct: tiles.rows ? +(100 * tiles.rowsOff / tiles.rows).toFixed(2) : 0,
-        rowFramesPct: tiles.n ? +(100 * tiles.rowFrames / tiles.n).toFixed(1) : 0, rowWorstPx: Math.round(tiles.rowWorst), upscaleMin: q(0), upscaleP10: q(0.1), upscaleMedian: q(0.5), dpr: window.devicePixelRatio || 1,
+        rowFramesPct: tiles.n ? +(100 * tiles.rowFrames / tiles.n).toFixed(1) : 0, rowWorstPx: Math.round(tiles.rowWorst),
+        axisOffPct: tiles.axFrames ? +(100 * tiles.axOff / tiles.axFrames).toFixed(1) : 0, axisWorstPx: Math.round(tiles.axWorst), rebuilds: tiles.rebuilds,
+        fadeOff: (() => { const el = cullEl(); return el ? Array.from(el.querySelectorAll('img')).filter(im => im.style.transition === 'none').length : 0; })(), upscaleMin: q(0), upscaleP10: q(0.1), upscaleMedian: q(0.5), dpr: window.devicePixelRatio || 1,
         tile: (() => { const l = P.logic(); if (!l || !l.layout) return 0; return l.layout().TW; })() };
     },
     // What happens when a folder read ends: the cursor's file just before and 2 s after, and how far
@@ -231,6 +242,39 @@
       f(); return true;
     },
     readEnd() { return window.__readEnd || null; },
+    // Keys typed faster than the page takes them (its queue runs one key per frame): `n` presses of
+    // `key` `gap` ms apart, as separate presses or as one held key (`repeat`, the keyboard's auto-repeat).
+    // Per frame while the keys land and settle: the frame gaps, frames where the cursor's tile is not on
+    // screen in Cull, frames where the large view shows another photo than the cursor's or its large
+    // preview hasn't loaded yet, how often the scroll turned back, and jumps over a viewport.
+    async keySpam(o) {
+      const l = P.logic(), el = cullEl(), key = o.key, n = o.n || 30, gap = o.gap || 30, code = o.code || key;
+      const gaps = []; let last = 0, on = true, curOff = 0, lgLag = 0, lgBlank = 0, turns = 0, jumps = 0, lastDy = 0, lastTop = el ? el.scrollTop : 0;
+      const tick = t => {
+        if (!on) return; if (last) gaps.push(t - last); last = t;
+        if (l.state.large) {
+          const lg = document.querySelector('[data-lumina="large"]'), im = lg && lg.querySelector('[data-lumina="large-stage"] img');
+          if (lg && lg.getAttribute('data-id') !== String(l.state.cur)) lgLag++;
+          if (!im || !im.complete || !im.naturalWidth) lgBlank++;
+        } else if (el && l.state.view === 'cull') {
+          const top = el.scrollTop, dy = top - lastTop; if (dy && lastDy && Math.sign(dy) !== Math.sign(lastDy)) turns++; if (Math.abs(dy) > el.clientHeight) jumps++; if (dy) lastDy = dy; lastTop = top;
+          const t0 = el.querySelector('[data-tile="' + l.state.cur + '"]'), r = t0 && t0.getBoundingClientRect(), b = el.getBoundingClientRect();
+          if (!r || r.bottom < b.top || r.top > b.bottom) curOff++;
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      const fire = (type, rep) => dispatchEvent(new KeyboardEvent(type, { key, code, bubbles: true, repeat: rep }));
+      const wait = ms => new Promise(r => setTimeout(r, ms)), L0 = l.layout(), c0 = L0.at[l.state.cur];
+      if (o.repeat) { fire('keydown', false); for (let i = 1; i < n; i++) { await wait(gap); fire('keydown', true); } fire('keyup', false); }
+      else for (let i = 0; i < n; i++) { fire('keydown', false); fire('keyup', false); await wait(gap); }
+      const t1 = performance.now(); let settleMs = 0;
+      for (;;) { const a = el ? el.scrollTop : 0; await wait(100); if ((!el || el.scrollTop === a) && !(l._kq && l._kq.length)) break; settleMs = performance.now() - t1; if (settleMs > 5000) break; }
+      await wait(300); on = false;
+      gaps.sort((a, b) => a - b); const q = p => gaps.length ? Math.round(gaps[Math.min(gaps.length - 1, Math.floor(p * gaps.length))]) : 0;
+      return { key, n, gap, repeat: !!o.repeat, moved: Math.abs((l.layout().at[l.state.cur] || 0) - (c0 || 0)), frames: gaps.length, p50: q(0.5), p95: q(0.95), max: q(1),
+        curOffscreenFrames: curOff, largeLagFrames: lgLag, largeNotLoadedFrames: lgBlank, scrollTurns: turns, jumpsOverViewport: jumps, settleMs: Math.round(settleMs) };
+    },
     // Scroll Cull by `dy` CSS px per frame for `frames` frames (sandboxes without native wheel events).
     async scrollFrames(frames, dy) {
       const el = cullEl(); if (!el) return false;

@@ -439,6 +439,7 @@
       // Rows appear as the contiguous prefix grows, paced as the page paces them: not while the reader
       // scrolls (450 ms), at most every 700 ms, keeping the row at the top of the view where it was.
       const grow = force => {
+        if (reading !== run) return;
         while (pre < files.length && res[pre] !== undefined) pre++;
         const now = performance.now(); if (!force && pre < 48) return;
         if (!force && Date.now() - (logic._scrollT || 0) < 450) { clearTimeout(logic._growT); logic._growT = setTimeout(() => grow(false), 480); return; }
@@ -798,13 +799,17 @@
     access(denied, what) { window.luminaAccess(!!denied, what || ''); },
     // A menu item (BRIDGE.md, MENUS v7). While Edit is the active step, Undo, Redo, Copy and Paste
     // are Edit's own (window.luminaEdit); everything else goes to Sets' luminaCommand.
+    // Keys typed fast wait in the page's queue (one per frame). A menu shortcut is a ⌘ key the page
+    // never sees, so it would act before them (⌘Z undoing the keep before the last one); the page's
+    // own rule for ⌘ keys is to run the queue first, so plumbing does that here.
     command(name) {
       const l = current, E = window.luminaEdit;
+      if (l && typeof l.flushKeys === 'function') l.flushKeys();
       if (l && l.state.view === 'edit' && E && ['undo', 'redo', 'copy', 'paste'].includes(name) && typeof E[name] === 'function') { E[name](); return true; }
       return typeof window.luminaCommand === 'function' ? window.luminaCommand(name) : false;
     },
     // View ▸ Zoom 100%: Z is a hold key in the page; the menu toggles it through the page's gesture hook.
-    zoom() { const l = window.__lumina.logic(); if (l && typeof window.luminaGesture === 'function') window.luminaGesture('hold', { key: 'z', down: !l.state.zoom }); },
+    zoom() { const l = window.__lumina.logic(); if (l && typeof l.flushKeys === 'function') l.flushKeys(); if (l && typeof window.luminaGesture === 'function') window.luminaGesture('hold', { key: 'z', down: !l.state.zoom }); },
     // Quit asks when there are keepers not yet saved (MENUS.md): their count, or 0.
     unsaved() {
       const l = window.__lumina.logic();

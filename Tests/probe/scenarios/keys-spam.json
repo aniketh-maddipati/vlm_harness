@@ -1,0 +1,105 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v11.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "sampleMs": 100,
+ "stopOnFailure": false,
+ "checklist": "Keys typed faster than the page takes them, after a folder is read (keys-*.json per pattern): presses 16 to 120 ms apart and held keys (auto-repeat) in the grid and the large view. Per frame: frame gaps, frames with the cursor's tile off screen, frames where the large view shows another photo than the cursor's or its large preview has not loaded, scroll turning back, jumps over a viewport, time to settle. Reported, not gated. Gated: a menu shortcut (Undo) runs after the keys still queued, so \u2318Z undoes the last keep, not the one before it. Folder: LUMINA_SCROLL_DIR (probe.sh scroll sets it)",
+ "budgets": {
+  "webPeakMB": 1500
+ },
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_SCROLL_DIR}",
+   "via": "js",
+   "timeoutMs": 900000
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); l.setState({tsz:1,glance:false,notesOn:false,large:false,cur:l.data.order[0]}); l.scrollRef.current.scrollTop=0; return true"
+  },
+  {
+   "do": "wait",
+   "ms": 1200
+  },
+  {
+   "do": "dump",
+   "name": "keys-grid-right-burst",
+   "js": "return __probe.keySpam({\"key\": \"ArrowRight\", \"n\": 60, \"gap\": 16})",
+   "timeoutMs": 60000
+  },
+  {
+   "do": "dump",
+   "name": "keys-grid-down-burst",
+   "js": "return __probe.keySpam({\"key\": \"ArrowDown\", \"n\": 30, \"gap\": 30})",
+   "timeoutMs": 60000
+  },
+  {
+   "do": "dump",
+   "name": "keys-grid-up-held",
+   "js": "return __probe.keySpam({\"key\": \"ArrowUp\", \"n\": 40, \"gap\": 33, \"repeat\": true})",
+   "timeoutMs": 60000
+  },
+  {
+   "do": "dump",
+   "name": "keys-grid-down-taps",
+   "js": "return __probe.keySpam({\"key\": \"ArrowDown\", \"n\": 20, \"gap\": 120})",
+   "timeoutMs": 60000
+  },
+  {
+   "do": "snap",
+   "name": "keys-grid-after"
+  },
+  {
+   "do": "js",
+   "src": "__probe.logic().setState({large:true}); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "dump",
+   "name": "keys-large-right-burst",
+   "js": "return __probe.keySpam({\"key\": \"ArrowRight\", \"n\": 40, \"gap\": 30})",
+   "timeoutMs": 60000
+  },
+  {
+   "do": "dump",
+   "name": "keys-large-right-held",
+   "js": "return __probe.keySpam({\"key\": \"ArrowRight\", \"n\": 40, \"gap\": 33, \"repeat\": true})",
+   "timeoutMs": 60000
+  },
+  {
+   "do": "dump",
+   "name": "keys-large-left-taps",
+   "js": "return __probe.keySpam({\"key\": \"ArrowLeft\", \"n\": 20, \"gap\": 120})",
+   "timeoutMs": 60000
+  },
+  {
+   "do": "snap",
+   "name": "keys-large-after"
+  },
+  {
+   "do": "js",
+   "src": "__probe.logic().setState({large:false}); return true"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "expect",
+   "js": "const l=__probe.logic(); l.setState({marks:{},undo:[],cur:l.data.order[0]}); await new Promise(r=>setTimeout(r,300)); const d=(key,code)=>dispatchEvent(new KeyboardEvent('keydown',{key,code,bubbles:true})); const a=l.state.cur; d('p','KeyP'); d('ArrowRight','ArrowRight'); d('ArrowRight','ArrowRight'); d('p','KeyP'); __lumina.command('undo'); await new Promise(r=>setTimeout(r,800)); dispatchEvent(new KeyboardEvent('keyup',{key:'p',code:'KeyP',bubbles:true})); return l.state.marks[a]==='keep' && l.kept().length===1",
+   "equals": true
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}
