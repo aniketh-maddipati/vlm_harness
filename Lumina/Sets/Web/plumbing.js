@@ -95,7 +95,7 @@
   const BY_ID = ['marks', 'flags', 'stars', 'cuts', 'look', 'xsaved'];      // xsaved (v7): the picks the last Save wrote
   const SCALAR = ['seen', 'tsz', 'regions', 'lastEx', 'rowLook'];
   let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, readMoved = false, sessionRefused = null;
-  // Last scroll in the page (any scroller), for pacing the grid's refresh while a folder is read.
+  // Last scroll in the page (any scroller), for the tiles' fade while a folder is read (the grid's rebuild uses the page's own _scrollT).
   let scrollT = 0;
   document.addEventListener('scroll', () => { scrollT = performance.now(); }, { capture: true, passive: true });
   // Path inside the opened folder ("sub/DSC00001.ARW"): stable across reopen and new files. A shoot
@@ -617,6 +617,7 @@
       // Rows appear as the contiguous prefix grows: every 400 ms; every 1.5 s while the reader has
       // scrolled in the last 1.5 s, so the grid isn't rebuilt under a moving scroll (the page's pacing since v7).
       const grow = force => {
+        if (reading !== run) return;
         while (pre < files.length && res[pre] !== undefined) pre++;
         // The page's pacing (2026-10-05 export): not while the reader has scrolled in the last 450 ms (tried
         // again 480 ms on), else every 700 ms; and the grid keeps its place: the row at the top of the
@@ -1079,9 +1080,17 @@
   // has it, and return to the page's own ±700 px when the scroll rests.
   const CULL = '[data-screen-label="1 Cull"]';
   let tilesOn = cfg.readyTiles !== false && !cfg.parity;
+  // The fade is off only until the picture is on screen: two frames after it loaded, the page's own
+  // transition comes back, so marking a photo out (its brightness) and the source filter (its opacity)
+  // still ease as the design has them instead of snapping on every tile that scrolled in.
   const readyTile = im => {
     if (im.loading === 'lazy') im.loading = 'eager';
-    if (!(reading && performance.now() - scrollT > 300)) im.style.transition = 'none';
+    if (reading && performance.now() - scrollT > 300) return;
+    const own = im.style.transition;
+    if (own === 'none') return;
+    im.style.transition = 'none';
+    const back = () => requestAnimationFrame(() => requestAnimationFrame(() => { if (im.style.transition === 'none') im.style.transition = own; }));
+    im.addEventListener('load', back, { once: true }); im.addEventListener('error', back, { once: true });
   };
   if (typeof MutationObserver === 'function') new MutationObserver(list => {
     if (!tilesOn || !current || !current.real) return;
@@ -1103,7 +1112,12 @@
     if (/_dir\b/.test(String(own))) return;
     let lastTop = null, lastT = 0, rest = 0, held = 0, dir = 0;
     logic.onScroll = function () {
-      if (!leadOn) return own.call(logic);
+      // The page's own handler runs first, every time: it moves the time axis with the scroll (no
+      // React render per frame), notes the direction and the scroll time (its read holds the grid's
+      // rebuild while that is recent) and whether the reader moved during a read, and narrows the window
+      // 240 ms after the scroll rests. Only the rows window it schedules is replaced by the lead below.
+      own.call(logic);
+      if (!leadOn) return;
       cancelAnimationFrame(logic._sr);
       logic._sr = requestAnimationFrame(() => {
         const el = logic.scrollRef.current; if (!el) return;
@@ -1594,9 +1608,16 @@
     },
     // A menu item (BRIDGE.md, MENUS v7). Edit's own first (undo / redo / copy / paste, and the step
     // menu while Edit is the active step); everything else goes to Sets' luminaCommand.
-    command(name) { const h = edit.command(name); if (h !== undefined) return h; return typeof window.luminaCommand === 'function' ? window.luminaCommand(name) : false; },
+    // Keys typed fast wait in the page's queue (one per frame). A menu shortcut is a ⌘ key the page
+    // never sees, so it would act before them (⌘Z undoing the keep before the last one); the page's
+    // own rule for ⌘ keys is to run the queue first, so plumbing does that here.
+    command(name) {
+      const l = current; if (l && typeof l.flushKeys === 'function') l.flushKeys();
+      const h = edit.command(name); if (h !== undefined) return h;
+      return typeof window.luminaCommand === 'function' ? window.luminaCommand(name) : false;
+    },
     // View ▸ Zoom 100%: Z is a hold key in the page; the menu toggles it through the page's gesture hook.
-    zoom() { const l = window.__lumina.logic(); if (l && typeof window.luminaGesture === 'function') window.luminaGesture('hold', { key: 'z', down: !l.state.zoom }); },
+    zoom() { const l = window.__lumina.logic(); if (l && typeof l.flushKeys === 'function') l.flushKeys(); if (l && typeof window.luminaGesture === 'function') window.luminaGesture('hold', { key: 'z', down: !l.state.zoom }); },
     // Quit asks when there are keepers not yet saved (MENUS.md): their count, or 0.
     unsaved() {
       const l = window.__lumina.logic();

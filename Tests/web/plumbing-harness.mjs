@@ -512,6 +512,44 @@ const loaded = async page => {
   bridge.pending = shifted; await page.evaluate(() => __lumina.openFolder()); await loaded(page);
   ok(await page.evaluate(() => (__lumina.logic().state.redo || []).length) === 0, 'redo: empty after another shoot is opened', await page.evaluate(() => __lumina.logic().state.redo));
 
+  // Scrolling while a folder is read, and keys typed fast. The page's own scroll handler still runs
+  // under plumbing's lead (the time axis follows the scroll); the grid is never rebuilt under a moving
+  // scroll; tiles that scrolled in keep the page's fade for later changes; a menu shortcut runs after
+  // the keys still queued.
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  bridge.delayMs = 120; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
+  await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 60000 });
+  const SCROLL = async ([frames, dy]) => {
+    const l = __lumina.logic(), el = l.scrollRef.current; let data = l.data, under = 0, axOff = 0, axN = 0, moved = -1e9, top = el.scrollTop;
+    for (let i = 0; i < frames; i++) {
+      el.scrollTop += dy; await new Promise(r => requestAnimationFrame(r));
+      const now = performance.now(); if (el.scrollTop !== top) { top = el.scrollTop; moved = now; }
+      if (l.data !== data) { data = l.data; if (l.state.realLoad && now - moved < 400) under++; }
+      const ax = l.axInRef && l.axInRef.current; if (ax) { axN++; const m = /translate3d\(0(?:px)?,\s*(-?[\d.]+)px/.exec(ax.style.transform || ''); if (!m || Math.abs(+m[1] + el.scrollTop) > 1) axOff++; }
+    }
+    return { under, axOff, axN, reading: !!l.state.realLoad };
+  };
+  const sr = await page.evaluate(SCROLL, [150, 4]);
+  ok(sr.reading, 'scroll during read: the folder was still being read', sr);
+  ok(sr.under === 0, 'scroll during read: the grid is not rebuilt under a moving scroll', sr);
+  ok(sr.axN > 0 && sr.axOff === 0, 'scroll during read: the time axis follows the scroll every frame', sr);
+  bridge.delayMs = 0; await loaded(page); await page.waitForTimeout(600);
+  await page.evaluate(() => { __lumina.logic().scrollRef.current.scrollTop = 0; }); await page.waitForTimeout(400);
+  const sa = await page.evaluate(SCROLL, [40, 90]);
+  ok(sa.axN > 0 && sa.axOff === 0, 'scroll: the time axis follows the scroll every frame', sa);
+  await page.waitForTimeout(800);
+  const fades = await page.evaluate(() => { const im = Array.from(__lumina.logic().scrollRef.current.querySelectorAll('img')); return { n: im.length, none: im.filter(i => i.style.transition === 'none').length }; });
+  ok(fades.n > 0 && fades.none === 0, 'scroll: tiles that scrolled in keep the page\'s fade (brightness, opacity) once shown', fades);
+  const order = await page.evaluate(async () => {
+    const l = __lumina.logic(); l.setState({ marks: {}, undo: [], cur: l.data.order[0] }); await new Promise(r => setTimeout(r, 300));
+    const d = (key, code) => dispatchEvent(new KeyboardEvent('keydown', { key, code, bubbles: true })), a = l.state.cur;
+    d('p', 'KeyP'); d('ArrowRight', 'ArrowRight'); d('ArrowRight', 'ArrowRight'); d('p', 'KeyP');
+    const queued = (l._kq || []).length; __lumina.command('undo'); await new Promise(r => setTimeout(r, 600));
+    dispatchEvent(new KeyboardEvent('keyup', { key: 'p', code: 'KeyP', bubbles: true }));
+    return { queued, firstKept: l.state.marks[a] === 'keep', kept: l.kept().length };
+  });
+  ok(order.queued > 0 && order.firstKept && order.kept === 1, 'keys: menu Undo runs after the keys still queued (undoes the last keep)', order);
+
   // T4: a sidecar another app rewrote between open and Save. Save merges the rating onto the text on
   // disk NOW (the page's own xmpFor, on text re-read by the Mac), never onto the text from the open.
   const lr = path.join(tmp, '2026-09-03');
