@@ -186,7 +186,7 @@ export class Bridge {
       }
       case 'shootHeader': return this.header;
       case 'decoderUpdate': this.canvas.updates++; this.header = Object.assign({}, this.header, { decoder: this.header.newest, offerUpdate: false }); return this.header;
-      case 'canvasEnter': this.canvas.entered.push(msg); return Object.assign({ decoderCanvas: 8, decoderRegion: 8 }, this.header);
+      case 'canvasEnter': this.canvas.entered.push(msg); if (this.canvas.refuse) throw new Error(this.canvas.refuse); return Object.assign({ decoderCanvas: 8, decoderRegion: 8 }, this.header);
       case 'canvasLeave': this.canvas.entered.push({ leave: true }); return true;
       case 'canvasLayout': this.canvas.layouts.push(msg); return { path: this.canvas.path };
       case 'canvasLook': this.canvas.looks.push(msg); return this.canvas.looks.length;

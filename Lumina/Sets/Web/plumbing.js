@@ -641,7 +641,7 @@
   // Encoded with encodeURIComponent (`query`, as media URLs), not URLSearchParams: the latter writes a
   // space as '+', and a look's sign ('ev:+0.30') must stay a '+'. Each path segment on its own.
   const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?' + query(q);
-  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null, photo: null };
+  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null, photo: null, failed: null, shown: 0, waits: [] };
   // The image path's latest-wins renderer (addendum §7): one fetch in flight, the newest look
   // waits, a quarter-size render while dragging, the full one at rest (drag end, key, 120 ms idle).
   const img = { pending: null, inFlight: false, shown: 0, tier: null, url: null, fetches: 0, superseded: 0, restTimer: 0, last: null };
@@ -674,6 +674,7 @@
   const factsNote = () => {
     const h = ed.header || {}, notes = [];
     if (h.offerUpdate) notes.push('decoder ' + h.decoder + ' pinned · update shoot');
+    if (ed.failed) notes.push('showing the embedded JPEG · ' + ed.failed.why);
     if (ed.native) { const n = ed.native.replace(/^canvas: (native|image)( · )?/, '').replace(/^(raw \d+|image file|from the embedded JPEG)( · )?/, ''); if (n) notes.push(n); }
     return notes.length ? notes.join(' · ') : null;
   };
@@ -773,31 +774,59 @@
     if (!out.some(t => t.startsWith('shp:'))) out.push('shp:' + SHP_DEFAULT);
     return out.join(' ');
   };
+  // A photo the canvas can't show (canvasEnter refused it, or no frame came): the canvas hides, the
+  // page draws its own preview (lumina.preview answers false) and the facts line says why.
+  const ENTER_WAIT_MS = 5000;
+  const failed = (rel, why) => {
+    ed.failed = { rel, why }; ed.rel = rel; ed.hidden = true;
+    // Hidden at the same rect: a new size would mean new bases.
+    if (ed.visible) native('canvasLayout', Object.assign({ visible: false, dpr: dpr(), holes: [] }, ed.rect)).catch(() => {});
+    ed.visible = false;
+    ed.waits.splice(0).forEach(w => { clearTimeout(w.timer); w.done(false); });
+    pushFacts(true);
+  };
+  const onScreen = (rel, seq) => new Promise(done => {
+    const w = { rel, seq: seq || 0, done, timer: 0 };
+    w.timer = setTimeout(() => { const i = ed.waits.indexOf(w); if (i < 0) return; ed.waits.splice(i, 1); if (ed.rel === rel && !ed.failed && ed.shown < w.seq) { failed(rel, 'no frame from the canvas'); ed.failed.late = true; done(false); } else done(null); }, ENTER_WAIT_MS);
+    ed.waits.push(w);
+  });
+  const presented = seq => {
+    ed.shown = Math.max(ed.shown, +seq || 0);
+    // A frame after all (a slow first develop): the canvas comes back over the page's preview.
+    if (ed.failed && ed.failed.rel === ed.rel && ed.failed.late) { ed.failed = null; ed.hidden = false; edit.layout(ed.rect, ed.pageVisible, { holes: ed.holes }); pushFacts(true); }
+    ed.waits = ed.waits.filter(w => { if (w.rel !== ed.rel || ed.shown >= w.seq) { clearTimeout(w.timer); w.done(null); return false; } return true; });
+  };
   const edit = {
     // Entering Edit for a photo (its path, "<folder>/DSC.ARW"): the Mac builds its bases now and its
     // neighbours' in the background. `look` is the photo's look string.
     async enter(rel, look) {
       const l = current; if (!l || !l.data) return null;
-      const [id, p] = photoAt(l, rel); if (!p) return null;
+      const [id, p] = photoAt(l, rel); if (!p) { failed(rel, 'not in this shoot'); return null; }
       const o = l.data.order, k = o.indexOf(id), nb = d => { const q = l.data.byId[o[k + d]]; return q ? [q.path, previewOf(q.lg)] : [null, null]; };
       const [prev, prevPreview] = nb(-1), [next, nextPreview] = nb(1);
       ed.rel = rel; ed.photo = p; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = false; ed.roi = null; ed.preview = previewOf(p.lg);
-      img.shown = 0; img.tier = null; img.pending = null; ed.seq = 0;
-      const r = await native('canvasEnter', { rel, look: macLook(ed.look, p), model: ed.model, preview: previewOf(p.lg), prev, prevPreview, next, nextPreview });
+      img.shown = 0; img.tier = null; img.pending = null; ed.seq = 0; ed.shown = 0;
+      let r;
+      try { r = await native('canvasEnter', { rel, look: macLook(ed.look, p), model: ed.model, preview: previewOf(p.lg), prev, prevPreview, next, nextPreview }); }
+      catch (e) { if (ed.rel === rel) failed(rel, String((e && e.message) || e || 'refused')); return null; }
+      if (ed.rel !== rel) return null;
+      if (ed.hidden) { ed.hidden = false; edit.layout(ed.rect, ed.pageVisible, { holes: ed.holes }); }
       if (r && typeof r === 'object') { ed.header = Object.assign({}, ed.header || {}, r); ed.path = r.canvas || 'image'; ed.decoder = r.decoderCanvas != null ? r.decoderCanvas : null; noteAsShot(r); }
       pushFacts(true);
       if (ed.path === 'image') imgSubmit('base', true);
       return edit.facts();
     },
-    leave() { watchHoles(false); ed.rel = null; ed.loupe = false; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
+    leave() { watchHoles(false); ed.rel = null; ed.failed = null; ed.hidden = false; ed.waits.splice(0).forEach(w => { clearTimeout(w.timer); w.done(null); }); ed.loupe = false; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
     // The canvas rect in CSS px from the page's top-left, on layout and resize; `visible` = Edit shows.
     // {force: true} (the probe) keeps the canvas up whatever the page's view is.
     // `holes` (on the rect or in `o`): page chrome lying over the photo, [{x, y, w, h}] in CSS px as
     // the rect, for the Mac to leave see-through (it reads at most 16).
     layout(rect, visible, o) {
       ed.force = !!(o && o.force) && !!visible;
-      ed.rect = rect && rect.w > 0 && rect.h > 0 ? { x: rect.x, y: rect.y, w: rect.w, h: rect.h } : null; ed.visible = !!visible && !!ed.rect;
+      ed.pageVisible = !!visible;
+      ed.rect = rect && rect.w > 0 && rect.h > 0 ? { x: rect.x, y: rect.y, w: rect.w, h: rect.h } : null; ed.visible = !!visible && !!ed.rect && !ed.failed;
       const holes = (o && Array.isArray(o.holes) && o.holes) || (rect && Array.isArray(rect.holes) && rect.holes) || [];
+      ed.holes = holes;
       ed.holesKey = JSON.stringify(ed.visible ? holes : []);
       native('canvasLayout', Object.assign({ visible: ed.visible, dpr: dpr(), holes: ed.visible ? holes : [] }, ed.rect || { x: 0, y: 0, w: 0, h: 0 })).then(r => { if (r && r.path) { ed.path = r.path; pushFacts(); } }).catch(() => {});
       if (ed.path === 'image' && ed.visible && ed.rel && !img.shown) imgSubmit('base', true);
@@ -817,9 +846,16 @@
     // quarter-size while a slider drags, full otherwise; superseded requests answer 409.
     preview(rel, look, px, seq) {
       if (!rel) return null;
-      if (ed.rel !== rel) edit.enter(rel, look || '');
+      const entering = ed.rel !== rel;
+      if (entering) { ed.failed = null; edit.enter(rel, look || ''); }
+      if (ed.failed && ed.failed.rel === rel) return false;
       ed.look = look || ''; lastChange = performance.now(); scheduleSave();
-      if (ed.path === 'native') { if (ed.rect) edit.look(ed.look, { drag: ed.dragging, seq }); return null; }
+      if (ed.path === 'native') {
+        if (ed.rect) edit.look(ed.look, { drag: ed.dragging, seq });
+        // The photo's first frame, or the page draws its own preview (it does when this answers
+        // false): canvasEnter refused, or no frame within ENTER_WAIT_MS.
+        return entering ? onScreen(rel, seq) : null;
+      }
       const q = { look: macLook(ed.look, ed.photo), px: Math.max(64, Math.round(px || (ed.rect ? Math.max(ed.rect.w, ed.rect.h) * dpr() : 1024))), seq: seq != null ? seq : ++ed.seq, tier: ed.dragging ? 'small' : 'base' };
       if (ed.decoder != null) q.decoder = ed.decoder;
       ed.seq = Math.max(ed.seq, q.seq);
@@ -868,7 +904,7 @@
       if (stats && stats.histogram) hook('luminaHistogram', { seq: stats.seq, r: stats.histogram.r, g: stats.histogram.g, b: stats.histogram.b, clipHi: stats.clipHi, clipLo: stats.clipLo });
       hook('luminaEditStats', stats);
     },
-    editPresented(seq) { hook('luminaPresented', seq); },
+    editPresented(seq) { presented(seq); hook('luminaPresented', seq); },
     editHeader(h) { edit.header(h); },
     edit: () => edit.state(),
     logic: () => current || findLogic(),
