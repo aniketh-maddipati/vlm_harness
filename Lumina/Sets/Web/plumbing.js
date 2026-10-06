@@ -429,6 +429,9 @@
       const arws = (L.files || []).map(f => Object.assign(fileRef(f.rel), { size: f.size }));
       const allF = arws.concat((L.xmp || []).map(x => fileRef(x.rel)), (L.others || []).map(fileRef));
       const files = (L.files || []).slice().sort((a, b) => a.rel.localeCompare(b.rel));
+      // The shoot's sources, as the page's onDir keeps them: the add popover names the folder (or the
+      // card) and counts its photos instead of reading "sample shoot".
+      if (!logic._addFrom && typeof logic.addSource === 'function') { logic._sources = []; logic._srcOf = {}; logic.addSource(L.onCard ? { kind: 'card' } : null, arws); }
       logic._intake = logic.intake(allF, arws);
       if (!files.length) {
         const I = logic._intake, parts = [...Object.entries(I.raw).map(([e, n]) => n + ' ' + e.toUpperCase()), I.jp + I.ja ? (I.jp + I.ja) + ' JPEG / HEIF' : '', I.vid ? I.vid + ' videos' : ''].filter(Boolean);
@@ -461,7 +464,7 @@
         if (!shown) {
           shown = true; logic._rd.cur = logic.data.order[0];
           const se = logic.scrollRef && logic.scrollRef.current; logic._rd.top = se ? se.scrollTop : 0;
-          logic.setState({ cur: logic.data.order[0] }); logic.setView('cull', true);
+          logic.setState({ cur: logic.data.order[0] }); if (logic.state.view !== 'edit' && logic.state.view !== 'export') logic.setView('cull', true);
         } else logic.forceUpdate();
       };
       // A file that can't be read stays, as a grey tile (CHANGES-v0.05 B1): the page's own record.
@@ -503,7 +506,10 @@
         secs: lastRead.secs.toFixed(1), date: first.slice(0, 10).replace(/:/g, '-') };
       const B = logic.data.byId;
       logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, cur: moved && B[s1.cur] ? s1.cur : logic.data.order[0] });
-      logic._landT = Date.now(); logic.setView('cull', true); if (!moved) setTimeout(() => logic.land(), 0);
+      // The page's own read ends in Pick whatever step is showing; a reader who went to Edit (or
+      // Save) while the photos loaded stays there (DESIGN-ASKS Prompt 17).
+      const away = logic.state.view === 'edit' || logic.state.view === 'export';
+      if (!away) { logic._landT = Date.now(); logic.setView('cull', true); if (!moved) setTimeout(() => logic.land(), 0); }
       if (run.gone) logic.say('Card removed · ' + ok.length + ' of ' + files.length + ' read · re-insert to keep going');
     };
 
@@ -685,7 +691,14 @@
     return parts.join(' · ');
   };
   // `force`: on entering Edit the page has just mounted its hooks, so tell it even if nothing changed.
-  const pushFacts = force => { const t = factsText(); if (force || t !== ed.factsText) { ed.factsText = t; const f = factsObj(); hook('luminaFacts', f); hook('luminaEditFacts', t, Object.assign(f, edit.facts())); } };
+  // What the page shows of them: Edit v22 appends `canvas: … · raw 9: …` to the photographer's
+  // line (lens, exposure, time) whenever it has facts, which is how the app runs, not something the
+  // photographer acts on. So the page gets them only when they change what it shows or hides: RAW 9
+  // active (its noise controls step aside) or a note to act on (`decoder N pinned · update shoot`).
+  // `diagnostics` (the LuminaDiagnostics default, or LUMINA_DIAGNOSTICS=1) always sends them;
+  // lumina.edit.facts() and the probe read them in full either way.
+  const pageFacts = f => (cfg.diagnostics || f.raw9 || f.note) ? f : null;
+  const pushFacts = force => { const t = factsText(); if (force || t !== ed.factsText) { ed.factsText = t; const f = factsObj(); hook('luminaFacts', pageFacts(f)); hook('luminaEditFacts', t, Object.assign(f, edit.facts())); } };
   const photoAt = (l, rel) => { for (const [id, p] of Object.entries(l.data.byId)) if ((l.state.realInfo && l.state.realInfo.name || '') + '/' + keyOf(p) === rel || p.path === rel) return [id, p]; return [null, null]; };
   // The RAW's as-shot white balance per path, as the canvas read it (canvasEnter's answer or
   // __lumina.editHeader once the base lands): Edit's White balance starts there and Auto starts from it.
@@ -794,12 +807,15 @@
     // {force: true} (the probe) keeps the canvas up whatever the page's view is.
     // `holes` (on the rect or in `o`): page chrome lying over the photo, [{x, y, w, h}] in CSS px as
     // the rect, for the Mac to leave see-through (it reads at most 16).
+    // `vh`: the page's viewport height. The web view can keep its top under the title bar out of the
+    // page (macOS 26's obscured content inset), so the Mac places the rect up from the viewport's
+    // bottom, not down from the web view's top.
     layout(rect, visible, o) {
       ed.force = !!(o && o.force) && !!visible;
       ed.rect = rect && rect.w > 0 && rect.h > 0 ? { x: rect.x, y: rect.y, w: rect.w, h: rect.h } : null; ed.visible = !!visible && !!ed.rect;
       const holes = (o && Array.isArray(o.holes) && o.holes) || (rect && Array.isArray(rect.holes) && rect.holes) || [];
       ed.holesKey = JSON.stringify(ed.visible ? holes : []);
-      native('canvasLayout', Object.assign({ visible: ed.visible, dpr: dpr(), holes: ed.visible ? holes : [] }, ed.rect || { x: 0, y: 0, w: 0, h: 0 })).then(r => { if (r && r.path) { ed.path = r.path; pushFacts(); } }).catch(() => {});
+      native('canvasLayout', Object.assign({ visible: ed.visible, dpr: dpr(), holes: ed.visible ? holes : [], vh: window.innerHeight }, ed.rect || { x: 0, y: 0, w: 0, h: 0 })).then(r => { if (r && r.path) { ed.path = r.path; pushFacts(); } }).catch(() => {});
       if (ed.path === 'image' && ed.visible && ed.rel && !img.shown) imgSubmit('base', true);
     },
     // A slider value, as often as the slider emits. {drag: true} while the thumb is held, {key: true}
@@ -914,6 +930,11 @@
       const l = current, E = window.luminaEdit;
       if (l && typeof l.flushKeys === 'function') l.flushKeys();
       if (l && l.state.view === 'edit' && E && ['undo', 'redo', 'copy', 'paste'].includes(name) && typeof E[name] === 'function') { E[name](); return true; }
+      // Pick ▸ Not Kept (R): the grammar's other decision key, which the page's command table lacks.
+      if (name === 'notKept' && l && l.state.view === 'cull' && typeof l.onKey === 'function') {
+        l.onKey({ key: 'r', code: 'KeyR', shiftKey: false, altKey: false, metaKey: false, ctrlKey: false, repeat: false, getModifierState: () => false, preventDefault() {} });
+        return true;
+      }
       return typeof window.luminaCommand === 'function' ? window.luminaCommand(name) : false;
     },
     // View ▸ Zoom 100%: Z is a hold key in the page; the menu toggles it through the page's gesture hook.

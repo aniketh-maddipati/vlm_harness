@@ -1094,3 +1094,77 @@ makes that check fail every time; without it, it passes.
 
 - `probe.sh selftest` passes; `node` with a 400 ms task injected after the large view opens (the
   Chromium reproduction) passes the focus overlay check.
+
+## Prompt 16 — Edit's facts line mixes the photo with how the app runs (paste into Claude Design)
+
+Edit v22 appends ` · canvas: native · raw 9: no` to the photo's line (lens · shutter · aperture ·
+ISO · focal length · time) whenever `luminaFacts` has given it facts. Those two words describe the
+app, not the photo, and a photographer has nothing to do with them. Until this lands, plumbing
+sends `luminaFacts(null)` unless RAW 9 is active or there is a note to act on, so the line usually
+shows only the photo; with RAW 9 active it still reads `raw 9: yes`.
+
+> In Lumina Edit v22, the facts line under the photo shows the photo's own facts only. Show
+> `canvas: … · raw 9: …` only in the page's debug mode (`?debug`, or `window.__luminaConfig.debug`).
+> Keep using `luminaFacts` for what it changes: hide colour noise reduction, detail and moiré while
+> `raw9` is true, and show `note` (with its `update shoot` link) when there is one. Nothing else
+> changes.
+
+### How Prompt 16 is checked once its handoff lands
+
+- `pageFacts` in `plumbing.js` sends the facts every time again; the Edit screens show no
+  `canvas:` words outside debug.
+
+## Prompt 17 — the end of a read pulls the reader back to Pick (paste into Claude Design)
+
+Open a folder, press ⌘3 while the photos are still loading, and when the read ends the page jumps
+back to Pick. `onDir` calls `setView('cull',true)` on its first batch and again when the listing is
+done, whatever step is showing. Plumbing's native read now skips both calls while Edit or Save is
+showing; the page's own read (the browser) still jumps.
+
+> In Lumina Sets v11, `onDir` moves to Pick only if Open is still the step showing. If the reader
+> went to Edit or Save while the folder was read, the read ends where they are: the photos join the
+> grid in the background, the cursor still lands on the first photo for when they come back to
+> Pick, and the footer says `opened · N photos` as now. Nothing else changes.
+
+### How Prompt 17 is checked once its handoff lands
+
+- `node Tests/web/plumbing-harness.mjs`: `read end: a reader in Edit stays in Edit` still passes,
+  and the same steps in the prototype (no plumbing) stay in Edit too.
+
+## Prompt 18 — holding ⇧ opens the shoot popover (paste into Claude Design)
+
+In Pick, holding ⇧ for 350 ms opens the shoot popover (`Tue 8 Sep · Add to this shoot · Phone ·
+Folder or files…`). ⇧ is half the grammar (⇧⏎, ⇧R, ⇧K, ⇧P, ⇧U, ⇧→) and every ⌘⇧ shortcut,
+including macOS's own ⌘⇧4 screenshot, so the popover keeps appearing while the photographer
+culls. When the system takes the key-up (a screenshot), it stays open.
+
+> In Lumina Sets v11, Pick opens the shoot popover only on a click (the shoot name or `+` in
+> the header) and with ⌘O, as now. Holding ⇧ does nothing by itself: drop the 350 ms ⇧-hold
+> timer (`_shT` → `addBar:true`) and the ⇧ key-up close that goes with it. Esc and a click outside
+> still close it. Nothing else changes.
+
+### How Prompt 18 is checked once its handoff lands
+
+- In Pick, hold ⇧ for a second, then press ⌘⇧4 and Esc: no popover. A click on the shoot name
+  opens it.
+
+## Prompt 19 — a row's last line of photos is cut off by the next row (paste into Claude Design)
+
+At some window widths a Pick row holds one more line of photos than its height allows, and the
+row's `overflow:hidden` cuts that line to a strip under the next row's header. `layout()` takes
+the row's side padding as `max(16, min(40, cullW × 0.022))` (cullW is the scroll box's width),
+but the row draws it as `clamp(16px, 2.2vw, 40px)` (the window's width). The window is wider than
+the scroll box, so the drawn padding is larger, the line holds one tile fewer than `layout()`
+counted, and the last tile wraps onto a line the row has no room for. In the prototype in
+Chromium at 900 to 2200 px, 11 of 101 widths cut a row: 1043 and every width from 1368 to 1485
+(at 1368: cullW 1272, layout fits 6 tiles of 196 in 1216 px, the row has 1212).
+
+> In Lumina Sets v11, a Pick row's side padding comes from one number. Compute the padding in
+> `layout()` from `cullW` as now, return it with the layout, and draw the row with that value in
+> px (`padding:0 {{ r.pad }}px`) instead of `clamp(16px,2.2vw,40px)`. The time axis and anything
+> else that lines up with the row use the same value. Nothing else changes.
+
+### How Prompt 19 is checked once its handoff lands
+
+- For every width from 900 to 2200 px in 13 px steps, no row's tiles reach below its own height
+  (`[data-lumina=row][data-row]`: the tile box's bottom stays above the row's).

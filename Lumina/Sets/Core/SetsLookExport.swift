@@ -58,7 +58,7 @@ nonisolated enum SetsLookExport {
     }
 
     private static func encode(_ pipe: LookPipeline, _ look: Look, url: URL, px: Int?, format: String, decoder: Int?) throws -> Data {
-        let dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipe.rules, decoderVersion: decoder, nr: look.nr)
+        let dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipe.rules, decoderVersion: decoder, nr: look.nr, fullDecode: true)
         let img = pipe.apply(look, to: dev)
         switch format.lowercased() {
         case "tif", "tiff": return try pipe.tiff16(img, space: .sRGB)
