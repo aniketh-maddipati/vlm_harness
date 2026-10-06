@@ -204,7 +204,7 @@ harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift
 - **ExFAT volume labels are at most 11 characters.** `hdiutil` reports a longer one as "Operation not permitted".
 - **Probe runs need an awake display.** The probe holds the display awake itself. If runs stall for minutes, macOS is throttling the page process.
 - **Personal data stays out of the repo:** golden data, fixtures and evidence live in `~/LuminaEvidence`.
-- **macOS only** (Xcode 16.4+, Apple silicon, macOS 14+). Linux agents can run the node fixtures, `design_audit.py`, `Tests/web` (Chromium and the WebKitGTK sandbox: plumbing.js against the real page, not Cocoa or WKWebView) and `Tests/linux-swift` (the Foundation-only Swift; on Linux `FileManager.replaceItemAt` is broken, so the sandbox copy uses `rename(2)`).
+- **macOS only** (Xcode 16.4+, Apple silicon, macOS 15+). Linux agents can run the node fixtures, `design_audit.py`, `Tests/web` (Chromium and the WebKitGTK sandbox: plumbing.js against the real page, not Cocoa or WKWebView) and `Tests/linux-swift` (the Foundation-only Swift; on Linux `FileManager.replaceItemAt` is broken, so the sandbox copy uses `rename(2)`).
 
 ## Parity (the Edit look vs Lightroom Classic)
 
