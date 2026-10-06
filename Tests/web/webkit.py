@@ -119,10 +119,7 @@ class Page:
             # bridge.open(url) on the Mac evaluates __lumina.openFolder(); here the page picks it up.
             add("setInterval(() => { if (!window.__lumina) return; fetch('/ctl', {method: 'POST', body: JSON.stringify({op: 'takeKick'})}).then(r => r.json()).then(k => { if (k) __lumina.openFolder(); }); }, 150);")
         ucm.add_filter(offline_filter())
-        # Storage starts empty for every page, as the app's web view (SetsBridge: websiteDataStore
-        # .nonPersistent()). The default context keeps localStorage per origin for the whole run, so
-        # what the flow suite left (names, the pre-cull note, Edit's state) reached the screens twins.
-        self.view = WebKit2.WebView(web_context=WebKit2.WebContext.new_ephemeral(), user_content_manager=ucm)
+        self.view = WebKit2.WebView.new_with_user_content_manager(ucm)
         s = self.view.get_settings()
         s.set_enable_developer_extras(True)
         s.set_enable_write_console_messages_to_stdout(False)
