@@ -161,6 +161,8 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(bridge.canvas.entered[0] && bridge.canvas.entered[0].rel === rel0 && bridge.canvas.entered[0].model === 'ILCE-7M4' && bridge.canvas.entered[0].next && bridge.canvas.entered[0].preview && +bridge.canvas.entered[0].preview.l > 0,
     'edit: canvasEnter carries the photo, its body, its preview range and its neighbours', bridge.canvas.entered[0]);
   ok(bridge.canvas.layouts[0] && bridge.canvas.layouts[0].w === 900 && bridge.canvas.layouts[0].visible === true && bridge.canvas.layouts[0].dpr >= 1, 'edit: canvasLayout carries the rect, visibility and dpr', bridge.canvas.layouts[0]);
+  { const vh = await page.evaluate(() => window.innerHeight), L0 = bridge.canvas.layouts[0];
+    ok(L0 && L0.vh === vh && vh > 0, 'edit: canvasLayout carries the page viewport height, so the Mac places the canvas below a title bar the web view keeps out of the page', { vh, sent: L0 && L0.vh }); }
   // Page chrome over the photo rides along as `holes`, on the rect or in the options; a hidden canvas sends none.
   { const n0 = bridge.canvas.layouts.length, hole = { x: 110, y: 60, w: 40, h: 20 };
     await page.evaluate(h => { const r = Object.assign({}, lumina.edit.state().rect); lumina.canvasRect(Object.assign({}, r, { holes: [h] })); lumina.edit.layout(r, true, { holes: [h, h] }); lumina.edit.layout(r, true); }, hole);
