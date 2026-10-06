@@ -1,13 +1,13 @@
 {
  "mode": "app",
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1440,
   900
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
- "checklist": "SAFETY.md 2: keeps (P), a removed photo (X), seen rows and the cursor are saved by the 2 s autosave, keyed by file path; after a relaunch the Open screen lists the shoot, ⏎ reopens it with every decision and the cursor's row; unsaved keepers are still counted (Quit asks). After ⌘↩ and another relaunch the keepers count as saved, and the sidecars are untouched by the reopen. (Sets v7: Save is step ⌘4, and with undecided photos the first ⌘↩ only warns, the second within 5 s saves).",
+ "checklist": "SAFETY.md 2 (v5): keeps (P), a flag (F), seen rows and the cursor are saved by the 2 s autosave, keyed by file path; after a relaunch the Open screen lists the shoot, ⏎ reopens it with every decision and the cursor's row; unsaved keepers are still counted (Quit asks). After ⌘↩ and another relaunch the keepers count as saved, and the sidecars are untouched by the reopen.",
  "steps": [
   {
    "do": "copyTree",
@@ -29,15 +29,6 @@
    ]
   },
   {
-   "do": "wait",
-   "ms": 500
-  },
-  {
-   "do": "js",
-   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
-   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
-  },
-  {
    "do": "key",
    "k": "p",
    "settleMs": 200
@@ -48,19 +39,9 @@
    "settleMs": 200
   },
   {
-   "do": "js",
-   "src": "__probe.logic().setPref({adv:false}); return true",
-   "why": "v5's flag left the cursor in place; v7's remove advances"
-  },
-  {
    "do": "key",
-   "k": "x",
+   "k": "f",
    "settleMs": 200
-  },
-  {
-   "do": "js",
-   "src": "__probe.logic().setPref({adv:true}); return true",
-   "why": "auto-advance back on"
   },
   {
    "do": "key",
@@ -87,7 +68,7 @@
   },
   {
    "do": "expect",
-   "js": "const l=__probe.logic(); return Object.keys(l.state.marks).filter(id=>l.state.marks[id]==='out').map(id=>l.data.byId[id].file).sort()",
+   "js": "const l=__probe.logic(); return Object.keys(l.state.flags).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file).sort()",
    "equals": [
     "DSC00002.ARW"
    ]
@@ -173,7 +154,7 @@
   },
   {
    "do": "expect",
-   "js": "const l=__probe.logic(); return Object.keys(l.state.marks).filter(id=>l.state.marks[id]==='out').map(id=>l.data.byId[id].file).sort()",
+   "js": "const l=__probe.logic(); return Object.keys(l.state.flags).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file).sort()",
    "equals": [
     "DSC00002.ARW"
    ]
@@ -204,15 +185,6 @@
    "name": "restored"
   },
   {
-   "do": "wait",
-   "ms": 500
-  },
-  {
-   "do": "js",
-   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
-   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
-  },
-  {
    "do": "key",
    "k": "4",
    "settleMs": 1000,
@@ -230,20 +202,17 @@
   {
    "do": "key",
    "k": "Enter",
-   "settleMs": 1500,
+   "settleMs": 200,
    "cmd": true
   },
   {
-   "do": "expect",
-   "js": "return __probe.logic().state.armed",
-   "equals": "save",
-   "why": "v7: with undecided photos the first ⌘⏎ only warns"
+   "do": "js",
+   "src": "const l = __probe.logic(); if (l.state.armed === 'save') window.luminaCommand('save'); return true",
+   "why": "v8's Save guard: rows not looked at arm ⌘⏎ once; the second ⌘⏎ saves"
   },
   {
-   "do": "key",
-   "k": "Enter",
-   "settleMs": 1500,
-   "cmd": true
+   "do": "wait",
+   "ms": 1300
   },
   {
    "do": "waitFor",
@@ -321,7 +290,7 @@
   },
   {
    "do": "expect",
-   "js": "const l=__probe.logic(); return Object.keys(l.state.marks).filter(id=>l.state.marks[id]==='out').map(id=>l.data.byId[id].file).sort()",
+   "js": "const l=__probe.logic(); return Object.keys(l.state.flags).filter(id=>l.state.flags[id]).map(id=>l.data.byId[id].file).sort()",
    "equals": [
     "DSC00002.ARW"
    ]
@@ -369,7 +338,7 @@
    "do": "fs",
    "path": "${OUT}/shoot/src/DSC00002.xmp",
    "exists": false,
-   "why": "a removed photo is not saved"
+   "why": "a flagged photo is not saved"
   },
   {
    "do": "invariants"

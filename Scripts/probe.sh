@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Lumina probe suites — drive the page in WKWebView and try to break it.
 #
-#   bash Scripts/probe.sh screens                every v7 screen × 2 sizes, prototype and app, rendered once: the app twins must
+#   bash Scripts/probe.sh screens                every v8 screen × 2 sizes, prototype and app, rendered once: the app twins must
 #                                                equal the prototype byte for byte (CI: no committed reference needed)
 #   bash Scripts/probe.sh scenarios NAME…        just these scenarios (Tests/probe/scenarios/NAME.json), e.g. fuzz-sample-2
-#   bash Scripts/probe.sh reference [--record]   every v7 screen × 2 sizes (+ app twins) and state dumps, byte-compared to
+#   bash Scripts/probe.sh reference [--record]   every v8 screen × 2 sizes (+ app twins) and state dumps, byte-compared to
 #                                                Tests/probe/reference/manifest.json (--record rewrites it)
-#   bash Scripts/probe.sh smoke                  the v7 page runs, its ?selftest passes, plumbing fits, and the app reads,
+#   bash Scripts/probe.sh smoke                  the v8 page runs, its ?selftest passes, plumbing fits, and the app reads,
 #                                                keeps, saves sidecars into the folder, reopens (app-smoke needs LUMINA_FIXTURE_ROOT);
 #                                                the empty app survives a key storm
-#   bash Scripts/probe.sh selftest               the design's own ?selftest (behaviour checks except the known v5-era ones in Tests/selftest-known.json; key and large-view timing)
+#   bash Scripts/probe.sh selftest               the design's own ?selftest (25 checks, key and large-view timing)
 #   bash Scripts/probe.sh contract               plumbing.js still fits the page (run by sets_sync_design.sh)
 #   bash Scripts/probe.sh fuzz                   seeded key/mouse storms on the sample shoot, and over a card image read natively
 #                                                and pulled / re-inserted at random (fuzz-app-card needs LUMINA_FIXTURE_ROOT)
@@ -28,6 +28,7 @@
 #                                                1440×900 and 2560×1440: frame pacing, blank tiles, thumbnail
 #                                                upscale, memory. Folder: LUMINA_SCROLL_DIR, else LUMINA_CARD_DIR (only read), else
 #                                                408 APFS clones of LUMINA_FIXTURE_ROOT/src, 20 s apart (built once)
+#                                                (CI runs scroll-quick / scroll-quick-2560: tile 216, warm-ahead on and off)
 #   bash Scripts/probe.sh edit                   the Edit canvas (addendum §8): 2 s drags on exposure and shadows, look-event-to-
 #                                                presented-frame latency (p95 ≤ LUMINA_EDIT_P95, default 16 ms), dropped frames,
 #                                                rest render, bases resident, canvas vs export ΔE; native first, then with
@@ -46,7 +47,7 @@
 #                                                100 / 500 / 1000 / 2000 photos, done; photos per second. Folder: LUMINA_READ_DIR, else as scroll
 #   bash Scripts/probe.sh slowdisk               a disk whose first directory read takes 12 s (LUMINA_SLOW_DIR_MS): the app still answers
 #                                                the page while the folder is listed. Folder: LUMINA_READ_DIR, else as scroll
-#   bash Scripts/probe.sh all [--require-all]    everything v7 (LUMINA_LONG=1); --require-all turns a SKIP into a failure
+#   bash Scripts/probe.sh all [--require-all]    everything v8 (LUMINA_LONG=1); --require-all turns a SKIP into a failure
 #   bash Scripts/probe.sh sandbox MODE [ARGS…]   any mode above inside the App Sandbox, with Config/Lumina-Sets.entitlements as the
 #                                                app ships them (e.g. sandbox smoke, sandbox contract, sandbox scenarios app-session).
 #                                                One process per scenario; after each, what the sandbox refused the app (access

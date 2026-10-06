@@ -21,11 +21,11 @@ const note = text => console.log('note ' + text);
 const sh = read(ROOT, 'Scripts/page_files.sh'), shVar = {};
 for (const m of sh.matchAll(/^([A-Z_]+)="([^"]*)"/gm)) shVar[m[1]] = m[2];
 const PAGE_FILES = [...(sh.match(/^PAGE_FILES=\(([^)]*)\)/m) || ['', ''])[1].matchAll(/"\$([A-Z_]+)"|"([^"]+)"|(\S+)/g)].map(m => m[1] ? shVar[m[1]] : m[2] || m[3]);
-const PAGE = shVar.PAGE, EDIT = shVar.EDIT;
+const PAGE = shVar.PAGE, EDIT = shVar.EDIT_PAGE;
 check('Scripts/page_files.sh names the page, the Edit page and the page files', !!PAGE && !!EDIT && PAGE_FILES.length >= 5 && PAGE_FILES.every(Boolean), JSON.stringify(PAGE_FILES));
 
 const swift = read(ROOT, 'Lumina/Sets/Core/SetsSchemeHandler.swift'), swConst = {};
-for (const m of swift.matchAll(/static let (pageFile|editFile) = "([^"]+)"/g)) swConst[m[1]] = m[2];
+for (const m of swift.matchAll(/static let (pageFile|editPageFile) = "([^"]+)"/g)) swConst[m[1]] = m[2];
 const swLists = [...swift.matchAll(/static let pageFiles = \[([^\]]*)\]/g)].map(m => m[1].split(',').map(s => s.trim()).map(s => s.startsWith('"') ? s.slice(1, -1) : swConst[s]));
 const same = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 check('SetsSchemeHandler.pageFiles has a tools list and a Release list', swLists.length === 2, swLists.length + ' lists found');

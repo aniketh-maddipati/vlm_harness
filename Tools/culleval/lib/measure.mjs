@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { LuminaCore, CORE_FILE, PAGE_FILE, sha, coreHash } from './core.mjs';
 
-export const READONE = '8b2aae62a1f7ec2b';
+export const READONE = '90ef314774b89942';
 export function readOneHash() {
   const html = fs.readFileSync(PAGE_FILE, 'utf8'), a = html.indexOf('async readOne('), b = html.indexOf('async onDir(', a);
   return a < 0 || b < 0 ? null : sha(html.slice(a, b));
@@ -23,7 +23,7 @@ export const RAW_FILE = /\.(arw|dng)$/i;
 export function recordOf(parsed, file, size) {
   const m = { ...parsed }, ph = LuminaCore.phoneOf(m);
   if (ph) { m.flReal = m.fl; if (m.fl35) m.fl = m.fl35; m.model = ph.short; m.lens = ph.zoom ? ph.zoom + ' camera' : m.lens; }
-  return { wbK: m.wbK ?? null, wbTint: m.wbTint ?? null, name: path.basename(file), path: file, bytes: size, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso, model: m.model || null, make: m.make || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, lens: m.lens || null, serial: m.serial || null, program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null };
+  return { lowpv: false, wbK: m.wbK ?? null, wbTint: m.wbTint ?? null, name: path.basename(file), path: file, bytes: size, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso, model: m.model || null, make: m.make || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, lens: m.lens || null, serial: m.serial || null, program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null };
 }
 
 const HEAD = 262144;
@@ -36,8 +36,15 @@ function head(file) {
     const buf = Buffer.alloc(Math.min(HEAD, size)); fs.readSync(fd, buf, 0, buf.length, 0);
     const m = LuminaCore.parseHead(new Uint8Array(buf.buffer, buf.byteOffset, buf.length), size);
     if (!m) return null;
+    // The first candidate that fits the file and starts FF D8, as the page tries them. A raw-strip
+    // preview (pvParts / pvRGB, assemblePreview) is not rebuilt here: Sony ARWs always carry a JPEG.
     let preview = null;
-    if (m.preview && m.preview[0] + m.preview[1] <= size) { preview = Buffer.alloc(m.preview[1]); fs.readSync(fd, preview, 0, preview.length, m.preview[0]); }
+    for (const [po, pl] of (m.previews && m.previews.length ? m.previews : m.preview ? [m.preview] : [])) {
+      if (po + pl > size) continue;
+      const pb = Buffer.alloc(pl); fs.readSync(fd, pb, 0, pl, po);
+      if (pb[0] !== 0xFF || pb[1] !== 0xD8) continue;
+      preview = pb; break;
+    }
     return { m, size, preview };
   } finally { fs.closeSync(fd); }
 }

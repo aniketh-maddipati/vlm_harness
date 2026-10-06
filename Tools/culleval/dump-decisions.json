@@ -1,6 +1,6 @@
 {
  "mode": "app",
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [1440, 900],
  "clock": "2026-09-08T14:30:00",
  "checklist": "Culling eval: open LUMINA_CULL_DIR through the real page and native reader, then dump what lumina-core decided for every photo (row, stack, kind, rank, peak, soft / slight / blown / shake / dark, suggested keep). Nothing is kept or saved; the folder is only read.",

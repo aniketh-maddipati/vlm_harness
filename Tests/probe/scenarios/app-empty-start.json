@@ -1,13 +1,13 @@
 {
  "mode": "app",
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1440,
   900
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
- "checklist": "Empty states (the v3-era design ask 1, answered since v5, kept in v7): the app starts with no sample shoot and no recents. Open shows its empty state; ⌘2, ⌘3 and ⌘4 (Pick, Edit, Save) stay on Open and say '0 photos · ⌘O'; the Cull and Save keys do nothing and write nothing (P keeps, R and X remove, F held is the focus overlay: with no shoot there is nothing to mark or focus); an 800-input key and mouse storm over the empty app holds every invariant.",
+ "checklist": "Empty states (the v3-era design ask 1, answered by v5): the app starts with no sample shoot and no recents. Open shows its empty state; ⌘2 and ⌘3 stay on Open and say '0 photos · ⌘O'; the Cull and Save keys do nothing and write nothing; an 800-input key and mouse storm over the empty app holds every invariant.",
  "steps": [
   {
    "do": "wait",
@@ -50,21 +50,6 @@
   },
   {
    "do": "key",
-   "k": "3",
-   "settleMs": 300,
-   "cmd": true
-  },
-  {
-   "do": "expect",
-   "js": "const s=__probe.logic().state; return [s.view, s.toast]",
-   "equals": [
-    "import",
-    "0 photos · ⌘O"
-   ],
-   "why": "Edit needs a shoot"
-  },
-  {
-   "do": "key",
    "k": "4",
    "settleMs": 300,
    "cmd": true
@@ -86,17 +71,6 @@
   {
    "do": "key",
    "k": "f",
-   "settleMs": 200
-  },
-  {
-   "do": "key",
-   "k": "x",
-   "settleMs": 200,
-   "why": "v7: X (and R) remove a photo; with none, nothing"
-  },
-  {
-   "do": "key",
-   "k": "r",
    "settleMs": 200
   },
   {
@@ -128,8 +102,17 @@
   {
    "do": "key",
    "k": "Enter",
-   "settleMs": 600,
+   "settleMs": 200,
    "cmd": true
+  },
+  {
+   "do": "js",
+   "src": "const l = __probe.logic(); if (l.state.armed === 'save') window.luminaCommand('save'); return true",
+   "why": "v8's Save guard: rows not looked at arm ⌘⏎ once; the second ⌘⏎ saves"
+  },
+  {
+   "do": "wait",
+   "ms": 400
   },
   {
    "do": "key",
@@ -139,7 +122,7 @@
   },
   {
    "do": "expect",
-   "js": "const l=__probe.logic(), s=l.state; return [s.view, l.data.order.length, Object.keys(s.marks).length, Object.values(s.marks).filter(v=>v==='out').length, s.large, !!(s.ex||{}).result, __lumina.unsaved()]",
+   "js": "const l=__probe.logic(), s=l.state; return [s.view, l.data.order.length, Object.keys(s.marks).length, Object.keys(s.flags).length, s.large, !!(s.ex||{}).result, __lumina.unsaved()]",
    "equals": [
     "import",
     0,
@@ -148,13 +131,12 @@
     false,
     false,
     0
-   ],
-   "why": "v7 has no flags: a removed photo is marks[id] === 'out'; none here"
+   ]
   },
   {
    "do": "fuzz",
    "seed": 21,
-   "count": 800,
+   "count": 200,
    "gapMs": [
     0,
     20

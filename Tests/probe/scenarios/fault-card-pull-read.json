@@ -1,13 +1,13 @@
 {
  "mode": "app",
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1440,
   900
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": true,
- "checklist": "F2 / SAFETY.md 3: the card is pulled while '⏎ Cull this card' reads it natively. The readers stop at once (nothing opened after the pull, nothing in flight), the page keeps and says what it read, Cull shows the card-gone notice, previews of read photos still show and can be kept; re-inserting clears the notice and reads the whole card again by itself (all 200, none unreadable) with the keep made while the card was out still there; nothing is written to the card. First grant (R1c): the card is culled once through 'Cull this card' (sandboxed: the panel's pick, scripted), then a relaunch and the card out and in, so from here on it is a card the app already knows (sandboxed: through its bookmark), in both modes; the steps after that are unchanged.",
+ "checklist": "F2 / SAFETY.md 3 (v5): the card is pulled while '⏎ Cull this card' reads it natively. The readers stop at once (nothing opened after the pull, nothing in flight), the page keeps and says what it read, Cull shows the card-gone notice, previews of read photos still show and can be kept; re-inserting clears the notice and reads the whole card again by itself (all 200, none unreadable) with the keep made while the card was out still there; nothing is written to the card. First grant (R1c): the card is culled once through 'Cull this card' (sandboxed: the panel's pick, scripted), then a relaunch and the card out and in, so from here on it is a card the app already knows (sandboxed: through its bookmark), in both modes; the steps after that are unchanged.",
  "steps": [
   {
    "do": "startCards"
@@ -135,15 +135,6 @@
   {
    "do": "snap",
    "name": "card-pulled"
-  },
-  {
-   "do": "wait",
-   "ms": 500
-  },
-  {
-   "do": "js",
-   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
-   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
   },
   {
    "do": "key",

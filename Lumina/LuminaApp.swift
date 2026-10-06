@@ -19,7 +19,7 @@ struct LuminaApp: App {
     }
 }
 
-/// The menu bar (design/handoff/lumina-cull/MENUS.md). Every item reaches the page through
+/// The menu bar (design/handoff/lumina-cull/BRIDGE.md, "MENUS (v7)"). Every item reaches the page through
 /// `window.luminaCommand(name)`, which presses the key the page already handles. Items whose
 /// shortcut is a plain key (P, F, Space, Z, …) carry no key equivalent here: a menu would take
 /// those keys before the page and break hold-to-show and key repeat. The page keeps handling them.
@@ -34,6 +34,7 @@ struct LuminaCommands: Commands {
         }
         CommandGroup(replacing: .appSettings) {
             Button("Settings…") { send("settings") }.keyboardShortcut(",", modifiers: .command)
+            Button("Show Tour") { send("tour") }
         }
         CommandGroup(replacing: .newItem) {
             Button("Open…") { send("open") }.keyboardShortcut("o", modifiers: .command)
@@ -44,29 +45,35 @@ struct LuminaCommands: Commands {
             }
             .disabled(menu.recents.isEmpty)
         }
+        CommandGroup(after: .newItem) {
+            Button("Add from Phone…") { send("phone") }
+        }
         CommandGroup(replacing: .saveItem) {
             Button("Close Shoot") { SetsMenuModel.closeShoot() }.keyboardShortcut("w", modifiers: .command)
-            Button("Save Picks") { send("save") }.keyboardShortcut(.return, modifiers: .command)
+            Button("Save") { send("save") }.keyboardShortcut(.return, modifiers: .command)
             Button("Show in Finder") { send("finder") }.keyboardShortcut("r", modifiers: .command)
             Divider()
             Button("Remove Working Files…") { SetsMenuModel.removeWorkingFiles() }
         }
+        // Undo / Redo / Copy / Paste are Edit's own while Edit is the active step (plumbing routes them).
         CommandGroup(replacing: .undoRedo) {
             Button("Undo") { send("undo") }.keyboardShortcut("z", modifiers: .command)
-            Button("Redo") { SetsMenuModel.editCommand("redo", else: Selector(("redo:"))) }.keyboardShortcut("z", modifiers: [.command, .shift])
+            Button("Redo") { send("redo") }.keyboardShortcut("z", modifiers: [.command, .shift])
         }
+        // No ⌘C / ⌘V key equivalents: a menu would take them from the shoot's name field. Edit
+        // handles the keys itself; the items are for the mouse.
         CommandGroup(replacing: .pasteboard) {
-            Button("Copy") { SetsMenuModel.editCommand("copy", else: #selector(NSText.copy(_:))) }.keyboardShortcut("c", modifiers: .command)
-            Button("Paste") { SetsMenuModel.editCommand("paste", else: #selector(NSText.paste(_:))) }.keyboardShortcut("v", modifiers: .command)
-            Divider()
-            Button("Keep Row") { send("keepRow") }.keyboardShortcut("a", modifiers: .command)
+            Button("Copy Settings  ⌘C") { send("copy") }
+            Button("Paste Settings  ⌘V") { send("paste") }
         }
-        CommandMenu("Photo") {
+        CommandMenu("Pick") {
             Button("Keep  P") { send("keep") }
-            Button("Second Pass  ⇧P") { send("pass") }
+            Button("Keep Row") { send("keepRow") }.keyboardShortcut("a", modifiers: .command)
+            Button("Show Picks Only  ⇧P") { send("pass") }
             Divider()
             Button("Open Stack  ⏎") { send("openStack") }
             Button("Close Stack  esc") { send("closeStack") }
+            Button("Next Unseen  ⇧U") { send("unseen") }
         }
         CommandGroup(before: .toolbar) {
             Button("Open") { send("stepOpen") }.keyboardShortcut("1", modifiers: .command)
@@ -76,17 +83,17 @@ struct LuminaCommands: Commands {
             Divider()
             Button("Large View  Space") { send("large") }
             Button("Zoom 100%  Z") { SetsMenuModel.zoom() }
-            Button("Unseen Rows Only  ⇧U") { send("unseen") }
             Divider()
             Button("Smaller Tiles  −") { send("smaller") }
-            Button("Larger Tiles  +") { send("larger") }
-            Button("Hide Key Bar  H") { send("keyBar") }
+            Button("Larger Tiles  =") { send("larger") }
+            Button("Show Key Bar  H") { send("keyBar") }
             Divider()
         }
         CommandGroup(replacing: .help) {
-            Button("Lumina FAQ") { send("faq") }
             Button("Keyboard Shortcuts  ?") { send("shortcuts") }
-            Button("Contact on X") { SetsMenuModel.openLink("https://x.com/aniketh745") }
+            Button("Learn the Keys") { send("grammar") }
+            Button("Lumina FAQ") { send("faq") }
+            Button("Report a Bug…") { SetsMenuModel.openLink("mailto:anikethcov@gmail.com") }
         }
     }
 }

@@ -1,7 +1,7 @@
 // LuminaCore.phoneOf on the seven unit cases of design/handoff/lumina-cull/TEST-PLAN.md ("Automated"), three ways:
 // as direct calls on records, through parseHead on synthetic DNGs (dng-families.mjs, plus dng-fixtures.mjs for
 // Apple / Google / SONY ILCE-7M4), and through the page's own phone remap line, taken from readOne in
-// "Lumina/Sets/Web/Lumina Sets v7.dc.html". Loads the app's lumina-core-v4.js the way dng-parse.test.mjs does.
+// "Lumina/Sets/Web/Lumina Sets v8.dc.html". Loads the app's lumina-core-v4.js the way dng-parse.test.mjs does.
 // TEST-PLAN is the expectation: a case phoneOf gets wrong prints FAIL.
 //
 //   node Tests/web/dng-families.test.mjs      (ok / FAIL per check, exit 1 on any FAIL; "note" lines are observations)
@@ -17,7 +17,7 @@ const note = s => console.log('note', s);
 const isPhone = m => !!LC.phoneOf(m);
 
 // ---- the page's remap, read from readOne's source, run as written ----------------------------------------
-const page = readFileSync(new URL('../../Lumina/Sets/Web/Lumina Sets v7.dc.html', import.meta.url), 'utf8');
+const page = readFileSync(new URL('../../Lumina/Sets/Web/Lumina Sets v8.dc.html', import.meta.url), 'utf8');
 const lineAt = page.split('\n').findIndex(l => l.includes('async readOne(') ), remapLine = lineAt < 0 ? null
   : page.split('\n').slice(lineAt, lineAt + 12).map(l => l.trim()).find(l => l.startsWith('const ph=LuminaCore.phoneOf(m);'));
 eq('page: readOne has the phone remap line', !!remapLine, true);

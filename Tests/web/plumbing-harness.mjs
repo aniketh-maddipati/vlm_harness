@@ -360,10 +360,10 @@ const loaded = async page => {
   // Save → sidecars INTO the folder
   const before2 =fs.readFileSync(path.join(shoot, 'DSC01002.xmp'), 'utf8');
   await page.evaluate(() => __lumina.command('stepSave')); await page.waitForTimeout(300);
-  ok((await S(page)).view === 'export', 'save: ⌘3 via luminaCommand');
+  ok((await S(page)).view === 'export', 'save: ⌘4 via luminaCommand');
   await page.waitForTimeout(900);            // the page ignores ⌘⏎ for 800 ms after a step change
   await page.evaluate(() => __lumina.command('save'));
-  // v7: with undecided photos the first ⌘⏎ only warns (saveGuard); the second, within 5 s, saves.
+  // v8's Save guard: rows not looked at this pass arm ⌘⏎ once; the second ⌘⏎ saves.
   if (await page.evaluate(() => __lumina.logic().state.armed === 'save')) await page.evaluate(() => __lumina.command('save'));
   await page.waitForFunction(() => { const r = __lumina.logic().state.ex; return r && r.result; }, null, { timeout: 5000 }).catch(() => {});
   const res = await page.evaluate(() => __lumina.logic().state.ex.result);

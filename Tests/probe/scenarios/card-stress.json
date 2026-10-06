@@ -1,6 +1,6 @@
 {
  "deadline": 1500,
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1440,
   900
@@ -11,7 +11,7 @@
   "webPeakMB": 2500
  },
  "stopOnFailure": false,
- "checklist": "M1: a whole card (LUMINA_CARD_DIR, only read). Cull scrolls down and back within the frame budget (p95 ≤ 17.5 ms), 150 fast row moves leave the cursor on a photo, a 3,000-input storm holds every invariant, ⌘4 (Save) and ⌘2 (Pick) still switch steps, and the web process stays under 2.5 GB. `probe.sh stress` runs it twice: the page's own read, then the app's native read.",
+ "checklist": "M1 (v5): a whole card (LUMINA_CARD_DIR, only read). Cull scrolls down and back within the frame budget (p95 ≤ 17.5 ms), 150 fast row moves leave the cursor on a photo, a 3,000-input storm holds every invariant, ⌘3 and ⌘2 still switch steps, and the web process stays under 2.5 GB. `probe.sh stress` runs it twice: the page's own read, then the app's native read.",
  "steps": [
   {
    "do": "openFolder",
@@ -37,15 +37,6 @@
    "frames": 150,
    "name": "cull-scroll-up",
    "p95Ms": 17.5
-  },
-  {
-   "do": "wait",
-   "ms": 500
-  },
-  {
-   "do": "js",
-   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
-   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
   },
   {
    "do": "key",

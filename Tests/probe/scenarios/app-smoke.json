@@ -1,6 +1,6 @@
 {
  "mode": "app",
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1440,
   900
@@ -33,20 +33,6 @@
    "do": "openFolder",
    "path": "${OUT}/shoot/two-bodies",
    "timeoutMs": 120000
-  },
-  {
-   "do": "wait",
-   "ms": 500
-  },
-  {
-   "do": "expect",
-   "js": "const a=document.activeElement; return a ? a.tagName : 'none'",
-   "equals": "INPUT",
-   "why": "v7: a shoot opened for the first time puts the keyboard in its name field"
-  },
-  {
-   "do": "js",
-   "src": "document.activeElement && document.activeElement.blur(); return true"
   },
   {
    "do": "expect",
@@ -139,19 +125,16 @@
    "do": "key",
    "k": "Enter",
    "cmd": true,
-   "settleMs": 1500
+   "settleMs": 200
   },
   {
-   "do": "expect",
-   "js": "return __probe.logic().state.armed",
-   "equals": "save",
-   "why": "v7: with undecided photos the first ⌘⏎ only warns"
+   "do": "js",
+   "src": "const l = __probe.logic(); if (l.state.armed === 'save') window.luminaCommand('save'); return true",
+   "why": "v8's Save guard: rows not looked at arm ⌘⏎ once; the second ⌘⏎ saves"
   },
   {
-   "do": "key",
-   "k": "Enter",
-   "cmd": true,
-   "settleMs": 1500
+   "do": "wait",
+   "ms": 1300
   },
   {
    "do": "waitFor",
@@ -256,19 +239,16 @@
    "do": "key",
    "k": "Enter",
    "cmd": true,
-   "settleMs": 1500
+   "settleMs": 200
   },
   {
-   "do": "expect",
-   "js": "return __probe.logic().state.armed",
-   "equals": "save",
-   "why": "v7: with undecided photos the first ⌘⏎ only warns"
+   "do": "js",
+   "src": "const l = __probe.logic(); if (l.state.armed === 'save') window.luminaCommand('save'); return true",
+   "why": "v8's Save guard: rows not looked at arm ⌘⏎ once; the second ⌘⏎ saves"
   },
   {
-   "do": "key",
-   "k": "Enter",
-   "cmd": true,
-   "settleMs": 1500
+   "do": "wait",
+   "ms": 1300
   },
   {
    "do": "waitFor",

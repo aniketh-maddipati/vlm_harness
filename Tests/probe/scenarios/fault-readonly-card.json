@@ -1,13 +1,13 @@
 {
  "mode": "app",
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1440,
   900
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": true,
- "checklist": "F7 read-only / locked card: the card reads fine; Save on a card is replaced by 'copy to disk first' with the page's notice, ⌘↩ writes nothing to the card (no .xmp, no temp files). First grant (R1c): the card is culled once through 'Cull this card' (sandboxed: the panel's pick, scripted), then a relaunch and the card out and in, so from here on it is a card the app already knows (sandboxed: through its bookmark), in both modes; the steps after that are unchanged. (Sets v7: Save is step ⌘4, and with undecided photos the first ⌘↩ only warns, the second within 5 s saves).",
+ "checklist": "F7 read-only / locked card (v5): the card reads fine; Save on a card is replaced by 'copy to disk first' with the page's notice, ⌘↩ writes nothing to the card (no .xmp, no temp files). First grant (R1c): the card is culled once through 'Cull this card' (sandboxed: the panel's pick, scripted), then a relaunch and the card out and in, so from here on it is a card the app already knows (sandboxed: through its bookmark), in both modes; the steps after that are unchanged.",
  "steps": [
   {
    "do": "startCards"
@@ -91,15 +91,6 @@
    "equals": 12
   },
   {
-   "do": "wait",
-   "ms": 500
-  },
-  {
-   "do": "js",
-   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
-   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
-  },
-  {
    "do": "key",
    "k": "p",
    "settleMs": 200
@@ -124,7 +115,16 @@
    "do": "key",
    "k": "Enter",
    "cmd": true,
-   "settleMs": 1500
+   "settleMs": 200
+  },
+  {
+   "do": "js",
+   "src": "const l = __probe.logic(); if (l.state.armed === 'save') window.luminaCommand('save'); return true",
+   "why": "v8's Save guard: rows not looked at arm ⌘⏎ once; the second ⌘⏎ saves"
+  },
+  {
+   "do": "wait",
+   "ms": 1300
   },
   {
    "do": "fs",

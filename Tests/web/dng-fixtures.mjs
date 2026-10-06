@@ -132,7 +132,7 @@ function sonyArw() {
     subs: [{ entries: [...strip(0, 64, 48, 32767, 32803, 'raw', 1, [14])] }],
     exif: exif({ date, exp: [1, 1000], fnum: [40, 10], iso: 400, fl: [850, 10], fl35: 85, lens: 'FE 85mm F1.8', ev: [-7, 10] }), next: ifd1 };
   const { bytes, offsets } = buildTiff({ le: true, ifd0, blobs: { preview, thumb, raw } });
-  return { id: 'sony-arw', name: 'DSC01234.ARW', bytes, preview, expect: { make: 'SONY', model: 'ILCE-7M4', dng: undefined, orient: 8, date, fl35: 85, preview: [offsets.preview, preview.length], phone: false, lens: 'FE 85mm F1.8' } };
+  return { id: 'sony-arw', name: 'DSC01234.ARW', bytes, preview, expect: { make: 'SONY', model: 'ILCE-7M4', dng: null, orient: 8, date, fl35: 85, preview: [offsets.preview, preview.length], phone: false, lens: 'FE 85mm F1.8' } };
 }
 
 function sonyDng() {

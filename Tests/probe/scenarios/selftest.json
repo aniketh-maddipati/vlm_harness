@@ -1,5 +1,5 @@
 {
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "query": "selftest",
  "size": [
   1440,
@@ -7,7 +7,7 @@
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
- "checklist": "The design's own self-test (lumina-selftest.js, ADDENDUM-1 §6) passes in WKWebView: every behaviour check, key-to-frame median under 50 ms, large view under 100 ms",
+ "checklist": "The design's own self-test (lumina-selftest.js) passes in WKWebView: every behaviour check, key-to-frame median under 50 ms, large view under 100 ms. One check is v5's and v8 reverses it (CHANGES-v0.02: P on a kept photo moves on, never toggles; DESIGN-ASKS Prompt 13): it is held to that rule instead, and it fails here once the design's file is fixed so this line comes out",
  "steps": [
   {
    "do": "waitFor",
@@ -21,10 +21,17 @@
    "js": "return window.luminaTestResults"
   },
   {
-   "do": "selftest",
-   "known": "Tests/selftest-known.json",
-   "atLeast": 25,
-   "why": "every failing check fails, the timing checks included, except the four that still describe v5 (DESIGN-ASKS Prompt 12 ask 4) and the two large-view timings (ask 7): reported, and reported again when one passes"
+   "do": "expect",
+   "js": "return window.luminaTestResults.filter(r => !r.ok).map(r => r.n + ' · ' + r.d)",
+   "equals": [
+    "P again un-keeps · "
+   ]
+  },
+  {
+   "do": "expect",
+   "what": "v8: P on a kept photo keeps it and moves on (CHANGES-v0.02)",
+   "js": "const wait = ms => new Promise(r => setTimeout(r, ms)), S = () => window.luminaState(); const tap = async (key, code) => { window.dispatchEvent(new KeyboardEvent('keydown', { key, code, bubbles: true })); await wait(60); window.dispatchEvent(new KeyboardEvent('keyup', { key, code, bubbles: true })); await wait(40); }; document.querySelector('[data-lumina=tile]').click(); await wait(120); const id = S().cur; if (S().marks[id] !== 'keep') await tap('p', 'KeyP'); else await tap('ArrowRight', 'ArrowRight'); await tap('ArrowLeft', 'ArrowLeft'); const back = S().cur; await tap('p', 'KeyP'); return back === id && S().marks[id] === 'keep' && S().cur !== id;",
+   "equals": true
   }
  ]
 }

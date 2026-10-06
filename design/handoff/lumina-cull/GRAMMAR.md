@@ -1,90 +1,83 @@
-# Lumina grammar (v5)
+# Lumina Pick grammar (v0.02)
 
-Rule: the cursor acts on the unit under it. It is the only selection. P or R keeps. ⇧ works inside a stack.
-Unit = a photo, or a closed stack (burst/bracket). Every decision is one undo step and reports in the footer.
+Generated from `lumina-v4-data.js` → `GRAMMAR`, which the ? sheet shows word for word. If the two ever differ, the data file wins.
 
-## Move
 ```
+LUMINA PICK GRAMMAR
+Rule: a photo is kept or not. ⏎ keeps, R un-keeps, both move on. ⇧ does the same going back. Arrows just pass. The cursor acts on the unit under it. ⇧ works inside a stack.
+Unit = a photo, or a closed stack (burst/bracket). Two states: kept or not. Nothing is deleted; Save lists what wasn't kept and offers another pass, as many as you like. Every decision is one undo step and reports in the footer.
+
+MOVE
 ←→            next / previous photo · on a stack: through its frames, then on · hold repeats
 ⇧←→           same, and stops at the ends of a stack
-↑↓            row above / below, same column
+↑↓            row above / below, same column · on a stack: ↓ opens, ↑ closes
 ⌥←→           skip a whole stack or run of singles
 ⌘←→           previous / next row
 ⌥↑↓           previous / next group in a row not yet seen
-⏎             closed stack: open at the first frame · open stack: done, move on · photo: next unseen row
+⏎             photo: keep, next · closed stack: open · open frame: keep, next frame · after the last frame the stack closes
+⏎ hold        keep and move on, repeating · a closed stack keeps its best frame · Space opens the large view
+⌥↓            next row not yet seen
 esc           close the stack
-```
 
-## Decide (the unit under the cursor)
-```
-P / R         keep / un-keep (right or left hand) · closed stack: sharpest · bracket: all · T also works
-F             flag for later (not saved while flagged)
-P R F         in an open stack or large view: the frame shown
+DECIDE (the unit under the cursor)
+K             same as ⏎
+R             not kept, next · closed stack: un-keeps every frame
+⇧⏎ / ⇧R       back one, and keep it / un-keep it
+K R           in an open stack or large view: the frame shown
 ⌘A            keep every photo in this row · 600 ms preview · esc cancels · one undo
-⇧P / ⇧R       stack (open or closed): keep the sharpest only · bracket: all
-⇧F            stack (open or closed): flag all · again: unflag
-Q / ⌘Z        undo
-X U L G 1–5   not used · the footer names the right key
+⇧K            stack (open or closed): keep every frame
+Q / ⌘Z        undo · ⇧Q / ⇧⌘Z redo · the key bar shows how many steps each way
+⌥⌘⌫          start over · press twice · clears every keep for this shoot · one undo step
+U L G Y 1–5   not used · the footer names the right key
 ⇪ Caps Lock   auto-advance off while on
-```
 
-## Seen
-```
+SEEN · PASSES
 a row is marked seen when the cursor leaves it
 ⇧U            rows not yet seen only
-```
+⇧P            start the next pass: only what you kept · ⏎ keeps, R drops · rows reset to not seen
+              later ⇧P just shows this pass's photos or all photos · Save lists every pass: All → Pass 1 → Pass 2 …
+⇧P again      all photos, picks tray hidden · ⇧P once more shows the tray · esc: all photos with the tray
+picks tray  along the bottom · every pick in time order · click one to jump
 
-## View
-```
+VIEW
 Space         hold: large view while held · tap: toggle · a stack opens at its first frame · ←→ within the stack, else the row
 Z hold        100% · in a stack the same region on every frame · drag moves it
-time axis     large view and open stacks · capture time per frame · gold: sharpest · ≈: estimated
+time axis     large view and open stacks · capture time per frame · gold: most detail · ≈: estimated
 − +           tile size: small / medium / large, scaled to the window
 B / ⇧B        split / merge here (row or stack)
 H             hide key bar · ?  all keys
 Tab           move between buttons · ⏎ or Space presses the focused one · esc returns to the grid
-```
 
-## Click
-```
+CLICK
 click                         focus · the Keep button on the focused photo keeps / un-keeps
 click row header              focus the row
 double-click photo or stack   large view · double-click again closes
-double-click stack badge      keep sharpest
-double-click row header       keep every photo in the row · ⇧ clears the row · one step
-```
+double-click stack badge      open the stack
+double-click row header       focus the row · ⌘A keeps every photo in it
 
-## Drag
-```
+DRAG
 hold P or R + drag    paint keep across tiles · esc cancels · one step
 row header ↑↓         move the boundary a group at a time · onto the previous header merges
 stack edge → / ←      open / close the stack
-```
 
-## Drop
-```
+DROP
 tiles → row header    move those photos to that row · onto a stack merges · between rows splits
 tiles → outside       drags the RAW files (copies) to Finder, Lightroom, Capture One, Mail
-```
 
-## Trackpad
-```
+TRACKPAD
 two-finger ↕          scroll
 two-finger ↔          in an open stack or large view: scrub frames
 pinch                 tile size, centred on the cursor
 force click / 3-tap   large view while held
 ⌥ + two-finger ↔      previous / next group
 (no decisions by gesture · rotate and pinch in large view ignored)
-```
 
-## Settings
-```
-⌘,            keeper rating (1–5★, default 3) · auto-advance · arrows enter stacks · tile size
-```
+SETTINGS
+⌘,            pick rating (1–5★, default 3) · auto-advance · arrows enter stacks · tile size
 
-## Steps
-```
-⌘1 Open · ⌘2 Cull · ⌘3 Save · ⌘O open a folder or card · ⌘R Show in Finder (Cull: the photo · Save: the folder)
+STEPS
+⌘1 Open · ⌘2 Pick · ⌘3 Edit · ⌘4 Save · ⌘O open a folder or card · ⌘R Show in Finder (Pick: the photo · Save: the folder)
 Open: ↑↓ choose · ⏎ open
-Save: ⌘⏎ save keepers · one sidecar per keeper, read by Lightroom Classic and Capture One (⏎ alone does not save)
+Save: ⌘⏎ save · one sidecar per photo that made a pass: rating = last pass made, keyword “Lumina pass N” (one pass: the Settings rating) · read by Lightroom Classic and Capture One
+Guards: with undecided photos left, ⌘⏎ asks once · opening another card with unsaved picks asks once · esc stays
 ```

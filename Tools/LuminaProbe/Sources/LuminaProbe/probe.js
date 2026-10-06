@@ -17,6 +17,11 @@
     window.Date = ProbeDate;
   }
 
+  // v8's first-run tour takes every key until it is dismissed. A scenario sees it only when it asks
+  // ("tour": true, the screens); every other run starts as a returning user. Set before the page's
+  // own writes are turned off below.
+  try { if (cfg.tour) localStorage.removeItem('lumina-v4-toured'); else localStorage.setItem('lumina-v4-toured', '1'); } catch (_) {}
+
   // "storageWrites": false in a scenario: the page's own localStorage writes fail, as they do in
   // the app (it persists through plumbing.js instead). Screens that show the browser-only "saved"
   // label would otherwise never match their app twin.

@@ -19,9 +19,9 @@ import WebKit
 ///   rendering; a bad look string 400; a file outside the opened folders 404.
 nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "lumina"
-    static let pageFile = "Lumina Sets v7.dc.html"
-    /// The Edit step, its own page since v0.01; the Sets page mounts it.
-    static let editFile = "Lumina Edit v21.dc.html"
+    static let pageFile = "Lumina Sets v8.dc.html"
+    /// Edit is its own page, which support.js fetches when Sets mounts it (`<dc-import name="Lumina Edit v21">`).
+    static let editPageFile = "Lumina Edit v21.dc.html"
     static let vendorFiles = ["react.production.min.js", "react-dom.production.min.js", "babel.min.js"]
     /// What `lumina://app/<file>` serves. Debug builds and the probe: the same list as
     /// Scripts/page_files.sh, with the design's self-test, which the page asks for only with
@@ -29,9 +29,9 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     /// (S4): the file stays in the bundle, because the page files ship byte for byte, but the
     /// binary has no name for it, so `?selftest` gets "not served" and the page runs as usual.
     #if DEBUG || LUMINA_TOOLS
-    static let pageFiles = [pageFile, editFile, "support.js", "lumina-core-v4.js", "lumina-measure.js", "lumina-v4-data.js", "lumina-selftest.js"]
+    static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js", "lumina-selftest.js"]
     #else
-    static let pageFiles = [pageFile, editFile, "support.js", "lumina-core-v4.js", "lumina-measure.js", "lumina-v4-data.js"]
+    static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js"]
     #endif
 
     /// support.js's CDN URLs → local. Passed to the page as `window.__resources`.
@@ -87,7 +87,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
             respond(task, url, data, "image/jpeg")
         case "app":
             guard Self.pageFiles.contains(path), var data = try? Data(contentsOf: pageRoot.appendingPathComponent(path)) else { return fail(task) }
-            if standInPhotos, path == Self.pageFile, let text = String(data: data, encoding: .utf8) {
+            if standInPhotos, path == Self.pageFile || path == Self.editPageFile, let text = String(data: data, encoding: .utf8) {
                 data = Data(text.replacingOccurrences(of: "https://picsum.photos/", with: "\(Self.scheme)://photo/").utf8)
             }
             respond(task, url, data, mime(path))

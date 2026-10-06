@@ -1,22 +1,17 @@
 {
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1280,
   800
  ],
  "clock": "2026-09-08T14:30:00",
  "stopOnFailure": false,
- "checklist": "Shutter-only bracket (no EV comp) \u2192 split/merge fixes it. The fixture's three frames are three different pictures stamped into one second, so v7 reads them as three singles (dHash 29 and 32 of 64: its rule never stacks pictures 28 or more apart); the stack is made by hand here",
+ "checklist": "Shutter-only bracket (no EV comp) → split/merge fixes it",
  "steps": [
   {
    "do": "openFolder",
    "path": "${LUMINA_FIXTURE_ROOT}/shutter-bracket",
    "timeoutMs": 120000
-  },
-  {
-   "do": "dump",
-   "name": "inputs",
-   "js": "const l=__probe.logic(), d=l.data; return {real:(l.real||[]).map(p=>({file:p.name,path:p.path,date:p.date,subsec:p.subsec==null?null:p.subsec,seqImage:p.seqImage==null?null:p.seqImage,seqLength:p.seqLength==null?null:p.seqLength,seqNumber:p.seqNumber==null?null:p.seqNumber,releaseMode2:p.releaseMode2==null?null:p.releaseMode2,dhash:p.dhash||null,lum:p.lum==null?null:p.lum,focus:p.focus==null?null:p.focus,clip:p.clip==null?null:p.clip,model:p.model||null,serial:p.serial||null,wbK:p.wbK==null?null:p.wbK,exp:p.exp==null?null:p.exp,iso:p.iso==null?null:p.iso,fl:p.fl==null?null:p.fl,ev:p.ev==null?null:p.ev,nopv:!!p.nopv,portrait:p.portrait==null?null:!!p.portrait,program:p.program==null?null:p.program,lens:p.lens||null,bytes:p.bytes==null?null:p.bytes,keys:Object.keys(p).sort().join(' ')})), order:d.order.map(id=>d.byId[id].file), rows:d.M.map(m=>({time:m.time,reason:m.reason,groups:m.groups.map(g=>({kind:g.kind,files:g.frames.map(f=>f.file+'@'+f.sec+(f.start?'*':''))}))})), info:l.state.realInfo}"
   },
   {
    "do": "js",
@@ -36,25 +31,10 @@
   },
   {
    "do": "expect",
-   "js": "const d=__probe.logic().data;return [d.M.length, d.order.length]",
+   "js": "const d=__probe.logic().data;return Object.values(d.G).map(g=>g.kind+g.frames.length)",
    "equals": [
-    1,
-    3
+    "burst3"
    ]
-  },
-  {
-   "do": "js",
-   "src": "const d=__probe.logic().data;return Object.values(d.G).map(g=>g.kind+g.frames.length)",
-   "why": "reported, not gated: three singles with this fixture; a real shutter bracket (one scene) should load as one stack"
-  },
-  {
-   "do": "wait",
-   "ms": 500
-  },
-  {
-   "do": "js",
-   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
-   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
   },
   {
    "do": "key",
@@ -63,42 +43,19 @@
    "cmd": true
   },
   {
-   "do": "js",
-   "src": "const l=__probe.logic(); l.setState({cur:l.data.order[1]}); return l.data.byId[l.data.order[1]].file"
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 200
   },
   {
    "do": "key",
-   "k": "B",
-   "settleMs": 500
-  },
-  {
-   "do": "expect",
-   "js": "const d=__probe.logic().data;return Object.values(d.G).map(g=>g.kind+g.frames.length)",
-   "equals": [
-    "burst2",
-    "single1"
-   ]
-  },
-  {
-   "do": "js",
-   "src": "const l=__probe.logic(); l.setState({cur:l.data.order[2]}); return l.data.byId[l.data.order[2]].file"
+   "k": "ArrowRight",
+   "settleMs": 200
   },
   {
    "do": "key",
-   "k": "B",
-   "settleMs": 500
-  },
-  {
-   "do": "expect",
-   "js": "const d=__probe.logic().data;return Object.values(d.G).map(g=>g.kind+g.frames.length)",
-   "equals": [
-    "burst3"
-   ]
-  },
-  {
-   "do": "js",
-   "src": "const l=__probe.logic(); return JSON.stringify(l.curCell())",
-   "why": "the cursor is on the stack's last frame"
+   "k": "ArrowRight",
+   "settleMs": 200
   },
   {
    "do": "key",
@@ -107,9 +64,8 @@
   },
   {
    "do": "expect",
-   "js": "const d=__probe.logic().data;return d.M.map(m=>m.groups.map(g=>g.kind+g.frames.length).join(' ')).join(' | ')",
-   "equals": "burst2 | single1",
-   "why": "b on it: v7 splits the row there, and the frame leaves the stack"
+   "js": "const d=__probe.logic().data;return Object.keys(d.G).length",
+   "equals": 2
   },
   {
    "do": "key",
@@ -118,19 +74,8 @@
   },
   {
    "do": "expect",
-   "js": "const d=__probe.logic().data;return d.M.map(m=>m.groups.map(g=>g.kind+g.frames.length).join(' ')).join(' | ')",
-   "equals": "burst2 single1",
-   "why": "\u21e7B joins the rows again; the frame stays out of the stack until \u21e7B is pressed on it once more"
-  },
-  {
-   "do": "key",
-   "k": "B",
-   "settleMs": 500
-  },
-  {
-   "do": "expect",
-   "js": "const d=__probe.logic().data;return d.M.map(m=>m.groups.map(g=>g.kind+g.frames.length).join(' ')).join(' | ')",
-   "equals": "burst3"
+   "js": "const d=__probe.logic().data;return Object.keys(d.G).length",
+   "equals": 1
   }
  ]
 }

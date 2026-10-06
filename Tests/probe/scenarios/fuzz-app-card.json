@@ -1,7 +1,7 @@
 {
  "deadline": 600,
  "mode": "app",
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1440,
   900
@@ -11,7 +11,7 @@
   "webPeakMB": 1500
  },
  "stopOnFailure": true,
- "checklist": "Gate 5: a seeded key/mouse storm over a card read natively, with the card pulled and re-inserted at random (mid-read, mid-cull, on Save); the page's state surface and the Mac's reader are checked every 20 inputs. Afterwards the card is in, ⌘1 ⏎ reads all 80 with none unreadable, and nothing was ever written to the card.",
+ "checklist": "Gate 5 (v5): a seeded key/mouse storm over a card read natively, with the card pulled and re-inserted at random (mid-read, mid-cull, on Save); the page's state surface and the Mac's reader are checked every 20 inputs. Afterwards the card is in, ⌘1 ⏎ reads all 80 with none unreadable, and nothing was ever written to the card.",
  "steps": [
   {
    "do": "startCards"

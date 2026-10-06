@@ -39,12 +39,14 @@ The page checks `window.lumina?.app`. When it is true the page uses the members 
 - **download**: not used in the app (writeInto always succeeds or returns errors).
 
 ## Changed since v5 (`reference/plumbing.js`)
-- The REQUIRED member list there is out of date. Re-derive it from Sets v7: `onKey, setState, setView, say, openFolder, openAt, dropFiles, onDir, writeInto, runExport, reveal, copyPath, fetchWf, cacheRemove, build, forget, saveGolden`.
+- The REQUIRED member list there is out of date. Re-derive it from Sets v8: `onKey, setState, setView, say, openFolder, openAt, dropFiles, onDir, writeInto, runExport, reveal, copyPath, fetchWf, cacheRemove, build, forget, saveGolden`.
 - The session save keys add `tsz` and `prefs.tszSet`. Session storage is native (`saveSession`). The page's localStorage key in the browser is `lumina-v4-shoot:<name>|<n>|<first>|<last>`.
 - Working files: in the app the page shows one segment, "Previews & thumbnails". Return real bytes.
 - `card.sony` now means "has ARW or DNG". Rename on the native side if you like, but keep the field.
 
 ## Edit (embedded)
+> **v0.02:** native Edit rendering ships. The new calls (auto, prefetch, canvas, preview, histogram, facts) are in **BRIDGE-v0.02.md**. That file wins over this section.
+
 Edit reads the shoot from `window.luminaShoot()` (set by Sets) and stores looks under its `store-key` prop. Native RAW rendering for Edit and 100% zoom is post-v0.01. The tone mapper port is in "Handoff - Tone mapper.md".
 
 ## Sources (new)
@@ -157,3 +159,49 @@ Two ways in, both adding to the open shoot as a `phone` source:
 - `lumina.importPhotos('recent'|'choose')`: for each RAW asset, call `PHAssetResourceManager.writeData(for:toFile:options:)` with `isNetworkAccessAllowed = true` (downloads iCloud-only originals, with progress) into `~/Pictures/Lumina/<shoot>/Photos/`. Hash it, then call `onDir({target:{files}, add:true, src:{kind:'phone', label:'Photos'}})`.
 - Read-only for v1. No writes to the library. Info.plist: `NSPhotoLibraryUsageDescription`.
 - The page labels every arrival as RAW, or HEIC/JPG (dimmed, "not added"), so it's clear from the start which files count.
+
+## As-shot white balance (Edit)
+Edit starts the WB sliders from each photo's as-shot values. The app fills two fields on each photo object passed to `onDir` (or from `parseHead` once native decode exists):
+| Field | Type | Source |
+|---|---|---|
+| `wbK` | number, Kelvin | ARW: Sony maker note ColorTemperature. DNG: `AsShotNeutral` (0xC628) converted with the DNG's ColorMatrix/CalibrationIlluminant, or CIRAWFilter `neutralTemperature` |
+| `wbTint` | number, −150…150 | DNG/CIRAWFilter `neutralTint`. ARW: maker note tint, if present |
+
+They pass through `buildShoot` → `editShoot()` as `wbShot` and `tintShot`. Missing values fall back to 5500 K and 0.
+
+## MENUS (v7)
+The native menu bar calls `window.luminaCommand(name)` (Sets). When Edit is the active step, Edit-menu items call `window.luminaEdit.<fn>()` instead. Items marked — have no menu entry and stay keyboard-only.
+
+**Lumina:** About Lumina · Settings… ⌘, (`settings`) · Show Tour (`tour`) · Quit ⌘Q (native; ask first if `luminaUnsaved() > 0`)
+
+**File:**
+- Open… ⌘O (`open`). Inside a shoot this opens Sources, to add.
+- Add from Phone… (`phone`)
+- Save ⌘⏎ (`save`)
+- Show in Finder ⌘R (`finder`)
+
+**Edit:**
+| Item | Shortcut | Pick / Open / Save | Edit step |
+|---|---|---|---|
+| Undo | ⌘Z | Undo (`undo`) | Undo Edit → `luminaEdit.undo()` |
+| Redo | ⇧⌘Z | Redo (`redo`) | Redo Edit → `luminaEdit.redo()` |
+| Copy | ⌘C | — (disabled) | Copy Settings → `luminaEdit.copy()` (copies the look, not crop/rotation) |
+| Paste | ⌘V | — (disabled) | Paste Settings → `luminaEdit.paste()` |
+
+**Pick** (enabled on the Pick step):
+- Keep · P (`keep`)
+- Keep Row · ⌘A (`keepRow`)
+- Show Picks Only · ⇧P (`pass`). This is the second-pass toggle, a checkmark item; with nothing kept it says "keep something first".
+- Open Stack · ⏎ (`openStack`) · Close Stack · esc (`closeStack`)
+- Next Unseen · ⇧U (`unseen`)
+
+**View:**
+- Open ⌘1 (`stepOpen`) · Pick ⌘2 (`stepCull`) · Edit ⌘3 (`stepEdit`) · Save ⌘4 (`stepSave`)
+- Large View · Space (`large`)
+- Smaller Tiles · − (`smaller`) · Larger Tiles · = (`larger`)
+- Show Key Bar · H (`keyBar`)
+
+**Help:** Keyboard Shortcuts · ? (`shortcuts`) · Lumina FAQ (`faq`) · Report a Bug… (mailto anikethcov@gmail.com)
+
+
+The full command list is: open, save, finder, undo, redo, keepRow, keep, pass, openStack, closeStack, stepOpen, stepCull, stepEdit, stepSave, large, unseen, smaller, larger, keyBar, shortcuts, settings, faq, tour, phone. `keepStack` was removed: in v7, ⇧P toggles Show Picks Only.

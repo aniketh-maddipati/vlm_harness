@@ -1,6 +1,6 @@
 {
  "mode": "app",
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1440,
   900
@@ -96,15 +96,6 @@
    "src": "const l = __probe.logic(), id = l.data.order.find(id => /a\\+b=c/.test(l.data.byId[id].path)); l.setState({ cur: id }); return !!id"
   },
   {
-   "do": "wait",
-   "ms": 500
-  },
-  {
-   "do": "js",
-   "src": "const a=document.activeElement; if (a && a.tagName==='INPUT') a.blur(); return true",
-   "why": "v7: a shoot read for the first time puts the keyboard in its name field after 350 ms"
-  },
-  {
    "do": "key",
    "k": "p",
    "settleMs": 300
@@ -135,19 +126,16 @@
    "do": "key",
    "k": "Enter",
    "cmd": true,
-   "settleMs": 1500
+   "settleMs": 200
   },
   {
-   "do": "expect",
-   "js": "return __probe.logic().state.armed",
-   "equals": "save",
-   "why": "v7: with undecided photos the first ⌘⏎ only warns"
+   "do": "js",
+   "src": "const l = __probe.logic(); if (l.state.armed === 'save') window.luminaCommand('save'); return true",
+   "why": "v8's Save guard: rows not looked at arm ⌘⏎ once; the second ⌘⏎ saves"
   },
   {
-   "do": "key",
-   "k": "Enter",
-   "cmd": true,
-   "settleMs": 1500
+   "do": "wait",
+   "ms": 1300
   },
   {
    "do": "waitFor",

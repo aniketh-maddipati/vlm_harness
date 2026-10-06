@@ -1,11 +1,11 @@
 {
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   924,
   540
  ],
  "clock": "2026-09-08T14:30:00",
- "checklist": "The v7 prototype runs: Open, Pick, keep, Edit, Save",
+ "checklist": "The v5 prototype runs: Open, Cull, keep, Save",
  "steps": [
   {
    "do": "wait",
@@ -52,21 +52,6 @@
   {
    "do": "state",
    "name": "after-p"
-  },
-  {
-   "do": "key",
-   "k": "3",
-   "cmd": true,
-   "settleMs": 800
-  },
-  {
-   "do": "expect",
-   "js": "return __probe.logic().state.view",
-   "equals": "edit"
-  },
-  {
-   "do": "snap",
-   "name": "edit"
   },
   {
    "do": "key",

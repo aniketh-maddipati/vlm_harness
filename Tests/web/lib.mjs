@@ -21,7 +21,7 @@ export function deadline(name, seconds) {
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const WEB = path.join(ROOT, 'Lumina/Sets/Web');
-export const PAGE = 'Lumina Sets v7.dc.html';
+export const PAGE = 'Lumina Sets v8.dc.html';
 export const ORIGIN = 'http://lumina.test';
 export const VENDOR = {
   'https://unpkg.com/react@18.3.1/umd/react.production.min.js': ORIGIN + '/vendor/react.production.min.js',

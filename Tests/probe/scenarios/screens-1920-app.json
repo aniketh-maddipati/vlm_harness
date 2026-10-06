@@ -1,5 +1,5 @@
 {
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1920,
   1080
@@ -8,7 +8,7 @@
  "clock": "2026-09-08T14:30:00",
  "storageWrites": false,
  "stopOnFailure": false,
- "checklist": "Every v7 screen at 1920x1080: Open, Pick (next, row seen, picked, removed), the large view, the focus overlay, 100%, shortcuts, settings, the FAQ, Save, Open again (Edit is visited on the way, not snapped).The -app twin runs the same steps through plumbing.js (parity mode: the design's sample shoot and card) and must match pixel for pixel",
+ "checklist": "Every v8 screen at 1920x1080. The -app twin runs the same steps through plumbing.js (parity mode: the design's sample shoot and card) and must match pixel for pixel",
  "mode": "app",
  "app": {
   "parity": true
@@ -25,6 +25,14 @@
   {
    "do": "state",
    "name": "00-open"
+  },
+  {
+   "do": "js",
+   "src": "__probe.logic().tourEnd()"
+  },
+  {
+   "do": "wait",
+   "ms": 500
   },
   {
    "do": "key",
@@ -83,17 +91,12 @@
   },
   {
    "do": "key",
-   "k": "x",
-   "settleMs": 700,
-   "why": "v7: X (and R) remove; there is no flag"
+   "k": "f",
+   "settleMs": 700
   },
   {
    "do": "snap",
-   "name": "05-cull-removed"
-  },
-  {
-   "do": "state",
-   "name": "05-cull-removed"
+   "name": "05-cull-flagged"
   },
   {
    "do": "key",
@@ -106,16 +109,9 @@
   },
   {
    "do": "hold",
-   "k": "f",
-   "ms": 700,
-   "snap": "07-large-focus",
-   "why": "v7: F held shows the focus overlay"
-  },
-  {
-   "do": "hold",
    "k": "z",
    "ms": 700,
-   "snap": "08-zoom-100"
+   "snap": "07-zoom-100"
   },
   {
    "do": "key",
@@ -129,8 +125,17 @@
    "alt": true
   },
   {
+   "do": "js",
+   "src": "const l = __probe.logic(); l._cpAt = 0; l.forceUpdate(); return true",
+   "why": "The storage meter memoizes its total for 1 s (cacheParts) and ⌥→'s preloads land inside or after that second; expire the memo and draw it once more, so both twins show the current total (DESIGN-ASKS Prompt 14)"
+  },
+  {
+   "do": "wait",
+   "ms": 300
+  },
+  {
    "do": "snap",
-   "name": "09-cull-skip"
+   "name": "08-cull-skip"
   },
   {
    "do": "key",
@@ -139,7 +144,7 @@
   },
   {
    "do": "snap",
-   "name": "10-shortcuts"
+   "name": "09-shortcuts"
   },
   {
    "do": "key",
@@ -154,7 +159,7 @@
   },
   {
    "do": "snap",
-   "name": "11-settings"
+   "name": "10-settings"
   },
   {
    "do": "key",
@@ -171,7 +176,7 @@
   },
   {
    "do": "snap",
-   "name": "12-faq"
+   "name": "11-faq"
   },
   {
    "do": "key",
@@ -180,23 +185,9 @@
   },
   {
    "do": "key",
-   "k": "3",
-   "settleMs": 2000,
-   "cmd": true,
-   "why": "v7: ⌘3 is Edit"
-  },
-  {
-   "do": "expect",
-   "js": "return __probe.logic().state.view",
-   "equals": "edit",
-   "why": "Edit is visited, not snapped: in app mode its canvas is drawn by the Mac (no photo in the page) and Edit reports its own failed storage write, so the twins cannot match there"
-  },
-  {
-   "do": "key",
    "k": "4",
    "settleMs": 1000,
-   "cmd": true,
-   "why": "v7: Save is ⌘4"
+   "cmd": true
   },
   {
    "do": "expect",
@@ -205,7 +196,7 @@
   },
   {
    "do": "snap",
-   "name": "13-save"
+   "name": "12-save"
   },
   {
    "do": "key",
@@ -220,7 +211,8 @@
   },
   {
    "do": "snap",
-   "name": "14-open-again"
+   "name": "13-open-again"
   }
- ]
+ ],
+ "tour": true
 }

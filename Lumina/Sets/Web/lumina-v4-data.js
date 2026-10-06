@@ -2,8 +2,8 @@
 // value formatters, and the "this shoot" facts. No UI.
 (function(g){
 const GRAMMAR = `LUMINA PICK GRAMMAR
-Rule: arrows say where, ⏎ says yes, R says no. The cursor acts on the unit under it. ⇧ works inside a stack.
-Unit = a photo, or a closed stack (burst/bracket). Three states: undecided, kept (⏎), removed (R). Every decision is one undo step and reports in the footer.
+Rule: a photo is kept or not. ⏎ keeps, R un-keeps, both move on. ⇧ does the same going back. Arrows just pass. The cursor acts on the unit under it. ⇧ works inside a stack.
+Unit = a photo, or a closed stack (burst/bracket). Two states: kept or not. Nothing is deleted; Save lists what wasn't kept and offers another pass, as many as you like. Every decision is one undo step and reports in the footer.
 
 MOVE
 ←→            next / previous photo · on a stack: through its frames, then on · hold repeats
@@ -13,26 +13,29 @@ MOVE
 ⌘←→           previous / next row
 ⌥↑↓           previous / next group in a row not yet seen
 ⏎             photo: keep, next · closed stack: open · open frame: keep, next frame · after the last frame the stack closes
-⇧⏎            next row not yet seen
+⏎ hold        keep and move on, repeating · a closed stack keeps its best frame · Space opens the large view
+⌥↓            next row not yet seen
 esc           close the stack
 
 DECIDE (the unit under the cursor)
 K             same as ⏎
-R             remove · closed stack: removes every frame
-K R F         in an open stack or large view: the frame shown
+R             not kept, next · closed stack: un-keeps every frame
+⇧⏎ / ⇧R       back one, and keep it / un-keep it
+K R           in an open stack or large view: the frame shown
 ⌘A            keep every photo in this row · 600 ms preview · esc cancels · one undo
-⇧K / ⇧R       stack (open or closed): keep every frame / remove every frame
-⇧F            stack (open or closed): flag all · again: unflag
+⇧K            stack (open or closed): keep every frame
 Q / ⌘Z        undo · ⇧Q / ⇧⌘Z redo · the key bar shows how many steps each way
-⌥⌘⌫          start over · press twice · clears every keep and remove for this shoot · one undo step
-U L G 1–5     not used · the footer names the right key
+⌥⌘⌫          start over · press twice · clears every keep for this shoot · one undo step
+U L G Y 1–5   not used · the footer names the right key
 ⇪ Caps Lock   auto-advance off while on
 
 SEEN · PASSES
 a row is marked seen when the cursor leaves it
 ⇧U            rows not yet seen only
-⇧P            pass 2: picks only · R narrows, removed photos leave the view · ⇧P returns to all photos
-picks tray  along the bottom in pass 1 · every pick in time order · click one to jump · Y hides
+⇧P            start the next pass: only what you kept · ⏎ keeps, R drops · rows reset to not seen
+              later ⇧P just shows this pass's photos or all photos · Save lists every pass: All → Pass 1 → Pass 2 …
+⇧P again      all photos, picks tray hidden · ⇧P once more shows the tray · esc: all photos with the tray
+picks tray  along the bottom · every pick in time order · click one to jump
 
 VIEW
 Space         hold: large view while held · tap: toggle · a stack opens at its first frame · ←→ within the stack, else the row
@@ -73,7 +76,7 @@ SETTINGS
 STEPS
 ⌘1 Open · ⌘2 Pick · ⌘3 Edit · ⌘4 Save · ⌘O open a folder or card · ⌘R Show in Finder (Pick: the photo · Save: the folder)
 Open: ↑↓ choose · ⏎ open
-Save: ⌘⏎ save picks · one sidecar per pick, read by Lightroom Classic and Capture One (⏎ alone does not save)
+Save: ⌘⏎ save · one sidecar per photo that made a pass: rating = last pass made, keyword “Lumina pass N” (one pass: the Settings rating) · read by Lightroom Classic and Capture One
 Guards: with undecided photos left, ⌘⏎ asks once · opening another card with unsaved picks asks once · esc stays`;
 
 const FAQ=[["Using Lumina",[["What does Lumina do?","It opens RAW photos from a card, a folder or your phone. Pick the ones you want with ⏎ (or set some aside with R), edit them, then Save. For ARW, Save writes an .xmp sidecar for each pick so Lightroom Classic or Capture One picks up the rating."],["Which files are supported?","RAW only: Sony ARW and DNG, including iPhone ProRAW and Android RAW. JPEG and HEIC are not supported yet. Other RAW formats are skipped and listed after import. A JPEG or HEIC with a RAW of the same name is skipped quietly. One without a RAW is skipped and counted."],["What is a shoot?","A named set of photos from one or more places: a card, folders, your phone. Name it in the top bar. Files stay where they are; Lumina keeps a record of them."],["How do I add more photos to a shoot?","⌘O inside a shoot, the + next to the shoot name, holding ⇧, or drop files on the window. Photos already in the shoot are skipped by camera, capture time and size."],["How do I add photos from my phone?","Open → Add from phone. iPhone: AirDrop the photos with Share → Options → All Photos Data turned on, or in Photos on your Mac use File → Export → Export Unmodified Original. Android: plug in, choose File transfer, copy the .dng files from DCIM → Camera with OpenMTP. Then drop them on the page, or turn on Watch Downloads."],["Why did my iPhone photos arrive as HEIC?","AirDrop sends a compressed copy unless All Photos Data is on. In Share, tap Options, turn it on, and send again. Lumina only adds the RAW."],["What if I've seen these photos before?","Lumina remembers each decision by photo, not by folder. If a photo turns up again in another shoot, your earlier pick or remove comes back, and a note names the shoot it came from."],["How are rows made?","A new row starts after a long time gap for that shoot (compared with the last 10 gaps, at least 10 seconds), or when the lens, focal length, orientation, shooting mode, white balance, flash or ISO changes. You can split or merge with B and ⇧B."],["How are stacks made?","Frames from the camera's continuous drive sequence form a stack. Without sequence data, frames taken within 2 seconds that look alike form a stack. A large change between frames starts a new one. ↓ or ⏎ opens a stack, ↑ closes it."],["What happens if I shot with two cameras?","Photos are sorted by capture time. When you add photos from a second camera whose clock is off, Lumina shows the offset it found and lets you shift them into line. Files are not changed."],["What is edge detail?","How much edge detail the embedded preview has, scaled so the frame with the most detail in the stack (or row) is 100. It is a measurement, not a verdict. Hold F in the big view to see the edges, Z for 100%."],["What are the F, E, M and B overlays?","In the big view, hold F for sharp edges (red), E for clipped highlights (red) and blocked shadows (blue), M for motion streaking, B for the focus point. Inside an open stack, F and E tint every frame so you can compare."],["Can I undo or start over?","⌘Z undoes one step at a time; ⇧⌘Z redoes. ⌥⌘⌫ pressed twice clears every decision for the shoot as one undo step."]]],["Your files",[["Does Lumina change my RAW files?","No. RAW and DNG files are never modified, moved or deleted. Nothing is ever written to a card."],["What does Save write?","For ARW: one small .xmp file next to each pick, with the rating set in Settings (⌘,, default 3★). For DNG, including phone photos: picks are copied into a Picks folder, because Lightroom ignores sidecars for DNG. Photos you didn't pick get nothing."],["What if a photo already has a sidecar?","Only the rating is updated. Edits and other metadata stay. The previous file is kept as .xmp.lumina-bak."],["Why a rating and not a Lightroom pick flag?","Lightroom keeps pick flags in its catalog, not in sidecar files. A rating is the part of a sidecar Lightroom reads, so picks arrive as a rating you can filter on."],["What if I save with photos still undecided?","Lumina tells you how many are undecided and asks once; ⌘⏎ again saves anyway."],["What are working files?","Previews and progress Lumina keeps so it stays fast: big-view previews, this card's picks, earlier cards, the recent list. Click the squares in the top bar to see what each uses, clear any of them, or set a limit (200 MB, 1 GB, 5 GB or none). When the limit is reached, the oldest previews and earlier cards go first. Your RAWs, .xmp ratings and this card's picks are never removed."],["Who makes Lumina?","Aniketh Maddipati. Bugs and feedback: anikethcov@gmail.com. Also on LinkedIn (linkedin.com/in/anikethmaddipati) and X (@aniketh745)."],["What if a drive or folder is disconnected?","The shoot keeps its photos and your decisions. The source shows Reconnect; plug the drive back in or point to where it moved."],["Which browsers work?","Chrome and Comet support everything. Firefox and Safari can open and pick photos, but can't watch Downloads, and Save downloads a zip instead of writing next to your RAWs. The Mac app needs no browser."],["Does anything leave my Mac?","No. Nothing is uploaded, no account is needed, and all measuring happens on your Mac."]]]];

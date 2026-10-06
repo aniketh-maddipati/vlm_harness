@@ -1,5 +1,5 @@
 {
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1280,
   800
@@ -12,11 +12,6 @@
    "do": "openFolder",
    "path": "${LUMINA_FIXTURE_ROOT}/orientation",
    "timeoutMs": 120000
-  },
-  {
-   "do": "dump",
-   "name": "inputs",
-   "js": "const l=__probe.logic(), d=l.data; return {real:(l.real||[]).map(p=>({file:p.name,path:p.path,date:p.date,subsec:p.subsec==null?null:p.subsec,seqImage:p.seqImage==null?null:p.seqImage,seqLength:p.seqLength==null?null:p.seqLength,seqNumber:p.seqNumber==null?null:p.seqNumber,releaseMode2:p.releaseMode2==null?null:p.releaseMode2,dhash:p.dhash||null,lum:p.lum==null?null:p.lum,focus:p.focus==null?null:p.focus,clip:p.clip==null?null:p.clip,model:p.model||null,serial:p.serial||null,wbK:p.wbK==null?null:p.wbK,exp:p.exp==null?null:p.exp,iso:p.iso==null?null:p.iso,fl:p.fl==null?null:p.fl,ev:p.ev==null?null:p.ev,nopv:!!p.nopv,portrait:p.portrait==null?null:!!p.portrait,program:p.program==null?null:p.program,lens:p.lens||null,bytes:p.bytes==null?null:p.bytes,keys:Object.keys(p).sort().join(' ')})), order:d.order.map(id=>d.byId[id].file), rows:d.M.map(m=>({time:m.time,reason:m.reason,groups:m.groups.map(g=>({kind:g.kind,files:g.frames.map(f=>f.file+'@'+f.sec+(f.start?'*':''))}))})), info:l.state.realInfo}"
   },
   {
    "do": "js",

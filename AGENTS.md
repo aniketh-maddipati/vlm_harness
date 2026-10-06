@@ -6,9 +6,8 @@ Sony ARW shooters.
 ## The rule
 
 **The design is the product.** Lumina's UI is the Claude Design page in `design/handoff/lumina-cull/`
-(`Lumina Sets v7.dc.html` + `Lumina Edit v21.dc.html`, the Edit step the Sets page mounts, + `support.js` +
-`lumina-core-v4.js` + `lumina-measure.js` + `lumina-v4-data.js` + `lumina-selftest.js`; the names live in
-`Scripts/page_files.sh`). The app ships those files **byte for byte** inside a native
+(`Lumina Sets v8.dc.html`, with `Lumina Edit v21.dc.html` mounted inside it, + `support.js` + `lumina-core-v4.js` +
+`lumina-v4-data.js` + `lumina-measure.js` + `lumina-selftest.js`; the names live in `Scripts/page_files.sh`). The app ships those files **byte for byte** inside a native
 window. Nobody edits the UI in this repo.
 
 - Something visible is wrong or missing (layout, copy, keys, empty states)? It goes into
@@ -26,12 +25,10 @@ window. Nobody edits the UI in this repo.
   The check that the reversal is right: `--prove <the previous standalone> <the previous Sets page>` must
   reproduce that page exactly. Then install and verify as for a zip (give the sync the folder), and ask the
   designer for a proper zip next time.
-- Authority order: `design/handoff/lumina-cull` → `Lumina/Sets` (plumbing) → tests. Inside the handoff,
-  since v0.01 (2026-10-05), its `README.md` sets the order: README + `BRIDGE.md` (the page ↔ app
-  contract) → the two pages → `ROADMAP.md` (trust rules) → the v5-era docs (PROMPT, ADDENDUM-1, PARITY,
-  GRAMMAR, MENUS, `reference/`), which stand where the newer ones are silent. Where BRIDGE.md and the
-  page's source disagree on a name or a shape, the page is what runs.
-  The handoff's own `reference/plumbing.js` is an older reference; the app's is `Lumina/Sets/Web/plumbing.js`.
+- Authority order: `design/handoff/lumina-cull` (its `README.md` sets the order inside it: README, CHANGES-v0.02,
+  BRIDGE-v0.02, NATIVE-EDIT → the Sets v8 and Edit v21 pages → BRIDGE, TEST-PLAN, ROADMAP → `reference/`)
+  → `Lumina/Sets` (plumbing) → tests. The handoff's `reference/plumbing.js` is an older reference; the app's is
+  `Lumina/Sets/Web/plumbing.js`.
 - The handoff's `uploads/` (the sample shoot's photos) and `screenshots/` stay out of the repo and the
   bundle: the sync puts them in `~/LuminaEvidence/design`. The app never shows the sample shoot.
 
@@ -39,7 +36,7 @@ window. Nobody edits the UI in this repo.
 
 | Path | What it does |
 |---|---|
-| `Lumina/LuminaApp.swift` | One window and the menu bar from MENUS.md: every item calls `window.luminaCommand(name)`; Quit asks about unsaved keepers |
+| `Lumina/LuminaApp.swift` | One window and the menu bar from BRIDGE.md "MENUS (v7)": every item calls `window.luminaCommand(name)` (Undo, Redo, Copy, Paste go to `window.luminaEdit` while Edit is the step); Quit asks about unsaved keepers |
 | `Lumina/Sets/SetsRootView.swift` | The WKWebView, the native folder pickers, downloads, the Edit canvas overlay laid above the web view, and the page's three outbound links: any navigation the page asks for that leaves `lumina://` is handed to the browser or Mail only if `SetsExternalLinks` allows it exactly, from the main frame only, at most one hand-over per 2 s |
 | `Lumina/Sets/Web/` | The design's files, copied unchanged by `Scripts/sets_sync_ui.sh`, plus `plumbing.js` |
 | `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, and its native read mirrors the refreshed page's `onDir` / `readOne` (`ONDIR` is the hash of the page's copy; see "Rules that bite"). It provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, `near` / `nearLimit` (how alike two photos are and the threshold for a retake, DESIGN-ASKS Prompt 2 C), the sources (`addFrom`, `sources`, `reconnect`), `watchAirdrop`, `removeWorkingFiles` (keeps the session; the File menu's Remove Working Files… is what removes it), …, and the Edit step's `preview` / `canvasRect` / `drag` / `roi` from DESIGN-ASKS Prompt 1 §3, plus `edit`, the superset the probe drives), holds the page's `localStorage` keys that must outlive a launch in `SetsPageStore` (the list is `STORED`), persists sessions (Edit's own state rides in them by photo path, `editOut` / `editIn`; writes debounce 500 ms after the last Edit change), makes the grid thumbnails (720 × 480; measures stay on the page's 360 px bitmap) and decodes them ahead of a scroll (design ask 7), keeps every Cull row on its own element while the grid scrolls (the row items get their row id as React key, existing thumbnails show without the fade, the mounted rows lead the scroll; design ask 11), keeps the reader's place and decisions when a read they culled during ends (design ask 8), and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`, `luminaPresented`, `luminaHistogram`, `luminaFacts`, `luminaEditStats`) |
@@ -76,6 +73,7 @@ Trust rules, from the ROADMAP; the tests enforce them:
 ```bash
 # Design logic fixtures
 (cd design/handoff/lumina-cull && node lumina-core-v4.test.mjs)
+node Tests/core/v8-core.test.mjs   # the core cases CHANGES-v0.02 §9 asks for (parseHead pieces, Sony MakerNote, soft/blown, pass keywords)
 
 # Linux too: the real page in headless Chromium with plumbing.js and a Node stand-in for SetsBridge
 node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, sidecars, card, access
@@ -121,7 +119,7 @@ bash Scripts/probe.sh contract      # plumbing.js still fits the page
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh sandbox smoke   # any mode inside the App Sandbox with Config/Lumina-Sets.entitlements as shipped: per scenario PASS / FAIL / FAILED-BY-SANDBOX + each denial (Sandbox.swift)
 bash Scripts/probe.sh sandbox smoke # the same without fixtures (what CI runs)
 bash Scripts/probe.sh smoke         # (scenarios start past the tour and Edit's first-entry intro unless they say "tour": true; see Tools/LuminaProbe/Sources/LuminaProbe/probe.js) page runs, ?selftest passes, app reads / keeps / saves sidecars / reopens, the empty app
-bash Scripts/probe.sh selftest      # the design's own ?selftest (every check + timing); the four v5-era checks the page still carries are in Tests/selftest-known.json, reported and not failed on (the probe's `selftest` step; a listed check that passes again is reported)
+bash Scripts/probe.sh selftest      # the design's own ?selftest (25 checks + timing)
 LUMINA_LONG=1 bash Scripts/probe.sh fuzz          # seeded key + mouse storms (with LUMINA_FIXTURE_ROOT: also over a card image pulled at random)
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh scroll  # fast Cull scrolling: frames, blank tiles, thumbnail upscale, memory
 LUMINA_FIXTURE_ROOT=~/LuminaEvidence/fixtures bash Scripts/probe.sh app     # contract + the app on folders: sidecars, .lumina-bak, Lightroom's sidecars merged, sessions across a relaunch, keepers renamed mid-cull, the empty app
@@ -151,8 +149,9 @@ Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh
 CI (`.github/workflows/lumina.yml`) runs, on every pull request, the fixtures, the byte-for-byte page check, the
 wording audit and the parity tools (one Linux job), the Chromium plumbing harness and the WebKitGTK sandbox (one
 job), the Linux Swift tests, the build + logic tests with the release build and strict preflight (one macOS job),
-and the probe's smoke, screens and sandbox smoke (one macOS job). The long probe shards (fuzz 1-2, fuzz 3 + scroll,
-scroll 2560 + edit + raw9) run in parallel on main and when the workflow is run by hand on a branch.
+and the probe's smoke, screens and sandbox smoke (one macOS job). The long probe shards (fuzz-sample-2 +
+scroll-quick-2560; scroll-read + scroll-quick + edit on a 24-photo folder) run in parallel on main and when the
+workflow is run by hand on a branch. The other storms, the full scroll sweep and raw9 (real ARWs) run on a Mac.
 
 ## Running tests without disturbing the Mac
 
@@ -210,9 +209,9 @@ harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift
 - **One pusher to a shared branch, and merges go through one place.** Everyone else hands work over as a branch. Never rebase or reset a branch another live session owns: its worktree and its unpushed work sit on it.
 - **Cull rows are keyed by row id, from `plumbing.js`.** The page's runtime keys list items by position, which hands every mounted row the next row's content each time the window moves (heights animating, images swapping: the scroll wobble). `probe.sh scroll` reports it (`rows out of place`: 0 % on a Mac against 65 to 80 % with the page's keying; not gated, the CI runner's 180 to 300 ms frames give 1 to 26 % either way) and keeps one pass with the page's own keying for comparison. A sync that renames `data-lumina="row"` / `data-id` turns the keying off silently: compare the two passes after a sync.
 - **Pixel parity is 0 px.** App-mode screens (`screens-*-app`, plumbing's test-only parity mode: the design's sample shoot and card) must match the prototype reference byte for byte. Both twins run with `"storageWrites": false`, because the page's "saved" label is browser-only. CSS tricks that change anti-aliasing are out; content-visibility was tried and rejected.
-- **v7's keys in scenarios.** ⌘1 Open, ⌘2 Pick, ⌘3 Edit, ⌘4 Save. K, P and T keep; R and X remove; F,
-  E and B held are overlays (M too in the large view); there is no flag key (v5's F). On a card the
-  page refuses Save before the undecided-photos guard.
+- **v8's keys in scenarios.** ⌘1 Open, ⌘2 Pick, ⌘3 Edit, ⌘4 Save. ⏎, P and K keep and never toggle;
+  R un-keeps; F held shows the focus overlay; there is no flag (CHANGES-v0.02). On a card the page
+  refuses Save before the Save guard.
 - **The header's working-files meter is masked in every snapshot.** What it shows depends on the
   moment (the page keeps its total for 1 s while previews load, its cells fade 360 ms), so its
   contents are hidden while a snapshot is taken (`__probe.meterMask`, and the same in

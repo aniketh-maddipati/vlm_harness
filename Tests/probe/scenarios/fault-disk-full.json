@@ -1,11 +1,11 @@
 {
- "page": "Lumina Sets v7.dc.html",
+ "page": "Lumina Sets v8.dc.html",
  "size": [
   1280,
   800
  ],
  "stopOnFailure": false,
- "checklist": "F3 / SAFETY.md 6 (Mac layer only, was the export to a full disk): Save writes sidecars into the shoot folder, and the only disks a test can fill are images, which the app takes for removable media. So: the app's sidecar write refuses the image ('on the card'); the write below that check, on a disk with no space left, fails as 'disk full' (the page's word for the result list), with Lightroom's old sidecar untouched, no new sidecar and no temp file.",
+ "checklist": "F3 / SAFETY.md 6 (v5 Save; Mac layer only, was the export to a full disk): v5 writes sidecars into the shoot folder, and the only disks a test can fill are images, which the app takes for removable media. So: the app's sidecar write refuses the image ('on the card'); the write below that check, on a disk with no space left, fails as 'disk full' (the page's word for the result list), with Lightroom's old sidecar untouched, no new sidecar and no temp file.",
  "steps": [
   {
    "do": "diskImage",
