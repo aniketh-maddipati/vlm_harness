@@ -350,7 +350,7 @@ def run_screens(spec, app, d):
     snaps, states, fails = {}, {}, []
     # As the Mac probe's snapshots (probe.js meterMask): the header's working-files meter is hidden
     # while a snapshot is taken; what it shows depends on the moment (a 1 s total, 360 ms fades).
-    mask_css = json.dumps('[data-lumina="cache-pill"] > * { visibility: hidden !important; }')
+    mask_css = json.dumps('[data-lumina="cache-pill"] { width: 140px !important; box-sizing: border-box !important; overflow: hidden !important; color: transparent !important; } [data-lumina="cache-pill"] * { visibility: hidden !important; color: transparent !important; }')
     def shot(path):
         p.js("const el = document.createElement('style'); el.id = '__probe-meter-mask'; el.textContent = " + mask_css + "; document.head.appendChild(el); return true")
         wait(100)

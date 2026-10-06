@@ -31,7 +31,7 @@ const STATE = `(() => { const l = (${LOGIC})(), seen = new WeakSet();
 // As the Mac probe's snapshots (probe.js meterMask): the header's working-files meter is hidden while
 // a snapshot is taken; what it shows depends on the moment (a 1 s total, 360 ms fades).
 const shot = async page => {
-  await page.evaluate(css => { const el = document.createElement('style'); el.id = '__probe-meter-mask'; el.textContent = css; document.head.appendChild(el); }, '[data-lumina="cache-pill"] > * { visibility: hidden !important; }');
+  await page.evaluate(css => { const el = document.createElement('style'); el.id = '__probe-meter-mask'; el.textContent = css; document.head.appendChild(el); }, '[data-lumina="cache-pill"] { width: 140px !important; box-sizing: border-box !important; overflow: hidden !important; color: transparent !important; } [data-lumina="cache-pill"] * { visibility: hidden !important; color: transparent !important; }');
   try { return await page.screenshot(); } finally { await page.evaluate(() => { const el = document.getElementById('__probe-meter-mask'); if (el) el.remove(); }); }
 };
 

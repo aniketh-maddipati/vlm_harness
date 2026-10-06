@@ -887,7 +887,9 @@ final class Runner {
     }
 
     private func snap(_ name: String) async throws {
-        _ = try? await host.js("return await __probe.meterMask(true)")
+        // A mask that did not go on leaves the meter in the snapshot, where it differs between twins
+        // by the moment it was taken: said in the log, so a pixel diff there is not a mystery.
+        if (try? await host.js("return await __probe.meterMask(true)")) as? Bool != true { host.log("snap", "\(name): meter mask not applied") }
         let img: CGImage
         do { img = try await host.snapshot(scale: scale) } catch { _ = try? await host.js("return await __probe.meterMask(false)"); throw error }
         _ = try? await host.js("return await __probe.meterMask(false)")

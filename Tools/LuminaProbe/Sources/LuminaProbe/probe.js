@@ -131,12 +131,30 @@
     // it shows, a different moment in each twin. Its contents are hidden for the snapshot (the pill's
     // background stays); the screens compare everything else byte for byte. Its numbers are checked
     // through state instead.
+    // The pill also gets a fixed width while masked: its text ("0 KB" in one twin, "6.0 MB" in the
+    // other) sizes it, and the step tabs are centred in what is left of the header, so a different
+    // width moved them. Before the snapshot, finite CSS transitions and animations are let finish
+    // (at most 1 s): the large view's filmstrip frames animate their size, and a snapshot taken
+    // mid-way caught their stand-ins at another scale in each twin.
     async meterMask(on) {
       let el = document.getElementById('__probe-meter-mask');
-      if (on && !el) { el = document.createElement('style'); el.id = '__probe-meter-mask'; el.textContent = '[data-lumina="cache-pill"] > * { visibility: hidden !important; }'; document.head.appendChild(el); }
+      if (on && !el) { el = document.createElement('style'); el.id = '__probe-meter-mask'; el.textContent = __probe.METER_MASK; document.head.appendChild(el); }
       if (!on && el) el.remove();
+      if (on) await __probe.settle(1000);
       await new Promise(r => { let n = 0; const done = () => { if (!n++) r(); }; requestAnimationFrame(() => requestAnimationFrame(done)); setTimeout(done, 100); });
       return true;
+    },
+    METER_MASK: '[data-lumina="cache-pill"] { width: 140px !important; box-sizing: border-box !important; overflow: hidden !important; color: transparent !important; } [data-lumina="cache-pill"] * { visibility: hidden !important; color: transparent !important; }',
+    // Waits for the running CSS transitions and animations that end (infinite ones are skipped), at most `ms`.
+    async settle(ms) {
+      const live = (document.getAnimations ? document.getAnimations() : []).filter(a => {
+        if (a.playState !== 'running') return false;
+        const t = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming() : null;
+        return t && isFinite(t.endTime);
+      });
+      if (!live.length) return 0;
+      await Promise.race([Promise.all(live.map(a => a.finished.catch(() => {}))), new Promise(r => setTimeout(r, ms))]);
+      return live.length;
     },
     // Rects to ignore in pixel diffs: every <img> and every element painting a url() background.
     masks() {
