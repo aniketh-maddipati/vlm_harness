@@ -165,4 +165,32 @@ final class LookCanvasHolesTests: XCTestCase {
         XCTAssertFalse(view.isHidden)
         XCTAssertNotNil(layer.mask)
     }
+
+    // MARK: Under a title bar
+
+    /// On macOS 26 the web view fills the host but keeps the strip under the title bar out of the
+    /// page, so the page's CSS y = 0 is that far below the host's top. The rect is placed up from the
+    /// viewport's bottom (the host's): a 900 pt host whose page is 868 pt tall puts a rect at CSS
+    /// y = 60 at 32 pt + 60 pt below the host's top, not 60 pt (the photo over the tab bar).
+    func testTheCanvasIsPlacedFromThePageViewportNotTheHostTop() {
+        let rect = CGRect(x: 20, y: 60, width: 1000, height: 600)
+        XCTAssertEqual(LookCanvasController.frame(for: rect, hostHeight: 900, viewportHeight: 868), NSRect(x: 20, y: 208, width: 1000, height: 600))
+        // No viewport height, or one the host can't hold: the viewport is the whole host, as before.
+        for vh: CGFloat? in [nil, 0, -5, 901, CGFloat.nan, CGFloat.infinity] {
+            XCTAssertEqual(LookCanvasController.frame(for: rect, hostHeight: 900, viewportHeight: vh), NSRect(x: 20, y: 240, width: 1000, height: 600), "\(String(describing: vh))")
+        }
+    }
+
+    @MainActor
+    func testTheViewSitsWhereThePageViewportPutsTheRect() throws {
+        let host = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        let canvas = LookCanvasController(pipeline: try LookPipeline(rules: LookRules.bundled()), host: host)
+        canvas.layout(rect: rect, visible: true, dpr: 2, viewportHeight: 568)
+        guard canvas.path == .native else { return }
+        let view = try XCTUnwrap(host.subviews.first)
+        XCTAssertEqual(view.frame, NSRect(x: 100, y: 218, width: 400, height: 300))
+        // The window's title bar goes away (full screen): the same rect moves with the viewport.
+        canvas.layout(rect: rect, visible: true, dpr: 2, viewportHeight: 600)
+        XCTAssertEqual(view.frame, NSRect(x: 100, y: 250, width: 400, height: 300))
+    }
 }
