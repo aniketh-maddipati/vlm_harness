@@ -21,6 +21,18 @@
   // localStorage when it starts and hands every change to lumina.setPrefs. The web view's storage is
   // not persistent, so seed it before the page's constructor runs.
   if (cfg.prefs && typeof cfg.prefs === 'object') { try { localStorage.setItem('lumina-prefs', JSON.stringify(cfg.prefs)); } catch (_) {} }
+  // The same for the few other keys the page keeps there and that must outlive a launch (the tour
+  // was seen, shoot names, the seen-before memory, the "before you open" tick, the phone page's
+  // choice, Edit's intro). The Mac holds them (SetsPageStore, the same list); seeded here, and every
+  // later write of one of them is handed over half a second after the last. Not in the probe's twins.
+  const STORED = ['lumina-v4-toured', 'lumina-v4-pre-ok', 'lumina-v4-names', 'lumina-v4-seen', 'lumina-phone-kind', 'lumina-phone-used', 'lumina.edit.intro.v1'];
+  if (cfg.store && typeof cfg.store === 'object' && !cfg.parity) {
+    try { for (const k of STORED) if (typeof cfg.store[k] === 'string') localStorage.setItem(k, cfg.store[k]); } catch (_) {}
+    const timers = {}, hand = k => { clearTimeout(timers[k]); timers[k] = setTimeout(() => { let v = null; try { v = localStorage.getItem(k); } catch (_) {} native('storeSet', { key: k, value: v }); }, 500); };
+    const set0 = Storage.prototype.setItem, rem0 = Storage.prototype.removeItem;
+    Storage.prototype.setItem = function (k, v) { const r = set0.call(this, k, v); if (this === localStorage && STORED.includes(String(k))) hand(String(k)); return r; };
+    Storage.prototype.removeItem = function (k) { const r = rem0.call(this, k); if (this === localStorage && STORED.includes(String(k))) hand(String(k)); return r; };
+  }
 
   const b64 = u8 => {
     let s = '';
@@ -61,7 +73,9 @@
   // in the probe's plumbing-contract scenario) instead of as a silent break.
   const REQUIRED = ['onKey', 'setState', 'setView', 'say', 'undo', 'openFolder', 'onDir', 'readOne', 'intake', 'notesFor',
     'writeInto', 'runExport', 'impStart', 'impSet', 'libOpen', 'build', 'forget', 'kept', 'undec', 'land', 'xmpFor', 'reveal',
-    'scrollAnchor', 'bridgeEmit', 'reshift', 'editShoot'];
+    'scrollAnchor', 'bridgeEmit', 'reshift', 'editShoot',
+    // adding to the open shoot (the page's onDir with `add`, its Sources panel)
+    'addSource', 'clockOffset', 'shiftDate', 'rememberSeen', 'restoreSeen', 'nameKey', 'shootName', 'names'];
   const GLOBALS = { 'LuminaCore.parseHead': () => window.LuminaCore && LuminaCore.parseHead, 'LuminaCore.measure': () => window.LuminaCore && LuminaCore.measure,
     'LuminaCore.hasDevelop': () => window.LuminaCore && LuminaCore.hasDevelop, 'LuminaCore.buildShoot': () => window.LuminaCore && LuminaCore.buildShoot,
     'LuminaCore.phoneOf': () => window.LuminaCore && LuminaCore.phoneOf, 'LuminaCore.assemblePreview': () => window.LuminaCore && LuminaCore.assemblePreview,
@@ -89,11 +103,39 @@
   // the last successful Save, so Quit knows whether keepers are unsaved. The Edit step's look
   // strings (roadmap "Rendering contract") live here too: `look` per photo, by path, and `rowLook`
   // per row, by row id like `seen`. Never in XMP: the sidecars the page builds carry ratings only.
-  const BY_ID = ['marks', 'flags', 'stars', 'cuts', 'look'];
+  const BY_ID = ['marks', 'flags', 'stars', 'cuts', 'look', 'xsaved'];      // xsaved: the picks the last Save wrote
   const SCALAR = ['seen', 'tsz', 'regions', 'lastEx', 'rowLook'];
   let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, sessionRefused = null;
-  // Path inside the opened folder ("sub/DSC00001.ARW"): stable across reopen and new files.
-  const keyOf = p => { const r = (p && p.fileObj && p.fileObj.webkitRelativePath) || (p && p.path) || ''; return r ? r.split('/').slice(1).join('/') : (p && p.file) || ''; };
+  // Path inside the opened folder ("sub/DSC00001.ARW"): stable across reopen and new files. A shoot
+  // can have more sources than the folder it was opened from (the page's Sources panel): a photo of
+  // another source is keyed by its whole path behind a slash ("/100MSDCF 2/DSC00001.ARW"), which no
+  // path inside the first folder can be, so two sources that both hold DSC00001.ARW keep separate
+  // decisions and a session written before sources existed reads as it always did.
+  let primaryTop = null;         // the first source's root name (natively read shoots): the first segment of its photos' paths
+  const keyOf = p => {
+    const r = (p && p.fileObj && p.fileObj.webkitRelativePath) || (p && p.path) || '';
+    if (!r) return (p && p.file) || '';
+    const i = r.indexOf('/');
+    if (primaryTop == null) return i < 0 ? '' : r.slice(i + 1);
+    return i >= 0 && r.slice(0, i) === primaryTop ? r.slice(i + 1) : '/' + r;
+  };
+  // The page's sources ('s1', 's2'…, its Sources panel) and the Mac's (`nid`, with the bookmark that
+  // finds the folder again). The first source is the shoot itself and has no nid unless the shoot
+  // was opened from single files.
+  let srcNid = {}, srcMissing = {};
+  const pushSources = l => {
+    window.lumina.sources = ((l && l._sources) || []).map(so => ({ id: so.id, missing: !!(srcNid[so.id] && srcMissing[srcNid[so.id]]) }));
+    if (l && l.forceUpdate) l.forceUpdate();
+  };
+  const sourceStatus = (l, list) => { if (!Array.isArray(list)) return; for (const x of list) if (x && x.nid) srcMissing[x.nid] = !!x.missing; pushSources(l); };
+  // What the Mac keeps per source: the clock shift the reader chose and how many photos it has.
+  const tellSources = l => {
+    if (!shootId || !l || cfg.parity) return Promise.resolve();
+    const by = {}, cnt = {};
+    for (const p of l.real || []) { const id = (l._srcOf || {})[p.path]; if (id) cnt[id] = (cnt[id] || 0) + 1; }
+    for (const so of l._sources || []) { const nid = srcNid[so.id]; if (!nid) continue; const e = by[nid] = by[nid] || { nid, offset: 0, n: 0 }; e.n += cnt[so.id] || (srcMissing[nid] ? so.n || 0 : 0); if (so.offset) e.offset = so.offset; }
+    return Promise.resolve(native('shootSources', { id: shootId, sources: Object.values(by) })).then(st => sourceStatus(l, st), () => {});
+  };
   const pathOf = (logic, id) => keyOf(logic.data && logic.data.byId[id]);
   const keepersOf = logic => logic.kept().map(id => pathOf(logic, id)).sort().join('\n');
   const snapshot = logic => {
@@ -192,7 +234,9 @@
     reveal: path => native('reveal', { path: String(path || '') }),
     // Lumina's own files for the open shoot (never RAWs or .xmp): size in bytes, and remove.
     workingFiles: () => shootId ? native('workingFiles', { id: shootId }) : Promise.resolve(0),
-    removeWorkingFiles: () => shootId ? native('removeShoot', { id: shootId }).then(ok => { shootId = null; lastSaved = ''; base = null; return ok; }) : Promise.resolve(false),
+    // The page's clear (the working-files meter, Save's Tidy up): the decisions stay (the session is
+    // kept until saved). File ▸ Remove Working Files… is __lumina.removeWorkingFiles, below.
+    removeWorkingFiles: () => shootId ? native('removeWorkingFiles', { id: shootId }) : Promise.resolve(false),
     setPrefs: prefs => native('setPrefs', { prefs }),
     // Permissions (SAFETY.md 5).
     openSettings: what => native('openSettings', { what: what || 'files' }),
@@ -209,6 +253,21 @@
       return native('near', { a: A, b: B }).then(d => (typeof d === 'number' && isFinite(d) ? d : null), () => null);
     },
     nearLimit: typeof cfg.nearLimit === 'number' ? cfg.nearLimit : null,
+    // Sources (the page's Sources panel). `sources` marks a source "not connected" there; `addFrom`
+    // is the panel's Add (the Mac's picker), `reconnect` its Reconnect. `pending` / `pullPending`
+    // stay unset: AirDrop arrivals reach the page through luminaPhoneArrived.
+    sources: [],
+    pending: null,
+    addFrom: where => (current && current.__luminaAddFrom ? current.__luminaAddFrom(where) : Promise.resolve()),
+    reconnect: id => (current && current.__luminaReconnect ? current.__luminaReconnect(id) : Promise.resolve()),
+    // AirDrop: the Mac watches Downloads, asked for once. The page turns its "watching" state on
+    // without waiting for an answer, so when there is no folder to watch (the panel was cancelled)
+    // it is turned off again through the page's own stop, with the page's own "couldn't open" line.
+    watchAirdrop: on => Promise.resolve(native('watchAirdrop', { on: !!on })).then(ok => {
+      const l = current;
+      if (on && !ok && l && typeof l.stopAirdrop === 'function') { l.stopAirdrop(); l.setState({ adMsg: 'Couldn’t open Downloads.' }); }
+      return !!ok;
+    }, () => false),
     // Exports a crash or kill cut short, found at launch (SetsExportJournal.recover): the page says so
     // once on Open (CHANGES-v0.04 D3). [{folder, done, planned, cleaned}], newest first.
     cutShort: Array.isArray(cfg.cutShort) ? cfg.cutShort : [],
@@ -252,13 +311,14 @@
 
     // The Edit step's photos (Edit v22 reads them through window.luminaShoot = editShoot). The page
     // names a photo by its file name without the folder or extension, so the canvas could not find
-    // it: give each one its path in the opened folder as `rel` (the page's rel(p) prefers it), and the
+    // it: give each one its path as the Mac reads it ("<root>/<file>", whichever of the shoot's sources
+    // it came from) as `rel` (the page's rel(p) prefers it), and the
     // RAW's own as-shot white balance once the Mac has read it (`asShot`, from the canvas's base).
     const editShoot0 = logic.editShoot.bind(logic);
     logic.editShoot = () => {
       const s = editShoot0(); if (!s || !Array.isArray(s.P)) return s;
       const name = (logic.state.realInfo && logic.state.realInfo.name) || '';
-      for (const p of s.P) { const f = logic.data.byId[p.id], k = keyOf(f); if (!f || !k) continue; p.rel = name + '/' + k; applyAsShot(p); }
+      for (const p of s.P) { const f = logic.data.byId[p.id], k = keyOf(f); if (!f || !k) continue; p.rel = f.path || name + '/' + k; applyAsShot(p); }
       return s;
     };
 
@@ -268,7 +328,7 @@
       const info = logic.state.realInfo || {};
       const first = logic.real.map(p => p.date).filter(Boolean).sort()[0] || '';
       // One RAW per body: the Mac measures each body's decoder map once (RAW 9 §1) for the shoot header.
-      const bodies = {}; for (const p of logic.real) { const m = p.model || '?', k = keyOf(p); if (m && k && !bodies[m]) bodies[m] = (info.name || '') + '/' + k; }
+      const bodies = {}; for (const p of logic.real) { const m = p.model || '?'; if (m && p.path && !bodies[m]) bodies[m] = p.path; }
       const r = await native('shootOpened', { name: info.name, n: logic.real.length, date: first, bodies });
       shootId = r && r.id; lastSaved = ''; base = null; savedKeepers = null;
       edit.header(r && r.header);
@@ -276,6 +336,8 @@
       if (r && r.session) { try { restore(logic, JSON.parse(r.session), live); } catch (_) {} }
       // Decisions made while the folder was read aren't in the session yet: the next save sends them.
       lastSaved = live ? '' : JSON.stringify(snapshot(logic));
+      // The sources read with it (a reopen brings them back): the Mac keeps exactly these.
+      tellSources(logic);
       loadRecents(logic);
     };
 
@@ -413,9 +475,12 @@
       } catch (_) { return null; }
     };
 
-    // The page's onDir, step for step, over the native listing.
-    const ingest = async L => {
-      const xmpMap = {};
+    // A native listing as the page's files: the stand-ins it keeps per photo, and the sidecar texts.
+    const standIns = L => {
+      const arws = (L.files || []).map(f => Object.assign(fileRef(f.rel), { size: f.size }));
+      return { arws, all: arws.concat((L.xmp || []).map(x => fileRef(x.rel)), (L.others || []).map(fileRef)) };
+    };
+    const sidecarsOf = (L, xmpMap) => {
       // One sidecar per RAW. On a case-sensitive disk both DSC.xmp and DSC.XMP can exist: the lower-case
       // .xmp wins (Adobe's name, and the one the page gives new sidecars), else the first by name.
       const sidecars = (L.xmp || []).slice().sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
@@ -426,9 +491,52 @@
       // A sidecar that is there but is not UTF-8 text (L.unreadableXmp): no text to merge into, but the
       // photo keeps its path, so Save aims at that very file and the Mac refuses to replace it.
       for (const rel of L.unreadableXmp || []) { const k = rel.replace(/\.[^.\/]+$/, '').toLowerCase(); if (!xmpMap[k]) xmpMap[k] = { tx: null, path: rel }; }
-      const arws = (L.files || []).map(f => Object.assign(fileRef(f.rel), { size: f.size }));
-      const allF = arws.concat((L.xmp || []).map(x => fileRef(x.rel)), (L.others || []).map(fileRef));
-      const files = (L.files || []).slice().sort((a, b) => a.rel.localeCompare(b.rel));
+      return xmpMap;
+    };
+    // Sidecars over 1 MB the Mac did not read (threat model T5): the page's notice lists each one.
+    // Sidecars that are not text (Latin-1, UTF-16, binary): the unreadable list, until the page has its own line.
+    const sidecarFailures = L => {
+      for (const rel of L.skippedXmp || []) notice('sidecarBig', { name: rel.split('/').pop() });
+      for (const rel of L.unreadableXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar unreadable, not read' });
+    };
+    // The page's addSource, remembering which of the Mac's sources it is. The page makes no source
+    // out of files without a RAW; then there is none here either.
+    const addSource = (src, files, nid, offset) => {
+      const S = logic._sources = logic._sources || [], n0 = S.length;
+      logic.addSource(src, files);
+      if (S.length === n0) return null;
+      const so = S[S.length - 1]; srcNid[so.id] = nid || null;
+      if (offset) so.offset = offset;
+      return so;
+    };
+    const topOf = rel => String(rel || '').split('/')[0];
+    // The page's test for "the same photo from another place" when files are added (its onDir with `add`).
+    const rfp = p => [p.model || '', p.serial || '', p.date || '', p.bytes || ''].join('|');
+    const dropPhoto = p => { p.src && URL.revokeObjectURL(p.src); /^blob:/.test(p.lg || '') && URL.revokeObjectURL(p.lg); previewAt.delete(p.path); };
+
+    // The page's onDir, step for step, over the native listing. `L.more`: the shoot's other sources
+    // as the Mac kept them (a reopen), each a listing of its own or `missing`; they are read in the
+    // same pass and joined the way they were added: the same duplicates left out, the same clock shift.
+    const ingest = async L => {
+      const more = Array.isArray(L.more) ? L.more : [], parts = [L].concat(more.filter(m => m && !m.missing && Array.isArray(m.files)));
+      const xmpMap = {}; for (const P of parts) sidecarsOf(P, xmpMap);
+      const own = parts.map(standIns), arws = [].concat(...own.map(o => o.arws)), allF = [].concat(...own.map(o => o.all));
+      // A new shoot (the page's onDir without `add`): the Sources panel reads these.
+      logic._addFrom = null; logic._sources = []; logic._srcOf = {}; srcNid = {}; srcMissing = {};
+      primaryTop = L.name;
+      addSource(L.source || { kind: L.onCard ? 'card' : 'folder' }, own[0].all, L.nid);
+      for (const m of more) {
+        if (!m) continue;
+        const k = parts.indexOf(m);
+        if (k > 0) { addSource({ kind: m.kind || 'folder', label: m.label || undefined }, own[k].all, m.nid, m.offset); continue; }
+        // Not connected (card out, folder moved): no photos, but the panel still lists it, with Reconnect.
+        const S = logic._sources, so = { id: 's' + (S.length + 1), kind: m.kind || 'folder', label: m.label || m.name || 'Folder', top: m.name || '', n: m.n || 0, t: Date.now(), status: 'ok' };
+        if (m.offset) so.offset = m.offset;
+        S.push(so); srcNid[so.id] = m.nid || null; if (m.nid) srcMissing[m.nid] = true;
+      }
+      pushSources(logic);
+      logic._allF = allF;
+      const files = [].concat(...parts.map(P => P.files || [])).sort((a, b) => a.rel.localeCompare(b.rel));
       logic._intake = logic.intake(allF, arws);
       if (!files.length) {
         const I = logic._intake, parts = [...Object.entries(I.raw).map(([e, n]) => n + ' ' + e.toUpperCase()), I.jp + I.ja ? (I.jp + I.ja) + ' JPEG / HEIF' : '', I.vid ? I.vid + ' videos' : ''].filter(Boolean);
@@ -442,10 +550,7 @@
       logic._gold = []; logic._failed = []; logic.real = [];
       // The page's own read state: its onScroll marks the reader as moved (_rd) while _reading is set.
       logic._reading = true; logic._rd = { moved: false, cur: null, top: 0 };
-      // Sidecars over 1 MB the Mac did not read (threat model T5): the page's notice lists each one.
-      for (const rel of L.skippedXmp || []) notice('sidecarBig', { name: rel.split('/').pop() });
-      // Sidecars that are not text (Latin-1, UTF-16, binary): the same list, until the page has its own line.
-      for (const rel of L.unreadableXmp || []) logic._failed.push({ name: rel.split('/').pop(), reason: 'sidecar unreadable, not read' });
+      for (const P of parts) sidecarFailures(P);
       if (!logic._addFrom) logic._shifts = [];
       logic.setState({ opening: null, realLoad: { done: 0, total: files.length, t0 }, realInfo: null, xsaved: {}, sel: {}, marks: {}, seen: {}, flags: {}, stars: {}, cuts: {}, undo: [], open: null, undec: false, pend: null });
       // Rows appear as the contiguous prefix grows, paced as the page paces them: not while the reader
@@ -487,6 +592,18 @@
       for (; i < files.length; i++) { res[i] = { err: true }; logic._failed.push({ name: files[i].rel.split('/').pop(), reason: 'card removed' }); }
       const ok = res.filter(p => p && !p.err), s1 = logic.state, rd = logic._rd || {};
       reading = null; logic._reading = false;
+      // The other sources join as they did when they were added, in that order: a photo the shoot
+      // already had (the page's test: body, serial, time, size) is left out, then the source's clock
+      // shift is applied. No sheet and no toast: the reader chose all of it before.
+      const tops = new Set([L.name]);
+      for (const m of parts.slice(1)) {
+        const have = new Set(ok.filter(p => !p.unread && tops.has(topOf(p.path))).map(rfp));
+        for (let q = ok.length - 1; q >= 0; q--) {
+          const p = ok[q]; if (topOf(p.path) !== m.name) continue;
+          if (!p.unread && have.has(rfp(p))) { dropPhoto(p); ok.splice(q, 1); } else if (m.offset) p.date = logic.shiftDate(p.date, m.offset);
+        }
+        tops.add(m.name);
+      }
       if (ok.length && ok.every(p => p.unread)) ok.length = 0;
       lastRead = { name: L.name, total: files.length, read: ok.filter(p => !p.unread).length, unreadable: files.length - ok.filter(p => !p.unread).length, stopped: run.gone ? 'card removed' : null, secs: +((performance.now() - t0) / 1000).toFixed(1) };
       window.lumina.read = Object.assign({}, lastRead);
@@ -507,13 +624,178 @@
       if (run.gone) logic.say('Card removed · ' + ok.length + ' of ' + files.length + ' read · re-insert to keep going');
     };
 
-    // The page's own folder input still works (drag-in, or anything that clicks it): WebKit hands it
-    // Files and the page reads them itself.
+    // The page's onDir with `add`: one more source for the open shoot. The page reads the whole shoot
+    // again and starts its decisions from nothing; here only the files that are new are read, and the
+    // shoot stays as it is (cursor, decisions, looks) while they are. The steps and the wording are the
+    // page's: files already here by path and size are skipped ("nothing new"), then photos already here
+    // by body, serial, time and size; the second-camera clock check and its sheet; the shoot's name
+    // carried to its new key; the seen-before memory; the toast; the Picks tray's "pick what was
+    // dropped". The shoot keeps its first folder's name and its identity.
+    // `o.src`: what the page passed as e.src. `o.fill`: the page's source this listing belongs to
+    // already (a source that was not connected, found again): no new source, no sheet, no toast.
+    const ingestAdd = async (L, o) => {
+      o = o || {};
+      const own = standIns(L), kf = f => (f.webkitRelativePath || f.name) + '|' + f.size;
+      const seen = new Set((logic._allF || []).map(kf)), fresh = own.all.filter(f => !seen.has(kf(f)));
+      const filling = o.fill ? (logic._sources || []).find(so => so.id === o.fill) : null;
+      if (!fresh.length) { pushSources(logic); return filling ? undefined : logic.say('nothing new · those photos are already in this shoot'); }
+      const isRaw = f => /\.(arw|dng)$/i.test(f.name), kk = p => p.path + '|' + p.bytes;
+      const af = { key: logic.nameKey(), name: logic.shootName(), n: fresh.filter(isRaw).length, fresh: new Set(fresh.map(kf)) };
+      if (filling) { for (const f of fresh.filter(isRaw)) logic._srcOf[f.webkitRelativePath] = filling.id; }
+      else { logic.rememberSeen(); logic._addFrom = af; addSource(o.src, fresh, L.nid); }
+      const so = filling || (logic._sources || [])[(logic._sources || []).length - 1];
+      logic._allF = (logic._allF || []).concat(fresh);
+      logic._intake = logic.intake(logic._allF, logic._allF.filter(isRaw));
+      const want = new Set(fresh.filter(isRaw).map(f => f.webkitRelativePath));
+      const files = (L.files || []).filter(f => want.has(f.rel)).sort((a, b) => a.rel.localeCompare(b.rel));
+      const xmpMap = sidecarsOf(L, {});
+      const run = reading = { name: L.name, total: files.length, done: 0, gone: false };
+      const t0 = performance.now(), res = new Array(files.length); let done = 0, i = 0;
+      logic._gold = logic._gold || []; logic._failed = logic._failed || [];
+      sidecarFailures(L);
+      if (files.length) logic.setState({ realLoad: { done: 0, total: files.length, t0 } });
+      // As the page's read: a file that can't be read is a grey tile; only a pulled card drops what it cut off.
+      const one = async (f, k) => {
+        try { res[k] = await readOne(f, xmpMap); }
+        catch (err) {
+          if (err instanceof Gone) { run.gone = true; res[k] = { err: true }; logic._failed.push({ name: f.rel.split('/').pop(), reason: 'card removed' }); }
+          else { res[k] = unreadOf(f, xmpMap); logic._failed.push({ name: f.rel.split('/').pop(), reason: 'unreadable' }); }
+        }
+        done++; run.done = done;
+        if (done % 8 === 0 || done === files.length) logic.setState({ realLoad: { done, total: files.length, t0 } });
+      };
+      await Promise.all(Array.from({ length: Math.max(1, L.workers || 4) }, async () => { while (i < files.length && !run.gone) { const k = i++; await one(files[k], k); } }));
+      for (; i < files.length; i++) { res[i] = { err: true }; logic._failed.push({ name: files[i].rel.split('/').pop(), reason: 'card removed' }); }
+      const old = (logic.real || []).slice(), have = new Set(old.filter(p => !p.unread).map(rfp));
+      let nw = res.filter(p => p && !p.err);
+      const dup = nw.filter(p => !p.unread && have.has(rfp(p)));
+      if (dup.length) { const D = new Set(dup); nw = nw.filter(p => !D.has(p)); dup.forEach(dropPhoto); }
+      af.dup = dup.length; af.n = nw.length;
+      if (filling) { if (filling.offset) nw.forEach(p => { p.date = logic.shiftDate(p.date, filling.offset); }); }
+      else {
+        // A second camera whose clock is off: the page's own check and its own sheet decide.
+        const off = nw.length ? logic.clockOffset(old, nw) : null;
+        if (off) {
+          const ch = await new Promise(r => logic.setState({ merge: Object.assign({}, off, { res: r }) }));
+          logic.setState({ merge: null });
+          if (ch === 'shift') { off.items.forEach(p => { p.date = logic.shiftDate(p.date, -off.sec); }); if (so) so.offset = -off.sec; }
+        }
+      }
+      // The shoot as it is now, decisions by path (they may have changed while the files were read),
+      // then the photos together in path order, as the page's own read leaves them. The capture-time
+      // shifts stay (the snapshot carries them).
+      const snap = snapshot(logic);
+      logic.real = old.concat(nw).sort((a, b) => a.path.localeCompare(b.path));
+      logic.data = logic.build({}); logic._lk = null;
+      reading = null;
+      const first = logic.real.map(p => p.date).filter(Boolean).sort()[0] || '', prev = logic.state.realInfo || {};
+      restore(logic, snap, false);
+      const G = Object.values(logic.data.G);
+      const info = Object.assign({}, prev, { name: primaryTop || prev.name, n: logic.real.length, rows: logic.data.R.length, stacks: G.filter(g => g.kind !== 'single').length, bad: logic._failed.length,
+        nopic: logic.real.filter(p => p.nopv || p.unread).length, secs: ((performance.now() - t0) / 1000).toFixed(1), date: first.slice(0, 10).replace(/:/g, '-') });
+      logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, undo: [], sel: {}, pend: null });
+      const readN = nw.filter(p => !p.unread).length;
+      lastRead = { name: L.name, total: files.length, read: readN + dup.length, unreadable: files.length - readN - dup.length, stopped: run.gone ? 'card removed' : null, secs: +info.secs };
+      window.lumina.read = Object.assign({}, lastRead);
+      // The reader stays where they are: an add never lands.
+      logic._readEnd = { stay: true, cur: logic.state.cur };
+      if (typeof logic.bridgeEmit === 'function') logic.bridgeEmit('readEnd', { stay: true, cur: logic.state.cur, photos: logic.real.length });
+      if (!filling) {
+        // The shoot's name goes with it to its new key (the page keys names by folder, count, first and last file).
+        const N = logic.names(); N[logic.nameKey()] = af.name; try { localStorage.setItem('lumina-v4-names', JSON.stringify(N)); } catch (_) {}
+        logic.restoreSeen(af.key);
+        logic._addFrom = null;
+        logic.say('added ' + af.n + ' photo' + (af.n === 1 ? '' : 's') + ' to ' + af.name + (af.dup ? ' · ' + af.dup + ' already here, skipped' : ''));
+        if (logic._pickOnAdd) {
+          logic._pickOnAdd = false; const m = {};
+          logic.data.order.forEach(id => { const p = logic.data.byId[id]; if (af.fresh.has(kk(p)) && !logic.state.marks[id]) m[id] = 'keep'; });
+          if (Object.keys(m).length && typeof logic.apply === 'function') logic.apply({ marks: m }, 'picked ' + Object.keys(m).length + ' · dropped');
+        }
+      }
+      if (run.gone) logic.say('Card removed · ' + nw.length + ' of ' + files.length + ' read · re-insert to keep going');
+      logic.forceUpdate();
+      pushSources(logic);
+      // Kept by the Mac with the shoot (the source, its clock shift), and the session written now.
+      await tellSources(logic);
+      lastSaved = ''; lastChange = 0; saveNow();
+      loadRecents(logic);
+    };
+    // The grey tile of a file the add could not read (the page's own record, as ingest's `unread`).
+    const unreadOf = (f, xmpMap) => {
+      const pth = f.rel, xo = xmpMap[pth.replace(/\.[^.\/]+$/, '').toLowerCase()] || null;
+      return { unread: true, nopv: true, name: pth.split('/').pop(), path: pth, date: '', bytes: f.size, fileObj: fileRef(pth), xpath: xo ? xo.path : pth.replace(/\.[^.\/]+$/, '') + '.xmp', xmp: xo && xo.tx,
+        lrEd: LuminaCore.hasDevelop(xo && xo.tx), portrait: false, lum: null, focus: 0, clip: 0, dhash: null, src: '', lg: '', exp: null, fl: null, ev: null, iso: null };
+    };
+
+    // Listings the Mac made of what was picked, dropped or arrived: the one marked `primary` is a
+    // new shoot (there was none, or the page asked for one), the others join the open shoot.
+    const take = async (list, src) => {
+      for (const S of list) {
+        if (!S) continue;
+        if (S.denied != null) { window.luminaAccess(true, S.denied); continue; }
+        if (S.tooBig) {
+          const T = S.tooBig;
+          if (!notice(T.why === 'tooDeep' ? 'tooDeep' : 'tooBig', { folder: T.name })) logic.say('not available · ' + T.name + ' · ' + (T.why === 'tooDeep' ? 'folders over ' + T.depth + ' deep' : 'over ' + T.files + ' files'));
+          continue;
+        }
+        if (!Array.isArray(S.files)) continue;
+        if (S.primary) {
+          window.luminaAccess(false); window.luminaCardGone(false);
+          window.lumina.readingCard = !!S.onCard;
+          S.source = Object.assign({ kind: S.kind || 'folder' }, src || {}, S.label ? { label: S.label } : {});
+          await ingest(S); await afterRead();
+        } else if (logic.real && logic._allF) await ingestAdd(S, { src: Object.assign({ kind: S.kind || 'folder' }, src || {}) });
+      }
+    };
+
+    // The Sources panel's Add (the page's addAt): the Mac's picker, then what was picked joins the
+    // shoot. With no shoot open it is an open. 'card' and 'phone' are not pickers (the card panel
+    // and the phone page are the page's own).
+    logic.__luminaAddFrom = async where => {
+      if (where === 'card' || where === 'phone' || reading) return;
+      const add = !!(logic.real && logic._allF);
+      if (!add) saveNow();
+      const r = await Promise.resolve(native('addFrom', { where: String(where || 'folder'), add, id: shootId })).catch(() => null);
+      if (typeof window.luminaOpening === 'function') window.luminaOpening(null);
+      if (r && Array.isArray(r.sources)) await take(r.sources, { kind: ['pictures', 'downloads', 'desktop'].includes(where) ? where : 'folder' });
+    };
+    // The panel's Reconnect: the Mac finds the folder again (its bookmark, else the reader shows it
+    // where it is); photos of a source that was not connected when the shoot opened are read now.
+    logic.__luminaReconnect = async id => {
+      const nid = srcNid[id]; if (!nid || reading || !shootId) return;
+      const r = await Promise.resolve(native('sourceReconnect', { nid, id: shootId })).catch(() => null);
+      if (!r || !r.source || !Array.isArray(r.source.files)) return;
+      srcMissing[nid] = false;
+      await ingestAdd(r.source, { fill: id });
+    };
+
+    // What the page hands its own onDir: `File`s from a drop on the window or one of its file
+    // inputs, or the stand-ins for AirDrop arrivals (phoneArrived, below). In the app the Mac was
+    // handed the same items (the drop's file URLs, the panel's picks), so it reads them: the photos
+    // get a root of their own, which is what lets Save write a sidecar beside them, Edit render them
+    // and a session find them again. `e.add` and `e.src` are the page's. Files the Mac was not
+    // handed (nothing to claim) are read by the page itself, as before, unless they would join a
+    // shoot the Mac read: the page's add reads the whole shoot again, and its stand-ins hold no bytes.
     const onDir = logic.onDir.bind(logic);
     logic.onDir = async e => {
+      const given = [...((e && e.target && e.target.files) || [])];
+      const adding = !!(e && e.add && logic._allF && logic.real);
+      if (given.length && !cfg.parity) {
+        if (reading) return;
+        if (!adding) saveNow();
+        const r = await Promise.resolve(native('claimFiles', { files: given.map(f => ({ rel: f.__luminaRel || f.webkitRelativePath || f.name, size: f.size })), add: adding, id: shootId,
+          kind: (e.src && e.src.kind) || null, label: (e.src && e.src.label) || null })).catch(() => null);
+        if (typeof window.luminaOpening === 'function') window.luminaOpening(null);
+        if (r && Array.isArray(r.sources) && r.sources.length) return take(r.sources, e.src);
+        if (adding && (logic.real || []).some(p => p.fileObj && p.fileObj.__luminaRel)) {
+          const f0 = given[0], top = String(f0.__luminaRel || f0.webkitRelativePath || f0.name || '').split('/')[0];
+          return logic.say('not available · ' + (top || 'those files') + ' · add it with Add to shoot');
+        }
+      }
       cardPulledWhileReading = false;
-      window.lumina.readingCard = false;
+      if (!adding) { window.lumina.readingCard = false; srcNid = {}; srcMissing = {}; primaryTop = null; }
       await onDir(e);
+      pushSources(logic);
       if (cardPulledWhileReading) logic.say('Card removed · re-insert to keep going');
       await afterRead();
     };
@@ -538,24 +820,48 @@
       // base goes with the write: a file that is no longer its base (written in the instant between)
       // is left as it is and comes back "changed on disk"; nothing is retried silently (SAFETY.md 6),
       // the next Save reads again. The text from the open is never written over a newer file.
-      const root = info.name || '', enc = new TextEncoder(), byId = (logic.data && logic.data.byId) || {}, owner = {}, now = {};
-      // A file's photo, by the name the page's runExport gave the file (xpath without the folder's name).
-      for (const [id, p] of Object.entries(byId)) { const q = (p.xpath || (p.file || '').replace(/\.[^.]+$/, '') + '.xmp').split('/'); owner[q.length > 1 ? q.slice(1).join('/') : q[0]] = id; }
-      for (const s of (await native('readSidecars', { root, files: files.map(f => f.name) })) || []) now[s.name] = s;
-      const list = [];
-      for (const f of files) {
-        const s = now[f.name], id = owner[f.name], p = id != null ? byId[id] : null, it = { name: f.name };
-        let d = f.data;
-        if (p && s && s.base != null) {
-          const tx = s.text == null ? null : s.text;
-          if ((p.xmp || null) !== (tx || null)) { p.xmp = tx; p.lrEd = LuminaCore.hasDevelop(tx); d = logic.xmpFor(id); }
-          it.base = s.base;
-        } else if (p) it.base = 'unread';                    // couldn't be read now: no file matches this, the write says why
-        // (No photo for the name: nothing the page merged from. Sent as it is, unchecked.)
-        const u = d instanceof Uint8Array ? d : d instanceof Blob ? new Uint8Array(await d.arrayBuffer()) : typeof d === 'string' ? enc.encode(d) : null;
-        if (u) { it.b64 = b64(u); list.push(it); }
+      // A shoot can have several sources: each sidecar goes under its own photo's root (the first
+      // segment of the photo's path), so two sources that both hold DSC00001.ARW each get their own.
+      // The page names a file by its path inside its root only, so the photo is found by position:
+      // runExport lists its non-DNG picks in saveIds() order. A name that does not fit that order falls
+      // back to the photo whose sidecar has that name. (Its `Picks/` DNG copies have no bytes here and
+      // are left out, as before.)
+      const enc = new TextEncoder(), byId = (logic.data && logic.data.byId) || {}, owner = {};
+      const xf = files.filter(f => f && !/^Picks\//.test(f.name || ''));
+      const inRoot = p => { const q = (p.xpath || (p.file || '').replace(/\.[^.]+$/, '') + '.xmp').split('/'); return q.length > 1 ? q.slice(1).join('/') : q[0]; };
+      const rootOf = p => { const q = (p.xpath || p.path || '').split('/'); return q.length > 1 ? q[0] : (info.name || ''); };
+      for (const [id, p] of Object.entries(byId)) owner[inRoot(p)] = id;
+      const ids = typeof logic.saveIds === 'function' ? logic.saveIds() : logic.kept();
+      const picks = ids.filter(id => byId[id] && !/\.dng$/i.test(byId[id].path || ''));
+      const inOrder = picks.length === xf.length && xf.every((f, k) => inRoot(byId[picks[k]]) === f.name);
+      const groups = {};                                     // root name → [{ f, id, p }]
+      xf.forEach((f, k) => { const id = inOrder ? picks[k] : owner[f.name], p = id != null ? byId[id] : null, root = p ? rootOf(p) : (info.name || ''); (groups[root] = groups[root] || []).push({ f, id, p }); });
+      const roots = Object.keys(groups).sort((a, b) => (a === (primaryTop || info.name) ? -1 : b === (primaryTop || info.name) ? 1 : a < b ? -1 : 1));
+      let r = null;
+      for (const root of roots) {
+        const G = groups[root], now = {};
+        for (const s of (await native('readSidecars', { root, files: G.map(g => g.f.name) })) || []) now[s.name] = s;
+        const list = [];
+        for (const { f, id, p } of G) {
+          const s = now[f.name], it = { name: f.name };
+          let d = f.data;
+          if (p && s && s.base != null) {
+            const tx = s.text == null ? null : s.text;
+            if ((p.xmp || null) !== (tx || null)) { p.xmp = tx; p.lrEd = LuminaCore.hasDevelop(tx); d = logic.xmpFor(id); }
+            it.base = s.base;
+          } else if (p) it.base = 'unread';                  // couldn't be read now: no file matches this, the write says why
+          // (No photo for the name: nothing the page merged from. Sent as it is, unchecked.)
+          const u = d instanceof Uint8Array ? d : d instanceof Blob ? new Uint8Array(await d.arrayBuffer()) : typeof d === 'string' ? enc.encode(d) : null;
+          if (u) { it.b64 = b64(u); list.push(it); }
+        }
+        const one = reasons(await native('writeSidecars', { root, files: list }));
+        if (roots.length === 1) { r = one; break; }
+        // A root the Mac does not have (photos the page read by itself): each of its files is an error.
+        const part = one || { n: 0, bak: 0, errors: G.map(g => ({ name: g.f.name.split('/').pop().replace(/\.[^.]+$/, ''), reason: 'missing' })) };
+        if (!r) r = Object.assign({}, part, { errors: (part.errors || []).slice() });
+        else { r.n = (r.n || 0) + (part.n || 0); r.bak = (r.bak || 0) + (part.bak || 0); r.errors = (r.errors || []).concat(part.errors || []); if (r.path == null && part.path != null) { r.path = part.path; r.folder = part.folder; } }
       }
-      const r = reasons(await native('writeSidecars', { root, files: list }));
+      if (!roots.length) r = reasons(await native('writeSidecars', { root: info.name || '', files: [] }));
       if (r && !(r.errors || []).length && (r.n || 0) > 0) savedKeepers = keepersOf(logic);
       if (r) setTimeout(saveNow, 0);
       return r;
@@ -766,7 +1072,7 @@
   const macLook = (look, p) => {
     const out = String(look || '').trim().split(/\s+/).filter(Boolean);
     if (out.some(t => t.startsWith('wb:')) && !out.some(t => t.startsWith('wbref:'))) {
-      const a = p && asShot.get(((current && current.state.realInfo && current.state.realInfo.name) || '') + '/' + keyOf(p));
+      const a = p && asShot.get(p.path || ((current && current.state.realInfo && current.state.realInfo.name) || '') + '/' + keyOf(p));
       const k = a ? a.kelvin : Math.round(+(p && p.wbK) || 5500), t = a ? a.tint : p && p.wbTint != null && isFinite(+p.wbTint) ? Math.round(+p.wbTint) : 0;
       out.push('wbref:' + k + '/' + (t > 0 ? '+' : '') + t);
     }
@@ -905,6 +1211,29 @@
       if (lastRead && lastRead.stopped) native('reopenCurrent', {});
     },
     access(denied, what) { window.luminaAccess(!!denied, what || ''); },
+    // The open shoot's sources as the Mac sees them now: [{nid, missing}] (a card with one of them went or came back).
+    sources(list) { sourceStatus(window.__lumina.logic(), list); },
+    // AirDrop arrivals in the watched Downloads folder: [{rel: 'AirDrop/<name>', size}] and how many
+    // HEIC / JPEG came with them. The page's phoneArrived shows them ("N RAWs from phone · Add to
+    // shoot") and makes a thumbnail from each file's head and embedded preview, so the stand-ins
+    // answer slice().arrayBuffer() from the Mac's reader; adding them goes through the page's onDir,
+    // which hands them back to the Mac (claimFiles).
+    phoneArrived(files, lossy) {
+      if (typeof window.luminaPhoneArrived !== 'function') return 0;
+      const made = (files || []).filter(f => f && typeof f.rel === 'string').map(f => {
+        const size = +f.size || 0;
+        return Object.assign(fileRef(f.rel), { size, type: '', lastModified: Date.now(),
+          slice(a, b) {
+            a = Math.max(0, a || 0); b = Math.min(b == null ? size : b, size);
+            return { size: Math.max(0, b - a), arrayBuffer: async () => {
+              if (b <= 262144) return (await (await get(media('head', { p: f.rel }))).arrayBuffer()).slice(a, b);
+              return (await get(media('preview', { p: f.rel, o: a, l: b - a, ori: 1 }))).arrayBuffer();
+            } };
+          } });
+      });
+      window.luminaPhoneArrived(made, typeof lossy === 'number' ? lossy : Array.isArray(lossy) ? lossy : 0);
+      return made.length;
+    },
     // A menu item (BRIDGE.md, MENUS v7). While Edit is the active step, Undo, Redo, Copy and Paste
     // are Edit's own (window.luminaEdit); everything else goes to Sets' luminaCommand.
     // Keys typed fast wait in the page's queue (one per frame). A menu shortcut is a ⌘ key the page
@@ -929,6 +1258,7 @@
       const l = window.__lumina.logic(); if (!l) return;
       saveNow();
       shootId = null; lastSaved = ''; base = null; savedKeepers = null; lastRead = null;
+      primaryTop = null; srcNid = {}; srcMissing = {}; window.lumina.sources = [];
       window.lumina.readingCard = false; window.lumina.read = null;
       window.luminaCardGone(false);
       l.forget();
@@ -936,7 +1266,10 @@
     },
     removeWorkingFiles() {
       const l = window.__lumina.logic();
-      return window.lumina.removeWorkingFiles().then(ok => { if (ok && l) { l.forget(); loadRecents(l); } return ok; });
+      // File ▸ Remove Working Files…: the shoot's session goes too (the alert says its decisions are
+      // forgotten). The page's own clear, `lumina.removeWorkingFiles`, keeps them.
+      const gone = shootId ? native('removeShoot', { id: shootId }).then(ok => { shootId = null; lastSaved = ''; base = null; return ok; }) : Promise.resolve(false);
+      return gone.then(ok => { if (ok && l) { l.forget(); loadRecents(l); } return ok; });
     },
     recents() { const l = window.__lumina.logic(); if (l) loadRecents(l); },
     // Read-only state surface for the probe's invariant checker: what the page holds and what the
@@ -952,6 +1285,7 @@
         zsrcOff: real.length && l.data ? Object.values(l.data.byId).filter(q => q.zsrc !== q.lg).length : 0,   // zoom must use the same preview
         srcNotBlob: withPv.filter(p => !/^blob:/.test(p.src || '')).length,
         dupPaths: paths.length - new Set(paths).size,
+        sources: ((l && l._sources) || []).map(so => ({ id: so.id, kind: so.kind, label: so.label, top: so.top, n: so.n, offset: so.offset || 0, nid: srcNid[so.id] || null, missing: !!(srcNid[so.id] && srcMissing[srcNid[so.id]]) })),
         shootId, card: window.lumina.card, cardPending: window.lumina.cardPending, readingCard: window.lumina.readingCard,
       };
     },

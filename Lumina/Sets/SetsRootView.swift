@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 import WebKit
 
 /// The whole app window: one WKWebView showing the design's page, full window, no browser chrome.
@@ -60,7 +61,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             }.value.map { ["folder": $0.folder, "done": $0.done, "planned": $0.planned, "cleaned": $0.cleaned] as [String: Any] }
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
-                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut], frame: host.bounds)
+                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut,
+                                                                  "store": SetsPageStore(supportDir: Self.supportDir).all()], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self
@@ -178,6 +180,34 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         return await run(panel)
     }
 
+    func chooseSources(at: URL?, files: Bool, multiple: Bool, prompt: String, message: String) async -> [URL] {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = files
+        panel.allowsMultipleSelection = multiple
+        panel.canCreateDirectories = false
+        panel.prompt = prompt
+        panel.message = message
+        if files { panel.allowedContentTypes = [UTType("com.sony.arw-raw-image"), UTType("com.adobe.raw-image"), .rawImage, .folder].compactMap { $0 } }
+        if let at { panel.directoryURL = at }
+        guard let window = webView?.window else { return panel.runModal() == .OK ? panel.urls : [] }
+        return await withCheckedContinuation { c in
+            panel.beginSheetModal(for: window) { c.resume(returning: $0 == .OK ? panel.urls : []) }
+        }
+    }
+
+    func chooseDownloads(at: URL) async -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Watch"
+        panel.message = "Choose Downloads to let Lumina see AirDrop arrivals there. Lumina only reads it, and remembers this."
+        panel.directoryURL = at
+        return await run(panel)
+    }
+
     private func run(_ panel: NSOpenPanel) async -> URL? {
         guard let window = webView?.window else { return panel.runModal() == .OK ? panel.url : nil }
         return await withCheckedContinuation { c in
@@ -189,7 +219,23 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
-        Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
+        // The page's own file inputs (the phone page's "choose"): what is picked is noted, the page
+        // gets its `File`s, and plumbing has the Mac read them (`claimFiles`). ⌘O never comes here.
+        Task { @MainActor in completionHandler(await bridge.inputPanel(allowsDirectories: parameters.allowsDirectories, allowsMultipleSelection: parameters.allowsMultipleSelection)) }
+    }
+
+    /// `window.open(url, '_blank')`: never a second web view. An allowlisted link goes to the browser.
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if let url = action.request.url, case .external(let out) = SetsExternalLinks.verdict(for: url, userClicked: true) { handOver(out) }
+        return nil
+    }
+
+    /// One hand-over to the browser or Mail every 2 s at most: a page that asks in a loop opens one.
+    private var lastHandOver = Date.distantPast
+    private func handOver(_ url: URL) {
+        guard Date().timeIntervalSince(lastHandOver) >= 2 else { return }
+        lastHandOver = Date()
+        NSWorkspace.shared.open(url)
     }
 
     // MARK: Navigation: only our own scheme; downloads go through a save panel
@@ -199,8 +245,12 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         guard let url = action.request.url, let scheme = url.scheme, [SetsSchemeHandler.scheme, "about", "blob", "data"].contains(scheme) else {
             // The page's contact links (X, mail) open in the user's browser or mail app, from a click
             // only. The page itself never reaches the network.
-            if action.navigationType == .linkActivated, let url = action.request.url, ["https", "mailto"].contains(url.scheme ?? "") {
-                NSWorkspace.shared.open(url)
+            // Exactly three: the bug-report mail and the two profile links (`SetsExternalLinks`). v7 also
+            // opens them from its own click handlers (location.href, window.open), which arrive here
+            // without a link click: the allowlist is exact, so those are handed over too.
+            // The main frame only: a frame the page adds cannot ask.
+            if action.targetFrame?.isMainFrame != false, let url = action.request.url, case .external(let out) = SetsExternalLinks.verdict(for: url, userClicked: true) {
+                handOver(out)
             }
             return (.cancel, preferences)
         }

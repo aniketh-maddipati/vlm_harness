@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 # Linux sandbox for the app's Foundation-only Swift: compiles Lumina/Sets/Core/{SetsFileOps,
-# SetsShootStore,SetsExport,SetsIngest}.swift and Lumina/Sets/Look/{LookString,LookRules,LookMath,
+# SetsShootStore,SetsExport,SetsIngest,SetsPageStore,SetsSources,SetsShootSources}.swift and Lumina/Sets/Look/{LookString,LookRules,LookMath,
 # LookCanvasSchedule,LookWarmPlan,LookByteCache,LookRawPolicy,LookLensShading}.swift unchanged with Swift 6.1 (Docker image
 # swift:6.1-noble) and runs the logic tests that don't need Core Image / ImageIO / AppKit:
 #   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests,
 #   LookStringTests, LookMathTests (the look grammar and the stage maths on synthetic ramps),
 #   LookCanvasTests (the canvas schedule, the warm-up plan, the byte cache, the RAW tiers and the pin rule),
 #   SetsShootStoreTests (a shoot id from the page stays inside the store),
-#   SetsShootImportTests (sessions from before the sandbox are brought over, R1e).
-# Not covered here (Mac only): SetsBridge, SetsSchemeHandler, SetsCardWatcher (AppKit/WebKit),
+#   SetsShootImportTests (sessions from before the sandbox are brought over, R1e),
+#   SetsPageStoreTests (the page's few stored keys, each under its cap),
+#   SetsSourcesTests (against fake bookmark calls; its real-bookmark test skips itself here, see LinuxStubs).
+# SetsSources and SetsShootSources are compiled without SetsAccess.swift: SetsAccess is the @MainActor
+# owner of security-scoped access (no Linux counterpart), so LinuxStubs supplies only its `Calls`
+# value type, the one thing SetsSources uses.
+# Not covered here (Mac only): SetsShootSourcesTests (SetsBridge, WebKit), SetsBridge, SetsSchemeHandler, SetsCardWatcher (AppKit/WebKit),
 # SetsLookExport, LookPipeline/LookKernels/LookRenderer (Core Image, Metal),
 # SetsIngestTests, SetsPageBytesTests and LookPipelineTests (ImageIO, bundle, Core Image).
 #
@@ -16,7 +21,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
 B="$HERE/Build"; rm -rf "$B"; mkdir -p "$B/Lumina" "$B/Tests"
-for f in SetsFileOps SetsShootStore SetsExport SetsIngest; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
+for f in SetsFileOps SetsShootStore SetsExport SetsIngest SetsPageStore SetsSources SetsShootSources; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
 for f in LookString LookRules LookMath LookCanvasSchedule LookWarmPlan LookByteCache LookRawPolicy LookLensShading; do cp "$ROOT/Lumina/Sets/Look/$f.swift" "$B/Lumina/"; done
 cp "$ROOT/Lumina/Sets/Look/rules-v1.json" "$B/rules-v1.json"     # LookMathTests read it via LUMINA_RULES (only this folder is mounted)
 # swift-corelibs-foundation's FileManager.replaceItemAt fails on Linux and deletes the original
@@ -42,10 +47,32 @@ enum SetsLookExport {
 let F_NOCACHE = F_GETFD
 extension URLResourceKey { static let volumeAvailableCapacityForImportantUsageKey = URLResourceKey(rawValue: "NSURLVolumeAvailableCapacityForImportantUsageKey") }
 extension URLResourceValues { var volumeAvailableCapacityForImportantUsage: Int64? { nil } }
+// SetsSources takes SetsAccess.Calls; SetsAccess itself (Lumina/Sets/Core/SetsAccess.swift) is not
+// compiled here. Same fields as the app's Calls. `.system` has no security-scoped bookmarks on
+// Linux, so it refuses: SetsSourcesTests' real-bookmark test then skips itself (its XCTSkip).
+enum SetsAccess {
+    struct Calls {
+        var start: (URL) -> Bool
+        var stop: (URL) -> Void
+        var resolve: (Data) throws -> (url: URL, stale: Bool)
+        var bookmark: (URL) throws -> Data
+        var exists: (URL) -> Bool
+        static let system = Calls(
+            start: { _ in false },
+            stop: { _ in },
+            resolve: { _ in throw SetsFileOps.Failure("no security-scoped bookmarks on Linux") },
+            bookmark: { _ in throw SetsFileOps.Failure("no security-scoped bookmarks on Linux") },
+            exists: { url in
+                var dir: ObjCBool = false
+                return FileManager.default.fileExists(atPath: url.path, isDirectory: &dir) && dir.boolValue
+            })
+    }
+}
 SWIFT
 cp "$ROOT/LuminaLogicTests/SetsTrustTests.swift" "$ROOT/LuminaLogicTests/LookStringTests.swift" "$ROOT/LuminaLogicTests/LookMathTests.swift" \
    "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" \
-   "$ROOT/LuminaLogicTests/SetsShootStoreTests.swift" "$ROOT/LuminaLogicTests/SetsShootImportTests.swift" "$B/Tests/"
+   "$ROOT/LuminaLogicTests/SetsShootStoreTests.swift" "$ROOT/LuminaLogicTests/SetsShootImportTests.swift" \
+   "$ROOT/LuminaLogicTests/SetsPageStoreTests.swift" "$ROOT/LuminaLogicTests/SetsSourcesTests.swift" "$B/Tests/"
 # SetsFileOpsTests and SetsSidecarTests without any test that needs Core Image, or the locked-file
 # test (Linux has no user-immutable flag for FileManager to set).
 for t in SetsFileOpsTests SetsSidecarTests; do
