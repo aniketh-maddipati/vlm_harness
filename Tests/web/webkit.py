@@ -253,7 +253,10 @@ FLOW = r"""
 const L = () => __lumina.logic(), out = [], t = (n, c, g) => out.push({ n, ok: !!c, got: c ? undefined : g });
 // v7: a shoot opened for the first time puts the keyboard in its name field 350 ms after the read (keys go to the name
 // until ⏎ or a click); the keys below leave the field first, as plumbing-harness.mjs's loaded() does.
-const blurName = async () => { await W(450); const a = document.activeElement, named = !!(a && /^(INPUT|TEXTAREA)$/.test(a.tagName)); if (named) a.blur(); return named; };
+// The focus lands 350 ms after the bridge answers shootOpened, so wait for it (up to 2 s) rather than a fixed 450 ms:
+// a slow answer used to focus the field after the blur, and the P below went into the name.
+const blurName = async () => { const typing = () => { const a = document.activeElement; return !!(a && /^(INPUT|TEXTAREA)$/.test(a.tagName)); };
+  const named = await until(typing, 2000); if (named) document.activeElement.blur(); return named; };
 // v7: ⌘⏎ is ignored for 800 ms after a step change; with undecided photos the first one only warns (state.armed === 'save'), the second within 5 s saves.
 const saveTwice = async () => { await W(950); __lumina.command('save'); if (L().state.armed === 'save') __lumina.command('save'); };
 const shoot = await C('shoot', { name: '2026-09-01', others: ['DSC01001.JPG', 'X.CR3', 'clip.MP4'],
@@ -272,8 +275,11 @@ const ins = __lumina.inspect(); t('read: previews by URL, thumbs as blobs', !ins
 const p7 = Object.values(L().data.byId).find(p => (p.file || p.name) === 'DSC01007.ARW');
 t('read: orientation 6 is portrait in WebKit', p7 && p7.portrait === true, p7 && p7.portrait);
 t('read: measures from the WebKit canvas', L().real.every(p => p.nopv || (p.focus > 0 && p.lum > 0 && p.dhash)), L().real.map(p => [p.focus, p.lum, p.dhash]).slice(0, 3));
-K('p'); await W(120); K('ArrowDown'); await W(150); K('p'); await W(150);
-const kept = L().kept().length; t('cull: P keeps (2)', kept === 2, L().state.marks);
+// v8 queues keys one per frame and animates the rows, so each step waits for the state it causes,
+// not a fixed time (a fixed 150 ms dropped the second P on about half the runs).
+K('p'); await until(() => L().kept().length === 1, 3000); const c0 = L().state.cur;
+K('ArrowDown'); await until(() => L().state.cur !== c0, 3000); await W(150); K('p'); await until(() => L().kept().length === 2, 3000);
+const kept = L().kept().length; t('cull: P keeps (2)', kept === 2, { marks: L().state.marks, c0, cur: L().state.cur, active: document.activeElement && document.activeElement.tagName });
 await W(2300);
 let st = await C('state'); const sid = __lumina.shootId(), saved = st.sessions[sid] && JSON.parse(st.sessions[sid]);
 t('session: saved by path within 2 s', saved && Object.keys(saved.marks).length === 2 && Object.keys(saved.marks).every(k => /^(sub\/)?DSC0\d+\.ARW$/.test(k)), saved && saved.marks);
