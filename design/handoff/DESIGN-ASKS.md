@@ -1040,3 +1040,20 @@ themselves.
 
 - `?selftest` passes every check; `Tests/probe/scenarios/selftest.json` goes back to expecting no
   failures and drops its own v8 step, and `STALE` comes out of `Tests/web/webkit.py`.
+
+## Prompt 14 — the storage meter shows a total from before the last preloads (paste into Claude Design)
+
+`cacheParts()` keeps the meter's total for 1 s. ⌥→ in Cull preloads up to four more big-view
+photos; when the meter draws inside that second it keeps the total from before them, and nothing
+draws it again until the next state change. So the same screen shows 20 MB on one run and 28 MB on
+the next (`08-cull-skip`, 1920 px, app vs prototype). Until this lands, the four `screens-*`
+scenarios redraw the page once after ⌥→ settles, before that snapshot.
+
+> In Sets v8, when a preload, thumbnail or cache write changes what the storage meter counts, drop
+> the 1 s memo in `cacheParts()` and redraw the meter, so it always shows the current total once
+> the page is idle. Keep the memo for redraws that change nothing it counts. Nothing visible
+> changes.
+
+### How Prompt 14 is checked once its handoff lands
+
+- `probe.sh screens` passes 34 / 34 with the redraw step taken out of `Tests/probe/scenarios/screens-*.json`.

@@ -121,6 +121,15 @@
    "alt": true
   },
   {
+   "do": "js",
+   "src": "__probe.logic().forceUpdate(); return true",
+   "why": "The storage meter memoizes its total for 1 s (cacheParts) and ⌥→'s preloads land inside or after that second; draw it once more, past the memo, so both twins show the settled total (DESIGN-ASKS Prompt 14)"
+  },
+  {
+   "do": "wait",
+   "ms": 300
+  },
+  {
    "do": "snap",
    "name": "08-cull-skip"
   },
