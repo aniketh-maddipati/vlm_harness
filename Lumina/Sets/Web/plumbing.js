@@ -527,7 +527,7 @@
         // The Edit step's JPEGs (Prompt 1 §7): {name, look: {src, look, px}} rendered natively through
         // LookPipeline with the decoder the shoot pins for that body; the result names the decoder.
         const byPath = {}; for (const p of Object.values((logic.data && logic.data.byId) || {})) if (p.path) byPath[p.path] = p;
-        const list = files.filter(f => f && f.look && f.look.src).map(f => ({ name: f.name, look: { src: f.look.src, look: f.look.look || '', px: f.look.px == null ? null : f.look.px, model: (byPath[f.look.src] || {}).model || null } }));
+        const list = files.filter(f => f && f.look && f.look.src).map(f => ({ name: f.name, look: { src: f.look.src, look: macLook(f.look.look || '', byPath[f.look.src]), px: f.look.px == null ? null : f.look.px, model: (byPath[f.look.src] || {}).model || null } }));
         return native('writeInto', { label: 'jpeg', files: list }).then(reasons);
       }
       if (label !== 'xmp') return null;
@@ -641,7 +641,7 @@
   // Encoded with encodeURIComponent (`query`, as media URLs), not URLSearchParams: the latter writes a
   // space as '+', and a look's sign ('ev:+0.30') must stay a '+'. Each path segment on its own.
   const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?' + query(q);
-  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null };
+  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null, photo: null };
   // The image path's latest-wins renderer (addendum §7): one fetch in flight, the newest look
   // waits, a quarter-size render while dragging, the full one at rest (drag end, key, 120 ms idle).
   const img = { pending: null, inFlight: false, shown: 0, tier: null, url: null, fetches: 0, superseded: 0, restTimer: 0, last: null };
@@ -650,7 +650,7 @@
   const imgSubmit = (tier, key) => {
     if (!ed.rel || !ed.rect) return;
     ed.seq++;
-    img.pending = { look: ed.look, seq: ed.seq, tier, key: !!key };
+    img.pending = { look: macLook(ed.look, ed.photo), seq: ed.seq, tier, key: !!key };
     clearTimeout(img.restTimer); img.restTimer = 0;
     if (tier === 'small') img.restTimer = setTimeout(() => { if (ed.rel && img.tier !== 'base') imgSubmit('base'); }, 120);
     imgRender();
@@ -730,6 +730,13 @@
       }
     };
     walk(root, 0);
+    // Sets' working-files pill sits over the Edit canvas too, outside its element.
+    const pill = document.querySelector('[data-lumina="cache-pill-edit"]'), pb = pill && pill.getBoundingClientRect();
+    if (pb && pb.width >= 1 && pb.height >= 1 && out.length < MAX_HOLES) {
+      const x0 = Math.max(rect.x, Math.floor(pb.left) - 1), y0 = Math.max(rect.y, Math.floor(pb.top) - 1);
+      const x1 = Math.min(rect.x + rect.w, Math.ceil(pb.right) + 1), y1 = Math.min(rect.y + rect.h, Math.ceil(pb.bottom) + 1);
+      if (x1 > x0 && y1 > y0) out.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+    }
     return out;
   };
   // The chips come and go without the rect changing: watch the canvas element and send the new
@@ -746,6 +753,26 @@
     holesObs.root = root;
     holesObs.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
   };
+  // The page's look string (Edit v22, LuminaCore.lookString) → the one the Mac renders. Two of the
+  // page's numbers rest on the photo, not on zero:
+  //   · Temperature and Tint rest on the photo's as-shot pair as the page knows it (the canvas's,
+  //     once noteAsShot has it; before that Sets' wbK, else 5500, and wbTint, else 0; the
+  //     temperature slider is a ratio scale). That pair rides along as `wbref:K/T` and the Mac
+  //     applies the move to its own as-shot pair (Look.WhiteBalance.resolved): the same on the
+  //     canvas, the image path and the JPEG export, whichever reference the page had then.
+  //   · Sharpening rests at 40 on the page, Lightroom's RAW default; the Mac's 0 is no sharpening
+  //     (its Sharpness sweep starts from 0, Tools/parity/README.md). A look without `shp` is 40.
+  const SHP_DEFAULT = 40;
+  const macLook = (look, p) => {
+    const out = String(look || '').trim().split(/\s+/).filter(Boolean);
+    if (out.some(t => t.startsWith('wb:')) && !out.some(t => t.startsWith('wbref:'))) {
+      const a = p && asShot.get(((current && current.state.realInfo && current.state.realInfo.name) || '') + '/' + keyOf(p));
+      const k = a ? a.kelvin : Math.round(+(p && p.wbK) || 5500), t = a ? a.tint : p && p.wbTint != null && isFinite(+p.wbTint) ? Math.round(+p.wbTint) : 0;
+      out.push('wbref:' + k + '/' + (t > 0 ? '+' : '') + t);
+    }
+    if (!out.some(t => t.startsWith('shp:'))) out.push('shp:' + SHP_DEFAULT);
+    return out.join(' ');
+  };
   const edit = {
     // Entering Edit for a photo (its path, "<folder>/DSC.ARW"): the Mac builds its bases now and its
     // neighbours' in the background. `look` is the photo's look string.
@@ -754,9 +781,9 @@
       const [id, p] = photoAt(l, rel); if (!p) return null;
       const o = l.data.order, k = o.indexOf(id), nb = d => { const q = l.data.byId[o[k + d]]; return q ? [q.path, previewOf(q.lg)] : [null, null]; };
       const [prev, prevPreview] = nb(-1), [next, nextPreview] = nb(1);
-      ed.rel = rel; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = false; ed.roi = null; ed.preview = previewOf(p.lg);
+      ed.rel = rel; ed.photo = p; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = false; ed.roi = null; ed.preview = previewOf(p.lg);
       img.shown = 0; img.tier = null; img.pending = null; ed.seq = 0;
-      const r = await native('canvasEnter', { rel, look: ed.look, model: ed.model, preview: previewOf(p.lg), prev, prevPreview, next, nextPreview });
+      const r = await native('canvasEnter', { rel, look: macLook(ed.look, p), model: ed.model, preview: previewOf(p.lg), prev, prevPreview, next, nextPreview });
       if (r && typeof r === 'object') { ed.header = Object.assign({}, ed.header || {}, r); ed.path = r.canvas || 'image'; ed.decoder = r.decoderCanvas != null ? r.decoderCanvas : null; noteAsShot(r); }
       pushFacts(true);
       if (ed.path === 'image') imgSubmit('base', true);
@@ -782,7 +809,7 @@
       ed.look = look; lastChange = performance.now(); scheduleSave();
       if (o.roi !== undefined) ed.roi = o.roi;
       if (!ed.rel) return 0;
-      if (ed.path === 'native') { const seq = o.seq != null ? o.seq : ++ed.seq; ed.seq = Math.max(ed.seq, seq); native('canvasLook', { look, drag: !!o.drag && !o.key, key: !!o.key, roi: ed.roi, t: pageNow(), seq }).catch(() => {}); return seq; }
+      if (ed.path === 'native') { const seq = o.seq != null ? o.seq : ++ed.seq; ed.seq = Math.max(ed.seq, seq); native('canvasLook', { look: macLook(look, ed.photo), drag: !!o.drag && !o.key, key: !!o.key, roi: ed.roi, t: pageNow(), seq }).catch(() => {}); return seq; }
       imgSubmit(o.drag && !o.key ? 'small' : 'base', o.key); return ed.seq;
     },
     // Prompt 1 §3: the page's one preview call. Native path: the look goes to the canvas and null
@@ -793,7 +820,7 @@
       if (ed.rel !== rel) edit.enter(rel, look || '');
       ed.look = look || ''; lastChange = performance.now(); scheduleSave();
       if (ed.path === 'native') { if (ed.rect) edit.look(ed.look, { drag: ed.dragging, seq }); return null; }
-      const q = { look: ed.look, px: Math.max(64, Math.round(px || (ed.rect ? Math.max(ed.rect.w, ed.rect.h) * dpr() : 1024))), seq: seq != null ? seq : ++ed.seq, tier: ed.dragging ? 'small' : 'base' };
+      const q = { look: macLook(ed.look, ed.photo), px: Math.max(64, Math.round(px || (ed.rect ? Math.max(ed.rect.w, ed.rect.h) * dpr() : 1024))), seq: seq != null ? seq : ++ed.seq, tier: ed.dragging ? 'small' : 'base' };
       if (ed.decoder != null) q.decoder = ed.decoder;
       ed.seq = Math.max(ed.seq, q.seq);
       return renderURL(rel, withPreview(q));

@@ -7,6 +7,13 @@
 > from before the sandbox) and D1 B / C (`lumina.sidecars` refresh). After release: B3 B / C / G,
 > B4 a, B5 c, B6, B7, C1, C3, D4, D5. `design/handoff/lumina-cull/REMAINING-v0.03.md` is the
 > element-by-element list; new asks reach its next revision through a prompt written here.
+>
+> **New for the next revision (Edit v22 on the native canvas).** The canvas is drawn above the web
+> view, so anything Edit draws inside `[data-lumina=canvas]` is hidden under it unless the app knows
+> to leave it see-through. Plumbing finds the small pieces itself (the zoom pill, the loading chip),
+> but not the crop tool: its frame and dimming cover the whole box. Ask: while crop (or any tool
+> drawn over the whole photo) is on, either send `lumina.canvasRect(null)` and show the embedded
+> preview, or report the regions to keep visible with the rect (`{x, y, w, h, dpr, holes: [...]}`).
 
 Status: open. Paste the prompt below into Claude Design, download the new handoff zip, then run
 `bash Scripts/sets_sync_design.sh "<zip>"` (add `--record` once you've approved the new look).

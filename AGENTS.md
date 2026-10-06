@@ -220,7 +220,12 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
 - **The look string is the only Edit state** (`ev:+0.70 wb:5200/+3 con:+12 … crop:x,y,w,h/r`,
   `Lumina/Sets/Look/LookString.swift`). Edit v22 sends the core's `lookString` form (`cDark`,
   `vMid`, `hue_red`, `curve:~[[x,y],…]`, `wb:/+5`, `cropRatio`); `Look.parse` reads both and
-  `LookStringTests.testThePagesLookStrings` holds strings copied from the core. Previews are `lumina://render/<rel>?look=&px=&seq=`, exports
+  `LookStringTests.testThePagesLookStrings` holds strings copied from the core. Plumbing adds two things the
+  page means but does not write (`macLook`): `wbref:K/T`, the as-shot pair the page's white balance
+  rests on (its `wbK` / `wbTint`; the Mac applies the page's move to the decoder's own pair,
+  `Look.WhiteBalance.resolved`), and `shp:40` when the look has no `shp` (the page's Sharpening rests
+  at Lightroom's 40; the Mac's 0 is none). It also sends the page's chrome over the canvas box as
+  `holes` (`canvasLayout`), which the canvas leaves see-through. Previews are `lumina://render/<rel>?look=&px=&seq=`, exports
   go through `SetsExport` `.look` items, sessions keep `look` per photo and `rowLook` per row. Looks
   are **never written to XMP**; handoff stays ratings only.
 - **One maths, three copies.** A stage's transfer function lives in `LookMath.swift` (reference),
