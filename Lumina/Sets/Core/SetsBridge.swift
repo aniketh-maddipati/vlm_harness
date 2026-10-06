@@ -85,6 +85,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// The body of the photo on the Edit canvas ("?" when the page read no model), so a decoder
     /// map that lands after `canvasEnter` reaches it.
     private var canvasModel: String?
+    /// Counts `canvasEnter`: one that waited on the decoder map never lands after a newer one.
+    private var canvasEnters = 0
     /// ⌘R: Finder, with the file selected. The probe swaps this out so a fuzz run never brings
     /// Finder forward on the desktop of whoever is using the Mac.
     var reveal: (URL) -> Void = { NSWorkspace.shared.activateFileViewerSelecting([$0]) }
@@ -482,8 +484,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // The body's decoder map is measured right after the shoot opens: wait for it (briefly)
             // rather than build this photo's bases twice. A map that lands later still reaches the
             // canvas (probeBodies → setDecoders).
+            canvasEnters += 1
+            let mine = canvasEnters
             let deadline = Date().addingTimeInterval(2)
             while probing.contains(model), Date() < deadline { try? await Task.sleep(nanoseconds: 20_000_000) }
+            // A newer photo was entered during the wait: this one is no longer the page's.
+            guard mine == canvasEnters else { return (NSNull(), nil) }
             canvasModel = model
             let d = decoders(for: model)
             let neighbours: [LookCanvasController.Neighbour] = ["prev", "next"].compactMap { k in
@@ -496,12 +502,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // nothing waited for. No key at all for the embedded JPEG standing in or a file without
             // a readable value.
             canvas?.onAsShot = { [weak self] rel, wb in self?.push("__lumina.editHeader(\(Self.json(LookCanvasController.asShotHeader(rel: rel, wb))))") }
-            canvas?.enter(rel: rel, url: url, look: body["look"] as? String ?? "", decoder: d.canvas, regionDecoder: d.region, preview: preview(body["preview"]), neighbours: neighbours)
+            canvas?.enter(rel: rel, url: url, look: body["look"] as? String ?? "", decoder: d.canvas, regionDecoder: d.region, preview: preview(body["preview"]), neighbours: neighbours,
+                          pageSeq: SetsNumber.seq(body["seq"]))
             var out = editFacts()
             out["decoderCanvas"] = d.canvas.map { $0 as Any } ?? NSNull(); out["decoderRegion"] = d.region.map { $0 as Any } ?? NSNull()
             if let a = canvas?.asShotForReply() { out.merge(LookCanvasController.asShotHeader(rel: a.rel, a.wb)) { $1 } }
             return (out, nil)
         case "canvasLeave":
+            canvasEnters += 1
             canvasModel = nil
             canvas?.leave()
             return (true, nil)

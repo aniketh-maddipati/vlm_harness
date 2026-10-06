@@ -228,6 +228,32 @@ final class LookCanvasTests: XCTestCase {
         XCTAssertTrue(S.ROI(x: 0, y: 0, w: 1, h: 1).isWhole); XCTAssertFalse(roi.isWhole)
     }
 
+    /// The canvas draws the newest look again when its base lands or its size changes. A look of
+    /// the page's that had not been drawn yet keeps its `seq`, so its frame is still acknowledged
+    /// (the first entry into Edit sat on "rendering…" when a re-render took its place without it).
+    func testAgainKeepsThePagesSeqAndLook() {
+        var s = S()
+        XCTAssertFalse(s.again(at: 0), "nothing to draw again before a look was given")
+        _ = s.keystroke("ev:+1", at: 0)                                  // entering the photo
+        let a = try! XCTUnwrap(s.tick(at: 1)); _ = s.finished(a)
+        _ = s.submit("ev:+2", at: 2, pageSeq: 7, pageAt: 100)            // the page's look, no base yet
+        XCTAssertTrue(s.again(at: 3))                                    // the canvas got its size
+        XCTAssertTrue(s.again(at: 4))                                    // the base landed
+        let b = try! XCTUnwrap(s.tick(at: 5))
+        XCTAssertEqual(b.look, "ev:+2", "the newest look, not the last one presented")
+        XCTAssertEqual(b.pageSeq, 7); XCTAssertEqual(b.pageAt, 100); XCTAssertEqual(b.tier, .base)
+        _ = s.finished(b)
+        XCTAssertNil(s.tick(at: 6))
+        // Drawn again after it was on screen (the stand-in, then the RAW): the same seq, not timed twice.
+        XCTAssertTrue(s.again(at: 7))
+        let c = try! XCTUnwrap(s.tick(at: 8))
+        XCTAssertEqual(c.look, "ev:+2"); XCTAssertEqual(c.pageSeq, 7); XCTAssertEqual(c.pageAt, 0)
+        XCTAssertGreaterThan(c.seq, b.seq); XCTAssertGreaterThan(c.lookSeq, b.lookSeq)
+        // During a drag it is still a full-quality render.
+        _ = s.finished(c); s.dragStart(at: 9); XCTAssertTrue(s.again(at: 10))
+        XCTAssertEqual(s.tick(at: 11)?.tier, .base)
+    }
+
     func testResetForgetsEverything() {
         var s = S()
         _ = s.keystroke("ev:+1", at: 0)
