@@ -66,7 +66,7 @@ xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py 
 # Fast scrolling over 400 synthetic ARWs at a Retina pixel ratio (numbers reported, not gated)
 GDK_SCALE=2 xvfb-run -a -s "-screen 0 5200x3000x24" /usr/bin/python3.12 Tests/web/webkit.py scroll
 # The Foundation-only Swift (SetsFileOps, SetsShootStore, SetsExport, SetsIngest, LookString/LookRules/LookMath) + its tests, Swift 6.1 in Docker
-bash Tests/linux-swift/run.sh
+bash Tests/linux-swift/run.sh   # local only: CI runs the same tests in LuminaLogicTests on macOS
 # The parity tools' own tests (ΔE2000, the numpy mirror of LookMath, refs indexing, the report), Linux too
 make parity-test
 # The culling eval's scoring tests (synthetic data) + the guard on the page's readOne, Linux too
@@ -125,12 +125,24 @@ are not seen (R1e).
 Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh`. It only reads the card.
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 
-CI (`.github/workflows/lumina.yml`) runs, on every pull request, the fixtures, the byte-for-byte page check, the
-wording audit and the parity tools (one Linux job), the Chromium plumbing harness and the WebKitGTK sandbox (one
-job), the Linux Swift tests, the build + logic tests with the release build and strict preflight (one macOS job),
-and the probe's smoke, screens and sandbox smoke (one macOS job). The long probe shards (fuzz-sample-2 +
-scroll-quick-2560; scroll-read + scroll-quick + edit on a 24-photo folder) run in parallel on main and when the
-workflow is run by hand on a branch. The other storms, the full scroll sweep and raw9 (real ARWs) run on a Mac.
+CI (`.github/workflows/lumina.yml`) runs a readiness gate on every pull request: the fixtures, the byte-for-byte
+page check, the wording audit and the parity tools (one Linux job), and the probe's smoke on macOS. The rest runs
+only when its area changed (`python3 Scripts/ci_changes.py FILE…` prints which): the Chromium plumbing harness and
+the WebKitGTK sandbox for the page, `plumbing.js` or `Tests/web`; the build + logic tests for anything Xcode builds, with lumina-render for the look and the Release build +
+strict preflight for signing, entitlements and settings; the probe's screens for the page or the probe; its
+sandbox smoke for native code and entitlements. A change to CI itself, and every push to main, runs all of it. The
+long probe shards (fuzz-sample-2 + scroll-quick-2560; scroll-read + scroll-quick + edit on a 24-photo folder) run
+nightly and when the workflow is run by hand on a branch. The other storms, the full scroll sweep and raw9 (real
+ARWs, macOS 27) run on a Mac.
+
+**Before you push, run what CI will run, then push once.** Each push restarts a macOS run of several
+minutes (a newer push cancels the older one, so a series of quick pushes keeps the runners busy and
+the PR waiting). `python3 Scripts/ci_changes.py $(git diff --name-only origin/main...)` prints which
+areas your change sets and the XCTest classes CI will pick (`xctest=`); run the matching local checks
+above (Linux: the node fixtures, `Tests/web`, `make parity-test`, `Tests/linux-swift`; Mac: those
+classes with `-only-testing`, `probe.sh smoke`), fix what fails, and push the finished change in one go.
+CI's per-class pick follows names (a test file that names a type the change declares); main runs the
+whole target, so a break that reaches a class only indirectly still shows there.
 
 ## Running tests without disturbing the Mac
 
