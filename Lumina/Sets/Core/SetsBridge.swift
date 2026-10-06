@@ -33,6 +33,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     let ingest = SetsIngest()
     /// How alike two photos' previews are, for the page's retake stacks (`lumina.near`).
     private(set) lazy var near = SetsNear(ingest: ingest)
+    /// Auto from the RAW (`lumina.auto`, BRIDGE-v0.02 §1): AutoDevelop on each file's own pixels,
+    /// cached per file + AutoDevelop version. The rules are the canvas's (or the bundled ones).
+    private(set) lazy var auto: SetsAuto = {
+        let rules = self.canvas?.pipeline.rules ?? (try? LookRules.bundled()) ?? LookRules()
+        return SetsAuto(measure: { try AutoDevelopRaw.stats(url: $0, rules: rules) })
+    }()
     private var pendingSource: URL?
     /// The recent shoot `pendingSource` reopens: the folder keeps that shoot's id wherever its
     /// bookmark found it (renamed or moved), instead of becoming a second shoot.
@@ -419,6 +425,16 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // preview can't be measured; the page then keeps its own rule.
             guard let a = Self.ingestPreview(body["a"]), let b = Self.ingestPreview(body["b"]), let d = await near.distance(a, b) else { return (NSNull(), nil) }
             return (d, nil)
+        case "auto":
+            // lumina.auto(rel) (BRIDGE-v0.02 §1): {look: {ev, wb, tint, hl, sh, wh, bl}, version} in the
+            // Edit page's slider units, from AutoDevelop on the RAW; null for a path that is not a RAW
+            // in an opened folder, or one Core Image can't develop. The op reads no numbers. The decode
+            // runs off the main thread; a second ask for the same file and version is a cache hit.
+            guard let rel = SetsAuto.rel(body["rel"], maxBytes: Self.maxRelBytes), let url = resolve(rel), LookPipeline.isRAW(url) else { return (NSNull(), nil) }
+            let auto = self.auto
+            let answer = await Task.detached(priority: .userInitiated) { auto.answer(url: url) }.value
+            guard let answer else { return (NSNull(), nil) }
+            return (answer, nil)
         case "ingestStats":
             return (ingest.snapshot.dictionary, nil)
         case "shootOpened":
