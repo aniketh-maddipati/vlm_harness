@@ -17,7 +17,7 @@ AREAS = {
     # The page and its plumbing: the WebKitGTK + Chromium job, and the probe's screens.
     "web": ["design/*", "Lumina/Sets/Web/*", "Tests/web/*", "Tests/core/*", "Scripts/page_files.sh"],
     # Anything Xcode builds or tests: the Debug build + LuminaLogicTests.
-    "swift": ["Lumina/*", "Lumina.xcodeproj/*", "LuminaLogicTests/*", "LuminaUITests/*", "TestPlans/*", "Config/*"],
+    "swift": ["Lumina/*", "Lumina.xcodeproj/*", "LuminaLogicTests/*", "TestPlans/*", "Config/*"],
     # The look pipeline and lumina-render (they share Lumina/Sets/Look through symlinks).
     "look": ["Lumina/Sets/Look/*", "Tools/parity/*"],
     # What the Release archive and the strict preflight check: signing, entitlements, settings.
@@ -29,8 +29,6 @@ AREAS = {
     # The App Sandbox run: native code, entitlements, plumbing, the probe's sandbox launcher.
     "sandbox": ["Config/*", "*.entitlements", "Lumina/LuminaApp.swift", "Lumina/Sets/Sets*.swift", "Lumina/Sets/Core/*",
                 "Lumina/Sets/Web/plumbing.js", "Tools/LuminaProbe/*", "Scripts/probe.sh", "Scripts/test_guard.py"],
-    # The Foundation-only Swift that Tests/linux-swift compiles, and its tests.
-    "linux_swift": ["Lumina/Sets/Core/*", "Lumina/Sets/Look/*", "LuminaLogicTests/*", "Tests/linux-swift/*"],
 }
 EVERYTHING = [".github/*", "Scripts/ci_changes.py"]
 

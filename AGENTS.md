@@ -67,7 +67,7 @@ xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py 
 # Fast scrolling over 400 synthetic ARWs at a Retina pixel ratio (numbers reported, not gated)
 GDK_SCALE=2 xvfb-run -a -s "-screen 0 5200x3000x24" /usr/bin/python3.12 Tests/web/webkit.py scroll
 # The Foundation-only Swift (SetsFileOps, SetsShootStore, SetsExport, SetsIngest, LookString/LookRules/LookMath) + its tests, Swift 6.1 in Docker
-bash Tests/linux-swift/run.sh
+bash Tests/linux-swift/run.sh   # local only: CI runs the same tests in LuminaLogicTests on macOS
 # The parity tools' own tests (ΔE2000, the numpy mirror of LookMath, refs indexing, the report), Linux too
 make parity-test
 # The culling eval's scoring tests (synthetic data) + the guard on the page's readOne, Linux too
@@ -129,8 +129,7 @@ Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh
 CI (`.github/workflows/lumina.yml`) runs a readiness gate on every pull request: the fixtures, the byte-for-byte
 page check, the wording audit and the parity tools (one Linux job), and the probe's smoke on macOS. The rest runs
 only when its area changed (`python3 Scripts/ci_changes.py FILE…` prints which): the Chromium plumbing harness and
-the WebKitGTK sandbox for the page, `plumbing.js` or `Tests/web`; the Linux Swift tests for the Foundation-only
-Swift; the build + logic tests for anything Xcode builds, with lumina-render for the look and the Release build +
+the WebKitGTK sandbox for the page, `plumbing.js` or `Tests/web`; the build + logic tests for anything Xcode builds, with lumina-render for the look and the Release build +
 strict preflight for signing, entitlements and settings; the probe's screens for the page or the probe; its
 sandbox smoke for native code and entitlements. A change to CI itself, and every push to main, runs all of it. The
 long probe shards (fuzz-sample-2 + scroll-quick-2560; scroll-read + scroll-quick + edit on a 24-photo folder) run

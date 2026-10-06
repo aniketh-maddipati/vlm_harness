@@ -11,8 +11,7 @@ on:
 # Every pull request runs the readiness gate: `design handoff` (the page's fixtures, the app ships
 # the design byte for byte) and the probe's smoke on macOS (the page runs, its selftest passes,
 # plumbing fits, the empty app survives a key storm). Everything else runs only when its area
-# changed (`changes` below, Scripts/ci_changes.py): the WebKit/Chromium job for the page, the Linux
-# Swift for the Foundation-only Swift, build + tests for anything Xcode builds (lumina-render for
+# changed (`changes` below, Scripts/ci_changes.py): the WebKit/Chromium job for the page, build + tests for anything Xcode builds (lumina-render for
 # the look, the release preflight for signing and settings), the probe's screens for the page or
 # the probe, its sandbox smoke for native code and entitlements. A push to main runs all of that.
 # The long probe storms (fuzz, scroll, edit) run nightly and on demand (Actions > Lumina > Run
@@ -36,7 +35,6 @@ jobs:
       release: ${{ steps.f.outputs.release }}
       screens: ${{ steps.f.outputs.screens }}
       sandbox: ${{ steps.f.outputs.sandbox }}
-      linux_swift: ${{ steps.f.outputs.linux_swift }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -123,16 +121,6 @@ jobs:
       - name: contract, selftest, app flow, screens (prototype vs app)
         run: NODE_PATH="$(npm root -g)" xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3 Tests/web/webkit.py
 
-  swift-linux:
-    name: native file code on Linux (Swift 6.1)
-    needs: changes
-    if: needs.changes.outputs.linux_swift == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests, LookStringTests, LookMathTests, LookCanvasTests
-        run: bash Tests/linux-swift/run.sh
 
   app:
     # Then what ships (TASKS R3): the Release archive with Config/Release.xcconfig, sandboxed,
