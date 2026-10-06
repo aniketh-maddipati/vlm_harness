@@ -461,7 +461,7 @@
         if (!shown) {
           shown = true; logic._rd.cur = logic.data.order[0];
           const se = logic.scrollRef && logic.scrollRef.current; logic._rd.top = se ? se.scrollTop : 0;
-          logic.setState({ cur: logic.data.order[0] }); logic.setView('cull', true);
+          logic.setState({ cur: logic.data.order[0] }); if (logic.state.view !== 'edit' && logic.state.view !== 'export') logic.setView('cull', true);
         } else logic.forceUpdate();
       };
       // A file that can't be read stays, as a grey tile (CHANGES-v0.05 B1): the page's own record.
@@ -503,7 +503,10 @@
         secs: lastRead.secs.toFixed(1), date: first.slice(0, 10).replace(/:/g, '-') };
       const B = logic.data.byId;
       logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, cur: moved && B[s1.cur] ? s1.cur : logic.data.order[0] });
-      logic._landT = Date.now(); logic.setView('cull', true); if (!moved) setTimeout(() => logic.land(), 0);
+      // The page's own read ends in Pick whatever step is showing; a reader who went to Edit (or
+      // Save) while the photos loaded stays there (DESIGN-ASKS Prompt 17).
+      const away = logic.state.view === 'edit' || logic.state.view === 'export';
+      if (!away) { logic._landT = Date.now(); logic.setView('cull', true); if (!moved) setTimeout(() => logic.land(), 0); }
       if (run.gone) logic.say('Card removed · ' + ok.length + ' of ' + files.length + ' read · re-insert to keep going');
     };
 

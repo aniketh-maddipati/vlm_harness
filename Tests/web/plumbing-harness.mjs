@@ -411,6 +411,17 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   });
   ok(order.queued > 0 && order.firstKept && order.kept === 1, 'keys: menu Undo runs after the keys still queued (undoes the last keep)', order);
 
+  // A reader who goes to Edit while the folder is still read stays in Edit when the read ends.
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  bridge.delayMs = 60; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
+  await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 60000 });
+  await page.evaluate(() => __lumina.logic().setView('edit'));
+  const stillReading = await page.evaluate(() => !!__lumina.logic().state.realLoad);
+  bridge.delayMs = 0; await loaded(page); await page.waitForTimeout(600);
+  const stayed = await page.evaluate(() => __lumina.logic().state.view);
+  ok(stillReading && stayed === 'edit', 'read end: a reader in Edit stays in Edit when the photos finish loading', { stillReading, stayed });
+  await page.evaluate(() => __lumina.logic().setView('cull')); await page.waitForTimeout(200);
+
   // T4: a sidecar another app rewrote between open and Save. Save merges the rating onto the text on
   // disk NOW (the page's own xmpFor, on text re-read by the Mac), never onto the text from the open.
   const lr = path.join(tmp, '2026-09-03');

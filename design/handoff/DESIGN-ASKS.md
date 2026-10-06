@@ -1113,3 +1113,20 @@ shows only the photo; with RAW 9 active it still reads `raw 9: yes`.
 
 - `pageFacts` in `plumbing.js` sends the facts every time again; the Edit screens show no
   `canvas:` words outside debug.
+
+## Prompt 17 — the end of a read pulls the reader back to Pick (paste into Claude Design)
+
+Open a folder, press ⌘3 while the photos are still loading, and when the read ends the page jumps
+back to Pick. `onDir` calls `setView('cull',true)` on its first batch and again when the listing is
+done, whatever step is showing. Plumbing's native read now skips both calls while Edit or Save is
+showing; the page's own read (the browser) still jumps.
+
+> In Lumina Sets v11, `onDir` moves to Pick only if Open is still the step showing. If the reader
+> went to Edit or Save while the folder was read, the read ends where they are: the photos join the
+> grid in the background, the cursor still lands on the first photo for when they come back to
+> Pick, and the footer says `opened · N photos` as now. Nothing else changes.
+
+### How Prompt 17 is checked once its handoff lands
+
+- `node Tests/web/plumbing-harness.mjs`: `read end: a reader in Edit stays in Edit` still passes,
+  and the same steps in the prototype (no plumbing) stay in Edit too.
