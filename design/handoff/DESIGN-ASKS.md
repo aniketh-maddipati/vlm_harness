@@ -1065,3 +1065,48 @@ scenarios expire the memo (`_cpAt = 0`) and redraw once after ⌥→ settles, be
 ### How Prompt 14 is checked once its handoff lands
 
 - `probe.sh screens` passes 34 / 34 with the redraw step taken out of `Tests/probe/scenarios/screens-*.json`.
+
+## Prompt 15 — Help ▸ Privacy and Help ▸ Support (paste into Claude Design)
+
+The App Store asks for a privacy policy and a support page at public URLs, and they exist
+(`docs/release/listing/privacy.md`, `support.md`). Nothing in the app says the same thing, so a
+user who wonders where their photos go, or how to reach someone, has to find a web page. The
+words should also be in the app, in the app's own look.
+
+> Update `MENUS.md` and the Sets page for the Mac app. Keep the look, keys and wording
+> otherwise unchanged.
+>
+> **A. Menus.** The Help menu gains `Privacy` and `Support`, after `Keyboard Shortcuts`;
+> `privacy` and `support` join the command names for `window.luminaCommand`. About gains quiet
+> links `Privacy · Support` next to the FAQ link that do the same.
+>
+> **B. Privacy sheet.** `luminaCommand('privacy')` opens a sheet titled `Privacy`, in the
+> Acknowledgements sheet's style, with this text:
+> `Lumina does not collect, store or share any information about you.` Then four short
+> paragraphs, each with a bold lead: **No data leaves your Mac.** The app makes no network
+> connections: no account, no analytics, no crash reporting of its own, no advertising.
+> **Your photos.** Lumina reads only the folders and cards you choose and never changes your
+> originals. Save writes rating files (.xmp) next to your photos and keeps a backup of any it
+> replaces. **What it keeps.** Your decisions and recent shoots, in the app's own folder on this
+> Mac; remove a shoot's working files from the Open screen. **Crash reports.** Only if you share
+> analytics with developers in macOS settings, and then through Apple.
+>
+> **C. Support sheet.** `luminaCommand('support')` opens a sheet titled `Support`: the
+> contact line `anikethcov@gmail.com · LinkedIn` (both links, handed to the Mac through the
+> page's external-link call: `mailto:anikethcov@gmail.com`,
+> `https://www.linkedin.com/in/anikethmaddipati`), the hint `Include your macOS version, your
+> Mac model and what you did just before the problem.`, then the five questions from the
+> support page as a short FAQ: which files it reads, where the ratings are, why it asks for a
+> folder, why it can't save on the card, where decisions are kept.
+>
+> **D. Edge states.** Both sheets open from any step, change nothing in the shoot, and close
+> with `esc` or ⏎. In the browser the links open in a new tab.
+
+### How Prompt 15 is checked once its handoff lands
+
+- `LuminaApp.swift` adds Help ▸ Privacy and Help ▸ Support calling `luminaCommand("privacy")` /
+  `luminaCommand("support")`, after MENUS.md says so.
+- The two links pass the external-link allowlist (`SetsExternalLinks`, being wired in by the
+  trust-model work): `mailto:` to that address and the one LinkedIn URL.
+- The sheets' text matches `docs/release/listing/privacy.md` and `support.md`; when one changes, so does the other.
+- `probe.sh screens` gains both sheets in prototype and app mode.
