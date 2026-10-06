@@ -1,9 +1,11 @@
 {
- "why": "The design's own lumina-selftest.js still tests v5 keys in these checks; Sets v7 behaves as designed (R and X remove, F held shows the focus overlay, Cmd-3 is Edit and Save is Cmd-4). DESIGN-ASKS Prompt 12 ask 4 asks the design to update them. Until that handoff lands, every runner of ?selftest (Tests/probe/scenarios/selftest.json through the probe's 'selftest' step, Tests/web/webkit.py) reports these and does not fail on them; any other failing check still fails. A check listed here that passes again is reported ('now passes: drop it from the list'). Drop the whole list when the handoff's selftest is at v7.",
+ "why": "The design's own lumina-selftest.js still tests v5 keys in these checks; Sets v7 behaves as designed (R and X remove, F held shows the focus overlay, Cmd-3 is Edit and Save is Cmd-4). DESIGN-ASKS Prompt 12 ask 4 asks the design to update them. Until that handoff lands, every runner of ?selftest (Tests/probe/scenarios/selftest.json through the probe's 'selftest' step, Tests/web/webkit.py) reports these and does not fail on them; any other failing check still fails. A check listed here that passes again is reported ('now passes: drop it from the list'). The last two time v7's own large view (DESIGN-ASKS Prompt 12 ask 7; listed at sam's word, 2026-10-06): on the CI Mac it opens in 101 to 273 ms against the check's 100 ms, and then a tapped Space reads as held. On a fast Mac both pass and are reported as passing. Drop the four when the handoff's selftest is at v7, and the last two once the large view opens within 100 ms.",
  "known": [
   "R keeps too",
   "X changes nothing",
   "F flags",
-  "⌘3 shows the Save bar with a count"
+  "⌘3 shows the Save bar with a count",
+  "perf: open large view",
+  "Space on a stack opens large at frame 1 with an axis"
  ]
 }

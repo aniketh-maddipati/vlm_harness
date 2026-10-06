@@ -1035,3 +1035,5 @@ Until the page changes, the app:
   titles and Redo / Copy / Paste routed to `window.luminaEdit` in Edit (`LuminaApp.swift`; ask 6);
 - sends Temperature as the page's number against its 5500 K until native hands back the as-shot
   values (`plumbing.js`, the Edit translator; ask 5).
+- reports the two large-view checks of ask 7 and does not fail on them (`Tests/selftest-known.json`):
+  they depend on how fast the Mac draws the page, which the app can't change.
