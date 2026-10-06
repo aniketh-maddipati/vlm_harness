@@ -343,7 +343,9 @@ never where the user is waiting. The rules live in `LookRawPolicy` (tiers, gatin
 - **Capability map.** On each shoot open, `plumbing.js` names one RAW per body; the bridge measures
   `supportedDecoderVersions`, whether 9 is present and the fastest version (a 512 px proof per
   version, at `.utility`) and keeps it in the shoot's `Lumina.json` header (`LookShootHeader`, next
-  to `session.json`). The facts line shows `raw 9: yes/no`. RAW 9 is found by number, so the app
+  to `session.json`). `lumina.edit.facts()` reports `raw 9: yes/no`; the page's facts line, the
+  photographer's, gets it only while RAW 9 is active or a note needs acting on, or with
+  `LuminaDiagnostics` (defaults) / `LUMINA_DIAGNOSTICS=1`. RAW 9 is found by number, so the app
   builds against the macOS 15 SDK and simply reports `no` there.
 - **Tiers, by what the user is doing.** Cull: the embedded JPEG only, never a RAW decode. Edit
   canvas: the fastest version (RAW 8) at canvas size for `base` and `small`, so sliders stay under a

@@ -150,7 +150,10 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     return { facts: f, state: lumina.edit.state(), images: window.__editImages.slice(), factsSeen: window.__editFacts.slice(), factsObjs: window.__facts.slice() };
   }, rel0);
   ok(hooks.facts && hooks.facts.canvas === 'image' && /^canvas: image · raw 9: no/.test(hooks.facts.text), 'edit: facts say canvas: image and raw 9: no', hooks.facts);
-  ok(hooks.factsObjs.length && hooks.factsObjs[0].canvas === 'image' && hooks.factsObjs[0].raw9 === false && hooks.factsObjs[0].decoder === '8' && hooks.factsObjs[0].note === null, 'edit: luminaFacts({canvas, raw9, decoder, note}) as Prompt 1 §3 names it', hooks.factsObjs);
+  ok(hooks.factsObjs.length && hooks.factsObjs.every(f => f === null), 'edit: the page\'s facts line gets no app diagnostics (canvas, raw 9) when there is nothing to act on', hooks.factsObjs);
+  const noted = await page.evaluate(() => { window.__facts = []; lumina.edit.header({ offerUpdate: true }); const f = window.__facts.slice(); lumina.edit.header({ offerUpdate: false }); return { f, after: window.__facts.slice(-1)[0] }; });
+  ok(noted.f.length === 1 && noted.f[0] && noted.f[0].canvas === 'image' && noted.f[0].raw9 === false && noted.f[0].decoder === '8' && /update shoot/.test(noted.f[0].note) && noted.after === null,
+    'edit: luminaFacts({canvas, raw9, decoder, note}) as Prompt 1 §3 names it, when there is a note to act on, and null again after', noted);
   // Prompt 1 §3's preview(): the URL to show on the image path, quarter tier while a slider drags.
   const pv = await page.evaluate(rel => { const a = lumina.preview(rel, 'ev:+0.20', 1800, 7); lumina.drag('start'); const b = lumina.preview(rel, 'ev:+0.25', 1800, 8); lumina.drag('end'); return [a, b]; }, rel0);
   ok(pv[0] && /\/render\/2026-09-01\/DSC01001\.ARW\?/.test(pv[0]) && /look=ev%3A%2B0.20/.test(pv[0]) && /px=1800/.test(pv[0]) && /seq=7/.test(pv[0]) && /tier=base/.test(pv[0]) && /decoder=8/.test(pv[0]), 'edit: lumina.preview returns the lumina://render URL at rest (tier=base)', pv[0]);
@@ -161,6 +164,8 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(bridge.canvas.entered[0] && bridge.canvas.entered[0].rel === rel0 && bridge.canvas.entered[0].model === 'ILCE-7M4' && bridge.canvas.entered[0].next && bridge.canvas.entered[0].preview && +bridge.canvas.entered[0].preview.l > 0,
     'edit: canvasEnter carries the photo, its body, its preview range and its neighbours', bridge.canvas.entered[0]);
   ok(bridge.canvas.layouts[0] && bridge.canvas.layouts[0].w === 900 && bridge.canvas.layouts[0].visible === true && bridge.canvas.layouts[0].dpr >= 1, 'edit: canvasLayout carries the rect, visibility and dpr', bridge.canvas.layouts[0]);
+  { const vh = await page.evaluate(() => window.innerHeight), L0 = bridge.canvas.layouts[0];
+    ok(L0 && L0.vh === vh && vh > 0, 'edit: canvasLayout carries the page viewport height, so the Mac places the canvas below a title bar the web view keeps out of the page', { vh, sent: L0 && L0.vh }); }
   // Page chrome over the photo rides along as `holes`, on the rect or in the options; a hidden canvas sends none.
   { const n0 = bridge.canvas.layouts.length, hole = { x: 110, y: 60, w: 40, h: 20 };
     await page.evaluate(h => { const r = Object.assign({}, lumina.edit.state().rect); lumina.canvasRect(Object.assign({}, r, { holes: [h] })); lumina.edit.layout(r, true, { holes: [h, h] }); lumina.edit.layout(r, true); }, hole);
@@ -272,6 +277,18 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     await page.evaluate(() => __lumina.logic().setView('cull')); await page.waitForTimeout(500);
     const L3 = bridge.canvas.layouts.slice(n2);
     ok(L3.length >= 1 && L3[L3.length - 1].visible === false, 'edit v22 (page): leaving Edit hides the canvas', L3); }
+
+  // Pick ▸ Not Kept (R): un-keeps the photo under the cursor and moves on, as the grammar's R does.
+  const nk = await page.evaluate(async () => {
+    const l = __lumina.logic(), w = ms => new Promise(r => setTimeout(r, ms)), d0 = luminaState().undoDepth;
+    l.setView('cull'); await w(200);
+    const id = luminaState().cur; __lumina.command('keep'); await w(150); const kept = luminaState().marks[id] === 'keep';
+    l.setState({ cur: id }); await w(100); __lumina.command('notKept'); await w(150);
+    const r = { kept, after: luminaState().marks[id] || null, moved: luminaState().cur !== id };
+    while (luminaState().undoDepth > d0) { __lumina.command('undo'); await w(60); }
+    return r;
+  });
+  ok(nk.kept && nk.after === null && nk.moved, 'menu: Pick ▸ Not Kept un-keeps the photo and moves on (R)', nk);
 
   // Save → sidecars INTO the folder
   const before2 = fs.readFileSync(path.join(shoot, 'DSC01002.xmp'), 'utf8');
@@ -393,6 +410,20 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     return { queued, firstKept: l.state.marks[a] === 'keep', kept: l.kept().length };
   });
   ok(order.queued > 0 && order.firstKept && order.kept === 1, 'keys: menu Undo runs after the keys still queued (undoes the last keep)', order);
+
+  // A reader who goes to Edit while the folder is still read stays in Edit when the read ends.
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  bridge.delayMs = 60; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
+  await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 60000 });
+  await page.evaluate(() => __lumina.logic().setView('edit'));
+  const stillReading = await page.evaluate(() => !!__lumina.logic().state.realLoad);
+  bridge.delayMs = 0; await loaded(page); await page.waitForTimeout(600);
+  const stayed = await page.evaluate(() => __lumina.logic().state.view);
+  ok(stillReading && stayed === 'edit', 'read end: a reader in Edit stays in Edit when the photos finish loading', { stillReading, stayed });
+  const src = await page.evaluate(() => { const l = __lumina.logic(), S = l._sources || [];
+    return { n: S.length, label: S[0] && S[0].label, photos: S[0] && S[0].n, mapped: l.real.filter(p => l.srcOfP(p)).length, total: l.real.length }; });
+  ok(src.n === 1 && src.label === '2026-09-02' && src.photos === 160 && src.mapped === src.total, 'sources: the opened folder is the shoot\'s one source, every photo in it', src);
+  await page.evaluate(() => __lumina.logic().setView('cull')); await page.waitForTimeout(200);
 
   // T4: a sidecar another app rewrote between open and Save. Save merges the rating onto the text on
   // disk NOW (the page's own xmpFor, on text re-read by the Mac), never onto the text from the open.
