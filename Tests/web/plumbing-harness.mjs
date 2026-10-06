@@ -447,10 +447,12 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(await page.evaluate(() => !__lumina.logic().state.opening), 'opening: cleared when the listing arrives');
   const rEnd = await page.evaluate(() => __lumina.events().filter(e => e.type === 'readEnd').pop());
   ok(rEnd && rEnd.detail.stay === false && rEnd.detail.photos === 12, 'readEnd: the read reports its end through lumina.emit', rEnd);
+  await page.evaluate(() => { const f = window.luminaWorkingFiles; window.__wfPushed = []; window.luminaWorkingFiles = b => { window.__wfPushed.push(b); return f(b); }; });
   await page.evaluate(() => __lumina.logic().reshift([{ paths: null, sec: 3600, label: 'shifted 12 photos by +1:00:00' }], 'shifted 12 photos by +1:00:00'));
   await page.waitForTimeout(2300);            // autosave
   const gSaved = bridge.sessions['id-Grey'] && JSON.parse(bridge.sessions['id-Grey']);
   ok(gSaved && Array.isArray(gSaved.shifts) && gSaved.shifts.length === 1 && gSaved.shifts[0].sec === 3600, 'shift: saved with the session', gSaved && gSaved.shifts);
+  ok(await page.evaluate(() => window.__wfPushed.includes(1234)), 'storage meter: a session write pushes luminaWorkingFiles(bytes)', await page.evaluate(() => window.__wfPushed));
   bridge.pending = grey; await page.evaluate(() => __lumina.openFolder()); await loaded(page); await page.waitForTimeout(300);
   ok(await page.evaluate(() => JSON.stringify(luminaState().shifts.map(x => x.sec)) === '[3600]'), 'shift: back on reopen', await page.evaluate(() => luminaState().shifts));
   ok(await page.evaluate(async () => (await lumina.notices()) === 'React 18.3.1 · MIT\n'), 'acknowledgements: lumina.notices() is the app\'s text');

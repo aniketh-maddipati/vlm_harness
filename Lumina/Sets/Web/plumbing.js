@@ -8,6 +8,13 @@
   const native = (op, args) => window.webkit.messageHandlers.lumina.postMessage(Object.assign({ op }, args || {}));
   // The page's notices (CHANGES-v0.04 A4): its own words for a folder too big to be a shoot, a sidecar
   // the Mac did not read, a session the Mac refused.
+  // Result reasons are the page's REASON keys (CHANGES-v0.04 D1/D2, PARITY-v0.05 §4). The Mac's
+  // other words fold into the nearest one; 'on the card' stays (the page's Save guard comes first).
+  const REASONS = ['changed on disk', 'unreadable', 'name too long', 'locked', 'read-only', 'missing', 'disk full', 'failed', 'on the card'];
+  const reasons = r => {
+    if (r && Array.isArray(r.errors)) r.errors.forEach(e => { if (e && !REASONS.includes(e.reason)) e.reason = e.reason === 'over 1 MB' ? 'unreadable' : 'failed'; });
+    return r;
+  };
   const notice = (kind, info) => { try { return typeof window.luminaNotice === 'function' ? window.luminaNotice(kind, info || {}) : false; } catch (_) { return false; } };
 
   // Settings (MENUS.md): stored per user by the Mac (UserDefaults). The page reads 'lumina-prefs' from
@@ -137,10 +144,14 @@
     const json = JSON.stringify(snapshot(l));
     if (json !== lastSaved) {
       lastSaved = json; base = JSON.parse(json);
-      // A session over the Mac's limit (threat model T5) is refused: said once per shoot. The wording
-      // is a stand-in until DESIGN-ASKS Prompt 6 lands. Other failures stay as before (not shown).
+      // A session over the Mac's limit (threat model T5) is refused: the page says so once per shoot
+      // (luminaNotice 'sessionBig'). Other failures stay as before (not shown). A write changes the
+      // working files' size: pushed to the storage meter (BRIDGE-v0.03 §7, luminaWorkingFiles).
       const id = shootId;
-      Promise.resolve(native('saveSession', { id, json, summary: summary(l) })).catch(err => {
+      Promise.resolve(native('saveSession', { id, json, summary: summary(l) })).then(() => {
+        if (cfg.parity || typeof window.luminaWorkingFiles !== 'function' || shootId !== id) return;
+        return native('workingFiles', { id }).then(b => { if (b != null && shootId === id) window.luminaWorkingFiles(b); }, () => {});
+      }).catch(err => {
         if (!/too big/.test(String((err && err.message) || err))) throw err;
         if (sessionRefused !== id) { sessionRefused = id; notice('sessionBig', {}); }
       });
@@ -504,7 +515,7 @@
         // LookPipeline with the decoder the shoot pins for that body; the result names the decoder.
         const byPath = {}; for (const p of Object.values((logic.data && logic.data.byId) || {})) if (p.path) byPath[p.path] = p;
         const list = files.filter(f => f && f.look && f.look.src).map(f => ({ name: f.name, look: { src: f.look.src, look: f.look.look || '', px: f.look.px == null ? null : f.look.px, model: (byPath[f.look.src] || {}).model || null } }));
-        return native('writeInto', { label: 'jpeg', files: list });
+        return native('writeInto', { label: 'jpeg', files: list }).then(reasons);
       }
       if (label !== 'xmp') return null;
       // The page merged each rating into the sidecar text it holds from the open (xmpFor on p.xmp),
@@ -531,7 +542,7 @@
         const u = d instanceof Uint8Array ? d : d instanceof Blob ? new Uint8Array(await d.arrayBuffer()) : typeof d === 'string' ? enc.encode(d) : null;
         if (u) { it.b64 = b64(u); list.push(it); }
       }
-      const r = await native('writeSidecars', { root, files: list });
+      const r = reasons(await native('writeSidecars', { root, files: list }));
       if (r && !(r.errors || []).length && (r.n || 0) > 0) savedKeepers = keepersOf(logic);
       if (r) setTimeout(saveNow, 0);
       return r;
