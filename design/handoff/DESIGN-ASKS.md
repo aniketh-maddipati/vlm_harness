@@ -1065,3 +1065,18 @@ scenarios expire the memo (`_cpAt = 0`) and redraw once after ⌥→ settles, be
 ### How Prompt 14 is checked once its handoff lands
 
 - `probe.sh screens` passes 34 / 34 with the redraw step taken out of `Tests/probe/scenarios/screens-*.json`.
+
+## Prompt 15 — Edit asks the web for a photo Sets supplied without a preview (paste into Claude Design)
+
+Carried from the v0.01 asks and checked again on Edit v22 (2026-10-06). In `Lumina Edit`, `src(p)`
+uses the photo Sets supplied (`p.obj`) when there is one; a photo that came from `window.luminaShoot`
+without a preview falls through to `images.unsplash.com` or `picsum.photos`. The app makes no network
+calls, so that tile is a broken image.
+
+1. **Edit: no web images when Sets supplied the shoot.** When `window.luminaShoot` exists and a photo
+   has no preview, show the "Couldn't open" state. Keep the web photos for the prototype's own demo
+   shoot only.
+
+(The other two v0.01 asks carried with this one are settled or unmeasured: v11's `runExport` now
+matches a failed `Picks/<file>.DNG` copy by its file name, and the large view's open time has not been
+measured on Sets v11.)
