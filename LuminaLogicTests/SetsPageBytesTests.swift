@@ -1,5 +1,6 @@
 import CryptoKit
 import XCTest
+@testable import Lumina
 
 /// The app ships the design's page unchanged (BUILD-exact rule 1). The bundled copies in
 /// Lumina/Sets/Web must be byte-identical to design/handoff; run Scripts/sets_sync_ui.sh after a
