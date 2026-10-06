@@ -120,6 +120,21 @@ for f in react.production.min.js react-dom.production.min.js babel.min.js; do
 done
 [[ -f "$RES/rules-v1.json" ]] && ok "rules-v1.json" || fail "rules-v1.json missing: no Edit look"
 if [[ -f "$RES/PrivacyInfo.xcprivacy" ]] && plutil -lint "$RES/PrivacyInfo.xcprivacy" >/dev/null; then ok "privacy manifest"; else fail "PrivacyInfo.xcprivacy missing or invalid"; fi
+# Each "required reason" API the binary names needs its category in the manifest, or App Store
+# Connect answers the upload with ITMS-91053. Selectors and imported symbols show as text.
+if [[ -f "$RES/PrivacyInfo.xcprivacy" ]]; then
+  SYMS="$TEXT"$'\n'"$(nm -u "$BIN" 2>/dev/null)"
+  MANIFEST="$(plutil -convert xml1 -o - "$RES/PrivacyInfo.xcprivacy" 2>/dev/null)"
+  for pair in 'SystemBootTime:systemUptime|mach_absolute_time' \
+              'DiskSpace:volumeAvailableCapacity|NSFileSystemFreeSize|statfs' \
+              'UserDefaults:NSUserDefaults|standardUserDefaults' \
+              'FileTimestamp:NSFileModificationDate|NSFileCreationDate|contentModificationDate|creationDate|_stat$|_lstat$|_fstat$'; do
+    cat="${pair%%:*}"; pat="${pair#*:}"
+    if grep -qE "$pat" <<<"$SYMS"; then
+      grep -q "NSPrivacyAccessedAPICategory$cat" <<<"$MANIFEST" && ok "privacy manifest declares $cat" || fail "the binary uses a $cat API but PrivacyInfo.xcprivacy gives no reason for it"
+    fi
+  done
+fi
 if [[ -f "$RES/LuminaBuild.json" ]]; then
   MSHA="$(/usr/bin/python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("git_sha",""), d.get("configuration",""))' "$RES/LuminaBuild.json")"
   [[ "$MSHA" == "$(git -C "$ROOT" rev-parse HEAD) Release" ]] && ok "build manifest: this commit, Release" || warn manifest "build manifest says '$MSHA' (not HEAD / Release)"

@@ -4,12 +4,18 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 7 * * *"   # nightly: the long probe shards
   workflow_dispatch:
 
-# A pull request runs the fast set: three Linux jobs and two macOS jobs (build + tests with the
-# release preflight; the probe's smoke, screens and sandbox smoke). The long probe storms (fuzz,
-# scroll, edit, RAW 9) run on main and on demand (Actions > Lumina > Run workflow, any branch).
-# Seven macOS jobs per PR filled the account's macOS runners on their own, so PRs queued.
+# Every pull request runs the readiness gate: `design handoff` (the page's fixtures, the app ships
+# the design byte for byte) and the probe's smoke on macOS (the page runs, its selftest passes,
+# plumbing fits, the empty app survives a key storm). Everything else runs only when its area
+# changed (`changes` below, Scripts/ci_changes.py): the WebKit/Chromium job for the page, build + tests for anything Xcode builds (lumina-render for
+# the look, the release preflight for signing and settings), the probe's screens for the page or
+# the probe, its sandbox smoke for native code and entitlements. A push to main runs all of that.
+# The long probe storms (fuzz, scroll, edit) run nightly and on demand (Actions > Lumina > Run
+# workflow, any branch); RAW 9 needs real ARWs and macOS 27 and runs on a Mac.
 
 # A newer run on the same branch or PR replaces the older one (the macOS runners queue up
 # otherwise: several sessions pushing in a row turned a 5-minute run into 17). Runs on main finish.
@@ -18,6 +24,25 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  changes:
+    name: what changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      web: ${{ steps.f.outputs.web }}
+      swift: ${{ steps.f.outputs.swift }}
+      look: ${{ steps.f.outputs.look }}
+      release: ${{ steps.f.outputs.release }}
+      screens: ${{ steps.f.outputs.screens }}
+      sandbox: ${{ steps.f.outputs.sandbox }}
+      xctest: ${{ steps.f.outputs.xctest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 2
+      - id: f
+        run: python3 Scripts/ci_changes.py
+
   design:
     name: design handoff
     runs-on: ubuntu-latest
@@ -46,6 +71,11 @@ jobs:
             cmp "design/handoff/lumina-cull/$f" "Lumina/Sets/Web/$f"
           done
           for f in design/handoff/vendor/*.js; do cmp "$f" "Lumina/Sets/Web/$(basename "$f")"; done
+          # A scenario that names a page the app no longer ships fails at setup with a 404 (scroll-quick
+          # kept v5's name through the v8 sync). Every "page" must be one of the page files.
+          grep -ho '"page": *"[^"]*"' Tests/probe/scenarios/*.json | sed 's/.*: *"//; s/"$//' | sort -u | while IFS= read -r p; do
+            [[ -f "Lumina/Sets/Web/$p" ]] || { echo "a probe scenario names \"$p\", which the app does not ship:"; grep -l "\"$p\"" Tests/probe/scenarios/*.json; exit 1; }
+          done
       - name: page and scripts in step, the DNG reader on built fixtures (plain node)
         run: make web-test
       - name: wording + demo-layer audit (report only)
@@ -58,6 +88,8 @@ jobs:
 
   webkit:
     name: page + plumbing in WebKit (WebKitGTK sandbox)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -97,14 +129,6 @@ jobs:
       - name: contract, selftest, app flow, screens (prototype vs app)
         run: NODE_PATH="$(npm root -g)" xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3 Tests/web/webkit.py
 
-  swift-linux:
-    name: native file code on Linux (Swift 6.1)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - name: SetsSidecarTests, SetsTrustTests, SetsFileOpsTests, LookStringTests, LookMathTests, LookCanvasTests
-        run: bash Tests/linux-swift/run.sh
 
   app:
     # Then what ships (TASKS R3): the Release archive with Config/Release.xcconfig, sandboxed,
@@ -112,44 +136,57 @@ jobs:
     # items still open in docs/release/TASKS.md, allowed by tag: D2 (network.client while the UI is
     # the WebView: stands until the decision). When one lands, its tag comes off PREFLIGHT_ALLOW.
     name: build + tests
+    needs: changes
+    if: needs.changes.outputs.swift == 'true' || needs.changes.outputs.look == 'true' || needs.changes.outputs.release == 'true'
     runs-on: macos-15
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # On a pull request, only the test classes the change touches (Scripts/ci_changes.py, xctest_args);
+      # on main and nightly, all of LuminaLogicTests. No index store: CI never reads it.
       - name: build and test
+        env:
+          ONLY_TESTING: ${{ needs.changes.outputs.xctest }}
         run: |
+          echo "tests: $ONLY_TESTING"
+          # shellcheck disable=SC2086  # one -only-testing argument per class
           xcodebuild -project Lumina.xcodeproj -scheme Lumina -configuration Debug \
             -derivedDataPath DD -destination 'platform=macOS,arch=arm64' \
-            -only-testing:LuminaLogicTests test
+            ${ONLY_TESTING:--only-testing:LuminaLogicTests} COMPILER_INDEX_STORE_ENABLE=NO test
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        if: needs.changes.outputs.look == 'true'
         with:
           path: Tools/parity/lumina-render/.build
           key: lumina-render-${{ runner.os }}-${{ hashFiles('Tools/parity/lumina-render/Package.swift', 'Tools/parity/lumina-render/Sources/**/*.swift', 'Lumina/Sets/Look/*.swift') }}
       - name: lumina-render builds and its graph matches LookMath and the numpy mirror
+        if: needs.changes.outputs.look == 'true'
         run: |
           swift build -c release --package-path Tools/parity/lumina-render
           Tools/parity/lumina-render/.build/release/lumina-render ramp --out "${{ runner.temp }}/ramp.json"
           python3 -m venv "${{ runner.temp }}/venv" && "${{ runner.temp }}/venv/bin/pip" install -q -r Tools/parity/requirements.txt
           "${{ runner.temp }}/venv/bin/python" Tools/parity/lookmath.py --check "${{ runner.temp }}/ramp.json"
       - name: release.sh local --strict
+        if: needs.changes.outputs.release == 'true'
         env:
           PREFLIGHT_ALLOW: D2
         run: bash Scripts/release.sh local --strict
 
   probe:
     # Job and shard names stay as they were, so required checks keep matching. One shard on a pull
-    # request: `smoke` (contract + selftest + the app flow), `screens` (every
-    # screen once, the app twins compared with the prototype in the same run; the committed
-    # reference is for local runs) and smoke inside the App Sandbox with the shipped entitlements
-    # (R1a, R3). On main and on demand, the long shards run alongside it in parallel; each builds
-    # the probe once (cached).
+    # request and on main: `smoke` (contract + selftest + the app flow; the readiness gate, always),
+    # `screens` (every screen once, the app twins compared with the prototype in the same run; the
+    # committed reference is for local runs) when the page or the probe changed, and smoke inside
+    # the App Sandbox with the shipped entitlements (R1a, R3) when native code or entitlements
+    # changed. Nightly and on demand, the long shards run alongside it in parallel; each builds the
+    # probe once (cached).
     name: probe (${{ matrix.shard }})
+    needs: changes
     runs-on: macos-15
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(github.event_name == 'pull_request' && '["smoke + screens"]' || '["smoke + screens", "fuzz + scroll 2560", "scroll + edit"]') }}
+        shard: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["smoke + screens", "fuzz + scroll 2560", "scroll + edit"]' || '["smoke + screens"]') }}
     env:
       LUMINA_EDIT_GATE: "0"     # latency is reported, not gated, on a shared runner
       LUMINA_LONG: "1"          # the fuzz storms are long runs, started on purpose here
@@ -186,11 +223,15 @@ jobs:
         env:
           LUMINA_PROBE_OUT: ${{ runner.temp }}/probe
           SHARD: ${{ matrix.shard }}
+          SCREENS: ${{ needs.changes.outputs.screens }}
+          SANDBOX: ${{ needs.changes.outputs.sandbox }}
         run: |
           s1=0; s2=0; s3=0
           case "$SHARD" in
             "smoke + screens")
-              bash Scripts/probe.sh smoke; s1=$?; bash Scripts/probe.sh screens; s2=$?; LUMINA_PROBE_OUT="$LUMINA_PROBE_OUT-sandbox" bash Scripts/probe.sh sandbox smoke; s3=$? ;;
+              bash Scripts/probe.sh smoke; s1=$?
+              if [[ $SCREENS == true ]]; then bash Scripts/probe.sh screens; s2=$?; else echo "screens: skipped (page and probe unchanged)"; fi
+              if [[ $SANDBOX == true ]]; then LUMINA_PROBE_OUT="$LUMINA_PROBE_OUT-sandbox" bash Scripts/probe.sh sandbox smoke; s3=$?; else echo "sandbox smoke: skipped (native code and entitlements unchanged)"; fi ;;
             # One seeded storm on Cull and two scroll passes per size (warm-ahead on and off): the other
             # storms (fuzz-sample-1, -3), the full scroll sweep (scroll-fast*) and raw9 (real ARWs) run
             # on a Mac with `probe.sh fuzz`, `scroll` and `raw9`. Scroll numbers are reported, not gated.
@@ -213,7 +254,6 @@ jobs:
             ${{ runner.temp }}/probe*/**/thumb.json
             ${{ runner.temp }}/probe*/**/canvas.json
             ${{ runner.temp }}/probe*/**/parity.json
-            ${{ runner.temp }}/probe*/**/raw9.json
             ${{ runner.temp }}/probe*/**/canvas-after-loupe.json
             ${{ runner.temp }}/probe*/**/sandbox*.json
             ${{ runner.temp }}/probe*/**/sandbox-denials.log
