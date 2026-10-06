@@ -685,7 +685,14 @@
     return parts.join(' · ');
   };
   // `force`: on entering Edit the page has just mounted its hooks, so tell it even if nothing changed.
-  const pushFacts = force => { const t = factsText(); if (force || t !== ed.factsText) { ed.factsText = t; const f = factsObj(); hook('luminaFacts', f); hook('luminaEditFacts', t, Object.assign(f, edit.facts())); } };
+  // What the page shows of them: Edit v22 appends `canvas: … · raw 9: …` to the photographer's
+  // line (lens, exposure, time) whenever it has facts, which is how the app runs, not something the
+  // photographer acts on. So the page gets them only when they change what it shows or hides: RAW 9
+  // active (its noise controls step aside) or a note to act on (`decoder N pinned · update shoot`).
+  // `diagnostics` (the LuminaDiagnostics default, or LUMINA_DIAGNOSTICS=1) always sends them;
+  // lumina.edit.facts() and the probe read them in full either way.
+  const pageFacts = f => (cfg.diagnostics || f.raw9 || f.note) ? f : null;
+  const pushFacts = force => { const t = factsText(); if (force || t !== ed.factsText) { ed.factsText = t; const f = factsObj(); hook('luminaFacts', pageFacts(f)); hook('luminaEditFacts', t, Object.assign(f, edit.facts())); } };
   const photoAt = (l, rel) => { for (const [id, p] of Object.entries(l.data.byId)) if ((l.state.realInfo && l.state.realInfo.name || '') + '/' + keyOf(p) === rel || p.path === rel) return [id, p]; return [null, null]; };
   // The RAW's as-shot white balance per path, as the canvas read it (canvasEnter's answer or
   // __lumina.editHeader once the base lands): Edit's White balance starts there and Auto starts from it.

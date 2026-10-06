@@ -30,6 +30,13 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         #endif
     }
 
+    /// How the app runs (Edit's `canvas: native · raw 9: no`) on the page's facts line: off unless
+    /// asked for, in any build (`defaults write com.lumina.app LuminaDiagnostics -bool YES`, or
+    /// LUMINA_DIAGNOSTICS=1). `lumina.edit.facts()` and the probe have them either way.
+    static var diagnostics: Bool {
+        UserDefaults.standard.bool(forKey: "LuminaDiagnostics") || ProcessInfo.processInfo.environment["LUMINA_DIAGNOSTICS"] == "1"
+    }
+
     static var supportDir: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Lumina", isDirectory: true)
     }
@@ -60,7 +67,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             }.value.map { ["folder": $0.folder, "done": $0.done, "planned": $0.planned, "cleaned": $0.cleaned] as [String: Any] }
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
-                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut], frame: host.bounds)
+                                                         standInPhotos: true, config: ["debug": Self.isDebug, "diagnostics": Self.diagnostics, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self

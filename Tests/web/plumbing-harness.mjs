@@ -150,7 +150,10 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     return { facts: f, state: lumina.edit.state(), images: window.__editImages.slice(), factsSeen: window.__editFacts.slice(), factsObjs: window.__facts.slice() };
   }, rel0);
   ok(hooks.facts && hooks.facts.canvas === 'image' && /^canvas: image · raw 9: no/.test(hooks.facts.text), 'edit: facts say canvas: image and raw 9: no', hooks.facts);
-  ok(hooks.factsObjs.length && hooks.factsObjs[0].canvas === 'image' && hooks.factsObjs[0].raw9 === false && hooks.factsObjs[0].decoder === '8' && hooks.factsObjs[0].note === null, 'edit: luminaFacts({canvas, raw9, decoder, note}) as Prompt 1 §3 names it', hooks.factsObjs);
+  ok(hooks.factsObjs.length && hooks.factsObjs.every(f => f === null), 'edit: the page\'s facts line gets no app diagnostics (canvas, raw 9) when there is nothing to act on', hooks.factsObjs);
+  const noted = await page.evaluate(() => { window.__facts = []; lumina.edit.header({ offerUpdate: true }); const f = window.__facts.slice(); lumina.edit.header({ offerUpdate: false }); return { f, after: window.__facts.slice(-1)[0] }; });
+  ok(noted.f.length === 1 && noted.f[0] && noted.f[0].canvas === 'image' && noted.f[0].raw9 === false && noted.f[0].decoder === '8' && /update shoot/.test(noted.f[0].note) && noted.after === null,
+    'edit: luminaFacts({canvas, raw9, decoder, note}) as Prompt 1 §3 names it, when there is a note to act on, and null again after', noted);
   // Prompt 1 §3's preview(): the URL to show on the image path, quarter tier while a slider drags.
   const pv = await page.evaluate(rel => { const a = lumina.preview(rel, 'ev:+0.20', 1800, 7); lumina.drag('start'); const b = lumina.preview(rel, 'ev:+0.25', 1800, 8); lumina.drag('end'); return [a, b]; }, rel0);
   ok(pv[0] && /\/render\/2026-09-01\/DSC01001\.ARW\?/.test(pv[0]) && /look=ev%3A%2B0.20/.test(pv[0]) && /px=1800/.test(pv[0]) && /seq=7/.test(pv[0]) && /tier=base/.test(pv[0]) && /decoder=8/.test(pv[0]), 'edit: lumina.preview returns the lumina://render URL at rest (tier=base)', pv[0]);

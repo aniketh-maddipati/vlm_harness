@@ -1094,3 +1094,22 @@ makes that check fail every time; without it, it passes.
 
 - `probe.sh selftest` passes; `node` with a 400 ms task injected after the large view opens (the
   Chromium reproduction) passes the focus overlay check.
+
+## Prompt 16 — Edit's facts line mixes the photo with how the app runs (paste into Claude Design)
+
+Edit v22 appends ` · canvas: native · raw 9: no` to the photo's line (lens · shutter · aperture ·
+ISO · focal length · time) whenever `luminaFacts` has given it facts. Those two words describe the
+app, not the photo, and a photographer has nothing to do with them. Until this lands, plumbing
+sends `luminaFacts(null)` unless RAW 9 is active or there is a note to act on, so the line usually
+shows only the photo; with RAW 9 active it still reads `raw 9: yes`.
+
+> In Lumina Edit v22, the facts line under the photo shows the photo's own facts only. Show
+> `canvas: … · raw 9: …` only in the page's debug mode (`?debug`, or `window.__luminaConfig.debug`).
+> Keep using `luminaFacts` for what it changes: hide colour noise reduction, detail and moiré while
+> `raw9` is true, and show `note` (with its `update shoot` link) when there is one. Nothing else
+> changes.
+
+### How Prompt 16 is checked once its handoff lands
+
+- `pageFacts` in `plumbing.js` sends the facts every time again; the Edit screens show no
+  `canvas:` words outside debug.
