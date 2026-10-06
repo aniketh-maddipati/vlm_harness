@@ -57,6 +57,7 @@ Trust rules, from the ROADMAP; the tests enforce them:
 ```bash
 # Design logic fixtures
 (cd design/handoff/lumina-cull && node lumina-core-v4.test.mjs)
+node Tests/core/v8-core.test.mjs   # the core cases CHANGES-v0.02 §9 asks for (parseHead pieces, Sony MakerNote, soft/blown, pass keywords)
 
 # Linux too: the real page in headless Chromium with plumbing.js and a Node stand-in for SetsBridge
 node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, sidecars, card, access

@@ -26,6 +26,8 @@ jobs:
         run: |
           source Scripts/page_files.sh
           cd design/handoff/lumina-cull && node "$CORE_TEST" | tee /tmp/fixtures.txt && ! grep -q '^FAIL' /tmp/fixtures.txt
+      - name: v8 core cases (CHANGES-v0.02 §9)
+        run: node Tests/core/v8-core.test.mjs
       - name: culling eval scoring (synthetic data) + the readOne guard
         run: node --test Tools/culleval/tests/culleval.test.mjs
       - name: app ships the design byte for byte
