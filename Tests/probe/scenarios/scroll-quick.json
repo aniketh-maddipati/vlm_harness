@@ -1,0 +1,88 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v5.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "sampleMs": 100,
+ "stopOnFailure": false,
+ "checklist": "CI's cut of scroll-fast: the same folder and size, Cull at tile 216 only, one fast wheel pass with warm-ahead on and one with it off (frame pacing, blank tiles, thumbnail upscale, rows out of place, memory; reported, not gated). The full sweep (tile 144, dy 60, snaps, the page's own row keys) is scroll-fast, in probe.sh scroll.",
+ "budgets": {
+  "webPeakMB": 1500
+ },
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_SCROLL_DIR}",
+   "via": "js",
+   "timeoutMs": 900000
+  },
+  {
+   "do": "js",
+   "src": "const i=__probe.logic().state.realInfo; return JSON.stringify({n:i.n,rows:i.rows,stacks:i.stacks,secs:+i.secs})"
+  },
+  {
+   "do": "dump",
+   "name": "thumb",
+   "js": "const r=__probe.logic().real.filter(p=>p.src).slice(0,40); return Promise.all(r.map(p=>fetch(p.src).then(x=>x.blob()).then(b=>new Promise(res=>{ const im=new Image(); im.onload=()=>res({kb:Math.round(b.size/1024),w:im.naturalWidth,h:im.naturalHeight}); im.onerror=()=>res(null); im.src=p.src; })))).then(a=>JSON.stringify(a.filter(Boolean)))"
+  },
+  {
+   "do": "js",
+   "src": "__probe.logic().setState({tsz:2}); return true"
+  },
+  {
+   "do": "js",
+   "src": "const el=document.querySelector('[data-screen-label=\"1 Cull\"]'); el.scrollTop=0; return true"
+  },
+  {
+   "do": "wait",
+   "ms": 1200
+  },
+  {
+   "do": "wheel",
+   "name": "tile216-dy150",
+   "sel": "[data-screen-label=\"1 Cull\"]",
+   "frames": 120,
+   "dy": 150,
+   "tiles": true
+  },
+  {
+   "do": "js",
+   "src": "const el=document.querySelector('[data-screen-label=\"1 Cull\"]'); el.scrollTop=0; return true"
+  },
+  {
+   "do": "js",
+   "src": "return __lumina.warmAhead(false)"
+  },
+  {
+   "do": "wait",
+   "ms": 1200
+  },
+  {
+   "do": "wheel",
+   "name": "tile216-dy150-nowarm",
+   "sel": "[data-screen-label=\"1 Cull\"]",
+   "frames": 120,
+   "dy": 150,
+   "tiles": true
+  },
+  {
+   "do": "js",
+   "src": "return __lumina.warmAhead(true)"
+  },
+  {
+   "do": "js",
+   "src": "const el=document.querySelector('[data-screen-label=\"1 Cull\"]'); el.scrollTop=0; return true"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "snap",
+   "name": "rest"
+  }
+ ]
+}

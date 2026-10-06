@@ -127,8 +127,9 @@ Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh
 CI (`.github/workflows/lumina.yml`) runs, on every pull request, the fixtures, the byte-for-byte page check, the
 wording audit and the parity tools (one Linux job), the Chromium plumbing harness and the WebKitGTK sandbox (one
 job), the Linux Swift tests, the build + logic tests with the release build and strict preflight (one macOS job),
-and the probe's smoke, screens and sandbox smoke (one macOS job). The long probe shards (fuzz 1-2, fuzz 3 + scroll,
-scroll 2560 + edit + raw9) run in parallel on main and when the workflow is run by hand on a branch.
+and the probe's smoke, screens and sandbox smoke (one macOS job). The long probe shards (fuzz-sample-2 +
+scroll-quick-2560; scroll-read + scroll-quick + edit on a 24-photo folder) run in parallel on main and when the
+workflow is run by hand on a branch. The other storms, the full scroll sweep and raw9 (real ARWs) run on a Mac.
 
 ## Running tests without disturbing the Mac
 

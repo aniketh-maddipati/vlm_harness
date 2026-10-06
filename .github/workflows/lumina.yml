@@ -145,7 +145,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(github.event_name == 'pull_request' && '["smoke + screens"]' || '["smoke + screens", "fuzz 1-2", "fuzz 3 + scroll", "scroll 2560 + edit + raw9"]') }}
+        shard: ${{ fromJSON(github.event_name == 'pull_request' && '["smoke + screens"]' || '["smoke + screens", "fuzz + scroll 2560", "scroll + edit"]') }}
     env:
       LUMINA_EDIT_GATE: "0"     # latency is reported, not gated, on a shared runner
       LUMINA_LONG: "1"          # the fuzz storms are long runs, started on purpose here
@@ -167,13 +167,16 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-1.56.1-${{ runner.os }}-chromium
-      - name: a 775-photo synthetic card (scroll, Edit, RAW 9)
+      - name: synthetic cards (775 photos to scroll, 24 to edit)
         if: contains(matrix.shard, 'scroll')
         run: |
           npm i -g playwright@1.56.1 && npx playwright install chromium
           NODE_PATH="$(npm root -g)" node Tests/web/make-shoot.mjs "${{ runner.temp }}/scroll-775/100MSDCF" 775
+          # Edit needs a photo and its neighbours, not a card: 24 photos open in about a second where
+          # 775 took 20 s, and each of edit's three runs opens the folder again.
+          NODE_PATH="$(npm root -g)" node Tests/web/make-shoot.mjs "${{ runner.temp }}/edit-24/100MSDCF" 24
           echo "LUMINA_SCROLL_DIR=${{ runner.temp }}/scroll-775/100MSDCF" >> "$GITHUB_ENV"
-          echo "LUMINA_EDIT_DIR=${{ runner.temp }}/scroll-775/100MSDCF" >> "$GITHUB_ENV"
+          echo "LUMINA_EDIT_DIR=${{ runner.temp }}/edit-24/100MSDCF" >> "$GITHUB_ENV"
       - name: ${{ matrix.shard }}
         shell: bash {0}       # no -e: every suite in the shard runs; the exit code combines them
         env:
@@ -183,13 +186,14 @@ jobs:
           s1=0; s2=0; s3=0
           case "$SHARD" in
             "smoke + screens")
-              bash Scripts/probe.sh smoke; s1=$?; bash Scripts/probe.sh screens; s2=$?; bash Scripts/probe.sh sandbox smoke; s3=$? ;;
-            "fuzz 1-2")
-              bash Scripts/probe.sh scenarios fuzz-sample-1 fuzz-sample-2; s1=$? ;;
-            "fuzz 3 + scroll")
-              bash Scripts/probe.sh scenarios fuzz-sample-3 scroll-read scroll-fast; s1=$? ;;
-            "scroll 2560 + edit + raw9")
-              bash Scripts/probe.sh scenarios scroll-fast-2560; s1=$?; bash Scripts/probe.sh edit; s2=$?; bash Scripts/probe.sh raw9; s3=$? ;;
+              bash Scripts/probe.sh smoke; s1=$?; bash Scripts/probe.sh screens; s2=$?; LUMINA_PROBE_OUT="$LUMINA_PROBE_OUT-sandbox" bash Scripts/probe.sh sandbox smoke; s3=$? ;;
+            # One seeded storm on Cull and two scroll passes per size (warm-ahead on and off): the other
+            # storms (fuzz-sample-1, -3), the full scroll sweep (scroll-fast*) and raw9 (real ARWs) run
+            # on a Mac with `probe.sh fuzz`, `scroll` and `raw9`. Scroll numbers are reported, not gated.
+            "fuzz + scroll 2560")
+              bash Scripts/probe.sh scenarios fuzz-sample-2 scroll-quick-2560; s1=$? ;;
+            "scroll + edit")
+              bash Scripts/probe.sh scenarios scroll-read scroll-quick; s1=$?; bash Scripts/probe.sh edit; s2=$? ;;
             *) echo "unknown shard: $SHARD"; exit 2 ;;
           esac
           exit $((s1 | s2 | s3))

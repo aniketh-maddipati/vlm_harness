@@ -28,6 +28,7 @@
 #                                                1440×900 and 2560×1440: frame pacing, blank tiles, thumbnail
 #                                                upscale, memory. Folder: LUMINA_SCROLL_DIR, else LUMINA_CARD_DIR (only read), else
 #                                                408 APFS clones of LUMINA_FIXTURE_ROOT/src, 20 s apart (built once)
+#                                                (CI runs scroll-quick / scroll-quick-2560: tile 216, warm-ahead on and off)
 #   bash Scripts/probe.sh edit                   the Edit canvas (addendum §8): 2 s drags on exposure and shadows, look-event-to-
 #                                                presented-frame latency (p95 ≤ LUMINA_EDIT_P95, default 16 ms), dropped frames,
 #                                                rest render, bases resident, canvas vs export ΔE; native first, then with
