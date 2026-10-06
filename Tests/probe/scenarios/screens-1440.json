@@ -1,5 +1,5 @@
 {
- "page": "Lumina Sets v8.dc.html",
+ "page": "Lumina Sets v11.dc.html",
  "size": [
   1440,
   900
@@ -119,15 +119,6 @@
    "k": "ArrowRight",
    "settleMs": 1800,
    "alt": true
-  },
-  {
-   "do": "js",
-   "src": "const l = __probe.logic(); l._cpAt = 0; l.forceUpdate(); return true",
-   "why": "The storage meter memoizes its total for 1 s (cacheParts) and ⌥→'s preloads land inside or after that second; expire the memo and draw it once more, so both twins show the current total (DESIGN-ASKS Prompt 14)"
-  },
-  {
-   "do": "wait",
-   "ms": 300
   },
   {
    "do": "snap",

@@ -376,6 +376,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "openFolder":
             // Native ingest: pick (or take the pending folder), then list it before reading anything.
             guard let url = await openPanel(allowsDirectories: true)?.first else { return (NSNull(), nil) }
+            // "Opening <name>…" (CHANGES-v0.04 A1): the page shows it after 400 ms while the folder is
+            // listed, and plumbing clears it when this call answers. Esc there sends openCancel (below).
+            let removable = (try? url.resourceValues(forKeys: [.volumeIsRemovableKey]).volumeIsRemovable) ?? false
+            push("window.luminaOpening && luminaOpening(\(Self.json(["name": url.lastPathComponent, "onCard": removable] as [String: Any])))")
             // The access check lists the folder too. On a disk that was just mounted, or is asleep, that
             // first directory read can take many seconds (13.9 s measured on a USB exFAT disk), so it runs
             // off the main thread with the listing, and the time reported covers both.
@@ -410,6 +414,16 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             var d = listing.dictionary
             d["workers"] = ingest.workers
             return (d, nil)
+        case "openCancel":
+            // Esc on the page's opening line: stop the listing, so its late answer can't open the folder.
+            listing?.cancel()
+            onEvent?("listing cancelled from the page")
+            return (true, nil)
+        case "notices":
+            // Help ▸ Acknowledgements (Prompt 7): the bundled licence texts, shown by the page as they are.
+            guard let url = Bundle.main.url(forResource: "THIRD-PARTY-NOTICES", withExtension: "txt"),
+                  let text = try? String(contentsOf: url, encoding: .utf8) else { return (NSNull(), nil) }
+            return (text, nil)
         case "prefetch":
             let items = (body["items"] as? [[String: Any]] ?? []).compactMap(Self.ingestPreview)
             ingest.prefetch(items)

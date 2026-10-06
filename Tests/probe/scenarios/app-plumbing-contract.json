@@ -1,6 +1,6 @@
 {
  "mode": "app",
- "page": "Lumina Sets v8.dc.html",
+ "page": "Lumina Sets v11.dc.html",
  "size": [
   1440,
   900
@@ -30,7 +30,7 @@
   },
   {
    "do": "expect",
-   "js": "return ['reveal','setPrefs','openSettings','checkAccess','reopen','workingFiles','removeWorkingFiles','near'].filter(k => typeof window.lumina[k] !== 'function')",
+   "js": "return ['reveal','setPrefs','openSettings','checkAccess','reopen','workingFiles','removeWorkingFiles','near','notices','prefetch','emit'].filter(k => typeof window.lumina[k] !== 'function')",
    "equals": []
   },
   {
@@ -51,7 +51,12 @@
   },
   {
    "do": "expect",
-   "js": "return ['luminaCommand','luminaCardGone','luminaAccess','luminaState','luminaGesture'].filter(k => typeof window[k] !== 'function')",
+   "js": "return Array.isArray(window.lumina.cutShort)",
+   "equals": true
+  },
+  {
+   "do": "expect",
+   "js": "return ['luminaCommand','luminaCardGone','luminaAccess','luminaState','luminaGesture','luminaStep','luminaOpening','luminaNotice'].filter(k => typeof window[k] !== 'function')",
    "equals": []
   },
   {

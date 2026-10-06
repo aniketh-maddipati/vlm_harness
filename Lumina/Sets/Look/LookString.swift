@@ -10,6 +10,10 @@ import Foundation
 /// `crop` missing = whole frame, `rot` missing = no turn). Unknown keys are an error, so a typo can't silently render a
 /// different look. `format` writes the canonical form (fixed key order, fixed precision, zeros
 /// unsigned), so two equal looks are equal strings and cache keys.
+///
+/// The page (Edit v22, design v0.05) sends the core's `lookString`, which names some of the same
+/// state its own way (`cDark`, `vMid`, `hue_red`, `curve:~[[x,y],…]`, `wb:/+5`); `parse` reads
+/// that form too, and `format` always writes this one.
 nonisolated struct Look: Equatable, Sendable {
     /// Exposure in stops, −5 … +5, step 0.05.
     var ev: Double = 0
@@ -52,6 +56,16 @@ nonisolated struct Look: Equatable, Sendable {
     struct WhiteBalance: Equatable, Sendable {
         var kelvin: Double
         var tint: Double
+        /// The page may set one side only (`wb:5200/`, `wb:/+5`): the other stays as shot. The
+        /// stage reads the photo's as-shot value for a side marked here; `kelvin` / `tint` are then
+        /// placeholders.
+        var kelvinAsShot = false
+        var tintAsShot = false
+
+        /// The balance the stage renders: a side left as shot takes the photo's own value.
+        func resolved(asShot: WhiteBalance) -> WhiteBalance {
+            WhiteBalance(kelvin: kelvinAsShot ? asShot.kelvin : kelvin, tint: tintAsShot ? asShot.tint : tint)
+        }
     }
 
     /// Fractions of the developed frame (0 … 1) plus a straighten angle in degrees.
@@ -140,6 +154,17 @@ nonisolated struct Look: Equatable, Sendable {
     static let kelvinRange = Range(min: 2000, max: 50000, step: 1)
     static let tintRange = Range(min: -150, max: 150, step: 1)
     static let nrRange = Range(min: 0, max: 100, step: 1)
+    /// Edit v22's own names for the same state (`LuminaCore.lookString`, the form the page sends
+    /// to `lumina.preview`; DESIGN v0.05 BRIDGE-v0.03). `parse` reads both forms; `format` writes
+    /// this file's. The page's other keys are its own UI state and are skipped (`pageOnly`).
+    static let pageCurveRegions: [String: WritableKeyPath<ToneCurve, Double>] = ["cDark": \.dark, "cMid": \.mid, "cLight": \.light]
+    static let pageVignette: [String: (field: WritableKeyPath<VignetteShape, Double>, range: Int)] = [
+        "vMid": (\.midpoint, 0), "vRound": (\.roundness, 1), "vFeather": (\.feather, 2), "vHl": (\.highlights, 3),
+    ]
+    static let pageMixer: [String: WritableKeyPath<Mixer, [Double]>] = ["hue": \.hue, "sat": \.saturation, "lum": \.luminance]
+    static let pageCurves: [String: WritableKeyPath<ToneCurve, [ToneCurve.Point]?>] = ["curve": \.rgb, "curveR": \.red, "curveG": \.green, "curveB": \.blue]
+    /// The crop tool's aspect preset: what the crop box was drawn with, not something to render.
+    static let pageOnly: Set<String> = ["cropRatio"]
     /// Canonical key order; also the order `format` writes.
     static let keys = ["ev", "wb", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot"]
     /// The plain numeric sliders, key → field.
@@ -183,15 +208,42 @@ nonisolated struct Look: Equatable, Sendable {
                 look[keyPath: field] = clamp(v, ranges[key]!)
                 continue
             }
+            if Self.pageOnly.contains(key) { continue }
+            if let field = Self.pageCurveRegions[key] {
+                look.curve[keyPath: field] = clamp(try number(raw, key), ToneCurve.regionRange)
+                continue
+            }
+            if let v = Self.pageVignette[key] {
+                look.vignetteShape[keyPath: v.field] = clamp(try number(raw, key), vignetteShapeRanges[v.range])
+                continue
+            }
+            if let us = key.firstIndex(of: "_"), let field = Self.pageMixer[String(key[..<us])],
+               let colour = Mixer.colours.firstIndex(of: String(key[key.index(after: us)...])) {
+                look.mixer[keyPath: field][colour] = clamp(try number(raw, key), Mixer.range)
+                continue
+            }
             /// `a,b,c`: exactly `count` numbers, each clamped into its range.
             func list(_ what: String, _ ranges: [Range]) throws -> [Double] {
                 let parts = raw.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
                 guard parts.count == ranges.count else { throw ParseError(description: "\(key) wants \(what), got '\(raw)'") }
                 return try zip(parts, ranges).map { clamp(try number($0, key), $1) }
             }
-            if let curveKey = ToneCurve.pointKeys.first(where: { $0.key == key }) {
+            let pageCurve = Self.pageCurves[key]
+            if let field = pageCurve ?? ToneCurve.pointKeys.first(where: { $0.key == key })?.field {
                 // `x,y/x,y/…`: numbers clamp into 0 … 1 (four decimals); the shape of the list is checked.
-                let pts = try raw.split(separator: "/", omittingEmptySubsequences: false).map { part -> ToneCurve.Point in
+                // The page's keys carry the same points as `~` + URI-encoded JSON, `[[x,y],…]`.
+                var text = raw
+                if pageCurve != nil {
+                    guard raw.hasPrefix("~"), let json = String(raw.dropFirst()).removingPercentEncoding,
+                          let arr = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [[Any]]
+                    else { throw ParseError(description: "\(key) wants ~[[x,y],…], got '\(raw)'") }
+                    text = try arr.map { xy -> String in
+                        guard xy.count == 2, let x = (xy[0] as? NSNumber)?.doubleValue, let y = (xy[1] as? NSNumber)?.doubleValue
+                        else { throw ParseError(description: "\(key) wants ~[[x,y],…], got '\(raw)'") }
+                        return "\(x),\(y)"
+                    }.joined(separator: "/")
+                }
+                let pts = try text.split(separator: "/", omittingEmptySubsequences: false).map { part -> ToneCurve.Point in
                     let xy = part.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
                     guard xy.count == 2 else { throw ParseError(description: "\(key) wants x,y/x,y/…, got '\(raw)'") }
                     let unit = { (t: String) in (min(1, max(0, try number(t, key))) * 10000).rounded() / 10000 }
@@ -199,7 +251,7 @@ nonisolated struct Look: Equatable, Sendable {
                 }
                 guard pts.count >= 2, pts.count <= ToneCurve.maxPoints else { throw ParseError(description: "\(key) wants 2 to \(ToneCurve.maxPoints) points, got \(pts.count)") }
                 guard zip(pts, pts.dropFirst()).allSatisfy({ $0.x < $1.x }) else { throw ParseError(description: "\(key): x must increase from point to point, got '\(raw)'") }
-                look.curve[keyPath: curveKey.field] = ToneCurve.isIdentity(pts) ? nil : pts
+                look.curve[keyPath: field] = ToneCurve.isIdentity(pts) ? nil : pts
                 continue
             }
             if let mixKey = Mixer.keys.first(where: { $0.key == key }) {
@@ -220,8 +272,10 @@ nonisolated struct Look: Equatable, Sendable {
             case "wb":
                 let parts = raw.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
                 guard parts.count == 2 else { throw ParseError(description: "wb wants kelvin/tint, got '\(raw)'") }
-                let kelvin = try number(parts[0], "wb kelvin"), tint = try number(parts[1], "wb tint")
-                look.wb = WhiteBalance(kelvin: clamp(kelvin, kelvinRange), tint: clamp(tint, tintRange))
+                // Either side may be empty (the page's form): that side stays as shot.
+                if parts[0].isEmpty && parts[1].isEmpty { look.wb = nil; continue }
+                let kelvin = parts[0].isEmpty ? 5500 : try number(parts[0], "wb kelvin"), tint = parts[1].isEmpty ? 0 : try number(parts[1], "wb tint")
+                look.wb = WhiteBalance(kelvin: clamp(kelvin, kelvinRange), tint: clamp(tint, tintRange), kelvinAsShot: parts[0].isEmpty, tintAsShot: parts[1].isEmpty)
             case "crop":
                 let halves = raw.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
                 let box = halves[0].split(separator: ",", omittingEmptySubsequences: false).map(String.init)
@@ -257,7 +311,7 @@ nonisolated struct Look: Equatable, Sendable {
             return (r > 0 ? "+" : "") + String(format: "%.\(decimals)f", r)
         }
         var out = ["ev:\(signed(ev, 2))"]
-        if let wb { out.append("wb:\(Int(wb.kelvin.rounded()))/\(signed(wb.tint, 0))") }
+        if let wb { out.append("wb:" + (wb.kelvinAsShot ? "" : "\(Int(wb.kelvin.rounded()))") + "/" + (wb.tintAsShot ? "" : signed(wb.tint, 0))) }
         out += ["con:\(signed(contrast, 0))", "hl:\(signed(highlights, 0))", "sh:\(signed(shadows, 0))",
                 "wh:\(signed(whites, 0))", "bl:\(signed(blacks, 0))", "vib:\(signed(vibrance, 0))",
                 "sat:\(signed(saturation, 0))", "clr:\(signed(clarity, 0))", "shp:\(Int(sharpen.rounded()))",
