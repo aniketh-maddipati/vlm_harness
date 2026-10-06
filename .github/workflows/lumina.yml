@@ -68,7 +68,9 @@ jobs:
           for f in "${PAGE_FILES[@]}"; do
             cmp "design/handoff/lumina-cull/$f" "Lumina/Sets/Web/$f"
           done
-          for f in design/handoff/vendor/*.js; do cmp "$f" "Lumina/Sets/Web/$(basename "$f")"; done
+          # React only: Babel stays in design/handoff/vendor (the prototype), no page file loads it.
+          for f in react.production.min.js react-dom.production.min.js; do cmp "design/handoff/vendor/$f" "Lumina/Sets/Web/$f"; done
+          [[ ! -e Lumina/Sets/Web/babel.min.js ]] || { echo "babel.min.js is back in Lumina/Sets/Web"; exit 1; }
           # A scenario that names a page the app no longer ships fails at setup with a 404 (scroll-quick
           # kept v5's name through the v8 sync). Every "page" must be one of the page files.
           grep -ho '"page": *"[^"]*"' Tests/probe/scenarios/*.json | sed 's/.*: *"//; s/"$//' | sort -u | while IFS= read -r p; do

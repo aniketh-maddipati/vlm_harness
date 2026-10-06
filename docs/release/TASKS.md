@@ -1,6 +1,7 @@
 # Lumina 1.0: release tasks, in order
 
-Updated 2026-10-02. The first list (2026-10-01) is kept at the end, with what landed.
+Updated 2026-10-06 (after the v0.05 sync, #206: Sets v11 + Edit v22). The 2026-10-02 list is folded
+in below; the first list (2026-10-01) is kept at the end, with what landed.
 
 Rules for every worker:
 - One task = one branch = one PR. Edit only the files the task owns; one merge owner.
@@ -9,68 +10,61 @@ Rules for every worker:
 - Never run `gh pr merge --auto` on this repo: `main` has no required checks, so it merges at once.
 - CI builds Debug with the runner's older Xcode. Code must compile there and in Release with the local Xcode (the `SetsFirstAnswer` deinit broke Release for three merges).
 
+## Decisions (APP-STORE.md)
+
+| # | Decision | State |
+|---|---|---|
+| D1 | Name and bundle id | `com.aniketh.lumina`, record "Lumina Editor" (2026-10-05) |
+| D2 | Which UI ships | **The design page in the web view** (2026-10-06), with `network.client`; S1 makes the app block the network itself and the review notes explain the entitlement |
+| D3 | Channels | Store and notarised dmg |
+| D4 | Price, territories | **Free, all countries** (2026-10-06). The EU needs the trader status declaration in App Store Connect |
+| D5 | Minimum macOS | **15** (2026-10-06): `Config/Release.xcconfig` and the project. The fresh-machine pass is macOS 15 and 26 |
+| — | Testers | Build 568 (Sets v8) goes to TestFlight testers now; a v11 build follows once #206's Mac checks pass |
+
 ## Release exit
 
 | KPI | Target | Today |
 |---|---|---|
-| CI on `main`, including a Release build | all green | Debug only; the Release job is in #179 |
-| `release_preflight.sh --strict` | 0 FAIL, 0 WARN except D2 (network entitlement) | D2 and S4 ×2 expected (R6's is closed); not re-run since |
-| App-process crashes on the bridge-op table (1,303 calls) and 32,000 fuzz cases | 0 | 4 inputs crash (F1, F2) |
-| Denials in the sandboxed probe suites | 0 | 0 here; 1 log line on the CI runner (#179) |
-| Unasked test runs on this Mac | 0; every run under 600 s | guard in #184 |
-| Fresh install, macOS 14 / 15 / 26, store and dmg | 6 of 6 pass | not run |
+| CI on `main`, including a Release build | all green | Release job `release.sh local --strict` in CI (`lumina.yml`) |
+| `release_preflight.sh --strict` | 0 FAIL, 0 WARN except D2 (network entitlement) | CI allows D2 only; S4 and R6 are closed |
+| App-process crashes on the bridge-op table and the fuzz cases | 0 | F1, F2, F10 fixed (Q4a, `8cbabf0`) |
+| Denials in the sandboxed probe suites | 0 | 0 (R3 merged: sandboxed in every configuration) |
+| Unasked test runs on this Mac | 0; every run under 600 s | guard (#184) |
+| Fresh install, macOS 15 / 26, store and dmg | 4 of 4 pass | not run (procedure below, Q6) |
 
-## P0 · Blocks any build leaving this Mac
+## Open · blocks a build leaving this Mac
 
-1. **Test guard (#184).**
-   - KPI: nothing running at the end of a turn; a refusal is never retried.
-   - Steps: merge #184 when CI is green; every later task runs tests only through it.
-2. **Bridge crashes (Q4a: F1, F2 in `stress/Q4-hostile.md`).**
-   - KPI: the former crash inputs pass in the normal logic-test run.
-   - Steps: one finite, clamped number reader for every numeric field in `SetsBridge` and `SetsSchemeHandler`; a rect guard in `LookCanvas`; the gated crash cases become ordinary assertions.
-3. **Sidecar data safety (F5, F4, F7).**
-   - KPI: 0 sidecars replaced without a merge; `hostile-xmp` and `hostile-names` green.
-   - Steps: a sidecar that is not UTF-8 is listed as unreadable and never written over; temp names that fit any legal file name, with crash recovery still recognising them; caps on the strings stored in `index.json`.
-4. **Sandbox by default (#179, R3).**
-   - KPI: the CI release job green; tests run on the build that ships.
-   - Steps: find who asks for `file-issue-extension target:/` in `app-plumbing-contract` on the runner (one log line; all steps pass), fix or classify it with the reason written down; merge.
-5. **Card banner (DESIGN-ASKS Prompt 9).**
-   - KPI: first card insert shows a banner, one click grants access; second insert needs none.
-   - Steps: hand Prompts 4–9 to Claude Design; sync. Today a sandboxed first insert shows nothing (`lumina.cardPending`).
-6. **Sessions from before the sandbox (R1e).**
-   - KPI: a store written by `4421a7c` opens in the sandboxed build with its decisions.
-   - Steps: a one-time import through a folder panel on `~/Library/Application Support/Lumina`. Before anyone installs a sandboxed build over an unsandboxed one.
-   - #191: `SetsShootStore.importStore` (a shoot in both stores keeps what the new one has; bookmarks are not brought over), a launch question with a folder panel, tests on Mac and Linux. Left: the hand check (install over an unsandboxed build, choose the folder, open a folder culled before, find its decisions) and the design ask for File ▸ Bring Over Earlier Sessions….
-7. **Account setup (the account holder).**
-   - KPI: `release.sh store --validate` accepted; the build shows in TestFlight.
-   - Steps: `APP-STORE.md` "Once" and decisions D1–D5.
+1. **v0.05 on the Mac (#206 merged on Linux checks).** The Xcode build and logic tests, `probe.sh contract`, `screens`, `smoke`, `edit`; then `probe.sh reference --record` once the v11 screens are approved.
+2. **Card banner (Prompt 9).** In the v11 page (`cardPending`). Left: the hand check on a sandboxed build (first insert shows the banner and one click grants; the second insert needs none).
+3. **Sessions from before the sandbox (R1e).** Code in #191. Left: the hand check, and the page's File ▸ Bring Over Earlier Sessions… (Prompt 11 / REMAINING-v0.03 A3, not in v11).
+4. **Native Edit canvas reached by the page.** #208 and #209; crop and grid overlays under the canvas need a design ask. Edit's default sharpening differs (page 40, native 0).
+5. **`lumina.sidecars` (REMAINING-v0.03 D1 B/C).** Open after v11.
 
-## P1 · Blocks the store submission
+## Open · blocks the store submission
 
-8. **Network lockdown (S1; only if the WebView ships).** Landed 2026-10-06 (`SetsOffline`, 32 channels in `webkit.py offline`, `app-offline`); the Mac run of `app-offline` is the last check.
-   - KPI: 0 requests reach a local listener over 8 channels (fetch, XHR, WebSocket, image, beacon, WebRTC, form, `window.open`).
-   - Steps: block-all content rules with an allowlist; a CSP response header; a navigation allowlist.
-9. **Nothing unused in the release binary (S4).**
-   - KPI: strict preflight shows no S4 warning.
-   - Steps: v3 ops and the six environment switches under `#if DEBUG`; Show in Finder only inside opened folders; the self-test not served in release.
-10. **Supply chain (S8).**
-    - KPI: a clean clone builds with 0 package fetches; 3 targets; every Action pinned by commit.
-    - Steps: remove `LuminaPlayground` and `Inject`; pin Actions; the design sync prints new network and bridge calls.
-11. **Stress, each run asked for, bounded, under the guard.**
-    - Scale (Q1, WIP on `claude/stress-scale`): 5,000 and 10,000 photos; budgets set from the first measurement; scroll p95 ≤ 17.5 ms (18.0 today).
-    - Storage (Q2, WIP on `claude/stress-storage`): every row of `STRESS-MATRIX.md` 2 and 4 has a scenario or a hand procedure; 0 data loss.
-    - Lifecycle (Q3, WIP on `claude/stress-lifecycle`): decisions equal after each kill, at most 500 ms of changes lost. The 200-kill loop only on an explicit go.
-    - Soak (Q5): 8 h, memory and file descriptors flat.
-    - Fresh machine (Q6): macOS 14, 15, 26 × store and dmg.
-12. **Hand checks for S6 (five minutes).**
-    - KPI: 3 of 3: kill the page's process 4 times in a minute (3 reloads, then the alert); Quit with the page hung (quits in about 2 s); Quit with unsaved keepers (the usual alert).
+6. **Trust model (#215).** Landed 2026-10-06: S1 network lockdown (`SetsOffline`: content rules, a CSP header, WebRTC removed; 32 channels in `webkit.py offline`, and `app-offline` passed on the Mac), the external-link and navigation allowlist wired in (`SetsExternalLinks.verdict`), R7 private paths in logs (`LuminaLog`), the export metadata allowlist, `TRUST.md` + `trust_check.py`. Left: D2 itself (only a native UI lets macOS enforce it).
+7. **Stress, each run asked for, bounded, under the guard.** Q1 scale, Q2 storage, Q3 lifecycle (their WIP branches are gone; start again from `STRESS-MATRIX.md`), Q5 soak 8 h.
+8. **Hand checks for S6 (five minutes).** Kill the page's process 4 times in a minute (3 reloads, then the alert); Quit with the page hung (about 2 s); Quit with unsaved keepers (the usual alert).
+9. **Fresh machine (Q6), by hand.** The procedure below, on macOS 15 and 26, store and dmg.
 
-## P2 · Before the public listing
+## Open · before the public listing
 
-- The listing: copy, screenshots, privacy and support pages, review notes with sample ARWs (R5).
-- Diagnostics: ~~private paths in logs (R7)~~ landed 2026-10-06 (`LuminaLog`); navigation allowlist, a damaged `index.json` kept aside, a session format version (R8).
-- `DESIGN-ASKS.md` sections sorted 4–9; `open-folder-awkward-name` added to the probe's `app` suite.
-- Known gaps, accepted or to schedule: a huge folder is refused in about 2 s on a fast Mac and about 5 s on a slow one; a link swapped in between the path check and the open by render, canvas or export (S5); two licence texts marked MISSING (R6); F6 and F9 in `stress/Q4-hostile.md`.
+- The listing (R5): drafts in `docs/release/listing/`. Left: screenshots of the v11 UI (2880 × 1800), the privacy and support pages published at real URLs, the five sample ARWs uploaded for review.
+- R8: a damaged `index.json` or session is kept aside (#217); the navigation allowlist landed with item 6 (#215).
+- Known gaps, accepted or to schedule: a huge folder is refused in about 2 s on a fast Mac and about 5 s on a slow one; a link swapped in between the path check and the open by render, canvas or export (S5); F6 and F9 in `stress/Q4-hostile.md`.
+
+## Q6 · fresh-machine procedure
+
+For each of macOS 15 and 26 (a VM or a spare volume, Apple silicon, a user that never ran Lumina):
+
+1. **Store build.** Install from TestFlight. Open a folder of ARWs: the folder panel appears once. Cull ten photos, ⌘↩ Save: `.xmp` files appear next to the RAWs. Quit, reopen from Open Recent: decisions are back, no panel.
+2. **Card.** Insert a card: the banner shows; one click grants; cull, Save is refused "on the card". Eject and insert again: no panel.
+3. **dmg.** Download the notarised dmg through a browser (quarantine set). Open it with Gatekeeper at defaults: no warning beyond "downloaded from the internet". Run once from the dmg without copying, then from `/Applications`.
+4. **Both installed.** With the store and dmg copies present, note which one Launch Services opens and that both see the same sessions (same bundle id, same container).
+5. **Delete and reinstall** the store copy; the container stays, sessions come back.
+6. Note: an AZERTY layout (P, F, Z, `?`), VoiceOver on the Open screen, a second user account.
+
+Record each run (macOS build, channel, pass/fail, notes) in a table here.
 
 ## Landed (2026-10-01 to 02)
 

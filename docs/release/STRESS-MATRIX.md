@@ -103,7 +103,7 @@ store build yet. Evidence goes to `~/LuminaEvidence/release/<version>/`.
 
 | What | Gap |
 |---|---|
-| macOS 14, 15 and 26 on Apple silicon | A VM or spare volume per version: install, first run, open, cull, Save |
+| macOS 15 and 26 on Apple silicon (minimum 15, D5) | A VM or spare volume per version: install, first run, open, cull, Save |
 | macOS 27 beta (RAW 9 present) | `probe.sh raw9` there |
 | TestFlight install on a Mac that never built Lumina; delete and reinstall; second user account | Fresh-machine pass |
 | The notarised dmg on a Mac with Gatekeeper at defaults, downloaded through a browser (quarantine set), run from the dmg without copying, run from `~/Downloads` (translocation) | Fresh-machine pass |

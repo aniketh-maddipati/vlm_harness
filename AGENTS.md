@@ -210,7 +210,7 @@ harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift
 - **ExFAT volume labels are at most 11 characters.** `hdiutil` reports a longer one as "Operation not permitted".
 - **Probe runs need an awake display.** The probe holds the display awake itself. If runs stall for minutes, macOS is throttling the page process.
 - **Personal data stays out of the repo:** golden data, fixtures and evidence live in `~/LuminaEvidence`.
-- **macOS only** (Xcode 16.4+, Apple silicon, macOS 14+). Linux agents can run the node fixtures, `design_audit.py`, `Tests/web` (Chromium and the WebKitGTK sandbox: plumbing.js against the real page, not Cocoa or WKWebView) and `Tests/linux-swift` (the Foundation-only Swift; on Linux `FileManager.replaceItemAt` is broken, so the sandbox copy uses `rename(2)`).
+- **macOS only** (Xcode 16.4+, Apple silicon, macOS 15+). Linux agents can run the node fixtures, `design_audit.py`, `Tests/web` (Chromium and the WebKitGTK sandbox: plumbing.js against the real page, not Cocoa or WKWebView) and `Tests/linux-swift` (the Foundation-only Swift; on Linux `FileManager.replaceItemAt` is broken, so the sandbox copy uses `rename(2)`).
 
 ## Parity (the Edit look vs Lightroom Classic)
 
@@ -226,7 +226,12 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
 - **The look string is the only Edit state** (`ev:+0.70 wb:5200/+3 con:+12 … crop:x,y,w,h/r`,
   `Lumina/Sets/Look/LookString.swift`). Edit v22 sends the core's `lookString` form (`cDark`,
   `vMid`, `hue_red`, `curve:~[[x,y],…]`, `wb:/+5`, `cropRatio`); `Look.parse` reads both and
-  `LookStringTests.testThePagesLookStrings` holds strings copied from the core. Previews are `lumina://render/<rel>?look=&px=&seq=`, exports
+  `LookStringTests.testThePagesLookStrings` holds strings copied from the core. Plumbing adds two things the
+  page means but does not write (`macLook`): `wbref:K/T`, the as-shot pair the page's white balance
+  rests on (its `wbK` / `wbTint`; the Mac applies the page's move to the decoder's own pair,
+  `Look.WhiteBalance.resolved`), and `shp:40` when the look has no `shp` (the page's Sharpening rests
+  at Lightroom's 40; the Mac's 0 is none). It also sends the page's chrome over the canvas box as
+  `holes` (`canvasLayout`), which the canvas leaves see-through. Previews are `lumina://render/<rel>?look=&px=&seq=`, exports
   go through `SetsExport` `.look` items, sessions keep `look` per photo and `rowLook` per row. Looks
   are **never written to XMP**; handoff stays ratings only.
 - **One maths, three copies.** A stage's transfer function lives in `LookMath.swift` (reference),
@@ -295,7 +300,9 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
 - **Structure only from RapidRAW / darktable** (AGPL/GPL): ideas, cited in a comment, never code.
 - **The Edit canvas schedule is `LookCanvasSchedule`** (Foundation only, tested on Linux): two tiers
   (`small`, a quarter of the canvas on each edge, while a slider is dragged; `base` at full quality on
-  drag end, a keystroke, or 120 ms idle), latest wins (one render in flight, the next display refresh
+  drag end, a keystroke, or 120 ms idle; during a drag idle means max(120 ms, 1.5 × the gap between
+  the drag's last two looks), at most 360 ms, so a slow drag on a whole-number slider (looks about
+  110 ms apart) gets no rest render in the middle while a real pause still does), latest wins (one render in flight, the next display refresh
   takes the newest value), and a sequence number per render (presented only if newer than the last
   presented). Histogram and clipping are computed on rest renders only. Session writes debounce at
   500 ms after the last change. Bases are keyed by (rel, decoder version, crop, rotation, canvas size,

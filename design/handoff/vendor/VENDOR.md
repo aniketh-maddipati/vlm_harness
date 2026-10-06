@@ -4,6 +4,11 @@
 handed to `support.js` through its own `window.__resources` hook (URL → local src). The
 page files themselves stay byte-identical.
 
+The app bundles React and React DOM only. `support.js` loads Babel just to compile an `<x-import>`
+of a `.jsx`/`.tsx` file, and no page file has one, so `babel.min.js` (3 MB, most of the page's
+weight) stays here for the prototype and out of `Lumina/Sets/Web`. `Scripts/sets_sync_ui.sh` stops
+a sync that adds such an import; the preflight fails a bundle that carries Babel.
+
 Each file matches the SRI hash pinned in `support.js` (`src/cdn.ts`), checked 2026-09-28:
 
 | File | Source | SRI |

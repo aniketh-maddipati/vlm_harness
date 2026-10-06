@@ -18,6 +18,45 @@ final class LookCanvasView: MTKView {
     override var isOpaque: Bool { false }
 }
 
+/// The page's chrome lying over the photo (zoom pill, state chip, colour chip, the working-files
+/// pill): `canvasLayout`'s `holes`, which the canvas leaves see-through so the web view below
+/// shows. A mask on the view's layer; the canvas stays one view that draws nothing of its own.
+nonisolated enum LookCanvasHoles {
+    static let maxCount = 16
+
+    /// `holes` as the page sends them (CSS px, the same frame as `rect`) → rects in the canvas's
+    /// own frame, top-left origin, clipped to the canvas. Only the first `maxCount` entries are
+    /// read; one that is not four finite numbers with a positive size, or that misses the canvas,
+    /// is dropped.
+    static func parse(_ value: Any?, in rect: CGRect) -> [CGRect] {
+        guard let list = value as? [Any], LookCanvasController.layable(rect, dpr: 1), rect.width > 0, rect.height > 0 else { return [] }
+        let bounds = CGRect(origin: .zero, size: rect.size)
+        return list.prefix(maxCount).compactMap { item in
+            guard let d = item as? [String: Any], let x = number(d["x"]), let y = number(d["y"]),
+                  let w = number(d["w"]), let h = number(d["h"]), w > 0, h > 0 else { return nil }
+            let r = CGRect(x: x - rect.minX, y: y - rect.minY, width: w, height: h).intersection(bounds)
+            return r.isNull || r.width <= 0 || r.height <= 0 ? nil : r
+        }
+    }
+
+    /// The layer mask for `holes` (canvas frame, top-left origin) on a canvas of `size` points: the
+    /// whole canvas less the holes, in the layer's frame (bottom-left origin unless `flipped`).
+    /// Overlapping holes are one hole. No holes: nil, no mask.
+    static func maskPath(_ holes: [CGRect], size: CGSize, flipped: Bool) -> CGPath? {
+        guard !holes.isEmpty else { return nil }
+        let cut = CGMutablePath()
+        for h in holes { cut.addRect(flipped ? h : CGRect(x: h.minX, y: size.height - h.maxY, width: h.width, height: h.height)) }
+        return CGPath(rect: CGRect(origin: .zero, size: size), transform: nil).subtracting(cut)
+    }
+
+    /// A page number: an `NSNumber` that is not a boolean, finite, within the reach of a layable rect.
+    private static func number(_ v: Any?) -> Double? {
+        guard let n = v as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() else { return nil }
+        let d = n.doubleValue
+        return d.isFinite && abs(d) <= 3 * Double(LookCanvasController.maxDrawableEdge) ? d : nil
+    }
+}
+
 /// Owns the overlay, its bases and tiles, the schedule and the display link; the bridge talks to
 /// it and the probe measures it. Without a Metal device (or a view) the controller still runs
 /// the schedule for the image fallback path (`lumina://render`), which plumbing drives.
@@ -72,7 +111,12 @@ final class LookCanvasController: NSObject {
         var firstRenders: [LookWarmPlan.FirstRender] = []
         /// The last events on the canvas clock (`LookTrace`): what ran around a dropped frame.
         var trace: [LookTrace.Event] = []
+        /// The page chrome the canvas leaves see-through (`LookCanvasHoles`).
+        var holes = 0
     }
+
+    /// What the last `layout` placed: the same again, holes aside, changes nothing.
+    private struct Placement: Equatable { let rect: CGRect; let visible: Bool; let dpr: CGFloat; let hostHeight: CGFloat }
 
     struct Neighbour { let rel: String; let url: URL; let preview: LookBases.PreviewFallback? }
 
@@ -110,6 +154,8 @@ final class LookCanvasController: NSObject {
     private var current: (rel: String, url: URL, key: LookBases.Key, look: Look, entry: LookBases.Entry?, preview: LookBases.PreviewFallback?, decoder: Int?, regionDecoder: Int?)?
     private var region: LookRegionTiles.Region?
     private var regionSeq = 0
+    private var placement: Placement?
+    private var holes: [CGRect] = []
     private var loupe: (on: Bool, roi: LookCanvasSchedule.ROI?) = (false, nil)
     private var loupeStillTimer: Timer?
     private var refiningTimer: Timer?
@@ -136,6 +182,11 @@ final class LookCanvasController: NSObject {
     var onStats: (([String: Any]) -> Void)?
     /// A file's RAW 9 render failed and the previous version took over (logged once per file).
     var onDecoderFallback: ((String, Int, Int) -> Void)?
+    /// The as-shot white balance of the photo on the canvas became known (or changed with the
+    /// decoder) after `enter` answered: its rel and the pair. Read from the base the canvas
+    /// developed anyway; never a develop of its own.
+    var onAsShot: ((String, Look.WhiteBalance) -> Void)?
+    private var asShotTold: (rel: String, wb: Look.WhiteBalance)?
 
     /// `host`: the view the overlay is laid into (above the web view). Nil host or no Metal
     /// device → the image path: the controller answers the bridge with `path == .image`.
@@ -198,7 +249,7 @@ final class LookCanvasController: NSObject {
         let parsed = (try? Look.parse(look)) ?? Look()
         let size = canvasPixels()
         let key = LookBases.Key(rel: rel, decoder: decoder, look: parsed, canvas: size)
-        if current?.rel != rel { schedule.reset(); region = nil; supersedeRegion(); stats.region = false }
+        if current?.rel != rel { schedule.reset(); region = nil; supersedeRegion(); stats.region = false; asShotTold = nil }
         current = (rel, url, key, parsed, bases.entry(key), preview, decoder, regionDecoder)
         stats.rel = rel
         bases.pin(key)
@@ -224,6 +275,7 @@ final class LookCanvasController: NSObject {
         current?.entry = bases.entry(key)
         bases.pin(key)
         ensureBases()
+        tellAsShot()
         neighbours = neighbours.map { (key: LookBases.Key(rel: $0.key.rel, decoder: decoder, look: Look(), canvas: CGSize(width: $0.key.width, height: $0.key.height)), url: $0.url, look: $0.look, preview: $0.preview) }
         prefetchIssued = false
         basePresented = false
@@ -236,7 +288,40 @@ final class LookCanvasController: NSObject {
         kick()
     }
 
+    // MARK: The photo's as-shot white balance (for the page's temperature slider)
+
+    /// The decoder's own pair for a developed RAW. Nil for the embedded JPEG standing in, an image
+    /// file (their 5500 K is a placeholder, not a reading), and a value no slider can rest on.
+    nonisolated static func asShot(of entry: LookBases.Entry?) -> Look.WhiteBalance? {
+        guard let e = entry, e.source == "raw", e.asShot.kelvin.isFinite, e.asShot.tint.isFinite, e.asShot.kelvin > 0 else { return nil }
+        return e.asShot
+    }
+
+    /// What the page's edit header takes (`canvasEnter`'s answer and `__lumina.editHeader`): the
+    /// pair and the rel it belongs to.
+    nonisolated static func asShotHeader(rel: String, _ wb: Look.WhiteBalance) -> [String: Any] {
+        ["asShot": ["kelvin": wb.kelvin, "tint": wb.tint], "asShotRel": rel]
+    }
+
+    /// For `canvasEnter`'s answer: the pair of the photo on the canvas when its base is already
+    /// there (the cache lookup `enter` made; nothing is developed or waited for), else nil and
+    /// `onAsShot` says it when the base lands.
+    func asShotForReply() -> (rel: String, wb: Look.WhiteBalance)? {
+        guard let c = current, let wb = Self.asShot(of: c.entry) else { return nil }
+        asShotTold = (c.rel, wb)
+        return (c.rel, wb)
+    }
+
+    /// The base of the photo on the canvas landed or changed: say its pair, once per value.
+    private func tellAsShot() {
+        guard let c = current, let wb = Self.asShot(of: c.entry) else { return }
+        if let t = asShotTold, t.rel == c.rel, t.wb == wb { return }
+        asShotTold = (c.rel, wb)
+        onAsShot?(c.rel, wb)
+    }
+
     func leave() {
+        asShotTold = nil
         current = nil
         schedule.reset()
         region = nil
@@ -246,6 +331,7 @@ final class LookCanvasController: NSObject {
         warmTarget = nil
         view?.isHidden = true
         stats.visible = false
+        placement = nil
         stopLink()
     }
 
@@ -262,24 +348,34 @@ final class LookCanvasController: NSObject {
             && abs(o.x) <= 2 * maxDrawableEdge && abs(o.y) <= 2 * maxDrawableEdge && dpr > 0 && dpr <= 16
     }
 
-    /// The page's canvas rect in CSS px (origin top-left of the web view) and whether Edit is showing.
-    func layout(rect: CGRect, visible: Bool, dpr: CGFloat) {
+    /// The page's canvas rect in CSS px (origin top-left of the web view), whether Edit is showing,
+    /// and the page chrome over it to leave see-through (`LookCanvasHoles.parse`'s frame). Holes
+    /// alone change only the mask: no base, render or cache key follows them.
+    func layout(rect: CGRect, visible: Bool, dpr: CGFloat, holes: [CGRect] = []) {
         // Not a rect a display can hold (not finite, negative, absurdly large): the canvas hides and
         // keeps the size it had. `Int(_:)` on such a number stops the app (Q4-hostile F2).
         guard Self.layable(rect, dpr: dpr) else {
             view?.isHidden = true
             stats.visible = false
+            placement = nil
             stopLink()
             return
         }
         stats.dpr = Double(dpr)
         guard let view, let host = view.superview else { return }
+        let placed = Placement(rect: rect, visible: visible, dpr: dpr, hostHeight: host.bounds.height)
+        if placed == placement {
+            if holes != self.holes { applyHoles(holes) }
+            return
+        }
+        placement = placed
         let r = NSRect(x: rect.minX, y: host.bounds.height - rect.minY - rect.height, width: rect.width, height: rect.height).integral
         // Never past Metal's largest texture edge (a 16,384 px rect at 2× would ask for twice that).
         let px = CGSize(width: min(Self.maxDrawableEdge, max(1, (rect.width * dpr).rounded())), height: min(Self.maxDrawableEdge, max(1, (rect.height * dpr).rounded())))
         let sizeChanged = view.frame.size != r.size || view.drawableSize != px
         view.frame = r
         view.drawableSize = px
+        applyHoles(holes)
         stats.canvas = [Int(px.width), Int(px.height)]
         let show = visible && rect.width >= 2 && rect.height >= 2
         view.isHidden = !show
@@ -292,6 +388,7 @@ final class LookCanvasController: NSObject {
             current?.entry = bases.entry(key)
             bases.pin(key)
             ensureBases()
+            tellAsShot()
             if let l = schedule.presentedLook ?? current?.look.format() { _ = schedule.keystroke(l, at: now()) }
         }
         kick()
@@ -307,6 +404,7 @@ final class LookCanvasController: NSObject {
             c.key = base; c.entry = bases.entry(base); c.look = parsed; current = c
             bases.pin(base)
             ensureBases()
+            tellAsShot()
         } else { current?.look = parsed }
         zoom = roi
         // The page's clock → ours: the smallest arrival − emit gap seen is the offset within a message's transit.
@@ -325,6 +423,9 @@ final class LookCanvasController: NSObject {
                 LookTrace.mark("missed vsync ×\(missed), a look emitted \(Int((g.end - emitted).rounded())) ms before the gap ended arrived after it (main thread held)", ms: g.end - g.start, at: g.start)
             }
         }
+        // A look that took more than a refresh to get here: the wait was before the canvas had it
+        // (the page's process or the message's transit), and the trace says so next to the frame.
+        if dragging, arrived - emitted > 16 { LookTrace.mark("look arrived \(Int((arrived - emitted).rounded())) ms after the page emitted it", at: arrived) }
         if !schedule.pending { waitingSince = emitted }
         let seq = key ? schedule.keystroke(text, at: arrived, pageSeq: pageSeq, pageAt: t ?? 0) : schedule.submit(text, at: arrived, roi: roi, pageSeq: pageSeq, pageAt: t ?? 0)
         kick()
@@ -461,6 +562,7 @@ final class LookCanvasController: NSObject {
             switch r {
             case .success(let e):
                 self.current?.entry = e
+                self.tellAsShot()
                 self.setFacts()
                 self.kick()
                 self.updatePrefetch()
@@ -487,6 +589,26 @@ final class LookCanvasController: NSObject {
     /// An event that may need a frame now: the link ticks on its own while visible; without a
     /// link (image path, hidden) nothing renders here.
     private func kick() { if link == nil, view != nil, stats.visible { startLink() } }
+
+    /// The layer mask that leaves `new` see-through; no holes, no mask. Masks only: the drawable,
+    /// the bases and the schedule never see the holes.
+    private func applyHoles(_ new: [CGRect]) {
+        holes = new
+        stats.holes = new.count
+        guard let view, let layer = view.layer else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if let path = LookCanvasHoles.maskPath(new, size: view.bounds.size, flipped: view.isFlipped) {
+            let mask = (layer.mask as? CAShapeLayer) ?? CAShapeLayer()
+            mask.frame = CGRect(origin: .zero, size: view.bounds.size)
+            mask.contentsScale = view.window?.backingScaleFactor ?? layer.contentsScale
+            mask.path = path
+            layer.mask = mask
+        } else {
+            layer.mask = nil
+        }
+        CATransaction.commit()
+    }
 
     private func kickRest() { if let l = schedule.presentedLook { _ = schedule.keystroke(l, at: now()) } }
 
@@ -623,13 +745,18 @@ final class LookCanvasController: NSObject {
     }
 
     private var sampleIndex: [Int: Int] = [:]        // render seq → its latency sample's index
+    private var sampledLook = 0                      // the newest look (the schedule's count) with a latency sample
 
     /// A render's frame time (seconds on our clock): records the latency sample (once per render,
     /// the presented time overriding the GPU end time), the rest render's delay after drag end, and
     /// tells the page which look is on screen.
     private func frameShown(_ r: LookCanvasSchedule.Request, at frame: CFTimeInterval, dragEnd: CFTimeInterval?, presented: Bool) {
         let frameMs = frame * 1000
-        if r.pageAt > 0, clockOffset < Double.greatestFiniteMagnitude {
+        // A look's latency is to its first frame. The rest render of a look already on screen from
+        // `small` (a pause in a drag, drag end) is a second frame of the same value, as late as the
+        // pause was long: not a sample (`lastRestMs` times it after drag end).
+        if r.pageAt > 0, clockOffset < Double.greatestFiniteMagnitude, sampleIndex[r.seq] != nil || r.lookSeq > sampledLook {
+            sampledLook = max(sampledLook, r.lookSeq)
             let latency = frameMs - (r.pageAt + clockOffset)
             if let i = sampleIndex[r.seq], i < latencies.count { latencies[i] = latency }
             else { latencies.append(latency); sampleIndex[r.seq] = latencies.count - 1 }
