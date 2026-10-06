@@ -1047,7 +1047,7 @@ themselves.
 photos; when the meter draws inside that second it keeps the total from before them, and nothing
 draws it again until the next state change. So the same screen shows 20 MB on one run and 28 MB on
 the next (`08-cull-skip`, 1920 px, app vs prototype). Until this lands, the four `screens-*`
-scenarios redraw the page once after ⌥→ settles, before that snapshot.
+scenarios expire the memo (`_cpAt = 0`) and redraw once after ⌥→ settles, before that snapshot.
 
 > In Sets v8, when a preload, thumbnail or cache write changes what the storage meter counts, drop
 > the 1 s memo in `cacheParts()` and redraw the meter, so it always shows the current total once
