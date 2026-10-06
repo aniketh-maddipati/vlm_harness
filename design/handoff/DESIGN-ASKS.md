@@ -1058,7 +1058,7 @@ scenarios expire the memo (`_cpAt = 0`) and redraw once after ⌥→ settles, be
 
 - `probe.sh screens` passes 34 / 34 with the redraw step taken out of `Tests/probe/scenarios/screens-*.json`.
 
-## Prompt 15 — two v0.01 asks v8 still has (paste into Claude Design)
+## Prompt 15 — three v0.01 asks v8 still has (paste into Claude Design)
 
 Carried from the v0.01 asks (Sets v7 + Edit v21, 2026-10-05) and checked again on Sets v8 / Edit v21
 when #195 took main's v0.02 handoff. The other v0.01 asks are answered by v0.02 (the card panel
@@ -1072,6 +1072,16 @@ wording, as-shot white balance in `editShoot()`, BRIDGE.md "MENUS (v7)") or repl
    against each photo's `.xmp` path. A copy error comes back named `Picks/<file>.DNG`, never matches,
    and the pick is marked saved. Match copy errors by the DNG's file name as well, so a pick whose
    copy failed stays unsaved and shows in the error list.
+3. **The large view opens too slowly for its own budget once it has photos.** With the sample
+   shoot's photos present, the selftest's "perf: open large view" (keydown to the next frame,
+   budget 100 ms) measured 101 to 273 ms on the CI Mac under v7 and 104 ms in the sandboxed probe
+   under v8; WebKitGTK measures 121 to 195 ms. When the open is that slow, a tapped Space reads as
+   held and the large view closes again, so "Space on a stack opens large…" and "F held shows the
+   focus overlay" fail on the same runs. Draw the photo and the frame in the first frame, defer
+   the columns, the filmstrip and the analysis to the frames after it, and measure "held" from the
+   keydown event's own `timeStamp`.
 
 Until the page changes, the app names a failed DNG copy by the photo's sidecar path in the Save
-result, so the pick stays unsaved (`plumbing.js`, `writeInto`; ask 2).
+result, so the pick stays unsaved (`plumbing.js`, `writeInto`; ask 2). The probe serves no
+sample photos (`uploads/` is not found, as on main), so its selftest times the large view without
+them (ask 3).

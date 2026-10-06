@@ -77,14 +77,6 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
             media(task, url, String(path.dropFirst("media/".count)))
         case "render":
             render(task, url, path)
-        case "app" where standInPhotos && path.hasPrefix("uploads/"):
-            // v7's sample shoot shows `uploads/<name>.jpg` (the designer's photos, kept out of the repo
-            // and the bundle). The probe's prototype runs get a drawn stand-in per name instead, the
-            // same on every Mac. The app never shows the sample shoot.
-            let name = String(path.dropFirst("uploads/".count))
-            guard name.range(of: #"^[A-Za-z0-9_-]{1,40}\.jpg$"#, options: .regularExpression) != nil,
-                  let data = StandInPhoto.jpeg(seed: name, width: 1200, height: 800) else { return fail(task) }
-            respond(task, url, data, "image/jpeg")
         case "app":
             guard Self.pageFiles.contains(path), var data = try? Data(contentsOf: pageRoot.appendingPathComponent(path)) else { return fail(task) }
             if standInPhotos, path == Self.pageFile || path == Self.editPageFile, let text = String(data: data, encoding: .utf8) {
