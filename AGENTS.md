@@ -126,12 +126,16 @@ are not seen (R1e).
 Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh`. It only reads the card.
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 
-CI (`.github/workflows/lumina.yml`) runs, on every pull request, the fixtures, the byte-for-byte page check, the
-wording audit and the parity tools (one Linux job), the Chromium plumbing harness and the WebKitGTK sandbox (one
-job), the Linux Swift tests, the build + logic tests with the release build and strict preflight (one macOS job),
-and the probe's smoke, screens and sandbox smoke (one macOS job). The long probe shards (fuzz-sample-2 +
-scroll-quick-2560; scroll-read + scroll-quick + edit on a 24-photo folder) run in parallel on main and when the
-workflow is run by hand on a branch. The other storms, the full scroll sweep and raw9 (real ARWs) run on a Mac.
+CI (`.github/workflows/lumina.yml`) runs a readiness gate on every pull request: the fixtures, the byte-for-byte
+page check, the wording audit and the parity tools (one Linux job), and the probe's smoke on macOS. The rest runs
+only when its area changed (`python3 Scripts/ci_changes.py FILE…` prints which): the Chromium plumbing harness and
+the WebKitGTK sandbox for the page, `plumbing.js` or `Tests/web`; the Linux Swift tests for the Foundation-only
+Swift; the build + logic tests for anything Xcode builds, with lumina-render for the look and the Release build +
+strict preflight for signing, entitlements and settings; the probe's screens for the page or the probe; its
+sandbox smoke for native code and entitlements. A change to CI itself, and every push to main, runs all of it. The
+long probe shards (fuzz-sample-2 + scroll-quick-2560; scroll-read + scroll-quick + edit on a 24-photo folder) run
+nightly and when the workflow is run by hand on a branch. The other storms, the full scroll sweep and raw9 (real
+ARWs, macOS 27) run on a Mac.
 
 ## Running tests without disturbing the Mac
 
