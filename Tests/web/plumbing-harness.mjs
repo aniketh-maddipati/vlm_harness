@@ -550,6 +550,191 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(bridge.cancels === 1, 'opening: Esc (openCancel) stops the listing', bridge.cancels);
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
 
+  // ——— Sources (the page's Sources panel): adding to the open shoot, drops, reconnect, the clock sheet, AirDrop.
+  // The page's onDir with `add`, done over native listings: only the new files are read, the shoot keeps
+  // its identity, its decisions and its session.
+  {
+    const { tiff } = await import('./lib.mjs');
+    const more = await makeJpegs(browser, 30);              // 0…11 are the shoot's own pictures, the rest new ones
+    const raws = (dir, specs) => { fs.mkdirSync(dir, { recursive: true }); for (const s of specs) fs.writeFileSync(path.join(dir, s.name), s.copy ? fs.readFileSync(s.copy) : tiff({ date: '2026:09:01 ' + s.time, jpeg: more[s.j], model: s.model || 'ILCE-7M4' })); };
+    const said = () => page.evaluate(() => window.__said || []);
+    const hear = () => page.evaluate(() => { const l = __lumina.logic(); window.__said = []; if (!l.__heard) { l.__heard = true; const s0 = l.say.bind(l); l.say = t => { (window.__said = window.__said || []).push(t); return s0(t); }; } });
+    const count = n => page.waitForFunction(n => { const l = __lumina.logic(); return !!(l.real && l.real.length === n && !l.state.realLoad && !l.state.merge && l.state.realInfo); }, n, { timeout: 30000 }).then(() => page.waitForTimeout(250)).catch(() => {});
+    const src = () => page.evaluate(() => ({ page: __lumina.inspect().sources, lumina: window.lumina.sources, id: __lumina.shootId() }));
+    const paths = () => page.evaluate(() => __lumina.logic().real.map(p => p.path));
+    const keepPath = p => page.evaluate(p => { const l = __lumina.logic(), id = Object.keys(l.data.byId).find(id => l.data.byId[id].path === p); l.setState({ marks: Object.assign({}, l.state.marks, { [id]: 'keep' }) }); return !!id; }, p);
+    const keptPaths = () => page.evaluate(() => { const l = __lumina.logic(); return l.kept().map(id => l.data.byId[id].path).sort(); });
+    const hand = (files, o = {}) => page.evaluate(([files, o]) => { const l = __lumina.logic();
+      const fl = files.map(([rel, size]) => { const f = new File([new Uint8Array(1)], rel.split('/').pop()); Object.defineProperty(f, 'webkitRelativePath', { value: rel }); Object.defineProperty(f, 'size', { value: size }); return f; });
+      if (o.pick) l._pickOnAdd = true; l.onDir({ target: { files: fl }, add: !!o.add, src: { kind: 'drop' } }); }, [files, o]);
+    // The page's seen-before memory brings decisions over from any shoot with the same photos, and the
+    // synthetic shoots here share theirs: each part starts with none.
+    const fresh = () => page.evaluate(() => new Promise(r => setTimeout(() => { localStorage.removeItem('lumina-v4-seen'); r(); }, 500)));
+    const sizes = (dir, top, names) => names.map(n => [(top ? top + '/' : '') + n, fs.statSync(path.join(dir, n)).size]);
+
+    // 1. Add a second folder from the panel. It is called like the first one and holds a DSC01001.ARW too.
+    const A = path.join(tmp, 'add', '2026-10-01'), B = path.join(tmp, 'addB', '2026-10-01');
+    makeShoot(A, jpegs);
+    raws(B, [{ name: 'DSC01001.ARW', time: '11:00:00', j: 12 }, { name: 'DSC01002.ARW', time: '11:00:05', j: 13 }, { name: 'COPY.ARW', copy: path.join(A, 'DSC01003.ARW') }]);
+    await fresh();
+    bridge.pending = A; await page.evaluate(() => __lumina.openFolder()); await loaded(page); await hear();
+    const idA = await page.evaluate(() => __lumina.shootId());
+    await keepPath('2026-10-01/DSC01001.ARW');
+    await page.evaluate(() => { const l = __lumina.logic(); l.setState({ cur: l.data.order[4] }); });
+    const before = await page.evaluate(() => { const l = __lumina.logic(); return { cur: l.data.byId[l.state.cur].path, name: l.shootName(), opened: 0 }; });
+    const openedBefore = bridge.calls.filter(c => c === 'shootOpened').length, headsBefore = bridge.calls.length;
+    ok(await page.evaluate(() => typeof lumina.addFrom === 'function' && typeof lumina.reconnect === 'function' && Array.isArray(lumina.sources) && lumina.sources.length === 1 && lumina.pending === null), 'sources: lumina.addFrom / reconnect / sources are there; one source for a folder', await src());
+    bridge.picks.push([B]); await page.evaluate(() => __lumina.logic().addAt('folder')); await count(14);
+    let ps = await paths(), sr = await src();
+    ok(ps.length === 14 && ps.includes('2026-10-01 2/DSC01001.ARW') && ps.includes('2026-10-01/DSC01001.ARW') && !ps.some(p => /COPY/.test(p)), 'add: the second folder\'s photos join the shoot under a root name of their own; the copy of a photo already here is left out', ps);
+    ok(JSON.stringify(await said()) === JSON.stringify(['added 2 photos to ' + before.name + ' · 1 already here, skipped']), 'add: the page\'s toast, with the duplicates it skipped', await said());
+    ok(bridge.addFroms && bridge.addFroms[0].where === 'folder' && bridge.addFroms[0].add === true && bridge.addFroms[0].id === idA, 'add: the page\'s Add button reaches the Mac\'s picker as addFrom(folder), for this shoot', bridge.addFroms);
+    ok(sr.page.length === 2 && sr.page[1].kind === 'folder' && sr.page[1].top === '2026-10-01 2' && sr.page[1].nid && sr.lumina.length === 2 && sr.lumina.every(x => !x.missing) && sr.lumina[1].id === 's2', 'add: two sources, the second with the Mac\'s id; lumina.sources lists both as connected', sr);
+    ok(sr.id === idA && bridge.calls.filter(c => c === 'shootOpened').length === openedBefore, 'add: the shoot keeps its identity (no second shootOpened)', { id: sr.id, idA });
+    const st1 = await page.evaluate(() => { const l = __lumina.logic(); return { cur: l.data.byId[l.state.cur].path, info: l.state.realInfo, view: l.state.view, insp: __lumina.inspect() }; });
+    ok(JSON.stringify(await keptPaths()) === JSON.stringify(['2026-10-01/DSC01001.ARW']) && st1.cur === before.cur && st1.info.name === '2026-10-01' && st1.info.n === 14 && st1.view === 'cull', 'add: the keep, the cursor and the shoot\'s name stay as they were', st1);
+    ok(st1.insp.lgHeld === 0 && st1.insp.dupPaths === 0 && st1.insp.srcNotBlob === 0, 'add: the new photos are read by the Mac (previews by URL, no path twice)', st1.insp);
+    ok(await page.evaluate(async () => (await lumina.near('2026-10-01/DSC01001.ARW', '2026-10-01 2/DSC01001.ARW')) === 0.25), 'add: same-named files of two sources are two photos to lumina.near');
+    // The same folder again: nothing new, in the page's words.
+    await hear(); bridge.picks.push([B]); await page.evaluate(() => lumina.addFrom('folder')); await page.waitForTimeout(400);
+    ok(JSON.stringify(await said()) === JSON.stringify(['nothing new · those photos are already in this shoot']) && (await paths()).length === 14 && (await src()).page.length === 2, 'add: the same folder again is "nothing new", and no third source', await said());
+    await keepPath('2026-10-01 2/DSC01001.ARW');
+    await page.waitForTimeout(2400);
+    let sess = JSON.parse(bridge.sessions[idA] || '{}');
+    ok(sess.marks && sess.marks['DSC01001.ARW'] === 'keep' && sess.marks['/2026-10-01 2/DSC01001.ARW'] === 'keep' && Object.keys(sess.marks).length === 2, 'add: the session keeps both sources; same-named files have separate keys (the first source\'s as before)', sess.marks);
+    ok(bridge.kept[idA] && bridge.kept[idA].length === 1 && bridge.kept[idA][0].n === 2 && bridge.index[0].id === idA && bridge.index[0].n === 14, 'add: the Mac keeps the source with the shoot; the recent shows 14 photos', { kept: bridge.kept[idA], index: bridge.index[0] });
+    // Save: each sidecar under its own root.
+    const saveNow = async () => { await page.evaluate(() => { const l = __lumina.logic(); l.exSet({ result: null }); return l.runExport(); });
+      await page.waitForFunction(() => { const r = __lumina.logic().state.ex; return r && r.result; }, null, { timeout: 5000 }).catch(() => {}); return page.evaluate(() => __lumina.logic().state.ex.result); };
+    let sv = await saveNow();
+    ok(sv && sv.t === '2 saved' && !sv.bad && sv.where === A && fs.existsSync(path.join(A, 'DSC01001.xmp')) && fs.existsSync(path.join(B, 'DSC01001.xmp')) && !fs.existsSync(path.join(A, 'DSC01002.xmp')) && !fs.existsSync(path.join(B, 'DSC01002.xmp')),
+      'add: Save writes each sidecar beside its own RAW, one per source', { sv, a: fs.readdirSync(A), b: fs.readdirSync(B) });
+    // Reopen from Recents: both sources come back, with their decisions.
+    await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(250);
+    ok(await page.evaluate(() => lumina.sources.length === 0), 'close shoot: no sources left');
+    await page.evaluate(() => __lumina.logic().libOpen(__lumina.logic().recents().find(x => /2026-10-01$/.test(x.where)))); await count(14);
+    sr = await src();
+    ok((await paths()).length === 14 && sr.page.length === 2 && sr.page[1].top === '2026-10-01 2' && sr.lumina.every(x => !x.missing) && sr.id === idA, 'reopen: every source is read again', sr);
+    ok(JSON.stringify(await keptPaths()) === JSON.stringify(['2026-10-01 2/DSC01001.ARW', '2026-10-01/DSC01001.ARW']) && (await page.evaluate(() => __lumina.unsaved())) === 0 && !(await paths()).some(p => /COPY/.test(p)), 'reopen: both sources\' decisions restored, the skipped copy still left out, nothing unsaved', await keptPaths());
+    // A source that is not there: the rest opens, the panel can say "not connected", its decisions wait.
+    await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(250);
+    const Bmoved = path.join(tmp, 'addB-moved'); fs.renameSync(B, Bmoved);
+    await page.evaluate(() => __lumina.logic().libOpen(__lumina.logic().recents().find(x => /2026-10-01$/.test(x.where)))); await count(12);
+    sr = await src();
+    ok((await paths()).length === 12 && sr.page.length === 2 && sr.lumina[1].missing === true && sr.lumina[0].missing === false && sr.page[1].n === 2, 'missing source: the shoot opens without it and lumina.sources marks it', sr);
+    await page.waitForTimeout(2400);
+    sess = JSON.parse(bridge.sessions[idA] || '{}');
+    ok(sess.marks && sess.marks['/2026-10-01 2/DSC01001.ARW'] === 'keep', 'missing source: its decisions stay in the session', sess.marks);
+    ok(bridge.kept[idA].length === 1 && bridge.kept[idA][0].n === 2, 'missing source: the Mac still keeps it', bridge.kept[idA]);
+    bridge.relocate[sr.page[1].nid] = Bmoved; await hear();
+    await page.evaluate(() => lumina.reconnect('s2')); await count(14);
+    sr = await src();
+    ok((await paths()).length === 14 && sr.lumina[1].missing === false && sr.page.length === 2 && (await said()).length === 0, 'reconnect: the folder found again, its photos read into the same source, no toast', { sr, said: await said() });
+    ok(JSON.stringify(await keptPaths()) === JSON.stringify(['2026-10-01 2/DSC01001.ARW', '2026-10-01/DSC01001.ARW']), 'reconnect: the decisions that waited are back', await keptPaths());
+    await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(250);
+
+    // A session written before sources existed (keys inside the folder, no slash in front) still restores.
+    const Old = path.join(tmp, 'OldFormat'); makeShoot(Old, jpegs.slice(0, 4)); await fresh();
+    bridge.sessions['id-OldFormat'] = JSON.stringify({ v: 2, cur: 'DSC01003.ARW', saved: null, marks: { 'DSC01002.ARW': 'keep' }, flags: {}, stars: { 'DSC01004.ARW': 2 }, cuts: {}, look: {}, xsaved: {} });
+    bridge.pending = Old; await page.evaluate(() => __lumina.openFolder()); await count(4);
+    const oldSt = await page.evaluate(() => { const l = __lumina.logic(), P = id => l.data.byId[id].path; return { kept: l.kept().map(P), stars: Object.entries(l.state.stars).map(([id, v]) => [P(id), v]) }; });
+    ok(JSON.stringify(oldSt) === JSON.stringify({ kept: ['OldFormat/DSC01002.ARW'], stars: [['OldFormat/DSC01004.ARW', 2]] }), 'old session: a single-folder session from before restores its marks and stars', oldSt);
+    await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(250); await fresh();
+
+    // 2. A drop on the window. The page gets its Files and calls its onDir; the Mac was handed the same
+    // items and reads them itself. With no shoot open the drop is a new shoot.
+    const D = path.join(tmp, 'drop', 'Dropped'); makeShoot(D, jpegs.slice(0, 4));
+    const names4 = ['DSC01001.ARW', 'DSC01002.ARW', 'DSC01003.ARW', 'DSC01004.ARW'];
+    bridge.grant(D); await hand(sizes(D, 'Dropped', names4)); await count(4); await hear();
+    const d1 = await page.evaluate(() => { const l = __lumina.logic(); return { info: l.state.realInfo, id: __lumina.shootId(), rel: l.real.every(p => p.fileObj && p.fileObj.__luminaRel === p.path), insp: __lumina.inspect() }; });
+    ok(d1.info && d1.info.name === 'Dropped' && d1.info.n === 4 && d1.id === 'id-Dropped' && d1.rel && d1.insp.lgHeld === 0 && d1.insp.sources.length === 1 && d1.insp.sources[0].kind === 'drop', 'drop: a dropped folder with no shoot open is a new shoot, read by the Mac', d1);
+    ok(bridge.claimed[bridge.claimed.length - 1].add === false && bridge.claimed[bridge.claimed.length - 1].kind === 'drop' && bridge.calls.lastIndexOf('shootOpened') > bridge.calls.lastIndexOf('claimFiles'), 'drop: the page\'s files are claimed from the Mac, then the shoot is opened', bridge.claimed[bridge.claimed.length - 1]);
+    // Single files dropped on the Picks tray: they join the shoot and are picked. Their sibling is never readable.
+    const E = path.join(tmp, 'loose');
+    raws(E, [{ name: 'X1.ARW', time: '12:00:00', j: 14 }, { name: 'X2.ARW', time: '12:00:09', j: 15 }, { name: 'Y.ARW', time: '12:01:00', j: 16 }]);
+    bridge.grant(path.join(E, 'X1.ARW'), path.join(E, 'X2.ARW'));
+    await hand(sizes(E, '', ['X1.ARW', 'X2.ARW']), { add: true, pick: true }); await count(6);
+    const d2 = await page.evaluate(() => { const l = __lumina.logic(); return { id: __lumina.shootId(), name: l.shootName(), src: __lumina.inspect().sources, pickFlag: l._pickOnAdd }; });
+    ok(JSON.stringify(await keptPaths()) === JSON.stringify(['loose/X1.ARW', 'loose/X2.ARW']) && d2.pickFlag === false, 'drop on the Picks tray: the dropped photos join the shoot and are picked (_pickOnAdd)', await keptPaths());
+    ok(JSON.stringify(await said()) === JSON.stringify(['added 2 photos to ' + d2.name, 'picked 2 · dropped']), 'drop on the Picks tray: the page\'s two lines', await said());
+    ok(d2.id === 'id-Dropped' && d2.src.length === 2 && d2.src[1].kind === 'drop' && d2.src[1].top === 'loose' && bridge.claimed[bridge.claimed.length - 1].add === true, 'drop that adds: a second source of kind drop, same shoot', d2);
+    ok(bridge.resolve('loose/X1.ARW') && bridge.resolve('loose/Y.ARW') === null && bridge.kept['id-Dropped'][0].only.join() === 'X1.ARW,X2.ARW', 'drop of single files: only the dropped files are readable, not their sibling', bridge.kept['id-Dropped']);
+    sv = await saveNow();
+    ok(sv && sv.t === '2 saved' && fs.existsSync(path.join(E, 'X1.xmp')) && fs.existsSync(path.join(E, 'X2.xmp')) && !fs.existsSync(path.join(E, 'Y.xmp')), 'drop of single files: Save writes a sidecar beside each dropped RAW', { sv, e: fs.readdirSync(E) });
+    await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(250);
+
+    // 3. A second camera whose clock is 5 minutes ahead: the page's sheet, answered both ways.
+    const CA = path.join(tmp, 'clock', 'CamA'), CB = path.join(tmp, 'clock', 'CamB'), CC = path.join(tmp, 'clock', 'CamC');
+    makeShoot(CA, jpegs); await fresh();
+    const ahead = model => [['10:35:00', 7], ['10:36:00', 8], ['10:38:10', 9], ['10:40:00', 10], ['10:41:40', 11]].map(([time, j], k) => ({ name: 'B' + (k + 1) + '.ARW', time, j, model }));
+    raws(CB, ahead('ILCE-7RM5')); raws(CC, ahead('ILCE-1'));
+    bridge.pending = CA; await page.evaluate(() => __lumina.openFolder()); await loaded(page); await hear();
+    const sheet = async dir => { bridge.picks.push([dir]); await page.evaluate(() => { lumina.addFrom('folder'); });
+      await page.waitForFunction(() => !!__lumina.logic().state.merge, null, { timeout: 30000 }).catch(() => {});
+      return page.evaluate(() => { const m = __lumina.logic().state.merge; return m && { sec: m.sec, n: m.n, txt: m.txt, body: m.body, n0: __lumina.logic().real.length }; }); };
+    const m1 = await sheet(CB);
+    ok(m1 && m1.sec === 300 && m1.n === 5 && m1.body === 'ILCE-7RM5' && /5 min 0 s ahead/.test(m1.txt) && m1.n0 === 12, 'clock: a second camera 5 minutes ahead opens the page\'s merge sheet before the photos join', m1);
+    await page.evaluate(() => __lumina.logic().state.merge.res('keep')); await count(17);
+    const c1 = await page.evaluate(() => { const l = __lumina.logic(); return { dates: l.real.filter(p => /^CamB\//.test(p.path)).map(p => p.date.slice(11)), off: l._sources[1].offset || 0, merge: l.state.merge }; });
+    ok(c1.dates.join() === '10:35:00,10:36:00,10:38:10,10:40:00,10:41:40' && c1.off === 0 && !c1.merge && /^added 5 photos to /.test((await said())[0] || ''), 'clock: "keep" leaves the new camera\'s times as they are', { c1, said: await said() });
+    const m2 = await sheet(CC);
+    ok(m2 && m2.sec === 300 && m2.body === 'ILCE-1', 'clock: the sheet again for a third camera', m2);
+    await page.evaluate(() => __lumina.logic().state.merge.res('shift')); await count(22);
+    const c2 = () => page.evaluate(() => { const l = __lumina.logic(); return { dates: l.real.filter(p => /^CamC\//.test(p.path)).map(p => p.date.slice(11)), off: (l._sources[2] || {}).offset || 0, n: l.real.length, merge: !!l.state.merge, srcs: l._sources.length }; });
+    let cs = await c2();
+    ok(cs.dates.join() === '10:30:00,10:31:00,10:33:10,10:35:00,10:36:40' && cs.off === -300, 'clock: "shift" moves the new camera\'s times onto the shoot\'s and records the source\'s offset', cs);
+    const idC = await page.evaluate(() => __lumina.shootId());
+    ok(bridge.kept[idC].length === 2 && bridge.kept[idC][1].offset === -300 && !bridge.kept[idC][0].offset, 'clock: the Mac keeps the shift with the source', bridge.kept[idC]);
+    await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(250);
+    await page.evaluate(() => __lumina.logic().libOpen(__lumina.logic().recents().find(x => /CamA$/.test(x.where)))); await count(22);
+    cs = await c2();
+    ok(cs.n === 22 && cs.srcs === 3 && cs.dates.join() === '10:30:00,10:31:00,10:33:10,10:35:00,10:36:40' && cs.off === -300 && !cs.merge, 'clock: on reopen the shift is applied again, without the sheet', cs);
+
+    // 4. AirDrop: the Mac watches Downloads and hands arrivals to the page's phoneArrived.
+    const DL = path.join(tmp, 'Downloads');
+    raws(DL, [{ name: 'IMG_1.ARW', time: '13:00:00', j: 17 }, { name: 'IMG_2.ARW', time: '13:00:07', j: 18 }, { name: 'IMG_3.ARW', time: '14:00:00', j: 19 }, { name: 'OTHER.ARW', time: '15:00:00', j: 20 }]);
+    await page.evaluate(() => __lumina.logic().watchAirdrop()); await page.waitForTimeout(300);
+    const w0 = await page.evaluate(() => { const s = __lumina.logic().state; return { on: s.adOn, msg: s.adMsg }; });
+    ok(w0.on === false && w0.msg === 'Couldn’t open Downloads.' && bridge.watches.join() === 'true,false', 'airdrop: no folder to watch (the panel cancelled) → the page\'s watch goes off again with its own line', { w0, watches: bridge.watches });
+    bridge.downloads = DL; bridge.watches = [];
+    await page.evaluate(() => __lumina.logic().watchAirdrop()); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => __lumina.logic().state.adOn === true) && bridge.watches.join() === 'true' && bridge.watching, 'airdrop: lumina.watchAirdrop(true) starts the Mac\'s watch');
+    await hear();
+    const arrivedN = await bridge.arrive(['IMG_1.ARW', 'IMG_2.ARW'], 1);
+    await page.waitForFunction(() => { const l = __lumina.logic(); return l._adTh && l._adTh['IMG_1.ARW'] && l._adTh['IMG_2.ARW']; }, null, { timeout: 10000 }).catch(() => {});
+    const a1 = await page.evaluate(() => { const l = __lumina.logic(), a = l.state.adNew; return a && { files: a.files.map(f => [f.name, f.webkitRelativePath, f.size > 1000]), lossy: a.lossy, thumbs: Object.keys(l._adTh || {}).sort(), blob: /^blob:/.test(((l._adTh || {})['IMG_1.ARW'] || {}).u || '') }; });
+    ok(arrivedN === 2 && a1 && JSON.stringify(a1.files) === JSON.stringify([['IMG_1.ARW', 'AirDrop/IMG_1.ARW', true], ['IMG_2.ARW', 'AirDrop/IMG_2.ARW', true]]) && a1.lossy === 1, 'airdrop: arrivals reach luminaPhoneArrived as AirDrop/<name> files, with the count of HEIC / JPEG', a1);
+    ok(a1 && a1.thumbs.join() === 'IMG_1.ARW,IMG_2.ARW' && a1.blob, 'airdrop: the page makes its thumbnails from the stand-ins (head and preview read by the Mac)', a1);
+    ok(bridge.resolve('AirDrop/IMG_1.ARW') && bridge.resolve('AirDrop/OTHER.ARW') === null, 'airdrop: only files that arrived while watching are readable');
+    await page.evaluate(() => __lumina.logic().addArrived()); await count(24);
+    const a2 = await page.evaluate(() => { const l = __lumina.logic(); return { src: __lumina.inspect().sources, adNew: l.state.adNew, paths: l.real.map(p => p.path).filter(p => /^AirDrop\//.test(p)), id: __lumina.shootId() }; });
+    ok(a2.paths.join() === 'AirDrop/IMG_1.ARW,AirDrop/IMG_2.ARW' && a2.src.length === 4 && a2.src[3].kind === 'phone' && a2.src[3].label === 'AirDrop' && a2.id === idC && !a2.adNew && /^added 2 photos to /.test((await said())[0] || ''), 'airdrop: "Add to shoot" adds the arrivals as a phone source of the open shoot', { a2, said: await said() });
+    ok(bridge.kept[idC].length === 3 && bridge.kept[idC][2].only.join() === 'IMG_1.ARW,IMG_2.ARW' && bridge.kept[idC][2].kind === 'phone', 'airdrop: the Mac keeps the arrivals as a source of single files', bridge.kept[idC]);
+    await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(250);
+    // With no shoot open, arrivals are a shoot of their own.
+    await fresh();
+    await bridge.arrive(['IMG_3.ARW'], 0);
+    await page.evaluate(() => __lumina.logic().addArrived()); await count(1);
+    const a3 = await page.evaluate(() => { const l = __lumina.logic(); return { info: l.state.realInfo, src: __lumina.inspect().sources, paths: l.real.map(p => p.path), id: __lumina.shootId() }; });
+    ok(a3.info && a3.info.name === 'AirDrop' && a3.paths.join() === 'AirDrop/IMG_3.ARW' && a3.src.length === 1 && a3.src[0].kind === 'phone' && a3.id === 'id-AirDrop', 'airdrop: with no shoot open the arrivals open as a shoot', a3);
+    await page.evaluate(() => __lumina.logic().stopAirdrop()); await page.waitForTimeout(100);
+    ok(bridge.watches[bridge.watches.length - 1] === false && !bridge.watching, 'airdrop: the page\'s stop reaches lumina.watchAirdrop(false)', bridge.watches);
+    await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(250);
+  }
+
+  // The page's clear (the working-files meter, Save's Tidy up) keeps the shoot and its session;
+  // File ▸ Remove Working Files… removes the session too.
+  {
+    const W = path.join(tmp, 'clear', 'Clear'); makeShoot(W, jpegs.slice(0, 3));
+    bridge.pending = W; await page.evaluate(() => __lumina.openFolder()); await loaded(page);
+    const id = await page.evaluate(() => { const l = __lumina.logic(); l.setState({ marks: { [l.data.order[0]]: 'keep' } }); return __lumina.shootId(); });
+    await page.waitForTimeout(2300);
+    const had = !!bridge.sessions[id], r = await page.evaluate(() => lumina.removeWorkingFiles());
+    ok(r === true && bridge.cleared === 1 && had && !!bridge.sessions[id] && (await page.evaluate(() => __lumina.shootId())) === id, 'working files: the page\'s clear keeps the shoot and its session', { r, cleared: bridge.cleared, had });
+    await page.evaluate(() => __lumina.removeWorkingFiles()); await page.waitForTimeout(200);
+    ok(!bridge.sessions[id] && (await page.evaluate(() => __lumina.shootId())) === null, 'working files: File ▸ Remove Working Files… removes the session');
+  }
+
   ok(errors.length === 0, 'no page errors', errors);
   await ctx.close();
   await browser.close();

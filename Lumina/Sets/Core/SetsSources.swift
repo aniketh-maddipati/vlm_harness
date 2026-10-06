@@ -69,18 +69,43 @@ nonisolated struct SetsSources: Codable {
         }
     }
 
-    /// Resolves an existing grant. A stale grant is renewed in place, preserving source identity
-    /// and order. Access lifetime remains the caller's responsibility.
-    mutating func reconnect(_ id: String) -> URL? {
-        guard let index = sources.firstIndex(where: { $0.id == id }),
-              let resolved = try? calls.resolve(sources[index].bookmark),
-              calls.exists(resolved.url) else { return nil }
-        if resolved.stale, let bookmark = try? calls.bookmark(resolved.url) {
-            sources[index].bookmark = bookmark
-            sources[index].path = resolved.url.path
-        }
-        return resolved.url
+    /// A grant reached again: where it is now, and whether a stale bookmark could be made again.
+    struct Reconnection {
+        var url: URL
+        /// The bookmark was stale and has been replaced by a new one.
+        var renewed = false
+        /// The bookmark was stale and making a new one failed: the old one is kept, and the next
+        /// reconnect tries again.
+        var renewalFailure: String?
     }
+
+    /// Resolves an existing grant with its access held throughout: start, then the look at the
+    /// disk, then a stale bookmark made again (in the App Sandbox a bookmark for a scoped URL can
+    /// only be made while its access is started), then `hold` (the caller starts its own lasting
+    /// access, `SetsAccess.hold`), then this call's start is stopped. A renewed grant keeps its
+    /// identity and order. Nil, with nothing left started: not resolved, or not there.
+    mutating func reconnect(_ id: String, hold: (URL) -> Void) -> Reconnection? {
+        guard let index = sources.firstIndex(where: { $0.id == id }),
+              let resolved = try? calls.resolve(sources[index].bookmark) else { return nil }
+        let started = calls.start(resolved.url)
+        defer { if started { calls.stop(resolved.url) } }
+        guard calls.exists(resolved.url) else { return nil }
+        var out = Reconnection(url: resolved.url)
+        if resolved.stale {
+            do {
+                sources[index].bookmark = try calls.bookmark(resolved.url)
+                sources[index].path = resolved.url.path
+                out.renewed = true
+            } catch {
+                out.renewalFailure = String(describing: error)
+            }
+        }
+        hold(resolved.url)
+        return out
+    }
+
+    /// `reconnect(_:hold:)` for a caller that starts the URL's access later itself.
+    mutating func reconnect(_ id: String) -> URL? { reconnect(id, hold: { _ in })?.url }
 
     /// Replaces a missing grant with a folder the caller obtained from a panel.
     @discardableResult

@@ -121,14 +121,17 @@ export function makeBigShoot(dir, jpegs, n) {
 }
 
 // ——— the Swift bridge, in Node (what SetsBridge answers)
-export function list(root) {
-  const name = path.basename(root), out = { name, files: [], xmp: [], others: [], workers: 4, onCard: false, skippedXmp: [], unreadableXmp: [] };
+// `name`: the root's name in the page's paths when it is not the folder's own; `only`: the root is
+// these files of the folder, and the folder is not walked (SetsIngest.list).
+export function list(root, name = path.basename(root), only = null) {
+  const out = { name, files: [], xmp: [], others: [], workers: 4, onCard: false, skippedXmp: [], unreadableXmp: [] };
   const walk = d => { for (const e of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     if (e.name.startsWith('.')) continue;
     const full = path.join(d, e.name), rel = name + '/' + path.relative(root, full).split(path.sep).join('/');
+    if (only && (d !== root || !only.includes(e.name) || !e.isFile())) continue;
     if (e.isDirectory()) { walk(full); continue; }
     const ext = path.extname(e.name).toLowerCase();
-    if (ext === '.arw') out.files.push({ rel, size: fs.statSync(full).size });
+    if (ext === '.arw' || ext === '.dng') out.files.push({ rel, size: fs.statSync(full).size });
     // SetsIngest.list: a sidecar that is not UTF-8 text is named in unreadableXmp, without a text.
     else if (ext === '.xmp') { const text = utf8(fs.readFileSync(full)); if (text == null) out.unreadableXmp.push(rel); else out.xmp.push({ rel, text }); }
     else if (!e.name.endsWith('.lumina-bak')) out.others.push(rel);
@@ -150,6 +153,93 @@ export class Bridge {
     this.canvas = { path: 'image', entered: [], layouts: [], looks: [], drags: [], loupes: [], statsCalls: 0, resets: 0, updates: 0 };
     this.header = { canvas: 'image', raw9: false, raw9Present: false, decoder: 8, newest: 8, offerUpdate: false, slowed: false, bodies: { 'ILCE-7M4': { supported: [7, 8], raw9: false, fastest: 8, developMs: { 7: 30, 8: 20 } } } };
     this.renders = []; this.renderDelayMs = 0; this.renderJpeg = null; this.renderSeq = {};
+    // Sources (SetsBridge "Sources"): the open shoot's roots, what the user handed over (drops, picks),
+    // the sources kept per shoot, what the next panel answers, the watched Downloads folder.
+    this.only = {}; this.shootRoots = []; this.granted = []; this.kept = {}; this.picks = []; this.relocate = {}; this.downloads = null; this.watching = false; this.airdrop = []; this.nids = 0;
+  }
+  // What a drop on the window or a pick in a panel hands the Mac: file URLs (here: paths).
+  grant(...paths) { for (const p of paths) { this.granted = this.granted.filter(x => x !== p); this.granted.push(p); } }
+  register(root) { this.roots[root.name] = root.path; if (root.only) this.only[root.name] = root.only.slice(); else delete this.only[root.name]; }
+  shootKey() { return this.current ? 'id-' + (this.shootRoots[0] ? this.shootRoots[0].name : path.basename(this.current)) : null; }
+  listed(root, kind, label, entry) {
+    if (!fs.existsSync(root.path)) return { name: root.name, denied: root.name };
+    return Object.assign(list(root.path, root.name, root.only), { nid: root.nid || null, kind, label }, entry && entry.offset ? { offset: entry.offset } : {}, entry && entry.n ? { n: entry.n } : {});
+  }
+  // SetsBridge.adopt: with no shoot open the first item is opened, the rest join the open shoot.
+  adopt(items, add, kind, label) {
+    const out = []; let adding = add && this.shootRoots.length > 0;
+    for (const it of items) {
+      if (!adding) {
+        this.pending = it.path; this.pendingLoose = it.only ? { name: it.base, only: it.only } : null; this.pendingKind = kind;
+        const d = this.open(); if (!d) continue;
+        out.push(Object.assign(d, { primary: true, kind, label: label || null })); if (d.files) adding = true; continue;
+      }
+      const id = this.shootKey(), store = this.kept[id] = this.kept[id] || [];
+      let root, i = this.shootRoots.findIndex(r => r.path === it.path && !r.only);
+      if (i >= 0) root = { name: this.shootRoots[i].name, path: it.path, only: it.only || null, nid: this.shootRoots[i].nid };
+      else if (it.only && (i = this.shootRoots.findIndex(r => r.path === it.path && r.only && r.name.startsWith(it.base))) >= 0) {
+        const r = this.shootRoots[i]; r.only = [...new Set(r.only.concat(it.only))]; this.register(r);
+        const e = store.find(x => x.nid === r.nid); if (e) e.only = r.only.slice();
+        root = { name: r.name, path: r.path, only: it.only, nid: r.nid };
+      } else {
+        const taken = new Set(this.shootRoots.map(r => r.name)); let name = it.base, n = 2; while (taken.has(name)) name = it.base + ' ' + n++;
+        root = { name, path: it.path, only: it.only || null, nid: 'n' + (++this.nids) };
+        store.push({ nid: root.nid, name, path: it.path, only: root.only, kind, label: label || name });
+        this.register(root); this.shootRoots.push(root);
+      }
+      out.push(this.listed(root, kind, label || root.name));
+    }
+    return { sources: out };
+  }
+  // Picked or dropped paths as roots: each folder whole, single files together per folder.
+  claimsOf(paths) {
+    const out = [], loose = {};
+    for (const p of paths) {
+      if (!fs.existsSync(p)) continue;
+      if (fs.statSync(p).isDirectory()) { out.push({ path: p, only: null, base: path.basename(p) }); continue; }
+      const d = path.dirname(p); if (loose[d]) loose[d].only.push(path.basename(p)); else out.push(loose[d] = { path: d, only: [path.basename(p)], base: path.basename(d) });
+    }
+    return out;
+  }
+  // SetsShootSources.claims: the page's File paths matched to what was granted. Nothing else is read.
+  claims(rels) {
+    const folders = {}, singles = {}, out = [], taken = new Set(), loose = {};
+    for (const g of this.granted) { if (fs.existsSync(g) && fs.statSync(g).isDirectory()) folders[path.basename(g)] = g; else singles[path.basename(g)] = g; }
+    for (const rel of rels) {
+      const parts = rel.split('/').filter(Boolean), name = parts[parts.length - 1];
+      if (parts.length > 1 && folders[parts[0]]) { if (!taken.has(parts[0])) { taken.add(parts[0]); out.push({ path: folders[parts[0]], only: null, base: parts[0] }); } continue; }
+      if (parts.length > 2 || !singles[name]) continue;
+      const d = path.dirname(singles[name]), base = parts.length === 2 ? parts[0] : path.basename(d), k = d + '|' + base;
+      if (loose[k]) loose[k].only.push(name); else out.push(loose[k] = { path: d, only: [name], base });
+    }
+    return out;
+  }
+  // The body of the openFolder op: the pending folder becomes the open shoot; its kept sources come as `more`.
+  open() {
+    const url = this.pending, loose = this.pendingLoose || null, kind = this.pendingKind || null;
+    this.pending = null; this.pendingLoose = null; this.pendingKind = null; if (!url) return null;
+    if (this.denied === url) return { denied: path.basename(url) };
+    const first = { name: loose ? loose.name : path.basename(url), path: url, only: loose ? loose.only : null, nid: null };
+    this.register(first); this.current = url; this.shootRoots = [first];
+    const d = Object.assign(list(url, first.name, first.only), { source: { kind: kind || 'folder' } }), more = [];
+    for (const e of this.kept[this.shootKey()] || []) {
+      const root = { name: e.name, path: e.path, only: e.only, nid: e.nid };
+      const gone = { nid: e.nid, name: e.name, kind: e.kind, label: e.label, missing: true, n: e.n || 0, offset: e.offset || null };
+      if (!fs.existsSync(e.path)) { more.push(gone); continue; }
+      this.register(root); this.shootRoots.push(root); more.push(this.listed(root, e.kind, e.label, e));
+    }
+    if (more.length) d.more = more;
+    return d;
+  }
+  status() { return (this.kept[this.shootKey()] || []).map(e => ({ nid: e.nid, missing: !this.shootRoots.some(r => r.nid === e.nid) || !fs.existsSync(e.path) })); }
+  // SetsDownloadsWatcher's batch: complete RAWs in the watched folder, and how many HEIC / JPEG.
+  async arrive(names, lossy = 0) {
+    if (!this.watching) return 0;
+    this.airdrop = [...new Set(this.airdrop.concat(names))];
+    const inShoot = (this.shootRoots.find(r => r.name === 'AirDrop' && r.path === this.downloads) || {}).only || [];
+    this.register({ name: 'AirDrop', path: this.downloads, only: [...new Set(this.airdrop.concat(inShoot))] });
+    const files = names.map(n => ({ rel: 'AirDrop/' + n, size: fs.statSync(path.join(this.downloads, n)).size }));
+    return this.page.evaluate(([f, l]) => __lumina.phoneArrived(f, l), [files, lossy]);
   }
   // lumina://render/<rel>?look=&px=&seq=&tier=: what SetsSchemeHandler + LookRenderer answer. 409 when a
   // newer seq for the same file was already asked for; else a JPEG (this.renderJpeg, any bytes will do).
@@ -166,6 +256,7 @@ export class Bridge {
   kick() { if (this.page) this.page.evaluate('__lumina.openFolder()'); else this.kicked = (this.kicked || 0) + 1; }
   resolve(rel) {
     const [n, ...rest] = rel.split('/'); const r = this.roots[n]; if (!r || !rest.length) return null;
+    if (this.only[n] && !(rest.length === 1 && this.only[n].includes(rest[0]))) return null;      // a root of single files: those files only
     const p = path.resolve(r, rest.join('/')); return p.startsWith(r + path.sep) ? p : null;
   }
   async handle(msg) {
@@ -173,13 +264,40 @@ export class Bridge {
     switch (op) {
       case 'ready': this.readyMsg = msg; return !(msg.missing && msg.missing.length);
       case 'recents': return this.index.map(s => ({ id: s.id, d: s.d, n: s.n, dec: s.dec || 0, kp: s.kp || 0, last: s.last || '', where: s.path }));
-      case 'openFolder': {
-        const url = this.pending; this.pending = null; if (!url) return null;
-        if (this.denied === url) return { denied: path.basename(url) };
-        this.roots[path.basename(url)] = url; this.current = url; return list(url);
+      case 'openFolder': return this.open();
+      case 'addFrom': {
+        (this.addFroms = this.addFroms || []).push(msg);
+        const picked = this.picks.shift(); if (!picked || !picked.length) return null;
+        this.grant(...picked);
+        return this.adopt(this.claimsOf(picked), !!msg.add, ['pictures', 'downloads', 'desktop'].includes(msg.where) ? msg.where : 'folder', null);
       }
+      case 'claimFiles': {
+        (this.claimed = this.claimed || []).push(msg);
+        const rels = (msg.files || []).map(f => f.rel), arrived = rels.filter(r => r.startsWith('AirDrop/') && this.airdrop.includes(r.slice(8))).map(r => r.slice(8));
+        const items = this.claims(rels.filter(r => !(r.startsWith('AirDrop/') && arrived.includes(r.slice(8)))));
+        if (arrived.length && this.downloads) items.unshift({ path: this.downloads, only: arrived, base: 'AirDrop' });
+        return items.length ? this.adopt(items, !!msg.add, msg.kind || 'drop', msg.label || null) : null;
+      }
+      case 'shootSources': {
+        (this.sourceTells = this.sourceTells || []).push(msg);
+        const keep = Object.fromEntries((msg.sources || []).map(s => [s.nid, s]));
+        this.kept[msg.id] = (this.kept[msg.id] || []).filter(e => keep[e.nid]).map(e => Object.assign(e, { offset: keep[e.nid].offset || null, n: keep[e.nid].n || 0 }));
+        return this.status();
+      }
+      case 'sourcesStatus': return this.status();
+      case 'sourceReconnect': {
+        const e = (this.kept[msg.id] || []).find(x => x.nid === msg.nid); if (!e) return null;
+        if (!fs.existsSync(e.path)) { const to = this.relocate[e.nid]; if (!to) return null; e.path = to; }      // the panel: the folder, where it is now
+        const root = { name: e.name, path: e.path, only: e.only, nid: e.nid };
+        this.register(root); this.shootRoots = this.shootRoots.filter(r => r.nid !== e.nid).concat([root]);
+        return { source: this.listed(root, e.kind, e.label, e) };
+      }
+      case 'watchAirdrop': (this.watches = this.watches || []).push(!!msg.on); this.watching = !!msg.on && !!this.downloads; return msg.on ? this.watching : true;
+      // SetsPageStore: the page's few stored keys; SetsWorkingFiles: the clear that keeps the session.
+      case 'storeSet': (this.stored = this.stored || {})[msg.key] = msg.value; return true;
+      case 'removeWorkingFiles': this.cleared = (this.cleared || 0) + 1; return true;
       case 'shootOpened': {
-        const id = 'id-' + path.basename(this.current);
+        const id = this.shootKey();
         this.index = [{ id, path: this.current, n: msg.n, d: (msg.date || '').slice(0, 10).replace(/:/g, '-') }].concat(this.index.filter(s => s.id !== id));
         this.bodies = msg.bodies || null;
         return { id, session: this.sessions[id] || null, header: this.header };
@@ -238,6 +356,8 @@ export class Bridge {
           // No sidecar for a RAW that is no longer beside it (renamed, moved or deleted since the read).
           const stem = path.basename(dest).replace(/\.[^.]+$/, '');
           if (!fs.readdirSync(path.dirname(dest)).some(n => /\.arw$/i.test(n) && n.replace(/\.[^.]+$/, '') === stem)) { errors.push({ name: stem, reason: 'missing' }); continue; }
+          // A root of single files: a sidecar only beside one of them (SetsBridge.sidecarAllowed).
+          if (this.only[msg.root] && !this.only[msg.root].some(n => n.replace(/\.[^.]+$/, '') === stem && !f.name.includes('/'))) { errors.push({ name: stem, reason: 'refused' }); continue; }
           const data = Buffer.from(f.b64, 'base64');
           if (this.beforeSidecar) this.beforeSidecar(dest);            // a test's chance to be the other app, writing at this instant
           // A sidecar that is not UTF-8 text is never replaced, whatever its base (SetsFileOps.sidecarUnreadable).
