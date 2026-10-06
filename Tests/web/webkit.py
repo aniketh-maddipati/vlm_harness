@@ -29,7 +29,7 @@ import cairo
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 WEB = os.path.join(ROOT, 'Lumina/Sets/Web')
 SCEN = os.path.join(ROOT, 'Tests/probe/scenarios')
-PAGE = 'Lumina Sets v8.dc.html'
+PAGE = 'Lumina Sets v11.dc.html'
 def free_port():
     with socket.socket() as s:
         s.bind(('127.0.0.1', 0))
@@ -236,13 +236,9 @@ def selftest():
             print(('     ' if r['ok'] else 'FAIL ') + r['n'] + ' · ' + r['d'])
     # Behaviour checks gate; the two timing checks are reported only: ADDENDUM-1 §6 measures timing
     # in the real app, and a virtual display without GPU is no measure of it.
-    # STALE is v5's rule, which v8 reverses (CHANGES-v0.02: P on a kept photo moves on, never toggles;
-    # DESIGN-ASKS Prompt 13). It is held to v8's rule below; once the design's file is fixed it passes,
-    # this gate fails, and STALE comes out.
-    STALE = ['P again un-keeps']
     bad = [r['n'] for r in rows if not r['ok'] and not r['n'].startswith('perf')]
     beh = [r for r in rows if not r['n'].startswith('perf')]
-    ok(len(rows) >= 25 and bad == STALE, 'selftest: %d / %d behaviour checks pass in WebKit (and v5\'s "%s" still fails)' % (len(beh) - len(bad), len(beh), STALE[0]), bad)
+    ok(len(rows) >= 25 and not bad, 'selftest: %d / %d behaviour checks pass in WebKit' % (len(beh) - len(bad), len(beh)), bad)
     ok(p.js(V8_KEEP) is True, 'selftest: v8: P on a kept photo keeps it and moves on')
     p.close()
 

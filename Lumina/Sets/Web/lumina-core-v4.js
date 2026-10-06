@@ -66,11 +66,40 @@ function mergeXmp(src,rating,final,kw){ let x=src; const setA=(name,val)=>{ cons
     setA('xmp:Rating',rating); if(final) setA('xmp:Label',final); if(kw) x=addKw(x,kw); return x; }
 function addKw(x,kw){ x=x.replace(/<rdf:li>Lumina pass \d+<\/rdf:li>/g,'').replace(/<rdf:li>Lumina\|pass \d+<\/rdf:li>/gi,'');
   if(!/xmlns:dc\s*=/.test(x)) x=x.replace(/<rdf:Description\b/,m=>m+' xmlns:dc="http://purl.org/dc/elements/1.1/"');
-  const li='<rdf:li>'+kw+'</rdf:li>';
-  if(/<dc:subject>\s*<rdf:Bag>/.test(x)) return x.replace(/(<dc:subject>\s*<rdf:Bag>)/,'$1'+li);
-  const block='<dc:subject><rdf:Bag>'+li+'</rdf:Bag></dc:subject>';
-  if(/<rdf:Description\b[^>]*\/>/.test(x)) return x.replace(/(<rdf:Description\b[^>]*?)\s*\/>/,'$1>'+block+'</rdf:Description>');
-  return x.replace(/(<rdf:Description\b[^>]*>)/,'$1'+block); }
+  if(!/xmlns:lr\s*=/.test(x)) x=x.replace(/<rdf:Description\b/,m=>m+' xmlns:lr="http://ns.adobe.com/lightroom/1.0/"');
+  const li='<rdf:li>'+kw+'</rdf:li>', hli='<rdf:li>Lumina|'+kw.replace(/^Lumina /,'')+'</rdf:li>';
+  if(/<dc:subject>\s*<rdf:Bag>/.test(x)) x=x.replace(/(<dc:subject>\s*<rdf:Bag>)/,'$1'+li);
+  else { const block='<dc:subject><rdf:Bag>'+li+'</rdf:Bag></dc:subject>'; if(/<rdf:Description\b[^>]*\/>/.test(x)) x=x.replace(/(<rdf:Description\b[^>]*?)\s*\/>/,'$1>'+block+'</rdf:Description>'); else x=x.replace(/(<rdf:Description\b[^>]*>)/,'$1'+block); }
+  // v0.03: lr:hierarchicalSubject gets Lumina|pass N too (BRIDGE §6); v0.02 only removed the old one
+  if(/<lr:hierarchicalSubject>\s*<rdf:Bag>/.test(x)) x=x.replace(/(<lr:hierarchicalSubject>\s*<rdf:Bag>)/,'$1'+hli);
+  else x=x.replace(/(<\/dc:subject>)/,'$1<lr:hierarchicalSubject><rdf:Bag>'+hli+'</rdf:Bag></lr:hierarchicalSubject>');
+  return x; }
+
+// Canonical look string (BRIDGE-v0.03 §4 = DESIGN-ASKS Prompt 1 §2 grammar, extended with Edit's own keys).
+// Space-separated key:value. Order: ev wb con hl sh wh bl vib sat clr shp nr vig bw crop, then every other key A→Z.
+// ev two decimals with a sign · integers with a sign (0 unsigned) · shp / nr unsigned · wb as K/tint (either side may be empty)
+// · bw:1 · crop:x,y,w,h/angle (fractions, 4 decimals) + cropRatio:<preset> · anything else (curve points, strings) as
+// '~' + encodeURIComponent(JSON). Null values are dropped. '' is the neutral look.
+const LOOK_ORDER=['ev','wb','con','hl','sh','wh','bl','vib','sat','clr','shp','nr','vig','bw','crop'];
+function lookString(L){ if(!L) return ''; const o=[], has=k=>L[k]!=null&&L[k]!=='', sg=v=>v>0?'+'+v:String(v), num=v=>Number.isInteger(v)?sg(v):sg(+v.toFixed(3)), r4=v=>String(+(+v).toFixed(4));
+  const keys=Object.keys(L).filter(k=>has(k)&&k!=='tint'&&k!=='cropRatio'), rest=keys.filter(k=>!LOOK_ORDER.includes(k)).sort(); if(!has('wb')&&has('tint')) keys.push('wb');
+  [...LOOK_ORDER.filter(k=>keys.includes(k)),...rest].forEach(k=>{ const v=L[k];
+    if(k==='ev') o.push('ev:'+(v>0?'+':'')+(+v).toFixed(2));
+    else if(k==='wb') o.push('wb:'+(has('wb')?Math.round(L.wb):'')+'/'+(has('tint')?num(Math.round(L.tint)):''));
+    else if(k==='shp'||k==='nr') o.push(k+':'+Math.round(v));
+    else if(k==='bw'){ if(v) o.push('bw:1'); }
+    else if(k==='crop'&&v&&typeof v==='object'){ o.push('crop:'+[v.x,v.y,v.w,v.h].map(x=>r4(x||0)).join(',')+'/'+r4(v.ang||0)); if(v.ratio!=null) o.push('cropRatio:'+encodeURIComponent(String(v.ratio))); }
+    else if(typeof v==='number'&&isFinite(v)) o.push(k+':'+num(v));
+    else o.push(k+':~'+encodeURIComponent(JSON.stringify(v))); });
+  return o.join(' '); }
+function parseLook(s){ const o={}; if(!s) return o; let ratio=null; String(s).trim().split(/\s+/).forEach(tok=>{ const j=tok.indexOf(':'); if(j<1) return; const k=tok.slice(0,j), v=tok.slice(j+1);
+    try{ if(k==='wb'){ const [K,T]=v.split('/'); if(K!=='') o.wb=+K; if(T!=null&&T!=='') o.tint=+T; }
+      else if(k==='bw') o.bw=v==='1';
+      else if(k==='crop'){ const [xywh,ang]=v.split('/'), n=xywh.split(',').map(Number); o.crop={x:n[0],y:n[1],w:n[2],h:n[3],ang:+(ang||0)}; }
+      else if(k==='cropRatio') ratio=decodeURIComponent(v);
+      else if(v.startsWith('~')) o[k]=JSON.parse(decodeURIComponent(v.slice(1)));
+      else o[k]=+v; }catch(_){} });
+  if(o.crop&&ratio!=null) o.crop.ratio=ratio; return o; }
 
 // Photos → rows (weighted change score, see rowScore; cuts[id]='row' | 'join' override), stacks
 // (Sony SequenceImageNumber runs when present; else gap ≤ 2 s and dHash distance ≤ 6; dHash ≥ 28 always splits;
@@ -79,13 +108,15 @@ function addKw(x,kw){ x=x.replace(/<rdf:li>Lumina pass \d+<\/rdf:li>/g,'').repla
 function buildShoot(list,cuts){ const light=h=>h<11?'morning':h<15?'midday':h<18?'afternoon':'evening';
     const ts=p=>{ const m=/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/.exec(p.date||''); return m?Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]):0; };
     const fno=p=>{ const m=/(\d+)(?!.*\d)/.exec(p.name||p.path||''); return m?+m[1]:0; };
-    const P=list.map(p=>({...p,t:ts(p)})).sort((a,b)=>a.t-b.t||String(a.serial||'').localeCompare(String(b.serial||''))||fno(a)-fno(b)||String(a.path).localeCompare(String(b.path)));
+    // v0.04 (Prompt 3 A4): a photo without a capture time sits right after the photo with the nearest lower file number
+    const P0=list.map(p=>({...p,t:ts(p)})), dated=P0.filter(p=>p.t).sort((a,b)=>fno(a)-fno(b)); P0.forEach(p=>{ if(p.t) return; const n=fno(p); let anc=null; for(const d of dated){ if(fno(d)<=n) anc=d; else break; } anc=anc||dated[0]||null; p._nt=true; p.t=anc?anc.t+0.5:0; });
+    const P=P0.sort((a,b)=>a.t-b.t||String(a.serial||'').localeCompare(String(b.serial||''))||fno(a)-fno(b)||String(a.path).localeCompare(String(b.path)));
     const fs=P.map(p=>p.focus).slice().sort((a,b)=>a-b), pct=v=>{ let lo=0,hi=fs.length; while(lo<hi){ const m=(lo+hi)>>1; if(fs[m]<v) lo=m+1; else hi=m; } return Math.round(100*lo/Math.max(1,fs.length-1)); };
     const byId={}, G={}, M=[]; let cur=null, n=0;
-    const gaps=[]; P.forEach((q,idx)=>{ const prev=P[idx-1], gap=prev?(q.t-prev.t)/1000:1e9; let rs=prev?rowScore(prev,q,gap,gaps):null; if(prev&&gap>2) gaps.push(gap); const rc=cuts['f'+n]; if(rs&&(rc==='row'||rc==='moved')) rs={start:true,reason:rc==='moved'?'you moved this':'you split here'}; else if(rs&&rc==='join') rs={start:false}; if(!cur||rs.start){ const d=new Date(q.t), hh=d.getUTCHours(); cur={hh,time:String(hh).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'),fr:[],reason:rs?rs.reason:''}; M.push(cur); }
+    const gaps=[]; let lastD=null; P.forEach((q,idx)=>{ const prev=P[idx-1], pd=q._nt?null:lastD, gap=pd?(q.t-pd.t)/1000:prev?0:1e9; let rs=!prev?null:q._nt?{start:false}:pd?rowScore(pd,q,gap,gaps):{start:false}; if(pd&&gap>2) gaps.push(gap); if(!q._nt) lastD=q; const rc=cuts['f'+n]; if(rs&&(rc==='row'||rc==='moved')) rs={start:true,reason:rc==='moved'?'you moved this':'you split here'}; else if(rs&&rc==='join') rs={start:false}; if(!cur||rs.start){ const d=new Date(q.t), hh=d.getUTCHours(); cur={hh,time:String(hh).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'),fr:[],reason:rs?rs.reason:''}; M.push(cur); }
       const id='f'+n, hh=new Date(q.t).getUTCHours(), fl=q.fl||0, shake=!!(q.exp&&fl&&q.exp>2/fl);
       const d2=new Date(q.t), p2=x=>String(x).padStart(2,'0');
-      const p={exp:q.exp??null,iso:q.iso??null,model:q.model||null,make:q.make||null,wbK:q.wbK??null,wbTint:q.wbTint??null,fnum:q.fnum||null,pw:q.w||null,ph:q.h||null,bytes:q.bytes||null,seqLen:q.seqLength??null,evc:q.ev??null,sec:p2(d2.getUTCHours())+':'+p2(d2.getUTCMinutes())+':'+p2(d2.getUTCSeconds()),date10:d2.getUTCFullYear()+'-'+p2(d2.getUTCMonth()+1)+'-'+p2(d2.getUTCDate()),dark:!q.nopv&&q.lum!=null&&q.lum<0.08,nopv:!!q.nopv,path:q.path,lens:q.lens||null,serial:q.serial||null,program:q.program??null,wb:q.wb??null,flash:q.flash??null,dhash:q.dhash||null,hist:q.hist||null,id,n,jpg:!!q.jpg,mi:M.length-1,fileObj:q.fileObj,xpath:q.xpath,xmp:q.xmp||null,lrEd:!!q.lrEd,portrait:!!q.portrait,src:q.src,lg:q.lg,zsrc:q.lg,ev:0,time:cur.time,hh,light:light(hh),h:q.lum,sharp:pct(q.focus),focus:q.focus,fx:q.focusLoc?Math.round(q.focusLoc.x*100):50,fy:q.focusLoc?Math.round(q.focusLoc.y*100):50,subj:q.focusLoc||null,seq:q.seqImage??null,rm2:q.releaseMode2??null,start:!prev||cur.fr.length===0||(()=>{ const sq=q.seqImage, ps=prev.seqImage; const h=prev.dhash&&q.dhash?ham(prev.dhash,q.dhash):null; if(h!=null&&h>=28) return true; if(sq!=null&&ps!=null) return !(sq===ps+1&&gap<=2); if(h!=null) return !(gap<=2&&h<=6); return gap>1; })(),bk:false,evs:q.ev,seed:0,sug:null,bl:0,clip:+q.clip.toFixed(1),blown:false,lowpv:!!q.lowpv,shake,ss:q.exp?(q.exp>=1?q.exp.toFixed(1)+'s':'1/'+Math.round(1/q.exp)):'',fl:fl?Math.round(fl):0,file:q.name};
+      const p={exp:q.exp??null,iso:q.iso??null,model:q.model||null,make:q.make||null,wbK:q.wbK??null,wbTint:q.wbTint??null,fnum:q.fnum||null,pw:q.w||null,ph:q.h||null,bytes:q.bytes||null,seqLen:q.seqLength??null,evc:q.ev??null,sec:q._nt?'':p2(d2.getUTCHours())+':'+p2(d2.getUTCMinutes())+':'+p2(d2.getUTCSeconds()),date10:d2.getUTCFullYear()+'-'+p2(d2.getUTCMonth()+1)+'-'+p2(d2.getUTCDate()),dark:!q.nopv&&q.lum!=null&&q.lum<0.08,nopv:!!q.nopv,path:q.path,lens:q.lens||null,serial:q.serial||null,program:q.program??null,wb:q.wb??null,flash:q.flash??null,dhash:q.dhash||null,hist:q.hist||null,id,n,jpg:!!q.jpg,mi:M.length-1,fileObj:q.fileObj,xpath:q.xpath,xmp:q.xmp||null,lrEd:!!q.lrEd,portrait:!!q.portrait,src:q.src,lg:q.lg,zsrc:q.lg,ev:0,time:cur.time,hh,light:light(hh),h:q.lum,sharp:pct(q.focus),focus:q.focus,fx:q.focusLoc?Math.round(q.focusLoc.x*100):50,fy:q.focusLoc?Math.round(q.focusLoc.y*100):50,subj:q.focusLoc||null,seq:q.seqImage??null,rm2:q.releaseMode2??null,unread:!!q.unread,notime:!!q._nt,start:!prev||cur.fr.length===0||!!(q._nt||q.unread||prev._nt||prev.unread)||(()=>{ const sq=q.seqImage, ps=prev.seqImage; const h=prev.dhash&&q.dhash?ham(prev.dhash,q.dhash):null; if(h!=null&&h>=28) return true; if(sq!=null&&ps!=null) return !(sq===ps+1&&gap<=2); if(h!=null) return !(gap<=2&&h<=6); return gap>1; })(),bk:false,evs:q.ev,seed:0,sug:null,bl:0,clip:+q.clip.toFixed(1),blown:false,lowpv:!!q.lowpv,shake,ss:q.exp?(q.exp>=1?q.exp.toFixed(1)+'s':'1/'+Math.round(1/q.exp)):'',fl:fl?Math.round(fl):0,file:q.name};
       byId[id]=p; cur.fr.push(p); n++; });
     // Manual moves (drag tiles onto a row header / a stack / between rows): cuts[id] = {to|stack|newAfter: anchor frame id}.
     const mv=Object.entries(cuts).filter(([,v])=>v&&typeof v==='object');
@@ -180,6 +211,6 @@ function phoneOf(m){ const mk=(m&&m.make||'').trim(), md=(m&&m.model||'').trim()
   const ph=(/^(apple|google|xiaomi|redmi|poco|oneplus|oppo|vivo|realme|huawei|honor|motorola|nothing|fairphone|zte|nubia|tecno|infinix|hmd)\b/i.test(mk))||/^samsung/i.test(mk)&&!/^(NX|WB|EX|ST|PL|ES)\d/i.test(md)||/^sony/i.test(mk)&&/^(XQ-|SO-|Xperia)/i.test(md)||/^asus/i.test(mk)&&/^(ASUS_|ROG|Zenfone)/i.test(md)||/\b(iPhone|iPad|Pixel)\b/i.test(md);
   if(!ph) return null; const short=/^apple|^google/i.test(mk)||md.toLowerCase().startsWith(mk.toLowerCase())?md:(mk.charAt(0).toUpperCase()+mk.slice(1).toLowerCase()+' '+md);
   let zoom=''; if(m.fl35){ const r=m.fl35/24, Z=[0.5,1,2,3,5,10]; let best=Z[0]; Z.forEach(z=>{ if(Math.abs(Math.log(r/z))<Math.abs(Math.log(r/best))) best=z; }); zoom=best+'×'; } return {short,zoom}; }
-const LuminaCore={phoneOf,ham,peakOf,rowScore,sweep,undoSweep,rowDone,paint,jpegTiff,editFilter,parseHead,assemblePreview,measure,crc32,zip,mergeXmp,freshXmp,hasDevelop,buildShoot,exportPlan};
+const LuminaCore={phoneOf,ham,peakOf,rowScore,sweep,undoSweep,rowDone,paint,jpegTiff,editFilter,parseHead,assemblePreview,measure,crc32,zip,mergeXmp,freshXmp,hasDevelop,buildShoot,exportPlan,lookString,parseLook};
 g.LuminaCore=LuminaCore; if(typeof module!=='undefined'&&module.exports) module.exports=LuminaCore;
 })(typeof window!=='undefined'?window:globalThis);

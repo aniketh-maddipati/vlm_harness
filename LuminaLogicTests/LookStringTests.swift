@@ -160,4 +160,39 @@ final class LookStringTests: XCTestCase {
         XCTAssertEqual(Look.single("Sharpness", 80, asShot: asShot)?.sharpen, 80)
         XCTAssertNil(Look.single("Texture", 10, asShot: asShot))
     }
+
+    /// Edit v22 sends the core's `lookString` (design v0.05): its own names for the curve
+    /// regions, the vignette's shape and the mixer, the curves as `~` + JSON, `wb` with one side
+    /// empty, the crop's preset. These strings are the core's output, copied.
+    func testThePagesLookStrings() throws {
+        let a = try Look.parse("ev:+0.70 wb:5200/+3 con:+12 shp:40")
+        XCTAssertEqual(a.wb, Look.WhiteBalance(kelvin: 5200, tint: 3)); XCTAssertEqual(a.sharpen, 40)
+
+        let tintOnly = try Look.parse("wb:/+5")
+        XCTAssertEqual(tintOnly.wb?.kelvinAsShot, true); XCTAssertEqual(tintOnly.wb?.tint, 5)
+        XCTAssertEqual(tintOnly.wb?.resolved(asShot: Look.WhiteBalance(kelvin: 4800, tint: 2)), Look.WhiteBalance(kelvin: 4800, tint: 5))
+        XCTAssertEqual(tintOnly.format(), "ev:0.00 wb:/+5 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:0")
+        XCTAssertEqual(try Look.parse(tintOnly.format()), tintOnly)
+        let kelvinOnly = try Look.parse("wb:6100/")
+        XCTAssertEqual(kelvinOnly.wb?.resolved(asShot: Look.WhiteBalance(kelvin: 4800, tint: 2)), Look.WhiteBalance(kelvin: 6100, tint: 2))
+        XCTAssertEqual(try Look.parse(kelvinOnly.format()), kelvinOnly)
+        XCTAssertNil(try Look.parse("wb:/").wb)
+
+        let shape = try Look.parse("vig:-30 cDark:+10 cLight:+20 cMid:-5 vFeather:+70 vHl:+25 vMid:+40 vRound:-20")
+        XCTAssertEqual(shape, try Look.parse("vig:-30 vigs:40,-20,70,25 tc:+10,-5,+20"))
+
+        let mix = try Look.parse("sat:+15 hue_red:+10 lum_magenta:+5 sat_blue:-40")
+        XCTAssertEqual(mix, try Look.parse("sat:+15 mixh:+10,0,0,0,0,0,0,0 mixs:0,0,0,0,0,-40,0,0 mixl:0,0,0,0,0,0,0,+5"))
+        XCTAssertThrowsError(try Look.parse("hue_teal:+10"))
+
+        let curves = try Look.parse("curve:~%5B%5B0%2C0%5D%2C%5B0.3%2C0.2%5D%2C%5B1%2C1%5D%5D curveB:~%5B%5B0%2C0.05%5D%2C%5B1%2C0.95%5D%5D")
+        XCTAssertEqual(curves, try Look.parse("crv:0,0/0.3,0.2/1,1 crvb:0,0.05/1,0.95"))
+        XCTAssertNil(try Look.parse("curve:~%5B%5B0%2C0%5D%2C%5B1%2C1%5D%5D").curve.rgb, "the straight line is no curve")
+        XCTAssertThrowsError(try Look.parse("curve:%5B%5D"))
+
+        let crop = try Look.parse("nr:20 bw:1 crop:0.1,0.2,0.5,0.6/-1.5 cropRatio:4%3A5")
+        XCTAssertEqual(crop.crop, Look.Crop(x: 0.1, y: 0.2, w: 0.5, h: 0.6, rotate: -1.5))
+        XCTAssertEqual(crop.nr, 20); XCTAssertTrue(crop.bw)
+        XCTAssertThrowsError(try Look.parse("cDarkk:+1"), "still strict about names it does not know")
+    }
 }
