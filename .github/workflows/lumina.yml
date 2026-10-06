@@ -46,6 +46,11 @@ jobs:
             cmp "design/handoff/lumina-cull/$f" "Lumina/Sets/Web/$f"
           done
           for f in design/handoff/vendor/*.js; do cmp "$f" "Lumina/Sets/Web/$(basename "$f")"; done
+          # A scenario that names a page the app no longer ships fails at setup with a 404 (scroll-quick
+          # kept v5's name through the v8 sync). Every "page" must be one of the page files.
+          grep -ho '"page": *"[^"]*"' Tests/probe/scenarios/*.json | sed 's/.*: *"//; s/"$//' | sort -u | while IFS= read -r p; do
+            [[ -f "Lumina/Sets/Web/$p" ]] || { echo "a probe scenario names \"$p\", which the app does not ship:"; grep -l "\"$p\"" Tests/probe/scenarios/*.json; exit 1; }
+          done
       - name: wording + demo-layer audit (report only)
         run: source Scripts/page_files.sh && python3 Tests/probe/design_audit.py "design/handoff/lumina-cull/$PAGE"
 
