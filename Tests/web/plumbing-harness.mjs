@@ -447,7 +447,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(urls.length === 12 && urls.every(u => u.p === u.path && !u.plus && u.status === 200), 'awkward names: every large-view URL names its file, %20 never +, and loads', urls.filter(u => !(u.p === u.path && !u.plus && u.status === 200)));
   const awkPaths = urls.map(u => u.path);
   for (const n of Object.values(awkNames).concat([NFD + ' ?=/DSC01011.ARW'])) ok(awkPaths.includes(AWK + '/' + n), 'awkward names: read ' + JSON.stringify(n), awkPaths);
-  await key(page, 'ArrowRight'); await page.waitForTimeout(400);           // a cursor move asks the Mac to read ahead
+  await key(page, 'p'); await page.waitForTimeout(600);                    // a keep: the page sends its warm-ahead list (BRIDGE-v0.03 §6)
   ok(bridge.prefetches.length &&bridge.prefetches.every(it => awkPaths.includes(it.p)), 'awkward names: prefetch items name read files', bridge.prefetches.slice(0, 3));
   // Edit preview URL (lumina://render) for the most awkward name, fetched as the page's <img> would.
   const relAwk = AWK + '/a+b=c?d&e#f 50%41.ARW', relNfd = AWK + '/' + NFD + '.ARW';
@@ -468,6 +468,34 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   await page.waitForTimeout(2300);            // autosave
   const awkSaved = bridge.sessions['id-' + AWK] && JSON.parse(bridge.sessions['id-' + AWK]);
   ok(awkSaved && ['a+b=c?d&e#f 50%41.ARW', NFD + '.ARW', NFD + ' ?=/DSC01011.ARW'].every(k => awkSaved.marks[k] === 'keep'), 'awkward names: session marks keyed by the exact names', awkSaved && Object.keys(awkSaved.marks));
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+
+  // Handoff v0.05. An ARW that can't be read stays as a grey tile (CHANGES-v0.05 B1); "Opening <name>…"
+  // clears when the listing arrives (v0.04 A1); the read reports readEnd (BRIDGE-v0.03 §3); a capture-time
+  // shift rides the session and is back on reopen (v0.04 B2); Esc on the opening line cancels the listing.
+  const grey = path.join(tmp, 'Grey'); makeShoot(grey, jpegs);
+  fs.writeFileSync(path.join(grey, 'DSC01003.ARW'), Buffer.from('not a raw file'));
+  bridge.pending = grey;
+  await page.evaluate(() => { window.luminaOpening({ name: 'Grey', onCard: false }); return __lumina.openFolder(); });
+  await loaded(page); await page.waitForTimeout(300);
+  s = await S(page);
+  const gp = await page.evaluate(() => __lumina.logic().real.filter(p => p.unread).map(p => ({ name: p.name, nopv: p.nopv, path: p.path })));
+  ok(s.realInfo.n === 12 && s.realInfo.nopic === 1 && JSON.stringify(gp) === JSON.stringify([{ name: 'DSC01003.ARW', nopv: true, path: 'Grey/DSC01003.ARW' }]),
+    'grey tile: an unreadable ARW stays a photo (unread), counted without a picture', { info: s.realInfo, gp });
+  ok(await page.evaluate(() => !__lumina.logic().state.opening), 'opening: cleared when the listing arrives');
+  const rEnd = await page.evaluate(() => __lumina.events().filter(e => e.type === 'readEnd').pop());
+  ok(rEnd && rEnd.detail.stay === false && rEnd.detail.photos === 12, 'readEnd: the read reports its end through lumina.emit', rEnd);
+  await page.evaluate(() => { const f = window.luminaWorkingFiles; window.__wfPushed = []; window.luminaWorkingFiles = b => { window.__wfPushed.push(b); return f(b); }; });
+  await page.evaluate(() => __lumina.logic().reshift([{ paths: null, sec: 3600, label: 'shifted 12 photos by +1:00:00' }], 'shifted 12 photos by +1:00:00'));
+  await page.waitForTimeout(2300);            // autosave
+  const gSaved = bridge.sessions['id-Grey'] && JSON.parse(bridge.sessions['id-Grey']);
+  ok(gSaved && Array.isArray(gSaved.shifts) && gSaved.shifts.length === 1 && gSaved.shifts[0].sec === 3600, 'shift: saved with the session', gSaved && gSaved.shifts);
+  ok(await page.evaluate(() => window.__wfPushed.includes(1234)), 'storage meter: a session write pushes luminaWorkingFiles(bytes)', await page.evaluate(() => window.__wfPushed));
+  bridge.pending = grey; await page.evaluate(() => __lumina.openFolder()); await loaded(page); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => JSON.stringify(luminaState().shifts.map(x => x.sec)) === '[3600]'), 'shift: back on reopen', await page.evaluate(() => luminaState().shifts));
+  ok(await page.evaluate(async () => (await lumina.notices()) === 'React 18.3.1 · MIT\n'), 'acknowledgements: lumina.notices() is the app\'s text');
+  await page.evaluate(() => lumina.emit('openCancel', {})); await page.waitForTimeout(100);
+  ok(bridge.cancels === 1, 'opening: Esc (openCancel) stops the listing', bridge.cancels);
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
 
   ok(errors.length === 0, 'no page errors', errors);

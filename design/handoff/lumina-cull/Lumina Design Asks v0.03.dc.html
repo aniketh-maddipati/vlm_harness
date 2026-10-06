@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#FFD27A;text-decoration:none}a:hover{color:#EFECE6}
+</style>
+</helmet>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1E1D1B"></rect><text x="50" y="62" text-anchor="middle" font-family="Georgia,serif" font-size="34" fill="#FFD27A">L3</text></svg></template>
+<div style="max-width:1120px;margin:0 auto;padding:48px 32px 96px;display:flex;flex-direction:column;gap:40px">
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;gap:10px;align-items:center"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:34px">Lumina</span><span style="padding:2px 8px;border-radius:6px;background:rgba(255,210,122,0.16);color:#FFD27A;font-size:12px;font-weight:600">v0.03 close-out</span></div>
+    <p style="margin:0;max-width:760px;color:#B8B3AB;font-size:15px;line-height:1.55;text-wrap:pretty">What the app contract still asks for after Sets v9 + Edit v22, element by element. The top table is the 9 asks from this round. Below it are the design asks still open, each with the element to build, its words and states. The full list is in REMAINING-v0.03.md, and the call shapes are in BRIDGE-v0.03.md.</p>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <h2 style="margin:0;font-family:'Iowan Old Style','Palatino',Georgia,serif;font-weight:400;font-size:24px">This round · 9 asks</h2>
+    <div style="display:flex;flex-direction:column;border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1)">
+      <sc-for list="{{ asks }}" as="a" hint-placeholder-count="9">
+        <div style="display:grid;grid-template-columns:36px minmax(0,1.1fr) 92px minmax(0,2fr);gap:14px;align-items:baseline;padding:12px 16px;border-top:1px solid rgba(239,236,230,0.06);font-size:13px">
+          <span style="color:#9A958D;font-variant-numeric:tabular-nums">{{ a.n }}</span>
+          <span style="color:#EFECE6">{{ a.t }}</span>
+          <span style="justify-self:start;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(158,215,176,0.14);color:#9ED7B0">{{ a.s }}</span>
+          <span style="color:#B8B3AB;line-height:1.45;text-wrap:pretty">{{ a.w }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <h2 style="margin:0;font-family:'Iowan Old Style','Palatino',Georgia,serif;font-weight:400;font-size:24px">Still open · by screen</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">
+      <sc-for list="{{ open }}" as="g" hint-placeholder-count="5">
+        <div style="display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08)">
+          <span style="font-size:12px;color:#9A958D;letter-spacing:0.04em;text-transform:uppercase">{{ g.screen }}</span>
+          <sc-for list="{{ g.items }}" as="i" hint-placeholder-count="3">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:baseline;font-size:13px;padding:6px 0;border-top:1px solid rgba(239,236,230,0.06)">
+              <a href="{{ i.href }}" style="color:#EFECE6">{{ i.t }}</a>
+              <span style="font-size:11px;color:{{ i.c }}">{{ i.s }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section id="a1" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:10px;align-items:baseline"><span style="padding:2px 7px;border-radius:5px;background:#3C3836;font-size:12px;font-weight:600">A1</span><h3 style="margin:0;font-size:17px;font-weight:600">Opening state</h3><span style="font-size:12px;color:#9A958D">Open · ask 10 · data-lumina="opening"</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px">
+      <div style="display:flex;flex-direction:column;gap:10px;padding:20px;border-radius:12px;background:#1A1918;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08)">
+        <span style="font-size:11px;color:#7D7971">after 400 ms</span>
+        <div data-lumina="opening" style="display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;color:#B8B3AB">Opening Tahoe-drive…</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding:20px;border-radius:12px;background:#1A1918;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08)">
+        <span style="font-size:11px;color:#7D7971">after 3 s</span>
+        <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;color:#B8B3AB">Opening Tahoe-drive…</span><span style="font-size:12px;color:#9A958D">the disk is waking up</span></div>
+      </div>
+    </div>
+    <p style="margin:0;font-size:13px;color:#9A958D;line-height:1.5">It sits where the read's live line appears, so the two read as one sequence. No spinner and no count. Esc leaves it, and ⌘O still opens the picker. Under 400 ms nothing shows.</p>
+  </section>
+
+  <section id="a2" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:10px;align-items:baseline"><span style="padding:2px 7px;border-radius:5px;background:#3C3836;font-size:12px;font-weight:600">A2</span><h3 style="margin:0;font-size:17px;font-weight:600">A card Lumina may not read yet</h3><span style="font-size:12px;color:#9A958D">Open · Prompt 9 · lumina.cardPending</span></div>
+    <div style="max-width:440px;display:flex;flex-direction:column;gap:6px;padding:24px;border-radius:14px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.45)">
+      <span style="font-size:12px;color:#9A958D">Card</span>
+      <span style="font-size:15px;color:#EFECE6">Untitled · not opened yet</span>
+      <span style="font-size:13px;color:#9A958D;line-height:1.45">The Mac asks once per card. After that it opens at once.</span>
+      <span style="font-size:13px;color:#B8B3AB">Read-only. Files stay on the card.</span>
+      <div style="display:flex;margin-top:12px"><div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:600;font-size:14px"><span style="padding:1px 6px;border-radius:4px;background:rgba(30,29,27,0.12);font-size:12px">⏎</span>Allow &amp; open…</div></div>
+    </div>
+  </section>
+
+  <section id="b1" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:10px;align-items:baseline"><span style="padding:2px 7px;border-radius:5px;background:#3C3836;font-size:12px;font-weight:600">B1</span><h3 style="margin:0;font-size:17px;font-weight:600">Photos Lumina can't show</h3><span style="font-size:12px;color:#9A958D">Pick · Prompt 3 A · tile + large view + notes</span></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;gap:3px;width:144px"><div style="height:96px;border-radius:3px;background:#3C3836;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-size:12px;color:#B8B3AB;font-variant-numeric:tabular-nums">00204</span><span style="font-size:11px;color:#7D7971">no preview</span></div></div>
+      <div style="display:flex;flex-direction:column;gap:3px;width:144px"><div style="height:96px;border-radius:3px;background:#3C3836;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-size:12px;color:#B8B3AB;font-variant-numeric:tabular-nums">00203</span><span style="font-size:11px;color:#7D7971">can't be read</span></div></div>
+      <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1);font-size:13px">
+        <span style="color:#EFECE6">500 photos · 41 rows · 12 stacks · 3 without a picture</span>
+        <span style="color:#B8B3AB">2 without an embedded preview · shown as grey tiles</span>
+        <span style="color:#B8B3AB">1 can't be read · shown as a grey tile</span>
+      </div>
+    </div>
+    <p style="margin:0;font-size:13px;color:#9A958D;line-height:1.5">Large view: a grey 3:2 frame captioned <span style="color:#B8B3AB">DSC00203 · can't be read · 0 KB</span>. These tiles count as photos everywhere. P, R, ⌘A and paint work on them, and each is always a single. A photo with no date sits after the nearest lower file number, so there is never a 00:00 row or a made-up gap label.</p>
+  </section>
+
+  <section id="b2" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:10px;align-items:baseline"><span style="padding:2px 7px;border-radius:5px;background:#3C3836;font-size:12px;font-weight:600">B2</span><h3 style="margin:0;font-size:17px;font-weight:600">Shift capture time</h3><span style="font-size:12px;color:#9A958D">Pick · Prompt 3 B · data-lumina="shift-sheet"</span></div>
+    <div style="width:520px;max-width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;padding:24px;border-radius:16px;background:#262523;box-shadow:0 20px 60px rgba(0,0,0,0.5),inset 0 0 0 1px rgba(239,236,230,0.1)">
+      <span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:24px">Shift capture time</span>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <sc-for list="{{ shiftWhat }}" as="w" hint-placeholder-count="4">
+          <div style="display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;background:{{ w.bg }};font-size:13px"><span style="width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 {{ w.ring }} #FFD27A"></span><span style="color:#EFECE6">{{ w.t }}</span><span style="color:#9A958D">{{ w.n }}</span></div>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center"><div style="padding:8px 12px;border-radius:8px;background:#1E1D1B;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);font-variant-numeric:tabular-nums;font-size:15px">+1:00:00</div><div style="padding:6px 10px;border-radius:7px;background:rgba(239,236,230,0.08);font-size:12px">−1 h</div><div style="padding:6px 10px;border-radius:7px;background:rgba(239,236,230,0.08);font-size:12px">+1 h</div></div>
+      <span style="font-size:13px;color:#B8B3AB;font-variant-numeric:tabular-nums">41 rows → 38 rows</span>
+      <span style="font-size:12px;color:#9A958D;line-height:1.45">Only changes how Lumina orders this shoot. Your files and their capture times are not changed.</span>
+      <div style="display:flex;gap:16px;font-size:12px;color:#9A958D"><span><b style="color:#EFECE6">⏎</b> shift</span><span><b style="color:#EFECE6">esc</b> cancel</span></div>
+    </div>
+    <p style="margin:0;font-size:13px;color:#9A958D;line-height:1.5">It opens from Photo ▸ Shift Capture Time… or from the two-body import note's "shift a camera's time…". Afterwards the footer reads <span style="color:#B8B3AB">Shifted 212 photos by +1:00:00</span>, with one undo step, and the row header gets "· time shifted". ⏎ is off at 0:00:00.</p>
+  </section>
+
+  <section id="c2" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:10px;align-items:baseline"><span style="padding:2px 7px;border-radius:5px;background:#3C3836;font-size:12px;font-weight:600">C2</span><h3 style="margin:0;font-size:17px;font-weight:600">Export JPEGs with the look</h3><span style="font-size:12px;color:#9A958D">Save · Prompt 1 §7 · handoff-card</span></div>
+    <div style="max-width:560px;display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:14px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1);font-size:13px">
+      <span style="color:#B8B3AB">Saves an .xmp sidecar next to each pick.</span>
+      <div style="display:flex;gap:10px;align-items:center"><span style="width:14px;height:14px;border-radius:4px;background:#FFD27A;display:grid;place-items:center;color:#1E1D1B;font-size:10px;font-weight:700">✓</span><span style="color:#EFECE6">Also export JPEGs with the look</span></div>
+      <div style="display:flex;gap:12px;align-items:center;padding-left:24px"><div style="display:grid;grid-template-columns:1fr 1fr;padding:2px;border-radius:8px;background:rgba(239,236,230,0.06);font-size:12px"><span style="padding:4px 12px;border-radius:6px;background:#5B5854">2048 px</span><span style="padding:4px 12px;color:#9A958D">Full size</span></div><span style="color:#9A958D">JPEG/ next to the sidecars</span></div>
+      <div style="display:flex;margin-top:4px"><div style="display:flex;gap:10px;align-items:center;padding:11px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:600"><span style="padding:1px 6px;border-radius:4px;background:rgba(30,29,27,0.12);font-size:12px">⌘⏎</span>Save 88 picks + JPEGs</div></div>
+      <span style="color:#9A958D">Result: 88 JPEGs · JPEG/ · rendered with RAW 9 · In a browser: JPEG export needs the app</span>
+    </div>
+  </section>
+
+  <section id="d3" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:10px;align-items:baseline"><span style="padding:2px 7px;border-radius:5px;background:#3C3836;font-size:12px;font-weight:600">D1–D3</span><h3 style="margin:0;font-size:17px;font-weight:600">Save notes and results</h3><span style="font-size:12px;color:#9A958D">Prompts 5, 8, 10</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-width:640px">
+      <sc-for list="{{ saveLines }}" as="l" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:10px 14px;border-radius:10px;background:#262523;font-size:13px"><span style="color:#9A958D">{{ l.where }}</span><span style="color:#EFECE6;text-wrap:pretty">{{ l.t }}</span></div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section id="e" style="display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;gap:10px;align-items:baseline"><span style="padding:2px 7px;border-radius:5px;background:#3C3836;font-size:12px;font-weight:600">E</span><h3 style="margin:0;font-size:17px;font-weight:600">Menus and alerts (MENUS.md)</h3></div>
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#B8B3AB;line-height:1.5">
+      <span>Alert: <b style="color:#EFECE6">Lumina keeps stopping</b> · It stopped again after reloading 3 times in a minute. Your decisions so far are saved. · Try Again · Quit</span>
+      <span>Help: Lumina FAQ · Keyboard Shortcuts ? · <b style="color:#EFECE6">Acknowledgements</b> · Contact. luminaCommand('acknowledgements') opens a scrolling sheet of the notices, monospace 11.</span>
+      <span>Plain-key menu titles stay "Keep P" unless MENUS.md says otherwise.</span>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals(){
+    const D='Done', O={c:'#FFB4A2',s:'open'}, Pt={c:'#FFD27A',s:'partly'};
+    const it=(t,href,st)=>({t,href,...st});
+    return {
+      asks:[
+        {n:'1',t:'Edit drives the native canvas',s:D,w:'Edit v22 calls canvasRect, preview (once per frame, canonical look string, px in device px), drag, roi and prefetch, and defines luminaPresented, luminaHistogram, luminaFacts and luminaEditStats.'},
+        {n:'2',t:'Real Edit step + canvas rect',s:D,w:'luminaStep("edit") / stepEdit, and Edit reports its own rect. The forced layout goes.'},
+        {n:'3',t:'Self-test: drop "P again un-keeps"',s:D,w:'Replaced with v8\'s rule (P on a kept photo keeps it and moves on), plus step and row-key checks.'},
+        {n:'4',t:'Storage meter: settled number only',s:D,w:'The 1 s memo is gone. The scan runs again after each write, the preview count is live, and a preload redraws. In the app the number is blank while a removal is being measured, with no timers.'},
+        {n:'5',t:'§9 core tests in the handoff',s:D,w:'19 new cases in lumina-core-v4.test.mjs, all passing.'},
+        {n:'6',t:'Expose workflow state',s:D,w:'luminaState(): step, pass, funnel, kept, show, tray, rowsSeen, passDone, reading… A flow event fires on change.'},
+        {n:'7',t:'Report moved / stayed',s:D,w:'moved / stayed events for split, merge, drop and boundary drags. readEnd {stay} says whether the read kept the reader\'s place.'},
+        {n:'8',t:'Row keys + ready tile',s:D,w:'The full row list with row-gap placeholders makes the index the row. data-key on every row, no lazy tiles, leadReady event.'},
+        {n:'9',t:'Warm-ahead owner',s:D,w:'The page decides what (prefetch on keep, ⇧P, Save, and Edit moves). The app decides when.'}
+      ],
+      open:[
+        {screen:'Open',items:[it('A1 · Opening state (luminaOpening)','#a1',O),it('A2 · Card not opened yet','#a2',O),it('A3 · Sessions from before the sandbox','#a2',O),it('A4 · Folder too big / sidecar over 1 MB','#a2',O)]},
+        {screen:'Pick',items:[it('B1 · Grey tiles for unreadable files','#b1',O),it('B2 · Shift capture time sheet','#b2',O),it('B3 · dHash, retakes (near), shake, faces','#b1',Pt),it('B4 · 720 px tile images','#b1',Pt),it('B5 · Merge decisions on restore; calmer growth','#b1',Pt),it('B6 · Tab focus order','#b1',O),it('B7 · Side-by-side compare from pass 2','#b1',O)]},
+        {screen:'Edit',items:[it('C1 · RAW 9 region facts → flag words','#c2',O),it('C2 · Export JPEGs with the look','#c2',O),it('C3 · Colour NR / Detail / Moiré sliders?','#c2',O)]},
+        {screen:'Save',items:[it('D1 · Sidecar changed since the open','#d3',O),it('D2 · Unreadable sidecar / name too long','#d3',O),it('D3 · Export cut short','#d3',O),it('D4–D5 · Save card refresh, Open states (v0.02 carry-over)','#d3',O)]},
+        {screen:'Menus · contract',items:[it('E · Keeps stopping alert, Acknowledgements','#e',O),it('Q1 · luminaEditImage / luminaEditRect meaning','#e',O),it('Q2 · pw / ph on Edit photos for roi in px','#e',O)]}
+      ],
+      shiftWhat:[{t:'whole shoot',n:'341 photos',bg:'transparent',ring:'1.5px'},{t:'ILCE-7M3 · …1111',n:'212 photos',bg:'rgba(255,210,122,0.1)',ring:'4px'},{t:'ILCE-7M4 · …5021',n:'129 photos',bg:'transparent',ring:'1.5px'},{t:'from this photo on',n:'DSC00412 → end',bg:'transparent',ring:'1.5px'}],
+      saveLines:[
+        {where:'Save notes',t:'3 sidecars changed since you opened · their edits are kept, only the rating changes'},
+        {where:'Result',t:'DSC00118 · changed on disk · left as it is'},
+        {where:'Result',t:'DSC00203 · sidecar can\'t be read · left as it is  ·  DSC00877 · name too long to save'},
+        {where:'Open notice',t:'An earlier export to Tahoe-drive/Picks stopped part-way · 41 files finished  ·  Show in Finder  ·  Clean up'}
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

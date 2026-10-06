@@ -42,22 +42,25 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         // An export cut short last time (crash, kill, power): clear its temp files, keep its journal.
         // The destination is reached through the journal's bookmark (the panel's grant died with
         // the last process); when that fails the files stay and the journal says why.
+        // The page says so once on Open (CHANGES-v0.04 D3: `lumina.cutShort`), so this runs before it loads;
+        // with no export cut short it is one directory listing.
         let exports = Self.supportDir.appendingPathComponent("exports", isDirectory: true)
-        Task.detached(priority: .utility) {
-            for e in SetsExportJournal.recover(in: exports) {
-                if let why = e.recoveryRefused {
-                    NSLog("Lumina: export %@ was cut short: %d of %d done, temp files left: %@", e.id, e.done.count, e.planned.count, why)
-                } else {
-                    NSLog("Lumina: export %@ was cut short: %d of %d done, %d temp files removed", e.id, e.done.count, e.planned.count, e.tempsRemoved ?? 0)
-                }
-            }
-        }
         let res = Bundle.main.resourceURL!
         let plumbing = (try? String(contentsOf: res.appendingPathComponent("plumbing.js"), encoding: .utf8)) ?? ""
         Task { @MainActor in
+            let cut = await Task.detached(priority: .userInitiated) { () -> [(folder: String, done: Int, planned: Int, cleaned: Bool)] in
+                SetsExportJournal.recover(in: exports).map { e in
+                    if let why = e.recoveryRefused {
+                        NSLog("Lumina: export %@ was cut short: %d of %d done, temp files left: %@", e.id, e.done.count, e.planned.count, why)
+                    } else {
+                        NSLog("Lumina: export %@ was cut short: %d of %d done, %d temp files removed", e.id, e.done.count, e.planned.count, e.tempsRemoved ?? 0)
+                    }
+                    return (URL(fileURLWithPath: e.destination).lastPathComponent, e.done.count, e.planned.count, e.recoveryRefused == nil)
+                }
+            }.value.map { ["folder": $0.folder, "done": $0.done, "planned": $0.planned, "cleaned": $0.cleaned] as [String: Any] }
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
-                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull()], frame: host.bounds)
+                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self
