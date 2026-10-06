@@ -921,6 +921,11 @@
       const l = current, E = window.luminaEdit;
       if (l && typeof l.flushKeys === 'function') l.flushKeys();
       if (l && l.state.view === 'edit' && E && ['undo', 'redo', 'copy', 'paste'].includes(name) && typeof E[name] === 'function') { E[name](); return true; }
+      // Pick ▸ Not Kept (R): the grammar's other decision key, which the page's command table lacks.
+      if (name === 'notKept' && l && l.state.view === 'cull' && typeof l.onKey === 'function') {
+        l.onKey({ key: 'r', code: 'KeyR', shiftKey: false, altKey: false, metaKey: false, ctrlKey: false, repeat: false, getModifierState: () => false, preventDefault() {} });
+        return true;
+      }
       return typeof window.luminaCommand === 'function' ? window.luminaCommand(name) : false;
     },
     // View ▸ Zoom 100%: Z is a hold key in the page; the menu toggles it through the page's gesture hook.

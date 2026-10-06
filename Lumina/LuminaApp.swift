@@ -67,13 +67,16 @@ struct LuminaCommands: Commands {
             Button("Paste Settings  ⌘V") { send("paste") }
         }
         CommandMenu("Pick") {
-            Button("Keep  P") { send("keep") }
+            Button("Keep  ⏎") { send("keep") }
+            Button("Not Kept  R") { send("notKept") }
             Button("Keep Row") { send("keepRow") }.keyboardShortcut("a", modifiers: .command)
-            Button("Show Picks Only  ⇧P") { send("pass") }
+            Button("Start Next Pass  ⇧P") { send("pass") }
             Divider()
             Button("Open Stack  ⏎") { send("openStack") }
             Button("Close Stack  esc") { send("closeStack") }
-            Button("Next Unseen  ⇧U") { send("unseen") }
+            Button("Not Yet Seen Only  ⇧U") { send("unseen") }
+            Divider()
+            Button("Shift Capture Time…") { send("shiftTime") }
         }
         CommandGroup(before: .toolbar) {
             Button("Open") { send("stepOpen") }.keyboardShortcut("1", modifiers: .command)
@@ -93,6 +96,7 @@ struct LuminaCommands: Commands {
             Button("Keyboard Shortcuts  ?") { send("shortcuts") }
             Button("Learn the Keys") { send("grammar") }
             Button("Lumina FAQ") { send("faq") }
+            Button("Acknowledgements") { send("acknowledgements") }
             Button("Report a Bug…") { SetsMenuModel.openLink("mailto:anikethcov@gmail.com") }
         }
     }

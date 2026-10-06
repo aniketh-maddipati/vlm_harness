@@ -276,6 +276,18 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     const L3 = bridge.canvas.layouts.slice(n2);
     ok(L3.length >= 1 && L3[L3.length - 1].visible === false, 'edit v22 (page): leaving Edit hides the canvas', L3); }
 
+  // Pick ▸ Not Kept (R): un-keeps the photo under the cursor and moves on, as the grammar's R does.
+  const nk = await page.evaluate(async () => {
+    const l = __lumina.logic(), w = ms => new Promise(r => setTimeout(r, ms)), d0 = luminaState().undoDepth;
+    l.setView('cull'); await w(200);
+    const id = luminaState().cur; __lumina.command('keep'); await w(150); const kept = luminaState().marks[id] === 'keep';
+    l.setState({ cur: id }); await w(100); __lumina.command('notKept'); await w(150);
+    const r = { kept, after: luminaState().marks[id] || null, moved: luminaState().cur !== id };
+    while (luminaState().undoDepth > d0) { __lumina.command('undo'); await w(60); }
+    return r;
+  });
+  ok(nk.kept && nk.after === null && nk.moved, 'menu: Pick ▸ Not Kept un-keeps the photo and moves on (R)', nk);
+
   // Save → sidecars INTO the folder
   const before2 = fs.readFileSync(path.join(shoot, 'DSC01002.xmp'), 'utf8');
   await page.evaluate(() => __lumina.command('stepSave')); await page.waitForTimeout(300);
