@@ -395,7 +395,7 @@ case "$suite" in
   contract)  run "$S/app-plumbing-contract.json" ;;
   fault)     run $(paths "${FAULT[@]}") ;;
   scroll)    scrolldir; run "$S/scroll-read.json" "$S/scroll-fast.json" "$S/scroll-fast-2560.json" "$S/keys-spam.json" ;;
-  edit)      editdir; run "$S/edit-canvas.json"
+  edit)      editdir; run "$S/edit-first-entry.json" "$S/edit-canvas.json"
              echo "— nothing compiled (LUMINA_KERNEL_SALT): first drags on stages the canvas has not rendered —"
              LUMINA_KERNEL_SALT="${LUMINA_KERNEL_SALT:-p$(date +%s)}" run_out "$OUT/cold" "$S/edit-cold.json"
              echo "— image fallback path (LUMINA_CANVAS=image) —"

@@ -319,6 +319,20 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
   Region requests take their numbers from `LookRegionTiles.nextSeq()`, so callers can't starve
   each other.
 
+- **A photo opens on its embedded JPEG, then the RAW.** `canvasEnter` carries the photo, its look
+  and the page's `seq` for it; plumbing holds later looks (`ed.late`) until the Mac has answered, so
+  none lands without a photo. The canvas asks for the embedded JPEG as bases (`LookBases` with
+  `previewOnly`, on the warm context's queue) together with the RAW's, draws the stand-in at once,
+  and draws the same look again on the RAW base when it lands (`LookCanvasSchedule.again`: the
+  newest look and its page `seq` stay). `luminaPresented(seq)` is sent for the RAW frame, not the
+  stand-in's, so the footer's "rendering…" means the RAW is still coming. Only a photo's first base
+  gets a stand-in; a new size or crop waits on its own base. A RAW that fails keeps the JPEG on the
+  canvas, is tried again after 1 s and 4 s, and the facts line says `can't develop <file> (<why>)`
+  (`· retrying` until the last try). A photo the Mac can't enter is answered at once with
+  `can't show <file> · <why>`. The page never draws its own preview on the native path:
+  `lumina.preview` answers null there, never false. `probe.sh edit` starts with
+  `edit-first-entry.json` (the page's own ⌘3, the first entry after launch).
+
 - **Stage programs are compiled before the drag that needs them (`LookWarmPlan`).** `LookPipeline.apply`
   leaves a stage at reset out of the graph (`Look.runs`), and Core Image fuses the stages that run
   into one Metal program per *set* of stages, compiled on the rendering thread the first time the set
