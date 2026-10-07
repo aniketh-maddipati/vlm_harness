@@ -128,7 +128,7 @@ export function list(root) {
     const full = path.join(d, e.name), rel = name + '/' + path.relative(root, full).split(path.sep).join('/');
     if (e.isDirectory()) { walk(full); continue; }
     const ext = path.extname(e.name).toLowerCase();
-    if (ext === '.arw') out.files.push({ rel, size: fs.statSync(full).size });
+    if (ext === '.arw' || ext === '.dng') out.files.push({ rel, size: fs.statSync(full).size });
     // SetsIngest.list: a sidecar that is not UTF-8 text is named in unreadableXmp, without a text.
     else if (ext === '.xmp') { const text = utf8(fs.readFileSync(full)); if (text == null) out.unreadableXmp.push(rel); else out.xmp.push({ rel, text }); }
     else if (!e.name.endsWith('.lumina-bak')) out.others.push(rel);

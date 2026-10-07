@@ -59,6 +59,7 @@ something it doesn't list):
 ```bash
 # Design logic fixtures
 (cd design/handoff/lumina-cull && node lumina-core-v4.test.mjs)
+make web-test                      # page files vs the scripts they load; the page's DNG reader and phone families on built fixtures
 
 # Linux too: the real page in headless Chromium with plumbing.js and a Node stand-in for SetsBridge
 node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, sidecars, card, access
