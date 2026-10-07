@@ -22,6 +22,10 @@ struct SetsRootView: NSViewRepresentable {
 final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, WKDownloadDelegate, NSOpenSavePanelDelegate, SetsChooser {
     private(set) var bridge: SetsBridge!
     private(set) var webView: WKWebView?
+    #if DEBUG
+    /// Scripts/dev.sh (`LUMINA_HOT=1`): the page reloads when a build changes its files.
+    private var hotReload: SetsHotReload?
+    #endif
 
     static var isDebug: Bool {
         #if DEBUG
@@ -73,6 +77,14 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 host.window?.makeFirstResponder(wv)
                 bridge.cards.start()
                 offerEarlierSessions()
+                #if DEBUG
+                if SetsHotReload.isOn {
+                    hotReload = SetsHotReload(root: res, webView: wv, bridge: bridge, plumbing: plumbing) { [weak self] in
+                        guard let self, let last = self.bridge.shoots.index().first else { return }
+                        self.reopen(last.id)
+                    }
+                }
+                #endif
             } catch {
                 LuminaLog.app.fault("web view setup failed: \(String(describing: error), privacy: .private)")
             }

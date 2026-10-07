@@ -125,6 +125,14 @@ the copy the Dock and Spotlight open, and removes older builds from Launch Servi
 `~/Library/Containers/com.lumina.app/`; sessions an unsandboxed build left in `~/Library/Application Support/Lumina`
 are not seen (R1e).
 
+Trying a change or a branch: `bash Scripts/dev.sh [--watch] [branch | path]` keeps one "Lumina Dev" app
+(bundle id `com.lumina.app.dev`: its own container, sessions and folder grants) built incrementally in
+`~/Library/Caches/com.lumina.dev` (Debug, 1 to 4 s). A build that changed only `Lumina/Sets/Web` reloads the page
+in the running app (`SetsHotReload`, `LUMINA_HOT=1`, compiled into Debug builds only); anything else relaunches
+it; either way the most recent shoot opens again. A branch is built from its worktree when it has one, uncommitted
+work included; one `dev.sh` at a time (a second is refused, exit 75). It is not what ships: Edit latency, the sandbox and the release settings are judged on the
+Release app or the probe.
+
 Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh`. It only reads the card.
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 
