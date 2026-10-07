@@ -82,6 +82,9 @@ nonisolated final class LookBases: @unchecked Sendable {
     }
 
     let pipeline: LookPipeline
+    /// The neighbours' bases render here when given: a context at low GPU priority (same device,
+    /// so the textures are shared), because a prefetch already running when a drag starts finishes.
+    let background: LookPipeline?
     let device: MTLDevice?
     private let lock = NSLock()
     private var cache: LookByteCache<Key, Entry>
@@ -96,8 +99,9 @@ nonisolated final class LookBases: @unchecked Sendable {
         let q = OperationQueue(); q.name = "lumina.look.bases.prefetch"; q.maxConcurrentOperationCount = 1; q.qualityOfService = .utility; return q
     }()
 
-    init(pipeline: LookPipeline, byteCap: Int = LookRawPolicy.baseCacheBytes, maxPhotos: Int = LookRawPolicy.basePhotos) {
+    init(pipeline: LookPipeline, background: LookPipeline? = nil, byteCap: Int = LookRawPolicy.baseCacheBytes, maxPhotos: Int = LookRawPolicy.basePhotos) {
         self.pipeline = pipeline
+        self.background = background
         self.device = pipeline.device
         self.maxPhotos = maxPhotos
         cache = LookByteCache(cap: byteCap)
@@ -149,7 +153,7 @@ nonisolated final class LookBases: @unchecked Sendable {
     /// The photo's bases, built now on the calling queue when not cached. `preview` is the
     /// embedded JPEG's range, used only when the RAW can't be developed (`Entry.why` then says so),
     /// or at once with `previewOnly`: the stand-in the canvas shows while the RAW develops.
-    func build(_ key: Key, url: URL, look: Look, preview: PreviewFallback?, previewOnly: Bool = false) throws -> Entry {
+    func build(_ key: Key, url: URL, look: Look, preview: PreviewFallback?, previewOnly: Bool = false, prefetch: Bool = false) throws -> Entry {
         if let e = entry(key) { return e }
         let t0 = Date()
         let margin = 1 + LookRawPolicy.baseMargin
@@ -185,7 +189,7 @@ nonisolated final class LookBases: @unchecked Sendable {
         img = img.cropped(to: baseRect)
         let smallRect = CGRect(x: 0, y: 0, width: max(1, (baseRect.width / 4).rounded(.down)), height: max(1, (baseRect.height / 4).rounded(.down)))
         let smallImg = LookPipeline.atOrigin(img.applyingFilter("CILanczosScaleTransform", parameters: [kCIInputScaleKey: smallRect.width / baseRect.width, kCIInputAspectRatioKey: 1])).cropped(to: smallRect)
-        let (base, small, textures, bytes) = try rasterise(img, baseRect, smallImg, smallRect)
+        let (base, small, textures, bytes) = try rasterise(img, baseRect, smallImg, smallRect, context: (prefetch ? background : nil)?.context ?? pipeline.context)
         let entry = Entry(base: base, small: small, asShot: dev.asShot, anchor: dev.anchor, baseSize: baseRect.size, smallSize: smallRect.size, photoSize: photoSize,
                           bytes: bytes, source: source, decoder: source == "raw" ? key.decoder : nil, developMs: Date().timeIntervalSince(t0) * 1000,
                           onGPU: !textures.isEmpty, textures: textures, why: why)
@@ -233,18 +237,18 @@ nonisolated final class LookBases: @unchecked Sendable {
             prefetchQueue.addOperation { [weak self] in
                 guard let self else { return }
                 guard self.lock.withLock({ self.cache.peek(i.key) == nil }) else { return }
-                if (try? LookTrace.span("prefetch \(i.key.rel.split(separator: "/").last ?? "")") { try self.build(i.key, url: i.url, look: i.look, preview: i.preview) }) != nil { self.lock.withLock { self._stats.prefetched += 1 } }
+                if (try? LookTrace.span("prefetch \(i.key.rel.split(separator: "/").last ?? "")") { try self.build(i.key, url: i.url, look: i.look, preview: i.preview, prefetch: true) }) != nil { self.lock.withLock { self._stats.prefetched += 1 } }
             }
         }
     }
 
     // MARK: Textures
 
-    private func rasterise(_ img: CIImage, _ rect: CGRect, _ small: CIImage, _ smallRect: CGRect) throws -> (CIImage, CIImage, [MTLTexture], Int) {
+    private func rasterise(_ img: CIImage, _ rect: CGRect, _ small: CIImage, _ smallRect: CGRect, context: CIContext) throws -> (CIImage, CIImage, [MTLTexture], Int) {
         if let device {
             do {
-                let (b, bt) = try texture(img, rect, device: device)
-                let (s, st) = try texture(small, smallRect, device: device)
+                let (b, bt) = try texture(img, rect, device: device, context: context)
+                let (s, st) = try texture(small, smallRect, device: device, context: context)
                 return (b, s, [bt, st], Self.bytes(bt) + Self.bytes(st))
             } catch {
                 // The texture path failed (an odd device state): fall back to bitmaps for this photo.
@@ -260,7 +264,7 @@ nonisolated final class LookBases: @unchecked Sendable {
     /// Renders `img` (its `rect`, origin 0) into a new `rgba16Float` texture and wraps it as an
     /// image at the origin. Core Image and Metal disagree on which way is up when a texture is
     /// read back as an image; `readbackFlips()` measures it once and the wrap compensates.
-    private func texture(_ img: CIImage, _ rect: CGRect, device: MTLDevice) throws -> (CIImage, MTLTexture) {
+    private func texture(_ img: CIImage, _ rect: CGRect, device: MTLDevice, context: CIContext) throws -> (CIImage, MTLTexture) {
         let w = max(1, Int(rect.width)), h = max(1, Int(rect.height))
         let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Float, width: w, height: h, mipmapped: false)
         desc.usage = [.shaderRead, .shaderWrite, .renderTarget]
@@ -269,7 +273,7 @@ nonisolated final class LookBases: @unchecked Sendable {
         let dest = CIRenderDestination(mtlTexture: tex, commandBuffer: nil)
         dest.colorSpace = pipeline.workingSpace
         dest.alphaMode = .unpremultiplied
-        try pipeline.context.startTask(toRender: img, from: rect, to: dest, at: .zero).waitUntilCompleted()
+        try context.startTask(toRender: img, from: rect, to: dest, at: .zero).waitUntilCompleted()
         var out = CIImage(mtlTexture: tex, options: [.colorSpace: pipeline.workingSpace]) ?? CIImage.empty()
         if out.extent.isEmpty { throw LookPipeline.Failure("texture wrap failed") }
         if try readbackFlips(device: device) { out = out.oriented(.downMirrored) }

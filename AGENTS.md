@@ -316,7 +316,9 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
   500 ms after the last change. Bases are keyed by (rel, decoder version, crop, rotation, canvas size,
   `nr`), pinned for the photo on the canvas, at most 3 photos and 300 MB resident, LRU-evicted.
   Bases, prefetch, region tiles and the rest histogram render on their own CIContext (same Metal
-  device), never on the drawable's; the neighbours' prefetch waits until the current photo's base
+  device), never on the drawable's; the neighbours' prefetch renders on a third context at low GPU priority
+  (`priorityRequestLow`: a develop already running when a drag starts finishes, and at normal
+  priority it cost the drag's first frames a busy tick in 7 of 20 cold runs, 0 of 10 after) and waits until the current photo's base
   is on screen and holds during a drag or a loupe refinement. "Dropped" in `probe.sh edit` counts
   missed presents: refreshes that passed while a look had been waiting since before them, i.e.
   vsyncs skipped between display-link ticks (≥ 1.75 frames apart) with a look waiting, plus ticks
