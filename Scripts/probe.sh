@@ -382,7 +382,7 @@ case "$suite" in
   screens)   screens ;;
   scenarios) scrolldir; editdir; files=(); for n in ${extra[@]+"${extra[@]}"}; do files+=("$S/$n.json"); done; extra=(); run "${files[@]}" ;;
   sync)      echo "use: bash Scripts/sets_sync_design.sh <handoff.zip>"; exit 2 ;;
-  smoke)     run "$S/smoke.json" "$S/keys-open-return.json" "$S/selftest.json" "$S/app-plumbing-contract.json" "$S/app-smoke.json" "$S/app-empty-start.json" ;;
+  smoke)     run "$S/smoke.json" "$S/keys-open-return.json" "$S/selftest.json" "$S/app-plumbing-contract.json" "$S/app-offline.json" "$S/app-smoke.json" "$S/app-empty-start.json" ;;
   selftest)  run "$S/selftest.json" ;;
   fuzz)      run "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" ;;
   edge)      run "$S"/edge-*.json ;;
@@ -395,7 +395,7 @@ case "$suite" in
   contract)  run "$S/app-plumbing-contract.json" ;;
   fault)     run $(paths "${FAULT[@]}") ;;
   scroll)    scrolldir; run "$S/scroll-read.json" "$S/scroll-fast.json" "$S/scroll-fast-2560.json" "$S/keys-spam.json" ;;
-  edit)      editdir; run "$S/edit-canvas.json"
+  edit)      editdir; run "$S/edit-first-entry.json" "$S/edit-canvas.json"
              echo "— nothing compiled (LUMINA_KERNEL_SALT): first drags on stages the canvas has not rendered —"
              LUMINA_KERNEL_SALT="${LUMINA_KERNEL_SALT:-p$(date +%s)}" run_out "$OUT/cold" "$S/edit-cold.json"
              echo "— image fallback path (LUMINA_CANVAS=image) —"

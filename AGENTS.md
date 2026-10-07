@@ -46,7 +46,9 @@ the active step. The page keeps drawing the filmstrip, sliders and facts. Withou
 the same schedule runs on `lumina://render` images the page shows itself (`canvas: image` in the
 facts line). Everything else the app shows is the page's.
 
-Trust rules, from the ROADMAP; the tests enforce them:
+Trust rules, from the ROADMAP; the tests enforce them (the full list, and everything the app can
+reach, is `docs/release/TRUST.md`; `python3 Scripts/trust_check.py` fails CI when the code reaches
+something it doesn't list):
 - never write to the card or change originals (v5 writes only `.xmp` sidecars, into the shoot folder);
 - copy, never move, and verify every copy;
 - keep a `.lumina-bak` before replacing any file;
@@ -60,9 +62,10 @@ Trust rules, from the ROADMAP; the tests enforce them:
 
 # Linux too: the real page in headless Chromium with plumbing.js and a Node stand-in for SetsBridge
 node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, sidecars, card, access
+python3 Scripts/trust_check.py               # docs/release/TRUST.md's inventory against the code (CI: design handoff)
 node Tests/web/parity.mjs                    # screens-* in prototype vs app parity mode, every snapshot diffed
 # WebKit sandbox (WebKitGTK + JavaScriptCore, real script-message handler): contract, selftest, app flow, screens
-xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py   # apt: gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb
+xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py   # apt: gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb; runs under the app's offline layers, ends with the escape test (offline)
 # Fast scrolling over 400 synthetic ARWs at a Retina pixel ratio (numbers reported, not gated)
 GDK_SCALE=2 xvfb-run -a -s "-screen 0 5200x3000x24" /usr/bin/python3.12 Tests/web/webkit.py scroll
 # The Foundation-only Swift (SetsFileOps, SetsShootStore, SetsExport, SetsIngest, LookString/LookRules/LookMath) + its tests, Swift 6.1 in Docker
@@ -192,6 +195,9 @@ harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift
 
 ## Rules that bite
 
+- **New reach needs a row in `docs/release/TRUST.md`.** A bridge op, entitlement, permission prompt, `NSWorkspace.shared.open`, URL in Swift, privacy-manifest reason or vendored file that the inventory doesn't list fails `Scripts/trust_check.py` (CI's `design handoff` job). It also fails on a networking API in app code, `NSLog` or `print` (log through `LuminaLog`, names and paths `.private`), a network call in `plumbing.js`, an unpinned Action and a Swift package.
+- **The page's offline layers live in `SetsOffline.swift`** (content rules, the page's CSP, the no-WebRTC script). `Tests/web/webkit.py offline` reads them from that file and tries 32 ways out against a local listener; `app-offline` (in `probe.sh smoke`) checks them in WKWebView. A design that needs a new source (a font, a worker) is a change there, reviewed like an entitlement.
+
 - **Don't edit `Lumina/Sets/Web/*.html|support.js|lumina-core-v4.js|lumina-v4-data.js|lumina-selftest.js|vendor`.** Change the design, then sync. `SetsPageBytesTests` and CI fail on drift.
 - **`plumbing.js` supplies behaviour and data, never UI.** If the page can't show something, that's a design ask.
 - **The native read repeats the page's `onDir` and `readOne`.** `probe.sh contract` fails (`__lumina.drift()`) when a sync changes either: review the read in `plumbing.js`, then update `ONDIR` (`node Tests/web/plumbing-harness.mjs --hash` prints it). Parity with the page's own read is checked with `card-clock.json` in both modes.
@@ -204,7 +210,7 @@ harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift
 - **ExFAT volume labels are at most 11 characters.** `hdiutil` reports a longer one as "Operation not permitted".
 - **Probe runs need an awake display.** The probe holds the display awake itself. If runs stall for minutes, macOS is throttling the page process.
 - **Personal data stays out of the repo:** golden data, fixtures and evidence live in `~/LuminaEvidence`.
-- **macOS only** (Xcode 16.4+, Apple silicon, macOS 14+). Linux agents can run the node fixtures, `design_audit.py`, `Tests/web` (Chromium and the WebKitGTK sandbox: plumbing.js against the real page, not Cocoa or WKWebView) and `Tests/linux-swift` (the Foundation-only Swift; on Linux `FileManager.replaceItemAt` is broken, so the sandbox copy uses `rename(2)`).
+- **macOS only** (Xcode 16.4+, Apple silicon, macOS 15+). Linux agents can run the node fixtures, `design_audit.py`, `Tests/web` (Chromium and the WebKitGTK sandbox: plumbing.js against the real page, not Cocoa or WKWebView) and `Tests/linux-swift` (the Foundation-only Swift; on Linux `FileManager.replaceItemAt` is broken, so the sandbox copy uses `rename(2)`).
 
 ## Parity (the Edit look vs Lightroom Classic)
 
@@ -312,6 +318,20 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
   so its message waited too) counts the refreshes after it was emitted. `lumina.edit.stats().trace` (`LookTrace`) ties a miss to what ran then.
   Region requests take their numbers from `LookRegionTiles.nextSeq()`, so callers can't starve
   each other.
+
+- **A photo opens on its embedded JPEG, then the RAW.** `canvasEnter` carries the photo, its look
+  and the page's `seq` for it; plumbing holds later looks (`ed.late`) until the Mac has answered, so
+  none lands without a photo. The canvas asks for the embedded JPEG as bases (`LookBases` with
+  `previewOnly`, on the warm context's queue) together with the RAW's, draws the stand-in at once,
+  and draws the same look again on the RAW base when it lands (`LookCanvasSchedule.again`: the
+  newest look and its page `seq` stay). `luminaPresented(seq)` is sent for the RAW frame, not the
+  stand-in's, so the footer's "rendering…" means the RAW is still coming. Only a photo's first base
+  gets a stand-in; a new size or crop waits on its own base. A RAW that fails keeps the JPEG on the
+  canvas, is tried again after 1 s and 4 s, and the facts line says `can't develop <file> (<why>)`
+  (`· retrying` until the last try). A photo the Mac can't enter is answered at once with
+  `can't show <file> · <why>`. The page never draws its own preview on the native path:
+  `lumina.preview` answers null there, never false. `probe.sh edit` starts with
+  `edit-first-entry.json` (the page's own ⌘3, the first entry after launch).
 
 - **Stage programs are compiled before the drag that needs them (`LookWarmPlan`).** `LookPipeline.apply`
   leaves a stage at reset out of the graph (`Look.runs`), and Core Image fuses the stages that run

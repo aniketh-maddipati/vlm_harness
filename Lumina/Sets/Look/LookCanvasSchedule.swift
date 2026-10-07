@@ -121,6 +121,20 @@ nonisolated struct LookCanvasSchedule: Sendable {
         return s
     }
 
+    /// The newest look again at full quality: its base landed or changed, the canvas has a new
+    /// size, the loupe's region arrived. The look, its region and the page's `seq` stay, so a look
+    /// still waiting for its first frame keeps its acknowledgement (`luminaPresented`); a look
+    /// already started is not timed twice. False when no look was ever given.
+    @discardableResult
+    mutating func again(at now: Double) -> Bool {
+        guard let l = latest else { return false }
+        let started = lastStarted.map { l.seq <= $0.lookSeq } ?? false
+        lookSeq += 1
+        latest = (l.look, lookSeq, now, l.roi, l.pageSeq, started ? 0 : l.pageAt)
+        restWanted = true
+        return true
+    }
+
     // MARK: The display link
 
     /// Called once per display refresh. Nil when nothing needs rendering or a render is in flight.

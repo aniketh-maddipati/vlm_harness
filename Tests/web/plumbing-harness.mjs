@@ -238,6 +238,48 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(bridge.canvas.entered.some(e => e.leave) && (await page.evaluate(() => lumina.edit.state().rel)) === null && bridge.canvas.layouts[bridge.canvas.layouts.length - 1].visible === false, 'edit: leave hides the canvas and tells the Mac');
   ok((await page.evaluate(() => { try { lumina.edit.look('ev:+0.10', { drag: true }); lumina.edit.dragEnd(); return true; } catch (e) { return String(e); } })) === true, 'edit: calls after leave are harmless no-ops');
 
+  // The native canvas and a photo's first look (the "rendering…" that never left on the first entry
+  // into Edit): the photo and the page's first look go to the Mac together, so the frame that shows
+  // it is acknowledged with the page's seq; looks that follow wait until the Mac has the photo. A
+  // photo the Mac refuses is answered at once with the reason in the facts line. The page never
+  // draws its own preview on the native path: lumina.preview answers null, never false.
+  { bridge.canvas.path = 'native'; bridge.header = Object.assign({}, bridge.header, { canvas: 'native' }); bridge.canvas.enterMs = 300;
+    const rels = await page.evaluate(() => __lumina.logic().real.slice(0, 3).map(p => p.path));
+    const e0 = bridge.canvas.entered.length, k0 = bridge.canvas.looks.length, a0 = bridge.canvas.answered || 0;
+    const first = await page.evaluate(async rel => {
+      __lumina.editHeader({ canvas: 'native' });
+      window.__shown = []; window.luminaPresented = s => window.__shown.push(s); window.__facts = []; window.luminaFacts = f => window.__facts.push(f);
+      lumina.canvasRect({ x: 300, y: 80, w: 900, h: 600, holes: [] });
+      const r = lumina.preview(rel, 'ev:+0.10', 1800, 7);            // the page's first look for the photo
+      const sync = r && typeof r.then === 'function' ? 'promise' : r;
+      lumina.preview(rel, 'ev:+0.20', 1800, 8); lumina.preview(rel, 'ev:+0.30', 1800, 9);   // while the Mac is still entering
+      return { sync, v: await r, st: lumina.edit.state() };
+    }, rels[0]);
+    await new Promise(r => setTimeout(r, 100));
+    const ent = bridge.canvas.entered.slice(e0).filter(x => !x.leave), looks = bridge.canvas.looks.slice(k0);
+    ok(first.sync === 'promise' && first.v === null && ent.length === 1 && ent[0].rel === rels[0] && ent[0].seq === 7 && ent[0].look === 'ev:+0.10 shp:40',
+      'edit (native): a photo\'s first look goes with canvasEnter, with the page\'s seq; lumina.preview answers null', { first, ent });
+    ok(looks.length === 1 && looks[0].seq === 9 && looks[0].look === 'ev:+0.30 shp:40' && looks[0].answered > a0,
+      'edit (native): looks sent while the Mac enters the photo wait; the newest goes once it has', looks);
+    bridge.canvas.enterMs = 0; bridge.canvas.refuse = 'not in an opened folder';
+    const l0 = bridge.canvas.layouts.length, k1 = bridge.canvas.looks.length;
+    const bad = await page.evaluate(async rel => {
+      window.__shown = []; window.__facts = [];
+      const v = await lumina.preview(rel, 'ev:+0.10', 1800, 11);
+      const again = lumina.preview(rel, 'ev:+0.20', 1800, 12);
+      await new Promise(r => setTimeout(r, 50));
+      return { v, again, shown: window.__shown.slice(), text: lumina.edit.facts().text, seen: window.__facts[window.__facts.length - 1], visible: lumina.edit.state().visible };
+    }, rels[1]);
+    ok(bad.v === null && bad.again === null && bad.shown.join() === '11,12' && bad.visible === true && !bridge.canvas.layouts.slice(l0).some(l => l.visible === false) && bridge.canvas.looks.length === k1,
+      'edit (native): a photo canvasEnter refuses is answered (no frame to wait for); the page is not told to draw its own preview and the canvas stays', bad);
+    ok(/can't show [^ ]+ · not in an opened folder/.test(bad.text) && bad.seen && /not in an opened folder/.test(bad.seen.note || ''), 'edit (native): the facts line says why the photo is not on the canvas', bad);
+    bridge.canvas.refuse = null;
+    const good = await page.evaluate(async rel => { const v = await lumina.preview(rel, '', 1800, 13); return { v, text: lumina.edit.facts().text }; }, rels[2]);
+    ok(good.v === null && !/can't show/.test(good.text) && bridge.canvas.entered[bridge.canvas.entered.length - 1].seq === 13, 'edit (native): the next photo enters as usual and the reason is gone', good);
+    await page.evaluate(() => { lumina.edit.leave(); delete window.luminaPresented; delete window.luminaFacts; __lumina.editHeader({ canvas: 'image' }); });
+    bridge.header = Object.assign({}, bridge.header, { canvas: 'image' });
+    bridge.canvas.path = 'image'; }
+
   // Edit v22 through the page itself (not lumina.edit): it names a photo by its file name, so plumbing's
   // editShoot gives each photo its path; the chrome over the photo becomes holes; the RAW's as-shot
   // white balance reaches the page's photo.

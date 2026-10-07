@@ -3,6 +3,7 @@ import CoreImage
 import Metal
 import MetalKit
 import QuartzCore
+import os
 
 /// The Edit canvas (roadmap addendum §2): a Metal view laid over the page's canvas rect. The
 /// page keeps drawing the filmstrip, sliders and facts; this view is pixels only, takes no
@@ -150,7 +151,24 @@ final class LookCanvasController: NSObject {
     private var dragging = false
     private var dragEndAt: CFTimeInterval?
     private var zoom: LookCanvasSchedule.ROI?
-    private var current: (rel: String, url: URL, key: LookBases.Key, look: Look, entry: LookBases.Entry?, preview: LookBases.PreviewFallback?, decoder: Int?, regionDecoder: Int?)?
+    /// `standIn`: the photo's embedded JPEG as bases, drawn at once while the RAW develops (`entry`
+    /// is nil until then) and gone when it lands. Never what a slider edits: the look string is.
+    private var current: (rel: String, url: URL, key: LookBases.Key, look: Look, entry: LookBases.Entry?, preview: LookBases.PreviewFallback?, decoder: Int?, regionDecoder: Int?,
+                          standIn: (key: LookBases.Key, entry: LookBases.Entry)?)?
+    /// The stand-ins are built on their own queue and context (`warm`, idle until the base is on
+    /// screen), so the embedded JPEG never waits behind a RAW develop.
+    private let standIns: LookBases
+    /// A RAW that did not develop is tried again after these delays (s), then left to the facts line.
+    nonisolated static let developRetries: [TimeInterval] = [1, 4]
+    private var developTries = 0
+    private var developRetrying = false
+    /// Why nothing at all can be drawn for the photo (no RAW develop, no embedded JPEG).
+    private var cannotDevelop: String?
+    /// A base of this photo has landed: from then on a new size or crop waits on its own base,
+    /// as before; the embedded JPEG is only what a photo opens with.
+    private var baseSeen = false
+    /// Frames in a row the drawable refused; a few are tried again (`drawAgain`).
+    private var drawFails = 0
     private var region: LookRegionTiles.Region?
     private var regionSeq = 0
     private var placement: Placement?
@@ -205,6 +223,7 @@ final class LookCanvasController: NSObject {
         warmPlan = LookWarmPlan(enabled: true)
         #endif
         bases = LookBases(pipeline: work)
+        standIns = LookBases(pipeline: warm, byteCap: LookRawPolicy.baseCacheBytes / 4, maxPhotos: 1)
         tiles = LookRegionTiles(pipeline: work)
         device = pipeline.device
         if let dev = pipeline.device, let host {
@@ -244,22 +263,30 @@ final class LookCanvasController: NSObject {
     /// Entering Edit for a photo: build its bases (the previous state is dropped), prefetch its
     /// neighbours' at `.utility`. `decoder` is the canvas tier's version, `regionDecoder` the
     /// loupe's (RAW 9 when pinned and present).
-    func enter(rel: String, url: URL, look: String, decoder: Int?, regionDecoder: Int?, preview: LookBases.PreviewFallback?, neighbours: [Neighbour]) {
+    /// `pageSeq`: the page's `seq` for `look`, when the page's first look for the photo comes with
+    /// the photo itself (`canvasEnter`), so its frame is acknowledged (`luminaPresented`).
+    func enter(rel: String, url: URL, look: String, decoder: Int?, regionDecoder: Int?, preview: LookBases.PreviewFallback?, neighbours: [Neighbour], pageSeq: Int = 0) {
         let parsed = (try? Look.parse(look)) ?? Look()
         let size = canvasPixels()
         let key = LookBases.Key(rel: rel, decoder: decoder, look: parsed, canvas: size)
-        if current?.rel != rel { schedule.reset(); region = nil; supersedeRegion(); stats.region = false; asShotTold = nil }
-        current = (rel, url, key, parsed, bases.entry(key), preview, decoder, regionDecoder)
+        let same = current?.rel == rel
+        if !same { schedule.reset(); region = nil; supersedeRegion(); stats.region = false; asShotTold = nil; developTries = 0; developRetrying = false; cannotDevelop = nil; drawFails = 0; baseSeen = false }
+        current = (rel, url, key, parsed, bases.entry(key), preview, decoder, regionDecoder, same ? current?.standIn : nil)
         stats.rel = rel
         bases.pin(key)
         ensureBases()
+        // A base kept from a develop that failed (the embedded JPEG stood in): the RAW is tried again.
+        if let e = current?.entry { baseSeen = true; if e.why != nil { developAgain(key) } }
         // The neighbours wait until this photo's base is on screen and the canvas is still.
         self.neighbours = neighbours.map { (key: LookBases.Key(rel: $0.rel, decoder: decoder, look: Look(), canvas: size), url: $0.url, look: Look(), preview: $0.preview) }
         prefetchIssued = false
         basePresented = false
         updatePrefetch()
-        _ = schedule.keystroke(look, at: now())
+        // Entered again with a look of the page's still waiting for its frame: its `seq` stays.
+        let carried = pageSeq > 0 ? pageSeq : (schedule.pending ? schedule.latest?.pageSeq ?? 0 : 0)
+        _ = schedule.keystroke(look, at: now(), pageSeq: carried)
         setFacts()
+        answerUnshown()
         kick()
     }
 
@@ -282,7 +309,7 @@ final class LookCanvasController: NSObject {
         if region != nil { region = nil; stats.region = false }
         supersedeRegion()
         if loupe.on { loupe(on: true, roi: loupe.roi) }
-        if let l = schedule.presentedLook ?? current?.look.format() { _ = schedule.keystroke(l, at: now()) }
+        schedule.again(at: now())
         setFacts()
         kick()
     }
@@ -322,6 +349,8 @@ final class LookCanvasController: NSObject {
     func leave() {
         asShotTold = nil
         current = nil
+        standIns.pin(nil); standIns.forget()
+        developRetrying = false; cannotDevelop = nil; baseSeen = false
         schedule.reset()
         region = nil
         supersedeRegion()
@@ -399,7 +428,7 @@ final class LookCanvasController: NSObject {
             bases.pin(key)
             ensureBases()
             tellAsShot()
-            if let l = schedule.presentedLook ?? current?.look.format() { _ = schedule.keystroke(l, at: now()) }
+            schedule.again(at: now())
         }
         kick()
     }
@@ -438,6 +467,7 @@ final class LookCanvasController: NSObject {
         if dragging, arrived - emitted > 16 { LookTrace.mark("look arrived \(Int((arrived - emitted).rounded())) ms after the page emitted it", at: arrived) }
         if !schedule.pending { waitingSince = emitted }
         let seq = key ? schedule.keystroke(text, at: arrived, pageSeq: pageSeq, pageAt: t ?? 0) : schedule.submit(text, at: arrived, roi: roi, pageSeq: pageSeq, pageAt: t ?? 0)
+        answerUnshown()
         kick()
         return seq
     }
@@ -516,7 +546,7 @@ final class LookCanvasController: NSObject {
                 if self.fallbackVersions[rel] == nil, let prev = LookRawPolicy.fallback(after: version, supported: supported) {
                     self.fallbackVersions[rel] = prev
                     self.stats.decoderFallbacks.append("\(rel): \(version) → \(prev) (\(e))")
-                    NSLog("Lumina: RAW decoder \(version) failed for \(rel) (\(e)); using \(prev)")
+                    LuminaLog.canvas.error("RAW decoder \(version, privacy: .public) failed for \(rel, privacy: .private) (\(String(describing: e), privacy: .private)); using \(prev, privacy: .public)")
                     self.onDecoderFallback?(rel, version, prev)
                     self.refine(rel: rel, url: url, decoder: prev, roi: roi)
                 } else {
@@ -542,6 +572,8 @@ final class LookCanvasController: NSObject {
         stats.warm = warmPlan.stats
         stats.warm.running = warmRunning
         if path == .native, let c = current, let entry = c.entry { stats.warm.pending = warmPlan.jobs(around: c.look, stages: pipeline.rules.lookStages, env: warmEnv(entry)).count }
+        // The base is still coming (the embedded JPEG stands in): the warm-up has not begun, it is not done.
+        else if path == .native, stats.warm.enabled, current != nil, cannotDevelop == nil { stats.warm.pending = 1 }
         stats.trace = LookTrace.events
         guard let data = try? JSONEncoder().encode(stats), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
         return obj
@@ -567,21 +599,73 @@ final class LookCanvasController: NSObject {
 
     private func ensureBases() {
         guard let c = current, c.entry == nil else { return }
-        bases.request(c.key, url: c.url, look: c.look, preview: c.preview) { [weak self] r in
-            guard let self, let cur = self.current, cur.key == c.key else { return }
-            switch r {
-            case .success(let e):
-                self.current?.entry = e
-                self.tellAsShot()
-                self.setFacts()
-                self.kick()
-                self.updatePrefetch()
-            case .failure(let e):
-                self.stats.renderErrors += 1
-                self.facts = "canvas: \(self.path.rawValue) · can't develop \(c.rel.split(separator: "/").last ?? "") (\(e))"
-                self.onFacts?(self.facts)
+        ensureStandIn()
+        bases.request(c.key, url: c.url, look: c.look, preview: c.preview) { [weak self] r in self?.baseLanded(r, key: c.key) }
+    }
+
+    /// The embedded JPEG as this photo's bases, asked for with the RAW's and drawn until they land.
+    private func ensureStandIn() {
+        guard path == .native, !baseSeen, let c = current, c.entry == nil, c.standIn?.key != c.key, let p = c.preview, LookPipeline.isRAW(c.url) else { return }
+        standIns.pin(c.key)
+        standIns.request(c.key, url: c.url, look: c.look, preview: p, previewOnly: true) { [weak self] r in
+            guard let self, let cur = self.current, cur.key == c.key, cur.entry == nil, case .success(let e) = r else { return }
+            self.current?.standIn = (c.key, e)
+            self.schedule.again(at: self.now())
+            self.setFacts()
+            self.kick()
+        }
+    }
+
+    private func baseLanded(_ r: Result<LookBases.Entry, Error>, key: LookBases.Key) {
+        guard let cur = current, cur.key == key else { return }
+        developRetrying = false
+        switch r {
+        case .success(let e):
+            // A second failure with the first one's JPEG already on the canvas changes nothing there.
+            let redraw = !(e.why != nil && cur.entry?.why != nil)
+            current?.entry = e
+            current?.standIn = nil
+            baseSeen = true
+            standIns.pin(nil); standIns.forget()
+            cannotDevelop = nil
+            // The look on the canvas (from the stand-in, or still waiting) again, on this base.
+            if redraw { schedule.again(at: now()) }
+            tellAsShot()
+            if e.why != nil { stats.renderErrors += 1; developAgain(key) }
+            setFacts()
+            kick()
+            updatePrefetch()
+        case .failure(let e):
+            stats.renderErrors += 1
+            if cur.entry == nil { cannotDevelop = "\(e)" }
+            developAgain(key)
+            setFacts()
+            answerUnshown()
+        }
+    }
+
+    /// The RAW did not develop: again after `developRetries`, while this photo stays on the canvas
+    /// (the embedded JPEG keeps standing in). The facts line says why, and `retrying` until the last.
+    private func developAgain(_ key: LookBases.Key) {
+        guard !developRetrying, developTries < Self.developRetries.count else { return }
+        let delay = Self.developRetries[developTries]
+        developTries += 1
+        developRetrying = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.developRetrying else { return }
+                guard let c = self.current, c.key == key else { self.developRetrying = false; return }
+                self.bases.drop(key)
+                self.bases.request(key, url: c.url, look: c.look, preview: c.preview) { [weak self] r in self?.baseLanded(r, key: key) }
             }
         }
+    }
+
+    /// Nothing can be drawn for this photo (no RAW develop, no embedded JPEG): the page's look is
+    /// answered so it stops waiting on a frame, and the facts line says why.
+    private func answerUnshown() {
+        guard cannotDevelop != nil, let c = current, c.entry == nil, let seq = schedule.latest?.pageSeq, seq > 0 else { return }
+        onPresented?(seq)
     }
 
     // MARK: The display link
@@ -620,7 +704,7 @@ final class LookCanvasController: NSObject {
         CATransaction.commit()
     }
 
-    private func kickRest() { if let l = schedule.presentedLook { _ = schedule.keystroke(l, at: now()) } }
+    private func kickRest() { if schedule.presentedLook != nil { schedule.again(at: now()) } }
 
     @objc private func tick(_ l: CADisplayLink) {
         stats.ticks += 1
@@ -645,11 +729,11 @@ final class LookCanvasController: NSObject {
             LookTrace.mark("busy tick: GPU still on the render started \(Int(((CACurrentMediaTime() - renderStartedAt) * 1000).rounded())) ms ago", at: t * 1000)
         }
         lastTick = t
-        guard !rendering, let c = current, let entry = c.entry, let view, !view.isHidden, let request = schedule.tick(at: now()) else { return }
+        guard !rendering, let c = current, let entry = c.entry ?? c.standIn?.entry, let view, !view.isHidden, let request = schedule.tick(at: now()) else { return }
         let look = (try? Look.parse(request.look)) ?? c.look
         let seen = warmPlan.rendering(look, tier: request.tier, stages: pipeline.rules.lookStages, env: warmEnv(entry))
         let t0 = LookTrace.now()
-        render(request, entry: entry, look: look, view: view)
+        render(request, entry: entry, standIn: c.entry == nil && cannotDevelop == nil, look: look, view: view)
         let ms = LookTrace.now() - t0
         LookTrace.mark("render \(request.tier.rawValue)", ms: ms, at: t0)
         if seen.first {
@@ -690,10 +774,10 @@ final class LookCanvasController: NSObject {
         return (pipeline.output(out).transformed(by: CGAffineTransform(translationX: ox, y: oy)), image, region)
     }
 
-    private func render(_ r: LookCanvasSchedule.Request, entry: LookBases.Entry, look: Look, view: LookCanvasView) {
+    private func render(_ r: LookCanvasSchedule.Request, entry: LookBases.Entry, standIn: Bool, look: Look, view: LookCanvasView) {
         let waited = LookTrace.now()
         guard let queue = commandQueue, let layer = view.layer as? CAMetalLayer, let drawable = layer.nextDrawable() else {
-            schedule.failed(r); return
+            schedule.failed(r); drawAgain(); return
         }
         // Both drawables still queued for a refresh: the wait is the display's, not the look's.
         if LookTrace.now() - waited > 2 { LookTrace.mark("nextDrawable waited", ms: LookTrace.now() - waited, at: waited) }
@@ -703,7 +787,7 @@ final class LookCanvasController: NSObject {
         let t0 = CACurrentMediaTime()
         let dw = CGFloat(drawable.texture.width), dh = CGFloat(drawable.texture.height)
         let (placed, image, region) = compose(look, tier: r.tier, roi: r.roi, entry: entry, size: CGSize(width: dw, height: dh))
-        guard let cb = queue.makeCommandBuffer() else { schedule.failed(r); rendering = false; return }
+        guard let cb = queue.makeCommandBuffer() else { schedule.failed(r); rendering = false; drawAgain(); return }
         let dest = CIRenderDestination(mtlTexture: drawable.texture, commandBuffer: cb)
         dest.colorSpace = displaySpace
         dest.alphaMode = .premultiplied
@@ -713,8 +797,10 @@ final class LookCanvasController: NSObject {
         } catch {
             stats.renderErrors += 1
             schedule.failed(r); rendering = false
+            drawAgain()
             return
         }
+        drawFails = 0
         let wasDragEnd = dragEndAt
         // The frame's time on our clock: the GPU end time when the command buffer completes, replaced
         // by the drawable's presented time when the window really presents (it is 0 when it doesn't,
@@ -723,7 +809,7 @@ final class LookCanvasController: NSObject {
             let presented = d.presentedTime
             guard presented > 0 else { return }
             DispatchQueue.main.async {
-                MainActor.assumeIsolated { self?.frameShown(r, at: presented, dragEnd: wasDragEnd, presented: true) }
+                MainActor.assumeIsolated { self?.frameShown(r, at: presented, dragEnd: wasDragEnd, presented: true, standIn: standIn) }
             }
         }
         inFlightFinish = { [weak self] end in
@@ -733,7 +819,7 @@ final class LookCanvasController: NSObject {
             self.stats.lastRenderMs = (CACurrentMediaTime() - t0) * 1000
             self.stats.lastRestTier = r.tier.rawValue
             _ = self.schedule.finished(r)
-            self.frameShown(r, at: end, dragEnd: wasDragEnd, presented: false)
+            self.frameShown(r, at: end, dragEnd: wasDragEnd, presented: false, standIn: standIn)
             if r.stats { self.restStats(image, region: region, seq: r.pageSeq) }
         }
         let done = gpuDone
@@ -744,6 +830,16 @@ final class LookCanvasController: NSObject {
         cb.present(drawable)
         cb.commit()
         waitingSince = nil
+    }
+
+    /// A frame the drawable refused (no drawable in time, no command buffer, a render error): the
+    /// schedule counts that look as started, so the newest look is asked for again, a few times.
+    private func drawAgain() {
+        guard drawFails < 3 else { return }
+        drawFails += 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            MainActor.assumeIsolated { guard let self, self.current != nil else { return }; self.schedule.again(at: self.now()); self.kick() }
+        }
     }
 
     /// Runs the finished render's bookkeeping once, whichever of the tick or the completion's
@@ -759,8 +855,9 @@ final class LookCanvasController: NSObject {
 
     /// A render's frame time (seconds on our clock): records the latency sample (once per render,
     /// the presented time overriding the GPU end time), the rest render's delay after drag end, and
-    /// tells the page which look is on screen.
-    private func frameShown(_ r: LookCanvasSchedule.Request, at frame: CFTimeInterval, dragEnd: CFTimeInterval?, presented: Bool) {
+    /// tells the page which look is on screen. A frame of the stand-in (`standIn`) is not the look
+    /// on the RAW yet: the page hears when that frame comes (the look is drawn again on the base).
+    private func frameShown(_ r: LookCanvasSchedule.Request, at frame: CFTimeInterval, dragEnd: CFTimeInterval?, presented: Bool, standIn: Bool) {
         let frameMs = frame * 1000
         // A look's latency is to its first frame. The rest render of a look already on screen from
         // `small` (a pause in a drag, drag end) is a second frame of the same value, as late as the
@@ -773,9 +870,9 @@ final class LookCanvasController: NSObject {
             if latencies.count > 4000 { latencies.removeFirst(2000); sampleIndex = [:] }
         }
         if r.tier == .base, let de = dragEnd, frame >= de { stats.lastRestMs = (frame - de) * 1000; dragEndAt = nil }
-        if r.tier == .base, !basePresented { basePresented = true; updatePrefetch() }
+        if r.tier == .base, !standIn, !basePresented { basePresented = true; updatePrefetch() }
         else if r.tier == .base, !dragging { updatePrefetch() }
-        if r.seq > lastPresentedSeq { lastPresentedSeq = r.seq; if r.pageSeq > 0 { onPresented?(r.pageSeq) } }
+        if r.seq > lastPresentedSeq { lastPresentedSeq = r.seq; if r.pageSeq > 0, !standIn { onPresented?(r.pageSeq) } }
     }
 
     /// Histogram and clipping, on rest renders only (§3): one CIAreaHistogram pass, 256 bins
@@ -886,7 +983,16 @@ final class LookCanvasController: NSObject {
 
     private func setFacts() {
         var parts = ["canvas: \(path.rawValue)"]
-        if let e = current?.entry { parts.append(e.source == "jpeg" ? "from the embedded JPEG" : e.source == "image" ? "image file" : "raw \(e.decoder ?? 0)") }
+        let name = current.map { String($0.rel.split(separator: "/").last ?? "") } ?? ""
+        let again = developRetrying || developTries < Self.developRetries.count ? " · retrying" : ""
+        if let e = current?.entry {
+            parts.append(e.source == "jpeg" ? "from the embedded JPEG" : e.source == "image" ? "image file" : "raw \(e.decoder ?? 0)")
+            if let why = e.why { parts.append("can't develop \(name) (\(why))\(again)") }
+        } else if current?.standIn != nil {
+            parts.append("from the embedded JPEG")
+        } else if let why = cannotDevelop {
+            parts.append("can't develop \(name) (\(why))\(again)")
+        }
         if stats.region { parts.append("raw \(stats.regionDecoder) · region") }
         if stats.refining { parts.append("refining…") }
         if stats.slowed { parts.append("raw 9 · slowed by thermal state") }
@@ -908,7 +1014,7 @@ final class LookCanvasController: NSObject {
                 guard let self else { return }
                 // Region tiles first, then the neighbours' bases, never the current photo's (§5).
                 let t = self.tiles.drop(), b = self.bases.dropPrefetched()
-                NSLog("Lumina: memory pressure: dropped \(t) region tiles and \(b) prefetched bases")
+                LuminaLog.canvas.notice("memory pressure: dropped \(t, privacy: .public) region tiles and \(b, privacy: .public) prefetched bases")
             }
         }
         src.resume()
