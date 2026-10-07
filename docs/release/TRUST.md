@@ -104,6 +104,7 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `canvasLayout` | — | — |
 | `canvasLook` | — | — |
 | `canvasDrag` | — | — |
+| `canvasZoom` | — | — |
 | `canvasLoupe` | the RAW's region at 100 % | — |
 | `canvasStats` | render counters | — |
 | `saveSession` | — | `shoots/<id>/session.json` (size capped, id checked) |
