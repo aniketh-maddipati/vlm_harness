@@ -240,6 +240,9 @@ final class LookCanvasController: NSObject {
                 layer.allowsNextDrawableTimeout = true
                 layer.maximumDrawableCount = 2
             }
+            // The page lays out from the window's top-left: while the window is resized, the canvas
+            // keeps its distance to the top until the page's next rect arrives.
+            v.autoresizingMask = [.maxXMargin, .minYMargin]
             host.addSubview(v)
             view = v
             commandQueue = dev.makeCommandQueue()
@@ -355,6 +358,9 @@ final class LookCanvasController: NSObject {
         region = nil
         supersedeRegion()
         loupe = (false, nil)
+        zoom = nil
+        zoomStill?.invalidate(); zoomStill = nil
+        zooming = false
         bases.pin(nil)
         warmTarget = nil
         view?.isHidden = true
@@ -481,6 +487,67 @@ final class LookCanvasController: NSObject {
 
     func dragStart() { LookTrace.mark("dragStart"); dragging = true; dragEndAt = nil; idleGap = nil; updatePrefetch(); schedule.dragStart(at: now()); kick() }
     func dragEnd() { LookTrace.mark("dragEnd"); dragging = false; dragEndAt = CACurrentMediaTime(); schedule.dragEnd(at: now()); kick() }
+
+    /// The page zoomed or panned its picture: `roi` is its canvas box in fractions of the photo as
+    /// the page shows it (beyond 0 … 1 where the box reaches past the photo), nil at fit. The look
+    /// on the canvas is drawn again there. A zoom that moves is a drag: a frame per refresh from
+    /// `small`, with the warm-up, the neighbours' prefetch and the RAW 9 region held; `rest` (the
+    /// page saw it still) ends it with one render from `base`. The picture is the same, so its
+    /// histogram is not computed again.
+    func zoom(to roi: LookCanvasSchedule.ROI?, rest: Bool = false) {
+        let moved = roi != zoom
+        zoom = roi
+        guard current != nil else { zoomEnd(); return }
+        if moved {
+            if !zooming {
+                zooming = true
+                // A look still owed its rest render keeps its histogram.
+                zoomOwed = schedule.restPending
+                // Tiles for the region left behind would only take the GPU from the frames.
+                if regionBusy { supersedeRegion(); refiningTimer?.invalidate(); stats.refining = false }
+                LookTrace.mark("zoomStart")
+                updatePrefetch()
+                if !dragging { schedule.dragStart(at: now()) }
+            }
+            var seq = 0
+            if let l = schedule.latest {
+                seq = schedule.submit(l.look, at: now(), roi: roi, pageSeq: l.pageSeq)
+            } else if let l = schedule.presentedLook {
+                seq = schedule.submit(l, at: now(), roi: roi)
+            }
+            placeOnly = zoomOwed ? 0 : seq
+        }
+        zoomStill?.invalidate(); zoomStill = nil
+        if rest {
+            zoomEnd()
+        } else if zooming {
+            // The page's `rest` never came (it stopped, or Edit closed over it): the hold still ends.
+            zoomStill = Timer.scheduledTimer(withTimeInterval: Self.zoomStillMs / 1000, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated { self?.zoomEnd() }
+            }
+        }
+        kick()
+    }
+
+    private func zoomEnd() {
+        zoomStill?.invalidate(); zoomStill = nil
+        guard zooming else { return }
+        zooming = false
+        LookTrace.mark("zoomEnd")
+        if !dragging { schedule.dragEnd(at: now()) }
+        updatePrefetch()
+        kick()
+    }
+
+    /// The page says a zoom rests after 300 ms without a change (plumbing's ZOOM_REST); this long
+    /// without either, the canvas ends the zoom itself.
+    nonisolated static let zoomStillMs: Double = 1000
+    /// A zoom is moving (`zoom(to:)` … its `rest`): background work holds, as during a slider drag.
+    private var zooming = false
+    private var zoomOwed = false
+    private var zoomStill: Timer?
+    /// The schedule's count of the look `zoom(to:)` resubmitted last: the same picture in another place.
+    private var placeOnly = 0
 
     /// 100 % with G held: RAW 9 on the visible region (RAW 9 §2). Waits for stillness when the
     /// Mac is hot or on Low Power; never disabled.
@@ -755,7 +822,7 @@ final class LookCanvasController: NSObject {
         // Where the photo goes: fit the canvas (contain), or the zoomed region filling it.
         let dw = size.width, dh = size.height
         var visible = CGRect(origin: .zero, size: srcSize)
-        if let z = zoom ?? roi, !z.isWhole {
+        if let z = zoom ?? roi, !z.isFit {
             visible = CGRect(x: z.x * srcSize.width, y: (1 - z.y - z.h) * srcSize.height, width: z.w * srcSize.width, height: z.h * srcSize.height)
             if tier == .small, let roi, !roi.isWhole { image = image.cropped(to: visible) }
         }
@@ -820,7 +887,7 @@ final class LookCanvasController: NSObject {
             self.stats.lastRestTier = r.tier.rawValue
             _ = self.schedule.finished(r)
             self.frameShown(r, at: end, dragEnd: wasDragEnd, presented: false, standIn: standIn)
-            if r.stats { self.restStats(image, region: region, seq: r.pageSeq) }
+            if r.stats, r.lookSeq != self.placeOnly || region != nil { self.restStats(image, region: region, seq: r.pageSeq) }
         }
         let done = gpuDone
         cb.addCompletedHandler { [weak self] buffer in
@@ -910,7 +977,7 @@ final class LookCanvasController: NSObject {
     /// running finishes (on the work context, so it never holds up a drawable); the next waits.
     private func updatePrefetch() {
         // No drawable on the image path (the page shows lumina://render images): the built base is the cue.
-        let hold = dragging || regionBusy || current?.entry == nil || (view != nil && !basePresented)
+        let hold = dragging || zooming || regionBusy || current?.entry == nil || (view != nil && !basePresented)
         bases.prefetchPaused = hold
         if !hold, !prefetchIssued, !neighbours.isEmpty {
             prefetchIssued = true

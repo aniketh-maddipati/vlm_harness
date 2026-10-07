@@ -317,6 +317,32 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     }, ent[0] && ent[0].rel);
     ok(shot.page && shot.page[0] === 4321 && shot.page[1] === 7 && shot.shoot[0] === 4321 && shot.def === 4321, 'edit v22 (page): the RAW\'s as-shot white balance becomes the photo\'s wbShot / tintShot (Edit and later opens)', shot);
     await page.evaluate(() => __lumina.editHeader({ asShot: { kelvin: 'x', tint: 1 }, asShotRel: 'nope' }));
+    // The page's own zoom (pinch, the zoom pill): the part of the photo in the canvas box reaches the Mac
+    // at every zoom, as fractions of the photo's box; none at fit. Edit v22's lumina.roi (image px, above
+    // 1.2× only) does not place the picture.
+    { const zoomTo = z => page.evaluate(z => {
+        const el = document.querySelector('[data-lumina="canvas"]'), k = Object.keys(el).find(x => x.startsWith('__reactFiber$'));
+        let E = null; for (let f = el[k]; f && !E; f = f.return) if (f.stateNode && f.stateNode.logic && f.stateNode.logic.nbInfo) E = f.stateNode.logic;
+        E.zoomTo(z, null, null, false);
+      }, z);
+      const box = () => page.evaluate(() => { const c = document.querySelector('[data-lumina="canvas"]').getBoundingClientRect(), b = document.querySelector('[data-lumina="canvas"] [data-lumina-img]').parentElement.getBoundingClientRect(); return { x: (c.left - b.left) / b.width, y: (c.top - b.top) / b.height, w: c.width / b.width, h: c.height / b.height }; });
+      const near = (a, b) => !!a && !!b && ['x', 'y', 'w', 'h'].every(k => Math.abs(a[k] - b[k]) < 0.01);
+      const z0 = bridge.canvas.zooms.length, lp0 = bridge.canvas.loupes.length;
+      await zoomTo(3); await page.waitForTimeout(700);
+      const in3 = bridge.canvas.zooms[bridge.canvas.zooms.length - 1], b3 = await box();
+      ok(bridge.canvas.zooms.length > z0 && in3 && in3.w < 0.6 && in3.h < 0.6 && near(in3, b3), 'edit v22 (page): zoomed in, the canvas box as a part of the photo reaches the Mac (canvasZoom)', { sent: in3, page: b3 });
+      { const R = bridge.canvas.zoomRests.slice(z0);
+        ok(R.length >= 2 && R[0] === false && R[R.length - 1] === true && R.filter(Boolean).length === 1, 'edit v22 (page): a moving zoom is followed, then the Mac is told once that it rests (its full-quality render)', R); }
+      const lp = bridge.canvas.loupes.slice(lp0).filter(l => l.on), st =await page.evaluate(() => lumina.edit.state());
+      ok(lp.length === 1 && near(lp[0].roi, in3) && near(st.zoom, in3), 'edit v22 (page): once the zoom rests, the same region goes to RAW 9, once, in fractions (not the page\'s image px)', { loupes: bridge.canvas.loupes.slice(lp0), zoom: st.zoom });
+      await zoomTo(1.1); await page.waitForTimeout(500);
+      const in11 = bridge.canvas.zooms[bridge.canvas.zooms.length - 1];
+      ok(in11 && near(in11, await box()) && in11.w > 0.5, 'edit v22 (page): between fit and 1.2× the canvas follows too', in11);
+      await zoomTo(0.5); await page.waitForTimeout(500);
+      const out = bridge.canvas.zooms[bridge.canvas.zooms.length - 1];
+      ok(out && out.w > 1 && out.h > 1 && out.x < 0 && out.y < 0 && near(out, await box()), 'edit v22 (page): zoomed out, the region reaches beyond the photo', out);
+      await zoomTo(1); await page.waitForTimeout(500);
+      ok(bridge.canvas.zooms[bridge.canvas.zooms.length - 1] === null && (await page.evaluate(() => lumina.edit.state().zoom)) === null, 'edit v22 (page): back at fit, no region (the Mac fits the photo)', bridge.canvas.zooms.slice(-2)); }
     const n2 = bridge.canvas.layouts.length;
     await page.evaluate(() => __lumina.logic().setView('cull')); await page.waitForTimeout(500);
     const L3 = bridge.canvas.layouts.slice(n2);
