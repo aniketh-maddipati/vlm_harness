@@ -137,10 +137,10 @@
   // never writes mid-drag; the look lands half a second after the thumb stops.
   const SAVE_DEBOUNCE = 500;
   let lastChange = 0, saveTimer = 0;
-  const saveNow = () => {
+  const saveNow = force => {
     const l = current;
     if (!(l && l.real && shootId && !reading && !l.state.realLoad)) return;
-    if (performance.now() - lastChange < SAVE_DEBOUNCE) { scheduleSave(); return; }
+    if (!force && performance.now() - lastChange < SAVE_DEBOUNCE) { scheduleSave(); return; }
     const json = JSON.stringify(snapshot(l));
     if (json !== lastSaved) {
       lastSaved = json; base = JSON.parse(json);
@@ -161,14 +161,31 @@
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => { saveTimer = 0; saveNow(); }, Math.max(1, SAVE_DEBOUNCE - (performance.now() - lastChange) + 1));
   };
-  // Every 2 s and on every view change (SAFETY.md 2).
-  let lastView = null;
+  // Every 2 s and on every view change (SAFETY.md 2). A decision (keep, drop, flag, star, cut, a row
+  // seen) is saved on the next 150 ms tick, not the next 2 s one: the page's process can be gone
+  // within a second of a key. The page replaces these objects on every change, so identity tells.
+  const DECISIONS = ['marks', 'flags', 'stars', 'cuts', 'seen'];
+  let lastView = null, lastDecided = null, lastDecisions = [];
+  const decided = l => {
+    if (!(l && l.real && shootId)) { lastDecided = null; return false; }
+    const now = DECISIONS.map(k => l.state[k]), same = lastDecided === shootId && now.every((v, i) => v === lastDecisions[i]);
+    const first = lastDecided !== shootId;
+    lastDecided = shootId; lastDecisions = now;
+    return !same && !first;
+  };
+  // The window going to the background is the last moment timers run at full rate: save then,
+  // without waiting for a slider's debounce.
+  const saveLeaving = () => { try { saveNow(true); } catch (_) {} };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveLeaving(); });
+  window.addEventListener('blur', saveLeaving);
+  window.addEventListener('pagehide', saveLeaving);
   const saveLoop = () => {
     try { saveNow(); } finally { setTimeout(saveLoop, 2000); }
   };
   const viewLoop = () => {
     try {
       const l = current, v = l && l.state.view;
+      if (decided(l)) saveNow();
       if (v !== lastView) {
         lastView = v; saveNow();
         // The Edit canvas overlay shows only while Edit is the active step.

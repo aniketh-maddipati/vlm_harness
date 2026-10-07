@@ -113,13 +113,18 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(await page.evaluate(() => window.lumina.readingCard === false), 'card: readingCard false for a folder');
 
   // Decisions + autosave
-  await key(page, 'p'); await page.waitForTimeout(100);
-  await key(page, 'ArrowDown'); await page.waitForTimeout(100); await key(page, 'p'); await page.waitForTimeout(100);
+  // A decision is saved on the next tick, not the next 2 s loop: the page's process can stop at any
+  // moment. Two keeps 500 ms apart: one tick of a 2 s loop could save one of them in time, never both.
+  const sid = await page.evaluate(() => __lumina.shootId());
+  const keeps = m => Object.values(m || {}).filter(v => v === 'keep').length, soon = [];
+  const sample = async () => { await page.waitForTimeout(400); soon.push([keeps((await S(page)).marks), keeps(bridge.sessions[sid] && JSON.parse(bridge.sessions[sid]).marks)]); };
+  await key(page, 'p'); await sample();
+  await key(page, 'ArrowDown'); await page.waitForTimeout(100); await key(page, 'p'); await sample();
+  ok(soon.every(([have, saved]) => have >= 1 && saved === have), 'session: every keep is saved within 400 ms of its key', soon);
   s = await S(page);
   const keptN = Object.values(s.marks).filter(v => v === 'keep').length;
   ok(keptN >= 1, 'cull: P keeps', s.marks);
   await page.waitForTimeout(2300);
-  const sid = await page.evaluate(() => __lumina.shootId());
   const saved = bridge.sessions[sid] && JSON.parse(bridge.sessions[sid]);
   ok(saved && Object.keys(saved.marks).length === keptN && Object.keys(saved.marks).every(k => /DSC0\d+\.ARW$/.test(k) && !k.startsWith('2026')), 'session: marks saved by path inside the folder', saved && saved.marks);
   ok(saved && typeof saved.cur === 'string' && saved.seen && Object.keys(saved.seen).length >= 1, 'session: cur + seen saved', saved && { cur: saved.cur, seen: saved.seen });
