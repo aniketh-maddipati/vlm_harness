@@ -137,10 +137,10 @@
   // never writes mid-drag; the look lands half a second after the thumb stops.
   const SAVE_DEBOUNCE = 500;
   let lastChange = 0, saveTimer = 0;
-  const saveNow = () => {
+  const saveNow = force => {
     const l = current;
     if (!(l && l.real && shootId && !reading && !l.state.realLoad)) return;
-    if (performance.now() - lastChange < SAVE_DEBOUNCE) { scheduleSave(); return; }
+    if (!force && performance.now() - lastChange < SAVE_DEBOUNCE) { scheduleSave(); return; }
     const json = JSON.stringify(snapshot(l));
     if (json !== lastSaved) {
       lastSaved = json; base = JSON.parse(json);
@@ -161,14 +161,31 @@
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => { saveTimer = 0; saveNow(); }, Math.max(1, SAVE_DEBOUNCE - (performance.now() - lastChange) + 1));
   };
-  // Every 2 s and on every view change (SAFETY.md 2).
-  let lastView = null;
+  // Every 2 s and on every view change (SAFETY.md 2). A decision (keep, drop, flag, star, cut, a row
+  // seen) is saved on the next 150 ms tick, not the next 2 s one: the page's process can be gone
+  // within a second of a key. The page replaces these objects on every change, so identity tells.
+  const DECISIONS = ['marks', 'flags', 'stars', 'cuts', 'seen'];
+  let lastView = null, lastDecided = null, lastDecisions = [];
+  const decided = l => {
+    if (!(l && l.real && shootId)) { lastDecided = null; return false; }
+    const now = DECISIONS.map(k => l.state[k]), same = lastDecided === shootId && now.every((v, i) => v === lastDecisions[i]);
+    const first = lastDecided !== shootId;
+    lastDecided = shootId; lastDecisions = now;
+    return !same && !first;
+  };
+  // The window going to the background is the last moment timers run at full rate: save then,
+  // without waiting for a slider's debounce.
+  const saveLeaving = () => { try { saveNow(true); } catch (_) {} };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveLeaving(); });
+  window.addEventListener('blur', saveLeaving);
+  window.addEventListener('pagehide', saveLeaving);
   const saveLoop = () => {
     try { saveNow(); } finally { setTimeout(saveLoop, 2000); }
   };
   const viewLoop = () => {
     try {
       const l = current, v = l && l.state.view;
+      if (decided(l)) saveNow();
       if (v !== lastView) {
         lastView = v; saveNow();
         // The Edit canvas overlay shows only while Edit is the active step.
@@ -272,6 +289,9 @@
       const r = await native('shootOpened', { name: info.name, n: logic.real.length, date: first, bodies });
       shootId = r && r.id; lastSaved = ''; base = null; savedKeepers = null;
       edit.header(r && r.header);
+      // The Mac lets the canvas go when a shoot opens. A photo already in Edit (the read ended under
+      // it) goes back on, at the rect the page last gave.
+      if (ed.rel) { const rel = ed.rel, look = ed.look; ed.rel = null; edit.enter(rel, look).then(() => { if (ed.rel === rel && ed.rect) edit.layout(ed.rect, ed.visible || ed.force, { holes: ed.holes, force: ed.force }); }).catch(() => {}); }
       const live = !!(logic._readEnd && logic._readEnd.stay);
       if (r && r.session) { try { restore(logic, JSON.parse(r.session), live); } catch (_) {} }
       // Decisions made while the folder was read aren't in the session yet: the next save sends them.
@@ -641,7 +661,7 @@
   // Encoded with encodeURIComponent (`query`, as media URLs), not URLSearchParams: the latter writes a
   // space as '+', and a look's sign ('ev:+0.30') must stay a '+'. Each path segment on its own.
   const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?' + query(q);
-  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null, photo: null };
+  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null, photo: null, entered: false, late: null, refused: null };
   // The image path's latest-wins renderer (addendum §7): one fetch in flight, the newest look
   // waits, a quarter-size render while dragging, the full one at rest (drag end, key, 120 ms idle).
   const img = { pending: null, inFlight: false, shown: 0, tier: null, url: null, fetches: 0, superseded: 0, restTimer: 0, last: null };
@@ -674,6 +694,7 @@
   const factsNote = () => {
     const h = ed.header || {}, notes = [];
     if (h.offerUpdate) notes.push('decoder ' + h.decoder + ' pinned · update shoot');
+    if (ed.refused) notes.push("can't show " + ed.refused.rel.split('/').pop() + ' · ' + ed.refused.why);
     if (ed.native) { const n = ed.native.replace(/^canvas: (native|image)( · )?/, '').replace(/^(raw \d+|image file|from the embedded JPEG)( · )?/, ''); if (n) notes.push(n); }
     return notes.length ? notes.join(' · ') : null;
   };
@@ -802,24 +823,36 @@
     if (!out.some(t => t.startsWith('shp:'))) out.push('shp:' + SHP_DEFAULT);
     return out.join(' ');
   };
+  // A photo the Mac can't put on the canvas (not in the shoot, canvasEnter refused): there is no
+  // frame to wait for, so the page's look is answered and the facts line says why.
+  const refused = (rel, why, seq) => { ed.refused = { rel, why }; pushFacts(true); if (seq) hook('luminaPresented', seq); };
   const edit = {
     // Entering Edit for a photo (its path, "<folder>/DSC.ARW"): the Mac builds its bases now and its
-    // neighbours' in the background. `look` is the photo's look string.
-    async enter(rel, look) {
+    // neighbours' in the background. `look` is the photo's look string; `opt.seq` the page's seq for
+    // it, which goes with the photo so the frame that shows it is acknowledged (luminaPresented).
+    // Looks that follow wait until the Mac has the photo (`ed.late`): one sent before that has no
+    // photo to land on.
+    async enter(rel, look, opt) {
       const l = current; if (!l || !l.data) return null;
-      const [id, p] = photoAt(l, rel); if (!p) return null;
+      const seq = (opt && opt.seq) || 0;
+      const [id, p] = photoAt(l, rel); if (!p) { refused(rel, 'not in this shoot', seq); return null; }
       const o = l.data.order, k = o.indexOf(id), nb = d => { const q = l.data.byId[o[k + d]]; return q ? [q.path, previewOf(q.lg)] : [null, null]; };
       const [prev, prevPreview] = nb(-1), [next, nextPreview] = nb(1);
       ed.rel = rel; ed.photo = p; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = ed.loupe && !!zoomView(); ed.roi = null; ed.zoom = null; ed.zoomKey = undefined; ed.zoomMoving = false; ed.loupeKey = null; ed.preview = previewOf(p.lg);
-      img.shown = 0; img.tier = null; img.pending = null; ed.seq = 0;
-      const r = await native('canvasEnter', { rel, look: macLook(ed.look, p), model: ed.model, preview: previewOf(p.lg), prev, prevPreview, next, nextPreview });
+      img.shown = 0; img.tier = null; img.pending = null; ed.seq = seq; ed.entered = false; ed.late = null; ed.refused = null;
+      let r;
+      try { r = await native('canvasEnter', { rel, look: macLook(ed.look, p), seq, model: ed.model, preview: previewOf(p.lg), prev, prevPreview, next, nextPreview }); }
+      catch (e) { if (ed.rel === rel) refused(rel, String((e && e.message) || e || 'refused'), Math.max(seq, ed.late ? ed.late.o.seq : 0)); return null; }
+      if (ed.rel !== rel) return null;
+      ed.entered = true;
       if (r && typeof r === 'object') { ed.header = Object.assign({}, ed.header || {}, r); ed.path = r.canvas || 'image'; ed.decoder = r.decoderCanvas != null ? r.decoderCanvas : null; noteAsShot(r); }
       pushFacts(true);
       if (ed.path === 'image') imgSubmit('base', true);
+      else if (ed.late) { const q = ed.late; ed.late = null; edit.look(q.look, q.o); }
       zoomWatch();
       return edit.facts();
     },
-    leave() { watchHoles(false); ed.rel = null; ed.loupe = false; ed.zoom = null; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
+    leave() { watchHoles(false); ed.rel = null; ed.entered = false; ed.late = null; ed.refused = null; ed.loupe = false; ed.zoom = null; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
     // The canvas rect in CSS px from the page's top-left, on layout and resize; `visible` = Edit shows.
     // {force: true} (the probe) keeps the canvas up whatever the page's view is.
     // `holes` (on the rect or in `o`): page chrome lying over the photo, [{x, y, w, h}] in CSS px as
@@ -831,6 +864,7 @@
       ed.force = !!(o && o.force) && !!visible;
       ed.rect = rect && rect.w > 0 && rect.h > 0 ? { x: rect.x, y: rect.y, w: rect.w, h: rect.h } : null; ed.visible = !!visible && !!ed.rect;
       const holes = (o && Array.isArray(o.holes) && o.holes) || (rect && Array.isArray(rect.holes) && rect.holes) || [];
+      ed.holes = holes;
       ed.holesKey = JSON.stringify(ed.visible ? holes : []);
       native('canvasLayout', Object.assign({ visible: ed.visible, dpr: dpr(), holes: ed.visible ? holes : [], vh: window.innerHeight }, ed.rect || { x: 0, y: 0, w: 0, h: 0 })).then(r => { if (r && r.path) { ed.path = r.path; pushFacts(); } }).catch(() => {});
       if (ed.path === 'image' && ed.visible && ed.rel && !img.shown) imgSubmit('base', true);
@@ -843,7 +877,10 @@
       ed.look = look; lastChange = performance.now(); scheduleSave();
       if (o.roi !== undefined) ed.roi = o.roi;
       if (!ed.rel) return 0;
-      if (ed.path === 'native') { const seq = o.seq != null ? o.seq : ++ed.seq; ed.seq = Math.max(ed.seq, seq); native('canvasLook', { look: macLook(look, ed.photo), drag: !!o.drag && !o.key, key: !!o.key, roi: ed.zoom || ed.roi, t: pageNow(), seq }).catch(() => {}); return seq; }
+      if (ed.path === 'native') { const seq = o.seq != null ? o.seq : ++ed.seq; ed.seq = Math.max(ed.seq, seq);
+        if (ed.refused) { hook('luminaPresented', seq); return seq; }
+        if (!ed.entered) { ed.late = { look, o: Object.assign({}, o, { seq }) }; return seq; }
+        native('canvasLook', { look: macLook(look, ed.photo), drag: !!o.drag && !o.key, key: !!o.key, roi: ed.zoom || ed.roi, t: pageNow(), seq }).catch(() => {}); return seq; }
       imgSubmit(o.drag && !o.key ? 'small' : 'base', o.key); return ed.seq;
     },
     // Prompt 1 §3: the page's one preview call. Native path: the look goes to the canvas and null
@@ -851,7 +888,12 @@
     // quarter-size while a slider drags, full otherwise; superseded requests answer 409.
     preview(rel, look, px, seq) {
       if (!rel) return null;
-      if (ed.rel !== rel) edit.enter(rel, look || '');
+      if (ed.rel !== rel) {
+        const entering = edit.enter(rel, look || '', { seq });
+        // Native: the photo and its first look went together; nothing more to send, nothing for the page to draw.
+        if (ed.path === 'native') { lastChange = performance.now(); scheduleSave(); return entering.then(() => null, () => null); }
+      }
+      if (ed.refused && ed.refused.rel === rel && ed.path === 'native') { if (seq) Promise.resolve().then(() => hook('luminaPresented', seq)); return null; }
       ed.look = look || ''; lastChange = performance.now(); scheduleSave();
       if (ed.path === 'native') { if (ed.rect) edit.look(ed.look, { drag: ed.dragging, seq }); return null; }
       const q = { look: macLook(ed.look, ed.photo), px: Math.max(64, Math.round(px || (ed.rect ? Math.max(ed.rect.w, ed.rect.h) * dpr() : 1024))), seq: seq != null ? seq : ++ed.seq, tier: ed.dragging ? 'small' : 'base' };
@@ -861,9 +903,12 @@
     },
     // A rect without `holes` (Edit v22) gets them read off the page, and kept current while it shows.
     canvasRect(r) {
+      // Edit shows again with the photo it left on (no canvasEnter follows): its hooks are new, so the facts go again.
+      const back = !!r && !ed.rect && !!ed.rel && ed.entered;
       ed.autoHoles = !!r && !Array.isArray(r.holes);
       if (ed.autoHoles) { edit.layout(r, true, { holes: holesOf(r) }); watchHoles(true); }
       else { edit.layout(r, !!r); if (!r) watchHoles(false); }
+      if (back) pushFacts(true);
     },
     drag(what) { if (what === 'start') edit.dragStart(); else edit.dragEnd(); },
     // The visible region at 100 %: small renders show only it, and the Mac refines it with RAW 9.

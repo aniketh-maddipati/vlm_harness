@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import WebKit
+import os
 
 /// The whole app window: one WKWebView showing the design's page, full window, no browser chrome.
 struct SetsRootView: NSViewRepresentable {
@@ -51,9 +52,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             let cut = await Task.detached(priority: .userInitiated) { () -> [(folder: String, done: Int, planned: Int, cleaned: Bool)] in
                 SetsExportJournal.recover(in: exports).map { e in
                     if let why = e.recoveryRefused {
-                        NSLog("Lumina: export %@ was cut short: %d of %d done, temp files left: %@", e.id, e.done.count, e.planned.count, why)
+                        LuminaLog.export.error("export \(e.id, privacy: .public) was cut short: \(e.done.count, privacy: .public) of \(e.planned.count, privacy: .public) done, temp files left: \(why, privacy: .private)")
                     } else {
-                        NSLog("Lumina: export %@ was cut short: %d of %d done, %d temp files removed", e.id, e.done.count, e.planned.count, e.tempsRemoved ?? 0)
+                        LuminaLog.export.notice("export \(e.id, privacy: .public) was cut short: \(e.done.count, privacy: .public) of \(e.planned.count, privacy: .public) done, \(e.tempsRemoved ?? 0, privacy: .public) temp files removed")
                     }
                     return (URL(fileURLWithPath: e.destination).lastPathComponent, e.done.count, e.planned.count, e.recoveryRefused == nil)
                 }
@@ -73,7 +74,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 bridge.cards.start()
                 offerEarlierSessions()
             } catch {
-                NSLog("Lumina: web view setup failed: \(error)")
+                LuminaLog.app.fault("web view setup failed: \(String(describing: error), privacy: .private)")
             }
         }
     }
@@ -194,17 +195,25 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     // MARK: Navigation: only our own scheme; downloads go through a save panel
 
+    /// The page is only ever `lumina://`; frames it makes may be about:blank (the CSP allows no
+    /// others). Anything else is never loaded here: a link the user clicked to one of the three
+    /// destinations `SetsExternalLinks` names (Report a bug, LinkedIn, X) is rebuilt and handed to
+    /// their mail app or browser; every other URL is refused (docs/release/TRUST.md I5).
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences) async -> (WKNavigationActionPolicy, WKWebpagePreferences) {
         if action.shouldPerformDownload { return (.download, preferences) }
-        guard let url = action.request.url, let scheme = url.scheme, [SetsSchemeHandler.scheme, "about", "blob", "data"].contains(scheme) else {
-            // The page's contact links (X, mail) open in the user's browser or mail app, from a click
-            // only. The page itself never reaches the network.
-            if action.navigationType == .linkActivated, let url = action.request.url, ["https", "mailto"].contains(url.scheme ?? "") {
-                NSWorkspace.shared.open(url)
-            }
-            return (.cancel, preferences)
+        guard let url = action.request.url else { return (.cancel, preferences) }
+        let scheme = url.scheme?.lowercased() ?? ""
+        if scheme == SetsSchemeHandler.scheme || scheme == "about" { return (.allow, preferences) }
+        if ["blob", "data"].contains(scheme), let frame = action.targetFrame, !frame.isMainFrame { return (.allow, preferences) }
+        switch SetsExternalLinks.verdict(for: url, userClicked: action.navigationType == .linkActivated) {
+        case .external(let safe):
+            NSWorkspace.shared.open(safe)
+        case .refuse(let why):
+            LuminaLog.app.error("navigation refused (\(why, privacy: .public)): \(url.absoluteString, privacy: .private)")
+        case .inPage:
+            break
         }
-        return (.allow, preferences)
+        return (.cancel, preferences)
     }
 
     func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) { download.delegate = self }
@@ -299,14 +308,13 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                     do { return (try store.importStore(from: old), nil) } catch { return (nil, "\(error)") }
                 }.value
                 if let failure {
-                    NSLog("Lumina: earlier sessions not brought over: %@", failure)
+                    LuminaLog.app.error("earlier sessions not brought over: \(failure, privacy: .private)")
                     say(SetsEarlierSessions.failed(failure))
                     return
                 }
                 guard let result = imported else { refusal = SetsEarlierSessions.panelRefusal; continue }
-                NSLog("Lumina: earlier sessions: %d sessions, %d headers, %d recents brought over; %d already here, %d kept as they are here; skipped %@",
-                      result.sessions, result.headers, result.recents, result.alreadyHere, result.keptNewer,
-                      result.skipped.map { "\($0.key.rawValue) \($0.value)" }.sorted().joined(separator: ", "))
+                let skipped = result.skipped.map { "\($0.key.rawValue) \($0.value)" }.sorted().joined(separator: ", ")
+                LuminaLog.app.notice("earlier sessions: \(result.sessions, privacy: .public) sessions, \(result.headers, privacy: .public) headers, \(result.recents, privacy: .public) recents brought over; \(result.alreadyHere, privacy: .public) already here, \(result.keptNewer, privacy: .public) kept as they are here; skipped \(skipped, privacy: .public)")
                 try? bridge.shoots.markImportAsked()
                 refreshRecents()
                 webView?.evaluateJavaScript("window.__lumina && __lumina.recents()", completionHandler: nil)
@@ -330,7 +338,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             webView.load(URLRequest(url: SetsSchemeHandler.pageURL))
         case .ask:
             // It keeps stopping (a file that kills the page would loop forever): ask, once.
-            NSLog("Lumina: the page stopped again after %d reloads in %.0f s; not reloading", reloadPolicy.limit, reloadPolicy.window)
+            let (limit, secs) = (reloadPolicy.limit, reloadPolicy.window)
+            LuminaLog.app.fault("the page stopped again after \(limit, privacy: .public) reloads in \(secs, format: .fixed(precision: 0), privacy: .public) s; not reloading")
             pageStopped = true
             askAboutStoppedPage(webView)
         }

@@ -18,7 +18,7 @@ not exercised here). Suites:
 
 Needs: gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb (apt), node + playwright (for the fixtures).
 """
-import json, os, signal, socket, subprocess, sys, time, urllib.request
+import json, os, re, signal, socket, subprocess, sys, threading, time, urllib.request
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('WebKit2', '4.1')
@@ -41,7 +41,7 @@ PORT = int(os.environ.get('LUMINA_WEBKIT_PORT') or free_port())
 ORIGIN = f'http://127.0.0.1:{PORT}'
 args = sys.argv[1:]
 OUT = args[args.index('--out') + 1] if '--out' in args else os.path.join(os.environ.get('LUMINA_HARNESS_TMP', '/tmp'), 'lumina-webkit')
-suites = [a for i, a in enumerate(args) if not a.startswith('--') and (i == 0 or args[i - 1] != '--out')] or ['contract', 'selftest', 'flow', 'screens']   # 'scroll' runs only when named
+suites = [a for i, a in enumerate(args) if not a.startswith('--') and (i == 0 or args[i - 1] != '--out')] or ['contract', 'selftest', 'flow', 'screens', 'offline']   # 'scroll' runs only when named
 os.makedirs(OUT, exist_ok=True)
 FAILS = []
 
@@ -82,16 +82,32 @@ def wait(ms):
 _FILTER = {}
 
 
+def offline_policy(origin):
+    """The app's offline layers (Lumina/Sets/Core/SetsOffline.swift: content rules, the page's
+    Content-Security-Policy, the no-WebRTC script), read from the Swift source so this sandbox runs
+    exactly what ships. The page's own scheme `lumina:` becomes this sandbox's origin."""
+    src = open(os.path.join(ROOT, 'Lumina/Sets/Core/SetsOffline.swift'), encoding='utf-8').read()
+    lit = lambda name: re.search(r'static let %s = #"""\n(.*?)\n\s*"""#' % name, src, re.S).group(1)
+    dedent = lambda t: '\n'.join(l[4:] if l.startswith('    ') else l for l in t.split('\n'))
+    rules = json.loads(lit('contentRules'))
+    for r in rules:
+        if r['trigger']['url-filter'] == '^lumina:':
+            r['trigger']['url-filter'] = '^' + re.escape(origin).replace('\\:', ':') + '/'
+    assert any(r['action']['type'] == 'block' and r['trigger']['url-filter'] == '.*' for r in rules), 'SetsOffline: no block-all rule'
+    csp = dedent(lit('contentSecurityPolicy')).strip().replace('lumina:', origin)
+    return json.dumps(rules), csp, dedent(lit('pageScript'))
+
+
+POLICY = None   # (rules, csp, script) for ORIGIN, set at start
+
+
 def offline_filter():
-    """The app's own content rule (SetsWebView.make: `^https?://` blocked), compiled by WebKit's content
-    blocker, so the page gets no network here either. The page's sample photos (picsum.photos in
-    lumina-v4-data.js) fail to load in both modes, as in the app."""
+    """The app's content rules (SetsOffline.contentRules), compiled by WebKit's content blocker:
+    every load is blocked but this sandbox's own origin, blob: data: and about:. The page's sample
+    photos (picsum.photos in lumina-v4-data.js) fail to load in both modes, as in the app."""
     if 'f' not in _FILTER:
-        # Content-rule regexes have no lookahead: block every http(s) host with a letter in it, which
-        # leaves only this sandbox's own server (127.0.0.1) reachable.
-        rules = '[{"trigger":{"url-filter":"^https?://[^/:]*[a-z]"},"action":{"type":"block"}}]'
         store = WebKit2.UserContentFilterStore.new(os.path.join(OUT, 'filters'))
-        store.save('lumina-offline', GLib.Bytes.new(rules.encode()), None, lambda st, r: _FILTER.setdefault('f', st.save_finish(r)))
+        store.save('lumina-offline', GLib.Bytes.new(POLICY[0].encode()), None, lambda st, r: _FILTER.setdefault('f', st.save_finish(r)))
         spin(lambda: 'f' in _FILTER, 30)
     return _FILTER['f']
 
@@ -99,9 +115,11 @@ def offline_filter():
 class Page:
     """One offscreen WebKitGTK view. app=True: plumbing.js + the lumina message handler."""
 
-    def __init__(self, app, size=(1440, 900), query='', clock=None, parity=False, storage_writes=True, probe=False):
+    def __init__(self, app, size=(1440, 900), query='', clock=None, parity=False, storage_writes=True, probe=False, layers=('rules', 'csp', 'script'), webrtc=False):
         ucm = WebKit2.UserContentManager()
         add = lambda src: ucm.add_script(WebKit2.UserScript.new(src, WebKit2.UserContentInjectedFrames.TOP_FRAME, WebKit2.UserScriptInjectionTime.START, None, None))
+        if 'script' in layers:   # first, in every frame, as SetsWebView.make adds it
+            ucm.add_script(WebKit2.UserScript.new(POLICY[2], WebKit2.UserContentInjectedFrames.ALL_FRAMES, WebKit2.UserScriptInjectionTime.START, None, None))
         if clock:
             base = int(time.mktime(time.strptime(clock, '%Y-%m-%dT%H:%M:%S')) * 1000)
             add('(() => { const R = Date, t0 = R.now(), b = %d; const now = () => b + (R.now() - t0); class D extends R { constructor(...a) { if (a.length === 0) super(now()); else super(...a); } static now() { return now(); } } window.Date = D; })();' % base)
@@ -110,6 +128,9 @@ class Page:
         if probe:   # the Mac probe's own page helpers (tile meter, frame pacing); its message posts no-op here
             add(open(os.path.join(ROOT, 'Tools/LuminaProbe/Sources/LuminaProbe/probe.js'), encoding='utf-8').read())
         add('window.__resources = Object.assign(window.__resources || {}, %s);' % json.dumps(ctl('resources')))
+        # A load the page's CSP refused is a page error too (the sample's picsum photos aside: the app
+        # points them at lumina://photo, this sandbox doesn't), so a design that needs a new source fails here.
+        add('addEventListener("securitypolicyviolation", e => { if (!/^https:\\/\\/picsum\\.photos\\//.test(e.blockedURI || "") && !window.__escapeTest) (window.__errors = window.__errors || []).push("csp: " + (e.effectiveDirective || e.violatedDirective) + " " + e.blockedURI); }, true);')
         add('window.__errors = []; addEventListener("error", e => __errors.push(String(e.message) + (e.filename ? " @ " + e.filename + ":" + e.lineno : ""))); addEventListener("unhandledrejection", e => __errors.push("rejection: " + String(e.reason && e.reason.message || e.reason) + " " + String(e.reason && e.reason.stack || "").split("\\n").slice(0, 3).join(" | ")));')
         if app:
             ucm.register_script_message_handler_with_reply('lumina', None)
@@ -118,9 +139,12 @@ class Page:
             add(open(os.path.join(WEB, 'plumbing.js'), encoding='utf-8').read())
             # bridge.open(url) on the Mac evaluates __lumina.openFolder(); here the page picks it up.
             add("setInterval(() => { if (!window.__lumina) return; fetch('/ctl', {method: 'POST', body: JSON.stringify({op: 'takeKick'})}).then(r => r.json()).then(k => { if (k) __lumina.openFolder(); }); }, 150);")
-        ucm.add_filter(offline_filter())
+        if 'rules' in layers:
+            ucm.add_filter(offline_filter())
         self.view = WebKit2.WebView.new_with_user_content_manager(ucm)
         s = self.view.get_settings()
+        if webrtc:   # off by default in WebKitGTK, on in WKWebView: the escape test turns it on
+            s.set_enable_webrtc(True)
         s.set_enable_developer_extras(True)
         s.set_enable_write_console_messages_to_stdout(False)
         self.win = Gtk.OffscreenWindow()
@@ -130,7 +154,8 @@ class Page:
         self.win.show_all()
         self.loaded = False
         self.view.connect('load-changed', lambda v, e: setattr(self, 'loaded', self.loaded or e == WebKit2.LoadEvent.FINISHED))
-        self.view.load_uri(ORIGIN + '/' + urllib.request.quote(PAGE) + ('?' + query if query else ''))
+        q = '&'.join(x for x in (query, '' if 'csp' in layers else 'nocsp=1') if x)   # webkit-server.mjs sends the CSP unless asked not to
+        self.view.load_uri(ORIGIN + '/' + urllib.request.quote(PAGE) + ('?' + q if q else ''))
         if not spin(lambda: self.loaded, 30):
             raise RuntimeError('page did not load')
 
@@ -471,6 +496,159 @@ def scroll():
     json.dump(rows, open(os.path.join(OUT, 'scroll.json'), 'w'), indent=1)
 
 
+class Listener:
+    """A local TCP + UDP listener the escape test aims at: every connection and datagram that
+    reaches it is a way out of the page. TCP connections are recorded with their first line."""
+
+    def __init__(self):
+        self.port, self.hits = free_port(), []
+        self.tcp = socket.socket(); self.tcp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.tcp.bind(('127.0.0.1', self.port)); self.tcp.listen(64); self.tcp.settimeout(0.2)
+        self.udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); self.udp.bind(('127.0.0.1', self.port)); self.udp.settimeout(0.2)
+        self.on = True
+        threading.Thread(target=self._tcp, daemon=True).start()
+        threading.Thread(target=self._udp, daemon=True).start()
+
+    def _tcp(self):
+        while self.on:
+            try:
+                c, _ = self.tcp.accept()
+            except OSError:
+                continue
+            c.settimeout(1.0)
+            try:
+                line = c.recv(4096).split(b'\r\n')[0][:120]
+            except OSError:
+                line = b''
+            self.hits.append('tcp ' + (line.decode('latin-1') if line[:1].isalpha() else 'tls or raw' if line else 'connect'))
+            try:
+                c.sendall(b'HTTP/1.1 200 OK\r\ncontent-type: text/plain\r\naccess-control-allow-origin: *\r\ncontent-length: 2\r\n\r\nok')
+            except OSError:
+                pass
+            c.close()
+
+    def _udp(self):
+        while self.on:
+            try:
+                d, _ = self.udp.recvfrom(4096)
+            except OSError:
+                continue
+            self.hits.append('udp %d bytes%s' % (len(d), ' (STUN)' if d[4:8] == b'\x21\x12\xa4\x42' else ''))
+
+    def close(self):
+        self.on = False
+        self.tcp.close(); self.udp.close()
+
+
+# Every way a page could reach another host that this test knows of. Each entry is one attempt,
+# aimed at the listener (T: http://127.0.0.1:<listener>, H: 127.0.0.1:<listener>). Navigations of
+# the page itself come last (ESCAPE_NAV): one that worked would leave the page.
+ESCAPE = {
+    'fetch': "fetch(T + '/fetch', {mode: 'no-cors'}).catch(() => {})",
+    'fetch https': "fetch('https://' + H + '/fetch-tls', {mode: 'no-cors'}).catch(() => {})",
+    'XMLHttpRequest': "{ const x = new XMLHttpRequest(); x.open('GET', T + '/xhr'); x.send(); }",
+    'WebSocket ws': "new WebSocket('ws://' + H + '/ws')",
+    'WebSocket wss': "new WebSocket('wss://' + H + '/wss')",
+    'EventSource': "new EventSource(T + '/sse')",
+    'sendBeacon': "navigator.sendBeacon(T + '/beacon', 'x')",
+    'img': "new Image().src = T + '/img'",
+    'img srcset': "{ const i = new Image(); i.srcset = T + '/srcset 1x'; document.body.appendChild(i); }",
+    'svg image': "{ const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), i = document.createElementNS('http://www.w3.org/2000/svg', 'image'); i.setAttribute('href', T + '/svg'); s.appendChild(i); document.body.appendChild(s); }",
+    'script src': "{ const e = document.createElement('script'); e.src = T + '/script.js'; document.head.appendChild(e); }",
+    'import()': "import(T + '/module.js').catch(() => {})",
+    'stylesheet': "{ const e = document.createElement('link'); e.rel = 'stylesheet'; e.href = T + '/style.css'; document.head.appendChild(e); }",
+    'css url()': "{ const e = document.createElement('div'); e.style.background = 'url(' + T + '/bg.png)'; e.style.width = e.style.height = '4px'; document.body.appendChild(e); }",
+    'css @import': "{ const e = document.createElement('style'); e.textContent = '@import url(' + T + '/import.css);'; document.head.appendChild(e); }",
+    'font': "new FontFace('x', 'url(' + T + '/font.woff)').load().catch(() => {})",
+    'preconnect': "{ const e = document.createElement('link'); e.rel = 'preconnect'; e.href = T + '/'; document.head.appendChild(e); }",
+    'prefetch': "{ const e = document.createElement('link'); e.rel = 'prefetch'; e.href = T + '/prefetch'; document.head.appendChild(e); }",
+    'preload': "{ const e = document.createElement('link'); e.rel = 'preload'; e.as = 'image'; e.href = T + '/preload'; document.head.appendChild(e); }",
+    'audio': "{ const e = document.createElement('audio'); e.preload = 'auto'; e.src = T + '/a.mp3'; document.body.appendChild(e); }",
+    'video': "{ const e = document.createElement('video'); e.preload = 'auto'; e.src = T + '/v.mp4'; document.body.appendChild(e); }",
+    'iframe': "{ const e = document.createElement('iframe'); e.src = T + '/frame'; document.body.appendChild(e); }",
+    'object': "{ const e = document.createElement('object'); e.data = T + '/object'; document.body.appendChild(e); }",
+    'a ping': "{ const a = document.createElement('a'); a.href = '#ping'; a.ping = T + '/ping'; document.body.appendChild(a); a.click(); }",
+    'worker': "try { new Worker(URL.createObjectURL(new Blob(['fetch(\"' + T + '/worker\")']))); } catch (e) {}",
+    'form post _blank': "{ const f = document.createElement('form'); f.method = 'POST'; f.action = T + '/form'; f.target = '_blank'; document.body.appendChild(f); f.submit(); }",
+    'window.open': "window.open(T + '/open')",
+    'WebRTC STUN': "{ const C = window.RTCPeerConnection; if (C) { const pc = new C({iceServers: [{urls: 'stun:' + H}, {urls: 'turn:' + H + '?transport=tcp', username: 'u', credential: 'p'}]}); pc.createDataChannel('x'); pc.createOffer().then(o => pc.setLocalDescription(o)).catch(() => {}); } }",
+    'WebRTC via about:blank frame': "{ const f = document.createElement('iframe'); document.body.appendChild(f); const C = f.contentWindow && f.contentWindow.RTCPeerConnection; if (C) { const pc = new C({iceServers: [{urls: 'stun:' + H}]}); pc.createDataChannel('x'); pc.createOffer().then(o => pc.setLocalDescription(o)).catch(() => {}); } }",
+}
+ESCAPE_NAV = {
+    'form post': "{ const f = document.createElement('form'); f.method = 'POST'; f.action = T + '/form-self'; document.body.appendChild(f); f.submit(); }",
+    'meta refresh': "{ const m = document.createElement('meta'); m.httpEquiv = 'refresh'; m.content = '0;url=' + T + '/refresh'; document.head.appendChild(m); }",
+    'location': "location.href = T + '/location'",
+}
+
+
+def escape_run(layers):
+    """Every attempt with these layers on, each against a listener of its own; returns
+    {attempt: [hits]} and the number of CSP violations the page reported. One page for ESCAPE, a
+    fresh one for each navigation."""
+    out, reports = {}, 0
+
+    def attempt(p, name, code):
+        lis = Listener()
+        try:
+            # An attempt the page refuses at once throws (a CSP refusal is a SecurityError): that counts as held.
+            p.js("const T = 'http://127.0.0.1:%d', H = '127.0.0.1:%d'; try { %s; } catch (e) {} return true" % (lis.port, lis.port, code))
+            wait(1500 if name.startswith('WebRTC') or name in ESCAPE_NAV else 500)
+        finally:
+            lis.close()
+        out[name] = list(lis.hits)
+
+    def page():
+        p = Page(app=True, layers=layers, webrtc=True)
+        ready(p, True)
+        p.js("window.__escapeTest = true; window.__cspv = 0; addEventListener('securitypolicyviolation', () => __cspv++, true); return true")
+        return p
+
+    p = page()
+    try:
+        for name, code in ESCAPE.items():
+            attempt(p, name, code)
+        wait(500)
+        reports += p.js('return window.__cspv || 0')
+    finally:
+        p.close()
+    for name, code in ESCAPE_NAV.items():
+        p = page()
+        try:
+            attempt(p, name, code)
+        finally:
+            p.close()
+    return out, reports
+
+
+def offline():
+    """The page can't reach another host: every attempt in ESCAPE, with the app's three layers on
+    (SetsOffline), reaches nothing (gated). Then each layer alone, reported, so a layer that stops
+    holding shows before the others do. Also: the page still runs under all three (the suites
+    above ran with them), and the CSP is in effect."""
+    got, reports = escape_run(('rules', 'csp', 'script'))
+    for name, hits in got.items():
+        ok(not hits, 'offline: %s reaches nothing' % name, hits)
+    ok(reports > 0, 'offline: the Content-Security-Policy is in effect (violations reported)', reports)
+    p = Page(app=True, webrtc=True)
+    try:
+        ready(p, True)
+        ok(p.js("return typeof RTCPeerConnection === 'undefined' && typeof webkitRTCPeerConnection === 'undefined' && typeof RTCDataChannel === 'undefined'"), 'offline: no WebRTC constructors in the page')
+        ok(p.js("try { window.RTCPeerConnection = function () {}; } catch (e) {} return typeof RTCPeerConnection === 'undefined'"), 'offline: WebRTC cannot be put back')
+    finally:
+        p.close()
+    none, _ = escape_run(())
+    for layer in ('rules', 'csp', 'script'):
+        alone, _ = escape_run((layer,))
+        held = sorted(n for n in alone if none[n] and not alone[n])
+        left = sorted(n for n in alone if alone[n])
+        print('     %-6s alone holds %d of %d ways out that work without it; still out: %s' % (layer, len(held), sum(1 for n in none if none[n]), ', '.join(left) or 'none'), flush=True)
+    print('     no layer: out by %s' % (', '.join(sorted(n for n in none if none[n])) or 'nothing'), flush=True)
+    # What isn't a way out here even with nothing on (no popup handler in this sandbox; WebKitGTK's
+    # WebRTC may gather no candidate towards a loopback STUN server): those attempts prove nothing
+    # in this run, so the constructor checks above are what holds WebRTC.
+    print('     not a way out in this sandbox: %s' % (', '.join(sorted(n for n in none if not none[n])) or 'none'), flush=True)
+
+
 def stop(signum, _):
     sys.exit('FAIL  webkit.py reached its limit of %d s and was stopped' % LIMIT if signum == signal.SIGALRM else 'stopped by signal %d' % signum)
 
@@ -482,14 +660,16 @@ if __name__ == '__main__':
     for sig in (signal.SIGALRM, signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
         signal.signal(sig, stop)
     signal.alarm(LIMIT)
-    server = subprocess.Popen(['node', os.path.join(ROOT, 'Tests/web/webkit-server.mjs'), str(PORT), os.path.join(OUT, 'work')], stdout=subprocess.PIPE, text=True)
+    POLICY = offline_policy(ORIGIN)
+    server = subprocess.Popen(['node', os.path.join(ROOT, 'Tests/web/webkit-server.mjs'), str(PORT), os.path.join(OUT, 'work')], stdout=subprocess.PIPE, text=True,
+                              env=dict(os.environ, LUMINA_CSP=POLICY[1]))
     line = server.stdout.readline()
     if not line.startswith('ready'):
         sys.exit('server failed: ' + line)
     try:
         for s in suites:
             print('— ' + s, flush=True)
-            {'contract': contract, 'selftest': selftest, 'flow': flow, 'screens': screens, 'scroll': scroll}[s]()
+            {'contract': contract, 'selftest': selftest, 'flow': flow, 'screens': screens, 'scroll': scroll, 'offline': offline}[s]()
     finally:
         server.terminate()
     print(('%d FAIL' % len(FAILS)) if FAILS else 'all ok', '· evidence in', OUT)

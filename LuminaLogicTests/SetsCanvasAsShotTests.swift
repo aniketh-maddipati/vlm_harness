@@ -112,7 +112,8 @@ final class SetsCanvasAsShotTests: XCTestCase {
         let b = try await bridge()
         let canvas = try XCTUnwrap(b.canvas)
         let wb = Look.WhiteBalance(kelvin: 5234.5, tint: 7)
-        canvas.bases.adopt(key(rel), entry(wb))
+        // No body measured yet: the canvas takes RAW 8 (LookRawPolicy.canvasUnmeasured), never RAW 9.
+        canvas.bases.adopt(key(rel, decoder: LookRawPolicy.canvasUnmeasured), entry(wb))
         var pushed = 0
         for _ in 0..<3 {
             let (r, e) = await call(b, ["op": "canvasEnter", "rel": rel, "look": ""])
@@ -150,7 +151,7 @@ final class SetsCanvasAsShotTests: XCTestCase {
         XCTAssertNil(canvas.asShotForReply())
 
         let two = "shoot/DSC00002.ARW"
-        canvas.bases.adopt(key(two), entry(Look.WhiteBalance(kelvin: 5500, tint: 0), source: "jpeg"))
+        canvas.bases.adopt(key(two, decoder: LookRawPolicy.canvasUnmeasured), entry(Look.WhiteBalance(kelvin: 5500, tint: 0), source: "jpeg"))
         let (r2, _) = await call(b, ["op": "canvasEnter", "rel": two, "look": ""])
         let out2 = try XCTUnwrap(r2 as? [String: Any])
         XCTAssertNil(out2["asShot"], "the JPEG stand-in's 5500 K is not a reading"); XCTAssertNil(out2["asShotRel"])

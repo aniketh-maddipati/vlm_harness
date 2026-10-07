@@ -186,10 +186,10 @@ export class Bridge {
       }
       case 'shootHeader': return this.header;
       case 'decoderUpdate': this.canvas.updates++; this.header = Object.assign({}, this.header, { decoder: this.header.newest, offerUpdate: false }); return this.header;
-      case 'canvasEnter': this.canvas.entered.push(msg); return Object.assign({ decoderCanvas: 8, decoderRegion: 8 }, this.header);
+      case 'canvasEnter': this.canvas.entered.push(msg); if (this.canvas.enterMs) await new Promise(r => setTimeout(r, this.canvas.enterMs)); this.canvas.answered = (this.canvas.answered || 0) + 1; if (this.canvas.refuse) throw new Error(this.canvas.refuse); return Object.assign({ decoderCanvas: 8, decoderRegion: 8 }, this.header, { canvas: this.canvas.path });
       case 'canvasLeave': this.canvas.entered.push({ leave: true }); return true;
       case 'canvasLayout': this.canvas.layouts.push(msg); return { path: this.canvas.path };
-      case 'canvasLook': this.canvas.looks.push(msg); return this.canvas.looks.length;
+      case 'canvasLook': this.canvas.looks.push(Object.assign({ answered: this.canvas.answered || 0 }, msg)); return this.canvas.looks.length;
       case 'canvasDrag': this.canvas.drags.push(msg.start); return true;
       case 'canvasZoom': this.canvas.zooms.push(msg.roi || null); this.canvas.zoomRests.push(!!msg.rest); return true;
       case 'canvasLoupe': this.canvas.loupes.push(msg); return true;
