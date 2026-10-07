@@ -525,6 +525,11 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "canvasDrag":
             if body["start"] as? Bool ?? false { canvas?.dragStart() } else { canvas?.dragEnd() }
             return (true, nil)
+        case "canvasZoom":
+            // The part of the photo the page shows in its canvas box (its own zoom and pan); nil = fit.
+            // `rest`: the zoom stopped moving (one full-quality render, background work released).
+            canvas?.zoom(to: roi(body["roi"]), rest: body["rest"] as? Bool ?? false)
+            return (true, nil)
         case "canvasLoupe":
             canvas?.loupe(on: body["on"] as? Bool ?? false, roi: roi(body["roi"]))
             return (true, nil)

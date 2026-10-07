@@ -147,7 +147,7 @@ export class Bridge {
   constructor(parent) {
     this.parent = parent; this.roots = {}; this.pending = null; this.calls = []; this.sessions = {}; this.index = []; this.prefs = null; this.revealed = []; this.gone = new Set(); this.denied = null;
     // The Edit canvas (no Metal here: the image path). What SetsBridge answers, and the renders lumina://render served.
-    this.canvas = { path: 'image', entered: [], layouts: [], looks: [], drags: [], loupes: [], statsCalls: 0, resets: 0, updates: 0 };
+    this.canvas = { path: 'image', entered: [], layouts: [], looks: [], drags: [], zooms: [], zoomRests: [], loupes: [], statsCalls: 0, resets: 0, updates: 0 };
     this.header = { canvas: 'image', raw9: false, raw9Present: false, decoder: 8, newest: 8, offerUpdate: false, slowed: false, bodies: { 'ILCE-7M4': { supported: [7, 8], raw9: false, fastest: 8, developMs: { 7: 30, 8: 20 } } } };
     this.renders = []; this.renderDelayMs = 0; this.renderJpeg = null; this.renderSeq = {};
   }
@@ -191,6 +191,7 @@ export class Bridge {
       case 'canvasLayout': this.canvas.layouts.push(msg); return { path: this.canvas.path };
       case 'canvasLook': this.canvas.looks.push(msg); return this.canvas.looks.length;
       case 'canvasDrag': this.canvas.drags.push(msg.start); return true;
+      case 'canvasZoom': this.canvas.zooms.push(msg.roi || null); this.canvas.zoomRests.push(!!msg.rest); return true;
       case 'canvasLoupe': this.canvas.loupes.push(msg); return true;
       case 'canvasStats': this.canvas.statsCalls++; if (msg.reset) this.canvas.resets++; return { path: this.canvas.path, facts: this.header, latencyMs: [], schedule: {}, bases: {}, tiles: {} };
       case 'writeInto': {

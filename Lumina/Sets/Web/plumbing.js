@@ -625,7 +625,7 @@
   //   window.lumina.canvasRect({x, y, w, h, dpr} | null)   on Edit open, layout, resize, scroll, zoom
   //                                                        (+ holes: [{x, y, w, h}], page chrome over the photo left see-through)
   //   window.lumina.drag('start' | 'end')                  a slider's pointer-down / release
-  //   window.lumina.roi({x, y, w, h} | null)               the visible region at 100 % (also refines it with RAW 9)
+  //   window.lumina.roi({x, y, w, h} | null)               the visible region at 100 % (also refines it with RAW 9; the region itself is read off the page, zoomView)
   // and the hooks the app calls (optional; no-ops when absent):
   //   window.luminaPresented(seq)                          the request is on screen (native path)
   //   window.luminaHistogram({seq, r, g, b, clipHi, clipLo})   256 bins, rest renders only
@@ -747,12 +747,41 @@
     const root = document.querySelector('[data-lumina="canvas"]'); if (!root || (holesObs && holesObs.root === root)) return;
     if (holesObs) holesObs.disconnect();
     holesObs = new MutationObserver(() => {
+      zoomWatch();
       if (holesRaf) return;
       holesRaf = requestAnimationFrame(() => { holesRaf = 0; if (ed.visible && ed.rect && ed.autoHoles) { const h = holesOf(ed.rect); if (JSON.stringify(h) !== ed.holesKey) edit.layout(ed.rect, true, { holes: h, auto: true }); } });
     });
     holesObs.root = root;
     holesObs.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
   };
+  // The page zooms and pans its own picture (pinch, ⌃-wheel, the zoom pill, a drag) with a CSS
+  // transform on the layer that holds the photo's box; the canvas above it has to show the same
+  // part. Edit v22's lumina.roi comes only above 1.2×, clamped to the photo and in image px, so
+  // the region is read off the page instead: the canvas box in fractions of the photo's box as
+  // it sits on screen (x and y from its top-left; below 0 or past 1 where the canvas shows
+  // beyond the photo, as zoomed out). null at fit, where the Mac fits the photo itself.
+  const zoomView = () => {
+    const im = document.querySelector('[data-lumina="canvas"] [data-lumina-img]'), box = im && im.parentElement, layer = box && box.parentElement, r = ed.rect;
+    if (!layer || !r || getComputedStyle(layer).transform === 'none') return null;
+    const b = box.getBoundingClientRect(); if (!(b.width >= 1) || !(b.height >= 1)) return null;
+    const f = v => +v.toFixed(5);
+    return { x: f((r.x - b.left) / b.width), y: f((r.y - b.top) / b.height), w: f(r.w / b.width), h: f(r.h / b.height) };
+  };
+  // Followed frame by frame while it moves (the page eases a zoom step over 200 ms) and for
+  // ZOOM_REST ms after; then, with the page's roi on, the region at rest goes to RAW 9.
+  const ZOOM_REST = 300;
+  let zoomRaf = 0, zoomUntil = 0;
+  const zoomTick = () => {
+    zoomRaf = 0;
+    if (!ed.visible || !ed.rel) return;
+    const z = zoomView(), k = JSON.stringify(z);
+    if (k !== ed.zoomKey) { ed.zoomKey = k; ed.zoom = z; ed.zoomMoving = true; zoomUntil = performance.now() + ZOOM_REST; native('canvasZoom', { roi: z }).catch(() => {}); }
+    if (performance.now() < zoomUntil) { zoomRaf = requestAnimationFrame(zoomTick); return; }
+    // Still: the Mac drew the moving zoom at its drag quality with its background work held; now the full one.
+    if (ed.zoomMoving) { ed.zoomMoving = false; native('canvasZoom', { roi: z, rest: true }).catch(() => {}); }
+    if (ed.loupe && z && k !== ed.loupeKey) { ed.loupeKey = k; native('canvasLoupe', { on: true, roi: z }); }
+  };
+  const zoomWatch = () => { zoomUntil = performance.now() + ZOOM_REST; if (!zoomRaf) zoomRaf = requestAnimationFrame(zoomTick); };
   // The page's look string (Edit v22, LuminaCore.lookString) → the one the Mac renders. Two of the
   // page's numbers rest on the photo, not on zero:
   //   · Temperature and Tint rest on the photo's as-shot pair as the page knows it (the canvas's,
@@ -781,15 +810,16 @@
       const [id, p] = photoAt(l, rel); if (!p) return null;
       const o = l.data.order, k = o.indexOf(id), nb = d => { const q = l.data.byId[o[k + d]]; return q ? [q.path, previewOf(q.lg)] : [null, null]; };
       const [prev, prevPreview] = nb(-1), [next, nextPreview] = nb(1);
-      ed.rel = rel; ed.photo = p; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = false; ed.roi = null; ed.preview = previewOf(p.lg);
+      ed.rel = rel; ed.photo = p; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = ed.loupe && !!zoomView(); ed.roi = null; ed.zoom = null; ed.zoomKey = undefined; ed.zoomMoving = false; ed.loupeKey = null; ed.preview = previewOf(p.lg);
       img.shown = 0; img.tier = null; img.pending = null; ed.seq = 0;
       const r = await native('canvasEnter', { rel, look: macLook(ed.look, p), model: ed.model, preview: previewOf(p.lg), prev, prevPreview, next, nextPreview });
       if (r && typeof r === 'object') { ed.header = Object.assign({}, ed.header || {}, r); ed.path = r.canvas || 'image'; ed.decoder = r.decoderCanvas != null ? r.decoderCanvas : null; noteAsShot(r); }
       pushFacts(true);
       if (ed.path === 'image') imgSubmit('base', true);
+      zoomWatch();
       return edit.facts();
     },
-    leave() { watchHoles(false); ed.rel = null; ed.loupe = false; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
+    leave() { watchHoles(false); ed.rel = null; ed.loupe = false; ed.zoom = null; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
     // The canvas rect in CSS px from the page's top-left, on layout and resize; `visible` = Edit shows.
     // {force: true} (the probe) keeps the canvas up whatever the page's view is.
     // `holes` (on the rect or in `o`): page chrome lying over the photo, [{x, y, w, h}] in CSS px as
@@ -804,6 +834,7 @@
       ed.holesKey = JSON.stringify(ed.visible ? holes : []);
       native('canvasLayout', Object.assign({ visible: ed.visible, dpr: dpr(), holes: ed.visible ? holes : [], vh: window.innerHeight }, ed.rect || { x: 0, y: 0, w: 0, h: 0 })).then(r => { if (r && r.path) { ed.path = r.path; pushFacts(); } }).catch(() => {});
       if (ed.path === 'image' && ed.visible && ed.rel && !img.shown) imgSubmit('base', true);
+      if (ed.visible) zoomWatch();
     },
     // A slider value, as often as the slider emits. {drag: true} while the thumb is held, {key: true}
     // for a keystroke, roi: the visible region {x, y, w, h} in fractions of the frame when zoomed.
@@ -812,7 +843,7 @@
       ed.look = look; lastChange = performance.now(); scheduleSave();
       if (o.roi !== undefined) ed.roi = o.roi;
       if (!ed.rel) return 0;
-      if (ed.path === 'native') { const seq = o.seq != null ? o.seq : ++ed.seq; ed.seq = Math.max(ed.seq, seq); native('canvasLook', { look: macLook(look, ed.photo), drag: !!o.drag && !o.key, key: !!o.key, roi: ed.roi, t: pageNow(), seq }).catch(() => {}); return seq; }
+      if (ed.path === 'native') { const seq = o.seq != null ? o.seq : ++ed.seq; ed.seq = Math.max(ed.seq, seq); native('canvasLook', { look: macLook(look, ed.photo), drag: !!o.drag && !o.key, key: !!o.key, roi: ed.zoom || ed.roi, t: pageNow(), seq }).catch(() => {}); return seq; }
       imgSubmit(o.drag && !o.key ? 'small' : 'base', o.key); return ed.seq;
     },
     // Prompt 1 §3: the page's one preview call. Native path: the look goes to the canvas and null
@@ -836,11 +867,17 @@
     },
     drag(what) { if (what === 'start') edit.dragStart(); else edit.dragEnd(); },
     // The visible region at 100 %: small renders show only it, and the Mac refines it with RAW 9.
-    roi(r) { ed.roi = r || null; edit.loupe(!!r, r || undefined); },
+    // While the page's own zoom is on, the region is the one read off the page (zoomView), sent
+    // once the zoom rests; the page's numbers (image px in Edit v22) only say that it is on.
+    roi(r) {
+      if (!r) { ed.roi = null; ed.loupeKey = null; edit.loupe(false); zoomWatch(); return; }
+      if (zoomView()) { ed.loupe = true; zoomWatch(); return; }
+      ed.roi = r; edit.loupe(true, r);
+    },
     dragStart() { ed.dragging = true; lastChange = performance.now(); if (ed.rel) native('canvasDrag', { start: true }); },
     dragEnd() { ed.dragging = false; lastChange = performance.now(); scheduleSave(); if (!ed.rel) return; native('canvasDrag', { start: false }); if (ed.path === 'image') { clearTimeout(img.restTimer); imgSubmit('base'); } },
     // 100 % with G held: RAW 9 on the visible region (RAW 9 §2).
-    loupe(on, roi) { ed.loupe = !!on; if (roi) ed.roi = roi; if (ed.rel) native('canvasLoupe', { on: !!on, roi: ed.roi }); },
+    loupe(on, roi) { ed.loupe = !!on; if (roi) ed.roi = roi; if (ed.rel) native('canvasLoupe', { on: !!on, roi: on ? ed.roi : null }); },
     // The facts line's inputs: the canvas path, raw 9 yes/no, the pin, the offer (+ Prompt 1's {canvas, raw9, decoder, note}).
     facts() { return Object.assign({ text: factsText(), rel: ed.rel }, ed.header || {}, factsObj()); },
     // The Mac's numbers (the probe reads them): latency, dropped frames, bases resident, tiles, …
@@ -849,7 +886,7 @@
     updateDecoder() { return native('decoderUpdate', {}).then(h => { edit.header(h); return edit.facts(); }); },
     header(h) { if (h && typeof h === 'object') { ed.header = Object.assign({}, ed.header || {}, h); if (h.canvas) ed.path = h.canvas; noteAsShot(h); } pushFacts(); },
     get image() { return img.url; },
-    state() { return { rel: ed.rel, look: ed.look, path: ed.path, rect: ed.rect, visible: ed.visible, force: !!ed.force, dragging: ed.dragging, seq: ed.seq, loupe: ed.loupe, roi: ed.roi,
+    state() { return { rel: ed.rel, look: ed.look, path: ed.path, rect: ed.rect, visible: ed.visible, force: !!ed.force, dragging: ed.dragging, seq: ed.seq, loupe: ed.loupe, roi: ed.roi, zoom: ed.zoom || null,
       image: { shown: img.shown, tier: img.tier, fetches: img.fetches, superseded: img.superseded, inFlight: img.inFlight, pending: !!img.pending, url: img.url }, facts: ed.factsText, header: ed.header }; },
   };
   window.lumina.edit = edit;

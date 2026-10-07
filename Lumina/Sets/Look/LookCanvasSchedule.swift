@@ -23,6 +23,9 @@ nonisolated struct LookCanvasSchedule: Sendable {
     struct ROI: Equatable, Sendable, Codable {
         var x: Double, y: Double, w: Double, h: Double
         var isWhole: Bool { x <= 0 && y <= 0 && w >= 1 && h >= 1 }
+        /// Exactly the photo: nothing to place, the canvas fits it. A region reaching beyond the
+        /// photo (the page zoomed out) is whole and still has a place of its own.
+        var isFit: Bool { x == 0 && y == 0 && w == 1 && h == 1 }
     }
 
     /// One render to start now.

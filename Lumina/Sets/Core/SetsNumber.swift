@@ -83,11 +83,12 @@ nonisolated enum SetsNumber {
     /// when it is missing or not a height a display can hold.
     static func viewportHeight(_ v: Any?) -> Double? { v == nil ? nil : double(v, in: 1...maxCanvasEdge) }
 
-    /// The visible region when zoomed, in fractions of the frame (the whole frame is 0, 0, 1, 1):
-    /// x and y within −8 … 8, w and h within 0 (exclusive) … 8. Anything else: no region.
+    /// The visible region when zoomed, in fractions of the frame (the whole frame is 0, 0, 1, 1;
+    /// zoomed out, the canvas shows beyond it): x and y within −64 … 64, w and h within 0
+    /// (exclusive) … 64. Anything else: no region.
     static func roi(_ d: Any?) -> (x: Double, y: Double, w: Double, h: Double)? {
-        guard let r = d as? [String: Any], let x = double(r["x"], in: -8...8), let y = double(r["y"], in: -8...8),
-              let w = double(r["w"], in: 0...8), let h = double(r["h"], in: 0...8), w > 0, h > 0 else { return nil }
+        guard let r = d as? [String: Any], let x = double(r["x"], in: -64...64), let y = double(r["y"], in: -64...64),
+              let w = double(r["w"], in: 0...64), let h = double(r["h"], in: 0...64), w > 0, h > 0 else { return nil }
         return (x, y, w, h)
     }
 
