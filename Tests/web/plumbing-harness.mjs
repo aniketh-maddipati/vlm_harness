@@ -18,7 +18,7 @@ let fails = 0;
 const ok = (cond, what, extra) => { if (!cond) fails++; console.log((cond ? 'ok   ' : 'FAIL ') + what + (extra !== undefined && !cond ? '  got ' + JSON.stringify(extra) : '')); };
 
 const S = page => page.evaluate(() => { const l = __lumina.logic(); return { view: l.state.view, cur: l.state.cur, marks: l.state.marks, realInfo: l.state.realInfo, n: l.data.order.length, notes: l.state.notes, openNote: l.state.openNote }; });
-const key = (page, k, o = {}) => page.evaluate(([k, o]) => { const codes = { p: 'KeyP', f: 'KeyF', ArrowDown: 'ArrowDown', ArrowRight: 'ArrowRight', Enter: 'Enter', '3': 'Digit3', '2': 'Digit2', o: 'KeyO' }; dispatchEvent(new KeyboardEvent('keydown', { key: k, code: codes[k] || k, bubbles: true, ...o })); dispatchEvent(new KeyboardEvent('keyup', { key: k, code: codes[k] || k, bubbles: true, ...o })); }, [k, o]);
+const key = (page, k, o = {}) => page.evaluate(([k, o]) => { const codes = { K: 'KeyK', p: 'KeyP', f: 'KeyF', ArrowDown: 'ArrowDown', ArrowRight: 'ArrowRight', Enter: 'Enter', '3': 'Digit3', '2': 'Digit2', o: 'KeyO' }; dispatchEvent(new KeyboardEvent('keydown', { key: k, code: codes[k] || k, bubbles: true, ...o })); dispatchEvent(new KeyboardEvent('keyup', { key: k, code: codes[k] || k, bubbles: true, ...o })); }, [k, o]);
 const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); return !!(l.real && l.real.length && !l.state.realLoad && l.state.realInfo); }, null, { timeout: 30000 });
 
 (async () => {
@@ -118,12 +118,12 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   const sid = await page.evaluate(() => __lumina.shootId());
   const keeps = m => Object.values(m || {}).filter(v => v === 'keep').length, soon = [];
   const sample = async () => { await page.waitForTimeout(400); soon.push([keeps((await S(page)).marks), keeps(bridge.sessions[sid] && JSON.parse(bridge.sessions[sid]).marks)]); };
-  await key(page, 'p'); await sample();
-  await key(page, 'ArrowDown'); await page.waitForTimeout(100); await key(page, 'p'); await sample();
+  await key(page, 'K', { shiftKey: true }); await sample();
+  await key(page, 'ArrowDown'); await page.waitForTimeout(100); await key(page, 'K', { shiftKey: true }); await sample();
   ok(soon.every(([have, saved]) => have >= 1 && saved === have), 'session: every keep is saved within 400 ms of its key', soon);
   s = await S(page);
   const keptN = Object.values(s.marks).filter(v => v === 'keep').length;
-  ok(keptN >= 1, 'cull: P keeps', s.marks);
+  ok(keptN >= 1, 'cull: ⇧K keeps', s.marks);
   await page.waitForTimeout(2300);
   const saved = bridge.sessions[sid] && JSON.parse(bridge.sessions[sid]);
   ok(saved && Object.keys(saved.marks).length === keptN && Object.keys(saved.marks).every(k => /DSC0\d+\.ARW$/.test(k) && !k.startsWith('2026')), 'session: marks saved by path inside the folder', saved && saved.marks);
@@ -410,7 +410,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     bridge.delayMs = 25; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
     await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 30000 });
     for (const k of moves) { await key(page, k); await page.waitForTimeout(120); }
-    await key(page, 'p'); await page.waitForTimeout(150);
+    await key(page, 'K', { shiftKey: true }); await page.waitForTimeout(150);
     const mid = await page.evaluate(() => { const l = __lumina.logic(), p = l.data.byId[l.state.cur], el = l.scrollRef.current;
       return { cur: p && p.path, kept: l.kept().map(id => l.data.byId[id].path), still: !!l.state.realLoad, top: el.scrollTop }; });
     await loaded(page); await page.waitForTimeout(600);
@@ -461,10 +461,10 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(fades.n > 0 && fades.none === 0, 'scroll: tiles that scrolled in keep the page\'s fade (brightness, opacity) once shown', fades);
   const order = await page.evaluate(async () => {
     const l = __lumina.logic(); l.setState({ marks: {}, undo: [], cur: l.data.order[0] }); await new Promise(r => setTimeout(r, 300));
-    const d = (key, code) => dispatchEvent(new KeyboardEvent('keydown', { key, code, bubbles: true })), a = l.state.cur;
-    d('p', 'KeyP'); d('ArrowRight', 'ArrowRight'); d('ArrowRight', 'ArrowRight'); d('p', 'KeyP');
+    const d = (key, code, shiftKey = false) => dispatchEvent(new KeyboardEvent('keydown', { key, code, shiftKey, bubbles: true })), a = l.state.cur;
+    d('K', 'KeyK', true); d('ArrowRight', 'ArrowRight'); d('ArrowRight', 'ArrowRight'); d('K', 'KeyK', true);
     const queued = (l._kq || []).length; __lumina.command('undo'); await new Promise(r => setTimeout(r, 600));
-    dispatchEvent(new KeyboardEvent('keyup', { key: 'p', code: 'KeyP', bubbles: true }));
+    dispatchEvent(new KeyboardEvent('keyup', { key: 'K', code: 'KeyK', bubbles: true }));
     return { queued, firstKept: l.state.marks[a] === 'keep', kept: l.kept().length };
   });
   ok(order.queued > 0 && order.firstKept && order.kept === 1, 'keys: menu Undo runs after the keys still queued (undoes the last keep)', order);
@@ -574,7 +574,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(urls.length === 12 && urls.every(u => u.p === u.path && !u.plus && u.status === 200), 'awkward names: every large-view URL names its file, %20 never +, and loads', urls.filter(u => !(u.p === u.path && !u.plus && u.status === 200)));
   const awkPaths = urls.map(u => u.path);
   for (const n of Object.values(awkNames).concat([NFD + ' ?=/DSC01011.ARW'])) ok(awkPaths.includes(AWK + '/' + n), 'awkward names: read ' + JSON.stringify(n), awkPaths);
-  await key(page, 'p'); await page.waitForTimeout(600);                    // a keep: the page sends its warm-ahead list (BRIDGE-v0.03 §6)
+  await key(page, 'K', { shiftKey: true }); await page.waitForTimeout(600);                    // a keep: the page sends its warm-ahead list (BRIDGE-v0.03 §6)
   ok(bridge.prefetches.length &&bridge.prefetches.every(it => awkPaths.includes(it.p)), 'awkward names: prefetch items name read files', bridge.prefetches.slice(0, 3));
   // Edit preview URL (lumina://render) for the most awkward name, fetched as the page's <img> would.
   const relAwk = AWK + '/a+b=c?d&e#f 50%41.ARW', relNfd = AWK + '/' + NFD + '.ARW';

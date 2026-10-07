@@ -1139,3 +1139,68 @@ words should also be in the app, in the app's own look.
   trust-model work): `mailto:` to that address and the one LinkedIn URL.
 - The sheets' text matches `docs/release/listing/privacy.md` and `support.md`; when one changes, so does the other.
 - `probe.sh screens` gains both sheets in prototype and app mode.
+
+## Prompt 17 — ⏎ and ⇧⏎ move, ⇧K and ⇧R decide; no dimmed photos; green keep, red remove (paste into Claude Design)
+
+From the owner, culling a real shoot (2026-10-07). Three rulings; they replace the Pick grammar's
+rule line.
+
+Keys. Today ⏎ keeps the photo and moves on, ⇧⏎ goes back one and keeps it, K is ⏎, R removes and
+moves on, ⇧R goes back one and un-keeps, ⇧K keeps every frame of a stack. Walking a shoot with ⏎
+picks everything it passes. The owner wants moving and deciding on separate keys, and a decision
+to need Shift.
+
+Dimming. Pick darkens a removed tile (`brightness(0.72)`) and the tiles a rule preview would not
+pick (`brightness(0.5) saturate(0.6)`). Edit v22 fades its filmstrip by state (`op`: 0.35 not
+kept, 0.6 no look yet, 0.95 edited; 0.6 until done on the second strip), and the tour says
+"Finished photos turn bright. Unfinished ones stay dim." A dimmed photo cannot be judged; the
+owner wants every photo at full brightness everywhere.
+
+Marks. Kept is a 2 px gold ring (`#FFD27A`), the colour the page also uses for focus, buttons and
+"most detail". Removed is a 2 px ring at 85 % (`rgba(255,138,122,0.85)`). Neither reads at a
+glance in a full grid.
+
+> In Sets v11 (Pick: grid, open stacks, large view) and Edit v22:
+>
+> 1. **⏎ goes forward, ⇧⏎ goes back.** One photo at a time; a closed stack opens and is walked
+>    frame by frame, then closes, in either direction. Holding repeats. Neither ever changes a
+>    keep: no undo step, nothing in the footer.
+> 2. **⇧K keeps, ⇧R marks for removal.** The unit under the cursor (photo, open frame, or every
+>    frame of a closed stack), then on to the next as auto-advance says, as K and R do today. One
+>    undo step each, today's footer words. Pressing the same one again on a photo that already has
+>    that mark clears it.
+> 3. **Those four are the whole of move-and-decide on the keyboard.** Plain K and plain R no
+>    longer decide: the footer names the right key, as it does for U and L. "Back one and keep /
+>    un-keep" (`backDecide`) and "keep every frame" as a separate key go away. Arrows, Space, Z, Q
+>    and ⌘Z, ⌘A, B, the Keep / Remove buttons on a tile, and hold-and-drag painting stay; painting
+>    is held with ⇧K / ⇧R, or tell us what it should be held with.
+> 4. **No photo is ever dimmed, in Pick or in Edit.** Remove every `brightness`, `saturate` and
+>    `opacity` below 1 that is applied to a photo because of its state: removed tiles, the rule
+>    preview's unpicked tiles, Edit's filmstrips (not kept, no look yet, not done), the tour's
+>    sample tiles. Show those states with a mark on the frame, not by changing the picture: for
+>    Edit, a small done / edited mark on the strip tile. Dimming for something that is not a
+>    photo's state (a disabled button, a sheet's backdrop) stays.
+> 5. **Keep is green, remove is red, and both are strong.** A 3 px ring at full strength on the
+>    tile, the same weight for both: kept in the page's green (`#9ED7B0` or a stronger green that
+>    passes on the dark ground), removed in `#FF8A7A` or a stronger red. The same two colours
+>    wherever the state shows: the stack frames strip, the large view's outline and pill, the
+>    time axis, the picks tray, Edit's strips, the Keep / Remove buttons' "kept" and "removed"
+>    state, the tour and key-sheet samples. Gold stays for focus, primary buttons and "most
+>    detail", so it no longer means kept.
+> 6. Everything that names the keys or the look follows: `GRAMMAR` in `lumina-v4-data.js` (rule
+>    line, MOVE, DECIDE, DRAG, the pass line "⏎ keeps, R drops"), `GRAMMAR.md`, the tour and its
+>    key chips (`['⏎','keep'],['R','remove']`, the stack chips, the Edit card's sentence), the key
+>    bar, the footer hints ("K keeps, R removes"), the "⏎ confirms" tip on a photo brought back
+>    from an earlier shoot, and `lumina-selftest.js`. Open's "⏎ open" and Save's "⌘⏎ save" do not
+>    change.
+
+### How Prompt 17 is checked once its handoff lands
+
+- `node Tests/web/plumbing-harness.mjs` and the 17 probe scenarios that press `Enter`, plus those
+  that press plain K or R, move to ⇧K / ⇧R. New checks: 10 × ⏎ then 10 × ⇧⏎ over undecided photos
+  leaves 0 kept, 0 undo steps and the cursor where it started; ⇧K keeps one, ⇧R removes one, plain
+  K and R change nothing.
+- No `[data-lumina]` photo tile or Edit strip tile has a computed `filter` or an `opacity` below 1
+  in any state (kept, removed, rule preview, not edited).
+- `probe.sh selftest` passes; `probe.sh screens` re-recorded (every screen with a kept or removed
+  tile changes colour).

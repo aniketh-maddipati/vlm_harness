@@ -67,7 +67,7 @@ struct LuminaCommands: Commands {
             Button("Paste Settings  ⌘V") { send("paste") }
         }
         CommandMenu("Pick") {
-            Button("Keep  P") { send("keep") }
+            Button("Keep  ⇧K") { send("keep") }
             Button("Keep Row") { send("keepRow") }.keyboardShortcut("a", modifiers: .command)
             Button("Show Picks Only  ⇧P") { send("pass") }
             Divider()

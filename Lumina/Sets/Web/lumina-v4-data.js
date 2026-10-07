@@ -2,7 +2,7 @@
 // value formatters, and the "this shoot" facts. No UI.
 (function(g){
 const GRAMMAR = `LUMINA PICK GRAMMAR
-Rule: a photo is kept or not. ⏎ keeps, R un-keeps, both move on. ⇧ does the same going back. Arrows just pass. The cursor acts on the unit under it. ⇧ works inside a stack.
+Rule: ⏎ goes forward, ⇧⏎ goes back. ⇧K keeps, ⇧R marks for removal. Green is kept, red is removed. Arrows just pass. The cursor acts on the unit under it. ⇧ works inside a stack.
 Unit = a photo, or a closed stack (burst/bracket). Two states: kept or not. Nothing is deleted; Save lists what wasn't kept and offers another pass, as many as you like. Every decision is one undo step and reports in the footer.
 
 MOVE
@@ -12,18 +12,17 @@ MOVE
 ⌥←→           skip a whole stack or run of singles
 ⌘←→           previous / next row
 ⌥↑↓           previous / next group in a row not yet seen
-⏎             photo: keep, next · closed stack: open · open frame: keep, next frame · after the last frame the stack closes
-⏎ hold        keep and move on, repeating · a closed stack keeps its best frame · Space opens the large view
+⏎             next photo · closed stack: open · open frame: next frame · after the last frame the stack closes · changes nothing
+⇧⏎            the same, going back · hold either to repeat
 ⌥↓            next row not yet seen
 esc           close the stack
 
 DECIDE (the unit under the cursor)
-K             same as ⏎
-R             not kept, next · closed stack: un-keeps every frame
-⇧⏎ / ⇧R       back one, and keep it / un-keep it
-K R           in an open stack or large view: the frame shown
+⇧K            keep, next · again: un-keep · closed stack: every frame
+⇧R            mark for removal, next · again: clear · closed stack: every frame
+K R           alone: not used · the footer names the right key
+⇧K ⇧R         in an open stack or large view: the frame shown
 ⌘A            keep every photo in this row · 600 ms preview · esc cancels · one undo
-⇧K            stack (open or closed): keep every frame
 Q / ⌘Z        undo · ⇧Q / ⇧⌘Z redo · the key bar shows how many steps each way
 ⌥⌘⌫          start over · press twice · clears every keep for this shoot · one undo step
 U L G Y 1–5   not used · the footer names the right key
@@ -32,7 +31,7 @@ U L G Y 1–5   not used · the footer names the right key
 SEEN · PASSES
 a row is marked seen when the cursor leaves it
 ⇧U            rows not yet seen only
-⇧P            start the next pass: only what you kept · ⏎ keeps, R drops · rows reset to not seen
+⇧P            start the next pass: only what you kept · ⇧K keeps, ⇧R removes · rows reset to not seen
               later ⇧P just shows this pass's photos or all photos · Save lists every pass: All → Pass 1 → Pass 2 …
 ⇧P again      all photos, picks tray hidden · ⇧P once more shows the tray · esc: all photos with the tray
 picks tray  along the bottom · every pick in time order · click one to jump
@@ -54,7 +53,7 @@ double-click stack badge      open the stack
 double-click row header       focus the row · ⌘A keeps every photo in it
 
 DRAG
-hold P or R + drag    paint keep across tiles · esc cancels · one step
+hold ⇧K or ⇧R + drag  paint keep / remove across tiles · esc cancels · one step
 row header ↑↓         move the boundary a group at a time · onto the previous header merges
 stack edge → / ←      open / close the stack
 

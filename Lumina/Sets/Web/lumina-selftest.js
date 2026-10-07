@@ -15,12 +15,12 @@
     if(!big){
       await T('page exposes luminaState',()=>typeof w().luminaState==='function');
       await T('⌘2 opens Cull',async()=>{ await tap('2','Digit2',{metaKey:true}); await wait(300); return S().view==='cull'; });
-      await T('P keeps the photo under the cursor',async()=>{ await clickTile('[data-lumina=tile]'); const id=S().cur; await tap('p','KeyP'); return S().marks[id]==='keep'; });
-      await T('P on a kept photo keeps it and moves on (never toggles)',async()=>{ await tap('ArrowLeft','ArrowLeft'); const id=S().cur; const was=S().marks[id]; await tap('p','KeyP'); return was==='keep'&&S().marks[id]==='keep'&&S().cur!==id; });
+      await T('⇧K keeps the photo under the cursor',async()=>{ await clickTile('[data-lumina=tile]'); const id=S().cur; await tap('K','KeyK',{shiftKey:true}); return S().marks[id]==='keep'; });
+      await T('⇧K on a kept photo un-keeps it and stays',async()=>{ await tap('ArrowLeft','ArrowLeft'); const id=S().cur; const was=S().marks[id]; await tap('K','KeyK',{shiftKey:true}); const off=was==='keep'&&!S().marks[id]&&S().cur===id; await tap('K','KeyK',{shiftKey:true}); return off&&S().marks[id]==='keep'; });
       await T('luminaState reports the step and pass',async()=>S().step==='pick'&&S().pass>=1&&typeof S().kept==='number');
       await T('rows carry stable keys',async()=>{ const r=document.querySelectorAll('[data-lumina=row][data-key],[data-lumina=row-gap][data-key]'); return r.length>0&&[...r].every(n=>/^k/.test(n.dataset.key)); });
-      await T('R un-keeps (two states only)',async()=>{ const id=S().cur; await tap('p','KeyP'); await tap('ArrowLeft','ArrowLeft'); await tap('r','KeyR'); return !S().marks[id]&&!Object.values(S().marks).includes('out'); });
-      await T('⇧R steps back and un-keeps',async()=>{ const id=S().cur; await tap('p','KeyP'); await tap('R','KeyR',{shiftKey:true}); return S().cur===id&&!S().marks[id]; });
+      await T('⇧R marks for removal, again clears; K and R alone do nothing',async()=>{ const id=S().cur, u=S().undoDepth; await tap('k','KeyK'); await tap('r','KeyR'); const idle=S().undoDepth===u&&S().cur===id; await tap('R','KeyR',{shiftKey:true}); const out=S().marks[id]==='out'; if(S().cur!==id) await tap('ArrowLeft','ArrowLeft'); await tap('R','KeyR',{shiftKey:true}); return idle&&out&&S().cur===id&&!S().marks[id]; });
+      await T('⏎ and ⇧⏎ move and change nothing',async()=>{ const id=S().cur, u=S().undoDepth, m=JSON.stringify(S().marks); await tap('Enter','Enter'); const a=S().cur; await tap('Enter','Enter',{shiftKey:true}); return a!==id&&S().cur!==a&&S().undoDepth===u&&JSON.stringify(S().marks)===m; });
       await T('1–5 change nothing',async()=>{ const u=S().undoDepth; await tap('3','Digit3'); return S().undoDepth===u; });
       await T('F held shows the focus overlay',async()=>{ await tap('ArrowRight','ArrowRight'); await tap(' ','Space'); await wait(250); await K('f','KeyF',{},250); const on=/red = sharp edges/.test(document.body.innerText); await U('f','KeyF'); await tap('Escape','Escape'); await wait(150); return on; });
       await T('Q undoes one step',async()=>{ const u=S().undoDepth; await tap('q','KeyQ'); return S().undoDepth===u-1; });
