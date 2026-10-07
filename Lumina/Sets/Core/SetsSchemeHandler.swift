@@ -83,7 +83,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
             if standInPhotos, path == Self.pageFile || path == Self.editPageFile, let text = String(data: data, encoding: .utf8) {
                 data = Data(text.replacingOccurrences(of: "https://picsum.photos/", with: "\(Self.scheme)://photo/").utf8)
             }
-            respond(task, url, data, mime(path))
+            respond(task, url, data, mime(path), headers: path.hasSuffix(".html") ? SetsOffline.pageHeaders : [:])
         case "vendor":
             guard Self.vendorFiles.contains(path), let data = try? Data(contentsOf: vendorRoot.appendingPathComponent(path)) else { return fail(task) }
             respond(task, url, data, "text/javascript")
@@ -202,9 +202,9 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
         task.didFinish()
     }
 
-    private func respond(_ task: WKURLSchemeTask, _ url: URL, _ data: Data, _ mime: String) {
+    private func respond(_ task: WKURLSchemeTask, _ url: URL, _ data: Data, _ mime: String, headers: [String: String] = [:]) {
         let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1",
-                                       headerFields: ["Content-Type": mime, "Content-Length": "\(data.count)"])!
+                                       headerFields: headers.merging(["Content-Type": mime, "Content-Length": "\(data.count)"]) { $1 })!
         task.didReceive(response)
         task.didReceive(data)
         task.didFinish()

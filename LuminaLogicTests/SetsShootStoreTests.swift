@@ -143,4 +143,77 @@ final class SetsShootStoreTests: XCTestCase {
         XCTAssertThrowsError(try store.remove("../victim"))
         XCTAssertEqual(try fm.attributesOfItem(atPath: index.path)[.systemFileNumber] as? NSNumber, before)
     }
+
+    // MARK: Files this build can't read are kept aside (R8)
+
+    private var shoots: URL { support.appendingPathComponent("shoots", isDirectory: true) }
+
+    /// A damaged index is moved to index.damaged.json byte for byte before the next write, and the
+    /// new index holds what was written.
+    func testADamagedIndexIsKeptAsideBeforeItIsReplaced() throws {
+        try fm.createDirectory(at: shoots, withIntermediateDirectories: true)
+        let garbage = Data("[{\"id\": \"0123".utf8)
+        try garbage.write(to: shoots.appendingPathComponent("index.json"))
+        XCTAssertTrue(store.index().isEmpty)
+        try store.upsert(shoot(good))
+        XCTAssertEqual(try Data(contentsOf: shoots.appendingPathComponent("index.damaged.json")), garbage)
+        XCTAssertEqual(store.index().map(\.id), [good])
+    }
+
+    /// One entry that no longer decodes costs that entry, not the Open screen's whole list; the
+    /// original index is still kept aside on the next write, since that write drops the entry.
+    func testOneBadEntryKeepsTheOthers() throws {
+        try store.upsert(shoot(good))
+        let url = shoots.appendingPathComponent("index.json")
+        var list = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+        list.append(["id": "fedcba9876543210", "title": 7])
+        let mixed = try JSONSerialization.data(withJSONObject: list)
+        try mixed.write(to: url)
+        XCTAssertEqual(store.index().map(\.id), [good])
+        try store.saveSummary(good, photos: 4, seen: 1, keepers: 1, last: nil)
+        XCTAssertEqual(try Data(contentsOf: shoots.appendingPathComponent("index.damaged.json")), mixed)
+        XCTAssertEqual(store.index().first?.keepers, 1)
+    }
+
+    func testAGoodIndexIsNeverSetAside() throws {
+        try store.upsert(shoot(good))
+        try store.upsert(shoot("fedcba9876543210"))
+        try store.saveSummary(good, photos: 4, seen: 1, keepers: 1, last: nil)
+        try store.remove("fedcba9876543210")
+        XCTAssertFalse(fm.fileExists(atPath: shoots.appendingPathComponent("index.damaged.json").path))
+    }
+
+    /// A session that is not JSON (the page started over with nothing) is kept as
+    /// session.damaged.json when the page's first save replaces it.
+    func testADamagedSessionIsKeptAside() throws {
+        let folder = shoots.appendingPathComponent(good, isDirectory: true)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        let garbage = Data("{\"v\":2,\"marks\":{\"DSC0".utf8)
+        try garbage.write(to: folder.appendingPathComponent("session.json"))
+        try store.saveSession(good, Data("{\"v\":2}".utf8))
+        XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent("session.damaged.json")), garbage)
+        XCTAssertEqual(store.session(good), Data("{\"v\":2}".utf8))
+    }
+
+    /// A session from a newer format is kept once as session.v<N>.json; later saves in this
+    /// build's format leave that copy alone, and saves in the same format never make one.
+    func testANewerSessionFormatIsKeptAsideOnce() throws {
+        let folder = shoots.appendingPathComponent(good, isDirectory: true)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        let newer = Data("{\"v\":3,\"marks\":{\"DSC00001.ARW\":\"keep\"}}".utf8)
+        try newer.write(to: folder.appendingPathComponent("session.json"))
+        try store.saveSession(good, Data("{\"v\":2,\"marks\":{}}".utf8))
+        try store.saveSession(good, Data("{\"v\":2,\"marks\":{\"a\":1}}".utf8))
+        XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent("session.v3.json")), newer)
+        XCTAssertEqual(store.session(good), Data("{\"v\":2,\"marks\":{\"a\":1}}".utf8))
+        let names = try fm.contentsOfDirectory(atPath: folder.path).sorted()
+        XCTAssertEqual(names, ["session.json", "session.v3.json"])
+    }
+
+    func testSessionVersionReadsV() {
+        XCTAssertEqual(SetsShootStore.sessionVersion(Data("{\"v\":2}".utf8)), 2)
+        XCTAssertEqual(SetsShootStore.sessionVersion(Data("{}".utf8)), 0)
+        XCTAssertNil(SetsShootStore.sessionVersion(Data("[1]".utf8)))
+        XCTAssertNil(SetsShootStore.sessionVersion(Data("{".utf8)))
+    }
 }

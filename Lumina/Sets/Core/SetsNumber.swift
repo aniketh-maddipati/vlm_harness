@@ -79,6 +79,10 @@ nonisolated enum SetsNumber {
         return CGRect(x: out[0], y: out[1], width: out[2], height: out[3])
     }
 
+    /// The page's viewport height in CSS px (`window.innerHeight`) next to the canvas rect, or nil
+    /// when it is missing or not a height a display can hold.
+    static func viewportHeight(_ v: Any?) -> Double? { v == nil ? nil : double(v, in: 1...maxCanvasEdge) }
+
     /// The visible region when zoomed, in fractions of the frame (the whole frame is 0, 0, 1, 1):
     /// x and y within −8 … 8, w and h within 0 (exclusive) … 8. Anything else: no region.
     static func roi(_ d: Any?) -> (x: Double, y: Double, w: Double, h: Double)? {

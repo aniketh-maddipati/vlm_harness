@@ -78,6 +78,8 @@ jobs:
           done
       - name: wording + demo-layer audit (report only)
         run: source Scripts/page_files.sh && python3 Tests/probe/design_audit.py "design/handoff/lumina-cull/$PAGE"
+      - name: trust inventory (docs/release/TRUST.md matches what the code can reach)
+        run: python3 Scripts/trust_check.py
 
       - name: parity tools (ΔE, numpy mirror, refs, report)
         run: python3 -m pip install -q -r Tools/parity/requirements.txt && make parity-test

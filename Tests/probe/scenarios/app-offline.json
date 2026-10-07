@@ -1,0 +1,40 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v11.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "stopOnFailure": false,
+ "checklist": "The page's offline layers are in place in WKWebView (Lumina/Sets/Core/SetsOffline.swift, docs/release/TRUST.md I5): no WebRTC in the page or in a frame it makes (the no-WebRTC script runs in every frame, about:blank and srcdoc included), the Content-Security-Policy header is in effect, and an http, https or WebSocket load is refused. The escape test against a real listener is Tests/web/webkit.py offline (WebKitGTK).",
+ "steps": [
+  {
+   "do": "expect",
+   "js": "return ['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel', 'RTCSessionDescription'].filter(n => typeof window[n] !== 'undefined')",
+   "equals": []
+  },
+  {
+   "do": "expect",
+   "js": "try { window.RTCPeerConnection = function () {}; } catch (e) {} return typeof window.RTCPeerConnection",
+   "equals": "undefined"
+  },
+  {
+   "do": "expect",
+   "js": "const f = document.createElement('iframe'); document.body.appendChild(f); const g = document.createElement('iframe'); g.srcdoc = '<p>x</p>'; document.body.appendChild(g); await new Promise(r => setTimeout(r, 300)); const out = [typeof f.contentWindow.RTCPeerConnection, typeof (g.contentWindow && g.contentWindow.RTCPeerConnection)]; f.remove(); g.remove(); return out",
+   "equals": [
+    "undefined",
+    "undefined"
+   ]
+  },
+  {
+   "do": "expect",
+   "js": "return await new Promise(r => { const f = document.createElement('iframe'); const done = v => { removeEventListener('securitypolicyviolation', on, true); f.remove(); r(v); }; const on = e => done(e.violatedDirective || e.effectiveDirective || true); addEventListener('securitypolicyviolation', on, true); f.src = 'lumina://app/csp-check'; document.body.appendChild(f); setTimeout(() => done(false), 2000); })",
+   "equals": "frame-src"
+  },
+  {
+   "do": "expect",
+   "js": "const tries = [fetch('http://127.0.0.1:9/x').then(() => 'http', () => null), fetch('https://127.0.0.1:9/x').then(() => 'https', () => null), new Promise(r => { try { const w = new WebSocket('ws://127.0.0.1:9/x'); w.onopen = () => r('ws'); w.onerror = w.onclose = () => r(null); } catch (e) { r(null); } })]; return (await Promise.all(tries)).filter(Boolean)",
+   "equals": []
+  }
+ ]
+}

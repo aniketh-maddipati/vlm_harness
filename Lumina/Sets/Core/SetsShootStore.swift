@@ -6,6 +6,9 @@ import Foundation
 ///   shoots/<id>/Lumina.json    the shoot header: the RAW decoder map per body and the pinned
 ///                              decoder version (LookShootHeader, RAW 9 §1 and §7)
 ///   shoots/index.json          recent shoots for the Open screen, newest first
+/// A store file this build can't read whole (damaged, or a session from a newer format) is moved
+/// aside before it would be replaced, never written over: `index.damaged.json`,
+/// `<id>/session.damaged.json`, `<id>/session.v<N>.json` (release task R8).
 /// Only Lumina's own files live here; RAWs and sidecars are never touched.
 nonisolated struct SetsShootStore {
     struct Shoot: Codable, Equatable {
@@ -79,11 +82,34 @@ nonisolated struct SetsShootStore {
         return root.appendingPathComponent(id, isDirectory: true)
     }
 
+    /// The recent shoots, newest first. An entry that does not decode is left out; the rest stay.
     func index() -> [Shoot] {
+        guard let data = try? Data(contentsOf: root.appendingPathComponent("index.json")) else { return [] }
+        return Self.decodeIndex(data).shoots.sorted { $0.opened > $1.opened }
+    }
+
+    /// The entries of an index, and whether every entry decoded (`whole`). Not a list: none, not whole.
+    static func decodeIndex(_ data: Data) -> (shoots: [Shoot], whole: Bool) {
         let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
-        guard let data = try? Data(contentsOf: root.appendingPathComponent("index.json")),
-              let list = try? dec.decode([Shoot].self, from: data) else { return [] }
-        return list.sorted { $0.opened > $1.opened }
+        guard let entries = try? dec.decode([ImportEntry].self, from: data) else { return ([], false) }
+        let shoots = entries.compactMap(\.shoot)
+        return (shoots, shoots.count == entries.count)
+    }
+
+    /// The session format a session's JSON names (`v`, written by plumbing.js's `snapshot`): 0 for
+    /// an object without one, nil when the bytes are not a JSON object.
+    static func sessionVersion(_ data: Data) -> Int? {
+        guard let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        return (obj["v"] as? NSNumber)?.intValue ?? 0
+    }
+
+    /// Moves the file at `url` to `name` beside it (replacing an earlier copy of that name) unless
+    /// `readable` accepts its bytes. Nothing there, or an empty file, is left as it is.
+    private func setAside(_ url: URL, as name: String, unless readable: (Data) -> Bool) throws {
+        guard let data = try? Data(contentsOf: url), !data.isEmpty, !readable(data) else { return }
+        let aside = url.deletingLastPathComponent().appendingPathComponent(name)
+        try? FileManager.default.removeItem(at: aside)
+        try FileManager.default.moveItem(at: url, to: aside)
     }
 
     /// The shoot for a folder at `place` (`id(for:)` of it): the one that is there now (opened
@@ -122,8 +148,18 @@ nonisolated struct SetsShootStore {
         try? Data(contentsOf: dir(id).appendingPathComponent("session.json"))
     }
 
+    /// The page's session for a shoot. The one it replaces is kept aside when this build could not
+    /// have read it: not a JSON object (`session.damaged.json`; the page started empty), or a newer
+    /// format than the one being written (`session.v<N>.json`: a newer build wrote it, so this one
+    /// understood only part of it).
     func saveSession(_ id: String, _ json: Data) throws {
-        try SetsFileOps.replaceOwn(json, at: try dir(id).appendingPathComponent("session.json"))
+        let url = try dir(id).appendingPathComponent("session.json")
+        let incoming = Self.sessionVersion(json) ?? 0
+        try setAside(url, as: "session.damaged.json") { Self.sessionVersion($0) != nil }
+        if let old = try? Data(contentsOf: url), let v = Self.sessionVersion(old), v > incoming {
+            try setAside(url, as: "session.v\(v).json") { _ in false }
+        }
+        try SetsFileOps.replaceOwn(json, at: url)
     }
 
     /// The shoot header (`Lumina.json`), or an empty one.
@@ -165,7 +201,10 @@ nonisolated struct SetsShootStore {
     }
 
     /// The one place the index is written: every entry bounded (`Cap`), whoever made it.
+    /// An index that did not decode whole is kept as `index.damaged.json` first: `list` was made
+    /// without the entries it lost.
     private func write(_ list: [Shoot]) throws {
+        try setAside(root.appendingPathComponent("index.json"), as: "index.damaged.json") { Self.decodeIndex($0).whole }
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         try SetsFileOps.replaceOwn(try enc.encode(list.map(Self.bounded)), at: root.appendingPathComponent("index.json"))
     }

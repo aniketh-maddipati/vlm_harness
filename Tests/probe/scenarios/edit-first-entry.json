@@ -1,0 +1,110 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v11.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "sampleMs": 100,
+ "stopOnFailure": false,
+ "checklist": "The first entry into Edit after launch, through the page's own step (⌘3), not lumina.edit: the canvas gets the photo and the page's first look, the frame for that look is acknowledged (luminaPresented), and the footer leaves 'rendering…'. Then Pick → Edit again, and the next photo. Folder: LUMINA_EDIT_DIR (probe.sh scenarios sets it).",
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_EDIT_DIR}",
+   "via": "js",
+   "timeoutMs": 900000
+  },
+  {
+   "do": "js",
+   "src": "window.__edit=()=>{const el=document.querySelector('[data-lumina=\"canvas\"]');if(!el)return null;const k=Object.keys(el).find(x=>x.startsWith('__reactFiber$'));for(let f=el[k];f;f=f.return){const sn=f.stateNode;if(sn&&sn.logic&&typeof sn.logic.nbInfo==='function')return sn.logic;}return null;};window.__first=()=>lumina.edit.stats().then(s=>{const E=__edit(),i=E?E.nbInfo():null,st=lumina.edit.state();return JSON.stringify({view:__probe.logic().state.view,rel:st.rel,path:st.path,visible:st.visible,rect:st.rect,page:i&&{seq:i.seq,shown:i.shown,pending:i.pending,fallback:i.fallback,facts:i.facts},rendering:!!document.querySelector('[data-lumina=\"rendering\"]'),mac:{rel:s.rel,visible:s.visible,canvas:s.canvas,renders:s.renders,errors:s.renderErrors,facts:s.facts&&s.facts.text,source:s.bases&&s.bases.lastSource,submitted:s.schedule&&s.schedule.submitted}});});return luminaStep('edit')"
+  },
+  {
+   "do": "waitFor",
+   "js": "return __probe.logic().state.view==='edit'&&!!__edit()",
+   "timeoutMs": 10000,
+   "what": "the page shows Edit"
+  },
+  {
+   "do": "waitFor",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'||s.renders>0)",
+   "timeoutMs": 60000,
+   "what": "the canvas drew the photo on the first entry"
+  },
+  {
+   "do": "wait",
+   "ms": 1500
+  },
+  {
+   "do": "js",
+   "src": "return __first()"
+  },
+  {
+   "do": "expect",
+   "js": "const i=__edit().nbInfo(); return lumina.edit.state().path==='image'||(!i.pending&&!document.querySelector('[data-lumina=\"rendering\"]'))",
+   "what": "first entry: the page's look is on screen and the footer is not on rendering…"
+  },
+  {
+   "do": "expect",
+   "js": "const i=__edit().nbInfo(); return !!(i.facts&&i.facts.canvas)&&!i.fallback",
+   "what": "first entry: the footer has the canvas facts and the page does not draw its own preview"
+  },
+  {
+   "do": "js",
+   "src": "return luminaStep('pick')"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "js",
+   "src": "return luminaStep('edit')"
+  },
+  {
+   "do": "wait",
+   "ms": 2500
+  },
+  {
+   "do": "js",
+   "src": "return __first()"
+  },
+  {
+   "do": "expect",
+   "js": "const i=__edit().nbInfo(); return lumina.edit.state().path==='image'||(!i.pending&&!document.querySelector('[data-lumina=\"rendering\"]'))",
+   "what": "second entry: the page's look is on screen"
+  },
+  {
+   "do": "expect",
+   "js": "const i=__edit().nbInfo(); return !!(i.facts&&i.facts.canvas)&&!i.fallback",
+   "what": "second entry: the footer has the canvas facts again"
+  },
+  {
+   "do": "js",
+   "src": "window.__was=lumina.edit.state().rel; __edit().step(1); return __was"
+  },
+  {
+   "do": "waitFor",
+   "js": "const i=__edit().nbInfo(); return lumina.edit.state().rel!==window.__was&&!i.pending",
+   "timeoutMs": 15000,
+   "what": "the next photo is on the canvas and its look acknowledged"
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "js",
+   "src": "return __first()"
+  },
+  {
+   "do": "expect",
+   "js": "const i=__edit().nbInfo(); return lumina.edit.state().path==='image'||(!i.pending&&!document.querySelector('[data-lumina=\"rendering\"]'))",
+   "what": "next photo: the page's look is on screen"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

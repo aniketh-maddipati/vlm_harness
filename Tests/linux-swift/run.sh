@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Linux sandbox for the app's Foundation-only Swift: compiles Lumina/Sets/Core/{SetsFileOps,
-# SetsShootStore,SetsExport,SetsIngest,SetsAuto}.swift and Lumina/Sets/Look/{LookString,LookRules,LookMath,
+# SetsShootStore,SetsExport,SetsIngest,SetsExportMetadata,SetsOffline,SetsExternalLinks,SetsAuto}.swift and Lumina/Sets/Look/{LookString,LookRules,LookMath,
 # LookCanvasSchedule,LookWarmPlan,LookByteCache,LookRawPolicy,LookLensShading,AutoDevelop}.swift unchanged with Swift 6.1 (Docker image
 # swift:6.1-noble) and runs the logic tests that don't need Core Image / ImageIO / AppKit:
 #   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests,
@@ -8,6 +8,7 @@
 #   LookCanvasTests (the canvas schedule, the warm-up plan, the byte cache, the RAW tiers and the pin rule),
 #   SetsShootStoreTests (a shoot id from the page stays inside the store),
 #   SetsShootImportTests (sessions from before the sandbox are brought over, R1e),
+#   SetsExportMetadataTests, SetsOfflineTests, SetsExternalLinksTests (docs/release/TRUST.md I5, I7),
 #   AutoDevelopTests (lumina.auto's recipe units and clamping, the scene-linear measure, SetsAuto's guard and cache).
 # Not covered here (Mac only): SetsBridge, SetsSchemeHandler, SetsCardWatcher (AppKit/WebKit),
 # SetsLookExport, LookPipeline/LookKernels/LookRenderer, AutoDevelopRaw (Core Image, Metal),
@@ -17,7 +18,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
 B="$HERE/Build"; rm -rf "$B"; mkdir -p "$B/Lumina" "$B/Tests"
-for f in SetsFileOps SetsShootStore SetsExport SetsIngest SetsAuto; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
+for f in SetsFileOps SetsShootStore SetsExport SetsIngest SetsExportMetadata SetsOffline SetsExternalLinks SetsAuto; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
 for f in LookString LookRules LookMath LookCanvasSchedule LookWarmPlan LookByteCache LookRawPolicy LookLensShading AutoDevelop; do cp "$ROOT/Lumina/Sets/Look/$f.swift" "$B/Lumina/"; done
 cp "$ROOT/Lumina/Sets/Look/rules-v1.json" "$B/rules-v1.json"     # LookMathTests read it via LUMINA_RULES (only this folder is mounted)
 # swift-corelibs-foundation's FileManager.replaceItemAt fails on Linux and deletes the original
@@ -46,7 +47,8 @@ extension URLResourceValues { var volumeAvailableCapacityForImportantUsage: Int6
 SWIFT
 cp "$ROOT/LuminaLogicTests/SetsTrustTests.swift" "$ROOT/LuminaLogicTests/LookStringTests.swift" "$ROOT/LuminaLogicTests/LookMathTests.swift" \
    "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" \
-   "$ROOT/LuminaLogicTests/SetsShootStoreTests.swift" "$ROOT/LuminaLogicTests/SetsShootImportTests.swift" "$ROOT/LuminaLogicTests/AutoDevelopTests.swift" "$B/Tests/"
+   "$ROOT/LuminaLogicTests/SetsShootStoreTests.swift" "$ROOT/LuminaLogicTests/SetsShootImportTests.swift" "$ROOT/LuminaLogicTests/AutoDevelopTests.swift" \
+   "$ROOT/LuminaLogicTests/SetsExportMetadataTests.swift" "$ROOT/LuminaLogicTests/SetsOfflineTests.swift" "$ROOT/LuminaLogicTests/SetsExternalLinksTests.swift" "$B/Tests/"
 # SetsFileOpsTests and SetsSidecarTests without any test that needs Core Image, or the locked-file
 # test (Linux has no user-immutable flag for FileManager to set).
 for t in SetsFileOpsTests SetsSidecarTests; do
