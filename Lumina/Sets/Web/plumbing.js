@@ -195,6 +195,28 @@
     } finally { setTimeout(viewLoop, 150); }
   };
 
+  // lumina.auto (BRIDGE-v0.02 §1). The Edit page names a photo by its path, its id or its file name (with or
+  // without the extension); the Mac knows it as "<folder>/<path inside it>", as shootOpened's bodies do. A name
+  // two photos share names neither. Only photos of a folder the Mac read have a RAW behind them.
+  const autoRel = x => {
+    const l = current; if (!l || !l.data || !l.real || x == null || typeof x === 'object') return null;
+    const s = String(x); if (!s || s.length > 4096) return null;
+    const name = (l.state.realInfo && l.state.realInfo.name) || '', relOf = p => name + '/' + keyOf(p), byId = l.data.byId || {};
+    if (Object.prototype.hasOwnProperty.call(byId, s)) return relOf(byId[s]);
+    const [, p] = photoAt(l, s); if (p) return relOf(p);
+    const want = s.toLowerCase(), stem = !/\.[^.\/]+$/.test(s);
+    const hits = Object.values(byId).filter(q => { const f = keyOf(q).split('/').pop().toLowerCase(); return f === want || (stem && f.replace(/\.[^.]+$/, '') === want); });
+    return hits.length === 1 ? relOf(hits[0]) : null;
+  };
+  // What the Mac answers, kept to the page's keys and finite numbers; anything else is null.
+  const AUTO_KEYS = ['ev', 'wb', 'tint', 'hl', 'sh', 'wh', 'bl', 'con'];
+  const autoOk = r => {
+    if (!r || typeof r !== 'object' || !r.look || typeof r.look !== 'object' || typeof r.version !== 'string') return null;
+    const look = {}; for (const k of AUTO_KEYS) { const v = r.look[k]; if (typeof v === 'number' && isFinite(v)) look[k] = v; }
+    return Object.keys(look).length ? { look, version: r.version } : null;
+  };
+  const autoAsks = new Map();   // rel → the ask in flight (the Mac keeps the answers, per file + AutoDevelop version)
+
   // The data contract the design reads. Absent in the browser prototype; present in the app.
   window.lumina = Object.assign(window.lumina || {}, {
     app: true, debug: !!cfg.debug, persisted: true,
@@ -226,6 +248,15 @@
       return native('near', { a: A, b: B }).then(d => (typeof d === 'number' && isFinite(d) ? d : null), () => null);
     },
     nearLimit: typeof cfg.nearLimit === 'number' ? cfg.nearLimit : null,
+    // Auto from the RAW (BRIDGE-v0.02 §1): the Mac runs AutoDevelop on the photo's RAW, never on its embedded
+    // JPEG, and resolves {look: {ev, wb, tint, hl, sh, wh, bl}, version} in the Edit page's slider units (ev in
+    // stops, wb in K, the rest −100 … 100; wb and tint absent = as shot), or null (not a RAW the Mac read, or one
+    // it can't develop). Edit's A key asks here first; §1 wants arrival-auto and scene matching to as well.
+    auto: rel => {
+      const r = autoRel(rel); if (!r) return Promise.resolve(null);
+      if (!autoAsks.has(r)) autoAsks.set(r, native('auto', { rel: r }).then(autoOk, () => null).finally(() => autoAsks.delete(r)));
+      return autoAsks.get(r);
+    },
     // Exports a crash or kill cut short, found at launch (SetsExportJournal.recover): the page says so
     // once on Open (CHANGES-v0.04 D3). [{folder, done, planned, cleaned}], newest first.
     cutShort: Array.isArray(cfg.cutShort) ? cfg.cutShort : [],

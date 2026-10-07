@@ -1,0 +1,85 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v11.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Auto from the RAW (BRIDGE-v0.02 §1, prompts/PROMPT-auto-backend.md): lumina.auto(rel) answers AutoDevelop's {look, version} for real ARWs in the Edit page's slider units, the same answer twice (cached per file + version), null for a path that was not read; and in the app, A in Edit applies it and the footer says \"Auto · …\", never \"Auto (estimate)\". Folder: LUMINA_EDIT_DIR (probe.sh auto sets it).",
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_EDIT_DIR}",
+   "via": "js",
+   "timeoutMs": 900000
+  },
+  {
+   "do": "expect",
+   "js": "const P = __probe.logic().real.slice(0, 5); const out = []; for (const p of P) { const r = await lumina.auto(p.path); const L = r && r.look; out.push(!!L && typeof r.version === 'string' && r.version.length > 0 && typeof L.ev === 'number' && L.ev >= -5 && L.ev <= 5 && Math.abs(L.ev * 20 - Math.round(L.ev * 20)) < 1e-9 && ['hl','sh','wh','bl'].every(k => typeof L[k] === 'number' && L[k] >= -100 && L[k] <= 100 && L[k] === Math.round(L[k])) && (L.wb == null || (L.wb >= 2500 && L.wb <= 10000 && L.tint >= -150 && L.tint <= 150))); } return out.length > 0 && out.every(Boolean)",
+   "equals": true,
+   "what": "lumina.auto answers {look, version} for real ARWs, in slider units (ev on the 0.05 step, tones whole numbers in −100 … 100, wb 2500 … 10000 K with its tint)"
+  },
+  {
+   "do": "js",
+   "src": "const P = __probe.logic().real.slice(0, 5); const out = {}; for (const p of P) out[p.path.split('/').pop()] = await lumina.auto(p.path); window.__autoFirst = out; return JSON.stringify(out)"
+  },
+  {
+   "do": "expect",
+   "js": "const P = __probe.logic().real.slice(0, 5), t0 = performance.now(); const out = {}; for (const p of P) out[p.path.split('/').pop()] = await lumina.auto(p.path); return [JSON.stringify(out) === JSON.stringify(window.__autoFirst), performance.now() - t0 < 1000]",
+   "equals": [
+    true,
+    true
+   ],
+   "what": "asked again: the same answers, from the cache (per file + AutoDevelop version)"
+  },
+  {
+   "do": "expect",
+   "js": "const p = __probe.logic().real[0]; return [await lumina.auto(p.path.split('/')[0] + '/NOPE.ARW'), await lumina.auto('../' + p.path), await lumina.auto(42)]",
+   "equals": [
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "do": "js",
+   "src": "try { localStorage.setItem('lumina.edit.intro.v1', '1'); } catch (_) {} return window.luminaCommand('stepEdit')"
+  },
+  {
+   "do": "waitFor",
+   "js": "return __probe.logic().state.view === 'edit' && !!window.luminaEdit",
+   "timeoutMs": 20000,
+   "what": "Edit is the step"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "key",
+   "k": "a",
+   "settleMs": 100
+  },
+  {
+   "do": "waitFor",
+   "js": "const m = document.body.innerText.match(/Auto( · | \\(estimate\\))[^\\n]*/); if (m) window.__autoFoot = m[0]; return !!m",
+   "timeoutMs": 30000,
+   "what": "the Edit footer names Auto"
+  },
+  {
+   "do": "expect",
+   "js": "return [/^Auto · /.test(window.__autoFoot || ''), /estimate|recorded/.test(window.__autoFoot || '')]",
+   "equals": [
+    true,
+    false
+   ],
+   "what": "in the app the footer says \"Auto · …\" (the backend's AutoDevelop), never \"Auto (estimate)\" or \"Auto · recorded\""
+  },
+  {
+   "do": "snap",
+   "name": "edit-auto"
+  }
+ ]
+}

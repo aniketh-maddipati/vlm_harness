@@ -112,6 +112,28 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(near.unknown === null && near.none === null && (bridge.nears || []).length === 2, 'near: a path that was not read resolves to null without asking the Mac', { near, asked: (bridge.nears || []).length });
   ok(await page.evaluate(() => window.lumina.readingCard === false), 'card: readingCard false for a folder');
 
+  // Auto from the RAW (BRIDGE-v0.02 §1): lumina.auto(rel) asks the Mac's AutoDevelop. The Edit page names a
+  // photo by path, id or file name; the Mac always gets "<folder>/<path>". Null without asking for anything else.
+  bridge.autos = []; bridge.autoDelayMs = 50;
+  const au = await page.evaluate(async () => {
+    const l = __lumina.logic(), P = l.real, p = P[2], id = Object.keys(l.data.byId).find(k => l.data.byId[k].path === p.path) || null;
+    const twice = await Promise.all([lumina.auto(p.path), lumina.auto(p.path)]);
+    return { path: p.path, byPath: twice[0], same: twice[0] === twice[1] || JSON.stringify(twice[0]) === JSON.stringify(twice[1]),
+      byId: id && await lumina.auto(id), byName: await lumina.auto(p.path.split('/').pop()), byStem: await lumina.auto(p.path.split('/').pop().replace(/\.ARW$/, '')),
+      unknown: await lumina.auto('2026-09-01/NOPE.ARW'), outside: await lumina.auto('../etc/passwd'), none: await lumina.auto(), obj: await lumina.auto({ rel: p.path }), num: await lumina.auto(42), proto: await lumina.auto('constructor'), proto2: await lumina.auto('__proto__') };
+  });
+  const want = { look: { ev: 0.35, wb: 5150, tint: 4, hl: -24, sh: 0, wh: 0, bl: 0 }, version: 'autodevelop-2' };
+  ok(JSON.stringify(au.byPath) === JSON.stringify(want), 'auto: lumina.auto(path) resolves to the Mac\'s {look, version}', au.byPath);
+  ok(au.same && bridge.autos.filter(r => r === au.path).length === 4, 'auto: two asks at once are one message; the id and the file name reach the same path', { autos: bridge.autos, path: au.path });
+  ok([au.byId, au.byName, au.byStem].every(x => JSON.stringify(x) === JSON.stringify(want)), 'auto: the Edit page\'s names (id, file name, stem) resolve too', [au.byId, au.byName, au.byStem]);
+  ok(au.unknown === null && au.outside === null && au.none === null && au.obj === null && au.num === null && au.proto === null && au.proto2 === null, 'auto: a path that was not read, nothing, an object or a number resolves to null', au);
+  ok(bridge.autos.every(r => r === au.path || r === '2026-09-01/NOPE.ARW') && !bridge.autos.includes('../etc/passwd'), 'auto: only paths of the read folder reach the Mac', bridge.autos);
+  bridge.autoAnswer = { look: { ev: 'x', wb: Infinity, junk: 3 }, version: 2 };
+  ok((await page.evaluate(p => lumina.auto(p), au.path)) === null, 'auto: an answer that is not {look of numbers, version string} is null');
+  bridge.autoAnswer = { look: { ev: -0.4, hl: -10, junk: 3, wb: NaN }, version: 'v' };
+  ok(JSON.stringify(await page.evaluate(p => lumina.auto(p), au.path)) === JSON.stringify({ look: { ev: -0.4, hl: -10 }, version: 'v' }), 'auto: only the page\'s keys with finite numbers are passed on');
+  bridge.autoAnswer = null; bridge.autoDelayMs = 0;
+
   // Decisions + autosave
   // A decision is saved on the next tick, not the next 2 s loop: the page's process can stop at any
   // moment. Two keeps 500 ms apart: one tick of a 2 s loop could save one of them in time, never both.
@@ -592,6 +614,25 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   sres = await save();
   ok(sres && sres.t === '12 saved' && !sres.bad, 'awkward names: Save writes 12 sidecars', sres);
   for (const x of ['a+b=c?d&e#f 50%41.xmp', NFD + '.xmp', 'x %2B y.xmp', NFD + ' ?=/DSC01011.xmp']) ok(fs.existsSync(path.join(awk, x)) && /xmp:Rating="3"|<xmp:Rating>3</.test(fs.readFileSync(path.join(awk, x), 'utf8')), 'awkward names: sidecar ' + JSON.stringify(x), fs.readdirSync(awk));
+  // lumina.auto with an awkward path: the Mac gets it unchanged.
+  bridge.autos = [];
+  const awkAuto = await page.evaluate(rel => lumina.auto(rel), relAwk);
+  ok(awkAuto && awkAuto.version === 'autodevelop-2' && bridge.autos[0] === relAwk, 'awkward names: lumina.auto sends the path unchanged', bridge.autos);
+  // The probe's edit-auto scenario, on this stand-in: in the app, A in Edit applies the Mac's Auto and the
+  // footer says "Auto · …", never "Auto (estimate)".
+  bridge.autos = [];
+  await page.evaluate(() => { try { localStorage.setItem('lumina.edit.intro.v1', '1'); } catch (_) {} window.luminaCommand('stepEdit'); });
+  const inEdit = await page.waitForFunction(() => __lumina.logic().state.view === 'edit' && !!window.luminaEdit, null, { timeout: 30000 }).then(() => true, () => false);
+  // A runner can mount Edit before its photo is there: press A until the ask reaches the Mac (never twice
+  // after it has, which would undo), then read the footer.
+  let foot = null;
+  const t0 = Date.now();
+  while (inEdit && !foot && Date.now() - t0 < 30000) {
+    if (!bridge.autos.length) await page.evaluate(() => { for (const t of ['keydown', 'keyup']) dispatchEvent(new KeyboardEvent(t, { key: 'a', code: 'KeyA', bubbles: true })); });
+    foot = await page.waitForFunction(() => { const m = document.body.innerText.match(/Auto( · | \(estimate\))[^\n]*/); return m && m[0]; }, null, { timeout: 1500, polling: 50 }).then(h => h.jsonValue(), () => null);
+  }
+  ok(inEdit && foot && /^Auto · \+0\.35 EV/.test(foot) && !/estimate|recorded/.test(foot) && bridge.autos.length === 1, 'edit: A applies the Mac\'s Auto and the footer says "Auto ·", not "Auto (estimate)"', { inEdit, foot, autos: bridge.autos });
+  await page.evaluate(() => window.luminaCommand('stepCull')); await page.waitForTimeout(200);
   await page.waitForTimeout(2300);            // autosave
   const awkSaved = bridge.sessions['id-' + AWK] && JSON.parse(bridge.sessions['id-' + AWK]);
   ok(awkSaved && ['a+b=c?d&e#f 50%41.ARW', NFD + '.ARW', NFD + ' ?=/DSC01011.ARW'].every(k => awkSaved.marks[k] === 'keep'), 'awkward names: session marks keyed by the exact names', awkSaved && Object.keys(awkSaved.marks));
