@@ -741,7 +741,7 @@ class Component extends DCLogic {
   closeStack(){ const g=this.data.G[this.state.open]; this.pin(); this.setState({open:null,cur:g?g.ranked[0].id:this.state.cur}); }
   // ⏎ / ⇧⏎: one photo forward or back; a closed stack opens and is walked, then closes. Never changes a keep.
   enterMove(d,rep){ const c=this.curCell(); if(!c) return; const C=this.layout().cells;
-    if(c.t==='stack'){ if(!rep) return this.openStack(c.gid,d<0); return this.step(d); }
+    if(c.t==='stack'){ if(!rep&&d>0) return this.openStack(c.gid); return this.step(d); }
     if(c.t==='frame'){ const F=this.data.G[c.gid].frames, k=F.findIndex(f=>f.id===c.id), nf=F[k+d]; if(nf) return this.go(nf.id); let j=c.i; while(j>=0&&j<C.length&&C[j].gid===c.gid) j+=d; if(C[j]){ this._skipT=Date.now(); return this.setState({open:null,cur:C[j].id}); } return this.closeStack(); }
     return this.step(d); }
   // ⇧K: keep the unit under the cursor; again clears it. Returns true when it cleared (the cursor stays).
