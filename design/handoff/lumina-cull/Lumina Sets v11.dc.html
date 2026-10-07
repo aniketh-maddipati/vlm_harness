@@ -1129,7 +1129,7 @@ class Component extends DCLogic {
     if(v==='edit'){ if(cmd&&k>='1'&&k<='4'){ e.preventDefault(); if(!e.repeat) this.setView(Component.STEPS[+k-1][0]); } return; }
     if(k==='Tab') this._kbf=true;
     if(ae&&ae.getAttribute&&/^(button|tab|checkbox)$/.test(ae.getAttribute('role')||'')&&!this._kbf&&k!=='Tab'){ ae.blur(); }
-    else if(ae&&ae.getAttribute&&/^(button|tab|checkbox)$/.test(ae.getAttribute('role')||'')){ if(k==='Enter'||k===' '){ e.preventDefault(); ae.click(); return; } if(k==='Escape'){ ae.blur(); e.preventDefault&&e.preventDefault(); return; } if(k==='Tab') return; if(!cmd&&(k.length===1||/^Arrow/.test(k))) return; }
+    else if(ae&&ae.getAttribute&&/^(button|tab|checkbox)$/.test(ae.getAttribute('role')||'')){ if((k==='Enter'||k===' ')&&!(k==='Enter'&&v==='cull'&&ae.closest&&ae.closest('[data-tile],[data-lumina=large]'))){ e.preventDefault(); ae.click(); return; } if(k==='Enter'){ ae.blur(); } else if(k==='Escape'){ ae.blur(); e.preventDefault&&e.preventDefault(); return; } if(k==='Tab') return; if(!cmd&&(k.length===1||/^Arrow/.test(k))) return; }
     if(k==='Tab') return;
     if(s.pend||this._paint){ e.preventDefault&&e.preventDefault(); if(k==='Escape') return this.cancelPend(); if(this._paint) return; this.flushPend(); const ev={key:k,code,shiftKey:sh,altKey:e.altKey,metaKey:e.metaKey,ctrlKey:e.ctrlKey,repeat:e.repeat,getModifierState:m=>e.getModifierState?e.getModifierState(m):false,preventDefault(){}}; setTimeout(()=>this.onKey(ev),0); return; }
     if(k==='Escape'&&this.state.armed){ e.preventDefault(); const was=this.state.armed; this._soArm=0; this._svArm=0; this.setState({armed:null}); return this.say(was==='save'?'not saved':was==='open'?'stayed here':'kept your decisions'); }
