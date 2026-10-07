@@ -222,7 +222,9 @@ final class LookCanvasController: NSObject {
         #else
         warmPlan = LookWarmPlan(enabled: true)
         #endif
-        bases = LookBases(pipeline: work)
+        // The neighbours' prefetch renders at low GPU priority: one already running when a drag starts
+        // finishes (it can't be stopped), and must not cost the drag a frame.
+        bases = LookBases(pipeline: work, background: pipeline.device != nil && host != nil ? try? LookPipeline(rules: pipeline.rules, device: pipeline.device, lowPriority: true) : nil)
         standIns = LookBases(pipeline: warm, byteCap: LookRawPolicy.baseCacheBytes / 4, maxPhotos: 1)
         tiles = LookRegionTiles(pipeline: work)
         device = pipeline.device
