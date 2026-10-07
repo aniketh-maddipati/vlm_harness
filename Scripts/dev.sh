@@ -33,7 +33,7 @@ for a in "$@"; do
   case "$a" in
     --watch) WATCH=1 ;;
     --quit) QUIT=1 ;;
-    -h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "dev.sh: unknown option $a" >&2; exit 2 ;;
     *) WHAT="$a" ;;
   esac
@@ -78,12 +78,13 @@ if [[ -n "$WHAT" ]]; then
     fi
   fi
 fi
+[[ -d "$SRC/Lumina.xcodeproj" ]] || { echo "dev.sh: no checkout at $SRC (a worktree that was removed? git worktree prune)" >&2; exit 2; }
 mkdir -p "$CACHE"
 STAMP="$CACHE/built.stamp"
 
 # Everything a build reads except the page files: when this changes the app must be relaunched.
 native_hash() {
-  (cd "$SRC" && git ls-files -z -co --exclude-standard -- "${INPUTS[@]}" | grep -zv '^Lumina/Sets/Web/' \
+  (cd "$SRC" && git ls-files -z -co --exclude-standard -- "${INPUTS[@]}" | grep -zv '^Lumina/Sets/Web/' | sort -zu \
     | xargs -0 shasum 2>/dev/null | shasum | cut -d' ' -f1)
 }
 web_hash() { (cd "$SRC/Lumina/Sets/Web" && find . -type f -not -name '.*' -print0 | sort -z | xargs -0 shasum | shasum | cut -d' ' -f1); }
