@@ -53,6 +53,10 @@
   // Stands in for the File the page keeps per photo: the same name and relative path, no bytes.
   const fileRef = rel => ({ name: rel.split('/').pop(), webkitRelativePath: rel, __luminaRel: rel });
   let reading = null, lastRead = null;
+  // The card row's Edit button (the page's impStart('edit')): the read it starts lands in Edit.
+  // Held from the click until that read starts, at most 5 s after the Mac answered (a cancelled
+  // panel answers too, and every open the Mac starts comes through openFolder like any other).
+  let landEdit = 0;
   // Where each photo's embedded preview is, by path, as the native read found it: what the Mac
   // measures for lumina.near. Photos the page read by itself (a dragged-in folder) have none.
   const previewAt = new Map();
@@ -456,7 +460,8 @@
         logic.setState({ openNote: msg }); return logic.say(msg);
       }
       (logic.real || []).forEach(p => { p.src && URL.revokeObjectURL(p.src); /^blob:/.test(p.lg || '') && URL.revokeObjectURL(p.lg); });
-      const run = reading = { name: L.name, total: files.length, done: 0, gone: false };
+      const run = reading = { name: L.name, total: files.length, done: 0, gone: false, edit: performance.now() < landEdit };
+      landEdit = 0;
       const t0 = performance.now(), res = new Array(files.length); let done = 0, i = 0, pre = 0, shown = false, lastB = 0;
       previewAt.clear();
       logic._gold = []; logic._failed = []; logic.real = [];
@@ -523,7 +528,10 @@
         secs: lastRead.secs.toFixed(1), date: first.slice(0, 10).replace(/:/g, '-') };
       const B = logic.data.byId;
       logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, cur: moved && B[s1.cur] ? s1.cur : logic.data.order[0] });
-      logic._landT = Date.now(); logic.setView('cull', true); if (!moved) setTimeout(() => logic.land(), 0);
+      // Edit was asked for: the page's own way into Edit, whatever happened during the read
+      // (`moved` is also true for a card whose sidecars already hold picks).
+      if (run.edit) impStart('edit');
+      else { logic._landT = Date.now(); logic.setView('cull', true); if (!moved) setTimeout(() => logic.land(), 0); }
       if (run.gone) logic.say('Card removed · ' + ok.length + ' of ' + files.length + ' read · re-insert to keep going');
     };
 
@@ -583,10 +591,14 @@
 
     // "Cull This Card": the card's DCIM folder, read in place.
     const impStart = logic.impStart.bind(logic);
-    logic.impStart = () => native('cullCard', {}).then(opened => { if (!opened) impStart(); });
+    logic.impStart = v => {
+      landEdit = v === 'edit' ? Infinity : 0;
+      return native('cullCard', {}).then(opened => { if (!opened) { landEdit = 0; return impStart(v); } if (landEdit) landEdit = performance.now() + 5000; });
+    };
 
     // Recent shoots reopen the real folder (with a security-scoped bookmark).
-    logic.libOpen = x => (x && x.id) ? native('reopen', { id: x.id }).then(ok => { if (!ok) logic.say('not available · ' + (x.where || 'card out or folder moved')); }) : undefined;
+    // A second argument 'edit' lands the read in Edit, as the card's Edit does.
+    logic.libOpen = (x, v) => (x && x.id) ? (landEdit = v === 'edit' ? Infinity : 0, native('reopen', { id: x.id })).then(ok => { if (landEdit) landEdit = ok ? performance.now() + 5000 : 0; if (!ok) logic.say('not available · ' + (x.where || 'card out or folder moved')); }) : undefined;
     // Key C simulated a card in the prototype; the app has real mount notices.
     if (typeof logic.simCard === 'function') logic.simCard = () => {};
 

@@ -380,6 +380,18 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   s = await S(page);
   ok(JSON.stringify(Object.keys(s.marks).sort()) === JSON.stringify(Object.keys(marksBefore).sort()), 'reopen: marks restored', { now: s.marks, before: marksBefore });
   ok((await page.evaluate(() => __lumina.unsaved())) === 0, 'reopen: saved keepers remembered');
+  // The Open screen's Edit choice: the read it starts lands in Edit; the next plain open lands in Pick.
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  await page.evaluate(() => __lumina.logic().libOpen(__lumina.logic().recents()[0], 'edit'));
+  await loaded(page); await page.waitForTimeout(400);
+  ok((await S(page)).view === 'edit', 'open: a folder opened with Edit lands in Edit', (await S(page)).view);
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  await page.evaluate(() => __lumina.logic().libOpen(__lumina.logic().recents()[0]));
+  await loaded(page); await page.waitForTimeout(400);
+  ok((await S(page)).view === 'cull', 'open: the next open without it lands in Pick', (await S(page)).view);
+  await page.evaluate(() => __lumina.logic().impStart('edit')); await page.waitForTimeout(400);
+  ok((await S(page)).view === 'edit', 'open: the card row\'s Edit (impStart("edit")) keeps its choice through plumbing', (await S(page)).view);
+  await page.evaluate(() => __lumina.logic().setView('cull')); await page.waitForTimeout(300);
 
   // Card removed mid-read, then back
   bridge.gone.add('2026-09-01');
