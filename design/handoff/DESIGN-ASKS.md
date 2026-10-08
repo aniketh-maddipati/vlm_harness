@@ -1375,3 +1375,10 @@ Reply with the exact blocks you changed, complete, not a description and not a p
    (`data-lumina="row"`, the `r.full` block, including the tile line).
 2. The JavaScript, as full functions: `layout()`, and any other function you changed (`measure`,
    the row view that sets `r.h` and `r.head`, the tile width).
+
+## Prompt 26 — Crop guides are drawn on the photo
+
+The app draws these on the photo now (2026-10-08), so this does not need a new page. The grid is a
+light hairline (`rgba(239,236,230,0.5)`) you can see the picture through. The dotted gold axis
+(`#FFD27A`, dash 7 5) is drawn in front of the photo, including once it has turned. Neither is a
+hole in the canvas. The page's own strokes are unchanged and sit under the photo.

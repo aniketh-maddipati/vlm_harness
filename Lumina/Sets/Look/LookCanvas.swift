@@ -159,6 +159,35 @@ final class LookCanvasController: NSObject {
     private var dragging = false
     private var dragEndAt: CFTimeInterval?
     private var zoom: LookCanvasSchedule.ROI?
+    /// A crop guide the page drew under the photo, drawn here on top of it. `axis` is a dotted
+    /// gold arm (the one that turns). `grid` is a light hairline you can see the picture through.
+    /// `level` is the faint cross that stays horizontal.
+    struct Guide: Equatable {
+        enum Kind: Equatable { case grid, level, axis }
+        var kind: Kind
+        var a: CGPoint
+        var b: CGPoint
+
+        /// `canvasZoom`'s `guides`: viewport CSS px. `k` is `axis`, `level` or `grid`. At most 24.
+        static func parse(_ value: Any?) -> [Guide] {
+            guard let list = value as? [Any] else { return [] }
+            return list.prefix(24).compactMap { item in
+                guard let d = item as? [String: Any],
+                      let x0 = SetsNumber.double(d["x0"], in: -20_000...20_000),
+                      let y0 = SetsNumber.double(d["y0"], in: -20_000...20_000),
+                      let x1 = SetsNumber.double(d["x1"], in: -20_000...20_000),
+                      let y1 = SetsNumber.double(d["y1"], in: -20_000...20_000) else { return nil }
+                let kind: Kind
+                switch d["k"] as? String {
+                case "axis": kind = .axis
+                case "level": kind = .level
+                default: kind = .grid
+                }
+                return Guide(kind: kind, a: CGPoint(x: x0, y: y0), b: CGPoint(x: x1, y: y1))
+            }
+        }
+    }
+
     /// Crop's draft, which the look does not carry until Apply: the image's straighten (`angle`,
     /// CSS clockwise degrees, and `cover`, the scale that keeps the frame full) and the crop frame
     /// in CSS px from the viewport's top-left. Empty unless the crop tool is open.
@@ -166,6 +195,7 @@ final class LookCanvasController: NSObject {
         var angle = 0.0
         var cover = 1.0
         var frame: CGRect?
+        var guides: [Guide] = []
         var active: Bool { frame != nil || abs(angle) > 0.05 || abs(cover - 1) > 0.001 }
     }
     private var cropDraft = CropDraft()
@@ -520,8 +550,8 @@ final class LookCanvasController: NSObject {
     /// refresh from `small`, with the warm-up, the neighbours' prefetch and the RAW 9 region held;
     /// `rest` (the page saw it still) ends it with one render from `base`. The picture is the same,
     /// so its histogram is not computed again.
-    func zoom(to roi: LookCanvasSchedule.ROI?, angle: Double = 0, cover: Double = 1, frame: CGRect? = nil, rest: Bool = false) {
-        let next = roi == nil ? CropDraft() : CropDraft(angle: angle, cover: cover, frame: frame)
+    func zoom(to roi: LookCanvasSchedule.ROI?, angle: Double = 0, cover: Double = 1, frame: CGRect? = nil, guides: [Guide] = [], rest: Bool = false) {
+        let next = roi == nil ? CropDraft() : CropDraft(angle: angle, cover: cover, frame: frame, guides: Array(guides.prefix(24)))
         let moved = roi != zoom || next != cropDraft
         zoom = roi
         cropDraft = next
@@ -937,7 +967,7 @@ final class LookCanvasController: NSObject {
         var placed = pipeline.output(out).transformed(by: CGAffineTransform(translationX: ox, y: oy))
         if applyDraft {
             // The page's photo box, in the drawable (y up): the full frame fills it, then rotates
-            // and scales once about its centre, clipped to the box the way the page's overflow does.
+            // and scales once about its centre. Corners that leave the box stay in the picture.
             let photo = CGRect(x: ox - visible.minX * s, y: oy - visible.minY * s, width: srcSize.width * s, height: srcSize.height * s)
             placed = draftPlaced(placed, photo: photo, size: size)
         }
@@ -953,26 +983,78 @@ final class LookCanvasController: NSObject {
         return r.width > 1 && r.height > 1 ? r : nil
     }
 
-    /// Straighten and cover scale about the photo's centre, clipped to its box, then the page's dim
-    /// (rgba 22,21,20 at 0.64) on the photo outside the crop frame. A frame that is the box leaves
-    /// the margin undrawn, so the page's own shadow shows there.
+    /// Straighten and cover scale about the photo's centre. The turned rectangle is kept whole:
+    /// a corner that leaves the upright photo stays drawn, and takes the page's dim (rgba 22,21,20
+    /// at 0.64) where it falls outside the crop frame. Pixels outside the canvas are dropped.
+    /// Where the frame covers the whole picture the margin stays undrawn, so the page's shadow shows.
     private func draftPlaced(_ image: CIImage, photo: CGRect, size: CGSize) -> CIImage {
+        Self.draftPlaced(image, photo: photo, canvas: size, angle: cropDraft.angle, cover: cropDraft.cover, frame: draftFrame(size))
+    }
+
+    /// `frame` is the crop window in the same pixel space as `photo` (y up). Nil leaves the turn undimmed.
+    static func draftPlaced(_ image: CIImage, photo: CGRect, canvas: CGSize, angle: Double, cover: Double, frame: CGRect?) -> CIImage {
         var out = image
-        if abs(cropDraft.angle) > 0.05 || abs(cropDraft.cover - 1) > 0.001 {
+        if abs(angle) > 0.05 || abs(cover - 1) > 0.001 {
             let c = CGPoint(x: photo.midX, y: photo.midY)
             let turn = CGAffineTransform(translationX: c.x, y: c.y)
-                .rotated(by: -cropDraft.angle * .pi / 180)
-                .scaledBy(x: cropDraft.cover, y: cropDraft.cover)
+                .rotated(by: -angle * .pi / 180)
+                .scaledBy(x: cover, y: cover)
                 .translatedBy(x: -c.x, y: -c.y)
-            out = out.transformed(by: turn).cropped(to: photo)
+            out = out.transformed(by: turn)
         }
-        guard let frame = draftFrame(size) else { return out }
+        // The drawable's edge, not the upright photo. A corner in the canvas margin stays.
+        let raw = out.extent
+        if canvas.width > 1, canvas.height > 1, !raw.isNull, !raw.isInfinite, raw.width.isFinite, raw.height.isFinite {
+            let visible = raw.intersection(CGRect(origin: .zero, size: canvas))
+            if !visible.isNull, !visible.isInfinite, visible.width > 1, visible.height > 1 {
+                out = out.cropped(to: visible)
+            }
+        }
+        guard let frame else { return out }
         let bounds = out.extent
         guard !bounds.isNull, !bounds.isInfinite, bounds.width.isFinite, bounds.height.isFinite, bounds.width > 1, bounds.height > 1 else { return out }
-        let keep = frame.intersection(bounds)
-        guard !keep.isNull, keep.width > 1, keep.height > 1, keep.width < bounds.width - 4 || keep.height < bounds.height - 4 else { return out }
+        let window = frame.intersection(bounds)
+        guard !window.isNull, window.width > 1, window.height > 1, window.width < bounds.width - 4 || window.height < bounds.height - 4 else { return out }
         let veil = CIImage(color: CIColor(red: 22.0 / 255, green: 21.0 / 255, blue: 20.0 / 255, alpha: 0.64)).cropped(to: bounds)
-        return out.cropped(to: keep).composited(over: veil.composited(over: out))
+        // Source-atop darkens the photo and stays clear in the bounding box's empty corners.
+        let dimmed = veil.applyingFilter("CISourceAtopCompositing", parameters: [kCIInputBackgroundImageKey: out]).cropped(to: bounds)
+        return out.cropped(to: window).composited(over: dimmed).cropped(to: bounds)
+    }
+
+    /// The page's crop guides, on top of the photo. The grid and the level cross are a light
+    /// hairline you can see the picture through. The dotted axis is the gold dash, in front,
+    /// including once it has turned off the horizontal.
+    private func withGuides(_ image: CIImage, size: CGSize) -> CIImage {
+        guard !cropDraft.guides.isEmpty, let canvas = placement?.rect, canvas.width > 1, canvas.height > 1, size.width > 1, size.height > 1 else { return image }
+        let w = Int(size.width.rounded()), h = Int(size.height.rounded())
+        guard w > 1, h > 1, let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return image }
+        let sx = size.width / canvas.width, sy = size.height / canvas.height
+        // The bitmap's origin is the bottom left, matching the drawable (y up).
+        func pt(_ p: CGPoint) -> CGPoint { CGPoint(x: (p.x - canvas.minX) * sx, y: size.height - (p.y - canvas.minY) * sy) }
+        ctx.setLineCap(.butt)
+        // Level sits under the grid, and the dotted axis is last, so a turn still reads in front.
+        for kind in [Guide.Kind.level, .grid, .axis] {
+            for g in cropDraft.guides where g.kind == kind {
+                switch kind {
+                case .axis:
+                    ctx.setStrokeColor(red: 1, green: 210.0 / 255, blue: 122.0 / 255, alpha: 0.95)
+                    ctx.setLineDash(phase: 0, lengths: [7 * sx, 5 * sx])
+                case .level:
+                    ctx.setStrokeColor(red: 239.0 / 255, green: 236.0 / 255, blue: 230.0 / 255, alpha: 0.22)
+                    ctx.setLineDash(phase: 0, lengths: [])
+                case .grid:
+                    ctx.setStrokeColor(red: 239.0 / 255, green: 236.0 / 255, blue: 230.0 / 255, alpha: 0.5)
+                    ctx.setLineDash(phase: 0, lengths: [])
+                }
+                ctx.setLineWidth(max(1, sx))
+                ctx.move(to: pt(g.a))
+                ctx.addLine(to: pt(g.b))
+                ctx.strokePath()
+            }
+        }
+        guard let cg = ctx.makeImage() else { return image }
+        return CIImage(cgImage: cg).composited(over: image)
     }
 
     private func render(_ r: LookCanvasSchedule.Request, entry: LookBases.Entry, standIn: Bool, look: Look, view: LookCanvasView) {
@@ -987,7 +1069,9 @@ final class LookCanvasController: NSObject {
         flightSeq = r.seq
         let t0 = CACurrentMediaTime()
         let dw = CGFloat(drawable.texture.width), dh = CGFloat(drawable.texture.height)
-        let (placed, image, region) = compose(look, tier: r.tier, roi: r.roi, entry: entry, size: CGSize(width: dw, height: dh))
+        let composed = compose(look, tier: r.tier, roi: r.roi, entry: entry, size: CGSize(width: dw, height: dh))
+        let placed = cropDraft.guides.isEmpty ? composed.placed : withGuides(composed.placed, size: CGSize(width: dw, height: dh))
+        let image = composed.image, region = composed.region
         guard let cb = queue.makeCommandBuffer() else { schedule.failed(r); rendering = false; drawAgain(); return }
         let dest = CIRenderDestination(mtlTexture: drawable.texture, commandBuffer: cb)
         dest.colorSpace = displaySpace

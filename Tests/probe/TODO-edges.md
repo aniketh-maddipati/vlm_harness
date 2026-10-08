@@ -3,7 +3,7 @@
 Checked already, in Chromium with the real page and `plumbing.js` (`node Tests/web/plumbing-harness.mjs`, all ok on 2026-10-08):
 
 - Crop keeps the Metal layer up. Straighten and pinch reach the app as an angle, a cover scale, and a box. A second Crop does not stack a second angle. At 0° the app is told 0.
-- The crop grid is a thin hole. The dim around the frame is not a hole. The Ratio / Straighten bar is a hole. There is no filled degree badge on the photo.
+- The crop grid and the dotted axis are drawn on the photo (a light hairline, and a gold dash). They are not holes. The Ratio / Straighten bar is a hole. There is no filled degree badge on the photo.
 - Edit opened while a folder is still being read names each file with the folder, and the end of the read stays in Edit.
 - The Open card's Edit button is remembered, so the read lands in Edit.
 
@@ -14,8 +14,8 @@ The probe's hidden window does not capture the Metal photo, so the pictures belo
 - [ ] Open Crop. The photo fills the canvas just under the bar, with a small margin at the sides and bottom. It is not a small frame floating in the middle, and it is not square.
 - [ ] Drag Straighten. The photo turns with the frame. One photo, not two copies on top of each other.
 - [ ] The angle is on the Straighten control, with "keeps n%" when it applies. Nothing is pasted on the picture. The hint sits at the bottom-left and does not cover the bar.
-- [ ] The grid is a faint line over the photo. No black cross, no black seams through the picture.
-- [ ] Grid steps through thirds, quarters, golden, diagonals, centre cross, none. Under a narrow window the button says only "Grid" and the footer names the one you picked.
+- [ ] Straighten off zero. The dotted gold axis turns with the photo and stays in front of it, including across the picture.
+- [ ] The grid is a light hairline you can see the photo through. Not a solid cut, not a black seam. It still steps through thirds, quarters, golden, diagonals, centre cross, none. Under a narrow window the button says only "Grid" and the footer names the one you picked.
 - [ ] **0°** sets the angle to 0.0° and leaves the frame and ratio. It is greyed when the angle is already 0. One ⌘Z puts the angle back. Footer: "Straighten 0.0°. ⌘Z undoes it."
 - [ ] **Reset** on the bar, and **Reset crop** on the Cropping row, both go back to Original, 0.0°, and the whole photo. One ⌘Z undoes that one reset. Footer: "Crop reset. ⌘Z undoes it." Reset does not leave Crop, apply, or cancel.
 - [ ] Pinch and pan while Crop is open. The photo follows. Letting go settles to the sharp picture.
