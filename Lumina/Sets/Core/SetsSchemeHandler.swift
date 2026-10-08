@@ -24,6 +24,11 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let pageFile = "Lumina Sets v11.dc.html"
     /// Edit is its own page, which support.js fetches when Sets mounts it (`<dc-import name="Lumina Edit v22">`).
     static let editPageFile = "Lumina Edit v22.dc.html"
+    /// The video step's page (design/handoff/lumina-skim), shown only by a Debug build run with
+    /// `LUMINA_PAGE=skim` (Scripts/dev-skim.sh): `SetsPage`. It reads clips through WebKit's own
+    /// `<video>` from a folder the user picks, with no plumbing yet. support.js is Pick's, byte for byte.
+    static let skimPageFile = "Lumina Skim v3.dc.html"
+    static let skimFiles = [skimPageFile, "lumina-video-data-mvp.js"]
     static let vendorFiles = ["react.production.min.js", "react-dom.production.min.js"]
     /// What `lumina://app/<file>` serves. Debug builds and the probe: the same list as
     /// Scripts/page_files.sh, with the design's self-test, which the page asks for only with
@@ -31,7 +36,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     /// (S4): the file stays in the bundle, because the page files ship byte for byte, but the
     /// binary has no name for it, so `?selftest` gets "not served" and the page runs as usual.
     #if DEBUG || LUMINA_TOOLS
-    static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js", "lumina-selftest.js"]
+    static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js", "lumina-selftest.js"] + skimFiles
     #else
     static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js"]
     #endif
@@ -65,7 +70,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 
     static var pageURL: URL {
-        URL(string: "\(scheme)://app/\(pageFile.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)")!
+        URL(string: "\(scheme)://app/\(SetsPage.current.file.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)")!
     }
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
@@ -237,5 +242,36 @@ nonisolated enum StandInPhoto {
         ctx.setFillColor(sky.cgColor); ctx.fill(CGRect(x: 0, y: Int(horizon), width: w, height: h))
         guard let image = ctx.makeImage() else { return nil }
         return NSBitmapImageRep(cgImage: image).representation(using: .jpeg, properties: [.compressionFactor: 0.85])
+    }
+}
+
+/// Which design page the window shows. The app ships Pick (`Lumina Sets v11`, with Edit inside it).
+/// Skim, the video step, is shown only by a Debug build that asks for it with `LUMINA_PAGE=skim`
+/// (Scripts/dev-skim.sh, its own "Lumina Skim" dev app); Release and the probe always show Pick.
+/// Skim has no plumbing yet: no `window.__lumina`, no Edit canvas, no card watcher.
+nonisolated enum SetsPage: String, Sendable {
+    case pick, skim
+
+    static var current: SetsPage {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["LUMINA_PAGE"] == "skim" { return .skim }
+        #endif
+        return .pick
+    }
+
+    var file: String { self == .skim ? SetsSchemeHandler.skimPageFile : SetsSchemeHandler.pageFile }
+
+    /// The menu bar takes ⌘-keys before the page sees them and hands them to `__lumina.command`,
+    /// which only Pick's plumbing provides. On Skim each comes back as the key the page already
+    /// handles, pressed on whatever has focus. Nil: the command has no key on Skim.
+    static func skimKeyScript(for command: String) -> String? {
+        let keys: [String: (key: String, code: String, shift: Bool)] = [
+            "open": ("o", "KeyO", false), "undo": ("z", "KeyZ", false), "redo": ("z", "KeyZ", true),
+            "stepOpen": ("1", "Digit1", false), "stepCull": ("2", "Digit2", false), "stepEdit": ("3", "Digit3", false),
+            "save": ("Enter", "Enter", false),
+        ]
+        guard let k = keys[command] else { return nil }
+        let opts = "{key:'\(k.key)',code:'\(k.code)',metaKey:true,shiftKey:\(k.shift),bubbles:true,cancelable:true}"
+        return "(()=>{const t=document.activeElement||document.body;t.dispatchEvent(new KeyboardEvent('keydown',\(opts)));t.dispatchEvent(new KeyboardEvent('keyup',\(opts)));})()"
     }
 }

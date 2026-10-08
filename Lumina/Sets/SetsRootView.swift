@@ -51,7 +51,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         // with no export cut short it is one directory listing.
         let exports = Self.supportDir.appendingPathComponent("exports", isDirectory: true)
         let res = Bundle.main.resourceURL!
-        let plumbing = (try? String(contentsOf: res.appendingPathComponent("plumbing.js"), encoding: .utf8)) ?? ""
+        // Skim (a Debug build with LUMINA_PAGE=skim) has no plumbing yet: the page runs on its own.
+        let page = SetsPage.current
+        let plumbing = page == .pick ? ((try? String(contentsOf: res.appendingPathComponent("plumbing.js"), encoding: .utf8)) ?? "") : ""
         Task { @MainActor in
             let cut = await Task.detached(priority: .userInitiated) { () -> [(folder: String, done: Int, planned: Int, cleaned: Bool)] in
                 SetsExportJournal.recover(in: exports).map { e in
@@ -72,14 +74,16 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 host.addSubview(wv)
                 webView = wv
                 // The Edit canvas: the one native view over the page (AGENTS.md), above the web view.
-                bridge.attachCanvas(host: host)
+                if page == .pick { bridge.attachCanvas(host: host) }
                 wv.load(URLRequest(url: SetsSchemeHandler.pageURL))
                 host.window?.makeFirstResponder(wv)
-                bridge.cards.start()
-                offerEarlierSessions()
+                if page == .pick {
+                    bridge.cards.start()
+                    offerEarlierSessions()
+                }
                 #if DEBUG
                 if SetsHotReload.isOn {
-                    hotReload = SetsHotReload(root: res, webView: wv, bridge: bridge, plumbing: plumbing) { [weak self] in
+                    hotReload = SetsHotReload(root: res, webView: wv, bridge: bridge, plumbing: page == .pick ? plumbing : nil) { [weak self] in
                         guard let self, let last = self.bridge.shoots.index().first else { return }
                         self.reopen(last.id)
                     }
@@ -96,6 +100,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     /// A menu item: the page presses the key it already handles.
     func command(_ name: String) {
         guard name.allSatisfy({ $0.isLetter }) else { return }
+        if SetsPage.current == .skim {
+            if let js = SetsPage.skimKeyScript(for: name) { webView?.evaluateJavaScript(js, completionHandler: nil) }
+            return
+        }
         webView?.evaluateJavaScript("window.__lumina && __lumina.command('\(name)')", completionHandler: nil)
     }
 

@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./lumina-video-data-mvp.js"></script>
+<style>
+body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+a{color:#EFECE6}a:hover{color:#B8B3AB}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes unfurl{from{opacity:0;transform:scale(0.965)}to{opacity:1;transform:none}}
+input[type=range]{accent-color:#B8B3AB}
+</style>
+</helmet>
+<div data-screen-label="Skim" style="position:relative;height:100vh;display:flex;flex-direction:column;overflow:hidden;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;font-variant-numeric:tabular-nums;font-size:12px;user-select:none;-webkit-user-select:none">
+
+  <div style="flex:none;height:52px;padding:0 20px;display:flex;align-items:center;gap:18px;background:#262523;border-bottom:1px solid rgba(239,236,230,0.08)">
+    <div style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-weight:400;font-size:21px">Lumina</div>
+    <div data-lumina="steps" role="tablist" aria-label="steps" style="flex:none;position:relative;display:grid;grid-template-columns:repeat(3,64px);padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)">
+      <div style="position:absolute;left:2px;top:2px;bottom:2px;width:64px;border-radius:5px;background:#5B5854;box-shadow:0 0.5px 1px rgba(0,0,0,0.4);transform:translateX({{ stX }}px);transition:transform 180ms ease-out"></div>
+      <sc-for list="{{ stepTabs }}" as="sp" hint-placeholder-count="3"><div role="tab" tabIndex="0" aria-selected="{{ sp.on }}" onClick="{{ sp.go }}" style="position:relative;height:24px;display:grid;place-items:center;font-size:12px;color:{{ sp.fg }};cursor:pointer;border-radius:5px" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sp.t }}</div></sc-for>
+    </div>
+    <div style="flex:1 1 0;min-width:110px;display:flex;align-items:center;gap:10px;overflow:hidden;white-space:nowrap">
+      <span style="flex:0 0 auto;max-width:100%;font-size:13px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis">{{ shootName }}</span>
+      <span style="flex:0 1 auto;min-width:0;color:#9A958D;overflow:hidden;text-overflow:ellipsis">{{ shootLine }}</span>
+    </div>
+    <div style="position:relative;flex:none">
+      <div data-lumina="memory-pill" role="button" tabIndex="0" aria-label="Working memory" aria-expanded="{{ memOn }}" onClick="{{ memToggle }}" style="height:26px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:7px;color:#B8B3AB;cursor:pointer;background:{{ memBg }};white-space:nowrap" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:grid;grid-template-columns:repeat(2,4px);gap:2px"><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:rgba(239,236,230,0.3)"></span></span>{{ memPill }}</div>
+      <sc-if value="{{ memOn }}" hint-placeholder-val="{{ false }}">
+        <div data-lumina="memory" role="dialog" aria-label="Working memory" style="position:absolute;right:0;top:32px;z-index:35;width:330px;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:12px;animation:fade 100ms ease-out;white-space:normal;line-height:1.45">
+          <span style="font-size:13px;font-weight:600;color:#EFECE6">Working memory</span>
+          <div style="display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A;font-weight:700">In this tab</span><sc-for list="{{ memTab }}" as="mr" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ mr.k }}</span><span style="color:#EFECE6">{{ mr.v }}</span></div></sc-for></div>
+          <div style="display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A;font-weight:700">Saved in this browser</span><sc-for list="{{ memSaved }}" as="mr" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ mr.k }}</span><span style="color:#EFECE6">{{ mr.v }}</span></div></sc-for></div>
+          <span style="color:#9A958D">No network requests. Frames and measurements are made in this tab, from pixels.</span>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{ memBtns }}" as="mb" hint-placeholder-count="3"><div role="button" tabIndex="0" onClick="{{ mb.go }}" style="padding:8px 10px;border-radius:9px;background:{{ mb.bg }};opacity:{{ mb.op }};cursor:pointer;display:flex;flex-direction:column;gap:2px" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="color:{{ mb.fg }};font-weight:600">{{ mb.t }}</span><span style="color:#9A958D">{{ mb.sub }}</span></div></sc-for>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+  <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
+  <div data-lumina="skim-bar" style="flex:none;height:44px;padding:0 20px;display:flex;align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
+    <div style="flex:1;min-width:0;display:flex">
+      <div data-lumina="levels" role="tablist" aria-label="levels" style="position:relative;display:grid;grid-template-columns:repeat(3,68px);padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)">
+        <div style="position:absolute;left:2px;top:2px;bottom:2px;width:68px;border-radius:5px;background:#5B5854;box-shadow:0 0.5px 1px rgba(0,0,0,0.4);transform:translateX({{ lvX }}px);transition:transform 180ms ease-out"></div>
+        <sc-for list="{{ lvTabs }}" as="lt" hint-placeholder-count="4">
+          <div role="tab" tabIndex="0" aria-selected="{{ lt.on }}" onClick="{{ lt.go }}" style="position:relative;height:24px;display:grid;place-items:center;font-size:12px;color:{{ lt.fg }};cursor:pointer;border-radius:5px" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ lt.t }}</div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="flex:0 1 auto;min-width:120px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;max-width:220px">
+      <div data-lumina="preview" role="switch" tabIndex="0" aria-checked="{{ pvA }}" aria-disabled="{{ pvDis }}" onClick="{{ pvToggle }}" style="display:flex;align-items:center;gap:8px;cursor:pointer;opacity:{{ pvOp }}" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:12px;color:#EFECE6">Rec.709 preview</span><span style="position:relative;width:28px;height:16px;border-radius:8px;background:{{ pvTrack }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ pvKnob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span></div>
+      <span data-lumina="preview-line" style="font-size:10.5px;color:#9A958D;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pvLine }}</span>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ impOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="load-bar" role="progressbar" style="flex:none;height:2px;background:rgba(239,236,230,0.08)"><div style="height:100%;width:{{ impW }};background:#B8B3AB;transition:width 400ms linear"></div></div></sc-if>
+
+  <div style="flex:1;min-height:0;display:flex;flex-direction:column;position:relative">
+    <sc-if value="{{ isImport }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Open" onDragOver="{{ dropOver }}" onDragLeave="{{ dropLeave }}" onDrop="{{ dropIn }}" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
+        <div style="max-width:min(1000px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,5vh,56px) clamp(16px,4vw,48px) 40px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · Sony sidecars are read when present</span></div>
+          <sc-if value="{{ nowOn }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1)">
+              <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px"><span style="color:#9A958D">Open now</span><span style="font-size:14px;color:#EFECE6">{{ nowName }}</span><span style="color:#B8B3AB">{{ nowLine }}</span></div>
+              <div role="button" tabIndex="0" onClick="{{ goSkim }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">⌘2</span>Skim</div>
+            </div>
+          </sc-if>
+          <div data-lumina="drop" role="button" tabIndex="0" onClick="{{ pickFolder }}" style="min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
+            <span style="font-size:16px;color:#EFECE6">Drop a card or a folder of clips</span>
+            <span style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>Choose Folder…</span>
+            <span style="color:#9A958D">Clips are read in this tab. Nothing is uploaded or changed.</span>
+          </div>
+          <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
+          <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#FFD27A">{{ impMsg }}</div></sc-if>
+          <sc-if value="{{ impLineOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#B8B3AB">{{ impLine }}</div></sc-if>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <span style="font-size:13px;font-weight:600;color:#EFECE6">Sample cards</span>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:14px">
+              <sc-for list="{{ cards }}" as="cd" hint-placeholder-count="4">
+                <div data-lumina="card" role="button" tabIndex="0" onClick="{{ cd.open }}" style="display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08);cursor:pointer;transition:background 120ms ease-out" style-hover="background:#2E2C29" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6">{{ cd.name }}</span><span style="color:#EFECE6">{{ cd.l1 }}</span><span style="color:#9A958D">{{ cd.l2 }}</span></div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isExport }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Export" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
+        <div style="max-width:min(1200px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,4vh,48px) clamp(16px,3vw,48px) 40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:32px;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+            <span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Export to Final Cut Pro</span>
+            <div style="display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden">
+              <sc-for list="{{ exRows }}" as="hr" hint-placeholder-count="4">
+                <div style="display:grid;grid-template-columns:12px 72px 70px 76px minmax(0,1fr);align-items:center;gap:10px;padding:10px 12px;background:#2A2927;font-size:13px"><span style="width:8px;height:8px;border-radius:50%;background:{{ hr.c }}"></span><span style="color:#EFECE6">{{ hr.k }}</span><span style="color:#EFECE6;text-align:right">{{ hr.n }}</span><span style="color:#9A958D;text-align:right">{{ hr.size }}</span><span style="color:#B8B3AB">{{ hr.to }}</span></div>
+              </sc-for>
+            </div>
+            <div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px 12px;align-items:center">
+              <span style="color:#9A958D">Event</span><input type="text" aria-label="Event name" value="{{ exEvent }}" onChange="{{ exEventIn }}" style="height:30px;box-sizing:border-box;padding:0 10px;border-radius:8px;border:none;background:#161514;color:#EFECE6;font:inherit;font-size:13px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);user-select:text;-webkit-user-select:text;outline:none;min-width:0" style-focus="box-shadow:inset 0 0 0 1.5px #FFD27A"></input>
+              <span style="color:#9A958D">Maybe keyword</span><input type="text" aria-label="Maybe keyword" value="{{ exKw }}" onChange="{{ exKwIn }}" style="height:30px;box-sizing:border-box;padding:0 10px;border-radius:8px;border:none;background:#161514;color:#EFECE6;font:inherit;font-size:13px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);user-select:text;-webkit-user-select:text;outline:none;min-width:0" style-focus="box-shadow:inset 0 0 0 1.5px #FFD27A"></input>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <sc-for list="{{ exOpts }}" as="eo" hint-placeholder-count="4">
+                <div role="switch" tabIndex="0" aria-checked="{{ eo.on }}" onClick="{{ eo.go }}" style="display:flex;align-items:center;gap:10px;cursor:pointer;opacity:{{ eo.op }}" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="flex:none;position:relative;width:28px;height:16px;border-radius:8px;background:{{ eo.track }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ eo.knob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span><span style="font-size:13px;color:#EFECE6">{{ eo.t }}</span><span style="color:#9A958D">{{ eo.sub }}</span></div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px;color:#9A958D"><span>Clip files are never changed.</span><span>{{ exPathLine }}</span></div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <div role="button" tabIndex="0" onClick="{{ backSkim }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">esc</span>Back to Skim</div>
+              <div data-lumina="download" role="button" tabIndex="0" onClick="{{ download }}" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;opacity:{{ exBtnOp }}" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘⏎</span>{{ exBtn }}</div>
+            </div>
+            <sc-if value="{{ exDoneOn }}" hint-placeholder-val="{{ false }}"><span role="status" style="color:#A9D18E">{{ exDone }}</span></sc-if>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+            <span style="font-size:13px;font-weight:600;color:#EFECE6">By chapter</span>
+            <div style="display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden">
+              <sc-for list="{{ exGroups }}" as="eg" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 70px;gap:10px;padding:8px 12px;background:#262523"><span style="color:#EFECE6">{{ eg.title }}</span><span style="color:#A9D18E;text-align:right">{{ eg.k }}</span><span style="color:#FFD27A;text-align:right">{{ eg.m }}</span></div></sc-for>
+            </div>
+            <span style="font-size:13px;font-weight:600;color:#EFECE6;margin-top:6px">The .fcpxml</span>
+            <pre style="margin:0;max-height:440px;overflow:auto;padding:14px;border-radius:10px;background:#161514;color:#B8B3AB;font:11px/1.5 ui-monospace,'SF Mono',Menlo,monospace;white-space:pre;user-select:text;-webkit-user-select:text">{{ exPreview }}</pre>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Skim empty" style="flex:1;display:grid;place-items:center;color:#9A958D">No clips open. Press ⌘O to open a card or folder.</div>
+    </sc-if>
+
+    <sc-if value="{{ stripOn }}" hint-placeholder-val="{{ false }}">
+      <div data-lumina="furled-chapters" style="flex:none;height:40px;display:flex;align-items:center;gap:6px;padding:0 20px;border-bottom:1px solid rgba(239,236,230,0.06);overflow-x:auto;scrollbar-width:none">
+        <sc-for list="{{ strip }}" as="g" hint-placeholder-count="5">
+          <div role="button" tabIndex="0" onClick="{{ g.go }}" style="flex:none;height:26px;padding:0 10px;border-radius:6px;display:flex;align-items:center;gap:8px;background:{{ g.bg }};color:{{ g.fg }};cursor:pointer" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span>{{ g.title }}</span><span style="color:#9A958D">{{ g.n }}</span><span style="width:28px;height:3px;border-radius:2px;background:rgba(239,236,230,0.14);overflow:hidden"><span style="display:block;height:100%;width:{{ g.pct }};background:#B8B3AB"></span></span></div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ takeStripOn }}" hint-placeholder-val="{{ false }}">
+      <div data-lumina="furled-takes" style="flex:none;height:46px;display:flex;align-items:center;gap:4px;padding:0 20px;border-bottom:1px solid rgba(239,236,230,0.06);overflow-x:auto;scrollbar-width:none">
+        <sc-for list="{{ tstrip }}" as="ts" hint-placeholder-count="8">
+          <div data-strip="{{ ts.id }}" role="button" tabIndex="0" aria-label="{{ ts.id }}" onClick="{{ sClick }}" style="flex:none;width:56px;height:32px;border-radius:3px;background:{{ ts.bg }};filter:{{ ts.flt }};box-shadow:{{ ts.edge }};outline:{{ ts.out }};outline-offset:2px;cursor:pointer"></div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ lv0 }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Chapters" ref="{{ scRef }}" onMouseDown="{{ gridDown }}" style="flex:1;min-height:0;overflow:auto;position:relative;padding:18px clamp(16px,2.2vw,40px) 40px;animation:unfurl 180ms ease-out">
+        <sc-if value="{{ sliderOn }}" hint-placeholder-val="{{ true }}">
+          <div data-nobox="1" data-lumina="gap-slider" style="display:flex;align-items:center;gap:12px;margin-bottom:22px;color:#9A958D;flex-wrap:wrap">
+            <span>chapters</span>
+            <input type="range" aria-label="gap slider" min="0" max="{{ gapMax }}" step="1" value="{{ nCut }}" onChange="{{ gapChange }}" style="flex:0 1 360px;min-width:160px"></input>
+            <span>takes</span>
+            <span style="color:#EFECE6;margin-left:10px">{{ gapLine }}</span>
+          </div>
+        </sc-if>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:26px 22px">
+          <sc-for list="{{ chs }}" as="g" hint-placeholder-count="5">
+            <div data-gi="{{ g.i }}" onMouseEnter="{{ gEnter }}" onClick="{{ gClick }}" onDoubleClick="{{ gDbl }}" style="display:flex;flex-direction:column;gap:7px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;opacity:{{ g.op }}">
+              <div style="position:relative;aspect-ratio:16/9;border-radius:3px;overflow:hidden">
+                <div style="position:absolute;inset:0;background:{{ g.thumb }};filter:{{ g.flt }}"></div>
+                <div style="position:absolute;inset:0;border-radius:3px;box-shadow:{{ g.edge }};pointer-events:none"></div>
+                <sc-if value="{{ g.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ g.ghostC }};font-weight:700;opacity:0.7">{{ g.ghostT }}</div></sc-if>
+              </div>
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6;white-space:nowrap">{{ g.title }}</span><span style="color:#9A958D;white-space:nowrap">{{ g.size }}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:8px;color:#B8B3AB"><span>{{ g.count }}</span><span style="color:#9A958D;text-align:right">{{ g.why }}</span></div>
+              <sc-if value="{{ g.dotsOn }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-wrap:wrap;gap:3px"><sc-for list="{{ g.dots }}" as="d" hint-placeholder-count="10"><span style="width:6px;height:6px;border-radius:50%;background:{{ d.c }}"></span></sc-for></div></sc-if>
+              <sc-if value="{{ g.barOn }}" hint-placeholder-val="{{ false }}"><div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:rgba(239,236,230,0.16)"><sc-for list="{{ g.segs }}" as="s" hint-placeholder-count="3"><span style="width:{{ s.w }};background:{{ s.c }}"></span></sc-for></div></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ boxOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:{{ box.x }}px;top:{{ box.y }}px;width:{{ box.w }}px;height:{{ box.h }}px;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.85);background:rgba(255,210,122,0.06);border-radius:3px;pointer-events:none"></div></sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ lv1 }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Takes" ref="{{ scRef }}" onMouseDown="{{ gridDown }}" style="flex:1;min-height:0;overflow:auto;position:relative;padding:10px clamp(16px,2.2vw,40px) 40px;animation:unfurl 180ms ease-out">
+        <sc-for list="{{ secs }}" as="s" hint-placeholder-count="2">
+          <sc-if value="{{ s.bnd }}" hint-placeholder-val="{{ false }}">
+            <div data-nobox="1" data-lumina="boundary" data-bi="{{ s.gi }}" style="height:30px;display:flex;align-items:center;gap:12px;margin:10px 0 4px;color:{{ s.bFg }}"><div style="flex:1;height:1px;background:{{ s.bLine }}"></div><span>{{ s.why }}</span><div style="flex:1;height:1px;background:{{ s.bLine }}"></div></div>
+          </sc-if>
+          <div data-sec="{{ s.gi }}" style="display:flex;flex-direction:column;gap:12px;padding:6px 0 10px">
+            <div data-nobox="1" style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6">{{ s.title }}</span><span style="color:#B8B3AB">{{ s.count }}</span><span style="color:#9A958D">{{ s.size }}</span><span style="color:#9A958D">{{ s.hWhy }}</span><span style="flex:1"></span><span style="color:#9A958D">{{ s.prog }}</span></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,272px),1fr));gap:20px 18px">
+              <sc-for list="{{ s.tiles }}" as="p" hint-placeholder-count="6">
+                <div data-clip="{{ p.id }}" onMouseEnter="{{ tEnter }}" onClick="{{ tClick }}" onDoubleClick="{{ tDbl }}" style="position:relative;display:flex;flex-direction:column;gap:7px;padding:7px;margin:-7px;border-radius:9px;background:{{ p.bg }};outline:{{ p.out }};outline-offset:1px">
+                  <div style="position:relative;border-radius:4px;overflow:hidden">
+                    <sc-if value="{{ grid42 }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px"><sc-for list="{{ p.fr }}" as="f" hint-placeholder-count="8"><div style="aspect-ratio:16/9;background:{{ f.bg }};filter:{{ f.flt }}"></div></sc-for></div></sc-if>
+                    <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ p.edge }};pointer-events:none"></div>
+                    <sc-if value="{{ p.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:#161514;color:{{ p.markC }};font-weight:700">{{ p.mark }}</div></sc-if>
+                    <sc-if value="{{ p.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ p.ghostC }};font-weight:700;opacity:0.7">{{ p.ghostT }}</div></sc-if>
+                  </div>
+                  <div style="display:flex;align-items:baseline;gap:8px;color:#B8B3AB;white-space:nowrap"><span style="color:#EFECE6">{{ p.name }}</span><span>{{ p.dur }}</span><span style="color:#9A958D">{{ p.size }}</span><span style="flex:1"></span><span style="color:#9A958D">{{ p.time }}</span></div>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;min-height:20px">
+                    <sc-for list="{{ p.chips }}" as="c" hint-placeholder-count="2"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ boxOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:{{ box.x }}px;top:{{ box.y }}px;width:{{ box.w }}px;height:{{ box.h }}px;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.85);background:rgba(255,210,122,0.06);border-radius:3px;pointer-events:none"></div></sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ lv2 }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Clip" style="flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,300px);gap:28px;padding:18px clamp(16px,2.2vw,40px) 28px;animation:unfurl 180ms ease-out">
+        <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
+          <div ref="{{ scrubRef }}" onMouseMove="{{ scrubMove }}" onClick="{{ viewTap }}" onDoubleClick="{{ viewDbl }}" style="position:relative;width:min(100%,calc((100vh - 330px) * 16 / 9));aspect-ratio:16/9;border-radius:4px;overflow:hidden;cursor:ew-resize">
+            <div style="position:absolute;inset:0;background:{{ cv.bg }};filter:{{ cv.flt }}"></div>
+            <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ cv.edge }};pointer-events:none"></div>
+            <sc-if value="{{ cv.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:10px;top:10px;padding:2px 9px;border-radius:5px;background:#161514;color:{{ cv.markC }};font-weight:700;font-size:13px">{{ cv.mark }}</div></sc-if>
+            <sc-if value="{{ cv.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:10px;top:10px;padding:2px 9px;border-radius:5px;background:rgba(22,21,20,0.82);color:{{ cv.ghostC }};font-weight:700;font-size:13px;opacity:0.7">{{ cv.ghostT }}</div></sc-if>
+          </div>
+          <div style="position:relative;width:min(100%,calc((100vh - 330px) * 16 / 9));height:14px">
+            <div style="position:absolute;left:0;right:0;top:6px;height:2px;border-radius:1px;background:rgba(239,236,230,0.14)"></div>
+            <sc-for list="{{ ticks }}" as="tk" hint-placeholder-count="8"><div style="position:absolute;top:3px;left:{{ tk.l }};width:1px;height:8px;background:rgba(239,236,230,0.3)"></div></sc-for>
+            <div style="position:absolute;top:0;left:{{ cv.ph }};width:2px;height:14px;margin-left:-1px;border-radius:1px;background:#EFECE6"></div>
+          </div>
+          <div style="display:flex;gap:14px;color:#B8B3AB"><span style="color:#EFECE6">{{ cv.tc }}</span><span>{{ cv.fl }}</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:22px">{{ cv.name }}</span><span style="color:#9A958D">{{ cv.when }}</span></div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;min-height:20px">
+            <sc-for list="{{ cv.chips }}" as="c" hint-placeholder-count="3"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;line-height:1.45">
+            <sc-for list="{{ cv.facts }}" as="fl" hint-placeholder-count="10"><div style="display:grid;grid-template-columns:86px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ fl.k }}</span><span style="color:{{ fl.c }};overflow-wrap:anywhere">{{ fl.v }}</span></div></sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+
+  <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
+  <div data-lumina="keybar" style="flex:none;height:30px;display:flex;align-items:center;gap:16px;padding:0 20px;border-top:1px solid rgba(239,236,230,0.06);color:#B8B3AB;white-space:nowrap;overflow:hidden">
+    <div style="flex:1;min-width:0;display:flex;align-items:center;gap:16px;overflow:hidden">
+      <span data-lumina="where" style="flex:none;color:#EFECE6;font-weight:600">{{ hintLead }}</span>
+      <sc-for list="{{ hints }}" as="hk" hint-placeholder-count="6">
+        <span style="flex:none;display:flex;align-items:center;gap:6px"><span style="min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">{{ hk.k }}</span>{{ hk.t }}</span>
+      </sc-for>
+    </div>
+    <div style="flex:none;display:flex;align-items:center;gap:4px;padding-left:14px;border-left:1px solid rgba(239,236,230,0.1)">
+      <div role="button" tabIndex="0" onClick="{{ undoGo }}" title="Undo · ⌘Z" style="height:22px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px;color:{{ undoC }};cursor:pointer" style-hover="background:rgba(239,236,230,0.08)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span style="font-size:13px">↶</span><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700">⌘Z</span><span>{{ undoN }}</span></div>
+      <div role="button" tabIndex="0" onClick="{{ redoGo }}" title="Redo · ⇧⌘Z" style="height:22px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px;color:{{ redoC }};cursor:pointer" style-hover="background:rgba(239,236,230,0.08)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span style="font-size:13px">↷</span><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700">⇧⌘Z</span><span>{{ redoN }}</span></div>
+    </div>
+  </div>
+
+  <div data-lumina="footer" style="flex:none;height:48px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:16px;padding:0 20px;background:#262523;border-top:1px solid rgba(239,236,230,0.08);white-space:nowrap">
+    <div role="status" aria-live="polite" style="min-width:0;display:flex;align-items:center;gap:10px;overflow:hidden">
+      <sc-if value="{{ propOn }}" hint-placeholder-val="{{ false }}"><span style="color:#FFD27A;font-weight:600;animation:fade 100ms ease-out">{{ prop }}</span><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700">esc</span></sc-if>
+      <sc-if value="{{ countsOn }}" hint-placeholder-val="{{ true }}"><span data-lumina="counts" style="color:#EFECE6">{{ counts }}</span></sc-if>
+      <sc-if value="{{ handOffer }}" hint-placeholder-val="{{ false }}"><div role="button" tabIndex="0" onClick="{{ handOpen }}" style="height:26px;padding:0 10px;border-radius:7px;display:flex;align-items:center;gap:7px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:18px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:11px">⌘⏎</span>Export</div></sc-if>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <sc-for list="{{ wells }}" as="w" hint-placeholder-count="3">
+        <div data-well="{{ w.m }}" role="button" tabIndex="0" aria-label="{{ w.m }} {{ w.n }}" onClick="{{ wClick }}" style="height:30px;min-width:92px;box-sizing:border-box;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:8px;background:{{ w.bg }};box-shadow:inset 0 0 0 1px {{ w.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="background:rgba(239,236,230,0.1)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="width:8px;height:8px;border-radius:50%;background:{{ w.c }}"></span><span style="color:#EFECE6">{{ w.m }}</span><span style="flex:1"></span><span style="color:#B8B3AB">{{ w.n }}</span></div>
+      </sc-for>
+    </div>
+    <div style="min-width:0;display:flex;justify-content:flex-end;gap:14px;color:#B8B3AB;overflow:hidden"><span>{{ cutSoFar }}</span><span style="color:#9A958D">{{ freeTxt }}</span></div>
+  </div>
+  </sc-if>
+
+
+</div>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#1E1D1B"></rect><text x="50" y="64" text-anchor="middle" font-family="Georgia,serif" font-size="44" fill="#FFD27A">L</text></svg></template>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Open&quot;,&quot;options&quot;:[&quot;Open&quot;,&quot;Skim&quot;,&quot;Export&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;startLevel&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Chapters&quot;,&quot;options&quot;:[&quot;Chapters&quot;,&quot;Takes&quot;,&quot;Clip&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  static MK = {keep:'#A9D18E', maybe:'#FFD27A', cut:'#FF8A7A'};
+  static LV = ['Chapters','Takes','Clip'];
+  state = {ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true},exDone:null,dropHot:false,impMsg:null,imp:null};
+  mk = {k:'keep',m:'maybe',x:'cut'};
+  scRef = el => { this.sc = el; };
+  scrubRef = el => { this.scrubEl = el; };
+  panRef = el => { this.panEl = el; };
+
+  componentDidMount() {
+    this.load();
+    this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => this.setState({held:null});
+    window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
+    window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu);
+    window.addEventListener('wheel', this._wh, {passive:false}); window.addEventListener('blur', this._bl);
+  }
+  componentWillUnmount() {
+    window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
+    window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu);
+    window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl);
+    clearTimeout(this.propT); clearTimeout(this.flT);
+  }
+  componentDidUpdate(pp, ps) {
+    if (pp.sample !== this.props.sample || pp.startLevel !== this.props.startLevel || pp.startStep !== this.props.startStep) this.load();
+    const s0 = this.state, L = this._ls || {};
+    if (this.d && (L.m !== s0.marks || L.d !== s0.dis || L.c !== s0.cuts)) { const first = !this._ls; this._ls = {m:s0.marks, d:s0.dis, c:s0.cuts}; if (!first) this.save(); }
+    if (this.wantScroll) { const w = this.wantScroll; this.wantScroll = null; this.scrollTo(w[0], w[1]); }
+  }
+  load() {
+    const S = window.LuminaVideoSamples, host = window.LuminaVideo && !window.LuminaVideo.__sample ? window.LuminaVideo : null;
+    if (!S && !host) { clearTimeout(this.lt); this.lt = setTimeout(() => this.load(), 80); return; }
+    const key = 'fx5';
+    const d = host || S[key](); this.sampleKey = host ? null : key; this.loadData(d);
+  }
+  loadData(d, step) {
+    this.qTok = {}; this._ls = null;
+    d.clips.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
+    this.d = d; this.byId = {}; d.clips.forEach((c, i) => { c._i = i; this.byId[c.id] = c; });
+    let marks = {}, dis = {};
+    d.clips.forEach(c => { if (c.mark) marks[c.id] = c.mark; if (c.dismissed && c.dismissed.length) dis[c.id] = c.dismissed.slice(); });
+    let saved = null; try { saved = JSON.parse(localStorage.getItem(this.storeKey(d)) || 'null'); } catch (x) {}
+    if (saved) { marks = saved.marks || {}; dis = saved.dis || {}; }
+    this.gapBy = {}; (d.gaps || []).forEach(g => this.gapBy[g.after] = g.s);
+    this.gapsSorted = (d.gaps || []).slice().sort((a, b) => b.s - a.s);
+    const nCut = this.gapsSorted.filter(g => g.s >= 1200).length;
+    const allUnknown = d.clips.length > 0 && d.clips.every(c => !c.profile || !c.profile.gamma);
+    const lv = {Chapters:0, Takes:1, Clip:2, Frame:3}[this.props.startLevel] || 0;
+    this.lastMark = null;
+    this.setState({ready:true, marks, dis, nCut, cuts:(saved && saved.cuts) || null, pv:!allUnknown, lv:d.clips.length ? lv : 0, gi:0, cur:d.clips[0] ? d.clips[0].id : null, fx:0, undo:[], redo:[], sel:[], box:null, step:step || ({Open:'import', Skim:'skim', Export:'export'}[this.props.startStep ?? 'Open'] || 'import'), memOn:false, memConfirm:false, exDone:null, prop:null});
+  }
+  api(name, ...a) { try { const v = window.lumina && window.lumina.video; if (v && v[name]) v[name](...a); } catch (e) {} }
+
+  // formatting
+  fmtB(b) { if (!b) return '0 MB'; return b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(b / 1e6)) + ' MB'; }
+  fmtDur(s) { s = Math.round(s); return s < 60 ? s + ' s' : Math.floor(s / 60) + ' min' + (s % 60 ? ' ' + (s % 60) + ' s' : ''); }
+  fmtGap(s) { return s < 90 ? Math.round(s) + ' s' : s < 5400 ? Math.round(s / 60) + ' min' : (Math.round(s / 360) / 10) + ' h'; }
+  pct(v) { return (v < 10 ? Math.round(v * 10) / 10 : Math.round(v)) + '%'; }
+  hm(t) { return t.slice(11, 16); }
+  iso(ms) { const d = new Date(ms), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); }
+  endIso(c) { return this.iso(new Date(c.t).getTime() + c.dur * 1000); }
+  tc(s) { const m = Math.floor(s / 60); return String(m).padStart(2, '0') + ':' + (s - m * 60).toFixed(1).padStart(4, '0'); }
+  plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  bytesOf(ids) { return ids.reduce((s, id) => s + (this.byId[id] ? this.byId[id].bytes : 0), 0); }
+
+  // facts
+  prof(c) {
+    if (c.profile && c.profile.gamma) return {g:c.profile.gamma, p:c.profile.primaries, src:c.profile.source === 'sidecar' ? 'from the clip\'s sidecar' : 'from the file'};
+    return null;
+  }
+  pvOn(c) { const p = this.prof(c); return this.state.pv && !!p && p.g !== 'none'; }
+  chips(c) {
+    const f = c.facts || {}, sh = this.d.shoot, dis = this.state.dis[c.id] || [], out = [];
+    if (f.state === 'pending') return {pending:true, list:[]};
+    const add = (key, t, sev, on) => { if (on) out.push({key, t, sev, dis:dis.includes(key)}); };
+    if (f.state !== 'unreliable') {
+      add('clip', this.pct(f.clip) + ' clipped', 90 + f.clip, f.clip >= 1);
+      add('ev', (f.ev > 0 ? '+' : '−') + Math.abs(f.ev).toFixed(1) + ' stops', 70 + Math.abs(f.ev) * 5, Math.abs(f.ev) >= 0.7);
+      add('soft', 'soft', 76, f.sharp < 0.35);
+      add('motion', f.motion, 66, !!f.motion);
+      add('bump', 'bump', 60, f.bump != null);
+      add('crush', this.pct(f.crush) + ' crushed', 55 + f.crush / 2, f.crush >= 5);
+    }
+    add('rate', c.fps + 'p', 40, !!c.fps && c.fps !== sh.rate);
+    add('sidecar', 'sidecar missing', 35, !c.profile || c.profile.source !== 'sidecar');
+    add('profile', 'profile unknown', 30, !this.prof(c));
+    out.sort((a, b) => (a.dis - b.dis) || (b.sev - a.sev));
+    return {pending:false, list:out};
+  }
+  chipV(c, x) {
+    return {key:x.key, cid:c.id, t:x.t, bg:x.dis ? 'transparent' : 'rgba(239,236,230,0.1)', sh:x.dis ? 'inset 0 0 0 1px rgba(239,236,230,0.28)' : 'none', fg:x.dis ? '#9A958D' : '#EFECE6', cur:x.key === 'profile' ? 'pointer' : 'default', tip:x.key === 'profile' ? 'What was this shot in?' : x.dis ? 'dismissed · ⌥click brings it back' : '⌥click dismisses'};
+  }
+  pendV() { return {key:'-', cid:'', t:'—', bg:'transparent', sh:'inset 0 0 0 1px rgba(239,236,230,0.2)', fg:'#6E6A64', cur:'default', tip:'measuring'}; }
+  frameEv(c) { const f = c.facts || {}; return f.ev != null ? f.ev : 0; }
+  tone(c, i, big) {
+    const f = c.facts && c.facts.state === 'ready' ? c.facts : {};
+    const h = c.look ? c.look.hue : 40, ev = this.frameEv(c), pv = this.pvOn(c);
+    if (c.frames && c.frames[i]) return {bg:'url(' + c.frames[i] + ') center/cover', flt:pv ? 'contrast(1.35) saturate(1.45) brightness(0.96)' : 'none'};
+    let L = 0.5 + ev * 0.085 + Math.sin((i + 1) * 1.7 + c._i) * 0.035 + (f.clip || 0) / 40;
+    if (f.bump === i) L += 0.28;
+    L = Math.max(0.1, Math.min(0.96, L));
+    const L2 = Math.max(0.08, L - 0.22);
+    const a = pv ? 'oklch(' + L.toFixed(3) + ' 0.085 ' + h + ')' : 'oklch(' + (0.44 + L * 0.3).toFixed(3) + ' 0.028 ' + h + ')';
+    const b = pv ? 'oklch(' + L2.toFixed(3) + ' 0.06 ' + (h + 35) + ')' : 'oklch(' + (0.44 + L2 * 0.3).toFixed(3) + ' 0.022 ' + (h + 35) + ')';
+    const soft = big && f.sharpF && f.sharpF[i] < 0.35;
+    return {bg:'linear-gradient(180deg,' + a + ' 0 58%,' + b + ' 58% 100%)', flt:soft ? 'blur(1.4px)' : 'none'};
+  }
+
+  // grouping
+  cutSet() { const st = this.state; return st.cuts ? new Set(st.cuts) : new Set(this.gapsSorted.slice(0, st.nCut).map(g => g.after)); }
+  buildGroups() {
+    const st = this.state, d = this.d, C = d.clips, out = [];
+    const cut = this.cutSet(); let g0 = null, why = 'first clip on the card';
+    C.forEach((c, i) => { if (!g0) { g0 = {key:'t' + i, clips:[], why}; out.push(g0); } g0.clips.push(c); if (cut.has(c.id) && i < C.length - 1) { g0 = null; why = 'gap of ' + this.fmtGap(this.gapBy[c.id] || 0); } });
+    out.forEach(g => { const a = g.clips[0], e = this.endIso(g.clips[g.clips.length - 1]); g.title = this.hm(a.t) + ' – ' + this.hm(e) + (e.slice(0, 10) !== a.t.slice(0, 10) ? ' next day' : ''); });
+    out.forEach((g, i) => {
+      g.i = i; g.bytes = g.clips.reduce((s, c) => s + c.bytes, 0);
+      g.vis = g.clips;
+    });
+    return out;
+  }
+  index() {
+    this.G = this.buildGroups(); this.flat = []; this.gOf = {};
+    this.G.forEach(g => g.vis.forEach(c => { this.gOf[c.id] = g.i; this.flat.push(c.id); }));
+    this.gOfAll = {}; this.G.forEach(g => g.clips.forEach(c => this.gOfAll[c.id] = g.i));
+  }
+
+  // marks + undo
+  verb(m) { return m || 'put back'; }
+  sentence(ids, m) { return this.verb(m) + ' ' + this.plural(ids.length, 'clip') + ' · ' + this.fmtB(this.bytesOf(ids)); }
+  doMark(ids, m) {
+    if (!ids.length) return;
+    const st = this.state, prev = {}, marks = {...st.marks};
+    ids.forEach(id => { prev[id] = st.marks[id] || null; if (m) marks[id] = m; else delete marks[id]; });
+    const step = {k:'mark', ids, prev, next:m};
+    this.lastMark = {step, at:Date.now()};
+    this.setState({marks, undo:[...st.undo, step], redo:[]});
+    this.api('mark', ids, m);
+  }
+  propose(t, fn) {
+    clearTimeout(this.propT); this.propFn = fn; this.setState({prop:t + '?'});
+    this.propT = setTimeout(() => { const f = this.propFn; this.propFn = null; this.setState({prop:null}); if (f) f(); }, 600);
+  }
+  areaMark(ids, m) { ids = ids.filter((x, i, a) => a.indexOf(x) === i); if (!ids.length) return; this.propose(this.sentence(ids, m), () => { this.doMark(ids, m); this.setState({sel:[], box:null}); }); }
+  pushStep(step, patch) { this.setState(s => ({...patch, undo:[...s.undo, step], redo:[]})); }
+  apply(step, back) {
+    const st = this.state;
+    if (step.k === 'mark') {
+      const marks = {...st.marks};
+      step.ids.forEach(id => { const v = back ? step.prev[id] : step.next; if (v) marks[id] = v; else delete marks[id]; });
+      this.setState({marks});
+      if (back) { const by = {}; step.ids.forEach(id => { const v = step.prev[id] || ''; (by[v] = by[v] || []).push(id); }); Object.keys(by).forEach(v => this.api('mark', by[v], v || null)); }
+      else this.api('mark', step.ids, step.next);
+      return (back ? 'undid · ' : 'redid · ') + this.verb(step.next) + ' ' + this.plural(step.ids.length, 'clip');
+    }
+  }
+  undo() { const st = this.state; if (!st.undo.length) return; const step = st.undo[st.undo.length - 1]; this.setState({undo:st.undo.slice(0, -1), redo:[...st.redo, step]}); this.flash(this.apply(step, true)); }
+  redo() { const st = this.state; if (!st.redo.length) return; const step = st.redo[st.redo.length - 1]; this.setState({redo:st.redo.slice(0, -1), undo:[...st.undo, step]}); this.flash(this.apply(step, false)); }
+  flash(t) { clearTimeout(this.flT); this.setState({flash:t}); this.flT = setTimeout(() => this.setState({flash:null}), 2200); }
+  // navigation
+  scrollTo(sel, top) {
+    const sc = this.sc; if (!sc || !sc.isConnected) return; const el = sc.querySelector(sel); if (!el) return;
+    const r = el.getBoundingClientRect(), cr = sc.getBoundingClientRect();
+    if (top) sc.scrollTop += r.top - cr.top - 12;
+    else if (r.top < cr.top + 8) sc.scrollTop += r.top - cr.top - 8;
+    else if (r.bottom > cr.bottom - 8) sc.scrollTop += r.bottom - cr.bottom + 8;
+  }
+  firstVis(gi) { const g = this.G[gi]; return g && g.vis[0] ? g.vis[0].id : null; }
+  unfurl(target) {
+    const st = this.state; if (!this.d.clips.length) return;
+    if (st.lv === 0) {
+      const gi = target != null ? target : st.gi, first = this.firstVis(gi); if (!first) return;
+      const cur = this.gOf[st.cur] === gi ? st.cur : first;
+      this.wantScroll = cur === first ? ['[data-sec="' + gi + '"]', true] : ['[data-clip="' + cur + '"]']; this.setState({lv:1, cur, gi, sel:[], box:null});
+    } else if (st.lv === 1) { const cur = target || st.cur; if (!this.byId[cur]) return; this.setState({lv:2, cur, fx:0, sel:[], box:null}); }
+  }
+  furl() {
+    const st = this.state; if (st.lv === 0) return;
+    if (st.lv === 1) { const gi = this.gOfAll[st.cur] ?? st.gi; this.wantScroll = ['[data-gi="' + gi + '"]']; this.setState({lv:0, gi, sel:[], box:null}); }
+    else { if (st.lv === 2) this.wantScroll = ['[data-clip="' + st.cur + '"]']; this.setState({lv:st.lv - 1}); }
+  }
+  setLv(n) {
+    const st = this.state; if (!this.d.clips.length || n === st.lv) return;
+    if (n === 0) { const gi = this.gOfAll[st.cur] ?? st.gi; this.wantScroll = ['[data-gi="' + gi + '"]']; this.setState({lv:0, gi, sel:[], box:null}); return; }
+    if (n === 1) { if (st.lv === 0) return this.unfurl(); this.wantScroll = ['[data-clip="' + st.cur + '"]']; this.setState({lv:1}); return; }
+    this.setState({lv:n, sel:[], box:null, pan:[0.5, 0.5]});
+  }
+  move(d) {
+    const st = this.state;
+    if (st.lv === 0) { const gi = Math.max(0, Math.min(this.G.length - 1, st.gi + d)); this.wantScroll = ['[data-gi="' + gi + '"]']; this.setState({gi}); }
+    else if (st.lv === 1) { const i = this.flat.indexOf(st.cur), n = this.flat[Math.max(0, Math.min(this.flat.length - 1, (i < 0 ? 0 : i + d)))]; if (n) { this.wantScroll = ['[data-clip="' + n + '"]']; this.setState({cur:n}); this.anchor = null; } }
+    else this.setState(s => ({fx:Math.max(0, Math.min(7, Math.round(s.fx) + d))}));
+  }
+  takeStep(d) { const i = this.flat.indexOf(this.state.cur), n = this.flat[i + d]; if (n) this.setState({cur:n, fx:0}); }
+  chapJump(d) {
+    const st = this.state;
+    if (st.lv === 0) return this.move(d);
+    let gi = (this.gOfAll[st.cur] ?? 0) + d;
+    while (gi >= 0 && gi < this.G.length && !this.G[gi].vis.length) gi += d;
+    const f = this.firstVis(gi); if (!f) return;
+    if (st.lv === 1) this.wantScroll = ['[data-sec="' + gi + '"]', true];
+    this.setState({cur:f, gi, fx:0});
+  }
+  extend(d) {
+    const st = this.state; if (this.anchor == null) this.anchor = st.cur;
+    const i = this.flat.indexOf(st.cur), j = Math.max(0, Math.min(this.flat.length - 1, i + d)), a = this.flat.indexOf(this.anchor);
+    const lo = Math.min(a, j), hi = Math.max(a, j);
+    this.wantScroll = ['[data-clip="' + this.flat[j] + '"]'];
+    this.setState({cur:this.flat[j], sel:this.flat.slice(lo, hi + 1), box:null});
+  }
+  targets() { const st = this.state; if (st.sel.length) return st.sel; if (st.lv === 0) return this.G[st.gi] ? this.G[st.gi].vis.map(c => c.id) : []; return st.cur ? [st.cur] : []; }
+  decide() {
+    const st = this.state, m = st.held; if (!m) return; this.heldTapped = true;
+    if (st.sel.length || st.lv === 0) this.areaMark(this.targets(), m); else if (st.cur) this.doMark([st.cur], m);
+  }
+  quick(m) {
+    const st = this.state;
+    if (st.sel.length) return this.areaMark(st.sel, m);
+    if (st.lv === 0 || !st.cur) return;
+    this.doMark([st.cur], m);
+    if (st.lv === 1) this.move(1); else this.takeStep(1);
+  }
+  esc() {
+    const st = this.state;
+    if (st.prop) { clearTimeout(this.propT); this.propFn = null; return this.setState({prop:null}); }
+    if (st.sel.length || st.box) { this.anchor = null; return this.setState({sel:[], box:null}); }
+    const lm = this.lastMark, top = st.undo[st.undo.length - 1];
+    if (lm && top === lm.step && Date.now() - lm.at < 8000 && (lm.step.ids.includes(st.cur) || st.lv === 0)) { this.lastMark = null; return this.undo(); }
+    if (st.lv > 0) this.setLv(0);
+  }
+
+  // input
+  isCtl(t) { if (!t || t === document.body || !t.getAttribute) return false; return ['button', 'switch', 'tab', 'menuitem', 'checkbox'].includes(t.getAttribute('role')) || t.tagName === 'BUTTON' || t.tagName === 'A'; }
+  kd(e) {
+    const st = this.state; if (!st.ready) return;
+    const k = e.key, kl = k.length === 1 ? k.toLowerCase() : k, meta = e.metaKey || e.ctrlKey, t = e.target;
+    if (k === 'Shift' || k === 'Meta' || k === 'Alt' || k === 'Control') return;
+    if (meta && /^[123]$/.test(k)) { e.preventDefault(); return this.setStep(['import', 'skim', 'export'][+k - 1]); }
+    if (meta && kl === 'o') { e.preventDefault(); this.setStep('import'); return setTimeout(() => this.pickFolder(), 60); }
+    if (st.memOn && k === 'Escape') return this.setState({memOn:false});
+    if (st.step !== 'skim') {
+      if (st.step === 'export') { if (k === 'Escape' && !(t && t.tagName === 'INPUT')) { e.preventDefault(); return this.setStep('skim'); } if (meta && k === 'Enter') { e.preventDefault(); return this.download(); } }
+      if ((k === 'Enter' || k === ' ') && this.isCtl(t)) { e.preventDefault(); t.click(); }
+      return;
+    }
+    if (k === 'Escape') { e.preventDefault(); return this.esc(); }
+    if (meta && k === 'Enter') { e.preventDefault(); return this.setStep('export'); }
+    if (meta && kl === 'z') { e.preventDefault(); return e.shiftKey ? this.redo() : this.undo(); }
+    if (meta) return;
+    if (t && t.tagName === 'INPUT' && k.startsWith('Arrow')) return;
+    if (this.mk[kl] && !e.altKey) { e.preventDefault(); if (e.repeat) return; this.heldAt = e.timeStamp; this.heldTapped = false; return this.setState({held:this.mk[kl]}); }
+    if (k === 'Enter' || k === ' ') {
+      if (st.held) { e.preventDefault(); return this.decide(); }
+      if (this.isCtl(t)) { e.preventDefault(); return t.click(); }
+      if (k === 'Enter' && st.lv < 3) { e.preventDefault(); this.unfurl(); }
+      return;
+    }
+    if (!this.d.clips.length) return;
+    switch (k) {
+      case 'ArrowDown': e.preventDefault(); return e.shiftKey ? this.chapJump(1) : this.unfurl();
+      case 'ArrowUp': e.preventDefault(); return e.shiftKey ? this.chapJump(-1) : this.furl();
+      case 'ArrowLeft': case 'ArrowRight': {
+        e.preventDefault(); const d = k === 'ArrowRight' ? 1 : -1;
+        if (e.shiftKey && st.lv === 1) return this.extend(d);
+        if (e.shiftKey && st.lv >= 2) return this.takeStep(d);
+        return this.move(d);
+      }
+      case '[': return this.chapJump(-1);
+      case ']': return this.chapJump(1);
+      case 'v': case 'V': return this.pvToggle();
+      case '-': return this.gapsSet(st.nCut - 1);
+      case '=': case '+': return this.gapsSet(st.nCut + 1);
+    }
+  }
+  ku(e) {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, st = this.state;
+    if (k === 'Shift' || k === 'Meta' || k === 'Alt' || k === 'Control') return;
+    if (this.mk[k] && st.held === this.mk[k]) { const quick = !this.heldTapped && !this.boxS && e.timeStamp - this.heldAt < 230; const m = st.held; this.setState({held:null}); if (quick) this.quick(m); }
+  }
+  pt(e) { const r = this.sc.getBoundingClientRect(); return {x:e.clientX - r.left + this.sc.scrollLeft, y:e.clientY - r.top + this.sc.scrollTop}; }
+  hits(b) {
+    const sc = this.sc, r = sc.getBoundingClientRect(), ids = new Set();
+    sc.querySelectorAll('[data-clip],[data-gi]').forEach(el => {
+      const q = el.getBoundingClientRect(), x = q.left - r.left + sc.scrollLeft, y = q.top - r.top + sc.scrollTop;
+      if (x < b.x + b.w && x + q.width > b.x && y < b.y + b.h && y + q.height > b.y) {
+        const id = el.getAttribute('data-clip');
+        if (id) ids.add(id); else { const g = this.G[+el.getAttribute('data-gi')]; if (g) g.vis.forEach(c => ids.add(c.id)); }
+      }
+    });
+    return [...ids];
+  }
+  gridDown = e => {
+    if (e.button !== 0 || !this.sc) return; const t = e.target;
+    if (t.closest('[data-nobox]') || t.closest('input')) return;
+    const tile = t.closest('[data-clip],[data-gi]');
+    if (tile && !e.metaKey) return;
+    if (tile && this.state.held && !e.metaKey) return;
+    e.preventDefault(); const p = this.pt(e);
+    this.boxS = {x:p.x, y:p.y, meta:e.metaKey, moved:false}; this.anchor = null;
+    this.setState({box:{x:p.x, y:p.y, w:0, h:0}, sel:[]});
+  };
+  mm(e) {
+    if (!this.boxS || !this.sc) return;
+    const s = this.boxS, p = this.pt(e), b = {x:Math.min(s.x, p.x), y:Math.min(s.y, p.y), w:Math.abs(p.x - s.x), h:Math.abs(p.y - s.y)};
+    if (b.w + b.h > 6) s.moved = true;
+    this.setState({box:b, sel:s.moved ? this.hits(b) : []});
+  }
+  mu() {
+    const st = this.state;
+    if (this.boxS) {
+      const s = this.boxS; this.boxS = null;
+      if (!s.moved) return this.setState({box:null, sel:[]});
+      if (s.meta && st.held && st.sel.length) { this.heldTapped = true; const ids = st.sel; this.setState({box:null}); return this.areaMark(ids, st.held); }
+      if (!st.sel.length) this.setState({box:null});
+      return;
+    }
+  }
+  wheel(e) {
+    const st = this.state; if (!st.ready || st.step !== 'skim' || !this.d.clips.length) return;
+    if (e.ctrlKey) {
+      e.preventDefault(); const now = Date.now();
+      if (now < (this.pinchLock || 0)) { this.pinch = 0; return; }
+      this.pinch = (this.pinch || 0) + e.deltaY;
+      if (this.pinch < -28) { this.pinch = 0; this.pinchLock = now + 380; this.unfurl(st.lv === 0 ? (this.hoverGi ?? st.gi) : st.lv === 1 ? (this.hoverId || st.cur) : null); }
+      else if (this.pinch > 28) { this.pinch = 0; this.pinchLock = now + 380; this.furl(); }
+      return;
+    }
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5) {
+      e.preventDefault();
+      if (st.lv >= 2) return this.setState(s => ({fx:Math.max(0, Math.min(7, s.fx + e.deltaX / 90))}));
+      this.swipe = (this.swipe || 0) + e.deltaX;
+      if (Math.abs(this.swipe) > 70 && Date.now() > (this.swLock || 0)) { this.move(this.swipe > 0 ? 1 : -1); this.swipe = 0; this.swLock = Date.now() + 180; }
+    }
+  }
+  idOf(e) { return e.currentTarget.getAttribute('data-clip'); }
+  tEnter = e => {
+    const id = this.idOf(e), st = this.state; this.hoverId = id;
+    if (!this.boxS && st.lv === 1 && st.cur !== id) this.setState({cur:id});
+  };
+  tClick = e => {
+    const id = this.idOf(e), st = this.state;
+    if (e.shiftKey || e.metaKey) return;
+    if (st.held) { this.heldTapped = true; if (st.sel.includes(id)) return this.areaMark(st.sel, st.held); this.setState({cur:id}); return this.doMark([id], st.held); }
+    if (st.sel.length && !st.sel.includes(id)) return this.setState({sel:[], box:null, cur:id});
+    this.setState({cur:id});
+  };
+  tDbl = e => { if (!this.state.held) this.unfurl(this.idOf(e)); };
+  gEnter = e => { const i = +e.currentTarget.getAttribute('data-gi'); this.hoverGi = i; if (!this.boxS && this.state.gi !== i) this.setState({gi:i}); };
+  gClick = e => {
+    const i = +e.currentTarget.getAttribute('data-gi'), st = this.state; if (e.metaKey) return;
+    if (st.held) { this.heldTapped = true; const ids = st.sel.length ? st.sel : this.G[i].vis.map(c => c.id); return this.areaMark(ids, st.held); }
+    if (st.sel.length) this.setState({sel:[], box:null});
+    this.setState({gi:i});
+  };
+  gDbl = e => { if (!this.state.held) this.unfurl(+e.currentTarget.getAttribute('data-gi')); };
+  sClick = e => { this.setState({cur:e.currentTarget.getAttribute('data-strip'), fx:0}); };
+  wM(e) { return e.currentTarget.getAttribute('data-well'); }
+  wClick = e => { const m = this.wM(e), st = this.state; if (st.sel.length || st.lv === 0) return this.areaMark(this.targets(), m); if (st.cur) this.doMark([st.cur], m); };
+  scrubMove = e => { const r = e.currentTarget.getBoundingClientRect(); this.setState({fx:Math.max(0, Math.min(7, (e.clientX - r.left) / r.width * 7))}); };
+  viewTap = () => { const st = this.state; if (st.held && st.cur) { this.heldTapped = true; this.doMark([st.cur], st.held); } };
+  viewDbl = () => { if (!this.state.held) this.unfurl(); };
+  pvToggle = () => { const st = this.state; if (this.pvDisabled()) return; this.setState({pv:!st.pv}); this.api('preview', !st.pv); };
+  pvDisabled() { return this.d && this.d.clips.length > 0 && this.d.clips.every(c => !c.profile || !c.profile.gamma); }
+  gapsSet(v) {
+    if (!this.gapsSorted) return;
+    v = Math.max(0, Math.min(this.gapsSorted.length, v));
+    this.setState({nCut:v});
+  };
+  gapChange = e => this.gapsSet(+e.target.value);
+
+  renderVals() {
+    const st = this.state, MK = Component.MK;
+    const base = {shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    if (!st.ready || !this.d) return base;
+    this.index();
+    const sk = st.step === 'skim';
+    const d = this.d, C = d.clips, G = this.G, empty = !C.length, selSet = new Set(st.sel);
+    const fr = (c, big) => { const a = []; for (let i = 0; i < 8; i++) a.push(this.tone(c, i, big)); return a; };
+    const markN = {keep:0, maybe:0, cut:0}, markB = {keep:0, maybe:0, cut:0};
+    C.forEach(c => { const m = st.marks[c.id]; if (m) { markN[m]++; markB[m] += c.bytes; } });
+    const decided = markN.keep + markN.maybe + markN.cut, und = C.length - decided;
+    const visN = this.flat.length, hidden = C.length - visN;
+    const lvTabs = Component.LV.map((t, i) => ({t, on:st.lv === i, fg:st.lv === i ? '#EFECE6' : '#9A958D', go:() => this.setLv(i)}));
+    const curC = this.byId[st.cur];
+    const allUnknown = this.pvDisabled();
+    let pvLine;
+    const pr0 = curC ? this.prof(curC) : null;
+    if (empty) pvLine = 'no clips';
+    else if (allUnknown) pvLine = 'no clip\'s profile can be read · showing files as they are';
+    else if (!st.pv) pvLine = 'off · showing files as they are';
+    else if (!pr0) pvLine = 'profile unknown · showing this file as it is';
+    else if (pr0.g === 'none') pvLine = 'none · showing this file as it is';
+    else pvLine = pr0.g + ' · ' + pr0.p + ' · ' + pr0.src;
+    const pvOnUi = st.pv && !allUnknown;
+    const ghostFor = (sel, isCur) => {
+      if (!st.held) return null;
+      return (st.sel.length ? sel : isCur) ? st.held : null;
+    };
+    const vals = {
+      ...base,
+      shootName:d.shoot.name, shootLine:empty ? 'no clips' : this.plural(C.length, 'clip') + (d.shoot.photos ? ' · ' + d.shoot.photos + ' photos' : '') + ' · ' + this.plural(d.shoot.days, 'day') + ' · ' + this.fmtB(d.shoot.bytes),
+      lvX:st.lv * 68, lvTabs,
+      pvA:pvOnUi, pvDis:allUnknown, pvOp:allUnknown ? 0.45 : 1, pvTrack:pvOnUi ? '#B8B3AB' : 'rgba(239,236,230,0.18)', pvKnob:pvOnUi ? '14px' : '2px', pvLine, pvToggle:this.pvToggle,
+      isEmpty:sk && empty,
+      stripOn:sk && !empty && st.lv >= 1, takeStripOn:sk && !empty && st.lv >= 2,
+      lv0:sk && !empty && st.lv === 0, lv1:sk && !empty && st.lv === 1, lv2:sk && !empty && st.lv === 2 && !!curC,
+      scRef:this.scRef, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
+      tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick,
+      wClick:this.wClick, 
+      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl,
+      grid42:true,
+      boxOn:!!st.box && (st.box.w + st.box.h > 6), box:st.box || base.box,
+      undoN:st.undo.length, redoN:st.redo.length, undoC:st.undo.length ? '#EFECE6' : '#6E6A64', redoC:st.redo.length ? '#EFECE6' : '#6E6A64',
+      undoGo:() => this.undo(), redoGo:() => this.redo(),
+      stop:e => e.stopPropagation()
+    };
+    // footer
+    vals.propOn = !!st.prop; vals.prop = st.prop || '';
+    vals.countsOn = !st.prop;
+    vals.counts = st.flash || (decided + ' decided · ' + und + ' undecided · 0 automatic');
+    vals.handOffer = !st.prop && !empty && und === 0;
+    vals.handOpen = () => this.setStep('export');
+    vals.wells = ['keep', 'maybe', 'cut'].map(m => ({m, n:markN[m], c:MK[m], bg:'rgba(239,236,230,0.05)', ring:'rgba(239,236,230,0.1)'}));
+    vals.cutSoFar = 'cut so far: ' + this.fmtB(markB.cut);
+    vals.freeTxt = (d.shoot.free == null ? 'free space: not readable here' : 'card: ' + this.fmtB(d.shoot.free) + ' free');
+    // hints
+    vals.hints = empty ? [{k:'⌘O', t:'open'}] : st.held ? [{k:'tap', t:st.held}, {k:'⏎', t:st.held}, {k:'let go', t:'nothing happens'}] : [];
+    // strips
+    const curGi = this.gOfAll[st.cur];
+    vals.strip = G.map(g => { const dn = g.clips.filter(c => st.marks[c.id]).length; return {title:g.title, n:g.vis.length === g.clips.length ? g.clips.length : g.vis.length + '/' + g.clips.length, pct:Math.round(dn / g.clips.length * 100) + '%', bg:g.i === curGi ? '#5B5854' : 'rgba(239,236,230,0.05)', fg:g.i === curGi ? '#EFECE6' : '#B8B3AB', go:() => { const f = this.firstVis(g.i); if (!f) return; if (st.lv === 1) this.wantScroll = ['[data-sec="' + g.i + '"]', true]; this.setState({cur:f, gi:g.i, fx:0}); }}; });
+    if (st.lv >= 2 && curGi != null) vals.tstrip = (G[curGi].vis.length ? G[curGi].vis : G[curGi].clips).map(c => { const m = st.marks[c.id], t0 = this.tone(c, 0); return {id:c.id, bg:t0.bg, flt:t0.flt, edge:m ? 'inset 0 0 0 2px ' + MK[m] : 'none', out:c.id === st.cur ? '1.5px solid #EFECE6' : 'none'}; });
+    // chapters level
+    if (vals.lv0) {
+      const gs = this.gapsSorted;
+      vals.sliderOn = C.length > 1; vals.gapMax = gs.length; vals.nCut = st.nCut; vals.gapChange = this.gapChange;
+      vals.gapLine = this.plural(G.length, 'chapter') + (st.cuts ? ' · boundaries moved by you' : st.nCut === 0 ? ' · no gaps cut' : st.nCut >= gs.length ? ' · every gap cut' : ' · gaps over ' + this.fmtGap(gs[st.nCut - 1].s));
+      vals.chs = G.map(g => {
+        const t0 = this.tone(g.clips[0], 0), dn = {keep:0, maybe:0, cut:0};
+        g.clips.forEach(c => { const m = st.marks[c.id]; if (m) dn[m]++; });
+        const anySel = g.vis.some(c => selSet.has(c.id)), isCur = st.gi === g.i;
+        const gm = st.held ? (st.sel.length ? (anySel ? st.held : null) : (isCur ? st.held : null)) : null;
+        const n = g.clips.length, few = n <= 48;
+        return {i:g.i, title:g.title, size:this.fmtB(g.bytes), count:g.vis.length === n ? this.plural(n, 'clip') : g.vis.length + ' of ' + this.plural(n, 'clip') + ' shown', why:g.why,
+          thumb:t0.bg, flt:t0.flt, edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : 'none', ghost:!!gm, ghostT:gm || '', ghostC:gm ? MK[gm] : '#B8B3AB',
+          bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.6)' : 'none', op:g.vis.length ? 1 : 0.4,
+          dotsOn:few, dots:few ? g.clips.map(c => ({c:st.marks[c.id] ? MK[st.marks[c.id]] : 'rgba(239,236,230,0.2)'})) : [],
+          barOn:!few, segs:few ? [] : ['keep', 'maybe', 'cut'].map(m => ({w:(dn[m] / n * 100).toFixed(1) + '%', c:MK[m]}))};
+      });
+    }
+    // takes level
+    if (vals.lv1) {
+      vals.secs = G.filter(g => g.vis.length).map(g => {
+        const dn = g.clips.filter(c => st.marks[c.id]).length, bndOk = g.i > 0;
+        return {gi:g.i, title:g.title, count:g.vis.length === g.clips.length ? this.plural(g.clips.length, 'clip') : g.vis.length + ' of ' + this.plural(g.clips.length, 'clip'), size:this.fmtB(g.bytes), why:g.why,
+          hWhy:bndOk ? '' : g.why, bnd:bndOk, bFg:'#9A958D', bLine:'rgba(239,236,230,0.12)',
+          prog:dn + ' of ' + g.clips.length + ' decided',
+          tiles:g.vis.map(c => {
+            const m = st.marks[c.id] || null, isSel = selSet.has(c.id), isCur = st.cur === c.id;
+            const gm = ghostFor(isSel, isCur);
+            const gc = gm ? (MK[gm] || '#B8B3AB') : null, ch = this.chips(c);
+            return {id:c.id, name:c.name.replace(/\.\w+$/, ''), dur:this.fmtDur(c.dur), size:this.fmtB(c.bytes), time:this.hm(c.t), fr:fr(c),
+              edge:gm ? 'inset 0 0 0 2px ' + gc + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm, mark:m || '', markC:m ? MK[m] : '', ghost:!!gm, ghostT:gm || '', ghostC:gc || '',
+              chips:ch.pending ? [this.pendV(), this.pendV()] : ch.list.slice(0, 3).map(x => this.chipV(c, x)),
+              bg:isSel ? 'rgba(255,210,122,0.08)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.7)' : 'none'};
+          })};
+      });
+    }
+    // clip + frame
+    if (vals.lv2 && curC) {
+      const c = curC, f = c.facts || {}, m = st.marks[c.id] || null, fi = Math.round(st.fx), ch = this.chips(c), t = this.tone(c, fi);
+      const gm = st.held || null, ready = f.state === 'ready', pr = this.prof(c), pv = this.pvOn(c), disL = st.dis[c.id] || [];
+      const secAt = (st.fx + 0.5) / 8 * c.dur;
+      const dsx = k => disL.includes(k) ? ' · dismissed' : '';
+      const facts = [];
+      if (f.state === 'pending') facts.push({k:'measuring', v:'exposure, clipping, sharpness and motion are still being measured', c:'#9A958D'});
+      else if (f.state === 'unreliable') facts.push({k:'measures', v:'couldn\'t be read for this clip', c:'#9A958D'});
+      else {
+        facts.push({k:'exposure', v:(f.ev > 0 ? '+' : f.ev < 0 ? '−' : '') + Math.abs(f.ev).toFixed(1) + ' stops against middle grey' + (pv ? ', after the preview' : '') + dsx('ev')});
+        facts.push({k:'clipped', v:this.pct(f.clip) + dsx('clip')});
+        facts.push({k:'crushed', v:this.pct(f.crush) + dsx('crush')});
+        facts.push({k:'sharpness', v:f.sharp.toFixed(2) + ' lowest of 8 frames · ' + (f.sharp < 0.35 ? 'soft' : 'sharp') + dsx('soft')});
+        facts.push({k:'motion', v:(f.motion || 'steady') + dsx('motion')});
+        facts.push({k:'bump', v:(f.bump != null ? 'frame ' + (f.bump + 1) + ' far from its neighbours' : 'none') + dsx('bump')});
+      }
+      facts.push({k:'rate', v:(c.fps ? c.fps + 'p' : 'unknown') + (c.fps !== d.shoot.rate ? ' · shoot is mostly ' + d.shoot.rate + 'p' : '') + dsx('rate')});
+      facts.push({k:'duration', v:this.fmtDur(c.dur)});
+      facts.push({k:'size', v:this.fmtB(c.bytes)});
+      facts.push({k:'format', v:c.w + '×' + c.h + ' · ' + c.codec});
+      facts.push({k:'profile', v:pr ? (pr.g === 'none' ? 'none' : pr.g + ' · ' + pr.p) + ' · ' + pr.src : 'unknown · no sidecar'});
+      facts.push({k:'recorded', v:c.t.slice(0, 10) + ' · ' + c.t.slice(11, 19)});
+      facts.push({k:'path', v:c.path, c:'#9A958D'});
+      facts.push({k:'mark', v:m || 'undecided', c:m ? MK[m] : '#9A958D'});
+      facts.forEach(x => { if (!x.c) x.c = '#EFECE6'; });
+      vals.cv = {name:c.name.replace(/\.\w+$/, ''), when:this.hm(c.t) + ' · ' + this.fmtDur(c.dur), bg:t.bg, flt:t.flt, edge:gm ? 'inset 0 0 0 3px ' + MK[gm] + '99' : m ? 'inset 0 0 0 3px ' + MK[m] : 'none', markOn:!!m && !gm, mark:m || '', markC:m ? MK[m] : '', ghost:!!gm, ghostT:gm || '', ghostC:gm ? MK[gm] : '',
+        ph:(st.fx / 7 * 100).toFixed(2) + '%', tc:this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
+        chips:ch.pending ? [this.pendV(), this.pendV(), this.pendV()] : ch.list.map(x => this.chipV(c, x))};
+      vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:(i / 7 * 100).toFixed(2) + '%'}));
+    }
+    Object.assign(vals, this.extraVals(markN, markB, und));
+    return vals;
+  }
+  storeKey(d) { d = d || this.d; return 'lumina-skim:' + (d.__sample ? 'sample-' + (this.sampleKey || 'host') : d.shoot.name + '-' + d.clips.length); }
+  save() {
+    const s = this.state; if (!this.d || !this.d.clips.length) return;
+    const none = !Object.keys(s.marks).length && !Object.keys(s.dis).length && !s.cuts;
+    try { if (none) localStorage.removeItem(this.storeKey()); else localStorage.setItem(this.storeKey(), JSON.stringify({marks:s.marks, dis:s.dis, cuts:s.cuts, at:Date.now()})); } catch (x) {}
+  }
+  hasShoot() { return !!(this.d && this.d.clips.length); }
+  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const ex = this.state.ex; this.setState({step:s, memOn:false, exDone:null, ex:ex.event ? ex : {...ex, event:this.d ? this.d.shoot.name : ''}}); }
+  fileRef = el => { this.fileEl = el; };
+  pickFolder = () => { if (this.fileEl) this.fileEl.click(); };
+  filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.importFiles(fs); };
+  dropOver = e => { e.preventDefault(); if (!this.state.dropHot) this.setState({dropHot:true}); };
+  dropLeave = () => this.setState({dropHot:false});
+  dropIn = async e => {
+    e.preventDefault(); this.setState({dropHot:false});
+    const rel = this.rel = new Map(), out = [];
+    const walk = (en, p) => new Promise(res => {
+      if (en.isFile) en.file(f => { rel.set(f, p + f.name); out.push(f); res(); }, () => res());
+      else if (en.isDirectory) { const rd = en.createReader(), all = []; const step = () => rd.readEntries(es => { if (!es.length) { Promise.all(all.map(x => walk(x, p + en.name + '/'))).then(res); return; } all.push(...es); step(); }, () => res()); step(); }
+      else res();
+    });
+    const ens = [...(e.dataTransfer.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean), flat = [...(e.dataTransfer.files || [])];
+    if (ens.length) await Promise.all(ens.map(en => walk(en, ''))); else out.push(...flat);
+    this.importFiles(out);
+  };
+  gammaName(g) { return /s-?log3/i.test(g) ? 'S-Log3' : /s-?log2/i.test(g) ? 'S-Log2' : /hlg/i.test(g) ? 'HLG' : /709|rec/i.test(g) ? 'none' : g; }
+  primName(p) { return /gamut3.?cine/i.test(p) ? 'S-Gamut3.Cine' : /gamut3/i.test(p) ? 'S-Gamut3' : /gamut/i.test(p) ? 'S-Gamut' : /2020/.test(p) ? 'Rec.2020' : /709/.test(p) ? 'Rec.709' : p; }
+  async importFiles(files) {
+    const rel = f => (this.rel && this.rel.get(f)) || f.webkitRelativePath || f.name;
+    const vids = files.filter(f => /\.(mp4|mov|mxf|m4v)$/i.test(f.name) && !/^\._/.test(f.name));
+    const photos = files.filter(f => /\.(arw|dng|cr3|cr2|nef|raf|orf|rw2|jpe?g|heic)$/i.test(f.name)).length;
+    if (!vids.length) { this.setState({impMsg:photos ? photos + ' photos and no clips in that folder. Photos are picked in Pick.' : 'No clips in that folder.'}); return; }
+    const xml = {}; files.filter(f => /\.xml$/i.test(f.name)).forEach(f => { xml[f.name.replace(/M\d\d\.xml$/i, '').replace(/\.xml$/i, '').toUpperCase()] = f; });
+    const clips = [];
+    for (const f of vids) {
+      const base = f.name.replace(/\.\w+$/, ''), sc = xml[base.toUpperCase()];
+      let prof = {gamma:null, primaries:null, source:'none'}, t = null, fps = 0;
+      if (sc) { try { const tx = await sc.text(); const g = (tx.match(/captureGammaEquation="([^"]+)"/i) || [])[1], p = (tx.match(/captureColorPrimaries="([^"]+)"/i) || [])[1], cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1];
+        prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:'sidecar'}; if (cd) t = cd.slice(0, 19); if (fr) fps = Math.round(+fr); } catch (x) {} }
+      if (!t) t = this.iso(f.lastModified);
+      clips.push({id:'F' + String(clips.length + 1).padStart(4, '0'), name:f.name, path:rel(f), t, dur:0, fps, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f});
+    }
+    clips.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
+    const rates = {}; clips.forEach(c => { if (c.fps) rates[c.fps] = (rates[c.fps] || 0) + 1; });
+    const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
+    const root = rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
+    const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true}, clips, gaps:[]};
+    this.regap(d); this.sampleKey = null; this.loadData(d, 'skim');
+    this.setState({impMsg:null, imp:{n:clips.length, done:0}});
+    this.runQueue(clips.slice(), this.qTok);
+  }
+  regap(d) { d = d || this.d; const C = d.clips; d.gaps = []; for (let i = 0; i < C.length - 1; i++) d.gaps.push({after:C[i].id, s:Math.max(0, Math.round((new Date(C[i + 1].t) - new Date(C[i].t)) / 1000 - C[i].dur))}); this.gapBy = {}; d.gaps.forEach(g => this.gapBy[g.after] = g.s); this.gapsSorted = d.gaps.slice().sort((a, b) => b.s - a.s); }
+  async runQueue(list, tok) {
+    for (const c of list) { if (tok !== this.qTok) return; await this.readClip(c, tok); if (tok !== this.qTok) return; this.regap(); this.setState(s => ({imp:{n:s.imp ? s.imp.n : list.length, done:(s.imp ? s.imp.done : 0) + 1}})); }
+    if (tok === this.qTok && !this.state.cuts) { const g = this.gapsSorted; this.setState({nCut:g.filter(x => x.s >= 1200).length || g.filter(x => x.s >= 300).length}); }
+  }
+  readClip(c, tok) {
+    return new Promise(async done => {
+      const url = URL.createObjectURL(c._file), v = document.createElement('video');
+      v.muted = true; v.preload = 'auto'; v.playsInline = true; this.vOpen = (this.vOpen || 0) + 1;
+      const wait = (ev, ms) => new Promise((res, rej) => { const to = setTimeout(() => { v.removeEventListener(ev, ok); v.removeEventListener('error', bad); rej('timeout'); }, ms); function ok() { clearTimeout(to); v.removeEventListener('error', bad); res(); } function bad() { clearTimeout(to); v.removeEventListener(ev, ok); rej('error'); } v.addEventListener(ev, ok, {once:true}); v.addEventListener('error', bad, {once:true}); });
+      try {
+        v.src = url; await wait('loadedmetadata', 10000);
+        c.dur = isFinite(v.duration) ? v.duration : 0; c.w = v.videoWidth; c.h = v.videoHeight;
+        if (!c.w || !c.dur) throw 'no video';
+        const cv = document.createElement('canvas'); cv.width = 320; cv.height = 180; const ctx = cv.getContext('2d', {willReadFrequently:true}), px = [];
+        for (let i = 0; i < 8; i++) {
+          if (tok !== this.qTok) throw 'stopped';
+          v.currentTime = Math.min(c.dur - 0.05, (i + 0.5) / 8 * c.dur); await wait('seeked', 8000);
+          ctx.drawImage(v, 0, 0, 320, 180); c.frames[i] = cv.toDataURL('image/jpeg', 0.72); px.push(this.pix(ctx.getImageData(0, 0, 320, 180)));
+          this.setState(s => ({tick:s.tick + 1}));
+        }
+        const avg = k => px.reduce((s, p) => s + p[k], 0) / px.length, mean = avg('mean');
+        const sharpF = px.map(p => Math.round(Math.min(1, p.lap / 0.05) * 100) / 100);
+        let bump = null; px.forEach((p, i) => { const nb = [px[i - 1], px[i + 1]].filter(Boolean); if (bump == null && nb.length && nb.every(q => Math.abs(q.mean - p.mean) > 0.2)) bump = i; });
+        c.facts = {state:'ready', ev:Math.round(Math.max(-5, Math.min(5, Math.log2(Math.max(0.01, mean) / 0.46) * 2.2)) * 10) / 10, clip:Math.round(avg('hi') * 1000) / 10, crush:Math.round(avg('lo') * 1000) / 10, sharp:Math.min(...sharpF), sharpF, motion:null, bump};
+      } catch (x) { if (x !== 'stopped' && c.facts.state === 'pending') c.facts = {state:'unreliable'}; }
+      URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {} this.vOpen--;
+      this.setState(s => ({tick:s.tick + 1})); done();
+    });
+  }
+  pix(img) {
+    const D = img.data, W = img.width, H = img.height, Y = new Float32Array(W * H); let sum = 0, hi = 0, lo = 0, lap = 0, ln = 0;
+    for (let i = 0, j = 0; i < D.length; i += 4, j++) { const y = (0.2126 * D[i] + 0.7152 * D[i + 1] + 0.0722 * D[i + 2]) / 255; Y[j] = y; sum += y; if (y > 0.98) hi++; else if (y < 0.02) lo++; }
+    for (let y = 1; y < H - 1; y += 2) for (let x = 1; x < W - 1; x += 2) { const j = y * W + x; lap += Math.abs(4 * Y[j] - Y[j - 1] - Y[j + 1] - Y[j - W] - Y[j + W]); ln++; }
+    const n = W * H; return {mean:sum / n, hi:hi / n, lo:lo / n, lap:lap / ln};
+  }
+  memStats() {
+    const C = this.d ? this.d.clips : [], s = this.state; let fr = 0, frB = 0, meas = 0;
+    C.forEach(c => { (c.frames || []).forEach(u => { if (u) { fr++; frB += u.length * 0.75; } }); if (c.facts && c.facts.state !== 'pending') meas++; });
+    let saved = 0, savedB = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf('lumina-skim:') === 0) { saved++; savedB += (localStorage.getItem(k) || '').length * 2; } } } catch (x) {}
+    return {n:C.length, fr, frB, meas, saved, savedB, tabB:frB + C.length * 700 + s.undo.length * 120};
+  }
+  clearFrames = () => { if (!this.d) return; const real = this.d.clips.filter(c => c._file); if (!real.length) return; this.qTok = {}; real.forEach(c => { c.frames = [null, null, null, null, null, null, null, null]; }); this.setState({imp:{n:real.length, done:0}}); this.runQueue(real, this.qTok); };
+  forgetMarks = () => {
+    if (!this.hasShoot()) return;
+    if (!this.state.memConfirm) { clearTimeout(this.mcT); this.setState({memConfirm:true}); this.mcT = setTimeout(() => this.setState({memConfirm:false}), 3500); return; }
+    try { localStorage.removeItem(this.storeKey()); } catch (x) {}
+    clearTimeout(this.mcT); this.setState({marks:{}, dis:{}, cuts:null,  undo:[], redo:[], memConfirm:false, sel:[], box:null}); this.flash('marks for this shoot forgotten');
+  };
+  clearMemory = () => {
+    if (!this.hasShoot()) return;
+    this.qTok = {}; this.rel = null;
+    this.d = {__sample:true, shoot:{name:'', days:0, bytes:0, free:null, rate:24}, clips:[], gaps:[]}; this.byId = {}; this.gapBy = {}; this.gapsSorted = [];
+    this.setState({step:'import', memOn:false, memConfirm:false, marks:{}, dis:{}, cuts:null,  undo:[], redo:[], sel:[], box:null, cur:null, lv:0, gi:0, imp:null, impMsg:null, exDone:null});
+  };
+  buildX() {
+    const st = this.state, d = this.d, ex = st.ex; if (!d) return {n:0, text:''};
+    const xe = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const inc = c => { const m = st.marks[c.id]; return m === 'keep' || (ex.maybes && m === 'maybe'); };
+    const clips = d.clips.filter(inc), FD = {24:[1001, 24000], 25:[100, 2500], 30:[1001, 30000], 50:[100, 5000], 60:[1001, 60000], 100:[100, 10000], 120:[1001, 120000]};
+    const fmts = {}, fl = []; let fi = 1;
+    const fmt = c => { const r = c.fps || d.shoot.rate || 24, w = c.w || 3840, h = c.h || 2160, k = r + '-' + w + 'x' + h; if (!fmts[k]) { const fd = FD[r] || [1001, 24000]; fmts[k] = {id:'r' + (fi++), n:fd[0], dd:fd[1]}; fl.push('    <format id="' + fmts[k].id + '" frameDuration="' + fd[0] + '/' + fd[1] + 's" width="' + w + '" height="' + h + '"/>'); } return fmts[k]; };
+    const rt = (sec, f) => Math.max(1, Math.round(sec * f.dd / f.n)) * f.n + '/' + f.dd + 's';
+    const src = c => { let p = c.path || c.name; if (p[0] !== '/') p = '/Volumes/' + p; return 'file://' + encodeURI(p); };
+    const al = [], cl = [];
+    clips.forEach((c, i) => {
+      const f = fmt(c), du = rt(c.dur || 1, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
+      al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="0s" duration="' + du + '" hasVideo="1" hasAudio="1" format="' + f.id + '">', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
+      const kws = []; if (m === 'maybe') kws.push(ex.kw || 'maybe');
+      cl.push('      <asset-clip ref="a' + (i + 1) + '" name="' + nm + '" duration="' + du + '" format="' + f.id + '" tcFormat="NDF">');
+      if (kws.length) cl.push('        <keyword start="0s" duration="' + du + '" value="' + xe(kws.join(', ')) + '"/>');
+      cl.push('      </asset-clip>');
+    });
+    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
+    return {n:clips.length, text};
+  }
+  download = () => {
+    const x = this.buildX(); if (!x.n) return;
+    const st = this.state, blob = new Blob([x.text], {type:'application/xml'}), a = document.createElement('a'), u = URL.createObjectURL(blob);
+    a.href = u; a.download = (st.ex.event || this.d.shoot.name || 'Lumina').replace(/[\/:]/g, '-') + '.fcpxml'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
+    const by = {keep:[], maybe:[], cut:[]}; Object.keys(st.marks).forEach(id => by[st.marks[id]] && by[st.marks[id]].push(id));
+    this.api('handoff', {keep:by.keep, maybe:st.ex.maybes ? by.maybe : [], keyword:st.ex.kw, cut:by.cut, trash:false, event:st.ex.event});
+    this.setState({exDone:'Saved ' + a.download + ' · ' + this.plural(x.n, 'clip')});
+  };
+  static CARDS = [['fx5', 'FX5 Sample Pack', 'SONY FX5 · Visual Park, free']];
+  cardList() {
+    if (this._cards) return this._cards; const S = window.LuminaVideoSamples; if (!S) return [];
+    this._cards = Component.CARDS.filter(c => S[c[0]]).map(([key, name, cam]) => { const d = S[key](); return {key, name, l1:this.plural(d.clips.length, 'clip') + (d.shoot.photos ? ' · ' + d.shoot.photos + ' photos' : '') + ' · ' + this.fmtB(d.shoot.bytes), l2:cam + ' · ' + this.plural(d.shoot.days, 'day')}; });
+    return this._cards;
+  }
+  openSample(key) { const S = window.LuminaVideoSamples; if (!S || !S[key]) return; const d = S[key](), c = Component.CARDS.find(x => x[0] === key); if (c) d.shoot.name = c[1]; this.sampleKey = key; this.loadData(d, 'skim'); }
+  navHints() {
+    const st = this.state, G = this.G, nm = id => this.byId[id] ? this.byId[id].name.replace(/\.\w+$/, '') : '';
+    const out = [], add = (k, t) => { if (t) out.push({k, t}); };
+    const i = this.flat.indexOf(st.cur), prev = this.flat[i - 1], next = this.flat[i + 1], cg = G[this.gOfAll[st.cur]];
+    if (st.lv === 0) {
+      const g = G[st.gi]; if (!g) return {lead:'', list:out};
+      add('↓', 'open ' + g.title); add('←', G[st.gi - 1] && G[st.gi - 1].title); add('→', G[st.gi + 1] && G[st.gi + 1].title);
+      add('K M X', 'hold + tap · mark ' + this.plural(g.vis.length, 'clip')); add('⌘⏎', 'export');
+      return {lead:'Chapters · ' + g.title, list:out};
+    }
+    const ng = cg ? G.slice(cg.i + 1).find(x => x.vis.length) : null;
+    if (st.lv === 1) {
+      add('↑', 'Chapters · ' + (cg ? cg.title : '')); add('↓', 'open ' + nm(st.cur)); add('←', prev && nm(prev)); add('→', next && nm(next));
+      add('⇧↓', ng && 'next chapter · ' + ng.title); add('K M X', 'mark ' + nm(st.cur) + ', move on'); add('esc', 'put back');
+      return {lead:'Takes · ' + nm(st.cur), list:out};
+    }
+    const fi = Math.round(st.fx);
+    if (st.lv === 2) {
+      add('↑', 'Takes · ' + (cg ? cg.title : '')); add('← →', 'scrub'); add('⇧→', next && nm(next)); add('K M X', 'mark ' + nm(st.cur)); add('V', 'preview ' + (st.pv ? 'off' : 'on'));
+      return {lead:'Clip · ' + nm(st.cur), list:out};
+    }
+    add('↑', 'Clip · ' + nm(st.cur)); add('←', fi > 0 && 'frame ' + fi); add('→', fi < 7 && 'frame ' + (fi + 2)); add('⇧ arrows', 'pan'); add('K M X', 'mark ' + nm(st.cur));
+    return {lead:'Frame ' + (fi + 1) + ' · ' + nm(st.cur), list:out};
+  }
+  extraVals(markN, markB, und) {
+    const st = this.state, d = this.d, MK = Component.MK, has = this.hasShoot(), steps = [['import', 'Open'], ['skim', 'Skim'], ['export', 'Export']];
+    const si = steps.findIndex(s => s[0] === st.step), ms = this.memStats();
+    const v = {isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
+      stepTabs:steps.map((s, i) => ({t:s[1], on:i === si, fg:i === si ? '#EFECE6' : (i === 0 || has ? '#9A958D' : '#5B5854'), go:() => this.setStep(s[0])})),
+      memOn:st.memOn, memToggle:() => this.setState({memOn:!st.memOn, memConfirm:false}), memBg:st.memOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)', memPill:this.fmtB(ms.tabB),
+      memTab:[{k:'clips open', v:ms.n ? ms.n + ' · read from the card, not copied' : 'none'}, {k:'frames made', v:ms.fr + ' · ' + this.fmtB(ms.frB)}, {k:'measured', v:ms.meas + ' of ' + ms.n}, {k:'videos open', v:String(this.vOpen || 0)}, {k:'undo steps', v:String(st.undo.length)}],
+      memSaved:[{k:'this shoot', v:has ? this.plural(Object.keys(st.marks).length, 'mark') : '—'}, {k:'all shoots', v:this.plural(ms.saved, 'shoot') + ' · ' + (ms.savedB < 1e6 ? Math.max(1, Math.round(ms.savedB / 1024)) + ' KB' : this.fmtB(ms.savedB))}],
+      memBtns:[
+        {t:'Clear frames', sub:ms.fr ? 'drops ' + ms.fr + ' frames · made again in the background' : 'no frames made in this tab', go:this.clearFrames, op:ms.fr ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'},
+        {t:st.memConfirm ? 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + '? Click again' : 'Forget marks', sub:'deletes this shoot’s saved marks from this browser', go:this.forgetMarks, op:has ? 1 : 0.45, bg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.08)', fg:st.memConfirm ? '#FF8A7A' : '#EFECE6'},
+        {t:'Clear memory', sub:'closes the shoot, frees frames and measurements · saved marks stay', go:this.clearMemory, op:has ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'}],
+      impOn:!!(st.imp && st.imp.done < st.imp.n), impW:st.imp ? Math.round(st.imp.done / Math.max(1, st.imp.n) * 100) + '%' : '0%',
+      fileRef:this.fileRef, pickFolder:this.pickFolder, filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
+      dropRing:st.dropHot ? '#FFD27A' : 'rgba(239,236,230,0.18)', dropBg:st.dropHot ? 'rgba(255,210,122,0.06)' : '#232220',
+      impMsg:st.impMsg || '', impMsgOn:!!st.impMsg,
+      impLineOn:!!(st.imp && st.imp.done < st.imp.n), impLine:st.imp ? 'measuring ' + st.imp.done + ' of ' + this.plural(st.imp.n, 'clip') : '',
+      nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
+      cards:this.cardList().map(c => ({...c, open:() => this.openSample(c.key)})),
+      download:this.download, hintLead:''
+    };
+    if (v.isSkim && has && !st.held) { const nh = this.navHints(); v.hints = nh.list; v.hintLead = nh.lead; }
+    if (v.isExport) {
+      const x = this.buildX(), ex = st.ex, G = this.G || [];
+      v.exRows = [
+        {k:'keep', c:MK.keep, n:this.plural(markN.keep, 'clip'), size:this.fmtB(markB.keep), to:'into the event'},
+        {k:'maybe', c:MK.maybe, n:this.plural(markN.maybe, 'clip'), size:this.fmtB(markB.maybe), to:ex.maybes ? 'into the event · keyword “' + (ex.kw || 'maybe') + '”' : 'left out'},
+        {k:'cut', c:MK.cut, n:this.plural(markN.cut, 'clip'), size:this.fmtB(markB.cut), to:'stay on the card'},
+        {k:'undecided', c:'rgba(239,236,230,0.3)', n:this.plural(und, 'clip'), size:this.fmtB(Math.max(0, d.shoot.bytes - markB.keep - markB.maybe - markB.cut)), to:'stay on the card'}];
+      const sw = (t, sub, on, key, dis) => ({t, sub, on, op:dis ? 0.45 : 1, track:on ? '#B8B3AB' : 'rgba(239,236,230,0.18)', knob:on ? '14px' : '2px', go:() => { if (!dis) this.setState(s => ({ex:{...s.ex, [key]:!s.ex[key]}})); }});
+      v.exOpts = [sw('Include maybes', 'with the keyword above', ex.maybes, 'maybes')];
+      v.exEvent = ex.event; v.exKw = ex.kw;
+      v.exEventIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, event:val}})); };
+      v.exKwIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, kw:val}})); };
+      v.exBtnOp = x.n ? 1 : 0.45; v.exBtn = x.n ? 'Download .fcpxml · ' + this.plural(x.n, 'clip') : 'Nothing marked keep yet';
+      const lines = x.text.split('\n'); v.exPreview = x.n ? lines.slice(0, 44).join('\n') + (lines.length > 44 ? '\n…' : '') : 'Mark clips keep or maybe in Skim.';
+      v.exPathLine = d.shoot.real ? 'Paths assume the card is mounted at /Volumes/' + d.shoot.name + '.' : 'Paths point at the card as the camera wrote it.';
+      v.exDone = st.exDone || ''; v.exDoneOn = !!st.exDone;
+      v.exGroups = G.map(g => { const k = g.clips.filter(c => st.marks[c.id] === 'keep').length, m = g.clips.filter(c => st.marks[c.id] === 'maybe').length; return {title:g.title, k:k + ' keep', m:ex.maybes ? m + ' maybe' : '', on:k + (ex.maybes ? m : 0) > 0}; }).filter(g => g.on);
+      v.backSkim = () => this.setStep('skim');
+    }
+    return v;
+  }
+}
+</script>
+</body>
+</html>

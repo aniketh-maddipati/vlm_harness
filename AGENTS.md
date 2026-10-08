@@ -133,6 +133,17 @@ it; either way the most recent shoot opens again. A branch is built from its wor
 work included; one `dev.sh` at a time (a second is refused, exit 75). It is not what ships: Edit latency, the
 sandbox and the release settings are judged on the Release app or the probe.
 
+**Skim, the video step (branch `video/skim-mvp`, Debug only).** `bash Scripts/dev-skim.sh --watch` keeps a
+second dev app, "Lumina Skim" (bundle id `com.lumina.app.skim`, its own container, build folder and lock), beside
+"Lumina Dev". It shows `Lumina Skim v3.dc.html` instead of Pick (`SetsPage`, `LUMINA_PAGE=skim`): no plumbing, no
+Edit canvas, no card watcher; the menu's ⌘-keys come back to the page as its own keys. Edit the page in
+`design/handoff/lumina-skim/`; `--watch` copies each change to `Lumina/Sets/Web` and into the running app, which
+reloads in under a second (`SetsHotReload` compares contents, so the build after it doesn't reload again).
+`SetsPageBytesTests` holds the two copies equal. The page reads clips through WebKit's `<video>`; the policy the
+native decode will follow is `Lumina/Sets/Video/VideoPolicy.swift`, its gate `probe.sh video`. Fixtures:
+`/Volumes/T7/Lumina/fixtures/video/` (`a7m3-day1`: 50 ILCE-7M3 clips with sidecars; `slog3-reexport`: two S-Log3
+clips with no camera metadata).
+
 Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh`. It only reads the card.
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 
