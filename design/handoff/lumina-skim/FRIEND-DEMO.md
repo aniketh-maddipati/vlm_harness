@@ -7,12 +7,12 @@ Native decode runs separately in `video/skim-native` (`worktrees/skim-native`, N
 A videographer on a Sony a7S III, S-Log3 / S-Gamut3.Cine (PP8), editing in Final Cut Pro. Huge volume of 4K;
 today he goes through it in several light passes so the Mac doesn't crash or overheat. He archives everything.
 Workflow open: card → dump drive, card → Final Cut library, or card → archive + working drive (we support all three).
-The pitch: sort the whole card in one pass without heat or crashes; Final Cut only ever touches what you keep.
+The pitch: sort the whole card in one pass without heat or crashes; Final Cut only ever touches what you select.
 
 ## Defaults (keep them)
 - Lumina reads clips wherever they are (card, dump, archive), read only; never moves or deletes originals.
-- Nothing blocks on keepers: Export defaults to **Everything** (keepers = Final Cut favorites, cuts = rejected,
-  maybes tagged "maybe", the rest unrated); **Keepers only** is a switch (f9c37fe).
+- Nothing has to be selected: Export defaults to **Everything** (selected = Final Cut favorites, cuts = rejected,
+  maybes tagged "maybe", the rest unrated); **Only selected clips** is a switch (f9c37fe).
 - S-Log3 from the sidecar (or the answer the user gives once) turns the Rec.709 preview on.
 
 ## Work, in order
@@ -36,7 +36,7 @@ The pitch: sort the whole card in one pass without heat or crashes; Final Cut on
    Add a release path for the Skim page (separate scheme or target "Lumina Skim"), Developer ID signing and
    notarization steps in Scripts (needs the user's Apple Developer account; stop and ask before anything that
    uses credentials). Until then: the standalone HTML for Safari with a one-page how-to.
-4. **Later (do not build now, write down):** copy keepers to a working drive with checksums (SetsFileOps has SHA-256
+4. **Later (do not build now, write down):** copy selected clips to a working drive with checksums (SetsFileOps has SHA-256
    copies) and link the export to the copies; "safe to format in camera"; move cuts to Trash on a dump drive (never a card);
    per-camera presets.
 
@@ -44,3 +44,8 @@ The pitch: sort the whole card in one pass without heat or crashes; Final Cut on
 AGENTS.md, TRUST.md for any bridge op, trust_check passes, page copy and Lumina/Sets/Web byte-equal, no network.
 Hot build: `SKIM_ID=com.lumina.app.skimexport SKIM_NAME="Lumina Skim Export" SKIM_CACHE=~/Library/Caches/com.lumina.skimexport bash Scripts/dev-skim.sh --watch`
 (the SKIM_* overrides are on video/skim-native; cherry-pick ff1117a's Scripts/dev-skim.sh change, or copy those three lines).
+
+## Words
+Neutral words on screen and in anything he reads: the K mark is "selected" (verb "select"), M "maybe", C "cut";
+never "keep", "kept" or "keepers". The stored mark keys stay keep / maybe / cut (saved marks carry over); use
+`Component.WORD` / `Component.VERB` for anything shown. Merge `video/skim-mvp` (b. "neutral words") before editing the page.
