@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage
 import XCTest
 @testable import Lumina
 
@@ -207,5 +208,76 @@ final class LookCanvasHolesTests: XCTestCase {
         // The window's title bar goes away (full screen): the same rect moves with the viewport.
         canvas.layout(rect: rect, visible: true, dpr: 2, viewportHeight: 600)
         XCTAssertEqual(view.frame, NSRect(x: 100, y: 250, width: 400, height: 300))
+    }
+
+    func testCropGuidesKeepTheDottedAxisApartFromTheGrid() {
+        let raw: [Any] = [
+            ["k": "grid", "x0": 10.0, "y0": 20.0, "x1": 30.0, "y1": 20.0],
+            ["k": "level", "x0": 0.0, "y0": 40.0, "x1": 100.0, "y1": 40.0],
+            ["k": "axis", "x0": 0.0, "y0": 0.0, "x1": 50.0, "y1": 50.0],
+            ["k": "grid", "x0": 1.0, "y0": 1.0, "x1": 2.0, "y1": 9_999_999.0],
+            ["x0": 1.0, "y0": 1.0, "x1": 2.0, "y1": 2.0],
+        ]
+        let g = LookCanvasController.Guide.parse(raw)
+        XCTAssertEqual(g.map(\.kind), [.grid, .level, .axis, .grid])
+        XCTAssertEqual(g[2].a, CGPoint(x: 0, y: 0))
+        XCTAssertEqual(g[2].b, CGPoint(x: 50, y: 50))
+        XCTAssertEqual(LookCanvasController.Guide.parse(nil), [])
+        XCTAssertEqual(LookCanvasController.Guide.parse((0..<30).map { ["k": "axis", "x0": Double($0), "y0": 0.0, "x1": 1.0, "y1": 1.0] }).count, 24)
+    }
+
+    /// A straighten used to crop the turned picture back to the upright photo, so the corners that
+    /// swung out became a hexagon. They stay, dimmed outside the crop frame; the empty corners of
+    /// the bounding box stay clear, and anything past the canvas is dropped.
+    @MainActor
+    func testStraightenKeepsTheOverhangOutsideTheUprightPhoto() throws {
+        let photo = CGRect(x: 40, y: 36, width: 120, height: 80)
+        let canvas = CGSize(width: 200, height: 152)
+        let src = CIImage(color: CIColor(red: 1, green: 1, blue: 1, alpha: 1)).cropped(to: photo)
+        let placed = LookCanvasController.draftPlaced(src, photo: photo, canvas: canvas, angle: 25, cover: 1, frame: photo)
+        XCTAssertGreaterThan(placed.extent.width, photo.width + 4, "the turned picture is wider than the upright box")
+        XCTAssertGreaterThan(placed.extent.height, photo.height + 4, "the turned picture is taller than the upright box")
+        XCTAssertFalse(photo.contains(placed.extent))
+        XCTAssertTrue(CGRect(origin: .zero, size: canvas).contains(placed.extent))
+
+        let ctx = CIContext(options: [.cacheIntermediates: false])
+        func px(_ x: CGFloat, _ y: CGFloat, of image: CIImage) -> (r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+            var bytes = [UInt8](repeating: 0, count: 4)
+            ctx.render(image, toBitmap: &bytes, rowBytes: 4, bounds: CGRect(x: floor(x), y: floor(y), width: 1, height: 1), format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB))
+            return (bytes[0], bytes[1], bytes[2], bytes[3])
+        }
+
+        let mid = px(photo.midX, photo.midY, of: placed)
+        XCTAssertGreaterThan(mid.r, 250, "inside the crop frame the picture is undimmed")
+        XCTAssertGreaterThan(mid.a, 250)
+
+        // The left side of the turned rectangle crosses the centre line outside the upright box.
+        var overhang: (r: UInt8, g: UInt8, b: UInt8, a: UInt8)?
+        var x = photo.minX - 1
+        while x > placed.extent.minX + 1 {
+            let s = px(x, photo.midY, of: placed)
+            if s.a > 200 { overhang = s; break }
+            x -= 1
+        }
+        let over = try XCTUnwrap(overhang, "a corner that left the upright box is still drawn")
+        XCTAssertLessThan(over.r, 180, "outside the crop frame that overhang is veiled")
+        XCTAssertGreaterThan(over.a, 200)
+
+        let wedge = px(placed.extent.minX + 1.5, placed.extent.minY + 1.5, of: placed)
+        XCTAssertLessThan(wedge.a, 16, "the bounding box's empty corner is not painted")
+
+        // Cover scale sticks out of the upright box too; the same crop used to cut it off.
+        let scaled = LookCanvasController.draftPlaced(src, photo: photo, canvas: canvas, angle: 0, cover: 1.2, frame: photo)
+        XCTAssertGreaterThan(scaled.extent.width, photo.width + 4)
+        XCTAssertGreaterThan(px(photo.minX - 4, photo.midY, of: scaled).a, 200)
+        XCTAssertLessThan(px(photo.minX - 4, photo.midY, of: scaled).r, 180)
+
+        // No turn: the upright photo is unchanged, and an inset frame still dims its margin.
+        let still = LookCanvasController.draftPlaced(src, photo: photo, canvas: canvas, angle: 0, cover: 1, frame: photo.insetBy(dx: 16, dy: 12))
+        XCTAssertEqual(still.extent.width, photo.width, accuracy: 1)
+        XCTAssertEqual(still.extent.height, photo.height, accuracy: 1)
+        XCTAssertGreaterThan(px(photo.midX, photo.midY, of: still).r, 250)
+        XCTAssertLessThan(px(photo.minX + 4, photo.midY, of: still).r, 180)
+        XCTAssertGreaterThan(px(photo.minX + 4, photo.midY, of: still).a, 200)
     }
 }

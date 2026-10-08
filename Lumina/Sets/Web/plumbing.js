@@ -302,7 +302,7 @@
 
     // After a folder is read: remember the shoot and bring its decisions back.
     const afterRead = async () => {
-      if (!logic.real || !logic.real.length) return;
+      if (!logic.real || !logic.real.length) { logic._postLoad = null; return; }
       const info = logic.state.realInfo || {};
       const first = logic.real.map(p => p.date).filter(Boolean).sort()[0] || '';
       // One RAW per body: the Mac measures each body's decoder map once (RAW 9 §1) for the shoot header.
@@ -317,6 +317,18 @@
       if (r && r.session) { try { restore(logic, JSON.parse(r.session), live); } catch (_) {} }
       // Decisions made while the folder was read aren't in the session yet: the next save sends them.
       lastSaved = live ? '' : JSON.stringify(snapshot(logic));
+      // The page's landView(), now that a saved session's decisions count. A small shoot with
+      // nothing decided opens in Edit. Anything already decided, or too big for that, opens in Pick.
+      const post = logic._postLoad;
+      logic._postLoad = null;
+      if (post) {
+        let sessionDecided = false;
+        if (r && r.session) { try { const saved = JSON.parse(r.session); sessionDecided = !!(saved.marks && Object.keys(saved.marks).length); } catch (_) {} }
+        const decided = sessionDecided || (typeof logic.decidedN === 'function' && logic.decidedN() > 0);
+        const to = landTo(post.remembered, decided);
+        if (logic.state.view !== to) logic.setView(to, true);
+        if (to === 'cull' && !post.moved) { logic._landT = Date.now(); setTimeout(() => logic.land(), 0); }
+      }
       loadRecents(logic);
     };
 
@@ -455,12 +467,21 @@
     };
 
     // The page's onDir, step for step, over the native listing.
-    // Open's Edit button calls impStart('edit'). The read lands there. Pick, and a folder opened
-    // any other way, still lands on Pick. Taken at the start so a later open is not carried along.
+    // Open's Edit button calls impStart('edit'). Any other open lands where the page's landView()
+    // says: the step already chosen, Edit when the shoot is small and nothing is decided, otherwise
+    // Pick. Taken at the start so a later open is not carried along.
     let openInto = 'cull';
+    // landView(), without the Pick step the rows use while the folder is still being read. That
+    // setView would write lastView, and landView() would then answer Pick every time.
+    const landTo = (remembered, decided) => {
+      if (remembered && remembered !== 'import') return remembered;
+      return typeof logic.smallShoot === 'function' && logic.smallShoot() && !decided ? 'edit' : 'cull';
+    };
     const ingest = async L => {
       const intoEdit = openInto === 'edit';
       openInto = 'cull';
+      const remembered = logic.state.lastView;
+      logic._postLoad = null;
       const xmpMap = {};
       // One sidecar per RAW. On a case-sensitive disk both DSC.xmp and DSC.XMP can exist: the lower-case
       // .xmp wins (Adobe's name, and the one the page gives new sidecars), else the first by name.
@@ -553,8 +574,10 @@
       const B = logic.data.byId;
       logic.setState({ realLoad: null, realInfo: info, openNote: null, notes: logic.notesFor(), notesOn: true, cur: moved && B[s1.cur] ? s1.cur : logic.data.order[0] });
       const away = intoEdit || logic.state.view === 'edit' || logic.state.view === 'export';
-      if (away) { if (intoEdit && logic.state.view !== 'edit') logic.setView('edit', true); }
-      else { logic._landT = Date.now(); logic.setView('cull', true); if (!moved) setTimeout(() => logic.land(), 0); }
+      if (intoEdit && logic.state.view !== 'edit') logic.setView('edit', true);
+      // Not Pick yet. The session arrives in afterRead, and landView counts its decisions.
+      // land() waits too: restoring marks must not look like a new decision and move the cursor.
+      logic._postLoad = away ? null : { remembered, moved };
       if (run.gone) logic.say('Card removed · ' + ok.length + ' of ' + files.length + ' read · re-insert to keep going');
     };
 
@@ -820,21 +843,23 @@
         }
         // The crop frame misses the full-size skip, so cutting it out shows the page's black
         // canvas inside it. Look through the frame and the rotation rings (a hole there is a
-        // black square). The thirds grid is a hairline: a hole that thin shows the line over the
-        // photo. The dim is the frame's box-shadow, not a box. Corner handles stay holes; the
-        // crop bar is a sibling of the frame, so the walk below still cuts it out.
+        // black square). The grid and the dotted axes are drawn on the photo, so a hole for
+        // either is a solid cut and a rotated axis's box would hide the picture. The dim is the
+        // frame's box-shadow, not a box. Corner handles stay holes; the crop bar is a sibling
+        // of the frame, so the walk below still cuts it out.
         if (c.matches('[data-frame]') || c.querySelector('[data-frame]')) { if (depth < 4) walk(c, depth + 1); continue; }
-        if (c.closest('[data-frame]') && !c.matches('[data-h]')) {
-          const hb = c.getBoundingClientRect();
-          const hair = (hb.width >= 1 && hb.width < 3 && hb.height > 8) || (hb.height >= 1 && hb.height < 3 && hb.width > 8);
-          if (!hair) { if (depth < 4) walk(c, depth + 1); continue; }
-        }
+        if (c.closest('[data-frame]') && !c.matches('[data-h]')) { if (depth < 4) walk(c, depth + 1); continue; }
+        const dashed = ['Top', 'Right', 'Bottom', 'Left'].some(side => cs['border' + side + 'Style'] === 'dashed');
+        if (dashed) { if (depth < 4) walk(c, depth + 1); continue; }
         const b = c.getBoundingClientRect(), placed = cs.position === 'absolute' || cs.position === 'fixed';
         if (!placed || b.width < 1 || b.height < 1 || b.width * b.height >= 0.6 * area) { if (depth < 4) walk(c, depth + 1); continue; }
+        // The level cross is a 4000 px hairline. A hole that long is a solid cut across the photo;
+        // the canvas draws it, with the dotted axis, on top of the picture.
+        if ((b.width < 3 && b.height > rect.h) || (b.height < 3 && b.width > rect.w)) { if (depth < 4) walk(c, depth + 1); continue; }
         // The on-photo degree badge (`-10.9°`, and the "keeps n%" line) is a filled box. A hole
         // there is the page's black canvas pasted over the trees, and it smears as the angle
         // moves. The Straighten control on the bar already shows the number, off the picture.
-        // The crosshair stays a hairline hole. The bar does not match: its text is the whole row.
+        // The bar does not match: its text is the whole row.
         const label = (c.textContent || '').replace(/\s+/g, ' ').trim();
         if (b.height < 48 && b.width < 280 && /^-?\d+(?:\.\d+)?°(?: · .+)?$/.test(label)) { if (depth < 4) walk(c, depth + 1); continue; }
         const x0 = Math.max(rect.x, Math.floor(b.left) - 1), y0 = Math.max(rect.y, Math.floor(b.top) - 1);
@@ -952,16 +977,68 @@
       if (root.getAttribute('data-lumina-crop-hide') !== '1') root.setAttribute('data-lumina-crop-hide', '1');
     } else if (root.hasAttribute('data-lumina-crop-hide')) root.removeAttribute('data-lumina-crop-hide');
   };
+  // Crop's grid and its dotted axes, in viewport CSS px. The canvas draws them on the photo:
+  // a hole for a grid line is a solid cut, and a rotated axis's box is big enough that the
+  // photo covers the dashes. `grid` is a hairline across the frame; `axis` is one dotted arm.
+  const guideLines = () => {
+    const canvas = document.querySelector('[data-lumina="canvas"]'), E = findEditLogic();
+    if (!canvas || !E || typeof E.gridLines !== 'function' || typeof E.geo !== 'function') return [];
+    const cr = canvas.getBoundingClientRect(), p = E.p && E.p(); if (!p) return [];
+    const g = E.geo(p), out = [], r2 = n => Math.round(n * 100) / 100;
+    const clip = (x0, y0, x1, y1, box) => {
+      const X = box.x, Y = box.y, R = box.x + box.w, B = box.y + box.h;
+      const code = (x, y) => (x < X ? 1 : x > R ? 2 : 0) | (y < Y ? 4 : y > B ? 8 : 0);
+      let c0 = code(x0, y0), c1 = code(x1, y1);
+      for (let i = 0; i < 12; i++) {
+        if (!(c0 | c1)) return [r2(x0), r2(y0), r2(x1), r2(y1)];
+        if (c0 & c1) return null;
+        const c = c0 || c1, dx = x1 - x0, dy = y1 - y0;
+        let x, y;
+        if (c & 8) { x = x0 + dx * (B - y0) / dy; y = B; }
+        else if (c & 4) { x = x0 + dx * (Y - y0) / dy; y = Y; }
+        else if (c & 2) { y = y0 + dy * (R - x0) / dx; x = R; }
+        else { y = y0 + dy * (X - x0) / dx; x = X; }
+        if (c === c0) { x0 = x; y0 = y; c0 = code(x0, y0); } else { x1 = x; y1 = y; c1 = code(x1, y1); }
+      }
+      return [r2(x0), r2(y0), r2(x1), r2(y1)];
+    };
+    const push = (k, x0, y0, x1, y1, box) => { const s = clip(x0, y0, x1, y1, box); if (s) out.push({ k, x0: s[0], y0: s[1], x1: s[2], y1: s[3] }); };
+    const frame = canvas.querySelector('[data-frame]');
+    if (frame && frame.offsetWidth > 1 && frame.offsetHeight > 1) {
+      const fr = frame.getBoundingClientRect(), w = frame.offsetWidth, h = frame.offsetHeight;
+      const raw = getComputedStyle(frame).transform;
+      const m = new DOMMatrix(!raw || raw === 'none' ? undefined : raw), ang = Math.atan2(m.b, m.a);
+      const o = getComputedStyle(frame).transformOrigin.split(/\s+/), ox = parseFloat(o[0]) || 0, oy = parseFloat(o[1]) || 0;
+      const rot = (x, y) => { const dx = x - ox, dy = y - oy, c = Math.cos(ang), s = Math.sin(ang); return { x: dx * c - dy * s, y: dx * s + dy * c }; };
+      const corners = [[0, 0], [w, 0], [w, h], [0, h]].map(q => rot(q[0], q[1]));
+      const minX = Math.min(...corners.map(q => q.x)), minY = Math.min(...corners.map(q => q.y));
+      const spanX = Math.max(...corners.map(q => q.x)) - minX || 1, spanY = Math.max(...corners.map(q => q.y)) - minY || 1;
+      const at = (x, y) => { const q = rot(x, y); return { x: fr.left + (q.x - minX) / spanX * fr.width, y: fr.top + (q.y - minY) / spanY * fr.height }; };
+      for (const gl of E.gridLines(w, h) || []) {
+        const a = at(gl.l, gl.t), rad = (gl.r || 0) * Math.PI / 180, b = at(gl.l + Math.cos(rad) * gl.w, gl.t + Math.sin(rad) * gl.w);
+        push('grid', a.x, a.y, b.x, b.y, { x: fr.left, y: fr.top, w: fr.width, h: fr.height });
+      }
+    }
+    if (g && g.ib && g.ib.w > 1) {
+      const cx = cr.left + g.ib.l + g.ib.w / 2, cy = cr.top + g.ib.t + g.ib.h / 2, a = ((E.state.cd && E.state.cd.ang) || 0) * Math.PI / 180;
+      const box = { x: cr.left, y: cr.top, w: cr.width, h: cr.height };
+      const arm = (rad, k) => push(k, cx - Math.cos(rad) * 4000, cy - Math.sin(rad) * 4000, cx + Math.cos(rad) * 4000, cy + Math.sin(rad) * 4000, box);
+      arm(0, 'level'); arm(Math.PI / 2, 'level');
+      arm(a, 'axis'); arm(a + Math.PI / 2, 'axis');
+    }
+    return out;
+  };
   const zoomTick = () => {
     zoomRaf = 0;
     if (!ed.visible || !ed.rel) { pagePhoto(false); return; }
     const z = zoomView();
     pagePhoto(!!(z && z.frame));
-    const k = JSON.stringify(z);
-    if (k !== ed.zoomKey) { ed.zoomKey = k; ed.zoom = z; ed.zoomMoving = true; zoomUntil = performance.now() + ZOOM_REST; native('canvasZoom', { roi: z }).catch(() => {}); }
+    const sent = z ? Object.assign({}, z, { guides: z.frame ? guideLines() : [] }) : null;
+    const k = JSON.stringify(sent);
+    if (k !== ed.zoomKey) { ed.zoomKey = k; ed.zoom = z; ed.zoomMoving = true; zoomUntil = performance.now() + ZOOM_REST; native('canvasZoom', { roi: sent }).catch(() => {}); }
     if (performance.now() < zoomUntil) { zoomRaf = requestAnimationFrame(zoomTick); return; }
     // Still: the Mac drew the moving zoom at its drag quality with its background work held; now the full one.
-    if (ed.zoomMoving) { ed.zoomMoving = false; native('canvasZoom', { roi: z, rest: true }).catch(() => {}); }
+    if (ed.zoomMoving) { ed.zoomMoving = false; native('canvasZoom', { roi: sent, rest: true }).catch(() => {}); }
     if (ed.loupe && z && k !== ed.loupeKey) { ed.loupeKey = k; native('canvasLoupe', { on: true, roi: z }); }
   };
   const zoomWatch = () => { zoomUntil = performance.now() + ZOOM_REST; if (!zoomRaf) zoomRaf = requestAnimationFrame(zoomTick); };

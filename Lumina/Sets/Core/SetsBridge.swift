@@ -549,6 +549,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             let raw = body["roi"] as? [String: Any]
             canvas?.zoom(to: roi(body["roi"]), angle: SetsNumber.double(raw?["ang"], in: -180...180) ?? 0,
                          cover: SetsNumber.double(raw?["cover"], in: 0.05...32) ?? 1, frame: Self.viewportBox(raw?["frame"]),
+                         guides: LookCanvasController.Guide.parse(raw?["guides"]),
                          rest: body["rest"] as? Bool ?? false)
             return (true, nil)
         case "canvasLoupe":

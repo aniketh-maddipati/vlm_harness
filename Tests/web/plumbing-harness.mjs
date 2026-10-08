@@ -68,7 +68,11 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   bridge.pending = shoot; await page.evaluate(() => __lumina.openFolder());
   await loaded(page);
   let s = await S(page);
-  ok(s.view === 'cull', 'read: lands in Cull', s.view);
+  ok(s.view === 'edit', 'read: a small shoot with nothing decided opens in Edit', s.view);
+  // The rest of this shoot is exercised from Pick, as before. Leaving Edit here, not beside the
+  // first keep, so that keep is not waiting on Edit's save debounce.
+  await page.evaluate(() => __lumina.logic().setView('cull', true));
+  await page.waitForTimeout(200);
   ok(s.n === 12 && s.realInfo.n === 12 && s.realInfo.bad === 0, 'read: 12 photos, 0 unreadable', s.realInfo);
   ok(s.realInfo.name === '2026-09-01' && s.realInfo.date === '2026-09-01', 'read: realInfo name + date', s.realInfo);
   ok(s.realInfo.rows >= 2, 'read: rows', s.realInfo);
@@ -352,8 +356,10 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
       const coversInterior = h => !isDialog(h) && crop.frame && overlap(h, crop.frame) > 0.7 * h.w * h.h && overlap(h, crop.frame) > 0.2 * frameArea;
       ok(!!(crop.frame && frameArea > 100 && cropLast && holes.length <= 16 && !holes.some(h => isBox(h, crop.frame)) && !holes.some(coversInterior)),
         'edit v22 (page): with Crop open, no hole covers the crop interior', { frame: crop.frame, holes });
-      ok(crop.lines.length >= 4 && crop.lines.every(b => (b.w < 3 || b.h < 3) && holes.some(h => isBox(h, b))) && /9999/.test(crop.shadow || '') && !holes.some(h => isBox(h, crop.frame)),
-        'edit v22 (page): the crop grid is a thin hole over the photo, and the frame (the dim) is not', { lines: crop.lines.length, shadow: crop.shadow, holes });
+      const grids = bridge.canvas.zooms.filter(z => z && Array.isArray(z.guides) && z.guides.some(g => g.k === 'grid'));
+      const gridSent = grids.length ? grids[grids.length - 1].guides.filter(g => g.k === 'grid') : [];
+      ok(crop.lines.length >= 4 && crop.lines.every(b => (b.w < 3 || b.h < 3) && !holes.some(h => isBox(h, b))) && gridSent.length >= 4 && /9999/.test(crop.shadow || '') && !holes.some(h => isBox(h, crop.frame)),
+        'edit v22 (page): the crop grid is drawn on the photo, not cut out of it, and the frame (the dim) is not a hole', { lines: crop.lines.length, grid: gridSent.length, shadow: crop.shadow, holes });
       const canvasBox = cropLast && { x: cropLast.x, y: cropLast.y, w: cropLast.w, h: cropLast.h };
       ok(!!(crop.bar && canvasBox && overlap(crop.bar, canvasBox) > 0.5 * crop.bar.w * crop.bar.h && holes.some(h => isBox(h, crop.bar))),
         'edit v22 (page): the Ratio / Straighten bar stays a hole', { bar: crop.bar, holes });
@@ -387,8 +393,10 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
       ok(await drive('straighten', 45), 'edit v22 (page): straighten is the page\'s own control');
       await page.waitForTimeout(700);
       const spun = bridge.canvas.zooms[bridge.canvas.zooms.length - 1], pageSpin = await cropView();
-      ok(bridge.canvas.zooms.length > zCrop && spun && Math.abs(pageSpin.ang - 45) < 0.05 && Math.abs(spun.ang - pageSpin.matrix) < 0.2 && Math.abs(spun.cover - pageSpin.cover) < 0.02,
-        'edit v22 (page): a straighten reaches the Mac with the page\'s angle and scale', { sent: spun, page: pageSpin });
+      const axis = (spun && spun.guides || []).filter(g => g.k === 'axis');
+      ok(bridge.canvas.zooms.length > zCrop && spun && Math.abs(pageSpin.ang - 45) < 0.05 && Math.abs(spun.ang - pageSpin.matrix) < 0.2 && Math.abs(spun.cover - pageSpin.cover) < 0.02
+        && axis.length === 2 && axis.every(g => Math.abs(g.x1 - g.x0) > 20 && Math.abs(g.y1 - g.y0) > 20),
+        'edit v22 (page): a straighten reaches the Mac with the page\'s angle and scale, and the dotted axis stays on the photo', { sent: spun && { ang: spun.ang, cover: spun.cover, axis }, page: pageSpin });
       ok(await drive('zoom', 2), 'edit v22 (page): zoom during crop is the page\'s own pinch');
       await page.waitForTimeout(700);
       const zoomed = bridge.canvas.zooms[bridge.canvas.zooms.length - 1], pageZoom = await cropView();
@@ -559,6 +567,8 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   const slow = path.join(tmp, '2026-09-02');
   makeBigShoot(slow, jpegs, 160);
   const during = async (label, moves) => {
+    // A previous step (Save, Edit) would be where this folder reopens. This check is the read itself.
+    await page.evaluate(() => __lumina.logic().setState({ lastView: null }));
     bridge.delayMs = 25; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
     await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 30000 });
     for (const k of moves) { await key(page, k); await page.waitForTimeout(120); }
@@ -588,8 +598,9 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   // Its own folder, so it does not rewrite the session the reopen above just checked.
   const earlyDir = path.join(tmp, '2026-09-03');
   makeBigShoot(earlyDir, jpegs, 80);
+  await page.evaluate(() => __lumina.logic().setState({ lastView: null }));
   bridge.delayMs = 25; bridge.pending = earlyDir; await page.evaluate(() => __lumina.openFolder());
-  await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 30000 });
+  await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'edit' || (l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48); }, null, { timeout: 30000 });
   await page.evaluate(() => __lumina.logic().setView('edit'));
   const early = await page.evaluate(() => { const l = __lumina.logic(), s = l.editShoot(); return { rel: s && s.P && s.P[0] && s.P[0].rel, view: l.state.view }; });
   await loaded(page);
@@ -604,6 +615,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   // scroll; tiles that scrolled in keep the page's fade for later changes; a menu shortcut runs after
   // the keys still queued.
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  await page.evaluate(() => __lumina.logic().setState({ lastView: null }));
   bridge.delayMs = 120; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
   await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 60000 });
   const SCROLL = async ([frames, dy]) => {
