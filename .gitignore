@@ -71,3 +71,4 @@ actionlint
 # References, renders and heatmaps never come here: they live in ~/LuminaEvidence/parity.
 *.candidate.json
 rules-v1.json.before
+dist/
