@@ -46,7 +46,7 @@ input[type=range]{accent-color:#B8B3AB}
             <sc-for list="{{ memTest }}" as="mc" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start"><span style="color:#9A958D;padding-top:2px">{{ mc.k }}</span><div style="display:flex;flex-wrap:wrap;gap:4px"><sc-for list="{{ mc.opts }}" as="o" hint-placeholder-count="4"><span role="button" tabIndex="0" aria-pressed="{{ o.on }}" onClick="{{ o.go }}" title="{{ o.tip }}" style="padding:2px 7px;border-radius:5px;background:{{ o.bg }};color:{{ o.fg }};cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ o.t }}</span></sc-for></div></div></sc-for>
             <span style="color:#9A958D">In memory only. Nothing on disk.</span>
           </div></sc-if>
-          <div style="display:flex;align-items:center;gap:10px"><span style="flex:1;color:#9A958D">{{ memNote }}</span><span data-lumina="memory-more" role="button" tabIndex="0" onClick="{{ memMoreGo }}" style="padding:2px 8px;border-radius:5px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ memMoreT }}</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="flex:1;color:#9A958D">{{ memNote }}</span><sc-if value="{{ memMoreOn }}" hint-placeholder-val="{{ true }}"><span data-lumina="memory-more" role="button" tabIndex="0" onClick="{{ memMoreGo }}" style="padding:2px 8px;border-radius:5px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ memMoreT }}</span></sc-if></div>
           <div style="display:flex;flex-direction:column;gap:6px">
             <sc-for list="{{ memBtns }}" as="mb" hint-placeholder-count="3"><div role="button" tabIndex="0" onClick="{{ mb.go }}" style="padding:8px 10px;border-radius:9px;background:{{ mb.bg }};opacity:{{ mb.op }};cursor:pointer;display:flex;flex-direction:column;gap:2px" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="color:{{ mb.fg }};font-weight:600">{{ mb.t }}</span><span style="color:{{ mb.subC }}">{{ mb.sub }}</span></div></sc-for>
           </div>
@@ -105,6 +105,7 @@ input[type=range]{accent-color:#B8B3AB}
       <div data-screen-label="Open" onDragOver="{{ dropOver }}" onDragLeave="{{ dropLeave }}" onDrop="{{ dropIn }}" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
         <div style="max-width:min(1000px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,5vh,56px) clamp(16px,4vw,48px) 40px;display:flex;flex-direction:column;gap:24px">
           <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · M4V</span></div>
+          <sc-if value="{{ webPrev }}" hint-placeholder-val="{{ false }}"><div data-lumina="web-preview" style="color:#B8B3AB;line-height:1.5">Web preview: Safari reads your clips on this Mac; nothing is uploaded. The Mac app reads faster. For the best result, open one shoot at a time and keep each clip’s .XML beside it.</div></sc-if>
           <sc-if value="{{ nowOn }}" hint-placeholder-val="{{ false }}">
             <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1)">
               <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px"><span style="color:#9A958D">Open now</span><span style="font-size:14px;color:#EFECE6">{{ nowName }}</span><span style="color:#B8B3AB">{{ nowLine }}</span></div>
@@ -134,14 +135,14 @@ input[type=range]{accent-color:#B8B3AB}
               </div>
             </div>
           </sc-if>
-          <div style="display:flex;flex-direction:column;gap:12px">
+          <sc-if value="{{ cardsOn }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:12px">
             <span style="font-size:13px;font-weight:600;color:#EFECE6">Sample cards</span>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:14px">
               <sc-for list="{{ cards }}" as="cd" hint-placeholder-count="4">
                 <div data-lumina="card" role="button" tabIndex="0" onClick="{{ cd.open }}" style="display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08);cursor:pointer;transition:background 120ms ease-out" style-hover="background:#2E2C29" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6">{{ cd.name }}</span><span style="color:#EFECE6">{{ cd.l1 }}</span><span style="color:#9A958D">{{ cd.l2 }}</span></div>
               </sc-for>
             </div>
-          </div>
+          </div></sc-if>
         </div>
       </div>
     </sc-if>
@@ -879,7 +880,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
     if (!st.ready || !this.d) return base;
     this.index();
     const sk = st.step === 'skim';
@@ -1544,6 +1545,7 @@ class Component extends DCLogic {
   };
   static CARDS = [['fx5', 'FX5 Sample Pack', 'SONY FX5 · Visual Park, free']];
   cardList() {
+    if (window.luminaPreview) return [];
     if (this._cards) return this._cards; const S = window.LuminaVideoSamples; if (!S) return [];
     this._cards = Component.CARDS.filter(c => S[c[0]]).map(([key, name, cam]) => { const d = S[key](); return {key, name, l1:this.plural(d.clips.length, 'clip') + (d.shoot.photos ? ' · ' + d.shoot.photos + ' photos' : '') + ' · ' + this.fmtB(d.shoot.bytes), l2:cam + ' · ' + this.plural(d.shoot.days, 'day')}; });
     return this._cards;
@@ -1589,7 +1591,7 @@ class Component extends DCLogic {
         return rows; })(),
       memSaved:[{k:'this shoot', v:has ? this.plural(Object.keys(st.marks).length, 'mark') : '—'}, {k:'all shoots', v:this.plural(ms.saved, 'shoot') + ' · ' + (ms.savedB < 1e6 ? Math.max(1, Math.round(ms.savedB / 1024)) + ' KB' : this.fmtB(ms.savedB))}],
       memSavedH:this.hostStore() ? 'Saved on this Mac' : 'Saved in this browser',
-      memNote:'Nothing leaves this Mac.', memMore:!!st.memMore, memMoreT:st.memMore ? 'Less' : 'More', memMoreGo:() => this.setState(s => ({memMore:!s.memMore})),
+      webPrev:!!window.luminaPreview, memNote:'Nothing leaves this Mac.', memMore:!!st.memMore && !window.luminaPreview, memMoreOn:!window.luminaPreview, memMoreT:st.memMore ? 'Less' : 'More', memMoreGo:() => this.setState(s => ({memMore:!s.memMore})),
       memCtl:(() => { const mp = this.mp, opt = (k, val, t, tip) => ({t, tip:tip || '', on:mp[k] === val, bg:mp[k] === val ? '#EFECE6' : 'rgba(239,236,230,0.08)', fg:mp[k] === val ? '#1E1D1B' : '#EFECE6', go:() => this.setMp(k, val)});
         const perClip = ms.fr && ms.n ? ms.frB / Math.max(1, ms.fr) * (mp.per || 8) : 21000 * (mp.per || 8) * Math.pow((mp.size || 320) / 320, 2);
         const holds = b => b === 'all' ? 'every clip' : '≈ ' + Math.floor(b * 1048576 / Math.max(1, perClip)).toLocaleString() + ' clips';
@@ -1607,14 +1609,14 @@ class Component extends DCLogic {
       memBtns:[
         {t:'Make frames again', sub:this.realReading() ? 'After reading finishes. Now it would start the card over.' : 'Reads the card again' + (this.lastClock && this.lastClock.done ? ', about ' + this.fmtSec(this.lastClock.done) : '') + '. Marks stay.', subC:'#B8B3AB', go:this.clearFrames, op:this.realReading() || !ms.fr ? 0.45 : 1, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'},
         {t:st.memConfirm ? 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + '? Click again to forget' : 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark'), sub:'Deletes this shoot\u2019s marks for good. Clips are not touched.', subC:st.memConfirm ? '#FF8A7A' : '#B8B3AB', go:this.forgetMarks, op:has ? 1 : 0.45, bg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.08)', fg:st.memConfirm ? '#FF8A7A' : '#EFECE6'},
-        {t:st.closeConfirm ? 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + '? Click again to close' : 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open', sub:'Frees ' + this.fmtB(ms.frB) + ' of frames and measurements. Its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' stay saved under Recent shoots. ⌘W', subC:st.closeConfirm ? '#FFD27A' : '#B8B3AB', go:this.closeShoot, op:has ? 1 : 0.45, bg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.08)', fg:st.closeConfirm ? '#FFD27A' : '#EFECE6'}],
+        {t:st.closeConfirm ? 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + '? Click again to close' : 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open', sub:'Frees ' + this.fmtB(ms.frB) + ' of frames and measurements. Its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' stay saved for the next time you open these clips. ⌘W', subC:st.closeConfirm ? '#FFD27A' : '#B8B3AB', go:this.closeShoot, op:has ? 1 : 0.45, bg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.08)', fg:st.closeConfirm ? '#FFD27A' : '#EFECE6'}],
       impOn:!!(st.imp && st.imp.done < st.imp.n), impW:st.imp ? Math.round(st.imp.done / Math.max(1, st.imp.n) * 100) + '%' : '0%',
       fileRef:this.fileRef, pickFolder:this.pickFolder, filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
       dropRing:st.dropHot ? '#FFD27A' : 'rgba(239,236,230,0.18)', dropBg:st.dropHot ? 'rgba(255,210,122,0.06)' : '#232220',
       impMsg:st.impMsg || '', impMsgOn:!!st.impMsg,
       impLineOn:!!(st.imp && st.imp.done < st.imp.n), impLine:st.imp ? 'measuring ' + st.imp.done + ' of ' + this.plural(st.imp.n, 'clip') : '',
       nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
-      cards:this.cardList().map(c => ({...c, open:() => this.openSample(c.key)})),
+      cards:this.cardList().map(c => ({...c, open:() => this.openSample(c.key)})), cardsOn:this.cardList().length > 0,
       recents:st.step === 'import' ? this.recentVals() : [], recOn:false,
       download:this.download, hintLead:''
     };
