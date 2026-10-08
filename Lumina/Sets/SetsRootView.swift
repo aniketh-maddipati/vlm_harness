@@ -188,7 +188,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         panel.canChooseDirectories = true
         panel.canChooseFiles = true
         panel.allowsMultipleSelection = true
-        panel.allowedContentTypes = [.movie, .mpeg4Movie, .quickTimeMovie] + [UTType(filenameExtension: "mxf"), UTType(filenameExtension: "m4v")].compactMap { $0 }
+        // Clips and their sidecars (Sony writes C0001M01.XML beside C0001.MP4): ⌘A in a clip folder takes both;
+        // the page keeps the clips and reads the sidecars, and ignores anything else.
+        panel.allowedContentTypes = [.movie, .mpeg4Movie, .quickTimeMovie, .xml] + [UTType(filenameExtension: "mxf"), UTType(filenameExtension: "m4v")].compactMap { $0 }
         panel.prompt = "Open"
         panel.message = "Choose a card, a folder or clips: MP4, MOV, MXF, M4V. Read only."
         guard let window = webView?.window else { return panel.runModal() == .OK ? panel.urls : nil }

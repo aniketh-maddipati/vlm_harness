@@ -92,3 +92,9 @@ Seen and left for the design (not changed here):
 27. Working memory ▸ Controls: frames kept (64 / 128 / 256 / 512 MB / no limit), frames per clip (2 / 4 / 8), frame size (small / medium / large), reading (by heat / eased / slow / paused). Over the limit, clips farthest from where you are let go of their frames (one kept first); they come back when you get near.
 28. Working memory ▸ Test load: Vlog day 150, Wedding 600, Event 1,500, Stress 4,000 made-up clips, drawn and measured in memory, nothing on disk, not saved; heat: real / warm / hot / very hot.
 29. Clips builds only the rows near the screen and around the current clip (fixed tile heights), so a 1,500-clip shoot moves at ~35 ms a key.
+30. Loading: every clip once with one frame first (scene covers first), then the rest and the measures; two decoders on 16 GB+ Macs; decode speed no longer slows a card read (only heat, Low Power and memory do). Status beside the levels: "Reading 160 of 401 · about 2 min left", the clip it is on when one takes long.
+31. Stalls: a slow frame is skipped; timed-out clips get one more go with longer waits; three failures in a row stop with "Is the card still in?" and Go on; "cut short" when a clip is shorter than its sidecar says. Make frames again waits until reading is done.
+32. Scenes split on time, a new day, a frame-rate or size change and a change of look; the default fills a screen, up to two when the card has more clear breaks.
+33. Memory panel: clips, read, frames, Mac, Lumina by default; the rest, frames per clip, size and test loads (150 / 600 / 1,500 / 4,000, not while a card reads, back to the card after) under More. Each load is timed (lumina-skim:clock).
+34. Marks are kept per clip (file name + capture time), so opening some, all or more of a shoot's clips brings its marks back; Recent shoots is gone from Open.
+35. The open panel takes the XML sidecars with the clips.
