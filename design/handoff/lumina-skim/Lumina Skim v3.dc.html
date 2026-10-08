@@ -15,6 +15,7 @@ a{color:#EFECE6}a:hover{color:#B8B3AB}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 @keyframes unfurl{from{opacity:0;transform:scale(0.965)}to{opacity:1;transform:none}}
+@keyframes breathe{0%,100%{opacity:0.4}50%{opacity:0.9}}
 input[type=range]{accent-color:#B8B3AB}
 </style>
 </helmet>
@@ -83,6 +84,21 @@ input[type=range]{accent-color:#B8B3AB}
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#FFD27A">{{ impMsg }}</div></sc-if>
           <sc-if value="{{ impLineOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#B8B3AB">{{ impLine }}</div></sc-if>
+          <sc-if value="{{ recOn }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <span style="font-size:13px;font-weight:600;color:#EFECE6">Recent shoots</span>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:14px">
+                <sc-for list="{{ recents }}" as="rc" hint-placeholder-count="2">
+                  <div data-lumina="recent" role="button" tabIndex="0" onClick="{{ rc.go }}" style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px {{ rc.ring }};cursor:pointer" style-hover="background:#2E2C29">
+                    <span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6">{{ rc.name }}</span>
+                    <span style="color:#B8B3AB">{{ rc.line }}</span>
+                    <span style="display:flex;align-items:center;gap:7px;color:{{ rc.stC }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ rc.dot }};animation:{{ rc.anim }}"></span>{{ rc.st }}</span>
+                    <span style="color:#9A958D">{{ rc.act }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
           <div style="display:flex;flex-direction:column;gap:12px">
             <span style="font-size:13px;font-weight:600;color:#EFECE6">Sample cards</span>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:14px">
@@ -145,7 +161,7 @@ input[type=range]{accent-color:#B8B3AB}
     <sc-if value="{{ takeStripOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="furled-takes" style="flex:none;height:46px;display:flex;align-items:center;gap:4px;padding:0 20px;border-bottom:1px solid rgba(239,236,230,0.06);overflow-x:auto;scrollbar-width:none">
         <sc-for list="{{ tstrip }}" as="ts" hint-placeholder-count="8">
-          <div data-strip="{{ ts.id }}" role="button" tabIndex="0" aria-label="{{ ts.id }}" onClick="{{ sClick }}" style="flex:none;width:56px;height:32px;border-radius:3px;background:{{ ts.bg }};filter:{{ ts.flt }};box-shadow:{{ ts.edge }};outline:{{ ts.out }};outline-offset:2px;cursor:pointer"></div>
+          <div data-strip="{{ ts.id }}" role="button" tabIndex="0" aria-label="{{ ts.id }}" onClick="{{ sClick }}" style="flex:none;width:56px;height:32px;border-radius:3px;background:{{ ts.bg }};filter:{{ ts.flt }};animation:{{ ts.anim }};box-shadow:{{ ts.edge }};outline:{{ ts.out }};outline-offset:2px;cursor:pointer"></div>
         </sc-for>
       </div>
     </sc-if>
@@ -164,7 +180,7 @@ input[type=range]{accent-color:#B8B3AB}
           <sc-for list="{{ chs }}" as="g" hint-placeholder-count="5">
             <div data-gi="{{ g.i }}" onMouseEnter="{{ gEnter }}" onClick="{{ gClick }}" onDoubleClick="{{ gDbl }}" style="display:flex;flex-direction:column;gap:7px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;opacity:{{ g.op }}">
               <div style="position:relative;aspect-ratio:16/9;border-radius:3px;overflow:hidden">
-                <div style="position:absolute;inset:0;background:{{ g.thumb }};filter:{{ g.flt }}"></div>
+                <div style="position:absolute;inset:0;background:{{ g.thumb }};filter:{{ g.flt }};animation:{{ g.anim }}"></div>
                 <div style="position:absolute;inset:0;border-radius:3px;box-shadow:{{ g.edge }};pointer-events:none"></div>
                 <sc-if value="{{ g.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ g.ghostC }};font-weight:700;opacity:0.7">{{ g.ghostT }}</div></sc-if>
               </div>
@@ -191,7 +207,7 @@ input[type=range]{accent-color:#B8B3AB}
               <sc-for list="{{ s.tiles }}" as="p" hint-placeholder-count="6">
                 <div data-clip="{{ p.id }}" onMouseEnter="{{ tEnter }}" onClick="{{ tClick }}" onDoubleClick="{{ tDbl }}" style="position:relative;display:flex;flex-direction:column;gap:7px;padding:7px;margin:-7px;border-radius:9px;background:{{ p.bg }};outline:{{ p.out }};outline-offset:1px">
                   <div style="position:relative;border-radius:4px;overflow:hidden">
-                    <sc-if value="{{ grid42 }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px"><sc-for list="{{ p.fr }}" as="f" hint-placeholder-count="8"><div style="aspect-ratio:16/9;background:{{ f.bg }};filter:{{ f.flt }}"></div></sc-for></div></sc-if>
+                    <sc-if value="{{ grid42 }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px"><sc-for list="{{ p.fr }}" as="f" hint-placeholder-count="8"><div style="aspect-ratio:16/9;background:{{ f.bg }};filter:{{ f.flt }};animation:{{ f.anim }}"></div></sc-for></div></sc-if>
                     <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ p.edge }};pointer-events:none"></div>
                     <sc-if value="{{ p.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:#161514;color:{{ p.markC }};font-weight:700">{{ p.mark }}</div></sc-if>
                     <sc-if value="{{ p.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ p.ghostC }};font-weight:700;opacity:0.7">{{ p.ghostT }}</div></sc-if>
@@ -212,18 +228,35 @@ input[type=range]{accent-color:#B8B3AB}
     <sc-if value="{{ lv2 }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Clip" style="flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,300px);gap:28px;padding:18px clamp(16px,2.2vw,40px) 28px;animation:unfurl 180ms ease-out">
         <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
-          <div ref="{{ scrubRef }}" onMouseMove="{{ scrubMove }}" onClick="{{ viewTap }}" onDoubleClick="{{ viewDbl }}" style="position:relative;width:min(100%,calc((100vh - 330px) * 16 / 9));aspect-ratio:16/9;border-radius:4px;overflow:hidden;cursor:ew-resize">
-            <div style="position:absolute;inset:0;background:{{ cv.bg }};filter:{{ cv.flt }}"></div>
-            <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ cv.edge }};pointer-events:none"></div>
-            <sc-if value="{{ cv.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:10px;top:10px;padding:2px 9px;border-radius:5px;background:#161514;color:{{ cv.markC }};font-weight:700;font-size:13px">{{ cv.mark }}</div></sc-if>
-            <sc-if value="{{ cv.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:10px;top:10px;padding:2px 9px;border-radius:5px;background:rgba(22,21,20,0.82);color:{{ cv.ghostC }};font-weight:700;font-size:13px;opacity:0.7">{{ cv.ghostT }}</div></sc-if>
+          <div data-lumina="clip-row" style="display:flex;align-items:flex-end;gap:12px;min-width:0">
+            <sc-for list="{{ row.items }}" as="it" hint-placeholder-count="2">
+              <div data-pic="1" data-clip="{{ it.id }}" onMouseMove="{{ picMove }}" onMouseLeave="{{ picLeave }}" onClick="{{ picClick }}" onDoubleClick="{{ viewDbl }}" style="flex:none;width:{{ it.w }}px;display:flex;flex-direction:column;gap:6px;opacity:{{ it.op }};transition:opacity 120ms">
+                <div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;cursor:ew-resize;background:#161514">
+                  <div style="position:absolute;inset:0;background:{{ it.bg }};filter:{{ it.flt }};animation:{{ it.anim }}"></div>
+                  <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><video ref="{{ vidRef }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.flt }};opacity:0;transition:opacity 120ms"></video></sc-if>
+                  <sc-if value="{{ it.hvOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:0;bottom:0;left:{{ it.hx }};width:1px;background:rgba(239,236,230,0.6);pointer-events:none"></div></sc-if>
+                  <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ it.edge }};pointer-events:none"></div>
+                  <sc-if value="{{ it.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:8px;top:8px;padding:2px 9px;border-radius:5px;background:#161514;color:{{ it.markC }};font-weight:700;font-size:13px">{{ it.mark }}</div></sc-if>
+                  <sc-if value="{{ it.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:8px;top:8px;padding:2px 9px;border-radius:5px;background:rgba(22,21,20,0.82);color:{{ it.ghostC }};font-weight:700;font-size:13px;opacity:0.7">{{ it.ghostT }}</div></sc-if>
+                </div>
+                <div style="position:relative;height:14px;visibility:{{ it.barVis }}">
+                  <div style="position:absolute;left:0;right:0;top:6px;height:2px;border-radius:1px;background:rgba(239,236,230,0.14)"></div>
+                  <sc-for list="{{ ticks }}" as="tk" hint-placeholder-count="8"><div style="position:absolute;top:3px;left:{{ tk.l }};width:1px;height:8px;background:rgba(239,236,230,0.3)"></div></sc-for>
+                  <div style="position:absolute;top:0;left:{{ it.ph }};width:2px;height:14px;margin-left:-1px;border-radius:1px;background:#EFECE6"></div>
+                </div>
+                <div style="display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden;color:#9A958D"><span style="color:{{ it.nameC }}">{{ it.name }}</span><span style="color:{{ it.subC }}">{{ it.sub }}</span></div>
+              </div>
+            </sc-for>
           </div>
-          <div style="position:relative;width:min(100%,calc((100vh - 330px) * 16 / 9));height:14px">
-            <div style="position:absolute;left:0;right:0;top:6px;height:2px;border-radius:1px;background:rgba(239,236,230,0.14)"></div>
-            <sc-for list="{{ ticks }}" as="tk" hint-placeholder-count="8"><div style="position:absolute;top:3px;left:{{ tk.l }};width:1px;height:8px;background:rgba(239,236,230,0.3)"></div></sc-for>
-            <div style="position:absolute;top:0;left:{{ cv.ph }};width:2px;height:14px;margin-left:-1px;border-radius:1px;background:#EFECE6"></div>
-          </div>
-          <div style="display:flex;gap:14px;color:#B8B3AB"><span style="color:#EFECE6">{{ cv.tc }}</span><span>{{ cv.fl }}</span></div>
+          <sc-if value="{{ row.connOn }}" hint-placeholder-val="{{ false }}">
+            <div data-lumina="chapter-connector" style="position:relative;height:24px;width:{{ row.cw }}px;max-width:100%">
+              <div style="position:absolute;top:0;left:{{ row.l0 }}px;width:{{ row.lw }}px;height:7px;border:1px solid rgba(239,236,230,0.22);border-top:none;border-radius:0 0 4px 4px"></div>
+              <sc-for list="{{ row.ticks }}" as="tq" hint-placeholder-count="2"><div style="position:absolute;top:0;left:{{ tq.x }}px;width:1px;height:7px;background:rgba(239,236,230,0.22)"></div></sc-for>
+              <div style="position:absolute;top:2px;left:{{ row.l0 }}px;width:{{ row.lw }}px;display:flex;justify-content:center"><span style="padding:0 8px;background:#1E1D1B;color:#9A958D;line-height:14px;white-space:nowrap">{{ row.label }}</span></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ row.oneOn }}" hint-placeholder-val="{{ false }}"><div style="color:#9A958D">{{ row.one }}</div></sc-if>
+          
         </div>
         <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
           <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:22px">{{ cv.name }}</span><span style="color:#9A958D">{{ cv.when }}</span></div>
@@ -276,7 +309,7 @@ input[type=range]{accent-color:#B8B3AB}
 class Component extends DCLogic {
   static MK = {keep:'#A9D18E', maybe:'#FFD27A', cut:'#FF8A7A'};
   static LV = ['Chapters','Takes','Clip'];
-  state = {ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true},exDone:null,dropHot:false,impMsg:null,imp:null};
+  state = {ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',x:'cut'};
   scRef = el => { this.sc = el; };
   scrubRef = el => { this.scrubEl = el; };
@@ -288,11 +321,12 @@ class Component extends DCLogic {
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
     window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu);
     window.addEventListener('wheel', this._wh, {passive:false}); window.addEventListener('blur', this._bl);
+    this._rs = () => this.setState({vw:window.innerWidth, vh:window.innerHeight}); window.addEventListener('resize', this._rs);
   }
   componentWillUnmount() {
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
     window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu);
-    window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl);
+    window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('resize', this._rs); this.dropVid();
     clearTimeout(this.propT); clearTimeout(this.flT);
   }
   componentDidUpdate(pp, ps) {
@@ -300,11 +334,13 @@ class Component extends DCLogic {
     const s0 = this.state, L = this._ls || {};
     if (this.d && (L.m !== s0.marks || L.d !== s0.dis || L.c !== s0.cuts)) { const first = !this._ls; this._ls = {m:s0.marks, d:s0.dis, c:s0.cuts}; if (!first) this.save(); }
     if (this.wantScroll) { const w = this.wantScroll; this.wantScroll = null; this.scrollTo(w[0], w[1]); }
+    this.syncVid();
   }
   load() {
     const S = window.LuminaVideoSamples, host = window.LuminaVideo && !window.LuminaVideo.__sample ? window.LuminaVideo : null;
     if (!S && !host) { clearTimeout(this.lt); this.lt = setTimeout(() => this.load(), 80); return; }
     const key = 'fx5';
+    if (!host && (this.props.startStep ?? 'Open') === 'Open') { this.sampleKey = null; this.loadData({__sample:true, shoot:{name:'', days:0, bytes:0, free:null, rate:24}, clips:[], gaps:[]}, 'import'); return; }
     const d = host || S[key](); this.sampleKey = host ? null : key; this.loadData(d);
   }
   loadData(d, step) {
@@ -321,7 +357,7 @@ class Component extends DCLogic {
     const allUnknown = d.clips.length > 0 && d.clips.every(c => !c.profile || !c.profile.gamma);
     const lv = {Chapters:0, Takes:1, Clip:2, Frame:3}[this.props.startLevel] || 0;
     this.lastMark = null;
-    this.setState({ready:true, marks, dis, nCut, cuts:(saved && saved.cuts) || null, pv:!allUnknown, lv:d.clips.length ? lv : 0, gi:0, cur:d.clips[0] ? d.clips[0].id : null, fx:0, undo:[], redo:[], sel:[], box:null, step:step || ({Open:'import', Skim:'skim', Export:'export'}[this.props.startStep ?? 'Open'] || 'import'), memOn:false, memConfirm:false, exDone:null, prop:null});
+    this.setState({hv:null, ready:true, marks, dis, nCut, cuts:(saved && saved.cuts) || null, pv:!allUnknown, lv:d.clips.length ? lv : 0, gi:0, cur:d.clips[0] ? d.clips[0].id : null, fx:0, undo:[], redo:[], sel:[], box:null, step:step || ({Open:'import', Skim:'skim', Export:'export'}[this.props.startStep ?? 'Open'] || 'import'), memOn:false, memConfirm:false, exDone:null, prop:null});
   }
   api(name, ...a) { try { const v = window.lumina && window.lumina.video; if (v && v[name]) v[name](...a); } catch (e) {} }
 
@@ -369,7 +405,8 @@ class Component extends DCLogic {
   tone(c, i, big) {
     const f = c.facts && c.facts.state === 'ready' ? c.facts : {};
     const h = c.look ? c.look.hue : 40, ev = this.frameEv(c), pv = this.pvOn(c);
-    if (c.frames && c.frames[i]) return {bg:'url(' + c.frames[i] + ') center/cover', flt:pv ? 'contrast(1.35) saturate(1.45) brightness(0.96)' : 'none'};
+    if (c.frames && c.frames[i]) return {bg:'url(' + c.frames[i] + ') center/cover', flt:pv ? 'contrast(1.35) saturate(1.45) brightness(0.96)' : 'none', anim:'fade 220ms ease-out'};
+    if (c._file) return c.facts && c.facts.state === 'unreliable' ? {bg:'#262523', flt:'none', anim:'none'} : {bg:'#2E2C29', flt:'none', anim:'breathe 1.8s ease-in-out ' + (i * 0.11).toFixed(2) + 's infinite'};
     let L = 0.5 + ev * 0.085 + Math.sin((i + 1) * 1.7 + c._i) * 0.035 + (f.clip || 0) / 40;
     if (f.bump === i) L += 0.28;
     L = Math.max(0.1, Math.min(0.96, L));
@@ -377,7 +414,7 @@ class Component extends DCLogic {
     const a = pv ? 'oklch(' + L.toFixed(3) + ' 0.085 ' + h + ')' : 'oklch(' + (0.44 + L * 0.3).toFixed(3) + ' 0.028 ' + h + ')';
     const b = pv ? 'oklch(' + L2.toFixed(3) + ' 0.06 ' + (h + 35) + ')' : 'oklch(' + (0.44 + L2 * 0.3).toFixed(3) + ' 0.022 ' + (h + 35) + ')';
     const soft = big && f.sharpF && f.sharpF[i] < 0.35;
-    return {bg:'linear-gradient(180deg,' + a + ' 0 58%,' + b + ' 58% 100%)', flt:soft ? 'blur(1.4px)' : 'none'};
+    return {bg:'linear-gradient(180deg,' + a + ' 0 58%,' + b + ' 58% 100%)', flt:soft ? 'blur(1.4px)' : 'none', anim:'none'};
   }
 
   // grouping
@@ -463,9 +500,9 @@ class Component extends DCLogic {
     const st = this.state;
     if (st.lv === 0) { const gi = Math.max(0, Math.min(this.G.length - 1, st.gi + d)); this.wantScroll = ['[data-gi="' + gi + '"]']; this.setState({gi}); }
     else if (st.lv === 1) { const i = this.flat.indexOf(st.cur), n = this.flat[Math.max(0, Math.min(this.flat.length - 1, (i < 0 ? 0 : i + d)))]; if (n) { this.wantScroll = ['[data-clip="' + n + '"]']; this.setState({cur:n}); this.anchor = null; } }
-    else this.setState(s => ({fx:Math.max(0, Math.min(7, Math.round(s.fx) + d))}));
+    else this.setState(s => ({hv:null, fx:Math.max(0, Math.min(7, Math.round(s.fx) + d))}));
   }
-  takeStep(d) { const i = this.flat.indexOf(this.state.cur), n = this.flat[i + d]; if (n) this.setState({cur:n, fx:0}); }
+  takeStep(d) { const i = this.flat.indexOf(this.state.cur), n = this.flat[i + d]; if (n) this.setState({cur:n, fx:0, hv:null}); }
   chapJump(d) {
     const st = this.state;
     if (st.lv === 0) return this.move(d);
@@ -601,7 +638,7 @@ class Component extends DCLogic {
     }
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5) {
       e.preventDefault();
-      if (st.lv >= 2) return this.setState(s => ({fx:Math.max(0, Math.min(7, s.fx + e.deltaX / 90))}));
+      if (st.lv >= 2) { const pic = e.target && e.target.closest && e.target.closest('[data-pic]'); if (!pic || pic.getAttribute('data-clip') !== st.cur) return; return this.setState(s => ({hv:null, fx:Math.max(0, Math.min(7, s.fx + e.deltaX / 90))})); }
       this.swipe = (this.swipe || 0) + e.deltaX;
       if (Math.abs(this.swipe) > 70 && Date.now() > (this.swLock || 0)) { this.move(this.swipe > 0 ? 1 : -1); this.swipe = 0; this.swLock = Date.now() + 180; }
     }
@@ -631,6 +668,41 @@ class Component extends DCLogic {
   wM(e) { return e.currentTarget.getAttribute('data-well'); }
   wClick = e => { const m = this.wM(e), st = this.state; if (st.sel.length || st.lv === 0) return this.areaMark(this.targets(), m); if (st.cur) this.doMark([st.cur], m); };
   scrubMove = e => { const r = e.currentTarget.getBoundingClientRect(); this.setState({fx:Math.max(0, Math.min(7, (e.clientX - r.left) / r.width * 7))}); };
+  picF(e) { const r = e.currentTarget.firstElementChild.getBoundingClientRect(); return Math.max(0, Math.min(0.999, (e.clientX - r.left) / Math.max(1, r.width))); }
+  picMove = e => { const id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e), h = this.state.hv; if (!h || h.id !== id || Math.abs(h.f - f) > 0.002) this.setState({hv:{id, f}}); };
+  picLeave = () => { if (this.state.hv) this.setState({hv:null}); };
+  picClick = e => {
+    const st = this.state, id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e);
+    if (st.held) { this.heldTapped = true; this.doMark([id], st.held); return; }
+    this.setState({cur:id, fx:Math.max(0, Math.min(7, f * 8 - 0.5)), hv:{id, f}});
+  };
+  // One <video> for the clip on the canvas: its own frames at full size, seeked to the skim, latest wins.
+  vidRef = el => {
+    if (!el) { this.dropVid(); this.vidEl = null; return; }
+    if (el === this.vidEl) return;
+    this.dropVid(); this.vidEl = el; el.muted = true; el.playsInline = true; el.preload = 'auto';
+    el.addEventListener('seeked', () => { if (el !== this.vidEl) return; el.style.opacity = '1'; if (this.vidWant != null && Math.abs(el.currentTime - this.vidWant) > 0.02) el.currentTime = this.vidWant; });
+    el.addEventListener('loadeddata', () => { if (el === this.vidEl && this.vidWant != null && !el.seeking) el.currentTime = this.vidWant; });
+    el.addEventListener('error', () => { if (el === this.vidEl) el.style.opacity = '0'; });
+  };
+  dropVid() { const v = this.vidEl; if (this.vidUrl) URL.revokeObjectURL(this.vidUrl); if (this.vidFor) this.vOpen = Math.max(0, (this.vOpen || 0) - 1); this.vidUrl = null; this.vidFor = null; this.vidWant = null; if (v) { v.style.opacity = '0'; v.removeAttribute('src'); try { v.load(); } catch (x) {} } }
+  skimF(c) { const st = this.state; return st.hv && st.hv.id === c.id ? st.hv.f : c.id === st.cur ? (st.fx + 0.5) / 8 : 0.5; }
+  syncVid() {
+    const v = this.vidEl, st = this.state; if (!v) return;
+    const c = st.step === 'skim' && st.lv >= 2 ? this.byId[st.cur] : null;
+    if (!c || !c._file || !c.dur) { if (this.vidFor) this.dropVid(); return; }
+    if (this.vidFor !== c.id) { this.dropVid(); this.vidUrl = URL.createObjectURL(c._file); this.vidFor = c.id; this.vOpen = (this.vOpen || 0) + 1; v.src = this.vidUrl; }
+    const t = Math.max(0, Math.min(c.dur - 0.04, this.skimF(c) * c.dur));
+    if (this.vidWant != null && Math.abs(this.vidWant - t) < 0.01) return;
+    this.vidWant = t; if (v.readyState >= 1 && !v.seeking) v.currentTime = t;
+  }
+  // How many of the chapter's clips share the canvas: as many as fit with each neighbour at least
+  // 220 px wide and 0.62 of the current one, while the current one keeps 60% of its size alone.
+  rowFit(n, W, H) {
+    const gap = 12, r = 0.62, minO = 220, cap = Math.max(160, H) * 16 / 9, alone = Math.min(W, cap);
+    for (let k = Math.min(n, 7); k >= 2; k--) { const w = Math.min(cap, (W - (k - 1) * gap) / (1 + r * (k - 1))); if (w * r >= minO && w >= alone * 0.6) return {k, wc:Math.floor(w), wo:Math.floor(w * r), gap}; }
+    return {k:1, wc:Math.floor(Math.min(W, cap)), wo:0, gap};
+  }
   viewTap = () => { const st = this.state; if (st.held && st.cur) { this.heldTapped = true; this.doMark([st.cur], st.held); } };
   viewDbl = () => { if (!this.state.held) this.unfurl(); };
   pvToggle = () => { const st = this.state; if (this.pvDisabled()) return; this.setState({pv:!st.pv}); this.api('preview', !st.pv); };
@@ -644,7 +716,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
     if (!st.ready || !this.d) return base;
     this.index();
     const sk = st.step === 'skim';
@@ -681,7 +753,7 @@ class Component extends DCLogic {
       scRef:this.scRef, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
       tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick,
       wClick:this.wClick, 
-      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl,
+      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, picMove:this.picMove, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef,
       grid42:true,
       boxOn:!!st.box && (st.box.w + st.box.h > 6), box:st.box || base.box,
       undoN:st.undo.length, redoN:st.redo.length, undoC:st.undo.length ? '#EFECE6' : '#6E6A64', redoC:st.redo.length ? '#EFECE6' : '#6E6A64',
@@ -702,7 +774,7 @@ class Component extends DCLogic {
     // strips
     const curGi = this.gOfAll[st.cur];
     vals.strip = G.map(g => { const dn = g.clips.filter(c => st.marks[c.id]).length; return {title:g.title, n:g.vis.length === g.clips.length ? g.clips.length : g.vis.length + '/' + g.clips.length, pct:Math.round(dn / g.clips.length * 100) + '%', bg:g.i === curGi ? '#5B5854' : 'rgba(239,236,230,0.05)', fg:g.i === curGi ? '#EFECE6' : '#B8B3AB', go:() => { const f = this.firstVis(g.i); if (!f) return; if (st.lv === 1) this.wantScroll = ['[data-sec="' + g.i + '"]', true]; this.setState({cur:f, gi:g.i, fx:0}); }}; });
-    if (st.lv >= 2 && curGi != null) vals.tstrip = (G[curGi].vis.length ? G[curGi].vis : G[curGi].clips).map(c => { const m = st.marks[c.id], t0 = this.tone(c, 0); return {id:c.id, bg:t0.bg, flt:t0.flt, edge:m ? 'inset 0 0 0 2px ' + MK[m] : 'none', out:c.id === st.cur ? '1.5px solid #EFECE6' : 'none'}; });
+    if (st.lv >= 2 && curGi != null) vals.tstrip = (G[curGi].vis.length ? G[curGi].vis : G[curGi].clips).map(c => { const m = st.marks[c.id], t0 = this.tone(c, 0); return {id:c.id, bg:t0.bg, flt:t0.flt, anim:t0.anim, edge:m ? 'inset 0 0 0 2px ' + MK[m] : 'none', out:c.id === st.cur ? '1.5px solid #EFECE6' : 'none'}; });
     // chapters level
     if (vals.lv0) {
       const gs = this.gapsSorted;
@@ -715,7 +787,7 @@ class Component extends DCLogic {
         const gm = st.held ? (st.sel.length ? (anySel ? st.held : null) : (isCur ? st.held : null)) : null;
         const n = g.clips.length, few = n <= 48;
         return {i:g.i, title:g.title, size:this.fmtB(g.bytes), count:g.vis.length === n ? this.plural(n, 'clip') : g.vis.length + ' of ' + this.plural(n, 'clip') + ' shown', why:g.why,
-          thumb:t0.bg, flt:t0.flt, edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : 'none', ghost:!!gm, ghostT:gm || '', ghostC:gm ? MK[gm] : '#B8B3AB',
+          thumb:t0.bg, flt:t0.flt, anim:t0.anim, edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : 'none', ghost:!!gm, ghostT:gm || '', ghostC:gm ? MK[gm] : '#B8B3AB',
           bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.6)' : 'none', op:g.vis.length ? 1 : 0.4,
           dotsOn:few, dots:few ? g.clips.map(c => ({c:st.marks[c.id] ? MK[st.marks[c.id]] : 'rgba(239,236,230,0.2)'})) : [],
           barOn:!few, segs:few ? [] : ['keep', 'maybe', 'cut'].map(m => ({w:(dn[m] / n * 100).toFixed(1) + '%', c:MK[m]}))};
@@ -732,7 +804,7 @@ class Component extends DCLogic {
             const m = st.marks[c.id] || null, isSel = selSet.has(c.id), isCur = st.cur === c.id;
             const gm = ghostFor(isSel, isCur);
             const gc = gm ? (MK[gm] || '#B8B3AB') : null, ch = this.chips(c);
-            return {id:c.id, name:c.name.replace(/\.\w+$/, ''), dur:this.fmtDur(c.dur), size:this.fmtB(c.bytes), time:this.hm(c.t), fr:fr(c),
+            return {id:c.id, name:c.name.replace(/\.\w+$/, ''), dur:c.dur ? this.fmtDur(c.dur) : '—', size:this.fmtB(c.bytes), time:this.hm(c.t), fr:fr(c),
               edge:gm ? 'inset 0 0 0 2px ' + gc + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm, mark:m || '', markC:m ? MK[m] : '', ghost:!!gm, ghostT:gm || '', ghostC:gc || '',
               chips:ch.pending ? [this.pendV(), this.pendV()] : ch.list.slice(0, 3).map(x => this.chipV(c, x)),
               bg:isSel ? 'rgba(255,210,122,0.08)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.7)' : 'none'};
@@ -741,9 +813,9 @@ class Component extends DCLogic {
     }
     // clip + frame
     if (vals.lv2 && curC) {
-      const c = curC, f = c.facts || {}, m = st.marks[c.id] || null, fi = Math.round(st.fx), ch = this.chips(c), t = this.tone(c, fi);
+      const c = curC, f = c.facts || {}, m = st.marks[c.id] || null, sf = this.skimF(c), fi = Math.min(7, Math.floor(sf * 8)), ch = this.chips(c), t = this.tone(c, fi);
       const gm = st.held || null, ready = f.state === 'ready', pr = this.prof(c), pv = this.pvOn(c), disL = st.dis[c.id] || [];
-      const secAt = (st.fx + 0.5) / 8 * c.dur;
+      const secAt = sf * c.dur;
       const dsx = k => disL.includes(k) ? ' · dismissed' : '';
       const facts = [];
       if (f.state === 'pending') facts.push({k:'measuring', v:'exposure, clipping, sharpness and motion are still being measured', c:'#9A958D'});
@@ -766,9 +838,28 @@ class Component extends DCLogic {
       facts.push({k:'mark', v:m || 'undecided', c:m ? MK[m] : '#9A958D'});
       facts.forEach(x => { if (!x.c) x.c = '#EFECE6'; });
       vals.cv = {name:c.name.replace(/\.\w+$/, ''), when:this.hm(c.t) + ' · ' + this.fmtDur(c.dur), bg:t.bg, flt:t.flt, edge:gm ? 'inset 0 0 0 3px ' + MK[gm] + '99' : m ? 'inset 0 0 0 3px ' + MK[m] : 'none', markOn:!!m && !gm, mark:m || '', markC:m ? MK[m] : '', ghost:!!gm, ghostT:gm || '', ghostC:gm ? MK[gm] : '',
-        ph:(st.fx / 7 * 100).toFixed(2) + '%', tc:this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
+        ph:(sf * 100).toFixed(2) + '%', tc:c.name.replace(/\.\w+$/, '') + ' · ' + this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
         chips:ch.pending ? [this.pendV(), this.pendV(), this.pendV()] : ch.list.map(x => this.chipV(c, x))};
-      vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:(i / 7 * 100).toFixed(2) + '%'}));
+      vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:((i + 0.5) / 8 * 100).toFixed(2) + '%'}));
+      // the row: this clip and as many of its chapter as fit, joined by a bracket
+      const gq = G[curGi], list = gq ? (gq.vis.length ? gq.vis : gq.clips) : [c], ci = Math.max(0, list.findIndex(x => x.id === c.id));
+      const padX = Math.min(40, Math.max(16, st.vw * 0.022)), W = Math.max(280, st.vw - 2 * padX - 28 - 300), Hh = st.vh - 380;
+      const fit = this.rowFit(list.length, W, Hh), k = fit.k, s0 = Math.max(0, Math.min(list.length - k, ci - Math.floor((k - 1) / 2)));
+      const shown = list.slice(s0, s0 + k);
+      let x = 0; const centers = [];
+      const items = shown.map(cc => {
+        const isC = cc.id === c.id, w = isC ? fit.wc : fit.wo, ff = this.skimF(cc), ti = this.tone(cc, Math.min(7, Math.floor(ff * 8)), isC), mm = st.marks[cc.id] || null, g2 = isC ? gm : null, hvOn = !!(st.hv && st.hv.id === cc.id);
+        centers.push(x + w / 2); x += w + fit.gap;
+        return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, anim:ti.anim, vid:isC && !!cc._file, hvOn, hx:(ff * 100).toFixed(2) + '%',
+          edge:g2 ? 'inset 0 0 0 3px ' + MK[g2] + '99' : mm ? 'inset 0 0 0 ' + (isC ? 3 : 2) + 'px ' + MK[mm] : 'none', markOn:!!mm && !g2, mark:mm || '', markC:mm ? MK[mm] : '', ghost:!!g2, ghostT:g2 || '', ghostC:g2 ? MK[g2] : '',
+          name:cc.name.replace(/\.\w+$/, ''), nameC:isC ? '#EFECE6' : '#B8B3AB', barVis:isC ? 'visible' : 'hidden', ph:(ff * 100).toFixed(2) + '%',
+          sub:isC ? this.tc(ff * cc.dur) + ' of ' + this.tc(cc.dur) + ' · frame ' + (Math.min(7, Math.floor(ff * 8)) + 1) + ' of 8' : this.hm(cc.t) + ' · ' + (cc.dur ? this.fmtDur(cc.dur) : '—'), subC:isC ? '#B8B3AB' : '#9A958D'};
+      });
+      const cw = Math.max(0, x - fit.gap), more = list.length - k, before = s0, after = list.length - s0 - k;
+      const span = gq ? gq.title : '', extra = (before ? '‹ ' + before + ' more · ' : '') + (after ? after + ' more ›' : '');
+      vals.row = {items, cw, connOn:k >= 2, l0:Math.round(centers[0] || 0), lw:Math.round((centers[centers.length - 1] || 0) - (centers[0] || 0)), ticks:centers.slice(1, -1).map(cx => ({x:Math.round(cx)})),
+        label:span + ' · same chapter · ' + this.plural(list.length, 'clip') + (more ? ' · ' + extra.replace(/ · $/, '') : ''),
+        oneOn:k < 2 && list.length > 1, one:'1 of ' + list.length + ' clips in ' + span + (more ? ' · ' + extra.replace(/ · $/, '') : '') + ' · ⇧← ⇧→ to move'};
     }
     Object.assign(vals, this.extraVals(markN, markB, und));
     return vals;
@@ -777,9 +868,25 @@ class Component extends DCLogic {
   save() {
     const s = this.state; if (!this.d || !this.d.clips.length) return;
     const none = !Object.keys(s.marks).length && !Object.keys(s.dis).length && !s.cuts;
-    try { if (none) localStorage.removeItem(this.storeKey()); else localStorage.setItem(this.storeKey(), JSON.stringify({marks:s.marks, dis:s.dis, cuts:s.cuts, at:Date.now()})); } catch (x) {}
+    const sh = this.d.shoot, meta = this.d.__sample ? {} : {name:sh.name, n:this.d.clips.length, bytes:sh.bytes, days:sh.days};
+    try { if (none && this.d.__sample) localStorage.removeItem(this.storeKey()); else localStorage.setItem(this.storeKey(), JSON.stringify({marks:s.marks, dis:s.dis, cuts:s.cuts, at:Date.now(), ...meta})); } catch (x) {}
   }
   hasShoot() { return !!(this.d && this.d.clips.length); }
+  recentList() {
+    const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k || k.indexOf('lumina-skim:') !== 0 || k.indexOf('lumina-skim:sample-') === 0) continue; let v = null; try { v = JSON.parse(localStorage.getItem(k)); } catch (x) {} if (v && v.name) out.push({key:k, ...v}); } } catch (x) {}
+    return out.sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 6);
+  }
+  recentVals() {
+    const d = this.d, live = this.hasShoot() && !d.__sample ? this.storeKey() : null, ms = live ? this.memStats() : null;
+    return this.recentList().map(r => {
+      const on = r.key === live, dec = Object.keys(r.marks || {}).length, n = r.n || 0, measuring = on && ms.meas < ms.n;
+      const st = !on ? 'not in memory · ' + (dec ? (dec === 1 ? 'its 1 mark is saved' : 'its ' + dec + ' marks are saved') : 'nothing marked yet') : measuring ? 'in memory · measuring ' + ms.meas + ' of ' + ms.n : 'in memory · ' + ms.fr + ' frames ready';
+      return {name:r.name, line:this.plural(n, 'clip') + ' · ' + dec + ' decided' + (r.bytes ? ' · ' + this.fmtB(r.bytes) : '') + (r.days ? ' · ' + this.plural(r.days, 'day') : ''),
+        st, stC:on ? '#EFECE6' : '#9A958D', dot:on ? (measuring ? '#FFD27A' : '#A9D18E') : 'rgba(239,236,230,0.25)', anim:measuring ? 'breathe 1.6s ease-in-out infinite' : 'none',
+        act:on ? '⌘2 Skim' : 'Choose the folder again to bring its clips back', ring:on ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.08)',
+        go:() => { if (on) return this.setStep('skim'); this.want = r.key; this.setState({impMsg:'Choose “' + r.name + '” again. Its marks come back with it.'}); this.pickFolder(); }};
+    });
+  }
   setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const ex = this.state.ex; this.setState({step:s, memOn:false, exDone:null, ex:ex.event ? ex : {...ex, event:this.d ? this.d.shoot.name : ''}}); }
   fileRef = el => { this.fileEl = el; };
   pickFolder = () => { if (this.fileEl) this.fileEl.click(); };
@@ -820,7 +927,7 @@ class Component extends DCLogic {
     const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
     const root = rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
     const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true}, clips, gaps:[]};
-    this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim');
+    this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim'); this.want = null; this.setState({}, () => this.save());
     this.setState({impMsg:null, imp:{n:clips.length, done:0}});
     this.runQueue(clips.slice(), this.qTok);
   }
@@ -836,15 +943,20 @@ class Component extends DCLogic {
       const wait = (ev, ms) => new Promise((res, rej) => { const to = setTimeout(() => { v.removeEventListener(ev, ok); v.removeEventListener('error', bad); rej('timeout'); }, ms); function ok() { clearTimeout(to); v.removeEventListener('error', bad); res(); } function bad() { clearTimeout(to); v.removeEventListener(ev, ok); rej('error'); } v.addEventListener(ev, ok, {once:true}); v.addEventListener('error', bad, {once:true}); });
       try {
         v.src = url; await wait('loadedmetadata', 10000);
+        if (v.readyState < 2) { try { await wait('loadeddata', 5000); } catch (x) {} }
         c.dur = isFinite(v.duration) ? v.duration : 0; c.w = v.videoWidth; c.h = v.videoHeight;
         if (!c.w || !c.dur) throw 'no video';
         const cv = document.createElement('canvas'); cv.width = 320; cv.height = 180; const ctx = cv.getContext('2d', {willReadFrequently:true}), px = [];
         for (let i = 0; i < 8; i++) {
           if (tok !== this.qTok) throw 'stopped';
-          v.currentTime = Math.min(c.dur - 0.05, (i + 0.5) / 8 * c.dur); await wait('seeked', 8000);
-          ctx.drawImage(v, 0, 0, 320, 180); const fb = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.72)); c.frameSz = c.frameSz || []; c.frames[i] = fb ? URL.createObjectURL(fb) : null; c.frameSz[i] = fb ? fb.size : 0; px.push(this.pix(ctx.getImageData(0, 0, 320, 180)));
+          v.currentTime = Math.min(c.dur - 0.05, (i + 0.5) / 8 * c.dur); await wait('seeked', 8000); await this.painted(v);
+          // WebKit can answer 'seeked' before the frame is decoded: a black frame. Look again, then leave it out of the measures.
+          let im = null; for (let k = 0; k < 3; k++) { ctx.drawImage(v, 0, 0, 320, 180); im = ctx.getImageData(0, 0, 320, 180); if (!this.blank(im)) break; im = null; await new Promise(r => setTimeout(r, 120 + k * 160)); }
+          if (!im) continue;
+          const fb = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.72)); c.frameSz = c.frameSz || []; c.frames[i] = fb ? URL.createObjectURL(fb) : null; c.frameSz[i] = fb ? fb.size : 0; px.push(this.pix(im));
           this.setState(s => ({tick:s.tick + 1}));
         }
+        if (!px.length) throw 'no frames';
         const avg = k => px.reduce((s, p) => s + p[k], 0) / px.length, mean = avg('mean');
         const sharpF = px.map(p => Math.round(Math.min(1, p.lap / 0.05) * 100) / 100);
         let bump = null; px.forEach((p, i) => { const nb = [px[i - 1], px[i + 1]].filter(Boolean); if (bump == null && nb.length && nb.every(q => Math.abs(q.mean - p.mean) > 0.2)) bump = i; });
@@ -854,6 +966,8 @@ class Component extends DCLogic {
       this.setState(s => ({tick:s.tick + 1})); done();
     });
   }
+  painted(v) { return new Promise(r => { const to = setTimeout(r, 250); if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => { clearTimeout(to); r(); }); }); }
+  blank(img) { const D = img.data; let mx = 0; for (let i = 0; i < D.length; i += 64) { const y = D[i] + D[i + 1] + D[i + 2]; if (y > mx) mx = y; } return mx < 12; }
   pix(img) {
     const D = img.data, W = img.width, H = img.height, Y = new Float32Array(W * H); let sum = 0, hi = 0, lo = 0, lap = 0, ln = 0;
     for (let i = 0, j = 0; i < D.length; i += 4, j++) { const y = (0.2126 * D[i] + 0.7152 * D[i + 1] + 0.0722 * D[i + 2]) / 255; Y[j] = y; sum += y; if (y > 0.98) hi++; else if (y < 0.02) lo++; }
@@ -951,7 +1065,7 @@ class Component extends DCLogic {
       memBtns:[
         {t:'Clear frames', sub:ms.fr ? 'drops ' + ms.fr + ' frames · made again in the background' : 'no frames made in this tab', go:this.clearFrames, op:ms.fr ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'},
         {t:st.memConfirm ? 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + '? Click again' : 'Forget marks', sub:'deletes this shoot’s saved marks from this browser', go:this.forgetMarks, op:has ? 1 : 0.45, bg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.08)', fg:st.memConfirm ? '#FF8A7A' : '#EFECE6'},
-        {t:'Clear memory', sub:'closes the shoot, frees frames and measurements · saved marks stay', go:this.clearMemory, op:has ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'}],
+        {t:'Clear memory', sub:'closes the shoot, frees frames and measurements · its marks stay saved under Recent shoots', go:this.clearMemory, op:has ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'}],
       impOn:!!(st.imp && st.imp.done < st.imp.n), impW:st.imp ? Math.round(st.imp.done / Math.max(1, st.imp.n) * 100) + '%' : '0%',
       fileRef:this.fileRef, pickFolder:this.pickFolder, filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
       dropRing:st.dropHot ? '#FFD27A' : 'rgba(239,236,230,0.18)', dropBg:st.dropHot ? 'rgba(255,210,122,0.06)' : '#232220',
@@ -959,6 +1073,7 @@ class Component extends DCLogic {
       impLineOn:!!(st.imp && st.imp.done < st.imp.n), impLine:st.imp ? 'measuring ' + st.imp.done + ' of ' + this.plural(st.imp.n, 'clip') : '',
       nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
       cards:this.cardList().map(c => ({...c, open:() => this.openSample(c.key)})),
+      recents:st.step === 'import' ? this.recentVals() : [], recOn:st.step === 'import' && this.recentList().length > 0,
       download:this.download, hintLead:''
     };
     if (v.isSkim && has && !st.held) { const nh = this.navHints(); v.hints = nh.list; v.hintLead = nh.lead; }
