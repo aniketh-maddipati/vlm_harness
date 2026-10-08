@@ -119,6 +119,7 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `setPrefs` | — | the page's preferences in the app's defaults |
 | `skimStore` | Skim's saved shoots, `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimSave` | — | one Skim shoot's marks, name and counts in `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimHealth` | the Mac's thermal state, Low Power Mode, memory pressure and Lumina's own memory footprint (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `openSettings` | — | — (opens System Settings ▸ Privacy & Security ▸ Files and Folders) |
 | `checkAccess` | whether a refused folder is readable now | — |
 | `reopenDenied` | the refused folder, again | — |

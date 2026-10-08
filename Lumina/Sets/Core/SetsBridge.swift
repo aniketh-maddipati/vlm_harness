@@ -594,6 +594,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // One Skim shoot's entry, or its removal when `value` is null.
             guard let key = body["key"] as? String else { return (false, nil) }
             return (SkimStore(dir: supportDir.appendingPathComponent("skim", isDirectory: true)).set(key, body["value"] as? String), nil)
+        case "skimHealth":
+            // Skim's pacing: heat, Low Power Mode, memory pressure, this app's footprint (SkimHealth).
+            return (SkimHealth.shared.read(slowdown: (body["slowdown"] as? NSNumber)?.doubleValue ?? 1), nil)
         case "openSettings":
             // Privacy & Security → Files and Folders. Opening System Settings is the user's own click.
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") { NSWorkspace.shared.open(url) }

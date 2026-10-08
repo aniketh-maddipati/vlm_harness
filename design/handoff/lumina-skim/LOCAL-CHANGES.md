@@ -83,3 +83,9 @@ Seen and left for the design (not changed here):
     slider was moved by hand. Loading no longer folds the shoot back to the fewest scenes.
 20. **Scenes shot back to back are joined.** A short line joins two neighbouring scenes in a row when less than
     60 s passed between them (by capture time, so it holds across folders opened together later).
+21. Keys K M C mark keep, maybe, cut (X still cuts). Z zooms the Viewer picture; P opens the clips-added pane.
+22. Clips added pane (P, the pill in the key bar, or the load bar): every clip with ready / reading / waiting / can't read / open again, its 8 frames as dots, the reading pace when the Mac is warm. Click a row to go to that clip.
+23. Pinch: Clips tiles grow and shrink with the fingers (past the ends it opens the clip or closes to Scenes); the Viewer picture zooms where the pointer is, up to 6×, pointer or two-finger scroll pans, pinch back past fit closes to Clips.
+24. Double-click in the Viewer: Export when something is kept, otherwise "Nothing marked Keep yet" with Back to Clips (⏎) and Stay (esc).
+25. Reading is paced by heat, Low Power Mode, memory pressure and decode speed (app: skimHealth; browser: decode speed only). Working memory shows Mac heat, memory, reading pace.
+26. Shoots with one name are numbered ("Card", "Card 2"); saved marks are keyed by the clips themselves, not the folder name and count.

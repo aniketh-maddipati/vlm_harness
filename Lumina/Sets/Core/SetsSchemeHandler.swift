@@ -263,7 +263,7 @@ nonisolated enum SetsPage: String, Sendable {
 
     /// Skim's host: the page's `lumina.video` calls, set before the page runs. `storeAll` and `storeSet`
     /// keep its saved shoots in the app's container (`skimStore` / `skimSave`, SkimStore), so marks survive
-    /// a quit; mark, preview and handoff have nothing native behind them yet.
+    /// a quit; `health` reads heat and memory (`skimHealth`, SkimHealth) to pace the page's reading; mark, preview and handoff have nothing native behind them yet.
     static let skimHostScript = #"""
     (() => {
       const post = (op, a) => window.webkit.messageHandlers.lumina.postMessage(Object.assign({ op }, a || {}));
@@ -271,6 +271,7 @@ nonisolated enum SetsPage: String, Sendable {
       window.lumina.video = Object.assign(window.lumina.video || {}, {
         storeAll: () => post('skimStore'),
         storeSet: (key, value) => post('skimSave', { key: String(key), value: value == null ? null : String(value) }),
+        health: (slowdown) => post('skimHealth', { slowdown: Number(slowdown) || 1 }),
         mark() {}, preview() {}, handoff() {}
       });
     })();
