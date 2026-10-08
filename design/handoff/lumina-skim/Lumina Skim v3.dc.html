@@ -115,7 +115,7 @@ input[type=range]{accent-color:#B8B3AB}
           <sc-if value="{{ impLineOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#B8B3AB">{{ impLine }}</div></sc-if>
           <sc-if value="{{ recOn }}" hint-placeholder-val="{{ false }}">
             <div style="display:flex;flex-direction:column;gap:12px">
-              <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:600;color:#EFECE6">Your marks</span><span style="color:#9A958D">Lumina keeps your marks, not your clips. Open the clips again, all or some, and their marks come back.</span></div>
+              <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:600;color:#EFECE6">Your marks</span><span style="color:#9A958D">Lumina saves your marks, not your clips. Open the clips again, all or some, and their marks come back.</span></div>
               <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:14px">
                 <sc-for list="{{ recents }}" as="rc" hint-placeholder-count="2">
                   <div data-lumina="recent" role="button" tabIndex="0" onClick="{{ rc.go }}" style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px {{ rc.ring }};cursor:pointer" style-hover="background:#2E2C29">
@@ -287,8 +287,8 @@ input[type=range]{accent-color:#B8B3AB}
           </sc-if>
           <sc-if value="{{ row.oneOn }}" hint-placeholder-val="{{ false }}"><div style="color:#9A958D">{{ row.one }}</div></sc-if>
           <sc-if value="{{ noKeepOn }}" hint-placeholder-val="{{ false }}">
-            <div data-lumina="no-keep" role="alertdialog" aria-label="Nothing kept yet" style="align-self:flex-start;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 12px;border-radius:10px;background:#2A2927;box-shadow:0 0 0 1px rgba(255,210,122,0.4);animation:fade 100ms ease-out">
-              <span style="color:#FFD27A;font-weight:600">Nothing marked Keep yet</span><span style="color:#B8B3AB">Export would be empty.</span>
+            <div data-lumina="no-keep" role="alertdialog" aria-label="Nothing selected yet" style="align-self:flex-start;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 12px;border-radius:10px;background:#2A2927;box-shadow:0 0 0 1px rgba(255,210,122,0.4);animation:fade 100ms ease-out">
+              <span style="color:#FFD27A;font-weight:600">Nothing selected yet</span><span style="color:#B8B3AB">Export would be empty.</span>
               <div role="button" tabIndex="0" onClick="{{ noKeepBack }}" style="height:26px;padding:0 10px;border-radius:7px;display:flex;align-items:center;gap:7px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:18px;height:18px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-size:11px">⏎</span>Back to Clips</div>
               <div role="button" tabIndex="0" onClick="{{ noKeepStay }}" style="height:26px;padding:0 10px;border-radius:7px;display:flex;align-items:center;gap:7px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:18px;height:18px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-size:11px">esc</span>Stay</div>
             </div>
@@ -332,7 +332,7 @@ input[type=range]{accent-color:#B8B3AB}
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <sc-for list="{{ wells }}" as="w" hint-placeholder-count="3">
-        <div data-well="{{ w.m }}" role="button" tabIndex="0" aria-label="{{ w.m }} {{ w.n }}" onClick="{{ wClick }}" style="height:30px;min-width:92px;box-sizing:border-box;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:8px;background:{{ w.bg }};box-shadow:inset 0 0 0 1px {{ w.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="background:rgba(239,236,230,0.1)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="width:8px;height:8px;border-radius:50%;background:{{ w.c }}"></span><span style="color:#EFECE6">{{ w.m }}</span><span style="flex:1"></span><span style="color:#B8B3AB">{{ w.n }}</span></div>
+        <div data-well="{{ w.m }}" role="button" tabIndex="0" aria-label="{{ w.l }} {{ w.n }}" onClick="{{ wClick }}" style="height:30px;min-width:92px;box-sizing:border-box;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:8px;background:{{ w.bg }};box-shadow:inset 0 0 0 1px {{ w.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="background:rgba(239,236,230,0.1)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="width:8px;height:8px;border-radius:50%;background:{{ w.c }}"></span><span style="color:#EFECE6">{{ w.l }}</span><span style="flex:1"></span><span style="color:#B8B3AB">{{ w.n }}</span></div>
       </sc-for>
     </div>
     <div style="min-width:0;display:flex;justify-content:flex-end;gap:14px;color:#B8B3AB;overflow:hidden"><span>{{ cutSoFar }}</span><span style="color:#9A958D">{{ freeTxt }}</span></div>
@@ -346,6 +346,10 @@ input[type=range]{accent-color:#B8B3AB}
 <script type="text/x-dc" data-dc-script data-props="{&quot;startStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Open&quot;,&quot;options&quot;:[&quot;Open&quot;,&quot;Skim&quot;,&quot;Export&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;startLevel&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Chapters&quot;,&quot;options&quot;:[&quot;Chapters&quot;,&quot;Takes&quot;,&quot;Clip&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   static MK = {keep:'#A9D18E', maybe:'#FFD27A', cut:'#FF8A7A'};
+  // What the screen calls each mark (the stored keys stay keep / maybe / cut).
+  static WORD = {keep:'selected', maybe:'maybe', cut:'cut'};
+  static VERB = {keep:'select', maybe:'maybe', cut:'cut'};
+  W(m) { return m ? Component.WORD[m] || m : ''; }
   static LV = ['Scenes','Clips','Viewer'];
   state = {progOn:false,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
@@ -530,7 +534,7 @@ class Component extends DCLogic {
   }
 
   // marks + undo
-  verb(m) { return m || 'put back'; }
+  verb(m) { return m ? Component.VERB[m] || m : 'put back'; }
   sentence(ids, m) { return this.verb(m) + ' ' + this.plural(ids.length, 'clip') + ' · ' + this.fmtB(this.bytesOf(ids)); }
   doMark(ids, m) {
     if (!ids.length) return;
@@ -836,7 +840,7 @@ class Component extends DCLogic {
     return {k:1, wc:Math.floor(Math.min(W, cap)), wo:0, gap};
   }
   viewTap = () => { const st = this.state; if (st.held && st.cur) { this.heldTapped = true; this.doMark([st.cur], st.held); } };
-  // Double-click in the Viewer is the way out: to Export when something is kept; otherwise a warning that offers Clips.
+  // Double-click in the Viewer goes to Export; nothing has to be selected first.
   viewDbl = () => { const st = this.state; if (st.held) return; if (st.zc > 1.01) return this.setState({zc:1}); this.setStep('export'); };
   noKeepBack = () => { this.setState({noKeep:false}); this.furl(); };
   noKeepStay = () => this.setState({noKeep:false});
@@ -912,11 +916,11 @@ class Component extends DCLogic {
     vals.counts = st.flash || (decided + ' decided · ' + und + ' undecided · 0 automatic');
     vals.handOffer = !st.prop && !empty && und === 0;
     vals.handOpen = () => this.setStep('export');
-    vals.wells = ['keep', 'maybe', 'cut'].map(m => ({m, n:markN[m], c:MK[m], bg:'rgba(239,236,230,0.05)', ring:'rgba(239,236,230,0.1)'}));
+    vals.wells = ['keep', 'maybe', 'cut'].map(m => ({m, l:this.W(m), n:markN[m], c:MK[m], bg:'rgba(239,236,230,0.05)', ring:'rgba(239,236,230,0.1)'}));
     vals.cutSoFar = 'cut so far: ' + this.fmtB(markB.cut);
     vals.freeTxt = (d.shoot.free == null ? '' : 'card: ' + this.fmtB(d.shoot.free) + ' free');
     // hints
-    vals.hints = empty ? [{k:'⌘O', t:'open'}] : st.held ? [{k:'tap', t:st.held}, {k:'⏎', t:st.held}, {k:'let go', t:'nothing happens'}] : [];
+    vals.hints = empty ? [{k:'⌘O', t:'open'}] : st.held ? [{k:'tap', t:Component.VERB[st.held]}, {k:'⏎', t:Component.VERB[st.held]}, {k:'let go', t:'nothing happens'}] : [];
     // strips
     const curGi = this.gOfAll[st.cur];
     vals.strip = G.map(g => { const dn = g.clips.filter(c => st.marks[c.id]).length; return {title:g.title, n:g.vis.length === g.clips.length ? g.clips.length : g.vis.length + '/' + g.clips.length, pct:Math.round(dn / g.clips.length * 100) + '%', bg:g.i === curGi ? '#5B5854' : 'rgba(239,236,230,0.05)', fg:g.i === curGi ? '#EFECE6' : '#B8B3AB', go:() => { const f = this.firstVis(g.i); if (!f) return; if (st.lv === 1) this.wantScroll = ['[data-sec="' + g.i + '"]', true]; this.setState({cur:f, gi:g.i, fx:0}); }}; });
@@ -934,7 +938,7 @@ class Component extends DCLogic {
         const n = g.clips.length, few = n <= 48;
         const sg = this.sceneGrid(), join = g.i > 0 && g.gapS != null && g.gapS <= 60 && g.i % sg.cols !== 0;
         return {join, joinT:'continuous · ' + this.fmtGap(g.gapS || 0) + ' apart', jy:Math.round(8 + sg.tw * 9 / 32), i:g.i, title:g.title, size:this.fmtB(g.bytes), count:g.vis.length === n ? this.plural(n, 'clip') : g.vis.length + ' of ' + this.plural(n, 'clip') + ' shown', why:g.why,
-          thumb:t0.bg, flt:t0.flt, anim:t0.anim, edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : 'none', ghost:!!gm, ghostT:gm || '', ghostC:gm ? MK[gm] : '#B8B3AB',
+          thumb:t0.bg, flt:t0.flt, anim:t0.anim, edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : 'none', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '#B8B3AB',
           bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.6)' : 'none', op:g.vis.length ? 1 : 0.4,
           dotsOn:few, dots:few ? g.clips.map(c => ({c:st.marks[c.id] ? MK[st.marks[c.id]] : 'rgba(239,236,230,0.2)'})) : [],
           barOn:!few, segs:few ? [] : ['keep', 'maybe', 'cut'].map(m => ({w:(dn[m] / n * 100).toFixed(1) + '%', c:MK[m]}))};
@@ -962,7 +966,7 @@ class Component extends DCLogic {
             const gm = ghostFor(isSel, isCur);
             const gc = gm ? (MK[gm] || '#B8B3AB') : null, ch = this.chips(c);
             return {id:c.id, name:c.name.replace(/\.\w+$/, ''), dur:c.dur ? this.fmtDur(c.dur) : '—', size:this.fmtB(c.bytes), time:this.hm(c.t), fr:fr(c),
-              edge:gm ? 'inset 0 0 0 2px ' + gc + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm, mark:m || '', markC:m ? MK[m] : '', ghost:!!gm, ghostT:gm || '', ghostC:gc || '',
+              edge:gm ? 'inset 0 0 0 2px ' + gc + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gc || '',
               chips:ch.pending ? [this.pendV(), this.pendV()] : ch.list.slice(0, 3).map(x => this.chipV(c, x)),
               bg:isSel ? 'rgba(255,210,122,0.08)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.7)' : 'none'};
           })};
@@ -992,9 +996,9 @@ class Component extends DCLogic {
       facts.push({k:'profile', v:pr ? (pr.g === 'none' ? 'none' : pr.g + ' · ' + pr.p) + ' · ' + pr.src : 'unknown · no sidecar'});
       facts.push({k:'recorded', v:c.t.slice(0, 10) + ' · ' + c.t.slice(11, 19)});
       facts.push({k:'path', v:c.path, c:'#9A958D'});
-      facts.push({k:'mark', v:m || 'undecided', c:m ? MK[m] : '#9A958D'});
+      facts.push({k:'mark', v:m ? this.W(m) : 'undecided', c:m ? MK[m] : '#9A958D'});
       facts.forEach(x => { if (!x.c) x.c = '#EFECE6'; });
-      vals.cv = {name:c.name.replace(/\.\w+$/, ''), when:this.hm(c.t) + ' · ' + this.fmtDur(c.dur), bg:t.bg, flt:t.flt, edge:gm ? 'inset 0 0 0 3px ' + MK[gm] + '99' : m ? 'inset 0 0 0 3px ' + MK[m] : 'none', markOn:!!m && !gm, mark:m || '', markC:m ? MK[m] : '', ghost:!!gm, ghostT:gm || '', ghostC:gm ? MK[gm] : '',
+      vals.cv = {name:c.name.replace(/\.\w+$/, ''), when:this.hm(c.t) + ' · ' + this.fmtDur(c.dur), bg:t.bg, flt:t.flt, edge:gm ? 'inset 0 0 0 3px ' + MK[gm] + '99' : m ? 'inset 0 0 0 3px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '',
         ph:(sf * 100).toFixed(2) + '%', tc:c.name.replace(/\.\w+$/, '') + ' · ' + this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
         chips:ch.pending ? [this.pendV(), this.pendV(), this.pendV()] : ch.list.map(x => this.chipV(c, x))};
       vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:((i + 0.5) / 8 * 100).toFixed(2) + '%'}));
@@ -1009,7 +1013,7 @@ class Component extends DCLogic {
         centers.push(x + w / 2); x += w + fit.gap;
         const zz = isC && st.zc > 1.01;
         return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, anim:ti.anim, vid:isC && !!cc._file, hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:zz, zT:zz ? st.zc.toFixed(1) + '× · pinch back or Z to fit' : '',
-          edge:g2 ? 'inset 0 0 0 3px ' + MK[g2] + '99' : mm ? 'inset 0 0 0 ' + (isC ? 3 : 2) + 'px ' + MK[mm] : 'none', markOn:!!mm && !g2, mark:mm || '', markC:mm ? MK[mm] : '', ghost:!!g2, ghostT:g2 || '', ghostC:g2 ? MK[g2] : '',
+          edge:g2 ? 'inset 0 0 0 3px ' + MK[g2] + '99' : mm ? 'inset 0 0 0 ' + (isC ? 3 : 2) + 'px ' + MK[mm] : 'none', markOn:!!mm && !g2, mark:this.W(mm), markC:mm ? MK[mm] : '', ghost:!!g2, ghostT:this.W(g2), ghostC:g2 ? MK[g2] : '',
           name:cc.name.replace(/\.\w+$/, ''), nameC:isC ? '#EFECE6' : '#B8B3AB', barVis:isC ? 'visible' : 'hidden', ph:(ff * 100).toFixed(2) + '%',
           sub:isC ? this.tc(ff * cc.dur) + ' of ' + this.tc(cc.dur) + ' · frame ' + (Math.min(7, Math.floor(ff * 8)) + 1) + ' of 8' : this.hm(cc.t) + ' · ' + (cc.dur ? this.fmtDur(cc.dur) : '—'), subC:isC ? '#B8B3AB' : '#9A958D'};
       });
@@ -1501,7 +1505,7 @@ class Component extends DCLogic {
       const f = fmt(c), du = rt(c.dur || 1, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
       al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="0s" duration="' + du + '" hasVideo="1" hasAudio="1" format="' + f.id + '">', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
       const kws = []; if (m === 'maybe') kws.push('maybe');
-      // Final Cut's own ratings: keepers are favorites, cuts rejected (hidden by Final Cut's Hide Rejected), the rest unrated
+      // Final Cut's own ratings: selected clips are favorites, cut ones rejected (hidden by Final Cut's Hide Rejected), the rest unrated
       const rate = m === 'keep' ? 'favorite' : m === 'cut' ? 'reject' : null;
       cl.push('      <asset-clip ref="a' + (i + 1) + '" name="' + nm + '" duration="' + du + '" format="' + f.id + '" tcFormat="NDF">');
       if (kws.length) cl.push('        <keyword start="0s" duration="' + du + '" value="' + xe(kws.join(', ')) + '"/>');
@@ -1579,7 +1583,7 @@ class Component extends DCLogic {
       memCtlNote:(() => { const mp = this.mp, B = mp.budget, used = ms.frB, thin = (this.d ? this.d.clips : []).filter(c => c.thin).length;
         return 'Frames ' + this.fmtB(used) + (B === 'all' ? '' : ' of ' + B + ' MB') + (thin ? ' · ' + this.plural(thin, 'clip') + ' let go of frames, far from where you are' : '') + '. Size and frames per clip apply to frames made from now on.'; })(),
       memTest:[
-        {k:'clips', opts:[...(this.parked && d && d.__mock ? [{t:'back to ' + this.parked.d.shoot.name, tip:'its frames were kept', on:false, bg:'#FFD27A', fg:'#1E1D1B', go:this.unpark}] : []), ...Component.LOADS.map(L => { const busy = this.realReading(), on = !!(d && d.__mock && d.clips.length === L[2]); return {t:L[2].toLocaleString(), tip:busy ? 'after ' + d.shoot.name + ' is read' : L[8], on, bg:on ? '#EFECE6' : 'rgba(239,236,230,0.08)', fg:on ? '#1E1D1B' : busy ? '#6E6A64' : '#EFECE6', go:() => this.openTest(L[0])}; })]},
+        {k:'clips', opts:[...(this.parked && d && d.__mock ? [{t:'back to ' + this.parked.d.shoot.name, tip:'its frames are still in memory', on:false, bg:'#FFD27A', fg:'#1E1D1B', go:this.unpark}] : []), ...Component.LOADS.map(L => { const busy = this.realReading(), on = !!(d && d.__mock && d.clips.length === L[2]); return {t:L[2].toLocaleString(), tip:busy ? 'after ' + d.shoot.name + ' is read' : L[8], on, bg:on ? '#EFECE6' : 'rgba(239,236,230,0.08)', fg:on ? '#1E1D1B' : busy ? '#6E6A64' : '#EFECE6', go:() => this.openTest(L[0])}; })]},
         {k:'heat', opts:[0, 1, 2, 3].map(l => ({t:['real', 'warm', 'hot', 'very hot'][l], tip:l ? 'pretend the Mac is ' + ['', 'warm', 'hot', 'very hot'][l] : 'what the Mac reports', on:(this.simHeat || 0) === l, bg:(this.simHeat || 0) === l ? '#EFECE6' : 'rgba(239,236,230,0.08)', fg:(this.simHeat || 0) === l ? '#1E1D1B' : '#EFECE6', go:() => { this.simHeat = l; this.setState(s => ({tick:(s.tick || 0) + 1})); }}))}],
       memBtns:[
         {t:'Make frames again', sub:this.realReading() ? 'After reading finishes. Now it would start the card over.' : 'Reads the card again' + (this.lastClock && this.lastClock.done ? ', about ' + this.fmtSec(this.lastClock.done) : '') + '. Marks stay.', subC:'#B8B3AB', go:this.clearFrames, op:this.realReading() || !ms.fr ? 0.45 : 1, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'},
@@ -1600,20 +1604,20 @@ class Component extends DCLogic {
     if (v.isExport) {
       const x = this.buildX(), ex = st.ex, G = this.G || [];
       v.exRows = [
-        {k:'keep', c:MK.keep, n:this.plural(markN.keep, 'clip'), size:this.fmtB(markB.keep), to:ex.all ? 'favorites in Final Cut' : 'into the event'},
+        {k:'selected', c:MK.keep, n:this.plural(markN.keep, 'clip'), size:this.fmtB(markB.keep), to:ex.all ? 'favorites in Final Cut' : 'into the event'},
         {k:'maybe', c:MK.maybe, n:this.plural(markN.maybe, 'clip'), size:this.fmtB(markB.maybe), to:ex.all || ex.maybes ? 'tagged “maybe”' : 'left out'},
         {k:'cut', c:MK.cut, n:this.plural(markN.cut, 'clip'), size:this.fmtB(markB.cut), to:ex.all ? 'rejected in Final Cut' : 'stay on the card'},
         {k:'undecided', c:'rgba(239,236,230,0.3)', n:this.plural(und, 'clip'), size:this.fmtB(Math.max(0, d.shoot.bytes - markB.keep - markB.maybe - markB.cut)), to:ex.all ? 'unrated' : 'stay on the card'}];
       const sw = (t, sub, on, key, dis) => ({t, sub, on, op:dis ? 0.45 : 1, track:on ? '#B8B3AB' : 'rgba(239,236,230,0.18)', knob:on ? '14px' : '2px', go:() => { if (!dis) this.setState(s => ({ex:{...s.ex, [key]:!s.ex[key]}})); }});
-      v.exOpts = [sw('Everything', ex.all ? 'every clip, keepers as favorites, cuts rejected' : 'only what you kept', ex.all, 'all'), sw('Include maybes', 'tagged “maybe” in Final Cut', ex.all || ex.maybes, 'maybes', ex.all)];
+      v.exOpts = [sw('Everything', ex.all ? 'every clip; selected ones as favorites, cut ones rejected' : 'only selected clips', ex.all, 'all'), sw('Include maybes', 'tagged “maybe” in Final Cut', ex.all || ex.maybes, 'maybes', ex.all)];
       v.exEvent = ex.event;
       v.exEventIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, event:val}})); };
       v.exKwIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, kw:val}})); };
-      v.exBtnOp = x.n ? 1 : 0.45; v.exBtn = x.n ? 'Download .fcpxml · ' + this.plural(x.n, 'clip') : 'Nothing kept yet · turn on Everything';
-      const lines = x.text.split('\n'); v.exPreview = x.n ? lines.slice(0, 44).join('\n') + (lines.length > 44 ? '\n…' : '') : 'Mark clips keep or maybe in Skim.';
+      v.exBtnOp = x.n ? 1 : 0.45; v.exBtn = x.n ? 'Download .fcpxml · ' + this.plural(x.n, 'clip') : 'Nothing selected yet · turn on Everything';
+      const lines = x.text.split('\n'); v.exPreview = x.n ? lines.slice(0, 44).join('\n') + (lines.length > 44 ? '\n…' : '') : 'Select clips in Skim with K, or turn on Everything.';
       v.exPathLine = d.shoot.real ? 'Paths assume the card is mounted at /Volumes/' + (d.shoot.base || d.shoot.name) + '.' : 'Paths point at the card as the camera wrote it.';
       v.exDone = st.exDone || ''; v.exDoneOn = !!st.exDone;
-      v.exGroups = G.map(g => { const k = g.clips.filter(c => st.marks[c.id] === 'keep').length, m = g.clips.filter(c => st.marks[c.id] === 'maybe').length; return {title:g.title, k:k + ' keep', m:ex.maybes ? m + ' maybe' : '', on:ex.all || k + (ex.maybes ? m : 0) > 0}; }).filter(g => g.on);
+      v.exGroups = G.map(g => { const k = g.clips.filter(c => st.marks[c.id] === 'keep').length, m = g.clips.filter(c => st.marks[c.id] === 'maybe').length; return {title:g.title, k:k + ' selected', m:ex.maybes ? m + ' maybe' : '', on:ex.all || k + (ex.maybes ? m : 0) > 0}; }).filter(g => g.on);
       v.backSkim = () => this.setStep('skim');
     }
     return v;

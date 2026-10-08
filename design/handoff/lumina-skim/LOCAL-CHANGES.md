@@ -98,4 +98,5 @@ Seen and left for the design (not changed here):
 33. Memory panel: clips, read, frames, Mac, Lumina by default; the rest, frames per clip, size and test loads (150 / 600 / 1,500 / 4,000, not while a card reads, back to the card after) under More. Each load is timed (lumina-skim:clock).
 34. Marks are kept per clip (file name + capture time), so opening some, all or more of a shoot's clips brings its marks back; Recent shoots is gone from Open.
 35. The open panel takes the XML sidecars with the clips.
-36. Nothing blocks on keepers: Export defaults to Everything (keepers as Final Cut favorites, cuts rejected, maybes tagged, the rest unrated), Keepers only is a switch; double-click in the Viewer goes to Export.
+36. Nothing has to be selected: Export defaults to Everything (selected clips as Final Cut favorites, cuts rejected, maybes tagged, the rest unrated), Only selected clips is a switch; double-click in the Viewer goes to Export.
+37. Neutral words on screen: the K mark reads "selected" (select / selected), M "maybe", C "cut"; stored keys stay keep / maybe / cut so saved marks carry over. No "keep", "kept" or "keepers" in the UI.
