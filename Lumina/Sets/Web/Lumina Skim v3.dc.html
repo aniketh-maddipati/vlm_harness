@@ -347,7 +347,7 @@ input[type=range]{accent-color:#B8B3AB}
 class Component extends DCLogic {
   static MK = {keep:'#A9D18E', maybe:'#FFD27A', cut:'#FF8A7A'};
   static LV = ['Scenes','Clips','Viewer'];
-  state = {progOn:false,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
+  state = {progOn:false,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   reading = new Set();
   // Memory controls, per viewer: how many MB of frames stay in memory, frames per clip, their size, and the reading pace.
@@ -837,7 +837,7 @@ class Component extends DCLogic {
   }
   viewTap = () => { const st = this.state; if (st.held && st.cur) { this.heldTapped = true; this.doMark([st.cur], st.held); } };
   // Double-click in the Viewer is the way out: to Export when something is kept; otherwise a warning that offers Clips.
-  viewDbl = () => { const st = this.state; if (st.held) return; if (st.zc > 1.01) return this.setState({zc:1}); if (Object.values(st.marks).some(m => m === 'keep')) return this.setStep('export'); this.setState({noKeep:true}); };
+  viewDbl = () => { const st = this.state; if (st.held) return; if (st.zc > 1.01) return this.setState({zc:1}); this.setStep('export'); };
   noKeepBack = () => { this.setState({noKeep:false}); this.furl(); };
   noKeepStay = () => this.setState({noKeep:false});
   pvToggle = () => { const st = this.state; if (this.pvDisabled()) return; this.setState({pv:!st.pv}); this.api('preview', !st.pv); };
@@ -1490,7 +1490,7 @@ class Component extends DCLogic {
   buildX() {
     const st = this.state, d = this.d, ex = st.ex; if (!d) return {n:0, text:''};
     const xe = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const inc = c => { const m = st.marks[c.id]; return m === 'keep' || (ex.maybes && m === 'maybe'); };
+    const inc = c => { const m = st.marks[c.id]; return ex.all || m === 'keep' || (ex.maybes && m === 'maybe'); };
     const clips = d.clips.filter(inc), FD = {24:[1001, 24000], 25:[100, 2500], 30:[1001, 30000], 50:[100, 5000], 60:[1001, 60000], 100:[100, 10000], 120:[1001, 120000]};
     const fmts = {}, fl = []; let fi = 1;
     const fmt = c => { const r = c.fps || d.shoot.rate || 24, w = c.w || 3840, h = c.h || 2160, k = r + '-' + w + 'x' + h; if (!fmts[k]) { const fd = FD[r] || [1001, 24000]; fmts[k] = {id:'r' + (fi++), n:fd[0], dd:fd[1]}; fl.push('    <format id="' + fmts[k].id + '" frameDuration="' + fd[0] + '/' + fd[1] + 's" width="' + w + '" height="' + h + '"/>'); } return fmts[k]; };
@@ -1501,8 +1501,11 @@ class Component extends DCLogic {
       const f = fmt(c), du = rt(c.dur || 1, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
       al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="0s" duration="' + du + '" hasVideo="1" hasAudio="1" format="' + f.id + '">', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
       const kws = []; if (m === 'maybe') kws.push('maybe');
+      // Final Cut's own ratings: keepers are favorites, cuts rejected (hidden by Final Cut's Hide Rejected), the rest unrated
+      const rate = m === 'keep' ? 'favorite' : m === 'cut' ? 'reject' : null;
       cl.push('      <asset-clip ref="a' + (i + 1) + '" name="' + nm + '" duration="' + du + '" format="' + f.id + '" tcFormat="NDF">');
       if (kws.length) cl.push('        <keyword start="0s" duration="' + du + '" value="' + xe(kws.join(', ')) + '"/>');
+      if (rate) cl.push('        <rating start="0s" duration="' + du + '" value="' + rate + '"/>');
       cl.push('      </asset-clip>');
     });
     const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
@@ -1597,20 +1600,20 @@ class Component extends DCLogic {
     if (v.isExport) {
       const x = this.buildX(), ex = st.ex, G = this.G || [];
       v.exRows = [
-        {k:'keep', c:MK.keep, n:this.plural(markN.keep, 'clip'), size:this.fmtB(markB.keep), to:'into the event'},
-        {k:'maybe', c:MK.maybe, n:this.plural(markN.maybe, 'clip'), size:this.fmtB(markB.maybe), to:ex.maybes ? 'into the event, tagged “maybe”' : 'left out'},
-        {k:'cut', c:MK.cut, n:this.plural(markN.cut, 'clip'), size:this.fmtB(markB.cut), to:'stay on the card'},
-        {k:'undecided', c:'rgba(239,236,230,0.3)', n:this.plural(und, 'clip'), size:this.fmtB(Math.max(0, d.shoot.bytes - markB.keep - markB.maybe - markB.cut)), to:'stay on the card'}];
+        {k:'keep', c:MK.keep, n:this.plural(markN.keep, 'clip'), size:this.fmtB(markB.keep), to:ex.all ? 'favorites in Final Cut' : 'into the event'},
+        {k:'maybe', c:MK.maybe, n:this.plural(markN.maybe, 'clip'), size:this.fmtB(markB.maybe), to:ex.all || ex.maybes ? 'tagged “maybe”' : 'left out'},
+        {k:'cut', c:MK.cut, n:this.plural(markN.cut, 'clip'), size:this.fmtB(markB.cut), to:ex.all ? 'rejected in Final Cut' : 'stay on the card'},
+        {k:'undecided', c:'rgba(239,236,230,0.3)', n:this.plural(und, 'clip'), size:this.fmtB(Math.max(0, d.shoot.bytes - markB.keep - markB.maybe - markB.cut)), to:ex.all ? 'unrated' : 'stay on the card'}];
       const sw = (t, sub, on, key, dis) => ({t, sub, on, op:dis ? 0.45 : 1, track:on ? '#B8B3AB' : 'rgba(239,236,230,0.18)', knob:on ? '14px' : '2px', go:() => { if (!dis) this.setState(s => ({ex:{...s.ex, [key]:!s.ex[key]}})); }});
-      v.exOpts = [sw('Include maybes', 'tagged “maybe” in Final Cut', ex.maybes, 'maybes')];
+      v.exOpts = [sw('Everything', ex.all ? 'every clip, keepers as favorites, cuts rejected' : 'only what you kept', ex.all, 'all'), sw('Include maybes', 'tagged “maybe” in Final Cut', ex.all || ex.maybes, 'maybes', ex.all)];
       v.exEvent = ex.event;
       v.exEventIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, event:val}})); };
       v.exKwIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, kw:val}})); };
-      v.exBtnOp = x.n ? 1 : 0.45; v.exBtn = x.n ? 'Download .fcpxml · ' + this.plural(x.n, 'clip') : 'Nothing marked keep yet';
+      v.exBtnOp = x.n ? 1 : 0.45; v.exBtn = x.n ? 'Download .fcpxml · ' + this.plural(x.n, 'clip') : 'Nothing kept yet · turn on Everything';
       const lines = x.text.split('\n'); v.exPreview = x.n ? lines.slice(0, 44).join('\n') + (lines.length > 44 ? '\n…' : '') : 'Mark clips keep or maybe in Skim.';
       v.exPathLine = d.shoot.real ? 'Paths assume the card is mounted at /Volumes/' + (d.shoot.base || d.shoot.name) + '.' : 'Paths point at the card as the camera wrote it.';
       v.exDone = st.exDone || ''; v.exDoneOn = !!st.exDone;
-      v.exGroups = G.map(g => { const k = g.clips.filter(c => st.marks[c.id] === 'keep').length, m = g.clips.filter(c => st.marks[c.id] === 'maybe').length; return {title:g.title, k:k + ' keep', m:ex.maybes ? m + ' maybe' : '', on:k + (ex.maybes ? m : 0) > 0}; }).filter(g => g.on);
+      v.exGroups = G.map(g => { const k = g.clips.filter(c => st.marks[c.id] === 'keep').length, m = g.clips.filter(c => st.marks[c.id] === 'maybe').length; return {title:g.title, k:k + ' keep', m:ex.maybes ? m + ' maybe' : '', on:ex.all || k + (ex.maybes ? m : 0) > 0}; }).filter(g => g.on);
       v.backSkim = () => this.setStep('skim');
     }
     return v;
