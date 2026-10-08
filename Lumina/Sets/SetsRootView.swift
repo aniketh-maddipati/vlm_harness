@@ -7,13 +7,22 @@ import os
 struct SetsRootView: NSViewRepresentable {
     func makeCoordinator() -> SetsWindowController { SetsWindowController() }
 
-    func makeNSView(context: Context) -> NSView {
-        let host = NSView()
+    func makeNSView(context: Context) -> SetsHostView {
+        let host = SetsHostView()
         context.coordinator.attach(to: host)
         return host
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    /// The window offers its content size. Taking that offer is what makes the page grow when the
+    /// window does. Left to the default, a representable answers with its current fitting size, so
+    /// the page stays at the size it first laid out and the rest of a larger window is empty.
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: SetsHostView, context: Context) -> CGSize? {
+        SetsWindowSize.filled(width: proposal.width, height: proposal.height)
+    }
+
+    func updateNSView(_ nsView: SetsHostView, context: Context) {
+        nsView.stretchWebView()
+    }
 }
 
 /// Owns the bridge and the web view (and, through the bridge, the Edit canvas overlay); answers
@@ -39,7 +48,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Lumina", isDirectory: true)
     }
 
-    func attach(to host: NSView) {
+    func attach(to host: SetsHostView) {
         bridge = SetsBridge(chooser: self, supportDir: Self.supportDir)
         SetsMenuModel.shared.controller = self
         bridge.onShootsChanged = { [weak self] in self?.refreshRecents() }
@@ -70,6 +79,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 wv.uiDelegate = self
                 wv.navigationDelegate = self
                 host.addSubview(wv)
+                host.webView = wv
+                host.stretchWebView()
                 webView = wv
                 // The Edit canvas: the one native view over the page (AGENTS.md), above the web view.
                 bridge.attachCanvas(host: host)
@@ -382,9 +393,44 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     }
 }
 
+/// The view SwiftUI sizes to the window. The web view is added after the first layout, so it is
+/// pinned to these bounds whenever they change. The Edit canvas is a sibling and keeps the frame
+/// the page measured for it.
+final class SetsHostView: NSView {
+    weak var webView: NSView?
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        stretchWebView()
+    }
+
+    override func layout() {
+        super.layout()
+        stretchWebView()
+    }
+
+    func stretchWebView() {
+        guard let webView, webView.frame != bounds else { return }
+        webView.frame = bounds
+    }
+}
+
 /// Window sizes: opens at the reference size (1440×900, PARITY.md); minimum 1024×700 (ADDENDUM-1 §4).
 enum SetsWindowSize {
     static let initial = CGSize(width: 1440, height: 900)
     static let minimum = CGSize(width: 1024, height: 700)
+
+    /// What the page answers for a window offer. A finite offer is the window's content size, so
+    /// enlarging the window enlarges the page, and it is never below the minimum. No offer, or an
+    /// unbounded one, is the size the window opens at.
+    static func filled(width: CGFloat?, height: CGFloat?) -> CGSize {
+        CGSize(width: axis(width, ideal: initial.width, minimum: minimum.width),
+               height: axis(height, ideal: initial.height, minimum: minimum.height))
+    }
+
+    private static func axis(_ proposed: CGFloat?, ideal: CGFloat, minimum: CGFloat) -> CGFloat {
+        guard let proposed, proposed.isFinite else { return ideal }
+        return max(proposed, minimum)
+    }
 }
 
