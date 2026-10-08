@@ -810,7 +810,7 @@ class Component extends DCLogic {
     for (const f of vids) {
       const base = f.name.replace(/\.\w+$/, ''), sc = xml[base.toUpperCase()];
       let prof = {gamma:null, primaries:null, source:'none'}, t = null, fps = 0;
-      if (sc) { try { const tx = await sc.text(); const g = (tx.match(/captureGammaEquation="([^"]+)"/i) || [])[1], p = (tx.match(/captureColorPrimaries="([^"]+)"/i) || [])[1], cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1];
+      if (sc) { try { const tx = await sc.text(); const sv = n => (tx.match(new RegExp(n + '="([^"]+)"', 'i')) || tx.match(new RegExp('name="' + n + '"\\s+value="([^"]+)"', 'i')) || [])[1], g = sv('captureGammaEquation'), p = sv('captureColorPrimaries'), cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1];
         prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:'sidecar'}; if (cd) t = cd.slice(0, 19); if (fr) fps = Math.round(+fr); } catch (x) {} }
       if (!t) t = this.iso(f.lastModified);
       clips.push({id:'F' + String(clips.length + 1).padStart(4, '0'), name:f.name, path:rel(f), t, dur:0, fps, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f});
@@ -820,7 +820,7 @@ class Component extends DCLogic {
     const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
     const root = rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
     const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true}, clips, gaps:[]};
-    this.regap(d); this.sampleKey = null; this.loadData(d, 'skim');
+    this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim');
     this.setState({impMsg:null, imp:{n:clips.length, done:0}});
     this.runQueue(clips.slice(), this.qTok);
   }
@@ -842,7 +842,7 @@ class Component extends DCLogic {
         for (let i = 0; i < 8; i++) {
           if (tok !== this.qTok) throw 'stopped';
           v.currentTime = Math.min(c.dur - 0.05, (i + 0.5) / 8 * c.dur); await wait('seeked', 8000);
-          ctx.drawImage(v, 0, 0, 320, 180); c.frames[i] = cv.toDataURL('image/jpeg', 0.72); px.push(this.pix(ctx.getImageData(0, 0, 320, 180)));
+          ctx.drawImage(v, 0, 0, 320, 180); const fb = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.72)); c.frameSz = c.frameSz || []; c.frames[i] = fb ? URL.createObjectURL(fb) : null; c.frameSz[i] = fb ? fb.size : 0; px.push(this.pix(ctx.getImageData(0, 0, 320, 180)));
           this.setState(s => ({tick:s.tick + 1}));
         }
         const avg = k => px.reduce((s, p) => s + p[k], 0) / px.length, mean = avg('mean');
@@ -862,11 +862,12 @@ class Component extends DCLogic {
   }
   memStats() {
     const C = this.d ? this.d.clips : [], s = this.state; let fr = 0, frB = 0, meas = 0;
-    C.forEach(c => { (c.frames || []).forEach(u => { if (u) { fr++; frB += u.length * 0.75; } }); if (c.facts && c.facts.state !== 'pending') meas++; });
+    C.forEach(c => { (c.frames || []).forEach((u, i) => { if (u) { fr++; frB += (c.frameSz && c.frameSz[i]) || u.length * 0.75; } }); if (c.facts && c.facts.state !== 'pending') meas++; });
     let saved = 0, savedB = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf('lumina-skim:') === 0) { saved++; savedB += (localStorage.getItem(k) || '').length * 2; } } } catch (x) {}
     return {n:C.length, fr, frB, meas, saved, savedB, tabB:frB + C.length * 700 + s.undo.length * 120};
   }
-  clearFrames = () => { if (!this.d) return; const real = this.d.clips.filter(c => c._file); if (!real.length) return; this.qTok = {}; real.forEach(c => { c.frames = [null, null, null, null, null, null, null, null]; }); this.setState({imp:{n:real.length, done:0}}); this.runQueue(real, this.qTok); };
+  dropFrames(cs) { (cs || []).forEach(c => { (c.frames || []).forEach(u => { if (u && u.indexOf('blob:') === 0) URL.revokeObjectURL(u); }); c.frames = [null, null, null, null, null, null, null, null]; c.frameSz = []; }); }
+  clearFrames = () => { if (!this.d) return; const real = this.d.clips.filter(c => c._file); if (!real.length) return; this.qTok = {}; this.dropFrames(real); this.setState({imp:{n:real.length, done:0}}); this.runQueue(real, this.qTok); };
   forgetMarks = () => {
     if (!this.hasShoot()) return;
     if (!this.state.memConfirm) { clearTimeout(this.mcT); this.setState({memConfirm:true}); this.mcT = setTimeout(() => this.setState({memConfirm:false}), 3500); return; }
@@ -875,7 +876,7 @@ class Component extends DCLogic {
   };
   clearMemory = () => {
     if (!this.hasShoot()) return;
-    this.qTok = {}; this.rel = null;
+    this.qTok = {}; this.rel = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file));
     this.d = {__sample:true, shoot:{name:'', days:0, bytes:0, free:null, rate:24}, clips:[], gaps:[]}; this.byId = {}; this.gapBy = {}; this.gapsSorted = [];
     this.setState({step:'import', memOn:false, memConfirm:false, marks:{}, dis:{}, cuts:null,  undo:[], redo:[], sel:[], box:null, cur:null, lv:0, gi:0, imp:null, impMsg:null, exDone:null});
   };
