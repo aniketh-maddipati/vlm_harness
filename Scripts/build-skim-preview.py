@@ -17,7 +17,9 @@ for tag, name in [('<script src="./support.js"></script>', 'support.js'), ('<scr
 # React inline as plain scripts (Safari refuses data: script URLs from a local file); the runtime skips
 # loading React when window.React and window.ReactDOM are already there.
 def vjs(name): return open(os.path.join(VENDOR, name), encoding='utf-8').read().replace('</script', '<\\/script')
-head = ('<script>window.luminaPreview = true;</script>\n<script>\n' + vjs('react.production.min.js') + '\n</script>\n<script>\n'
+# window.__resources set (empty): without it the runtime re-fetches this file and re-reads the template from its
+# text, which in one file includes the runtime itself (Safari and any web server allow that fetch; Chrome on file:// does not).
+head = ('<script>window.luminaPreview = true; window.__resources = window.__resources || {};</script>\n<script>\n' + vjs('react.production.min.js') + '\n</script>\n<script>\n'
         + vjs('react-dom.production.min.js') + '\n</script>\n')
 i = page.index('<script'); page = page[:i] + head + page[i:]
 os.makedirs(os.path.dirname(out), exist_ok=True)
