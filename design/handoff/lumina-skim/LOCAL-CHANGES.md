@@ -51,3 +51,16 @@ Seen and left for the design (not changed here):
     levels off on average against Sony's S-Log3 / S-Gamut3.Cine → Rec.709 (36 at p95). An SVG filter
     (`#lumina-slog3`: a 33-point curve per channel, then a 3 × 3 gamut matrix with offsets, fitted in display space
     on frames of two S-Log3 clips) is 0.8 off on average and 3.4 at p95 (of 255). S-Log2 and HLG keep the stand-in.
+11. **The profile answer is a toggle.** `shot in  S-Log3  S-Log2  HLG  none` stays on the preview line for clips
+    whose profile was set by hand; the chosen one is filled, another click switches, a click on the chosen one takes
+    it back (the clips have no profile again and the switch turns off).
+12. **Measures follow the preview.** S-Log3 frames are converted with the same curve and matrix before exposure,
+    clipping, crushing and sharpness are measured, at import and again (from the frames already made) when the
+    profile is answered or taken back.
+13. **Saved shoots outlast a quit, in the app.** When the host provides `lumina.video.storeAll()` and
+    `storeSet(key, text)`, every saved shoot is also sent there, and on load the page makes its own store match.
+    The memory panel's heading says `Saved on this Mac` then, `Saved in this browser` without a host.
+14. **The memory panel says what each button does.** `Make frames again · N frames, X MB` / `Forget N marks`
+    (asks twice) / `Close “<shoot>” · back to Open` (asks twice: `Close “<shoot>”? Click again to close`; ⌘W does the
+    same), each with one plain line of what happens. A recent shoot not in memory reads
+    `needs opening again · N marks saved`.

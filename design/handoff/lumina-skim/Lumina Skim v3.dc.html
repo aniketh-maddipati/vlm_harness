@@ -37,10 +37,10 @@ input[type=range]{accent-color:#B8B3AB}
         <div data-lumina="memory" role="dialog" aria-label="Working memory" style="position:absolute;right:0;top:32px;z-index:35;width:330px;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:12px;animation:fade 100ms ease-out;white-space:normal;line-height:1.45">
           <span style="font-size:13px;font-weight:600;color:#EFECE6">Working memory</span>
           <div style="display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A;font-weight:700">In this tab</span><sc-for list="{{ memTab }}" as="mr" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ mr.k }}</span><span style="color:#EFECE6">{{ mr.v }}</span></div></sc-for></div>
-          <div style="display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A;font-weight:700">Saved in this browser</span><sc-for list="{{ memSaved }}" as="mr" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ mr.k }}</span><span style="color:#EFECE6">{{ mr.v }}</span></div></sc-for></div>
-          <span style="color:#9A958D">No network requests. Frames and measurements are made in this tab, from pixels.</span>
+          <div style="display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A;font-weight:700">{{ memSavedH }}</span><sc-for list="{{ memSaved }}" as="mr" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ mr.k }}</span><span style="color:#EFECE6">{{ mr.v }}</span></div></sc-for></div>
+          <span style="color:#9A958D">{{ memNote }}</span>
           <div style="display:flex;flex-direction:column;gap:6px">
-            <sc-for list="{{ memBtns }}" as="mb" hint-placeholder-count="3"><div role="button" tabIndex="0" onClick="{{ mb.go }}" style="padding:8px 10px;border-radius:9px;background:{{ mb.bg }};opacity:{{ mb.op }};cursor:pointer;display:flex;flex-direction:column;gap:2px" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="color:{{ mb.fg }};font-weight:600">{{ mb.t }}</span><span style="color:#9A958D">{{ mb.sub }}</span></div></sc-for>
+            <sc-for list="{{ memBtns }}" as="mb" hint-placeholder-count="3"><div role="button" tabIndex="0" onClick="{{ mb.go }}" style="padding:8px 10px;border-radius:9px;background:{{ mb.bg }};opacity:{{ mb.op }};cursor:pointer;display:flex;flex-direction:column;gap:2px" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="color:{{ mb.fg }};font-weight:600">{{ mb.t }}</span><span style="color:{{ mb.subC }}">{{ mb.sub }}</span></div></sc-for>
           </div>
         </div>
       </sc-if>
@@ -58,7 +58,7 @@ input[type=range]{accent-color:#B8B3AB}
     </div>
     <div style="flex:0 1 auto;min-width:120px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;max-width:380px">
       <div data-lumina="preview" role="switch" tabIndex="0" aria-checked="{{ pvA }}" aria-disabled="{{ pvDis }}" onClick="{{ pvToggle }}" style="display:flex;align-items:center;gap:8px;cursor:pointer;opacity:{{ pvOp }}" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:12px;color:#EFECE6">Rec.709 preview</span><span style="position:relative;width:28px;height:16px;border-radius:8px;background:{{ pvTrack }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ pvKnob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span></div>
-      <div style="display:flex;align-items:center;gap:4px;max-width:100%;white-space:nowrap"><span data-lumina="preview-line" style="font-size:10.5px;color:#9A958D;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pvLine }}</span><sc-for list="{{ askOpts }}" as="ao" hint-placeholder-count="4"><span data-lumina="profile-answer" role="button" tabIndex="0" onClick="{{ ao.go }}" style="flex:none;font-size:10.5px;padding:1px 6px;border-radius:4px;background:rgba(239,236,230,0.1);color:#EFECE6;cursor:pointer" style-hover="background:rgba(239,236,230,0.18)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ ao.t }}</span></sc-for></div>
+      <div style="display:flex;align-items:center;gap:4px;max-width:100%;white-space:nowrap"><span data-lumina="preview-line" style="font-size:10.5px;color:#9A958D;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pvLine }}</span><sc-for list="{{ askOpts }}" as="ao" hint-placeholder-count="4"><span data-lumina="profile-answer" role="button" tabIndex="0" aria-pressed="{{ ao.on }}" onClick="{{ ao.go }}" style="flex:none;font-size:10.5px;padding:1px 6px;border-radius:4px;background:{{ ao.bg }};color:{{ ao.fg }};font-weight:{{ ao.fw }};cursor:pointer" style-hover="background:rgba(239,236,230,0.18)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ ao.t }}</span></sc-for></div>
     </div>
   </div>
   </sc-if>
@@ -323,12 +323,14 @@ class Component extends DCLogic {
     window.addEventListener('wheel', this._wh, {passive:false}); window.addEventListener('blur', this._bl);
     this._rs = () => this.setState({vw:window.innerWidth, vh:window.innerHeight}); window.addEventListener('resize', this._rs);
     // S-Log3 / S-Gamut3.Cine → Rec.709: the curve per channel, then the gamut, fitted to the full transform in display space.
+    this.syncStore();
+    this._kw = e => { if ((e.metaKey || e.ctrlKey) && (e.key === 'w' || e.key === 'W')) { e.preventDefault(); this.closeShoot(); } }; window.addEventListener('keydown', this._kw);
     if (!document.getElementById('lumina-pv-filters')) document.body.insertAdjacentHTML('beforeend', '<svg xmlns="http://www.w3.org/2000/svg" id="lumina-pv-filters" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><filter id="lumina-slog3" color-interpolation-filters="sRGB" x="0" y="0" width="1" height="1"><feComponentTransfer><feFuncR type="table" tableValues="0.0000 0.0000 0.0000 0.0007 0.0239 0.0469 0.0754 0.1118 0.1498 0.1903 0.2337 0.2803 0.3303 0.3835 0.4395 0.4976 0.5569 0.6161 0.6742 0.7298 0.7822 0.8309 0.8759 0.9178 0.9578 0.9972 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncG type="table" tableValues="0.0000 0.0000 0.0000 0.0007 0.0239 0.0469 0.0754 0.1118 0.1498 0.1903 0.2337 0.2803 0.3303 0.3835 0.4395 0.4976 0.5569 0.6161 0.6742 0.7298 0.7822 0.8309 0.8759 0.9178 0.9578 0.9972 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncB type="table" tableValues="0.0000 0.0000 0.0000 0.0007 0.0239 0.0469 0.0754 0.1118 0.1498 0.1903 0.2337 0.2803 0.3303 0.3835 0.4395 0.4976 0.5569 0.6161 0.6742 0.7298 0.7822 0.8309 0.8759 0.9178 0.9578 0.9972 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/></feComponentTransfer><feColorMatrix type="matrix" values="1.9014 -0.8790 -0.0434 0.0000 0.0067 -0.1553 1.3955 -0.2447 0.0000 0.0003 0.0021 -0.3185 1.3129 0.0000 -0.0011 0 0 0 1 0"/></filter></svg>');
   }
   componentWillUnmount() {
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
     window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu);
-    window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('resize', this._rs); this.dropVid();
+    window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); this.dropVid();
     clearTimeout(this.propT); clearTimeout(this.flT);
   }
   componentDidUpdate(pp, ps) {
@@ -738,10 +740,12 @@ class Component extends DCLogic {
     else if (allUnknown) pvLine = 'no profile in these clips · shot in';
     else if (!st.pv) pvLine = 'off · showing files as they are';
     else if (!pr0) pvLine = 'no profile in this clip · shot in';
+    else if (pr0.src === 'as you set it') pvLine = 'shot in';
     else if (pr0.g === 'none') pvLine = 'none · showing this file as it is';
     else pvLine = pr0.g + ' · ' + pr0.p + ' · ' + pr0.src;
     const pvOnUi = st.pv && !allUnknown;
-    const askOpts = !empty && st.step === 'skim' && (allUnknown || (curC && !pr0)) ? ['S-Log3', 'S-Log2', 'HLG', 'none'].map(g => ({t:g, go:() => this.setProfile(g)})) : [];
+    const ans = this.d && this.d.profAns, askOn = !empty && st.step === 'skim' && (allUnknown || (curC && (!pr0 || pr0.src === 'as you set it')));
+    const askOpts = askOn ? ['S-Log3', 'S-Log2', 'HLG', 'none'].map(g => ({t:g, on:ans === g, bg:ans === g ? '#B8B3AB' : 'rgba(239,236,230,0.1)', fg:ans === g ? '#1E1D1B' : '#EFECE6', fw:ans === g ? 700 : 400, go:() => this.setProfile(g)})) : [];
     const ghostFor = (sel, isCur) => {
       if (!st.held) return null;
       return (st.sel.length ? sel : isCur) ? st.held : null;
@@ -873,12 +877,27 @@ class Component extends DCLogic {
     const s = this.state; if (!this.d || !this.d.clips.length) return;
     const none = !Object.keys(s.marks).length && !Object.keys(s.dis).length && !s.cuts;
     const sh = this.d.shoot, meta = this.d.__sample ? {} : {name:sh.name, n:this.d.clips.length, bytes:sh.bytes, days:sh.days, prof:this.d.profAns || null};
-    try { if (none && this.d.__sample) localStorage.removeItem(this.storeKey()); else localStorage.setItem(this.storeKey(), JSON.stringify({marks:s.marks, dis:s.dis, cuts:s.cuts, at:Date.now(), ...meta})); } catch (x) {}
+    this.persist(this.storeKey(), none && this.d.__sample ? null : JSON.stringify({marks:s.marks, dis:s.dis, cuts:s.cuts, at:Date.now(), ...meta}));
   }
   hasShoot() { return !!(this.d && this.d.clips.length); }
+  hostStore() { const v = window.lumina && window.lumina.video; return v && v.storeAll && v.storeSet ? v : null; }
+  persist(key, text) {
+    try { if (text == null) localStorage.removeItem(key); else localStorage.setItem(key, text); } catch (x) {}
+    const v = this.hostStore(); if (v) { try { const r = v.storeSet(key, text); if (r && r.catch) r.catch(() => {}); } catch (x) {} }
+  }
+  // In the app, saved shoots live on the Mac (they outlast a quit); this tab's store is made to match them.
+  async syncStore() {
+    const v = this.hostStore(); if (!v) return; let all = null;
+    try { all = await v.storeAll(); } catch (x) { return; }
+    if (!all || typeof all !== 'object') return;
+    try { const drop = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf('lumina-skim:') === 0 && !(k in all)) drop.push(k); } drop.forEach(k => localStorage.removeItem(k)); Object.keys(all).forEach(k => localStorage.setItem(k, all[k])); } catch (x) {}
+    this.setState(s => ({tick:(s.tick || 0) + 1}));
+  }
   static PRIM = {'S-Log3':'S-Gamut3.Cine', 'S-Log2':'S-Gamut3', 'HLG':'Rec.2020', 'none':'Rec.709'};
   applyProfile(d, g) { let n = 0; d.clips.forEach(c => { if (!c.profile || !c.profile.gamma || c.profile.source === 'you') { c.profile = {gamma:g, primaries:Component.PRIM[g] || '', source:'you'}; n++; } }); d.profAns = g; return n; }
-  setProfile(g) { if (!this.hasShoot()) return; this.applyProfile(this.d, g); this.setState(s => ({pv:g !== 'none', tick:(s.tick || 0) + 1}), () => this.save()); }
+  setProfile(g) { if (!this.hasShoot()) return;
+    if (this.d.profAns === g) { const back = this.d.clips.filter(c => c.profile && c.profile.source === 'you'); back.forEach(c => { c.profile = {gamma:null, primaries:null, source:'none'}; }); this.d.profAns = null; this.setState(s => ({pv:!this.pvDisabled() && s.pv, tick:(s.tick || 0) + 1}), () => this.save()); this.remeasure(back.filter(c => c.facts && c.facts.state === 'ready')); return; }
+    this.applyProfile(this.d, g); this.setState(s => ({pv:g !== 'none', tick:(s.tick || 0) + 1}), () => this.save()); this.remeasure(this.d.clips.filter(c => c.profile && c.profile.source === 'you' && c.facts && c.facts.state === 'ready')); }
   recentList() {
     const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k || k.indexOf('lumina-skim:') !== 0 || k.indexOf('lumina-skim:sample-') === 0) continue; let v = null; try { v = JSON.parse(localStorage.getItem(k)); } catch (x) {} if (v && v.name) out.push({key:k, ...v}); } } catch (x) {}
     return out.sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 6);
@@ -887,10 +906,10 @@ class Component extends DCLogic {
     const d = this.d, live = this.hasShoot() && !d.__sample ? this.storeKey() : null, ms = live ? this.memStats() : null;
     return this.recentList().map(r => {
       const on = r.key === live, dec = Object.keys(r.marks || {}).length, n = r.n || 0, measuring = on && ms.meas < ms.n;
-      const st = !on ? 'not in memory · ' + (dec ? (dec === 1 ? 'its 1 mark is saved' : 'its ' + dec + ' marks are saved') : 'nothing marked yet') : measuring ? 'in memory · measuring ' + ms.meas + ' of ' + ms.n : 'in memory · ' + ms.fr + ' frames ready';
+      const st = !on ? 'needs opening again · ' + (dec ? (dec === 1 ? '1 mark saved' : dec + ' marks saved') : 'nothing marked yet') : measuring ? 'in memory · measuring ' + ms.meas + ' of ' + ms.n : 'in memory · ' + ms.fr + ' frames ready';
       return {name:r.name, line:this.plural(n, 'clip') + ' · ' + dec + ' decided' + (r.bytes ? ' · ' + this.fmtB(r.bytes) : '') + (r.days ? ' · ' + this.plural(r.days, 'day') : ''),
-        st, stC:on ? '#EFECE6' : '#9A958D', dot:on ? (measuring ? '#FFD27A' : '#A9D18E') : 'rgba(239,236,230,0.25)', anim:measuring ? 'breathe 1.6s ease-in-out infinite' : 'none',
-        act:on ? '⌘2 Skim' : 'Choose the folder again to bring its clips back', ring:on ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.08)',
+        st, stC:on ? '#EFECE6' : '#9A958D', dot:on ? (measuring ? '#FFD27A' : '#A9D18E') : '#B8B3AB', anim:measuring ? 'breathe 1.6s ease-in-out infinite' : 'none',
+        act:on ? '⌘2 Skim' : 'Click, then choose the same folder: its clips come back with their marks.', ring:on ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.08)',
         go:() => { if (on) return this.setStep('skim'); this.want = r.key; this.setState({impMsg:'Choose “' + r.name + '” again. Its marks come back with it.'}); this.pickFolder(); }};
     });
   }
@@ -960,18 +979,37 @@ class Component extends DCLogic {
           // WebKit can answer 'seeked' before the frame is decoded: a black frame. Look again, then leave it out of the measures.
           let im = null; for (let k = 0; k < 3; k++) { ctx.drawImage(v, 0, 0, 320, 180); im = ctx.getImageData(0, 0, 320, 180); if (!this.blank(im)) break; im = null; await new Promise(r => setTimeout(r, 120 + k * 160)); }
           if (!im) continue;
-          const fb = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.72)); c.frameSz = c.frameSz || []; c.frames[i] = fb ? URL.createObjectURL(fb) : null; c.frameSz[i] = fb ? fb.size : 0; px.push(this.pix(im));
+          const fb = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.72)); c.frameSz = c.frameSz || []; c.frames[i] = fb ? URL.createObjectURL(fb) : null; c.frameSz[i] = fb ? fb.size : 0; px.push(this.pix(this.toDisplay(im, c)));
           this.setState(s => ({tick:s.tick + 1}));
         }
         if (!px.length) throw 'no frames';
-        const avg = k => px.reduce((s, p) => s + p[k], 0) / px.length, mean = avg('mean');
-        const sharpF = px.map(p => Math.round(Math.min(1, p.lap / 0.05) * 100) / 100);
-        let bump = null; px.forEach((p, i) => { const nb = [px[i - 1], px[i + 1]].filter(Boolean); if (bump == null && nb.length && nb.every(q => Math.abs(q.mean - p.mean) > 0.2)) bump = i; });
-        c.facts = {state:'ready', ev:Math.round(Math.max(-5, Math.min(5, Math.log2(Math.max(0.01, mean) / 0.46) * 2.2)) * 10) / 10, clip:Math.round(avg('hi') * 1000) / 10, crush:Math.round(avg('lo') * 1000) / 10, sharp:Math.min(...sharpF), sharpF, motion:null, bump};
+        c.facts = this.factsOf(px);
       } catch (x) { if (x !== 'stopped' && c.facts.state === 'pending') c.facts = {state:'unreliable'}; }
       URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {} this.vOpen--;
       this.setState(s => ({tick:s.tick + 1})); done();
     });
+  }
+  static SL3T = [0.0000, 0.0000, 0.0000, 0.0007, 0.0239, 0.0469, 0.0754, 0.1118, 0.1498, 0.1903, 0.2337, 0.2803, 0.3303, 0.3835, 0.4395, 0.4976, 0.5569, 0.6161, 0.6742, 0.7298, 0.7822, 0.8309, 0.8759, 0.9178, 0.9578, 0.9972, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000];
+  static SL3M = [1.9014, -0.8790, -0.0434, 0.0067, -0.1553, 1.3955, -0.2447, 0.0003, 0.0021, -0.3185, 1.3129, -0.0011];
+  toDisplay(img, c) {
+    const p = this.prof(c); if (!p || p.g !== 'S-Log3') return img;
+    const L = this.sl3Lut || (this.sl3Lut = (() => { const T = Component.SL3T, n = T.length - 1, a = new Float32Array(256); for (let v = 0; v < 256; v++) { const x = v / 255 * n, i = Math.min(n - 1, Math.floor(x)), f = x - i; a[v] = T[i] + (T[i + 1] - T[i]) * f; } return a; })());
+    const M = Component.SL3M, D = img.data, out = new Uint8ClampedArray(D.length);
+    for (let i = 0; i < D.length; i += 4) { const r = L[D[i]], g = L[D[i + 1]], b = L[D[i + 2]]; out[i] = (M[0] * r + M[1] * g + M[2] * b + M[3]) * 255; out[i + 1] = (M[4] * r + M[5] * g + M[6] * b + M[7]) * 255; out[i + 2] = (M[8] * r + M[9] * g + M[10] * b + M[11]) * 255; out[i + 3] = 255; }
+    return {data:out, width:img.width, height:img.height};
+  }
+  // Measures again from the frames already made, after a profile answer changes what the preview shows.
+  async remeasure(list) {
+    const cv = document.createElement('canvas'); cv.width = 320; cv.height = 180; const ctx = cv.getContext('2d', {willReadFrequently:true});
+    for (const c of list) { if (!c.frames || !c.frames.some(Boolean)) continue; const px = [];
+      for (const u of c.frames) { if (!u) continue; try { const bm = await createImageBitmap(await (await fetch(u)).blob()); ctx.drawImage(bm, 0, 0, 320, 180); if (bm.close) bm.close(); px.push(this.pix(this.toDisplay(ctx.getImageData(0, 0, 320, 180), c))); } catch (x) {} }
+      if (px.length) { c.facts = this.factsOf(px); this.setState(s => ({tick:(s.tick || 0) + 1})); } }
+  }
+  factsOf(px) {
+        const avg = k => px.reduce((s, p) => s + p[k], 0) / px.length, mean = avg('mean');
+        const sharpF = px.map(p => Math.round(Math.min(1, p.lap / 0.05) * 100) / 100);
+        let bump = null; px.forEach((p, i) => { const nb = [px[i - 1], px[i + 1]].filter(Boolean); if (bump == null && nb.length && nb.every(q => Math.abs(q.mean - p.mean) > 0.2)) bump = i; });
+        return {state:'ready', ev:Math.round(Math.max(-5, Math.min(5, Math.log2(Math.max(0.01, mean) / 0.46) * 2.2)) * 10) / 10, clip:Math.round(avg('hi') * 1000) / 10, crush:Math.round(avg('lo') * 1000) / 10, sharp:Math.min(...sharpF), sharpF, motion:null, bump};
   }
   painted(v) { return new Promise(r => { const to = setTimeout(r, 250); if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => { clearTimeout(to); r(); }); }); }
   blank(img) { const D = img.data; let mx = 0; for (let i = 0; i < D.length; i += 64) { const y = D[i] + D[i + 1] + D[i + 2]; if (y > mx) mx = y; } return mx < 12; }
@@ -991,15 +1029,20 @@ class Component extends DCLogic {
   clearFrames = () => { if (!this.d) return; const real = this.d.clips.filter(c => c._file); if (!real.length) return; this.qTok = {}; this.dropFrames(real); this.setState({imp:{n:real.length, done:0}}); this.runQueue(real, this.qTok); };
   forgetMarks = () => {
     if (!this.hasShoot()) return;
-    if (!this.state.memConfirm) { clearTimeout(this.mcT); this.setState({memConfirm:true}); this.mcT = setTimeout(() => this.setState({memConfirm:false}), 3500); return; }
-    try { localStorage.removeItem(this.storeKey()); } catch (x) {}
+    if (!this.state.memConfirm) { clearTimeout(this.mcT); this.setState({memConfirm:true, closeConfirm:false}); this.mcT = setTimeout(() => this.setState({memConfirm:false}), 3500); return; }
+    this.persist(this.storeKey(), null);
     clearTimeout(this.mcT); this.setState({marks:{}, dis:{}, cuts:null,  undo:[], redo:[], memConfirm:false, sel:[], box:null}); this.flash('marks for this shoot forgotten');
+  };
+  closeShoot = () => {
+    if (!this.hasShoot()) return;
+    if (!this.state.closeConfirm) { clearTimeout(this.ccT); this.setState({memOn:true, closeConfirm:true, memConfirm:false}); this.ccT = setTimeout(() => this.setState({closeConfirm:false}), 4000); return; }
+    clearTimeout(this.ccT); this.save(); this.clearMemory();
   };
   clearMemory = () => {
     if (!this.hasShoot()) return;
     this.qTok = {}; this.rel = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file));
     this.d = {__sample:true, shoot:{name:'', days:0, bytes:0, free:null, rate:24}, clips:[], gaps:[]}; this.byId = {}; this.gapBy = {}; this.gapsSorted = [];
-    this.setState({step:'import', memOn:false, memConfirm:false, marks:{}, dis:{}, cuts:null,  undo:[], redo:[], sel:[], box:null, cur:null, lv:0, gi:0, imp:null, impMsg:null, exDone:null});
+    this.setState({step:'import', memOn:false, memConfirm:false, closeConfirm:false, marks:{}, dis:{}, cuts:null,  undo:[], redo:[], sel:[], box:null, cur:null, lv:0, gi:0, imp:null, impMsg:null, exDone:null});
   };
   buildX() {
     const st = this.state, d = this.d, ex = st.ex; if (!d) return {n:0, text:''};
@@ -1066,13 +1109,15 @@ class Component extends DCLogic {
     const si = steps.findIndex(s => s[0] === st.step), ms = this.memStats();
     const v = {isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
       stepTabs:steps.map((s, i) => ({t:s[1], on:i === si, fg:i === si ? '#EFECE6' : (i === 0 || has ? '#9A958D' : '#5B5854'), go:() => this.setStep(s[0])})),
-      memOn:st.memOn, memToggle:() => this.setState({memOn:!st.memOn, memConfirm:false}), memBg:st.memOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)', memPill:this.fmtB(ms.tabB),
+      memOn:st.memOn, memToggle:() => this.setState({memOn:!st.memOn, memConfirm:false, closeConfirm:false}), memBg:st.memOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)', memPill:this.fmtB(ms.tabB),
       memTab:[{k:'clips open', v:ms.n ? ms.n + ' · read from the card, not copied' : 'none'}, {k:'frames made', v:ms.fr + ' · ' + this.fmtB(ms.frB)}, {k:'measured', v:ms.meas + ' of ' + ms.n}, {k:'videos open', v:String(this.vOpen || 0)}, {k:'undo steps', v:String(st.undo.length)}],
       memSaved:[{k:'this shoot', v:has ? this.plural(Object.keys(st.marks).length, 'mark') : '—'}, {k:'all shoots', v:this.plural(ms.saved, 'shoot') + ' · ' + (ms.savedB < 1e6 ? Math.max(1, Math.round(ms.savedB / 1024)) + ' KB' : this.fmtB(ms.savedB))}],
+      memSavedH:this.hostStore() ? 'Saved on this Mac' : 'Saved in this browser',
+      memNote:'No network requests. Frames and measurements are made here, from the clips\u2019 pixels, and kept only while the shoot is open.',
       memBtns:[
-        {t:'Clear frames', sub:ms.fr ? 'drops ' + ms.fr + ' frames · made again in the background' : 'no frames made in this tab', go:this.clearFrames, op:ms.fr ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'},
-        {t:st.memConfirm ? 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + '? Click again' : 'Forget marks', sub:'deletes this shoot’s saved marks from this browser', go:this.forgetMarks, op:has ? 1 : 0.45, bg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.08)', fg:st.memConfirm ? '#FF8A7A' : '#EFECE6'},
-        {t:'Clear memory', sub:'closes the shoot, frees frames and measurements · its marks stay saved under Recent shoots', go:this.clearMemory, op:has ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'}],
+        {t:ms.fr ? 'Make frames again · ' + ms.fr + ' frames, ' + this.fmtB(ms.frB) : 'Make frames again', sub:ms.fr ? 'Frames are dropped now and made again in the background. Marks stay.' : 'No frames made yet.', subC:'#B8B3AB', go:this.clearFrames, op:ms.fr ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'},
+        {t:st.memConfirm ? 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + '? Click again to forget' : 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark'), sub:'Deletes this shoot\u2019s marks for good. Clips are not touched.', subC:st.memConfirm ? '#FF8A7A' : '#B8B3AB', go:this.forgetMarks, op:has ? 1 : 0.45, bg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.08)', fg:st.memConfirm ? '#FF8A7A' : '#EFECE6'},
+        {t:st.closeConfirm ? 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + '? Click again to close' : 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open', sub:'Frees ' + this.fmtB(ms.frB) + ' of frames and measurements. Its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' stay saved under Recent shoots. ⌘W', subC:st.closeConfirm ? '#FFD27A' : '#B8B3AB', go:this.closeShoot, op:has ? 1 : 0.45, bg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.08)', fg:st.closeConfirm ? '#FFD27A' : '#EFECE6'}],
       impOn:!!(st.imp && st.imp.done < st.imp.n), impW:st.imp ? Math.round(st.imp.done / Math.max(1, st.imp.n) * 100) + '%' : '0%',
       fileRef:this.fileRef, pickFolder:this.pickFolder, filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
       dropRing:st.dropHot ? '#FFD27A' : 'rgba(239,236,230,0.18)', dropBg:st.dropHot ? 'rgba(255,210,122,0.06)' : '#232220',

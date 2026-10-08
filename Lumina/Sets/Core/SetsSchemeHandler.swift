@@ -261,6 +261,21 @@ nonisolated enum SetsPage: String, Sendable {
 
     var file: String { self == .skim ? SetsSchemeHandler.skimPageFile : SetsSchemeHandler.pageFile }
 
+    /// Skim's host: the page's `lumina.video` calls, set before the page runs. `storeAll` and `storeSet`
+    /// keep its saved shoots in the app's container (`skimStore` / `skimSave`, SkimStore), so marks survive
+    /// a quit; mark, preview and handoff have nothing native behind them yet.
+    static let skimHostScript = #"""
+    (() => {
+      const post = (op, a) => window.webkit.messageHandlers.lumina.postMessage(Object.assign({ op }, a || {}));
+      window.lumina = window.lumina || {};
+      window.lumina.video = Object.assign(window.lumina.video || {}, {
+        storeAll: () => post('skimStore'),
+        storeSet: (key, value) => post('skimSave', { key: String(key), value: value == null ? null : String(value) }),
+        mark() {}, preview() {}, handoff() {}
+      });
+    })();
+    """#
+
     /// The menu bar takes ⌘-keys before the page sees them and hands them to `__lumina.command`,
     /// which only Pick's plumbing provides. On Skim each comes back as the key the page already
     /// handles, pressed on whatever has focus. Nil: the command has no key on Skim.
@@ -268,7 +283,7 @@ nonisolated enum SetsPage: String, Sendable {
         let keys: [String: (key: String, code: String, shift: Bool)] = [
             "open": ("o", "KeyO", false), "undo": ("z", "KeyZ", false), "redo": ("z", "KeyZ", true),
             "stepOpen": ("1", "Digit1", false), "stepCull": ("2", "Digit2", false), "stepEdit": ("3", "Digit3", false),
-            "save": ("Enter", "Enter", false),
+            "save": ("Enter", "Enter", false), "closeShoot": ("w", "KeyW", false),
         ]
         guard let k = keys[command] else { return nil }
         let opts = "{key:'\(k.key)',code:'\(k.code)',metaKey:true,shiftKey:\(k.shift),bubbles:true,cancelable:true}"

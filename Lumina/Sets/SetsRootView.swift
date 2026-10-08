@@ -67,7 +67,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             }.value.map { ["folder": $0.folder, "done": $0.done, "planned": $0.planned, "cleaned": $0.cleaned] as [String: Any] }
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
-                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut], frame: host.bounds)
+                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut],
+                                                         extraScripts: page == .skim ? [SetsPage.skimHostScript] : [], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self
@@ -124,6 +125,11 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     /// The page saves and forgets the shoot; then its folder's access is stopped (SetsAccess).
     func closeShoot() {
+        // Skim: ⌘W is the page's own Close (it asks first, then goes back to Open).
+        if SetsPage.current == .skim {
+            if let js = SetsPage.skimKeyScript(for: "closeShoot") { webView?.evaluateJavaScript(js, completionHandler: nil) }
+            return
+        }
         guard let webView else { bridge.closeShoot(); return }
         webView.evaluateJavaScript("window.__lumina && __lumina.closeShoot()") { [weak self] _, _ in self?.bridge.closeShoot() }
     }

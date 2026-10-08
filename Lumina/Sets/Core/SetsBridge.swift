@@ -586,6 +586,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "setPrefs":
             guard let prefs = body["prefs"] as? [String: Any] else { return (false, nil) }
             return (Self.savePrefs(prefs), nil)
+        case "skimStore":
+            // Skim's saved shoots (Debug builds with LUMINA_PAGE=skim): every entry, so the page's
+            // session store can match what was saved before a quit (SkimStore).
+            return (SkimStore(dir: supportDir.appendingPathComponent("skim", isDirectory: true)).all(), nil)
+        case "skimSave":
+            // One Skim shoot's entry, or its removal when `value` is null.
+            guard let key = body["key"] as? String else { return (false, nil) }
+            return (SkimStore(dir: supportDir.appendingPathComponent("skim", isDirectory: true)).set(key, body["value"] as? String), nil)
         case "openSettings":
             // Privacy & Security → Files and Folders. Opening System Settings is the user's own click.
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") { NSWorkspace.shared.open(url) }
