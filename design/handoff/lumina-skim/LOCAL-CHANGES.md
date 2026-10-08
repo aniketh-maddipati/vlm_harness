@@ -100,3 +100,4 @@ Seen and left for the design (not changed here):
 35. The open panel takes the XML sidecars with the clips.
 36. Nothing has to be selected: Export defaults to Everything (selected clips as Final Cut favorites, cuts rejected, maybes tagged, the rest unrated), Only selected clips is a switch; double-click in the Viewer goes to Export.
 37. Neutral words on screen: the K mark reads "selected" (select / selected), M "maybe", C "cut"; stored keys stay keep / maybe / cut so saved marks carry over. No "keep", "kept" or "keepers" in the UI.
+38. Profiles: the Rec.709 switch is off and greyed when nothing needs converting ("already Rec.709 · nothing to convert"); a "profiles" card lists each profile and camera in the shoot with what the preview does (S-Log3 exact, S-Log2 / HLG approximate, Rec.709 nothing, unknown: say which, right there). Camera model read from the sidecar.
