@@ -77,8 +77,8 @@ input[type=range]{accent-color:#B8B3AB}
             </div>
           </sc-if>
           <div data-lumina="drop" role="button" tabIndex="0" onClick="{{ pickFolder }}" style="min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
-            <span style="font-size:16px;color:#EFECE6">Drop a card or a folder of clips</span>
-            <span style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>Choose Folder…</span>
+            <span style="font-size:16px;color:#EFECE6">Drop a card, a folder or clips</span>
+            <span style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>Choose…</span>
             <span style="color:#9A958D">Clips are read in this tab. Nothing is uploaded or changed.</span>
           </div>
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
@@ -122,7 +122,6 @@ input[type=range]{accent-color:#B8B3AB}
             </div>
             <div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px 12px;align-items:center">
               <span style="color:#9A958D">Event</span><input type="text" aria-label="Event name" value="{{ exEvent }}" onChange="{{ exEventIn }}" style="height:30px;box-sizing:border-box;padding:0 10px;border-radius:8px;border:none;background:#161514;color:#EFECE6;font:inherit;font-size:13px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);user-select:text;-webkit-user-select:text;outline:none;min-width:0" style-focus="box-shadow:inset 0 0 0 1.5px #FFD27A"></input>
-              <span style="color:#9A958D">Maybe keyword</span><input type="text" aria-label="Maybe keyword" value="{{ exKw }}" onChange="{{ exKwIn }}" style="height:30px;box-sizing:border-box;padding:0 10px;border-radius:8px;border:none;background:#161514;color:#EFECE6;font:inherit;font-size:13px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);user-select:text;-webkit-user-select:text;outline:none;min-width:0" style-focus="box-shadow:inset 0 0 0 1.5px #FFD27A"></input>
             </div>
             <div style="display:flex;flex-direction:column;gap:10px">
               <sc-for list="{{ exOpts }}" as="eo" hint-placeholder-count="4">
@@ -914,7 +913,8 @@ class Component extends DCLogic {
     });
   }
   setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const ex = this.state.ex; this.setState({step:s, memOn:false, exDone:null, ex:ex.event ? ex : {...ex, event:this.d ? this.d.shoot.name : ''}}); }
-  fileRef = el => { this.fileEl = el; };
+  // The template's multiple="" doesn't survive the render: several clips picked at once must all come through.
+  fileRef = el => { this.fileEl = el; if (el) el.multiple = true; };
   pickFolder = () => { if (this.fileEl) this.fileEl.click(); };
   filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.importFiles(fs); };
   dropOver = e => { e.preventDefault(); if (!this.state.dropHot) this.setState({dropHot:true}); };
@@ -1057,7 +1057,7 @@ class Component extends DCLogic {
     clips.forEach((c, i) => {
       const f = fmt(c), du = rt(c.dur || 1, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
       al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="0s" duration="' + du + '" hasVideo="1" hasAudio="1" format="' + f.id + '">', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
-      const kws = []; if (m === 'maybe') kws.push(ex.kw || 'maybe');
+      const kws = []; if (m === 'maybe') kws.push('maybe');
       cl.push('      <asset-clip ref="a' + (i + 1) + '" name="' + nm + '" duration="' + du + '" format="' + f.id + '" tcFormat="NDF">');
       if (kws.length) cl.push('        <keyword start="0s" duration="' + du + '" value="' + xe(kws.join(', ')) + '"/>');
       cl.push('      </asset-clip>');
@@ -1070,7 +1070,7 @@ class Component extends DCLogic {
     const st = this.state, blob = new Blob([x.text], {type:'application/xml'}), a = document.createElement('a'), u = URL.createObjectURL(blob);
     a.href = u; a.download = (st.ex.event || this.d.shoot.name || 'Lumina').replace(/[\/:]/g, '-') + '.fcpxml'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
     const by = {keep:[], maybe:[], cut:[]}; Object.keys(st.marks).forEach(id => by[st.marks[id]] && by[st.marks[id]].push(id));
-    this.api('handoff', {keep:by.keep, maybe:st.ex.maybes ? by.maybe : [], keyword:st.ex.kw, cut:by.cut, trash:false, event:st.ex.event});
+    this.api('handoff', {keep:by.keep, maybe:st.ex.maybes ? by.maybe : [], keyword:'maybe', cut:by.cut, trash:false, event:st.ex.event});
     this.setState({exDone:'Saved ' + a.download + ' · ' + this.plural(x.n, 'clip')});
   };
   static CARDS = [['fx5', 'FX5 Sample Pack', 'SONY FX5 · Visual Park, free']];
@@ -1133,12 +1133,12 @@ class Component extends DCLogic {
       const x = this.buildX(), ex = st.ex, G = this.G || [];
       v.exRows = [
         {k:'keep', c:MK.keep, n:this.plural(markN.keep, 'clip'), size:this.fmtB(markB.keep), to:'into the event'},
-        {k:'maybe', c:MK.maybe, n:this.plural(markN.maybe, 'clip'), size:this.fmtB(markB.maybe), to:ex.maybes ? 'into the event · keyword “' + (ex.kw || 'maybe') + '”' : 'left out'},
+        {k:'maybe', c:MK.maybe, n:this.plural(markN.maybe, 'clip'), size:this.fmtB(markB.maybe), to:ex.maybes ? 'into the event, tagged “maybe”' : 'left out'},
         {k:'cut', c:MK.cut, n:this.plural(markN.cut, 'clip'), size:this.fmtB(markB.cut), to:'stay on the card'},
         {k:'undecided', c:'rgba(239,236,230,0.3)', n:this.plural(und, 'clip'), size:this.fmtB(Math.max(0, d.shoot.bytes - markB.keep - markB.maybe - markB.cut)), to:'stay on the card'}];
       const sw = (t, sub, on, key, dis) => ({t, sub, on, op:dis ? 0.45 : 1, track:on ? '#B8B3AB' : 'rgba(239,236,230,0.18)', knob:on ? '14px' : '2px', go:() => { if (!dis) this.setState(s => ({ex:{...s.ex, [key]:!s.ex[key]}})); }});
-      v.exOpts = [sw('Include maybes', 'with the keyword above', ex.maybes, 'maybes')];
-      v.exEvent = ex.event; v.exKw = ex.kw;
+      v.exOpts = [sw('Include maybes', 'tagged “maybe” in Final Cut', ex.maybes, 'maybes')];
+      v.exEvent = ex.event;
       v.exEventIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, event:val}})); };
       v.exKwIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, kw:val}})); };
       v.exBtnOp = x.n ? 1 : 0.45; v.exBtn = x.n ? 'Download .fcpxml · ' + this.plural(x.n, 'clip') : 'Nothing marked keep yet';

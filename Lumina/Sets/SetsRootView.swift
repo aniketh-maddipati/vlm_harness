@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 import SwiftUI
 import WebKit
 import os
@@ -181,6 +182,21 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         return await run(panel)
     }
 
+    /// Skim's panel: a card, folders, or clips picked one by one. Sony's sidecars come with a folder or a card.
+    func chooseClips() async -> [URL]? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = [.movie, .mpeg4Movie, .quickTimeMovie] + [UTType(filenameExtension: "mxf"), UTType(filenameExtension: "m4v")].compactMap { $0 }
+        panel.prompt = "Open"
+        panel.message = "Choose a card, a folder or clips: MP4, MOV, MXF, M4V. Lumina only reads them."
+        guard let window = webView?.window else { return panel.runModal() == .OK ? panel.urls : nil }
+        return await withCheckedContinuation { c in
+            panel.beginSheetModal(for: window) { c.resume(returning: $0 == .OK ? panel.urls : nil) }
+        }
+    }
+
     func chooseDestination(label: String, suggested: URL?, refusal: String?) async -> URL? {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -216,6 +232,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        // Skim reads clips through the page's own file input: a card, folders or clips, nothing else of Pick's.
+        if SetsPage.current == .skim { Task { @MainActor in completionHandler(await chooseClips()) }; return }
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
     }
 

@@ -64,3 +64,8 @@ Seen and left for the design (not changed here):
     (asks twice) / `Close “<shoot>” · back to Open` (asks twice: `Close “<shoot>”? Click again to close`; ⌘W does the
     same), each with one plain line of what happens. A recent shoot not in memory reads
     `needs opening again · N marks saved`.
+15. **No Maybe keyword field.** Export drops the field; maybes go into the event tagged `maybe`
+    (`into the event, tagged “maybe”`, and `Include maybes · tagged “maybe” in Final Cut`).
+16. **Clips, not only folders.** The drop zone reads `Drop a card, a folder or clips` and the button `Choose…`; the
+    file input is made `multiple` on the element (the template's `multiple=""` doesn't survive the render), so
+    several clips picked at once all come through. Loose clips open as `Imported clips`.
