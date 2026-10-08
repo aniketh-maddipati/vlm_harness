@@ -44,9 +44,17 @@ nonisolated enum LookCanvasHoles {
     /// Overlapping holes are one hole. No holes: nil, no mask.
     static func maskPath(_ holes: [CGRect], size: CGSize, flipped: Bool) -> CGPath? {
         guard !holes.isEmpty else { return nil }
-        let cut = CGMutablePath()
-        for h in holes { cut.addRect(flipped ? h : CGRect(x: h.minX, y: size.height - h.maxY, width: h.width, height: h.height)) }
-        return CGPath(rect: CGRect(origin: .zero, size: size), transform: nil).subtracting(cut)
+        // Do not put disjoint rects into one compound path before subtracting. CGPath's point
+        // queries read that shape as expected, but CAShapeLayer can fill the space between
+        // parallel subpaths (Crop's four grid lines became a broad black cross). Subtracting
+        // one rect at a time leaves exactly those hairlines transparent. Repeated and
+        // overlapping holes stay holes.
+        var mask = CGPath(rect: CGRect(origin: .zero, size: size), transform: nil)
+        for h in holes {
+            let cut = flipped ? h : CGRect(x: h.minX, y: size.height - h.maxY, width: h.width, height: h.height)
+            mask = mask.subtracting(CGPath(rect: cut, transform: nil))
+        }
+        return mask
     }
 
     /// A page number: an `NSNumber` that is not a boolean, finite, within the reach of a layable rect.
@@ -151,6 +159,19 @@ final class LookCanvasController: NSObject {
     private var dragging = false
     private var dragEndAt: CFTimeInterval?
     private var zoom: LookCanvasSchedule.ROI?
+    /// Crop's draft, which the look does not carry until Apply: the image's straighten (`angle`,
+    /// CSS clockwise degrees, and `cover`, the scale that keeps the frame full) and the crop frame
+    /// in CSS px from the viewport's top-left. Empty unless the crop tool is open.
+    private struct CropDraft: Equatable {
+        var angle = 0.0
+        var cover = 1.0
+        var frame: CGRect?
+        var active: Bool { frame != nil || abs(angle) > 0.05 || abs(cover - 1) > 0.001 }
+    }
+    private var cropDraft = CropDraft()
+    /// The full frame Crop turns. The applied crop is already baked into the photo on screen;
+    /// turning that by the draft angle stacks a second straighten. Nil unless Crop is open.
+    private var draftSource: (key: LookBases.Key, entry: LookBases.Entry?)?
     /// `standIn`: the photo's embedded JPEG as bases, drawn at once while the RAW develops (`entry`
     /// is nil until then) and gone when it lands. Never what a slider edits: the look string is.
     private var current: (rel: String, url: URL, key: LookBases.Key, look: Look, entry: LookBases.Entry?, preview: LookBases.PreviewFallback?, decoder: Int?, regionDecoder: Int?,
@@ -273,7 +294,7 @@ final class LookCanvasController: NSObject {
         let size = canvasPixels()
         let key = LookBases.Key(rel: rel, decoder: decoder, look: parsed, canvas: size)
         let same = current?.rel == rel
-        if !same { schedule.reset(); region = nil; supersedeRegion(); stats.region = false; asShotTold = nil; developTries = 0; developRetrying = false; cannotDevelop = nil; drawFails = 0; baseSeen = false }
+        if !same { schedule.reset(); region = nil; supersedeRegion(); stats.region = false; asShotTold = nil; developTries = 0; developRetrying = false; cannotDevelop = nil; drawFails = 0; baseSeen = false; draftSource = nil }
         current = (rel, url, key, parsed, bases.entry(key), preview, decoder, regionDecoder, same ? current?.standIn : nil)
         stats.rel = rel
         bases.pin(key)
@@ -452,6 +473,7 @@ final class LookCanvasController: NSObject {
             tellAsShot()
         } else { current?.look = parsed }
         zoom = roi
+        if cropDraft.active { ensureDraftSource() }
         // The page's clock → ours: the smallest arrival − emit gap seen is the offset within a message's transit.
         let arrived = now()
         if let t, t > 0 { clockOffset = min(clockOffset, arrived - t) }
@@ -489,14 +511,21 @@ final class LookCanvasController: NSObject {
     func dragEnd() { LookTrace.mark("dragEnd"); dragging = false; dragEndAt = CACurrentMediaTime(); schedule.dragEnd(at: now()); kick() }
 
     /// The page zoomed or panned its picture: `roi` is its canvas box in fractions of the photo as
-    /// the page shows it (beyond 0 … 1 where the box reaches past the photo), nil at fit. The look
-    /// on the canvas is drawn again there. A zoom that moves is a drag: a frame per refresh from
-    /// `small`, with the warm-up, the neighbours' prefetch and the RAW 9 region held; `rest` (the
-    /// page saw it still) ends it with one render from `base`. The picture is the same, so its
-    /// histogram is not computed again.
-    func zoom(to roi: LookCanvasSchedule.ROI?, rest: Bool = false) {
-        let moved = roi != zoom
+    /// the page shows it (beyond 0 … 1 where the box reaches past the photo), nil at fit. While
+    /// Crop is open, `angle` / `cover` are the draft straighten on the page's image and `frame` is
+    /// the crop rect (CSS px, the viewport's top-left). The angle is absolute — the straighten
+    /// the crop is at now, including 0 — and it is applied once, to the full frame. The look's
+    /// crop stays baked for when Crop closes; it is not turned again underneath.
+    /// The look on the canvas is drawn again there. A zoom that moves is a drag: a frame per
+    /// refresh from `small`, with the warm-up, the neighbours' prefetch and the RAW 9 region held;
+    /// `rest` (the page saw it still) ends it with one render from `base`. The picture is the same,
+    /// so its histogram is not computed again.
+    func zoom(to roi: LookCanvasSchedule.ROI?, angle: Double = 0, cover: Double = 1, frame: CGRect? = nil, rest: Bool = false) {
+        let next = roi == nil ? CropDraft() : CropDraft(angle: angle, cover: cover, frame: frame)
+        let moved = roi != zoom || next != cropDraft
         zoom = roi
+        cropDraft = next
+        if next.active { ensureDraftSource() } else { draftSource = nil }
         guard current != nil else { zoomEnd(); return }
         if moved {
             if !zooming {
@@ -539,6 +568,44 @@ final class LookCanvasController: NSObject {
         kick()
     }
 
+    /// Crop draws the full frame and turns it by the draft angle once. The base on screen already
+    /// has the applied crop baked in, so a second Crop would otherwise turn that result again and
+    /// lay it over the page's own rotated picture. This base is the same look with the crop taken
+    /// out. The embedded JPEG stands in until the RAW one lands; until either exists the baked
+    /// photo is shown without another turn.
+    private func ensureDraftSource() {
+        guard cropDraft.active, let c = current else { return }
+        var bare = c.look
+        bare.crop = nil
+        let canvas = CGSize(width: CGFloat(c.key.width), height: CGFloat(c.key.height))
+        let key = LookBases.Key(rel: c.rel, decoder: c.decoder, look: bare, canvas: canvas)
+        if draftSource?.key == key, draftSource?.entry != nil { return }
+        if key == c.key {
+            draftSource = (key, c.entry ?? c.standIn?.entry)
+            return
+        }
+        if let e = bases.entry(key) {
+            draftSource = (key, e)
+            return
+        }
+        if draftSource?.key != key { draftSource = (key, nil) }
+        let url = c.url, preview = c.preview
+        if let p = preview, LookPipeline.isRAW(url) {
+            standIns.request(key, url: url, look: bare, preview: p, previewOnly: true) { [weak self] r in
+                guard let self, self.cropDraft.active, self.draftSource?.key == key, self.draftSource?.entry == nil, case .success(let e) = r else { return }
+                self.draftSource = (key, e)
+                self.schedule.again(at: self.now())
+                self.kick()
+            }
+        }
+        bases.request(key, url: url, look: bare, preview: preview) { [weak self] r in
+            guard let self, self.cropDraft.active, self.draftSource?.key == key, case .success(let e) = r else { return }
+            self.draftSource = (key, e)
+            self.schedule.again(at: self.now())
+            self.kick()
+        }
+    }
+
     /// The page says a zoom rests after 300 ms without a change (plumbing's ZOOM_REST); this long
     /// without either, the canvas ends the zoom itself.
     nonisolated static let zoomStillMs: Double = 1000
@@ -550,9 +617,17 @@ final class LookCanvasController: NSObject {
     private var placeOnly = 0
 
     /// 100 % with G held: RAW 9 on the visible region (RAW 9 §2). Waits for stillness when the
-    /// Mac is hot or on Low Power; never disabled.
+    /// Mac is hot or on Low Power; never disabled. A pan that only moves the region (no new look)
+    /// places the photo again at once. Tiles for a region that is still moving wait until it rests.
     func loupe(on: Bool, roi: LookCanvasSchedule.ROI?) {
+        let moving = on && loupe.on && loupe.roi != nil && loupe.roi != roi
         loupe = (on, roi)
+        // Crop places the photo through zoom(to:), angle and frame included. A loupe region must
+        // not replace that draft. Outside Crop, the region is the placement.
+        if !cropDraft.active, zoom != roi {
+            zoom = roi
+            if on { kickRest(); kick() }
+        }
         loupeStillTimer?.invalidate(); loupeStillTimer = nil
         stats.regionFailed = false; stats.regionError = ""
         guard on, let roi, let c = current else {
@@ -565,8 +640,9 @@ final class LookCanvasController: NSObject {
             setFacts()
             return
         }
-        let delay = LookRawPolicy.regionDelayMs(thermalState: LookDecoderProbe.thermalLevel(ProcessInfo.processInfo.thermalState), lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
-        stats.slowed = delay > 0
+        let policy = LookRawPolicy.regionDelayMs(thermalState: LookDecoderProbe.thermalLevel(ProcessInfo.processInfo.thermalState), lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
+        stats.slowed = policy > 0
+        let delay = moving ? max(policy, 120) : policy
         let rel = c.rel, url = c.url
         if delay > 0 {
             loupeStillTimer = Timer.scheduledTimer(withTimeInterval: delay / 1000, repeats: false) { [weak self] _ in
@@ -691,6 +767,7 @@ final class LookCanvasController: NSObject {
             // A second failure with the first one's JPEG already on the canvas changes nothing there.
             let redraw = !(e.why != nil && cur.entry?.why != nil)
             current?.entry = e
+            if draftSource?.key == key { draftSource = (key, e) }
             current?.standIn = nil
             baseSeen = true
             standIns.pin(nil); standIns.forget()
@@ -816,19 +893,38 @@ final class LookCanvasController: NSObject {
     /// both build it here, so they compile the same programs. `image` is the look before placing
     /// (the rest statistics read it); `region` the loupe's RAW 9 region when it was used.
     private func compose(_ look: Look, tier: LookCanvasSchedule.Tier, roi: LookCanvasSchedule.ROI?, entry: LookBases.Entry, size: CGSize) -> (placed: CIImage, image: CIImage, region: LookRegionTiles.Region?) {
+        // The draft angle is the crop's straighten, absolute. It turns the full frame once.
+        // The on-screen base already contains the applied crop, so turning that as well stacks
+        // a second rotated copy. Until the full frame is ready, that base is shown unturned.
+        let source: LookBases.Entry
+        let applyDraft: Bool
+        if cropDraft.active, let e = draftSource?.entry {
+            source = e
+            applyDraft = true
+        } else if cropDraft.active, current?.look.crop != nil {
+            source = entry
+            applyDraft = false
+        } else {
+            source = entry
+            applyDraft = cropDraft.active
+        }
         let src: CIImage, srcSize: CGSize
-        if tier == .small { src = entry.small; srcSize = entry.smallSize } else { src = entry.base; srcSize = entry.baseSize }
-        var image = pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: entry.asShot, anchor: entry.anchor), crop: false)
+        if tier == .small { src = source.small; srcSize = source.smallSize } else { src = source.base; srcSize = source.baseSize }
+        var image = pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: source.asShot, anchor: source.anchor), crop: false)
         // Where the photo goes: fit the canvas (contain), or the zoomed region filling it.
         let dw = size.width, dh = size.height
         var visible = CGRect(origin: .zero, size: srcSize)
         if let z = zoom ?? roi, !z.isFit {
             visible = CGRect(x: z.x * srcSize.width, y: (1 - z.y - z.h) * srcSize.height, width: z.w * srcSize.width, height: z.h * srcSize.height)
-            if tier == .small, let roi, !roi.isWhole { image = image.cropped(to: visible) }
+            // A draft straighten needs the whole photo: cropping to the upright window first would
+            // cut off the corners the rotation and cover scale bring into the frame.
+            if tier == .small, let roi, !roi.isWhole, !cropDraft.active { image = image.cropped(to: visible) }
         }
         // The loupe's RAW 9 region, when it covers the visible part, replaces the base there.
+        // Not during a draft crop: that region is the upright window, and the page is showing the
+        // full photo turned.
         var region: LookRegionTiles.Region?
-        if tier == .base, let reg = self.region, reg.rel == current?.rel, let z = zoom, reg.roi == z, reg.rot == look.rot {
+        if tier == .base, !cropDraft.active, let reg = self.region, reg.rel == current?.rel, let z = zoom, reg.roi == z, reg.rot == look.rot {
             region = reg
             let regionImage = pipeline.apply(look, to: LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor), crop: false)
             let vis = CGRect(x: z.x * reg.photoSize.width, y: (1 - z.y - z.h) * reg.photoSize.height, width: z.w * reg.photoSize.width, height: z.h * reg.photoSize.height)
@@ -838,7 +934,45 @@ final class LookCanvasController: NSObject {
         let s = min(dw / max(1, visible.width), dh / max(1, visible.height))
         let out = image.transformed(by: CGAffineTransform(translationX: -visible.minX, y: -visible.minY).concatenating(CGAffineTransform(scaleX: s, y: s)))
         let ox = ((dw - visible.width * s) / 2).rounded(), oy = ((dh - visible.height * s) / 2).rounded()
-        return (pipeline.output(out).transformed(by: CGAffineTransform(translationX: ox, y: oy)), image, region)
+        var placed = pipeline.output(out).transformed(by: CGAffineTransform(translationX: ox, y: oy))
+        if applyDraft {
+            // The page's photo box, in the drawable (y up): the full frame fills it, then rotates
+            // and scales once about its centre, clipped to the box the way the page's overflow does.
+            let photo = CGRect(x: ox - visible.minX * s, y: oy - visible.minY * s, width: srcSize.width * s, height: srcSize.height * s)
+            placed = draftPlaced(placed, photo: photo, size: size)
+        }
+        return (placed, image, region)
+    }
+
+    /// The crop frame in drawable pixels (y up), from the viewport CSS rect the page sent.
+    private func draftFrame(_ size: CGSize) -> CGRect? {
+        guard let frame = cropDraft.frame, let canvas = placement?.rect, canvas.width > 1, canvas.height > 1, size.width > 1, size.height > 1 else { return nil }
+        let sx = size.width / canvas.width, sy = size.height / canvas.height
+        let w = frame.width * sx, h = frame.height * sy
+        let r = CGRect(x: (frame.minX - canvas.minX) * sx, y: size.height - (frame.minY - canvas.minY) * sy - h, width: w, height: h)
+        return r.width > 1 && r.height > 1 ? r : nil
+    }
+
+    /// Straighten and cover scale about the photo's centre, clipped to its box, then the page's dim
+    /// (rgba 22,21,20 at 0.64) on the photo outside the crop frame. A frame that is the box leaves
+    /// the margin undrawn, so the page's own shadow shows there.
+    private func draftPlaced(_ image: CIImage, photo: CGRect, size: CGSize) -> CIImage {
+        var out = image
+        if abs(cropDraft.angle) > 0.05 || abs(cropDraft.cover - 1) > 0.001 {
+            let c = CGPoint(x: photo.midX, y: photo.midY)
+            let turn = CGAffineTransform(translationX: c.x, y: c.y)
+                .rotated(by: -cropDraft.angle * .pi / 180)
+                .scaledBy(x: cropDraft.cover, y: cropDraft.cover)
+                .translatedBy(x: -c.x, y: -c.y)
+            out = out.transformed(by: turn).cropped(to: photo)
+        }
+        guard let frame = draftFrame(size) else { return out }
+        let bounds = out.extent
+        guard !bounds.isNull, !bounds.isInfinite, bounds.width.isFinite, bounds.height.isFinite, bounds.width > 1, bounds.height > 1 else { return out }
+        let keep = frame.intersection(bounds)
+        guard !keep.isNull, keep.width > 1, keep.height > 1, keep.width < bounds.width - 4 || keep.height < bounds.height - 4 else { return out }
+        let veil = CIImage(color: CIColor(red: 22.0 / 255, green: 21.0 / 255, blue: 20.0 / 255, alpha: 0.64)).cropped(to: bounds)
+        return out.cropped(to: keep).composited(over: veil.composited(over: out))
     }
 
     private func render(_ r: LookCanvasSchedule.Request, entry: LookBases.Entry, standIn: Bool, look: Look, view: LookCanvasView) {

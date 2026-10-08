@@ -99,6 +99,21 @@ final class LookCanvasHolesTests: XCTestCase {
         XCTAssertFalse(drawn(H.maskPath([a, a], size: size, flipped: false), 150, 130))
     }
 
+    func testCropGridCutsOnlyItsFourHairlines() {
+        let grid = [CGRect(x: 132, y: 0, width: 2, height: 300), CGRect(x: 266, y: 0, width: 2, height: 300),
+                    CGRect(x: 0, y: 99, width: 400, height: 2), CGRect(x: 0, y: 199, width: 400, height: 2)]
+        for flipped in [false, true] {
+            let p = H.maskPath(grid, size: size, flipped: flipped)
+            for x in [66.0, 200.0, 333.0] {
+                for y in [50.0, 150.0, 250.0] {
+                    XCTAssertTrue(drawn(p, x, y, flipped: flipped), "cell (\(x), \(y)) flipped \(flipped)")
+                }
+            }
+            for x in [133.0, 267.0] { XCTAssertFalse(drawn(p, x, 150, flipped: flipped), "vertical \(x) flipped \(flipped)") }
+            for y in [100.0, 200.0] { XCTAssertFalse(drawn(p, 200, y, flipped: flipped), "horizontal \(y) flipped \(flipped)") }
+        }
+    }
+
     func testAHoleOverTheWholeCanvasLeavesNothingDrawn() {
         let p = H.maskPath([CGRect(origin: .zero, size: size)], size: size, flipped: false)
         for (x, y) in [(1.0, 1.0), (200.0, 150.0), (399.0, 299.0)] { XCTAssertFalse(drawn(p, x, y), "(\(x), \(y))") }

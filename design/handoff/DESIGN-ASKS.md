@@ -1,7 +1,7 @@
 # Design asks for the next handoff (after v8 / Edit v21)
 
-> **Status after design v0.05 (2026-10-06).** The app now ships `Lumina Sets v11.dc.html` with
-> `Lumina Edit v22.dc.html`; the v8 / v21 names below are history. v0.03 to v0.05 answered asks
+> **Status after the Prompts 20–24 handoff (2026-10-08).** The app now ships `Lumina Sets v12.dc.html`
+> with `Lumina Edit v23.dc.html`. v11 / v22 and the v8 / v21 names below are history. v0.03 to v0.05 answered asks
 > 1 to 11 (CHANGES-v0.03), Prompts 12 to 14, and REMAINING-v0.03's A1, A2, A4, B1, B2, B3 F,
 > B5 b, C2, D1 A, D2, D3 and E. Still open before release: A3 (the call that brings sessions over
 > from before the sandbox) and D1 B / C (`lumina.sidecars` refresh). After release: B3 B / C / G,
@@ -1162,3 +1162,216 @@ lands overwrites both). Two looks read as a broken app:
 - Edit on a photo that is "As shot": every slider label is `#EFECE6`; after Auto the changed rows'
   values are `#EFECE6` and the rest `#B8B3AB`.
 - Pick: keep one photo, ⇧P, un-keep it. All photos are shown again and the footer says so.
+
+## Prompt 20 — Crop can go back to the original (paste into Claude Design)
+
+The crop bar has Ratio, Straighten, Turn, Cancel and Apply. The panel row says Cropping, then
+Cancel and Apply. Light has `Reset light`. Nothing in Crop puts the frame back: ratio Original,
+straighten 0.0°, the whole photo. `full()` already returns that crop (`x:0, y:0, w:1, h:1`,
+angle 0, ratio `original`), and no control calls it. Ratio Original only changes the aspect of
+the current rect. There is no hidden reset to wire up.
+
+> In Edit v22, while Crop is open, add Reset.
+>
+> On the bar over the photo (Ratio, Straighten, Turn, Cancel, Apply), put `Reset` before Cancel,
+> in Cancel's style (not Apply's gold). On the Cropping row in the panel, put `Reset crop` before
+> Cancel, in the same place and style as `Reset light`.
+>
+> Both do the same thing. They set the crop back to the original full frame: Ratio Original,
+> Straighten 0.0°, the rect the whole photo. One undoable crop step, the way dragging a corner
+> is: ⌘Z brings the previous frame back. The footer says `Crop reset. ⌘Z undoes it.` Reset does
+> not leave Crop, does not apply it, and does not cancel it. Cancel still drops the crop. Apply
+> still keeps it. Nothing else changes.
+
+## Prompt 21 — Edit opens on the current photo with nothing picked; the filmstrip separates time and leaves bursts open (paste into Claude Design)
+
+Both are the Edit step (Edit v22, the strip under the photo). Pick’s grid is unchanged.
+
+**What happens today.** The Edit control, ⌘3, and `luminaCommand('stepEdit')` call `setView('edit')`.
+That refuses only when the shoot has no photos (`0 photos · ⌘O`). It does not look at keeps.
+`editShoot` already marks every photo that is not set aside as kept when `kept()` is empty, and
+the header then reads `All N · nothing picked yet · R sets one aside`. Edit does not open the
+photo Pick is on. `mount0` uses the saved Edit cursor, or `firstId()` (the sample’s DSC03311,
+else the first photo in the keeper order, else the first photo). With no photo on the canvas the
+centre line is `No photos to edit. Keep some in Pick first.` (`canvasTxt`), the strip says
+`No picks yet. Mark photos to keep in Pick.`, and outside the app the overlay is `Nothing to edit
+yet` / `Every photo is set aside. ⌘Z brings one back, or ⌘2 to pick.` `keep something first` is
+only the picks pass (⇧P). The filmstrip (`data-lumina="filmstrip"`) makes one group per Pick row.
+The row’s time (`19:50`, the same words as the time axis and the row head) sits above the tiles,
+and only when the window is at least 1100 × 760. Groups are 12 px apart; tiles inside a group are
+3 px apart. A burst contributes only the frames in the keeper set, so one keep is one tile.
+`key()` / `keysOf` count that burst as one, and the position reads `Scene 2 of 4 · 3 of 5`. There
+is no stack badge on the strip and no gesture that opens the other frames. Pick still draws a
+closed stack as one tile (the stacked shadow, the count badge, click or ⇧→ opens it) with the
+time axis beside the rows.
+
+> In Sets v11 and Edit v22, two things on the Edit step.
+>
+> **1. Nothing picked still opens Edit, on the photo Pick is on.** A shoot can be open with 0
+> keeps. The Edit control, ⌘3, and `stepEdit` open Edit on that photo: the cursor in Pick,
+> including a closed stack’s cover frame (the kept frame, or the sharpest when none is kept).
+> Do not require a keep, a pick, or a non-empty picks pass. Do not show `No photos to edit. Keep
+> some in Pick first.`, `No picks yet. Mark photos to keep in Pick.`, `Nothing to edit yet`, or
+> `Every photo is set aside` merely because nothing is kept. Those stay for an empty shoot and
+> for a shoot whose photos were all set aside. `keep something first` stays on ⇧P only. With
+> nothing picked the header stays `All N · nothing picked yet · R sets one aside`, and the photo
+> on the canvas is the one Pick was on, not the first photo and not the last Edit cursor.
+>
+> **2. The filmstrip separates time batches, and a burst is open.** The horizontal strip under
+> the photo keeps one run per Pick row, in the same order as the time axis. Between runs, a gap
+> wider than the gap between frames, and in that gap the row’s time — `19:50`, `20:25` — the
+> same time the axis and the row head already show. The time is there whenever the strip is
+> showing, not only on a wide window. Frames inside a run stay close together. A burst in that
+> run is open: every frame is its own tile, the way an open stack shows its frames in Pick, not
+> one tile for the keep. Nothing in the strip folds a burst back: no badge, no control, no click,
+> and no ⇧→ that collapses the frames into one tile. The position counts those frames (`3 of 8`
+> is eight tiles). Pick’s grid still closes stacks, and its time axis is unchanged. A burst’s
+> Kept frames of a burst still share one edit (`burst ×N`); the strip only changes which frames are drawn.
+
+### How Prompt 21 is checked once its handoff lands
+
+- Open a shoot, keep nothing, stand on a photo that is not the first, press ⌘3 (and click Edit).
+  Edit shows that photo. The canvas does not say `Keep some in Pick first.` The strip does not
+  say `No picks yet.`
+- The same with a closed stack as the cursor: Edit opens on its cover frame.
+- ⇧P with nothing kept still says `keep something first`.
+- The strip shows `19:50` and `20:25` in the gaps between those batches. A burst is one tile per
+  frame, with no control that stacks them. In Pick the same burst is still one closed stack, and
+  ⇧→ still opens it.
+
+## Prompt 22 — Straighten can return to 0° (paste into Claude Design)
+
+The crop bar has Ratio, Straighten, Turn, Cancel and Apply. Straighten turns on draw-a-line.
+Holding R and scrolling adds to the current angle (`straighten` takes a delta and clamps it to
+±45°). Turn (R in Crop) is the quarter-turn of the photo, a different piece of state. Nothing
+sets the straighten angle itself back to 0°. `full()` returns angle 0, and no control calls it.
+Prompt 20's Reset, when it lands, clears the whole crop (ratio, rect and angle). This is only
+the angle: the rect and the ratio stay.
+
+There is no key or handler on the current control that sets the angle to 0, so nothing here can
+be wired up. If a free return to exactly 0° cannot be done on the current Straighten control,
+the fallback is: snap to the nearest axis (0°, 90°, 180°, 270°), then step 90° at a time.
+
+> In Edit v22, while Crop is open, the straighten angle can go back to 0.0°. That 0° is the
+> angle the photo had before this straighten, not another nudge added to the current angle.
+>
+> On the bar over the photo, the Straighten control (or a control beside it, in Straighten's
+> style, not Apply's gold) sets the angle to 0.0° and leaves the crop rect and the ratio alone.
+> One undoable crop step, the way dragging a corner is: ⌘Z brings the previous angle back. The
+> footer says `Straighten 0.0°. ⌘Z undoes it.` It does not leave Crop, does not apply, and does
+> not cancel. Cancel still drops the crop. Apply still keeps it. The rect does not change.
+>
+> If that cannot be a free return to exactly 0° on the current Straighten control, snap to the
+> nearest of 0°, 90°, 180° and 270°, and from then on each press steps 90°. Say which one it is
+> on the control. Nothing else changes.
+
+### How Prompt 22 is checked once its handoff lands
+
+- Crop, straighten to about −10°, use the control. The badge reads 0.0°. The crop rect is the
+  one from before the press. ⌘Z brings −10° back. Crop stays open.
+- If the control snaps instead: from −10° the first press lands on 0°, and the next press steps
+  90°.
+
+## Prompt 23 — The crop frame fills the canvas (paste into Claude Design)
+
+While Crop is open the photo and the frame sit in a small box in the middle of the Edit canvas,
+with a wide margin around them. Cull is unchanged. The frame is not a hole: the picture shows
+inside it.
+
+The crop fit (`box` when Crop is open) insets 48 px under the Ratio / Straighten bar, reserves
+12 px at the bottom, then draws the photo at 84% of the space that is left. Straighten's
+`rotate` / `scale` cover then letterboxes inside that already small box, so a straightened photo
+shrinks again. The handles and the thirds grid are on that box, so the picture has to stay lined
+up with them.
+
+> In Edit v22, while Crop is open, the photo and the crop frame fill the canvas up to a small
+> margin: just clear of the Ratio / Straighten bar, and about the same margin at the sides and
+> the bottom. That is the size while straightened too. The cover scale fills this frame; it does
+> not shrink the photo inside a smaller box. The handles and the thirds grid stay on the frame.
+> Cull does not change. The frame is not cut out of the picture. Nothing else changes.
+
+## Prompt 24 — The angle sits off the photo, and Crop can change its grid (paste into Claude Design)
+
+While Crop is open, `axOn` is on for the whole crop, not only while the angle is moving. The
+readout (`ax.t`, `-10.9°`, and when the cover is large `· keeps n% of the photo`) is a filled
+badge (`rgba(22,21,20,0.82)`) at the centre of the picture, 10 px right and 24 px above the
+crosshair. On the native canvas that badge is a rectangle cut out of the photo: the page's black
+shows through it, the number looks pasted on, and it smears as the angle changes. The crosshair
+itself (the solid axis and the dashed one that turns) is fine. The Straighten control on the bar
+already shows `angD` (`-10.9°`) off the picture.
+
+The grid is four hairlines, at 33% and 66% each way. There is no other grid and no control to
+pick one.
+
+> In Edit v22, two things while Crop is open.
+>
+> **1. The angle is not a badge on the picture.** While straighten is happening — holding R and
+> scrolling, turning the arc outside the frame, or drawing the S line — show the live angle,
+> updating as it changes, off the picture: in the margin beside the frame, or on the Straighten
+> control. Not a filled box on the trees. When the gesture ends and the angle is not 0.0°, leave
+> that number off the picture so the offset from centre stays readable (`-10.9°`, and the
+> `keeps n%` line when you already show it). At 0.0°, do not leave a readout on the picture.
+> The crosshair can stay. Nothing is pasted over the photo.
+>
+> **2. A choice of grid lines.** On the crop bar, a control in Straighten's style (not Apply's
+> gold) picks the lines drawn on the frame. One at a time: thirds (what it is now, 33% and 66%),
+> quarters, golden, diagonals, centre cross, and none. The lines stay hairlines on the frame,
+> the same weight as the thirds lines. The handles, the arc, and the dim do not change. Cull
+> does not change.
+
+### How Prompt 24 is checked once its handoff lands
+
+- Crop, straighten to about −10°. While the angle is moving, the number updates off the picture.
+  After you let go, `-10.9°` is still off the picture, and there is no filled badge on the trees.
+  Back at 0.0°, that readout is gone.
+- The grid control switches thirds, quarters, golden, diagonals, centre cross, and none. The
+  frame and the handles stay.
+
+## Prompt 25 — Sources stays off the row head, and a row is always justified (paste into Claude Design)
+
+Two things in Pick, in Sets v11. Nothing else changes.
+
+**1. Holding Shift does not cover the row head.** Holding ⇧ (about 350 ms, `addBar`), the +
+beside the shoot name, and ⌘O inside a shoot open the Sources panel (`data-lumina="sources"`,
+`position:absolute; top:58px; left:16px`). The top bar is 52 px, so the panel starts 6 px into
+the grid and sits on the row head: the time, the photo count, and the reason on the right
+(`21:00 · 6 photos`, `85 → 35 mm`, `9 min gap`). That line is the shoot info for the row. It
+stays fully readable while the panel is open — holding ⇧, holding ⏎ (keep, faster), and ⇧⏎
+(next unseen row) included. The panel may cover tiles. It does not cover a row head, and it
+does not cover the shoot name in the top bar. The head keeps its type, its reason, and its
+place; it is not redrawn inside the panel.
+
+**2. A row of tiles is justified, and a tile that does not fit does not slip under.** The tile
+line is `display:flex; flex-wrap:wrap; gap:8px` inside a row with
+`padding: 0 clamp(16px, 2.2vw, 40px)` and `overflow:hidden`. `layout()` decides how many tiles
+fit from a different width: `cullW - 2 * clamp(16, cullW * 0.022, 40)`. `2.2vw` is the window,
+not the scroll width, so with the time axis on the content box is a few pixels narrower than
+`avail`. The last tile then wraps in CSS on a line `layout()` did not give the row, and
+`overflow:hidden` clips it under the row (under the next row’s head, or into the 22 px gap).
+That is the white sliver and the tile that disappears off the end of a full row.
+
+Use one width for both: the row’s content box, the same `clamp(16px, 2.2vw, 40px)` padding the
+row already paints, measured on the scroll element. A tile that does not fit starts the next
+line, and that line is inside the row’s height, fully visible. Do not clip a tile with
+`overflow:hidden`.
+
+Every line is justified. The first tile sits on the left padding and the last tile of the line
+sits on the right padding, with equal gaps between them (`justify-content: space-between`).
+That holds for every row, including a short last line and a line of one. A line never overflows,
+and a tile never paints under the next row.
+
+### How Prompt 25 is checked once its handoff lands
+
+- Hold ⇧ on a shoot. The Sources panel opens. The row head under it (time, count, and the
+  reason on the right) stays fully readable. The shoot name in the top bar stays readable.
+  Releasing ⇧ closes the panel, as it does now. ⏎ held to keep, and ⇧⏎, do not cover that line.
+- A row whose tiles would pass the right padding wraps the extra tile onto the next line of the
+  same row, in full. No tile is clipped, and none sits under the next row’s head. The tiles on
+  each line run from the left padding to the right padding, gaps equal, including a short line.
+
+Reply with the exact blocks you changed, complete, not a description and not a partial diff:
+
+1. The HTML for the Sources panel (`data-lumina="sources"`, the `addBarOn` block) and the row
+   (`data-lumina="row"`, the `r.full` block, including the tile line).
+2. The JavaScript, as full functions: `layout()`, and any other function you changed (`measure`,
+   the row view that sets `r.h` and `r.head`, the tile width).

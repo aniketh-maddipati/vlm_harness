@@ -169,6 +169,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         SetsNumber.roi(d).map { LookCanvasSchedule.ROI(x: $0.x, y: $0.y, w: $0.w, h: $0.h) }
     }
 
+    /// A box in CSS px from the viewport's top-left (`canvasZoom`'s crop frame). Missing or not a
+    /// positive size: nil, the canvas draws no dim.
+    private static func viewportBox(_ v: Any?) -> CGRect? {
+        guard let d = v as? [String: Any], d["w"] != nil, d["h"] != nil, let r = SetsNumber.canvasRect(d), r.width > 0, r.height > 0 else { return nil }
+        return r
+    }
+
     /// What the page's facts line and the probe read: the canvas path, the shoot's decoder map,
     /// the pin and whether an update is on offer.
     func editFacts() -> [String: Any] {
@@ -536,8 +543,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (true, nil)
         case "canvasZoom":
             // The part of the photo the page shows in its canvas box (its own zoom and pan); nil = fit.
-            // `rest`: the zoom stopped moving (one full-quality render, background work released).
-            canvas?.zoom(to: roi(body["roi"]), rest: body["rest"] as? Bool ?? false)
+            // While Crop is open the same message carries the draft the look does not have yet: `ang`
+            // and `cover` (the image's straighten) and `frame` (the crop rect, so the photo outside it
+            // dims). `rest`: the zoom stopped moving (one full-quality render, background work released).
+            let raw = body["roi"] as? [String: Any]
+            canvas?.zoom(to: roi(body["roi"]), angle: SetsNumber.double(raw?["ang"], in: -180...180) ?? 0,
+                         cover: SetsNumber.double(raw?["cover"], in: 0.05...32) ?? 1, frame: Self.viewportBox(raw?["frame"]),
+                         rest: body["rest"] as? Bool ?? false)
             return (true, nil)
         case "canvasLoupe":
             canvas?.loupe(on: body["on"] as? Bool ?? false, roi: roi(body["roi"]))
